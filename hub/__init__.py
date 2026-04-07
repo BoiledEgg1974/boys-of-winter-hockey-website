@@ -22,7 +22,7 @@ def create_hub_app() -> Flask:
         audio_dir = Path(app.static_folder or "") / "audio"
         splash_mp3 = audio_dir / "splash.mp3"
         return render_template(
-            "splash.html",
+            "index.html",
             leagues=LEAGUES,
             splash_audio_available=splash_mp3.is_file(),
         )

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en" data-application-root="{{ request.script_root or '' }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
+</head>
+<body>
+  <header class="site-header" role="banner">
+    <div class="header-row1">
+      <div class="league-brand">
+        <a href="{{ url_for('main.home') }}" class="league-brand__link" aria-label="Home — {{ config.LEAGUE_DISPLAY_NAME }}">
+          <img src="{{ league_logo_url() }}" alt="{{ config.LEAGUE_DISPLAY_NAME }} logo" width="90" height="90">
+        </a>
+      </div>
+      <div class="league-switcher-wrap">
+        <label class="visually-hidden" for="league-switcher">League</label>
+        <select id="league-switcher" class="league-switcher" aria-label="Switch league site">
+          {% for league in league_entries %}
+          <option value="{{ league.slug }}"{% if league.slug == current_league_slug %} selected{% endif %}>{{ league.display_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="button" class="nav-toggle" aria-expanded="false" aria-controls="main-nav">Menu</button>
+      <nav id="main-nav" class="main-nav" aria-label="Primary">
+        <div class="main-nav__row" style="width:100%">
+          <a href="{{ url_for('main.standings') }}">Standings</a>
+          <a href="{{ url_for('main.statistics') }}">Statistics</a>
+          <a href="{{ url_for('main.schedule') }}">Schedule</a>
+          <a href="{{ url_for('main.prospects') }}">Prospects</a>
+          <a href="{{ url_for('main.undrafted_prospects') }}">Undrafted Prospects</a>
+        </div>
+        <div class="main-nav__row" style="width:100%">
+          <a href="{{ url_for('main.history') }}">League History</a>
+          <a href="{{ url_for('main.all_time_records') }}">All-Time Records</a>
+          <a href="{{ url_for('main.draft') }}">Draft History</a>
+        </div>
+      </nav>
+      <div class="header-tools">
+        <form class="search-form" action="{{ url_for('main.search_page') }}" method="get" role="search" autocomplete="off">
+          <div style="position:relative;">
+            <input type="search" id="global-search" name="q" placeholder="Search players…" aria-label="Search players" autocomplete="off">
+            <div id="search-autocomplete" class="autocomplete-panel" role="listbox" aria-label="Search suggestions"></div>
+          </div>
+          <button type="submit">Go</button>
+        </form>
+        <button type="button" class="theme-toggle" aria-label="Toggle dark mode">&#9789;</button>
+      </div>
+    </div>
+    <div class="header-row2">
+      <div class="team-strip" role="navigation" aria-label="Teams">
+        {% for team in nav_teams %}
+        <a href="{{ url_for('main.team_page', slug=team.slug) }}" title="{{ team.name }}">
+          <img class="team-strip__logo" src="{{ team_logo_url(team) }}" alt="{{ team.name }} logo">
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+  </header>
+
+  <main id="main-content">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer" role="contentinfo">
+    <p>This league universe is simulated in <strong>Franchise Hockey Manager 11</strong>.</p>
+    <p>
+      <a href="https://store.steampowered.com/app/2936410/Franchise_Hockey_Manager_11/" rel="noopener noreferrer">Franchise Hockey Manager on Steam</a>
+    </p>
+    <p>Developed by BoiledEgg1974 for the Boys of Winter Hockey League Universe.</p>
+    <p>&copy; Boys of Winter Hockey League</p>
+  </footer>
+
+  <script src="{{ url_for('static', filename='js/site.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

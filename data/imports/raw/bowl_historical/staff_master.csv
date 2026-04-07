@@ -1,0 +1,1351 @@
+StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate;Nationality_One;Nationality_Two;Nationality_Three;Retired
+0;10;Johnny;Gottselig;;1906-6-24;Odessa;SK;Canada;;;0
+1;10;Frank;Selke;;1893-5-7;Kitchener;ON;Canada;;;0
+2;9;Tiny;Thompson;;1903-5-31;Sandon;BC;Canada;;;0
+3;10;Cooney;Weiland;;1904-11-5;Seaforth;ON;Canada;;;0
+4;89;Art;Chapman;;1907-5-29;Winnipeg;MB;Canada;;;0
+5;-1;Harold;Ballard;Pal Hal;1903-7-30;Toronto;ON;Canada;;;0
+6;63;King;Clancy;;1903-2-25;Ottawa;ON;Canada;;;0
+7;-1;Paul;Thompson;;1906-11-2;Calgary;AB;Canada;;;0
+8;3;Sylvio;Mantha;;1903-4-14;Montreal;QC;Canada;;;0
+9;-1;Maurice;Forget;;1905-1-1;Montreal;QC;Canada;;;0
+10;27;Percy;Thompson;;1904-1-1;Hamilton;ON;Canada;;;0
+11;65;Risto;Lindroos;;1912-8-20;Loimaa;SOU;Finland;;;0
+12;74;Riccardo;Torriani;;1911-1-10;Schaffhausen;SH;Switzerland;;;0
+13;85;John;Garrison;;1909-2-13;Randolph;MA;The United States;;;0
+14;24;Bert;Forsyth;;1910-11-30;Burnaby;BC;Canada;Belgium;;0
+15;22;Vic;Lindquist;;1908-3-22;Kingston;ON;Canada;Sweden;;0
+16;92;Vladimir;Yegorov;;1911-9-25;Tomsk;TOM;Russia;;;0
+17;58;Louis;Holmes;;1911-1-29;Sarnia;ON;Canada;;;0
+18;-1;Hal;Kennedy;;1885-1-15;Cape Breton Regional Municipality;NS;Canada;;;0
+19;-1;Billy;Bellingham;;1878-3-9;Sainte-Catherine;QC;Canada;;;0
+20;-1;Tom;Wall;;1873-1-1;Lexington;NC;The United States;;;0
+21;58;Brad;Bruce;;1896-7-26;Hinesville;GA;The United States;;;0
+22;0;Mark;Williams;;1906-12-7;West Melbourne;FL;The United States;;;0
+23;5;Craig;Leier;;1901-3-16;Edmonton;AB;Canada;;;0
+24;-1;Xavier;Dubuc;;1907-3-19;Saint-Jean-sur-Richelieu;QC;Canada;;;0
+25;3;Alberto;GutiÈrrez;;1895-3-13;Irvine;KY;The United States;;;0
+26;0;Gonzalo;Biondo;;1897-1-3;Weymouth;MA;The United States;;;0
+27;19;Steffen;Fischer;;1900-9-16;Cologne;NOR;Germany;;;0
+28;22;Ralph;Ross;;1901-4-26;Baywood-Los Osos;CA;The United States;;;0
+29;22;Matt;Norwood;;1900-5-12;Hobbs;NM;The United States;;;0
+30;22;Nathan;Leeper;;1900-5-15;Ionia;MI;The United States;;;0
+31;5;Alexander;Rugg;;1892-5-14;Greenfield;IN;The United States;;;0
+32;26;Dave;Lang;;1901-5-30;Houston;TX;The United States;;;0
+33;26;Clinton;Tate;;1899-11-28;Columbia;MD;The United States;;;0
+34;27;Steve;Page;;1901-6-19;Colorado Springs;CO;The United States;;;0
+35;28;Ben;Chouinard;;1899-1-20;Phoenix;AZ;The United States;;;0
+36;5;Dean;Sankey;;1898-7-5;Clifton;ENG;England;;;0
+37;59;Andreas;Jˆnsson;;1892-12-12;÷rebro;÷RE;Sweden;;;0
+38;60;Samuli;Kauttu;;1898-7-10;LuleÂ;NOR;Sweden;;;0
+39;60;Johan;Andersson;;1898-8-28;Alvesta;KRO;Sweden;;;0
+40;62;Pavel;Hos;;1901-8-3;CeskÈ Budejovice;JIH;Czech Republic;;;0
+41;62;Anton;Hurtig;;1892-4-3;Stockholm;STO;Sweden;;;0
+42;62;Oscar;Viktorsson;;1900-12-2;Kˆping;V‰S;Sweden;;;0
+43;62;Filip;Rydberg;;1897-8-5;Uppsala;UPP;Sweden;;;0
+44;63;Jared;Morse;;1898-7-30;Shenandoah;PA;The United States;;;0
+45;63;Fredrik;Klang;;1899-5-31;÷vertorneÂ;NOR;Sweden;;;0
+46;64;Martin;Sjˆberg;;1900-3-4;Malmˆ;SKÂ;Sweden;;;0
+47;65;Brady;John;;1900-12-5;Bonadelle Ranchos-Madera Ranchos;CA;The United States;;;0
+48;66;Ricard;Larsson;;1901-11-3;Kungsbacka;V‰S;Sweden;;;0
+49;67;Edvin;Axelsson;;1895-7-1;Linkˆping;÷ST;Sweden;;;0
+50;69;Nathaniel;Weeks;;1901-2-8;Charlotte;NC;The United States;;;0
+51;69;Rasmus;Huss;;1895-12-25;Helsingborg;SKÂ;Sweden;;;0
+52;69;Adam;Wallmark;;1901-6-17;Uppsala;UPP;Sweden;;;0
+53;69;Evan;Skinner;;1899-5-8;Manchester;NH;The United States;;;0
+54;70;Marcus;Eldh;;1898-12-19;V‰stervik;KAL;Sweden;;;0
+55;70;Michael;Franklin;;1897-10-31;La Habra;CA;The United States;;;0
+56;70;Simon;Tˆrner;;1901-9-24;Falun;DAL;Sweden;;;0
+57;70;Keith;Duncombe;;1898-11-11;Westbury;NY;The United States;;;0
+58;71;Leslie;Port;;1901-8-17;Grant-Valkaria;FL;The United States;;;0
+59;72;Johannes;Haagensen;;1901-10-13;Harstad;TRO;Norway;;;0
+60;72;Jakob;Carlsson;;1901-1-25;Upplands-V‰sby;STO;Sweden;;;0
+61;73;Adam;HamrÈn;;1901-8-5;Stockholm;STO;Sweden;;;0
+62;73;Bˆrje;HÂkansson;;1895-10-31;Malmˆ;SKÂ;Sweden;;;0
+63;74;Erik;Nilsson;;1899-2-2;V‰sterÂs;V‰S;Sweden;;;0
+64;76;Lukas;Nilsson;;1898-8-12;Osby;SKÂ;Sweden;;;0
+65;77;Daniel;Atwood;;1900-4-22;Lloyd;NY;The United States;;;0
+66;80;Marcus;Hamberg;;1899-1-25;Stockholm;STO;Sweden;;;0
+67;80;Jesper;Gustafsson;;1896-3-30;Kalmar;KAL;Sweden;;;0
+68;81;Emil;Jonsson;;1899-12-22;Lund;SKÂ;Sweden;;;0
+69;81;Filip;Sundkvist;;1892-7-24;Hagfors;V‰R;Sweden;;;0
+70;82;Adam;Engvall;;1901-6-23;Uddevalla;V‰S;Sweden;;;0
+71;83;Jason;Fortin;;1898-3-26;Quebec City;QC;Canada;;;0
+72;84;Pawel;Bienias;;1896-3-28;Bydgoszcz;KUJ;Poland;;;0
+73;84;Cristiano;Caterino;;1898-4-27;Naples;CAM;Italy;;;0
+74;85;Matt;Rowe;;1900-10-25;Calgary;AB;Canada;;;0
+75;86;Jonathan;Corcoran;;1898-5-21;Windsor;ON;Canada;;;0
+76;86;Joey;Fortin;;1899-7-3;Gatineau;QC;Canada;;;0
+77;87;Jesse;Baldo;;1900-9-9;Surrey;BC;Canada;;;0
+78;88;Dave;Quackenbush;;1901-1-29;Telluride;CO;The United States;;;0
+79;88;Larry;Craig;;1899-2-2;Fergus Falls;MN;The United States;;;0
+80;89;Brock;Wendt;;1892-9-10;Glendale;CA;The United States;;;0
+81;89;Jonathan;Bender;;1899-2-7;La Mesa;CA;The United States;;;0
+82;90;Sloan;Crouch;;1900-2-7;Greensboro;NC;The United States;;;0
+83;90;Lindsay;Woodard;;1901-9-15;Sacramento;CA;The United States;;;0
+84;91;Karl;Marcotte;;1901-7-31;Montreal;QC;Canada;;;0
+85;-1;BOWL;Commissioner;;1912-6-28;London;ON;Canada;;;0
+86;0;GM;Montreal;;1912-6-28;;;Canada;;;0
+87;3;GM;Toronto;;1912-6-28;;;Canada;;;0
+88;10;GM;Rangers;;1912-6-28;;;Canada;;;0
+89;5;GM;Joey;;1912-6-28;;;The United States;;;0
+90;8;GM;Chicago;;1912-6-28;;;Canada;;;0
+91;9;GM;Detroit;;1912-6-28;;;Canada;;;0
+92;-1;GM;Unemployed;;1912-6-28;;;Canada;;;0
+93;-1;Jon;Wapshott;;1897-4-6;Wilmington;NC;The United States;;;0
+94;-1;Bob;Wilber;;1902-1-6;West Vancouver;BC;Canada;;;0
+95;-1;Frank;Strang;;1901-9-18;Berwyn;IL;The United States;;;0
+96;-1;Gerald;Sykes;;1899-10-21;Indianapolis;IN;The United States;;;0
+97;-1;Dit;Clapper;;1907-2-1;Newmarket;ON;Canada;;;0
+98;0;Tommy;Ivan;;1911-1-31;Toronto;ON;Canada;;;0
+99;22;Charlie;Conacher;The Big Bomber;1909-12-10;Toronto;ON;Canada;;;0
+100;65;Lynn;Patrick;;1912-2-3;Victoria;BC;Canada;;;0
+101;77;Todd;Edmunds;;1898-12-5;Toronto;ON;Canada;;;0
+102;96;Joe;Primeau;;1906-1-29;Lindsay;ON;Canada;;;0
+103;27;Ebbie;Goodfellow;;1906-4-9;Ottawa;ON;Canada;;;0
+104;24;Neil;Colville;;1914-8-4;Edmonton;AB;Canada;;;0
+105;5;Walt;Welch;;1905-1-28;Innisfail;AB;Canada;;;0
+106;3;Bob;Davidson;;1912-2-10;Toronto;ON;Canada;;;0
+107;-1;Ryan;Head;;1900-6-23;Halifax;NS;Canada;;;0
+108;-1;Josh;Shaffer;;1904-4-11;Penticton;BC;Canada;;;0
+109;80;Dan;Odjig;;1900-11-12;Montpelier;VT;The United States;;;0
+110;27;Michael;Foy;;1900-9-7;Caledon;ON;Canada;;;0
+111;5;Tyson;Potts;;1900-10-4;Midlothian;VA;The United States;;;0
+112;-1;Sid;Abel;Old Bootnose;1918-2-22;Melville;SK;Canada;;;0
+113;9;Bruce;Norris;;1924-2-19;Chicago;IL;The United States;;;0
+114;-1;Gavin;Tilden;;1901-12-2;Toronto;ON;Canada;;;0
+115;5;Paul;Warnecke;;1901-9-22;Oceanside;CA;The United States;;;0
+116;5;Tyler;Hammond;;1901-12-14;Halifax;NS;Canada;;;0
+117;24;Marvin;Hammonds;;1901-3-12;Toronto;ON;Canada;;;0
+118;3;Dan;Dare;;1901-4-7;Mason;TX;The United States;;;0
+119;87;Donnie;Hubbard;;1901-6-15;Toronto;ON;Canada;;;0
+120;65;Ove;Svensson;;1902-11-22;Stockholm;STO;Sweden;;;0
+121;-1;Jeremiah;Stannard;;1908-12-12;Joliette;QC;Canada;;;0
+122;24;Henry;Hennessey;;1909-12-5;;;The United States;;;0
+123;-1;Albert;Lippincott;;1907-4-8;New Haven;CT;The United States;;;0
+124;73;Takuma;Shitamura;;1906-12-31;Tokyo;TOK;Japan;;;0
+125;78;Adrian;Nord;;1907-9-11;H‰rnˆsand;V‰S;Sweden;;;0
+126;87;Cameron;Paltridge;;1908-11-5;;;Canada;;;0
+127;88;Cam;Albert;;1903-3-4;New York;NY;The United States;;;0
+128;88;Arnold;Graham;;1903-7-21;Los Angeles;CA;The United States;;;0
+129;-1;Jack;Perkins;;1904-5-17;El Paso;TX;The United States;;;0
+130;-1;Jimmy;Skinner;;1918-1-12;Selkirk;MB;Canada;;;0
+131;68;Muzz;Patrick;;1915-6-28;Victoria;BC;Canada;;;0
+132;-1;Milt;Schmidt;;1918-5-3;Kitchener;ON;Canada;;;0
+133;3;Don;Graham;;1919-1-1;Toronto;ON;Canada;;;0
+134;89;Jeff;Ward;;1910-7-9;Paris;KY;The United States;;;0
+135;86;Ken;Armstrong;;1903-1-12;Levittown;NY;The United States;;;0
+136;126;Roy;Koss;;1911-9-8;;;The United States;;;0
+137;26;Norman;Bailey;;1904-3-5;;;The United States;;;0
+138;64;Dzyanis;Boleslawski;;1905-6-16;Minsk;MIN;Belarus;;;0
+139;66;Sakari;Sandberg;;1906-9-7;Mˆlndal;V‰S;Sweden;;;0
+140;71;Marcus;Lindgren;;1907-5-3;N‰ssjˆ;JˆN;Sweden;;;0
+141;73;Katsumi;Tazuka;;1904-12-25;Shisui;CHI;Japan;;;0
+142;73;Ryoichi;Nagata;;1904-11-25;Tosashimizu;KOC;Japan;;;0
+143;79;Tarmo;Salu;;1910-6-13;Kohtla-J‰rve;IDA;Estonia;;;0
+144;81;Golub;Karpov;;1910-5-9;Belgrade;CEN;Serbia;;;0
+145;84;Brian;Thiel;;1904-8-12;Oregon;WI;The United States;;;0
+146;85;John;Long;;1904-10-7;Willimantic;CT;The United States;;;0
+147;125;Maxim;Daoust;;1913-9-17;Toronto;ON;Canada;;;0
+148;86;Drew;Feser;;1904-5-20;Toronto;ON;Canada;;;0
+149;88;James;Di Girolamo;;1904-12-12;;;The United States;;;0
+150;90;Bo;Roberts;;1904-10-29;;;The United States;;;0
+151;121;Toe;Blake;;1912-8-21;Walden;ON;Canada;;;0
+152;-1;Phil;Watson;;1914-4-24;Montreal;QC;Canada;;;0
+153;3;Stafford;Smythe;;1921-3-15;Toronto;ON;Canada;;;0
+154;-1;Bud;Wile;;1907-9-4;Winnipeg;MB;Canada;;;0
+155;121;Devin;Lonsberry;;1908-7-3;Halton Hills;ON;Canada;;;0
+156;-1;Bobby;Fore;;1910-2-11;Sudbury;ON;Canada;;;0
+157;-1;Nick;Musil;;1904-11-18;Medford;NJ;The United States;;;0
+158;-1;Craig;Dechert;;1907-7-20;Trois-RiviËres;QC;Canada;;;0
+159;-1;Luke;DeMarco;;1905-9-18;Sandy Valley;NV;The United States;;;0
+160;122;Jimmy;O'Callan;;1904-5-31;Saint-RÈmi;QC;Canada;;;0
+161;-1;Joseph;Graham;;1904-6-30;Joliet;IL;The United States;;;0
+162;74;Patrick;Flatman;;1904-12-7;Port Coquitlam;BC;Canada;;;0
+163;88;Troy;Wood;;1904-7-14;Medicine Hat;AB;Canada;;;0
+164;90;Blaine;Stultz;;1904-2-14;Cochrane;ON;Canada;;;0
+165;70;Alexandre;Mallette;;1913-9-26;Ottawa;ON;Canada;;;0
+166;85;Clarence;Tiffany;;1904-8-17;Waterville;ME;The United States;;;0
+167;73;Jess;Lebrun;;1908-10-13;Vancouver;BC;Canada;;;0
+168;-1;Evan;Capobianco;;1919-8-23;Oakville;ON;Canada;;;0
+169;61;Kieran;Hotham;;1920-6-13;Cole Harbour;NS;Canada;;;0
+170;128;Anthony;McLean;;1914-4-21;Surrey;BC;Canada;;;0
+171;3;Christopher;Cotey;;1908-1-21;Cape Breton Regional Municipality;NS;Canada;;;0
+172;-1;Ryan;Spurgeon;;1907-4-21;St. Catharines;ON;Canada;;;0
+173;19;Kevin;Reichert;;1891-7-14;;;The United States;;;0
+174;22;Zander;Stone;;1908-4-20;;;The United States;;;0
+175;24;David;Beall;;1899-2-13;;;The United States;;;0
+176;26;Mark;MacLachlan;;1888-5-12;;;The United States;;;0
+177;27;Kenny;Jefferson;;1886-1-26;;;The United States;;;0
+178;28;Fabian;Berggren;;1898-10-23;;;The United States;;;0
+179;-1;Malcolm;McLae;;1908-4-30;;;The United States;;;0
+180;58;Adalbert;Richter;;1909-7-9;Ulm;BAD;Germany;;;0
+181;59;Anton;Sundberg;;1911-1-7;Uddevalla;V‰S;Sweden;;;0
+182;60;Lassi;Tarkiainen;;1911-10-5;Changde;HUN;Finland;;;0
+183;61;Dmitry;Trufakin;;1909-11-14;Poronaysk;SAK;Russia;;;0
+184;62;Michal;Odehnal;;1909-8-1;Macheng;HUB;Czech Republic;;;0
+185;63;Filip;Horvath;;1893-1-22;Kosice;KOS;Slovakia;;;0
+186;64;Yevheniy;Rogochyi;;1903-9-25;Molodechno;MIN;Belarus;;;0
+187;65;Jan;Egger;;1909-3-25;Brig-Glis;VS;Switzerland;;;0
+188;66;Quirin;Gruber;;1912-10-9;Vienna;WIE;Austria;;;0
+189;67;Steve;Fifett;;1890-6-23;Birmingham;ENG;England;;;0
+190;68;Frederik;Henriksen;;1888-9-10;Czersk;POM;Denmark;;;0
+191;69;CÈdric;Vilain;;1892-11-7;Anneyron;RHÙ;France;;;0
+192;70;Yevgeny;Mezentsev;;1894-3-7;Riga;RIG;Latvia;;;0
+193;71;Bernhard;Lageder;;1909-7-20;Jesi;MAR;Italy;;;0
+194;72;Adrian;Johansen;;1909-7-23;Haugesund;ROG;Norway;;;0
+195;73;Shigeru;Sawada;;1891-1-10;Kozakai;AIC;Japan;;;0
+196;74;Tam·s;Farkas;;1908-12-26;Mariapzcs;SZA;Hungary;;;0
+197;75;Milij;Pruski;;1907-11-20;Kwidzyn;POM;Poland;;;0
+198;76;Ionut;Matei;;1892-11-24;Piscu Vechi;DOL;Romania;;;0
+199;77;Pranas;Maculevicius;;1912-8-13;Kursenai;SIA;Lithuania;;;0
+200;78;Yuriy;Vorobey;;1897-9-17;Ochakiv;MYK;Ukraine;;;0
+201;79;Harri;Aun;;1894-8-28;Tallinn;HAR;Estonia;;;0
+202;80;Sven;Rog;;1909-10-15;The Hague;ZUI;The Netherlands;;;0
+203;81;Don·t;Bartha;;1906-10-18;Ub;CEN;Serbia;;;0
+204;82;Roman;Jarc;;1890-3-15;Zalec;SAV;Slovenia;;;0
+205;83;Brian;Nichols;;1895-1-7;Missouri City;TX;The United States;;;0
+206;84;Jeff;Merritt;;1891-4-14;Dickinson;NY;The United States;;;0
+207;85;Jesse;Laplante;;1893-10-8;L'Ascension-de-Notre-Seigneur;QC;Canada;;;0
+208;86;Cody;Robinson;;1900-12-4;;;Canada;;;0
+209;87;Stephen;Onyskevitch;;1905-3-8;;;Canada;;;0
+210;88;Lowell;Leiden;;1914-8-10;;;The United States;;;0
+211;89;Larry;Gilley;;1899-6-19;;;The United States;;;0
+212;90;Chris;Hines;;1905-7-28;;;The United States;;;0
+213;91;Maxim;Van Dijck;;1912-9-22;Heusden-Zolder;LIM;Belgium;;;0
+214;92;Goran;Andonov;;1887-2-2;Nikolaevo;VEL;Bulgaria;;;0
+215;93;Vitaly;Parin;;1890-8-30;Astana;AKM;Kazakhstan;;;0
+216;94;Zhong;Cide;;1892-6-24;Zhaoqing;GUA;China;;;0
+217;95;Gim;Jeong-min;;1901-1-13;Daejeon;DAE;South Korea;;;0
+218;96;Jay;Eastick;;1897-8-5;Nampo;PYO;Australia;;;0
+219;22;Martin;Pitt;;1905-6-7;;;The United States;;;0
+220;22;Alex;Francis;;1911-8-26;;;The United States;;;0
+221;24;B.J.;Frawley;;1905-6-9;;;The United States;;;0
+222;26;Adam;McHenry;;1913-6-2;;;The United States;;;0
+223;27;Chris;Keane;;1905-5-25;Fleming Island;FL;The United States;;;0
+224;64;Maksim;Berestovoy;;1905-5-19;Moscow;MOS;Russia;;;0
+225;63;Miroslav;Matijek;;1905-4-9;Sahy;NIT;Slovakia;;;0
+226;66;Patrick;Krammer;;1905-11-15;Vienna;WIE;Austria;;;0
+227;67;Bailey;Tuttle;;1910-12-8;Shaw;ENG;England;;;0
+228;67;Daniel;Heler;;1909-9-17;Skoghall;V‰R;England;;;0
+229;69;Maxime;Rochette;;1905-2-15;Plaisance-du-Touch;MID;France;;;0
+230;70;Krisjanis;Pece;;1905-7-17;Riga;RIG;Latvia;;;0
+231;72;Viktor;Anfinsen;;1905-8-23;V‰sterÂs;V‰S;Norway;;;0
+232;77;Leonas;Kuzmickas;;1905-9-13;Ukmerge;VIL;Lithuania;;;0
+233;93;Nicolaas;Benjamins;;1913-3-22;Kristianstad;SKÂ;The Netherlands;;;0
+234;91;Brandon;Woldu;;1913-2-21;Penetanguishene;ON;Canada;;;0
+235;90;Seth;Zimmerman;;1911-8-26;;;The United States;;;0
+236;90;George;Krebs;;1907-11-13;;;The United States;;;0
+237;70;Mikhail;Vonog;;1905-11-29;Stockholm;STO;Latvia;;;0
+238;93;Menbolat;Isabayev;;1907-5-7;Zyryanovsk;SIG;Kazakhstan;;;0
+239;94;Hao;Tian;;1905-10-20;Shizuishan;NIN;China;;;0
+240;95;Gim;Jin-ho;;1906-4-3;Busan;BUS;South Korea;;;0
+241;96;Travis;Adams;;1905-3-27;Sydney;NSW;Australia;;;0
+242;126;James;Wruck;;1919-10-4;Overland Park;KS;Canada;;;0
+243;-1;Cliff;Fletcher;The Silver Fox;1935-8-16;Murdochville;QC;Canada;;;0
+244;96;Howie;Meeker;;1923-4-11;Kitchener;ON;Canada;;;0
+245;-1;Duncan;Grady;;1910-3-6;Montreal;QC;Canada;;;0
+246;-1;Damon;Kincade;;1908-6-5;Calgary;AB;Canada;;;0
+247;-1;Gunnar;Roy;;1914-1-21;Wenatchee;WA;The United States;;;0
+248;-1;Ed;McGary;;1905-11-13;Henderson;NV;The United States;;;0
+249;-1;Michael;Low;;1905-10-12;Los Angeles;CA;The United States;;;0
+250;-1;William;Labelle;;1905-12-13;Gilbert;AZ;The United States;;;0
+251;-1;Adam;Sinclair;;1905-6-25;Johnson City;NY;The United States;;;0
+252;-1;Steve;Sullivan;;1905-3-1;Mississauga;ON;Canada;;;0
+253;9;Pavlo;Silverthorn;;1914-10-20;Waterloo;ON;Canada;;;0
+254;5;RÈmy;Joyal;;1913-9-29;Toronto;ON;Canada;;;0
+255;8;Chris;Catlett;;1914-10-11;Crofton;MD;The United States;;;0
+256;121;Dan;Reynolds;;1905-11-6;Port Coquitlam;BC;Canada;;;0
+257;9;Jeff;Burkett;;1905-2-23;Whitby;ON;Canada;;;0
+258;3;Jordan;Hicks;;1910-6-20;Rye Brook;NY;The United States;;;0
+259;24;Mario;Mireles;;1905-4-10;Saginaw;TX;The United States;;;0
+260;68;Rich;Eirikson;;1905-6-15;Toronto;ON;Canada;;;0
+261;78;Kevin;Bradshaw;;1914-8-2;Mississauga;ON;Canada;;;0
+262;71;John;Merritt;;1905-2-4;Toronto;ON;Canada;;;0
+263;91;Derek;Hillier;;1906-9-1;Greenfield Township;PA;The United States;;;0
+264;10;Rob;Sarno;;1905-11-19;Montreal;QC;Canada;;;0
+265;76;Pete;O'Donagan;;1905-1-8;Cornwall;ON;Canada;;;0
+266;80;Simon;Boulianne;;1905-5-9;Mascouche;QC;Canada;;;0
+267;118;Woody;Robertson;;1907-7-1;Ottawa;ON;Canada;;;0
+268;27;Tim;Jamison;;1910-5-19;Hyde Park;NY;The United States;;;0
+269;10;Will;McGill;;1910-4-16;White Lake;MI;The United States;;;0
+270;19;Arun;Mirwaldt;;1914-1-9;Mississauga;ON;Canada;;;0
+271;22;Eric;Hockey;;1906-3-1;Carmel;NY;The United States;;;0
+272;27;Jeff;Hayes;;1906-4-16;;;The United States;;;0
+273;119;Ronald;Foster;;1906-6-22;;;The United States;;;0
+274;-1;Paul;Mannis;;1906-7-15;Columbus;OH;The United States;;;0
+275;81;Tom·s;Skutecky;;1915-2-1;UmeÂ;V‰S;Slovakia;;;0
+276;61;Andrey;Mozel;;1906-5-22;Malmˆ;SKÂ;Russia;;;0
+277;65;Christoph;Kaiser;;1908-1-20;Helsingborg;SKÂ;Switzerland;;;0
+278;65;Lars;Schori;;1914-10-19;Kriens;LU;Switzerland;;;0
+279;67;Jamie;Stimson;;1906-2-27;Preston;ENG;England;;;0
+280;67;Lenny;Mence;;1906-3-9;London;ENG;England;;;0
+281;67;Toby;Weighill;;1906-6-5;Dorchester;ENG;England;;;0
+282;66;Kristian;J¯rgensen;;1906-12-30;Herning;RIN;Denmark;;;0
+283;73;Tomoyuki;Oikawa;;1906-7-4;Stockholm;STO;Japan;;;0
+284;75;Zbigniew;Sitko;;1906-8-25;Dabrowa Gzrnicza;SLA;Poland;;;0
+285;75;Czieslaw;Zwolski;;1913-12-26;Jastrzebie-Zdroj;SLA;Poland;;;0
+286;75;Dobry;Walkusz;;1906-2-15;Grajewo;POD;Poland;;;0
+287;76;Silviu;Vadim;;1911-9-9;Slobozia;IAL;Romania;;;0
+288;76;Emil;Benghes;;1912-12-26;Bucharest;BUC;Romania;;;0
+289;78;Viktor;Orel;;1906-8-15;Chernihiv;CHE;Ukraine;;;0
+290;77;Jozef;Bella;;1913-6-2;Nova Bana;BAN;Slovakia;;;0
+291;82;Sergej;Haler;;1912-10-14;Ljubljana;OSR;Slovenia;;;0
+292;66;Igor;Janza;;1911-3-15;Maribor;POD;Slovenia;;;0
+293;84;Ryan;McLaughlin;;1906-7-29;Vancouver;BC;Canada;;;0
+294;87;Richard;Vandurme;;1906-2-27;;;Canada;;;0
+295;83;Josh;Carrick;;1906-12-14;Fort St. John;BC;Canada;;;0
+296;89;Joel;McDrain;;1910-4-22;;;The United States;;;0
+297;90;Danny;Tuttle;;1906-8-15;Manchester;NH;The United States;;;0
+298;91;Lukas;Van Vooren;;1906-10-11;Brasschaat;ANT;Belgium;;;0
+299;63;Ben;Moerman;;1906-3-13;Lokeren;EAS;Belgium;;;0
+300;91;Yaro;Desmedt;;1906-10-24;Middelkerke;WES;Belgium;;;0
+301;59;Tzvetan;Aleksandrov;;1906-12-22;Dobric;DOB;Bulgaria;;;0
+302;92;Kiril;Toshev;;1906-3-3;Sliven;SLI;Bulgaria;;;0
+303;92;Dimitar;Velichkov;;1908-11-13;Sofia;SOF;Bulgaria;;;0
+304;93;Ilya;Pafov;;1906-3-17;Almaty;ALM;Kazakhstan;;;0
+305;94;Zhang;Yuanjian;;1906-8-20;Malmˆ;SKÂ;China;;;0
+306;95;Gim;Do-yeon;;1906-7-9;Daegu;DAE;South Korea;;;0
+307;94;Gim;Jun-yeong;;1908-2-9;Lidingˆ;STO;South Korea;;;0
+308;96;Marshall;Stuart;;1906-10-26;Adelaide;SA;Australia;;;0
+309;-1;Terry;Beaird;;1907-8-5;Catonsville;MD;The United States;;;0
+310;122;Rudy;Pilous;;1914-8-11;Oakbank;MB;Canada;;;0
+311;122;Billy;Reay;;1918-8-21;Oakbank;MB;Canada;;;0
+312;-1;Joe;Bainbridge;;1906-8-29;Montreal;QC;Canada;;;0
+313;-1;Dean;Hayter;;1906-12-31;Toronto;ON;Canada;;;0
+314;-1;Jeff;Peterson;;1906-10-1;Central;LA;The United States;;;0
+315;-1;Ralph;Mudd;;1914-8-17;Los Angeles;CA;The United States;;;0
+316;-1;Scott;MacKichan;;1910-12-21;Calgary;AB;Canada;;;0
+317;-1;Dan;Leger;;1906-7-31;Winnipeg;MB;Canada;;;0
+318;-1;Payton;McIntyre;;1909-8-3;Wainwright;AB;Canada;;;0
+319;-1;Ed;Gustafson;;1906-11-30;Valemount;BC;Canada;;;0
+320;-1;Nick;Martin;;1906-10-25;Marion;OH;The United States;;;0
+321;-1;Christian;Truss;;1910-11-29;Prince Rupert;BC;Canada;;;0
+322;-1;John;Mann;;1906-10-10;Pickering;ON;Canada;;;0
+323;-1;Henry;David;;1909-11-23;Clarington;ON;Canada;;;0
+324;-1;Craig;Reinhart;;1906-3-12;Mirabel;QC;Canada;;;0
+325;0;Samuel;GagnÈ;;1906-3-16;Toronto;ON;Canada;;;0
+326;121;Rob;Rohrer;;1906-11-23;Quebec City;QC;Canada;;;0
+327;-1;Brandon;Postma;;1906-3-5;Toronto;ON;Canada;;;0
+328;-1;Morgan;George;;1906-3-17;Brantford;ON;Canada;;;0
+329;64;James;Korbs;;1906-2-12;Maple Ridge;BC;Canada;;;0
+330;92;Chris;Stitt;;1913-3-28;Mississauga;ON;Canada;;;0
+331;76;Allen;Dobson;;1907-2-18;Moncton;NB;Canada;;;0
+332;19;Jasdeep;Singh;;1906-7-25;Montreal;QC;Canada;;;0
+333;72;Bart;Kraliz;;1909-7-16;Blacksburg;VA;The United States;;;0
+334;119;Scott;Wilkerson;;1910-6-14;Dunedin;FL;The United States;;;0
+335;121;Ronald;O'Mullen;;1906-2-9;Windsor;CA;The United States;;;0
+336;122;Steve;Stone;;1906-6-26;Ancaster;ON;Canada;;;0
+337;123;Chad;Gerome;;1910-9-27;Acton Vale;QC;Canada;;;0
+338;26;Jack;Folsom;;1906-11-4;Ladson;SC;The United States;;;0
+339;87;Mike;Buford;;1906-2-20;Winnipeg;MB;Canada;;;0
+340;-1;Josh;Hill;;1906-7-26;Vaughan;ON;Canada;;;0
+341;82;Teddy;Payne;;1906-7-2;St. Thomas;ON;Canada;;;0
+342;94;Elijah;Meadows;;1906-2-1;Kelowna;BC;Canada;;;0
+343;93;Rich;Burnett;;1906-9-30;Strathcona;AB;Canada;;;0
+344;75;Ned;Lavington;;1914-2-19;Westminster;CO;The United States;;;0
+345;-1;Tommy;Cantrell;;1910-7-14;Fort Worth;TX;The United States;;;0
+346;19;Beau;Pedler;;1906-4-25;Winnipeg;MB;Canada;;;0
+347;-1;Mark;Long;;1911-3-31;Everman;TX;The United States;;;0
+348;8;Spencer;Burton;;1906-3-30;Haldimand County;ON;Canada;;;0
+349;-1;Floyd;Newton;;1906-11-15;Los Angeles;CA;The United States;;;0
+350;28;Andrew;Martin;;1912-8-4;Sun Lakes;AZ;The United States;;;0
+351;9;Charles;White;;1906-2-19;El Reno;OK;The United States;;;0
+352;-1;Anthony;Waterstradt;;1906-9-6;Vaughan;ON;Canada;;;0
+353;26;Ed;Goonan;;1907-10-14;Montpelier;VT;The United States;;;0
+354;27;John;Nations;;1907-8-13;;;The United States;;;0
+355;79;Daniel;Rohde;;1913-10-16;Stockholm;STO;Germany;;;0
+356;92;Georgi;Slavov;;1907-12-28;Burgas;BUR;Bulgaria;;;0
+357;59;Tapio;Vidgren;;1907-12-3;Motala;÷ST;Sweden;;;0
+358;128;Kalle;Palonen;;1911-8-29;Kauhajoki;SOS;Finland;;;0
+359;62;Mathys;Delacroix;;1907-3-13;Mons;HAI;Belgium;;;0
+360;75;Miroslav;Hrnciar;;1910-11-27;Snina;PRE;Slovakia;;;0
+361;74;Nicolas;Roux;;1907-12-24;Fribourg;FR;Switzerland;;;0
+362;71;Sebastian;Villadsen;;1907-3-19;Kungsbacka;V‰S;Denmark;;;0
+363;82;Fabian;Bauer;;1912-4-26;Vienna;WIE;Austria;;;0
+364;69;Hugo;Fournier;;1910-5-29;Stockholm;STO;France;;;0
+365;69;Jordy;Vallet;;1915-11-15;Gˆteborg;V‰S;France;;;0
+366;93;Frank;Hansson;;1907-5-25;Middelfart;FYN;Denmark;;;0
+367;72;Mathias;Kristiansen;;1916-10-22;Stockholm;STO;Norway;;;0
+368;75;Bartlomiej;Spychala;;1907-2-18;Stockholm;STO;Poland;;;0
+369;75;Roman;Kapsa;;1907-3-4;Grudziadz;KUJ;Poland;;;0
+370;78;Flawiusz;Naskret;;1907-9-25;Kharkiv;KHA;Ukraine;;;0
+371;78;Fedir;Kravchenko;;1907-8-11;Jˆnkˆping;JˆN;Ukraine;;;0
+372;60;Oleksandr;Atelkin;;1912-10-19;Zaporizhzhia;ZAP;Ukraine;;;0
+373;79;Niilo;Kuuk;;1912-11-3;Tartu;TAR;Estonia;;;0
+374;82;Sergej;Bukovec;;1907-1-2;Ljubljana;OSR;Slovenia;;;0
+375;83;Michael;Palmer;;1908-11-7;Los Angeles;CA;The United States;;;0
+376;83;Yan;Valois;;1907-8-25;Montreal;QC;Canada;;;0
+377;85;Spencer;Leung;;1907-6-18;Prince George;BC;Canada;;;0
+378;86;Salvador;Sanchez;;1907-3-12;;;Canada;;;0
+379;91;Bram;Schaeken;;1907-2-21;Stockholm;STO;Belgium;;;0
+380;83;Momchil;Genchev;;1907-5-10;Sofia;SOF;Bulgaria;;;0
+381;67;Benjamin;Jensen;;1907-4-23;Esbjerg;RIB;Denmark;;;0
+382;96;Kade;Wilcox;;1907-1-17;Perth;WA;Australia;;;0
+383;-1;Punch;Imlach;;1918-3-15;Toronto;ON;Canada;;;0
+384;-1;Adam;Grant;;1907-2-15;Wickes;AR;The United States;;;0
+385;-1;Ray;Roberson;;1907-8-10;Mesa;AZ;The United States;;;0
+386;-1;Gil;Gill;;1907-7-15;Montreal;QC;Canada;;;0
+387;-1;Craig;Inman;;1907-12-20;Toronto;ON;Canada;;;0
+388;-1;Stuart;Travis;;1912-3-11;Toronto;ON;Canada;;;0
+389;-1;Brad;O'Esmond;;1914-1-7;Omaha;NE;The United States;;;0
+390;-1;Bob;Roberts;;1915-6-18;Montreal;QC;Canada;;;0
+391;-1;Jon;Ledger;;1907-12-21;Toronto;ON;Canada;;;0
+392;9;Tyler;Ward;;1911-11-7;Quebec City;QC;Canada;;;0
+393;-1;Allen;O'Neill;;1911-9-10;Guelph;ON;Canada;;;0
+394;-1;Kendrick;Melton;;1907-2-10;Florin;CA;The United States;;;0
+395;-1;Millard;Porte;;1907-3-6;Mississauga;ON;Canada;;;0
+396;8;Steffen;Trapp;;1913-4-9;Toronto;ON;Canada;;;0
+397;9;Lukasz;Henry;;1907-4-7;Ottawa;ON;Canada;;;0
+398;-1;Gabriel;Richardson;;1907-10-23;Richmond Hill;ON;Canada;;;0
+399;-1;Pat;Bower;;1907-8-31;Montreal;QC;Canada;;;0
+400;-1;Tanner;Ollershaw;;1911-7-1;Winnipeg;MB;Canada;;;0
+401;5;Nathan;Horridge;;1913-4-9;Atlantic City;NJ;The United States;;;0
+402;-1;Shawn;Landers;;1907-8-17;The Crossings;FL;The United States;;;0
+403;5;Chase;Williams;;1907-10-25;Winnipeg;MB;Canada;;;0
+404;-1;Brent;Norrish;;1907-8-17;Carson;CA;The United States;;;0
+405;-1;Mike;White;;1907-11-20;San Diego;CA;The United States;;;0
+406;-1;Lee;Brunt;;1910-1-1;Edmonton;AB;Canada;;;0
+407;3;Brian;Hall;;1907-5-4;Strathcona;AB;Canada;;;0
+408;64;Lee;Madden;;1909-12-1;Winnipeg;MB;Canada;;;0
+409;79;Brent;Winstanley;;1907-7-27;Paisley;ON;Canada;;;0
+410;75;Dave;Rich;;1907-9-20;Montreal;QC;Canada;;;0
+411;26;Dan;Perris;;1907-2-2;Harrison;WI;The United States;;;0
+412;73;Cayden;Tremblay;;1907-6-25;Burlington;ON;Canada;;;0
+413;5;Brock;Sprague;;1907-11-27;East Hants;NS;Canada;;;0
+414;70;John;Hillock;;1907-10-15;Mississauga;ON;Canada;;;0
+415;67;Jonathan;Brown;;1908-11-15;Norfolk County;ON;Canada;;;0
+416;-1;Marc;Priestner;;1907-8-7;Sidney;OH;The United States;;;0
+417;65;John;LaPoint;;1909-3-11;Toronto;ON;Canada;;;0
+418;-1;Blaize;Bisgrove;;1907-3-29;Kamloops;BC;Canada;;;0
+419;-1;Brenden;Lee;;1908-10-4;Kamloops;BC;Canada;;;0
+420;127;Brian;Hartmann;;1907-8-10;Quebec City;QC;Canada;;;0
+421;66;Lou;Beach;;1912-1-29;The Hammocks;FL;The United States;;;0
+422;-1;Derek;HallÈ;;1907-7-23;Orange City;FL;The United States;;;0
+423;-1;Pablo;Hernandez;;1907-9-19;Omaha;NE;The United States;;;0
+424;-1;Nick;Shermerhorn;;1907-12-12;Chicago;IL;The United States;;;0
+425;3;George;Funk;;1907-8-8;Lynnfield;MA;The United States;;;0
+426;5;Danny;Peterson;;1916-3-14;Bois-des-Filion;QC;Canada;;;0
+427;0;Josh;Foley;;1919-2-27;Silverton;OR;Canada;;;0
+428;129;Elliot;Fillion;;1919-8-12;Quebec City;QC;Canada;;;0
+429;10;Gideon;Saracini;;1908-12-17;Vaughan;ON;The United States;;;0
+430;19;Chad;Francis;;1909-4-16;Calgary;AB;Canada;;;0
+431;24;Eric;Fraser;;1908-7-28;Moonachie;NJ;The United States;;;0
+432;27;Dudley;Gorridge;;1909-7-25;;;The United States;;;0
+433;-1;David;Stevenson;;1915-8-27;La Mesa;CA;The United States;;;0
+434;28;Mike;Richardson;;1908-12-7;Laredo;TX;The United States;;;0
+435;-1;George;Verret;;1908-4-27;;;The United States;;;0
+436;78;Frank;Heuer;;1915-6-15;Uhyst;SAX;Germany;;;0
+437;59;Christoffer;Jonsson;;1908-11-10;Huddinge;STO;Sweden;;;0
+438;59;Martin;Ericsson;;1908-12-11;V‰xjˆ;KRO;Sweden;;;0
+439;60;Mika;Juuso;;1908-11-15;Trelleborg;SKÂ;Finland;;;0
+440;28;Sondre;Ingebrigtsen;;1915-11-13;Lidkˆping;V‰S;Norway;;;0
+441;69;Eliot;DelÈpine;;1916-3-3;Cherbourg;LOW;France;;;0
+442;80;Peter;Weger;;1908-4-14;San Giovanni in Persiceto;EMI;Italy;;;0
+443;73;Reijiro;Nishi;;1908-3-25;Stockholm;STO;Japan;;;0
+444;74;M·tÈ;TÛth;;1917-5-1;Heby;UPP;Hungary;;;0
+445;79;Istv·n;Liebhaber;;1908-1-12;Budapest;BUD;Hungary;;;0
+446;74;Zolt·n;Horvath;;1908-4-23;Gyal;PES;Hungary;;;0
+447;76;Ioan;Mihalcescu;;1912-10-5;Nykˆping;SˆD;Romania;;;0
+448;77;Andrius;Kruopis;;1917-10-22;Jonava;KAU;Lithuania;;;0
+449;77;Mindaugas;Simenas;;1916-7-16;Mazeikiai;TEL;Lithuania;;;0
+450;77;Zydrunas;Voisiatas;;1908-10-28;Trollh‰ttan;V‰S;Lithuania;;;0
+451;58;Ignatz;Wolf;;1909-1-4;Bielefeld;NOR;Germany;;;0
+452;74;Antal;Palasthy;;1908-10-5;PiteÂ;NOR;Hungary;;;0
+453;81;Ilija;Rus;;1910-12-26;Malmˆ;SKÂ;Serbia;;;0
+454;84;Craig;Love;;1908-5-15;Bainbridge;GA;The United States;;;0
+455;85;James;Raymond;;1908-6-5;Cape Breton Regional Municipality;NS;Canada;;;0
+456;89;Kelly;Singleton;;1915-9-28;;;The United States;;;0
+457;89;Aaron;Bell;;1908-5-19;;;The United States;;;0
+458;90;Stan;Westerveldt;;1908-10-13;;;The United States;;;0
+459;92;Krastyo;Stalev;;1908-11-14;Lovec;LOV;Bulgaria;;;0
+460;-1;Peter;Parsons;;1908-9-10;Hockinson;WA;The United States;;;0
+461;69;Sam;Pollock;;1925-12-25;Murdochville;QC;Canada;;;0
+462;-1;Daniel;Staley;;1908-8-29;Belleville;IL;The United States;;;0
+463;-1;Darin;Owsiak;;1908-5-23;Mission;BC;Canada;;;0
+464;-1;Chad;Vaden;;1908-3-2;Terrebonne;QC;Canada;;;0
+465;-1;Keven;LÈvesque;;1916-12-29;Jackson;TN;The United States;;;0
+466;-1;Devon;Favreau;;1908-4-11;Montreal;QC;Canada;;;0
+467;-1;Joe;Shugg;;1916-5-15;Brooklin;ON;Canada;;;0
+468;0;Will;Starr;;1909-9-2;North Charleston;SC;The United States;;;0
+469;-1;Joel;Dorowicz;;1908-6-30;Thorold;ON;Canada;;;0
+470;-1;John;Rucker;;1908-5-21;Ancaster;ON;Canada;;;0
+471;68;Barrett;Corley;;1908-10-2;Arlington;VA;The United States;;;0
+472;96;Brant;Craighead;;1908-10-4;Edmonton;AB;Canada;;;0
+473;5;Michael;Tanti;;1908-8-17;Saguenay;QC;Canada;;;0
+474;94;Tyrone;Bottomley;;1908-1-4;North Dundas;ON;Canada;;;0
+475;26;Jim;McErlean;;1908-8-31;Sault Ste. Marie;ON;Canada;;;0
+476;126;Cal;Marek;;1917-11-2;Vancouver;BC;Canada;;;0
+477;65;Ronald;Moyne;;1912-2-28;Pleasant Grove;AL;The United States;;;0
+478;66;Zach;Tomlinson;;1908-10-13;Kitchener;ON;Canada;;;0
+479;73;Brian;Portsmouth;;1912-11-19;Ottawa;ON;Canada;;;0
+480;72;Danick;Cadieux;;1908-1-17;Quebec City;QC;Canada;;;0
+481;94;Jack;Begg;;1908-4-8;High Point;NC;The United States;;;0
+482;62;Randy;Sampson;;1908-5-22;Kawartha Lakes;ON;Canada;;;0
+483;5;Channing;Halischuk;;1908-9-10;Montreal;QC;Canada;;;0
+484;80;Calvin;Mathews;;1908-2-12;Saskatoon;SK;Canada;;;0
+485;81;Cassidy;Jacklin;;1916-7-6;San Antonio;TX;The United States;;;0
+486;60;Corey;Smith;;1908-6-19;Mississauga;ON;Canada;;;0
+487;83;Tim;Stanton;;1911-7-11;Burnaby;BC;Canada;;;0
+488;3;Carter;Simmons;;1908-4-8;West Orange;NJ;The United States;;;0
+489;88;George;Neal;;1908-2-2;Trois-RiviËres;QC;Canada;;;0
+490;67;Joseph;Graves;;1908-7-22;Richmond Hill;ON;Canada;;;0
+491;60;Wayne;Lemons;;1908-3-8;Fort McMurray;AB;Canada;;;0
+492;87;Eric;Iverson;;1908-6-10;Cambridge;ON;Canada;;;0
+493;5;Eric;Eaton;;1908-1-17;Tolono;IL;The United States;;;0
+494;67;Mathieu;LarrivÈe;;1908-3-18;Toronto;ON;Canada;;;0
+495;60;Ronnie;Rodgers;;1908-10-25;Quebec City;QC;Canada;;;0
+496;69;Mike;MacQuartie;;1908-12-22;Sudbury;ON;Canada;;;0
+497;81;Steven;Spears;;1908-12-18;Winnipeg;MB;Canada;;;0
+498;120;Stanley;Richey;;1911-3-7;Edmonton;AB;Canada;;;0
+499;-1;Andrew;Smylie;;1908-9-30;Kawartha Lakes;ON;Canada;;;0
+500;24;Allen;O'Higgins;;1910-12-1;West Park;FL;The United States;;;0
+501;59;Nathan;Nguyen;;1908-11-28;Toronto;ON;Canada;;;0
+502;-1;Kevin;Lang;;1908-7-20;Fort Dodge;IA;The United States;;;0
+503;-1;Leo;Jewell;;1908-11-15;Kawartha Lakes;ON;Canada;;;0
+504;83;Ryan;Worsley;;1908-3-10;Arlington;TX;The United States;;;0
+505;60;Juhani;Rasanen;;1909-10-12;Trollh‰ttan;V‰S;Finland;;;0
+506;60;Valdemar;Wallin;;1917-3-19;Loppi;KAN;Finland;;;0
+507;61;Vladimir;Ponomaryov;;1909-5-25;Nalchik;KAB;Russia;;;0
+508;68;Victor;Tranberg;;1909-1-5;Nyborg;FYN;Denmark;;;0
+509;68;Daniel;Lund;;1909-5-7;Stockholm;STO;Denmark;;;0
+510;70;Yevgeny;Mitkevich;;1909-8-21;V‰sterhaninge;STO;Latvia;;;0
+511;72;Emil;Pilskog;;1909-6-28;Partille;V‰S;Norway;;;0
+512;79;Konstantin;Nabokikh;;1909-10-28;Upplands-V‰sby;STO;Estonia;;;0
+513;58;Yaroslav;Mazuruk;;1915-6-10;Stockholm;STO;Estonia;;;0
+514;71;Peter;Trogmann;;1909-9-3;Cesano Maderno;LOM;Italy;;;0
+515;84;Andrew;Macdonald;;1917-6-15;Victoria;BC;Canada;;;0
+516;94;Tian;Zefu;;1912-8-10;Taiyuan;SHA;China;;;0
+517;-1;Charlie;Atchison;;1910-7-20;Toronto;ON;Canada;;;0
+518;-1;David;Turlik;;1916-1-18;Lyndon Station;WI;Canada;;;0
+519;5;Torchy;Schell;;1925-1-1;Wynyard;SK;Canada;;;0
+520;59;George;Maguire;;1921-9-9;Ottawa;ON;Canada;;;0
+521;78;Alf;Pike;;1917-9-15;Oakbank;MB;Canada;;;0
+522;10;Irving;Felt;;1910-1-25;Newburgh;NY;The United States;;;0
+523;-1;Alex;NoÎl;;1910-6-18;Medicine Hat;AB;Canada;;;0
+524;-1;Kevin;McEwen;;1909-12-19;North Massapequa;NY;The United States;;;0
+525;-1;Gil;Roe;;1909-8-24;Detroit;MI;The United States;;;0
+526;-1;Ryan;Geerin;;1909-5-10;Chicago;IL;The United States;;;0
+527;-1;Luc;Langlois;;1909-10-8;Montreal;QC;Canada;;;0
+528;-1;D.J.;Palace;;1909-5-7;Hamilton;ON;Canada;;;0
+529;-1;Keith;Peters;;1917-8-21;Fort Worth;TX;The United States;;;0
+530;-1;Brayden;Braithwaite;;1909-8-6;Dolbeau;QC;Canada;;;0
+531;-1;Randy;Harrington;;1909-9-18;Chicago;IL;The United States;;;0
+532;-1;Harrison;Constant;;1909-12-22;Quebec City;QC;Canada;;;0
+533;-1;Tyler;Haber;;1909-12-5;Saint John;NB;Canada;;;0
+534;8;John;Longton;;1916-6-9;Chicago;IL;The United States;;;0
+535;-1;Ken;O'Reilly;;1909-6-8;Dickinson;TX;The United States;;;0
+536;5;Larry;Gladstaines;;1909-11-14;Brantford;ON;Canada;;;0
+537;-1;Jason;West;;1909-6-30;Mississauga;ON;Canada;;;0
+538;-1;Merrill;Zucker;;1909-5-19;Moose Jaw;SK;Canada;;;0
+539;89;Greg;Fitzgerald;;1916-3-26;Edmonton;AB;Canada;;;0
+540;92;Brad;Peterson;;1909-5-24;Stockton;CA;The United States;;;0
+541;8;Nicolas;Groleau;;1909-11-1;San Jose;CA;The United States;;;0
+542;19;Frederick;McClure;;1909-5-17;Edmonton;AB;Canada;;;0
+543;120;Paul;Saunders;;1918-4-3;Toronto;ON;Canada;;;0
+544;94;Mark;Shilling;;1909-5-29;Brockton;MA;The United States;;;0
+545;79;Keith;Spring;;1909-9-24;Barrie;ON;Canada;;;0
+546;91;Sean;Whyte;;1909-2-8;Saskatoon;SK;Canada;;;0
+547;19;Bill;Ford;;1909-7-28;New Castle;PA;The United States;;;0
+548;26;Jake;Stevens;;1909-3-6;Bethlehem;PA;The United States;;;0
+549;75;Eric;Sheldrake;;1909-1-23;Regina;SK;Canada;;;0
+550;74;Bob;Boone;;1909-11-15;LÈvis;QC;Canada;;;0
+551;28;Josh;Benningshof;;1909-10-22;Boisbriand;QC;Canada;;;0
+552;89;Rich;Robinson;;1909-11-10;China Grove;NC;The United States;;;0
+553;64;Ron;McCue;;1915-9-21;Toronto;ON;Canada;;;0
+554;64;Ryan;Holtby;;1909-5-21;Orono;MN;The United States;;;0
+555;76;Jack;McDonald;;1909-3-9;Quebec City;QC;Canada;;;0
+556;79;Jordan;Maguire;;1909-9-1;San Bernardino;CA;The United States;;;0
+557;9;Nick;Neal;;1911-8-3;Wind Lake;WI;The United States;;;0
+558;85;Joe;Pate;;1918-1-13;Hamilton;ON;Canada;;;0
+559;69;Bill;MacCook;;1909-6-25;Brampton;ON;Canada;;;0
+560;58;Dylan;Odendaal;;1912-9-17;Quebec City;QC;Canada;;;0
+561;84;Chet;Richardson;;1909-5-16;Palm Bay;FL;The United States;;;0
+562;95;Richard;Vaughn;;1909-8-11;Windsor;ON;Canada;;;0
+563;85;Jeremy;Hoppringle;;1909-3-3;Glendale;CA;The United States;;;0
+564;3;John;Barnes;;1909-9-17;East Windsor;NJ;The United States;;;0
+565;78;Jake;Molle;;1912-2-6;Milwaukee;WI;The United States;;;0
+566;63;Howard;Donaldson;;1909-2-1;Lloydminster;AB;Canada;;;0
+567;74;Charles-Anthony;Labelle;;1909-5-1;Trois-RiviËres;QC;Canada;;;0
+568;83;Dave;Nuss;;1909-2-19;Greer;SC;The United States;;;0
+569;89;John;Burch;;1909-2-17;Newmarket;ON;Canada;;;0
+570;89;Jesse;Neely;;1909-9-8;Halifax;NS;Canada;;;0
+571;9;Skip;Ray;;1909-3-9;Richmond;BC;Canada;;;0
+572;91;Riley;Fraser;;1909-2-18;Edmonton;AB;Canada;;;0
+573;94;Edmund;MacGreusich;;1913-5-24;Claremore;OK;The United States;;;0
+574;8;Hollis;Kavanagh;;1909-9-29;Richmond Hill;ON;Canada;;;0
+575;61;Chris;Fields;;1910-4-16;White Rock;BC;Canada;;;0
+576;90;Todd;Doan;;1909-6-8;Saskatoon;SK;Canada;;;0
+577;91;Steve;Cole;;1909-6-12;Tracyton;WA;The United States;;;0
+578;61;Bobby;Edwards;;1909-2-8;Prince Albert;SK;Canada;;;0
+579;75;Michael;Hergott;;1909-9-22;San Diego;CA;The United States;;;0
+580;61;Kerry;Boger;;1909-9-29;Orangeville;ON;Canada;;;0
+581;95;Alex;Laus;;1909-1-8;Stanton;CA;The United States;;;0
+582;74;Byron;Andricopoulos;;1909-6-2;Toronto;ON;Canada;;;0
+583;96;Trent;McCardle;;1910-10-20;Minneapolis;MN;The United States;;;0
+584;27;Max;Kunz;;1909-10-14;Montreal;QC;Canada;;;0
+585;92;Keith;Rhinehart;;1915-3-22;Myrtle Grove;FL;The United States;;;0
+586;28;Cam;Summerville;;1909-6-27;Winnipeg;MB;Canada;;;0
+587;73;Matt;Lyons;;1909-12-28;Prince George;BC;Canada;;;0
+588;81;Patrick;Ingham;;1909-12-12;Vaughan;ON;Canada;;;0
+589;8;Frank;Edenborough;;1909-4-24;Centre Hastings;ON;Canada;;;0
+590;0;Dana;DiBrina;;1909-1-6;Woodstock;ON;Canada;;;0
+591;70;Cody;Strong;;1912-9-30;Baldwin;PA;The United States;;;0
+592;95;Earl;Erickson;;1909-9-15;Yuma;AZ;The United States;;;0
+593;92;Brett;Turcotte;;1915-12-3;Louisville;KY;The United States;;;0
+594;125;Paul;Morrison;;1909-5-22;Houston;TX;The United States;;;0
+595;0;Xavier;Desjardins;;1918-7-23;Fort McMurray;AB;Canada;;;0
+596;-1;Mark;Stagg;;1909-2-8;Colorado Springs;CO;The United States;;;0
+597;64;Dylan;Braithwaite;;1912-6-27;Windsor;ON;Canada;;;0
+598;58;Kevin;Ferraro;;1916-9-19;Montreal;QC;Canada;;;0
+599;28;Vincent;Hennum;;1910-7-7;James Island;SC;The United States;;;0
+600;-1;Glenn;Buttler;;1910-10-28;Whitney;NV;The United States;;;0
+601;10;Jasper;Lacy;;1910-12-14;Mobile;AL;The United States;;;0
+602;19;Brett;Tenute;;1914-10-9;Edmonton;AB;Canada;;;0
+603;22;Gerald;O'Scanlan;;1910-1-1;Bridgeport;CT;The United States;;;0
+604;83;Scott;Robbins;;1910-4-13;Moulton;AL;The United States;;;0
+605;28;Jim;Fullerton;;1910-9-7;Kokomo;IN;The United States;;;0
+606;60;Jari;Grundstrˆm;;1910-11-4;Tampere;PIR;Finland;;;0
+607;61;Dario;Bouckaert;;1910-5-1;Zottegem;EAS;Belgium;;;0
+608;62;Martin;Strilka;;1910-11-22;Moravsk· Nov· Ves;JHM;Czech Republic;;;0
+609;64;Maksim;Lebedzew;;1910-4-12;Minsk;MIN;Belarus;;;0
+610;75;Nicolas;Weiss;;1910-4-11;Saint-Laurent-de-Mure;RHÙ;France;;;0
+611;60;Ion;Celan;;1910-6-16;Mˆlndal;V‰S;Romania;;;0
+612;19;Ricky;McDonald;;1916-12-31;Pittsfield;MA;The United States;;;0
+613;82;Art;Eglinton;;1910-10-26;Ashfield;MA;The United States;;;0
+614;91;Senne;Roelandts;;1910-8-19;Mˆlndal;V‰S;Belgium;;;0
+615;94;Hwang;Si-won;;1916-2-19;SkellefteÂ;V‰S;South Korea;;;0
+616;96;Steven;Bostock;;1910-1-4;Melbourne;VIC;Australia;;;0
+617;-1;Don;McOwen;;1912-8-12;Worcester;MA;Canada;;;0
+618;127;Jeffrey;Decker;;1918-10-17;Ashland;CA;Canada;;;0
+619;73;Doug;Harvey;;1924-12-19;Murdochville;QC;Canada;;;0
+620;-1;Stephen;Stamatelos;;1910-5-17;Toronto;ON;Canada;;;0
+621;-1;Winston;Mobley;;1910-11-7;Montreal;QC;Canada;;;0
+622;-1;Jordan;Boulton;;1910-8-1;Dansville;NY;The United States;;;0
+623;-1;Ron;Atkinson;;1910-9-19;Hamilton;ON;Canada;;;0
+624;-1;Jeremy;Finnell;;1910-8-12;Florence-Roebling;NJ;The United States;;;0
+625;-1;Brian;Collins;;1910-2-16;Toronto;ON;Canada;;;0
+626;-1;Stefan;Tuin;;1918-8-24;Ottawa;ON;Canada;;;0
+627;-1;Andrew;Hansen;;1918-4-21;Columbia;MD;The United States;;;0
+628;-1;Gabriel;Pierre;;1910-7-28;Sherbrooke;QC;Canada;;;0
+629;-1;Francisco;Torres;;1910-8-1;Saguenay;QC;Canada;;;0
+630;-1;Zack;Hammond;;1910-11-18;Toronto;ON;Canada;;;0
+631;-1;Don;McCarthy;;1910-6-18;Indio;CA;The United States;;;0
+632;3;Randall;Davenport;;1910-3-2;Revelstoke;BC;Canada;;;0
+633;-1;Dirk;Ryall;;1910-4-21;Alma;QC;Canada;;;0
+634;-1;Lane;Olsen;;1913-10-9;North Fort Myers;FL;The United States;;;0
+635;-1;Kingston;Fontana;;1918-2-8;Medicine Hat;AB;Canada;;;0
+636;-1;Lucas;Dusick;;1910-6-13;Abbotsford;BC;Canada;;;0
+637;5;Phil;Noble;;1911-7-1;Thornhill;ON;Canada;;;0
+638;118;Scott;Murphy;;1910-7-9;Montreal;QC;Canada;;;0
+639;83;William;Dionne;;1910-2-4;Lakeville;MN;The United States;;;0
+640;9;Robert;Lim;;1913-11-3;Montreal;QC;Canada;;;0
+641;118;Jorge;Duran;;1910-8-22;Mobile;AL;The United States;;;0
+642;79;Preston;Saab;;1910-10-6;Surrey;BC;Canada;;;0
+643;0;Ralph;Strunk;;1916-3-25;Kelowna;BC;Canada;;;0
+644;28;Joe;Jones;;1910-5-16;Whitby;ON;Canada;;;0
+645;22;Jim;Warning;;1919-10-25;Warren;MI;The United States;;;0
+646;22;Mitchell;McKendry;;1910-4-7;Quebec City;QC;Canada;;;0
+647;93;Brian;McColm;;1910-5-19;Toronto;ON;Canada;;;0
+648;75;Ryan;Sanders;;1915-12-18;Saint John;NB;Canada;;;0
+649;85;Eric;Callahan;;1910-10-28;Vancouver;BC;Canada;;;0
+650;96;Keith;Ross;;1914-3-16;Lethbridge;AB;Canada;;;0
+651;83;Toby;Eliason;;1917-10-15;Patterson;CA;The United States;;;0
+652;61;Pete;Whisler;;1910-5-9;Quebec City;QC;Canada;;;0
+653;8;Tom;Sakalian;;1910-11-11;Calgary;AB;Canada;;;0
+654;88;Wilson;Millchamp;;1910-4-2;Montreal;QC;Canada;;;0
+655;9;Lucas;LeGrange;;1910-12-23;Vancouver;BC;Canada;;;0
+656;77;Chris;Milligan;;1910-3-25;Port Alberni;BC;Canada;;;0
+657;120;Kyle;Capka;;1918-9-20;Saint-Constant;QC;Canada;;;0
+658;76;Alberto;Zapata;;1910-2-8;Madawaska Valley;ON;Canada;;;0
+659;59;Larry;Blanks;;1915-10-31;Montreal;QC;Canada;;;0
+660;27;Tyler;Heard;;1910-1-31;Athabasca;AB;Canada;;;0
+661;85;Doug;Arnette;;1916-10-31;Indian Land;SC;The United States;;;0
+662;95;Darrell;MacKnight;;1910-2-25;Burlington;ON;Canada;;;0
+663;118;Aaron;Doug;;1910-6-21;The Woodlands;TX;The United States;;;0
+664;59;Martin;Hickey;;1910-3-4;Bowmanville;ON;Canada;;;0
+665;77;Nate;Koepke;;1910-7-14;Montreal;QC;Canada;;;0
+666;59;Richie;Crossman;;1910-3-29;Sabattus;ME;The United States;;;0
+667;63;Andy;Weaver;;1910-7-1;McKeesport;PA;The United States;;;0
+668;71;Dustin;Ingram;;1910-10-14;Montreal;QC;Canada;;;0
+669;74;Craig;Webster;;1913-10-1;Toronto;ON;Canada;;;0
+670;19;Brandon;Morton;;1910-3-10;Delson;QC;Canada;;;0
+671;74;Dean;O'Halloran;;1918-3-13;St. Paul;MN;The United States;;;0
+672;73;Danny;Hannay;;1910-8-23;Pawtucket;RI;The United States;;;0
+673;95;Travis;O'Haly;;1914-1-1;Phoenix;AZ;The United States;;;0
+674;126;Dave;Richards;;1911-10-5;St. Marys;ON;Canada;;;0
+675;91;Owen;Temmerman;;1911-6-22;Ieper;WES;Belgium;;;0
+676;27;Michael;Craft;;1916-12-15;Ocean Bluff-Brant Rock;MA;The United States;;;0
+677;-1;Colton;Owen;;1911-12-9;;;The United States;;;0
+678;86;Rasmus;Gustafsson;;1912-1-14;Stockholm;STO;Sweden;;;0
+679;72;Gabriel;Enger;;1911-8-30;Kristiansand;VES;Norway;;;0
+680;74;L·szlÛ;Kutasi;;1911-4-24;Rakzczifalva;JAS;Hungary;;;0
+681;83;Bob;Neal;;1911-3-17;Garden Grove;CA;The United States;;;0
+682;85;Joey;Mack;;1911-4-21;Danbury;CT;The United States;;;0
+683;87;Brett;Lidster;;1911-9-21;Vermilion;AB;Canada;;;0
+684;88;Jeff;Porter;;1911-4-7;;;The United States;;;0
+685;89;John;Wessex;;1911-3-5;;;The United States;;;0
+686;122;Emile;Francis;;1926-9-13;Pilot Butte;SK;Canada;;;0
+687;-1;Arnold;Cornock;;1911-9-7;Muskegon;MI;The United States;;;0
+688;-1;Louie;Wong;;1911-1-27;Les Coteaux;QC;Canada;;;0
+689;-1;Jacob;Neal;;1911-3-12;Wake Forest;NC;The United States;;;0
+690;-1;Ryan;Mackey;;1911-10-11;Bar Harbor;ME;The United States;;;0
+691;-1;Bob;MacKeith;;1911-6-19;Portland;OR;The United States;;;0
+692;-1;Chris;Paskuski;;1911-3-4;Montreal;QC;Canada;;;0
+693;-1;Simone;Brillo;;1911-1-7;Charlottetown;PE;Canada;;;0
+694;-1;Bruce;Johnson;;1911-8-31;Montreal;QC;Canada;;;0
+695;-1;Jerry;O'Fihelly;;1912-7-27;Brampton;ON;Canada;;;0
+696;-1;Edward;Nestor;;1911-4-15;Santa Rosa;TX;The United States;;;0
+697;-1;Matthew;Fifett;;1911-1-1;Clarkston Heights-Vineland;WA;The United States;;;0
+698;-1;Tom;Sanders;;1911-3-18;Markham;ON;Canada;;;0
+699;-1;Casey;Russell;;1911-8-7;Campbellton;NB;Canada;;;0
+700;-1;Gabriel;Gray;;1915-10-10;East Lansing;MI;The United States;;;0
+701;5;Jordan;Filippelli;;1911-5-22;Toronto;ON;Canada;;;0
+702;-1;Elliot;Tsui;;1914-4-25;LÈvis;QC;Canada;;;0
+703;-1;Lucas;BÈdard;;1911-10-28;Hoover;AL;The United States;;;0
+704;19;Paul;Riley;;1911-10-2;Ajax;ON;Canada;;;0
+705;9;Kade;Giebel;;1911-10-4;Quebec City;QC;Canada;;;0
+706;59;Matthew;Johnson;;1920-8-9;Windsor;ON;Canada;;;0
+707;8;Dave;Stupples;;1915-1-19;Yorkton;SK;Canada;;;0
+708;24;Doug;O'Colgan;;1911-3-15;Ottawa;ON;Canada;;;0
+709;28;Kenny;May;;1911-10-4;Liverpool;NS;Canada;;;0
+710;5;Troy;Curry;;1918-4-11;Tyler;TX;The United States;;;0
+711;58;Jesse;Sexsmith;;1916-5-28;Savannah;GA;The United States;;;0
+712;126;Gary;Ray;;1911-10-24;Brampton;ON;Canada;;;0
+713;91;Paul;Greenside;;1911-3-7;Halifax;NS;Canada;;;0
+714;61;William;Roy;;1911-8-12;La Habra Heights;CA;The United States;;;0
+715;63;Dave;Early;;1911-10-5;Kitimat;BC;Canada;;;0
+716;63;Don;Vazquez;;1913-7-24;Cumberland;ME;The United States;;;0
+717;68;Leonard;Lessard;;1911-12-30;Mississauga;ON;Canada;;;0
+718;9;Keith;Watson;;1911-4-6;Newark;OH;The United States;;;0
+719;68;Tim;Whyte;;1919-11-8;Winnipeg;MB;Canada;;;0
+720;94;Nicolas;Langlois;;1911-2-6;Burlington;ON;Canada;;;0
+721;95;Wes;Lovell;;1916-8-26;Overland Park;KS;The United States;;;0
+722;69;Jason;Norton;;1911-8-6;Edmonton;AB;Canada;;;0
+723;81;Justin;Darveau;;1911-11-26;Sainte-Marie;QC;Canada;;;0
+724;71;Tim;Glassin;;1911-4-12;Hawkesbury;ON;Canada;;;0
+725;27;Manny;Achaval;;1911-4-6;Vegreville;AB;Canada;;;0
+726;74;Robert;Johnstone;;1911-5-20;Calgary;AB;Canada;;;0
+727;124;Tony;Cummins;;1911-12-6;Thurso;QC;Canada;;;0
+728;3;Anthony;Caron;;1911-4-20;Winkler;MB;Canada;;;0
+729;124;David;Cullen;;1911-8-18;Stanley;MB;Canada;;;0
+730;85;Michael;McCauley;;1911-10-28;Richmond Hill;ON;Canada;;;0
+731;86;Kyle;McNeill;;1918-4-4;Brantford;ON;Canada;;;0
+732;85;Nathan;McCay;;1920-2-21;Brampton;ON;Canada;;;0
+733;83;Brad;Wong;;1911-2-5;Peterborough;ON;Canada;;;0
+734;22;Tanner;Bauchman;;1911-3-15;Laval;QC;Canada;;;0
+735;9;Coby;Hutchison;;1911-4-2;Fort Worth;TX;The United States;;;0
+736;71;Sam;Kolstad;;1911-5-9;Regina;SK;Canada;;;0
+737;78;Morris;Glendonwyne;;1914-1-11;Tinley Park;IL;The United States;;;0
+738;78;Karl;Villeneuve;;1912-12-5;Woodmore;MD;The United States;;;0
+739;81;Clyde;Brooks;;1911-12-26;Gibsons;BC;Canada;;;0
+740;88;Ben;Doll;;1911-8-30;Vancouver;BC;Canada;;;0
+741;9;Jordan;Marshall;;1918-3-12;Indianapolis;IN;The United States;;;0
+742;5;Frank;Riggs;;1919-7-15;Torrance;CA;The United States;;;0
+743;82;Ron;Sweeting;;1913-3-28;Carson;CA;The United States;;;0
+744;64;Keith;Gibbs;;1911-8-14;Montreal;QC;Canada;;;0
+745;79;Dustin;McQueen;;1911-12-19;Kimberley;BC;Canada;;;0
+746;-1;George;Simon;;1911-11-20;Burtonsville;MD;The United States;;;0
+747;-1;Andrew;Paul;;1911-3-17;Saskatoon;SK;Canada;;;0
+748;-1;Bartolo;Chaban;;1911-7-22;New York;NY;The United States;;;0
+749;-1;Zak;Okano;;1911-12-22;Fontana;CA;The United States;;;0
+750;60;Dan;Blouin;;1911-6-10;Nevada;IA;The United States;;;0
+751;26;Nathaniel;Raleigh;;1912-8-24;Chester Springs;PA;The United States;;;0
+752;58;Daniel;Martens;;1915-9-5;UmeÂ;V‰S;Germany;;;0
+753;59;Acke;Persson;;1916-6-16;Danderyd;STO;Sweden;;;0
+754;61;Maksim;Reshetkov;;1912-1-26;÷stersund;J‰M;Russia;;;0
+755;62;Stanislav;Spurny;;1918-10-19;Trebon;JIH;Czech Republic;;;0
+756;70;Lauris;Baterings;;1912-8-16;Huddinge;STO;Latvia;;;0
+757;81;Slaven;Sabados;;1912-2-16;Petrovaradin;VOJ;Serbia;;;0
+758;95;Shen;Chunyun;;1912-10-31;Shanghai;SHA;China;;;0
+759;10;David;Gagg;;1912-3-29;South Bend;IN;The United States;;;0
+760;90;Red;Sullivan;;1929-12-24;Peterborough;ON;Canada;;;0
+761;84;Claude;Ruel;;1938-9-12;Sorel-Tracy;QC;Canada;;;0
+762;-1;Dave;MacLehose;;1912-8-23;Los Angeles;CA;The United States;;;0
+763;-1;Garrett;O'Farrell;;1921-4-5;Pico Rivera;CA;The United States;;;0
+764;-1;Kelsey;Kudla;;1912-2-6;Richmond;BC;Canada;;;0
+765;-1;Frank;O'Neil;;1913-3-19;Orangeville;ON;Canada;;;0
+766;-1;Caiden;Blair;;1921-7-2;Toronto;ON;Canada;;;0
+767;-1;Randy;Jordan;;1912-10-6;Buffalo;NY;The United States;;;0
+768;-1;David;Sanford;;1913-1-8;Winnipeg;MB;Canada;;;0
+769;-1;Anantdev;Sekhon;;1912-9-11;Newmarket;ON;Canada;;;0
+770;-1;Aaron;McHendrie;;1912-11-30;Lebel-sur-QuÈvillon;QC;Canada;;;0
+771;-1;Gary;Wrayford;;1912-11-25;Laredo;TX;The United States;;;0
+772;-1;Bernard;Cheung;;1912-7-25;Belleville;ON;Canada;;;0
+773;-1;Bryce;Gamble;;1912-12-25;Oshawa;ON;Canada;;;0
+774;92;Bob;Mercer;;1912-11-30;Port Moody;BC;Canada;;;0
+775;96;Marc;Fox;;1919-8-23;Montreal;QC;Canada;;;0
+776;28;Chris;Grayson;;1912-4-8;Dawson Creek;BC;Canada;;;0
+777;125;Tony;Melton;;1912-7-13;Toronto;ON;Canada;;;0
+778;78;Scott;Plunkett;;1912-4-14;Zephyrhills;FL;The United States;;;0
+779;27;Joe;Bolinger;;1919-1-31;Toronto;ON;Canada;;;0
+780;125;Mike;Case;;1912-6-6;Scottsburg;IN;The United States;;;0
+781;9;Dave;Vachon;;1912-8-6;Lauderdale Lakes;FL;The United States;;;0
+782;127;Ernest;Price;;1915-2-8;Dubuque;IA;The United States;;;0
+783;28;Dave;Mulhern;;1917-7-15;Vaughan;ON;Canada;;;0
+784;84;Lewis;Crawford;;1912-4-28;Kewaunee;WI;The United States;;;0
+785;86;Doug;Webb;;1912-5-22;Caledon;ON;Canada;;;0
+786;79;Tim;Gilmore;;1920-5-18;Santa Ana;CA;The United States;;;0
+787;60;Kevin;Fuller;;1914-3-19;Calgary;AB;Canada;;;0
+788;9;Ed;Stark;;1912-12-31;Sacramento;CA;The United States;;;0
+789;81;HÈctor;Polvado;;1912-4-10;Quanah;TX;The United States;;;0
+790;87;Lee;Miller;;1912-11-24;London;ON;Canada;;;0
+791;86;Will;Bowles;;1912-5-19;Boston;MA;The United States;;;0
+792;77;Joseph;Lane;;1912-12-28;Grande Prairie;AB;Canada;;;0
+793;60;Marcus;Gordon;;1912-9-8;Bernardsville;NJ;The United States;;;0
+794;65;Ryan;Farrell;;1912-8-31;Hamburg;NY;The United States;;;0
+795;72;Patrick;Charles;;1912-7-4;Ramapo;NY;The United States;;;0
+796;5;Bryce;Bill;;1921-12-17;Montreal;QC;Canada;;;0
+797;65;Travis;Glumac;;1912-6-18;Ottawa;ON;Canada;;;0
+798;9;Kane;Bursey;;1912-1-2;Ottawa;ON;Canada;;;0
+799;65;George;Gatlin;;1912-12-14;Middletown;NJ;The United States;;;0
+800;78;Nick;Young;;1912-3-26;Waterford;WI;The United States;;;0
+801;124;Gordon;Dombowsky;;1920-9-22;Niles;IL;The United States;;;0
+802;65;Jeff;Culbreth;;1912-8-23;Montreal;QC;Canada;;;0
+803;78;Bernie;Rausse;;1912-1-26;Gatineau;QC;Canada;;;0
+804;9;Will;Colson;;1912-5-30;Edmonton;AB;Canada;;;0
+805;125;Joshua;Kirk;;1917-11-28;Toronto;ON;Canada;;;0
+806;5;Matt;Jenkins;;1912-8-19;Houston;TX;The United States;;;0
+807;66;Jack;Montgomery;;1916-12-20;New York;NY;The United States;;;0
+808;67;Brandon;Powell;;1917-8-26;Sault Ste. Marie;ON;Canada;;;0
+809;125;John;Crombie;;1912-11-13;Trumbull;CT;The United States;;;0
+810;90;Edward;Weber;;1912-1-8;Calgary;AB;Canada;;;0
+811;68;Alvin;Fogarty;;1912-3-6;Montreal;QC;Canada;;;0
+812;79;Abel;Fox;;1912-4-30;Montreal;QC;Canada;;;0
+813;61;Matt;Fisher;;1912-5-8;Edmonton;AB;Canada;;;0
+814;93;Jean-Simon;Tremblay;;1919-10-21;Middle River;MD;The United States;;;0
+815;75;Ross;Ryan;;1912-5-20;McAllen;TX;The United States;;;0
+816;58;Ben;O'Sullivan;;1912-1-22;Toronto;ON;Canada;;;0
+817;62;Bob;Stewart;;1912-3-2;Calgary;AB;Canada;;;0
+818;59;Tony;Atkins;;1912-7-13;Vancouver;BC;Canada;;;0
+819;-1;Alex;Holenski;;1912-1-21;New York;NY;The United States;;;0
+820;80;Nils;Timmer;;1913-6-24;Papendrecht;ZUI;The Netherlands;;;0
+821;89;Robert;Tucker;;1913-7-11;Batavia;NY;The United States;;;0
+822;26;Tim;Wynn;;1913-10-1;Mount Pleasant;SC;The United States;;;0
+823;84;James;O'Hyes;;1913-1-28;Fair Oaks;VA;The United States;;;0
+824;5;Weston;Adams;;1904-3-19;Stickney;IL;The United States;;;0
+825;0;Peter;Molson;;1932-1-1;Murdochville;QC;Canada;;;0
+826;-1;Greg;Nisbett;;1913-6-15;Sarnia;ON;Canada;;;0
+827;-1;Stanford;Mitchell;;1913-1-21;New Braunfels;TX;The United States;;;0
+828;-1;Oliver;Stevens;;1913-1-17;Toronto;ON;Canada;;;0
+829;82;Ryan;Overy;;1913-10-7;Ottawa;ON;Canada;;;0
+830;27;Kenny;Lloyd;;1916-2-1;Orillia;ON;Canada;;;0
+831;3;Ryan;Mrakic;;1915-1-8;Toronto;ON;Canada;;;0
+832;127;Adri·n;Ortega;;1919-12-14;Orillia;ON;Canada;;;0
+833;84;Chris;Hardy;;1918-8-12;Dallas;TX;The United States;;;0
+834;120;Seth;Parker;;1918-5-29;Burnaby;BC;Canada;;;0
+835;24;Ed;Twysden;;1916-7-22;Chili;NY;The United States;;;0
+836;90;Jeff;Liscombe;;1913-9-17;Uniondale;NY;The United States;;;0
+837;3;Don;Fountain;;1913-9-10;Branford;CT;The United States;;;0
+838;124;Massimo;Keith;;1917-2-20;Orangeville;ON;Canada;;;0
+839;95;Zach;Roy;;1913-8-30;Mississauga;ON;Canada;;;0
+840;125;Bob;Butler;;1913-5-12;Surrey;BC;Canada;;;0
+841;127;Phil;Hinkle;;1913-6-8;Winnipeg;MB;Canada;;;0
+842;72;Steve;Morris;;1913-6-28;Chicopee;MA;The United States;;;0
+843;19;Cary;Ruter;;1913-9-2;Ontario;CA;The United States;;;0
+844;86;Colen;Lueders;;1913-11-20;Woodstock;ON;Canada;;;0
+845;62;JosÈ;Fernandez;;1913-3-11;Brooklyn;NY;The United States;;;0
+846;86;Yann;Duclair;;1913-4-18;North Middletown;NJ;The United States;;;0
+847;87;Lynwood;Tuggle;;1913-4-11;Mountain Brook;AL;The United States;;;0
+848;58;Pierre-Carl;Caron;;1913-10-4;Toronto;ON;Canada;;;0
+849;0;Tim;Robbins;;1920-5-2;Ottawa;ON;Canada;;;0
+850;58;Dan;Vans;;1913-7-21;Kawartha Lakes;ON;Canada;;;0
+851;90;Carl;Waters;;1920-12-15;New York;NY;The United States;;;0
+852;95;Steve;Haydock;;1913-7-11;Saint-Jean-sur-Richelieu;QC;Canada;;;0
+853;93;Daniel;Tigner;;1913-4-27;Porcupine;ON;Canada;;;0
+854;71;Tanner;Keller;;1918-6-15;Surrey;BC;Canada;;;0
+855;127;Michael;McKay;;1913-11-30;Lakeside;OH;The United States;;;0
+856;9;Clinton;McLaughlin;;1913-2-24;Hyde Park;NY;The United States;;;0
+857;75;Tommy;Short;;1913-6-22;Toronto;ON;Canada;;;0
+858;96;William;Lindsay;;1913-10-24;Severna Park;MD;The United States;;;0
+859;26;Cory;Yeo;;1913-9-7;Palmetto;FL;The United States;;;0
+860;3;Jon;Perris;;1917-6-17;Columbus;GA;The United States;;;0
+861;94;Dustin;Henrich;;1913-10-14;Sudbury;ON;Canada;;;0
+862;77;Dan;Merrill;;1913-12-29;Calgary;AB;Canada;;;0
+863;82;Vic;Burtynsky;;1913-7-14;Calgary;AB;Canada;;;0
+864;82;Cody;Sveinson;;1913-4-28;Saskatoon;SK;Canada;;;0
+865;26;Carlos;Silva;;1913-2-24;Bracebridge;ON;Canada;;;0
+866;-1;CÈsar;Fernandez;;1913-10-10;Mississauga;ON;Canada;;;0
+867;77;Neil;Knisley;;1917-12-20;Edmundston;NB;Canada;;;0
+868;-1;Allen;Schmidt;;1913-4-21;County of Brant;ON;Canada;;;0
+869;-1;Josh;Gardiner;;1913-10-26;Toronto;ON;Canada;;;0
+870;58;Alex;Stelter;;1922-3-10;Dortmund;NOR;Germany;;;0
+871;91;Jan;Balog;;1914-5-12;Plzen;PLZ;Czech Republic;;;0
+872;70;Ivo;Lanz;;1914-6-10;Eksjˆ;JˆN;Switzerland;;;0
+873;71;Andrea;Presti;;1914-6-25;Lucca;TUS;Italy;;;0
+874;95;David;Fleischmann;;1915-9-22;Venice;VEN;Italy;;;0
+875;81;Milos;Aranicki;;1914-7-30;Golubinci;VOJ;Serbia;;;0
+876;79;JÅ¸ri;Rummo;;1914-1-6;Narva;IDA;Estonia;;;0
+877;77;Stasys;Norkus;;1914-10-6;Ystad;SKÂ;Lithuania;;;0
+878;93;Nikita;Melnikov;;1914-11-30;Falkenberg;HAL;Kazakhstan;;;0
+879;66;Lukas;Becker;;1917-8-4;J‰rf‰lla;STO;Austria;;;0
+880;71;Vittorio;Lilla;;1914-9-21;Karlstad;V‰R;Italy;;;0
+881;26;Jack;Gordon;;1928-3-3;Oakbank;MB;Canada;;;0
+882;118;Hap;Emms;;1905-1-16;Barrie;ON;Canada;;;0
+883;-1;Sean;Workman;;1922-8-2;Kamloops;BC;Canada;;;0
+884;-1;Tony;Schutt;;1921-6-6;Calgary;AB;Canada;;;0
+885;-1;Jack;Church;;1922-12-22;Vermilion;AB;Canada;;;0
+886;-1;Nick;Reagan;;1914-3-18;Moncton;NB;Canada;;;0
+887;122;Adam;Grahn;;1923-11-8;Wadsworth;OH;The United States;;;0
+888;-1;Francis;Poirier;;1914-1-17;Montreal;QC;Canada;;;0
+889;-1;Terry;Whitaker;;1914-7-25;Wolseley;SK;Canada;;;0
+890;67;Ernest;Hory;;1921-4-3;Saint John;NB;Canada;;;0
+891;72;Tim;Kuhlman;;1922-8-7;Indianapolis;IN;The United States;;;0
+892;66;Thomas;Rigney;;1914-4-17;Lantana;TX;The United States;;;0
+893;126;Kevin;Murdoch;;1916-8-19;Victoria;BC;Canada;;;0
+894;68;Colby;Malone;;1914-4-7;Calgary;AB;Canada;;;0
+895;65;Dean;Shlachetka;;1914-1-15;London;ON;Canada;;;0
+896;68;David;McPherson;;1914-2-17;Quebec City;QC;Canada;;;0
+897;87;Daniel;Hinz;;1919-12-12;Winnipeg;MB;Canada;;;0
+898;76;Alex;Burnham;;1914-10-25;Williams Lake;BC;Canada;;;0
+899;78;Paul;Johnston;;1918-11-12;Calgary;AB;Canada;;;0
+900;122;Roger;MacKellachie;;1923-9-11;Strathcona;AB;Canada;;;0
+901;123;Wilson;Rogers;;1917-9-23;Stonewall;MB;Canada;;;0
+902;122;Jake;Duval;;1914-9-1;Wood Buffalo;AB;Canada;;;0
+903;123;Rusty;Daniels;;1915-7-25;Ottawa;ON;Canada;;;0
+904;62;Bryan;O'Hall;;1920-5-6;Avon Park;FL;The United States;;;0
+905;66;Adam;Laing;;1914-11-6;East Los Angeles;CA;The United States;;;0
+906;82;FÈlix;LaperriËre;;1914-7-22;Surrey;BC;Canada;;;0
+907;83;Jacob;Tesoriero;;1914-7-19;Middle River;MD;The United States;;;0
+908;82;George;Mallory;;1914-12-3;Hauterive;QC;Canada;;;0
+909;87;Greg;Price;;1914-8-30;Ottawa;ON;Canada;;;0
+910;127;Ross;Yuen;;1914-4-29;Clarington;ON;Canada;;;0
+911;91;Murray;Hodges;;1914-2-16;Nanaimo;BC;Canada;;;0
+912;86;Jack;Rodman;;1920-7-31;Brooklyn Center;MN;The United States;;;0
+913;126;Bob;Armstrong;;1917-1-10;Dallas;TX;The United States;;;0
+914;124;Milan;Kyle;;1914-9-15;Toronto;ON;Canada;;;0
+915;122;Lucas;Fredrick;;1914-3-31;Chatham-Kent;ON;Canada;;;0
+916;92;Jes˙s;GÛmes;;1920-9-14;Vancouver;BC;Canada;;;0
+917;88;Luke;Pennington;;1914-1-16;Garfield;NJ;The United States;;;0
+918;126;Nathan;Clotworthy;;1914-8-1;Kitchener;ON;Canada;;;0
+919;77;Billy;Croteau;;1914-7-13;Nesquehoning;PA;The United States;;;0
+920;70;David;Cranwell;;1914-12-8;Winnipeg;MB;Canada;;;0
+921;72;Jason;Jacobs;;1914-5-10;Atlanta;GA;The United States;;;0
+922;92;Tim;Goddier;;1921-11-1;Montreal;QC;Canada;;;0
+923;92;Brett;Mudde;;1914-12-11;Edmonton;AB;Canada;;;0
+924;126;Clint;Eberhart;;1914-12-18;Camden;NJ;The United States;;;0
+925;84;Kelby;LeBrun;;1923-11-15;Toronto;ON;Canada;;;0
+926;61;Roberto;Toro;;1914-2-18;Santa Maria;CA;The United States;;;0
+927;96;Wilson;Bogosian;;1914-3-4;Hacienda Heights;CA;The United States;;;0
+928;-1;Brett;Fiedler;;1914-8-16;CaÒon City;CO;The United States;;;0
+929;61;Colm;Iseya;;1914-8-17;Winnipeg;MB;Canada;;;0
+930;22;Thiery;Mailloux;;1920-12-31;Burlington;ON;Canada;;;0
+931;-1;Alexandre;Williams;;1914-12-18;Mount Carmel;IL;The United States;;;0
+932;-1;Ron;Ressler;;1915-11-6;Buffalo Grove;IL;The United States;;;0
+933;63;Zach;Blain;;1914-5-25;London;ON;Canada;;;0
+934;22;Nathan;Tyler;;1920-8-2;Foster City;CA;The United States;;;0
+935;62;Tom·s;Tosner;;1915-2-3;Prague;PRA;Czech Republic;;;0
+936;19;Tyler;Stymiest;;1918-4-24;Saint-Sauveur;QC;Canada;;;0
+937;69;Gabriel;Fuchs;;1915-2-28;Folschviller;LOR;France;;;0
+938;96;Peter;Trew;;1915-9-26;Sydney;NSW;Australia;;;0
+939;62;Jan;Mikula;;1915-2-3;Prague;PRA;Czech Republic;;;0
+940;67;Sergiu;Vianu;;1922-6-5;Bolln‰s;G‰V;Romania;;;0
+941;87;Zhang;Fuyu;;1915-6-14;Lidkˆping;V‰S;China;;;0
+942;125;Harry;Sinden;;1932-9-24;Kingston;ON;Canada;;;0
+943;8;Bill;Wirtz;;1929-10-5;Elk Rapids;MI;The United States;;;0
+944;-1;Eddy;Palchak;;1940-1-1;Murdochville;QC;Canada;;;0
+945;-1;Dave;Teague;;1915-5-29;Burlington;ON;Canada;;;0
+946;-1;Calvin;Sutherland;;1915-2-12;Brockville;ON;Canada;;;0
+947;-1;Craig;Winter;;1919-4-4;Hauterive;QC;Canada;;;0
+948;-1;Jim;Schilkey;;1916-10-21;Los Alamos;NM;The United States;;;0
+949;122;Daryl;Aikens;;1915-1-28;Longueuil;QC;Canada;;;0
+950;127;Dave;von Tieschowitz;;1915-9-20;Wawayanda;NY;The United States;;;0
+951;71;Clement;Osborne;;1915-9-20;Montreal;QC;Canada;;;0
+952;90;Ash;Caligiuri;;1918-3-12;Hebron;CT;The United States;;;0
+953;9;Clint;Simmons;;1922-1-22;Winnipeg;MB;Canada;;;0
+954;10;Patrick;Decowski;;1920-12-26;Swanton;OH;The United States;;;0
+955;121;Bruno;Dumas;;1915-2-12;Maniwaki;QC;Canada;;;0
+956;58;Wyatt;Powell;;1915-3-22;Weare;NH;The United States;;;0
+957;120;Levi;Wildman;;1915-4-15;Nanaimo;BC;Canada;;;0
+958;122;Lewis;MacPatrick;;1922-6-19;North Vancouver;BC;Canada;;;0
+959;121;Eric;Crowchild;;1915-1-4;Plano;TX;The United States;;;0
+960;123;Chris;Woods;;1920-7-16;Toronto;ON;Canada;;;0
+961;122;Ian;Ernst;;1915-2-21;Fort Worth;TX;The United States;;;0
+962;126;Arama;Taree;;1923-4-1;Cudahy;CA;The United States;;;0
+963;64;Jonah;Hopp;;1915-11-1;Livonia;MI;The United States;;;0
+964;68;Clark;Gilbride;;1915-6-23;Calgary;AB;Canada;;;0
+965;9;Tyler;Davidson;;1915-6-8;Ottawa;ON;Canada;;;0
+966;80;Larry;Veitch;;1916-12-24;Pasco;WA;The United States;;;0
+967;72;Donald;Newhouse;;1915-5-30;Prosper;TX;The United States;;;0
+968;59;FÈlix-Antoine;DescÙteaux;;1915-10-22;Sackville;NS;Canada;;;0
+969;80;William;Hankey;;1915-1-7;Ottawa;ON;Canada;;;0
+970;120;Dylan;McCann;;1915-4-30;Surrey;BC;Canada;;;0
+971;73;Eric;Kert;;1915-3-29;Burnaby;BC;Canada;;;0
+972;75;Bob;Parton;;1917-12-28;Mississauga;ON;Canada;;;0
+973;125;Burke;Congi;;1915-7-8;Ajax;ON;Canada;;;0
+974;122;Danny;Pate;;1917-6-2;Brampton;ON;Canada;;;0
+975;66;Charles;Beaulieu;;1915-3-14;Lakeside;FL;The United States;;;0
+976;76;Lee;Sennott;;1915-4-2;Delta;BC;Canada;;;0
+977;67;Aaron;Fox;;1915-10-26;Fredericton;NB;Canada;;;0
+978;-1;Stephen;Burant;;1915-8-23;Inglewood;CA;The United States;;;0
+979;-1;Henry;McWhirr;;1915-7-8;Halton Hills;ON;Canada;;;0
+980;28;George;Horton;;1916-10-30;Rio Rancho;NM;The United States;;;0
+981;72;Aleksandr;Perepechenko;;1916-4-6;Cheboksary;CHU;Russia;;;0
+982;76;Mihai;Lara;;1919-9-5;Branesti;ILF;Romania;;;0
+983;61;Syamyon;Hlyzdaw;;1923-4-22;Uddevalla;V‰S;Russia;;;0
+984;80;Hendrik;Willems;;1916-3-14;Groenlo;GEL;The Netherlands;;;0
+985;82;Aljaz;Sahraj;;1918-10-9;Vrhnika;OSR;Slovenia;;;0
+986;76;Noah;Rey;;1924-9-23;TranÂs;JˆN;Switzerland;;;0
+987;80;Cornelis;Wierenga;;1916-12-21;Amstelveen;NOO;The Netherlands;;;0
+988;87;Francesco;Biaggi;;1916-7-9;Shawinigan;QC;Canada;;;0
+989;95;Tae;Byeong-ho;;1916-4-11;Stockholm;STO;South Korea;;;0
+990;124;Carmen;McArthur;;1916-5-15;Tahoe Vista;CA;The United States;;;0
+991;64;Yan;Kowb;;1916-8-4;Minsk;MIN;Belarus;;;0
+992;66;Christoph;Posch;;1916-4-8;Stockholm;STO;Austria;;;0
+993;68;Emil;Rasmussen;;1918-11-24;Kors¯r;VES;Denmark;;;0
+994;70;Toms;Gulbis;;1916-4-4;Sˆdert‰lje;STO;Latvia;;;0
+995;74;Bence;Gerstl;;1920-5-1;Dunabogdany;PES;Hungary;;;0
+996;79;Mait;Saar;;1916-5-26;Kohtla-J‰rve;IDA;Estonia;;;0
+997;81;Svetomir;Zidarevic;;1921-8-5;Lapovo;CEN;Serbia;;;0
+998;93;Aleksandr;Saakashvili;;1925-11-23;Almaty;ALM;Kazakhstan;;;0
+999;94;Liu;Yuanqui;;1923-4-10;Nanjing;JIA;China;;;0
+1000;86;Jere;Strymbiski;;1916-1-4;Ottawa;ON;Canada;;;0
+1001;129;Baz;Bastien;;1919-8-29;Timmins;ON;Canada;;;0
+1002;-1;Morris;Horsfall;;1916-4-25;Delta;BC;Canada;;;0
+1003;-1;Rhett;Willcox;;1916-11-28;St. Petersburg;FL;The United States;;;0
+1004;-1;Carl;Lozier;;1922-6-20;Hamilton;ON;Canada;;;0
+1005;-1;Pascal;Charron;;1916-6-1;St. Catharines;ON;Canada;;;0
+1006;118;ThÈo;Morissette;;1916-8-30;Montreal;QC;Canada;;;0
+1007;118;Samuel;Leblanc;;1916-3-2;Miramichi;NB;Canada;;;0
+1008;118;Alex;Thompson;;1920-10-11;Port Stanley;ON;Canada;;;0
+1009;125;Bill;Duggins;;1923-9-7;New York;NY;The United States;;;0
+1010;121;Alex;Achille;;1919-9-29;Langley;BC;Canada;;;0
+1011;118;Ray;Carlton;;1916-8-20;Sparwood;BC;Canada;;;0
+1012;122;Dustin;Windsor;;1916-1-5;St. Catharines;ON;Canada;;;0
+1013;119;Homer;Phillips;;1916-10-9;Toronto;ON;Canada;;;0
+1014;121;Jeremy;Lowder;;1916-6-14;Winnipeg;MB;Canada;;;0
+1015;119;Louis-Philip;St-Germain;;1923-1-22;Vaughan;ON;Canada;;;0
+1016;127;Brendan;Wallace;;1916-11-23;New York;NY;The United States;;;0
+1017;121;Tracy;Ross;;1920-5-14;Newton;NC;The United States;;;0
+1018;124;Samuel;Cloutier;;1916-3-26;Cleveland;OH;The United States;;;0
+1019;120;Samuel;Paquette;;1918-2-26;Sault Ste. Marie;ON;Canada;;;0
+1020;123;Dave;McCarty;;1916-12-12;Cumberland;BC;Canada;;;0
+1021;119;Carl;Austin;;1925-4-10;San Bernardino;CA;The United States;;;0
+1022;119;Ruairi;Collins;;1925-10-29;Holyoke;MA;The United States;;;0
+1023;124;Seth;Webb;;1916-7-18;Calgary;AB;Canada;;;0
+1024;119;Daniel;Hannigan;;1916-12-13;Dale;VA;The United States;;;0
+1025;123;Cole;Oliver;;1923-8-11;Cambridge;ON;Canada;;;0
+1026;120;Michael;Herbert;;1916-9-7;Palm Desert;CA;The United States;;;0
+1027;123;David;Stroble;;1923-4-23;Prince George;BC;Canada;;;0
+1028;119;Vaughan;Youngman;;1916-5-10;Vancouver;BC;Canada;;;0
+1029;123;Ryan;Burford;;1916-10-15;Saint-Augustin-de-Desmaures;QC;Canada;;;0
+1030;119;Corey;O'Duvan;;1916-10-15;Strathmore;CA;The United States;;;0
+1031;121;Geoffrey;Stojanov;;1920-12-25;Sudbury;ON;Canada;;;0
+1032;121;Alex;Dickerson;;1916-1-2;Milton;ON;Canada;;;0
+1033;-1;Ken;Gorringe;;1916-10-25;Oakville;ON;Canada;;;0
+1034;-1;Howard;Gerard;;1916-8-29;Pineville;LA;The United States;;;0
+1035;124;Bryan;MacDermid;;1916-8-26;Charlotte;NC;The United States;;;0
+1036;62;Steve;Shelton;;1916-6-29;Burlington;ON;Canada;;;0
+1037;84;Jared;Groves;;1916-9-25;Toronto;ON;Canada;;;0
+1038;129;Robert;Carpenter;;1921-9-3;Saint-Damase;QC;Canada;;;0
+1039;128;Norm;DeCamp;;1916-6-15;Holt;MI;The United States;;;0
+1040;118;Ben;McKinney;;1923-7-17;Memphis;TN;The United States;;;0
+1041;118;Jayson;von Wartensleben;;1922-2-10;Mount Pleasant;SC;The United States;;;0
+1042;118;Michael;Wong;;1926-7-9;Fort Worth;TX;The United States;;;0
+1043;118;Brandon;Hicks;;1917-6-12;Clovis;NM;The United States;;;0
+1044;118;John;Murphy;;1920-3-23;New York;NY;The United States;;;0
+1045;119;Chris;DeLisle;;1917-5-3;Florissant;MO;The United States;;;0
+1046;119;Mike;Murphy;;1923-9-21;Lafayette;CA;The United States;;;0
+1047;-1;Jeffrey;Nash;;1922-9-19;Nesbit;MS;The United States;;;0
+1048;119;Ken;Stuermer;;1921-12-11;East Freehold;NJ;The United States;;;0
+1049;-1;Ralph;O'Keefe;;1917-2-15;Parkland;WA;The United States;;;0
+1050;120;Bryan;Sheals;;1917-1-29;Nashville;NC;The United States;;;0
+1051;120;Rob;Blair;;1926-10-17;Millersville;MD;The United States;;;0
+1052;120;Wayne;Wethington;;1925-7-7;San Diego;CA;The United States;;;0
+1053;120;Steve;Castle;;1917-11-30;North Las Vegas;NV;The United States;;;0
+1054;120;Travis;Newall;;1922-3-21;Villano Beach;FL;The United States;;;0
+1055;121;Dave;Larson;;1925-8-13;Kapolei;HI;The United States;;;0
+1056;-1;Dave;Carlson;;1917-5-7;Atlanta;GA;The United States;;;0
+1057;-1;Chris;Lee;;1924-8-16;Santa Cruz;CA;The United States;;;0
+1058;-1;Paul;Fox;;1917-2-19;Muskogee;OK;The United States;;;0
+1059;-1;John;Callison;;1917-8-20;Green Bay;WI;The United States;;;0
+1060;-1;Kenny;Dieter;;1917-4-24;Atwater;CA;The United States;;;0
+1061;-1;Ryan;Crocker;;1917-4-6;Buras-Triumph;LA;The United States;;;0
+1062;-1;Pat;Mack;;1917-10-1;Lansing;MI;The United States;;;0
+1063;-1;Dean;Shoebottom;;1923-4-10;East St. Paul;MB;The United States;;;0
+1064;-1;Burton;Blanton;;1917-9-28;Antioch;IL;The United States;;;0
+1065;123;Randy;Thomlinson;;1917-6-8;Los Angeles;CA;The United States;;;0
+1066;123;Pat;Hoshaw;;1917-12-27;Leesylvania;VA;The United States;;;0
+1067;123;Michael;Wilcox;;1917-8-8;Jersey Village;TX;The United States;;;0
+1068;123;Will;Dewey;;1917-8-30;Brooklyn;NY;The United States;;;0
+1069;123;Mark;Stevens;;1917-8-25;Denver;IN;The United States;;;0
+1070;28;Erik;Mercer;;1917-5-16;Arden-Arcade;CA;The United States;;;0
+1071;124;Cal;Radcliff;;1921-5-21;;;The United States;;;0
+1072;124;Todd;Wells;;1922-5-7;;;The United States;;;0
+1073;124;Joey;von Haynau;;1917-1-6;;;The United States;;;0
+1074;124;David;Hancock;;1917-10-8;;;The United States;;;0
+1075;124;Jacob;Affinati;;1923-7-27;South Holland;IL;The United States;;;0
+1076;124;Chris;MacIntyre;;1903-2-28;;;The United States;;;0
+1077;125;Lee;Ayson;;1917-11-21;;;The United States;;;0
+1078;125;Ernie;O'Quinn;;1917-9-24;;;The United States;;;0
+1079;125;Dave;Hollar;;1917-8-14;;;The United States;;;0
+1080;125;Robert;Ingram;;1917-7-23;Los Angeles;CA;The United States;;;0
+1081;125;Richard;Banstead;;1917-8-21;;;The United States;;;0
+1082;125;Brady;Murphy;;1918-2-10;;;The United States;;;0
+1083;126;Carl;Reed;;1917-6-16;Plano;TX;The United States;;;0
+1084;126;Curtis;Woodard;;1918-10-9;;;The United States;;;0
+1085;126;Dave;Banks;;1917-8-16;;;The United States;;;0
+1086;126;JosÈ;Rojas;;1917-5-29;;;The United States;;;0
+1087;126;Carl;Stopford;;1919-2-2;;;The United States;;;0
+1088;126;Kevin;O'Mullane;;1926-8-1;;;The United States;;;0
+1089;65;Manuel;Suter;;1923-8-5;Schaffhausen;SH;Switzerland;;;0
+1090;127;Bobby;Stanbury;;1917-4-15;;;The United States;;;0
+1091;127;Jason;Wolford;;1920-6-15;;;The United States;;;0
+1092;127;Lawrence;Mahoney;;1917-9-26;;;The United States;;;0
+1093;127;Ethan;Fields;;1917-1-28;Pocatello;ID;The United States;;;0
+1094;127;Ryan;Schultz;;1917-8-15;Port Washington;WI;The United States;;;0
+1095;127;Haywood;Greene;;1903-3-19;;;The United States;;;0
+1096;128;Jeff;Parkinson;;1917-3-15;Lincoln;RI;The United States;;;0
+1097;128;Darryl;Mjelleli;;1926-4-10;;;The United States;;;0
+1098;128;Brian;Roan;;1917-1-18;;;The United States;;;0
+1099;128;Haywood;Treat;;1925-7-24;;;The United States;;;0
+1100;128;Eric;Puckett;;1917-1-24;Wintersville;OH;The United States;;;0
+1101;128;Derrick;Waters;;1925-4-21;New York;NY;The United States;;;0
+1102;128;Jonathan;Reynolds;;1917-11-21;Scottsdale;AZ;The United States;;;0
+1103;128;William;MacMorrough;;1917-11-29;Statesville;NC;The United States;;;0
+1104;128;Bill;Reeves;;1923-1-11;Voorheesville;NY;The United States;;;0
+1105;128;Bob;Hickson;;1917-1-9;New York;NY;The United States;;;0
+1106;128;Mike;Buckson;;1917-3-11;Everett;WA;The United States;;;0
+1107;128;Danny;Reeves;;1918-7-31;Los Angeles;CA;The United States;;;0
+1108;128;Richard;Mutter;;1906-7-13;;;The United States;;;0
+1109;129;Jim;Earnest;;1917-11-9;;;The United States;;;0
+1110;129;John;Sproul;;1922-4-30;;;The United States;;;0
+1111;129;John;Ellender;;1917-3-1;;;The United States;;;0
+1112;129;Millard;Rorie;;1918-3-9;Eatontown;NJ;The United States;;;0
+1113;129;Mark;Osborne;;1917-4-12;;;The United States;;;0
+1114;129;HÂvard;Taranger;;1917-7-3;Varhaug;ROG;Norway;;;0
+1115;129;Paul;McPhedran;;1917-11-30;Tamarac;FL;The United States;;;0
+1116;129;Harvey;Snyder;;1917-8-9;Fishers;IN;The United States;;;0
+1117;129;Anthony;Burns;;1917-6-21;Gillette;WY;The United States;;;0
+1118;129;Dylan;Chauvet;;1917-9-22;Orlando;FL;The United States;;;0
+1119;129;Walt;Peppercorn;;1917-8-22;Beaver Falls;PA;The United States;;;0
+1120;129;Sergio;Rezzonico;;1917-12-23;Bellinzona;TI;Switzerland;;;0
+1121;129;Sterling;Artman;;1899-8-21;;;The United States;;;0
+1122;22;Carlton;Gorrie;;1917-8-19;Chicago;IL;The United States;;;0
+1123;64;Oleksiy;Bobko;;1919-7-29;Gomel;GOM;Belarus;;;0
+1124;66;Filip;Sjˆholm;;1917-10-10;Nacka;STO;Sweden;;;0
+1125;67;Markus;Larsson;;1924-9-26;Stockholm;STO;Sweden;;;0
+1126;68;Simon;Andreasen;;1917-11-14;Varberg;HAL;Denmark;;;0
+1127;69;Daniel;Pettersson;;1917-6-16;Halmstad;HAL;Sweden;;;0
+1128;71;Johan;Andersson;;1920-6-12;Linkˆping;÷ST;Sweden;;;0
+1129;76;Emanuel;Engstrˆm;;1917-1-4;Nybro;KAL;Sweden;;;0
+1130;79;Markus;Lindquist;;1925-3-24;Malmˆ;SKÂ;Sweden;;;0
+1131;80;Hayden;Dyce;;1917-1-8;Sheffield;ENG;England;;;0
+1132;84;Brian;MacLean;;1917-1-2;Burnaby;BC;Canada;;;0
+1133;88;Ken;Haun;;1917-3-6;Mathis;TX;The United States;;;0
+1134;89;Joey;McCann;;1917-8-16;Auburn;WA;The United States;;;0
+1135;91;Sture;Jansson;;1917-12-7;Gˆteborg;V‰S;Sweden;;;0
+1136;93;Lennart;Blixt;;1917-9-21;Vansbro;DAL;Sweden;;;0
+1137;93;Lukas;Molin;;1917-1-12;Stockholm;STO;Sweden;;;0
+1138;93;Mark;Zeller;;1917-7-24;Munich;BAV;Germany;;;0
+1139;93;Dennis;Jensen;;1917-4-3;SollefteÂ;V‰S;Sweden;;;0
+1140;94;Joel;Ohlsson;;1926-7-24;G‰vle;G‰V;Sweden;;;0
+1141;96;Fredrik;Abrahamsson;;1917-4-18;Malmˆ;SKÂ;Sweden;;;0
+1142;96;Carl;Tell;;1917-2-25;Nacka;STO;Sweden;;;0
+1143;88;Dan;Waller;;1924-12-8;;;The United States;;;0
+1144;24;Sherman;Crawford;;1917-2-21;Tucson;AZ;The United States;;;0
+1145;95;Choe;Yeong-cheol;;1917-2-22;Vansbro;DAL;South Korea;;;0
+1146;68;Lasse;Paananen;;1917-2-27;Helsinki;UUS;Finland;;;0
+1147;63;Norbert;Bogdan;;1917-1-30;Prievidza;TRE;Slovakia;;;0
+1148;60;Heikki;Malin;;1917-10-17;Pudasj‰rvi;NOS;Finland;;;0
+1149;87;Tyler;Corbould;;1917-6-23;;;Canada;;;0
+1150;82;Hrvoje;Kacic;;1917-7-17;MˆnsterÂs;KAL;Slovenia;;;0
+1151;73;Nariaki;Kitano;;1917-10-11;Stockholm;STO;Japan;;;0
+1152;69;Stef;Geurts;;1917-6-17;Malmˆ;SKÂ;The Netherlands;;;0
+1153;62;Martin;Juranek;;1917-8-30;Staffanstorp;SKÂ;Czech Republic;;;0
+1154;77;Bastian;M¸ller;;1917-5-29;Hamburg;HAM;Germany;;;0
+1155;61;Ivan;Arteyev;;1917-8-26;Stockholm;STO;Russia;;;0
+1156;63;Martin;Kluciar;;1920-10-6;Malmˆ;SKÂ;Slovakia;;;0
+1157;58;Leon;Herrmann;;1917-9-10;Delitzsch;SAX;Germany;;;0
+1158;64;Andrey;Haroshka;;1917-9-8;Munkedal;V‰S;Belarus;;;0
+1159;83;Riley;Mullins;;1917-10-9;Apple Valley;CA;The United States;;;0
+1160;93;Tanat;Magzumov;;1918-10-15;LuleÂ;NOR;Kazakhstan;;;0
+1161;80;Kevin;Sluiter;;1924-1-2;Stockholm;STO;The Netherlands;;;0
+1162;122;Scotty;Bowman;;1933-9-18;Murdochville;QC;Canada;;;0
+1163;122;Jim;Devellano;;1943-1-18;Toronto;ON;Canada;;;0
+1164;122;Bill;Torrey;;1934-6-23;Murdochville;QC;Canada;;;0
+1165;121;John;Muckler;;1934-4-13;Midland;ON;Canada;;;0
+1166;121;Floyd;Curry;Busher;1925-8-11;Chapleau;ON;Canada;;;0
+1167;122;Ron;Caron;;1929-12-19;Murdochville;QC;Canada;;;0
+1168;123;Bernie;Geoffrion;Boom-Boom;1931-2-14;Murdochville;QC;Canada;;;0
+1169;118;Bud;Poile;;1924-2-10;Thunder Bay;ON;Canada;;;0
+1170;122;Larry;Regan;;1930-8-9;North Bay;ON;Canada;;;0
+1171;122;Fred;Glover;;1928-1-5;Toronto;ON;Canada;;;0
+1172;123;Rudy;Migay;;1928-11-18;Thunder Bay;ON;Canada;;;0
+1173;122;Wren;Blair;;1925-10-2;Lindsay;ON;Canada;;;0
+1174;122;Ted;O'Connor;;1930-11-15;Oshawa;ON;Canada;;;0
+1175;118;Keith;Allen;;1923-8-21;Swift Current;SK;Canada;;;0
+1176;118;Jack Kent;Cooke;;1912-10-25;Hamilton;ON;Canada;;;0
+1177;-1;Ed;Chadwick;;1933-5-8;Fergus;ON;Canada;;;0
+1178;120;Barry;van Gerbig;;1939-1-1;Newburgh;NY;The United States;;;0
+1179;119;Walter;Bush;;1929-9-25;Oak Park Heights;MN;The United States;;;0
+1180;3;Gerry;Melnyk;;1934-9-16;Elk Point;AB;Canada;;;0
+1181;121;Ed;Snider;;1933-1-6;Cottage Grove;OR;The United States;;;0
+1182;123;Sidney;Salomon;;1910-4-20;Southfield;MI;The United States;;;0
+1183;122;Jim;Gregory;;1935-11-4;Port Colborne;ON;Canada;;;0
+1184;122;Edgar;Brenchley;;1912-2-10;Sittingbourne;ENG;England;Canada;;0
+1185;121;Henry;Saraceno;;1933-1-1;St. Thomas;ON;Canada;;;0
+1186;122;Frank;Selke;;1929-9-7;Toronto;ON;Canada;;;0
+1187;5;Red;Kelly;;1927-7-9;Simcoe;ON;Canada;;;0
+1188;122;Jack;McGregor;;1934-9-22;Loganville;PA;The United States;;;0
+1189;-1;Bill;Gadsby;;1927-8-8;Camrose;AB;Canada;;;0
+1190;121;Jack;Riley;;1919-6-14;Toronto;ON;Canada;;;0
+1191;-1;Doug;Bentley;;1917-9-16;Burnaby;BC;Canada;;;0
+1192;-1;Pat;Ridgway;;1917-4-4;Lynchburg;VA;The United States;;;0
+1193;-1;Curt;Boswell;;1917-6-1;Bryan;TX;The United States;;;0
+1194;-1;Brady;Finnerty;;1921-4-28;Forest Hill;TX;The United States;;;0
+1195;-1;Jean-Michel;Boissonneault;;1917-6-28;Hastings;MN;The United States;;;0
+1196;118;Cody;Chapman;;1917-10-30;Thunder Bay;ON;Canada;;;0
+1197;-1;Brad;Maines;;1923-3-21;Saint-Jean-sur-Richelieu;QC;Canada;;;0
+1198;-1;Marc-AndrÈ;Santerre;;1917-8-26;Atlanta;GA;The United States;;;0
+1199;119;Ed;Kerr;;1917-3-26;Montreal;QC;Canada;;;0
+1200;-1;Jack;Cossette;;1917-1-15;Haldimand County;ON;Canada;;;0
+1201;-1;James;Tyler;;1917-1-12;Terrebonne;QC;Canada;;;0
+1202;-1;B.J.;Tate;;1918-8-18;South Frontenac;ON;Canada;;;0
+1203;-1;Jed;Law;;1917-2-2;Fishers;IN;The United States;;;0
+1204;-1;Logan;Orchard;;1917-4-2;Les Œles de la Madeleine;QC;Canada;;;0
+1205;-1;Bryan;Neal;;1917-6-27;Port Hope;ON;Canada;;;0
+1206;-1;Joseph;Pollock;;1918-4-30;Milwaukie;OR;The United States;;;0
+1207;-1;Tyler;Ross;;1926-5-11;London;ON;Canada;;;0
+1208;118;Danny;Heyward;;1926-5-6;Vaughan;ON;Canada;;;0
+1209;5;Peter;Fredericks;;1917-3-22;Saint-Blaise-sur-Richelieu;QC;Canada;;;0
+1210;-1;Jeff;Foster;;1919-3-17;Medford;NY;The United States;;;0
+1211;123;Edward;Myers;;1917-4-1;Kingston;ON;Canada;;;0
+1212;-1;Melvin;Owens;;1926-1-3;Ajax;ON;Canada;;;0
+1213;118;Merrill;Dubin;;1917-11-1;Hampstead;NH;The United States;;;0
+1214;-1;Brad;Willis;;1922-4-12;Vaughan;ON;Canada;;;0
+1215;-1;Dylan;Hancock;;1917-7-20;Bonavista;NL;Canada;;;0
+1216;-1;Frank;McKeown;;1924-11-25;Niagara Falls;ON;Canada;;;0
+1217;3;Tim;Sewell;;1925-1-23;Montreal;QC;Canada;;;0
+1218;-1;Jack;Wilder;;1922-10-31;Montreal;QC;Canada;;;0
+1219;8;Burton;Benson;;1917-9-18;Calgary;AB;Canada;;;0
+1220;119;Jim;Kostolansky;;1917-5-19;Calgary;AB;Canada;;;0
+1221;119;Jes˙s;Aguilar;;1917-6-9;Victoria;BC;Canada;;;0
+1222;-1;Deron;Flicek;;1917-5-24;New Orleans;LA;The United States;;;0
+1223;-1;David;Reeves;;1917-6-26;Vegreville;AB;Canada;;;0
+1224;-1;Darren;Powell;;1923-6-29;Carmichael;CA;The United States;;;0
+1225;-1;Steve;Morris;;1917-5-30;Center Moriches;NY;The United States;;;0
+1226;-1;Andrew;Elliott;;1917-5-24;Mississauga;ON;Canada;;;0
+1227;-1;William;Mayhew;;1924-3-17;Toronto;ON;Canada;;;0
+1228;-1;Gabriel;Royer;;1918-11-8;Hawkesbury;ON;Canada;;;0
+1229;123;Tom;Welsh;;1917-7-14;Calgary;AB;Canada;;;0
+1230;118;Enrico;Artenga;;1920-1-4;Oshawa;ON;Canada;;;0
+1231;-1;Keith;Porter;;1925-6-20;Brampton;ON;Canada;;;0
+1232;123;Arthur;Howard;;1924-3-15;Terrace;BC;Canada;;;0
+1233;119;Mitchell;Akers;;1917-2-25;Des Moines;WA;The United States;;;0
+1234;122;Steffen;Kero;;1924-11-16;Firestone;CO;The United States;;;0
+1235;118;Mark;Hale;;1917-10-23;Winnipeg;MB;Canada;;;0
+1236;-1;Zach;Stewart;;1917-9-22;Strathroy;ON;Canada;;;0
+1237;-1;Eric;Witherspoon;;1917-5-15;Woodlawn;MD;The United States;;;0
+1238;-1;Michael;Wood;;1918-2-5;Winnipeg;MB;Canada;;;0
+1239;-1;JosÈ;Estrada;;1917-3-18;Indian Harbour Beach;FL;The United States;;;0
+1240;-1;Ryan;Sims;;1917-4-20;Silver Spring;MD;The United States;;;0
+1241;-1;Brad;Spencer;;1917-11-12;Peterborough;ON;Canada;;;0
+1242;123;Damian;Murray;;1917-10-25;Chicago;IL;The United States;;;0
+1243;-1;Bob;Miller;;1917-8-9;Mississauga;ON;Canada;;;0
+1244;5;Ron;Welch;;1926-7-18;Warrenton;GA;The United States;;;0
+1245;118;Dave;Christian;;1917-4-2;Sherbrooke;QC;Canada;;;0
+1246;-1;Brian;Berkstresser;;1917-11-5;Rocky View County;AB;Canada;;;0
+1247;-1;Arthur;Lowe;;1924-10-16;Sainte-Marie;QC;Canada;;;0
+1248;-1;Austin;Riyaz;;1917-4-19;Bowmanville;ON;Canada;;;0
+1249;-1;Evan;Delory;;1917-3-22;Delta;BC;Canada;;;0
+1250;-1;Tommy;Dawson;;1917-2-3;Toronto;ON;Canada;;;0
+1251;-1;Tim;Hobbs;;1920-10-18;Ottawa;ON;Canada;;;0
+1252;-1;Kelly;Bunch;;1917-9-25;Kingston;ON;Canada;;;0
+1253;-1;Ralph;Schrader;;1917-9-7;Maple Ridge;BC;Canada;;;0
+1254;-1;David;Kregar;;1917-8-28;New York;NY;The United States;;;0
+1255;-1;Chris;Marshall;;1921-12-18;Linthicum;MD;The United States;;;0
+1256;-1;Alex;Colville;;1917-8-13;Calgary;AB;Canada;;;0
+1257;123;Jon;Nelson;;1917-4-25;West Vancouver;BC;Canada;;;0
+1258;118;Dennis;Arnold;;1924-1-9;Nanaimo;BC;Canada;;;0
+1259;-1;Lee;Linklater;;1919-4-7;Vancouver;BC;Canada;;;0
+1260;-1;AndrÈs;Inostraza;;1917-9-12;St. Johnsville;NY;The United States;;;0
+1261;123;Jim;Maiden;;1917-1-15;Long Beach;CA;The United States;;;0
+1262;-1;Travis;Cochran;;1917-8-14;Los Angeles;CA;The United States;;;0
+1263;-1;Samuel;Gordon;;1917-9-10;Green Valley;MD;The United States;;;0
+1264;-1;Dillon;Petersen;;1917-9-5;Sainte-Anne-des-Monts;QC;Canada;;;0
+1265;-1;Paul;Felmer;;1917-5-14;Timmins;ON;Canada;;;0
+1266;-1;Kenny;Hempenstall;;1917-10-13;Sutton;ON;Canada;;;0
+1267;-1;Sergio;Anello;;1917-11-29;Saint-Lin-Laurentides;QC;Canada;;;0
+1268;-1;Larry;Roy;;1917-3-17;Orion;IL;The United States;;;0
+1269;-1;Warren;Nguyen;;1922-7-15;Ottawa;ON;Canada;;;0
+1270;-1;Alex;Silver;;1917-11-26;Richmond;VA;The United States;;;0
+1271;-1;Mike;Baty;;1917-7-27;Langford;BC;Canada;;;0
+1272;-1;Bud;Griffin;;1917-8-8;Saint-Jacques;QC;Canada;;;0
+1273;-1;Mitch;Love;;1917-9-10;Alhambra;CA;The United States;;;0
+1274;-1;Pat;Mullins;;1920-8-8;Indianapolis;IN;The United States;;;0
+1275;-1;Rhett;O'Brian;;1917-4-15;Toronto;ON;Canada;;;0
+1276;-1;Spencer;Curlee;;1917-9-18;West Palm Beach;FL;The United States;;;0
+1277;-1;Morgan;Bennett;;1920-7-3;Cochrane;AB;Canada;;;0
+1278;-1;Kyle;Schmidt;;1917-12-14;Calgary;AB;Canada;;;0
+1279;-1;Eddie;O'Scanlon;;1917-7-5;Markham;ON;Canada;;;0
+1280;-1;Jeremy;Rose;;1921-8-31;Mississauga;ON;Canada;;;0
+1281;118;GM;Kings;;1912-6-28;;;Canada;;;0
+1282;119;GM;North Stars;;1912-6-28;;;Canada;;;0
+1283;120;GM;Seals;;1912-6-28;;;Canada;;;0
+1284;121;GM;Flyers;;1912-6-28;;;Canada;;;0
+1285;122;GM;Penguins;;1912-6-28;;;Canada;;;0
+1286;123;GM;Blues;;1912-6-28;;;Canada;;;0
+0;-1;Conn;Smythe;;1895-2-1;Toronto;ON;Canada;;;1
+1;-1;Tommy;Gorman;;1886-6-9;Ottawa;ON;Canada;;;1
+2;-1;Lester;Patrick;The Silver Fox;1883-12-31;Drummondville;QC;Canada;;;1
+3;-1;Frank;Patrick;;1885-12-21;Ottawa;ON;Canada;;;1
+4;-1;Art;Ross;;1885-1-13;Sudbury;ON;Canada;The United States;;1
+5;-1;Newsy;Lalonde;;1887-10-31;Cornwall;ON;Canada;;;1
+6;-1;Pete;Muldoon;;1887-6-4;Perth;ON;Canada;;;1
+7;-1;James;Strachan;;1876-4-6;Montreal;QC;Canada;;;1
+8;-1;Frederic;McLaughlin;Major;1877-6-27;Chicago;IL;The United States;;;1
+9;-1;Hugh;Lehman;;1885-10-27;Pembroke;ON;Canada;;;1
+10;-1;Clem;Loughlin;;1892-11-15;Winnipeg;MB;Canada;;;1
+11;-1;Ken;Randall;;1888-12-14;Kingston;ON;Canada;;;1
+12;-1;Eddie;Powers;;1888-9-11;Toronto;ON;Canada;;;1
+13;-1;Charlie;Querrie;;1877-7-25;Markham;ON;Canada;;;1
+14;-1;Dick;Carroll;;1888-4-28;Guelph;ON;Canada;;;1
+15;-1;Mike;Quinn;;1874-3-27;Quebec City;QC;Canada;;;1
+16;-1;George;Kennedy;;1881-12-29;Montreal;QC;Canada;;;1
+17;-1;Cecil;Hart;;1883-11-28;Bedford;QC;Canada;;;1
+18;-1;LÈo;Dandurand;;1889-7-9;Bourbonnais;IL;Canada;The United States;;1
+19;-1;Jimmy;Gardner;;1881-5-21;Montreal;QC;Canada;;;1
+20;-1;Ernest;Savard;;1883-1-1;Montreal;QC;Canada;;;1
+21;-1;Pit;LÈpine;;1901-7-30;Montreal;QC;Canada;;;1
+22;-1;Frank;Carroll;;1879-12-20;Guelph;ON;Canada;;;1
+23;-1;Dave;Gill;;1886-1-1;Ottawa;ON;Canada;;;1
+24;-1;Percy;LeSueur;;1881-11-18;Quebec City;QC;Canada;;;1
+25;-1;Dunc;Munro;;1901-1-19;Elgin;SCO;Scotland;Canada;;1
+26;-1;George;O'Donoghue;;1885-12-8;Toronto;ON;Canada;;;1
+27;-1;Alex;Romeril;;1882-12-29;Toronto;ON;Canada;;;1
+28;-1;Harvey;Sproule;;1883-1-12;Milton;ON;Canada;;;1
+29;-1;Cooper;Smeaton;;1890-7-22;Ottawa;ON;Canada;;;1
+30;-1;Odie;Cleghorn;;1891-9-19;Montreal;QC;Canada;;;1
+31;-1;Pete;Green;;1868-3-13;Montreal;QC;Canada;;;1
+32;-1;Joe;Power;;1886-1-12;Stephenville;NL;Canada;;;1
+33;-1;Charles;Nolan;;1872-4-21;Savannah;GA;The United States;;;1
+34;-1;Dickie;Boon;;1878-1-10;Belleville;ON;Canada;;;1
+35;-1;Alf;Smith;;1873-6-3;Ottawa;ON;Canada;;;1
+36;-1;Adolphe;Lecours;;1878-1-23;Montreal;QC;Canada;;;1
+37;-1;NapolÈon;Dorval;;1878-5-16;Montreal;QC;Canada;;;1
+38;-1;Eddie;Gerard;;1890-2-22;Ottawa;ON;Canada;;;1
+39;-1;Frank;Frederickson;;1895-7-11;Winnipeg;MB;Canada;;;1
+40;-1;Sprague;Cleghorn;;1890-3-11;Montreal;QC;Canada;;;1
+41;-1;Herb;Gardiner;;1891-5-9;Winnipeg;MB;Canada;;;1
+42;-1;Alex;Currie;;1891-12-12;Ottawa;ON;Canada;;;1
+43;-1;Mike;Rodden;;1891-4-24;Mattawa;ON;Canada;;;1
+44;-1;Emil;Iverson;;1892-11-2;Copenhagen;FRE;Denmark;Canada;;1
+45;-1;Tom;Shaughnessy;;1892-7-12;South Bend;IN;The United States;;;1
+46;-1;Frank;Heffernan;;1892-1-12;Peterborough;ON;Canada;;;1
+47;-1;Barney;Stanley;;1893-1-1;Paisley;ON;Canada;;;1
+48;-1;Joe;Simpson;Bullet Joe;1893-8-23;Selkirk;MB;Canada;;;1
+49;-1;Art;Duncan;;1894-7-4;Sault Ste. Marie;ON;Canada;;;1
+50;-1;Duke;Keats;;1895-3-21;Montreal;QC;Canada;;;1
+51;-1;Dick;Irvin;;1892-7-19;Hamilton;ON;Canada;;;1
+52;-1;Bill;Tobin;;1895-5-20;Ottawa;ON;Canada;;;1
+53;-1;Bill;Stewart;;1895-9-20;Fitchburg;WI;The United States;;;1
+54;-1;Buck;Boucher;;1895-8-17;Ottawa;ON;Canada;;;1
+55;-1;Shorty;Green;;1896-7-17;Sudbury;ON;Canada;;;1
+56;-1;Jack;Adams;Trader Jack;1894-6-14;Thunder Bay;ON;Canada;;;1
+57;-1;Red;Dutton;;1897-7-23;Russell;MB;Canada;;;1
+58;-1;Jules;Dugal;;1899-1-1;Montreal;QC;Canada;;;1
+59;-1;Lionel;Conacher;;1900-5-24;Toronto;ON;Canada;;;1
+60;-1;Frank;Boucher;;1901-10-7;Ottawa;ON;Canada;;;1
+61;-1;Hap;Day;;1901-6-1;Owen Sound;ON;Canada;;;1
+62;-1;William;Mausolf;;1906-5-2;Paradise;NL;Canada;;;1

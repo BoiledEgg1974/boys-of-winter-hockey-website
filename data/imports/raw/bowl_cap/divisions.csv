@@ -1,0 +1,9 @@
+League Id;Conference Id;Division Id;Name
+0;0;0;Northeast Division
+0;0;1;Atlantic Division
+0;0;2;Southeast Division
+0;1;0;Central Division
+0;1;1;Pacific Division
+0;1;2;Northwest Division
+3;-1;0;American Hockey League
+3;-1;1;International Hockey League

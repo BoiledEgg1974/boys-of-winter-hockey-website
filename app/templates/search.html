@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Search{% if q %} — {{ q }}{% endif %} — Boys of Winter Hockey League{% endblock %}
+{% block content %}
+<h1 class="page-title">Player search</h1>
+<p class="muted">Use the search box in the header for live suggestions, or run a full query below.</p>
+<form method="get" action="{{ url_for('main.search_page') }}" class="card" style="padding:0.75rem;margin-bottom:1rem;">
+  <input type="search" name="q" value="{{ q }}" placeholder="Player name" style="min-width:220px;padding:0.4rem;">
+  <button type="submit">Search</button>
+</form>
+<div id="search-results" class="card"></div>
+{% endblock %}
+{% block scripts %}
+{% if q %}
+<script>
+(function () {
+  function escapeAttr(s) {
+    if (s == null || s === '') return '';
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;');
+  }
+  function escapeHtml(s) {
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+  var q = {{ q|tojson }};
+  fetch('/api/search/players?q=' + encodeURIComponent(q))
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      var el = document.getElementById('search-results');
+      if (!data.results || !data.results.length) {
+        el.innerHTML = '<p class="empty-state">No players found.</p>';
+        return;
+      }
+      var h = '<ul style="list-style:none;padding:0;margin:0;">';
+      data.results.forEach(function (p) {
+        var meta;
+        if (p.team_logo_url && p.team_logo_url.length) {
+          var logoHtml = p.team_slug
+            ? '<a class="team-name-lockup team-name-lockup--icon" href="/team/' + escapeAttr(p.team_slug) + '"><img src="' + escapeAttr(p.team_logo_url) + '" alt="" class="team-name-lockup__logo"></a> '
+            : '<img src="' + escapeAttr(p.team_logo_url) + '" alt="" class="team-name-lockup__logo"> ';
+          meta = logoHtml + escapeHtml(p.position || '—');
+        } else {
+          meta = escapeHtml(p.position || '—') + ' · ' + escapeHtml(p.team_abbr || p.team || '');
+        }
+        h += '<li style="padding:0.5rem 0;border-bottom:1px solid var(--border);"><a href="/player/' + p.id + '"><strong>' + escapeHtml(p.full_name) + '</strong></a> — ' + meta + '</li>';
+      });
+      h += '</ul>';
+      el.innerHTML = h;
+    });
+})();
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Undrafted Prospects — Boys of Winter Hockey League{% endblock %}
+{% macro attr_pill(val) -%}
+{% if val is none or val == '' %}—{% else %}
+<span class="stats-badge stats-badge--rating prospects-rankings__attr-pill" style="{{ val|attr_rating_style }}">{{ val|float|round(0)|int }}</span>
+{% endif %}
+{%- endmacro %}
+{% macro abi_pot_pill(val) -%}
+{% if val is none %}—{% else %}
+<span class="stats-badge stats-badge--rating" style="{{ val|rating_pill_style }}">{{ '%.1f'|format(val|float) }}</span>
+{% endif %}
+{%- endmacro %}
+{% macro ud_sort_th(sk, label, tip='') -%}
+{% set ord = ('asc' if prospect_order == 'desc' else 'desc') if sk == prospect_sort else ('desc' if sk in prospect_sort_desc_defaults else 'asc') %}
+{% set af = age_filter if age_filter else none %}
+{% if prospect_expanded %}
+{% set href = url_for('main.undrafted_prospects', sort=sk, order=ord, age=af, position=position or none, expanded=1) %}
+{% else %}
+{% set href = url_for('main.undrafted_prospects', sort=sk, order=ord, age=af, position=position or none) %}
+{% endif %}
+<th scope="col"{% if tip %} title="{{ tip|e }}"{% endif %}>
+  <a href="{{ href }}"
+     class="stats-th-link{% if sk == prospect_sort %} is-sorted {{ 'is-sorted-asc' if prospect_order == 'asc' else 'is-sorted-desc' }}{% endif %}">{{ label }}</a>
+</th>
+{%- endmacro %}
+{% block content %}
+<div class="prospects-rankings-page">
+  <h1 class="page-title">Undrafted Prospects</h1>
+  <form method="get" class="card prospects-rankings-page__filters">
+    <input type="hidden" name="sort" value="{{ prospect_sort }}">
+    <input type="hidden" name="order" value="{{ prospect_order }}">
+    {% if prospect_expanded %}<input type="hidden" name="expanded" value="1">{% endif %}
+    <label class="prospects-rankings-page__field">Age
+      <select name="age" onchange="this.form.submit()">
+        <option value="" {{ 'selected' if not age_filter else '' }}>All</option>
+        {% for av in undrafted_age_options %}
+        <option value="{{ av }}" {{ 'selected' if age_filter == (av ~ '') else '' }}>{{ av }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="prospects-rankings-page__field">Position
+      <select name="position" onchange="this.form.submit()">
+        <option value="">All</option>
+        {% for p in ['C','LW','RW','D','G'] %}
+        <option value="{{ p }}" {{ 'selected' if position == p else '' }}>{{ p }}</option>
+        {% endfor %}
+      </select>
+    </label>
+  </form>
+  <div class="card">
+    {% if prospect_rows %}
+    <div class="table-wrap">
+      <table class="data prospects-rankings-table prospects-rankings-table--undrafted">
+        <thead>
+          <tr>
+            {{ ud_sort_th('rank', '#', 'Rank (potential, ability, name)') }}
+            {{ ud_sort_th('player', 'PLAYER', 'Player') }}
+            <th scope="col" title="Age">AGE</th>
+            {{ ud_sort_th('abi', 'ABI.', 'Ability') }}
+            {{ ud_sort_th('pot', 'POT.', 'Potential') }}
+            {% for full, abbr, key in prospect_overview_headers %}
+            {{ ud_sort_th(key, abbr, full) }}
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in prospect_rows %}
+          {% set pl = row.player %}
+          <tr>
+            <td {% if prospect_sort == 'rank' %}class="stats-td-sorted"{% endif %}>{{ row.rank }}</td>
+            <td {% if prospect_sort == 'player' %}class="stats-td-sorted"{% endif %}>
+              <span class="stats-player-cell">
+                <a class="stats-player-cell__photo" href="{{ url_for('main.player_page', player_id=pl.id) }}">
+                  {% if player_headshot_url(pl) %}
+                  <img src="{{ player_headshot_url(pl) }}" alt="">
+                  {% else %}
+                  <span class="stats-player-cell__photo-ph" aria-hidden="true"></span>
+                  {% endif %}
+                </a>
+                <span class="stats-player-cell__text">
+                  <a class="stats-player-cell__name" href="{{ url_for('main.player_page', player_id=pl.id) }}">{{ pl.full_name }}</a>
+                  <span class="stats-player-cell__pos">{{ pl.position or '—' }}</span>
+                </span>
+              </span>
+            </td>
+            <td>{{ row.age if row.age is not none else '—' }}</td>
+            <td {% if prospect_sort == 'abi' %}class="stats-td-sorted"{% endif %}>{{ abi_pot_pill(pl.overall_ability) }}</td>
+            <td {% if prospect_sort == 'pot' %}class="stats-td-sorted"{% endif %}>{{ abi_pot_pill(pl.overall_potential) }}</td>
+            {% for _full, _abbr, key in prospect_overview_headers %}
+            <td {% if prospect_sort == key %}class="stats-td-sorted"{% endif %}>{{ attr_pill(row.attrs.get(key)) }}</td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if total_prospects > prospect_page_limit %}
+    <p class="stats-list-foot muted prospects-rankings-page__foot">
+      {% set af = age_filter if age_filter else none %}
+      {% if prospect_expanded %}
+      Showing all {{ total_prospects }} players. <a href="{{ url_for('main.undrafted_prospects', sort=prospect_sort, order=prospect_order, age=af, position=position or none) }}">Show top {{ prospect_page_limit }} only</a>
+      {% else %}
+      Showing top {{ prospect_page_limit }} of {{ total_prospects }}. <a href="{{ url_for('main.undrafted_prospects', sort=prospect_sort, order=prospect_order, age=af, position=position or none, expanded=1) }}">Show all</a>
+      {% endif %}
+    </p>
+    {% endif %}
+    {% else %}
+    <p class="empty-state">No undrafted players aged 20 or younger{% if age_filter or position %} for this filter{% endif %}.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

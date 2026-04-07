@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% from "macros/team.html" import team_logo_only with context %}
+{% block title %}Schedule — Boys of Winter Hockey League{% endblock %}
+{% block content %}
+<h1 class="page-title">Schedule</h1>
+{% if season %}<p class="muted">Season: <strong>{{ season.label }}</strong></p>{% endif %}
+<div class="tabs">
+  <a href="{{ url_for('main.schedule', tab='recent', team=team_obj.slug if team_obj else None, game_type=game_type or None) }}" class="{{ 'is-active' if tab == 'recent' else '' }}">Recent results</a>
+  <a href="{{ url_for('main.schedule', tab='upcoming', team=team_obj.slug if team_obj else None, game_type=game_type or None) }}" class="{{ 'is-active' if tab == 'upcoming' else '' }}">Upcoming</a>
+</div>
+<form method="get" class="card" style="padding:0.75rem;margin-bottom:1rem;display:flex;flex-wrap:wrap;gap:1rem;align-items:center;">
+  <input type="hidden" name="tab" value="{{ tab }}">
+  <label>Team <select name="team" onchange="this.form.submit()">
+    <option value="">All teams</option>
+    {% for t in teams %}
+    <option value="{{ t.slug }}" {{ 'selected' if team_obj and team_obj.id == t.id else '' }}>{{ t.name }}</option>
+    {% endfor %}
+  </select></label>
+  {% if game_types %}
+  <label>Game type <select name="game_type" onchange="this.form.submit()">
+    <option value="">All types</option>
+    {% for gt in game_types %}
+    <option value="{{ gt }}" {{ 'selected' if game_type == gt else '' }}>{{ gt }}</option>
+    {% endfor %}
+  </select></label>
+  {% endif %}
+</form>
+<div class="card">
+  {% if not season %}
+  <p class="empty-state">No season data.</p>
+  {% elif games %}
+  {% for g in games %}
+  <details class="game-card" data-game-id="{{ g.id }}">
+    <summary>
+      <span class="muted">{{ g.game_date or 'TBD' }}{% if g.game_type %} · {{ g.game_type }}{% endif %}</span>
+      <span class="scoreline">
+        {{ team_logo_only(g.away_team) }}
+        {% if g.status == 'final' %}
+        <strong>{{ g.away_score }}</strong> @
+        <strong>{{ g.home_score }}</strong>
+        {% else %}
+        @
+        {% endif %}
+        {{ team_logo_only(g.home_team) }}
+      </span>
+      <a href="{{ url_for('main.game_page', game_id=g.id) }}" onclick="event.stopPropagation()">Details</a>
+    </summary>
+    <div class="box-inner" data-loaded="0"></div>
+  </details>
+  {% endfor %}
+  {% else %}
+  <p class="empty-state">No games for this filter.</p>
+  {% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.querySelectorAll('.game-card[data-game-id]').forEach(function (det) {
+  det.addEventListener('toggle', function () {
+    if (!det.open) return;
+    var inner = det.querySelector('.box-inner');
+    if (!inner || inner.getAttribute('data-loaded') === '1') return;
+    inner.setAttribute('data-loaded', '1');
+    window.BOW.loadBoxScore(det.getAttribute('data-game-id'), inner);
+  });
+});
+</script>
+{% endblock %}

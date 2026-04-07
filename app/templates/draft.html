@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}DRAFT HISTORY — Boys of Winter Hockey League{% endblock %}
+{% block content %}
+<div class="draft-history-page">
+  <h1 class="page-title">DRAFT HISTORY</h1>
+
+  {% if draft_years %}
+  <form method="get" class="card draft-history-page__picker" style="padding:0.75rem;margin-bottom:1rem;">
+    <label>Draft year
+      <select name="year" onchange="this.form.submit()">
+        {% for y in draft_years %}
+        <option value="{{ y }}" {{ 'selected' if draft_year == y else '' }}>{{ y }}</option>
+        {% endfor %}
+      </select>
+    </label>
+  </form>
+  {% endif %}
+
+  {% if draft_year and picks_by_round %}
+  {% for round_num, round_picks in picks_by_round %}
+  <section class="card draft-history-round" aria-labelledby="draft-round-{{ loop.index }}-title">
+    <h2 id="draft-round-{{ loop.index }}-title" class="draft-history-round__title">
+      {% if round_num is not none %}Round {{ round_num }}{% else %}Round —{% endif %}
+    </h2>
+    <div class="table-wrap">
+      <table class="data draft-history-table">
+        <thead>
+          <tr>
+            <th scope="col">Round</th>
+            <th scope="col">Pick</th>
+            <th scope="col">Player</th>
+            <th scope="col" class="draft-history-table__th-drafted">Drafted<br>by</th>
+            <th scope="col">Current team</th>
+            <th scope="col">GP</th>
+            <th scope="col">G</th>
+            <th scope="col">A</th>
+            <th scope="col">PTS</th>
+            <th scope="col">W</th>
+            <th scope="col">L</th>
+            <th scope="col">OTL/T</th>
+            <th scope="col">GAA</th>
+            <th scope="col">SO</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for pk in round_picks %}
+          {% set pl = pk.player %}
+          {% set gid = pl.id if pl else none %}
+          <tr>
+            <td>{{ pk.round if pk.round is not none else '—' }}</td>
+            <td>{{ pk.overall_pick }}</td>
+            <td>
+              {% if pl %}
+              <span class="stats-player-cell">
+                <a class="stats-player-cell__photo" href="{{ url_for('main.player_page', player_id=pl.id) }}">
+                  {% if player_headshot_url(pl) %}
+                  <img src="{{ player_headshot_url(pl) }}" alt="">
+                  {% else %}
+                  <span class="stats-player-cell__photo-ph" aria-hidden="true"></span>
+                  {% endif %}
+                </a>
+                <span class="stats-player-cell__text">
+                  <a class="stats-player-cell__name" href="{{ url_for('main.player_page', player_id=pl.id) }}">{{ pl.full_name }}</a>
+                  <span class="stats-player-cell__pos">{{ pl.position or '—' }}</span>
+                </span>
+              </span>
+              {% else %}—{% endif %}
+            </td>
+            <td class="draft-history-table__logo-cell">
+              {% if pk.team %}
+              <a class="draft-history-table__team-hit" href="{{ url_for('main.team_page', slug=pk.team.slug) }}" title="{{ pk.team.name }}">
+                <img class="draft-history-table__team-logo" src="{{ team_logo_url(pk.team) }}" alt="{{ pk.team.name }}">
+              </a>
+              {% else %}—{% endif %}
+            </td>
+            <td class="draft-history-table__logo-cell">
+              {% if pl and pl.retired %}
+              <span class="draft-history-table__retired">RETIRED</span>
+              {% elif pl and pl.current_team %}
+              <a class="draft-history-table__team-hit" href="{{ url_for('main.team_page', slug=pl.current_team.slug) }}" title="{{ pl.current_team.name }}">
+                <img class="draft-history-table__team-logo" src="{{ team_logo_url(pl.current_team) }}" alt="{{ pl.current_team.name }}">
+              </a>
+              {% elif pl %}—{% else %}—{% endif %}
+            </td>
+            {% set stat_mode = draft_row_stat_mode(pl, gid, skater_career, goalie_career) %}
+            {% if pl and stat_mode == 'goalie' %}
+            {% set gc = goalie_career.get(gid) %}
+            <td>{{ gc[0] if gc else '—' }}</td>
+            <td>—</td><td>—</td><td>—</td>
+            <td>{{ gc[1] if gc else '—' }}</td>
+            <td>{{ gc[2] if gc else '—' }}</td>
+            <td>{{ gc[3] if gc else '—' }}</td>
+            <td>{{ '%.2f'|format(gc[4]) if gc and gc[4] is not none else '—' }}</td>
+            <td>{{ gc[5] if gc else '—' }}</td>
+            {% elif pl and stat_mode == 'skater' %}
+            {% set sc = skater_career.get(gid) %}
+            <td>{{ sc[0] if sc else '—' }}</td>
+            <td>{{ sc[1] if sc else '—' }}</td>
+            <td>{{ sc[2] if sc else '—' }}</td>
+            <td>{{ sc[3] if sc else '—' }}</td>
+            <td>—</td><td>—</td><td>—</td><td>—</td><td>—</td>
+            {% else %}
+            <td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% endfor %}
+  {% elif draft_years %}
+  <div class="card"><p class="empty-state">No picks for {{ draft_year }} in NHL/BOWL drafts.</p></div>
+  {% else %}
+  <div class="card"><p class="empty-state">No NHL/BOWL draft data. Import <code>draft_index.csv</code>, <code>draft_info.csv</code>, and related FHM exports.</p></div>
+  {% endif %}
+</div>
+{% endblock %}

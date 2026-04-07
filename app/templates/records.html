@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% from "macros/team.html" import team_logo_only with context %}
+{% block title %}All-Time Records — Boys of Winter Hockey League{% endblock %}
+{% macro rec_url(sp, gl, sk, gk, so, go, ex=expanded) -%}
+{{ url_for('main.all_time_records', split=sp, goalies=(1 if gl else none), sort=sk, order=so, g_sort=gk, g_order=go, expanded=(1 if ex else none)) }}
+{%- endmacro %}
+{% macro sk_sort_href(col) -%}
+{% set default_o = 'asc' if col == 'player' else 'desc' %}
+{% set next_o = (('asc' if sk_order == 'desc' else 'desc') if sort == col else default_o) %}
+{{ url_for('main.all_time_records', split=split, goalies=none, sort=col, order=next_o, g_sort=g_sort, g_order=g_order, expanded=(1 if expanded else none)) }}
+{%- endmacro %}
+{% macro sk_sorted_class(col) -%}
+{%- if sort == col -%}is-sorted {{ 'is-sorted-asc' if sk_order == 'asc' else 'is-sorted-desc' }}{%- endif -%}
+{%- endmacro %}
+{% macro g_sort_href(gc) -%}
+{% set default_o = 'asc' if gc in ('ga', 'gaa', 'player') else 'desc' %}
+{% set next_o = (('asc' if g_order == 'desc' else 'desc') if g_sort == gc else default_o) %}
+{{ url_for('main.all_time_records', split=split, goalies=1, sort=sort, order=sk_order, g_sort=gc, g_order=next_o, expanded=(1 if expanded else none)) }}
+{%- endmacro %}
+{% macro g_sorted_class(gc) -%}
+{%- if g_sort == gc -%}is-sorted {{ 'is-sorted-asc' if g_order == 'asc' else 'is-sorted-desc' }}{%- endif -%}
+{%- endmacro %}
+{% macro team_label(pl) -%}
+{%- if pl.retired -%}
+<span class="records-team-retired">Retired</span>
+{%- elif pl.current_team -%}
+{{ team_logo_only(pl.current_team) }}
+{%- else -%}
+<span class="records-team-empty">—</span>
+{%- endif -%}
+{% endmacro %}
+{% block content %}
+<div class="records-page">
+  <div class="records-toolbar card">
+    <div class="records-toolbar__left">
+      <h1 class="records-toolbar__title">ALL-TIME RECORDS</h1>
+      <div class="records-toolbar__btns">
+        <a href="{{ rec_url('rs', show_goalies, sort, g_sort, sk_order, g_order) }}" class="stats-pill {{ 'is-active' if split == 'rs' else '' }}">Regular Season</a>
+        <a href="{{ rec_url('po', show_goalies, sort, g_sort, sk_order, g_order) }}" class="stats-pill {{ 'is-active' if split == 'po' else '' }}">Playoffs</a>
+      </div>
+    </div>
+    <div class="records-toolbar__right">
+      <a href="{{ rec_url(split, false, sort, g_sort, sk_order, g_order) }}" class="stats-pill {{ 'is-active' if not show_goalies else '' }}">ALL</a>
+      <a href="{{ rec_url(split, true, sort, g_sort, sk_order, g_order) }}" class="stats-pill {{ 'is-active' if show_goalies else '' }}">Goalies</a>
+    </div>
+  </div>
+
+  {% if show_goalies %}
+  <p class="records-page__hint muted">Showing {{ goalie_rows|length }} of {{ total_goalies }} goalies.{% if total_goalies > records_page_limit %} <a href="{{ rec_url(split, true, sort, g_sort, sk_order, g_order, (not expanded)) }}">{{ 'Show top 100' if expanded else 'Show all' }}</a>{% endif %}</p>
+  {% else %}
+  <p class="records-page__hint muted">Showing {{ skater_rows|length }} of {{ total_skaters }} skaters.{% if total_skaters > records_page_limit %} <a href="{{ rec_url(split, false, sort, g_sort, sk_order, g_order, (not expanded)) }}">{{ 'Show top 100' if expanded else 'Show all' }}</a>{% endif %}</p>
+  {% endif %}
+
+  {% if show_goalies %}
+  <div class="stats-panel card">
+    <div class="table-wrap stats-table-wrap">
+      <table class="data stats-table records-table">
+        <thead>
+          <tr>
+            <th class="stats-th-num">#</th>
+            <th><a href="{{ g_sort_href('player') }}" class="stats-th-link {{ g_sorted_class('player') }}">Player</a></th>
+            <th>From-To</th>
+            <th>CURRENT TEAM</th>
+            <th><a href="{{ g_sort_href('gp') }}" class="stats-th-link {{ g_sorted_class('gp') }}">GP</a></th>
+            <th>GS</th>
+            <th>MIN</th>
+            <th><a href="{{ g_sort_href('wins') }}" class="stats-th-link {{ g_sorted_class('wins') }}">W</a></th>
+            <th>L</th>
+            <th>OT</th>
+            <th><a href="{{ g_sort_href('ga') }}" class="stats-th-link {{ g_sorted_class('ga') }}">GA</a></th>
+            <th>SA</th>
+            <th>SO</th>
+            <th><a href="{{ g_sort_href('gaa') }}" class="stats-th-link {{ g_sorted_class('gaa') }}">GAA</a></th>
+            <th><a href="{{ g_sort_href('sv_pct') }}" class="stats-th-link {{ g_sorted_class('sv_pct') }}">SV%</a></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in goalie_rows %}
+          {% set pl = row.player %}
+          <tr>
+            <td>{{ loop.index }}</td>
+            <td>
+              <span class="records-player-cell">
+                <a class="records-player-cell__photo" href="{{ url_for('main.player_page', player_id=pl.id) }}">
+                  {% if player_headshot_url(pl) %}
+                  <img src="{{ player_headshot_url(pl) }}" alt="">
+                  {% else %}
+                  <span class="records-player-cell__photo-ph" aria-hidden="true"></span>
+                  {% endif %}
+                </a>
+                <span class="records-player-cell__text">
+                  <a class="records-player-cell__name" href="{{ url_for('main.player_page', player_id=pl.id) }}">{{ pl.full_name }}</a>
+                  <span class="records-player-cell__pos">{{ pl.position or '—' }}</span>
+                </span>
+              </span>
+            </td>
+            <td>{{ row.career_span or '—' }}</td>
+            <td class="records-td-team">{{ team_label(pl) }}</td>
+            <td>{{ row.gp }}</td>
+            <td>{{ row.games_started if row.games_started is not none else '—' }}</td>
+            <td>{{ '{:,}'.format(row.minutes_played) if row.minutes_played is not none else '—' }}</td>
+            <td>{{ row.wins }}</td>
+            <td>{{ row.losses }}</td>
+            <td>{{ row.ties_otl }}</td>
+            <td>{{ row.goals_against }}</td>
+            <td>{{ row.shots_against }}</td>
+            <td>{{ row.shutouts }}</td>
+            <td>{{ '%.2f'|format(row.gaa) if row.gaa is not none else '—' }}</td>
+            <td>{{ '%.3f'|format(row.sv_pct) if row.sv_pct is not none else '—' }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="15" class="empty-state">No goalie season stats for this split.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% else %}
+  <div class="stats-panel card">
+    <div class="table-wrap stats-table-wrap">
+      <table class="data stats-table records-table">
+        <thead>
+          <tr>
+            <th class="stats-th-num">#</th>
+            <th><a href="{{ sk_sort_href('player') }}" class="stats-th-link {{ sk_sorted_class('player') }}">Player</a></th>
+            <th>From-To</th>
+            <th>CURRENT TEAM</th>
+            <th><a href="{{ sk_sort_href('gp') }}" class="stats-th-link {{ sk_sorted_class('gp') }}">GP</a></th>
+            <th><a href="{{ sk_sort_href('goals') }}" class="stats-th-link {{ sk_sorted_class('goals') }}">G</a></th>
+            <th><a href="{{ sk_sort_href('assists') }}" class="stats-th-link {{ sk_sorted_class('assists') }}">A</a></th>
+            <th><a href="{{ sk_sort_href('points') }}" class="stats-th-link {{ sk_sorted_class('points') }}">P</a></th>
+            <th><a href="{{ sk_sort_href('plus_minus') }}" class="stats-th-link {{ sk_sorted_class('plus_minus') }}">+/-</a></th>
+            <th><a href="{{ sk_sort_href('pim') }}" class="stats-th-link {{ sk_sorted_class('pim') }}">PIM</a></th>
+            <th><a href="{{ sk_sort_href('pp_goals') }}" class="stats-th-link {{ sk_sorted_class('pp_goals') }}">PP G</a></th>
+            <th><a href="{{ sk_sort_href('pp_assists') }}" class="stats-th-link {{ sk_sorted_class('pp_assists') }}">PP A</a></th>
+            <th><a href="{{ sk_sort_href('sh_goals') }}" class="stats-th-link {{ sk_sorted_class('sh_goals') }}">SH G</a></th>
+            <th><a href="{{ sk_sort_href('sh_assists') }}" class="stats-th-link {{ sk_sorted_class('sh_assists') }}">SH A</a></th>
+            <th>GWG</th>
+            <th><a href="{{ sk_sort_href('fights') }}" class="stats-th-link {{ sk_sorted_class('fights') }}">FIGHTS/WON</a></th>
+            <th><a href="{{ sk_sort_href('hits') }}" class="stats-th-link {{ sk_sorted_class('hits') }}">HIT</a></th>
+            <th>GVA</th>
+            <th>TKA</th>
+            <th>SB</th>
+            <th><a href="{{ sk_sort_href('shots') }}" class="stats-th-link {{ sk_sorted_class('shots') }}">SOG</a></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in skater_rows %}
+          {% set pl = row.player %}
+          <tr>
+            <td>{{ loop.index }}</td>
+            <td>
+              <span class="records-player-cell">
+                <a class="records-player-cell__photo" href="{{ url_for('main.player_page', player_id=pl.id) }}">
+                  {% if player_headshot_url(pl) %}
+                  <img src="{{ player_headshot_url(pl) }}" alt="">
+                  {% else %}
+                  <span class="records-player-cell__photo-ph" aria-hidden="true"></span>
+                  {% endif %}
+                </a>
+                <span class="records-player-cell__text">
+                  <a class="records-player-cell__name" href="{{ url_for('main.player_page', player_id=pl.id) }}">{{ pl.full_name }}</a>
+                  <span class="records-player-cell__pos">{{ pl.position or '—' }}</span>
+                </span>
+              </span>
+            </td>
+            <td>{{ row.career_span or '—' }}</td>
+            <td class="records-td-team">{{ team_label(pl) }}</td>
+            <td>{{ row.gp }}</td>
+            <td>{{ row.goals }}</td>
+            <td>{{ row.assists }}</td>
+            <td {% if sort == 'points' %}class="stats-td-sorted"{% endif %}>{{ row.points }}</td>
+            <td {% if sort == 'plus_minus' %}class="stats-td-sorted"{% endif %}>{{ row.plus_minus }}</td>
+            <td>{{ row.pim }}</td>
+            <td>{{ row.pp_goals }}</td>
+            <td>{{ row.pp_assists }}</td>
+            <td>{{ row.sh_goals }}</td>
+            <td>{{ row.sh_assists }}</td>
+            <td>{{ row.gwg }}</td>
+            <td>{{ row.fights }}/{{ row.fights_won }}</td>
+            <td>{{ row.hits }}</td>
+            <td>{{ row.gva }}</td>
+            <td>{{ row.tka }}</td>
+            <td>{{ row.sb }}</td>
+            <td>{{ row.shots }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="21" class="empty-state">No skater career lines for this split.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

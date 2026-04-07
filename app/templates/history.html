@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% from "macros/team.html" import team_logo_only with context %}
+{% block title %}League History — Boys of Winter Hockey League{% endblock %}
+{% block content %}
+{# Champion PNGs: app/static/img/history/champions/banner1.png, banner2.png, … (transparent background). #}
+<div class="history-page">
+  <h1 class="page-title">All-Time History</h1>
+
+  <div class="card history-champions-panel">
+    <h2>Champions</h2>
+    {% if champion_banners %}
+    <div class="history-champions-grid" role="list" aria-label="Championship banners">
+      {% for url in champion_banners %}
+      <div class="history-banner-slot" role="listitem">
+        <img
+          src="{{ url }}"
+          alt=""
+          loading="lazy"
+          decoding="async"
+          class="history-banner-slot__img"
+        >
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="history-champions-empty muted">
+      Add PNG banners under <code>app/static/img/history/champions/</code> named <code>Banner1.png</code>, <code>Banner2.png</code>, … (or <code>banner1.png</code>, …; numbers can skip; <code>.png</code> case-insensitive). Restart the app after adding files.
+    </p>
+    {% endif %}
+  </div>
+
+  <div class="card history-awards-panel">
+    <h2>Awards</h2>
+    {% if awards %}
+    <div class="table-wrap">
+      <table class="data">
+        <thead><tr><th>Season</th><th>Award</th><th>Player</th><th>Team</th></tr></thead>
+        <tbody>
+          {% for a in awards %}
+          <tr>
+            <td>{{ a.season.label if a.season else a.season_id }}</td>
+            <td>{{ a.award_name }}</td>
+            <td>{% if a.player %}<a href="{{ url_for('main.player_page', player_id=a.player.id) }}">{{ a.player.full_name }}</a>{% else %}—{% endif %}</td>
+            <td>{% if a.team %}{{ team_logo_only(a.team) }}{% else %}—{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="history-under-construction">UNDER CONSTRUCTION</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>Seasons on file</h2>
+    {% if seasons_on_file %}
+    <ul class="history-seasons-list">
+      {% for label in seasons_on_file %}
+      <li>{{ label }}</li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="empty-state">No season years found in <code>data/imports/raw/{{ config.LEAGUE_SLUG or 'bow' }}</code> career CSVs.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

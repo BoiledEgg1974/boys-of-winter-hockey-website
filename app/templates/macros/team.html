@@ -1,0 +1,25 @@
+{# Logo + team name (or optional label) — uses global .team-name-lockup__logo size #}
+{% macro team_lockup(team, label=None) -%}
+{% if team %}
+<span class="team-name-lockup">
+  <img class="team-name-lockup__logo" src="{{ team_logo_url(team) }}" alt="" loading="lazy" decoding="async">
+  <a class="team-name-lockup__link" href="{{ url_for('main.team_page', slug=team.slug) }}">{% if label is not none %}{{ label }}{% else %}{{ team.name }}{% endif %}</a>
+</span>
+{% else %}—{% endif %}
+{%- endmacro %}
+
+{# Linked logo only (replaces abbreviation text); title shows full team name #}
+{% macro team_logo_only(team) -%}
+{% if team %}
+<a class="team-name-lockup team-name-lockup--icon" href="{{ url_for('main.team_page', slug=team.slug) }}" title="{{ team.name }}">
+  <img class="team-name-lockup__logo" src="{{ team_logo_url(team) }}" alt="{{ team.name }}" loading="lazy" decoding="async">
+</a>
+{% else %}—{% endif %}
+{%- endmacro %}
+
+{# Image only — for inside a parent link (e.g. game log matchup) #}
+{% macro team_logo_img_plain(team) -%}
+{% if team %}
+<img class="team-name-lockup__logo" src="{{ team_logo_url(team) }}" alt="{{ team.name }}" loading="lazy" decoding="async">
+{% else %}—{% endif %}
+{%- endmacro %}

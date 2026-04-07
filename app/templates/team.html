@@ -1,0 +1,366 @@
+{% extends "base.html" %}
+{% from "macros/team.html" import team_logo_img_plain with context %}
+{% block title %}{{ team.name }} — Boys of Winter Hockey League{% endblock %}
+{% block content %}
+{% set ph = team.primary_color or '#1e3a5f' %}
+{% set sh = team.secondary_color or '#0f172a' %}
+<div class="team-hero" style="background: linear-gradient(135deg, {{ ph }}, {{ sh }});">
+  <img class="team-hero__logo" src="{{ team_logo_url(team) }}" alt="{{ team.name }} logo">
+  <div class="team-hero__meta">
+    <h1>{{ team.name }}</h1>
+    <p style="margin:0;opacity:0.9;">{{ team.city or '' }} {{ team.nickname or '' }}</p>
+    <p style="margin:0.15rem 0 0;opacity:0.82;font-size:0.92rem;">
+      {{ arena_name or '—' }} · Capacity {{ '{:,}'.format(arena_capacity) if arena_capacity is not none else '—' }}
+    </p>
+  </div>
+  {% if standing and season %}
+  <div class="team-hero__snapshot">
+    <p class="team-hero__snapshot-line"><strong>Record</strong> {{ standing.w }}-{{ standing.l }}-{{ standing.ties }}-{{ standing.otl }} · <strong>PTS</strong> {{ standing.pts }}</p>
+    <p class="team-hero__snapshot-line">{{ division_name or '—' }}{% if division_rank is not none %} · #{{ division_rank }}{% endif %} · GF {{ standing.gf }} · GA {{ standing.ga }}</p>
+  </div>
+  {% endif %}
+</div>
+<div class="team-panels-grid">
+  <div class="team-panels-grid__left">
+    {% if upcoming_games %}
+    <div class="card card--upcoming-games">
+      <h2>Upcoming Games</h2>
+      <div class="team-upcoming-calendar">
+        {% for g in upcoming_games %}
+        {% set is_home = (g.home_team_id == team.id) %}
+        {% set opp = g.away_team if is_home else g.home_team %}
+        <article class="team-upcoming-calendar__item">
+          <div class="team-upcoming-calendar__meta">
+            <span class="team-upcoming-calendar__date">{{ g.game_date or '—' }}</span>
+            <span class="team-upcoming-calendar__matchup">
+            <img class="team-upcoming-calendar__logo" src="{{ team_logo_url(team) }}" alt="{{ team.name }}">
+            <span class="team-upcoming-calendar__vs">vs</span>
+            <img class="team-upcoming-calendar__logo" src="{{ team_logo_url(opp) }}" alt="{{ opp.name if opp else '' }}">
+            </span>
+            <span class="team-upcoming-calendar__venue">{{ 'Home' if is_home else 'Away' }}</span>
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+    {% if team_agg %}
+    <div class="card">
+      <h2>Team Season Totals — Regular Season (FHM)</h2>
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr><th>Metric</th><th>Value</th><th>League Rank</th></tr>
+          </thead>
+          <tbody>
+            <tr><th>Shots F/A</th><td>{{ team_agg.shots_for or '—' }} / {{ team_agg.shots_against or '—' }}</td><td>#{{ team_rank_rs.get('shots_for', '—') }} / #{{ team_rank_rs.get('shots_against', '—') }}</td></tr>
+            <tr><th>FO%</th><td>{{ '%.1f'|format(team_agg.faceoff_pct) if team_agg.faceoff_pct is not none else '—' }}</td><td>#{{ team_rank_rs.get('faceoff_pct', '—') }}</td></tr>
+            <tr><th>Hits</th><td>{{ team_agg.hits or '—' }}</td><td>#{{ team_rank_rs.get('hits', '—') }}</td></tr>
+            <tr><th>Blocked shots</th><td>{{ team_agg.blocked_shots or '—' }}</td><td>#{{ team_rank_rs.get('blocked_shots', '—') }}</td></tr>
+            <tr><th>Takeaways / Giveaways</th><td>{{ team_agg.takeaways or '—' }} / {{ team_agg.giveaways or '—' }}</td><td>#{{ team_rank_rs.get('takeaways', '—') }} / #{{ team_rank_rs.get('giveaways', '—') }}</td></tr>
+            <tr><th>PP goals / chances</th><td>{{ team_agg.pp_goals or '—' }} / {{ team_agg.pp_chances or '—' }}</td><td>#{{ team_rank_rs.get('pp_goals', '—') }} / #{{ team_rank_rs.get('pp_chances', '—') }}</td></tr>
+            <tr><th>PP% (PPG ÷ PP Ch)</th><td>{% if team_agg.pp_chances and team_agg.pp_goals is not none and team_agg.pp_chances > 0 %}{{ '%.1f'|format(100.0 * team_agg.pp_goals / team_agg.pp_chances) }}%{% else %}—{% endif %}</td><td>#{{ team_rank_rs.get('pp_pct', '—') }}</td></tr>
+            <tr><th>PK GA (PP against)</th><td>{{ team_agg.pk_goals_against or '—' }}</td><td>#{{ team_rank_rs.get('pk_goals_against', '—') }}</td></tr>
+            <tr><th>SH CH</th><td>{{ team_agg.sh_chances or '—' }}</td><td>#{{ team_rank_rs.get('sh_chances', '—') }}</td></tr>
+            <tr><th>PK% (PK GA ÷ SH CH)</th><td>{% if team_agg.sh_chances and team_agg.sh_chances > 0 and team_agg.pk_goals_against is not none %}{{ '%.1f'|format(100.0 * team_agg.pk_goals_against / team_agg.sh_chances) }}%{% else %}—{% endif %}</td><td>#{{ team_rank_rs.get('pk_pct', '—') }}</td></tr>
+            <tr><th>SH goals</th><td>{{ team_agg.sh_goals or '—' }}</td><td>#{{ team_rank_rs.get('sh_goals', '—') }}</td></tr>
+            <tr><th>PIM/game</th><td>{{ '%.2f'|format(team_agg.pim_per_game) if team_agg.pim_per_game is not none else '—' }}</td><td>#{{ team_rank_rs.get('pim_per_game', '—') }}</td></tr>
+            <tr><th>Attendance (H/A)</th><td>{{ team_agg.attendance_home or '—' }} / {{ team_agg.attendance_away or '—' }}</td><td>#{{ team_rank_rs.get('attendance_home', '—') }} / #{{ team_rank_rs.get('attendance_away', '—') }}</td></tr>
+            <tr><th>Sellouts (H/A)</th><td>{{ team_agg.sellouts_home or '—' }} / {{ team_agg.sellouts_away or '—' }}</td><td>#{{ team_rank_rs.get('sellouts_home', '—') }} / #{{ team_rank_rs.get('sellouts_away', '—') }}</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+    {% if team_agg_po %}
+    <div class="card">
+      <h2>Team Season Totals — Playoffs (FHM)</h2>
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr><th>Metric</th><th>Value</th><th>League Rank</th></tr>
+          </thead>
+          <tbody>
+            <tr><th>Shots F/A</th><td>{{ team_agg_po.shots_for or '—' }} / {{ team_agg_po.shots_against or '—' }}</td><td>#{{ team_rank_po.get('shots_for', '—') }} / #{{ team_rank_po.get('shots_against', '—') }}</td></tr>
+            <tr><th>FO%</th><td>{{ '%.1f'|format(team_agg_po.faceoff_pct) if team_agg_po.faceoff_pct is not none else '—' }}</td><td>#{{ team_rank_po.get('faceoff_pct', '—') }}</td></tr>
+            <tr><th>Hits</th><td>{{ team_agg_po.hits or '—' }}</td><td>#{{ team_rank_po.get('hits', '—') }}</td></tr>
+            <tr><th>Blocked shots</th><td>{{ team_agg_po.blocked_shots or '—' }}</td><td>#{{ team_rank_po.get('blocked_shots', '—') }}</td></tr>
+            <tr><th>Takeaways / Giveaways</th><td>{{ team_agg_po.takeaways or '—' }} / {{ team_agg_po.giveaways or '—' }}</td><td>#{{ team_rank_po.get('takeaways', '—') }} / #{{ team_rank_po.get('giveaways', '—') }}</td></tr>
+            <tr><th>PP goals / chances</th><td>{{ team_agg_po.pp_goals or '—' }} / {{ team_agg_po.pp_chances or '—' }}</td><td>#{{ team_rank_po.get('pp_goals', '—') }} / #{{ team_rank_po.get('pp_chances', '—') }}</td></tr>
+            <tr><th>PP% (PPG ÷ PP Ch)</th><td>{% if team_agg_po.pp_chances and team_agg_po.pp_goals is not none and team_agg_po.pp_chances > 0 %}{{ '%.1f'|format(100.0 * team_agg_po.pp_goals / team_agg_po.pp_chances) }}%{% else %}—{% endif %}</td><td>#{{ team_rank_po.get('pp_pct', '—') }}</td></tr>
+            <tr><th>PK GA (PP against)</th><td>{{ team_agg_po.pk_goals_against or '—' }}</td><td>#{{ team_rank_po.get('pk_goals_against', '—') }}</td></tr>
+            <tr><th>SH CH</th><td>{{ team_agg_po.sh_chances or '—' }}</td><td>#{{ team_rank_po.get('sh_chances', '—') }}</td></tr>
+            <tr><th>PK% (PK GA ÷ SH CH)</th><td>{% if team_agg_po.sh_chances and team_agg_po.sh_chances > 0 and team_agg_po.pk_goals_against is not none %}{{ '%.1f'|format(100.0 * team_agg_po.pk_goals_against / team_agg_po.sh_chances) }}%{% else %}—{% endif %}</td><td>#{{ team_rank_po.get('pk_pct', '—') }}</td></tr>
+            <tr><th>SH goals</th><td>{{ team_agg_po.sh_goals or '—' }}</td><td>#{{ team_rank_po.get('sh_goals', '—') }}</td></tr>
+            <tr><th>PIM/game</th><td>{{ '%.2f'|format(team_agg_po.pim_per_game) if team_agg_po.pim_per_game is not none else '—' }}</td><td>#{{ team_rank_po.get('pim_per_game', '—') }}</td></tr>
+            <tr><th>Attendance (H/A)</th><td>{{ team_agg_po.attendance_home or '—' }} / {{ team_agg_po.attendance_away or '—' }}</td><td>#{{ team_rank_po.get('attendance_home', '—') }} / #{{ team_rank_po.get('attendance_away', '—') }}</td></tr>
+            <tr><th>Sellouts (H/A)</th><td>{{ team_agg_po.sellouts_home or '—' }} / {{ team_agg_po.sellouts_away or '—' }}</td><td>#{{ team_rank_po.get('sellouts_home', '—') }} / #{{ team_rank_po.get('sellouts_away', '—') }}</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if sk_leaders or recent_games %}
+  <div class="team-panels-grid__right">
+    {% if sk_leaders %}
+    <div class="card">
+    <h2>Team Scoring Leaders</h2>
+    <div class="table-wrap">
+      <table class="data">
+        <thead><tr><th>Player</th><th>G</th><th>A</th><th>Pts</th></tr></thead>
+        <tbody>
+          {% for row, pl in sk_leaders %}
+          <tr>
+            <td>
+              <span class="team-roster-player">
+                <a class="team-roster-player__photo" href="{{ url_for('main.player_page', player_id=pl.id) }}">
+                  {% if player_headshot_url(pl) %}
+                  <img src="{{ player_headshot_url(pl) }}" alt="">
+                  {% else %}
+                  <span class="team-roster-player__photo-ph" aria-hidden="true"></span>
+                  {% endif %}
+                </a>
+                <a class="team-roster-player__name" href="{{ url_for('main.player_page', player_id=pl.id) }}">{{ pl.full_name }}</a>
+              </span>
+            </td>
+            <td>{{ row.goals }}</td><td>{{ row.assists }}</td><td>{{ row.points }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    </div>
+    {% endif %}
+
+    {% if recent_games %}
+    <div class="card">
+    <h2>Recent Games</h2>
+    {% for g in recent_games %}
+    <p>
+      <a href="{{ url_for('main.game_page', game_id=g.id) }}">{{ g.game_date }}</a>:
+      {{ team_logo_img_plain(g.away_team) }} {{ g.away_score }} @ {{ g.home_score }} {{ team_logo_img_plain(g.home_team) }}
+    </p>
+    {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+<div class="team-management-tabs">
+  <a class="team-management-tabs__btn{% if active_panel == 'roster' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='roster') }}">Roster</a>
+  <a class="team-management-tabs__btn{% if active_panel == 'depth' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='depth') }}">Depth Chart</a>
+  <a class="team-management-tabs__btn{% if active_panel == 'lines' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='lines') }}">Lines</a>
+  <a class="team-management-tabs__btn{% if active_panel == 'salary' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='salary') }}">Salary</a>
+</div>
+
+{% if active_panel == 'roster' %}
+<div class="card">
+  <h2>Roster</h2>
+  {% if roster %}
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Player</th><th>Pos</th><th>Age</th><th>DOB</th><th>City, Country of Birth</th><th>Ht</th><th>Wt</th><th>Shoots</th></tr></thead>
+      <tbody>
+        {% for p in roster %}
+        <tr>
+          <td>
+            <span class="team-roster-player">
+              <a class="team-roster-player__photo" href="{{ url_for('main.player_page', player_id=p.id) }}">
+                {% if player_headshot_url(p) %}
+                <img src="{{ player_headshot_url(p) }}" alt="">
+                {% else %}
+                <span class="team-roster-player__photo-ph" aria-hidden="true"></span>
+                {% endif %}
+              </a>
+              <a class="team-roster-player__name" href="{{ url_for('main.player_page', player_id=p.id) }}">{{ p.full_name }}</a>
+            </span>
+          </td>
+          <td>{{ p.position or '—' }}</td>
+          <td>{{ roster_ages.get(p.id) if roster_ages.get(p.id) is not none else '—' }}</td>
+          <td>{{ p.birth_date if p.birth_date else '—' }}</td>
+          <td>
+            {% if p.birth_city or p.nationality %}
+              {% if p.nationality|nationality_flag_url %}
+              <img class="team-roster-player__flag" src="{{ p.nationality|nationality_flag_url }}" width="18" height="13" alt="" loading="lazy" decoding="async">
+              {% endif %}
+              {{ p.birth_city or '—' }}{% if p.nationality %}, {{ p.nationality }}{% endif %}
+            {% else %}
+              —
+            {% endif %}
+          </td>
+          <td>{{ p.height_inches or '—' }}</td>
+          <td>{{ p.weight_lbs or '—' }}</td>
+          <td>{{ p.shoots_catches or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty-state">No players linked to this team (set current_team in import).</p>
+  {% endif %}
+</div>
+{% elif active_panel == 'depth' %}
+<div class="card">
+  <h2>Depth Chart</h2>
+  <div class="table-wrap">
+    <table class="data team-depth-table">
+      <thead><tr><th class="team-depth-table__idx">#</th><th>Goalies</th><th>Defencemen</th><th>Left Wings</th><th>Centers</th><th>Right Wings</th></tr></thead>
+      <tbody>
+        {% set max_depth = [depth_chart.goalies|length, depth_chart.defensemen|length, depth_chart.left_wings|length, depth_chart.centers|length, depth_chart.right_wings|length]|max %}
+        {% for i in range(max_depth) %}
+        <tr>
+          <td class="team-depth-table__idx">{{ i + 1 }}</td>
+          {% set g = depth_chart.goalies[i] if i < depth_chart.goalies|length else none %}
+          {% set d = depth_chart.defensemen[i] if i < depth_chart.defensemen|length else none %}
+          {% set lw = depth_chart.left_wings[i] if i < depth_chart.left_wings|length else none %}
+          {% set c = depth_chart.centers[i] if i < depth_chart.centers|length else none %}
+          {% set rw = depth_chart.right_wings[i] if i < depth_chart.right_wings|length else none %}
+          <td>
+            <div class="team-depth-cell">
+            {% if g %}
+            <a class="team-depth-player{% if g.is_main_roster %} is-main{% else %} is-non-roster{% endif %}" href="{{ url_for('main.player_page', player_id=g.pid) }}">{{ g.name }}</a>
+            <span class="team-depth-ratings">{% if g.abi is not none %}<span class="team-depth-rating" style="{{ g.abi|rating_pill_style }}">{{ '%.1f'|format(g.abi) }}</span>{% endif %}{% if g.pot is not none %}<span class="team-depth-rating" style="{{ g.pot|rating_pill_style }}">{{ '%.1f'|format(g.pot) }}</span>{% endif %}</span>
+            {% else %}<span class="team-depth-empty">—</span>{% endif %}
+            </div>
+          </td>
+          <td>
+            <div class="team-depth-cell">
+            {% if d %}
+            <a class="team-depth-player{% if d.is_main_roster %} is-main{% else %} is-non-roster{% endif %}" href="{{ url_for('main.player_page', player_id=d.pid) }}">{{ d.name }}</a>
+            <span class="team-depth-ratings">{% if d.abi is not none %}<span class="team-depth-rating" style="{{ d.abi|rating_pill_style }}">{{ '%.1f'|format(d.abi) }}</span>{% endif %}{% if d.pot is not none %}<span class="team-depth-rating" style="{{ d.pot|rating_pill_style }}">{{ '%.1f'|format(d.pot) }}</span>{% endif %}</span>
+            {% else %}<span class="team-depth-empty">—</span>{% endif %}
+            </div>
+          </td>
+          <td>
+            <div class="team-depth-cell">
+            {% if lw %}
+            <a class="team-depth-player{% if lw.is_main_roster %} is-main{% else %} is-non-roster{% endif %}" href="{{ url_for('main.player_page', player_id=lw.pid) }}">{{ lw.name }}</a>
+            <span class="team-depth-ratings">{% if lw.abi is not none %}<span class="team-depth-rating" style="{{ lw.abi|rating_pill_style }}">{{ '%.1f'|format(lw.abi) }}</span>{% endif %}{% if lw.pot is not none %}<span class="team-depth-rating" style="{{ lw.pot|rating_pill_style }}">{{ '%.1f'|format(lw.pot) }}</span>{% endif %}</span>
+            {% else %}<span class="team-depth-empty">—</span>{% endif %}
+            </div>
+          </td>
+          <td>
+            <div class="team-depth-cell">
+            {% if c %}
+            <a class="team-depth-player{% if c.is_main_roster %} is-main{% else %} is-non-roster{% endif %}" href="{{ url_for('main.player_page', player_id=c.pid) }}">{{ c.name }}</a>
+            <span class="team-depth-ratings">{% if c.abi is not none %}<span class="team-depth-rating" style="{{ c.abi|rating_pill_style }}">{{ '%.1f'|format(c.abi) }}</span>{% endif %}{% if c.pot is not none %}<span class="team-depth-rating" style="{{ c.pot|rating_pill_style }}">{{ '%.1f'|format(c.pot) }}</span>{% endif %}</span>
+            {% else %}<span class="team-depth-empty">—</span>{% endif %}
+            </div>
+          </td>
+          <td>
+            <div class="team-depth-cell">
+            {% if rw %}
+            <a class="team-depth-player{% if rw.is_main_roster %} is-main{% else %} is-non-roster{% endif %}" href="{{ url_for('main.player_page', player_id=rw.pid) }}">{{ rw.name }}</a>
+            <span class="team-depth-ratings">{% if rw.abi is not none %}<span class="team-depth-rating" style="{{ rw.abi|rating_pill_style }}">{{ '%.1f'|format(rw.abi) }}</span>{% endif %}{% if rw.pot is not none %}<span class="team-depth-rating" style="{{ rw.pot|rating_pill_style }}">{{ '%.1f'|format(rw.pot) }}</span>{% endif %}</span>
+            {% else %}<span class="team-depth-empty">—</span>{% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% elif active_panel == 'lines' %}
+<div class="team-lines-stack">
+  {% for title, slots in lines_sections %}
+  <div class="card">
+    <h2>{{ title }}</h2>
+    <div class="team-lines-grid">
+      {% for label, value in slots %}
+      <div class="team-lines-slot">
+        <span class="team-lines-slot__label">{{ label }}</span>
+        {% if value is string %}
+        {% if value and lines_name_to_id.get(value) %}
+        <a class="team-lines-slot__value" href="{{ url_for('main.player_page', player_id=lines_name_to_id.get(value)) }}">{{ value }}</a>
+        {% else %}
+        <span class="team-lines-slot__value">{{ value or '—' }}</span>
+        {% endif %}
+        {% else %}
+          {% if value %}
+            {% for nm in value %}
+            {% if lines_name_to_id.get(nm) %}
+            <a class="team-lines-slot__value" href="{{ url_for('main.player_page', player_id=lines_name_to_id.get(nm)) }}">{{ nm }}</a>
+            {% else %}
+            <span class="team-lines-slot__value">{{ nm }}</span>
+            {% endif %}
+            {% endfor %}
+          {% else %}
+          <span class="team-lines-slot__value">—</span>
+          {% endif %}
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% elif active_panel == 'salary' %}
+<div class="card">
+  <h2>Salary cap</h2>
+  {% if salary_rows %}
+  <div class="table-wrap">
+    <table class="data team-salary-table">
+      <thead>
+        <tr>
+          <th>Player ({{ salary_rows|length }})</th>
+          <th>Pos</th>
+          <th>Age</th>
+          {% for yr in salary_years %}
+          <th>{{ yr }}/{{ (yr + 1) % 100 }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for group in ['Forwards', 'Defensemen', 'Goalies', 'Minors'] %}
+        {% set grp_rows = salary_rows|selectattr('group', 'equalto', group)|list %}
+        {% if grp_rows %}
+        <tr class="team-salary-group"><th colspan="{{ 3 + (salary_years|length) }}">{{ group }} ({{ grp_rows|length }})</th></tr>
+        {% for row in grp_rows %}
+        <tr>
+          <td>
+            <a href="{{ url_for('main.player_page', player_id=row.player.id) }}">{{ row.player.full_name }}</a>
+            {% for nb in row.name_badges %}
+            <span class="team-salary-name-tag">✦ {{ nb }}</span>
+            {% endfor %}
+          </td>
+          <td>{{ row.pos }}</td>
+          <td>{{ row.age if row.age is not none else '—' }}</td>
+          {% for cell in row.year_cells %}
+          <td>
+            {% if cell.kind == 'salary' %}
+              ${{ '{:,}'.format(cell.value) }}{% if cell.pct is not none %} <span class="team-salary-pct">{{ '%.1f'|format(cell.pct) }}%</span>{% endif %}
+            {% elif cell.kind == 'tag' %}
+              <span class="chip{% if cell.value == 'RFA' %} chip--rfa{% endif %}">{{ cell.value }}</span>
+            {% else %}
+              —
+            {% endif %}
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+        {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty-state">No salary obligations available for this team.</p>
+  {% endif %}
+</div>
+{% endif %}
+{% if prospects_list %}
+<div class="card">
+  <h2>Prospects</h2>
+  <ul>
+    {% for pr in prospects_list %}
+    <li>{% if pr.player %}<a href="{{ url_for('main.player_page', player_id=pr.player.id) }}">{{ pr.player.full_name }}</a>{% else %}—{% endif %}
+      {% if pr.rank %} (rank {{ pr.rank }}){% endif %}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+{% endblock %}

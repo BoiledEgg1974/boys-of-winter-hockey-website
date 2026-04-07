@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BOYS OF WINTER LEAGUE UNIVERSE</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
+  <style>
+    body {
+      background: radial-gradient(1400px 600px at 50% -200px, #1f2937 0%, #0b1220 45%, #070b14 100%);
+      color: #f8fafc;
+    }
+    .splash-page {
+      max-width: 78rem;
+      margin: 0 auto;
+      padding: 2.5rem 1rem 4rem;
+      text-align: center;
+    }
+    .splash-title {
+      margin: 0 0 0.5rem;
+      font-size: clamp(1.5rem, 2.5vw, 2.4rem);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .splash-lead {
+      margin: 0 0 2.25rem;
+      color: #94a3b8;
+      font-size: 1.03rem;
+    }
+    .splash-leagues {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(160px, 1fr));
+      gap: 1.25rem;
+      align-items: start;
+      margin-bottom: 2rem;
+    }
+    .league-card {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.65rem;
+      text-decoration: none;
+      color: #e2e8f0;
+      transition: transform 0.2s ease, filter 0.2s ease;
+      outline: none;
+      border-radius: 14px;
+      padding: 0.35rem 0.35rem 0.5rem;
+    }
+    .league-card__logo {
+      width: min(100%, 290px);
+      aspect-ratio: 1 / 1;
+      object-fit: contain;
+      border-radius: 14px;
+      transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease;
+      box-shadow: 0 8px 28px rgb(0 0 0 / 0.45);
+    }
+    .league-card__label {
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-size: 0.95rem;
+      color: #e5e7eb;
+    }
+    .league-card:hover .league-card__logo,
+    .league-card:focus-visible .league-card__logo {
+      transform: scale(1.04);
+      filter: brightness(1.06);
+      box-shadow: 0 0 26px rgb(56 189 248 / 0.65), 0 10px 30px rgb(0 0 0 / 0.55);
+    }
+    .league-card:focus-visible {
+      box-shadow: 0 0 0 2px rgb(148 163 184 / 0.65);
+    }
+    .league-card--historical:hover .league-card__logo,
+    .league-card--historical:focus-visible .league-card__logo {
+      box-shadow: 0 0 28px rgb(34 197 94 / 0.75), 0 10px 30px rgb(0 0 0 / 0.55);
+    }
+    .league-card--fantasy:hover .league-card__logo,
+    .league-card--fantasy:focus-visible .league-card__logo {
+      box-shadow: 0 0 28px rgb(59 130 246 / 0.75), 0 10px 30px rgb(0 0 0 / 0.55);
+    }
+    .league-card--cap:hover .league-card__logo,
+    .league-card--cap:focus-visible .league-card__logo {
+      box-shadow: 0 0 28px rgb(239 68 68 / 0.75), 0 10px 30px rgb(0 0 0 / 0.55);
+    }
+    .splash-audio {
+      margin-top: 1rem;
+      padding: 1rem;
+      background: rgb(15 23 42 / 0.8);
+      border-radius: 10px;
+      border: 1px solid rgb(148 163 184 / 0.25);
+      max-width: 38rem;
+      margin-inline: auto;
+    }
+    .splash-audio p {
+      margin: 0 0 0.75rem;
+      font-size: 0.9rem;
+      color: #94a3b8;
+    }
+    .splash-audio-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+      justify-content: center;
+    }
+    .splash-audio-actions button {
+      padding: 0.45rem 0.9rem;
+      border-radius: 8px;
+      border: 1px solid rgb(148 163 184 / 0.35);
+      background: #0ea5e9;
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .splash-audio-actions button.secondary {
+      background: #111827;
+      color: #e5e7eb;
+    }
+    .splash-audio-actions button:hover { filter: brightness(1.08); }
+    @media (max-width: 900px) {
+      .splash-leagues { grid-template-columns: 1fr; }
+      .league-card__logo { width: min(100%, 340px); }
+    }
+  </style>
+</head>
+<body>
+  {% set splash_map = {
+    'league2': {'label': 'BOWL HISTORICAL', 'image': 'img/splash/bowl-historical-green.png', 'class': 'league-card--historical'},
+    'bow': {'label': 'BOWL FANTASY', 'image': 'img/splash/bowl-fantasy-blue.png', 'class': 'league-card--fantasy'},
+    'league3': {'label': 'BOWL CAP', 'image': 'img/splash/bowl-cap-red.png', 'class': 'league-card--cap'}
+  } %}
+  <main class="splash-page">
+    <h1 class="splash-title">BOYS OF WINTER LEAGUE UNIVERSE</h1>
+    <p class="splash-lead">Choose a league site to explore. You can switch leagues anytime from the menu on each site.</p>
+    <nav class="splash-leagues" aria-label="League sites">
+      {% for league in leagues %}
+      {% set meta = splash_map.get(league.slug, {'label': league.display_name|upper, 'image': 'logos/league-placeholder.svg', 'class': ''}) %}
+      <a class="league-card {{ meta.class }}" href="/{{ league.slug }}/" aria-label="Enter {{ meta.label }}">
+        <img class="league-card__logo" src="{{ url_for('static', filename=meta.image) }}" alt="{{ meta.label }} logo">
+        <span class="league-card__label">{{ meta.label }}</span>
+      </a>
+      {% endfor %}
+    </nav>
+    {% if splash_audio_available %}
+    <section class="splash-audio" aria-label="Theme music">
+      <p>Browsers usually require a click before playing sound. Use Play, then Unmute if needed.</p>
+      <div class="splash-audio-actions">
+        <button type="button" id="splash-play">Play theme</button>
+        <button type="button" id="splash-unmute" class="secondary" hidden>Unmute</button>
+      </div>
+      <audio id="splash-audio" src="{{ url_for('static', filename='audio/splash.mp3') }}" preload="metadata" loop></audio>
+    </section>
+    <script>
+      (function () {
+        var a = document.getElementById("splash-audio");
+        var playBtn = document.getElementById("splash-play");
+        var unmuteBtn = document.getElementById("splash-unmute");
+        if (!a || !playBtn) return;
+        playBtn.addEventListener("click", function () {
+          a.play().catch(function () {});
+        });
+        a.addEventListener("volumechange", function () {
+          unmuteBtn.hidden = !a.muted || a.volume <= 0;
+        });
+        unmuteBtn.addEventListener("click", function () {
+          a.muted = false;
+          if (a.volume === 0) a.volume = 1;
+          unmuteBtn.hidden = true;
+        });
+        a.addEventListener("play", function () {
+          if (a.muted) unmuteBtn.hidden = false;
+        });
+      })();
+    </script>
+    {% endif %}
+  </main>
+</body>
+</html>

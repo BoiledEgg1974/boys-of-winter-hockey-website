@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+{% from "macros/team.html" import team_lockup with context %}
+{% block title %}Standings — Boys of Winter Hockey League{% endblock %}
+{% macro team_stats_panel(title, rows) -%}
+{% if rows %}
+<div class="card">
+  <h2>{{ title }}</h2>
+  <div class="table-wrap">
+    <table class="data data-sortable">
+      <thead>
+        <tr>
+          <th data-sort-type="num" scope="col">#</th>
+          <th data-sort-type="str" scope="col">Team</th>
+          <th data-sort-type="num" title="Shots for" scope="col">SF</th>
+          <th data-sort-type="num" title="Shots against" scope="col">SA</th>
+          <th data-sort-type="num" title="Faceoff %" scope="col">FO%</th>
+          <th data-sort-type="num" title="Blocked shots" scope="col">BS</th>
+          <th data-sort-type="num" title="Hits" scope="col">HIT</th>
+          <th data-sort-type="num" title="Takeaways" scope="col">TKA</th>
+          <th data-sort-type="num" title="Giveaways" scope="col">GVA</th>
+          <th data-sort-type="num" title="Power-play chances" scope="col">PP Ch</th>
+          <th data-sort-type="num" title="Power-play goals" scope="col">PPG</th>
+          <th data-sort-type="num" title="Power-play % (PPG ÷ PP Ch)" scope="col">PP%</th>
+          <th data-sort-type="num" title="Power-play goals against (PK)" scope="col">PK GA</th>
+          <th data-sort-type="num" title="Shorthanded chances (FHM: SH Ch)" scope="col">SH CH</th>
+          <th data-sort-type="num" title="Penalty kill % (PK GA ÷ SH CH)" scope="col">PK%</th>
+          <th data-sort-type="num" title="Shorthanded goals" scope="col">SHG</th>
+          <th data-sort-type="num" title="PIM per game" scope="col">PIM/G</th>
+          <th data-sort-type="num" title="Attendance home total" scope="col">Att H</th>
+          <th data-sort-type="num" title="Attendance away total" scope="col">Att A</th>
+          <th data-sort-type="num" title="Sellouts home" scope="col">SO H</th>
+          <th data-sort-type="num" title="Sellouts away" scope="col">SO A</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for team, agg in rows %}
+        {% set pp_pct = (100.0 * agg.pp_goals / agg.pp_chances) if agg and agg.pp_chances and agg.pp_chances > 0 and agg.pp_goals is not none else none %}
+        {% set pk_pct = (100.0 * agg.pk_goals_against / agg.sh_chances) if agg and agg.sh_chances and agg.sh_chances > 0 and agg.pk_goals_against is not none else none %}
+        <tr{% if config.LEAGUE_SLUG == 'league3' and view == 'conference' and loop.index == 9 %} class="standings-cutline"{% endif %}>
+          <td data-sort-value="{{ loop.index0 }}">{{ loop.index }}</td>
+          <td data-sort-value="{{ team.slug }}">{{ team_lockup(team) }}</td>
+          {% if agg %}
+          <td data-sort-value="{{ agg.shots_for if agg.shots_for is not none else '' }}">{{ agg.shots_for if agg.shots_for is not none else '—' }}</td>
+          <td data-sort-value="{{ agg.shots_against if agg.shots_against is not none else '' }}">{{ agg.shots_against if agg.shots_against is not none else '—' }}</td>
+          <td data-sort-value="{{ '%.4f'|format(agg.faceoff_pct) if agg.faceoff_pct is not none else '' }}">{{ '%.1f'|format(agg.faceoff_pct) if agg.faceoff_pct is not none else '—' }}</td>
+          <td data-sort-value="{{ agg.blocked_shots if agg.blocked_shots is not none else '' }}">{{ agg.blocked_shots if agg.blocked_shots is not none else '—' }}</td>
+          <td data-sort-value="{{ agg.hits if agg.hits is not none else '' }}">{{ agg.hits if agg.hits is not none else '—' }}</td>
+          <td data-sort-value="{{ agg.takeaways if agg.takeaways is not none else '' }}">{{ agg.takeaways if agg.takeaways is not none else '—' }}</td>
+          <td data-sort-value="{{ agg.giveaways if agg.giveaways is not none else '' }}">{{ agg.giveaways if agg.giveaways is not none else '—' }}</td>
+          <td data-sort-value="{{ agg.pp_chances if agg.pp_chances is not none else '' }}">{{ agg.pp_chances if agg.pp_chances is not none else '—' }}</td>
+          <td data-sort-value="{{ agg.pp_goals if agg.pp_goals is not none else '' }}">{{ agg.pp_goals if agg.pp_goals is not none else '—' }}</td>
+          <td data-sort-value="{{ '%.6f'|format(pp_pct) if pp_pct is not none else '' }}">{% if pp_pct is not none %}{{ '%.1f'|format(pp_pct) }}%{% else %}—{% endif %}</td>
+          <td data-sort-value="{{ agg.pk_goals_against if agg.pk_goals_against is not none else '' }}">{{ agg.pk_goals_against if agg.pk_goals_against is not none else '—' }}</td>
+          <td data-sort-value="{{ agg.sh_chances if agg.sh_chances is not none else '' }}">{{ agg.sh_chances if agg.sh_chances is not none else '—' }}</td>
+          <td data-sort-value="{{ '%.6f'|format(pk_pct) if pk_pct is not none else '' }}">{% if pk_pct is not none %}{{ '%.1f'|format(pk_pct) }}%{% else %}—{% endif %}</td>
+          <td data-sort-value="{{ agg.sh_goals if agg.sh_goals is not none else '' }}">{{ agg.sh_goals if agg.sh_goals is not none else '—' }}</td>
+          <td data-sort-value="{{ '%.6f'|format(agg.pim_per_game) if agg.pim_per_game is not none else '' }}">{{ '%.2f'|format(agg.pim_per_game) if agg.pim_per_game is not none else '—' }}</td>
+          <td data-sort-value="{{ agg.attendance_home if agg.attendance_home is not none else '' }}">{{ agg.attendance_home if agg.attendance_home is not none else '—' }}</td>
+          <td data-sort-value="{{ agg.attendance_away if agg.attendance_away is not none else '' }}">{{ agg.attendance_away if agg.attendance_away is not none else '—' }}</td>
+          <td data-sort-value="{{ agg.sellouts_home if agg.sellouts_home is not none else '' }}">{{ agg.sellouts_home if agg.sellouts_home is not none else '—' }}</td>
+          <td data-sort-value="{{ agg.sellouts_away if agg.sellouts_away is not none else '' }}">{{ agg.sellouts_away if agg.sellouts_away is not none else '—' }}</td>
+          {% else %}
+          <td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{%- endmacro %}
+{% block content %}
+<h1 class="page-title">Standings</h1>
+{% if season %}
+<p class="muted">Season: <strong>{{ season.label }}</strong></p>
+{% endif %}
+<div class="standings-toolbar">
+  <div class="tabs">
+    <a href="{{ url_for('main.standings', view='overall') }}" class="{{ 'is-active' if view == 'overall' else '' }}">Overall</a>
+    <a href="{{ url_for('main.standings', view='conference') }}" class="{{ 'is-active' if view == 'conference' else '' }}">Conference</a>
+    <a href="{{ url_for('main.standings', view='division') }}" class="{{ 'is-active' if view == 'division' else '' }}">Division</a>
+  </div>
+  {% if season %}
+  <button type="button" class="btn-playoff-bracket" id="js-open-playoff-bracket">Playoffs</button>
+  {% endif %}
+</div>
+{% if view == 'division' %}
+<div class="tabs">
+  <a href="{{ url_for('main.standings', view='division') }}" class="{{ 'is-active' if not sel_division else '' }}">All</a>
+  {% for d in division_names %}
+  <a href="{{ url_for('main.standings', view='division', division=d) }}" class="{{ 'is-active' if sel_division == d else '' }}">{{ d }}</a>
+  {% endfor %}
+</div>
+{% elif view == 'conference' and conference_names %}
+<div class="tabs">
+  <a href="{{ url_for('main.standings', view='conference') }}" class="{{ 'is-active' if not sel_conference else '' }}">All</a>
+  {% for c in conference_names %}
+  <a href="{{ url_for('main.standings', view='conference', conference=c) }}" class="{{ 'is-active' if sel_conference == c else '' }}">{{ c }}</a>
+  {% endfor %}
+</div>
+{% endif %}
+<div class="card">
+  {% if standings %}
+  <p class="muted" style="margin-top:0;">Click a column heading to sort. Click again to reverse.</p>
+  <div class="table-wrap">
+    <table class="data data-sortable{% if view == 'division' %} standings-table--division{% endif %}">
+      <thead>
+        <tr>
+          <th data-sort-type="num" scope="col">#</th>
+          <th data-sort-type="str" scope="col">Team</th>
+          {% if view != 'overall' %}<th data-sort-type="str" scope="col">Conf / Div</th>{% endif %}
+          <th data-sort-type="num" scope="col">GP</th><th data-sort-type="num" scope="col">W</th><th data-sort-type="num" scope="col">L</th><th data-sort-type="num" scope="col">T</th><th data-sort-type="num" scope="col">OTL</th><th data-sort-type="num" scope="col">SOW</th><th data-sort-type="num" scope="col">SOL</th><th data-sort-type="num" scope="col">Pts</th><th data-sort-type="num" scope="col">Pct</th><th data-sort-type="num" scope="col">GF</th><th data-sort-type="num" scope="col">GA</th><th data-sort-type="num" scope="col">Diff</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for st in standings %}
+        {% set diff_v = st.gf - st.ga %}
+        <tr{% if config.LEAGUE_SLUG == 'league3' and view == 'conference' and loop.index == 9 %} class="standings-cutline"{% endif %}>
+          <td data-sort-value="{{ loop.index0 }}">{{ loop.index }}</td>
+          <td data-sort-value="{{ st.team.slug }}">{{ team_lockup(st.team) }}</td>
+          {% if view != 'overall' %}<td data-sort-value="{{ ((st.conference_label or '') ~ ' ' ~ (st.division_label or st.division or ''))|lower }}">{{ st.conference_label or '—' }} / {{ st.division_label or st.division or '—' }}</td>{% endif %}
+          <td data-sort-value="{{ st.gp }}">{{ st.gp }}</td><td data-sort-value="{{ st.w }}">{{ st.w }}</td><td data-sort-value="{{ st.l }}">{{ st.l }}</td><td data-sort-value="{{ st.ties }}">{{ st.ties }}</td><td data-sort-value="{{ st.otl }}">{{ st.otl }}</td>
+          <td data-sort-value="{{ st.shootout_wins }}">{{ st.shootout_wins }}</td><td data-sort-value="{{ st.shootout_losses }}">{{ st.shootout_losses }}</td><td data-sort-value="{{ st.pts }}">{{ st.pts }}</td>
+          <td data-sort-value="{{ '%.6f'|format(st.win_pct) if st.win_pct is not none else '' }}">{{ '%.3f'|format(st.win_pct) if st.win_pct is not none else '—' }}</td>
+          <td data-sort-value="{{ st.gf }}">{{ st.gf }}</td><td data-sort-value="{{ st.ga }}">{{ st.ga }}</td>
+          <td data-sort-value="{{ diff_v }}">{% if diff_v > 0 %}+{{ diff_v }}{% else %}{{ diff_v }}{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  {% if view == 'conference' %}
+  <p class="empty-state">No conference standings loaded for this selection.</p>
+  {% else %}
+  <p class="empty-state">No standings loaded. Add <code>team_standings.csv</code> (after teams and seasons) or run <code>python scripts/seed_demo.py</code>.</p>
+  {% endif %}
+  {% endif %}
+</div>
+
+{{ team_stats_panel("TEAM STATISTICS (REGULAR SEASON)", team_stat_rows_rs) }}
+{{ team_stats_panel("TEAM STATISTICS (PLAYOFFS)", team_stat_rows_po) }}
+{% if season and not team_stat_rows_rs and not team_stat_rows_po %}
+<div class="card">
+  <h2>Team statistics</h2>
+  <p class="empty-state">No team season totals in the database yet. Include <code>team_stats.csv</code> and <code>team_stats_playoffs.csv</code> in your FHM export and run the import pipeline.</p>
+</div>
+{% endif %}
+
+{% if season %}
+<dialog class="playoff-bracket-dialog" id="playoff-bracket-dialog" aria-labelledby="playoff-bracket-title">
+  <div class="playoff-bracket-dialog__shell">
+    <header class="playoff-bracket-dialog__head">
+      <div>
+        <h2 id="playoff-bracket-title" class="playoff-bracket-dialog__title">Playoff Bracket</h2>
+        <p class="playoff-bracket-dialog__subtitle">Single-league bracket · Conference splits can be added when the league expands.</p>
+      </div>
+      <button type="button" class="playoff-bracket-dialog__close" id="js-close-playoff-bracket" aria-label="Close">&times;</button>
+    </header>
+    <div class="playoff-bracket-dialog__body" id="playoff-bracket-root">
+      <p class="muted playoff-bracket-dialog__loading">Loading bracket…</p>
+    </div>
+  </div>
+</dialog>
+<script>
+(function () {
+  var dlg = document.getElementById('playoff-bracket-dialog');
+  var root = document.getElementById('playoff-bracket-root');
+  var openBtn = document.getElementById('js-open-playoff-bracket');
+  var closeBtn = document.getElementById('js-close-playoff-bracket');
+  if (!dlg || !root || !openBtn) return;
+
+  function esc(s) {
+    if (s == null || s === '') return '';
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+  function teamSide(t, sideClass) {
+    if (!t) return '<span class="bracket-team bracket-team--empty">—</span>';
+    var logo = t.logo_url
+      ? '<img src="' + esc(t.logo_url) + '" alt="" class="bracket-team__logo" width="40" height="40">'
+      : '';
+    var name = esc(t.abbreviation || t.name || '');
+    var link = t.slug ? '/team/' + esc(t.slug) : '';
+    var inner = link
+      ? '<a class="bracket-team__link" href="' + link + '">' + logo + '<span class="bracket-team__abbr">' + name + '</span></a>'
+      : '<span class="bracket-team__nolink">' + logo + '<span class="bracket-team__abbr">' + name + '</span></span>';
+    return '<div class="bracket-team ' + sideClass + '">' + inner + '</div>';
+  }
+  function seriesFooter(s) {
+    var wa = s.wins_a, wb = s.wins_b, gp = s.games_played || 0;
+    if (s.winner && s.winner.name) {
+      var w = Math.max(wa, wb), l = Math.min(wa, wb);
+      return '<div class="bracket-matchup__footer"><span class="bracket-matchup__line"><strong class="bracket-matchup__winner-label">Winner</strong> · ' + esc(s.winner.name) + ' · ' + w + '-' + l + (gp ? ' · ' + gp + ' GP' : '') + '</span></div>';
+    }
+    return '<div class="bracket-matchup__footer bracket-matchup__footer--live">' + esc(s.team_a && s.team_a.abbreviation) + ' ' + wa + ' — ' + wb + ' ' + esc(s.team_b && s.team_b.abbreviation) + (gp ? ' · ' + gp + ' GP' : '') + '</div>';
+  }
+  function seriesCard(s, champ) {
+    var cls = champ ? ' bracket-matchup--championship' : '';
+    return '<div class="bracket-matchup' + cls + '">' +
+      '<div class="bracket-matchup__row">' +
+        teamSide(s.team_a, 'bracket-team--a') +
+        '<span class="bracket-matchup__at">at</span>' +
+        teamSide(s.team_b, 'bracket-team--b') +
+      '</div>' +
+      seriesFooter(s) +
+    '</div>';
+  }
+  function render(data) {
+    if (!data || data.empty) {
+      root.innerHTML = '<p class="empty-state">' + esc(data && data.message ? data.message : 'No playoff data.') + '</p>';
+      return;
+    }
+    var html = '';
+    if (data.championship) {
+      html += '<section class="bracket-block bracket-block--final" aria-label="Championship">';
+      html += '<h3 class="bracket-block__title"><span class="bracket-block__icon" aria-hidden="true">🏆</span> Championship</h3>';
+      html += seriesCard(data.championship, true);
+      html += '</section>';
+    }
+    if (data.rounds && data.rounds.length) {
+      html += '<section class="bracket-block bracket-block--rounds" aria-label="Playoff rounds">';
+      html += '<h3 class="bracket-block__heading">Playoff bracket</h3>';
+      html += '<div class="bracket-rounds">';
+      data.rounds.forEach(function (round) {
+        html += '<div class="bracket-round">';
+        html += '<h4 class="bracket-round__label">' + esc(round.label) + '</h4>';
+        html += '<div class="bracket-round__matchups">';
+        (round.series || []).forEach(function (s) {
+          html += seriesCard(s, false);
+        });
+        html += '</div></div>';
+      });
+      html += '</div></section>';
+    }
+    root.innerHTML = html || '<p class="empty-state">Nothing to display.</p>';
+  }
+  function load() {
+    root.innerHTML = '<p class="muted playoff-bracket-dialog__loading">Loading bracket…</p>';
+    var url = '/api/playoff-bracket{% if season %}?season_id={{ season.id }}{% endif %}';
+    fetch(url).then(function (r) { return r.json(); }).then(render).catch(function () {
+      root.innerHTML = '<p class="empty-state">Could not load playoff bracket.</p>';
+    });
+  }
+  openBtn.addEventListener('click', function () {
+    load();
+    if (typeof dlg.showModal === 'function') dlg.showModal();
+  });
+  if (closeBtn) closeBtn.addEventListener('click', function () { dlg.close(); });
+  dlg.addEventListener('click', function (e) {
+    if (e.target === dlg) dlg.close();
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

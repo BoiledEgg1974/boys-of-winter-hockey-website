@@ -1,0 +1,64 @@
+TeamId;LeagueId;Name;Nickname;Abbr;Parent Team 1;Parent Team 2;Parent Team 3;Parent Team 4;Parent Team 5;Parent Team 6;Parent Team 7;Parent Team 8;Primary Color;Secondary Color;Text Color;Conference Id;Division Id
+0;0;Montreal;Canadiens;MTL;-1;-1;-1;-1;-1;-1;-1;-1;#c8102e;#003087;#fefef4;-1;0
+3;0;Toronto;Maple Leafs;TOR;-1;-1;-1;-1;-1;-1;-1;-1;#000084;#000084;#fefef4;-1;0
+5;0;Boston;Bruins;BOS;-1;-1;-1;-1;-1;-1;-1;-1;#000000;#ffd100;#fefef4;-1;0
+8;0;Chicago;Black Hawks;CHI;-1;-1;-1;-1;-1;-1;-1;-1;#c8102e;#000000;#fefef4;-1;0
+9;0;Detroit;Red Wings;DET;-1;-1;-1;-1;-1;-1;-1;-1;#c8102e;#c8102e;#fefef4;-1;0
+10;0;New York;Rangers;NYR;-1;-1;-1;-1;-1;-1;-1;-1;#00205b;#c8102e;#fefef4;-1;0
+19;3;Independent;Team;Ind;0;-1;-1;-1;-1;-1;-1;-1;#c60000;#0031ad;#fefef4;-1;0
+22;3;Independent;Team;Ind;3;-1;-1;-1;-1;-1;-1;-1;#000000;#000000;#fefef4;-1;0
+24;3;Independent;Team;Ind;5;-1;-1;-1;-1;-1;-1;-1;#000000;#fefef4;#e09d06;-1;0
+26;3;Independent;Team;Ind;8;-1;-1;-1;-1;-1;-1;-1;#c30110;#000000;#fefef4;-1;0
+27;3;Independent;Team;Ind;9;-1;-1;-1;-1;-1;-1;-1;#ee0000;#ee0000;#fefef4;-1;0
+28;3;Independent;Team;Ind;10;-1;-1;-1;-1;-1;-1;-1;#000000;#000000;#fefef4;-1;1
+58;5;West Germany;;GER;-1;-1;-1;-1;-1;-1;-1;-1;#000000;#f7c610;#fefef4;-1;-1
+59;5;Sweden;;SWE;-1;-1;-1;-1;-1;-1;-1;-1;#006aa7;#006aa7;#ffef00;-1;-1
+60;5;Finland;;FIN;-1;-1;-1;-1;-1;-1;-1;-1;#0065bd;#0065bd;#fefef4;-1;-1
+61;5;Soviet Union;;USSR;-1;-1;-1;-1;-1;-1;-1;-1;#c50202;#c50202;#ffc600;-1;-1
+62;5;Czechoslovakia;;CZE;-1;-1;-1;-1;-1;-1;-1;-1;#0033a0;#c8102e;#fefef4;-1;-1
+63;5;Czechoslovakia;;CZE;-1;-1;-1;-1;-1;-1;-1;-1;#0033a0;#c8102e;#fefef4;-1;-1
+64;5;Soviet Union;;USSR;-1;-1;-1;-1;-1;-1;-1;-1;#c8102e;#128807;#fefef4;-1;-1
+65;5;Switzerland;;SWI;-1;-1;-1;-1;-1;-1;-1;-1;#c8102e;#c8102e;#fefef4;-1;-1
+66;5;Austria;;AUT;-1;-1;-1;-1;-1;-1;-1;-1;#c8102e;#c8102e;#fefef4;-1;-1
+67;5;Great Britain;;UK;-1;-1;-1;-1;-1;-1;-1;-1;#c60000;#001e62;#fefef4;-1;-1
+68;5;Denmark;;DEN;-1;-1;-1;-1;-1;-1;-1;-1;#c8102e;#c8102e;#fefef4;-1;-1
+69;5;France;;FRA;-1;-1;-1;-1;-1;-1;-1;-1;#0065bd;#d52b1e;#fefef4;-1;-1
+70;5;Soviet Union;;USSR;-1;-1;-1;-1;-1;-1;-1;-1;#390000;#390000;#fefef4;-1;-1
+71;5;Italy;;ITA;-1;-1;-1;-1;-1;-1;-1;-1;#128807;#c8102e;#fefef4;-1;-1
+72;5;Norway;;NOR;-1;-1;-1;-1;-1;-1;-1;-1;#000084;#c60000;#fefef4;-1;-1
+73;5;Japan;;JAP;-1;-1;-1;-1;-1;-1;-1;-1;#c8102e;#c8102e;#fefef4;-1;-1
+74;5;Hungary;;HUN;-1;-1;-1;-1;-1;-1;-1;-1;#128807;#c8102e;#fefef4;-1;-1
+75;5;Poland;;POL;-1;-1;-1;-1;-1;-1;-1;-1;#c8102e;#c8102e;#fefef4;-1;-1
+76;5;Romania;;ROM;-1;-1;-1;-1;-1;-1;-1;-1;#00007f;#c50202;#fefef4;-1;-1
+77;5;Soviet Union;;USSR;-1;-1;-1;-1;-1;-1;-1;-1;#128807;#ffcd00;#fefef4;-1;-1
+78;5;Soviet Union;;USSR;-1;-1;-1;-1;-1;-1;-1;-1;#2a6bb5;#2a6bb5;#ffef00;-1;-1
+79;5;Soviet Union;;USSR;-1;-1;-1;-1;-1;-1;-1;-1;#000000;#2a6bb5;#fefef4;-1;-1
+80;5;Netherlands;;NET;-1;-1;-1;-1;-1;-1;-1;-1;#c60c30;#002147;#fefef4;-1;-1
+81;5;Yugoslavia;;YUG;-1;-1;-1;-1;-1;-1;-1;-1;#041e42;#c8102e;#fefef4;-1;-1
+82;5;Yugoslavia;;YUG;-1;-1;-1;-1;-1;-1;-1;-1;#101073;#c62100;#fefef4;-1;-1
+83;6;CMJHL;;CMJHL;-1;-1;-1;-1;-1;-1;-1;-1;#fa4616;#000000;#fefef4;-1;-1
+84;6;OHA;;OHA;-1;-1;-1;-1;-1;-1;-1;-1;#000084;#000084;#fefef4;-1;-1
+85;6;QJAHL;;QJAHL;-1;-1;-1;-1;-1;-1;-1;-1;#0065bd;#d52b1e;#fefef4;-1;-1
+86;6;Canadian Junior;;CJr;-1;-1;-1;-1;-1;-1;-1;-1;#2c5234;#f2c711;#fefef4;-1;-1
+87;6;High School;;HIG;-1;-1;-1;-1;-1;-1;-1;-1;#c60c30;#002147;#fefef4;-1;-1
+88;7;Canadian University;;CIAU;-1;-1;-1;-1;-1;-1;-1;-1;#c8102e;#c8102e;#fefef4;-1;-1
+89;7;US College;;NCAA;-1;-1;-1;-1;-1;-1;-1;-1;#0033a0;#c8102e;#fefef4;-1;-1
+90;3;Independent;Team;Indep;-1;-1;-1;-1;-1;-1;-1;-1;#000000;#000000;#fefef4;-1;0
+91;5;Belgium;;BEL;-1;-1;-1;-1;-1;-1;-1;-1;#000000;#e84c40;#f7c610;-1;-1
+92;5;Bulgaria;;BUL;-1;-1;-1;-1;-1;-1;-1;-1;#289671;#d13f18;#fefef4;-1;-1
+93;5;Soviet Union;;USSR;-1;-1;-1;-1;-1;-1;-1;-1;#31a7c2;#31a7c2;#fdf04e;-1;-1
+94;5;China;;CHI;-1;-1;-1;-1;-1;-1;-1;-1;#c50202;#c50202;#ffc600;-1;-1
+95;5;South Korea;;ROK;-1;-1;-1;-1;-1;-1;-1;-1;#000084;#c60000;#fefef4;-1;-1
+96;5;Australia;;AUS;-1;-1;-1;-1;-1;-1;-1;-1;#000000;#000000;#fefef4;-1;-1
+118;0;Los Angeles;Kings;LAK;-1;-1;-1;-1;-1;-1;-1;-1;#582c83;#ffc72c;#fefef4;-1;1
+119;0;Minnesota;North Stars;MIN;-1;-1;-1;-1;-1;-1;-1;-1;#009639;#ffd100;#fefef4;-1;1
+120;0;Oakland;Seals;OAK;-1;-1;-1;-1;-1;-1;-1;-1;#046a38;#0033a0;#fefef4;-1;1
+121;0;Philadelphia;Flyers;PHI;-1;-1;-1;-1;-1;-1;-1;-1;#ff671f;#000000;#fefef4;-1;1
+122;0;Pittsburgh;Penguins;PIT;-1;-1;-1;-1;-1;-1;-1;-1;#41b6e6;#00205b;#fefef4;-1;1
+123;0;St. Louis;Blues;STL;-1;-1;-1;-1;-1;-1;-1;-1;#003087;#003087;#fedb00;-1;1
+124;3;Independent;Team;Ind;-1;-1;-1;-1;-1;-1;-1;-1;#3052b4;#fefef4;#f9b300;-1;0
+125;3;Independent;Team;Ind;-1;-1;-1;-1;-1;-1;-1;-1;#000000;#000000;#fefef4;-1;0
+126;3;Independent;Team;Ind;-1;-1;-1;-1;-1;-1;-1;-1;#3d924e;#3d924e;#fefef4;-1;0
+127;3;Independent;Team;Ind;-1;-1;-1;-1;-1;-1;-1;-1;#006200;#006200;#ffc620;-1;2
+128;3;Independent;Team;Ind;-1;-1;-1;-1;-1;-1;-1;-1;#000000;#000000;#fefef4;-1;0
+129;3;Independent;Team;Ind;-1;-1;-1;-1;-1;-1;-1;-1;#000000;#000000;#fefef4;-1;0

@@ -1719,6 +1719,39 @@ def _player_age_years(birth: date | None, as_of: date | None = None) -> int | No
     return ref.year - birth.year - ((ref.month, ref.day) < (birth.month, birth.day))
 
 
+def _dedupe_goalie_playoff_career_lines(
+    lines: list[PlayerGoalieCareerLine],
+) -> list[PlayerGoalieCareerLine]:
+    """One playoffs row per (season_year, team_fhm_id, league_fhm_id).
+
+    FHM career imports include both *ps* and *po* files (and active vs *retired_po*), which
+    produced duplicate seasons on the player page. Skater playoffs use only *po* /
+    *retired_po*; we match that and, if both *po* and *retired_po* exist for the same key,
+    keep *po* (season CSV) over *retired_po*.
+    """
+    if not lines:
+        return []
+    rank = {"po": 0, "retired_po": 1}
+    ordered = sorted(
+        lines,
+        key=lambda ln: (
+            -ln.season_year,
+            ln.team_fhm_id,
+            ln.league_fhm_id,
+            rank.get(ln.career_source, 9),
+        ),
+    )
+    out: list[PlayerGoalieCareerLine] = []
+    seen: set[tuple[int, int, int]] = set()
+    for ln in ordered:
+        key = (ln.season_year, ln.team_fhm_id, ln.league_fhm_id)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(ln)
+    return out
+
+
 @main_bp.get("/player/<int:player_id>")
 def player_page(player_id: int):
     player = db.session.get(Player, player_id)
@@ -1742,7 +1775,9 @@ def player_page(player_id: int):
         .order_by(PlayerGoalieCareerLine.season_year.desc())
     ).all()
     career_rs_gk = [ln for ln in gk_career_lines if ln.career_source in ("rs", "retired_rs")]
-    career_po_gk = [ln for ln in gk_career_lines if ln.career_source in ("ps", "po", "retired_ps", "retired_po")]
+    career_po_gk = _dedupe_goalie_playoff_career_lines(
+        [ln for ln in gk_career_lines if ln.career_source in ("po", "retired_po")]
+    )
     pos = (player.position or "").strip().upper()
     is_goalie = pos.startswith("G")
     if is_goalie:

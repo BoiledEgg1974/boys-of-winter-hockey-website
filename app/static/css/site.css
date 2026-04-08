@@ -1730,6 +1730,10 @@ table.data.stats-table thead th:nth-child(n + 3),
 table.data.stats-table tbody td:nth-child(n + 3) {
   text-align: center;
 }
+/* Statistics ABI/POT: noticeably square chips (overrides .stats-badge--overall for this table only) */
+table.data.stats-table .stats-badge.stats-badge--overall {
+  border-radius: 2px;
+}
 .stats-player-cell {
   --stats-photo-size: 32px;
   display: inline-flex;

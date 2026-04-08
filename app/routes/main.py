@@ -1580,7 +1580,7 @@ def team_page(slug: str):
             "pp_pct": ("pp_pct", True),
             "pk_goals_against": ("pk_goals_against", False),
             "sh_chances": ("sh_chances", False),
-            "pk_pct": ("pk_pct", False),
+            "pk_pct": ("pk_pct", True),
             "sh_goals": ("sh_goals", True),
             "pim_per_game": ("pim_per_game", False),
             "attendance_home": ("attendance_home", True),
@@ -1599,8 +1599,11 @@ def team_page(slug: str):
                     else:
                         v = None
                 elif attr == "pk_pct":
+                    # Kill success %: 100 − (PK GA / SH CH) × 100  ==  (SH CH − PK GA) / SH CH × 100
                     if a.sh_chances and a.sh_chances > 0 and a.pk_goals_against is not None:
-                        v = float(a.pk_goals_against) / float(a.sh_chances)
+                        v = 100.0 - (
+                            100.0 * float(a.pk_goals_against) / float(a.sh_chances)
+                        )
                     else:
                         v = None
                 else:

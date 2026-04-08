@@ -16,6 +16,7 @@ from app.db_utils import (
 )
 from app.models import Player, db
 from app.services.player_headshot import resolve_player_headshot_static_filename
+from app.services.roster_team import main_league_roster_team
 
 
 def create_app(config_class: type = Config) -> Flask:
@@ -229,6 +230,7 @@ def create_app(config_class: type = Config) -> Flask:
             team_logo_url=team_logo_url,
             league_logo_url=league_logo_url,
             player_headshot_url=player_headshot_url,
+            main_league_roster_team=main_league_roster_team,
             league_entries=LEAGUES,
             current_league_slug=app.config.get("LEAGUE_SLUG"),
         )

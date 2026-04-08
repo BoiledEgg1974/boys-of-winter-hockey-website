@@ -20,7 +20,7 @@
 {% endmacro %}
 {% macro rating_pill(val) -%}
 {% if val is none %}—{% else %}
-<span class="stats-badge stats-badge--rating" style="{{ val|rating_pill_style }}">{{ '%.1f'|format(val) }}</span>
+<span class="stats-badge stats-badge--rating stats-badge--overall" style="{{ val|rating_pill_style }}">{{ '%.1f'|format(val) }}</span>
 {% endif %}
 {%- endmacro %}
 {% macro sk_url(sk) -%}

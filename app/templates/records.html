@@ -21,10 +21,11 @@
 {%- if g_sort == gc -%}is-sorted {{ 'is-sorted-asc' if g_order == 'asc' else 'is-sorted-desc' }}{%- endif -%}
 {%- endmacro %}
 {% macro team_label(pl) -%}
+{%- set roster_team = main_league_roster_team(none, pl.current_team) -%}
 {%- if pl.retired -%}
 <span class="records-team-retired">Retired</span>
-{%- elif pl.current_team -%}
-{{ team_logo_only(pl.current_team) }}
+{%- elif roster_team -%}
+{{ team_logo_only(roster_team) }}
 {%- else -%}
 <span class="records-team-minors">Minors</span>
 {%- endif -%}

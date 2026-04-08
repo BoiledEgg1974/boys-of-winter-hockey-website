@@ -1262,10 +1262,10 @@ table.data tbody tr.standings-cutline td {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 1.4rem;
-  height: 1rem;
-  padding: 0 0.25rem;
-  border-radius: 999px;
+  min-width: 1.45rem;
+  min-height: 1.05rem;
+  padding: 0.1rem 0.3rem;
+  border-radius: 5px;
   font-size: 0.66rem;
   font-weight: 700;
   color: #111827;
@@ -1811,6 +1811,10 @@ table.data.stats-table tbody td:nth-child(n + 3) {
   border-width: 1px;
   border-style: solid;
 }
+/* Overall ability/potential: rounded rects (not circular pills) */
+.stats-badge.stats-badge--overall {
+  border-radius: 5px;
+}
 .stats-panel .empty-state {
   color: #94a3b8;
 }
@@ -2347,7 +2351,7 @@ table.data.prospects-rankings-table--undrafted td:nth-child(2) .stats-player-cel
   font-weight: 700;
   font-size: 1.1rem;
   padding: 0.15rem 0.5rem;
-  border-radius: 6px;
+  border-radius: 5px;
   border-width: 1px;
   border-style: solid;
 }

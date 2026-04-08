@@ -1727,8 +1727,8 @@ def player_page(player_id: int):
         .where(PlayerSkaterCareerLine.player_id == player.id)
         .order_by(PlayerSkaterCareerLine.season_year.desc())
     ).all()
-    # rs: player_skater_career_stats_rs.csv — po / retired_po: playoff career CSVs (see import_career_skater_file)
-    career_rs_sk = [ln for ln in sk_career_lines if ln.career_source == "rs"]
+    # rs + retired_rs: active vs retired regular-season career CSVs (see import_career_skater_file)
+    career_rs_sk = [ln for ln in sk_career_lines if ln.career_source in ("rs", "retired_rs")]
     career_po_sk = [ln for ln in sk_career_lines if ln.career_source in ("po", "retired_po")]
 
     gk_career_lines = db.session.scalars(
@@ -1737,8 +1737,8 @@ def player_page(player_id: int):
         .where(PlayerGoalieCareerLine.player_id == player.id)
         .order_by(PlayerGoalieCareerLine.season_year.desc())
     ).all()
-    career_rs_gk = [ln for ln in gk_career_lines if ln.career_source == "rs"]
-    career_po_gk = [ln for ln in gk_career_lines if ln.career_source in ("ps", "po")]
+    career_rs_gk = [ln for ln in gk_career_lines if ln.career_source in ("rs", "retired_rs")]
+    career_po_gk = [ln for ln in gk_career_lines if ln.career_source in ("ps", "po", "retired_ps", "retired_po")]
     pos = (player.position or "").strip().upper()
     is_goalie = pos.startswith("G")
     if is_goalie:

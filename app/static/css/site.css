@@ -2192,15 +2192,13 @@ table.data.prospects-rankings-table--undrafted td:nth-child(2) .stats-player-cel
   color: #94a3b8;
   white-space: nowrap;
 }
-.records-team-retired {
+.records-team-retired,
+.records-team-minors {
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.04em;
   color: #94a3b8;
   text-transform: uppercase;
-}
-.records-team-empty {
-  color: #64748b;
 }
 .records-table tbody td.records-td-team {
   text-align: center;

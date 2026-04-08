@@ -17,6 +17,8 @@ If this folder contains **team_data.csv**, the importer uses FHM layout automati
       player_goalie_career_stats_rs.csv / _ps.csv / _po.csv — active goalie career
       player_goalie_retired_career_stats_rs.csv / _ps.csv / _po.csv — retired goalie
 
+  - Player page **Game Log** tables use only **boxscore_skater_summary.csv** and **boxscore_goalie_summary.csv**. Career CSVs do not contain per-game lines. If a player shows career totals but an empty game log, FHM did not export that player’s per-game rows—re-export from FHM if a fuller box score dump is available.
+
 Only rows with League Id = 0 are imported for teams/schedules/standings (main league).
 
 Optional: if **team_standings.csv** (comma CSV) is present in this folder, it is applied **after** the FHM import and overwrites standings for matching teams (by abbreviation, slug, fhm_team_id, or team name). Leave season columns blank to target the current season.

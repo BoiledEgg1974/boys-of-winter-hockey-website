@@ -500,6 +500,47 @@ def _clear_game_details() -> None:
     db.session.commit()
 
 
+def ensure_players_from_boxscore_csvs(raw_dir: Path, players_fhm: dict[int, int]) -> int:
+    """Create minimal Player rows for FHM ids that appear in box score CSVs but not in player_master.
+
+    Some exports reference skaters/goalies in boxscore_*_summary.csv without listing them in
+    player_master.csv; without this pass those game lines would be skipped.
+    """
+    needed: set[int] = set()
+    for fname in ("boxscore_skater_summary.csv", "boxscore_goalie_summary.csv"):
+        path = raw_dir / fname
+        if not path.is_file():
+            continue
+        df = read_csv_normalized(path)
+        for _, row in df.iterrows():
+            r = row.to_dict()
+            pid = to_int(cell_val(r, "playerid", "player_id"))
+            if pid is not None and pid not in players_fhm:
+                needed.add(pid)
+    if not needed:
+        return 0
+    log.info(
+        "Box scores reference %s player id(s) missing from player_master; adding placeholder rows.",
+        len(needed),
+    )
+    n = 0
+    for pid in sorted(needed):
+        fhm_key = str(pid)
+        full = f"Unknown player (FHM #{pid})"
+        p = Player(
+            fhm_player_id=fhm_key,
+            first_name="Unknown",
+            last_name=str(pid),
+            full_name=full,
+        )
+        db.session.add(p)
+        db.session.flush()
+        players_fhm[pid] = p.id
+        n += 1
+    db.session.commit()
+    return n
+
+
 def import_boxscore_skaters(raw_dir: Path, games_fhm: dict[str, int], players_fhm: dict[int, int], teams_fhm: dict[int, int]) -> int:
     path = raw_dir / "boxscore_skater_summary.csv"
     if not path.exists():
@@ -1008,6 +1049,10 @@ def run_fhm_import(raw_dir: Path, app, league_filter: int = 0) -> dict[str, int]
     counts["teams"] = len(teams_fhm)
     players_fhm = import_players(raw_dir, teams_fhm)
     counts["players"] = len(players_fhm)
+    box_extra = ensure_players_from_boxscore_csvs(raw_dir, players_fhm)
+    if box_extra:
+        counts["players"] = len(players_fhm)
+        counts["players_from_boxscores_only"] = box_extra
     counts["player_jersey_numbers"] = import_player_jersey_numbers(raw_dir, players_fhm)
     counts["ratings"] = import_ratings(raw_dir, players_fhm)
     counts["standings"] = import_standings(raw_dir, season, teams_fhm, div_map, league_filter)

@@ -1715,6 +1715,27 @@ def _player_age_years(birth: date | None, as_of: date | None = None) -> int | No
     return ref.year - birth.year - ((ref.month, ref.day) < (birth.month, birth.day))
 
 
+def _main_league_roster_team(contract_team: Team | None, current_team: Team | None) -> Team | None:
+    """Team to show in the player header: BOWL/NHL club only (FHM league id 0).
+
+    Players assigned only to national teams, independent/minor-league ids, etc. are treated as
+    having no main-roster club so the header can show Minors / RETIRED instead of a non-NHL team.
+    Legacy rows with ``fhm_league_id`` NULL are treated as main league.
+    """
+
+    def _is_main_league(t: Team | None) -> bool:
+        if t is None:
+            return False
+        lid = t.fhm_league_id
+        return lid is None or int(lid) == 0
+
+    if _is_main_league(contract_team):
+        return contract_team
+    if _is_main_league(current_team):
+        return current_team
+    return None
+
+
 @main_bp.get("/player/<int:player_id>")
 def player_page(player_id: int):
     player = db.session.get(Player, player_id)
@@ -1790,6 +1811,7 @@ def player_page(player_id: int):
     contract_years_left = contract_years_remaining_major(
         player.fhm_player_id, season_start_year, raw_dir
     )
+    roster_header_team = _main_league_roster_team(contract_team, current_team)
     return render_template(
         "player.html",
         player=player,
@@ -1802,6 +1824,7 @@ def player_page(player_id: int):
         current_team=current_team,
         contract=contract,
         contract_team=contract_team,
+        roster_header_team=roster_header_team,
         accent_team=accent_team,
         draft_picks=draft_picks,
         ratings_row=ratings_row,

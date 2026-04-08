@@ -44,7 +44,7 @@
     return '<span class="team-name-lockup team-name-lockup--icon">' + img + "</span>";
   }
 
-  const THEME_KEY = "bow-theme";
+  const THEME_KEY = "bowl-universe-theme";
 
   function getPreferredTheme() {
     return localStorage.getItem(THEME_KEY) || "light";
@@ -546,8 +546,8 @@
     return html;
   }
 
-  window.BOW = window.BOW || {};
-  window.BOW.loadBoxScore = function (gameId, container) {
+  window.BOWL = window.BOWL || {};
+  window.BOWL.loadBoxScore = function (gameId, container) {
     if (!container) return;
     container.innerHTML = '<p class="boxscore-loading">Loading box score…</p>';
     fetch(withRoot("/api/game/" + gameId + "/boxscore"))

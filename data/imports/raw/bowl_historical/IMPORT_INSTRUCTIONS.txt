@@ -92,7 +92,7 @@ Examples:
   frost.png           — only if that team’s slug is literally "frost"
   anc-t12.webp        — typical FHM-style slug
 
-If no file matches the slug, the site uses logos/teams/placeholder.svg (the “BOW” tile).
+If no file matches the slug, the site uses logos/teams/placeholder.svg (the “BOWL” tile).
 
 
 3) LEAGUE LOGO (header)

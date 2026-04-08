@@ -125,19 +125,20 @@
 </head>
 <body>
   {% set splash_map = {
-    'league2': {'label': 'BOWL HISTORICAL', 'image': 'img/splash/bowl-historical-green.png', 'class': 'league-card--historical'},
-    'bow': {'label': 'BOWL FANTASY', 'image': 'img/splash/bowl-fantasy-blue.png', 'class': 'league-card--fantasy'},
-    'league3': {'label': 'BOWL CAP', 'image': 'img/splash/bowl-cap-red.png', 'class': 'league-card--cap'}
+    'bowl-historical': {'image': 'img/splash/bowl-historical-green.png', 'class': 'league-card--historical'},
+    'bowl-fantasy': {'image': 'img/splash/bowl-fantasy-blue.png', 'class': 'league-card--fantasy'},
+    'bowl-cap': {'image': 'img/splash/bowl-cap-red.png', 'class': 'league-card--cap'}
   } %}
   <main class="splash-page">
     <h1 class="splash-title">BOYS OF WINTER LEAGUE UNIVERSE</h1>
     <p class="splash-lead">Choose a league site to explore. You can switch leagues anytime from the menu on each site.</p>
     <nav class="splash-leagues" aria-label="League sites">
       {% for league in leagues %}
-      {% set meta = splash_map.get(league.slug, {'label': league.display_name|upper, 'image': 'logos/league-placeholder.svg', 'class': ''}) %}
-      <a class="league-card {{ meta.class }}" href="/{{ league.slug }}/" aria-label="Enter {{ meta.label }}">
-        <img class="league-card__logo" src="{{ url_for('static', filename=meta.image) }}" alt="{{ meta.label }} logo">
-        <span class="league-card__label">{{ meta.label }}</span>
+      {% set meta = splash_map.get(league.slug, {'image': 'logos/league-placeholder.svg', 'class': ''}) %}
+      {% set card_label = league.display_name|upper %}
+      <a class="league-card {{ meta.class }}" href="/{{ league.slug }}/" aria-label="Enter {{ card_label }}">
+        <img class="league-card__logo" src="{{ url_for('static', filename=meta.image) }}" alt="{{ card_label }} logo">
+        <span class="league-card__label">{{ card_label }}</span>
       </a>
       {% endfor %}
     </nav>

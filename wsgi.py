@@ -1,10 +1,10 @@
 """
 Combined WSGI entry: splash hub at ``/`` and one Flask league app per slug under ``/<slug>/``.
 
-Deployment: proxy the full request path to this app (do not strip ``/bow`` etc.).
+Deployment: proxy the full request path to this app (do not strip ``/bowl-fantasy`` etc.).
 
-Per-league imports: set ``LEAGUE_SLUG`` (e.g. ``bow``) and run the import pipeline; CSVs live in
-``data/imports/raw/<slug>/``, databases in ``instance/<slug>.db``. Override DB with ``DATABASE_URL`` only when
+Per-league imports: set ``LEAGUE_SLUG`` (e.g. ``bowl-fantasy``) and run the import pipeline; CSVs live in
+``data/imports/raw/<folder>/`` per league registry, databases in ``instance/<slug>.db``. Override DB with ``DATABASE_URL`` only when
 using the default single ``create_app(Config)`` path—not when mounting via this module.
 
 Local dev: ``python run.py`` serves this application.

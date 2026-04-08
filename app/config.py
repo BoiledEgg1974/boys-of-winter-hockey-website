@@ -14,9 +14,9 @@ class LeagueEntry:
 
 # Single registry for hub splash, header switcher, and DispatcherMiddleware mounts.
 LEAGUES: tuple[LeagueEntry, ...] = (
-    LeagueEntry("league2", "BOWL Historical", "bowl_historical"),
-    LeagueEntry("bow", "BOWL Fantasy", "bowl_fantasy"),
-    LeagueEntry("league3", "BOWL Cap", "bowl_cap"),
+    LeagueEntry("bowl-historical", "BOWL-Historical", "bowl_historical"),
+    LeagueEntry("bowl-fantasy", "BOWL-Fantasy", "bowl_fantasy"),
+    LeagueEntry("bowl-cap", "BOWL-Cap", "bowl_cap"),
 )
 
 
@@ -42,7 +42,7 @@ def league_raw_import_dir(slug: str) -> str:
 
 
 # Default league for standalone scripts and single-process `create_app(Config)`.
-_ENV_LEAGUE_SLUG = os.environ.get("LEAGUE_SLUG", "bow")
+_ENV_LEAGUE_SLUG = os.environ.get("LEAGUE_SLUG", "bowl-fantasy")
 
 
 class Config:
@@ -74,7 +74,7 @@ def make_league_config(slug: str) -> type:
     db_path = BASE_DIR / "instance" / f"{slug}.db"
     raw_path = BASE_DIR / "data" / "imports" / "raw" / entry.raw_import_dir
 
-    headshots_rel = "players/fantasy" if slug == "bow" else "players/shared"
+    headshots_rel = "players/fantasy" if slug == "bowl-fantasy" else "players/shared"
     team_logos_rel = f"logos/teams/{entry.raw_import_dir}"
     league_logo_rel = f"logos/{entry.raw_import_dir}"
     champions_rel = f"img/history/champions/{entry.raw_import_dir}"

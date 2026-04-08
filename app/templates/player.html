@@ -270,9 +270,9 @@
   {% endif %}
 
   {% if contract and contract_years_left is none %}
-  <section class="player-profile__contract{% if config.LEAGUE_SLUG == 'league3' %} player-profile__contract--cap{% else %} player-profile__contract--narrow player-profile__contract--narrow-standalone{% endif %}">
+  <section class="player-profile__contract player-profile__contract--cap">
     <h2 class="player-profile__card-title player-profile__card-title--contract">Contract</h2>
-    <div class="player-profile__contract-line"{% if config.LEAGUE_SLUG == 'league3' %} style="display:flex;flex-wrap:wrap;white-space:normal;overflow-x:visible;justify-content:space-between;gap:0.5rem 1rem;"{% endif %}>
+    <div class="player-profile__contract-line">
       <span><strong>NTC</strong> {{ 'Yes' if contract.has_ntc else 'No' }}</span>
       <span><strong>NMC</strong> {{ 'Yes' if contract.has_nmc else 'No' }}</span>
       <span><strong>ELC</strong> {{ 'Yes' if contract.is_elc else 'No' }}</span>
@@ -281,9 +281,9 @@
     </div>
   </section>
   {% elif contract %}
-  <section class="player-profile__contract{% if config.LEAGUE_SLUG == 'league3' %} player-profile__contract--cap{% endif %}">
+  <section class="player-profile__contract player-profile__contract--cap">
     <h2 class="player-profile__card-title player-profile__card-title--contract">Contract</h2>
-    <div class="player-profile__contract-line"{% if config.LEAGUE_SLUG == 'league3' %} style="display:flex;flex-wrap:wrap;white-space:normal;overflow-x:visible;justify-content:space-between;gap:0.5rem 1rem;"{% endif %}>
+    <div class="player-profile__contract-line">
       <span><strong>NTC</strong> {{ 'Yes' if contract.has_ntc else 'No' }}</span>
       <span><strong>NMC</strong> {{ 'Yes' if contract.has_nmc else 'No' }}</span>
       <span><strong>ELC</strong> {{ 'Yes' if contract.is_elc else 'No' }}</span>

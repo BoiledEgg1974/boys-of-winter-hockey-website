@@ -61,7 +61,7 @@
       {% endfor %}
     </ul>
     {% else %}
-    <p class="empty-state">No season years found in <code>data/imports/raw/{{ config.LEAGUE_SLUG or 'bow' }}</code> career CSVs.</p>
+    <p class="empty-state">No season years found in <code>data/imports/raw/{{ config.RAW_IMPORT_DIR.name }}</code> career CSVs.</p>
     {% endif %}
   </div>
 </div>

@@ -45,7 +45,7 @@ from scripts.import_pipeline.encoding_utils import (  # noqa: E402
     to_int,
 )
 
-log = logging.getLogger("bow.import")
+log = logging.getLogger("bowl.import")
 
 
 def _run_post_import_safeguards() -> None:

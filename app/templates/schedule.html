@@ -61,7 +61,7 @@ document.querySelectorAll('.game-card[data-game-id]').forEach(function (det) {
     var inner = det.querySelector('.box-inner');
     if (!inner || inner.getAttribute('data-loaded') === '1') return;
     inner.setAttribute('data-loaded', '1');
-    window.BOW.loadBoxScore(det.getAttribute('data-game-id'), inner);
+    window.BOWL.loadBoxScore(det.getAttribute('data-game-id'), inner);
   });
 });
 </script>

@@ -37,7 +37,7 @@ from scripts.import_pipeline.encoding_utils import (
     to_int,
 )
 
-log = logging.getLogger("bow.fhm")
+log = logging.getLogger("bowl.fhm")
 
 
 def _slug(abbr: str, team_fhm_id: int) -> str:

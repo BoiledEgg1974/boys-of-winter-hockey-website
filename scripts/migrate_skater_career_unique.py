@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-_slug = os.environ.get("LEAGUE_SLUG", "bow")
+_slug = os.environ.get("LEAGUE_SLUG", "bowl-fantasy")
 DB = ROOT / "instance" / f"{_slug}.db"
 
 

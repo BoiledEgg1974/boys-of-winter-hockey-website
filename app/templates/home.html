@@ -1,7 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Home — Boys of Winter Hockey League{% endblock %}
 {% block content %}
-{% set _home_league_label = {'league2': 'HISTORICAL', 'bow': 'FANTASY', 'league3': 'CAP'}.get(current_league_slug, (config.LEAGUE_DISPLAY_NAME or '')|replace('BOWL ', '')|upper) %}
+{% set _home_league_label = {
+  'bowl-historical': 'HISTORICAL',
+  'bowl-fantasy': 'FANTASY',
+  'bowl-cap': 'CAP'
+}.get(current_league_slug, (config.LEAGUE_DISPLAY_NAME or '')|replace('BOWL-', '')|replace('BOWL ', '')|upper) %}
 <h1 class="page-title page-title--center">BOYS OF WINTER LEAGUE - {{ _home_league_label }}</h1>
 <div class="home-grid">
   <section class="card" aria-labelledby="top-teams-h">
@@ -173,7 +177,7 @@
             if (!det.open) return;
             if (inner.getAttribute('data-loaded') === '1') return;
             inner.setAttribute('data-loaded', '1');
-            window.BOW.loadBoxScore(g.id, inner);
+            window.BOWL.loadBoxScore(g.id, inner);
           });
           gg.appendChild(det);
         });

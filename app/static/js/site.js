@@ -215,6 +215,10 @@
     var headers = headerRow.cells;
     if (!headers.length) return;
 
+    var renumberFirst =
+      table.getAttribute("data-sort-renumber") === "1" ||
+      table.getAttribute("data-sort-renumber") === "true";
+
     var sortState = { col: null, asc: true };
 
     function getCellSortValue(tr, colIdx) {
@@ -260,7 +264,9 @@
         tbody.appendChild(tr);
       });
 
-      renumberFirstColumn();
+      if (renumberFirst) {
+        renumberFirstColumn();
+      }
 
       for (var i = 0; i < headers.length; i++) {
         headers[i].classList.remove("is-sorted", "is-sorted-asc", "is-sorted-desc");
@@ -273,6 +279,7 @@
     for (var c = 0; c < headers.length; c++) {
       (function (colIdx) {
         var th = headers[colIdx];
+        if (th.hasAttribute("data-sort-nosort")) return;
         th.classList.add("th-sortable");
         th.setAttribute("tabindex", "0");
         function activate(e) {

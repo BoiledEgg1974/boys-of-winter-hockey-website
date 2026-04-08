@@ -1133,8 +1133,8 @@ def _norm_contract_key(key: str) -> str:
     return "".join(ch.lower() if ch.isalnum() else "_" for ch in key).strip("_")
 
 
-def _contract_rows_by_playerid() -> dict[str, dict[str, str]]:
-    path = Path(Config.RAW_IMPORT_DIR) / "player_contract.csv"
+def _contract_rows_by_playerid(raw_import_dir: Path) -> dict[str, dict[str, str]]:
+    path = raw_import_dir / "player_contract.csv"
     out: dict[str, dict[str, str]] = {}
     for row in _read_semicolon_rows(path):
         nr = {_norm_contract_key(k): (v or "") for k, v in row.items()}
@@ -1160,6 +1160,7 @@ def _build_team_lines_views(
     team: Team,
     roster: list[Player],
     season: Season | None,
+    raw_import_dir: Path,
 ) -> tuple[
     dict[str, list[dict[str, object]]],
     list[tuple[str, list[tuple[str, str | list[str] | None]]]],
@@ -1172,7 +1173,7 @@ def _build_team_lines_views(
         for p in roster
         if p.fhm_player_id is not None and str(p.fhm_player_id).strip() != ""
     }
-    lines_path = Path(Config.RAW_IMPORT_DIR) / "team_lines.csv"
+    lines_path = raw_import_dir / "team_lines.csv"
     lines_row: dict[str, str] = {}
     team_fhm = str(team.fhm_team_id) if team.fhm_team_id is not None else None
     if team_fhm:
@@ -1328,7 +1329,7 @@ def _build_team_lines_views(
     salary_rows: list[dict[str, object]] = []
     salary_total = 0
     salary_years = [int(season.start_year) + i for i in range(6)] if season and season.start_year else []
-    contract_rows = _contract_rows_by_playerid()
+    contract_rows = _contract_rows_by_playerid(raw_import_dir)
     contracts_q = select(PlayerContract).join(Player, Player.id == PlayerContract.player_id)
     if team.fhm_team_id is not None:
         contracts_q = contracts_q.where(PlayerContract.fhm_team_id == team.fhm_team_id)
@@ -1400,7 +1401,9 @@ def _build_team_lines_views(
                 "group": salary_group,
                 "name_badges": name_badges,
                 "year_cells": year_cells,
-                "years_left": contract_years_remaining_major(p.fhm_player_id, season_start_year),
+                "years_left": contract_years_remaining_major(
+                    p.fhm_player_id, season_start_year, raw_import_dir
+                ),
             }
         )
     group_order = {"Forwards": 0, "Defensemen": 1, "Goalies": 2, "Minors": 3}
@@ -1541,7 +1544,10 @@ def team_page(slug: str):
     ).all()
     age_ref = season_age_reference_date(season)
     roster_ages = {p.id: _player_age_years(p.birth_date, age_ref) for p in roster}
-    depth_chart, lines_sections, lines_name_to_id, salary_rows, salary_total = _build_team_lines_views(team, roster, season)
+    raw_dir = Path(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR))
+    depth_chart, lines_sections, lines_name_to_id, salary_rows, salary_total = _build_team_lines_views(
+        team, roster, season, raw_dir
+    )
     sk_leaders = []
     team_agg = None
     team_agg_po = None
@@ -1780,7 +1786,10 @@ def player_page(player_id: int):
     rating_avgs_skater = skater_category_averages(ratings_row)
     rating_avgs_goalie = goalie_category_averages(ratings_row)
     season_start_year = season.start_year if season else None
-    contract_years_left = contract_years_remaining_major(player.fhm_player_id, season_start_year)
+    raw_dir = Path(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR))
+    contract_years_left = contract_years_remaining_major(
+        player.fhm_player_id, season_start_year, raw_dir
+    )
     return render_template(
         "player.html",
         player=player,

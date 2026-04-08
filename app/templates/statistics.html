@@ -124,14 +124,15 @@
   <div class="stats-panel card"><p class="empty-state">No season data.</p></div>
   {% elif show_goalies %}
   <div class="stats-panel card">
+    <p class="stats-page__hint muted">Click a column heading to sort (except #, ABI, and POT).</p>
     <div class="table-wrap stats-table-wrap">
       <table class="data stats-table">
         <thead>
           <tr>
-            {{ th_g('rank', '#', 'List order for the active sort. Click to sort by wins, games played, then name.', 'stats-th-num') }}
+            <th class="stats-th-num" scope="col" title="List order for the active sort (not a sort column).">#</th>
             {{ th_g('player', 'Player', 'Player name') }}
-            {{ th_g('abi', 'ABI', 'Overall ability rating (scouting)') }}
-            {{ th_g('pot', 'POT', 'Overall potential rating (scouting)') }}
+            <th scope="col" title="Overall ability rating (scouting)">ABI</th>
+            <th scope="col" title="Overall potential rating (scouting)">POT</th>
             {{ th_g('gp', 'GP', 'Games played') }}
             {{ th_g('games_started', 'GS', 'Games started') }}
             {{ th_g('wins', 'W', 'Wins') }}
@@ -199,15 +200,15 @@
   </div>
   {% else %}
   <div class="stats-panel card">
-    <p class="stats-page__hint muted">Click a column heading to sort.</p>
+    <p class="stats-page__hint muted">Click a column heading to sort (except #, ABI, and POT).</p>
     <div class="table-wrap stats-table-wrap">
       <table class="data stats-table">
         <thead>
           <tr>
-            {{ th_sk('rank', '#', 'List order for the active sort. Click to sort by points, goals, assists, then name.', 'stats-th-num') }}
+            <th class="stats-th-num" scope="col" title="List order for the active sort (not a sort column).">#</th>
             {{ th_sk('player', 'Player', 'Player name') }}
-            {{ th_sk('abi', 'ABI', 'Overall ability rating (scouting)') }}
-            {{ th_sk('pot', 'POT', 'Overall potential rating (scouting)') }}
+            <th scope="col" title="Overall ability rating (scouting)">ABI</th>
+            <th scope="col" title="Overall potential rating (scouting)">POT</th>
             {{ th_sk('gp', 'GP', 'Games played') }}
             {{ th_sk('goals', 'G', 'Goals') }}
             {{ th_sk('assists', 'A', 'Assists') }}

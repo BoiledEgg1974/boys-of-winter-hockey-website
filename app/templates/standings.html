@@ -6,7 +6,7 @@
 <div class="card">
   <h2>{{ title }}</h2>
   <div class="table-wrap">
-    <table class="data data-sortable">
+    <table class="data data-sortable" data-sort-renumber="1">
       <thead>
         <tr>
           <th data-sort-type="num" scope="col">#</th>
@@ -104,7 +104,7 @@
   {% if standings %}
   <p class="muted" style="margin-top:0;">Click a column heading to sort. Click again to reverse.</p>
   <div class="table-wrap">
-    <table class="data data-sortable{% if view == 'division' %} standings-table--division{% endif %}">
+    <table class="data data-sortable{% if view == 'division' %} standings-table--division{% endif %}" data-sort-renumber="1">
       <thead>
         <tr>
           <th data-sort-type="num" scope="col">#</th>

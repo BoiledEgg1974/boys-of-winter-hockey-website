@@ -163,8 +163,12 @@ def fetch_skater_all_time(
         "pp_assists",
         "sh_goals",
         "sh_assists",
+        "gwg",
         "fights",
         "hits",
+        "gva",
+        "tka",
+        "sb",
         "shots",
         "player",
     ):
@@ -183,8 +187,12 @@ def fetch_skater_all_time(
         "pp_assists": _asc_desc(sq.c.pp_assists, order),
         "sh_goals": _asc_desc(sq.c.sh_goals, order),
         "sh_assists": _asc_desc(sq.c.sh_assists, order),
+        "gwg": _asc_desc(sq.c.gwg, order),
         "fights": _asc_desc(sq.c.fights, order),
         "hits": _asc_desc(sq.c.hits, order),
+        "gva": _asc_desc(sq.c.gva, order),
+        "tka": _asc_desc(sq.c.tka, order),
+        "sb": _asc_desc(sq.c.sb, order),
         "shots": _asc_desc(sq.c.shots, order),
         "player": _asc_desc(Player.full_name, order),
     }
@@ -310,7 +318,20 @@ def fetch_goalie_all_time(
     sv_expr = case((total_sa > 0, 1.0 - (total_ga / total_sa)), else_=None)
     gaa_expr = case((total_min > 0, total_ga * 60.0 / total_min), else_=None)
 
-    if sort not in ("wins", "gp", "ga", "sv_pct", "gaa", "player"):
+    if sort not in (
+        "wins",
+        "gp",
+        "games_started",
+        "minutes_played",
+        "losses",
+        "otl",
+        "ga",
+        "shots_against",
+        "shutouts",
+        "sv_pct",
+        "gaa",
+        "player",
+    ):
         sort = "wins"
         order = default_goalie_sort_order(sort)
     elif order not in ("asc", "desc"):
@@ -318,7 +339,13 @@ def fetch_goalie_all_time(
     order_map = {
         "wins": _asc_desc(sq.c.wins, order),
         "gp": _asc_desc(sq.c.gp, order),
+        "games_started": _asc_desc(sq.c.gs_sum, order),
+        "minutes_played": _asc_desc(sq.c.sum_min, order),
+        "losses": _asc_desc(sq.c.losses, order),
+        "otl": _asc_desc(sq.c.otl_sum, order),
         "ga": _asc_desc(total_ga, order),
+        "shots_against": _asc_desc(sq.c.sum_sa, order),
+        "shutouts": _asc_desc(sq.c.shutouts, order),
         "sv_pct": _nullable_ord(sv_expr, order),
         "gaa": _nullable_ord(gaa_expr, order),
         "player": _asc_desc(Player.full_name, order),

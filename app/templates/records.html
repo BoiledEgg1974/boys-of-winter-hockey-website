@@ -45,6 +45,8 @@
     </div>
   </div>
 
+  <p class="records-page__hint muted">Click a stat column heading to sort. (#, From-To, and Current Team are not sort columns.)</p>
+
   {% if show_goalies %}
   <p class="records-page__hint muted">Showing {{ goalie_rows|length }} of {{ total_goalies }} goalies.{% if total_goalies > records_page_limit %} <a href="{{ rec_url(split, true, sort, g_sort, sk_order, g_order, (not expanded)) }}">{{ 'Show top 100' if expanded else 'Show all' }}</a>{% endif %}</p>
   {% else %}
@@ -62,14 +64,14 @@
             <th>From-To</th>
             <th>CURRENT TEAM</th>
             <th><a href="{{ g_sort_href('gp') }}" class="stats-th-link {{ g_sorted_class('gp') }}">GP</a></th>
-            <th>GS</th>
-            <th>MIN</th>
+            <th><a href="{{ g_sort_href('games_started') }}" class="stats-th-link {{ g_sorted_class('games_started') }}">GS</a></th>
+            <th><a href="{{ g_sort_href('minutes_played') }}" class="stats-th-link {{ g_sorted_class('minutes_played') }}">MIN</a></th>
             <th><a href="{{ g_sort_href('wins') }}" class="stats-th-link {{ g_sorted_class('wins') }}">W</a></th>
-            <th>L</th>
-            <th>OT</th>
+            <th><a href="{{ g_sort_href('losses') }}" class="stats-th-link {{ g_sorted_class('losses') }}">L</a></th>
+            <th><a href="{{ g_sort_href('otl') }}" class="stats-th-link {{ g_sorted_class('otl') }}">OT</a></th>
             <th><a href="{{ g_sort_href('ga') }}" class="stats-th-link {{ g_sorted_class('ga') }}">GA</a></th>
-            <th>SA</th>
-            <th>SO</th>
+            <th><a href="{{ g_sort_href('shots_against') }}" class="stats-th-link {{ g_sorted_class('shots_against') }}">SA</a></th>
+            <th><a href="{{ g_sort_href('shutouts') }}" class="stats-th-link {{ g_sorted_class('shutouts') }}">SO</a></th>
             <th><a href="{{ g_sort_href('gaa') }}" class="stats-th-link {{ g_sorted_class('gaa') }}">GAA</a></th>
             <th><a href="{{ g_sort_href('sv_pct') }}" class="stats-th-link {{ g_sorted_class('sv_pct') }}">SV%</a></th>
           </tr>
@@ -135,12 +137,12 @@
             <th><a href="{{ sk_sort_href('pp_assists') }}" class="stats-th-link {{ sk_sorted_class('pp_assists') }}">PP A</a></th>
             <th><a href="{{ sk_sort_href('sh_goals') }}" class="stats-th-link {{ sk_sorted_class('sh_goals') }}">SH G</a></th>
             <th><a href="{{ sk_sort_href('sh_assists') }}" class="stats-th-link {{ sk_sorted_class('sh_assists') }}">SH A</a></th>
-            <th>GWG</th>
+            <th><a href="{{ sk_sort_href('gwg') }}" class="stats-th-link {{ sk_sorted_class('gwg') }}">GWG</a></th>
             <th><a href="{{ sk_sort_href('fights') }}" class="stats-th-link {{ sk_sorted_class('fights') }}">FIGHTS/WON</a></th>
             <th><a href="{{ sk_sort_href('hits') }}" class="stats-th-link {{ sk_sorted_class('hits') }}">HIT</a></th>
-            <th>GVA</th>
-            <th>TKA</th>
-            <th>SB</th>
+            <th><a href="{{ sk_sort_href('gva') }}" class="stats-th-link {{ sk_sorted_class('gva') }}">GVA</a></th>
+            <th><a href="{{ sk_sort_href('tka') }}" class="stats-th-link {{ sk_sorted_class('tka') }}">TKA</a></th>
+            <th><a href="{{ sk_sort_href('sb') }}" class="stats-th-link {{ sk_sorted_class('sb') }}">SB</a></th>
             <th><a href="{{ sk_sort_href('shots') }}" class="stats-th-link {{ sk_sorted_class('shots') }}">SOG</a></th>
           </tr>
         </thead>

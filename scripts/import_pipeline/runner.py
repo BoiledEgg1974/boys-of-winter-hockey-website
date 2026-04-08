@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import logging
+import os
+import shutil
 import sys
 import unittest
 from datetime import datetime
@@ -15,6 +17,7 @@ if str(ROOT) not in sys.path:
 from sqlalchemy import or_, select  # noqa: E402
 
 from app import create_app  # noqa: E402
+from app.config import Config, league_by_slug, make_league_config  # noqa: E402
 from app.models import (  # noqa: E402
     Draft,
     DraftPick,
@@ -46,6 +49,30 @@ from scripts.import_pipeline.encoding_utils import (  # noqa: E402
 )
 
 log = logging.getLogger("bowl.import")
+
+
+def _sync_team_logos_from_raw(raw_dir: Path, app) -> int:
+    """Copy team logo images from optional raw subfolders into this league's static team folder."""
+    dest = Path(app.config["TEAM_LOGOS_DIR"])
+    dest.mkdir(parents=True, exist_ok=True)
+    exts = {".png", ".webp", ".jpg", ".jpeg", ".svg"}
+    n = 0
+    for sub in ("team_logos", "logos", "Team Logos"):
+        src = raw_dir / sub
+        if not src.is_dir():
+            continue
+        for f in src.iterdir():
+            if not f.is_file() or f.suffix.lower() not in exts:
+                continue
+            try:
+                shutil.copy2(f, dest / f.name)
+                n += 1
+            except OSError as exc:
+                log.warning("Could not copy logo %s: %s", f.name, exc)
+        if n:
+            log.info("Copied %s logo file(s) from %s -> %s", n, src, dest)
+            return n
+    return 0
 
 
 def _run_post_import_safeguards() -> None:
@@ -712,11 +739,18 @@ STEPS = [
 
 def run_import(raw_dir: Path | None = None) -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-    app = create_app()
+    slug = (os.environ.get("LEAGUE_SLUG") or "bowl-fantasy").strip()
+    if league_by_slug(slug):
+        app = create_app(make_league_config(slug))
+        log.info("Import using league slug %r (DB + static paths match mounted app).", slug)
+    else:
+        log.warning("LEAGUE_SLUG %r is not in LEAGUES registry; using default Config.", slug)
+        app = create_app(Config)
     raw = Path(raw_dir or app.config["RAW_IMPORT_DIR"])
     if not raw.is_dir():
         log.error("Raw import directory does not exist: %s", raw)
         return
+    _sync_team_logos_from_raw(raw, app)
     with app.app_context():
         from scripts.import_pipeline.fhm_loader import is_fhm_export_dir, run_fhm_import
 

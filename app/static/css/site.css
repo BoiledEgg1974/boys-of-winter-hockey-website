@@ -1043,40 +1043,162 @@ table.data tbody tr.standings-cutline td {
 .team-hero {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: stretch;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 1.25rem;
+  gap: 1rem 1.25rem;
+  padding: 1.15rem 1.25rem;
   border-radius: var(--radius);
   color: #fff;
   margin-bottom: 1.25rem;
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
 }
-.team-hero img {
-  width: calc(72px * var(--team-logo-mul));
-  height: calc(72px * var(--team-logo-mul));
+.team-hero__brand {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+  flex: 1 1 220px;
+}
+.team-hero__logo {
+  width: calc(76px * var(--team-logo-mul));
+  height: calc(76px * var(--team-logo-mul));
   object-fit: contain;
-  border-radius: 6px;
-}
-.team-hero h1 {
-  margin: 0;
-  font-size: 1.5rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: rgb(255 255 255 / 0.12);
+  border: 2px solid rgb(255 255 255 / 0.35);
+  box-sizing: border-box;
+  padding: 4px;
 }
 .team-hero__meta {
   min-width: 0;
   flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
 }
-.team-hero__snapshot {
-  margin-left: auto;
-  text-align: right;
-  font-size: 1.93rem;
-  line-height: 1.12;
-}
-.team-hero__snapshot-line {
+.team-hero__city {
   margin: 0;
-  opacity: 0.95;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1.2;
+  opacity: 0.98;
+}
+.team-hero__nickname {
+  margin: 0;
+  font-size: 1.45rem;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: 0.01em;
+  color: inherit;
+}
+.team-hero__arena {
+  margin: 0.2rem 0 0;
+  font-size: 0.88rem;
+  font-weight: 500;
+  line-height: 1.35;
+  opacity: 0.9;
+}
+.team-hero__record {
+  margin: 0.35rem 0 0;
+  font-size: 0.84rem;
+  font-weight: 500;
+  line-height: 1.35;
+  color: rgb(226 232 240 / 0.88);
+}
+.team-hero__stats-card {
+  position: relative;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  justify-content: space-around;
+  gap: 0.35rem 0.5rem;
+  flex: 0 1 340px;
+  min-width: min(100%, 280px);
+  padding: 0.65rem 0.75rem 0.65rem 1rem;
+  border-radius: 8px;
+  background: rgb(255 255 255 / 0.94);
+  color: #0f172a;
+  text-shadow: none;
+  box-shadow: 0 2px 12px rgb(0 0 0 / 0.12);
+  border: 1px solid rgb(15 23 42 / 0.08);
+  border-left: 4px solid var(--team-hero-accent, #1e3a5f);
+}
+[data-theme="dark"] .team-hero__stats-card {
+  background: color-mix(in srgb, var(--surface) 96%, #fff);
+  color: var(--text);
+  border-color: var(--border);
+  border-left-color: var(--team-hero-accent, var(--accent));
+  box-shadow: var(--shadow);
+}
+.team-hero__stats-card-caret {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translate(-100%, -50%);
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 7px 8px 7px 0;
+  border-color: transparent rgb(255 255 255 / 0.94) transparent transparent;
+  filter: drop-shadow(-1px 0 0 rgb(15 23 42 / 0.06));
+  pointer-events: none;
+}
+[data-theme="dark"] .team-hero__stats-card-caret {
+  border-color: transparent color-mix(in srgb, var(--surface) 96%, #fff) transparent transparent;
+}
+.team-hero__stat-col {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 0.08rem;
+}
+.team-hero__stat-label {
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+[data-theme="dark"] .team-hero__stat-label {
+  color: var(--muted);
+}
+.team-hero__stat-value {
+  font-size: 1.2rem;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--team-hero-accent, #0f172a);
+}
+[data-theme="dark"] .team-hero__stat-value {
+  color: color-mix(in srgb, var(--team-hero-accent, var(--accent)) 75%, var(--text));
+}
+.team-hero__stat-rank {
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: #64748b;
+  line-height: 1.2;
+}
+[data-theme="dark"] .team-hero__stat-rank {
+  color: var(--muted);
+}
+@media (max-width: 640px) {
+  .team-hero__stats-card {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+  .team-hero__stat-col {
+    flex: 1 1 22%;
+  }
 }
 .team-panels-grid {
   display: grid;

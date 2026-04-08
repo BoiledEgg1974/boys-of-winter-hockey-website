@@ -1596,6 +1596,55 @@ def build_team_leader_panel_rows(team: Team, season: Season) -> list[dict[str, o
     return out
 
 
+def _english_ordinal(n: int) -> str:
+    n = int(n)
+    if 11 <= (n % 100) <= 13:
+        return f"{n}th"
+    m = n % 10
+    if m == 1:
+        return f"{n}st"
+    if m == 2:
+        return f"{n}nd"
+    if m == 3:
+        return f"{n}rd"
+    return f"{n}th"
+
+
+def _dense_rank_by_value(pairs: list[tuple[int, float]], team_id: int, high_good: bool) -> int | None:
+    if not pairs:
+        return None
+    ordered = sorted(pairs, key=lambda x: x[1], reverse=high_good)
+    prev_val: float | None = None
+    rank = 0
+    for idx, (tid, v) in enumerate(ordered, start=1):
+        if prev_val is None or abs(v - prev_val) > 1e-9:
+            rank = idx
+            prev_val = v
+        if tid == team_id:
+            return rank
+    return None
+
+
+def _standing_gf_g_ga_g_ranks(season_id: int, team_id: int) -> tuple[int | None, int | None]:
+    rows = db.session.scalars(select(TeamStanding).where(TeamStanding.season_id == season_id)).all()
+    rates_gf: list[tuple[int, float]] = []
+    rates_ga: list[tuple[int, float]] = []
+    for st in rows:
+        if st.gp and st.gp > 0:
+            rates_gf.append((st.team_id, float(st.gf) / float(st.gp)))
+            rates_ga.append((st.team_id, float(st.ga) / float(st.gp)))
+    return (
+        _dense_rank_by_value(rates_gf, team_id, True),
+        _dense_rank_by_value(rates_ga, team_id, False),
+    )
+
+
+def _rank_paren(rank: int | None) -> str:
+    if rank is None:
+        return "—"
+    return f"({_english_ordinal(rank)})"
+
+
 @main_bp.get("/team/<slug>")
 def team_page(slug: str):
     team = db.session.scalars(select(Team).where(Team.slug == slug).limit(1)).first()
@@ -1853,6 +1902,39 @@ def team_page(slug: str):
     team_prospects = db.session.scalars(
         select(Prospect).options(joinedload(Prospect.player)).where(Prospect.team_id == team.id)
     ).all()
+    hero_city_caps = (team.city or team.name or "").strip().upper()
+    hero_display_name = (team.nickname or team.name or "").strip()
+    hero_gf_g: float | None = None
+    hero_ga_g: float | None = None
+    hero_gf_g_rank_paren = "—"
+    hero_ga_g_rank_paren = "—"
+    hero_pp_pct: float | None = None
+    hero_pk_pct: float | None = None
+    hero_pp_rank_paren = "—"
+    hero_pk_rank_paren = "—"
+    hero_record_suffix = ""
+    show_hero_stats_card = bool(standing and season)
+    if standing and season and standing.gp and standing.gp > 0:
+        hero_gf_g = round(float(standing.gf) / float(standing.gp), 1)
+        hero_ga_g = round(float(standing.ga) / float(standing.gp), 1)
+        rgf, rga = _standing_gf_g_ga_g_ranks(season.id, team.id)
+        hero_gf_g_rank_paren = _rank_paren(rgf)
+        hero_ga_g_rank_paren = _rank_paren(rga)
+    if team_agg:
+        if team_agg.pp_chances and team_agg.pp_goals is not None and team_agg.pp_chances > 0:
+            hero_pp_pct = round(100.0 * float(team_agg.pp_goals) / float(team_agg.pp_chances), 1)
+        if team_agg.sh_chances and team_agg.sh_chances > 0 and team_agg.pk_goals_against is not None:
+            hero_pk_pct = round(
+                100.0 - (100.0 * float(team_agg.pk_goals_against) / float(team_agg.sh_chances)),
+                1,
+            )
+    hero_pp_rank_paren = _rank_paren(team_rank_rs.get("pp_pct") if team_rank_rs else None)
+    hero_pk_rank_paren = _rank_paren(team_rank_rs.get("pk_pct") if team_rank_rs else None)
+    if standing and season:
+        if division_rank is not None and division_name:
+            hero_record_suffix = f" ({_english_ordinal(division_rank)} {division_name})"
+        elif division_name:
+            hero_record_suffix = f" ({division_name})"
     tmpl_kwargs: dict[str, object] = {
         "team": team,
         "arena_name": arena_name,
@@ -1861,6 +1943,18 @@ def team_page(slug: str):
         "division_rank": division_rank,
         "season": season,
         "standing": standing,
+        "hero_city_caps": hero_city_caps,
+        "hero_display_name": hero_display_name,
+        "hero_gf_g": hero_gf_g,
+        "hero_ga_g": hero_ga_g,
+        "hero_gf_g_rank_paren": hero_gf_g_rank_paren,
+        "hero_ga_g_rank_paren": hero_ga_g_rank_paren,
+        "hero_pp_pct": hero_pp_pct,
+        "hero_pk_pct": hero_pk_pct,
+        "hero_pp_rank_paren": hero_pp_rank_paren,
+        "hero_pk_rank_paren": hero_pk_rank_paren,
+        "hero_record_suffix": hero_record_suffix,
+        "show_hero_stats_card": show_hero_stats_card,
         "roster": roster,
         "roster_ages": roster_ages,
         "team_leader_rows": team_leader_rows,

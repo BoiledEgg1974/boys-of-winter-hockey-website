@@ -26,6 +26,7 @@ from app.models import (
     PlayerSkaterCareerLine,
     PlayerSkaterStat,
     Prospect,
+    Season,
     Team,
     TeamSeasonAggregate,
     TeamStanding,
@@ -1412,6 +1413,164 @@ def _build_team_lines_views(
     return depth_chart, lines_sections, lines_name_to_id, salary_rows, salary_total
 
 
+def _player_is_goalie_position(player: Player) -> bool:
+    raw = (player.position or "").strip().upper().replace("/", " ")
+    first = raw.split()[0] if raw else ""
+    return first == "G"
+
+
+def _pick_skater_stat_leader(
+    pairs: list[tuple[PlayerSkaterStat, Player]],
+    value_fn,
+    *,
+    maximize: bool,
+) -> tuple[PlayerSkaterStat, Player] | None:
+    best: tuple[PlayerSkaterStat, Player] | None = None
+    best_v: int | float | None = None
+    for stat_row, pl in pairs:
+        if _player_is_goalie_position(pl):
+            continue
+        v = value_fn(stat_row)
+        if v is None:
+            continue
+        if best is None or best_v is None:
+            best, best_v = (stat_row, pl), v
+            continue
+        if maximize:
+            better = v > best_v
+        else:
+            better = v < best_v
+        if better or (v == best_v and pl.id < best[1].id):
+            best, best_v = (stat_row, pl), v
+    return best
+
+
+def _pick_goalie_stat_leader(
+    pairs: list[tuple[PlayerGoalieStat, Player]],
+    value_fn,
+    *,
+    maximize: bool,
+    min_gp: int = 1,
+) -> tuple[PlayerGoalieStat, Player] | None:
+    best: tuple[PlayerGoalieStat, Player] | None = None
+    best_v: float | None = None
+    for stat_row, pl in pairs:
+        if not _player_is_goalie_position(pl):
+            continue
+        if (stat_row.gp or 0) < min_gp:
+            continue
+        v = value_fn(stat_row)
+        if v is None:
+            continue
+        fv = float(v)
+        if best is None or best_v is None:
+            best, best_v = (stat_row, pl), fv
+            continue
+        if maximize:
+            better = fv > best_v + 1e-9
+        else:
+            better = fv < best_v - 1e-9
+        tied = abs(fv - best_v) <= 1e-9
+        if better or (tied and pl.id < best[1].id):
+            best, best_v = (stat_row, pl), fv
+    return best
+
+
+def _fmt_plus_minus_pm(val: int) -> str:
+    if val > 0:
+        return f"+{val}"
+    return str(val)
+
+
+def _fmt_save_pct_leader(val: float) -> str:
+    s = f"{float(val):.3f}"
+    return s[1:] if s.startswith("0") else s
+
+
+def build_team_leader_panel_rows(team: Team, season: Season) -> list[dict[str, object]]:
+    sk_pairs = list(
+        db.session.execute(
+            select(PlayerSkaterStat, Player)
+            .join(Player, PlayerSkaterStat.player_id == Player.id)
+            .where(
+                PlayerSkaterStat.season_id == season.id,
+                PlayerSkaterStat.team_id == team.id,
+                PlayerSkaterStat.stat_segment == "rs",
+            )
+        ).all()
+    )
+    gk_pairs = list(
+        db.session.execute(
+            select(PlayerGoalieStat, Player)
+            .join(Player, PlayerGoalieStat.player_id == Player.id)
+            .where(
+                PlayerGoalieStat.season_id == season.id,
+                PlayerGoalieStat.team_id == team.id,
+                PlayerGoalieStat.stat_segment == "rs",
+            )
+        ).all()
+    )
+    out: list[dict[str, object]] = []
+
+    b = _pick_skater_stat_leader(sk_pairs, lambda r: r.goals, maximize=True)
+    out.append(
+        {
+            "abbr": "G",
+            "player": b[1] if b else None,
+            "value": str(b[0].goals) if b else None,
+        }
+    )
+    b = _pick_skater_stat_leader(sk_pairs, lambda r: r.assists, maximize=True)
+    out.append(
+        {
+            "abbr": "AST",
+            "player": b[1] if b else None,
+            "value": str(b[0].assists) if b else None,
+        }
+    )
+    b = _pick_skater_stat_leader(sk_pairs, lambda r: r.points, maximize=True)
+    out.append(
+        {
+            "abbr": "PTS",
+            "player": b[1] if b else None,
+            "value": str(b[0].points) if b else None,
+        }
+    )
+    b = _pick_skater_stat_leader(sk_pairs, lambda r: r.pim, maximize=True)
+    out.append(
+        {
+            "abbr": "PIM",
+            "player": b[1] if b else None,
+            "value": str(b[0].pim) if b else None,
+        }
+    )
+    b = _pick_skater_stat_leader(sk_pairs, lambda r: r.plus_minus, maximize=True)
+    out.append(
+        {
+            "abbr": "+/-",
+            "player": b[1] if b else None,
+            "value": _fmt_plus_minus_pm(b[0].plus_minus) if b and b[0].plus_minus is not None else None,
+        }
+    )
+    b = _pick_goalie_stat_leader(gk_pairs, lambda r: r.gaa, maximize=False)
+    out.append(
+        {
+            "abbr": "GAA",
+            "player": b[1] if b else None,
+            "value": f"{float(b[0].gaa):.2f}" if b and b[0].gaa is not None else None,
+        }
+    )
+    b = _pick_goalie_stat_leader(gk_pairs, lambda r: r.sv_pct, maximize=True)
+    out.append(
+        {
+            "abbr": "SV%",
+            "player": b[1] if b else None,
+            "value": _fmt_save_pct_leader(b[0].sv_pct) if b and b[0].sv_pct is not None else None,
+        }
+    )
+    return out
+
+
 @main_bp.get("/team/<slug>")
 def team_page(slug: str):
     team = db.session.scalars(select(Team).where(Team.slug == slug).limit(1)).first()
@@ -1549,7 +1708,7 @@ def team_page(slug: str):
     depth_chart, lines_sections, lines_name_to_id, salary_rows, salary_total = _build_team_lines_views(
         team, roster, season, raw_dir
     )
-    sk_leaders = []
+    team_leader_rows: list[dict[str, object]] = []
     team_agg = None
     team_agg_po = None
     team_rank_rs: dict[str, int] = {}
@@ -1626,17 +1785,7 @@ def team_page(slug: str):
     if season:
         ranks_rs = _rank_maps_for_segment("rs")
         ranks_po = _rank_maps_for_segment("po")
-        sk_leaders = db.session.execute(
-            select(PlayerSkaterStat, Player)
-            .join(Player, PlayerSkaterStat.player_id == Player.id)
-            .where(
-                PlayerSkaterStat.season_id == season.id,
-                PlayerSkaterStat.team_id == team.id,
-                PlayerSkaterStat.stat_segment == "rs",
-            )
-            .order_by(PlayerSkaterStat.points.desc())
-            .limit(11)
-        ).all()
+        team_leader_rows = build_team_leader_panel_rows(team, season)
         team_agg = db.session.scalars(
             select(TeamSeasonAggregate).where(
                 TeamSeasonAggregate.season_id == season.id,
@@ -1690,7 +1839,7 @@ def team_page(slug: str):
         standing=standing,
         roster=roster,
         roster_ages=roster_ages,
-        sk_leaders=sk_leaders,
+        team_leader_rows=team_leader_rows,
         schedule_games=schedule_games,
         schedule_focus_index=schedule_focus_index,
         prospects_list=team_prospects,

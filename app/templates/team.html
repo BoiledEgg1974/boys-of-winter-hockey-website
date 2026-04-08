@@ -141,34 +141,52 @@
     {% endif %}
   </div>
 
-  {% if sk_leaders %}
+  {% if team_leader_rows %}
   <div class="team-panels-grid__right">
-    <div class="card">
-    <h2>Team Scoring Leaders</h2>
-    <div class="table-wrap">
-      <table class="data">
-        <thead><tr><th>Player</th><th>G</th><th>A</th><th>Pts</th></tr></thead>
-        <tbody>
-          {% for row, pl in sk_leaders %}
-          <tr>
-            <td>
-              <span class="team-roster-player">
-                <a class="team-roster-player__photo" href="{{ url_for('main.player_page', player_id=pl.id) }}">
-                  {% if player_headshot_url(pl) %}
-                  <img src="{{ player_headshot_url(pl) }}" alt="">
-                  {% else %}
-                  <span class="team-roster-player__photo-ph" aria-hidden="true"></span>
-                  {% endif %}
-                </a>
-                <a class="team-roster-player__name" href="{{ url_for('main.player_page', player_id=pl.id) }}">{{ pl.full_name }}</a>
-              </span>
-            </td>
-            <td>{{ row.goals }}</td><td>{{ row.assists }}</td><td>{{ row.points }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+    <div class="card team-leaders-card">
+      <h2 class="team-leaders-card__title">Leaders</h2>
+      <ul class="team-leaders" role="list">
+        {% for row in team_leader_rows %}
+        {% set pl = row.player %}
+        <li class="team-leaders__row">
+          <div class="team-leaders__media">
+            {% if pl %}
+            <a class="team-leaders__headshot" href="{{ url_for('main.player_page', player_id=pl.id) }}">
+              {% if player_headshot_url(pl) %}
+              <img src="{{ player_headshot_url(pl) }}" alt="">
+              {% else %}
+              <span class="team-leaders__headshot-ph" aria-hidden="true"></span>
+              {% endif %}
+            </a>
+            {% else %}
+            <span class="team-leaders__headshot team-leaders__headshot--empty" aria-hidden="true"></span>
+            {% endif %}
+            <span class="team-leaders__team-logo-wrap" aria-hidden="true">
+              <img class="team-leaders__team-logo" src="{{ team_logo_url(team) }}" alt="">
+            </span>
+            <span class="team-leaders__caret-rule" aria-hidden="true"></span>
+          </div>
+          <div class="team-leaders__player">
+            {% if pl %}
+            <span class="team-leaders__pos muted">{{ (pl.position or '—')|e }}</span>
+            <a class="team-leaders__name-block" href="{{ url_for('main.player_page', player_id=pl.id) }}">
+              <span class="team-leaders__first muted">{{ pl.first_name }}</span>
+              <span class="team-leaders__last">{{ pl.last_name }}</span>
+            </a>
+            {% else %}
+            <span class="team-leaders__pos muted">—</span>
+            <span class="team-leaders__name-block team-leaders__name-block--empty">
+              <span class="team-leaders__first muted">—</span>
+            </span>
+            {% endif %}
+          </div>
+          <div class="team-leaders__stat">
+            <span class="team-leaders__stat-label muted">{{ row.abbr }}</span>
+            <span class="team-leaders__stat-value">{{ row.value or '—' }}</span>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
     </div>
   </div>
   {% endif %}

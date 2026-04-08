@@ -197,6 +197,7 @@
   <a class="team-management-tabs__btn{% if active_panel == 'depth' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='depth') }}">Depth Chart</a>
   <a class="team-management-tabs__btn{% if active_panel == 'lines' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='lines') }}">Lines</a>
   <a class="team-management-tabs__btn{% if active_panel == 'salary' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='salary') }}">Salary</a>
+  <a class="team-management-tabs__btn{% if active_panel == 'statistics' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='statistics') }}">Statistics</a>
 </div>
 
 {% if active_panel == 'roster' %}
@@ -394,6 +395,13 @@
   {% else %}
   <p class="empty-state">No salary obligations available for this team.</p>
   {% endif %}
+</div>
+{% elif active_panel == 'statistics' %}
+<div class="card team-page-stats-card">
+  <h2>Statistics</h2>
+  {% if season %}<p class="muted team-page-stats-card__season">Season: <strong>{{ season.label }}</strong></p>{% endif %}
+  {% set team_statistics = team %}
+  {% include "_statistics_panel.html" %}
 </div>
 {% endif %}
 {% if prospects_list %}

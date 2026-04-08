@@ -1591,6 +1591,15 @@ table.data tbody tr.standings-cutline td {
   color: #e2e8f0;
   border-color: rgb(56 189 248 / 0.75);
 }
+.team-page-stats-card__season {
+  margin: 0 0 1rem;
+}
+.team-page-stats-card > .stats-toolbar.card {
+  margin-top: 0;
+}
+.team-page-stats-card > .stats-panel.card:last-child {
+  margin-bottom: 0;
+}
 .team-depth-table td {
   white-space: nowrap;
 }

@@ -271,10 +271,17 @@ def standings():
     )
 
 
-@main_bp.get("/statistics")
-def statistics():
+def _build_statistics_view_vars(
+    locked_team_id: int | None = None,
+    locked_team_slug: str | None = None,
+) -> dict[str, object]:
+    """Context dict for statistics.html or team page statistics panel.
+
+    When locked_team_id is set, stats are restricted to that team and query
+    `team_id` is ignored. URLs for sort/expand use team_page when slug is set.
+    """
     season = get_current_season()
-    team_id = request.args.get("team_id", type=int)
+    team_id = locked_team_id if locked_team_id is not None else request.args.get("team_id", type=int)
     sort = request.args.get("sort", "points")
     goalies = request.args.get("goalies") == "1"
     segment = request.args.get("segment", "rs") or "rs"
@@ -290,26 +297,25 @@ def statistics():
     teams = db.session.scalars(select(Team).order_by(Team.name)).all()
     teams_by_id = {t.id: t for t in teams}
     if not season:
-        return render_template(
-            "statistics.html",
-            season=None,
-            teams=teams,
-            teams_by_id=teams_by_id,
-            skaters=[],
-            goalies_list=[],
-            sort=sort,
-            g_sort="wins",
-            team_id=team_id,
-            show_goalies=goalies,
-            segment=segment,
-            pos_filter=pos_filter,
-            stats_expanded=False,
-            total_skaters=0,
-            total_goalies=0,
-            statistics_expand_url="",
-            statistics_collapsed_url="",
-            stats_page_limit=stats_page_limit,
-        )
+        return {
+            "season": None,
+            "teams": teams,
+            "teams_by_id": teams_by_id,
+            "skaters": [],
+            "goalies_list": [],
+            "sort": sort,
+            "g_sort": "wins",
+            "team_id": team_id,
+            "show_goalies": goalies,
+            "segment": segment,
+            "pos_filter": pos_filter,
+            "stats_expanded": False,
+            "total_skaters": 0,
+            "total_goalies": 0,
+            "statistics_expand_url": "",
+            "statistics_collapsed_url": "",
+            "stats_page_limit": stats_page_limit,
+        }
 
     sk_gp_nf = func.nullif(PlayerSkaterStat.gp, 0)
     sk_es_sec = PlayerSkaterStat.toi_seconds - func.coalesce(
@@ -482,38 +488,57 @@ def statistics():
         gq = gq.limit(stats_full_limit)
     goalies_list = db.session.execute(gq).all()
 
-    _stat_params = {
+    _stat_params: dict[str, object] = {
         "segment": segment,
         "sort": sort,
         "g_sort": g_sort,
-        "team_id": team_id,
         "pos": pos_filter if pos_filter != "all" else None,
         "goalies": 1 if goalies else None,
     }
+    if locked_team_id is None:
+        _stat_params["team_id"] = team_id
     _stat_params = {k: v for k, v in _stat_params.items() if v is not None}
-    statistics_expand_url = url_for("main.statistics", **{**_stat_params, "expanded": 1})
-    statistics_collapsed_url = url_for("main.statistics", **_stat_params)
+    if locked_team_slug:
+        statistics_expand_url = url_for(
+            "main.team_page",
+            slug=locked_team_slug,
+            panel="statistics",
+            **{**_stat_params, "expanded": 1},
+        )
+        statistics_collapsed_url = url_for(
+            "main.team_page",
+            slug=locked_team_slug,
+            panel="statistics",
+            **_stat_params,
+        )
+    else:
+        statistics_expand_url = url_for("main.statistics", **{**_stat_params, "expanded": 1})
+        statistics_collapsed_url = url_for("main.statistics", **_stat_params)
 
-    return render_template(
-        "statistics.html",
-        season=season,
-        teams=teams,
-        teams_by_id=teams_by_id,
-        skaters=skaters,
-        goalies_list=goalies_list,
-        sort=sort,
-        g_sort=g_sort,
-        team_id=team_id,
-        show_goalies=goalies,
-        segment=segment,
-        pos_filter=pos_filter,
-        stats_expanded=stats_expanded,
-        total_skaters=total_skaters,
-        total_goalies=total_goalies,
-        statistics_expand_url=statistics_expand_url,
-        statistics_collapsed_url=statistics_collapsed_url,
-        stats_page_limit=stats_page_limit,
-    )
+    return {
+        "season": season,
+        "teams": teams,
+        "teams_by_id": teams_by_id,
+        "skaters": skaters,
+        "goalies_list": goalies_list,
+        "sort": sort,
+        "g_sort": g_sort,
+        "team_id": team_id,
+        "show_goalies": goalies,
+        "segment": segment,
+        "pos_filter": pos_filter,
+        "stats_expanded": stats_expanded,
+        "total_skaters": total_skaters,
+        "total_goalies": total_goalies,
+        "statistics_expand_url": statistics_expand_url,
+        "statistics_collapsed_url": statistics_collapsed_url,
+        "stats_page_limit": stats_page_limit,
+    }
+
+
+@main_bp.get("/statistics")
+def statistics():
+    return render_template("statistics.html", **_build_statistics_view_vars())
 
 
 @main_bp.get("/schedule")
@@ -1696,7 +1721,7 @@ def team_page(slug: str):
                         division_rank = idx
                         break
     panel = (request.args.get("panel", "roster") or "roster").strip().lower()
-    if panel not in {"roster", "depth", "lines", "salary"}:
+    if panel not in {"roster", "depth", "lines", "salary", "statistics"}:
         panel = "roster"
     salary_years = [int(season.start_year) + i for i in range(6)] if season and season.start_year else []
     roster = db.session.scalars(
@@ -1828,33 +1853,37 @@ def team_page(slug: str):
     team_prospects = db.session.scalars(
         select(Prospect).options(joinedload(Prospect.player)).where(Prospect.team_id == team.id)
     ).all()
-    return render_template(
-        "team.html",
-        team=team,
-        arena_name=arena_name,
-        arena_capacity=arena_capacity,
-        division_name=division_name,
-        division_rank=division_rank,
-        season=season,
-        standing=standing,
-        roster=roster,
-        roster_ages=roster_ages,
-        team_leader_rows=team_leader_rows,
-        schedule_games=schedule_games,
-        schedule_focus_index=schedule_focus_index,
-        prospects_list=team_prospects,
-        team_agg=team_agg,
-        team_agg_po=team_agg_po,
-        team_rank_rs=team_rank_rs,
-        team_rank_po=team_rank_po,
-        active_panel=panel,
-        depth_chart=depth_chart,
-        lines_sections=lines_sections,
-        lines_name_to_id=lines_name_to_id,
-        salary_rows=salary_rows,
-        salary_total=salary_total,
-        salary_years=salary_years,
-    )
+    tmpl_kwargs: dict[str, object] = {
+        "team": team,
+        "arena_name": arena_name,
+        "arena_capacity": arena_capacity,
+        "division_name": division_name,
+        "division_rank": division_rank,
+        "season": season,
+        "standing": standing,
+        "roster": roster,
+        "roster_ages": roster_ages,
+        "team_leader_rows": team_leader_rows,
+        "schedule_games": schedule_games,
+        "schedule_focus_index": schedule_focus_index,
+        "prospects_list": team_prospects,
+        "team_agg": team_agg,
+        "team_agg_po": team_agg_po,
+        "team_rank_rs": team_rank_rs,
+        "team_rank_po": team_rank_po,
+        "active_panel": panel,
+        "depth_chart": depth_chart,
+        "lines_sections": lines_sections,
+        "lines_name_to_id": lines_name_to_id,
+        "salary_rows": salary_rows,
+        "salary_total": salary_total,
+        "salary_years": salary_years,
+    }
+    if panel == "statistics":
+        tmpl_kwargs.update(
+            _build_statistics_view_vars(locked_team_id=team.id, locked_team_slug=team.slug)
+        )
+    return render_template("team.html", **tmpl_kwargs)
 
 
 def _player_age_years(birth: date | None, as_of: date | None = None) -> int | None:

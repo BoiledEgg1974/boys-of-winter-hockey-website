@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% from "macros/team.html" import team_logo_img_plain with context %}
 {% block title %}{{ team.name }} — Boys of Winter Hockey League{% endblock %}
 {% block content %}
 {% set ph = team.primary_color or '#1e3a5f' %}
 {% set sh = team.secondary_color or '#0f172a' %}
+<div class="team-page">
 <div class="team-hero" style="background: linear-gradient(135deg, {{ ph }}, {{ sh }});">
   <img class="team-hero__logo" src="{{ team_logo_url(team) }}" alt="{{ team.name }} logo">
   <div class="team-hero__meta">
@@ -20,30 +20,69 @@
   </div>
   {% endif %}
 </div>
-<div class="team-panels-grid">
-  <div class="team-panels-grid__left">
-    {% if upcoming_games %}
-    <div class="card card--upcoming-games">
-      <h2>Upcoming Games</h2>
-      <div class="team-upcoming-calendar">
-        {% for g in upcoming_games %}
-        {% set is_home = (g.home_team_id == team.id) %}
-        {% set opp = g.away_team if is_home else g.home_team %}
-        <article class="team-upcoming-calendar__item">
-          <div class="team-upcoming-calendar__meta">
-            <span class="team-upcoming-calendar__date">{{ g.game_date or '—' }}</span>
-            <span class="team-upcoming-calendar__matchup">
-            <img class="team-upcoming-calendar__logo" src="{{ team_logo_url(team) }}" alt="{{ team.name }}">
-            <span class="team-upcoming-calendar__vs">vs</span>
-            <img class="team-upcoming-calendar__logo" src="{{ team_logo_url(opp) }}" alt="{{ opp.name if opp else '' }}">
+{% if schedule_games %}
+<div class="team-schedule-fullwidth">
+  <div class="card card--team-schedule" style="--schedule-accent: {{ ph }};">
+    <h2 class="card--team-schedule__title">Schedule</h2>
+    <p class="card--team-schedule__hint muted">Scroll or use arrows. Each card links to the game page (box score).</p>
+    <div class="team-schedule-carousel" data-team-schedule-carousel>
+      <button type="button" class="team-schedule-carousel__btn team-schedule-carousel__btn--prev" aria-label="Earlier games on the schedule">‹</button>
+      <div class="team-schedule-carousel__viewport">
+        <div class="team-schedule-carousel__track" data-focus-index="{{ schedule_focus_index }}">
+          {% for g in schedule_games %}
+          {% set is_home = (g.home_team_id == team.id) %}
+          {% set opp = g.away_team if is_home else g.home_team %}
+          {% set is_final = (g.status or '')|lower == 'final' %}
+          {% set tg = g.home_score if is_home else g.away_score %}
+          {% set og = g.away_score if is_home else g.home_score %}
+          {% set won = is_final and tg is not none and og is not none and tg > og %}
+          {% set tie = is_final and tg is not none and og is not none and tg == og %}
+          {% set is_next = (loop.index0 == schedule_focus_index) and not is_final %}
+          {% set is_future = (not is_final) and (not is_next) %}
+          <a class="team-schedule-card{% if is_final %} team-schedule-card--past{% elif is_next %} team-schedule-card--next{% else %} team-schedule-card--future{% endif %}" href="{{ url_for('main.game_page', game_id=g.id) }}">
+            <span class="team-schedule-card__date">{{ g.game_date.strftime('%a, %b %d').upper() if g.game_date else 'DATE TBD' }}</span>
+            <div class="team-schedule-card__body">
+              {% if is_next %}
+              <span class="team-schedule-card__logos team-schedule-card__logos--pair">
+                <img class="team-schedule-card__logo" src="{{ team_logo_url(team) }}" alt="">
+                <span class="team-schedule-card__vs">vs</span>
+                <img class="team-schedule-card__logo" src="{{ team_logo_url(opp) }}" alt="">
+              </span>
+              <span class="team-schedule-card__sub">{{ 'Home' if is_home else 'Away' }} · {{ opp.abbreviation if opp else '—' }}</span>
+              {% else %}
+              <span class="team-schedule-card__logos">
+                <img class="team-schedule-card__logo team-schedule-card__logo--solo" src="{{ team_logo_url(opp) }}" alt="">
+              </span>
+              <span class="team-schedule-card__opp">{{ '@' if not is_home else 'vs' }} {{ opp.abbreviation if opp else '—' }}</span>
+              {% if is_future %}
+              <span class="team-schedule-card__sub">Scheduled</span>
+              {% endif %}
+              {% endif %}
+            </div>
+            <span class="team-schedule-card__footer">
+              {% if tie %}
+              <span class="team-schedule-card__result">T {{ tg }}-{{ og }}</span>
+              {% elif is_final and tg is not none and og is not none %}
+              <span class="team-schedule-card__result {{ 'team-schedule-card__result--win' if won else 'team-schedule-card__result--loss' }}">{{ 'W' if won else 'L' }} {{ tg }}-{{ og }}</span>
+              {% elif is_final %}
+              <span class="team-schedule-card__result">Final</span>
+              {% elif is_next %}
+              <span class="team-schedule-card__cta">Preview</span>
+              {% else %}
+              <span class="team-schedule-card__cta team-schedule-card__cta--ghost">Preview</span>
+              {% endif %}
             </span>
-            <span class="team-upcoming-calendar__venue">{{ 'Home' if is_home else 'Away' }}</span>
-          </div>
-        </article>
-        {% endfor %}
+          </a>
+          {% endfor %}
+        </div>
       </div>
+      <button type="button" class="team-schedule-carousel__btn team-schedule-carousel__btn--next" aria-label="Later games on the schedule">›</button>
     </div>
-    {% endif %}
+  </div>
+</div>
+{% endif %}
+<div class="team-panels-grid{% if not team_agg and not team_agg_po %} team-panels-grid--single-col{% endif %}">
+  <div class="team-panels-grid__left">
     {% if team_agg %}
     <div class="card">
       <h2>Team Season Totals — Regular Season (FHM)</h2>
@@ -102,9 +141,8 @@
     {% endif %}
   </div>
 
-  {% if sk_leaders or recent_games %}
+  {% if sk_leaders %}
   <div class="team-panels-grid__right">
-    {% if sk_leaders %}
     <div class="card">
     <h2>Team Scoring Leaders</h2>
     <div class="table-wrap">
@@ -132,21 +170,9 @@
       </table>
     </div>
     </div>
-    {% endif %}
-
-    {% if recent_games %}
-    <div class="card">
-    <h2>Recent Games</h2>
-    {% for g in recent_games %}
-    <p>
-      <a href="{{ url_for('main.game_page', game_id=g.id) }}">{{ g.game_date }}</a>:
-      {{ team_logo_img_plain(g.away_team) }} {{ g.away_score }} @ {{ g.home_score }} {{ team_logo_img_plain(g.home_team) }}
-    </p>
-    {% endfor %}
-    </div>
-    {% endif %}
   </div>
   {% endif %}
+</div>
 </div>
 <div class="team-management-tabs">
   <a class="team-management-tabs__btn{% if active_panel == 'roster' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='roster') }}">Roster</a>

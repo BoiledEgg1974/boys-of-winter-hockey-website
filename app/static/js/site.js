@@ -103,6 +103,37 @@
       });
     }
 
+    document.querySelectorAll("[data-team-schedule-carousel]").forEach(function (root) {
+      var track = root.querySelector(".team-schedule-carousel__track");
+      var prevBtn = root.querySelector(".team-schedule-carousel__btn--prev");
+      var nextBtn = root.querySelector(".team-schedule-carousel__btn--next");
+      if (!track) return;
+
+      function stepScroll(dir) {
+        var card = track.querySelector(".team-schedule-card");
+        if (!card) return;
+        var w = card.getBoundingClientRect().width;
+        var st = window.getComputedStyle(track);
+        var gap = parseFloat(st.gap || st.columnGap) || 10;
+        track.scrollBy({ left: dir * (w + gap), behavior: "smooth" });
+      }
+      if (prevBtn) prevBtn.addEventListener("click", function () { stepScroll(-1); });
+      if (nextBtn) nextBtn.addEventListener("click", function () { stepScroll(1); });
+
+      function scrollToFocus() {
+        var idx = parseInt(track.getAttribute("data-focus-index") || "0", 10);
+        var cards = track.querySelectorAll(".team-schedule-card");
+        if (!cards.length || idx < 0 || idx >= cards.length) return;
+        var el = cards[idx];
+        var target = el.offsetLeft - (track.clientWidth - el.offsetWidth) / 2;
+        track.scrollLeft = Math.max(0, target);
+      }
+      requestAnimationFrame(function () {
+        requestAnimationFrame(scrollToFocus);
+      });
+      window.addEventListener("load", scrollToFocus);
+    });
+
     var searchInput = document.getElementById("global-search");
     var ac = document.getElementById("search-autocomplete");
     if (searchInput && ac) {

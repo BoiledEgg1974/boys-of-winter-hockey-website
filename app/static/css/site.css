@@ -1035,6 +1035,11 @@ table.data tbody tr.standings-cutline td {
   }
 }
 
+.team-page {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
 .team-hero {
   display: flex;
   flex-wrap: wrap;
@@ -1045,6 +1050,9 @@ table.data tbody tr.standings-cutline td {
   border-radius: var(--radius);
   color: #fff;
   margin-bottom: 1.25rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 .team-hero img {
   width: calc(72px * var(--team-logo-mul));
@@ -1074,79 +1082,281 @@ table.data tbody tr.standings-cutline td {
   display: grid;
   gap: 1rem;
   margin-bottom: 1rem;
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+.team-panels-grid--single-col {
+  grid-template-columns: 1fr;
+}
+.team-panels-grid--single-col .team-panels-grid__left {
+  display: none;
 }
 .team-panels-grid__left {
   display: grid;
   gap: 1rem;
+  min-width: 0;
 }
 .team-panels-grid__right {
   align-self: start;
   display: grid;
   gap: 1rem;
+  min-width: 0;
 }
-.card--upcoming-games {
-  padding: 0.75rem 1rem;
+.team-schedule-fullwidth {
   margin-bottom: 1rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
-.card--upcoming-games h2 {
-  margin: 0 0 0.45rem;
-  padding-bottom: 0.35rem;
+/* Team page — schedule carousel matches hero width (full main column); tiles scroll inside */
+.card--team-schedule {
+  --schedule-card-width: 138px;
+  --schedule-gap: 0.65rem;
+  padding: 0.75rem 1rem 1rem;
+  margin-bottom: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
-.team-upcoming-calendar {
-  display: grid;
-  gap: 0.35rem;
+.card--team-schedule__title {
+  margin: 0 0 0.25rem;
+  padding-bottom: 0.25rem;
 }
-.team-upcoming-calendar__item {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0.35rem 0.5rem 0.4rem;
-  background: rgb(15 23 42 / 0.55);
+.card--team-schedule__hint {
+  margin: 0 0 0.65rem;
+  font-size: 0.78rem;
 }
-.team-upcoming-calendar__meta {
+.team-schedule-carousel {
   display: flex;
+  align-items: stretch;
+  gap: 0;
+  margin: 0 -0.25rem;
+  max-width: 100%;
+}
+.team-schedule-carousel__btn {
+  flex: 0 0 2rem;
+  border: none;
+  border-radius: 6px;
+  margin: 0 0.2rem;
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  color: #f8fafc;
+  background: color-mix(in srgb, var(--schedule-accent, #b91c1c) 88%, #000);
+  transition: filter 0.15s ease, transform 0.1s ease;
+}
+.team-schedule-carousel__btn:hover {
+  filter: brightness(1.08);
+}
+.team-schedule-carousel__btn:active {
+  transform: scale(0.97);
+}
+.team-schedule-carousel__viewport {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+  max-width: 100%;
+  overflow: hidden;
+}
+.team-schedule-carousel__track {
+  display: flex;
+  gap: 0.65rem;
+  overflow-x: auto;
+  padding: 0.35rem 0.25rem 0.55rem;
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+.team-schedule-card {
+  flex: 0 0 var(--schedule-card-width);
+  width: var(--schedule-card-width);
+  max-width: var(--schedule-card-width);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-height: 152px;
+  padding: 0.45rem 0.5rem 0;
+  border-radius: 10px;
+  border: 1px solid rgb(148 163 184 / 0.22);
+  background: rgb(15 23 42 / 0.65);
+  text-decoration: none;
+  color: inherit;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+}
+.team-schedule-card:hover {
+  border-color: rgb(148 163 184 / 0.45);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.2);
+}
+.team-schedule-card:focus-visible {
+  outline: 2px solid var(--schedule-accent, #38bdf8);
+  outline-offset: 2px;
+}
+.team-schedule-card--past {
+  background: rgb(30 41 59 / 0.85);
+  opacity: 0.92;
+}
+.team-schedule-card--next {
+  background: #f8fafc;
+  border-color: color-mix(in srgb, var(--schedule-accent, #b91c1c) 55%, #94a3b8);
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.06);
+}
+.team-schedule-card--next .team-schedule-card__date {
+  color: #0f172a;
+}
+.team-schedule-card--next .team-schedule-card__sub,
+.team-schedule-card--next .team-schedule-card__opp {
+  color: #475569;
+}
+.team-schedule-card--future {
+  background: rgb(248 250 252 / 0.97);
+  border-color: rgb(148 163 184 / 0.35);
+}
+.team-schedule-card--future .team-schedule-card__date {
+  color: #0f172a;
+}
+.team-schedule-card--future .team-schedule-card__opp,
+.team-schedule-card--future .team-schedule-card__sub {
+  color: #64748b;
+}
+.team-schedule-card__date {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #cbd5e1;
+  text-align: center;
+  margin-bottom: 0.35rem;
+}
+.team-schedule-card__body {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  min-height: 24px;
+  justify-content: center;
+  gap: 0.25rem;
+  text-align: center;
 }
-.team-upcoming-calendar__date {
-  font-weight: 700;
-  font-size: 0.82rem;
-  color: #e2e8f0;
-  flex: 1 1 0;
-}
-.team-upcoming-calendar__venue {
-  color: #94a3b8;
-  font-weight: 700;
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  flex: 1 1 0;
-  text-align: right;
-}
-.team-upcoming-calendar__matchup {
+.team-schedule-card__logos {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  flex: 0 0 auto;
+  min-height: 40px;
 }
-.team-upcoming-calendar__logo {
-  width: 24px;
-  height: 24px;
+.team-schedule-card__logos--pair {
+  gap: 0.35rem;
+}
+.team-schedule-card__logo {
+  width: 28px;
+  height: 28px;
   object-fit: contain;
 }
-.team-upcoming-calendar__vs {
-  color: #cbd5e1;
-  font-size: 0.75rem;
-  font-weight: 700;
+.team-schedule-card__logo--solo {
+  width: 36px;
+  height: 36px;
+}
+.team-schedule-card__vs {
+  font-size: 0.65rem;
+  font-weight: 800;
   text-transform: uppercase;
+  color: #64748b;
+}
+.team-schedule-card--next .team-schedule-card__vs {
+  color: #94a3b8;
+}
+.team-schedule-card__opp {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+.team-schedule-card__sub {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #94a3b8;
+}
+.team-schedule-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: auto;
+  min-height: 2rem;
+  padding: 0.35rem 0.25rem 0.45rem;
+  border-radius: 0 0 8px 8px;
+  margin-left: -0.5rem;
+  margin-right: -0.5rem;
+  margin-bottom: 0;
+  width: calc(100% + 1rem);
+  box-sizing: border-box;
+}
+.team-schedule-card--past .team-schedule-card__footer {
+  background: transparent;
+}
+.team-schedule-card__result {
+  font-size: 0.8rem;
+  font-weight: 800;
   letter-spacing: 0.02em;
+}
+.team-schedule-card__result--win {
+  color: #4ade80;
+}
+.team-schedule-card__result--loss {
+  color: #f87171;
+}
+.team-schedule-card--next .team-schedule-card__footer {
+  background: color-mix(in srgb, var(--schedule-accent, #b91c1c) 92%, #000);
+  color: #fff;
+}
+.team-schedule-card__cta {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #fff;
+}
+.team-schedule-card__cta--ghost {
+  color: #0f172a;
+  letter-spacing: 0.1em;
+}
+.team-schedule-card--future .team-schedule-card__footer {
+  background: rgb(241 245 249 / 0.95);
+  border-top: 1px solid rgb(148 163 184 / 0.25);
+}
+[data-theme="light"] .team-schedule-card {
+  background: var(--surface);
+  border-color: var(--border);
+}
+[data-theme="light"] .team-schedule-card--past {
+  background: var(--row-alt);
+  opacity: 1;
+}
+[data-theme="light"] .team-schedule-card__date {
+  color: var(--muted);
+}
+[data-theme="light"] .team-schedule-card__opp {
+  color: var(--text);
+}
+[data-theme="light"] .team-schedule-card--next {
+  background: #fff;
+}
+[data-theme="light"] .team-schedule-card--future {
+  background: #fff;
+}
+[data-theme="light"] .team-schedule-card--future .team-schedule-card__footer {
+  background: var(--row-alt);
+}
+[data-theme="light"] .team-schedule-carousel__btn {
+  color: #fff;
 }
 @media (min-width: 1100px) {
   .team-panels-grid {
     grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
     align-items: start;
+  }
+  .team-panels-grid.team-panels-grid--single-col {
+    grid-template-columns: 1fr;
   }
 }
 .team-roster-player {

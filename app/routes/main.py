@@ -1655,31 +1655,27 @@ def team_page(slug: str):
         ).first()
         if team_agg_po and team.id in ranks_po:
             team_rank_po = ranks_po[team.id]
-    recent_games = []
-    upcoming_games = []
+    schedule_games: list[Game] = []
+    schedule_focus_index = 0
     if season:
-        recent_games = db.session.scalars(
-            select(Game)
-            .options(joinedload(Game.home_team), joinedload(Game.away_team))
-            .where(
-                Game.season_id == season.id,
-                Game.status == "final",
-                (Game.home_team_id == team.id) | (Game.away_team_id == team.id),
-            )
-            .order_by(Game.game_date.desc().nulls_last(), Game.id.desc())
-            .limit(5)
-        ).all()
-        upcoming_games = db.session.scalars(
-            select(Game)
-            .options(joinedload(Game.home_team), joinedload(Game.away_team))
-            .where(
-                Game.season_id == season.id,
-                Game.status != "final",
-                (Game.home_team_id == team.id) | (Game.away_team_id == team.id),
-            )
-            .order_by(Game.game_date.asc().nulls_last(), Game.id.asc())
-            .limit(5)
-        ).all()
+        schedule_games = list(
+            db.session.scalars(
+                select(Game)
+                .options(joinedload(Game.home_team), joinedload(Game.away_team))
+                .where(
+                    Game.season_id == season.id,
+                    (Game.home_team_id == team.id) | (Game.away_team_id == team.id),
+                )
+                .order_by(Game.game_date.asc().nulls_last(), Game.id.asc())
+            ).all()
+        )
+        schedule_focus_index = 0
+        for i, g in enumerate(schedule_games):
+            if (g.status or "").lower() != "final":
+                schedule_focus_index = i
+                break
+        else:
+            schedule_focus_index = max(0, len(schedule_games) - 1)
     team_prospects = db.session.scalars(
         select(Prospect).options(joinedload(Prospect.player)).where(Prospect.team_id == team.id)
     ).all()
@@ -1695,8 +1691,8 @@ def team_page(slug: str):
         roster=roster,
         roster_ages=roster_ages,
         sk_leaders=sk_leaders,
-        recent_games=recent_games,
-        upcoming_games=upcoming_games,
+        schedule_games=schedule_games,
+        schedule_focus_index=schedule_focus_index,
         prospects_list=team_prospects,
         team_agg=team_agg,
         team_agg_po=team_agg_po,

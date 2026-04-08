@@ -40,6 +40,14 @@ def create_app(config_class: type = Config) -> Flask:
 
     db.init_app(app)
 
+    db_uri = app.config.get("SQLALCHEMY_DATABASE_URI", "")
+    if isinstance(db_uri, str) and db_uri.startswith("sqlite:///"):
+        app.logger.info(
+            "League %s using SQLite %s",
+            app.config.get("LEAGUE_SLUG", "?"),
+            db_uri.replace("sqlite:///", "", 1),
+        )
+
     with app.app_context():
         db.create_all()
         migrate_team_season_aggregates_sqlite(db.engine)
@@ -193,6 +201,18 @@ def create_app(config_class: type = Config) -> Flask:
                 for name in ("league-logo.png", "league-logo.webp", "league-logo.svg"):
                     if (specific_dir / name).is_file():
                         return url_for("static", filename=f"{rel_dir}/{name}")
+            # Pre–slug-rename folders (logos/league2, logos/bow, logos/league3)
+            _legacy_league_logo_dir = {
+                "bowl-historical": "league2",
+                "bowl-fantasy": "bow",
+                "bowl-cap": "league3",
+            }.get(slug or "")
+            if _legacy_league_logo_dir:
+                leg = static_root / "logos" / _legacy_league_logo_dir
+                if leg.is_dir():
+                    for name in ("league-logo.png", "league-logo.webp", "league-logo.svg"):
+                        if (leg / name).is_file():
+                            return url_for("static", filename=f"logos/{_legacy_league_logo_dir}/{name}")
             if slug:
                 sub = static_root / "logos" / slug
                 if sub.is_dir():

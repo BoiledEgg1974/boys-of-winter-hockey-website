@@ -1,4 +1,5 @@
 import os
+import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -41,6 +42,74 @@ def league_raw_import_dir(slug: str) -> str:
     return e.raw_import_dir if e else slug
 
 
+# If instance/<new-slug>.db is missing, use these pre-rename filenames (same DB content).
+_LEGACY_LEAGUE_DB_FILES: dict[str, str] = {
+    "bowl-historical": "league2.db",
+    "bowl-fantasy": "bow.db",
+    "bowl-cap": "league3.db",
+}
+
+
+def _sqlite_has_league_content(path: Path) -> bool:
+    """True if the DB has at least one row in teams, players, or games (real import vs empty schema)."""
+    try:
+        ro_uri = path.resolve().as_uri() + "?mode=ro"
+        conn = sqlite3.connect(ro_uri, uri=True)
+    except sqlite3.Error:
+        try:
+            conn = sqlite3.connect(str(path))
+        except sqlite3.Error:
+            return False
+    try:
+        for table in ("teams", "players", "games", "seasons"):
+            cur = conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name=? LIMIT 1",
+                (table,),
+            )
+            if not cur.fetchone():
+                continue
+            n = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+            if n and int(n) > 0:
+                return True
+        return False
+    except sqlite3.Error:
+        return False
+    finally:
+        conn.close()
+
+
+def resolve_league_sqlite_path(slug: str) -> Path:
+    """Pick SQLite file for this league.
+
+    After a slug rename, empty ``instance/<slug>.db`` files are often created by ``db.create_all()`` while
+    real data still lives in ``league2.db`` / ``bow.db`` / ``league3.db``. We prefer whichever file
+    actually contains league rows; otherwise fall back to primary, then legacy, then primary for new installs.
+    """
+    inst = BASE_DIR / "instance"
+    inst.mkdir(parents=True, exist_ok=True)
+    primary = inst / f"{slug}.db"
+    legacy_name = _LEGACY_LEAGUE_DB_FILES.get(slug)
+    legacy = inst / legacy_name if legacy_name else None
+
+    prim_exists = primary.is_file()
+    leg_exists = legacy.is_file() if legacy else False
+    prim_populated = prim_exists and _sqlite_has_league_content(primary)
+    leg_populated = leg_exists and legacy is not None and _sqlite_has_league_content(legacy)
+
+    if prim_populated:
+        return primary
+    if leg_populated:
+        return legacy
+    # Empty bowl-*.db from db.create_all() must not win over an on-disk legacy file.
+    if leg_exists and not prim_populated:
+        return legacy
+    if prim_exists:
+        return primary
+    if leg_exists:
+        return legacy
+    return primary
+
+
 # Default league for standalone scripts and single-process `create_app(Config)`.
 _ENV_LEAGUE_SLUG = os.environ.get("LEAGUE_SLUG", "bowl-fantasy")
 
@@ -50,7 +119,7 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_DATABASE_URI = os.environ.get(
         "DATABASE_URL",
-        f"sqlite:///{BASE_DIR / 'instance' / _ENV_LEAGUE_SLUG}.db",
+        f"sqlite:///{resolve_league_sqlite_path(_ENV_LEAGUE_SLUG)}",
     )
     RAW_IMPORT_DIR = BASE_DIR / "data" / "imports" / "raw" / league_raw_import_dir(_ENV_LEAGUE_SLUG)
     TEAM_LOGOS_REL_DIR = "logos/teams"
@@ -71,7 +140,7 @@ def make_league_config(slug: str) -> type:
     entry = league_by_slug(slug)
     if entry is None:
         raise ValueError(f"Unknown league slug: {slug!r} (not in LEAGUES)")
-    db_path = BASE_DIR / "instance" / f"{slug}.db"
+    db_path = resolve_league_sqlite_path(slug)
     raw_path = BASE_DIR / "data" / "imports" / "raw" / entry.raw_import_dir
 
     headshots_rel = "players/fantasy" if slug == "bowl-fantasy" else "players/shared"

@@ -170,6 +170,8 @@ def create_app(config_class: type = Config) -> Flask:
 
     @app.context_processor
     def inject_layout():
+        from app.services.draft_history import draft_pick_current_team_view
+
         teams = db.session.scalars(select(Team).order_by(Team.name)).all()
 
         def team_logo_url(team: Team) -> str:
@@ -231,6 +233,7 @@ def create_app(config_class: type = Config) -> Flask:
             league_logo_url=league_logo_url,
             player_headshot_url=player_headshot_url,
             main_league_roster_team=main_league_roster_team,
+            draft_pick_current_team_view=draft_pick_current_team_view,
             league_entries=LEAGUES,
             current_league_slug=app.config.get("LEAGUE_SLUG"),
         )

@@ -16,6 +16,7 @@ from app.db_utils import (
 )
 from app.models import Player, db
 from app.services.player_headshot import resolve_player_headshot_static_filename
+from app.services.roster_team import main_league_roster_team
 
 
 def create_app(config_class: type = Config) -> Flask:
@@ -39,6 +40,14 @@ def create_app(config_class: type = Config) -> Flask:
         Path(sub).mkdir(parents=True, exist_ok=True)
 
     db.init_app(app)
+
+    db_uri = app.config.get("SQLALCHEMY_DATABASE_URI", "")
+    if isinstance(db_uri, str) and db_uri.startswith("sqlite:///"):
+        app.logger.info(
+            "League %s using SQLite %s",
+            app.config.get("LEAGUE_SLUG", "?"),
+            db_uri.replace("sqlite:///", "", 1),
+        )
 
     with app.app_context():
         db.create_all()
@@ -161,6 +170,8 @@ def create_app(config_class: type = Config) -> Flask:
 
     @app.context_processor
     def inject_layout():
+        from app.services.draft_history import draft_pick_current_team_view
+
         teams = db.session.scalars(select(Team).order_by(Team.name)).all()
 
         def team_logo_url(team: Team) -> str:
@@ -193,6 +204,18 @@ def create_app(config_class: type = Config) -> Flask:
                 for name in ("league-logo.png", "league-logo.webp", "league-logo.svg"):
                     if (specific_dir / name).is_file():
                         return url_for("static", filename=f"{rel_dir}/{name}")
+            # Pre–slug-rename folders (logos/league2, logos/bow, logos/league3)
+            _legacy_league_logo_dir = {
+                "bowl-historical": "league2",
+                "bowl-fantasy": "bow",
+                "bowl-cap": "league3",
+            }.get(slug or "")
+            if _legacy_league_logo_dir:
+                leg = static_root / "logos" / _legacy_league_logo_dir
+                if leg.is_dir():
+                    for name in ("league-logo.png", "league-logo.webp", "league-logo.svg"):
+                        if (leg / name).is_file():
+                            return url_for("static", filename=f"logos/{_legacy_league_logo_dir}/{name}")
             if slug:
                 sub = static_root / "logos" / slug
                 if sub.is_dir():
@@ -209,6 +232,8 @@ def create_app(config_class: type = Config) -> Flask:
             team_logo_url=team_logo_url,
             league_logo_url=league_logo_url,
             player_headshot_url=player_headshot_url,
+            main_league_roster_team=main_league_roster_team,
+            draft_pick_current_team_view=draft_pick_current_team_view,
             league_entries=LEAGUES,
             current_league_slug=app.config.get("LEAGUE_SLUG"),
         )

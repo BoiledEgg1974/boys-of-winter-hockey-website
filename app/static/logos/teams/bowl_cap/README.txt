@@ -1,7 +1,7 @@
-﻿Team logos - BOWL Cap
+﻿Team logos - BOWL-Cap
 =====================
 
-Place all team logos for BOWL Cap in this folder.
+Place all team logos for BOWL-Cap in this folder.
 
 Naming convention (same as historical site):
 - filename = team slug from database

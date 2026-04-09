@@ -1,49 +1,116 @@
 {% extends "base.html" %}
-{% from "macros/team.html" import team_logo_img_plain with context %}
 {% block title %}{{ team.name }} — Boys of Winter Hockey League{% endblock %}
 {% block content %}
 {% set ph = team.primary_color or '#1e3a5f' %}
 {% set sh = team.secondary_color or '#0f172a' %}
-<div class="team-hero" style="background: linear-gradient(135deg, {{ ph }}, {{ sh }});">
-  <img class="team-hero__logo" src="{{ team_logo_url(team) }}" alt="{{ team.name }} logo">
-  <div class="team-hero__meta">
-    <h1>{{ team.name }}</h1>
-    <p style="margin:0;opacity:0.9;">{{ team.city or '' }} {{ team.nickname or '' }}</p>
-    <p style="margin:0.15rem 0 0;opacity:0.82;font-size:0.92rem;">
-      {{ arena_name or '—' }} · Capacity {{ '{:,}'.format(arena_capacity) if arena_capacity is not none else '—' }}
-    </p>
+<div class="team-page">
+<div class="team-hero" style="--team-hero-accent: {{ ph }}; background: linear-gradient(135deg, {{ ph }}, {{ sh }});">
+  <div class="team-hero__brand">
+    <div class="team-hero__logo-wrap">
+      <img class="team-hero__logo" src="{{ team_logo_url(team) }}" alt="{{ team.name }} logo">
+    </div>
+    <div class="team-hero__meta">
+      <p class="team-hero__city">{{ hero_city_caps }}</p>
+      <h1 class="team-hero__nickname">{{ hero_display_name }}</h1>
+      <p class="team-hero__arena">
+        {{ arena_name or '—' }} · Capacity {{ '{:,}'.format(arena_capacity) if arena_capacity is not none else '—' }}
+      </p>
+      {% if standing and season %}
+      <p class="team-hero__record">
+        {{ standing.w }}-{{ standing.l }}-{{ standing.ties }}-{{ standing.otl }}{% if standing.pts is not none %} · {{ standing.pts }} PTS{% endif %}{{ hero_record_suffix }}
+      </p>
+      {% endif %}
+    </div>
   </div>
-  {% if standing and season %}
-  <div class="team-hero__snapshot">
-    <p class="team-hero__snapshot-line"><strong>Record</strong> {{ standing.w }}-{{ standing.l }}-{{ standing.ties }}-{{ standing.otl }} · <strong>PTS</strong> {{ standing.pts }}</p>
-    <p class="team-hero__snapshot-line">{{ division_name or '—' }}{% if division_rank is not none %} · #{{ division_rank }}{% endif %} · GF {{ standing.gf }} · GA {{ standing.ga }}</p>
+  {% if show_hero_stats_card %}
+  <div class="team-hero__stats-card" role="group" aria-label="Team season rates">
+    <span class="team-hero__stats-card-caret" aria-hidden="true"></span>
+    <div class="team-hero__stat-col">
+      <span class="team-hero__stat-label">GF/G</span>
+      <span class="team-hero__stat-value">{{ '%.1f'|format(hero_gf_g) if hero_gf_g is not none else '—' }}</span>
+      <span class="team-hero__stat-rank">{{ hero_gf_g_rank_paren }}</span>
+    </div>
+    <div class="team-hero__stat-col">
+      <span class="team-hero__stat-label">GA/G</span>
+      <span class="team-hero__stat-value">{{ '%.1f'|format(hero_ga_g) if hero_ga_g is not none else '—' }}</span>
+      <span class="team-hero__stat-rank">{{ hero_ga_g_rank_paren }}</span>
+    </div>
+    <div class="team-hero__stat-col">
+      <span class="team-hero__stat-label">PP%</span>
+      <span class="team-hero__stat-value">{{ '%.1f'|format(hero_pp_pct) if hero_pp_pct is not none else '—' }}</span>
+      <span class="team-hero__stat-rank">{{ hero_pp_rank_paren }}</span>
+    </div>
+    <div class="team-hero__stat-col">
+      <span class="team-hero__stat-label">PK%</span>
+      <span class="team-hero__stat-value">{{ '%.1f'|format(hero_pk_pct) if hero_pk_pct is not none else '—' }}</span>
+      <span class="team-hero__stat-rank">{{ hero_pk_rank_paren }}</span>
+    </div>
   </div>
   {% endif %}
 </div>
-<div class="team-panels-grid">
-  <div class="team-panels-grid__left">
-    {% if upcoming_games %}
-    <div class="card card--upcoming-games">
-      <h2>Upcoming Games</h2>
-      <div class="team-upcoming-calendar">
-        {% for g in upcoming_games %}
-        {% set is_home = (g.home_team_id == team.id) %}
-        {% set opp = g.away_team if is_home else g.home_team %}
-        <article class="team-upcoming-calendar__item">
-          <div class="team-upcoming-calendar__meta">
-            <span class="team-upcoming-calendar__date">{{ g.game_date or '—' }}</span>
-            <span class="team-upcoming-calendar__matchup">
-            <img class="team-upcoming-calendar__logo" src="{{ team_logo_url(team) }}" alt="{{ team.name }}">
-            <span class="team-upcoming-calendar__vs">vs</span>
-            <img class="team-upcoming-calendar__logo" src="{{ team_logo_url(opp) }}" alt="{{ opp.name if opp else '' }}">
+{% if schedule_games %}
+<div class="team-schedule-fullwidth">
+  <div class="card card--team-schedule" style="--schedule-accent: {{ ph }};">
+    <h2 class="card--team-schedule__title">Schedule</h2>
+    <p class="card--team-schedule__hint muted">Scroll or use arrows. Each card links to the game page (box score).</p>
+    <div class="team-schedule-carousel" data-team-schedule-carousel>
+      <button type="button" class="team-schedule-carousel__btn team-schedule-carousel__btn--prev" aria-label="Earlier games on the schedule">‹</button>
+      <div class="team-schedule-carousel__viewport">
+        <div class="team-schedule-carousel__track" data-focus-index="{{ schedule_focus_index }}">
+          {% for g in schedule_games %}
+          {% set is_home = (g.home_team_id == team.id) %}
+          {% set opp = g.away_team if is_home else g.home_team %}
+          {% set is_final = (g.status or '')|lower == 'final' %}
+          {% set tg = g.home_score if is_home else g.away_score %}
+          {% set og = g.away_score if is_home else g.home_score %}
+          {% set won = is_final and tg is not none and og is not none and tg > og %}
+          {% set tie = is_final and tg is not none and og is not none and tg == og %}
+          {% set is_next = (loop.index0 == schedule_focus_index) and not is_final %}
+          {% set is_future = (not is_final) and (not is_next) %}
+          <a class="team-schedule-card{% if is_final %} team-schedule-card--past{% elif is_next %} team-schedule-card--next{% else %} team-schedule-card--future{% endif %}" href="{{ url_for('main.game_page', game_id=g.id) }}">
+            <span class="team-schedule-card__date">{{ g.game_date.strftime('%a, %b %d').upper() if g.game_date else 'DATE TBD' }}</span>
+            <div class="team-schedule-card__body">
+              {% if is_next %}
+              <span class="team-schedule-card__logos team-schedule-card__logos--pair">
+                <img class="team-schedule-card__logo" src="{{ team_logo_url(team) }}" alt="">
+                <span class="team-schedule-card__vs">vs</span>
+                <img class="team-schedule-card__logo" src="{{ team_logo_url(opp) }}" alt="">
+              </span>
+              <span class="team-schedule-card__sub">{{ 'Home' if is_home else 'Away' }} · {{ opp.abbreviation if opp else '—' }}</span>
+              {% else %}
+              <span class="team-schedule-card__logos">
+                <img class="team-schedule-card__logo team-schedule-card__logo--solo" src="{{ team_logo_url(opp) }}" alt="">
+              </span>
+              <span class="team-schedule-card__opp">{{ '@' if not is_home else 'vs' }} {{ opp.abbreviation if opp else '—' }}</span>
+              {% if is_future %}
+              <span class="team-schedule-card__sub">Scheduled</span>
+              {% endif %}
+              {% endif %}
+            </div>
+            <span class="team-schedule-card__footer">
+              {% if tie %}
+              <span class="team-schedule-card__result">T {{ tg }}-{{ og }}</span>
+              {% elif is_final and tg is not none and og is not none %}
+              <span class="team-schedule-card__result {{ 'team-schedule-card__result--win' if won else 'team-schedule-card__result--loss' }}">{{ 'W' if won else 'L' }} {{ tg }}-{{ og }}</span>
+              {% elif is_final %}
+              <span class="team-schedule-card__result">Final</span>
+              {% elif is_next %}
+              <span class="team-schedule-card__cta">Preview</span>
+              {% else %}
+              <span class="team-schedule-card__cta team-schedule-card__cta--ghost">Preview</span>
+              {% endif %}
             </span>
-            <span class="team-upcoming-calendar__venue">{{ 'Home' if is_home else 'Away' }}</span>
-          </div>
-        </article>
-        {% endfor %}
+          </a>
+          {% endfor %}
+        </div>
       </div>
+      <button type="button" class="team-schedule-carousel__btn team-schedule-carousel__btn--next" aria-label="Later games on the schedule">›</button>
     </div>
-    {% endif %}
+  </div>
+</div>
+{% endif %}
+<div class="team-panels-grid{% if not team_agg and not team_agg_po %} team-panels-grid--single-col{% endif %}">
+  <div class="team-panels-grid__left">
     {% if team_agg %}
     <div class="card">
       <h2>Team Season Totals — Regular Season (FHM)</h2>
@@ -62,7 +129,7 @@
             <tr><th>PP% (PPG ÷ PP Ch)</th><td>{% if team_agg.pp_chances and team_agg.pp_goals is not none and team_agg.pp_chances > 0 %}{{ '%.1f'|format(100.0 * team_agg.pp_goals / team_agg.pp_chances) }}%{% else %}—{% endif %}</td><td>#{{ team_rank_rs.get('pp_pct', '—') }}</td></tr>
             <tr><th>PK GA (PP against)</th><td>{{ team_agg.pk_goals_against or '—' }}</td><td>#{{ team_rank_rs.get('pk_goals_against', '—') }}</td></tr>
             <tr><th>SH CH</th><td>{{ team_agg.sh_chances or '—' }}</td><td>#{{ team_rank_rs.get('sh_chances', '—') }}</td></tr>
-            <tr><th>PK% (PK GA ÷ SH CH)</th><td>{% if team_agg.sh_chances and team_agg.sh_chances > 0 and team_agg.pk_goals_against is not none %}{{ '%.1f'|format(100.0 * team_agg.pk_goals_against / team_agg.sh_chances) }}%{% else %}—{% endif %}</td><td>#{{ team_rank_rs.get('pk_pct', '—') }}</td></tr>
+            <tr><th>PK% ((SH CH − PK GA) ÷ SH CH)</th><td>{% if team_agg.sh_chances and team_agg.sh_chances > 0 and team_agg.pk_goals_against is not none %}{{ '%.1f'|format(100.0 - (100.0 * team_agg.pk_goals_against / team_agg.sh_chances)) }}%{% else %}—{% endif %}</td><td>#{{ team_rank_rs.get('pk_pct', '—') }}</td></tr>
             <tr><th>SH goals</th><td>{{ team_agg.sh_goals or '—' }}</td><td>#{{ team_rank_rs.get('sh_goals', '—') }}</td></tr>
             <tr><th>PIM/game</th><td>{{ '%.2f'|format(team_agg.pim_per_game) if team_agg.pim_per_game is not none else '—' }}</td><td>#{{ team_rank_rs.get('pim_per_game', '—') }}</td></tr>
             <tr><th>Attendance (H/A)</th><td>{{ team_agg.attendance_home or '—' }} / {{ team_agg.attendance_away or '—' }}</td><td>#{{ team_rank_rs.get('attendance_home', '—') }} / #{{ team_rank_rs.get('attendance_away', '—') }}</td></tr>
@@ -90,7 +157,7 @@
             <tr><th>PP% (PPG ÷ PP Ch)</th><td>{% if team_agg_po.pp_chances and team_agg_po.pp_goals is not none and team_agg_po.pp_chances > 0 %}{{ '%.1f'|format(100.0 * team_agg_po.pp_goals / team_agg_po.pp_chances) }}%{% else %}—{% endif %}</td><td>#{{ team_rank_po.get('pp_pct', '—') }}</td></tr>
             <tr><th>PK GA (PP against)</th><td>{{ team_agg_po.pk_goals_against or '—' }}</td><td>#{{ team_rank_po.get('pk_goals_against', '—') }}</td></tr>
             <tr><th>SH CH</th><td>{{ team_agg_po.sh_chances or '—' }}</td><td>#{{ team_rank_po.get('sh_chances', '—') }}</td></tr>
-            <tr><th>PK% (PK GA ÷ SH CH)</th><td>{% if team_agg_po.sh_chances and team_agg_po.sh_chances > 0 and team_agg_po.pk_goals_against is not none %}{{ '%.1f'|format(100.0 * team_agg_po.pk_goals_against / team_agg_po.sh_chances) }}%{% else %}—{% endif %}</td><td>#{{ team_rank_po.get('pk_pct', '—') }}</td></tr>
+            <tr><th>PK% ((SH CH − PK GA) ÷ SH CH)</th><td>{% if team_agg_po.sh_chances and team_agg_po.sh_chances > 0 and team_agg_po.pk_goals_against is not none %}{{ '%.1f'|format(100.0 - (100.0 * team_agg_po.pk_goals_against / team_agg_po.sh_chances)) }}%{% else %}—{% endif %}</td><td>#{{ team_rank_po.get('pk_pct', '—') }}</td></tr>
             <tr><th>SH goals</th><td>{{ team_agg_po.sh_goals or '—' }}</td><td>#{{ team_rank_po.get('sh_goals', '—') }}</td></tr>
             <tr><th>PIM/game</th><td>{{ '%.2f'|format(team_agg_po.pim_per_game) if team_agg_po.pim_per_game is not none else '—' }}</td><td>#{{ team_rank_po.get('pim_per_game', '—') }}</td></tr>
             <tr><th>Attendance (H/A)</th><td>{{ team_agg_po.attendance_home or '—' }} / {{ team_agg_po.attendance_away or '—' }}</td><td>#{{ team_rank_po.get('attendance_home', '—') }} / #{{ team_rank_po.get('attendance_away', '—') }}</td></tr>
@@ -102,57 +169,63 @@
     {% endif %}
   </div>
 
-  {% if sk_leaders or recent_games %}
+  {% if team_leader_rows %}
   <div class="team-panels-grid__right">
-    {% if sk_leaders %}
-    <div class="card">
-    <h2>Team Scoring Leaders</h2>
-    <div class="table-wrap">
-      <table class="data">
-        <thead><tr><th>Player</th><th>G</th><th>A</th><th>Pts</th></tr></thead>
-        <tbody>
-          {% for row, pl in sk_leaders %}
-          <tr>
-            <td>
-              <span class="team-roster-player">
-                <a class="team-roster-player__photo" href="{{ url_for('main.player_page', player_id=pl.id) }}">
-                  {% if player_headshot_url(pl) %}
-                  <img src="{{ player_headshot_url(pl) }}" alt="">
-                  {% else %}
-                  <span class="team-roster-player__photo-ph" aria-hidden="true"></span>
-                  {% endif %}
-                </a>
-                <a class="team-roster-player__name" href="{{ url_for('main.player_page', player_id=pl.id) }}">{{ pl.full_name }}</a>
-              </span>
-            </td>
-            <td>{{ row.goals }}</td><td>{{ row.assists }}</td><td>{{ row.points }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    <div class="card team-leaders-card">
+      <h2 class="team-leaders-card__title">Leaders</h2>
+      <ul class="team-leaders" role="list">
+        {% for row in team_leader_rows %}
+        {% set pl = row.player %}
+        <li class="team-leaders__row">
+          <div class="team-leaders__media">
+            {% if pl %}
+            <a class="team-leaders__headshot" href="{{ url_for('main.player_page', player_id=pl.id) }}">
+              {% if player_headshot_url(pl) %}
+              <img src="{{ player_headshot_url(pl) }}" alt="">
+              {% else %}
+              <span class="team-leaders__headshot-ph" aria-hidden="true"></span>
+              {% endif %}
+            </a>
+            {% else %}
+            <span class="team-leaders__headshot team-leaders__headshot--empty" aria-hidden="true"></span>
+            {% endif %}
+            <span class="team-leaders__team-logo-wrap" aria-hidden="true">
+              <img class="team-leaders__team-logo" src="{{ team_logo_url(team) }}" alt="">
+            </span>
+            <span class="team-leaders__caret-rule" aria-hidden="true"></span>
+          </div>
+          <div class="team-leaders__player">
+            {% if pl %}
+            <span class="team-leaders__pos muted">{{ (pl.position or '—')|e }}</span>
+            <a class="team-leaders__name-block" href="{{ url_for('main.player_page', player_id=pl.id) }}">
+              <span class="team-leaders__first muted">{{ pl.first_name }}</span>
+              <span class="team-leaders__last">{{ pl.last_name }}</span>
+            </a>
+            {% else %}
+            <span class="team-leaders__pos muted">—</span>
+            <span class="team-leaders__name-block team-leaders__name-block--empty">
+              <span class="team-leaders__first muted">—</span>
+            </span>
+            {% endif %}
+          </div>
+          <div class="team-leaders__stat">
+            <span class="team-leaders__stat-label muted">{{ row.abbr }}</span>
+            <span class="team-leaders__stat-value">{{ row.value or '—' }}</span>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
     </div>
-    </div>
-    {% endif %}
-
-    {% if recent_games %}
-    <div class="card">
-    <h2>Recent Games</h2>
-    {% for g in recent_games %}
-    <p>
-      <a href="{{ url_for('main.game_page', game_id=g.id) }}">{{ g.game_date }}</a>:
-      {{ team_logo_img_plain(g.away_team) }} {{ g.away_score }} @ {{ g.home_score }} {{ team_logo_img_plain(g.home_team) }}
-    </p>
-    {% endfor %}
-    </div>
-    {% endif %}
   </div>
   {% endif %}
+</div>
 </div>
 <div class="team-management-tabs">
   <a class="team-management-tabs__btn{% if active_panel == 'roster' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='roster') }}">Roster</a>
   <a class="team-management-tabs__btn{% if active_panel == 'depth' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='depth') }}">Depth Chart</a>
   <a class="team-management-tabs__btn{% if active_panel == 'lines' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='lines') }}">Lines</a>
   <a class="team-management-tabs__btn{% if active_panel == 'salary' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='salary') }}">Salary</a>
+  <a class="team-management-tabs__btn{% if active_panel == 'statistics' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='statistics') }}">Statistics</a>
 </div>
 
 {% if active_panel == 'roster' %}
@@ -300,7 +373,7 @@
 </div>
 {% elif active_panel == 'salary' %}
 <div class="card">
-  <h2>Salary cap</h2>
+  <h2>Salary</h2>
   {% if salary_rows %}
   <div class="table-wrap">
     <table class="data team-salary-table">
@@ -350,6 +423,13 @@
   {% else %}
   <p class="empty-state">No salary obligations available for this team.</p>
   {% endif %}
+</div>
+{% elif active_panel == 'statistics' %}
+<div class="card team-page-stats-card">
+  <h2>Statistics</h2>
+  {% if season %}<p class="muted team-page-stats-card__season">Season: <strong>{{ season.label }}</strong></p>{% endif %}
+  {% set team_statistics = team %}
+  {% include "_statistics_panel.html" %}
 </div>
 {% endif %}
 {% if prospects_list %}

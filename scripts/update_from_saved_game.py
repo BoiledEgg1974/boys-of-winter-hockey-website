@@ -23,10 +23,13 @@ IMPORT_SCRIPT = REPO_ROOT / "scripts" / "import_data.py"
 PATHS_FILE = REPO_ROOT / "scripts" / "saved_game_csv_paths.json"
 
 DEFAULT_SOURCES: dict[str, str] = {
-    "league2": r"C:\Users\keeno\OneDrive\Documents\Out of the Park Developments\Franchise Hockey Manager 11\saved_games\BOWL-Historical.lg\import_export\csv",
-    "bow": r"C:\Users\keeno\OneDrive\Documents\Out of the Park Developments\Franchise Hockey Manager 11\saved_games\BOWL-Fantasy.lg\import_export\csv",
-    "league3": r"C:\Users\keeno\OneDrive\Documents\Out of the Park Developments\Franchise Hockey Manager 11\saved_games\BOWL-Soft Cap.lg\import_export\csv",
+    "bowl-historical": r"C:\Users\keeno\OneDrive\Documents\Out of the Park Developments\Franchise Hockey Manager 11\saved_games\BOWL-Historical.lg\import_export\csv",
+    "bowl-fantasy": r"C:\Users\keeno\OneDrive\Documents\Out of the Park Developments\Franchise Hockey Manager 11\saved_games\BOWL-Fantasy.lg\import_export\csv",
+    "bowl-cap": r"C:\Users\keeno\OneDrive\Documents\Out of the Park Developments\Franchise Hockey Manager 11\saved_games\BOWL-Soft Cap.lg\import_export\csv",
 }
+
+# Keys in saved_game_csv_paths.json from before slug rename
+_LEGACY_SLUG_KEYS = {"league2": "bowl-historical", "bow": "bowl-fantasy", "league3": "bowl-cap"}
 
 
 @dataclass(frozen=True)
@@ -37,9 +40,9 @@ class LeagueCopyTarget:
 
 
 LEAGUES: tuple[LeagueCopyTarget, ...] = (
-    LeagueCopyTarget("BOWL Historical", "league2", "bowl_historical"),
-    LeagueCopyTarget("BOWL Fantasy", "bow", "bowl_fantasy"),
-    LeagueCopyTarget("BOWL Cap", "league3", "bowl_cap"),
+    LeagueCopyTarget("BOWL-Historical", "bowl-historical", "bowl_historical"),
+    LeagueCopyTarget("BOWL-Fantasy", "bowl-fantasy", "bowl_fantasy"),
+    LeagueCopyTarget("BOWL-Cap", "bowl-cap", "bowl_cap"),
 )
 
 
@@ -62,10 +65,13 @@ def _load_saved_paths() -> dict[str, str]:
         try:
             data = json.loads(PATHS_FILE.read_text(encoding="utf-8"))
             out = dict(DEFAULT_SOURCES)
-            for key in DEFAULT_SOURCES:
-                val = data.get(key)
-                if isinstance(val, str) and val.strip():
-                    out[key] = val
+            if isinstance(data, dict):
+                for key, val in data.items():
+                    if not isinstance(val, str) or not val.strip():
+                        continue
+                    nk = _LEGACY_SLUG_KEYS.get(key, key)
+                    if nk in DEFAULT_SOURCES:
+                        out[nk] = val.strip()
             return out
         except (json.JSONDecodeError, OSError):
             pass
@@ -124,9 +130,9 @@ def _git_commit_and_push() -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Copy saved-game CSVs, import leagues, and optionally push.")
     parser.add_argument("--base", type=str, default=None, help="Base export folder containing league subfolders.")
-    parser.add_argument("--historical", type=str, default=None, help="Override source folder for BOWL Historical.")
-    parser.add_argument("--fantasy", type=str, default=None, help="Override source folder for BOWL Fantasy.")
-    parser.add_argument("--cap", type=str, default=None, help="Override source folder for BOWL Cap.")
+    parser.add_argument("--historical", type=str, default=None, help="Override source folder for BOWL-Historical.")
+    parser.add_argument("--fantasy", type=str, default=None, help="Override source folder for BOWL-Fantasy.")
+    parser.add_argument("--cap", type=str, default=None, help="Override source folder for BOWL-Cap.")
     parser.add_argument("--yes-push", action="store_true", help="Commit and push automatically (no prompt).")
     parser.add_argument("--no-push", action="store_true", help="Skip commit and push automatically (no prompt).")
     args = parser.parse_args()
@@ -137,9 +143,9 @@ def main() -> int:
 
     copied_slugs: list[str] = []
     cli_overrides = {
-        "league2": Path(args.historical.strip('"')).expanduser() if args.historical else None,
-        "bow": Path(args.fantasy.strip('"')).expanduser() if args.fantasy else None,
-        "league3": Path(args.cap.strip('"')).expanduser() if args.cap else None,
+        "bowl-historical": Path(args.historical.strip('"')).expanduser() if args.historical else None,
+        "bowl-fantasy": Path(args.fantasy.strip('"')).expanduser() if args.fantasy else None,
+        "bowl-cap": Path(args.cap.strip('"')).expanduser() if args.cap else None,
     }
 
     # Build league source map

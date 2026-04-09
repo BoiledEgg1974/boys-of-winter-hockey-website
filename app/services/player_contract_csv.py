@@ -6,31 +6,34 @@ from pathlib import Path
 from app.config import Config
 from scripts.import_pipeline.encoding_utils import cell_val, read_csv_normalized
 
-_cache: dict[str, dict] | None = None
-_cache_path: Path | None = None
-_cache_mtime: float | None = None
+# Per-file cache so multi-league apps (different RAW_IMPORT_DIR) each see correct rows.
+_row_maps: dict[str, tuple[float, dict[str, dict]]] = {}
 
 
-def _contract_row_map() -> dict[str, dict]:
-    global _cache, _cache_path, _cache_mtime
-    path = Config.RAW_IMPORT_DIR / "player_contract.csv"
+def _contract_row_map(path: Path) -> dict[str, dict]:
     if not path.is_file():
         return {}
+    key = str(path.resolve())
     mtime = path.stat().st_mtime
-    if _cache is None or path != _cache_path or mtime != _cache_mtime:
-        df = read_csv_normalized(path)
-        _cache = {}
-        for _, row in df.iterrows():
-            r = row.to_dict()
-            pid = cell_val(r, "playerid")
-            if pid:
-                _cache[str(pid).strip()] = r
-        _cache_path = path
-        _cache_mtime = mtime
-    return _cache
+    hit = _row_maps.get(key)
+    if hit is not None and hit[0] == mtime:
+        return hit[1]
+    df = read_csv_normalized(path)
+    m: dict[str, dict] = {}
+    for _, row in df.iterrows():
+        r = row.to_dict()
+        pid = cell_val(r, "playerid")
+        if pid:
+            m[str(pid).strip()] = r
+    _row_maps[key] = (mtime, m)
+    return m
 
 
-def contract_years_remaining_major(fhm_player_id: str | None, season_start_year: int | None) -> int | None:
+def contract_years_remaining_major(
+    fhm_player_id: str | None,
+    season_start_year: int | None,
+    raw_import_dir: Path | None = None,
+) -> int | None:
     """Count NHL (Major) salary seasons from the current league start year forward until ``-1``.
 
     Uses per-year ``major_YYYY`` columns from ``player_contract.csv``. Returns ``None`` if the
@@ -38,7 +41,9 @@ def contract_years_remaining_major(fhm_player_id: str | None, season_start_year:
     """
     if not fhm_player_id or season_start_year is None:
         return None
-    m = _contract_row_map()
+    base = raw_import_dir if raw_import_dir is not None else Path(Config.RAW_IMPORT_DIR)
+    path = base / "player_contract.csv"
+    m = _contract_row_map(path)
     row = m.get(str(fhm_player_id).strip())
     if not row:
         return None

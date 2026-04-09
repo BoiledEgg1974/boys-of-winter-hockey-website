@@ -1,9 +1,9 @@
-﻿Player images for BOWL Historical and BOWL Cap
+﻿Player images for BOWL-Historical and BOWL-Cap
 ==============================================
 
 This folder is used by:
-- BOWL Historical (slug: league2)
-- BOWL Cap (slug: league3)
+- BOWL-Historical (slug: bowl-historical)
+- BOWL-Cap (slug: bowl-cap)
 
 Upload naming format (recommended):
   firstname_lastname_day_month_year.png

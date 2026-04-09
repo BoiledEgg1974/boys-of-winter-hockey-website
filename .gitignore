@@ -27,6 +27,9 @@ instance/*.sqlite
 instance/*.sqlite3
 *.log
 
+# Local PythonAnywhere deploy wizard (machine-specific CSV paths)
+scripts/pythonanywhere_csv_sources.json
+
 # Editor/OS files
 .vscode/
 .idea/

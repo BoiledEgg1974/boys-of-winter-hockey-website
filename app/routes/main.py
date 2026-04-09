@@ -26,6 +26,7 @@ from app.models import (
     PlayerSkaterCareerLine,
     PlayerSkaterStat,
     Prospect,
+    Season,
     Team,
     TeamSeasonAggregate,
     TeamStanding,
@@ -38,6 +39,7 @@ from app.services.all_time_records import (
     fetch_goalie_all_time,
     fetch_skater_all_time,
 )
+from app.services.roster_team import main_league_roster_team
 from app.services.draft_history import (
     build_career_stat_maps,
     draft_row_stat_mode,
@@ -269,10 +271,17 @@ def standings():
     )
 
 
-@main_bp.get("/statistics")
-def statistics():
+def _build_statistics_view_vars(
+    locked_team_id: int | None = None,
+    locked_team_slug: str | None = None,
+) -> dict[str, object]:
+    """Context dict for statistics.html or team page statistics panel.
+
+    When locked_team_id is set, stats are restricted to that team and query
+    `team_id` is ignored. URLs for sort/expand use team_page when slug is set.
+    """
     season = get_current_season()
-    team_id = request.args.get("team_id", type=int)
+    team_id = locked_team_id if locked_team_id is not None else request.args.get("team_id", type=int)
     sort = request.args.get("sort", "points")
     goalies = request.args.get("goalies") == "1"
     segment = request.args.get("segment", "rs") or "rs"
@@ -288,26 +297,25 @@ def statistics():
     teams = db.session.scalars(select(Team).order_by(Team.name)).all()
     teams_by_id = {t.id: t for t in teams}
     if not season:
-        return render_template(
-            "statistics.html",
-            season=None,
-            teams=teams,
-            teams_by_id=teams_by_id,
-            skaters=[],
-            goalies_list=[],
-            sort=sort,
-            g_sort="wins",
-            team_id=team_id,
-            show_goalies=goalies,
-            segment=segment,
-            pos_filter=pos_filter,
-            stats_expanded=False,
-            total_skaters=0,
-            total_goalies=0,
-            statistics_expand_url="",
-            statistics_collapsed_url="",
-            stats_page_limit=stats_page_limit,
-        )
+        return {
+            "season": None,
+            "teams": teams,
+            "teams_by_id": teams_by_id,
+            "skaters": [],
+            "goalies_list": [],
+            "sort": sort,
+            "g_sort": "wins",
+            "team_id": team_id,
+            "show_goalies": goalies,
+            "segment": segment,
+            "pos_filter": pos_filter,
+            "stats_expanded": False,
+            "total_skaters": 0,
+            "total_goalies": 0,
+            "statistics_expand_url": "",
+            "statistics_collapsed_url": "",
+            "stats_page_limit": stats_page_limit,
+        }
 
     sk_gp_nf = func.nullif(PlayerSkaterStat.gp, 0)
     sk_es_sec = PlayerSkaterStat.toi_seconds - func.coalesce(
@@ -480,38 +488,57 @@ def statistics():
         gq = gq.limit(stats_full_limit)
     goalies_list = db.session.execute(gq).all()
 
-    _stat_params = {
+    _stat_params: dict[str, object] = {
         "segment": segment,
         "sort": sort,
         "g_sort": g_sort,
-        "team_id": team_id,
         "pos": pos_filter if pos_filter != "all" else None,
         "goalies": 1 if goalies else None,
     }
+    if locked_team_id is None:
+        _stat_params["team_id"] = team_id
     _stat_params = {k: v for k, v in _stat_params.items() if v is not None}
-    statistics_expand_url = url_for("main.statistics", **{**_stat_params, "expanded": 1})
-    statistics_collapsed_url = url_for("main.statistics", **_stat_params)
+    if locked_team_slug:
+        statistics_expand_url = url_for(
+            "main.team_page",
+            slug=locked_team_slug,
+            panel="statistics",
+            **{**_stat_params, "expanded": 1},
+        )
+        statistics_collapsed_url = url_for(
+            "main.team_page",
+            slug=locked_team_slug,
+            panel="statistics",
+            **_stat_params,
+        )
+    else:
+        statistics_expand_url = url_for("main.statistics", **{**_stat_params, "expanded": 1})
+        statistics_collapsed_url = url_for("main.statistics", **_stat_params)
 
-    return render_template(
-        "statistics.html",
-        season=season,
-        teams=teams,
-        teams_by_id=teams_by_id,
-        skaters=skaters,
-        goalies_list=goalies_list,
-        sort=sort,
-        g_sort=g_sort,
-        team_id=team_id,
-        show_goalies=goalies,
-        segment=segment,
-        pos_filter=pos_filter,
-        stats_expanded=stats_expanded,
-        total_skaters=total_skaters,
-        total_goalies=total_goalies,
-        statistics_expand_url=statistics_expand_url,
-        statistics_collapsed_url=statistics_collapsed_url,
-        stats_page_limit=stats_page_limit,
-    )
+    return {
+        "season": season,
+        "teams": teams,
+        "teams_by_id": teams_by_id,
+        "skaters": skaters,
+        "goalies_list": goalies_list,
+        "sort": sort,
+        "g_sort": g_sort,
+        "team_id": team_id,
+        "show_goalies": goalies,
+        "segment": segment,
+        "pos_filter": pos_filter,
+        "stats_expanded": stats_expanded,
+        "total_skaters": total_skaters,
+        "total_goalies": total_goalies,
+        "statistics_expand_url": statistics_expand_url,
+        "statistics_collapsed_url": statistics_collapsed_url,
+        "stats_page_limit": stats_page_limit,
+    }
+
+
+@main_bp.get("/statistics")
+def statistics():
+    return render_template("statistics.html", **_build_statistics_view_vars())
 
 
 @main_bp.get("/schedule")
@@ -1133,8 +1160,8 @@ def _norm_contract_key(key: str) -> str:
     return "".join(ch.lower() if ch.isalnum() else "_" for ch in key).strip("_")
 
 
-def _contract_rows_by_playerid() -> dict[str, dict[str, str]]:
-    path = Path(Config.RAW_IMPORT_DIR) / "player_contract.csv"
+def _contract_rows_by_playerid(raw_import_dir: Path) -> dict[str, dict[str, str]]:
+    path = raw_import_dir / "player_contract.csv"
     out: dict[str, dict[str, str]] = {}
     for row in _read_semicolon_rows(path):
         nr = {_norm_contract_key(k): (v or "") for k, v in row.items()}
@@ -1160,6 +1187,7 @@ def _build_team_lines_views(
     team: Team,
     roster: list[Player],
     season: Season | None,
+    raw_import_dir: Path,
 ) -> tuple[
     dict[str, list[dict[str, object]]],
     list[tuple[str, list[tuple[str, str | list[str] | None]]]],
@@ -1172,7 +1200,7 @@ def _build_team_lines_views(
         for p in roster
         if p.fhm_player_id is not None and str(p.fhm_player_id).strip() != ""
     }
-    lines_path = Path(Config.RAW_IMPORT_DIR) / "team_lines.csv"
+    lines_path = raw_import_dir / "team_lines.csv"
     lines_row: dict[str, str] = {}
     team_fhm = str(team.fhm_team_id) if team.fhm_team_id is not None else None
     if team_fhm:
@@ -1328,7 +1356,7 @@ def _build_team_lines_views(
     salary_rows: list[dict[str, object]] = []
     salary_total = 0
     salary_years = [int(season.start_year) + i for i in range(6)] if season and season.start_year else []
-    contract_rows = _contract_rows_by_playerid()
+    contract_rows = _contract_rows_by_playerid(raw_import_dir)
     contracts_q = select(PlayerContract).join(Player, Player.id == PlayerContract.player_id)
     if team.fhm_team_id is not None:
         contracts_q = contracts_q.where(PlayerContract.fhm_team_id == team.fhm_team_id)
@@ -1400,12 +1428,221 @@ def _build_team_lines_views(
                 "group": salary_group,
                 "name_badges": name_badges,
                 "year_cells": year_cells,
-                "years_left": contract_years_remaining_major(p.fhm_player_id, season_start_year),
+                "years_left": contract_years_remaining_major(
+                    p.fhm_player_id, season_start_year, raw_import_dir
+                ),
             }
         )
     group_order = {"Forwards": 0, "Defensemen": 1, "Goalies": 2, "Minors": 3}
     salary_rows.sort(key=lambda r: (group_order.get(str(r["group"]), 9), -int(r["salary"]), str(r["player"].full_name)))
     return depth_chart, lines_sections, lines_name_to_id, salary_rows, salary_total
+
+
+def _player_is_goalie_position(player: Player) -> bool:
+    raw = (player.position or "").strip().upper().replace("/", " ")
+    first = raw.split()[0] if raw else ""
+    return first == "G"
+
+
+def _pick_skater_stat_leader(
+    pairs: list[tuple[PlayerSkaterStat, Player]],
+    value_fn,
+    *,
+    maximize: bool,
+) -> tuple[PlayerSkaterStat, Player] | None:
+    best: tuple[PlayerSkaterStat, Player] | None = None
+    best_v: int | float | None = None
+    for stat_row, pl in pairs:
+        if _player_is_goalie_position(pl):
+            continue
+        v = value_fn(stat_row)
+        if v is None:
+            continue
+        if best is None or best_v is None:
+            best, best_v = (stat_row, pl), v
+            continue
+        if maximize:
+            better = v > best_v
+        else:
+            better = v < best_v
+        if better or (v == best_v and pl.id < best[1].id):
+            best, best_v = (stat_row, pl), v
+    return best
+
+
+def _pick_goalie_stat_leader(
+    pairs: list[tuple[PlayerGoalieStat, Player]],
+    value_fn,
+    *,
+    maximize: bool,
+    min_gp: int = 1,
+) -> tuple[PlayerGoalieStat, Player] | None:
+    best: tuple[PlayerGoalieStat, Player] | None = None
+    best_v: float | None = None
+    for stat_row, pl in pairs:
+        if not _player_is_goalie_position(pl):
+            continue
+        if (stat_row.gp or 0) < min_gp:
+            continue
+        v = value_fn(stat_row)
+        if v is None:
+            continue
+        fv = float(v)
+        if best is None or best_v is None:
+            best, best_v = (stat_row, pl), fv
+            continue
+        if maximize:
+            better = fv > best_v + 1e-9
+        else:
+            better = fv < best_v - 1e-9
+        tied = abs(fv - best_v) <= 1e-9
+        if better or (tied and pl.id < best[1].id):
+            best, best_v = (stat_row, pl), fv
+    return best
+
+
+def _fmt_plus_minus_pm(val: int) -> str:
+    if val > 0:
+        return f"+{val}"
+    return str(val)
+
+
+def _fmt_save_pct_leader(val: float) -> str:
+    s = f"{float(val):.3f}"
+    return s[1:] if s.startswith("0") else s
+
+
+def build_team_leader_panel_rows(team: Team, season: Season) -> list[dict[str, object]]:
+    sk_pairs = list(
+        db.session.execute(
+            select(PlayerSkaterStat, Player)
+            .join(Player, PlayerSkaterStat.player_id == Player.id)
+            .where(
+                PlayerSkaterStat.season_id == season.id,
+                PlayerSkaterStat.team_id == team.id,
+                PlayerSkaterStat.stat_segment == "rs",
+            )
+        ).all()
+    )
+    gk_pairs = list(
+        db.session.execute(
+            select(PlayerGoalieStat, Player)
+            .join(Player, PlayerGoalieStat.player_id == Player.id)
+            .where(
+                PlayerGoalieStat.season_id == season.id,
+                PlayerGoalieStat.team_id == team.id,
+                PlayerGoalieStat.stat_segment == "rs",
+            )
+        ).all()
+    )
+    out: list[dict[str, object]] = []
+
+    b = _pick_skater_stat_leader(sk_pairs, lambda r: r.goals, maximize=True)
+    out.append(
+        {
+            "abbr": "G",
+            "player": b[1] if b else None,
+            "value": str(b[0].goals) if b else None,
+        }
+    )
+    b = _pick_skater_stat_leader(sk_pairs, lambda r: r.assists, maximize=True)
+    out.append(
+        {
+            "abbr": "AST",
+            "player": b[1] if b else None,
+            "value": str(b[0].assists) if b else None,
+        }
+    )
+    b = _pick_skater_stat_leader(sk_pairs, lambda r: r.points, maximize=True)
+    out.append(
+        {
+            "abbr": "PTS",
+            "player": b[1] if b else None,
+            "value": str(b[0].points) if b else None,
+        }
+    )
+    b = _pick_skater_stat_leader(sk_pairs, lambda r: r.pim, maximize=True)
+    out.append(
+        {
+            "abbr": "PIM",
+            "player": b[1] if b else None,
+            "value": str(b[0].pim) if b else None,
+        }
+    )
+    b = _pick_skater_stat_leader(sk_pairs, lambda r: r.plus_minus, maximize=True)
+    out.append(
+        {
+            "abbr": "+/-",
+            "player": b[1] if b else None,
+            "value": _fmt_plus_minus_pm(b[0].plus_minus) if b and b[0].plus_minus is not None else None,
+        }
+    )
+    b = _pick_goalie_stat_leader(gk_pairs, lambda r: r.gaa, maximize=False)
+    out.append(
+        {
+            "abbr": "GAA",
+            "player": b[1] if b else None,
+            "value": f"{float(b[0].gaa):.2f}" if b and b[0].gaa is not None else None,
+        }
+    )
+    b = _pick_goalie_stat_leader(gk_pairs, lambda r: r.sv_pct, maximize=True)
+    out.append(
+        {
+            "abbr": "SV%",
+            "player": b[1] if b else None,
+            "value": _fmt_save_pct_leader(b[0].sv_pct) if b and b[0].sv_pct is not None else None,
+        }
+    )
+    return out
+
+
+def _english_ordinal(n: int) -> str:
+    n = int(n)
+    if 11 <= (n % 100) <= 13:
+        return f"{n}th"
+    m = n % 10
+    if m == 1:
+        return f"{n}st"
+    if m == 2:
+        return f"{n}nd"
+    if m == 3:
+        return f"{n}rd"
+    return f"{n}th"
+
+
+def _dense_rank_by_value(pairs: list[tuple[int, float]], team_id: int, high_good: bool) -> int | None:
+    if not pairs:
+        return None
+    ordered = sorted(pairs, key=lambda x: x[1], reverse=high_good)
+    prev_val: float | None = None
+    rank = 0
+    for idx, (tid, v) in enumerate(ordered, start=1):
+        if prev_val is None or abs(v - prev_val) > 1e-9:
+            rank = idx
+            prev_val = v
+        if tid == team_id:
+            return rank
+    return None
+
+
+def _standing_gf_g_ga_g_ranks(season_id: int, team_id: int) -> tuple[int | None, int | None]:
+    rows = db.session.scalars(select(TeamStanding).where(TeamStanding.season_id == season_id)).all()
+    rates_gf: list[tuple[int, float]] = []
+    rates_ga: list[tuple[int, float]] = []
+    for st in rows:
+        if st.gp and st.gp > 0:
+            rates_gf.append((st.team_id, float(st.gf) / float(st.gp)))
+            rates_ga.append((st.team_id, float(st.ga) / float(st.gp)))
+    return (
+        _dense_rank_by_value(rates_gf, team_id, True),
+        _dense_rank_by_value(rates_ga, team_id, False),
+    )
+
+
+def _rank_paren(rank: int | None) -> str:
+    if rank is None:
+        return "—"
+    return f"({_english_ordinal(rank)})"
 
 
 @main_bp.get("/team/<slug>")
@@ -1533,7 +1770,7 @@ def team_page(slug: str):
                         division_rank = idx
                         break
     panel = (request.args.get("panel", "roster") or "roster").strip().lower()
-    if panel not in {"roster", "depth", "lines", "salary"}:
+    if panel not in {"roster", "depth", "lines", "salary", "statistics"}:
         panel = "roster"
     salary_years = [int(season.start_year) + i for i in range(6)] if season and season.start_year else []
     roster = db.session.scalars(
@@ -1541,8 +1778,11 @@ def team_page(slug: str):
     ).all()
     age_ref = season_age_reference_date(season)
     roster_ages = {p.id: _player_age_years(p.birth_date, age_ref) for p in roster}
-    depth_chart, lines_sections, lines_name_to_id, salary_rows, salary_total = _build_team_lines_views(team, roster, season)
-    sk_leaders = []
+    raw_dir = Path(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR))
+    depth_chart, lines_sections, lines_name_to_id, salary_rows, salary_total = _build_team_lines_views(
+        team, roster, season, raw_dir
+    )
+    team_leader_rows: list[dict[str, object]] = []
     team_agg = None
     team_agg_po = None
     team_rank_rs: dict[str, int] = {}
@@ -1573,7 +1813,7 @@ def team_page(slug: str):
             "pp_pct": ("pp_pct", True),
             "pk_goals_against": ("pk_goals_against", False),
             "sh_chances": ("sh_chances", False),
-            "pk_pct": ("pk_pct", False),
+            "pk_pct": ("pk_pct", True),
             "sh_goals": ("sh_goals", True),
             "pim_per_game": ("pim_per_game", False),
             "attendance_home": ("attendance_home", True),
@@ -1592,8 +1832,11 @@ def team_page(slug: str):
                     else:
                         v = None
                 elif attr == "pk_pct":
+                    # Kill success %: 100 − (PK GA / SH CH) × 100  ==  (SH CH − PK GA) / SH CH × 100
                     if a.sh_chances and a.sh_chances > 0 and a.pk_goals_against is not None:
-                        v = float(a.pk_goals_against) / float(a.sh_chances)
+                        v = 100.0 - (
+                            100.0 * float(a.pk_goals_against) / float(a.sh_chances)
+                        )
                     else:
                         v = None
                 else:
@@ -1616,17 +1859,7 @@ def team_page(slug: str):
     if season:
         ranks_rs = _rank_maps_for_segment("rs")
         ranks_po = _rank_maps_for_segment("po")
-        sk_leaders = db.session.execute(
-            select(PlayerSkaterStat, Player)
-            .join(Player, PlayerSkaterStat.player_id == Player.id)
-            .where(
-                PlayerSkaterStat.season_id == season.id,
-                PlayerSkaterStat.team_id == team.id,
-                PlayerSkaterStat.stat_segment == "rs",
-            )
-            .order_by(PlayerSkaterStat.points.desc())
-            .limit(11)
-        ).all()
+        team_leader_rows = build_team_leader_panel_rows(team, season)
         team_agg = db.session.scalars(
             select(TeamSeasonAggregate).where(
                 TeamSeasonAggregate.season_id == season.id,
@@ -1645,61 +1878,106 @@ def team_page(slug: str):
         ).first()
         if team_agg_po and team.id in ranks_po:
             team_rank_po = ranks_po[team.id]
-    recent_games = []
-    upcoming_games = []
+    schedule_games: list[Game] = []
+    schedule_focus_index = 0
     if season:
-        recent_games = db.session.scalars(
-            select(Game)
-            .options(joinedload(Game.home_team), joinedload(Game.away_team))
-            .where(
-                Game.season_id == season.id,
-                Game.status == "final",
-                (Game.home_team_id == team.id) | (Game.away_team_id == team.id),
-            )
-            .order_by(Game.game_date.desc().nulls_last(), Game.id.desc())
-            .limit(5)
-        ).all()
-        upcoming_games = db.session.scalars(
-            select(Game)
-            .options(joinedload(Game.home_team), joinedload(Game.away_team))
-            .where(
-                Game.season_id == season.id,
-                Game.status != "final",
-                (Game.home_team_id == team.id) | (Game.away_team_id == team.id),
-            )
-            .order_by(Game.game_date.asc().nulls_last(), Game.id.asc())
-            .limit(5)
-        ).all()
+        schedule_games = list(
+            db.session.scalars(
+                select(Game)
+                .options(joinedload(Game.home_team), joinedload(Game.away_team))
+                .where(
+                    Game.season_id == season.id,
+                    (Game.home_team_id == team.id) | (Game.away_team_id == team.id),
+                )
+                .order_by(Game.game_date.asc().nulls_last(), Game.id.asc())
+            ).all()
+        )
+        schedule_focus_index = 0
+        for i, g in enumerate(schedule_games):
+            if (g.status or "").lower() != "final":
+                schedule_focus_index = i
+                break
+        else:
+            schedule_focus_index = max(0, len(schedule_games) - 1)
     team_prospects = db.session.scalars(
         select(Prospect).options(joinedload(Prospect.player)).where(Prospect.team_id == team.id)
     ).all()
-    return render_template(
-        "team.html",
-        team=team,
-        arena_name=arena_name,
-        arena_capacity=arena_capacity,
-        division_name=division_name,
-        division_rank=division_rank,
-        season=season,
-        standing=standing,
-        roster=roster,
-        roster_ages=roster_ages,
-        sk_leaders=sk_leaders,
-        recent_games=recent_games,
-        upcoming_games=upcoming_games,
-        prospects_list=team_prospects,
-        team_agg=team_agg,
-        team_agg_po=team_agg_po,
-        team_rank_rs=team_rank_rs,
-        team_rank_po=team_rank_po,
-        active_panel=panel,
-        depth_chart=depth_chart,
-        lines_sections=lines_sections,
-        lines_name_to_id=lines_name_to_id,
-        salary_rows=salary_rows,
-        salary_total=salary_total,
-        salary_years=salary_years,
-    )
+    hero_city_caps = (team.city or team.name or "").strip().upper()
+    hero_display_name = (team.nickname or team.name or "").strip()
+    hero_gf_g: float | None = None
+    hero_ga_g: float | None = None
+    hero_gf_g_rank_paren = "—"
+    hero_ga_g_rank_paren = "—"
+    hero_pp_pct: float | None = None
+    hero_pk_pct: float | None = None
+    hero_pp_rank_paren = "—"
+    hero_pk_rank_paren = "—"
+    hero_record_suffix = ""
+    show_hero_stats_card = bool(standing and season)
+    if standing and season and standing.gp and standing.gp > 0:
+        hero_gf_g = round(float(standing.gf) / float(standing.gp), 1)
+        hero_ga_g = round(float(standing.ga) / float(standing.gp), 1)
+        rgf, rga = _standing_gf_g_ga_g_ranks(season.id, team.id)
+        hero_gf_g_rank_paren = _rank_paren(rgf)
+        hero_ga_g_rank_paren = _rank_paren(rga)
+    if team_agg:
+        if team_agg.pp_chances and team_agg.pp_goals is not None and team_agg.pp_chances > 0:
+            hero_pp_pct = round(100.0 * float(team_agg.pp_goals) / float(team_agg.pp_chances), 1)
+        if team_agg.sh_chances and team_agg.sh_chances > 0 and team_agg.pk_goals_against is not None:
+            hero_pk_pct = round(
+                100.0 - (100.0 * float(team_agg.pk_goals_against) / float(team_agg.sh_chances)),
+                1,
+            )
+    hero_pp_rank_paren = _rank_paren(team_rank_rs.get("pp_pct") if team_rank_rs else None)
+    hero_pk_rank_paren = _rank_paren(team_rank_rs.get("pk_pct") if team_rank_rs else None)
+    if standing and season:
+        if division_rank is not None and division_name:
+            hero_record_suffix = f" ({_english_ordinal(division_rank)} {division_name})"
+        elif division_name:
+            hero_record_suffix = f" ({division_name})"
+    tmpl_kwargs: dict[str, object] = {
+        "team": team,
+        "arena_name": arena_name,
+        "arena_capacity": arena_capacity,
+        "division_name": division_name,
+        "division_rank": division_rank,
+        "season": season,
+        "standing": standing,
+        "hero_city_caps": hero_city_caps,
+        "hero_display_name": hero_display_name,
+        "hero_gf_g": hero_gf_g,
+        "hero_ga_g": hero_ga_g,
+        "hero_gf_g_rank_paren": hero_gf_g_rank_paren,
+        "hero_ga_g_rank_paren": hero_ga_g_rank_paren,
+        "hero_pp_pct": hero_pp_pct,
+        "hero_pk_pct": hero_pk_pct,
+        "hero_pp_rank_paren": hero_pp_rank_paren,
+        "hero_pk_rank_paren": hero_pk_rank_paren,
+        "hero_record_suffix": hero_record_suffix,
+        "show_hero_stats_card": show_hero_stats_card,
+        "roster": roster,
+        "roster_ages": roster_ages,
+        "team_leader_rows": team_leader_rows,
+        "schedule_games": schedule_games,
+        "schedule_focus_index": schedule_focus_index,
+        "prospects_list": team_prospects,
+        "team_agg": team_agg,
+        "team_agg_po": team_agg_po,
+        "team_rank_rs": team_rank_rs,
+        "team_rank_po": team_rank_po,
+        "active_panel": panel,
+        "depth_chart": depth_chart,
+        "lines_sections": lines_sections,
+        "lines_name_to_id": lines_name_to_id,
+        "salary_rows": salary_rows,
+        "salary_total": salary_total,
+        "salary_years": salary_years,
+    }
+    if panel == "statistics":
+        tmpl_kwargs.update(
+            _build_statistics_view_vars(locked_team_id=team.id, locked_team_slug=team.slug)
+        )
+    return render_template("team.html", **tmpl_kwargs)
 
 
 def _player_age_years(birth: date | None, as_of: date | None = None) -> int | None:
@@ -1707,6 +1985,39 @@ def _player_age_years(birth: date | None, as_of: date | None = None) -> int | No
         return None
     ref = as_of if as_of is not None else date.today()
     return ref.year - birth.year - ((ref.month, ref.day) < (birth.month, birth.day))
+
+
+def _dedupe_goalie_playoff_career_lines(
+    lines: list[PlayerGoalieCareerLine],
+) -> list[PlayerGoalieCareerLine]:
+    """One playoffs row per (season_year, team_fhm_id, league_fhm_id).
+
+    FHM career imports include both *ps* and *po* files (and active vs *retired_po*), which
+    produced duplicate seasons on the player page. Skater playoffs use only *po* /
+    *retired_po*; we match that and, if both *po* and *retired_po* exist for the same key,
+    keep *po* (season CSV) over *retired_po*.
+    """
+    if not lines:
+        return []
+    rank = {"po": 0, "retired_po": 1}
+    ordered = sorted(
+        lines,
+        key=lambda ln: (
+            -ln.season_year,
+            ln.team_fhm_id,
+            ln.league_fhm_id,
+            rank.get(ln.career_source, 9),
+        ),
+    )
+    out: list[PlayerGoalieCareerLine] = []
+    seen: set[tuple[int, int, int]] = set()
+    for ln in ordered:
+        key = (ln.season_year, ln.team_fhm_id, ln.league_fhm_id)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(ln)
+    return out
 
 
 @main_bp.get("/player/<int:player_id>")
@@ -1721,8 +2032,8 @@ def player_page(player_id: int):
         .where(PlayerSkaterCareerLine.player_id == player.id)
         .order_by(PlayerSkaterCareerLine.season_year.desc())
     ).all()
-    # rs: player_skater_career_stats_rs.csv — po / retired_po: playoff career CSVs (see import_career_skater_file)
-    career_rs_sk = [ln for ln in sk_career_lines if ln.career_source == "rs"]
+    # rs + retired_rs: active vs retired regular-season career CSVs (see import_career_skater_file)
+    career_rs_sk = [ln for ln in sk_career_lines if ln.career_source in ("rs", "retired_rs")]
     career_po_sk = [ln for ln in sk_career_lines if ln.career_source in ("po", "retired_po")]
 
     gk_career_lines = db.session.scalars(
@@ -1731,8 +2042,10 @@ def player_page(player_id: int):
         .where(PlayerGoalieCareerLine.player_id == player.id)
         .order_by(PlayerGoalieCareerLine.season_year.desc())
     ).all()
-    career_rs_gk = [ln for ln in gk_career_lines if ln.career_source == "rs"]
-    career_po_gk = [ln for ln in gk_career_lines if ln.career_source in ("ps", "po")]
+    career_rs_gk = [ln for ln in gk_career_lines if ln.career_source in ("rs", "retired_rs")]
+    career_po_gk = _dedupe_goalie_playoff_career_lines(
+        [ln for ln in gk_career_lines if ln.career_source in ("po", "retired_po")]
+    )
     pos = (player.position or "").strip().upper()
     is_goalie = pos.startswith("G")
     if is_goalie:
@@ -1780,7 +2093,11 @@ def player_page(player_id: int):
     rating_avgs_skater = skater_category_averages(ratings_row)
     rating_avgs_goalie = goalie_category_averages(ratings_row)
     season_start_year = season.start_year if season else None
-    contract_years_left = contract_years_remaining_major(player.fhm_player_id, season_start_year)
+    raw_dir = Path(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR))
+    contract_years_left = contract_years_remaining_major(
+        player.fhm_player_id, season_start_year, raw_dir
+    )
+    roster_header_team = main_league_roster_team(contract_team, current_team)
     return render_template(
         "player.html",
         player=player,
@@ -1793,6 +2110,7 @@ def player_page(player_id: int):
         current_team=current_team,
         contract=contract,
         contract_team=contract_team,
+        roster_header_team=roster_header_team,
         accent_team=accent_team,
         draft_picks=draft_picks,
         ratings_row=ratings_row,

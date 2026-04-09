@@ -6,7 +6,7 @@
 <div class="card">
   <h2>{{ title }}</h2>
   <div class="table-wrap">
-    <table class="data data-sortable">
+    <table class="data data-sortable" data-sort-renumber="1">
       <thead>
         <tr>
           <th data-sort-type="num" scope="col">#</th>
@@ -23,7 +23,7 @@
           <th data-sort-type="num" title="Power-play % (PPG ÷ PP Ch)" scope="col">PP%</th>
           <th data-sort-type="num" title="Power-play goals against (PK)" scope="col">PK GA</th>
           <th data-sort-type="num" title="Shorthanded chances (FHM: SH Ch)" scope="col">SH CH</th>
-          <th data-sort-type="num" title="Penalty kill % (PK GA ÷ SH CH)" scope="col">PK%</th>
+          <th data-sort-type="num" title="Penalty kill success %: 100 − (PK GA ÷ SH CH) × 100" scope="col">PK%</th>
           <th data-sort-type="num" title="Shorthanded goals" scope="col">SHG</th>
           <th data-sort-type="num" title="PIM per game" scope="col">PIM/G</th>
           <th data-sort-type="num" title="Attendance home total" scope="col">Att H</th>
@@ -35,8 +35,8 @@
       <tbody>
         {% for team, agg in rows %}
         {% set pp_pct = (100.0 * agg.pp_goals / agg.pp_chances) if agg and agg.pp_chances and agg.pp_chances > 0 and agg.pp_goals is not none else none %}
-        {% set pk_pct = (100.0 * agg.pk_goals_against / agg.sh_chances) if agg and agg.sh_chances and agg.sh_chances > 0 and agg.pk_goals_against is not none else none %}
-        <tr{% if config.LEAGUE_SLUG == 'league3' and view == 'conference' and loop.index == 9 %} class="standings-cutline"{% endif %}>
+        {% set pk_pct = (100.0 - (100.0 * agg.pk_goals_against / agg.sh_chances)) if agg and agg.sh_chances and agg.sh_chances > 0 and agg.pk_goals_against is not none else none %}
+        <tr{% if config.LEAGUE_SLUG == 'bowl-cap' and view == 'conference' and loop.index == 9 %} class="standings-cutline"{% endif %}>
           <td data-sort-value="{{ loop.index0 }}">{{ loop.index }}</td>
           <td data-sort-value="{{ team.slug }}">{{ team_lockup(team) }}</td>
           {% if agg %}
@@ -104,7 +104,7 @@
   {% if standings %}
   <p class="muted" style="margin-top:0;">Click a column heading to sort. Click again to reverse.</p>
   <div class="table-wrap">
-    <table class="data data-sortable{% if view == 'division' %} standings-table--division{% endif %}">
+    <table class="data data-sortable{% if view == 'division' %} standings-table--division{% endif %}" data-sort-renumber="1">
       <thead>
         <tr>
           <th data-sort-type="num" scope="col">#</th>
@@ -116,7 +116,7 @@
       <tbody>
         {% for st in standings %}
         {% set diff_v = st.gf - st.ga %}
-        <tr{% if config.LEAGUE_SLUG == 'league3' and view == 'conference' and loop.index == 9 %} class="standings-cutline"{% endif %}>
+        <tr{% if config.LEAGUE_SLUG == 'bowl-cap' and view == 'conference' and loop.index == 9 %} class="standings-cutline"{% endif %}>
           <td data-sort-value="{{ loop.index0 }}">{{ loop.index }}</td>
           <td data-sort-value="{{ st.team.slug }}">{{ team_lockup(st.team) }}</td>
           {% if view != 'overall' %}<td data-sort-value="{{ ((st.conference_label or '') ~ ' ' ~ (st.division_label or st.division or ''))|lower }}">{{ st.conference_label or '—' }} / {{ st.division_label or st.division or '—' }}</td>{% endif %}

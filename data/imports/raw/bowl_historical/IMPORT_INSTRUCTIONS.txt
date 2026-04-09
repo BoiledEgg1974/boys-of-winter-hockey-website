@@ -17,6 +17,8 @@ If this folder contains **team_data.csv**, the importer uses FHM layout automati
       player_goalie_career_stats_rs.csv / _ps.csv / _po.csv — active goalie career
       player_goalie_retired_career_stats_rs.csv / _ps.csv / _po.csv — retired goalie
 
+  - Player page **Game Log** tables use only **boxscore_skater_summary.csv** and **boxscore_goalie_summary.csv**. Career CSVs do not contain per-game lines. If a player shows career totals but an empty game log, FHM did not export that player’s per-game rows—re-export from FHM if a fuller box score dump is available.
+
 Only rows with League Id = 0 are imported for teams/schedules/standings (main league).
 
 Optional: if **team_standings.csv** (comma CSV) is present in this folder, it is applied **after** the FHM import and overwrites standings for matching teams (by abbreviation, slug, fhm_team_id, or team name). Leave season columns blank to target the current season.
@@ -24,17 +26,21 @@ Optional: if **team_standings.csv** (comma CSV) is present in this folder, it is
 Optional: **season_label.txt** — one line; if present, used as the full season title on the site instead of deriving it from schedule dates. (Schedule dates in FHM exports are often not strict ISO-8601; the importer now tolerates that when computing the default label.)
 
 
-After major schema updates, reset the database then re-import:
+After major schema updates, reset the database for that league then re-import with the correct slug:
+  set LEAGUE_SLUG=bowl-historical
   python scripts\reset_db.py
-  python run.py
   python scripts\import_data.py
+
+(PowerShell: $env:LEAGUE_SLUG='bowl-historical' before each command.)
+
+Windows shortcuts (set LEAGUE_SLUG for you): **scripts\import_historical.cmd**, **import_fantasy.cmd**, **import_cap.cmd**. To run all three in order and stop on failure: **scripts\import_all.cmd**.
 
 
 1) FHM / GENERIC CSV EXPORTS (raw imports)
 ------------------------------------------
-Place every CSV you want the importer to read in this exact folder:
+Place every CSV you want the importer to read in this league’s raw folder (this directory):
 
-  C:\Users\keeno\Projects\Boys-Of-Winter-League\data\imports\raw\
+  ...\data\imports\raw\bowl_historical\
 
 The pipeline reads UTF-8 (and auto-detects other encodings). Comma or semicolon is detected.
 
@@ -72,9 +78,12 @@ See scripts/import_pipeline/runner.py for aliases (e.g. abbr -> abbreviation).
 
 2) TEAM LOGOS (12 teams)
 ------------------------
-Put one image per team in this folder (not under data/imports):
+Put one image per team in this folder (BOWL-Historical uses its own subfolder):
 
-  C:\Users\keeno\Projects\Boys-Of-Winter-League\app\static\logos\teams\
+  C:\Users\keeno\Projects\Boys-Of-Winter-League\app\static\logos\teams\bowl_historical\
+
+Alternatively, drop PNG/WebP/JPG/SVG files into a subfolder here named **team_logos** or **logos**;
+the importer copies them into the folder above when you run import_data.py with LEAGUE_SLUG=bowl-historical.
 
 The file name must match the team’s **slug** exactly, plus an extension:
 
@@ -92,14 +101,14 @@ Examples:
   frost.png           — only if that team’s slug is literally "frost"
   anc-t12.webp        — typical FHM-style slug
 
-If no file matches the slug, the site uses logos/teams/placeholder.svg (the “BOW” tile).
+If no file matches the slug, the site uses logos/teams/placeholder.svg (the “BOWL” tile).
 
 
 3) LEAGUE LOGO (header)
 -----------------------
 Optional league mark for the sticky header. Put one of these in:
 
-  C:\Users\keeno\Projects\Boys-Of-Winter-League\app\static\logos\
+  C:\Users\keeno\Projects\Boys-Of-Winter-League\app\static\logos\bowl_historical\
 
 File name (first match wins):
   league-logo.png
@@ -123,9 +132,10 @@ is present. Otherwise store headshot_path relative to static, e.g. players\wayne
 
 5) DATABASE
 -----------
-SQLite file (default):
+SQLite file for this league (default; legacy filename may still be used if the new file is empty):
 
-  C:\Users\keeno\Projects\Boys-Of-Winter-League\instance\league.db
+  C:\Users\keeno\Projects\Boys-Of-Winter-League\instance\bowl-historical.db
+  (legacy: instance\league2.db)
 
 Demo data (optional):
 

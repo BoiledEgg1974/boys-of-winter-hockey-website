@@ -3,12 +3,14 @@ from __future__ import annotations
 
 import math
 from itertools import groupby
+from typing import Any
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.models import Draft, DraftPick, Player, PlayerGoalieCareerLine, PlayerSkaterCareerLine
 from app.services.all_time_records import bowl_nhl_league_ids
+from app.services.roster_team import main_league_roster_team
 
 # All career_line career_source values used by FHM imports (active + retired, every segment).
 CAREER_SOURCES: tuple[str, ...] = (
@@ -57,6 +59,24 @@ def fetch_nhl_bowl_picks_for_year(session: Session, year: int) -> list[DraftPick
         )
     )
     return list(session.scalars(stmt).unique().all())
+
+
+def draft_pick_current_team_view(pick: DraftPick) -> dict[str, Any]:
+    """State for the draft history \"Current team\" column (matches All-Time Records logic).
+
+    Keys:
+        ``kind``: ``\"no_player\"`` | ``\"retired\"`` | ``\"team\"`` | ``\"minors\"``
+        ``team``: :class:`Team` when ``kind == \"team\"``, else ``None``
+    """
+    pl = pick.player
+    if pl is None:
+        return {"kind": "no_player", "team": None}
+    if bool(pl.retired):
+        return {"kind": "retired", "team": None}
+    rt = main_league_roster_team(None, pl.current_team)
+    if rt is not None:
+        return {"kind": "team", "team": rt}
+    return {"kind": "minors", "team": None}
 
 
 def group_picks_by_round(picks: list[DraftPick]) -> list[tuple[int | None, list[DraftPick]]]:

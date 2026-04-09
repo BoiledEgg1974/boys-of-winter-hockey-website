@@ -1,8 +1,8 @@
-﻿Player images for BOWL Fantasy
+﻿Player images for BOWL-Fantasy
 ==============================
 
 This folder is used by:
-- BOWL Fantasy (slug: bow)
+- BOWL-Fantasy (slug: bowl-fantasy)
 
 Upload naming format (recommended):
   firstname_lastname_day_month_year.png

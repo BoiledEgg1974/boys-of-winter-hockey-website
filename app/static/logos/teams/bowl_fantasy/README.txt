@@ -1,7 +1,7 @@
-﻿Team logos - BOWL Fantasy
+﻿Team logos - BOWL-Fantasy
 =========================
 
-Place all team logos for BOWL Fantasy in this folder.
+Place all team logos for BOWL-Fantasy in this folder.
 
 Naming convention (same as historical site):
 - filename = team slug from database

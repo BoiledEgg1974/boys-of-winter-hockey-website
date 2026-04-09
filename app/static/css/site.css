@@ -1062,16 +1062,25 @@ table.data tbody tr.standings-cutline td {
   min-width: 0;
   flex: 1 1 220px;
 }
-.team-hero__logo {
-  width: calc(76px * var(--team-logo-mul));
-  height: calc(76px * var(--team-logo-mul));
-  object-fit: contain;
-  border-radius: 50%;
+/* Tall slot + padding so shield / non-circular marks are not clipped (avoid circle mask on img) */
+.team-hero__logo-wrap {
   flex-shrink: 0;
-  background: rgb(255 255 255 / 0.12);
-  border: 2px solid rgb(255 255 255 / 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(118px * var(--team-logo-mul));
+  min-height: calc(132px * var(--team-logo-mul));
+  padding: 10px 8px;
   box-sizing: border-box;
-  padding: 4px;
+}
+.team-hero__logo {
+  display: block;
+  max-width: 100%;
+  max-height: calc(124px * var(--team-logo-mul));
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  object-position: center;
 }
 .team-hero__meta {
   min-width: 0;
@@ -1105,11 +1114,12 @@ table.data tbody tr.standings-cutline td {
   opacity: 0.9;
 }
 .team-hero__record {
-  margin: 0.35rem 0 0;
-  font-size: 0.84rem;
-  font-weight: 500;
+  margin: 0.4rem 0 0;
+  font-size: 1.05rem;
+  font-weight: 600;
   line-height: 1.35;
-  color: rgb(226 232 240 / 0.88);
+  color: rgb(248 250 252 / 0.95);
+  letter-spacing: 0.02em;
 }
 .team-hero__stats-card {
   position: relative;
@@ -1117,20 +1127,20 @@ table.data tbody tr.standings-cutline td {
   flex-wrap: nowrap;
   align-items: stretch;
   justify-content: space-around;
-  gap: 0.35rem 0.5rem;
-  flex: 0 1 340px;
-  min-width: min(100%, 280px);
-  padding: 0.65rem 0.75rem 0.65rem 1rem;
-  border-radius: 8px;
+  gap: 0.5rem 0.65rem;
+  flex: 0 1 420px;
+  min-width: min(100%, 300px);
+  padding: 0.9rem 1rem 0.9rem 1.15rem;
+  border-radius: 10px;
   background: rgb(255 255 255 / 0.94);
   color: #0f172a;
   text-shadow: none;
   box-shadow: 0 2px 12px rgb(0 0 0 / 0.12);
   border: 1px solid rgb(15 23 42 / 0.08);
-  border-left: 4px solid var(--team-hero-accent, #1e3a5f);
+  border-left: 5px solid var(--team-hero-accent, #1e3a5f);
 }
 [data-theme="dark"] .team-hero__stats-card {
-  background: color-mix(in srgb, var(--surface) 96%, #fff);
+  background: color-mix(in srgb, var(--surface) 92%, #1e293b);
   color: var(--text);
   border-color: var(--border);
   border-left-color: var(--team-hero-accent, var(--accent));
@@ -1144,13 +1154,13 @@ table.data tbody tr.standings-cutline td {
   width: 0;
   height: 0;
   border-style: solid;
-  border-width: 7px 8px 7px 0;
+  border-width: 9px 10px 9px 0;
   border-color: transparent rgb(255 255 255 / 0.94) transparent transparent;
   filter: drop-shadow(-1px 0 0 rgb(15 23 42 / 0.06));
   pointer-events: none;
 }
 [data-theme="dark"] .team-hero__stats-card-caret {
-  border-color: transparent color-mix(in srgb, var(--surface) 96%, #fff) transparent transparent;
+  border-color: transparent color-mix(in srgb, var(--surface) 92%, #1e293b) transparent transparent;
 }
 .team-hero__stat-col {
   flex: 1 1 0;
@@ -1160,32 +1170,34 @@ table.data tbody tr.standings-cutline td {
   align-items: center;
   justify-content: center;
   text-align: center;
-  gap: 0.08rem;
+  gap: 0.15rem;
 }
 .team-hero__stat-label {
-  font-size: 0.58rem;
+  font-size: 0.72rem;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: #64748b;
+  color: #475569;
 }
 [data-theme="dark"] .team-hero__stat-label {
   color: var(--muted);
 }
+/* Blend team accent with dark text so bright primaries (e.g. yellow) stay readable on the light card */
 .team-hero__stat-value {
-  font-size: 1.2rem;
+  font-size: 1.55rem;
   font-weight: 800;
-  line-height: 1.1;
-  color: var(--team-hero-accent, #0f172a);
+  line-height: 1.12;
+  color: color-mix(in srgb, var(--team-hero-accent, #1e3a5f) 42%, #0f172a);
 }
 [data-theme="dark"] .team-hero__stat-value {
-  color: color-mix(in srgb, var(--team-hero-accent, var(--accent)) 75%, var(--text));
+  color: color-mix(in srgb, var(--team-hero-accent, var(--accent)) 35%, var(--text));
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
 }
 .team-hero__stat-rank {
-  font-size: 0.68rem;
-  font-weight: 500;
-  color: #64748b;
-  line-height: 1.2;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #475569;
+  line-height: 1.25;
 }
 [data-theme="dark"] .team-hero__stat-rank {
   color: var(--muted);
@@ -1195,9 +1207,13 @@ table.data tbody tr.standings-cutline td {
     flex: 1 1 100%;
     flex-wrap: wrap;
     justify-content: space-between;
+    padding: 0.85rem 0.9rem;
   }
   .team-hero__stat-col {
     flex: 1 1 22%;
+  }
+  .team-hero__stat-value {
+    font-size: 1.35rem;
   }
 }
 .team-panels-grid {
@@ -1292,18 +1308,23 @@ table.data tbody tr.standings-cutline td {
   background: linear-gradient(135deg, rgb(51 65 85) 0%, rgb(30 41 59) 100%);
 }
 .team-leaders__team-logo-wrap {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  min-height: 36px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 2px;
+  box-sizing: border-box;
 }
 .team-leaders__team-logo {
-  width: 100%;
-  height: 100%;
+  display: block;
+  max-width: 100%;
+  max-height: 32px;
+  width: auto;
+  height: auto;
   object-fit: contain;
-  transform: scale(calc(0.82 * var(--team-logo-mul, 1)));
+  object-position: center;
 }
 .team-leaders__caret-rule {
   width: 2px;

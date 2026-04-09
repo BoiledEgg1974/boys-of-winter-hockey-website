@@ -6,7 +6,9 @@
 <div class="team-page">
 <div class="team-hero" style="--team-hero-accent: {{ ph }}; background: linear-gradient(135deg, {{ ph }}, {{ sh }});">
   <div class="team-hero__brand">
-    <img class="team-hero__logo" src="{{ team_logo_url(team) }}" alt="{{ team.name }} logo">
+    <div class="team-hero__logo-wrap">
+      <img class="team-hero__logo" src="{{ team_logo_url(team) }}" alt="{{ team.name }} logo">
+    </div>
     <div class="team-hero__meta">
       <p class="team-hero__city">{{ hero_city_caps }}</p>
       <h1 class="team-hero__nickname">{{ hero_display_name }}</h1>

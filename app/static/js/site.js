@@ -45,6 +45,9 @@
   }
 
   const THEME_KEY = "bowl-universe-theme";
+  /** Preserve window scroll when switching team page panels (?panel=) across full reloads. */
+  var TEAM_TAB_SCROLL_Y_KEY = "bowTeamMgmtTabScrollY";
+  var TEAM_TAB_SCROLL_PATH_KEY = "bowTeamMgmtTabScrollPath";
 
   function getPreferredTheme() {
     return localStorage.getItem(THEME_KEY) || "light";
@@ -101,6 +104,42 @@
         var qs = window.location.search || "";
         window.location.href = "/" + slug + rest + qs;
       });
+    }
+
+    var teamMgmtTabs = document.querySelector(".team-management-tabs");
+    if (teamMgmtTabs) {
+      teamMgmtTabs.querySelectorAll("a").forEach(function (a) {
+        a.addEventListener("click", function () {
+          try {
+            sessionStorage.setItem(TEAM_TAB_SCROLL_Y_KEY, String(window.scrollY));
+            sessionStorage.setItem(TEAM_TAB_SCROLL_PATH_KEY, window.location.pathname);
+          } catch (err) {
+            /* private mode / quota */
+          }
+        });
+      });
+    }
+    if (document.querySelector(".team-page")) {
+      try {
+        var tabSavedY = sessionStorage.getItem(TEAM_TAB_SCROLL_Y_KEY);
+        var tabSavedPath = sessionStorage.getItem(TEAM_TAB_SCROLL_PATH_KEY);
+        if (tabSavedY !== null && tabSavedPath === window.location.pathname) {
+          var scrollYRestore = parseInt(tabSavedY, 10);
+          sessionStorage.removeItem(TEAM_TAB_SCROLL_Y_KEY);
+          sessionStorage.removeItem(TEAM_TAB_SCROLL_PATH_KEY);
+          if (!isNaN(scrollYRestore) && scrollYRestore >= 0) {
+            function applyTeamTabScroll() {
+              window.scrollTo(0, scrollYRestore);
+            }
+            requestAnimationFrame(function () {
+              requestAnimationFrame(applyTeamTabScroll);
+            });
+            window.addEventListener("load", applyTeamTabScroll, { once: true });
+          }
+        }
+      } catch (err2) {
+        /* */
+      }
     }
 
     document.querySelectorAll("[data-team-schedule-carousel]").forEach(function (root) {

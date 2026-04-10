@@ -75,7 +75,7 @@ def _load_saved_paths() -> dict[str, str]:
             return out
         except (json.JSONDecodeError, OSError):
             pass
-    _save_paths(DEFAULT_SOURCES)
+    # No local json yet: use in-repo defaults only (do not write machine-specific paths).
     return dict(DEFAULT_SOURCES)
 
 

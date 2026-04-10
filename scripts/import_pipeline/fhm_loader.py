@@ -541,6 +541,58 @@ def ensure_players_from_boxscore_csvs(raw_dir: Path, players_fhm: dict[int, int]
     return n
 
 
+def ensure_players_from_draft_info(raw_dir: Path, players_fhm: dict[int, int]) -> int:
+    """Create minimal Player rows for FHM ids in draft CSVs that are not in player_master / boxscores.
+
+    Normally every draft_info playerid exists in player_master; this matches the boxscore safety net
+    for edge-case exports.
+    """
+    needed: set[int] = set()
+    for name in ("draft_info.csv", "draft_info_supplement.csv"):
+        path = raw_dir / name
+        if not path.is_file():
+            continue
+        df = read_csv_normalized(path)
+        for _, row in df.iterrows():
+            r = row.to_dict()
+            pid = to_int(cell_val(r, "playerid", "player_id"))
+            if pid is not None and pid not in players_fhm:
+                needed.add(pid)
+    if not needed:
+        return 0
+    log.info(
+        "Draft CSVs reference %s player id(s) missing from player_master / boxscores; adding placeholder rows.",
+        len(needed),
+    )
+    n = 0
+    for pid in sorted(needed):
+        fhm_key = str(pid)
+        full = f"Unknown player (FHM #{pid})"
+        p = Player(
+            fhm_player_id=fhm_key,
+            first_name="Unknown",
+            last_name=str(pid),
+            full_name=full,
+        )
+        db.session.add(p)
+        db.session.flush()
+        players_fhm[pid] = p.id
+        n += 1
+    db.session.commit()
+    return n
+
+
+def _iter_draft_info_dicts(raw_dir: Path):
+    """Rows from draft_info.csv plus optional draft_info_supplement.csv (same columns)."""
+    for name in ("draft_info.csv", "draft_info_supplement.csv"):
+        path = raw_dir / name
+        if not path.is_file():
+            continue
+        df = read_csv_normalized(path)
+        for _, row in df.iterrows():
+            yield row.to_dict()
+
+
 def import_boxscore_skaters(raw_dir: Path, games_fhm: dict[str, int], players_fhm: dict[int, int], teams_fhm: dict[int, int]) -> int:
     path = raw_dir / "boxscore_skater_summary.csv"
     if not path.exists():
@@ -793,6 +845,9 @@ def import_goalie_segment(
                 sp = sp / 100.0
             row_db.sv_pct = sp
         row_db.game_rating = to_float(cell_val(r, "game_rating"))
+        row_db.gsaa = to_float(
+            cell_val(r, "gsaa", "goals_saved_above_average", "goals_saved_above_avg")
+        )
         n += 1
     db.session.commit()
     return n
@@ -958,7 +1013,7 @@ def import_contracts(raw_dir: Path, players_fhm: dict[int, int]) -> int:
         pc.has_ntc = (cell_val(r, "ntc") or "").lower() == "yes"
         pc.has_nmc = (cell_val(r, "nmc") or "").lower() == "yes"
         pc.is_elc = (cell_val(r, "elc") or "").lower() == "yes"
-        pc.is_ufa = (cell_val(r, "ufa") or "").lower() == "yes"
+        pc.is_ufa = to_bool(cell_val(r, "ufa"))
         n += 1
     db.session.commit()
     return n
@@ -991,11 +1046,9 @@ def import_drafts_fhm(raw_dir: Path, players_fhm: dict[int, int], teams_fhm: dic
         draft_by_fhm[did] = d.id
     db.session.commit()
 
-    inf = read_csv_normalized(info)
     n = 0
-    for _, row in inf.iterrows():
-        r = row.to_dict()
-        pid = to_int(cell_val(r, "playerid"))
+    for r in _iter_draft_info_dicts(raw_dir):
+        pid = to_int(cell_val(r, "playerid", "player_id"))
         did = to_int(cell_val(r, "draftid", "draft_id"))
         if did is None or did not in draft_by_fhm or pid is None or pid not in players_fhm:
             continue
@@ -1107,6 +1160,10 @@ def run_fhm_import(raw_dir: Path, app, league_filter: int = 0) -> dict[str, int]
             raw_dir, fname, src, players_fhm, teams_fhm
         )
     counts["contracts"] = import_contracts(raw_dir, players_fhm)
+    d_extra = ensure_players_from_draft_info(raw_dir, players_fhm)
+    if d_extra:
+        counts["players_from_draft_csvs_only"] = d_extra
+        counts["players"] = len(players_fhm)
     counts["draft"] = import_drafts_fhm(raw_dir, players_fhm, teams_fhm)
     return counts
 

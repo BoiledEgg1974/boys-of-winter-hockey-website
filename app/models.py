@@ -375,6 +375,7 @@ class PlayerGoalieStat(db.Model):
     gaa: Mapped[float | None] = mapped_column(Float)
     sv_pct: Mapped[float | None] = mapped_column(Float)
     game_rating: Mapped[float | None] = mapped_column(Float)
+    gsaa: Mapped[float | None] = mapped_column(Float)
 
     season: Mapped["Season"] = relationship()
     player: Mapped["Player"] = relationship(back_populates="goalie_season_stats")

@@ -61,7 +61,7 @@
                 </a>
                 <span class="stats-player-cell__text">
                   <a class="stats-player-cell__name" href="{{ url_for('main.player_page', player_id=pl.id) }}">{{ pl.full_name }}</a>
-                  <span class="stats-player-cell__pos">{{ pl.position or '—' }}</span>
+                  <span class="stats-player-cell__pos">{{ pl | player_positions_display }}</span>
                 </span>
               </span>
               {% else %}—{% endif %}

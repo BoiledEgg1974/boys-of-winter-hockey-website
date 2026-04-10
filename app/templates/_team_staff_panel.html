@@ -1,0 +1,55 @@
+{% macro staff_attr_td(attrs, key) -%}
+{%- set v = attrs.get(key) if attrs else none -%}
+{%- if v is not none -%}
+<td data-sort-value="{{ v }}"><span class="stats-badge stats-badge--rating stats-badge--overall team-staff-attr-pill" style="{{ v|attr_rating_style }}">{{ v|round(0)|int }}</span></td>
+{%- else -%}
+<td data-sort-value="">—</td>
+{%- endif -%}
+{%- endmacro %}
+<div class="team-staff-stack">
+  {% for section_title, section_rows, columns in [
+    ('Coaches', staff_coaches, staff_coach_columns),
+    ('Scouts', staff_scouts, staff_scout_columns),
+    ('Trainers', staff_trainers, staff_trainer_columns),
+  ] %}
+  <div class="card team-staff-section">
+    <h2 class="team-staff-section__title">{{ section_title }}</h2>
+    {% if section_rows %}
+    <div class="table-wrap">
+      <table class="data data-sortable team-staff-table">
+        <thead>
+          <tr>
+            <th data-sort-type="str" scope="col" class="team-staff-th team-staff-th--text">Name</th>
+            <th data-sort-type="str" scope="col" class="team-staff-th team-staff-th--nat">NAT</th>
+            {% for key, ln in columns %}
+            <th data-sort-type="num" scope="col" class="team-staff-th team-staff-th--split" title="{% if ln[1] %}{{ ln[0] }} {{ ln[1] }}{% else %}{{ ln[0] }}{% endif %}">
+              <span class="team-staff-th__ln1">{{ ln[0] }}</span>{% if ln[1] %}<br><span class="team-staff-th__ln2">{{ ln[1] }}</span>{% endif %}
+            </th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in section_rows %}
+          <tr>
+            <td data-sort-value="{{ row.full_name|lower }}"><strong class="team-staff-name">{{ row.full_name }}</strong></td>
+            <td class="team-staff-nat-cell" data-sort-value="{{ row.nationality|lower }}">
+              {% if row.nationality and row.nationality != '—' and row.nationality|nationality_flag_url %}
+              <img class="team-staff-flag" src="{{ row.nationality|nationality_flag_url }}" width="22" height="16" alt="{{ row.nationality }}" title="{{ row.nationality }}" loading="lazy" decoding="async">
+              {% else %}
+              <span class="muted">—</span>
+              {% endif %}
+            </td>
+            {% for key, _ in columns %}
+            {{ staff_attr_td(row.attrs, key) }}
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="empty-state team-staff-section__empty">None in this category for this team.</p>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>

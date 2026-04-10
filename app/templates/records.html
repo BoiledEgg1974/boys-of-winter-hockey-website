@@ -93,7 +93,7 @@
                 </a>
                 <span class="records-player-cell__text">
                   <a class="records-player-cell__name" href="{{ url_for('main.player_page', player_id=pl.id) }}">{{ pl.full_name }}</a>
-                  <span class="records-player-cell__pos">{{ pl.position or '—' }}</span>
+                  <span class="records-player-cell__pos">{{ pl | player_positions_display }}</span>
                 </span>
               </span>
             </td>
@@ -163,7 +163,7 @@
                 </a>
                 <span class="records-player-cell__text">
                   <a class="records-player-cell__name" href="{{ url_for('main.player_page', player_id=pl.id) }}">{{ pl.full_name }}</a>
-                  <span class="records-player-cell__pos">{{ pl.position or '—' }}</span>
+                  <span class="records-player-cell__pos">{{ pl | player_positions_display }}</span>
                 </span>
               </span>
             </td>

@@ -176,6 +176,25 @@ def ensure_skater_career_line_extra_stats_sqlite(engine: Engine) -> None:
             conn.commit()
 
 
+def ensure_player_goalie_stats_gsaa_sqlite(engine: Engine) -> None:
+    """Add GSAA when missing (SQLite)."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='player_goalie_stats'"
+            )
+        ).fetchone()
+        if not exists:
+            return
+        cols = {row[1] for row in conn.execute(text("PRAGMA table_info(player_goalie_stats)"))}
+        if "gsaa" in cols:
+            return
+        conn.execute(text("ALTER TABLE player_goalie_stats ADD COLUMN gsaa REAL"))
+        conn.commit()
+
+
 def ensure_fts5(engine: Engine) -> None:
     """Create the player search virtual table if missing."""
     with engine.connect() as conn:

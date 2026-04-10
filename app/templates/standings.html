@@ -36,7 +36,7 @@
         {% for team, agg in rows %}
         {% set pp_pct = (100.0 * agg.pp_goals / agg.pp_chances) if agg and agg.pp_chances and agg.pp_chances > 0 and agg.pp_goals is not none else none %}
         {% set pk_pct = (100.0 - (100.0 * agg.pk_goals_against / agg.sh_chances)) if agg and agg.sh_chances and agg.sh_chances > 0 and agg.pk_goals_against is not none else none %}
-        <tr{% if config.LEAGUE_SLUG == 'bowl-cap' and view == 'conference' and loop.index == 9 %} class="standings-cutline"{% endif %}>
+        <tr{% if config.LEAGUE_SLUG == 'bowl-cap' and view == 'conference' and sel_conference and loop.index == 9 %} class="standings-cutline"{% endif %}>
           <td data-sort-value="{{ loop.index0 }}">{{ loop.index }}</td>
           <td data-sort-value="{{ team.slug }}">{{ team_lockup(team) }}</td>
           {% if agg %}
@@ -116,7 +116,7 @@
       <tbody>
         {% for st in standings %}
         {% set diff_v = st.gf - st.ga %}
-        <tr{% if config.LEAGUE_SLUG == 'bowl-cap' and view == 'conference' and loop.index == 9 %} class="standings-cutline"{% endif %}>
+        <tr{% if config.LEAGUE_SLUG == 'bowl-cap' and view == 'conference' and sel_conference and loop.index == 9 %} class="standings-cutline"{% endif %}>
           <td data-sort-value="{{ loop.index0 }}">{{ loop.index }}</td>
           <td data-sort-value="{{ st.team.slug }}">{{ team_lockup(st.team) }}</td>
           {% if view != 'overall' %}<td data-sort-value="{{ ((st.conference_label or '') ~ ' ' ~ (st.division_label or st.division or ''))|lower }}">{{ st.conference_label or '—' }} / {{ st.division_label or st.division or '—' }}</td>{% endif %}
@@ -180,7 +180,7 @@
   function teamSide(t, sideClass) {
     if (!t) return '<span class="bracket-team bracket-team--empty">—</span>';
     var logo = t.logo_url
-      ? '<img src="' + esc(t.logo_url) + '" alt="" class="bracket-team__logo" width="40" height="40">'
+      ? '<img src="' + esc(t.logo_url) + '" alt="" class="bracket-team__logo" width="60" height="60">'
       : '';
     var name = esc(t.abbreviation || t.name || '');
     var link = t.slug ? '/team/' + esc(t.slug) : '';

@@ -22,6 +22,14 @@
 <span class="stats-badge stats-badge--rating stats-badge--overall" style="{{ val|rating_pill_style }}">{{ '%.1f'|format(val) }}</span>
 {% endif %}
 {%- endmacro %}
+{% macro fmt_fo_pct(row) -%}
+{%- if row.faceoffs and row.faceoffs > 0 and row.faceoff_wins is not none -%}
+{{ '%.1f'|format(100.0 * row.faceoff_wins / row.faceoffs) }}
+{%- else -%}—{%- endif -%}
+{%- endmacro %}
+{% macro fmt_adv_gr(v) -%}
+{%- if v is none -%}—{%- else -%}{{ '%.1f'|format(v) }}{%- endif -%}
+{%- endmacro %}
 {% macro sk_url(sk) -%}
 {% if team_statistics %}
 {% if stats_expanded %}
@@ -161,9 +169,9 @@
   <div class="stats-panel card"><p class="empty-state">No season data.</p></div>
   {% elif show_goalies %}
   <div class="stats-panel card">
-    <p class="stats-page__hint muted">Click a column heading to sort (except #, ABI, and POT).</p>
-    <div class="table-wrap stats-table-wrap">
-      <table class="data stats-table">
+    <p class="stats-page__hint muted">Scroll horizontally for more columns. Click a column heading to sort (except #, ABI, and POT).</p>
+    <div class="table-wrap stats-table-wrap stats-table-scroll">
+      <table class="data stats-table stats-table--h-sticky">
         <thead>
           <tr>
             <th class="stats-th-num" scope="col" title="List order for the active sort (not a sort column).">#</th>
@@ -200,7 +208,7 @@
                 </a>
                 <span class="stats-player-cell__text">
                   <a class="stats-player-cell__name" href="{{ url_for('main.player_page', player_id=pl.id) }}">{{ pl.full_name }}</a>
-                  <span class="stats-player-cell__pos">{{ pl.position or '—' }}</span>
+                  <span class="stats-player-cell__pos">{{ pl | player_positions_display }}</span>
                 </span>
               </span>
             </td>
@@ -237,9 +245,9 @@
   </div>
   {% else %}
   <div class="stats-panel card">
-    <p class="stats-page__hint muted">Click a column heading to sort (except #, ABI, and POT).</p>
-    <div class="table-wrap stats-table-wrap">
-      <table class="data stats-table">
+    <p class="stats-page__hint muted">Scroll horizontally for more columns. Click a column heading to sort (except #, ABI, and POT).</p>
+    <div class="table-wrap stats-table-wrap stats-table-scroll">
+      <table class="data stats-table stats-table--h-sticky">
         <thead>
           <tr>
             <th class="stats-th-num" scope="col" title="List order for the active sort (not a sort column).">#</th>
@@ -264,7 +272,15 @@
             {{ th_sk('es_toi', 'ES ATOI', 'Average even-strength time on ice per game') }}
             {{ th_sk('ppto', 'PP ATOI', 'Average power-play time on ice per game') }}
             {{ th_sk('shto', 'SH ATOI', 'Average shorthanded time on ice per game') }}
-            {{ th_sk('gr', 'GR', 'Game rating') }}
+            {{ th_sk('gr', 'GR', 'Game rating (overall)') }}
+            {{ th_sk('ogr', 'OGR', 'Offensive game rating') }}
+            {{ th_sk('dgr', 'DGR', 'Defensive game rating') }}
+            {{ th_sk('pdo', 'PDO', 'PDO (shooting/save percentage luck metric)') }}
+            {{ th_sk('takeaways', 'TK', 'Takeaways') }}
+            {{ th_sk('giveaways', 'GV', 'Giveaways') }}
+            {{ th_sk('fo_pct', 'FO%', 'Faceoff win percentage') }}
+            {{ th_sk('fights', 'FIGHTS', 'Fights') }}
+            {{ th_sk('fights_won', 'F WON', 'Fights won') }}
           </tr>
         </thead>
         <tbody>
@@ -283,7 +299,7 @@
                 </a>
                 <span class="stats-player-cell__text">
                   <a class="stats-player-cell__name" href="{{ url_for('main.player_page', player_id=pl.id) }}">{{ pl.full_name }}</a>
-                  <span class="stats-player-cell__pos">{{ pl.position or '—' }}</span>
+                  <span class="stats-player-cell__pos">{{ pl | player_positions_display }}</span>
                 </span>
               </span>
             </td>
@@ -308,9 +324,17 @@
             <td {% if sort == 'ppto' %}class="stats-td-sorted"{% endif %}>{{ fmt_skater_avg_toi(row.ppto_seconds, row.gp) }}</td>
             <td {% if sort == 'shto' %}class="stats-td-sorted"{% endif %}>{{ fmt_skater_avg_toi(row.shto_seconds, row.gp) }}</td>
             <td {% if sort == 'gr' %}class="stats-td-sorted"{% endif %}>{{ '%.0f'|format(row.game_rating) if row.game_rating is not none else '—' }}</td>
+            <td {% if sort == 'ogr' %}class="stats-td-sorted"{% endif %}>{{ fmt_adv_gr(row.game_rating_off) }}</td>
+            <td {% if sort == 'dgr' %}class="stats-td-sorted"{% endif %}>{{ fmt_adv_gr(row.game_rating_def) }}</td>
+            <td {% if sort == 'pdo' %}class="stats-td-sorted"{% endif %}>{{ '%.1f'|format(row.pdo) if row.pdo is not none else '—' }}</td>
+            <td {% if sort == 'takeaways' %}class="stats-td-sorted"{% endif %}>{{ row.takeaways if row.takeaways is not none else '—' }}</td>
+            <td {% if sort == 'giveaways' %}class="stats-td-sorted"{% endif %}>{{ row.giveaways if row.giveaways is not none else '—' }}</td>
+            <td {% if sort == 'fo_pct' %}class="stats-td-sorted"{% endif %}>{{ fmt_fo_pct(row) }}</td>
+            <td {% if sort == 'fights' %}class="stats-td-sorted"{% endif %}>{{ row.fights if row.fights is not none else '—' }}</td>
+            <td {% if sort == 'fights_won' %}class="stats-td-sorted"{% endif %}>{{ row.fights_won if row.fights_won is not none else '—' }}</td>
           </tr>
           {% else %}
-          <tr><td colspan="23" class="empty-state">No skater stats for this split.</td></tr>
+          <tr><td colspan="31" class="empty-state">No skater stats for this split.</td></tr>
           {% endfor %}
         </tbody>
       </table>

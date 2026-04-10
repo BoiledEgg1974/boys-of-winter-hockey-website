@@ -11,7 +11,12 @@ from flask import Blueprint, abort, current_app, render_template, request, url_f
 from sqlalchemy import case, cast, Float, func, not_, nulls_last, or_, select
 from sqlalchemy.orm import joinedload
 
-from app.config import BASE_DIR, Config
+from app.config import (
+    BASE_DIR,
+    Config,
+    undrafted_prospects_age_filter_options,
+    undrafted_prospects_max_age,
+)
 from app.models import (
     Draft,
     DraftPick,
@@ -51,8 +56,28 @@ from app.services.draft_history import (
 from app.services.import_career_seasons import import_folder_season_labels
 from app.services.player_contract_csv import contract_years_remaining_major
 from app.services.player_rating_avgs import goalie_category_averages, skater_category_averages
-from app.services.player_ratings_csv import get_player_ratings_row
+from app.services.player_ratings_csv import get_player_ratings_row, player_positions_display_label
 from app.services.seasons import get_current_season, season_age_reference_date
+from app.services.franchise_leaders import build_franchise_history_sections
+from app.services.free_agents import (
+    FA_GOALIE_MAIN,
+    FA_GOALIE_MENTAL,
+    FA_ROLES,
+    FA_SKATER_DEFENSE,
+    FA_SKATER_MENTAL,
+    FA_SKATER_OFFENSE,
+    FA_SKATER_OVERVIEW,
+    FA_SKATER_PHYSICAL,
+    GOALIE_VIEWS,
+    SKATER_VIEWS,
+    fetch_free_agent_players,
+)
+from app.services.team_staff_csv import (
+    STAFF_COACH_COLUMNS,
+    STAFF_SCOUT_COLUMNS,
+    STAFF_TRAINER_COLUMNS,
+    get_staff_sections_for_team,
+)
 from app.services.standings import (
     conferences_for_season,
     divisions_for_season,
@@ -179,6 +204,7 @@ def standings():
             div_name_by_id = {}
     divisions = divisions_for_season(season)
     division_names: list[str] = list(divisions or [])
+    selected_conf: str | None = None
     if view == "conference":
         # Enable conference view for Fantasy/Cap (and any league with conference data).
         # If no conference is selected, show all rows in conference-grouped context.
@@ -266,7 +292,7 @@ def standings():
         conference_names=conf_names,
         divisions=divisions,
         division_names=division_names,
-        sel_conference=conf,
+        sel_conference=selected_conf,
         sel_division=div,
     )
 
@@ -343,6 +369,13 @@ def _build_statistics_view_vars(
         ),
         else_=None,
     )
+    sk_fo_pct = case(
+        (
+            PlayerSkaterStat.faceoffs > 0,
+            cast(func.coalesce(PlayerSkaterStat.faceoff_wins, 0), Float) / PlayerSkaterStat.faceoffs,
+        ),
+        else_=None,
+    )
     sk_order_map: dict[str, object] = {
         "rank": (
             PlayerSkaterStat.points.desc(),
@@ -372,6 +405,14 @@ def _build_statistics_view_vars(
         "shg": PlayerSkaterStat.shg.desc().nulls_last(),
         "sha": PlayerSkaterStat.sh_assists.desc().nulls_last(),
         "gwg": PlayerSkaterStat.gwg.desc().nulls_last(),
+        "ogr": PlayerSkaterStat.game_rating_off.desc().nulls_last(),
+        "dgr": PlayerSkaterStat.game_rating_def.desc().nulls_last(),
+        "takeaways": PlayerSkaterStat.takeaways.desc().nulls_last(),
+        "giveaways": PlayerSkaterStat.giveaways.desc().nulls_last(),
+        "fo_pct": sk_fo_pct.desc().nulls_last(),
+        "fights": PlayerSkaterStat.fights.desc().nulls_last(),
+        "fights_won": PlayerSkaterStat.fights_won.desc().nulls_last(),
+        "pdo": PlayerSkaterStat.pdo.desc().nulls_last(),
     }
     if sort not in sk_order_map:
         sort = "points"
@@ -928,18 +969,18 @@ def prospects():
     )
 
 
-_UNDRAFTED_AGE_OPTIONS: tuple[int, ...] = (20, 19, 18, 17, 16, 15)
-
-
 @main_bp.get("/undrafted-prospects")
 def undrafted_prospects():
-    """Players with no NHL/BOWL draft pick, age ≤20, optional exact age and position filters."""
+    """Players with no NHL/BOWL draft pick, age within league cap, optional exact age and position filters."""
     pos = request.args.get("position")
     age_param = (request.args.get("age") or "").strip()
     ud_expanded = request.args.get("expanded") == "1"
     page_limit = 50
     session = db.session
     age_ref = season_age_reference_date(get_current_season())
+    league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    undrafted_max_age = undrafted_prospects_max_age(league_slug)
+    ud_age_options = undrafted_prospects_age_filter_options(league_slug)
 
     overview_headers = (
         ("Skating", "SKT", "skating"),
@@ -965,7 +1006,7 @@ def undrafted_prospects():
     age_exact: int | None = None
     if age_param.isdigit():
         ai = int(age_param)
-        if ai in _UNDRAFTED_AGE_OPTIONS:
+        if ai in ud_age_options:
             age_exact = ai
 
     drafted_subq = (
@@ -986,7 +1027,7 @@ def undrafted_prospects():
     pool: list[Player] = []
     for p in players:
         age = _player_age_years(p.birth_date, age_ref)
-        if age is None or age > 20:
+        if age is None or age > undrafted_max_age:
             continue
         if age_exact is not None and age != age_exact:
             continue
@@ -1082,7 +1123,151 @@ def undrafted_prospects():
         prospect_sort=sort_col,
         prospect_order=order,
         prospect_sort_desc_defaults=sort_default_desc,
-        undrafted_age_options=_UNDRAFTED_AGE_OPTIONS,
+        undrafted_age_options=ud_age_options,
+        undrafted_max_age=undrafted_max_age,
+    )
+
+
+@main_bp.get("/free-agents")
+def free_agents():
+    """Free pool: not on NHL/BOWL roster and no NHL/BOWL org contract/prospect link; excludes undrafted pool."""
+    session = db.session
+    age_ref = season_age_reference_date(get_current_season())
+
+    role = (request.args.get("role") or "fwd").strip().lower()
+    if role not in FA_ROLES:
+        role = "fwd"
+
+    view = (request.args.get("view") or "overview").strip().lower()
+    if role == "g":
+        if view not in GOALIE_VIEWS:
+            view = "overview"
+        active_headers = FA_GOALIE_MAIN if view == "overview" else FA_GOALIE_MENTAL
+    else:
+        if view not in SKATER_VIEWS:
+            view = "overview"
+        view_headers = {
+            "overview": FA_SKATER_OVERVIEW,
+            "offense": FA_SKATER_OFFENSE,
+            "defense": FA_SKATER_DEFENSE,
+            "mental": FA_SKATER_MENTAL,
+            "physical": FA_SKATER_PHYSICAL,
+        }
+        active_headers = view_headers[view]
+
+    attr_keys = frozenset(h[2] for h in active_headers)
+    valid_sorts = frozenset({"rank", "player", "age", "abi", "pot", *attr_keys})
+    sort_default_desc = frozenset({"rank", "abi", "pot", *attr_keys})
+
+    sort_col = request.args.get("sort") or "pot"
+    order = request.args.get("order") or "desc"
+    if sort_col not in valid_sorts:
+        sort_col = "pot"
+    if order not in ("asc", "desc"):
+        order = "desc"
+
+    fa_expanded = request.args.get("expanded") == "1"
+    page_limit = 80
+
+    ud_cap = undrafted_prospects_max_age(str(current_app.config.get("LEAGUE_SLUG") or ""))
+    pool = fetch_free_agent_players(session, role, age_ref=age_ref, undrafted_max_age=ud_cap)
+
+    items: list[dict[str, object]] = []
+    for pl in pool:
+        rr = get_player_ratings_row(pl.fhm_player_id)
+        attrs: dict[str, float | None] = {}
+        attrs_display: dict[str, object | None] = {}
+        for _full, _abbr, key in active_headers:
+            raw_cell = rr.get(key) if rr else None
+            attrs_display[key] = raw_cell
+            attrs[key] = _prospect_float(raw_cell)
+        items.append(
+            {
+                "pl": pl,
+                "attrs": attrs,
+                "attrs_display": attrs_display,
+                "age": _player_age_years(pl.birth_date, age_ref),
+            }
+        )
+
+    rev = order == "desc"
+    if sort_col == "rank":
+
+        def rank_key(it: dict) -> tuple:
+            pl = it["pl"]
+            pot = _prospect_float(pl.overall_potential)
+            abi = _prospect_float(pl.overall_ability)
+            pot_v = pot if pot is not None else float("-inf")
+            abi_v = abi if abi is not None else float("-inf")
+            return (pot_v, abi_v, pl.full_name or "", pl.id)
+
+        items.sort(key=rank_key, reverse=rev)
+    elif sort_col == "player":
+
+        def str_key(it: dict) -> tuple:
+            pl = it["pl"]
+            return ((pl.full_name or "").lower(), pl.id)
+
+        items.sort(key=str_key, reverse=rev)
+    elif sort_col == "age":
+
+        def age_key(it: dict) -> tuple:
+            pl = it["pl"]
+            ag = it["age"]
+            if ag is None:
+                sentinel = float("-inf") if rev else float("inf")
+                return (sentinel, pl.full_name or "", pl.id)
+            return (float(ag), (pl.full_name or "").lower(), pl.id)
+
+        items.sort(key=age_key, reverse=rev)
+    else:
+
+        def num_key(it: dict) -> tuple:
+            pl = it["pl"]
+            if sort_col == "abi":
+                raw = pl.overall_ability
+            elif sort_col == "pot":
+                raw = pl.overall_potential
+            else:
+                raw = it["attrs"].get(sort_col)
+            v = _prospect_float(raw) if raw is not None else None
+            if v is None:
+                sentinel = float("-inf") if rev else float("inf")
+                return (sentinel, pl.full_name or "", pl.id)
+            return (v, pl.full_name or "", pl.id)
+
+        items.sort(key=num_key, reverse=rev)
+
+    rows_out: list[dict[str, object]] = []
+    for i, it in enumerate(items, start=1):
+        pl = it["pl"]
+        rows_out.append(
+            {
+                "rank": i,
+                "player": pl,
+                "age": it["age"],
+                "attrs": it["attrs_display"],
+            }
+        )
+
+    total_n = len(rows_out)
+    if fa_expanded or total_n <= page_limit:
+        display_rows = rows_out
+    else:
+        display_rows = rows_out[:page_limit]
+
+    return render_template(
+        "free_agents.html",
+        fa_rows=display_rows,
+        fa_total=total_n,
+        fa_page_limit=page_limit,
+        fa_expanded=fa_expanded,
+        fa_role=role,
+        fa_view=view,
+        fa_headers=active_headers,
+        fa_sort=sort_col,
+        fa_order=order,
+        fa_sort_desc_defaults=sort_default_desc,
     )
 
 
@@ -1422,7 +1607,7 @@ def _build_team_lines_views(
         salary_rows.append(
             {
                 "player": p,
-                "pos": p.position or "—",
+                "pos": player_positions_display_label(p),
                 "age": _player_age_years(p.birth_date, age_ref),
                 "salary": int(c.average_salary or 0),
                 "group": salary_group,
@@ -1770,7 +1955,7 @@ def team_page(slug: str):
                         division_rank = idx
                         break
     panel = (request.args.get("panel", "roster") or "roster").strip().lower()
-    if panel not in {"roster", "depth", "lines", "salary", "statistics"}:
+    if panel not in {"roster", "depth", "ratings", "lines", "salary", "statistics", "staff", "franchise"}:
         panel = "roster"
     salary_years = [int(season.start_year) + i for i in range(6)] if season and season.start_year else []
     roster = db.session.scalars(
@@ -1778,6 +1963,39 @@ def team_page(slug: str):
     ).all()
     age_ref = season_age_reference_date(season)
     roster_ages = {p.id: _player_age_years(p.birth_date, age_ref) for p in roster}
+
+    def _ratings_sort_key(pl: Player) -> tuple[float, str, str]:
+        abi = pl.overall_ability
+        abi_f = float(abi) if abi is not None else -1.0
+        return (-abi_f, (pl.last_name or "").lower(), (pl.first_name or "").lower())
+
+    team_ratings_goalies: list[dict[str, object]] = []
+    team_ratings_skaters: list[dict[str, object]] = []
+    for pl in sorted([p for p in roster if (p.position or "").strip().upper() == "G"], key=_ratings_sort_key):
+        rr = get_player_ratings_row(pl.fhm_player_id)
+        team_ratings_goalies.append(
+            {
+                "player": pl,
+                "age": roster_ages.get(pl.id),
+                "rr": rr,
+            }
+        )
+    for pl in sorted([p for p in roster if (p.position or "").strip().upper() != "G"], key=_ratings_sort_key):
+        rr = get_player_ratings_row(pl.fhm_player_id)
+        team_ratings_skaters.append(
+            {
+                "player": pl,
+                "age": roster_ages.get(pl.id),
+                "rr": rr,
+            }
+        )
+
+    staff_coaches, staff_scouts, staff_trainers = get_staff_sections_for_team(team.fhm_team_id)
+
+    franchise_history_sections: list[dict[str, object]] = []
+    if panel == "franchise":
+        franchise_history_sections = build_franchise_history_sections(team)
+
     raw_dir = Path(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR))
     depth_chart, lines_sections, lines_name_to_id, salary_rows, salary_total = _build_team_lines_views(
         team, roster, season, raw_dir
@@ -1972,6 +2190,15 @@ def team_page(slug: str):
         "salary_rows": salary_rows,
         "salary_total": salary_total,
         "salary_years": salary_years,
+        "team_ratings_goalies": team_ratings_goalies,
+        "team_ratings_skaters": team_ratings_skaters,
+        "staff_coaches": staff_coaches,
+        "staff_scouts": staff_scouts,
+        "staff_trainers": staff_trainers,
+        "staff_coach_columns": STAFF_COACH_COLUMNS,
+        "staff_scout_columns": STAFF_SCOUT_COLUMNS,
+        "staff_trainer_columns": STAFF_TRAINER_COLUMNS,
+        "franchise_history_sections": franchise_history_sections,
     }
     if panel == "statistics":
         tmpl_kwargs.update(
@@ -2048,7 +2275,16 @@ def player_page(player_id: int):
     )
     pos = (player.position or "").strip().upper()
     is_goalie = pos.startswith("G")
-    if is_goalie:
+    has_sk_career = bool(career_rs_sk or career_po_sk)
+    has_gk_career = bool(career_rs_gk or career_po_gk)
+    # Career tables: show goalie panels if position is G or goalie CSV rows exist (FHM sometimes mislabels G as C/D).
+    show_goalie_career_sections = is_goalie or has_gk_career
+    show_skater_career_sections = has_sk_career or (not is_goalie and not has_gk_career)
+    # Game log: prefer skater box scores when we have skater career data; else goalie if position G or only goalie career.
+    use_goalie_game_log = is_goalie or (has_gk_career and not has_sk_career)
+    if player.retired:
+        game_log = []
+    elif use_goalie_game_log:
         game_log = db.session.scalars(
             select(GameGoalieStat)
             .options(
@@ -2116,6 +2352,9 @@ def player_page(player_id: int):
         ratings_row=ratings_row,
         player_age=player_age,
         player_is_goalie=is_goalie,
+        show_goalie_career_sections=show_goalie_career_sections,
+        show_skater_career_sections=show_skater_career_sections,
+        use_goalie_game_log=use_goalie_game_log,
         rating_avgs_skater=rating_avgs_skater,
         rating_avgs_goalie=rating_avgs_goalie,
         contract_years_left=contract_years_left,

@@ -30,6 +30,9 @@ instance/*.sqlite3
 # Local PythonAnywhere deploy wizard (machine-specific CSV paths)
 scripts/pythonanywhere_csv_sources.json
 
+# Saved-game CSV locations (created when you run update_from_saved_game.py and save paths)
+scripts/saved_game_csv_paths.json
+
 # Editor/OS files
 .vscode/
 .idea/

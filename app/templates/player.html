@@ -26,7 +26,7 @@
       {% if ac %}{{ team_logo_only(ac) }}{% endif %}
       <div class="player-profile__hero-text">
         <h1 class="player-profile__name">{{ player.full_name }}{% if player.nick_name %} <span class="player-profile__nick">“{{ player.nick_name }}”</span>{% endif %}</h1>
-        <p class="player-profile__meta-line">{{- player.position or '—' -}}
+        <p class="player-profile__meta-line">{{- player | player_positions_display -}}
           {%- if roster_header_team -%}
           <span class="player-profile__dot">·</span><a class="player-profile__team-link" href="{{ url_for('main.team_page', slug=roster_header_team.slug) }}">{{ team_city_nick(roster_header_team) }}</a>
           {%- elif player.retired -%}
@@ -290,7 +290,7 @@
   </section>
   {% endif %}
 
-  {% if player_is_goalie %}
+  {% if show_goalie_career_sections %}
   <section class="player-profile__card player-profile__card--table">
     <h2 class="player-profile__card-title">Goalie Career — Regular Season</h2>
     {% if career_rs_gk %}
@@ -370,7 +370,7 @@
   </section>
   {% endif %}
 
-  {% if not player_is_goalie %}
+  {% if show_skater_career_sections %}
   <section class="player-profile__card player-profile__card--table">
     <h2 class="player-profile__card-title">Skater Career — Regular Season</h2>
     {% if career_rs_sk %}
@@ -460,9 +460,10 @@
   </section>
   {% endif %}
 
+  {% if not player.retired %}
   <section class="player-profile__card player-profile__card--table">
     <h2 class="player-profile__card-title">Game Log</h2>
-    {% if game_log and player_is_goalie %}
+    {% if game_log and use_goalie_game_log %}
     <div class="table-wrap">
       <table class="data data-sortable player-profile__game-table">
         <thead><tr>
@@ -535,14 +536,9 @@
     <button type="button" class="player-profile__game-toggle js-expand-game-log" aria-expanded="false">Show more games</button>
     {% endif %}
     {% else %}
-    <p class="empty-state">
-      {% if career_rs_sk or career_po_sk or career_rs_gk or career_po_gk %}
-      No game-by-game box score rows are in this league’s import for this player. The Game Log is built only from <span class="muted">boxscore_skater_summary.csv</span> and <span class="muted">boxscore_goalie_summary.csv</span>. FHM often leaves those players out of the per-game files even when career CSVs list season totals, so there is nothing further the importer can add without new export data.
-      {% else %}
-      No per-game lines imported for this player.
-      {% endif %}
-    </p>
+    <p class="empty-state">No Recent Game Logs</p>
     {% endif %}
   </section>
+  {% endif %}
 </div>
 {% endblock %}

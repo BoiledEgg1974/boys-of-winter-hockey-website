@@ -9,6 +9,7 @@ from app.db_utils import (
     ensure_players_jersey_number_sqlite,
     ensure_skater_career_line_career_source_sqlite,
     ensure_skater_career_line_extra_stats_sqlite,
+    ensure_player_goalie_stats_gsaa_sqlite,
     ensure_team_season_aggregate_extra_columns,
     migrate_team_season_aggregates_sqlite,
     rebuild_player_fts,
@@ -57,6 +58,7 @@ def create_app(config_class: type = Config) -> Flask:
         ensure_team_season_aggregate_extra_columns(db.engine)
         ensure_skater_career_line_career_source_sqlite(db.engine)
         ensure_skater_career_line_extra_stats_sqlite(db.engine)
+        ensure_player_goalie_stats_gsaa_sqlite(db.engine)
         ensure_fts5(db.engine)
         # FTS may be empty until import or seed; seed script calls rebuild
         try:
@@ -168,6 +170,12 @@ def create_app(config_class: type = Config) -> Flask:
             return None
         return flag_icon_url(str(nationality).strip() or None)
 
+    @app.template_filter("player_positions_display")
+    def player_positions_display_filter(player: object) -> str:
+        from app.services.player_ratings_csv import player_positions_display_label
+
+        return player_positions_display_label(player)
+
     @app.context_processor
     def inject_layout():
         from app.services.draft_history import draft_pick_current_team_view
@@ -248,6 +256,7 @@ def create_app(config_class: type = Config) -> Flask:
         ensure_team_season_aggregate_extra_columns(db.engine)
         ensure_skater_career_line_career_source_sqlite(db.engine)
         ensure_skater_career_line_extra_stats_sqlite(db.engine)
+        ensure_player_goalie_stats_gsaa_sqlite(db.engine)
         ensure_fts5(db.engine)
         rebuild_player_fts(db.engine)
         print("Database initialized.")

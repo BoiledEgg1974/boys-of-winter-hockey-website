@@ -23,6 +23,7 @@ from app.models import (
 )
 from app.services.playoff_bracket import playoff_bracket_payload
 from app.services.player_headshot import resolve_player_headshot_static_filename
+from app.services.player_ratings_csv import player_positions_display_label
 from app.services.seasons import get_current_season
 
 api_bp = Blueprint("api", __name__)
@@ -141,7 +142,7 @@ def search_players():
             {
                 "id": p.id,
                 "full_name": p.full_name,
-                "position": p.position or "",
+                "position": player_positions_display_label(p),
                 "team": tm.name if tm else "",
                 "team_abbr": tm.abbreviation if tm else "",
                 "team_logo_url": team_logo_url_for_team(tm) if tm else "",

@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Free Agents — Boys of Winter Hockey League{% endblock %}
+{% macro fa_url(role, view) -%}
+{%- if fa_expanded -%}
+{{- url_for('main.free_agents', role=role, view=view, sort=fa_sort, order=fa_order, expanded=1) -}}
+{%- else -%}
+{{- url_for('main.free_agents', role=role, view=view, sort=fa_sort, order=fa_order) -}}
+{%- endif -%}
+{%- endmacro %}
+{% macro attr_pill(val) -%}
+{% if val is none or val == '' %}—{% else %}
+<span class="stats-badge stats-badge--rating prospects-rankings__attr-pill" style="{{ val|attr_rating_style }}">{{ val|float|round(0)|int }}</span>
+{% endif %}
+{%- endmacro %}
+{% macro abi_pot_pill(val) -%}
+{% if val is none %}—{% else %}
+<span class="stats-badge stats-badge--rating stats-badge--overall" style="{{ val|rating_pill_style }}">{{ '%.1f'|format(val|float) }}</span>
+{% endif %}
+{%- endmacro %}
+{% macro fa_sort_th(sk, label, tip='') -%}
+{% set ord = ('asc' if fa_order == 'desc' else 'desc') if sk == fa_sort else ('desc' if sk in fa_sort_desc_defaults else 'asc') %}
+{% if fa_expanded %}
+{% set href = url_for('main.free_agents', role=fa_role, view=fa_view, sort=sk, order=ord, expanded=1) %}
+{% else %}
+{% set href = url_for('main.free_agents', role=fa_role, view=fa_view, sort=sk, order=ord) %}
+{% endif %}
+<th scope="col"{% if tip %} title="{{ tip|e }}"{% endif %}>
+  <a href="{{ href }}"
+     class="stats-th-link{% if sk == fa_sort %} is-sorted {{ 'is-sorted-asc' if fa_order == 'asc' else 'is-sorted-desc' }}{% endif %}">{{ label }}</a>
+</th>
+{%- endmacro %}
+{% block content %}
+<div class="prospects-rankings-page free-agents-page">
+  <h1 class="page-title">Free Agents</h1>
+
+  <div class="free-agents-page__tabs" role="navigation" aria-label="Position">
+    <a class="free-agents-page__tab{% if fa_role == 'fwd' %} is-active{% endif %}"
+       href="{{ fa_url('fwd', fa_view if fa_role == 'fwd' else 'overview') }}">Forwards</a>
+    <a class="free-agents-page__tab{% if fa_role == 'def' %} is-active{% endif %}"
+       href="{{ fa_url('def', fa_view if fa_role == 'def' else 'overview') }}">Defensemen</a>
+    <a class="free-agents-page__tab{% if fa_role == 'g' %} is-active{% endif %}"
+       href="{{ fa_url('g', fa_view if fa_role == 'g' else 'overview') }}">Goalies</a>
+  </div>
+
+  {% if fa_role in ('fwd', 'def') %}
+  <div class="free-agents-page__tabs free-agents-page__tabs--secondary" role="navigation" aria-label="Ratings view">
+    {% for vid, vlabel in [('overview', 'Overview'), ('offense', 'Offense'), ('defense', 'Defense'), ('mental', 'Mental'), ('physical', 'Physical')] %}
+    <a class="free-agents-page__tab{% if fa_view == vid %} is-active{% endif %}"
+       href="{{ fa_url(fa_role, vid) }}">{{ vlabel }}</a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="free-agents-page__tabs free-agents-page__tabs--secondary" role="navigation" aria-label="Goalie ratings view">
+    <a class="free-agents-page__tab{% if fa_view == 'overview' %} is-active{% endif %}"
+       href="{{ fa_url('g', 'overview') }}">Overview</a>
+    <a class="free-agents-page__tab{% if fa_view == 'mental' %} is-active{% endif %}"
+       href="{{ fa_url('g', 'mental') }}">Mental</a>
+  </div>
+  {% endif %}
+
+  <div class="card">
+    {% if fa_rows %}
+    <div class="table-wrap">
+      <table class="data prospects-rankings-table prospects-rankings-table--free-agents">
+        <thead>
+          <tr>
+            {{ fa_sort_th('rank', '#', 'Rank (potential, ability, name)') }}
+            {{ fa_sort_th('player', 'PLAYER', 'Player') }}
+            <th scope="col" title="Age">AGE</th>
+            {{ fa_sort_th('abi', 'ABI.', 'Ability') }}
+            {{ fa_sort_th('pot', 'POT.', 'Potential') }}
+            {% for full, abbr, key in fa_headers %}
+            {{ fa_sort_th(key, abbr, full) }}
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in fa_rows %}
+          {% set pl = row.player %}
+          <tr>
+            <td {% if fa_sort == 'rank' %}class="stats-td-sorted"{% endif %}>{{ row.rank }}</td>
+            <td {% if fa_sort == 'player' %}class="stats-td-sorted"{% endif %}>
+              <span class="stats-player-cell">
+                <a class="stats-player-cell__photo" href="{{ url_for('main.player_page', player_id=pl.id) }}">
+                  {% if player_headshot_url(pl) %}
+                  <img src="{{ player_headshot_url(pl) }}" alt="">
+                  {% else %}
+                  <span class="stats-player-cell__photo-ph" aria-hidden="true"></span>
+                  {% endif %}
+                </a>
+                <span class="stats-player-cell__text">
+                  <a class="stats-player-cell__name" href="{{ url_for('main.player_page', player_id=pl.id) }}">{{ pl.full_name }}</a>
+                  <span class="stats-player-cell__pos stats-player-cell__pos--eligible">{{ row.player | player_positions_display }}</span>
+                </span>
+              </span>
+            </td>
+            <td {% if fa_sort == 'age' %}class="stats-td-sorted"{% endif %}>{{ row.age if row.age is not none else '—' }}</td>
+            <td {% if fa_sort == 'abi' %}class="stats-td-sorted"{% endif %}>{{ abi_pot_pill(pl.overall_ability) }}</td>
+            <td {% if fa_sort == 'pot' %}class="stats-td-sorted"{% endif %}>{{ abi_pot_pill(pl.overall_potential) }}</td>
+            {% for _full, _abbr, key in fa_headers %}
+            <td {% if fa_sort == key %}class="stats-td-sorted"{% endif %}>{{ attr_pill(row.attrs.get(key)) }}</td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if fa_total > fa_page_limit %}
+    <p class="stats-list-foot muted prospects-rankings-page__foot">
+      {% if fa_expanded %}
+      Showing all {{ fa_total }} players. <a href="{{ url_for('main.free_agents', role=fa_role, view=fa_view, sort=fa_sort, order=fa_order) }}">Show top {{ fa_page_limit }} only</a>
+      {% else %}
+      Showing top {{ fa_page_limit }} of {{ fa_total }}. <a href="{{ url_for('main.free_agents', role=fa_role, view=fa_view, sort=fa_sort, order=fa_order, expanded=1) }}">Show all</a>
+      {% endif %}
+    </p>
+    {% endif %}
+    {% else %}
+    <p class="empty-state">No free agents match this filter for the current database.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -79,7 +79,7 @@
                 </a>
                 <span class="stats-player-cell__text">
                   <a class="stats-player-cell__name" href="{{ url_for('main.player_page', player_id=pl.id) }}">{{ pl.full_name }}</a>
-                  <span class="stats-player-cell__pos">{{ pl.position or '—' }}</span>
+                  <span class="stats-player-cell__pos">{{ pl | player_positions_display }}</span>
                 </span>
               </span>
             </td>
@@ -105,7 +105,7 @@
     </p>
     {% endif %}
     {% else %}
-    <p class="empty-state">No undrafted players aged 20 or younger{% if age_filter or position %} for this filter{% endif %}.</p>
+    <p class="empty-state">No undrafted players aged {{ undrafted_max_age }} or younger{% if age_filter or position %} for this filter{% endif %}.</p>
     {% endif %}
   </div>
 </div>

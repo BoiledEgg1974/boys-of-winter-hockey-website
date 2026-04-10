@@ -462,6 +462,9 @@ def import_goalie_stats(raw_dir: Path, app) -> int:
         row_db.so = to_int(cell_val(r, "so", "shutouts"), 0) or 0
         row_db.gaa = to_float(cell_val(r, "gaa"))
         row_db.sv_pct = to_float(cell_val(r, "sv_pct", "save_pct"))
+        row_db.gsaa = to_float(
+            cell_val(r, "gsaa", "goals_saved_above_average", "goals_saved_above_avg")
+        )
         n += 1
     db.session.commit()
     return n

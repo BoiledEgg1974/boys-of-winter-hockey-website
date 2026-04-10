@@ -1,0 +1,39 @@
+<div class="franchise-leaders">
+  <h2 class="franchise-leaders__title">Franchise History Leaders</h2>
+  {% if franchise_history_sections %}
+  {% for section in franchise_history_sections %}
+  {% set sec_i = loop.index %}
+  <section class="franchise-leaders__section" aria-labelledby="fh-sec-{{ sec_i }}">
+    <h3 id="fh-sec-{{ sec_i }}" class="franchise-leaders__section-heading">{{ section.heading }}</h3>
+    <div class="franchise-leaders__grid">
+      {% for card in section.cards %}
+      <section class="franchise-leaders__card" aria-labelledby="fh-c-{{ sec_i }}-{{ loop.index }}">
+        <h4 id="fh-c-{{ sec_i }}-{{ loop.index }}" class="franchise-leaders__card-title">{{ card.title }}</h4>
+        <ul class="franchise-leaders__list">
+          {% for row in card.rows %}
+          {% set pl = row.player %}
+          <li class="franchise-leaders__row">
+            <span class="franchise-leaders__player">
+              <a class="franchise-leaders__photo stats-player-cell__photo" href="{{ url_for('main.player_page', player_id=pl.id) }}">
+                {% if player_headshot_url(pl) %}
+                <img src="{{ player_headshot_url(pl) }}" alt="">
+                {% else %}
+                <span class="stats-player-cell__photo-ph" aria-hidden="true"></span>
+                {% endif %}
+              </a>
+              <a class="franchise-leaders__name" href="{{ url_for('main.player_page', player_id=pl.id) }}">{{ pl.full_name }}</a>
+            </span>
+            <span class="franchise-leaders__abbr">{{ row.abbr }}</span>
+            <span class="franchise-leaders__value">{{ row.value }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+      </section>
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+  {% else %}
+  <p class="empty-state">No franchise statistics in the database for this team yet.</p>
+  {% endif %}
+</div>

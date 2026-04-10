@@ -1,0 +1,386 @@
+{% macro tr_player_td(p, row) -%}
+<td class="team-ratings-table__player" data-sort-value="{{ (p.full_name or '')|lower }}">
+  <a href="{{ url_for('main.player_page', player_id=p.id) }}">{{ p.full_name }}</a> <span class="muted team-ratings-table__positions">{{ p | player_positions_display }}</span>
+</td>
+{%- endmacro %}
+{% macro tr_idx_td(loop) -%}
+<td class="team-ratings-table__idx" data-sort-value="{{ loop.index0 }}">{{ loop.index }}</td>
+{%- endmacro %}
+{% macro tr_age_td(row) -%}
+<td data-sort-value="{% if row.age is not none %}{{ row.age }}{% endif %}">{{ row.age if row.age is not none else '—' }}</td>
+{%- endmacro %}
+{% macro tr_abi_td(p) -%}
+<td data-sort-value="{% if p.overall_ability is not none %}{{ '%.6f'|format(p.overall_ability) }}{% endif %}">{% if p.overall_ability is not none %}<span class="team-depth-rating stats-badge stats-badge--rating stats-badge--overall" style="{{ p.overall_ability|rating_pill_style }}">{{ '%.1f'|format(p.overall_ability) }}</span>{% else %}—{% endif %}</td>
+{%- endmacro %}
+{% macro tr_pot_td(p) -%}
+<td data-sort-value="{% if p.overall_potential is not none %}{{ '%.6f'|format(p.overall_potential) }}{% endif %}">{% if p.overall_potential is not none %}<span class="team-depth-rating stats-badge stats-badge--rating stats-badge--overall" style="{{ p.overall_potential|rating_pill_style }}">{{ '%.1f'|format(p.overall_potential) }}</span>{% else %}—{% endif %}</td>
+{%- endmacro %}
+{% macro tr_num_attr_td(rr, key) -%}
+{%- if rr -%}
+{%- set raw = rr.get(key) -%}
+{%- if raw is not none and raw|string|trim != '' and raw|string|lower != 'nan' -%}
+{%- set fv = raw|float -%}
+<td data-sort-value="{{ fv }}"><span class="stats-badge stats-badge--rating stats-badge--overall team-ratings-attr-pill" style="{{ fv|attr_rating_style }}">{{ fv|round(0)|int }}</span></td>
+{%- else -%}
+<td data-sort-value="">—</td>
+{%- endif -%}
+{%- else -%}
+<td data-sort-value="">—</td>
+{%- endif -%}
+{%- endmacro %}
+<div class="team-ratings-stack">
+  <div class="card team-ratings-card">
+    <h2 class="team-ratings-card__title">Goalie</h2>
+    <div class="team-ratings-tabset team-ratings-tabset--goalie">
+      <input class="team-ratings-tabset__radio" type="radio" name="team-ratings-g-{{ team.id }}" id="tr-g0-{{ team.id }}" checked>
+      <input class="team-ratings-tabset__radio" type="radio" name="team-ratings-g-{{ team.id }}" id="tr-g1-{{ team.id }}">
+      <div class="team-ratings-tabset__labels" role="tablist" aria-label="Goalie rating categories">
+        <label class="team-ratings-tabset__label" for="tr-g0-{{ team.id }}" role="tab">Goalie</label>
+        <label class="team-ratings-tabset__label" for="tr-g1-{{ team.id }}" role="tab">Mental</label>
+      </div>
+      <div class="team-ratings-tabset__panel team-ratings-tabset__panel--g0">
+        {% if team_ratings_goalies %}
+        <div class="table-wrap team-ratings-table-wrap">
+          <table class="data data-sortable team-ratings-table" data-sort-renumber="1">
+            <thead>
+              <tr>
+                <th class="team-ratings-table__idx" data-sort-type="num" scope="col">#</th>
+                <th data-sort-type="str" scope="col">Player</th>
+                <th data-sort-type="num" scope="col">Age</th>
+                <th data-sort-type="num" scope="col">Abi.</th>
+                <th data-sort-type="num" scope="col">Pot.</th>
+                <th data-sort-type="num" scope="col">Pos.</th>
+                <th data-sort-type="num" scope="col">Pass</th>
+                <th data-sort-type="num" scope="col">PkChk</th>
+                <th data-sort-type="num" scope="col">Blocker</th>
+                <th data-sort-type="num" scope="col">Glove</th>
+                <th data-sort-type="num" scope="col">Rebound</th>
+                <th data-sort-type="num" scope="col">Recovery</th>
+                <th data-sort-type="num" scope="col">PHandle</th>
+                <th data-sort-type="num" scope="col">Low Sht</th>
+                <th data-sort-type="num" scope="col">Skate</th>
+                <th data-sort-type="num" scope="col">Reflexes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in team_ratings_goalies %}
+              {% set p = row.player %}
+              <tr>
+                {{ tr_idx_td(loop) }}
+                {{ tr_player_td(p, row) }}
+                {{ tr_age_td(row) }}
+                {{ tr_abi_td(p) }}
+                {{ tr_pot_td(p) }}
+                {{ tr_num_attr_td(row.rr, 'g_positioning') }}
+                {{ tr_num_attr_td(row.rr, 'g_passing') }}
+                {{ tr_num_attr_td(row.rr, 'g_pokecheck') }}
+                {{ tr_num_attr_td(row.rr, 'blocker') }}
+                {{ tr_num_attr_td(row.rr, 'glove') }}
+                {{ tr_num_attr_td(row.rr, 'rebound') }}
+                {{ tr_num_attr_td(row.rr, 'recovery') }}
+                {{ tr_num_attr_td(row.rr, 'g_puckhandling') }}
+                {{ tr_num_attr_td(row.rr, 'low_shots') }}
+                {{ tr_num_attr_td(row.rr, 'g_skating') }}
+                {{ tr_num_attr_td(row.rr, 'reflexes') }}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="empty-state">No goalies on this roster.</p>
+        {% endif %}
+      </div>
+      <div class="team-ratings-tabset__panel team-ratings-tabset__panel--g1">
+        {% if team_ratings_goalies %}
+        <div class="table-wrap team-ratings-table-wrap">
+          <table class="data data-sortable team-ratings-table" data-sort-renumber="1">
+            <thead>
+              <tr>
+                <th class="team-ratings-table__idx" data-sort-type="num" scope="col">#</th>
+                <th data-sort-type="str" scope="col">Player</th>
+                <th data-sort-type="num" scope="col">Age</th>
+                <th data-sort-type="num" scope="col">Abi.</th>
+                <th data-sort-type="num" scope="col">Pot.</th>
+                <th data-sort-type="num" scope="col">Aggression</th>
+                <th data-sort-type="num" scope="col">M. tough</th>
+                <th data-sort-type="num" scope="col">Determination</th>
+                <th data-sort-type="num" scope="col">Team</th>
+                <th data-sort-type="num" scope="col">Leadership</th>
+                <th data-sort-type="num" scope="col">Stamina</th>
+                <th data-sort-type="num" scope="col">Professionalism</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in team_ratings_goalies %}
+              {% set p = row.player %}
+              <tr>
+                {{ tr_idx_td(loop) }}
+                {{ tr_player_td(p, row) }}
+                {{ tr_age_td(row) }}
+                {{ tr_abi_td(p) }}
+                {{ tr_pot_td(p) }}
+                {{ tr_num_attr_td(row.rr, 'aggression') }}
+                {{ tr_num_attr_td(row.rr, 'mental_toughness') }}
+                {{ tr_num_attr_td(row.rr, 'determination') }}
+                {{ tr_num_attr_td(row.rr, 'teamplayer') }}
+                {{ tr_num_attr_td(row.rr, 'leadership') }}
+                {{ tr_num_attr_td(row.rr, 'goalie_stamina') }}
+                {{ tr_num_attr_td(row.rr, 'professionalism') }}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="empty-state">No goalies on this roster.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="card team-ratings-card">
+    <h2 class="team-ratings-card__title">Players</h2>
+    <div class="team-ratings-tabset team-ratings-tabset--skater">
+      <input class="team-ratings-tabset__radio" type="radio" name="team-ratings-s-{{ team.id }}" id="tr-s0-{{ team.id }}" checked>
+      <input class="team-ratings-tabset__radio" type="radio" name="team-ratings-s-{{ team.id }}" id="tr-s1-{{ team.id }}">
+      <input class="team-ratings-tabset__radio" type="radio" name="team-ratings-s-{{ team.id }}" id="tr-s2-{{ team.id }}">
+      <input class="team-ratings-tabset__radio" type="radio" name="team-ratings-s-{{ team.id }}" id="tr-s3-{{ team.id }}">
+      <input class="team-ratings-tabset__radio" type="radio" name="team-ratings-s-{{ team.id }}" id="tr-s4-{{ team.id }}">
+      <div class="team-ratings-tabset__labels" role="tablist" aria-label="Skater rating categories">
+        <label class="team-ratings-tabset__label" for="tr-s0-{{ team.id }}" role="tab">Overview</label>
+        <label class="team-ratings-tabset__label" for="tr-s1-{{ team.id }}" role="tab">Offense</label>
+        <label class="team-ratings-tabset__label" for="tr-s2-{{ team.id }}" role="tab">Defense</label>
+        <label class="team-ratings-tabset__label" for="tr-s3-{{ team.id }}" role="tab">Mental</label>
+        <label class="team-ratings-tabset__label" for="tr-s4-{{ team.id }}" role="tab">Physical</label>
+      </div>
+      <div class="team-ratings-tabset__panel team-ratings-tabset__panel--s0">
+        {% if team_ratings_skaters %}
+        <div class="table-wrap team-ratings-table-wrap">
+          <table class="data data-sortable team-ratings-table" data-sort-renumber="1">
+            <thead>
+              <tr>
+                <th class="team-ratings-table__idx" data-sort-type="num" scope="col">#</th>
+                <th data-sort-type="str" scope="col">Player</th>
+                <th data-sort-type="num" scope="col">Age</th>
+                <th data-sort-type="num" scope="col">Abi.</th>
+                <th data-sort-type="num" scope="col">Pot.</th>
+                <th data-sort-type="num" scope="col">Skating</th>
+                <th data-sort-type="num" scope="col">Shooting</th>
+                <th data-sort-type="num" scope="col">Playmaking</th>
+                <th data-sort-type="num" scope="col">Defending</th>
+                <th data-sort-type="num" scope="col">Physicality</th>
+                <th data-sort-type="num" scope="col">Conditioning</th>
+                <th data-sort-type="num" scope="col">Character</th>
+                <th data-sort-type="num" scope="col">Hockey sense</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in team_ratings_skaters %}
+              {% set p = row.player %}
+              <tr>
+                {{ tr_idx_td(loop) }}
+                {{ tr_player_td(p, row) }}
+                {{ tr_age_td(row) }}
+                {{ tr_abi_td(p) }}
+                {{ tr_pot_td(p) }}
+                {{ tr_num_attr_td(row.rr, 'skating') }}
+                {{ tr_num_attr_td(row.rr, 'shooting') }}
+                {{ tr_num_attr_td(row.rr, 'playmaking') }}
+                {{ tr_num_attr_td(row.rr, 'defending') }}
+                {{ tr_num_attr_td(row.rr, 'physicality') }}
+                {{ tr_num_attr_td(row.rr, 'conditioning') }}
+                {{ tr_num_attr_td(row.rr, 'character') }}
+                {{ tr_num_attr_td(row.rr, 'hockey_sense') }}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="empty-state">No skaters on this roster.</p>
+        {% endif %}
+      </div>
+      <div class="team-ratings-tabset__panel team-ratings-tabset__panel--s1">
+        {% if team_ratings_skaters %}
+        <div class="table-wrap team-ratings-table-wrap">
+          <table class="data data-sortable team-ratings-table" data-sort-renumber="1">
+            <thead>
+              <tr>
+                <th class="team-ratings-table__idx" data-sort-type="num" scope="col">#</th>
+                <th data-sort-type="str" scope="col">Player</th>
+                <th data-sort-type="num" scope="col">Age</th>
+                <th data-sort-type="num" scope="col">Abi.</th>
+                <th data-sort-type="num" scope="col">Pot.</th>
+                <th data-sort-type="num" scope="col">Screening</th>
+                <th data-sort-type="num" scope="col">Getting open</th>
+                <th data-sort-type="num" scope="col">Passing</th>
+                <th data-sort-type="num" scope="col">Puck handling</th>
+                <th data-sort-type="num" scope="col">Shot acc.</th>
+                <th data-sort-type="num" scope="col">Shot range</th>
+                <th data-sort-type="num" scope="col">Off. read</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in team_ratings_skaters %}
+              {% set p = row.player %}
+              <tr>
+                {{ tr_idx_td(loop) }}
+                {{ tr_player_td(p, row) }}
+                {{ tr_age_td(row) }}
+                {{ tr_abi_td(p) }}
+                {{ tr_pot_td(p) }}
+                {{ tr_num_attr_td(row.rr, 'screening') }}
+                {{ tr_num_attr_td(row.rr, 'getting_open') }}
+                {{ tr_num_attr_td(row.rr, 'passing') }}
+                {{ tr_num_attr_td(row.rr, 'puck_handling') }}
+                {{ tr_num_attr_td(row.rr, 'shooting_accuracy') }}
+                {{ tr_num_attr_td(row.rr, 'shooting_range') }}
+                {{ tr_num_attr_td(row.rr, 'offensive_read') }}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="empty-state">No skaters on this roster.</p>
+        {% endif %}
+      </div>
+      <div class="team-ratings-tabset__panel team-ratings-tabset__panel--s2">
+        {% if team_ratings_skaters %}
+        <div class="table-wrap team-ratings-table-wrap">
+          <table class="data data-sortable team-ratings-table" data-sort-renumber="1">
+            <thead>
+              <tr>
+                <th class="team-ratings-table__idx" data-sort-type="num" scope="col">#</th>
+                <th data-sort-type="str" scope="col">Player</th>
+                <th data-sort-type="num" scope="col">Age</th>
+                <th data-sort-type="num" scope="col">Abi.</th>
+                <th data-sort-type="num" scope="col">Pot.</th>
+                <th data-sort-type="num" scope="col">Checking</th>
+                <th data-sort-type="num" scope="col">Faceoffs</th>
+                <th data-sort-type="num" scope="col">Hitting</th>
+                <th data-sort-type="num" scope="col">Positioning</th>
+                <th data-sort-type="num" scope="col">Shot block</th>
+                <th data-sort-type="num" scope="col">Stickcheck</th>
+                <th data-sort-type="num" scope="col">Def. read</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in team_ratings_skaters %}
+              {% set p = row.player %}
+              <tr>
+                {{ tr_idx_td(loop) }}
+                {{ tr_player_td(p, row) }}
+                {{ tr_age_td(row) }}
+                {{ tr_abi_td(p) }}
+                {{ tr_pot_td(p) }}
+                {{ tr_num_attr_td(row.rr, 'checking') }}
+                {{ tr_num_attr_td(row.rr, 'faceoffs') }}
+                {{ tr_num_attr_td(row.rr, 'hitting') }}
+                {{ tr_num_attr_td(row.rr, 'positioning') }}
+                {{ tr_num_attr_td(row.rr, 'shot_blocking') }}
+                {{ tr_num_attr_td(row.rr, 'stickchecking') }}
+                {{ tr_num_attr_td(row.rr, 'defensive_read') }}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="empty-state">No skaters on this roster.</p>
+        {% endif %}
+      </div>
+      <div class="team-ratings-tabset__panel team-ratings-tabset__panel--s3">
+        {% if team_ratings_skaters %}
+        <div class="table-wrap team-ratings-table-wrap">
+          <table class="data data-sortable team-ratings-table" data-sort-renumber="1">
+            <thead>
+              <tr>
+                <th class="team-ratings-table__idx" data-sort-type="num" scope="col">#</th>
+                <th data-sort-type="str" scope="col">Player</th>
+                <th data-sort-type="num" scope="col">Age</th>
+                <th data-sort-type="num" scope="col">Abi.</th>
+                <th data-sort-type="num" scope="col">Pot.</th>
+                <th data-sort-type="num" scope="col">Aggression</th>
+                <th data-sort-type="num" scope="col">Bravery</th>
+                <th data-sort-type="num" scope="col">Determination</th>
+                <th data-sort-type="num" scope="col">Team player</th>
+                <th data-sort-type="num" scope="col">Leadership</th>
+                <th data-sort-type="num" scope="col">Temperament</th>
+                <th data-sort-type="num" scope="col">Professionalism</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in team_ratings_skaters %}
+              {% set p = row.player %}
+              <tr>
+                {{ tr_idx_td(loop) }}
+                {{ tr_player_td(p, row) }}
+                {{ tr_age_td(row) }}
+                {{ tr_abi_td(p) }}
+                {{ tr_pot_td(p) }}
+                {{ tr_num_attr_td(row.rr, 'aggression') }}
+                {{ tr_num_attr_td(row.rr, 'bravery') }}
+                {{ tr_num_attr_td(row.rr, 'determination') }}
+                {{ tr_num_attr_td(row.rr, 'teamplayer') }}
+                {{ tr_num_attr_td(row.rr, 'leadership') }}
+                {{ tr_num_attr_td(row.rr, 'temperament') }}
+                {{ tr_num_attr_td(row.rr, 'professionalism') }}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="empty-state">No skaters on this roster.</p>
+        {% endif %}
+      </div>
+      <div class="team-ratings-tabset__panel team-ratings-tabset__panel--s4">
+        {% if team_ratings_skaters %}
+        <div class="table-wrap team-ratings-table-wrap">
+          <table class="data data-sortable team-ratings-table" data-sort-renumber="1">
+            <thead>
+              <tr>
+                <th class="team-ratings-table__idx" data-sort-type="num" scope="col">#</th>
+                <th data-sort-type="str" scope="col">Player</th>
+                <th data-sort-type="num" scope="col">Age</th>
+                <th data-sort-type="num" scope="col">Abi.</th>
+                <th data-sort-type="num" scope="col">Pot.</th>
+                <th data-sort-type="num" scope="col">Acceleration</th>
+                <th data-sort-type="num" scope="col">Agility</th>
+                <th data-sort-type="num" scope="col">Balance</th>
+                <th data-sort-type="num" scope="col">Speed</th>
+                <th data-sort-type="num" scope="col">Stamina</th>
+                <th data-sort-type="num" scope="col">Strength</th>
+                <th data-sort-type="num" scope="col">Fighting</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in team_ratings_skaters %}
+              {% set p = row.player %}
+              <tr>
+                {{ tr_idx_td(loop) }}
+                {{ tr_player_td(p, row) }}
+                {{ tr_age_td(row) }}
+                {{ tr_abi_td(p) }}
+                {{ tr_pot_td(p) }}
+                {{ tr_num_attr_td(row.rr, 'acceleration') }}
+                {{ tr_num_attr_td(row.rr, 'agility') }}
+                {{ tr_num_attr_td(row.rr, 'balance') }}
+                {{ tr_num_attr_td(row.rr, 'speed') }}
+                {{ tr_num_attr_td(row.rr, 'stamina') }}
+                {{ tr_num_attr_td(row.rr, 'strength') }}
+                {{ tr_num_attr_td(row.rr, 'fighting') }}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="empty-state">No skaters on this roster.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>

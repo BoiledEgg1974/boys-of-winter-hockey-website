@@ -71,7 +71,7 @@
             <td class="prospects-rankings-table__team-cell">
               {% if row.team %}
               <a class="prospects-rankings-table__team-logo-hit" href="{{ url_for('main.team_page', slug=row.team.slug) }}" title="{{ row.team.name }}">
-                <img class="prospects-rankings-table__team-logo-img" src="{{ team_logo_url(row.team) }}" alt="{{ row.team.name }}" width="32" height="32" loading="lazy" decoding="async">
+                <img class="prospects-rankings-table__team-logo-img" src="{{ team_logo_url(row.team) }}" alt="{{ row.team.name }}" loading="lazy" decoding="async">
               </a>
               {% else %}—{% endif %}
             </td>
@@ -86,7 +86,7 @@
                 </a>
                 <span class="stats-player-cell__text">
                   <a class="stats-player-cell__name" href="{{ url_for('main.player_page', player_id=pl.id) }}">{{ pl.full_name }}</a>
-                  <span class="stats-player-cell__pos">{{ pl.position or '—' }}</span>
+                  <span class="stats-player-cell__pos">{{ pl | player_positions_display }}</span>
                 </span>
               </span>
             </td>

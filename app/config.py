@@ -42,6 +42,19 @@ def league_raw_import_dir(slug: str) -> str:
     return e.raw_import_dir if e else slug
 
 
+def undrafted_prospects_max_age(league_slug: str) -> int:
+    """Inclusive upper age for the Undrafted Prospects list (and matching Free Agents exclusion)."""
+    if league_slug in ("bowl-fantasy", "bowl-cap"):
+        return 18
+    return 20
+
+
+def undrafted_prospects_age_filter_options(league_slug: str) -> tuple[int, ...]:
+    """Exact-age filter values (high to low) for the Undrafted Prospects form."""
+    top = undrafted_prospects_max_age(league_slug)
+    return tuple(range(top, 14, -1))
+
+
 # If instance/<new-slug>.db is missing, use these pre-rename filenames (same DB content).
 _LEGACY_LEAGUE_DB_FILES: dict[str, str] = {
     "bowl-historical": "league2.db",

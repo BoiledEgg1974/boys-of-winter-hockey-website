@@ -196,7 +196,7 @@
           </div>
           <div class="team-leaders__player">
             {% if pl %}
-            <span class="team-leaders__pos muted">{{ (pl.position or '—')|e }}</span>
+            <span class="team-leaders__pos muted">{{ (pl | player_positions_display)|e }}</span>
             <a class="team-leaders__name-block" href="{{ url_for('main.player_page', player_id=pl.id) }}">
               <span class="team-leaders__first muted">{{ pl.first_name }}</span>
               <span class="team-leaders__last">{{ pl.last_name }}</span>
@@ -220,12 +220,15 @@
   {% endif %}
 </div>
 </div>
-<div class="team-management-tabs">
+<div class="team-management-tabs" id="team-management-tabs">
   <a class="team-management-tabs__btn{% if active_panel == 'roster' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='roster') }}">Roster</a>
   <a class="team-management-tabs__btn{% if active_panel == 'depth' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='depth') }}">Depth Chart</a>
+  <a class="team-management-tabs__btn{% if active_panel == 'ratings' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='ratings') }}">Player Ratings</a>
   <a class="team-management-tabs__btn{% if active_panel == 'lines' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='lines') }}">Lines</a>
   <a class="team-management-tabs__btn{% if active_panel == 'salary' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='salary') }}">Salary</a>
   <a class="team-management-tabs__btn{% if active_panel == 'statistics' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='statistics') }}">Statistics</a>
+  <a class="team-management-tabs__btn{% if active_panel == 'staff' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='staff') }}">Staff</a>
+  <a class="team-management-tabs__btn{% if active_panel == 'franchise' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='franchise') }}">Franchise History</a>
 </div>
 
 {% if active_panel == 'roster' %}
@@ -250,7 +253,7 @@
               <a class="team-roster-player__name" href="{{ url_for('main.player_page', player_id=p.id) }}">{{ p.full_name }}</a>
             </span>
           </td>
-          <td>{{ p.position or '—' }}</td>
+          <td>{{ p | player_positions_display }}</td>
           <td>{{ roster_ages.get(p.id) if roster_ages.get(p.id) is not none else '—' }}</td>
           <td>{{ p.birth_date if p.birth_date else '—' }}</td>
           <td>
@@ -337,6 +340,8 @@
     </table>
   </div>
 </div>
+{% elif active_panel == 'ratings' %}
+{% include "_team_ratings_panel.html" %}
 {% elif active_panel == 'lines' %}
 <div class="team-lines-stack">
   {% for title, slots in lines_sections %}
@@ -430,6 +435,12 @@
   {% if season %}<p class="muted team-page-stats-card__season">Season: <strong>{{ season.label }}</strong></p>{% endif %}
   {% set team_statistics = team %}
   {% include "_statistics_panel.html" %}
+</div>
+{% elif active_panel == 'staff' %}
+{% include "_team_staff_panel.html" %}
+{% elif active_panel == 'franchise' %}
+<div class="card franchise-history-card">
+{% include "_team_franchise_leaders.html" %}
 </div>
 {% endif %}
 {% if prospects_list %}

@@ -1098,7 +1098,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 16023;179;179;Bryce;Lampman;;73;199;1982-8-31;Spring Park;MN;The United States;;;0;Left;1
 1097;224;224;Trent;McCleary;;72;182;1972-9-8;Swift Current;SK;Canada;;;0;Right;0
 1098;186;186;Shawn;McCosh;;72;197;1969-6-5;Oshawa;ON;Canada;;;0;Right;0
-13008;17;17;Steven;Reinprecht;;72;195;1976-5-7;Edmonton;AB;Canada;;;0;Left;1
+13008;68;17;Steven;Reinprecht;;72;195;1976-5-7;Edmonton;AB;Canada;;;0;Left;0
 14044;180;180;Marcus;Nilson;;74;196;1978-3-1;Bålsta;UPP;Sweden;;;0;Right;0
 1101;186;186;Darwin;McCutcheon;;77;218;1962-4-19;Brussels;ON;Canada;;;0;Left;0
 1102;186;186;Hubie;McDonough;;69;180;1963-7-8;Manchester;NH;The United States;;;0;Left;0
@@ -4461,7 +4461,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 12086;219;217;David;Wilkie;;75;216;1974-5-30;Fall City;WA;The United States;;;0;Right;0
 12087;63;12;Derek;Wilkinson;;72;170;1974-7-29;Murdochville;QC;Canada;;;0;Left;0
 12088;22;22;Stephane;Yelle;;74;194;1974-5-9;Ottawa;ON;Canada;;;0;Left;0
-12089;25;25;Harry;York;;74;216;1974-4-16;Peace River;AB;Canada;;;0;Left;0
+12089;76;25;Harry;York;;74;216;1974-4-16;Peace River;AB;Canada;;;0;Left;0
 12090;10;10;Rick;Girard;;70;174;1974-5-1;Elk Point;AB;Canada;Germany;;0;Left;0
 12091;26;26;Jukka;Hentunen;Joroisten Härkä;70;198;1974-5-3;Joroinen;SSA;Finland;;;0;Right;0
 12092;158;158;Libor;Procházka;;73;187;1974-4-25;Vlasim;STR;Czech Republic;;;0;Right;0
@@ -5381,7 +5381,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 13056;19;19;Ed;Jovanovski;Jovocop;75;220;1976-6-26;Windsor;ON;Canada;;;0;Left;0
 13057;0;0;Steve;Kelly;;74;205;1976-10-26;Vernon;BC;Canada;;;0;Left;1
 13058;73;22;Alexander;Kharitonov;;69;176;1976-3-30;Moscow;MOS;Russia;;;0;Right;0
-13059;76;25;Chad;Kilger;;76;225;1976-11-27;Cornwall;ON;Canada;;;0;Left;0
+13059;25;25;Chad;Kilger;;76;225;1976-11-27;Cornwall;ON;Canada;;;0;Left;0
 13060;24;24;Miikka;Kiprusoff;;73;184;1976-10-26;Turku;SOU;Finland;;;0;Left;0
 13061;18;18;Filip;Kuba;;76;229;1976-12-29;Ostrava;MOR;Czech Republic;;;0;Left;0
 13062;9;9;Christian;Laflamme;;73;209;1976-11-24;Toronto;ON;Canada;;;0;Right;0

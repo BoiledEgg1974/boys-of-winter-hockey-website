@@ -271,7 +271,7 @@ StaffId;Executive;Manager;Coach;Scout;Trainer;Off Pref;Phy Pref;Line Matching;Go
 269;20;5;1;1;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;0;0;0;0;0;0;0;2;0;2;2;2;0;0;0;;10;10
 270;20;5;1;1;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;0;0;0;0;0;0;0;1;0;1;1;1;0;0;0;;10;10
 271;1;10;10;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;4;4;4;4;4;4;4;4;4;4;4;4;4;4;0;;14;14
-272;1;10;20;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;5;5;5;5;5;5;5;2;5;2;2;2;5;5;0;;13;12
+272;1;10;19;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;5;5;5;5;5;5;5;2;5;2;2;2;5;5;0;;13;12
 273;1;10;20;15;1;Offensive;Physical;Balanced;Balanced;Balanced;Innovative;Ruthless;8;8;8;8;8;8;8;4;8;4;4;4;8;8;0;;13;12
 274;1;10;15;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;6;6;6;6;6;6;6;4;6;4;4;4;6;6;0;;13;12
 275;1;5;20;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;6;6;6;6;6;6;6;1;6;1;1;1;6;6;0;;13;12
@@ -1897,7 +1897,7 @@ StaffId;Executive;Manager;Coach;Scout;Trainer;Off Pref;Phy Pref;Line Matching;Go
 1895;1;10;15;20;1;Standard;Non-physical;Balanced;Balanced;Balanced;Balanced;Balanced;4;6;10;4;6;7;7;4;5;4;4;4;4;7;0;;16;17
 1896;1;15;20;17;1;Standard;Balanced;Aggressive;Balanced;Balanced;Balanced;Balanced;10;20;14;12;17;12;14;16;12;16;11;13;10;17;1;;13;12
 1897;1;15;20;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;7;10;16;7;10;12;12;8;9;8;8;8;7;12;0;;14;13
-1898;10;20;10;19;1;Standard;Balanced;Balanced;Balanced;Balanced;Innovative;Balanced;4;4;4;4;4;4;4;9;4;9;9;9;4;4;0;;14;14
+1898;10;20;10;18;1;Standard;Balanced;Balanced;Balanced;Balanced;Innovative;Balanced;4;4;4;4;4;4;4;9;4;9;9;9;4;4;0;;14;14
 1899;10;20;15;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;5;12;7;6;8;6;7;8;6;6;14;8;5;8;0;;14;14
 1900;1;10;15;20;1;Standard;Non-physical;Balanced;Balanced;Balanced;Balanced;Balanced;4;6;9;4;6;7;7;4;5;4;4;4;4;7;0;;14;14
 1901;1;5;20;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;8;8;8;8;8;8;8;2;8;2;2;2;8;8;0;;13;12

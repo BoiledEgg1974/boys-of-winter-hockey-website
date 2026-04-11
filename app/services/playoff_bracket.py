@@ -86,7 +86,15 @@ def _series_json(
 def playoff_bracket_payload(season_id: int | None) -> dict:
     """Return JSON-serializable bracket data for a season."""
     if season_id is None:
-        return {"season_id": None, "empty": True, "message": "No season.", "championship": None, "rounds": []}
+        return {
+            "season_id": None,
+            "empty": True,
+            "message": "No season.",
+            "championship": None,
+            "quarterfinals": [],
+            "semifinals": [],
+            "rounds": [],
+        }
 
     games = db.session.scalars(
         select(Game)
@@ -101,6 +109,8 @@ def playoff_bracket_payload(season_id: int | None) -> dict:
             "empty": True,
             "message": "No playoff games found. Games need a playoff-type label in the schedule import (e.g. Playoffs).",
             "championship": None,
+            "quarterfinals": [],
+            "semifinals": [],
             "rounds": [],
         }
 
@@ -155,24 +165,46 @@ def playoff_bracket_payload(season_id: int | None) -> dict:
         for tm in db.session.scalars(select(Team).where(Team.id.in_(team_ids))):
             teams[tm.id] = tm
 
-    series_sorted = sorted(
+    # Order by first playoff game so rounds read left-to-right in schedule order.
+    ordered = sorted(
         series_list,
         key=lambda s: (s.first_date or date.min, s.team_a_id, s.team_b_id),
     )
+    n = len(ordered)
 
-    # Championship = series that finished last (typical Cup final)
-    champ = max(series_sorted, key=lambda s: (s.last_date or date.min, s.last_date is not None))
-    others = [s for s in series_sorted if s is not champ]
-    if len(series_sorted) == 1:
-        others = []
+    def partition_rounds() -> tuple[list[SeriesAgg], list[SeriesAgg], SeriesAgg | None]:
+        """First round (up to 4+), second round (2), final (1).
 
-    def pack_rounds(sl: list[SeriesAgg]) -> list[dict]:
+        Do **not** infer the final from latest game date — that mis-labels a first-round
+        series as the championship when every matchup is still the same round (e.g. four
+        parallel best-of-seven series).
+        """
+        if n == 0:
+            return [], [], None
+        if n == 1:
+            return [], [], ordered[0]
+        if n == 2:
+            return [], ordered, None
+        if n == 3:
+            return [], ordered[:2], ordered[2]
+        if n == 4:
+            return ordered, [], None
+        if n == 5:
+            return ordered[:4], ordered[4:5], None
+        if n == 6:
+            return ordered[:4], ordered[4:6], None
+        if n >= 7:
+            return ordered[:-3], ordered[-3:-1], ordered[-1]
+        raise AssertionError(f"Unexpected playoff series count: {n}")
+
+    quarterfinals, semifinals, championship_series = partition_rounds()
+
+    def pack_rounds_fallback(sl: list[SeriesAgg]) -> list[dict]:
         if not sl:
             return []
         n = len(sl)
         if n <= 2:
             return [{"label": "Playoff series", "series": [_series_json(x, teams) for x in sl]}]
-        # Split into up to 3 columns for a single-league bracket (no conferences)
         third = (n + 2) // 3
         chunks = [sl[:third], sl[third : 2 * third], sl[2 * third :]]
         labels = ("Round 1", "Round 2", "Semifinals")
@@ -182,14 +214,25 @@ def playoff_bracket_payload(season_id: int | None) -> dict:
                 out.append({"label": lab, "series": [_series_json(x, teams) for x in chunk]})
         return out
 
-    rounds = pack_rounds(others)
-    champ_j = _series_json(champ, teams)
+    # Legacy "rounds" grid for older clients; UI should use quarterfinals / semifinals / championship.
+    rounds = (
+        [
+            {"label": "First round", "series": [_series_json(x, teams) for x in quarterfinals]},
+            {"label": "Second round", "series": [_series_json(x, teams) for x in semifinals]},
+        ]
+        if quarterfinals or semifinals
+        else pack_rounds_fallback(ordered)
+    )
+
+    champ_j = _series_json(championship_series, teams) if championship_series else None
 
     return {
         "season_id": season_id,
         "empty": False,
         "message": "",
         "championship": champ_j,
+        "quarterfinals": [_series_json(x, teams) for x in quarterfinals],
+        "semifinals": [_series_json(x, teams) for x in semifinals],
         "rounds": rounds,
-        "series_total": len(series_sorted),
+        "series_total": n,
     }

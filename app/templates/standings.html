@@ -154,11 +154,12 @@
     <header class="playoff-bracket-dialog__head">
       <div>
         <h2 id="playoff-bracket-title" class="playoff-bracket-dialog__title">Playoff Bracket</h2>
-        <p class="playoff-bracket-dialog__subtitle">Single-league bracket · Conference splits can be added when the league expands.</p>
       </div>
       <button type="button" class="playoff-bracket-dialog__close" id="js-close-playoff-bracket" aria-label="Close">&times;</button>
     </header>
-    <div class="playoff-bracket-dialog__body" id="playoff-bracket-root">
+    <div class="playoff-bracket-dialog__body" id="playoff-bracket-root"
+         data-bowl-championship="{{ '1' if config.LEAGUE_SLUG == 'bowl-historical' else '' }}"
+         data-trophy-url="{{ url_for('static', filename='img/bowl-championship-cup.png') }}">
       <p class="muted playoff-bracket-dialog__loading">Loading bracket…</p>
     </div>
   </div>
@@ -171,75 +172,132 @@
   var closeBtn = document.getElementById('js-close-playoff-bracket');
   if (!dlg || !root || !openBtn) return;
 
+  var EXPECT_R1 = 4;
+  var EXPECT_R2 = 2;
+
+  function withRoot(path) {
+    var r = document.documentElement.getAttribute('data-application-root') || '';
+    r = r.replace(/\/$/, '');
+    if (!path.startsWith('/')) path = '/' + path;
+    return r + path;
+  }
   function esc(s) {
     if (s == null || s === '') return '';
     var d = document.createElement('div');
     d.textContent = s;
     return d.innerHTML;
   }
-  function teamSide(t, sideClass) {
+  function outcomeForSide(wa, wb, isA) {
+    if (wa === wb) return '';
+    if (isA) return wa > wb ? 'win' : 'loss';
+    return wb > wa ? 'win' : 'loss';
+  }
+  function teamSide(t, sideClass, outcome) {
     if (!t) return '<span class="bracket-team bracket-team--empty">—</span>';
     var logo = t.logo_url
-      ? '<img src="' + esc(t.logo_url) + '" alt="" class="bracket-team__logo" width="60" height="60">'
+      ? '<img src="' + esc(t.logo_url) + '" alt="" class="bracket-team__logo" width="56" height="56">'
       : '';
     var name = esc(t.abbreviation || t.name || '');
-    var link = t.slug ? '/team/' + esc(t.slug) : '';
+    var link = t.slug ? withRoot('/team/' + t.slug) : '';
+    var oc = outcome === 'win' ? ' bracket-team--won' : outcome === 'loss' ? ' bracket-team--lost' : '';
     var inner = link
       ? '<a class="bracket-team__link" href="' + link + '">' + logo + '<span class="bracket-team__abbr">' + name + '</span></a>'
       : '<span class="bracket-team__nolink">' + logo + '<span class="bracket-team__abbr">' + name + '</span></span>';
-    return '<div class="bracket-team ' + sideClass + '">' + inner + '</div>';
+    return '<div class="bracket-team ' + sideClass + oc + '">' + inner + '</div>';
   }
   function seriesFooter(s) {
-    var wa = s.wins_a, wb = s.wins_b, gp = s.games_played || 0;
-    if (s.winner && s.winner.name) {
-      var w = Math.max(wa, wb), l = Math.min(wa, wb);
-      return '<div class="bracket-matchup__footer"><span class="bracket-matchup__line"><strong class="bracket-matchup__winner-label">Winner</strong> · ' + esc(s.winner.name) + ' · ' + w + '-' + l + (gp ? ' · ' + gp + ' GP' : '') + '</span></div>';
+    var wa = s.wins_a, wb = s.wins_b, bo = 7;
+    if (wa === wb) {
+      return '<div class="bracket-matchup__footer">Tied ' + wa + '-' + wb + ' (' + bo + ')</div>';
     }
-    return '<div class="bracket-matchup__footer bracket-matchup__footer--live">' + esc(s.team_a && s.team_a.abbreviation) + ' ' + wa + ' — ' + wb + ' ' + esc(s.team_b && s.team_b.abbreviation) + (gp ? ' · ' + gp + ' GP' : '') + '</div>';
+    var hi = Math.max(wa, wb), lo = Math.min(wa, wb);
+    var leader = wa > wb ? s.team_a : s.team_b;
+    var nm = leader && leader.name ? esc(leader.name) : '';
+    return '<div class="bracket-matchup__footer">' + nm + ' ' + hi + '-' + lo + ' (' + bo + ')</div>';
   }
-  function seriesCard(s, champ) {
-    var cls = champ ? ' bracket-matchup--championship' : '';
+  function seriesCard(s, isFinalSlot) {
+    var wa = s.wins_a, wb = s.wins_b;
+    var oa = outcomeForSide(wa, wb, true);
+    var ob = outcomeForSide(wa, wb, false);
+    var cls = isFinalSlot ? ' bracket-matchup--championship' : '';
     return '<div class="bracket-matchup' + cls + '">' +
       '<div class="bracket-matchup__row">' +
-        teamSide(s.team_a, 'bracket-team--a') +
-        '<span class="bracket-matchup__at">at</span>' +
-        teamSide(s.team_b, 'bracket-team--b') +
+        teamSide(s.team_a, 'bracket-team--a', oa) +
+        '<span class="bracket-matchup__at">AT</span>' +
+        teamSide(s.team_b, 'bracket-team--b', ob) +
       '</div>' +
       seriesFooter(s) +
     '</div>';
+  }
+  function placeholderCard() {
+    return '<div class="bracket-matchup bracket-matchup--placeholder" aria-hidden="true">' +
+      '<div class="bracket-matchup__row bracket-matchup__row--tbd">' +
+        '<span class="bracket-matchup__tbd">TBD</span>' +
+      '</div>' +
+      '<div class="bracket-matchup__footer bracket-matchup__footer--placeholder">—</div>' +
+    '</div>';
+  }
+  function columnRound(label, seriesArr, expected, middleCol) {
+    var list = seriesArr || [];
+    var colCls = 'bracket-col' + (middleCol ? ' bracket-col--middle' : '');
+    var html = '<div class="' + colCls + '">';
+    html += '<h4 class="bracket-round__label bracket-round__label--visual">' + esc(label) + '</h4>';
+    html += '<div class="bracket-round__matchups">';
+    for (var i = 0; i < expected; i++) {
+      html += list[i] ? seriesCard(list[i], false) : placeholderCard();
+    }
+    html += '</div></div>';
+    return html;
+  }
+  function finalColumn(championship) {
+    var bowl = root.getAttribute('data-bowl-championship') === '1';
+    var trophy = root.getAttribute('data-trophy-url') || '';
+    var html = '<div class="bracket-col bracket-col--final">';
+    html += '<h4 class="bracket-round__label bracket-round__label--visual">Final (BO7)</h4>';
+    if (bowl && trophy) {
+      html += '<div class="bracket-final-banner">';
+      html += '<p class="bracket-bowl-title">BOWL Championship</p>';
+      html += '<img class="bracket-trophy-img" src="' + esc(trophy) + '" width="120" height="160" alt="">';
+      html += '</div>';
+    } else {
+      html += '<div class="bracket-final-banner bracket-final-banner--minimal"><p class="bracket-bowl-title bracket-bowl-title--generic">Championship</p></div>';
+    }
+    html += '<div class="bracket-round__matchups bracket-round__matchups--single">';
+    html += championship ? seriesCard(championship, true) : placeholderCard();
+    html += '</div></div>';
+    return html;
+  }
+  function normalizeRounds(data) {
+    if (data.series_total === 1 && data.championship) {
+      return { r1: [], r2: [] };
+    }
+    var r1 = data.quarterfinals;
+    var r2 = data.semifinals;
+    if ((r1 && r1.length) || (r2 && r2.length)) return { r1: r1 || [], r2: r2 || [] };
+    if (data.rounds && data.rounds.length) {
+      var a = (data.rounds[0] && data.rounds[0].series) || [];
+      var b = (data.rounds[1] && data.rounds[1].series) || [];
+      return { r1: a, r2: b };
+    }
+    return { r1: [], r2: [] };
   }
   function render(data) {
     if (!data || data.empty) {
       root.innerHTML = '<p class="empty-state">' + esc(data && data.message ? data.message : 'No playoff data.') + '</p>';
       return;
     }
-    var html = '';
-    if (data.championship) {
-      html += '<section class="bracket-block bracket-block--final" aria-label="Championship">';
-      html += '<h3 class="bracket-block__title"><span class="bracket-block__icon" aria-hidden="true">🏆</span> Championship</h3>';
-      html += seriesCard(data.championship, true);
-      html += '</section>';
-    }
-    if (data.rounds && data.rounds.length) {
-      html += '<section class="bracket-block bracket-block--rounds" aria-label="Playoff rounds">';
-      html += '<h3 class="bracket-block__heading">Playoff bracket</h3>';
-      html += '<div class="bracket-rounds">';
-      data.rounds.forEach(function (round) {
-        html += '<div class="bracket-round">';
-        html += '<h4 class="bracket-round__label">' + esc(round.label) + '</h4>';
-        html += '<div class="bracket-round__matchups">';
-        (round.series || []).forEach(function (s) {
-          html += seriesCard(s, false);
-        });
-        html += '</div></div>';
-      });
-      html += '</div></section>';
-    }
-    root.innerHTML = html || '<p class="empty-state">Nothing to display.</p>';
+    var parts = normalizeRounds(data);
+    var html = '<section class="bracket-visual-wrap" aria-label="Playoff bracket">';
+    html += '<div class="bracket-visual">';
+    html += columnRound('First round (BO7)', parts.r1, EXPECT_R1, false);
+    html += columnRound('Second round (BO7)', parts.r2, EXPECT_R2, true);
+    html += finalColumn(data.championship);
+    html += '</div></section>';
+    root.innerHTML = html;
   }
   function load() {
     root.innerHTML = '<p class="muted playoff-bracket-dialog__loading">Loading bracket…</p>';
-    var url = '/api/playoff-bracket{% if season %}?season_id={{ season.id }}{% endif %}';
+    var url = withRoot('/api/playoff-bracket{% if season %}?season_id={{ season.id }}{% endif %}');
     fetch(url).then(function (r) { return r.json(); }).then(render).catch(function () {
       root.innerHTML = '<p class="empty-state">Could not load playoff bracket.</p>';
     });

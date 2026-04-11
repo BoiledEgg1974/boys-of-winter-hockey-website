@@ -512,7 +512,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 5663;89;89;Doug;Grant;;74;240;1948-7-27;Channel-Port aux Basques;NL;Canada;;;0;Left;1
 4616;119;119;Jack;Norris;;70;185;1942-8-5;Leroy;SK;Canada;;;0;Left;0
 3876;122;122;Len;Lunde;;72;194;1936-11-13;Campbell River;BC;Canada;;;0;Right;0
-3965;19;0;Jean-Guy;Morissette;;68;140;1937-12-16;Causapscal;QC;Canada;;;0;Left;0
+3965;0;0;Jean-Guy;Morissette;;68;140;1937-12-16;Causapscal;QC;Canada;;;0;Left;0
 6344;85;85;Michel;Deguise;;69;163;1951-11-6;Châteauguay;QC;Canada;;;0;Left;1
 6115;83;83;Jerry;Engele;;72;197;1950-11-26;Kerrobert;SK;Canada;;;0;Left;0
 5423;84;84;Don;Grierson;;72;205;1947-6-18;Toronto;ON;Canada;;;0;Right;0

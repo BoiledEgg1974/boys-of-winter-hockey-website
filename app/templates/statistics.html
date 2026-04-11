@@ -2,8 +2,6 @@
 {% block title %}STATISTICS — Boys of Winter Hockey League{% endblock %}
 {% block content %}
 <div class="stats-page">
-  <h1 class="page-title stats-page__title">STATISTICS</h1>
-  {% if season %}<p class="stats-page__season muted">Season: <strong>{{ season.label }}</strong></p>{% endif %}
   {% set team_statistics = none %}
   {% include "_statistics_panel.html" %}
 </div>

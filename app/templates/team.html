@@ -431,8 +431,6 @@
 </div>
 {% elif active_panel == 'statistics' %}
 <div class="card team-page-stats-card">
-  <h2>Statistics</h2>
-  {% if season %}<p class="muted team-page-stats-card__season">Season: <strong>{{ season.label }}</strong></p>{% endif %}
   {% set team_statistics = team %}
   {% include "_statistics_panel.html" %}
 </div>

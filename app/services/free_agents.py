@@ -6,6 +6,7 @@ from datetime import date
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
+from app.config import free_agents_exclude_nhl_bowl_drafted_max_age
 from app.models import Draft, DraftPick, Player, PlayerContract, Prospect, Team
 from app.services.draft_history import nhl_bowl_draft_clause
 
@@ -109,7 +110,32 @@ def undrafted_prospects_player_ids(session: Session, age_ref: date, *, max_age: 
     for pid, bd in rows:
         if bd is None:
             continue
-        if _player_age_years_on(bd, age_ref) <= 20:
+        if _player_age_years_on(bd, age_ref) <= max_age:
+            out.add(int(pid))
+    return frozenset(out)
+
+
+def _nhl_bowl_drafted_player_ids_age_lte(session: Session, age_ref: date, *, max_age: int) -> frozenset[int]:
+    """Player ids with an NHL/BOWL draft pick whose age (season reference) is at most ``max_age``."""
+    drafted_subq = (
+        select(DraftPick.player_id)
+        .join(Draft, DraftPick.draft_id == Draft.id)
+        .where(DraftPick.player_id.isnot(None))
+        .where(nhl_bowl_draft_clause())
+        .distinct()
+    )
+    rows = session.execute(
+        select(Player.id, Player.birth_date).where(
+            Player.retired.is_(False),
+            Player.birth_date.isnot(None),
+            Player.id.in_(drafted_subq),
+        )
+    ).all()
+    out: set[int] = set()
+    for pid, bd in rows:
+        if bd is None:
+            continue
+        if _player_age_years_on(bd, age_ref) <= max_age:
             out.add(int(pid))
     return frozenset(out)
 
@@ -159,7 +185,7 @@ def position_clause_for_role(role: str):
 
 
 def fetch_free_agent_players(
-    session: Session, role: str, *, age_ref: date, undrafted_max_age: int
+    session: Session, role: str, *, age_ref: date, undrafted_max_age: int, league_slug: str = ""
 ) -> list[Player]:
     """Players not on an NHL/BOWL main roster who are also free of NHL/BOWL org rights.
 
@@ -168,6 +194,8 @@ def fetch_free_agent_players(
       ``Prospect`` of such a team — matches who can appear on a franchise depth chart without being
       on the big club's active roster.
     * **Undrafted pool:** excludes same set as Undrafted Prospects for this league (age cap + no NHL/BOWL pick).
+    * **Drafted juniors (Fantasy/Cap):** excludes players with an NHL/BOWL draft pick through a league-specific
+      age ceiling when exports omit prospect/contract rows for rights-holders in other leagues.
     """
     if role not in FA_ROLES:
         role = "fwd"
@@ -193,4 +221,11 @@ def fetch_free_agent_players(
     )
     if skip_ud:
         q = q.where(Player.id.not_in(skip_ud))
+    draft_hide_age = free_agents_exclude_nhl_bowl_drafted_max_age(league_slug)
+    if draft_hide_age is not None:
+        skip_drafted_young = _nhl_bowl_drafted_player_ids_age_lte(
+            session, age_ref, max_age=draft_hide_age
+        )
+        if skip_drafted_young:
+            q = q.where(Player.id.not_in(skip_drafted_young))
     return list(session.scalars(q).unique().all())

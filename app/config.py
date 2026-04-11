@@ -55,6 +55,17 @@ def undrafted_prospects_age_filter_options(league_slug: str) -> tuple[int, ...]:
     return tuple(range(top, 14, -1))
 
 
+def free_agents_exclude_nhl_bowl_drafted_max_age(league_slug: str) -> int | None:
+    """Inclusive upper age for hiding NHL/BOWL draft picks from Free Agents.
+
+    Saves with full draft imports list juniors on other leagues without contract/prospect rows; those
+    players are not true UFAs. Historical uses ``None`` so sparse draft data does not empty the list.
+    """
+    if league_slug in ("bowl-fantasy", "bowl-cap"):
+        return 27
+    return None
+
+
 # If instance/<new-slug>.db is missing, use these pre-rename filenames (same DB content).
 _LEGACY_LEAGUE_DB_FILES: dict[str, str] = {
     "bowl-historical": "league2.db",

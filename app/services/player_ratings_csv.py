@@ -9,14 +9,12 @@ from flask import current_app, has_app_context
 from app.config import Config
 from scripts.import_pipeline.encoding_utils import cell_val, read_csv_normalized
 
-_cache: dict[str, dict] | None = None
-_cache_path: Path | None = None
-_cache_mtime: float | None = None
+# One entry per resolved CSV path so multi-league apps in one process keep correct, warm caches.
+_cache_entries: dict[str, tuple[float, dict[str, dict]]] = {}
 
 
 def get_player_ratings_row(fhm_player_id: str | None) -> dict | None:
     """Return normalized column dict for PlayerId, or None if file missing / player not found."""
-    global _cache, _cache_path, _cache_mtime
     if not fhm_player_id:
         return None
     raw_dir = (
@@ -27,18 +25,20 @@ def get_player_ratings_row(fhm_player_id: str | None) -> dict | None:
     path = raw_dir / "player_ratings.csv"
     if not path.is_file():
         return None
+    path_key = str(path.resolve())
     mtime = path.stat().st_mtime
-    if _cache is None or path != _cache_path or mtime != _cache_mtime:
+    ent = _cache_entries.get(path_key)
+    if ent is None or ent[0] != mtime:
         df = read_csv_normalized(path)
-        _cache = {}
+        by_id: dict[str, dict] = {}
         for _, row in df.iterrows():
             r = row.to_dict()
             pid = cell_val(r, "playerid")
             if pid:
-                _cache[str(pid).strip()] = r
-        _cache_path = path
-        _cache_mtime = mtime
-    return _cache.get(str(fhm_player_id).strip())
+                by_id[str(pid).strip()] = r
+        _cache_entries[path_key] = (mtime, by_id)
+        ent = _cache_entries[path_key]
+    return ent[1].get(str(fhm_player_id).strip())
 
 
 ELIGIBLE_POSITION_DISPLAY_MIN_RATING: float = 14.0

@@ -1169,8 +1169,11 @@ def free_agents():
     fa_expanded = request.args.get("expanded") == "1"
     page_limit = 80
 
-    ud_cap = undrafted_prospects_max_age(str(current_app.config.get("LEAGUE_SLUG") or ""))
-    pool = fetch_free_agent_players(session, role, age_ref=age_ref, undrafted_max_age=ud_cap)
+    league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    ud_cap = undrafted_prospects_max_age(league_slug)
+    pool = fetch_free_agent_players(
+        session, role, age_ref=age_ref, undrafted_max_age=ud_cap, league_slug=league_slug
+    )
 
     items: list[dict[str, object]] = []
     for pl in pool:

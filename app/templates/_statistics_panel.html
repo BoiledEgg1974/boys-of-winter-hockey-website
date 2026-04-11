@@ -113,7 +113,15 @@
 <th{% if th_class %} class="{{ th_class }}"{% endif %}><a href="{{ g_url(k) }}" class="stats-th-link {{ 'is-sorted' if g_sort == k else '' }}" title="{{ tip|e }}">{{ text }}</a></th>
 {%- endmacro %}
 
-  <div class="stats-toolbar card">
+  <div class="stats-page__sticky-head">
+    {% if team_statistics %}
+    <h2>Statistics</h2>
+    {% if season %}<p class="muted team-page-stats-card__season">Season: <strong>{{ season.label }}</strong></p>{% endif %}
+    {% else %}
+    <h1 class="page-title stats-page__title">STATISTICS</h1>
+    {% if season %}<p class="stats-page__season muted">Season: <strong>{{ season.label }}</strong></p>{% endif %}
+    {% endif %}
+    <div class="stats-toolbar card">
     <div class="stats-toolbar__row">
       <span class="stats-toolbar__label">View</span>
       <div class="stats-toolbar__btns">
@@ -163,12 +171,13 @@
       </div>
     </div>
     {% endif %}
+    </div>
   </div>
 
   {% if not season %}
-  <div class="stats-panel card"><p class="empty-state">No season data.</p></div>
+  <div class="stats-panel stats-panel--statistics card"><p class="empty-state">No season data.</p></div>
   {% elif show_goalies %}
-  <div class="stats-panel card">
+  <div class="stats-panel stats-panel--statistics card">
     <p class="stats-page__hint muted">Scroll horizontally for more columns. Click a column heading to sort (except #, ABI, and POT).</p>
     <div class="table-wrap stats-table-wrap stats-table-scroll">
       <table class="data stats-table stats-table--h-sticky">
@@ -244,7 +253,7 @@
     {% endif %}
   </div>
   {% else %}
-  <div class="stats-panel card">
+  <div class="stats-panel stats-panel--statistics card">
     <p class="stats-page__hint muted">Scroll horizontally for more columns. Click a column heading to sort (except #, ABI, and POT).</p>
     <div class="table-wrap stats-table-wrap stats-table-scroll">
       <table class="data stats-table stats-table--h-sticky">

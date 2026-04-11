@@ -5,15 +5,17 @@
   <h1 class="page-title">DRAFT HISTORY</h1>
 
   {% if draft_years %}
-  <form method="get" class="card draft-history-page__picker" style="padding:0.75rem;margin-bottom:1rem;">
-    <label>Draft year
-      <select name="year" onchange="this.form.submit()">
-        {% for y in draft_years %}
-        <option value="{{ y }}" {{ 'selected' if draft_year == y else '' }}>{{ y }}</option>
-        {% endfor %}
-      </select>
-    </label>
-  </form>
+  <div class="draft-history-page__picker-sticky">
+    <form method="get" class="card draft-history-page__picker">
+      <label>Draft year
+        <select name="year" onchange="this.form.submit()">
+          {% for y in draft_years %}
+          <option value="{{ y }}" {{ 'selected' if draft_year == y else '' }}>{{ y }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </form>
+  </div>
   {% endif %}
 
   {% if draft_year and picks_by_round %}

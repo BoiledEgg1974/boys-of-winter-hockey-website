@@ -1,5 +1,7 @@
 /* Boys of Winter League — layout, themes, responsive */
 :root {
+  /* Sticky site header height band — in-page anchors + draft year bar ``top`` */
+  --scroll-padding-top: 232px;
   /* Multiply prior team logo pixel sizes by 1.1 sitewide */
   --team-logo-mul: 1.1;
   /* Logos beside team names in tables, standings, stats, etc. (not header strip / team hero) */
@@ -42,7 +44,7 @@
 }
 
 html {
-  scroll-padding-top: 120px;
+  scroll-padding-top: var(--scroll-padding-top);
 }
 
 body {
@@ -2182,7 +2184,7 @@ table.data.team-staff-table thead th.team-staff-th--split {
 .team-page-stats-card__season {
   margin: 0 0 1rem;
 }
-.team-page-stats-card > .stats-toolbar.card {
+.team-page-stats-card .stats-toolbar.card {
   margin-top: 0;
 }
 .team-page-stats-card > .stats-panel.card:last-child {
@@ -2316,6 +2318,9 @@ table.data.team-staff-table thead th.team-staff-th--split {
 }
 
 @media (max-width: 720px) {
+  :root {
+    --scroll-padding-top: 212px;
+  }
   .nav-toggle {
     display: block;
   }
@@ -2390,6 +2395,9 @@ table.data.team-staff-table thead th.team-staff-th--split {
 }
 
 @media (max-width: 420px) {
+  :root {
+    --scroll-padding-top: 200px;
+  }
   .league-brand img {
     width: 74px;
     height: 74px;
@@ -2511,11 +2519,33 @@ table.data-sortable thead th.th-sortable.is-sorted-desc::after {
 }
 
 /* Statistics page — dark panel + toolbar */
+.stats-page__sticky-head {
+  position: sticky;
+  top: var(--scroll-padding-top);
+  z-index: 35;
+  background: var(--bg);
+  padding-bottom: 0.25rem;
+  margin-bottom: 0;
+  box-shadow: 0 6px 14px -6px rgb(0 0 0 / 0.45);
+}
+[data-theme="light"] .stats-page__sticky-head {
+  box-shadow: 0 4px 12px -4px rgb(15 23 42 / 0.12);
+}
+.team-page-stats-card .stats-page__sticky-head {
+  background: var(--surface);
+  box-shadow: 0 6px 14px -6px rgb(0 0 0 / 0.35);
+}
+[data-theme="light"] .team-page-stats-card .stats-page__sticky-head {
+  box-shadow: 0 4px 12px -4px rgb(15 23 42 / 0.1);
+}
 .stats-page__title {
   margin-bottom: 0.35rem;
 }
 .stats-page__season {
-  margin: 0 0 1rem;
+  margin: 0 0 0.75rem;
+}
+.team-page-stats-card .stats-page__sticky-head .team-page-stats-card__season {
+  margin: 0 0 0.75rem;
 }
 .stats-page__hint {
   margin: 0 0 0.65rem;
@@ -2601,21 +2631,29 @@ table.data-sortable thead th.th-sortable.is-sorted-desc::after {
   --stats-freeze-player-w: 13rem;
   --stats-freeze-abi-w: 3.35rem;
   --stats-freeze-pot-w: 3.35rem;
-  --stats-freeze-bg: #1e293b;
-  --stats-freeze-bg-alt: color-mix(in srgb, #1e293b 92%, #ffffff 8%);
-  --stats-freeze-head-bg: rgb(15 23 42 / 0.98);
   padding: 0.85rem 1rem !important;
   background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
   color: #e2e8f0;
   border: 1px solid rgb(56 189 248 / 0.22);
 }
+/* League / team season statistics (horizontal sticky columns) — solid zebra matches frozen + scroll cols */
+.stats-panel.stats-panel--statistics {
+  --stats-freeze-head-bg: rgb(15 23 42 / 0.98);
+  --stats-row-bg-odd: rgb(22 30 46);
+  /* Subtle zebra — was 91/9% and read very high-contrast */
+  --stats-row-bg-even: color-mix(in srgb, rgb(22 30 46) 97%, rgb(255 255 255) 3%);
+  background: var(--stats-row-bg-odd);
+}
 [data-theme="light"] .stats-panel {
-  --stats-freeze-bg: var(--surface);
-  --stats-freeze-bg-alt: var(--row-alt);
-  --stats-freeze-head-bg: var(--surface);
   background: var(--surface);
   color: var(--text);
   border: 1px solid var(--border);
+}
+[data-theme="light"] .stats-panel.stats-panel--statistics {
+  --stats-freeze-head-bg: var(--surface);
+  --stats-row-bg-odd: var(--surface);
+  --stats-row-bg-even: color-mix(in srgb, var(--surface) 96%, var(--text) 4%);
+  background: var(--surface);
 }
 .stats-panel .muted,
 .stats-panel .stats-page__hint {
@@ -2638,8 +2676,8 @@ table.data-sortable thead th.th-sortable.is-sorted-desc::after {
   border-collapse: separate;
   border-spacing: 0;
 }
-.stats-panel .stats-table.stats-table--h-sticky thead th:nth-child(1),
-.stats-panel .stats-table.stats-table--h-sticky tbody td:nth-child(1) {
+.stats-panel.stats-panel--statistics .stats-table.stats-table--h-sticky thead th:nth-child(1),
+.stats-panel.stats-panel--statistics .stats-table.stats-table--h-sticky tbody td:nth-child(1) {
   position: sticky;
   left: 0;
   z-index: 3;
@@ -2649,8 +2687,8 @@ table.data-sortable thead th.th-sortable.is-sorted-desc::after {
   box-sizing: border-box;
   box-shadow: 1px 0 0 rgb(148 163 184 / 0.22);
 }
-.stats-panel .stats-table.stats-table--h-sticky thead th:nth-child(2),
-.stats-panel .stats-table.stats-table--h-sticky tbody td:nth-child(2) {
+.stats-panel.stats-panel--statistics .stats-table.stats-table--h-sticky thead th:nth-child(2),
+.stats-panel.stats-panel--statistics .stats-table.stats-table--h-sticky tbody td:nth-child(2) {
   position: sticky;
   left: var(--stats-freeze-rank-w);
   z-index: 3;
@@ -2660,8 +2698,8 @@ table.data-sortable thead th.th-sortable.is-sorted-desc::after {
   box-sizing: border-box;
   box-shadow: 1px 0 0 rgb(148 163 184 / 0.22);
 }
-.stats-panel .stats-table.stats-table--h-sticky thead th:nth-child(3),
-.stats-panel .stats-table.stats-table--h-sticky tbody td:nth-child(3) {
+.stats-panel.stats-panel--statistics .stats-table.stats-table--h-sticky thead th:nth-child(3),
+.stats-panel.stats-panel--statistics .stats-table.stats-table--h-sticky tbody td:nth-child(3) {
   position: sticky;
   left: calc(var(--stats-freeze-rank-w) + var(--stats-freeze-player-w));
   z-index: 3;
@@ -2671,8 +2709,8 @@ table.data-sortable thead th.th-sortable.is-sorted-desc::after {
   box-sizing: border-box;
   box-shadow: 1px 0 0 rgb(148 163 184 / 0.22);
 }
-.stats-panel .stats-table.stats-table--h-sticky thead th:nth-child(4),
-.stats-panel .stats-table.stats-table--h-sticky tbody td:nth-child(4) {
+.stats-panel.stats-panel--statistics .stats-table.stats-table--h-sticky thead th:nth-child(4),
+.stats-panel.stats-panel--statistics .stats-table.stats-table--h-sticky tbody td:nth-child(4) {
   position: sticky;
   left: calc(var(--stats-freeze-rank-w) + var(--stats-freeze-player-w) + var(--stats-freeze-abi-w));
   z-index: 3;
@@ -2682,26 +2720,35 @@ table.data-sortable thead th.th-sortable.is-sorted-desc::after {
   box-sizing: border-box;
   box-shadow: 1px 0 0 rgb(148 163 184 / 0.22);
 }
-.stats-panel .stats-table.stats-table--h-sticky tbody td:nth-child(-n + 4) {
-  background: var(--stats-freeze-bg);
+.stats-panel.stats-panel--statistics .stats-table.stats-table--h-sticky tbody tr:nth-child(odd) td {
+  background-color: var(--stats-row-bg-odd);
 }
-.stats-panel .stats-table.stats-table--h-sticky tbody tr:nth-child(even) td:nth-child(-n + 4) {
-  background: var(--stats-freeze-bg-alt);
+.stats-panel.stats-panel--statistics .stats-table.stats-table--h-sticky tbody tr:nth-child(even) td {
+  background-color: var(--stats-row-bg-even);
 }
-.stats-panel .stats-table.stats-table--h-sticky tbody tr td:nth-child(-n + 4).stats-td-sorted {
+.stats-panel.stats-panel--statistics .stats-table.stats-table--h-sticky tbody tr td:nth-child(-n + 4).stats-td-sorted {
   background: rgb(56 189 248 / 0.18) !important;
 }
-[data-theme="light"] .stats-panel .stats-table.stats-table--h-sticky tbody tr td:nth-child(-n + 4).stats-td-sorted {
+[data-theme="light"]
+  .stats-panel.stats-panel--statistics
+  .stats-table.stats-table--h-sticky
+  tbody
+  tr
+  td:nth-child(-n + 4).stats-td-sorted {
   background: rgb(3 105 161 / 0.14) !important;
 }
-.stats-panel .stats-table.stats-table--h-sticky thead th:nth-child(-n + 4) {
+.stats-panel.stats-panel--statistics .stats-table.stats-table--h-sticky thead th:nth-child(-n + 4) {
   z-index: 7;
   background: var(--stats-freeze-head-bg);
 }
-.stats-panel .stats-table.stats-table--h-sticky thead th:nth-child(-n + 4):has(> .stats-th-link.is-sorted) {
+.stats-panel.stats-panel--statistics .stats-table.stats-table--h-sticky thead th:nth-child(-n + 4):has(> .stats-th-link.is-sorted) {
   background: rgb(30 41 59 / 0.98);
 }
-[data-theme="light"] .stats-panel .stats-table.stats-table--h-sticky thead th:nth-child(-n + 4):has(> .stats-th-link.is-sorted) {
+[data-theme="light"]
+  .stats-panel.stats-panel--statistics
+  .stats-table.stats-table--h-sticky
+  thead
+  th:nth-child(-n + 4):has(> .stats-th-link.is-sorted) {
   background: var(--row-alt);
 }
 .stats-table.stats-table--h-sticky .stats-player-cell__text {
@@ -2828,6 +2875,11 @@ table.data.stats-table .stats-badge.stats-badge--overall {
   width: calc(var(--stats-photo-size) * 0.8 * var(--team-inline-logo-mul));
   height: calc(var(--stats-photo-size) * 0.8 * var(--team-inline-logo-mul));
 }
+/* Statistics panel only: team crests 25% smaller than default stats-player sizing */
+.stats-panel.stats-panel--statistics .stats-player-cell .team-name-lockup__logo {
+  width: calc(var(--stats-photo-size) * 0.6 * var(--team-inline-logo-mul));
+  height: calc(var(--stats-photo-size) * 0.6 * var(--team-inline-logo-mul));
+}
 .stats-player-cell__photo {
   flex-shrink: 0;
   width: var(--stats-photo-size);
@@ -2917,6 +2969,21 @@ table.data.stats-table .stats-badge.stats-badge--overall {
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 1rem 2rem;
+}
+/* Below full sticky .site-header; ``top`` matches html scroll-padding */
+.draft-history-page__picker-sticky {
+  position: sticky;
+  top: var(--scroll-padding-top);
+  z-index: 40;
+  margin-bottom: 1rem;
+}
+.draft-history-page__picker {
+  padding: 0.75rem 1rem;
+  margin-bottom: 0;
+  background: var(--surface);
+}
+.draft-history-page__picker-sticky .draft-history-page__picker.card {
+  margin-bottom: 0;
 }
 .draft-history-round {
   margin-bottom: 1.25rem;
@@ -3141,6 +3208,22 @@ table.data.prospects-rankings-table--undrafted td:nth-child(2) .stats-player-cel
   object-fit: cover;
   display: block;
 }
+/* Prospect Rankings (/prospects): room for full crests — padded rounded box + contain (not circular cover) */
+table.data.prospects-rankings-table--league .prospects-rankings-table__team-logo-hit {
+  width: calc(32px * var(--team-inline-logo-mul) * 0.78);
+  height: calc(32px * var(--team-inline-logo-mul) * 0.78);
+  border-radius: 8px;
+  padding: 4px;
+  box-sizing: border-box;
+}
+table.data.prospects-rankings-table--league .prospects-rankings-table__team-logo-img {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  object-position: center;
+}
 .prospects-rankings-table .stats-player-cell {
   --stats-photo-size: 32px;
   min-width: 11rem;
@@ -3168,6 +3251,13 @@ table.data.prospects-rankings-table--undrafted td:nth-child(2) .stats-player-cel
 }
 [data-theme="light"] .prospects-rankings-table thead th:has(> .stats-th-link.is-sorted) {
   background: var(--row-alt);
+}
+/* Full-column sort band (matches thead slate tone; overrides generic .stats-td-sorted cyan) */
+table.data.prospects-rankings-table tbody td.stats-td-sorted {
+  background: rgb(30 41 59 / 0.55) !important;
+}
+[data-theme="light"] table.data.prospects-rankings-table tbody td.stats-td-sorted {
+  background: rgb(226 232 240 / 0.95) !important;
 }
 
 /* League history */

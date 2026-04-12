@@ -512,7 +512,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 5663;89;89;Doug;Grant;;74;240;1948-7-27;Channel-Port aux Basques;NL;Canada;;;0;Left;1
 4616;119;119;Jack;Norris;;70;185;1942-8-5;Leroy;SK;Canada;;;0;Left;0
 3876;122;122;Len;Lunde;;72;194;1936-11-13;Campbell River;BC;Canada;;;0;Right;0
-3965;0;0;Jean-Guy;Morissette;;68;140;1937-12-16;Causapscal;QC;Canada;;;0;Left;0
+3965;19;0;Jean-Guy;Morissette;;68;140;1937-12-16;Causapscal;QC;Canada;;;0;Left;0
 6344;85;85;Michel;Deguise;;69;163;1951-11-6;Châteauguay;QC;Canada;;;0;Left;1
 6115;83;83;Jerry;Engele;;72;197;1950-11-26;Kerrobert;SK;Canada;;;0;Left;0
 5423;84;84;Don;Grierson;;72;205;1947-6-18;Toronto;ON;Canada;;;0;Right;0
@@ -1384,7 +1384,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 5478;123;123;Barry;Wilkins;;72;190;1947-2-28;Toronto;ON;Canada;;;0;Left;1
 5479;85;85;Chris;Worthy;;72;181;1947-10-23;Bristol;ENG;Canada;England;;0;Left;0
 5909;84;84;Rick;Kessell;;70;175;1949-7-27;Toronto;ON;Canada;;;0;Left;0
-5269;28;10;Jim;McKenny;Howie;71;192;1946-12-1;Ottawa;ON;Canada;;;0;Right;0
+5269;10;10;Jim;McKenny;Howie;71;192;1946-12-1;Ottawa;ON;Canada;;;0;Right;1
 5270;24;5;Don;McLeod;Smokey;72;190;1946-8-24;Ucluelet;BC;Canada;;;0;Left;0
 5910;83;83;Darrel;Knibbs;;73;185;1949-9-21;Morinville;AB;Canada;;;0;Right;0
 4658;27;9;Raymond;Cadieux;;70;170;1941-12-27;Markham;ON;Canada;;;0;Left;0
@@ -1465,7 +1465,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 4019;90;90;Minoru;Nakano;;69;172;1936-10-18;Fujinomiya;SHI;Japan;;;0;Left;0
 4785;90;90;Dan;Dilworth;;68;170;1942-2-23;Madison;MN;The United States;;;0;Left;0
 4134;90;90;Dick;Van Impe;;70;170;1937-2-4;Saskatoon;SK;Canada;;;0;Left;0
-5282;10;10;Tom;Reid;;73;201;1946-6-24;Fort Erie;ON;Canada;;;0;Left;1
+5282;28;10;Tom;Reid;;73;201;1946-6-24;Fort Erie;ON;Canada;;;0;Left;0
 4982;65;65;Gérard;Dubi;;67;152;1943-11-27;Plan-les-Ouates;GE;Switzerland;;;0;Right;0
 4661;75;75;Jozef;Stefaniak;;66;165;1941-3-14;Swietochlowice;SLA;Poland;;;0;Left;0
 3620;66;66;Alfred;Püls;;70;168;1933-8-12;Innsbruck;TIR;Austria;;;0;Left;0

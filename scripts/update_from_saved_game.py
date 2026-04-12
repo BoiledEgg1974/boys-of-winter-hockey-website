@@ -1,7 +1,14 @@
 """Interactive updater: copy CSV exports, import all leagues, optionally git push.
 
+Optional: after copying, push to PythonAnywhere with ``scripts/pythonanywhere.py deploy``.
+That upload only replaces remote CSVs when the local copy is newer (mtime check + small
+skew), then runs server-side imports and reloads WSGI. Local copy uses ``shutil.copy2``,
+so mtimes match your game export folders.
+
 Run directly:
     python scripts/update_from_saved_game.py
+    python scripts/update_from_saved_game.py --pa-deploy
+    python scripts/update_from_saved_game.py --pa-deploy --pa-csv-only
 """
 
 from __future__ import annotations
@@ -20,6 +27,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 RAW_ROOT = REPO_ROOT / "data" / "imports" / "raw"
 IMPORT_SCRIPT = REPO_ROOT / "scripts" / "import_data.py"
+PA_DEPLOY_SCRIPT = REPO_ROOT / "scripts" / "pythonanywhere.py"
 PATHS_FILE = REPO_ROOT / "scripts" / "saved_game_csv_paths.json"
 
 DEFAULT_SOURCES: dict[str, str] = {
@@ -127,6 +135,21 @@ def _git_commit_and_push() -> None:
     print("Git push complete.")
 
 
+def _run_pythonanywhere_deploy(*, csv_only: bool) -> None:
+    """Upload from repo raw folders; pythonanywhere.py skips remote files that are same/newer."""
+    if not PA_DEPLOY_SCRIPT.is_file():
+        raise FileNotFoundError(f"Missing {PA_DEPLOY_SCRIPT}")
+    cmd = [
+        sys.executable,
+        str(PA_DEPLOY_SCRIPT),
+        "deploy",
+        "--repo-csv",
+    ]
+    if csv_only:
+        cmd.append("--csv-only")
+    subprocess.run(cmd, cwd=REPO_ROOT, check=True)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Copy saved-game CSVs, import leagues, and optionally push.")
     parser.add_argument("--base", type=str, default=None, help="Base export folder containing league subfolders.")
@@ -135,6 +158,21 @@ def main() -> int:
     parser.add_argument("--cap", type=str, default=None, help="Override source folder for BOWL-Cap.")
     parser.add_argument("--yes-push", action="store_true", help="Commit and push automatically (no prompt).")
     parser.add_argument("--no-push", action="store_true", help="Skip commit and push automatically (no prompt).")
+    parser.add_argument(
+        "--pa-deploy",
+        action="store_true",
+        help="After local imports, run pythonanywhere.py deploy --repo-csv (newer files only on server).",
+    )
+    parser.add_argument(
+        "--no-pa-deploy",
+        action="store_true",
+        help="Never upload to PythonAnywhere (skip prompt).",
+    )
+    parser.add_argument(
+        "--pa-csv-only",
+        action="store_true",
+        help="With --pa-deploy: only upload data/imports/raw, not app/static.",
+    )
     args = parser.parse_args()
 
     print("\nBoys of Winter: Saved-Game CSV Updater\n")
@@ -212,6 +250,9 @@ def main() -> int:
     if args.yes_push and args.no_push:
         print("Use only one of --yes-push or --no-push.")
         return 1
+    if args.pa_deploy and args.no_pa_deploy:
+        print("Use only one of --pa-deploy or --no-pa-deploy.")
+        return 1
     if args.yes_push:
         do_git = True
     elif args.no_push:
@@ -226,6 +267,38 @@ def main() -> int:
             return int(exc.returncode or 1)
     else:
         print("Skipped git commit/push.")
+
+    if args.pa_deploy:
+        do_pa = True
+    elif args.no_pa_deploy:
+        do_pa = False
+    else:
+        try:
+            do_pa = (
+                input(
+                    "\nUpload to PythonAnywhere (CSV files newer than server only), "
+                    "run server imports, reload app? [y/N]: "
+                )
+                .strip()
+                .lower()
+                == "y"
+            )
+        except EOFError:
+            do_pa = False
+    if do_pa:
+        print("\n--- PythonAnywhere deploy (repo CSV → server, mtime-aware) ---")
+        try:
+            _run_pythonanywhere_deploy(csv_only=bool(args.pa_csv_only))
+        except FileNotFoundError as exc:
+            print(f"ERROR: {exc}")
+            return 1
+        except subprocess.CalledProcessError as exc:
+            print(f"PythonAnywhere deploy failed (exit {exc.returncode}).")
+            print("Install deploy deps: py -3 -m pip install -r requirements-deploy.txt")
+            print("Set PA_SSH_KEY, PA_USER, PA_REMOTE_PATH, PA_REMOTE_VENV_BIN, PA_WSGI_FILE as needed.")
+            return int(exc.returncode or 1)
+    elif args.no_pa_deploy:
+        print("Skipped PythonAnywhere deploy.")
 
     print("Done.")
     return 0

@@ -21,6 +21,7 @@ from app.models import (
     Team,
     db,
 )
+from app.services.all_time_records import bowl_nhl_league_ids
 from app.services.playoff_bracket import playoff_bracket_payload
 from app.services.player_headshot import resolve_player_headshot_static_filename
 from app.services.player_ratings_csv import player_positions_display_label
@@ -373,18 +374,32 @@ def homepage_summary():
             }
         )
 
+    fantasy_bowl_leaders_only = (
+        str(current_app.config.get("LEAGUE_SLUG") or "") == "bowl-fantasy"
+    )
+    bowl_fhm_league_ids: tuple[int, ...] | None = None
+    if fantasy_bowl_leaders_only:
+        bowl_fhm_league_ids = bowl_nhl_league_ids(db.session)
+        if not bowl_fhm_league_ids:
+            bowl_fhm_league_ids = (0,)
+
     def leader_rows(stat, order_col, limit=10, goalie=False):
         if goalie:
-            q = (
-                select(PlayerGoalieStat, Player)
-                .join(Player, PlayerGoalieStat.player_id == Player.id)
-                .where(
+            q = select(PlayerGoalieStat, Player).join(
+                Player, PlayerGoalieStat.player_id == Player.id
+            )
+            if bowl_fhm_league_ids is not None:
+                q = q.join(Team, PlayerGoalieStat.team_id == Team.id).where(
+                    PlayerGoalieStat.season_id == season.id,
+                    PlayerGoalieStat.stat_segment == segment,
+                    Team.fhm_league_id.in_(bowl_fhm_league_ids),
+                )
+            else:
+                q = q.where(
                     PlayerGoalieStat.season_id == season.id,
                     PlayerGoalieStat.stat_segment == segment,
                 )
-                .order_by(order_col.desc())
-                .limit(limit)
-            )
+            q = q.order_by(order_col.desc()).limit(limit)
             rows = db.session.execute(q).all()
             out = []
             for pgs, pl in rows:
@@ -401,16 +416,21 @@ def homepage_summary():
                     }
                 )
             return out
-        q = (
-            select(PlayerSkaterStat, Player)
-            .join(Player, PlayerSkaterStat.player_id == Player.id)
-            .where(
+        q = select(PlayerSkaterStat, Player).join(
+            Player, PlayerSkaterStat.player_id == Player.id
+        )
+        if bowl_fhm_league_ids is not None:
+            q = q.join(Team, PlayerSkaterStat.team_id == Team.id).where(
+                PlayerSkaterStat.season_id == season.id,
+                PlayerSkaterStat.stat_segment == segment,
+                Team.fhm_league_id.in_(bowl_fhm_league_ids),
+            )
+        else:
+            q = q.where(
                 PlayerSkaterStat.season_id == season.id,
                 PlayerSkaterStat.stat_segment == segment,
             )
-            .order_by(order_col.desc())
-            .limit(limit)
-        )
+        q = q.order_by(order_col.desc()).limit(limit)
         rows = db.session.execute(q).all()
         out = []
         for pss, pl in rows:

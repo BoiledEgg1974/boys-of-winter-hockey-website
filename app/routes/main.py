@@ -321,6 +321,13 @@ def _build_statistics_view_vars(
     stats_full_limit = 8000
 
     teams = db.session.scalars(select(Team).order_by(Team.name)).all()
+    league_slug_cfg = str(current_app.config.get("LEAGUE_SLUG") or "")
+    bowl_fhm_for_fantasy: tuple[int, ...] | None = None
+    if league_slug_cfg == "bowl-fantasy":
+        bowl_fhm_for_fantasy = bowl_nhl_league_ids(db.session)
+        if not bowl_fhm_for_fantasy:
+            bowl_fhm_for_fantasy = (0,)
+        teams = [t for t in teams if t.fhm_league_id in bowl_fhm_for_fantasy]
     teams_by_id = {t.id: t for t in teams}
     if not season:
         return {
@@ -417,14 +424,16 @@ def _build_statistics_view_vars(
     if sort not in sk_order_map:
         sort = "points"
 
-    sk_q = (
-        select(PlayerSkaterStat, Player)
-        .join(Player, PlayerSkaterStat.player_id == Player.id)
-        .where(
-            PlayerSkaterStat.season_id == season.id,
-            PlayerSkaterStat.stat_segment == segment,
-        )
+    sk_q = select(PlayerSkaterStat, Player).join(
+        Player, PlayerSkaterStat.player_id == Player.id
+    ).where(
+        PlayerSkaterStat.season_id == season.id,
+        PlayerSkaterStat.stat_segment == segment,
     )
+    if bowl_fhm_for_fantasy is not None:
+        sk_q = sk_q.join(Team, PlayerSkaterStat.team_id == Team.id).where(
+            Team.fhm_league_id.in_(bowl_fhm_for_fantasy)
+        )
     if team_id:
         sk_q = sk_q.where(PlayerSkaterStat.team_id == team_id)
 
@@ -474,14 +483,16 @@ def _build_statistics_view_vars(
         sk_q = sk_q.limit(stats_full_limit)
     skaters = db.session.execute(sk_q).all()
 
-    gq = (
-        select(PlayerGoalieStat, Player)
-        .join(Player, PlayerGoalieStat.player_id == Player.id)
-        .where(
-            PlayerGoalieStat.season_id == season.id,
-            PlayerGoalieStat.stat_segment == segment,
-        )
+    gq = select(PlayerGoalieStat, Player).join(
+        Player, PlayerGoalieStat.player_id == Player.id
+    ).where(
+        PlayerGoalieStat.season_id == season.id,
+        PlayerGoalieStat.stat_segment == segment,
     )
+    if bowl_fhm_for_fantasy is not None:
+        gq = gq.join(Team, PlayerGoalieStat.team_id == Team.id).where(
+            Team.fhm_league_id.in_(bowl_fhm_for_fantasy)
+        )
     if team_id:
         gq = gq.where(PlayerGoalieStat.team_id == team_id)
     g_sort = request.args.get("g_sort", "wins")

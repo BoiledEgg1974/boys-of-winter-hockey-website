@@ -1,2 +1,2 @@
-# Optional: PythonAnywhere deploy (scripts/pythonanywhere.py sync | deploy)
+# Optional: PythonAnywhere deploy (scripts/STEP2_pythonanywhere.py sync | deploy)
 paramiko>=3.4.0

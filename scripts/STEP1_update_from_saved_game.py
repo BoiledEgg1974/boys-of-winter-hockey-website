@@ -1,14 +1,14 @@
-"""Interactive updater: copy CSV exports, import all leagues, optionally git push.
+"""STEP 1 — Interactive updater: copy CSV exports, import all leagues, optionally git push.
 
-Optional: after copying, push to PythonAnywhere with ``scripts/pythonanywhere.py deploy``.
+Optional: after copying, push to PythonAnywhere with ``scripts/STEP2_pythonanywhere.py deploy``.
 That upload only replaces remote CSVs when the local copy is newer (mtime check + small
 skew), then runs server-side imports and reloads WSGI. Local copy uses ``shutil.copy2``,
 so mtimes match your game export folders.
 
 Run directly:
-    python scripts/update_from_saved_game.py
-    python scripts/update_from_saved_game.py --pa-deploy
-    python scripts/update_from_saved_game.py --pa-deploy --pa-csv-only
+    python scripts/STEP1_update_from_saved_game.py
+    python scripts/STEP1_update_from_saved_game.py --pa-deploy
+    python scripts/STEP1_update_from_saved_game.py --pa-deploy --pa-csv-only
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 RAW_ROOT = REPO_ROOT / "data" / "imports" / "raw"
 IMPORT_SCRIPT = REPO_ROOT / "scripts" / "import_data.py"
-PA_DEPLOY_SCRIPT = REPO_ROOT / "scripts" / "pythonanywhere.py"
+PA_DEPLOY_SCRIPT = REPO_ROOT / "scripts" / "STEP2_pythonanywhere.py"
 PATHS_FILE = REPO_ROOT / "scripts" / "saved_game_csv_paths.json"
 
 DEFAULT_SOURCES: dict[str, str] = {
@@ -136,7 +136,7 @@ def _git_commit_and_push() -> None:
 
 
 def _run_pythonanywhere_deploy(*, csv_only: bool) -> None:
-    """Upload from repo raw folders; pythonanywhere.py skips remote files that are same/newer."""
+    """Upload from repo raw folders; STEP2_pythonanywhere skips remote files that are same/newer."""
     if not PA_DEPLOY_SCRIPT.is_file():
         raise FileNotFoundError(f"Missing {PA_DEPLOY_SCRIPT}")
     cmd = [
@@ -161,7 +161,7 @@ def main() -> int:
     parser.add_argument(
         "--pa-deploy",
         action="store_true",
-        help="After local imports, run pythonanywhere.py deploy --repo-csv (newer files only on server).",
+        help="After local imports, run STEP2_pythonanywhere.py deploy --repo-csv (newer files only on server).",
     )
     parser.add_argument(
         "--no-pa-deploy",

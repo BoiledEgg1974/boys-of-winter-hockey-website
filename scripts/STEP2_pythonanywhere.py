@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PythonAnywhere push from your PC. If ``paramiko`` is missing, the script prints install
+STEP 2 — PythonAnywhere push from your PC. If ``paramiko`` is missing, the script prints install
 instructions and asks whether to run ``pip install -r requirements-deploy.txt`` for you.
 
   deploy — Upload data/imports/raw + app/static (newer files only), run import_data.py per
@@ -13,8 +13,8 @@ instructions and asks whether to run ``pip install -r requirements-deploy.txt`` 
            CSV folder; paths are saved to scripts/pythonanywhere_csv_sources.json (gitignored).
            Next runs ask whether locations changed before uploading.
 
-  python scripts/pythonanywhere.py deploy --dry-run
-  python scripts/pythonanywhere.py sync --dry-run
+  python scripts/STEP2_pythonanywhere.py deploy --dry-run
+  python scripts/STEP2_pythonanywhere.py sync --dry-run
 
   With no arguments (e.g. Run / F5 in IDLE on this file), ``deploy`` is assumed.
 
@@ -287,7 +287,7 @@ def resolve_csv_sources_for_deploy(
         return loaded
     raise SystemExit(
         "No saved CSV paths (scripts/pythonanywhere_csv_sources.json).\n"
-        "Run `python scripts/pythonanywhere.py deploy` once in an interactive terminal to set them,\n"
+        "Run `python scripts/STEP2_pythonanywhere.py deploy` once in an interactive terminal to set them,\n"
         "or pass --repo-csv to use the project's data/imports/raw/<league>/ folders."
     )
 

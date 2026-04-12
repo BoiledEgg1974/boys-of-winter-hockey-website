@@ -40,12 +40,14 @@ The import rebuilds the player search index (FTS) and related pieces automatical
 If your exports still live under each game’s `import_export\csv` folder, you can use:
 
 ```bat
-python scripts\update_from_saved_game.py
+python scripts\STEP1_update_from_saved_game.py
 ```
+
+**STEP 1** — copy FHM exports into `data/imports/raw/…`, run `import_data.py` locally per league, optional Git push, optional PythonAnywhere deploy (`--pa-deploy` chains **STEP 2**).
 
 The first time, answer **y** when asked if paths changed, and paste each league’s CSV folder. Paths are stored in `scripts/saved_game_csv_paths.json` (local only; listed in `.gitignore`). Or pass a single base folder that contains `bowl_historical`, `bowl_fantasy`, and `bowl_cap` subfolders.
 
-Non-interactive options are documented in `python scripts/update_from_saved_game.py --help`.
+Non-interactive options: `python scripts/STEP1_update_from_saved_game.py --help`.
 
 ## Full reset (empty DB, then import again)
 
@@ -77,7 +79,7 @@ Repeat with each `LEAGUE_SLUG`. **This wipes that league’s database.**
 ## Optional scripts (not required for a normal update)
 
 - `scripts/refresh_team_aggregates.py`, `backfill_skater_plus_minus.py`, `import_skater_career_csvs.py` — special fixes; use only if you know you need them.
-- `scripts/pythonanywhere.py` / `Deploy-To-PythonAnywhere.bat` — convenience for PythonAnywhere uploads and remote import.
+- `scripts/STEP2_pythonanywhere.py` / `Deploy-To-PythonAnywhere.bat` — **STEP 2**: SFTP CSVs + `app/static` (newer-only), remote `import_data.py` per league, WSGI reload. Shared importer remains `scripts/import_data.py`.
 
 For more detail on FHM file names and behavior, see `scripts/import_pipeline/runner.py` and `scripts/import_pipeline/fhm_loader.py`.
 

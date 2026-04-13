@@ -1809,6 +1809,18 @@ def _english_ordinal(n: int) -> str:
     return f"{n}th"
 
 
+def _normalize_trois_rivieres_spelling(text: str) -> str:
+    """Fix FHM/CSV typo: č (U+010D) used instead of è in *Rivières*."""
+    if not text:
+        return text
+    return re.sub(r"(?i)rivič", "riviè", text)
+
+
+def _hero_city_all_caps(city_or_name: str) -> str:
+    """City line on team hero: correct spelling, then ALL CAPS (e.g. TROIS-RIVIÈRES)."""
+    return _normalize_trois_rivieres_spelling((city_or_name or "").strip()).upper()
+
+
 def _dense_rank_by_value(pairs: list[tuple[int, float]], team_id: int, high_good: bool) -> int | None:
     if not pairs:
         return None
@@ -1870,7 +1882,7 @@ def team_page(slug: str):
         .limit(1)
     ).first()
     if arena_row:
-        arena_name = arena_row.arena
+        arena_name = _normalize_trois_rivieres_spelling(arena_row.arena or "")
         arena_capacity = int(arena_row.max_attendance) if arena_row.max_attendance is not None else None
     standing = None
     if season:
@@ -2134,7 +2146,7 @@ def team_page(slug: str):
     team_prospects = db.session.scalars(
         select(Prospect).options(joinedload(Prospect.player)).where(Prospect.team_id == team.id)
     ).all()
-    hero_city_caps = (team.city or team.name or "").strip().upper()
+    hero_city_caps = _hero_city_all_caps(team.city or team.name or "")
     hero_display_name = (team.nickname or team.name or "").strip()
     hero_gf_g: float | None = None
     hero_ga_g: float | None = None

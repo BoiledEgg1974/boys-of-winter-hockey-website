@@ -103,6 +103,15 @@ def _copy_csvs(src: Path, dst: Path) -> int:
     return len(files)
 
 
+def _latest_csv_mtime(src: Path) -> datetime | None:
+    if not src.exists() or not src.is_dir():
+        return None
+    files = list(src.glob("*.csv"))
+    if not files:
+        return None
+    return datetime.fromtimestamp(max(f.stat().st_mtime for f in files))
+
+
 def _run_import(slug: str) -> None:
     env = dict(**os.environ)
     env["LEAGUE_SLUG"] = slug
@@ -222,6 +231,30 @@ def main() -> int:
     for slug, p in cli_overrides.items():
         if p is not None:
             league_sources[slug] = p
+
+    latest_by_slug: dict[str, datetime] = {}
+    for league in LEAGUES:
+        src = league_sources.get(league.slug)
+        if src is None:
+            continue
+        latest = _latest_csv_mtime(src)
+        if latest is not None:
+            latest_by_slug[league.slug] = latest
+    if latest_by_slug:
+        freshest = max(latest_by_slug.values())
+        stale_threshold_seconds = 18 * 60 * 60
+        for league in LEAGUES:
+            latest = latest_by_slug.get(league.slug)
+            if latest is None:
+                continue
+            age_delta = (freshest - latest).total_seconds()
+            if age_delta > stale_threshold_seconds:
+                print(
+                    f"! Warning: {league.label} source CSVs look stale "
+                    f"({latest.isoformat(sep=' ', timespec='seconds')}) vs freshest league "
+                    f"({freshest.isoformat(sep=' ', timespec='seconds')}). "
+                    "If this is unexpected, export CSVs again in FHM before continuing."
+                )
 
     for league in LEAGUES:
         src = league_sources.get(league.slug)

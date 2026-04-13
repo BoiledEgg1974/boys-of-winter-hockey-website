@@ -68,6 +68,18 @@ def _prompt_path(prompt: str, default: Path | None = None) -> Path | None:
     return Path(raw.strip('"')).expanduser()
 
 
+def _ask_yes_no(prompt: str, *, default_no: bool = True) -> bool:
+    try:
+        raw = input(prompt).strip().lower()
+    except EOFError:
+        return not default_no
+    if raw in {"y", "yes"}:
+        return True
+    if raw in {"n", "no", ""}:
+        return False if default_no else True
+    return False if default_no else True
+
+
 def _load_saved_paths() -> dict[str, str]:
     if PATHS_FILE.exists():
         try:
@@ -165,6 +177,11 @@ def main() -> int:
     parser.add_argument("--historical", type=str, default=None, help="Override source folder for BOWL-Historical.")
     parser.add_argument("--fantasy", type=str, default=None, help="Override source folder for BOWL-Fantasy.")
     parser.add_argument("--cap", type=str, default=None, help="Override source folder for BOWL-Cap.")
+    parser.add_argument(
+        "--allow-stale",
+        action="store_true",
+        help="Allow continuing even if one league source CSVs are much older than the freshest source.",
+    )
     parser.add_argument("--yes-push", action="store_true", help="Commit and push automatically (no prompt).")
     parser.add_argument("--no-push", action="store_true", help="Skip commit and push automatically (no prompt).")
     parser.add_argument(
@@ -207,8 +224,7 @@ def main() -> int:
         for league in LEAGUES:
             league_sources[league.slug] = base / league.import_dir
     else:
-        changed_raw = input("Have your saved-game CSV paths changed since last run? [y/N]: ").strip().lower()
-        paths_changed = changed_raw in {"y", "yes"}
+        paths_changed = _ask_yes_no("Have your saved-game CSV paths changed since last run? [y/N]: ")
         if paths_changed:
             print("Enter new CSV source paths for each league:")
             updated_paths = dict(saved_paths)
@@ -240,6 +256,7 @@ def main() -> int:
         latest = _latest_csv_mtime(src)
         if latest is not None:
             latest_by_slug[league.slug] = latest
+    stale_leagues: list[str] = []
     if latest_by_slug:
         freshest = max(latest_by_slug.values())
         stale_threshold_seconds = 18 * 60 * 60
@@ -249,12 +266,30 @@ def main() -> int:
                 continue
             age_delta = (freshest - latest).total_seconds()
             if age_delta > stale_threshold_seconds:
+                stale_leagues.append(league.slug)
                 print(
                     f"! Warning: {league.label} source CSVs look stale "
                     f"({latest.isoformat(sep=' ', timespec='seconds')}) vs freshest league "
                     f"({freshest.isoformat(sep=' ', timespec='seconds')}). "
                     "If this is unexpected, export CSVs again in FHM before continuing."
                 )
+    if stale_leagues and not args.allow_stale:
+        if sys.stdin.isatty():
+            proceed = _ask_yes_no(
+                "One or more league exports look stale. Continue anyway? [y/N]: "
+            )
+            if not proceed:
+                print(
+                    "Stopped due to stale league source CSVs. "
+                    "Re-export in FHM first, or re-run with --allow-stale to override."
+                )
+                return 1
+        else:
+            print(
+                "Refusing to continue with stale league source CSVs. "
+                "Re-export in FHM first, or re-run with --allow-stale to override."
+            )
+            return 1
 
     for league in LEAGUES:
         src = league_sources.get(league.slug)
@@ -291,7 +326,7 @@ def main() -> int:
     elif args.no_push:
         do_git = False
     else:
-        do_git = input("\nCommit and push to GitHub now? [y/N]: ").strip().lower() == "y"
+        do_git = _ask_yes_no("\nCommit and push to GitHub now? [y/N]: ")
     if do_git:
         try:
             _git_commit_and_push()
@@ -306,18 +341,10 @@ def main() -> int:
     elif args.no_pa_deploy:
         do_pa = False
     else:
-        try:
-            do_pa = (
-                input(
-                    "\nUpload to PythonAnywhere (CSV files newer than server only), "
-                    "run server imports, reload app? [y/N]: "
-                )
-                .strip()
-                .lower()
-                == "y"
-            )
-        except EOFError:
-            do_pa = False
+        do_pa = _ask_yes_no(
+            "\nUpload to PythonAnywhere (CSV files newer than server only), "
+            "run server imports, reload app? [y/N]: "
+        )
     if do_pa:
         print("\n--- PythonAnywhere deploy (repo CSV → server, mtime-aware) ---")
         try:

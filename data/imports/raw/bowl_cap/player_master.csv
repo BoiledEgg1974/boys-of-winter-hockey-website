@@ -113,7 +113,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 111;186;186;Jean-Claude;Bergeron;Big Mac;74;192;1968-10-14;Hauterive;QC;Canada;;;0;Left;0
 112;66;15;Marc;Bergevin;;73;209;1965-8-11;Montreal;QC;Canada;;;0;Left;0
 113;192;192;Mike;Berger;;72;195;1967-6-2;Edmonton;AB;Canada;;;0;Right;0
-11978;56;5;Glen;Metropolit;;70;198;1974-6-25;Toronto;ON;Canada;;;0;Right;0
+11978;5;5;Glen;Metropolit;;70;198;1974-6-25;Toronto;ON;Canada;;;0;Right;1
 115;186;186;Tim;Bergland;;75;194;1965-1-11;Crookston;MN;The United States;;;0;Right;0
 116;20;20;Jonas;Bergqvist;;72;185;1962-9-26;Hässleholm;SKå;Sweden;;;0;Left;0
 117;186;186;Tim;Bernhardt;;69;160;1958-1-17;Sarnia;ON;Canada;;;0;Left;0
@@ -1066,7 +1066,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 1064;186;186;Nevin;Markwart;;70;180;1964-12-9;Toronto;ON;Canada;;;0;Left;0
 1065;214;214;Daniel;Marois;;72;190;1968-10-3;Montreal;QC;Canada;;;0;Right;0
 13508;14;14;Marc;Savard;Savvy;70;192;1977-7-17;Ottawa;ON;Canada;;;0;Left;0
-13509;217;217;Radovan;Somík;;75;198;1977-5-5;Martin;ZIL;Slovakia;;;0;Right;1
+13509;219;217;Radovan;Somík;;75;198;1977-5-5;Martin;ZIL;Slovakia;;;0;Right;0
 1068;0;0;Grant;Marshall;;73;200;1973-6-9;Mississauga;ON;Canada;;;0;Right;0
 1069;70;19;Jason;Marshall;;74;200;1971-2-22;Cranbrook;BC;Canada;;;0;Right;0
 1070;186;186;Craig;Martin;;74;215;1971-1-21;Amherst;NS;Canada;;;0;Right;0
@@ -1262,7 +1262,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 1260;3;3;Michael;Nylander;;73;195;1972-10-3;Stockholm;STO;Sweden;;;0;Left;0
 1261;186;186;Gary;Nylund;;76;210;1963-10-28;Surrey;BC;Canada;;;0;Left;0
 1262;214;214;Adam;Oates;;71;190;1962-8-27;Toronto;ON;Canada;;;0;Right;0
-13014;8;8;Nolan;Baumgartner;;74;205;1976-3-23;Camrose;AB;Canada;;;0;Right;1
+13014;59;8;Nolan;Baumgartner;;74;205;1976-3-23;Camrose;AB;Canada;;;0;Right;0
 1264;186;186;Myles;O'Connor;;71;190;1967-4-2;Calgary;AB;Canada;;;0;Left;0
 1265;220;220;Lyle;Odelein;Odie;72;210;1968-7-21;Quill Lake;SK;Canada;;;0;Left;0
 1266;186;186;Selmar;Odelein;;72;195;1966-4-11;Quill Lake;SK;Canada;;;0;Right;0
@@ -1381,7 +1381,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 1379;186;186;Chris;Pusey;;72;180;1965-6-30;Brantford;ON;Canada;;;0;Left;0
 1380;26;26;Jamie;Pushor;;75;218;1973-2-11;Lethbridge;AB;Canada;;;0;Right;0
 14048;57;16;Michal;Rozsival;;74;210;1978-9-3;Vlasim;STR;Czech Republic;;;0;Right;0
-1382;15;15;Dan;Quinn;;71;182;1965-6-1;Ottawa;ON;Canada;;;0;Left;0
+1382;5;5;Dan;Quinn;;71;182;1965-6-1;Ottawa;ON;Canada;;;0;Left;0
 1383;186;186;Ken;Quinney;;70;186;1965-5-23;New Westminster;BC;Canada;;;0;Right;0
 1384;186;186;Jean-Francois;Quintin;J.F.;72;187;1969-5-28;Regina;SK;Canada;;;0;Left;0
 1385;20;20;Stephane;Quintal;Q;75;231;1968-10-22;Boucherville;QC;Canada;;;0;Right;0
@@ -1456,7 +1456,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 1454;186;186;Roberto;Romano;;66;170;1962-10-10;Montreal;QC;Italy;Canada;;0;Left;0
 1455;186;186;Russ;Romaniuk;;72;195;1970-6-9;Winnipeg;MB;Canada;;;0;Left;0
 1456;186;186;Ed;Ronan;;72;197;1968-3-21;Quincy;MA;The United States;;;0;Right;0
-1457;5;5;Cliff;Ronning;;68;165;1965-10-1;Burnaby;BC;Canada;;;0;Left;0
+1457;15;15;Cliff;Ronning;;68;165;1965-10-1;Burnaby;BC;Canada;;;0;Left;0
 1458;155;155;Jonas;Ronnqvist;;74;200;1973-8-22;Kalix;NOR;Sweden;;;0;Right;0
 1459;186;186;Steve;Rooney;;74;205;1962-6-28;Canton;MA;The United States;;;0;Left;0
 1460;186;186;Bill;Root;;72;210;1959-9-6;Toronto;ON;Canada;;;0;Right;0
@@ -4860,7 +4860,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 12502;186;186;Travis;Scott;;74;185;1975-9-14;Ottawa;ON;Canada;;;0;Left;0
 12503;23;23;Darrel;Scoville;;75;212;1975-10-13;Watrous;SK;Canada;;;0;Left;1
 12504;71;20;Yevgeni;Shaldybin;;74;209;1975-7-29;Novosibirsk;NOV;Russia;;;0;Left;0
-12505;219;217;Vadim;Sharifijanov;;74;205;1975-12-23;Ufa;BAS;Russia;;;0;Left;0
+12505;217;217;Vadim;Sharifijanov;;74;205;1975-12-23;Ufa;BAS;Russia;;;0;Left;1
 12506;186;186;Blake;Sloan;;70;201;1975-7-27;Pecatonica;IL;The United States;;;0;Right;0
 12507;215;214;Lee;Sorochan;;72;210;1975-9-9;Elk Point;AB;Canada;;;0;Left;0
 12508;20;20;Martin;St. Louis;;69;185;1975-6-18;Gatineau;QC;Canada;;;0;Left;0
@@ -4875,7 +4875,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 12517;19;19;Jocelyn;Thibault;;71;174;1975-1-12;Murdochville;QC;Canada;;;0;Left;0
 12518;224;224;Kimmo;Timonen;;70;196;1975-3-18;Kuopio;NSA;Finland;;;0;Left;0
 12519;224;224;Shayne;Toporowski;;75;220;1975-8-6;Floral;SK;Canada;;;0;Right;1
-12520;76;25;Yannick;Tremblay;;74;201;1975-11-15;Murdochville;QC;Canada;;;0;Right;0
+12520;25;25;Yannick;Tremblay;;74;201;1975-11-15;Murdochville;QC;Canada;;;0;Right;0
 12521;76;25;Jean-Guy;Trudel;;72;202;1975-10-18;Sudbury;ON;Canada;;;0;Right;0
 12522;51;0;Nikolai;Tsulygin;;75;225;1975-5-29;Ufa;BAS;Russia;;;0;Right;0
 12523;224;224;Darcy;Tucker;Sideshow Bob;70;183;1975-3-15;Warburg;AB;Canada;;;0;Left;0
@@ -5135,7 +5135,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 12777;74;23;Peter;Pucher;;73;231;1974-8-12;Trnava;TRN;Slovakia;;;0;Left;0
 12778;162;162;Peter;Kasper;;72;194;1974-12-20;Vienna;WIE;Austria;;;0;Right;0
 12779;158;158;Jiri;Trvaj;;72;163;1974-4-13;Chvaletice;PAR;Czech Republic;;;0;Left;0
-12780;54;3;Anthony;Mortas;;72;190;1974-2-13;Nice;PRO;France;;;0;Left;0
+12780;3;3;Anthony;Mortas;;72;190;1974-2-13;Nice;PRO;France;;;0;Left;0
 12781;154;154;Heiko;Smazal;;70;179;1974-1-6;Würzburg;BAV;Germany;;;0;Left;0
 12782;162;162;Arthur;Marczell;;75;214;1974-12-27;Vienna;WIE;Austria;;;0;Left;0
 12783;178;178;Peter;Rozic;;72;198;1974-2-17;Kranj;GOR;Slovenia;;;0;Left;0
@@ -6365,7 +6365,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 14129;161;161;Thomas;Ziegler;;71;190;1978-6-9;Zurich;ZH;Switzerland;;;0;Left;0
 14130;61;10;Andrei;Zyuzin;;73;209;1978-1-21;Ufa;BAS;Russia;;;0;Left;0
 14131;68;17;Dale;Clarke;;74;190;1978-3-23;Sarnia;ON;Canada;;;0;Right;1
-14132;75;24;Tom;Preissing;;72;205;1978-12-3;Astoria;IL;The United States;;;0;Right;1
+14132;24;24;Tom;Preissing;;72;205;1978-12-3;Astoria;IL;The United States;;;0;Right;1
 14133;51;0;Ales;Kotalík;;73;227;1978-12-23;Jindrichuv Hradec;JIH;Czech Republic;;;0;Right;0
 14134;57;16;Yuri;Butsayev;;73;212;1978-10-11;Togliatti;SAM;Russia;;;0;Left;0
 14135;216;216;François;Méthot;;72;194;1978-4-26;Murdochville;QC;Canada;Germany;;0;Right;1
@@ -8384,6 +8384,8 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 16489;180;180;Chris;Houle;;75;229;1982-9-9;Paris;ON;Canada;;;0;Left;1
 16490;179;179;Christopher;Barr;;75;205;1982-4-12;Oxbow;SK;Canada;;;0;Left;1
 16491;179;179;Greg;Black;;73;185;1982-5-13;Richmond;BC;Canada;;;0;Right;1
+16492;-1;-1;Artsyom;Ihnashow;;65;154;1980-3-30;Beloozyorsk;BRE;Belarus;;;0;Left;0
+16493;-1;-1;Andrey;Smiryagin;;73;218;1980-10-6;Chashniki;VIT;Belarus;Russia;;0;Left;0
 3705;-1;-1;Jack;Asselstine;;71;155;1895-6-2;Perth;ON;Canada;;;1;Right;0
 3706;-1;-1;Russ;McCrimmon;Silver;70;170;1890-3-1;Ottawa;ON;Canada;;;1;Right;0
 3707;-1;-1;Gerry;Abel;;74;195;1944-12-25;Detroit;MI;The United States;Canada;;1;Left;0

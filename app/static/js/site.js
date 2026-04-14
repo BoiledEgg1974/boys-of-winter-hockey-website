@@ -15,11 +15,67 @@
       .replace(/</g, "&lt;");
   }
 
+  function playerIdFromHref(href) {
+    if (!href) return null;
+    try {
+      var u = new URL(href, window.location.origin);
+      var m = u.pathname.match(/\/player\/(\d+)(?:\/)?$/);
+      return m ? parseInt(m[1], 10) : null;
+    } catch (err) {
+      return null;
+    }
+  }
+
   function withRoot(path) {
     var root = document.documentElement.getAttribute("data-application-root") || "";
     root = root.replace(/\/$/, "");
     if (!path.startsWith("/")) path = "/" + path;
     return root + path;
+  }
+
+  function attrColorStyle(v) {
+    if (v == null || isNaN(v)) return "";
+    var x = Math.max(0, Math.min(20, Number(v)));
+    var stops = [
+      [0, [220, 38, 38]],
+      [8, [251, 146, 60]],
+      [13, [190, 220, 80]],
+      [16, [45, 212, 191]],
+      [20, [59, 130, 246]],
+    ];
+    var i;
+    for (i = 1; i < stops.length; i += 1) {
+      if (x <= stops[i][0]) break;
+    }
+    var lo = stops[Math.max(0, i - 1)];
+    var hi = stops[Math.min(stops.length - 1, i)];
+    var t = hi[0] > lo[0] ? (x - lo[0]) / (hi[0] - lo[0]) : 0;
+    var r = Math.round(lo[1][0] + (hi[1][0] - lo[1][0]) * t);
+    var g = Math.round(lo[1][1] + (hi[1][1] - lo[1][1]) * t);
+    var b = Math.round(lo[1][2] + (hi[1][2] - lo[1][2]) * t);
+    return "color:rgb(" + r + "," + g + "," + b + ")";
+  }
+
+  function hoverStars(v) {
+    if (v == null || isNaN(v)) return '<span class="player-hover-stars__empty">—</span>';
+    var steps = Math.round(Number(v) * 2);
+    if (steps < 0) steps = 0;
+    if (steps > 10) steps = 10;
+    var full = Math.floor(steps / 2);
+    var half = steps % 2;
+    var empty = 5 - full - half;
+    var h = "";
+    while (full-- > 0) h += '<span class="player-hover-star">★</span>';
+    if (half) h += '<span class="player-hover-star player-hover-star--half">★</span>';
+    while (empty-- > 0) h += '<span class="player-hover-star player-hover-star--empty">★</span>';
+    return h;
+  }
+
+  function formatHeight(heightInches) {
+    if (heightInches == null || isNaN(heightInches)) return "—";
+    var h = Number(heightInches);
+    if (h <= 0) return "—";
+    return Math.floor(h / 12) + "'" + (h % 12) + '"';
   }
 
   function teamLogoCell(logoUrl, slug, abbrFallback) {
@@ -42,6 +98,148 @@
       );
     }
     return '<span class="team-name-lockup team-name-lockup--icon">' + img + "</span>";
+  }
+
+  function initPlayerHoverCards() {
+    var cache = {};
+    var activeAnchor = null;
+    var showTimer = null;
+    var hideTimer = null;
+    var card = document.createElement("div");
+    card.className = "player-hover-card";
+    card.hidden = true;
+    document.body.appendChild(card);
+
+    function hideCard() {
+      card.hidden = true;
+      activeAnchor = null;
+    }
+
+    function scheduleHide() {
+      clearTimeout(showTimer);
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(hideCard, 120);
+    }
+
+    function moveCardNear(anchor) {
+      if (!anchor) return;
+      var rect = anchor.getBoundingClientRect();
+      var pad = 12;
+      var cardRect = card.getBoundingClientRect();
+      var left = rect.left + window.scrollX + rect.width / 2 - cardRect.width / 2;
+      var top = rect.bottom + window.scrollY + pad;
+      var maxLeft = window.scrollX + document.documentElement.clientWidth - cardRect.width - 8;
+      var minLeft = window.scrollX + 8;
+      if (left < minLeft) left = minLeft;
+      if (left > maxLeft) left = maxLeft;
+      var maxTop = window.scrollY + document.documentElement.clientHeight - cardRect.height - 8;
+      if (top > maxTop) {
+        top = rect.top + window.scrollY - cardRect.height - 8;
+      }
+      card.style.left = Math.round(left) + "px";
+      card.style.top = Math.round(top) + "px";
+    }
+
+    function renderCard(d) {
+      var attrsHtml = "";
+      if (d.is_goalie) {
+        var goa = d.attrs && d.attrs.goa != null ? d.attrs.goa : "—";
+        var menG = d.attrs && d.attrs.men != null ? d.attrs.men : "—";
+        attrsHtml =
+          '<div class="player-hover-attrs">' +
+          '<span>GOA <strong style="' + attrColorStyle(goa) + '">' + escapeHtml(String(goa)) + "</strong></span>" +
+          '<span>MEN <strong style="' + attrColorStyle(menG) + '">' + escapeHtml(String(menG)) + "</strong></span>" +
+          "</div>";
+      } else {
+        var off = d.attrs && d.attrs.off != null ? d.attrs.off : "—";
+        var def = d.attrs && d.attrs.def != null ? d.attrs.def : "—";
+        var phy = d.attrs && d.attrs.phy != null ? d.attrs.phy : "—";
+        var men = d.attrs && d.attrs.men != null ? d.attrs.men : "—";
+        attrsHtml =
+          '<div class="player-hover-attrs">' +
+          '<span>OFF <strong style="' + attrColorStyle(off) + '">' + escapeHtml(String(off)) + "</strong></span>" +
+          '<span>DEF <strong style="' + attrColorStyle(def) + '">' + escapeHtml(String(def)) + "</strong></span>" +
+          '<span>PHY <strong style="' + attrColorStyle(phy) + '">' + escapeHtml(String(phy)) + "</strong></span>" +
+          '<span>MEN <strong style="' + attrColorStyle(men) + '">' + escapeHtml(String(men)) + "</strong></span>" +
+          "</div>";
+      }
+      var shoots = d.shoots || "—";
+      if (/^l/i.test(shoots)) shoots = "Left";
+      else if (/^r/i.test(shoots)) shoots = "Right";
+      card.innerHTML =
+        '<div class="player-hover-card__row">' +
+        '<div class="player-hover-card__photo">' +
+        (d.photo_url
+          ? '<img src="' + escapeAttr(d.photo_url) + '" alt="">'
+          : '<span class="player-hover-card__photo-ph"></span>') +
+        "</div>" +
+        '<div class="player-hover-card__body">' +
+        '<div class="player-hover-card__name">' + escapeHtml(d.name || "Player") + "</div>" +
+        '<div class="player-hover-card__meta">' +
+        escapeHtml(d.position || "—") +
+        (d.team_abbr ? ", " + escapeHtml(d.team_abbr) : "") +
+        " · Age " + escapeHtml(String(d.age != null ? d.age : "—")) +
+        " | Shoots " + escapeHtml(shoots) +
+        " | " + escapeHtml(formatHeight(d.height_inches)) +
+        " - " + escapeHtml(String(d.weight_lbs != null ? d.weight_lbs : "—")) + " lbs" +
+        "</div>" +
+        attrsHtml +
+        '<div class="player-hover-ap">' +
+        '<span class="player-hover-ap__label">ABI</span><span class="player-hover-ap__stars">' + hoverStars(d.abi) + "</span>" +
+        '<span class="player-hover-ap__sep">|</span>' +
+        '<span class="player-hover-ap__label">POT</span><span class="player-hover-ap__stars">' + hoverStars(d.pot) + "</span>" +
+        "</div>" +
+        "</div></div>";
+    }
+
+    function showFor(anchor, playerId) {
+      clearTimeout(hideTimer);
+      clearTimeout(showTimer);
+      showTimer = setTimeout(function () {
+        activeAnchor = anchor;
+        var cached = cache[playerId];
+        if (cached) {
+          renderCard(cached);
+          card.hidden = false;
+          moveCardNear(anchor);
+          return;
+        }
+        fetch(withRoot("/api/player/" + playerId + "/hover-card"))
+          .then(function (r) { return r.json(); })
+          .then(function (d) {
+            if (!d || d.error) return;
+            cache[playerId] = d;
+            if (activeAnchor !== anchor) return;
+            renderCard(d);
+            card.hidden = false;
+            moveCardNear(anchor);
+          })
+          .catch(function () {});
+      }, 120);
+    }
+
+    card.addEventListener("mouseenter", function () {
+      clearTimeout(hideTimer);
+    });
+    card.addEventListener("mouseleave", scheduleHide);
+
+    document.querySelectorAll('a[href*="/player/"]').forEach(function (a) {
+      if (a.getAttribute("data-player-hover-bound") === "1") return;
+      var playerId = playerIdFromHref(a.getAttribute("href"));
+      if (!playerId) return;
+      a.setAttribute("data-player-hover-bound", "1");
+      a.addEventListener("mouseenter", function () { showFor(a, playerId); });
+      a.addEventListener("mouseleave", scheduleHide);
+      a.addEventListener("focusin", function () { showFor(a, playerId); });
+      a.addEventListener("focusout", scheduleHide);
+    });
+
+    window.addEventListener("scroll", function () {
+      if (!card.hidden && activeAnchor) moveCardNear(activeAnchor);
+    }, { passive: true });
+    window.addEventListener("resize", function () {
+      if (!card.hidden && activeAnchor) moveCardNear(activeAnchor);
+    });
   }
 
   const THEME_KEY = "bowl-universe-theme";
@@ -70,6 +268,7 @@
 
   document.addEventListener("DOMContentLoaded", function () {
     applyTheme(getPreferredTheme());
+    initPlayerHoverCards();
     document.querySelectorAll(".theme-toggle").forEach(function (el) {
       el.addEventListener("click", toggleTheme);
     });

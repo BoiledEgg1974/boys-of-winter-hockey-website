@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
+from datetime import date
 
 from pathlib import Path
 
@@ -24,9 +25,10 @@ from app.models import (
 )
 from app.services.all_time_records import bowl_nhl_league_ids
 from app.services.playoff_bracket import playoff_bracket_payload
+from app.services.player_rating_avgs import goalie_category_averages, skater_category_averages
 from app.services.player_headshot import resolve_player_headshot_static_filename
-from app.services.player_ratings_csv import player_positions_display_label
-from app.services.seasons import get_current_season
+from app.services.player_ratings_csv import get_player_ratings_row, player_positions_display_label
+from app.services.seasons import get_current_season, season_age_reference_date
 
 api_bp = Blueprint("api", __name__)
 
@@ -57,6 +59,22 @@ def _fmt_toi(sec: int | None) -> str | None:
     if s < 0:
         return None
     return f"{s // 60}:{s % 60:02d}"
+
+
+def _player_age_years(birth_date: date | None, ref_date: date | None) -> int | None:
+    if not birth_date:
+        return None
+    rd = ref_date or date.today()
+    years = rd.year - birth_date.year
+    if (rd.month, rd.day) < (birth_date.month, birth_date.day):
+        years -= 1
+    return years if years >= 0 else None
+
+
+def _is_goalie(player: Player) -> bool:
+    raw = (player.position or "").strip().upper().replace("/", " ")
+    first = raw.split()[0] if raw else ""
+    return first == "G"
 
 
 def _normalized_scoring_periods(game: Game, events: list[ScoringEvent]) -> dict[int, int]:
@@ -191,6 +209,49 @@ def search_players():
             }
         )
     return jsonify({"results": out})
+
+
+@api_bp.get("/player/<int:player_id>/hover-card")
+def player_hover_card(player_id: int):
+    player = db.session.get(Player, player_id)
+    if not player:
+        return jsonify({"error": "not found"}), 404
+    team = db.session.get(Team, player.current_team_id) if player.current_team_id else None
+    season = get_current_season()
+    age = _player_age_years(player.birth_date, season_age_reference_date(season) if season else None)
+    rr = get_player_ratings_row(player.fhm_player_id)
+    is_goalie = _is_goalie(player)
+    if is_goalie:
+        avgs = goalie_category_averages(rr)
+        attrs = {
+            "goa": int(round(avgs["goa"])) if avgs.get("goa") is not None else None,
+            "men": int(round(avgs["men"])) if avgs.get("men") is not None else None,
+        }
+    else:
+        avgs = skater_category_averages(rr)
+        attrs = {
+            "off": int(round(avgs["off"])) if avgs.get("off") is not None else None,
+            "def": int(round(avgs["def"])) if avgs.get("def") is not None else None,
+            "phy": int(round(avgs["phy"])) if avgs.get("phy") is not None else None,
+            "men": int(round(avgs["men"])) if avgs.get("men") is not None else None,
+        }
+    return jsonify(
+        {
+            "id": player.id,
+            "name": player.full_name or "",
+            "position": player_positions_display_label(player),
+            "team_abbr": team.abbreviation if team else "",
+            "age": age,
+            "shoots": (player.shoots_catches or "").strip(),
+            "height_inches": player.height_inches,
+            "weight_lbs": player.weight_lbs,
+            "abi": float(player.overall_ability) if player.overall_ability is not None else None,
+            "pot": float(player.overall_potential) if player.overall_potential is not None else None,
+            "is_goalie": is_goalie,
+            "attrs": attrs,
+            "photo_url": _player_photo_url(player),
+        }
+    )
 
 
 @api_bp.get("/game/<int:game_id>/boxscore")

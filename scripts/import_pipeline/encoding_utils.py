@@ -93,7 +93,7 @@ def parse_fhm_date(raw) -> date | None:
     return None
 
 
-_CP1250_MOJIBAKE_HINTS = ("ĺ", "Ĺ", "ř", "Ř")
+_CP1250_MOJIBAKE_HINTS = ("ĺ", "Ĺ", "ľ", "Ľ", "ř", "Ř", "č", "Č", "ď", "Ď", "ť", "Ť")
 
 
 def repair_likely_cp1250_mojibake(text: str | None) -> str | None:

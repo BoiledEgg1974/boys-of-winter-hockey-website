@@ -18,6 +18,7 @@ from app.models import (
     Player,
     PlayerGoalieStat,
     PlayerSkaterStat,
+    ScoringEvent,
     Team,
     db,
 )
@@ -56,6 +57,45 @@ def _fmt_toi(sec: int | None) -> str | None:
     if s < 0:
         return None
     return f"{s // 60}:{s % 60:02d}"
+
+
+def _normalized_scoring_periods(game: Game, events: list[ScoringEvent]) -> dict[int, int]:
+    """Map scoring event ids to display periods.
+
+    Some exports encode OT1 goals with ``period=1``. For OT games that did not reach shootout,
+    if all imported periods are <= 3 and event count matches final goals, treat the final goal
+    as period 4 (OT) for display.
+    """
+    period_by_event = {ev.id: int(ev.period or 1) for ev in events}
+    if not events or not game.went_to_overtime or game.went_to_shootout:
+        return period_by_event
+    if any((ev.period or 0) > 3 for ev in events):
+        return period_by_event
+    total_final_goals = int(game.home_score or 0) + int(game.away_score or 0)
+    if total_final_goals <= 0 or len(events) != total_final_goals:
+        return period_by_event
+    if int(game.home_score or 0) == int(game.away_score or 0):
+        return period_by_event
+    period_by_event[events[-1].id] = 4
+    return period_by_event
+
+
+def _effective_team_shots(game: Game, goalie_lines: list[GameGoalieStat]) -> tuple[int | None, int | None]:
+    """Prefer derived shots-on-goal from goalie SA totals when available.
+
+    In some imports, ``game.home_shots``/``game.away_shots`` come from summary shot totals that
+    do not match true shots on goal. Goalie ``shots_against`` provides reliable SOG totals.
+    """
+    sa_by_team: dict[int, int] = defaultdict(int)
+    for row in goalie_lines:
+        if row.team_id is None or row.shots_against is None:
+            continue
+        sa_by_team[row.team_id] += int(row.shots_against)
+    home_sog = sa_by_team.get(game.away_team_id)
+    away_sog = sa_by_team.get(game.home_team_id)
+    if home_sog is None and away_sog is None:
+        return game.home_shots, game.away_shots
+    return home_sog if home_sog is not None else game.home_shots, away_sog if away_sog is not None else game.away_shots
 
 
 def _star_entry(game: Game, fhm_pid: int | None) -> dict | None:
@@ -166,8 +206,12 @@ def game_boxscore(game_id: int):
     goals_by_period_away: defaultdict[int, int] = defaultdict(int)
     goals_by_period_home: defaultdict[int, int] = defaultdict(int)
 
+    scoring_events = list(game.scoring_events or [])
+    display_period_by_event = _normalized_scoring_periods(game, scoring_events)
+
     goals = []
-    for ev in game.scoring_events:
+    for ev in scoring_events:
+        disp_period = display_period_by_event.get(ev.id, int(ev.period or 1))
         def pname(pid):
             if not pid:
                 return None
@@ -175,14 +219,14 @@ def game_boxscore(game_id: int):
             return pl.full_name if pl else None
 
         if ev.scoring_team_id == away_id:
-            goals_by_period_away[ev.period] += 1
+            goals_by_period_away[disp_period] += 1
         elif ev.scoring_team_id == home_id:
-            goals_by_period_home[ev.period] += 1
+            goals_by_period_home[disp_period] += 1
 
         st_team = db.session.get(Team, ev.scoring_team_id) if ev.scoring_team_id else None
         goals.append(
             {
-                "period": ev.period,
+                "period": disp_period,
                 "time": ev.time_elapsed,
                 "scorer": pname(ev.scorer_player_id),
                 "scorer_id": ev.scorer_player_id,
@@ -234,8 +278,9 @@ def game_boxscore(game_id: int):
             }
         )
     skaters.sort(key=lambda x: (-x["g"], -x["a"], x["player"]))
+    goalie_lines = list(game.goalie_lines or [])
     goalies = []
-    for row in game.goalie_lines:
+    for row in goalie_lines:
         pl = db.session.get(Player, row.player_id)
         if not pl:
             continue
@@ -259,6 +304,8 @@ def game_boxscore(game_id: int):
                 "gr": row.game_rating,
             }
         )
+    home_shots, away_shots = _effective_team_shots(game, goalie_lines)
+
     return jsonify(
         {
             "game_id": game.id,
@@ -294,7 +341,7 @@ def game_boxscore(game_id: int):
                 "slug": home.slug if home else "",
                 "name": home.name if home else "",
                 "score": game.home_score,
-                "shots": game.home_shots,
+                "shots": home_shots,
                 "logo_url": team_logo_url_for_team(home) if home else "",
             },
             "away": {
@@ -302,7 +349,7 @@ def game_boxscore(game_id: int):
                 "slug": away.slug if away else "",
                 "name": away.name if away else "",
                 "score": game.away_score,
-                "shots": game.away_shots,
+                "shots": away_shots,
                 "logo_url": team_logo_url_for_team(away) if away else "",
             },
             "goals": goals,

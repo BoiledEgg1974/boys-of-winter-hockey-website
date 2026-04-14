@@ -31,6 +31,7 @@ from app.models import (
 from scripts.import_pipeline.encoding_utils import (
     cell_val,
     parse_fhm_date,
+    repair_likely_cp1250_mojibake,
     read_csv_normalized,
     to_bool,
     to_float,
@@ -43,6 +44,10 @@ log = logging.getLogger("bowl.fhm")
 def _slug(abbr: str, team_fhm_id: int) -> str:
     base = re.sub(r"[^a-z0-9]+", "-", (abbr or "tm").lower()).strip("-") or "tm"
     return f"{base}-t{team_fhm_id}"
+
+
+def _clean_text(raw: str | None) -> str | None:
+    return repair_likely_cp1250_mojibake(raw)
 
 
 def _parse_date(y, m, d) -> date | None:
@@ -173,9 +178,9 @@ def import_fhm_teams(raw_dir: Path, league_filter: int, div_map: dict) -> dict[i
         tid = to_int(cell_val(r, "teamid"))
         if tid is None:
             continue
-        name = cell_val(r, "name") or f"Team {tid}"
-        nick = cell_val(r, "nickname")
-        abbr = cell_val(r, "abbr") or str(tid)
+        name = _clean_text(cell_val(r, "name")) or f"Team {tid}"
+        nick = _clean_text(cell_val(r, "nickname"))
+        abbr = _clean_text(cell_val(r, "abbr")) or str(tid)
         pc = cell_val(r, "primary_color")
         sc = cell_val(r, "secondary_color")
         tc = cell_val(r, "text_color")
@@ -219,8 +224,8 @@ def import_players(raw_dir: Path, teams_fhm: dict[int, int]) -> dict[int, int]:
         pid = to_int(cell_val(r, "playerid"))
         if pid is None:
             continue
-        fn = cell_val(r, "first_name") or "?"
-        ln = cell_val(r, "last_name") or "?"
+        fn = _clean_text(cell_val(r, "first_name")) or "?"
+        ln = _clean_text(cell_val(r, "last_name")) or "?"
         full = f"{fn} {ln}".strip()
         fhm_key = str(pid)
         p = db.session.scalars(select(Player).where(Player.fhm_player_id == fhm_key).limit(1)).first()
@@ -231,15 +236,15 @@ def import_players(raw_dir: Path, teams_fhm: dict[int, int]) -> dict[int, int]:
         p.first_name = fn
         p.last_name = ln
         p.full_name = full
-        p.nick_name = cell_val(r, "nick_name", "nickname")
+        p.nick_name = _clean_text(cell_val(r, "nick_name", "nickname"))
         p.shoots_catches = cell_val(r, "hand")
         bd = cell_val(r, "date_of_birth")
         bd_parsed = parse_fhm_date(bd)
         if bd_parsed:
             p.birth_date = bd_parsed
-        p.birth_city = cell_val(r, "birthcity")
-        p.birth_state = cell_val(r, "birthstate")
-        p.nationality = cell_val(r, "nationality_one", "nationality")
+        p.birth_city = _clean_text(cell_val(r, "birthcity"))
+        p.birth_state = _clean_text(cell_val(r, "birthstate"))
+        p.nationality = _clean_text(cell_val(r, "nationality_one", "nationality"))
         p.height_inches = to_int(cell_val(r, "height"))
         p.weight_lbs = to_int(cell_val(r, "weight"))
         p.franchise_fhm_id = to_int(cell_val(r, "franchiseid"))
@@ -414,6 +419,17 @@ def import_games(
     if not path.exists():
         return {}
     df = read_csv_normalized(path)
+
+    def _sum_int_cells(row_dict: dict, *keys: str) -> int | None:
+        vals: list[int] = []
+        for k in keys:
+            v = to_int(cell_val(row_dict, k))
+            if v is not None:
+                vals.append(v)
+        if not vals:
+            return None
+        return sum(vals)
+
     fhm_to_gid: dict[str, int] = {}
     for _, row in df.iterrows():
         r = row.to_dict()
@@ -469,8 +485,10 @@ def import_games(
                 continue
             g.arena = cell_val(r, "arena")
             g.attendance = to_int(cell_val(r, "attendance"))
-            g.home_shots = to_int(cell_val(r, "shots_home"))
-            g.away_shots = to_int(cell_val(r, "shots_away"))
+            home_sog = _sum_int_cells(r, "sog_home_p1", "sog_home_p2", "sog_home_p3", "sog_home_ot")
+            away_sog = _sum_int_cells(r, "sog_away_p1", "sog_away_p2", "sog_away_p3", "sog_away_ot")
+            g.home_shots = home_sog if home_sog is not None else to_int(cell_val(r, "shots_home"))
+            g.away_shots = away_sog if away_sog is not None else to_int(cell_val(r, "shots_away"))
             g.pim_home = to_int(cell_val(r, "pim_home"))
             g.pim_away = to_int(cell_val(r, "pim_away"))
             g.hits_home = to_int(cell_val(r, "hits_home"))

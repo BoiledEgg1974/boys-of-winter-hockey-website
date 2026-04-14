@@ -91,3 +91,29 @@ def parse_fhm_date(raw) -> date | None:
         except (ValueError, TypeError):
             return None
     return None
+
+
+_CP1250_MOJIBAKE_HINTS = ("ĺ", "Ĺ", "ř", "Ř")
+
+
+def repair_likely_cp1250_mojibake(text: str | None) -> str | None:
+    """Repair common cp1250-vs-cp1252 mojibake in legacy FHM text fields.
+
+    Example fixes:
+    - ``Pĺhlsson`` -> ``Påhlsson``
+    - ``Bjřrn`` -> ``Bjørn``
+    """
+    if text is None:
+        return None
+    s = str(text)
+    if not s or not any(ch in s for ch in _CP1250_MOJIBAKE_HINTS):
+        return s
+    try:
+        candidate = s.encode("cp1250").decode("cp1252")
+    except UnicodeError:
+        return s
+    if not candidate:
+        return s
+    before = sum(s.count(ch) for ch in _CP1250_MOJIBAKE_HINTS)
+    after = sum(candidate.count(ch) for ch in _CP1250_MOJIBAKE_HINTS)
+    return candidate if after < before else s

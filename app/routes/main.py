@@ -1344,17 +1344,6 @@ def _line_player(lines_row: dict[str, str], key: str, players_by_fhm: dict[str, 
     return players_by_fhm.get(raw)
 
 
-def _unique_nonempty(values: list[str | None]) -> list[str]:
-    out: list[str] = []
-    seen: set[str] = set()
-    for v in values:
-        if not v or v in seen:
-            continue
-        out.append(v)
-        seen.add(v)
-    return out
-
-
 def _norm_contract_key(key: str) -> str:
     return "".join(ch.lower() if ch.isalnum() else "_" for ch in key).strip("_")
 
@@ -1389,7 +1378,7 @@ def _build_team_lines_views(
     raw_import_dir: Path,
 ) -> tuple[
     dict[str, list[dict[str, object]]],
-    list[tuple[str, list[tuple[str, str | list[str] | None]]]],
+    list[dict[str, object]],
     dict[str, int],
     list[dict[str, object]],
     int,
@@ -1454,13 +1443,6 @@ def _build_team_lines_views(
         return pl.full_name if pl else None
 
     lines_name_to_id = {p.full_name: p.id for p in players_by_fhm.values() if p.id in allowed_org_ids}
-    lw_lines = _unique_nonempty([ln("ES L1 LW"), ln("ES L2 LW"), ln("ES L3 LW"), ln("ES L4 LW")])
-    c_lines = _unique_nonempty([ln("ES L1 C"), ln("ES L2 C"), ln("ES L3 C"), ln("ES L4 C")])
-    rw_lines = _unique_nonempty([ln("ES L1 RW"), ln("ES L2 RW"), ln("ES L3 RW"), ln("ES L4 RW")])
-    ld_lines = _unique_nonempty([ln("ES L1 LD"), ln("ES L2 LD"), ln("ES L3 LD"), ln("ES L4 LD")])
-    rd_lines = _unique_nonempty([ln("ES L1 RD"), ln("ES L2 RD"), ln("ES L3 RD"), ln("ES L4 RD")])
-    g_lines = _unique_nonempty([ln("Goalie 1"), ln("Goalie 2")])
-
     def _rating_num(pl: Player, key: str) -> float:
         rr = get_player_ratings_row(pl.fhm_player_id)
         if not rr:
@@ -1540,18 +1522,175 @@ def _build_team_lines_views(
         "right_wings": _merge_depth(by_pos["RW"], "RW"),
     }
 
-    lines_sections: list[tuple[str, list[tuple[str, str | list[str] | None]]]] = [
-        ("Forwards", [("LW", lw_lines), ("C", c_lines), ("RW", rw_lines)]),
-        ("Defense", [("LD", ld_lines), ("RD", rd_lines)]),
-        ("1st Powerplay Unit (5v4)", [("LW", ln("PP5on4 L1 LW")), ("C", ln("PP5on4 L1 C")), ("RW", ln("PP5on4 L1 RW")), ("LD", ln("PP5on4 L1 LD")), ("RD", ln("PP5on4 L1 RD"))]),
-        ("2nd Powerplay Unit (5v4)", [("LW", ln("PP5on4 L2 LW")), ("C", ln("PP5on4 L2 C")), ("RW", ln("PP5on4 L2 RW")), ("LD", ln("PP5on4 L2 LD")), ("RD", ln("PP5on4 L2 RD"))]),
-        ("Penalty Kill Unit 1 (4v5)", [("F1", ln("PK4on5 L1 F1")), ("F2", ln("PK4on5 L1 F2")), ("LD", ln("PK4on5 L1 LD")), ("RD", ln("PK4on5 L1 RD"))]),
-        ("Penalty Kill Unit 2 (4v5)", [("F1", ln("PK4on5 L2 F1")), ("F2", ln("PK4on5 L2 F2")), ("LD", ln("PK4on5 L2 LD")), ("RD", ln("PK4on5 L2 RD"))]),
-        ("Penalty Kill Unit 3 (4v5)", [("F1", ln("PK4on5 L3 F1")), ("F2", ln("PK4on5 L3 F2")), ("LD", ln("PK4on5 L3 LD")), ("RD", ln("PK4on5 L3 RD"))]),
-        ("Goalies", [("Starter", ln("Goalie 1")), ("Backup", ln("Goalie 2"))]),
-    ]
-
     age_ref = season_age_reference_date(season)
+
+    def _fmt_height_inches(height_inches: int | None) -> str:
+        if height_inches is None:
+            return "—"
+        try:
+            h = int(height_inches)
+        except (TypeError, ValueError):
+            return "—"
+        if h <= 0:
+            return "—"
+        return f"{h // 12}'{h % 12}\""
+
+    def _shoots_label(raw: str | None) -> str:
+        txt = (raw or "").strip().lower()
+        if txt.startswith("l"):
+            return "Left"
+        if txt.startswith("r"):
+            return "Right"
+        return (raw or "—").strip() or "—"
+
+    def _line_player_card(pl: Player | None) -> dict[str, object] | None:
+        if not pl:
+            return None
+        rr = get_player_ratings_row(pl.fhm_player_id)
+        is_goalie = _player_is_goalie_position(pl)
+        if is_goalie:
+            cat = goalie_category_averages(rr)
+            attrs = {
+                "goa": int(round(cat.get("goa"))) if cat.get("goa") is not None else None,
+                "men": int(round(cat.get("men"))) if cat.get("men") is not None else None,
+            }
+        else:
+            cat = skater_category_averages(rr)
+            attrs = {
+                "off": int(round(cat.get("off"))) if cat.get("off") is not None else None,
+                "def": int(round(cat.get("def"))) if cat.get("def") is not None else None,
+                "phy": int(round(cat.get("phy"))) if cat.get("phy") is not None else None,
+                "men": int(round(cat.get("men"))) if cat.get("men") is not None else None,
+            }
+        return {
+            "player": pl,
+            "is_goalie": is_goalie,
+            "age": _player_age_years(pl.birth_date, age_ref),
+            "shoots": _shoots_label(pl.shoots_catches),
+            "height": _fmt_height_inches(pl.height_inches),
+            "weight": int(pl.weight_lbs) if pl.weight_lbs is not None else None,
+            "attrs": attrs,
+        }
+
+    def _slot(label: str, key: str) -> dict[str, object]:
+        return {"label": label, "card": _line_player_card(lp(key))}
+
+    lines_sections: list[dict[str, object]] = [
+        {
+            "title": "Even Strength",
+            "line_label": "1st Line",
+            "layout": "five",
+            "slots": [
+                _slot("LW", "ES L1 LW"),
+                _slot("C", "ES L1 C"),
+                _slot("RW", "ES L1 RW"),
+                _slot("LD", "ES L1 LD"),
+                _slot("RD", "ES L1 RD"),
+            ],
+        },
+        {
+            "title": "Even Strength",
+            "line_label": "2nd Line",
+            "layout": "five",
+            "slots": [
+                _slot("LW", "ES L2 LW"),
+                _slot("C", "ES L2 C"),
+                _slot("RW", "ES L2 RW"),
+                _slot("LD", "ES L2 LD"),
+                _slot("RD", "ES L2 RD"),
+            ],
+        },
+        {
+            "title": "Even Strength",
+            "line_label": "3rd Line",
+            "layout": "five",
+            "slots": [
+                _slot("LW", "ES L3 LW"),
+                _slot("C", "ES L3 C"),
+                _slot("RW", "ES L3 RW"),
+                _slot("LD", "ES L3 LD"),
+                _slot("RD", "ES L3 RD"),
+            ],
+        },
+        {
+            "title": "Even Strength",
+            "line_label": "4th Line",
+            "layout": "five",
+            "slots": [
+                _slot("LW", "ES L4 LW"),
+                _slot("C", "ES L4 C"),
+                _slot("RW", "ES L4 RW"),
+                _slot("LD", "ES L4 LD"),
+                _slot("RD", "ES L4 RD"),
+            ],
+        },
+        {
+            "title": "Powerplay",
+            "line_label": "Unit 1 (5v4)",
+            "layout": "five",
+            "slots": [
+                _slot("LW", "PP5on4 L1 LW"),
+                _slot("C", "PP5on4 L1 C"),
+                _slot("RW", "PP5on4 L1 RW"),
+                _slot("LD", "PP5on4 L1 LD"),
+                _slot("RD", "PP5on4 L1 RD"),
+            ],
+        },
+        {
+            "title": "Powerplay",
+            "line_label": "Unit 2 (5v4)",
+            "layout": "five",
+            "slots": [
+                _slot("LW", "PP5on4 L2 LW"),
+                _slot("C", "PP5on4 L2 C"),
+                _slot("RW", "PP5on4 L2 RW"),
+                _slot("LD", "PP5on4 L2 LD"),
+                _slot("RD", "PP5on4 L2 RD"),
+            ],
+        },
+        {
+            "title": "Penalty Kill",
+            "line_label": "Unit 1 (4v5)",
+            "layout": "four",
+            "slots": [
+                _slot("F1", "PK4on5 L1 F1"),
+                _slot("F2", "PK4on5 L1 F2"),
+                _slot("LD", "PK4on5 L1 LD"),
+                _slot("RD", "PK4on5 L1 RD"),
+            ],
+        },
+        {
+            "title": "Penalty Kill",
+            "line_label": "Unit 2 (4v5)",
+            "layout": "four",
+            "slots": [
+                _slot("F1", "PK4on5 L2 F1"),
+                _slot("F2", "PK4on5 L2 F2"),
+                _slot("LD", "PK4on5 L2 LD"),
+                _slot("RD", "PK4on5 L2 RD"),
+            ],
+        },
+        {
+            "title": "Penalty Kill",
+            "line_label": "Unit 3 (4v5)",
+            "layout": "four",
+            "slots": [
+                _slot("F1", "PK4on5 L3 F1"),
+                _slot("F2", "PK4on5 L3 F2"),
+                _slot("LD", "PK4on5 L3 LD"),
+                _slot("RD", "PK4on5 L3 RD"),
+            ],
+        },
+        {
+            "title": "Goalies",
+            "line_label": "Depth",
+            "layout": "goalie",
+            "slots": [
+                _slot("Starter", "Goalie 1"),
+                _slot("Backup", "Goalie 2"),
+            ],
+        },
+    ]
     salary_rows: list[dict[str, object]] = []
     salary_total = 0
     salary_years = [int(season.start_year) + i for i in range(6)] if season and season.start_year else []

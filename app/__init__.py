@@ -125,15 +125,51 @@ def create_app(config_class: type = Config) -> Flask:
 
     @app.template_filter("attr_rating_style")
     def attr_rating_style(val: object) -> str:
-        """Same gradient as ABI/POT but for raw attributes on a 0–21 scale (maps onto 0.5–5.0)."""
+        """Same gradient as ABI/POT but for raw attributes on a 0–20 scale (maps onto 0.5–5.0)."""
         if val is None:
             return ""
         try:
             v = float(val)
         except (TypeError, ValueError):
             return ""
-        v_norm = 0.5 + (v / 21.0) * (5.0 - 0.5)
+        v = max(0.0, min(20.0, v))
+        v_norm = 0.5 + (v / 20.0) * (5.0 - 0.5)
         return rating_pill_style(v_norm)
+
+    @app.template_filter("attr_rating_text_style")
+    def attr_rating_text_style(val: object) -> str:
+        """Text color for 0–20 attributes: red→orange→yellow→green→blue."""
+        if val is None:
+            return ""
+        try:
+            v = float(val)
+        except (TypeError, ValueError):
+            return ""
+        v = max(0.0, min(20.0, v))
+        stops = [
+            (0.0, (220, 38, 38)),
+            (8.0, (251, 146, 60)),
+            (13.0, (190, 220, 80)),
+            (16.0, (45, 212, 191)),
+            (20.0, (59, 130, 246)),
+        ]
+        lo_idx = 0
+        for i in range(1, len(stops)):
+            if v <= stops[i][0]:
+                lo_idx = i - 1
+                break
+            lo_idx = i - 1
+        hi_idx = min(lo_idx + 1, len(stops) - 1)
+        v0, c0 = stops[lo_idx]
+        v1, c1 = stops[hi_idx]
+        if v1 <= v0:
+            t = 0.0
+        else:
+            t = (v - v0) / (v1 - v0)
+        r = int(c0[0] + (c1[0] - c0[0]) * t)
+        g = int(c0[1] + (c1[1] - c0[1]) * t)
+        b = int(c0[2] + (c1[2] - c0[2]) * t)
+        return f"color:rgb({r},{g},{b})"
 
     @app.template_filter("rating_meter_fill_style")
     def rating_meter_fill_style(val: object) -> str:

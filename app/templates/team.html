@@ -1,5 +1,20 @@
 {% extends "base.html" %}
 {% block title %}{{ team.name }} — Boys of Winter Hockey League{% endblock %}
+{% macro star_row(value) -%}
+  {% if value is none %}
+    <span class="team-lines-stars__empty">—</span>
+  {% else %}
+    {% set steps = ((value * 2)|round(0, 'common'))|int %}
+    {% if steps < 0 %}{% set steps = 0 %}{% endif %}
+    {% if steps > 10 %}{% set steps = 10 %}{% endif %}
+    {% set full = (steps // 2)|int %}
+    {% set half = 1 if (steps % 2) else 0 %}
+    {% set empty = 5 - full - half %}
+    {% for _ in range(full) %}<span class="team-lines-star">★</span>{% endfor %}
+    {% if half %}<span class="team-lines-star team-lines-star--half">★</span>{% endif %}
+    {% for _ in range(empty) %}<span class="team-lines-star team-lines-star--empty">★</span>{% endfor %}
+  {% endif %}
+{%- endmacro %}
 {% block content %}
 {% set ph = team.primary_color or '#1e3a5f' %}
 {% set sh = team.secondary_color or '#0f172a' %}
@@ -344,36 +359,76 @@
 {% include "_team_ratings_panel.html" %}
 {% elif active_panel == 'lines' %}
 <div class="team-lines-stack">
-  {% for title, slots in lines_sections %}
-  <div class="card">
-    <h2>{{ title }}</h2>
-    <div class="team-lines-grid">
-      {% for label, value in slots %}
-      <div class="team-lines-slot">
-        <span class="team-lines-slot__label">{{ label }}</span>
-        {% if value is string %}
-        {% if value and lines_name_to_id.get(value) %}
-        <a class="team-lines-slot__value" href="{{ url_for('main.player_page', player_id=lines_name_to_id.get(value)) }}">{{ value }}</a>
-        {% else %}
-        <span class="team-lines-slot__value">{{ value or '—' }}</span>
-        {% endif %}
-        {% else %}
-          {% if value %}
-            {% for nm in value %}
-            {% if lines_name_to_id.get(nm) %}
-            <a class="team-lines-slot__value" href="{{ url_for('main.player_page', player_id=lines_name_to_id.get(nm)) }}">{{ nm }}</a>
+  {% for section in lines_sections %}
+  <section class="team-lines-unit card">
+    <div class="team-lines-unit__rail">{{ section.line_label }}</div>
+    <div class="team-lines-unit__content">
+      <h2 class="team-lines-unit__title">{{ section.title }}</h2>
+      <div class="team-lines-unit__slots team-lines-unit__slots--{{ section.layout }}">
+        {% for slot in section.slots %}
+        {% set card = slot.card %}
+        <article class="team-lines-player-card">
+          <span class="team-lines-player-card__slot">{{ slot.label }}</span>
+          {% if card and card.player %}
+          <a class="team-lines-player-card__headshot" href="{{ url_for('main.player_page', player_id=card.player.id) }}">
+            {% if player_headshot_url(card.player) %}
+            <img src="{{ player_headshot_url(card.player) }}" alt="">
             {% else %}
-            <span class="team-lines-slot__value">{{ nm }}</span>
+            <span class="team-lines-player-card__headshot-ph" aria-hidden="true"></span>
             {% endif %}
-            {% endfor %}
+          </a>
+          <div class="team-lines-player-card__main">
+            <a class="team-lines-player-card__name" href="{{ url_for('main.player_page', player_id=card.player.id) }}">
+              {{ card.player.full_name }}
+            </a>
+            <div class="team-lines-player-card__meta">
+              {{ card.player | player_positions_display }}, {{ team.abbreviation }} · Age {{ card.age if card.age is not none else '—' }} | Shoots {{ card.shoots }} | {{ card.height }} - {{ card.weight if card.weight is not none else '—' }} lbs
+            </div>
+            <div class="team-lines-player-card__ratings">
+              {% if card.is_goalie %}
+              <span class="team-lines-player-card__attr-row">
+                <span class="team-lines-player-card__attr-label">Goa</span>
+                <span class="team-lines-player-card__attr-value" style="{{ card.attrs.goa|attr_rating_text_style if card.attrs.goa is not none else '' }}">{{ card.attrs.goa if card.attrs.goa is not none else '—' }}</span>
+              </span>
+              <span class="team-lines-player-card__attr-row">
+                <span class="team-lines-player-card__attr-label">Men</span>
+                <span class="team-lines-player-card__attr-value" style="{{ card.attrs.men|attr_rating_text_style if card.attrs.men is not none else '' }}">{{ card.attrs.men if card.attrs.men is not none else '—' }}</span>
+              </span>
+              {% else %}
+              <span class="team-lines-player-card__attr-row">
+                <span class="team-lines-player-card__attr-label">Off</span>
+                <span class="team-lines-player-card__attr-value" style="{{ card.attrs.off|attr_rating_text_style if card.attrs.off is not none else '' }}">{{ card.attrs.off if card.attrs.off is not none else '—' }}</span>
+              </span>
+              <span class="team-lines-player-card__attr-row">
+                <span class="team-lines-player-card__attr-label">Def</span>
+                <span class="team-lines-player-card__attr-value" style="{{ card.attrs.def|attr_rating_text_style if card.attrs.def is not none else '' }}">{{ card.attrs.def if card.attrs.def is not none else '—' }}</span>
+              </span>
+              <span class="team-lines-player-card__attr-row">
+                <span class="team-lines-player-card__attr-label">Phy</span>
+                <span class="team-lines-player-card__attr-value" style="{{ card.attrs.phy|attr_rating_text_style if card.attrs.phy is not none else '' }}">{{ card.attrs.phy if card.attrs.phy is not none else '—' }}</span>
+              </span>
+              <span class="team-lines-player-card__attr-row">
+                <span class="team-lines-player-card__attr-label">Men</span>
+                <span class="team-lines-player-card__attr-value" style="{{ card.attrs.men|attr_rating_text_style if card.attrs.men is not none else '' }}">{{ card.attrs.men if card.attrs.men is not none else '—' }}</span>
+              </span>
+              {% endif %}
+            </div>
+            <div class="team-lines-player-card__ap">
+              <span class="team-lines-player-card__ap-label">ABI</span>
+              <span class="team-lines-player-card__stars">{{ star_row(card.player.overall_ability) }}</span>
+              <span class="team-lines-player-card__ap-sep">|</span>
+              <span class="team-lines-player-card__ap-label">POT</span>
+              <span class="team-lines-player-card__stars">{{ star_row(card.player.overall_potential) }}</span>
+            </div>
+          </div>
           {% else %}
-          <span class="team-lines-slot__value">—</span>
+          <div class="team-lines-player-card__empty">—</div>
           {% endif %}
-        {% endif %}
+        </article>
+        {% endfor %}
       </div>
-      {% endfor %}
     </div>
-  </div>
+  </section>
   {% endfor %}
 </div>
 {% elif active_panel == 'salary' %}

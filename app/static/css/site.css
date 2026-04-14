@@ -2293,7 +2293,7 @@ table.data.team-staff-table thead th.team-staff-th--split {
   grid-column: 4 / span 2;
 }
 .team-lines-unit__slots--four {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .team-lines-unit__slots--goalie {
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2422,11 +2422,6 @@ table.data.team-staff-table thead th.team-staff-th--split {
 .team-lines-player-card__empty {
   grid-column: 1 / -1;
   color: #64748b;
-}
-@media (max-width: 1200px) {
-  .team-lines-unit__slots--four {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 @media (max-width: 980px) {
   .team-lines-unit {

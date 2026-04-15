@@ -146,7 +146,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 145;280;280;Alex;Stalock;;72;190;1956-7-28;South St. Paul;MN;The United States;;;0;Left;0
 146;159;159;Yan;Stastny;;71;192;1960-9-30;Quebec City;QC;The United States;Canada;Slovakia;0;Left;0
 147;186;186;Bruno;St. Jacques;;74;216;1948-8-22;Montreal;QC;Canada;;;0;Left;0
-148;20;20;Zack;Stortini;;75;228;1958-9-11;Elliot Lake;ON;Canada;;;0;Right;0
+148;16;16;Zack;Stortini;;75;228;1958-9-11;Elliot Lake;ON;Canada;;;0;Right;0
 149;3;3;Jozef;Stümpel;;75;222;1956-7-20;Nitra;NIT;Slovakia;;;0;Right;0
 150;157;157;Alexander;Suglobov;;73;200;1947-1-15;Elektrostal;MOS;Russia;;;0;Left;0
 151;159;159;Tomás;Surový;;73;216;1950-9-24;Banska Bystrica;BAN;Slovakia;;;0;Left;0
@@ -506,7 +506,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 530;186;186;Walt;Buswell;;71;170;1954-11-6;Montreal;QC;Canada;;;0;Left;0
 531;14;14;Garth;Butcher;Strangler;72;204;1958-1-8;Prince Albert;SK;Canada;;;0;Right;0
 532;226;226;Dick;Butler;;68;175;1958-6-2;Delisle;SK;Canada;;;0;Right;0
-533;15;15;Jerry;Butler;Bugsy;72;180;1955-2-27;Sarnia;ON;Canada;;;0;Right;0
+533;236;15;Jerry;Butler;Bugsy;72;180;1955-2-27;Sarnia;ON;Canada;;;0;Right;0
 534;186;186;Steve;Buzinski;Buzzie;68;140;1956-10-15;Dunblane;SK;Canada;;;0;Left;0
 535;303;303;Ilja;Byakin;;70;192;1957-2-2;Sverdlovsk;LUH;Russia;Ukraine;;0;Left;0
 536;218;218;Lyndon;Byers;L.B.;73;200;1958-2-28;Nipawin;SK;Canada;;;0;Right;0

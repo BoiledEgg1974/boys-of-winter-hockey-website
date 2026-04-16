@@ -468,7 +468,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 466;186;186;Ted;Fauss;;74;205;1961-6-30;Clinton;NY;The United States;;;0;Left;0
 467;186;186;Andre;Faust;;71;191;1969-10-7;Joliette;QC;Canada;;;0;Left;0
 468;186;186;Glen;Featherstone;Feather;76;209;1968-7-8;Toronto;ON;Canada;;;0;Left;0
-12997;0;0;Benoit;Gratton;;70;194;1976-12-28;Murdochville;QC;Canada;;;0;Left;1
+12997;51;0;Benoit;Gratton;;70;194;1976-12-28;Murdochville;QC;Canada;;;0;Left;0
 470;20;20;Sergei;Fedorov;;73;205;1969-12-13;Pskov;PSK;Russia;;;0;Left;0
 471;157;157;Anatoli;Fedotov;;71;178;1966-5-11;Saratov;SAR;Russia;;;0;Left;0
 472;186;186;Brent;Fedyk;Feds;72;194;1967-3-8;Yorkton;SK;Canada;;;0;Right;0
@@ -1598,7 +1598,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 16036;180;180;Kris;Newbury;;71;205;1982-2-19;Brampton;ON;Canada;;;0;Left;1
 1597;186;186;Vern;Smith;;73;190;1964-5-30;Winnipeg;MB;Canada;;;0;Left;0
 1598;5;5;Bryan;Smolinski;;73;215;1971-12-27;Toledo;OH;The United States;;;0;Right;0
-13519;51;0;Bryan;Adams;;74;213;1977-3-20;Fort St. James;BC;Canada;;;0;Left;0
+13519;0;0;Bryan;Adams;;74;213;1977-3-20;Fort St. James;BC;Canada;;;0;Left;0
 1600;51;0;Brad;Smyth;;72;200;1973-3-13;Ottawa;ON;Canada;;;0;Right;0
 1601;186;186;Greg;Smyth;Birddog;75;212;1966-4-23;Oakville;ON;Canada;;;0;Right;0
 1602;186;186;Kevin;Smyth;;74;217;1973-11-22;Banff;AB;Canada;;;0;Left;0
@@ -4631,7 +4631,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 12256;165;165;Benjamin;Agnel;;69;165;1973-11-29;Marquion;NOR;France;;;0;Left;0
 12257;160;160;Alexei;Lozhkin;;69;183;1974-2-21;Minsk;MIN;Belarus;;;0;Left;0
 12258;167;167;Alexander;Gschliesser;;71;185;1973-5-11;Capua;CAM;Italy;;;0;Right;0
-12259;216;216;Yevgeni;Gribko;;71;214;1973-4-3;Manturovo;KOS;Russia;Belarus;;0;Left;0
+12259;218;216;Yevgeni;Gribko;;71;214;1973-4-3;Manturovo;KOS;Russia;Belarus;;0;Left;0
 12260;69;18;Alexander;Savchenkov;;69;190;1973-9-30;Vladivostok;PRI;Russia;;;0;Right;0
 12261;167;167;Markus;Brunner;;73;194;1973-5-18;Carrara;TUS;Italy;;;0;Left;0
 12262;218;216;Mikko;Luovi;;71;187;1973-11-5;Kaarina;SOU;Finland;;;0;Left;0
@@ -5379,7 +5379,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 13054;221;221;Kim;Johnsson;;73;200;1976-3-16;Malmö;SKå;Sweden;;;0;Left;0
 13055;224;224;Ryan;Johnson;;73;211;1976-6-14;Thunder Bay;ON;Canada;;;0;Left;1
 13056;19;19;Ed;Jovanovski;Jovocop;75;220;1976-6-26;Windsor;ON;Canada;;;0;Left;0
-13057;0;0;Steve;Kelly;;74;205;1976-10-26;Vernon;BC;Canada;;;0;Left;1
+13057;51;0;Steve;Kelly;;74;205;1976-10-26;Vernon;BC;Canada;;;0;Left;0
 13058;73;22;Alexander;Kharitonov;;69;176;1976-3-30;Moscow;MOS;Russia;;;0;Right;0
 13059;25;25;Chad;Kilger;;76;225;1976-11-27;Cornwall;ON;Canada;;;0;Left;0
 13060;24;24;Miikka;Kiprusoff;;73;184;1976-10-26;Turku;SOU;Finland;;;0;Left;0
@@ -5443,7 +5443,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 13118;63;12;Mike;Watt;;74;214;1976-3-31;Seaforth;ON;Canada;;;0;Left;0
 13119;77;26;Brian;White;;73;198;1976-2-7;Willow Creek;CA;The United States;;;0;Right;0
 13120;16;16;Jason;Wiemer;;73;225;1976-4-14;Logan Lake;BC;Canada;;;0;Left;0
-13121;61;10;Clarke;Wilm;;72;202;1976-10-24;Redvers;SK;Canada;;;0;Left;0
+13121;10;10;Clarke;Wilm;;72;202;1976-10-24;Redvers;SK;Canada;;;0;Left;1
 13122;26;26;Jamie;Wright;;72;198;1976-5-13;Kitchener;ON;Canada;;;0;Left;0
 13123;70;19;Richard;Zednik;;72;200;1976-1-6;Banska Bystrica;BAN;Czech Republic;;;0;Left;0
 13124;65;14;Dwayne;Zinger;;76;220;1976-7-5;Irma;AB;Canada;;;0;Left;0
@@ -5869,7 +5869,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 13574;20;20;Don;MacLean;;75;214;1977-1-14;Wolfville;NS;Canada;;;0;Left;1
 13575;54;3;Ian;MacNeil;;74;194;1977-4-27;Inverness;NS;Canada;;;0;Left;0
 13576;63;12;Cameron;Mann;;72;209;1977-4-20;Virden;MB;Canada;;;0;Right;0
-13577;224;224;Mike;McBain;;74;195;1977-1-12;Logan Lake;BC;Canada;;;0;Left;1
+13577;10;10;Mike;McBain;;74;195;1977-1-12;Logan Lake;BC;Canada;;;0;Left;1
 13578;26;26;Alyn;McCauley;;72;200;1977-5-29;Brockville;ON;Canada;;;0;Left;1
 13579;24;24;Andy;McDonald;;71;187;1977-8-25;Strathroy;ON;Canada;;;0;Left;0
 13580;60;9;Jay;McKee;;76;212;1977-9-8;Kingston;ON;Canada;;;0;Left;0

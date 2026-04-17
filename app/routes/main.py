@@ -648,23 +648,182 @@ def schedule():
     )
 
 
+def _slugify_award_key(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", (name or "").lower()).strip("_")
+
+
+def _history_award_trophy_stem_map() -> dict[str, str]:
+    """Single sorted scan of ``img/history/trophies/<league_slug>/``: slugified file stem -> static relpath.
+
+    Building award panels used to call ``iterdir`` once per trophy; a large folder (e.g. accidental
+    bulk copy) made the History page hang.
+    """
+    league_slug = str(current_app.config.get("LEAGUE_SLUG") or "bowl-fantasy")
+    static_root = Path(str(current_app.static_folder or ""))
+    base = static_root / "img" / "history" / "trophies" / league_slug
+    if not base.is_dir():
+        return {}
+    try:
+        paths = [p for p in base.iterdir() if p.is_file()]
+    except OSError:
+        return {}
+    paths.sort(key=lambda x: x.name.lower())
+    out: dict[str, str] = {}
+    for p in paths:
+        if p.suffix.lower() not in (".png", ".webp", ".jpg", ".jpeg"):
+            continue
+        stem_key = _slugify_award_key(p.stem)
+        if not stem_key or stem_key in out:
+            continue
+        try:
+            rel = p.relative_to(static_root)
+        except ValueError:
+            continue
+        out[stem_key] = str(rel).replace("\\", "/")
+    return out
+
+
+def _history_award_trophy_rel_from_map(stem_map: dict[str, str], award_name: str) -> str | None:
+    """Resolve trophy static path using a pre-built :func:`_history_award_trophy_stem_map`."""
+    target = _slugify_award_key(award_name)
+    if not target:
+        return None
+    hit = stem_map.get(target)
+    if hit:
+        return hit
+    static_root = Path(str(current_app.static_folder or ""))
+    league_slug = str(current_app.config.get("LEAGUE_SLUG") or "bowl-fantasy")
+    base = static_root / "img" / "history" / "trophies" / league_slug
+    for ext in ("png", "webp", "jpg", "jpeg"):
+        p = base / f"{target}.{ext}"
+        if p.is_file():
+            rel = p.relative_to(static_root)
+            return str(rel).replace("\\", "/")
+    return None
+
+
+# Order of award cards on the History page (matches common NHL-style trophy sheet layout).
+_AWARD_PANEL_ORDER: tuple[str, ...] = (
+    "ART ROSS TROPHY",
+    "RICHARD TROPHY",
+    "NORRIS TROPHY",
+    "BOURQUE TROPHY",
+    "LANGWAY TROPHY",
+    "CALDER TROPHY",
+    "SELKE TROPHY",
+    "VEZINA TROPHY",
+    "LADY BYNG TROPHY",
+    "CONN SMYTHE TROPHY",
+    "HART TROPHY",
+    "JACK ADAMS TROPHY",
+    "WILLIAM JENNINGS TROPHY",
+    "TED LINDSAY TROPHY",
+    "MASTERTON TROPHY",
+    "BOILEDEGG'S TROPHY",
+    "PRINCE OF WALES TROPHY",
+    "CLARENCE CAMPBELL TROPHY",
+    "BOWL CUP TROPHY",
+    "JIM GREGORY TROPHY",
+    "MARK MESSIER LEADERSHIP AWARD",
+    "ROGER CROZIER SAVING GRACE TROPHY",
+    "PLUS/MINUS TROPHY",
+    "THE MASTERS' GREEN JACKET",
+    "BOWL RISING STAR",
+)
+
+# Sheet / DB typos → canonical key in ``_AWARD_PANEL_ORDER`` (after ``_norm_award_title``).
+_AWARD_NAME_ALIASES: dict[str, str] = {
+    "LANGWY TROPHY": "LANGWAY TROPHY",
+}
+
+
+def _norm_award_title(s: str) -> str:
+    """Uppercase, collapse internal whitespace (handles ``WILLIAM JENNINGS  TROPHY`` style)."""
+    return " ".join((s or "").upper().split())
+
+
+def _award_panel_sort_index(award_name: str) -> int:
+    key = _norm_award_title(award_name)
+    key = _AWARD_NAME_ALIASES.get(key, key)
+    for i, canonical in enumerate(_AWARD_PANEL_ORDER):
+        if _norm_award_title(canonical) == key:
+            return i
+    return len(_AWARD_PANEL_ORDER) + 1
+
+
+def _history_award_year_sort_key(a: HistoryAward) -> tuple[int, int, int]:
+    """Prefer ``sheet_season=YYYY-YY`` in ``notes`` so ordering works when every row shares one DB season."""
+
+    def _end_year(start_year: int, yy_two: str) -> int:
+        yy_i = int(yy_two)
+        century = start_year - (start_year % 100)
+        cand = century + yy_i
+        if cand < start_year:
+            cand += 100
+        return cand
+
+    notes = (a.notes or "").strip()
+    if notes.startswith("sheet_season="):
+        token = notes.split("sheet_season=", 1)[1].split(";", 1)[0].strip()
+        m = re.match(r"^(\d{4})-(\d{2})$", token)
+        if m:
+            y1 = int(m.group(1))
+            try:
+                y2 = _end_year(y1, m.group(2))
+                return (1, y2, y1)
+            except ValueError:
+                pass
+    return (0, a.season_id, 0)
+
+
+def _build_award_panels(awards: list[HistoryAward]) -> list[dict]:
+    """One panel per ``award_name``: latest season is featured; older rows listed below."""
+    from collections import defaultdict
+
+    trophy_stem_map = _history_award_trophy_stem_map()
+    by_name: dict[str, list[HistoryAward]] = defaultdict(list)
+    for a in awards:
+        key = (a.award_name or "").strip() or "Award"
+        by_name[key].append(a)
+    panels: list[dict] = []
+    for name, rows in by_name.items():
+        rows_sorted = sorted(rows, key=_history_award_year_sort_key, reverse=True)
+        featured = rows_sorted[0]
+        past = rows_sorted[1:]
+        panels.append(
+            {
+                "award_name": name,
+                "featured": featured,
+                "past": past,
+                "trophy_rel": _history_award_trophy_rel_from_map(trophy_stem_map, name),
+            }
+        )
+    panels.sort(
+        key=lambda p: (_award_panel_sort_index(p["award_name"]), _norm_award_title(p["award_name"])),
+    )
+    return panels
+
+
 @main_bp.get("/history")
 def history():
     awards = db.session.scalars(
         select(HistoryAward)
         .options(
             joinedload(HistoryAward.season),
-            joinedload(HistoryAward.player),
+            joinedload(HistoryAward.player).joinedload(Player.current_team),
             joinedload(HistoryAward.team),
         )
         .order_by(HistoryAward.season_id.desc())
-        .limit(200)
+        .limit(2000)
     ).all()
-    seasons_on_file = import_folder_season_labels()
+    award_panels = _build_award_panels(awards)
+    seasons_on_file = import_folder_season_labels(
+        Path(str(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)))
+    )
     champion_banners = champion_banner_urls()
     return render_template(
         "history.html",
-        awards=awards,
+        award_panels=award_panels,
         seasons_on_file=seasons_on_file,
         champion_banners=champion_banners,
     )

@@ -1,5 +1,15 @@
 {% extends "base.html" %}
 {% from "macros/team.html" import team_logo_only with context %}
+{% macro history_award_season_label(a) -%}
+{%- set n = (a.notes or '') | trim -%}
+{%- if n.startswith('sheet_season=') -%}
+{{- (n.split('sheet_season=', 1)[1].split(';')[0] | trim) -}}
+{%- elif a.season -%}
+{{- a.season.label -}}
+{%- else -%}
+{{- a.season_id -}}
+{%- endif -%}
+{%- endmacro %}
 {% block title %}League History — Boys of Winter Hockey League{% endblock %}
 {% block content %}
 {# Champion PNGs: app/static/img/history/champions/banner1.png, banner2.png, … (transparent background). #}
@@ -31,21 +41,79 @@
 
   <div class="card history-awards-panel">
     <h2>Awards</h2>
-    {% if awards %}
-    <div class="table-wrap">
-      <table class="data">
-        <thead><tr><th>Season</th><th>Award</th><th>Player</th><th>Team</th></tr></thead>
-        <tbody>
-          {% for a in awards %}
-          <tr>
-            <td>{{ a.season.label if a.season else a.season_id }}</td>
-            <td>{{ a.award_name }}</td>
-            <td>{% if a.player %}<a href="{{ url_for('main.player_page', player_id=a.player.id) }}">{{ a.player.full_name }}</a>{% else %}—{% endif %}</td>
-            <td>{% if a.team %}{{ team_logo_only(a.team) }}{% else %}—{% endif %}</td>
-          </tr>
+    {% if award_panels %}
+    <div class="history-awards-grid" role="list" aria-label="League awards by trophy">
+      {% for panel in award_panels %}
+      {% set fe = panel.featured %}
+      <section class="history-award-card" role="listitem" aria-labelledby="award-card-{{ loop.index }}-title">
+        <div class="history-award-card__hero">
+          <div class="history-award-card__hero-grid">
+            <h3 class="history-award-card__title" id="award-card-{{ loop.index }}-title">{{ panel.award_name }}</h3>
+            <div class="history-award-card__trophy-wrap">
+              {% if panel.trophy_rel %}
+              <img
+                class="history-award-card__trophy history-award-card__trophy--has-file"
+                src="{{ url_for('static', filename=panel.trophy_rel) }}"
+                alt=""
+                loading="lazy"
+                decoding="async"
+              >
+              {% else %}
+              <div class="history-award-card__trophy-ph" aria-hidden="true">
+                <svg class="history-award-card__trophy-ph-svg" viewBox="0 0 80 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <ellipse cx="40" cy="32" rx="22" ry="18" stroke="currentColor" stroke-width="2"/>
+                  <path d="M18 32v6q0 12 22 12t22-12v-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  <line x1="40" y1="50" x2="40" y2="78" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  <rect x="20" y="80" width="40" height="12" rx="2" stroke="currentColor" stroke-width="2"/>
+                </svg>
+              </div>
+              {% endif %}
+            </div>
+            <div class="history-award-card__featured">
+            {% if fe.player %}
+            <a class="history-award-card__headshot-hit" href="{{ url_for('main.player_page', player_id=fe.player.id) }}" aria-label="{{ fe.player.full_name }}">
+              {% if player_headshot_url(fe.player) %}
+              <img class="history-award-card__headshot" src="{{ player_headshot_url(fe.player) }}" alt="" loading="lazy" decoding="async">
+              {% else %}
+              <span class="history-award-card__headshot-ph" aria-hidden="true"></span>
+              {% endif %}
+            </a>
+            {% else %}
+            <span class="history-award-card__headshot-ph history-award-card__headshot-ph--empty" aria-hidden="true"></span>
+            {% endif %}
+            <div class="history-award-card__featured-meta">
+              {% if fe.player %}
+              <a class="history-award-card__player-name" href="{{ url_for('main.player_page', player_id=fe.player.id) }}" title="{{ fe.player.full_name }}">{{ fe.player.full_name }}</a>
+              {% else %}
+              <span class="history-award-card__player-name history-award-card__player-name--empty">—</span>
+              {% endif %}
+              <div class="history-award-card__team-line">
+                {% set fe_team = fe.team if fe.team else (fe.player.current_team if fe.player else none) %}
+                {% if fe_team %}{{ team_logo_only(fe_team) }}{% else %}<span class="muted">—</span>{% endif %}
+              </div>
+              <p class="history-award-card__season">{{ history_award_season_label(fe) }}</p>
+            </div>
+            </div>
+          </div>
+        </div>
+        {% if panel.past %}
+        <div class="history-award-card__list" role="list" aria-label="Past winners — {{ panel.award_name }}">
+          {% for a in panel.past %}
+          <div class="history-award-card__row" role="listitem">
+            <span class="history-award-card__row-season">{{ history_award_season_label(a) }}</span>
+            <span class="history-award-card__row-player">
+              {% if a.player %}<a href="{{ url_for('main.player_page', player_id=a.player.id) }}">{{ a.player.full_name }}</a>{% else %}—{% endif %}
+            </span>
+            <span class="history-award-card__row-team">
+              {% set row_team = a.team if a.team else (a.player.current_team if a.player else none) %}
+              {% if row_team %}{{ team_logo_only(row_team) }}{% else %}<span class="muted">—</span>{% endif %}
+            </span>
+          </div>
           {% endfor %}
-        </tbody>
-      </table>
+        </div>
+        {% endif %}
+      </section>
+      {% endfor %}
     </div>
     {% else %}
     <p class="history-under-construction">UNDER CONSTRUCTION</p>

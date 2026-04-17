@@ -688,17 +688,33 @@ def import_history_awards(raw_dir: Path, app) -> int:
     n = 0
     for _, row in df.iterrows():
         r = row.to_dict()
-        season = _season_by_fhm_or_label(cell_val(r, "season_id", "season"))
+        season_key = cell_val(r, "season_id", "season")
+        season = _season_by_fhm_or_label(season_key)
+        sheet_pref: list[str] = []
+        if not season:
+            # Fictional trophy years (e.g. 1979-80) often do not match a single imported FHM season row.
+            # When exactly one season exists in the DB, attach awards to it and preserve the sheet label in notes.
+            all_seasons = db.session.scalars(select(Season)).all()
+            if len(all_seasons) == 1:
+                season = all_seasons[0]
+                if season_key:
+                    sheet_pref.append(f"sheet_season={season_key}")
         if not season:
             continue
         player = _player_by_fhm(cell_val(r, "player_id"))
         team = _team_by_fhm_or_abbr(cell_val(r, "team_id", "team_abbr"))
+        notes_val = cell_val(r, "notes")
+        if sheet_pref:
+            merged = "; ".join(sheet_pref)
+            if notes_val:
+                merged = f"{merged}; {notes_val}"
+            notes_val = merged
         a = HistoryAward(
             season_id=season.id,
             award_name=cell_val(r, "award_name", "award") or "Award",
             player_id=player.id if player else None,
             team_id=team.id if team else None,
-            notes=cell_val(r, "notes"),
+            notes=notes_val,
         )
         db.session.add(a)
         n += 1
@@ -782,6 +798,14 @@ def run_import(raw_dir: Path | None = None) -> None:
                 if overlay.is_file():
                     log.info("Applying team_standings.csv overlay after FHM import.")
                     counts["team_standings_overlay"] = import_team_standings(raw, app)
+                ha = raw / "history_awards.csv"
+                if ha.is_file():
+                    log.info("Applying history_awards.csv after FHM import.")
+                    counts["history_awards"] = import_history_awards(raw, app)
+                hc = raw / "history_champions.csv"
+                if hc.is_file():
+                    log.info("Applying history_champions.csv after FHM import.")
+                    counts["history_champions"] = import_history_champions(raw, app)
                 total = sum(counts.values())
                 ilog.rows_processed = total
                 ilog.status = "success"

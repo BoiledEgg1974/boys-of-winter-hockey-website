@@ -3605,6 +3605,275 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
   padding: 1.5rem 1rem;
   color: #94a3b8;
 }
+.history-awards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
+  gap: 1.1rem 1rem;
+  align-content: start;
+  align-items: start;
+  margin-top: 0.25rem;
+}
+.history-award-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  box-shadow: var(--shadow);
+}
+.history-award-card__hero {
+  padding: 0.85rem 1rem 1rem;
+  background: color-mix(in srgb, var(--surface) 88%, #0f172a);
+  border-bottom: 1px solid rgb(148 163 184 / 0.18);
+}
+[data-theme="light"] .history-award-card__hero {
+  background: color-mix(in srgb, var(--surface) 92%, #e2e8f0);
+  border-bottom-color: rgb(15 23 42 / 0.1);
+}
+.history-award-card__hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(calc(5rem * 1.45), calc(6.25rem * 1.45));
+  grid-template-rows: auto auto;
+  column-gap: 1rem;
+  row-gap: 0.45rem;
+  align-items: start;
+  padding-top: 0.55rem;
+  margin: 0 0 0.35rem;
+  border-top: 1px solid rgb(148 163 184 / 0.35);
+}
+.history-award-card__title {
+  grid-column: 1;
+  grid-row: 1;
+  margin: 0;
+  padding: 0 0.35rem 0 0;
+  font-size: clamp(0.68rem, 1.65vw, 0.8rem);
+  font-weight: 800;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+  color: rgb(147 197 253);
+  line-height: 1.18;
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-break: normal;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+[data-theme="light"] .history-award-card__title {
+  color: rgb(14 165 233);
+}
+.history-award-card__trophy-wrap {
+  grid-column: 2;
+  grid-row: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  align-self: start;
+  min-height: 0;
+  margin: 0;
+  padding: 0.15rem 0 0;
+  background: transparent;
+  border: none;
+  justify-self: stretch;
+  flex-shrink: 0;
+}
+.history-award-card__trophy {
+  max-height: calc(4.75rem * 1.45);
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+.history-award-card__trophy--has-file {
+  filter: drop-shadow(0 6px 18px rgb(0 0 0 / 0.35));
+}
+[data-theme="light"] .history-award-card__trophy--has-file {
+  filter: drop-shadow(0 4px 12px rgb(15 23 42 / 0.12));
+}
+.history-award-card__trophy-ph {
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  width: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+.history-award-card__trophy-ph-svg {
+  width: calc(3.25rem * 1.45);
+  height: auto;
+  max-height: calc(4.5rem * 1.45);
+  color: var(--muted);
+  opacity: 0.35;
+}
+.history-award-card__featured {
+  grid-column: 1;
+  grid-row: 2;
+  display: grid;
+  grid-template-columns: 3.65rem minmax(0, 1fr);
+  gap: 0.55rem 0.65rem;
+  align-items: center;
+  margin-top: 0;
+  min-width: 0;
+}
+.history-award-card__headshot-hit {
+  display: block;
+  width: 3.65rem;
+  height: 3.65rem;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 2px solid rgb(56 189 248 / 0.45);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.35);
+  margin-top: 0;
+  position: relative;
+  z-index: 1;
+  background: rgb(15 23 42 / 0.9);
+}
+[data-theme="light"] .history-award-card__headshot-hit {
+  border-color: rgb(37 99 235 / 0.45);
+  box-shadow: 0 2px 10px rgb(15 23 42 / 0.12);
+  background: #fff;
+}
+.history-award-card__headshot {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.history-award-card__headshot-ph {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(145deg, rgb(51 65 85), rgb(30 41 59));
+}
+.history-award-card__headshot-ph--empty {
+  opacity: 0.65;
+}
+.history-award-card__featured-meta {
+  min-width: 0;
+  padding-top: 0.15rem;
+  text-align: left;
+}
+.history-award-card__player-name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  font-size: clamp(0.62rem, 1.75vw, 0.72rem);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text);
+  text-decoration: none;
+  line-height: 1.18;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.history-award-card__player-name--empty {
+  color: var(--muted);
+  display: block;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+  white-space: nowrap;
+}
+.history-award-card__player-name:hover {
+  color: var(--accent);
+  text-decoration: none;
+}
+.history-award-card__team-line {
+  margin-top: 0.3rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  line-height: 0;
+}
+.history-award-card__team-line .team-name-lockup--icon .team-name-lockup__logo {
+  width: 1.65rem;
+  height: 1.65rem;
+}
+.history-award-card__season {
+  margin: 0.45rem 0 0;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #94a3b8;
+}
+[data-theme="light"] .history-award-card__season {
+  color: var(--muted);
+}
+.history-award-card__list {
+  padding: 0.35rem 0 0.15rem;
+  max-height: 14rem;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.history-award-card__row {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr) minmax(0, 2.25rem);
+  gap: 0.35rem 0.5rem;
+  align-items: center;
+  padding: 0.42rem 0.65rem;
+  font-size: 0.8rem;
+  border-bottom: 1px solid rgb(148 163 184 / 0.12);
+}
+.history-award-card__row:last-child {
+  border-bottom: none;
+}
+[data-theme="light"] .history-award-card__row {
+  border-bottom-color: rgb(15 23 42 / 0.08);
+}
+.history-award-card__row-season {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+.history-award-card__row-player {
+  text-align: left;
+  min-width: 0;
+}
+.history-award-card__row-player a {
+  display: block;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.history-award-card__row-player a:hover {
+  text-decoration: underline;
+}
+.history-award-card__row-team {
+  justify-self: end;
+  min-width: 0;
+  text-align: right;
+  font-size: 0.72rem;
+}
+.history-award-card__row-team .team-name-lockup--icon .team-name-lockup__logo {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+@media (max-width: 420px) {
+  .history-award-card__row {
+    grid-template-columns: 4rem minmax(0, 1fr) minmax(0, 2.1rem);
+    font-size: 0.76rem;
+  }
+}
 .history-seasons-list {
   margin: 0.35rem 0 0;
   padding-left: 1.25rem;

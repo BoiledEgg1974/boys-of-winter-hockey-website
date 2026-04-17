@@ -303,8 +303,8 @@ League Id;Date;Home;Score Home;Away;Score Away;Type;Played;Overtime;Shootout;Gam
 0;1967-12-21;119;2;122;3;Regular Season;1;0;0;7465
 0;1967-12-21;118;1;123;4;Regular Season;1;0;0;7452
 0;1967-12-21;120;0;0;3;Regular Season;1;0;0;7450
-0;1967-12-22;119;3;118;1;Regular Season;1;0;0;7461
 0;1967-12-22;3;1;122;4;Regular Season;1;0;0;7482
+0;1967-12-22;119;3;118;1;Regular Season;1;0;0;7461
 0;1967-12-22;121;3;120;2;Regular Season;1;0;0;7453
 0;1967-12-23;123;6;121;2;Regular Season;1;0;0;7454
 0;1967-12-23;9;1;0;2;Regular Season;1;0;0;7499
@@ -480,8 +480,8 @@ League Id;Date;Home;Score Home;Away;Score Away;Type;Played;Overtime;Shootout;Gam
 0;1968-3-14;119;1;122;1;Regular Season;1;0;0;7643
 0;1968-3-14;3;0;10;3;Regular Season;1;0;0;7689
 0;1968-3-15;120;1;118;2;Regular Season;1;0;0;7683
-0;1968-3-16;121;3;122;0;Regular Season;1;0;0;7653
 0;1968-3-16;3;6;9;1;Regular Season;1;0;0;7659
+0;1968-3-16;121;3;122;0;Regular Season;1;0;0;7653
 0;1968-3-16;8;3;0;5;Regular Season;1;0;0;7654
 0;1968-3-18;123;3;121;0;Regular Season;1;0;0;7678
 0;1968-3-18;9;0;0;2;Regular Season;1;0;0;7651
@@ -522,7 +522,8 @@ League Id;Date;Home;Score Home;Away;Score Away;Type;Played;Overtime;Shootout;Gam
 0;1968-4-17;3;4;0;6;Playoffs;1;0;0;7837
 0;1968-4-19;0;2;3;3;Playoffs;1;0;0;7838
 0;1968-4-21;3;7;0;2;Playoffs;1;0;0;7839
-0;1968-4-24;3;0;122;0;Playoffs;0;0;0;7840
-0;1968-4-26;3;0;122;0;Playoffs;0;0;0;7841
-0;1968-4-28;122;0;3;0;Playoffs;0;0;0;7842
-0;1968-4-30;122;0;3;0;Playoffs;0;0;0;7843
+0;1968-4-24;3;4;122;3;Playoffs;1;1;0;7840
+0;1968-4-26;3;4;122;3;Playoffs;1;0;0;7841
+0;1968-4-28;122;4;3;3;Playoffs;1;0;0;7842
+0;1968-4-30;122;1;3;2;Playoffs;1;1;0;7843
+0;1968-5-2;3;3;122;1;Playoffs;1;0;0;7844

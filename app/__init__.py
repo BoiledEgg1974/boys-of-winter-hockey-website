@@ -6,6 +6,7 @@ from flask import Flask
 from app.config import LEAGUES, Config
 from app.db_utils import (
     ensure_fts5,
+    ensure_history_awards_staff_fhm_id_sqlite,
     ensure_players_jersey_number_sqlite,
     ensure_skater_career_line_career_source_sqlite,
     ensure_skater_career_line_extra_stats_sqlite,
@@ -59,6 +60,7 @@ def create_app(config_class: type = Config) -> Flask:
         ensure_skater_career_line_career_source_sqlite(db.engine)
         ensure_skater_career_line_extra_stats_sqlite(db.engine)
         ensure_player_goalie_stats_gsaa_sqlite(db.engine)
+        ensure_history_awards_staff_fhm_id_sqlite(db.engine)
         ensure_fts5(db.engine)
         # FTS may be empty until import or seed; seed script calls rebuild
         try:
@@ -293,6 +295,7 @@ def create_app(config_class: type = Config) -> Flask:
         ensure_skater_career_line_career_source_sqlite(db.engine)
         ensure_skater_career_line_extra_stats_sqlite(db.engine)
         ensure_player_goalie_stats_gsaa_sqlite(db.engine)
+        ensure_history_awards_staff_fhm_id_sqlite(db.engine)
         ensure_fts5(db.engine)
         rebuild_player_fts(db.engine)
         print("Database initialized.")

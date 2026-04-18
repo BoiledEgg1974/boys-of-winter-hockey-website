@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from sqlalchemy import or_, select  # noqa: E402
+from sqlalchemy import delete, or_, select  # noqa: E402
 
 from app import create_app  # noqa: E402
 from app.config import Config, league_by_slug, make_league_config  # noqa: E402
@@ -689,15 +689,46 @@ def _history_awards_csv_path(raw_dir: Path) -> Path | None:
     return None
 
 
-def import_history_awards(raw_dir: Path, app) -> int:
+def import_history_awards(
+    raw_dir: Path,
+    app,
+    *,
+    replace_award_substring: str | None = None,
+    replace_all: bool = False,
+) -> int:
+    """Import ``history_awards.csv`` rows.
+
+    If ``replace_all`` is True, delete **all** ``HistoryAward`` rows, then import every
+    CSV row (full re-import). Do not combine with ``replace_award_substring``.
+
+    If ``replace_award_substring`` is set (e.g. ``\"JENNINGS\"``), delete existing
+    ``HistoryAward`` rows whose ``award_name`` matches (case-insensitive substring),
+    then import **only** CSV rows whose award name contains that substring. All other
+    awards are left unchanged.
+    """
     path = _history_awards_csv_path(raw_dir)
     if path is None:
         return 0
     log.info("Loading history awards from %s", path.name)
     df = read_csv_normalized(path)
+    needle = (replace_award_substring or "").strip()
+    if replace_all:
+        if needle:
+            raise ValueError("replace_all cannot be combined with replace_award_substring.")
+        db.session.execute(delete(HistoryAward))
+        db.session.commit()
+        log.info("Removed all history_awards rows before full CSV re-import.")
+    elif needle:
+        sub = needle.upper()
+        db.session.execute(delete(HistoryAward).where(HistoryAward.award_name.ilike(f"%{needle}%")))
+        db.session.commit()
+        log.info("Removed existing history awards matching %r before partial re-import.", needle)
     n = 0
     for _, row in df.iterrows():
         r = row.to_dict()
+        award_cell = (cell_val(r, "award_name", "award") or "").strip()
+        if needle and sub not in award_cell.upper():
+            continue
         season_key = cell_val(r, "season_id", "season")
         season = _season_by_fhm_or_label(season_key)
         sheet_pref: list[str] = []
@@ -711,8 +742,11 @@ def import_history_awards(raw_dir: Path, app) -> int:
                     sheet_pref.append(f"sheet_season={season_key}")
         if not season:
             continue
-        player = _player_by_fhm(cell_val(r, "player_id"))
+        # Same key as ``player_master.csv`` ``PlayerId`` (stored as ``Player.fhm_player_id``), not DB ``players.id``.
+        player = _player_by_fhm(cell_val(r, "player_id", "fhm_player_id", "playerid"))
         team = _team_by_fhm_or_abbr(cell_val(r, "team_id", "team_abbr"))
+        staff_fhm_raw = cell_val(r, "staff_id", "staff_fhm_id", "fhm_staff_id")
+        staff_fhm_id = (staff_fhm_raw or "").strip() or None
         notes_val = cell_val(r, "notes")
         if sheet_pref:
             merged = "; ".join(sheet_pref)
@@ -724,6 +758,7 @@ def import_history_awards(raw_dir: Path, app) -> int:
             award_name=cell_val(r, "award_name", "award") or "Award",
             player_id=player.id if player else None,
             team_id=team.id if team else None,
+            staff_fhm_id=staff_fhm_id,
             notes=notes_val,
         )
         db.session.add(a)

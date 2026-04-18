@@ -72,6 +72,26 @@ from app.services.free_agents import (
     SKATER_VIEWS,
     fetch_free_agent_players,
 )
+from app.services.history_coach_awards import (
+    attach_coach_award_displays,
+    is_jim_gregory_award,
+    is_staff_history_award,
+)
+
+
+# Trophies whose ``history_awards`` row stores the winner on ``team_id`` (not ``player_id``).
+_TEAM_HISTORY_AWARD_TITLES: frozenset[str] = frozenset(
+    (
+        "BOILEDEGG'S TROPHY",
+        "PRINCE OF WALES TROPHY",
+        "CLARENCE CAMPBELL TROPHY",
+        "BOWL CUP TROPHY",
+    )
+)
+
+
+def is_team_history_award(award_name: str | None) -> bool:
+    return _norm_award_title(award_name or "") in _TEAM_HISTORY_AWARD_TITLES
 from app.services.team_staff_csv import (
     STAFF_COACH_COLUMNS,
     STAFF_SCOUT_COLUMNS,
@@ -662,53 +682,83 @@ def _slugify_award_key(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", (name or "").lower()).strip("_")
 
 
-def _history_award_trophy_stem_map() -> dict[str, str]:
-    """Single sorted scan of ``img/history/trophies/<league_slug>/``: slugified file stem -> static relpath.
+def _history_award_trophy_scan_dirs(static_root: Path, league_slug: str) -> tuple[Path, ...]:
+    """League trophy art: prefer ``img/trophies/<slug>/``, then ``img/history/trophies/<slug>/`` fallback."""
+    return (
+        static_root / "img" / "trophies" / league_slug,
+        static_root / "img" / "history" / "trophies" / league_slug,
+    )
 
-    Building award panels used to call ``iterdir`` once per trophy; a large folder (e.g. accidental
-    bulk copy) made the History page hang.
-    """
+
+# Award slug -> try these file stems (in ``img/trophies/``) when the canonical stem has no file.
+_TROPHY_STEM_ALIASES: dict[str, tuple[str, ...]] = {
+    "boiledegg_s_trophy": ("boiledeggs_trophy",),
+    "the_masters_green_jacket": ("masters_green_jacket",),
+}
+
+# File stem (slugified ``Path.stem``) -> also register these award slug keys (same image path).
+_TROPHY_FILE_STEM_SYNONYMS: dict[str, tuple[str, ...]] = {
+    "boiledeggs_trophy": ("boiledegg_s_trophy",),
+    "masters_green_jacket": ("the_masters_green_jacket",),
+}
+
+
+def _history_award_trophy_lookup_stems(award_name: str) -> tuple[str, ...]:
+    key = _slugify_award_key(award_name)
+    if not key:
+        return ()
+    alts = _TROPHY_STEM_ALIASES.get(key, ())
+    return (key,) + alts
+
+
+def _history_award_trophy_stem_map() -> dict[str, str]:
+    """Scan trophy image dirs once: slugified file stem -> static relpath (first dir wins per stem)."""
     league_slug = str(current_app.config.get("LEAGUE_SLUG") or "bowl-fantasy")
     static_root = Path(str(current_app.static_folder or ""))
-    base = static_root / "img" / "history" / "trophies" / league_slug
-    if not base.is_dir():
-        return {}
-    try:
-        paths = [p for p in base.iterdir() if p.is_file()]
-    except OSError:
-        return {}
-    paths.sort(key=lambda x: x.name.lower())
     out: dict[str, str] = {}
-    for p in paths:
-        if p.suffix.lower() not in (".png", ".webp", ".jpg", ".jpeg"):
-            continue
-        stem_key = _slugify_award_key(p.stem)
-        if not stem_key or stem_key in out:
+    for base in _history_award_trophy_scan_dirs(static_root, league_slug):
+        if not base.is_dir():
             continue
         try:
-            rel = p.relative_to(static_root)
-        except ValueError:
+            paths = [p for p in base.iterdir() if p.is_file()]
+        except OSError:
             continue
-        out[stem_key] = str(rel).replace("\\", "/")
+        paths.sort(key=lambda x: x.name.lower())
+        for p in paths:
+            if p.suffix.lower() not in (".png", ".webp", ".jpg", ".jpeg", ".svg"):
+                continue
+            stem_key = _slugify_award_key(p.stem)
+            if not stem_key or stem_key in out:
+                continue
+            try:
+                rel = p.relative_to(static_root)
+            except ValueError:
+                continue
+            rel_s = str(rel).replace("\\", "/")
+            out[stem_key] = rel_s
+            for syn in _TROPHY_FILE_STEM_SYNONYMS.get(stem_key, ()):
+                if syn not in out:
+                    out[syn] = rel_s
     return out
 
 
 def _history_award_trophy_rel_from_map(stem_map: dict[str, str], award_name: str) -> str | None:
     """Resolve trophy static path using a pre-built :func:`_history_award_trophy_stem_map`."""
-    target = _slugify_award_key(award_name)
-    if not target:
-        return None
-    hit = stem_map.get(target)
-    if hit:
-        return hit
+    for cand in _history_award_trophy_lookup_stems(award_name):
+        hit = stem_map.get(cand)
+        if hit:
+            return hit
     static_root = Path(str(current_app.static_folder or ""))
     league_slug = str(current_app.config.get("LEAGUE_SLUG") or "bowl-fantasy")
-    base = static_root / "img" / "history" / "trophies" / league_slug
-    for ext in ("png", "webp", "jpg", "jpeg"):
-        p = base / f"{target}.{ext}"
-        if p.is_file():
-            rel = p.relative_to(static_root)
-            return str(rel).replace("\\", "/")
+    for base in _history_award_trophy_scan_dirs(static_root, league_slug):
+        if not base.is_dir():
+            continue
+        for cand in _history_award_trophy_lookup_stems(award_name):
+            for ext in ("png", "webp", "jpg", "jpeg", "svg"):
+                p = base / f"{cand}.{ext}"
+                if p.is_file():
+                    rel = p.relative_to(static_root)
+                    return str(rel).replace("\\", "/")
     return None
 
 
@@ -761,6 +811,30 @@ def _award_panel_sort_index(award_name: str) -> int:
     return len(_AWARD_PANEL_ORDER) + 1
 
 
+_SHEET_SEASON_LABEL_RE = re.compile(r"^(\d{4})-(\d{2})$")
+
+
+def _history_award_sheet_season_from_notes(notes: str | None) -> str | None:
+    """Parse ``sheet_season=YYYY-YY`` from full ``notes`` (may be ``a; sheet_season=…; b``)."""
+    for part in (notes or "").split(";"):
+        p = part.strip()
+        if p.startswith("sheet_season="):
+            tok = p.split("=", 1)[1].strip().split(";")[0].strip()
+            if _SHEET_SEASON_LABEL_RE.match(tok):
+                return tok
+    return None
+
+
+def _history_award_year_token(a: HistoryAward) -> object:
+    """Canonical trophy year for dedupe/sort (sheet label, else ``Season.label``, else ``season_id``)."""
+    tok = _history_award_sheet_season_from_notes(a.notes)
+    if tok:
+        return tok
+    if getattr(a, "season", None) is not None and (a.season.label or "").strip():
+        return (a.season.label or "").strip()
+    return int(a.season_id)
+
+
 def _history_award_year_sort_key(a: HistoryAward) -> tuple[int, int, int]:
     """Prefer ``sheet_season=YYYY-YY`` in ``notes`` so ordering works when every row shares one DB season."""
 
@@ -772,10 +846,13 @@ def _history_award_year_sort_key(a: HistoryAward) -> tuple[int, int, int]:
             cand += 100
         return cand
 
-    notes = (a.notes or "").strip()
-    if notes.startswith("sheet_season="):
-        token = notes.split("sheet_season=", 1)[1].split(";", 1)[0].strip()
-        m = re.match(r"^(\d{4})-(\d{2})$", token)
+    for token in (
+        _history_award_sheet_season_from_notes(a.notes),
+        (a.season.label or "").strip() if getattr(a, "season", None) is not None else "",
+    ):
+        if not token:
+            continue
+        m = _SHEET_SEASON_LABEL_RE.match(token)
         if m:
             y1 = int(m.group(1))
             try:
@@ -786,32 +863,34 @@ def _history_award_year_sort_key(a: HistoryAward) -> tuple[int, int, int]:
     return (0, a.season_id, 0)
 
 
-def _history_award_dedupe_key(a: HistoryAward) -> tuple[object, ...]:
-    """Uniquely identify a winner row; include trophy year when every row shares one DB ``season_id``."""
-    notes = (a.notes or "").strip()
-    sheet_token = ""
-    for part in notes.split(";"):
-        p = part.strip()
-        if p.startswith("sheet_season="):
-            sheet_token = p.split("=", 1)[1].strip()
-            break
-    # Fictional / sheet years: ``sheet_season=1979-80`` etc. Real multi-season DB: ``season_id`` differs.
-    year_key: object = sheet_token if sheet_token else int(a.season_id)
-    return (year_key, a.player_id, a.team_id, int(a.season_id))
+def _history_award_dedupe_key(a: HistoryAward) -> tuple[object, object]:
+    """One row per trophy year + player; merge import duplicates that split ``team_id`` / ``notes``."""
+    return (_history_award_year_token(a), a.player_id)
+
+
+def _history_award_dedupe_rank(a: HistoryAward) -> tuple[int, int, int, int, int]:
+    """Prefer ``staff_fhm_id`` / ``team_id`` / ``player_id`` over longer ``notes`` (fixes ``unresolved_*`` dupes)."""
+    return (
+        1 if (getattr(a, "staff_fhm_id", None) or "").strip() else 0,
+        1 if a.team_id is not None else 0,
+        1 if a.player_id is not None else 0,
+        len((a.notes or "").strip()),
+        -a.id,
+    )
 
 
 def _dedupe_history_awards(rows: list[HistoryAward]) -> list[HistoryAward]:
     """Drop duplicate DB rows (re-import). Do not merge different trophy years for the same player."""
-    best: dict[tuple[object, ...], HistoryAward] = {}
+    best: dict[tuple[object, object], HistoryAward] = {}
     for a in rows:
         k = _history_award_dedupe_key(a)
         prev = best.get(k)
         if prev is None:
             best[k] = a
             continue
-        pn = len((prev.notes or "").strip())
-        an = len((a.notes or "").strip())
-        if an > pn or (an == pn and a.id < prev.id):
+        ra = _history_award_dedupe_rank(a)
+        rb = _history_award_dedupe_rank(prev)
+        if ra > rb or (ra == rb and a.id < prev.id):
             best[k] = a
     return list(best.values())
 
@@ -837,6 +916,9 @@ def _build_award_panels(awards: list[HistoryAward]) -> list[dict]:
                 "featured": featured,
                 "past": past,
                 "trophy_rel": _history_award_trophy_rel_from_map(trophy_stem_map, name),
+                "coach_award": is_staff_history_award(name),
+                "jim_gregory_award": is_jim_gregory_award(name),
+                "team_award": is_team_history_award(name),
             }
         )
     panels.sort(
@@ -857,6 +939,8 @@ def history():
         .order_by(HistoryAward.season_id.desc())
         .limit(2000)
     ).all()
+    raw_dir = Path(str(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)))
+    attach_coach_award_displays(awards, db.session, raw_dir)
     award_panels = _build_award_panels(awards)
     seasons_on_file = import_folder_season_labels(
         Path(str(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)))

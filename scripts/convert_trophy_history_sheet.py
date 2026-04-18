@@ -13,9 +13,12 @@ Output for the site importer (``scripts/import_pipeline/runner.py`` → ``import
 
 - ``season`` — must match ``Season.label`` or ``Season.fhm_season_id`` in the league DB.
 - ``award_name`` — text shown in the Awards panel.
-- ``player_id`` — ``Player.fhm_player_id`` (optional if unresolved).
+- ``player_id`` — ``Player.fhm_player_id`` (optional if unresolved). Player cells may include a
+  trailing parenthetical stat (e.g. Green Jacket ``Chris Pronger (-57)``); ``--league-slug`` resolution
+  strips that suffix before matching ``Player.full_name``.
 - ``team_id`` — ``Team.fhm_team_id`` or ``Team.abbreviation`` (optional).
-- ``notes`` — free text; importer stores it (panel does not render it today).
+- ``staff_id`` — FHM ``StaffId`` from ``staff_master.csv`` (optional; used for **Jack Adams** and **Jim Gregory** so League History can show name + team without a ``Player`` row).
+- ``notes`` — free text; importer stores it (e.g. ``unresolved_player=…`` fallback when ``staff_id`` is empty for Jack Adams).
 
 **Optional DB resolution** (Fantasy/Cap/Historical): pass ``--league-slug`` and the script will try to
 fill ``player_id`` / ``team_id`` from ``player_name_raw`` / ``team_name_raw`` using exact or
@@ -51,6 +54,13 @@ import sys
 from pathlib import Path
 
 _SEASON_START = re.compile(r"^\d{4}-\d{2}")
+# POS-Player cells often append a stat in parentheses (e.g. Green Jacket ``… (-57)``) — not part of the name.
+_TROPHY_PLAYER_PAREN_SUFFIX_RE = re.compile(r"\s*\([^)]*\)\s*$")
+
+
+def _strip_trophy_player_stat_suffix(name: str) -> str:
+    s = (name or "").strip()
+    return _TROPHY_PLAYER_PAREN_SUFFIX_RE.sub("", s).strip()
 
 
 def _read_rows(path: Path) -> list[list[str]]:
@@ -220,7 +230,9 @@ def _resolve_with_db(
         def find_player(name: str) -> str | None:
             if not name:
                 return None
-            n = name.strip()
+            n = _strip_trophy_player_stat_suffix(name)
+            if not n:
+                return None
             row = db.session.scalars(
                 select(Player).where(func.lower(Player.full_name) == func.lower(n)).limit(1)
             ).first()
@@ -275,6 +287,7 @@ def _resolve_with_db(
                     "award_name": r.get("award_name") or "",
                     "player_id": pid or "",
                     "team_id": tid or "",
+                    "staff_id": "",
                     "notes": notes,
                 }
             )
@@ -286,7 +299,7 @@ def _write_import_csv(path: Path, rows: list[dict[str, str]]) -> None:
     with path.open("w", encoding="utf-8-sig", newline="") as f:
         w = csv.DictWriter(
             f,
-            fieldnames=["season", "award_name", "player_id", "team_id", "notes"],
+            fieldnames=["season", "award_name", "player_id", "team_id", "staff_id", "notes"],
             extrasaction="ignore",
         )
         w.writeheader()
@@ -297,6 +310,7 @@ def _write_import_csv(path: Path, rows: list[dict[str, str]]) -> None:
                     "award_name": r.get("award_name", ""),
                     "player_id": r.get("player_id", ""),
                     "team_id": r.get("team_id", ""),
+                    "staff_id": r.get("staff_id", ""),
                     "notes": r.get("notes", ""),
                 }
             )
@@ -356,6 +370,7 @@ def main() -> int:
                     "award_name": r.get("award_name", ""),
                     "player_id": "",
                     "team_id": "",
+                    "staff_id": "",
                     "notes": notes,
                 }
             )
@@ -364,7 +379,7 @@ def main() -> int:
         buf = io.StringIO()
         w = csv.DictWriter(
             buf,
-            fieldnames=["season", "award_name", "player_id", "team_id", "notes"],
+            fieldnames=["season", "award_name", "player_id", "team_id", "staff_id", "notes"],
             extrasaction="ignore",
         )
         w.writeheader()

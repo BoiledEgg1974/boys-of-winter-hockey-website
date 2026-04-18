@@ -47,6 +47,16 @@ class Team(db.Model):
         foreign_keys="Game.away_team_id", back_populates="away_team"
     )
 
+    def full_display_name(self) -> str:
+        """FHM-style label: ``name`` (city/region) plus ``nickname`` when set (e.g. Toronto Maple Leafs)."""
+        base = (self.name or "").strip()
+        nick = (self.nickname or "").strip()
+        if not nick:
+            return base or "—"
+        if nick.lower() in base.lower():
+            return base
+        return f"{base} {nick}".strip()
+
 
 class Season(db.Model):
     __tablename__ = "seasons"
@@ -514,6 +524,8 @@ class HistoryAward(db.Model):
     award_name: Mapped[str] = mapped_column(String(160), nullable=False)
     player_id: Mapped[int | None] = mapped_column(ForeignKey("players.id"))
     team_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id"))
+    #: FHM ``StaffId`` from ``staff_master.csv`` (Jack Adams / Jim Gregory history rows).
+    staff_fhm_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text)
 
     season: Mapped["Season"] = relationship()

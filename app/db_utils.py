@@ -176,6 +176,23 @@ def ensure_skater_career_line_extra_stats_sqlite(engine: Engine) -> None:
             conn.commit()
 
 
+def ensure_history_awards_staff_fhm_id_sqlite(engine: Engine) -> None:
+    """Add ``staff_fhm_id`` to ``history_awards`` when missing (SQLite)."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='history_awards'")
+        ).fetchone()
+        if not exists:
+            return
+        cols = {row[1] for row in conn.execute(text("PRAGMA table_info(history_awards)"))}
+        if "staff_fhm_id" in cols:
+            return
+        conn.execute(text("ALTER TABLE history_awards ADD COLUMN staff_fhm_id VARCHAR(64)"))
+        conn.commit()
+
+
 def ensure_player_goalie_stats_gsaa_sqlite(engine: Engine) -> None:
     """Add GSAA when missing (SQLite)."""
     if engine.dialect.name != "sqlite":

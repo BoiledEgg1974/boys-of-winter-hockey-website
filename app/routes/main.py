@@ -88,43 +88,53 @@ from app.services.standings import (
 main_bp = Blueprint("main", __name__)
 
 
-# Banner / Banner1.png / banner 1.png / .PNG — case-insensitive; optional space before digits
-_BANNER_FILE_RE = re.compile(r"^banner\s*(\d+)\.png$", re.IGNORECASE)
+# Banner / Banner1.png / banner 1.png — case-insensitive; optional space before digits; png/webp/jpeg
+_BANNER_FILE_RE = re.compile(r"^banner\s*(\d+)\.(png|webp|jpe?g)$", re.IGNORECASE)
+_BANNER_EXT_PRIORITY = {".png": 0, ".webp": 1, ".jpeg": 2, ".jpg": 2}
 
 
 def champion_banner_urls() -> list[str]:
-    """All ``Banner<N>.png`` / ``banner<N>.png`` files under the active league champions folder.
+    """Championship banner images under the league champions folder (and legacy root when merged).
 
-    Sorted by *N*. Gaps are allowed. Extension ``.png`` is case-insensitive. Filenames are NFC-normalized
-    so lookalike Unicode does not prevent matches. Uses each file's real on-disk name in URLs.
+    Sorted by banner index *N*. Gaps are allowed. Extensions ``.png`` / ``.webp`` / ``.jpg`` / ``.jpeg``
+    are case-insensitive. If the same *N* exists in both the league folder and ``img/history/champions``,
+    the league copy wins. Filenames are NFC-normalized; URLs use each file's real on-disk name.
     """
     rel = str(current_app.config.get("HISTORY_CHAMPIONS_REL_DIR", "img/history/champions")).strip("/\\")
     primary_dir = (BASE_DIR / "app" / "static" / Path(rel)).resolve()
     legacy_rel = "img/history/champions"
     legacy_dir = (BASE_DIR / "app" / "static" / legacy_rel).resolve()
 
-    def _scan(folder: Path) -> list[tuple[int, str]]:
+    def _scan(folder: Path) -> dict[int, str]:
+        """Map banner index -> filename (one file per index; prefers png over webp over jpeg)."""
         if not folder.is_dir():
-            return []
-        found_local: list[tuple[int, str]] = []
+            return {}
+        candidates: list[tuple[int, Path]] = []
         for p in folder.iterdir():
             if not p.is_file():
                 continue
             safe_name = unicodedata.normalize("NFC", p.name)
             m = _BANNER_FILE_RE.match(safe_name)
             if m:
-                found_local.append((int(m.group(1)), p.name))
-        found_local.sort(key=lambda t: t[0])
-        return found_local
+                candidates.append((int(m.group(1)), p))
+        by_n: dict[int, tuple[int, str]] = {}
+        for n, p in candidates:
+            ext = p.suffix.lower()
+            prio = _BANNER_EXT_PRIORITY.get(ext, 9)
+            prev = by_n.get(n)
+            if prev is None or prio < prev[0]:
+                by_n[n] = (prio, p.name)
+        return {n: name for n, (_, name) in by_n.items()}
 
-    found = _scan(primary_dir)
-    out_rel = rel
-    # Backward compatibility while league folders are being populated.
-    if not found and primary_dir != legacy_dir:
-        found = _scan(legacy_dir)
-        out_rel = legacy_rel
+    merged: dict[int, tuple[str, str]] = {}
+    if primary_dir != legacy_dir:
+        for n, name in _scan(legacy_dir).items():
+            merged[n] = (legacy_rel, name)
+    for n, name in _scan(primary_dir).items():
+        merged[n] = (rel, name)
 
-    return [url_for("static", filename=f"{out_rel}/{name}") for _, name in found]
+    ordered = sorted(merged.items(), key=lambda kv: kv[0])
+    return [url_for("static", filename=f"{out_rel}/{name}") for _, (out_rel, name) in ordered]
 
 
 @main_bp.get("/")
@@ -776,6 +786,36 @@ def _history_award_year_sort_key(a: HistoryAward) -> tuple[int, int, int]:
     return (0, a.season_id, 0)
 
 
+def _history_award_dedupe_key(a: HistoryAward) -> tuple[object, ...]:
+    """Uniquely identify a winner row; include trophy year when every row shares one DB ``season_id``."""
+    notes = (a.notes or "").strip()
+    sheet_token = ""
+    for part in notes.split(";"):
+        p = part.strip()
+        if p.startswith("sheet_season="):
+            sheet_token = p.split("=", 1)[1].strip()
+            break
+    # Fictional / sheet years: ``sheet_season=1979-80`` etc. Real multi-season DB: ``season_id`` differs.
+    year_key: object = sheet_token if sheet_token else int(a.season_id)
+    return (year_key, a.player_id, a.team_id, int(a.season_id))
+
+
+def _dedupe_history_awards(rows: list[HistoryAward]) -> list[HistoryAward]:
+    """Drop duplicate DB rows (re-import). Do not merge different trophy years for the same player."""
+    best: dict[tuple[object, ...], HistoryAward] = {}
+    for a in rows:
+        k = _history_award_dedupe_key(a)
+        prev = best.get(k)
+        if prev is None:
+            best[k] = a
+            continue
+        pn = len((prev.notes or "").strip())
+        an = len((a.notes or "").strip())
+        if an > pn or (an == pn and a.id < prev.id):
+            best[k] = a
+    return list(best.values())
+
+
 def _build_award_panels(awards: list[HistoryAward]) -> list[dict]:
     """One panel per ``award_name``: latest season is featured; older rows listed below."""
     from collections import defaultdict
@@ -787,6 +827,7 @@ def _build_award_panels(awards: list[HistoryAward]) -> list[dict]:
         by_name[key].append(a)
     panels: list[dict] = []
     for name, rows in by_name.items():
+        rows = _dedupe_history_awards(rows)
         rows_sorted = sorted(rows, key=_history_award_year_sort_key, reverse=True)
         featured = rows_sorted[0]
         past = rows_sorted[1:]

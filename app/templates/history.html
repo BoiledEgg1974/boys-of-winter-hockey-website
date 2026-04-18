@@ -10,9 +10,24 @@
 {{- a.season_id -}}
 {%- endif -%}
 {%- endmacro %}
+{# Same rules as All-Time Records ``team_label``: main-league logo, else Minors; Retired overrides. #}
+{% macro history_award_current_team(pl) -%}
+{%- if not pl -%}
+<span class="muted">—</span>
+{%- elif pl.retired -%}
+<span class="records-team-retired">Retired</span>
+{%- else -%}
+{%- set roster_team = main_league_roster_team(none, pl.current_team) -%}
+{%- if roster_team -%}
+{{ team_logo_only(roster_team) }}
+{%- else -%}
+<span class="records-team-minors">Minors</span>
+{%- endif -%}
+{%- endif -%}
+{%- endmacro %}
 {% block title %}League History — Boys of Winter Hockey League{% endblock %}
 {% block content %}
-{# Champion PNGs: app/static/img/history/champions/banner1.png, banner2.png, … (transparent background). #}
+{# Champion images: static/{{ config.HISTORY_CHAMPIONS_REL_DIR }}/banner1.png, … (transparent background). #}
 <div class="history-page">
   <h1 class="page-title">All-Time History</h1>
 
@@ -34,7 +49,7 @@
     </div>
     {% else %}
     <p class="history-champions-empty muted">
-      Add PNG banners under <code>app/static/img/history/champions/</code> named <code>Banner1.png</code>, <code>Banner2.png</code>, … (or <code>banner1.png</code>, …; numbers can skip; <code>.png</code> case-insensitive). Restart the app after adding files.
+      Add banners under <code>app/static/{{ config.HISTORY_CHAMPIONS_REL_DIR }}/</code> named <code>Banner1.png</code>, <code>Banner2.png</code>, … (or <code>banner1.png</code>, …; <code>.png</code> / <code>.webp</code> / <code>.jpg</code>; numbers can skip). Files in <code>app/static/img/history/champions/</code> are still used for any index missing in the league folder. Restart the app after adding files.
     </p>
     {% endif %}
   </div>
@@ -82,32 +97,39 @@
             <span class="history-award-card__headshot-ph history-award-card__headshot-ph--empty" aria-hidden="true"></span>
             {% endif %}
             <div class="history-award-card__featured-meta">
-              {% if fe.player %}
-              <a class="history-award-card__player-name" href="{{ url_for('main.player_page', player_id=fe.player.id) }}" title="{{ fe.player.full_name }}">{{ fe.player.full_name }}</a>
-              {% else %}
-              <span class="history-award-card__player-name history-award-card__player-name--empty">—</span>
-              {% endif %}
-              <div class="history-award-card__team-line">
-                {% set fe_team = fe.team if fe.team else (fe.player.current_team if fe.player else none) %}
-                {% if fe_team %}{{ team_logo_only(fe_team) }}{% else %}<span class="muted">—</span>{% endif %}
+              {# Latest winner only: season, name, current team — no table headers (separate from list markup/CSS). #}
+              <div class="history-award-card__latest" role="group" aria-label="Latest winner">
+                <span class="history-award-card__latest-year">{{ history_award_season_label(fe) }}</span>
+                <div class="history-award-card__latest-line">
+                  {% if fe.player %}
+                  <a class="history-award-card__latest-name" href="{{ url_for('main.player_page', player_id=fe.player.id) }}" title="{{ fe.player.full_name }}">{{ fe.player.full_name }}</a>
+                  {% else %}
+                  <span class="history-award-card__latest-name history-award-card__latest-name--empty">—</span>
+                  {% endif %}
+                  <span class="history-award-card__latest-team">{{ history_award_current_team(fe.player) }}</span>
+                </div>
               </div>
-              <p class="history-award-card__season">{{ history_award_season_label(fe) }}</p>
             </div>
             </div>
           </div>
         </div>
         {% if panel.past %}
         <div class="history-award-card__list" role="list" aria-label="Past winners — {{ panel.award_name }}">
+          <div class="history-award-card__header-row" role="presentation">
+            <span class="history-award-card__col-head">Year</span>
+            <span class="history-award-card__col-head">Player</span>
+            <span class="history-award-card__col-head history-award-card__col-head--team-lines" aria-label="Current team">
+              <span class="history-award-card__col-head-line" aria-hidden="true">Current</span>
+              <span class="history-award-card__col-head-line" aria-hidden="true">team</span>
+            </span>
+          </div>
           {% for a in panel.past %}
           <div class="history-award-card__row" role="listitem">
             <span class="history-award-card__row-season">{{ history_award_season_label(a) }}</span>
             <span class="history-award-card__row-player">
               {% if a.player %}<a href="{{ url_for('main.player_page', player_id=a.player.id) }}">{{ a.player.full_name }}</a>{% else %}—{% endif %}
             </span>
-            <span class="history-award-card__row-team">
-              {% set row_team = a.team if a.team else (a.player.current_team if a.player else none) %}
-              {% if row_team %}{{ team_logo_only(row_team) }}{% else %}<span class="muted">—</span>{% endif %}
-            </span>
+            <span class="history-award-card__row-team">{{ history_award_current_team(a.player) }}</span>
           </div>
           {% endfor %}
         </div>

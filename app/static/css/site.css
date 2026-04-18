@@ -3765,16 +3765,45 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
   padding-top: 0.15rem;
   text-align: left;
 }
-.history-award-card__player-name {
+.history-award-card__latest {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.32rem;
+  min-width: 0;
+  width: 100%;
+}
+.history-award-card__latest-year {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: #94a3b8;
+  font-variant-numeric: tabular-nums;
+}
+[data-theme="light"] .history-award-card__latest-year {
+  color: var(--muted);
+}
+.history-award-card__latest-line {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+  min-width: 0;
+  width: 100%;
+}
+.history-award-card__latest-name {
+  flex: 1 1 auto;
+  min-width: 0;
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   font-size: clamp(0.62rem, 1.75vw, 0.72rem);
   font-weight: 800;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  color: var(--text);
+  color: var(--accent);
   text-decoration: none;
   line-height: 1.18;
   text-align: left;
@@ -3783,38 +3812,69 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
   overflow-wrap: anywhere;
   word-break: break-word;
 }
-.history-award-card__player-name--empty {
+.history-award-card__latest-name--empty {
   color: var(--muted);
-  display: block;
+  flex: 1 1 auto;
   -webkit-line-clamp: unset;
   line-clamp: unset;
   white-space: nowrap;
 }
-.history-award-card__player-name:hover {
-  color: var(--accent);
-  text-decoration: none;
+.history-award-card__latest-name:hover {
+  text-decoration: underline;
 }
-.history-award-card__team-line {
-  margin-top: 0.3rem;
+.history-award-card__latest-team {
   display: flex;
-  flex-wrap: wrap;
+  flex: 0 0 auto;
+  justify-content: center;
   align-items: center;
-  gap: 0.25rem;
   line-height: 0;
+  min-width: 0;
 }
-.history-award-card__team-line .team-name-lockup--icon .team-name-lockup__logo {
+.history-award-card__latest-team .team-name-lockup--icon .team-name-lockup__logo {
   width: 1.65rem;
   height: 1.65rem;
 }
-.history-award-card__season {
-  margin: 0.45rem 0 0;
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  color: #94a3b8;
+.history-award-card__latest-team .records-team-retired,
+.history-award-card__latest-team .records-team-minors {
+  display: inline-block;
+  line-height: 1.2;
+  text-align: center;
+  white-space: nowrap;
 }
-[data-theme="light"] .history-award-card__season {
+.history-award-card__list .history-award-card__col-head {
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  line-height: 1.2;
+}
+[data-theme="light"] .history-award-card__list .history-award-card__col-head {
   color: var(--muted);
+}
+.history-award-card__list .history-award-card__col-head--team-lines {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  justify-self: center;
+  align-self: center;
+  width: min-content;
+  max-width: 100%;
+  text-align: center;
+  line-height: 1.08;
+  gap: 0;
+  font-size: 0.48rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(148 163 184 / 0.92);
+}
+[data-theme="light"] .history-award-card__list .history-award-card__col-head--team-lines {
+  color: rgb(100 116 139 / 0.95);
+}
+.history-award-card__list .history-award-card__col-head-line {
+  display: block;
 }
 .history-award-card__list {
   padding: 0.35rem 0 0.15rem;
@@ -3822,9 +3882,24 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
   overflow-y: auto;
   scrollbar-width: thin;
 }
+.history-award-card__header-row {
+  display: grid;
+  grid-template-columns: 4rem minmax(9.5rem, 2.45fr) minmax(3.25rem, 4rem);
+  gap: 0.35rem 0.5rem;
+  align-items: center;
+  padding: 0.35rem 0.65rem 0.25rem;
+  font-size: 0.58rem;
+  border-bottom: 1px solid rgb(148 163 184 / 0.22);
+}
+.history-award-card__header-row .history-award-card__col-head:not(.history-award-card__col-head--team-lines) {
+  justify-self: start;
+}
+[data-theme="light"] .history-award-card__header-row {
+  border-bottom-color: rgb(15 23 42 / 0.12);
+}
 .history-award-card__row {
   display: grid;
-  grid-template-columns: 4.5rem minmax(0, 1fr) minmax(0, 2.25rem);
+  grid-template-columns: 4rem minmax(9.5rem, 2.45fr) minmax(3.25rem, 4rem);
   gap: 0.35rem 0.5rem;
   align-items: center;
   padding: 0.42rem 0.65rem;
@@ -3859,19 +3934,37 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
   text-decoration: underline;
 }
 .history-award-card__row-team {
-  justify-self: end;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  justify-self: stretch;
   min-width: 0;
-  text-align: right;
+  text-align: center;
   font-size: 0.72rem;
+  line-height: 0;
 }
 .history-award-card__row-team .team-name-lockup--icon .team-name-lockup__logo {
   width: 1.35rem;
   height: 1.35rem;
 }
+.history-award-card__row-team .records-team-retired,
+.history-award-card__row-team .records-team-minors {
+  display: inline-block;
+  line-height: 1.25;
+  text-align: center;
+  font-size: 0.68rem;
+}
 @media (max-width: 420px) {
+  .history-award-card__row,
+  .history-award-card__header-row {
+    grid-template-columns: 3.5rem minmax(6.25rem, 2fr) minmax(3rem, 3.75rem);
+  }
   .history-award-card__row {
-    grid-template-columns: 4rem minmax(0, 1fr) minmax(0, 2.1rem);
     font-size: 0.76rem;
+  }
+  .history-award-card__list .history-award-card__col-head--team-lines {
+    max-width: 3rem;
+    font-size: 0.44rem;
   }
 }
 .history-seasons-list {

@@ -48,6 +48,17 @@ def _parse_unresolved_player(notes: str | None) -> str | None:
     return None
 
 
+def _parse_unresolved_team(notes: str | None) -> str | None:
+    """Wide trophy sheets label the GM column as *Team Name*; values are often league usernames."""
+    if not notes:
+        return None
+    for part in notes.split(";"):
+        p = part.strip()
+        if p.lower().startswith("unresolved_team="):
+            return p.split("=", 1)[1].strip() or None
+    return None
+
+
 def _staff_display_name(m: dict) -> str:
     """First + last only (no ``nick_name``) so History panels stay clean, e.g. Jack Adams not Jack Adams “Trader Jack”."""
     fn = (cell_val(m, "first_name") or "").strip()
@@ -146,26 +157,63 @@ def _staff_row_by_fhm_id(raw_dir: Path, staff_fhm_id: str) -> dict | None:
     return None
 
 
+def _parse_display_name(notes: str | None) -> str | None:
+    """Optional ``display_name=…`` in ``notes`` (panel text when set)."""
+    if not notes:
+        return None
+    for part in notes.split(";"):
+        p = part.strip()
+        if p.lower().startswith("display_name="):
+            return p.split("=", 1)[1].strip() or None
+    return None
+
+
+def _jack_adams_csv_label(notes: str | None) -> str:
+    """Panel coach text from CSV ``notes``: ``display_name=``, then ``unresolved_player=``, then ``unresolved_team=``."""
+    return (
+        (_parse_display_name(notes) or _parse_unresolved_player(notes) or _parse_unresolved_team(notes) or "").strip()
+    )
+
+
 def resolve_staff_history_display(
     session: Session,
     award: HistoryAward,
     coach_candidates: list[dict] | None,
     raw_dir: Path,
 ) -> CoachAwardDisplay | None:
-    """Resolve ``HistoryAward.staff_fhm_id`` or Jack Adams name fallback to :class:`CoachAwardDisplay`."""
+    """Resolve display for staff history awards.
+
+    Jack Adams: ``staff_fhm_id`` (CSV ``staff_id``) looks up ``staff_master`` for team linkage; the
+    visible coach name prefers ``display_name=`` / ``unresolved_player=`` / ``unresolved_team=`` in
+    ``notes`` when set (e.g. ``Joey``), otherwise the staff card first+last. Team prefers ``award.team``
+    from CSV ``team_id``, then the staff row's FHM team.
+    """
     if not is_staff_history_award(award.award_name):
         return None
     sid = (getattr(award, "staff_fhm_id", None) or "").strip()
     if sid:
         hit = _staff_row_by_fhm_id(raw_dir, sid)
         if hit:
-            team = None
+            team_staff = None
             tid = hit.get("teamid")
             if tid:
-                team = session.scalars(select(Team).where(Team.fhm_team_id == str(tid)).limit(1)).first()
-            return CoachAwardDisplay(full_name=hit["full_name"], team=team)
+                team_staff = session.scalars(select(Team).where(Team.fhm_team_id == str(tid)).limit(1)).first()
+            label = _jack_adams_csv_label(award.notes) if is_jack_adams_award(award.award_name) else ""
+            name_out = label if label else hit["full_name"]
+            team_out = getattr(award, "team", None) or team_staff
+            return CoachAwardDisplay(full_name=name_out, team=team_out)
     if is_jack_adams_award(award.award_name):
-        return resolve_jack_adams_coach(session, award, coach_candidates)
+        cd = resolve_jack_adams_coach(session, award, coach_candidates)
+        if cd:
+            return cd
+        q = _jack_adams_csv_label(award.notes)
+        if q:
+            return CoachAwardDisplay(full_name=q, team=getattr(award, "team", None))
+        return None
+    if is_jim_gregory_award(award.award_name):
+        q = (_parse_unresolved_team(award.notes) or _parse_unresolved_player(award.notes) or "").strip()
+        if q:
+            return CoachAwardDisplay(full_name=q, team=getattr(award, "team", None))
     return None
 
 
@@ -174,12 +222,13 @@ def resolve_jack_adams_coach(
     award: HistoryAward,
     candidates: list[dict] | None,
 ) -> CoachAwardDisplay | None:
-    """Match ``unresolved_player=…`` or the linked player's name to staff_master coaches."""
+    """Match ``unresolved_player=…`` or the linked player's name to staff_master coaches for team."""
     if not is_jack_adams_award(award.award_name):
         return None
     if not candidates:
         return None
-    q = _parse_unresolved_player(award.notes)
+    label = _jack_adams_csv_label(award.notes)
+    q = label
     if not q and award.player and (award.player.full_name or "").strip():
         q = award.player.full_name.strip()
     if not q:
@@ -187,11 +236,13 @@ def resolve_jack_adams_coach(
     hit = _pick_best_match(candidates, q)
     if not hit:
         return None
-    team = None
+    team_staff = None
     tid = hit.get("teamid")
     if tid:
-        team = session.scalars(select(Team).where(Team.fhm_team_id == str(tid)).limit(1)).first()
-    return CoachAwardDisplay(full_name=hit["full_name"], team=team)
+        team_staff = session.scalars(select(Team).where(Team.fhm_team_id == str(tid)).limit(1)).first()
+    team_out = getattr(award, "team", None) or team_staff
+    name_out = label if label else hit["full_name"]
+    return CoachAwardDisplay(full_name=name_out, team=team_out)
 
 
 def attach_coach_award_displays(awards: list[HistoryAward], session: Session, raw_dir: Path) -> None:
@@ -201,8 +252,17 @@ def attach_coach_award_displays(awards: list[HistoryAward], session: Session, ra
     for a in awards:
         if not is_staff_history_award(a.award_name):
             continue
-        if is_jack_adams_award(a.award_name) and not (getattr(a, "staff_fhm_id", None) or "").strip():
-            if candidates is None:
-                candidates = _coach_candidates(raw_dir)
+        if is_jack_adams_award(a.award_name) and candidates is None:
+            candidates = _coach_candidates(raw_dir)
         cd = resolve_staff_history_display(session, a, candidates, raw_dir)
-        a.coach_display = cd  # type: ignore[attr-defined]
+        if is_jack_adams_award(a.award_name):
+            # Notes label must win over ``player.full_name`` in templates (otherwise ``Joey`` → link shows
+            # ``Joey Fortin`` when ``player_id`` matches that skater).
+            lab = _jack_adams_csv_label(a.notes)
+            if lab:
+                team_t = getattr(a, "team", None) or (cd.team if cd else None)
+                a.coach_display = CoachAwardDisplay(full_name=lab, team=team_t)  # type: ignore[attr-defined]
+            else:
+                a.coach_display = cd  # type: ignore[attr-defined]
+        else:
+            a.coach_display = cd  # type: ignore[attr-defined]

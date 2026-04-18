@@ -863,9 +863,12 @@ def _history_award_year_sort_key(a: HistoryAward) -> tuple[int, int, int]:
     return (0, a.season_id, 0)
 
 
-def _history_award_dedupe_key(a: HistoryAward) -> tuple[object, object]:
-    """One row per trophy year + player; merge import duplicates that split ``team_id`` / ``notes``."""
-    return (_history_award_year_token(a), a.player_id)
+def _history_award_dedupe_key(a: HistoryAward) -> tuple[object, object, str]:
+    """One row per trophy year + player (or distinct ``notes`` when ``player_id`` is null).
+
+    Tie rows often share the same sheet year with no resolved player; keep them separate.
+    """
+    return (_history_award_year_token(a), a.player_id, (a.notes or "").strip())
 
 
 def _history_award_dedupe_rank(a: HistoryAward) -> tuple[int, int, int, int, int]:

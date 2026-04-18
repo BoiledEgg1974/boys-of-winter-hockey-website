@@ -25,9 +25,12 @@
 {%- endif -%}
 {%- endif -%}
 {%- endmacro %}
-{% macro history_award_coach_team(cd) -%}
+{# Coach display from staff_master has ``cd.team``; Jim Gregory note-only rows use ``award.team`` (CSV ``team_id``). #}
+{% macro history_award_coach_team(cd, award=none) -%}
 {%- if cd and cd.team -%}
 {{ team_logo_only(cd.team) }}
+{%- elif award and award.team -%}
+{{ team_logo_only(award.team) }}
 {%- else -%}
 <span class="muted">—</span>
 {%- endif -%}
@@ -67,6 +70,7 @@
     <div class="history-awards-grid" role="list" aria-label="League awards by trophy">
       {% for panel in award_panels %}
       {% set fe = panel.featured %}
+      {% set fe_no_winner = ('no_winner=1' in ((fe.notes or '') | lower)) or ('unresolved_player=no winner' in ((fe.notes or '') | lower)) %}
       <section class="history-award-card" role="listitem" aria-labelledby="award-card-{{ loop.index }}-title">
         <div class="history-award-card__hero">
           <div class="history-award-card__hero-grid">
@@ -137,7 +141,7 @@
                 <div class="history-award-card__latest-line">
                   {% if panel.coach_award and fe.coach_display %}
                   <span class="history-award-card__latest-name history-award-card__latest-name--coach" title="{{ fe.coach_display.full_name }}">{{ fe.coach_display.full_name }}</span>
-                  <span class="history-award-card__latest-team">{{ history_award_coach_team(fe.coach_display) }}</span>
+                  <span class="history-award-card__latest-team">{{ history_award_coach_team(fe.coach_display, fe) }}</span>
                   {% elif panel.coach_award and fe.player %}
                   <a class="history-award-card__latest-name" href="{{ url_for('main.player_page', player_id=fe.player.id) }}" title="{{ fe.player.full_name }}">{{ fe.player.full_name }}</a>
                   <span class="history-award-card__latest-team">{{ history_award_current_team(fe.player) }}</span>
@@ -147,6 +151,9 @@
                   {% elif fe.player %}
                   <a class="history-award-card__latest-name" href="{{ url_for('main.player_page', player_id=fe.player.id) }}" title="{{ fe.player.full_name }}">{{ fe.player.full_name }}</a>
                   <span class="history-award-card__latest-team">{{ history_award_current_team(fe.player) }}</span>
+                  {% elif fe_no_winner %}
+                  <span class="history-award-card__latest-name history-award-card__latest-name--empty">No Winner</span>
+                  <span class="history-award-card__latest-team"><span class="muted">—</span></span>
                   {% else %}
                   <span class="history-award-card__latest-name history-award-card__latest-name--empty">—</span>
                   <span class="history-award-card__latest-team">{{ history_award_current_team(fe.player) }}</span>
@@ -177,6 +184,7 @@
             {% endif %}
           </div>
           {% for a in panel.past %}
+          {% set a_no_winner = ('no_winner=1' in ((a.notes or '') | lower)) or ('unresolved_player=no winner' in ((a.notes or '') | lower)) %}
           <div class="history-award-card__row" role="listitem">
             <span class="history-award-card__row-season">{{ history_award_season_label(a) }}</span>
             {% if panel.team_award %}
@@ -191,16 +199,20 @@
               —
               {% elif a.player %}
               <a href="{{ url_for('main.player_page', player_id=a.player.id) }}">{{ a.player.full_name }}</a>
+              {% elif a_no_winner %}
+              No Winner
               {% else %}
               —
               {% endif %}
             </span>
             <span class="history-award-card__row-team">
               {% if panel.coach_award and a.coach_display %}
-              {{ history_award_coach_team(a.coach_display) }}
+              {{ history_award_coach_team(a.coach_display, a) }}
               {% elif panel.coach_award and a.player %}
               {{ history_award_current_team(a.player) }}
               {% elif panel.coach_award %}
+              <span class="muted">—</span>
+              {% elif a_no_winner %}
               <span class="muted">—</span>
               {% else %}
               {{ history_award_current_team(a.player) }}

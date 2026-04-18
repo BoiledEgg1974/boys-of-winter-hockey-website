@@ -9,7 +9,9 @@ Your sheet layout (e.g. ``BOWL-Fantasy League Stats_Financials_Data - Trophy His
   separated by empty columns (CSV ``,,`` gaps). Stride is inferred from ``Season`` cell positions.
 - **Data** rows: same stride; first cell of each group is usually ``YYYY-YY`` season label.
 
-Output for the site importer (``scripts/import_pipeline/runner.py`` → ``import_history_awards``):
+Output for the site importer (``scripts/import_pipeline/runner.py`` → ``import_history_awards``).
+Write to ``history_awards.sheet.csv`` in the league raw folder (preferred by the importer) or
+``history_awards.csv``:
 
 - ``season`` — must match ``Season.label`` or ``Season.fhm_season_id`` in the league DB.
 - ``award_name`` — text shown in the Awards panel.
@@ -129,6 +131,9 @@ def _looks_like_data_row(row: list[str], season_starts: list[int]) -> bool:
 def _looks_like_section_title_row(row: list[str]) -> bool:
     """Heuristic: first cell is not Season/Team and row has several tokens (next rows are subtitle+header)."""
     c0 = (row[0] or "").strip()
+    # Wide sheets use continuation rows with leading `,,` gaps; those must not end the block.
+    if not c0:
+        return False
     if c0 in ("Season", "Team"):
         return False
     if _SEASON_START.match(c0):
@@ -222,7 +227,7 @@ def _resolve_with_db(
     from app import create_app
     from app.config import make_league_config
     from app.models import Player, Team, db
-    from sqlalchemy import func, select
+    from sqlalchemy import func, nullslast, select
 
     app = create_app(make_league_config(league_slug))
     with app.app_context():
@@ -233,12 +238,22 @@ def _resolve_with_db(
             n = _strip_trophy_player_stat_suffix(name)
             if not n:
                 return None
+            # Same ``full_name`` can exist twice in FHM (e.g. father/son). Prefer earliest birth date
+            # so trophy history rows map to the era-appropriate player (e.g. Syl Apps Sr. vs Jr.).
             row = db.session.scalars(
-                select(Player).where(func.lower(Player.full_name) == func.lower(n)).limit(1)
+                select(Player)
+                .where(func.lower(Player.full_name) == func.lower(n))
+                .order_by(nullslast(Player.birth_date.asc()))
+                .limit(1)
             ).first()
             if row and row.fhm_player_id:
                 return str(row.fhm_player_id)
-            row = db.session.scalars(select(Player).where(Player.full_name == n).limit(1)).first()
+            row = db.session.scalars(
+                select(Player)
+                .where(Player.full_name == n)
+                .order_by(nullslast(Player.birth_date.asc()))
+                .limit(1)
+            ).first()
             if row and row.fhm_player_id:
                 return str(row.fhm_player_id)
             return None

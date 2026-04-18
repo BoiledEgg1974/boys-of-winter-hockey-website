@@ -681,8 +681,14 @@ def import_draft_picks(raw_dir: Path, app) -> int:
 
 
 def _history_awards_csv_path(raw_dir: Path) -> Path | None:
-    """Prefer ``history_awards.csv``; also accept ``awards_history.csv`` (same columns)."""
-    for name in ("history_awards.csv", "awards_history.csv"):
+    """Pick a history-awards CSV (same columns).
+
+    ``history_awards.sheet.csv`` is preferred (wide-sheet output + continuation rows). When you
+    maintain ``history_awards.csv`` by hand, run
+    ``python scripts/align_history_awards_to_player_master.py --raw-dir <league>/raw`` first:
+    it merges manual CSV cells into the sheet file and cross-references ``player_master.csv``.
+    """
+    for name in ("history_awards.sheet.csv", "history_awards.csv", "awards_history.csv"):
         p = raw_dir / name
         if p.is_file():
             return p
@@ -743,11 +749,22 @@ def import_history_awards(
         if not season:
             continue
         # Same key as ``player_master.csv`` ``PlayerId`` (stored as ``Player.fhm_player_id``), not DB ``players.id``.
-        player = _player_by_fhm(cell_val(r, "player_id", "fhm_player_id", "playerid"))
+        pid_raw = cell_val(r, "player_id", "fhm_player_id", "playerid")
+        pid_st = (pid_raw or "").strip()
+        pid_lower = pid_st.lower()
+        # Spreadsheets often export absent IDs as the literal ``null`` / ``none`` / ``nan``.
+        sheet_player_null = pid_lower in ("null", "none", "nan")
+        player_key = None if not pid_st or sheet_player_null else pid_st
+        player = _player_by_fhm(player_key)
         team = _team_by_fhm_or_abbr(cell_val(r, "team_id", "team_abbr"))
         staff_fhm_raw = cell_val(r, "staff_id", "staff_fhm_id", "fhm_staff_id")
         staff_fhm_id = (staff_fhm_raw or "").strip() or None
         notes_val = cell_val(r, "notes")
+        if sheet_player_null:
+            tag = "no_winner=1"
+            nv_low = (notes_val or "").lower()
+            if "no_winner=1" not in nv_low:
+                notes_val = f"{notes_val}; {tag}" if notes_val else tag
         if sheet_pref:
             merged = "; ".join(sheet_pref)
             if notes_val:

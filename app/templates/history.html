@@ -31,9 +31,27 @@
 {{ team_logo_only(cd.team) }}
 {%- elif award and award.team -%}
 {{ team_logo_only(award.team) }}
+{%- elif award and history_jim_gregory_era_logo_url(award) -%}
+<span class="team-name-lockup team-name-lockup--icon" aria-label="Hartford Whalers">
+  <img class="team-name-lockup__logo" src="{{ history_jim_gregory_era_logo_url(award) }}" alt="" loading="lazy" decoding="async">
+</span>
 {%- else -%}
 <span class="muted">—</span>
 {%- endif -%}
+{%- endmacro %}
+{% macro history_team_award_lockup(a) -%}
+{% if a.team %}
+{{ team_lockup_full_name(a.team) }}
+{% elif history_team_award_era_logo_url(a) and history_team_award_notes_team_label(a) %}
+<span class="team-name-lockup">
+  <img class="team-name-lockup__logo" src="{{ history_team_award_era_logo_url(a) }}" alt="" loading="lazy" decoding="async">
+  <span class="team-name-lockup__text">{{ history_team_award_notes_team_label(a) }}</span>
+</span>
+{% elif history_team_award_notes_team_label(a) %}
+<span class="muted">{{ history_team_award_notes_team_label(a) }}</span>
+{% else %}
+<span class="muted">—</span>
+{% endif %}
 {%- endmacro %}
 {% block title %}League History — Boys of Winter Hockey League{% endblock %}
 {% block content %}
@@ -100,6 +118,10 @@
             <a class="history-award-card__team-logo-hit" href="{{ url_for('main.team_page', slug=fe.team.slug) }}" aria-label="{{ fe.team.full_display_name() }}">
               <img class="history-award-card__team-logo-img" src="{{ team_logo_url(fe.team) }}" alt="" loading="lazy" decoding="async">
             </a>
+            {% elif panel.team_award and history_team_award_era_logo_url(fe) %}
+            <span class="history-award-card__team-logo-hit" role="img" aria-label="{{ history_team_award_notes_team_label(fe) or 'Team' }}">
+              <img class="history-award-card__team-logo-img" src="{{ history_team_award_era_logo_url(fe) }}" alt="" loading="lazy" decoding="async">
+            </span>
             {% elif panel.team_award %}
             <span class="history-award-card__team-logo-hit history-award-card__team-logo-hit--empty" aria-hidden="true">
               <span class="history-award-card__headshot-ph history-award-card__headshot-ph--empty"></span>
@@ -135,7 +157,7 @@
                 <span class="history-award-card__latest-year">{{ history_award_season_label(fe) }}</span>
                 {% if panel.team_award %}
                 <div class="history-award-card__latest-line history-award-card__latest-line--team-only">
-                  {% if fe.team %}{{ team_lockup_full_name(fe.team) }}{% else %}<span class="muted">—</span>{% endif %}
+                  {{ history_team_award_lockup(fe) }}
                 </div>
                 {% else %}
                 <div class="history-award-card__latest-line">
@@ -188,7 +210,7 @@
           <div class="history-award-card__row" role="listitem">
             <span class="history-award-card__row-season">{{ history_award_season_label(a) }}</span>
             {% if panel.team_award %}
-            <span class="history-award-card__row-team-name">{% if a.team %}{{ team_lockup_full_name(a.team) }}{% else %}<span class="muted">—</span>{% endif %}</span>
+            <span class="history-award-card__row-team-name">{{ history_team_award_lockup(a) }}</span>
             {% else %}
             <span class="history-award-card__row-player">
               {% if panel.coach_award and a.coach_display %}

@@ -28,17 +28,24 @@ def main() -> None:
         default=None,
         help="Case-insensitive substring of award_name: remove matching DB rows, import only matching CSV rows.",
     )
+    ap.add_argument(
+        "--csv-path",
+        type=Path,
+        default=None,
+        help="Explicit history awards CSV (default: discover under RAW_IMPORT_DIR).",
+    )
     args = ap.parse_args()
     app = create_app()
     with app.app_context():
         raw = Path(str(app.config["RAW_IMPORT_DIR"]))
         only = (args.only_award or "").strip()
+        csv_p = args.csv_path.resolve() if args.csv_path else None
         if only:
-            n = import_history_awards(raw, app, replace_award_substring=only)
-            print(f"Imported {n} history_awards row(s) matching {only!r} from {raw}.")
+            n = import_history_awards(raw, app, csv_path=csv_p, replace_award_substring=only)
+            print(f"Imported {n} history_awards row(s) matching {only!r} from {csv_p or raw}.")
         else:
-            n = import_history_awards(raw, app, replace_all=True)
-            print(f"Imported {n} history_awards row(s) from {raw}.")
+            n = import_history_awards(raw, app, csv_path=csv_p, replace_all=True)
+            print(f"Imported {n} history_awards row(s) from {csv_p or raw}.")
 
 
 if __name__ == "__main__":

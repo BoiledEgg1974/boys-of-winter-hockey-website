@@ -238,6 +238,31 @@ def create_app(config_class: type = Config) -> Flask:
                 return None
             return url_for("static", filename=rel)
 
+        def history_team_award_era_logo_url(award: object) -> str | None:
+            from flask import url_for
+
+            from app.services.history_team_award_logos import history_team_award_era_logo_static_relpath
+
+            rel = history_team_award_era_logo_static_relpath(award)
+            if rel:
+                return url_for("static", filename=rel)
+            return None
+
+        def history_team_award_notes_team_label(award: object) -> str | None:
+            from app.services.history_team_award_logos import history_team_award_notes_team_label as _notes_label
+
+            return _notes_label(award)
+
+        def history_jim_gregory_era_logo_url(award: object) -> str | None:
+            from flask import url_for
+
+            from app.services.history_team_award_logos import history_jim_gregory_era_logo_static_relpath
+
+            rel = history_jim_gregory_era_logo_static_relpath(award)
+            if rel:
+                return url_for("static", filename=rel)
+            return None
+
         def league_logo_url() -> str:
             from flask import current_app, url_for
 
@@ -276,6 +301,9 @@ def create_app(config_class: type = Config) -> Flask:
         return dict(
             nav_teams=teams,
             team_logo_url=team_logo_url,
+            history_team_award_era_logo_url=history_team_award_era_logo_url,
+            history_team_award_notes_team_label=history_team_award_notes_team_label,
+            history_jim_gregory_era_logo_url=history_jim_gregory_era_logo_url,
             league_logo_url=league_logo_url,
             player_headshot_url=player_headshot_url,
             main_league_roster_team=main_league_roster_team,

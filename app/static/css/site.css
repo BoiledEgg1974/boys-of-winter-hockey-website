@@ -3920,6 +3920,14 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
 .history-award-card__latest-line--team-only .team-name-lockup__link:hover {
   text-decoration: underline;
 }
+.history-award-card__latest-line--team-only .team-name-lockup__text {
+  font-size: clamp(0.58rem, 1.65vw, 0.72rem);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--accent);
+  line-height: 1.15;
+}
 .history-award-card__list--team-award .history-award-card__header-row,
 .history-award-card__list--team-award .history-award-card__row {
   grid-template-columns: 4rem minmax(0, 1fr);
@@ -3947,6 +3955,11 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
 }
 .history-award-card__row-team-name .team-name-lockup__link:hover {
   text-decoration: underline;
+}
+.history-award-card__row-team-name .team-name-lockup__text {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--accent);
 }
 .history-award-card__list .history-award-card__col-head {
   font-size: 0.58rem;

@@ -699,6 +699,7 @@ def import_history_awards(
     raw_dir: Path,
     app,
     *,
+    csv_path: Path | None = None,
     replace_award_substring: str | None = None,
     replace_all: bool = False,
 ) -> int:
@@ -712,8 +713,8 @@ def import_history_awards(
     then import **only** CSV rows whose award name contains that substring. All other
     awards are left unchanged.
     """
-    path = _history_awards_csv_path(raw_dir)
-    if path is None:
+    path = csv_path.resolve() if csv_path else _history_awards_csv_path(raw_dir)
+    if path is None or not path.is_file():
         return 0
     log.info("Loading history awards from %s", path.name)
     df = read_csv_normalized(path)

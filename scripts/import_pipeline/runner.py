@@ -680,10 +680,20 @@ def import_draft_picks(raw_dir: Path, app) -> int:
     return n
 
 
+def _history_awards_csv_path(raw_dir: Path) -> Path | None:
+    """Prefer ``history_awards.csv``; also accept ``awards_history.csv`` (same columns)."""
+    for name in ("history_awards.csv", "awards_history.csv"):
+        p = raw_dir / name
+        if p.is_file():
+            return p
+    return None
+
+
 def import_history_awards(raw_dir: Path, app) -> int:
-    path = raw_dir / "history_awards.csv"
-    if not path.exists():
+    path = _history_awards_csv_path(raw_dir)
+    if path is None:
         return 0
+    log.info("Loading history awards from %s", path.name)
     df = read_csv_normalized(path)
     n = 0
     for _, row in df.iterrows():
@@ -798,9 +808,7 @@ def run_import(raw_dir: Path | None = None) -> None:
                 if overlay.is_file():
                     log.info("Applying team_standings.csv overlay after FHM import.")
                     counts["team_standings_overlay"] = import_team_standings(raw, app)
-                ha = raw / "history_awards.csv"
-                if ha.is_file():
-                    log.info("Applying history_awards.csv after FHM import.")
+                if _history_awards_csv_path(raw) is not None:
                     counts["history_awards"] = import_history_awards(raw, app)
                 hc = raw / "history_champions.csv"
                 if hc.is_file():

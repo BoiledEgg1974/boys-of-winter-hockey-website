@@ -56,7 +56,7 @@ Legacy file names (comma CSVs) must match:
   prospects.csv
   drafts.csv
   draft_picks.csv
-  history_awards.csv
+  history_awards.csv  (or awards_history.csv — same columns; history_awards wins if both exist)
   history_champions.csv
 
 Missing files are skipped with a warning. Import order is fixed (teams first, then seasons, players, etc.).

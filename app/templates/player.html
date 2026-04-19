@@ -337,6 +337,22 @@
           </tr>
           {% endfor %}
         </tbody>
+        {% if career_rs_gk_totals %}
+        {% set t = career_rs_gk_totals %}
+        <tfoot>
+          <tr class="player-profile__career-totals-row">
+            <th scope="row" class="player-profile__career-totals-label">BOWL TOTALS</th>
+            <td>—</td>
+            <td>{{ t.gp }}</td>
+            <td>{{ t.wins }}</td>
+            <td>{{ t.losses }}</td>
+            <td>{{ t.ties_otl if t.ties_otl is not none else '—' }}</td>
+            <td>{{ '%.2f'|format(t.gaa) if t.gaa is not none else '—' }}</td>
+            <td>{{ '%.3f'|format(t.sv_pct) if t.sv_pct is not none else '—' }}</td>
+            <td>{{ t.shutouts }}</td>
+          </tr>
+        </tfoot>
+        {% endif %}
       </table>
     </div>
     {% else %}
@@ -376,6 +392,22 @@
           </tr>
           {% endfor %}
         </tbody>
+        {% if career_po_gk_totals %}
+        {% set t = career_po_gk_totals %}
+        <tfoot>
+          <tr class="player-profile__career-totals-row">
+            <th scope="row" class="player-profile__career-totals-label">BOWL TOTALS</th>
+            <td>—</td>
+            <td>{{ t.gp }}</td>
+            <td>{{ t.wins }}</td>
+            <td>{{ t.losses }}</td>
+            <td>{{ t.ties_otl if t.ties_otl is not none else '—' }}</td>
+            <td>{{ '%.2f'|format(t.gaa) if t.gaa is not none else '—' }}</td>
+            <td>{{ '%.3f'|format(t.sv_pct) if t.sv_pct is not none else '—' }}</td>
+            <td>{{ t.shutouts }}</td>
+          </tr>
+        </tfoot>
+        {% endif %}
       </table>
     </div>
     {% else %}
@@ -422,6 +454,24 @@
           </tr>
           {% endfor %}
         </tbody>
+        {% if career_rs_sk_totals %}
+        {% set t = career_rs_sk_totals %}
+        <tfoot>
+          <tr class="player-profile__career-totals-row">
+            <th scope="row" class="player-profile__career-totals-label">BOWL TOTALS</th>
+            <td>—</td>
+            <td>{{ t.gp }}</td>
+            <td>{{ t.goals }}</td>
+            <td>{{ t.assists }}</td>
+            <td>{{ t.points }}</td>
+            <td>{{ t.plus_minus if t.plus_minus is not none else '—' }}</td>
+            <td>{{ t.pim }}</td>
+            <td>{{ t.pp_goals if t.pp_goals is not none else '—' }}</td>
+            <td>{{ t.sh_goals if t.sh_goals is not none else '—' }}</td>
+            <td>{{ t.shots if t.shots is not none else '—' }}</td>
+          </tr>
+        </tfoot>
+        {% endif %}
       </table>
     </div>
     {% else %}
@@ -466,6 +516,24 @@
           </tr>
           {% endfor %}
         </tbody>
+        {% if career_po_sk_totals %}
+        {% set t = career_po_sk_totals %}
+        <tfoot>
+          <tr class="player-profile__career-totals-row">
+            <th scope="row" class="player-profile__career-totals-label">BOWL TOTALS</th>
+            <td>—</td>
+            <td>{{ t.gp }}</td>
+            <td>{{ t.goals }}</td>
+            <td>{{ t.assists }}</td>
+            <td>{{ t.points }}</td>
+            <td>{{ t.plus_minus if t.plus_minus is not none else '—' }}</td>
+            <td>{{ t.pim }}</td>
+            <td>{{ t.pp_goals if t.pp_goals is not none else '—' }}</td>
+            <td>{{ t.sh_goals if t.sh_goals is not none else '—' }}</td>
+            <td>{{ t.shots if t.shots is not none else '—' }}</td>
+          </tr>
+        </tfoot>
+        {% endif %}
       </table>
     </div>
     {% else %}

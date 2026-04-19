@@ -54,6 +54,7 @@ from app.services.draft_history import (
     nhl_bowl_draft_clause,
 )
 from app.services.import_career_seasons import import_folder_season_labels
+from app.services.player_career_totals import goalie_career_lines_totals, skater_career_lines_totals
 from app.services.player_contract_csv import contract_years_remaining_major
 from app.services.player_rating_avgs import goalie_category_averages, skater_category_averages
 from app.services.player_ratings_csv import get_player_ratings_row, player_positions_display_label
@@ -2819,6 +2820,15 @@ def player_page(player_id: int):
     )
     roster_header_team = main_league_roster_team(contract_team, current_team)
     player_award_badges = player_history_award_badges(db.session, player.id)
+    bowl_league_ids = bowl_nhl_league_ids(db.session)
+    career_rs_sk_bowl = [ln for ln in career_rs_sk if ln.league_fhm_id in bowl_league_ids]
+    career_po_sk_bowl = [ln for ln in career_po_sk if ln.league_fhm_id in bowl_league_ids]
+    career_rs_gk_bowl = [ln for ln in career_rs_gk if ln.league_fhm_id in bowl_league_ids]
+    career_po_gk_bowl = [ln for ln in career_po_gk if ln.league_fhm_id in bowl_league_ids]
+    career_rs_sk_totals = skater_career_lines_totals(career_rs_sk_bowl) if career_rs_sk_bowl else None
+    career_po_sk_totals = skater_career_lines_totals(career_po_sk_bowl) if career_po_sk_bowl else None
+    career_rs_gk_totals = goalie_career_lines_totals(career_rs_gk_bowl) if career_rs_gk_bowl else None
+    career_po_gk_totals = goalie_career_lines_totals(career_po_gk_bowl) if career_po_gk_bowl else None
     return render_template(
         "player.html",
         player=player,
@@ -2827,6 +2837,10 @@ def player_page(player_id: int):
         career_po_sk=career_po_sk,
         career_rs_gk=career_rs_gk,
         career_po_gk=career_po_gk,
+        career_rs_sk_totals=career_rs_sk_totals,
+        career_po_sk_totals=career_po_sk_totals,
+        career_rs_gk_totals=career_rs_gk_totals,
+        career_po_gk_totals=career_po_gk_totals,
         game_log=game_log,
         current_team=current_team,
         contract=contract,

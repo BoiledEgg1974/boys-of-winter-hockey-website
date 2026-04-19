@@ -5102,6 +5102,32 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
 [data-theme="light"] .player-profile__skater-career-table tbody tr:nth-child(even) td {
   background: rgb(37 99 235 / 0.08);
 }
+.player-profile__goalie-career-table .player-profile__career-totals-row th,
+.player-profile__goalie-career-table .player-profile__career-totals-row td,
+.player-profile__skater-career-table .player-profile__career-totals-row th,
+.player-profile__skater-career-table .player-profile__career-totals-row td {
+  border-top: 1px solid rgb(148 163 184 / 0.35);
+  background: rgb(15 23 42 / 0.72);
+  font-weight: 700;
+  color: #f8fafc;
+}
+.player-profile__goalie-career-table .player-profile__career-totals-row th,
+.player-profile__skater-career-table .player-profile__career-totals-row th {
+  font-weight: 800;
+}
+.player-profile__career-totals-label {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.82em;
+}
+[data-theme="light"] .player-profile__goalie-career-table .player-profile__career-totals-row th,
+[data-theme="light"] .player-profile__goalie-career-table .player-profile__career-totals-row td,
+[data-theme="light"] .player-profile__skater-career-table .player-profile__career-totals-row th,
+[data-theme="light"] .player-profile__skater-career-table .player-profile__career-totals-row td {
+  background: rgb(241 245 249 / 0.95);
+  color: var(--text);
+  border-top-color: rgb(148 163 184 / 0.45);
+}
 .player-profile .table-wrap {
   overflow-x: auto;
 }

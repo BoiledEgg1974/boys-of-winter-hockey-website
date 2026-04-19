@@ -2320,6 +2320,7 @@ def team_page(slug: str):
     team = db.session.scalars(select(Team).where(Team.slug == slug).limit(1)).first()
     if not team:
         abort(404)
+    league_slug = str(current_app.config.get("LEAGUE_SLUG") or "bowl-fantasy")
     season = get_current_season()
     division_name = None
     division_rank = None
@@ -2440,7 +2441,18 @@ def team_page(slug: str):
                         division_rank = idx
                         break
     panel = (request.args.get("panel", "roster") or "roster").strip().lower()
-    if panel not in {"roster", "depth", "ratings", "lines", "salary", "statistics", "staff", "franchise"}:
+    allowed_team_panels = {
+        "roster",
+        "depth",
+        "ratings",
+        "lines",
+        "salary",
+        "statistics",
+        "staff",
+        "franchise",
+        "season_records",
+    }
+    if panel not in allowed_team_panels:
         panel = "roster"
     salary_years = [int(season.start_year) + i for i in range(6)] if season and season.start_year else []
     roster = db.session.scalars(
@@ -2480,6 +2492,15 @@ def team_page(slug: str):
     franchise_history_sections: list[dict[str, object]] = []
     if panel == "franchise":
         franchise_history_sections = build_franchise_history_sections(team)
+
+    season_records_rs_sections: list[object] = []
+    season_records_po_sections: list[object] = []
+    if panel == "season_records":
+        from app.services.team_season_records import build_team_season_records_bundle
+
+        season_records_rs_sections, season_records_po_sections = build_team_season_records_bundle(
+            db.session, team
+        )
 
     raw_dir = Path(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR))
     depth_chart, lines_sections, lines_name_to_id, salary_rows, salary_total = _build_team_lines_views(
@@ -2684,6 +2705,8 @@ def team_page(slug: str):
         "staff_scout_columns": STAFF_SCOUT_COLUMNS,
         "staff_trainer_columns": STAFF_TRAINER_COLUMNS,
         "franchise_history_sections": franchise_history_sections,
+        "season_records_rs_sections": season_records_rs_sections,
+        "season_records_po_sections": season_records_po_sections,
     }
     if panel == "statistics":
         tmpl_kwargs.update(

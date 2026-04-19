@@ -1988,6 +1988,191 @@ table.data tbody tr.standings-cutline td {
   border-color: rgb(56 189 248 / 0.75);
 }
 
+.team-season-records__block + .team-season-records__block {
+  margin-top: 2rem;
+}
+.team-season-records__heading {
+  margin: 0 0 0.85rem;
+  font-size: 1.38rem;
+  font-weight: 800;
+  color: #f8fafc;
+}
+[data-theme="light"] .team-season-records__heading {
+  color: var(--text);
+}
+.team-season-records__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(17.75rem, 1fr));
+  gap: 0.75rem;
+}
+@media (max-width: 1024px) {
+  .team-season-records__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 560px) {
+  .team-season-records__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.team-season-records__card {
+  margin: 0;
+}
+.team-season-records__card-title {
+  margin: 0 0 0.45rem;
+  font-size: 1.08rem;
+  font-weight: 800;
+  color: #f1f5f9;
+  letter-spacing: 0.01em;
+}
+[data-theme="light"] .team-season-records__card-title {
+  color: var(--text);
+}
+/* Higher specificity than global `table.data` (font-size, padding, th uppercase, col align). */
+table.data.team-season-records__table {
+  font-size: 0.676rem;
+  line-height: 1.25;
+  table-layout: fixed;
+  width: 100%;
+  border-collapse: collapse;
+}
+/* Column widths: `width` on `th`/`td` is often ignored for column sizing; `col` is authoritative. */
+table.data.team-season-records__table col.team-season-records__col-rank {
+  width: 4.5ch;
+}
+table.data.team-season-records__table col.team-season-records__col-player {
+  width: 55%;
+}
+table.data.team-season-records__table col.team-season-records__col-season {
+  width: 13%;
+}
+table.data.team-season-records__table col.team-season-records__col-value {
+  width: 26%;
+}
+table.data.team-season-records__table th,
+table.data.team-season-records__table td {
+  padding: 0.18rem 0.22rem;
+  vertical-align: middle;
+}
+table.data.team-season-records__table th {
+  text-transform: none;
+  letter-spacing: 0.01em;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #cbd5e1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+[data-theme="light"] table.data.team-season-records__table th {
+  color: var(--text);
+}
+table.data.team-season-records__table .team-season-records__th-rank,
+table.data.team-season-records__table .team-season-records__td-rank {
+  box-sizing: border-box;
+  padding: 0.18rem 0.55rem 0.18rem 0;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+table.data.team-season-records__table .team-season-records__th-player,
+table.data.team-season-records__table .team-season-records__td-player {
+  min-width: 0;
+  text-align: left;
+  white-space: nowrap;
+  padding: 0.18rem 0.22rem 0.18rem 0.2rem;
+}
+table.data.team-season-records__table .team-season-records__th-season,
+table.data.team-season-records__table .team-season-records__td-season {
+  min-width: 2.75rem;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+table.data.team-season-records__table .team-season-records__td-season {
+  overflow: visible;
+  text-overflow: clip;
+}
+table.data.team-season-records__table .team-season-records__th-value,
+table.data.team-season-records__table .team-season-records__td-value {
+  min-width: 2.35rem;
+  text-align: center;
+}
+/* Stat label header: wrap inside cell (avoid painting over Season); `<wbr>` for “Goals By A” / “C” splits. */
+table.data.team-season-records__table .team-season-records__th-value {
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.2;
+}
+table.data.team-season-records__table .team-season-records__td-value {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+[data-theme="light"] table.data.team-season-records__table .team-season-records__td-value {
+  color: var(--text);
+}
+.team-season-records__player-link {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 0.3rem;
+  min-width: 0;
+  max-width: 100%;
+  text-decoration: none;
+  color: inherit;
+  white-space: nowrap;
+}
+.team-season-records__player-link:hover .team-season-records__player-name {
+  text-decoration: underline;
+  color: #bae6fd;
+}
+.team-season-records__player-link .team-season-records__photo.stats-player-cell__photo {
+  display: inline-flex;
+  width: 29px;
+  height: 29px;
+  min-width: 29px;
+  min-height: 29px;
+  flex-shrink: 0;
+  border-color: rgb(100 116 139 / 0.65);
+  box-shadow: 0 0 0 1px rgb(15 23 42 / 0.75);
+}
+.team-season-records__player-link .team-season-records__photo.stats-player-cell__photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.team-season-records__player-name {
+  display: block;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+  font-size: 0.702rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: #7dd3fc;
+}
+[data-theme="light"] .team-season-records__player-name {
+  color: #0284c7;
+}
+[data-theme="light"] .team-season-records__player-link:hover .team-season-records__player-name {
+  color: #0369a1;
+}
+.team-season-records__empty {
+  margin: 0;
+  padding: 0.35rem 0;
+  font-size: 0.754rem;
+}
+
 /* Team page — Player Ratings (FHM player_ratings.csv) */
 .team-ratings-stack {
   display: flex;

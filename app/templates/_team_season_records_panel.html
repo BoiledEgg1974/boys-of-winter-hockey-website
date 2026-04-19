@@ -1,0 +1,119 @@
+{% macro season_records_value_th(title) -%}
+{%- set parts = title.rsplit(' ', 1) -%}
+{%- if parts | length == 2 and parts[1] in ['C', 'D', 'LW', 'RW'] and ' By A ' in title -%}
+{{ parts[0] | e }}<wbr>{{ parts[1] | e }}
+{%- else -%}
+{{ title | e }}
+{%- endif -%}
+{%- endmacro %}
+<div class="team-season-records">
+  <section class="team-season-records__block" aria-labelledby="team-season-records-rs">
+    <h2 class="team-season-records__heading" id="team-season-records-rs">Regular season</h2>
+    <div class="team-season-records__grid">
+      {% for sec in season_records_rs_sections %}
+      <div class="card team-season-records__card">
+        <h3 class="team-season-records__card-title">{{ sec.title }}</h3>
+        {% if sec.rows %}
+        <div class="table-wrap">
+          <table class="data team-season-records__table">
+            <colgroup>
+              <col class="team-season-records__col-rank" />
+              <col class="team-season-records__col-player" />
+              <col class="team-season-records__col-season" />
+              <col class="team-season-records__col-value" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th scope="col" class="team-season-records__th-rank">#</th>
+                <th scope="col" class="team-season-records__th-player">Player</th>
+                <th scope="col" class="team-season-records__th-season">Season</th>
+                <th scope="col" class="team-season-records__th-value" title="{{ sec.title }}">{{ season_records_value_th(sec.title) }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in sec.rows %}
+              {% set pl = row.player %}
+              <tr>
+                <td class="team-season-records__td-rank">{{ row.rank }}</td>
+                <td class="team-season-records__td-player">
+                  <a class="team-season-records__player-link" href="{{ url_for('main.player_page', player_id=pl.id) }}">
+                    <span class="team-season-records__photo stats-player-cell__photo">
+                      {% if player_headshot_url(pl) %}
+                      <img src="{{ player_headshot_url(pl) }}" alt="" width="29" height="29" loading="lazy" decoding="async">
+                      {% else %}
+                      <span class="stats-player-cell__photo-ph" aria-hidden="true"></span>
+                      {% endif %}
+                    </span>
+                    <span class="team-season-records__player-name">{{ pl.full_name }}</span>
+                  </a>
+                </td>
+                <td class="team-season-records__td-season">{{ row.season }}</td>
+                <td class="team-season-records__td-value">{{ row.value }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="empty-state team-season-records__empty">No qualifying rows in the database yet.</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="team-season-records__block" aria-labelledby="team-season-records-po">
+    <h2 class="team-season-records__heading" id="team-season-records-po">Playoffs</h2>
+    <div class="team-season-records__grid">
+      {% for sec in season_records_po_sections %}
+      <div class="card team-season-records__card">
+        <h3 class="team-season-records__card-title">{{ sec.title }}</h3>
+        {% if sec.rows %}
+        <div class="table-wrap">
+          <table class="data team-season-records__table">
+            <colgroup>
+              <col class="team-season-records__col-rank" />
+              <col class="team-season-records__col-player" />
+              <col class="team-season-records__col-season" />
+              <col class="team-season-records__col-value" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th scope="col" class="team-season-records__th-rank">#</th>
+                <th scope="col" class="team-season-records__th-player">Player</th>
+                <th scope="col" class="team-season-records__th-season">Season</th>
+                <th scope="col" class="team-season-records__th-value" title="{{ sec.title }}">{{ season_records_value_th(sec.title) }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in sec.rows %}
+              {% set pl = row.player %}
+              <tr>
+                <td class="team-season-records__td-rank">{{ row.rank }}</td>
+                <td class="team-season-records__td-player">
+                  <a class="team-season-records__player-link" href="{{ url_for('main.player_page', player_id=pl.id) }}">
+                    <span class="team-season-records__photo stats-player-cell__photo">
+                      {% if player_headshot_url(pl) %}
+                      <img src="{{ player_headshot_url(pl) }}" alt="" width="29" height="29" loading="lazy" decoding="async">
+                      {% else %}
+                      <span class="stats-player-cell__photo-ph" aria-hidden="true"></span>
+                      {% endif %}
+                    </span>
+                    <span class="team-season-records__player-name">{{ pl.full_name }}</span>
+                  </a>
+                </td>
+                <td class="team-season-records__td-season">{{ row.season }}</td>
+                <td class="team-season-records__td-value">{{ row.value }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="empty-state team-season-records__empty">No qualifying rows in the database yet.</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+</div>

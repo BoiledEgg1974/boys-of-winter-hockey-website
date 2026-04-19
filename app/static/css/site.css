@@ -4322,6 +4322,69 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
   font-size: 0.88rem;
   opacity: 0.88;
 }
+.player-profile__trophy-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.35rem 0.5rem;
+  margin-top: 0.55rem;
+  max-width: 100%;
+}
+.player-profile__trophy-badge {
+  position: relative;
+  flex: 0 0 auto;
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 8px;
+  border: 1px solid rgb(255 255 255 / 0.18);
+  background: rgb(15 23 42 / 0.55);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.25);
+}
+.player-profile__trophy-badge-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 0.15rem;
+  border-radius: inherit;
+}
+.player-profile__trophy-badge-ph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: rgb(148 163 184);
+  text-transform: uppercase;
+}
+.player-profile__trophy-badge-count {
+  position: absolute;
+  right: -0.15rem;
+  bottom: -0.15rem;
+  min-width: 1rem;
+  height: 1rem;
+  padding: 0 0.2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.58rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  background: #0f172a;
+  border: 1px solid rgb(255 255 255 / 0.35);
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.4);
+}
+[data-theme="light"] .player-profile__trophy-badge {
+  background: rgb(255 255 255 / 0.85);
+  border-color: rgb(15 23 42 / 0.12);
+}
+[data-theme="light"] .player-profile__trophy-badge-count {
+  background: #1e293b;
+}
 .player-profile__dot {
   margin: 0 0.35rem;
   opacity: 0.65;

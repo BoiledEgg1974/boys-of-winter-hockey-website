@@ -39,6 +39,20 @@
           {%- endif -%}
         </p>
         <p class="player-profile__meta-line muted">{{ player.shoots_catches or '—' }} · {{ player.nationality or '—' }}</p>
+        {% if player_award_badges %}
+        <div class="player-profile__trophy-strip" role="list" aria-label="League awards">
+          {% for b in player_award_badges %}
+          <div class="player-profile__trophy-badge" role="listitem" title="{{ b.tooltip|e }}">
+            {% if b.trophy_rel %}
+            <img class="player-profile__trophy-badge-img" src="{{ url_for('static', filename=b.trophy_rel) }}" alt="" loading="lazy" decoding="async">
+            {% else %}
+            <span class="player-profile__trophy-badge-ph" aria-hidden="true">{{ (b.award_name or '?')[:1] }}</span>
+            {% endif %}
+            <span class="player-profile__trophy-badge-count" aria-label="{{ b.count }} × {{ b.award_name }}">{{ b.count }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
       </div>
     </div>
     {% if player.overall_ability is not none or player.overall_potential is not none %}

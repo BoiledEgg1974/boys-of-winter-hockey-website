@@ -92,6 +92,7 @@ _TEAM_HISTORY_AWARD_TITLES: frozenset[str] = frozenset(
 
 def is_team_history_award(award_name: str | None) -> bool:
     return _norm_award_title(award_name or "") in _TEAM_HISTORY_AWARD_TITLES
+from app.services.player_history_award_badges import player_history_award_badges
 from app.services.team_staff_csv import (
     STAFF_COACH_COLUMNS,
     STAFF_SCOUT_COLUMNS,
@@ -898,6 +899,36 @@ def _dedupe_history_awards(rows: list[HistoryAward]) -> list[HistoryAward]:
     return list(best.values())
 
 
+def _collapse_same_trophy_year_history_awards(rows: list[HistoryAward]) -> list[HistoryAward]:
+    """Merge rows that share the same trophy year after CSV re-import drift.
+
+    Typical case: one row has ``player_id`` + ``sheet_season=…`` and another has the same season with
+    ``unresolved_player=…`` and no player — keep the resolved row. When multiple rows share the year
+    and have distinct ``player_id`` values (e.g. Jennings tandem), keep all resolved rows.
+    """
+    if len(rows) <= 1:
+        return rows
+    from collections import defaultdict
+
+    by_year: dict[object, list[HistoryAward]] = defaultdict(list)
+    for a in rows:
+        by_year[_history_award_year_token(a)].append(a)
+    out: list[HistoryAward] = []
+    for group in by_year.values():
+        if len(group) == 1:
+            out.append(group[0])
+            continue
+        resolved = [a for a in group if a.player_id is not None]
+        if len(resolved) >= 2:
+            out.extend(sorted(resolved, key=lambda a: a.id))
+            continue
+        if len(resolved) == 1:
+            out.append(resolved[0])
+            continue
+        out.append(max(group, key=_history_award_dedupe_rank))
+    return out
+
+
 def _build_award_panels(awards: list[HistoryAward]) -> list[dict]:
     """One panel per ``award_name``: latest season is featured; older rows listed below."""
     from collections import defaultdict
@@ -910,6 +941,7 @@ def _build_award_panels(awards: list[HistoryAward]) -> list[dict]:
     panels: list[dict] = []
     for name, rows in by_name.items():
         rows = _dedupe_history_awards(rows)
+        rows = _collapse_same_trophy_year_history_awards(rows)
         rows_sorted = sorted(rows, key=_history_award_year_sort_key, reverse=True)
         featured = rows_sorted[0]
         past = rows_sorted[1:]
@@ -2786,6 +2818,7 @@ def player_page(player_id: int):
         player.fhm_player_id, season_start_year, raw_dir
     )
     roster_header_team = main_league_roster_team(contract_team, current_team)
+    player_award_badges = player_history_award_badges(db.session, player.id)
     return render_template(
         "player.html",
         player=player,
@@ -2810,6 +2843,7 @@ def player_page(player_id: int):
         rating_avgs_skater=rating_avgs_skater,
         rating_avgs_goalie=rating_avgs_goalie,
         contract_years_left=contract_years_left,
+        player_award_badges=player_award_badges,
     )
 
 

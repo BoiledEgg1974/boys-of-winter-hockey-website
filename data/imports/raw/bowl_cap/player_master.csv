@@ -322,7 +322,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 11983;8;8;Kevyn;Adams;;73;201;1974-10-8;Bunker Hill;OR;The United States;;;0;Right;0
 321;186;186;Ed;Cristofoli;Spags;74;205;1967-5-14;Trail;BC;Canada;;;0;Left;0
 322;188;188;Shawn;Cronin;Cronin The Barbarian;74;225;1963-8-20;Joliet;IL;The United States;;;0;Left;0
-323;15;15;Cory;Cross;;77;225;1971-1-3;Lloydminster;AB;Canada;;;0;Left;0
+323;66;15;Cory;Cross;;77;225;1971-1-3;Lloydminster;AB;Canada;;;0;Left;0
 14491;179;179;Kevin;Doell;;71;190;1979-7-15;Swift Current;SK;Canada;;;0;Left;0
 14029;180;180;Rob;Collins;;70;174;1978-3-15;Kitchener;ON;Canada;;;0;Right;0
 326;186;186;Troy;Crowder;;76;220;1968-5-3;Sudbury;ON;Canada;;;0;Right;0
@@ -6090,7 +6090,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 13795;164;164;Morten;Dahlmann;;73;196;1976-9-22;Hørsholm;FRE;Denmark;;;0;Left;0
 13796;77;26;Philippe;Marquis;;71;176;1976-1-19;Morges;VD;Switzerland;The United States;;0;Left;0
 13797;215;214;Peter;Huzevka;;77;216;1976-9-9;Levoca;NIT;Slovakia;;;0;Left;0
-13798;12;12;Michele;Strazzabosco;;76;223;1976-2-6;Caltanissetta;SIC;Italy;;;0;Left;1
+13798;63;12;Michele;Strazzabosco;;76;223;1976-2-6;Caltanissetta;SIC;Italy;;;0;Left;0
 13799;167;167;Andrea;Carpano;;69;181;1976-3-9;Caltagirone;SIC;Italy;;;0;Left;0
 13800;165;165;Laurent;Gras;;70;185;1976-3-15;Durdat-Larequille;AUV;France;;;0;Left;0
 13801;54;3;Sergei;Zadelyonov;;70;196;1976-2-27;Svetlogorsk;GOM;Belarus;;;0;Left;0

@@ -8,7 +8,7 @@ from datetime import date
 from pathlib import Path
 
 from flask import Blueprint, abort, current_app, render_template, request, url_for
-from sqlalchemy import case, cast, Float, func, not_, nulls_last, or_, select
+from sqlalchemy import case, cast, extract, Float, func, not_, nulls_last, or_, select
 from sqlalchemy.orm import joinedload
 
 from app.config import (
@@ -827,6 +827,202 @@ def _history_award_sheet_season_from_notes(notes: str | None) -> str | None:
     return None
 
 
+def _sheet_season_start_year(label: str | None) -> int | None:
+    tok = (label or "").strip()
+    m = re.match(r"^(\d{4})-(\d{2})$", tok)
+    if not m:
+        return None
+    try:
+        return int(m.group(1))
+    except ValueError:
+        return None
+
+
+def _history_award_start_year(a: HistoryAward) -> int | None:
+    tok = _history_award_sheet_season_from_notes(a.notes)
+    if tok:
+        sy = _sheet_season_start_year(tok)
+        if sy is not None:
+            return sy
+    if a.season and (a.season.label or "").strip():
+        sy = _sheet_season_start_year(a.season.label)
+        if sy is not None:
+            return sy
+    return None
+
+
+def _attach_history_award_season_teams(awards: list[HistoryAward]) -> None:
+    """Annotate awards with ``season_team`` resolved for the winner's season.
+
+    For player awards that do not store ``team_id``, infer team by counting game-stat rows
+    for that player in the award season window (start year and start+1), choosing the team
+    with the most appearances.
+    """
+    key_rows: list[tuple[int, int, HistoryAward]] = []
+    for a in awards:
+        sy = _history_award_start_year(a)
+        if a.player_id is None or sy is None:
+            continue
+        key_rows.append((int(a.player_id), sy, a))
+    if not key_rows:
+        return
+
+    player_ids = sorted({pid for pid, _, _ in key_rows})
+    season_years = sorted({sy for _, sy, _ in key_rows})
+    # player_id -> year -> team_id -> appearances
+    by_player_year_team: dict[int, dict[int, dict[int, int]]] = {}
+    # (player_id, season_year) -> (gp, team_id, team_fhm_id)
+    career_best: dict[tuple[int, int], tuple[int, int | None, int | None]] = {}
+
+    def _add_career_rows(rows: list[tuple[object, object, object, object, object]]) -> None:
+        for pid_raw, year_raw, gp_raw, team_id_raw, team_fhm_raw in rows:
+            try:
+                pid = int(pid_raw)
+                year = int(year_raw)
+                gp = int(gp_raw or 0)
+            except (TypeError, ValueError):
+                continue
+            team_id: int | None
+            team_fhm_id: int | None
+            try:
+                team_id = int(team_id_raw) if team_id_raw is not None else None
+            except (TypeError, ValueError):
+                team_id = None
+            try:
+                team_fhm_id = int(team_fhm_raw) if team_fhm_raw is not None else None
+            except (TypeError, ValueError):
+                team_fhm_id = None
+            k = (pid, year)
+            prev = career_best.get(k)
+            if prev is None or gp > prev[0]:
+                career_best[k] = (gp, team_id, team_fhm_id)
+
+    def _add_counts(rows: list[tuple[object, object, object, object]]) -> None:
+        for pid_raw, year_raw, team_id_raw, n_raw in rows:
+            try:
+                pid = int(pid_raw)
+                year = int(year_raw)
+                team_id = int(team_id_raw)
+                n = int(n_raw)
+            except (TypeError, ValueError):
+                continue
+            by_player_year_team.setdefault(pid, {}).setdefault(year, {})
+            by_player_year_team[pid][year][team_id] = by_player_year_team[pid][year].get(team_id, 0) + n
+
+    sk_career = db.session.execute(
+        select(
+            PlayerSkaterCareerLine.player_id,
+            PlayerSkaterCareerLine.season_year,
+            PlayerSkaterCareerLine.gp,
+            PlayerSkaterCareerLine.team_id,
+            PlayerSkaterCareerLine.team_fhm_id,
+        ).where(
+            PlayerSkaterCareerLine.player_id.in_(player_ids),
+            PlayerSkaterCareerLine.season_year.in_(season_years),
+        )
+    ).all()
+    _add_career_rows(sk_career)
+
+    gk_career = db.session.execute(
+        select(
+            PlayerGoalieCareerLine.player_id,
+            PlayerGoalieCareerLine.season_year,
+            PlayerGoalieCareerLine.gp,
+            PlayerGoalieCareerLine.team_id,
+            PlayerGoalieCareerLine.team_fhm_id,
+        ).where(
+            PlayerGoalieCareerLine.player_id.in_(player_ids),
+            PlayerGoalieCareerLine.season_year.in_(season_years),
+        )
+    ).all()
+    _add_career_rows(gk_career)
+
+    sk_rows = db.session.execute(
+        select(
+            GameSkaterStat.player_id,
+            extract("year", Game.game_date),
+            GameSkaterStat.team_id,
+            func.count(GameSkaterStat.id),
+        )
+        .join(Game, GameSkaterStat.game_id == Game.id)
+        .where(
+            GameSkaterStat.player_id.in_(player_ids),
+            GameSkaterStat.team_id.isnot(None),
+            Game.game_date.isnot(None),
+        )
+        .group_by(GameSkaterStat.player_id, extract("year", Game.game_date), GameSkaterStat.team_id)
+    ).all()
+    _add_counts(sk_rows)
+
+    gk_rows = db.session.execute(
+        select(
+            GameGoalieStat.player_id,
+            extract("year", Game.game_date),
+            GameGoalieStat.team_id,
+            func.count(GameGoalieStat.id),
+        )
+        .join(Game, GameGoalieStat.game_id == Game.id)
+        .where(
+            GameGoalieStat.player_id.in_(player_ids),
+            GameGoalieStat.team_id.isnot(None),
+            Game.game_date.isnot(None),
+        )
+        .group_by(GameGoalieStat.player_id, extract("year", Game.game_date), GameGoalieStat.team_id)
+    ).all()
+    _add_counts(gk_rows)
+
+    if not by_player_year_team:
+        by_player_year_team = {}
+
+    season_team_id_by_award_id: dict[int, int] = {}
+    team_fhm_ids = sorted(
+        {
+            int(v[2])
+            for v in career_best.values()
+            if v[2] is not None and str(v[2]).strip() != ""
+        }
+    )
+    team_by_fhm: dict[int, Team] = {}
+    if team_fhm_ids:
+        team_by_fhm = {
+            int(str(t.fhm_team_id).strip()): t
+            for t in db.session.scalars(select(Team).where(Team.fhm_team_id.in_(team_fhm_ids))).all()
+            if t.fhm_team_id is not None and str(t.fhm_team_id).strip() != ""
+        }
+
+    for pid, sy, a in key_rows:
+        car = career_best.get((pid, sy))
+        if car is not None:
+            _, car_team_id, car_team_fhm = car
+            if car_team_id is not None:
+                season_team_id_by_award_id[a.id] = car_team_id
+                continue
+            if car_team_fhm is not None and car_team_fhm in team_by_fhm:
+                season_team_id_by_award_id[a.id] = team_by_fhm[car_team_fhm].id
+                continue
+
+        team_counts: dict[int, int] = {}
+        for yr in (sy, sy + 1):
+            for team_id, n in by_player_year_team.get(pid, {}).get(yr, {}).items():
+                team_counts[team_id] = team_counts.get(team_id, 0) + n
+        if not team_counts:
+            continue
+        best_team_id = max(team_counts.items(), key=lambda x: (x[1], -x[0]))[0]
+        season_team_id_by_award_id[a.id] = best_team_id
+
+    if not season_team_id_by_award_id:
+        return
+    teams = {
+        t.id: t
+        for t in db.session.scalars(
+            select(Team).where(Team.id.in_(sorted(set(season_team_id_by_award_id.values()))))
+        ).all()
+    }
+    for a in awards:
+        team_id = season_team_id_by_award_id.get(a.id)
+        setattr(a, "season_team", teams.get(team_id) if team_id is not None else None)
+
+
 def _history_award_year_token(a: HistoryAward) -> object:
     """Canonical trophy year for dedupe/sort (sheet label, else ``Season.label``, else ``season_id``)."""
     tok = _history_award_sheet_season_from_notes(a.notes)
@@ -977,6 +1173,7 @@ def history():
     ).all()
     raw_dir = Path(str(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)))
     attach_coach_award_displays(awards, db.session, raw_dir)
+    _attach_history_award_season_teams(awards)
     award_panels = _build_award_panels(awards)
     seasons_on_file = import_folder_season_labels(
         Path(str(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)))
@@ -1044,6 +1241,18 @@ def all_time_records():
         g_order=g_order_used,
         skater_rows=skater_rows,
         goalie_rows=goalie_rows,
+    )
+
+
+@main_bp.get("/season-records")
+def league_season_records():
+    from app.services.league_season_records import build_league_season_records_bundle
+
+    season_records_rs_sections, season_records_po_sections = build_league_season_records_bundle(db.session)
+    return render_template(
+        "season_records.html",
+        season_records_rs_sections=season_records_rs_sections,
+        season_records_po_sections=season_records_po_sections,
     )
 
 

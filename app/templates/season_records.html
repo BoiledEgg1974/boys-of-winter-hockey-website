@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Season Records — Boys of Winter Hockey League{% endblock %}
+{% block content %}
+<div class="card">
+  <h1 class="page-title">Season Records</h1>
+  <p class="muted">League-wide top 10 single-season marks.</p>
+
+  <section class="league-season-records__block" aria-labelledby="league-season-records-rs">
+    <h2 class="league-season-records__heading" id="league-season-records-rs">Regular Season</h2>
+    <div class="league-season-records__grid">
+      {% for sec in season_records_rs_sections %}
+      <div class="card league-season-records__card">
+        <h3 class="league-season-records__card-title">{{ sec.title }}</h3>
+        {% if sec.rows %}
+        <div class="table-wrap">
+          <table class="data league-season-records__table">
+            <thead>
+              <tr>
+                <th scope="col" class="league-season-records__th-rank">#</th>
+                <th scope="col" class="league-season-records__th-player">Player</th>
+                <th scope="col" class="league-season-records__th-team">Team</th>
+                <th scope="col" class="league-season-records__th-season">Season</th>
+                <th scope="col" class="league-season-records__th-value">{{ sec.title }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in sec.rows %}
+              {% set pl = row.player %}
+              {% set tm = row.team %}
+              <tr>
+                <td class="league-season-records__td-rank">{{ row.rank }}</td>
+                <td class="league-season-records__td-player">
+                  <a class="league-season-records__player-link" href="{{ url_for('main.player_page', player_id=pl.id) }}">
+                    <span class="league-season-records__photo stats-player-cell__photo">
+                      {% if player_headshot_url(pl) %}
+                      <img src="{{ player_headshot_url(pl) }}" alt="" width="29" height="29" loading="lazy" decoding="async">
+                      {% else %}
+                      <span class="stats-player-cell__photo-ph" aria-hidden="true"></span>
+                      {% endif %}
+                    </span>
+                    <span class="league-season-records__player-name">{{ pl.full_name }}</span>
+                  </a>
+                </td>
+                <td class="league-season-records__td-team">
+                  {% if tm %}
+                  <a class="league-season-records__team-hit" href="{{ url_for('main.team_page', slug=tm.slug) }}" aria-label="{{ tm.full_display_name() }}">
+                    <img class="league-season-records__team-logo" src="{{ team_logo_url(tm) }}" alt="" loading="lazy" decoding="async">
+                  </a>
+                  {% else %}
+                  <span class="muted">—</span>
+                  {% endif %}
+                </td>
+                <td class="league-season-records__td-season">{{ row.season }}</td>
+                <td class="league-season-records__td-value">{{ row.value }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="empty-state league-season-records__empty">No qualifying rows in the database yet.</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="league-season-records__block" aria-labelledby="league-season-records-po">
+    <h2 class="league-season-records__heading" id="league-season-records-po">Playoffs</h2>
+    <div class="league-season-records__grid">
+      {% for sec in season_records_po_sections %}
+      <div class="card league-season-records__card">
+        <h3 class="league-season-records__card-title">{{ sec.title }}</h3>
+        {% if sec.rows %}
+        <div class="table-wrap">
+          <table class="data league-season-records__table">
+            <thead>
+              <tr>
+                <th scope="col" class="league-season-records__th-rank">#</th>
+                <th scope="col" class="league-season-records__th-player">Player</th>
+                <th scope="col" class="league-season-records__th-team">Team</th>
+                <th scope="col" class="league-season-records__th-season">Season</th>
+                <th scope="col" class="league-season-records__th-value">{{ sec.title }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in sec.rows %}
+              {% set pl = row.player %}
+              {% set tm = row.team %}
+              <tr>
+                <td class="league-season-records__td-rank">{{ row.rank }}</td>
+                <td class="league-season-records__td-player">
+                  <a class="league-season-records__player-link" href="{{ url_for('main.player_page', player_id=pl.id) }}">
+                    <span class="league-season-records__photo stats-player-cell__photo">
+                      {% if player_headshot_url(pl) %}
+                      <img src="{{ player_headshot_url(pl) }}" alt="" width="29" height="29" loading="lazy" decoding="async">
+                      {% else %}
+                      <span class="stats-player-cell__photo-ph" aria-hidden="true"></span>
+                      {% endif %}
+                    </span>
+                    <span class="league-season-records__player-name">{{ pl.full_name }}</span>
+                  </a>
+                </td>
+                <td class="league-season-records__td-team">
+                  {% if tm %}
+                  <a class="league-season-records__team-hit" href="{{ url_for('main.team_page', slug=tm.slug) }}" aria-label="{{ tm.full_display_name() }}">
+                    <img class="league-season-records__team-logo" src="{{ team_logo_url(tm) }}" alt="" loading="lazy" decoding="async">
+                  </a>
+                  {% else %}
+                  <span class="muted">—</span>
+                  {% endif %}
+                </td>
+                <td class="league-season-records__td-season">{{ row.season }}</td>
+                <td class="league-season-records__td-value">{{ row.value }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="empty-state league-season-records__empty">No qualifying rows in the database yet.</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+{% endblock %}

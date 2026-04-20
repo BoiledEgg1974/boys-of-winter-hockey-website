@@ -2173,6 +2173,158 @@ table.data.team-season-records__table .team-season-records__td-value {
   font-size: 0.754rem;
 }
 
+.league-season-records__block + .league-season-records__block {
+  margin-top: 2rem;
+}
+.league-season-records__heading {
+  margin: 0 0 0.85rem;
+  font-size: 1.38rem;
+  font-weight: 800;
+  color: #f8fafc;
+}
+[data-theme="light"] .league-season-records__heading {
+  color: var(--text);
+}
+.league-season-records__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(20rem, 1fr));
+  gap: 0.75rem;
+}
+@media (max-width: 1200px) {
+  .league-season-records__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 700px) {
+  .league-season-records__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.league-season-records__card {
+  margin: 0;
+}
+.league-season-records__card-title {
+  margin: 0 0 0.45rem;
+  font-size: 1.08rem;
+  font-weight: 800;
+  color: #f1f5f9;
+  letter-spacing: 0.01em;
+}
+[data-theme="light"] .league-season-records__card-title {
+  color: var(--text);
+}
+table.data.league-season-records__table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 0.69rem;
+  line-height: 1.25;
+}
+table.data.league-season-records__table th,
+table.data.league-season-records__table td {
+  padding: 0.18rem 0.26rem;
+  vertical-align: middle;
+}
+table.data.league-season-records__table th {
+  text-transform: none;
+  letter-spacing: 0.01em;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #cbd5e1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+[data-theme="light"] table.data.league-season-records__table th {
+  color: var(--text);
+}
+table.data.league-season-records__table .league-season-records__th-rank,
+table.data.league-season-records__table .league-season-records__td-rank {
+  width: 4ch;
+  text-align: right;
+  white-space: nowrap;
+  padding-right: 0.5rem;
+  font-variant-numeric: tabular-nums;
+}
+table.data.league-season-records__table .league-season-records__th-player,
+table.data.league-season-records__table .league-season-records__td-player {
+  width: 44%;
+  min-width: 0;
+  text-align: left;
+  white-space: nowrap;
+}
+table.data.league-season-records__table .league-season-records__th-team,
+table.data.league-season-records__table .league-season-records__td-team {
+  width: 9%;
+  text-align: center;
+}
+table.data.league-season-records__table .league-season-records__th-season,
+table.data.league-season-records__table .league-season-records__td-season {
+  width: 18%;
+  text-align: center;
+  white-space: nowrap;
+}
+table.data.league-season-records__table .league-season-records__th-value,
+table.data.league-season-records__table .league-season-records__td-value {
+  width: 20%;
+  text-align: center;
+}
+table.data.league-season-records__table .league-season-records__td-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+[data-theme="light"] table.data.league-season-records__table .league-season-records__td-value {
+  color: var(--text);
+}
+.league-season-records__player-link {
+  display: flex;
+  align-items: center;
+  gap: 0.28rem;
+  min-width: 0;
+  max-width: 100%;
+  text-decoration: none;
+  color: inherit;
+  white-space: nowrap;
+}
+.league-season-records__player-link .league-season-records__photo.stats-player-cell__photo {
+  display: inline-flex;
+  width: 27px;
+  height: 27px;
+  min-width: 27px;
+  min-height: 27px;
+  flex-shrink: 0;
+}
+.league-season-records__player-name {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: #7dd3fc;
+}
+[data-theme="light"] .league-season-records__player-name {
+  color: #0284c7;
+}
+.league-season-records__team-hit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.league-season-records__team-logo {
+  width: 17px;
+  height: 17px;
+  object-fit: contain;
+  display: block;
+}
+.league-season-records__empty {
+  margin: 0;
+  padding: 0.35rem 0;
+  font-size: 0.754rem;
+}
+
 /* Team page — Player Ratings (FHM player_ratings.csv) */
 .team-ratings-stack {
   display: flex;

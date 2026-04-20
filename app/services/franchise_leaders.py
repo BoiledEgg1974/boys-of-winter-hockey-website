@@ -186,6 +186,20 @@ def _fmt_sv_pct(val: float | int | None) -> str:
     return s[1:] if s.startswith("0") else s
 
 
+def _goalie_gaa_from_totals(ga: int, gp: int, minutes_played: float) -> float | None:
+    """Compute GAA robustly across imports with inconsistent minute semantics.
+
+    Primary formula is ``GA * 60 / minutes_played`` when minutes look plausible
+    for real game time. Some imports store minute-like values that are much lower
+    than true elapsed game minutes; in those cases we fall back to ``GA / GP``.
+    """
+    if gp <= 0:
+        return None
+    if minutes_played > 0 and minutes_played >= (float(gp) * 45.0):
+        return (float(ga) * 60.0) / float(minutes_played)
+    return float(ga) / float(gp)
+
+
 def _top_players(
     aggs: list[dict[str, object]],
     value_fn: Callable[[dict[str, object]], float | int | None],
@@ -598,7 +612,7 @@ def _load_goalie_aggregates(team: Team, stat_segment: str) -> list[dict[str, obj
         ga = int(m["ga"] or 0)
         sa = int(m["sa"] or 0)
         minutes = float(m["minutes_played"] or 0)
-        gaa = (float(ga) * 60.0 / minutes) if minutes > 0 else None
+        gaa = _goalie_gaa_from_totals(ga, gp, minutes)
         sv_pct = (float(sa - ga) / float(sa)) if sa > 0 else None
         out.append(
             {
@@ -669,7 +683,7 @@ def _load_goalie_career_franchise(
         ga = int(r.ga or 0)
         sa = int(r.sa or 0)
         minutes = float(r.minutes_played or 0)
-        gaa = (float(ga) * 60.0 / minutes) if minutes > 0 else None
+        gaa = _goalie_gaa_from_totals(ga, gp, minutes)
         sv_pct = (float(sa - ga) / float(sa)) if sa > 0 else None
         out.append(
             {
@@ -722,7 +736,7 @@ def _merge_goalie_franchise_aggs(
         ga = int(m.get("ga") or 0)
         sa = int(m.get("sa") or 0)
         minutes = float(m.get("minutes_played") or 0)
-        m["gaa"] = (float(ga) * 60.0 / minutes) if minutes > 0 else None
+        m["gaa"] = _goalie_gaa_from_totals(ga, gp, minutes)
         m["sv_pct"] = (float(sa - ga) / float(sa)) if sa > 0 else None
         out.append(m)
     return out

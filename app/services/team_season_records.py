@@ -21,19 +21,41 @@ from app.models import (
 )
 from app.services.all_time_records import bowl_nhl_league_ids
 from app.services.franchise_leaders import _team_career_clause
-from app.services.player_ratings_csv import (
-    ELIGIBLE_POSITION_DISPLAY_MIN_RATING,
-    eligible_positions_from_ratings_row,
-    get_player_ratings_row,
-)
 
 TOP_N = 10
 _MIN_GP_GOALIE_RATE_RS = 50
 _MIN_GP_GOALIE_RATE_PO = 4
 
 
+def _label_start_year(label: str | None) -> int | None:
+    raw = (label or "").strip()
+    if not raw:
+        return None
+    m = re.search(r"(\d{4})\s*[-–/]\s*(\d{2,4})", raw)
+    if not m:
+        return None
+    try:
+        return int(m.group(1))
+    except ValueError:
+        return None
+
+
+def _season_row_overlap_years(sn: Season) -> set[int]:
+    """Possible career ``season_year`` matches for this season row."""
+    yrs: set[int] = set()
+    if sn.start_year is not None:
+        yrs.add(int(sn.start_year))
+    lbl_year = _label_start_year(sn.label)
+    if lbl_year is not None:
+        yrs.add(lbl_year)
+    return yrs
+
+
 def _season_label(sn: Season) -> str:
     """Short hockey year (e.g. ``1986–87``); never the long DB ``Season.label`` string."""
+    sy = _label_start_year(sn.label)
+    if sy is not None:
+        return f"{sy}–{(sy + 1) % 100:02d}"
     if sn.start_year is not None:
         sy = int(sn.start_year)
         y2 = int(sn.end_year) if sn.end_year is not None else sy + 1
@@ -48,54 +70,6 @@ def _fmt_sv_pct(val: float | None) -> str:
         return "—"
     s = f"{float(val):.3f}"
     return s[1:] if s.startswith("0") else s
-
-
-def _position_tokens(player: Player) -> frozenset[str]:
-    fid = getattr(player, "fhm_player_id", None)
-    rr = get_player_ratings_row(str(fid).strip()) if fid else None
-    s = eligible_positions_from_ratings_row(rr, ELIGIBLE_POSITION_DISPLAY_MIN_RATING)
-    if s:
-        return frozenset(p.strip() for p in s.split(" • ") if p.strip())
-    raw = (player.position or "").strip().upper()
-    if not raw:
-        return frozenset()
-    out: set[str] = set()
-    for part in re.split(r"[/\s•,|]+", raw):
-        p = part.strip().upper()
-        if p in ("LW", "RW", "C", "LD", "RD"):
-            out.add(p)
-        elif p == "D":
-            out.update(("LD", "RD"))
-    return frozenset(out)
-
-
-def _goalie_only_skater_exclusion(player: Player, toks: frozenset[str]) -> bool:
-    """True if player should be excluded from forward/defense-only skater boards."""
-    if "LW" in toks or "C" in toks or "RW" in toks or "LD" in toks or "RD" in toks:
-        return False
-    pos = (player.position or "").strip().upper()
-    if pos.startswith("G"):
-        return True
-    return "G" in toks and len(toks) <= 1
-
-
-def _has_center(toks: frozenset[str], player: Player) -> bool:
-    return "C" in toks or (player.position or "").strip().upper() == "C"
-
-
-def _has_lw(toks: frozenset[str]) -> bool:
-    return "LW" in toks
-
-
-def _has_rw(toks: frozenset[str]) -> bool:
-    return "RW" in toks
-
-
-def _has_defense(toks: frozenset[str], player: Player) -> bool:
-    if "LD" in toks or "RD" in toks:
-        return True
-    p = (player.position or "").strip().upper()
-    return p in ("LD", "RD", "D")
 
 
 def _goalie_gaa(st: Any) -> float | None:
@@ -320,7 +294,8 @@ def _load_skater_rows_merged(session: Session, team: Team, segment: str) -> list
         .join(Season, Season.id == PlayerSkaterStat.season_id)
         .where(PlayerSkaterStat.team_id == team_id, PlayerSkaterStat.stat_segment == segment)
     ).all():
-        if sn.start_year is not None and (int(st.player_id), int(sn.start_year)) in career_year_keys:
+        overlap_years = _season_row_overlap_years(sn)
+        if any((int(st.player_id), yr) in career_year_keys for yr in overlap_years):
             continue
         out.append((st, pl, _season_label(sn)))
     return out
@@ -370,7 +345,8 @@ def _load_goalie_rows_merged(session: Session, team: Team, segment: str) -> list
         .join(Season, Season.id == PlayerGoalieStat.season_id)
         .where(PlayerGoalieStat.team_id == team_id, PlayerGoalieStat.stat_segment == segment)
     ).all():
-        if sn.start_year is not None and (int(st.player_id), int(sn.start_year)) in career_year_keys:
+        overlap_years = _season_row_overlap_years(sn)
+        if any((int(st.player_id), yr) in career_year_keys for yr in overlap_years):
             continue
         out.append((st, pl, _season_label(sn)))
     return out
@@ -380,9 +356,6 @@ def _build_skater_sections(
     rows: list[tuple[Any, Player, str]],
 ) -> list[TeamSeasonRecordSection]:
     sections: list[TeamSeasonRecordSection] = []
-
-    def tok(pl: Player) -> frozenset[str]:
-        return _position_tokens(pl)
 
     sections.append(
         TeamSeasonRecordSection("Goals", _top_skater(rows, value_fn=lambda s: s.goals, maximize=True))
@@ -408,29 +381,6 @@ def _build_skater_sections(
         TeamSeasonRecordSection("PIM", _top_skater(rows, value_fn=lambda s: s.pim, maximize=True))
     )
 
-    def pos_c(st: Any, pl: Player) -> bool:
-        t = tok(pl)
-        return _has_center(t, pl) and not _goalie_only_skater_exclusion(pl, t)
-
-    sections.append(
-        TeamSeasonRecordSection(
-            "Goals By A C",
-            _top_skater(rows, value_fn=lambda s: s.goals, maximize=True, row_filter=pos_c),
-        )
-    )
-    sections.append(
-        TeamSeasonRecordSection(
-            "Assists By A C",
-            _top_skater(rows, value_fn=lambda s: s.assists, maximize=True, row_filter=pos_c),
-        )
-    )
-    sections.append(
-        TeamSeasonRecordSection(
-            "Points By A C",
-            _top_skater(rows, value_fn=lambda s: s.points, maximize=True, row_filter=pos_c),
-        )
-    )
-
     sections.append(
         TeamSeasonRecordSection(
             "PPG",
@@ -451,29 +401,6 @@ def _build_skater_sections(
                 maximize=True,
                 row_filter=lambda st, pl: ((st.ppg or 0) + (st.pp_assists or 0)) > 0,
             ),
-        )
-    )
-
-    def pos_lw(st: Any, pl: Player) -> bool:
-        t = tok(pl)
-        return _has_lw(t) and not _goalie_only_skater_exclusion(pl, t)
-
-    sections.append(
-        TeamSeasonRecordSection(
-            "Goals By A LW",
-            _top_skater(rows, value_fn=lambda s: s.goals, maximize=True, row_filter=pos_lw),
-        )
-    )
-    sections.append(
-        TeamSeasonRecordSection(
-            "Assists By A LW",
-            _top_skater(rows, value_fn=lambda s: s.assists, maximize=True, row_filter=pos_lw),
-        )
-    )
-    sections.append(
-        TeamSeasonRecordSection(
-            "Points By A LW",
-            _top_skater(rows, value_fn=lambda s: s.points, maximize=True, row_filter=pos_lw),
         )
     )
 
@@ -500,29 +427,6 @@ def _build_skater_sections(
         )
     )
 
-    def pos_rw(st: Any, pl: Player) -> bool:
-        t = tok(pl)
-        return _has_rw(t) and not _goalie_only_skater_exclusion(pl, t)
-
-    sections.append(
-        TeamSeasonRecordSection(
-            "Goals By A RW",
-            _top_skater(rows, value_fn=lambda s: s.goals, maximize=True, row_filter=pos_rw),
-        )
-    )
-    sections.append(
-        TeamSeasonRecordSection(
-            "Assists By A RW",
-            _top_skater(rows, value_fn=lambda s: s.assists, maximize=True, row_filter=pos_rw),
-        )
-    )
-    sections.append(
-        TeamSeasonRecordSection(
-            "Points By A RW",
-            _top_skater(rows, value_fn=lambda s: s.points, maximize=True, row_filter=pos_rw),
-        )
-    )
-
     sections.append(
         TeamSeasonRecordSection(
             "GWG",
@@ -543,29 +447,6 @@ def _build_skater_sections(
                 maximize=True,
                 row_filter=lambda st, pl: st.shots is not None,
             ),
-        )
-    )
-
-    def pos_d(st: Any, pl: Player) -> bool:
-        t = tok(pl)
-        return _has_defense(t, pl) and not _goalie_only_skater_exclusion(pl, t)
-
-    sections.append(
-        TeamSeasonRecordSection(
-            "Goals By A D",
-            _top_skater(rows, value_fn=lambda s: s.goals, maximize=True, row_filter=pos_d),
-        )
-    )
-    sections.append(
-        TeamSeasonRecordSection(
-            "Assists By A D",
-            _top_skater(rows, value_fn=lambda s: s.assists, maximize=True, row_filter=pos_d),
-        )
-    )
-    sections.append(
-        TeamSeasonRecordSection(
-            "Points By A D",
-            _top_skater(rows, value_fn=lambda s: s.points, maximize=True, row_filter=pos_d),
         )
     )
 

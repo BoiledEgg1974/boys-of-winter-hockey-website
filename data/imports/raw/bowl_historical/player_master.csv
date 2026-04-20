@@ -132,7 +132,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 4931;90;90;Keith;Christiansen;Huffer;66;155;1944-7-14;Madison;MN;The United States;Canada;;0;Right;0
 4472;123;123;Dave;Dryden;Sod;74;186;1941-9-5;Hamilton;ON;Canada;;;0;Right;0
 3129;90;90;Bob;Armstrong;Satch;73;190;1931-4-7;Toronto;ON;Canada;;;0;Right;0
-4721;123;123;Bob;Berry;Crease;72;185;1943-11-29;Murdochville;QC;Canada;;;0;Left;0
+4721;121;121;Bob;Berry;Crease;72;185;1943-11-29;Murdochville;QC;Canada;;;0;Left;0
 5402;22;3;Nick;Beverley;Slick Nick;74;185;1947-4-21;Toronto;ON;Canada;;;0;Right;0
 5850;83;83;Murray;Anderson;;70;175;1949-8-28;Virden;MB;Canada;;;0;Left;0
 3951;90;90;Gerry;Brisson;;69;155;1937-9-3;Winnipeg;MB;Canada;;;0;Left;0
@@ -419,7 +419,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 5242;9;9;Bob;Falkenberg;Steady;72;185;1946-1-1;Strathmore;AB;Canada;;;0;Left;1
 5415;90;90;Gary;Edwards;Suitcase;69;165;1947-10-5;Toronto;ON;Canada;;;0;Left;1
 3321;90;90;Marcel;Bonin;;70;170;1932-9-12;Montreal;QC;Canada;;;0;Left;0
-4490;121;121;Mike;McMahon;;71;180;1941-8-30;Richmond;QC;Canada;;;0;Left;0
+4490;123;123;Mike;McMahon;;71;180;1941-8-30;Richmond;QC;Canada;;;0;Left;0
 4610;123;123;Bill;Knibbs;;73;180;1942-1-24;Toronto;ON;Canada;;;0;Left;1
 5864;89;89;Bruce;Bullock;;67;161;1949-5-9;Toronto;ON;Canada;;;0;Right;1
 6110;84;84;Gary;Cunningham;;72;175;1950-8-28;Welland;ON;Canada;;;0;Left;0
@@ -541,7 +541,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 4756;0;0;Bob;Plager;;71;185;1943-3-11;Kirkland Lake;ON;Canada;;;0;Left;0
 4159;90;90;Gord;Turlick;;73;170;1939-9-17;Summerland;BC;Canada;;;0;Left;0
 6586;86;86;Pat;Boutette;Booter;68;175;1952-3-1;Windsor;ON;Canada;;;0;Left;1
-3967;121;121;Murray;Oliver;Muzz;70;170;1937-11-14;Hamilton;ON;Canada;;;0;Left;0
+3967;123;123;Murray;Oliver;Muzz;70;170;1937-11-14;Hamilton;ON;Canada;;;0;Left;0
 3559;90;90;Hec;Lalande;;69;150;1934-11-24;North Bay;ON;Canada;;;0;Left;0
 5870;89;89;Mike;Christie;Hammy;72;190;1949-12-20;Blue Mound;TX;The United States;;;0;Left;0
 5248;-1;-1;Al;Hamilton;Hammy;74;195;1946-8-20;Killarney;MB;Canada;;;0;Right;0

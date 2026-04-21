@@ -981,10 +981,10 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 979;84;Jared;Groves;;1916-9-25;Toronto;ON;Canada;;;0
 980;129;Robert;Carpenter;;1921-9-3;Saint-Damase;QC;Canada;;;0
 981;128;Norm;DeCamp;;1916-6-15;Holt;MI;The United States;;;0
-982;118;Ben;McKinney;;1923-7-17;Memphis;TN;The United States;;;0
+982;-1;Ben;McKinney;;1923-7-17;Memphis;TN;The United States;;;0
 983;118;Jayson;von Wartensleben;;1922-2-10;Mount Pleasant;SC;The United States;;;0
-984;118;Michael;Wong;;1926-7-9;Fort Worth;TX;The United States;;;0
-985;118;Brandon;Hicks;;1917-6-12;Clovis;NM;The United States;;;0
+984;-1;Michael;Wong;;1926-7-9;Fort Worth;TX;The United States;;;0
+985;-1;Brandon;Hicks;;1917-6-12;Clovis;NM;The United States;;;0
 986;118;John;Murphy;;1920-3-23;New York;NY;The United States;;;0
 987;119;Chris;DeLisle;;1917-5-3;Florissant;MO;The United States;;;0
 988;119;Mike;Murphy;;1923-9-21;Lafayette;CA;The United States;;;0

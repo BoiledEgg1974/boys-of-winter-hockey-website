@@ -258,7 +258,7 @@ StaffId;Executive;Manager;Coach;Scout;Trainer;Off Pref;Phy Pref;Line Matching;Go
 256;1;10;15;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;2;2;2;2;2;2;2;1;2;1;1;1;2;2;0;;13;12
 257;1;10;10;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;4;4;4;4;4;4;4;4;4;4;4;4;4;4;0;;14;14
 258;1;5;20;20;1;Standard;Physical;Balanced;Balanced;Balanced;Balanced;Balanced;4;10;6;5;6;5;6;1;5;1;1;1;4;6;0;;13;12
-259;10;16;20;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;2;7;4;3;4;3;4;4;3;4;4;4;2;4;0;;14;14
+259;10;15;20;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;2;7;4;3;4;3;4;4;3;4;4;4;2;4;0;;14;14
 260;1;10;15;20;1;Offensive;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;3;6;6;7;8;8;9;2;6;7;4;3;2;5;0;;13;12
 261;1;10;15;20;1;Standard;Balanced;Balanced;Balanced;Loves Prospects;Balanced;Balanced;4;4;4;4;4;4;4;2;4;2;2;2;4;4;0;;14;14
 262;1;10;20;15;1;Defensive;Balanced;Balanced;Conservative;Balanced;Balanced;Balanced;16;7;6;9;11;6;6;4;9;4;4;4;6;10;0;;13;12
@@ -277,7 +277,7 @@ StaffId;Executive;Manager;Coach;Scout;Trainer;Off Pref;Phy Pref;Line Matching;Go
 275;1;5;20;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;6;6;6;6;6;6;6;1;6;1;1;1;6;6;0;;13;12
 276;1;10;10;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;4;4;4;4;4;4;4;4;4;4;4;4;4;4;0;;14;14
 277;1;10;10;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;3;3;3;3;3;3;3;3;3;3;3;3;3;3;0;;14;14
-278;10;19;20;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;3;3;3;3;3;3;3;3;3;3;3;3;3;3;0;;14;14
+278;10;18;20;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;3;3;3;3;3;3;3;3;3;3;3;3;3;3;0;;14;14
 279;20;5;1;1;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Ruthless;0;0;0;0;0;0;0;2;0;2;2;2;0;0;0;;10;10
 280;2;15;10;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;1;1;1;1;1;1;1;1;1;1;1;1;1;1;0;;14;14
 281;1;10;20;20;1;Offensive;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;3;4;7;4;3;9;4;2;4;2;2;2;5;7;0;;13;12

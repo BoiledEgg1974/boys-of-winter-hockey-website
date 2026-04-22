@@ -982,7 +982,7 @@ StaffId;Executive;Manager;Coach;Scout;Trainer;Off Pref;Phy Pref;Line Matching;Go
 980;1;1;5;1;20;Offensive;Balanced;Balanced;Balanced;Prefers Veterans;Conservative;Balanced;0;0;0;0;0;0;0;9;0;0;4;0;0;0;16;;0;0
 981;1;1;5;1;20;Offensive;Non-physical;Passive;Very Aggressive;Balanced;Balanced;Ruthless;0;0;0;0;0;0;0;4;0;0;7;0;0;0;19;;0;0
 982;5;10;20;15;1;Offensive;Non-physical;Passive;Balanced;Balanced;Conservative;Loyal;4;11;9;15;4;12;3;8;6;10;7;10;16;7;0;;3;8
-983;5;10;20;15;1;Offensive;Non-physical;Balanced;Balanced;Prefers Veterans;Innovative;Balanced;5;16;3;4;12;7;12;6;12;13;2;15;13;10;0;;14;15
+983;5;10;20;16;1;Offensive;Non-physical;Balanced;Balanced;Prefers Veterans;Innovative;Balanced;5;16;3;4;12;7;12;6;12;13;2;15;13;10;0;;14;15
 984;5;10;20;15;1;Standard;Balanced;Balanced;Aggressive;Prefers Veterans;Innovative;Balanced;12;5;5;15;8;4;4;8;10;7;3;9;6;13;0;;2;5
 985;5;10;20;15;1;Offensive;Balanced;Balanced;Aggressive;Balanced;Innovative;Loyal;8;12;4;4;11;10;5;4;8;10;4;5;20;11;0;;15;2
 986;5;10;20;15;1;Standard;Balanced;Balanced;Aggressive;Prefers Prospects;Very Conservative;Balanced;11;5;13;16;10;17;4;5;6;7;2;7;11;16;0;;2;8

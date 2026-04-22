@@ -3780,6 +3780,13 @@ table.data.prospects-rankings-table--free-agents .stats-player-cell__pos--eligib
 table.data.prospects-rankings-table {
   font-size: 0.82rem;
 }
+/* Keep prospect headers pinned below the sticky site header. */
+table.data.prospects-rankings-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--surface);
+}
 table.data.prospects-rankings-table th,
 table.data.prospects-rankings-table td {
   text-align: center;

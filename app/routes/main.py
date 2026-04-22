@@ -1375,6 +1375,21 @@ def prospects():
         try:
             rights_path = Path(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)) / "player_rights.csv"
             if rights_path.is_file():
+                unresolved_fhm_to_player_id: dict[str, int] = {}
+                unresolved_id_set = set(unresolved_ids)
+                unresolved_db_only_ids: set[int] = set()
+                for p in players:
+                    if p.id not in unresolved_id_set:
+                        continue
+                    if p.fhm_player_id is None:
+                        unresolved_db_only_ids.add(p.id)
+                    else:
+                        fhm_pid = str(p.fhm_player_id).strip()
+                        if fhm_pid:
+                            unresolved_fhm_to_player_id[fhm_pid] = p.id
+                        else:
+                            unresolved_db_only_ids.add(p.id)
+
                 pid_to_fhm_team: dict[int, str] = {}
                 with rights_path.open("r", encoding="utf-8-sig", newline="") as f:
                     sample = f.read(2048)
@@ -1386,12 +1401,16 @@ def prospects():
                         tid_s = (row.get("Team") or row.get("team") or "").strip()
                         if not pid_s or not tid_s:
                             continue
-                        try:
-                            pid = int(pid_s)
-                        except ValueError:
-                            continue
-                        if pid not in unresolved_ids:
-                            continue
+                        pid = unresolved_fhm_to_player_id.get(pid_s)
+                        # Backward compatibility: DB-id matching only for players missing FHM id.
+                        if pid is None:
+                            try:
+                                pid_db = int(pid_s)
+                            except ValueError:
+                                continue
+                            if pid_db not in unresolved_db_only_ids:
+                                continue
+                            pid = pid_db
                         pid_to_fhm_team[pid] = tid_s
                 if pid_to_fhm_team:
                     want_fhm_ids = {v for v in pid_to_fhm_team.values() if v}

@@ -217,7 +217,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 221;14;14;Jordan;Binnington;;74;172;1953-7-11;Richmond Hill;ON;Canada;;;0;Left;0
 222;224;22;Reid;Boucher;;71;192;1957-9-8;Grand Ledge;MI;The United States;;;0;Left;0
 223;16;16;Jack;Campbell;;75;207;1958-1-9;Port Huron;MI;The United States;;;0;Left;0
-224;224;22;Sam;Carrick;;72;207;1960-2-4;Markham;ON;Canada;;;0;Right;0
+224;22;22;Sam;Carrick;;72;207;1960-2-4;Markham;ON;Canada;;;0;Right;0
 225;284;284;Nick;Cousins;;71;192;1953-7-20;Belleville;ON;Canada;;;0;Left;0
 226;11;11;Aaron;Ekblad;;76;216;1962-2-7;Windsor;ON;Canada;;;0;Right;0
 227;302;302;Matt;Finn;;72;205;1956-2-24;Toronto;ON;Canada;;;0;Left;0

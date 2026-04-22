@@ -231,7 +231,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 229;91;Derek;Hillier;;1906-9-1;Greenfield Township;PA;The United States;;;0
 230;10;Rob;Sarno;;1905-11-19;Montreal;QC;Canada;;;0
 231;80;Simon;Boulianne;;1905-5-9;Mascouche;QC;Canada;;;0
-232;118;Woody;Robertson;;1907-7-1;Ottawa;ON;Canada;;;0
+232;-1;Woody;Robertson;;1907-7-1;Ottawa;ON;Canada;;;0
 233;27;Tim;Jamison;;1910-5-19;Hyde Park;NY;The United States;;;0
 234;10;Will;McGill;;1910-4-16;White Lake;MI;The United States;;;0
 235;19;Arun;Mirwaldt;;1914-1-9;Mississauga;ON;Canada;;;0

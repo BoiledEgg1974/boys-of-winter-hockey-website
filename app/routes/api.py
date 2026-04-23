@@ -8,22 +8,45 @@ from datetime import date
 from pathlib import Path
 
 from flask import Blueprint, current_app, jsonify, request, url_for
-from sqlalchemy import select, text
+
+from app.config import Config
+from sqlalchemy import func, select, text
 
 from app.logo_urls import team_logo_url_for_team
 from app.models import (
     Game,
     GameGoalieStat,
     GameSkaterStat,
+    HistoryAward,
     LeagueMeta,
     Player,
+    PlayerContract,
+    PlayerGoalieCareerLine,
     PlayerGoalieStat,
+    PlayerSkaterCareerLine,
     PlayerSkaterStat,
     ScoringEvent,
+    Season,
     Team,
+    TeamSeasonAggregate,
+    TeamStanding,
     db,
 )
 from app.services.all_time_records import bowl_nhl_league_ids
+from app.services.division_labels import load_division_display_maps
+from app.services.homepage_dashboard import (
+    build_active_streaks,
+    build_around_the_league,
+    build_champions_panel,
+    build_conf_cutoff_map,
+    build_power_rankings,
+    build_standings_by_division,
+    build_stars_windows,
+    build_trending_players,
+    league_calendar_anchor_date,
+    pick_game_of_the_night,
+    pick_next_game_to_watch,
+)
 from app.services.playoff_bracket import playoff_bracket_payload
 from app.services.player_rating_avgs import goalie_category_averages, skater_category_averages
 from app.services.player_headshot import resolve_player_headshot_static_filename
@@ -148,6 +171,69 @@ def _star_entry(game: Game, fhm_pid: int | None) -> dict | None:
         "team_slug": tm.slug if tm else "",
         "team_logo_url": team_logo_url_for_team(tm) if tm else "",
     }
+
+
+def _pct(numerator: int | None, denominator: int | None) -> float | None:
+    if numerator is None or denominator is None or denominator <= 0:
+        return None
+    return (float(numerator) / float(denominator)) * 100.0
+
+
+def _recent_form_map(season_id: int) -> dict[int, dict[str, int | str]]:
+    games = db.session.scalars(
+        select(Game)
+        .where(Game.season_id == season_id, Game.status == "final")
+        .order_by(Game.game_date.desc().nulls_last(), Game.id.desc())
+        .limit(800)
+    ).all()
+    by_team: dict[int, list[str]] = defaultdict(list)
+    for g in games:
+        if g.home_team_id and len(by_team[g.home_team_id]) < 10:
+            home_res = "W" if (g.home_score or 0) > (g.away_score or 0) else "L"
+            by_team[g.home_team_id].append(home_res)
+        if g.away_team_id and len(by_team[g.away_team_id]) < 10:
+            away_res = "W" if (g.away_score or 0) > (g.home_score or 0) else "L"
+            by_team[g.away_team_id].append(away_res)
+    out: dict[int, dict[str, int | str]] = {}
+    for team_id, recent in by_team.items():
+        wins = sum(1 for r in recent if r == "W")
+        losses = sum(1 for r in recent if r == "L")
+        out[team_id] = {"last10": f"{wins}-{losses}", "last10_wins": wins, "last10_losses": losses}
+    return out
+
+
+def _rookie_cutoff_date(season: Season) -> date | None:
+    if season.start_year:
+        return date(season.start_year, 9, 15)
+    if season.end_year:
+        return date(season.end_year - 1, 9, 15)
+    return None
+
+
+def _is_nhl_style_rookie(prior_gp_by_season: list[int], birth_date: date | None, season: Season) -> bool:
+    if not prior_gp_by_season:
+        prior_gp_by_season = []
+    if any(gp > 25 for gp in prior_gp_by_season):
+        return False
+    if sum(1 for gp in prior_gp_by_season if gp >= 6) >= 2:
+        return False
+    if birth_date:
+        cutoff = _rookie_cutoff_date(season)
+        age = _player_age_years(birth_date, cutoff)
+        if age is not None and age >= 26:
+            return False
+    return True
+
+
+def _rookie_stat_team_is_bowl_nhl(team: Team | None, league_ids: tuple[int, ...]) -> bool:
+    """True when the player's season stat row is assigned to a BOWL/NHL club (excludes minor leagues)."""
+    if team is None:
+        return False
+    lid = team.fhm_league_id
+    if lid is None:
+        # Legacy rows: NULL league id is the main sim league roster.
+        return True
+    return int(lid) in league_ids
 
 
 def _fts_match_pattern(q: str) -> str:
@@ -420,6 +506,61 @@ def game_boxscore(game_id: int):
     )
 
 
+def _misc_statistics_panel(special_teams: list[dict[str, object]]) -> dict[str, object] | None:
+    """Hits, blocks, and faceoff leaders for the homepage Misc. Statistics card (all leagues)."""
+    if not special_teams:
+        return None
+    style_rows = sorted(
+        [r for r in special_teams if r.get("gp")],
+        key=lambda x: int(x.get("hits") or 0),
+        reverse=True,
+    )
+    top_hits = style_rows[0] if style_rows else None
+    top_blocks = max(special_teams, key=lambda x: int(x.get("blocks") or 0), default=None)
+    fo_candidates = [r for r in special_teams if r.get("fo_pct") is not None]
+    top_fo = max(fo_candidates, key=lambda x: float(x.get("fo_pct") or 0)) if fo_candidates else None
+
+    def pack_row(label: str, row: dict[str, object] | None, detail: str) -> dict[str, object]:
+        if not row:
+            return {
+                "label": label,
+                "detail": detail,
+                "team_slug": "",
+                "team_logo_url": "",
+                "team_name": "",
+                "value": "—",
+            }
+        return {
+            "label": label,
+            "detail": detail,
+            "team_slug": str(row.get("team_slug") or ""),
+            "team_logo_url": str(row.get("team_logo_url") or ""),
+            "team_name": str(row.get("team_name") or ""),
+            "value": str(row.get("team") or "—"),
+        }
+
+    return {
+        "title": "Misc. Statistics",
+        "items": [
+            pack_row(
+                "Most physical",
+                top_hits,
+                f"{int(top_hits.get('hits') or 0)} hits" if top_hits else "",
+            ),
+            pack_row(
+                "Shot-blocking leader",
+                top_blocks,
+                f"{int(top_blocks.get('blocks') or 0)} blocks" if top_blocks else "",
+            ),
+            pack_row(
+                "Best faceoff team",
+                top_fo,
+                f"{float(top_fo.get('fo_pct') or 0):.1f}% FO" if top_fo else "",
+            ),
+        ],
+    }
+
+
 @api_bp.get("/homepage/summary")
 def homepage_summary():
     segment = request.args.get("segment", "rs") or "rs"
@@ -433,9 +574,22 @@ def homepage_summary():
         {"name": lm.name, "abbr": lm.abbreviation or ""} if lm else {"name": "", "abbr": ""}
     )
     if not season:
+        empty_news = build_around_the_league()
         return jsonify(
             {
+                "league_calendar_date": None,
                 "teams": [],
+                "standings_by_division": [],
+                "game_of_the_night": None,
+                "next_game_to_watch": None,
+                "stars_last_7d": [],
+                "stars_last_14d": [],
+                "stars_last_30d": [],
+                "trending_players": {"hot": [], "cold": []},
+                "active_streaks": {"goal_streak": [], "point_streak": []},
+                "power_rankings": {"top5": [], "bottom5": []},
+                "champions_panel": {"banner_urls": [], "recent_champions": []},
+                "around_the_league": empty_news,
                 "leaders": {
                     "goals": [],
                     "assists": [],
@@ -444,43 +598,17 @@ def homepage_summary():
                     "goalie_shutouts": [],
                 },
                 "games": [],
+                "upcoming": [],
+                "special_teams": [],
+                "rookies": {"skaters": [], "goalies": [], "criteria": {}},
+                "league_spotlight": {"title": "", "items": []},
+                "identity_panel": None,
                 "league": league_info,
                 "segment": segment,
             }
         )
-    from app.models import TeamStanding
-    from sqlalchemy.orm import joinedload
-
-    standings = (
-        db.session.scalars(
-            select(TeamStanding)
-            .options(joinedload(TeamStanding.team))
-            .where(TeamStanding.season_id == season.id)
-            .order_by(TeamStanding.pts.desc())
-            .limit(8)
-        )
-        .all()
-    )
-    teams_out = []
-    for i, st in enumerate(standings, start=1):
-        tm = st.team
-        teams_out.append(
-            {
-                "rank": i,
-                "slug": tm.slug,
-                "name": tm.name,
-                "abbr": tm.abbreviation,
-                "logo_url": team_logo_url_for_team(tm),
-                "gp": st.gp,
-                "w": st.w,
-                "l": st.l,
-                "t": st.ties,
-                "otl": st.otl,
-                "sow": st.shootout_wins,
-                "sol": st.shootout_losses,
-                "pts": st.pts,
-            }
-        )
+    recent_form = _recent_form_map(season.id)
+    teams_out: list[dict[str, object]] = []
 
     fantasy_bowl_leaders_only = (
         str(current_app.config.get("LEAGUE_SLUG") or "") == "bowl-fantasy"
@@ -565,6 +693,327 @@ def homepage_summary():
         "goalie_shutouts": leader_rows("", PlayerGoalieStat.so, goalie=True),
     }
 
+    standings_by_team = {
+        st.team_id: st
+        for st in db.session.scalars(
+            select(TeamStanding).where(TeamStanding.season_id == season.id)
+        ).all()
+    }
+    raw_dir = Path(str(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)))
+    div_pair, div_by_id = load_division_display_maps(raw_dir / "divisions.csv")
+    standings_by_division = build_standings_by_division(
+        db.session, season.id, div_name_by_pair=div_pair, div_name_by_id=div_by_id
+    )
+    tm_map = {
+        tid: t
+        for tid in standings_by_team
+        if (t := db.session.get(Team, tid)) is not None
+    }
+    conf_cutoff = build_conf_cutoff_map(db.session, season.id)
+    league_cal = league_calendar_anchor_date(db.session, season.id)
+    game_of_the_night = pick_game_of_the_night(
+        db.session, season.id, standings_by_team, tm_map, conf_cutoff, None
+    )
+    next_game_to_watch = pick_next_game_to_watch(
+        db.session, season.id, standings_by_team, tm_map, conf_cutoff, league_cal
+    )
+    stars_bundle = build_stars_windows(db.session, season.id, league_cal)
+    trending_players = build_trending_players(db.session, season.id, segment, league_cal)
+    active_streaks = build_active_streaks(db.session, season.id)
+    agg_rows = db.session.scalars(
+        select(TeamSeasonAggregate).where(
+            TeamSeasonAggregate.season_id == season.id,
+            TeamSeasonAggregate.stat_segment == segment,
+        )
+    ).all()
+    special_teams: list[dict[str, object]] = []
+    for row in agg_rows:
+        tm = db.session.get(Team, row.team_id)
+        if not tm:
+            continue
+        pp_pct = _pct(row.pp_goals, row.pp_chances)
+        pk_pct = None
+        if row.sh_chances is not None and row.sh_chances > 0 and row.pk_goals_against is not None:
+            pk_pct = (1.0 - (float(row.pk_goals_against) / float(row.sh_chances))) * 100.0
+        if pp_pct is None and pk_pct is None:
+            continue
+        net_st = (pp_pct or 0.0) + (pk_pct or 0.0)
+        st = standings_by_team.get(row.team_id)
+        special_teams.append(
+            {
+                "team": tm.abbreviation,
+                "team_name": tm.full_display_name(),
+                "team_city": (tm.city or tm.name or "").strip(),
+                "team_slug": tm.slug,
+                "team_logo_url": team_logo_url_for_team(tm),
+                "pp_pct": round(pp_pct, 1) if pp_pct is not None else None,
+                "pk_pct": round(pk_pct, 1) if pk_pct is not None else None,
+                "net_st": round(net_st, 1),
+                "hits": row.hits,
+                "blocks": row.blocked_shots,
+                "fo_pct": round(row.faceoff_pct, 1) if row.faceoff_pct is not None else None,
+                "gp": st.standing_gp_display() if st else None,
+            }
+        )
+    special_teams.sort(key=lambda x: float(x.get("net_st") or 0), reverse=True)
+
+    power_rankings = build_power_rankings(
+        db.session, season.id, standings_by_team, special_teams, recent_form, segment
+    )
+    champions_panel = build_champions_panel(db.session)
+    around_the_league = build_around_the_league()
+
+    upcoming_games = db.session.scalars(
+        select(Game)
+        .where(
+            Game.season_id == season.id,
+            Game.status != "final",
+            Game.game_date.is_not(None),
+            Game.game_date >= league_cal,
+        )
+        .order_by(Game.game_date.asc().nulls_last(), Game.id.asc())
+        .limit(12)
+    ).all()
+    if not upcoming_games:
+        upcoming_games = db.session.scalars(
+            select(Game)
+            .where(Game.season_id == season.id, Game.status != "final")
+            .order_by(Game.game_date.asc().nulls_last(), Game.id.asc())
+            .limit(12)
+        ).all()
+    upcoming_out: list[dict[str, object]] = []
+    for g in upcoming_games:
+        ht = db.session.get(Team, g.home_team_id)
+        at = db.session.get(Team, g.away_team_id)
+        upcoming_out.append(
+            {
+                "id": g.id,
+                "date": g.game_date.isoformat() if g.game_date else None,
+                "status": g.status or "",
+                "home_name": ht.name if ht else "",
+                "away_name": at.name if at else "",
+                "home_abbr": ht.abbreviation if ht else "",
+                "away_abbr": at.abbreviation if at else "",
+                "home_logo_url": team_logo_url_for_team(ht) if ht else "",
+                "away_logo_url": team_logo_url_for_team(at) if at else "",
+                "home_slug": ht.slug if ht else "",
+                "away_slug": at.slug if at else "",
+            }
+        )
+
+    # NHL rookie-eligibility style:
+    #  - no prior season with >25 GP
+    #  - cannot have played in 6+ games in each of two prior seasons
+    #  - must be under 26 on Sep 15 before season start
+    max_gp = max((int(st.standing_gp_display() or 0) for st in standings_by_team.values()), default=0)
+    rs_skater_abs = int(current_app.config.get("ROOKIE_RS_SKATER_MIN_GP_ABS", 10) or 10)
+    rs_skater_pct = float(current_app.config.get("ROOKIE_RS_SKATER_MIN_GP_PCT", 0.20) or 0.20)
+    rs_goalie_abs = int(current_app.config.get("ROOKIE_RS_GOALIE_MIN_MINUTES_ABS", 600) or 600)
+    rs_goalie_pct = float(current_app.config.get("ROOKIE_RS_GOALIE_MIN_MINUTES_PCT", 0.20) or 0.20)
+    pspo_skater = int(current_app.config.get("ROOKIE_PSPO_SKATER_MIN_GP", 2) or 2)
+    pspo_goalie = int(current_app.config.get("ROOKIE_PSPO_GOALIE_MIN_MINUTES", 120) or 120)
+    if segment == "rs":
+        rookie_skater_min_gp = max(rs_skater_abs, int(round(max_gp * rs_skater_pct))) if max_gp > 0 else rs_skater_abs
+        rookie_goalie_min_minutes = (
+            max(rs_goalie_abs, int(round(max_gp * 60 * rs_goalie_pct))) if max_gp > 0 else rs_goalie_abs
+        )
+    else:
+        rookie_skater_min_gp = pspo_skater
+        rookie_goalie_min_minutes = pspo_goalie
+    rookies = {
+        "criteria": {
+            "skater_min_gp": rookie_skater_min_gp,
+            "goalie_min_minutes": rookie_goalie_min_minutes,
+            "rank_mode": "Calder-style P/GP (skaters), SV% then wins (goalies)",
+        },
+        "skaters": [],
+        "goalies": [],
+    }
+    # Require min GP in SQL so low-scoring rookies are not dropped by a points-only LIMIT.
+    rookie_skaters = db.session.execute(
+        select(PlayerSkaterStat, Player)
+        .join(Player, PlayerSkaterStat.player_id == Player.id)
+        .where(
+            PlayerSkaterStat.season_id == season.id,
+            PlayerSkaterStat.stat_segment == segment,
+            PlayerSkaterStat.gp >= rookie_skater_min_gp,
+        )
+        .order_by(PlayerSkaterStat.points.desc(), PlayerSkaterStat.goals.desc())
+        .limit(1500)
+    ).all()
+    skater_ids = [pl.id for _, pl in rookie_skaters]
+    rookie_league_ids = bowl_nhl_league_ids(db.session) or (0,)
+    current_skater_year = db.session.scalar(
+        select(func.max(PlayerSkaterCareerLine.season_year)).where(
+            PlayerSkaterCareerLine.player_id.in_(skater_ids) if skater_ids else False,
+            PlayerSkaterCareerLine.career_source == "rs",
+            PlayerSkaterCareerLine.league_fhm_id.in_(rookie_league_ids) if rookie_league_ids else True,
+        )
+    )
+    if current_skater_year is None:
+        current_skater_year = (season.start_year - 1) if season.start_year else season.end_year
+    prior_skater_lines = db.session.execute(
+        select(
+            PlayerSkaterCareerLine.player_id,
+            PlayerSkaterCareerLine.season_year,
+            PlayerSkaterCareerLine.gp,
+        ).where(
+            PlayerSkaterCareerLine.player_id.in_(skater_ids) if skater_ids else False,
+            PlayerSkaterCareerLine.career_source.in_(("rs", "retired_rs")),
+            PlayerSkaterCareerLine.league_fhm_id.in_(rookie_league_ids) if rookie_league_ids else True,
+            PlayerSkaterCareerLine.season_year < int(current_skater_year or 0),
+        )
+    ).all()
+    prior_skater_gp_by_season: dict[int, dict[int, int]] = defaultdict(dict)
+    for pid, season_year, gp in prior_skater_lines:
+        pid_i = int(pid)
+        yr_i = int(season_year or 0)
+        prior_skater_gp_by_season[pid_i][yr_i] = prior_skater_gp_by_season[pid_i].get(yr_i, 0) + int(gp or 0)
+    for pss, pl in rookie_skaters:
+        prior_gps = list(prior_skater_gp_by_season.get(pl.id, {}).values())
+        if not _is_nhl_style_rookie(prior_gps, pl.birth_date, season):
+            continue
+        gp = int(pss.gp or 0)
+        if gp < rookie_skater_min_gp:
+            continue
+        tm = db.session.get(Team, pss.team_id) if pss.team_id else None
+        if not _rookie_stat_team_is_bowl_nhl(tm, rookie_league_ids):
+            continue
+        ppg = (float(pss.points or 0) / float(gp)) if gp > 0 else 0.0
+        rookies["skaters"].append(
+            {
+                "player_id": pl.id,
+                "player": pl.full_name,
+                "player_photo_url": _player_photo_url(pl),
+                "team": tm.abbreviation if tm else "",
+                "team_slug": tm.slug if tm else "",
+                "team_logo_url": team_logo_url_for_team(tm) if tm else "",
+                "gp": gp,
+                "goals": pss.goals,
+                "assists": pss.assists,
+                "points": pss.points,
+                "ppg": round(ppg, 3),
+            }
+        )
+    rookies["skaters"].sort(
+        key=lambda r: (float(r.get("ppg") or 0.0), int(r.get("points") or 0), int(r.get("goals") or 0)),
+        reverse=True,
+    )
+    rookies["skaters"] = rookies["skaters"][:10]
+
+    rookie_goalies = db.session.execute(
+        select(PlayerGoalieStat, Player)
+        .join(Player, PlayerGoalieStat.player_id == Player.id)
+        .where(
+            PlayerGoalieStat.season_id == season.id,
+            PlayerGoalieStat.stat_segment == segment,
+            PlayerGoalieStat.minutes_played >= rookie_goalie_min_minutes,
+        )
+        .order_by(PlayerGoalieStat.sv_pct.desc(), PlayerGoalieStat.wins.desc())
+        .limit(800)
+    ).all()
+    goalie_ids = [pl.id for _, pl in rookie_goalies]
+    current_goalie_year = db.session.scalar(
+        select(func.max(PlayerGoalieCareerLine.season_year)).where(
+            PlayerGoalieCareerLine.player_id.in_(goalie_ids) if goalie_ids else False,
+            PlayerGoalieCareerLine.career_source == "rs",
+            PlayerGoalieCareerLine.league_fhm_id.in_(rookie_league_ids) if rookie_league_ids else True,
+        )
+    )
+    if current_goalie_year is None:
+        current_goalie_year = current_skater_year
+    prior_goalie_lines = db.session.execute(
+        select(
+            PlayerGoalieCareerLine.player_id,
+            PlayerGoalieCareerLine.season_year,
+            PlayerGoalieCareerLine.gp,
+        ).where(
+            PlayerGoalieCareerLine.player_id.in_(goalie_ids) if goalie_ids else False,
+            PlayerGoalieCareerLine.career_source.in_(("rs", "retired_rs")),
+            PlayerGoalieCareerLine.league_fhm_id.in_(rookie_league_ids) if rookie_league_ids else True,
+            PlayerGoalieCareerLine.season_year < int(current_goalie_year or 0),
+        )
+    ).all()
+    prior_goalie_gp_by_season: dict[int, dict[int, int]] = defaultdict(dict)
+    for pid, season_year, gp in prior_goalie_lines:
+        pid_i = int(pid)
+        yr_i = int(season_year or 0)
+        prior_goalie_gp_by_season[pid_i][yr_i] = prior_goalie_gp_by_season[pid_i].get(yr_i, 0) + int(gp or 0)
+    for pgs, pl in rookie_goalies:
+        prior_gps = list(prior_goalie_gp_by_season.get(pl.id, {}).values())
+        if not _is_nhl_style_rookie(prior_gps, pl.birth_date, season):
+            continue
+        minutes = int(pgs.minutes_played or 0)
+        if minutes < rookie_goalie_min_minutes:
+            continue
+        tm = db.session.get(Team, pgs.team_id) if pgs.team_id else None
+        if not _rookie_stat_team_is_bowl_nhl(tm, rookie_league_ids):
+            continue
+        rookies["goalies"].append(
+            {
+                "player_id": pl.id,
+                "player": pl.full_name,
+                "player_photo_url": _player_photo_url(pl),
+                "team": tm.abbreviation if tm else "",
+                "team_slug": tm.slug if tm else "",
+                "team_logo_url": team_logo_url_for_team(tm) if tm else "",
+                "gp": pgs.gp,
+                "minutes": minutes,
+                "wins": pgs.wins,
+                "so": int(pgs.so or 0),
+                "sv_pct": round(float(pgs.sv_pct or 0), 3) if pgs.sv_pct is not None else None,
+                "gaa": round(float(pgs.gaa or 0), 2) if pgs.gaa is not None else None,
+            }
+        )
+    rookies["goalies"].sort(
+        key=lambda r: (float(r.get("sv_pct") or 0.0), int(r.get("wins") or 0), int(r.get("minutes") or 0)),
+        reverse=True,
+    )
+    rookies["goalies"] = rookies["goalies"][:50]
+
+    league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    identity_panel = _misc_statistics_panel(special_teams)
+    league_spotlight: dict[str, object] = {"title": "League spotlight", "items": []}
+    if league_slug == "bowl-fantasy":
+        league_spotlight = {"title": "", "items": []}
+    elif league_slug == "bowl-cap":
+        cap_hits = db.session.execute(
+            select(PlayerContract, Player)
+            .join(Player, PlayerContract.player_id == Player.id)
+            .where(Player.current_team_id.is_not(None))
+            .order_by(PlayerContract.average_salary.desc().nulls_last())
+            .limit(3)
+        ).all()
+        ufa_count = db.session.scalar(
+            select(func.count(PlayerContract.id))
+            .join(Player, PlayerContract.player_id == Player.id)
+            .where(Player.current_team_id.is_not(None), PlayerContract.is_ufa.is_(True))
+        ) or 0
+        cap_lines: list[dict[str, object]] = []
+        for contract, pl in cap_hits:
+            tm = db.session.get(Team, pl.current_team_id) if pl.current_team_id else None
+            cap_lines.append(
+                {
+                    "player": pl.full_name,
+                    "salary": int(contract.average_salary or 0),
+                    "team_slug": tm.slug if tm else "",
+                    "team_logo_url": team_logo_url_for_team(tm) if tm else "",
+                    "team_name": tm.full_display_name() if tm else "Free agent",
+                }
+            )
+        league_spotlight = {
+            "title": "Cap Pressure Board",
+            "format": "cap_logos",
+            "items": [
+                {"label": "Top cap hits", "cap_lines": cap_lines},
+                {
+                    "label": "Current UFAs",
+                    "value": f"{int(ufa_count)}",
+                    "detail": "players with UFA flag",
+                },
+            ],
+        }
+
     games = (
         db.session.scalars(
             select(Game)
@@ -582,6 +1031,7 @@ def homepage_summary():
             {
                 "id": g.id,
                 "date": g.game_date.isoformat() if g.game_date else None,
+                "status": "final",
                 "home_abbr": ht.abbreviation if ht else "",
                 "away_abbr": at.abbreviation if at else "",
                 "home_name": ht.name if ht else "",
@@ -598,9 +1048,26 @@ def homepage_summary():
 
     return jsonify(
         {
+            "league_calendar_date": league_cal.isoformat(),
             "teams": teams_out,
+            "standings_by_division": standings_by_division,
+            "game_of_the_night": game_of_the_night,
+            "next_game_to_watch": next_game_to_watch,
+            "stars_last_7d": stars_bundle.get("stars_last_7d", []),
+            "stars_last_14d": stars_bundle.get("stars_last_14d", []),
+            "stars_last_30d": stars_bundle.get("stars_last_30d", []),
+            "trending_players": trending_players,
+            "active_streaks": active_streaks,
+            "power_rankings": power_rankings,
+            "champions_panel": champions_panel,
+            "around_the_league": around_the_league,
             "leaders": leaders,
             "games": games_out,
+            "upcoming": upcoming_out,
+            "special_teams": special_teams,
+            "rookies": rookies,
+            "league_spotlight": league_spotlight,
+            "identity_panel": identity_panel,
             "league": league_info,
             "segment": segment,
         }

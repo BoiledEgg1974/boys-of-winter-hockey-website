@@ -2,46 +2,147 @@
 {% block title %}Home — Boys of Winter Hockey League{% endblock %}
 {% block content %}
 {% set _home_league_label = {
-  'bowl-historical': 'HISTORICAL',
-  'bowl-fantasy': 'FANTASY',
-  'bowl-cap': 'CAP'
-}.get(current_league_slug, (config.LEAGUE_DISPLAY_NAME or '')|replace('BOWL-', '')|replace('BOWL ', '')|upper) %}
-<h1 class="page-title page-title--center">BOYS OF WINTER LEAGUE - {{ _home_league_label }}</h1>
-<div class="home-grid">
-  <section class="card" aria-labelledby="top-teams-h">
-    <h2 id="top-teams-h">Top 8 Teams</h2>
-    <div id="home-teams" class="table-wrap">
-      <p class="empty-state">Loading…</p>
+  'bowl-historical': 'Historical',
+  'bowl-fantasy': 'Fantasy',
+  'bowl-cap': 'Cap'
+}.get(current_league_slug, (config.LEAGUE_DISPLAY_NAME or '')|replace('BOWL-', '')|replace('BOWL ', '')|title) %}
+<div class="home-dashboard">
+  <header class="home-dashboard__page-head">
+    <div class="home-dashboard__page-head-row">
+      <h1 class="home-dashboard__title">Boys of Winter League</h1>
+      <span class="home-dashboard__league-pill" title="Current league site">{{ _home_league_label }}</span>
     </div>
-    <a class="link-more" href="{{ url_for('main.standings') }}">View full standings</a>
-  </section>
+    <p class="home-dashboard__deck">League home — leaders, schedule, and storylines for this universe.</p>
+  </header>
 
-  <section class="card mini-leaders" aria-labelledby="leaders-h">
-    <h2 id="leaders-h">League Leaders</h2>
-    <p class="muted" style="margin:0 0 0.5rem;font-size:0.85rem;">Leaderboard split:
-      <a href="#" data-seg="rs" class="seg-pick">RS</a> ·
-      <a href="#" data-seg="ps" class="seg-pick">PS</a> ·
-      <a href="#" data-seg="po" class="seg-pick">PO</a>
-    </p>
-    <div class="subtabs" role="tablist">
-      <button type="button" class="is-active" data-tab="goals" role="tab" aria-selected="true">Goals</button>
-      <button type="button" data-tab="assists" role="tab" aria-selected="false">Assists</button>
-      <button type="button" data-tab="points" role="tab" aria-selected="false">Points</button>
-      <button type="button" data-tab="goalie_wins" role="tab" aria-selected="false">G Wins</button>
-      <button type="button" data-tab="goalie_shutouts" role="tab" aria-selected="false">G Sho</button>
+  <div id="dash-schedule" class="home-dash-schedule-ribbon">
+    <div class="card card--team-schedule home-dash-schedule-ribbon__card" style="--schedule-accent: var(--accent);">
+      <h2 class="card--team-schedule__title">Schedule</h2>
+      <div class="team-schedule-carousel" data-team-schedule-carousel>
+        <button type="button" class="team-schedule-carousel__btn team-schedule-carousel__btn--prev" aria-label="Earlier games on the schedule">‹</button>
+        <div class="team-schedule-carousel__viewport">
+          <div id="home-league-schedule-track" class="team-schedule-carousel__track" data-focus-index="0"></div>
+        </div>
+        <button type="button" class="team-schedule-carousel__btn team-schedule-carousel__btn--next" aria-label="Later games on the schedule">›</button>
+      </div>
+      <p id="home-schedule-empty" class="empty-state" hidden>No completed or upcoming games yet.</p>
     </div>
-    <div id="home-leaders" class="table-wrap">
-      <p class="empty-state">Loading…</p>
-    </div>
-    <a class="link-more" href="{{ url_for('main.statistics') }}">View full statistics</a>
-  </section>
+  </div>
 
-  <section class="card card--wide" aria-labelledby="recent-h">
-    <h2 id="recent-h">Recent results</h2>
-    <div id="home-games"></div>
-    <p id="home-games-empty" class="empty-state" hidden>No completed games in the database yet. Import schedule data or run the demo seed.</p>
-    <a class="link-more" href="{{ url_for('main.schedule') }}">View full schedule</a>
-  </section>
+  <p id="home-load-error" class="empty-state home-dashboard__banner-msg" hidden>Could not load dashboard.</p>
+  <div class="home-dashboard__toc-sticky">
+    <nav class="home-dashboard__toc" aria-label="On this page">
+      <a class="home-dashboard__toc-link" href="#dash-schedule">Schedule</a>
+      <a class="home-dashboard__toc-link" href="#dash-around">Around The League</a>
+      <a class="home-dashboard__toc-link" href="#dash-leaders">League Leaders</a>
+      <a class="home-dashboard__toc-link" href="#dash-watch">Watch List</a>
+      <a class="home-dashboard__toc-link" href="#dash-standings">Standings</a>
+    </nav>
+  </div>
+
+  <div class="home-dashboard__cols-121">
+    <aside id="dash-watch" class="home-dash-col home-dash-col--side" aria-label="Featured games, stars, and special teams">
+      <section class="card home-dashboard__card" aria-labelledby="gotn-h">
+        <h2 id="gotn-h" class="home-dashboard__h">Game of the Night</h2>
+        <p class="muted home-dashboard__sub">Playoff-race weighted pick</p>
+        <div id="home-gotn" class="home-dashboard__slot"></div>
+      </section>
+      <section class="card home-dashboard__card" aria-labelledby="ngtw-h">
+        <h2 id="ngtw-h" class="home-dashboard__h">Next Game to Watch</h2>
+        <div id="home-ngtw" class="home-dashboard__slot"></div>
+      </section>
+      <section class="card home-dashboard__card home-dashboard__stars-card" aria-labelledby="stars-h">
+        <h2 id="stars-h" class="home-dashboard__h">Three Stars</h2>
+        <p class="muted home-dashboard__sub">Best skaters over recent league days</p>
+        <div class="home-dashboard__tabs" role="tablist" aria-label="Window length">
+          <button type="button" class="home-dashboard__tab is-active" role="tab" aria-selected="true" aria-controls="home-stars-panel-7" id="tab-stars-7">7 days</button>
+          <button type="button" class="home-dashboard__tab" role="tab" aria-selected="false" aria-controls="home-stars-panel-14" id="tab-stars-14">14 days</button>
+          <button type="button" class="home-dashboard__tab" role="tab" aria-selected="false" aria-controls="home-stars-panel-30" id="tab-stars-30">30 days</button>
+        </div>
+        <div id="home-stars-panel-7" class="home-dashboard__tabpanel" role="tabpanel" aria-labelledby="tab-stars-7">
+          <div id="home-stars-7" class="home-dashboard__slot"></div>
+        </div>
+        <div id="home-stars-panel-14" class="home-dashboard__tabpanel" role="tabpanel" aria-labelledby="tab-stars-14" hidden>
+          <div id="home-stars-14" class="home-dashboard__slot"></div>
+        </div>
+        <div id="home-stars-panel-30" class="home-dashboard__tabpanel" role="tabpanel" aria-labelledby="tab-stars-30" hidden>
+          <div id="home-stars-30" class="home-dashboard__slot"></div>
+        </div>
+      </section>
+      <section class="card home-dashboard__card" aria-labelledby="special-teams-h">
+        <h2 id="special-teams-h">Special Teams Snapshot</h2>
+        <div id="home-special-teams" class="table-wrap">
+          <p class="empty-state">Loading…</p>
+        </div>
+      </section>
+    </aside>
+
+    <div class="home-dash-col home-dash-col--center">
+      <section id="dash-around" class="card home-dashboard__card" aria-labelledby="news-h">
+        <h2 id="news-h" class="home-dashboard__h">Around the League</h2>
+        <div id="home-news" class="home-dashboard__slot"></div>
+      </section>
+      <section id="dash-leaders" class="card mini-leaders home-dashboard__card" aria-labelledby="leaders-h">
+        <h2 id="leaders-h">League Leaders</h2>
+        <p class="muted" style="margin:0 0 0.5rem;font-size:0.85rem;">Leaderboard split:
+          <a href="#" data-seg="rs" class="seg-pick">RS</a> ·
+          <a href="#" data-seg="ps" class="seg-pick">PS</a> ·
+          <a href="#" data-seg="po" class="seg-pick">PO</a>
+        </p>
+        <div class="subtabs" role="tablist">
+          <button type="button" class="is-active" data-tab="goals" role="tab" aria-selected="true">Goals</button>
+          <button type="button" data-tab="assists" role="tab" aria-selected="false">Assists</button>
+          <button type="button" data-tab="points" role="tab" aria-selected="false">Points</button>
+          <button type="button" data-tab="goalie_wins" role="tab" aria-selected="false">G Wins</button>
+          <button type="button" data-tab="goalie_shutouts" role="tab" aria-selected="false">G Sho</button>
+        </div>
+        <div id="home-leaders" class="table-wrap">
+          <p class="empty-state">Loading…</p>
+        </div>
+        <a class="link-more" href="{{ url_for('main.statistics') }}">View full statistics</a>
+      </section>
+      <section id="dash-rookies" class="card home-dashboard__card" aria-labelledby="rookies-h">
+        <h2 id="rookies-h">Top Rookies</h2>
+        <div id="home-rookies" class="table-wrap">
+          <p class="empty-state">Loading…</p>
+        </div>
+      </section>
+      <section id="dash-momentum" class="card home-dashboard__card" aria-labelledby="momentum-h">
+        <h2 id="momentum-h" class="home-dashboard__h">Momentum</h2>
+        <h3 id="trend-h" class="home-dashboard__mini-h">Trending players</h3>
+        <p class="muted home-dashboard__sub">Last 14 league days vs season pace</p>
+        <div id="home-trending" class="home-dashboard__slot"></div>
+        <h3 id="streak-h" class="home-dashboard__mini-h">Active streaks</h3>
+        <div id="home-streaks" class="home-dashboard__slot"></div>
+      </section>
+      <section id="home-spotlight-card" class="card home-dashboard__card" aria-labelledby="spotlight-h">
+        <h2 id="spotlight-h">League Spotlight</h2>
+        <div id="home-spotlight" class="table-wrap">
+          <p class="empty-state">Loading…</p>
+        </div>
+      </section>
+    </div>
+
+    <aside class="home-dash-col home-dash-col--side" aria-label="Standings, rankings, and league identity">
+      <section id="dash-standings" class="card home-dashboard__card home-dash-standings-card" aria-labelledby="std-h">
+        <h2 id="std-h" class="home-dashboard__h">Divisional Standings</h2>
+        <a class="link-more" href="{{ url_for('main.standings') }}">Full standings</a>
+        <div id="home-standings-conf" class="home-dashboard__slot"></div>
+      </section>
+      <section class="card home-dashboard__card" aria-labelledby="power-h">
+        <h2 id="power-h" class="home-dashboard__h">Power Rankings</h2>
+        <div id="home-power" class="home-dashboard__slot"></div>
+      </section>
+      <section id="home-identity-panel-card" class="card home-dashboard__card" hidden aria-labelledby="identity-panel-h">
+        <h2 id="identity-panel-h" class="home-dashboard__h"></h2>
+        <div id="home-identity-panel" class="table-wrap"></div>
+      </section>
+      <section class="card home-dashboard__card" aria-labelledby="champ-h">
+        <h2 id="champ-h" class="home-dashboard__h">Champions</h2>
+        <div id="home-champions" class="home-champions" aria-live="polite"></div>
+      </section>
+    </aside>
+  </div>
 </div>
 {% endblock %}
 {% block scripts %}
@@ -60,21 +161,960 @@
       .replace(/"/g, '&quot;')
       .replace(/</g, '&lt;');
   }
-  function rowTeams(rows) {
-    if (!rows.length) return '<p class="empty-state">No standings data yet.</p>';
-    var h = '<table class="data home-top-teams-table"><thead><tr><th>#</th><th>Team</th><th>GP</th><th>Record</th><th>Pts</th></tr></thead><tbody>';
-    rows.forEach(function (r) {
-      var t = r.t != null ? r.t : 0;
-      var rec = r.w + '-' + r.l + '-' + t + '-' + r.otl;
-      if (r.sow || r.sol) rec += ' (SO ' + (r.sow || 0) + '/' + (r.sol || 0) + ')';
-      var logo = r.logo_url
-        ? '<img src="' + escapeAttr(r.logo_url) + '" alt="" class="team-name-lockup__logo">'
-        : '';
-      h += '<tr><td>' + r.rank + '</td><td><span class="team-name-lockup">' + logo + '<a class="team-name-lockup__link" href="' + withRoot('/team/' + escapeAttr(r.slug)) + '">' + escape(r.name) + '</a></span></td><td>' + r.gp + '</td><td>' + rec + '</td><td>' + r.pts + '</td></tr>';
+  function escape(s) {
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+  function syncPlayerHoverCards() {
+    if (typeof window.bindPlayerHoverAnchors === 'function') window.bindPlayerHoverAnchors();
+  }
+
+  function rowGameSpotlight(g, opts) {
+    opts = opts || {};
+    var includeBoxscore = opts.includeBoxscore !== false;
+    if (!g || !g.id) return '<p class="empty-state">No game selected.</p>';
+    var gt = g.game_type ? ' · ' + escape(g.game_type) : '';
+    var awImg = g.away_logo_url ? '<img src="' + escapeAttr(g.away_logo_url) + '" alt="" class="team-name-lockup__logo">' : '';
+    var hmImg = g.home_logo_url ? '<img src="' + escapeAttr(g.home_logo_url) + '" alt="" class="team-name-lockup__logo">' : '';
+    var aw = '<span class="team-name-lockup">' + awImg + '<span class="team-name-lockup__text">' + escape(g.away_name || '') + '</span></span>';
+    var hm = '<span class="team-name-lockup">' + hmImg + '<span class="team-name-lockup__text">' + escape(g.home_name || '') + '</span></span>';
+    var score = '';
+    if (g.status === 'final' && (g.home_score != null || g.away_score != null)) {
+      score = '<span class="scoreline home-spot-game__score"><span>' + aw + ' ' + (g.away_score != null ? g.away_score : '—') + '</span> <span>@</span> <span>' + hm + ' ' + (g.home_score != null ? g.home_score : '—') + '</span></span>';
+    } else {
+      score = '<div class="home-spot-game__matchup">' + aw + ' <span class="muted">@</span> ' + hm + '</div>';
+    }
+    var boxLine = includeBoxscore
+      ? '<p style="margin:0.5rem 0 0"><a class="link-more" href="' + withRoot('/game/' + g.id) + '">Boxscore</a></p>'
+      : '';
+    var stake = g.stake_score != null ? '<p class="muted" style="margin:0.35rem 0 0;font-size:0.8rem;">Stake score: ' + escape(String(g.stake_score)) + '</p>' : '';
+    return '<div class="home-spot-game"><p class="muted" style="margin:0 0 0.35rem">' + escape(g.date || '') + gt + '</p>' + score + boxLine + stake + '</div>';
+  }
+
+  function rowStarsMini(rows) {
+    if (!rows || !rows.length) return '<p class="empty-state">Not enough games in this window.</p>';
+    var h = '<ol class="home-mini-stars">';
+    rows.slice(0, 3).forEach(function (r, idx) {
+      var ph = r.player_photo_url
+        ? '<img src="' + escapeAttr(r.player_photo_url) + '" alt="" loading="lazy" decoding="async">'
+        : '<span class="home-leader-player__photo-ph" aria-hidden="true"></span>';
+      var tm = r.team_logo_url ? '<img src="' + escapeAttr(r.team_logo_url) + '" alt="" class="team-name-lockup__logo">' : '';
+      var tCell = r.team_slug ? '<a class="team-name-lockup team-name-lockup--icon" href="' + withRoot('/team/' + escapeAttr(r.team_slug)) + '">' + tm + '</a>' : '';
+      var n = idx + 1;
+      var glyphs = '';
+      for (var s = 0; s < n; s++) glyphs += '★';
+      h += '<li class="home-mini-stars__item"><span class="home-mini-stars__rank" aria-label="Rank ' + n + ' of three stars"><span class="home-mini-stars__glyphs" aria-hidden="true">' + glyphs + '</span></span>' +
+        '<span class="home-leader-player__photo home-mini-stars__photo">' + ph + '</span>' +
+        '<span class="home-mini-stars__meta"><a class="home-leader-player__name" href="' + withRoot('/player/' + r.player_id) + '">' + escape(r.player || '') + '</a>' +
+        '<span class="home-mini-stars__stats muted">' + (r.points != null ? r.points + ' pts' : '') + (r.games ? ' · ' + r.games + ' gp' : '') + '</span></span>' +
+        '<span class="home-mini-stars__tm">' + tCell + '</span></li>';
+    });
+    h += '</ol>';
+    return h;
+  }
+
+  var ICON_FIRE = '\uD83D\uDD25';
+  var ICON_SNOW = '\u2744\uFE0F';
+  function momentumPlayerCell(r) {
+    var ph = r.player_photo_url
+      ? '<img src="' + escapeAttr(r.player_photo_url) + '" alt="" loading="lazy" decoding="async">'
+      : '<span class="home-leader-player__photo-ph" aria-hidden="true"></span>';
+    return (
+      '<span class="home-leader-player home-leader-player--momentum">' +
+      '<span class="home-leader-player__photo">' +
+      ph +
+      '</span><a class="home-leader-player__name" href="' +
+      withRoot('/player/' + r.player_id) +
+      '">' +
+      escape(r.player) +
+      '</a></span>'
+    );
+  }
+  function momentumTeamCell(r) {
+    var logo = r.team_logo_url
+      ? '<img src="' + escapeAttr(r.team_logo_url) + '" alt="" class="team-name-lockup__logo home-momentum-team-logo">'
+      : '';
+    if (r.team_slug && logo) {
+      return (
+        '<a class="team-name-lockup team-name-lockup--icon home-momentum-tm" href="' +
+        withRoot('/team/' + escapeAttr(r.team_slug)) +
+        '" title="' +
+        escapeAttr(String(r.team || '')) +
+        '">' +
+        logo +
+        '</a>'
+      );
+    }
+    if (r.team_slug) {
+      return '<a class="home-momentum-tm-abbr" href="' + withRoot('/team/' + escapeAttr(r.team_slug)) + '">' + escape(r.team || '—') + '</a>';
+    }
+    return escape(r.team || '—');
+  }
+  function rowTrending(tp) {
+    tp = tp || {};
+    var hot = tp.hot || [];
+    var cold = tp.cold || [];
+    var thPlayer = escapeAttr('Player; link opens profile.');
+    var thTeam = escapeAttr("Player's current team (from roster). Logo links to the team page.");
+    var thTrendHot = escapeAttr(
+      'Hotness: change in points per game vs your full-season pace over the last 14 league days (minimum 3 games played in that window). Higher is hotter. Hover each row icon for the exact delta.'
+    );
+    var thTrendCold = escapeAttr(
+      'Coldness: change in points per game vs your full-season pace over the last 14 league days (minimum 3 games played in that window). Lower is colder. Hover each row icon for the exact delta.'
+    );
+    var thPpg = escapeAttr(
+      'Points per game in the last 14 league days (same qualifying games as the trend column).'
+    );
+    var h = '<div class="home-momentum-trend">';
+    h += '<div class="home-momentum-trend-block">';
+    h += '<h3 class="home-trend-h home-trend-h--momentum"><span class="home-trend-h__ico" aria-hidden="true">' + ICON_FIRE + '</span> Hot</h3>';
+    h += '<table class="data home-momentum-table"><thead><tr>';
+    h += '<th scope="col" title="' + thPlayer + '">Player</th>';
+    h += '<th scope="col" title="' + thTeam + '">Team</th>';
+    h += '<th scope="col" title="' + thTrendHot + '">Trend</th>';
+    h += '<th scope="col" title="' + thPpg + '">P/GP</th>';
+    h += '</tr></thead><tbody>';
+    if (!hot.length) {
+      h += '<tr><td colspan="4" class="muted">—</td></tr>';
+    } else {
+      hot.forEach(function (r) {
+        var d = r.delta != null ? r.delta : null;
+        var dStr = d != null ? (d > 0 ? '+' : '') + d.toFixed(2) : '—';
+        var tip = d != null ? 'Δ ' + dStr + ' vs season P/GP' : 'No delta';
+        var ppg = r.recent_ppg != null ? Number(r.recent_ppg).toFixed(3) : '—';
+        var sr = d != null ? 'Trend: ' + dStr + ' vs season points per game' : '';
+        h +=
+          '<tr><td>' +
+          momentumPlayerCell(r) +
+          '</td><td class="home-momentum-td-tm">' +
+          momentumTeamCell(r) +
+          '</td><td class="home-momentum-td-trend" title="' +
+          escapeAttr(tip) +
+          '"><span class="home-momentum-trend-ico" aria-hidden="true">' +
+          ICON_FIRE +
+          '</span>' +
+          (sr ? '<span class="visually-hidden">' + escape(sr) + '</span>' : '') +
+          '</td><td>' +
+          ppg +
+          '</td></tr>';
+      });
+    }
+    h += '</tbody></table></div>';
+    h += '<div class="home-momentum-trend-block home-momentum-trend-block--cold">';
+    h += '<h3 class="home-trend-h home-trend-h--momentum"><span class="home-trend-h__ico" aria-hidden="true">' + ICON_SNOW + '</span> Cold</h3>';
+    h += '<table class="data home-momentum-table"><thead><tr>';
+    h += '<th scope="col" title="' + thPlayer + '">Player</th>';
+    h += '<th scope="col" title="' + thTeam + '">Team</th>';
+    h += '<th scope="col" title="' + thTrendCold + '">Trend</th>';
+    h += '<th scope="col" title="' + thPpg + '">P/GP</th>';
+    h += '</tr></thead><tbody>';
+    if (!cold.length) {
+      h += '<tr><td colspan="4" class="muted">—</td></tr>';
+    } else {
+      cold.forEach(function (r) {
+        var d = r.delta != null ? r.delta : null;
+        var dStr = d != null ? (d > 0 ? '+' : '') + d.toFixed(2) : '—';
+        var tip = d != null ? 'Δ ' + dStr + ' vs season P/GP' : 'No delta';
+        var ppg = r.recent_ppg != null ? Number(r.recent_ppg).toFixed(3) : '—';
+        var sr = d != null ? 'Trend: ' + dStr + ' vs season points per game' : '';
+        h +=
+          '<tr><td>' +
+          momentumPlayerCell(r) +
+          '</td><td class="home-momentum-td-tm">' +
+          momentumTeamCell(r) +
+          '</td><td class="home-momentum-td-trend" title="' +
+          escapeAttr(tip) +
+          '"><span class="home-momentum-trend-ico" aria-hidden="true">' +
+          ICON_SNOW +
+          '</span>' +
+          (sr ? '<span class="visually-hidden">' + escape(sr) + '</span>' : '') +
+          '</td><td>' +
+          ppg +
+          '</td></tr>';
+      });
+    }
+    h += '</tbody></table></div></div>';
+    return h;
+  }
+
+  function rowStreaks(st) {
+    st = st || {};
+    var g = st.goal_streak || [];
+    var p = st.point_streak || [];
+    var thPlayer = escapeAttr('Player; link opens profile.');
+    var thTeam = escapeAttr('Team in the most recent game of this streak. Logo links to the team page.');
+    var thGpGoal = escapeAttr(
+      'Games in the current goal streak: consecutive games (most recent first) with at least one goal.'
+    );
+    var thGpPoint = escapeAttr(
+      'Games in the current point streak: consecutive games with at least one point (goal or assist).'
+    );
+    var h = '<div class="home-momentum-streaks">';
+    h += '<div class="home-momentum-streak-block">';
+    h += '<h3 class="home-trend-h">Goal streak</h3>';
+    h += '<table class="data home-momentum-table"><thead><tr>';
+    h += '<th scope="col" title="' + thPlayer + '">Player</th>';
+    h += '<th scope="col" title="' + thTeam + '">Team</th>';
+    h += '<th scope="col" title="' + thGpGoal + '">GP</th>';
+    h += '</tr></thead><tbody>';
+    if (!g.length) {
+      h += '<tr><td colspan="3" class="muted">—</td></tr>';
+    } else {
+      g.forEach(function (r) {
+        h +=
+          '<tr><td>' +
+          momentumPlayerCell(r) +
+          '</td><td class="home-momentum-td-tm">' +
+          momentumTeamCell(r) +
+          '</td><td>' +
+          (r.streak != null ? r.streak : 0) +
+          '</td></tr>';
+      });
+    }
+    h += '</tbody></table></div>';
+    h += '<div class="home-momentum-streak-block">';
+    h += '<h3 class="home-trend-h">Point streak</h3>';
+    h += '<table class="data home-momentum-table"><thead><tr>';
+    h += '<th scope="col" title="' + thPlayer + '">Player</th>';
+    h += '<th scope="col" title="' + thTeam + '">Team</th>';
+    h += '<th scope="col" title="' + thGpPoint + '">GP</th>';
+    h += '</tr></thead><tbody>';
+    if (!p.length) {
+      h += '<tr><td colspan="3" class="muted">—</td></tr>';
+    } else {
+      p.forEach(function (r) {
+        h +=
+          '<tr><td>' +
+          momentumPlayerCell(r) +
+          '</td><td class="home-momentum-td-tm">' +
+          momentumTeamCell(r) +
+          '</td><td>' +
+          (r.streak != null ? r.streak : 0) +
+          '</td></tr>';
+      });
+    }
+    h += '</tbody></table></div></div>';
+    return h;
+  }
+
+  function paintStandingsDiv(rows) {
+    var el = document.getElementById('home-standings-conf');
+    if (!el) return;
+    if (!rows || !rows.length) {
+      el.innerHTML = '<p class="empty-state">No standings data.</p>';
+      return;
+    }
+    var h = '';
+    rows.forEach(function (grp) {
+      h += '<h3 class="home-conf-h">' + escape(grp.division || grp.conference || 'Division') + '</h3>';
+      h += '<table class="data home-conf-table"><thead><tr><th>#</th><th scope="col" title="Team"><span class="visually-hidden">Team</span></th><th>GP</th><th>W</th><th>L</th><th>OTL</th><th>Pts</th></tr></thead><tbody>';
+      (grp.teams || []).forEach(function (r) {
+        var lab = String((r.name || r.abbr || 'Team') || '').trim();
+        var logo = r.logo_url
+          ? '<img src="' + escapeAttr(r.logo_url) + '" alt="' + escapeAttr(lab) + '" class="team-name-lockup__logo home-conf-team-logo">'
+          : '';
+        var teamCell = '';
+        if (r.slug && logo) {
+          teamCell =
+            '<a class="team-name-lockup team-name-lockup--icon home-conf-tm" href="' +
+            withRoot('/team/' + escapeAttr(r.slug)) +
+            '" title="' +
+            escapeAttr(lab) +
+            '">' +
+            logo +
+            '</a>';
+        } else if (r.slug) {
+          teamCell = '<a class="home-conf-tm-abbr" href="' + withRoot('/team/' + escapeAttr(r.slug)) + '">' + escape(r.abbr || r.name || '—') + '</a>';
+        } else {
+          teamCell = logo || escape(r.abbr || lab || '—');
+        }
+        h += '<tr><td>' + r.rank + '</td><td>' + teamCell + '</td><td>' + r.gp + '</td><td>' + r.w + '</td><td>' + r.l + '</td><td>' + r.otl + '</td><td>' + r.pts + '</td></tr>';
+      });
+      h += '</tbody></table>';
+    });
+    el.innerHTML = h;
+  }
+
+  function paintPower(pr) {
+    var el = document.getElementById('home-power');
+    if (!el) return;
+    pr = pr || {};
+    var top = pr.top5 || [];
+    var bot = pr.bottom5 || [];
+    if (!top.length && !bot.length) {
+      el.innerHTML = '<p class="empty-state">No power ranking data.</p>';
+      return;
+    }
+    var thTeam = escapeAttr(
+      'Team: each row is one franchise. The logo links to the team profile when available; hover the logo for the full team name.'
+    );
+    var thPws = escapeAttr(
+      'PWS (power ranking score): composite rating blending recent win pace, goal differential per game, special teams net impact, and opponent strength from recent matchups.'
+    );
+    function powerTable(title, rows) {
+      var h = '<div class="home-power-block"><h3 class="home-trend-h">' + escape(title) + '</h3>';
+      h += '<table class="data home-power-table"><thead><tr>';
+      h += '<th scope="col" title="' + thTeam + '">Team</th>';
+      h += '<th scope="col" title="' + thPws + '">PWS</th>';
+      h += '</tr></thead><tbody>';
+      rows.forEach(function (r, i) {
+        var lab = String((r.name || r.abbr || 'Team') || '').trim();
+        var logo = r.logo_url
+          ? '<img src="' + escapeAttr(r.logo_url) + '" alt="' + escapeAttr(lab) + '" class="team-name-lockup__logo home-power-team-logo">'
+          : '';
+        var rank = '<span class="home-power-row-rank">' + (i + 1) + '</span>';
+        var teamCell = '';
+        if (r.slug && logo) {
+          teamCell =
+            rank +
+            '<a class="team-name-lockup team-name-lockup--icon home-power-tm" href="' +
+            withRoot('/team/' + escapeAttr(r.slug)) +
+            '" title="' +
+            escapeAttr(lab) +
+            '">' +
+            logo +
+            '</a>';
+        } else if (r.slug) {
+          teamCell =
+            rank +
+            '<a class="home-power-tm-fallback" href="' +
+            withRoot('/team/' + escapeAttr(r.slug)) +
+            '" title="' +
+            escapeAttr(lab) +
+            '">' +
+            escape(lab || '—') +
+            '</a>';
+        } else {
+          teamCell = rank + (logo || '<span class="visually-hidden">' + escape(lab) + '</span>');
+        }
+        h +=
+          '<tr><td class="home-power-td-team">' +
+          teamCell +
+          '</td><td class="home-power-td-pws">' +
+          (r.power_score != null ? escape(String(r.power_score)) : '—') +
+          '</td></tr>';
+      });
+      h += '</tbody></table></div>';
+      return h;
+    }
+    var h = '<div class="home-power-split">' + powerTable('Top 5', top) + powerTable('Bottom 5', bot) + '</div>';
+    el.innerHTML = h;
+  }
+
+  function paintAroundNews(around) {
+    var el = document.getElementById('home-news');
+    if (!el) return;
+    around = around || {};
+    if (!around.enabled && (!around.articles || !around.articles.length)) {
+      el.innerHTML = '<p class="muted">' + escape(around.message || 'No league news yet.') + '</p>';
+      return;
+    }
+    el.innerHTML = '<ul class="home-news-list"></ul>';
+  }
+
+  var championsTimer = null;
+  function paintChampions(panel) {
+    var el = document.getElementById('home-champions');
+    if (!el) return;
+    if (championsTimer) {
+      clearInterval(championsTimer);
+      championsTimer = null;
+    }
+    panel = panel || {};
+    var banners = panel.banner_urls || [];
+    var champs = panel.recent_champions || [];
+    if (!banners.length && !champs.length) {
+      el.innerHTML = '<p class="empty-state">No championship banners yet. Add images under league champions folder.</p>';
+      return;
+    }
+    if (!banners.length && champs.length) {
+      el.innerHTML = '<div id="home-champions-cap" class="home-champions__cap home-champions__cap--solo"></div>';
+      var cap = document.getElementById('home-champions-cap');
+      var idx = 0;
+      function tickText() {
+        var c = champs[idx % champs.length];
+        cap.innerHTML = '<strong>' + escape(c.season_label || '') + '</strong><br>' +
+          (c.team_slug ? '<a href="' + withRoot('/team/' + escapeAttr(c.team_slug)) + '">' + escape(c.team_name || '') + '</a>' : escape(c.team_name || '')) +
+          (c.trophy ? '<br><span class="muted">' + escape(c.trophy) + '</span>' : '');
+        idx += 1;
+      }
+      tickText();
+      championsTimer = setInterval(tickText, 5000);
+      return;
+    }
+    el.innerHTML = '<div class="home-champions__frame"><img id="home-champions-img" class="home-champions__img" src="" alt="Championship banner"><div id="home-champions-cap" class="home-champions__cap"></div></div>';
+    var img = document.getElementById('home-champions-img');
+    var cap = document.getElementById('home-champions-cap');
+    var idx = 0;
+    function tick() {
+      var bi = idx % Math.max(banners.length, 1);
+      var ci = idx % Math.max(champs.length, 1);
+      if (banners.length) img.src = banners[bi];
+      if (champs.length) {
+        var c = champs[ci];
+        cap.innerHTML = '<strong>' + escape(c.season_label || '') + '</strong> · ' +
+          (c.team_slug ? '<a href="' + withRoot('/team/' + escapeAttr(c.team_slug)) + '">' + escape(c.team_name || '') + '</a>' : escape(c.team_name || '')) +
+          (c.trophy ? ' · ' + escape(c.trophy) : '');
+      } else {
+        cap.textContent = '';
+      }
+      idx += 1;
+    }
+    tick();
+    championsTimer = setInterval(tick, 5000);
+  }
+
+  var specialTeamsRows = [];
+  var stSortKey = 'net_st';
+  var stSortDir = 'desc';
+  var rookiesSkaters = [];
+  var rookiesGoalies = [];
+  var rookiesCriteria = {};
+  var rkSkSortKey = 'ppg';
+  var rkSkSortDir = 'desc';
+  var rkGlSortKey = 'sv_pct';
+  var rkGlSortDir = 'desc';
+  function stNumeric(r, key) {
+    var v = r[key];
+    if (v == null || v === '') return null;
+    var n = Number(v);
+    return isNaN(n) ? null : n;
+  }
+  function stSortedRows() {
+    var rows = specialTeamsRows.slice();
+    var key = stSortKey;
+    rows.sort(function (a, b) {
+      var va = stNumeric(a, key);
+      var vb = stNumeric(b, key);
+      if (va == null && vb == null) { /* fall through */ }
+      else if (va == null) return 1;
+      else if (vb == null) return -1;
+      else {
+        var cmp = va - vb;
+        if (cmp !== 0) return stSortDir === 'desc' ? -cmp : cmp;
+      }
+      var na = String((a.team_name || a.team || '')).toLowerCase();
+      var nb = String((b.team_name || b.team || '')).toLowerCase();
+      return na.localeCompare(nb);
+    });
+    return rows;
+  }
+  function stSortAria(key) {
+    if (stSortKey !== key) return 'none';
+    return stSortDir === 'desc' ? 'descending' : 'ascending';
+  }
+  function paintSpecialTeams() {
+    var el = document.getElementById('home-special-teams');
+    if (!el) return;
+    if (!specialTeamsRows.length) {
+      el.innerHTML = '<p class="empty-state">No special-teams data yet.</p>';
+      return;
+    }
+    var rows = stSortedRows();
+    var h = '<table class="data home-special-teams-table"><thead><tr>' +
+      '<th title="Rank (follows current sort)">#</th>' +
+      '<th scope="col" title="Team"><span class="visually-hidden">Team</span></th>' +
+      '<th class="st-sort-th" scope="col"><button type="button" class="st-sort-btn" data-st-sort="pp_pct" title="Power Play Percentage" aria-sort="' + escapeAttr(stSortAria('pp_pct')) + '">PP%<span class="st-sort-ind" aria-hidden="true">' + (stSortKey === 'pp_pct' ? (stSortDir === 'desc' ? '▼' : '▲') : '') + '</span></button></th>' +
+      '<th class="st-sort-th" scope="col"><button type="button" class="st-sort-btn" data-st-sort="pk_pct" title="Penalty Kill Percentage" aria-sort="' + escapeAttr(stSortAria('pk_pct')) + '">PK%<span class="st-sort-ind" aria-hidden="true">' + (stSortKey === 'pk_pct' ? (stSortDir === 'desc' ? '▼' : '▲') : '') + '</span></button></th>' +
+      '<th class="st-sort-th" scope="col"><button type="button" class="st-sort-btn" data-st-sort="net_st" title="Net Special Teams (PP% + PK%)" aria-sort="' + escapeAttr(stSortAria('net_st')) + '">Net ST<span class="st-sort-ind" aria-hidden="true">' + (stSortKey === 'net_st' ? (stSortDir === 'desc' ? '▼' : '▲') : '') + '</span></button></th>' +
+      '</tr></thead><tbody>';
+    rows.forEach(function (r, i) {
+      var label = (r.team_name || r.team_city || r.name || r.team || 'Team').trim();
+      var href = r.team_slug ? withRoot('/team/' + escapeAttr(r.team_slug)) : '';
+      var teamCell = '';
+      if (r.team_logo_url && href) {
+        teamCell =
+          '<a class="home-special-teams-table__team-link team-name-lockup--icon" href="' +
+          href +
+          '" title="' +
+          escapeAttr(label) +
+          '"><img src="' +
+          escapeAttr(r.team_logo_url) +
+          '" alt="' +
+          escapeAttr(label) +
+          '" class="team-name-lockup__logo home-special-teams-table__logo"></a>';
+      } else if (href) {
+        teamCell = '<a class="home-special-teams-table__abbr-link" href="' + href + '" title="' + escapeAttr(label) + '">' + escape(String(r.team || '?')) + '</a>';
+      } else if (r.team_logo_url) {
+        teamCell =
+          '<img src="' +
+          escapeAttr(r.team_logo_url) +
+          '" alt="' +
+          escapeAttr(label) +
+          '" class="team-name-lockup__logo home-special-teams-table__logo">';
+      } else {
+        teamCell = '—';
+      }
+      h += '<tr><td>' + (i + 1) + '</td><td>' + teamCell + '</td><td>' + (r.pp_pct != null ? r.pp_pct.toFixed(1) : '—') + '</td><td>' + (r.pk_pct != null ? r.pk_pct.toFixed(1) : '—') + '</td><td>' + (r.net_st != null ? r.net_st.toFixed(1) : '—') + '</td></tr>';
+    });
+    h += '</tbody></table>';
+    el.innerHTML = h;
+    el.querySelectorAll('.st-sort-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var k = btn.getAttribute('data-st-sort');
+        if (!k) return;
+        if (stSortKey === k) stSortDir = stSortDir === 'desc' ? 'asc' : 'desc';
+        else { stSortKey = k; stSortDir = 'desc'; }
+        paintSpecialTeams();
+      });
+    });
+  }
+
+  function rkNum(r, key) {
+    var v = r[key];
+    if (v == null || v === '') return null;
+    var n = Number(v);
+    return isNaN(n) ? null : n;
+  }
+  function rkSkSortAria(key) {
+    if (rkSkSortKey !== key) return 'none';
+    return rkSkSortDir === 'desc' ? 'descending' : 'ascending';
+  }
+  function rkGlSortAria(key) {
+    if (rkGlSortKey !== key) return 'none';
+    return rkGlSortDir === 'desc' ? 'descending' : 'ascending';
+  }
+  function rkSkTieBreak(a, b) {
+    var d = rkNum(b, 'ppg') - rkNum(a, 'ppg');
+    if (d) return d;
+    d = (parseInt(b.points, 10) || 0) - (parseInt(a.points, 10) || 0);
+    if (d) return d;
+    return (parseInt(b.goals, 10) || 0) - (parseInt(a.goals, 10) || 0);
+  }
+  function rkGlTieBreak(a, b) {
+    var d = rkNum(b, 'sv_pct') - rkNum(a, 'sv_pct');
+    if (d) return d;
+    d = (parseInt(b.wins, 10) || 0) - (parseInt(a.wins, 10) || 0);
+    if (d) return d;
+    return (parseInt(b.minutes, 10) || 0) - (parseInt(a.minutes, 10) || 0);
+  }
+  function rkSortedSkaters() {
+    var rows = rookiesSkaters.slice();
+    var key = rkSkSortKey;
+    var desc = rkSkSortDir === 'desc';
+    rows.sort(function (a, b) {
+      var cmp = 0;
+      if (key === 'player') {
+        cmp = String(a.player || '').toLowerCase().localeCompare(String(b.player || '').toLowerCase());
+      } else if (key === 'team') {
+        cmp = String(a.team || '').toLowerCase().localeCompare(String(b.team || '').toLowerCase());
+      } else {
+        var va = rkNum(a, key);
+        var vb = rkNum(b, key);
+        if (va == null && vb == null) cmp = 0;
+        else if (va == null) cmp = -1;
+        else if (vb == null) cmp = 1;
+        else cmp = va - vb;
+      }
+      if (cmp !== 0) return desc ? -cmp : cmp;
+      return rkSkTieBreak(a, b);
+    });
+    return rows;
+  }
+  function rkSortedGoalies() {
+    var rows = rookiesGoalies.slice();
+    var key = rkGlSortKey;
+    var desc = rkGlSortDir === 'desc';
+    rows.sort(function (a, b) {
+      var cmp = 0;
+      if (key === 'player') {
+        cmp = String(a.player || '').toLowerCase().localeCompare(String(b.player || '').toLowerCase());
+      } else if (key === 'team') {
+        cmp = String(a.team || '').toLowerCase().localeCompare(String(b.team || '').toLowerCase());
+      } else {
+        var va = rkNum(a, key);
+        var vb = rkNum(b, key);
+        if (va == null && vb == null) cmp = 0;
+        else if (va == null) cmp = -1;
+        else if (vb == null) cmp = 1;
+        else cmp = va - vb;
+      }
+      if (cmp !== 0) return desc ? -cmp : cmp;
+      return rkGlTieBreak(a, b);
+    });
+    return rows;
+  }
+  function rookieTmCell(r) {
+    var abbr = escape(r.team || '—');
+    var tlab = escapeAttr(String(r.team || 'Team'));
+    var logo = r.team_logo_url
+      ? '<img src="' + escapeAttr(r.team_logo_url) + '" alt="' + tlab + '" class="team-name-lockup__logo home-rookies-table__logo-tm">'
+      : '';
+    if (r.team_slug && logo) {
+      return '<a class="team-name-lockup team-name-lockup--icon home-rookies-table__tm" href="' + withRoot('/team/' + escapeAttr(r.team_slug)) + '" title="' + escapeAttr(String(r.team || '')) + '">' + logo + '</a>';
+    }
+    if (r.team_slug) {
+      return '<a class="home-rookies-table__tm-link" href="' + withRoot('/team/' + escapeAttr(r.team_slug)) + '">' + abbr + '</a>';
+    }
+    return logo || abbr;
+  }
+  function paintRookies() {
+    var el = document.getElementById('home-rookies');
+    if (!el) return;
+    if (!rookiesSkaters.length && !rookiesGoalies.length) {
+      el.innerHTML = '<p class="empty-state">No rookie-qualified players found yet.</p>';
+      return;
+    }
+    var c = rookiesCriteria || {};
+    var h = '';
+    h += '<p class="muted" style="margin:0 0 0.45rem;font-size:0.82rem;">' +
+      'Skaters: max 10, min ' + escape(String(c.skater_min_gp || 0)) + ' GP. ' +
+      'Goalies: max 5, min ' + escape(String(c.goalie_min_minutes || 0)) + ' minutes.' +
+      '</p>';
+    var skInd = function (k) {
+      return rkSkSortKey === k ? (rkSkSortDir === 'desc' ? '▼' : '▲') : '';
+    };
+    var glInd = function (k) {
+      return rkGlSortKey === k ? (rkGlSortDir === 'desc' ? '▼' : '▲') : '';
+    };
+    if (rookiesSkaters.length) {
+      h += '<h3 style="margin:0.25rem 0 0.45rem;font-size:0.92rem;">Skaters</h3>';
+      h += '<table class="data home-rookies-table home-rookies-table--skaters"><thead><tr>' +
+        '<th title="Rank (follows current sort)">#</th>' +
+        '<th class="st-sort-th" scope="col"><button type="button" class="st-sort-btn" data-rk-sk-sort="player" aria-sort="' + escapeAttr(rkSkSortAria('player')) + '">Player<span class="st-sort-ind" aria-hidden="true">' + skInd('player') + '</span></button></th>' +
+        '<th class="st-sort-th" scope="col"><button type="button" class="st-sort-btn" data-rk-sk-sort="team" title="Team" aria-sort="' + escapeAttr(rkSkSortAria('team')) + '">TM<span class="st-sort-ind" aria-hidden="true">' + skInd('team') + '</span></button></th>' +
+        '<th class="st-sort-th" scope="col"><button type="button" class="st-sort-btn" data-rk-sk-sort="gp" aria-sort="' + escapeAttr(rkSkSortAria('gp')) + '">GP<span class="st-sort-ind" aria-hidden="true">' + skInd('gp') + '</span></button></th>' +
+        '<th class="st-sort-th" scope="col"><button type="button" class="st-sort-btn" data-rk-sk-sort="goals" aria-sort="' + escapeAttr(rkSkSortAria('goals')) + '">G<span class="st-sort-ind" aria-hidden="true">' + skInd('goals') + '</span></button></th>' +
+        '<th class="st-sort-th" scope="col"><button type="button" class="st-sort-btn" data-rk-sk-sort="assists" aria-sort="' + escapeAttr(rkSkSortAria('assists')) + '">A<span class="st-sort-ind" aria-hidden="true">' + skInd('assists') + '</span></button></th>' +
+        '<th class="st-sort-th" scope="col"><button type="button" class="st-sort-btn" data-rk-sk-sort="points" aria-sort="' + escapeAttr(rkSkSortAria('points')) + '">PTS<span class="st-sort-ind" aria-hidden="true">' + skInd('points') + '</span></button></th>' +
+        '<th class="st-sort-th" scope="col"><button type="button" class="st-sort-btn" data-rk-sk-sort="ppg" aria-sort="' + escapeAttr(rkSkSortAria('ppg')) + '">P/GP<span class="st-sort-ind" aria-hidden="true">' + skInd('ppg') + '</span></button></th>' +
+        '</tr></thead><tbody>';
+      rkSortedSkaters().slice(0, 10).forEach(function (r, i) {
+        var ph = r.player_photo_url
+          ? '<img src="' + escapeAttr(r.player_photo_url) + '" alt="" loading="lazy" decoding="async">'
+          : '<span class="home-leader-player__photo-ph" aria-hidden="true"></span>';
+        var playerCell = '<span class="home-leader-player"><span class="home-leader-player__photo">' + ph + '</span><a class="home-leader-player__name" href="' + withRoot('/player/' + r.player_id) + '">' + escape(r.player) + '</a></span>';
+        h += '<tr><td>' + (i + 1) + '</td><td>' + playerCell + '</td><td>' + rookieTmCell(r) + '</td><td>' + (r.gp || 0) + '</td><td>' + (r.goals != null ? r.goals : 0) + '</td><td>' + (r.assists != null ? r.assists : 0) + '</td><td>' + (r.points != null ? r.points : 0) + '</td><td>' + (r.ppg != null ? r.ppg.toFixed(3) : '0.000') + '</td></tr>';
+      });
+      h += '</tbody></table>';
+    }
+    if (rookiesGoalies.length) {
+      var gSorted = rkSortedGoalies();
+      var gShow = gSorted.slice(0, 5);
+      h += '<h3 style="margin:0.75rem 0 0.45rem;font-size:0.92rem;">Goalies</h3>';
+      h += '<table class="data home-rookies-table home-rookies-table--goalies"><thead><tr>' +
+        '<th title="Rank (follows current sort)">#</th>' +
+        '<th class="st-sort-th" scope="col"><button type="button" class="st-sort-btn" data-rk-gl-sort="player" aria-sort="' + escapeAttr(rkGlSortAria('player')) + '">Goalie<span class="st-sort-ind" aria-hidden="true">' + glInd('player') + '</span></button></th>' +
+        '<th class="st-sort-th" scope="col"><button type="button" class="st-sort-btn" data-rk-gl-sort="team" title="Team" aria-sort="' + escapeAttr(rkGlSortAria('team')) + '">TM<span class="st-sort-ind" aria-hidden="true">' + glInd('team') + '</span></button></th>' +
+        '<th class="st-sort-th" scope="col"><button type="button" class="st-sort-btn" data-rk-gl-sort="gp" aria-sort="' + escapeAttr(rkGlSortAria('gp')) + '">GP<span class="st-sort-ind" aria-hidden="true">' + glInd('gp') + '</span></button></th>' +
+        '<th class="st-sort-th" scope="col"><button type="button" class="st-sort-btn" data-rk-gl-sort="wins" aria-sort="' + escapeAttr(rkGlSortAria('wins')) + '">W<span class="st-sort-ind" aria-hidden="true">' + glInd('wins') + '</span></button></th>' +
+        '<th class="st-sort-th" scope="col"><button type="button" class="st-sort-btn" data-rk-gl-sort="so" aria-sort="' + escapeAttr(rkGlSortAria('so')) + '">SO<span class="st-sort-ind" aria-hidden="true">' + glInd('so') + '</span></button></th>' +
+        '<th class="st-sort-th" scope="col"><button type="button" class="st-sort-btn" data-rk-gl-sort="gaa" aria-sort="' + escapeAttr(rkGlSortAria('gaa')) + '">GAA<span class="st-sort-ind" aria-hidden="true">' + glInd('gaa') + '</span></button></th>' +
+        '<th class="st-sort-th" scope="col"><button type="button" class="st-sort-btn" data-rk-gl-sort="sv_pct" aria-sort="' + escapeAttr(rkGlSortAria('sv_pct')) + '">SV%<span class="st-sort-ind" aria-hidden="true">' + glInd('sv_pct') + '</span></button></th>' +
+        '</tr></thead><tbody>';
+      gShow.forEach(function (r, i) {
+        var ph = r.player_photo_url
+          ? '<img src="' + escapeAttr(r.player_photo_url) + '" alt="" loading="lazy" decoding="async">'
+          : '<span class="home-leader-player__photo-ph" aria-hidden="true"></span>';
+        var goalieCell = '<span class="home-leader-player"><span class="home-leader-player__photo">' + ph + '</span><a class="home-leader-player__name" href="' + withRoot('/player/' + r.player_id) + '">' + escape(r.player) + '</a></span>';
+        h += '<tr><td>' + (i + 1) + '</td><td>' + goalieCell + '</td><td>' + rookieTmCell(r) + '</td><td>' + (r.gp || 0) + '</td><td>' + (r.wins != null ? r.wins : 0) + '</td><td>' + (r.so != null ? r.so : 0) + '</td><td>' + (r.gaa != null ? Number(r.gaa).toFixed(2) : '—') + '</td><td>' + (r.sv_pct != null ? r.sv_pct.toFixed(3) : '—') + '</td></tr>';
+      });
+      h += '</tbody></table>';
+    }
+    el.innerHTML = h;
+    el.querySelectorAll('[data-rk-sk-sort]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var k = btn.getAttribute('data-rk-sk-sort');
+        if (!k) return;
+        if (rkSkSortKey === k) rkSkSortDir = rkSkSortDir === 'desc' ? 'asc' : 'desc';
+        else { rkSkSortKey = k; rkSkSortDir = 'desc'; }
+        paintRookies();
+      });
+    });
+    el.querySelectorAll('[data-rk-gl-sort]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var k = btn.getAttribute('data-rk-gl-sort');
+        if (!k) return;
+        if (rkGlSortKey === k) rkGlSortDir = rkGlSortDir === 'desc' ? 'asc' : 'desc';
+        else { rkGlSortKey = k; rkGlSortDir = 'desc'; }
+        paintRookies();
+      });
+    });
+    syncPlayerHoverCards();
+  }
+
+  function rowSpotlight(s) {
+    var items = (s && s.items) || [];
+    if (!items.length) return '<p class="empty-state">No league-specific notes available.</p>';
+    var h = '<table class="data"><thead><tr><th>Category</th><th>Value</th><th>Detail</th></tr></thead><tbody>';
+    items.forEach(function (it) {
+      h += '<tr><td>' + escape(it.label || '') + '</td><td>' + escape(it.value || '—') + '</td><td>' + escape(it.detail || '') + '</td></tr>';
     });
     h += '</tbody></table>';
     return h;
   }
+
+  function capSpotlightLogo(line) {
+    var name = String((line && line.team_name) || '').trim();
+    if (line && line.team_logo_url && line.team_slug) {
+      return (
+        '<a class="team-name-lockup team-name-lockup--icon home-cap-spot-tm" href="' +
+        withRoot('/team/' + escapeAttr(line.team_slug)) +
+        '" title="' +
+        escapeAttr(name) +
+        '"><img class="team-name-lockup__logo home-cap-spot-logo" src="' +
+        escapeAttr(line.team_logo_url) +
+        '" alt="' +
+        escapeAttr(name) +
+        '"></a>'
+      );
+    }
+    if (line && line.team_slug) {
+      return (
+        '<a class="home-cap-spot-fa" href="' +
+        withRoot('/team/' + escapeAttr(line.team_slug)) +
+        '">' +
+        escape(name || '—') +
+        '</a>'
+      );
+    }
+    return '<span class="muted">' + escape(name || 'FA') + '</span>';
+  }
+
+  function capSpotlightLine(line) {
+    if (!line) return '—';
+    var sal =
+      line.salary != null && line.salary !== ''
+        ? ' <span class="home-cap-spot-salary">$' + Number(line.salary).toLocaleString('en-US') + '</span>'
+        : '';
+    return (
+      '<span class="home-cap-spot-line"><span class="home-cap-spot-player">' +
+      escape(line.player || '') +
+      '</span> ' +
+      capSpotlightLogo(line) +
+      sal +
+      '</span>'
+    );
+  }
+
+  function rowCapSpotlight(s) {
+    var items = (s && s.items) || [];
+    if (!items.length) return '<p class="empty-state">No league-specific notes available.</p>';
+    var h =
+      '<table class="data home-cap-spotlight-table"><thead><tr><th>Category</th><th>Value</th><th>Detail</th></tr></thead><tbody>';
+    items.forEach(function (it) {
+      h += '<tr><td>' + escape(it.label || '') + '</td>';
+      if (it.cap_lines && it.cap_lines.length) {
+        var lines = it.cap_lines;
+        h += '<td class="home-cap-spot-td">' + capSpotlightLine(lines[0]) + '</td>';
+        h +=
+          '<td class="home-cap-spot-td">' +
+          (lines.length > 1
+            ? lines
+                .slice(1)
+                .map(capSpotlightLine)
+                .join('<span class="home-cap-spot-sep" aria-hidden="true"> | </span>')
+            : '—') +
+          '</td>';
+      } else if (it.team_logo_url && it.team_slug) {
+        h +=
+          '<td class="home-cap-spot-td">' +
+          capSpotlightLogo(it) +
+          '</td><td>' +
+          escape(it.detail || '') +
+          '</td>';
+      } else {
+        h +=
+          '<td>' +
+          escape(it.value != null && it.value !== '' ? String(it.value) : '—') +
+          '</td><td>' +
+          escape(it.detail || '') +
+          '</td>';
+      }
+      h += '</tr>';
+    });
+    h += '</tbody></table>';
+    return h;
+  }
+
+  function miscStatsTeamCell(it) {
+    var name = String(it.team_name || '').trim();
+    var logo = it.team_logo_url
+      ? '<img src="' + escapeAttr(it.team_logo_url) + '" alt="' + escapeAttr(name || 'Team') + '" class="team-name-lockup__logo home-identity-team-logo">'
+      : '';
+    if (it.team_slug && logo) {
+      return (
+        '<a class="team-name-lockup team-name-lockup--icon home-identity-tm" href="' +
+        withRoot('/team/' + escapeAttr(it.team_slug)) +
+        '" title="' +
+        escapeAttr(name) +
+        '">' +
+        logo +
+        '</a>'
+      );
+    }
+    if (it.team_slug) {
+      return (
+        '<a class="home-identity-tm-fallback" href="' +
+        withRoot('/team/' + escapeAttr(it.team_slug)) +
+        '" title="' +
+        escapeAttr(name) +
+        '">' +
+        escape(name || it.value || '—') +
+        '</a>'
+      );
+    }
+    return logo || escape(it.value || '—');
+  }
+
+  function rowMiscStatsPanel(s) {
+    var items = (s && s.items) || [];
+    if (!items.length) return '<p class="empty-state">No statistics available.</p>';
+    var h =
+      '<table class="data home-misc-stats-table"><thead><tr><th>Category</th><th>Team</th><th>Detail</th></tr></thead><tbody>';
+    items.forEach(function (it) {
+      h +=
+        '<tr><td>' +
+        escape(it.label || '') +
+        '</td><td class="home-misc-stats-td-team">' +
+        miscStatsTeamCell(it) +
+        '</td><td>' +
+        escape(it.detail || '') +
+        '</td></tr>';
+    });
+    h += '</tbody></table>';
+    return h;
+  }
+
+  function formatLeagueScheduleCardDate(iso) {
+    if (!iso) return 'DATE TBD';
+    var d = new Date(iso + 'T12:00:00');
+    if (isNaN(d.getTime())) return 'DATE TBD';
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase();
+  }
+
+  function leagueScheduleCardHtml(g, i, focusIdx) {
+    var st = String(g.status || '').toLowerCase();
+    var isFinal = st === 'final';
+    var isNext = i === focusIdx && !isFinal;
+    var isFuture = !isFinal && !isNext;
+    var cardCls = 'team-schedule-card';
+    if (isFinal) cardCls += ' team-schedule-card--past';
+    else if (isNext) cardCls += ' team-schedule-card--next';
+    else cardCls += ' team-schedule-card--future';
+    var awLogo = g.away_logo_url
+      ? '<img class="team-schedule-card__logo" src="' + escapeAttr(g.away_logo_url) + '" alt="">'
+      : '';
+    var hmLogo = g.home_logo_url
+      ? '<img class="team-schedule-card__logo" src="' + escapeAttr(g.home_logo_url) + '" alt="">'
+      : '';
+    var awAb = escape(String(g.away_abbr || '').trim() || '—');
+    var hmAb = escape(String(g.home_abbr || '').trim() || '—');
+    var body;
+    if (isNext) {
+      body =
+        '<span class="team-schedule-card__logos team-schedule-card__logos--pair">' +
+        awLogo +
+        '<span class="team-schedule-card__vs">vs</span>' +
+        hmLogo +
+        '</span><span class="team-schedule-card__sub">League · ' +
+        awAb +
+        ' @ ' +
+        hmAb +
+        '</span>';
+    } else {
+      body =
+        '<span class="team-schedule-card__logos team-schedule-card__logos--pair">' +
+        awLogo +
+        '<span class="team-schedule-card__vs">@</span>' +
+        hmLogo +
+        '</span><span class="team-schedule-card__opp">' +
+        awAb +
+        ' @ ' +
+        hmAb +
+        '</span>';
+      if (isFuture) body += '<span class="team-schedule-card__sub">Scheduled</span>';
+    }
+    var footer;
+    if (isFinal) {
+      var hs = g.home_score;
+      var aws = g.away_score;
+      if (aws != null && hs != null) {
+        if (Number(aws) === Number(hs)) {
+          footer = '<span class="team-schedule-card__result">T ' + aws + '-' + hs + '</span>';
+        } else {
+          footer = '<span class="team-schedule-card__result">Final ' + aws + '-' + hs + '</span>';
+        }
+      } else {
+        footer = '<span class="team-schedule-card__result">Final</span>';
+      }
+    } else if (isNext) {
+      footer = '<span class="team-schedule-card__cta">Preview</span>';
+    } else {
+      footer = '<span class="team-schedule-card__cta team-schedule-card__cta--ghost">Preview</span>';
+    }
+    return (
+      '<a class="' +
+      cardCls +
+      '" href="' +
+      withRoot('/game/' + g.id) +
+      '"><span class="team-schedule-card__date">' +
+      escape(formatLeagueScheduleCardDate(g.date)) +
+      '</span><div class="team-schedule-card__body">' +
+      body +
+      '</div><span class="team-schedule-card__footer">' +
+      footer +
+      '</span></a>'
+    );
+  }
+
+  function paintLeagueScheduleStrip(gamesRecent, upcoming) {
+    var track = document.getElementById('home-league-schedule-track');
+    var emptyEl = document.getElementById('home-schedule-empty');
+    if (!track) return;
+    var byId = {};
+    var merged = [];
+    function pushUnique(g) {
+      if (!g || g.id == null || byId[g.id]) return;
+      byId[g.id] = true;
+      merged.push(g);
+    }
+    (gamesRecent || []).slice().reverse().forEach(pushUnique);
+    (upcoming || []).forEach(pushUnique);
+    merged.sort(function (a, b) {
+      var da = a.date || '';
+      var db = b.date || '';
+      if (da !== db) return da < db ? -1 : da > db ? 1 : 0;
+      return (a.id || 0) - (b.id || 0);
+    });
+    var focusIdx = 0;
+    if (merged.length) {
+      var allFinal = merged.every(function (g) {
+        return String(g.status || '').toLowerCase() === 'final';
+      });
+      if (allFinal) {
+        focusIdx = merged.length - 1;
+      } else {
+        for (var j = 0; j < merged.length; j++) {
+          if (String(merged[j].status || '').toLowerCase() !== 'final') {
+            focusIdx = j;
+            break;
+          }
+        }
+      }
+    }
+    track.setAttribute('data-focus-index', String(focusIdx));
+    if (!merged.length) {
+      track.innerHTML = '';
+      if (emptyEl) emptyEl.hidden = false;
+    } else {
+      if (emptyEl) emptyEl.hidden = true;
+      var parts = [];
+      for (var k = 0; k < merged.length; k++) {
+        parts.push(leagueScheduleCardHtml(merged[k], k, focusIdx));
+      }
+      track.innerHTML = parts.join('');
+    }
+    if (window.BOWL && typeof window.BOWL.scrollScheduleTracksToFocus === 'function') {
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          window.BOWL.scrollScheduleTracksToFocus();
+        });
+      });
+    }
+  }
+
   var leaderStatLabels = {
     goals: 'Goals',
     assists: 'Assists',
@@ -108,12 +1148,7 @@
     h += '</tbody></table>';
     return h;
   }
-  function escape(s) {
-    var d = document.createElement('div');
-    d.textContent = s;
-    return d.innerHTML;
-  }
-  var seg = 'rs';
+
   var leaderData = { goals: [], assists: [], points: [], goalie_wins: [], goalie_shutouts: [] };
   var leaderTab = 'goals';
   var elLeaders = document.getElementById('home-leaders');
@@ -125,6 +1160,7 @@
       b.classList.toggle('is-active', on);
       b.setAttribute('aria-selected', on ? 'true' : 'false');
     });
+    syncPlayerHoverCards();
   }
   document.querySelectorAll('.mini-leaders .subtabs button').forEach(function (b) {
     b.addEventListener('click', function () {
@@ -132,58 +1168,83 @@
       paintLeaders();
     });
   });
+
+  var seg = 'rs';
   function loadSummary() {
+    var errEl = document.getElementById('home-load-error');
+    if (errEl) errEl.hidden = true;
     fetch(withRoot('/api/homepage/summary?segment=' + encodeURIComponent(seg)))
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        document.getElementById('home-teams').innerHTML = rowTeams(data.teams || []);
+        document.getElementById('home-gotn').innerHTML = rowGameSpotlight(data.game_of_the_night);
+        document.getElementById('home-ngtw').innerHTML = rowGameSpotlight(data.next_game_to_watch, { includeBoxscore: false });
+        document.getElementById('home-stars-7').innerHTML = rowStarsMini(data.stars_last_7d);
+        document.getElementById('home-stars-14').innerHTML = rowStarsMini(data.stars_last_14d);
+        document.getElementById('home-stars-30').innerHTML = rowStarsMini(data.stars_last_30d);
+        document.getElementById('home-trending').innerHTML = rowTrending(data.trending_players);
+        document.getElementById('home-streaks').innerHTML = rowStreaks(data.active_streaks);
+        paintStandingsDiv(data.standings_by_division || data.standings_by_conference || []);
+        paintPower(data.power_rankings || {});
+        paintChampions(data.champions_panel || {});
+        paintAroundNews(data.around_the_league || {});
+
         leaderData = data.leaders || leaderData;
         leaderTab = 'goals';
         paintLeaders();
+
+        specialTeamsRows = data.special_teams || [];
+        stSortKey = 'net_st';
+        stSortDir = 'desc';
+        paintSpecialTeams();
+        rookiesSkaters = (data.rookies && data.rookies.skaters) || [];
+        rookiesGoalies = (data.rookies && data.rookies.goalies) || [];
+        rookiesCriteria = (data.rookies && data.rookies.criteria) || {};
+        rkSkSortKey = 'ppg';
+        rkSkSortDir = 'desc';
+        rkGlSortKey = 'sv_pct';
+        rkGlSortDir = 'desc';
+        paintRookies();
+
+        var spotlight = data.league_spotlight || {};
+        var spotEl = document.getElementById('home-spotlight');
+        var spotCard = document.getElementById('home-spotlight-card');
+        if (spotEl) {
+          var titleEl = document.getElementById('spotlight-h');
+          var items = spotlight.items || [];
+          if (spotCard) spotCard.hidden = !items.length;
+          if (items.length) {
+            if (titleEl && spotlight.title) titleEl.textContent = spotlight.title;
+            spotEl.innerHTML =
+              spotlight.format === 'cap_logos' ? rowCapSpotlight(spotlight) : rowSpotlight(spotlight);
+          } else {
+            spotEl.innerHTML = '';
+          }
+        }
+        var idPanel = data.identity_panel;
+        var idCard = document.getElementById('home-identity-panel-card');
+        var idTitle = document.getElementById('identity-panel-h');
+        var idEl = document.getElementById('home-identity-panel');
+        if (idCard && idTitle && idEl) {
+          var idItems = (idPanel && idPanel.items) ? idPanel.items : [];
+          if (idItems.length) {
+            idCard.hidden = false;
+            idTitle.textContent = (idPanel && idPanel.title) ? idPanel.title : 'Misc. Statistics';
+            idEl.innerHTML = rowMiscStatsPanel(idPanel || {});
+          } else {
+            idCard.hidden = true;
+            idTitle.textContent = '';
+            idEl.innerHTML = '';
+          }
+        }
+        paintLeagueScheduleStrip(data.games || [], data.upcoming || []);
+
         document.querySelectorAll('a.seg-pick').forEach(function (a) {
           a.style.fontWeight = a.getAttribute('data-seg') === seg ? '700' : '400';
         });
-        var gg = document.getElementById('home-games');
-        gg.innerHTML = '';
-        var games = data.games || [];
-        if (!games.length) {
-          document.getElementById('home-games-empty').hidden = false;
-          return;
-        }
-        document.getElementById('home-games-empty').hidden = true;
-        games.forEach(function (g) {
-          var det = document.createElement('details');
-          det.className = 'game-card';
-          det.dataset.gameId = g.id;
-          var sum = document.createElement('summary');
-          var gt = g.game_type ? ' · ' + escape(g.game_type) : '';
-          var awImg = g.away_logo_url
-            ? '<img src="' + escapeAttr(g.away_logo_url) + '" alt="" class="team-name-lockup__logo">'
-            : '';
-          var hmImg = g.home_logo_url
-            ? '<img src="' + escapeAttr(g.home_logo_url) + '" alt="" class="team-name-lockup__logo">'
-            : '';
-          var aw = '<span class="team-name-lockup">' + awImg + '<span class="team-name-lockup__text">' + escape(g.away_name || '') + '</span></span>';
-          var hm = '<span class="team-name-lockup">' + hmImg + '<span class="team-name-lockup__text">' + escape(g.home_name || '') + '</span></span>';
-          sum.innerHTML = '<span class="muted">' + escape(g.date || '') + gt + '</span> ' +
-            '<span class="scoreline"><span>' + aw + ' ' + (g.away_score != null ? g.away_score : '—') + '</span> <span>@</span> <span>' + hm + ' ' + (g.home_score != null ? g.home_score : '—') + '</span></span>' +
-            ' <a href="' + withRoot('/game/' + g.id) + '" class="boxscore-summary-link" onclick="event.stopPropagation()">Boxscore</a>';
-          det.appendChild(sum);
-          var inner = document.createElement('div');
-          inner.className = 'box-inner';
-          inner.setAttribute('data-loaded', '0');
-          det.appendChild(inner);
-          det.addEventListener('toggle', function () {
-            if (!det.open) return;
-            if (inner.getAttribute('data-loaded') === '1') return;
-            inner.setAttribute('data-loaded', '1');
-            window.BOWL.loadBoxScore(g.id, inner);
-          });
-          gg.appendChild(det);
-        });
+        syncPlayerHoverCards();
       })
       .catch(function () {
-        document.getElementById('home-teams').innerHTML = '<p class="empty-state">Could not load summary.</p>';
+        if (errEl) errEl.hidden = false;
       });
   }
   document.querySelectorAll('a.seg-pick').forEach(function (a) {
@@ -193,6 +1254,28 @@
       loadSummary();
     });
   });
+
+  (function initStarWindowTabs() {
+    var root = document.querySelector('.home-dashboard__stars-card');
+    if (!root) return;
+    var tabs = root.querySelectorAll('.home-dashboard__tab');
+    var panels = [
+      document.getElementById('home-stars-panel-7'),
+      document.getElementById('home-stars-panel-14'),
+      document.getElementById('home-stars-panel-30')
+    ];
+    tabs.forEach(function (tab, i) {
+      tab.addEventListener('click', function () {
+        tabs.forEach(function (t, j) {
+          var on = j === i;
+          t.classList.toggle('is-active', on);
+          t.setAttribute('aria-selected', on ? 'true' : 'false');
+          if (panels[j]) panels[j].hidden = !on;
+        });
+      });
+    });
+  })();
+
   loadSummary();
 })();
 </script>

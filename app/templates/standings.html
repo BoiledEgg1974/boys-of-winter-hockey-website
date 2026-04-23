@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros/team.html" import team_lockup with context %}
+{% from "macros/team.html" import team_lockup_full_name with context %}
 {% block title %}Standings — Boys of Winter Hockey League{% endblock %}
 {% macro team_stats_panel(title, rows) -%}
 {% if rows %}
@@ -38,7 +38,7 @@
         {% set pk_pct = (100.0 - (100.0 * agg.pk_goals_against / agg.sh_chances)) if agg and agg.sh_chances and agg.sh_chances > 0 and agg.pk_goals_against is not none else none %}
         <tr{% if config.LEAGUE_SLUG == 'bowl-cap' and view == 'conference' and sel_conference and loop.index == 9 %} class="standings-cutline"{% endif %}>
           <td data-sort-value="{{ loop.index0 }}">{{ loop.index }}</td>
-          <td data-sort-value="{{ team.slug }}">{{ team_lockup(team) }}</td>
+          <td data-sort-value="{{ (team.full_display_name() or team.slug)|lower }}">{{ team_lockup_full_name(team) }}</td>
           {% if agg %}
           <td data-sort-value="{{ agg.shots_for if agg.shots_for is not none else '' }}">{{ agg.shots_for if agg.shots_for is not none else '—' }}</td>
           <td data-sort-value="{{ agg.shots_against if agg.shots_against is not none else '' }}">{{ agg.shots_against if agg.shots_against is not none else '—' }}</td>
@@ -118,9 +118,9 @@
         {% set diff_v = st.gf - st.ga %}
         <tr{% if config.LEAGUE_SLUG == 'bowl-cap' and view == 'conference' and sel_conference and loop.index == 9 %} class="standings-cutline"{% endif %}>
           <td data-sort-value="{{ loop.index0 }}">{{ loop.index }}</td>
-          <td data-sort-value="{{ st.team.slug }}">{{ team_lockup(st.team) }}</td>
+          <td data-sort-value="{{ (st.team.full_display_name() or st.team.slug)|lower }}">{{ team_lockup_full_name(st.team) }}</td>
           {% if view != 'overall' %}<td data-sort-value="{{ ((st.conference_label or '') ~ ' ' ~ (st.division_label or st.division or ''))|lower }}">{{ st.conference_label or '—' }} / {{ st.division_label or st.division or '—' }}</td>{% endif %}
-          <td data-sort-value="{{ st.gp }}">{{ st.gp }}</td><td data-sort-value="{{ st.w }}">{{ st.w }}</td><td data-sort-value="{{ st.l }}">{{ st.l }}</td><td data-sort-value="{{ st.ties }}">{{ st.ties }}</td><td data-sort-value="{{ st.otl }}">{{ st.otl }}</td>
+          <td data-sort-value="{{ st.standing_gp_display() }}">{{ st.standing_gp_display() }}</td><td data-sort-value="{{ st.w }}">{{ st.w }}</td><td data-sort-value="{{ st.l }}">{{ st.l }}</td><td data-sort-value="{{ st.ties }}">{{ st.ties }}</td><td data-sort-value="{{ st.otl }}">{{ st.otl }}</td>
           <td data-sort-value="{{ st.shootout_wins }}">{{ st.shootout_wins }}</td><td data-sort-value="{{ st.shootout_losses }}">{{ st.shootout_losses }}</td><td data-sort-value="{{ st.pts }}">{{ st.pts }}</td>
           <td data-sort-value="{{ '%.6f'|format(st.win_pct) if st.win_pct is not none else '' }}">{{ '%.3f'|format(st.win_pct) if st.win_pct is not none else '—' }}</td>
           <td data-sort-value="{{ st.gf }}">{{ st.gf }}</td><td data-sort-value="{{ st.ga }}">{{ st.ga }}</td>

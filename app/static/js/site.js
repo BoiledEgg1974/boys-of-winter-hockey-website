@@ -223,16 +223,20 @@
     });
     card.addEventListener("mouseleave", scheduleHide);
 
-    document.querySelectorAll('a[href*="/player/"]').forEach(function (a) {
-      if (a.getAttribute("data-player-hover-bound") === "1") return;
-      var playerId = playerIdFromHref(a.getAttribute("href"));
-      if (!playerId) return;
-      a.setAttribute("data-player-hover-bound", "1");
-      a.addEventListener("mouseenter", function () { showFor(a, playerId); });
-      a.addEventListener("mouseleave", scheduleHide);
-      a.addEventListener("focusin", function () { showFor(a, playerId); });
-      a.addEventListener("focusout", scheduleHide);
-    });
+    function bindPlayerHoverAnchors() {
+      document.querySelectorAll('a[href*="/player/"]').forEach(function (a) {
+        if (a.getAttribute("data-player-hover-bound") === "1") return;
+        var playerId = playerIdFromHref(a.getAttribute("href"));
+        if (!playerId) return;
+        a.setAttribute("data-player-hover-bound", "1");
+        a.addEventListener("mouseenter", function () { showFor(a, playerId); });
+        a.addEventListener("mouseleave", scheduleHide);
+        a.addEventListener("focusin", function () { showFor(a, playerId); });
+        a.addEventListener("focusout", scheduleHide);
+      });
+    }
+
+    bindPlayerHoverAnchors();
 
     window.addEventListener("scroll", function () {
       if (!card.hidden && activeAnchor) moveCardNear(activeAnchor);
@@ -240,6 +244,8 @@
     window.addEventListener("resize", function () {
       if (!card.hidden && activeAnchor) moveCardNear(activeAnchor);
     });
+
+    return bindPlayerHoverAnchors;
   }
 
   const THEME_KEY = "bowl-universe-theme";
@@ -266,9 +272,19 @@
     applyTheme(next);
   }
 
+  function scrollScheduleTrackToFocus(track) {
+    if (!track) return;
+    var idx = parseInt(track.getAttribute("data-focus-index") || "0", 10);
+    var cards = track.querySelectorAll(".team-schedule-card");
+    if (!cards.length || idx < 0 || idx >= cards.length) return;
+    var el = cards[idx];
+    var target = el.offsetLeft - (track.clientWidth - el.offsetWidth) / 2;
+    track.scrollLeft = Math.max(0, target);
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
     applyTheme(getPreferredTheme());
-    initPlayerHoverCards();
+    window.bindPlayerHoverAnchors = initPlayerHoverCards();
     document.querySelectorAll(".theme-toggle").forEach(function (el) {
       el.addEventListener("click", toggleTheme);
     });
@@ -341,11 +357,13 @@
       }
     }
 
-    document.querySelectorAll("[data-team-schedule-carousel]").forEach(function (root) {
+    function bindScheduleCarousel(root) {
+      if (!root || root.getAttribute("data-carousel-bound") === "1") return;
       var track = root.querySelector(".team-schedule-carousel__track");
       var prevBtn = root.querySelector(".team-schedule-carousel__btn--prev");
       var nextBtn = root.querySelector(".team-schedule-carousel__btn--next");
       if (!track) return;
+      root.setAttribute("data-carousel-bound", "1");
 
       function stepScroll(dir) {
         var card = track.querySelector(".team-schedule-card");
@@ -359,18 +377,15 @@
       if (nextBtn) nextBtn.addEventListener("click", function () { stepScroll(1); });
 
       function scrollToFocus() {
-        var idx = parseInt(track.getAttribute("data-focus-index") || "0", 10);
-        var cards = track.querySelectorAll(".team-schedule-card");
-        if (!cards.length || idx < 0 || idx >= cards.length) return;
-        var el = cards[idx];
-        var target = el.offsetLeft - (track.clientWidth - el.offsetWidth) / 2;
-        track.scrollLeft = Math.max(0, target);
+        scrollScheduleTrackToFocus(track);
       }
       requestAnimationFrame(function () {
         requestAnimationFrame(scrollToFocus);
       });
       window.addEventListener("load", scrollToFocus);
-    });
+    }
+
+    document.querySelectorAll("[data-team-schedule-carousel]").forEach(bindScheduleCarousel);
 
     var searchInput = document.getElementById("global-search");
     var ac = document.getElementById("search-autocomplete");
@@ -823,6 +838,11 @@
   }
 
   window.BOWL = window.BOWL || {};
+  window.BOWL.scrollScheduleTracksToFocus = function () {
+    document.querySelectorAll("[data-team-schedule-carousel] .team-schedule-carousel__track").forEach(
+      scrollScheduleTrackToFocus
+    );
+  };
   window.BOWL.loadBoxScore = function (gameId, container) {
     if (!container) return;
     container.innerHTML = '<p class="boxscore-loading">Loading box score…</p>';

@@ -317,6 +317,16 @@ class TeamStanding(db.Model):
     season: Mapped["Season"] = relationship(back_populates="standings")
     team: Mapped["Team"] = relationship()
 
+    def standing_gp_display(self) -> int:
+        """Games played for standings tables: W + L + T + SOW + SOL; OTL is its own column."""
+        return (
+            int(self.w or 0)
+            + int(self.l or 0)
+            + int(self.ties or 0)
+            + int(self.shootout_wins or 0)
+            + int(self.shootout_losses or 0)
+        )
+
 
 class PlayerSkaterStat(db.Model):
     __tablename__ = "player_skater_stats"

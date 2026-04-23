@@ -126,14 +126,17 @@ def run() -> None:
         db.session.flush()
 
         for i, t in enumerate(teams):
+            w = 6 + (i % 3)
+            l = 3
+            otl = 1 if i % 2 else 0
             db.session.add(
                 TeamStanding(
                     season_id=season.id,
                     team_id=t.id,
-                    gp=10 + i,
-                    w=6 + (i % 3),
-                    l=3,
-                    otl=1 if i % 2 else 0,
+                    gp=w + l,
+                    w=w,
+                    l=l,
+                    otl=otl,
                     pts=13 + i * 2,
                     gf=32 + i,
                     ga=28 + i,

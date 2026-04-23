@@ -100,6 +100,7 @@ from app.services.team_staff_csv import (
     STAFF_TRAINER_COLUMNS,
     get_staff_sections_for_team,
 )
+from app.services.division_labels import load_division_display_maps
 from app.services.standings import (
     conferences_for_season,
     divisions_for_season,
@@ -199,41 +200,8 @@ def standings():
             conf_name_by_id = {}
     if conf_name_by_id:
         conf_names = [conf_name_by_id[k] for k in sorted(conf_name_by_id.keys())]
-    div_name_by_pair: dict[tuple[int, int], str] = {}
-    div_name_by_id: dict[int, str] = {}
     div_csv = Path(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)) / "divisions.csv"
-    if div_csv.is_file():
-        try:
-            with div_csv.open("r", encoding="utf-8-sig", newline="") as f:
-                sample = f.read(2048)
-                f.seek(0)
-                delim = ";" if sample.count(";") >= sample.count(",") else ","
-                reader = csv.DictReader(f, delimiter=delim)
-                for row in reader:
-                    lid = (row.get("League Id") or row.get("league_id") or "").strip()
-                    if lid and lid != "0":
-                        continue
-                    did = (row.get("Division Id") or row.get("division_id") or "").strip()
-                    cid = (row.get("Conference Id") or row.get("conference_id") or "").strip()
-                    nm = (row.get("Name") or row.get("name") or "").strip()
-                    if not did or not nm:
-                        continue
-                    try:
-                        div_id = int(did)
-                    except ValueError:
-                        continue
-                    try:
-                        conf_id = int(cid) if cid else -9999
-                    except ValueError:
-                        conf_id = -9999
-                    if conf_id != -9999:
-                        div_name_by_pair[(conf_id, div_id)] = nm
-                    # Keep first-seen fallback by division id when conference id is unavailable.
-                    if div_id not in div_name_by_id:
-                        div_name_by_id[div_id] = nm
-        except Exception:
-            div_name_by_pair = {}
-            div_name_by_id = {}
+    div_name_by_pair, div_name_by_id = load_division_display_maps(div_csv)
     divisions = divisions_for_season(season)
     division_names: list[str] = list(divisions or [])
     selected_conf: str | None = None
@@ -2528,9 +2496,10 @@ def _standing_gf_g_ga_g_ranks(season_id: int, team_id: int) -> tuple[int | None,
     rates_gf: list[tuple[int, float]] = []
     rates_ga: list[tuple[int, float]] = []
     for st in rows:
-        if st.gp and st.gp > 0:
-            rates_gf.append((st.team_id, float(st.gf) / float(st.gp)))
-            rates_ga.append((st.team_id, float(st.ga) / float(st.gp)))
+        gpd = st.standing_gp_display()
+        if gpd > 0:
+            rates_gf.append((st.team_id, float(st.gf) / float(gpd)))
+            rates_ga.append((st.team_id, float(st.ga) / float(gpd)))
     return (
         _dense_rank_by_value(rates_gf, team_id, True),
         _dense_rank_by_value(rates_ga, team_id, False),
@@ -2582,8 +2551,6 @@ def team_page(slug: str):
         if standing:
             # Keep team-page division labels aligned with standings page mapping.
             conf_name_by_id: dict[int, str] = {}
-            div_name_by_pair: dict[tuple[int, int], str] = {}
-            div_name_by_id: dict[int, str] = {}
             raw_dir = Path(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR))
 
             conf_csv = raw_dir / "conferences.csv"
@@ -2610,38 +2577,7 @@ def team_page(slug: str):
                 except Exception:
                     conf_name_by_id = {}
 
-            div_csv = raw_dir / "divisions.csv"
-            if div_csv.is_file():
-                try:
-                    with div_csv.open("r", encoding="utf-8-sig", newline="") as f:
-                        sample = f.read(2048)
-                        f.seek(0)
-                        delim = ";" if sample.count(";") >= sample.count(",") else ","
-                        reader = csv.DictReader(f, delimiter=delim)
-                        for row in reader:
-                            lid = (row.get("League Id") or row.get("league_id") or "").strip()
-                            if lid and lid != "0":
-                                continue
-                            did = (row.get("Division Id") or row.get("division_id") or "").strip()
-                            cid = (row.get("Conference Id") or row.get("conference_id") or "").strip()
-                            nm = (row.get("Name") or row.get("name") or "").strip()
-                            if not did or not nm:
-                                continue
-                            try:
-                                div_id = int(did)
-                            except ValueError:
-                                continue
-                            try:
-                                conf_id = int(cid) if cid else -9999
-                            except ValueError:
-                                conf_id = -9999
-                            if conf_id != -9999:
-                                div_name_by_pair[(conf_id, div_id)] = nm
-                            if div_id not in div_name_by_id:
-                                div_name_by_id[div_id] = nm
-                except Exception:
-                    div_name_by_pair = {}
-                    div_name_by_id = {}
+            div_name_by_pair, div_name_by_id = load_division_display_maps(raw_dir / "divisions.csv")
 
             def _display_division(st_row: TeamStanding) -> str | None:
                 if st_row.team is not None and st_row.team.fhm_division_id is not None:
@@ -2866,9 +2802,11 @@ def team_page(slug: str):
     hero_pk_rank_paren = "—"
     hero_record_suffix = ""
     show_hero_stats_card = bool(standing and season)
-    if standing and season and standing.gp and standing.gp > 0:
-        hero_gf_g = round(float(standing.gf) / float(standing.gp), 1)
-        hero_ga_g = round(float(standing.ga) / float(standing.gp), 1)
+    if standing and season:
+        gpd = standing.standing_gp_display()
+        if gpd > 0:
+            hero_gf_g = round(float(standing.gf) / float(gpd), 1)
+            hero_ga_g = round(float(standing.ga) / float(gpd), 1)
         rgf, rga = _standing_gf_g_ga_g_ranks(season.id, team.id)
         hero_gf_g_rank_paren = _rank_paren(rgf)
         hero_ga_g_rank_paren = _rank_paren(rga)

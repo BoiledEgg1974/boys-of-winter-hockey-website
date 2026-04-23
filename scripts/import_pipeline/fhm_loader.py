@@ -78,20 +78,44 @@ def _toi_seconds(raw) -> int | None:
     return int(v)
 
 
-def load_division_names(raw_dir: Path) -> dict[tuple[int, int], str]:
+def load_division_names(raw_dir: Path) -> dict[tuple[int, int, int], str]:
+    """Map (league_id, conference_id, division_id) -> name.
+
+    FHM reuses division_id across conferences (e.g. 0 = Adams vs Norris); keys must include conference_id.
+    """
     path = raw_dir / "divisions.csv"
     if not path.exists():
         return {}
     df = read_csv_normalized(path)
-    out = {}
+    out: dict[tuple[int, int, int], str] = {}
     for _, row in df.iterrows():
         r = row.to_dict()
         lid = to_int(cell_val(r, "league_id", "leagueid"))
         did = to_int(cell_val(r, "division_id", "divisionid"))
         name = cell_val(r, "name")
+        cid_raw = to_int(cell_val(r, "conference_id", "conferenceid"))
+        cid = int(cid_raw) if cid_raw is not None else -1
         if lid is not None and did is not None and name:
-            out[(lid, did)] = name
+            out[(lid, cid, did)] = name
     return out
+
+
+def resolve_division_name(
+    div_map: dict[tuple[int, int, int], str],
+    league_id: int,
+    conference_id: int | None,
+    division_id: int | None,
+) -> str | None:
+    if division_id is None:
+        return None
+    cid = int(conference_id) if conference_id is not None else -9999
+    key = (league_id, cid, division_id)
+    if key in div_map:
+        return div_map[key]
+    wild = (league_id, -1, division_id)
+    if wild in div_map:
+        return div_map[wild]
+    return None
 
 
 def import_league_meta(raw_dir: Path, league_filter: int) -> int:
@@ -206,7 +230,6 @@ def import_fhm_teams(raw_dir: Path, league_filter: int, div_map: dict) -> dict[i
         t.fhm_league_id = league_filter
         t.fhm_conference_id = cid
         t.fhm_division_id = did
-        div_name = div_map.get((league_filter, did)) if did is not None else None
         fhm_to_id[tid] = t.id
     db.session.commit()
     return fhm_to_id
@@ -340,13 +363,14 @@ def import_standings(raw_dir: Path, season: Season, teams_fhm: dict[int, int], d
         st.otl = otl
         st.shootout_wins = sow
         st.shootout_losses = sol
-        st.gp = w + l + t + otl + sow + sol
+        # GP excludes OTL here; OTL is tracked separately (same game is not double-counted in GP).
+        st.gp = w + l + t + sow + sol
         st.pts = to_int(cell_val(r, "points"), 0) or 0
         st.gf = to_int(cell_val(r, "goals_for"), 0) or 0
         st.ga = to_int(cell_val(r, "goals_against"), 0) or 0
         st.win_pct = to_float(cell_val(r, "pct"))
         did = team.fhm_division_id
-        st.division = div_map.get((league_filter, did)) if did is not None else None
+        st.division = resolve_division_name(div_map, league_filter, team.fhm_conference_id, did)
         st.conference = None
         n += 1
     db.session.commit()

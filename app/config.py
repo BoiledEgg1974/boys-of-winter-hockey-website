@@ -66,6 +66,30 @@ def free_agents_exclude_nhl_bowl_drafted_max_age(league_slug: str) -> int | None
     return None
 
 
+def rookie_homepage_thresholds(league_slug: str) -> dict[str, float | int]:
+    """Homepage rookie-board display thresholds.
+
+    Keep this league-specific map in code so each site can tune rookie visibility independently.
+    RS values are blended: ``max(abs_min, pct_of_league_schedule)``.
+    """
+    defaults: dict[str, float | int] = {
+        "rs_skater_min_gp_abs": 10,
+        "rs_skater_min_gp_pct": 0.20,
+        "rs_goalie_min_minutes_abs": 600,
+        "rs_goalie_min_minutes_pct": 0.20,
+        "pspo_skater_min_gp": 2,
+        "pspo_goalie_min_minutes": 120,
+    }
+    per_league: dict[str, dict[str, float | int]] = {
+        "bowl-historical": {},
+        "bowl-fantasy": {},
+        "bowl-cap": {},
+    }
+    out = dict(defaults)
+    out.update(per_league.get(league_slug, {}))
+    return out
+
+
 # If instance/<new-slug>.db is missing, use these pre-rename filenames (same DB content).
 _LEGACY_LEAGUE_DB_FILES: dict[str, str] = {
     "bowl-historical": "league2.db",
@@ -157,6 +181,13 @@ class Config:
     ITEMS_PER_PAGE = 50
     LEAGUE_SLUG = _ENV_LEAGUE_SLUG
     LEAGUE_DISPLAY_NAME = league_display_name(_ENV_LEAGUE_SLUG)
+    _ROOKIE = rookie_homepage_thresholds(_ENV_LEAGUE_SLUG)
+    ROOKIE_RS_SKATER_MIN_GP_ABS = int(_ROOKIE["rs_skater_min_gp_abs"])
+    ROOKIE_RS_SKATER_MIN_GP_PCT = float(_ROOKIE["rs_skater_min_gp_pct"])
+    ROOKIE_RS_GOALIE_MIN_MINUTES_ABS = int(_ROOKIE["rs_goalie_min_minutes_abs"])
+    ROOKIE_RS_GOALIE_MIN_MINUTES_PCT = float(_ROOKIE["rs_goalie_min_minutes_pct"])
+    ROOKIE_PSPO_SKATER_MIN_GP = int(_ROOKIE["pspo_skater_min_gp"])
+    ROOKIE_PSPO_GOALIE_MIN_MINUTES = int(_ROOKIE["pspo_goalie_min_minutes"])
 
 
 def make_league_config(slug: str) -> type:
@@ -185,5 +216,12 @@ def make_league_config(slug: str) -> type:
         HISTORY_CHAMPIONS_DIR = BASE_DIR / "app" / "static" / champions_rel
         PLAYER_HEADSHOTS_REL_DIR = headshots_rel
         PLAYER_HEADSHOTS_DIR = BASE_DIR / "app" / "static" / headshots_rel
+        _ROOKIE = rookie_homepage_thresholds(slug)
+        ROOKIE_RS_SKATER_MIN_GP_ABS = int(_ROOKIE["rs_skater_min_gp_abs"])
+        ROOKIE_RS_SKATER_MIN_GP_PCT = float(_ROOKIE["rs_skater_min_gp_pct"])
+        ROOKIE_RS_GOALIE_MIN_MINUTES_ABS = int(_ROOKIE["rs_goalie_min_minutes_abs"])
+        ROOKIE_RS_GOALIE_MIN_MINUTES_PCT = float(_ROOKIE["rs_goalie_min_minutes_pct"])
+        ROOKIE_PSPO_SKATER_MIN_GP = int(_ROOKIE["pspo_skater_min_gp"])
+        ROOKIE_PSPO_GOALIE_MIN_MINUTES = int(_ROOKIE["pspo_goalie_min_minutes"])
 
     return LeagueConfig

@@ -365,5 +365,20 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except KeyboardInterrupt:
+        print("\nInterrupted.", flush=True)
+        raise SystemExit(130) from None
+    except Exception:
+        import traceback
+
+        traceback.print_exc()
+        # Double-click / no-console runs often close immediately; keep window open on Windows.
+        if sys.platform == "win32":
+            try:
+                input("\nPress Enter to close...")
+            except EOFError:
+                pass
+        raise SystemExit(1) from None
 

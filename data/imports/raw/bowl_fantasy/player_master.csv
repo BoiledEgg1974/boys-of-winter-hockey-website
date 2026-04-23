@@ -410,7 +410,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 430;10;10;Bill;Barber;Swannie;72;195;1960-7-11;Callander;ON;Canada;;;0;Left;0
 431;304;304;Doug;Barrault;;74;205;1956-4-21;Golden;BC;The United States;Canada;;0;Right;0
 432;15;15;Tom;Barrasso;Tomcat;75;210;1954-3-31;Boston;MA;The United States;;;0;Right;0
-433;236;15;Fred;Barrett;Swoop;72;195;1954-1-26;Ottawa;ON;Canada;;;0;Left;0
+433;15;15;Fred;Barrett;Swoop;72;195;1954-1-26;Ottawa;ON;Canada;;;0;Left;0
 434;283;283;Robin;Bartel;;72;201;1961-5-16;Drake;SK;Canada;;;0;Left;0
 435;24;24;Hank;Bassen;Red;70;181;1962-12-6;Calgary;AB;Canada;;;0;Left;0
 436;186;186;Frank;Bathe;;73;185;1954-9-27;Oshawa;ON;Canada;;;0;Left;0
@@ -467,7 +467,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 491;186;186;Bobby;Boucher;Shorty;68;142;1961-2-14;Ottawa;ON;Canada;;;0;Right;0
 492;233;233;Clarence;Boucher;;73;195;1962-11-1;North Bay;ON;Canada;;;0;Left;0
 -1;171;171;Aleksy;Korzeniewski;;71;191;1966-6-16;Lodz;LOD;Poland;;;0;Left;0
-494;186;186;Bruce;Boudreau;Gabby;70;176;1954-1-9;Toronto;ON;Canada;;;0;Left;0
+494;288;288;Bruce;Boudreau;Gabby;70;176;1954-1-9;Toronto;ON;Canada;;;0;Left;0
 495;223;9;Rick;Bowness;;73;185;1956-1-25;Moncton;NB;Canada;;;0;Right;0
 496;305;305;Art;Boyce;;70;135;1958-8-24;Kingston;ON;Canada;;;0;Right;0
 497;186;186;Bill;Boyd;;70;185;1954-5-15;Belleville;ON;Canada;;;0;Right;0
@@ -1186,7 +1186,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 1241;19;19;Gord;Roberts;Doc;71;181;1959-9-5;Ottawa;ON;Canada;;;0;Left;0
 1242;300;300;Florent;Robidoux;Flo;74;201;1962-5-5;Portage la Prairie;MB;Canada;;;0;Left;0
 1243;293;293;Scott;Robinson;;74;201;1954-3-29;100 Mile House;BC;Canada;;;0;Left;0
-1244;24;24;Mike;Robitaille;;71;195;1959-2-12;Midland;ON;Canada;;;0;Right;0
+1244;214;24;Mike;Robitaille;;71;195;1959-2-12;Midland;ON;Canada;;;0;Right;0
 1245;279;279;Randy;Robitaille;;71;200;1960-10-12;Ottawa;ON;Canada;;;0;Left;0
 1246;186;186;Eddie;Rodden;;67;150;1954-3-22;Mattawa;ON;Canada;;;0;Right;0
 1247;11;11;Dwayne;Roloson;Rollie the Goalie;73;185;1953-10-12;Simcoe;ON;Canada;;;0;Left;0

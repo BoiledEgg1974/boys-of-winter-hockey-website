@@ -1,6 +1,6 @@
 StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate;Nationality_One;Nationality_Two;Nationality_Three;Retired
 0;10;Johnny;Gottselig;;1906-6-24;Odessa;SK;Canada;;;0
-1;-1;Tiny;Thompson;;1903-5-31;Sandon;BC;Canada;;;0
+1;10;Tiny;Thompson;;1903-5-31;Sandon;BC;Canada;;;0
 2;10;Cooney;Weiland;;1904-11-5;Seaforth;ON;Canada;;;0
 3;89;Art;Chapman;;1907-5-29;Winnipeg;MB;Canada;;;0
 4;-1;Harold;Ballard;Pal Hal;1903-7-30;Toronto;ON;Canada;;;0
@@ -276,7 +276,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 274;-1;Nick;Martin;;1906-10-25;Marion;OH;The United States;;;0
 275;-1;Christian;Truss;;1910-11-29;Prince Rupert;BC;Canada;;;0
 276;-1;John;Mann;;1906-10-10;Pickering;ON;Canada;;;0
-277;-1;Henry;David;;1909-11-23;Clarington;ON;Canada;;;0
+277;118;Henry;David;;1909-11-23;Clarington;ON;Canada;;;0
 278;0;Samuel;Gagné;;1906-3-16;Toronto;ON;Canada;;;0
 279;121;Rob;Rohrer;;1906-11-23;Quebec City;QC;Canada;;;0
 280;-1;Brandon;Postma;;1906-3-5;Toronto;ON;Canada;;;0
@@ -577,7 +577,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 575;-1;Dirk;Ryall;;1910-4-21;Alma;QC;Canada;;;0
 576;-1;Lane;Olsen;;1913-10-9;North Fort Myers;FL;The United States;;;0
 577;-1;Kingston;Fontana;;1918-2-8;Medicine Hat;AB;Canada;;;0
-578;-1;Lucas;Dusick;;1910-6-13;Abbotsford;BC;Canada;;;0
+578;118;Lucas;Dusick;;1910-6-13;Abbotsford;BC;Canada;;;0
 579;5;Phil;Noble;;1911-7-1;Thornhill;ON;Canada;;;0
 580;118;Scott;Murphy;;1910-7-9;Montreal;QC;Canada;;;0
 581;83;William;Dionne;;1910-2-4;Lakeville;MN;The United States;;;0
@@ -708,7 +708,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 706;-1;Kelsey;Kudla;;1912-2-6;Richmond;BC;Canada;;;0
 707;-1;Frank;O'Neil;;1913-3-19;Orangeville;ON;Canada;;;0
 708;-1;Caiden;Blair;;1921-7-2;Toronto;ON;Canada;;;0
-709;-1;Randy;Jordan;;1912-10-6;Buffalo;NY;The United States;;;0
+709;118;Randy;Jordan;;1912-10-6;Buffalo;NY;The United States;;;0
 710;-1;David;Sanford;;1913-1-8;Winnipeg;MB;Canada;;;0
 711;-1;Anantdev;Sekhon;;1912-9-11;Newmarket;ON;Canada;;;0
 712;-1;Aaron;McHendrie;;1912-11-30;Lebel-sur-Quévillon;QC;Canada;;;0
@@ -1203,7 +1203,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1201;84;Lee;Linklater;;1919-4-7;Vancouver;BC;Canada;;;0
 1202;83;Andrés;Inostraza;;1917-9-12;St. Johnsville;NY;The United States;;;0
 1203;123;Jim;Maiden;;1917-1-15;Long Beach;CA;The United States;;;0
-1204;-1;Travis;Cochran;;1917-8-14;Los Angeles;CA;The United States;;;0
+1204;118;Travis;Cochran;;1917-8-14;Los Angeles;CA;The United States;;;0
 1205;-1;Samuel;Gordon;;1917-9-10;Green Valley;MD;The United States;;;0
 1206;-1;Dillon;Petersen;;1917-9-5;Sainte-Anne-des-Monts;QC;Canada;;;0
 1207;-1;Paul;Felmer;;1917-5-14;Timmins;ON;Canada;;;0
@@ -1259,11 +1259,11 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1257;-1;John;McLellan;;1928-8-6;Porcupine;ON;Canada;;;0
 1258;-1;Vic;Stasiuk;;1929-5-23;Manning;AB;Canada;;;0
 1259;-1;Charlie;Burns;;1936-2-14;Elk Rapids;MI;Canada;The United States;;0
-1260;-1;Dave;Lucas;;1932-3-22;Abbotsford;BC;Canada;;;0
+1260;118;Dave;Lucas;;1932-3-22;Abbotsford;BC;Canada;;;0
 1261;-1;Jack;Button;;1940-1-1;Canton;NY;The United States;;;0
 1262;-1;Garry;Young;;1936-1-2;Toronto;ON;Canada;;;0
 1263;-1;Bob;Turner;;1934-1-31;Saskatoon;SK;Canada;;;0
-1264;-1;Fernie;Flaman;;1927-1-25;Dysart;ON;Canada;;;0
+1264;118;Fernie;Flaman;;1927-1-25;Dysart;ON;Canada;;;0
 1265;-1;Hal;Laycoe;;1922-6-23;Swift Current;SK;Canada;;;0
 1266;3;John;Bassett;;1915-8-25;Ottawa;ON;Canada;;;0
 1267;-1;Clare;Rothermel;;1934-1-1;Saskatoon;SK;Canada;;;0
@@ -1278,11 +1278,11 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1276;-1;Vincent;Charest;;1918-12-11;Washington;MO;The United States;;;0
 1277;-1;Jake;Desjardins;;1918-12-20;Mascouche;QC;Canada;;;0
 1278;-1;Matt;Dumaine;;1923-10-15;Regina;SK;Canada;;;0
-1279;-1;Jimmy;Blodgett;;1925-12-5;Fort Myers Beach;FL;The United States;;;0
+1279;118;Jimmy;Blodgett;;1925-12-5;Fort Myers Beach;FL;The United States;;;0
 1280;-1;Dave;Myers;;1918-4-12;Bois-des-Filion;QC;Canada;;;0
 1281;-1;Casey;Greenaway;;1922-4-19;Saint-Jérôme;QC;Canada;;;0
 1282;-1;Jamie;Irvin;;1918-4-8;Houston;TX;The United States;;;0
-1283;-1;Artie;Logan;;1918-7-10;Laval;QC;Canada;;;0
+1283;123;Artie;Logan;;1918-7-10;Laval;QC;Canada;;;0
 1284;-1;Ryan;Kissick;;1918-1-24;Granby;QC;Canada;;;0
 1285;-1;Damian;Smith;;1918-8-6;Montreal;QC;Canada;;;0
 1286;-1;Roger;Rigney;;1918-2-19;Dearborn;MI;The United States;;;0

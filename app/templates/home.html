@@ -35,6 +35,7 @@
       <a class="home-dashboard__toc-link" href="#dash-schedule">Schedule</a>
       <a class="home-dashboard__toc-link" href="#dash-around">Around The League</a>
       <a class="home-dashboard__toc-link" href="#dash-leaders">League Leaders</a>
+      <a class="home-dashboard__toc-link" href="#dash-postseason-odds">Postseason Odds</a>
       <a class="home-dashboard__toc-link" href="#dash-watch">Watch List</a>
       <a class="home-dashboard__toc-link" href="#dash-standings">Standings</a>
     </nav>
@@ -42,6 +43,17 @@
 
   <div class="home-dashboard__cols-121">
     <aside id="dash-watch" class="home-dash-col home-dash-col--side" aria-label="Featured games, stars, and special teams">
+      <section id="dash-postseason-odds" class="card home-dashboard__card home-postseason-odds" aria-labelledby="ps-odds-h">
+        <h2 id="ps-odds-h" class="home-dashboard__h">Postseason Odds</h2>
+        <p class="muted home-dashboard__sub">Monte Carlo from remaining schedule and team pace</p>
+        <div class="home-postseason-odds__toolbar">
+          <label class="visually-hidden" for="ps-odds-team">Team for Postseason Odds</label>
+          <select id="ps-odds-team" class="home-postseason-odds__select"></select>
+        </div>
+        <div id="home-postseason-odds" class="home-postseason-odds__body" aria-live="polite">
+          <p class="empty-state">Loading…</p>
+        </div>
+      </section>
       <section class="card home-dashboard__card" aria-labelledby="gotn-h">
         <h2 id="gotn-h" class="home-dashboard__h">Game of the Night</h2>
         <p class="muted home-dashboard__sub">Playoff-race weighted pick</p>
@@ -166,6 +178,87 @@
     d.textContent = s;
     return d.innerHTML;
   }
+
+  var PS_LS_KEY = 'bwlHomePostseasonOddsSlug';
+  var lastPostseasonOddsBundle = null;
+  function fmtPsPct(p) {
+    if (p == null || typeof p !== 'number' || isNaN(p)) return '—';
+    var x = p * 100;
+    if (x > 0 && x < 0.1) return '\u003c0.1%';
+    return x.toFixed(1) + '%';
+  }
+  function renderPsOddsCells(bundle, slug) {
+    var panel = document.getElementById('home-postseason-odds');
+    if (!panel || !bundle || !bundle.by_slug) return;
+    var o = bundle.by_slug[slug] || {};
+    var rows = [
+      { key: 'playoffs', label: 'PLAYOFFS', cls: 'home-postseason-odds__val--playoffs' },
+      { key: 'division', label: 'DIVISION', cls: '' },
+      { key: 'conference', label: 'CONFERENCE', cls: '' },
+      { key: 'boiledegg', label: "BOILEDEGG'S TROPHY", cls: '' },
+      { key: 'bowl_championship', label: 'BOWL CHAMPIONSHIP', cls: 'home-postseason-odds__val--cup' }
+    ];
+    var h = '<div class="home-postseason-odds__grid" role="list">';
+    rows.forEach(function (r) {
+      var v = fmtPsPct(o[r.key]);
+      var c = r.cls ? ' ' + r.cls : '';
+      h += '<div class="home-postseason-odds__cell" role="listitem">';
+      h += '<span class="home-postseason-odds__lbl">' + escape(r.label) + '</span>';
+      h += '<span class="home-postseason-odds__val' + c + '">' + escape(v) + '</span>';
+      h += '</div>';
+    });
+    h += '</div>';
+    if (bundle.method_note) {
+      h += '<p class="muted home-postseason-odds__note">' + escape(bundle.method_note) + '</p>';
+    }
+    panel.innerHTML = h;
+  }
+  function bindPsOddsSelectOnce() {
+    var sel = document.getElementById('ps-odds-team');
+    if (!sel || sel.dataset.psBound) return;
+    sel.dataset.psBound = '1';
+    sel.addEventListener('change', function () {
+      try {
+        localStorage.setItem(PS_LS_KEY, JSON.stringify({ path: location.pathname, slug: sel.value }));
+      } catch (e) {}
+      renderPsOddsCells(lastPostseasonOddsBundle, sel.value);
+    });
+  }
+  function paintPostseasonOdds(bundle) {
+    var panel = document.getElementById('home-postseason-odds');
+    var sel = document.getElementById('ps-odds-team');
+    if (!panel) return;
+    lastPostseasonOddsBundle = bundle;
+    if (!bundle || !bundle.by_slug || !Object.keys(bundle.by_slug).length) {
+      panel.innerHTML = '<p class="empty-state">Odds unavailable.</p>';
+      if (sel) {
+        sel.innerHTML = '';
+        sel.disabled = true;
+      }
+      return;
+    }
+    bindPsOddsSelectOnce();
+    if (sel) {
+      sel.innerHTML = (bundle.teams || []).map(function (t) {
+        return '<option value="' + escapeAttr(t.slug) + '">' + escape(t.abbr || t.slug) + ' — ' + escape(t.name || '') + '</option>';
+      }).join('');
+      sel.disabled = false;
+      var def = bundle.default_slug || (bundle.teams[0] && bundle.teams[0].slug) || '';
+      try {
+        var raw = localStorage.getItem(PS_LS_KEY);
+        if (raw) {
+          var parsed = JSON.parse(raw);
+          if (parsed && parsed.path === location.pathname && parsed.slug && bundle.by_slug[parsed.slug]) {
+            def = parsed.slug;
+          }
+        }
+      } catch (e2) {}
+      if (!bundle.by_slug[def]) def = bundle.default_slug || (bundle.teams[0] && bundle.teams[0].slug) || '';
+      sel.value = def;
+    }
+    renderPsOddsCells(bundle, sel && sel.value ? sel.value : bundle.default_slug);
+  }
+
   function syncPlayerHoverCards() {
     if (typeof window.bindPlayerHoverAnchors === 'function') window.bindPlayerHoverAnchors();
   }
@@ -1187,6 +1280,7 @@
         paintPower(data.power_rankings || {});
         paintChampions(data.champions_panel || {});
         paintAroundNews(data.around_the_league || {});
+        paintPostseasonOdds(data.postseason_odds);
 
         leaderData = data.leaders || leaderData;
         leaderTab = 'goals';

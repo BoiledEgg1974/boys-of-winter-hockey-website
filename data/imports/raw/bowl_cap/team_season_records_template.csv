@@ -1,232 +1,442 @@
-Year,Team ID,Team Name Override,Division ID,Division Override,Logo File Override,GP,W,L,T (OTL),PTS,GF,GA,Goal Differential,Result,PIM/G,PPG,PPG Against,PP Ch,SHG,SHG Against,SHC,PP%,PK%
-1917-18,,Montreal Wanderers,,,,6,1,5,0,2,17,35,-18,Missed Playoffs,4.5,null,0,null,null,0,null,null,null
-1917-18,3,,,,,22,13,9,0,26,108,109,-1,BOWL CUP CHAMPION,16.14,null,0,null,null,0,null,null,null
-1917-18,,Ottawa Senators,,,,22,9,13,0,18,102,114,-12,Missed Playoffs,15.14,null,0,null,null,0,null,null,null
-1917-18,0,,,,,22,13,9,0,26,115,84,31,Lost Cup Finals,15.27,null,0,null,null,0,null,null,null
-1918-19,,Ottawa Senators,,,,18,12,6,0,24,71,53,18,No Winner,13.39,null,0,null,null,2,null,null,null
-1918-19,0,,,,,18,10,8,0,20,88,78,10,No Winner,14.06,null,1,null,null,0,null,null,null
-1918-19,3,,,,,18,5,13,0,10,64,92,-28,No Winner,14.94,null,0,null,null,0,null,null,null
-1919-20,,Ottawa Senators,,,,24,19,5,0,38,121,64,54,No Winner,12.71,null,2,null,null,0,null,null,null
-1919-20,0,,,,,24,13,11,0,26,129,113,16,No Winner,12.38,null,4,null,null,0,null,null,null
-1919-20,3,,,,,24,12,12,0,24,119,106,13,No Winner,10.54,null,1,null,null,2,null,null,null
-1919-20,,Quebec Bulldogs,,,,24,4,20,0,8,91,177,-86,No Winner,5.13,null,0,null,null,2,null,null,null
-1920-21,,Hamilton Tigers,,,,24,6,18,0,12,92,132,-40,Missed Playoffs,7.63,null,0,null,null,0,null,null,null
-1920-21,0,,,,,24,13,11,0,26,112,99,13,Missed Playoffs,13.54,null,1,null,null,1,null,null,null
-1920-21,,Ottawa Senators,,,,24,14,10,0,28,97,75,22,BOWL CUP CHAMPION,7.46,null,2,null,null,0,null,null,null
-1920-21,3,,,,,24,15,9,0,30,105,100,5,Lost Cup Finals,11.96,null,2,null,null,0,null,null,null
-1921-22,,Ottawa Senators,,,,24,14,8,2,30,106,84,22,Lost Cup Finals,4.63,null,7,null,null,2,null,null,null
-1921-22,3,,,,,24,13,10,1,27,98,97,1,BOWL CUP CHAMPION,6.67,null,7,null,null,0,null,null,null
-1921-22,0,,,,,24,12,11,1,25,88,94,-6,Missed Playoffs,8.58,null,4,null,null,0,null,null,null
-1921-22,,Hamilton Tigers,,,,24,7,17,0,14,88,105,-17,Missed Playoffs,4.42,null,5,null,null,4,null,null,null
-1922-23,,Ottawa Senators,,,,24,14,9,1,29,77,54,23,BOWL CUP CHAMPION,8.13,null,8,null,null,1,null,null,null
-1922-23,0,,,,,24,13,9,2,28,73,61,12,Lost Cup Finals,8.04,null,4,null,null,1,null,null,null
-1922-23,3,,,,,24,13,10,1,27,82,88,-6,Missed Playoffs,10.04,null,10,null,null,6,null,null,null
-1922-23,,Hamilton Tigers,,,,24,6,18,0,12,81,110,-29,Missed Playoffs,7.83,null,13,null,null,1,null,null,null
-1923-24,,Ottawa Senators,,,,24,16,8,0,32,74,54,20,Lost Cup Finals,7.42,null,6,null,null,1,null,null,null
-1923-24,0,,,,,24,13,11,0,26,59,48,11,BOWL CUP CHAMPION,7.79,null,12,null,null,2,null,null,null
-1923-24,3,,,,,24,10,14,0,20,59,85,-26,Missed Playoffs,10.08,null,11,null,null,2,null,null,null
-1923-24,,Hamilton Tigers,,,,24,9,15,0,18,63,68,-5,Missed Playoffs,7.13,null,14,null,null,1,null,null,null
-1924-25,,Hamilton Tigers,,,,30,19,10,1,39,90,60,30,Lost First Round,11.17,null,8,null,null,4,null,null,null
-1924-25,3,,,,,30,19,11,0,38,90,84,6,Lost Cup Finals,9.13,null,5,null,null,3,null,null,null
-1924-25,0,,,,,30,17,11,2,36,93,56,37,BOWL CUP CHAMPION,13.53,null,14,null,null,0,null,null,null
-1924-25,,Ottawa Senators,,,,30,17,12,1,35,83,66,17,Missed Playoffs,11.67,null,8,null,null,1,null,null,null
-1924-25,,Montreal Maroons,,,,30,9,19,2,20,45,65,-20,Missed Playoffs,9.73,null,6,null,null,1,null,null,null
-1924-25,5,,,,,30,6,24,0,12,49,119,-70,Missed Playoffs,7.7,null,8,null,null,3,null,null,null
-1925-26,,Ottawa Senators,,,,36,24,8,4,52,77,42,35,Lost Cup Finals,9.42,null,6,null,null,0,null,null,null
-1925-26,,Montreal Maroons,,,,36,20,11,5,45,91,73,18,BOWL CUP CHAMPION,15.39,null,7,null,null,2,null,null,null
-1925-26,,Pittsburgh Pirates,,,,36,19,16,1,39,82,70,12,Missed Playoffs,7.33,null,2,null,null,2,null,null,null
-1925-26,5,,,,,36,17,15,4,38,92,85,7,Missed Playoffs,8.11,null,9,null,null,0,null,null,null
-1925-26,,New York Americans,,,,36,12,20,4,28,68,89,-21,Missed Playoffs,9.47,null,2,null,null,2,null,null,null
-1925-26,3,,,,,36,12,21,3,27,92,114,-22,Missed Playoffs,9.03,null,10,null,null,2,null,null,null
-1925-26,0,,,,,36,11,24,1,23,79,108,-29,Missed Playoffs,12.72,null,10,null,null,4,null,null,null
-1926-27,10,,,American,,44,25,13,6,56,95,72,23,Lost Semi-Finals,8.75,null,0,null,null,0,null,null,null
-1926-27,5,,,American,,44,21,20,3,45,97,89,8,Lost Cup Finals,11.34,null,0,null,null,0,null,null,null
-1926-27,8,,,American,,44,19,22,3,41,115,116,-1,Lost Quarterfinals,9.01,null,0,null,null,0,null,null,null
-1926-27,,Pittsburgh Pirates,,American,,44,15,26,3,33,79,108,-29,Missed Playoffs,5.05,null,1,null,null,0,null,null,null
-1926-27,9,,,American,,44,12,28,4,28,76,105,-29,Missed Playoffs,9.52,null,1,null,null,0,null,null,null
-1926-27,,Ottawa Senators,,Canadian,,44,30,10,4,64,86,69,17,BOWL CUP CHAMPION,13.8,null,3,null,null,0,null,null,null
-1926-27,0,,,Canadian,,44,28,14,2,58,99,67,32,Lost Semi-Finals,9.3,null,0,null,null,0,null,null,null
-1926-27,,Montreal Maroons,,Canadian,,44,20,20,4,44,71,68,3,Lost Quarterfinals,16.27,null,1,null,null,0,null,null,null
-1926-27,,New York Americans,,Canadian,,44,17,25,2,36,82,91,-9,Missed Playoffs,8.16,null,1,null,null,1,null,null,null
-1926-27,3,,,Canadian,,44,15,24,5,35,79,94,-15,Missed Playoffs,12.41,null,1,null,null,0,null,null,null
-1927-28,5,,,American,,44,20,13,11,51,77,70,7,Lost Semi-Finals,12.68,null,2,null,null,1,null,null,null
-1927-28,10,,,American,,44,19,16,9,47,94,79,15,BOWL CUP CHAMPION,10.5,null,1,null,null,0,null,null,null
-1927-28,,Pittsburgh Pirates,,American,,44,19,17,8,46,67,76,-9,Lost Quarterfinals,9.64,null,3,null,null,0,null,null,null
-1927-28,9,,,American,,44,19,19,6,44,88,79,9,Missed Playoffs,8.98,null,3,null,null,0,null,null,null
-1927-28,8,,,American,,44,7,34,3,17,68,134,-66,Missed Playoffs,8.57,null,8,null,null,1,null,null,null
-1927-28,0,,,Canadian,,44,26,11,7,59,116,48,68,Lost Semi-Finals,11.27,null,0,null,null,0,null,null,null
-1927-28,,Montreal Maroons,,Canadian,,44,24,14,6,54,96,77,19,Lost Cup Finals,13.36,null,1,null,null,0,null,null,null
-1927-28,,Ottawa Senators,,Canadian,,44,20,14,10,50,78,57,21,Lost Quarterfinals,10.98,null,2,null,null,2,null,null,null
-1927-28,3,,,Canadian,,44,18,18,8,44,89,88,1,Missed Playoffs,11.86,null,2,null,null,0,null,null,null
-1927-28,,New York Americans,,Canadian,,44,11,27,6,28,63,128,-65,Missed Playoffs,13.41,null,0,null,null,0,null,null,null
-1928-29,5,,,American,,44,26,13,5,57,89,52,37,BOWL CUP CHAMPION,10.77,null,1,null,null,0,null,null,null
-1928-29,10,,,American,,44,21,13,10,52,72,65,7,Lost Cup Finals,8.68,null,3,null,null,0,null,null,null
-1928-29,9,,,American,,44,19,16,9,47,72,63,9,Lost First Round,8.66,null,3,null,null,0,null,null,null
-1928-29,,Pittsburgh Pirates,,American,,44,9,27,8,26,46,80,-34,Missed Playoffs,7.36,null,1,null,null,2,null,null,null
-1928-29,8,,,American,,44,7,29,8,22,33,85,-52,Missed Playoffs,8.25,null,0,null,null,0,null,null,null
-1928-29,0,,,Canadian,,44,22,7,15,59,71,43,28,Lost Semi-Finals,10.57,null,0,null,null,1,null,null,null
-1928-29,,New York Americans,,Canadian,,44,19,13,12,50,53,53,0,Lost First Round,11.05,null,3,null,null,0,null,null,null
-1928-29,3,,,Canadian,,44,21,18,5,47,85,69,16,Lost First Round,12.27,null,5,null,null,1,null,null,null
-1928-29,,Ottawa Senators,,Canadian,,44,14,17,13,41,54,67,-13,Missed Playoffs,10.52,null,4,null,null,0,null,null,null
-1928-29,,Montreal Maroons,,Canadian,,44,15,20,9,39,67,65,2,Missed Playoffs,14.45,null,5,null,null,0,null,null,null
-1929-30,5,,,American,,44,38,5,1,77,179,98,81,Lost Cup Finals,10.16,null,3,null,null,0,null,null,null
-1929-30,8,,,American,,44,21,18,5,47,117,111,6,Lost First Round,13.02,null,1,null,null,0,null,null,null
-1929-30,10,,,American,,44,17,17,10,44,136,143,-7,Lost Semi-Finals,9.93,null,0,null,null,0,null,null,null
-1929-30,9,,,American,,44,14,24,6,34,117,133,-16,Missed Playoffs,10.75,null,2,null,null,0,null,null,null
-1929-30,,Pittsburgh Pirates,,American,,44,5,36,3,13,102,185,-83,Missed Playoffs,8.27,null,2,null,null,0,null,null,null
-1929-30,,Montreal Maroons,,Canadian,,44,23,16,5,51,141,114,27,Lost Semi-Finals,14.89,null,5,null,null,0,null,null,null
-1929-30,0,,,Canadian,,44,21,14,9,51,142,114,28,BOWL CUP CHAMPION,13.55,null,1,null,null,0,null,null,null
-1929-30,,Ottawa Senators,,Canadian,,44,21,15,8,50,138,118,20,Lost First Round,12.68,null,8,null,null,0,null,null,null
-1929-30,3,,,Canadian,,44,17,21,6,40,16,124,-8,Missed Playoffs,13.8,null,9,null,null,0,null,null,null
-1929-30,,New York Americans,,Canadian,,44,14,25,5,33,113,161,-48,Missed Playoffs,8.73,null,2,null,null,0,null,null,null
-1930-31,5,,,American,,44,28,10,6,62,143,90,53,Lost Semi-Finals,10.45,null,1,null,null,0,null,null,null
-1930-31,8,,,American,,44,24,17,3,51,108,78,30,Lost Cup Finals,9.25,null,3,null,null,1,null,null,null
-1930-31,10,,,American,,44,19,16,9,47,106,87,19,Lost Semi-Finals,11.73,null,2,null,null,1,null,null,null
-1930-31,9,,,American,,44,16,21,7,39,102,105,-3,Missed Playoffs,9.34,null,1,null,null,0,null,null,null
-1930-31,,Philadelphia Quakers,,American,,44,4,36,4,12,76,184,-108,Missed Playoffs,10.64,null,5,null,null,0,null,null,null
-1930-31,0,,,Canadian,,44,26,10,8,60,129,89,40,BOWL CUP CHAMPION,13.68,null,5,null,null,0,null,null,null
-1930-31,3,,,Canadian,,44,22,13,9,53,118,99,19,Lost First Round,11.64,null,7,null,null,0,null,null,null
-1930-31,,Montreal Maroons,,Canadian,,44,20,18,6,46,105,106,-1,Lost First Round,13.77,null,6,null,null,1,null,null,null
-1930-31,,New York Americans,,Canadian,,44,18,16,10,46,76,74,2,Missed Playoffs,11.43,null,4,null,null,0,null,null,null
-1930-31,,Ottawa Senators,,Canadian,,44,10,30,4,24,91,142,-51,Missed Playoffs,11.05,null,2,null,null,0,null,null,null
-1931-32,10,,,American,,48,23,17,8,54,134,112,22,Lost Cup Finals,10.65,null,1,null,null,0,null,null,null
-1931-32,8,,,American,,48,18,19,11,47,86,101,-15,Lost First Round,10.66,null,1,null,null,0,null,null,null
-1931-32,9,,,American,,48,18,20,10,46,95,108,-13,Lost First Round,8.73,null,0,null,null,0,null,null,null
-1931-32,5,,,American,,48,15,21,12,42,122,117,5,Missed Playoffs,8.45,null,1,null,null,0,null,null,null
-1931-32,0,,,Canadian,,48,25,16,7,57,128,111,17,Lost Semi-Finals,9.33,null,2,null,null,0,null,null,null
-1931-32,3,,,Canadian,,48,23,18,7,53,155,127,28,BOWL CUP CHAMPION,13.02,null,5,null,null,1,null,null,null
-1931-32,,Montreal Maroons,,Canadian,,48,19,22,7,45,142,139,3,Lost Semi-Finals,13.48,null,2,null,null,2,null,null,null
-1931-32,,New York Americans,,Canadian,,48,16,24,8,40,95,142,-47,Missed Playoffs,13.39,null,2,null,null,1,null,null,null
-1932-33,5,,,American,,48,25,15,8,58,124,88,36,Lost Semi-Finals,10.77,null,10,null,null,3,null,null,null
-1932-33,9,,,American,,48,25,15,8,58,111,93,18,Lost Semi-Finals,9.63,null,12,null,null,3,null,null,null
-1932-33,10,,,American,,48,23,17,8,54,135,107,28,BOWL CUP CHAMPION,12.48,null,22,null,null,5,null,null,null
-1932-33,8,,,American,,48,16,20,12,44,88,101,-13,Missed Playoffs,8.35,null,6,null,null,0,null,null,null
-1932-33,3,,,Canadian,,48,24,18,6,54,119,111,8,Lost Cup Finals,13,null,15,null,null,2,null,null,null
-1932-33,,Montreal Maroons,,Canadian,,48,22,20,6,50,135,119,16,Lost First Round,9.21,null,15,null,null,6,null,null,null
-1932-33,0,,,Canadian,,48,18,25,5,41,92,115,-23,Lost First Round,10.04,null,14,null,null,2,null,null,null
-1932-33,,New York Americans,,Canadian,,48,15,22,11,41,91,118,-27,Missed Playoffs,9.96,null,15,null,null,0,null,null,null
-1932-33,,Ottawa Senators,,Canadian,,48,11,27,10,32,88,131,-43,Missed Playoffs,9.05,null,22,null,null,1,null,null,null
-1933-34,9,,,American,,48,24,14,10,58,113,98,15,Lost Cup Finals,7.67,28,17,null,2,5,null,null,null
-1933-34,8,,,American,,48,20,17,11,51,88,83,5,BOWL CUP CHAMPION,6.98,15,10,null,3,3,null,null,null
-1933-34,10,,,American,,48,21,19,8,50,120,113,7,Lost First Round,8.35,26,26,null,6,5,null,null,null
-1933-34,5,,,American,,48,18,25,5,41,111,130,-19,Missed Playoffs,8.59,12,12,null,0,1,null,null,null
-1933-34,3,,,Canadian,,48,26,13,9,61,174,119,55,Lost Semi-Finals,11.02,27,23,null,6,2,null,null,null
-1933-34,0,,,Canadian,,48,22,20,6,50,99,101,-2,Lost First Round,6.42,21,13,null,4,4,null,null,null
-1933-34,,Montreal Maroons,,Canadian,,48,19,18,11,49,117,122,-5,Lost First Round,8.63,20,20,null,2,1,null,null,null
-1933-34,,New York Americans,,Canadian,,48,15,23,10,40,104,132,-28,Missed Playoffs,7.79,14,25,null,2,2,null,null,null
-1933-34,,Ottawa Senators,,Canadian,,48,13,29,6,32,115,143,-28,Missed Playoffs,7.33,10,18,null,1,4,null,null,null
-1934-35,5,,,American,,48,26,16,6,58,129,112,17,Lost Semi-Finals,7.9,20,17,null,2,2,null,null,null
-1934-35,8,,,American,,48,26,17,5,57,118,88,30,Lost First Round,8.06,13,17,null,1,2,null,null,null
-1934-35,10,,,American,,48,22,20,6,50,137,139,-2,Lost Semi-Finals,7.1,17,25,null,10,4,null,null,null
-1934-35,9,,,American,,48,19,22,7,45,127,114,13,Missed Playoffs,6.79,32,17,null,5,1,null,null,null
-1934-35,3,,,Canadian,,48,30,14,4,64,157,111,46,Lost Cup Finals,9.25,29,27,null,3,3,null,null,null
-1934-35,,Montreal Maroons,,Canadian,,48,24,19,5,53,123,92,31,BOWL CUP CHAMPION,7.98,20,10,null,5,0,null,null,null
-1934-35,0,,,Canadian,,48,19,23,6,44,110,145,-35,Lost First Round,6.46,12,20,null,1,7,null,null,null
-1934-35,,New York Americans,,Canadian,,48,12,27,9,33,100,142,-42,Missed Playoffs,5.21,15,17,null,1,4,null,null,null
-1934-35,,St-Louis Eagles,,Canadian,,48,11,31,6,28,86,144,-58,Missed Playoffs,8.38,14,22,null,0,6,null,null,null
-1935-36,9,,,American,,48,24,16,8,56,124,103,21,BOWL CUP CHAMPION,7.83,24,18,null,0,3,null,null,null
-1935-36,5,,,American,,48,22,20,6,50,92,83,9,Lost First Round,8.31,14,10,null,2,3,null,null,null
-1935-36,8,,,American,,48,21,19,8,50,93,92,1,Lost First Round,8.52,22,13,null,2,2,null,null,null
-1935-36,10,,,American,,48,19,17,12,50,91,96,-5,Missed Playoffs,8.06,18,17,null,1,4,null,null,null
-1935-36,,Montreal Maroons,,Canadian,,48,22,16,10,54,114,106,8,Lost Semi-Finals,10.5,18,23,null,6,1,null,null,null
-1935-36,3,,,Canadian,,48,23,19,6,52,126,106,20,Lost Cup Finals,12.06,18,21,null,6,4,null,null,null
-1935-36,,New York Americans,,Canadian,,48,16,25,7,39,109,122,-13,Lost Semi-Finals,8.17,18,28,null,1,1,null,null,null
-1935-36,0,,,Canadian,,48,11,26,11,33,82,123,-41,Missed Playoffs,6.6,10,12,null,0,0,null,null,null
-1936-37,9,,,American,,48,25,14,9,59,128,102,26,BOWL CUP CHAMPION,5.08,3,8,null,1,0,null,null,null
-1936-37,5,,,American,,48,23,18,7,53,120,110,10,Lost First Round,6.31,7,8,null,1,1,null,null,null
-1936-37,10,,,American,,48,19,20,9,47,117,106,11,Lost Semi-Finals,6.5,22,12,null,3,1,null,null,null
-1936-37,8,,,American,,48,14,27,7,35,99,131,-32,Missed Playoffs,6.06,10,15,null,4,4,null,null,null
-1936-37,0,,,Canadian,,48,24,18,6,54,115,111,4,Lost Semi-Finals,6.33,19,10,null,1,5,null,null,null
-1936-37,,Montreal Maroons,,Canadian,,48,22,17,9,53,126,110,16,Lost Semi-Finals,7.94,16,21,null,5,1,null,null,null
-1936-37,3,,,Canadian,,48,22,21,5,49,119,115,4,Lost First Round,7.73,15,16,null,4,3,null,null,null
-1936-37,,New York Americans,,Canadian,,48,15,29,4,34,122,161,-39,Missed Playoffs,10.06,21,23,null,1,5,null,null,null
-1937-38,5,,,American,,48,30,11,7,67,142,89,53,Lost Semi-Finals,5.83,6,6,null,5,2,null,null,null
-1937-38,10,,,American,,48,27,15,6,60,149,96,53,Lost First Round,9.27,17,14,null,6,4,null,null,null
-1937-38,8,,,American,,48,14,25,9,37,97,139,-42,BOWL CUP CHAMPION,5.04,21,14,null,1,8,null,null,null
-1937-38,9,,,American,,48,12,25,11,35,99,133,-34,Missed Playoffs,5.46,5,5,null,0,3,null,null,null
-1937-38,3,,,Canadian,,48,24,15,9,57,151,127,24,Lost Cup Finals,8.42,17,14,null,6,3,null,null,null
-1937-38,,New York Americans,,Canadian,,48,19,18,11,49,110,111,-1,Lost Semi-Finals,6.81,11,14,null,1,5,null,null,null
-1937-38,0,,,Canadian,,48,18,17,13,49,123,128,-5,Lost First Round,7.13,24,14,null,2,3,null,null,null
-1937-38,,Montreal Maroons,,Canadian,,48,12,30,6,30,101,149,-48,Missed Playoffs,9.79,16,26,null,4,1,null,null,null
-1938-39,5,,,,,48,36,10,2,74,156,76,80,BOWL CUP CHAMPION,5.23,12,11,null,3,0,null,null,null
-1938-39,10,,,,,48,26,16,6,58,149,105,44,Lost Semi-Finals,8.06,17,15,null,4,4,null,null,null
-1938-39,3,,,,,48,19,20,9,47,114,107,7,Lost Cup Finals,7.75,20,22,null,8,3,null,null,null
-1938-39,,New York Americans,,,,48,17,21,10,44,119,157,-38,Lost First Round,5.92,27,27,null,4,5,null,null,null
-1938-39,9,,,,,48,18,24,6,42,107,128,-21,Lost Semi-Finals,5.04,18,13,null,3,8,null,null,null
-1938-39,0,,,,,48,15,24,9,39,115,146,-31,Lost First Round,6,18,24,null,0,4,null,null,null
-1938-39,8,,,,,48,12,28,8,32,91,132,-41,Missed Playoffs,7.52,16,16,null,3,1,null,null,null
-1939-40,5,,,,,48,31,12,5,67,170,98,72,Lost Semi-Finals,6.88,4,8,null,4,1,null,null,null
-1939-40,10,,,,,48,27,11,10,64,136,77,59,BOWL CUP CHAMPION,10.63,14,11,null,10,1,null,null,null
-1939-40,3,,,,,48,25,17,6,56,134,110,24,Lost Semi-Finals,9.88,15,14,null,6,8,null,null,null
-1939-40,8,,,,,48,23,19,6,52,112,120,-8,Lost First Round,7.27,16,19,null,2,2,null,null,null
-1939-40,9,,,,,48,16,26,6,38,90,126,-36,Lost Semi-Finals,5.21,14,8,null,4,3,null,null,null
-1939-40,,New York Americans,,,,48,15,29,4,34,106,140,-34,Lost First Round,4.92,10,15,null,1,9,null,null,null
-1939-40,0,,,,,48,10,33,5,25,90,167,-77,Missed Playoffs,6.71,15,13,null,1,4,null,null,null
-1940-41,5,,,,,48,27,8,13,67,168,102,66,BOWL CUP CHAMPION,5.13,10,8,null,2,2,null,null,null
-1940-41,3,,,,,48,28,14,6,62,145,99,46,Lost Semi-Finals,6.38,16,12,null,2,4,null,null,null
-1940-41,9,,,,,48,21,16,11,53,112,102,10,Lost Cup Finals,7.02,12,10,null,1,2,null,null,null
-1940-41,10,,,,,48,21,19,8,50,143,125,18,Lost Quarterfinals,7.42,12,16,null,9,0,null,null,null
-1940-41,8,,,,,48,16,25,7,39,112,139,-27,Lost Semi-Finals,6.98,14,17,null,3,5,null,null,null
-1940-41,0,,,,,48,16,26,6,38,121,147,-26,Lost Quarterfinals,9.6,14,19,null,3,6,null,null,null
-1940-41,,New York Americans,,,,48,8,29,11,27,99,186,-87,Missed Playoffs,4.81,14,10,null,3,4,null,null,null
-1941-42,10,,,,,48,29,17,2,60,177,143,34,Lost Semi-Finals,8.13,22,22,null,5,3,null,null,null
-1941-42,3,,,,,48,27,18,3,57,158,136,22,BOWL CUP CHAMPION,7.1,20,17,null,6,1,null,null,null
-1941-42,5,,,,,48,25,17,6,56,160,118,42,Lost Semi-Finals,7.06,18,16,null,1,4,null,null,null
-1941-42,8,,,,,48,22,23,3,47,145,155,-10,Lost Quarterfinals,6.85,25,24,null,3,5,null,null,null
-1941-42,9,,,,,48,19,25,4,42,140,147,-7,Lost Cup Finals,9.17,14,13,null,1,3,null,null,null
-1941-42,0,,,,,48,18,27,3,39,134,173,-39,Lost First Round,10.04,30,24,null,1,3,null,null,null
-1941-42,,Brooklyn Americans,,,,48,16,29,3,35,133,175,-42,Missed Playoffs,8.9,19,32,null,4,2,null,null,null
-1942-43,9,,,,,50,25,14,11,61,169,124,45,BOWL CUP CHAMPION,7.6,34,17,null,1,1,null,null,null
-1942-43,5,,,,,50,24,17,9,57,195,176,19,Lost Cup Finals,7.3,26,39,null,1,1,null,null,null
-1942-43,3,,,,,50,22,19,9,53,198,159,39,Lost Semi-Finals,8.8,21,26,null,1,0,null,null,null
-1942-43,0,,,,,50,19,19,12,50,181,191,-10,Lost Semi-Finals,6.4,35,23,null,0,0,null,null,null
-1942-43,8,,,,,50,17,18,15,49,179,180,-1,Missed Playoffs,7.4,28,24,null,1,1,null,null,null
-1942-43,10,,,,,50,11,31,8,30,161,253,-92,Missed Playoffs,7,24,39,null,1,2,null,null,null
-1943-44,0,,,,,50,38,5,7,83,234,109,125,BOWL CUP CHAMPION,11.7,30,15,null,4,0,null,null,null
-1943-44,9,,,,,50,26,18,6,58,214,177,37,Lost Semi-Finals,7.5,14,17,null,0,0,null,null,null
-1943-44,3,,,,,50,23,23,4,50,214,174,40,Lost Semi-Finals,6.6,27,12,null,1,2,null,null,null
-1943-44,8,,,,,50,22,23,5,49,178,187,-9,Lost Cup Finals,4.8,26,26,null,1,1,null,null,null
-1943-44,5,,,,,50,19,26,5,43,223,268,-45,Missed Playoffs,4.1,10,26,null,3,1,null,null,null
-1943-44,10,,,,,50,6,39,5,17,162,310,-148,Missed Playoffs,5.1,12,23,null,0,5,null,null,null
-1944-45,0,,,,,50,38,8,4,80,228,121,107,Lost Semi-Finals,8.8,28,23,null,2,2,null,null,null
-1944-45,9,,,,,50,31,14,5,67,218,161,57,Lost Cup Finals,5.8,23,9,null,2,1,null,null,null
-1944-45,3,,,,,50,24,22,4,52,183,161,22,BOWL CUP CHAMPION,6.9,24,21,null,3,2,null,null,null
-1944-45,5,,,,,50,16,30,4,36,179,219,-40,Lost Semi-Finals,5.9,12,26,null,4,2,null,null,null
-1944-45,8,,,,,50,13,30,7,33,141,194,-53,Missed Playoffs,5.1,20,25,null,1,3,null,null,null
-1944-45,10,,,,,50,11,29,10,32,154,247,-93,Missed Playoffs,6.3,17,20,null,1,3,null,null,null
-1945-46,0,,,,,50,28,17,5,61,172,134,38,BOWL CUP CHAMPION,6.7,19,27,null,1,1,null,null,null
-1945-46,5,,,,,50,24,18,8,26,167,156,11,Lost Cup Finals,5.5,15,16,null,0,0,null,null,null
-1945-46,8,,,,,50,23,20,7,53,200,178,22,Lost Semi-Finals,6.7,38,27,null,3,1,null,null,null
-1945-46,9,,,,,50,20,20,10,50,146,159,-13,Lost Semi-Finals,6,27,24,null,2,2,null,null,null
-1945-46,3,,,,,50,19,24,7,45,174,185,-11,Missed Playoffs,4.9,17,19,null,1,1,null,null,null
-1945-46,10,,,,,50,13,28,9,35,144,191,-47,Missed Playoffs,5.7,16,19,null,0,2,null,null,null
-1946-47,0,,,,,60,34,16,10,78,189,138,51,Lost Cup Finals,9.3,31,39,null,1,1,null,null,null
-1946-47,3,,,,,60,31,19,10,72,209,172,37,BOWL CUP CHAMPION,11.2,28,35,null,6,1,null,null,null
-1946-47,5,,,,,60,26,23,11,63,190,175,15,Lost Semi-Finals,7.7,23,29,null,0,2,null,null,null
-1946-47,9,,,,,60,22,27,11,55,190,193,-3,Lost Semi-Finals,8.9,39,26,null,1,5,null,null,null
-1946-47,10,,,,,60,22,32,6,50,167,186,-19,Missed Playoffs,7,30,27,null,2,0,null,null,null
-1946-47,8,,,,,60,19,37,4,42,193,274,-81,Missed Playoffs,7.8,41,36,null,2,3,null,null,null
-1947-48,3,,,,,60,32,15,13,77,182,143,39,BOWL CUP CHAMPION,126,45,29,null,4,6,null,null,null
-1947-48,9,,,,,60,30,18,12,72,187,148,39,Lost Cup Finals,9.9,28,23,null,7,2,null,null,null
-1947-48,5,,,,,60,23,24,13,59,167,168,-1,Lost Semi-Finals,8.6,20,35,null,3,0,null,null,null
-1947-48,10,,,,,60,21,26,13,55,176,201,-25,Lost Semi-Finals,8,28,18,null,1,5,null,null,null
-1947-48,0,,,,,60,20,29,11,51,147,169,-22,Missed Playoffs,12.1,28,34,null,8,2,null,null,null
-1947-48,8,,,,,60,20,34,6,46,195,225,-30,Missed Playoffs,9.5,30,40,null,1,9,null,null,null
-1948-49,9,,,,,60,34,19,7,75,195,145,50,Lost Cup Finals,10.4,39,32,null,4,4,null,null,null
-1948-49,5,,,,,60,29,23,8,66,178,163,15,Lost Semi-Finals,7.2,29,21,null,3,3,null,null,null
-1948-49,0,,,,,60,28,23,9,65,152,126,26,Lost Semi-Finals,13,34,28,null,7,1,null,null,null
-1948-49,3,,,,,60,22,25,13,57,147,161,-14,BOWL CUP CHAMPION,11.7,30,37,null,7,5,null,null,null
-1948-49,8,,,,,60,21,31,8,50,173,211,-38,Missed Playoffs,11.6,33,46,null,3,10,null,null,null
-1948-49,10,,,,,60,18,31,11,47,133,172,-39,Missed Playoffs,6.8,27,28,null,1,2,null,null,null
-1949-50,9,,,,,70,37,19,14,88,229,164,65,BOWL CUP CHAMPION,10.5,55,36,null,0,0,null,null,null
-1949-50,0,,,,,70,29,22,19,77,172,150,22,Lost Semi-Finals,10.5,39,25,null,1,0,null,null,null
-1949-50,3,,,,,70,31,27,12,74,176,173,3,Lost Semi-Finals,11.4,35,40,null,0,3,null,null,null
-1949-50,10,,,,,70,28,31,11,67,170,189,-19,Lost Cup Finals,9.2,36,47,null,0,0,null,null,null
-1949-50,5,,,,,70,22,32,16,60,198,228,-30,Missed Playoffs,6.4,29,28,null,0,0,null,null,null
-1949-50,8,,,,,70,22,38,10,54,203,244,-41,Missed Playoffs,8.8,33,51,null,2,0,null,null,null
-1950-51,,,,,,,,,,,,,,,,,,,,,,,
-1950-51,,,,,,,,,,,,,,,,,,,,,,,
-1950-51,,,,,,,,,,,,,,,,,,,,,,,
-1950-51,,,,,,,,,,,,,,,,,,,,,,,
-1950-51,,,,,,,,,,,,,,,,,,,,,,,
-1950-51,,,,,,,,,,,,,,,,,,,,,,,
+Year,Team ID,Team Name Override,Conference ID,Conference Override,Division ID,Division Override,Logo File Override,GP,W,L,T (OTL),PTS,GF,GA,Goal Differential,Result,PIM/G,PPG,PPG Against,PP Ch,SHG,SHG Against,SHC,PP%,PK%,Shots,Shots Against
+1917-18,,Montreal Wanderers,,,,,,6,1,5,0,2,17,35,-18,Missed Playoffs,4.5,null,0,null,null,0,null,null,null,null,null
+1917-18,3,,,,,,,22,13,9,0,26,108,109,-1,BOWL CUP CHAMPION,16.14,null,0,null,null,0,null,null,null,null,null
+1917-18,,Ottawa Senators,,,,,,22,9,13,0,18,102,114,-12,Missed Playoffs,15.14,null,0,null,null,0,null,null,null,null,null
+1917-18,0,,,,,,,22,13,9,0,26,115,84,31,Lost Cup Finals,15.27,null,0,null,null,0,null,null,null,null,null
+1918-19,,Ottawa Senators,,,,,,18,12,6,0,24,71,53,18,No Winner,13.39,null,0,null,null,2,null,null,null,null,null
+1918-19,0,,,,,,,18,10,8,0,20,88,78,10,No Winner,14.06,null,1,null,null,0,null,null,null,null,null
+1918-19,3,,,,,,,18,5,13,0,10,64,92,-28,No Winner,14.94,null,0,null,null,0,null,null,null,null,null
+1919-20,,Ottawa Senators,,,,,,24,19,5,0,38,121,64,54,No Winner,12.71,null,2,null,null,0,null,null,null,null,null
+1919-20,0,,,,,,,24,13,11,0,26,129,113,16,No Winner,12.38,null,4,null,null,0,null,null,null,null,null
+1919-20,3,,,,,,,24,12,12,0,24,119,106,13,No Winner,10.54,null,1,null,null,2,null,null,null,null,null
+1919-20,,Quebec Bulldogs,,,,,,24,4,20,0,8,91,177,-86,No Winner,5.13,null,0,null,null,2,null,null,null,null,null
+1920-21,,Hamilton Tigers,,,,,,24,6,18,0,12,92,132,-40,Missed Playoffs,7.63,null,0,null,null,0,null,null,null,null,null
+1920-21,0,,,,,,,24,13,11,0,26,112,99,13,Missed Playoffs,13.54,null,1,null,null,1,null,null,null,null,null
+1920-21,,Ottawa Senators,,,,,,24,14,10,0,28,97,75,22,BOWL CUP CHAMPION,7.46,null,2,null,null,0,null,null,null,null,null
+1920-21,3,,,,,,,24,15,9,0,30,105,100,5,Lost Cup Finals,11.96,null,2,null,null,0,null,null,null,null,null
+1921-22,,Ottawa Senators,,,,,,24,14,8,2,30,106,84,22,Lost Cup Finals,4.63,null,7,null,null,2,null,null,null,null,null
+1921-22,3,,,,,,,24,13,10,1,27,98,97,1,BOWL CUP CHAMPION,6.67,null,7,null,null,0,null,null,null,null,null
+1921-22,0,,,,,,,24,12,11,1,25,88,94,-6,Missed Playoffs,8.58,null,4,null,null,0,null,null,null,null,null
+1921-22,,Hamilton Tigers,,,,,,24,7,17,0,14,88,105,-17,Missed Playoffs,4.42,null,5,null,null,4,null,null,null,null,null
+1922-23,,Ottawa Senators,,,,,,24,14,9,1,29,77,54,23,BOWL CUP CHAMPION,8.13,null,8,null,null,1,null,null,null,null,null
+1922-23,0,,,,,,,24,13,9,2,28,73,61,12,Lost Cup Finals,8.04,null,4,null,null,1,null,null,null,null,null
+1922-23,3,,,,,,,24,13,10,1,27,82,88,-6,Missed Playoffs,10.04,null,10,null,null,6,null,null,null,null,null
+1922-23,,Hamilton Tigers,,,,,,24,6,18,0,12,81,110,-29,Missed Playoffs,7.83,null,13,null,null,1,null,null,null,null,null
+1923-24,,Ottawa Senators,,,,,,24,16,8,0,32,74,54,20,Lost Cup Finals,7.42,null,6,null,null,1,null,null,null,null,null
+1923-24,0,,,,,,,24,13,11,0,26,59,48,11,BOWL CUP CHAMPION,7.79,null,12,null,null,2,null,null,null,null,null
+1923-24,3,,,,,,,24,10,14,0,20,59,85,-26,Missed Playoffs,10.08,null,11,null,null,2,null,null,null,null,null
+1923-24,,Hamilton Tigers,,,,,,24,9,15,0,18,63,68,-5,Missed Playoffs,7.13,null,14,null,null,1,null,null,null,null,null
+1924-25,,Hamilton Tigers,,,,,,30,19,10,1,39,90,60,30,Lost First Round,11.17,null,8,null,null,4,null,null,null,null,null
+1924-25,3,,,,,,,30,19,11,0,38,90,84,6,Lost Cup Finals,9.13,null,5,null,null,3,null,null,null,null,null
+1924-25,0,,,,,,,30,17,11,2,36,93,56,37,BOWL CUP CHAMPION,13.53,null,14,null,null,0,null,null,null,null,null
+1924-25,,Ottawa Senators,,,,,,30,17,12,1,35,83,66,17,Missed Playoffs,11.67,null,8,null,null,1,null,null,null,null,null
+1924-25,,Montreal Maroons,,,,,,30,9,19,2,20,45,65,-20,Missed Playoffs,9.73,null,6,null,null,1,null,null,null,null,null
+1924-25,5,,,,,,,30,6,24,0,12,49,119,-70,Missed Playoffs,7.7,null,8,null,null,3,null,null,null,null,null
+1925-26,,Ottawa Senators,,,,,,36,24,8,4,52,77,42,35,Lost Cup Finals,9.42,null,6,null,null,0,null,null,null,null,null
+1925-26,,Montreal Maroons,,,,,,36,20,11,5,45,91,73,18,BOWL CUP CHAMPION,15.39,null,7,null,null,2,null,null,null,null,null
+1925-26,,Pittsburgh Pirates,,,,,,36,19,16,1,39,82,70,12,Missed Playoffs,7.33,null,2,null,null,2,null,null,null,null,null
+1925-26,5,,,,,,,36,17,15,4,38,92,85,7,Missed Playoffs,8.11,null,9,null,null,0,null,null,null,null,null
+1925-26,,New York Americans,,,,,,36,12,20,4,28,68,89,-21,Missed Playoffs,9.47,null,2,null,null,2,null,null,null,null,null
+1925-26,3,,,,,,,36,12,21,3,27,92,114,-22,Missed Playoffs,9.03,null,10,null,null,2,null,null,null,null,null
+1925-26,0,,,,,,,36,11,24,1,23,79,108,-29,Missed Playoffs,12.72,null,10,null,null,4,null,null,null,null,null
+1926-27,10,,,,,American,,44,25,13,6,56,95,72,23,Lost Semi-Finals,8.75,null,0,null,null,0,null,null,null,null,null
+1926-27,5,,,,,American,,44,21,20,3,45,97,89,8,Lost Cup Finals,11.34,null,0,null,null,0,null,null,null,null,null
+1926-27,8,,,,,American,,44,19,22,3,41,115,116,-1,Lost Quarterfinals,9.01,null,0,null,null,0,null,null,null,null,null
+1926-27,,Pittsburgh Pirates,,,,American,,44,15,26,3,33,79,108,-29,Missed Playoffs,5.05,null,1,null,null,0,null,null,null,null,null
+1926-27,9,,,,,American,,44,12,28,4,28,76,105,-29,Missed Playoffs,9.52,null,1,null,null,0,null,null,null,null,null
+1926-27,,Ottawa Senators,,,,Canadian,,44,30,10,4,64,86,69,17,BOWL CUP CHAMPION,13.8,null,3,null,null,0,null,null,null,null,null
+1926-27,0,,,,,Canadian,,44,28,14,2,58,99,67,32,Lost Semi-Finals,9.3,null,0,null,null,0,null,null,null,null,null
+1926-27,,Montreal Maroons,,,,Canadian,,44,20,20,4,44,71,68,3,Lost Quarterfinals,16.27,null,1,null,null,0,null,null,null,null,null
+1926-27,,New York Americans,,,,Canadian,,44,17,25,2,36,82,91,-9,Missed Playoffs,8.16,null,1,null,null,1,null,null,null,null,null
+1926-27,3,,,,,Canadian,,44,15,24,5,35,79,94,-15,Missed Playoffs,12.41,null,1,null,null,0,null,null,null,null,null
+1927-28,5,,,,,American,,44,20,13,11,51,77,70,7,Lost Semi-Finals,12.68,null,2,null,null,1,null,null,null,null,null
+1927-28,10,,,,,American,,44,19,16,9,47,94,79,15,BOWL CUP CHAMPION,10.5,null,1,null,null,0,null,null,null,null,null
+1927-28,,Pittsburgh Pirates,,,,American,,44,19,17,8,46,67,76,-9,Lost Quarterfinals,9.64,null,3,null,null,0,null,null,null,null,null
+1927-28,9,,,,,American,,44,19,19,6,44,88,79,9,Missed Playoffs,8.98,null,3,null,null,0,null,null,null,null,null
+1927-28,8,,,,,American,,44,7,34,3,17,68,134,-66,Missed Playoffs,8.57,null,8,null,null,1,null,null,null,null,null
+1927-28,0,,,,,Canadian,,44,26,11,7,59,116,48,68,Lost Semi-Finals,11.27,null,0,null,null,0,null,null,null,null,null
+1927-28,,Montreal Maroons,,,,Canadian,,44,24,14,6,54,96,77,19,Lost Cup Finals,13.36,null,1,null,null,0,null,null,null,null,null
+1927-28,,Ottawa Senators,,,,Canadian,,44,20,14,10,50,78,57,21,Lost Quarterfinals,10.98,null,2,null,null,2,null,null,null,null,null
+1927-28,3,,,,,Canadian,,44,18,18,8,44,89,88,1,Missed Playoffs,11.86,null,2,null,null,0,null,null,null,null,null
+1927-28,,New York Americans,,,,Canadian,,44,11,27,6,28,63,128,-65,Missed Playoffs,13.41,null,0,null,null,0,null,null,null,null,null
+1928-29,5,,,,,American,,44,26,13,5,57,89,52,37,BOWL CUP CHAMPION,10.77,null,1,null,null,0,null,null,null,null,null
+1928-29,10,,,,,American,,44,21,13,10,52,72,65,7,Lost Cup Finals,8.68,null,3,null,null,0,null,null,null,null,null
+1928-29,9,,,,,American,,44,19,16,9,47,72,63,9,Lost First Round,8.66,null,3,null,null,0,null,null,null,null,null
+1928-29,,Pittsburgh Pirates,,,,American,,44,9,27,8,26,46,80,-34,Missed Playoffs,7.36,null,1,null,null,2,null,null,null,null,null
+1928-29,8,,,,,American,,44,7,29,8,22,33,85,-52,Missed Playoffs,8.25,null,0,null,null,0,null,null,null,null,null
+1928-29,0,,,,,Canadian,,44,22,7,15,59,71,43,28,Lost Semi-Finals,10.57,null,0,null,null,1,null,null,null,null,null
+1928-29,,New York Americans,,,,Canadian,,44,19,13,12,50,53,53,0,Lost First Round,11.05,null,3,null,null,0,null,null,null,null,null
+1928-29,3,,,,,Canadian,,44,21,18,5,47,85,69,16,Lost First Round,12.27,null,5,null,null,1,null,null,null,null,null
+1928-29,,Ottawa Senators,,,,Canadian,,44,14,17,13,41,54,67,-13,Missed Playoffs,10.52,null,4,null,null,0,null,null,null,null,null
+1928-29,,Montreal Maroons,,,,Canadian,,44,15,20,9,39,67,65,2,Missed Playoffs,14.45,null,5,null,null,0,null,null,null,null,null
+1929-30,5,,,,,American,,44,38,5,1,77,179,98,81,Lost Cup Finals,10.16,null,3,null,null,0,null,null,null,null,null
+1929-30,8,,,,,American,,44,21,18,5,47,117,111,6,Lost First Round,13.02,null,1,null,null,0,null,null,null,null,null
+1929-30,10,,,,,American,,44,17,17,10,44,136,143,-7,Lost Semi-Finals,9.93,null,0,null,null,0,null,null,null,null,null
+1929-30,9,,,,,American,,44,14,24,6,34,117,133,-16,Missed Playoffs,10.75,null,2,null,null,0,null,null,null,null,null
+1929-30,,Pittsburgh Pirates,,,,American,,44,5,36,3,13,102,185,-83,Missed Playoffs,8.27,null,2,null,null,0,null,null,null,null,null
+1929-30,,Montreal Maroons,,,,Canadian,,44,23,16,5,51,141,114,27,Lost Semi-Finals,14.89,null,5,null,null,0,null,null,null,null,null
+1929-30,0,,,,,Canadian,,44,21,14,9,51,142,114,28,BOWL CUP CHAMPION,13.55,null,1,null,null,0,null,null,null,null,null
+1929-30,,Ottawa Senators,,,,Canadian,,44,21,15,8,50,138,118,20,Lost First Round,12.68,null,8,null,null,0,null,null,null,null,null
+1929-30,3,,,,,Canadian,,44,17,21,6,40,16,124,-8,Missed Playoffs,13.8,null,9,null,null,0,null,null,null,null,null
+1929-30,,New York Americans,,,,Canadian,,44,14,25,5,33,113,161,-48,Missed Playoffs,8.73,null,2,null,null,0,null,null,null,null,null
+1930-31,5,,,,,American,,44,28,10,6,62,143,90,53,Lost Semi-Finals,10.45,null,1,null,null,0,null,null,null,null,null
+1930-31,8,,,,,American,,44,24,17,3,51,108,78,30,Lost Cup Finals,9.25,null,3,null,null,1,null,null,null,null,null
+1930-31,10,,,,,American,,44,19,16,9,47,106,87,19,Lost Semi-Finals,11.73,null,2,null,null,1,null,null,null,null,null
+1930-31,9,,,,,American,,44,16,21,7,39,102,105,-3,Missed Playoffs,9.34,null,1,null,null,0,null,null,null,null,null
+1930-31,,Philadelphia Quakers,,,,American,,44,4,36,4,12,76,184,-108,Missed Playoffs,10.64,null,5,null,null,0,null,null,null,null,null
+1930-31,0,,,,,Canadian,,44,26,10,8,60,129,89,40,BOWL CUP CHAMPION,13.68,null,5,null,null,0,null,null,null,null,null
+1930-31,3,,,,,Canadian,,44,22,13,9,53,118,99,19,Lost First Round,11.64,null,7,null,null,0,null,null,null,null,null
+1930-31,,Montreal Maroons,,,,Canadian,,44,20,18,6,46,105,106,-1,Lost First Round,13.77,null,6,null,null,1,null,null,null,null,null
+1930-31,,New York Americans,,,,Canadian,,44,18,16,10,46,76,74,2,Missed Playoffs,11.43,null,4,null,null,0,null,null,null,null,null
+1930-31,,Ottawa Senators,,,,Canadian,,44,10,30,4,24,91,142,-51,Missed Playoffs,11.05,null,2,null,null,0,null,null,null,null,null
+1931-32,10,,,,,American,,48,23,17,8,54,134,112,22,Lost Cup Finals,10.65,null,1,null,null,0,null,null,null,null,null
+1931-32,8,,,,,American,,48,18,19,11,47,86,101,-15,Lost First Round,10.66,null,1,null,null,0,null,null,null,null,null
+1931-32,9,,,,,American,,48,18,20,10,46,95,108,-13,Lost First Round,8.73,null,0,null,null,0,null,null,null,null,null
+1931-32,5,,,,,American,,48,15,21,12,42,122,117,5,Missed Playoffs,8.45,null,1,null,null,0,null,null,null,null,null
+1931-32,0,,,,,Canadian,,48,25,16,7,57,128,111,17,Lost Semi-Finals,9.33,null,2,null,null,0,null,null,null,null,null
+1931-32,3,,,,,Canadian,,48,23,18,7,53,155,127,28,BOWL CUP CHAMPION,13.02,null,5,null,null,1,null,null,null,null,null
+1931-32,,Montreal Maroons,,,,Canadian,,48,19,22,7,45,142,139,3,Lost Semi-Finals,13.48,null,2,null,null,2,null,null,null,null,null
+1931-32,,New York Americans,,,,Canadian,,48,16,24,8,40,95,142,-47,Missed Playoffs,13.39,null,2,null,null,1,null,null,null,null,null
+1932-33,5,,,,,American,,48,25,15,8,58,124,88,36,Lost Semi-Finals,10.77,null,10,null,null,3,null,null,null,null,null
+1932-33,9,,,,,American,,48,25,15,8,58,111,93,18,Lost Semi-Finals,9.63,null,12,null,null,3,null,null,null,null,null
+1932-33,10,,,,,American,,48,23,17,8,54,135,107,28,BOWL CUP CHAMPION,12.48,null,22,null,null,5,null,null,null,null,null
+1932-33,8,,,,,American,,48,16,20,12,44,88,101,-13,Missed Playoffs,8.35,null,6,null,null,0,null,null,null,null,null
+1932-33,3,,,,,Canadian,,48,24,18,6,54,119,111,8,Lost Cup Finals,13,null,15,null,null,2,null,null,null,null,null
+1932-33,,Montreal Maroons,,,,Canadian,,48,22,20,6,50,135,119,16,Lost First Round,9.21,null,15,null,null,6,null,null,null,null,null
+1932-33,0,,,,,Canadian,,48,18,25,5,41,92,115,-23,Lost First Round,10.04,null,14,null,null,2,null,null,null,null,null
+1932-33,,New York Americans,,,,Canadian,,48,15,22,11,41,91,118,-27,Missed Playoffs,9.96,null,15,null,null,0,null,null,null,null,null
+1932-33,,Ottawa Senators,,,,Canadian,,48,11,27,10,32,88,131,-43,Missed Playoffs,9.05,null,22,null,null,1,null,null,null,null,null
+1933-34,9,,,,,American,,48,24,14,10,58,113,98,15,Lost Cup Finals,7.67,28,17,null,2,5,null,null,null,null,null
+1933-34,8,,,,,American,,48,20,17,11,51,88,83,5,BOWL CUP CHAMPION,6.98,15,10,null,3,3,null,null,null,null,null
+1933-34,10,,,,,American,,48,21,19,8,50,120,113,7,Lost First Round,8.35,26,26,null,6,5,null,null,null,null,null
+1933-34,5,,,,,American,,48,18,25,5,41,111,130,-19,Missed Playoffs,8.59,12,12,null,0,1,null,null,null,null,null
+1933-34,3,,,,,Canadian,,48,26,13,9,61,174,119,55,Lost Semi-Finals,11.02,27,23,null,6,2,null,null,null,null,null
+1933-34,0,,,,,Canadian,,48,22,20,6,50,99,101,-2,Lost First Round,6.42,21,13,null,4,4,null,null,null,null,null
+1933-34,,Montreal Maroons,,,,Canadian,,48,19,18,11,49,117,122,-5,Lost First Round,8.63,20,20,null,2,1,null,null,null,null,null
+1933-34,,New York Americans,,,,Canadian,,48,15,23,10,40,104,132,-28,Missed Playoffs,7.79,14,25,null,2,2,null,null,null,null,null
+1933-34,,Ottawa Senators,,,,Canadian,,48,13,29,6,32,115,143,-28,Missed Playoffs,7.33,10,18,null,1,4,null,null,null,null,null
+1934-35,5,,,,,American,,48,26,16,6,58,129,112,17,Lost Semi-Finals,7.9,20,17,null,2,2,null,null,null,null,null
+1934-35,8,,,,,American,,48,26,17,5,57,118,88,30,Lost First Round,8.06,13,17,null,1,2,null,null,null,null,null
+1934-35,10,,,,,American,,48,22,20,6,50,137,139,-2,Lost Semi-Finals,7.1,17,25,null,10,4,null,null,null,null,null
+1934-35,9,,,,,American,,48,19,22,7,45,127,114,13,Missed Playoffs,6.79,32,17,null,5,1,null,null,null,null,null
+1934-35,3,,,,,Canadian,,48,30,14,4,64,157,111,46,Lost Cup Finals,9.25,29,27,null,3,3,null,null,null,null,null
+1934-35,,Montreal Maroons,,,,Canadian,,48,24,19,5,53,123,92,31,BOWL CUP CHAMPION,7.98,20,10,null,5,0,null,null,null,null,null
+1934-35,0,,,,,Canadian,,48,19,23,6,44,110,145,-35,Lost First Round,6.46,12,20,null,1,7,null,null,null,null,null
+1934-35,,New York Americans,,,,Canadian,,48,12,27,9,33,100,142,-42,Missed Playoffs,5.21,15,17,null,1,4,null,null,null,null,null
+1934-35,,St-Louis Eagles,,,,Canadian,,48,11,31,6,28,86,144,-58,Missed Playoffs,8.38,14,22,null,0,6,null,null,null,null,null
+1935-36,9,,,,,American,,48,24,16,8,56,124,103,21,BOWL CUP CHAMPION,7.83,24,18,null,0,3,null,null,null,null,null
+1935-36,5,,,,,American,,48,22,20,6,50,92,83,9,Lost First Round,8.31,14,10,null,2,3,null,null,null,null,null
+1935-36,8,,,,,American,,48,21,19,8,50,93,92,1,Lost First Round,8.52,22,13,null,2,2,null,null,null,null,null
+1935-36,10,,,,,American,,48,19,17,12,50,91,96,-5,Missed Playoffs,8.06,18,17,null,1,4,null,null,null,null,null
+1935-36,,Montreal Maroons,,,,Canadian,,48,22,16,10,54,114,106,8,Lost Semi-Finals,10.5,18,23,null,6,1,null,null,null,null,null
+1935-36,3,,,,,Canadian,,48,23,19,6,52,126,106,20,Lost Cup Finals,12.06,18,21,null,6,4,null,null,null,null,null
+1935-36,,New York Americans,,,,Canadian,,48,16,25,7,39,109,122,-13,Lost Semi-Finals,8.17,18,28,null,1,1,null,null,null,null,null
+1935-36,0,,,,,Canadian,,48,11,26,11,33,82,123,-41,Missed Playoffs,6.6,10,12,null,0,0,null,null,null,null,null
+1936-37,9,,,,,American,,48,25,14,9,59,128,102,26,BOWL CUP CHAMPION,5.08,3,8,null,1,0,null,null,null,null,null
+1936-37,5,,,,,American,,48,23,18,7,53,120,110,10,Lost First Round,6.31,7,8,null,1,1,null,null,null,null,null
+1936-37,10,,,,,American,,48,19,20,9,47,117,106,11,Lost Semi-Finals,6.5,22,12,null,3,1,null,null,null,null,null
+1936-37,8,,,,,American,,48,14,27,7,35,99,131,-32,Missed Playoffs,6.06,10,15,null,4,4,null,null,null,null,null
+1936-37,0,,,,,Canadian,,48,24,18,6,54,115,111,4,Lost Semi-Finals,6.33,19,10,null,1,5,null,null,null,null,null
+1936-37,,Montreal Maroons,,,,Canadian,,48,22,17,9,53,126,110,16,Lost Semi-Finals,7.94,16,21,null,5,1,null,null,null,null,null
+1936-37,3,,,,,Canadian,,48,22,21,5,49,119,115,4,Lost First Round,7.73,15,16,null,4,3,null,null,null,null,null
+1936-37,,New York Americans,,,,Canadian,,48,15,29,4,34,122,161,-39,Missed Playoffs,10.06,21,23,null,1,5,null,null,null,null,null
+1937-38,5,,,,,American,,48,30,11,7,67,142,89,53,Lost Semi-Finals,5.83,6,6,null,5,2,null,null,null,null,null
+1937-38,10,,,,,American,,48,27,15,6,60,149,96,53,Lost First Round,9.27,17,14,null,6,4,null,null,null,null,null
+1937-38,8,,,,,American,,48,14,25,9,37,97,139,-42,BOWL CUP CHAMPION,5.04,21,14,null,1,8,null,null,null,null,null
+1937-38,9,,,,,American,,48,12,25,11,35,99,133,-34,Missed Playoffs,5.46,5,5,null,0,3,null,null,null,null,null
+1937-38,3,,,,,Canadian,,48,24,15,9,57,151,127,24,Lost Cup Finals,8.42,17,14,null,6,3,null,null,null,null,null
+1937-38,,New York Americans,,,,Canadian,,48,19,18,11,49,110,111,-1,Lost Semi-Finals,6.81,11,14,null,1,5,null,null,null,null,null
+1937-38,0,,,,,Canadian,,48,18,17,13,49,123,128,-5,Lost First Round,7.13,24,14,null,2,3,null,null,null,null,null
+1937-38,,Montreal Maroons,,,,Canadian,,48,12,30,6,30,101,149,-48,Missed Playoffs,9.79,16,26,null,4,1,null,null,null,null,null
+1938-39,5,,,,,,,48,36,10,2,74,156,76,80,BOWL CUP CHAMPION,5.23,12,11,null,3,0,null,null,null,null,null
+1938-39,10,,,,,,,48,26,16,6,58,149,105,44,Lost Semi-Finals,8.06,17,15,null,4,4,null,null,null,null,null
+1938-39,3,,,,,,,48,19,20,9,47,114,107,7,Lost Cup Finals,7.75,20,22,null,8,3,null,null,null,null,null
+1938-39,,New York Americans,,,,,,48,17,21,10,44,119,157,-38,Lost First Round,5.92,27,27,null,4,5,null,null,null,null,null
+1938-39,9,,,,,,,48,18,24,6,42,107,128,-21,Lost Semi-Finals,5.04,18,13,null,3,8,null,null,null,null,null
+1938-39,0,,,,,,,48,15,24,9,39,115,146,-31,Lost First Round,6,18,24,null,0,4,null,null,null,null,null
+1938-39,8,,,,,,,48,12,28,8,32,91,132,-41,Missed Playoffs,7.52,16,16,null,3,1,null,null,null,null,null
+1939-40,5,,,,,,,48,31,12,5,67,170,98,72,Lost Semi-Finals,6.88,4,8,null,4,1,null,null,null,null,null
+1939-40,10,,,,,,,48,27,11,10,64,136,77,59,BOWL CUP CHAMPION,10.63,14,11,null,10,1,null,null,null,null,null
+1939-40,3,,,,,,,48,25,17,6,56,134,110,24,Lost Semi-Finals,9.88,15,14,null,6,8,null,null,null,null,null
+1939-40,8,,,,,,,48,23,19,6,52,112,120,-8,Lost First Round,7.27,16,19,null,2,2,null,null,null,null,null
+1939-40,9,,,,,,,48,16,26,6,38,90,126,-36,Lost Semi-Finals,5.21,14,8,null,4,3,null,null,null,null,null
+1939-40,,New York Americans,,,,,,48,15,29,4,34,106,140,-34,Lost First Round,4.92,10,15,null,1,9,null,null,null,null,null
+1939-40,0,,,,,,,48,10,33,5,25,90,167,-77,Missed Playoffs,6.71,15,13,null,1,4,null,null,null,null,null
+1940-41,5,,,,,,,48,27,8,13,67,168,102,66,BOWL CUP CHAMPION,5.13,10,8,null,2,2,null,null,null,null,null
+1940-41,3,,,,,,,48,28,14,6,62,145,99,46,Lost Semi-Finals,6.38,16,12,null,2,4,null,null,null,null,null
+1940-41,9,,,,,,,48,21,16,11,53,112,102,10,Lost Cup Finals,7.02,12,10,null,1,2,null,null,null,null,null
+1940-41,10,,,,,,,48,21,19,8,50,143,125,18,Lost Quarterfinals,7.42,12,16,null,9,0,null,null,null,null,null
+1940-41,8,,,,,,,48,16,25,7,39,112,139,-27,Lost Semi-Finals,6.98,14,17,null,3,5,null,null,null,null,null
+1940-41,0,,,,,,,48,16,26,6,38,121,147,-26,Lost Quarterfinals,9.6,14,19,null,3,6,null,null,null,null,null
+1940-41,,New York Americans,,,,,,48,8,29,11,27,99,186,-87,Missed Playoffs,4.81,14,10,null,3,4,null,null,null,null,null
+1941-42,10,,,,,,,48,29,17,2,60,177,143,34,Lost Semi-Finals,8.13,22,22,null,5,3,null,null,null,null,null
+1941-42,3,,,,,,,48,27,18,3,57,158,136,22,BOWL CUP CHAMPION,7.1,20,17,null,6,1,null,null,null,null,null
+1941-42,5,,,,,,,48,25,17,6,56,160,118,42,Lost Semi-Finals,7.06,18,16,null,1,4,null,null,null,null,null
+1941-42,8,,,,,,,48,22,23,3,47,145,155,-10,Lost Quarterfinals,6.85,25,24,null,3,5,null,null,null,null,null
+1941-42,9,,,,,,,48,19,25,4,42,140,147,-7,Lost Cup Finals,9.17,14,13,null,1,3,null,null,null,null,null
+1941-42,0,,,,,,,48,18,27,3,39,134,173,-39,Lost First Round,10.04,30,24,null,1,3,null,null,null,null,null
+1941-42,,Brooklyn Americans,,,,,,48,16,29,3,35,133,175,-42,Missed Playoffs,8.9,19,32,null,4,2,null,null,null,null,null
+1942-43,9,,,,,,,50,25,14,11,61,169,124,45,BOWL CUP CHAMPION,7.6,34,17,null,1,1,null,null,null,null,null
+1942-43,5,,,,,,,50,24,17,9,57,195,176,19,Lost Cup Finals,7.3,26,39,null,1,1,null,null,null,null,null
+1942-43,3,,,,,,,50,22,19,9,53,198,159,39,Lost Semi-Finals,8.8,21,26,null,1,0,null,null,null,null,null
+1942-43,0,,,,,,,50,19,19,12,50,181,191,-10,Lost Semi-Finals,6.4,35,23,null,0,0,null,null,null,null,null
+1942-43,8,,,,,,,50,17,18,15,49,179,180,-1,Missed Playoffs,7.4,28,24,null,1,1,null,null,null,null,null
+1942-43,10,,,,,,,50,11,31,8,30,161,253,-92,Missed Playoffs,7,24,39,null,1,2,null,null,null,null,null
+1943-44,0,,,,,,,50,38,5,7,83,234,109,125,BOWL CUP CHAMPION,11.7,30,15,null,4,0,null,null,null,null,null
+1943-44,9,,,,,,,50,26,18,6,58,214,177,37,Lost Semi-Finals,7.5,14,17,null,0,0,null,null,null,null,null
+1943-44,3,,,,,,,50,23,23,4,50,214,174,40,Lost Semi-Finals,6.6,27,12,null,1,2,null,null,null,null,null
+1943-44,8,,,,,,,50,22,23,5,49,178,187,-9,Lost Cup Finals,4.8,26,26,null,1,1,null,null,null,null,null
+1943-44,5,,,,,,,50,19,26,5,43,223,268,-45,Missed Playoffs,4.1,10,26,null,3,1,null,null,null,null,null
+1943-44,10,,,,,,,50,6,39,5,17,162,310,-148,Missed Playoffs,5.1,12,23,null,0,5,null,null,null,null,null
+1944-45,0,,,,,,,50,38,8,4,80,228,121,107,Lost Semi-Finals,8.8,28,23,null,2,2,null,null,null,null,null
+1944-45,9,,,,,,,50,31,14,5,67,218,161,57,Lost Cup Finals,5.8,23,9,null,2,1,null,null,null,null,null
+1944-45,3,,,,,,,50,24,22,4,52,183,161,22,BOWL CUP CHAMPION,6.9,24,21,null,3,2,null,null,null,null,null
+1944-45,5,,,,,,,50,16,30,4,36,179,219,-40,Lost Semi-Finals,5.9,12,26,null,4,2,null,null,null,null,null
+1944-45,8,,,,,,,50,13,30,7,33,141,194,-53,Missed Playoffs,5.1,20,25,null,1,3,null,null,null,null,null
+1944-45,10,,,,,,,50,11,29,10,32,154,247,-93,Missed Playoffs,6.3,17,20,null,1,3,null,null,null,null,null
+1945-46,0,,,,,,,50,28,17,5,61,172,134,38,BOWL CUP CHAMPION,6.7,19,27,null,1,1,null,null,null,null,null
+1945-46,5,,,,,,,50,24,18,8,26,167,156,11,Lost Cup Finals,5.5,15,16,null,0,0,null,null,null,null,null
+1945-46,8,,,,,,,50,23,20,7,53,200,178,22,Lost Semi-Finals,6.7,38,27,null,3,1,null,null,null,null,null
+1945-46,9,,,,,,,50,20,20,10,50,146,159,-13,Lost Semi-Finals,6,27,24,null,2,2,null,null,null,null,null
+1945-46,3,,,,,,,50,19,24,7,45,174,185,-11,Missed Playoffs,4.9,17,19,null,1,1,null,null,null,null,null
+1945-46,10,,,,,,,50,13,28,9,35,144,191,-47,Missed Playoffs,5.7,16,19,null,0,2,null,null,null,null,null
+1946-47,0,,,,,,,60,34,16,10,78,189,138,51,Lost Cup Finals,9.3,31,39,null,1,1,null,null,null,null,null
+1946-47,3,,,,,,,60,31,19,10,72,209,172,37,BOWL CUP CHAMPION,11.2,28,35,null,6,1,null,null,null,null,null
+1946-47,5,,,,,,,60,26,23,11,63,190,175,15,Lost Semi-Finals,7.7,23,29,null,0,2,null,null,null,null,null
+1946-47,9,,,,,,,60,22,27,11,55,190,193,-3,Lost Semi-Finals,8.9,39,26,null,1,5,null,null,null,null,null
+1946-47,10,,,,,,,60,22,32,6,50,167,186,-19,Missed Playoffs,7,30,27,null,2,0,null,null,null,null,null
+1946-47,8,,,,,,,60,19,37,4,42,193,274,-81,Missed Playoffs,7.8,41,36,null,2,3,null,null,null,null,null
+1947-48,3,,,,,,,60,32,15,13,77,182,143,39,BOWL CUP CHAMPION,126,45,29,null,4,6,null,null,null,null,null
+1947-48,9,,,,,,,60,30,18,12,72,187,148,39,Lost Cup Finals,9.9,28,23,null,7,2,null,null,null,null,null
+1947-48,5,,,,,,,60,23,24,13,59,167,168,-1,Lost Semi-Finals,8.6,20,35,null,3,0,null,null,null,null,null
+1947-48,10,,,,,,,60,21,26,13,55,176,201,-25,Lost Semi-Finals,8,28,18,null,1,5,null,null,null,null,null
+1947-48,0,,,,,,,60,20,29,11,51,147,169,-22,Missed Playoffs,12.1,28,34,null,8,2,null,null,null,null,null
+1947-48,8,,,,,,,60,20,34,6,46,195,225,-30,Missed Playoffs,9.5,30,40,null,1,9,null,null,null,null,null
+1948-49,9,,,,,,,60,34,19,7,75,195,145,50,Lost Cup Finals,10.4,39,32,null,4,4,null,null,null,null,null
+1948-49,5,,,,,,,60,29,23,8,66,178,163,15,Lost Semi-Finals,7.2,29,21,null,3,3,null,null,null,null,null
+1948-49,0,,,,,,,60,28,23,9,65,152,126,26,Lost Semi-Finals,13,34,28,null,7,1,null,null,null,null,null
+1948-49,3,,,,,,,60,22,25,13,57,147,161,-14,BOWL CUP CHAMPION,11.7,30,37,null,7,5,null,null,null,null,null
+1948-49,8,,,,,,,60,21,31,8,50,173,211,-38,Missed Playoffs,11.6,33,46,null,3,10,null,null,null,null,null
+1948-49,10,,,,,,,60,18,31,11,47,133,172,-39,Missed Playoffs,6.8,27,28,null,1,2,null,null,null,null,null
+1949-50,9,,,,,,,70,37,19,14,88,229,164,65,BOWL CUP CHAMPION,10.5,55,36,null,0,0,null,null,null,null,null
+1949-50,0,,,,,,,70,29,22,19,77,172,150,22,Lost Semi-Finals,10.5,39,25,null,1,0,null,null,null,null,null
+1949-50,3,,,,,,,70,31,27,12,74,176,173,3,Lost Semi-Finals,11.4,35,40,null,0,3,null,null,null,null,null
+1949-50,10,,,,,,,70,28,31,11,67,170,189,-19,Lost Cup Finals,9.2,36,47,null,0,0,null,null,null,null,null
+1949-50,5,,,,,,,70,22,32,16,60,198,228,-30,Missed Playoffs,6.4,29,28,null,0,0,null,null,null,null,null
+1949-50,8,,,,,,,70,22,38,10,54,203,244,-41,Missed Playoffs,8.8,33,51,null,2,0,null,null,null,null,null
+1950-51,9,,,,,,,70,44,13,13,101,236,139,97,Lost Semi-Finals,8.1,37,17,null,2,6,null,null,null,null,null
+1950-51,3,,,,,,,70,41,16,13,95,212,138,74,BOWL CUP CHAMPION,11.8,49,21,null,4,1,null,null,null,null,null
+1950-51,0,,,,,,,70,25,30,15,65,173,184,-11,Lost Cup Finals,11.9,26,48,null,6,4,null,null,null,null,null
+1950-51,5,,,,,,,70,22,30,18,62,178,197,-19,Lost Semi-Finals,9.4,32,19,null,3,4,null,null,null,null,null
+1950-51,10,,,,,,,70,20,29,21,61,169,201,-32,Missed Playoffs,11.1,20,38,null,4,5,null,null,null,null,null
+1950-51,8,,,,,,,70,13,47,10,36,171,280,-109,Missed Playoffs,8.8,20,41,null,4,3,null,null,null,null,null
+1951-52,9,,,,,,,70,44,14,12,100,215,133,82,BOWL CUP CHAMPION,9.9,47,29,null,4,5,null,null,null,null,null
+1951-52,0,,,,,,,70,34,26,10,78,195,164,31,Lost Cup Finals,9.4,43,34,null,7,5,null,null,null,null,null
+1951-52,3,,,,,,,70,29,25,16,74,168,157,11,Lost Semi-Finals,12,44,38,null,3,2,null,null,null,null,null
+1951-52,5,,,,,,,70,25,29,16,66,162,176,-14,Lost Semi-Finals,8.6,22,30,null,3,3,null,null,null,null,null
+1951-52,10,,,,,,,70,23,34,13,59,192,219,-27,Missed Playoffs,7.6,39,45,null,2,4,null,null,null,null,null
+1951-52,8,,,,,,,70,17,44,9,43,158,241,-83,Missed Playoffs,9,26,45,null,4,4,null,null,null,null,null
+1952-53,9,,,,,,,70,36,16,18,90,222,133,89,Lost Semi-Finals,9.2,52,28,null,3,4,null,null,null,null,null
+1952-53,0,,,,,,,70,28,23,19,75,155,148,7,BOWL CUP CHAMPION,11.1,40,37,null,4,3,null,null,null,null,null
+1952-53,5,,,,,,,70,28,29,13,69,152,172,-20,Lost Cup Finals,7.5,25,18,null,6,4,null,null,null,null,null
+1952-53,8,,,,,,,70,27,28,15,69,169,175,-6,Lost Semi-Finals,10.7,20,33,null,7,4,null,null,null,null,null
+1952-53,3,,,,,,,70,27,30,13,67,156,167,-11,Missed Playoffs,11.5,30,46,null,5,4,null,null,null,null,null
+1952-53,10,,,,,,,70,17,37,16,50,152,211,-59,Missed Playoffs,7.8,33,38,null,2,8,null,null,null,null,null
+1953-54,9,,,,,,,70,37,19,14,88,191,132,59,BOWL CUP CHAMPION,11.6,55,37,null,4,2,null,null,null,null,null
+1953-54,0,,,,,,,70,35,24,11,81,195,141,54,Lost Cup Finals,15.2,49,40,null,3,5,null,null,null,null,null
+1953-54,3,,,,,,,70,32,24,14,78,152,131,21,Lost Semi-Finals,14.6,31,39,null,6,0,null,null,null,null,null
+1953-54,5,,,,,,,70,32,28,10,74,177,181,-4,Lost Semi-Finals,9.8,38,41,null,4,4,null,null,null,null,null
+1953-54,10,,,,,,,70,9,31,10,68,161,182,-21,Missed Playoffs,10.2,50,38,null,1,6,null,null,null,null,null
+1953-54,8,,,,,,,70,12,51,7,31,133,242,-109,Missed Playoffs,11.4,26,54,null,4,5,null,null,null,null,null
+1954-55,9,,,,,,,70,42,17,11,95,204,134,70,BOWL CUP CHAMPION,11.8,47,41,null,7,1,null,null,null,null,null
+1954-55,0,,,,,,,70,41,18,11,93,228,157,71,Lost Cup Finals,12.7,56,35,null,4,3,null,null,null,null,null
+1954-55,3,,,,,,,70,24,24,22,70,147,135,12,Lost Semi-Finals,14.1,30,33,null,7,2,null,null,null,null,null
+1954-55,5,,,,,,,70,23,26,21,67,169,188,-19,Lost Semi-Finals,12.3,37,42,null,3,6,null,null,null,null,null
+1954-55,10,,,,,,,70,17,35,18,52,150,210,-60,Missed Playoffs,9.9,36,49,null,2,10,null,null,null,null,null
+1954-55,8,,,,,,,70,13,40,17,43,161,235,-74,Missed Playoffs,10.4,37,43,null,5,6,null,null,null,null,null
+1955-56,0,,,,,,,70,45,15,10,100,222,131,91,BOWL CUP CHAMPION,14,66,27,null,4,6,null,null,null,null,null
+1955-56,9,,,,,,,70,30,24,16,76,183,148,35,Lost Cup Finals,11.2,52,29,null,5,3,null,null,null,null,null
+1955-56,10,,,,,,,70,32,28,10,74,204,203,1,Lost Semi-Finals,13,42,44,null,2,11,null,null,null,null,null
+1955-56,3,,,,,,,70,24,33,13,61,153,181,-28,Lost Semi-Finals,14.8,35,52,null,6,4,null,null,null,null,null
+1955-56,5,,,,,,,70,23,34,13,59,147,185,-38,Missed Playoffs,13.2,38,42,null,12,2,null,null,null,null,null
+1955-56,8,,,,,,,70,19,39,12,50,155,216,-61,Missed Playoffs,11.7,21,60,null,2,5,null,null,null,null,null
+1956-57,9,,,,,,,70,38,20,12,88,198,157,41,Lost Semi-Finals,9.1,48,30,null,4,2,null,null,null,null,null
+1956-57,0,,,,,,,70,35,23,12,82,210,155,55,BOWL CUP CHAMPION,12.5,54,38,null,5,4,null,null,null,null,null
+1956-57,5,,,,,,,70,34,24,12,80,195,174,21,Lost Cup Finals,14,34,51,null,3,3,null,null,null,null,null
+1956-57,10,,,,,,,70,26,30,14,66,184,227,-43,Lost Semi-Finals,12.5,49,47,null,8,5,null,null,null,null,null
+1956-57,3,,,,,,,70,21,34,15,57,174,192,-18,Missed Playoffs,11.8,45,48,null,3,1,null,null,null,null,null
+1956-57,8,,,,,,,70,16,39,15,47,169,225,-56,Missed Playoffs,11.4,34,50,null,1,9,null,null,null,null,null
+1957-58,0,,,,,,,70,43,17,10,96,250,158,92,BOWL CUP CHAMPION,13.6,61,38,null,3,8,null,null,null,null,null
+1957-58,10,,,,,,,70,32,25,13,77,195,188,7,Lost Semi-Finals,10.8,49,34,null,7,4,null,null,null,null,null
+1957-58,9,,,,,,,70,29,29,12,70,176,207,-31,Lost Semi-Finals,10.6,34,50,null,8,7,null,null,null,null,null
+1957-58,5,,,,,,,70,27,28,15,69,199,194,5,Lost Cup Finals,12.1,31,41,null,14,6,null,null,null,null,null
+1957-58,8,,,,,,,70,24,39,7,55,163,202,-39,Missed Playoffs,13,31,41,null,6,6,null,null,null,null,null
+1957-58,3,,,,,,,70,21,38,11,53,192,226,-34,Missed Playoffs,12.2,40,42,null,5,12,null,null,null,null,null
+1958-59,0,,,,,,,70,39,18,13,91,258,158,100,BOWL CUP CHAMPION,10.8,52,35,null,4,4,null,null,null,null,null
+1958-59,5,,,,,,,70,32,29,9,73,205,215,-10,Lost Semi-Finals,11.8,40,49,null,5,12,null,null,null,null,null
+1958-59,8,,,,,,,70,28,29,13,69,197,208,-11,Lost Semi-Finals,13.3,45,52,null,6,6,null,null,null,null,null
+1958-59,3,,,,,,,70,27,32,11,65,189,201,-12,Lost Cup Finals,12,34,56,null,10,5,null,null,null,null,null
+1958-59,10,,,,,,,70,26,32,12,64,201,217,-16,Missed Playoffs,12.1,50,37,null,7,3,null,null,null,null,null
+1958-59,9,,,,,,,70,25,37,8,58,167,218,-51,Missed Playoffs,8.7,40,32,null,7,9,null,null,null,null,null
+1959-60,0,,,,,,,70,40,18,12,92,255,178,77,BOWL CUP CHAMPION,13.6,54,35,null,4,8,null,null,null,2490,2083
+1959-60,3,,,,,,,70,35,26,9,79,199,195,4,Lost Cup Finals,12.3,31,37,null,11,0,null,null,null,2146,2322
+1959-60,8,,,,,,,70,28,29,13,69,191,180,11,Lost Semi-Finals,13.8,30,41,null,5,2,null,null,null,2125,2181
+1959-60,9,,,,,,,70,26,29,15,67,186,197,-11,Lost Semi-Finals,7.6,32,25,null,5,3,null,null,null,2327,2020
+1959-60,5,,,,,,,70,28,34,8,64,220,241,-21,Missed Playoffs,13.4,47,37,null,4,11,null,null,null,2053,2317
+1959-60,10,,,,,,,70,17,38,15,49,187,247,-60,Missed Playoffs,12.1,34,53,null,2,7,null,null,null,2135,2353
+1960-61,0,,,,,,,70,41,19,10,92,254,188,66,Lost Semi-Finals,11.5,64,31,null,8,6,null,null,null,2468,2046
+1960-61,3,,,,,,,70,39,19,12,90,234,176,58,Lost Semi-Finals,11.9,39,33,null,6,3,null,null,null,2217,2255
+1960-61,8,,,,,,,70,29,24,17,75,198,180,18,BOWL CUP CHAMPION,15.3,42,53,null,5,9,null,null,null,2181,2205
+1960-61,9,,,,,,,70,25,29,16,66,195,215,-20,Lost Cup Finals,9.3,38,36,null,5,4,null,null,null,2391,2032
+1960-61,10,,,,,,,70,22,38,10,54,204,248,-44,Missed Playoffs,8.4,36,48,null,6,8,null,null,null,2127,2607
+1960-61,5,,,,,,,70,15,42,13,43,176,254,-78,Missed Playoffs,11.5,28,46,null,8,8,null,null,null,2138,2377
+1961-62,0,,,,,,,70,42,14,14,98,259,166,93,Lost Semi-Finals,11.5,45,29,null,8,3,null,null,null,2388,2160
+1961-62,3,,,,,,,70,37,22,11,85,232,180,52,BOWL CUP CHAMPION,10.8,31,53,null,6,4,null,null,null,2251,2185
+1961-62,8,,,,,,,70,31,26,13,75,217,186,31,Lost Cup Finals,12.6,46,39,null,6,7,null,null,null,2154,2133
+1961-62,10,,,,,,,70,26,32,12,64,195,207,-12,Lost Semi-Finals,9.2,41,30,null,3,3,null,null,null,2016,2329
+1961-62,9,,,,,,,70,23,33,14,60,184,219,-35,Missed Playoffs,10.1,39,39,null,4,6,null,null,null,2324,2029
+1961-62,5,,,,,,,70,15,47,8,38,177,306,-129,Missed Playoffs,10.2,38,50,null,5,9,null,null,null,2166,2463
+1962-63,3,,,,,,,70,35,23,12,82,221,180,41,BOWL CUP CHAMPION,11.5,38,30,null,10,4,null,null,null,2340,1957
+1962-63,8,,,,,,,70,32,21,17,81,194,178,16,Lost Semi-Finals,12.9,37,46,null,3,9,null,null,null,2175,2137
+1962-63,0,,,,,,,70,28,19,23,79,225,183,42,Lost Semi-Finals,10.6,35,42,null,7,7,null,null,null,2433,1997
+1962-63,9,,,,,,,70,32,25,13,77,200,194,6,Lost Cup Finals,13.7,50,41,null,5,4,null,null,null,2451,2051
+1962-63,10,,,,,,,70,22,36,12,56,211,233,-22,Missed Playoffs,9.1,40,31,null,4,8,null,null,null,1978,2658
+1962-63,5,,,,,,,70,14,39,17,45,198,281,-83,Missed Playoffs,9.1,32,42,null,7,4,null,null,null,1986,2563
+1963-64,0,,,,,,,70,36,21,13,85,209,167,42,Lost Semi-Finals,14.1,46,42,294,7,7,248,15.65,83.03,2500,1973
+1963-64,8,,,,,,,70,36,22,12,84,218,169,49,Lost Semi-Finals,15.8,51,43,279,8,2,301,18.28,85.71,2298,2316
+1963-64,3,,,,,,,70,33,25,12,78,192,172,20,BOWL CUP CHAMPION,13,33,30,244,7,6,266,13.52,88.72,2249,2155
+1963-64,9,,,,,,,70,30,29,11,71,191,204,-13,Lost Cup Finals,11,42,36,240,2,5,267,17.5,86.52,2441,2258
+1963-64,10,,,,,,,70,22,38,10,54,186,242,-56,Missed Playoffs,10.1,41,44,253,3,6,206,16.21,78.64,2230,2627
+1963-64,5,,,,,,,70,18,40,12,48,170,212,-42,Missed Playoffs,12.3,28,46,220,3,4,272,12.73,80.99,2066,2455
+1964-65,9,,,,,,,70,40,23,7,87,224,175,49,Lost Semi-Finals,16,57,52,316,9,7,312,18.04,83.33,2450,1952
+1964-65,0,,,,,,,70,36,23,11,83,211,185,26,BOWL CUP CHAMPION,14.7,58,41,328,5,8,301,17.68,86.38,2308,1973
+1964-65,8,,,,,,,70,34,28,8,76,224,176,48,Lost Cup Finals,15,48,47,340,14,9,323,14.12,85.45,2102,2182
+1964-65,3,,,,,,,70,30,26,14,74,204,173,31,Lost Semi-Finals,15.3,51,56,280,9,12,343,18.21,83.67,2184,2149
+1964-65,10,,,,,,,70,20,38,12,52,179,246,-67,Missed Playoffs,10.8,55,45,321,7,8,267,17.13,83.15,2006,2375
+1964-65,5,,,,,,,70,21,43,6,48,166,253,-87,Missed Playoffs,13.6,25,53,254,10,10,293,9.84,81.91,2026,2445
+1965-66,0,,,,,,,70,41,21,8,90,239,173,66,BOWL CUP CHAMPION,12.6,61,46,260,2,3,247,23.46,81.38,2359,1957
+1965-66,8,,,,,,,70,37,25,8,82,240,187,53,Lost Cup Finals,11.4,70,39,281,8,4,251,24.91,84.46,2085,2189
+1965-66,3,,,,,,,70,34,25,11,79,208,187,21,Lost Semi-Finals,11.6,51,53,256,6,4,274,19.92,80.66,2322,2282
+1965-66,9,,,,,,,70,31,27,12,74,221,194,27,Lost Semi-Finals,11.4,42,44,245,7,9,273,17.14,83.88,2262,2013
+1965-66,5,,,,,,,70,21,43,6,48,174,275,-101,Missed Playoffs,11.2,30,53,255,3,6,252,11.76,78.97,2039,2504
+1965-66,10,,,,,,,70,18,41,11,47,195,261,-66,Missed Playoffs,12.8,44,63,182,2,2,282,15.6,77.66,2163,2285
+1966-67,8,,,,,,,70,41,17,12,94,264,170,94,Lost Semi-Finals,10.7,51,37,232,10,3,234,21.98,84.19,2206,2191
+1966-67,0,,,,,,,70,32,25,13,77,202,188,14,Lost Cup Finals,12.5,50,31,248,3,4,237,20.16,86.92,2228,2048
+1966-67,3,,,,,,,70,32,27,11,75,204,211,-7,BOWL CUP CHAMPION,10.4,37,56,237,6,6,240,15.61,76.67,2187,2407
+1966-67,10,,,,,,,70,30,28,12,72,188,189,-1,Lost Semi-Finals,9.5,35,31,199,4,5,199,17.59,84.42,2201,2194
+1966-67,9,,,,,,,70,27,39,4,58,212,241,-29,Missed Playoffs,10.3,46,46,230,6,7,246,20,81.3,2340,2264
+1966-67,5,,,,,,,70,17,43,10,44,182,253,-71,Missed Playoffs,10.8,35,53,250,5,9,240,14,77.92,2189,2247
+1967-68,0,,,,,East,,74,42,22,10,94,236,167,69,BOWL CUP CHAMPION,9.4,50,34,245,7,3,205,20.41,83.41,2324,1998
+1967-68,10,,,,,East,,74,39,23,12,90,226,183,43,Lost Quarterfinals,9.1,46,42,217,1,7,223,21.2,81.17,2465,2127
+1967-68,5,,,,,East,,74,37,27,10,84,259,216,43,Lost Quarterfinals,13.9,44,50,236,10,4,288,18.64,82.64,2467,2182
+1967-68,8,,,,,East,,74,32,26,16,80,212,222,-10,Lost Semi-Finals,8.1,37,37,234,9,6,218,15.81,83.03,2218,2299
+1967-68,3,,,,,East,,74,33,31,10,76,209,176,33,Missed Playoffs,8.5,33,28,231,6,6,230,14.29,87.83,2437,2576
+1967-68,9,,,,,East,,74,27,35,12,66,245,257,-12,Missed Playoffs,10.2,43,53,224,4,5,270,19.2,80.37,2456,2245
+1967-68,14,,,,,West,,74,31,32,11,73,173,179,-6,Lost Quarterfinals,93.2,33,49,290,7,2,290,12.27,83.1,1883,2456
+1967-68,11,,,,,West,,74,31,33,10,72,200,224,-24,Lost Quarterfinals,10.9,33,54,274,5,3,274,13.69,80.29,2285,2087
+1967-68,16,,,,,West,,74,27,31,16,70,177,191,-14,Lost Cup Finals,10.7,38,39,245,10,7,245,17.04,84.08,2223,2145
+1967-68,12,,,,,West,,74,27,32,15,69,191,226,-35,Lost Semi-Finals,9.7,55,29,216,1,8,216,21.07,86.57,2115,2297
+1967-68,15,,,,,West,,74,27,34,13,67,195,216,-21,Missed Playoffs,7.4,37,30,195,2,11,195,13.55,84.62,2277,2274
+1967-68,,Oakland Seals,,,,West,,74,15,42,17,47,153,219,-66,Missed Playoffs,10.5,41,45,259,6,6,259,15.83,82.63,1847,2311
+1968-69,0,,,,,East,,74,46,19,11,103,271,202,69,BOWL CUP CHAMPION,10.2,43,40,243,2,4,233,17.7,82.83,2728,2251
+1968-69,5,,,,,East,,74,42,18,16,100,303,221,82,Lost Semi-Finals,17,60,56,266,13,4,351,22.56,84.05,2592,2367
+1968-69,10,,,,,East,,74,41,26,9,91,231,196,35,Lost Quarterfinals,10.6,56,35,275,4,9,223,20.36,84.3,2846,2189
+1968-69,3,,,,,East,,74,35,26,15,85,234,217,17,Lost Quarterfinals,12.6,45,46,278,11,5,294,16.19,84.35,2472,2459
+1968-69,9,,,,,East,,74,33,31,12,78,239,221,18,Missed Playoffs,11.6,40,61,230,7,4,298,17.39,79.53,2493,2336
+1968-69,8,,,,,East,,74,34,33,9,77,280,246,34,Missed Playoffs,10.9,56,50,280,9,4,274,20,81.75,2575,2582
+1968-69,16,,,,,West,,74,37,25,14,88,204,157,47,Lost Cup Finals,10.8,38,45,250,4,6,242,15.2,81.4,2181,2394
+1968-69,,Oakland Seals,,,,West,,74,29,36,11,69,219,251,-32,Lost Quarterfinals,10.6,44,42,286,3,5,226,15.38,81.42,2250,2401
+1968-69,14,,,,,West,,74,20,35,21,61,174,225,-51,Lost Quarterfinals,12.6,40,44,263,6,8,286,15.21,84.62,2183,2743
+1968-69,11,,,,,West,,74,24,42,10,58,185,260,-75,Lost Semi-Finals,9.1,31,53,241,3,7,254,12.86,79.13,2424,2405
+1968-69,15,,,,,West,,74,20,45,11,51,189,252,-63,Missed Playoffs,11.3,47,41,246,3,8,249,19.11,83.53,2340,2587
+1968-69,12,,,,,West,,74,18,43,15,51,189,270,-81,Missed Playoffs,8.9,51,38,303,8,9,231,16.83,83.55,2232,2602
+1969-70,8,,,,,East,,76,45,22,9,99,250,170,80,Lost Semi-Finals,11.7,54,32,270,7,7,247,20,87.04,2450,2425
+1969-70,5,,,,,East,,76,40,17,19,99,277,216,61,BOWL CUP CHAMPION,15.7,81,80,279,12,4,360,29.03,77.78,2873,2488
+1969-70,9,,,,,East,,76,40,21,15,95,246,199,47,Lost Quarterfinals,11.8,57,57,267,8,3,300,21.35,81,2566,2398
+1969-70,10,,,,,East,,76,38,22,16,92,246,189,57,Lost Quarterfinals,11.1,51,48,195,7,7,269,17.29,85.13,2734,2134
+1969-70,0,,,,,East,,76,38,22,16,92,244,201,43,Missed Playoffs,11.6,57,40,281,8,1,263,20.28,81.75,2590,2376
+1969-70,3,,,,,East,,76,29,34,13,71,222,242,-20,Missed Playoffs,11.7,49,58,242,5,7,269,20.25,78.44,2609,2744
+1969-70,16,,,,,West,,76,37,27,12,86,224,179,45,Lost Cup Finals,11.6,72,41,287,5,9,265,25.09,84.53,2389,2179
+1969-70,15,,,,,West,,76,26,38,12,64,182,238,-56,Lost Semi-Finals,13.6,53,66,315,2,5,282,16.83,76.6,2389,2237
+1969-70,12,,,,,West,,76,19,35,22,60,224,257,-33,Lost Quarterfinals,13,56,65,274,10,7,284,20.44,77.11,2338,2784
+1969-70,,Oakland Seals,,,,West,,76,22,40,14,58,169,243,-74,Lost Quarterfinals,11,45,48,324,4,11,258,13.89,81.4,2125,2670
+1969-70,14,,,,,West,,76,17,35,24,58,197,225,-28,Missed Playoffs,14.6,46,58,296,7,9,311,15.54,81.35,2418,2706
+1969-70,11,,,,,West,,76,14,52,10,38,168,290,-122,Missed Playoffs,12.7,39,67,275,6,11,297,14.18,77.44,2305,2645
+1970-71,5,,,,,East,,78,57,14,7,121,399,207,192,Lost Quarterfinals,14.7,81,52,289,26,4,336,28.03,84.52,3166,2438
+1970-71,10,,,,,East,,78,49,18,11,109,259,177,82,Lost Semi-Finals,12.1,60,41,234,5,3,253,25.64,83.79,2795,2185
+1970-71,0,,,,,East,,78,42,23,13,97,291,216,75,BOWL CUP CHAMPION,16.2,71,49,286,8,6,319,24.83,84.64,2561,2494
+1970-71,3,,,,,East,,78,37,33,8,82,248,211,37,Lost Quarterfinals,14.4,53,46,290,14,6,283,18.28,83.75,2556,2573
+1970-71,17,,,,,East,,78,24,39,15,63,217,291,-74,Missed Playoffs,15.1,56,56,298,5,12,302,18.79,81.46,2079,2818
+1970-71,18,,,,,East,,78,24,39,15,63,217,291,-74,Missed Playoffs,17.4,52,81,317,5,12,309,16.4,73.79,2231,2708
+1970-71,9,,,,,East,,78,22,45,11,55,209,308,-99,Missed Playoffs,11.4,48,66,245,5,9,284,19.59,76.76,2461,2510
+1970-71,8,,,,,West,,78,49,20,9,107,277,184,93,Lost Cup Finals,16.2,60,47,291,5,6,293,20.62,83.96,2418,2245
+1970-71,16,,,,,West,,78,34,25,19,87,223,208,15,Lost Quarterfinals,13.7,56,49,312,9,8,285,15.44,82.81,2411,2260
+1970-71,14,,,,,West,,78,28,33,17,73,207,225,-18,Lost Quarterfinals,13.5,42,49,272,3,8,305,14.67,83.93,2424,2480
+1970-71,12,,,,,West,,78,28,34,16,72,191,223,-32,Lost Semi-Finals,11.5,38,55,259,6,4,268,14.67,79.48,2409,2495
+1970-71,11,,,,,West,,78,25,40,13,63,239,303,-64,Missed Playoffs,11.4,41,54,267,10,10,227,15.36,76.21,2474,2683
+1970-71,15,,,,,West,,78,21,37,20,62,221,240,-19,Missed Playoffs,13.6,55,49,318,5,10,276,17.3,82.25,2562,2288
+1970-71,,California Golden Seals,,,,West,,78,20,53,5,45,199,320,-121,Missed Playoffs,11.9,39,58,316,3,7,254,12.34,77.17,2266,2636
+1971-72,5,,,,,East,,78,54,13,11,119,330,204,126,BOWL CUP CHAMPION,14.2,73,51,256,17,2,290,28.52,82.41,2630,2271
+1971-72,10,,,,,East,,78,48,17,13,109,317,192,125,Lost Cup Finals,12.9,60,44,257,14,9,282,23.35,84.4,2811,2014
+1971-72,0,,,,,East,,78,46,16,16,108,307,205,102,Lost Quarterfinals,9.9,71,41,266,14,4,245,26.69,83.27,2623,2504
+1971-72,3,,,,,East,,78,33,31,14,80,209,208,1,Lost Quarterfinals,11.3,48,60,252,4,7,266,19.05,77.44,2516,2401
+1971-72,9,,,,,East,,78,33,35,10,76,261,262,-1,Missed Playoffs,10.8,59,45,280,6,9,261,21.07,82.76,2416,2362
+1971-72,17,,,,,East,,78,16,43,19,51,203,289,-86,Missed Playoffs,10.5,57,56,308,1,7,281,18.51,80.07,2121,2797
+1971-72,18,,,,,East,,78,20,50,8,48,203,297,-94,Missed Playoffs,13.9,48,72,261,4,9,310,18.39,76.77,2297,2453
+1971-72,8,,,,,West,,78,46,17,15,107,256,166,90,Lost Semi-Finals,10.7,43,34,255,7,10,240,16.86,85.83,2289,2118
+1971-72,12,,,,,West,,78,37,29,12,86,212,191,21,Lost Quarterfinals,10.8,53,49,262,4,6,277,20.23,82.31,2415,2516
+1971-72,16,,,,,West,,78,28,39,11,67,208,248,-39,Lost Semi-Finals,14.6,38,65,270,13,11,280,14.07,76.79,2552,2351
+1971-72,14,,,,,West,,78,26,38,14,66,200,236,-36,Missed Playoffs,15.7,52,54,268,6,10,324,19.4,83.33,2362,2623
+1971-72,15,,,,,West,,78,26,38,14,66,220,258,-38,Lost Quarterfinals,12.4,46,56,286,5,7,246,16.08,77.24,2441,2295
+1971-72,,California Golden Seals,,,,West,,78,21,39,18,60,216,268,-72,Missed Playoffs,12.9,45,54,278,5,6,259,16.19,79.15,2195,2406
+1971-72,11,,,,,West,,78,20,49,9,49,206,305,-99,Missed Playoffs,10.6,38,50,272,7,7,210,13.97,76.19,2174,2731
+1972-73,0,,,,,East,,78,52,10,16,120,329,184,145,BOWL CUP CHAMPION,9.9,52,37,239,9,4,235,21.76,84.26,2497,2334
+1972-73,5,,,,,East,,78,51,22,5,107,330,235,95,Lost Quarterfinals,14,67,43,241,15,5,275,27.8,84.36,2677,2259
+1972-73,10,,,,,East,,78,47,23,8,102,297,208,89,Lost Semi-Finals,9.7,54,39,238,5,5,250,22.69,84.4,2699,2117
+1972-73,17,,,,,East,,78,37,27,14,88,257,219,38,Lost Quarterfinals,12,52,36,270,5,5,241,19.26,85.06,2486,2269
+1972-73,9,,,,,East,,78,37,29,12,86,265,243,22,Missed Playoffs,11.3,53,40,268,4,8,261,19.78,84.67,2564,2152
+1972-73,3,,,,,East,,78,27,41,10,64,247,279,-32,Missed Playoffs,9.2,44,51,274,3,8,239,16.06,78.66,2582,2576
+1972-73,18,,,,,East,,78,22,47,9,53,233,339,-106,Missed Playoffs,12,48,59,282,4,6,255,17.02,76.86,2316,2538
+1972-73,20,,,,,East,,78,12,60,6,30,170,347,-177,Missed Playoffs,11.2,28,63,258,2,13,261,10.85,75.86,1952,2695
+1972-73,8,,,,,West,,78,42,27,9,93,284,225,59,Lost Cup Finals,11.1,52,51,244,10,4,255,21.31,80,2327,2387
+1972-73,14,,,,,West,,78,37,30,11,85,296,256,40,Lost Semi-Finals,22.4,74,69,257,10,4,360,28.79,80.83,2623,2683
+1972-73,12,,,,,West,,78,37,30,11,85,254,230,24,Lost Quarterfinals,11.3,37,59,237,1,7,265,15.61,77.74,2466,2488
+1972-73,16,,,,,West,,78,32,34,12,76,233,251,-18,Lost Quarterfinals,15.1,37,51,251,6,1,272,14.74,81.25,2659,2335
+1972-73,15,,,,,West,,78,32,37,9,73,257,265,-8,Missed Playoffs,13.9,52,48,301,10,7,264,17.28,81.82,2501,2525
+1972-73,11,,,,,West,,78,31,36,11,73,232,245,-13,Missed Playoffs,13,52,31,295,4,10,229,17.63,86.46,2269,2245
+1972-73,19,,,,,West,,78,25,38,15,65,191,239,-48,Missed Playoffs,10.8,38,48,265,4,5,266,14.34,81.95,2115,2482
+1972-73,,California Golden Seals,,,,West,,78,16,46,16,48,213,323,-110,Missed Playoffs,10.8,41,56,250,4,4,242,16.4,76.86,2082,2730
+1973-74,5,,,,,East,,78,52,17,9,113,349,221,128,Lost Cup Finals,12.3,65,48,225,12,2,258,28.89,81.4,2649,2286
+1973-74,0,,,,,East,,78,45,24,9,99,293,240,53,Lost Quarterfinals,9.6,51,51,254,12,7,217,20.08,76.5,2355,2322
+1973-74,10,,,,,East,,78,40,24,14,94,300,251,49,Lost Semi-Finals,10,66,45,222,9,2,239,29.73,81.17,2584,2239
+1973-74,3,,,,,East,,78,35,27,16,86,274,230,44,Lost Quarterfinals,11.4,51,49,280,5,7,266,18.21,81.58,2712,2275
+1973-74,17,,,,,East,,78,32,34,12,76,242,250,-8,Missed Playoffs,10.1,48,42,256,5,12,237,18.75,82.28,2435,2242
+1973-74,9,,,,,East,,78,29,39,10,68,255,319,-64,Missed Playoffs,11.7,59,49,274,8,13,238,21.53,79.41,2328,2510
+1973-74,18,,,,,East,,78,24,43,11,59,224,296,-72,Missed Playoffs,11.9,55,70,279,4,8,269,19.71,73.98,2202,2476
+1973-74,20,,,,,East,,78,19,41,18,56,182,247,-65,Missed Playoffs,13.7,32,64,230,7,13,262,13.91,75.57,2026,2390
+1973-74,14,,,,,West,,78,50,16,12,112,273,164,109,BOWL CUP CHAMPION,22.2,60,49,269,20,6,422,22.3,88.39,2643,2211
+1973-74,8,,,,,West,,78,41,14,23,105,272,164,108,Lost Semi-Finals,11.2,55,26,255,8,6,208,21.57,87.5,2135,2247
+1973-74,11,,,,,West,,78,33,33,12,78,233,231,2,Lost Quarterfinals,13.5,43,48,284,5,9,246,15.14,80.49,2261,2269
+1973-74,19,,,,,West,,78,30,34,14,74,214,238,-24,Lost Quarterfinals,10.6,44,45,264,1,6,223,16.67,79.82,2381,2371
+1973-74,15,,,,,West,,78,28,41,9,65,242,273,-31,Missed Playoffs,12.1,47,47,276,12,4,245,17.03,80.82,2461,2313
+1973-74,16,,,,,West,,78,26,40,12,64,206,248,-42,Missed Playoffs,14.6,39,56,275,4,9,313,14.18,82.11,2254,2424
+1973-74,12,,,,,West,,78,23,38,17,63,235,275,-40,Missed Playoffs,10.5,37,51,207,5,6,254,17.87,79.92,2466,2610
+1973-74,,California Golden Seals,,,,West,,78,13,55,10,36,195,342,-147,Missed Playoffs,8.3,34,46,268,6,14,221,12.69,79.19,1993,2700
+1974-75,17,,,Prince of Wales,,Adams,,80,49,16,15,113,354,240,114,Lost Cup Finals,,,,,,,,,,,
+1974-75,5,,,Prince of Wales,,Adams,,80,40,26,14,94,345,245,100,Lost Preliminary Round,,,,,,,,,,,
+1974-75,3,,,Prince of Wales,,Adams,,80,31,33,16,78,280,309,-29,Lost Quarterfinals,,,,,,,,,,,
+1974-75,,California Golden Seals,,Prince of Wales,,Adams,,80,19,48,13,51,212,316,-104,Missed Playoffs,,,,,,,,,,,
+1974-75,0,,,Prince of Wales,,Norris,,80,47,14,19,113,374,225,149,Lost Semi-Finals,,,,,,,,,,,
+1974-75,11,,,Prince of Wales,,Norris,,80,42,17,21,105,269,185,84,Lost Preliminary Round,,,,,,,,,,,
+1974-75,15,,,Prince of Wales,,Norris,,80,37,28,15,89,326,289,37,Lost Quarterfinals,,,,,,,,,,,
+1974-75,9,,,Prince of Wales,,Norris,,80,23,45,12,58,259,335,-76,Missed Playoffs,,,,,,,,,,,
+1974-75,22,,,Prince of Wales,,Norris,,80,8,67,5,21,181,446,-265,Missed Playoffs,,,,,,,,,,,
+1974-75,14,,,Clarence Campbell,,Patrick,,80,51,18,11,113,293,181,112,BOWL CUP CHAMPION,,,,,,,,,,,
+1974-75,10,,,Clarence Campbell,,Patrick,,80,37,29,14,88,319,276,43,Lost Preliminary Round,,,,,,,,,,,
+1974-75,20,,,Clarence Campbell,,Patrick,,80,33,25,22,88,264,221,43,Lost Semi-Finals,,,,,,,,,,,
+1974-75,19,,,Clarence Campbell,,Patrick,,80,34,31,15,83,243,233,10,Missed Playoffs,,,,,,,,,,,
+1974-75,18,,,Clarence Campbell,,Smythe,,80,38,32,10,86,271,254,17,Lost Quarterfinals,,,,,,,,,,,
+1974-75,16,,,Clarence Campbell,,Smythe,,80,35,31,14,84,269,267,2,Lost Preliminary Round,,,,,,,,,,,
+1974-75,8,,,Clarence Campbell,,Smythe,,80,37,35,6,82,268,241,27,Lost Quarterfinals,,,,,,,,,,,
+1974-75,12,,,Clarence Campbell,,Smythe,,80,23,50,7,53,221,341,-120,Missed Playoffs,,,,,,,,,,,
+1974-75,21,,,Clarence Campbell,,Smythe,,80,15,54,11,41,184,328,-144,Missed Playoffs,,,,,,,,,,,

@@ -47,6 +47,7 @@ from app.services.homepage_dashboard import (
     pick_game_of_the_night,
     pick_next_game_to_watch,
 )
+from app.services.postseason_odds import build_postseason_odds_payload
 from app.services.playoff_bracket import playoff_bracket_payload
 from app.services.player_rating_avgs import goalie_category_averages, skater_category_averages
 from app.services.player_headshot import resolve_player_headshot_static_filename
@@ -603,6 +604,7 @@ def homepage_summary():
                 "rookies": {"skaters": [], "goalies": [], "criteria": {}},
                 "league_spotlight": {"title": "", "items": []},
                 "identity_panel": None,
+                "postseason_odds": None,
                 "league": league_info,
                 "segment": segment,
             }
@@ -760,6 +762,7 @@ def homepage_summary():
     power_rankings = build_power_rankings(
         db.session, season.id, standings_by_team, special_teams, recent_form, segment
     )
+    postseason_odds = build_postseason_odds_payload(db.session, season.id, tm_map)
     champions_panel = build_champions_panel(db.session)
     around_the_league = build_around_the_league()
 
@@ -1068,6 +1071,7 @@ def homepage_summary():
             "rookies": rookies,
             "league_spotlight": league_spotlight,
             "identity_panel": identity_panel,
+            "postseason_odds": postseason_odds,
             "league": league_info,
             "segment": segment,
         }

@@ -55,7 +55,10 @@ from app.services.draft_history import (
 )
 from app.services.import_career_seasons import import_folder_season_labels
 from app.services.player_career_totals import goalie_career_lines_totals, skater_career_lines_totals
-from app.services.player_contract_csv import contract_years_remaining_major
+from app.services.player_contract_csv import (
+    contract_final_season_label_from_remaining,
+    contract_years_remaining_major,
+)
 from app.services.player_rating_avgs import goalie_category_averages, skater_category_averages
 from app.services.player_ratings_csv import get_player_ratings_row, player_positions_display_label
 from app.services.seasons import get_current_season, season_age_reference_date
@@ -107,7 +110,7 @@ from app.services.standings import (
     standings_for_season,
     team_aggregate_rows,
 )
-
+from app.services.postseason_odds import build_team_page_mc_bundle
 main_bp = Blueprint("main", __name__)
 
 
@@ -2268,11 +2271,13 @@ def _build_team_lines_views(
             salary_group = "Goalies"
         else:
             salary_group = "Forwards"
-        name_badges: list[str] = []
+        flags: list[str] = []
         if c.has_nmc:
-            name_badges.append("NMC")
+            flags.append("NMC")
         if c.has_ntc:
-            name_badges.append("NTC")
+            flags.append("NTC")
+        if c.is_elc:
+            flags.append("ELC")
         salary_rows.append(
             {
                 "player": p,
@@ -2280,7 +2285,7 @@ def _build_team_lines_views(
                 "age": _player_age_years(p.birth_date, age_ref),
                 "salary": int(c.average_salary or 0),
                 "group": salary_group,
-                "name_badges": name_badges,
+                "flags": flags,
                 "year_cells": year_cells,
                 "years_left": contract_years_remaining_major(
                     p.fhm_player_id, season_start_year, raw_import_dir
@@ -2787,6 +2792,15 @@ def team_page(slug: str):
                 break
         else:
             schedule_focus_index = max(0, len(schedule_games) - 1)
+    team_mc_panels: dict[str, object] | None = None
+    if season and standing:
+        st_all = db.session.scalars(select(TeamStanding).where(TeamStanding.season_id == season.id)).all()
+        tm_mc: dict[int, Team] = {}
+        for st in st_all:
+            tt = db.session.get(Team, st.team_id)
+            if tt:
+                tm_mc[st.team_id] = tt
+        team_mc_panels = build_team_page_mc_bundle(db.session, season.id, team.id, tm_mc)
     team_prospects = db.session.scalars(
         select(Prospect).options(joinedload(Prospect.player)).where(Prospect.team_id == team.id)
     ).all()
@@ -2850,6 +2864,7 @@ def team_page(slug: str):
         "team_leader_rows": team_leader_rows,
         "schedule_games": schedule_games,
         "schedule_focus_index": schedule_focus_index,
+        "team_mc_panels": team_mc_panels,
         "prospects_list": team_prospects,
         "team_agg": team_agg,
         "team_agg_po": team_agg_po,
@@ -3007,6 +3022,9 @@ def player_page(player_id: int):
     contract_years_left = contract_years_remaining_major(
         player.fhm_player_id, season_start_year, raw_dir
     )
+    contract_through_season = contract_final_season_label_from_remaining(
+        contract_years_left, season_start_year
+    )
     roster_header_team = main_league_roster_team(contract_team, current_team)
     player_award_badges = player_history_award_badges(db.session, player.id)
     bowl_league_ids = bowl_nhl_league_ids(db.session)
@@ -3046,6 +3064,7 @@ def player_page(player_id: int):
         rating_avgs_skater=rating_avgs_skater,
         rating_avgs_goalie=rating_avgs_goalie,
         contract_years_left=contract_years_left,
+        contract_through_season=contract_through_season,
         player_award_badges=player_award_badges,
     )
 

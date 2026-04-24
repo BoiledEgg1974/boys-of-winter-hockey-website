@@ -280,25 +280,15 @@
   </div>
   {% endif %}
 
-  {% if contract and contract_years_left is none %}
+  {% if contract %}
   <section class="player-profile__contract player-profile__contract--cap">
     <h2 class="player-profile__card-title player-profile__card-title--contract">Contract</h2>
     <div class="player-profile__contract-line">
-      <span><strong>NTC</strong> {{ 'Yes' if contract.has_ntc else 'No' }}</span>
-      <span><strong>NMC</strong> {{ 'Yes' if contract.has_nmc else 'No' }}</span>
-      <span><strong>ELC</strong> {{ 'Yes' if contract.is_elc else 'No' }}</span>
-      <span><strong>UFA</strong> {{ 'Yes' if contract.is_ufa else 'No' }}</span>
-      <span><strong>Average Salary</strong> {% if contract.average_salary is not none %}${{ '{:,}'.format(contract.average_salary) }}{% else %}—{% endif %}</span>
-    </div>
-  </section>
-  {% elif contract %}
-  <section class="player-profile__contract player-profile__contract--cap">
-    <h2 class="player-profile__card-title player-profile__card-title--contract">Contract</h2>
-    <div class="player-profile__contract-line">
-      <span><strong>NTC</strong> {{ 'Yes' if contract.has_ntc else 'No' }}</span>
-      <span><strong>NMC</strong> {{ 'Yes' if contract.has_nmc else 'No' }}</span>
-      <span><strong>ELC</strong> {{ 'Yes' if contract.is_elc else 'No' }}</span>
-      <span><strong>UFA</strong> {{ 'Yes' if contract.is_ufa else 'No' }}</span>
+      <span><strong class="player-profile__contract-acronym player-profile__contract-acronym--ntc" title="No-trade clause">NTC</strong> {{ 'Yes' if contract.has_ntc else 'No' }}</span>
+      <span><strong class="player-profile__contract-acronym player-profile__contract-acronym--nmc" title="No-move clause">NMC</strong> {{ 'Yes' if contract.has_nmc else 'No' }}</span>
+      <span><strong class="player-profile__contract-acronym player-profile__contract-acronym--elc" title="Entry-level contract">ELC</strong> {{ 'Yes' if contract.is_elc else 'No' }}</span>
+      <span><strong class="player-profile__contract-acronym player-profile__contract-acronym--ufa" title="Unrestricted free agent">UFA</strong> {{ 'Yes' if contract.is_ufa else 'No' }}</span>
+      <span><strong>Contract through</strong> {% if contract_through_season %}{{ contract_through_season }}{% else %}—{% endif %}</span>
       <span><strong>Average Salary</strong> {% if contract.average_salary is not none %}${{ '{:,}'.format(contract.average_salary) }}{% else %}—{% endif %}</span>
     </div>
   </section>

@@ -65,3 +65,28 @@ def contract_years_remaining_major(
         n += 1
         y += 1
     return n if n > 0 else None
+
+
+def contract_final_season_label_from_remaining(
+    years_remaining_major: int | None,
+    season_start_year: int | None,
+) -> str | None:
+    """Last NHL season label (e.g. ``2038–39``) from a :func:`contract_years_remaining_major` count."""
+    if not years_remaining_major or season_start_year is None:
+        return None
+    last_start = int(season_start_year) + int(years_remaining_major) - 1
+    y2 = (last_start + 1) % 100
+    return f"{last_start}–{y2:02d}"
+
+
+def contract_final_season_label(
+    fhm_player_id: str | None,
+    season_start_year: int | None,
+    raw_import_dir: Path | None = None,
+) -> str | None:
+    """Last NHL season label covered by the contract from the league timeline (e.g. ``2038–39``).
+
+    Uses the same ``major_YYYY`` walk as :func:`contract_years_remaining_major`.
+    """
+    n = contract_years_remaining_major(fhm_player_id, season_start_year, raw_import_dir)
+    return contract_final_season_label_from_remaining(n, season_start_year)

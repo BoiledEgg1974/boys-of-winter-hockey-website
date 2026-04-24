@@ -1564,10 +1564,75 @@ table.data.home-special-teams-table td:nth-child(2) {
 #dash-rookies,
 #dash-schedule,
 #dash-watch,
+#dash-postseason-odds,
 #dash-standings,
 #dash-around,
 #dash-momentum {
   scroll-margin-top: 7.5rem;
+}
+
+.home-postseason-odds__toolbar {
+  margin-bottom: 0.65rem;
+}
+.home-postseason-odds__select {
+  width: 100%;
+  max-width: 100%;
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: var(--control-btn-radius);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+.home-postseason-odds__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.5rem;
+}
+@media (min-width: 520px) and (max-width: 1023px) {
+  .home-dash-col--side .home-postseason-odds__grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.45rem;
+  }
+}
+.home-postseason-odds__cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: var(--control-btn-radius);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  min-width: 0;
+}
+.home-postseason-odds__lbl {
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.home-postseason-odds__val {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  line-height: 1.2;
+}
+.home-postseason-odds__val--playoffs {
+  color: var(--accent);
+}
+.home-postseason-odds__val--cup {
+  color: #c9a227;
+}
+[data-theme="dark"] .home-postseason-odds__val--cup {
+  color: #e6c84a;
+}
+.home-postseason-odds__note {
+  margin: 0.55rem 0 0;
+  font-size: 0.68rem;
+  line-height: 1.35;
 }
 .home-dashboard__h {
   font-size: 1rem;
@@ -2507,6 +2572,90 @@ table.data.home-special-teams-table td:nth-child(2) {
   max-width: 100%;
   min-width: 0;
 }
+
+.team-mc-fullwidth {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.team-mc-band {
+  margin-bottom: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.team-mc-band__title {
+  margin: 0 0 0.55rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.team-mc-band__grid {
+  display: grid;
+  gap: 0.45rem;
+  width: 100%;
+}
+.team-mc-band__grid--proj {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.team-mc-band__grid--odds {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+@media (max-width: 720px) {
+  .team-mc-band__grid--proj {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .team-mc-band__grid--odds {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.team-mc-band__cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.55rem 0.6rem;
+  border-radius: var(--control-btn-radius);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  min-width: 0;
+}
+.team-mc-band__lbl {
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.team-mc-band__val {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  line-height: 1.2;
+}
+.team-mc-band__val--playoffs {
+  color: var(--accent);
+}
+.team-mc-band__val--cup {
+  color: #c9a227;
+}
+[data-theme="dark"] .team-mc-band__val--cup {
+  color: #e6c84a;
+}
+.team-mc-band__note {
+  margin: 0.55rem 0 0;
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+
 /* Team page — schedule carousel matches hero width (full main column); tiles scroll inside */
 .card--team-schedule {
   --schedule-card-width: 138px;
@@ -3746,6 +3895,44 @@ table.data.team-staff-table thead th.team-staff-th--split {
   color: #94a3b8;
   font-size: 0.72rem;
   margin-left: 0.35rem;
+}
+.team-salary-flags {
+  white-space: nowrap;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #cbd5e1;
+}
+.team-salary-flag {
+  cursor: help;
+}
+.team-salary-flag--ntc {
+  color: #c084fc;
+}
+.team-salary-flag--nmc {
+  color: #f87171;
+}
+.team-salary-flag--elc {
+  color: #4ade80;
+}
+.team-salary-flag-sep {
+  color: #64748b;
+  margin: 0 0.15rem;
+  font-weight: 400;
+}
+[data-theme="light"] .team-salary-flags {
+  color: #475569;
+}
+[data-theme="light"] .team-salary-flag--ntc {
+  color: #7e22ce;
+}
+[data-theme="light"] .team-salary-flag--nmc {
+  color: #dc2626;
+}
+[data-theme="light"] .team-salary-flag--elc {
+  color: #16a34a;
+}
+[data-theme="light"] .team-salary-flag-sep {
+  color: #94a3b8;
 }
 .team-salary-pct {
   color: #94a3b8;
@@ -6203,6 +6390,34 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
 }
 [data-theme="light"] .player-profile__contract-line > span > strong {
   color: var(--muted);
+}
+.player-profile__contract-line > span > strong.player-profile__contract-acronym {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.player-profile__contract-line > span > strong.player-profile__contract-acronym--ntc {
+  color: #c084fc;
+}
+.player-profile__contract-line > span > strong.player-profile__contract-acronym--nmc {
+  color: #f87171;
+}
+.player-profile__contract-line > span > strong.player-profile__contract-acronym--elc {
+  color: #4ade80;
+}
+.player-profile__contract-line > span > strong.player-profile__contract-acronym--ufa {
+  color: #facc15;
+}
+[data-theme="light"] .player-profile__contract-line > span > strong.player-profile__contract-acronym--ntc {
+  color: #7e22ce;
+}
+[data-theme="light"] .player-profile__contract-line > span > strong.player-profile__contract-acronym--nmc {
+  color: #dc2626;
+}
+[data-theme="light"] .player-profile__contract-line > span > strong.player-profile__contract-acronym--elc {
+  color: #16a34a;
+}
+[data-theme="light"] .player-profile__contract-line > span > strong.player-profile__contract-acronym--ufa {
+  color: #ca8a04;
 }
 [data-theme="light"] .player-profile__contract {
   color: var(--text);

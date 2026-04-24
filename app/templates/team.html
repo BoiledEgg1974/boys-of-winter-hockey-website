@@ -15,6 +15,22 @@
     {% for _ in range(empty) %}<span class="team-lines-star team-lines-star--empty">★</span>{% endfor %}
   {% endif %}
 {%- endmacro %}
+{% macro contract_flag_spans(flags) -%}
+{%- if flags -%}
+{%- for f in flags -%}
+{%- if f == 'NMC' -%}
+<span class="team-salary-flag team-salary-flag--nmc" title="No Movement Clause">NMC</span>
+{%- elif f == 'NTC' -%}
+<span class="team-salary-flag team-salary-flag--ntc" title="No Trade Clause">NTC</span>
+{%- elif f == 'ELC' -%}
+<span class="team-salary-flag team-salary-flag--elc" title="Entry-Level Contract">ELC</span>
+{%- else -%}
+<span class="team-salary-flag" title="{{ f }}">{{ f }}</span>
+{%- endif -%}
+{%- if not loop.last -%}<span class="team-salary-flag-sep" aria-hidden="true">·</span>{%- endif -%}
+{%- endfor -%}
+{%- else -%}—{%- endif -%}
+{%- endmacro %}
 {% block content %}
 {% set ph = team.primary_color or '#1e3a5f' %}
 {% set sh = team.secondary_color or '#0f172a' %}
@@ -122,6 +138,60 @@
       <button type="button" class="team-schedule-carousel__btn team-schedule-carousel__btn--next" aria-label="Later games on the schedule">›</button>
     </div>
   </div>
+</div>
+{% endif %}
+{% if team_mc_panels %}
+{% set _mc = team_mc_panels %}
+{% set _pj = _mc.projection %}
+{% set _ps = _mc.postseason_labels %}
+<div class="team-mc-fullwidth">
+  <section class="card team-mc-band" aria-labelledby="tmc-proj-h">
+    <h2 id="tmc-proj-h" class="team-mc-band__title">Season projection ({{ _mc.n_sims }}-sim Monte Carlo)</h2>
+    <div class="team-mc-band__grid team-mc-band__grid--proj">
+      <div class="team-mc-band__cell">
+        <span class="team-mc-band__lbl">MEAN PTS</span>
+        <span class="team-mc-band__val">{{ '%.1f'|format(_pj.mean_pts) }}</span>
+      </div>
+      <div class="team-mc-band__cell">
+        <span class="team-mc-band__lbl">PTS (5–95%)</span>
+        <span class="team-mc-band__val">{{ _pj.pts_p05 }}–{{ _pj.pts_p95 }}</span>
+      </div>
+      <div class="team-mc-band__cell">
+        <span class="team-mc-band__lbl">MEAN GF</span>
+        <span class="team-mc-band__val">{{ '%.0f'|format(_pj.mean_gf) }}</span>
+      </div>
+      <div class="team-mc-band__cell">
+        <span class="team-mc-band__lbl">MEAN FA</span>
+        <span class="team-mc-band__val">{{ '%.0f'|format(_pj.mean_ga) }}</span>
+      </div>
+    </div>
+  </section>
+  <section class="card team-mc-band" aria-labelledby="tmc-ps-h">
+    <h2 id="tmc-ps-h" class="team-mc-band__title">Postseason Odds</h2>
+    <div class="team-mc-band__grid team-mc-band__grid--odds">
+      <div class="team-mc-band__cell">
+        <span class="team-mc-band__lbl">PLAYOFFS</span>
+        <span class="team-mc-band__val team-mc-band__val--playoffs">{{ _ps.playoffs }}</span>
+      </div>
+      <div class="team-mc-band__cell">
+        <span class="team-mc-band__lbl">DIVISION</span>
+        <span class="team-mc-band__val">{{ _ps.division }}</span>
+      </div>
+      <div class="team-mc-band__cell">
+        <span class="team-mc-band__lbl">CONFERENCE</span>
+        <span class="team-mc-band__val">{{ _ps.conference }}</span>
+      </div>
+      <div class="team-mc-band__cell">
+        <span class="team-mc-band__lbl">BOILEDEGG'S TROPHY</span>
+        <span class="team-mc-band__val">{{ _ps.boiledegg }}</span>
+      </div>
+      <div class="team-mc-band__cell">
+        <span class="team-mc-band__lbl">BOWL CHAMPIONSHIP</span>
+        <span class="team-mc-band__val team-mc-band__val--cup">{{ _ps.bowl_championship }}</span>
+      </div>
+    </div>
+    <p class="muted team-mc-band__note">{{ _mc.method_note }}</p>
+  </section>
 </div>
 {% endif %}
 <div class="team-panels-grid{% if not team_agg and not team_agg_po %} team-panels-grid--single-col{% endif %}">
@@ -443,6 +513,7 @@
           <th>Player ({{ salary_rows|length }})</th>
           <th>Pos</th>
           <th>Age</th>
+          <th>Flag</th>
           {% for yr in salary_years %}
           <th>{{ yr }}/{{ (yr + 1) % 100 }}</th>
           {% endfor %}
@@ -452,17 +523,15 @@
         {% for group in ['Forwards', 'Defensemen', 'Goalies', 'Minors'] %}
         {% set grp_rows = salary_rows|selectattr('group', 'equalto', group)|list %}
         {% if grp_rows %}
-        <tr class="team-salary-group"><th colspan="{{ 3 + (salary_years|length) }}">{{ group }} ({{ grp_rows|length }})</th></tr>
+        <tr class="team-salary-group"><th colspan="{{ 4 + (salary_years|length) }}">{{ group }} ({{ grp_rows|length }})</th></tr>
         {% for row in grp_rows %}
         <tr>
           <td>
             <a href="{{ url_for('main.player_page', player_id=row.player.id) }}">{{ row.player.full_name }}</a>
-            {% for nb in row.name_badges %}
-            <span class="team-salary-name-tag">✦ {{ nb }}</span>
-            {% endfor %}
           </td>
           <td>{{ row.pos }}</td>
           <td>{{ row.age if row.age is not none else '—' }}</td>
+          <td class="team-salary-flags">{{ contract_flag_spans(row.flags) }}</td>
           {% for cell in row.year_cells %}
           <td>
             {% if cell.kind == 'salary' %}

@@ -1262,7 +1262,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1260;118;Dave;Lucas;;1932-3-22;Abbotsford;BC;Canada;;;0
 1261;-1;Jack;Button;;1940-1-1;Canton;NY;The United States;;;0
 1262;-1;Garry;Young;;1936-1-2;Toronto;ON;Canada;;;0
-1263;-1;Bob;Turner;;1934-1-31;Saskatoon;SK;Canada;;;0
+1263;118;Bob;Turner;;1934-1-31;Saskatoon;SK;Canada;;;0
 1264;118;Fernie;Flaman;;1927-1-25;Dysart;ON;Canada;;;0
 1265;-1;Hal;Laycoe;;1922-6-23;Swift Current;SK;Canada;;;0
 1266;3;John;Bassett;;1915-8-25;Ottawa;ON;Canada;;;0

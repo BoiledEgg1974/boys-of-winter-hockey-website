@@ -517,7 +517,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 515;186;186;Mike;Fountain;;73;180;1972-1-26;Toronto;ON;Canada;;;0;Left;0
 14970;180;180;Eric;Chouinard;;75;203;1980-7-8;Clarkston;GA;Canada;;;0;Left;0
 13496;186;186;Sébastien;Charpentier;;70;177;1977-4-18;Desbiens;QC;Canada;;;0;Left;0
-518;16;16;Ron;Francis;;75;200;1963-3-1;Sault Ste. Marie;ON;Canada;;;0;Left;0
+518;15;15;Ron;Francis;;75;200;1963-3-1;Sault Ste. Marie;ON;Canada;;;0;Left;0
 13497;8;8;Ivan;Ciernik;;73;234;1977-10-30;Levice;NIT;Slovakia;Germany;;0;Left;0
 520;186;186;Iain;Fraser;;70;175;1969-8-10;Toronto;ON;Canada;;;0;Left;0
 521;71;20;Scott;Fraser;;73;178;1972-5-3;Moncton;NB;Canada;;;0;Right;0
@@ -1401,7 +1401,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 1399;186;186;Alain;Raymond;;70;180;1965-6-24;Rimouski;QC;Canada;;;0;Left;0
 1400;59;8;Rob;Ray;Rayzor;72;223;1968-6-8;Stirling;ON;Canada;;;0;Left;0
 1401;186;186;Daryl;Reaugh;Razor;76;200;1965-2-13;Prince George;BC;Canada;;;0;Left;0
-1402;217;217;Mark;Recchi;;70;195;1968-2-1;Kamloops;BC;Canada;;;0;Left;0
+1402;15;15;Mark;Recchi;;70;195;1968-2-1;Kamloops;BC;Canada;;;0;Left;0
 1403;186;186;Pokey;Reddick;;68;170;1964-10-6;Halifax;NS;Canada;;;0;Left;0
 1404;186;186;Craig;Redmond;;71;190;1965-9-22;Dawson Creek;BC;Canada;;;0;Left;0
 1405;186;186;Keith;Redmond;;75;208;1972-10-25;Richmond Hill;ON;Canada;;;0;Left;0
@@ -1598,7 +1598,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 16036;180;180;Kris;Newbury;;71;205;1982-2-19;Brampton;ON;Canada;;;0;Left;1
 1597;186;186;Vern;Smith;;73;190;1964-5-30;Winnipeg;MB;Canada;;;0;Left;0
 1598;5;5;Bryan;Smolinski;;73;215;1971-12-27;Toledo;OH;The United States;;;0;Right;0
-13519;0;0;Bryan;Adams;;74;213;1977-3-20;Fort St. James;BC;Canada;;;0;Left;0
+13519;51;0;Bryan;Adams;;74;213;1977-3-20;Fort St. James;BC;Canada;;;0;Left;0
 1600;51;0;Brad;Smyth;;72;200;1973-3-13;Ottawa;ON;Canada;;;0;Right;0
 1601;186;186;Greg;Smyth;Birddog;75;212;1966-4-23;Oakville;ON;Canada;;;0;Right;0
 1602;186;186;Kevin;Smyth;;74;217;1973-11-22;Banff;AB;Canada;;;0;Left;0
@@ -1654,7 +1654,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 1652;155;155;Ronnie;Sundin;;73;220;1970-10-3;Ludvika;DAL;Sweden;;;0;Left;0
 16037;179;179;Filip;Novák;;73;225;1982-5-7;Ceské Budejovice;JIH;Czech Republic;;;0;Left;1
 1654;155;155;Peter;Sundstrom;;72;180;1961-12-14;Skellefteå;VäS;Sweden;;;0;Left;0
-1655;5;5;Gary;Suter;;72;215;1964-6-24;Madison;WI;The United States;;;0;Left;0
+1655;22;22;Gary;Suter;;72;215;1964-6-24;Madison;WI;The United States;;;0;Left;0
 15493;182;182;Krys;Kolanos;;75;206;1981-7-27;Camrose;AB;Canada;Poland;;0;Right;0
 14520;159;159;Peter;Sejna;;71;198;1979-10-5;Liptovský Mikulas;ZIL;Slovakia;;;0;Left;0
 1658;186;186;Rich;Sutter;;71;188;1963-12-2;Viking;AB;Canada;;;0;Right;0
@@ -4421,7 +4421,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 12046;186;186;Brantt;Myhres;;75;220;1974-3-18;Elk Point;AB;Canada;;;0;Right;0
 12047;157;157;Andrei;Nazarov;;77;242;1974-5-22;Chelyabinsk;CHE;Russia;;;0;Right;0
 12048;16;16;Scott;Nichol;;69;179;1974-12-31;Elk Point;AB;Canada;;;0;Right;0
-12049;15;15;Rob;Niedermayer;;74;201;1974-12-28;Lake Country;BC;Canada;;;0;Left;0
+12049;16;16;Rob;Niedermayer;;74;201;1974-12-28;Lake Country;BC;Canada;;;0;Left;0
 12050;155;155;Peter;Nordstrom;;74;200;1974-7-26;Munkfors;VäR;Sweden;;;0;Left;0
 12051;217;217;Chris;O'Sullivan;;74;212;1974-5-15;Canton;MA;The United States;;;0;Left;0
 12052;25;25;Jay;Pandolfo;;73;190;1974-12-27;Heath;MA;The United States;;;0;Left;0
@@ -5416,7 +5416,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 13091;62;11;Dave;Scatchard;;75;223;1976-2-20;Jasper;AB;Canada;;;0;Right;0
 13092;186;186;Paxton;Schafer;;69;164;1976-2-26;Morinville;AB;Canada;;;0;Left;0
 13093;222;220;Chris;Schmidt;;77;212;1976-3-1;Blackfalds;AB;Germany;Canada;;0;Left;0
-13094;51;0;Ray;Schultz;Sugar;74;216;1976-11-14;Elk Point;AB;Canada;;;0;Left;0
+13094;0;0;Ray;Schultz;Sugar;74;216;1976-11-14;Elk Point;AB;Canada;;;0;Left;0
 13095;220;220;Rob;Shearer;;70;190;1976-10-19;Kitchener;ON;Canada;;;0;Right;0
 13096;75;24;Jody;Shelley;;76;230;1976-2-7;Winnipeg;MB;Canada;;;0;Left;0
 13097;218;216;Rob;Skrlac;;77;245;1976-6-10;Prince George;BC;Canada;;;0;Left;0

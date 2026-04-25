@@ -1608,6 +1608,35 @@ table.data.home-special-teams-table td:nth-child(2) {
   padding-bottom: 0.45rem;
   border-bottom: 1px solid var(--border);
 }
+.home-milestones-list__row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.45rem;
+}
+.home-milestones-list__photo {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgb(15 23 42 / 0.35);
+}
+.home-milestones-list__photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.home-milestones-list__photo-ph {
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: rgb(148 163 184 / 0.45);
+}
+.home-milestones-list__text {
+  min-width: 0;
+}
 .home-milestones-list__item:last-child {
   border-bottom: 0;
   padding-bottom: 0;
@@ -1620,6 +1649,19 @@ table.data.home-special-teams-table td:nth-child(2) {
   color: var(--muted);
   font-size: 0.8rem;
   line-height: 1.35;
+}
+.home-milestones-list__team-hit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 19px;
+  height: 19px;
+}
+.home-milestones-list__team-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
 }
 .home-dashboard .home-spot-game {
   text-align: left;

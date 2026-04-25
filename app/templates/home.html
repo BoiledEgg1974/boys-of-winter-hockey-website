@@ -82,6 +82,40 @@
           <div id="home-stars-30" class="home-dashboard__slot"></div>
         </div>
       </section>
+      <section id="dash-milestones" class="card home-dashboard__card" aria-labelledby="home-milestones-h">
+        <h2 id="home-milestones-h" class="home-dashboard__h">Milestones Watch</h2>
+        <p class="muted home-dashboard__sub">Closest active players to major regular-season career marks</p>
+        {% if milestone_teasers %}
+        <ul class="home-milestones-list">
+          {% for item in milestone_teasers %}
+          {% set pl = item.player %}
+          <li class="home-milestones-list__item">
+            <div class="home-milestones-list__row">
+              <a class="home-milestones-list__photo" href="{{ url_for('main.player_page', player_id=pl.id) }}">
+                {% if player_headshot_url(pl) %}
+                <img src="{{ player_headshot_url(pl) }}" alt="" loading="lazy" decoding="async">
+                {% else %}
+                <span class="home-milestones-list__photo-ph" aria-hidden="true"></span>
+                {% endif %}
+              </a>
+              <div class="home-milestones-list__text">
+                <a class="home-milestones-list__player" href="{{ url_for('main.player_page', player_id=pl.id) }}">{{ pl.full_name }}</a>
+                <span class="home-milestones-list__meta">{{ item.group }} · {{ item.stat_title }}: {{ item.current_value }}/{{ item.next_milestone }} ({{ item.remaining }} away)</span>
+              </div>
+              {% if pl.current_team %}
+              <a class="home-milestones-list__team-hit" href="{{ url_for('main.team_page', slug=pl.current_team.slug) }}" aria-label="{{ pl.current_team.full_display_name() }}">
+                <img class="home-milestones-list__team-logo" src="{{ team_logo_url(pl.current_team) }}" alt="" loading="lazy" decoding="async">
+              </a>
+              {% endif %}
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="empty-state">No close milestones right now.</p>
+        {% endif %}
+        <a class="link-more" href="{{ url_for('main.milestones') }}">View full milestones page</a>
+      </section>
       <section class="card home-dashboard__card" aria-labelledby="special-teams-h">
         <h2 id="special-teams-h">Special Teams Snapshot</h2>
         <div id="home-special-teams" class="table-wrap">
@@ -119,24 +153,6 @@
         <div id="home-rookies" class="table-wrap">
           <p class="empty-state">Loading…</p>
         </div>
-      </section>
-      <section id="dash-milestones" class="card home-dashboard__card" aria-labelledby="home-milestones-h">
-        <h2 id="home-milestones-h" class="home-dashboard__h">Milestones Watch</h2>
-        <p class="muted home-dashboard__sub">Closest active players to major regular-season career marks</p>
-        {% if milestone_teasers %}
-        <ul class="home-milestones-list">
-          {% for item in milestone_teasers %}
-          {% set pl = item.player %}
-          <li class="home-milestones-list__item">
-            <a class="home-milestones-list__player" href="{{ url_for('main.player_page', player_id=pl.id) }}">{{ pl.full_name }}</a>
-            <span class="home-milestones-list__meta">{{ item.group }} · {{ item.stat_title }}: {{ item.current_value }}/{{ item.next_milestone }} ({{ item.remaining }} away)</span>
-          </li>
-          {% endfor %}
-        </ul>
-        {% else %}
-        <p class="empty-state">No close milestones right now.</p>
-        {% endif %}
-        <a class="link-more" href="{{ url_for('main.milestones') }}">View full milestones page</a>
       </section>
       <section id="dash-momentum" class="card home-dashboard__card" aria-labelledby="momentum-h">
         <h2 id="momentum-h" class="home-dashboard__h">Momentum</h2>

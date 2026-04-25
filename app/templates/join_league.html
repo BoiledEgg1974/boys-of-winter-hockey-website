@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Join Our League — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<section class="card join-league-card">
+  <h1 class="join-league-title">Join Our League</h1>
+  <p class="muted join-league-sub">Complete all required fields, then press Apply.</p>
+
+  {% if submitted %}
+  <p class="join-league-status join-league-status--ok">Application sent successfully. Thanks for applying.</p>
+  {% endif %}
+  {% if errors %}
+  <div class="join-league-status join-league-status--err" role="alert">
+    <strong>Please fix the following:</strong>
+    <ul>
+      {% for err in errors %}
+      <li>{{ err }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <form class="join-league-form" method="post" action="{{ url_for('main.join_league') }}">
+    <label>First Name<input type="text" name="first_name" required value="{{ form_data.get('first_name', '') }}"></label>
+    <label>Last Name<input type="text" name="last_name" required value="{{ form_data.get('last_name', '') }}"></label>
+    <label>E-Mail<input type="email" name="email" required value="{{ form_data.get('email', '') }}"></label>
+    <label>Age<input type="number" min="10" max="99" name="age" required value="{{ form_data.get('age', '') }}"></label>
+    <label>Location<input type="text" name="location" required value="{{ form_data.get('location', '') }}"></label>
+
+    <fieldset>
+      <legend>Discord</legend>
+      <label><input type="radio" name="discord_status" value="I already use these apps, no problem here." required {% if form_data.get('discord_status') == 'I already use these apps, no problem here.' %}checked{% endif %}> I already use these apps, no problem here.</label>
+      <label><input type="radio" name="discord_status" value="I don't currently use these, but no problem downloading and using them for the league." required {% if form_data.get('discord_status') == "I don't currently use these, but no problem downloading and using them for the league." %}checked{% endif %}> I don't currently use these, but no problem downloading and using them for the league.</label>
+    </fieldset>
+
+    <label>Select Available Team
+      <select name="available_team" required>
+        {% for t in available_teams %}
+        <option value="{{ t }}"{% if form_data.get('available_team', 'Waitlist') == t %} selected{% endif %}>{{ t }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <fieldset>
+      <legend>Where Did You Hear About {{ config.LEAGUE_DISPLAY_NAME }}?</legend>
+      {% set heard_vals = request.form.getlist('heard_from') if request.method == 'POST' else [] %}
+      <label><input type="checkbox" name="heard_from" value="From a current GM" {% if 'From a current GM' in heard_vals %}checked{% endif %}> From a current GM</label>
+      <label><input type="checkbox" name="heard_from" value="OTP/FHM Forum Post" {% if 'OTP/FHM Forum Post' in heard_vals %}checked{% endif %}> OTP/FHM Forum Post</label>
+      <label><input type="checkbox" name="heard_from" value="Internet Search" {% if 'Internet Search' in heard_vals %}checked{% endif %}> Internet Search</label>
+      <label><input type="checkbox" name="heard_from" value="Other" {% if 'Other' in heard_vals %}checked{% endif %}> Other</label>
+    </fieldset>
+
+    <label>How Many Other Leagues Are You Currently In?
+      <input type="number" min="0" max="50" name="other_leagues_count" required value="{{ form_data.get('other_leagues_count', '') }}">
+    </label>
+    <label>What Is Your Favorite NHL Team?
+      <input type="text" name="favorite_nhl_team" required value="{{ form_data.get('favorite_nhl_team', '') }}">
+    </label>
+    <label>Who Is Your Favorite Player?
+      <input type="text" name="favorite_player" required value="{{ form_data.get('favorite_player', '') }}">
+    </label>
+    <label>Describe Your FHM/Sim League Experience
+      <textarea name="experience" rows="4" required>{{ form_data.get('experience', '') }}</textarea>
+    </label>
+    <label>Short Description On Your Hockey Knowledge
+      <textarea name="knowledge" rows="4" required>{{ form_data.get('knowledge', '') }}</textarea>
+    </label>
+
+    <fieldset>
+      <legend>What Is Your Team Building Style?</legend>
+      <label><input type="radio" name="team_building_style" value="Win now fully." required {% if form_data.get('team_building_style') == 'Win now fully.' %}checked{% endif %}> Win now fully.</label>
+      <label><input type="radio" name="team_building_style" value="I will blow this team up and apply a patient look towards the future." required {% if form_data.get('team_building_style') == 'I will blow this team up and apply a patient look towards the future.' %}checked{% endif %}> I will blow this team up and apply a patient look towards the future.</label>
+      <label><input type="radio" name="team_building_style" value="I will build through the draft." required {% if form_data.get('team_building_style') == 'I will build through the draft.' %}checked{% endif %}> I will build through the draft.</label>
+      <label><input type="radio" name="team_building_style" value="I'd like to have a mix of being competitive but still having picks and prospects for the future." required {% if form_data.get('team_building_style') == "I'd like to have a mix of being competitive but still having picks and prospects for the future." %}checked{% endif %}> I'd like to have a mix of being competitive but still having picks and prospects for the future.</label>
+      <label><input type="radio" name="team_building_style" value="All depends on what team I am running." required {% if form_data.get('team_building_style') == 'All depends on what team I am running.' %}checked{% endif %}> All depends on what team I am running.</label>
+    </fieldset>
+
+    <div class="join-league-welcome-callout" role="note">
+      <p class="join-league-welcome-callout__lead">Welcome to the GM lineup for BOWL! By applying, you&rsquo;re joining a league where being an active, engaged player is part of the game. Here&rsquo;s what that means:</p>
+      <ul class="join-league-welcome-callout__list">
+        <li>Communicate with your fellow GMs and tackle league tasks in a timely fashion.</li>
+        <li>Stay on top of Commissioner notifications and requests.</li>
+        <li>Keep up with the league rules, and if something&rsquo;s unclear, ask in the designated area.</li>
+        <li>Most importantly, have a blast in this league. If you&rsquo;re not having fun, consider passing the baton by sending your resignation to the Commissioner.</li>
+      </ul>
+      <p class="join-league-welcome-callout__close">Thanks for stepping up and good luck!</p>
+    </div>
+
+    <label class="join-league-check">
+      <input type="checkbox" name="acknowledge" value="yes" required {% if form_data.get('acknowledge') == 'yes' %}checked{% endif %}>
+      I acknowledge these requirements and will be an active participant.
+    </label>
+
+    <label>Security Question: What Is 1 + 47?
+      <input type="number" name="security_answer" required value="{{ form_data.get('security_answer', '') }}">
+    </label>
+
+    <button class="join-league-submit" type="submit">Apply</button>
+  </form>
+</section>
+{% endblock %}

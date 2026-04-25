@@ -43,6 +43,7 @@
         </div>
       </nav>
       <div class="header-tools">
+        <a class="join-league-btn" href="{{ url_for('main.join_league') }}">JOIN OUR LEAGUE!</a>
         <form class="search-form" action="{{ url_for('main.search_page') }}" method="get" role="search" autocomplete="off">
           <div style="position:relative;">
             <input type="search" id="global-search" name="q" placeholder="Search players…" aria-label="Search players" autocomplete="off">

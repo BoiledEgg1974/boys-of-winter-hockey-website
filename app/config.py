@@ -188,6 +188,14 @@ class Config:
     ROOKIE_RS_GOALIE_MIN_MINUTES_PCT = float(_ROOKIE["rs_goalie_min_minutes_pct"])
     ROOKIE_PSPO_SKATER_MIN_GP = int(_ROOKIE["pspo_skater_min_gp"])
     ROOKIE_PSPO_GOALIE_MIN_MINUTES = int(_ROOKIE["pspo_goalie_min_minutes"])
+    JOIN_LEAGUE_RECIPIENT = os.environ.get("JOIN_LEAGUE_RECIPIENT", "keenovdecimanus@gmail.com")
+    MAIL_SMTP_HOST = os.environ.get("MAIL_SMTP_HOST", "")
+    MAIL_SMTP_PORT = int(os.environ.get("MAIL_SMTP_PORT", "587"))
+    MAIL_SMTP_USERNAME = os.environ.get("MAIL_SMTP_USERNAME", "")
+    MAIL_SMTP_PASSWORD = os.environ.get("MAIL_SMTP_PASSWORD", "")
+    MAIL_FROM = os.environ.get("MAIL_FROM", MAIL_SMTP_USERNAME or JOIN_LEAGUE_RECIPIENT)
+    MAIL_SMTP_USE_TLS = os.environ.get("MAIL_SMTP_USE_TLS", "1").lower() not in {"0", "false", "no", "off"}
+    MAIL_SMTP_USE_SSL = os.environ.get("MAIL_SMTP_USE_SSL", "0").lower() in {"1", "true", "yes", "on"}
 
 
 def make_league_config(slug: str) -> type:

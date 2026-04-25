@@ -366,12 +366,6 @@
     var cold = tp.cold || [];
     var thPlayer = escapeAttr('Player; link opens profile.');
     var thTeam = escapeAttr("Player's current team (from roster). Logo links to the team page.");
-    var thTrendHot = escapeAttr(
-      'Hotness: change in points per game vs your full-season pace over the last 14 league days (minimum 3 games played in that window). Higher is hotter. Hover each row icon for the exact delta.'
-    );
-    var thTrendCold = escapeAttr(
-      'Coldness: change in points per game vs your full-season pace over the last 14 league days (minimum 3 games played in that window). Lower is colder. Hover each row icon for the exact delta.'
-    );
     var thPpg = escapeAttr(
       'Points per game in the last 14 league days (same qualifying games as the trend column).'
     );
@@ -381,29 +375,18 @@
     h += '<table class="data home-momentum-table"><thead><tr>';
     h += '<th scope="col" title="' + thPlayer + '">Player</th>';
     h += '<th scope="col" title="' + thTeam + '">Team</th>';
-    h += '<th scope="col" title="' + thTrendHot + '">Trend</th>';
     h += '<th scope="col" title="' + thPpg + '">P/GP</th>';
     h += '</tr></thead><tbody>';
     if (!hot.length) {
-      h += '<tr><td colspan="4" class="muted">—</td></tr>';
+      h += '<tr><td colspan="3" class="muted">—</td></tr>';
     } else {
       hot.forEach(function (r) {
-        var d = r.delta != null ? r.delta : null;
-        var dStr = d != null ? (d > 0 ? '+' : '') + d.toFixed(2) : '—';
-        var tip = d != null ? 'Δ ' + dStr + ' vs season P/GP' : 'No delta';
         var ppg = r.recent_ppg != null ? Number(r.recent_ppg).toFixed(3) : '—';
-        var sr = d != null ? 'Trend: ' + dStr + ' vs season points per game' : '';
         h +=
           '<tr><td>' +
           momentumPlayerCell(r) +
           '</td><td class="home-momentum-td-tm">' +
           momentumTeamCell(r) +
-          '</td><td class="home-momentum-td-trend" title="' +
-          escapeAttr(tip) +
-          '"><span class="home-momentum-trend-ico" aria-hidden="true">' +
-          ICON_FIRE +
-          '</span>' +
-          (sr ? '<span class="visually-hidden">' + escape(sr) + '</span>' : '') +
           '</td><td>' +
           ppg +
           '</td></tr>';
@@ -415,29 +398,18 @@
     h += '<table class="data home-momentum-table"><thead><tr>';
     h += '<th scope="col" title="' + thPlayer + '">Player</th>';
     h += '<th scope="col" title="' + thTeam + '">Team</th>';
-    h += '<th scope="col" title="' + thTrendCold + '">Trend</th>';
     h += '<th scope="col" title="' + thPpg + '">P/GP</th>';
     h += '</tr></thead><tbody>';
     if (!cold.length) {
-      h += '<tr><td colspan="4" class="muted">—</td></tr>';
+      h += '<tr><td colspan="3" class="muted">—</td></tr>';
     } else {
       cold.forEach(function (r) {
-        var d = r.delta != null ? r.delta : null;
-        var dStr = d != null ? (d > 0 ? '+' : '') + d.toFixed(2) : '—';
-        var tip = d != null ? 'Δ ' + dStr + ' vs season P/GP' : 'No delta';
         var ppg = formatColdMomentumPpg(r.recent_ppg);
-        var sr = d != null ? 'Trend: ' + dStr + ' vs season points per game' : '';
         h +=
           '<tr><td>' +
           momentumPlayerCell(r) +
           '</td><td class="home-momentum-td-tm">' +
           momentumTeamCell(r) +
-          '</td><td class="home-momentum-td-trend" title="' +
-          escapeAttr(tip) +
-          '"><span class="home-momentum-trend-ico" aria-hidden="true">' +
-          ICON_SNOW +
-          '</span>' +
-          (sr ? '<span class="visually-hidden">' + escape(sr) + '</span>' : '') +
           '</td><td>' +
           ppg +
           '</td></tr>';

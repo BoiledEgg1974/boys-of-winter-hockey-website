@@ -3,8 +3,10 @@ from __future__ import annotations
 
 import csv
 import re
+import smtplib
 import unicodedata
 from datetime import date
+from email.message import EmailMessage
 from pathlib import Path
 
 from flask import Blueprint, abort, current_app, render_template, request, url_for
@@ -114,6 +116,101 @@ from app.services.postseason_odds import build_team_page_mc_bundle
 main_bp = Blueprint("main", __name__)
 
 
+def _require_join_field(form: dict[str, str], key: str, label: str, errors: list[str]) -> str:
+    v = (form.get(key) or "").strip()
+    if not v:
+        errors.append(f"{label} is required.")
+    return v
+
+
+def _join_league_team_options() -> list[str]:
+    """Admin-editable team options for the join form; always starts with ``Waitlist``.
+
+    Source file (optional): ``<instance>/join_league_available_teams.txt`` one team per line.
+    Lines starting with ``#`` are ignored. If the file is missing or has no team lines, only
+    ``Waitlist`` is offered until you add teams to the file.
+    """
+    options: list[str] = []
+    teams_file = Path(current_app.instance_path) / "join_league_available_teams.txt"
+    if teams_file.is_file():
+        try:
+            for raw in teams_file.read_text(encoding="utf-8").splitlines():
+                v = raw.strip()
+                if not v or v.startswith("#"):
+                    continue
+                if v.lower() == "waitlist":
+                    continue
+                options.append(v)
+        except OSError:
+            options = []
+
+    # De-duplicate while preserving order.
+    seen: set[str] = set()
+    uniq: list[str] = []
+    for t in options:
+        if t not in seen:
+            seen.add(t)
+            uniq.append(t)
+    return ["Waitlist", *uniq]
+
+
+def _send_join_league_email(payload: dict[str, str], heard_from: list[str]) -> None:
+    recipient = str(current_app.config.get("JOIN_LEAGUE_RECIPIENT", "keenovdecimanus@gmail.com")).strip()
+    smtp_host = str(current_app.config.get("MAIL_SMTP_HOST", "")).strip()
+    smtp_port = int(current_app.config.get("MAIL_SMTP_PORT", 587))
+    smtp_user = str(current_app.config.get("MAIL_SMTP_USERNAME", "")).strip()
+    smtp_pass = str(current_app.config.get("MAIL_SMTP_PASSWORD", "")).strip()
+    smtp_from = str(current_app.config.get("MAIL_FROM", smtp_user or recipient)).strip()
+    use_tls = bool(current_app.config.get("MAIL_SMTP_USE_TLS", True))
+    use_ssl = bool(current_app.config.get("MAIL_SMTP_USE_SSL", False))
+
+    if not smtp_host:
+        raise RuntimeError("MAIL_SMTP_HOST is not configured.")
+
+    msg = EmailMessage()
+    msg["Subject"] = f"[{current_app.config.get('LEAGUE_DISPLAY_NAME', 'League')}] Join League Application - {payload['first_name']} {payload['last_name']}"
+    msg["From"] = smtp_from
+    msg["To"] = recipient
+    body_lines = [
+        f"League: {current_app.config.get('LEAGUE_DISPLAY_NAME', '')}",
+        f"First Name: {payload['first_name']}",
+        f"Last Name: {payload['last_name']}",
+        f"Email: {payload['email']}",
+        f"Age: {payload['age']}",
+        f"Location: {payload['location']}",
+        f"Discord: {payload['discord_status']}",
+        f"Available Team: {payload['available_team']}",
+        f"Heard About League From: {', '.join(heard_from)}",
+        f"Other Leagues Active In: {payload['other_leagues_count']}",
+        f"Favorite NHL Team: {payload['favorite_nhl_team']}",
+        f"Favorite Player: {payload['favorite_player']}",
+        "",
+        "Experience Description:",
+        payload["experience"],
+        "",
+        "Hockey Knowledge Description:",
+        payload["knowledge"],
+        "",
+        "Team Building Style:",
+        payload["team_building_style"],
+    ]
+    msg.set_content("\n".join(body_lines))
+
+    if use_ssl:
+        with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=30) as server:
+            if smtp_user:
+                server.login(smtp_user, smtp_pass)
+            server.send_message(msg)
+        return
+
+    with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as server:
+        if use_tls:
+            server.starttls()
+        if smtp_user:
+            server.login(smtp_user, smtp_pass)
+        server.send_message(msg)
+
+
 # Banner / Banner1.png / banner 1.png — case-insensitive; optional space before digits; png/webp/jpeg
 _BANNER_FILE_RE = re.compile(r"^banner\s*(\d+)\.(png|webp|jpe?g)$", re.IGNORECASE)
 _BANNER_EXT_PRIORITY = {".png": 0, ".webp": 1, ".jpeg": 2, ".jpg": 2}
@@ -166,6 +263,90 @@ def champion_banner_urls() -> list[str]:
 @main_bp.get("/")
 def home():
     return render_template("home.html")
+
+
+@main_bp.route("/join-league", methods=["GET", "POST"])
+def join_league():
+    available_teams = _join_league_team_options()
+    if request.method == "GET":
+        return render_template(
+            "join_league.html",
+            errors=[],
+            submitted=False,
+            form_data={"available_team": "Waitlist"},
+            available_teams=available_teams,
+        )
+
+    form_data = {k: (request.form.get(k) or "").strip() for k in request.form.keys()}
+    errors: list[str] = []
+    first_name = _require_join_field(form_data, "first_name", "First name", errors)
+    last_name = _require_join_field(form_data, "last_name", "Last name", errors)
+    email = _require_join_field(form_data, "email", "E-mail", errors)
+    age = _require_join_field(form_data, "age", "Age", errors)
+    location = _require_join_field(form_data, "location", "Location", errors)
+    discord_status = _require_join_field(form_data, "discord_status", "Discord response", errors)
+    available_team = _require_join_field(form_data, "available_team", "Available team", errors)
+    other_leagues_count = _require_join_field(form_data, "other_leagues_count", "Other leagues count", errors)
+    favorite_nhl_team = _require_join_field(form_data, "favorite_nhl_team", "Favorite NHL team", errors)
+    favorite_player = _require_join_field(form_data, "favorite_player", "Favorite player", errors)
+    experience = _require_join_field(form_data, "experience", "Experience description", errors)
+    knowledge = _require_join_field(form_data, "knowledge", "Hockey knowledge description", errors)
+    team_building_style = _require_join_field(form_data, "team_building_style", "Team building style", errors)
+
+    heard_from = [x.strip() for x in request.form.getlist("heard_from") if x.strip()]
+    if not heard_from:
+        errors.append("Select at least one option for how you heard about the league.")
+
+    if email and "@" not in email:
+        errors.append("E-mail must be valid.")
+    if available_team and available_team not in available_teams:
+        errors.append("Available team selection is invalid.")
+    if (request.form.get("acknowledge") or "") != "yes":
+        errors.append("You must acknowledge the participation requirements.")
+    if (request.form.get("security_answer") or "").strip() != "48":
+        errors.append("Security answer is incorrect.")
+
+    if errors:
+        return render_template(
+            "join_league.html",
+            errors=errors,
+            submitted=False,
+            form_data=form_data,
+            available_teams=available_teams,
+        )
+
+    payload = {
+        "first_name": first_name,
+        "last_name": last_name,
+        "email": email,
+        "age": age,
+        "location": location,
+        "discord_status": discord_status,
+        "available_team": available_team,
+        "other_leagues_count": other_leagues_count,
+        "favorite_nhl_team": favorite_nhl_team,
+        "favorite_player": favorite_player,
+        "experience": experience,
+        "knowledge": knowledge,
+        "team_building_style": team_building_style,
+    }
+    try:
+        _send_join_league_email(payload, heard_from)
+    except Exception as exc:
+        return render_template(
+            "join_league.html",
+            errors=[f"Could not send application email: {exc}"],
+            submitted=False,
+            form_data=form_data,
+            available_teams=available_teams,
+        )
+    return render_template(
+        "join_league.html",
+        errors=[],
+        submitted=True,
+        form_data={"available_team": "Waitlist"},
+        available_teams=available_teams,
+    )
 
 
 @main_bp.get("/standings")

@@ -42,7 +42,9 @@ from app.services.homepage_dashboard import (
     build_power_rankings,
     build_standings_by_division,
     build_stars_windows,
+    build_team_momentum_streaks,
     build_trending_players,
+    build_trending_teams,
     league_calendar_anchor_date,
     pick_game_of_the_night,
     pick_next_game_to_watch,
@@ -587,6 +589,15 @@ def homepage_summary():
                 "stars_last_14d": [],
                 "stars_last_30d": [],
                 "trending_players": {"hot": [], "cold": []},
+                "team_momentum": {
+                    "trending": {"hot": [], "cold": []},
+                    "streaks": {
+                        "win_streak": [],
+                        "undefeated_streak": [],
+                        "losing_streak": [],
+                        "winless_streak": [],
+                    },
+                },
                 "active_streaks": {"goal_streak": [], "point_streak": []},
                 "power_rankings": {"top5": [], "bottom5": []},
                 "champions_panel": {"banner_urls": [], "recent_champions": []},
@@ -721,6 +732,9 @@ def homepage_summary():
     )
     stars_bundle = build_stars_windows(db.session, season.id, league_cal)
     trending_players = build_trending_players(db.session, season.id, segment, league_cal)
+    trending_teams = build_trending_teams(db.session, season.id, league_cal)
+    team_momentum_streaks = build_team_momentum_streaks(db.session, season.id)
+    team_momentum = {"trending": trending_teams, "streaks": team_momentum_streaks}
     active_streaks = build_active_streaks(db.session, season.id)
     agg_rows = db.session.scalars(
         select(TeamSeasonAggregate).where(
@@ -1060,6 +1074,7 @@ def homepage_summary():
             "stars_last_14d": stars_bundle.get("stars_last_14d", []),
             "stars_last_30d": stars_bundle.get("stars_last_30d", []),
             "trending_players": trending_players,
+            "team_momentum": team_momentum,
             "active_streaks": active_streaks,
             "power_rankings": power_rankings,
             "champions_panel": champions_panel,

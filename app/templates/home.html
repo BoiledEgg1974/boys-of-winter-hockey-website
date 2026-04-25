@@ -121,11 +121,19 @@
       </section>
       <section id="dash-momentum" class="card home-dashboard__card" aria-labelledby="momentum-h">
         <h2 id="momentum-h" class="home-dashboard__h">Momentum</h2>
-        <h3 id="trend-h" class="home-dashboard__mini-h">Trending players</h3>
+        <h3 id="trend-h" class="home-dashboard__mini-h">Trending Players</h3>
         <p class="muted home-dashboard__sub">Last 14 league days vs season pace</p>
         <div id="home-trending" class="home-dashboard__slot"></div>
-        <h3 id="streak-h" class="home-dashboard__mini-h">Active streaks</h3>
+        <h3 id="streak-h" class="home-dashboard__mini-h">Active Streaks</h3>
         <div id="home-streaks" class="home-dashboard__slot"></div>
+      </section>
+      <section id="dash-team-momentum" class="card home-dashboard__card" aria-labelledby="team-momentum-h">
+        <h2 id="team-momentum-h" class="home-dashboard__h">Team Momentum</h2>
+        <h3 class="home-dashboard__mini-h">Trending Teams</h3>
+        <p class="muted home-dashboard__sub">Last 14 league days vs season pace</p>
+        <div id="home-team-trending" class="home-dashboard__slot"></div>
+        <h3 class="home-dashboard__mini-h">Active Streaks</h3>
+        <div id="home-team-streaks" class="home-dashboard__slot"></div>
       </section>
       <section id="home-spotlight-card" class="card home-dashboard__card" aria-labelledby="spotlight-h">
         <h2 id="spotlight-h">League Spotlight</h2>
@@ -309,6 +317,14 @@
 
   var ICON_FIRE = '\uD83D\uDD25';
   var ICON_SNOW = '\u2744\uFE0F';
+  /** P/GP for Cold list: force ASCII hyphen when value is negative or -0 (toFixed alone can show "0.000"). */
+  function formatColdMomentumPpg(recentPpg) {
+    if (recentPpg == null) return '—';
+    var n = Number(recentPpg);
+    if (!isFinite(n)) return '—';
+    if (n < 0 || Object.is(n, -0)) return '-' + Math.abs(n).toFixed(3);
+    return n.toFixed(3);
+  }
   function momentumPlayerCell(r) {
     var ph = r.player_photo_url
       ? '<img src="' + escapeAttr(r.player_photo_url) + '" alt="" loading="lazy" decoding="async">'
@@ -409,7 +425,7 @@
         var d = r.delta != null ? r.delta : null;
         var dStr = d != null ? (d > 0 ? '+' : '') + d.toFixed(2) : '—';
         var tip = d != null ? 'Δ ' + dStr + ' vs season P/GP' : 'No delta';
-        var ppg = r.recent_ppg != null ? Number(r.recent_ppg).toFixed(3) : '—';
+        var ppg = formatColdMomentumPpg(r.recent_ppg);
         var sr = d != null ? 'Trend: ' + dStr + ' vs season points per game' : '';
         h +=
           '<tr><td>' +
@@ -443,9 +459,9 @@
     var thGpPoint = escapeAttr(
       'Games in the current point streak: consecutive games with at least one point (goal or assist).'
     );
-    var h = '<div class="home-momentum-streaks">';
+    var h = '<div class="home-momentum-streaks home-momentum-streaks--player-split">';
     h += '<div class="home-momentum-streak-block">';
-    h += '<h3 class="home-trend-h">Goal streak</h3>';
+    h += '<h3 class="home-trend-h">Goal Streak</h3>';
     h += '<table class="data home-momentum-table"><thead><tr>';
     h += '<th scope="col" title="' + thPlayer + '">Player</th>';
     h += '<th scope="col" title="' + thTeam + '">Team</th>';
@@ -458,7 +474,7 @@
         h +=
           '<tr><td>' +
           momentumPlayerCell(r) +
-          '</td><td class="home-momentum-td-tm">' +
+          '</td><td class="home-momentum-td-tm home-momentum-td-tm--streak-logo">' +
           momentumTeamCell(r) +
           '</td><td>' +
           (r.streak != null ? r.streak : 0) +
@@ -467,7 +483,7 @@
     }
     h += '</tbody></table></div>';
     h += '<div class="home-momentum-streak-block">';
-    h += '<h3 class="home-trend-h">Point streak</h3>';
+    h += '<h3 class="home-trend-h">Point Streak</h3>';
     h += '<table class="data home-momentum-table"><thead><tr>';
     h += '<th scope="col" title="' + thPlayer + '">Player</th>';
     h += '<th scope="col" title="' + thTeam + '">Team</th>';
@@ -480,11 +496,194 @@
         h +=
           '<tr><td>' +
           momentumPlayerCell(r) +
-          '</td><td class="home-momentum-td-tm">' +
+          '</td><td class="home-momentum-td-tm home-momentum-td-tm--streak-logo">' +
           momentumTeamCell(r) +
           '</td><td>' +
           (r.streak != null ? r.streak : 0) +
           '</td></tr>';
+      });
+    }
+    h += '</tbody></table></div></div>';
+    return h;
+  }
+
+  function teamDashCell(r) {
+    var city = r.team_city ? String(r.team_city).trim() : '';
+    var lab = String((r.team_name || r.team || 'Team') || '').trim();
+    var logo = r.team_logo_url
+      ? '<img src="' + escapeAttr(r.team_logo_url) + '" alt="" class="team-name-lockup__logo home-momentum-team-logo">'
+      : '';
+    var cityHtml = city ? '<span class="home-team-dash-city">' + escape(city) + '</span>' : '';
+    if (r.team_slug && logo) {
+      return (
+        '<a class="home-team-dash-lockup" href="' +
+        withRoot('/team/' + escapeAttr(r.team_slug)) +
+        '" title="' +
+        escapeAttr(lab) +
+        '">' +
+        logo +
+        (cityHtml ? '<span class="home-team-dash-lockup__meta">' + cityHtml + '</span>' : '') +
+        '</a>'
+      );
+    }
+    if (r.team_slug) {
+      return (
+        '<a class="home-team-dash-lockup home-team-dash-lockup--text" href="' +
+        withRoot('/team/' + escapeAttr(r.team_slug)) +
+        '" title="' +
+        escapeAttr(lab) +
+        '">' +
+        (cityHtml ? cityHtml + ' ' : '') +
+        escape(r.team || r.team_name || '—') +
+        '</a>'
+      );
+    }
+    return (cityHtml ? cityHtml + ' · ' : '') + escape(r.team || lab || '—');
+  }
+
+  function rowTeamTrending(tt) {
+    tt = tt || {};
+    var hot = tt.hot || [];
+    var cold = tt.cold || [];
+    var thTeam = escapeAttr('Team; logo, city, or abbreviation links to the team page.');
+    var thTrendHot = escapeAttr(
+      'Hotness: change in standings points per game vs full-season pace over the last 14 league days (minimum 3 games in that window). Higher is hotter.'
+    );
+    var thTrendCold = escapeAttr(
+      'Coldness: change in standings points per game vs full-season pace over the last 14 league days (minimum 3 games in that window). Lower is colder.'
+    );
+    var thPpg = escapeAttr('Standings points per game in the last 14 league days (same games as the trend column).');
+    var h = '<div class="home-momentum-trend home-momentum-trend--teams">';
+    h += '<div class="home-momentum-trend-block">';
+    h += '<h3 class="home-trend-h home-trend-h--momentum"><span class="home-trend-h__ico" aria-hidden="true">' + ICON_FIRE + '</span> Hot</h3>';
+    h += '<table class="data home-momentum-table"><thead><tr>';
+    h += '<th scope="col" title="' + thTeam + '">Team</th>';
+    h += '<th scope="col" title="' + thTrendHot + '">Trend</th>';
+    h += '<th scope="col" title="' + thPpg + '">P/GP</th>';
+    h += '</tr></thead><tbody>';
+    if (!hot.length) {
+      h += '<tr><td colspan="3" class="muted">—</td></tr>';
+    } else {
+      hot.forEach(function (r) {
+        var d = r.delta != null ? r.delta : null;
+        var dStr = d != null ? (d > 0 ? '+' : '') + d.toFixed(2) : '—';
+        var tip = d != null ? 'Δ ' + dStr + ' vs season P/GP' : 'No delta';
+        var ppg = r.recent_ppg != null ? Number(r.recent_ppg).toFixed(3) : '—';
+        var sr = d != null ? 'Trend: ' + dStr + ' vs season points per game' : '';
+        h +=
+          '<tr><td>' +
+          teamDashCell(r) +
+          '</td><td class="home-momentum-td-trend home-momentum-td-trend--team" title="' +
+          escapeAttr(tip) +
+          '"><span class="home-momentum-trend-ico" aria-hidden="true">' +
+          ICON_FIRE +
+          '</span>' +
+          (sr ? '<span class="visually-hidden">' + escape(sr) + '</span>' : '') +
+          '</td><td>' +
+          ppg +
+          '</td></tr>';
+      });
+    }
+    h += '</tbody></table></div>';
+    h += '<div class="home-momentum-trend-block home-momentum-trend-block--cold">';
+    h += '<h3 class="home-trend-h home-trend-h--momentum"><span class="home-trend-h__ico" aria-hidden="true">' + ICON_SNOW + '</span> Cold</h3>';
+    h += '<table class="data home-momentum-table"><thead><tr>';
+    h += '<th scope="col" title="' + thTeam + '">Team</th>';
+    h += '<th scope="col" title="' + thTrendCold + '">Trend</th>';
+    h += '<th scope="col" title="' + thPpg + '">P/GP</th>';
+    h += '</tr></thead><tbody>';
+    if (!cold.length) {
+      h += '<tr><td colspan="3" class="muted">—</td></tr>';
+    } else {
+      cold.forEach(function (r) {
+        var d = r.delta != null ? r.delta : null;
+        var dStr = d != null ? (d > 0 ? '+' : '') + d.toFixed(2) : '—';
+        var tip = d != null ? 'Δ ' + dStr + ' vs season P/GP' : 'No delta';
+        var ppg = formatColdMomentumPpg(r.recent_ppg);
+        var sr = d != null ? 'Trend: ' + dStr + ' vs season points per game' : '';
+        h +=
+          '<tr><td>' +
+          teamDashCell(r) +
+          '</td><td class="home-momentum-td-trend home-momentum-td-trend--team" title="' +
+          escapeAttr(tip) +
+          '"><span class="home-momentum-trend-ico" aria-hidden="true">' +
+          ICON_SNOW +
+          '</span>' +
+          (sr ? '<span class="visually-hidden">' + escape(sr) + '</span>' : '') +
+          '</td><td>' +
+          ppg +
+          '</td></tr>';
+      });
+    }
+    h += '</tbody></table></div></div>';
+    return h;
+  }
+
+  function rowTeamStreaks(st) {
+    st = st || {};
+    var w = st.win_streak || [];
+    var u = st.undefeated_streak || [];
+    var l = st.losing_streak || [];
+    var wl = st.winless_streak || [];
+    var thTeam = escapeAttr('Team; logo, city, or abbreviation links to the team page.');
+    var thWin = escapeAttr('Consecutive games won (regulation, overtime, or shootout).');
+    var thUnd = escapeAttr('Consecutive games without a regulation or overtime loss: wins and ties only (overtime losses break this streak).');
+    var thLoss = escapeAttr('Consecutive games without a win (regulation losses and overtime losses).');
+    var thWinless = escapeAttr('Consecutive games without a win: losses and ties (a win breaks the streak).');
+    var h = '<div class="home-momentum-streaks home-momentum-streaks--team">';
+    h += '<div class="home-momentum-streak-block">';
+    h += '<h3 class="home-trend-h">Win Streak</h3>';
+    h += '<table class="data home-momentum-table"><thead><tr>';
+    h += '<th scope="col" title="' + thTeam + '">Team</th>';
+    h += '<th scope="col" title="' + thWin + '">GP</th>';
+    h += '</tr></thead><tbody>';
+    if (!w.length) {
+      h += '<tr><td colspan="2" class="muted">—</td></tr>';
+    } else {
+      w.forEach(function (r) {
+        h += '<tr><td>' + teamDashCell(r) + '</td><td>' + (r.streak != null ? r.streak : 0) + '</td></tr>';
+      });
+    }
+    h += '</tbody></table></div>';
+    h += '<div class="home-momentum-streak-block">';
+    h += '<h3 class="home-trend-h">Undefeated</h3>';
+    h += '<table class="data home-momentum-table"><thead><tr>';
+    h += '<th scope="col" title="' + thTeam + '">Team</th>';
+    h += '<th scope="col" title="' + thUnd + '">GP</th>';
+    h += '</tr></thead><tbody>';
+    if (!u.length) {
+      h += '<tr><td colspan="2" class="muted">—</td></tr>';
+    } else {
+      u.forEach(function (r) {
+        h += '<tr><td>' + teamDashCell(r) + '</td><td>' + (r.streak != null ? r.streak : 0) + '</td></tr>';
+      });
+    }
+    h += '</tbody></table></div>';
+    h += '<div class="home-momentum-streak-block">';
+    h += '<h3 class="home-trend-h">Losing Streak</h3>';
+    h += '<table class="data home-momentum-table"><thead><tr>';
+    h += '<th scope="col" title="' + thTeam + '">Team</th>';
+    h += '<th scope="col" title="' + thLoss + '">GP</th>';
+    h += '</tr></thead><tbody>';
+    if (!l.length) {
+      h += '<tr><td colspan="2" class="muted">—</td></tr>';
+    } else {
+      l.forEach(function (r) {
+        h += '<tr><td>' + teamDashCell(r) + '</td><td>' + (r.streak != null ? r.streak : 0) + '</td></tr>';
+      });
+    }
+    h += '</tbody></table></div>';
+    h += '<div class="home-momentum-streak-block">';
+    h += '<h3 class="home-trend-h">Winless</h3>';
+    h += '<table class="data home-momentum-table"><thead><tr>';
+    h += '<th scope="col" title="' + thTeam + '">Team</th>';
+    h += '<th scope="col" title="' + thWinless + '">GP</th>';
+    h += '</tr></thead><tbody>';
+    if (!wl.length) {
+      h += '<tr><td colspan="2" class="muted">—</td></tr>';
+    } else {
+      wl.forEach(function (r) {
+        h += '<tr><td>' + teamDashCell(r) + '</td><td>' + (r.streak != null ? r.streak : 0) + '</td></tr>';
       });
     }
     h += '</tbody></table></div></div>';
@@ -501,7 +700,7 @@
     var h = '';
     rows.forEach(function (grp) {
       h += '<h3 class="home-conf-h">' + escape(grp.division || grp.conference || 'Division') + '</h3>';
-      h += '<table class="data home-conf-table"><thead><tr><th>#</th><th scope="col" title="Team"><span class="visually-hidden">Team</span></th><th>GP</th><th>W</th><th>L</th><th>OTL</th><th>Pts</th></tr></thead><tbody>';
+      h += '<table class="data home-conf-table"><thead><tr><th>#</th><th scope="col" title="Team"><span class="visually-hidden">Team</span></th><th>GP</th><th>W</th><th>L</th><th title="Ties">T</th><th>Pts</th></tr></thead><tbody>';
       (grp.teams || []).forEach(function (r) {
         var lab = String((r.name || r.abbr || 'Team') || '').trim();
         var logo = r.logo_url
@@ -522,7 +721,7 @@
         } else {
           teamCell = logo || escape(r.abbr || lab || '—');
         }
-        h += '<tr><td>' + r.rank + '</td><td>' + teamCell + '</td><td>' + r.gp + '</td><td>' + r.w + '</td><td>' + r.l + '</td><td>' + r.otl + '</td><td>' + r.pts + '</td></tr>';
+        h += '<tr><td>' + r.rank + '</td><td>' + teamCell + '</td><td>' + r.gp + '</td><td>' + r.w + '</td><td>' + r.l + '</td><td>' + (r.ties != null ? r.ties : 0) + '</td><td>' + r.pts + '</td></tr>';
       });
       h += '</tbody></table>';
     });
@@ -1276,6 +1475,11 @@
         document.getElementById('home-stars-30').innerHTML = rowStarsMini(data.stars_last_30d);
         document.getElementById('home-trending').innerHTML = rowTrending(data.trending_players);
         document.getElementById('home-streaks').innerHTML = rowStreaks(data.active_streaks);
+        var tmEl = document.getElementById('home-team-trending');
+        var tsEl = document.getElementById('home-team-streaks');
+        var tmData = data.team_momentum || {};
+        if (tmEl) tmEl.innerHTML = rowTeamTrending(tmData.trending || {});
+        if (tsEl) tsEl.innerHTML = rowTeamStreaks(tmData.streaks || {});
         paintStandingsDiv(data.standings_by_division || data.standings_by_conference || []);
         paintPower(data.power_rankings || {});
         paintChampions(data.champions_panel || {});

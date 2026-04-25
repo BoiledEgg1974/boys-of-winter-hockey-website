@@ -111,7 +111,7 @@ def standing_row_json(
         "gp": st.standing_gp_display(),
         "w": st.w,
         "l": st.l,
-        "otl": st.otl,
+        "ties": int(st.ties or 0),
         "pts": st.pts,
         "conference": (st.conference or "").strip() or None,
         "division": div_out,
@@ -514,6 +514,218 @@ def build_active_streaks(session, season_id: int, limit: int = 5) -> dict[str, l
         return out
 
     return {"goal_streak": pack(goal_best), "point_streak": pack(point_best)}
+
+
+def _team_game_points(team_id: int, g: Game) -> int | None:
+    """Standings-style points from a final game (2 / 1 OTL / 1 tie / 0 regulation loss)."""
+    if g.status != "final" or g.home_score is None or g.away_score is None:
+        return None
+    hs, aws = int(g.home_score), int(g.away_score)
+    tid = int(team_id)
+    ot = bool(g.went_to_overtime or g.went_to_shootout)
+    if tid == int(g.home_team_id):
+        if hs > aws:
+            return 2
+        if hs < aws:
+            return 1 if ot else 0
+        return 1
+    if tid == int(g.away_team_id):
+        if aws > hs:
+            return 2
+        if aws < hs:
+            return 1 if ot else 0
+        return 1
+    return None
+
+
+def _team_game_outcome_streak(team_id: int, g: Game) -> str | None:
+    """Single-letter result for streak logic: win, tie, or loss (OTL is a loss)."""
+    if g.status != "final" or g.home_score is None or g.away_score is None:
+        return None
+    hs, aws = int(g.home_score), int(g.away_score)
+    tid = int(team_id)
+    if tid == int(g.home_team_id):
+        if hs > aws:
+            return "W"
+        if hs < aws:
+            return "L"
+        return "T"
+    if tid == int(g.away_team_id):
+        if aws > hs:
+            return "W"
+        if aws < hs:
+            return "L"
+        return "T"
+    return None
+
+
+def _team_trending_row(
+    dlt: float,
+    tm: Team,
+    rgp: int,
+    rppg: float,
+    sppg: float,
+) -> dict[str, Any]:
+    return {
+        "team_id": tm.id,
+        "team": tm.abbreviation or "",
+        "team_name": tm.full_display_name(),
+        "team_city": (tm.city or "").strip(),
+        "team_slug": tm.slug or "",
+        "team_logo_url": team_logo_url_for_team(tm),
+        "recent_games": rgp,
+        "recent_ppg": round(rppg, 3),
+        "season_ppg": round(sppg, 3),
+        "delta": round(dlt, 3),
+    }
+
+
+def build_trending_teams(
+    session,
+    season_id: int,
+    as_of: date,
+    window_days: int = 14,
+    limit: int = 5,
+) -> dict[str, list[dict[str, Any]]]:
+    """Team points pace in the last ``window_days`` league days vs full-season pace (like skater trending)."""
+    start = as_of - timedelta(days=window_days)
+    window_games = session.scalars(
+        select(Game).where(
+            Game.season_id == season_id,
+            Game.status == "final",
+            Game.game_date.is_not(None),
+            Game.game_date >= start,
+            Game.game_date <= as_of,
+            Game.home_score.is_not(None),
+            Game.away_score.is_not(None),
+        )
+    ).all()
+    recent_pts: dict[int, float] = defaultdict(float)
+    recent_gp: dict[int, int] = defaultdict(int)
+    for g in window_games:
+        for tid in (int(g.home_team_id), int(g.away_team_id)):
+            pts = _team_game_points(tid, g)
+            if pts is None:
+                continue
+            recent_pts[tid] += float(pts)
+            recent_gp[tid] += 1
+
+    standings = session.scalars(select(TeamStanding).where(TeamStanding.season_id == season_id)).all()
+    deltas: list[tuple[float, Team, TeamStanding, int, float, float]] = []
+    for st in standings:
+        tm = session.get(Team, st.team_id)
+        if not tm:
+            continue
+        rgp = int(recent_gp.get(int(st.team_id), 0))
+        if rgp < 3:
+            continue
+        sgp = max(int(st.standing_gp_display() or 0), 1)
+        season_ppg = float(st.pts or 0) / float(sgp)
+        recent_ppg = recent_pts.get(int(st.team_id), 0.0) / float(rgp)
+        deltas.append((recent_ppg - season_ppg, tm, st, rgp, recent_ppg, season_ppg))
+
+    sorted_hot = sorted(deltas, key=lambda x: (-x[0], -x[3], x[1].name or ""))
+    hot = [
+        _team_trending_row(dlt, tm, rgp, rppg, sppg)
+        for dlt, tm, st, rgp, rppg, sppg in sorted_hot[:limit]
+    ]
+    sorted_cold = sorted(deltas, key=lambda x: (x[0], -x[3], x[1].name or ""))
+    cold = [
+        _team_trending_row(dlt, tm, rgp, rppg, sppg)
+        for dlt, tm, st, rgp, rppg, sppg in sorted_cold[:limit]
+    ]
+    return {"hot": hot, "cold": cold}
+
+
+def _team_streak_pack(scored: list[tuple[int, Team]], limit: int) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for n, tm in scored[:limit]:
+        out.append(
+            {
+                "team_id": tm.id,
+                "team": tm.abbreviation or "",
+                "team_name": tm.full_display_name(),
+                "team_city": (tm.city or "").strip(),
+                "team_slug": tm.slug or "",
+                "team_logo_url": team_logo_url_for_team(tm),
+                "streak": n,
+            }
+        )
+    return out
+
+
+def build_team_momentum_streaks(session, season_id: int, limit: int = 5) -> dict[str, list[dict[str, Any]]]:
+    """Current win, undefeated (W + ties), losing, and winless (L + ties) streaks from most recent games backward."""
+    games = session.scalars(
+        select(Game)
+        .where(
+            Game.season_id == season_id,
+            Game.status == "final",
+            Game.game_date.is_not(None),
+            Game.home_score.is_not(None),
+            Game.away_score.is_not(None),
+        )
+        .order_by(Game.game_date.asc(), Game.id.asc())
+    ).all()
+    if not games:
+        return {
+            "win_streak": [],
+            "undefeated_streak": [],
+            "losing_streak": [],
+            "winless_streak": [],
+        }
+
+    by_team: dict[int, list[Game]] = defaultdict(list)
+    for g in games:
+        by_team[int(g.home_team_id)].append(g)
+        by_team[int(g.away_team_id)].append(g)
+
+    def run_length(seq: list[str], pred) -> int:
+        n = 0
+        for ch in seq:
+            if pred(ch):
+                n += 1
+            else:
+                break
+        return n
+
+    win_scored: list[tuple[int, Team]] = []
+    und_scored: list[tuple[int, Team]] = []
+    loss_scored: list[tuple[int, Team]] = []
+    winless_scored: list[tuple[int, Team]] = []
+
+    for tid, glist in by_team.items():
+        tm = session.get(Team, tid)
+        if not tm:
+            continue
+        recent_first = [_team_game_outcome_streak(tid, g) for g in reversed(glist)]
+        recent_first = [x for x in recent_first if x]
+        if not recent_first:
+            continue
+        wn = run_length(recent_first, lambda c: c == "W")
+        un = run_length(recent_first, lambda c: c in ("W", "T"))
+        ln = run_length(recent_first, lambda c: c == "L")
+        wln = run_length(recent_first, lambda c: c in ("L", "T"))
+        if wn >= 2:
+            win_scored.append((wn, tm))
+        if un >= 2:
+            und_scored.append((un, tm))
+        if ln >= 2:
+            loss_scored.append((ln, tm))
+        if wln >= 2:
+            winless_scored.append((wln, tm))
+
+    win_scored.sort(key=lambda x: (-x[0], x[1].name or ""))
+    und_scored.sort(key=lambda x: (-x[0], x[1].name or ""))
+    loss_scored.sort(key=lambda x: (-x[0], x[1].name or ""))
+    winless_scored.sort(key=lambda x: (-x[0], x[1].name or ""))
+
+    return {
+        "win_streak": _team_streak_pack(win_scored, limit),
+        "undefeated_streak": _team_streak_pack(und_scored, limit),
+        "losing_streak": _team_streak_pack(loss_scored, limit),
+        "winless_streak": _team_streak_pack(winless_scored, limit),
+    }
 
 
 def build_power_rankings(

@@ -76,6 +76,7 @@ from app.services.free_agents import (
     FA_SKATER_PHYSICAL,
     GOALIE_VIEWS,
     SKATER_VIEWS,
+    bowl_nhl_org_rights_player_ids,
     fetch_free_agent_players,
 )
 from app.services.history_coach_awards import (
@@ -1740,7 +1741,7 @@ def prospects():
 
 @main_bp.get("/undrafted-prospects")
 def undrafted_prospects():
-    """Players with no NHL/BOWL draft pick, age within league cap, optional exact age and position filters."""
+    """Players with no NHL/BOWL draft pick, no NHL/BOWL org rights, age within league cap, optional filters."""
     pos = request.args.get("position")
     age_param = (request.args.get("age") or "").strip()
     ud_expanded = request.args.get("expanded") == "1"
@@ -1785,12 +1786,15 @@ def undrafted_prospects():
         .where(nhl_bowl_draft_clause())
         .distinct()
     )
-
-    q = select(Player).where(
+    rights_ids = bowl_nhl_org_rights_player_ids(session)
+    q_where = [
         Player.retired.is_(False),
         Player.birth_date.isnot(None),
         Player.id.not_in(drafted_subq),
-    )
+    ]
+    if rights_ids:
+        q_where.append(Player.id.not_in(rights_ids))
+    q = select(Player).where(*q_where)
     players = session.scalars(q).unique().all()
 
     pool: list[Player] = []

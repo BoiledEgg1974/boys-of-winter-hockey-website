@@ -91,7 +91,7 @@ def _player_age_years_on(birth: date, as_of: date) -> int:
 
 
 def undrafted_prospects_player_ids(session: Session, age_ref: date, *, max_age: int) -> frozenset[int]:
-    """Same eligibility as the Undrafted Prospects page for this league (no NHL/BOWL pick, age cap)."""
+    """Same eligibility as the Undrafted Prospects page for this league (no NHL/BOWL pick, age cap, no BOWL rights)."""
     drafted_subq = (
         select(DraftPick.player_id)
         .join(Draft, DraftPick.draft_id == Draft.id)
@@ -99,13 +99,15 @@ def undrafted_prospects_player_ids(session: Session, age_ref: date, *, max_age: 
         .where(nhl_bowl_draft_clause())
         .distinct()
     )
-    rows = session.execute(
-        select(Player.id, Player.birth_date).where(
-            Player.retired.is_(False),
-            Player.birth_date.isnot(None),
-            Player.id.not_in(drafted_subq),
-        )
-    ).all()
+    rights_ids = bowl_nhl_org_rights_player_ids(session)
+    where_clauses = [
+        Player.retired.is_(False),
+        Player.birth_date.isnot(None),
+        Player.id.not_in(drafted_subq),
+    ]
+    if rights_ids:
+        where_clauses.append(Player.id.not_in(rights_ids))
+    rows = session.execute(select(Player.id, Player.birth_date).where(*where_clauses)).all()
     out: set[int] = set()
     for pid, bd in rows:
         if bd is None:
@@ -171,6 +173,25 @@ def _prospect_rights_main_team_subq():
         .where(Prospect.player_id.isnot(None))
         .where(or_(Team.fhm_league_id.is_(None), Team.fhm_league_id == 0))
     )
+
+
+def bowl_nhl_org_rights_player_ids(session: Session) -> frozenset[int]:
+    """Player ids with NHL/BOWL organizational rights (prospect row or non-UFA contract to a main club)."""
+    main_ids = _main_league_fhm_team_ids_subq()
+    out: set[int] = set()
+    for pid in session.scalars(_prospect_rights_main_team_subq()).all():
+        if pid is not None:
+            out.add(int(pid))
+    for pid in session.scalars(
+        select(PlayerContract.player_id).where(
+            PlayerContract.player_id.isnot(None),
+            PlayerContract.fhm_team_id.in_(main_ids),
+            or_(PlayerContract.is_ufa.is_(False), PlayerContract.is_ufa.is_(None)),
+        )
+    ).all():
+        if pid is not None:
+            out.add(int(pid))
+    return frozenset(out)
 
 
 def position_clause_for_role(role: str):

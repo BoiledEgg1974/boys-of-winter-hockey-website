@@ -31,7 +31,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 29;300;300;Andrew;Ebbett;;70;179;1956-1-2;Vernon;BC;Canada;;;0;Left;0
 30;17;17;Jordan;Eberle;;72;190;1960-5-15;Regina;SK;Canada;;;0;Right;0
 31;11;11;Alexander;Edler;;76;220;1961-4-21;Östersund;JäM;Sweden;;;0;Left;0
-32;237;3;Lars;Eller;;73;216;1954-5-8;Rødovre;COP;Denmark;;;0;Left;0
+32;3;3;Lars;Eller;;73;216;1954-5-8;Rødovre;COP;Denmark;;;0;Left;0
 33;218;218;Noel;Acciari;Cookie;70;209;1953-12-1;Johnston;RI;The United States;;;0;Right;0
 34;19;19;Andreas;Engqvist;;75;198;1953-12-23;Stockholm;STO;Sweden;;;0;Right;0
 -1;158;158;Jiri;Klikar;;71;188;1967-8-8;Cvikov;LIB;Czech Republic;;;0;Right;0
@@ -2568,7 +2568,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 2662;17;17;Jake;Sanderson;;73;185;1962-7-8;Whitefish;MT;The United States;Canada;;0;Left;0
 2663;14;14;Roby;Järventie;;74;214;1956-8-8;Tampere;PIR;Finland;;;0;Left;0
 2664;186;186;Colby;Ambrosio;;69;165;1949-8-7;Welland;ON;Canada;;;0;Right;0
-2665;218;14;Declan;McDonnell;;70;190;1961-2-25;Lakeview;NY;The United States;;;0;Right;0
+2665;14;14;Declan;McDonnell;;70;190;1961-2-25;Lakeview;NY;The United States;;;0;Right;1
 2666;25;25;Artem;Shlaine;;73;174;1959-3-7;Moscow;MOS;Russia;The United States;;0;Left;0
 2667;226;226;Jack;Smith;;71;185;1958-7-6;St. Cloud;MN;The United States;;;0;Left;0
 2668;19;19;Devon;Levi;;72;185;1954-12-27;Dollard-des-Ormeaux;QC;Canada;;;0;Left;0

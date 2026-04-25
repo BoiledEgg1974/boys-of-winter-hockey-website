@@ -1292,7 +1292,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1290;-1;Kenny;Sinclair;;1918-6-3;Philadelphia;PA;The United States;;;0
 1291;-1;Boyd;Willard;;1918-8-22;Sainte-Thérèse;QC;Canada;;;0
 1292;-1;Geoff;Gregory;;1926-12-12;Ancaster;ON;Canada;;;0
-1293;-1;Yisrael;Schneior;;1918-12-7;Markham;ON;Canada;;;0
+1293;123;Yisrael;Schneior;;1918-12-7;Markham;ON;Canada;;;0
 1294;-1;Martin;Schaal;;1918-2-12;Sackville;NS;Canada;;;0
 1295;-1;Ellis;Coleman;;1918-7-17;Kingsville;ON;Canada;;;0
 1296;-1;Nicolò;Panza;;1927-5-29;Vancouver;BC;Canada;;;0

@@ -1595,6 +1595,32 @@ table.data.home-special-teams-table td:nth-child(2) {
 .home-dashboard #home-ngtw {
   text-align: left;
 }
+.home-milestones-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.5rem;
+}
+.home-milestones-list__item {
+  display: grid;
+  gap: 0.12rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid var(--border);
+}
+.home-milestones-list__item:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.home-milestones-list__player {
+  font-weight: 700;
+  line-height: 1.3;
+}
+.home-milestones-list__meta {
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
 .home-dashboard .home-spot-game {
   text-align: left;
 }
@@ -3604,6 +3630,56 @@ table.data.league-season-records__table .league-season-records__td-value {
   margin: 0;
   padding: 0.35rem 0;
   font-size: 0.754rem;
+}
+
+.milestones-page {
+  display: grid;
+  gap: 1rem;
+}
+.milestones-block {
+  display: grid;
+  gap: 0.65rem;
+}
+.milestones-block__title {
+  margin: 0;
+  font-size: 1rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #cbd5e1;
+}
+[data-theme="light"] .milestones-block__title {
+  color: #334155;
+}
+.milestones-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 900px) {
+  .milestones-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.milestones-card {
+  padding-top: 0.6rem;
+}
+.milestones-card__title {
+  margin: 0 0 0.55rem;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.milestones-table th,
+.milestones-table td {
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.milestones-table__remaining {
+  font-weight: 800;
+  color: #7dd3fc;
+}
+[data-theme="light"] .milestones-table__remaining {
+  color: #0369a1;
 }
 
 /* Team page — Player Ratings (FHM player_ratings.csv) */

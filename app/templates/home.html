@@ -35,6 +35,7 @@
       <a class="home-dashboard__toc-link" href="#dash-schedule">Schedule</a>
       <a class="home-dashboard__toc-link" href="#dash-around">Around The League</a>
       <a class="home-dashboard__toc-link" href="#dash-leaders">League Leaders</a>
+      <a class="home-dashboard__toc-link" href="#dash-milestones">Milestones</a>
       <a class="home-dashboard__toc-link" href="#dash-postseason-odds">Postseason Odds</a>
       <a class="home-dashboard__toc-link" href="#dash-watch">Watch List</a>
       <a class="home-dashboard__toc-link" href="#dash-standings">Standings</a>
@@ -118,6 +119,24 @@
         <div id="home-rookies" class="table-wrap">
           <p class="empty-state">Loading…</p>
         </div>
+      </section>
+      <section id="dash-milestones" class="card home-dashboard__card" aria-labelledby="home-milestones-h">
+        <h2 id="home-milestones-h" class="home-dashboard__h">Milestones Watch</h2>
+        <p class="muted home-dashboard__sub">Closest active players to major regular-season career marks</p>
+        {% if milestone_teasers %}
+        <ul class="home-milestones-list">
+          {% for item in milestone_teasers %}
+          {% set pl = item.player %}
+          <li class="home-milestones-list__item">
+            <a class="home-milestones-list__player" href="{{ url_for('main.player_page', player_id=pl.id) }}">{{ pl.full_name }}</a>
+            <span class="home-milestones-list__meta">{{ item.group }} · {{ item.stat_title }}: {{ item.current_value }}/{{ item.next_milestone }} ({{ item.remaining }} away)</span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="empty-state">No close milestones right now.</p>
+        {% endif %}
+        <a class="link-more" href="{{ url_for('main.milestones') }}">View full milestones page</a>
       </section>
       <section id="dash-momentum" class="card home-dashboard__card" aria-labelledby="momentum-h">
         <h2 id="momentum-h" class="home-dashboard__h">Momentum</h2>

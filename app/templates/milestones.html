@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% from "macros/team.html" import team_logo_only with context %}
+{% block title %}Milestones — Boys of Winter Hockey League{% endblock %}
+{% macro ms_url(sp) -%}
+{{ url_for('main.milestones', split=sp) }}
+{%- endmacro %}
+{% macro team_label(pl) -%}
+{%- set roster_team = main_league_roster_team(none, pl.current_team) -%}
+{%- if pl.retired -%}
+<span class="records-team-retired">Retired</span>
+{%- elif roster_team -%}
+{{ team_logo_only(roster_team) }}
+{%- else -%}
+<span class="records-team-minors">Minors</span>
+{%- endif -%}
+{% endmacro %}
+{% block content %}
+<div class="milestones-page">
+  <div class="records-toolbar card">
+    <div class="records-toolbar__left">
+      <h1 class="records-toolbar__title">CAREER MILESTONES</h1>
+      <p class="records-page__hint muted">Players shown are close to the next major threshold.</p>
+    </div>
+    <div class="records-toolbar__right">
+      <a href="{{ ms_url('rs') }}" class="stats-pill {{ 'is-active' if split == 'rs' else '' }}">Regular Season</a>
+      <a href="{{ ms_url('po') }}" class="stats-pill {{ 'is-active' if split == 'po' else '' }}">Playoffs</a>
+    </div>
+  </div>
+
+  <section class="milestones-block" aria-labelledby="milestones-skaters-title">
+    <h2 class="milestones-block__title" id="milestones-skaters-title">Skaters</h2>
+    <div class="milestones-grid">
+      {% for section in skater_sections %}
+      <article class="card milestones-card">
+        <h3 class="milestones-card__title">{{ section.title }}</h3>
+        {% if section.rows %}
+        <div class="table-wrap">
+          <table class="data stats-table milestones-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Player</th>
+                <th>Current Team</th>
+                <th>Current</th>
+                <th>Next Milestone</th>
+                <th>Remaining</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in section.rows %}
+              {% set pl = row.player %}
+              <tr>
+                <td>{{ loop.index }}</td>
+                <td>
+                  <span class="records-player-cell">
+                    <a class="records-player-cell__photo" href="{{ url_for('main.player_page', player_id=pl.id) }}">
+                      {% if player_headshot_url(pl) %}
+                      <img src="{{ player_headshot_url(pl) }}" alt="">
+                      {% else %}
+                      <span class="records-player-cell__photo-ph" aria-hidden="true"></span>
+                      {% endif %}
+                    </a>
+                    <span class="records-player-cell__text">
+                      <a class="records-player-cell__name" href="{{ url_for('main.player_page', player_id=pl.id) }}">{{ pl.full_name }}</a>
+                      <span class="records-player-cell__pos">{{ pl | player_positions_display }}</span>
+                    </span>
+                  </span>
+                </td>
+                <td class="records-td-team">{{ team_label(pl) }}</td>
+                <td>{{ row.current_value }}</td>
+                <td>{{ row.next_milestone }}</td>
+                <td class="milestones-table__remaining">{{ row.remaining }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="empty-state">No players are near this milestone right now.</p>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="milestones-block" aria-labelledby="milestones-goalies-title">
+    <h2 class="milestones-block__title" id="milestones-goalies-title">Goalies</h2>
+    <div class="milestones-grid milestones-grid--goalies">
+      {% for section in goalie_sections %}
+      <article class="card milestones-card">
+        <h3 class="milestones-card__title">{{ section.title }}</h3>
+        {% if section.rows %}
+        <div class="table-wrap">
+          <table class="data stats-table milestones-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Player</th>
+                <th>Current Team</th>
+                <th>Current</th>
+                <th>Next Milestone</th>
+                <th>Remaining</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in section.rows %}
+              {% set pl = row.player %}
+              <tr>
+                <td>{{ loop.index }}</td>
+                <td>
+                  <span class="records-player-cell">
+                    <a class="records-player-cell__photo" href="{{ url_for('main.player_page', player_id=pl.id) }}">
+                      {% if player_headshot_url(pl) %}
+                      <img src="{{ player_headshot_url(pl) }}" alt="">
+                      {% else %}
+                      <span class="records-player-cell__photo-ph" aria-hidden="true"></span>
+                      {% endif %}
+                    </a>
+                    <span class="records-player-cell__text">
+                      <a class="records-player-cell__name" href="{{ url_for('main.player_page', player_id=pl.id) }}">{{ pl.full_name }}</a>
+                      <span class="records-player-cell__pos">{{ pl | player_positions_display }}</span>
+                    </span>
+                  </span>
+                </td>
+                <td class="records-td-team">{{ team_label(pl) }}</td>
+                <td>{{ row.current_value }}</td>
+                <td>{{ row.next_milestone }}</td>
+                <td class="milestones-table__remaining">{{ row.remaining }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="empty-state">No players are near this milestone right now.</p>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+{% endblock %}

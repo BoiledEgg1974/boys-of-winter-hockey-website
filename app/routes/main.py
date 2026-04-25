@@ -262,7 +262,49 @@ def champion_banner_urls() -> list[str]:
 
 @main_bp.get("/")
 def home():
-    return render_template("home.html")
+    from app.services.milestones import build_milestone_sections
+
+    skater_sections, goalie_sections = build_milestone_sections(db.session, split="rs")
+    raw_teasers: list[dict[str, object]] = []
+    for section in skater_sections:
+        for row in section.rows:
+            raw_teasers.append(
+                {
+                    "player": row.player,
+                    "group": "Skater",
+                    "stat_title": section.title,
+                    "current_value": row.current_value,
+                    "next_milestone": row.next_milestone,
+                    "remaining": row.remaining,
+                }
+            )
+    for section in goalie_sections:
+        for row in section.rows:
+            raw_teasers.append(
+                {
+                    "player": row.player,
+                    "group": "Goalie",
+                    "stat_title": section.title,
+                    "current_value": row.current_value,
+                    "next_milestone": row.next_milestone,
+                    "remaining": row.remaining,
+                }
+            )
+
+    # Keep the closest item per player to avoid repeated names in the teaser card.
+    best_by_player: dict[int, dict[str, object]] = {}
+    for item in raw_teasers:
+        player = item["player"]
+        if not isinstance(player, Player):
+            continue
+        prior = best_by_player.get(player.id)
+        if prior is None or int(item["remaining"]) < int(prior["remaining"]):
+            best_by_player[player.id] = item
+    milestone_teasers = sorted(
+        best_by_player.values(),
+        key=lambda x: (int(x["remaining"]), str(getattr(x["player"], "full_name", "")).lower()),
+    )[:5]
+    return render_template("home.html", milestone_teasers=milestone_teasers)
 
 
 @main_bp.route("/join-league", methods=["GET", "POST"])
@@ -1405,6 +1447,22 @@ def league_season_records():
         "season_records.html",
         season_records_rs_sections=season_records_rs_sections,
         season_records_po_sections=season_records_po_sections,
+    )
+
+
+@main_bp.get("/milestones")
+def milestones():
+    from app.services.milestones import build_milestone_sections
+
+    split = request.args.get("split", "rs") or "rs"
+    if split not in ("rs", "po"):
+        split = "rs"
+    skater_sections, goalie_sections = build_milestone_sections(db.session, split=split)
+    return render_template(
+        "milestones.html",
+        split=split,
+        skater_sections=skater_sections,
+        goalie_sections=goalie_sections,
     )
 
 

@@ -41,6 +41,7 @@
       </div>
     </div>
     <div class="records-toolbar__right">
+      <a href="{{ url_for('main.milestones', split=split) }}" class="stats-pill">Milestones</a>
       <a href="{{ rec_url(split, false, sort, g_sort, sk_order, g_order) }}" class="stats-pill {{ 'is-active' if not show_goalies else '' }}">ALL</a>
       <a href="{{ rec_url(split, true, sort, g_sort, sk_order, g_order) }}" class="stats-pill {{ 'is-active' if show_goalies else '' }}">Goalies</a>
     </div>

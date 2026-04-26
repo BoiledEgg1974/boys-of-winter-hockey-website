@@ -1,12 +1,14 @@
 """Free agents: not on the sim's main NHL/BOWL roster; excludes undrafted-prospects pool."""
 from __future__ import annotations
 
+import csv
 from datetime import date
+from pathlib import Path
 
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
-from app.config import free_agents_exclude_nhl_bowl_drafted_max_age
+from app.config import BASE_DIR, LEAGUES, free_agents_exclude_nhl_bowl_drafted_max_age
 from app.models import Draft, DraftPick, Player, PlayerContract, Prospect, Team
 from app.services.draft_history import nhl_bowl_draft_clause
 
@@ -86,6 +88,92 @@ SKATER_VIEWS = ("overview", "offense", "defense", "mental", "physical")
 GOALIE_VIEWS = ("overview", "mental")
 
 
+def _csv_delimiter_for(path: Path) -> str:
+    try:
+        sample = path.read_text(encoding="utf-8-sig", errors="ignore")[:2048]
+    except OSError:
+        return ","
+    return ";" if sample.count(";") >= sample.count(",") else ","
+
+
+def _read_csv_rows(path: Path):
+    """Yield CSV rows with a small encoding fallback chain for mixed-export files."""
+    delimiter = _csv_delimiter_for(path)
+    for encoding in ("utf-8-sig", "cp1252", "latin-1"):
+        try:
+            with path.open("r", encoding=encoding, newline="") as f:
+                reader = csv.DictReader(f, delimiter=delimiter)
+                yield from reader
+            return
+        except UnicodeDecodeError:
+            continue
+        except OSError:
+            return
+
+
+def _all_raw_import_dirs() -> tuple[Path, ...]:
+    base = BASE_DIR / "data" / "imports" / "raw"
+    return tuple(base / entry.raw_import_dir for entry in LEAGUES)
+
+
+def _csv_value(row: dict[str, str], *keys: str) -> str:
+    """Return the first non-empty CSV cell from candidate keys."""
+    for key in keys:
+        val = row.get(key)
+        if val is not None:
+            txt = str(val).strip()
+            if txt:
+                return txt
+    return ""
+
+
+def _main_team_fhm_ids_by_raw_dir(raw_dir: Path) -> set[str]:
+    path = raw_dir / "team_data.csv"
+    if not path.is_file():
+        return set()
+    out: set[str] = set()
+    for row in _read_csv_rows(path):
+        league_s = _csv_value(row, "LeagueId", "leagueid", "League", "league")
+        team_s = _csv_value(row, "TeamId", "teamid", "Team", "team")
+        if not league_s or not team_s:
+            continue
+        try:
+            league_id = int(league_s)
+        except ValueError:
+            continue
+        if league_id == 0:
+            out.add(team_s)
+    return out
+
+
+def bowl_rights_player_ids_from_raw_exports(session: Session) -> frozenset[int]:
+    """Player ids with rights to a main BOWL team from any league's raw ``player_rights.csv``."""
+    id_by_fhm: dict[str, int] = {}
+    for pid, fhm_pid in session.execute(select(Player.id, Player.fhm_player_id)).all():
+        if fhm_pid is None:
+            continue
+        fp = str(fhm_pid).strip()
+        if fp:
+            id_by_fhm[fp] = int(pid)
+    out: set[int] = set()
+    for raw_dir in _all_raw_import_dirs():
+        rights_path = raw_dir / "player_rights.csv"
+        if not rights_path.is_file():
+            continue
+        main_team_ids = _main_team_fhm_ids_by_raw_dir(raw_dir)
+        if not main_team_ids:
+            continue
+        for row in _read_csv_rows(rights_path):
+            player_s = (row.get("PlayerId") or row.get("playerid") or "").strip()
+            team_s = (row.get("Team") or row.get("team") or "").strip()
+            if not player_s or not team_s or team_s not in main_team_ids:
+                continue
+            pid = id_by_fhm.get(player_s)
+            if pid is not None:
+                out.add(pid)
+    return frozenset(out)
+
+
 def _player_age_years_on(birth: date, as_of: date) -> int:
     return as_of.year - birth.year - ((as_of.month, as_of.day) < (birth.month, birth.day))
 
@@ -99,7 +187,7 @@ def undrafted_prospects_player_ids(session: Session, age_ref: date, *, max_age: 
         .where(nhl_bowl_draft_clause())
         .distinct()
     )
-    rights_ids = bowl_nhl_org_rights_player_ids(session)
+    rights_ids = bowl_org_rights_player_ids(session)
     where_clauses = [
         Player.retired.is_(False),
         Player.birth_date.isnot(None),
@@ -191,6 +279,13 @@ def bowl_nhl_org_rights_player_ids(session: Session) -> frozenset[int]:
     ).all():
         if pid is not None:
             out.add(int(pid))
+    return frozenset(out)
+
+
+def bowl_org_rights_player_ids(session: Session) -> frozenset[int]:
+    """Player ids with BOWL rights from DB links plus raw exports across all mounted leagues."""
+    out = set(bowl_nhl_org_rights_player_ids(session))
+    out.update(bowl_rights_player_ids_from_raw_exports(session))
     return frozenset(out)
 
 

@@ -76,7 +76,7 @@ from app.services.free_agents import (
     FA_SKATER_PHYSICAL,
     GOALIE_VIEWS,
     SKATER_VIEWS,
-    bowl_nhl_org_rights_player_ids,
+    bowl_org_rights_player_ids,
     fetch_free_agent_players,
 )
 from app.services.history_coach_awards import (
@@ -1786,7 +1786,7 @@ def undrafted_prospects():
         .where(nhl_bowl_draft_clause())
         .distinct()
     )
-    rights_ids = bowl_nhl_org_rights_player_ids(session)
+    rights_ids = bowl_org_rights_player_ids(session)
     q_where = [
         Player.retired.is_(False),
         Player.birth_date.isnot(None),

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Log in — Boys of Winter</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
+</head>
+<body style="background:#0b1220;color:#e2e8f0;font-family:system-ui,sans-serif;padding:2rem;">
+  <div style="max-width:28rem;margin:0 auto;">
+    <p><a href="/" style="color:#38bdf8;">← Home</a></p>
+    <h1 style="margin-top:0;">GM Log In</h1>
+    <p class="muted" style="font-size:0.9rem;">Sign in with the email you registered, or your username if you have one.</p>
+    {% if error %}<p style="color:#f87171;">{{ error }}</p>{% endif %}
+    <form method="post" class="card" style="padding:1.25rem;display:grid;gap:0.85rem;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {% if request.args.get('next') %}
+      <input type="hidden" name="next" value="{{ request.args.get('next')|e }}">
+      {% endif %}
+      <label>Email or username<br><input type="text" name="email" required autocomplete="username" style="width:100%;padding:0.5rem;"></label>
+      <label>Password<br><input type="password" name="password" required autocomplete="current-password" style="width:100%;padding:0.5rem;"></label>
+      <label style="display:flex;align-items:center;gap:0.5rem;"><input type="checkbox" name="remember" value="1"> Stay signed in</label>
+      <button type="submit" class="join-league-btn" style="border:none;cursor:pointer;">Log in</button>
+    </form>
+    <p class="muted"><a href="{{ url_for('hub_auth.register_get') }}">Create an account</a></p>
+  </div>
+</body>
+</html>

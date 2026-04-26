@@ -1,12 +1,19 @@
 """Root splash hub (multi-league entry). Mounted at ``/`` by ``wsgi.application``."""
 from __future__ import annotations
 
+import importlib
 import os
 from pathlib import Path
 
 from flask import Flask, redirect, render_template, request, send_from_directory
+from flask_wtf.csrf import CSRFProtect
 
-from app.config import BASE_DIR, LEAGUES, league_slugs
+from app.auth_login import create_login_manager
+from app.config import BASE_DIR, Config, LEAGUES, league_slugs, resolve_site_sqlite_path
+from app.league_db import db
+
+csrf = CSRFProtect()
+login_manager = create_login_manager()
 
 
 def _default_league_slug() -> str:
@@ -23,8 +30,6 @@ def _redirect_to_default_league(rel_path: str):
     return redirect(loc, code=302)
 
 
-# Top-level paths served by each league app (no mount prefix). Bookmarks like /team/x 404 on the hub
-# without these redirects.
 _HUB_LEAF_REDIRECTS: tuple[str, ...] = (
     "standings",
     "statistics",
@@ -41,16 +46,59 @@ _HUB_LEAF_REDIRECTS: tuple[str, ...] = (
 
 def create_hub_app() -> Flask:
     hub_root = Path(__file__).resolve().parent
-    app = Flask(
+    hub_app = Flask(
         __name__,
         template_folder=str(hub_root / "templates"),
         static_folder=str(BASE_DIR / "app" / "static"),
         static_url_path="/static",
     )
+    site_uri = str(hub_app.config.get("SITE_SQLALCHEMY_DATABASE_URI", "")).strip() or os.environ.get(
+        "SITE_DATABASE_URL", f"sqlite:///{resolve_site_sqlite_path()}"
+    )
+    hub_app.config.from_mapping(
+        SECRET_KEY=os.environ.get("SECRET_KEY", Config.SECRET_KEY),
+        SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
+        SQLALCHEMY_BINDS={"site": site_uri},
+        SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        SITE_SQLALCHEMY_DATABASE_URI=site_uri,
+        JOIN_LEAGUE_RECIPIENT=Config.JOIN_LEAGUE_RECIPIENT,
+        MAIL_SMTP_HOST=Config.MAIL_SMTP_HOST,
+        MAIL_SMTP_PORT=Config.MAIL_SMTP_PORT,
+        MAIL_SMTP_USERNAME=Config.MAIL_SMTP_USERNAME,
+        MAIL_SMTP_PASSWORD=Config.MAIL_SMTP_PASSWORD,
+        MAIL_FROM=Config.MAIL_FROM,
+        MAIL_SMTP_USE_TLS=Config.MAIL_SMTP_USE_TLS,
+        MAIL_SMTP_USE_SSL=Config.MAIL_SMTP_USE_SSL,
+        WTF_CSRF_TIME_LIMIT=None,
+        COMMISH_ADMIN_PASSWORD=Config.COMMISH_ADMIN_PASSWORD,
+    )
 
-    @app.get("/")
+    db.init_app(hub_app)
+    csrf.init_app(hub_app)
+    login_manager.init_app(hub_app)
+
+    importlib.import_module("app.site_models")
+
+    with hub_app.app_context():
+        db.create_all()
+        from app.services.ap_service import seed_ap_catalog_if_empty
+
+        seed_ap_catalog_if_empty()
+
+        try:
+            from app.services.bootstrap_site import ensure_commish_admin
+
+            ensure_commish_admin(hub_app)
+        except Exception:
+            pass
+
+    from app.routes.hub_auth import hub_auth_bp
+
+    hub_app.register_blueprint(hub_auth_bp)
+
+    @hub_app.get("/")
     def splash():
-        audio_dir = Path(app.static_folder or "") / "audio"
+        audio_dir = Path(hub_app.static_folder or "") / "audio"
         splash_mp3 = audio_dir / "splash.mp3"
         return render_template(
             "index.html",
@@ -58,28 +106,28 @@ def create_hub_app() -> Flask:
             splash_audio_available=splash_mp3.is_file(),
         )
 
-    @app.get("/favicon.ico")
+    @hub_app.get("/favicon.ico")
     def favicon():
-        static = Path(app.static_folder or "")
+        static = Path(hub_app.static_folder or "")
         for name in ("favicon.ico", "favicon.svg"):
             p = static / name
             if p.is_file():
                 return send_from_directory(static, name)
         return ("", 204)
 
-    @app.get("/team/<path:rest>")
+    @hub_app.get("/team/<path:rest>")
     def hub_redirect_team(rest: str):
         return _redirect_to_default_league(f"team/{rest}")
 
-    @app.get("/player/<int:player_id>")
+    @hub_app.get("/player/<int:player_id>")
     def hub_redirect_player(player_id: int):
         return _redirect_to_default_league(f"player/{player_id}")
 
-    @app.get("/game/<int:game_id>")
+    @hub_app.get("/game/<int:game_id>")
     def hub_redirect_game(game_id: int):
         return _redirect_to_default_league(f"game/{game_id}")
 
-    @app.get("/api/<path:rest>")
+    @hub_app.get("/api/<path:rest>")
     def hub_redirect_api(rest: str):
         return _redirect_to_default_league(f"api/{rest}")
 
@@ -92,6 +140,6 @@ def create_hub_app() -> Flask:
             _handler.__name__ = f"hub_redirect_{segment.replace('-', '_')}"
             return _handler
 
-        app.add_url_rule(f"/{_leaf}", f"hub_redirect_{_leaf.replace('-', '_')}", _make_leaf_handler(_leaf))
+        hub_app.add_url_rule(f"/{_leaf}", f"hub_redirect_{_leaf.replace('-', '_')}", _make_leaf_handler(_leaf))
 
-    return app
+    return hub_app

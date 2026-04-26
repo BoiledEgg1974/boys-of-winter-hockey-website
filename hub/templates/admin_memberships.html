@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <title>Admin — Memberships</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
+</head>
+<body style="background:#0b1220;color:#e2e8f0;font-family:system-ui,sans-serif;padding:1rem;">
+  <p><a href="{{ url_for('hub_auth.account') }}" style="color:#38bdf8;">← Account</a></p>
+  <h1>Membership approvals</h1>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>User</th><th>Discord</th><th>League</th><th>Team id</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for m, u in rows %}
+        <tr>
+          <td>{{ u.email }}</td>
+          <td>{{ u.discord_name }}</td>
+          <td>{{ m.league_slug }}</td>
+          <td>{{ m.team_id }}</td>
+          <td>{{ m.status }}</td>
+          <td>
+            {% if m.status == 'pending' %}
+            <form method="post" action="{{ url_for('hub_auth.admin_approve_membership', mid=m.id) }}" style="display:inline;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit">Approve</button>
+            </form>
+            {% endif %}
+            {% if m.status != 'revoked' %}
+            <form method="post" action="{{ url_for('hub_auth.admin_revoke_membership', mid=m.id) }}" style="display:inline;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit">Revoke</button>
+            </form>
+            {% endif %}
+            <form method="post" action="{{ url_for('hub_auth.admin_set_user_admin', uid=u.id) }}" style="display:inline;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="is_admin" value="{{ '0' if u.is_admin else '1' }}">
+              <button type="submit">{% if u.is_admin %}Remove admin{% else %}Make admin{% endif %}</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>

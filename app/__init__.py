@@ -1,8 +1,12 @@
 import colorsys
+import importlib
 from pathlib import Path
 
+import click
 from flask import Flask
+from flask_wtf.csrf import CSRFProtect
 
+from app.auth_login import create_login_manager
 from app.config import LEAGUES, Config
 from app.db_utils import (
     ensure_fts5,
@@ -17,6 +21,9 @@ from app.db_utils import (
     repair_fhm_team_city_from_name,
 )
 from app.models import Player, db
+
+csrf = CSRFProtect()
+login_manager = create_login_manager()
 from app.services.player_headshot import resolve_player_headshot_static_filename
 from app.services.roster_team import main_league_roster_team
 
@@ -30,6 +37,12 @@ def create_app(config_class: type = Config) -> Flask:
     )
     app.config.from_object(config_class)
 
+    site_uri = app.config.get("SITE_SQLALCHEMY_DATABASE_URI")
+    if site_uri:
+        binds = dict(app.config.get("SQLALCHEMY_BINDS") or {})
+        binds["site"] = site_uri
+        app.config["SQLALCHEMY_BINDS"] = binds
+
     instance_path = Path(app.instance_path)
     instance_path.mkdir(parents=True, exist_ok=True)
     for sub in (
@@ -42,6 +55,10 @@ def create_app(config_class: type = Config) -> Flask:
         Path(sub).mkdir(parents=True, exist_ok=True)
 
     db.init_app(app)
+    csrf.init_app(app)
+    login_manager.init_app(app)
+
+    importlib.import_module("app.site_models")
 
     db_uri = app.config.get("SQLALCHEMY_DATABASE_URI", "")
     if isinstance(db_uri, str) and db_uri.startswith("sqlite:///"):
@@ -75,14 +92,32 @@ def create_app(config_class: type = Config) -> Flask:
         except Exception as exc:
             app.logger.warning("Position backfill from ratings skipped: %s", exc)
 
+        try:
+            from app.services.ap_service import seed_ap_catalog_if_empty
+
+            seed_ap_catalog_if_empty()
+        except Exception as exc:
+            app.logger.warning("AP catalog seed skipped: %s", exc)
+
+        try:
+            from app.services.bootstrap_site import ensure_commish_admin
+
+            ensure_commish_admin(app)
+        except Exception as exc:
+            app.logger.warning("Commissioner bootstrap skipped: %s", exc)
+
     from sqlalchemy import select
 
     from app.logo_urls import team_logo_url_for_team
     from app.models import Player, Team
     from app.routes import api_bp, main_bp
+    from app.routes.site_portal import site_admin_bp, site_gm_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(api_bp, url_prefix="/api")
+    csrf.exempt(api_bp)
+    app.register_blueprint(site_gm_bp)
+    app.register_blueprint(site_admin_bp)
 
     @app.template_filter("rating_pill_style")
     def rating_pill_style(val: object) -> str:
@@ -298,6 +333,22 @@ def create_app(config_class: type = Config) -> Flask:
                     return url_for("static", filename=f"logos/{name}")
             return url_for("static", filename="logos/league-placeholder.svg")
 
+        from flask_login import current_user
+
+        from app.auth_login import active_membership_for_league
+        from app.services.gm_notifications import gm_inbox_badge_unread
+
+        slug_layout = str(app.config.get("LEAGUE_SLUG") or "").strip()
+        gm_membership = None
+        gm_messages_unread = 0
+        if getattr(current_user, "is_authenticated", False) and slug_layout:
+            gm_membership = active_membership_for_league(current_user, slug_layout)
+            if gm_membership:
+                try:
+                    gm_messages_unread = gm_inbox_badge_unread(slug_layout, int(current_user.id))
+                except Exception:
+                    gm_messages_unread = 0
+
         return dict(
             nav_teams=teams,
             team_logo_url=team_logo_url,
@@ -310,6 +361,8 @@ def create_app(config_class: type = Config) -> Flask:
             draft_pick_current_team_view=draft_pick_current_team_view,
             league_entries=LEAGUES,
             current_league_slug=app.config.get("LEAGUE_SLUG"),
+            gm_membership=gm_membership,
+            gm_messages_unread=gm_messages_unread,
         )
 
     @app.cli.command("init-db")
@@ -332,6 +385,63 @@ def create_app(config_class: type = Config) -> Flask:
     def rebuild_fts_cmd() -> None:
         rebuild_player_fts(db.engine)
         print("player_fts rebuilt.")
+
+    @app.cli.command("set-admin")
+    @click.argument("email")
+    def set_admin_cmd(email: str) -> None:
+        """Grant site admin to a user by email (site DB)."""
+        from sqlalchemy import select
+
+        from app.site_models import User
+
+        u = db.session.scalar(select(User).where(User.email == email.strip().lower()).limit(1))
+        if not u:
+            print("User not found:", email)
+            return
+        u.is_admin = True
+        db.session.commit()
+        print("Admin granted:", email)
+
+    @app.cli.command("ap-credit-daily-export")
+    def ap_credit_daily_export_cmd() -> None:
+        """Credit +1 AP (UTC day, idempotent) for each team with an active GM if raw import dir was touched recently."""
+        from pathlib import Path
+        from time import time
+
+        from sqlalchemy import select
+
+        from app.models import Team
+        from app.services.ap_service import maybe_credit_daily_export_for_team
+        from app.site_models import GmLeagueMembership
+
+        slug = str(app.config.get("LEAGUE_SLUG") or "")
+        raw_dir = Path(app.config.get("RAW_IMPORT_DIR") or "")
+        mtime = 0.0
+        if raw_dir.is_dir():
+            for p in raw_dir.rglob("*.csv"):
+                try:
+                    mtime = max(mtime, p.stat().st_mtime)
+                except OSError:
+                    continue
+        if mtime < time() - 86400 * 3:
+            print("No recent CSV activity in raw import dir (3d); skipping.")
+            return
+        teams = db.session.scalars(select(Team.id)).all()
+        active_team_ids = set(
+            db.session.scalars(
+                select(GmLeagueMembership.team_id).where(
+                    GmLeagueMembership.league_slug == slug,
+                    GmLeagueMembership.status == "active",
+                )
+            ).all()
+        )
+        n = 0
+        for tid in teams:
+            if int(tid) not in active_team_ids:
+                continue
+            if maybe_credit_daily_export_for_team(slug, int(tid), raw_import_dir_mtime=mtime):
+                n += 1
+        print(f"ap-credit-daily-export ({slug}): credited {n} teams (max once each per UTC day).")
 
     @app.cli.command("backfill-plus-minus")
     def backfill_plus_minus_cmd() -> None:

@@ -823,12 +823,63 @@ def build_champions_panel(session) -> dict[str, Any]:
     return {"banner_urls": banners, "recent_champions": slides}
 
 
-def build_around_the_league() -> dict[str, Any]:
-    return {
-        "enabled": False,
-        "message": "News feed coming soon.",
-        "articles": [],
-    }
+def build_around_the_league(league_session) -> dict[str, Any]:
+    """Published news from site DB; ``league_session`` resolves team slugs/names."""
+    from flask import current_app, url_for
+
+    from app.league_db import db
+    from app.site_models import NewsArticle, User
+
+    slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    rows = db.session.scalars(
+        select(NewsArticle)
+        .where(NewsArticle.league_slug == slug, NewsArticle.status == "published")
+        .order_by(NewsArticle.published_at.desc().nulls_last(), NewsArticle.id.desc())
+        .limit(12)
+    ).all()
+    if not rows:
+        return {
+            "enabled": False,
+            "message": "No league headlines yet.",
+            "articles": [],
+        }
+    author_ids = {a.author_user_id for a in rows}
+    authors: dict[int, User] = {}
+    if author_ids:
+        for u in db.session.scalars(select(User).where(User.id.in_(author_ids))).all():
+            authors[u.id] = u
+
+    def _gm_label(u: User | None) -> str:
+        if not u:
+            return ""
+        for attr in ("discord_name", "username"):
+            v = (getattr(u, attr, None) or "").strip()
+            if v:
+                return v
+        em = (u.email or "").strip()
+        return em.split("@", 1)[0] if em else ""
+
+    articles: list[dict[str, Any]] = []
+    for a in rows:
+        tm = league_session.get(Team, a.team_id) if a.team_id else None
+        excerpt = (a.body or "").strip().replace("\r\n", "\n")
+        if len(excerpt) > 200:
+            excerpt = excerpt[:200] + "…"
+        au = authors.get(a.author_user_id)
+        articles.append(
+            {
+                "id": a.id,
+                "title": a.title,
+                "excerpt": excerpt,
+                "team_name": tm.full_display_name() if tm else None,
+                "team_slug": tm.slug if tm else None,
+                "team_logo_url": team_logo_url_for_team(tm) if tm else "",
+                "gm_label": _gm_label(au),
+                "published_at": a.published_at.isoformat() if a.published_at else None,
+                "href": url_for("main.league_headlines") + f"#a{a.id}",
+            }
+        )
+    return {"enabled": True, "message": "", "articles": articles}
 
 
 def build_conf_cutoff_map(session, season_id: int) -> dict[str, int]:

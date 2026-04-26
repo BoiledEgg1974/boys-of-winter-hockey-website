@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}League news — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:44rem;margin:0 auto;">
+  <h1 class="page-title">Around the League — contributions</h1>
+  <p><a href="{{ url_for('site_gm.gm_messages_inbox') }}">GM Messages</a> — in-site chat with other active GMs in this league (no email).</p>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <ul>{% for cat, msg in messages %}<li>{{ msg }}</li>{% endfor %}</ul>
+  {% endif %}
+  {% endwith %}
+  <p class="muted">Submitted articles appear on the homepage after an administrator publishes them. AP may be awarded on publish (league setting).</p>
+  <form method="post" class="card" style="padding:1rem;margin-bottom:1.5rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Title<br><input type="text" name="title" required maxlength="300" style="width:100%;"></label>
+    <label style="display:block;margin-top:0.75rem;">Body<br><textarea name="body" rows="8" required style="width:100%;"></textarea></label>
+    <button type="submit" class="join-league-btn" style="margin-top:0.75rem;border:none;cursor:pointer;">Submit for review</button>
+  </form>
+  <h2>Your submissions</h2>
+  <ul>
+    {% for a in articles %}
+    <li><strong>{{ a.title }}</strong> — <em>{{ a.status }}</em> · {{ a.created_at.strftime('%Y-%m-%d') if a.created_at else '' }}</li>
+    {% else %}
+    <li class="muted">None yet.</li>
+    {% endfor %}
+  </ul>
+  <p><a href="{{ url_for('main.league_headlines') }}">View published headlines</a></p>
+</div>
+{% endblock %}

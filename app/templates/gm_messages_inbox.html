@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}GM Messages — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card gm-msg-page" style="max-width:44rem;margin:0 auto;">
+  <h1 class="page-title">GM Messages</h1>
+  <p class="muted" style="font-size:0.9rem;">Direct chats with other GMs and league notices (e.g. news moderation) — no email.</p>
+  <p><a href="{{ url_for('main.home') }}">← Home</a></p>
+
+  {% if notifications %}
+  <h2 class="page-title" style="font-size:1.05rem;margin-top:1.25rem;">Notifications</h2>
+  <ul class="gm-msg-notif-list">
+    {% for n in notifications %}
+    <li class="gm-msg-notif-list__item{% if not n.read_at %} gm-msg-notif-list__item--unread{% endif %}">
+      <a class="gm-msg-notif-list__link" href="{{ url_for('site_gm.gm_notification_open', nid=n.id) }}">
+        <span class="gm-msg-notif-list__title">{{ n.title }}</span>
+        <span class="gm-msg-notif-list__body muted">{{ n.body }}</span>
+        <span class="gm-msg-notif-list__when muted">{{ n.created_at.strftime('%Y-%m-%d %H:%M') if n.created_at else '' }}</span>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  <h2 class="page-title" style="font-size:1.05rem;margin-top:1.25rem;">Conversations</h2>
+  {% if threads %}
+  <ul class="gm-msg-inbox-list">
+    {% for t in threads %}
+    {% set pid = t.peer_id %}
+    {% set peer = peer_users.get(pid) %}
+    {% set pteam = peer_team_by_id.get(pid) %}
+    <li class="gm-msg-inbox-list__item">
+      <a class="gm-msg-inbox-list__link" href="{{ url_for('site_gm.gm_messages_thread', peer_user_id=pid) }}">
+        <span class="gm-msg-inbox-list__who">
+          {% if pteam and team_logo_url(pteam) %}
+          <img class="gm-msg-inbox-list__logo" src="{{ team_logo_url(pteam) }}" alt="" width="32" height="32">
+          {% else %}
+          <span class="gm-msg-inbox-list__logo-ph" aria-hidden="true"></span>
+          {% endif %}
+          <span class="gm-msg-inbox-list__name">{{ gm_display_name(peer) }}</span>
+          {% if t.unread %}
+          <span class="gm-msg-inbox-list__unread">{{ t.unread }}</span>
+          {% endif %}
+        </span>
+        {% set prev = (t.last.body or '') %}
+        <span class="gm-msg-inbox-list__preview muted">{{ prev[:140] }}{% if prev|length > 140 %}…{% endif %}</span>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">No messages yet. Start one below.</p>
+  {% endif %}
+
+  {% if other_rows %}
+  <h2 class="page-title" style="font-size:1.05rem;margin-top:1.5rem;">Message a GM</h2>
+  <ul class="gm-msg-inbox-list gm-msg-inbox-list--start">
+    {% for row in other_rows %}
+    <li class="gm-msg-inbox-list__item gm-msg-inbox-list__item--start">
+      <span class="gm-msg-inbox-list__who">
+        {% if row.team and team_logo_url(row.team) %}
+        <img class="gm-msg-inbox-list__logo" src="{{ team_logo_url(row.team) }}" alt="" width="32" height="32">
+        {% else %}
+        <span class="gm-msg-inbox-list__logo-ph" aria-hidden="true"></span>
+        {% endif %}
+        <span class="gm-msg-inbox-list__name">{{ gm_display_name(row.user) }}</span>
+      </span>
+      <a class="admin-news-body-btn" href="{{ url_for('site_gm.gm_messages_thread', peer_user_id=row.user.id) }}">Open chat</a>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</div>
+{% endblock %}

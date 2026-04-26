@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Redemption catalog — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:48rem;margin:0 auto;">
+  <h1 class="page-title">Catalog ({{ league_group }})</h1>
+  <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
+  <h2>Add item</h2>
+  <form method="post" style="margin-bottom:2rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Title<br><input name="title" required style="width:100%;"></label>
+    <label style="display:block;margin-top:0.5rem;">Description<br><textarea name="description" rows="3" style="width:100%;"></textarea></label>
+    <label style="display:block;margin-top:0.5rem;">Cost AP<br><input type="number" name="cost_ap" required min="1"></label>
+    <label style="display:block;margin-top:0.5rem;">Sort order<br><input type="number" name="sort_order" value="0"></label>
+    <button type="submit" class="join-league-btn" style="margin-top:0.5rem;border:none;">Add</button>
+  </form>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Title</th><th>Cost</th><th>Active</th><th></th></tr></thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td>{{ r.title }}</td>
+          <td>{{ r.cost_ap }}</td>
+          <td>{{ 'yes' if r.is_active else 'no' }}</td>
+          <td>
+            <form method="post" action="{{ url_for('site_admin.admin_catalog_toggle', cid=r.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit">Toggle active</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

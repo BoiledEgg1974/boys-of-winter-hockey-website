@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import (
     Boolean,
     Date,
@@ -18,7 +17,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-db = SQLAlchemy()
+from app.league_db import db
 
 
 class Team(db.Model):

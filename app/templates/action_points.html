@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Action Points — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:56rem;margin:0 auto;">
+  <h1 class="page-title">Action Points</h1>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <ul class="muted">{% for cat, msg in messages %}<li>{{ msg }}</li>{% endfor %}</ul>
+  {% endif %}
+  {% endwith %}
+  <p class="muted">League-wide balances. GMs with an approved membership can submit redemptions for admin approval.</p>
+  {% if membership %}
+  <p><strong>Your team balance:</strong> {{ balance }} AP · <a href="{{ url_for('site_gm.league_news') }}">Submit league news</a></p>
+  <h2>Request redemption</h2>
+  <form method="post" action="{{ url_for('site_gm.action_points_redeem') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="table-wrap">
+      <table class="data">
+        <thead><tr><th></th><th>Perk</th><th>Cost</th></tr></thead>
+        <tbody>
+          {% for it in catalog %}
+          <tr>
+            <td><input type="checkbox" name="catalog_id" value="{{ it.id }}"></td>
+            <td><strong>{{ it.title }}</strong><br><span class="muted">{{ it.description }}</span></td>
+            <td>{{ it.cost_ap }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3" class="muted">No active redemption items for this league group.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p><button type="submit" class="join-league-btn" style="border:none;cursor:pointer;">Submit redemption request</button></p>
+  </form>
+  {% else %}
+  <p class="muted"><a href="/login">Log in</a> on the hub and ensure your membership is approved for this league.</p>
+  {% endif %}
+  <h2>All Teams</h2>
+  {% set n = rows|length %}
+  {% set mid = (n + 1) // 2 if n else 0 %}
+  <div class="ap-teams-board">
+    <div class="ap-teams-board__col">
+      <div class="table-wrap">
+        <table class="data ap-teams-table">
+          <thead><tr><th scope="col">Team</th><th scope="col" class="ap-teams-table__bal">AP balance</th></tr></thead>
+          <tbody>
+            {% for r in rows[:mid] %}
+            <tr>
+              <td class="ap-teams-table__team">
+                <a class="ap-teams-table__team-link" href="{{ url_for('main.team_page', slug=r.team.slug) }}">
+                  {% if team_logo_url(r.team) %}
+                  <img class="ap-teams-table__logo" src="{{ team_logo_url(r.team) }}" alt="" width="32" height="32">
+                  {% else %}
+                  <span class="ap-teams-table__logo-ph" aria-hidden="true"></span>
+                  {% endif %}
+                  <span class="ap-teams-table__name">{{ r.team.full_display_name() }}</span>
+                </a>
+              </td>
+              <td class="ap-teams-table__bal">{{ r.balance }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="ap-teams-board__col">
+      <div class="table-wrap">
+        <table class="data ap-teams-table">
+          <thead><tr><th scope="col">Team</th><th scope="col" class="ap-teams-table__bal">AP balance</th></tr></thead>
+          <tbody>
+            {% for r in rows[mid:] %}
+            <tr>
+              <td class="ap-teams-table__team">
+                <a class="ap-teams-table__team-link" href="{{ url_for('main.team_page', slug=r.team.slug) }}">
+                  {% if team_logo_url(r.team) %}
+                  <img class="ap-teams-table__logo" src="{{ team_logo_url(r.team) }}" alt="" width="32" height="32">
+                  {% else %}
+                  <span class="ap-teams-table__logo-ph" aria-hidden="true"></span>
+                  {% endif %}
+                  <span class="ap-teams-table__name">{{ r.team.full_display_name() }}</span>
+                </a>
+              </td>
+              <td class="ap-teams-table__bal">{{ r.balance }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

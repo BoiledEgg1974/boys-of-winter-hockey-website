@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}News Moderation — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card admin-news-queue" style="max-width:58rem;margin:0 auto;">
+  <h1 class="page-title">News Moderation</h1>
+  <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr>
+          <th scope="col">Submitted by</th>
+          <th scope="col">Status</th>
+          <th scope="col">Body</th>
+          <th scope="col">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in articles %}
+        {% set u = news_authors_by_id.get(a.author_user_id) %}
+        {% set tm = news_teams_by_id.get(a.team_id) if a.team_id else none %}
+        <tr>
+          <td>
+            <div class="admin-news-submitby">
+              {% if tm and team_logo_url(tm) %}
+              <img class="admin-news-submitby__logo" src="{{ team_logo_url(tm) }}" alt="" width="28" height="28">
+              {% else %}
+              <span class="admin-news-submitby__logo-ph" aria-hidden="true"></span>
+              {% endif %}
+              <span class="admin-news-submitby__name">{% if u %}{{ u.discord_name or u.username or u.email }}{% else %}—{% endif %}</span>
+            </div>
+          </td>
+          <td>
+            {% if a.status == 'published' %}
+            <span class="admin-news-status admin-news-status--approved">APPROVED</span>
+            {% elif a.status == 'rejected' %}
+            <span class="admin-news-status admin-news-status--denied">DENIED</span>
+            {% else %}
+            <span class="admin-news-status admin-news-status--pending">PENDING</span>
+            {% endif %}
+          </td>
+          <td>
+            <a class="admin-news-body-btn" href="{{ url_for('site_admin.admin_news_preview', aid=a.id) }}" target="_blank" rel="noopener">View</a>
+          </td>
+          <td class="admin-news-actions">
+            {% if a.status == 'pending' %}
+            <form method="post" action="{{ url_for('site_admin.admin_news_publish', aid=a.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="join-league-btn">Approve</button>
+            </form>
+            <form method="post" action="{{ url_for('site_admin.admin_news_reject', aid=a.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="join-league-btn">Deny</button>
+            </form>
+            {% else %}
+            <span class="muted" style="font-size:0.85rem;">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="muted">No submissions yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

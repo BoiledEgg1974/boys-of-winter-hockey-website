@@ -126,6 +126,13 @@ def _sqlite_has_league_content(path: Path) -> bool:
         conn.close()
 
 
+def resolve_site_sqlite_path() -> Path:
+    """Shared membership / AP / news database (all league mounts + hub)."""
+    inst = BASE_DIR / "instance"
+    inst.mkdir(parents=True, exist_ok=True)
+    return (inst / "site_membership.db").resolve()
+
+
 def resolve_league_sqlite_path(slug: str) -> Path:
     """Pick SQLite file for this league.
 
@@ -196,6 +203,20 @@ class Config:
     MAIL_FROM = os.environ.get("MAIL_FROM", MAIL_SMTP_USERNAME or JOIN_LEAGUE_RECIPIENT)
     MAIL_SMTP_USE_TLS = os.environ.get("MAIL_SMTP_USE_TLS", "1").lower() not in {"0", "false", "no", "off"}
     MAIL_SMTP_USE_SSL = os.environ.get("MAIL_SMTP_USE_SSL", "0").lower() in {"1", "true", "yes", "on"}
+    SITE_SQLALCHEMY_DATABASE_URI = os.environ.get(
+        "SITE_DATABASE_URL",
+        f"sqlite:///{resolve_site_sqlite_path()}",
+    )
+    # GM news → AP when article is published (set later via env or admin UI constant)
+    NEWS_ARTICLE_AP_POINTS = int(os.environ.get("NEWS_ARTICLE_AP_POINTS", "5"))
+    WTF_CSRF_TIME_LIMIT = None
+    # Initial password for auto-created commissioner user (override in production).
+    COMMISH_ADMIN_PASSWORD = os.environ.get("COMMISH_ADMIN_PASSWORD", "Claudette81!")
+
+
+def league_group_for_slug(slug: str) -> str:
+    """Redemption catalog group: Fantasy vs Cap+Historical."""
+    return "fantasy" if slug == "bowl-fantasy" else "cap_historical"
 
 
 def make_league_config(slug: str) -> type:

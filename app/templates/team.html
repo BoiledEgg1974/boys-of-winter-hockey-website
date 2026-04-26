@@ -144,7 +144,13 @@
 {% set _mc = team_mc_panels %}
 {% set _pj = _mc.projection %}
 {% set _ps = _mc.postseason_labels %}
-<div class="team-mc-fullwidth">
+<div class="team-mc-fullwidth team-mc-fullwidth--with-ap">
+  <section class="card team-ap-summary" aria-labelledby="team-ap-h">
+    <h2 id="team-ap-h" class="team-mc-band__title">Action Points</h2>
+    <p class="team-ap-summary__bal"><span class="team-ap-summary__num">{{ team_ap_balance }}</span> AP</p>
+    <p class="muted"><a href="{{ url_for('site_gm.action_points_page') }}">League AP page</a></p>
+  </section>
+  <div class="team-mc-fullwidth__mc">
   <section class="card team-mc-band" aria-labelledby="tmc-proj-h">
     <h2 id="tmc-proj-h" class="team-mc-band__title">Season projection ({{ _mc.n_sims }}-sim Monte Carlo)</h2>
     <div class="team-mc-band__grid team-mc-band__grid--proj">
@@ -192,7 +198,14 @@
     </div>
     <p class="muted team-mc-band__note">{{ _mc.method_note }}</p>
   </section>
+  </div>
 </div>
+{% else %}
+<section class="card team-ap-summary" aria-labelledby="team-ap-h-solo">
+  <h2 id="team-ap-h-solo" class="team-mc-band__title">Action Points</h2>
+  <p class="team-ap-summary__bal"><span class="team-ap-summary__num">{{ team_ap_balance }}</span> AP</p>
+  <p class="muted"><a href="{{ url_for('site_gm.action_points_page') }}">League AP page</a></p>
+</section>
 {% endif %}
 <div class="team-panels-grid{% if not team_agg and not team_agg_po %} team-panels-grid--single-col{% endif %}">
   <div class="team-panels-grid__left">

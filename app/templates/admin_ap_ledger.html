@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block title %}Manual AP Entry — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+{% set ap_batch_defs = [
+  ('all_star', 'ALL-STAR', false),
+  ('skills', 'SKILLS', false),
+  ('award', 'AWARD', false),
+  ('predictions', 'PREDICTIONS', false),
+  ('penalties', 'PENALTIES', true),
+] %}
+<div class="card ap-admin-ledger-card" style="max-width:60rem;margin:0 auto;">
+  <div class="ap-admin-ledger-title-row">
+    <h1 class="page-title ap-admin-ledger-title-row__h">Manual AP Entry</h1>
+    <div class="ap-admin-ledger-actions">
+      {% for key, label, is_pen in ap_batch_defs %}
+      <button type="button" class="ap-export-open-btn" data-ap-dialog="ap-batch-dialog-{{ key }}">{{ label }}</button>
+      {% endfor %}
+      <button type="button" class="ap-export-open-btn" id="ap-export-open">EXPORT</button>
+    </div>
+  </div>
+  <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
+  {% with messages = get_flashed_messages() %}
+  {% if messages %}<ul>{% for m in messages %}<li>{{ m }}</li>{% endfor %}</ul>{% endif %}
+  {% endwith %}
+
+  <h2 class="page-title" style="font-size:1.05rem;margin-top:1.5rem;">All Team Balances</h2>
+  <p class="muted" style="font-size:0.9rem;">Use the form below to add or remove AP (negative delta). Balances update from the ledger.</p>
+  {% set n_teams = team_rows|length %}
+  {% set mid = ((n_teams + 1) // 2) if n_teams else 0 %}
+  <div class="ap-admin-balance-split" aria-label="All team AP balances">
+    <div class="ap-admin-balance-grid ap-admin-balance-grid--pane">
+      <div class="ap-admin-balance-grid__head">Team</div>
+      <div class="ap-admin-balance-grid__head ap-admin-balance-grid__head--bal">AP Balance</div>
+      {% for row in team_rows[:mid] %}
+      {% set t = row.team %}
+      <div class="ap-admin-balance-grid__team">
+        <span class="ap-admin-balance-grid__team-inner">
+          {% if team_logo_url(t) %}
+          <img class="ap-admin-balance-grid__logo" src="{{ team_logo_url(t) }}" alt="" width="28" height="28">
+          {% else %}
+          <span class="ap-admin-balance-grid__logo-ph" aria-hidden="true"></span>
+          {% endif %}
+          <a href="{{ url_for('main.team_page', slug=t.slug) }}">{{ t.full_display_name() }}</a>
+        </span>
+      </div>
+      <div class="ap-admin-balance-grid__bal">{{ row.balance }}</div>
+      {% endfor %}
+    </div>
+    {% if team_rows[mid:] %}
+    <div class="ap-admin-balance-grid ap-admin-balance-grid--pane">
+      <div class="ap-admin-balance-grid__head">Team</div>
+      <div class="ap-admin-balance-grid__head ap-admin-balance-grid__head--bal">AP Balance</div>
+      {% for row in team_rows[mid:] %}
+      {% set t = row.team %}
+      <div class="ap-admin-balance-grid__team">
+        <span class="ap-admin-balance-grid__team-inner">
+          {% if team_logo_url(t) %}
+          <img class="ap-admin-balance-grid__logo" src="{{ team_logo_url(t) }}" alt="" width="28" height="28">
+          {% else %}
+          <span class="ap-admin-balance-grid__logo-ph" aria-hidden="true"></span>
+          {% endif %}
+          <a href="{{ url_for('main.team_page', slug=t.slug) }}">{{ t.full_display_name() }}</a>
+        </span>
+      </div>
+      <div class="ap-admin-balance-grid__bal">{{ row.balance }}</div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  <h2 class="page-title" style="font-size:1.05rem;margin-top:1.75rem;">Add / Remove AP</h2>
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Team<br>
+      <select name="team_id" required>
+        {% for t in teams %}
+        <option value="{{ t.id }}">{{ t.full_display_name() }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label style="display:block;margin-top:0.75rem;">Delta (negative to deduct)<br><input type="number" name="delta" required></label>
+    <label style="display:block;margin-top:0.75rem;">Note<br><input type="text" name="note" style="width:100%;"></label>
+    <button type="submit" class="join-league-btn" style="margin-top:0.75rem;border:none;">Add ledger row</button>
+  </form>
+</div>
+
+{% for key, label, is_pen in ap_batch_defs %}
+<dialog class="ap-export-dialog ap-batch-dialog" id="ap-batch-dialog-{{ key }}" aria-labelledby="ap-batch-title-{{ key }}">
+  <form class="ap-export-dialog__form" method="post" action="{{ url_for('site_admin.admin_ap_batch_adjust') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="reason_code" value="batch_{{ key }}">
+    <h2 class="ap-export-dialog__title" id="ap-batch-title-{{ key }}">{{ label }}</h2>
+    {% if key == 'predictions' %}
+    <p class="muted ap-export-dialog__lead">
+      Check each team that should receive <strong>+1 Action Point</strong> in
+      {% for e in leagues_registry %}{{ e.display_name }}{% if not loop.last %}, {% endif %}{% endfor %}.
+      Franchises are matched by <strong>team slug</strong> (same as EXPORT).
+    </p>
+    <ul class="ap-export-team-list">
+      {% for t in teams %}
+      <li class="ap-export-team-list__item">
+        <label class="ap-export-team-list__label">
+          <input type="checkbox" name="team_slug" value="{{ t.slug }}">
+          <span>{{ t.full_display_name() }}</span>
+        </label>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="muted ap-export-dialog__lead">
+      {% if is_pen %}
+      Enter a <strong>positive</strong> number per team to <strong>deduct</strong> that many AP. Blank or 0 skips a team.
+      {% else %}
+      Enter AP to <strong>add</strong> for each team (negative values subtract). Blank or 0 skips a team.
+      {% endif %}
+      Applies in {% for e in leagues_registry %}{{ e.display_name }}{% if not loop.last %}, {% endif %}{% endfor %} — franchises matched by <strong>team slug</strong>.
+    </p>
+    <div class="ap-batch-team-grid">
+      {% for t in teams %}
+      <div class="ap-batch-team-row">
+        <label class="ap-batch-team-row__lab">
+          <span class="ap-batch-team-row__name">{{ t.full_display_name() }}</span>
+          <input type="number" class="ap-batch-team-row__input" name="d_{{ t.slug }}" step="1" placeholder="0" autocomplete="off">
+        </label>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    <div class="ap-export-dialog__actions">
+      <button type="button" class="ap-export-cancel-btn ap-batch-close">Cancel</button>
+      <button type="submit" class="join-league-btn ap-export-submit-btn">{% if key == 'predictions' %}Apply +1 AP{% else %}Apply {{ label }}{% endif %}</button>
+    </div>
+  </form>
+</dialog>
+{% endfor %}
+
+<dialog class="ap-export-dialog" id="ap-export-dialog" aria-labelledby="ap-export-dialog-title">
+  <form class="ap-export-dialog__form" method="post" action="{{ url_for('site_admin.admin_ap_ledger') }}/export-multileague">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <h2 class="ap-export-dialog__title" id="ap-export-dialog-title">EXPORT — award +1 AP</h2>
+    <p class="muted ap-export-dialog__lead">
+      Check each team that should receive <strong>+1 Action Point</strong> in
+      {% for e in leagues_registry %}{{ e.display_name }}{% if not loop.last %}, {% endif %}{% endfor %}.
+      Franchises are matched by team slug across league databases.
+    </p>
+    <ul class="ap-export-team-list">
+      {% for t in teams %}
+      <li class="ap-export-team-list__item">
+        <label class="ap-export-team-list__label">
+          <input type="checkbox" name="team_slug" value="{{ t.slug }}">
+          <span>{{ t.full_display_name() }}</span>
+        </label>
+      </li>
+      {% endfor %}
+    </ul>
+    <div class="ap-export-dialog__actions">
+      <button type="button" class="ap-export-cancel-btn" id="ap-export-close">Cancel</button>
+      <button type="submit" class="join-league-btn ap-export-submit-btn">Apply +1 AP</button>
+    </div>
+  </form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  function openDialog(id) {
+    var dlg = document.getElementById(id);
+    if (dlg && typeof dlg.showModal === "function") dlg.showModal();
+    else if (id) alert("Your browser does not support dialog windows. Please use a current browser.");
+  }
+  var exOpen = document.getElementById("ap-export-open");
+  if (exOpen) exOpen.addEventListener("click", function () { openDialog("ap-export-dialog"); });
+  document.querySelectorAll("[data-ap-dialog]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      openDialog(btn.getAttribute("data-ap-dialog"));
+    });
+  });
+  document.querySelectorAll(".ap-batch-close").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var dlg = btn.closest("dialog");
+      if (dlg) dlg.close();
+    });
+  });
+  var exClose = document.getElementById("ap-export-close");
+  if (exClose) exClose.addEventListener("click", function () {
+    var dlg = document.getElementById("ap-export-dialog");
+    if (dlg) dlg.close();
+  });
+})();
+</script>
+{% endblock %}

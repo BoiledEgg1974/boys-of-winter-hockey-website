@@ -41,9 +41,16 @@
           <a href="{{ url_for('main.all_time_records') }}">All-Time Records</a>
           <a href="{{ url_for('main.milestones') }}">Milestones</a>
           <a href="{{ url_for('main.draft') }}">Draft History</a>
+          <a href="{{ url_for('main.league_headlines') }}">Headlines</a>
         </div>
       </nav>
       <div class="header-tools">
+        <a class="header-tools__link" href="{{ url_for('site_gm.action_points_page') }}">AP</a>
+        {% if gm_membership %}
+        <a class="header-tools__link header-tools__link--messages" href="{{ url_for('site_gm.gm_messages_inbox') }}">Messages{% if gm_messages_unread %}<span class="header-tools__msg-badge" aria-label="{{ gm_messages_unread }} unread">{{ gm_messages_unread }}</span>{% endif %}</a>
+        {% endif %}
+        <a class="header-tools__link" href="/login">GM Log In</a>
+        <a class="header-tools__link" href="/account">Account</a>
         <a class="join-league-btn" href="{{ url_for('main.join_league') }}">JOIN OUR LEAGUE!</a>
         <form class="search-form" action="{{ url_for('main.search_page') }}" method="get" role="search" autocomplete="off">
           <div style="position:relative;">

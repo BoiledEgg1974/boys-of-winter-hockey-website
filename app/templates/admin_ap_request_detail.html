@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}AP request #{{ req.id }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:40rem;margin:0 auto;">
+  <h1>Redemption #{{ req.id }}</h1>
+  <p><a href="{{ url_for('site_admin.admin_ap_requests') }}">← Queue</a></p>
+  <p>Team id: {{ req.team_id }} · Total: {{ req.total_cost }} AP</p>
+  <pre style="white-space:pre-wrap;background:#0f172a;padding:1rem;border-radius:8px;">{{ req.lines_json }}</pre>
+  <form method="post" action="{{ url_for('site_admin.admin_ap_approve', rid=req.id) }}" style="display:inline;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit">Approve</button>
+  </form>
+  <form method="post" action="{{ url_for('site_admin.admin_ap_deny', rid=req.id) }}" style="display:inline;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit">Deny</button>
+  </form>
+</div>
+{% endblock %}

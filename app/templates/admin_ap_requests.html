@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Pending AP Redemptions — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card admin-ap-queue" style="max-width:64rem;margin:0 auto;">
+  <h1 class="page-title">Pending AP Redemptions</h1>
+  <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
+  {% with messages = get_flashed_messages() %}
+  {% if messages %}<ul>{% for m in messages %}<li>{{ m }}</li>{% endfor %}</ul>{% endif %}
+  {% endwith %}
+
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr>
+          <th scope="col">Team</th>
+          <th scope="col">Redemption</th>
+          <th scope="col">AP Cost</th>
+          <th scope="col">Team AP Balance</th>
+          <th scope="col">Approve / Deny</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in queue_rows %}
+        {% set req = row.req %}
+        <tr>
+          <td>
+            <span class="admin-ap-queue__team-lockup">
+              {% if row.team and team_logo_url(row.team) %}
+              <img class="admin-ap-queue__logo" src="{{ team_logo_url(row.team) }}" alt="" width="28" height="28">
+              {% else %}
+              <span class="admin-ap-queue__logo-ph" aria-hidden="true"></span>
+              {% endif %}
+              <span>{{ row.team.full_display_name() if row.team else ("Team " ~ req.team_id) }}</span>
+            </span>
+          </td>
+          <td>
+            <a href="{{ url_for('site_admin.ap_request_one', rid=req.id) }}">
+              {% if row.redemption_items %}
+              <ul class="admin-ap-queue__redeem-list">
+                {% for it in row.redemption_items %}
+                <li>{{ it }}</li>
+                {% endfor %}
+              </ul>
+              {% else %}
+              {{ row.redemption }}
+              {% endif %}
+            </a>
+          </td>
+          <td class="admin-ap-queue__num">{{ req.total_cost }}</td>
+          <td class="admin-ap-queue__num">{{ row.balance }}</td>
+          <td>
+            <div class="admin-ap-queue__actions">
+              <form method="post" action="{{ url_for('site_admin.admin_ap_approve', rid=req.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="admin-ap-queue__btn admin-ap-queue__btn--approve" title="Approve">✓</button>
+              </form>
+              <form method="post" action="{{ url_for('site_admin.admin_ap_deny', rid=req.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="admin-ap-queue__btn admin-ap-queue__btn--deny" title="Deny">✕</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="muted">No pending requests.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

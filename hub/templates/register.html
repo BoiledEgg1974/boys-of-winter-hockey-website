@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Register — Boys of Winter</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
+</head>
+<body style="background:#0b1220;color:#e2e8f0;font-family:system-ui,sans-serif;padding:2rem;">
+  <div style="max-width:40rem;margin:0 auto;">
+    <p><a href="/" style="color:#38bdf8;">← Home</a></p>
+    <h1 style="margin-top:0;">GM registration</h1>
+    <p class="muted">Select each league you GM in and your team. An administrator must approve your membership.</p>
+    {% if errors %}
+    <ul style="color:#f87171;">{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+    {% endif %}
+    <form method="post" class="card" style="padding:1.25rem;display:grid;gap:1rem;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>Email<br><input type="email" name="email" required value="{{ (form.get('email') if form is not none else '')|e }}" style="width:100%;padding:0.5rem;"></label>
+      <label>Password (8+ characters)<br><input type="password" name="password" required style="width:100%;padding:0.5rem;"></label>
+      <label>Confirm password<br><input type="password" name="password_confirm" required style="width:100%;padding:0.5rem;"></label>
+      <label>Discord name<br><input type="text" name="discord_name" required value="{{ (form.get('discord_name') if form is not none else '')|e }}" style="width:100%;padding:0.5rem;"></label>
+      <fieldset style="border:1px solid #334155;border-radius:8px;padding:0.75rem;">
+        <legend>Leagues</legend>
+        {% for e in leagues %}
+        <div style="margin:0.5rem 0;">
+          <label style="display:flex;align-items:center;gap:0.5rem;">
+            <input type="checkbox" name="leagues" value="{{ e.slug }}" class="js-league-cb" data-slug="{{ e.slug }}">
+            <span>{{ e.display_name }}</span>
+          </label>
+          <div class="js-team-row" data-for="{{ e.slug }}" style="margin:0.35rem 0 0 1.5rem;display:none;">
+            <label>Your team<br>
+              <select name="team_id_{{ e.slug }}" style="width:100%;max-width:24rem;padding:0.45rem;">
+                <option value="">— Select team —</option>
+                {% for t in (team_options.get(e.slug) or []) %}
+                <option value="{{ t.id }}">{{ t.name }} ({{ t.abbr }})</option>
+                {% endfor %}
+              </select>
+            </label>
+          </div>
+        </div>
+        {% endfor %}
+      </fieldset>
+      <label style="display:flex;align-items:flex-start;gap:0.5rem;">
+        <input type="checkbox" name="terms" value="1" required>
+        <span>I understand the league administrator may revoke my site access or membership at any time.</span>
+      </label>
+      <button type="submit" class="join-league-btn" style="border:none;cursor:pointer;">Register</button>
+    </form>
+    <p><a href="{{ url_for('hub_auth.login') }}">Already have an account?</a></p>
+  </div>
+  <script>
+    document.querySelectorAll('.js-league-cb').forEach(function (cb) {
+      function sync() {
+        var slug = cb.getAttribute('data-slug');
+        var row = document.querySelector('.js-team-row[data-for="' + slug + '"]');
+        if (row) row.style.display = cb.checked ? 'block' : 'none';
+      }
+      cb.addEventListener('change', sync);
+      sync();
+    });
+  </script>
+</body>
+</html>

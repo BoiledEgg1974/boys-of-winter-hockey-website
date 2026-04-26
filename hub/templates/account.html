@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Your Account — Boys of Winter</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
+</head>
+<body style="background:#0b1220;color:#e2e8f0;font-family:system-ui,sans-serif;padding:2rem;">
+  <div style="max-width:40rem;margin:0 auto;">
+    <p><a href="/" style="color:#38bdf8;">← Home</a></p>
+    <h1>Your Account</h1>
+    <p>{{ current_user.email }} · Discord: {{ current_user.discord_name }}</p>
+    {% if current_user.is_admin %}
+    <p><a href="{{ url_for('hub_auth.admin_memberships') }}">Admin: Memberships</a></p>
+    <section style="margin:1.25rem 0;padding:1rem;border:1px solid rgb(148 163 184 / 0.25);border-radius:8px;">
+      <h2 style="margin-top:0;font-size:1.05rem;">Site Admin</h2>
+      <p class="muted" style="font-size:0.9rem;margin-top:0;">League-site admin home (news queue, manual AP, redemptions, catalog).</p>
+      <ul style="margin:0;padding-left:1.2rem;">
+        {% for league in leagues %}
+        <li><a href="/{{ league.slug }}/admin/" style="color:#38bdf8;">{{ league.display_name }} — Site Admin</a></li>
+        {% endfor %}
+      </ul>
+    </section>
+    <section style="margin:1.25rem 0;padding:1rem;border:1px solid rgb(148 163 184 / 0.25);border-radius:8px;">
+      <h2 style="margin-top:0;font-size:1.05rem;">Adjust AP (all teams)</h2>
+      <p class="muted" style="font-size:0.9rem;margin-top:0;">Open each league site, use <strong>Manual AP entry</strong>, pick a team, enter a positive or negative delta, and submit. Current balances for every team are listed on that page.</p>
+      <ul style="margin:0;padding-left:1.2rem;">
+        {% for league in leagues %}
+        <li><a href="/{{ league.slug }}/admin/ap-ledger" style="color:#38bdf8;">{{ league.display_name }} — Manual AP</a></li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+    <h2>League Memberships</h2>
+    <ul>
+      {% for m in memberships %}
+      <li><strong>{{ m.league_slug }}</strong> — team id {{ m.team_id }} — <em>{{ m.status }}</em></li>
+      {% else %}
+      <li class="muted">No memberships yet.</li>
+      {% endfor %}
+    </ul>
+    <form method="post" action="{{ url_for('hub_auth.logout') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit">Log out</button>
+    </form>
+  </div>
+</body>
+</html>

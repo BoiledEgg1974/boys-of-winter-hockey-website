@@ -577,7 +577,7 @@ def homepage_summary():
         {"name": lm.name, "abbr": lm.abbreviation or ""} if lm else {"name": "", "abbr": ""}
     )
     if not season:
-        empty_news = build_around_the_league()
+        empty_news = build_around_the_league(db.session)
         return jsonify(
             {
                 "league_calendar_date": None,
@@ -778,7 +778,7 @@ def homepage_summary():
     )
     postseason_odds = build_postseason_odds_payload(db.session, season.id, tm_map)
     champions_panel = build_champions_panel(db.session)
-    around_the_league = build_around_the_league()
+    around_the_league = build_around_the_league(db.session)
 
     upcoming_games = db.session.scalars(
         select(Game)

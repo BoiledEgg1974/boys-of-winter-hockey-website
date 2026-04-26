@@ -132,6 +132,11 @@
   <main class="splash-page">
     <h1 class="splash-title">BOYS OF WINTER LEAGUE UNIVERSE</h1>
     <p class="splash-lead">Choose a league site to explore. You can switch leagues anytime from the menu on each site.</p>
+    <p class="splash-lead" style="margin-top:-1rem;font-size:0.95rem;">
+      <a href="/login" style="color:#38bdf8;">GM Log In</a>
+      · <a href="/register" style="color:#38bdf8;">Register</a>
+      · <a href="/account" style="color:#38bdf8;">Account</a>
+    </p>
     <nav class="splash-leagues" aria-label="League sites">
       {% for league in leagues %}
       {% set meta = splash_map.get(league.slug, {'image': 'logos/league-placeholder.svg', 'class': ''}) %}

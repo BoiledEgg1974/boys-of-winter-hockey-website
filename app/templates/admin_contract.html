@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Admin contract — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:32rem;margin:0 auto;">
+  <h1 class="page-title">Set contract salary</h1>
+  <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
+  {% with messages = get_flashed_messages() %}
+  {% if messages %}<ul>{% for m in messages %}<li>{{ m }}</li>{% endfor %}</ul>{% endif %}
+  {% endwith %}
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Player id (from player page URL)<br><input type="number" name="player_id" required min="1"></label>
+    <label style="display:block;margin-top:0.75rem;">Average salary (cap hit integer)<br><input type="number" name="average_salary" required min="0"></label>
+    <button type="submit" class="join-league-btn" style="margin-top:0.75rem;border:none;">Save</button>
+  </form>
+</div>
+{% endblock %}

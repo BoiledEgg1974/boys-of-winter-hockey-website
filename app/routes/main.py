@@ -39,6 +39,7 @@ from app.models import (
     TeamStanding,
     db,
 )
+from app.services.ap_service import team_ap_balance as compute_team_ap_balance
 from app.services.all_time_records import (
     bowl_nhl_league_ids,
     default_goalie_sort_order,
@@ -306,6 +307,22 @@ def home():
         key=lambda x: (int(x["remaining"]), str(getattr(x["player"], "full_name", "")).lower()),
     )[:5]
     return render_template("home.html", milestone_teasers=milestone_teasers)
+
+
+@main_bp.get("/league-headlines")
+def league_headlines():
+    """Public published articles (Around the League)."""
+    from app.site_models import NewsArticle
+
+    slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    rows = db.session.scalars(
+        select(NewsArticle)
+        .where(NewsArticle.league_slug == slug, NewsArticle.status == "published")
+        .order_by(NewsArticle.published_at.desc().nulls_last(), NewsArticle.id.desc())
+        .limit(100)
+    ).all()
+    teams = {t.id: t for t in db.session.scalars(select(Team)).all()}
+    return render_template("league_headlines.html", articles=rows, teams_by_id=teams)
 
 
 @main_bp.route("/join-league", methods=["GET", "POST"])
@@ -3131,6 +3148,7 @@ def team_page(slug: str):
         "franchise_history_sections": franchise_history_sections,
         "season_records_rs_sections": season_records_rs_sections,
         "season_records_po_sections": season_records_po_sections,
+        "team_ap_balance": compute_team_ap_balance(str(current_app.config.get("LEAGUE_SLUG") or ""), team.id),
     }
     if panel == "statistics":
         tmpl_kwargs.update(

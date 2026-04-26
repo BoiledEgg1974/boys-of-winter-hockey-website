@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Chat with {{ gm_display_name(peer) }} — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card gm-msg-page" style="max-width:42rem;margin:0 auto;">
+  <p><a href="{{ url_for('site_gm.gm_messages_inbox') }}">← GM Messages</a></p>
+  <h1 class="page-title" style="font-size:1.15rem;">
+    {% if peer_team and team_logo_url(peer_team) %}
+    <img class="gm-msg-thread__head-logo" src="{{ team_logo_url(peer_team) }}" alt="" width="36" height="36" style="vertical-align:middle;margin-right:0.35rem;border-radius:4px;">
+    {% endif %}
+    {{ gm_display_name(peer) }}
+  </h1>
+  <p class="muted" style="font-size:0.88rem;">{% if peer_team %}{{ peer_team.full_display_name() }}{% endif %}</p>
+
+  <div class="gm-msg-thread-log">
+    {% for m in messages %}
+    <div class="gm-msg-bubble {% if m.from_user_id == current_user.id %}gm-msg-bubble--me{% else %}gm-msg-bubble--them{% endif %}">
+      <div class="gm-msg-bubble__meta muted">
+        {% if m.from_user_id == current_user.id %}
+        You{% if my_team %} · {{ my_team.full_display_name() }}{% endif %}
+        {% else %}
+        {{ gm_display_name(peer) }}{% if peer_team %} · {{ peer_team.full_display_name() }}{% endif %}
+        {% endif %}
+        · {{ m.created_at.strftime('%Y-%m-%d %H:%M') if m.created_at else '' }}
+      </div>
+      <div class="gm-msg-bubble__body" style="white-space:pre-wrap;">{{ m.body }}</div>
+    </div>
+    {% else %}
+    <p class="muted">No messages yet — say hello below.</p>
+    {% endfor %}
+  </div>
+
+  <form method="post" class="gm-msg-compose" style="margin-top:1rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label for="gm-msg-body" class="visually-hidden">Message</label>
+    <textarea id="gm-msg-body" name="body" rows="4" required maxlength="6000" placeholder="Write a message…" style="width:100%;box-sizing:border-box;padding:0.5rem;border-radius:8px;"></textarea>
+    <button type="submit" class="join-league-btn" style="margin-top:0.5rem;border:none;">Send</button>
+  </form>
+</div>
+{% endblock %}

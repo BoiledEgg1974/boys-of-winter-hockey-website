@@ -93,8 +93,8 @@
     {% if key == 'predictions' %}
     <p class="muted ap-export-dialog__lead">
       Check each team that should receive <strong>+1 Action Point</strong> in
-      {% for e in leagues_registry %}{{ e.display_name }}{% if not loop.last %}, {% endif %}{% endfor %}.
-      Franchises are matched by <strong>team slug</strong> (same as EXPORT).
+      <strong>{{ config.LEAGUE_DISPLAY_NAME }}</strong> only.
+      Teams are those in this league (same slugs as EXPORT).
     </p>
     <ul class="ap-export-team-list">
       {% for t in teams %}
@@ -113,7 +113,7 @@
       {% else %}
       Enter AP to <strong>add</strong> for each team (negative values subtract). Blank or 0 skips a team.
       {% endif %}
-      Applies in {% for e in leagues_registry %}{{ e.display_name }}{% if not loop.last %}, {% endif %}{% endfor %} — franchises matched by <strong>team slug</strong>.
+      Applies to <strong>{{ config.LEAGUE_DISPLAY_NAME }}</strong> only (this league’s ledger).
     </p>
     <div class="ap-batch-team-grid">
       {% for t in teams %}
@@ -140,8 +140,7 @@
     <h2 class="ap-export-dialog__title" id="ap-export-dialog-title">EXPORT — award +1 AP</h2>
     <p class="muted ap-export-dialog__lead">
       Check each team that should receive <strong>+1 Action Point</strong> in
-      {% for e in leagues_registry %}{{ e.display_name }}{% if not loop.last %}, {% endif %}{% endfor %}.
-      Franchises are matched by team slug across league databases.
+      <strong>{{ config.LEAGUE_DISPLAY_NAME }}</strong> only.
     </p>
     <ul class="ap-export-team-list">
       {% for t in teams %}

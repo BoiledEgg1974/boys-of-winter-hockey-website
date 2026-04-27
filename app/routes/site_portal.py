@@ -8,7 +8,7 @@ from flask import Blueprint, abort, current_app, flash, redirect, render_templat
 from flask_login import current_user, login_required
 from sqlalchemy import select
 from app.auth_login import active_membership_for_league, require_admin
-from app.config import LEAGUES, league_group_for_slug, league_slugs
+from app.config import league_display_name, league_group_for_slug
 from app.league_db import db
 from app.models import Player, PlayerContract, Team
 from app.services.ap_multileague import team_id_for_slug_in_league
@@ -593,38 +593,46 @@ def admin_news_reject(aid: int):
 @site_admin_bp.route("/ap-ledger/export-multileague", methods=["POST"])
 @login_required
 def admin_ap_export_multileague():
-    """Award +1 AP for each selected franchise (team slug) in every mounted league DB."""
+    """Award +1 AP for each selected team in the current league only (URL mount)."""
     require_admin()
+    cur_slug = _league_slug()
     raw = request.form.getlist("team_slug")
     team_slugs = list(dict.fromkeys(s.strip() for s in raw if s and s.strip()))
     if not team_slugs:
         flash("Select at least one team.", "err")
         return redirect(url_for("site_admin.admin_ap_ledger"))
-    leagues = league_slugs()
-    note = "EXPORT: +1 AP all leagues"
+    label = league_display_name(cur_slug)
+    note = f"EXPORT: +1 AP ({label})"
     added = 0
-    for league_slug in leagues:
-        for team_slug in team_slugs:
-            tid = team_id_for_slug_in_league(league_slug, team_slug)
-            if tid is None:
-                continue
-            add_ledger_entry(
-                league_slug=league_slug,
-                team_id=tid,
-                delta=1,
-                reason_code="manual",
-                meta={"note": note, "team_slug": team_slug},
-                created_by_user_id=current_user.id,
-            )
-            added += 1
+    for team_slug in team_slugs:
+        tid = team_id_for_slug_in_league(
+            cur_slug,
+            team_slug,
+            orm_session=db.session,
+            orm_league_slug=cur_slug,
+        )
+        if tid is None:
+            continue
+        add_ledger_entry(
+            league_slug=cur_slug,
+            team_id=tid,
+            delta=1,
+            reason_code="manual",
+            meta={"note": note, "team_slug": team_slug},
+            created_by_user_id=current_user.id,
+        )
+        added += 1
     db.session.commit()
     if added:
         flash(
-            f"EXPORT: added {added} ledger row(s) (+1 AP per team in each league where that franchise exists).",
+            f"EXPORT: added {added} ledger row(s) (+1 AP per team in {label} only).",
             "ok",
         )
     else:
-        flash("No matching teams found in any league database for the selection.", "err")
+        flash(
+            f"No matching teams in this league ({label}) for the selection.",
+            "err",
+        )
     return redirect(url_for("site_admin.admin_ap_ledger"))
 
 
@@ -640,15 +648,16 @@ _BATCH_AP_REASONS: dict[str, str] = {
 @site_admin_bp.post("/ap-ledger/batch-adjust")
 @login_required
 def admin_ap_batch_adjust():
-    """Apply per-team AP deltas from a modal, for every mounted league (matched by team slug)."""
+    """Apply per-team AP deltas from a modal for the current league only (URL mount)."""
     require_admin()
+    cur_slug = _league_slug()
+    league_name = league_display_name(cur_slug)
     reason = (request.form.get("reason_code") or "").strip()
     if reason not in _BATCH_AP_REASONS:
         flash("Invalid batch type.", "err")
         return redirect(url_for("site_admin.admin_ap_ledger"))
     teams = list(db.session.scalars(select(Team)).all())
     allowed_slugs = {t.slug for t in teams}
-    leagues = league_slugs()
     label = _BATCH_AP_REASONS[reason]
 
     if reason == "batch_predictions":
@@ -662,27 +671,31 @@ def admin_ap_batch_adjust():
         for team_slug in picked:
             if team_slug not in allowed_slugs:
                 continue
-            for league_slug in leagues:
-                tid = team_id_for_slug_in_league(league_slug, team_slug)
-                if tid is None:
-                    continue
-                add_ledger_entry(
-                    league_slug=league_slug,
-                    team_id=tid,
-                    delta=1,
-                    reason_code=reason,
-                    meta={"batch": label, "team_slug": team_slug},
-                    created_by_user_id=current_user.id,
-                )
-                entries += 1
+            tid = team_id_for_slug_in_league(
+                cur_slug,
+                team_slug,
+                orm_session=db.session,
+                orm_league_slug=cur_slug,
+            )
+            if tid is None:
+                continue
+            add_ledger_entry(
+                league_slug=cur_slug,
+                team_id=tid,
+                delta=1,
+                reason_code=reason,
+                meta={"batch": label, "team_slug": team_slug},
+                created_by_user_id=current_user.id,
+            )
+            entries += 1
         db.session.commit()
         if entries:
             flash(
-                f"PREDICTIONS: added {entries} ledger row(s) (+1 AP per checked team in each league where that slug exists).",
+                f"PREDICTIONS: added {entries} ledger row(s) (+1 AP per checked team in {league_name} only).",
                 "ok",
             )
         else:
-            flash("PREDICTIONS: no matching teams in league databases for that selection.", "err")
+            flash("PREDICTIONS: no matching teams in this league for that selection.", "err")
         return redirect(url_for("site_admin.admin_ap_ledger"))
 
     prefix = "d_"
@@ -707,24 +720,28 @@ def admin_ap_batch_adjust():
             delta = -abs(val)
         else:
             delta = val
-        for league_slug in leagues:
-            tid = team_id_for_slug_in_league(league_slug, team_slug)
-            if tid is None:
-                continue
-            add_ledger_entry(
-                league_slug=league_slug,
-                team_id=tid,
-                delta=delta,
-                reason_code=reason,
-                meta={"batch": label, "team_slug": team_slug},
-                created_by_user_id=current_user.id,
-            )
-            entries += 1
+        tid = team_id_for_slug_in_league(
+            cur_slug,
+            team_slug,
+            orm_session=db.session,
+            orm_league_slug=cur_slug,
+        )
+        if tid is None:
+            continue
+        add_ledger_entry(
+            league_slug=cur_slug,
+            team_id=tid,
+            delta=delta,
+            reason_code=reason,
+            meta={"batch": label, "team_slug": team_slug},
+            created_by_user_id=current_user.id,
+        )
+        entries += 1
     db.session.commit()
     if entries:
         flash(
-            f"{label}: wrote {entries} ledger row(s) across leagues (non-zero inputs only; "
-            f"franchises matched by slug).",
+            f"{label}: wrote {entries} ledger row(s) in {league_name} only "
+            f"(non-zero inputs; team slugs as shown on this page).",
             "ok",
         )
     else:
@@ -764,7 +781,6 @@ def admin_ap_ledger():
         "admin_ap_ledger.html",
         teams=teams,
         team_rows=team_rows,
-        leagues_registry=LEAGUES,
     )
 
 

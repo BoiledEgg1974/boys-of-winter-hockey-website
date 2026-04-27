@@ -9,6 +9,7 @@ Run directly:
     python scripts/STEP1_update_from_saved_game.py
     python scripts/STEP1_update_from_saved_game.py --pa-deploy
     python scripts/STEP1_update_from_saved_game.py --pa-deploy --pa-csv-only
+    python scripts/STEP1_update_from_saved_game.py --pa-deploy --pa-sync-ap-catalog-local
 """
 
 from __future__ import annotations
@@ -156,7 +157,7 @@ def _git_commit_and_push() -> None:
     print("Git push complete.")
 
 
-def _run_pythonanywhere_deploy(*, csv_only: bool, remote_pip: bool) -> None:
+def _run_pythonanywhere_deploy(*, csv_only: bool, remote_pip: bool, sync_ap_catalog_local: bool) -> None:
     """Upload from repo raw folders; STEP2_pythonanywhere skips remote files that are same/newer."""
     if not PA_DEPLOY_SCRIPT.is_file():
         raise FileNotFoundError(f"Missing {PA_DEPLOY_SCRIPT}")
@@ -170,6 +171,8 @@ def _run_pythonanywhere_deploy(*, csv_only: bool, remote_pip: bool) -> None:
         cmd.append("--csv-only")
     if remote_pip:
         cmd.append("--remote-pip")
+    if sync_ap_catalog_local:
+        cmd.append("--sync-ap-catalog-local")
     subprocess.run(cmd, cwd=REPO_ROOT, check=True)
 
 
@@ -205,6 +208,14 @@ def main() -> int:
         "--pa-remote-pip",
         action="store_true",
         help="With --pa-deploy: ask STEP2 to run remote pip install -r requirements.txt before imports.",
+    )
+    parser.add_argument(
+        "--pa-sync-ap-catalog-local",
+        action="store_true",
+        help=(
+            "With --pa-deploy: after deploy, pull live AP catalog JSON and import/verify "
+            "it into local site_membership.db."
+        ),
     )
     args = parser.parse_args()
 
@@ -358,6 +369,7 @@ def main() -> int:
             _run_pythonanywhere_deploy(
                 csv_only=bool(args.pa_csv_only),
                 remote_pip=bool(args.pa_remote_pip),
+                sync_ap_catalog_local=bool(args.pa_sync_ap_catalog_local),
             )
         except FileNotFoundError as exc:
             print(f"ERROR: {exc}")

@@ -468,6 +468,76 @@ def build_import_and_reload_script(
     return "; ".join(parts)
 
 
+def build_remote_ap_catalog_export_script(
+    remote_project: str,
+    venv_bin: str,
+    out_name: str = "ap_redemption_catalog_live.json",
+) -> str:
+    rp = shlex.quote(remote_project.rstrip("/"))
+    act = shlex.quote(f"{venv_bin.rstrip('/')}/activate")
+    py = shlex.quote(f"{venv_bin.rstrip('/')}/python")
+    code = (
+        "import json, sqlite3, pathlib; "
+        "p=pathlib.Path('instance/site_membership.db'); "
+        "c=sqlite3.connect(p); c.row_factory=sqlite3.Row; "
+        "rows=[dict(r) for r in c.execute("
+        "'select league_group,sort_order,title,description,cost_ap,is_active "
+        "from ap_redemption_catalog order by league_group,cost_ap,sort_order,id'"
+        ")]; "
+        f"pathlib.Path({out_name!r}).write_text(json.dumps(rows, indent=2), encoding='utf-8'); "
+        "print(f'Exported {len(rows)} AP catalog rows')"
+    )
+    return "; ".join(
+        [
+            "set -euo pipefail",
+            f"cd {rp}",
+            f". {act}",
+            f"{py} -c {shlex.quote(code)}",
+        ]
+    )
+
+
+def sync_local_ap_catalog_from_remote(
+    client,
+    sftp,
+    *,
+    local_root: Path,
+    remote_project: str,
+    venv_bin: str,
+    dry_run: bool,
+) -> None:
+    local_json = local_root / "ap_redemption_catalog_live.json"
+    remote_json = f"{remote_project.rstrip('/')}/ap_redemption_catalog_live.json"
+    if dry_run:
+        print("--- would sync AP catalog to local ---")
+        print(f"would run remote export to {remote_json}")
+        print(f"would download to {local_json}")
+        print(
+            f"would run: {sys.executable} scripts/import_ap_catalog.py --in {local_json.name}"
+        )
+        print(
+            f"would run: {sys.executable} scripts/verify_ap_catalog_sync.py --in {local_json.name}"
+        )
+        return
+
+    print("--- sync AP catalog (live -> local) ---")
+    export_script = build_remote_ap_catalog_export_script(remote_project, venv_bin)
+    run_remote_bash(client, export_script)
+    sftp.get(remote_json, str(local_json))
+    print(f"Downloaded {remote_json} -> {local_json}")
+
+    subprocess.run(
+        [sys.executable, "scripts/import_ap_catalog.py", "--in", local_json.name],
+        cwd=str(local_root),
+        check=True,
+    )
+    subprocess.run(
+        [sys.executable, "scripts/verify_ap_catalog_sync.py", "--in", local_json.name],
+        cwd=str(local_root),
+        check=True,
+    )
+
+
 def add_connection_args(p: argparse.ArgumentParser, default_remote: str, default_user: str) -> None:
     p.add_argument("--local-root", type=Path, default=_REPO_ROOT, help="Repo root")
     p.add_argument("--host", default=os.environ.get("PA_HOST", "ssh.pythonanywhere.com"))
@@ -582,7 +652,6 @@ def cmd_deploy(ns: argparse.Namespace) -> int:
             )
             total_up += u
             total_skip += s
-        sftp.close()
         if ns.skip_imports and ns.skip_reload:
             print("Skip imports and reload.")
         elif ns.dry_run:
@@ -602,6 +671,15 @@ def cmd_deploy(ns: argparse.Namespace) -> int:
                 print("--- remote imports (+ reload) ---")
                 run_remote_bash(client, script)
                 print("Remote imports finished.")
+        if ns.sync_ap_catalog_local:
+            sync_local_ap_catalog_from_remote(
+                client,
+                sftp,
+                local_root=local_root,
+                remote_project=remote_base,
+                venv_bin=ns.venv_bin,
+                dry_run=bool(ns.dry_run),
+            )
     finally:
         if client is not None:
             client.close()
@@ -667,6 +745,14 @@ def main() -> int:
     p_deploy.add_argument("--dry-run", action="store_true")
     p_deploy.add_argument("--force", action="store_true")
     p_deploy.add_argument("--skew-seconds", type=float, default=2.0)
+    p_deploy.add_argument(
+        "--sync-ap-catalog-local",
+        action="store_true",
+        help=(
+            "After deploy, export live ap_redemption_catalog, download JSON to repo root, "
+            "import into local DB, then verify."
+        ),
+    )
     p_deploy.set_defaults(func=cmd_deploy)
 
     args = parser.parse_args()

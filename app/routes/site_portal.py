@@ -360,7 +360,7 @@ def admin_news_publish(aid: int):
     if art.status != "pending":
         flash("That submission was already processed.", "err")
         return redirect(url_for("site_admin.admin_news_queue"))
-    pts = int(current_app.config.get("NEWS_ARTICLE_AP_POINTS", 5))
+    pts = int(current_app.config.get("NEWS_ARTICLE_AP_POINTS", 3))
     publish_news_and_maybe_award_ap(art, points=pts)
     notify_news_approved(slug, art)
     flash(
@@ -711,7 +711,7 @@ def admin_catalog():
     rows = db.session.scalars(
         select(ApRedemptionCatalog)
         .where(ApRedemptionCatalog.league_group == group)
-        .order_by(ApRedemptionCatalog.sort_order, ApRedemptionCatalog.id)
+        .order_by(ApRedemptionCatalog.cost_ap, ApRedemptionCatalog.sort_order, ApRedemptionCatalog.id)
     ).all()
     return render_template("admin_catalog.html", rows=rows, league_group=group)
 

@@ -21,7 +21,7 @@
           {% for it in catalog %}
           <tr>
             <td><input type="checkbox" name="catalog_id" value="{{ it.id }}"></td>
-            <td><strong>{{ it.title }}</strong><br><span class="muted">{{ it.description }}</span></td>
+            <td><strong title="{{ it.description }}">{{ it.title }}</strong></td>
             <td>{{ it.cost_ap }}</td>
           </tr>
           {% else %}

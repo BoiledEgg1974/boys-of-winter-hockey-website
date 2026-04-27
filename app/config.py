@@ -208,7 +208,7 @@ class Config:
         f"sqlite:///{resolve_site_sqlite_path()}",
     )
     # GM news → AP when article is published (set later via env or admin UI constant)
-    NEWS_ARTICLE_AP_POINTS = int(os.environ.get("NEWS_ARTICLE_AP_POINTS", "5"))
+    NEWS_ARTICLE_AP_POINTS = int(os.environ.get("NEWS_ARTICLE_AP_POINTS", "3"))
     WTF_CSRF_TIME_LIMIT = None
     # Initial password for auto-created commissioner user (override in production).
     COMMISH_ADMIN_PASSWORD = os.environ.get("COMMISH_ADMIN_PASSWORD", "Claudette81!")

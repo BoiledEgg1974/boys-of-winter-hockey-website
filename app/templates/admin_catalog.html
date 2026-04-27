@@ -14,12 +14,23 @@
     <button type="submit" class="join-league-btn" style="margin-top:0.5rem;border:none;">Add</button>
   </form>
   <div class="table-wrap">
-    <table class="data">
-      <thead><tr><th>Title</th><th>Cost</th><th>Active</th><th></th></tr></thead>
+    <table class="data" id="admin-catalog-table">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>
+            <button type="button" class="catalog-sort-btn" id="catalog-sort-cost" data-dir="asc" aria-label="Sort by cost">
+              Cost <span id="catalog-sort-cost-arrow">▲</span>
+            </button>
+          </th>
+          <th>Active</th>
+          <th></th>
+        </tr>
+      </thead>
       <tbody>
         {% for r in rows %}
-        <tr>
-          <td>{{ r.title }}</td>
+        <tr data-cost="{{ r.cost_ap }}">
+          <td><span title="{{ r.description }}">{{ r.title }}</span></td>
           <td>{{ r.cost_ap }}</td>
           <td>{{ 'yes' if r.is_active else 'no' }}</td>
           <td>
@@ -34,4 +45,33 @@
     </table>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var table = document.getElementById("admin-catalog-table");
+  var sortBtn = document.getElementById("catalog-sort-cost");
+  var arrow = document.getElementById("catalog-sort-cost-arrow");
+  if (!table || !sortBtn) return;
+  var tbody = table.querySelector("tbody");
+  if (!tbody) return;
+
+  sortBtn.addEventListener("click", function () {
+    var dir = sortBtn.getAttribute("data-dir") === "asc" ? "desc" : "asc";
+    sortBtn.setAttribute("data-dir", dir);
+    if (arrow) arrow.textContent = dir === "asc" ? "▲" : "▼";
+    var rows = Array.prototype.slice.call(tbody.querySelectorAll("tr"));
+    rows.sort(function (a, b) {
+      var av = Number(a.getAttribute("data-cost") || 0);
+      var bv = Number(b.getAttribute("data-cost") || 0);
+      if (av !== bv) return dir === "asc" ? av - bv : bv - av;
+      var at = (a.cells[0] ? a.cells[0].innerText : "").toLowerCase();
+      var bt = (b.cells[0] ? b.cells[0].innerText : "").toLowerCase();
+      return at.localeCompare(bt);
+    });
+    rows.forEach(function (r) { tbody.appendChild(r); });
+  });
+})();
+</script>
 {% endblock %}

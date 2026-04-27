@@ -147,7 +147,7 @@
 <div class="team-mc-fullwidth team-mc-fullwidth--with-ap">
   <section class="card team-ap-summary" aria-labelledby="team-ap-h">
     <h2 id="team-ap-h" class="team-mc-band__title">Action Points</h2>
-    <p class="team-ap-summary__bal"><span class="team-ap-summary__num">{{ team_ap_balance }}</span> AP</p>
+    <p class="team-ap-summary__bal"><span class="team-ap-summary__num">{{ team_ap_balance }}</span></p>
     <p class="muted"><a href="{{ url_for('site_gm.action_points_page') }}">League AP page</a></p>
   </section>
   <div class="team-mc-fullwidth__mc">
@@ -203,7 +203,7 @@
 {% else %}
 <section class="card team-ap-summary" aria-labelledby="team-ap-h-solo">
   <h2 id="team-ap-h-solo" class="team-mc-band__title">Action Points</h2>
-  <p class="team-ap-summary__bal"><span class="team-ap-summary__num">{{ team_ap_balance }}</span> AP</p>
+  <p class="team-ap-summary__bal"><span class="team-ap-summary__num">{{ team_ap_balance }}</span></p>
   <p class="muted"><a href="{{ url_for('site_gm.action_points_page') }}">League AP page</a></p>
 </section>
 {% endif %}

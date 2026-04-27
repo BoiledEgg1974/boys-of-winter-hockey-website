@@ -449,12 +449,17 @@ def build_import_and_reload_script(
     venv_bin: str,
     slugs: list[str],
     wsgi_file: str | None,
+    *,
+    install_requirements: bool = False,
 ) -> str:
     rp = shlex.quote(remote_project.rstrip("/"))
     act = shlex.quote(f"{venv_bin.rstrip('/')}/activate")
     py = shlex.quote(f"{venv_bin.rstrip('/')}/python")
     imp = shlex.quote(f"{remote_project.rstrip('/')}/scripts/import_data.py")
+    req = shlex.quote(f"{remote_project.rstrip('/')}/requirements.txt")
     parts = ["set -euo pipefail", f"cd {rp}", f". {act}"]
+    if install_requirements:
+        parts.append(f"{py} -m pip install --upgrade -r {req}")
     for slug in slugs:
         parts.append(f"export LEAGUE_SLUG={shlex.quote(slug)}")
         parts.append(f"{py} {imp}")
@@ -534,7 +539,20 @@ def cmd_deploy(ns: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
     wsgi = None if ns.skip_reload else ns.wsgi_file
-    script = build_import_and_reload_script(remote_base, ns.venv_bin, slugs, wsgi)
+    print("--- deploy target ---")
+    print(f"host: {ns.host}")
+    print(f"user: {ns.user}")
+    print(f"remote project: {remote_base}")
+    print(f"remote venv bin: {ns.venv_bin}")
+    print(f"wsgi file: {wsgi or '(skip reload)'}")
+    print(f"remote pip install: {'yes' if ns.remote_pip else 'no'}")
+    script = build_import_and_reload_script(
+        remote_base,
+        ns.venv_bin,
+        slugs,
+        wsgi,
+        install_requirements=bool(ns.remote_pip),
+    )
     client = None
     total_up = 0
     total_skip = 0
@@ -603,10 +621,7 @@ def main() -> int:
         "/home/BoiledEgg1974/boys-of-winter-hockey-website",
     )
     default_user = os.environ.get("PA_USER", "BoiledEgg1974")
-    default_venv_bin = os.environ.get(
-        "PA_REMOTE_VENV_BIN",
-        f"{default_remote.rstrip('/')}/venv/bin",
-    )
+    default_venv_bin = os.environ.get("PA_REMOTE_VENV_BIN", f"/home/{default_user}/venv/bin")
     default_wsgi = os.environ.get("PA_WSGI_FILE", f"/var/www/{default_user}_wsgi.py")
 
     parser = argparse.ArgumentParser(
@@ -644,6 +659,11 @@ def main() -> int:
     )
     p_deploy.add_argument("--skip-imports", action="store_true")
     p_deploy.add_argument("--skip-reload", action="store_true")
+    p_deploy.add_argument(
+        "--remote-pip",
+        action="store_true",
+        help="Run remote `python -m pip install -r requirements.txt` before imports.",
+    )
     p_deploy.add_argument("--dry-run", action="store_true")
     p_deploy.add_argument("--force", action="store_true")
     p_deploy.add_argument("--skew-seconds", type=float, default=2.0)

@@ -3,7 +3,8 @@ import importlib
 from pathlib import Path
 
 import click
-from flask import Flask
+from flask import Flask, session
+from flask_login import current_user
 from flask_wtf.csrf import CSRFProtect
 
 from app.auth_login import create_login_manager
@@ -36,6 +37,13 @@ def create_app(config_class: type = Config) -> Flask:
         instance_relative_config=True,
     )
     app.config.from_object(config_class)
+
+    @app.before_request
+    def _idle_timeout_touch_session():
+        # Sliding idle timeout for authenticated users (default 30 minutes).
+        if getattr(current_user, "is_authenticated", False):
+            session.permanent = True
+            session.modified = True
 
     site_uri = app.config.get("SITE_SQLALCHEMY_DATABASE_URI")
     if site_uri:

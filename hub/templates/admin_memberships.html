@@ -2,12 +2,12 @@
 <html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8">
-  <title>Admin — Memberships</title>
+  <title>Membership Dashboard</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
 </head>
 <body style="background:#0b1220;color:#e2e8f0;font-family:system-ui,sans-serif;padding:1rem;">
   <p><a href="{{ url_for('hub_auth.account') }}" style="color:#38bdf8;">← Account</a></p>
-  <h1>Membership approvals</h1>
+  <h1>Membership Dashboard</h1>
   <div class="table-wrap">
     <table class="data">
       <thead><tr><th>User</th><th>Discord</th><th>League</th><th>Team id</th><th>Status</th><th>Actions</th></tr></thead>
@@ -18,7 +18,13 @@
           <td>{{ u.discord_name }}</td>
           <td>{{ m.league_slug }}</td>
           <td>{{ m.team_id }}</td>
-          <td>{{ m.status }}</td>
+          <td>
+            {% if m.status == 'active' %}
+            <span style="display:inline-block;padding:0.1rem 0.45rem;border-radius:999px;background:rgb(34 197 94 / 0.22);border:1px solid rgb(34 197 94 / 0.55);color:#bbf7d0;font-weight:700;font-size:0.75rem;">ONLINE</span>
+            {% else %}
+            <span style="display:inline-block;padding:0.1rem 0.45rem;border-radius:999px;background:rgb(248 113 113 / 0.2);border:1px solid rgb(248 113 113 / 0.5);color:#fecaca;font-weight:700;font-size:0.75rem;">OFFLINE</span>
+            {% endif %}
+          </td>
           <td>
             {% if m.status == 'pending' %}
             <form method="post" action="{{ url_for('hub_auth.admin_approve_membership', mid=m.id) }}" style="display:inline;">
@@ -29,7 +35,7 @@
             {% if m.status != 'revoked' %}
             <form method="post" action="{{ url_for('hub_auth.admin_revoke_membership', mid=m.id) }}" style="display:inline;">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button type="submit">Revoke</button>
+              <button type="submit" style="background:rgb(248 113 113 / 0.24);border:1px solid rgb(248 113 113 / 0.55);color:#fecaca;border-radius:6px;padding:0.24rem 0.5rem;cursor:pointer;font-weight:700;">REMOVE</button>
             </form>
             {% endif %}
             <form method="post" action="{{ url_for('hub_auth.admin_set_user_admin', uid=u.id) }}" style="display:inline;">

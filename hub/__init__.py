@@ -5,7 +5,8 @@ import importlib
 import os
 from pathlib import Path
 
-from flask import Flask, redirect, render_template, request, send_from_directory
+from flask import Flask, redirect, render_template, request, send_from_directory, session
+from flask_login import current_user
 from flask_wtf.csrf import CSRFProtect
 
 from app.auth_login import create_login_manager
@@ -70,8 +71,17 @@ def create_hub_app() -> Flask:
         MAIL_SMTP_USE_TLS=Config.MAIL_SMTP_USE_TLS,
         MAIL_SMTP_USE_SSL=Config.MAIL_SMTP_USE_SSL,
         WTF_CSRF_TIME_LIMIT=None,
+        SESSION_IDLE_TIMEOUT_MINUTES=Config.SESSION_IDLE_TIMEOUT_MINUTES,
+        PERMANENT_SESSION_LIFETIME=Config.PERMANENT_SESSION_LIFETIME,
         COMMISH_ADMIN_PASSWORD=Config.COMMISH_ADMIN_PASSWORD,
     )
+
+    @hub_app.before_request
+    def _idle_timeout_touch_session():
+        # Sliding idle timeout for authenticated users (default 30 minutes).
+        if getattr(current_user, "is_authenticated", False):
+            session.permanent = True
+            session.modified = True
 
     db.init_app(hub_app)
     csrf.init_app(hub_app)

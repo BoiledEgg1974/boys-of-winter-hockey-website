@@ -1,5 +1,6 @@
 import os
 import sqlite3
+from datetime import timedelta
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -209,6 +210,8 @@ class Config:
     )
     # GM news → AP when article is published (set later via env or admin UI constant)
     NEWS_ARTICLE_AP_POINTS = int(os.environ.get("NEWS_ARTICLE_AP_POINTS", "3"))
+    SESSION_IDLE_TIMEOUT_MINUTES = int(os.environ.get("SESSION_IDLE_TIMEOUT_MINUTES", "30"))
+    PERMANENT_SESSION_LIFETIME = timedelta(minutes=SESSION_IDLE_TIMEOUT_MINUTES)
     WTF_CSRF_TIME_LIMIT = None
     # Initial password for auto-created commissioner user (override in production).
     COMMISH_ADMIN_PASSWORD = os.environ.get("COMMISH_ADMIN_PASSWORD", "Claudette81!")

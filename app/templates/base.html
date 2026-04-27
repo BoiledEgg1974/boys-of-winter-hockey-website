@@ -32,10 +32,12 @@
           <a href="{{ url_for('main.statistics') }}">Statistics</a>
           <a href="{{ url_for('main.schedule') }}">Schedule</a>
           <a href="{{ url_for('main.prospects') }}">Prospects</a>
-          <a href="{{ url_for('main.undrafted_prospects') }}">Undrafted Prospects</a>
+          <span class="main-nav__pair">
+            <a href="{{ url_for('main.undrafted_prospects') }}">Undrafted Prospects</a>
+            <a href="{{ url_for('main.free_agents') }}">Free Agents</a>
+          </span>
         </div>
         <div class="main-nav__row" style="width:100%">
-          <a href="{{ url_for('main.free_agents') }}">Free Agents</a>
           <a href="{{ url_for('main.history') }}">League History</a>
           <a href="{{ url_for('main.league_season_records') }}">Season Records</a>
           <a href="{{ url_for('main.all_time_records') }}">All-Time Records</a>

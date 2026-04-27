@@ -167,6 +167,11 @@ a:hover {
   justify-content: center;
   gap: 0.25rem;
 }
+.main-nav__pair {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: 0.25rem;
+}
 .main-nav a {
   color: var(--header-text);
   opacity: 0.92;
@@ -5193,9 +5198,13 @@ table.data.team-staff-table thead th.team-staff-th--split {
     gap: 0.55rem 0.85rem;
     padding: 0.55rem 0.85rem;
   }
+  .main-nav__row,
+  .main-nav__pair {
+    gap: 0.2rem;
+  }
   .main-nav a {
     font-size: 0.86rem;
-    padding: 0.28rem 0.56rem;
+    padding: 0.26rem 0.5rem;
   }
   .header-row2 {
     padding: 0.5rem 0.6rem 0.65rem;

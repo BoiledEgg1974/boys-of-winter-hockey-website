@@ -813,7 +813,11 @@
     var h = '<ul class="home-news-list">';
     arts.forEach(function (a) {
       var href = a.href ? withRoot(String(a.href)) : '#';
-      h += '<li class="home-news-list__item"><a class="home-news-list__title" href="' + escapeAttr(href) + '">' + escape(a.title || '') + '</a>';
+      h += '<li class="home-news-list__item">';
+      if (a.category_label) {
+        h += '<span class="news-category-pill">' + escape(String(a.category_label)) + '</span> ';
+      }
+      h += '<a class="home-news-list__title" href="' + escapeAttr(href) + '">' + escape(a.title || '') + '</a>';
       if (a.team_logo_url || a.gm_label) {
         h += '<div class="home-news-list__byline">';
         if (a.team_logo_url) {

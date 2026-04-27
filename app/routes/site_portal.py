@@ -23,10 +23,18 @@ from app.services.gm_messaging import (
 )
 from app.services.gm_notifications import (
     list_notifications,
+    notify_all_gms_admin_article,
     notify_news_approved,
     notify_news_denied,
     notify_redemption_approved,
     notify_redemption_denied,
+)
+from app.services.news_categories import (
+    NEWS_CATEGORY_ADMIN_SUBMISSION,
+    NEWS_CATEGORY_CHOICES_ADMIN,
+    NEWS_CATEGORY_CHOICES_GM,
+    normalize_news_category,
+    news_category_label,
 )
 from app.services.ap_service import (
     active_redemption_items,
@@ -145,14 +153,18 @@ def league_news():
     if request.method == "POST":
         title = (request.form.get("title") or "").strip()
         body = (request.form.get("body") or "").strip()
+        cat = normalize_news_category(request.form.get("category"), allow_admin=False)
         if not title or not body:
             flash("Title and body are required.", "err")
+        elif not cat:
+            flash("Choose a valid category.", "err")
         else:
             art = NewsArticle(
                 league_slug=slug,
                 team_id=mem.team_id,
                 title=title[:300],
                 body=body,
+                category=cat,
                 author_user_id=current_user.id,
                 status="pending",
             )
@@ -166,7 +178,13 @@ def league_news():
         .order_by(NewsArticle.created_at.desc())
         .limit(50)
     ).all()
-    return render_template("league_news_gm.html", articles=articles, membership=mem)
+    return render_template(
+        "league_news_gm.html",
+        articles=articles,
+        membership=mem,
+        news_category_choices=NEWS_CATEGORY_CHOICES_GM,
+        news_category_label=news_category_label,
+    )
 
 
 @site_gm_bp.get("/gm-messages")
@@ -226,6 +244,8 @@ def gm_notification_open(nid: int):
     n.read_at = datetime.utcnow()
     db.session.commit()
     if n.kind == "news_approved" and n.article_id:
+        return redirect(url_for("main.league_headlines") + f"#a{n.article_id}")
+    if n.kind == "admin_league_article" and n.article_id:
         return redirect(url_for("main.league_headlines") + f"#a{n.article_id}")
     if n.kind == "news_denied":
         return redirect(url_for("site_gm.league_news"))
@@ -300,6 +320,93 @@ def admin_home():
     )
 
 
+@site_admin_bp.route("/news/compose", methods=["GET", "POST"])
+@login_required
+def admin_news_compose():
+    """Publish a headline immediately as the league office (no moderation, no AP grant)."""
+    require_admin()
+    slug = _league_slug()
+    teams = db.session.scalars(select(Team).order_by(Team.name)).all()
+    if request.method == "POST":
+        title = (request.form.get("title") or "").strip()
+        body = (request.form.get("body") or "").strip()
+        raw_tid = (request.form.get("team_id") or "").strip()
+        cat = normalize_news_category(request.form.get("category"), allow_admin=True)
+        if not title or not body:
+            flash("Title and body are required.", "err")
+            return render_template(
+                "admin_news_compose.html",
+                teams=teams,
+                category_choices=NEWS_CATEGORY_CHOICES_ADMIN,
+                form_title=title,
+                form_body=body,
+                form_team_id=raw_tid,
+                form_category=cat or (request.form.get("category") or "").strip(),
+            )
+        if not cat:
+            flash("Choose a category.", "err")
+            return render_template(
+                "admin_news_compose.html",
+                teams=teams,
+                category_choices=NEWS_CATEGORY_CHOICES_ADMIN,
+                form_title=title,
+                form_body=body,
+                form_team_id=raw_tid,
+                form_category=(request.form.get("category") or "").strip(),
+            )
+        if not raw_tid.isdigit():
+            flash("Select a team this article is about.", "err")
+            return render_template(
+                "admin_news_compose.html",
+                teams=teams,
+                category_choices=NEWS_CATEGORY_CHOICES_ADMIN,
+                form_title=title,
+                form_body=body,
+                form_team_id=raw_tid,
+                form_category=cat,
+            )
+        team_id = int(raw_tid)
+        team = db.session.get(Team, team_id)
+        if not team:
+            flash("Invalid team.", "err")
+            return render_template(
+                "admin_news_compose.html",
+                teams=teams,
+                category_choices=NEWS_CATEGORY_CHOICES_ADMIN,
+                form_title=title,
+                form_body=body,
+                form_team_id=raw_tid,
+                form_category=cat,
+            )
+        art = NewsArticle(
+            league_slug=slug,
+            team_id=team_id,
+            title=title[:300],
+            body=body,
+            category=cat,
+            author_user_id=current_user.id,
+            status="published",
+            published_at=datetime.utcnow(),
+            ap_awarded=False,
+        )
+        db.session.add(art)
+        db.session.commit()
+        if cat == NEWS_CATEGORY_ADMIN_SUBMISSION:
+            notify_all_gms_admin_article(slug, art)
+            flash(
+                "Article published and sent to every active GM in GM Messages (notifications).",
+                "ok",
+            )
+        else:
+            flash("Article published. It appears on the home page under Around the League.", "ok")
+        return redirect(url_for("site_admin.admin_news_queue"))
+    return render_template(
+        "admin_news_compose.html",
+        teams=teams,
+        category_choices=NEWS_CATEGORY_CHOICES_ADMIN,
+    )
+
+
 @site_admin_bp.get("/news")
 @login_required
 def admin_news_queue():
@@ -328,6 +435,7 @@ def admin_news_queue():
         articles=rows,
         news_authors_by_id=news_authors_by_id,
         news_teams_by_id=news_teams_by_id,
+        news_category_label=news_category_label,
     )
 
 
@@ -346,6 +454,7 @@ def admin_news_preview(aid: int):
         article=art,
         author=author,
         team=team,
+        news_category_label=news_category_label,
     )
 
 
@@ -652,6 +761,7 @@ def admin_ap_approve(rid: int):
                     f"AP deducted: {int(req.total_cost)}\n"
                     f"Processed by admin."
                 ),
+                category="transactions",
                 author_user_id=req.user_id,
                 status="published",
                 published_at=datetime.utcnow(),

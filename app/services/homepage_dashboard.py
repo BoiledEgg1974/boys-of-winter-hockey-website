@@ -828,6 +828,7 @@ def build_around_the_league(league_session) -> dict[str, Any]:
     from flask import current_app, url_for
 
     from app.league_db import db
+    from app.services.news_categories import news_category_label
     from app.site_models import NewsArticle, User
 
     slug = str(current_app.config.get("LEAGUE_SLUG") or "")
@@ -871,6 +872,7 @@ def build_around_the_league(league_session) -> dict[str, Any]:
                 "id": a.id,
                 "title": a.title,
                 "excerpt": excerpt,
+                "category_label": news_category_label(getattr(a, "category", None)),
                 "team_name": tm.full_display_name() if tm else None,
                 "team_slug": tm.slug if tm else None,
                 "team_logo_url": team_logo_url_for_team(tm) if tm else "",

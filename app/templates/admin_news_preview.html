@@ -4,6 +4,7 @@
 <div class="card" style="max-width:44rem;margin:0 auto;">
   <p><a href="{{ url_for('site_admin.admin_news_queue') }}">← News Moderation</a></p>
   <h1 class="page-title">{{ article.title }}</h1>
+  <p class="muted" style="font-size:0.9rem;"><span class="news-category-pill">{{ news_category_label(article.category) }}</span></p>
   <p class="muted" style="font-size:0.9rem;">
     {% if team %}{{ team.full_display_name() }}{% endif %}
     {% if team and author %} · {% endif %}

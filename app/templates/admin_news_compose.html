@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Post league article — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:44rem;margin:0 auto;">
+  <h1 class="page-title">Post league article</h1>
+  <p><a href="{{ url_for('site_admin.admin_news_queue') }}">← News Moderation</a> · <a href="{{ url_for('site_admin.admin_home') }}">Admin</a></p>
+  <p class="muted">Publishes immediately to <strong>Around the League</strong> under the team you choose. No AP is awarded (unlike GM submissions approved from the queue). Choose a <strong>category</strong> for every post. <strong>Admin submission</strong> also sends an in-app notification to <em>every active GM</em> in this league (GM Messages).</p>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <ul class="flash-msgs">{% for cat, msg in messages %}<li class="flash-msgs__{{ cat }}">{{ msg }}</li>{% endfor %}</ul>
+  {% endif %}
+  {% endwith %}
+  <form method="post" class="card" style="padding:1rem;margin-top:1rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label class="block-label">Team (story is tagged to this franchise)<br>
+      <select name="team_id" required style="width:100%;max-width:28rem;margin-top:0.35rem;padding:0.35rem;">
+        <option value="" {% if not form_team_id %}selected{% endif %} disabled>— Select team —</option>
+        {% for t in teams %}
+        <option value="{{ t.id }}" {% if form_team_id is defined and form_team_id|string == t.id|string %}selected{% endif %}>{{ t.full_display_name() }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="block-label" style="display:block;margin-top:0.85rem;">Category<br>
+      <select name="category" required style="width:100%;max-width:28rem;margin-top:0.35rem;padding:0.35rem;">
+        {% for value, label in category_choices %}
+        <option value="{{ value }}" {% if form_category is defined and form_category == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="block-label" style="display:block;margin-top:0.85rem;">Title<br>
+      <input type="text" name="title" required maxlength="300" style="width:100%;margin-top:0.35rem;" value="{{ form_title or '' }}">
+    </label>
+    <label class="block-label" style="display:block;margin-top:0.85rem;">Body<br>
+      <textarea name="body" rows="10" required style="width:100%;margin-top:0.35rem;">{{ form_body or '' }}</textarea>
+    </label>
+    <button type="submit" class="join-league-btn" style="margin-top:0.85rem;border:none;cursor:pointer;">Publish article</button>
+  </form>
+  <p class="muted" style="margin-top:1rem;"><a href="{{ url_for('main.league_headlines') }}" target="_blank" rel="noopener">View published headlines</a></p>
+</div>
+{% endblock %}

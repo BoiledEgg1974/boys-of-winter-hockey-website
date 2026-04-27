@@ -15,6 +15,21 @@ _COMMISH_EMAIL_LEGACY = "commish@bowl-league.site"
 _COMMISH_DISCORD = "BoiledEgg"
 
 
+def ensure_news_articles_category_column(app) -> None:
+    """Add ``category`` to ``news_articles`` when upgrading an existing site DB."""
+    engine = db.get_engine(app, bind="site")
+    with engine.begin() as conn:
+        rows = conn.execute(text("PRAGMA table_info(news_articles)")).fetchall()
+        colnames = {row[1] for row in rows}
+        if "category" not in colnames:
+            conn.execute(
+                text(
+                    "ALTER TABLE news_articles ADD COLUMN category VARCHAR(32) "
+                    "NOT NULL DEFAULT 'general_messages'"
+                )
+            )
+
+
 def ensure_site_users_username_column(app) -> None:
     """Add ``username`` to ``site_users`` when upgrading an existing SQLite file."""
     engine = db.get_engine(app, bind="site")
@@ -33,6 +48,7 @@ def ensure_site_users_username_column(app) -> None:
 def ensure_commish_admin(app) -> None:
     """Create or update commissioner admin. Login: Commish (username) or keenovdecimanus@gmail.com."""
     ensure_site_users_username_column(app)
+    ensure_news_articles_category_column(app)
     pw = str(
         app.config.get("COMMISH_ADMIN_PASSWORD")
         or os.environ.get("COMMISH_ADMIN_PASSWORD", "Claudette81!")

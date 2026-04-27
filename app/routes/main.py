@@ -40,6 +40,8 @@ from app.models import (
     db,
 )
 from app.services.ap_service import team_ap_balance as compute_team_ap_balance
+from app.services.gm_messaging import gm_display_name
+from app.services.news_categories import news_category_label
 from app.services.all_time_records import (
     bowl_nhl_league_ids,
     default_goalie_sort_order,
@@ -322,7 +324,12 @@ def league_headlines():
         .limit(100)
     ).all()
     teams = {t.id: t for t in db.session.scalars(select(Team)).all()}
-    return render_template("league_headlines.html", articles=rows, teams_by_id=teams)
+    return render_template(
+        "league_headlines.html",
+        articles=rows,
+        teams_by_id=teams,
+        news_category_label=news_category_label,
+    )
 
 
 @main_bp.route("/join-league", methods=["GET", "POST"])
@@ -2777,6 +2784,44 @@ def _rank_paren(rank: int | None) -> str:
     return f"({_english_ordinal(rank)})"
 
 
+def _team_page_news_rows(team_id: int) -> list[dict[str, object]]:
+    """Published Around the League articles tagged for this team (GM or admin)."""
+    from app.site_models import NewsArticle, User
+
+    slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    if not slug:
+        return []
+    rows = db.session.scalars(
+        select(NewsArticle)
+        .where(
+            NewsArticle.league_slug == slug,
+            NewsArticle.status == "published",
+            NewsArticle.team_id == team_id,
+        )
+        .order_by(NewsArticle.published_at.desc().nulls_last(), NewsArticle.id.desc())
+        .limit(25)
+    ).all()
+    if not rows:
+        return []
+    author_ids = {a.author_user_id for a in rows}
+    authors: dict[int, User] = {}
+    for u in db.session.scalars(select(User).where(User.id.in_(author_ids))).all():
+        authors[u.id] = u
+    out: list[dict[str, object]] = []
+    for a in rows:
+        u = authors.get(a.author_user_id)
+        if u and u.is_admin:
+            name = gm_display_name(u)
+            byline = f"League admin · {name}" if name and name != "—" else "League admin"
+        else:
+            byline = gm_display_name(u)
+        excerpt = (a.body or "").strip().replace("\r\n", "\n")
+        if len(excerpt) > 160:
+            excerpt = excerpt[:160] + "…"
+        out.append({"article": a, "byline": byline, "excerpt": excerpt})
+    return out
+
+
 @main_bp.get("/team/<slug>")
 def team_page(slug: str):
     team = db.session.scalars(select(Team).where(Team.slug == slug).limit(1)).first()
@@ -3149,6 +3194,8 @@ def team_page(slug: str):
         "season_records_rs_sections": season_records_rs_sections,
         "season_records_po_sections": season_records_po_sections,
         "team_ap_balance": compute_team_ap_balance(str(current_app.config.get("LEAGUE_SLUG") or ""), team.id),
+        "team_page_news": _team_page_news_rows(team.id),
+        "news_category_label": news_category_label,
     }
     if panel == "statistics":
         tmpl_kwargs.update(

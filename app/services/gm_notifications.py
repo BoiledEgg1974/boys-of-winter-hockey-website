@@ -4,7 +4,7 @@ from __future__ import annotations
 from sqlalchemy import func, select
 
 from app.league_db import db
-from app.site_models import ApRedemptionRequest, GmInAppNotification, NewsArticle
+from app.site_models import ApRedemptionRequest, GmInAppNotification, GmLeagueMembership, NewsArticle
 
 
 def unread_notifications_count(league_slug: str, user_id: int) -> int:
@@ -40,6 +40,35 @@ def list_notifications(league_slug: str, user_id: int, *, limit: int = 40) -> li
             .limit(limit)
         ).all()
     )
+
+
+def notify_all_gms_admin_article(league_slug: str, art: NewsArticle) -> None:
+    """In-app notification to every active GM (league office broadcast)."""
+    user_ids = db.session.scalars(
+        select(GmLeagueMembership.user_id).where(
+            GmLeagueMembership.league_slug == league_slug,
+            GmLeagueMembership.status == "active",
+        )
+    ).all()
+    seen: set[int] = set()
+    body = (art.body or "").strip().replace("\r\n", "\n")
+    if len(body) > 900:
+        body = body[:900] + "…"
+    for uid in user_ids:
+        if uid in seen:
+            continue
+        seen.add(int(uid))
+        db.session.add(
+            GmInAppNotification(
+                league_slug=league_slug,
+                user_id=int(uid),
+                kind="admin_league_article",
+                title=f"League office: {art.title[:380]}",
+                body=body or "New league article — open to read the full story.",
+                article_id=art.id,
+            )
+        )
+    db.session.commit()
 
 
 def notify_news_approved(league_slug: str, art: NewsArticle) -> None:

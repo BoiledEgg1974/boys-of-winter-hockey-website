@@ -31,6 +31,35 @@
 {%- endfor -%}
 {%- else -%}—{%- endif -%}
 {%- endmacro %}
+{% macro team_news_panel(team, news_list, news_category_label) -%}
+<section class="card team-page-news" aria-labelledby="team-news-h">
+  <h2 id="team-news-h" class="team-mc-band__title">Team headlines</h2>
+  {% if news_list %}
+  <ul class="home-news-list team-page-news__list" role="list">
+    {% for row in news_list %}
+    {% set a = row.article %}
+    <li class="home-news-list__item">
+      <span class="news-category-pill">{{ news_category_label(a.category) }}</span>
+      <a class="team-page-news__title-link" href="{{ url_for('main.league_headlines') }}#a{{ a.id }}">{{ a.title }}</a>
+      <div class="home-news-list__byline">
+        <img class="home-news-list__byline-logo" src="{{ team_logo_url(team) }}" alt="" width="22" height="22" loading="lazy" decoding="async">
+        <span class="home-news-list__byname muted">{{ row.byline }}</span>
+      </div>
+      {% if row.excerpt %}
+      <p class="home-news-list__excerpt muted">{{ row.excerpt }}</p>
+      {% endif %}
+      {% if a.published_at %}
+      <p class="team-page-news__date muted">{{ a.published_at.strftime('%b %d, %Y') }}</p>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty-state muted team-page-news__empty">No published stories for this team yet.</p>
+  {% endif %}
+  <p class="muted team-page-news__footer"><a href="{{ url_for('main.league_headlines') }}">All league headlines</a></p>
+</section>
+{%- endmacro %}
 {% block content %}
 {% set ph = team.primary_color or '#1e3a5f' %}
 {% set sh = team.secondary_color or '#0f172a' %}
@@ -145,67 +174,73 @@
 {% set _pj = _mc.projection %}
 {% set _ps = _mc.postseason_labels %}
 <div class="team-mc-fullwidth team-mc-fullwidth--with-ap">
-  <section class="card team-ap-summary" aria-labelledby="team-ap-h">
-    <h2 id="team-ap-h" class="team-mc-band__title">Action Points</h2>
-    <p class="team-ap-summary__bal"><span class="team-ap-summary__num">{{ team_ap_balance }}</span></p>
-    <p class="muted"><a href="{{ url_for('site_gm.action_points_page') }}">League AP page</a></p>
-  </section>
-  <div class="team-mc-fullwidth__mc">
-  <section class="card team-mc-band" aria-labelledby="tmc-proj-h">
-    <h2 id="tmc-proj-h" class="team-mc-band__title">Season projection ({{ _mc.n_sims }}-sim Monte Carlo)</h2>
-    <div class="team-mc-band__grid team-mc-band__grid--proj">
-      <div class="team-mc-band__cell">
-        <span class="team-mc-band__lbl">MEAN PTS</span>
-        <span class="team-mc-band__val">{{ '%.1f'|format(_pj.mean_pts) }}</span>
+  <div class="team-mc-fullwidth__left-col">
+    <section class="card team-ap-summary" aria-labelledby="team-ap-h">
+      <h2 id="team-ap-h" class="team-mc-band__title">Action Points</h2>
+      <p class="team-ap-summary__bal"><span class="team-ap-summary__num">{{ team_ap_balance }}</span></p>
+      <p class="muted"><a href="{{ url_for('site_gm.action_points_page') }}">League AP page</a></p>
+    </section>
+    <section class="card team-mc-band" aria-labelledby="tmc-proj-h">
+      <h2 id="tmc-proj-h" class="team-mc-band__title">Season projection ({{ _mc.n_sims }}-sim Monte Carlo)</h2>
+      <div class="team-mc-band__grid team-mc-band__grid--proj">
+        <div class="team-mc-band__cell">
+          <span class="team-mc-band__lbl">MEAN PTS</span>
+          <span class="team-mc-band__val">{{ '%.1f'|format(_pj.mean_pts) }}</span>
+        </div>
+        <div class="team-mc-band__cell">
+          <span class="team-mc-band__lbl">PTS (5–95%)</span>
+          <span class="team-mc-band__val">{{ _pj.pts_p05 }}–{{ _pj.pts_p95 }}</span>
+        </div>
+        <div class="team-mc-band__cell">
+          <span class="team-mc-band__lbl">MEAN GF</span>
+          <span class="team-mc-band__val">{{ '%.0f'|format(_pj.mean_gf) }}</span>
+        </div>
+        <div class="team-mc-band__cell">
+          <span class="team-mc-band__lbl">MEAN FA</span>
+          <span class="team-mc-band__val">{{ '%.0f'|format(_pj.mean_ga) }}</span>
+        </div>
       </div>
-      <div class="team-mc-band__cell">
-        <span class="team-mc-band__lbl">PTS (5–95%)</span>
-        <span class="team-mc-band__val">{{ _pj.pts_p05 }}–{{ _pj.pts_p95 }}</span>
+    </section>
+    <section class="card team-mc-band" aria-labelledby="tmc-ps-h">
+      <h2 id="tmc-ps-h" class="team-mc-band__title">Postseason Odds</h2>
+      <div class="team-mc-band__grid team-mc-band__grid--odds">
+        <div class="team-mc-band__cell">
+          <span class="team-mc-band__lbl">PLAYOFFS</span>
+          <span class="team-mc-band__val team-mc-band__val--playoffs">{{ _ps.playoffs }}</span>
+        </div>
+        <div class="team-mc-band__cell">
+          <span class="team-mc-band__lbl">DIVISION</span>
+          <span class="team-mc-band__val">{{ _ps.division }}</span>
+        </div>
+        <div class="team-mc-band__cell">
+          <span class="team-mc-band__lbl">CONFERENCE</span>
+          <span class="team-mc-band__val">{{ _ps.conference }}</span>
+        </div>
+        <div class="team-mc-band__cell">
+          <span class="team-mc-band__lbl">BOILEDEGG'S TROPHY</span>
+          <span class="team-mc-band__val">{{ _ps.boiledegg }}</span>
+        </div>
+        <div class="team-mc-band__cell">
+          <span class="team-mc-band__lbl">BOWL CHAMPIONSHIP</span>
+          <span class="team-mc-band__val team-mc-band__val--cup">{{ _ps.bowl_championship }}</span>
+        </div>
       </div>
-      <div class="team-mc-band__cell">
-        <span class="team-mc-band__lbl">MEAN GF</span>
-        <span class="team-mc-band__val">{{ '%.0f'|format(_pj.mean_gf) }}</span>
-      </div>
-      <div class="team-mc-band__cell">
-        <span class="team-mc-band__lbl">MEAN FA</span>
-        <span class="team-mc-band__val">{{ '%.0f'|format(_pj.mean_ga) }}</span>
-      </div>
-    </div>
-  </section>
-  <section class="card team-mc-band" aria-labelledby="tmc-ps-h">
-    <h2 id="tmc-ps-h" class="team-mc-band__title">Postseason Odds</h2>
-    <div class="team-mc-band__grid team-mc-band__grid--odds">
-      <div class="team-mc-band__cell">
-        <span class="team-mc-band__lbl">PLAYOFFS</span>
-        <span class="team-mc-band__val team-mc-band__val--playoffs">{{ _ps.playoffs }}</span>
-      </div>
-      <div class="team-mc-band__cell">
-        <span class="team-mc-band__lbl">DIVISION</span>
-        <span class="team-mc-band__val">{{ _ps.division }}</span>
-      </div>
-      <div class="team-mc-band__cell">
-        <span class="team-mc-band__lbl">CONFERENCE</span>
-        <span class="team-mc-band__val">{{ _ps.conference }}</span>
-      </div>
-      <div class="team-mc-band__cell">
-        <span class="team-mc-band__lbl">BOILEDEGG'S TROPHY</span>
-        <span class="team-mc-band__val">{{ _ps.boiledegg }}</span>
-      </div>
-      <div class="team-mc-band__cell">
-        <span class="team-mc-band__lbl">BOWL CHAMPIONSHIP</span>
-        <span class="team-mc-band__val team-mc-band__val--cup">{{ _ps.bowl_championship }}</span>
-      </div>
-    </div>
-    <p class="muted team-mc-band__note">{{ _mc.method_note }}</p>
-  </section>
+      <p class="muted team-mc-band__note">{{ _mc.method_note }}</p>
+    </section>
   </div>
+  {{ team_news_panel(team, team_page_news, news_category_label) }}
 </div>
 {% else %}
-<section class="card team-ap-summary" aria-labelledby="team-ap-h-solo">
-  <h2 id="team-ap-h-solo" class="team-mc-band__title">Action Points</h2>
-  <p class="team-ap-summary__bal"><span class="team-ap-summary__num">{{ team_ap_balance }}</span></p>
-  <p class="muted"><a href="{{ url_for('site_gm.action_points_page') }}">League AP page</a></p>
-</section>
+<div class="team-mc-fullwidth team-mc-fullwidth--with-ap">
+  <div class="team-mc-fullwidth__left-col">
+    <section class="card team-ap-summary" aria-labelledby="team-ap-h-solo">
+      <h2 id="team-ap-h-solo" class="team-mc-band__title">Action Points</h2>
+      <p class="team-ap-summary__bal"><span class="team-ap-summary__num">{{ team_ap_balance }}</span></p>
+      <p class="muted"><a href="{{ url_for('site_gm.action_points_page') }}">League AP page</a></p>
+    </section>
+  </div>
+  {{ team_news_panel(team, team_page_news, news_category_label) }}
+</div>
 {% endif %}
 <div class="team-panels-grid{% if not team_agg and not team_agg_po %} team-panels-grid--single-col{% endif %}">
   <div class="team-panels-grid__left">

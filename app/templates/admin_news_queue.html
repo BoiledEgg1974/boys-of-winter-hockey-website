@@ -3,12 +3,13 @@
 {% block content %}
 <div class="card admin-news-queue" style="max-width:58rem;margin:0 auto;">
   <h1 class="page-title">News Moderation</h1>
-  <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
+  <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a> · <a href="{{ url_for('site_admin.admin_news_compose') }}">Post league article</a> (publish immediately)</p>
   <div class="table-wrap">
     <table class="data">
       <thead>
         <tr>
           <th scope="col">Submitted by</th>
+          <th scope="col">Category</th>
           <th scope="col">Status</th>
           <th scope="col">Body</th>
           <th scope="col">Actions</th>
@@ -29,6 +30,7 @@
               <span class="admin-news-submitby__name">{% if u %}{{ u.discord_name or u.username or u.email }}{% else %}—{% endif %}</span>
             </div>
           </td>
+          <td><span class="news-category-pill news-category-pill--table">{{ news_category_label(a.category) }}</span></td>
           <td>
             {% if a.status == 'published' %}
             <span class="admin-news-status admin-news-status--approved">APPROVED</span>
@@ -57,7 +59,7 @@
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="4" class="muted">No submissions yet.</td></tr>
+        <tr><td colspan="5" class="muted">No submissions yet.</td></tr>
         {% endfor %}
       </tbody>
     </table>

@@ -9,17 +9,24 @@
   <ul>{% for cat, msg in messages %}<li>{{ msg }}</li>{% endfor %}</ul>
   {% endif %}
   {% endwith %}
-  <p class="muted">Submitted articles appear on the homepage after an administrator publishes them. AP may be awarded on publish (league setting).</p>
+  <p class="muted">Submitted articles appear on the homepage after an administrator publishes them. Choose a <strong>category</strong> for each submission. AP may be awarded on publish (league setting).</p>
   <form method="post" class="card" style="padding:1rem;margin-bottom:1.5rem;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <label>Title<br><input type="text" name="title" required maxlength="300" style="width:100%;"></label>
+    <label>Category<br>
+      <select name="category" required style="width:100%;max-width:28rem;margin-top:0.35rem;padding:0.35rem;">
+        {% for value, label in news_category_choices %}
+        <option value="{{ value }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label style="display:block;margin-top:0.75rem;">Title<br><input type="text" name="title" required maxlength="300" style="width:100%;"></label>
     <label style="display:block;margin-top:0.75rem;">Body<br><textarea name="body" rows="8" required style="width:100%;"></textarea></label>
     <button type="submit" class="join-league-btn" style="margin-top:0.75rem;border:none;cursor:pointer;">Submit for review</button>
   </form>
   <h2>Your submissions</h2>
   <ul>
     {% for a in articles %}
-    <li><strong>{{ a.title }}</strong> — <em>{{ a.status }}</em> · {{ a.created_at.strftime('%Y-%m-%d') if a.created_at else '' }}</li>
+    <li><strong>{{ a.title }}</strong> — <span class="muted">{{ news_category_label(a.category) }}</span> — <em>{{ a.status }}</em> · {{ a.created_at.strftime('%Y-%m-%d') if a.created_at else '' }}</li>
     {% else %}
     <li class="muted">None yet.</li>
     {% endfor %}

@@ -4,7 +4,7 @@
 <div class="card" style="max-width:40rem;margin:0 auto;">
   <h1 class="page-title">Site admin</h1>
   <ul>
-    <li><a href="{{ url_for('site_admin.admin_news_queue') }}">News Moderation</a></li>
+    <li><a href="{{ url_for('site_admin.admin_news_queue') }}">News Moderation</a> — <a href="{{ url_for('site_admin.admin_news_compose') }}">post article</a></li>
     <li><a href="{{ url_for('site_admin.admin_ap_ledger') }}">Manual AP ledger</a></li>
     <li><a href="{{ url_for('site_admin.admin_ap_requests') }}">AP redemption requests</a></li>
     <li><a href="{{ url_for('site_admin.admin_catalog') }}">Redemption catalog</a></li>

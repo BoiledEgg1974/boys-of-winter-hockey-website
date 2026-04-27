@@ -94,6 +94,7 @@ class NewsArticle(db.Model):
     team_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     title: Mapped[str] = mapped_column(String(300), nullable=False)
     body: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    category: Mapped[str] = mapped_column(String(32), default="general_messages", nullable=False)
     author_user_id: Mapped[int] = mapped_column(ForeignKey("site_users.id"), nullable=False)
     status: Mapped[str] = mapped_column(String(24), default="pending", nullable=False)
     published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

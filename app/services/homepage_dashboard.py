@@ -825,7 +825,7 @@ def build_champions_panel(session) -> dict[str, Any]:
 
 def build_around_the_league(league_session) -> dict[str, Any]:
     """Published news from site DB; ``league_session`` resolves team slugs/names."""
-    from flask import current_app, url_for
+    from flask import current_app, has_request_context, url_for
 
     from app.league_db import db
     from app.services.news_categories import news_category_label
@@ -836,13 +836,27 @@ def build_around_the_league(league_session) -> dict[str, Any]:
         select(NewsArticle)
         .where(NewsArticle.league_slug == slug, NewsArticle.status == "published")
         .order_by(NewsArticle.published_at.desc().nulls_last(), NewsArticle.id.desc())
-        .limit(12)
+        .limit(5)
     ).all()
+    def _headlines_path() -> str:
+        if has_request_context():
+            return str(url_for("main.league_headlines"))
+        return "/league-headlines"
+
+    def _static_url(rel: str) -> str:
+        rel = (rel or "").strip().lstrip("/")
+        if not rel:
+            return ""
+        if has_request_context():
+            return str(url_for("static", filename=rel))
+        return f"/static/{rel}"
+
     if not rows:
         return {
             "enabled": False,
             "message": "No league headlines yet.",
             "articles": [],
+            "headlines_path": _headlines_path(),
         }
     author_ids = {a.author_user_id for a in rows}
     authors: dict[int, User] = {}
@@ -863,25 +877,30 @@ def build_around_the_league(league_session) -> dict[str, Any]:
     articles: list[dict[str, Any]] = []
     for a in rows:
         tm = league_session.get(Team, a.team_id) if a.team_id else None
-        excerpt = (a.body or "").strip().replace("\r\n", "\n")
-        if len(excerpt) > 200:
-            excerpt = excerpt[:200] + "…"
+        body = (a.body or "").strip().replace("\r\n", "\n")
         au = authors.get(a.author_user_id)
+        rel_img = (getattr(a, "image_rel_path", None) or "").strip()
+        image_url = _static_url(rel_img) if rel_img else ""
         articles.append(
             {
                 "id": a.id,
                 "title": a.title,
-                "excerpt": excerpt,
+                "body": body,
                 "category_label": news_category_label(getattr(a, "category", None)),
                 "team_name": tm.full_display_name() if tm else None,
                 "team_slug": tm.slug if tm else None,
                 "team_logo_url": team_logo_url_for_team(tm) if tm else "",
                 "gm_label": _gm_label(au),
                 "published_at": a.published_at.isoformat() if a.published_at else None,
-                "href": url_for("main.league_headlines") + f"#a{a.id}",
+                "image_url": image_url,
             }
         )
-    return {"enabled": True, "message": "", "articles": articles}
+    return {
+        "enabled": True,
+        "message": "",
+        "articles": articles,
+        "headlines_path": _headlines_path(),
+    }
 
 
 def build_conf_cutoff_map(session, season_id: int) -> dict[str, int]:

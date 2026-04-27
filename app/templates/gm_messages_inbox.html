@@ -2,7 +2,21 @@
 {% block title %}GM Messages — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
 {% block content %}
 <div class="card gm-msg-page" style="max-width:44rem;margin:0 auto;">
-  <h1 class="page-title">GM Messages</h1>
+  <div class="gm-msg-page__head">
+    <h1 class="page-title gm-msg-page__title">GM Messages</h1>
+    {% if compose_recipients %}
+    <div class="gm-msg-compose-bar" role="group" aria-label="Start a new chat">
+      <label class="gm-msg-compose-bar__label" for="gm-compose-peer">To</label>
+      <select id="gm-compose-peer" class="gm-msg-compose-bar__select" autocomplete="off">
+        <option value="">Choose a GM…</option>
+        {% for r in compose_recipients %}
+        <option value="{{ r.user_id }}" data-thread-url="{{ r.thread_url }}">{{ r.label }}</option>
+        {% endfor %}
+      </select>
+      <button type="button" id="gm-compose-go" class="join-league-btn gm-msg-compose-bar__btn" disabled title="Open chat with the selected GM">Compose</button>
+    </div>
+    {% endif %}
+  </div>
   <p class="muted" style="font-size:0.9rem;">Direct chats with other GMs and league notices (e.g. news moderation) — no email.</p>
   <p><a href="{{ url_for('main.home') }}">← Home</a></p>
 
@@ -52,7 +66,7 @@
   {% endif %}
 
   {% if other_rows %}
-  <h2 class="page-title" style="font-size:1.05rem;margin-top:1.5rem;">Message a GM</h2>
+  <h2 id="gm-new-message" class="page-title" style="font-size:1.05rem;margin-top:1.5rem;">Message a GM</h2>
   <ul class="gm-msg-inbox-list gm-msg-inbox-list--start">
     {% for row in other_rows %}
     <li class="gm-msg-inbox-list__item gm-msg-inbox-list__item--start">
@@ -69,5 +83,29 @@
     {% endfor %}
   </ul>
   {% endif %}
+  {% if not compose_recipients %}
+  <p class="muted" style="margin-top:1rem;">There are no other active GMs in this league to message yet.</p>
+  {% endif %}
 </div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  var sel = document.getElementById("gm-compose-peer");
+  var btn = document.getElementById("gm-compose-go");
+  if (!sel || !btn) return;
+  function sync() {
+    var opt = sel.options[sel.selectedIndex];
+    var url = opt && opt.getAttribute("data-thread-url");
+    btn.disabled = !url;
+  }
+  sel.addEventListener("change", sync);
+  btn.addEventListener("click", function () {
+    var opt = sel.options[sel.selectedIndex];
+    var url = opt && opt.getAttribute("data-thread-url");
+    if (url) window.location.href = url;
+  });
+  sync();
+})();
+</script>
 {% endblock %}

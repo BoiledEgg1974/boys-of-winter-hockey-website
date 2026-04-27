@@ -40,13 +40,18 @@
     {% set a = row.article %}
     <li class="home-news-list__item">
       <span class="news-category-pill">{{ news_category_label(a.category) }}</span>
-      <a class="team-page-news__title-link" href="{{ url_for('main.league_headlines') }}#a{{ a.id }}">{{ a.title }}</a>
+      <div class="home-news-list__heading">{{ a.title }}</div>
       <div class="home-news-list__byline">
         <img class="home-news-list__byline-logo" src="{{ team_logo_url(team) }}" alt="" width="22" height="22" loading="lazy" decoding="async">
         <span class="home-news-list__byname muted">{{ row.byline }}</span>
       </div>
-      {% if row.excerpt %}
-      <p class="home-news-list__excerpt muted">{{ row.excerpt }}</p>
+      {% if a.image_rel_path %}
+      <div class="home-news-list__media">
+        <img class="home-news-list__thumb" src="{{ url_for('static', filename=a.image_rel_path) }}" alt="" loading="lazy" decoding="async">
+      </div>
+      {% endif %}
+      {% if row.body %}
+      <div class="home-news-list__body">{{ row.body }}</div>
       {% endif %}
       {% if a.published_at %}
       <p class="team-page-news__date muted">{{ a.published_at.strftime('%b %d, %Y') }}</p>
@@ -57,7 +62,7 @@
   {% else %}
   <p class="empty-state muted team-page-news__empty">No published stories for this team yet.</p>
   {% endif %}
-  <p class="muted team-page-news__footer"><a href="{{ url_for('main.league_headlines') }}">All league headlines</a></p>
+  <p class="link-more team-page-news__footer"><a href="{{ url_for('main.league_headlines') }}">View all headlines</a></p>
 </section>
 {%- endmacro %}
 {% block content %}

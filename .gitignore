@@ -21,6 +21,9 @@ htmlcov/
 .env
 .env.local
 
+# GM / admin headline image uploads (per league under static)
+app/static/img/news/
+
 # Flask/local runtime files
 instance/*.db
 instance/*.sqlite

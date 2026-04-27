@@ -351,7 +351,7 @@ def create_app(config_class: type = Config) -> Flask:
         gm_messages_unread = 0
         if getattr(current_user, "is_authenticated", False) and slug_layout:
             gm_membership = active_membership_for_league(current_user, slug_layout)
-            if gm_membership:
+            if gm_membership or getattr(current_user, "is_admin", False):
                 try:
                     gm_messages_unread = gm_inbox_badge_unread(slug_layout, int(current_user.id))
                 except Exception:

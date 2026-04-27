@@ -70,6 +70,15 @@ def _membership():
     return active_membership_for_league(current_user, _league_slug())
 
 
+def _can_use_gm_messaging() -> bool:
+    """Active GMs and site admins may use the in-league GM messages inbox."""
+    if not current_user.is_authenticated:
+        return False
+    if getattr(current_user, "is_admin", False):
+        return True
+    return _membership() is not None
+
+
 @site_gm_bp.get("/action-points")
 def action_points_page():
     slug = _league_slug()
@@ -159,6 +168,13 @@ def league_news():
         elif not cat:
             flash("Choose a valid category.", "err")
         else:
+            upload = request.files.get("image")
+            if upload and upload.filename:
+                from app.services.news_article_media import ext_from_upload_filename
+
+                if ext_from_upload_filename(upload.filename) is None:
+                    flash("Image must be PNG, JPEG, WebP, or GIF.", "err")
+                    return redirect(url_for("site_gm.league_news"))
             art = NewsArticle(
                 league_slug=slug,
                 team_id=mem.team_id,
@@ -169,6 +185,16 @@ def league_news():
                 status="pending",
             )
             db.session.add(art)
+            db.session.flush()
+            if upload and upload.filename:
+                from app.services.news_article_media import save_news_article_image
+
+                rel = save_news_article_image(upload, league_slug=slug, article_id=art.id)
+                if not rel:
+                    db.session.rollback()
+                    flash("Image could not be saved (max 2.5 MB).", "err")
+                    return redirect(url_for("site_gm.league_news"))
+                art.image_rel_path = rel
             db.session.commit()
             flash("Article submitted for review.", "ok")
             return redirect(url_for("site_gm.league_news"))
@@ -192,7 +218,7 @@ def league_news():
 def gm_messages_inbox():
     slug = _league_slug()
     mem = _membership()
-    if not mem:
+    if not _can_use_gm_messaging():
         flash("No active GM membership for this league.", "err")
         return redirect(url_for("main.home"))
     threads = inbox_threads(slug, current_user.id)
@@ -217,6 +243,20 @@ def gm_messages_inbox():
         if u.id not in thread_peer_ids:
             other_rows.append({"user": u, "team": teams_by_id.get(mrow.team_id), "membership": mrow})
     other_rows.sort(key=lambda r: gm_display_name(r["user"]).lower())
+    compose_recipients: list[dict[str, object]] = []
+    for mrow, u in others:
+        tm = teams_by_id.get(mrow.team_id)
+        name = gm_display_name(u)
+        suffix = tm.full_display_name() if tm else ""
+        label = f"{name} — {suffix}" if suffix else name
+        compose_recipients.append(
+            {
+                "user_id": u.id,
+                "label": label,
+                "thread_url": url_for("site_gm.gm_messages_thread", peer_user_id=u.id),
+            }
+        )
+    compose_recipients.sort(key=lambda r: str(r["label"]).lower())
     notifications = list_notifications(slug, current_user.id)
     return render_template(
         "gm_messages_inbox.html",
@@ -226,6 +266,7 @@ def gm_messages_inbox():
         peer_users=peer_users,
         peer_team_by_id=peer_team_by_id,
         other_rows=other_rows,
+        compose_recipients=compose_recipients,
         gm_display_name=gm_display_name,
     )
 
@@ -234,8 +275,7 @@ def gm_messages_inbox():
 @login_required
 def gm_notification_open(nid: int):
     slug = _league_slug()
-    mem = _membership()
-    if not mem:
+    if not _can_use_gm_messaging():
         flash("No active GM membership for this league.", "err")
         return redirect(url_for("main.home"))
     n = db.session.get(GmInAppNotification, nid)
@@ -261,7 +301,7 @@ def gm_notification_open(nid: int):
 def gm_messages_thread(peer_user_id: int):
     slug = _league_slug()
     mem = _membership()
-    if not mem:
+    if not _can_use_gm_messaging():
         flash("No active GM membership for this league.", "err")
         return redirect(url_for("main.home"))
     if peer_user_id == current_user.id:
@@ -274,7 +314,7 @@ def gm_messages_thread(peer_user_id: int):
         abort(404)
     peer_mem = active_peer_membership(slug, peer_user_id)
     peer_team = db.session.get(Team, peer_mem.team_id) if peer_mem else None
-    my_team = db.session.get(Team, mem.team_id)
+    my_team = db.session.get(Team, mem.team_id) if mem else None
 
     if request.method == "POST":
         body = (request.form.get("body") or "").strip()
@@ -378,6 +418,21 @@ def admin_news_compose():
                 form_team_id=raw_tid,
                 form_category=cat,
             )
+        upload = request.files.get("image")
+        if upload and upload.filename:
+            from app.services.news_article_media import ext_from_upload_filename
+
+            if ext_from_upload_filename(upload.filename) is None:
+                flash("Image must be PNG, JPEG, WebP, or GIF.", "err")
+                return render_template(
+                    "admin_news_compose.html",
+                    teams=teams,
+                    category_choices=NEWS_CATEGORY_CHOICES_ADMIN,
+                    form_title=title,
+                    form_body=body,
+                    form_team_id=raw_tid,
+                    form_category=cat,
+                )
         art = NewsArticle(
             league_slug=slug,
             team_id=team_id,
@@ -390,6 +445,24 @@ def admin_news_compose():
             ap_awarded=False,
         )
         db.session.add(art)
+        db.session.flush()
+        if upload and upload.filename:
+            from app.services.news_article_media import save_news_article_image
+
+            rel = save_news_article_image(upload, league_slug=slug, article_id=art.id)
+            if not rel:
+                db.session.rollback()
+                flash("Image could not be saved (max 2.5 MB).", "err")
+                return render_template(
+                    "admin_news_compose.html",
+                    teams=teams,
+                    category_choices=NEWS_CATEGORY_CHOICES_ADMIN,
+                    form_title=title,
+                    form_body=body,
+                    form_team_id=raw_tid,
+                    form_category=cat,
+                )
+            art.image_rel_path = rel
         db.session.commit()
         if cat == NEWS_CATEGORY_ADMIN_SUBMISSION:
             notify_all_gms_admin_article(slug, art)

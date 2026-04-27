@@ -10,7 +10,7 @@
   <ul class="flash-msgs">{% for cat, msg in messages %}<li class="flash-msgs__{{ cat }}">{{ msg }}</li>{% endfor %}</ul>
   {% endif %}
   {% endwith %}
-  <form method="post" class="card" style="padding:1rem;margin-top:1rem;">
+  <form method="post" enctype="multipart/form-data" class="card" style="padding:1rem;margin-top:1rem;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <label class="block-label">Team (story is tagged to this franchise)<br>
       <select name="team_id" required style="width:100%;max-width:28rem;margin-top:0.35rem;padding:0.35rem;">
@@ -33,6 +33,10 @@
     <label class="block-label" style="display:block;margin-top:0.85rem;">Body<br>
       <textarea name="body" rows="10" required style="width:100%;margin-top:0.35rem;">{{ form_body or '' }}</textarea>
     </label>
+    <label class="block-label" style="display:block;margin-top:0.85rem;">Image (optional)<br>
+      <input type="file" name="image" accept="image/png,image/jpeg,image/webp,image/gif" style="margin-top:0.35rem;">
+    </label>
+    <p class="muted" style="font-size:0.82rem;margin-top:0.35rem;">PNG, JPEG, WebP, or GIF — max 2.5 MB.</p>
     <button type="submit" class="join-league-btn" style="margin-top:0.85rem;border:none;cursor:pointer;">Publish article</button>
   </form>
   <p class="muted" style="margin-top:1rem;"><a href="{{ url_for('main.league_headlines') }}" target="_blank" rel="noopener">View published headlines</a></p>

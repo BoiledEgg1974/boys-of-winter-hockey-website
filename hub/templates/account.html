@@ -11,6 +11,17 @@
     <p><a href="/" style="color:#38bdf8;">← Home</a></p>
     <h1>Your Account</h1>
     <p>{{ current_user.email }} · Discord: {{ current_user.discord_name }}</p>
+    {% if league_news_links %}
+    <section style="margin:1.25rem 0;padding:1rem;border:1px solid rgb(148 163 184 / 0.25);border-radius:8px;">
+      <h2 style="margin-top:0;font-size:1.05rem;">Submit league news</h2>
+      <p class="muted" style="font-size:0.9rem;margin-top:0;">GM news drafts for admin review — open the league site you write for.</p>
+      <ul style="margin:0;padding-left:1.2rem;">
+        {% for league in league_news_links %}
+        <li><a href="/{{ league.slug }}/league-news" style="color:#38bdf8;">{{ league.display_name }} — Submit league news</a></li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
     {% if current_user.is_admin %}
     <p><a href="{{ url_for('hub_auth.admin_memberships') }}">Admin: Memberships</a></p>
     <section style="margin:1.25rem 0;padding:1rem;border:1px solid rgb(148 163 184 / 0.25);border-radius:8px;">

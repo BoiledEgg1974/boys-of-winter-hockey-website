@@ -10,7 +10,7 @@
   {% endif %}
   {% endwith %}
   <p class="muted">Submitted articles appear on the homepage after an administrator publishes them. Choose a <strong>category</strong> for each submission. AP may be awarded on publish (league setting).</p>
-  <form method="post" class="card" style="padding:1rem;margin-bottom:1.5rem;">
+  <form method="post" enctype="multipart/form-data" class="card" style="padding:1rem;margin-bottom:1.5rem;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <label>Category<br>
       <select name="category" required style="width:100%;max-width:28rem;margin-top:0.35rem;padding:0.35rem;">
@@ -21,6 +21,10 @@
     </label>
     <label style="display:block;margin-top:0.75rem;">Title<br><input type="text" name="title" required maxlength="300" style="width:100%;"></label>
     <label style="display:block;margin-top:0.75rem;">Body<br><textarea name="body" rows="8" required style="width:100%;"></textarea></label>
+    <label style="display:block;margin-top:0.75rem;">Image (optional)<br>
+      <input type="file" name="image" accept="image/png,image/jpeg,image/webp,image/gif" style="margin-top:0.35rem;">
+    </label>
+    <p class="muted" style="font-size:0.82rem;margin-top:0.35rem;">PNG, JPEG, WebP, or GIF — max 2.5 MB.</p>
     <button type="submit" class="join-league-btn" style="margin-top:0.75rem;border:none;cursor:pointer;">Submit for review</button>
   </form>
   <h2>Your submissions</h2>

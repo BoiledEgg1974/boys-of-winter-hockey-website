@@ -140,7 +140,14 @@ def account():
     rows = db.session.scalars(
         select(GmLeagueMembership).where(GmLeagueMembership.user_id == current_user.id)
     ).all()
-    return render_template("account.html", memberships=rows, leagues=LEAGUES)
+    active_slugs = {m.league_slug for m in rows if (m.status or "").strip() == "active"}
+    league_news_links = [e for e in LEAGUES if e.slug in active_slugs]
+    return render_template(
+        "account.html",
+        memberships=rows,
+        leagues=LEAGUES,
+        league_news_links=league_news_links,
+    )
 
 
 @hub_auth_bp.get("/admin/memberships")

@@ -100,6 +100,7 @@ class NewsArticle(db.Model):
     published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     ap_awarded: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    image_rel_path: Mapped[str | None] = mapped_column(String(384), nullable=True)
 
 
 class ApRedemptionCatalog(db.Model):

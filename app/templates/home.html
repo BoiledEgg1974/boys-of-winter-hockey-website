@@ -810,14 +810,21 @@
       el.innerHTML = '<p class="muted">' + escape(around.message || 'No league news yet.') + '</p>';
       return;
     }
+    var headlinesPath = around.headlines_path ? String(around.headlines_path) : '/league-headlines';
+    if (!headlinesPath.startsWith('/')) headlinesPath = '/' + headlinesPath;
     var h = '<ul class="home-news-list">';
     arts.forEach(function (a) {
-      var href = a.href ? withRoot(String(a.href)) : '#';
       h += '<li class="home-news-list__item">';
       if (a.category_label) {
         h += '<span class="news-category-pill">' + escape(String(a.category_label)) + '</span> ';
       }
-      h += '<a class="home-news-list__title" href="' + escapeAttr(href) + '">' + escape(a.title || '') + '</a>';
+      h += '<div class="home-news-list__heading">' + escape(a.title || '') + '</div>';
+      if (a.image_url) {
+        h +=
+          '<div class="home-news-list__media"><img class="home-news-list__thumb" src="' +
+          escapeAttr(String(a.image_url)) +
+          '" alt="" loading="lazy" decoding="async"></div>';
+      }
       if (a.team_logo_url || a.gm_label) {
         h += '<div class="home-news-list__byline">';
         if (a.team_logo_url) {
@@ -828,10 +835,15 @@
       } else if (a.team_name) {
         h += ' <span class="muted">' + escape(a.team_name) + '</span>';
       }
-      if (a.excerpt) h += '<div class="home-news-list__excerpt muted">' + escape(a.excerpt) + '</div>';
+      if (a.body) {
+        h += '<div class="home-news-list__body">' + escape(a.body) + '</div>';
+      }
       h += '</li>';
     });
-    h += '</ul><p class="stats-list-foot muted"><a href="' + escapeAttr(withRoot('/league-headlines')) + '">All headlines</a></p>';
+    h +=
+      '</ul><p class="link-more" style="margin-top:0.65rem;"><a href="' +
+      escapeAttr(withRoot(headlinesPath)) +
+      '">View all headlines</a></p>';
     el.innerHTML = h;
   }
 

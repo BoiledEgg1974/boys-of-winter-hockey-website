@@ -48,7 +48,7 @@
       </nav>
       <div class="header-tools">
         <a class="header-tools__link" href="{{ url_for('site_gm.action_points_page') }}">AP</a>
-        {% if gm_membership %}
+        {% if gm_membership or (current_user.is_authenticated and current_user.is_admin) %}
         <a class="header-tools__link header-tools__link--messages" href="{{ url_for('site_gm.gm_messages_inbox') }}">Messages{% if gm_messages_unread %}<span class="header-tools__msg-badge" aria-label="{{ gm_messages_unread }} unread">{{ gm_messages_unread }}</span>{% endif %}</a>
         {% endif %}
         <a class="header-tools__link" href="/login">GM Log In</a>

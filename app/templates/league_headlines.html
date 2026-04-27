@@ -5,16 +5,31 @@
   <h1 class="page-title">Around the League</h1>
   <p class="muted">Published headlines from GMs and the league office.</p>
   {% for a in articles %}
-  <article class="card" id="a{{ a.id }}" style="padding:1rem;margin-bottom:1rem;">
-    <h2 style="margin-top:0;font-size:1.1rem;">{{ a.title }}</h2>
+  <article class="card headlines-article" id="a{{ a.id }}" style="padding:1rem;margin-bottom:1rem;">
+    <h2 class="headlines-article__title">{{ a.title }}</h2>
     <p class="muted"><span class="news-category-pill">{{ news_category_label(a.category) }}</span></p>
-    <p class="muted">
-      {% if a.team_id and teams_by_id.get(a.team_id) %}
-      {{ teams_by_id[a.team_id].full_display_name() }} ·
+    <div class="headlines-article__byline muted">
+      {% set by_team = byline_teams.get(a.id) %}
+      {% if by_team and team_logo_url(by_team) %}
+      <img class="headlines-article__byline-logo" src="{{ team_logo_url(by_team) }}" alt="" width="28" height="28" loading="lazy" decoding="async">
       {% endif %}
-      {{ a.published_at.strftime('%Y-%m-%d %H:%M') if a.published_at else '' }}
-    </p>
-    <div style="white-space:pre-wrap;">{{ a.body }}</div>
+      <span class="headlines-article__byline-text">
+        {% set author = authors_by_id.get(a.author_user_id) %}
+        {{ gm_display_name(author) }}
+        {% if a.team_id and teams_by_id.get(a.team_id) %}
+        · {{ teams_by_id[a.team_id].full_display_name() }}
+        {% endif %}
+        {% if a.published_at %}
+        · {{ a.published_at.strftime('%Y-%m-%d %H:%M') }}
+        {% endif %}
+      </span>
+    </div>
+    {% if a.image_rel_path %}
+    <div class="headlines-article__media">
+      <img class="headlines-article__img" src="{{ url_for('static', filename=a.image_rel_path) }}" alt="" loading="lazy" decoding="async">
+    </div>
+    {% endif %}
+    <div class="headlines-article__body" style="white-space:pre-wrap;">{{ a.body }}</div>
   </article>
   {% else %}
   <p class="empty-state">No published articles yet.</p>

@@ -311,10 +311,40 @@ def home():
     return render_template("home.html", milestone_teasers=milestone_teasers)
 
 
+def _headline_byline_team(
+    league_slug: str,
+    art: object,
+    authors: dict[int, object],
+    teams_by_id: dict[int, Team],
+) -> Team | None:
+    """Team logo next to byline: GM's active seat, else article team, else none."""
+    uid = int(getattr(art, "author_user_id", 0) or 0)
+    u = authors.get(uid)
+    if u is not None and getattr(u, "is_admin", False) and getattr(art, "team_id", None):
+        return teams_by_id.get(int(art.team_id))
+    from app.site_models import GmLeagueMembership
+
+    mem = db.session.scalar(
+        select(GmLeagueMembership)
+        .where(
+            GmLeagueMembership.league_slug == league_slug,
+            GmLeagueMembership.user_id == uid,
+            GmLeagueMembership.status == "active",
+        )
+        .limit(1)
+    )
+    if mem and mem.team_id:
+        return teams_by_id.get(int(mem.team_id))
+    tid = getattr(art, "team_id", None)
+    if tid:
+        return teams_by_id.get(int(tid))
+    return None
+
+
 @main_bp.get("/league-headlines")
 def league_headlines():
     """Public published articles (Around the League)."""
-    from app.site_models import NewsArticle
+    from app.site_models import NewsArticle, User
 
     slug = str(current_app.config.get("LEAGUE_SLUG") or "")
     rows = db.session.scalars(
@@ -324,11 +354,20 @@ def league_headlines():
         .limit(100)
     ).all()
     teams = {t.id: t for t in db.session.scalars(select(Team)).all()}
+    author_ids = {a.author_user_id for a in rows}
+    authors_by_id: dict[int, User] = {}
+    if author_ids:
+        for u in db.session.scalars(select(User).where(User.id.in_(author_ids))).all():
+            authors_by_id[u.id] = u
+    byline_teams = {a.id: _headline_byline_team(slug, a, authors_by_id, teams) for a in rows}
     return render_template(
         "league_headlines.html",
         articles=rows,
         teams_by_id=teams,
+        authors_by_id=authors_by_id,
+        byline_teams=byline_teams,
         news_category_label=news_category_label,
+        gm_display_name=gm_display_name,
     )
 
 
@@ -2799,7 +2838,7 @@ def _team_page_news_rows(team_id: int) -> list[dict[str, object]]:
             NewsArticle.team_id == team_id,
         )
         .order_by(NewsArticle.published_at.desc().nulls_last(), NewsArticle.id.desc())
-        .limit(25)
+        .limit(5)
     ).all()
     if not rows:
         return []
@@ -2815,10 +2854,8 @@ def _team_page_news_rows(team_id: int) -> list[dict[str, object]]:
             byline = f"League admin · {name}" if name and name != "—" else "League admin"
         else:
             byline = gm_display_name(u)
-        excerpt = (a.body or "").strip().replace("\r\n", "\n")
-        if len(excerpt) > 160:
-            excerpt = excerpt[:160] + "…"
-        out.append({"article": a, "byline": byline, "excerpt": excerpt})
+        body = (a.body or "").strip().replace("\r\n", "\n")
+        out.append({"article": a, "byline": byline, "body": body})
     return out
 
 

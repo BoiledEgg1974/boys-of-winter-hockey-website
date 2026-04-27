@@ -10,7 +10,8 @@
   {% endwith %}
   <p class="muted">League-wide balances. GMs with an approved membership can submit redemptions for admin approval.</p>
   {% if membership %}
-  <p><strong>Your team balance:</strong> {{ balance }} AP · <a href="{{ url_for('site_gm.league_news') }}">Submit league news</a></p>
+  <p><strong>Your team balance:</strong> {{ balance }} AP</p>
+  <p class="muted">Submit GM news articles from your <a href="/account">Account</a> page.</p>
   <h2>Request redemption</h2>
   <form method="post" action="{{ url_for('site_gm.action_points_redeem') }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

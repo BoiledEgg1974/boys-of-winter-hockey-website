@@ -16,6 +16,11 @@
   {% elif article.status == 'rejected' %}
   <p><span class="admin-news-status admin-news-status--denied">DENIED</span></p>
   {% endif %}
+  {% if article.image_rel_path %}
+  <div class="headlines-article__media" style="margin:0.75rem 0;">
+    <img class="headlines-article__img" src="{{ url_for('static', filename=article.image_rel_path) }}" alt="" loading="lazy" decoding="async">
+  </div>
+  {% endif %}
   <div class="admin-news-preview-body" style="white-space:pre-wrap;margin:1rem 0;padding:1rem;border:1px solid rgb(148 163 184 / 0.25);border-radius:8px;">{{ article.body }}</div>
   {% if article.status == 'pending' %}
   <div class="admin-news-preview-actions" style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:1rem;">

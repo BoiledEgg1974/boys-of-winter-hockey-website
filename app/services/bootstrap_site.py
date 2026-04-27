@@ -30,6 +30,16 @@ def ensure_news_articles_category_column(app) -> None:
             )
 
 
+def ensure_news_articles_image_rel_path_column(app) -> None:
+    """Add ``image_rel_path`` for optional headline images."""
+    engine = db.get_engine(app, bind="site")
+    with engine.begin() as conn:
+        rows = conn.execute(text("PRAGMA table_info(news_articles)")).fetchall()
+        colnames = {row[1] for row in rows}
+        if "image_rel_path" not in colnames:
+            conn.execute(text("ALTER TABLE news_articles ADD COLUMN image_rel_path VARCHAR(384)"))
+
+
 def ensure_site_users_username_column(app) -> None:
     """Add ``username`` to ``site_users`` when upgrading an existing SQLite file."""
     engine = db.get_engine(app, bind="site")
@@ -49,6 +59,7 @@ def ensure_commish_admin(app) -> None:
     """Create or update commissioner admin. Login: Commish (username) or keenovdecimanus@gmail.com."""
     ensure_site_users_username_column(app)
     ensure_news_articles_category_column(app)
+    ensure_news_articles_image_rel_path_column(app)
     pw = str(
         app.config.get("COMMISH_ADMIN_PASSWORD")
         or os.environ.get("COMMISH_ADMIN_PASSWORD", "Claudette81!")

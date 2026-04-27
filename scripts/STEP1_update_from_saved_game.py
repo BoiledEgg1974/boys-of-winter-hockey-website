@@ -156,7 +156,7 @@ def _git_commit_and_push() -> None:
     print("Git push complete.")
 
 
-def _run_pythonanywhere_deploy(*, csv_only: bool) -> None:
+def _run_pythonanywhere_deploy(*, csv_only: bool, remote_pip: bool) -> None:
     """Upload from repo raw folders; STEP2_pythonanywhere skips remote files that are same/newer."""
     if not PA_DEPLOY_SCRIPT.is_file():
         raise FileNotFoundError(f"Missing {PA_DEPLOY_SCRIPT}")
@@ -168,6 +168,8 @@ def _run_pythonanywhere_deploy(*, csv_only: bool) -> None:
     ]
     if csv_only:
         cmd.append("--csv-only")
+    if remote_pip:
+        cmd.append("--remote-pip")
     subprocess.run(cmd, cwd=REPO_ROOT, check=True)
 
 
@@ -198,6 +200,11 @@ def main() -> int:
         "--pa-csv-only",
         action="store_true",
         help="With --pa-deploy: only upload data/imports/raw, not app/static.",
+    )
+    parser.add_argument(
+        "--pa-remote-pip",
+        action="store_true",
+        help="With --pa-deploy: ask STEP2 to run remote pip install -r requirements.txt before imports.",
     )
     args = parser.parse_args()
 
@@ -348,7 +355,10 @@ def main() -> int:
     if do_pa:
         print("\n--- PythonAnywhere deploy (repo CSV → server, mtime-aware) ---")
         try:
-            _run_pythonanywhere_deploy(csv_only=bool(args.pa_csv_only))
+            _run_pythonanywhere_deploy(
+                csv_only=bool(args.pa_csv_only),
+                remote_pip=bool(args.pa_remote_pip),
+            )
         except FileNotFoundError as exc:
             print(f"ERROR: {exc}")
             return 1

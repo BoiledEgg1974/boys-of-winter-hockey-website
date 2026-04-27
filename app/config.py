@@ -197,6 +197,8 @@ class Config:
     ROOKIE_PSPO_SKATER_MIN_GP = int(_ROOKIE["pspo_skater_min_gp"])
     ROOKIE_PSPO_GOALIE_MIN_MINUTES = int(_ROOKIE["pspo_goalie_min_minutes"])
     JOIN_LEAGUE_RECIPIENT = os.environ.get("JOIN_LEAGUE_RECIPIENT", "keenovdecimanus@gmail.com")
+    # Optional comma-separated extra inboxes for admin review alerts (news, AP, memberships).
+    ADMIN_ALERT_EMAILS = os.environ.get("ADMIN_ALERT_EMAILS", "")
     MAIL_SMTP_HOST = os.environ.get("MAIL_SMTP_HOST", "")
     MAIL_SMTP_PORT = int(os.environ.get("MAIL_SMTP_PORT", "587"))
     MAIL_SMTP_USERNAME = os.environ.get("MAIL_SMTP_USERNAME", "")

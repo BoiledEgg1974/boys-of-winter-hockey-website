@@ -10,7 +10,6 @@ from sqlalchemy import select
 from app.auth_login import active_membership_for_league, require_admin
 from app.config import LEAGUES, league_group_for_slug, league_slugs
 from app.league_db import db
-from app.mail_util import send_site_email
 from app.models import Player, PlayerContract, Team
 from app.services.ap_multileague import team_id_for_slug_in_league
 from app.services.gm_messaging import (
@@ -135,17 +134,20 @@ def action_points_redeem():
     )
     db.session.add(req)
     db.session.flush()
-    admin_to = str(current_app.config.get("JOIN_LEAGUE_RECIPIENT", "")).strip()
-    if admin_to:
-        try:
-            link = request.url_root.rstrip("/") + url_for("site_admin.ap_request_one", rid=req.id)
-            send_site_email(
-                subject=f"[{_league_slug()}] AP redemption request #{req.id}",
-                body=f"User: {current_user.email}\nTeam id: {mem.team_id}\nTotal AP: {total}\n\nReview:\n{link}\n",
-                to_addrs=[admin_to],
-            )
-        except Exception:
-            pass
+    try:
+        from app.config import league_display_name as _league_display_name
+        from app.services.admin_review_notify import notify_ap_redemption_pending
+
+        notify_ap_redemption_pending(
+            league_slug=slug,
+            league_display_name=_league_display_name(slug),
+            request_id=int(req.id),
+            user_email=str(current_user.email or ""),
+            team_id=int(mem.team_id),
+            total_ap=int(total),
+        )
+    except Exception as exc:
+        current_app.logger.warning("Admin notify (AP redemption): %s", exc)
     db.session.commit()
     flash("Request submitted for administrator approval.", "ok")
     return redirect(url_for("site_gm.action_points_page"))
@@ -196,6 +198,20 @@ def league_news():
                     return redirect(url_for("site_gm.league_news"))
                 art.image_rel_path = rel
             db.session.commit()
+            try:
+                from app.services.admin_review_notify import notify_news_pending_review
+
+                notify_news_pending_review(
+                    league_slug=slug,
+                    league_display_name=str(current_app.config.get("LEAGUE_DISPLAY_NAME", slug)),
+                    article_id=int(art.id),
+                    author_email=str(current_user.email or ""),
+                    title=str(art.title or ""),
+                )
+                db.session.commit()
+            except Exception as exc:
+                current_app.logger.warning("Admin notify (news pending): %s", exc)
+                db.session.rollback()
             flash("Article submitted for review.", "ok")
             return redirect(url_for("site_gm.league_news"))
     articles = db.session.scalars(
@@ -293,6 +309,10 @@ def gm_notification_open(nid: int):
         return redirect(url_for("site_gm.action_points_page"))
     if n.kind == "redemption_denied":
         return redirect(url_for("site_gm.action_points_page"))
+    if n.kind == "admin_review_news" and n.article_id:
+        return redirect(url_for("site_admin.admin_news_preview", aid=int(n.article_id)))
+    if n.kind == "admin_review_ap" and n.article_id:
+        return redirect(url_for("site_admin.ap_request_one", rid=int(n.article_id)))
     return redirect(url_for("site_gm.gm_messages_inbox"))
 
 

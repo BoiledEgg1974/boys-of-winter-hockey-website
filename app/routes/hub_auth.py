@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from urllib.parse import unquote
 
-from flask import Blueprint, flash, redirect, render_template, request, url_for
+from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 from sqlalchemy import func, select
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -98,6 +98,16 @@ def register_post():
             )
         )
     db.session.commit()
+    try:
+        from app.services.admin_review_notify import notify_membership_registration_pending
+
+        notify_membership_registration_pending(
+            user_email=user.email,
+            discord_name=user.discord_name or "",
+            membership_rows=memberships_data,
+        )
+    except Exception as exc:
+        current_app.logger.warning("Admin notify (membership registration): %s", exc)
     flash("Account created. Memberships are pending until an administrator approves them.", "ok")
     return redirect(url_for("hub_auth.login"))
 

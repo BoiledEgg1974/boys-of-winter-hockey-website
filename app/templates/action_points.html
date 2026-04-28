@@ -9,6 +9,34 @@
   {% endif %}
   {% endwith %}
   <p class="muted">League-wide balances. GMs with an approved membership can submit redemptions for admin approval.</p>
+  <section class="ap-rules" aria-labelledby="ap-rules-h">
+    <h2 id="ap-rules-h">How GMs Earn / Lose AP</h2>
+    <div class="ap-rules__groups">
+      <div class="ap-rules__group">
+        <h3 class="ap-rules__group-title"><span class="ap-rules__points ap-rules__points--plus">+1 AP each</span></h3>
+        <ul class="ap-rules__list">
+          <li>Daily Export</li>
+          <li>All-Star Selection</li>
+          <li>All-Star Skill Competition Winner</li>
+          <li>All-Star Game Star Selection</li>
+          <li>Award Won</li>
+          <li>Correct Playoff Prediction</li>
+        </ul>
+      </div>
+      <div class="ap-rules__group">
+        <h3 class="ap-rules__group-title"><span class="ap-rules__points ap-rules__points--plus">+3 AP each</span></h3>
+        <ul class="ap-rules__list">
+          <li>Daily submission of a news article</li>
+        </ul>
+      </div>
+      <div class="ap-rules__group">
+        <h3 class="ap-rules__group-title"><span class="ap-rules__points ap-rules__points--minus">-1 AP penalty each</span></h3>
+        <ul class="ap-rules__list">
+          <li>Contract below the minimum at the start of the regular season</li>
+        </ul>
+      </div>
+    </div>
+  </section>
   {% if membership %}
   <p><strong>Your team balance:</strong> {{ balance }} AP</p>
   <p class="muted">Submit GM news articles from your <a href="/account">Account</a> page.</p>

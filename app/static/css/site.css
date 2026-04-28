@@ -3090,6 +3090,14 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
   border-radius: 8px;
   display: block;
 }
+.team-page-news__list,
+#home-news .home-news-list {
+  max-height: 34rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding-right: 0.2rem;
+}
 .headlines-article__title {
   font-size: 1.1rem;
   margin-top: 0;
@@ -3478,6 +3486,44 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
 }
 
 /* Action Points — All Teams board (two columns, logos, centered AP) */
+.ap-rules {
+  margin: 0.9rem 0 1.1rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid rgb(148 163 184 / 0.28);
+  border-radius: 10px;
+  background: rgb(15 23 42 / 0.25);
+}
+.ap-rules h2 {
+  margin: 0 0 0.55rem;
+  font-size: 1rem;
+}
+.ap-rules__groups {
+  display: grid;
+  gap: 0.65rem;
+}
+.ap-rules__group-title {
+  margin: 0;
+}
+.ap-rules__points {
+  display: inline-block;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.ap-rules__points--plus {
+  color: #22c55e;
+}
+.ap-rules__points--minus {
+  color: #f87171;
+}
+.ap-rules__list {
+  margin: 0.25rem 0 0;
+  padding-left: 1.1rem;
+}
+.ap-rules__list li {
+  margin: 0.12rem 0;
+}
 .ap-teams-board {
   display: grid;
   grid-template-columns: 1fr 1fr;

@@ -676,7 +676,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 700;186;186;Steven;Fletcher;;74;181;1954-3-31;Montreal;QC;Canada;;;0;Left;0
 701;186;186;Ryan;Flinn;;77;248;1949-4-20;Glace Bay;NS;Canada;;;0;Left;0
 702;237;237;Rob;Flockhart;;72;185;1960-2-6;Sicamous;BC;Canada;;;0;Left;0
-703;11;11;Bryan;Fogarty;;76;206;1959-6-11;Montreal;QC;Canada;;;0;Left;0
+703;214;11;Bryan;Fogarty;;76;206;1959-6-11;Montreal;QC;Canada;;;0;Left;0
 704;24;24;Lee;Fogolin;;71;201;1959-2-27;Thunder Bay;ON;Canada;;;0;Left;0
 706;15;15;Adam;Foote;;74;227;1953-7-10;Toronto;ON;Canada;;;0;Right;0
 707;186;186;Mike;Ford;;73;185;1952-7-26;Ottawa;ON;Canada;;;0;Right;0
@@ -4443,7 +4443,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 4566;25;25;Ian;Cole;;73;225;1965-2-21;Ann Arbor;MI;The United States;;;0;Left;1
 4567;236;25;Calen;Addison;;71;181;1965-4-11;Brandon;MB;Canada;;;0;Right;0
 4568;26;26;Serron;Noel;;77;216;1965-8-8;Ottawa;ON;Canada;;;0;Right;1
-4569;10;10;Gus;Mortson;Hardrock;71;196;1965-1-24;Temiskaming Shores;ON;Canada;;;0;Left;0
+4569;216;10;Gus;Mortson;Hardrock;71;196;1965-1-24;Temiskaming Shores;ON;Canada;;;0;Left;0
 4570;16;16;Jack;Crawford;;71;200;1965-10-26;West Perth;ON;Canada;;;0;Right;1
 4571;214;11;Jeff;Hackett;Hack;73;201;1965-6-1;London;ON;Canada;;;0;Left;0
 4572;236;25;William;Carrier;;74;220;1965-12-20;Montreal;QC;Canada;;;0;Left;0

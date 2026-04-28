@@ -798,6 +798,13 @@ def admin_home():
     )
 
 
+@site_admin_bp.get("/commissioner-sop")
+@login_required
+def admin_commissioner_sop():
+    require_admin()
+    return render_template("admin_commissioner_sop.html")
+
+
 @site_admin_bp.route("/roles", methods=["GET", "POST"])
 @login_required
 def admin_roles():

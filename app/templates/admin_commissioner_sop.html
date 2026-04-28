@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Commissioner SOP — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:56rem;margin:0 auto;">
+  <h1 class="page-title">Commissioner SOP (Beginner)</h1>
+  <p style="display:flex;gap:0.6rem;flex-wrap:wrap;align-items:center;">
+    <a href="{{ url_for('site_admin.admin_home') }}">← Back to Site admin</a>
+    <button type="button" class="admin-news-body-btn sop-print-btn" onclick="window.print()">Print / Save PDF</button>
+  </p>
+  <p class="muted" style="margin:0 0 0.8rem;">
+    This is your simple routine for running Site admin safely.
+  </p>
+
+  <h2 style="margin-top:0.2rem;">Daily (5-10 minutes)</h2>
+  <ul>
+    <li>Open <strong>Analytics &amp; alerting dashboard</strong> and check for red/yellow alerts.</li>
+    <li>Open <strong>GM operations queue</strong> and process pending requests.</li>
+    <li>Open <strong>AP redemption requests</strong> and approve/deny pending items.</li>
+    <li>Open <strong>News Moderation</strong> to approve content, or use <strong>post article</strong> to publish.</li>
+    <li>Open <strong>Discord integration</strong> and confirm health checks are green.</li>
+  </ul>
+
+  <h2>Every 2-3 days</h2>
+  <ul>
+    <li>Review <strong>Announcement banners</strong> and remove old notices.</li>
+    <li>Review <strong>Homepage modules</strong> to confirm layout and visibility still look correct.</li>
+    <li>Review <strong>Franchise health dashboard</strong> for inactive/risky teams.</li>
+    <li>Check <strong>Audit log</strong> for unexpected high-impact actions.</li>
+  </ul>
+
+  <h2>Weekly</h2>
+  <ul>
+    <li>Review <strong>League rules</strong> and revert temporary settings you no longer need.</li>
+    <li>Review <strong>Redemption catalog</strong> and clean up stale reward items.</li>
+    <li>Review <strong>Manual AP ledger</strong> for corrections and unusual entries.</li>
+    <li>Review <strong>Story automation</strong> for scheduled jobs, retries, and errors.</li>
+    <li>In <strong>Discord integration</strong>, replay or requeue any dead-letter events.</li>
+  </ul>
+
+  <h2>Before major operations (important)</h2>
+  <ul>
+    <li>Use <strong>League control center</strong> dry-run/preview first.</li>
+    <li>Confirm backup exists before execute/restore/rollover actions.</li>
+    <li>Run one high-impact action at a time, then verify results.</li>
+    <li>Check <strong>Audit log</strong> after each major action.</li>
+  </ul>
+
+  <h2>High-risk tools (use carefully)</h2>
+  <ul>
+    <li>League control center (restore/import/rollover/execute operations)</li>
+    <li>Admin roles</li>
+    <li>League rules</li>
+    <li>Edit player contract (cap)</li>
+    <li>Undo center</li>
+  </ul>
+
+  <h2>Safety checklist (every time)</h2>
+  <ul>
+    <li>Confirm you are in the correct league site.</li>
+    <li>Read the action details twice before submitting.</li>
+    <li>Use preview/dry-run when available.</li>
+    <li>Ensure a backup exists before high-impact actions.</li>
+    <li>Verify the result immediately after the action.</li>
+  </ul>
+</div>
+<style>
+@media print {
+  .site-header,
+  .site-footer,
+  .sop-print-btn,
+  .flash-wrap,
+  .theme-toggle,
+  .nav-toggle,
+  .header-tools,
+  .main-nav,
+  .team-strip {
+    display: none !important;
+  }
+  main#main-content {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .card {
+    box-shadow: none !important;
+    border: 1px solid #bbb !important;
+    margin: 0 !important;
+    max-width: none !important;
+  }
+  a[href]:after {
+    content: "";
+  }
+}
+</style>
+{% endblock %}

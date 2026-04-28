@@ -3,6 +3,9 @@
 {% block content %}
 <div class="card" style="max-width:40rem;margin:0 auto;">
   <h1 class="page-title">Site admin</h1>
+  <p class="muted" style="margin:0 0 0.6rem;">
+    New here? Start with the <a href="{{ url_for('site_admin.admin_commissioner_sop') }}">Commissioner SOP (beginner checklist)</a>.
+  </p>
   <ul>
     <li><a href="{{ url_for('site_admin.admin_news_queue') }}">News Moderation</a> — <a href="{{ url_for('site_admin.admin_news_compose') }}">post article</a></li>
     <li><a href="{{ url_for('site_admin.admin_control_center') }}">League control center (read-only)</a></li>

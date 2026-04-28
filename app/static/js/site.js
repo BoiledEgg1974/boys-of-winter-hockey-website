@@ -312,12 +312,12 @@
     var leagueSwitcher = document.getElementById("league-switcher");
     if (leagueSwitcher) {
       leagueSwitcher.addEventListener("change", function () {
-        var slug = leagueSwitcher.value;
-        var path = window.location.pathname;
-        var m = path.match(/^\/([^/]+)(\/.*)?$/);
-        var rest = m && m[2] ? m[2] : "/";
-        var qs = window.location.search || "";
-        window.location.href = "/" + slug + rest + qs;
+        var slug = (leagueSwitcher.value || "").replace(/^\/+|\/+$/g, "");
+        if (!slug) return;
+        // Always open the selected league's homepage. Carrying over paths like /team/bos-t5
+        // breaks when that slug or route does not exist in the other league DB.
+        // Domain-root path: withRoot would prefix current SCRIPT_NAME (e.g. /bowl-fantasy/bowl-historical/).
+        window.location.href = "/" + slug + "/";
       });
     }
 

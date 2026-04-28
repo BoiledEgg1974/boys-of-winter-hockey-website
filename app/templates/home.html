@@ -15,7 +15,19 @@
     <p class="home-dashboard__deck">League home — leaders, schedule, and storylines for this universe.</p>
   </header>
 
-  <div id="dash-schedule" class="home-dash-schedule-ribbon">
+  <p id="home-load-error" class="empty-state home-dashboard__banner-msg" hidden>Could not load dashboard.</p>
+  <div class="home-dashboard__toc-sticky">
+    <nav class="home-dashboard__toc" aria-label="On this page">
+      <a class="home-dashboard__toc-link" href="#dash-schedule">Schedule</a>
+      <a class="home-dashboard__toc-link" href="#dash-around">Around The League</a>
+      <a class="home-dashboard__toc-link" href="#dash-leaders">League Leaders</a>
+      <a class="home-dashboard__toc-link" href="#dash-milestones">Milestones</a>
+      <a class="home-dashboard__toc-link" href="#dash-postseason-odds">Postseason Odds</a>
+      <a class="home-dashboard__toc-link" href="#dash-watch">Watch List</a>
+      <a class="home-dashboard__toc-link" href="#dash-standings">Standings</a>
+    </nav>
+  </div>
+  <div id="dash-schedule" class="home-dash-schedule-ribbon" data-module-key="schedule">
     <div class="card card--team-schedule home-dash-schedule-ribbon__card" style="--schedule-accent: var(--accent);">
       <h2 class="card--team-schedule__title">Schedule</h2>
       <div class="team-schedule-carousel" data-team-schedule-carousel>
@@ -29,22 +41,9 @@
     </div>
   </div>
 
-  <p id="home-load-error" class="empty-state home-dashboard__banner-msg" hidden>Could not load dashboard.</p>
-  <div class="home-dashboard__toc-sticky">
-    <nav class="home-dashboard__toc" aria-label="On this page">
-      <a class="home-dashboard__toc-link" href="#dash-schedule">Schedule</a>
-      <a class="home-dashboard__toc-link" href="#dash-around">Around The League</a>
-      <a class="home-dashboard__toc-link" href="#dash-leaders">League Leaders</a>
-      <a class="home-dashboard__toc-link" href="#dash-milestones">Milestones</a>
-      <a class="home-dashboard__toc-link" href="#dash-postseason-odds">Postseason Odds</a>
-      <a class="home-dashboard__toc-link" href="#dash-watch">Watch List</a>
-      <a class="home-dashboard__toc-link" href="#dash-standings">Standings</a>
-    </nav>
-  </div>
-
   <div class="home-dashboard__cols-121">
     <aside id="dash-watch" class="home-dash-col home-dash-col--side" aria-label="Featured games, stars, and special teams">
-      <section id="dash-postseason-odds" class="card home-dashboard__card home-postseason-odds" aria-labelledby="ps-odds-h">
+      <section id="dash-postseason-odds" class="card home-dashboard__card home-postseason-odds" aria-labelledby="ps-odds-h" data-module-key="postseason_odds">
         <h2 id="ps-odds-h" class="home-dashboard__h">Postseason Odds</h2>
         <p class="muted home-dashboard__sub">Monte Carlo from remaining schedule and team pace</p>
         <div class="home-postseason-odds__toolbar">
@@ -55,16 +54,16 @@
           <p class="empty-state">Loading…</p>
         </div>
       </section>
-      <section class="card home-dashboard__card" aria-labelledby="gotn-h">
+      <section class="card home-dashboard__card" aria-labelledby="gotn-h" data-module-key="game_of_the_night">
         <h2 id="gotn-h" class="home-dashboard__h">Game of the Night</h2>
         <p class="muted home-dashboard__sub">Playoff-race weighted pick</p>
         <div id="home-gotn" class="home-dashboard__slot"></div>
       </section>
-      <section class="card home-dashboard__card" aria-labelledby="ngtw-h">
+      <section class="card home-dashboard__card" aria-labelledby="ngtw-h" data-module-key="next_game_to_watch">
         <h2 id="ngtw-h" class="home-dashboard__h">Next Game to Watch</h2>
         <div id="home-ngtw" class="home-dashboard__slot"></div>
       </section>
-      <section class="card home-dashboard__card home-dashboard__stars-card" aria-labelledby="stars-h">
+      <section class="card home-dashboard__card home-dashboard__stars-card" aria-labelledby="stars-h" data-module-key="three_stars">
         <h2 id="stars-h" class="home-dashboard__h">Three Stars</h2>
         <p class="muted home-dashboard__sub">Best skaters over recent league days</p>
         <div class="home-dashboard__tabs" role="tablist" aria-label="Window length">
@@ -82,7 +81,7 @@
           <div id="home-stars-30" class="home-dashboard__slot"></div>
         </div>
       </section>
-      <section id="dash-milestones" class="card home-dashboard__card" aria-labelledby="home-milestones-h">
+      <section id="dash-milestones" class="card home-dashboard__card" aria-labelledby="home-milestones-h" data-module-key="milestones_watch">
         <h2 id="home-milestones-h" class="home-dashboard__h">Milestones Watch</h2>
         <p class="muted home-dashboard__sub">Closest active players to major regular-season career marks</p>
         {% if milestone_teasers %}
@@ -116,7 +115,7 @@
         {% endif %}
         <a class="link-more" href="{{ url_for('main.milestones') }}">View full milestones page</a>
       </section>
-      <section class="card home-dashboard__card" aria-labelledby="special-teams-h">
+      <section class="card home-dashboard__card" aria-labelledby="special-teams-h" data-module-key="special_teams_snapshot">
         <h2 id="special-teams-h">Special Teams Snapshot</h2>
         <div id="home-special-teams" class="table-wrap">
           <p class="empty-state">Loading…</p>
@@ -125,11 +124,11 @@
     </aside>
 
     <div class="home-dash-col home-dash-col--center">
-      <section id="dash-around" class="card home-dashboard__card" aria-labelledby="news-h">
+      <section id="dash-around" class="card home-dashboard__card" aria-labelledby="news-h" data-module-key="around_the_league">
         <h2 id="news-h" class="home-dashboard__h">Around the League</h2>
         <div id="home-news" class="home-dashboard__slot"></div>
       </section>
-      <section id="dash-leaders" class="card mini-leaders home-dashboard__card" aria-labelledby="leaders-h">
+      <section id="dash-leaders" class="card mini-leaders home-dashboard__card" aria-labelledby="leaders-h" data-module-key="league_leaders">
         <h2 id="leaders-h">League Leaders</h2>
         <p class="muted" style="margin:0 0 0.5rem;font-size:0.85rem;">Leaderboard split:
           <a href="#" data-seg="rs" class="seg-pick">RS</a> ·
@@ -148,13 +147,13 @@
         </div>
         <a class="link-more" href="{{ url_for('main.statistics') }}">View full statistics</a>
       </section>
-      <section id="dash-rookies" class="card home-dashboard__card" aria-labelledby="rookies-h">
+      <section id="dash-rookies" class="card home-dashboard__card" aria-labelledby="rookies-h" data-module-key="top_rookies">
         <h2 id="rookies-h">Top Rookies</h2>
         <div id="home-rookies" class="table-wrap">
           <p class="empty-state">Loading…</p>
         </div>
       </section>
-      <section id="dash-momentum" class="card home-dashboard__card" aria-labelledby="momentum-h">
+      <section id="dash-momentum" class="card home-dashboard__card" aria-labelledby="momentum-h" data-module-key="player_momentum">
         <h2 id="momentum-h" class="home-dashboard__h">Momentum</h2>
         <h3 id="trend-h" class="home-dashboard__mini-h">Trending Players</h3>
         <p class="muted home-dashboard__sub">Last 14 league days vs season pace</p>
@@ -162,7 +161,7 @@
         <h3 id="streak-h" class="home-dashboard__mini-h">Active Streaks</h3>
         <div id="home-streaks" class="home-dashboard__slot"></div>
       </section>
-      <section id="dash-team-momentum" class="card home-dashboard__card" aria-labelledby="team-momentum-h">
+      <section id="dash-team-momentum" class="card home-dashboard__card" aria-labelledby="team-momentum-h" data-module-key="team_momentum">
         <h2 id="team-momentum-h" class="home-dashboard__h">Team Momentum</h2>
         <h3 class="home-dashboard__mini-h">Trending Teams</h3>
         <p class="muted home-dashboard__sub">Last 14 league days vs season pace</p>
@@ -170,7 +169,7 @@
         <h3 class="home-dashboard__mini-h">Active Streaks</h3>
         <div id="home-team-streaks" class="home-dashboard__slot"></div>
       </section>
-      <section id="home-spotlight-card" class="card home-dashboard__card" aria-labelledby="spotlight-h">
+      <section id="home-spotlight-card" class="card home-dashboard__card" aria-labelledby="spotlight-h" data-module-key="league_spotlight">
         <h2 id="spotlight-h">League Spotlight</h2>
         <div id="home-spotlight" class="table-wrap">
           <p class="empty-state">Loading…</p>
@@ -179,20 +178,20 @@
     </div>
 
     <aside class="home-dash-col home-dash-col--side" aria-label="Standings, rankings, and league identity">
-      <section id="dash-standings" class="card home-dashboard__card home-dash-standings-card" aria-labelledby="std-h">
+      <section id="dash-standings" class="card home-dashboard__card home-dash-standings-card" aria-labelledby="std-h" data-module-key="divisional_standings">
         <h2 id="std-h" class="home-dashboard__h">Divisional Standings</h2>
         <a class="link-more" href="{{ url_for('main.standings') }}">Full standings</a>
         <div id="home-standings-conf" class="home-dashboard__slot"></div>
       </section>
-      <section class="card home-dashboard__card" aria-labelledby="power-h">
+      <section class="card home-dashboard__card" aria-labelledby="power-h" data-module-key="power_rankings">
         <h2 id="power-h" class="home-dashboard__h">Power Rankings</h2>
         <div id="home-power" class="home-dashboard__slot"></div>
       </section>
-      <section id="home-identity-panel-card" class="card home-dashboard__card" hidden aria-labelledby="identity-panel-h">
+      <section id="home-identity-panel-card" class="card home-dashboard__card" hidden data-module-key="identity_panel" aria-labelledby="identity-panel-h">
         <h2 id="identity-panel-h" class="home-dashboard__h"></h2>
         <div id="home-identity-panel" class="table-wrap"></div>
       </section>
-      <section class="card home-dashboard__card" aria-labelledby="champ-h">
+      <section class="card home-dashboard__card" aria-labelledby="champ-h" data-module-key="champions">
         <h2 id="champ-h" class="home-dashboard__h">Champions</h2>
         <div id="home-champions" class="home-champions" aria-live="polite"></div>
       </section>
@@ -220,6 +219,48 @@
     var d = document.createElement('div');
     d.textContent = s;
     return d.innerHTML;
+  }
+  var moduleVisibility = {};
+  var moduleSortOrder = {};
+  function isModuleEnabled(key) {
+    return moduleVisibility[key] !== false;
+  }
+  function moduleOrder(key) {
+    var v = moduleSortOrder[key];
+    var n = Number(v);
+    return isNaN(n) ? 9999 : n;
+  }
+  function applyHomeModuleOrder() {
+    var parents = new Set();
+    document.querySelectorAll('[data-module-key]').forEach(function (el) {
+      if (el && el.parentElement) parents.add(el.parentElement);
+    });
+    parents.forEach(function (parent) {
+      var kids = [];
+      parent.querySelectorAll(':scope > [data-module-key]').forEach(function (el, idx) {
+        kids.push({ el: el, idx: idx, ord: moduleOrder(el.getAttribute('data-module-key') || '') });
+      });
+      kids.sort(function (a, b) {
+        if (a.ord !== b.ord) return a.ord - b.ord;
+        return a.idx - b.idx;
+      });
+      kids.forEach(function (k) {
+        parent.appendChild(k.el);
+      });
+    });
+    // Always keep schedule directly under the sticky TOC/banner area.
+    var tocSticky = document.querySelector('.home-dashboard__toc-sticky');
+    var schedule = document.getElementById('dash-schedule');
+    if (tocSticky && schedule && tocSticky.parentElement === schedule.parentElement) {
+      tocSticky.insertAdjacentElement('afterend', schedule);
+    }
+  }
+  function applyHomeModuleVisibility() {
+    document.querySelectorAll('[data-module-key]').forEach(function (el) {
+      var key = el.getAttribute('data-module-key') || '';
+      if (!key) return;
+      el.hidden = !isModuleEnabled(key);
+    });
   }
 
   var PS_LS_KEY = 'bwlHomePostseasonOddsSlug';
@@ -735,13 +776,50 @@
     el.innerHTML = h;
   }
 
+  var powerRows = [];
+  var powerSortDir = 'desc';
+  function powerScoreValue(row) {
+    if (!row) return null;
+    var n = Number(row.power_score);
+    return isNaN(n) ? null : n;
+  }
+  function powerSortAria() {
+    return powerSortDir === 'desc' ? 'descending' : 'ascending';
+  }
+  function sortedPowerRows() {
+    var rows = powerRows.slice();
+    rows.sort(function (a, b) {
+      var va = powerScoreValue(a);
+      var vb = powerScoreValue(b);
+      if (va == null && vb == null) { /* fall through */ }
+      else if (va == null) return 1;
+      else if (vb == null) return -1;
+      else {
+        var cmp = va - vb;
+        if (cmp !== 0) return powerSortDir === 'desc' ? -cmp : cmp;
+      }
+      var na = String((a.name || a.abbr || '')).toLowerCase();
+      var nb = String((b.name || b.abbr || '')).toLowerCase();
+      return na.localeCompare(nb);
+    });
+    return rows;
+  }
   function paintPower(pr) {
     var el = document.getElementById('home-power');
     if (!el) return;
     pr = pr || {};
-    var top = pr.top5 || [];
-    var bot = pr.bottom5 || [];
-    if (!top.length && !bot.length) {
+    var full = pr.teams || [];
+    if (!full.length) {
+      var seen = {};
+      (pr.top5 || []).concat(pr.bottom5 || []).forEach(function (r) {
+        var k = String((r && (r.slug || r.abbr || r.name)) || '');
+        if (!k || seen[k]) return;
+        seen[k] = true;
+        full.push(r);
+      });
+    }
+    powerRows = full.slice();
+    if (!powerRows.length) {
       el.innerHTML = '<p class="empty-state">No power ranking data.</p>';
       return;
     }
@@ -751,54 +829,58 @@
     var thPws = escapeAttr(
       'PWS (power ranking score): composite rating blending recent win pace, goal differential per game, special teams net impact, and opponent strength from recent matchups.'
     );
-    function powerTable(title, rows) {
-      var h = '<div class="home-power-block"><h3 class="home-trend-h">' + escape(title) + '</h3>';
-      h += '<table class="data home-power-table"><thead><tr>';
-      h += '<th scope="col" title="' + thTeam + '">Team</th>';
-      h += '<th scope="col" title="' + thPws + '">PWS</th>';
-      h += '</tr></thead><tbody>';
-      rows.forEach(function (r, i) {
-        var lab = String((r.name || r.abbr || 'Team') || '').trim();
-        var logo = r.logo_url
-          ? '<img src="' + escapeAttr(r.logo_url) + '" alt="' + escapeAttr(lab) + '" class="team-name-lockup__logo home-power-team-logo">'
-          : '';
-        var rank = '<span class="home-power-row-rank">' + (i + 1) + '</span>';
-        var teamCell = '';
-        if (r.slug && logo) {
-          teamCell =
-            rank +
-            '<a class="team-name-lockup team-name-lockup--icon home-power-tm" href="' +
-            withRoot('/team/' + escapeAttr(r.slug)) +
-            '" title="' +
-            escapeAttr(lab) +
-            '">' +
-            logo +
-            '</a>';
-        } else if (r.slug) {
-          teamCell =
-            rank +
-            '<a class="home-power-tm-fallback" href="' +
-            withRoot('/team/' + escapeAttr(r.slug)) +
-            '" title="' +
-            escapeAttr(lab) +
-            '">' +
-            escape(lab || '—') +
-            '</a>';
-        } else {
-          teamCell = rank + (logo || '<span class="visually-hidden">' + escape(lab) + '</span>');
-        }
-        h +=
-          '<tr><td class="home-power-td-team">' +
-          teamCell +
-          '</td><td class="home-power-td-pws">' +
-          (r.power_score != null ? escape(String(r.power_score)) : '—') +
-          '</td></tr>';
-      });
-      h += '</tbody></table></div>';
-      return h;
-    }
-    var h = '<div class="home-power-split">' + powerTable('Top 5', top) + powerTable('Bottom 5', bot) + '</div>';
+    var rows = sortedPowerRows();
+    var h = '<table class="data home-power-table"><thead><tr>';
+    h += '<th title="Rank (follows current sort)">#</th>';
+    h += '<th scope="col" title="' + thTeam + '">Team</th>';
+    h += '<th class="st-sort-th" scope="col"><button type="button" class="st-sort-btn" data-power-sort="pws" title="' + thPws + '" aria-sort="' + escapeAttr(powerSortAria()) + '">PWS<span class="st-sort-ind" aria-hidden="true">' + (powerSortDir === 'desc' ? '▼' : '▲') + '</span></button></th>';
+    h += '</tr></thead><tbody>';
+    rows.forEach(function (r, i) {
+      var lab = String((r.name || r.abbr || 'Team') || '').trim();
+      var city = String(r.team_city || '').trim();
+      var logo = r.logo_url
+        ? '<img src="' + escapeAttr(r.logo_url) + '" alt="' + escapeAttr(lab) + '" class="team-name-lockup__logo home-power-team-logo">'
+        : '';
+      var teamCell = '';
+      if (r.slug && logo) {
+        teamCell =
+          '<a class="home-power-tm home-power-tm--city" href="' +
+          withRoot('/team/' + escapeAttr(r.slug)) +
+          '" title="' +
+          escapeAttr(lab) +
+          '">' +
+          logo +
+          '<span class="home-power-city">' + escape(city || r.abbr || '') + '</span>' +
+          '</a>';
+      } else if (r.slug) {
+        teamCell =
+          '<a class="home-power-tm-fallback" href="' +
+          withRoot('/team/' + escapeAttr(r.slug)) +
+          '" title="' +
+          escapeAttr(lab) +
+          '">' +
+          escape(lab || '—') +
+          '</a>';
+      } else {
+        teamCell = logo || '<span class="visually-hidden">' + escape(lab) + '</span>';
+      }
+      h +=
+        '<tr><td>' +
+        (i + 1) +
+        '</td><td class="home-power-td-team">' +
+        teamCell +
+        '</td><td class="home-power-td-pws">' +
+        (r.power_score != null ? escape(String(r.power_score)) : '—') +
+        '</td></tr>';
+    });
+    h += '</tbody></table>';
     el.innerHTML = h;
+    el.querySelectorAll('[data-power-sort]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        powerSortDir = powerSortDir === 'desc' ? 'asc' : 'desc';
+        paintPower({ teams: powerRows });
+      });
+    });
   }
 
   function paintAroundNews(around) {
@@ -1510,6 +1592,10 @@
     fetch(withRoot('/api/homepage/summary?segment=' + encodeURIComponent(seg)))
       .then(function (r) { return r.json(); })
       .then(function (data) {
+        moduleVisibility = (data.module_settings && data.module_settings.visibility) || {};
+        moduleSortOrder = (data.module_settings && data.module_settings.sort_order) || {};
+        applyHomeModuleOrder();
+        applyHomeModuleVisibility();
         document.getElementById('home-gotn').innerHTML = rowGameSpotlight(data.game_of_the_night);
         document.getElementById('home-ngtw').innerHTML = rowGameSpotlight(data.next_game_to_watch, { includeBoxscore: false });
         document.getElementById('home-stars-7').innerHTML = rowStarsMini(data.stars_last_7d);
@@ -1523,6 +1609,7 @@
         if (tmEl) tmEl.innerHTML = rowTeamTrending(tmData.trending || {});
         if (tsEl) tsEl.innerHTML = rowTeamStreaks(tmData.streaks || {});
         paintStandingsDiv(data.standings_by_division || data.standings_by_conference || []);
+        powerSortDir = 'desc';
         paintPower(data.power_rankings || {});
         paintChampions(data.champions_panel || {});
         paintAroundNews(data.around_the_league || {});
@@ -1551,7 +1638,7 @@
         if (spotEl) {
           var titleEl = document.getElementById('spotlight-h');
           var items = spotlight.items || [];
-          if (spotCard) spotCard.hidden = !items.length;
+          if (spotCard) spotCard.hidden = !isModuleEnabled('league_spotlight') || !items.length;
           if (items.length) {
             if (titleEl && spotlight.title) titleEl.textContent = spotlight.title;
             spotEl.innerHTML =
@@ -1566,7 +1653,7 @@
         var idEl = document.getElementById('home-identity-panel');
         if (idCard && idTitle && idEl) {
           var idItems = (idPanel && idPanel.items) ? idPanel.items : [];
-          if (idItems.length) {
+          if (isModuleEnabled('identity_panel') && idItems.length) {
             idCard.hidden = false;
             idTitle.textContent = (idPanel && idPanel.title) ? idPanel.title : 'Misc. Statistics';
             idEl.innerHTML = rowMiscStatsPanel(idPanel || {});

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Admin Roles — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:62rem;margin:0 auto;">
+  <h1 class="page-title">Admin Roles</h1>
+  <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
+  <p class="muted" style="margin:0 0 0.8rem;">Super-admin only. Legacy admins remain compatible via <code>is_admin</code>.</p>
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr>
+          <th>Email</th>
+          <th>Current</th>
+          <th>Admin</th>
+          <th>Role</th>
+          <th>Save</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td>{{ u.email }}</td>
+          <td>
+            {% if u.is_admin %}
+              <span>is_admin{% if u.admin_role %} · {{ u.admin_role }}{% endif %}</span>
+            {% else %}
+              <span class="muted">not admin</span>
+            {% endif %}
+          </td>
+          <td colspan="3">
+            <form method="post" style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="user_id" value="{{ u.id }}">
+              <label><input type="checkbox" name="is_admin" value="1"{% if u.is_admin %} checked{% endif %}> Enabled</label>
+              <select name="admin_role">
+                <option value="">(none)</option>
+                {% for r in role_choices %}
+                <option value="{{ r }}"{% if (u.admin_role or '') == r %} selected{% endif %}>{{ r }}</option>
+                {% endfor %}
+              </select>
+              <button type="submit" class="admin-news-body-btn">Save</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="muted">No users found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

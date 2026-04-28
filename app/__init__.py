@@ -13,6 +13,17 @@ from app.db_utils import (
     ensure_fts5,
     ensure_history_awards_staff_fhm_id_sqlite,
     ensure_players_jersey_number_sqlite,
+    ensure_homepage_module_settings_sqlite,
+    ensure_site_announcements_sqlite,
+    ensure_site_users_admin_role_sqlite,
+    ensure_league_rule_settings_sqlite,
+    ensure_gm_approval_requests_sqlite,
+    ensure_story_publish_schedules_sqlite,
+    ensure_story_publish_schedule_extra_columns_sqlite,
+    ensure_awards_voting_sqlite,
+    ensure_member_watchlists_sqlite,
+    ensure_admin_undo_actions_sqlite,
+    ensure_discord_outbound_sqlite,
     ensure_skater_career_line_career_source_sqlite,
     ensure_skater_career_line_extra_stats_sqlite,
     ensure_player_goalie_stats_gsaa_sqlite,
@@ -87,6 +98,22 @@ def create_app(config_class: type = Config) -> Flask:
         ensure_player_goalie_stats_gsaa_sqlite(db.engine)
         ensure_history_awards_staff_fhm_id_sqlite(db.engine)
         ensure_fts5(db.engine)
+        try:
+            site_engine = db.engines.get("site")
+        except Exception:
+            site_engine = None
+        if site_engine is not None:
+            ensure_homepage_module_settings_sqlite(site_engine)
+            ensure_site_announcements_sqlite(site_engine)
+            ensure_site_users_admin_role_sqlite(site_engine)
+            ensure_league_rule_settings_sqlite(site_engine)
+            ensure_gm_approval_requests_sqlite(site_engine)
+            ensure_story_publish_schedules_sqlite(site_engine)
+            ensure_story_publish_schedule_extra_columns_sqlite(site_engine)
+            ensure_awards_voting_sqlite(site_engine)
+            ensure_member_watchlists_sqlite(site_engine)
+            ensure_admin_undo_actions_sqlite(site_engine)
+            ensure_discord_outbound_sqlite(site_engine)
         # FTS may be empty until import or seed; seed script calls rebuild
         try:
             from app.services.ratings_position_cache import backfill_null_positions_from_ratings
@@ -345,6 +372,7 @@ def create_app(config_class: type = Config) -> Flask:
 
         from app.auth_login import active_membership_for_league
         from app.services.gm_notifications import gm_inbox_badge_unread
+        from app.services.site_announcements import active_announcement
 
         slug_layout = str(app.config.get("LEAGUE_SLUG") or "").strip()
         gm_membership = None
@@ -356,6 +384,12 @@ def create_app(config_class: type = Config) -> Flask:
                     gm_messages_unread = gm_inbox_badge_unread(slug_layout, int(current_user.id))
                 except Exception:
                     gm_messages_unread = 0
+        ann = None
+        if slug_layout:
+            try:
+                ann = active_announcement(db.session, slug_layout)
+            except Exception:
+                ann = None
 
         return dict(
             nav_teams=teams,
@@ -371,6 +405,7 @@ def create_app(config_class: type = Config) -> Flask:
             current_league_slug=app.config.get("LEAGUE_SLUG"),
             gm_membership=gm_membership,
             gm_messages_unread=gm_messages_unread,
+            active_site_announcement=ann,
         )
 
     @app.cli.command("init-db")

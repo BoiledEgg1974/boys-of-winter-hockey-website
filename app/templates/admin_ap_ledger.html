@@ -80,6 +80,7 @@
     </label>
     <label style="display:block;margin-top:0.75rem;">Delta (negative to deduct)<br><input type="number" name="delta" required></label>
     <label style="display:block;margin-top:0.75rem;">Note<br><input type="text" name="note" style="width:100%;"></label>
+    <label style="display:block;margin-top:0.6rem;"><input type="checkbox" name="dry_run" value="1"> Dry run only (no write)</label>
     <button type="submit" class="join-league-btn" style="margin-top:0.75rem;border:none;">Add ledger row</button>
   </form>
 </div>
@@ -127,6 +128,7 @@
     </div>
     {% endif %}
     <div class="ap-export-dialog__actions">
+      <label style="margin-right:auto;font-size:0.88rem;"><input type="checkbox" name="dry_run" value="1"> Dry run</label>
       <button type="button" class="ap-export-cancel-btn ap-batch-close">Cancel</button>
       <button type="submit" class="join-league-btn ap-export-submit-btn">{% if key == 'predictions' %}Apply +1 AP{% else %}Apply {{ label }}{% endif %}</button>
     </div>
@@ -153,6 +155,7 @@
       {% endfor %}
     </ul>
     <div class="ap-export-dialog__actions">
+      <label style="margin-right:auto;font-size:0.88rem;"><input type="checkbox" name="dry_run" value="1"> Dry run</label>
       <button type="button" class="ap-export-cancel-btn" id="ap-export-close">Cancel</button>
       <button type="submit" class="join-league-btn ap-export-submit-btn">Apply +1 AP</button>
     </div>

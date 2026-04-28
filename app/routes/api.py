@@ -1,9 +1,10 @@
 """JSON API endpoints for search, lazy box scores, homepage summary."""
 from __future__ import annotations
 
+import json
 import re
 from collections import defaultdict
-from datetime import date
+from datetime import date, timedelta
 
 from pathlib import Path
 
@@ -49,12 +50,19 @@ from app.services.homepage_dashboard import (
     pick_game_of_the_night,
     pick_next_game_to_watch,
 )
+from app.services.homepage_modules import module_sort_order_map, module_visibility_map
 from app.services.postseason_odds import build_postseason_odds_payload
 from app.services.playoff_bracket import playoff_bracket_payload
 from app.services.player_rating_avgs import goalie_category_averages, skater_category_averages
 from app.services.player_headshot import resolve_player_headshot_static_filename
 from app.services.player_ratings_csv import get_player_ratings_row, player_positions_display_label
 from app.services.seasons import get_current_season, season_age_reference_date
+from app.services.discord_events import (
+    fetch_pending_events_for_bot,
+    mark_event_failed,
+    mark_event_sent,
+    upsert_bot_heartbeat,
+)
 
 api_bp = Blueprint("api", __name__)
 
@@ -599,7 +607,11 @@ def homepage_summary():
                     },
                 },
                 "active_streaks": {"goal_streak": [], "point_streak": []},
-                "power_rankings": {"top5": [], "bottom5": []},
+                "power_rankings": {"teams": [], "top5": [], "bottom5": []},
+                "module_settings": {
+                    "visibility": module_visibility_map(db.session, str(current_app.config.get("LEAGUE_SLUG") or "")),
+                    "sort_order": module_sort_order_map(db.session, str(current_app.config.get("LEAGUE_SLUG") or "")),
+                },
                 "champions_panel": {"banner_urls": [], "recent_champions": []},
                 "around_the_league": empty_news,
                 "leaders": {
@@ -724,8 +736,9 @@ def homepage_summary():
     }
     conf_cutoff = build_conf_cutoff_map(db.session, season.id)
     league_cal = league_calendar_anchor_date(db.session, season.id)
+    gotn_since = league_cal - timedelta(days=7)
     game_of_the_night = pick_game_of_the_night(
-        db.session, season.id, standings_by_team, tm_map, conf_cutoff, None
+        db.session, season.id, standings_by_team, tm_map, conf_cutoff, gotn_since
     )
     next_game_to_watch = pick_next_game_to_watch(
         db.session, season.id, standings_by_team, tm_map, conf_cutoff, league_cal
@@ -776,6 +789,11 @@ def homepage_summary():
     power_rankings = build_power_rankings(
         db.session, season.id, standings_by_team, special_teams, recent_form, segment
     )
+    slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    module_settings = {
+        "visibility": module_visibility_map(db.session, slug),
+        "sort_order": module_sort_order_map(db.session, slug),
+    }
     postseason_odds = build_postseason_odds_payload(db.session, season.id, tm_map)
     champions_panel = build_champions_panel(db.session)
     around_the_league = build_around_the_league(db.session)
@@ -1077,6 +1095,7 @@ def homepage_summary():
             "team_momentum": team_momentum,
             "active_streaks": active_streaks,
             "power_rankings": power_rankings,
+            "module_settings": module_settings,
             "champions_panel": champions_panel,
             "around_the_league": around_the_league,
             "leaders": leaders,
@@ -1104,3 +1123,100 @@ def playoff_bracket():
         except ValueError:
             sid = season.id if season else None
     return jsonify(playoff_bracket_payload(sid))
+
+
+def _discord_secret_ok() -> bool:
+    expected = str(current_app.config.get("DISCORD_EVENTS_SHARED_SECRET") or "").strip()
+    if not expected:
+        return False
+    presented = str(request.headers.get("X-Discord-Events-Secret") or "").strip()
+    return presented == expected
+
+
+@api_bp.get("/discord/events/pending")
+def discord_events_pending():
+    if not _discord_secret_ok():
+        return jsonify({"ok": False, "message": "Unauthorized"}), 401
+    slug = str(request.args.get("league_slug") or current_app.config.get("LEAGUE_SLUG") or "").strip()
+    if not slug:
+        return jsonify({"ok": False, "message": "league_slug is required"}), 400
+    try:
+        limit = int(request.args.get("limit") or "20")
+    except ValueError:
+        limit = 20
+    rows = fetch_pending_events_for_bot(db.session, league_slug=slug, limit=limit)
+    out = []
+    for r in rows:
+        try:
+            payload = json.loads(r.payload_json or "{}")
+        except Exception:
+            payload = {}
+        out.append(
+            {
+                "id": int(r.id),
+                "league_slug": str(r.league_slug or ""),
+                "event_key": str(r.event_key or ""),
+                "channel_key": str(r.channel_key or ""),
+                "idempotency_key": str(r.idempotency_key or ""),
+                "payload": payload,
+                "attempts": int(r.attempts or 0),
+                "created_at": r.created_at.isoformat(timespec="seconds") if r.created_at else None,
+            }
+        )
+    return jsonify({"ok": True, "events": out})
+
+
+@api_bp.post("/discord/events/<int:event_id>/ack")
+def discord_events_ack(event_id: int):
+    if not _discord_secret_ok():
+        return jsonify({"ok": False, "message": "Unauthorized"}), 401
+    ok = mark_event_sent(db.session, event_id)
+    return jsonify({"ok": bool(ok)})
+
+
+@api_bp.post("/discord/events/<int:event_id>/fail")
+def discord_events_fail(event_id: int):
+    if not _discord_secret_ok():
+        return jsonify({"ok": False, "message": "Unauthorized"}), 401
+    data = request.get_json(silent=True) or {}
+    error = str(data.get("error") or request.form.get("error") or "delivery failed").strip()
+    ok = mark_event_failed(db.session, event_id, error)
+    return jsonify({"ok": bool(ok)})
+
+
+@api_bp.post("/discord/events/heartbeat")
+def discord_events_heartbeat():
+    if not _discord_secret_ok():
+        return jsonify({"ok": False, "message": "Unauthorized"}), 401
+    data = request.get_json(silent=True) or {}
+    slug = str(data.get("league_slug") or request.args.get("league_slug") or "").strip()
+    if not slug:
+        slug = str(current_app.config.get("LEAGUE_SLUG") or "").strip()
+    if not slug:
+        return jsonify({"ok": False, "message": "league_slug is required"}), 400
+    bot_name = str(data.get("bot_name") or "").strip()[:120]
+    if not bot_name:
+        bot_name = "discord-bot"
+    row = upsert_bot_heartbeat(
+        db.session,
+        league_slug=slug,
+        bot_name=bot_name,
+        bot_version=str(data.get("bot_version") or "").strip()[:64],
+        guild_id=str(data.get("guild_id") or "").strip()[:64],
+        extra={
+            "pending_count": data.get("pending_count"),
+            "sent_count": data.get("sent_count"),
+            "last_error": str(data.get("last_error") or "").strip()[:400],
+        },
+    )
+    return jsonify(
+        {
+            "ok": True,
+            "heartbeat": {
+                "id": int(row.id),
+                "league_slug": row.league_slug,
+                "bot_name": row.bot_name,
+                "last_seen_at": row.last_seen_at.isoformat(timespec="seconds") if row.last_seen_at else None,
+            },
+        }
+    )

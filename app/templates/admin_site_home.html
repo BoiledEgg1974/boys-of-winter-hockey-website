@@ -5,6 +5,26 @@
   <h1 class="page-title">Site admin</h1>
   <ul>
     <li><a href="{{ url_for('site_admin.admin_news_queue') }}">News Moderation</a> — <a href="{{ url_for('site_admin.admin_news_compose') }}">post article</a></li>
+    <li><a href="{{ url_for('site_admin.admin_control_center') }}">League control center (read-only)</a></li>
+    <li><a href="{{ url_for('site_admin.admin_announcements') }}">Announcement banners</a></li>
+    <li><a href="{{ url_for('site_admin.admin_homepage_modules') }}">Homepage modules</a></li>
+    <li><a href="{{ url_for('site_admin.admin_import_validation') }}">Import validation</a></li>
+    <li><a href="{{ url_for('site_admin.admin_rules') }}">League rules (scaffold)</a></li>
+    <li><a href="{{ url_for('site_admin.admin_operations_queue') }}">GM operations queue</a></li>
+    <li><a href="{{ url_for('site_admin.admin_franchise_health') }}">Franchise health dashboard</a></li>
+    <li><a href="{{ url_for('site_admin.admin_analytics_alerts') }}">Analytics & alerting dashboard</a></li>
+    <li><a href="{{ url_for('site_admin.admin_story_automation') }}">Story automation & scheduled publishing</a></li>
+    <li><a href="{{ url_for('site_admin.admin_prediction_center') }}">Prediction center / what-if simulator (scaffold)</a></li>
+    <li><a href="{{ url_for('site_admin.admin_franchise_hubs') }}">Franchise hub pages (scaffold)</a></li>
+    <li><a href="{{ url_for('site_admin.admin_awards_tracker') }}">Awards + Hall of Fame voting tracker (scaffold)</a></li>
+    <li><a href="{{ url_for('site_admin.admin_media_kit') }}">Media kit generator (scaffold)</a></li>
+    <li><a href="{{ url_for('site_admin.admin_member_digests') }}">Member watchlists / digests / feeds (scaffold)</a></li>
+    <li><a href="{{ url_for('site_admin.admin_discord_integration') }}">Discord integration</a></li>
+    <li><a href="{{ url_for('site_admin.admin_undo_center') }}">Undo center (scaffold)</a></li>
+    {% if current_user.admin_role == 'super_admin' or (current_user.is_admin and not current_user.admin_role) %}
+    <li><a href="{{ url_for('site_admin.admin_roles') }}">Admin roles</a></li>
+    {% endif %}
+    <li><a href="{{ url_for('site_admin.admin_audit_log') }}">Audit log</a></li>
     <li><a href="{{ url_for('site_admin.admin_ap_ledger') }}">Manual AP ledger</a></li>
     <li><a href="{{ url_for('site_admin.admin_ap_requests') }}">AP redemption requests</a></li>
     <li><a href="{{ url_for('site_admin.admin_catalog') }}">Redemption catalog</a></li>

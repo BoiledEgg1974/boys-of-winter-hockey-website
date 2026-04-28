@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Prediction Center — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:68rem;margin:0 auto;">
+  <h1 class="page-title">Prediction Center / What-If Simulator</h1>
+  <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
+  <p class="muted" style="margin:0 0 0.8rem;">Read-only simulator — no data is written. {{ snapshot.disclaimer }}</p>
+
+  <form method="post" style="display:flex;gap:0.6rem;align-items:end;flex-wrap:wrap;margin:0 0 0.8rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Team
+      <select name="team_id" required>
+        <option value="">Select team…</option>
+        {% for t in teams %}
+        <option value="{{ t.id }}"{% if snapshot.selected_team_id == t.id %} selected{% endif %}>{{ t.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Add wins
+      <input type="number" name="add_wins" min="0" value="{{ snapshot.inputs.add_wins }}">
+    </label>
+    <label>Add OTL
+      <input type="number" name="add_otl" min="0" value="{{ snapshot.inputs.add_otl }}">
+    </label>
+    <label>Add losses
+      <input type="number" name="add_losses" min="0" value="{{ snapshot.inputs.add_losses }}">
+    </label>
+    <button type="submit" class="admin-news-body-btn">Run simulation</button>
+  </form>
+
+  <h3 style="margin:0.3rem 0 0.35rem;">Projected Standings ({{ snapshot.season_label }})</h3>
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr>
+          <th>Rank</th>
+          <th>Team</th>
+          <th>PTS</th>
+          <th>W</th>
+          <th>L</th>
+          <th>OTL</th>
+          <th>Rank Delta</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in snapshot.projected_rows %}
+        <tr>
+          <td>{{ r.rank }}</td>
+          <td>{{ r.team_name }}</td>
+          <td>{{ r.pts }}</td>
+          <td>{{ r.w }}</td>
+          <td>{{ r.l }}</td>
+          <td>{{ r.otl }}</td>
+          <td>
+            {% if r.rank_delta > 0 %}
+            +{{ r.rank_delta }}
+            {% elif r.rank_delta < 0 %}
+            {{ r.rank_delta }}
+            {% else %}
+            0
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="muted">No standings data available.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

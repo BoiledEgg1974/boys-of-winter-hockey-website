@@ -48,6 +48,9 @@
       </nav>
       <div class="header-tools">
         <a class="header-tools__link" href="{{ url_for('site_gm.action_points_page') }}">AP</a>
+        {% if gm_membership %}
+        <a class="header-tools__link" href="{{ url_for('site_gm.gm_operation_request') }}">Ops Request</a>
+        {% endif %}
         {% if gm_membership or (current_user.is_authenticated and current_user.is_admin) %}
         <a class="header-tools__link header-tools__link--messages" href="{{ url_for('site_gm.gm_messages_inbox') }}">Messages{% if gm_messages_unread %}<span class="header-tools__msg-badge" aria-label="{{ gm_messages_unread }} unread">{{ gm_messages_unread }}</span>{% endif %}</a>
         {% endif %}
@@ -76,6 +79,14 @@
   </header>
 
   <main id="main-content">
+    {% if active_site_announcement and active_site_announcement.body %}
+    <section class="site-announcement site-announcement--{{ active_site_announcement.level }}" role="status" aria-live="polite">
+      {% if active_site_announcement.title %}
+      <strong class="site-announcement__title">{{ active_site_announcement.title }}</strong>
+      {% endif %}
+      <span class="site-announcement__body">{{ active_site_announcement.body }}</span>
+    </section>
+    {% endif %}
     {% block content %}{% endblock %}
   </main>
 

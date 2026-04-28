@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Undo Center — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:70rem;margin:0 auto;">
+  <h1 class="page-title">Undo Center</h1>
+  <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
+  <p class="muted" style="margin:0 0 0.8rem;">Soft-undo scaffold for selected admin mutations. Each undo is audited.</p>
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr>
+          <th>When (UTC)</th>
+          <th>Action</th>
+          <th>Entity</th>
+          <th>Before</th>
+          <th>After</th>
+          <th>Status</th>
+          <th>Undo</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td>{{ r.created_at.strftime('%Y-%m-%d %H:%M:%S') if r.created_at else '—' }}</td>
+          <td>{{ r.action_key }}</td>
+          <td>{{ r.entity_type }} #{{ r.entity_id }}</td>
+          <td><code style="white-space:pre-wrap;">{{ r.before_json }}</code></td>
+          <td><code style="white-space:pre-wrap;">{{ r.after_json }}</code></td>
+          <td>{% if r.is_reverted %}reverted{% else %}available{% endif %}</td>
+          <td>
+            {% if not r.is_reverted %}
+            <form method="post" action="{{ url_for('site_admin.admin_undo_center_apply', undo_id=r.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <label style="display:block;margin:0 0 0.25rem;font-size:0.78rem;"><input type="checkbox" name="confirm_undo" value="1"> Confirm</label>
+              <button type="submit" class="admin-news-body-btn">Apply undo</button>
+            </form>
+            {% else %}
+            <span class="muted">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="muted">No undo actions recorded yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

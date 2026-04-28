@@ -268,3 +268,541 @@ def repair_fhm_team_city_from_name(engine: Engine) -> None:
             )
         )
         conn.commit()
+
+
+def ensure_homepage_module_settings_sqlite(engine: Engine) -> None:
+    """Create homepage module settings table on site DB when missing."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='homepage_module_settings'")
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE homepage_module_settings (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    league_slug VARCHAR(64) NOT NULL,
+                    module_key VARCHAR(64) NOT NULL,
+                    is_enabled BOOLEAN NOT NULL DEFAULT 1,
+                    sort_order INTEGER NOT NULL DEFAULT 0,
+                    updated_by_user_id INTEGER,
+                    updated_at DATETIME NOT NULL
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE UNIQUE INDEX uq_home_mod_league_key "
+                "ON homepage_module_settings (league_slug, module_key)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_home_mod_league_sort "
+                "ON homepage_module_settings (league_slug, sort_order)"
+            )
+        )
+        conn.commit()
+
+
+def ensure_site_announcements_sqlite(engine: Engine) -> None:
+    """Create site announcements table on site DB when missing."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='site_announcements'")
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE site_announcements (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    league_slug VARCHAR(64) NOT NULL,
+                    title VARCHAR(200) NOT NULL DEFAULT '',
+                    body TEXT NOT NULL DEFAULT '',
+                    level VARCHAR(16) NOT NULL DEFAULT 'info',
+                    is_active BOOLEAN NOT NULL DEFAULT 1,
+                    starts_at DATETIME,
+                    ends_at DATETIME,
+                    created_by_user_id INTEGER,
+                    created_at DATETIME NOT NULL
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_site_announce_league_active "
+                "ON site_announcements (league_slug, is_active)"
+            )
+        )
+        conn.commit()
+
+
+def ensure_site_users_admin_role_sqlite(engine: Engine) -> None:
+    """Add site_users.admin_role when missing (site DB, SQLite)."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='site_users'")
+        ).fetchone()
+        if not exists:
+            return
+        cols = {row[1] for row in conn.execute(text("PRAGMA table_info(site_users)"))}
+        if "admin_role" not in cols:
+            conn.execute(text("ALTER TABLE site_users ADD COLUMN admin_role VARCHAR(32)"))
+        idx = conn.execute(
+            text(
+                "SELECT 1 FROM sqlite_master WHERE type='index' AND name='ix_site_users_admin_role'"
+            )
+        ).fetchone()
+        if not idx:
+            conn.execute(text("CREATE INDEX ix_site_users_admin_role ON site_users (admin_role)"))
+        conn.commit()
+
+
+def ensure_league_rule_settings_sqlite(engine: Engine) -> None:
+    """Create league rule settings table on site DB when missing."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='league_rule_settings'")
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE league_rule_settings (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    league_slug VARCHAR(64) NOT NULL,
+                    rule_key VARCHAR(80) NOT NULL,
+                    rule_value TEXT NOT NULL DEFAULT '',
+                    updated_by_user_id INTEGER,
+                    updated_at DATETIME NOT NULL
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE UNIQUE INDEX uq_league_rule_key "
+                "ON league_rule_settings (league_slug, rule_key)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_league_rule_league "
+                "ON league_rule_settings (league_slug)"
+            )
+        )
+        conn.commit()
+
+
+def ensure_gm_approval_requests_sqlite(engine: Engine) -> None:
+    """Create GM approval requests table on site DB when missing."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='gm_approval_requests'")
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE gm_approval_requests (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    league_slug VARCHAR(64) NOT NULL,
+                    team_id INTEGER NOT NULL,
+                    user_id INTEGER NOT NULL,
+                    request_type VARCHAR(32) NOT NULL,
+                    title VARCHAR(200) NOT NULL DEFAULT '',
+                    body TEXT NOT NULL DEFAULT '',
+                    status VARCHAR(24) NOT NULL DEFAULT 'pending',
+                    admin_note TEXT NOT NULL DEFAULT '',
+                    processed_by_user_id INTEGER,
+                    created_at DATETIME NOT NULL,
+                    processed_at DATETIME
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_gm_approval_league_status "
+                "ON gm_approval_requests (league_slug, status)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_gm_approval_team "
+                "ON gm_approval_requests (league_slug, team_id)"
+            )
+        )
+        conn.commit()
+
+
+def ensure_story_publish_schedules_sqlite(engine: Engine) -> None:
+    """Create story publish schedules table on site DB when missing."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='story_publish_schedules'")
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE story_publish_schedules (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    league_slug VARCHAR(64) NOT NULL,
+                    article_id INTEGER NOT NULL,
+                    channel VARCHAR(24) NOT NULL DEFAULT 'site',
+                    status VARCHAR(24) NOT NULL DEFAULT 'scheduled',
+                    scheduled_for_utc DATETIME NOT NULL,
+                    dry_run_only BOOLEAN NOT NULL DEFAULT 1,
+                    payload_json TEXT NOT NULL DEFAULT '{}',
+                    last_result_json TEXT NOT NULL DEFAULT '{}',
+                    created_by_user_id INTEGER,
+                    created_at DATETIME NOT NULL,
+                    processed_at DATETIME
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_story_sched_league_status "
+                "ON story_publish_schedules (league_slug, status)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_story_sched_run_at "
+                "ON story_publish_schedules (scheduled_for_utc)"
+            )
+        )
+        conn.commit()
+
+
+def ensure_story_publish_schedule_extra_columns_sqlite(engine: Engine) -> None:
+    """Add attempt_count / last_error / last_attempt_at to story_publish_schedules when missing."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='story_publish_schedules'")
+        ).fetchone()
+        if not exists:
+            return
+        cols = {str(r[1]) for r in conn.execute(text("PRAGMA table_info(story_publish_schedules)")).fetchall()}
+        if "attempt_count" not in cols:
+            conn.execute(text("ALTER TABLE story_publish_schedules ADD COLUMN attempt_count INTEGER NOT NULL DEFAULT 0"))
+        if "last_error" not in cols:
+            conn.execute(text("ALTER TABLE story_publish_schedules ADD COLUMN last_error TEXT NOT NULL DEFAULT ''"))
+        if "last_attempt_at" not in cols:
+            conn.execute(text("ALTER TABLE story_publish_schedules ADD COLUMN last_attempt_at DATETIME"))
+        conn.commit()
+
+
+def ensure_awards_voting_sqlite(engine: Engine) -> None:
+    """Create awards voting scaffold tables on site DB when missing."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        has_cycles = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='awards_voting_cycles'")
+        ).fetchone()
+        if not has_cycles:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE awards_voting_cycles (
+                        id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                        league_slug VARCHAR(64) NOT NULL,
+                        season_label VARCHAR(80) NOT NULL DEFAULT '',
+                        title VARCHAR(160) NOT NULL DEFAULT '',
+                        status VARCHAR(24) NOT NULL DEFAULT 'open',
+                        opens_at DATETIME,
+                        closes_at DATETIME,
+                        created_by_user_id INTEGER,
+                        created_at DATETIME NOT NULL
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX ix_awards_cycle_league_status "
+                    "ON awards_voting_cycles (league_slug, status)"
+                )
+            )
+        has_ballots = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='awards_vote_ballots'")
+        ).fetchone()
+        if not has_ballots:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE awards_vote_ballots (
+                        id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                        league_slug VARCHAR(64) NOT NULL,
+                        cycle_id INTEGER NOT NULL,
+                        award_key VARCHAR(64) NOT NULL,
+                        voter_user_id INTEGER NOT NULL,
+                        candidate_ref VARCHAR(120) NOT NULL,
+                        rank_value INTEGER NOT NULL DEFAULT 1,
+                        points_value INTEGER NOT NULL DEFAULT 0,
+                        submitted_at DATETIME NOT NULL
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX ix_awards_ballot_cycle_award "
+                    "ON awards_vote_ballots (league_slug, cycle_id, award_key)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX ix_awards_ballot_voter "
+                    "ON awards_vote_ballots (league_slug, voter_user_id)"
+                )
+            )
+        conn.commit()
+
+
+def ensure_member_watchlists_sqlite(engine: Engine) -> None:
+    """Create member watchlist scaffold table on site DB when missing."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='member_watchlist_items'")
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE member_watchlist_items (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    league_slug VARCHAR(64) NOT NULL,
+                    target_type VARCHAR(24) NOT NULL,
+                    target_ref VARCHAR(120) NOT NULL,
+                    note TEXT NOT NULL DEFAULT '',
+                    created_at DATETIME NOT NULL
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_watchlist_user_league "
+                "ON member_watchlist_items (user_id, league_slug)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_watchlist_league_target "
+                "ON member_watchlist_items (league_slug, target_type, target_ref)"
+            )
+        )
+        conn.commit()
+
+
+def ensure_admin_undo_actions_sqlite(engine: Engine) -> None:
+    """Create admin undo action table on site DB when missing."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='admin_undo_actions'")
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE admin_undo_actions (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    league_slug VARCHAR(64) NOT NULL,
+                    action_key VARCHAR(64) NOT NULL,
+                    entity_type VARCHAR(64) NOT NULL,
+                    entity_id INTEGER NOT NULL,
+                    before_json TEXT NOT NULL DEFAULT '{}',
+                    after_json TEXT NOT NULL DEFAULT '{}',
+                    note TEXT NOT NULL DEFAULT '',
+                    created_by_user_id INTEGER,
+                    created_at DATETIME NOT NULL,
+                    is_reverted BOOLEAN NOT NULL DEFAULT 0,
+                    reverted_by_user_id INTEGER,
+                    reverted_at DATETIME
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_admin_undo_league_created "
+                "ON admin_undo_actions (league_slug, created_at)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_admin_undo_reverted "
+                "ON admin_undo_actions (league_slug, is_reverted)"
+            )
+        )
+        conn.commit()
+
+
+def ensure_discord_outbound_sqlite(engine: Engine) -> None:
+    """Create Discord route + outbound event tables on site DB when missing."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        has_routes = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='discord_channel_routes'")
+        ).fetchone()
+        if not has_routes:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE discord_channel_routes (
+                        id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                        league_slug VARCHAR(64) NOT NULL,
+                        event_key VARCHAR(64) NOT NULL,
+                        channel_key VARCHAR(64) NOT NULL DEFAULT '',
+                        is_enabled BOOLEAN NOT NULL DEFAULT 1,
+                        updated_by_user_id INTEGER,
+                        updated_at DATETIME NOT NULL
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX uq_discord_route_league_event "
+                    "ON discord_channel_routes (league_slug, event_key)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX ix_discord_route_league_event "
+                    "ON discord_channel_routes (league_slug, event_key)"
+                )
+            )
+        has_events = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='discord_outbound_events'")
+        ).fetchone()
+        if not has_events:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE discord_outbound_events (
+                        id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                        league_slug VARCHAR(64) NOT NULL,
+                        event_key VARCHAR(64) NOT NULL,
+                        channel_key VARCHAR(64) NOT NULL DEFAULT '',
+                        idempotency_key VARCHAR(64) NOT NULL DEFAULT '',
+                        payload_json TEXT NOT NULL DEFAULT '{}',
+                        status VARCHAR(24) NOT NULL DEFAULT 'pending',
+                        attempts INTEGER NOT NULL DEFAULT 0,
+                        last_error TEXT NOT NULL DEFAULT '',
+                        created_by_user_id INTEGER,
+                        created_at DATETIME NOT NULL,
+                        next_attempt_at DATETIME,
+                        sent_at DATETIME
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX ix_discord_event_status_created "
+                    "ON discord_outbound_events (status, created_at)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX ix_discord_event_league_status "
+                    "ON discord_outbound_events (league_slug, status)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX ix_discord_event_idempotency_key "
+                    "ON discord_outbound_events (idempotency_key)"
+                )
+            )
+        else:
+            cols = conn.execute(text("PRAGMA table_info(discord_outbound_events)")).fetchall()
+            names = {str(c[1]) for c in cols}
+            if "next_attempt_at" not in names:
+                conn.execute(text("ALTER TABLE discord_outbound_events ADD COLUMN next_attempt_at DATETIME"))
+            if "idempotency_key" not in names:
+                conn.execute(
+                    text(
+                        "ALTER TABLE discord_outbound_events "
+                        "ADD COLUMN idempotency_key VARCHAR(64) NOT NULL DEFAULT ''"
+                    )
+                )
+            has_idx = conn.execute(
+                text("SELECT 1 FROM sqlite_master WHERE type='index' AND name='ix_discord_event_idempotency_key'")
+            ).fetchone()
+            if not has_idx:
+                conn.execute(
+                    text(
+                        "CREATE INDEX ix_discord_event_idempotency_key "
+                        "ON discord_outbound_events (idempotency_key)"
+                    )
+                )
+        has_hb = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='discord_bot_heartbeats'")
+        ).fetchone()
+        if not has_hb:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE discord_bot_heartbeats (
+                        id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                        league_slug VARCHAR(64) NOT NULL,
+                        bot_name VARCHAR(120) NOT NULL DEFAULT '',
+                        bot_version VARCHAR(64) NOT NULL DEFAULT '',
+                        guild_id VARCHAR(64) NOT NULL DEFAULT '',
+                        last_seen_at DATETIME NOT NULL,
+                        extra_json TEXT NOT NULL DEFAULT '{}'
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX ix_discord_hb_league_seen "
+                    "ON discord_bot_heartbeats (league_slug, last_seen_at)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX ix_discord_hb_bot "
+                    "ON discord_bot_heartbeats (bot_name)"
+                )
+            )
+        conn.commit()

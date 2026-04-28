@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Import Validation — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:62rem;margin:0 auto;">
+  <h1 class="page-title">Import Validation</h1>
+  <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
+  <form method="post" style="margin:0 0 0.75rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="join-league-btn">Run validation</button>
+  </form>
+  <p class="muted" style="margin:0 0 0.75rem;">
+    Read-only checks against current league raw imports and team logo folder.
+  </p>
+
+  <div class="table-wrap">
+    <table class="data">
+      <tbody>
+        <tr><th>Generated (UTC)</th><td>{{ report.generated_at }}</td></tr>
+        <tr><th>Raw folder</th><td><code>{{ report.raw_dir }}</code></td></tr>
+        <tr><th>Team logos folder</th><td><code>{{ report.team_logos_dir }}</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 style="margin:0.85rem 0 0.4rem;">CSV Row Counts</h3>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>CSV</th><th>Rows</th></tr></thead>
+      <tbody>
+        {% for name, n in (report.csv_counts or {}).items() %}
+        <tr><td><code>{{ name }}</code></td><td>{{ n }}</td></tr>
+        {% else %}
+        <tr><td colspan="2" class="muted">No CSV counts available.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <h3 style="margin:0.85rem 0 0.4rem;">Findings</h3>
+  {% if report.errors %}
+  <div class="site-announcement site-announcement--urgent" style="margin:0 0 0.6rem;max-width:none;">
+    <strong class="site-announcement__title">Errors:</strong>
+    <ul style="margin:0.3rem 0 0;padding-left:1.2rem;">
+      {% for msg in report.errors %}<li>{{ msg }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+  {% if report.warnings %}
+  <div class="site-announcement site-announcement--warn" style="margin:0 0 0.6rem;max-width:none;">
+    <strong class="site-announcement__title">Warnings:</strong>
+    <ul style="margin:0.3rem 0 0;padding-left:1.2rem;">
+      {% for msg in report.warnings %}<li>{{ msg }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+  {% if not report.errors and not report.warnings %}
+  <div class="site-announcement" style="margin:0 0 0.6rem;max-width:none;">
+    <strong class="site-announcement__title">Status:</strong>
+    No issues detected in this read-only pass.
+  </div>
+  {% endif %}
+
+  {% if report.missing_required %}
+  <p><strong>Missing required CSVs:</strong> {{ report.missing_required|join(', ') }}</p>
+  {% endif %}
+  {% if report.duplicate_player_ids %}
+  <p><strong>Duplicate player IDs:</strong> {{ report.duplicate_player_ids|join(', ') }}</p>
+  {% endif %}
+  {% if report.duplicate_team_ids %}
+  <p><strong>Duplicate team IDs:</strong> {{ report.duplicate_team_ids|join(', ') }}</p>
+  {% endif %}
+  {% if report.missing_logos %}
+  <p><strong>Missing team logos:</strong> {{ report.missing_logos|join(', ') }}</p>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Franchise Hubs — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:68rem;margin:0 auto;">
+  <h1 class="page-title">Franchise Hubs</h1>
+  <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
+  <p class="muted" style="margin:0 0 0.8rem;">Read-only scaffold view for franchise snapshots (season {{ season_label }}).</p>
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr>
+          <th>Team</th>
+          <th>GM</th>
+          <th>PTS</th>
+          <th>Record</th>
+          <th>Pending Ops</th>
+          <th>Hub</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td>{{ r.team.full_display_name() }}</td>
+          <td>{{ (r.user.discord_name or r.user.username or r.user.email) if r.user else '—' }}</td>
+          <td>{{ r.standing.pts if r.standing else '—' }}</td>
+          <td>
+            {% if r.standing %}
+            {{ r.standing.w }}-{{ r.standing.l }}-{{ r.standing.otl }}
+            {% else %}
+            —
+            {% endif %}
+          </td>
+          <td>{{ r.pending_ops }}</td>
+          <td><a class="admin-news-body-btn" href="{{ url_for('site_admin.admin_franchise_hub_detail', team_id=r.team.id) }}">Open hub</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="muted">No franchises found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

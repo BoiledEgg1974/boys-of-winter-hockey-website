@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Announcement Banners — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:58rem;margin:0 auto;">
+  <h1 class="page-title">Announcement Banners</h1>
+  <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
+
+  <form method="post" style="margin:0 0 1rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div style="display:grid;gap:0.55rem;">
+      <label>Title (optional)
+        <input type="text" name="title" maxlength="200" placeholder="League Office Update">
+      </label>
+      <label>Body
+        <textarea name="body" rows="3" maxlength="3000" required placeholder="Write announcement text..."></textarea>
+      </label>
+      <label>Level
+        <select name="level">
+          <option value="info">Info</option>
+          <option value="warn">Warn</option>
+          <option value="urgent">Urgent</option>
+        </select>
+      </label>
+      <div>
+        <button type="submit" class="join-league-btn">Post banner</button>
+      </div>
+    </div>
+  </form>
+
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr>
+          <th>When</th>
+          <th>Level</th>
+          <th>Title</th>
+          <th>Body</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td>{{ r.created_at.strftime('%Y-%m-%d %H:%M') if r.created_at else '—' }}</td>
+          <td>{{ r.level }}</td>
+          <td>{{ r.title or '—' }}</td>
+          <td>{{ r.body }}</td>
+          <td>{% if r.is_active %}Active{% else %}Inactive{% endif %}</td>
+          <td>
+            <form method="post" action="{{ url_for('site_admin.admin_announcement_toggle', aid=r.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="admin-news-body-btn">{% if r.is_active %}Deactivate{% else %}Activate{% endif %}</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="muted">No announcements posted yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

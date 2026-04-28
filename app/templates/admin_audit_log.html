@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Admin Audit Log — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:66rem;margin:0 auto;">
+  <h1 class="page-title">Admin Audit Log</h1>
+  <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
+
+  <form method="get" style="display:flex;gap:0.6rem;align-items:end;flex-wrap:wrap;margin:0 0 0.7rem;">
+    <label>Action
+      <select name="action">
+        <option value="">(all)</option>
+        {% for a in action_values %}
+        <option value="{{ a }}"{% if selected_action == a %} selected{% endif %}>{{ a }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Actor User ID
+      <input type="number" name="actor_user_id" min="1" step="1" value="{{ selected_actor_user_id or '' }}" style="width:7rem;">
+    </label>
+    <button type="submit" class="admin-news-body-btn">Apply filters</button>
+    <a class="admin-news-body-btn" href="{{ url_for('site_admin.admin_audit_log') }}">Reset</a>
+  </form>
+
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr>
+          <th>When (UTC)</th>
+          <th>Actor</th>
+          <th>Action</th>
+          <th>Detail JSON</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        {% set actor = actors_by_id.get(r.admin_user_id) %}
+        <tr>
+          <td>{{ r.created_at.strftime('%Y-%m-%d %H:%M:%S') if r.created_at else '—' }}</td>
+          <td>
+            {% if actor %}
+              {{ actor.email }} <span class="muted">(id {{ r.admin_user_id }})</span>
+            {% else %}
+              id {{ r.admin_user_id }}
+            {% endif %}
+          </td>
+          <td><code>{{ r.action }}</code></td>
+          <td><code style="white-space:pre-wrap;">{{ r.detail_json }}</code></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="muted">No audit entries found for this filter.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

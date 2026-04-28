@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Media Kit Generator — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:68rem;margin:0 auto;">
+  <h1 class="page-title">Media Kit Generator</h1>
+  <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
+  <p class="muted" style="margin:0 0 0.8rem;">Read-only kit from current DB snapshot. {% if snapshot and snapshot.ok and snapshot.note %}{{ snapshot.note }}{% endif %}</p>
+
+  <form method="post" style="display:flex;gap:0.6rem;align-items:end;flex-wrap:wrap;margin:0 0 0.8rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Team
+      <select name="team_id" required>
+        <option value="">Select team…</option>
+        {% for t in teams %}
+        <option value="{{ t.id }}"{% if selected_team_id|int == t.id %} selected{% endif %}>{{ t.full_display_name() }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Season
+      <select name="season_id">
+        <option value="">Current season</option>
+        {% for s in seasons %}
+        <option value="{{ s.id }}"{% if selected_season_id|int == s.id %} selected{% endif %}>{{ s.label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit" class="admin-news-body-btn">Generate media kit</button>
+  </form>
+
+  {% if snapshot %}
+    {% if snapshot.ok %}
+    {% if snapshot.generated_at_utc %}
+    <p class="muted" style="margin:0 0 0.5rem;font-size:0.85rem;">Generated UTC: {{ snapshot.generated_at_utc }}</p>
+    {% endif %}
+    <h3 style="margin:0.3rem 0 0.35rem;">Summary</h3>
+    <div class="table-wrap" style="margin:0 0 0.8rem;">
+      <table class="data">
+        <tbody>
+          <tr><th>Team</th><td>{{ snapshot.summary.team_name }}</td></tr>
+          <tr><th>Season</th><td>{{ snapshot.summary.season_label }}</td></tr>
+          <tr><th>Record</th><td>{{ snapshot.summary.record }}</td></tr>
+          <tr><th>Points</th><td>{{ snapshot.summary.points }}</td></tr>
+          <tr><th>GF / GA</th><td>{{ snapshot.summary.gf }} / {{ snapshot.summary.ga }}</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 style="margin:0.3rem 0 0.35rem;">Top Skaters</h3>
+    <div class="table-wrap" style="margin:0 0 0.8rem;">
+      <table class="data">
+        <thead><tr><th>Name</th><th>GP</th><th>G</th><th>A</th><th>PTS</th></tr></thead>
+        <tbody>
+          {% for r in snapshot.top_skaters %}
+          <tr><td>{{ r.name }}</td><td>{{ r.gp }}</td><td>{{ r.g }}</td><td>{{ r.a }}</td><td>{{ r.pts }}</td></tr>
+          {% else %}
+          <tr><td colspan="5" class="muted">No skater stats available.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <h3 style="margin:0.3rem 0 0.35rem;">Top Goalies</h3>
+    <div class="table-wrap">
+      <table class="data">
+        <thead><tr><th>Name</th><th>GP</th><th>W</th><th>GAA</th><th>SV%</th></tr></thead>
+        <tbody>
+          {% for r in snapshot.top_goalies %}
+          <tr><td>{{ r.name }}</td><td>{{ r.gp }}</td><td>{{ r.w }}</td><td>{{ '%.2f'|format(r.gaa) }}</td><td>{{ '%.3f'|format(r.sv_pct) }}</td></tr>
+          {% else %}
+          <tr><td colspan="5" class="muted">No goalie stats available.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="site-announcement site-announcement--warn" style="margin:0 0 0.8rem;max-width:none;">
+      <strong class="site-announcement__title">Media kit generation failed</strong>
+      <span class="site-announcement__body">{{ snapshot.message }}</span>
+    </div>
+    {% endif %}
+  {% endif %}
+</div>
+{% endblock %}

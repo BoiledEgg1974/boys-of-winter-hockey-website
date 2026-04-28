@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Member Watchlists & Digests — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:68rem;margin:0 auto;">
+  <h1 class="page-title">Member Watchlists / Digests / Personalized Feeds</h1>
+  <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
+  <p class="muted" style="margin:0 0 0.35rem;">Admin-managed watchlist entries + read-only digest. No outbound notification sending yet.</p>
+  <p class="muted" style="margin:0 0 0.8rem;font-size:0.85rem;">
+    {% if digest.generated_at_utc %}Generated {{ digest.generated_at_utc }} UTC.{% endif %}
+    {% if digest.note %}{{ digest.note }}{% endif %}
+  </p>
+
+  <h3 style="margin:0.3rem 0 0.35rem;">Add Watchlist Item</h3>
+  <form method="post" style="display:flex;gap:0.6rem;align-items:end;flex-wrap:wrap;margin:0 0 0.8rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="add_watch">
+    <label>User
+      <select name="user_id" required>
+        <option value="">Select user…</option>
+        {% for u in users %}
+        <option value="{{ u.id }}">{{ u.discord_name or u.username or u.email }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Target Type
+      <select name="target_type" required>
+        <option value="player">player</option>
+        <option value="team">team</option>
+        <option value="article">article</option>
+        <option value="gm">gm</option>
+      </select>
+    </label>
+    <label>Target Ref
+      <input type="text" name="target_ref" placeholder="player_id:123 / team_id:5 / article_id:88" required>
+    </label>
+    <label>Note
+      <input type="text" name="note" placeholder="Optional note">
+    </label>
+    <button type="submit" class="admin-news-body-btn">Add watch item</button>
+  </form>
+
+  <h3 style="margin:0.3rem 0 0.35rem;">Digest Overview</h3>
+  <div class="table-wrap" style="margin:0 0 0.8rem;">
+    <table class="data">
+      <tbody>
+        <tr><th>Total watchlist items</th><td>{{ digest.watchlist_total }}</td></tr>
+        <tr><th>Recent news items in digest window</th><td>{{ digest.recent_news|length }}</td></tr>
+        <tr><th>Pending operations in digest window</th><td>{{ digest.pending_ops|length }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 style="margin:0.3rem 0 0.35rem;">Member Watchlist Summary</h3>
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr>
+          <th>Member</th>
+          <th>Watch Count</th>
+          <th>Type Mix</th>
+          <th>Recent Items</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in digest.members %}
+        <tr>
+          <td>{{ (m.user.discord_name or m.user.username or m.user.email) if m.user else 'user missing' }}</td>
+          <td>{{ m.watch_count }}</td>
+          <td>
+            {% for k, v in m.type_counts.items() %}
+            <span class="admin-ops-proj admin-ops-proj--na">{{ k }}:{{ v }}</span>
+            {% endfor %}
+          </td>
+          <td>
+            {% for i in m.items %}
+            <div><code>{{ i.target_type }}={{ i.target_ref }}</code>{% if i.note %} — {{ i.note }}{% endif %}</div>
+            {% endfor %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="muted">No watchlists yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

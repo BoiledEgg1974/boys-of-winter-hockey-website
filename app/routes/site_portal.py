@@ -2,15 +2,28 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+import os
+import subprocess
+import sys
+from datetime import datetime, timedelta
+from pathlib import Path
 
 from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
-from sqlalchemy import select
-from app.auth_login import active_membership_for_league, require_admin
+from sqlalchemy import func, select
+from app.auth_login import (
+    ADMIN_ROLE_CONTENT,
+    ADMIN_ROLE_LEAGUE,
+    ADMIN_ROLE_SUPER,
+    ADMIN_ROLE_STATS,
+    ADMIN_ROLE_VALUES,
+    active_membership_for_league,
+    require_admin,
+    require_admin_role,
+)
 from app.config import league_display_name, league_group_for_slug
 from app.league_db import db
-from app.models import Player, PlayerContract, Team
+from app.models import Player, PlayerContract, Season, Team
 from app.services.ap_multileague import team_id_for_slug_in_league
 from app.services.gm_messaging import (
     active_peer_membership,
@@ -35,6 +48,44 @@ from app.services.news_categories import (
     normalize_news_category,
     news_category_label,
 )
+from app.services.homepage_modules import (
+    ALLOWED_HOMEPAGE_MODULE_KEYS,
+    get_homepage_module_settings,
+    save_homepage_module_settings,
+)
+from app.services.import_validation import build_import_validation_report
+from app.services.league_rules import (
+    evaluate_contract_mutation_allowed,
+    evaluate_points_economy_mutations_allowed,
+    get_league_rules,
+    rule_bool,
+    rule_deadline_passed,
+    rule_int,
+)
+from app.services.control_center import build_control_center_snapshot
+from app.services.control_center import dry_run_operation_plan
+from app.services.control_backups import create_league_backup, list_league_backups, restore_league_backup
+from app.services.franchise_health import build_franchise_health_rows
+from app.services.admin_alerts import build_admin_alerts_snapshot
+from app.services.story_automation import (
+    ALLOWED_STORY_CHANNELS,
+    dry_run_dispatch_story,
+    execute_story_dispatch,
+    list_story_schedules,
+    schedule_story_publish,
+    validate_schedule_datetime,
+)
+from app.services.discord_events import (
+    enqueue_discord_event,
+    list_heartbeats,
+    list_discord_routes,
+    list_outbound_events,
+    update_discord_routes,
+)
+from app.services.prediction_center import build_prediction_snapshot
+from app.services.awards_tracker import create_voting_cycle, list_cycles, tally_cycle_ballots
+from app.services.media_kit import build_media_kit_snapshot
+from app.services.member_digest import build_member_watchlist_digest
 from app.services.ap_service import (
     active_redemption_items,
     add_ledger_entry,
@@ -44,12 +95,21 @@ from app.services.ap_service import (
     team_ap_balance,
 )
 from app.site_models import (
+    AdminAuditLog,
     ApRedemptionCatalog,
     ApRedemptionRequest,
     GmInAppNotification,
+    GmApprovalRequest,
     GmLeagueMembership,
     GmLeagueMessage,
+    LeagueRuleSetting,
     NewsArticle,
+    SiteAnnouncement,
+    StoryPublishSchedule,
+    AwardsVotingCycle,
+    MemberWatchlistItem,
+    AdminUndoAction,
+    DiscordOutboundEvent,
     User,
 )
 
@@ -57,6 +117,210 @@ site_gm_bp = Blueprint("site_gm", __name__)
 site_admin_bp = Blueprint("site_admin", __name__, url_prefix="/admin")
 
 _GM_MESSAGE_MAX_LEN = 6000
+_APPROVAL_REQUEST_TYPES = ("trade", "signing", "extension")
+
+
+def _coerce_nonneg_int(v) -> int | None:
+    try:
+        n = int(v)
+    except Exception:
+        return None
+    return n if n >= 0 else None
+
+
+def _parse_operation_payload(body: str) -> dict:
+    raw = (body or "").strip()
+    if not raw:
+        return {}
+    try:
+        data = json.loads(raw)
+    except Exception:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _team_roster_size(team_id: int) -> int:
+    return int(
+        db.session.scalar(
+            select(func.count(Player.id)).where(
+                Player.current_team_id == int(team_id),
+                Player.retired.is_(False),
+            )
+        )
+        or 0
+    )
+
+
+def _operation_request_preview(row: GmApprovalRequest, roster_cap: int) -> dict[str, object]:
+    preview: dict[str, object] = {
+        "details": row.body or "",
+        "projection_text": "—",
+        "projection_status": "na",
+    }
+    if row.request_type != "trade":
+        return preview
+    payload = _parse_operation_payload(row.body or "")
+    details = payload.get("details")
+    if isinstance(details, str) and details.strip():
+        preview["details"] = details.strip()
+    inc = _coerce_nonneg_int(payload.get("incoming_count"))
+    out = _coerce_nonneg_int(payload.get("outgoing_count"))
+    if inc is None or out is None:
+        preview["projection_text"] = "Trade payload missing incoming/outgoing counts"
+        preview["projection_status"] = "missing"
+        return preview
+    team_now = _team_roster_size(int(row.team_id))
+    team_proj = team_now + inc - out
+    status = "ok" if (roster_cap <= 0 or team_proj <= roster_cap) else "over"
+    txt = f"Team: {team_now} +{inc} -{out} => {team_proj}/{roster_cap}"
+    partner_tid = _coerce_nonneg_int(payload.get("partner_team_id"))
+    partner_inc = _coerce_nonneg_int(payload.get("partner_incoming_count"))
+    partner_out = _coerce_nonneg_int(payload.get("partner_outgoing_count"))
+    if partner_tid and partner_inc is not None and partner_out is not None:
+        partner_now = _team_roster_size(partner_tid)
+        partner_proj = partner_now + partner_inc - partner_out
+        txt += f" | Partner(team_id={partner_tid}): {partner_now} +{partner_inc} -{partner_out} => {partner_proj}/{roster_cap}"
+        if roster_cap > 0 and partner_proj > roster_cap:
+            status = "over"
+    preview["projection_text"] = txt
+    preview["projection_status"] = status
+    return preview
+
+
+def _apply_operation_status_change(
+    row: GmApprovalRequest,
+    *,
+    slug: str,
+    actor_user_id: int,
+    requested_status: str,
+    admin_note: str,
+) -> dict[str, object]:
+    blocked_by_roster_max = False
+    blocked_by_trade_deadline = False
+    blocked_by_trade_roster = False
+    blocked_by_schedule_freeze = False
+    blocked_by_waiver_window = False
+    trade_projection: dict[str, int] = {}
+    roster_cap = rule_int(db.session, slug, "roster_max_size", default=23)
+    current_roster_size = _team_roster_size(int(row.team_id))
+    effective_status = requested_status
+    if (
+        effective_status == "approved"
+        and row.request_type in {"trade", "signing", "extension"}
+        and rule_bool(db.session, slug, "schedule_frozen", default=False)
+    ):
+        blocked_by_schedule_freeze = True
+        effective_status = row.status
+
+    if (
+        effective_status == "approved"
+        and row.request_type in {"trade", "signing", "extension"}
+        and rule_deadline_passed(db.session, slug, "trade_deadline_utc")
+    ):
+        blocked_by_trade_deadline = True
+        effective_status = row.status
+
+    if (
+        effective_status == "approved"
+        and row.request_type == "signing"
+        and not rule_bool(db.session, slug, "waiver_window_open", default=True)
+    ):
+        blocked_by_waiver_window = True
+        effective_status = row.status
+
+    if effective_status == "approved" and row.request_type == "trade":
+        if not blocked_by_trade_deadline:
+            payload = _parse_operation_payload(row.body)
+            inc = _coerce_nonneg_int(payload.get("incoming_count"))
+            out = _coerce_nonneg_int(payload.get("outgoing_count"))
+            if roster_cap > 0 and inc is not None and out is not None:
+                projected = current_roster_size + inc - out
+                trade_projection["team_projected_roster_size"] = int(projected)
+                if projected > roster_cap:
+                    blocked_by_trade_roster = True
+                    effective_status = row.status
+            partner_tid = _coerce_nonneg_int(payload.get("partner_team_id"))
+            partner_inc = _coerce_nonneg_int(payload.get("partner_incoming_count"))
+            partner_out = _coerce_nonneg_int(payload.get("partner_outgoing_count"))
+            if (
+                not blocked_by_trade_roster
+                and roster_cap > 0
+                and partner_tid
+                and partner_inc is not None
+                and partner_out is not None
+            ):
+                partner_roster_size = _team_roster_size(partner_tid)
+                partner_projected = partner_roster_size + partner_inc - partner_out
+                trade_projection["partner_team_id"] = int(partner_tid)
+                trade_projection["partner_projected_roster_size"] = int(partner_projected)
+                if partner_projected > roster_cap:
+                    blocked_by_trade_roster = True
+                    effective_status = row.status
+
+    if (
+        effective_status == "approved"
+        and row.request_type in {"signing", "extension"}
+        and roster_cap > 0
+        and current_roster_size >= roster_cap
+    ):
+        blocked_by_roster_max = True
+        effective_status = row.status
+
+    row.status = effective_status
+    row.admin_note = admin_note.strip()
+    if (
+        blocked_by_roster_max
+        or blocked_by_trade_deadline
+        or blocked_by_trade_roster
+        or blocked_by_schedule_freeze
+        or blocked_by_waiver_window
+    ):
+        row.processed_by_user_id = None
+        row.processed_at = None
+    else:
+        row.processed_by_user_id = int(actor_user_id)
+        row.processed_at = datetime.utcnow()
+
+    db.session.add(
+        AdminAuditLog(
+            admin_user_id=int(actor_user_id),
+            league_slug=slug,
+            action="operations_queue_status",
+            detail_json=json.dumps(
+                {
+                    "request_id": int(row.id),
+                    "status": row.status,
+                    "request_type": row.request_type,
+                    "team_id": int(row.team_id),
+                    "roster_max_size": int(roster_cap),
+                    "current_roster_size": int(current_roster_size),
+                    "blocked_by_roster_max": bool(blocked_by_roster_max),
+                    "blocked_by_trade_deadline": bool(blocked_by_trade_deadline),
+                    "blocked_by_trade_roster": bool(blocked_by_trade_roster),
+                    "blocked_by_schedule_freeze": bool(blocked_by_schedule_freeze),
+                    "blocked_by_waiver_window": bool(blocked_by_waiver_window),
+                    "trade_projection": trade_projection,
+                }
+            ),
+        )
+    )
+    return {
+        "row_id": int(row.id),
+        "effective_status": row.status,
+        "requested_status": requested_status,
+        "blocked_by_roster_max": bool(blocked_by_roster_max),
+        "blocked_by_trade_deadline": bool(blocked_by_trade_deadline),
+        "blocked_by_trade_roster": bool(blocked_by_trade_roster),
+        "blocked_by_schedule_freeze": bool(blocked_by_schedule_freeze),
+        "blocked_by_waiver_window": bool(blocked_by_waiver_window),
+        "blocked": bool(
+            blocked_by_roster_max
+            or blocked_by_trade_deadline
+            or blocked_by_trade_roster
+            or blocked_by_schedule_freeze
+            or blocked_by_waiver_window
+        ),
+    }
 
 
 def _league_slug() -> str:
@@ -76,6 +340,72 @@ def _can_use_gm_messaging() -> bool:
     if getattr(current_user, "is_admin", False):
         return True
     return _membership() is not None
+
+
+def _create_undo_action(
+    *,
+    league_slug: str,
+    action_key: str,
+    entity_type: str,
+    entity_id: int,
+    before: dict,
+    after: dict,
+    note: str = "",
+) -> None:
+    db.session.add(
+        AdminUndoAction(
+            league_slug=league_slug,
+            action_key=action_key,
+            entity_type=entity_type,
+            entity_id=int(entity_id),
+            before_json=json.dumps(before or {}),
+            after_json=json.dumps(after or {}),
+            note=note or "",
+            created_by_user_id=int(current_user.id) if getattr(current_user, "is_authenticated", False) else None,
+            created_at=datetime.utcnow(),
+            is_reverted=False,
+        )
+    )
+
+
+def _enqueue_discord_event(event_key: str, payload: dict) -> None:
+    slug = _league_slug()
+    try:
+        enqueue_discord_event(
+            db.session,
+            league_slug=slug,
+            event_key=event_key,
+            payload=payload or {},
+            created_by_user_id=int(current_user.id) if getattr(current_user, "is_authenticated", False) else None,
+        )
+    except Exception:
+        # Never block primary admin flows on outbound queue writes.
+        pass
+
+
+def _season_rollover_defaults() -> dict[str, object]:
+    cur = db.session.scalar(select(Season).where(Season.is_current.is_(True)).limit(1))
+    if cur is None:
+        cur = db.session.scalar(select(Season).order_by(Season.id.desc()).limit(1))
+    current_label = str(cur.label) if cur and cur.label else ""
+    current_start = int(cur.start_year) if cur and cur.start_year is not None else None
+    current_end = int(cur.end_year) if cur and cur.end_year is not None else None
+    next_start = (current_start + 1) if current_start is not None else None
+    next_end = (current_end + 1) if current_end is not None else None
+    next_label = ""
+    if next_start is not None and next_end is not None:
+        next_label = f"{next_start}-{next_end}"
+    elif current_label:
+        next_label = f"{current_label} (next)"
+    return {
+        "current_id": int(cur.id) if cur else None,
+        "current_label": current_label,
+        "current_start": current_start,
+        "current_end": current_end,
+        "next_start": next_start,
+        "next_end": next_end,
+        "next_label": next_label,
+    }
 
 
 @site_gm_bp.get("/action-points")
@@ -102,6 +432,15 @@ def action_points_page():
 @login_required
 def action_points_redeem():
     slug = _league_slug()
+    if rule_bool(db.session, slug, "schedule_frozen", default=False):
+        flash("Redemptions are temporarily closed — schedule is frozen by league rule.", "err")
+        return redirect(url_for("site_gm.action_points_page"))
+    if not rule_bool(db.session, slug, "waiver_window_open", default=True):
+        flash("Redemptions are temporarily closed by league rules (waiver window is closed).", "err")
+        return redirect(url_for("site_gm.action_points_page"))
+    if rule_deadline_passed(db.session, slug, "trade_deadline_utc"):
+        flash("Redemptions are closed after the configured trade deadline.", "err")
+        return redirect(url_for("site_gm.action_points_page"))
     mem = _membership()
     if not mem:
         flash("No active GM membership for this league.", "err")
@@ -226,6 +565,85 @@ def league_news():
         membership=mem,
         news_category_choices=NEWS_CATEGORY_CHOICES_GM,
         news_category_label=news_category_label,
+    )
+
+
+@site_gm_bp.route("/operations/request", methods=["GET", "POST"])
+@login_required
+def gm_operation_request():
+    slug = _league_slug()
+    mem = _membership()
+    if not mem:
+        flash("No active GM membership for this league.", "err")
+        return redirect(url_for("main.home"))
+    if request.method == "POST":
+        req_type = (request.form.get("request_type") or "").strip().lower()
+        title = (request.form.get("title") or "").strip()
+        body = (request.form.get("body") or "").strip()
+        if req_type not in _APPROVAL_REQUEST_TYPES:
+            flash("Choose a valid request type.", "err")
+            return redirect(url_for("site_gm.gm_operation_request"))
+        if not title or not body:
+            flash("Title and details are required.", "err")
+            return redirect(url_for("site_gm.gm_operation_request"))
+        payload_body = body
+        if req_type == "trade":
+            incoming_count = _coerce_nonneg_int(request.form.get("incoming_count"))
+            outgoing_count = _coerce_nonneg_int(request.form.get("outgoing_count"))
+            if incoming_count is None or outgoing_count is None:
+                flash("Trade requests require non-negative incoming and outgoing counts.", "err")
+                return redirect(url_for("site_gm.gm_operation_request"))
+            trade_payload: dict[str, object] = {
+                "details": body,
+                "incoming_count": int(incoming_count),
+                "outgoing_count": int(outgoing_count),
+            }
+            partner_team_id = _coerce_nonneg_int(request.form.get("partner_team_id"))
+            partner_incoming_count = _coerce_nonneg_int(request.form.get("partner_incoming_count"))
+            partner_outgoing_count = _coerce_nonneg_int(request.form.get("partner_outgoing_count"))
+            partner_any = any(
+                x is not None
+                for x in (partner_team_id, partner_incoming_count, partner_outgoing_count)
+            )
+            if partner_any:
+                if (
+                    partner_team_id is None
+                    or partner_team_id <= 0
+                    or partner_incoming_count is None
+                    or partner_outgoing_count is None
+                ):
+                    flash("Partner trade fields must include team id and non-negative counts.", "err")
+                    return redirect(url_for("site_gm.gm_operation_request"))
+                trade_payload["partner_team_id"] = int(partner_team_id)
+                trade_payload["partner_incoming_count"] = int(partner_incoming_count)
+                trade_payload["partner_outgoing_count"] = int(partner_outgoing_count)
+            payload_body = json.dumps(trade_payload)
+        row = GmApprovalRequest(
+            league_slug=slug,
+            team_id=int(mem.team_id),
+            user_id=int(current_user.id),
+            request_type=req_type,
+            title=title[:200],
+            body=payload_body,
+            status="pending",
+        )
+        db.session.add(row)
+        db.session.commit()
+        flash("Operation request submitted for admin review.", "ok")
+        return redirect(url_for("site_gm.gm_operation_request"))
+    rows = db.session.scalars(
+        select(GmApprovalRequest)
+        .where(
+            GmApprovalRequest.league_slug == slug,
+            GmApprovalRequest.user_id == int(current_user.id),
+        )
+        .order_by(GmApprovalRequest.created_at.desc())
+        .limit(50)
+    ).all()
+    return render_template(
+        "gm_operation_request.html",
+        rows=rows,
+        request_types=_APPROVAL_REQUEST_TYPES,
     )
 
 
@@ -380,11 +798,2136 @@ def admin_home():
     )
 
 
+@site_admin_bp.route("/roles", methods=["GET", "POST"])
+@login_required
+def admin_roles():
+    require_admin_role(ADMIN_ROLE_SUPER)
+    slug = _league_slug()
+    if request.method == "POST":
+        uid_raw = (request.form.get("user_id") or "").strip()
+        role_raw = (request.form.get("admin_role") or "").strip().lower()
+        is_admin = request.form.get("is_admin") == "1"
+        if not uid_raw.isdigit():
+            flash("Invalid user.", "err")
+            return redirect(url_for("site_admin.admin_roles"))
+        uid = int(uid_raw)
+        u = db.session.get(User, uid)
+        if not u:
+            flash("User not found.", "err")
+            return redirect(url_for("site_admin.admin_roles"))
+        if role_raw and role_raw not in ADMIN_ROLE_VALUES:
+            flash("Invalid role value.", "err")
+            return redirect(url_for("site_admin.admin_roles"))
+        before = {
+            "user_id": int(u.id),
+            "email": str(u.email or ""),
+            "is_admin": bool(u.is_admin),
+            "admin_role": (u.admin_role or ""),
+        }
+        u.is_admin = bool(is_admin)
+        u.admin_role = role_raw or None
+        after = {
+            "user_id": int(u.id),
+            "email": str(u.email or ""),
+            "is_admin": bool(u.is_admin),
+            "admin_role": (u.admin_role or ""),
+        }
+        if before != after:
+            _create_undo_action(
+                league_slug=slug,
+                action_key="admin_roles_update",
+                entity_type="site_user",
+                entity_id=int(u.id),
+                before={
+                    "is_admin": bool(before.get("is_admin")),
+                    "admin_role": before.get("admin_role") or "",
+                },
+                after={
+                    "is_admin": bool(after.get("is_admin")),
+                    "admin_role": after.get("admin_role") or "",
+                },
+                note="Admin role / is_admin change",
+            )
+        db.session.add(
+            AdminAuditLog(
+                admin_user_id=int(current_user.id),
+                league_slug=slug,
+                action="admin_roles_update",
+                detail_json=json.dumps({"before": before, "after": after}),
+            )
+        )
+        db.session.commit()
+        flash("Admin role updated.", "ok")
+        return redirect(url_for("site_admin.admin_roles"))
+    users = db.session.scalars(select(User).order_by(User.email.asc())).all()
+    role_choices = sorted(ADMIN_ROLE_VALUES)
+    return render_template("admin_roles.html", users=users, role_choices=role_choices)
+
+
+@site_admin_bp.get("/audit")
+@login_required
+def admin_audit_log():
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    slug = _league_slug()
+    action = (request.args.get("action") or "").strip()
+    actor_raw = (request.args.get("actor_user_id") or "").strip()
+    q = (
+        select(AdminAuditLog)
+        .where(AdminAuditLog.league_slug == slug)
+        .order_by(AdminAuditLog.created_at.desc(), AdminAuditLog.id.desc())
+    )
+    if action:
+        q = q.where(AdminAuditLog.action == action)
+    actor_user_id = None
+    if actor_raw.isdigit():
+        actor_user_id = int(actor_raw)
+        q = q.where(AdminAuditLog.admin_user_id == actor_user_id)
+    rows = db.session.scalars(q.limit(300)).all()
+    actor_ids = sorted({int(r.admin_user_id) for r in rows if r.admin_user_id is not None})
+    actors_by_id = {}
+    if actor_ids:
+        for u in db.session.scalars(select(User).where(User.id.in_(actor_ids))).all():
+            actors_by_id[int(u.id)] = u
+    action_values = sorted({str(r.action or "") for r in rows if r.action})
+    return render_template(
+        "admin_audit_log.html",
+        rows=rows,
+        actors_by_id=actors_by_id,
+        action_values=action_values,
+        selected_action=action,
+        selected_actor_user_id=actor_user_id,
+    )
+
+
+@site_admin_bp.route("/rules", methods=["GET", "POST"])
+@login_required
+def admin_rules():
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    slug = _league_slug()
+    if request.method == "POST":
+        rows = get_league_rules(db.session, slug)
+        before = {str(r.rule_key): str(r.rule_value or "") for r in rows}
+        for r in rows:
+            raw = request.form.get(f"rule_{r.rule_key}")
+            if raw is None:
+                continue
+            r.rule_value = str(raw).strip()
+            r.updated_by_user_id = int(current_user.id)
+            r.updated_at = datetime.utcnow()
+        after = {str(r.rule_key): str(r.rule_value or "") for r in rows}
+        if before != after:
+            _create_undo_action(
+                league_slug=slug,
+                action_key="league_rules_bulk_update",
+                entity_type="league_rules_bulk",
+                entity_id=0,
+                before={"rules": before},
+                after={"rules": after},
+                note="League rules form save",
+            )
+        db.session.add(
+            AdminAuditLog(
+                admin_user_id=int(current_user.id),
+                league_slug=slug,
+                action="league_rules_update",
+                detail_json=json.dumps({"before": before, "after": after}),
+            )
+        )
+        db.session.commit()
+        flash("League rules updated.", "ok")
+        return redirect(url_for("site_admin.admin_rules"))
+    rows = get_league_rules(db.session, slug)
+    return render_template("admin_rules.html", rows=rows)
+
+
+@site_admin_bp.get("/control-center")
+@login_required
+def admin_control_center():
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    slug = _league_slug()
+    raw_dir = Path(str(current_app.config.get("RAW_IMPORT_DIR") or ""))
+    snap = build_control_center_snapshot(db.session, raw_dir)
+    schedule_frozen = rule_bool(db.session, slug, "schedule_frozen", default=False)
+    backup_rows = list_league_backups(slug, limit=20)
+    restore_preview = None
+    preview_name = (request.args.get("restore_preview") or "").strip()
+    if preview_name:
+        restore_preview = next((b for b in backup_rows if str(b.get("name")) == preview_name), None)
+    restore_verify = (request.args.get("restore_verify") or "").strip() == "1"
+    dry_run_result = None
+    if request.args.get("dry_run_op"):
+        dry_run_result = dry_run_operation_plan(
+            repo_root=Path(current_app.root_path).parent,
+            league_slug=slug,
+            operation=str(request.args.get("dry_run_op") or ""),
+        )
+    rollover_preview = None
+    if (request.args.get("rollover_preview") or "").strip() == "1":
+        d = _season_rollover_defaults()
+        rollover_preview = {
+            "current_label": d.get("current_label") or "—",
+            "next_label": (request.args.get("next_label") or str(d.get("next_label") or "")).strip(),
+            "next_start": (request.args.get("next_start") or str(d.get("next_start") or "")).strip(),
+            "next_end": (request.args.get("next_end") or str(d.get("next_end") or "")).strip(),
+            "message": "Dry-run preview only. No changes have been saved.",
+        }
+    return render_template(
+        "admin_control_center.html",
+        snapshot=snap,
+        league_slug=slug,
+        dry_run_result=dry_run_result,
+        rollover_preview=rollover_preview,
+        rollover_defaults=_season_rollover_defaults(),
+        schedule_frozen=schedule_frozen,
+        restore_preview=restore_preview,
+        execute_result=None,
+        backup_rows=backup_rows,
+        restore_verify=restore_verify,
+    )
+
+
+@site_admin_bp.post("/control-center/dry-run")
+@login_required
+def admin_control_center_dry_run():
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    slug = _league_slug()
+    op = str(request.form.get("operation") or "").strip().lower()
+    result = dry_run_operation_plan(
+        repo_root=Path(current_app.root_path).parent,
+        league_slug=slug,
+        operation=op,
+    )
+    db.session.add(
+        AdminAuditLog(
+            admin_user_id=int(current_user.id),
+            league_slug=slug,
+            action="control_center_dry_run",
+            detail_json=json.dumps({"operation": op, "ok": bool(result.get("ok"))}),
+        )
+    )
+    db.session.commit()
+    if not result.get("ok"):
+        flash("Unknown dry-run operation.", "err")
+        return redirect(url_for("site_admin.admin_control_center"))
+    flash(f"[DRY RUN] Prepared operation preview for '{op}'. No commands executed.", "ok")
+    return redirect(url_for("site_admin.admin_control_center", dry_run_op=op))
+
+
+@site_admin_bp.post("/control-center/execute-refresh")
+@login_required
+def admin_control_center_execute_refresh():
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    slug = _league_slug()
+    if request.form.get("confirm_execute") != "1":
+        flash("Execution blocked: confirmation checkbox is required.", "err")
+        return redirect(url_for("site_admin.admin_control_center"))
+    repo_root = Path(current_app.root_path).parent
+    backup = create_league_backup(slug, "refresh_team_aggregates")
+    if not backup.get("ok"):
+        flash(f"Execution blocked: pre-run backup failed. {backup.get('message')}", "err")
+        return redirect(url_for("site_admin.admin_control_center"))
+    db.session.add(
+        AdminAuditLog(
+            admin_user_id=int(current_user.id),
+            league_slug=slug,
+            action="control_center_backup_create",
+            detail_json=json.dumps({"reason": "refresh_team_aggregates", "path": backup.get("path", "")}),
+        )
+    )
+    db.session.commit()
+    flash(f"Pre-run backup created: {backup.get('path')}", "ok")
+    script = repo_root / "scripts" / "refresh_team_aggregates.py"
+    started = datetime.utcnow()
+    env = dict(os.environ)
+    env["LEAGUE_SLUG"] = slug
+    if not script.is_file():
+        result = {
+            "ok": False,
+            "exit_code": 127,
+            "command": f"{sys.executable} {script}",
+            "output": f"Script not found: {script}",
+            "started_at": started.isoformat(timespec="seconds"),
+            "finished_at": datetime.utcnow().isoformat(timespec="seconds"),
+        }
+    else:
+        proc = subprocess.run(
+            [sys.executable, str(script)],
+            cwd=str(repo_root),
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        output = ((proc.stdout or "").strip() + "\n" + (proc.stderr or "").strip()).strip()
+        result = {
+            "ok": proc.returncode == 0,
+            "exit_code": int(proc.returncode),
+            "command": f"{sys.executable} {script}",
+            "output": output or "(no output)",
+            "started_at": started.isoformat(timespec="seconds"),
+            "finished_at": datetime.utcnow().isoformat(timespec="seconds"),
+        }
+    db.session.add(
+        AdminAuditLog(
+            admin_user_id=int(current_user.id),
+            league_slug=slug,
+            action="control_center_execute_refresh",
+            detail_json=json.dumps(
+                {
+                    "ok": bool(result["ok"]),
+                    "exit_code": int(result["exit_code"]),
+                    "command": result["command"],
+                }
+            ),
+        )
+    )
+    db.session.commit()
+    raw_dir = Path(str(current_app.config.get("RAW_IMPORT_DIR") or ""))
+    snap = build_control_center_snapshot(db.session, raw_dir)
+    if result["ok"]:
+        flash("Refresh completed successfully.", "ok")
+    else:
+        flash("Refresh failed. Review command output below.", "err")
+    return render_template(
+        "admin_control_center.html",
+        snapshot=snap,
+        league_slug=slug,
+        dry_run_result=None,
+        rollover_preview=None,
+        rollover_defaults=_season_rollover_defaults(),
+        schedule_frozen=rule_bool(db.session, slug, "schedule_frozen", default=False),
+        restore_preview=None,
+        execute_result=result,
+        backup_rows=list_league_backups(slug, limit=20),
+        restore_verify=False,
+    )
+
+
+@site_admin_bp.post("/control-center/execute-import")
+@login_required
+def admin_control_center_execute_import():
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    slug = _league_slug()
+    if request.form.get("confirm_execute") != "1":
+        flash("Execution blocked: confirmation checkbox is required.", "err")
+        return redirect(url_for("site_admin.admin_control_center"))
+    repo_root = Path(current_app.root_path).parent
+    backup = create_league_backup(slug, "import_data")
+    if not backup.get("ok"):
+        flash(f"Execution blocked: pre-run backup failed. {backup.get('message')}", "err")
+        return redirect(url_for("site_admin.admin_control_center"))
+    db.session.add(
+        AdminAuditLog(
+            admin_user_id=int(current_user.id),
+            league_slug=slug,
+            action="control_center_backup_create",
+            detail_json=json.dumps({"reason": "import_data", "path": backup.get("path", "")}),
+        )
+    )
+    db.session.commit()
+    flash(f"Pre-run backup created: {backup.get('path')}", "ok")
+    script = repo_root / "scripts" / "import_data.py"
+    started = datetime.utcnow()
+    env = dict(os.environ)
+    env["LEAGUE_SLUG"] = slug
+    if not script.is_file():
+        result = {
+            "ok": False,
+            "exit_code": 127,
+            "command": f"{sys.executable} {script}",
+            "output": f"Script not found: {script}",
+            "started_at": started.isoformat(timespec="seconds"),
+            "finished_at": datetime.utcnow().isoformat(timespec="seconds"),
+        }
+    else:
+        proc = subprocess.run(
+            [sys.executable, str(script)],
+            cwd=str(repo_root),
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        output = ((proc.stdout or "").strip() + "\n" + (proc.stderr or "").strip()).strip()
+        result = {
+            "ok": proc.returncode == 0,
+            "exit_code": int(proc.returncode),
+            "command": f"{sys.executable} {script}",
+            "output": output or "(no output)",
+            "started_at": started.isoformat(timespec="seconds"),
+            "finished_at": datetime.utcnow().isoformat(timespec="seconds"),
+        }
+    db.session.add(
+        AdminAuditLog(
+            admin_user_id=int(current_user.id),
+            league_slug=slug,
+            action="control_center_execute_import",
+            detail_json=json.dumps(
+                {
+                    "ok": bool(result["ok"]),
+                    "exit_code": int(result["exit_code"]),
+                    "command": result["command"],
+                }
+            ),
+        )
+    )
+    db.session.commit()
+    raw_dir = Path(str(current_app.config.get("RAW_IMPORT_DIR") or ""))
+    snap = build_control_center_snapshot(db.session, raw_dir)
+    if result["ok"]:
+        flash("Import completed successfully.", "ok")
+    else:
+        flash("Import failed. Review command output below.", "err")
+    return render_template(
+        "admin_control_center.html",
+        snapshot=snap,
+        league_slug=slug,
+        dry_run_result=None,
+        rollover_preview=None,
+        rollover_defaults=_season_rollover_defaults(),
+        schedule_frozen=rule_bool(db.session, slug, "schedule_frozen", default=False),
+        restore_preview=None,
+        execute_result=result,
+        backup_rows=list_league_backups(slug, limit=20),
+        restore_verify=False,
+    )
+
+
+@site_admin_bp.post("/control-center/restore-backup")
+@login_required
+def admin_control_center_restore_backup():
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    slug = _league_slug()
+    if request.form.get("confirm_restore") != "1":
+        flash("Restore blocked: confirmation checkbox is required.", "err")
+        return redirect(url_for("site_admin.admin_control_center"))
+    if (request.form.get("confirm_restore_phrase") or "").strip() != "RESTORE":
+        flash("Restore blocked: type the exact phrase RESTORE in the confirmation phrase field.", "err")
+        return redirect(url_for("site_admin.admin_control_center"))
+    backup_name = (request.form.get("backup_name") or "").strip()
+    if not backup_name:
+        flash("Restore blocked: backup selection is required.", "err")
+        return redirect(url_for("site_admin.admin_control_center"))
+    pre = create_league_backup(slug, "pre_restore")
+    if not pre.get("ok"):
+        flash(f"Restore blocked: could not create pre-restore backup. {pre.get('message')}", "err")
+        return redirect(url_for("site_admin.admin_control_center"))
+    restored = restore_league_backup(slug, backup_name)
+    db.session.add(
+        AdminAuditLog(
+            admin_user_id=int(current_user.id),
+            league_slug=slug,
+            action="control_center_restore_backup",
+            detail_json=json.dumps(
+                {
+                    "requested_backup": backup_name,
+                    "ok": bool(restored.get("ok")),
+                    "restored_to": restored.get("restored_to", ""),
+                    "pre_restore_backup": pre.get("path", ""),
+                }
+            ),
+        )
+    )
+    if restored.get("ok"):
+        _enqueue_discord_event(
+            "control_center_restore",
+            {
+                "backup_name": backup_name,
+                "restored_to": restored.get("restored_to", ""),
+                "requested_by_user_id": int(current_user.id),
+            },
+        )
+    db.session.commit()
+    if restored.get("ok"):
+        flash(
+            f"Backup restored from {backup_name}. Re-open the Control Center to verify counts; "
+            f"you may need to restart the app if SQLite connections were open.",
+            "ok",
+        )
+        return redirect(url_for("site_admin.admin_control_center", restore_verify="1"))
+    else:
+        flash(f"Restore failed: {restored.get('message')}", "err")
+    return redirect(url_for("site_admin.admin_control_center"))
+
+
+@site_admin_bp.post("/control-center/season-rollover/preview")
+@login_required
+def admin_control_center_season_rollover_preview():
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    slug = _league_slug()
+    next_label = (request.form.get("next_label") or "").strip()
+    next_start = (request.form.get("next_start_year") or "").strip()
+    next_end = (request.form.get("next_end_year") or "").strip()
+    db.session.add(
+        AdminAuditLog(
+            admin_user_id=int(current_user.id),
+            league_slug=slug,
+            action="control_center_rollover_preview",
+            detail_json=json.dumps(
+                {"next_label": next_label, "next_start_year": next_start, "next_end_year": next_end}
+            ),
+        )
+    )
+    db.session.commit()
+    flash("[DRY RUN] Season rollover preview prepared. No changes saved.", "ok")
+    return redirect(
+        url_for(
+            "site_admin.admin_control_center",
+            rollover_preview="1",
+            next_label=next_label,
+            next_start=next_start,
+            next_end=next_end,
+        )
+    )
+
+
+@site_admin_bp.post("/control-center/season-rollover/execute")
+@login_required
+def admin_control_center_season_rollover_execute():
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    slug = _league_slug()
+    if request.form.get("confirm_rollover") != "1":
+        flash("Season rollover blocked: confirmation checkbox is required.", "err")
+        return redirect(url_for("site_admin.admin_control_center"))
+    if (request.form.get("confirm_rollover_phrase") or "").strip() != "ROLLOVER":
+        flash("Season rollover blocked: type the exact phrase ROLLOVER in the confirmation phrase field.", "err")
+        return redirect(url_for("site_admin.admin_control_center"))
+    next_label = (request.form.get("next_label") or "").strip()
+    raw_start = (request.form.get("next_start_year") or "").strip()
+    raw_end = (request.form.get("next_end_year") or "").strip()
+    try:
+        next_start = int(raw_start) if raw_start else None
+        next_end = int(raw_end) if raw_end else None
+    except Exception:
+        flash("Season rollover blocked: start/end year must be valid integers.", "err")
+        return redirect(url_for("site_admin.admin_control_center"))
+    if not next_label:
+        flash("Season rollover blocked: next season label is required.", "err")
+        return redirect(url_for("site_admin.admin_control_center"))
+    if next_start is not None and next_end is not None and next_end < next_start:
+        flash("Season rollover blocked: end year cannot be before start year.", "err")
+        return redirect(url_for("site_admin.admin_control_center"))
+
+    backup = create_league_backup(slug, "season_rollover")
+    if not backup.get("ok"):
+        flash(f"Season rollover blocked: pre-run backup failed. {backup.get('message')}", "err")
+        return redirect(url_for("site_admin.admin_control_center"))
+    db.session.add(
+        AdminAuditLog(
+            admin_user_id=int(current_user.id),
+            league_slug=slug,
+            action="control_center_backup_create",
+            detail_json=json.dumps({"reason": "season_rollover", "path": backup.get("path", "")}),
+        )
+    )
+    db.session.commit()
+
+    current = db.session.scalar(select(Season).where(Season.is_current.is_(True)).limit(1))
+    if current is None:
+        current = db.session.scalar(select(Season).order_by(Season.id.desc()).limit(1))
+    target = db.session.scalar(
+        select(Season)
+        .where(
+            Season.label == next_label,
+            Season.start_year == next_start,
+            Season.end_year == next_end,
+        )
+        .limit(1)
+    )
+    if target is None:
+        target = Season(
+            label=next_label,
+            start_year=next_start,
+            end_year=next_end,
+            is_current=True,
+        )
+        db.session.add(target)
+        db.session.flush()
+    all_current = db.session.scalars(select(Season).where(Season.is_current.is_(True))).all()
+    for s in all_current:
+        s.is_current = False
+    target.is_current = True
+    db.session.add(
+        AdminAuditLog(
+            admin_user_id=int(current_user.id),
+            league_slug=slug,
+            action="control_center_season_rollover_execute",
+            detail_json=json.dumps(
+                {
+                    "from_season_id": int(current.id) if current else None,
+                    "from_season_label": str(current.label) if current else "",
+                    "to_season_id": int(target.id),
+                    "to_season_label": str(target.label),
+                    "to_start_year": target.start_year,
+                    "to_end_year": target.end_year,
+                    "pre_backup_path": backup.get("path", ""),
+                }
+            ),
+        )
+    )
+    db.session.commit()
+    flash(f"Season rollover complete. Current season is now {target.label}.", "ok")
+    return redirect(url_for("site_admin.admin_control_center"))
+
+
+@site_admin_bp.post("/control-center/schedule-freeze-toggle")
+@login_required
+def admin_control_center_schedule_freeze_toggle():
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    slug = _league_slug()
+    if request.form.get("confirm_schedule_toggle") != "1":
+        flash("Schedule toggle blocked: confirmation checkbox is required.", "err")
+        return redirect(url_for("site_admin.admin_control_center"))
+    freeze = (request.form.get("freeze_value") or "").strip().lower() == "1"
+    rows = get_league_rules(db.session, slug)
+    by_key = {str(r.rule_key): r for r in rows}
+    row = by_key.get("schedule_frozen")
+    now = datetime.utcnow()
+    before = {
+        "rule_key": "schedule_frozen",
+        "rule_value": str(row.rule_value) if row is not None else "false",
+        "updated_by_user_id": int(row.updated_by_user_id) if row and row.updated_by_user_id else None,
+        "updated_at": row.updated_at.isoformat(timespec="seconds") if row and row.updated_at else None,
+    }
+    if row is None:
+        row = LeagueRuleSetting(
+            league_slug=slug,
+            rule_key="schedule_frozen",
+            rule_value="true" if freeze else "false",
+            updated_by_user_id=int(current_user.id),
+            updated_at=now,
+        )
+    else:
+        row.rule_value = "true" if freeze else "false"
+        row.updated_by_user_id = int(current_user.id)
+        row.updated_at = now
+    db.session.add(row)
+    if not row.id:
+        db.session.flush()
+    after = {
+        "rule_key": "schedule_frozen",
+        "rule_value": str(row.rule_value or "false"),
+        "updated_by_user_id": int(row.updated_by_user_id) if row.updated_by_user_id else None,
+        "updated_at": row.updated_at.isoformat(timespec="seconds") if row.updated_at else None,
+    }
+    if before != after:
+        _create_undo_action(
+            league_slug=slug,
+            action_key="control_center_schedule_freeze_toggle",
+            entity_type="league_rule_setting",
+            entity_id=int(row.id),
+            before=before,
+            after=after,
+            note=f"Set schedule_frozen={str(freeze).lower()}",
+        )
+    db.session.add(
+        AdminAuditLog(
+            admin_user_id=int(current_user.id),
+            league_slug=slug,
+            action="control_center_schedule_freeze_toggle",
+            detail_json=json.dumps({"schedule_frozen": bool(freeze)}),
+        )
+    )
+    db.session.commit()
+    flash(
+        "Schedule is now frozen (league scheduling changes should be blocked by consuming flows)."
+        if freeze
+        else "Schedule is now unfrozen.",
+        "ok",
+    )
+    return redirect(url_for("site_admin.admin_control_center"))
+
+
+@site_admin_bp.post("/control-center/create-backup")
+@login_required
+def admin_control_center_create_backup():
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    slug = _league_slug()
+    reason = (request.form.get("reason") or "manual").strip().lower()
+    if not reason:
+        reason = "manual"
+    if request.form.get("confirm_create_backup") != "1":
+        flash("Backup creation blocked: confirmation checkbox is required.", "err")
+        return redirect(url_for("site_admin.admin_control_center"))
+    result = create_league_backup(slug, reason)
+    db.session.add(
+        AdminAuditLog(
+            admin_user_id=int(current_user.id),
+            league_slug=slug,
+            action="control_center_backup_create_manual",
+            detail_json=json.dumps(
+                {"ok": bool(result.get("ok")), "reason": reason, "path": result.get("path", "")}
+            ),
+        )
+    )
+    db.session.commit()
+    if result.get("ok"):
+        flash(f"Backup created: {result.get('name')}", "ok")
+    else:
+        flash(f"Backup create failed: {result.get('message')}", "err")
+    return redirect(url_for("site_admin.admin_control_center"))
+
+
+@site_admin_bp.post("/control-center/restore-preview")
+@login_required
+def admin_control_center_restore_preview():
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    backup_name = (request.form.get("backup_name") or "").strip()
+    if not backup_name:
+        flash("Restore preview blocked: backup selection is required.", "err")
+        return redirect(url_for("site_admin.admin_control_center"))
+    return redirect(url_for("site_admin.admin_control_center", restore_preview=backup_name))
+
+
+@site_admin_bp.get("/operations/queue")
+@login_required
+def admin_operations_queue():
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    slug = _league_slug()
+    queue_view = (request.args.get("view") or "table").strip().lower()
+    if queue_view not in {"table", "lane"}:
+        queue_view = "table"
+    queue_filter = (request.args.get("filter") or "all").strip().lower()
+    if queue_filter not in {"all", "pending", "over_cap", "missing_data"}:
+        queue_filter = "all"
+    queue_sort = (request.args.get("sort") or "newest").strip().lower()
+    if queue_sort not in {"newest", "oldest", "over_cap_first"}:
+        queue_sort = "newest"
+    if queue_view == "lane":
+        if request.args.get("filter") is None:
+            queue_filter = "pending"
+        if request.args.get("sort") is None:
+            queue_sort = "over_cap_first"
+    dry_run_summary = None
+    sticky_selected_ids: list[int] = []
+    sticky_bulk_status = ""
+    sticky_raw = (request.args.get("dr_ids") or "").strip()
+    if sticky_raw:
+        vals = []
+        for part in sticky_raw.split(","):
+            part = part.strip()
+            if not part:
+                continue
+            try:
+                v = int(part)
+            except Exception:
+                continue
+            if v > 0:
+                vals.append(v)
+        sticky_selected_ids = sorted(set(vals))
+    sticky_bulk_status = (request.args.get("dr_status") or "").strip().lower()
+    if sticky_bulk_status not in {"approved", "denied", "pending"}:
+        sticky_bulk_status = ""
+    if (request.args.get("dr") or "").strip() == "1":
+        def _qp_int(name: str) -> int:
+            try:
+                return max(0, int((request.args.get(name) or "0").strip()))
+            except Exception:
+                return 0
+        dry_run_summary = {
+            "selected": _qp_int("dr_sel"),
+            "processable": _qp_int("dr_proc"),
+            "blocked": _qp_int("dr_blk"),
+            "blocked_deadline": _qp_int("dr_dead"),
+            "blocked_roster": _qp_int("dr_ros"),
+            "blocked_schedule": _qp_int("dr_sch"),
+            "blocked_waiver": _qp_int("dr_wav"),
+            "missing": _qp_int("dr_miss"),
+            "requested_status": (request.args.get("dr_status") or "").strip().lower(),
+        }
+    rows = db.session.scalars(
+        select(GmApprovalRequest)
+        .where(GmApprovalRequest.league_slug == slug)
+        .order_by(GmApprovalRequest.created_at.desc(), GmApprovalRequest.id.desc())
+        .limit(200)
+    ).all()
+    team_ids = {int(r.team_id) for r in rows}
+    user_ids = {int(r.user_id) for r in rows}
+    roster_cap = rule_int(db.session, slug, "roster_max_size", default=23)
+    teams_by_id = {int(t.id): t for t in db.session.scalars(select(Team).where(Team.id.in_(team_ids))).all()} if team_ids else {}
+    users_by_id = {int(u.id): u for u in db.session.scalars(select(User).where(User.id.in_(user_ids))).all()} if user_ids else {}
+    preview_by_id = {int(r.id): _operation_request_preview(r, roster_cap) for r in rows}
+    filter_counts = {
+        "all": len(rows),
+        "pending": sum(1 for r in rows if (r.status or "") == "pending"),
+        "over_cap": sum(1 for r in rows if preview_by_id.get(int(r.id), {}).get("projection_status") == "over"),
+        "missing_data": sum(1 for r in rows if preview_by_id.get(int(r.id), {}).get("projection_status") == "missing"),
+    }
+    if queue_filter == "pending":
+        rows = [r for r in rows if (r.status or "") == "pending"]
+    elif queue_filter == "over_cap":
+        rows = [r for r in rows if preview_by_id.get(int(r.id), {}).get("projection_status") == "over"]
+    elif queue_filter == "missing_data":
+        rows = [r for r in rows if preview_by_id.get(int(r.id), {}).get("projection_status") == "missing"]
+    if queue_sort == "oldest":
+        rows = sorted(
+            rows,
+            key=lambda r: (r.created_at or datetime.min, int(r.id or 0)),
+        )
+    elif queue_sort == "over_cap_first":
+        rows = sorted(
+            rows,
+            key=lambda r: (
+                0 if preview_by_id.get(int(r.id), {}).get("projection_status") == "over" else 1,
+                -(int(getattr(r, "id", 0) or 0)),
+            ),
+        )
+    else:
+        rows = sorted(
+            rows,
+            key=lambda r: (r.created_at or datetime.min, int(r.id or 0)),
+            reverse=True,
+        )
+    return render_template(
+        "admin_operations_queue.html",
+        rows=rows,
+        teams_by_id=teams_by_id,
+        users_by_id=users_by_id,
+        preview_by_id=preview_by_id,
+        queue_view=queue_view,
+        queue_filter=queue_filter,
+        queue_sort=queue_sort,
+        filter_counts=filter_counts,
+        dry_run_summary=dry_run_summary,
+        sticky_selected_ids=sticky_selected_ids,
+        sticky_bulk_status=sticky_bulk_status,
+    )
+
+
+@site_admin_bp.post("/operations/queue/<int:rid>/status")
+@login_required
+def admin_operations_queue_set_status(rid: int):
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    slug = _league_slug()
+    row = db.session.get(GmApprovalRequest, rid)
+    if not row or row.league_slug != slug:
+        abort(404)
+    new_status = (request.form.get("status") or "").strip().lower()
+    if new_status not in {"approved", "denied", "pending"}:
+        flash("Invalid status.", "err")
+        return redirect(url_for("site_admin.admin_operations_queue"))
+    queue_filter = (request.form.get("queue_filter") or "all").strip().lower()
+    if queue_filter not in {"all", "pending", "over_cap", "missing_data"}:
+        queue_filter = "all"
+    queue_sort = (request.form.get("queue_sort") or "newest").strip().lower()
+    if queue_sort not in {"newest", "oldest", "over_cap_first"}:
+        queue_sort = "newest"
+    queue_view = (request.form.get("queue_view") or "table").strip().lower()
+    if queue_view not in {"table", "lane"}:
+        queue_view = "table"
+    before = {
+        "status": str(row.status or ""),
+        "admin_note": str(row.admin_note or ""),
+        "processed_by_user_id": int(row.processed_by_user_id) if row.processed_by_user_id else None,
+        "processed_at": row.processed_at.isoformat(timespec="seconds") if row.processed_at else None,
+    }
+    result = _apply_operation_status_change(
+        row,
+        slug=slug,
+        actor_user_id=int(current_user.id),
+        requested_status=new_status,
+        admin_note=(request.form.get("admin_note") or ""),
+    )
+    after = {
+        "status": str(row.status or ""),
+        "admin_note": str(row.admin_note or ""),
+        "processed_by_user_id": int(row.processed_by_user_id) if row.processed_by_user_id else None,
+        "processed_at": row.processed_at.isoformat(timespec="seconds") if row.processed_at else None,
+    }
+    if before != after:
+        _create_undo_action(
+            league_slug=slug,
+            action_key="operations_queue_status",
+            entity_type="gm_approval_request",
+            entity_id=int(row.id),
+            before=before,
+            after=after,
+            note=f"Requested status change to {new_status}",
+        )
+    db.session.commit()
+    if result.get("blocked"):
+        if result.get("blocked_by_schedule_freeze"):
+            flash("Request not changed: schedule is frozen by league rule.", "err")
+            return redirect(url_for("site_admin.admin_operations_queue", view=queue_view, filter=queue_filter, sort=queue_sort))
+        if result.get("blocked_by_waiver_window"):
+            flash("Request not changed: waiver window is closed by league rule.", "err")
+            return redirect(url_for("site_admin.admin_operations_queue", view=queue_view, filter=queue_filter, sort=queue_sort))
+        if result.get("blocked_by_trade_deadline"):
+            flash("Request not changed: trade deadline rule blocked approval.", "err")
+            return redirect(url_for("site_admin.admin_operations_queue", view=queue_view, filter=queue_filter, sort=queue_sort))
+        flash("Request not changed because a league rule blocked approval.", "err")
+    else:
+        flash("Request status updated.", "ok")
+        _enqueue_discord_event(
+            "ops_request_status",
+            {
+                "request_id": int(row.id),
+                "request_type": str(row.request_type or ""),
+                "team_id": int(row.team_id),
+                "status": str(row.status or ""),
+                "admin_note": str(row.admin_note or "")[:240],
+            },
+        )
+    return redirect(url_for("site_admin.admin_operations_queue", view=queue_view, filter=queue_filter, sort=queue_sort))
+
+
+@site_admin_bp.post("/operations/queue/bulk-status")
+@login_required
+def admin_operations_queue_bulk_status():
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    slug = _league_slug()
+    queue_filter = (request.form.get("queue_filter") or "all").strip().lower()
+    if queue_filter not in {"all", "pending", "over_cap", "missing_data"}:
+        queue_filter = "all"
+    queue_sort = (request.form.get("queue_sort") or "newest").strip().lower()
+    if queue_sort not in {"newest", "oldest", "over_cap_first"}:
+        queue_sort = "newest"
+    queue_view = (request.form.get("queue_view") or "table").strip().lower()
+    if queue_view not in {"table", "lane"}:
+        queue_view = "table"
+    status = (request.form.get("bulk_status") or "").strip().lower()
+    if status not in {"approved", "denied", "pending"}:
+        flash("Bulk update failed: invalid status.", "err")
+        return redirect(url_for("site_admin.admin_operations_queue", view=queue_view, filter=queue_filter, sort=queue_sort))
+    raw_ids = request.form.getlist("request_ids")
+    ids: list[int] = []
+    for rid in raw_ids:
+        try:
+            v = int(rid)
+        except Exception:
+            continue
+        if v > 0:
+            ids.append(v)
+    ids = sorted(set(ids))
+    if not ids:
+        flash("Bulk update skipped: no requests selected.", "err")
+        return redirect(url_for("site_admin.admin_operations_queue", view=queue_view, filter=queue_filter, sort=queue_sort))
+    rows = db.session.scalars(
+        select(GmApprovalRequest).where(
+            GmApprovalRequest.league_slug == slug,
+            GmApprovalRequest.id.in_(ids),
+        )
+    ).all()
+    by_id = {int(r.id): r for r in rows}
+    admin_note = (request.form.get("bulk_admin_note") or "").strip()
+    processed = 0
+    blocked = 0
+    missing = 0
+    blocked_schedule = 0
+    blocked_waiver = 0
+    for rid in ids:
+        row = by_id.get(rid)
+        if not row:
+            missing += 1
+            continue
+        before = {
+            "status": str(row.status or ""),
+            "admin_note": str(row.admin_note or ""),
+            "processed_by_user_id": int(row.processed_by_user_id) if row.processed_by_user_id else None,
+            "processed_at": row.processed_at.isoformat(timespec="seconds") if row.processed_at else None,
+        }
+        result = _apply_operation_status_change(
+            row,
+            slug=slug,
+            actor_user_id=int(current_user.id),
+            requested_status=status,
+            admin_note=admin_note,
+        )
+        after = {
+            "status": str(row.status or ""),
+            "admin_note": str(row.admin_note or ""),
+            "processed_by_user_id": int(row.processed_by_user_id) if row.processed_by_user_id else None,
+            "processed_at": row.processed_at.isoformat(timespec="seconds") if row.processed_at else None,
+        }
+        if before != after:
+            _create_undo_action(
+                league_slug=slug,
+                action_key="operations_queue_bulk_status",
+                entity_type="gm_approval_request",
+                entity_id=int(row.id),
+                before=before,
+                after=after,
+                note=f"Bulk requested status {status}",
+            )
+        processed += 1
+        if result.get("blocked"):
+            blocked += 1
+            if result.get("blocked_by_schedule_freeze"):
+                blocked_schedule += 1
+            if result.get("blocked_by_waiver_window"):
+                blocked_waiver += 1
+    db.session.add(
+        AdminAuditLog(
+            admin_user_id=int(current_user.id),
+            league_slug=slug,
+            action="operations_queue_bulk_status",
+            detail_json=json.dumps(
+                {
+                    "requested_status": status,
+                    "selected_count": len(ids),
+                    "processed_count": processed,
+                    "blocked_count": blocked,
+                    "blocked_schedule_freeze_count": blocked_schedule,
+                    "blocked_waiver_window_count": blocked_waiver,
+                    "missing_count": missing,
+                }
+            ),
+        )
+    )
+    db.session.commit()
+    if processed:
+        flash(
+            f"Bulk update complete: processed={processed}, blocked={blocked}, "
+            f"schedule-frozen-blocks={blocked_schedule}, waiver-window-blocks={blocked_waiver}, missing={missing}.",
+            "ok" if blocked == 0 else "err",
+        )
+    else:
+        flash("Bulk update did not process any rows.", "err")
+    return redirect(url_for("site_admin.admin_operations_queue", view=queue_view, filter=queue_filter, sort=queue_sort))
+
+
+@site_admin_bp.post("/operations/queue/bulk-dry-run")
+@login_required
+def admin_operations_queue_bulk_dry_run():
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    slug = _league_slug()
+    queue_filter = (request.form.get("queue_filter") or "all").strip().lower()
+    if queue_filter not in {"all", "pending", "over_cap", "missing_data"}:
+        queue_filter = "all"
+    queue_sort = (request.form.get("queue_sort") or "newest").strip().lower()
+    if queue_sort not in {"newest", "oldest", "over_cap_first"}:
+        queue_sort = "newest"
+    queue_view = (request.form.get("queue_view") or "table").strip().lower()
+    if queue_view not in {"table", "lane"}:
+        queue_view = "table"
+    status = (request.form.get("bulk_status") or "").strip().lower()
+    if status not in {"approved", "denied", "pending"}:
+        flash("Bulk dry-run failed: invalid status.", "err")
+        return redirect(url_for("site_admin.admin_operations_queue", view=queue_view, filter=queue_filter, sort=queue_sort))
+    raw_ids = request.form.getlist("request_ids")
+    ids: list[int] = []
+    for rid in raw_ids:
+        try:
+            v = int(rid)
+        except Exception:
+            continue
+        if v > 0:
+            ids.append(v)
+    ids = sorted(set(ids))
+    if not ids:
+        flash("Bulk dry-run skipped: no requests selected.", "err")
+        return redirect(url_for("site_admin.admin_operations_queue", view=queue_view, filter=queue_filter, sort=queue_sort))
+    rows = db.session.scalars(
+        select(GmApprovalRequest).where(
+            GmApprovalRequest.league_slug == slug,
+            GmApprovalRequest.id.in_(ids),
+        )
+    ).all()
+    by_id = {int(r.id): r for r in rows}
+    admin_note = (request.form.get("bulk_admin_note") or "").strip()
+    processed = 0
+    blocked = 0
+    missing = 0
+    blocked_deadline = 0
+    blocked_roster = 0
+    blocked_schedule = 0
+    blocked_waiver = 0
+    for rid in ids:
+        row = by_id.get(rid)
+        if not row:
+            missing += 1
+            continue
+        result = _apply_operation_status_change(
+            row,
+            slug=slug,
+            actor_user_id=int(current_user.id),
+            requested_status=status,
+            admin_note=admin_note,
+        )
+        processed += 1
+        if result.get("blocked"):
+            blocked += 1
+            if result.get("blocked_by_trade_deadline"):
+                blocked_deadline += 1
+            if result.get("blocked_by_roster_max") or result.get("blocked_by_trade_roster"):
+                blocked_roster += 1
+            if result.get("blocked_by_schedule_freeze"):
+                blocked_schedule += 1
+            if result.get("blocked_by_waiver_window"):
+                blocked_waiver += 1
+    db.session.rollback()
+    flash("Dry-run preview generated. No changes were saved.", "ok")
+    ids_csv = ",".join(str(x) for x in ids[:200])
+    return redirect(
+        url_for(
+            "site_admin.admin_operations_queue",
+            view=queue_view,
+            filter=queue_filter,
+            sort=queue_sort,
+            dr="1",
+            dr_sel=len(ids),
+            dr_proc=max(0, processed - blocked),
+            dr_blk=blocked,
+            dr_dead=blocked_deadline,
+            dr_ros=blocked_roster,
+            dr_sch=blocked_schedule,
+            dr_wav=blocked_waiver,
+            dr_miss=missing,
+            dr_status=status,
+            dr_ids=ids_csv,
+        )
+    )
+
+
+@site_admin_bp.get("/franchise-health")
+@login_required
+def admin_franchise_health():
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    slug = _league_slug()
+    rows = build_franchise_health_rows(db.session, slug)
+    return render_template("admin_franchise_health.html", rows=rows)
+
+
+@site_admin_bp.get("/analytics-alerts")
+@login_required
+def admin_analytics_alerts():
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER, ADMIN_ROLE_STATS)
+    slug = _league_slug()
+    snap = build_admin_alerts_snapshot(db.session, slug)
+    return render_template("admin_analytics_alerts.html", snapshot=snap)
+
+
+@site_admin_bp.route("/story-automation", methods=["GET", "POST"])
+@login_required
+def admin_story_automation():
+    require_admin_role(ADMIN_ROLE_CONTENT, ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    slug = _league_slug()
+    if request.method == "POST":
+        try:
+            article_id = int(request.form.get("article_id") or "0")
+        except ValueError:
+            article_id = 0
+        channel = (request.form.get("channel") or "site").strip().lower()
+        if channel not in ALLOWED_STORY_CHANNELS:
+            channel = "site"
+        dt_raw = (request.form.get("scheduled_for_utc") or "").strip()
+        dry_run_only = (request.form.get("dry_run_only") or "1").strip() == "1"
+        if article_id <= 0:
+            flash("Schedule create blocked: valid article is required.", "err")
+            return redirect(url_for("site_admin.admin_story_automation"))
+        art = db.session.get(NewsArticle, article_id)
+        if not art or art.league_slug != slug:
+            flash("Schedule create blocked: article not found for this league.", "err")
+            return redirect(url_for("site_admin.admin_story_automation"))
+        try:
+            scheduled_for = datetime.fromisoformat(dt_raw.replace("Z", "+00:00")).replace(tzinfo=None)
+        except Exception:
+            flash("Schedule create blocked: datetime must be ISO format (UTC).", "err")
+            return redirect(url_for("site_admin.admin_story_automation"))
+        ok_dt, dt_msg = validate_schedule_datetime(scheduled_for)
+        if not ok_dt:
+            flash(f"Schedule create blocked: {dt_msg}", "err")
+            return redirect(url_for("site_admin.admin_story_automation"))
+        row = schedule_story_publish(
+            db.session,
+            league_slug=slug,
+            article_id=article_id,
+            channel=channel,
+            scheduled_for_utc=scheduled_for,
+            dry_run_only=dry_run_only,
+            created_by_user_id=int(current_user.id),
+        )
+        db.session.add(
+            AdminAuditLog(
+                admin_user_id=int(current_user.id),
+                league_slug=slug,
+                action="story_schedule_create",
+                detail_json=json.dumps(
+                    {
+                        "schedule_id": int(row.id),
+                        "article_id": int(article_id),
+                        "channel": channel,
+                        "scheduled_for_utc": scheduled_for.isoformat(timespec="seconds"),
+                        "dry_run_only": bool(dry_run_only),
+                    }
+                ),
+            )
+        )
+        db.session.commit()
+        flash("Story publish schedule created.", "ok")
+        return redirect(url_for("site_admin.admin_story_automation"))
+    rows = list_story_schedules(db.session, league_slug=slug, limit=120)
+    article_ids = [int(r.article_id) for r in rows if r.article_id]
+    by_article = {}
+    if article_ids:
+        arts = db.session.scalars(select(NewsArticle).where(NewsArticle.id.in_(article_ids))).all()
+        by_article = {int(a.id): a for a in arts}
+    pending_articles = db.session.scalars(
+        select(NewsArticle)
+        .where(NewsArticle.league_slug == slug)
+        .order_by(NewsArticle.created_at.desc(), NewsArticle.id.desc())
+        .limit(200)
+    ).all()
+    return render_template(
+        "admin_story_automation.html",
+        rows=rows,
+        article_by_id=by_article,
+        pending_articles=pending_articles,
+        channels=ALLOWED_STORY_CHANNELS,
+        discord_webhook_configured=bool(
+            str(current_app.config.get("DISCORD_STORY_WEBHOOK_URL") or "").strip()
+        ),
+        site_public_base_configured=bool(
+            str(current_app.config.get("SITE_PUBLIC_BASE_URL") or "").strip()
+        ),
+    )
+
+
+@site_admin_bp.post("/story-automation/<int:sid>/dry-run-dispatch")
+@login_required
+def admin_story_automation_dry_run_dispatch(sid: int):
+    require_admin_role(ADMIN_ROLE_CONTENT, ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    slug = _league_slug()
+    row = db.session.get(StoryPublishSchedule, sid)
+    if not row or row.league_slug != slug:
+        abort(404)
+    result = dry_run_dispatch_story(db.session, schedule_row=row)
+    row.last_result_json = json.dumps(result)
+    db.session.add(
+        AdminAuditLog(
+            admin_user_id=int(current_user.id),
+            league_slug=slug,
+            action="story_schedule_dry_run_dispatch",
+            detail_json=json.dumps({"schedule_id": int(row.id), "ok": bool(result.get("ok"))}),
+        )
+    )
+    db.session.commit()
+    flash("Dry-run dispatch executed (preview only).", "ok" if result.get("ok") else "err")
+    return redirect(url_for("site_admin.admin_story_automation"))
+
+
+@site_admin_bp.post("/story-automation/<int:sid>/cancel")
+@login_required
+def admin_story_automation_cancel(sid: int):
+    require_admin_role(ADMIN_ROLE_CONTENT, ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    slug = _league_slug()
+    row = db.session.get(StoryPublishSchedule, sid)
+    if not row or row.league_slug != slug:
+        abort(404)
+    if str(row.status or "").strip().lower() == "dispatched":
+        flash("Cancel blocked: schedule already dispatched.", "err")
+        return redirect(url_for("site_admin.admin_story_automation"))
+    row.status = "cancelled"
+    row.processed_at = datetime.utcnow()
+    db.session.add(
+        AdminAuditLog(
+            admin_user_id=int(current_user.id),
+            league_slug=slug,
+            action="story_schedule_cancel",
+            detail_json=json.dumps({"schedule_id": int(row.id)}),
+        )
+    )
+    db.session.commit()
+    flash("Schedule cancelled.", "ok")
+    return redirect(url_for("site_admin.admin_story_automation"))
+
+
+@site_admin_bp.post("/story-automation/<int:sid>/live-dispatch")
+@login_required
+def admin_story_automation_live_dispatch(sid: int):
+    require_admin_role(ADMIN_ROLE_CONTENT, ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    slug = _league_slug()
+    row = db.session.get(StoryPublishSchedule, sid)
+    if not row or row.league_slug != slug:
+        abort(404)
+    if request.form.get("confirm_story_live_dispatch") != "1":
+        flash("Live dispatch blocked: confirmation checkbox is required.", "err")
+        return redirect(url_for("site_admin.admin_story_automation"))
+    result = execute_story_dispatch(
+        db.session,
+        schedule_row=row,
+        league_slug=slug,
+        discord_webhook_url=str(current_app.config.get("DISCORD_STORY_WEBHOOK_URL") or ""),
+        site_public_base_url=str(current_app.config.get("SITE_PUBLIC_BASE_URL") or ""),
+        league_display_name=league_display_name(slug),
+        news_article_ap_points=int(current_app.config.get("NEWS_ARTICLE_AP_POINTS", 3)),
+    )
+    db.session.add(
+        AdminAuditLog(
+            admin_user_id=int(current_user.id),
+            league_slug=slug,
+            action="story_schedule_live_dispatch",
+            detail_json=json.dumps(
+                {
+                    "schedule_id": int(row.id),
+                    "ok": bool(result.get("ok")),
+                    "idempotent": bool(result.get("idempotent")),
+                    "channel": row.channel,
+                }
+            ),
+        )
+    )
+    if result.get("ok"):
+        _enqueue_discord_event(
+            "story_published",
+            {
+                "schedule_id": int(row.id),
+                "article_id": int(row.article_id),
+                "channel": str(row.channel or ""),
+                "message": str(result.get("message") or "Story dispatched"),
+            },
+        )
+    db.session.commit()
+    flash(
+        result.get("message") or ("Dispatch complete." if result.get("ok") else "Dispatch failed."),
+        "ok" if result.get("ok") else "err",
+    )
+    return redirect(url_for("site_admin.admin_story_automation"))
+
+
+@site_admin_bp.post("/story-automation/<int:sid>/retry-live-dispatch")
+@login_required
+def admin_story_automation_retry_live_dispatch(sid: int):
+    require_admin_role(ADMIN_ROLE_CONTENT, ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    slug = _league_slug()
+    row = db.session.get(StoryPublishSchedule, sid)
+    if not row or row.league_slug != slug:
+        abort(404)
+    if str(row.status or "").strip().lower() != "failed":
+        flash("Retry only applies to failed schedules.", "err")
+        return redirect(url_for("site_admin.admin_story_automation"))
+    if request.form.get("confirm_story_retry_dispatch") != "1":
+        flash("Retry blocked: confirmation checkbox is required.", "err")
+        return redirect(url_for("site_admin.admin_story_automation"))
+    row.status = "scheduled"
+    db.session.flush()
+    result = execute_story_dispatch(
+        db.session,
+        schedule_row=row,
+        league_slug=slug,
+        discord_webhook_url=str(current_app.config.get("DISCORD_STORY_WEBHOOK_URL") or ""),
+        site_public_base_url=str(current_app.config.get("SITE_PUBLIC_BASE_URL") or ""),
+        league_display_name=league_display_name(slug),
+        news_article_ap_points=int(current_app.config.get("NEWS_ARTICLE_AP_POINTS", 3)),
+    )
+    db.session.add(
+        AdminAuditLog(
+            admin_user_id=int(current_user.id),
+            league_slug=slug,
+            action="story_schedule_retry_live_dispatch",
+            detail_json=json.dumps({"schedule_id": int(row.id), "ok": bool(result.get("ok"))}),
+        )
+    )
+    db.session.commit()
+    flash(
+        result.get("message") or ("Retry complete." if result.get("ok") else "Retry failed."),
+        "ok" if result.get("ok") else "err",
+    )
+    return redirect(url_for("site_admin.admin_story_automation"))
+
+
+@site_admin_bp.route("/prediction-center", methods=["GET", "POST"])
+@login_required
+def admin_prediction_center():
+    require_admin_role(ADMIN_ROLE_STATS, ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    if request.method == "POST":
+        team_id = (request.form.get("team_id") or "").strip()
+        add_wins = (request.form.get("add_wins") or "0").strip()
+        add_otl = (request.form.get("add_otl") or "0").strip()
+        add_losses = (request.form.get("add_losses") or "0").strip()
+        return redirect(
+            url_for(
+                "site_admin.admin_prediction_center",
+                team_id=team_id,
+                add_wins=add_wins,
+                add_otl=add_otl,
+                add_losses=add_losses,
+            )
+        )
+    def _int_arg(name: str, default: int = 0) -> int:
+        try:
+            return max(0, int((request.args.get(name) or str(default)).strip()))
+        except Exception:
+            return int(default)
+    selected_team_id = _int_arg("team_id", 0) or None
+    add_wins = _int_arg("add_wins", 0)
+    add_otl = _int_arg("add_otl", 0)
+    add_losses = _int_arg("add_losses", 0)
+    snap = build_prediction_snapshot(
+        db.session,
+        selected_team_id=selected_team_id,
+        add_wins=add_wins,
+        add_otl=add_otl,
+        add_losses=add_losses,
+    )
+    teams = [{"id": int(r["team_id"]), "name": str(r["team_name"])} for r in snap.get("base_rows", [])]
+    return render_template("admin_prediction_center.html", snapshot=snap, teams=teams)
+
+
+@site_admin_bp.get("/franchise-hubs")
+@login_required
+def admin_franchise_hubs():
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER, ADMIN_ROLE_STATS)
+    slug = _league_slug()
+    teams = db.session.scalars(select(Team).order_by(Team.name.asc(), Team.id.asc())).all()
+    current = db.session.scalar(select(Season).where(Season.is_current.is_(True)).limit(1))
+    if current is None:
+        current = db.session.scalar(select(Season).order_by(Season.id.desc()).limit(1))
+    standings_by_team: dict[int, TeamStanding] = {}
+    if current is not None:
+        rows = db.session.scalars(select(TeamStanding).where(TeamStanding.season_id == int(current.id))).all()
+        standings_by_team = {int(r.team_id): r for r in rows}
+    active_mems = db.session.scalars(
+        select(GmLeagueMembership).where(
+            GmLeagueMembership.league_slug == slug,
+            GmLeagueMembership.status == "active",
+        )
+    ).all()
+    mem_by_team = {int(m.team_id): m for m in active_mems}
+    user_ids = {int(m.user_id) for m in active_mems}
+    users_by_id = (
+        {int(u.id): u for u in db.session.scalars(select(User).where(User.id.in_(user_ids))).all()}
+        if user_ids
+        else {}
+    )
+    rows = []
+    for t in teams:
+        m = mem_by_team.get(int(t.id))
+        u = users_by_id.get(int(m.user_id)) if m else None
+        st = standings_by_team.get(int(t.id))
+        pending_ops = int(
+            db.session.scalar(
+                select(func.count(GmApprovalRequest.id)).where(
+                    GmApprovalRequest.league_slug == slug,
+                    GmApprovalRequest.team_id == int(t.id),
+                    GmApprovalRequest.status == "pending",
+                )
+            )
+            or 0
+        )
+        rows.append({"team": t, "membership": m, "user": u, "standing": st, "pending_ops": pending_ops})
+    return render_template("admin_franchise_hubs.html", rows=rows, season_label=(current.label if current else "—"))
+
+
+@site_admin_bp.get("/franchise-hubs/<int:team_id>")
+@login_required
+def admin_franchise_hub_detail(team_id: int):
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER, ADMIN_ROLE_STATS)
+    slug = _league_slug()
+    team = db.session.get(Team, int(team_id))
+    if not team:
+        abort(404)
+    current = db.session.scalar(select(Season).where(Season.is_current.is_(True)).limit(1))
+    if current is None:
+        current = db.session.scalar(select(Season).order_by(Season.id.desc()).limit(1))
+    standing = None
+    if current is not None:
+        standing = db.session.scalar(
+            select(TeamStanding).where(
+                TeamStanding.season_id == int(current.id),
+                TeamStanding.team_id == int(team.id),
+            ).limit(1)
+        )
+    membership = db.session.scalar(
+        select(GmLeagueMembership).where(
+            GmLeagueMembership.league_slug == slug,
+            GmLeagueMembership.team_id == int(team.id),
+            GmLeagueMembership.status == "active",
+        ).limit(1)
+    )
+    gm_user = db.session.get(User, int(membership.user_id)) if membership else None
+    pending_ops = db.session.scalars(
+        select(GmApprovalRequest)
+        .where(
+            GmApprovalRequest.league_slug == slug,
+            GmApprovalRequest.team_id == int(team.id),
+            GmApprovalRequest.status == "pending",
+        )
+        .order_by(GmApprovalRequest.created_at.desc(), GmApprovalRequest.id.desc())
+        .limit(20)
+    ).all()
+    recent_news = db.session.scalars(
+        select(NewsArticle)
+        .where(
+            NewsArticle.league_slug == slug,
+            NewsArticle.team_id == int(team.id),
+        )
+        .order_by(NewsArticle.created_at.desc(), NewsArticle.id.desc())
+        .limit(10)
+    ).all()
+    return render_template(
+        "admin_franchise_hub_detail.html",
+        team=team,
+        season_label=(current.label if current else "—"),
+        standing=standing,
+        membership=membership,
+        gm_user=gm_user,
+        pending_ops=pending_ops,
+        recent_news=recent_news,
+    )
+
+
+@site_admin_bp.route("/awards-tracker", methods=["GET", "POST"])
+@login_required
+def admin_awards_tracker():
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER, ADMIN_ROLE_CONTENT)
+    slug = _league_slug()
+    if request.method == "POST":
+        action = (request.form.get("action") or "").strip().lower()
+        if action == "create_cycle":
+            season_label = (request.form.get("season_label") or "").strip()
+            title = (request.form.get("title") or "").strip()
+            if not season_label or not title:
+                flash("Create cycle blocked: season label and title are required.", "err")
+                return redirect(url_for("site_admin.admin_awards_tracker"))
+            row = create_voting_cycle(
+                db.session,
+                league_slug=slug,
+                season_label=season_label,
+                title=title,
+                created_by_user_id=int(current_user.id),
+            )
+            db.session.add(
+                AdminAuditLog(
+                    admin_user_id=int(current_user.id),
+                    league_slug=slug,
+                    action="awards_cycle_create",
+                    detail_json=json.dumps(
+                        {"cycle_id": int(row.id), "season_label": season_label, "title": title}
+                    ),
+                )
+            )
+            db.session.commit()
+            flash("Awards voting cycle created.", "ok")
+            return redirect(url_for("site_admin.admin_awards_tracker", cycle_id=row.id))
+        if action == "set_status":
+            try:
+                cycle_id = int(request.form.get("cycle_id") or "0")
+            except ValueError:
+                cycle_id = 0
+            status = (request.form.get("status") or "").strip().lower()
+            if status not in {"open", "closed", "archived"} or cycle_id <= 0:
+                flash("Update blocked: invalid cycle/status.", "err")
+                return redirect(url_for("site_admin.admin_awards_tracker"))
+            row = db.session.get(AwardsVotingCycle, cycle_id)
+            if not row or row.league_slug != slug:
+                abort(404)
+            row.status = status
+            db.session.add(
+                AdminAuditLog(
+                    admin_user_id=int(current_user.id),
+                    league_slug=slug,
+                    action="awards_cycle_status",
+                    detail_json=json.dumps({"cycle_id": int(row.id), "status": status}),
+                )
+            )
+            db.session.commit()
+            flash("Cycle status updated.", "ok")
+            return redirect(url_for("site_admin.admin_awards_tracker", cycle_id=cycle_id))
+    cycles = list_cycles(db.session, league_slug=slug, limit=80)
+    selected_cycle_id = (request.args.get("cycle_id") or "").strip()
+    try:
+        selected_cycle_id_int = int(selected_cycle_id) if selected_cycle_id else 0
+    except ValueError:
+        selected_cycle_id_int = 0
+    selected_cycle = next((c for c in cycles if int(c.id) == selected_cycle_id_int), None)
+    tally_rows = tally_cycle_ballots(db.session, league_slug=slug, cycle_id=selected_cycle_id_int) if selected_cycle else []
+    return render_template(
+        "admin_awards_tracker.html",
+        cycles=cycles,
+        selected_cycle=selected_cycle,
+        tally_rows=tally_rows,
+    )
+
+
+@site_admin_bp.route("/media-kit", methods=["GET", "POST"])
+@login_required
+def admin_media_kit():
+    require_admin_role(ADMIN_ROLE_CONTENT, ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    team_id = ""
+    season_id = ""
+    if request.method == "POST":
+        team_id = (request.form.get("team_id") or "").strip()
+        season_id = (request.form.get("season_id") or "").strip()
+        return redirect(url_for("site_admin.admin_media_kit", team_id=team_id, season_id=season_id))
+    team_id = (request.args.get("team_id") or "").strip()
+    season_id = (request.args.get("season_id") or "").strip()
+    teams = db.session.scalars(select(Team).order_by(Team.name.asc(), Team.id.asc())).all()
+    seasons = db.session.scalars(select(Season).order_by(Season.id.desc())).all()
+    snapshot = None
+    if team_id:
+        try:
+            tid = int(team_id)
+        except ValueError:
+            tid = 0
+        sid = None
+        if season_id:
+            try:
+                sid = int(season_id)
+            except ValueError:
+                sid = None
+        if tid > 0:
+            snapshot = build_media_kit_snapshot(db.session, team_id=tid, season_id=sid)
+    return render_template(
+        "admin_media_kit.html",
+        teams=teams,
+        seasons=seasons,
+        selected_team_id=team_id,
+        selected_season_id=season_id,
+        snapshot=snapshot,
+    )
+
+
+@site_admin_bp.route("/member-digests", methods=["GET", "POST"])
+@login_required
+def admin_member_digests():
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER, ADMIN_ROLE_CONTENT)
+    slug = _league_slug()
+    if request.method == "POST":
+        action = (request.form.get("action") or "").strip().lower()
+        if action == "add_watch":
+            try:
+                user_id = int(request.form.get("user_id") or "0")
+            except ValueError:
+                user_id = 0
+            target_type = (request.form.get("target_type") or "").strip().lower()
+            target_ref = (request.form.get("target_ref") or "").strip()
+            note = (request.form.get("note") or "").strip()
+            if user_id <= 0 or target_type not in {"player", "team", "article", "gm"} or not target_ref:
+                flash("Add watch blocked: invalid user/target fields.", "err")
+                return redirect(url_for("site_admin.admin_member_digests"))
+            row = MemberWatchlistItem(
+                user_id=user_id,
+                league_slug=slug,
+                target_type=target_type,
+                target_ref=target_ref,
+                note=note,
+                created_at=datetime.utcnow(),
+            )
+            db.session.add(row)
+            db.session.add(
+                AdminAuditLog(
+                    admin_user_id=int(current_user.id),
+                    league_slug=slug,
+                    action="member_watch_add",
+                    detail_json=json.dumps(
+                        {
+                            "user_id": int(user_id),
+                            "target_type": target_type,
+                            "target_ref": target_ref,
+                        }
+                    ),
+                )
+            )
+            db.session.commit()
+            flash("Watchlist item added.", "ok")
+            return redirect(url_for("site_admin.admin_member_digests"))
+    digest = build_member_watchlist_digest(db.session, league_slug=slug)
+    users = db.session.scalars(
+        select(User).order_by(User.discord_name.asc(), User.username.asc(), User.email.asc()).limit(500)
+    ).all()
+    return render_template("admin_member_digests.html", digest=digest, users=users)
+
+
+@site_admin_bp.get("/undo-center")
+@login_required
+def admin_undo_center():
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    slug = _league_slug()
+    rows = db.session.scalars(
+        select(AdminUndoAction)
+        .where(AdminUndoAction.league_slug == slug)
+        .order_by(AdminUndoAction.created_at.desc(), AdminUndoAction.id.desc())
+        .limit(200)
+    ).all()
+    return render_template("admin_undo_center.html", rows=rows)
+
+
+@site_admin_bp.post("/undo-center/<int:undo_id>/apply")
+@login_required
+def admin_undo_center_apply(undo_id: int):
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    slug = _league_slug()
+    row = db.session.get(AdminUndoAction, undo_id)
+    if not row or row.league_slug != slug:
+        abort(404)
+    if row.is_reverted:
+        flash("Undo skipped: action already reverted.", "err")
+        return redirect(url_for("site_admin.admin_undo_center"))
+    if request.form.get("confirm_undo") != "1":
+        flash("Undo blocked: confirmation checkbox is required.", "err")
+        return redirect(url_for("site_admin.admin_undo_center"))
+    try:
+        before = json.loads(row.before_json or "{}")
+    except Exception:
+        before = {}
+    ok = False
+    if row.entity_type == "site_announcement":
+        ann = db.session.get(SiteAnnouncement, int(row.entity_id))
+        if ann and ann.league_slug == slug:
+            ann.is_active = bool(before.get("is_active", ann.is_active))
+            ok = True
+    elif row.entity_type == "gm_approval_request":
+        req = db.session.get(GmApprovalRequest, int(row.entity_id))
+        if req and req.league_slug == slug:
+            req.status = str(before.get("status") or req.status)
+            req.admin_note = str(before.get("admin_note") or "")
+            rb = before.get("processed_by_user_id")
+            req.processed_by_user_id = int(rb) if rb not in (None, "") else None
+            rts = before.get("processed_at")
+            if isinstance(rts, str) and rts.strip():
+                try:
+                    req.processed_at = datetime.fromisoformat(rts)
+                except Exception:
+                    req.processed_at = None
+            else:
+                req.processed_at = None
+            ok = True
+    elif row.entity_type == "league_rule_setting":
+        rule = db.session.get(LeagueRuleSetting, int(row.entity_id))
+        if rule and rule.league_slug == slug:
+            rule.rule_value = str(before.get("rule_value") or rule.rule_value)
+            rb = before.get("updated_by_user_id")
+            rule.updated_by_user_id = int(rb) if rb not in (None, "") else None
+            rts = before.get("updated_at")
+            if isinstance(rts, str) and rts.strip():
+                try:
+                    rule.updated_at = datetime.fromisoformat(rts)
+                except Exception:
+                    rule.updated_at = datetime.utcnow()
+            else:
+                rule.updated_at = datetime.utcnow()
+            ok = True
+    elif row.entity_type == "league_rules_bulk":
+        rules_before = before.get("rules") if isinstance(before.get("rules"), dict) else {}
+        if rules_before:
+            all_rows = get_league_rules(db.session, slug)
+            now = datetime.utcnow()
+            for kr in all_rows:
+                if kr.rule_key in rules_before:
+                    kr.rule_value = str(rules_before[kr.rule_key])
+                    kr.updated_by_user_id = int(current_user.id)
+                    kr.updated_at = now
+            ok = True
+    elif row.entity_type == "homepage_modules_bulk":
+        rows_before = before.get("rows")
+        if isinstance(rows_before, list) and rows_before:
+            save_homepage_module_settings(db.session, slug, rows_before, int(current_user.id))
+            ok = True
+    elif row.entity_type == "site_user":
+        u = db.session.get(User, int(row.entity_id))
+        if u:
+            u.is_admin = bool(before.get("is_admin"))
+            ar = before.get("admin_role")
+            u.admin_role = None if ar in (None, "") else str(ar)
+            ok = True
+    elif row.entity_type == "ap_redemption_catalog":
+        cat = db.session.get(ApRedemptionCatalog, int(row.entity_id))
+        if cat:
+            cat.is_active = bool(before.get("is_active", cat.is_active))
+            ok = True
+    if not ok:
+        flash("Undo failed: target entity missing or unsupported.", "err")
+        return redirect(url_for("site_admin.admin_undo_center"))
+    row.is_reverted = True
+    row.reverted_by_user_id = int(current_user.id)
+    row.reverted_at = datetime.utcnow()
+    db.session.add(
+        AdminAuditLog(
+            admin_user_id=int(current_user.id),
+            league_slug=slug,
+            action="undo_apply",
+            detail_json=json.dumps(
+                {"undo_id": int(row.id), "entity_type": row.entity_type, "entity_id": int(row.entity_id)}
+            ),
+        )
+    )
+    db.session.commit()
+    flash("Undo applied successfully.", "ok")
+    return redirect(url_for("site_admin.admin_undo_center"))
+
+
+@site_admin_bp.route("/discord-integration", methods=["GET", "POST"])
+@login_required
+def admin_discord_integration():
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER, ADMIN_ROLE_CONTENT)
+    slug = _league_slug()
+    if request.method == "POST":
+        action = (request.form.get("action") or "").strip().lower()
+        if action == "save_routes":
+            rows = []
+            for r in list_discord_routes(db.session, slug):
+                key = str(r.event_key or "")
+                rows.append(
+                    {
+                        "event_key": key,
+                        "channel_key": (request.form.get(f"channel_{key}") or "").strip()[:64],
+                        "is_enabled": request.form.get(f"enabled_{key}") == "1",
+                    }
+                )
+            saved = update_discord_routes(db.session, slug, rows, int(current_user.id))
+            db.session.add(
+                AdminAuditLog(
+                    admin_user_id=int(current_user.id),
+                    league_slug=slug,
+                    action="discord_routes_update",
+                    detail_json=json.dumps({"rows": saved}),
+                )
+            )
+            db.session.commit()
+            flash("Discord route settings updated.", "ok")
+            return redirect(url_for("site_admin.admin_discord_integration"))
+        if action == "enqueue_test_event":
+            event_key = (request.form.get("event_key") or "").strip()
+            routes_now = list_discord_routes(db.session, slug)
+            allowed = {str(r.event_key) for r in routes_now}
+            if event_key not in allowed:
+                flash("Test event blocked: invalid event key.", "err")
+                return redirect(url_for("site_admin.admin_discord_integration"))
+            test_payload = {
+                "message": "Manual Discord test event from admin integration page.",
+                "event_key": event_key,
+                "requested_by_user_id": int(current_user.id),
+                "requested_at_utc": datetime.utcnow().isoformat(timespec="seconds"),
+            }
+            created = enqueue_discord_event(
+                db.session,
+                league_slug=slug,
+                event_key=event_key,
+                payload=test_payload,
+                created_by_user_id=int(current_user.id),
+            )
+            db.session.add(
+                AdminAuditLog(
+                    admin_user_id=int(current_user.id),
+                    league_slug=slug,
+                    action="discord_test_event_enqueue",
+                    detail_json=json.dumps(
+                        {
+                            "event_key": event_key,
+                            "created_event_id": int(created.id) if created else None,
+                            "queued": bool(created is not None),
+                        }
+                    ),
+                )
+            )
+            db.session.commit()
+            if created is None:
+                flash("Test event skipped: route is disabled or unavailable for that event key.", "err")
+            else:
+                flash(f"Test event queued for '{event_key}'.", "ok")
+            return redirect(url_for("site_admin.admin_discord_integration"))
+        if action == "replay_failed":
+            failed = list_outbound_events(db.session, league_slug=slug, status="failed", limit=500)
+            replayed = 0
+            for row in failed:
+                row.status = "pending"
+                row.last_error = ""
+                row.next_attempt_at = None
+                replayed += 1
+            db.session.add(
+                AdminAuditLog(
+                    admin_user_id=int(current_user.id),
+                    league_slug=slug,
+                    action="discord_failed_events_replay",
+                    detail_json=json.dumps({"replayed": int(replayed)}),
+                )
+            )
+            db.session.commit()
+            flash(f"Replayed {replayed} dead-letter event(s).", "ok")
+            return redirect(url_for("site_admin.admin_discord_integration"))
+    status = (request.args.get("status") or "").strip().lower()
+    routes = list_discord_routes(db.session, slug)
+    events = list_outbound_events(db.session, league_slug=slug, status=status, limit=250)
+    dead_letters = list_outbound_events(db.session, league_slug=slug, status="failed", limit=50)
+    heartbeats = list_heartbeats(db.session, league_slug=slug, limit=10)
+    secret_set = bool(str(current_app.config.get("DISCORD_EVENTS_SHARED_SECRET") or "").strip())
+    now = datetime.utcnow()
+    queue_recent_ok = any(
+        e.created_at and (now - e.created_at) <= timedelta(minutes=5) for e in events[:100]
+    )
+    heartbeat_rows = [
+        {
+            "bot_name": str(h.bot_name or "discord-bot"),
+            "bot_version": str(h.bot_version or ""),
+            "guild_id": str(h.guild_id or ""),
+            "last_seen_at": h.last_seen_at,
+            "is_fresh": bool(h.last_seen_at and (now - h.last_seen_at) <= timedelta(minutes=5)),
+            "age_minutes": (
+                int((now - h.last_seen_at).total_seconds() // 60)
+                if h.last_seen_at
+                else None
+            ),
+        }
+        for h in heartbeats
+    ]
+    heartbeat_rows.sort(
+        key=lambda r: (
+            0 if not r["is_fresh"] else 1,
+            -(r["age_minutes"] if r["age_minutes"] is not None else -1),
+            str(r["bot_name"]).casefold(),
+        )
+    )
+    return render_template(
+        "admin_discord_integration.html",
+        routes=routes,
+        events=events,
+        dead_letters=dead_letters,
+        selected_status=status,
+        secret_set=secret_set,
+        queue_recent_ok=queue_recent_ok,
+        heartbeat_rows=heartbeat_rows,
+    )
+
+
+@site_admin_bp.post("/discord-events/<int:eid>/requeue")
+@login_required
+def admin_discord_event_requeue(eid: int):
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER, ADMIN_ROLE_CONTENT)
+    slug = _league_slug()
+    row = db.session.get(DiscordOutboundEvent, eid)
+    if not row or row.league_slug != slug:
+        abort(404)
+    row.status = "pending"
+    row.last_error = ""
+    row.next_attempt_at = None
+    db.session.add(
+        AdminAuditLog(
+            admin_user_id=int(current_user.id),
+            league_slug=slug,
+            action="discord_event_requeue",
+            detail_json=json.dumps({"event_id": int(row.id), "event_key": str(row.event_key or "")}),
+        )
+    )
+    db.session.commit()
+    flash("Event requeued.", "ok")
+    return redirect(url_for("site_admin.admin_discord_integration"))
+
+
+@site_admin_bp.post("/discord-events/<int:eid>/cancel")
+@login_required
+def admin_discord_event_cancel(eid: int):
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER, ADMIN_ROLE_CONTENT)
+    slug = _league_slug()
+    row = db.session.get(DiscordOutboundEvent, eid)
+    if not row or row.league_slug != slug:
+        abort(404)
+    row.status = "cancelled"
+    db.session.add(
+        AdminAuditLog(
+            admin_user_id=int(current_user.id),
+            league_slug=slug,
+            action="discord_event_cancel",
+            detail_json=json.dumps({"event_id": int(row.id), "event_key": str(row.event_key or "")}),
+        )
+    )
+    db.session.commit()
+    flash("Event cancelled.", "ok")
+    return redirect(url_for("site_admin.admin_discord_integration"))
+
+
+@site_admin_bp.route("/announcements", methods=["GET", "POST"])
+@login_required
+def admin_announcements():
+    require_admin_role(ADMIN_ROLE_CONTENT, ADMIN_ROLE_LEAGUE)
+    slug = _league_slug()
+    if request.method == "POST":
+        title = (request.form.get("title") or "").strip()[:200]
+        body = (request.form.get("body") or "").strip()
+        level = (request.form.get("level") or "info").strip().lower()
+        if level not in {"info", "warn", "urgent"}:
+            level = "info"
+        if not body:
+            flash("Announcement body is required.", "err")
+            return redirect(url_for("site_admin.admin_announcements"))
+        ann = SiteAnnouncement(
+            league_slug=slug,
+            title=title,
+            body=body,
+            level=level,
+            is_active=True,
+            created_by_user_id=int(current_user.id),
+            created_at=datetime.utcnow(),
+        )
+        db.session.add(ann)
+        db.session.flush()
+        db.session.add(
+            AdminAuditLog(
+                admin_user_id=int(current_user.id),
+                league_slug=slug,
+                action="announcement_create",
+                detail_json=json.dumps(
+                    {"announcement_id": int(ann.id), "title": title, "level": level}
+                ),
+            )
+        )
+        _enqueue_discord_event(
+            "announcement_posted",
+            {
+                "announcement_id": int(ann.id),
+                "title": str(ann.title or ""),
+                "level": str(ann.level or "info"),
+                "body_preview": str(ann.body or "")[:280],
+            },
+        )
+        db.session.commit()
+        flash("Announcement posted.", "ok")
+        return redirect(url_for("site_admin.admin_announcements"))
+    rows = db.session.scalars(
+        select(SiteAnnouncement)
+        .where(SiteAnnouncement.league_slug == slug)
+        .order_by(SiteAnnouncement.created_at.desc(), SiteAnnouncement.id.desc())
+        .limit(50)
+    ).all()
+    return render_template("admin_announcements.html", rows=rows)
+
+
+@site_admin_bp.post("/announcements/<int:aid>/toggle")
+@login_required
+def admin_announcement_toggle(aid: int):
+    require_admin_role(ADMIN_ROLE_CONTENT, ADMIN_ROLE_LEAGUE)
+    slug = _league_slug()
+    ann = db.session.get(SiteAnnouncement, aid)
+    if not ann or ann.league_slug != slug:
+        abort(404)
+    before = {"is_active": bool(ann.is_active)}
+    ann.is_active = not bool(ann.is_active)
+    after = {"is_active": bool(ann.is_active)}
+    _create_undo_action(
+        league_slug=slug,
+        action_key="announcement_toggle",
+        entity_type="site_announcement",
+        entity_id=int(ann.id),
+        before=before,
+        after=after,
+        note=f"Announcement toggle for id={ann.id}",
+    )
+    db.session.add(
+        AdminAuditLog(
+            admin_user_id=int(current_user.id),
+            league_slug=slug,
+            action="announcement_toggle",
+            detail_json=json.dumps(
+                {"announcement_id": int(ann.id), "is_active": bool(ann.is_active)}
+            ),
+        )
+    )
+    db.session.commit()
+    flash("Announcement status updated.", "ok")
+    return redirect(url_for("site_admin.admin_announcements"))
+
+
+@site_admin_bp.route("/import-validation", methods=["GET", "POST"])
+@login_required
+def admin_import_validation():
+    require_admin_role(ADMIN_ROLE_STATS, ADMIN_ROLE_LEAGUE)
+    slug = _league_slug()
+    raw_dir = current_app.config.get("RAW_IMPORT_DIR")
+    logos_dir = current_app.config.get("TEAM_LOGOS_DIR")
+    report = build_import_validation_report(
+        raw_dir=Path(str(raw_dir)),
+        team_logos_dir=Path(str(logos_dir)),
+        session=db.session,
+    )
+    if request.method == "POST":
+        db.session.add(
+            AdminAuditLog(
+                admin_user_id=int(current_user.id),
+                league_slug=slug,
+                action="import_validation_run",
+                detail_json=json.dumps(
+                    {
+                        "errors": len(report.get("errors") or []),
+                        "warnings": len(report.get("warnings") or []),
+                        "missing_required": report.get("missing_required") or [],
+                    }
+                ),
+            )
+        )
+        db.session.commit()
+        flash("Import validation report generated.", "ok")
+    return render_template("admin_import_validation.html", report=report)
+
+
+@site_admin_bp.route("/homepage-modules", methods=["GET", "POST"])
+@login_required
+def admin_homepage_modules():
+    require_admin_role(ADMIN_ROLE_CONTENT, ADMIN_ROLE_LEAGUE)
+    slug = _league_slug()
+    if request.method == "POST":
+        before_settings = get_homepage_module_settings(db.session, slug)
+        before_rows = [
+            {
+                "module_key": r.module_key,
+                "is_enabled": bool(r.is_enabled),
+                "sort_order": int(r.sort_order or 0),
+            }
+            for r in before_settings
+            if r.module_key in ALLOWED_HOMEPAGE_MODULE_KEYS
+        ]
+        rows = []
+        for key in ALLOWED_HOMEPAGE_MODULE_KEYS:
+            enabled = request.form.get(f"enabled_{key}") == "1"
+            sort_raw = (request.form.get(f"sort_{key}") or "").strip()
+            try:
+                sort_order = int(sort_raw)
+            except (TypeError, ValueError):
+                sort_order = 999
+            rows.append({"module_key": key, "is_enabled": enabled, "sort_order": sort_order})
+        saved = save_homepage_module_settings(
+            db.session,
+            slug,
+            rows,
+            updated_by_user_id=int(current_user.id),
+        )
+        after_rows = [
+            {
+                "module_key": r["module_key"],
+                "is_enabled": bool(r["is_enabled"]),
+                "sort_order": int(r["sort_order"]),
+            }
+            for r in saved
+            if r.get("module_key") in ALLOWED_HOMEPAGE_MODULE_KEYS
+        ]
+        if before_rows != after_rows:
+            _create_undo_action(
+                league_slug=slug,
+                action_key="homepage_modules_update",
+                entity_type="homepage_modules_bulk",
+                entity_id=0,
+                before={"rows": before_rows},
+                after={"rows": after_rows},
+                note="Homepage module visibility/order",
+            )
+        db.session.add(
+            AdminAuditLog(
+                admin_user_id=int(current_user.id),
+                league_slug=slug,
+                action="homepage_modules_update",
+                detail_json=json.dumps({"rows": saved}),
+            )
+        )
+        db.session.commit()
+        flash("Homepage module settings updated.", "ok")
+        return redirect(url_for("site_admin.admin_homepage_modules"))
+    settings = get_homepage_module_settings(db.session, slug)
+    by_key = {r.module_key: r for r in settings}
+    ordered = []
+    for key in ALLOWED_HOMEPAGE_MODULE_KEYS:
+        row = by_key.get(key)
+        if row is None:
+            continue
+        ordered.append(row)
+    ordered.sort(key=lambda r: (int(r.sort_order or 0), r.module_key))
+    return render_template(
+        "admin_homepage_modules.html",
+        rows=ordered,
+    )
+
+
 @site_admin_bp.route("/news/compose", methods=["GET", "POST"])
 @login_required
 def admin_news_compose():
     """Publish a headline immediately as the league office (no moderation, no AP grant)."""
-    require_admin()
+    require_admin_role(ADMIN_ROLE_CONTENT, ADMIN_ROLE_LEAGUE)
     slug = _league_slug()
     teams = db.session.scalars(select(Team).order_by(Team.name)).all()
     if request.method == "POST":
@@ -503,7 +3046,7 @@ def admin_news_compose():
 @site_admin_bp.get("/news")
 @login_required
 def admin_news_queue():
-    require_admin()
+    require_admin_role(ADMIN_ROLE_CONTENT, ADMIN_ROLE_LEAGUE)
     slug = _league_slug()
     rows = list(
         db.session.scalars(
@@ -535,7 +3078,7 @@ def admin_news_queue():
 @site_admin_bp.get("/news/<int:aid>/preview")
 @login_required
 def admin_news_preview(aid: int):
-    require_admin()
+    require_admin_role(ADMIN_ROLE_CONTENT, ADMIN_ROLE_LEAGUE)
     slug = _league_slug()
     art = db.session.get(NewsArticle, aid)
     if not art or art.league_slug != slug:
@@ -554,13 +3097,20 @@ def admin_news_preview(aid: int):
 @site_admin_bp.post("/news/<int:aid>/publish")
 @login_required
 def admin_news_publish(aid: int):
-    require_admin()
+    require_admin_role(ADMIN_ROLE_CONTENT, ADMIN_ROLE_LEAGUE)
     slug = _league_slug()
+    dry_run = request.form.get("dry_run") == "1"
     art = db.session.get(NewsArticle, aid)
     if not art or art.league_slug != slug:
         abort(404)
     if art.status != "pending":
         flash("That submission was already processed.", "err")
+        return redirect(url_for("site_admin.admin_news_queue"))
+    if dry_run:
+        flash(
+            f"[DRY RUN] Would approve article #{art.id} ('{art.title}') and award AP per configured rules.",
+            "ok",
+        )
         return redirect(url_for("site_admin.admin_news_queue"))
     pts = int(current_app.config.get("NEWS_ARTICLE_AP_POINTS", 3))
     publish_news_and_maybe_award_ap(art, points=pts)
@@ -575,13 +3125,20 @@ def admin_news_publish(aid: int):
 @site_admin_bp.post("/news/<int:aid>/reject")
 @login_required
 def admin_news_reject(aid: int):
-    require_admin()
+    require_admin_role(ADMIN_ROLE_CONTENT, ADMIN_ROLE_LEAGUE)
     slug = _league_slug()
+    dry_run = request.form.get("dry_run") == "1"
     art = db.session.get(NewsArticle, aid)
     if not art or art.league_slug != slug:
         abort(404)
     if art.status != "pending":
         flash("That submission was already processed.", "err")
+        return redirect(url_for("site_admin.admin_news_queue"))
+    if dry_run:
+        flash(
+            f"[DRY RUN] Would reject article #{art.id} ('{art.title}') and notify the author in GM Messages.",
+            "ok",
+        )
         return redirect(url_for("site_admin.admin_news_queue"))
     art.status = "rejected"
     db.session.commit()
@@ -594,16 +3151,23 @@ def admin_news_reject(aid: int):
 @login_required
 def admin_ap_export_multileague():
     """Award +1 AP for each selected team in the current league only (URL mount)."""
-    require_admin()
+    require_admin_role(ADMIN_ROLE_STATS, ADMIN_ROLE_LEAGUE)
     cur_slug = _league_slug()
+    dry_run = request.form.get("dry_run") == "1"
     raw = request.form.getlist("team_slug")
     team_slugs = list(dict.fromkeys(s.strip() for s in raw if s and s.strip()))
     if not team_slugs:
         flash("Select at least one team.", "err")
         return redirect(url_for("site_admin.admin_ap_ledger"))
     label = league_display_name(cur_slug)
+    if not dry_run:
+        pe = evaluate_points_economy_mutations_allowed(db.session, cur_slug)
+        if not pe.allowed:
+            flash(pe.message, "err")
+            return redirect(url_for("site_admin.admin_ap_ledger"))
     note = f"EXPORT: +1 AP ({label})"
     added = 0
+    matched_slugs: list[str] = []
     for team_slug in team_slugs:
         tid = team_id_for_slug_in_league(
             cur_slug,
@@ -612,6 +3176,10 @@ def admin_ap_export_multileague():
             orm_league_slug=cur_slug,
         )
         if tid is None:
+            continue
+        matched_slugs.append(team_slug)
+        if dry_run:
+            added += 1
             continue
         add_ledger_entry(
             league_slug=cur_slug,
@@ -622,6 +3190,15 @@ def admin_ap_export_multileague():
             created_by_user_id=current_user.id,
         )
         added += 1
+    if dry_run:
+        sample = ", ".join(matched_slugs[:8]) if matched_slugs else "none"
+        if len(matched_slugs) > 8:
+            sample += ", …"
+        flash(
+            f"[DRY RUN] EXPORT would add {added} ledger row(s) (+1 AP) in {label}. Teams: {sample}",
+            "ok",
+        )
+        return redirect(url_for("site_admin.admin_ap_ledger"))
     db.session.commit()
     if added:
         flash(
@@ -649,8 +3226,14 @@ _BATCH_AP_REASONS: dict[str, str] = {
 @login_required
 def admin_ap_batch_adjust():
     """Apply per-team AP deltas from a modal for the current league only (URL mount)."""
-    require_admin()
+    require_admin_role(ADMIN_ROLE_STATS, ADMIN_ROLE_LEAGUE)
     cur_slug = _league_slug()
+    dry_run = request.form.get("dry_run") == "1"
+    if not dry_run:
+        pe = evaluate_points_economy_mutations_allowed(db.session, cur_slug)
+        if not pe.allowed:
+            flash(pe.message, "err")
+            return redirect(url_for("site_admin.admin_ap_ledger"))
     league_name = league_display_name(cur_slug)
     reason = (request.form.get("reason_code") or "").strip()
     if reason not in _BATCH_AP_REASONS:
@@ -668,6 +3251,7 @@ def admin_ap_batch_adjust():
             flash("PREDICTIONS: select at least one team.", "err")
             return redirect(url_for("site_admin.admin_ap_ledger"))
         entries = 0
+        preview: list[tuple[str, int]] = []
         for team_slug in picked:
             if team_slug not in allowed_slugs:
                 continue
@@ -679,6 +3263,10 @@ def admin_ap_batch_adjust():
             )
             if tid is None:
                 continue
+            preview.append((team_slug, 1))
+            if dry_run:
+                entries += 1
+                continue
             add_ledger_entry(
                 league_slug=cur_slug,
                 team_id=tid,
@@ -688,6 +3276,15 @@ def admin_ap_batch_adjust():
                 created_by_user_id=current_user.id,
             )
             entries += 1
+        if dry_run:
+            show = ", ".join([f"{s}: +1" for s, _d in preview[:8]]) if preview else "none"
+            if len(preview) > 8:
+                show += ", …"
+            flash(
+                f"[DRY RUN] PREDICTIONS would add {entries} ledger row(s) in {league_name}. {show}",
+                "ok",
+            )
+            return redirect(url_for("site_admin.admin_ap_ledger"))
         db.session.commit()
         if entries:
             flash(
@@ -700,6 +3297,7 @@ def admin_ap_batch_adjust():
 
     prefix = "d_"
     entries = 0
+    preview_rows: list[tuple[str, int]] = []
     for key, raw in request.form.items():
         if not key.startswith(prefix):
             continue
@@ -728,6 +3326,10 @@ def admin_ap_batch_adjust():
         )
         if tid is None:
             continue
+        preview_rows.append((team_slug, int(delta)))
+        if dry_run:
+            entries += 1
+            continue
         add_ledger_entry(
             league_slug=cur_slug,
             team_id=tid,
@@ -737,6 +3339,18 @@ def admin_ap_batch_adjust():
             created_by_user_id=current_user.id,
         )
         entries += 1
+    if dry_run:
+        show = ", ".join([f"{s}: {d:+d}" for s, d in preview_rows[:8]]) if preview_rows else "none"
+        if len(preview_rows) > 8:
+            show += ", …"
+        if entries:
+            flash(
+                f"[DRY RUN] {label}: would write {entries} ledger row(s) in {league_name}. {show}",
+                "ok",
+            )
+        else:
+            flash(f"[DRY RUN] {label}: no non-zero adjustments detected.", "err")
+        return redirect(url_for("site_admin.admin_ap_ledger"))
     db.session.commit()
     if entries:
         flash(
@@ -752,9 +3366,10 @@ def admin_ap_batch_adjust():
 @site_admin_bp.route("/ap-ledger", methods=["GET", "POST"])
 @login_required
 def admin_ap_ledger():
-    require_admin()
+    require_admin_role(ADMIN_ROLE_STATS, ADMIN_ROLE_LEAGUE)
     slug = _league_slug()
     if request.method == "POST":
+        dry_run = request.form.get("dry_run") == "1"
         try:
             tid = int(request.form.get("team_id") or "0")
             delta = int(request.form.get("delta") or "0")
@@ -763,6 +3378,18 @@ def admin_ap_ledger():
             return redirect(url_for("site_admin.admin_ap_ledger"))
         note = (request.form.get("note") or "").strip()
         if tid and delta:
+            team = db.session.get(Team, tid)
+            if dry_run:
+                team_label = team.full_display_name() if team else f"team_id={tid}"
+                flash(
+                    f"[DRY RUN] Would add ledger row: {team_label}, delta {delta:+d}, note '{note}'.",
+                    "ok",
+                )
+                return redirect(url_for("site_admin.admin_ap_ledger"))
+            pe = evaluate_points_economy_mutations_allowed(db.session, slug)
+            if not pe.allowed:
+                flash(pe.message, "err")
+                return redirect(url_for("site_admin.admin_ap_ledger"))
             add_ledger_entry(
                 league_slug=slug,
                 team_id=tid,
@@ -787,7 +3414,7 @@ def admin_ap_ledger():
 @site_admin_bp.get("/ap-requests")
 @login_required
 def admin_ap_requests():
-    require_admin()
+    require_admin_role(ADMIN_ROLE_STATS, ADMIN_ROLE_LEAGUE)
     slug = _league_slug()
     rows = db.session.scalars(
         select(ApRedemptionRequest)
@@ -829,7 +3456,7 @@ def admin_ap_requests():
 @site_admin_bp.get("/ap-requests/<int:rid>")
 @login_required
 def ap_request_one(rid: int):
-    require_admin()
+    require_admin_role(ADMIN_ROLE_STATS, ADMIN_ROLE_LEAGUE)
     slug = _league_slug()
     req = db.session.get(ApRedemptionRequest, rid)
     if not req or req.league_slug != slug:
@@ -840,11 +3467,15 @@ def ap_request_one(rid: int):
 @site_admin_bp.post("/ap-requests/<int:rid>/approve")
 @login_required
 def admin_ap_approve(rid: int):
-    require_admin()
+    require_admin_role(ADMIN_ROLE_STATS, ADMIN_ROLE_LEAGUE)
     slug = _league_slug()
     req = db.session.get(ApRedemptionRequest, rid)
     if not req or req.league_slug != slug or req.status != "pending":
         abort(404)
+    pe = evaluate_points_economy_mutations_allowed(db.session, slug)
+    if not pe.allowed:
+        flash(pe.message, "err")
+        return redirect(url_for("site_admin.admin_ap_requests"))
     ok = approve_redemption_request(req, current_user.id)
     if ok:
         try:
@@ -887,7 +3518,7 @@ def admin_ap_approve(rid: int):
 @site_admin_bp.post("/ap-requests/<int:rid>/deny")
 @login_required
 def admin_ap_deny(rid: int):
-    require_admin()
+    require_admin_role(ADMIN_ROLE_STATS, ADMIN_ROLE_LEAGUE)
     slug = _league_slug()
     req = db.session.get(ApRedemptionRequest, rid)
     if not req or req.league_slug != slug or req.status != "pending":
@@ -903,7 +3534,7 @@ def admin_ap_deny(rid: int):
 @site_admin_bp.route("/catalog", methods=["GET", "POST"])
 @login_required
 def admin_catalog():
-    require_admin()
+    require_admin_role(ADMIN_ROLE_STATS, ADMIN_ROLE_LEAGUE)
     slug = _league_slug()
     group = league_group_for_slug(slug)
     if request.method == "POST":
@@ -938,12 +3569,23 @@ def admin_catalog():
 @site_admin_bp.post("/catalog/<int:cid>/toggle")
 @login_required
 def admin_catalog_toggle(cid: int):
-    require_admin()
+    require_admin_role(ADMIN_ROLE_STATS, ADMIN_ROLE_LEAGUE)
     slug = _league_slug()
     group = league_group_for_slug(slug)
     row = db.session.get(ApRedemptionCatalog, cid)
     if row and row.league_group == group:
+        before = {"is_active": bool(row.is_active)}
         row.is_active = not row.is_active
+        after = {"is_active": bool(row.is_active)}
+        _create_undo_action(
+            league_slug=slug,
+            action_key="catalog_item_toggle",
+            entity_type="ap_redemption_catalog",
+            entity_id=int(row.id),
+            before=before,
+            after=after,
+            note=f"Catalog #{row.id} active toggle",
+        )
         db.session.commit()
     return redirect(url_for("site_admin.admin_catalog"))
 
@@ -951,9 +3593,13 @@ def admin_catalog_toggle(cid: int):
 @site_admin_bp.route("/contract", methods=["GET", "POST"])
 @login_required
 def admin_contract_edit():
-    require_admin()
+    require_admin_role(ADMIN_ROLE_STATS, ADMIN_ROLE_LEAGUE)
     slug = _league_slug()
     if request.method == "POST":
+        cr = evaluate_contract_mutation_allowed(db.session, slug)
+        if not cr.allowed:
+            flash(cr.message, "err")
+            return redirect(url_for("site_admin.admin_contract_edit"))
         try:
             pid = int(request.form.get("player_id") or "0")
             salary = int(request.form.get("average_salary") or "0")
@@ -964,6 +3610,30 @@ def admin_contract_edit():
         if not pl:
             flash("Player not found.", "err")
             return redirect(url_for("site_admin.admin_contract_edit"))
+        if salary < 0:
+            flash("Salary cannot be negative.", "err")
+            return redirect(url_for("site_admin.admin_contract_edit"))
+        if rule_bool(db.session, slug, "salary_cap_enabled", default=False):
+            cap_amt = rule_int(db.session, slug, "salary_cap_amount", default=0)
+            if cap_amt > 0 and pl.current_team_id:
+                others_sum = (
+                    db.session.execute(
+                        select(func.coalesce(func.sum(PlayerContract.average_salary), 0))
+                        .join(Player, PlayerContract.player_id == Player.id)
+                        .where(
+                            Player.current_team_id == int(pl.current_team_id),
+                            PlayerContract.player_id != int(pid),
+                        )
+                    ).scalar_one()
+                    or 0
+                )
+                projected = int(others_sum) + int(salary)
+                if projected > int(cap_amt):
+                    flash(
+                        f"Blocked by salary cap rule: projected team total ${projected:,} exceeds cap ${cap_amt:,}.",
+                        "err",
+                    )
+                    return redirect(url_for("site_admin.admin_contract_edit"))
         c = db.session.scalar(select(PlayerContract).where(PlayerContract.player_id == pid).limit(1))
         if not c:
             c = PlayerContract(player_id=pid, average_salary=salary)

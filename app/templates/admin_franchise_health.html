@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Franchise Health — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:64rem;margin:0 auto;">
+  <h1 class="page-title">Franchise Health</h1>
+  <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
+  <p class="muted" style="margin:0 0 0.8rem;">
+    Read-only inactivity snapshot (membership, GM messages, authored news). Bands:
+    <strong>healthy</strong> &lt;10d idle, <strong>watch</strong> 10–20d, <strong>critical</strong> 21d+.
+  </p>
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr>
+          <th>Team</th>
+          <th>GM</th>
+          <th>Last Activity (UTC)</th>
+          <th>Inactivity Days</th>
+          <th>Health</th>
+          <th>Pending Requests</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td>{{ r.team.full_display_name() if r.team else '—' }}</td>
+          <td>{{ (r.user.discord_name or r.user.username or r.user.email) if r.user else '—' }}</td>
+          <td>{{ r.last_activity_at.strftime('%Y-%m-%d %H:%M:%S') if r.last_activity_at else '—' }}</td>
+          <td>{{ r.inactivity_days if r.inactivity_days is not none else '—' }}</td>
+          <td>{{ r.health }}</td>
+          <td>{{ r.pending_requests }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="muted">No active franchises found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

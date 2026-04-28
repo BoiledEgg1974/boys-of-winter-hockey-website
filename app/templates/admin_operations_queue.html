@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+{% block title %}Operations Queue — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:68rem;margin:0 auto;">
+  <h1 class="page-title">Operations Queue</h1>
+  <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
+  <div style="display:flex;gap:0.45rem;flex-wrap:wrap;margin:0 0 0.75rem;">
+    <a class="admin-ops-proj {% if queue_view == 'table' %}admin-ops-proj--ok{% else %}admin-ops-proj--na{% endif %}" href="{{ url_for('site_admin.admin_operations_queue', view='table', filter=queue_filter or 'all', sort=queue_sort or 'newest') }}">Table View</a>
+    <a class="admin-ops-proj {% if queue_view == 'lane' %}admin-ops-proj--ok{% else %}admin-ops-proj--na{% endif %}" href="{{ url_for('site_admin.admin_operations_queue', view='lane', filter=queue_filter or 'pending', sort=queue_sort or 'over_cap_first') }}">Processing Lane</a>
+  </div>
+  <div style="display:flex;gap:0.45rem;flex-wrap:wrap;margin:0 0 0.75rem;">
+    <a class="admin-ops-proj {% if queue_filter == 'all' %}admin-ops-proj--ok{% else %}admin-ops-proj--na{% endif %}" href="{{ url_for('site_admin.admin_operations_queue', view=queue_view or 'table', filter='all', sort=queue_sort or 'newest') }}">All ({{ filter_counts.get('all', 0) }})</a>
+    <a class="admin-ops-proj {% if queue_filter == 'pending' %}admin-ops-proj--ok{% else %}admin-ops-proj--na{% endif %}" href="{{ url_for('site_admin.admin_operations_queue', view=queue_view or 'table', filter='pending', sort=queue_sort or 'newest') }}">Pending ({{ filter_counts.get('pending', 0) }})</a>
+    <a class="admin-ops-proj {% if queue_filter == 'over_cap' %}admin-ops-proj--over{% else %}admin-ops-proj--na{% endif %}" href="{{ url_for('site_admin.admin_operations_queue', view=queue_view or 'table', filter='over_cap', sort=queue_sort or 'newest') }}">Over Cap ({{ filter_counts.get('over_cap', 0) }})</a>
+    <a class="admin-ops-proj {% if queue_filter == 'missing_data' %}admin-ops-proj--missing{% else %}admin-ops-proj--na{% endif %}" href="{{ url_for('site_admin.admin_operations_queue', view=queue_view or 'table', filter='missing_data', sort=queue_sort or 'newest') }}">Missing Data ({{ filter_counts.get('missing_data', 0) }})</a>
+  </div>
+  <div style="display:flex;gap:0.45rem;flex-wrap:wrap;margin:0 0 0.75rem;">
+    <a class="admin-ops-proj {% if queue_sort == 'newest' %}admin-ops-proj--ok{% else %}admin-ops-proj--na{% endif %}" href="{{ url_for('site_admin.admin_operations_queue', view=queue_view or 'table', filter=queue_filter or 'all', sort='newest') }}">Newest</a>
+    <a class="admin-ops-proj {% if queue_sort == 'oldest' %}admin-ops-proj--ok{% else %}admin-ops-proj--na{% endif %}" href="{{ url_for('site_admin.admin_operations_queue', view=queue_view or 'table', filter=queue_filter or 'all', sort='oldest') }}">Oldest</a>
+    <a class="admin-ops-proj {% if queue_sort == 'over_cap_first' %}admin-ops-proj--over{% else %}admin-ops-proj--na{% endif %}" href="{{ url_for('site_admin.admin_operations_queue', view=queue_view or 'table', filter=queue_filter or 'all', sort='over_cap_first') }}">Over-Cap First</a>
+  </div>
+  {% if dry_run_summary %}
+  <div class="admin-ops-dryrun">
+    <strong>Bulk Dry-Run Preview</strong>
+    <span class="muted">Status: {{ dry_run_summary.requested_status or '—' }}</span>
+    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.35rem;">
+      <span class="admin-ops-proj admin-ops-proj--na">Selected {{ dry_run_summary.selected }}</span>
+      <span class="admin-ops-proj admin-ops-proj--ok">Processable {{ dry_run_summary.processable }}</span>
+      <span class="admin-ops-proj admin-ops-proj--over">Blocked {{ dry_run_summary.blocked }}</span>
+      <span class="admin-ops-proj admin-ops-proj--missing">Deadline {{ dry_run_summary.blocked_deadline }}</span>
+      <span class="admin-ops-proj admin-ops-proj--missing">Roster {{ dry_run_summary.blocked_roster }}</span>
+      <span class="admin-ops-proj admin-ops-proj--missing">Schedule {{ dry_run_summary.blocked_schedule or 0 }}</span>
+      <span class="admin-ops-proj admin-ops-proj--missing">Waiver {{ dry_run_summary.blocked_waiver or 0 }}</span>
+      <span class="admin-ops-proj admin-ops-proj--na">Missing {{ dry_run_summary.missing }}</span>
+      <a class="admin-ops-proj admin-ops-proj--na" href="{{ url_for('site_admin.admin_operations_queue', view=queue_view or 'table', filter=queue_filter or 'all', sort=queue_sort or 'newest') }}">Clear preview selection</a>
+    </div>
+  </div>
+  {% endif %}
+  {% if queue_view == 'lane' %}
+  <p class="muted admin-ops-lane__hint">
+    Lane hotkeys: <strong>J/K</strong> move row, <strong>A/D/P</strong> set status, <strong>X</strong> toggle pick, <strong>/</strong> focus note, <strong>Ctrl+Enter</strong> apply.
+  </p>
+  <form method="post" action="{{ url_for('site_admin.admin_operations_queue_bulk_status') }}" class="admin-ops-lane__bulk-form" id="lane-bulk-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="queue_view" value="{{ queue_view or 'lane' }}">
+    <input type="hidden" name="queue_filter" value="{{ queue_filter or 'pending' }}">
+    <input type="hidden" name="queue_sort" value="{{ queue_sort or 'over_cap_first' }}">
+    <label><input type="checkbox" id="lane-select-all"> Select all</label>
+    <select name="bulk_status">
+      <option value="pending"{% if sticky_bulk_status == 'pending' %} selected{% endif %}>pending</option>
+      <option value="approved"{% if sticky_bulk_status == 'approved' %} selected{% endif %}>approved</option>
+      <option value="denied"{% if sticky_bulk_status == 'denied' %} selected{% endif %}>denied</option>
+    </select>
+    <input type="text" name="bulk_admin_note" maxlength="1000" placeholder="Bulk admin note (optional)" style="width:16rem;">
+    <button type="submit" formaction="{{ url_for('site_admin.admin_operations_queue_bulk_dry_run') }}" class="admin-news-body-btn">Dry-run preview</button>
+    <button type="submit" class="admin-news-body-btn admin-ops-lane__save">Apply to selected</button>
+  </form>
+  {% endif %}
+  <div class="table-wrap{% if queue_view == 'lane' %} admin-ops-lane{% endif %}">
+    <table class="data">
+      <thead>
+        <tr class="{% if queue_view == 'lane' %}admin-ops-lane__row{% endif %}">
+          {% if queue_view == 'lane' %}<th>Pick</th>{% endif %}
+          <th>When (UTC)</th>
+          <th>Team</th>
+          <th>GM</th>
+          <th>Type</th>
+          <th>Title</th>
+          <th>Details</th>
+          <th>Projection</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        {% set t = teams_by_id.get(r.team_id) %}
+        {% set u = users_by_id.get(r.user_id) %}
+        {% set p = preview_by_id.get(r.id, {}) %}
+        <tr>
+          {% if queue_view == 'lane' %}
+          <td><input type="checkbox" class="lane-select-one" name="request_ids" value="{{ r.id }}" form="lane-bulk-form"{% if r.id in (sticky_selected_ids or []) %} checked{% endif %}></td>
+          {% endif %}
+          <td>{{ r.created_at.strftime('%Y-%m-%d %H:%M:%S') if r.created_at else '—' }}</td>
+          <td>{{ t.full_display_name() if t else ('team_id=' ~ r.team_id) }}</td>
+          <td>{{ (u.discord_name or u.username or u.email) if u else ('user_id=' ~ r.user_id) }}</td>
+          <td>{{ r.request_type }}</td>
+          <td>{{ r.title }}</td>
+          <td>{{ p.get("details", r.body) }}</td>
+          <td>
+            {% set proj_status = p.get("projection_status", "na") %}
+            {% if proj_status == "ok" %}
+            <span class="admin-ops-proj admin-ops-proj--ok">OK</span>
+            {% elif proj_status == "over" %}
+            <span class="admin-ops-proj admin-ops-proj--over">Over Cap</span>
+            {% elif proj_status == "missing" %}
+            <span class="admin-ops-proj admin-ops-proj--missing">Missing Data</span>
+            {% else %}
+            <span class="admin-ops-proj admin-ops-proj--na">N/A</span>
+            {% endif %}
+            <div class="muted" style="margin-top:0.25rem;">{{ p.get("projection_text", "—") }}</div>
+          </td>
+          <td>
+            <form method="post" action="{{ url_for('site_admin.admin_operations_queue_set_status', rid=r.id) }}" class="{% if queue_view == 'lane' %}admin-ops-lane__form{% endif %}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="queue_view" value="{{ queue_view or 'table' }}">
+              <input type="hidden" name="queue_filter" value="{{ queue_filter or 'all' }}">
+              <input type="hidden" name="queue_sort" value="{{ queue_sort or 'newest' }}">
+              <select name="status" class="{% if queue_view == 'lane' %}admin-ops-lane__status{% endif %}">
+                <option value="pending"{% if r.status == 'pending' %} selected{% endif %}>pending</option>
+                <option value="approved"{% if r.status == 'approved' %} selected{% endif %}>approved</option>
+                <option value="denied"{% if r.status == 'denied' %} selected{% endif %}>denied</option>
+              </select>
+              <input type="text" name="admin_note" maxlength="1000" placeholder="Admin note" value="{{ r.admin_note or '' }}" style="width:12rem;" class="{% if queue_view == 'lane' %}admin-ops-lane__note{% endif %}">
+              {% if queue_view == 'lane' %}
+              <button type="submit" class="admin-news-body-btn admin-ops-lane__save admin-ops-lane__apply">Apply</button>
+              {% else %}
+              <button type="submit" class="admin-news-body-btn">Save</button>
+              {% endif %}
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="{% if queue_view == 'lane' %}9{% else %}8{% endif %}" class="muted">No operation requests in queue.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+{% if queue_view == 'lane' %}
+<script>
+  (function () {
+    var forms = Array.prototype.slice.call(document.querySelectorAll('.admin-ops-lane__form'));
+    if (!forms.length) return;
+    var activeIdx = 0;
+
+    function setActive(idx, focusNote) {
+      if (idx < 0) idx = 0;
+      if (idx >= forms.length) idx = forms.length - 1;
+      activeIdx = idx;
+      forms.forEach(function (f, i) {
+        var row = f.closest('tr');
+        if (row) row.classList.toggle('is-active', i === activeIdx);
+      });
+      if (focusNote) {
+        var note = forms[activeIdx].querySelector('.admin-ops-lane__note');
+        if (note) note.focus();
+      }
+    }
+
+    forms.forEach(function (f, i) {
+      f.addEventListener('click', function () { setActive(i, false); });
+      var note = f.querySelector('.admin-ops-lane__note');
+      var status = f.querySelector('.admin-ops-lane__status');
+      if (note) {
+        note.addEventListener('focus', function () { setActive(i, false); });
+      }
+      if (status) {
+        status.addEventListener('focus', function () { setActive(i, false); });
+      }
+    });
+
+    var bulkForm = document.querySelector('.admin-ops-lane__bulk-form');
+    var selectAll = document.getElementById('lane-select-all');
+    var rowChecks = Array.prototype.slice.call(document.querySelectorAll('.lane-select-one'));
+    if (bulkForm && rowChecks.length) {
+      function syncSelectAllState() {
+        if (!selectAll) return;
+        var checkedCount = rowChecks.filter(function (cb) { return cb.checked; }).length;
+        selectAll.indeterminate = checkedCount > 0 && checkedCount < rowChecks.length;
+        selectAll.checked = checkedCount > 0 && checkedCount === rowChecks.length;
+      }
+      if (selectAll) {
+        selectAll.addEventListener('change', function () {
+          rowChecks.forEach(function (cb) { cb.checked = !!selectAll.checked; });
+          syncSelectAllState();
+        });
+      }
+      rowChecks.forEach(function (cb) {
+        cb.addEventListener('change', syncSelectAllState);
+      });
+      syncSelectAllState();
+      bulkForm.addEventListener('submit', function (ev) {
+        var selected = rowChecks.filter(function (cb) { return cb.checked; });
+        if (!selected.length) {
+          ev.preventDefault();
+          alert('Select at least one request for bulk update.');
+          return;
+        }
+      });
+    }
+
+    function setStatus(value) {
+      var status = forms[activeIdx].querySelector('.admin-ops-lane__status');
+      if (!status) return;
+      status.value = value;
+      status.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    document.addEventListener('keydown', function (ev) {
+      var tag = (ev.target && ev.target.tagName ? ev.target.tagName.toLowerCase() : '');
+      var inInput = tag === 'input' || tag === 'textarea' || tag === 'select';
+      if (!ev.ctrlKey && !ev.metaKey && !ev.altKey && inInput && ev.key !== '/' && ev.key !== 'Escape') {
+        return;
+      }
+      var k = String(ev.key || '').toLowerCase();
+      if (k === 'j') { ev.preventDefault(); setActive(activeIdx + 1, false); return; }
+      if (k === 'k') { ev.preventDefault(); setActive(activeIdx - 1, false); return; }
+      if (k === 'a') { ev.preventDefault(); setStatus('approved'); return; }
+      if (k === 'd') { ev.preventDefault(); setStatus('denied'); return; }
+      if (k === 'p') { ev.preventDefault(); setStatus('pending'); return; }
+      if (k === 'x') {
+        var cb = forms[activeIdx].closest('tr').querySelector('.lane-select-one');
+        if (cb) cb.checked = !cb.checked;
+        return;
+      }
+      if (k === '/') { ev.preventDefault(); setActive(activeIdx, true); return; }
+      if ((ev.ctrlKey || ev.metaKey) && ev.key === 'Enter') {
+        ev.preventDefault();
+        forms[activeIdx].requestSubmit();
+      }
+    });
+
+    setActive(0, true);
+  })();
+</script>
+{% endif %}
+{% endblock %}

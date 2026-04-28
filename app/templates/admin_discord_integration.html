@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% block title %}Discord Integration — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:72rem;margin:0 auto;">
+  <h1 class="page-title">Discord Integration</h1>
+  <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
+  <p class="muted" style="margin:0 0 0.6rem;">
+    Configure event routing and monitor outbound queue consumed by your league bot.
+    Shared secret status:
+    {% if secret_set %}<strong>configured</strong>{% else %}<strong>missing</strong> (set <code>DISCORD_EVENTS_SHARED_SECRET</code>){% endif %}.
+  </p>
+  <p class="muted" style="margin:0 0 0.8rem;">
+    Bot API: <code>GET /api/discord/events/pending?league_slug={{ config.LEAGUE_SLUG }}</code>,
+    <code>POST /api/discord/events/&lt;id&gt;/ack</code>,
+    <code>POST /api/discord/events/&lt;id&gt;/fail</code>,
+    <code>POST /api/discord/events/heartbeat</code> with header <code>X-Discord-Events-Secret</code>.
+  </p>
+  <p class="muted" id="discord-health-refresh-note" style="margin:0 0 0.8rem;">
+    Auto-refresh: every 30 seconds. Last refreshed at page load.
+  </p>
+
+  <h3 style="margin:0.3rem 0 0.35rem;">Health Check</h3>
+  <div class="table-wrap" style="margin:0 0 0.9rem;">
+    <table class="data">
+      <thead><tr><th>Check</th><th>Status</th><th>Detail</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Website shared secret</td>
+          <td>{% if secret_set %}<span style="color:#0a7d28;font-weight:700;">Green</span>{% else %}<span style="color:#b42318;font-weight:700;">Red</span>{% endif %}</td>
+          <td>{% if secret_set %}<code>DISCORD_EVENTS_SHARED_SECRET</code> configured{% else %}Set <code>DISCORD_EVENTS_SHARED_SECRET</code> in environment{% endif %}</td>
+        </tr>
+        <tr>
+          <td>Queue activity (last 5 min)</td>
+          <td>{% if queue_recent_ok %}<span style="color:#0a7d28;font-weight:700;">Green</span>{% else %}<span style="color:#b42318;font-weight:700;">Red</span>{% endif %}</td>
+          <td>{% if queue_recent_ok %}Outbound events detected recently{% else %}No recent queue activity detected{% endif %}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="table-wrap" style="margin:0 0 0.9rem;">
+    <table class="data">
+      <thead><tr><th>Bot</th><th>Heartbeat</th><th>Last Seen (UTC)</th><th>Version</th><th>Guild ID</th></tr></thead>
+      <tbody>
+        {% for hb in heartbeat_rows %}
+        <tr>
+          <td>{{ hb.bot_name }}</td>
+          <td>{% if hb.is_fresh %}<span style="color:#0a7d28;font-weight:700;">Green</span>{% else %}<span style="color:#b42318;font-weight:700;">Red</span>{% endif %}</td>
+          <td>
+            {{ hb.last_seen_at.strftime('%Y-%m-%d %H:%M:%S') if hb.last_seen_at else '—' }}
+            {% if hb.age_minutes is not none %}
+              <span class="muted">({{ hb.age_minutes }} min ago)</span>
+            {% endif %}
+          </td>
+          <td>{{ hb.bot_version or '—' }}</td>
+          <td>{{ hb.guild_id or '—' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="muted">No bot heartbeats received yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <h3 style="margin:0.3rem 0 0.35rem;">Event Route Map</h3>
+  <form method="post" style="margin:0 0 0.9rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="save_routes">
+    <div class="table-wrap">
+      <table class="data">
+        <thead><tr><th>Event</th><th>Channel Key</th><th>Enabled</th></tr></thead>
+        <tbody>
+          {% for r in routes %}
+          <tr>
+            <td><code>{{ r.event_key }}</code></td>
+            <td><input type="text" name="channel_{{ r.event_key }}" value="{{ r.channel_key }}" style="min-width:16rem;"></td>
+            <td><label><input type="checkbox" name="enabled_{{ r.event_key }}" value="1"{% if r.is_enabled %} checked{% endif %}> enabled</label></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <button type="submit" class="admin-news-body-btn" style="margin-top:0.45rem;">Save Discord routes</button>
+  </form>
+
+  <h3 style="margin:0.3rem 0 0.35rem;">Outbound Queue</h3>
+  <form method="post" style="display:flex;gap:0.6rem;align-items:end;flex-wrap:wrap;margin:0 0 0.55rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="replay_failed">
+    <button type="submit" class="admin-news-body-btn">Replay all dead-letter events</button>
+    <span class="muted">Failed events auto-retry with backoff; this requeues permanently failed events.</span>
+  </form>
+  <form method="post" style="display:flex;gap:0.6rem;align-items:end;flex-wrap:wrap;margin:0 0 0.55rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="enqueue_test_event">
+    <label>Test event key
+      <select name="event_key" required>
+        {% for r in routes %}
+        <option value="{{ r.event_key }}">{{ r.event_key }} → {{ r.channel_key }}{% if not r.is_enabled %} (disabled){% endif %}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit" class="admin-news-body-btn">Queue test event</button>
+  </form>
+  <form method="get" style="display:flex;gap:0.6rem;align-items:end;flex-wrap:wrap;margin:0 0 0.45rem;">
+    <label>Status
+      <select name="status">
+        <option value=""{% if not selected_status %} selected{% endif %}>all</option>
+        <option value="pending"{% if selected_status=='pending' %} selected{% endif %}>pending</option>
+        <option value="failed"{% if selected_status=='failed' %} selected{% endif %}>failed</option>
+        <option value="sent"{% if selected_status=='sent' %} selected{% endif %}>sent</option>
+        <option value="cancelled"{% if selected_status=='cancelled' %} selected{% endif %}>cancelled</option>
+      </select>
+    </label>
+    <button type="submit" class="admin-news-body-btn">Filter</button>
+  </form>
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr><th>When (UTC)</th><th>Event</th><th>Channel</th><th>Status</th><th>Attempts</th><th>Last Error</th><th>Payload</th><th>Actions</th></tr>
+      </thead>
+      <tbody>
+        {% for e in events %}
+        <tr>
+          <td>{{ e.created_at.strftime('%Y-%m-%d %H:%M:%S') if e.created_at else '—' }}</td>
+          <td><code>{{ e.event_key }}</code></td>
+          <td><code>{{ e.channel_key }}</code></td>
+          <td>{{ e.status }}</td>
+          <td>{{ e.attempts or 0 }}</td>
+          <td style="max-width:14rem;word-break:break-word;">
+            {{ e.last_error or '—' }}
+            {% if e.next_attempt_at and e.status == 'pending' %}
+              <div class="muted">next retry: {{ e.next_attempt_at.strftime('%Y-%m-%d %H:%M:%S') }}</div>
+            {% endif %}
+          </td>
+          <td><code style="white-space:pre-wrap;">{{ e.payload_json or '{}' }}</code></td>
+          <td>
+            {% if e.status in ('failed','pending') %}
+            <form method="post" action="{{ url_for('site_admin.admin_discord_event_requeue', eid=e.id) }}" style="display:inline;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="admin-news-body-btn">Requeue</button>
+            </form>
+            {% endif %}
+            {% if e.status != 'sent' and e.status != 'cancelled' %}
+            <form method="post" action="{{ url_for('site_admin.admin_discord_event_cancel', eid=e.id) }}" style="display:inline;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="admin-news-body-btn">Cancel</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="muted">No outbound events found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <h3 style="margin:0.85rem 0 0.35rem;">Dead-Letter Queue (Permanent Failures)</h3>
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr><th>When (UTC)</th><th>Event</th><th>Attempts</th><th>Last Error</th><th>Action</th></tr>
+      </thead>
+      <tbody>
+        {% for e in dead_letters %}
+        <tr>
+          <td>{{ e.created_at.strftime('%Y-%m-%d %H:%M:%S') if e.created_at else '—' }}</td>
+          <td><code>{{ e.event_key }}</code></td>
+          <td>{{ e.attempts or 0 }}</td>
+          <td style="max-width:18rem;word-break:break-word;">{{ e.last_error or '—' }}</td>
+          <td>
+            <form method="post" action="{{ url_for('site_admin.admin_discord_event_requeue', eid=e.id) }}" style="display:inline;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="admin-news-body-btn">Replay</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="muted">No dead-letter events.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+<script>
+  (function () {
+    const note = document.getElementById("discord-health-refresh-note");
+    if (!note) return;
+    const now = new Date();
+    note.textContent = `Auto-refresh: every 30 seconds. Last refreshed at ${now.toLocaleTimeString()}.`;
+    window.setTimeout(function () {
+      window.location.reload();
+    }, 30000);
+  })();
+</script>
+{% endblock %}

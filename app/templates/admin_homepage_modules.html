@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Homepage Modules — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:54rem;margin:0 auto;">
+  <h1 class="page-title">Homepage Modules</h1>
+  <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
+  <p class="muted" style="margin:0 0 0.75rem;">
+    Sort order is applied within each homepage layout region (schedule ribbon, center column, side columns).
+  </p>
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr>
+            <th scope="col">Module</th>
+            <th scope="col">Enabled</th>
+            <th scope="col">Sort Order</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in rows %}
+          <tr>
+            <td><code>{{ r.module_key }}</code></td>
+            <td>
+              <label>
+                <input type="checkbox" name="enabled_{{ r.module_key }}" value="1"{% if r.is_enabled %} checked{% endif %}>
+                Visible
+              </label>
+            </td>
+            <td>
+              <input
+                type="number"
+                name="sort_{{ r.module_key }}"
+                value="{{ r.sort_order }}"
+                min="0"
+                max="10000"
+                step="1"
+                style="width:6.5rem;"
+              >
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:0.8rem;">
+      <button type="submit" class="join-league-btn">Save module settings</button>
+    </p>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Story Automation — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:72rem;margin:0 auto;">
+  <h1 class="page-title">Story Automation & Scheduled Publishing</h1>
+  <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
+  <p class="muted" style="margin:0 0 0.4rem;">
+    Schedules support <strong>dry-run preview</strong> (no publish) and <strong>live dispatch</strong> (publishes pending articles to the site; Discord channel posts to a webhook when configured).
+  </p>
+  <ul class="muted" style="margin:0 0 0.8rem;font-size:0.88rem;">
+    <li>Env: <code>DISCORD_STORY_WEBHOOK_URL</code> {% if discord_webhook_configured %}<span class="ok">set</span>{% else %}<span class="warn">not set</span> (required for <code>discord</code> channel){% endif %}</li>
+    <li>Env: <code>SITE_PUBLIC_BASE_URL</code> {% if site_public_base_configured %}<span class="ok">set</span>{% else %}<span class="warn">optional</span> (absolute links in Discord posts){% endif %}</li>
+  </ul>
+
+  <h3 style="margin:0.3rem 0 0.35rem;">Create Schedule</h3>
+  <form method="post" style="display:flex;gap:0.6rem;align-items:end;flex-wrap:wrap;margin:0 0 0.8rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Article
+      <select name="article_id" required style="min-width:18rem;">
+        <option value="">Select article…</option>
+        {% for a in pending_articles %}
+        <option value="{{ a.id }}">#{{ a.id }} · {{ a.title }} ({{ a.status }})</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Channel
+      <select name="channel">
+        {% for c in channels %}
+        <option value="{{ c }}">{{ c }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Scheduled for UTC
+      <input type="text" name="scheduled_for_utc" placeholder="2026-04-28T18:00:00" required>
+    </label>
+    <label>Mode
+      <select name="dry_run_only" title="Dry-run schedules cannot run live dispatch until you use a live-ready schedule.">
+        <option value="1">Dry-run only (preview / no live)</option>
+        <option value="0">Live-ready (allows live dispatch)</option>
+      </select>
+    </label>
+    <button type="submit" class="admin-news-body-btn">Create schedule</button>
+  </form>
+
+  <h3 style="margin:0.3rem 0 0.35rem;">Scheduled Queue</h3>
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>When (UTC)</th>
+          <th>Channel</th>
+          <th>Article</th>
+          <th>Status</th>
+          <th>Mode</th>
+          <th>Attempts</th>
+          <th>Last error</th>
+          <th>Last result</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        {% set a = article_by_id.get(r.article_id) %}
+        <tr>
+          <td>{{ r.id }}</td>
+          <td>{{ r.scheduled_for_utc.strftime('%Y-%m-%d %H:%M:%S') if r.scheduled_for_utc else '—' }}</td>
+          <td>{{ r.channel }}{% if r.channel == 'discord' and not discord_webhook_configured %} <span class="warn" title="Configure DISCORD_STORY_WEBHOOK_URL">⚠</span>{% endif %}</td>
+          <td>{% if a %}#{{ a.id }} · {{ a.title }}{% else %}article_id={{ r.article_id }}{% endif %}</td>
+          <td><strong>{{ r.status }}</strong></td>
+          <td>{{ 'dry-run' if r.dry_run_only else 'live-ready' }}</td>
+          <td>{{ r.attempt_count or 0 }}{% if r.last_attempt_at %}<br><span class="muted" style="font-size:0.75rem;">{{ r.last_attempt_at.strftime('%Y-%m-%d %H:%M') }}</span>{% endif %}</td>
+          <td style="max-width:12rem;word-break:break-word;font-size:0.8rem;">{{ r.last_error or '—' }}</td>
+          <td style="max-width:14rem;"><code style="white-space:pre-wrap;font-size:0.72rem;">{{ r.last_result_json or '{}' }}</code></td>
+          <td style="white-space:normal;">
+            <form method="post" action="{{ url_for('site_admin.admin_story_automation_dry_run_dispatch', sid=r.id) }}" style="display:inline;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="admin-news-body-btn">Dry-run</button>
+            </form>
+            {% if not r.dry_run_only and r.status in ('scheduled', 'failed') %}
+            <form method="post" action="{{ url_for('site_admin.admin_story_automation_live_dispatch', sid=r.id) }}" style="display:inline-block;margin-top:0.25rem;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <label style="display:block;font-size:0.72rem;"><input type="checkbox" name="confirm_story_live_dispatch" value="1"> Confirm live</label>
+              <button type="submit" class="admin-news-body-btn">Live dispatch</button>
+            </form>
+            {% endif %}
+            {% if r.status == 'failed' and not r.dry_run_only %}
+            <form method="post" action="{{ url_for('site_admin.admin_story_automation_retry_live_dispatch', sid=r.id) }}" style="display:inline-block;margin-top:0.25rem;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <label style="display:block;font-size:0.72rem;"><input type="checkbox" name="confirm_story_retry_dispatch" value="1"> Confirm retry</label>
+              <button type="submit" class="admin-news-body-btn">Retry live</button>
+            </form>
+            {% endif %}
+            {% if r.status not in ('dispatched', 'cancelled') %}
+            <form method="post" action="{{ url_for('site_admin.admin_story_automation_cancel', sid=r.id) }}" style="display:inline;margin-top:0.25rem;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="admin-news-body-btn">Cancel</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="10" class="muted">No story schedules yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -524,6 +524,30 @@ main {
   color: var(--muted);
   text-align: center;
 }
+.site-announcement {
+  max-width: min(1200px, calc(100% - 2rem));
+  margin: 0.75rem auto 0.25rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  border: 1px solid #334155;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+.site-announcement__title {
+  margin-right: 0.5rem;
+}
+.site-announcement--warn {
+  border-color: #92400e;
+  background: #451a03;
+  color: #fde68a;
+}
+.site-announcement--urgent {
+  border-color: #991b1b;
+  background: #3f0f0f;
+  color: #fecaca;
+}
 .site-footer a {
   font-weight: 500;
 }
@@ -1785,6 +1809,9 @@ table.data.home-special-teams-table td:nth-child(2) {
   max-width: 100%;
   min-width: 0;
 }
+.home-dashboard__toc-sticky + .home-dash-schedule-ribbon {
+  margin-top: 0.45rem;
+}
 .home-dash-schedule-ribbon__card {
   margin-bottom: 0;
 }
@@ -2263,16 +2290,21 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
   display: grid;
   grid-template-columns: 1fr;
   gap: 1rem;
+  min-width: 0;
 }
 @media (min-width: 640px) {
   .home-momentum-streaks--team {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(14rem, 1fr));
   }
 }
-@media (min-width: 1200px) {
+@media (min-width: 1600px) {
   .home-momentum-streaks--team {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(13rem, 1fr));
   }
+}
+#home-team-streaks {
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
 }
 .home-power-split {
   display: grid;
@@ -2293,7 +2325,7 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
 }
 .home-dashboard .home-power-table th:nth-child(2),
 .home-dashboard .home-power-table td:nth-child(2) {
-  text-align: center;
+  text-align: left;
 }
 .home-power-td-team {
   vertical-align: middle;
@@ -2314,9 +2346,19 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
   align-items: center;
   justify-content: flex-start;
   line-height: 0;
+  gap: 0.42rem;
   border-radius: 6px;
   text-decoration: none;
   vertical-align: middle;
+}
+.home-power-tm--city {
+  line-height: 1.1;
+}
+.home-power-city {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #cbd5e1;
+  line-height: 1.1;
 }
 .home-power-tm:focus-visible {
   outline: 2px solid var(--accent);
@@ -3168,6 +3210,78 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
 }
 .admin-news-body-btn:hover {
   background: rgb(56 189 248 / 0.22);
+}
+.admin-ops-proj {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  padding: 0.1rem 0.45rem;
+}
+.admin-ops-proj--ok {
+  color: #22c55e;
+  border-color: rgb(34 197 94 / 0.45);
+  background: rgb(34 197 94 / 0.12);
+}
+.admin-ops-proj--over {
+  color: #f87171;
+  border-color: rgb(248 113 113 / 0.45);
+  background: rgb(248 113 113 / 0.12);
+}
+.admin-ops-proj--missing,
+.admin-ops-proj--na {
+  color: rgb(148 163 184);
+  border-color: rgb(148 163 184 / 0.45);
+  background: rgb(148 163 184 / 0.12);
+}
+.admin-ops-lane table.data {
+  min-width: 1100px;
+}
+.admin-ops-lane table.data td,
+.admin-ops-lane table.data th {
+  vertical-align: top;
+}
+.admin-ops-lane table.data td:last-child form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+.admin-ops-lane table.data td:last-child select,
+.admin-ops-lane table.data td:last-child input[type="text"] {
+  min-height: 2rem;
+}
+.admin-ops-lane__row.is-active {
+  outline: 2px solid rgb(56 189 248 / 0.5);
+  outline-offset: -2px;
+  background: rgb(56 189 248 / 0.08);
+}
+.admin-ops-lane__save {
+  font-size: 0.9rem;
+  padding: 0.4rem 0.9rem;
+}
+.admin-ops-lane__hint {
+  margin: 0 0 0.7rem;
+}
+.admin-ops-lane__bulk-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+  margin: 0 0 0.75rem;
+}
+.admin-ops-dryrun {
+  border: 1px solid rgb(56 189 248 / 0.35);
+  background: rgb(15 23 42 / 0.45);
+  border-radius: 10px;
+  padding: 0.55rem 0.7rem;
+  margin: 0 0 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 .admin-news-submitby {
   display: flex;

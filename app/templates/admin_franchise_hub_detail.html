@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Franchise Hub — {{ team.full_display_name() }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:68rem;margin:0 auto;">
+  <h1 class="page-title">Franchise Hub — {{ team.full_display_name() }}</h1>
+  <p><a href="{{ url_for('site_admin.admin_franchise_hubs') }}">← Franchise hubs</a></p>
+
+  <h3 style="margin:0.3rem 0 0.35rem;">Identity</h3>
+  <div class="table-wrap" style="margin:0 0 0.8rem;">
+    <table class="data">
+      <tbody>
+        <tr><th>Team</th><td>{{ team.full_display_name() }}</td></tr>
+        <tr><th>Abbrev</th><td>{{ team.abbreviation or '—' }}</td></tr>
+        <tr><th>City</th><td>{{ team.city or '—' }}</td></tr>
+        <tr><th>League season</th><td>{{ season_label }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 style="margin:0.3rem 0 0.35rem;">GM Assignment</h3>
+  <div class="table-wrap" style="margin:0 0 0.8rem;">
+    <table class="data">
+      <tbody>
+        <tr><th>Membership status</th><td>{{ membership.status if membership else '—' }}</td></tr>
+        <tr><th>GM user</th><td>{{ (gm_user.discord_name or gm_user.username or gm_user.email) if gm_user else '—' }}</td></tr>
+        <tr><th>Approved at (UTC)</th><td>{{ membership.approved_at.strftime('%Y-%m-%d %H:%M:%S') if membership and membership.approved_at else '—' }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 style="margin:0.3rem 0 0.35rem;">Current Standings Line</h3>
+  <div class="table-wrap" style="margin:0 0 0.8rem;">
+    <table class="data">
+      <tbody>
+        <tr><th>PTS</th><td>{{ standing.pts if standing else '—' }}</td></tr>
+        <tr><th>Record</th><td>{% if standing %}{{ standing.w }}-{{ standing.l }}-{{ standing.otl }}{% else %}—{% endif %}</td></tr>
+        <tr><th>GF / GA</th><td>{% if standing %}{{ standing.gf }} / {{ standing.ga }}{% else %}—{% endif %}</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 style="margin:0.3rem 0 0.35rem;">Pending Operations</h3>
+  <div class="table-wrap" style="margin:0 0 0.8rem;">
+    <table class="data">
+      <thead>
+        <tr><th>When (UTC)</th><th>Type</th><th>Title</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        {% for r in pending_ops %}
+        <tr>
+          <td>{{ r.created_at.strftime('%Y-%m-%d %H:%M:%S') if r.created_at else '—' }}</td>
+          <td>{{ r.request_type }}</td>
+          <td>{{ r.title }}</td>
+          <td>{{ r.status }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="muted">No pending operations.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <h3 style="margin:0.3rem 0 0.35rem;">Recent Team News</h3>
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr><th>When (UTC)</th><th>Status</th><th>Title</th></tr>
+      </thead>
+      <tbody>
+        {% for a in recent_news %}
+        <tr>
+          <td>{{ a.created_at.strftime('%Y-%m-%d %H:%M:%S') if a.created_at else '—' }}</td>
+          <td>{{ a.status }}</td>
+          <td>{{ a.title }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="3" class="muted">No team-linked news yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

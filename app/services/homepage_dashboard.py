@@ -739,7 +739,7 @@ def build_power_rankings(
     st_net = {str(r.get("team")): float(r.get("net_st") or 0) for r in special_teams if r.get("team")}
     team_ids = list(standings_by_team.keys())
     if not team_ids:
-        return {"top5": [], "bottom5": []}
+        return {"teams": [], "top5": [], "bottom5": []}
 
     # Opponent avg pts in last up to 10 games per team
     games = session.scalars(
@@ -788,6 +788,7 @@ def build_power_rankings(
         return {
             "slug": tm.slug,
             "name": tm.full_display_name(),
+            "team_city": (tm.city or "").strip(),
             "abbr": tm.abbreviation,
             "logo_url": team_logo_url_for_team(tm),
             "pts": st.pts,
@@ -795,9 +796,10 @@ def build_power_rankings(
             "power_score": round(pr, 2),
         }
 
-    top5 = [row(tm, st, pr) for pr, tm, st in scores[:5]]
-    bottom5 = [row(tm, st, pr) for pr, tm, st in scores[-5:][::-1]]
-    return {"top5": top5, "bottom5": bottom5}
+    all_teams = [row(tm, st, pr) for pr, tm, st in scores]
+    top5 = all_teams[:5]
+    bottom5 = all_teams[-5:][::-1]
+    return {"teams": all_teams, "top5": top5, "bottom5": bottom5}
 
 
 def build_champions_panel(session) -> dict[str, Any]:

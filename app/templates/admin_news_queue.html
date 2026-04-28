@@ -47,10 +47,12 @@
             {% if a.status == 'pending' %}
             <form method="post" action="{{ url_for('site_admin.admin_news_publish', aid=a.id) }}">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <label style="display:block;margin:0 0 0.25rem;font-size:0.78rem;"><input type="checkbox" name="dry_run" value="1"> Dry run</label>
               <button type="submit" class="join-league-btn">Approve</button>
             </form>
             <form method="post" action="{{ url_for('site_admin.admin_news_reject', aid=a.id) }}">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <label style="display:block;margin:0 0 0.25rem;font-size:0.78rem;"><input type="checkbox" name="dry_run" value="1"> Dry run</label>
               <button type="submit" class="join-league-btn">Deny</button>
             </form>
             {% else %}

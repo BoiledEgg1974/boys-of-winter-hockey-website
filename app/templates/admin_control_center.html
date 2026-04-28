@@ -1,0 +1,265 @@
+{% extends "base.html" %}
+{% block title %}Control Center — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:64rem;margin:0 auto;">
+  <h1 class="page-title">League Control Center</h1>
+  <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
+  <p class="muted" style="margin:0 0 0.8rem;">Safety mode: all execute/restore actions require explicit confirmation and are audit logged.</p>
+  {% if restore_verify %}
+  <div class="site-announcement site-announcement--info" style="margin:0 0 0.85rem;max-width:none;">
+    <strong class="site-announcement__title">Post-restore verification</strong>
+    <span class="site-announcement__body">League DB file was replaced from backup. Counts below reflect the restored database. If numbers look stale, restart the app process to clear SQLite connection caches.</span>
+  </div>
+  {% endif %}
+  <h3 style="margin:0.2rem 0 0.35rem;">Dry-Run Operations</h3>
+  <form method="post" action="{{ url_for('site_admin.admin_control_center_dry_run') }}" style="display:flex;gap:0.5rem;align-items:end;flex-wrap:wrap;margin:0 0 0.7rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Operation
+      <select name="operation" required>
+        <option value="import_refresh">Import + team aggregate refresh (preview)</option>
+        <option value="step1_local">STEP1 local update flow (preview)</option>
+      </select>
+    </label>
+    <button type="submit" class="admin-news-body-btn">Preview dry run</button>
+  </form>
+  {% if dry_run_result %}
+  <div class="site-announcement" style="margin:0 0 0.8rem;max-width:none;">
+    <strong class="site-announcement__title">{{ dry_run_result.operation }}</strong>
+    <span class="site-announcement__body">{{ dry_run_result.message }}</span>
+    {% if dry_run_result.steps %}
+    <ol style="margin:0.45rem 0 0 1.2rem;padding:0;">
+      {% for s in dry_run_result.steps %}
+      <li>{{ s }}</li>
+      {% endfor %}
+    </ol>
+    {% endif %}
+  </div>
+  {% endif %}
+  <h3 style="margin:0.7rem 0 0.35rem;">Season Rollover Wizard</h3>
+  <p class="muted" style="margin:0 0 0.6rem;">Safe scaffold: preview first, then guarded execute (creates pre-run backup automatically).</p>
+  <form method="post" action="{{ url_for('site_admin.admin_control_center_season_rollover_preview') }}" style="display:flex;gap:0.6rem;align-items:end;flex-wrap:wrap;margin:0 0 0.55rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Next season label
+      <input type="text" name="next_label" value="{{ rollover_defaults.next_label or '' }}" required>
+    </label>
+    <label>Start year
+      <input type="number" name="next_start_year" value="{{ rollover_defaults.next_start if rollover_defaults.next_start is not none else '' }}">
+    </label>
+    <label>End year
+      <input type="number" name="next_end_year" value="{{ rollover_defaults.next_end if rollover_defaults.next_end is not none else '' }}">
+    </label>
+    <button type="submit" class="admin-news-body-btn">Preview rollover</button>
+  </form>
+  <form method="post" action="{{ url_for('site_admin.admin_control_center_season_rollover_execute') }}" style="display:flex;gap:0.6rem;align-items:end;flex-wrap:wrap;margin:0 0 0.8rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Next season label
+      <input type="text" name="next_label" value="{{ rollover_defaults.next_label or '' }}" required>
+    </label>
+    <label>Start year
+      <input type="number" name="next_start_year" value="{{ rollover_defaults.next_start if rollover_defaults.next_start is not none else '' }}">
+    </label>
+    <label>End year
+      <input type="number" name="next_end_year" value="{{ rollover_defaults.next_end if rollover_defaults.next_end is not none else '' }}">
+    </label>
+    <label><input type="checkbox" name="confirm_rollover" value="1"> I confirm I want to set the new current season</label>
+    <label>Type <strong>ROLLOVER</strong>
+      <input type="text" name="confirm_rollover_phrase" placeholder="ROLLOVER" autocomplete="off" style="min-width:8rem;">
+    </label>
+    <button type="submit" class="join-league-btn">Execute rollover</button>
+  </form>
+  {% if rollover_preview %}
+  <div class="site-announcement" style="margin:0 0 0.8rem;max-width:none;">
+    <strong class="site-announcement__title">Season Rollover Dry-Run</strong>
+    <span class="site-announcement__body">{{ rollover_preview.message }}</span>
+    <div style="margin-top:0.35rem;">
+      <div><strong>Current:</strong> {{ rollover_preview.current_label }}</div>
+      <div><strong>Next label:</strong> {{ rollover_preview.next_label or '—' }}</div>
+      <div><strong>Next years:</strong> {{ rollover_preview.next_start or '—' }} to {{ rollover_preview.next_end or '—' }}</div>
+    </div>
+  </div>
+  {% endif %}
+  <h3 style="margin:0.4rem 0 0.35rem;">Schedule Freeze / Unfreeze</h3>
+  <p class="muted" style="margin:0 0 0.45rem;">
+    Current state:
+    {% if schedule_frozen %}
+    <strong>Frozen</strong>
+    {% else %}
+    <strong>Unfrozen</strong>
+    {% endif %}
+  </p>
+  <form method="post" action="{{ url_for('site_admin.admin_control_center_schedule_freeze_toggle') }}" style="display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap;margin:0 0 0.8rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Set schedule state
+      <select name="freeze_value">
+        <option value="0"{% if not schedule_frozen %} selected{% endif %}>Unfrozen</option>
+        <option value="1"{% if schedule_frozen %} selected{% endif %}>Frozen</option>
+      </select>
+    </label>
+    <label><input type="checkbox" name="confirm_schedule_toggle" value="1"> Confirm schedule state change</label>
+    <button type="submit" class="admin-news-body-btn">Apply schedule state</button>
+  </form>
+  <h3 style="margin:0.4rem 0 0.35rem;">Guarded Execute</h3>
+  <form method="post" action="{{ url_for('site_admin.admin_control_center_execute_refresh') }}" style="display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap;margin:0 0 0.8rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label><input type="checkbox" name="confirm_execute" value="1"> I confirm I want to run team aggregate refresh now</label>
+    <button type="submit" class="join-league-btn">Run refresh_team_aggregates.py</button>
+  </form>
+  <form method="post" action="{{ url_for('site_admin.admin_control_center_execute_import') }}" style="display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap;margin:0 0 0.8rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label><input type="checkbox" name="confirm_execute" value="1"> I confirm I want to run full import for this league now</label>
+    <button type="submit" class="join-league-btn">Run import_data.py</button>
+  </form>
+  {% if execute_result %}
+  <div class="site-announcement {% if execute_result.ok %}site-announcement--info{% else %}site-announcement--urgent{% endif %}" style="margin:0 0 0.8rem;max-width:none;">
+    <strong class="site-announcement__title">Execution Result:</strong>
+    <span class="site-announcement__body">
+      {{ 'Success' if execute_result.ok else 'Failed' }} · exit code {{ execute_result.exit_code }}
+    </span>
+    <div style="margin-top:0.45rem;">
+      <div><strong>Command:</strong> <code>{{ execute_result.command }}</code></div>
+      <div><strong>Started:</strong> {{ execute_result.started_at }} UTC</div>
+      <div><strong>Finished:</strong> {{ execute_result.finished_at }} UTC</div>
+      <div style="margin-top:0.35rem;"><strong>Output:</strong></div>
+      <pre style="white-space:pre-wrap;background:#0b1220;padding:0.55rem;border-radius:6px;border:1px solid #334155;max-height:280px;overflow:auto;">{{ execute_result.output }}</pre>
+    </div>
+  </div>
+  {% endif %}
+
+  <h3 style="margin:0.7rem 0 0.35rem;">Backup & Restore Workflow</h3>
+  <form method="post" action="{{ url_for('site_admin.admin_control_center_create_backup') }}" style="display:flex;gap:0.6rem;align-items:end;flex-wrap:wrap;margin:0 0 0.7rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Backup reason tag
+      <input type="text" name="reason" placeholder="manual" value="manual">
+    </label>
+    <label><input type="checkbox" name="confirm_create_backup" value="1"> Confirm create backup now</label>
+    <button type="submit" class="admin-news-body-btn">Create backup point</button>
+  </form>
+  <form method="post" action="{{ url_for('site_admin.admin_control_center_restore_preview') }}" style="display:flex;gap:0.6rem;align-items:end;flex-wrap:wrap;margin:0 0 0.55rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Preview restore target
+      <select name="backup_name" required style="min-width:20rem;">
+        <option value="">Select backup file…</option>
+        {% for b in backup_rows %}
+        <option value="{{ b.name }}">{{ b.mtime_utc }} — {{ b.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit" class="admin-news-body-btn">Preview restore target</button>
+  </form>
+  {% if restore_preview %}
+  <div class="site-announcement" style="margin:0 0 0.7rem;max-width:none;">
+    <strong class="site-announcement__title">Restore Preview</strong>
+    <span class="site-announcement__body">Review this backup before guarded restore.</span>
+    <div style="margin-top:0.35rem;">
+      <div><strong>File:</strong> <code>{{ restore_preview.name }}</code></div>
+      <div><strong>Created (UTC):</strong> {{ restore_preview.mtime_utc }}</div>
+      <div><strong>Size (bytes):</strong> {{ restore_preview.size_bytes }}</div>
+      <div><strong>Path:</strong> <code>{{ restore_preview.path }}</code></div>
+    </div>
+  </div>
+  {% endif %}
+  <form method="post" action="{{ url_for('site_admin.admin_control_center_restore_backup') }}" style="display:flex;gap:0.6rem;align-items:end;flex-wrap:wrap;margin:0 0 0.7rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Restore from backup
+      <select name="backup_name" required style="min-width:20rem;">
+        <option value="">Select backup file…</option>
+        {% for b in backup_rows %}
+        <option value="{{ b.name }}">{{ b.mtime_utc }} — {{ b.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label><input type="checkbox" name="confirm_restore" value="1"> Confirm restore</label>
+    <label>Type <strong>RESTORE</strong>
+      <input type="text" name="confirm_restore_phrase" placeholder="RESTORE" autocomplete="off" style="min-width:8rem;">
+    </label>
+    <button type="submit" class="join-league-btn">Restore selected backup</button>
+  </form>
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr>
+          <th>Created (UTC)</th>
+          <th>File</th>
+          <th>Size</th>
+          <th>Path</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for b in backup_rows %}
+        <tr>
+          <td>{{ b.mtime_utc }}</td>
+          <td><code>{{ b.name }}</code></td>
+          <td>{{ b.size_bytes }}</td>
+          <td><code>{{ b.path }}</code></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="muted">No backup points yet for this league.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <h3 style="margin:0.6rem 0 0.35rem;">Current Season</h3>
+  <div class="table-wrap">
+    <table class="data">
+      <tbody>
+        <tr><th>Season</th><td>{{ snapshot.current_season.label }}</td></tr>
+        <tr><th>Latest game date</th><td>{{ snapshot.latest_game_date or '—' }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 style="margin:0.9rem 0 0.35rem;">League Data Counts</h3>
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr>
+          <th>Teams</th>
+          <th>Players</th>
+          <th>Games (season)</th>
+          <th>Final games</th>
+          <th>Standings rows</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>{{ snapshot.counts.teams_total }}</td>
+          <td>{{ snapshot.counts.players_total }}</td>
+          <td>{{ snapshot.counts.games_total }}</td>
+          <td>{{ snapshot.counts.finals_total }}</td>
+          <td>{{ snapshot.counts.standings_rows }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 style="margin:0.9rem 0 0.35rem;">Latest Import</h3>
+  <div class="table-wrap">
+    <table class="data">
+      <tbody>
+        <tr><th>File</th><td>{{ snapshot.latest_import.file_name or '—' }}</td></tr>
+        <tr><th>Status</th><td>{{ snapshot.latest_import.status or '—' }}</td></tr>
+        <tr><th>Rows processed</th><td>{{ snapshot.latest_import.rows_processed }}</td></tr>
+        <tr><th>Started (UTC)</th><td>{{ snapshot.latest_import.started_at or '—' }}</td></tr>
+        <tr><th>Finished (UTC)</th><td>{{ snapshot.latest_import.finished_at or '—' }}</td></tr>
+        <tr><th>Message</th><td>{{ snapshot.latest_import.message or '—' }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 style="margin:0.9rem 0 0.35rem;">Raw Import Folder</h3>
+  <div class="table-wrap">
+    <table class="data">
+      <tbody>
+        <tr><th>Path</th><td><code>{{ snapshot.raw_folder.path }}</code></td></tr>
+        <tr><th>CSV files</th><td>{{ snapshot.raw_folder.csv_total }}</td></tr>
+        <tr><th>Newest CSV mtime (UTC)</th><td>{{ snapshot.raw_folder.newest_csv_mtime or '—' }}</td></tr>
+        <tr>
+          <th>Sample files</th>
+          <td>{% if snapshot.raw_folder.sample_files %}<code>{{ snapshot.raw_folder.sample_files|join(', ') }}</code>{% else %}—{% endif %}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

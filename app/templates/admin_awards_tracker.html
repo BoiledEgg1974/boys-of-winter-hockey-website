@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Awards & Hall of Fame Tracker — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:68rem;margin:0 auto;">
+  <h1 class="page-title">Awards + Hall of Fame Voting Tracker</h1>
+  <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
+  <p class="muted" style="margin:0 0 0.8rem;">Scaffold: cycle management + read-only ballot tally view. Public voting flow can be layered next.</p>
+
+  <h3 style="margin:0.3rem 0 0.35rem;">Create Voting Cycle</h3>
+  <form method="post" style="display:flex;gap:0.6rem;align-items:end;flex-wrap:wrap;margin:0 0 0.8rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="create_cycle">
+    <label>Season label
+      <input type="text" name="season_label" placeholder="2026-2027" required>
+    </label>
+    <label>Title
+      <input type="text" name="title" placeholder="End-of-Season Awards Ballot" required>
+    </label>
+    <button type="submit" class="admin-news-body-btn">Create cycle</button>
+  </form>
+
+  <h3 style="margin:0.3rem 0 0.35rem;">Voting Cycles</h3>
+  <div class="table-wrap" style="margin:0 0 0.8rem;">
+    <table class="data">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Season</th>
+          <th>Title</th>
+          <th>Status</th>
+          <th>Created (UTC)</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in cycles %}
+        <tr>
+          <td>{{ c.id }}</td>
+          <td>{{ c.season_label }}</td>
+          <td>{{ c.title }}</td>
+          <td>{{ c.status }}</td>
+          <td>{{ c.created_at.strftime('%Y-%m-%d %H:%M:%S') if c.created_at else '—' }}</td>
+          <td>
+            <a class="admin-news-body-btn" href="{{ url_for('site_admin.admin_awards_tracker', cycle_id=c.id) }}">View tally</a>
+            <form method="post" style="display:inline;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="action" value="set_status">
+              <input type="hidden" name="cycle_id" value="{{ c.id }}">
+              <select name="status">
+                <option value="open"{% if c.status == 'open' %} selected{% endif %}>open</option>
+                <option value="closed"{% if c.status == 'closed' %} selected{% endif %}>closed</option>
+                <option value="archived"{% if c.status == 'archived' %} selected{% endif %}>archived</option>
+              </select>
+              <button type="submit" class="admin-news-body-btn">Set</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="muted">No voting cycles yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <h3 style="margin:0.3rem 0 0.35rem;">Tally Tracker</h3>
+  {% if selected_cycle %}
+  <p class="muted" style="margin:0 0 0.45rem;">Cycle #{{ selected_cycle.id }} · {{ selected_cycle.title }} · {{ selected_cycle.season_label }}</p>
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr>
+          <th>Award Key</th>
+          <th>Candidate</th>
+          <th>Votes</th>
+          <th>Points</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in tally_rows %}
+        <tr>
+          <td>{{ r.award_key }}</td>
+          <td>{{ r.candidate_ref }}</td>
+          <td>{{ r.votes }}</td>
+          <td>{{ r.points }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="muted">No ballots recorded for this cycle yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">Select a voting cycle to view tally tracker.</p>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Admin — Draft Hub{% endblock %}
+{% block content %}
+<div class="card" style="max-width:48rem;margin:0 auto;">
+  <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
+  <h1 class="page-title">Draft Hub (league-run)</h1>
+  <p class="muted">Create and manage live drafts for <strong>{{ league_slug }}</strong>. GMs use the public <a href="{{ url_for('draft_hub.draft_hub_page') }}">Draft Hub</a> page.</p>
+
+  <h2>New draft</h2>
+  <form method="post" class="card" style="padding:1rem;margin-bottom:1.5rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="new">
+    <label>Name <input type="text" name="name" value="Draft" maxlength="200" style="width:100%;max-width:24rem;"></label>
+    <div style="margin-top:0.5rem;display:flex;flex-wrap:wrap;gap:0.75rem;align-items:end;">
+      <label>Rounds <input type="number" name="rounds" value="1" min="1" style="width:5rem;"></label>
+      <label>Timer (sec) <input type="number" name="timer_seconds" value="120" min="5" style="width:6rem;"></label>
+      <label>Empty-queue timer (sec) <input type="number" name="empty_queue_timer_seconds" value="120" min="5" style="width:8rem;"></label>
+      <button type="submit" class="button">Create draft</button>
+    </div>
+  </form>
+
+  <h2>Existing drafts</h2>
+  {% if not drafts %}
+    <p class="muted">None yet.</p>
+  {% else %}
+    <ul>
+      {% for d in drafts %}
+        <li>
+          <a href="{{ url_for('site_admin.admin_draft_hub_edit', draft_id=d.id) }}">{{ d.name }}</a>
+          — <span class="muted">{{ d.status }}</span>
+          {% if d.status == 'completed' %}
+            · <a href="{{ url_for('draft_hub.draft_hub_archive_one', draft_id=d.id) }}">public archive</a>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+</div>
+{% endblock %}

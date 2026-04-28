@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Admin — Edit draft{% endblock %}
+{% block content %}
+<div class="card" style="max-width:52rem;margin:0 auto;">
+  <p><a href="{{ url_for('site_admin.admin_draft_hub') }}">← Draft Hub admin</a></p>
+  <h1 class="page-title">Edit: {{ draft.name }}</h1>
+  <p class="muted">Status: <strong>{{ draft.status }}</strong></p>
+
+  {% if draft.status == 'setup' %}
+  <h2>Settings</h2>
+  <form method="post" class="card" style="padding:1rem;margin-bottom:1rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="save_settings">
+    <label>Name<br><input type="text" name="name" value="{{ draft.name }}" style="width:100%;max-width:28rem;"></label>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(10rem,1fr));gap:0.75rem;margin-top:0.75rem;">
+      <label>Rounds<br><input type="number" name="rounds" value="{{ draft.rounds }}" min="1"></label>
+      <label>Timer (s)<br><input type="number" name="timer_seconds" value="{{ draft.timer_seconds }}" min="5"></label>
+      <label>Empty-queue timer (s)<br><input type="number" name="empty_queue_timer_seconds" value="{{ draft.empty_queue_timer_seconds }}" min="5"></label>
+      <label>Timeline year<br><input type="number" name="timeline_year" value="{{ draft.timeline_year }}"></label>
+    </div>
+    <p class="muted" style="margin:0.75rem 0 0;">Eligibility: min age by min anchor; max age by max anchor (calendar year = timeline year).</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(8rem,1fr));gap:0.75rem;margin-top:0.5rem;">
+      <label>Min age<br><input type="number" name="min_age_years" value="{{ draft.min_age_years }}"></label>
+      <label>Min M<br><input type="number" name="min_anchor_month" value="{{ draft.min_anchor_month }}" min="1" max="12"></label>
+      <label>Min D<br><input type="number" name="min_anchor_day" value="{{ draft.min_anchor_day }}" min="1" max="31"></label>
+      <label>Max age<br><input type="number" name="max_age_years" value="{{ draft.max_age_years }}"></label>
+      <label>Max M<br><input type="number" name="max_anchor_month" value="{{ draft.max_anchor_month }}" min="1" max="12"></label>
+      <label>Max D<br><input type="number" name="max_anchor_day" value="{{ draft.max_anchor_day }}" min="1" max="31"></label>
+    </div>
+    <label style="display:block;margin-top:0.75rem;">Display-only scheduled start (local, optional)<br>
+      <input type="datetime-local" name="scheduled_start_at" value="{{ sched_value }}" style="max-width:20rem;">
+    </label>
+    <button type="submit" class="button" style="margin-top:0.75rem;">Save settings</button>
+  </form>
+
+  <h2>Draft order (CSV)</h2>
+  <p class="muted">One pick per line: <code>overall,round,team_id</code> optional <code>,notes,forfeit</code> (use word <code>forfeit</code> in 5th column).</p>
+  <form method="post" class="card" style="padding:1rem;margin-bottom:1rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="save_slots">
+    <textarea name="slots_csv" rows="14" style="width:100%;font-family:monospace;font-size:0.85rem;">{{ slots_csv }}</textarea>
+    <p class="muted" style="margin:0.35rem 0;">Team IDs: {% for t in teams[:12] %}{{ t.id }}={{ t.abbreviation }}{% if not loop.last %}, {% endif %}{% endfor %}{% if teams|length > 12 %}…{% endif %}</p>
+    <button type="submit" class="button">Save order</button>
+  </form>
+  {% endif %}
+
+  <h2>Go live / picks</h2>
+  {% if draft.status == 'setup' %}
+  <form method="post" style="display:inline;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="go_live">
+    <button type="submit" class="button">Go live</button>
+  </form>
+  {% elif draft.status == 'live' %}
+  <form method="post" style="display:inline;margin-right:0.5rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="undo_pick">
+    <button type="submit" class="button secondary">Undo last pick</button>
+  </form>
+  <form method="post" style="display:inline-flex;gap:0.35rem;align-items:center;flex-wrap:wrap;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="admin_pick">
+    <label>Force / resolve pick — player id <input type="number" name="player_id" min="1" style="width:7rem;"></label>
+    <button type="submit" class="button">Submit pick</button>
+  </form>
+  {% else %}
+  <p class="muted">Draft completed. <a href="{{ url_for('draft_hub.draft_hub_archive_one', draft_id=draft.id) }}">View archive</a></p>
+  {% endif %}
+
+  <h2 style="margin-top:1.25rem;">Soundbites</h2>
+  <form method="post" enctype="multipart/form-data" class="card" style="padding:1rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="upload_sound">
+    <label>Label <input type="text" name="sound_label" maxlength="120" style="width:100%;max-width:20rem;"></label><br>
+    <label style="margin-top:0.5rem;display:inline-block;">File (mp3/wav/ogg/webm, max ~3MB)<br>
+      <input type="file" name="sound_file" accept=".mp3,.wav,.ogg,.webm,audio/*"></label><br>
+    <button type="submit" class="button secondary" style="margin-top:0.5rem;">Upload</button>
+  </form>
+  {% if sounds %}
+    <ul>
+      {% for s in sounds %}
+        <li>{{ s.display_name }} ({{ s.stored_filename }})</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+</div>
+{% endblock %}

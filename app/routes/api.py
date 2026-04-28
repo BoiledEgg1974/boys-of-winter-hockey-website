@@ -51,6 +51,7 @@ from app.services.homepage_dashboard import (
     pick_next_game_to_watch,
 )
 from app.services.homepage_modules import module_sort_order_map, module_visibility_map
+from app.services.homepage_ticker import build_homepage_ticker_items
 from app.services.postseason_odds import build_postseason_odds_payload
 from app.services.playoff_bracket import playoff_bracket_payload
 from app.services.player_rating_avgs import goalie_category_averages, skater_category_averages
@@ -586,52 +587,52 @@ def homepage_summary():
     )
     if not season:
         empty_news = build_around_the_league(db.session)
-        return jsonify(
-            {
-                "league_calendar_date": None,
-                "teams": [],
-                "standings_by_division": [],
-                "game_of_the_night": None,
-                "next_game_to_watch": None,
-                "stars_last_7d": [],
-                "stars_last_14d": [],
-                "stars_last_30d": [],
-                "trending_players": {"hot": [], "cold": []},
-                "team_momentum": {
-                    "trending": {"hot": [], "cold": []},
-                    "streaks": {
-                        "win_streak": [],
-                        "undefeated_streak": [],
-                        "losing_streak": [],
-                        "winless_streak": [],
-                    },
+        empty_body: dict[str, object] = {
+            "league_calendar_date": None,
+            "teams": [],
+            "standings_by_division": [],
+            "game_of_the_night": None,
+            "next_game_to_watch": None,
+            "stars_last_7d": [],
+            "stars_last_14d": [],
+            "stars_last_30d": [],
+            "trending_players": {"hot": [], "cold": []},
+            "team_momentum": {
+                "trending": {"hot": [], "cold": []},
+                "streaks": {
+                    "win_streak": [],
+                    "undefeated_streak": [],
+                    "losing_streak": [],
+                    "winless_streak": [],
                 },
-                "active_streaks": {"goal_streak": [], "point_streak": []},
-                "power_rankings": {"teams": [], "top5": [], "bottom5": []},
-                "module_settings": {
-                    "visibility": module_visibility_map(db.session, str(current_app.config.get("LEAGUE_SLUG") or "")),
-                    "sort_order": module_sort_order_map(db.session, str(current_app.config.get("LEAGUE_SLUG") or "")),
-                },
-                "champions_panel": {"banner_urls": [], "recent_champions": []},
-                "around_the_league": empty_news,
-                "leaders": {
-                    "goals": [],
-                    "assists": [],
-                    "points": [],
-                    "goalie_wins": [],
-                    "goalie_shutouts": [],
-                },
-                "games": [],
-                "upcoming": [],
-                "special_teams": [],
-                "rookies": {"skaters": [], "goalies": [], "criteria": {}},
-                "league_spotlight": {"title": "", "items": []},
-                "identity_panel": None,
-                "postseason_odds": None,
-                "league": league_info,
-                "segment": segment,
-            }
-        )
+            },
+            "active_streaks": {"goal_streak": [], "point_streak": []},
+            "power_rankings": {"teams": [], "top5": [], "bottom5": []},
+            "module_settings": {
+                "visibility": module_visibility_map(db.session, str(current_app.config.get("LEAGUE_SLUG") or "")),
+                "sort_order": module_sort_order_map(db.session, str(current_app.config.get("LEAGUE_SLUG") or "")),
+            },
+            "champions_panel": {"banner_urls": [], "recent_champions": []},
+            "around_the_league": empty_news,
+            "leaders": {
+                "goals": [],
+                "assists": [],
+                "points": [],
+                "goalie_wins": [],
+                "goalie_shutouts": [],
+            },
+            "games": [],
+            "upcoming": [],
+            "special_teams": [],
+            "rookies": {"skaters": [], "goalies": [], "criteria": {}},
+            "league_spotlight": {"title": "", "items": []},
+            "identity_panel": None,
+            "postseason_odds": None,
+            "league": league_info,
+            "segment": segment,
+        }
+        empty_body["ticker_items"] = build_homepage_ticker_items(empty_body)
+        return jsonify(empty_body)
     recent_form = _recent_form_map(season.id)
     teams_out: list[dict[str, object]] = []
 
@@ -1081,35 +1082,35 @@ def homepage_summary():
             }
         )
 
-    return jsonify(
-        {
-            "league_calendar_date": league_cal.isoformat(),
-            "teams": teams_out,
-            "standings_by_division": standings_by_division,
-            "game_of_the_night": game_of_the_night,
-            "next_game_to_watch": next_game_to_watch,
-            "stars_last_7d": stars_bundle.get("stars_last_7d", []),
-            "stars_last_14d": stars_bundle.get("stars_last_14d", []),
-            "stars_last_30d": stars_bundle.get("stars_last_30d", []),
-            "trending_players": trending_players,
-            "team_momentum": team_momentum,
-            "active_streaks": active_streaks,
-            "power_rankings": power_rankings,
-            "module_settings": module_settings,
-            "champions_panel": champions_panel,
-            "around_the_league": around_the_league,
-            "leaders": leaders,
-            "games": games_out,
-            "upcoming": upcoming_out,
-            "special_teams": special_teams,
-            "rookies": rookies,
-            "league_spotlight": league_spotlight,
-            "identity_panel": identity_panel,
-            "postseason_odds": postseason_odds,
-            "league": league_info,
-            "segment": segment,
-        }
-    )
+    summary_body: dict[str, object] = {
+        "league_calendar_date": league_cal.isoformat(),
+        "teams": teams_out,
+        "standings_by_division": standings_by_division,
+        "game_of_the_night": game_of_the_night,
+        "next_game_to_watch": next_game_to_watch,
+        "stars_last_7d": stars_bundle.get("stars_last_7d", []),
+        "stars_last_14d": stars_bundle.get("stars_last_14d", []),
+        "stars_last_30d": stars_bundle.get("stars_last_30d", []),
+        "trending_players": trending_players,
+        "team_momentum": team_momentum,
+        "active_streaks": active_streaks,
+        "power_rankings": power_rankings,
+        "module_settings": module_settings,
+        "champions_panel": champions_panel,
+        "around_the_league": around_the_league,
+        "leaders": leaders,
+        "games": games_out,
+        "upcoming": upcoming_out,
+        "special_teams": special_teams,
+        "rookies": rookies,
+        "league_spotlight": league_spotlight,
+        "identity_panel": identity_panel,
+        "postseason_odds": postseason_odds,
+        "league": league_info,
+        "segment": segment,
+    }
+    summary_body["ticker_items"] = build_homepage_ticker_items(summary_body)
+    return jsonify(summary_body)
 
 
 @api_bp.get("/playoff-bracket")

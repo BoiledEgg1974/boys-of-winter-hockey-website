@@ -396,6 +396,125 @@ class DiscordBotHeartbeat(db.Model):
     extra_json: Mapped[str] = mapped_column(Text, default="{}", nullable=False)
 
 
+class LeagueDraft(db.Model):
+    """League-run draft hub (one row per event; separate from FHM Draft / DraftPick)."""
+
+    __tablename__ = "league_drafts"
+    __bind_key__ = "site"
+    __table_args__ = (
+        Index("ix_league_draft_slug_status", "league_slug", "status"),
+        Index("ix_league_draft_slug_created", "league_slug", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(200), default="Draft", nullable=False)
+    status: Mapped[str] = mapped_column(String(24), default="setup", nullable=False)  # setup|live|completed
+    scheduled_start_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    rounds: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    timer_seconds: Mapped[int] = mapped_column(Integer, default=120, nullable=False)
+    empty_queue_timer_seconds: Mapped[int] = mapped_column(Integer, default=120, nullable=False)
+    min_age_years: Mapped[int] = mapped_column(Integer, nullable=False)
+    min_anchor_month: Mapped[int] = mapped_column(Integer, nullable=False)
+    min_anchor_day: Mapped[int] = mapped_column(Integer, nullable=False)
+    max_age_years: Mapped[int] = mapped_column(Integer, nullable=False)
+    max_anchor_month: Mapped[int] = mapped_column(Integer, nullable=False)
+    max_anchor_day: Mapped[int] = mapped_column(Integer, nullable=False)
+    timeline_year: Mapped[int] = mapped_column(Integer, nullable=False)
+    current_slot_index: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    pick_started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    pick_deadline_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    deadline_extended_for_slot: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    awaiting_admin_resolution: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    board_ranks_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    completed_summary_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+    slots: Mapped[list["LeagueDraftSlot"]] = relationship(
+        back_populates="draft", order_by="LeagueDraftSlot.overall_pick"
+    )
+    picks: Mapped[list["LeagueDraftPick"]] = relationship(
+        back_populates="draft", order_by="LeagueDraftPick.overall_pick"
+    )
+    queue_items: Mapped[list["LeagueDraftQueueItem"]] = relationship(back_populates="draft")
+    soundbites: Mapped[list["LeagueDraftSoundbite"]] = relationship(back_populates="draft")
+
+
+class LeagueDraftSlot(db.Model):
+    __tablename__ = "league_draft_slots"
+    __bind_key__ = "site"
+    __table_args__ = (
+        UniqueConstraint("league_draft_id", "overall_pick", name="uq_league_draft_slot_overall"),
+        Index("ix_league_draft_slot_draft", "league_draft_id", "overall_pick"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_draft_id: Mapped[int] = mapped_column(ForeignKey("league_drafts.id"), nullable=False)
+    overall_pick: Mapped[int] = mapped_column(Integer, nullable=False)
+    round: Mapped[int] = mapped_column(Integer, nullable=False)
+    team_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    forfeited: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    notes: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    draft: Mapped["LeagueDraft"] = relationship(back_populates="slots")
+
+
+class LeagueDraftPick(db.Model):
+    __tablename__ = "league_draft_picks"
+    __bind_key__ = "site"
+    __table_args__ = (
+        UniqueConstraint("league_draft_id", "overall_pick", name="uq_league_draft_pick_overall"),
+        Index("ix_league_draft_pick_draft", "league_draft_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_draft_id: Mapped[int] = mapped_column(ForeignKey("league_drafts.id"), nullable=False)
+    overall_pick: Mapped[int] = mapped_column(Integer, nullable=False)
+    round: Mapped[int] = mapped_column(Integer, nullable=False)
+    team_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    player_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    source: Mapped[str] = mapped_column(String(24), default="gm", nullable=False)  # gm|auto_queue|admin
+    picked_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+    draft: Mapped["LeagueDraft"] = relationship(back_populates="picks")
+
+
+class LeagueDraftQueueItem(db.Model):
+    __tablename__ = "league_draft_queue_items"
+    __bind_key__ = "site"
+    __table_args__ = (
+        Index("ix_league_draft_queue_draft_user", "league_draft_id", "user_id", "sort_order"),
+        UniqueConstraint("league_draft_id", "user_id", "player_id", name="uq_league_draft_queue_user_player"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_draft_id: Mapped[int] = mapped_column(ForeignKey("league_drafts.id"), nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("site_users.id"), nullable=False)
+    player_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    draft: Mapped["LeagueDraft"] = relationship(back_populates="queue_items")
+
+
+class LeagueDraftSoundbite(db.Model):
+    __tablename__ = "league_draft_soundbites"
+    __bind_key__ = "site"
+    __table_args__ = (Index("ix_league_draft_sound_draft", "league_draft_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_draft_id: Mapped[int] = mapped_column(ForeignKey("league_drafts.id"), nullable=False)
+    display_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    stored_filename: Mapped[str] = mapped_column(String(200), nullable=False)
+    mime_type: Mapped[str] = mapped_column(String(80), default="audio/mpeg", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+    draft: Mapped["LeagueDraft"] = relationship(back_populates="soundbites")
+
+
 def meta_dict(entry: ApLedgerEntry) -> dict:
     try:
         return json.loads(entry.meta_json or "{}")

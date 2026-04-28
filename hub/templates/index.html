@@ -13,7 +13,7 @@
     .splash-page {
       max-width: 78rem;
       margin: 0 auto;
-      padding: 2.5rem 1rem 4rem;
+      padding: 2.5rem 1rem 2.25rem;
       text-align: center;
     }
     .splash-title {
@@ -129,6 +129,36 @@
     'bowl-fantasy': {'image': 'img/splash/bowl-fantasy-blue.png', 'class': 'league-card--fantasy'},
     'bowl-cap': {'image': 'img/splash/bowl-cap-red.png', 'class': 'league-card--cap'}
   } %}
+  {% macro splash_ticker_chunk_inner() %}
+        <span class="home-stats-ticker__item">
+          <a class="home-stats-ticker__link" href="/bowl-historical/">
+            <img class="home-stats-ticker__logo" src="{{ url_for('static', filename='img/splash/bowl-historical-green.png') }}" alt="">
+            <span class="home-stats-ticker__text">Historical league — decades of sim results, awards, and franchise arcs.</span>
+          </a>
+        </span><span class="home-stats-ticker__dot" aria-hidden="true">◆</span>
+        <span class="home-stats-ticker__item">
+          <a class="home-stats-ticker__link" href="/bowl-fantasy/">
+            <img class="home-stats-ticker__logo" src="{{ url_for('static', filename='img/splash/bowl-fantasy-blue.png') }}" alt="">
+            <span class="home-stats-ticker__text">Fantasy universe — custom rosters, what-if seasons, and league narratives.</span>
+          </a>
+        </span><span class="home-stats-ticker__dot" aria-hidden="true">◆</span>
+        <span class="home-stats-ticker__item">
+          <a class="home-stats-ticker__link" href="/bowl-cap/">
+            <img class="home-stats-ticker__logo" src="{{ url_for('static', filename='img/splash/bowl-cap-red.png') }}" alt="">
+            <span class="home-stats-ticker__text">Cap league — contracts, UFAs, and the salary chess match every offseason.</span>
+          </a>
+        </span><span class="home-stats-ticker__dot" aria-hidden="true">◆</span>
+        <span class="home-stats-ticker__item">
+          <span class="home-stats-ticker__nolink">
+            <span class="home-stats-ticker__text">Each site has homepage leaders, schedule ribbons, power rankings, and draft hubs when live.</span>
+          </span>
+        </span><span class="home-stats-ticker__dot" aria-hidden="true">◆</span>
+        <span class="home-stats-ticker__item">
+          <span class="home-stats-ticker__nolink">
+            <span class="home-stats-ticker__text">Use the league menu to jump between Cap, Fantasy, and Historical without losing your place.</span>
+          </span>
+        </span><span class="home-stats-ticker__dot" aria-hidden="true">◆</span>
+  {% endmacro %}
   <main class="splash-page">
     <h1 class="splash-title">BOYS OF WINTER LEAGUE UNIVERSE</h1>
     <p class="splash-lead">Choose a league site to explore. You can switch leagues anytime from the menu on each site.</p>
@@ -180,5 +210,13 @@
     </script>
     {% endif %}
   </main>
+  <aside id="splash-stats-ticker" class="home-stats-ticker home-stats-ticker--splash" aria-label="League universe highlights">
+    <div class="home-stats-ticker__viewport">
+      <div class="home-stats-ticker__marquee">
+        <span class="home-stats-ticker__chunk">{{ splash_ticker_chunk_inner() }}</span>
+        <span class="home-stats-ticker__chunk" aria-hidden="true">{{ splash_ticker_chunk_inner() }}</span>
+      </div>
+    </div>
+  </aside>
 </body>
 </html>

@@ -1803,13 +1803,131 @@ table.data.home-special-teams-table td:nth-child(2) {
   color: var(--accent-hover);
 }
 
+/* Homepage stats ticker: fixed bottom bar, auto-scrolling marquee (league home only) */
+.home-stats-ticker {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 850;
+  margin: 0;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 2.35rem;
+  border-radius: 0;
+  border: none;
+  border-top: 1px solid rgb(255 255 255 / 0.12);
+  background: var(--header-bg);
+  color: var(--header-text);
+  box-shadow: 0 -4px 16px rgb(0 0 0 / 0.12);
+}
+[data-theme="light"] .home-stats-ticker {
+  border-top-color: rgb(15 23 42 / 0.12);
+  box-shadow: 0 -4px 16px rgb(15 23 42 / 0.08);
+}
+body:has(#home-stats-ticker:not([hidden])),
+body:has(#splash-stats-ticker) {
+  padding-bottom: 3.35rem;
+}
+.home-stats-ticker__viewport {
+  overflow: hidden;
+  padding: 0.35rem 0.75rem;
+  min-height: 2.35rem;
+  display: flex;
+  align-items: center;
+}
+.home-stats-ticker__marquee {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  animation: home-stats-ticker-marquee 50s linear infinite;
+  will-change: transform;
+}
+.home-stats-ticker__chunk {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+}
+.home-stats-ticker__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  margin-right: 0.15rem;
+}
+.home-stats-ticker__dot {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 0 0.85rem;
+  font-size: 0.45rem;
+  opacity: 0.45;
+  line-height: 1;
+}
+.home-stats-ticker__logo {
+  width: 1.35rem;
+  height: 1.35rem;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+.home-stats-ticker__link,
+.home-stats-ticker__nolink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  text-decoration: none;
+  color: inherit;
+}
+.home-stats-ticker__link:hover,
+.home-stats-ticker__link:focus-visible {
+  color: var(--accent);
+}
+.home-stats-ticker__text {
+  font-size: 0.84rem;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+@keyframes home-stats-ticker-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Keep horizontal auto-scroll; avoid relying on manual overflow scrolling */
+  .home-stats-ticker__marquee {
+    animation: home-stats-ticker-marquee 140s linear infinite;
+  }
+  .home-stats-ticker__viewport {
+    overflow: hidden;
+  }
+}
+/* Hub splash: same fixed bottom bar + auto marquee as league homepage */
+.home-stats-ticker--splash {
+  border-top-color: rgb(148 163 184 / 0.28);
+  background: rgb(15 23 42 / 0.92);
+  color: #f8fafc;
+  box-shadow: 0 -4px 24px rgb(0 0 0 / 0.45);
+  backdrop-filter: blur(10px);
+}
+.home-stats-ticker--splash .home-stats-ticker__marquee {
+  animation-duration: 52s;
+}
+.home-stats-ticker--splash .home-stats-ticker__link:hover,
+.home-stats-ticker--splash .home-stats-ticker__link:focus-visible {
+  color: #38bdf8;
+}
+
 .home-dash-schedule-ribbon {
   margin: 0 0 1rem;
   width: 100%;
   max-width: 100%;
   min-width: 0;
 }
-.home-dashboard__toc-sticky + .home-dash-schedule-ribbon {
+.home-dashboard__toc-sticky ~ .home-dash-schedule-ribbon {
   margin-top: 0.45rem;
 }
 .home-dash-schedule-ribbon__card {
@@ -7965,4 +8083,214 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
 }
 .player-profile .data {
   font-size: 0.85rem;
+}
+
+/* --- Draft Hub (league-run) --- */
+.draft-hub-page {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 1rem 2rem;
+}
+.draft-hub-page--ticker {
+  padding-bottom: 3.5rem;
+}
+.draft-hub-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+@media (min-width: 960px) {
+  .draft-hub-grid {
+    grid-template-columns: 1.1fr 0.75fr 0.95fr;
+    grid-template-rows: auto 1fr;
+  }
+  .draft-hub-banner {
+    grid-column: 1 / -1;
+  }
+  .draft-hub-col--players {
+    grid-row: 2;
+    grid-column: 1;
+  }
+  .draft-hub-col--order {
+    grid-row: 2;
+    grid-column: 2;
+  }
+  .draft-hub-col--side {
+    grid-row: 2;
+    grid-column: 3;
+  }
+}
+.draft-hub-banner__status {
+  text-align: center;
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 1.35rem;
+  letter-spacing: 0.06em;
+  margin: 0 0 0.35rem;
+  color: var(--accent);
+}
+.draft-hub-banner__timer {
+  text-align: center;
+  font-size: 2.25rem;
+  font-weight: 700;
+  margin: 0 0 0.35rem;
+  color: #dc2626;
+}
+.draft-hub-meta {
+  text-align: center;
+  margin: 0;
+  font-size: 0.9rem;
+}
+.draft-hub-col__title {
+  margin: 0 0 0.65rem;
+  font-size: 1.05rem;
+}
+.draft-hub-col__subtitle {
+  margin: 0.75rem 0 0.35rem;
+  font-size: 0.95rem;
+}
+.draft-hub-search {
+  width: 100%;
+  margin-bottom: 0.65rem;
+  padding: 0.45rem 0.6rem;
+}
+.draft-hub-player-list {
+  max-height: min(70vh, 520px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.draft-hub-player {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.5rem 0.35rem;
+  border-bottom: 1px solid var(--border);
+}
+.draft-hub-player__name {
+  color: var(--accent);
+}
+.draft-hub-pot {
+  color: #ea580c;
+  font-size: 0.85rem;
+}
+.draft-hub-abi {
+  color: #16a34a;
+  font-size: 0.85rem;
+}
+.draft-hub-player__actions {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  justify-content: flex-end;
+}
+.draft-hub-order {
+  margin: 0;
+  padding-left: 1.25rem;
+  max-height: min(70vh, 520px);
+  overflow-y: auto;
+}
+.draft-hub-order__current {
+  background: rgb(250 204 21 / 0.25);
+  margin-left: -0.35rem;
+  padding-left: 0.35rem;
+  border-radius: 4px;
+}
+.draft-hub-order__ov {
+  font-weight: 600;
+  margin-right: 0.35rem;
+}
+.draft-hub-mini-table {
+  font-size: 0.85rem;
+}
+.draft-hub-flash__err {
+  color: #fecaca;
+}
+[data-theme="light"] .draft-hub-flash__err {
+  color: #b91c1c;
+}
+.draft-hub-sounds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+/* Bottom pick ticker (all picks through current, chronological) */
+.draft-hub-ticker {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 900;
+  display: flex;
+  align-items: stretch;
+  gap: 0.65rem;
+  min-height: 2.35rem;
+  background: var(--header-bg);
+  color: var(--header-text);
+  border-top: 1px solid rgb(255 255 255 / 0.12);
+  box-shadow: 0 -4px 16px rgb(0 0 0 / 0.12);
+}
+.draft-hub-ticker__label {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 0.65rem 0 0.85rem;
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 1rem;
+  letter-spacing: 0.1em;
+  opacity: 0.9;
+  border-right: 1px solid rgb(255 255 255 / 0.1);
+}
+.draft-hub-ticker__viewport {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  padding: 0.35rem 0.5rem 0.35rem 0;
+}
+.draft-hub-ticker__marquee {
+  display: inline-flex;
+  flex-shrink: 0;
+  animation: draft-hub-ticker-marquee 40s linear infinite;
+  will-change: transform;
+}
+.draft-hub-ticker__text {
+  flex-shrink: 0;
+  white-space: nowrap;
+  padding-right: 3.5rem;
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+@keyframes draft-hub-ticker-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .draft-hub-ticker__marquee {
+    animation: none;
+    flex-wrap: wrap;
+    max-width: 100%;
+    row-gap: 0.25rem;
+  }
+  .draft-hub-ticker__text:last-child {
+    display: none;
+  }
+  .draft-hub-ticker__viewport {
+    overflow-x: auto;
+  }
+}
+[data-theme="light"] .draft-hub-ticker {
+  border-top-color: rgb(15 23 42 / 0.12);
+  box-shadow: 0 -4px 16px rgb(15 23 42 / 0.08);
+}
+[data-theme="light"] .draft-hub-ticker__label {
+  border-right-color: rgb(15 23 42 / 0.12);
 }

@@ -146,9 +146,11 @@ def create_app(config_class: type = Config) -> Flask:
     from app.logo_urls import team_logo_url_for_team
     from app.models import Player, Team
     from app.routes import api_bp, main_bp
+    from app.routes.draft_hub import draft_hub_bp
     from app.routes.site_portal import site_admin_bp, site_gm_bp
 
     app.register_blueprint(main_bp)
+    app.register_blueprint(draft_hub_bp)
     app.register_blueprint(api_bp, url_prefix="/api")
     csrf.exempt(api_bp)
     app.register_blueprint(site_gm_bp)

@@ -197,6 +197,11 @@
       </section>
     </aside>
   </div>
+  <div id="home-stats-ticker" class="home-stats-ticker" hidden aria-label="League notes and stats">
+    <div class="home-stats-ticker__viewport">
+      <div class="home-stats-ticker__marquee"></div>
+    </div>
+  </div>
 </div>
 {% endblock %}
 {% block scripts %}
@@ -1586,6 +1591,50 @@
   });
 
   var seg = 'rs';
+  function paintTicker(items) {
+    var root = document.getElementById('home-stats-ticker');
+    if (!root) return;
+    var mq = root.querySelector('.home-stats-ticker__marquee');
+    if (!mq) return;
+    if (!items || !items.length) {
+      root.hidden = true;
+      mq.innerHTML = '';
+      return;
+    }
+    root.hidden = false;
+    function segHtml(it) {
+      var logo = it.logo_url
+        ? '<img class="home-stats-ticker__logo" src="' + escapeAttr(it.logo_url) + '" alt="" loading="lazy" decoding="async">'
+        : '';
+      var text = '<span class="home-stats-ticker__text">' + escape(it.text || '') + '</span>';
+      var inner = logo + text;
+      if (it.href) {
+        inner =
+          '<a class="home-stats-ticker__link" href="' +
+          escapeAttr(withRoot(it.href)) +
+          '">' +
+          inner +
+          '</a>';
+      } else {
+        inner = '<span class="home-stats-ticker__nolink">' + inner + '</span>';
+      }
+      return (
+        '<span class="home-stats-ticker__item">' +
+        inner +
+        '</span><span class="home-stats-ticker__dot" aria-hidden="true">◆</span>'
+      );
+    }
+    var parts = items.map(segHtml).join('');
+    var chunk = '<span class="home-stats-ticker__chunk">' + parts + '</span>';
+    mq.innerHTML = chunk + chunk;
+    var dur = Math.min(95, 26 + items.length * 3.2);
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      mq.style.animationDuration = '';
+    } else {
+      mq.style.animationDuration = dur + 's';
+    }
+  }
+
   function loadSummary() {
     var errEl = document.getElementById('home-load-error');
     if (errEl) errEl.hidden = true;
@@ -1596,6 +1645,7 @@
         moduleSortOrder = (data.module_settings && data.module_settings.sort_order) || {};
         applyHomeModuleOrder();
         applyHomeModuleVisibility();
+        paintTicker(data.ticker_items || []);
         document.getElementById('home-gotn').innerHTML = rowGameSpotlight(data.game_of_the_night);
         document.getElementById('home-ngtw').innerHTML = rowGameSpotlight(data.next_game_to_watch, { includeBoxscore: false });
         document.getElementById('home-stars-7').innerHTML = rowStarsMini(data.stars_last_7d);

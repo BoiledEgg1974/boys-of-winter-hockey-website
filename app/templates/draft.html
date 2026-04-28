@@ -3,6 +3,10 @@
 {% block content %}
 <div class="draft-history-page">
   <h1 class="page-title">DRAFT HISTORY</h1>
+  <p class="muted" style="margin:0 0 1rem;">
+    For league-run live drafts and results, see <a href="{{ url_for('draft_hub.draft_hub_page') }}">Draft Hub</a>
+    (separate from FHM import history on this page).
+  </p>
 
   {% if draft_years %}
   <div class="draft-history-page__picker-sticky">

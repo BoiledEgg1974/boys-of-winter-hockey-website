@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Draft Hub — Archive{% endblock %}
+{% block content %}
+<div class="draft-hub-page" style="max-width:40rem;margin:0 auto;">
+  <h1 class="page-title">League draft archive</h1>
+  <p class="muted"><a href="{{ url_for('draft_hub.draft_hub_page') }}">← Draft Hub</a></p>
+  {% if not drafts %}
+    <p class="muted">No completed league drafts yet.</p>
+  {% else %}
+    <ul>
+      {% for d in drafts %}
+        <li><a href="{{ url_for('draft_hub.draft_hub_archive_one', draft_id=d.id) }}">{{ d.name }}</a> — completed</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+</div>
+{% endblock %}

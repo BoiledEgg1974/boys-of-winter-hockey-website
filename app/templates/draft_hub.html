@@ -1,0 +1,275 @@
+{% extends "base.html" %}
+{% block title %}Draft Hub — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="draft-hub-page" id="draft-hub-page-root">
+  <h1 class="page-title">Draft Hub</h1>
+  <p class="muted" style="margin:0 0 1rem;">
+    <a href="{{ url_for('draft_hub.draft_hub_archive_list') }}">Past league drafts (archive)</a>
+    · <a href="{{ url_for('main.draft') }}">FHM Draft History</a>
+  </p>
+
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% if msgs %}
+      <ul class="draft-hub-flash" style="list-style:none;padding:0;margin:0 0 1rem;">
+        {% for cat, m in msgs %}
+          <li class="draft-hub-flash__{{ cat }}">{{ m }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  {% endwith %}
+
+  <div id="dh-root"
+       data-csrf="{{ csrf_token() }}"
+       data-pick-url="{{ url_for('draft_hub.draft_hub_pick') }}"
+       data-queue-add-url="{{ url_for('draft_hub.draft_hub_queue_add') }}"
+       data-queue-remove-url="{{ url_for('draft_hub.draft_hub_queue_remove') }}"
+       data-state-url="{{ url_for('draft_hub.draft_hub_api_state') }}"
+       data-eligible-url="{{ url_for('draft_hub.draft_hub_eligible_page') }}"
+       data-sound-base="{{ url_for('draft_hub.draft_hub_sound', sound_id=0).rsplit('/', 1)[0] }}">
+  </div>
+
+  <noscript>
+    <p class="muted">Enable JavaScript for the live draft board, timer, and lists.</p>
+  </noscript>
+</div>
+
+<script>
+(function () {
+  var root = document.getElementById('dh-root');
+  if (!root) return;
+  var csrf = root.getAttribute('data-csrf') || '';
+  var stateUrl = root.getAttribute('data-state-url');
+  var eligibleUrl = root.getAttribute('data-eligible-url');
+  var pickUrl = root.getAttribute('data-pick-url');
+  var qAddUrl = root.getAttribute('data-queue-add-url');
+  var qRemUrl = root.getAttribute('data-queue-remove-url');
+  var soundBase = root.getAttribute('data-sound-base') || '';
+
+  function esc(s) {
+    if (!s) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  }
+
+  function fmtClock(ms) {
+    if (ms == null || ms <= 0) return '—';
+    var t = Math.ceil(ms / 1000);
+    var m = Math.floor(t / 60);
+    var s = t % 60;
+    return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  function renderState(d) {
+    var pageEl = document.getElementById('draft-hub-page-root');
+    if (!d || !d.draft) {
+      if (pageEl) pageEl.classList.remove('draft-hub-page--ticker');
+      root.innerHTML = '<div class="card"><p class="muted">No draft is configured for this site yet. Check back later or ask the commissioner.</p></div>';
+      return;
+    }
+    if (pageEl) pageEl.classList.add('draft-hub-page--ticker');
+    var x = d.draft;
+    var html = '';
+    html += '<div class="draft-hub-grid">';
+    html += '<header class="draft-hub-banner card">';
+    if (x.status === 'live' && x.on_clock_team && !x.awaiting_admin) {
+      html += '<p class="draft-hub-banner__status">' + esc(x.on_clock_team).toUpperCase() + ' ARE ON THE CLOCK</p>';
+      html += '<p class="draft-hub-banner__timer" id="dh-timer">' + fmtClock(x.deadline_ms) + '</p>';
+    } else if (x.status === 'live' && x.awaiting_admin) {
+      html += '<p class="draft-hub-banner__status">COMMISSIONER ACTION NEEDED</p>';
+      html += '<p class="draft-hub-banner__timer muted">Timer paused</p>';
+    } else if (x.status === 'setup') {
+      html += '<p class="draft-hub-banner__status">DRAFT NOT STARTED</p>';
+      if (x.scheduled_start_at) {
+        html += '<p class="muted">Announced start (informational): ' + esc(x.scheduled_start_at) + '</p>';
+      } else {
+        html += '<p class="muted">Waiting for the commissioner to open the draft room.</p>';
+      }
+      html += '<p class="draft-hub-banner__timer muted">—</p>';
+    } else {
+      html += '<p class="draft-hub-banner__status">DRAFT COMPLETE</p>';
+      html += '<p class="muted"><a href="{{ url_for("draft_hub.draft_hub_archive_list") }}">View archive</a></p>';
+      html += '<p class="draft-hub-banner__timer muted">—</p>';
+    }
+    if (x.current_slot) {
+      html += '<p class="draft-hub-meta">Round ' + esc(String(x.current_slot.round)) + ' · Overall ' + esc(String(x.current_slot.overall)) + '</p>';
+    }
+    html += '</header>';
+
+    html += '<section class="draft-hub-col draft-hub-col--players card">';
+    html += '<h2 class="draft-hub-col__title">Eligible prospects</h2>';
+    html += '<p class="muted" id="dh-eligible-meta">Loading…</p>';
+    html += '<input type="search" id="dh-search" class="draft-hub-search" placeholder="Search players…" autocomplete="off">';
+    html += '<div id="dh-eligible-list" class="draft-hub-player-list"></div>';
+    html += '</section>';
+
+    html += '<section class="draft-hub-col draft-hub-col--order card">';
+    html += '<h2 class="draft-hub-col__title">Draft order</h2>';
+    html += '<ol class="draft-hub-order">';
+    (x.order || []).forEach(function (row) {
+      var cls = row.is_current ? ' draft-hub-order__current' : '';
+      var strike = row.forfeited ? ' style="text-decoration:line-through;opacity:0.55"' : '';
+      html += '<li class="' + cls.trim() + '"' + strike + '><span class="draft-hub-order__ov">' + esc(String(row.overall)) + '</span> ' + esc(row.team) + '</li>';
+    });
+    html += '</ol></section>';
+
+    html += '<section class="draft-hub-col draft-hub-col--side card">';
+    html += '<h2 class="draft-hub-col__title">My auto-pick queue</h2>';
+    if (!{{ 'true' if gm_membership else 'false' }}) {
+      html += '<p class="muted">Log in as a GM to manage your queue.</p>';
+    } else {
+      html += '<div id="dh-queue"></div>';
+    }
+    html += '<h2 class="draft-hub-col__title" style="margin-top:1rem;">Draft history (this event)</h2>';
+    html += '<div class="table-wrap"><table class="data draft-hub-mini-table"><thead><tr><th>#</th><th>Team</th><th>Pick</th></tr></thead><tbody>';
+    (x.recent_picks || []).forEach(function (p) {
+      html += '<tr><td>R' + esc(String(p.round)) + ' · ' + esc(String(p.overall)) + '</td><td>' + esc(p.team) + '</td><td>' + esc(p.player) + '</td></tr>';
+    });
+    html += '</tbody></table></div>';
+    if ((x.sounds || []).length) {
+      html += '<h3 class="draft-hub-col__subtitle">Soundboard</h3><div class="draft-hub-sounds">';
+      x.sounds.forEach(function (s) {
+        html += '<button type="button" class="button secondary dh-sound" data-sid="' + esc(String(s.id)) + '">' + esc(s.name) + '</button>';
+      });
+      html += '</div>';
+    }
+    html += '</section>';
+    html += '</div>';
+
+    var tp = x.ticker_picks || [];
+    var tickerText;
+    if (!tp.length) {
+      tickerText = x.status === 'setup'
+        ? 'No picks yet — draft has not started.'
+        : (x.status === 'completed' ? 'No picks recorded for this draft.' : 'No picks yet — waiting for the first selection.');
+    } else {
+      tickerText = tp.map(function (p) {
+        return '#' + p.overall + ' · R' + p.round + ' · ' + p.team + ' — ' + p.player;
+      }).join('          •          ');
+    }
+    html += '<aside class="draft-hub-ticker" aria-label="All picks to date">';
+    html += '<div class="draft-hub-ticker__label">Picks</div>';
+    html += '<div class="draft-hub-ticker__viewport">';
+    html += '<div class="draft-hub-ticker__marquee">';
+    html += '<span class="draft-hub-ticker__text">' + esc(tickerText) + '</span>';
+    html += '<span class="draft-hub-ticker__text" aria-hidden="true">' + esc(tickerText) + '</span>';
+    html += '</div></div></aside>';
+
+    root.innerHTML = html;
+
+    var mq = root.querySelector('.draft-hub-ticker__marquee');
+    if (mq && tp.length > 0) {
+      var sec = Math.min(100, Math.max(22, 14 + tp.length * 1.6));
+      mq.style.animationDuration = sec + 's';
+    }
+
+    var timerEl = document.getElementById('dh-timer');
+    if (timerEl && x.status === 'live' && x.deadline_ms != null && !x.awaiting_admin) {
+      var base = Date.now();
+      var ms0 = x.deadline_ms;
+      setInterval(function () {
+        var left = ms0 - (Date.now() - base);
+        timerEl.textContent = fmtClock(left);
+      }, 500);
+    }
+
+    root.querySelectorAll('.dh-sound').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var sid = btn.getAttribute('data-sid');
+        var au = new Audio(soundBase + '/' + sid);
+        au.play().catch(function () {});
+      });
+    });
+
+    loadEligible(x);
+    renderQueue(x);
+  }
+
+  function renderQueue(x) {
+    var el = document.getElementById('dh-queue');
+    if (!el) return;
+    var items = x.queue_items || [];
+    if (!items.length) {
+      el.innerHTML = '<p class="muted">Your queue is empty. Add players from the list.</p>';
+      return;
+    }
+    var h = '<ul class="draft-hub-queue">';
+    items.forEach(function (it) {
+      h += '<li><form method="post" action="' + esc(qRemUrl) + '" style="display:inline;">';
+      h += '<input type="hidden" name="csrf_token" value="' + esc(csrf) + '">';
+      h += '<input type="hidden" name="queue_id" value="' + esc(String(it.id)) + '">';
+      h += '<button type="submit" class="button secondary small">Remove</button></form> ';
+      h += 'Player #' + esc(String(it.player_id)) + '</li>';
+    });
+    h += '</ul>';
+    el.innerHTML = h;
+  }
+
+  var searchQ = '';
+  function loadEligible(x) {
+    var meta = document.getElementById('dh-eligible-meta');
+    var list = document.getElementById('dh-eligible-list');
+    if (!list) return;
+    var url = eligibleUrl + '?limit=50';
+    if (searchQ) url += '&q=' + encodeURIComponent(searchQ);
+    fetch(url, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok) return;
+      if (meta) meta.textContent = d.total + ' available';
+      var rows = d.players || [];
+      var canPick = x.can_pick;
+      var html = '';
+      rows.forEach(function (p) {
+        html += '<div class="draft-hub-player">';
+        html += '<div><strong class="draft-hub-player__name">' + esc(p.name) + '</strong> ';
+        html += '<span class="muted">' + esc(p.team || '') + '</span><br>';
+        html += '<span class="muted small">' + esc(p.pos || '') + ' · Age ' + esc(String(p.age != null ? p.age : '—')) + '</span>';
+        html += ' <span class="draft-hub-pot">Pot ' + esc(String(p.pot != null ? p.pot : '—')) + '</span>';
+        html += ' <span class="draft-hub-abi">Abi ' + esc(String(p.abi != null ? p.abi : '—')) + '</span></div>';
+        html += '<div class="draft-hub-player__actions">';
+        if (canPick && x.status === 'live' && !x.awaiting_admin) {
+          html += '<form method="post" action="' + esc(pickUrl) + '" style="display:inline;">';
+          html += '<input type="hidden" name="csrf_token" value="' + esc(csrf) + '">';
+          html += '<input type="hidden" name="player_id" value="' + esc(String(p.id)) + '">';
+          html += '<button type="submit" class="button secondary">Draft</button></form>';
+        } else {
+          html += '<button type="button" class="button secondary" disabled>Draft</button>';
+        }
+        if ({{ 'true' if gm_membership else 'false' }}) {
+          html += '<form method="post" action="' + esc(qAddUrl) + '" style="display:inline;margin-left:0.35rem;">';
+          html += '<input type="hidden" name="csrf_token" value="' + esc(csrf) + '">';
+          html += '<input type="hidden" name="player_id" value="' + esc(String(p.id)) + '">';
+          html += '<button type="submit" class="button">Add to list</button></form>';
+        }
+        html += '</div></div>';
+      });
+      list.innerHTML = html || '<p class="muted">No matching players.</p>';
+    }).catch(function () {});
+  }
+
+  function poll() {
+    var ae = document.activeElement;
+    if (ae && ae.id === 'dh-search') return;
+    fetch(stateUrl, { credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        renderState(d);
+        var s = document.getElementById('dh-search');
+        if (s && !s._bound) {
+          s._bound = true;
+          var t;
+          s.addEventListener('input', function () {
+            searchQ = s.value.trim();
+            clearTimeout(t);
+            t = setTimeout(function () {
+              fetch(stateUrl, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d2) {
+                if (d2 && d2.draft) loadEligible(d2.draft);
+              });
+            }, 250);
+          });
+        }
+      })
+      .catch(function () {});
+  }
+  poll();
+  setInterval(poll, 2800);
+})();
+</script>
+{% endblock %}

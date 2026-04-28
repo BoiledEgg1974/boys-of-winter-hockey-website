@@ -6,11 +6,12 @@ import os
 import subprocess
 import sys
 from datetime import datetime, timedelta
+import secrets
 from pathlib import Path
 
 from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from app.auth_login import (
     ADMIN_ROLE_CONTENT,
     ADMIN_ROLE_LEAGUE,
@@ -102,6 +103,11 @@ from app.site_models import (
     GmApprovalRequest,
     GmLeagueMembership,
     GmLeagueMessage,
+    LeagueDraft,
+    LeagueDraftPick,
+    LeagueDraftQueueItem,
+    LeagueDraftSlot,
+    LeagueDraftSoundbite,
     LeagueRuleSetting,
     NewsArticle,
     SiteAnnouncement,
@@ -3651,3 +3657,219 @@ def admin_contract_edit():
         flash("Contract salary updated.", "ok")
         return redirect(url_for("site_admin.admin_contract_edit"))
     return render_template("admin_contract.html", league_slug=slug)
+
+
+# --- Draft Hub (league-run drafts; site DB) ---
+
+
+def _parse_scheduled_start(raw: str) -> datetime | None:
+    raw = (raw or "").strip()
+    if not raw:
+        return None
+    try:
+        return datetime.strptime(raw[:16], "%Y-%m-%dT%H:%M")
+    except ValueError:
+        return None
+
+
+@site_admin_bp.route("/draft-hub", methods=["GET", "POST"])
+@login_required
+def admin_draft_hub():
+    require_admin_role(ADMIN_ROLE_CONTENT, ADMIN_ROLE_LEAGUE)
+    slug = _league_slug()
+    if request.method == "POST" and request.form.get("action") == "new":
+        from app.services.draft_hub_eligibility import default_eligibility_for_league
+        from app.services.seasons import get_current_season
+
+        season = get_current_season()
+        ty = int(season.start_year) if season and season.start_year else datetime.utcnow().year
+        ddef = default_eligibility_for_league(slug)
+        row = LeagueDraft(
+            league_slug=slug,
+            name=(request.form.get("name") or "Draft").strip()[:200] or "Draft",
+            status="setup",
+            rounds=int(request.form.get("rounds") or 1) or 1,
+            timer_seconds=int(request.form.get("timer_seconds") or 120) or 120,
+            empty_queue_timer_seconds=int(request.form.get("empty_queue_timer_seconds") or 120) or 120,
+            min_age_years=ddef.min_age_years,
+            min_anchor_month=ddef.min_anchor_month,
+            min_anchor_day=ddef.min_anchor_day,
+            max_age_years=ddef.max_age_years,
+            max_anchor_month=ddef.max_anchor_month,
+            max_anchor_day=ddef.max_anchor_day,
+            timeline_year=ty,
+        )
+        db.session.add(row)
+        db.session.commit()
+        flash("Draft created.", "ok")
+        return redirect(url_for("site_admin.admin_draft_hub_edit", draft_id=row.id))
+    rows = list(
+        db.session.scalars(select(LeagueDraft).where(LeagueDraft.league_slug == slug).order_by(LeagueDraft.id.desc())).all()
+    )
+    return render_template("admin_draft_hub.html", league_slug=slug, drafts=rows)
+
+
+@site_admin_bp.route("/draft-hub/<int:draft_id>", methods=["GET", "POST"])
+@login_required
+def admin_draft_hub_edit(draft_id: int):
+    require_admin_role(ADMIN_ROLE_CONTENT, ADMIN_ROLE_LEAGUE)
+    slug = _league_slug()
+    row = db.session.get(LeagueDraft, draft_id)
+    if not row or row.league_slug != slug:
+        abort(404)
+    if request.method == "POST":
+        act = (request.form.get("action") or "").strip()
+        if act == "save_settings" and row.status == "setup":
+            row.name = (request.form.get("name") or row.name).strip()[:200]
+            row.rounds = max(1, int(request.form.get("rounds") or row.rounds))
+            row.timer_seconds = max(5, int(request.form.get("timer_seconds") or row.timer_seconds))
+            row.empty_queue_timer_seconds = max(
+                5, int(request.form.get("empty_queue_timer_seconds") or row.empty_queue_timer_seconds)
+            )
+            row.timeline_year = int(request.form.get("timeline_year") or row.timeline_year)
+            row.min_age_years = int(request.form.get("min_age_years") or row.min_age_years)
+            row.min_anchor_month = int(request.form.get("min_anchor_month") or row.min_anchor_month)
+            row.min_anchor_day = int(request.form.get("min_anchor_day") or row.min_anchor_day)
+            row.max_age_years = int(request.form.get("max_age_years") or row.max_age_years)
+            row.max_anchor_month = int(request.form.get("max_anchor_month") or row.max_anchor_month)
+            row.max_anchor_day = int(request.form.get("max_anchor_day") or row.max_anchor_day)
+            row.scheduled_start_at = _parse_scheduled_start(request.form.get("scheduled_start_at") or "")
+            db.session.commit()
+            flash("Settings saved.", "ok")
+        elif act == "go_live" and row.status == "setup":
+            from app.services.draft_hub_state import go_live
+
+            err = go_live(db.session, row, int(current_user.id))
+            if err:
+                flash(err, "err")
+            else:
+                db.session.add(
+                    AdminAuditLog(
+                        admin_user_id=int(current_user.id),
+                        league_slug=slug,
+                        action="draft_hub_go_live",
+                        detail_json=json.dumps({"draft_id": row.id}),
+                    )
+                )
+                flash("Draft is now live.", "ok")
+            db.session.commit()
+        elif act == "undo_pick" and row.status == "live":
+            from app.services.draft_hub_state import undo_last_pick
+
+            err = undo_last_pick(db.session, row)
+            if err:
+                flash(err, "err")
+            else:
+                db.session.add(
+                    AdminAuditLog(
+                        admin_user_id=int(current_user.id),
+                        league_slug=slug,
+                        action="draft_hub_undo_pick",
+                        detail_json=json.dumps({"draft_id": row.id}),
+                    )
+                )
+                flash("Last pick removed.", "ok")
+            db.session.commit()
+        elif act == "admin_pick" and row.status == "live":
+            from app.services.draft_hub_state import resolve_admin_pick
+
+            pid_raw = (request.form.get("player_id") or "").strip()
+            if not pid_raw.isdigit():
+                flash("Invalid player id.", "err")
+            else:
+                err = resolve_admin_pick(db.session, row, int(pid_raw), int(current_user.id))
+                if err:
+                    flash(err, "err")
+                else:
+                    db.session.add(
+                        AdminAuditLog(
+                            admin_user_id=int(current_user.id),
+                            league_slug=slug,
+                            action="draft_hub_admin_pick",
+                            detail_json=json.dumps({"draft_id": row.id, "player_id": int(pid_raw)}),
+                        )
+                    )
+                    flash("Pick recorded.", "ok")
+            db.session.commit()
+        elif act == "save_slots" and row.status == "setup":
+            raw = (request.form.get("slots_csv") or "").strip()
+            lines = [ln.strip() for ln in raw.splitlines() if ln.strip()]
+            db.session.execute(delete(LeagueDraftSlot).where(LeagueDraftSlot.league_draft_id == row.id))
+            for ln in lines:
+                parts = [p.strip() for p in ln.split(",")]
+                if len(parts) < 3:
+                    continue
+                ov, rnd, tid = parts[0], parts[1], parts[2]
+                if not ov.isdigit() or not rnd.isdigit() or not tid.isdigit():
+                    continue
+                notes = parts[3] if len(parts) > 3 else None
+                ff = parts[4].strip().lower() in ("1", "true", "yes", "forfeit") if len(parts) > 4 else False
+                db.session.add(
+                    LeagueDraftSlot(
+                        league_draft_id=row.id,
+                        overall_pick=int(ov),
+                        round=int(rnd),
+                        team_id=int(tid),
+                        forfeited=ff,
+                        notes=notes[:500] if notes else None,
+                    )
+                )
+            db.session.commit()
+            flash("Draft order saved.", "ok")
+        elif act == "upload_sound" and request.files.get("sound_file"):
+            f = request.files["sound_file"]
+            if not f.filename:
+                flash("No file.", "err")
+            else:
+                ext = Path(f.filename).suffix.lower()
+                if ext not in (".mp3", ".wav", ".ogg", ".webm"):
+                    flash("Allowed: mp3, wav, ogg, webm.", "err")
+                else:
+                    mime = f.mimetype or "audio/mpeg"
+                    cl = getattr(f, "content_length", None)
+                    if cl and int(cl) > 3 * 1024 * 1024:
+                        flash("File too large (max 3MB).", "err")
+                    else:
+                        dest_dir = Path(current_app.instance_path) / "draft_soundbites" / slug / str(row.id)
+                        dest_dir.mkdir(parents=True, exist_ok=True)
+                        fname = secrets.token_hex(12) + ext
+                        out = dest_dir / fname
+                        f.save(str(out))
+                        label = (request.form.get("sound_label") or Path(f.filename).stem).strip()[:120] or "Sound"
+                        db.session.add(
+                            LeagueDraftSoundbite(
+                                league_draft_id=row.id,
+                                display_name=label,
+                                stored_filename=fname,
+                                mime_type=mime[:80],
+                            )
+                        )
+                        flash("Soundbite added.", "ok")
+            db.session.commit()
+        return redirect(url_for("site_admin.admin_draft_hub_edit", draft_id=draft_id))
+
+    teams = list(db.session.scalars(select(Team).order_by(Team.name)).all())
+    slots = list(
+        db.session.scalars(
+            select(LeagueDraftSlot).where(LeagueDraftSlot.league_draft_id == row.id).order_by(LeagueDraftSlot.overall_pick)
+        ).all()
+    )
+    sounds = list(
+        db.session.scalars(select(LeagueDraftSoundbite).where(LeagueDraftSoundbite.league_draft_id == row.id)).all()
+    )
+    slots_csv = "\n".join(
+        f"{s.overall_pick},{s.round},{s.team_id},{s.notes or ''},{'forfeit' if s.forfeited else ''}".rstrip(",")
+        for s in slots
+    )
+    sched = ""
+    if row.scheduled_start_at:
+        sched = row.scheduled_start_at.strftime("%Y-%m-%dT%H:%M")
+    return render_template(
+        "admin_draft_hub_edit.html",
+        league_slug=slug,
+        draft=row,
+        teams=teams,
+        slots_csv=slots_csv,
+        sounds=sounds,
+        sched_value=sched,
+    )

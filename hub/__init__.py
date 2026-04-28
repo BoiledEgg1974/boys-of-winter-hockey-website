@@ -41,6 +41,7 @@ _HUB_LEAF_REDIRECTS: tuple[str, ...] = (
     "undrafted-prospects",
     "free-agents",
     "draft",
+    "draft-hub",
     "search",
 )
 

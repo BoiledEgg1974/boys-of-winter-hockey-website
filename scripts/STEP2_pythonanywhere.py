@@ -468,6 +468,37 @@ def build_import_and_reload_script(
     return "; ".join(parts)
 
 
+def build_full_remote_rebuild_prep_script(
+    remote_project: str,
+    venv_bin: str,
+    wsgi_file: str | None,
+) -> str:
+    """Hard-reset repo + rebuild venv on PythonAnywhere before normal deploy/import flow."""
+    rp = shlex.quote(remote_project.rstrip("/"))
+    venv_parent = shlex.quote(str(PurePosixPath(venv_bin.rstrip("/")).parent.parent))
+    act = shlex.quote(f"{venv_bin.rstrip('/')}/activate")
+    py = shlex.quote(f"{venv_bin.rstrip('/')}/python")
+    req = shlex.quote(f"{remote_project.rstrip('/')}/requirements.txt")
+    parts = [
+        "set -euo pipefail",
+        f"cd {rp}",
+        "mv tests/init.py /tmp/testsinit.py.bak 2>/dev/null || true",
+        "git fetch origin",
+        "git checkout master",
+        "git reset --hard origin/master",
+        f"rm -rf {venv_parent}",
+        f"python3.11 -m venv {venv_parent}",
+        f". {act}",
+        f"{py} -m pip install --upgrade pip",
+        f"{py} -m pip install --upgrade -r {req}",
+        f"{py} -c \"import flask, flask_login, flask_sqlalchemy, flask_wtf; print('imports ok')\"",
+        f"{py} -c \"import sys; print(sys.executable)\"",
+    ]
+    if wsgi_file:
+        parts.append(f"touch {shlex.quote(wsgi_file)}")
+    return "; ".join(parts)
+
+
 def build_remote_ap_catalog_export_script(
     remote_project: str,
     venv_bin: str,
@@ -616,6 +647,7 @@ def cmd_deploy(ns: argparse.Namespace) -> int:
     print(f"remote venv bin: {ns.venv_bin}")
     print(f"wsgi file: {wsgi or '(skip reload)'}")
     print(f"remote pip install: {'yes' if ns.remote_pip else 'no'}")
+    print(f"full remote rebuild: {'yes' if ns.full_remote_rebuild else 'no'}")
     script = build_import_and_reload_script(
         remote_base,
         ns.venv_bin,
@@ -628,6 +660,15 @@ def cmd_deploy(ns: argparse.Namespace) -> int:
     total_skip = 0
     try:
         client, sftp = connect_sftp(ns.host, ns.user, ns.key)
+        if ns.full_remote_rebuild:
+            prep_script = build_full_remote_rebuild_prep_script(remote_base, ns.venv_bin, wsgi)
+            if ns.dry_run:
+                print("--- would run full remote rebuild prep ---")
+                print(prep_script.replace("; ", "\n"))
+            else:
+                print("--- full remote rebuild prep ---")
+                run_remote_bash(client, prep_script)
+                print("Full remote rebuild prep finished.")
         print("--- data/imports/raw (from your registered folders) ---")
         u, s = upload_league_raw_folders(
             sftp,
@@ -751,6 +792,14 @@ def main() -> int:
         help=(
             "After deploy, export live ap_redemption_catalog, download JSON to repo root, "
             "import into local DB, then verify."
+        ),
+    )
+    p_deploy.add_argument(
+        "--full-remote-rebuild",
+        action="store_true",
+        help=(
+            "Run remote hard reset + venv rebuild prep before normal deploy/import flow "
+            "(recovery mode)."
         ),
     )
     p_deploy.set_defaults(func=cmd_deploy)

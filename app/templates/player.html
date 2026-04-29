@@ -70,7 +70,12 @@
       {% if _ova and _ova.score is not none %}
       <div class="player-profile__ap-box player-profile__ap-box--ova">
         <span class="player-profile__ap-label">OVR</span>
-        <span class="player-profile__ap-val player-profile__ap-val--ova">{{ _ova.score }}{% if _ova.delta is not none and _ova.delta != 0 %}<span class="stats-ova__trend stats-ova__trend--{% if _ova.delta > 0 %}up{% else %}down{% endif %}" aria-hidden="true">{% if _ova.delta > 0 %}↑{% else %}↓{% endif %}</span>{% endif %}</span>
+        <span class="player-profile__ap-val player-profile__ap-val--ova">
+          <span class="stats-ova__inner">
+            <span class="stats-ova__score">{{ _ova.score }}</span>
+            {% if _ova.delta is not none and _ova.delta != 0 %}<span class="stats-ova__trend stats-ova__trend--{% if _ova.delta > 0 %}up{% else %}down{% endif %}" aria-hidden="true">{% if _ova.delta > 0 %}↑{% else %}↓{% endif %}</span>{% endif %}
+          </span>
+        </span>
       </div>
       {% endif %}
     </div>

@@ -179,7 +179,7 @@
   <div class="stats-panel stats-panel--statistics card"><p class="empty-state">No season data.</p></div>
   {% elif show_goalies %}
   <div class="stats-panel stats-panel--statistics card">
-    <p class="stats-page__hint muted">Scroll horizontally for more columns. Click a column heading to sort (except #, ABI, and POT).</p>
+    <p class="stats-page__hint muted">Scroll horizontally for more columns. Click a column heading to sort (# is list order only; ABI and POT are not sort links).</p>
     <div class="table-wrap stats-table-wrap stats-table-scroll">
       <table class="data stats-table stats-table--h-sticky">
         <thead>
@@ -188,7 +188,7 @@
             {{ th_g('player', 'Player', 'Player name') }}
             <th scope="col" title="Overall ability rating (scouting)">ABI</th>
             <th scope="col" title="Overall potential rating (scouting)">POT</th>
-            <th scope="col" title="Composite 1–100 overall (ability, potential, overview attributes)">OVR</th>
+            {{ th_g('ova', 'OVR', 'Composite 1-100 overall (ability, potential, overview attributes)') }}
             {{ th_g('gp', 'GP', 'Games played') }}
             {{ th_g('games_started', 'GS', 'Games started') }}
             {{ th_g('wins', 'W', 'Wins') }}
@@ -225,7 +225,7 @@
             </td>
             <td {% if g_sort == 'abi' %}class="stats-td-sorted"{% endif %}>{{ rating_pill(pl.overall_ability) }}</td>
             <td {% if g_sort == 'pot' %}class="stats-td-sorted"{% endif %}>{{ rating_pill(pl.overall_potential) }}</td>
-            {{ overall_cell((player_overall_by_id or {}).get(pl.id)) }}
+            {{ overall_cell((player_overall_by_id or {}).get(pl.id), g_sort == 'ova') }}
             <td {% if g_sort == 'gp' %}class="stats-td-sorted"{% endif %}>{{ row.gp }}</td>
             <td {% if g_sort == 'games_started' %}class="stats-td-sorted"{% endif %}>{{ row.games_started if row.games_started is not none else '—' }}</td>
             <td {% if g_sort == 'wins' %}class="stats-td-sorted"{% endif %}>{{ row.wins }}</td>
@@ -257,7 +257,7 @@
   </div>
   {% else %}
   <div class="stats-panel stats-panel--statistics card">
-    <p class="stats-page__hint muted">Scroll horizontally for more columns. Click a column heading to sort (except #, ABI, and POT).</p>
+    <p class="stats-page__hint muted">Scroll horizontally for more columns. Click a column heading to sort (# is list order only; ABI and POT are not sort links).</p>
     <div class="table-wrap stats-table-wrap stats-table-scroll">
       <table class="data stats-table stats-table--h-sticky">
         <thead>
@@ -266,7 +266,7 @@
             {{ th_sk('player', 'Player', 'Player name') }}
             <th scope="col" title="Overall ability rating (scouting)">ABI</th>
             <th scope="col" title="Overall potential rating (scouting)">POT</th>
-            <th scope="col" title="Composite 1–100 overall (ability, potential, overview attributes)">OVR</th>
+            {{ th_sk('ova', 'OVR', 'Composite 1-100 overall (ability, potential, overview attributes)') }}
             {{ th_sk('gp', 'GP', 'Games played') }}
             {{ th_sk('goals', 'G', 'Goals') }}
             {{ th_sk('assists', 'A', 'Assists') }}
@@ -318,7 +318,7 @@
             </td>
             <td {% if sort == 'abi' %}class="stats-td-sorted"{% endif %}>{{ rating_pill(pl.overall_ability) }}</td>
             <td {% if sort == 'pot' %}class="stats-td-sorted"{% endif %}>{{ rating_pill(pl.overall_potential) }}</td>
-            {{ overall_cell((player_overall_by_id or {}).get(pl.id)) }}
+            {{ overall_cell((player_overall_by_id or {}).get(pl.id), sort == 'ova') }}
             <td {% if sort == 'gp' %}class="stats-td-sorted"{% endif %}>{{ row.gp }}</td>
             <td {% if sort == 'goals' %}class="stats-td-sorted"{% endif %}>{{ row.goals }}</td>
             <td {% if sort == 'assists' %}class="stats-td-sorted"{% endif %}>{{ row.assists }}</td>

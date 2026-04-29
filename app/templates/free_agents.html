@@ -70,7 +70,7 @@
             <th scope="col" title="Age">AGE</th>
             {{ fa_sort_th('abi', 'ABI.', 'Ability') }}
             {{ fa_sort_th('pot', 'POT.', 'Potential') }}
-            <th scope="col" title="Composite 1–100 overall">OVR</th>
+            {{ fa_sort_th('ova', 'OVR', 'Composite 1-100 overall') }}
             {% for full, abbr, key in fa_headers %}
             {{ fa_sort_th(key, abbr, full) }}
             {% endfor %}
@@ -99,7 +99,7 @@
             <td {% if fa_sort == 'age' %}class="stats-td-sorted"{% endif %}>{{ row.age if row.age is not none else '—' }}</td>
             <td {% if fa_sort == 'abi' %}class="stats-td-sorted"{% endif %}>{{ abi_pot_pill(pl.overall_ability) }}</td>
             <td {% if fa_sort == 'pot' %}class="stats-td-sorted"{% endif %}>{{ abi_pot_pill(pl.overall_potential) }}</td>
-            {{ overall_cell((player_overall_by_id or {}).get(pl.id)) }}
+            {{ overall_cell((player_overall_by_id or {}).get(pl.id), fa_sort == 'ova') }}
             {% for _full, _abbr, key in fa_headers %}
             <td {% if fa_sort == key %}class="stats-td-sorted"{% endif %}>{{ attr_pill(row.attrs.get(key)) }}</td>
             {% endfor %}

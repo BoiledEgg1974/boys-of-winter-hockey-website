@@ -67,8 +67,10 @@ from app.services.player_contract_csv import (
 from app.services.player_rating_avgs import goalie_category_averages, skater_category_averages
 from app.services.player_overall_score import (
     build_overall_cell_map_from_players,
+    compute_player_overall_100,
     fetch_overall_baselines_by_player_ids,
     overall_cell_map_for_players,
+    player_is_goalie_for_overall,
 )
 from app.services.player_ratings_csv import get_player_ratings_row, player_positions_display_label
 from app.services.seasons import get_current_season, season_age_reference_date
@@ -717,7 +719,7 @@ def _build_statistics_view_vars(
         "fights_won": PlayerSkaterStat.fights_won.desc().nulls_last(),
         "pdo": PlayerSkaterStat.pdo.desc().nulls_last(),
     }
-    if sort not in sk_order_map:
+    if sort not in sk_order_map and sort != "ova":
         sort = "points"
 
     sk_q = select(PlayerSkaterStat, Player).join(
@@ -768,16 +770,35 @@ def _build_statistics_view_vars(
         sk_q = sk_q.where(pos_rw)
 
     total_skaters = db.session.scalar(select(func.count()).select_from(sk_q.subquery())) or 0
-    _sk_ord = sk_order_map[sort]
-    if isinstance(_sk_ord, tuple):
-        sk_q = sk_q.order_by(*_sk_ord, Player.id.asc())
+    if sort == "ova":
+
+        def _sk_ova_sort_key(row_pl: tuple[PlayerSkaterStat, Player]) -> tuple:
+            _row, pl = row_pl
+            rr = get_player_ratings_row(pl.fhm_player_id)
+            ov = compute_player_overall_100(
+                pl.overall_ability,
+                pl.overall_potential,
+                rr,
+                is_goalie=player_is_goalie_for_overall(pl),
+            )
+            v = float(ov) if ov is not None else float("-inf")
+            return (v, (pl.last_name or "").lower(), (pl.first_name or "").lower(), pl.id)
+
+        all_sk = list(db.session.execute(sk_q).all())
+        all_sk.sort(key=_sk_ova_sort_key, reverse=True)
+        lim = stats_full_limit if stats_expanded else stats_page_limit
+        skaters = all_sk[:lim]
     else:
-        sk_q = sk_q.order_by(_sk_ord, Player.id.asc())
-    if not stats_expanded:
-        sk_q = sk_q.limit(stats_page_limit)
-    else:
-        sk_q = sk_q.limit(stats_full_limit)
-    skaters = db.session.execute(sk_q).all()
+        _sk_ord = sk_order_map[sort]
+        if isinstance(_sk_ord, tuple):
+            sk_q = sk_q.order_by(*_sk_ord, Player.id.asc())
+        else:
+            sk_q = sk_q.order_by(_sk_ord, Player.id.asc())
+        if not stats_expanded:
+            sk_q = sk_q.limit(stats_page_limit)
+        else:
+            sk_q = sk_q.limit(stats_full_limit)
+        skaters = db.session.execute(sk_q).all()
 
     gq = select(PlayerGoalieStat, Player).join(
         Player, PlayerGoalieStat.player_id == Player.id
@@ -822,19 +843,38 @@ def _build_statistics_view_vars(
         "pot": Player.overall_potential.desc().nulls_last(),
         "atoi": g_atoi_avg.desc().nulls_last(),
     }
-    if g_sort not in g_order_map:
+    if g_sort not in g_order_map and g_sort != "ova":
         g_sort = "wins"
     total_goalies = db.session.scalar(select(func.count()).select_from(gq.subquery())) or 0
-    _g_ord = g_order_map[g_sort]
-    if isinstance(_g_ord, tuple):
-        gq = gq.order_by(*_g_ord, Player.id.asc())
+    if g_sort == "ova":
+
+        def _g_ova_sort_key(row_pl: tuple[PlayerGoalieStat, Player]) -> tuple:
+            _row, pl = row_pl
+            rr = get_player_ratings_row(pl.fhm_player_id)
+            ov = compute_player_overall_100(
+                pl.overall_ability,
+                pl.overall_potential,
+                rr,
+                is_goalie=True,
+            )
+            v = float(ov) if ov is not None else float("-inf")
+            return (v, (pl.last_name or "").lower(), (pl.first_name or "").lower(), pl.id)
+
+        all_gk = list(db.session.execute(gq).all())
+        all_gk.sort(key=_g_ova_sort_key, reverse=True)
+        lim_g = stats_full_limit if stats_expanded else stats_page_limit
+        goalies_list = all_gk[:lim_g]
     else:
-        gq = gq.order_by(_g_ord, Player.id.asc())
-    if not stats_expanded:
-        gq = gq.limit(stats_page_limit)
-    else:
-        gq = gq.limit(stats_full_limit)
-    goalies_list = db.session.execute(gq).all()
+        _g_ord = g_order_map[g_sort]
+        if isinstance(_g_ord, tuple):
+            gq = gq.order_by(*_g_ord, Player.id.asc())
+        else:
+            gq = gq.order_by(_g_ord, Player.id.asc())
+        if not stats_expanded:
+            gq = gq.limit(stats_page_limit)
+        else:
+            gq = gq.limit(stats_full_limit)
+        goalies_list = db.session.execute(gq).all()
 
     _stat_pairs: list[tuple[Player, dict | None]] = []
     for row, pl in skaters:
@@ -1592,8 +1632,8 @@ def prospects():
         ("Hockey sense", "HSN", "hockey_sense"),
     )
     attr_sort_keys = frozenset(h[2] for h in overview_headers)
-    valid_sorts = frozenset({"player", "abi", "pot", *attr_sort_keys})
-    sort_default_desc = frozenset({"abi", "pot", *attr_sort_keys})
+    valid_sorts = frozenset({"player", "abi", "pot", "ova", *attr_sort_keys})
+    sort_default_desc = frozenset({"abi", "pot", "ova", *attr_sort_keys})
 
     sort_col = request.args.get("sort") or "pot"
     order = request.args.get("order") or "desc"
@@ -1753,6 +1793,7 @@ def prospects():
                 "attrs": attrs,
                 "attrs_display": attrs_display,
                 "age": _player_age_years(pl.birth_date, age_ref),
+                "rr": rr,
             }
         )
 
@@ -1770,11 +1811,21 @@ def prospects():
             pl = it["pl"]
             if sort_col == "abi":
                 raw = pl.overall_ability
+                v = _prospect_float(raw) if raw is not None else None
             elif sort_col == "pot":
                 raw = pl.overall_potential
+                v = _prospect_float(raw) if raw is not None else None
+            elif sort_col == "ova":
+                ov = compute_player_overall_100(
+                    pl.overall_ability,
+                    pl.overall_potential,
+                    it.get("rr"),
+                    is_goalie=player_is_goalie_for_overall(pl),
+                )
+                v = float(ov) if ov is not None else None
             else:
                 raw = it["attrs"].get(sort_col)
-            v = _prospect_float(raw) if raw is not None else None
+                v = _prospect_float(raw) if raw is not None else None
             if v is None:
                 sentinel = float("-inf") if rev else float("inf")
                 return (sentinel, pl.full_name or "", pl.id)
@@ -1845,8 +1896,8 @@ def undrafted_prospects():
         ("Hockey sense", "HSN", "hockey_sense"),
     )
     attr_sort_keys = frozenset(h[2] for h in overview_headers)
-    valid_sorts = frozenset({"rank", "player", "abi", "pot", *attr_sort_keys})
-    sort_default_desc = frozenset({"rank", "abi", "pot", *attr_sort_keys})
+    valid_sorts = frozenset({"rank", "player", "abi", "pot", "ova", *attr_sort_keys})
+    sort_default_desc = frozenset({"rank", "abi", "pot", "ova", *attr_sort_keys})
 
     sort_col = request.args.get("sort") or "pot"
     order = request.args.get("order") or "desc"
@@ -1906,6 +1957,7 @@ def undrafted_prospects():
                 "attrs": attrs,
                 "attrs_display": attrs_display,
                 "age": _player_age_years(pl.birth_date, age_ref),
+                "rr": rr,
             }
         )
 
@@ -1934,11 +1986,21 @@ def undrafted_prospects():
             pl = it["pl"]
             if sort_col == "abi":
                 raw = pl.overall_ability
+                v = _prospect_float(raw) if raw is not None else None
             elif sort_col == "pot":
                 raw = pl.overall_potential
+                v = _prospect_float(raw) if raw is not None else None
+            elif sort_col == "ova":
+                ov = compute_player_overall_100(
+                    pl.overall_ability,
+                    pl.overall_potential,
+                    it.get("rr"),
+                    is_goalie=player_is_goalie_for_overall(pl),
+                )
+                v = float(ov) if ov is not None else None
             else:
                 raw = it["attrs"].get(sort_col)
-            v = _prospect_float(raw) if raw is not None else None
+                v = _prospect_float(raw) if raw is not None else None
             if v is None:
                 sentinel = float("-inf") if rev else float("inf")
                 return (sentinel, pl.full_name or "", pl.id)
@@ -2014,8 +2076,8 @@ def free_agents():
         active_headers = view_headers[view]
 
     attr_keys = frozenset(h[2] for h in active_headers)
-    valid_sorts = frozenset({"rank", "player", "age", "abi", "pot", *attr_keys})
-    sort_default_desc = frozenset({"rank", "abi", "pot", *attr_keys})
+    valid_sorts = frozenset({"rank", "player", "age", "abi", "pot", "ova", *attr_keys})
+    sort_default_desc = frozenset({"rank", "abi", "pot", "ova", *attr_keys})
 
     sort_col = request.args.get("sort") or "pot"
     order = request.args.get("order") or "desc"
@@ -2048,6 +2110,7 @@ def free_agents():
                 "attrs": attrs,
                 "attrs_display": attrs_display,
                 "age": _player_age_years(pl.birth_date, age_ref),
+                "rr": rr,
             }
         )
 
@@ -2087,11 +2150,21 @@ def free_agents():
             pl = it["pl"]
             if sort_col == "abi":
                 raw = pl.overall_ability
+                v = _prospect_float(raw) if raw is not None else None
             elif sort_col == "pot":
                 raw = pl.overall_potential
+                v = _prospect_float(raw) if raw is not None else None
+            elif sort_col == "ova":
+                ov = compute_player_overall_100(
+                    pl.overall_ability,
+                    pl.overall_potential,
+                    it.get("rr"),
+                    is_goalie=player_is_goalie_for_overall(pl),
+                )
+                v = float(ov) if ov is not None else None
             else:
                 raw = it["attrs"].get(sort_col)
-            v = _prospect_float(raw) if raw is not None else None
+                v = _prospect_float(raw) if raw is not None else None
             if v is None:
                 sentinel = float("-inf") if rev else float("inf")
                 return (sentinel, pl.full_name or "", pl.id)

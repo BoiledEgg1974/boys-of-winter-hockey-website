@@ -28,6 +28,7 @@
 <td data-sort-value="">—</td>
 {%- endif -%}
 {%- endmacro %}
+{% from "macros/player_overall.html" import overall_cell %}
 <div class="team-ratings-stack">
   <div class="card team-ratings-card">
     <h2 class="team-ratings-card__title">Goalie</h2>
@@ -49,6 +50,7 @@
                 <th data-sort-type="num" scope="col">Age</th>
                 <th data-sort-type="num" scope="col">Abi.</th>
                 <th data-sort-type="num" scope="col">Pot.</th>
+                <th data-sort-type="num" scope="col">Ovr.</th>
                 <th data-sort-type="num" scope="col">Pos.</th>
                 <th data-sort-type="num" scope="col">Pass</th>
                 <th data-sort-type="num" scope="col">PkChk</th>
@@ -71,6 +73,7 @@
                 {{ tr_age_td(row) }}
                 {{ tr_abi_td(p) }}
                 {{ tr_pot_td(p) }}
+                {{ overall_cell((player_overall_by_id or {}).get(p.id)) }}
                 {{ tr_num_attr_td(row.rr, 'g_positioning') }}
                 {{ tr_num_attr_td(row.rr, 'g_passing') }}
                 {{ tr_num_attr_td(row.rr, 'g_pokecheck') }}
@@ -102,6 +105,7 @@
                 <th data-sort-type="num" scope="col">Age</th>
                 <th data-sort-type="num" scope="col">Abi.</th>
                 <th data-sort-type="num" scope="col">Pot.</th>
+                <th data-sort-type="num" scope="col">Ovr.</th>
                 <th data-sort-type="num" scope="col">Aggression</th>
                 <th data-sort-type="num" scope="col">M. tough</th>
                 <th data-sort-type="num" scope="col">Determination</th>
@@ -120,6 +124,7 @@
                 {{ tr_age_td(row) }}
                 {{ tr_abi_td(p) }}
                 {{ tr_pot_td(p) }}
+                {{ overall_cell((player_overall_by_id or {}).get(p.id)) }}
                 {{ tr_num_attr_td(row.rr, 'aggression') }}
                 {{ tr_num_attr_td(row.rr, 'mental_toughness') }}
                 {{ tr_num_attr_td(row.rr, 'determination') }}
@@ -165,6 +170,7 @@
                 <th data-sort-type="num" scope="col">Age</th>
                 <th data-sort-type="num" scope="col">Abi.</th>
                 <th data-sort-type="num" scope="col">Pot.</th>
+                <th data-sort-type="num" scope="col">Ovr.</th>
                 <th data-sort-type="num" scope="col">Skating</th>
                 <th data-sort-type="num" scope="col">Shooting</th>
                 <th data-sort-type="num" scope="col">Playmaking</th>
@@ -184,6 +190,7 @@
                 {{ tr_age_td(row) }}
                 {{ tr_abi_td(p) }}
                 {{ tr_pot_td(p) }}
+                {{ overall_cell((player_overall_by_id or {}).get(p.id)) }}
                 {{ tr_num_attr_td(row.rr, 'skating') }}
                 {{ tr_num_attr_td(row.rr, 'shooting') }}
                 {{ tr_num_attr_td(row.rr, 'playmaking') }}
@@ -212,6 +219,7 @@
                 <th data-sort-type="num" scope="col">Age</th>
                 <th data-sort-type="num" scope="col">Abi.</th>
                 <th data-sort-type="num" scope="col">Pot.</th>
+                <th data-sort-type="num" scope="col">Ovr.</th>
                 <th data-sort-type="num" scope="col">Screening</th>
                 <th data-sort-type="num" scope="col">Getting open</th>
                 <th data-sort-type="num" scope="col">Passing</th>
@@ -230,6 +238,7 @@
                 {{ tr_age_td(row) }}
                 {{ tr_abi_td(p) }}
                 {{ tr_pot_td(p) }}
+                {{ overall_cell((player_overall_by_id or {}).get(p.id)) }}
                 {{ tr_num_attr_td(row.rr, 'screening') }}
                 {{ tr_num_attr_td(row.rr, 'getting_open') }}
                 {{ tr_num_attr_td(row.rr, 'passing') }}
@@ -257,6 +266,7 @@
                 <th data-sort-type="num" scope="col">Age</th>
                 <th data-sort-type="num" scope="col">Abi.</th>
                 <th data-sort-type="num" scope="col">Pot.</th>
+                <th data-sort-type="num" scope="col">Ovr.</th>
                 <th data-sort-type="num" scope="col">Checking</th>
                 <th data-sort-type="num" scope="col">Faceoffs</th>
                 <th data-sort-type="num" scope="col">Hitting</th>
@@ -275,6 +285,7 @@
                 {{ tr_age_td(row) }}
                 {{ tr_abi_td(p) }}
                 {{ tr_pot_td(p) }}
+                {{ overall_cell((player_overall_by_id or {}).get(p.id)) }}
                 {{ tr_num_attr_td(row.rr, 'checking') }}
                 {{ tr_num_attr_td(row.rr, 'faceoffs') }}
                 {{ tr_num_attr_td(row.rr, 'hitting') }}
@@ -302,6 +313,7 @@
                 <th data-sort-type="num" scope="col">Age</th>
                 <th data-sort-type="num" scope="col">Abi.</th>
                 <th data-sort-type="num" scope="col">Pot.</th>
+                <th data-sort-type="num" scope="col">Ovr.</th>
                 <th data-sort-type="num" scope="col">Aggression</th>
                 <th data-sort-type="num" scope="col">Bravery</th>
                 <th data-sort-type="num" scope="col">Determination</th>
@@ -320,6 +332,7 @@
                 {{ tr_age_td(row) }}
                 {{ tr_abi_td(p) }}
                 {{ tr_pot_td(p) }}
+                {{ overall_cell((player_overall_by_id or {}).get(p.id)) }}
                 {{ tr_num_attr_td(row.rr, 'aggression') }}
                 {{ tr_num_attr_td(row.rr, 'bravery') }}
                 {{ tr_num_attr_td(row.rr, 'determination') }}
@@ -347,6 +360,7 @@
                 <th data-sort-type="num" scope="col">Age</th>
                 <th data-sort-type="num" scope="col">Abi.</th>
                 <th data-sort-type="num" scope="col">Pot.</th>
+                <th data-sort-type="num" scope="col">Ovr.</th>
                 <th data-sort-type="num" scope="col">Acceleration</th>
                 <th data-sort-type="num" scope="col">Agility</th>
                 <th data-sort-type="num" scope="col">Balance</th>
@@ -365,6 +379,7 @@
                 {{ tr_age_td(row) }}
                 {{ tr_abi_td(p) }}
                 {{ tr_pot_td(p) }}
+                {{ overall_cell((player_overall_by_id or {}).get(p.id)) }}
                 {{ tr_num_attr_td(row.rr, 'acceleration') }}
                 {{ tr_num_attr_td(row.rr, 'agility') }}
                 {{ tr_num_attr_td(row.rr, 'balance') }}

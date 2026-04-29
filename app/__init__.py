@@ -13,6 +13,7 @@ from app.db_utils import (
     ensure_fts5,
     ensure_history_awards_staff_fhm_id_sqlite,
     ensure_players_jersey_number_sqlite,
+    ensure_player_overall_baseline_sqlite,
     ensure_homepage_module_settings_sqlite,
     ensure_site_announcements_sqlite,
     ensure_site_users_admin_role_sqlite,
@@ -92,6 +93,7 @@ def create_app(config_class: type = Config) -> Flask:
         migrate_team_season_aggregates_sqlite(db.engine)
         repair_fhm_team_city_from_name(db.engine)
         ensure_players_jersey_number_sqlite(db.engine)
+        ensure_player_overall_baseline_sqlite(db.engine)
         ensure_team_season_aggregate_extra_columns(db.engine)
         ensure_skater_career_line_career_source_sqlite(db.engine)
         ensure_skater_career_line_extra_stats_sqlite(db.engine)
@@ -417,6 +419,7 @@ def create_app(config_class: type = Config) -> Flask:
         migrate_team_season_aggregates_sqlite(db.engine)
         repair_fhm_team_city_from_name(db.engine)
         ensure_players_jersey_number_sqlite(db.engine)
+        ensure_player_overall_baseline_sqlite(db.engine)
         ensure_team_season_aggregate_extra_columns(db.engine)
         ensure_skater_career_line_career_source_sqlite(db.engine)
         ensure_skater_career_line_extra_stats_sqlite(db.engine)
@@ -495,5 +498,13 @@ def create_app(config_class: type = Config) -> Flask:
 
         n = backfill_skater_plus_minus()
         print(f"backfill_skater_plus_minus: applied {n} CSV rows")
+
+    @app.cli.command("bowl-overall-baseline-refresh")
+    def bowl_overall_baseline_refresh_cmd() -> None:
+        """Save each player's current 1-100 OVR as the comparison baseline for trend arrows (per league DB)."""
+        from app.services.player_overall_score import refresh_all_player_overall_baselines
+
+        n = refresh_all_player_overall_baselines(db.session)
+        print(f"bowl-overall-baseline-refresh: stored baseline OVR for {n} players.")
 
     return app

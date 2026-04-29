@@ -5,8 +5,9 @@ Default flow:
 1) Run STEP1 (copy saved-game CSVs + local imports + git push) with PA deploy skipped.
 2) Align historical awards IDs to player_master (STEP3).
 3) Re-import historical league locally (to apply aligned awards immediately).
-4) Commit/push any STEP3-generated file changes (if present).
-5) Run STEP2 deploy to PythonAnywhere using repo CSV folders.
+4) Refresh player OVR baseline rows on each local league DB (trend arrows on the site).
+5) Commit/push any STEP3-generated file changes (if present).
+6) Run STEP2 deploy to PythonAnywhere using repo CSV folders.
 
 Examples:
   python scripts/BOWL-Site-Update.py
@@ -14,6 +15,10 @@ Examples:
   python scripts/BOWL-Site-Update.py --allow-stale
   python scripts/BOWL-Site-Update.py --no-deploy
   python scripts/BOWL-Site-Update.py --no-push
+
+After imports, each league's local SQLite DB is updated with ``player_overall_baselines`` so OVR
+trend arrows reset on the site. On PythonAnywhere, run ``flask bowl-overall-baseline-refresh`` per
+league after the server-side import if you want the same there.
 """
 from __future__ import annotations
 
@@ -37,6 +42,24 @@ HIST_AWARDS_SHEET = HIST_RAW / "history_awards.sheet.csv"
 def _run(cmd: list[str], *, env: dict[str, str] | None = None) -> None:
     print(f"\n>>> {' '.join(cmd)}")
     subprocess.run(cmd, cwd=REPO_ROOT, env=env, check=True)
+
+
+def _refresh_ovr_baselines_all_leagues() -> None:
+    """Persist current 1-100 OVR for every player on each local league SQLite DB."""
+    rp = str(REPO_ROOT)
+    if rp not in sys.path:
+        sys.path.insert(0, rp)
+    from app import create_app
+    from app.config import league_slugs, make_league_config
+    from app.models import db
+    from app.services.player_overall_score import refresh_all_player_overall_baselines
+
+    print("\n>>> OVR baseline refresh (local league databases)")
+    for slug in league_slugs():
+        app = create_app(make_league_config(slug))
+        with app.app_context():
+            n = refresh_all_player_overall_baselines(db.session)
+        print(f"    {slug}: {n} players")
 
 
 def _git_changes_present() -> bool:
@@ -119,13 +142,16 @@ def main() -> int:
     env["LEAGUE_SLUG"] = "bowl-historical"
     _run([sys.executable, str(IMPORT)], env=env)
 
-    # 4) Commit + push any new STEP3-alignment changes if enabled.
+    # 4) OVR trend baselines: align site arrows with freshly imported ratings (all leagues).
+    _refresh_ovr_baselines_all_leagues()
+
+    # 5) Commit + push any new STEP3-alignment changes if enabled.
     if not args.no_push:
         _commit_and_push_step3_changes()
     else:
         print("Skipping STEP3 git push (--no-push).")
 
-    # 5) Deploy from repo CSV folders to PythonAnywhere.
+    # 6) Deploy from repo CSV folders to PythonAnywhere.
     if not args.no_deploy:
         step2_cmd = [sys.executable, str(STEP2), "deploy", "--repo-csv"]
         if args.mode == "fullremoterebuild":

@@ -1,5 +1,6 @@
 {# Shared statistics toolbar + tables. Expects same context as statistics page; set team_statistics to Team or none. #}
 {% from "macros/team.html" import team_logo_only with context %}
+{% from "macros/player_overall.html" import overall_cell %}
 {% macro fmt_toi(sec) -%}
 {%- if sec is none %}—{% else %}{{ (sec // 60) }}:{{ '%02d'|format(sec % 60) }}{% endif -%}
 {% endmacro %}
@@ -187,6 +188,7 @@
             {{ th_g('player', 'Player', 'Player name') }}
             <th scope="col" title="Overall ability rating (scouting)">ABI</th>
             <th scope="col" title="Overall potential rating (scouting)">POT</th>
+            <th scope="col" title="Composite 1–100 overall (ability, potential, overview attributes)">OVR</th>
             {{ th_g('gp', 'GP', 'Games played') }}
             {{ th_g('games_started', 'GS', 'Games started') }}
             {{ th_g('wins', 'W', 'Wins') }}
@@ -223,6 +225,7 @@
             </td>
             <td {% if g_sort == 'abi' %}class="stats-td-sorted"{% endif %}>{{ rating_pill(pl.overall_ability) }}</td>
             <td {% if g_sort == 'pot' %}class="stats-td-sorted"{% endif %}>{{ rating_pill(pl.overall_potential) }}</td>
+            {{ overall_cell((player_overall_by_id or {}).get(pl.id)) }}
             <td {% if g_sort == 'gp' %}class="stats-td-sorted"{% endif %}>{{ row.gp }}</td>
             <td {% if g_sort == 'games_started' %}class="stats-td-sorted"{% endif %}>{{ row.games_started if row.games_started is not none else '—' }}</td>
             <td {% if g_sort == 'wins' %}class="stats-td-sorted"{% endif %}>{{ row.wins }}</td>
@@ -263,6 +266,7 @@
             {{ th_sk('player', 'Player', 'Player name') }}
             <th scope="col" title="Overall ability rating (scouting)">ABI</th>
             <th scope="col" title="Overall potential rating (scouting)">POT</th>
+            <th scope="col" title="Composite 1–100 overall (ability, potential, overview attributes)">OVR</th>
             {{ th_sk('gp', 'GP', 'Games played') }}
             {{ th_sk('goals', 'G', 'Goals') }}
             {{ th_sk('assists', 'A', 'Assists') }}
@@ -314,6 +318,7 @@
             </td>
             <td {% if sort == 'abi' %}class="stats-td-sorted"{% endif %}>{{ rating_pill(pl.overall_ability) }}</td>
             <td {% if sort == 'pot' %}class="stats-td-sorted"{% endif %}>{{ rating_pill(pl.overall_potential) }}</td>
+            {{ overall_cell((player_overall_by_id or {}).get(pl.id)) }}
             <td {% if sort == 'gp' %}class="stats-td-sorted"{% endif %}>{{ row.gp }}</td>
             <td {% if sort == 'goals' %}class="stats-td-sorted"{% endif %}>{{ row.goals }}</td>
             <td {% if sort == 'assists' %}class="stats-td-sorted"{% endif %}>{{ row.assists }}</td>

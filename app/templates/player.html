@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "macros/player_overall.html" import overall_cell %}
 {% from "macros/team.html" import team_logo_only, team_logo_img_plain with context %}
 {% block title %}{{ player.full_name }} — Boys of Winter Hockey League{% endblock %}
 {% macro fmt_toi(sec) -%}
@@ -65,6 +66,13 @@
         <span class="player-profile__ap-label">Potential</span>
         <span class="player-profile__ap-val" style="{{ player.overall_potential|rating_pill_style if player.overall_potential is not none else '' }}">{{ '%.1f'|format(player.overall_potential) if player.overall_potential is not none else '—' }}</span>
       </div>
+      {% set _ova = (player_overall_by_id or {}).get(player.id) %}
+      {% if _ova and _ova.score is not none %}
+      <div class="player-profile__ap-box player-profile__ap-box--ova">
+        <span class="player-profile__ap-label">OVR</span>
+        <span class="player-profile__ap-val player-profile__ap-val--ova">{{ _ova.score }}{% if _ova.delta is not none and _ova.delta != 0 %}<span class="stats-ova__trend stats-ova__trend--{% if _ova.delta > 0 %}up{% else %}down{% endif %}" aria-hidden="true">{% if _ova.delta > 0 %}↑{% else %}↓{% endif %}</span>{% endif %}</span>
+      </div>
+      {% endif %}
     </div>
     {% endif %}
   </header>

@@ -124,6 +124,33 @@ def ensure_players_jersey_number_sqlite(engine: Engine) -> None:
         conn.commit()
 
 
+def ensure_player_overall_baseline_sqlite(engine: Engine) -> None:
+    """Create player_overall_baselines for post-update trend arrows (SQLite)."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='player_overall_baselines'"
+            )
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE player_overall_baselines (
+                    player_id INTEGER NOT NULL PRIMARY KEY,
+                    baseline_score INTEGER NOT NULL,
+                    updated_at DATETIME NOT NULL,
+                    FOREIGN KEY(player_id) REFERENCES players (id)
+                )
+                """
+            )
+        )
+        conn.commit()
+
+
 def ensure_skater_career_line_career_source_sqlite(engine: Engine) -> None:
     """Add career_source to player_skater_career_lines when missing (pre-unique-key schema)."""
     if engine.dialect.name != "sqlite":

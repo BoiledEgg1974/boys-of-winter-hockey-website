@@ -1,0 +1,10 @@
+{# Composite 1–100 + optional trend vs last ``flask bowl-overall-baseline-refresh`` snapshot. #}
+{% macro overall_cell(ova) -%}
+{% if ova and ova.score is not none %}
+<td class="stats-ova-cell" data-sort-value="{{ ova.score }}" title="Composite 1–100 from ability, potential, and overview-style attributes (see site docs). Green or red arrow compares to the last baseline snapshot; run: flask bowl-overall-baseline-refresh">
+  <span class="stats-ova__score">{{ ova.score }}</span>{% if ova.delta is not none and ova.delta != 0 %}<span class="stats-ova__trend stats-ova__trend--{% if ova.delta > 0 %}up{% else %}down{% endif %}" aria-label="{% if ova.delta > 0 %}Up{% else %}Down{% endif %} {{ ova.delta }} from baseline">{% if ova.delta > 0 %}↑{% else %}↓{% endif %}</span>{% endif %}
+</td>
+{% else %}
+<td class="stats-ova-cell" data-sort-value="">—</td>
+{% endif %}
+{%- endmacro %}

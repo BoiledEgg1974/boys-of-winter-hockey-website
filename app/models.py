@@ -554,6 +554,16 @@ class HistoryChampion(db.Model):
     team: Mapped["Team"] = relationship()
 
 
+class PlayerOverallBaseline(db.Model):
+    """Last acknowledged 1–100 overall composite per player (see ``bowl-overall-baseline-refresh`` CLI)."""
+
+    __tablename__ = "player_overall_baselines"
+
+    player_id: Mapped[int] = mapped_column(Integer, ForeignKey("players.id"), primary_key=True)
+    baseline_score: Mapped[int] = mapped_column(Integer, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class ImportLog(db.Model):
     __tablename__ = "import_logs"
 

@@ -65,6 +65,11 @@ from app.services.player_contract_csv import (
     contract_years_remaining_major,
 )
 from app.services.player_rating_avgs import goalie_category_averages, skater_category_averages
+from app.services.player_overall_score import (
+    build_overall_cell_map_from_players,
+    fetch_overall_baselines_by_player_ids,
+    overall_cell_map_for_players,
+)
 from app.services.player_ratings_csv import get_player_ratings_row, player_positions_display_label
 from app.services.seasons import get_current_season, season_age_reference_date
 from app.services.franchise_leaders import build_franchise_history_sections
@@ -638,6 +643,7 @@ def _build_statistics_view_vars(
             "statistics_expand_url": "",
             "statistics_collapsed_url": "",
             "stats_page_limit": stats_page_limit,
+            "player_overall_by_id": {},
         }
 
     sk_gp_nf = func.nullif(PlayerSkaterStat.gp, 0)
@@ -830,6 +836,15 @@ def _build_statistics_view_vars(
         gq = gq.limit(stats_full_limit)
     goalies_list = db.session.execute(gq).all()
 
+    _stat_pairs: list[tuple[Player, dict | None]] = []
+    for row, pl in skaters:
+        _stat_pairs.append((pl, get_player_ratings_row(pl.fhm_player_id)))
+    for row, pl in goalies_list:
+        _stat_pairs.append((pl, get_player_ratings_row(pl.fhm_player_id)))
+    _stat_ids = [pl.id for _, pl in skaters] + [pl.id for _, pl in goalies_list]
+    _stat_baselines = fetch_overall_baselines_by_player_ids(db.session, _stat_ids)
+    player_overall_by_id = overall_cell_map_for_players(_stat_pairs, _stat_baselines)
+
     _stat_params: dict[str, object] = {
         "segment": segment,
         "sort": sort,
@@ -875,6 +890,7 @@ def _build_statistics_view_vars(
         "statistics_expand_url": statistics_expand_url,
         "statistics_collapsed_url": statistics_collapsed_url,
         "stats_page_limit": stats_page_limit,
+        "player_overall_by_id": player_overall_by_id,
     }
 
 
@@ -1786,6 +1802,8 @@ def prospects():
         display_rows = rows_out[:prospect_page_limit]
 
     teams = session.scalars(select(Team).where(Team.fhm_league_id.in_(league_ids)).order_by(Team.name)).all()
+    prospect_pls = [r["player"] for r in display_rows]
+    player_overall_by_id = build_overall_cell_map_from_players(session, prospect_pls)
     return render_template(
         "prospects.html",
         prospect_rows=display_rows,
@@ -1799,6 +1817,7 @@ def prospects():
         prospect_sort=sort_col,
         prospect_order=order,
         prospect_sort_desc_defaults=sort_default_desc,
+        player_overall_by_id=player_overall_by_id,
     )
 
 
@@ -1947,6 +1966,8 @@ def undrafted_prospects():
 
     age_query_value = str(age_exact) if age_exact is not None else ""
 
+    ud_pls = [r["player"] for r in display_rows]
+    player_overall_by_id = build_overall_cell_map_from_players(session, ud_pls)
     return render_template(
         "undrafted_prospects.html",
         prospect_rows=display_rows,
@@ -1961,6 +1982,7 @@ def undrafted_prospects():
         prospect_sort_desc_defaults=sort_default_desc,
         undrafted_age_options=ud_age_options,
         undrafted_max_age=undrafted_max_age,
+        player_overall_by_id=player_overall_by_id,
     )
 
 
@@ -2095,6 +2117,8 @@ def free_agents():
     else:
         display_rows = rows_out[:page_limit]
 
+    fa_pls = [r["player"] for r in display_rows]
+    player_overall_by_id = build_overall_cell_map_from_players(session, fa_pls)
     return render_template(
         "free_agents.html",
         fa_rows=display_rows,
@@ -2107,6 +2131,7 @@ def free_agents():
         fa_sort=sort_col,
         fa_order=order,
         fa_sort_desc_defaults=sort_default_desc,
+        player_overall_by_id=player_overall_by_id,
     )
 
 
@@ -3234,10 +3259,14 @@ def team_page(slug: str):
         "team_page_news": _team_page_news_rows(team.id),
         "news_category_label": news_category_label,
     }
+    tmpl_kwargs["player_overall_by_id"] = build_overall_cell_map_from_players(db.session, roster)
     if panel == "statistics":
-        tmpl_kwargs.update(
-            _build_statistics_view_vars(locked_team_id=team.id, locked_team_slug=team.slug)
-        )
+        stat_vars = _build_statistics_view_vars(locked_team_id=team.id, locked_team_slug=team.slug)
+        stat_ov = stat_vars.pop("player_overall_by_id", None) or {}
+        tmpl_kwargs.update(stat_vars)
+        merged_ov = dict(tmpl_kwargs["player_overall_by_id"])
+        merged_ov.update(stat_ov)
+        tmpl_kwargs["player_overall_by_id"] = merged_ov
     return render_template("team.html", **tmpl_kwargs)
 
 
@@ -3381,6 +3410,7 @@ def player_page(player_id: int):
     career_po_sk_totals = skater_career_lines_totals(career_po_sk_bowl) if career_po_sk_bowl else None
     career_rs_gk_totals = goalie_career_lines_totals(career_rs_gk_bowl) if career_rs_gk_bowl else None
     career_po_gk_totals = goalie_career_lines_totals(career_po_gk_bowl) if career_po_gk_bowl else None
+    player_overall_by_id = build_overall_cell_map_from_players(db.session, [player])
     return render_template(
         "player.html",
         player=player,
@@ -3401,6 +3431,7 @@ def player_page(player_id: int):
         accent_team=accent_team,
         draft_picks=draft_picks,
         ratings_row=ratings_row,
+        player_overall_by_id=player_overall_by_id,
         player_age=player_age,
         player_is_goalie=is_goalie,
         show_goalie_career_sections=show_goalie_career_sections,

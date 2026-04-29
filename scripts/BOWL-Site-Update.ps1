@@ -24,7 +24,7 @@ if ($NoDeploy) { $argsList += "--no-deploy" }
 if ($RemotePip) { $argsList += "--remote-pip" }
 if ($SyncApCatalogLocal) { $argsList += "--sync-ap-catalog-local" }
 
-Write-Host "Running BOWL-Site-Update..." -ForegroundColor Cyan
+Write-Host "Running BOWL-Site-Update (includes OVR baseline refresh on local league DBs)..." -ForegroundColor Cyan
 Write-Host ("Command: python " + ($argsList -join " ")) -ForegroundColor DarkGray
 
 python @argsList

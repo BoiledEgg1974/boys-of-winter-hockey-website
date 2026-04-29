@@ -6149,6 +6149,31 @@ table.data.stats-table .stats-badge.stats-badge--overall {
 .stats-badge.stats-badge--overall {
   border-radius: 5px;
 }
+/* Composite 1–100 OVR + trend vs last ``bowl-overall-baseline-refresh`` */
+.stats-ova-cell {
+  font-weight: 600;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+.stats-ova__score {
+  font-variant-numeric: tabular-nums;
+}
+.stats-ova__trend {
+  margin-left: 0.2rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+.stats-ova__trend--up {
+  color: #22c55e;
+}
+.stats-ova__trend--down {
+  color: #ef4444;
+}
+.player-profile__ap-box--ova .player-profile__ap-val--ova {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+}
 .stats-panel .empty-state {
   color: #94a3b8;
 }

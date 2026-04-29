@@ -620,7 +620,7 @@ def _build_statistics_view_vars(
     teams = db.session.scalars(select(Team).order_by(Team.name)).all()
     league_slug_cfg = str(current_app.config.get("LEAGUE_SLUG") or "")
     bowl_fhm_for_fantasy: tuple[int, ...] | None = None
-    if league_slug_cfg == "bowl-fantasy":
+    if league_slug_cfg in ("bowl-fantasy", "bowl-historical", "bowl-cap"):
         bowl_fhm_for_fantasy = bowl_nhl_league_ids(db.session)
         if not bowl_fhm_for_fantasy:
             bowl_fhm_for_fantasy = (0,)

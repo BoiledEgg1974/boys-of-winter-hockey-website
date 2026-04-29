@@ -33,7 +33,7 @@ from app.models import (
     TeamStanding,
     db,
 )
-from app.services.all_time_records import bowl_nhl_league_ids
+from app.services.all_time_records import bowl_nhl_league_ids, skaters_only_position_clause
 from app.services.division_labels import load_division_display_maps
 from app.services.homepage_dashboard import (
     build_active_streaks,
@@ -636,32 +636,30 @@ def homepage_summary():
     recent_form = _recent_form_map(season.id)
     teams_out: list[dict[str, object]] = []
 
-    fantasy_bowl_leaders_only = (
-        str(current_app.config.get("LEAGUE_SLUG") or "") == "bowl-fantasy"
-    )
-    bowl_fhm_league_ids: tuple[int, ...] | None = None
-    if fantasy_bowl_leaders_only:
-        bowl_fhm_league_ids = bowl_nhl_league_ids(db.session)
-        if not bowl_fhm_league_ids:
-            bowl_fhm_league_ids = (0,)
+    league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    bowl_main_fhm_league_ids: tuple[int, ...] | None = None
+    if league_slug in ("bowl-fantasy", "bowl-historical", "bowl-cap"):
+        bowl_main_fhm_league_ids = bowl_nhl_league_ids(db.session)
+        if not bowl_main_fhm_league_ids:
+            bowl_main_fhm_league_ids = (0,)
 
     def leader_rows(stat, order_col, limit=10, goalie=False):
         if goalie:
             q = select(PlayerGoalieStat, Player).join(
                 Player, PlayerGoalieStat.player_id == Player.id
             )
-            if bowl_fhm_league_ids is not None:
+            if bowl_main_fhm_league_ids is not None:
                 q = q.join(Team, PlayerGoalieStat.team_id == Team.id).where(
                     PlayerGoalieStat.season_id == season.id,
                     PlayerGoalieStat.stat_segment == segment,
-                    Team.fhm_league_id.in_(bowl_fhm_league_ids),
+                    Team.fhm_league_id.in_(bowl_main_fhm_league_ids),
                 )
             else:
                 q = q.where(
                     PlayerGoalieStat.season_id == season.id,
                     PlayerGoalieStat.stat_segment == segment,
                 )
-            q = q.order_by(order_col.desc()).limit(limit)
+            q = q.order_by(order_col.desc(), Player.id.asc()).limit(limit)
             rows = db.session.execute(q).all()
             out = []
             for pgs, pl in rows:
@@ -681,18 +679,20 @@ def homepage_summary():
         q = select(PlayerSkaterStat, Player).join(
             Player, PlayerSkaterStat.player_id == Player.id
         )
-        if bowl_fhm_league_ids is not None:
+        if bowl_main_fhm_league_ids is not None:
             q = q.join(Team, PlayerSkaterStat.team_id == Team.id).where(
                 PlayerSkaterStat.season_id == season.id,
                 PlayerSkaterStat.stat_segment == segment,
-                Team.fhm_league_id.in_(bowl_fhm_league_ids),
+                Team.fhm_league_id.in_(bowl_main_fhm_league_ids),
+                skaters_only_position_clause(),
             )
         else:
             q = q.where(
                 PlayerSkaterStat.season_id == season.id,
                 PlayerSkaterStat.stat_segment == segment,
+                skaters_only_position_clause(),
             )
-        q = q.order_by(order_col.desc()).limit(limit)
+        q = q.order_by(order_col.desc(), Player.id.asc()).limit(limit)
         rows = db.session.execute(q).all()
         out = []
         for pss, pl in rows:
@@ -1007,7 +1007,6 @@ def homepage_summary():
     )
     rookies["goalies"] = rookies["goalies"][:50]
 
-    league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
     identity_panel = _misc_statistics_panel(special_teams)
     league_spotlight: dict[str, object] = {"title": "League spotlight", "items": []}
     if league_slug == "bowl-fantasy":

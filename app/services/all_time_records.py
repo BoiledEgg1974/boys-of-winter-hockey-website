@@ -44,6 +44,11 @@ def _skater_pos_clause():
     return or_(Player.position.is_(None), not_(goalie_pos))
 
 
+def skaters_only_position_clause():
+    """Public alias for WHERE clauses on skater-only boards (homepage leaders, etc.)."""
+    return _skater_pos_clause()
+
+
 def skater_sources(split: Split) -> tuple[str, ...]:
     return SKATER_SOURCES_RS if split == "rs" else SKATER_SOURCES_PO
 

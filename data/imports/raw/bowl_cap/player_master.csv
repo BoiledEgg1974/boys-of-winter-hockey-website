@@ -298,7 +298,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 296;0;0;Bob;Corkum;;74;225;1967-12-18;Salisbury;MA;The United States;;;0;Right;0
 297;186;186;Mark;Cornforth;;73;193;1972-11-13;Montreal;QC;Canada;;;0;Left;0
 298;186;186;Yvon;Corriveau;;73;195;1967-2-8;Welland;ON;Canada;;;0;Left;0
-14490;57;16;Tomáš;Divíšek;Divoch;76;240;1979-7-19;Most;UST;Czech Republic;;;0;Left;1
+14490;16;16;Tomáš;Divíšek;Divoch;76;240;1979-7-19;Most;UST;Czech Republic;;;0;Left;1
 300;66;15;Shayne;Corson;;73;202;1966-8-13;Barrie;ON;Canada;;;0;Left;0
 301;186;186;Rich;Costello;;72;182;1963-6-27;Framingham;MA;The United States;;;0;Right;0
 302;186;186;Alain;Cote;;72;207;1967-4-14;Montmagny;QC;Canada;;;0;Right;0
@@ -661,7 +661,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 659;186;186;Shawn;Heaphy;;68;180;1968-11-27;Sudbury;ON;Canada;;;0;Left;0
 660;71;20;Guy;Hebert;Guybo;71;186;1967-1-7;Troy;NY;The United States;;;0;Left;0
 661;22;22;Johan;Hedberg;Moose;72;185;1973-5-5;Stockholm;STO;Sweden;;;0;Left;0
-662;222;220;Bret;Hedican;;74;210;1970-8-10;St. Paul;MN;The United States;;;0;Left;0
+662;220;220;Bret;Hedican;;74;210;1970-8-10;St. Paul;MN;The United States;;;0;Left;0
 663;154;154;Mike;Heidt;;73;190;1963-11-4;Calgary;AB;Germany;Canada;;0;Left;0
 664;186;186;Shawn;Heins;;76;210;1973-12-24;Eganville;ON;Canada;;;0;Left;0
 665;10;10;Steve;Heinze;;71;202;1970-1-30;Lawrence;MA;The United States;;;0;Right;0
@@ -3247,7 +3247,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 14560;185;185;Joe;DiPenta;;74;205;1979-2-25;Barrie;ON;Canada;;;0;Right;0
 14079;65;14;Wade;Dubielewicz;;71;185;1978-1-30;La Ronge;SK;Canada;;;0;Left;1
 14561;159;159;Robert;Dome;;72;210;1979-1-29;Skalica;TRN;Slovakia;;;0;Left;0
-14562;16;16;Harold;Druken;;72;200;1979-1-26;Stephenville;NL;Canada;;;0;Left;1
+14562;57;16;Harold;Druken;;72;200;1979-1-26;Stephenville;NL;Canada;;;0;Left;1
 14080;22;22;J.P.;Dumont;;73;218;1978-4-1;Murdochville;QC;Canada;;;0;Left;0
 15041;157;157;Ilya;Bryzgalov;;75;214;1980-6-22;Togliatti;SAM;Russia;;;0;Left;1
 15042;181;181;Mathieu;Chouinard;;73;212;1980-4-11;Gatineau;QC;Canada;;;0;Left;1

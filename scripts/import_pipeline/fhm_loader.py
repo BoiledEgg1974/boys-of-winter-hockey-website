@@ -146,7 +146,14 @@ def import_league_meta(raw_dir: Path, league_filter: int) -> int:
     return n
 
 
-def ensure_season(raw_dir: Path, league_filter: int) -> Season:
+def ensure_season(raw_dir: Path, league_filter: int) -> tuple[Season, bool]:
+    """Upsert the single FHM mount season row and return whether ``start_year``/``end_year`` changed.
+
+    The same ``Season`` row is reused across sim years (``fhm_season_id``). When the schedule
+    span moves to a new league year, player/goalie **season aggregate** rows must not keep
+    stale totals from the prior year if a CSV is missing rows—callers should flush those
+    aggregates when the second return value is true.
+    """
     path = raw_dir / "schedules.csv"
     years: list[int] = []
     if path.exists():
@@ -177,17 +184,23 @@ def ensure_season(raw_dir: Path, league_filter: int) -> Season:
     for ex in db.session.scalars(select(Season)).all():
         ex.is_current = False
     s = db.session.scalars(select(Season).where(Season.fhm_season_id == sid).limit(1)).first()
+    prev_y0: int | None = None
+    prev_y1: int | None = None
+    if s:
+        prev_y0, prev_y1 = s.start_year, s.end_year
     if not s:
         s = Season(fhm_season_id=sid, label=label, start_year=y0, end_year=y1, is_current=True)
         db.session.add(s)
         db.session.flush()
+        league_year_changed = True
     else:
+        league_year_changed = (prev_y0 != y0) or (prev_y1 != y1)
         s.label = label
         s.start_year = y0
         s.end_year = y1
         s.is_current = True
     db.session.commit()
-    return s
+    return s, league_year_changed
 
 
 def import_fhm_teams(raw_dir: Path, league_filter: int, div_map: dict) -> dict[int, int]:
@@ -1139,7 +1152,16 @@ def run_fhm_import(raw_dir: Path, app, league_filter: int = 0) -> dict[str, int]
     counts: dict[str, int] = {}
     div_map = load_division_names(raw_dir)
     counts["league_meta"] = import_league_meta(raw_dir, league_filter)
-    season = ensure_season(raw_dir, league_filter)
+    season, league_year_changed = ensure_season(raw_dir, league_filter)
+    if league_year_changed:
+        sid = int(season.id)
+        db.session.execute(delete(PlayerSkaterStat).where(PlayerSkaterStat.season_id == sid))
+        db.session.execute(delete(PlayerGoalieStat).where(PlayerGoalieStat.season_id == sid))
+        db.session.commit()
+        log.info(
+            "Schedule-derived league year changed; cleared season aggregates for season_id=%s so imports cannot inherit last year's numbers.",
+            sid,
+        )
     teams_fhm = import_fhm_teams(raw_dir, league_filter, div_map)
     counts["teams"] = len(teams_fhm)
     players_fhm = import_players(raw_dir, teams_fhm)

@@ -117,10 +117,10 @@
   <div class="stats-page__sticky-head">
     {% if team_statistics %}
     <h2>Statistics</h2>
-    {% if season %}<p class="muted team-page-stats-card__season">Season: <strong>{{ season.label }}</strong></p>{% endif %}
+    {% if season %}<p class="muted team-page-stats-card__season">Season: <strong>{{ season|season_display }}</strong></p>{% endif %}
     {% else %}
     <h1 class="page-title stats-page__title">STATISTICS</h1>
-    {% if season %}<p class="stats-page__season muted">Season: <strong>{{ season.label }}</strong></p>{% endif %}
+    {% if season %}<p class="stats-page__season muted">Season: <strong>{{ season|season_display }}</strong></p>{% endif %}
     {% endif %}
     <div class="stats-toolbar card">
     <div class="stats-toolbar__row">

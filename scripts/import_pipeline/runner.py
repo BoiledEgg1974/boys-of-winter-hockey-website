@@ -199,6 +199,31 @@ def _season_by_fhm_or_label(key: str | None) -> Season | None:
     return db.session.scalars(select(Season).where(Season.label == key).limit(1)).first()
 
 
+def _season_for_player_aggregate_import(raw_key: str | None) -> Season | None:
+    """Resolve CSV season cell for ``player_*_stats.csv`` rows.
+
+    Mirrors ``import_team_standings``: use ``get_current_season()`` when the cell is
+    absent or does not match a row, and prefer the **current** sim season when the CSV
+    still points at a former ``Season`` row but the site has advanced (``is_current`` /
+    later ``start_year``).
+    """
+    from app.services.seasons import get_current_season
+
+    key = (raw_key or "").strip()
+    resolved = _season_by_fhm_or_label(key) if key else None
+    cur = get_current_season()
+    if not resolved:
+        return cur
+    if not cur:
+        return resolved
+    if bool(cur.is_current) and not bool(resolved.is_current):
+        return cur
+    rs, cs = resolved.start_year, cur.start_year
+    if rs is not None and cs is not None and cs > rs:
+        return cur
+    return resolved
+
+
 def import_players(raw_dir: Path, app) -> int:
     path = raw_dir / "players.csv"
     if not path.exists():
@@ -393,7 +418,7 @@ def import_skater_stats(raw_dir: Path, app) -> int:
     n = 0
     for _, row in df.iterrows():
         r = row.to_dict()
-        season = _season_by_fhm_or_label(cell_val(r, "season_id", "season"))
+        season = _season_for_player_aggregate_import(cell_val(r, "season_id", "season"))
         player = _player_by_fhm(cell_val(r, "player_id", "fhm_player_id"))
         if not season or not player:
             continue
@@ -435,7 +460,7 @@ def import_goalie_stats(raw_dir: Path, app) -> int:
     n = 0
     for _, row in df.iterrows():
         r = row.to_dict()
-        season = _season_by_fhm_or_label(cell_val(r, "season_id", "season"))
+        season = _season_for_player_aggregate_import(cell_val(r, "season_id", "season"))
         player = _player_by_fhm(cell_val(r, "player_id", "fhm_player_id"))
         if not season or not player:
             continue

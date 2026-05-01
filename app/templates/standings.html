@@ -73,7 +73,7 @@
 {% block content %}
 <h1 class="page-title">Standings</h1>
 {% if season %}
-<p class="muted">Season: <strong>{{ season.label }}</strong></p>
+<p class="muted">Season: <strong>{{ season|season_display }}</strong></p>
 {% endif %}
 <div class="standings-toolbar">
   <div class="tabs">

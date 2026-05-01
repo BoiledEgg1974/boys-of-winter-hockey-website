@@ -5,6 +5,7 @@ from datetime import datetime
 from sqlalchemy import desc, select
 
 from app.models import Player, PlayerGoalieStat, PlayerSkaterStat, Season, Team, TeamStanding
+from app.services.seasons import season_display_label
 
 
 def build_media_kit_snapshot(
@@ -71,7 +72,7 @@ def build_media_kit_snapshot(
     summary = {
         "team_name": team.full_display_name(),
         "team_abbr": str(team.abbreviation or ""),
-        "season_label": str(season.label or ""),
+        "season_label": season_display_label(season),
         "record": (
             f"{int(standing.w or 0)}-{int(standing.l or 0)}-{int(standing.otl or 0)}"
             if standing

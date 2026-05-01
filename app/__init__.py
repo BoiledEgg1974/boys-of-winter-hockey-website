@@ -158,6 +158,16 @@ def create_app(config_class: type = Config) -> Flask:
     app.register_blueprint(site_gm_bp)
     app.register_blueprint(site_admin_bp)
 
+    @app.template_filter("season_display")
+    def season_display_filter(season: object) -> str:
+        """Canonical Boys of Winter season label (July–June year) from ``Season.start_year`` when set."""
+        from app.models import Season as SeasonModel
+        from app.services.seasons import season_display_label
+
+        if isinstance(season, SeasonModel):
+            return season_display_label(season)
+        return ""
+
     @app.template_filter("rating_pill_style")
     def rating_pill_style(val: object) -> str:
         """Inline CSS for ABI/POT pills: 0.5 dark red → 2.75 yellow → 5.0 blue (RGB then HSL blend)."""

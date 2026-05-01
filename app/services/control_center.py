@@ -6,6 +6,7 @@ from pathlib import Path
 from sqlalchemy import func, select
 
 from app.models import Game, ImportLog, Player, Season, Team, TeamStanding
+from app.services.seasons import season_display_label
 
 
 def _iso_dt(value: datetime | None) -> str | None:
@@ -20,7 +21,7 @@ def build_control_center_snapshot(session, raw_dir: Path) -> dict:
         current_season = session.scalar(select(Season).order_by(Season.id.desc()).limit(1))
 
     season_id = int(current_season.id) if current_season else None
-    season_label = str(current_season.label) if current_season else "—"
+    season_label = season_display_label(current_season) if current_season else "—"
 
     teams_total = int(session.scalar(select(func.count(Team.id))) or 0)
     players_total = int(session.scalar(select(func.count(Player.id))) or 0)

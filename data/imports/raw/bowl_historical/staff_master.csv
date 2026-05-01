@@ -572,7 +572,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 570;-1;Gabriel;Pierre;;1910-7-28;Sherbrooke;QC;Canada;;;0
 571;-1;Francisco;Torres;;1910-8-1;Saguenay;QC;Canada;;;0
 572;-1;Zack;Hammond;;1910-11-18;Toronto;ON;Canada;;;0
-573;-1;Don;McCarthy;;1910-6-18;Indio;CA;The United States;;;0
+573;9;Don;McCarthy;;1910-6-18;Indio;CA;The United States;;;0
 574;3;Randall;Davenport;;1910-3-2;Revelstoke;BC;Canada;;;0
 575;-1;Dirk;Ryall;;1910-4-21;Alma;QC;Canada;;;0
 576;-1;Lane;Olsen;;1913-10-9;North Fort Myers;FL;The United States;;;0

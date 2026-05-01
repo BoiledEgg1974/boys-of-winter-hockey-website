@@ -414,6 +414,14 @@ def import_skater_stats(raw_dir: Path, app) -> int:
     if not path.exists():
         log.warning("Skipping player_skater_stats.csv (not found)")
         return 0
+    from app.services.seasons import get_current_season
+
+    cur = get_current_season()
+    if cur is not None:
+        sid = int(cur.id)
+        db.session.execute(delete(PlayerSkaterStat).where(PlayerSkaterStat.season_id == sid))
+        db.session.execute(delete(PlayerGoalieStat).where(PlayerGoalieStat.season_id == sid))
+        db.session.commit()
     df = read_csv_normalized(path)
     n = 0
     for _, row in df.iterrows():
@@ -855,7 +863,13 @@ STEPS = [
 
 def run_import(raw_dir: Path | None = None) -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-    slug = (os.environ.get("LEAGUE_SLUG") or "bowl-fantasy").strip()
+    slug = (os.environ.get("LEAGUE_SLUG") or "").strip()
+    if not slug:
+        log.error(
+            "LEAGUE_SLUG is not set. Run: python scripts/import_data.py bowl-cap "
+            "(or set LEAGUE_SLUG before calling run_import)."
+        )
+        return
     if league_by_slug(slug):
         app = create_app(make_league_config(slug))
         log.info("Import using league slug %r (DB + static paths match mounted app).", slug)
@@ -863,6 +877,12 @@ def run_import(raw_dir: Path | None = None) -> None:
         log.warning("LEAGUE_SLUG %r is not in LEAGUES registry; using default Config.", slug)
         app = create_app(Config)
     raw = Path(raw_dir or app.config["RAW_IMPORT_DIR"])
+    log.info(
+        "Import paths — LEAGUE_SLUG=%r SQLALCHEMY_DATABASE_URI=%s RAW_IMPORT_DIR=%s",
+        slug,
+        app.config.get("SQLALCHEMY_DATABASE_URI"),
+        raw.resolve(),
+    )
     if not raw.is_dir():
         log.error("Raw import directory does not exist: %s", raw)
         return
@@ -930,4 +950,6 @@ def run_import(raw_dir: Path | None = None) -> None:
 
 
 if __name__ == "__main__":
+    if len(sys.argv) >= 2 and (os.environ.get("LEAGUE_SLUG") or "").strip() == "":
+        os.environ["LEAGUE_SLUG"] = sys.argv[1].strip()
     run_import()

@@ -302,10 +302,29 @@
     var navToggle = document.querySelector(".nav-toggle");
     var mainNav = document.querySelector(".main-nav");
     if (navToggle && mainNav) {
+      var navCollapseMq = window.matchMedia("(max-width: 1200px)");
+      function closeMainNavIfCollapsedLayout() {
+        if (!navCollapseMq.matches) {
+          mainNav.classList.remove("is-open");
+          navToggle.setAttribute("aria-expanded", "false");
+        }
+      }
+      if (typeof navCollapseMq.addEventListener === "function") {
+        navCollapseMq.addEventListener("change", closeMainNavIfCollapsedLayout);
+      } else if (typeof navCollapseMq.addListener === "function") {
+        navCollapseMq.addListener(closeMainNavIfCollapsedLayout);
+      }
       navToggle.addEventListener("click", function () {
         mainNav.classList.toggle("is-open");
         var open = mainNav.classList.contains("is-open");
         navToggle.setAttribute("aria-expanded", open ? "true" : "false");
+      });
+      mainNav.querySelectorAll("a").forEach(function (link) {
+        link.addEventListener("click", function () {
+          if (!navCollapseMq.matches) return;
+          mainNav.classList.remove("is-open");
+          navToggle.setAttribute("aria-expanded", "false");
+        });
       });
     }
 

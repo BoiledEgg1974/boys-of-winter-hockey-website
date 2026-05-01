@@ -5506,9 +5506,10 @@ table.data.team-staff-table thead th.team-staff-th--split {
   color: #14532d;
 }
 
-@media (max-width: 720px) {
+/* Collapse primary nav into Menu toggle on tablets / small laptops — avoids a 5–8 row sticky bar */
+@media (max-width: 1200px) {
   :root {
-    --scroll-padding-top: 212px;
+    --scroll-padding-top: 198px;
   }
   .nav-toggle {
     display: block;
@@ -5518,16 +5519,31 @@ table.data.team-staff-table thead th.team-staff-th--split {
     width: 100%;
     flex-direction: column;
     order: 10;
+    flex: 1 1 100%;
+    max-height: min(70vh, 28rem);
+    overflow-y: auto;
+    padding: 0.35rem 0 0.6rem;
+    margin: 0;
+    border-top: 1px solid rgb(255 255 255 / 0.12);
+    -webkit-overflow-scrolling: touch;
   }
   .main-nav.is-open {
     display: flex;
   }
   .main-nav__row {
     justify-content: flex-start;
+    flex-wrap: nowrap;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+  .main-nav__pair {
+    flex-direction: column;
+    align-items: stretch;
   }
   .main-nav a {
-    font-size: 0.84rem;
-    padding: 0.28rem 0.52rem;
+    font-size: 0.92rem;
+    padding: 0.45rem 0.55rem;
   }
   .header-row1 {
     flex-wrap: wrap;
@@ -5562,28 +5578,10 @@ table.data.team-staff-table thead th.team-staff-th--split {
   }
 }
 
-@media (max-width: 900px) and (min-width: 721px) {
-  .header-row1 {
-    gap: 0.55rem 0.85rem;
-    padding: 0.55rem 0.85rem;
-  }
-  .main-nav__row,
-  .main-nav__pair {
-    gap: 0.2rem;
-  }
-  .main-nav a {
-    font-size: 0.86rem;
-    padding: 0.26rem 0.5rem;
-  }
-  .header-row2 {
-    padding: 0.5rem 0.6rem 0.65rem;
-  }
-  .team-strip {
-    gap: 0.32rem 0.45rem;
-  }
-  .team-strip img {
-    width: calc(40px * var(--team-logo-mul));
-    height: calc(40px * var(--team-logo-mul));
+@media (min-width: 1201px) {
+  .main-nav__row {
+    flex-wrap: nowrap;
+    justify-content: center;
   }
 }
 

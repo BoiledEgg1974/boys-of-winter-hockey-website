@@ -56,43 +56,37 @@ def get_current_season() -> Season | None:
     """Return the active season for standings, stats, schedule, etc.
 
     Order of resolution:
-    1. Any season with ``is_current`` true (deterministic: highest ``start_year``, then id),
-       unless schedule data clearly belongs to a **later** season row (see below).
-    2. If no ``is_current``, the season that owns the latest dated ``Game``.
-    3. Else the season that owns the largest ``TeamStanding`` import.
-    4. Else the season row with the highest ``id``.
-
-    When ``is_current`` still points at an older season but imported games exist only
-    on a newer ``Season`` row (higher ``start_year``), or the flagged season has no
-    games while another season has the latest ``game_date``, the schedule wins so
-    statistics stay aligned with July–June sim progression.
+    1. FHM mount row: ``is_current`` and ``fhm_season_id`` like ``fhm-league%`` (must win
+       over any other ``is_current`` row so statistics use the same ``Season`` FHM imports
+       write player aggregates to).
+    2. Else any season with ``is_current`` true (highest ``start_year``, then id).
+    3. Else the season that owns the latest dated ``Game``.
+    4. Else the season that owns the largest ``TeamStanding`` import.
+    5. Else the season row with the highest ``id``.
     """
+    fhm_current = db.session.scalars(
+        select(Season)
+        .where(
+            Season.is_current.is_(True),
+            Season.fhm_season_id.isnot(None),
+            Season.fhm_season_id.like("fhm-league%"),
+        )
+        .order_by(Season.start_year.desc().nulls_last(), Season.id.desc())
+        .limit(1)
+    ).first()
+    if fhm_current:
+        return fhm_current
+
     flagged = db.session.scalars(
         select(Season)
         .where(Season.is_current.is_(True))
         .order_by(Season.start_year.desc().nulls_last(), Season.id.desc())
     ).first()
 
-    sid_latest = _season_id_with_latest_game_date()
-
-    if flagged and sid_latest is not None and int(sid_latest) != int(flagged.id):
-        s_latest = db.session.get(Season, int(sid_latest))
-        if s_latest is not None:
-            max_d_flagged = db.session.scalar(
-                select(func.max(Game.game_date)).where(
-                    Game.season_id == flagged.id,
-                    Game.game_date.isnot(None),
-                )
-            )
-            fy = flagged.start_year
-            gy = s_latest.start_year
-            if max_d_flagged is None:
-                return s_latest
-            if fy is not None and gy is not None and gy > fy:
-                return s_latest
-
     if flagged:
         return flagged
+
+    sid_latest = _season_id_with_latest_game_date()
 
     if sid_latest is not None:
         s = db.session.get(Season, int(sid_latest))

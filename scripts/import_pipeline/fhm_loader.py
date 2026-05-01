@@ -41,6 +41,11 @@ from scripts.import_pipeline.encoding_utils import (
 log = logging.getLogger("bowl.fhm")
 
 
+def _league_start_year_from_game_date(d: date) -> int:
+    """League year begins July 1: games in Jan–Jun belong to the previous July–June label."""
+    return int(d.year) if d.month >= 7 else int(d.year) - 1
+
+
 def _slug(abbr: str, team_fhm_id: int) -> str:
     base = re.sub(r"[^a-z0-9]+", "-", (abbr or "tm").lower()).strip("-") or "tm"
     return f"{base}-t{team_fhm_id}"
@@ -149,13 +154,13 @@ def import_league_meta(raw_dir: Path, league_filter: int) -> int:
 def ensure_season(raw_dir: Path, league_filter: int) -> tuple[Season, bool]:
     """Upsert the single FHM mount season row and return whether ``start_year``/``end_year`` changed.
 
-    The same ``Season`` row is reused across sim years (``fhm_season_id``). When the schedule
-    span moves to a new league year, player/goalie **season aggregate** rows must not keep
-    stale totals from the prior year if a CSV is missing rows—callers should flush those
-    aggregates when the second return value is true.
+    Schedule dates are mapped to a **July–June** league start year so January games attach to
+    the correct Boys-of-Winter season. The same ``Season`` row is reused (``fhm_season_id``);
+    ``run_fhm_import`` always clears season-scoped skater/goalie aggregates before reloading
+    CSV segments so rolled years cannot keep stale totals.
     """
     path = raw_dir / "schedules.csv"
-    years: list[int] = []
+    league_start_years: list[int] = []
     if path.exists():
         df = read_csv_normalized(path)
         for _, row in df.iterrows():
@@ -165,9 +170,12 @@ def ensure_season(raw_dir: Path, league_filter: int) -> tuple[Season, bool]:
             ds = cell_val(r, "date")
             parsed = parse_fhm_date(ds)
             if parsed:
-                years.append(parsed.year)
-    y0 = min(years) if years else 1967
-    y1 = max(years) if years else y0 + 1
+                league_start_years.append(_league_start_year_from_game_date(parsed))
+    y0 = min(league_start_years) if league_start_years else 1967
+    if league_start_years:
+        y1 = max(league_start_years) + 1
+    else:
+        y1 = y0 + 1
     if y1 <= y0:
         y1 = y0 + 1
     lm = db.session.scalars(
@@ -493,6 +501,10 @@ def import_games(
             )
             db.session.add(g)
             db.session.flush()
+        else:
+            # Re-bind to the active FHM season row; reused ``fhm_game_id`` rows must not keep
+            # a stale ``season_id`` from an older league-year row after rollover.
+            g.season_id = int(season.id)
         ds = cell_val(r, "date")
         gd = parse_fhm_date(ds)
         if gd:
@@ -1154,13 +1166,11 @@ def run_fhm_import(raw_dir: Path, app, league_filter: int = 0) -> dict[str, int]
     counts["league_meta"] = import_league_meta(raw_dir, league_filter)
     season, league_year_changed = ensure_season(raw_dir, league_filter)
     if league_year_changed:
-        sid = int(season.id)
-        db.session.execute(delete(PlayerSkaterStat).where(PlayerSkaterStat.season_id == sid))
-        db.session.execute(delete(PlayerGoalieStat).where(PlayerGoalieStat.season_id == sid))
-        db.session.commit()
         log.info(
-            "Schedule-derived league year changed; cleared season aggregates for season_id=%s so imports cannot inherit last year's numbers.",
-            sid,
+            "FHM schedule span changed (season_id=%s start_year=%s end_year=%s).",
+            int(season.id),
+            season.start_year,
+            season.end_year,
         )
     teams_fhm = import_fhm_teams(raw_dir, league_filter, div_map)
     counts["teams"] = len(teams_fhm)
@@ -1186,6 +1196,16 @@ def run_fhm_import(raw_dir: Path, app, league_filter: int = 0) -> dict[str, int]
     counts["box_skaters"] = import_boxscore_skaters(raw_dir, games_fhm, players_fhm, teams_fhm)
     counts["box_goalies"] = import_boxscore_goalies(raw_dir, games_fhm, players_fhm, teams_fhm)
     counts["scoring_events"] = import_period_scoring(raw_dir, games_fhm, players_fhm, teams_fhm)
+
+    # One reused ``Season`` row per FHM mount: ``import_skater_segment`` only overwrites rows
+    # present in each CSV. After a rolled year, ``ensure_season``'s start/end years may not
+    # change if ``schedules.csv`` still spans overlapping calendar years, so always wipe
+    # season-scoped aggregates before reloading the bundle (semicolon exports are full-file).
+    sid = int(season.id)
+    db.session.execute(delete(PlayerSkaterStat).where(PlayerSkaterStat.season_id == sid))
+    db.session.execute(delete(PlayerGoalieStat).where(PlayerGoalieStat.season_id == sid))
+    db.session.commit()
+    log.info("Cleared player_skater_stats / player_goalie_stats for season_id=%s before FHM segment import.", sid)
 
     for fname, seg in [
         ("player_skater_stats_rs.csv", "rs"),

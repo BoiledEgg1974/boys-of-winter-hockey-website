@@ -54,6 +54,7 @@ from app.services.homepage_modules import module_sort_order_map, module_visibili
 from app.services.homepage_ticker import build_homepage_ticker_items
 from app.services.postseason_odds import build_postseason_odds_payload
 from app.services.playoff_bracket import playoff_bracket_payload
+from app.services.player_overall_score import build_overall_cell_map_from_players
 from app.services.player_rating_avgs import goalie_category_averages, skater_category_averages
 from app.services.player_headshot import resolve_player_headshot_static_filename
 from app.services.player_ratings_csv import get_player_ratings_row, player_positions_display_label
@@ -314,6 +315,154 @@ def search_players():
     return jsonify({"results": out})
 
 
+def _hockey_year_label_from_start_year(y: int) -> str:
+    return f"{y}-{(y + 1) % 100:02d}"
+
+
+def _bowl_league_ids_for_career(session) -> tuple[int, ...]:
+    lids = bowl_nhl_league_ids(session)
+    return lids if lids else (0,)
+
+
+def _hover_skater_career_yearly(session, player_id: int) -> list[tuple[int, int, int, int, int, int]]:
+    """Per FHM ``season_year`` RS totals (rs + retired_rs), BOWL/NHL leagues only."""
+    line = PlayerSkaterCareerLine
+    lids = _bowl_league_ids_for_career(session)
+    stmt = (
+        select(
+            line.season_year,
+            func.coalesce(func.sum(line.gp), 0),
+            func.coalesce(func.sum(line.goals), 0),
+            func.coalesce(func.sum(line.assists), 0),
+            func.coalesce(func.sum(line.pim), 0),
+            func.coalesce(func.sum(func.coalesce(line.plus_minus, 0)), 0),
+        )
+        .where(
+            line.player_id == player_id,
+            line.career_source.in_(("rs", "retired_rs")),
+            line.league_fhm_id.in_(lids),
+        )
+        .group_by(line.season_year)
+        .order_by(line.season_year.desc())
+    )
+    return [(int(sy), int(gp), int(g), int(a), int(pim), int(pm)) for sy, gp, g, a, pim, pm in session.execute(stmt)]
+
+
+def _hover_goalie_career_yearly(
+    session, player_id: int
+) -> list[tuple[int, int, int, int, int, int, int]]:
+    line = PlayerGoalieCareerLine
+    lids = _bowl_league_ids_for_career(session)
+    stmt = (
+        select(
+            line.season_year,
+            func.coalesce(func.sum(line.gp), 0),
+            func.coalesce(func.sum(line.wins), 0),
+            func.coalesce(func.sum(line.losses), 0),
+            func.coalesce(func.sum(line.goals_against), 0),
+            func.coalesce(func.sum(line.shots_against), 0),
+            func.coalesce(func.sum(line.shutouts), 0),
+        )
+        .where(
+            line.player_id == player_id,
+            line.career_source.in_(("rs", "retired_rs")),
+            line.league_fhm_id.in_(lids),
+        )
+        .group_by(line.season_year)
+        .order_by(line.season_year.desc())
+    )
+    return [
+        (int(sy), int(gp), int(w), int(l), int(ga), int(sa), int(so))
+        for sy, gp, w, l, ga, sa, so in session.execute(stmt)
+    ]
+
+
+def _hover_recent_skater_seasons(session, player_id: int) -> list[dict[str, object]]:
+    """Up to 3 most recent RS seasons: prefer ``PlayerSkaterStat`` rows, fill earlier years from career CSV."""
+    by_year: dict[int, dict[str, object]] = {}
+    stat_rows = session.execute(
+        select(PlayerSkaterStat, Season)
+        .join(Season, PlayerSkaterStat.season_id == Season.id)
+        .where(PlayerSkaterStat.player_id == player_id, PlayerSkaterStat.stat_segment == "rs")
+        .order_by(Season.start_year.desc().nulls_last(), Season.id.desc())
+    ).all()
+    for st, sn in stat_rows:
+        if sn.start_year is None:
+            continue
+        y = int(sn.start_year)
+        by_year[y] = {
+            "season": season_display_label(sn),
+            "gp": int(st.gp or 0),
+            "goals": int(st.goals or 0),
+            "assists": int(st.assists or 0),
+            "points": int(st.points or 0),
+            "pim": int(st.pim or 0),
+            "plus_minus": st.plus_minus,
+        }
+    for sy, gp, g, a, pim, pm in _hover_skater_career_yearly(session, player_id):
+        if sy in by_year:
+            continue
+        by_year[sy] = {
+            "season": _hockey_year_label_from_start_year(sy),
+            "gp": int(gp),
+            "goals": int(g),
+            "assists": int(a),
+            "points": int(g) + int(a),
+            "pim": int(pim),
+            "plus_minus": int(pm),
+        }
+    if not by_year:
+        return []
+    years = sorted(by_year.keys(), reverse=True)[:3]
+    return [by_year[y] for y in years]
+
+
+def _hover_recent_goalie_seasons(session, player_id: int) -> list[dict[str, object]]:
+    """Up to 3 most recent RS seasons: prefer ``PlayerGoalieStat`` rows, fill from career CSV."""
+    by_year: dict[int, dict[str, object]] = {}
+    stat_rows = session.execute(
+        select(PlayerGoalieStat, Season)
+        .join(Season, PlayerGoalieStat.season_id == Season.id)
+        .where(PlayerGoalieStat.player_id == player_id, PlayerGoalieStat.stat_segment == "rs")
+        .order_by(Season.start_year.desc().nulls_last(), Season.id.desc())
+    ).all()
+    for st, sn in stat_rows:
+        if sn.start_year is None:
+            continue
+        y = int(sn.start_year)
+        sv = float(st.sv_pct) if st.sv_pct is not None else None
+        by_year[y] = {
+            "season": season_display_label(sn),
+            "gp": int(st.gp or 0),
+            "wins": int(st.wins or 0),
+            "losses": int(st.losses or 0),
+            "ga": int(st.ga or 0),
+            "sa": int(st.sa or 0),
+            "sv_pct": round(sv, 3) if sv is not None else None,
+            "so": int(st.so or 0),
+        }
+    for sy, gp, w, l, ga, sa, so in _hover_goalie_career_yearly(session, player_id):
+        if sy in by_year:
+            continue
+        sv_pct: float | None = None
+        if int(sa) > 0:
+            sv_pct = round((float(sa) - float(ga)) / float(sa), 3)
+        by_year[sy] = {
+            "season": _hockey_year_label_from_start_year(sy),
+            "gp": int(gp),
+            "wins": int(w),
+            "losses": int(l),
+            "ga": int(ga),
+            "sa": int(sa),
+            "sv_pct": sv_pct,
+            "so": int(so),
+        }
+    if not by_year:
+        return []
+    years = sorted(by_year.keys(), reverse=True)[:3]
+    return [by_year[y] for y in years]
+
+
 @api_bp.get("/player/<int:player_id>/hover-card")
 def player_hover_card(player_id: int):
     player = db.session.get(Player, player_id)
@@ -338,10 +487,28 @@ def player_hover_card(player_id: int):
             "phy": int(round(avgs["phy"])) if avgs.get("phy") is not None else None,
             "men": int(round(avgs["men"])) if avgs.get("men") is not None else None,
         }
+    ovr_map = build_overall_cell_map_from_players(db.session, [player])
+    ova = ovr_map.get(player.id) or {}
+    ovr_score = ova.get("score")
+    ovr_int = int(ovr_score) if ovr_score is not None else None
+
+    retired = bool(getattr(player, "retired", False))
+    if retired:
+        recent: list[dict[str, object]] = []
+        recent_role = "skater"
+    elif is_goalie:
+        recent = _hover_recent_goalie_seasons(db.session, player.id)
+        recent_role = "goalie"
+    else:
+        recent = _hover_recent_skater_seasons(db.session, player.id)
+        recent_role = "skater"
+
     return jsonify(
         {
             "id": player.id,
             "name": player.full_name or "",
+            "player_ovr": ovr_int,
+            "retired": retired,
             "position": player_positions_display_label(player),
             "team_abbr": team.abbreviation if team else "",
             "age": age,
@@ -353,6 +520,8 @@ def player_hover_card(player_id: int):
             "is_goalie": is_goalie,
             "attrs": attrs,
             "photo_url": _player_photo_url(player),
+            "recent_seasons_role": recent_role,
+            "recent_seasons": recent,
         }
     )
 

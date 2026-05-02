@@ -102,6 +102,7 @@
 
   function initPlayerHoverCards() {
     var cache = {};
+    var HOVER_CARD_CACHE_VER = 4;
     var activeAnchor = null;
     var showTimer = null;
     var hideTimer = null;
@@ -140,6 +141,68 @@
       card.style.top = Math.round(top) + "px";
     }
 
+    function fmtPlusMinus(v) {
+      if (v == null || v === "") return "—";
+      var n = Number(v);
+      if (!isFinite(n)) return "—";
+      if (n > 0) return "+" + String(n);
+      return String(n);
+    }
+
+    function hoverRecentSeasonsBlock(d) {
+      if (d.retired) return "";
+      var rows = d.recent_seasons || [];
+      if (!rows.length) return "";
+      var role = d.recent_seasons_role || "skater";
+      var h =
+        '<div class="player-hover-seasons"><div class="player-hover-seasons__title">Recent seasons (RS)</div><table class="player-hover-seasons__table">';
+      if (role === "goalie") {
+        h +=
+          "<thead><tr><th>Season</th><th>GP</th><th>W</th><th>L</th><th>GA</th><th>SV%</th></tr></thead><tbody>";
+        rows.forEach(function (r) {
+          var sv = r.sv_pct;
+          var svS = sv == null ? "—" : escapeHtml(Number(sv).toFixed(3));
+          h +=
+            "<tr><td>" +
+            escapeHtml(r.season || "—") +
+            "</td><td>" +
+            escapeHtml(String(r.gp != null ? r.gp : "—")) +
+            "</td><td>" +
+            escapeHtml(String(r.wins != null ? r.wins : "—")) +
+            "</td><td>" +
+            escapeHtml(String(r.losses != null ? r.losses : "—")) +
+            "</td><td>" +
+            escapeHtml(String(r.ga != null ? r.ga : "—")) +
+            "</td><td>" +
+            svS +
+            "</td></tr>";
+        });
+      } else {
+        h +=
+          "<thead><tr><th>Season</th><th>GP</th><th>G</th><th>A</th><th>PTS</th><th>PIM</th><th>+/-</th></tr></thead><tbody>";
+        rows.forEach(function (r) {
+          h +=
+            "<tr><td>" +
+            escapeHtml(r.season || "—") +
+            "</td><td>" +
+            escapeHtml(String(r.gp != null ? r.gp : "—")) +
+            "</td><td>" +
+            escapeHtml(String(r.goals != null ? r.goals : "—")) +
+            "</td><td>" +
+            escapeHtml(String(r.assists != null ? r.assists : "—")) +
+            "</td><td>" +
+            escapeHtml(String(r.points != null ? r.points : "—")) +
+            "</td><td>" +
+            escapeHtml(String(r.pim != null ? r.pim : "—")) +
+            "</td><td>" +
+            escapeHtml(fmtPlusMinus(r.plus_minus)) +
+            "</td></tr>";
+        });
+      }
+      h += "</tbody></table></div>";
+      return h;
+    }
+
     function renderCard(d) {
       var attrsHtml = "";
       if (d.is_goalie) {
@@ -166,6 +229,11 @@
       var shoots = d.shoots || "—";
       if (/^l/i.test(shoots)) shoots = "Left";
       else if (/^r/i.test(shoots)) shoots = "Right";
+      var ovrHtml =
+        d.player_ovr != null && d.player_ovr !== ""
+          ? '<span class="player-hover-card__ovr"> · ' + escapeHtml(String(d.player_ovr)) + " OVR</span>"
+          : "";
+      var seasonsHtml = hoverRecentSeasonsBlock(d);
       card.innerHTML =
         '<div class="player-hover-card__row">' +
         '<div class="player-hover-card__photo">' +
@@ -174,7 +242,7 @@
           : '<span class="player-hover-card__photo-ph"></span>') +
         "</div>" +
         '<div class="player-hover-card__body">' +
-        '<div class="player-hover-card__name">' + escapeHtml(d.name || "Player") + "</div>" +
+        '<div class="player-hover-card__name">' + escapeHtml(d.name || "Player") + ovrHtml + "</div>" +
         '<div class="player-hover-card__meta">' +
         escapeHtml(d.position || "—") +
         (d.team_abbr ? ", " + escapeHtml(d.team_abbr) : "") +
@@ -189,6 +257,7 @@
         '<span class="player-hover-ap__sep">|</span>' +
         '<span class="player-hover-ap__label">POT</span><span class="player-hover-ap__stars">' + hoverStars(d.pot) + "</span>" +
         "</div>" +
+        seasonsHtml +
         "</div></div>";
     }
 
@@ -198,7 +267,7 @@
       showTimer = setTimeout(function () {
         activeAnchor = anchor;
         var cached = cache[playerId];
-        if (cached) {
+        if (cached && cached._hoverFmt === HOVER_CARD_CACHE_VER) {
           renderCard(cached);
           card.hidden = false;
           moveCardNear(anchor);
@@ -208,6 +277,7 @@
           .then(function (r) { return r.json(); })
           .then(function (d) {
             if (!d || d.error) return;
+            d._hoverFmt = HOVER_CARD_CACHE_VER;
             cache[playerId] = d;
             if (activeAnchor !== anchor) return;
             renderCard(d);

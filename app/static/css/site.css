@@ -5384,7 +5384,7 @@ table.data.team-staff-table thead th.team-staff-th--split {
 .player-hover-card {
   position: absolute;
   z-index: 3000;
-  width: min(360px, calc(100vw - 20px));
+  width: min(400px, calc(100vw - 20px));
   border: 1px solid rgb(71 85 105 / 0.6);
   border-radius: 10px;
   background: rgb(11 22 44 / 0.97);
@@ -5423,6 +5423,12 @@ table.data.team-staff-table thead th.team-staff-th--split {
   font-weight: 700;
   font-size: 1.02rem;
   line-height: 1.1;
+}
+.player-hover-card__name .player-hover-card__ovr {
+  color: #94a3b8;
+  font-weight: 600;
+  font-size: 0.88rem;
+  font-variant-numeric: tabular-nums;
 }
 .player-hover-card__meta {
   margin-top: 0.15rem;
@@ -5483,6 +5489,44 @@ table.data.team-staff-table thead th.team-staff-th--split {
 .player-hover-stars__empty {
   color: #64748b;
   font-size: 0.74rem;
+}
+.player-hover-seasons {
+  margin-top: 0.45rem;
+  border-top: 1px solid rgb(71 85 105 / 0.45);
+  padding-top: 0.35rem;
+}
+.player-hover-seasons__title {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #93c5fd;
+  margin-bottom: 0.28rem;
+}
+.player-hover-seasons__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.66rem;
+  font-variant-numeric: tabular-nums;
+}
+.player-hover-seasons__table th,
+.player-hover-seasons__table td {
+  padding: 0.1rem 0.18rem;
+  text-align: right;
+  color: #cbd5e1;
+}
+.player-hover-seasons__table th {
+  font-weight: 700;
+  color: #94a3b8;
+  border-bottom: 1px solid rgb(71 85 105 / 0.5);
+}
+.player-hover-seasons__table td:first-child,
+.player-hover-seasons__table th:first-child {
+  text-align: left;
+  padding-left: 0;
+}
+.player-hover-seasons__table tbody tr:nth-child(even) td {
+  background: rgb(15 23 42 / 0.35);
 }
 @media (max-width: 980px) {
   .team-lines-unit {

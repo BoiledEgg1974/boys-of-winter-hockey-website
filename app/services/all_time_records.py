@@ -1,4 +1,8 @@
-"""Aggregate all-time skater and goalie totals from career line tables."""
+"""Aggregate all-time skater and goalie totals from career line tables.
+
+Rows from both active (*rs* / *po*) and retired-player (*retired_rs* / *retired_po*) imports
+are deduplicated per season/team/league before summing so totals match the player profile.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -69,6 +73,21 @@ def default_goalie_sort_order(sort_key: str) -> SortOrder:
     return "desc"
 
 
+def _career_source_rank_for_split(line, split: Split):
+    """Prefer active-season CSV (*rs* / *po*) over retired-player CSV (*retired_rs* / *retired_po*)."""
+    if split == "rs":
+        return case(
+            (line.career_source == "rs", 0),
+            (line.career_source == "retired_rs", 1),
+            else_=9,
+        )
+    return case(
+        (line.career_source == "po", 0),
+        (line.career_source == "retired_po", 1),
+        else_=9,
+    )
+
+
 def _asc_desc(col, order: SortOrder):
     return col.asc() if order == "asc" else col.desc()
 
@@ -128,32 +147,71 @@ def fetch_skater_all_time(
     league_ids = bowl_nhl_league_ids(session)
     line = PlayerSkaterCareerLine
     src = skater_sources(split)
-    sq = (
+    rank_pref = _career_source_rank_for_split(line, split)
+    # One row per (player, season, team, league): *rs* vs *retired_rs* (and PO analog) both exist in DB.
+    lined = (
         select(
-            line.player_id.label("pid"),
-            func.coalesce(func.sum(line.gp), 0).label("gp"),
-            func.coalesce(func.sum(line.goals), 0).label("goals"),
-            func.coalesce(func.sum(line.assists), 0).label("assists"),
-            func.coalesce(func.sum(line.pim), 0).label("pim"),
-            func.coalesce(func.sum(func.coalesce(line.plus_minus, 0)), 0).label("plus_minus"),
-            func.coalesce(func.sum(func.coalesce(line.pp_goals, 0)), 0).label("pp_goals"),
-            func.coalesce(func.sum(func.coalesce(line.pp_assists, 0)), 0).label("pp_assists"),
-            func.coalesce(func.sum(func.coalesce(line.sh_goals, 0)), 0).label("sh_goals"),
-            func.coalesce(func.sum(func.coalesce(line.sh_assists, 0)), 0).label("sh_assists"),
-            func.coalesce(func.sum(func.coalesce(line.gwg, 0)), 0).label("gwg"),
-            func.coalesce(func.sum(func.coalesce(line.fights, 0)), 0).label("fights"),
-            func.coalesce(func.sum(func.coalesce(line.fights_won, 0)), 0).label("fights_won"),
-            func.coalesce(func.sum(func.coalesce(line.hits, 0)), 0).label("hits"),
-            func.coalesce(func.sum(func.coalesce(line.gva, 0)), 0).label("gva"),
-            func.coalesce(func.sum(func.coalesce(line.tka, 0)), 0).label("tka"),
-            func.coalesce(func.sum(func.coalesce(line.sb, 0)), 0).label("sb"),
-            func.coalesce(func.sum(func.coalesce(line.shots, 0)), 0).label("shots"),
-            func.min(line.season_year).label("yr_min"),
-            func.max(line.season_year).label("yr_max"),
+            line.player_id,
+            line.season_year,
+            line.team_fhm_id,
+            line.league_fhm_id,
+            line.gp,
+            line.goals,
+            line.assists,
+            line.pim,
+            line.plus_minus,
+            line.pp_goals,
+            line.pp_assists,
+            line.sh_goals,
+            line.sh_assists,
+            line.gwg,
+            line.fights,
+            line.fights_won,
+            line.hits,
+            line.gva,
+            line.tka,
+            line.sb,
+            line.shots,
+            func.row_number()
+            .over(
+                partition_by=(
+                    line.player_id,
+                    line.season_year,
+                    line.team_fhm_id,
+                    line.league_fhm_id,
+                ),
+                order_by=(rank_pref, line.id),
+            )
+            .label("rn"),
         )
         .where(line.career_source.in_(src))
         .where(line.league_fhm_id.in_(league_ids))
-        .group_by(line.player_id)
+    ).subquery()
+    sq = (
+        select(
+            lined.c.player_id.label("pid"),
+            func.coalesce(func.sum(lined.c.gp), 0).label("gp"),
+            func.coalesce(func.sum(lined.c.goals), 0).label("goals"),
+            func.coalesce(func.sum(lined.c.assists), 0).label("assists"),
+            func.coalesce(func.sum(lined.c.pim), 0).label("pim"),
+            func.coalesce(func.sum(func.coalesce(lined.c.plus_minus, 0)), 0).label("plus_minus"),
+            func.coalesce(func.sum(func.coalesce(lined.c.pp_goals, 0)), 0).label("pp_goals"),
+            func.coalesce(func.sum(func.coalesce(lined.c.pp_assists, 0)), 0).label("pp_assists"),
+            func.coalesce(func.sum(func.coalesce(lined.c.sh_goals, 0)), 0).label("sh_goals"),
+            func.coalesce(func.sum(func.coalesce(lined.c.sh_assists, 0)), 0).label("sh_assists"),
+            func.coalesce(func.sum(func.coalesce(lined.c.gwg, 0)), 0).label("gwg"),
+            func.coalesce(func.sum(func.coalesce(lined.c.fights, 0)), 0).label("fights"),
+            func.coalesce(func.sum(func.coalesce(lined.c.fights_won, 0)), 0).label("fights_won"),
+            func.coalesce(func.sum(func.coalesce(lined.c.hits, 0)), 0).label("hits"),
+            func.coalesce(func.sum(func.coalesce(lined.c.gva, 0)), 0).label("gva"),
+            func.coalesce(func.sum(func.coalesce(lined.c.tka, 0)), 0).label("tka"),
+            func.coalesce(func.sum(func.coalesce(lined.c.sb, 0)), 0).label("sb"),
+            func.coalesce(func.sum(func.coalesce(lined.c.shots, 0)), 0).label("shots"),
+            func.min(lined.c.season_year).label("yr_min"),
+            func.max(lined.c.season_year).label("yr_max"),
+        )
+        .where(lined.c.rn == 1)
+        .group_by(lined.c.player_id)
     ).subquery()
 
     pts = sq.c.goals + sq.c.assists
@@ -297,24 +355,54 @@ def fetch_goalie_all_time(
     league_ids = bowl_nhl_league_ids(session)
     line = PlayerGoalieCareerLine
     src = goalie_sources(split)
-    sq = (
+    rank_pref = _career_source_rank_for_split(line, split)
+    lined = (
         select(
-            line.player_id.label("pid"),
-            func.coalesce(func.sum(line.gp), 0).label("gp"),
-            func.coalesce(func.sum(line.wins), 0).label("wins"),
-            func.coalesce(func.sum(line.losses), 0).label("losses"),
-            func.coalesce(func.sum(func.coalesce(line.ties_otl, 0)), 0).label("otl_sum"),
-            func.coalesce(func.sum(line.goals_against), 0).label("sum_ga"),
-            func.coalesce(func.sum(line.shots_against), 0).label("sum_sa"),
-            func.coalesce(func.sum(line.shutouts), 0).label("shutouts"),
-            func.coalesce(func.sum(func.coalesce(line.minutes_played, 0)), 0).label("sum_min"),
-            func.coalesce(func.sum(func.coalesce(line.games_started, 0)), 0).label("gs_sum"),
-            func.min(line.season_year).label("yr_min"),
-            func.max(line.season_year).label("yr_max"),
+            line.player_id,
+            line.season_year,
+            line.team_fhm_id,
+            line.league_fhm_id,
+            line.gp,
+            line.wins,
+            line.losses,
+            line.ties_otl,
+            line.goals_against,
+            line.shots_against,
+            line.shutouts,
+            line.minutes_played,
+            line.games_started,
+            func.row_number()
+            .over(
+                partition_by=(
+                    line.player_id,
+                    line.season_year,
+                    line.team_fhm_id,
+                    line.league_fhm_id,
+                ),
+                order_by=(rank_pref, line.id),
+            )
+            .label("rn"),
         )
         .where(line.career_source.in_(src))
         .where(line.league_fhm_id.in_(league_ids))
-        .group_by(line.player_id)
+    ).subquery()
+    sq = (
+        select(
+            lined.c.player_id.label("pid"),
+            func.coalesce(func.sum(lined.c.gp), 0).label("gp"),
+            func.coalesce(func.sum(lined.c.wins), 0).label("wins"),
+            func.coalesce(func.sum(lined.c.losses), 0).label("losses"),
+            func.coalesce(func.sum(func.coalesce(lined.c.ties_otl, 0)), 0).label("otl_sum"),
+            func.coalesce(func.sum(lined.c.goals_against), 0).label("sum_ga"),
+            func.coalesce(func.sum(lined.c.shots_against), 0).label("sum_sa"),
+            func.coalesce(func.sum(lined.c.shutouts), 0).label("shutouts"),
+            func.coalesce(func.sum(func.coalesce(lined.c.minutes_played, 0)), 0).label("sum_min"),
+            func.coalesce(func.sum(func.coalesce(lined.c.games_started, 0)), 0).label("gs_sum"),
+            func.min(lined.c.season_year).label("yr_min"),
+            func.max(lined.c.season_year).label("yr_max"),
+        )
+        .where(lined.c.rn == 1)
+        .group_by(lined.c.player_id)
     ).subquery()
 
     total_ga = sq.c.sum_ga

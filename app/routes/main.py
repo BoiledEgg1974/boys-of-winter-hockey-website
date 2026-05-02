@@ -8,6 +8,7 @@ import unicodedata
 from datetime import date
 from email.message import EmailMessage
 from pathlib import Path
+from typing import Protocol, TypeVar
 
 from flask import Blueprint, abort, current_app, render_template, request, url_for
 from sqlalchemy import case, cast, extract, Float, func, not_, nulls_last, or_, select
@@ -3398,6 +3399,43 @@ def _player_age_years(birth: date | None, as_of: date | None = None) -> int | No
     return ref.year - birth.year - ((ref.month, ref.day) < (birth.month, birth.day))
 
 
+class _CareerLineDedupeKey(Protocol):
+    season_year: int
+    team_fhm_id: int
+    league_fhm_id: int
+    career_source: str
+
+
+_CDL = TypeVar("_CDL", bound=_CareerLineDedupeKey)
+
+
+def _dedupe_career_lines_by_season_team_league(
+    lines: list[_CDL],
+    source_rank: dict[str, int],
+) -> list[_CDL]:
+    """One row per (season_year, team_fhm_id, league_fhm_id); prefer lower *source_rank*."""
+    if not lines:
+        return []
+    ordered = sorted(
+        lines,
+        key=lambda ln: (
+            -ln.season_year,
+            ln.team_fhm_id,
+            ln.league_fhm_id,
+            source_rank.get(ln.career_source, 9),
+        ),
+    )
+    out: list[_CDL] = []
+    seen: set[tuple[int, int, int]] = set()
+    for ln in ordered:
+        key = (ln.season_year, ln.team_fhm_id, ln.league_fhm_id)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(ln)
+    return out
+
+
 def _dedupe_goalie_playoff_career_lines(
     lines: list[PlayerGoalieCareerLine],
 ) -> list[PlayerGoalieCareerLine]:
@@ -3408,27 +3446,7 @@ def _dedupe_goalie_playoff_career_lines(
     *retired_po*; we match that and, if both *po* and *retired_po* exist for the same key,
     keep *po* (season CSV) over *retired_po*.
     """
-    if not lines:
-        return []
-    rank = {"po": 0, "retired_po": 1}
-    ordered = sorted(
-        lines,
-        key=lambda ln: (
-            -ln.season_year,
-            ln.team_fhm_id,
-            ln.league_fhm_id,
-            rank.get(ln.career_source, 9),
-        ),
-    )
-    out: list[PlayerGoalieCareerLine] = []
-    seen: set[tuple[int, int, int]] = set()
-    for ln in ordered:
-        key = (ln.season_year, ln.team_fhm_id, ln.league_fhm_id)
-        if key in seen:
-            continue
-        seen.add(key)
-        out.append(ln)
-    return out
+    return _dedupe_career_lines_by_season_team_league(lines, {"po": 0, "retired_po": 1})
 
 
 @main_bp.get("/player/<int:player_id>")
@@ -3443,9 +3461,16 @@ def player_page(player_id: int):
         .where(PlayerSkaterCareerLine.player_id == player.id)
         .order_by(PlayerSkaterCareerLine.season_year.desc())
     ).all()
-    # rs + retired_rs: active vs retired regular-season career CSVs (see import_career_skater_file)
-    career_rs_sk = [ln for ln in sk_career_lines if ln.career_source in ("rs", "retired_rs")]
-    career_po_sk = [ln for ln in sk_career_lines if ln.career_source in ("po", "retired_po")]
+    # rs + retired_rs: active vs retired regular-season career CSVs (see import_career_skater_file).
+    # Same season can exist in both; show one row (prefer *rs* over *retired_rs*).
+    career_rs_sk = _dedupe_career_lines_by_season_team_league(
+        [ln for ln in sk_career_lines if ln.career_source in ("rs", "retired_rs")],
+        {"rs": 0, "retired_rs": 1},
+    )
+    career_po_sk = _dedupe_career_lines_by_season_team_league(
+        [ln for ln in sk_career_lines if ln.career_source in ("po", "retired_po")],
+        {"po": 0, "retired_po": 1},
+    )
 
     gk_career_lines = db.session.scalars(
         select(PlayerGoalieCareerLine)
@@ -3453,7 +3478,10 @@ def player_page(player_id: int):
         .where(PlayerGoalieCareerLine.player_id == player.id)
         .order_by(PlayerGoalieCareerLine.season_year.desc())
     ).all()
-    career_rs_gk = [ln for ln in gk_career_lines if ln.career_source in ("rs", "retired_rs")]
+    career_rs_gk = _dedupe_career_lines_by_season_team_league(
+        [ln for ln in gk_career_lines if ln.career_source in ("rs", "retired_rs")],
+        {"rs": 0, "retired_rs": 1},
+    )
     career_po_gk = _dedupe_goalie_playoff_career_lines(
         [ln for ln in gk_career_lines if ln.career_source in ("po", "retired_po")]
     )

@@ -26,16 +26,15 @@
           <th data-sort-type="num" title="Penalty kill success %: 100 − (PK GA ÷ SH CH) × 100" scope="col">PK%</th>
           <th data-sort-type="num" title="Shorthanded goals" scope="col">SHG</th>
           <th data-sort-type="num" title="PIM per game" scope="col">PIM/G</th>
-          <th data-sort-type="num" title="Attendance home total" scope="col">Att H</th>
-          <th data-sort-type="num" title="Attendance away total" scope="col">Att A</th>
-          <th data-sort-type="num" title="Sellouts home" scope="col">SO H</th>
-          <th data-sort-type="num" title="Sellouts away" scope="col">SO A</th>
+          <th data-sort-type="num" title="Average home attendance per game (total home att ÷ home games)" scope="col">Average ATT H</th>
+          <th data-sort-type="num" title="Average of (100 × game attendance ÷ arena capacity) over home games; arena capacity = highest single-game home attendance this season" scope="col">CAP %</th>
         </tr>
       </thead>
       <tbody>
-        {% for team, agg in rows %}
+        {% for team, agg, home_gp, cap_pct in rows %}
         {% set pp_pct = (100.0 * agg.pp_goals / agg.pp_chances) if agg and agg.pp_chances and agg.pp_chances > 0 and agg.pp_goals is not none else none %}
         {% set pk_pct = (100.0 - (100.0 * agg.pk_goals_against / agg.sh_chances)) if agg and agg.sh_chances and agg.sh_chances > 0 and agg.pk_goals_against is not none else none %}
+        {% set avg_att_h = (agg.attendance_home / home_gp) if agg and agg.attendance_home is not none and home_gp and home_gp > 0 else none %}
         <tr{% if config.LEAGUE_SLUG == 'bowl-cap' and view == 'conference' and sel_conference and loop.index == 9 %} class="standings-cutline"{% endif %}>
           <td data-sort-value="{{ loop.index0 }}">{{ loop.index }}</td>
           <td data-sort-value="{{ (team.full_display_name() or team.slug)|lower }}">{{ team_lockup_full_name(team) }}</td>
@@ -55,12 +54,10 @@
           <td data-sort-value="{{ '%.6f'|format(pk_pct) if pk_pct is not none else '' }}">{% if pk_pct is not none %}{{ '%.1f'|format(pk_pct) }}%{% else %}—{% endif %}</td>
           <td data-sort-value="{{ agg.sh_goals if agg.sh_goals is not none else '' }}">{{ agg.sh_goals if agg.sh_goals is not none else '—' }}</td>
           <td data-sort-value="{{ '%.6f'|format(agg.pim_per_game) if agg.pim_per_game is not none else '' }}">{{ '%.2f'|format(agg.pim_per_game) if agg.pim_per_game is not none else '—' }}</td>
-          <td data-sort-value="{{ agg.attendance_home if agg.attendance_home is not none else '' }}">{{ agg.attendance_home if agg.attendance_home is not none else '—' }}</td>
-          <td data-sort-value="{{ agg.attendance_away if agg.attendance_away is not none else '' }}">{{ agg.attendance_away if agg.attendance_away is not none else '—' }}</td>
-          <td data-sort-value="{{ agg.sellouts_home if agg.sellouts_home is not none else '' }}">{{ agg.sellouts_home if agg.sellouts_home is not none else '—' }}</td>
-          <td data-sort-value="{{ agg.sellouts_away if agg.sellouts_away is not none else '' }}">{{ agg.sellouts_away if agg.sellouts_away is not none else '—' }}</td>
+          <td data-sort-value="{{ '%.4f'|format(avg_att_h) if avg_att_h is not none else '' }}">{% if avg_att_h is not none %}{{ '%.1f'|format(avg_att_h) }}{% else %}—{% endif %}</td>
+          <td data-sort-value="{{ '%.4f'|format(cap_pct) if cap_pct is not none else '' }}">{% if cap_pct is not none %}{{ '%.1f'|format(cap_pct) }}%{% else %}—{% endif %}</td>
           {% else %}
-          <td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td>
+          <td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td>
           {% endif %}
         </tr>
         {% endfor %}

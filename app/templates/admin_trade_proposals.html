@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Trade proposals — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:56rem;margin:0 auto;">
+  <h1 class="page-title">Trade proposals</h1>
+  <p class="muted">Partner-approved trades awaiting commissioner action appear as <code>pending_commissioner</code>.</p>
+  {% if not rows %}
+  <p class="muted">No proposals yet.</p>
+  {% else %}
+  <table class="data-table" style="width:100%;margin-top:0.75rem;">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Created</th>
+        <th>Status</th>
+        <th>Teams</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td>{{ r.id }}</td>
+        <td>{{ r.created_at.strftime('%Y-%m-%d %H:%M') if r.created_at else '—' }}</td>
+        <td>{{ r.status }}</td>
+        <td>
+          {% set ta = teams_by_id.get(r.from_team_id) %}
+          {% set tb = teams_by_id.get(r.to_team_id) %}
+          {{ ta.full_display_name() if ta else r.from_team_id }} ↔ {{ tb.full_display_name() if tb else r.to_team_id }}
+        </td>
+        <td><a href="{{ url_for('site_admin.admin_trade_proposal_detail', pid=r.id) }}">Open</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+{% endblock %}

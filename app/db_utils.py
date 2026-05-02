@@ -481,6 +481,49 @@ def ensure_gm_approval_requests_sqlite(engine: Engine) -> None:
         conn.commit()
 
 
+def ensure_gm_trade_proposals_sqlite(engine: Engine) -> None:
+    """Create GM trade proposals table on site DB when missing."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='gm_trade_proposals'")
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE gm_trade_proposals (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    league_slug VARCHAR(64) NOT NULL,
+                    from_user_id INTEGER NOT NULL,
+                    from_team_id INTEGER NOT NULL,
+                    to_user_id INTEGER NOT NULL,
+                    to_team_id INTEGER NOT NULL,
+                    status VARCHAR(32) NOT NULL DEFAULT 'pending_partner',
+                    ledger_json TEXT NOT NULL DEFAULT '{}',
+                    notes TEXT NOT NULL DEFAULT '',
+                    commissioner_note TEXT NOT NULL DEFAULT '',
+                    commissioner_user_id INTEGER,
+                    created_at DATETIME NOT NULL,
+                    partner_acted_at DATETIME,
+                    commissioner_acted_at DATETIME,
+                    FOREIGN KEY(from_user_id) REFERENCES site_users (id),
+                    FOREIGN KEY(to_user_id) REFERENCES site_users (id)
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_gm_trade_league_status "
+                "ON gm_trade_proposals (league_slug, status)"
+            )
+        )
+        conn.commit()
+
+
 def ensure_story_publish_schedules_sqlite(engine: Engine) -> None:
     """Create story publish schedules table on site DB when missing."""
     if engine.dialect.name != "sqlite":

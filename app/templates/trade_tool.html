@@ -1,0 +1,362 @@
+{% extends "base.html" %}
+{% block title %}Trade Tool — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="trade-tool-page card">
+  <header class="trade-tool-page__header">
+    <h1 class="trade-tool-page__title">Trade negotiation portal</h1>
+    <p class="trade-tool-page__sub muted">Build a trade on the BOWL trade ledger. Your team is on the left; choose a partner on the right. Nothing moves in the database until imports reflect it.</p>
+  </header>
+
+  <div class="trade-tool-layout" id="trade-tool-root"
+       data-assets-url="{{ url_for('site_gm.trade_tool_assets') }}"
+       data-submit-url="{{ url_for('site_gm.trade_tool_submit') }}"
+       data-csrf="{{ csrf_token() }}"
+       data-max="{{ 5 }}">
+    <div class="trade-tool-col trade-tool-col--left">
+      <div class="trade-tool-teamhead" id="left-teamhead">
+        {% if my_team_logo_url %}
+        <img class="trade-tool-logo" src="{{ my_team_logo_url }}" alt="">
+        {% endif %}
+        <div>
+          <div class="trade-tool-teamname">{{ my_team.full_display_name() if my_team else 'Your team' }}</div>
+          <div class="trade-tool-gm muted">{{ gm_display_name(current_user) }}</div>
+        </div>
+      </div>
+      <div id="left-asset-panels" class="trade-tool-assets"></div>
+    </div>
+
+    <div class="trade-tool-col trade-tool-col--center">
+      <div class="trade-tool-ledger-title">BOWL TRADE LEDGER</div>
+      <div class="trade-tool-ledger-banner">MAXIMUM 5 ASSETS PER TEAM</div>
+
+      <form method="post" action="{{ url_for('site_gm.trade_tool_submit') }}" id="trade-tool-form" class="trade-tool-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="ledger_json" id="ledger-json-field" value="{}">
+        <label class="trade-tool-partner-label">Trading partner
+          <select name="partner_team_id" id="partner-team-select" required>
+            <option value="">— Select team —</option>
+            {% for p in partner_options %}
+            <option value="{{ p.team_id }}">{{ p.team_name }} ({{ p.gm_name }})</option>
+            {% endfor %}
+          </select>
+        </label>
+
+        <div class="trade-tool-drop-grid">
+          <div class="trade-tool-dropbox" data-zone="from_left_to_right" data-zone-label="Leaving your team · Sending to partner">
+            <div class="trade-tool-dropbox__head">
+              <span class="trade-tool-dropbox__white" id="lbl-leave-left">Leaving {{ my_team.full_display_name() if my_team else 'your team' }}</span>
+              <span class="trade-tool-dropbox__lime" id="lbl-send-right">Sending to partner</span>
+            </div>
+            <div class="trade-tool-dropbox__body" id="zone-from_left_to_right"></div>
+          </div>
+          <div class="trade-tool-dropbox" data-zone="from_right_to_left" data-zone-label="Leaving partner · Sending to your team">
+            <div class="trade-tool-dropbox__head">
+              <span class="trade-tool-dropbox__white" id="lbl-leave-right">Leaving partner</span>
+              <span class="trade-tool-dropbox__lime" id="lbl-send-left">Sending to {{ my_team.city if my_team else 'your team' }}</span>
+            </div>
+            <div class="trade-tool-dropbox__body" id="zone-from_right_to_left"></div>
+          </div>
+        </div>
+
+        <label class="trade-tool-notes-label">Trade notes &amp; conditions
+          <textarea name="notes" id="trade-notes" rows="4" maxlength="8000" placeholder="Conditions, salary retention, future considerations…"></textarea>
+        </label>
+        <div class="trade-tool-actions">
+          <button type="button" class="trade-tool-clear" id="btn-clear-table">Clear table</button>
+          <button type="submit" class="trade-tool-submit">Submit trade</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="trade-tool-col trade-tool-col--right">
+      <div class="trade-tool-teamhead" id="right-teamhead">
+        <div class="trade-tool-placeholder muted" id="right-placeholder">Select a trading partner to load their assets.</div>
+        <div id="right-team-loaded" class="trade-tool-teamhead__loaded is-hidden">
+          <img class="trade-tool-logo" id="right-team-logo" src="" alt="" width="48" height="48">
+          <div>
+            <div class="trade-tool-teamname" id="right-teamname"></div>
+            <div class="trade-tool-gm muted" id="right-gm"></div>
+          </div>
+        </div>
+      </div>
+      <div id="right-asset-panels" class="trade-tool-assets"></div>
+    </div>
+  </div>
+
+  {% if recent_proposals %}
+  <section class="trade-tool-recent">
+    <h2 class="trade-tool-recent__title">Your recent proposals</h2>
+    <table class="trade-tool-table">
+      <thead>
+        <tr>
+          <th>When (UTC)</th>
+          <th>Status</th>
+          <th>Link</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in recent_proposals %}
+        <tr>
+          <td>{{ r.created_at.strftime('%Y-%m-%d %H:%M') if r.created_at else '—' }}</td>
+          <td>{{ r.status|replace('_', ' ') }}</td>
+          <td><a href="{{ url_for('site_gm.trade_proposal_detail', pid=r.id) }}">View</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% endif %}
+</div>
+
+<script>
+(function () {
+  var root = document.getElementById("trade-tool-root");
+  if (!root) return;
+  var assetsUrl = root.getAttribute("data-assets-url");
+  var maxN = parseInt(root.getAttribute("data-max") || "5", 10) || 5;
+  var partnerSel = document.getElementById("partner-team-select");
+  var leftPanels = document.getElementById("left-asset-panels");
+  var rightPanels = document.getElementById("right-asset-panels");
+  var rightPh = document.getElementById("right-placeholder");
+  var rightLoaded = document.getElementById("right-team-loaded");
+  var rightLogo = document.getElementById("right-team-logo");
+  var rightName = document.getElementById("right-teamname");
+  var rightGm = document.getElementById("right-gm");
+  var lblLeaveRight = document.getElementById("lbl-leave-right");
+  var lblSendLeft = document.getElementById("lbl-send-left");
+  var lblSendRight = document.getElementById("lbl-send-right");
+  var lblLeaveLeft = document.getElementById("lbl-leave-left");
+  var ledgerField = document.getElementById("ledger-json-field");
+  var form = document.getElementById("trade-tool-form");
+  var cached = null;
+  var ledger = { from_left_to_right: [], from_right_to_left: [] };
+  var dragKey = null;
+
+  function esc(s) {
+    return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+  }
+
+  function partnerOptionLabel(tid) {
+    var opts = partnerSel.querySelectorAll("option[value]");
+    for (var i = 0; i < opts.length; i++) {
+      if (opts[i].value === String(tid)) return (opts[i].textContent || "").trim();
+    }
+    return "Partner";
+  }
+
+  function syncLedgerField() {
+    ledgerField.value = JSON.stringify(ledger);
+  }
+
+  function chipHtml(key, label, pos, side) {
+    return (
+      '<div class="trade-tool-chip" draggable="true" data-drag-key="' + esc(key) + '" data-side="' + esc(side) + '">' +
+      '<span class="trade-tool-chip__pos">' + esc(pos) + "</span>" +
+      '<span class="trade-tool-chip__name">' + esc(label) + "</span></div>"
+    );
+  }
+
+  function renderList(title, items, side) {
+    var h = '<div class="trade-tool-asset-block"><div class="trade-tool-asset-block__title">' + esc(title) + "</div>";
+    if (!items || !items.length) {
+      h += '<p class="muted trade-tool-empty">None</p>';
+    } else {
+      h += '<div class="trade-tool-chip-list">';
+      for (var i = 0; i < items.length; i++) {
+        var it = items[i];
+        if (ledger.from_left_to_right.indexOf(it.drag_key) >= 0) continue;
+        if (ledger.from_right_to_left.indexOf(it.drag_key) >= 0) continue;
+        h += chipHtml(it.drag_key, it.label, it.position, side);
+      }
+      h += "</div>";
+    }
+    h += "</div>";
+    return h;
+  }
+
+  function renderSidebars() {
+    if (!cached) return;
+    leftPanels.innerHTML =
+      renderList("Rostered players", cached.left.roster, "left") +
+      renderList("Unsigned / rights", cached.left.unsigned, "left") +
+      renderList("Draft picks", cached.left.picks, "left");
+    rightPanels.innerHTML =
+      renderList("Rostered players", cached.right.roster, "right") +
+      renderList("Unsigned / rights", cached.right.unsigned, "right") +
+      renderList("Draft picks", cached.right.picks, "right");
+    wireDragSources();
+  }
+
+  function renderZones() {
+    ["from_left_to_right", "from_right_to_left"].forEach(function (z) {
+      var el = document.getElementById("zone-" + z);
+      if (!el) return;
+      var html = "";
+      ledger[z].forEach(function (key) {
+        var meta = describeKey(key);
+        html += chipHtml(key, meta.label, meta.pos, z.indexOf("left") >= 0 ? "ledger-l" : "ledger-r");
+      });
+      el.innerHTML = html;
+    });
+    wireDragSources();
+    syncLedgerField();
+  }
+
+  function describeKey(key) {
+    if (!cached) return { label: key, pos: "—" };
+    function scan(pool) {
+      for (var i = 0; i < pool.length; i++) {
+        if (pool[i].drag_key === key) return { label: pool[i].label, pos: pool[i].position };
+      }
+      return null;
+    }
+    var pools = [cached.left.roster, cached.left.unsigned, cached.left.picks, cached.right.roster, cached.right.unsigned, cached.right.picks];
+    for (var p = 0; p < pools.length; p++) {
+      var f = scan(pools[p]);
+      if (f) return f;
+    }
+    return { label: key, pos: "—" };
+  }
+
+  function onDragStart(ev) {
+    dragKey = ev.currentTarget.getAttribute("data-drag-key");
+    ev.dataTransfer.setData("text/plain", dragKey || "");
+    ev.dataTransfer.effectAllowed = "move";
+  }
+
+  function wireDragSources() {
+    var chips = root.querySelectorAll(".trade-tool-chip[draggable='true']");
+    for (var i = 0; i < chips.length; i++) {
+      chips[i].addEventListener("dragstart", onDragStart);
+    }
+  }
+
+  function isKeyFromLeft(k) {
+    function has(pool) {
+      for (var j = 0; j < pool.length; j++) if (pool[j].drag_key === k) return true;
+      return false;
+    }
+    if (!cached) return true;
+    return (
+      has(cached.left.roster) ||
+      has(cached.left.unsigned) ||
+      has(cached.left.picks)
+    );
+  }
+
+  function applyDrop(zoneName, k) {
+    if (!k) return;
+    var prev = null;
+    if (ledger.from_left_to_right.indexOf(k) >= 0) prev = "from_left_to_right";
+    else if (ledger.from_right_to_left.indexOf(k) >= 0) prev = "from_right_to_left";
+    if (prev === zoneName) return;
+    var fromLeft = isKeyFromLeft(k);
+    var allowed =
+      (zoneName === "from_left_to_right" && fromLeft) ||
+      (zoneName === "from_right_to_left" && !fromLeft);
+    if (!allowed) return;
+    var countAfterRemove = ledger[zoneName].filter(function (x) { return x !== k; }).length;
+    if (prev !== zoneName && countAfterRemove >= maxN) return;
+    ledger.from_left_to_right = ledger.from_left_to_right.filter(function (x) { return x !== k; });
+    ledger.from_right_to_left = ledger.from_right_to_left.filter(function (x) { return x !== k; });
+    ledger[zoneName].push(k);
+    renderSidebars(); renderZones();
+  }
+
+  function setupDrop(zoneName) {
+    var body = document.getElementById("zone-" + zoneName);
+    if (!body) return;
+    body.addEventListener("dragover", function (e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+    });
+    body.addEventListener("drop", function (e) {
+      e.preventDefault();
+      var k = (e.dataTransfer.getData("text/plain") || dragKey || "").trim();
+      applyDrop(zoneName, k);
+    });
+    body.addEventListener("dblclick", function (e) {
+      var chip = e.target && e.target.closest ? e.target.closest(".trade-tool-chip") : null;
+      if (!chip || !body.contains(chip)) return;
+      var k = chip.getAttribute("data-drag-key");
+      ledger.from_left_to_right = ledger.from_left_to_right.filter(function (x) { return x !== k; });
+      ledger.from_right_to_left = ledger.from_right_to_left.filter(function (x) { return x !== k; });
+      renderSidebars(); renderZones();
+    });
+  }
+
+  setupDrop("from_left_to_right");
+  setupDrop("from_right_to_left");
+
+  document.getElementById("btn-clear-table").addEventListener("click", function () {
+    ledger = { from_left_to_right: [], from_right_to_left: [] };
+    renderSidebars(); renderZones();
+  });
+
+  function updateLedgerLabels(myTeamName, partnerName) {
+    var pShort = (partnerName || "partner").split("(")[0].trim();
+    var mShort = (myTeamName || "your team").split("(")[0].trim();
+    lblLeaveLeft.textContent = "Leaving " + mShort;
+    lblSendRight.textContent = "Sending to " + pShort;
+    lblLeaveRight.textContent = "Leaving " + pShort;
+    lblSendLeft.textContent = "Sending to " + mShort;
+  }
+
+  partnerSel.addEventListener("change", function () {
+    var tid = partnerSel.value;
+    if (!tid) {
+      cached = null;
+      rightPanels.innerHTML = "";
+      rightPh.classList.remove("is-hidden");
+      rightLoaded.classList.add("is-hidden");
+      if (rightLogo) rightLogo.removeAttribute("src");
+      updateLedgerLabels(document.querySelector(".trade-tool-col--left .trade-tool-teamname").textContent, "partner");
+      ledger = { from_left_to_right: [], from_right_to_left: [] };
+      renderZones();
+      return;
+    }
+    rightPh.classList.add("is-hidden");
+    rightLoaded.classList.remove("is-hidden");
+    var optLab = partnerOptionLabel(tid);
+    fetch(assetsUrl + "?partner_team_id=" + encodeURIComponent(tid), { credentials: "same-origin" })
+      .then(function (r) {
+        return r.json().then(function (data) {
+          return { ok: r.ok, data: data };
+        });
+      })
+      .then(function (res) {
+        var data = res.data;
+        if (!res.ok || data.error) {
+          alert(data.error || "Could not load assets.");
+          partnerSel.value = "";
+          rightPh.classList.remove("is-hidden");
+          rightLoaded.classList.add("is-hidden");
+          return;
+        }
+        cached = data;
+        ledger = { from_left_to_right: [], from_right_to_left: [] };
+        var ptn = data.partner_team_name || optLab.split("(")[0].trim();
+        rightName.textContent = ptn;
+        rightGm.textContent = data.partner_gm_name || "";
+        if (rightLogo && data.partner_logo_url) {
+          rightLogo.src = data.partner_logo_url;
+          rightLogo.alt = ptn;
+        }
+        var myHead = document.querySelector(".trade-tool-col--left .trade-tool-teamname");
+        updateLedgerLabels(myHead ? myHead.textContent.trim() : "", ptn);
+        renderSidebars();
+        renderZones();
+      })
+      .catch(function () { alert("Could not load assets."); });
+  });
+
+  form.addEventListener("submit", function (ev) {
+    syncLedgerField();
+    if (!partnerSel.value) {
+      ev.preventDefault();
+      alert("Choose a trading partner.");
+    }
+  });
+})();
+</script>
+{% endblock %}

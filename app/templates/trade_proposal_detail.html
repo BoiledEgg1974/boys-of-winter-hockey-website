@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Trade proposal #{{ proposal.id }} — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card trade-proposal-detail" style="max-width:48rem;margin:0 auto;">
+  <h1 class="page-title">Trade proposal #{{ proposal.id }}</h1>
+  <p class="muted">Status: <strong>{{ proposal.status|replace('_', ' ') }}</strong></p>
+  <p class="muted">From {{ from_team.full_display_name() if from_team else proposal.from_team_id }} ({{ proposer_display }}) to {{ to_team.full_display_name() if to_team else proposal.to_team_id }} ({{ partner_display }}).</p>
+
+  <pre class="trade-proposal-detail__ledger">{{ summary }}</pre>
+
+  {% if (proposal.notes or '')|trim %}
+  <h2 class="trade-proposal-detail__h2">Trade notes &amp; conditions</h2>
+  <div class="trade-proposal-detail__notes">{{ proposal.notes }}</div>
+  {% endif %}
+
+  {% if can_partner_act %}
+  <form method="post" action="{{ url_for('site_gm.trade_proposal_partner_respond', pid=proposal.id) }}" class="trade-proposal-detail__actions">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" name="action" value="approve" class="trade-tool-submit">Approve trade</button>
+    <button type="submit" name="action" value="decline" class="button">Decline</button>
+  </form>
+  {% elif is_proposer %}
+  <p class="muted">You proposed this trade. When your partner responds, both of you will be notified here and in GM Messages.</p>
+  {% elif is_partner %}
+  <p class="muted">You have already responded to this proposal.</p>
+  {% endif %}
+</div>
+{% endblock %}

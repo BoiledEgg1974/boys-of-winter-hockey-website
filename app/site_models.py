@@ -295,6 +295,29 @@ class GmApprovalRequest(db.Model):
     processed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
+class GmTradeProposal(db.Model):
+    """GM-to-GM trade negotiation; no league roster mutation until CSV imports."""
+
+    __tablename__ = "gm_trade_proposals"
+    __bind_key__ = "site"
+    __table_args__ = (Index("ix_gm_trade_league_status", "league_slug", "status"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    from_user_id: Mapped[int] = mapped_column(ForeignKey("site_users.id"), nullable=False)
+    from_team_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    to_user_id: Mapped[int] = mapped_column(ForeignKey("site_users.id"), nullable=False)
+    to_team_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="pending_partner", nullable=False)
+    ledger_json: Mapped[str] = mapped_column(Text, default="{}", nullable=False)
+    notes: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    commissioner_note: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    commissioner_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    partner_acted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    commissioner_acted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
 class StoryPublishSchedule(db.Model):
     __tablename__ = "story_publish_schedules"
     __bind_key__ = "site"

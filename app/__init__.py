@@ -19,6 +19,7 @@ from app.db_utils import (
     ensure_site_users_admin_role_sqlite,
     ensure_league_rule_settings_sqlite,
     ensure_gm_approval_requests_sqlite,
+    ensure_gm_trade_proposals_sqlite,
     ensure_story_publish_schedules_sqlite,
     ensure_story_publish_schedule_extra_columns_sqlite,
     ensure_awards_voting_sqlite,
@@ -111,6 +112,7 @@ def create_app(config_class: type = Config) -> Flask:
             ensure_site_users_admin_role_sqlite(site_engine)
             ensure_league_rule_settings_sqlite(site_engine)
             ensure_gm_approval_requests_sqlite(site_engine)
+            ensure_gm_trade_proposals_sqlite(site_engine)
             ensure_story_publish_schedules_sqlite(site_engine)
             ensure_story_publish_schedule_extra_columns_sqlite(site_engine)
             ensure_awards_voting_sqlite(site_engine)

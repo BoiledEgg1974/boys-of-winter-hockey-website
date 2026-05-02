@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 import secrets
 from pathlib import Path
 
-from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, url_for
+from flask import Blueprint, abort, current_app, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 from sqlalchemy import delete, func, select
 from app.auth_login import (
@@ -23,6 +23,7 @@ from app.auth_login import (
     require_admin_role,
 )
 from app.config import league_display_name, league_group_for_slug
+from app.logo_urls import team_logo_url_for_team
 from app.league_db import db
 from app.models import Player, PlayerContract, Season, Team
 from app.services.ap_multileague import team_id_for_slug_in_league
@@ -41,6 +42,10 @@ from app.services.gm_notifications import (
     notify_news_denied,
     notify_redemption_approved,
     notify_redemption_denied,
+    notify_trade_outcome_partner,
+    notify_trade_outcome_proposer,
+    notify_trade_proposal_commissioners,
+    notify_trade_proposal_partner,
 )
 from app.services.news_categories import (
     NEWS_CATEGORY_ADMIN_SUBMISSION,
@@ -95,6 +100,19 @@ from app.services.ap_service import (
     publish_news_and_maybe_award_ap,
     team_ap_balance,
 )
+from app.services.trade_tool import (
+    STATUS_COMMISSIONER_DECLINED,
+    STATUS_PARTNER_DECLINED,
+    STATUS_PENDING_COMMISSIONER,
+    STATUS_PENDING_PARTNER,
+    STATUS_PUBLISHED,
+    format_ledger_summary,
+    league_commissioner_user_ids,
+    parse_ledger_payload,
+    publish_trade_news_articles,
+    trade_assets_for_team,
+    validate_ledger,
+)
 from app.site_models import (
     AdminAuditLog,
     ApRedemptionCatalog,
@@ -103,6 +121,7 @@ from app.site_models import (
     GmApprovalRequest,
     GmLeagueMembership,
     GmLeagueMessage,
+    GmTradeProposal,
     LeagueDraft,
     LeagueDraftPick,
     LeagueDraftQueueItem,
@@ -574,83 +593,303 @@ def league_news():
     )
 
 
-@site_gm_bp.route("/operations/request", methods=["GET", "POST"])
+@site_gm_bp.get("/operations/request")
 @login_required
-def gm_operation_request():
+def operations_request_redirect():
+    """Old Ops Request URL → canonical Trade Tool path (bookmarks, external links)."""
+    return redirect(url_for("site_gm.trade_tool"), code=301)
+
+
+@site_gm_bp.route("/trade-tool", methods=["GET"])
+@login_required
+def trade_tool():
     slug = _league_slug()
     mem = _membership()
     if not mem:
         flash("No active GM membership for this league.", "err")
         return redirect(url_for("main.home"))
-    if request.method == "POST":
-        req_type = (request.form.get("request_type") or "").strip().lower()
-        title = (request.form.get("title") or "").strip()
-        body = (request.form.get("body") or "").strip()
-        if req_type not in _APPROVAL_REQUEST_TYPES:
-            flash("Choose a valid request type.", "err")
-            return redirect(url_for("site_gm.gm_operation_request"))
-        if not title or not body:
-            flash("Title and details are required.", "err")
-            return redirect(url_for("site_gm.gm_operation_request"))
-        payload_body = body
-        if req_type == "trade":
-            incoming_count = _coerce_nonneg_int(request.form.get("incoming_count"))
-            outgoing_count = _coerce_nonneg_int(request.form.get("outgoing_count"))
-            if incoming_count is None or outgoing_count is None:
-                flash("Trade requests require non-negative incoming and outgoing counts.", "err")
-                return redirect(url_for("site_gm.gm_operation_request"))
-            trade_payload: dict[str, object] = {
-                "details": body,
-                "incoming_count": int(incoming_count),
-                "outgoing_count": int(outgoing_count),
+    my_team = db.session.get(Team, int(mem.team_id))
+    others = list_other_active_gms(slug, current_user.id)
+    team_ids = {m.team_id for m, _ in others}
+    teams_by_id: dict[int, Team] = {}
+    if team_ids:
+        for t in db.session.scalars(select(Team).where(Team.id.in_(team_ids))).all():
+            teams_by_id[t.id] = t
+    partner_options: list[dict[str, object]] = []
+    for m, u in others:
+        tm = teams_by_id.get(int(m.team_id))
+        partner_options.append(
+            {
+                "user_id": int(u.id),
+                "team_id": int(m.team_id),
+                "team_name": tm.full_display_name() if tm else f"Team {m.team_id}",
+                "gm_name": gm_display_name(u),
             }
-            partner_team_id = _coerce_nonneg_int(request.form.get("partner_team_id"))
-            partner_incoming_count = _coerce_nonneg_int(request.form.get("partner_incoming_count"))
-            partner_outgoing_count = _coerce_nonneg_int(request.form.get("partner_outgoing_count"))
-            partner_any = any(
-                x is not None
-                for x in (partner_team_id, partner_incoming_count, partner_outgoing_count)
+        )
+    partner_options.sort(key=lambda r: str(r.get("team_name") or "").lower())
+    recent = list(
+        db.session.scalars(
+            select(GmTradeProposal)
+            .where(
+                GmTradeProposal.league_slug == slug,
+                (GmTradeProposal.from_user_id == int(current_user.id))
+                | (GmTradeProposal.to_user_id == int(current_user.id)),
             )
-            if partner_any:
-                if (
-                    partner_team_id is None
-                    or partner_team_id <= 0
-                    or partner_incoming_count is None
-                    or partner_outgoing_count is None
-                ):
-                    flash("Partner trade fields must include team id and non-negative counts.", "err")
-                    return redirect(url_for("site_gm.gm_operation_request"))
-                trade_payload["partner_team_id"] = int(partner_team_id)
-                trade_payload["partner_incoming_count"] = int(partner_incoming_count)
-                trade_payload["partner_outgoing_count"] = int(partner_outgoing_count)
-            payload_body = json.dumps(trade_payload)
-        row = GmApprovalRequest(
-            league_slug=slug,
-            team_id=int(mem.team_id),
-            user_id=int(current_user.id),
-            request_type=req_type,
-            title=title[:200],
-            body=payload_body,
-            status="pending",
-        )
-        db.session.add(row)
-        db.session.commit()
-        flash("Operation request submitted for admin review.", "ok")
-        return redirect(url_for("site_gm.gm_operation_request"))
-    rows = db.session.scalars(
-        select(GmApprovalRequest)
-        .where(
-            GmApprovalRequest.league_slug == slug,
-            GmApprovalRequest.user_id == int(current_user.id),
-        )
-        .order_by(GmApprovalRequest.created_at.desc())
-        .limit(50)
-    ).all()
-    return render_template(
-        "gm_operation_request.html",
-        rows=rows,
-        request_types=_APPROVAL_REQUEST_TYPES,
+            .order_by(GmTradeProposal.created_at.desc())
+            .limit(20)
+        ).all()
     )
+    my_team_logo_url = team_logo_url_for_team(my_team) if my_team else ""
+    return render_template(
+        "trade_tool.html",
+        membership=mem,
+        my_team=my_team,
+        my_team_logo_url=my_team_logo_url,
+        partner_options=partner_options,
+        recent_proposals=recent,
+        gm_display_name=gm_display_name,
+    )
+
+
+@site_gm_bp.get("/operations/trade-tool/assets")
+@login_required
+def trade_tool_assets():
+    slug = _league_slug()
+    mem = _membership()
+    if not mem:
+        abort(404)
+    raw_tid = request.args.get("partner_team_id", type=int)
+    if not raw_tid or raw_tid <= 0:
+        return jsonify({"error": "partner_team_id required"}), 400
+    peer = db.session.scalar(
+        select(GmLeagueMembership).where(
+            GmLeagueMembership.league_slug == slug,
+            GmLeagueMembership.team_id == int(raw_tid),
+            GmLeagueMembership.status == "active",
+            GmLeagueMembership.user_id != int(current_user.id),
+        )
+    )
+    if not peer:
+        return jsonify({"error": "Invalid trading partner team."}), 400
+    left = trade_assets_for_team(db.session, int(mem.team_id))
+    right = trade_assets_for_team(db.session, int(raw_tid))
+    p_user = db.session.get(User, int(peer.user_id))
+    p_team = db.session.get(Team, int(raw_tid))
+    return jsonify(
+        {
+            "left_team_id": int(mem.team_id),
+            "right_team_id": int(raw_tid),
+            "left": left,
+            "right": right,
+            "partner_team_name": p_team.full_display_name() if p_team else "",
+            "partner_gm_name": gm_display_name(p_user),
+            "partner_logo_url": team_logo_url_for_team(p_team) if p_team else "",
+        }
+    )
+
+
+@site_gm_bp.post("/operations/trade-tool/submit")
+@login_required
+def trade_tool_submit():
+    slug = _league_slug()
+    mem = _membership()
+    if not mem:
+        flash("No active GM membership for this league.", "err")
+        return redirect(url_for("main.home"))
+    partner_team_id = request.form.get("partner_team_id", type=int)
+    ledger_raw = (request.form.get("ledger_json") or "").strip()
+    notes = (request.form.get("notes") or "").strip()
+    if not partner_team_id or partner_team_id <= 0:
+        flash("Choose a trading partner team.", "err")
+        return redirect(url_for("site_gm.trade_tool"))
+    peer_mem = db.session.scalar(
+        select(GmLeagueMembership).where(
+            GmLeagueMembership.league_slug == slug,
+            GmLeagueMembership.team_id == int(partner_team_id),
+            GmLeagueMembership.status == "active",
+            GmLeagueMembership.user_id != int(current_user.id),
+        )
+    )
+    if not peer_mem:
+        flash("That team is not an active GM partner in this league.", "err")
+        return redirect(url_for("site_gm.trade_tool"))
+    left_out, right_out = parse_ledger_payload(ledger_raw)
+    err = validate_ledger(db.session, int(mem.team_id), int(partner_team_id), left_out, right_out)
+    if err:
+        flash(err, "err")
+        return redirect(url_for("site_gm.trade_tool"))
+    payload_obj = {"from_left_to_right": left_out, "from_right_to_left": right_out}
+    prop = GmTradeProposal(
+        league_slug=slug,
+        from_user_id=int(current_user.id),
+        from_team_id=int(mem.team_id),
+        to_user_id=int(peer_mem.user_id),
+        to_team_id=int(partner_team_id),
+        status=STATUS_PENDING_PARTNER,
+        ledger_json=json.dumps(payload_obj),
+        notes=notes[:8000],
+    )
+    db.session.add(prop)
+    db.session.flush()
+    from_team = db.session.get(Team, int(mem.team_id))
+    to_team = db.session.get(Team, int(partner_team_id))
+    summary = format_ledger_summary(db.session, from_team, to_team, left_out, right_out)
+    peer = db.session.get(User, int(peer_mem.user_id))
+    review_path = url_for("site_gm.trade_proposal_detail", pid=int(prop.id))
+    msg_body = (
+        f"You have a new trade proposal from {gm_display_name(current_user)} "
+        f"({from_team.full_display_name() if from_team else 'your partner'}).\n\n"
+        f"{summary}\n\n"
+        f"Open to approve or decline:\n{review_path}"
+    )
+    db.session.add(
+        GmLeagueMessage(
+            league_slug=slug,
+            from_user_id=int(current_user.id),
+            to_user_id=int(peer_mem.user_id),
+            body=msg_body[:_GM_MESSAGE_MAX_LEN],
+        )
+    )
+    notify_trade_proposal_partner(
+        slug,
+        partner_user_id=int(peer_mem.user_id),
+        proposal_id=int(prop.id),
+        summary_preview=summary,
+    )
+    db.session.commit()
+    flash("Trade submitted. Your partner was messaged and notified in GM Messages.", "ok")
+    return redirect(url_for("site_gm.trade_tool"))
+
+
+@site_gm_bp.get("/operations/trade-proposal/<int:pid>")
+@login_required
+def trade_proposal_detail(pid: int):
+    slug = _league_slug()
+    mem = _membership()
+    if not mem:
+        flash("No active GM membership for this league.", "err")
+        return redirect(url_for("main.home"))
+    prop = db.session.get(GmTradeProposal, pid)
+    if not prop or prop.league_slug != slug:
+        abort(404)
+    uid = int(current_user.id)
+    is_partner = prop.to_user_id == uid
+    is_proposer = prop.from_user_id == uid
+    if not is_partner and not is_proposer:
+        abort(403)
+    from_team = db.session.get(Team, int(prop.from_team_id))
+    to_team = db.session.get(Team, int(prop.to_team_id))
+    left_out, right_out = parse_ledger_payload(prop.ledger_json)
+    summary = format_ledger_summary(db.session, from_team, to_team, left_out, right_out)
+    can_partner_act = is_partner and prop.status == STATUS_PENDING_PARTNER
+    proposer_u = db.session.get(User, int(prop.from_user_id))
+    partner_u = db.session.get(User, int(prop.to_user_id))
+    return render_template(
+        "trade_proposal_detail.html",
+        proposal=prop,
+        membership=mem,
+        summary=summary,
+        from_team=from_team,
+        to_team=to_team,
+        is_partner=is_partner,
+        is_proposer=is_proposer,
+        can_partner_act=can_partner_act,
+        proposer_display=gm_display_name(proposer_u),
+        partner_display=gm_display_name(partner_u),
+        gm_display_name=gm_display_name,
+    )
+
+
+@site_gm_bp.post("/operations/trade-proposal/<int:pid>/respond")
+@login_required
+def trade_proposal_partner_respond(pid: int):
+    slug = _league_slug()
+    mem = _membership()
+    if not mem:
+        flash("No active GM membership for this league.", "err")
+        return redirect(url_for("main.home"))
+    prop = db.session.get(GmTradeProposal, pid)
+    if not prop or prop.league_slug != slug:
+        abort(404)
+    if prop.to_user_id != int(current_user.id):
+        abort(403)
+    if prop.status != STATUS_PENDING_PARTNER:
+        flash("This proposal is no longer awaiting your response.", "err")
+        return redirect(url_for("site_gm.trade_proposal_detail", pid=pid))
+    action = (request.form.get("action") or "").strip().lower()
+    from_team = db.session.get(Team, int(prop.from_team_id))
+    to_team = db.session.get(Team, int(prop.to_team_id))
+    left_out, right_out = parse_ledger_payload(prop.ledger_json)
+    summary = format_ledger_summary(db.session, from_team, to_team, left_out, right_out)
+    if action == "decline":
+        prop.status = STATUS_PARTNER_DECLINED
+        prop.partner_acted_at = datetime.utcnow()
+        decline_msg = (
+            f"Your trade proposal to {to_team.full_display_name() if to_team else 'partner'} "
+            f"was declined by {gm_display_name(current_user)}.\n\n{summary}"
+        )
+        db.session.add(
+            GmLeagueMessage(
+                league_slug=slug,
+                from_user_id=int(current_user.id),
+                to_user_id=int(prop.from_user_id),
+                body=decline_msg[:_GM_MESSAGE_MAX_LEN],
+            )
+        )
+        notify_trade_outcome_proposer(
+            slug,
+            proposer_user_id=int(prop.from_user_id),
+            proposal_id=int(prop.id),
+            title="Trade proposal declined",
+            body="Your partner declined the trade.",
+        )
+        db.session.commit()
+        flash("You declined the trade. The proposing GM was notified.", "ok")
+        return redirect(url_for("site_gm.trade_tool"))
+    if action != "approve":
+        flash("Invalid action.", "err")
+        return redirect(url_for("site_gm.trade_proposal_detail", pid=pid))
+    comm_ids = league_commissioner_user_ids(db.session)
+    if not comm_ids:
+        flash("No commissioner accounts are configured; contact the league office.", "err")
+        return redirect(url_for("site_gm.trade_proposal_detail", pid=pid))
+    prop.status = STATUS_PENDING_COMMISSIONER
+    prop.partner_acted_at = datetime.utcnow()
+    admin_path = url_for("site_admin.admin_trade_proposal_detail", pid=int(prop.id))
+    for cid in comm_ids:
+        db.session.add(
+            GmLeagueMessage(
+                league_slug=slug,
+                from_user_id=int(current_user.id),
+                to_user_id=int(cid),
+                body=(
+                    f"Trade proposal approved by both GMs; commissioner review needed.\n\n{summary}\n\n"
+                    f"Admin: {admin_path}"
+                )[:_GM_MESSAGE_MAX_LEN],
+            )
+        )
+    notify_trade_proposal_commissioners(
+        slug,
+        commissioner_user_ids=comm_ids,
+        proposal_id=int(prop.id),
+        summary_preview=summary,
+    )
+    approve_peer_msg = (
+        f"{gm_display_name(current_user)} approved your trade proposal "
+        f"({from_team.full_display_name() if from_team else ''} / {to_team.full_display_name() if to_team else ''}). "
+        f"It is now with the league office for final approval.\n\n{summary}"
+    )
+    db.session.add(
+        GmLeagueMessage(
+            league_slug=slug,
+            from_user_id=int(current_user.id),
+            to_user_id=int(prop.from_user_id),
+            body=approve_peer_msg[:_GM_MESSAGE_MAX_LEN],
+        )
+    )
+    db.session.commit()
+    flash("You approved the trade. The commissioner was notified.", "ok")
+    return redirect(url_for("site_gm.trade_tool"))
 
 
 @site_gm_bp.get("/gm-messages")
@@ -737,6 +976,10 @@ def gm_notification_open(nid: int):
         return redirect(url_for("site_admin.admin_news_preview", aid=int(n.article_id)))
     if n.kind == "admin_review_ap" and n.article_id:
         return redirect(url_for("site_admin.ap_request_one", rid=int(n.article_id)))
+    if n.kind in ("trade_partner_review", "trade_outcome_proposer", "trade_outcome_partner") and n.article_id:
+        return redirect(url_for("site_gm.trade_proposal_detail", pid=int(n.article_id)))
+    if n.kind == "trade_commish_review" and n.article_id:
+        return redirect(url_for("site_admin.admin_trade_proposal_detail", pid=int(n.article_id)))
     return redirect(url_for("site_gm.gm_messages_inbox"))
 
 
@@ -790,6 +1033,126 @@ def gm_messages_thread(peer_user_id: int):
         my_team=my_team,
         messages=messages,
         gm_display_name=gm_display_name,
+    )
+
+
+@site_admin_bp.get("/trade-proposals")
+@login_required
+def admin_trade_proposals_list():
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    slug = _league_slug()
+    rows = list(
+        db.session.scalars(
+            select(GmTradeProposal)
+            .where(GmTradeProposal.league_slug == slug)
+            .order_by(GmTradeProposal.created_at.desc())
+            .limit(120)
+        ).all()
+    )
+    team_ids = {p.from_team_id for p in rows} | {p.to_team_id for p in rows}
+    teams_by_id: dict[int, Team] = {}
+    if team_ids:
+        for t in db.session.scalars(select(Team).where(Team.id.in_(team_ids))).all():
+            teams_by_id[t.id] = t
+    return render_template(
+        "admin_trade_proposals.html",
+        rows=rows,
+        teams_by_id=teams_by_id,
+    )
+
+
+@site_admin_bp.route("/trade-proposals/<int:pid>", methods=["GET", "POST"])
+@login_required
+def admin_trade_proposal_detail(pid: int):
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    slug = _league_slug()
+    prop = db.session.get(GmTradeProposal, pid)
+    if not prop or prop.league_slug != slug:
+        abort(404)
+    from_team = db.session.get(Team, int(prop.from_team_id))
+    to_team = db.session.get(Team, int(prop.to_team_id))
+    left_out, right_out = parse_ledger_payload(prop.ledger_json)
+    summary = format_ledger_summary(db.session, from_team, to_team, left_out, right_out)
+    if request.method == "POST":
+        action = (request.form.get("action") or "").strip().lower()
+        if prop.status != STATUS_PENDING_COMMISSIONER:
+            flash("This proposal is not awaiting commissioner action.", "err")
+            return redirect(url_for("site_admin.admin_trade_proposal_detail", pid=pid))
+        if action == "approve":
+            err = validate_ledger(db.session, int(prop.from_team_id), int(prop.to_team_id), left_out, right_out)
+            if err:
+                flash(
+                    f"Ledger no longer validates against current rosters ({err}). "
+                    "Update CSVs or ask GMs to resubmit before approving.",
+                    "err",
+                )
+                return redirect(url_for("site_admin.admin_trade_proposal_detail", pid=pid))
+            publish_trade_news_articles(
+                db.session,
+                league_slug=slug,
+                proposal=prop,
+                commissioner_user_id=int(current_user.id),
+            )
+            prop.status = STATUS_PUBLISHED
+            prop.commissioner_user_id = int(current_user.id)
+            prop.commissioner_acted_at = datetime.utcnow()
+            prop.commissioner_note = ""
+            ok_body = (
+                "The league office approved your trade. Transaction posts appear under "
+                "Around the League and on both team pages (roster updates follow imports)."
+            )
+            notify_trade_outcome_proposer(
+                slug,
+                proposer_user_id=int(prop.from_user_id),
+                proposal_id=int(prop.id),
+                title="Trade approved by commissioner",
+                body=ok_body,
+            )
+            notify_trade_outcome_partner(
+                slug,
+                partner_user_id=int(prop.to_user_id),
+                proposal_id=int(prop.id),
+                title="Trade approved by commissioner",
+                body=ok_body,
+            )
+            db.session.commit()
+            flash("Trade approved and published as league news for both teams.", "ok")
+            return redirect(url_for("site_admin.admin_trade_proposals_list"))
+        if action == "deny":
+            note = (request.form.get("commissioner_note") or "").strip()
+            prop.status = STATUS_COMMISSIONER_DECLINED
+            prop.commissioner_user_id = int(current_user.id)
+            prop.commissioner_acted_at = datetime.utcnow()
+            prop.commissioner_note = note[:4000]
+            deny_body = (
+                "The league office did not approve this trade."
+                + (f" Note: {note}" if note else "")
+            )
+            notify_trade_outcome_proposer(
+                slug,
+                proposer_user_id=int(prop.from_user_id),
+                proposal_id=int(prop.id),
+                title="Trade denied by commissioner",
+                body=deny_body,
+            )
+            notify_trade_outcome_partner(
+                slug,
+                partner_user_id=int(prop.to_user_id),
+                proposal_id=int(prop.id),
+                title="Trade denied by commissioner",
+                body=deny_body,
+            )
+            db.session.commit()
+            flash("Trade proposal denied; both GMs were notified.", "ok")
+            return redirect(url_for("site_admin.admin_trade_proposals_list"))
+        flash("Unknown action.", "err")
+        return redirect(url_for("site_admin.admin_trade_proposal_detail", pid=pid))
+    return render_template(
+        "admin_trade_proposal_detail.html",
+        proposal=prop,
+        from_team=from_team,
+        to_team=to_team,
+        summary=summary,
     )
 
 

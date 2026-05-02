@@ -8589,3 +8589,242 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
 [data-theme="light"] .draft-hub-ticker__label {
   border-right-color: rgb(15 23 42 / 0.12);
 }
+
+/* —— BOWL trade tool (GM) —— */
+.trade-tool-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  --trade-lime: #a4c639;
+  --trade-ledger-bg: #0f1419;
+  --trade-banner: #8b1538;
+}
+.trade-tool-page__title {
+  font-size: 1.35rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--trade-lime);
+  margin: 0 0 0.35rem;
+}
+.trade-tool-page__sub {
+  margin: 0 0 1rem;
+}
+.trade-tool-layout {
+  display: grid;
+  grid-template-columns: 1fr minmax(280px, 340px) 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+@media (max-width: 960px) {
+  .trade-tool-layout {
+    grid-template-columns: 1fr;
+  }
+}
+.trade-tool-col--center {
+  background: var(--trade-ledger-bg);
+  color: #e5e7eb;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.85rem 0.75rem 1rem;
+}
+[data-theme="light"] .trade-tool-col--center {
+  background: #1a1f26;
+  color: #f3f4f6;
+}
+.trade-tool-ledger-title {
+  text-align: center;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  font-size: 0.95rem;
+  margin-bottom: 0.35rem;
+}
+.trade-tool-ledger-banner {
+  background: var(--trade-banner);
+  color: #fff;
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 0.35rem 0.5rem;
+  border-radius: 4px;
+  margin-bottom: 0.75rem;
+}
+.trade-tool-teamhead {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.65rem;
+}
+.trade-tool-teamhead__loaded {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+.trade-tool-logo {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  border-radius: 6px;
+  background: var(--surface);
+}
+.trade-tool-teamname {
+  font-weight: 700;
+  font-size: 1rem;
+}
+.trade-tool-gm {
+  font-size: 0.85rem;
+}
+.trade-tool-asset-block {
+  margin-bottom: 0.75rem;
+}
+.trade-tool-asset-block__title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--trade-lime);
+  margin-bottom: 0.35rem;
+}
+.trade-tool-chip-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.trade-tool-chip {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  padding: 0.35rem 0.45rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: grab;
+  font-size: 0.88rem;
+}
+[data-theme="dark"] .trade-tool-chip {
+  background: #111827;
+  border-color: #374151;
+}
+.trade-tool-chip__pos {
+  color: var(--trade-lime);
+  font-weight: 700;
+  font-size: 0.72rem;
+  min-width: 2.5rem;
+}
+.trade-tool-chip__name {
+  flex: 1;
+}
+.trade-tool-drop-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-bottom: 0.75rem;
+}
+.trade-tool-dropbox {
+  border: 2px dashed #4b5563;
+  border-radius: 8px;
+  min-height: 120px;
+  background: rgb(0 0 0 / 0.2);
+}
+.trade-tool-dropbox__head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.25rem 0.5rem;
+  padding: 0.45rem 0.5rem 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.trade-tool-dropbox__white {
+  color: #f9fafb;
+}
+.trade-tool-dropbox__lime {
+  color: var(--trade-lime);
+}
+.trade-tool-dropbox__body {
+  min-height: 4.5rem;
+  padding: 0.35rem 0.45rem 0.55rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.trade-tool-partner-label,
+.trade-tool-notes-label {
+  display: block;
+  font-size: 0.82rem;
+  margin-bottom: 0.35rem;
+}
+.trade-tool-partner-label select,
+.trade-tool-notes-label textarea {
+  width: 100%;
+  margin-top: 0.2rem;
+  box-sizing: border-box;
+}
+.trade-tool-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.trade-tool-clear {
+  background: none;
+  border: none;
+  color: #93c5fd;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0.25rem;
+}
+.trade-tool-submit {
+  background: var(--trade-lime);
+  color: #0f172a;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border: none;
+  padding: 0.55rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.trade-tool-submit:hover {
+  filter: brightness(1.05);
+}
+.trade-tool-recent {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+.trade-tool-recent__title {
+  font-size: 1rem;
+  margin: 0 0 0.5rem;
+}
+.trade-tool-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.trade-tool-table th,
+.trade-tool-table td {
+  border: 1px solid var(--border);
+  padding: 0.35rem 0.5rem;
+  text-align: left;
+}
+.is-hidden {
+  display: none !important;
+}
+.trade-proposal-detail__ledger {
+  white-space: pre-wrap;
+  background: var(--row-alt);
+  padding: 0.75rem;
+  border-radius: var(--radius);
+  font-size: 0.88rem;
+}
+.trade-proposal-detail__actions {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}

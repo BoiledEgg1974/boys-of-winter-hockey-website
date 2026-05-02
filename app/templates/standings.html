@@ -143,11 +143,10 @@
 </div>
 
 {{ team_stats_panel("TEAM STATISTICS (REGULAR SEASON)", team_stat_rows_rs) }}
-{{ team_stats_panel("TEAM STATISTICS (PLAYOFFS)", team_stat_rows_po) }}
-{% if season and not team_stat_rows_rs and not team_stat_rows_po %}
+{% if season and not team_stat_rows_rs %}
 <div class="card">
   <h2>Team statistics</h2>
-  <p class="empty-state">No team season totals in the database yet. Include <code>team_stats.csv</code> and <code>team_stats_playoffs.csv</code> in your FHM export and run the import pipeline.</p>
+  <p class="empty-state">No team season totals in the database yet. Include <code>team_stats.csv</code> in your FHM export and run the import pipeline.</p>
 </div>
 {% endif %}
 

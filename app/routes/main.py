@@ -522,7 +522,6 @@ def standings():
             division=None,
         )
     team_stat_rows_rs = team_aggregate_rows(season, rows, "rs")
-    team_stat_rows_po = team_aggregate_rows(season, rows, "po")
 
     # Some league exports leave TeamStanding.conference empty but populate team.fhm_conference_id.
     # Add a display fallback so CONF / DIV shows conference names for Fantasy/Cap.
@@ -605,7 +604,6 @@ def standings():
         canonical_season=canonical_season,
         standings=rows,
         team_stat_rows_rs=team_stat_rows_rs,
-        team_stat_rows_po=team_stat_rows_po,
         view=view,
         conferences=conferences,
         conference_names=conf_names,

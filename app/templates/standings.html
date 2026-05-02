@@ -238,7 +238,8 @@
     return (
       '<div class="bracket-matchup__pred" title="' +
       tip +
-      '">Prediction: ' +
+      '"><span class="bracket-matchup__pred-label">Prediction</span>' +
+      '<span class="bracket-matchup__pred-data">' +
       abA +
       ' ' +
       pa +
@@ -246,7 +247,7 @@
       abB +
       ' ' +
       pb +
-      '%</div>'
+      '%</span></div>'
     );
   }
   function seriesCard(s, isFinalSlot) {

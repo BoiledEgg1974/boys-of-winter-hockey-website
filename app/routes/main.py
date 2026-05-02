@@ -3404,7 +3404,19 @@ def team_page(slug: str):
         "news_viewer_can_react": news_viewer_can_react,
         "news_category_label": news_category_label,
     }
-    tmpl_kwargs["player_overall_by_id"] = build_overall_cell_map_from_players(db.session, roster)
+    depth_ova_ids: set[int] = set()
+    for _col in ("goalies", "defensemen", "left_wings", "centers", "right_wings"):
+        for _row in depth_chart.get(_col) or []:
+            _pid = _row.get("pid")
+            if _pid is not None:
+                depth_ova_ids.add(int(_pid))
+    ova_player_ids = {p.id for p in roster} | depth_ova_ids
+    ova_players = (
+        list(db.session.scalars(select(Player).where(Player.id.in_(ova_player_ids))).all())
+        if ova_player_ids
+        else []
+    )
+    tmpl_kwargs["player_overall_by_id"] = build_overall_cell_map_from_players(db.session, ova_players)
     if panel == "statistics":
         stat_vars = _build_statistics_view_vars(locked_team_id=team.id, locked_team_slug=team.slug)
         stat_ov = stat_vars.pop("player_overall_by_id", None) or {}

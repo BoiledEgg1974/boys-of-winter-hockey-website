@@ -1065,19 +1065,44 @@ table.data tbody tr.standings-cutline td {
   color: #86efac;
 }
 .bracket-matchup__pred {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.12rem;
   font-size: 0.72rem;
   line-height: 1.35;
   color: #94a3b8;
   text-align: center;
   margin-top: 0.35rem;
-  padding: 0.2rem 0.35rem;
+  padding: 0.25rem 0.35rem;
   border-radius: 6px;
   background: rgb(15 23 42 / 0.45);
   max-width: 100%;
 }
+.bracket-matchup__pred-label {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+.bracket-matchup__pred-data {
+  display: block;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  color: #cbd5e1;
+  line-height: 1.3;
+}
 [data-theme="light"] .bracket-matchup__pred {
   color: #64748b;
   background: rgb(241 245 249 / 0.9);
+}
+[data-theme="light"] .bracket-matchup__pred-label {
+  color: #64748b;
+}
+[data-theme="light"] .bracket-matchup__pred-data {
+  color: #475569;
 }
 .bracket-matchup__footer {
   display: flex;
@@ -5260,11 +5285,24 @@ table.data.team-staff-table thead th.team-staff-th--split {
 .team-page-stats-card > .stats-panel.card:last-child {
   margin-bottom: 0;
 }
+/* Depth chart: compact type + ellipsis names so the grid fits without horizontal scroll */
+table.data.team-depth-table {
+  font-size: 0.68rem;
+  table-layout: fixed;
+}
+table.data.team-depth-table th,
+table.data.team-depth-table td {
+  padding: 0.3rem 0.28rem;
+}
+table.data.team-depth-table th {
+  font-size: 0.62rem;
+  line-height: 1.2;
+}
 .team-depth-table td {
   white-space: nowrap;
 }
 .team-depth-table__idx {
-  width: 2rem;
+  width: 1.65rem;
   text-align: center;
   color: #cbd5e1;
 }
@@ -5272,12 +5310,17 @@ table.data.team-staff-table thead th.team-staff-th--split {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: 0.28rem;
+  min-width: 0;
 }
 .team-depth-player {
-  display: inline-block;
+  display: block;
   min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
   text-decoration: none;
+  white-space: nowrap;
 }
 .team-depth-player:hover {
   text-decoration: underline;
@@ -5300,11 +5343,11 @@ table.data.team-staff-table thead th.team-staff-th--split {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 1.45rem;
-  min-height: 1.05rem;
-  padding: 0.1rem 0.3rem;
-  border-radius: 5px;
-  font-size: 0.66rem;
+  min-width: 1.28rem;
+  min-height: 0.95rem;
+  padding: 0.06rem 0.22rem;
+  border-radius: 4px;
+  font-size: 0.58rem;
   font-weight: 700;
   color: #111827;
   background: #a3e635;
@@ -6406,13 +6449,44 @@ table.data.stats-table .stats-badge.stats-badge--overall {
   gap: 0.4rem;
   flex-wrap: nowrap;
 }
+/* OVR number: black badge, gold border, white text (trend arrows keep their own colors below) */
 .stats-ova__score {
+  display: inline-block;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
-  color: #f1f5f9;
+  font-weight: 800;
+  color: #ffffff;
+  background: #000000;
+  border: 2px solid #d4af37;
+  border-radius: 5px;
+  padding: 0.1rem 0.42rem;
+  line-height: 1.2;
+  min-width: 1.65rem;
+  text-align: center;
+  box-sizing: border-box;
 }
 [data-theme="light"] .stats-ova__score {
-  color: #0f172a;
+  color: #ffffff;
+  background: #000000;
+  border-color: #d4af37;
+}
+.team-depth-ova {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  margin-left: 0.12rem;
+  flex-shrink: 0;
+}
+.team-depth-ratings .stats-ova__score {
+  font-size: 0.58rem;
+  padding: 0.04rem 0.24rem;
+  min-width: 1.28rem;
+  border-width: 1px;
+}
+.team-depth-ratings .stats-ova__trend {
+  font-size: 0.54rem;
+  min-width: 0.9rem;
+  padding: 0.04rem 0.18rem;
 }
 .stats-ova__trend {
   flex-shrink: 0;

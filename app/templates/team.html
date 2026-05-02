@@ -16,6 +16,14 @@
     {% for _ in range(empty) %}<span class="team-lines-star team-lines-star--empty">★</span>{% endfor %}
   {% endif %}
 {%- endmacro %}
+{% macro depth_ova_badge(pid) -%}
+{% set ova = player_overall_by_id[pid] if player_overall_by_id is defined and player_overall_by_id and pid in player_overall_by_id else none %}
+{% if ova and ova.score is not none %}
+<span class="team-depth-ova" title="Composite OVR (1–100). Arrow compares to last baseline snapshot.">
+  <span class="stats-ova__score">{{ ova.score }}</span>{% if ova.delta is not none and ova.delta != 0 %}<span class="stats-ova__trend stats-ova__trend--{% if ova.delta > 0 %}up{% else %}down{% endif %}" aria-hidden="true">{% if ova.delta > 0 %}↑{% else %}↓{% endif %}</span>{% endif %}
+</span>
+{% endif %}
+{%- endmacro %}
 {% macro contract_flag_spans(flags) -%}
 {%- if flags -%}
 {%- for f in flags -%}
@@ -439,7 +447,7 @@
             <div class="team-depth-cell">
             {% if g %}
             <a class="team-depth-player{% if g.is_main_roster %} is-main{% else %} is-non-roster{% endif %}" href="{{ url_for('main.player_page', player_id=g.pid) }}">{{ g.name }}</a>
-            <span class="team-depth-ratings">{% if g.abi is not none %}<span class="team-depth-rating" style="{{ g.abi|rating_pill_style }}">{{ '%.1f'|format(g.abi) }}</span>{% endif %}{% if g.pot is not none %}<span class="team-depth-rating" style="{{ g.pot|rating_pill_style }}">{{ '%.1f'|format(g.pot) }}</span>{% endif %}</span>
+            <span class="team-depth-ratings">{% if g.abi is not none %}<span class="team-depth-rating" style="{{ g.abi|rating_pill_style }}">{{ '%.1f'|format(g.abi) }}</span>{% endif %}{% if g.pot is not none %}<span class="team-depth-rating" style="{{ g.pot|rating_pill_style }}">{{ '%.1f'|format(g.pot) }}</span>{% endif %}{{ depth_ova_badge(g.pid) }}</span>
             {% else %}<span class="team-depth-empty">—</span>{% endif %}
             </div>
           </td>
@@ -447,7 +455,7 @@
             <div class="team-depth-cell">
             {% if d %}
             <a class="team-depth-player{% if d.is_main_roster %} is-main{% else %} is-non-roster{% endif %}" href="{{ url_for('main.player_page', player_id=d.pid) }}">{{ d.name }}</a>
-            <span class="team-depth-ratings">{% if d.abi is not none %}<span class="team-depth-rating" style="{{ d.abi|rating_pill_style }}">{{ '%.1f'|format(d.abi) }}</span>{% endif %}{% if d.pot is not none %}<span class="team-depth-rating" style="{{ d.pot|rating_pill_style }}">{{ '%.1f'|format(d.pot) }}</span>{% endif %}</span>
+            <span class="team-depth-ratings">{% if d.abi is not none %}<span class="team-depth-rating" style="{{ d.abi|rating_pill_style }}">{{ '%.1f'|format(d.abi) }}</span>{% endif %}{% if d.pot is not none %}<span class="team-depth-rating" style="{{ d.pot|rating_pill_style }}">{{ '%.1f'|format(d.pot) }}</span>{% endif %}{{ depth_ova_badge(d.pid) }}</span>
             {% else %}<span class="team-depth-empty">—</span>{% endif %}
             </div>
           </td>
@@ -455,7 +463,7 @@
             <div class="team-depth-cell">
             {% if lw %}
             <a class="team-depth-player{% if lw.is_main_roster %} is-main{% else %} is-non-roster{% endif %}" href="{{ url_for('main.player_page', player_id=lw.pid) }}">{{ lw.name }}</a>
-            <span class="team-depth-ratings">{% if lw.abi is not none %}<span class="team-depth-rating" style="{{ lw.abi|rating_pill_style }}">{{ '%.1f'|format(lw.abi) }}</span>{% endif %}{% if lw.pot is not none %}<span class="team-depth-rating" style="{{ lw.pot|rating_pill_style }}">{{ '%.1f'|format(lw.pot) }}</span>{% endif %}</span>
+            <span class="team-depth-ratings">{% if lw.abi is not none %}<span class="team-depth-rating" style="{{ lw.abi|rating_pill_style }}">{{ '%.1f'|format(lw.abi) }}</span>{% endif %}{% if lw.pot is not none %}<span class="team-depth-rating" style="{{ lw.pot|rating_pill_style }}">{{ '%.1f'|format(lw.pot) }}</span>{% endif %}{{ depth_ova_badge(lw.pid) }}</span>
             {% else %}<span class="team-depth-empty">—</span>{% endif %}
             </div>
           </td>
@@ -463,7 +471,7 @@
             <div class="team-depth-cell">
             {% if c %}
             <a class="team-depth-player{% if c.is_main_roster %} is-main{% else %} is-non-roster{% endif %}" href="{{ url_for('main.player_page', player_id=c.pid) }}">{{ c.name }}</a>
-            <span class="team-depth-ratings">{% if c.abi is not none %}<span class="team-depth-rating" style="{{ c.abi|rating_pill_style }}">{{ '%.1f'|format(c.abi) }}</span>{% endif %}{% if c.pot is not none %}<span class="team-depth-rating" style="{{ c.pot|rating_pill_style }}">{{ '%.1f'|format(c.pot) }}</span>{% endif %}</span>
+            <span class="team-depth-ratings">{% if c.abi is not none %}<span class="team-depth-rating" style="{{ c.abi|rating_pill_style }}">{{ '%.1f'|format(c.abi) }}</span>{% endif %}{% if c.pot is not none %}<span class="team-depth-rating" style="{{ c.pot|rating_pill_style }}">{{ '%.1f'|format(c.pot) }}</span>{% endif %}{{ depth_ova_badge(c.pid) }}</span>
             {% else %}<span class="team-depth-empty">—</span>{% endif %}
             </div>
           </td>
@@ -471,7 +479,7 @@
             <div class="team-depth-cell">
             {% if rw %}
             <a class="team-depth-player{% if rw.is_main_roster %} is-main{% else %} is-non-roster{% endif %}" href="{{ url_for('main.player_page', player_id=rw.pid) }}">{{ rw.name }}</a>
-            <span class="team-depth-ratings">{% if rw.abi is not none %}<span class="team-depth-rating" style="{{ rw.abi|rating_pill_style }}">{{ '%.1f'|format(rw.abi) }}</span>{% endif %}{% if rw.pot is not none %}<span class="team-depth-rating" style="{{ rw.pot|rating_pill_style }}">{{ '%.1f'|format(rw.pot) }}</span>{% endif %}</span>
+            <span class="team-depth-ratings">{% if rw.abi is not none %}<span class="team-depth-rating" style="{{ rw.abi|rating_pill_style }}">{{ '%.1f'|format(rw.abi) }}</span>{% endif %}{% if rw.pot is not none %}<span class="team-depth-rating" style="{{ rw.pot|rating_pill_style }}">{{ '%.1f'|format(rw.pot) }}</span>{% endif %}{{ depth_ova_badge(rw.pid) }}</span>
             {% else %}<span class="team-depth-empty">—</span>{% endif %}
             </div>
           </td>

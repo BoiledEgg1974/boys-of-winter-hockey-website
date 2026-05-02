@@ -15,6 +15,21 @@
     <code>POST /api/discord/events/&lt;id&gt;/fail</code>,
     <code>POST /api/discord/events/heartbeat</code> with header <code>X-Discord-Events-Secret</code>.
   </p>
+  <p class="muted" style="margin:0 0 0.8rem;">
+    What the site can push to bots (event keys, triggers, channel defaults) is summarized in the repo file <code>docs/DISCORD_SITE_TO_BOT.md</code>.
+  </p>
+  <p class="muted" style="margin:0 0 0.8rem;">
+    <strong>Shared secret</strong> is not issued by Discord. Generate a long random string, set the same value as environment variable
+    <code>DISCORD_EVENTS_SHARED_SECRET</code> on the website and on each bot process, then restart. Example (PowerShell):
+    <code style="white-space:normal;">[Convert]::ToBase64String((1..48 | ForEach-Object { Get-Random -Maximum 256 }) -as [byte[]])</code>
+  </p>
+  <p class="muted" style="margin:0 0 0.8rem;">
+    Route <strong>channel keys</strong> are labels your bot maps to Discord channel names or IDs. Defaults:
+    <code>trade_request</code>→<code>transactions</code>,
+    <code>standings_posted</code>→<code>standings</code>,
+    <code>statistical_leaders_posted</code>→<code>goals-assists-points</code> (adjust per league below).
+    Extend each bot’s <code>EVENT_CHANNEL_BY_KEY</code> (or equivalent) to include these keys.
+  </p>
   <p class="muted" id="discord-health-refresh-note" style="margin:0 0 0.8rem;">
     Auto-refresh: every 30 seconds. Last refreshed at page load.
   </p>
@@ -100,6 +115,18 @@
       </select>
     </label>
     <button type="submit" class="admin-news-body-btn">Queue test event</button>
+  </form>
+  <form method="post" style="display:flex;gap:0.65rem;align-items:center;flex-wrap:wrap;margin:0 0 0.55rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="enqueue_standings">
+    <button type="submit" class="admin-news-body-btn">Queue standings event</button>
+    <span class="muted">Notifies bot (<code>standings_posted</code>); map route channel key to your <code>#standings</code> channel.</span>
+  </form>
+  <form method="post" style="display:flex;gap:0.65rem;align-items:center;flex-wrap:wrap;margin:0 0 0.55rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="enqueue_stat_leaders">
+    <button type="submit" class="admin-news-body-btn">Queue statistical leaders event</button>
+    <span class="muted">Payload includes <code>leader_command_keys</code> for bot fan-out (see <code>STAT_LEADER_BOT_COMMAND_KEYS</code> in code).</span>
   </form>
   <form method="get" style="display:flex;gap:0.6rem;align-items:end;flex-wrap:wrap;margin:0 0 0.45rem;">
     <label>Status

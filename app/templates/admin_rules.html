@@ -6,6 +6,7 @@
   <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
   <p class="muted" style="margin:0 0 0.7rem;">
     These settings are stored and audited. They are not enforced automatically until a rule is wired into league logic.
+    <strong><code>trade_tool_draft_rounds</code></strong> (default 8) caps the highest round number GMs can add as manual draft-pick chips on the Trade Tool (1–32).
   </p>
   <form method="post">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

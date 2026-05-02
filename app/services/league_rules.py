@@ -15,6 +15,8 @@ DEFAULT_LEAGUE_RULES: tuple[dict[str, str], ...] = (
     {"rule_key": "salary_cap_enabled", "rule_value": "false"},
     {"rule_key": "salary_cap_amount", "rule_value": ""},
     {"rule_key": "playoff_roster_lock", "rule_value": "true"},
+    # Trade Tool: max draft round number shown for manual (non-CSV) pick chips (1–this value).
+    {"rule_key": "trade_tool_draft_rounds", "rule_value": "8"},
 )
 
 

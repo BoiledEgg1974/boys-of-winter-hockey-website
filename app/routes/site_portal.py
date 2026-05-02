@@ -22,7 +22,7 @@ from app.auth_login import (
     require_admin,
     require_admin_role,
 )
-from app.config import league_display_name, league_group_for_slug
+from app.config import Config, league_display_name, league_group_for_slug
 from app.logo_urls import team_logo_url_for_team
 from app.league_db import db
 from app.models import Player, PlayerContract, Season, Team
@@ -82,6 +82,7 @@ from app.services.story_automation import (
     validate_schedule_datetime,
 )
 from app.services.discord_events import (
+    STAT_LEADER_BOT_COMMAND_KEYS,
     enqueue_discord_event,
     list_heartbeats,
     list_discord_routes,
@@ -111,6 +112,7 @@ from app.services.trade_tool import (
     parse_ledger_payload,
     publish_trade_news_articles,
     trade_assets_for_team,
+    trade_tool_draft_round_cap,
     validate_ledger,
 )
 from app.site_models import (
@@ -143,6 +145,24 @@ site_admin_bp = Blueprint("site_admin", __name__, url_prefix="/admin")
 
 _GM_MESSAGE_MAX_LEN = 6000
 _APPROVAL_REQUEST_TYPES = ("trade", "signing", "extension")
+
+
+def _trade_tool_raw_dir() -> Path | None:
+    p = Path(str(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)))
+    return p if p.is_dir() else None
+
+
+_TRADE_PLAYER_URL_PLACEHOLDER_ID = 988_776_655
+
+
+def _finalize_trade_asset_side_urls(side: dict) -> None:
+    """Turn ``headshot_rel`` into ``headshot_url`` for JSON (drop internal rel)."""
+    for g in ("roster", "unsigned"):
+        for it in side.get(g, []):
+            if it.get("kind") != "player":
+                continue
+            rel = it.pop("headshot_rel", None)
+            it["headshot_url"] = url_for("static", filename=rel) if rel else None
 
 
 def _coerce_nonneg_int(v) -> int | None:
@@ -640,6 +660,8 @@ def trade_tool():
         ).all()
     )
     my_team_logo_url = team_logo_url_for_team(my_team) if my_team else ""
+    draft_round_cap = trade_tool_draft_round_cap(db.session, slug)
+    player_page_url_template = url_for("main.player_page", player_id=_TRADE_PLAYER_URL_PLACEHOLDER_ID)
     return render_template(
         "trade_tool.html",
         membership=mem,
@@ -648,6 +670,8 @@ def trade_tool():
         partner_options=partner_options,
         recent_proposals=recent,
         gm_display_name=gm_display_name,
+        draft_round_cap=draft_round_cap,
+        player_page_url_template=player_page_url_template,
     )
 
 
@@ -671,16 +695,23 @@ def trade_tool_assets():
     )
     if not peer:
         return jsonify({"error": "Invalid trading partner team."}), 400
-    left = trade_assets_for_team(db.session, int(mem.team_id))
-    right = trade_assets_for_team(db.session, int(raw_tid))
+    raw_dir = _trade_tool_raw_dir()
+    left = trade_assets_for_team(db.session, int(mem.team_id), raw_dir=raw_dir)
+    right = trade_assets_for_team(db.session, int(raw_tid), raw_dir=raw_dir)
+    _finalize_trade_asset_side_urls(left)
+    _finalize_trade_asset_side_urls(right)
     p_user = db.session.get(User, int(peer.user_id))
     p_team = db.session.get(Team, int(raw_tid))
+    draft_cap = trade_tool_draft_round_cap(db.session, slug)
+    player_tpl = url_for("main.player_page", player_id=_TRADE_PLAYER_URL_PLACEHOLDER_ID)
     return jsonify(
         {
             "left_team_id": int(mem.team_id),
             "right_team_id": int(raw_tid),
             "left": left,
             "right": right,
+            "draft_round_cap": int(draft_cap),
+            "player_page_url_template": player_tpl,
             "partner_team_name": p_team.full_display_name() if p_team else "",
             "partner_gm_name": gm_display_name(p_user),
             "partner_logo_url": team_logo_url_for_team(p_team) if p_team else "",
@@ -714,7 +745,15 @@ def trade_tool_submit():
         flash("That team is not an active GM partner in this league.", "err")
         return redirect(url_for("site_gm.trade_tool"))
     left_out, right_out = parse_ledger_payload(ledger_raw)
-    err = validate_ledger(db.session, int(mem.team_id), int(partner_team_id), left_out, right_out)
+    err = validate_ledger(
+        db.session,
+        int(mem.team_id),
+        int(partner_team_id),
+        left_out,
+        right_out,
+        raw_dir=_trade_tool_raw_dir(),
+        league_slug=slug,
+    )
     if err:
         flash(err, "err")
         return redirect(url_for("site_gm.trade_tool"))
@@ -1079,7 +1118,15 @@ def admin_trade_proposal_detail(pid: int):
             flash("This proposal is not awaiting commissioner action.", "err")
             return redirect(url_for("site_admin.admin_trade_proposal_detail", pid=pid))
         if action == "approve":
-            err = validate_ledger(db.session, int(prop.from_team_id), int(prop.to_team_id), left_out, right_out)
+            err = validate_ledger(
+                db.session,
+                int(prop.from_team_id),
+                int(prop.to_team_id),
+                left_out,
+                right_out,
+                raw_dir=_trade_tool_raw_dir(),
+                league_slug=slug,
+            )
             if err:
                 flash(
                     f"Ledger no longer validates against current rosters ({err}). "
@@ -2033,7 +2080,7 @@ def admin_operations_queue_set_status(rid: int):
     else:
         flash("Request status updated.", "ok")
         _enqueue_discord_event(
-            "ops_request_status",
+            "trade_request",
             {
                 "request_id": int(row.id),
                 "request_type": str(row.request_type or ""),
@@ -2990,6 +3037,61 @@ def admin_discord_integration():
                 flash("Test event skipped: route is disabled or unavailable for that event key.", "err")
             else:
                 flash(f"Test event queued for '{event_key}'.", "ok")
+            return redirect(url_for("site_admin.admin_discord_integration"))
+        if action == "enqueue_standings":
+            payload = {
+                "source": "admin_discord_integration",
+                "league_slug": slug,
+                "requested_at_utc": datetime.utcnow().isoformat(timespec="seconds"),
+            }
+            created = enqueue_discord_event(
+                db.session,
+                league_slug=slug,
+                event_key="standings_posted",
+                payload=payload,
+                created_by_user_id=int(current_user.id),
+            )
+            db.session.add(
+                AdminAuditLog(
+                    admin_user_id=int(current_user.id),
+                    league_slug=slug,
+                    action="discord_standings_event_enqueue",
+                    detail_json=json.dumps({"queued": bool(created is not None)}),
+                )
+            )
+            db.session.commit()
+            if created is None:
+                flash("Standings event skipped: route disabled or missing.", "err")
+            else:
+                flash("Standings update event queued for the bot.", "ok")
+            return redirect(url_for("site_admin.admin_discord_integration"))
+        if action == "enqueue_stat_leaders":
+            payload = {
+                "source": "admin_discord_integration",
+                "league_slug": slug,
+                "leader_command_keys": list(STAT_LEADER_BOT_COMMAND_KEYS),
+                "requested_at_utc": datetime.utcnow().isoformat(timespec="seconds"),
+            }
+            created = enqueue_discord_event(
+                db.session,
+                league_slug=slug,
+                event_key="statistical_leaders_posted",
+                payload=payload,
+                created_by_user_id=int(current_user.id),
+            )
+            db.session.add(
+                AdminAuditLog(
+                    admin_user_id=int(current_user.id),
+                    league_slug=slug,
+                    action="discord_stat_leaders_event_enqueue",
+                    detail_json=json.dumps({"queued": bool(created is not None)}),
+                )
+            )
+            db.session.commit()
+            if created is None:
+                flash("Statistical leaders event skipped: route disabled or missing.", "err")
+            else:
+                flash("Statistical leaders event queued for the bot.", "ok")
             return redirect(url_for("site_admin.admin_discord_integration"))
         if action == "replay_failed":
             failed = list_outbound_events(db.session, league_slug=slug, status="failed", limit=500)

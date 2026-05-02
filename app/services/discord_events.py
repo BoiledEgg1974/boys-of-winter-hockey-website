@@ -4,23 +4,70 @@ import hashlib
 import json
 from datetime import datetime, timedelta
 
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, update
 
 from app.site_models import DiscordBotHeartbeat, DiscordChannelRoute, DiscordOutboundEvent
 
 ALLOWED_EVENT_KEYS = {
     "story_published",
-    "ops_request_status",
+    "trade_request",
     "announcement_posted",
     "control_center_restore",
+    "standings_posted",
+    "statistical_leaders_posted",
+    "power_rankings_posted",
+    "prospect_rankings_posted",
+    "positional_rankings_posted",
+    "calder_trophy_posted",
 }
 
 DEFAULT_EVENT_CHANNEL_KEY = {
     "story_published": "league-news",
-    "ops_request_status": "transactions",
+    "trade_request": "transactions",
     "announcement_posted": "league-announcements",
     "control_center_restore": "staff-ops-alerts",
+    "standings_posted": "standings",
+    "statistical_leaders_posted": "goals-assists-points",
+    "power_rankings_posted": "power-rankings",
+    "prospect_rankings_posted": "prospect-rankings",
+    "positional_rankings_posted": "positional-rankings",
+    "calder_trophy_posted": "calder-trophy",
 }
+
+# Bot command keys for statistical leaderboards (BOWL Fantasy-style names; bots map to Discord channel names).
+STAT_LEADER_BOT_COMMAND_KEYS = (
+    "shots",
+    "gap",
+    "richard",
+    "norris",
+    "bourque",
+    "langway",
+    "selke",
+    "ladybyng",
+    "artross",
+    "conn",
+    "pminus",
+    "green",
+    "bs",
+    "hits",
+    "fights",
+    "pim",
+    "ppg",
+    "shg",
+    "gwg",
+    "gva",
+    "tka",
+    "ovr",
+    "grd",
+    "gro",
+    "vezina",
+    "goaliew",
+    "gl",
+    "gaa",
+    "saves",
+    "svp",
+    "so",
+)
 
 MAX_DELIVERY_ATTEMPTS = 3
 
@@ -46,7 +93,34 @@ def _route_map(session, league_slug: str) -> dict[str, DiscordChannelRoute]:
     return {str(r.event_key): r for r in rows}
 
 
+def _migrate_ops_request_to_trade_request(session) -> None:
+    """Rename legacy ops_request_status routes/events to trade_request (per-league, no duplicate key)."""
+    legacy_routes = session.scalars(
+        select(DiscordChannelRoute).where(DiscordChannelRoute.event_key == "ops_request_status")
+    ).all()
+    for row in legacy_routes:
+        slug = str(row.league_slug or "")
+        trade = session.scalar(
+            select(DiscordChannelRoute).where(
+                DiscordChannelRoute.league_slug == slug,
+                DiscordChannelRoute.event_key == "trade_request",
+            )
+        )
+        if trade is not None:
+            session.delete(row)
+        else:
+            row.event_key = "trade_request"
+    ev_upd = session.execute(
+        update(DiscordOutboundEvent)
+        .where(DiscordOutboundEvent.event_key == "ops_request_status")
+        .values(event_key="trade_request")
+    )
+    if legacy_routes or (getattr(ev_upd, "rowcount", 0) or 0) > 0:
+        session.commit()
+
+
 def ensure_discord_routes(session, league_slug: str, updated_by_user_id: int | None = None) -> None:
+    _migrate_ops_request_to_trade_request(session)
     by_key = _route_map(session, league_slug)
     now = datetime.utcnow()
     changed = False

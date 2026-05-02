@@ -221,8 +221,8 @@ class Config:
     SITE_PUBLIC_BASE_URL = os.environ.get("SITE_PUBLIC_BASE_URL", "").rstrip("/")
     # Optional Discord incoming webhook URL for scheduled story posts (channel=discord).
     DISCORD_STORY_WEBHOOK_URL = os.environ.get("DISCORD_STORY_WEBHOOK_URL", "").strip()
-    # Shared secret for bot pull/ack API endpoints.
-    DISCORD_EVENTS_SHARED_SECRET = os.environ.get("DISCORD_EVENTS_SHARED_SECRET", "").strip()
+    # Shared secret for bot pull/ack API endpoints (override in production via env).
+    DISCORD_EVENTS_SHARED_SECRET = os.environ.get("DISCORD_EVENTS_SHARED_SECRET", "bowluniverse").strip()
 
 
 def league_group_for_slug(slug: str) -> str:

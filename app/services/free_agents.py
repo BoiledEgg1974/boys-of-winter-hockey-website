@@ -146,6 +146,48 @@ def _main_team_fhm_ids_by_raw_dir(raw_dir: Path) -> set[str]:
     return out
 
 
+def player_ids_from_player_rights_csv_for_team(session: Session, raw_dir: Path, team: Team) -> set[int]:
+    """Resolve ``player_rights.csv`` rows for this league's raw dir to internal player ids for ``team``.
+
+    Matches the ``Team`` column to ``team.fhm_team_id`` (string form). Used when prospect rows are
+    missing but exports still list organizational rights (e.g. historical leagues).
+    """
+    if not raw_dir.is_dir():
+        return set()
+    fhm_tid = str(team.fhm_team_id).strip() if team.fhm_team_id is not None else ""
+    if not fhm_tid:
+        return set()
+    rights_path = raw_dir / "player_rights.csv"
+    if not rights_path.is_file():
+        return set()
+    id_by_fhm: dict[str, int] = {}
+    for pid, fhm_pid in session.execute(select(Player.id, Player.fhm_player_id)).all():
+        if fhm_pid is None:
+            continue
+        fp = str(fhm_pid).strip()
+        if fp:
+            id_by_fhm[fp] = int(pid)
+    out: set[int] = set()
+    for row in _read_csv_rows(rights_path):
+        player_s = _csv_value(row, "PlayerId", "playerid")
+        team_s = _csv_value(row, "Team", "team")
+        if not player_s or not team_s:
+            continue
+        if str(team_s).strip() != fhm_tid:
+            continue
+        pid = id_by_fhm.get(player_s)
+        if pid is not None:
+            out.add(int(pid))
+            continue
+        try:
+            pid_db = int(player_s)
+        except ValueError:
+            continue
+        if session.get(Player, pid_db) is not None:
+            out.add(int(pid_db))
+    return out
+
+
 def bowl_rights_player_ids_from_raw_exports(session: Session) -> frozenset[int]:
     """Player ids with rights to a main BOWL team from any league's raw ``player_rights.csv``."""
     id_by_fhm: dict[str, int] = {}

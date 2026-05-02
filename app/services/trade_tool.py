@@ -2,17 +2,26 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
+from flask import current_app, has_request_context
+
 from app.auth_login import ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER, has_admin_role
 from app.models import DraftPick, Player, Prospect, Team
+from app.services.free_agents import player_ids_from_player_rights_csv_for_team
+from app.services.league_rules import rule_int
 from app.site_models import GmTradeProposal, NewsArticle, User
 
 MAX_ASSETS_PER_SIDE = 5
+
+MANUAL_PICK_PREFIX_LEFT = "mpleft"
+MANUAL_PICK_PREFIX_RIGHT = "mpright"
 
 STATUS_PENDING_PARTNER = "pending_partner"
 STATUS_PARTNER_DECLINED = "partner_declined"
@@ -29,13 +38,73 @@ def league_commissioner_user_ids(session: Session) -> list[int]:
     return [u.id for u in users if getattr(u, "is_admin", False)]
 
 
+def trade_tool_draft_round_cap(session: Session, league_slug: str) -> int:
+    """Max draft round (1..N) for manual pick chips; commissioner rule ``trade_tool_draft_rounds``."""
+    n = rule_int(session, league_slug, "trade_tool_draft_rounds", default=8)
+    return max(1, min(32, int(n)))
+
+
 def _roster_player_ids(session: Session, team_id: int) -> set[int]:
     rows = session.scalars(select(Player.id).where(Player.current_team_id == team_id)).all()
     return {int(r) for r in rows}
 
 
-def trade_assets_for_team(session: Session, team_id: int) -> dict[str, list[dict[str, Any]]]:
-    """Return grouped tradeable assets for one team (league DB)."""
+def enrich_trade_player_row(session: Session, pl: Player, row: dict[str, Any]) -> None:
+    """Add display fields for Trade Tool UI (ratings, positions, headshot path, pill CSS)."""
+    if not has_request_context():
+        return
+    from pathlib import Path
+
+    from app.services.player_headshot import resolve_player_headshot_static_filename
+    from app.services.player_overall_score import compute_player_overall_100, player_is_goalie_for_overall
+    from app.services.player_ratings_csv import get_player_ratings_row, player_positions_display_label
+
+    rr = get_player_ratings_row(getattr(pl, "fhm_player_id", None))
+    is_g = player_is_goalie_for_overall(pl)
+    ovr = compute_player_overall_100(
+        pl.overall_ability, pl.overall_potential, rr, is_goalie=is_g
+    )
+    row["positions"] = player_positions_display_label(pl)
+    row["abi"] = float(pl.overall_ability) if pl.overall_ability is not None else None
+    row["pot"] = float(pl.overall_potential) if pl.overall_potential is not None else None
+    row["ovr"] = ovr
+    static_root = Path(current_app.root_path) / (current_app.static_folder or "static")
+    rel = resolve_player_headshot_static_filename(
+        static_root,
+        pl,
+        str(current_app.config.get("PLAYER_HEADSHOTS_REL_DIR") or "players"),
+    )
+    row["headshot_rel"] = rel
+    try:
+        rating_style = current_app.jinja_env.filters["rating_pill_style"]
+        row["abi_style"] = rating_style(pl.overall_ability)
+        row["pot_style"] = rating_style(pl.overall_potential)
+    except Exception:
+        row["abi_style"] = ""
+        row["pot_style"] = ""
+
+
+def _player_row_dict(session: Session, pl: Player, section: str) -> dict[str, Any]:
+    pos = (pl.position or "").strip() or "—"
+    row: dict[str, Any] = {
+        "kind": "player",
+        "id": int(pl.id),
+        "drag_key": f"player:{pl.id}",
+        "label": pl.full_name or "",
+        "position": pos,
+        "section": section,
+    }
+    enrich_trade_player_row(session, pl, row)
+    return row
+
+
+def trade_assets_for_team(
+    session: Session, team_id: int, *, raw_dir: Path | None = None
+) -> dict[str, list[dict[str, Any]]]:
+    """Roster + rights (DB prospects + ``player_rights.csv`` for this league). No DB draft picks."""
+    tm = session.get(Team, team_id)
+    if not tm:
+        return {"roster": [], "unsigned": []}
     roster_ids = _roster_player_ids(session, team_id)
     roster = list(
         session.scalars(
@@ -50,7 +119,7 @@ def trade_assets_for_team(session: Session, team_id: int) -> dict[str, list[dict
         .where(Prospect.team_id == team_id)
         .order_by(Prospect.id)
     ).all()
-    prospects_out: list[dict[str, Any]] = []
+    unsigned: list[dict[str, Any]] = []
     seen: set[int] = set()
     for pr in prospect_rows:
         pl = pr.player
@@ -61,71 +130,89 @@ def trade_assets_for_team(session: Session, team_id: int) -> dict[str, list[dict
         if int(pl.id) in seen:
             continue
         seen.add(int(pl.id))
-        pos = (pl.position or "").strip() or "—"
-        prospects_out.append(
-            {
-                "kind": "player",
-                "id": int(pl.id),
-                "drag_key": f"player:{pl.id}",
-                "label": pl.full_name or "",
-                "position": pos,
-                "section": "unsigned",
-            }
-        )
-    roster_out = []
+        unsigned.append(_player_row_dict(session, pl, "unsigned"))
+    if raw_dir is not None:
+        for pid in player_ids_from_player_rights_csv_for_team(session, raw_dir, tm):
+            if pid in roster_ids or pid in seen:
+                continue
+            pl = session.get(Player, pid)
+            if not pl or pl.retired:
+                continue
+            seen.add(int(pid))
+            unsigned.append(_player_row_dict(session, pl, "rights"))
+    unsigned.sort(key=lambda r: (str(r.get("label") or "").lower(), int(r.get("id") or 0)))
+    roster_out: list[dict[str, Any]] = []
     for pl in roster:
-        pos = (pl.position or "").strip() or "—"
-        roster_out.append(
-            {
-                "kind": "player",
-                "id": int(pl.id),
-                "drag_key": f"player:{pl.id}",
-                "label": pl.full_name or "",
-                "position": pos,
-                "section": "roster",
-            }
-        )
-    picks = list(
-        session.scalars(
-            select(DraftPick)
-            .options(joinedload(DraftPick.draft))
-            .where(DraftPick.team_id == team_id, DraftPick.player_id.is_(None))
-            .order_by(DraftPick.draft_year.nulls_last(), DraftPick.round.nulls_last(), DraftPick.overall_pick)
-        ).all()
+        roster_out.append(_player_row_dict(session, pl, "roster"))
+    return {"roster": roster_out, "unsigned": unsigned}
+
+
+def player_drag_keys_for_team(session: Session, team_id: int, raw_dir: Path | None) -> set[str]:
+    s = trade_assets_for_team(session, team_id, raw_dir=raw_dir)
+    return {str(x["drag_key"]) for x in [*s.get("roster", []), *s.get("unsigned", [])]}
+
+
+def _manual_pick_key_ok(key: str, prefix: str, cap: int) -> bool:
+    parts = key.split(":")
+    if len(parts) < 3:
+        return False
+    if parts[0] != prefix:
+        return False
+    try:
+        rnd = int(parts[1])
+    except ValueError:
+        return False
+    if rnd < 1 or rnd > cap:
+        return False
+    slug = ":".join(parts[2:])
+    if not slug or not re.match(r"^[A-Za-z0-9_-]{4,64}$", slug):
+        return False
+    return True
+
+
+def _legacy_db_pick_owned(session: Session, team_id: int, key: str) -> bool:
+    if not key.startswith("pick:"):
+        return False
+    try:
+        pkid = int(key.split(":", 1)[1])
+    except (ValueError, IndexError):
+        return False
+    pk = session.get(DraftPick, pkid)
+    return bool(
+        pk
+        and pk.team_id == team_id
+        and pk.player_id is None
     )
-    picks_out: list[dict[str, Any]] = []
-    for pk in picks:
-        dr = pk.draft
-        lab_parts: list[str] = []
-        if dr and (dr.label or "").strip():
-            lab_parts.append(str(dr.label).strip())
-        if pk.draft_year is not None:
-            lab_parts.append(str(pk.draft_year))
-        if pk.round is not None:
-            lab_parts.append(f"R{pk.round}")
-        if pk.overall_pick is not None:
-            lab_parts.append(f"#{pk.overall_pick}")
-        label = " · ".join(lab_parts) if lab_parts else f"Pick #{pk.id}"
-        picks_out.append(
-            {
-                "kind": "pick",
-                "id": int(pk.id),
-                "drag_key": f"pick:{pk.id}",
-                "label": label,
-                "position": "PICK",
-                "section": "pick",
-            }
-        )
-    return {"roster": roster_out, "unsigned": prospects_out, "picks": picks_out}
 
 
-def _owned_drag_keys(session: Session, team_id: int) -> set[str]:
-    s = trade_assets_for_team(session, team_id)
-    out: set[str] = set()
-    for group in ("roster", "unsigned", "picks"):
-        for it in s.get(group, []):
-            out.add(str(it["drag_key"]))
-    return out
+def _key_valid_leaving_from_team(
+    session: Session,
+    from_team_id: int,
+    key: str,
+    *,
+    raw_dir: Path | None,
+    draft_cap: int,
+) -> bool:
+    if _manual_pick_key_ok(key, MANUAL_PICK_PREFIX_LEFT, draft_cap):
+        return True
+    if _legacy_db_pick_owned(session, from_team_id, key):
+        return True
+    return key in player_drag_keys_for_team(session, from_team_id, raw_dir)
+
+
+def _key_valid_leaving_to_team(
+    session: Session,
+    to_team_id: int,
+    key: str,
+    *,
+    raw_dir: Path | None,
+    draft_cap: int,
+) -> bool:
+    if _manual_pick_key_ok(key, MANUAL_PICK_PREFIX_RIGHT, draft_cap):
+        return True
+    if _legacy_db_pick_owned(session, to_team_id, key):
+        return True
+    return key in player_drag_keys_for_team(session, to_team_id, raw_dir)
 
 
 def parse_ledger_payload(raw: str | None) -> tuple[list[str], list[str]]:
@@ -150,17 +237,23 @@ def parse_ledger_payload(raw: str | None) -> tuple[list[str], list[str]]:
 
 
 def validate_ledger(
-    session: Session, from_team_id: int, to_team_id: int, left_out: list[str], right_out: list[str]
+    session: Session,
+    from_team_id: int,
+    to_team_id: int,
+    left_out: list[str],
+    right_out: list[str],
+    *,
+    raw_dir: Path | None,
+    league_slug: str,
 ) -> str | None:
     if len(left_out) > MAX_ASSETS_PER_SIDE or len(right_out) > MAX_ASSETS_PER_SIDE:
         return f"Each side may include at most {MAX_ASSETS_PER_SIDE} assets."
-    left_owned = _owned_drag_keys(session, from_team_id)
-    right_owned = _owned_drag_keys(session, to_team_id)
+    cap = trade_tool_draft_round_cap(session, league_slug)
     for k in left_out:
-        if k not in left_owned:
+        if not _key_valid_leaving_from_team(session, from_team_id, k, raw_dir=raw_dir, draft_cap=cap):
             return "One or more assets leaving your team are not valid for your roster."
     for k in right_out:
-        if k not in right_owned:
+        if not _key_valid_leaving_to_team(session, to_team_id, k, raw_dir=raw_dir, draft_cap=cap):
             return "One or more assets from the partner team are not valid."
     if not left_out and not right_out:
         return "Add at least one asset to one side of the ledger."
@@ -168,20 +261,35 @@ def validate_ledger(
 
 
 def describe_drag_key(session: Session, drag_key: str) -> str:
+    if drag_key.startswith(f"{MANUAL_PICK_PREFIX_LEFT}:") or drag_key.startswith(
+        f"{MANUAL_PICK_PREFIX_RIGHT}:"
+    ):
+        parts = drag_key.split(":")
+        if len(parts) >= 2:
+            try:
+                rnd = int(parts[1])
+                return f"Draft pick (round {rnd})"
+            except ValueError:
+                pass
+        return "Draft pick (manual)"
     if ":" not in drag_key:
         return drag_key
     kind, _, rest = drag_key.partition(":")
-    try:
-        eid = int(rest)
-    except ValueError:
-        return drag_key
     if kind == "player":
+        try:
+            eid = int(rest)
+        except ValueError:
+            return drag_key
         pl = session.get(Player, eid)
         if pl:
             pos = (pl.position or "").strip() or "—"
             return f"{pos} {pl.full_name}".strip()
         return f"Player #{eid}"
     if kind == "pick":
+        try:
+            eid = int(rest)
+        except ValueError:
+            return drag_key
         pk = session.get(DraftPick, eid)
         if pk:
             dr = pk.draft

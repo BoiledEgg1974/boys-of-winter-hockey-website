@@ -8673,6 +8673,14 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
 .trade-tool-gm {
   font-size: 0.85rem;
 }
+/* Side columns: scroll roster lists in-place (~25 rows) without growing the page */
+.trade-tool-assets-scroll {
+  max-height: min(70vh, calc(3.35rem * 25));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 0.35rem;
+  margin-right: -0.15rem;
+}
 .trade-tool-asset-block {
   margin-bottom: 0.75rem;
 }
@@ -8688,6 +8696,40 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
   flex-direction: column;
   gap: 0.25rem;
 }
+.trade-tool-chip-list--players {
+  gap: 0.35rem;
+}
+.trade-tool-player-row .trade-tool-player-row__cell {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.trade-tool-player-row__ratings {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+.trade-tool-player-row__ratings .stats-badge.stats-badge--overall {
+  border-radius: 2px;
+}
+.trade-tool-ova {
+  min-width: 1.75rem;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+.trade-tool-player-row--compact {
+  padding: 0.28rem 0.4rem;
+  font-size: 0.82rem;
+}
+.trade-tool-player-row--compact .stats-player-cell {
+  --stats-photo-size: 28px;
+}
+.trade-tool-dropbox__body .trade-tool-player-row--compact .stats-badge {
+  font-size: 0.68rem;
+  min-width: 1.85rem;
+  padding: 0.08rem 0.3rem;
+}
 .trade-tool-chip {
   display: flex;
   align-items: baseline;
@@ -8702,6 +8744,9 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
 [data-theme="dark"] .trade-tool-chip {
   background: #111827;
   border-color: #374151;
+}
+.trade-tool-chip.trade-tool-player-row {
+  align-items: center;
 }
 .trade-tool-chip__pos {
   color: var(--trade-lime);
@@ -8827,4 +8872,69 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+.trade-tool-manual-picks {
+  margin: 0.75rem 0 1rem;
+  padding: 0.65rem 0.5rem;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  background: rgb(0 0 0 / 0.15);
+}
+.trade-tool-manual-picks__intro {
+  font-size: 0.78rem;
+  margin: 0 0 0.55rem;
+  line-height: 1.35;
+}
+.trade-tool-manual-picks__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+}
+@media (max-width: 520px) {
+  .trade-tool-manual-picks__grid {
+    grid-template-columns: 1fr;
+  }
+}
+.trade-tool-manual-picks__head {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--trade-lime);
+  margin-bottom: 0.35rem;
+}
+.trade-tool-manual-picks__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.4rem;
+  margin-bottom: 0.35rem;
+}
+.trade-tool-manual-picks__round-label {
+  font-size: 0.78rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.trade-tool-manual-picks__round-label select {
+  min-width: 6.5rem;
+}
+.trade-tool-manual-picks__add {
+  background: #374151;
+  color: #f9fafb;
+  border: 1px solid #4b5563;
+  border-radius: 6px;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.trade-tool-manual-picks__add:hover {
+  background: #4b5563;
+}
+.trade-tool-manual-picks__pool {
+  min-height: 2.5rem;
+  padding: 0.25rem;
+  border-radius: 6px;
+  border: 1px dashed #4b5563;
 }

@@ -11,7 +11,9 @@
        data-assets-url="{{ url_for('site_gm.trade_tool_assets') }}"
        data-submit-url="{{ url_for('site_gm.trade_tool_submit') }}"
        data-csrf="{{ csrf_token() }}"
-       data-max="{{ 5 }}">
+       data-max="{{ 5 }}"
+       data-draft-rounds="{{ draft_round_cap }}"
+       data-player-page-tpl="{{ player_page_url_template }}">
     <div class="trade-tool-col trade-tool-col--left">
       <div class="trade-tool-teamhead" id="left-teamhead">
         {% if my_team_logo_url %}
@@ -22,7 +24,9 @@
           <div class="trade-tool-gm muted">{{ gm_display_name(current_user) }}</div>
         </div>
       </div>
-      <div id="left-asset-panels" class="trade-tool-assets"></div>
+      <div class="trade-tool-assets-scroll">
+        <div id="left-asset-panels" class="trade-tool-assets"></div>
+      </div>
     </div>
 
     <div class="trade-tool-col trade-tool-col--center">
@@ -41,6 +45,32 @@
           </select>
         </label>
 
+        <div class="trade-tool-manual-picks">
+          <p class="trade-tool-manual-picks__intro muted">Draft picks are chosen here (not loaded from CSV). Drag chips into the ledger boxes above. Max rounds is set under <strong>Admin → League rules</strong> (<code>trade_tool_draft_rounds</code>).</p>
+          <div class="trade-tool-manual-picks__grid">
+            <div class="trade-tool-manual-picks__col">
+              <div class="trade-tool-manual-picks__head">Your team — draft picks (manual)</div>
+              <div class="trade-tool-manual-picks__controls">
+                <label class="trade-tool-manual-picks__round-label">Round
+                  <select id="sel-draft-left-round" aria-label="Round for your manual draft pick"></select>
+                </label>
+                <button type="button" class="trade-tool-manual-picks__add" id="btn-add-draft-left">Add pick</button>
+              </div>
+              <div id="pool-mpleft" class="trade-tool-manual-picks__pool trade-tool-chip-list"></div>
+            </div>
+            <div class="trade-tool-manual-picks__col">
+              <div class="trade-tool-manual-picks__head">Partner — draft picks (manual)</div>
+              <div class="trade-tool-manual-picks__controls">
+                <label class="trade-tool-manual-picks__round-label">Round
+                  <select id="sel-draft-right-round" aria-label="Round for partner manual draft pick"></select>
+                </label>
+                <button type="button" class="trade-tool-manual-picks__add" id="btn-add-draft-right">Add pick</button>
+              </div>
+              <div id="pool-mpright" class="trade-tool-manual-picks__pool trade-tool-chip-list"></div>
+            </div>
+          </div>
+        </div>
+
         <div class="trade-tool-drop-grid">
           <div class="trade-tool-dropbox" data-zone="from_left_to_right" data-zone-label="Leaving your team · Sending to partner">
             <div class="trade-tool-dropbox__head">
@@ -52,7 +82,7 @@
           <div class="trade-tool-dropbox" data-zone="from_right_to_left" data-zone-label="Leaving partner · Sending to your team">
             <div class="trade-tool-dropbox__head">
               <span class="trade-tool-dropbox__white" id="lbl-leave-right">Leaving partner</span>
-              <span class="trade-tool-dropbox__lime" id="lbl-send-left">Sending to {{ my_team.city if my_team else 'your team' }}</span>
+              <span class="trade-tool-dropbox__lime" id="lbl-send-left">Sending to {{ my_team.full_display_name() if my_team else 'your team' }}</span>
             </div>
             <div class="trade-tool-dropbox__body" id="zone-from_right_to_left"></div>
           </div>
@@ -79,7 +109,9 @@
           </div>
         </div>
       </div>
-      <div id="right-asset-panels" class="trade-tool-assets"></div>
+      <div class="trade-tool-assets-scroll">
+        <div id="right-asset-panels" class="trade-tool-assets"></div>
+      </div>
     </div>
   </div>
 
@@ -114,9 +146,14 @@
   if (!root) return;
   var assetsUrl = root.getAttribute("data-assets-url");
   var maxN = parseInt(root.getAttribute("data-max") || "5", 10) || 5;
+  var draftRoundCap = parseInt(root.getAttribute("data-draft-rounds") || "8", 10) || 8;
   var partnerSel = document.getElementById("partner-team-select");
   var leftPanels = document.getElementById("left-asset-panels");
   var rightPanels = document.getElementById("right-asset-panels");
+  var poolMpleft = document.getElementById("pool-mpleft");
+  var poolMpright = document.getElementById("pool-mpright");
+  var selLeftRound = document.getElementById("sel-draft-left-round");
+  var selRightRound = document.getElementById("sel-draft-right-round");
   var rightPh = document.getElementById("right-placeholder");
   var rightLoaded = document.getElementById("right-team-loaded");
   var rightLogo = document.getElementById("right-team-logo");
@@ -131,9 +168,85 @@
   var cached = null;
   var ledger = { from_left_to_right: [], from_right_to_left: [] };
   var dragKey = null;
+  var PLAYER_URL_PH = "988776655";
 
   function esc(s) {
     return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+  }
+
+  function playerPageUrl(pid) {
+    var tpl = root.getAttribute("data-player-page-tpl") || "";
+    if (!tpl) return "#";
+    return tpl.split(PLAYER_URL_PH).join(String(pid));
+  }
+
+  function fmtDec(v) {
+    if (v === null || v === undefined || v === "") return "—";
+    var n = parseFloat(v);
+    if (isNaN(n)) return "—";
+    return n.toFixed(1);
+  }
+
+  function tradePlayerRowHtml(it, side, compact) {
+    var pk = esc(it.drag_key);
+    var href = esc(playerPageUrl(it.id));
+    var img = it.headshot_url
+      ? '<img src="' + esc(it.headshot_url) + '" alt="" loading="lazy" decoding="async">'
+      : '<span class="stats-player-cell__photo-ph" aria-hidden="true"></span>';
+    var abiS = (it.abi_style && String(it.abi_style)) || "";
+    var potS = (it.pot_style && String(it.pot_style)) || "";
+    var cls = "trade-tool-player-row trade-tool-chip" + (compact ? " trade-tool-player-row--compact" : "");
+    var pos = esc((it.positions || it.position || "—").trim());
+    var ovr = "—";
+    if (it.ovr !== null && it.ovr !== undefined && it.ovr !== "") {
+      var on = parseFloat(it.ovr);
+      ovr = !isNaN(on) ? String(Math.round(on)) : String(it.ovr);
+    }
+    return (
+      '<div class="' +
+      cls +
+      '" draggable="true" data-drag-key="' +
+      pk +
+      '" data-side="' +
+      esc(side) +
+      '">' +
+      '<span class="stats-player-cell trade-tool-player-row__cell">' +
+      '<a class="stats-player-cell__photo" href="' +
+      href +
+      '">' +
+      img +
+      "</a>" +
+      '<span class="stats-player-cell__text">' +
+      '<a class="stats-player-cell__name" href="' +
+      href +
+      '">' +
+      esc(it.label) +
+      "</a>" +
+      '<span class="stats-player-cell__pos">' +
+      pos +
+      "</span>" +
+      "</span>" +
+      "</span>" +
+      '<span class="trade-tool-player-row__ratings">' +
+      '<span class="stats-badge stats-badge--rating stats-badge--overall" style="' +
+      esc(abiS) +
+      '" title="ABI">' +
+      fmtDec(it.abi) +
+      "</span>" +
+      '<span class="stats-badge stats-badge--rating stats-badge--overall" style="' +
+      esc(potS) +
+      '" title="POT">' +
+      fmtDec(it.pot) +
+      "</span>" +
+      '<span class="stats-ova__score trade-tool-ova" title="OVR">' +
+      esc(ovr) +
+      "</span>" +
+      "</span></div>"
+    );
+  }
+
+  function bindTradeHovers() {
+    if (typeof window.bindPlayerHoverAnchors === "function") window.bindPlayerHoverAnchors();
   }
 
   function partnerOptionLabel(tid) {
@@ -142,6 +255,44 @@
       if (opts[i].value === String(tid)) return (opts[i].textContent || "").trim();
     }
     return "Partner";
+  }
+
+  function fillRoundSelects(cap) {
+    draftRoundCap = Math.max(1, Math.min(32, cap));
+    root.setAttribute("data-draft-rounds", String(draftRoundCap));
+    [selLeftRound, selRightRound].forEach(function (sel) {
+      if (!sel) return;
+      var v = sel.value;
+      sel.innerHTML = "";
+      for (var r = 1; r <= draftRoundCap; r++) {
+        var o = document.createElement("option");
+        o.value = String(r);
+        o.textContent = "Round " + r;
+        sel.appendChild(o);
+      }
+      if (v && parseInt(v, 10) >= 1 && parseInt(v, 10) <= draftRoundCap) sel.value = v;
+    });
+  }
+  fillRoundSelects(draftRoundCap);
+
+  function randSlug() {
+    var hex = "0123456789abcdef";
+    var s = "";
+    for (var i = 0; i < 8; i++) s += hex[Math.floor(Math.random() * 16)];
+    return s;
+  }
+
+  function appendManualPick(poolEl, prefix, round) {
+    if (!poolEl) return;
+    var slug = randSlug();
+    var key = prefix + ":" + round + ":" + slug;
+    var label = "Round " + round + " (manual)";
+    poolEl.insertAdjacentHTML("beforeend", chipHtml(key, label, "PICK", prefix));
+  }
+
+  function clearManualPools() {
+    if (poolMpleft) poolMpleft.innerHTML = "";
+    if (poolMpright) poolMpright.innerHTML = "";
   }
 
   function syncLedgerField() {
@@ -161,12 +312,16 @@
     if (!items || !items.length) {
       h += '<p class="muted trade-tool-empty">None</p>';
     } else {
-      h += '<div class="trade-tool-chip-list">';
+      h += '<div class="trade-tool-chip-list trade-tool-chip-list--players">';
       for (var i = 0; i < items.length; i++) {
         var it = items[i];
         if (ledger.from_left_to_right.indexOf(it.drag_key) >= 0) continue;
         if (ledger.from_right_to_left.indexOf(it.drag_key) >= 0) continue;
-        h += chipHtml(it.drag_key, it.label, it.position, side);
+        if (it.kind === "player") {
+          h += tradePlayerRowHtml(it, side, false);
+        } else {
+          h += chipHtml(it.drag_key, it.label, it.position, side);
+        }
       }
       h += "</div>";
     }
@@ -174,17 +329,40 @@
     return h;
   }
 
+  function partitionUnsigned(items) {
+    var rights = [];
+    var other = [];
+    (items || []).forEach(function (it) {
+      if (it && it.section === "rights") rights.push(it);
+      else other.push(it);
+    });
+    return { rights: rights, other: other };
+  }
+
   function renderSidebars() {
     if (!cached) return;
+    var lu = partitionUnsigned(cached.left.unsigned);
+    var ru = partitionUnsigned(cached.right.unsigned);
     leftPanels.innerHTML =
       renderList("Rostered players", cached.left.roster, "left") +
-      renderList("Unsigned / rights", cached.left.unsigned, "left") +
-      renderList("Draft picks", cached.left.picks, "left");
+      renderList("Org rights (export / non-roster)", lu.rights, "left") +
+      renderList("Prospects & unsigned (DB)", lu.other, "left");
     rightPanels.innerHTML =
       renderList("Rostered players", cached.right.roster, "right") +
-      renderList("Unsigned / rights", cached.right.unsigned, "right") +
-      renderList("Draft picks", cached.right.picks, "right");
-    wireDragSources();
+      renderList("Org rights (export / non-roster)", ru.rights, "right") +
+      renderList("Prospects & unsigned (DB)", ru.other, "right");
+    bindTradeHovers();
+  }
+
+  function findPlayerItem(key) {
+    if (!cached || key.indexOf("player:") !== 0) return null;
+    var pools = [cached.left.roster, cached.left.unsigned, cached.right.roster, cached.right.unsigned];
+    for (var i = 0; i < pools.length; i++) {
+      for (var j = 0; j < pools[i].length; j++) {
+        if (pools[i][j].drag_key === key) return pools[i][j];
+      }
+    }
+    return null;
   }
 
   function renderZones() {
@@ -192,56 +370,89 @@
       var el = document.getElementById("zone-" + z);
       if (!el) return;
       var html = "";
+      var isLeftZone = z === "from_left_to_right";
       ledger[z].forEach(function (key) {
+        if (key.indexOf("player:") === 0) {
+          var pit = findPlayerItem(key);
+          if (pit) {
+            html += tradePlayerRowHtml(pit, isLeftZone ? "ledger-l" : "ledger-r", true);
+            return;
+          }
+        }
         var meta = describeKey(key);
-        html += chipHtml(key, meta.label, meta.pos, z.indexOf("left") >= 0 ? "ledger-l" : "ledger-r");
+        html += chipHtml(key, meta.label, meta.pos, isLeftZone ? "ledger-l" : "ledger-r");
       });
       el.innerHTML = html;
     });
-    wireDragSources();
+    prunePoolsAfterZoneRender();
     syncLedgerField();
+    bindTradeHovers();
+  }
+
+  function prunePoolsAfterZoneRender() {
+    [poolMpleft, poolMpright].forEach(function (pool) {
+      if (!pool) return;
+      pool.querySelectorAll(".trade-tool-chip").forEach(function (chip) {
+        var k = chip.getAttribute("data-drag-key");
+        if (k && (ledger.from_left_to_right.indexOf(k) >= 0 || ledger.from_right_to_left.indexOf(k) >= 0)) {
+          chip.remove();
+        }
+      });
+    });
   }
 
   function describeKey(key) {
+    if (key.indexOf("mpleft:") === 0 || key.indexOf("mpright:") === 0) {
+      var p = key.split(":");
+      var rd = p.length > 1 ? p[1] : "?";
+      return { label: "Round " + rd + " (manual pick)", pos: "PICK" };
+    }
     if (!cached) return { label: key, pos: "—" };
     function scan(pool) {
       for (var i = 0; i < pool.length; i++) {
-        if (pool[i].drag_key === key) return { label: pool[i].label, pos: pool[i].position };
+        if (pool[i].drag_key === key)
+        return { label: pool[i].label, pos: pool[i].positions || pool[i].position };
       }
       return null;
     }
-    var pools = [cached.left.roster, cached.left.unsigned, cached.left.picks, cached.right.roster, cached.right.unsigned, cached.right.picks];
-    for (var p = 0; p < pools.length; p++) {
-      var f = scan(pools[p]);
+    var pools = [cached.left.roster, cached.left.unsigned, cached.right.roster, cached.right.unsigned];
+    for (var j = 0; j < pools.length; j++) {
+      var f = scan(pools[j]);
       if (f) return f;
     }
     return { label: key, pos: "—" };
   }
 
-  function onDragStart(ev) {
-    dragKey = ev.currentTarget.getAttribute("data-drag-key");
-    ev.dataTransfer.setData("text/plain", dragKey || "");
-    ev.dataTransfer.effectAllowed = "move";
-  }
+  root.addEventListener(
+    "dragstart",
+    function (ev) {
+      var chip = ev.target && ev.target.closest ? ev.target.closest(".trade-tool-chip[draggable='true']") : null;
+      if (!chip || !root.contains(chip)) return;
+      dragKey = chip.getAttribute("data-drag-key");
+      ev.dataTransfer.setData("text/plain", dragKey || "");
+      ev.dataTransfer.effectAllowed = "move";
+    },
+    false
+  );
 
-  function wireDragSources() {
-    var chips = root.querySelectorAll(".trade-tool-chip[draggable='true']");
-    for (var i = 0; i < chips.length; i++) {
-      chips[i].addEventListener("dragstart", onDragStart);
-    }
+  function wireDragSources() {}
+
+  function isManualLeftKey(k) {
+    return k.indexOf("mpleft:") === 0;
+  }
+  function isManualRightKey(k) {
+    return k.indexOf("mpright:") === 0;
   }
 
   function isKeyFromLeft(k) {
+    if (isManualLeftKey(k)) return true;
+    if (isManualRightKey(k)) return false;
     function has(pool) {
       for (var j = 0; j < pool.length; j++) if (pool[j].drag_key === k) return true;
       return false;
     }
     if (!cached) return true;
-    return (
-      has(cached.left.roster) ||
-      has(cached.left.unsigned) ||
-      has(cached.left.picks)
-    );
+    return has(cached.left.roster) || has(cached.left.unsigned);
   }
 
   function applyDrop(zoneName, k) {
@@ -260,7 +471,14 @@
     ledger.from_left_to_right = ledger.from_left_to_right.filter(function (x) { return x !== k; });
     ledger.from_right_to_left = ledger.from_right_to_left.filter(function (x) { return x !== k; });
     ledger[zoneName].push(k);
-    renderSidebars(); renderZones();
+    [poolMpleft, poolMpright].forEach(function (pool) {
+      if (!pool) return;
+      pool.querySelectorAll(".trade-tool-chip").forEach(function (chip) {
+        if (chip.getAttribute("data-drag-key") === k) chip.remove();
+      });
+    });
+    renderSidebars();
+    renderZones();
   }
 
   function setupDrop(zoneName) {
@@ -281,16 +499,41 @@
       var k = chip.getAttribute("data-drag-key");
       ledger.from_left_to_right = ledger.from_left_to_right.filter(function (x) { return x !== k; });
       ledger.from_right_to_left = ledger.from_right_to_left.filter(function (x) { return x !== k; });
-      renderSidebars(); renderZones();
+      renderSidebars();
+      renderZones();
     });
   }
 
   setupDrop("from_left_to_right");
   setupDrop("from_right_to_left");
 
+  function setupPoolDblclick(pool) {
+    if (!pool) return;
+    pool.addEventListener("dblclick", function (e) {
+      var chip = e.target.closest ? e.target.closest(".trade-tool-chip") : null;
+      if (!chip || !pool.contains(chip)) return;
+      var k = chip.getAttribute("data-drag-key");
+      if (ledger.from_left_to_right.indexOf(k) >= 0 || ledger.from_right_to_left.indexOf(k) >= 0) return;
+      chip.remove();
+    });
+  }
+  setupPoolDblclick(poolMpleft);
+  setupPoolDblclick(poolMpright);
+
+  document.getElementById("btn-add-draft-left").addEventListener("click", function () {
+    var r = parseInt(selLeftRound && selLeftRound.value, 10) || 1;
+    appendManualPick(poolMpleft, "mpleft", r);
+  });
+  document.getElementById("btn-add-draft-right").addEventListener("click", function () {
+    var r = parseInt(selRightRound && selRightRound.value, 10) || 1;
+    appendManualPick(poolMpright, "mpright", r);
+  });
+
   document.getElementById("btn-clear-table").addEventListener("click", function () {
     ledger = { from_left_to_right: [], from_right_to_left: [] };
-    renderSidebars(); renderZones();
+    clearManualPools();
+    renderSidebars();
+    renderZones();
   });
 
   function updateLedgerLabels(myTeamName, partnerName) {
@@ -307,6 +550,7 @@
     if (!tid) {
       cached = null;
       rightPanels.innerHTML = "";
+      clearManualPools();
       rightPh.classList.remove("is-hidden");
       rightLoaded.classList.add("is-hidden");
       if (rightLogo) rightLogo.removeAttribute("src");
@@ -334,7 +578,11 @@
           return;
         }
         cached = data;
+        if (data.player_page_url_template)
+          root.setAttribute("data-player-page-tpl", data.player_page_url_template);
         ledger = { from_left_to_right: [], from_right_to_left: [] };
+        clearManualPools();
+        if (typeof data.draft_round_cap === "number") fillRoundSelects(data.draft_round_cap);
         var ptn = data.partner_team_name || optLab.split("(")[0].trim();
         rightName.textContent = ptn;
         rightGm.textContent = data.partner_gm_name || "";

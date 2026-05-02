@@ -73,7 +73,7 @@ from app.services.player_overall_score import (
     player_is_goalie_for_overall,
 )
 from app.services.player_ratings_csv import get_player_ratings_row, player_positions_display_label
-from app.services.seasons import get_current_season, season_age_reference_date
+from app.services.seasons import get_current_season, season_age_reference_date, season_with_imported_data_fallback
 from app.services.franchise_leaders import build_franchise_history_sections
 from app.services.free_agents import (
     FA_GOALIE_MAIN,
@@ -464,7 +464,12 @@ def join_league():
 
 @main_bp.get("/standings")
 def standings():
-    season = get_current_season()
+    canonical_season = get_current_season()
+    season = (
+        season_with_imported_data_fallback(db.session, canonical_season)
+        if canonical_season
+        else None
+    )
     view = request.args.get("view", "overall")
     conf = request.args.get("conference")
     div = request.args.get("division")
@@ -578,9 +583,26 @@ def standings():
         if selected_div:
             rows = [st for st in rows if (getattr(st, "division_label", "") or "").strip() == selected_div]
 
+    league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    if league_slug == "bowl-cap":
+        playoff_bracket_layout = "mirror"
+        playoff_trophy_url = url_for("static", filename="img/bowl-cap-playoff-trophy.png")
+    elif league_slug == "bowl-fantasy":
+        playoff_bracket_layout = "mirror"
+        playoff_trophy_url = url_for("static", filename="img/bowl-fantasy-playoff-trophy.png")
+    elif league_slug == "bowl-historical":
+        playoff_bracket_layout = "mirror"
+        playoff_trophy_url = url_for("static", filename="img/bowl-championship-cup.png")
+    else:
+        playoff_bracket_layout = ""
+        playoff_trophy_url = ""
+    playoff_bowl_championship = "1" if league_slug == "bowl-historical" else ""
+    playoff_mirror_rounds = "historical" if league_slug == "bowl-historical" else ""
+
     return render_template(
         "standings.html",
         season=season,
+        canonical_season=canonical_season,
         standings=rows,
         team_stat_rows_rs=team_stat_rows_rs,
         team_stat_rows_po=team_stat_rows_po,
@@ -591,6 +613,10 @@ def standings():
         division_names=division_names,
         sel_conference=selected_conf,
         sel_division=div,
+        playoff_bracket_layout=playoff_bracket_layout,
+        playoff_trophy_url=playoff_trophy_url,
+        playoff_bowl_championship=playoff_bowl_championship,
+        playoff_mirror_rounds=playoff_mirror_rounds,
     )
 
 
@@ -603,7 +629,12 @@ def _build_statistics_view_vars(
     When locked_team_id is set, stats are restricted to that team and query
     `team_id` is ignored. URLs for sort/expand use team_page when slug is set.
     """
-    season = get_current_season()
+    canonical_season = get_current_season()
+    season = (
+        season_with_imported_data_fallback(db.session, canonical_season)
+        if canonical_season
+        else None
+    )
     team_id = locked_team_id if locked_team_id is not None else request.args.get("team_id", type=int)
     sort = request.args.get("sort", "points")
     goalies = request.args.get("goalies") == "1"
@@ -626,9 +657,10 @@ def _build_statistics_view_vars(
             bowl_fhm_for_fantasy = (0,)
         teams = [t for t in teams if t.fhm_league_id in bowl_fhm_for_fantasy]
     teams_by_id = {t.id: t for t in teams}
-    if not season:
+    if not canonical_season:
         return {
             "season": None,
+            "canonical_season": None,
             "teams": teams,
             "teams_by_id": teams_by_id,
             "skaters": [],
@@ -914,6 +946,7 @@ def _build_statistics_view_vars(
 
     return {
         "season": season,
+        "canonical_season": canonical_season,
         "teams": teams,
         "teams_by_id": teams_by_id,
         "skaters": skaters,
@@ -941,7 +974,12 @@ def statistics():
 
 @main_bp.get("/schedule")
 def schedule():
-    season = get_current_season()
+    canonical_season = get_current_season()
+    season = (
+        season_with_imported_data_fallback(db.session, canonical_season)
+        if canonical_season
+        else None
+    )
     team_filter = request.args.get("team")
     tab = request.args.get("tab", "recent")
     game_type = request.args.get("game_type", "").strip()
@@ -951,10 +989,11 @@ def schedule():
         team_obj = db.session.scalars(
             select(Team).where(Team.slug == team_filter).limit(1)
         ).first()
-    if not season:
+    if not canonical_season:
         return render_template(
             "schedule.html",
             season=None,
+            canonical_season=None,
             games=[],
             teams=teams,
             tab=tab,
@@ -985,6 +1024,7 @@ def schedule():
     return render_template(
         "schedule.html",
         season=season,
+        canonical_season=canonical_season,
         games=games,
         teams=teams,
         tab=tab,
@@ -2963,7 +3003,12 @@ def team_page(slug: str):
     if not team:
         abort(404)
     league_slug = str(current_app.config.get("LEAGUE_SLUG") or "bowl-fantasy")
-    season = get_current_season()
+    canonical_season = get_current_season()
+    season = (
+        season_with_imported_data_fallback(db.session, canonical_season)
+        if canonical_season
+        else None
+    )
     division_name = None
     division_rank = None
     arena_name = None
@@ -3063,11 +3108,15 @@ def team_page(slug: str):
     }
     if panel not in allowed_team_panels:
         panel = "roster"
-    salary_years = [int(season.start_year) + i for i in range(6)] if season and season.start_year else []
+    salary_years = (
+        [int(canonical_season.start_year) + i for i in range(6)]
+        if canonical_season and canonical_season.start_year
+        else []
+    )
     roster = db.session.scalars(
         select(Player).where(Player.current_team_id == team.id).order_by(Player.last_name, Player.first_name)
     ).all()
-    age_ref = season_age_reference_date(season)
+    age_ref = season_age_reference_date(canonical_season or season)
     roster_ages = {p.id: _player_age_years(p.birth_date, age_ref) for p in roster}
 
     def _ratings_sort_key(pl: Player) -> tuple[float, str, str]:
@@ -3286,6 +3335,7 @@ def team_page(slug: str):
         "division_name": division_name,
         "division_rank": division_rank,
         "season": season,
+        "canonical_season": canonical_season,
         "standing": standing,
         "hero_city_caps": hero_city_caps,
         "hero_display_name": hero_display_name,

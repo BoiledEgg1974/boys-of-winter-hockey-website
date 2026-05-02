@@ -91,6 +91,9 @@ def playoff_bracket_payload(season_id: int | None) -> dict:
             "empty": True,
             "message": "No season.",
             "championship": None,
+            "first_round": [],
+            "second_round": [],
+            "conference_finals": [],
             "quarterfinals": [],
             "semifinals": [],
             "rounds": [],
@@ -109,6 +112,9 @@ def playoff_bracket_payload(season_id: int | None) -> dict:
             "empty": True,
             "message": "No playoff games found. Games need a playoff-type label in the schedule import (e.g. Playoffs).",
             "championship": None,
+            "first_round": [],
+            "second_round": [],
+            "conference_finals": [],
             "quarterfinals": [],
             "semifinals": [],
             "rounds": [],
@@ -172,32 +178,71 @@ def playoff_bracket_payload(season_id: int | None) -> dict:
     )
     n = len(ordered)
 
-    def partition_rounds() -> tuple[list[SeriesAgg], list[SeriesAgg], SeriesAgg | None]:
-        """First round (up to 4+), second round (2), final (1).
+    def semantic_playoff_rounds() -> tuple[list[SeriesAgg], list[SeriesAgg], list[SeriesAgg], SeriesAgg | None]:
+        """Split ordered series into outer→inner rounds (by schedule order).
 
-        Do **not** infer the final from latest game date — that mis-labels a first-round
-        series as the championship when every matchup is still the same round (e.g. four
-        parallel best-of-seven series).
+        For 8+ series, assume bracket order: 8 first-round, then 4, then 2, then championship.
+        For smaller brackets, preserve the previous 4+2(+1) semantics and map in the UI.
         """
         if n == 0:
-            return [], [], None
+            return [], [], [], None
         if n == 1:
-            return [], [], ordered[0]
+            return [], [], [], ordered[0]
         if n == 2:
-            return [], ordered, None
+            return [], ordered, [], None
         if n == 3:
-            return [], ordered[:2], ordered[2]
+            return [], ordered[:2], [], ordered[2]
         if n == 4:
-            return ordered, [], None
+            return ordered, [], [], None
         if n == 5:
-            return ordered[:4], ordered[4:5], None
+            return ordered[:4], ordered[4:], [], None
         if n == 6:
-            return ordered[:4], ordered[4:6], None
-        if n >= 7:
-            return ordered[:-3], ordered[-3:-1], ordered[-1]
-        raise AssertionError(f"Unexpected playoff series count: {n}")
+            return ordered[:4], ordered[4:6], [], None
+        if n == 7:
+            return ordered[:4], ordered[4:6], [], ordered[6]
+        # n >= 8: up to 8–4–2–1 series in order.
+        r1 = list(ordered[:8])
+        r2 = list(ordered[8 : min(n, 12)])
+        r3 = list(ordered[12 : min(n, 14)])
+        champ = ordered[14] if n >= 15 else None
+        return r1, r2, r3, champ
 
-    quarterfinals, semifinals, championship_series = partition_rounds()
+    def expand_to_mirror_slots(
+        r1: list[SeriesAgg],
+        r2: list[SeriesAgg],
+        r3: list[SeriesAgg],
+        champ: SeriesAgg | None,
+    ) -> tuple[list[SeriesAgg | None], list[SeriesAgg | None], list[SeriesAgg | None], SeriesAgg | None]:
+        """Fixed slots for mirror UI: 8 QF (4+4), 4 SF (2+2), 2 conference finals (1+1)."""
+        s1: list[SeriesAgg | None] = [None] * 8
+        for i, s in enumerate(r1[:8]):
+            s1[i] = s
+        s2: list[SeriesAgg | None] = [None] * 4
+        lr2 = len(r2)
+        if lr2 == 1:
+            s2[0] = r2[0]
+        elif lr2 == 2:
+            s2[0], s2[2] = r2[0], r2[1]
+        elif lr2 == 3:
+            s2[0], s2[1], s2[2] = r2[0], r2[1], r2[2]
+        elif lr2 >= 4:
+            for i in range(4):
+                s2[i] = r2[i]
+        s3: list[SeriesAgg | None] = [None] * 2
+        if len(r3) == 1:
+            s3[0] = r3[0]
+        elif len(r3) >= 2:
+            s3[0], s3[1] = r3[0], r3[1]
+        return s1, s2, s3, champ
+
+    r1_sem, r2_sem, r3_sem, championship_series = semantic_playoff_rounds()
+    s1_slots, s2_slots, s3_slots, championship_series = expand_to_mirror_slots(
+        r1_sem, r2_sem, r3_sem, championship_series
+    )
+
+    # Legacy field names: non-null series in schedule order for older consumers.
+    quarterfinals = [s for s in r1_sem if s is not None]
+    semifinals = [s for s in r2_sem if s is not None]
 
     def pack_rounds_fallback(sl: list[SeriesAgg]) -> list[dict]:
         if not sl:
@@ -214,7 +259,10 @@ def playoff_bracket_payload(season_id: int | None) -> dict:
                 out.append({"label": lab, "series": [_series_json(x, teams) for x in chunk]})
         return out
 
-    # Legacy "rounds" grid for older clients; UI should use quarterfinals / semifinals / championship.
+    def _slot_json(s: SeriesAgg | None) -> dict | None:
+        return _series_json(s, teams) if s else None
+
+    # Legacy "rounds" grid for older clients.
     rounds = (
         [
             {"label": "First round", "series": [_series_json(x, teams) for x in quarterfinals]},
@@ -223,6 +271,8 @@ def playoff_bracket_payload(season_id: int | None) -> dict:
         if quarterfinals or semifinals
         else pack_rounds_fallback(ordered)
     )
+    if r3_sem:
+        rounds.append({"label": "Conference finals", "series": [_series_json(x, teams) for x in r3_sem]})
 
     champ_j = _series_json(championship_series, teams) if championship_series else None
 
@@ -231,6 +281,9 @@ def playoff_bracket_payload(season_id: int | None) -> dict:
         "empty": False,
         "message": "",
         "championship": champ_j,
+        "first_round": [_slot_json(s) for s in s1_slots],
+        "second_round": [_slot_json(s) for s in s2_slots],
+        "conference_finals": [_slot_json(s) for s in s3_slots],
         "quarterfinals": [_series_json(x, teams) for x in quarterfinals],
         "semifinals": [_series_json(x, teams) for x in semifinals],
         "rounds": rounds,

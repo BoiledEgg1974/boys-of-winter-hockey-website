@@ -4,6 +4,9 @@
 {% block content %}
 <h1 class="page-title">Schedule</h1>
 {% if season %}<p class="muted">Season: <strong>{{ season|season_display }}</strong></p>{% endif %}
+{% if canonical_season and season and canonical_season.id != season.id %}
+<p class="muted">League year <strong>{{ canonical_season|season_display }}</strong> — games listed are from <strong>{{ season|season_display }}</strong> until that year is imported.</p>
+{% endif %}
 <div class="tabs">
   <a href="{{ url_for('main.schedule', tab='recent', team=team_obj.slug if team_obj else None, game_type=game_type or None) }}" class="{{ 'is-active' if tab == 'recent' else '' }}">Recent results</a>
   <a href="{{ url_for('main.schedule', tab='upcoming', team=team_obj.slug if team_obj else None, game_type=game_type or None) }}" class="{{ 'is-active' if tab == 'upcoming' else '' }}">Upcoming</a>

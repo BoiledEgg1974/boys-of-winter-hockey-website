@@ -1,2 +1,3 @@
 label,fhm_season_id,start_year,end_year,is_current
-1967-68,fhm-league-0,1967,1968,true
+1967-68,fhm-league-0,1967,1968,false
+1968-69,fhm-league-1968-69,1968,1969,true

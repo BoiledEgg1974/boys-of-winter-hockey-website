@@ -57,7 +57,12 @@ from app.services.playoff_bracket import playoff_bracket_payload
 from app.services.player_rating_avgs import goalie_category_averages, skater_category_averages
 from app.services.player_headshot import resolve_player_headshot_static_filename
 from app.services.player_ratings_csv import get_player_ratings_row, player_positions_display_label
-from app.services.seasons import get_current_season, season_age_reference_date
+from app.services.seasons import (
+    get_current_season,
+    season_age_reference_date,
+    season_display_label,
+    season_with_imported_data_fallback,
+)
 from app.services.discord_events import (
     fetch_pending_events_for_bot,
     mark_event_failed,
@@ -578,14 +583,14 @@ def homepage_summary():
     segment = request.args.get("segment", "rs") or "rs"
     if segment not in ("rs", "ps", "po"):
         segment = "rs"
-    season = get_current_season()
+    canonical_season = get_current_season()
     lm = db.session.scalars(
         select(LeagueMeta).where(LeagueMeta.fhm_league_id == 0).limit(1)
     ).first() or db.session.scalars(select(LeagueMeta).limit(1)).first()
     league_info = (
         {"name": lm.name, "abbr": lm.abbreviation or ""} if lm else {"name": "", "abbr": ""}
     )
-    if not season:
+    if not canonical_season:
         empty_news = build_around_the_league(db.session)
         empty_body: dict[str, object] = {
             "league_calendar_date": None,
@@ -633,6 +638,7 @@ def homepage_summary():
         }
         empty_body["ticker_items"] = build_homepage_ticker_items(empty_body)
         return jsonify(empty_body)
+    season = season_with_imported_data_fallback(db.session, canonical_season)
     recent_form = _recent_form_map(season.id)
     teams_out: list[dict[str, object]] = []
 
@@ -1083,6 +1089,11 @@ def homepage_summary():
 
     summary_body: dict[str, object] = {
         "league_calendar_date": league_cal.isoformat(),
+        "league_season_label": season_display_label(canonical_season),
+        "dashboard_data_season_label": season_display_label(season),
+        "dashboard_uses_prior_season_data": bool(
+            canonical_season.id != season.id
+        ),
         "teams": teams_out,
         "standings_by_division": standings_by_division,
         "game_of_the_night": game_of_the_night,

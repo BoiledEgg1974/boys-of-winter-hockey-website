@@ -15,6 +15,7 @@
     <p class="home-dashboard__deck">League home — leaders, schedule, and storylines for this universe.</p>
   </header>
 
+  <p id="home-dashboard-season-note" class="muted home-dashboard__banner-msg" hidden></p>
   <p id="home-load-error" class="empty-state home-dashboard__banner-msg" hidden>Could not load dashboard.</p>
   <div class="home-dashboard__toc-sticky">
     <nav class="home-dashboard__toc" aria-label="On this page">
@@ -1641,6 +1642,21 @@
     fetch(withRoot('/api/homepage/summary?segment=' + encodeURIComponent(seg)))
       .then(function (r) { return r.json(); })
       .then(function (data) {
+        var noteEl = document.getElementById('home-dashboard-season-note');
+        if (noteEl) {
+          if (data.dashboard_uses_prior_season_data) {
+            noteEl.textContent =
+              'League year ' +
+              (data.league_season_label || '') +
+              ' — dashboard uses regular-season data from ' +
+              (data.dashboard_data_season_label || '') +
+              ' until the new year is imported.';
+            noteEl.hidden = false;
+          } else {
+            noteEl.hidden = true;
+            noteEl.textContent = '';
+          }
+        }
         moduleVisibility = (data.module_settings && data.module_settings.visibility) || {};
         moduleSortOrder = (data.module_settings && data.module_settings.sort_order) || {};
         applyHomeModuleOrder();

@@ -122,6 +122,9 @@
     <h1 class="page-title stats-page__title">STATISTICS</h1>
     {% if season %}<p class="stats-page__season muted">Season: <strong>{{ season|season_display }}</strong></p>{% endif %}
     {% endif %}
+    {% if canonical_season and season and canonical_season.id != season.id %}
+    <p class="muted stats-page__season-note">League year <strong>{{ canonical_season|season_display }}</strong> — these stats are from <strong>{{ season|season_display }}</strong> until that year is imported.</p>
+    {% endif %}
     <div class="stats-toolbar card">
     <div class="stats-toolbar__row">
       <span class="stats-toolbar__label">View</span>

@@ -75,13 +75,16 @@
 {% if season %}
 <p class="muted">Season: <strong>{{ season|season_display }}</strong></p>
 {% endif %}
+{% if canonical_season and season and canonical_season.id != season.id %}
+<p class="muted">League year <strong>{{ canonical_season|season_display }}</strong> — standings and team stats below are from <strong>{{ season|season_display }}</strong> until that year is imported.</p>
+{% endif %}
 <div class="standings-toolbar">
   <div class="tabs">
     <a href="{{ url_for('main.standings', view='overall') }}" class="{{ 'is-active' if view == 'overall' else '' }}">Overall</a>
     <a href="{{ url_for('main.standings', view='conference') }}" class="{{ 'is-active' if view == 'conference' else '' }}">Conference</a>
     <a href="{{ url_for('main.standings', view='division') }}" class="{{ 'is-active' if view == 'division' else '' }}">Division</a>
   </div>
-  {% if season %}
+  {% if canonical_season %}
   <button type="button" class="btn-playoff-bracket" id="js-open-playoff-bracket">Playoffs</button>
   {% endif %}
 </div>
@@ -148,7 +151,7 @@
 </div>
 {% endif %}
 
-{% if season %}
+{% if canonical_season %}
 <dialog class="playoff-bracket-dialog" id="playoff-bracket-dialog" aria-labelledby="playoff-bracket-title">
   <div class="playoff-bracket-dialog__shell">
     <header class="playoff-bracket-dialog__head">
@@ -157,23 +160,34 @@
       </div>
       <button type="button" class="playoff-bracket-dialog__close" id="js-close-playoff-bracket" aria-label="Close">&times;</button>
     </header>
-    <div class="playoff-bracket-dialog__body" id="playoff-bracket-root"
-         data-bowl-championship="{{ '1' if config.LEAGUE_SLUG == 'bowl-historical' else '' }}"
-         data-trophy-url="{{ url_for('static', filename='img/bowl-championship-cup.png') }}">
-      <p class="muted playoff-bracket-dialog__loading">Loading bracket…</p>
+    <div class="playoff-bracket-dialog__body">
+      <div id="playoff-bracket-mount" class="playoff-bracket-mount"
+           data-bowl-championship="{{ playoff_bowl_championship }}"
+           data-bracket-layout="{{ playoff_bracket_layout }}"
+           data-bracket-mirror-rounds="{{ playoff_mirror_rounds }}"
+           data-trophy-url="{{ playoff_trophy_url }}">
+        <div id="playoff-bracket-root">
+          <p class="muted playoff-bracket-dialog__loading">Loading bracket…</p>
+        </div>
+      </div>
     </div>
   </div>
 </dialog>
 <script>
 (function () {
   var dlg = document.getElementById('playoff-bracket-dialog');
+  var mount = document.getElementById('playoff-bracket-mount');
   var root = document.getElementById('playoff-bracket-root');
   var openBtn = document.getElementById('js-open-playoff-bracket');
   var closeBtn = document.getElementById('js-close-playoff-bracket');
-  if (!dlg || !root || !openBtn) return;
+  if (!dlg || !mount || !root || !openBtn) return;
 
-  var EXPECT_R1 = 4;
-  var EXPECT_R2 = 2;
+  function bracketAttr(name) {
+    return (mount.getAttribute(name) || '').trim();
+  }
+
+  var EXPECT_R1 = 8;
+  var EXPECT_R2 = 4;
 
   function withRoot(path) {
     var r = document.documentElement.getAttribute('data-application-root') || '';
@@ -249,9 +263,70 @@
     html += '</div></div>';
     return html;
   }
+  function mirrorStack(label, slots) {
+    var html = '<div class="bracket-mirror-col">';
+    html += '<h4 class="bracket-round__label bracket-round__label--visual">' + esc(label) + '</h4>';
+    html += '<div class="bracket-round__matchups">';
+    for (var i = 0; i < slots.length; i++) {
+      html += slots[i] ? seriesCard(slots[i], false) : placeholderCard();
+    }
+    html += '</div></div>';
+    return html;
+  }
+  function mirrorCenterColumn(championship) {
+    var trophy = bracketAttr('data-trophy-url');
+    var bowl = bracketAttr('data-bowl-championship') === '1';
+    var html = '<div class="bracket-mirror-center bracket-col--final">';
+    html += '<h4 class="bracket-round__label bracket-round__label--visual">Championship</h4>';
+    if (trophy) {
+      html += '<div class="bracket-final-banner bracket-final-banner--mirror">';
+      if (bowl) {
+        html += '<p class="bracket-bowl-title">BOWL Championship</p>';
+      }
+      html += '<img class="bracket-trophy-img bracket-trophy-img--mirror" src="' + esc(trophy) + '" width="160" height="200" alt="">';
+      html += '</div>';
+    } else {
+      html += '<div class="bracket-final-banner bracket-final-banner--minimal"><p class="bracket-bowl-title bracket-bowl-title--generic">Championship</p></div>';
+    }
+    html += '<div class="bracket-round__matchups bracket-round__matchups--single">';
+    html += championship ? seriesCard(championship, true) : placeholderCard();
+    html += '</div></div>';
+    return html;
+  }
+  function renderMirrorBracket(data, parts) {
+    var r1 = parts.r1 || [];
+    var r2 = parts.r2 || [];
+    var r3 = parts.r3 || [];
+    var sfL = r2.slice(0, 2);
+    var sfR = r2.slice(2, 4);
+    var cfL = [r3[0] != null ? r3[0] : null];
+    var cfR = [r3[1] != null ? r3[1] : null];
+    var html = '<section class="bracket-visual-wrap" aria-label="Playoff bracket">';
+    var histCompact = bracketAttr('data-bracket-mirror-rounds') === 'historical';
+    html += '<div class="bracket-visual bracket-visual--mirror' + (histCompact ? ' bracket-visual--mirror-historical' : '') + '">';
+    if (histCompact) {
+      html += mirrorStack('Division Semi-Finals (BO7)', sfL);
+      html += mirrorStack('Division Finals (BO7)', cfL);
+      html += mirrorCenterColumn(data.championship);
+      html += mirrorStack('Division Finals (BO7)', cfR);
+      html += mirrorStack('Division Semi-Finals (BO7)', sfR);
+    } else {
+      var qfL = r1.slice(0, 4);
+      var qfR = r1.slice(4, 8);
+      html += mirrorStack('Quarterfinals (BO7)', qfL);
+      html += mirrorStack('Semifinals (BO7)', sfL);
+      html += mirrorStack('Conference finals (BO7)', cfL);
+      html += mirrorCenterColumn(data.championship);
+      html += mirrorStack('Conference finals (BO7)', cfR);
+      html += mirrorStack('Semifinals (BO7)', sfR);
+      html += mirrorStack('Quarterfinals (BO7)', qfR);
+    }
+    html += '</div></section>';
+    return html;
+  }
   function finalColumn(championship) {
-    var bowl = root.getAttribute('data-bowl-championship') === '1';
-    var trophy = root.getAttribute('data-trophy-url') || '';
+    var bowl = bracketAttr('data-bowl-championship') === '1';
+    var trophy = bracketAttr('data-trophy-url');
     var html = '<div class="bracket-col bracket-col--final">';
     html += '<h4 class="bracket-round__label bracket-round__label--visual">Final (BO7)</h4>';
     if (bowl && trophy) {
@@ -267,19 +342,44 @@
     html += '</div></div>';
     return html;
   }
+  function padMirrorSlots(arr, len) {
+    var a = arr || [];
+    var out = [];
+    for (var i = 0; i < len; i++) {
+      out.push(i < a.length ? a[i] : null);
+    }
+    return out;
+  }
   function normalizeRounds(data) {
     if (data.series_total === 1 && data.championship) {
-      return { r1: [], r2: [] };
+      return { r1: padMirrorSlots([], 8), r2: padMirrorSlots([], 4), r3: padMirrorSlots([], 2) };
+    }
+    if (Array.isArray(data.first_round)) {
+      return {
+        r1: padMirrorSlots(data.first_round, 8),
+        r2: padMirrorSlots(data.second_round, 4),
+        r3: padMirrorSlots(data.conference_finals, 2),
+      };
     }
     var r1 = data.quarterfinals;
     var r2 = data.semifinals;
-    if ((r1 && r1.length) || (r2 && r2.length)) return { r1: r1 || [], r2: r2 || [] };
+    if ((r1 && r1.length) || (r2 && r2.length)) {
+      return {
+        r1: padMirrorSlots(r1 || [], 8),
+        r2: padMirrorSlots(r2 || [], 4),
+        r3: padMirrorSlots([], 2),
+      };
+    }
     if (data.rounds && data.rounds.length) {
       var a = (data.rounds[0] && data.rounds[0].series) || [];
       var b = (data.rounds[1] && data.rounds[1].series) || [];
-      return { r1: a, r2: b };
+      return {
+        r1: padMirrorSlots(a, 8),
+        r2: padMirrorSlots(b, 4),
+        r3: padMirrorSlots([], 2),
+      };
     }
-    return { r1: [], r2: [] };
+    return { r1: padMirrorSlots([], 8), r2: padMirrorSlots([], 4), r3: padMirrorSlots([], 2) };
   }
   function render(data) {
     if (!data || data.empty) {
@@ -287,17 +387,26 @@
       return;
     }
     var parts = normalizeRounds(data);
+    var layout = bracketAttr('data-bracket-layout');
+    if (layout === 'mirror') {
+      root.innerHTML = renderMirrorBracket(data, parts);
+      return;
+    }
     var html = '<section class="bracket-visual-wrap" aria-label="Playoff bracket">';
-    html += '<div class="bracket-visual">';
+    var wide = parts.r3 && (parts.r3[0] || parts.r3[1]);
+    html += '<div class="bracket-visual' + (wide ? ' bracket-visual--wide' : '') + '">';
     html += columnRound('First round (BO7)', parts.r1, EXPECT_R1, false);
     html += columnRound('Second round (BO7)', parts.r2, EXPECT_R2, true);
+    if (wide) {
+      html += columnRound('Conference finals (BO7)', parts.r3, 2, true);
+    }
     html += finalColumn(data.championship);
     html += '</div></section>';
     root.innerHTML = html;
   }
   function load() {
     root.innerHTML = '<p class="muted playoff-bracket-dialog__loading">Loading bracket…</p>';
-    var url = withRoot('/api/playoff-bracket{% if season %}?season_id={{ season.id }}{% endif %}');
+    var url = withRoot('/api/playoff-bracket?season_id={{ canonical_season.id }}');
     fetch(url).then(function (r) { return r.json(); }).then(render).catch(function () {
       root.innerHTML = '<p class="empty-state">Could not load playoff bracket.</p>';
     });

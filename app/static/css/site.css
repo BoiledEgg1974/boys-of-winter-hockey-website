@@ -682,7 +682,7 @@ table.data tbody tr.standings-cutline td {
 }
 
 .playoff-bracket-dialog {
-  max-width: min(1280px, calc(100vw - 2rem));
+  max-width: min(1680px, calc(100vw - 2rem));
   width: 100%;
   padding: 0;
   border: none;
@@ -762,18 +762,105 @@ table.data tbody tr.standings-cutline td {
 .bracket-visual-wrap {
   margin: 0;
 }
-.bracket-visual {
+.bracket-visual:not(.bracket-visual--mirror) {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1.25rem 1.35rem;
   align-items: stretch;
 }
+.bracket-visual:not(.bracket-visual--mirror).bracket-visual--wide {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
 @media (max-width: 960px) {
-  .bracket-visual {
+  .bracket-visual:not(.bracket-visual--mirror) {
     grid-template-columns: 1fr;
   }
   .bracket-col--middle {
     justify-content: flex-start !important;
+  }
+}
+
+/* Cap / Fantasy: symmetric bracket (QF → SF → center trophy + final). */
+.bracket-visual--mirror {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  justify-content: center;
+  gap: 0.85rem 1.1rem;
+  max-width: 100%;
+}
+@media (min-width: 961px) {
+  .bracket-visual--mirror > *:not(:first-child) {
+    border-left: 1px solid rgb(71 85 105 / 0.5);
+    padding-left: 1.15rem;
+    margin-left: 0;
+  }
+}
+[data-theme="light"] .bracket-visual--mirror > *:not(:first-child) {
+  border-left-color: var(--border);
+}
+.bracket-mirror-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1 1 min(160px, 12vw);
+  max-width: 240px;
+}
+/* Inner rounds (SF + conference finals): vertically center between outer columns. */
+.bracket-visual--mirror:not(.bracket-visual--mirror-historical) > .bracket-mirror-col:nth-child(2),
+.bracket-visual--mirror:not(.bracket-visual--mirror-historical) > .bracket-mirror-col:nth-child(3),
+.bracket-visual--mirror:not(.bracket-visual--mirror-historical) > .bracket-mirror-col:nth-child(5),
+.bracket-visual--mirror:not(.bracket-visual--mirror-historical) > .bracket-mirror-col:nth-child(6) {
+  justify-content: center;
+}
+/* BOWL-Historical: five columns (division semi-finals, division finals, center). */
+.bracket-visual--mirror-historical > .bracket-mirror-col:nth-child(2),
+.bracket-visual--mirror-historical > .bracket-mirror-col:nth-child(4) {
+  justify-content: center;
+}
+.bracket-visual--mirror-historical > .bracket-mirror-col:nth-child(1),
+.bracket-visual--mirror-historical > .bracket-mirror-col:nth-child(5) {
+  justify-content: center;
+}
+.bracket-mirror-center {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  min-width: 0;
+  flex: 1.15 1 min(220px, 22vw);
+  max-width: 300px;
+  align-self: stretch;
+}
+.bracket-mirror-center .bracket-round__matchups--single {
+  margin-top: 0.35rem;
+}
+.bracket-final-banner--mirror {
+  margin-bottom: 0.5rem;
+  padding: 0.35rem 0.25rem 0.15rem;
+}
+.bracket-trophy-img--mirror {
+  max-height: 200px;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+  margin: 0 auto;
+  display: block;
+  filter: drop-shadow(0 12px 32px rgb(0 0 0 / 0.55));
+}
+[data-theme="light"] .bracket-trophy-img--mirror {
+  filter: drop-shadow(0 8px 20px rgb(0 0 0 / 0.2));
+}
+@media (max-width: 960px) {
+  .bracket-visual--mirror {
+    flex-direction: column;
+    flex-wrap: wrap;
+    align-items: stretch;
+  }
+  .bracket-mirror-col,
+  .bracket-mirror-center {
+    max-width: none;
+    flex: 1 1 auto;
   }
 }
 .bracket-col {
@@ -793,6 +880,9 @@ table.data tbody tr.standings-cutline td {
 }
 .bracket-round__label--visual {
   margin-bottom: 0.7rem;
+  text-align: center;
+  width: 100%;
+  box-sizing: border-box;
 }
 .bracket-final-banner {
   text-align: center;

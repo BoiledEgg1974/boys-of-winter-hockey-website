@@ -1,0 +1,16 @@
+{# Half-step 0–5 star row (team lines, standings positional talent). Import only — no page context. #}
+{% macro star_row(value) -%}
+  {% if value is none %}
+    <span class="team-lines-stars__empty">—</span>
+  {% else %}
+    {% set steps = ((value * 2)|round(0, 'common'))|int %}
+    {% if steps < 0 %}{% set steps = 0 %}{% endif %}
+    {% if steps > 10 %}{% set steps = 10 %}{% endif %}
+    {% set full = (steps // 2)|int %}
+    {% set half = 1 if (steps % 2) else 0 %}
+    {% set empty = 5 - full - half %}
+    {% for _ in range(full) %}<span class="team-lines-star">★</span>{% endfor %}
+    {% if half %}<span class="team-lines-star team-lines-star--half">★</span>{% endif %}
+    {% for _ in range(empty) %}<span class="team-lines-star team-lines-star--empty">★</span>{% endfor %}
+  {% endif %}
+{%- endmacro %}

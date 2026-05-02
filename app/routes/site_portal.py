@@ -12,6 +12,7 @@ from pathlib import Path
 from flask import Blueprint, abort, current_app, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 from sqlalchemy import delete, func, select
+from sqlalchemy.orm import joinedload
 from app.auth_login import (
     ADMIN_ROLE_CONTENT,
     ADMIN_ROLE_LEAGUE,
@@ -27,6 +28,7 @@ from app.logo_urls import team_logo_url_for_team
 from app.league_db import db
 from app.models import Player, PlayerContract, Season, Team
 from app.services.ap_multileague import team_id_for_slug_in_league
+from app.services.all_time_records import bowl_nhl_league_ids
 from app.services.gm_messaging import (
     active_peer_membership,
     gm_display_name,
@@ -90,9 +92,16 @@ from app.services.discord_events import (
     update_discord_routes,
 )
 from app.services.prediction_center import build_prediction_snapshot
+from app.services.positional_rankings import build_positional_ranking_rows, save_positional_rank_snapshot
+from app.services.prospect_system_rankings import (
+    build_prospect_system_ranking_rows,
+    resolve_prospect_team_fallbacks,
+    save_system_rank_snapshot,
+)
 from app.services.awards_tracker import create_voting_cycle, list_cycles, tally_cycle_ballots
 from app.services.media_kit import build_media_kit_snapshot
 from app.services.member_digest import build_member_watchlist_digest
+from app.services.seasons import get_current_season, season_age_reference_date, season_with_imported_data_fallback
 from app.services.ap_service import (
     active_redemption_items,
     add_ledger_entry,
@@ -1212,6 +1221,87 @@ def admin_home():
         "admin_site_home.html",
         league_slug=slug,
     )
+
+
+@site_admin_bp.post("/prospect-system-rank-snapshot")
+@login_required
+def admin_prospect_system_rank_snapshot():
+    """Save current system rankings as the comparison baseline (also run automatically after imports)."""
+    require_admin()
+    from flask_wtf.csrf import validate_csrf
+
+    validate_csrf(request.form.get("csrf_token"))
+    slug = _league_slug()
+    session = db.session
+    league_ids = frozenset(bowl_nhl_league_ids(session))
+    if not league_ids:
+        flash("No NHL/BOWL league scope for this site.", "err")
+        return redirect(url_for("main.prospects"))
+    canonical = get_current_season()
+    season_for_stats = season_with_imported_data_fallback(session, canonical) if canonical else None
+    age_ref = season_age_reference_date(canonical or season_for_stats)
+    overview_headers = (
+        ("Skating", "SKT", "skating"),
+        ("Shooting", "SHT", "shooting"),
+        ("Playmaking", "PLM", "playmaking"),
+        ("Defending", "DEF", "defending"),
+        ("Physicality", "PHY", "physicality"),
+        ("Conditioning", "CON", "conditioning"),
+        ("Character", "CHR", "character"),
+        ("Hockey sense", "HSN", "hockey_sense"),
+    )
+    q = select(Player).options(joinedload(Player.current_team)).where(
+        Player.retired.is_(False),
+        Player.birth_date.isnot(None),
+    )
+    players = list(session.scalars(q).unique().all())
+    resolved = resolve_prospect_team_fallbacks(session, players, season_for_stats)
+
+    def _eff(pl: Player) -> Team | None:
+        return pl.current_team or resolved.get(pl.id)
+
+    teams = list(session.scalars(select(Team).where(Team.fhm_league_id.in_(league_ids)).order_by(Team.name)).all())
+    team_by_id = {t.id: t for t in teams}
+    rows = build_prospect_system_ranking_rows(
+        session,
+        players=players,
+        resolved_team_by_player_id=resolved,
+        league_ids=league_ids,
+        age_ref=age_ref,
+        overview_headers=overview_headers,
+        team_by_id=team_by_id,
+        effective_team=_eff,
+    )
+    if not rows:
+        flash("No system ranking rows to snapshot.", "err")
+        return redirect(url_for("main.prospects"))
+    save_system_rank_snapshot(slug, rows)
+    flash(
+        "System rankings baseline saved. Arrows compare to this snapshot until the next import or save.",
+        "ok",
+    )
+    return redirect(url_for("main.prospects"))
+
+
+@site_admin_bp.post("/positional-rank-snapshot")
+@login_required
+def admin_positional_rank_snapshot():
+    """Save current positional (F/D/G) paper rankings baseline for standings Δ column."""
+    require_admin()
+    from flask_wtf.csrf import validate_csrf
+
+    validate_csrf(request.form.get("csrf_token"))
+    slug = _league_slug()
+    rows = build_positional_ranking_rows(db.session)
+    if not rows:
+        flash("No positional ranking rows to snapshot.", "err")
+        return redirect(url_for("main.standings", view="overall"))
+    save_positional_rank_snapshot(slug, rows)
+    flash(
+        "Positional rankings baseline saved. Standings Δ compares to this until the next import or save.",
+        "ok",
+    )
+    return redirect(url_for("main.standings", view="overall"))
 
 
 @site_admin_bp.get("/commissioner-sop")

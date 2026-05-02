@@ -26,6 +26,78 @@
 {% block content %}
 <div class="prospects-rankings-page">
   <h1 class="page-title">Prospect Rankings</h1>
+
+  <section class="card prospects-system-rankings" aria-labelledby="prospects-system-rankings-h">
+    <h2 id="prospects-system-rankings-h" class="prospects-system-rankings__title">System Rankings</h2>
+    {% if system_rank_snapshot_at %}
+    <p class="muted prospects-system-rankings__meta">Δ vs last baseline: {{ system_rank_snapshot_at.strftime('%Y-%m-%d %H:%M') }} UTC (after each import, or when an admin saves a new baseline).</p>
+    {% else %}
+    <p class="muted prospects-system-rankings__meta">Δ appears after the first import snapshot or when an admin saves a baseline below.</p>
+    {% endif %}
+    {% if viewer_can_save_system_rank_snapshot %}
+    <form method="post" action="{{ url_for('site_admin.admin_prospect_system_rank_snapshot') }}" class="prospects-system-rankings__save-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="prospects-system-rankings__save-btn">Save current rankings as baseline</button>
+    </form>
+    {% endif %}
+    {% if system_rankings_rows %}
+    <div class="table-wrap">
+      <table class="data prospects-system-rankings-table">
+        <thead>
+          <tr>
+            <th scope="col" class="prospects-system-rankings__trend-col" title="Change in system rank vs last baseline (lower rank # is better).">Δ</th>
+            <th scope="col">RANK</th>
+            <th scope="col">TEAM</th>
+            <th scope="col">#1 Prospect</th>
+            <th scope="col">#2 Prospect</th>
+            <th scope="col">#3 Prospect</th>
+            <th scope="col">#4 Prospect</th>
+            <th scope="col">#5 Prospect</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in system_rankings_rows %}
+          <tr>
+            <td class="prospects-system-rankings__trend">
+              {% if row.trend_dir == 'up' %}
+              <span class="stats-ova__trend stats-ova__trend--up" title="Improved {{ row.trend_delta }} spot(s)">↑{{ row.trend_delta }}</span>
+              {% elif row.trend_dir == 'down' %}
+              <span class="stats-ova__trend stats-ova__trend--down" title="Dropped {{ row.trend_delta }} spot(s)">↓{{ row.trend_delta }}</span>
+              {% elif row.trend_dir == 'same' %}
+              <span class="muted" title="Same rank as baseline">—</span>
+              {% elif row.trend_dir == 'new' %}
+              <span class="muted" title="Team not in last baseline">NEW</span>
+              {% else %}
+              <span class="muted" title="No baseline yet">—</span>
+              {% endif %}
+            </td>
+            <td>{{ row.rank }}</td>
+            <td class="prospects-system-rankings__team">
+              <span class="prospects-system-rankings__team-inner">
+                <a class="prospects-rankings-table__team-logo-hit prospects-system-rankings__team-logo" href="{{ url_for('main.team_page', slug=row.team.slug) }}" title="{{ row.team.name }}">
+                  <img class="prospects-rankings-table__team-logo-img" src="{{ team_logo_url(row.team) }}" alt="" loading="lazy" decoding="async">
+                </a>
+                <a class="prospects-system-rankings__team-name" href="{{ url_for('main.team_page', slug=row.team.slug) }}">{{ row.team.name }}</a>
+              </span>
+            </td>
+            {% for i in range(5) %}
+            <td class="prospects-system-rankings__cell">
+              {% if row.slots|length > i %}
+              {% set s = row.slots[i] %}
+              <a href="{{ url_for('main.player_page', player_id=s.player.id) }}">{{ s.pos }} {{ s.initial }} {{ s.last }}({{ s.global_rank }})</a>
+              {% else %}<span class="muted">—</span>{% endif %}
+            </td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="empty-state">No qualifying prospects in the league for system rankings.</p>
+    {% endif %}
+  </section>
+
   <form method="get" class="card prospects-rankings-page__filters">
     <input type="hidden" name="sort" value="{{ prospect_sort }}">
     <input type="hidden" name="order" value="{{ prospect_order }}">

@@ -6692,6 +6692,300 @@ table.data.prospects-rankings-table--free-agents .stats-player-cell__pos--eligib
   margin: 0 auto;
   padding: 0 1rem 2rem;
 }
+.prospects-system-rankings {
+  margin-bottom: 1.25rem;
+}
+.prospects-system-rankings__meta {
+  margin: 0 0 0.5rem;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+.prospects-system-rankings__save-form {
+  margin: 0 0 0.65rem;
+}
+.prospects-system-rankings__save-btn {
+  font-size: 0.78rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid rgb(71 85 105 / 0.9);
+  background: rgb(30 41 59 / 0.85);
+  color: #e2e8f0;
+  font-weight: 600;
+}
+.prospects-system-rankings__save-btn:hover {
+  filter: brightness(1.08);
+}
+.prospects-system-rankings__title {
+  margin: 0 0 0.65rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #f8fafc;
+  border-bottom: 1px solid rgb(148 163 184 / 0.25);
+  padding-bottom: 0.45rem;
+}
+[data-theme="light"] .prospects-system-rankings__title {
+  color: var(--text);
+  border-bottom-color: rgb(15 23 42 / 0.12);
+}
+table.data.prospects-system-rankings-table {
+  font-size: 0.75rem;
+  width: 100%;
+}
+table.data.prospects-system-rankings-table thead th {
+  background: rgb(15 23 42 / 0.95);
+  color: #f1f5f9;
+  font-weight: 700;
+  font-size: 0.68rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 0.4rem 0.35rem;
+  border-bottom: 1px solid rgb(51 65 85 / 0.85);
+}
+[data-theme="light"] table.data.prospects-system-rankings-table thead th {
+  background: rgb(30 41 59 / 0.92);
+  color: #f8fafc;
+}
+table.data.prospects-system-rankings-table tbody tr:nth-child(even) {
+  background: rgb(0 0 0 / 0.18);
+}
+[data-theme="light"] table.data.prospects-system-rankings-table tbody tr:nth-child(even) {
+  background: rgb(15 23 42 / 0.04);
+}
+table.data.prospects-system-rankings-table th,
+table.data.prospects-system-rankings-table td {
+  text-align: left;
+  vertical-align: middle;
+  padding: 0.35rem 0.4rem;
+}
+table.data.prospects-system-rankings-table th.prospects-system-rankings__trend-col,
+table.data.prospects-system-rankings-table td.prospects-system-rankings__trend {
+  width: 2.85rem;
+  text-align: center;
+  white-space: nowrap;
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
+}
+.prospects-system-rankings__trend .stats-ova__trend {
+  font-size: 0.62rem;
+  min-width: 0;
+  padding: 0.06rem 0.2rem;
+}
+table.data.prospects-system-rankings-table td:nth-child(2) {
+  width: 2.35rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: #94a3b8;
+}
+.prospects-system-rankings__team-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+.prospects-system-rankings__team-logo {
+  flex-shrink: 0;
+}
+/* Slightly smaller than main prospect table logos so the system grid stays compact */
+.prospects-system-rankings__team-logo.prospects-rankings-table__team-logo-hit {
+  width: calc(26px * var(--team-inline-logo-mul, 1));
+  height: calc(26px * var(--team-inline-logo-mul, 1));
+}
+.prospects-system-rankings__team-logo .prospects-rankings-table__team-logo-img {
+  width: calc(26px * var(--team-inline-logo-mul, 1));
+  height: calc(26px * var(--team-inline-logo-mul, 1));
+}
+.prospects-system-rankings__team-name {
+  font-weight: 600;
+  color: #7dd3fc;
+  text-decoration: none;
+  min-width: 0;
+}
+.prospects-system-rankings__team-name:hover {
+  text-decoration: underline;
+}
+[data-theme="light"] .prospects-system-rankings__team-name {
+  color: #0369a1;
+}
+.prospects-system-rankings__cell a {
+  color: #e2e8f0;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.prospects-system-rankings__cell a:hover {
+  text-decoration: underline;
+  color: #f8fafc;
+}
+[data-theme="light"] .prospects-system-rankings__cell a {
+  color: var(--text);
+}
+
+/* Standings — positional rankings (F/D/G paper depth) */
+.positional-rankings {
+  margin-top: 1.25rem;
+}
+.positional-rankings__title {
+  margin: 0 0 0.55rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #f8fafc;
+  border-bottom: 1px solid rgb(148 163 184 / 0.25);
+  padding-bottom: 0.45rem;
+}
+[data-theme="light"] .positional-rankings__title {
+  color: var(--text);
+}
+.positional-rankings__meta,
+.positional-rankings__legend {
+  margin: 0 0 0.45rem;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+.positional-rankings__save-form {
+  margin: 0 0 0.55rem;
+}
+.positional-rankings__save-btn {
+  font-size: 0.78rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid rgb(71 85 105 / 0.9);
+  background: rgb(30 41 59 / 0.85);
+  color: #e2e8f0;
+  font-weight: 600;
+}
+.positional-rankings__save-btn:hover {
+  filter: brightness(1.08);
+}
+table.data.positional-rankings-table {
+  font-size: 0.82rem;
+  width: 100%;
+}
+table.data.positional-rankings-table thead th {
+  background: rgb(15 23 42 / 0.95);
+  color: #f1f5f9;
+  font-weight: 700;
+  font-size: 0.68rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 0.4rem 0.35rem;
+  border-bottom: 1px solid rgb(51 65 85 / 0.85);
+}
+[data-theme="light"] table.data.positional-rankings-table thead th {
+  background: rgb(30 41 59 / 0.92);
+  color: #f8fafc;
+}
+table.data.positional-rankings-table tbody tr:nth-child(even) {
+  background: rgb(0 0 0 / 0.18);
+}
+[data-theme="light"] table.data.positional-rankings-table tbody tr:nth-child(even) {
+  background: rgb(15 23 42 / 0.04);
+}
+table.data.positional-rankings-table th,
+table.data.positional-rankings-table td {
+  vertical-align: middle;
+  padding: 0.35rem 0.4rem;
+}
+/* Override global table.data left-align on cols 1–2 (Δ + RANK must be centered). */
+table.data.positional-rankings-table th:nth-child(1),
+table.data.positional-rankings-table td:nth-child(1),
+table.data.positional-rankings-table th:nth-child(2),
+table.data.positional-rankings-table td:nth-child(2),
+table.data.positional-rankings-table th:nth-child(4),
+table.data.positional-rankings-table td:nth-child(4),
+table.data.positional-rankings-table th:nth-child(5),
+table.data.positional-rankings-table td:nth-child(5),
+table.data.positional-rankings-table th:nth-child(6),
+table.data.positional-rankings-table td:nth-child(6) {
+  text-align: center;
+}
+table.data.positional-rankings-table th:nth-child(3),
+table.data.positional-rankings-table td:nth-child(3),
+table.data.positional-rankings-table th:nth-child(7),
+table.data.positional-rankings-table td:nth-child(7),
+table.data.positional-rankings-table th:nth-child(8),
+table.data.positional-rankings-table td:nth-child(8) {
+  text-align: left;
+}
+table.data.positional-rankings-table thead th:nth-child(2),
+table.data.positional-rankings-table thead th:nth-child(4),
+table.data.positional-rankings-table thead th:nth-child(5),
+table.data.positional-rankings-table thead th:nth-child(6) {
+  text-align: center;
+}
+table.data.positional-rankings-table th.positional-rankings__trend-col,
+table.data.positional-rankings-table td.positional-rankings__trend {
+  width: 2.85rem;
+  text-align: center;
+  white-space: nowrap;
+}
+.positional-rankings__trend .stats-ova__trend {
+  font-size: 0.62rem;
+  min-width: 0;
+  padding: 0.06rem 0.2rem;
+}
+.positional-rankings__rank,
+.positional-rankings__num {
+  text-align: center;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #f1f5f9;
+}
+.positional-rankings__team-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+/* Match league prospect table: rounded box + padding + contain so shields / triangles are not circular-cropped */
+table.data.positional-rankings-table .positional-rankings__team-logo.prospects-rankings-table__team-logo-hit {
+  width: calc(36px * var(--team-inline-logo-mul, 1));
+  height: calc(36px * var(--team-inline-logo-mul, 1));
+  border-radius: 8px;
+  padding: 4px;
+  box-sizing: border-box;
+}
+table.data.positional-rankings-table .positional-rankings__team-logo .prospects-rankings-table__team-logo-img {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  object-position: center;
+}
+.positional-rankings__team-name {
+  font-weight: 600;
+  color: #7dd3fc;
+  text-decoration: none;
+}
+.positional-rankings__team-name:hover {
+  text-decoration: underline;
+}
+[data-theme="light"] .positional-rankings__team-name {
+  color: #0369a1;
+}
+.positional-rankings__top {
+  text-align: left;
+}
+.positional-rankings__top a {
+  color: #e2e8f0;
+  text-decoration: none;
+}
+.positional-rankings__top a:hover {
+  text-decoration: underline;
+}
+.positional-rankings__stars {
+  text-align: left;
+  white-space: nowrap;
+}
+.positional-rankings__stars .team-lines-star {
+  font-size: 0.85rem;
+}
+
 .prospects-rankings-page__filters {
   padding: 0.75rem;
   margin-bottom: 1rem;
@@ -8946,6 +9240,55 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+}
+/* GM + commissioner trade proposal actions: green approve, red deny */
+.trade-proposal-detail__btn {
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 6px;
+  padding: 0.55rem 1rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+button.trade-proposal-detail__btn.trade-proposal-detail__btn--approve {
+  background: #15803d;
+  color: #ffffff;
+  border: 1px solid #14532d;
+}
+button.trade-proposal-detail__btn.trade-proposal-detail__btn--approve:hover,
+button.trade-proposal-detail__btn.trade-proposal-detail__btn--approve:focus-visible {
+  filter: brightness(1.08);
+}
+button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny {
+  background: #b91c1c;
+  color: #ffffff;
+  border: 1px solid #7f1d1d;
+}
+button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:hover,
+button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible {
+  filter: brightness(1.08);
+}
+.trade-proposal-detail__commissioner-actions {
+  margin-top: 1.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-end;
+}
+.trade-proposal-detail__commissioner-deny-form {
+  flex: 1;
+  min-width: 14rem;
+}
+.trade-proposal-detail__deny-label {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+.trade-proposal-detail__deny-note {
+  width: 100%;
+}
+.trade-proposal-detail__deny-submit {
+  margin-top: 0.35rem;
 }
 
 .trade-tool-manual-picks {

@@ -75,6 +75,12 @@ from app.services.player_overall_score import (
     player_is_goalie_for_overall,
 )
 from app.services.player_ratings_csv import get_player_ratings_row, player_positions_display_label
+from app.services.prospect_system_rankings import (
+    apply_system_rank_trends,
+    build_prospect_system_ranking_rows,
+    load_latest_system_rank_snapshot,
+    resolve_prospect_team_fallbacks,
+)
 from app.services.seasons import get_current_season, season_age_reference_date, season_with_imported_data_fallback
 from app.services.franchise_leaders import build_franchise_history_sections
 from app.services.free_agents import (
@@ -610,6 +616,20 @@ def standings():
     playoff_bowl_championship = "1" if league_slug == "bowl-historical" else ""
     playoff_mirror_rounds = "historical" if league_slug == "bowl-historical" else ""
 
+    from app.services.positional_rankings import (
+        apply_positional_rank_trends,
+        build_positional_ranking_rows,
+        load_latest_positional_rank_snapshot,
+    )
+
+    positional_ranking_rows = build_positional_ranking_rows(db.session)
+    prev_pos_map, positional_rank_snapshot_at = load_latest_positional_rank_snapshot(league_slug)
+    if prev_pos_map:
+        apply_positional_rank_trends(positional_ranking_rows, prev_pos_map)
+    viewer_can_save_positional_rank_snapshot = bool(
+        getattr(current_user, "is_authenticated", False) and getattr(current_user, "is_admin", False)
+    )
+
     return render_template(
         "standings.html",
         season=season,
@@ -627,6 +647,9 @@ def standings():
         playoff_trophy_url=playoff_trophy_url,
         playoff_bowl_championship=playoff_bowl_championship,
         playoff_mirror_rounds=playoff_mirror_rounds,
+        positional_ranking_rows=positional_ranking_rows,
+        positional_rank_snapshot_at=positional_rank_snapshot_at,
+        viewer_can_save_positional_rank_snapshot=viewer_can_save_positional_rank_snapshot,
     )
 
 
@@ -1665,7 +1688,7 @@ def prospects():
     team_slug = request.args.get("team")
     pos = request.args.get("position")
     prospect_expanded = request.args.get("expanded") == "1"
-    prospect_page_limit = 50
+    prospect_page_limit = 25
     session = db.session
     league_ids = bowl_nhl_league_ids(session)
     age_ref = season_age_reference_date(get_current_season())
@@ -1699,113 +1722,7 @@ def prospects():
     )
     players = session.scalars(q).unique().all()
 
-    # Fallback team resolution for players whose current_team_id is NULL:
-    # infer team from current-season skater/goalie rows (highest GP).
-    resolved_team_by_player_id: dict[int, Team | None] = {}
-    missing_ids = [p.id for p in players if p.current_team is None]
-    if missing_ids and season:
-        inferred_team_id: dict[int, tuple[int, int]] = {}  # player_id -> (gp, team_id)
-        sk_rows = session.execute(
-            select(
-                PlayerSkaterStat.player_id,
-                PlayerSkaterStat.team_id,
-                PlayerSkaterStat.gp,
-            ).where(
-                PlayerSkaterStat.season_id == season.id,
-                PlayerSkaterStat.player_id.in_(missing_ids),
-                PlayerSkaterStat.team_id.isnot(None),
-            )
-        ).all()
-        for pid, tid, gp in sk_rows:
-            if tid is None:
-                continue
-            gpv = int(gp or 0)
-            prev = inferred_team_id.get(int(pid))
-            if prev is None or gpv > prev[0]:
-                inferred_team_id[int(pid)] = (gpv, int(tid))
-        goalie_rows = session.execute(
-            select(
-                PlayerGoalieStat.player_id,
-                PlayerGoalieStat.team_id,
-                PlayerGoalieStat.gp,
-            ).where(
-                PlayerGoalieStat.season_id == season.id,
-                PlayerGoalieStat.player_id.in_(missing_ids),
-                PlayerGoalieStat.team_id.isnot(None),
-            )
-        ).all()
-        for pid, tid, gp in goalie_rows:
-            if tid is None:
-                continue
-            gpv = int(gp or 0)
-            prev = inferred_team_id.get(int(pid))
-            if prev is None or gpv > prev[0]:
-                inferred_team_id[int(pid)] = (gpv, int(tid))
-        team_ids = sorted({v[1] for v in inferred_team_id.values()})
-        teams_map = {
-            t.id: t
-            for t in session.scalars(select(Team).where(Team.id.in_(team_ids))).all()
-        } if team_ids else {}
-        for pid, (_gp, tid) in inferred_team_id.items():
-            resolved_team_by_player_id[pid] = teams_map.get(tid)
-
-    # Final fallback: player_rights.csv (PlayerId -> Team FHM id) for prospects not on active roster.
-    unresolved_ids = [p.id for p in players if p.current_team is None and p.id not in resolved_team_by_player_id]
-    if unresolved_ids:
-        try:
-            rights_path = Path(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)) / "player_rights.csv"
-            if rights_path.is_file():
-                unresolved_fhm_to_player_id: dict[str, int] = {}
-                unresolved_id_set = set(unresolved_ids)
-                unresolved_db_only_ids: set[int] = set()
-                for p in players:
-                    if p.id not in unresolved_id_set:
-                        continue
-                    if p.fhm_player_id is None:
-                        unresolved_db_only_ids.add(p.id)
-                    else:
-                        fhm_pid = str(p.fhm_player_id).strip()
-                        if fhm_pid:
-                            unresolved_fhm_to_player_id[fhm_pid] = p.id
-                        else:
-                            unresolved_db_only_ids.add(p.id)
-
-                pid_to_fhm_team: dict[int, str] = {}
-                with rights_path.open("r", encoding="utf-8-sig", newline="") as f:
-                    sample = f.read(2048)
-                    f.seek(0)
-                    delim = ";" if sample.count(";") >= sample.count(",") else ","
-                    reader = csv.DictReader(f, delimiter=delim)
-                    for row in reader:
-                        pid_s = (row.get("PlayerId") or row.get("playerid") or "").strip()
-                        tid_s = (row.get("Team") or row.get("team") or "").strip()
-                        if not pid_s or not tid_s:
-                            continue
-                        pid = unresolved_fhm_to_player_id.get(pid_s)
-                        # Backward compatibility: DB-id matching only for players missing FHM id.
-                        if pid is None:
-                            try:
-                                pid_db = int(pid_s)
-                            except ValueError:
-                                continue
-                            if pid_db not in unresolved_db_only_ids:
-                                continue
-                            pid = pid_db
-                        pid_to_fhm_team[pid] = tid_s
-                if pid_to_fhm_team:
-                    want_fhm_ids = {v for v in pid_to_fhm_team.values() if v}
-                    fhm_team_map: dict[str, Team] = {}
-                    if want_fhm_ids:
-                        t_rows = session.scalars(
-                            select(Team).where(Team.fhm_team_id.in_(want_fhm_ids))
-                        ).all()
-                        fhm_team_map = {str(t.fhm_team_id): t for t in t_rows if t.fhm_team_id is not None}
-                    for pid, fhm_tid in pid_to_fhm_team.items():
-                        tm = fhm_team_map.get(str(fhm_tid))
-                        if tm is not None:
-                            resolved_team_by_player_id[pid] = tm
-        except Exception:
-            pass
+    resolved_team_by_player_id = resolve_prospect_team_fallbacks(session, players, season)
 
     selected_team = None
     if team_slug:
@@ -1902,7 +1819,28 @@ def prospects():
     else:
         display_rows = rows_out[:prospect_page_limit]
 
-    teams = session.scalars(select(Team).where(Team.fhm_league_id.in_(league_ids)).order_by(Team.name)).all()
+    teams = list(
+        session.scalars(select(Team).where(Team.fhm_league_id.in_(league_ids)).order_by(Team.name)).all()
+    )
+    team_by_id: dict[int, Team] = {t.id: t for t in teams}
+
+    system_rankings_rows = build_prospect_system_ranking_rows(
+        session,
+        players=players,
+        resolved_team_by_player_id=resolved_team_by_player_id,
+        league_ids=league_ids,
+        age_ref=age_ref,
+        overview_headers=overview_headers,
+        team_by_id=team_by_id,
+        effective_team=_effective_team,
+    )
+    league_slug_cfg = str(current_app.config.get("LEAGUE_SLUG") or "")
+    prev_rank_map, system_rank_snapshot_at = load_latest_system_rank_snapshot(league_slug_cfg)
+    if prev_rank_map:
+        apply_system_rank_trends(system_rankings_rows, prev_rank_map)
+    viewer_can_save_system_rank_snapshot = bool(
+        getattr(current_user, "is_authenticated", False) and getattr(current_user, "is_admin", False)
+    )
     prospect_pls = [r["player"] for r in display_rows]
     player_overall_by_id = build_overall_cell_map_from_players(session, prospect_pls)
     return render_template(
@@ -1919,6 +1857,9 @@ def prospects():
         prospect_order=order,
         prospect_sort_desc_defaults=sort_default_desc,
         player_overall_by_id=player_overall_by_id,
+        system_rankings_rows=system_rankings_rows,
+        system_rank_snapshot_at=system_rank_snapshot_at,
+        viewer_can_save_system_rank_snapshot=viewer_can_save_system_rank_snapshot,
     )
 
 

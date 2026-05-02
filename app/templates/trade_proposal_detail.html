@@ -16,8 +16,8 @@
   {% if can_partner_act %}
   <form method="post" action="{{ url_for('site_gm.trade_proposal_partner_respond', pid=proposal.id) }}" class="trade-proposal-detail__actions">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <button type="submit" name="action" value="approve" class="trade-tool-submit">Approve trade</button>
-    <button type="submit" name="action" value="decline" class="button">Decline</button>
+    <button type="submit" name="action" value="approve" class="trade-tool-submit trade-proposal-detail__btn trade-proposal-detail__btn--approve">Approve trade</button>
+    <button type="submit" name="action" value="decline" class="trade-proposal-detail__btn trade-proposal-detail__btn--deny">Decline</button>
   </form>
   {% elif is_proposer %}
   <p class="muted">You proposed this trade. When your partner responds, both of you will be notified here and in GM Messages.</p>

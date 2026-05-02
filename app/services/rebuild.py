@@ -69,6 +69,19 @@ def recompute_standings_from_games(season_id: int) -> None:
     db.session.commit()
 
 
-def refresh_after_import(engine) -> None:
-    """Rebuild player search index after data changes."""
+def refresh_after_import(engine, app=None) -> None:
+    """Rebuild player search index after data changes; optional app for site-DB snapshot hooks."""
     rebuild_player_fts(engine)
+    if app is not None:
+        try:
+            from app.services.positional_rankings import record_positional_rank_snapshot_after_import
+            from app.services.prospect_system_rankings import record_system_rank_snapshot_after_import
+
+            record_system_rank_snapshot_after_import(app)
+            record_positional_rank_snapshot_after_import(app)
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).exception(
+                "record rank snapshots after import failed (non-fatal)"
+            )

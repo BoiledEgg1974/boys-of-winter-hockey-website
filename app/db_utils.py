@@ -805,6 +805,39 @@ def ensure_admin_undo_actions_sqlite(engine: Engine) -> None:
         conn.commit()
 
 
+def ensure_positional_rank_snapshots_sqlite(engine: Engine) -> None:
+    """Create positional rank snapshot table on site DB when missing."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='positional_rank_snapshots'"
+            )
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE positional_rank_snapshots (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    league_slug VARCHAR(64) NOT NULL,
+                    snapshot_at DATETIME NOT NULL,
+                    ranks_json TEXT NOT NULL DEFAULT '{}'
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_positional_rank_snap_league_at "
+                "ON positional_rank_snapshots (league_slug, snapshot_at)"
+            )
+        )
+        conn.commit()
+
+
 def ensure_discord_outbound_sqlite(engine: Engine) -> None:
     """Create Discord route + outbound event tables on site DB when missing."""
     if engine.dialect.name != "sqlite":
@@ -937,4 +970,70 @@ def ensure_discord_outbound_sqlite(engine: Engine) -> None:
                     "ON discord_bot_heartbeats (bot_name)"
                 )
             )
+        conn.commit()
+
+
+def ensure_prospect_system_rank_snapshots_sqlite(engine: Engine) -> None:
+    """Create prospect system rank snapshot table on site DB when missing."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='prospect_system_rank_snapshots'"
+            )
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE prospect_system_rank_snapshots (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    league_slug VARCHAR(64) NOT NULL,
+                    snapshot_at DATETIME NOT NULL,
+                    ranks_json TEXT NOT NULL DEFAULT '{}'
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_prospect_sys_snap_league_at "
+                "ON prospect_system_rank_snapshots (league_slug, snapshot_at)"
+            )
+        )
+        conn.commit()
+
+
+def ensure_positional_rank_snapshots_sqlite(engine: Engine) -> None:
+    """Create positional rank snapshot table on site DB when missing."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='positional_rank_snapshots'"
+            )
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE positional_rank_snapshots (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    league_slug VARCHAR(64) NOT NULL,
+                    snapshot_at DATETIME NOT NULL,
+                    ranks_json TEXT NOT NULL DEFAULT '{}'
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_positional_rank_snap_league_at "
+                "ON positional_rank_snapshots (league_slug, snapshot_at)"
+            )
+        )
         conn.commit()

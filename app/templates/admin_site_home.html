@@ -12,6 +12,8 @@
     <li><a href="{{ url_for('site_admin.admin_announcements') }}">Announcement banners</a></li>
     <li><a href="{{ url_for('site_admin.admin_homepage_modules') }}">Homepage modules</a></li>
     <li><a href="{{ url_for('site_admin.admin_import_validation') }}">Import validation</a></li>
+    <li><a href="{{ url_for('main.prospects') }}">Prospects</a> — &quot;Save current rankings as baseline&quot; refreshes system-rank Δ on that page</li>
+    <li><a href="{{ url_for('main.standings', view='overall') }}">Standings</a> — same for positional (F/D/G) Δ on the Positional Rankings panel</li>
     <li><a href="{{ url_for('site_admin.admin_rules') }}">League rules (scaffold)</a></li>
     <li><a href="{{ url_for('site_admin.admin_draft_hub') }}">Draft Hub (league-run drafts)</a></li>
     <li><a href="{{ url_for('site_admin.admin_operations_queue') }}">GM operations queue</a></li>

@@ -575,6 +575,32 @@ class LeagueDraftSoundbite(db.Model):
     draft: Mapped["LeagueDraft"] = relationship(back_populates="soundbites")
 
 
+class ProspectSystemRankSnapshot(db.Model):
+    """League-wide prospect system rank by team; compared on next view to show Δ rank."""
+
+    __tablename__ = "prospect_system_rank_snapshots"
+    __bind_key__ = "site"
+    __table_args__ = (Index("ix_prospect_sys_snap_league_at", "league_slug", "snapshot_at"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    snapshot_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    ranks_json: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class PositionalRankSnapshot(db.Model):
+    """Standings positional rankings table order by team; Δ vs last snapshot."""
+
+    __tablename__ = "positional_rank_snapshots"
+    __bind_key__ = "site"
+    __table_args__ = (Index("ix_positional_rank_snap_league_at", "league_slug", "snapshot_at"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    snapshot_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    ranks_json: Mapped[str] = mapped_column(Text, nullable=False)
+
+
 def meta_dict(entry: ApLedgerEntry) -> dict:
     try:
         return json.loads(entry.meta_json or "{}")

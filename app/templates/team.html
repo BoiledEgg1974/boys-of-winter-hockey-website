@@ -1,21 +1,7 @@
 {% extends "base.html" %}
 {% from "_news_engagement.html" import news_engagement_block %}
+{% from "macros/star_row.html" import star_row %}
 {% block title %}{{ team.name }} — Boys of Winter Hockey League{% endblock %}
-{% macro star_row(value) -%}
-  {% if value is none %}
-    <span class="team-lines-stars__empty">—</span>
-  {% else %}
-    {% set steps = ((value * 2)|round(0, 'common'))|int %}
-    {% if steps < 0 %}{% set steps = 0 %}{% endif %}
-    {% if steps > 10 %}{% set steps = 10 %}{% endif %}
-    {% set full = (steps // 2)|int %}
-    {% set half = 1 if (steps % 2) else 0 %}
-    {% set empty = 5 - full - half %}
-    {% for _ in range(full) %}<span class="team-lines-star">★</span>{% endfor %}
-    {% if half %}<span class="team-lines-star team-lines-star--half">★</span>{% endif %}
-    {% for _ in range(empty) %}<span class="team-lines-star team-lines-star--empty">★</span>{% endfor %}
-  {% endif %}
-{%- endmacro %}
 {% macro depth_ova_badge(pid) -%}
 {% set ova = player_overall_by_id[pid] if player_overall_by_id is defined and player_overall_by_id and pid in player_overall_by_id else none %}
 {% if ova and ova.score is not none %}

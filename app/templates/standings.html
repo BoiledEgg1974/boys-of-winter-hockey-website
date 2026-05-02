@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "macros/team.html" import team_lockup_full_name with context %}
+{% from "macros/star_row.html" import star_row %}
 {% block title %}Standings — Boys of Winter Hockey League{% endblock %}
 {% macro team_stats_panel(title, rows) -%}
 {% if rows %}
@@ -145,6 +146,73 @@
   <h2>Team statistics</h2>
   <p class="empty-state">No team season totals in the database yet. Include <code>team_stats.csv</code> in your FHM export and run the import pipeline.</p>
 </div>
+{% endif %}
+
+{% if positional_ranking_rows is defined and positional_ranking_rows %}
+<section class="card positional-rankings" aria-labelledby="positional-rankings-h">
+  <h2 id="positional-rankings-h" class="positional-rankings__title">Positional Rankings</h2>
+  {% if positional_rank_snapshot_at %}
+  <p class="muted positional-rankings__meta">Δ vs last baseline: {{ positional_rank_snapshot_at.strftime('%Y-%m-%d %H:%M') }} UTC (saved after each import, or below by an admin).</p>
+  {% else %}
+  <p class="muted positional-rankings__meta">Δ appears after the first import snapshot or when an admin saves a baseline below.</p>
+  {% endif %}
+  {% if viewer_can_save_positional_rank_snapshot %}
+  <form method="post" action="{{ url_for('site_admin.admin_positional_rank_snapshot') }}" class="positional-rankings__save-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="positional-rankings__save-btn">Save current positional rankings as baseline</button>
+  </form>
+  {% endif %}
+  <p class="muted positional-rankings__legend">F, D, and G are league-wide ranks (1 = best) by average composite OVR of each club’s top twelve forwards, top six defencemen, and top two goalies on the NHL roster. Overall rank uses the sum of those three ranks. Top player is the roster’s highest OVR skater or goalie.</p>
+  <div class="table-wrap">
+    <table class="data positional-rankings-table">
+      <thead>
+        <tr>
+          <th scope="col" class="positional-rankings__trend-col" title="Change in overall positional rank vs last baseline">Δ</th>
+          <th scope="col">RANK</th>
+          <th scope="col">TEAM</th>
+          <th scope="col" title="Forward depth rank">F</th>
+          <th scope="col" title="Defence depth rank">D</th>
+          <th scope="col" title="Goaltending rank">G</th>
+          <th scope="col">TOP PLAYER</th>
+          <th scope="col">TALENT</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in positional_ranking_rows %}
+        <tr>
+          <td class="positional-rankings__trend">
+            {% if row.trend_dir == 'up' %}
+            <span class="stats-ova__trend stats-ova__trend--up" title="Improved {{ row.trend_delta }} spot(s)">↑{{ row.trend_delta }}</span>
+            {% elif row.trend_dir == 'down' %}
+            <span class="stats-ova__trend stats-ova__trend--down" title="Dropped {{ row.trend_delta }} spot(s)">↓{{ row.trend_delta }}</span>
+            {% elif row.trend_dir == 'same' %}
+            <span class="muted" title="Same rank as baseline">—</span>
+            {% elif row.trend_dir == 'new' %}
+            <span class="muted" title="Team not in last baseline">NEW</span>
+            {% else %}
+            <span class="muted" title="No baseline yet">—</span>
+            {% endif %}
+          </td>
+          <td class="positional-rankings__rank">{{ row.rank }}</td>
+          <td class="positional-rankings__team">
+            <span class="positional-rankings__team-inner">
+              <a class="prospects-rankings-table__team-logo-hit positional-rankings__team-logo" href="{{ url_for('main.team_page', slug=row.team.slug) }}" title="{{ row.team.full_display_name() }}">
+                <img class="prospects-rankings-table__team-logo-img" src="{{ team_logo_url(row.team) }}" alt="" loading="lazy" decoding="async">
+              </a>
+              <a class="positional-rankings__team-name" href="{{ url_for('main.team_page', slug=row.team.slug) }}">{{ row.team.full_display_name() }}</a>
+            </span>
+          </td>
+          <td class="positional-rankings__num">{{ row.f_rank }}</td>
+          <td class="positional-rankings__num">{{ row.d_rank }}</td>
+          <td class="positional-rankings__num">{{ row.g_rank }}</td>
+          <td class="positional-rankings__top">{% if row.top_player %}<a href="{{ url_for('main.player_page', player_id=row.top_player.id) }}">{{ row.top_pos_label }} {{ row.top_player.full_name }}</a>{% else %}—{% endif %}</td>
+          <td class="positional-rankings__stars">{{ star_row(row.talent_stars) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
 {% endif %}
 
 {% if canonical_season %}

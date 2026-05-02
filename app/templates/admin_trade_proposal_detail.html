@@ -12,18 +12,18 @@
   {% endif %}
 
   {% if proposal.status == 'pending_commissioner' %}
-  <div style="margin-top:1.25rem;display:flex;flex-wrap:wrap;gap:0.75rem;align-items:flex-end;">
+  <div class="trade-proposal-detail__commissioner-actions">
     <form method="post" action="{{ url_for('site_admin.admin_trade_proposal_detail', pid=proposal.id) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="action" value="approve">
-      <button type="submit" class="trade-tool-submit" style="border:none;cursor:pointer;">Approve &amp; publish news</button>
+      <button type="submit" class="trade-tool-submit trade-proposal-detail__btn trade-proposal-detail__btn--approve">Approve &amp; publish news</button>
     </form>
-    <form method="post" action="{{ url_for('site_admin.admin_trade_proposal_detail', pid=proposal.id) }}" style="flex:1;min-width:14rem;">
+    <form method="post" action="{{ url_for('site_admin.admin_trade_proposal_detail', pid=proposal.id) }}" class="trade-proposal-detail__commissioner-deny-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="action" value="deny">
-      <label class="muted" style="display:block;margin-bottom:0.25rem;">Deny (optional note to GMs)</label>
-      <textarea name="commissioner_note" rows="2" maxlength="2000" style="width:100%;"></textarea>
-      <button type="submit" class="button" style="margin-top:0.35rem;">Deny</button>
+      <label class="muted trade-proposal-detail__deny-label">Deny (optional note to GMs)</label>
+      <textarea name="commissioner_note" rows="2" maxlength="2000" class="trade-proposal-detail__deny-note"></textarea>
+      <button type="submit" class="trade-proposal-detail__btn trade-proposal-detail__btn--deny trade-proposal-detail__deny-submit">Deny</button>
     </form>
   </div>
   {% elif proposal.status == 'commissioner_declined' and (proposal.commissioner_note or '')|trim %}

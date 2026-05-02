@@ -922,7 +922,7 @@ def run_import(raw_dir: Path | None = None) -> None:
                 ilog.message = str(e)
             ilog.finished_at = datetime.utcnow()
             db.session.commit()
-            refresh_after_import(db.engine)
+            refresh_after_import(db.engine, app)
             _run_post_import_safeguards()
             log.info("FHM import finished. Counts: %s", counts if ilog.status == "success" else {})
             return
@@ -944,7 +944,7 @@ def run_import(raw_dir: Path | None = None) -> None:
                 ilog.message = str(e)
             ilog.finished_at = datetime.utcnow()
             db.session.commit()
-        refresh_after_import(db.engine)
+        refresh_after_import(db.engine, app)
         _run_post_import_safeguards()
         log.info("Import finished. Total row operations (approx): %s", total)
 

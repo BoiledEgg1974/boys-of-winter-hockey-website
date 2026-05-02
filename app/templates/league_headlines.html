@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_news_engagement.html" import news_engagement_block %}
 {% block title %}League headlines — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
 {% block content %}
 <div class="card" style="max-width:46rem;margin:0 auto;">
@@ -30,6 +31,7 @@
     </div>
     {% endif %}
     <div class="headlines-article__body" style="white-space:pre-wrap;">{{ a.body }}</div>
+    {{ news_engagement_block(a.id, engagement_by_article.get(a.id), news_viewer_can_react) }}
   </article>
   {% else %}
   <p class="empty-state">No published articles yet.</p>

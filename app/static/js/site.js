@@ -950,4 +950,144 @@
         container.innerHTML = "<p class=\"boxscore-error\">Failed to load box score.</p>";
       });
   };
+
+  function newsEngUpdateVoteUI(wrap, data) {
+    if (!wrap || !data) return;
+    var up = wrap.querySelector('[data-news-cnt="up"]');
+    var dn = wrap.querySelector('[data-news-cnt="down"]');
+    if (up) up.textContent = String(data.thumbs_up != null ? data.thumbs_up : 0);
+    if (dn) dn.textContent = String(data.thumbs_down != null ? data.thumbs_down : 0);
+    var mv = data.my_vote;
+    var bUp = wrap.querySelector('[data-news-vote="1"]');
+    var bDn = wrap.querySelector('[data-news-vote="-1"]');
+    if (bUp) {
+      bUp.classList.toggle("is-selected", mv === 1);
+      bUp.setAttribute("aria-pressed", mv === 1 ? "true" : "false");
+    }
+    if (bDn) {
+      bDn.classList.toggle("is-selected", mv === -1);
+      bDn.setAttribute("aria-pressed", mv === -1 ? "true" : "false");
+    }
+    var tool = wrap.querySelector(".news-eng__toolbar");
+    if (!tool) return;
+    var existing = tool.querySelector(".news-eng__btn--clear");
+    var hasForm = wrap.querySelector("[data-news-comment-form]");
+    if (mv && hasForm) {
+      if (!existing) {
+        var clr = document.createElement("button");
+        clr.type = "button";
+        clr.className = "news-eng__btn news-eng__btn--clear muted";
+        clr.setAttribute("data-news-vote", "0");
+        clr.setAttribute("title", "Clear your vote");
+        clr.textContent = "Clear";
+        tool.appendChild(clr);
+      }
+    } else if (existing) {
+      existing.remove();
+    }
+  }
+
+  function newsEngAppendComment(wrap, c) {
+    if (!wrap || !c) return;
+    var ul = wrap.querySelector(".news-eng__comments");
+    if (!ul) {
+      ul = document.createElement("ul");
+      ul.className = "news-eng__comments";
+      ul.setAttribute("aria-label", "Comments");
+      var form = wrap.querySelector("[data-news-comment-form]");
+      if (form) wrap.insertBefore(ul, form);
+      else wrap.appendChild(ul);
+    }
+    var when = c.created_at ? String(c.created_at).slice(0, 10) : "";
+    var li = document.createElement("li");
+    li.className = "news-eng__comment";
+    li.innerHTML =
+      '<span class="news-eng__comment-meta"><strong>' +
+      escapeHtml(String(c.author_label || "")) +
+      "</strong>" +
+      (when
+        ? ' · <time datetime="' +
+          escapeAttr(String(c.created_at)) +
+          '">' +
+          escapeHtml(when) +
+          "</time>"
+        : "") +
+      '</span> <span class="news-eng__comment-body">' +
+      escapeHtml(String(c.body || "")) +
+      "</span>";
+    ul.appendChild(li);
+  }
+
+  document.addEventListener("click", function (e) {
+    var btn = e.target && e.target.closest("[data-news-vote]");
+    if (!btn || btn.disabled) return;
+    var wrap = btn.closest("[data-news-article-id]");
+    if (!wrap) return;
+    var aid = wrap.getAttribute("data-news-article-id");
+    if (!aid) return;
+    var raw = btn.getAttribute("data-news-vote");
+    var val = parseInt(raw, 10);
+    if (isNaN(val) || (val !== 1 && val !== -1 && val !== 0)) return;
+    btn.disabled = true;
+    fetch(withRoot("/api/news/" + encodeURIComponent(aid) + "/vote"), {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ value: val }),
+    })
+      .then(function (r) {
+        return r.json().then(function (j) {
+          return { ok: r.ok, status: r.status, j: j };
+        });
+      })
+      .then(function (x) {
+        if (x.status === 401 && x.j && x.j.error === "auth") {
+          window.location.href = withRoot("/login?next=" + encodeURIComponent(window.location.pathname));
+          return;
+        }
+        if (x.ok && x.j && x.j.ok) newsEngUpdateVoteUI(wrap, x.j);
+      })
+      .finally(function () {
+        btn.disabled = false;
+      });
+  });
+
+  document.addEventListener("submit", function (e) {
+    var form = e.target && e.target.closest("[data-news-comment-form]");
+    if (!form) return;
+    e.preventDefault();
+    var wrap = form.closest("[data-news-article-id]");
+    if (!wrap) return;
+    var aid = wrap.getAttribute("data-news-article-id");
+    if (!aid) return;
+    var ta = form.querySelector('textarea[name="body"]');
+    var body = ta ? String(ta.value || "").trim() : "";
+    if (!body) return;
+    var sub = form.querySelector('button[type="submit"]');
+    if (sub) sub.disabled = true;
+    fetch(withRoot("/api/news/" + encodeURIComponent(aid) + "/comments"), {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ body: body }),
+    })
+      .then(function (r) {
+        return r.json().then(function (j) {
+          return { ok: r.ok, status: r.status, j: j };
+        });
+      })
+      .then(function (x) {
+        if (x.status === 401 && x.j && x.j.error === "auth") {
+          window.location.href = withRoot("/login?next=" + encodeURIComponent(window.location.pathname));
+          return;
+        }
+        if (x.ok && x.j && x.j.ok && x.j.comment) {
+          newsEngAppendComment(wrap, x.j.comment);
+          if (ta) ta.value = "";
+        }
+      })
+      .finally(function () {
+        if (sub) sub.disabled = false;
+      });
+  });
 })();

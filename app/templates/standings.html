@@ -225,6 +225,30 @@
     var nm = leader && leader.name ? esc(leader.name) : '';
     return '<div class="bracket-matchup__footer">' + nm + ' ' + hi + '-' + lo + ' (' + bo + ')</div>';
   }
+  function seriesPredictionRow(s) {
+    var p = s.prediction;
+    if (!p || p.team_a_win_series == null) return '';
+    var ta = s.team_a;
+    var tb = s.team_b;
+    var abA = ta && (ta.abbreviation || ta.name) ? esc(ta.abbreviation || ta.name) : '';
+    var abB = tb && (tb.abbreviation || tb.name) ? esc(tb.abbreviation || tb.name) : '';
+    var pa = Math.round(Number(p.team_a_win_series) * 1000) / 10;
+    var pb = Math.round((1 - Number(p.team_a_win_series)) * 1000) / 10;
+    var tip = p.method_note ? esc(p.method_note) : '';
+    return (
+      '<div class="bracket-matchup__pred" title="' +
+      tip +
+      '">Prediction: ' +
+      abA +
+      ' ' +
+      pa +
+      '% · ' +
+      abB +
+      ' ' +
+      pb +
+      '%</div>'
+    );
+  }
   function seriesCard(s, isFinalSlot) {
     var wa = s.wins_a, wb = s.wins_b;
     var oa = outcomeForSide(wa, wb, true);
@@ -236,6 +260,7 @@
         '<span class="bracket-matchup__at">AT</span>' +
         teamSide(s.team_b, 'bracket-team--b', ob) +
       '</div>' +
+      seriesPredictionRow(s) +
       seriesFooter(s) +
     '</div>';
   }

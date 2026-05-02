@@ -825,12 +825,13 @@ def build_champions_panel(session) -> dict[str, Any]:
     return {"banner_urls": banners, "recent_champions": slides}
 
 
-def build_around_the_league(league_session) -> dict[str, Any]:
+def build_around_the_league(league_session, viewer: Any | None = None) -> dict[str, Any]:
     """Published news from site DB; ``league_session`` resolves team slugs/names."""
     from flask import current_app, has_request_context, url_for
 
     from app.league_db import db
     from app.services.news_categories import news_category_label
+    from app.services.news_engagement import engagement_bundle_for_articles, viewer_can_react_on_news
     from app.site_models import NewsArticle, User
 
     slug = str(current_app.config.get("LEAGUE_SLUG") or "")
@@ -840,6 +841,8 @@ def build_around_the_league(league_session) -> dict[str, Any]:
         .order_by(NewsArticle.published_at.desc().nulls_last(), NewsArticle.id.desc())
         .limit(5)
     ).all()
+    viewer_can = viewer_can_react_on_news(viewer, slug) if slug else False
+
     def _headlines_path() -> str:
         if has_request_context():
             return str(url_for("main.league_headlines"))
@@ -859,6 +862,7 @@ def build_around_the_league(league_session) -> dict[str, Any]:
             "message": "No league headlines yet.",
             "articles": [],
             "headlines_path": _headlines_path(),
+            "viewer_can_react": viewer_can,
         }
     author_ids = {a.author_user_id for a in rows}
     authors: dict[int, User] = {}
@@ -876,6 +880,9 @@ def build_around_the_league(league_session) -> dict[str, Any]:
         em = (u.email or "").strip()
         return em.split("@", 1)[0] if em else ""
 
+    eng = engagement_bundle_for_articles(
+        db.session, slug, [a.id for a in rows], viewer, comments_per_article=5
+    )
     articles: list[dict[str, Any]] = []
     for a in rows:
         tm = league_session.get(Team, a.team_id) if a.team_id else None
@@ -883,6 +890,7 @@ def build_around_the_league(league_session) -> dict[str, Any]:
         au = authors.get(a.author_user_id)
         rel_img = (getattr(a, "image_rel_path", None) or "").strip()
         image_url = _static_url(rel_img) if rel_img else ""
+        e = eng.get(a.id, {})
         articles.append(
             {
                 "id": a.id,
@@ -895,6 +903,10 @@ def build_around_the_league(league_session) -> dict[str, Any]:
                 "gm_label": _gm_label(au),
                 "published_at": a.published_at.isoformat() if a.published_at else None,
                 "image_url": image_url,
+                "thumbs_up": int(e.get("thumbs_up") or 0),
+                "thumbs_down": int(e.get("thumbs_down") or 0),
+                "my_vote": e.get("my_vote"),
+                "comments": e.get("comments") or [],
             }
         )
     return {
@@ -902,6 +914,7 @@ def build_around_the_league(league_session) -> dict[str, Any]:
         "message": "",
         "articles": articles,
         "headlines_path": _headlines_path(),
+        "viewer_can_react": viewer_can,
     }
 
 

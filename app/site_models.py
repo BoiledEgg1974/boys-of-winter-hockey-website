@@ -104,6 +104,43 @@ class NewsArticle(db.Model):
     image_rel_path: Mapped[str | None] = mapped_column(String(384), nullable=True)
 
 
+class NewsArticleComment(db.Model):
+    """GM / admin comment on a published Around the League article (site DB)."""
+
+    __tablename__ = "news_article_comments"
+    __bind_key__ = "site"
+    __table_args__ = (Index("ix_news_article_comment_article", "article_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    article_id: Mapped[int] = mapped_column(ForeignKey("news_articles.id"), nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("site_users.id"), nullable=False)
+    body: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+    article: Mapped["NewsArticle"] = relationship()
+    user: Mapped["User"] = relationship()
+
+
+class NewsArticleVote(db.Model):
+    """Per-GM thumbs up (+1) or down (-1) on an article; one row per (article, user)."""
+
+    __tablename__ = "news_article_votes"
+    __bind_key__ = "site"
+    __table_args__ = (
+        UniqueConstraint("article_id", "user_id", name="uq_news_article_vote_article_user"),
+        Index("ix_news_article_vote_article", "article_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    article_id: Mapped[int] = mapped_column(ForeignKey("news_articles.id"), nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("site_users.id"), nullable=False)
+    value: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+    article: Mapped["NewsArticle"] = relationship()
+    user: Mapped["User"] = relationship()
+
+
 class ApRedemptionCatalog(db.Model):
     __tablename__ = "ap_redemption_catalog"
     __bind_key__ = "site"

@@ -9,6 +9,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 from flask import Blueprint, current_app, jsonify, request, url_for
+from flask_login import current_user
 
 from app.config import Config
 from sqlalchemy import func, select, text
@@ -57,6 +58,7 @@ from app.services.playoff_bracket import playoff_bracket_payload
 from app.services.player_overall_score import build_overall_cell_map_from_players
 from app.services.player_rating_avgs import goalie_category_averages, skater_category_averages
 from app.services.player_headshot import resolve_player_headshot_static_filename
+from app.services.news_engagement import add_article_comment, set_article_vote, viewer_can_react_on_news
 from app.services.player_ratings_csv import get_player_ratings_row, player_positions_display_label
 from app.services.seasons import (
     get_current_season,
@@ -74,6 +76,10 @@ from app.services.discord_events import (
 api_bp = Blueprint("api", __name__)
 
 _FTS_SAFE = re.compile(r"[^\w\s.-]", re.UNICODE)
+
+
+def _news_dashboard_viewer():
+    return current_user if getattr(current_user, "is_authenticated", False) else None
 
 
 def _player_photo_url(pl: Player | None) -> str:
@@ -760,7 +766,7 @@ def homepage_summary():
         {"name": lm.name, "abbr": lm.abbreviation or ""} if lm else {"name": "", "abbr": ""}
     )
     if not canonical_season:
-        empty_news = build_around_the_league(db.session)
+        empty_news = build_around_the_league(db.session, _news_dashboard_viewer())
         empty_body: dict[str, object] = {
             "league_calendar_date": None,
             "teams": [],
@@ -972,7 +978,7 @@ def homepage_summary():
     }
     postseason_odds = build_postseason_odds_payload(db.session, season.id, tm_map)
     champions_panel = build_champions_panel(db.session)
-    around_the_league = build_around_the_league(db.session)
+    around_the_league = build_around_the_league(db.session, _news_dashboard_viewer())
 
     upcoming_games = db.session.scalars(
         select(Game)
@@ -1400,3 +1406,56 @@ def discord_events_heartbeat():
             },
         }
     )
+
+
+@api_bp.post("/news/<int:article_id>/vote")
+def news_article_vote(article_id: int):
+    slug = str(current_app.config.get("LEAGUE_SLUG") or "").strip()
+    if not slug:
+        return jsonify({"error": "no_league"}), 400
+    if not current_user.is_authenticated:
+        return jsonify({"error": "auth"}), 401
+    if not viewer_can_react_on_news(current_user, slug):
+        return jsonify({"error": "forbidden"}), 403
+    payload = request.get_json(silent=True) or {}
+    try:
+        value = int(payload.get("value", 0))
+    except (TypeError, ValueError):
+        return jsonify({"error": "bad_value"}), 400
+    out = set_article_vote(
+        db.session,
+        league_slug=slug,
+        article_id=article_id,
+        user_id=int(current_user.id),
+        value=value,
+    )
+    if out.get("error") == "not_found":
+        return jsonify(out), 404
+    if out.get("error"):
+        return jsonify(out), 400
+    return jsonify(out)
+
+
+@api_bp.post("/news/<int:article_id>/comments")
+def news_article_comment_post(article_id: int):
+    slug = str(current_app.config.get("LEAGUE_SLUG") or "").strip()
+    if not slug:
+        return jsonify({"error": "no_league"}), 400
+    if not current_user.is_authenticated:
+        return jsonify({"error": "auth"}), 401
+    if not viewer_can_react_on_news(current_user, slug):
+        return jsonify({"error": "forbidden"}), 403
+    payload = request.get_json(silent=True) or {}
+    body = str(payload.get("body") or "")
+    out = add_article_comment(
+        db.session,
+        league_slug=slug,
+        article_id=article_id,
+        user_id=int(current_user.id),
+        body=body,
+    )
+    if out.get("error") == "not_found":
+        return jsonify(out), 404
+    if out.get("error"):
+        return jsonify(out), 400
+    return jsonify(out)

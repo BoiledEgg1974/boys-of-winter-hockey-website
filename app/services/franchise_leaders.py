@@ -1,10 +1,14 @@
-"""Franchise history leader boards: RS and playoffs from season stats + BOWL/NHL career CSVs."""
+"""Franchise history leader boards: RS and playoffs from season stats + BOWL/NHL career CSVs.
+
+Career imports may include both *rs* and *retired_rs* (and PO analogs); we dedupe per
+season/team/league before summing by player so retired rows are not double-counted.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Callable
 
-from sqlalchemy import extract, func, or_, select
+from sqlalchemy import case, extract, func, or_, select
 
 from app.models import (
     Game,
@@ -40,6 +44,21 @@ def _team_fhm_int(team: Team) -> int | None:
         return int(str(raw).strip())
     except ValueError:
         return None
+
+
+def _career_source_rank_for_franchise(line, career_sources: tuple[str, ...]):
+    """Prefer active CSV (*rs* / *po*) over retired export (*retired_rs* / *retired_po*) per season row."""
+    if "retired_rs" in career_sources:
+        return case(
+            (line.career_source == "rs", 0),
+            (line.career_source == "retired_rs", 1),
+            else_=9,
+        )
+    return case(
+        (line.career_source == "po", 0),
+        (line.career_source == "retired_po", 1),
+        else_=9,
+    )
 
 
 def _team_career_clause(team: Team, team_fhm_col, team_id_col):
@@ -413,30 +432,65 @@ def _load_skater_career_franchise(
     if not league_ids:
         league_ids = (0,)
     line = PlayerSkaterCareerLine
-    q = (
+    rank_pref = _career_source_rank_for_franchise(line, career_sources)
+    lined = (
         select(
-            line.player_id.label("pid"),
-            func.coalesce(func.sum(line.gp), 0).label("gp"),
-            func.coalesce(func.sum(line.goals), 0).label("goals"),
-            func.coalesce(func.sum(line.assists), 0).label("assists"),
-            func.coalesce(func.sum(func.coalesce(line.pp_goals, 0)), 0).label("ppg"),
-            func.coalesce(func.sum(func.coalesce(line.pp_assists, 0)), 0).label("ppa"),
-            func.coalesce(func.sum(func.coalesce(line.sh_goals, 0)), 0).label("shg"),
-            func.coalesce(func.sum(func.coalesce(line.sh_assists, 0)), 0).label("sha"),
-            func.coalesce(func.sum(func.coalesce(line.gwg, 0)), 0).label("gwg"),
-            func.coalesce(func.sum(func.coalesce(line.plus_minus, 0)), 0).label("plus_minus"),
-            func.coalesce(func.sum(line.pim), 0).label("pim"),
-            func.coalesce(func.sum(func.coalesce(line.hits, 0)), 0).label("hits"),
-            func.coalesce(func.sum(func.coalesce(line.fights, 0)), 0).label("fights"),
-            func.coalesce(func.sum(func.coalesce(line.sb, 0)), 0).label("blocked_shots"),
-            func.coalesce(func.sum(func.coalesce(line.shots, 0)), 0).label("shots"),
+            line.player_id,
+            line.season_year,
+            line.team_fhm_id,
+            line.league_fhm_id,
+            line.gp,
+            line.goals,
+            line.assists,
+            line.pp_goals,
+            line.pp_assists,
+            line.sh_goals,
+            line.sh_assists,
+            line.gwg,
+            line.plus_minus,
+            line.pim,
+            line.hits,
+            line.fights,
+            line.sb,
+            line.shots,
+            func.row_number()
+            .over(
+                partition_by=(
+                    line.player_id,
+                    line.season_year,
+                    line.team_fhm_id,
+                    line.league_fhm_id,
+                ),
+                order_by=(rank_pref, line.id),
+            )
+            .label("rn"),
         )
         .where(
             tc,
             line.league_fhm_id.in_(league_ids),
             line.career_source.in_(career_sources),
         )
-        .group_by(line.player_id)
+    ).subquery()
+    q = (
+        select(
+            lined.c.player_id.label("pid"),
+            func.coalesce(func.sum(lined.c.gp), 0).label("gp"),
+            func.coalesce(func.sum(lined.c.goals), 0).label("goals"),
+            func.coalesce(func.sum(lined.c.assists), 0).label("assists"),
+            func.coalesce(func.sum(func.coalesce(lined.c.pp_goals, 0)), 0).label("ppg"),
+            func.coalesce(func.sum(func.coalesce(lined.c.pp_assists, 0)), 0).label("ppa"),
+            func.coalesce(func.sum(func.coalesce(lined.c.sh_goals, 0)), 0).label("shg"),
+            func.coalesce(func.sum(func.coalesce(lined.c.sh_assists, 0)), 0).label("sha"),
+            func.coalesce(func.sum(func.coalesce(lined.c.gwg, 0)), 0).label("gwg"),
+            func.coalesce(func.sum(func.coalesce(lined.c.plus_minus, 0)), 0).label("plus_minus"),
+            func.coalesce(func.sum(lined.c.pim), 0).label("pim"),
+            func.coalesce(func.sum(func.coalesce(lined.c.hits, 0)), 0).label("hits"),
+            func.coalesce(func.sum(func.coalesce(lined.c.fights, 0)), 0).label("fights"),
+            func.coalesce(func.sum(func.coalesce(lined.c.sb, 0)), 0).label("blocked_shots"),
+            func.coalesce(func.sum(func.coalesce(lined.c.shots, 0)), 0).label("shots"),
+        )
+        .where(lined.c.rn == 1)
+        .group_by(lined.c.player_id)
     )
     rows = db.session.execute(q).all()
     if not rows:
@@ -644,25 +698,55 @@ def _load_goalie_career_franchise(
     if not league_ids:
         league_ids = (0,)
     line = PlayerGoalieCareerLine
-    q = (
+    rank_pref = _career_source_rank_for_franchise(line, career_sources)
+    lined = (
         select(
-            line.player_id.label("pid"),
-            func.coalesce(func.sum(line.gp), 0).label("gp"),
-            func.coalesce(func.sum(func.coalesce(line.games_started, 0)), 0).label("gs"),
-            func.coalesce(func.sum(line.wins), 0).label("wins"),
-            func.coalesce(func.sum(line.losses), 0).label("losses"),
-            func.coalesce(func.sum(func.coalesce(line.ties_otl, 0)), 0).label("otl"),
-            func.coalesce(func.sum(line.goals_against), 0).label("ga"),
-            func.coalesce(func.sum(line.shots_against), 0).label("sa"),
-            func.coalesce(func.sum(line.shutouts), 0).label("so"),
-            func.coalesce(func.sum(func.coalesce(line.minutes_played, 0)), 0).label("minutes_played"),
+            line.player_id,
+            line.season_year,
+            line.team_fhm_id,
+            line.league_fhm_id,
+            line.gp,
+            line.games_started,
+            line.wins,
+            line.losses,
+            line.ties_otl,
+            line.goals_against,
+            line.shots_against,
+            line.shutouts,
+            line.minutes_played,
+            func.row_number()
+            .over(
+                partition_by=(
+                    line.player_id,
+                    line.season_year,
+                    line.team_fhm_id,
+                    line.league_fhm_id,
+                ),
+                order_by=(rank_pref, line.id),
+            )
+            .label("rn"),
         )
         .where(
             tc,
             line.league_fhm_id.in_(league_ids),
             line.career_source.in_(career_sources),
         )
-        .group_by(line.player_id)
+    ).subquery()
+    q = (
+        select(
+            lined.c.player_id.label("pid"),
+            func.coalesce(func.sum(lined.c.gp), 0).label("gp"),
+            func.coalesce(func.sum(func.coalesce(lined.c.games_started, 0)), 0).label("gs"),
+            func.coalesce(func.sum(lined.c.wins), 0).label("wins"),
+            func.coalesce(func.sum(lined.c.losses), 0).label("losses"),
+            func.coalesce(func.sum(func.coalesce(lined.c.ties_otl, 0)), 0).label("otl"),
+            func.coalesce(func.sum(lined.c.goals_against), 0).label("ga"),
+            func.coalesce(func.sum(lined.c.shots_against), 0).label("sa"),
+            func.coalesce(func.sum(lined.c.shutouts), 0).label("so"),
+            func.coalesce(func.sum(func.coalesce(lined.c.minutes_played, 0)), 0).label("minutes_played"),
+        )
+        .where(lined.c.rn == 1)
+        .group_by(lined.c.player_id)
     )
     rows = db.session.execute(q).all()
     if not rows:

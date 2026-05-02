@@ -1064,6 +1064,21 @@ table.data tbody tr.standings-cutline td {
 .bracket-team--b .bracket-team__abbr {
   color: #86efac;
 }
+.bracket-matchup__pred {
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: #94a3b8;
+  text-align: center;
+  margin-top: 0.35rem;
+  padding: 0.2rem 0.35rem;
+  border-radius: 6px;
+  background: rgb(15 23 42 / 0.45);
+  max-width: 100%;
+}
+[data-theme="light"] .bracket-matchup__pred {
+  color: #64748b;
+  background: rgb(241 245 249 / 0.9);
+}
 .bracket-matchup__footer {
   display: flex;
   flex-direction: column;
@@ -3340,6 +3355,103 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
   border-radius: 8px;
   display: block;
 }
+
+/* Around the League — GM votes + comments */
+.news-eng {
+  margin-top: 0.65rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.35);
+}
+.news-eng__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+}
+.news-eng__btn {
+  font: inherit;
+  font-size: 0.82rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: rgba(15, 23, 42, 0.35);
+  color: inherit;
+  cursor: pointer;
+  line-height: 1.2;
+}
+.news-eng__btn:hover {
+  border-color: rgba(96, 165, 250, 0.55);
+}
+.news-eng__btn.is-selected {
+  border-color: rgba(251, 191, 36, 0.75);
+  background: rgba(251, 191, 36, 0.12);
+}
+.news-eng__btn--clear {
+  font-size: 0.78rem;
+}
+.news-eng__cnt {
+  font-weight: 600;
+  margin-left: 0.15rem;
+}
+.news-eng__comments {
+  list-style: none;
+  margin: 0.55rem 0 0;
+  padding: 0;
+  max-height: 12rem;
+  overflow-y: auto;
+}
+.news-eng__comment {
+  font-size: 0.85rem;
+  margin-bottom: 0.45rem;
+  padding: 0.35rem 0.45rem;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.25);
+}
+.news-eng__comment-meta {
+  display: block;
+  font-size: 0.78rem;
+  margin-bottom: 0.15rem;
+}
+.news-eng__comment-body {
+  white-space: pre-wrap;
+}
+.news-eng__form {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.news-eng__textarea {
+  font: inherit;
+  font-size: 0.85rem;
+  width: 100%;
+  min-height: 2.6rem;
+  resize: vertical;
+  border-radius: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  padding: 0.35rem 0.45rem;
+  background: rgba(15, 23, 42, 0.35);
+  color: inherit;
+}
+.news-eng__submit {
+  align-self: flex-start;
+  font: inherit;
+  font-size: 0.82rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 6px;
+  border: 1px solid rgba(96, 165, 250, 0.55);
+  background: rgba(37, 99, 235, 0.25);
+  color: inherit;
+  cursor: pointer;
+}
+.news-eng__submit:hover {
+  background: rgba(37, 99, 235, 0.4);
+}
+.news-eng__hint {
+  font-size: 0.8rem;
+  margin: 0.35rem 0 0;
+}
+
 .team-page-news__list,
 #home-news .home-news-list {
   max-height: 34rem;

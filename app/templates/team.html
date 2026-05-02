@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_news_engagement.html" import news_engagement_block %}
 {% block title %}{{ team.name }} — Boys of Winter Hockey League{% endblock %}
 {% macro star_row(value) -%}
   {% if value is none %}
@@ -31,7 +32,7 @@
 {%- endfor -%}
 {%- else -%}—{%- endif -%}
 {%- endmacro %}
-{% macro team_news_panel(team, news_list, news_category_label) -%}
+{% macro team_news_panel(team, news_list, news_category_label, news_viewer_can_react) -%}
 <section class="card team-page-news" aria-labelledby="team-news-h">
   <h2 id="team-news-h" class="team-mc-band__title">Team headlines</h2>
   {% if news_list %}
@@ -56,6 +57,7 @@
       {% if a.published_at %}
       <p class="team-page-news__date muted">{{ a.published_at.strftime('%b %d, %Y') }}</p>
       {% endif %}
+      {{ news_engagement_block(a.id, row.engagement, news_viewer_can_react) }}
     </li>
     {% endfor %}
   </ul>
@@ -233,7 +235,7 @@
       <p class="muted team-mc-band__note">{{ _mc.method_note }}</p>
     </section>
   </div>
-  {{ team_news_panel(team, team_page_news, news_category_label) }}
+  {{ team_news_panel(team, team_page_news, news_category_label, news_viewer_can_react) }}
 </div>
 {% else %}
 <div class="team-mc-fullwidth team-mc-fullwidth--with-ap">
@@ -244,7 +246,7 @@
       <p class="muted"><a href="{{ url_for('site_gm.action_points_page') }}">League AP page</a></p>
     </section>
   </div>
-  {{ team_news_panel(team, team_page_news, news_category_label) }}
+  {{ team_news_panel(team, team_page_news, news_category_label, news_viewer_can_react) }}
 </div>
 {% endif %}
 <div class="team-panels-grid{% if not team_agg and not team_agg_po %} team-panels-grid--single-col{% endif %}">

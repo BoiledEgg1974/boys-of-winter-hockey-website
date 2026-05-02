@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Protocol, TypeVar
 
 from flask import Blueprint, abort, current_app, render_template, request, url_for
+from flask_login import current_user
 from sqlalchemy import case, cast, extract, Float, func, not_, nulls_last, or_, select
 from sqlalchemy.orm import joinedload
 
@@ -352,6 +353,7 @@ def _headline_byline_team(
 @main_bp.get("/league-headlines")
 def league_headlines():
     """Public published articles (Around the League)."""
+    from app.services.news_engagement import engagement_bundle_for_articles, viewer_can_react_on_news
     from app.site_models import NewsArticle, User
 
     slug = str(current_app.config.get("LEAGUE_SLUG") or "")
@@ -368,12 +370,21 @@ def league_headlines():
         for u in db.session.scalars(select(User).where(User.id.in_(author_ids))).all():
             authors_by_id[u.id] = u
     byline_teams = {a.id: _headline_byline_team(slug, a, authors_by_id, teams) for a in rows}
+    viewer = current_user if getattr(current_user, "is_authenticated", False) else None
+    engagement_by_article = (
+        engagement_bundle_for_articles(db.session, slug, [a.id for a in rows], viewer, comments_per_article=120)
+        if rows
+        else {}
+    )
+    news_viewer_can_react = viewer_can_react_on_news(viewer, slug) if slug else False
     return render_template(
         "league_headlines.html",
         articles=rows,
         teams_by_id=teams,
         authors_by_id=authors_by_id,
         byline_teams=byline_teams,
+        engagement_by_article=engagement_by_article,
+        news_viewer_can_react=news_viewer_can_react,
         news_category_label=news_category_label,
         gm_display_name=gm_display_name,
     )
@@ -2962,6 +2973,7 @@ def _rank_paren(rank: int | None) -> str:
 
 def _team_page_news_rows(team_id: int) -> list[dict[str, object]]:
     """Published Around the League articles tagged for this team (GM or admin)."""
+    from app.services.news_engagement import engagement_bundle_for_articles
     from app.site_models import NewsArticle, User
 
     slug = str(current_app.config.get("LEAGUE_SLUG") or "")
@@ -2983,6 +2995,10 @@ def _team_page_news_rows(team_id: int) -> list[dict[str, object]]:
     authors: dict[int, User] = {}
     for u in db.session.scalars(select(User).where(User.id.in_(author_ids))).all():
         authors[u.id] = u
+    viewer = current_user if getattr(current_user, "is_authenticated", False) else None
+    eng = engagement_bundle_for_articles(
+        db.session, slug, [a.id for a in rows], viewer, comments_per_article=40
+    )
     out: list[dict[str, object]] = []
     for a in rows:
         u = authors.get(a.author_user_id)
@@ -2992,7 +3008,7 @@ def _team_page_news_rows(team_id: int) -> list[dict[str, object]]:
         else:
             byline = gm_display_name(u)
         body = (a.body or "").strip().replace("\r\n", "\n")
-        out.append({"article": a, "byline": byline, "body": body})
+        out.append({"article": a, "byline": byline, "body": body, "engagement": eng.get(a.id)})
     return out
 
 
@@ -3327,6 +3343,12 @@ def team_page(slug: str):
             hero_record_suffix = f" ({_english_ordinal(division_rank)} {division_name})"
         elif division_name:
             hero_record_suffix = f" ({division_name})"
+    from app.services.news_engagement import viewer_can_react_on_news
+
+    news_viewer_can_react = viewer_can_react_on_news(
+        current_user if getattr(current_user, "is_authenticated", False) else None,
+        league_slug,
+    )
     tmpl_kwargs: dict[str, object] = {
         "team": team,
         "arena_name": arena_name,
@@ -3379,6 +3401,7 @@ def team_page(slug: str):
         "season_records_po_sections": season_records_po_sections,
         "team_ap_balance": compute_team_ap_balance(str(current_app.config.get("LEAGUE_SLUG") or ""), team.id),
         "team_page_news": _team_page_news_rows(team.id),
+        "news_viewer_can_react": news_viewer_can_react,
         "news_category_label": news_category_label,
     }
     tmpl_kwargs["player_overall_by_id"] = build_overall_cell_map_from_players(db.session, roster)

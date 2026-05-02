@@ -889,6 +889,67 @@
     });
   }
 
+  function htmlNewsEngagement(a, viewerCan) {
+    viewerCan = !!viewerCan;
+    var upc = a.thumbs_up != null ? Number(a.thumbs_up) : 0;
+    var dnc = a.thumbs_down != null ? Number(a.thumbs_down) : 0;
+    var mv = a.my_vote;
+    var cmts = a.comments || [];
+    var upSel = mv === 1 ? ' is-selected' : '';
+    var dnSel = mv === -1 ? ' is-selected' : '';
+    var aid = String(a.id);
+    var h =
+      '<div class="news-eng" data-news-article-id="' +
+      escapeAttr(aid) +
+      '"><div class="news-eng__toolbar" role="group" aria-label="Article reactions">';
+    h +=
+      '<button type="button" class="news-eng__btn news-eng__btn--up' +
+      upSel +
+      '" data-news-vote="1" title="Thumbs up" aria-pressed="' +
+      (mv === 1 ? 'true' : 'false') +
+      '">▲ <span class="news-eng__cnt" data-news-cnt="up">' +
+      upc +
+      '</span></button>';
+    h +=
+      '<button type="button" class="news-eng__btn news-eng__btn--down' +
+      dnSel +
+      '" data-news-vote="-1" title="Thumbs down" aria-pressed="' +
+      (mv === -1 ? 'true' : 'false') +
+      '">▼ <span class="news-eng__cnt" data-news-cnt="down">' +
+      dnc +
+      '</span></button>';
+    if (viewerCan && mv) {
+      h +=
+        '<button type="button" class="news-eng__btn news-eng__btn--clear muted" data-news-vote="0" title="Clear your vote">Clear</button>';
+    }
+    h += '</div>';
+    if (cmts.length) {
+      h += '<ul class="news-eng__comments" aria-label="Comments">';
+      cmts.forEach(function (c) {
+        var when = c.created_at ? String(c.created_at).slice(0, 10) : '';
+        h += '<li class="news-eng__comment"><span class="news-eng__comment-meta"><strong>' +
+          escape(String(c.author_label || '')) +
+          '</strong>';
+        if (when) h += ' · <time datetime="' + escapeAttr(String(c.created_at)) + '">' + escape(when) + '</time>';
+        h += '</span> <span class="news-eng__comment-body">' + escape(String(c.body || '')) + '</span></li>';
+      });
+      h += '</ul>';
+    }
+    if (viewerCan) {
+      h +=
+        '<form class="news-eng__form" data-news-comment-form><label class="visually-hidden" for="news-cmt-' +
+        escapeAttr(aid) +
+        '">Add a comment</label><textarea id="news-cmt-' +
+        escapeAttr(aid) +
+        '" class="news-eng__textarea" name="body" rows="2" maxlength="2000" required placeholder="Add a comment as a GM…"></textarea><button type="submit" class="news-eng__submit">Post comment</button></form>';
+    } else {
+      h +=
+        '<p class="news-eng__hint muted">Log in with an active GM seat (or as league admin) to vote or comment.</p>';
+    }
+    h += '</div>';
+    return h;
+  }
+
   function paintAroundNews(around) {
     var el = document.getElementById('home-news');
     if (!el) return;
@@ -900,6 +961,7 @@
     }
     var headlinesPath = around.headlines_path ? String(around.headlines_path) : '/league-headlines';
     if (!headlinesPath.startsWith('/')) headlinesPath = '/' + headlinesPath;
+    var viewerCan = !!around.viewer_can_react;
     var h = '<ul class="home-news-list">';
     arts.forEach(function (a) {
       h += '<li class="home-news-list__item">';
@@ -926,6 +988,7 @@
       if (a.body) {
         h += '<div class="home-news-list__body">' + escape(a.body) + '</div>';
       }
+      h += htmlNewsEngagement(a, viewerCan);
       h += '</li>';
     });
     h +=

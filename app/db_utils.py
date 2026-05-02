@@ -614,6 +614,68 @@ def ensure_awards_voting_sqlite(engine: Engine) -> None:
         conn.commit()
 
 
+def ensure_news_engagement_sqlite(engine: Engine) -> None:
+    """Create Around the League comment / vote tables on site DB when missing."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        for table, ddl in (
+            (
+                "news_article_comments",
+                """
+                CREATE TABLE news_article_comments (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    article_id INTEGER NOT NULL,
+                    user_id INTEGER NOT NULL,
+                    body TEXT NOT NULL DEFAULT '',
+                    created_at DATETIME NOT NULL,
+                    FOREIGN KEY(article_id) REFERENCES news_articles (id),
+                    FOREIGN KEY(user_id) REFERENCES site_users (id)
+                )
+                """,
+            ),
+            (
+                "news_article_votes",
+                """
+                CREATE TABLE news_article_votes (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    article_id INTEGER NOT NULL,
+                    user_id INTEGER NOT NULL,
+                    value INTEGER NOT NULL,
+                    created_at DATETIME NOT NULL,
+                    FOREIGN KEY(article_id) REFERENCES news_articles (id),
+                    FOREIGN KEY(user_id) REFERENCES site_users (id)
+                )
+                """,
+            ),
+        ):
+            exists = conn.execute(
+                text("SELECT 1 FROM sqlite_master WHERE type='table' AND name=:t"),
+                {"t": table},
+            ).fetchone()
+            if exists:
+                continue
+            conn.execute(text(ddl))
+            if table == "news_article_comments":
+                conn.execute(
+                    text(
+                        "CREATE INDEX ix_news_article_comment_article "
+                        "ON news_article_comments (article_id)"
+                    )
+                )
+            else:
+                conn.execute(
+                    text(
+                        "CREATE UNIQUE INDEX uq_news_article_vote_article_user "
+                        "ON news_article_votes (article_id, user_id)"
+                    )
+                )
+                conn.execute(
+                    text("CREATE INDEX ix_news_article_vote_article ON news_article_votes (article_id)")
+                )
+        conn.commit()
+
+
 def ensure_member_watchlists_sqlite(engine: Engine) -> None:
     """Create member watchlist scaffold table on site DB when missing."""
     if engine.dialect.name != "sqlite":

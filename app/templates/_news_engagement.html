@@ -1,0 +1,36 @@
+{# Reactions + GM comments for Around the League articles (home JSON, team page, headlines). #}
+{% macro news_engagement_block(article_id, engagement, viewer_can_react) -%}
+{% set eng = engagement if engagement is not none else {} %}
+{% set upc = eng.get('thumbs_up', 0) %}
+{% set dnc = eng.get('thumbs_down', 0) %}
+{% set mv = eng.get('my_vote') %}
+{% set cmts = eng.get('comments') or [] %}
+<div class="news-eng" data-news-article-id="{{ article_id }}">
+  <div class="news-eng__toolbar" role="group" aria-label="Article reactions">
+    <button type="button" class="news-eng__btn news-eng__btn--up{% if mv == 1 %} is-selected{% endif %}" data-news-vote="1" title="Thumbs up" aria-pressed="{{ 'true' if mv == 1 else 'false' }}">▲ <span class="news-eng__cnt" data-news-cnt="up">{{ upc }}</span></button>
+    <button type="button" class="news-eng__btn news-eng__btn--down{% if mv == -1 %} is-selected{% endif %}" data-news-vote="-1" title="Thumbs down" aria-pressed="{{ 'true' if mv == -1 else 'false' }}">▼ <span class="news-eng__cnt" data-news-cnt="down">{{ dnc }}</span></button>
+    {% if viewer_can_react and mv %}
+    <button type="button" class="news-eng__btn news-eng__btn--clear muted" data-news-vote="0" title="Clear your vote">Clear</button>
+    {% endif %}
+  </div>
+  {% if cmts %}
+  <ul class="news-eng__comments" aria-label="Comments">
+    {% for c in cmts %}
+    <li class="news-eng__comment">
+      <span class="news-eng__comment-meta"><strong>{{ c.author_label }}</strong>{% if c.created_at %} · <time datetime="{{ c.created_at }}">{{ c.created_at[:10] }}</time>{% endif %}</span>
+      <span class="news-eng__comment-body">{{ c.body }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% if viewer_can_react %}
+  <form class="news-eng__form" data-news-comment-form>
+    <label class="visually-hidden" for="news-cmt-{{ article_id }}">Add a comment</label>
+    <textarea id="news-cmt-{{ article_id }}" class="news-eng__textarea" name="body" rows="2" maxlength="2000" required placeholder="Add a comment as a GM…"></textarea>
+    <button type="submit" class="news-eng__submit">Post comment</button>
+  </form>
+  {% else %}
+  <p class="news-eng__hint muted">Log in with an active GM seat (or as league admin) to vote or comment.</p>
+  {% endif %}
+</div>
+{%- endmacro %}

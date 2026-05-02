@@ -2681,7 +2681,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 2679;154;154;Ralph;Krueger;;73;203;1959-8-31;Taucha;SAX;Germany;Canada;;0;Right;0
 2680;167;167;Joe;Ciccarello;;70;176;1972-3-8;Ancona;MAR;Italy;Canada;;0;Right;0
 2681;156;156;Waltteri;Immonen;;69;172;1967-4-3;Ruotsinpyhtää;EAS;Finland;;;0;Left;0
-14532;220;220;Petr;Hubácek;;72;198;1979-9-2;Brno;JHM;Czech Republic;;;0;Right;1
+14532;222;220;Petr;Hubácek;;72;198;1979-9-2;Brno;JHM;Czech Republic;;;0;Right;0
 2683;166;166;Andrejs;Zinkovs;;70;154;1968-1-24;Cesis;CES;Latvia;;;0;Left;0
 2684;165;165;Lionel;Orsolini;;70;168;1971-2-22;Saint-Clément;BUR;France;;;0;Left;0
 2685;165;165;Pascal;Margerit;;69;170;1971-2-21;Pamier;MID;France;;;0;Left;0
@@ -6133,7 +6133,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 13838;155;155;David;Halvardsson;;74;187;1976-10-5;Sollentuna;STO;Sweden;;;0;Left;0
 13839;156;156;Janne;Salpa;;71;181;1976-10-28;Espoo;UUS;Finland;;;0;Left;0
 13840;222;220;Johan;Molin;;68;190;1976-10-25;Stockholm;STO;Sweden;;;0;Right;0
-13841;220;220;Peter;Nylander;;71;198;1976-1-20;Skellefteå;VäS;Sweden;;;0;Left;1
+13841;222;220;Peter;Nylander;;71;198;1976-1-20;Skellefteå;VäS;Sweden;;;0;Left;0
 13842;155;155;Fredrik;Möller;;72;203;1976-12-16;Norrköping;ÖST;Sweden;;;0;Right;0
 13843;156;156;Kimmo;Lotvonen;;77;227;1976-1-11;Helsinki;UUS;Finland;;;0;Left;0
 13844;161;161;Dominic;Meier;;70;190;1976-12-26;Buochs;NW;Switzerland;;;0;Right;0

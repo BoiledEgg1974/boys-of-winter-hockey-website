@@ -8260,6 +8260,9 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
   color: #ffffff;
   font-variant-numeric: tabular-nums;
 }
+[data-theme="light"] .player-profile__meter-val {
+  color: var(--text);
+}
 .player-profile__meter-track {
   height: 11px;
   background: rgb(15 23 42 / 0.92);

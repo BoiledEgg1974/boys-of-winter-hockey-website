@@ -226,7 +226,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 224;22;22;Sam;Carrick;;72;207;1960-2-4;Markham;ON;Canada;;;0;Right;0
 225;284;284;Nick;Cousins;;71;192;1953-7-20;Belleville;ON;Canada;;;0;Left;0
 226;11;11;Aaron;Ekblad;;76;216;1962-2-7;Windsor;ON;Canada;;;0;Right;0
-227;302;302;Matt;Finn;;72;205;1956-2-24;Toronto;ON;Canada;;;0;Left;0
+227;287;287;Matt;Finn;;72;205;1956-2-24;Toronto;ON;Canada;;;0;Left;0
 228;218;14;Alex;Friesen;;70;186;1959-1-30;St. Catharines;ON;Canada;;;0;Left;0
 229;279;279;John;Gibson;;75;216;1956-7-14;Pittsburgh;PA;The United States;;;0;Left;0
 230;20;20;Slater;Koekkoek;;74;194;1960-2-18;Ottawa;ON;Canada;;;0;Left;0
@@ -274,7 +274,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 272;11;11;Alex;Killorn;;74;207;1962-9-14;Montreal;QC;Canada;;;0;Left;0
 273;186;186;Matt;Lindblad;;72;200;1954-3-23;Winnetka;IL;The United States;;;0;Left;0
 -1;-1;-1;Werner;Baumann;;74;174;1968-3-21;Bern;BE;Switzerland;;;0;Right;0
-275;287;287;Conor;Allen;;73;209;1954-1-31;Chicago;IL;The United States;;;0;Left;0
+275;302;302;Conor;Allen;;73;209;1954-1-31;Chicago;IL;The United States;;;0;Left;0
 276;186;186;Bill;Arnold;;72;218;1948-5-13;Needham;MA;The United States;;;0;Right;0
 277;280;280;Connor;Brickley;;73;203;1962-2-25;Everett;MA;The United States;;;0;Left;1
 278;15;15;Johnny;Gaudreau;Johnny Hockey;69;165;1953-8-13;Rutherford;NJ;The United States;;;0;Left;0
@@ -435,7 +435,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 446;186;186;Andy;Bellemer;;71;185;1948-7-3;Penetanguishene;ON;Canada;;;0;Left;0
 447;186;186;Pete;Bellefeuille;The Fleeting Frenchman;70;180;1953-10-19;Trois-Rivières;QC;Canada;;;0;Right;0
 448;289;289;Huddy;Bell;;69;176;1959-10-31;Regina;SK;Canada;;;0;Right;0
-449;288;288;Adam;Bennett;;76;207;1961-3-30;Georgetown;ON;Canada;;;0;Right;0
+449;295;295;Adam;Bennett;;76;207;1961-3-30;Georgetown;ON;Canada;;;0;Right;0
 450;279;279;Max;Bennett;Maxie;66;157;1962-11-4;Cobalt;ON;Canada;;;0;Right;1
 451;233;17;Joe;Benoit;;70;161;1962-2-27;St. Albert;AB;Canada;;;0;Right;0
 452;224;22;Bill;Benson;;71;165;1960-7-29;Winnipeg;MB;Canada;;;0;Left;0
@@ -894,7 +894,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 927;186;186;Dan;LaCouture;;75;220;1949-4-18;Baldwinville;MA;The United States;;;0;Left;0
 928;186;186;Daniel;Lacroix;;74;205;1954-3-11;Montreal;QC;Canada;;;0;Left;0
 929;186;186;Eric;Lacroix;;73;210;1957-7-15;Montreal;QC;Canada;;;0;Left;0
-930;17;17;Pierre;Lacroix;;71;185;1960-4-11;Quebec City;QC;Canada;;;0;Left;0
+930;233;17;Pierre;Lacroix;;71;185;1960-4-11;Quebec City;QC;Canada;;;0;Left;0
 931;0;0;Pat;LaFontaine;;70;182;1954-2-22;St. Louis;MO;The United States;;;0;Right;0
 932;283;283;Leo;Lafrance;;68;160;1957-11-3;Sudbury;ON;Canada;;;0;Left;0
 933;303;303;Roger;Lafreniere;;72;190;1955-7-24;Montreal;QC;Canada;;;0;Left;0
@@ -942,7 +942,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 977;12;12;Mike;Liut;;74;195;1954-1-7;Toronto;ON;Canada;;;0;Left;0
 978;21;21;Barry;Long;Marathon Man;74;210;1958-1-3;Red Deer;AB;Canada;;;0;Left;0
 979;305;305;Ross;Lonsberry;;71;195;1954-2-7;Humboldt;SK;Canada;;;0;Left;0
-980;295;295;Sam;LoPresti;;71;200;1955-1-30;Eveleth;MN;The United States;;;0;Left;0
+980;288;288;Sam;LoPresti;;71;200;1955-1-30;Eveleth;MN;The United States;;;0;Left;0
 981;5;5;Morris;Lukowich;;69;170;1960-6-1;Speers;SK;Canada;;;0;Left;0
 982;233;233;Brian;Lundberg;;71;190;1961-6-5;Burnaby;BC;Canada;;;0;Right;0
 -1;156;156;Juhani;Heiskanen;;69;193;1962-12-23;Kotka;KYM;Finland;;;0;Right;0
@@ -2320,7 +2320,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 2389;168;168;Markus;Søberg;;71;187;1951-4-22;Drammen;BUS;Norway;;;0;Right;0
 2390;25;25;Brian;Pinho;;73;196;1961-5-1;West Yarmouth;MA;The United States;;;0;Right;0
 2391;186;186;Jérémy;Grégoire;;72;194;1956-9-5;Sherbrooke;QC;Canada;;;0;Right;0
-2393;10;10;Rushan;Rafikov;;73;185;1960-5-15;Balakovo;SAR;Russia;;;0;Left;0
+2393;216;10;Rushan;Rafikov;;73;185;1960-5-15;Balakovo;SAR;Russia;;;0;Left;0
 2394;290;290;Peter;Quenneville;;72;185;1961-3-9;Edmonton;AB;Canada;;;0;Right;0
 2395;21;21;Elvis;Merzlikins;;75;192;1955-4-13;Riga;RIG;Latvia;;;0;Left;0
 2397;223;9;Kyle;Wood;;79;236;1960-5-4;Waterloo;ON;Canada;;;0;Right;0

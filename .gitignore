@@ -28,7 +28,11 @@ app/static/img/news/
 instance/*.db
 instance/*.sqlite
 instance/*.sqlite3
+instance/*.bak
 *.log
+
+# Cursor IDE (local plans; do not commit)
+.cursor/
 
 # Local PythonAnywhere deploy wizard (machine-specific CSV paths)
 scripts/pythonanywhere_csv_sources.json

@@ -1403,6 +1403,473 @@ table.data tbody tr.standings-cutline td {
   color: var(--text);
   text-shadow: none;
 }
+.boxscore-page-head__final--preview {
+  font-size: 1.35rem;
+}
+
+/* Game preview (pre-game matchup) */
+.game-preview-panel {
+  padding: 0.5rem 0.25rem 1rem;
+  text-align: start;
+}
+.game-preview-lede {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  margin: 0 auto 1rem;
+  max-width: 52rem;
+  width: 100%;
+  text-align: center;
+  text-wrap: balance;
+  box-sizing: border-box;
+}
+/* `.muted` globally sets margin-right: 0.5rem, which breaks `margin: 0 auto` centering. */
+.game-preview-lede.muted {
+  margin-left: auto;
+  margin-right: auto;
+}
+.game-preview-hero-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: stretch;
+  margin-bottom: 1rem;
+}
+.game-preview-hero-row--odds-only {
+  grid-template-columns: 1fr;
+  max-width: 40rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+.game-preview-hero-row > .card {
+  margin-bottom: 0;
+}
+@media (max-width: 720px) {
+  .game-preview-hero-row:not(.game-preview-hero-row--odds-only) {
+    grid-template-columns: 1fr;
+  }
+}
+.game-preview-hero-row .game-preview-odds {
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
+  margin-bottom: 0;
+}
+.game-preview-hero-row .game-preview-meetings {
+  margin-bottom: 0;
+}
+.game-preview-subhead {
+  margin: 0 0 0.55rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #cbd5e1;
+  line-height: 1.25;
+}
+.game-preview-subhead__icon {
+  display: inline-flex;
+  line-height: 0;
+}
+.game-preview-subhead__icon .game-preview-icon {
+  display: block;
+}
+.game-preview-subhead__text {
+  letter-spacing: 0.08em;
+}
+.game-preview-subhead__suffix {
+  font-weight: 600;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: #94a3b8;
+}
+.game-preview-subhead--hot .game-preview-subhead__text {
+  color: #fdba74;
+}
+.game-preview-subhead--cold .game-preview-subhead__text {
+  color: #bae6fd;
+}
+.game-preview-subhead--hot .game-preview-icon--flame {
+  color: #fb923c;
+}
+.game-preview-subhead--cold .game-preview-icon--snow {
+  color: #7dd3fc;
+}
+.game-preview-subhead--block {
+  display: block;
+  text-align: center;
+}
+.game-preview-trends .game-preview-subhead {
+  text-align: left;
+}
+.game-preview-icon {
+  flex-shrink: 0;
+}
+.game-preview-l10-trend {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.35rem;
+  vertical-align: middle;
+  line-height: 0;
+}
+.game-preview-l10-trend .game-preview-icon--flame {
+  color: #fb923c;
+}
+.game-preview-l10-trend .game-preview-icon--snow {
+  color: #7dd3fc;
+}
+.game-preview-odds {
+  padding: 1rem 1.1rem;
+  margin-bottom: 1rem;
+  max-width: 40rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+.game-preview-odds__title {
+  text-align: center;
+  margin-bottom: 0.65rem;
+}
+.game-preview-odds__bar {
+  display: flex;
+  height: 10px;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+  background: rgb(30 58 95 / 0.45);
+}
+.game-preview-odds__seg {
+  height: 100%;
+  min-width: 3px;
+}
+.game-preview-odds__seg--away {
+  background: linear-gradient(90deg, #38bdf8, #0ea5e9);
+  border-radius: 6px 0 0 6px;
+}
+.game-preview-odds__seg--home {
+  background: linear-gradient(90deg, #818cf8, #6366f1);
+  border-radius: 0 6px 6px 0;
+}
+.game-preview-odds__labels {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  font-size: 0.95rem;
+}
+.game-preview-odds__side {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.game-preview-odds__side--home {
+  margin-left: auto;
+  flex-direction: row-reverse;
+}
+.game-preview-odds__labels .team-name-lockup {
+  line-height: 0;
+}
+.game-preview-odds__labels .team-name-lockup__logo {
+  width: 44px;
+  height: 44px;
+  max-width: none;
+  max-height: none;
+  min-width: 44px;
+  min-height: 44px;
+  object-fit: contain;
+  vertical-align: middle;
+}
+.game-preview-meetings {
+  padding: 1rem 1.1rem;
+  margin-bottom: 1rem;
+}
+.game-preview-meetings__list {
+  margin: 0;
+  padding-left: 1.1rem;
+  line-height: 1.6;
+}
+.game-preview-meetings__date {
+  display: inline-block;
+  min-width: 7.5rem;
+}
+.game-preview-team-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+@media (min-width: 900px) {
+  .game-preview-team-grid {
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+}
+.game-preview-team-card {
+  padding: 1.15rem 1.25rem;
+  border: 1px solid rgb(148 163 184 / 0.18);
+  box-shadow: 0 1px 0 rgb(0 0 0 / 0.2);
+}
+.game-preview-team-card__head {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-bottom: 0.75rem;
+}
+.game-preview-team-card__head .team-name-lockup--icon,
+.game-preview-team-card__head .team-name-lockup {
+  flex-shrink: 0;
+  line-height: 0;
+}
+.game-preview-team-card__head .team-name-lockup__logo {
+  width: 72px;
+  height: 72px;
+  max-width: none;
+  max-height: none;
+  min-width: 72px;
+  min-height: 72px;
+  vertical-align: middle;
+  object-fit: contain;
+}
+@media (max-width: 520px) {
+  .game-preview-team-card__head .team-name-lockup__logo {
+    width: 56px;
+    height: 56px;
+    min-width: 56px;
+    min-height: 56px;
+  }
+}
+.game-preview-team-card__titles {
+  flex: 1;
+  min-width: 0;
+}
+.game-preview-team-name {
+  margin: 0;
+  font-size: 1.15rem;
+  line-height: 1.2;
+  color: #7dd3fc;
+}
+.game-preview-vs {
+  margin: 0.15rem 0 0;
+  font-size: 0.85rem;
+}
+.game-preview-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.6rem;
+  margin-bottom: 1rem;
+}
+.game-preview-badge {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.12rem;
+  min-width: 0;
+  padding: 0.38rem 0.62rem 0.42rem;
+  border-radius: 8px;
+  background: rgb(15 23 42 / 0.88);
+  border: 1px solid rgb(148 163 184 / 0.22);
+  line-height: 1.2;
+}
+.game-preview-badge__k {
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+.game-preview-badge__v {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #f1f5f9;
+  letter-spacing: 0.01em;
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.15rem;
+}
+.game-preview-h2h-meta {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #94a3b8;
+}
+.game-preview-trends {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.game-preview-trend-col {
+  min-width: 0;
+  padding: 0.5rem 0.4rem 0;
+  border-radius: 8px;
+  background: rgb(15 23 42 / 0.35);
+  border: 1px solid rgb(148 163 184 / 0.12);
+}
+.game-preview-mini-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+.game-preview-mini-table th,
+.game-preview-mini-table td {
+  padding: 0.38rem 0.45rem;
+  text-align: left;
+  border-bottom: 1px solid rgb(148 163 184 / 0.14);
+}
+.game-preview-mini-table th {
+  color: #e2e8f0;
+  font-weight: 700;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: rgb(30 41 59 / 0.85);
+  border-bottom: 1px solid rgb(148 163 184 / 0.2);
+}
+.game-preview-mini-table th:first-child {
+  border-radius: 6px 0 0 0;
+}
+.game-preview-mini-table th:last-child {
+  border-radius: 0 6px 0 0;
+}
+.game-preview-mini-table th:nth-child(n + 2) {
+  text-align: right;
+}
+.game-preview-mini-table tbody tr:nth-child(even) td {
+  background: rgb(15 23 42 / 0.35);
+}
+.game-preview-mini-table td:nth-child(n + 2) {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.game-preview-mini-table td:first-child {
+  text-align: left;
+  vertical-align: middle;
+}
+.game-preview-player-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.game-preview-player-cell__img {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: rgb(30 41 59 / 0.9);
+}
+.game-preview-player-cell__img--ph {
+  display: inline-block;
+  box-sizing: border-box;
+}
+.game-preview-player-cell__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.08rem;
+  min-width: 0;
+  line-height: 1.2;
+}
+.game-preview-player-cell__name {
+  min-width: 0;
+}
+.game-preview-pos {
+  font-size: 0.72rem;
+  opacity: 0.85;
+}
+.game-preview-player-link {
+  color: #7dd3fc;
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: 1px dotted rgb(125 211 252 / 0.35);
+  cursor: help;
+}
+.game-preview-player-link:hover {
+  color: #bae6fd;
+  border-bottom-color: rgb(186 230 253 / 0.75);
+}
+.game-preview-empty {
+  color: #94a3b8;
+  font-style: italic;
+}
+.game-preview-starter {
+  padding-top: 0.55rem;
+  border-top: 1px solid rgb(148 163 184 / 0.18);
+}
+.game-preview-starter .game-preview-subhead {
+  margin-bottom: 0.45rem;
+}
+.game-preview-starter p {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+.game-preview-starter__line {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.55rem 0.75rem;
+  text-align: center;
+}
+.game-preview-starter__img {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: rgb(30 41 59 / 0.9);
+}
+.game-preview-starter__img--ph {
+  display: inline-block;
+  box-sizing: border-box;
+}
+.game-preview-starter__text {
+  text-align: left;
+}
+.game-preview-foot {
+  margin: 1rem 0 0;
+  font-size: 0.82rem;
+  text-align: center;
+}
+[data-theme="light"] .game-preview-team-name {
+  color: var(--accent);
+}
+[data-theme="light"] .game-preview-odds__bar {
+  background: rgb(226 232 240 / 0.9);
+}
+[data-theme="light"] .game-preview-badge {
+  background: rgb(248 250 252 / 0.95);
+  border-color: var(--border);
+}
+[data-theme="light"] .game-preview-badge__v {
+  color: var(--text);
+}
+[data-theme="light"] .game-preview-team-card {
+  border-color: var(--border);
+  box-shadow: none;
+}
+[data-theme="light"] .game-preview-trend-col {
+  background: rgb(248 250 252 / 0.9);
+  border-color: var(--border);
+}
+[data-theme="light"] .game-preview-mini-table th {
+  background: rgb(241 245 249 / 0.95);
+  color: var(--text);
+  border-color: var(--border);
+}
+[data-theme="light"] .game-preview-mini-table tbody tr:nth-child(even) td {
+  background: rgb(248 250 252 / 0.65);
+}
+[data-theme="light"] .game-preview-subhead {
+  color: var(--text);
+}
+[data-theme="light"] .game-preview-subhead__suffix {
+  color: rgb(100 116 139);
+}
 
 .mini-leaders .subtabs {
   display: flex;

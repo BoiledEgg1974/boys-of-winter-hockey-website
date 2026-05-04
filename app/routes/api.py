@@ -55,6 +55,7 @@ from app.services.homepage_modules import module_sort_order_map, module_visibili
 from app.services.homepage_ticker import build_homepage_ticker_items
 from app.services.postseason_odds import build_postseason_odds_payload
 from app.services.playoff_bracket import playoff_bracket_payload
+from app.services.game_preview import game_preview_payload
 from app.services.player_overall_score import build_overall_cell_map_from_players
 from app.services.player_rating_avgs import goalie_category_averages, skater_category_averages
 from app.services.player_headshot import resolve_player_headshot_static_filename
@@ -696,6 +697,16 @@ def game_boxscore(game_id: int):
             "goalies": goalies,
         }
     )
+
+
+@api_bp.get("/game/<int:game_id>/preview")
+def game_preview(game_id: int):
+    payload = game_preview_payload(game_id)
+    if payload is None:
+        return jsonify({"error": "not found"}), 404
+    if payload.get("error") == "final":
+        return jsonify(payload), 400
+    return jsonify(payload)
 
 
 def _misc_statistics_panel(special_teams: list[dict[str, object]]) -> dict[str, object] | None:

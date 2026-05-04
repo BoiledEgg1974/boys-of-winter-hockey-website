@@ -696,6 +696,325 @@
     return !!(s.name && String(s.name).length);
   }
 
+  function previewIconFlame() {
+    return (
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="game-preview-icon game-preview-icon--flame" width="20" height="20" fill="none" aria-hidden="true" focusable="false">' +
+      '<path stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.105-2.205 2.5-5 2.5-5 .5 2.5 2 4.9 2 8.5a6.5 6.5 0 1 1-13 0c0-4.36 2.11-6.64 4.5-10.5C9 9 8.5 14.5 8.5 14.5Z"/>' +
+      "</svg>"
+    );
+  }
+
+  function previewIconSnowflake() {
+    return (
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="game-preview-icon game-preview-icon--snow" width="20" height="20" aria-hidden="true" focusable="false">' +
+      '<path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M12 2v20M2 12h20M5 5l14 14M19 5L5 19"/>' +
+      "</svg>"
+    );
+  }
+
+  function previewPlayerTooltip(r) {
+    if (!r) return "";
+    var bits = ["Last ~10 GP for this club on the scoresheet"];
+    if (r.gr != null) bits.push("avg GR " + r.gr);
+    bits.push((r.g != null ? r.g : 0) + " G · " + (r.a != null ? r.a : 0) + " A · " + (r.p != null ? r.p : 0) + " P (window totals)");
+    if (r.plus_minus != null) bits.push("avg +/− " + r.plus_minus);
+    if (r.toi) bits.push("avg TOI " + r.toi);
+    if (r.pos) bits.push(r.pos);
+    return bits.join(" · ");
+  }
+
+  function previewPlayerLink(id, name, opts) {
+    if (opts && typeof opts === "string") opts = { title: opts };
+    opts = opts || {};
+    var extra = "";
+    if (opts.title) extra += ' title="' + escapeAttr(opts.title) + '"';
+    if (opts.ariaLabel) extra += ' aria-label="' + escapeAttr(opts.ariaLabel) + '"';
+    if (id == null) return escapeHtml(name || "—");
+    return (
+      '<a href="' +
+      escapeAttr(withRoot("/player/" + encodeURIComponent(String(id)))) +
+      '"' +
+      extra +
+      ' class="game-preview-player-link">' +
+      escapeHtml(name || "") +
+      "</a>"
+    );
+  }
+
+  function previewPlayerCell(r) {
+    var tip = previewPlayerTooltip(r);
+    var imgHtml = "";
+    if (r.photo_url) {
+      imgHtml =
+        '<img class="game-preview-player-cell__img" src="' +
+        escapeAttr(r.photo_url) +
+        '" alt="" width="32" height="32" loading="lazy">';
+    } else {
+      imgHtml =
+        '<span class="game-preview-player-cell__img game-preview-player-cell__img--ph" aria-hidden="true"></span>';
+    }
+    return (
+      '<span class="game-preview-player-cell">' +
+      imgHtml +
+      '<span class="game-preview-player-cell__meta">' +
+      '<span class="game-preview-player-cell__name">' +
+      previewPlayerLink(r.player_id, r.name, { ariaLabel: tip }) +
+      "</span>" +
+      '<span class="game-preview-pos muted">' +
+      escapeHtml(r.pos || "") +
+      "</span></span></span>"
+    );
+  }
+
+  function previewBadge(label, value) {
+    if (value == null || value === "") return "";
+    return (
+      '<span class="game-preview-badge"><span class="game-preview-badge__k">' +
+      escapeHtml(label) +
+      '</span><span class="game-preview-badge__v">' +
+      value +
+      "</span></span>"
+    );
+  }
+
+  function previewSkaterMiniTable(rows) {
+    var h =
+      '<table class="game-preview-mini-table"><thead><tr><th>Player</th><th>GR</th><th>G</th><th>A</th><th>P</th><th>+/-</th><th>TOI</th></tr></thead><tbody>';
+    if (!rows || !rows.length) {
+      h += '<tr><td colspan="7" class="game-preview-empty">Not enough recent games.</td></tr>';
+    } else {
+      rows.forEach(function (r) {
+        h +=
+          "<tr><td>" +
+          previewPlayerCell(r) +
+          "</td><td>" +
+          (r.gr != null ? escapeHtml(String(r.gr)) : "—") +
+          "</td><td>" +
+          (r.g != null ? r.g : "—") +
+          "</td><td>" +
+          (r.a != null ? r.a : "—") +
+          "</td><td>" +
+          (r.p != null ? r.p : "—") +
+          "</td><td>" +
+          (r.plus_minus != null ? r.plus_minus : "—") +
+          "</td><td>" +
+          escapeHtml(r.toi || "—") +
+          "</td></tr>";
+      });
+    }
+    h += "</tbody></table>";
+    return h;
+  }
+
+  function renderTeamPreviewCard(side) {
+    if (!side || !side.team) return "";
+    var tm = side.team;
+    var rec = side.record;
+    var recStr = rec
+      ? escapeHtml(String(rec.pts)) + " Pts · " + escapeHtml(rec.str)
+      : "—";
+    var pp =
+      side.pp_pct != null
+        ? escapeHtml(String(side.pp_pct)) +
+          "%" +
+          (side.pp_rank != null ? " (" + escapeHtml(String(side.pp_rank)) + ")" : "")
+        : "—";
+    var pk =
+      side.pk_pct != null
+        ? escapeHtml(String(side.pk_pct)) +
+          "%" +
+          (side.pk_rank != null ? " (" + escapeHtml(String(side.pk_rank)) + ")" : "")
+        : "—";
+    var l10 = side.last_10 || {};
+    var l10Body = "";
+    if (l10.str != null) {
+      l10Body = escapeHtml(l10.str);
+      if (l10.w > l10.l) {
+        l10Body +=
+          '<span class="game-preview-l10-trend" title="Winning record in last 10">' +
+          previewIconFlame() +
+          "</span>";
+      } else if (l10.l > l10.w) {
+        l10Body +=
+          '<span class="game-preview-l10-trend" title="Losing record in last 10">' +
+          previewIconSnowflake() +
+          "</span>";
+      }
+    } else {
+      l10Body = "—";
+    }
+    var html = '<div class="game-preview-team-card card">';
+    html += '<div class="game-preview-team-card__head">';
+    html += teamLogoCell(tm.logo_url, tm.slug, tm.abbreviation);
+    html +=
+      '<div class="game-preview-team-card__titles"><h3 class="game-preview-team-name">' +
+      escapeHtml(tm.display_name || tm.name || tm.abbreviation || "") +
+      "</h3>";
+    html +=
+      '<p class="muted game-preview-vs">vs ' +
+      escapeHtml((side.opponent && side.opponent.abbreviation) || "") +
+      "</p></div></div>";
+    html += '<div class="game-preview-badges">';
+    html += previewBadge("Record", recStr);
+    html += previewBadge("Standing", side.standing_line ? escapeHtml(side.standing_line) : null);
+    html += previewBadge("PP", pp);
+    html += previewBadge("PK", pk);
+    html += previewBadge("Last 10", l10Body);
+    if (side.streak) html += previewBadge("Streak", escapeHtml(side.streak));
+    var sh = side.season_h2h;
+    if (sh) {
+      var shVal;
+      if (sh.gp > 0 && sh.str) {
+        shVal =
+          escapeHtml(sh.str) +
+          " <span class=\"game-preview-h2h-meta\">(" +
+          escapeHtml(String(sh.gp)) +
+          " GP) · vs " +
+          escapeHtml(sh.opponent_abbr || "") +
+          "</span>";
+      } else {
+        shVal =
+          '<span class="game-preview-h2h-meta">No games yet vs ' +
+          escapeHtml(sh.opponent_abbr || "") +
+          "</span>";
+      }
+      html += previewBadge("RS H2H", shVal);
+    }
+    html += "</div>";
+    html += '<div class="game-preview-trends">';
+    html +=
+      '<div class="game-preview-trend-col"><h4 class="game-preview-subhead game-preview-subhead--hot">' +
+      '<span class="game-preview-subhead__icon" aria-hidden="true">' +
+      previewIconFlame() +
+      '</span><span class="game-preview-subhead__text">Hot</span><span class="game-preview-subhead__suffix">(last 10)</span></h4>';
+    html += previewSkaterMiniTable(side.hot);
+    html +=
+      '</div><div class="game-preview-trend-col"><h4 class="game-preview-subhead game-preview-subhead--cold">' +
+      '<span class="game-preview-subhead__icon" aria-hidden="true">' +
+      previewIconSnowflake() +
+      '</span><span class="game-preview-subhead__text">Cold</span><span class="game-preview-subhead__suffix">(last 10)</span></h4>';
+    html += previewSkaterMiniTable(side.cold);
+    html += "</div></div>";
+    html += '<div class="game-preview-starter"><h4 class="game-preview-subhead game-preview-subhead--block">Projected starter</h4>';
+    if (side.projected_starter) {
+      var g = side.projected_starter;
+      var gTip =
+        "Season line (regular season): " +
+        (g.record || "—") +
+        (g.gaa != null ? " · GAA " + g.gaa : "") +
+        (g.sv_pct != null ? " · Sv% " + g.sv_pct : "");
+      var gImg = "";
+      if (g.photo_url) {
+        gImg =
+          '<img class="game-preview-starter__img" src="' +
+          escapeAttr(g.photo_url) +
+          '" alt="" width="40" height="40" loading="lazy">';
+      } else {
+        gImg =
+          '<span class="game-preview-starter__img game-preview-starter__img--ph" aria-hidden="true"></span>';
+      }
+      html += '<p class="game-preview-starter__line">';
+      html += gImg;
+      html += '<span class="game-preview-starter__text">';
+      html += previewPlayerLink(g.player_id, g.name, { ariaLabel: gTip });
+      html += ' <span class="muted">G</span> — ';
+      html += escapeHtml(g.record || "—");
+      if (g.gaa != null) html += " · GAA " + escapeHtml(String(g.gaa));
+      if (g.sv_pct != null) html += " · Sv% " + escapeHtml(String(g.sv_pct));
+      html += "</span></p>";
+    } else {
+      html += '<p class="game-preview-empty">No season goalie stats for this club.</p>';
+    }
+    html += "</div></div>";
+    return html;
+  }
+
+  function renderGamePreviewHtml(d) {
+    var away = d.away || {};
+    var home = d.home || {};
+    var odds = d.odds || {};
+    var hp = odds.home_pct_display != null ? Number(odds.home_pct_display) : 50;
+    var ap = odds.away_pct_display != null ? Number(odds.away_pct_display) : 50;
+    var html = '<div class="game-preview-panel">';
+    html += '<p class="game-preview-lede muted">' + escapeHtml(d.prediction_method_note || "") + "</p>";
+
+    var meetingsHtml = "";
+    if (d.recent_meetings && d.recent_meetings.length) {
+      meetingsHtml +=
+        '<div class="game-preview-meetings card"><h3 class="game-preview-subhead game-preview-subhead--block">Last meetings (this season)</h3><ul class="game-preview-meetings__list">';
+      d.recent_meetings.forEach(function (m) {
+        var line =
+          escapeHtml(m.away_abbr || "") +
+          " " +
+          (m.away_score != null ? m.away_score : "—") +
+          " – " +
+          (m.home_score != null ? m.home_score : "—") +
+          " " +
+          escapeHtml(m.home_abbr || "");
+        if (m.extra) line += " (" + escapeHtml(m.extra) + ")";
+        meetingsHtml +=
+          '<li><span class="game-preview-meetings__date muted">' +
+          escapeHtml(m.date || "") +
+          '</span> <span class="game-preview-meetings__score">' +
+          line +
+          '</span> <a href="' +
+          escapeAttr(withRoot("/game/" + encodeURIComponent(String(m.game_id)))) +
+          '">Box score</a></li>';
+      });
+      meetingsHtml += "</ul></div>";
+    }
+
+    var oddsHtml = "";
+    oddsHtml += '<div class="game-preview-odds card">';
+    oddsHtml += '<h3 class="game-preview-subhead game-preview-subhead--block game-preview-odds__title">Win probability</h3>';
+    oddsHtml += '<div class="game-preview-odds__bar" title="' + escapeAttr(odds.method_note || "") + '">';
+    oddsHtml +=
+      '<div class="game-preview-odds__seg game-preview-odds__seg--away" style="width:' +
+      ap +
+      '%"></div>';
+    oddsHtml +=
+      '<div class="game-preview-odds__seg game-preview-odds__seg--home" style="width:' +
+      hp +
+      '%"></div>';
+    oddsHtml += "</div>";
+    oddsHtml += '<div class="game-preview-odds__labels">';
+    oddsHtml +=
+      '<span class="game-preview-odds__side">' +
+      teamLogoCell(away.team && away.team.logo_url, away.team && away.team.slug, away.team && away.team.abbreviation) +
+      " <strong>" +
+      ap +
+      "%</strong> " +
+      escapeHtml((away.team && away.team.abbreviation) || "") +
+      "</span>";
+    oddsHtml +=
+      '<span class="game-preview-odds__side game-preview-odds__side--home">' +
+      "<strong>" +
+      hp +
+      "%</strong> " +
+      escapeHtml((home.team && home.team.abbreviation) || "") +
+      " " +
+      teamLogoCell(home.team && home.team.logo_url, home.team && home.team.slug, home.team && home.team.abbreviation) +
+      "</span>";
+    oddsHtml += "</div></div>";
+
+    var heroMod = meetingsHtml ? "" : " game-preview-hero-row--odds-only";
+    html += '<div class="game-preview-hero-row' + heroMod + '">';
+    html += meetingsHtml;
+    html += oddsHtml;
+    html += "</div>";
+
+    html += '<div class="game-preview-team-grid">';
+    html += renderTeamPreviewCard(away);
+    html += renderTeamPreviewCard(home);
+    html += "</div>";
+    if (d.injuries_note) {
+      html +=
+        '<p class="game-preview-foot muted">' + escapeHtml(d.injuries_note) + "</p>";
+    }
+    html += "</div>";
+    return html;
+  }
+
   function renderBoxScoreHtml(d) {
     var st = d.special_teams || {};
     var away = d.away || {};
@@ -932,8 +1251,32 @@
       scrollScheduleTrackToFocus
     );
   };
-  window.BOWL.loadBoxScore = function (gameId, container) {
+  window.BOWL.loadBoxScore = function (gameId, container, opts) {
     if (!container) return;
+    opts = opts || {};
+    var st = (opts.status || container.getAttribute("data-game-status") || "").toLowerCase();
+    if (st && st !== "final") {
+      container.innerHTML = '<p class="boxscore-loading">Loading game preview…</p>';
+      fetch(withRoot("/api/game/" + gameId + "/preview"))
+        .then(function (r) {
+          return r.json();
+        })
+        .then(function (d) {
+          if (d.error) {
+            container.innerHTML =
+              "<p class=\"boxscore-error\">Preview unavailable" +
+              (d.message ? ": " + escapeHtml(String(d.message)) : ".") +
+              "</p>";
+            return;
+          }
+          container.innerHTML = renderGamePreviewHtml(d);
+          if (typeof window.bindPlayerHoverAnchors === "function") window.bindPlayerHoverAnchors();
+        })
+        .catch(function () {
+          container.innerHTML = "<p class=\"boxscore-error\">Failed to load preview.</p>";
+        });
+      return;
+    }
     container.innerHTML = '<p class="boxscore-loading">Loading box score…</p>';
     fetch(withRoot("/api/game/" + gameId + "/boxscore"))
       .then(function (r) {
@@ -945,6 +1288,7 @@
           return;
         }
         container.innerHTML = renderBoxScoreHtml(d);
+        if (typeof window.bindPlayerHoverAnchors === "function") window.bindPlayerHoverAnchors();
       })
       .catch(function () {
         container.innerHTML = "<p class=\"boxscore-error\">Failed to load box score.</p>";

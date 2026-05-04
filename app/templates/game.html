@@ -1,23 +1,31 @@
 {% extends "base.html" %}
 {% from "macros/team.html" import team_lockup, team_logo_only with context %}
-{% block title %}BOXSCORE {{ game.id }} — Boys of Winter Hockey League{% endblock %}
+{% block title %}{% if game.status == 'final' %}Box score{% else %}Game preview{% endif %} — {{ game.away_team.abbreviation }} @ {{ game.home_team.abbreviation }} — Boys of Winter Hockey League{% endblock %}
 {% block content %}
 <div class="boxscore-page-head">
-  <h1 class="page-title boxscore-page-head__title">BOXSCORE</h1>
+  {% if game.status == 'final' %}
+  <h1 class="page-title boxscore-page-head__title">Box score</h1>
+  {% else %}
+  <h1 class="page-title boxscore-page-head__title">Game preview</h1>
+  {% endif %}
   <p class="muted boxscore-page-head__meta">
     {{ game.game_date }}
     {% if game.arena %} • {{ game.arena }}{% endif %}
     {% if game.attendance is not none %} • {{ '{:,}'.format(game.attendance) }} att.{% endif %}
     {% if game.game_type %} • {{ game.game_type }}{% endif %}
   </p>
+  {% if game.status == 'final' %}
   <p class="boxscore-page-head__final"><strong>Final:</strong> {{ team_lockup(game.away_team) }} {{ game.away_score }} — {{ game.home_score }} {{ team_lockup(game.home_team) }}</p>
+  {% else %}
+  <p class="boxscore-page-head__final boxscore-page-head__final--preview"><strong>Matchup:</strong> {{ team_lockup(game.away_team) }} @ {{ team_lockup(game.home_team) }}</p>
+  {% endif %}
 </div>
-<div id="box-root" class="card box-inner"></div>
+<div id="box-root" class="card box-inner" data-game-status="{{ game.status }}"></div>
 {% endblock %}
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  window.BOWL.loadBoxScore({{ game.id }}, document.getElementById('box-root'));
+  window.BOWL.loadBoxScore({{ game.id }}, document.getElementById('box-root'), { status: '{{ game.status }}' });
 });
 </script>
 {% endblock %}

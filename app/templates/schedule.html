@@ -33,7 +33,7 @@
   <p class="empty-state">No season data.</p>
   {% elif games %}
   {% for g in games %}
-  <details class="game-card" data-game-id="{{ g.id }}">
+  <details class="game-card" data-game-id="{{ g.id }}" data-game-status="{{ g.status }}">
     <summary>
       <span class="muted">{{ g.game_date or 'TBD' }}{% if g.game_type %} · {{ g.game_type }}{% endif %}</span>
       <span class="scoreline">
@@ -64,7 +64,9 @@ document.querySelectorAll('.game-card[data-game-id]').forEach(function (det) {
     var inner = det.querySelector('.box-inner');
     if (!inner || inner.getAttribute('data-loaded') === '1') return;
     inner.setAttribute('data-loaded', '1');
-    window.BOWL.loadBoxScore(det.getAttribute('data-game-id'), inner);
+    window.BOWL.loadBoxScore(det.getAttribute('data-game-id'), inner, {
+      status: det.getAttribute('data-game-status') || ''
+    });
   });
 });
 </script>

@@ -2353,7 +2353,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 2351;155;155;Kristian;Gahn;;70;179;1972-2-17;Kungälv;VäS;Sweden;;;0;Left;0
 2352;155;155;Rikard;Franzén;;70;190;1968-3-21;Halmstad;HAL;Sweden;;;0;Right;0
 2353;155;155;Roger;Nordström;;69;176;1966-4-27;Göteborg;VäS;Sweden;;;0;Left;0
-2354;218;216;Aleksandrs;Semjonovs;;71;201;1972-6-8;Ozolnieki;BAU;Latvia;;;0;Left;0
+2354;216;216;Aleksandrs;Semjonovs;;71;201;1972-6-8;Ozolnieki;BAU;Latvia;;;0;Left;0
 2355;166;166;Aleksandrs;Belavskis;;72;187;1964-1-17;Vitebsk;VIT;Latvia;Belarus;;0;Left;0
 2356;155;155;Johan;Åkerman;;71;201;1972-11-20;Västerås;VäS;Sweden;;;0;Right;0
 2357;155;155;Erik;Ryman;;71;201;1972-6-10;Malmö;SKå;Sweden;Norway;;0;Left;0
@@ -6726,7 +6726,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 14571;185;185;Jeff;Giuliano;;69;205;1979-6-20;Stratford;NH;The United States;;;0;Left;0
 14572;179;179;Mike;Green;;71;192;1979-8-23;Camrose;AB;Canada;;;0;Right;0
 14573;185;185;Derek;Gustafson;;71;210;1979-6-21;Lebanon;OR;The United States;;;0;Left;1
-14574;25;25;Scott;Hannan;;73;225;1979-1-23;Saanich;BC;Canada;;;0;Left;1
+14574;76;25;Scott;Hannan;;73;225;1979-1-23;Saanich;BC;Canada;;;0;Left;0
 14575;180;180;Alex;Henry;;78;231;1979-10-18;Elliot Lake;ON;Canada;;;0;Left;0
 14576;185;185;Burke;Henry;;75;214;1979-1-21;Mariapolis;MB;Canada;;;0;Left;0
 14577;70;19;Michael;Holmqvist;;75;205;1979-6-8;Stockholm;STO;Sweden;;;0;Left;0

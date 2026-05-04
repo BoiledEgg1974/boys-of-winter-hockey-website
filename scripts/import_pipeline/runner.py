@@ -43,6 +43,7 @@ from app.services.player_headshot import canonical_player_headshot_basename  # n
 from app.services.rebuild import refresh_after_import  # noqa: E402
 from scripts.import_pipeline.encoding_utils import (  # noqa: E402
     cell_val,
+    fhm_scoring_period_to_int,
     read_csv_normalized,
     to_bool,
     to_float,
@@ -584,7 +585,7 @@ def import_scoring_events(raw_dir: Path, app) -> int:
             continue
         ev = ScoringEvent(
             game_id=game.id,
-            period=to_int(cell_val(r, "period"), 1) or 1,
+            period=fhm_scoring_period_to_int(cell_val(r, "period"), 1),
             time_elapsed=cell_val(r, "time_elapsed", "time"),
             scorer_player_id=_player_by_fhm(cell_val(r, "scorer_player_id", "scorer_id")).id
             if _player_by_fhm(cell_val(r, "scorer_player_id", "scorer_id"))
@@ -621,7 +622,7 @@ def import_penalty_events(raw_dir: Path, app) -> int:
         tm = _team_by_fhm_or_abbr(cell_val(r, "team_id", "team_abbr"))
         ev = PenaltyEvent(
             game_id=game.id,
-            period=to_int(cell_val(r, "period"), 1) or 1,
+            period=fhm_scoring_period_to_int(cell_val(r, "period"), 1),
             time_elapsed=cell_val(r, "time_elapsed", "time"),
             player_id=pl.id if pl else None,
             team_id=tm.id if tm else None,

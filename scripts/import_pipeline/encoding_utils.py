@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import date
 from pathlib import Path
 
@@ -52,6 +53,31 @@ def to_int(val, default=None):
         return int(float(val))
     except (TypeError, ValueError):
         return default
+
+
+def fhm_scoring_period_to_int(period_raw, default: int = 1) -> int:
+    """Map FHM ``Period`` cells (``1``–``3``, ``OT1``, ``OT2``, …) to stored period integers.
+
+    Regulation stays 1–3. ``OT1`` → 4, ``OT2`` → 5, so downstream boxscore code can treat
+    ``period > 3`` as overtime. Plain ``OT`` is treated as the first OT frame (4).
+
+    ``to_int("OT1", 1)`` incorrectly becomes ``1``; use this for boxscore goal/penalty rows.
+    """
+    if period_raw is None:
+        return default
+    s = str(period_raw).strip().upper().replace(",", ".")
+    if not s:
+        return default
+    m_ot = re.match(r"^OT(\d+)$", s)
+    if m_ot:
+        return 3 + int(m_ot.group(1))
+    if s == "OT":
+        return 4
+    try:
+        v = int(float(s))
+    except (TypeError, ValueError):
+        return default
+    return v if v >= 1 else default
 
 
 def to_float(val, default=None):

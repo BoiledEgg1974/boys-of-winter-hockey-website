@@ -30,6 +30,7 @@ from app.models import (
 )
 from scripts.import_pipeline.encoding_utils import (
     cell_val,
+    fhm_scoring_period_to_int,
     parse_fhm_date,
     repair_likely_cp1250_mojibake,
     read_csv_normalized,
@@ -766,7 +767,7 @@ def import_period_scoring(raw_dir: Path, games_fhm: dict[str, int], players_fhm:
         gid = cell_val(r, "game_id", "gameid")
         if not gid or gid not in games_fhm:
             continue
-        per = to_int(cell_val(r, "period"), 1) or 1
+        per = fhm_scoring_period_to_int(cell_val(r, "period"), 1)
         tsec = to_int(cell_val(r, "time"))
         scorer = to_int(cell_val(r, "scorer"))
         a1 = to_int(cell_val(r, "assist_1"))

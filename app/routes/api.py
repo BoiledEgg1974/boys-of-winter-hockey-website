@@ -129,9 +129,10 @@ def _is_goalie(player: Player) -> bool:
 def _normalized_scoring_periods(game: Game, events: list[ScoringEvent]) -> dict[int, int]:
     """Map scoring event ids to display periods.
 
-    Some exports encode OT1 goals with ``period=1``. For OT games that did not reach shootout,
-    if all imported periods are <= 3 and event count matches final goals, treat the final goal
-    as period 4 (OT) for display.
+    Legacy imports used ``to_int("OT1") -> 1``, so the OT winner sat in period 1 alongside real
+    P1 goals; promoting ``events[-1]`` to OT then mis-tagged a regulation goal. Prefer fixing
+    imports with :func:`fhm_scoring_period_to_int`. This fallback only runs when **every** goal
+    row is still ``period == 1`` (rare old export) and the game ended in OT, not a shootout.
     """
     period_by_event = {ev.id: int(ev.period or 1) for ev in events}
     if not events or not game.went_to_overtime or game.went_to_shootout:
@@ -142,6 +143,8 @@ def _normalized_scoring_periods(game: Game, events: list[ScoringEvent]) -> dict[
     if total_final_goals <= 0 or len(events) != total_final_goals:
         return period_by_event
     if int(game.home_score or 0) == int(game.away_score or 0):
+        return period_by_event
+    if not all(int(ev.period or 1) == 1 for ev in events):
         return period_by_event
     period_by_event[events[-1].id] = 4
     return period_by_event

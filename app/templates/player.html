@@ -319,6 +319,24 @@
       <span><strong>Contract through</strong> {% if contract_through_season %}{{ contract_through_season }}{% else %}—{% endif %}</span>
       <span><strong>Average Salary</strong> {% if contract.average_salary is not none %}${{ '{:,}'.format(contract.average_salary) }}{% else %}—{% endif %}</span>
     </div>
+    {% if contract_salary_by_season %}
+    <div class="player-profile__salary-by-season">
+      <h3 class="player-profile__salary-by-season-title">Salary by season</h3>
+      <div class="player-profile__salary-by-season-head" role="row">
+        <span role="columnheader">Season</span>
+        <span role="columnheader">Level</span>
+        <span role="columnheader">Amount</span>
+      </div>
+      <div class="player-profile__salary-by-season-divider" aria-hidden="true"></div>
+      {% for sal_row in contract_salary_by_season %}
+      <div class="player-profile__salary-by-season-row" role="row">
+        <span role="cell">{{ sal_row.season_label }}</span>
+        <span role="cell">{{ sal_row.level }}</span>
+        <span role="cell"><strong class="player-profile__salary-by-season-amt">${{ '{:,}'.format(sal_row.amount) }}</strong></span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
   </section>
   {% endif %}
 

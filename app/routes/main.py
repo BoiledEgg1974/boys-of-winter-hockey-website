@@ -65,6 +65,7 @@ from app.services.player_career_totals import goalie_career_lines_totals, skater
 from app.services.player_contract_csv import (
     contract_final_season_label_from_remaining,
     contract_years_remaining_major,
+    player_contract_salary_by_season,
 )
 from app.services.player_rating_avgs import goalie_category_averages, skater_category_averages
 from app.services.player_overall_score import (
@@ -1579,6 +1580,9 @@ def all_time_records():
     split = request.args.get("split", "rs") or "rs"
     if split not in ("rs", "po"):
         split = "rs"
+    roster = request.args.get("roster", "all") or "all"
+    if roster not in ("all", "active", "retired"):
+        roster = "all"
     show_goalies = request.args.get("goalies") == "1"
     expanded = request.args.get("expanded") == "1"
     records_page_limit = 100
@@ -1588,7 +1592,7 @@ def all_time_records():
     g_order = request.args.get("g_order")
     if show_goalies:
         goalie_rows_all, g_sort_used, g_order_used = fetch_goalie_all_time(
-            db.session, split, g_sort, g_order or ""
+            db.session, split, g_sort, g_order or "", roster
         )
         total_goalies = len(goalie_rows_all)
         goalie_rows = goalie_rows_all if expanded else goalie_rows_all[:records_page_limit]
@@ -1602,7 +1606,7 @@ def all_time_records():
         )
     else:
         skater_rows_all, sort_used, sk_order_used = fetch_skater_all_time(
-            db.session, split, sort, order or ""
+            db.session, split, sort, order or "", roster
         )
         total_skaters = len(skater_rows_all)
         skater_rows = skater_rows_all if expanded else skater_rows_all[:records_page_limit]
@@ -1618,6 +1622,7 @@ def all_time_records():
         "records.html",
         show_goalies=show_goalies,
         split=split,
+        roster=roster,
         expanded=expanded,
         records_page_limit=records_page_limit,
         total_skaters=total_skaters,
@@ -3531,6 +3536,9 @@ def player_page(player_id: int):
     contract_through_season = contract_final_season_label_from_remaining(
         contract_years_left, season_start_year
     )
+    contract_salary_by_season = (
+        player_contract_salary_by_season(player.fhm_player_id, raw_dir) if contract else []
+    )
     roster_header_team = main_league_roster_team(contract_team, current_team)
     player_award_badges = player_history_award_badges(db.session, player.id)
     bowl_league_ids = bowl_nhl_league_ids(db.session)
@@ -3575,6 +3583,7 @@ def player_page(player_id: int):
         rating_avgs_goalie=rating_avgs_goalie,
         contract_years_left=contract_years_left,
         contract_through_season=contract_through_season,
+        contract_salary_by_season=contract_salary_by_season,
         player_award_badges=player_award_badges,
     )
 

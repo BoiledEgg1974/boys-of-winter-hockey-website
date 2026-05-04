@@ -1,13 +1,21 @@
 {% extends "base.html" %}
 {% from "macros/team.html" import team_logo_only with context %}
 {% block title %}All-Time Records — Boys of Winter Hockey League{% endblock %}
-{% macro rec_url(sp, gl, sk, gk, so, go, ex=expanded) -%}
+{% macro rec_url(sp, gl, sk, gk, so, go, ex=expanded, r=roster) -%}
+{% if r == 'all' -%}
 {{ url_for('main.all_time_records', split=sp, goalies=(1 if gl else none), sort=sk, order=so, g_sort=gk, g_order=go, expanded=(1 if ex else none)) }}
+{%- else -%}
+{{ url_for('main.all_time_records', split=sp, goalies=(1 if gl else none), sort=sk, order=so, g_sort=gk, g_order=go, expanded=(1 if ex else none), roster=r) }}
+{%- endif %}
 {%- endmacro %}
 {% macro sk_sort_href(col) -%}
 {% set default_o = 'asc' if col == 'player' else 'desc' %}
 {% set next_o = (('asc' if sk_order == 'desc' else 'desc') if sort == col else default_o) %}
+{% if roster == 'all' -%}
 {{ url_for('main.all_time_records', split=split, goalies=none, sort=col, order=next_o, g_sort=g_sort, g_order=g_order, expanded=(1 if expanded else none)) }}
+{%- else -%}
+{{ url_for('main.all_time_records', split=split, goalies=none, sort=col, order=next_o, g_sort=g_sort, g_order=g_order, expanded=(1 if expanded else none), roster=roster) }}
+{%- endif %}
 {%- endmacro %}
 {% macro sk_sorted_class(col) -%}
 {%- if sort == col -%}is-sorted {{ 'is-sorted-asc' if sk_order == 'asc' else 'is-sorted-desc' }}{%- endif -%}
@@ -15,7 +23,11 @@
 {% macro g_sort_href(gc) -%}
 {% set default_o = 'asc' if gc in ('ga', 'gaa', 'player') else 'desc' %}
 {% set next_o = (('asc' if g_order == 'desc' else 'desc') if g_sort == gc else default_o) %}
+{% if roster == 'all' -%}
 {{ url_for('main.all_time_records', split=split, goalies=1, sort=sort, order=sk_order, g_sort=gc, g_order=next_o, expanded=(1 if expanded else none)) }}
+{%- else -%}
+{{ url_for('main.all_time_records', split=split, goalies=1, sort=sort, order=sk_order, g_sort=gc, g_order=next_o, expanded=(1 if expanded else none), roster=roster) }}
+{%- endif %}
 {%- endmacro %}
 {% macro g_sorted_class(gc) -%}
 {%- if g_sort == gc -%}is-sorted {{ 'is-sorted-asc' if g_order == 'asc' else 'is-sorted-desc' }}{%- endif -%}
@@ -42,8 +54,11 @@
     </div>
     <div class="records-toolbar__right">
       <a href="{{ url_for('main.milestones', split=split) }}" class="stats-pill">Milestones</a>
-      <a href="{{ rec_url(split, false, sort, g_sort, sk_order, g_order) }}" class="stats-pill {{ 'is-active' if not show_goalies else '' }}">ALL</a>
-      <a href="{{ rec_url(split, true, sort, g_sort, sk_order, g_order) }}" class="stats-pill {{ 'is-active' if show_goalies else '' }}">Goalies</a>
+      <a href="{{ rec_url(split, show_goalies, sort, g_sort, sk_order, g_order) }}" class="stats-pill {{ 'is-active' if roster == 'all' else '' }}" title="Full roster (active and retired)">All</a>
+      <a href="{{ rec_url(split, show_goalies, sort, g_sort, sk_order, g_order, expanded, 'active') }}" class="stats-pill {{ 'is-active' if roster == 'active' else '' }}" title="Active players only">Active</a>
+      <a href="{{ rec_url(split, show_goalies, sort, g_sort, sk_order, g_order, expanded, 'retired') }}" class="stats-pill {{ 'is-active' if roster == 'retired' else '' }}" title="Retired players only">Retired</a>
+      <a href="{{ rec_url(split, false, sort, g_sort, sk_order, g_order, expanded, roster) }}" class="stats-pill {{ 'is-active' if not show_goalies else '' }}">Skaters</a>
+      <a href="{{ rec_url(split, true, sort, g_sort, sk_order, g_order, expanded, roster) }}" class="stats-pill {{ 'is-active' if show_goalies else '' }}">Goalies</a>
     </div>
   </div>
 

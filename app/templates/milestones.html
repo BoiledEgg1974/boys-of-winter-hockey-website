@@ -22,6 +22,7 @@
       <p class="records-page__hint muted">Players shown are close to the next major threshold.</p>
     </div>
     <div class="records-toolbar__right">
+      <a href="{{ url_for('main.all_time_records', split=split) }}" class="stats-pill">← All-Time Records</a>
       <a href="{{ ms_url('rs') }}" class="stats-pill {{ 'is-active' if split == 'rs' else '' }}">Regular Season</a>
       <a href="{{ ms_url('po') }}" class="stats-pill {{ 'is-active' if split == 'po' else '' }}">Playoffs</a>
     </div>

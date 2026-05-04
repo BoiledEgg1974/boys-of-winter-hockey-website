@@ -9496,6 +9496,64 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
 [data-theme="light"] .player-profile__contract-years {
   color: var(--text);
 }
+/* Salary by season (player_contract.csv major_YYYY / minor_YYYY) */
+.player-profile__salary-by-season {
+  margin-top: 1.1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgb(148 163 184 / 0.2);
+  min-width: 0;
+}
+.player-profile__salary-by-season-title {
+  margin: 0 0 0.6rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+[data-theme="light"] .player-profile__salary-by-season-title {
+  color: var(--muted);
+}
+.player-profile__salary-by-season-head,
+.player-profile__salary-by-season-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(4.5rem, auto) minmax(6rem, 1fr);
+  gap: 0.35rem 0.75rem;
+  align-items: baseline;
+  font-size: 0.88rem;
+}
+.player-profile__salary-by-season-head {
+  color: #94a3b8;
+  font-weight: 600;
+  font-size: 0.78rem;
+}
+.player-profile__salary-by-season-head span:nth-child(2),
+.player-profile__salary-by-season-row span:nth-child(2) {
+  text-align: center;
+}
+.player-profile__salary-by-season-head span:nth-child(3),
+.player-profile__salary-by-season-row span:nth-child(3) {
+  text-align: right;
+}
+.player-profile__salary-by-season-divider {
+  height: 1px;
+  background: rgb(148 163 184 / 0.28);
+  margin: 0.4rem 0 0.55rem;
+}
+.player-profile__salary-by-season-row span[role="cell"] {
+  color: #e2e8f0;
+}
+[data-theme="light"] .player-profile__salary-by-season-row span[role="cell"] {
+  color: var(--text);
+}
+.player-profile__salary-by-season-amt {
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: #f8fafc;
+}
+[data-theme="light"] .player-profile__salary-by-season-amt {
+  color: var(--text);
+}
 .player-profile__stats-table th,
 .player-profile__stats-table td,
 .player-profile__game-table th,

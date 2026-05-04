@@ -15,6 +15,7 @@ from app.models import LeagueMeta, Player, PlayerGoalieCareerLine, PlayerSkaterC
 
 Split = Literal["rs", "po"]
 SortOrder = Literal["asc", "desc"]
+RosterFilter = Literal["all", "active", "retired"]
 
 SKATER_SOURCES_RS: tuple[str, ...] = ("rs", "retired_rs")
 SKATER_SOURCES_PO: tuple[str, ...] = ("po", "retired_po")
@@ -71,6 +72,15 @@ def default_goalie_sort_order(sort_key: str) -> SortOrder:
     if sort_key in ("ga", "gaa", "player"):
         return "asc"
     return "desc"
+
+
+def _apply_player_roster_filter(stmt, roster: RosterFilter):
+    """Limit to active (not retired) or retired players; ``all`` leaves the statement unchanged."""
+    if roster == "active":
+        return stmt.where(Player.retired.is_(False))
+    if roster == "retired":
+        return stmt.where(Player.retired.is_(True))
+    return stmt
 
 
 def _career_source_rank_for_split(line, split: Split):
@@ -143,6 +153,7 @@ def fetch_skater_all_time(
     split: Split,
     sort: str,
     order: SortOrder,
+    roster: RosterFilter = "all",
 ) -> tuple[list[SkaterAllTimeRow], str, SortOrder]:
     league_ids = bowl_nhl_league_ids(session)
     line = PlayerSkaterCareerLine
@@ -288,6 +299,7 @@ def fetch_skater_all_time(
             sq.c.yr_max,
         )
     )
+    stmt = _apply_player_roster_filter(stmt, roster)
     rows_out: list[SkaterAllTimeRow] = []
     for row in session.execute(stmt).unique():
         (
@@ -350,6 +362,7 @@ def fetch_goalie_all_time(
     split: Split,
     sort: str,
     order: SortOrder,
+    roster: RosterFilter = "all",
 ) -> tuple[list[GoalieAllTimeRow], str, SortOrder]:
     """Totals from goalie career lines (active + retired) in BOWL/NHL leagues only."""
     league_ids = bowl_nhl_league_ids(session)
@@ -463,6 +476,7 @@ def fetch_goalie_all_time(
             sq.c.yr_max,
         )
     )
+    stmt = _apply_player_roster_filter(stmt, roster)
     rows_out: list[GoalieAllTimeRow] = []
     for row in session.execute(stmt).unique():
         (

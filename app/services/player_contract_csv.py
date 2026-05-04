@@ -79,6 +79,70 @@ def contract_final_season_label_from_remaining(
     return f"{last_start}–{y2:02d}"
 
 
+def _contract_year_salary_int(row: dict, prefix: str, year: int) -> int | None:
+    """Read ``major_YYYY`` / ``minor_YYYY`` from a normalized CSV row; negative = sentinel."""
+    nrm = {str(k).lower(): v for k, v in row.items()}
+    raw = nrm.get(f"{prefix}_{year}")
+    if raw is None:
+        return None
+    s = str(raw).strip()
+    if s == "":
+        return None
+    try:
+        return int(float(s))
+    except (TypeError, ValueError):
+        return None
+
+
+def player_contract_salary_by_season(
+    fhm_player_id: str | None,
+    raw_import_dir: Path | None = None,
+) -> list[dict[str, object]]:
+    """Season / Level / Amount rows from ``player_contract.csv`` for the player page.
+
+    Uses the same ``major_YYYY`` / ``minor_YYYY`` columns as cap sheets: NHL salary when
+    ``major`` is non-negative, otherwise minors salary when ``minor`` is non-negative.
+    """
+    if not fhm_player_id or not str(fhm_player_id).strip():
+        return []
+    base = raw_import_dir if raw_import_dir is not None else Path(Config.RAW_IMPORT_DIR)
+    path = base / "player_contract.csv"
+    m = _contract_row_map(path)
+    row = m.get(str(fhm_player_id).strip())
+    if not row:
+        return []
+    years: set[int] = set()
+    for k in row:
+        ks = str(k).lower()
+        for pref in ("major_", "minor_"):
+            if ks.startswith(pref):
+                suf = ks[len(pref) :]
+                try:
+                    years.add(int(suf))
+                except ValueError:
+                    pass
+    if not years:
+        return []
+    out: list[dict[str, object]] = []
+    for y in sorted(years):
+        mv = _contract_year_salary_int(row, "major", y)
+        nv = _contract_year_salary_int(row, "minor", y)
+        val: int | None = None
+        level: str | None = None
+        if mv is not None and mv >= 0:
+            val = mv
+            level = "NHL"
+        elif nv is not None and nv >= 0:
+            val = nv
+            level = "Minors"
+        if val is None:
+            continue
+        y_end = (y + 1) % 100
+        season_label = f"{y}/{y_end:02d}"
+        out.append({"season_label": season_label, "level": level, "amount": int(val)})
+    return out
+
+
 def contract_final_season_label(
     fhm_player_id: str | None,
     season_start_year: int | None,

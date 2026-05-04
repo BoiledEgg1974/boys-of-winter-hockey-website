@@ -5,6 +5,11 @@
   <span class="stats-ova__inner">
     <span class="stats-ova__score">{{ ova.score }}</span>{% if ova.delta is not none and ova.delta != 0 %}<span class="stats-ova__trend stats-ova__trend--{% if ova.delta > 0 %}up{% else %}down{% endif %}" aria-label="{% if ova.delta > 0 %}Up{% else %}Down{% endif %} {{ ova.delta }} from baseline">{% if ova.delta > 0 %}↑{% else %}↓{% endif %}</span>{% endif %}
   </span>
+  {% if request.args.get('ovr_debug') == '1' %}
+  <span class="muted" style="display:block;font-size:0.66rem;line-height:1.2;margin-top:0.18rem;">
+    s={{ ova.score if ova.score is not none else 'None' }}, b={{ ova.baseline if ova.baseline is not none else 'None' }}, d={{ ova.delta if ova.delta is not none else 'None' }}
+  </span>
+  {% endif %}
 </td>
 {% else %}
 <td class="stats-ova-cell{% if sorted_col %} stats-td-sorted{% endif %}" data-sort-value="">—</td>

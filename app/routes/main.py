@@ -74,7 +74,7 @@ from app.services.player_overall_score import (
     overall_cell_map_for_players,
     player_is_goalie_for_overall,
 )
-from app.services.player_ratings_csv import get_player_ratings_row, player_positions_display_label
+from app.services.player_ratings_csv import fhm_abi_pot_float, get_player_ratings_row, player_positions_display_label
 from app.services.prospect_system_rankings import (
     apply_system_rank_trends,
     build_prospect_system_ranking_rows,
@@ -3513,6 +3513,13 @@ def player_page(player_id: int):
         ).first()
     accent_team = contract_team or current_team
     ratings_row = get_player_ratings_row(player.fhm_player_id)
+    hero_overall_ability = player.overall_ability
+    hero_overall_potential = player.overall_potential
+    if ratings_row:
+        if hero_overall_ability is None:
+            hero_overall_ability = fhm_abi_pot_float(ratings_row.get("ability"))
+        if hero_overall_potential is None:
+            hero_overall_potential = fhm_abi_pot_float(ratings_row.get("potential"))
     player_age = _player_age_years(player.birth_date, season_age_reference_date(season))
     rating_avgs_skater = skater_category_averages(ratings_row)
     rating_avgs_goalie = goalie_category_averages(ratings_row)
@@ -3556,6 +3563,8 @@ def player_page(player_id: int):
         accent_team=accent_team,
         draft_picks=draft_picks,
         ratings_row=ratings_row,
+        hero_overall_ability=hero_overall_ability,
+        hero_overall_potential=hero_overall_potential,
         player_overall_by_id=player_overall_by_id,
         player_age=player_age,
         player_is_goalie=is_goalie,

@@ -110,6 +110,7 @@ def overall_cell_bundle(
         delta = int(score) - int(base)
     return {
         "score": score,
+        "baseline": base,
         "delta": delta,
         "has_baseline": base is not None,
     }

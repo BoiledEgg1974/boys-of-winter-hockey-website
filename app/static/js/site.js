@@ -100,9 +100,569 @@
     return '<span class="team-name-lockup team-name-lockup--icon">' + img + "</span>";
   }
 
+  function fmtMoneyShare(n) {
+    if (n == null || isNaN(n)) return "—";
+    try {
+      return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(
+        Number(n)
+      );
+    } catch (e) {
+      return "$" + String(n);
+    }
+  }
+
+  function getUiTheme() {
+    return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+  }
+
+  function loadHtml2CanvasLib() {
+    return new Promise(function (resolve, reject) {
+      if (typeof window.html2canvas === "function") return resolve(window.html2canvas);
+      reject(new Error("html2canvas not loaded"));
+    });
+  }
+
+  function ensurePlayerShareCardStage() {
+    var id = "player-share-card-stage";
+    var el = document.getElementById(id);
+    if (!el) {
+      el = document.createElement("div");
+      el.id = id;
+      el.setAttribute("aria-hidden", "true");
+      /* Full-size off-screen: tiny overflow:hidden parents break html2canvas layouts. */
+      el.style.cssText =
+        "position:fixed;left:-10000px;top:0;width:auto;height:auto;overflow:visible;" +
+        "opacity:0;pointer-events:none;z-index:-1;";
+      document.body.appendChild(el);
+    }
+    return el;
+  }
+
+  /** Resolve when every <img> under root has fired load or error (so html2canvas isn't racing). */
+  function whenImagesLoaded(root) {
+    var imgs = root.querySelectorAll("img");
+    if (!imgs.length) return Promise.resolve();
+    var tasks = [];
+    for (var i = 0; i < imgs.length; i += 1) {
+      (function (img) {
+        tasks.push(
+          new Promise(function (resolve) {
+            if (img.complete) {
+              resolve();
+              return;
+            }
+            var done = function () {
+              img.removeEventListener("load", done);
+              img.removeEventListener("error", done);
+              resolve();
+            };
+            img.addEventListener("load", done);
+            img.addEventListener("error", done);
+          })
+        );
+      })(imgs[i]);
+    }
+    return Promise.all(tasks);
+  }
+
+  function canUseClipboardImage() {
+    if (!window.isSecureContext) return false;
+    if (!navigator.clipboard || typeof navigator.clipboard.write !== "function") return false;
+    if (typeof ClipboardItem === "undefined") return false;
+    return true;
+  }
+
+  /** Private LAN IPs: dev servers are almost always HTTP-only; https:// same host → ERR_SSL_PROTOCOL_ERROR. */
+  function isRfc1918Hostname(hostname) {
+    var h = String(hostname || "").toLowerCase();
+    if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(h)) return true;
+    if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(h)) return true;
+    if (/^172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(h)) return true;
+    return false;
+  }
+
+  /** True if we might get clipboard paste by switching to HTTPS on the same host. */
+  function shouldOfferHttpsForClipboard() {
+    if (window.isSecureContext) return false;
+    if (String(location.protocol || "").toLowerCase() !== "http:") return false;
+    var h = String(location.hostname || "").toLowerCase();
+    if (h === "localhost" || h === "127.0.0.1" || h === "[::1]") return false;
+    if (isRfc1918Hostname(h)) return false;
+    return true;
+  }
+
+  function offerSwitchToHttpsForClipboardPaste(triggerBtn, oldTxt) {
+    var httpsUrl =
+      "https://" + location.host + location.pathname + location.search + location.hash;
+    var go = window.confirm(
+      "Pasting the player card as an image in Discord needs a secure (HTTPS) page. " +
+        "Plain HTTP cannot use the image clipboard.\n\n" +
+        "Open this same page over HTTPS now?\n\n" +
+        httpsUrl
+    );
+    if (go) {
+      location.replace(httpsUrl);
+      return;
+    }
+    window.alert(
+      "Without HTTPS, your browser will not put images on the clipboard. " +
+        "Enable SSL on your host (e.g. PythonAnywhere: force HTTPS) or open the site with https://."
+    );
+    if (triggerBtn) {
+      triggerBtn.textContent = oldTxt;
+      triggerBtn.disabled = false;
+    }
+  }
+
+  function writePngBlobToClipboard(blob) {
+    if (!canUseClipboardImage()) return Promise.resolve(false);
+    function tryWrite(item) {
+      return navigator.clipboard
+        .write([item])
+        .then(function () {
+          return true;
+        })
+        .catch(function () {
+          return false;
+        });
+    }
+    try {
+      return tryWrite(new ClipboardItem({ "image/png": blob }));
+    } catch (e1) {
+      try {
+        return tryWrite(
+          new ClipboardItem({
+            "image/png": Promise.resolve(blob),
+          })
+        );
+      } catch (e2) {
+        return Promise.resolve(false);
+      }
+    }
+  }
+
+  /**
+   * PNG blob for the share card. Used with ClipboardItem({ 'image/png': thisPromise }) so
+   * navigator.clipboard.write runs synchronously from the click handler (Safari / strict
+   * user-activation: awaiting fetch/canvas before write breaks the gesture chain).
+   */
+  function buildPlayerCardPngBlobPromise(playerId, theme, meta) {
+    meta = meta || {};
+    meta.filename = "player-card.png";
+    return fetch(withRoot("/api/player/" + playerId + "/hover-card"))
+      .then(function (r) {
+        return r.json();
+      })
+      .then(function (d) {
+        if (!d || d.error) throw new Error("load");
+        var base = (d.name || "player").replace(/[^\w\-]+/g, "-").replace(/^-|-$/g, "") || "player";
+        meta.filename = base + "-card.png";
+        return loadHtml2CanvasLib().then(function (h2c) {
+          var stage = ensurePlayerShareCardStage();
+          stage.innerHTML = "";
+          var el = buildShareCardFromData(d, theme);
+          stage.appendChild(el);
+          return whenImagesLoaded(el).then(function () {
+            return new Promise(function (resolve) {
+              requestAnimationFrame(function () {
+                resolve(
+                  h2c(el, {
+                    /* Scale 2 hits clipboard / canvas size limits on some Windows setups. */
+                    scale: 1.25,
+                    useCORS: true,
+                    allowTaint: false,
+                    backgroundColor: theme === "dark" ? "#111827" : "#ffffff",
+                    logging: false,
+                  })
+                );
+              });
+            });
+          });
+        });
+      })
+      .then(function (canvas) {
+        return new Promise(function (resolve, reject) {
+          canvas.toBlob(function (blob) {
+            if (!blob) reject(new Error("blob"));
+            else resolve(blob);
+          }, "image/png");
+        });
+      })
+      .then(function (blob) {
+        if (blob.type === "image/png") return blob;
+        return blob.arrayBuffer().then(function (buf) {
+          return new Blob([buf], { type: "image/png" });
+        });
+      });
+  }
+
+  function fmtPMShare(v) {
+    if (v == null || v === "") return "—";
+    var n = Number(v);
+    if (!isFinite(n)) return "—";
+    if (n > 0) return "+" + String(n);
+    return String(n);
+  }
+
+  function buildShareCardFromData(d, theme) {
+    var tcls = theme === "dark" ? "player-share-card--dark" : "player-share-card--light";
+    var league = d.league_display_name || "Boys of Winter Hockey League";
+    var teamNm = d.team_name || (d.team_abbr ? d.team_abbr : "Free agent");
+    var pos = d.position || "—";
+    var nat = d.nationality || "—";
+    var shoots = d.shoots || "—";
+    if (/^l/i.test(shoots)) shoots = "Left";
+    else if (/^r/i.test(shoots)) shoots = "Right";
+    var hw = formatHeight(d.height_inches) + " · " + (d.weight_lbs != null ? escapeHtml(String(d.weight_lbs)) + " lbs" : "—");
+    var sub =
+      "Age " +
+      escapeHtml(String(d.age != null ? d.age : "—")) +
+      " · " +
+      escapeHtml(nat) +
+      " · " +
+      hw +
+      " · Shoots " +
+      escapeHtml(shoots);
+    var contr = d.contract;
+    if (contr && (contr.aav != null || contr.years_left != null)) {
+      sub += " · ";
+      if (contr.aav != null) sub += "AAV " + escapeHtml(fmtMoneyShare(contr.aav));
+      if (contr.years_left != null) {
+        if (contr.aav != null) sub += " · ";
+        sub +=
+          escapeHtml(String(contr.years_left)) +
+          " yr" +
+          (Number(contr.years_left) === 1 ? "" : "s") +
+          " left";
+      }
+    }
+    var logoHtml = d.team_logo_url
+      ? '<img class="player-share-card__team-logo" src="' + escapeAttr(d.team_logo_url) + '" alt="">'
+      : '<span class="player-share-card__team-logo-ph"></span>';
+    var photoHtml = d.photo_url
+      ? '<img class="player-share-card__photo" src="' + escapeAttr(d.photo_url) + '" alt="">'
+      : '<span class="player-share-card__photo-ph">No photo</span>';
+    function shareFmtFixed1(v) {
+      if (v == null || v === "") return "—";
+      var n = Number(v);
+      return isFinite(n) ? escapeHtml(n.toFixed(1)) : "—";
+    }
+    function shareFmtInt(v) {
+      if (v == null || v === "") return "—";
+      var n = Number(v);
+      return isFinite(n) ? escapeHtml(String(Math.round(n))) : "—";
+    }
+    var ovr = shareFmtInt(d.player_ovr);
+    var abiS = shareFmtFixed1(d.abi);
+    var potS = shareFmtFixed1(d.pot);
+    var pills =
+      '<div class="player-share-card__pills">' +
+      '<span class="player-share-card__pill player-share-card__pill--ovr"><span class="player-share-card__pill-lbl">OVR</span> ' +
+      ovr +
+      "</span>" +
+      '<span class="player-share-card__pill player-share-card__pill--ap"><span class="player-share-card__pill-lbl">ABI</span> ' +
+      abiS +
+      "</span>" +
+      '<span class="player-share-card__pill player-share-card__pill--ap"><span class="player-share-card__pill-lbl">POT</span> ' +
+      potS +
+      "</span></div>";
+    var at = d.attrs || {};
+    var chipRow = "";
+    if (d.is_goalie) {
+      chipRow =
+        '<div class="player-share-card__chip-row">' +
+        '<span class="player-share-card__chip">GOA <strong style="' +
+        attrColorStyle(at.goa) +
+        '">' +
+        escapeHtml(String(at.goa != null ? at.goa : "—")) +
+        "</strong></span>" +
+        '<span class="player-share-card__chip">MEN <strong style="' +
+        attrColorStyle(at.men) +
+        '">' +
+        escapeHtml(String(at.men != null ? at.men : "—")) +
+        "</strong></span></div>";
+    } else {
+      chipRow =
+        '<div class="player-share-card__chip-row">' +
+        '<span class="player-share-card__chip">OFF <strong style="' +
+        attrColorStyle(at.off) +
+        '">' +
+        escapeHtml(String(at.off != null ? at.off : "—")) +
+        "</strong></span>" +
+        '<span class="player-share-card__chip">DEF <strong style="' +
+        attrColorStyle(at.def) +
+        '">' +
+        escapeHtml(String(at.def != null ? at.def : "—")) +
+        "</strong></span>" +
+        '<span class="player-share-card__chip">PHY <strong style="' +
+        attrColorStyle(at.phy) +
+        '">' +
+        escapeHtml(String(at.phy != null ? at.phy : "—")) +
+        "</strong></span>" +
+        '<span class="player-share-card__chip">MEN <strong style="' +
+        attrColorStyle(at.men) +
+        '">' +
+        escapeHtml(String(at.men != null ? at.men : "—")) +
+        "</strong></span></div>";
+    }
+    var rc = d.rating_columns || { left: [], right: [] };
+    var leftTitle = d.is_goalie ? "Goalie" : "Attributes";
+    var rightTitle = d.is_goalie ? "Mental" : "Attributes";
+    function colHtml(title, rows) {
+      var h =
+        '<div class="player-share-card__col"><div class="player-share-card__col-title">' +
+        escapeHtml(title) +
+        "</div>";
+      (rows || []).forEach(function (row) {
+        var nv = parseFloat(row.value);
+        var st = attrColorStyle(isNaN(nv) ? null : nv);
+        var vs =
+          row.value === "—"
+            ? "—"
+            : '<strong style="' + st + '">' + escapeHtml(row.value) + "</strong>";
+        h +=
+          '<div class="player-share-card__rating-row"><span class="player-share-card__rating-lbl">' +
+          escapeHtml(row.label) +
+          '</span><span class="player-share-card__rating-val">' +
+          vs +
+          "</span></div>";
+      });
+      h += "</div>";
+      return h;
+    }
+    var ratingsBlk =
+      '<div class="player-share-card__ratings">' +
+      colHtml(leftTitle, rc.left) +
+      colHtml(rightTitle, rc.right) +
+      "</div>";
+    var statsBlk = "";
+    if (!d.retired && d.latest_season_stats) {
+      var s = d.latest_season_stats;
+      function statCell(k, v) {
+        var vs = v == null || v === "" ? "—" : escapeHtml(String(v));
+        return (
+          '<div class="player-share-card__stat"><span class="player-share-card__stat-k">' +
+          escapeHtml(k) +
+          '</span><span class="player-share-card__stat-v">' +
+          vs +
+          "</span></div>"
+        );
+      }
+      var grid = "";
+      if (d.is_goalie) {
+        grid +=
+          statCell("GP", s.gp) +
+          statCell("Record", s.record) +
+          statCell("GAA", s.gaa != null ? Number(s.gaa).toFixed(2) : null) +
+          statCell("SV%", s.sv_pct != null ? Number(s.sv_pct).toFixed(3) : null) +
+          statCell("GR", s.gr) +
+          statCell("GS", s.gs) +
+          statCell("SO", s.so) +
+          statCell("TOI/G", s.toi_pg) +
+          statCell("SA", s.sa) +
+          statCell("SV", s.saves) +
+          statCell("GA", s.ga);
+      } else {
+        grid +=
+          statCell("GP", s.gp) +
+          statCell("G", s.goals) +
+          statCell("A", s.assists) +
+          statCell("PTS", s.points) +
+          statCell("+/-", fmtPMShare(s.plus_minus)) +
+          statCell("PIM", s.pim) +
+          statCell("SOG", s.shots) +
+          statCell("HIT", s.hits) +
+          statCell("BS", s.blocked_shots) +
+          statCell("ATOI", s.toi_pg) +
+          statCell("GR", s.gr) +
+          statCell("PDO", s.pdo);
+      }
+      statsBlk =
+        '<div class="player-share-card__stats"><div class="player-share-card__stats-title">' +
+        escapeHtml(String(s.season || "Season")) +
+        ' stats</div><div class="player-share-card__stats-grid">' +
+        grid +
+        "</div></div>";
+    }
+    var html =
+      '<div class="player-share-card ' +
+      tcls +
+      '">' +
+      '<div class="player-share-card__header">' +
+      logoHtml +
+      '<div class="player-share-card__head-text">' +
+      '<div class="player-share-card__pos">' +
+      escapeHtml(pos) +
+      "</div>" +
+      '<div class="player-share-card__name">' +
+      escapeHtml(d.name || "Player") +
+      "</div>" +
+      '<div class="player-share-card__team">' +
+      escapeHtml(teamNm) +
+      "</div></div></div>" +
+      '<div class="player-share-card__sub">' +
+      sub +
+      "</div>" +
+      '<div class="player-share-card__body-row">' +
+      photoHtml +
+      '<div class="player-share-card__body-main">' +
+      pills +
+      chipRow +
+      "</div></div>" +
+      ratingsBlk +
+      statsBlk +
+      '<div class="player-share-card__footer">' +
+      escapeHtml(league) +
+      "</div></div>";
+    var wrap = document.createElement("div");
+    wrap.innerHTML = html;
+    return wrap.firstElementChild;
+  }
+
+  function copyPlayerShareCardImage(playerId, triggerBtn) {
+    var theme = getUiTheme();
+    var oldTxt = triggerBtn ? triggerBtn.textContent : "";
+    var meta = { filename: "player-card.png" };
+
+    function resetBtn() {
+      if (triggerBtn) {
+        triggerBtn.textContent = oldTxt;
+        triggerBtn.disabled = false;
+      }
+    }
+    function okCopied() {
+      if (triggerBtn) {
+        triggerBtn.textContent = "Copied!";
+        setTimeout(function () {
+          resetBtn();
+        }, 1600);
+      }
+    }
+    function alertBuildErr(err) {
+      var msg = "Could not build the player card image.";
+      if (err && err.message === "html2canvas not loaded") {
+        msg = "Image library failed to load. Try a hard refresh (Ctrl+F5).";
+      } else if (err && err.message === "load") {
+        msg = "Could not load player data from the server.";
+      } else if (err && err.message === "blob") {
+        msg = "Could not render the card image.";
+      }
+      window.alert(msg);
+      resetBtn();
+    }
+
+    if (shouldOfferHttpsForClipboard()) {
+      offerSwitchToHttpsForClipboardPaste(triggerBtn, oldTxt);
+      return;
+    }
+
+    if (!canUseClipboardImage()) {
+      var hintEl = document.getElementById("player-copy-card-hint");
+      if (hintEl && !hintEl.hidden) {
+        resetBtn();
+        hintEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        return;
+      }
+      var insecureMsg =
+        "The browser only allows copying images from a secure page (https:// or http://localhost).\n\n" +
+        "Use one of these:\n" +
+        "• Open http://localhost:PORT on the PC running the app, then Copy player card, or\n" +
+        "• Start the dev server with HTTPS: set FLASK_DEV_HTTPS=1, run run.py, open https://THIS_IP:PORT " +
+        "(accept the self-signed certificate warning), then copy.";
+      if (isRfc1918Hostname(location.hostname)) {
+        insecureMsg =
+          "Image clipboard is turned off by the browser for http:// on a LAN address (192.168.x.x).\n\n" +
+          "Fix (pick one):\n" +
+          "• http://localhost:PORT on the machine running Flask — then paste works, or\n" +
+          "• HTTPS on your LAN: PowerShell: $env:FLASK_DEV_HTTPS='1'; python run.py\n" +
+          "  Then open https://" +
+          String(location.host || location.hostname || "") +
+          " and accept the certificate warning.\n\n" +
+          "There is no way to put a PNG on the clipboard from this exact URL without one of the above.";
+      }
+      window.alert(insecureMsg);
+      resetBtn();
+      return;
+    }
+
+    function tryWritePngBlob(blob) {
+      var b =
+        blob && blob.type === "image/png"
+          ? blob
+          : new Blob([blob], { type: "image/png" });
+      return navigator.clipboard
+        .write([new ClipboardItem({ "image/png": b })])
+        .catch(function () {
+          return navigator.clipboard.write([
+            new ClipboardItem({ "image/png": Promise.resolve(b) }),
+          ]);
+        })
+        .catch(function () {
+          return writePngBlobToClipboard(b).then(function (ok) {
+            if (!ok) throw new Error("no-clipboard");
+          });
+        });
+    }
+
+    function isCardBuildError(err) {
+      if (!err || !err.message) return false;
+      return (
+        err.message === "html2canvas not loaded" ||
+        err.message === "load" ||
+        err.message === "blob"
+      );
+    }
+
+    function explainClipboardFailure() {
+      window.alert(
+        "The image was not copied. Common fixes:\n\n" +
+          "• Chrome/Edge: lock icon → Site settings → Clipboard → Allow.\n" +
+          "• Use https:// or http://localhost for this page.\n\n" +
+          "Then try Copy player card again."
+      );
+      resetBtn();
+    }
+
+    if (triggerBtn) {
+      triggerBtn.disabled = true;
+      triggerBtn.textContent = "…";
+    }
+    var blobPromise = buildPlayerCardPngBlobPromise(playerId, theme, meta);
+
+    var primaryWrite;
+    try {
+      primaryWrite = navigator.clipboard.write([
+        new ClipboardItem({ "image/png": blobPromise }),
+      ]);
+    } catch (e) {
+      primaryWrite = Promise.reject(e);
+    }
+
+    primaryWrite
+      .then(function () {
+        okCopied();
+      })
+      .catch(function () {
+        return blobPromise
+          .then(function (blob) {
+            return tryWritePngBlob(blob);
+          })
+          .then(function () {
+            okCopied();
+          });
+      })
+      .catch(function (err) {
+        if (isCardBuildError(err)) {
+          alertBuildErr(err);
+          return;
+        }
+        explainClipboardFailure();
+      });
+  }
+
   function initPlayerHoverCards() {
     var cache = {};
-    var HOVER_CARD_CACHE_VER = 4;
+    var HOVER_CARD_CACHE_VER = 5;
     var activeAnchor = null;
     var showTimer = null;
     var hideTimer = null;
@@ -203,7 +763,7 @@
       return h;
     }
 
-    function renderCard(d) {
+    function renderCard(d, playerIdForCard) {
       var attrsHtml = "";
       if (d.is_goalie) {
         var goa = d.attrs && d.attrs.goa != null ? d.attrs.goa : "—";
@@ -234,7 +794,13 @@
           ? '<span class="player-hover-card__ovr"> · ' + escapeHtml(String(d.player_ovr)) + " OVR</span>"
           : "";
       var seasonsHtml = hoverRecentSeasonsBlock(d);
+      var copyBar =
+        '<div class="player-hover-card__toolbar">' +
+        '<button type="button" class="player-hover-card__copy js-copy-player-card" data-player-id="' +
+        escapeAttr(String(playerIdForCard)) +
+        '" title="Copies the player card image to the clipboard for Discord.">Copy card</button></div>';
       card.innerHTML =
+        copyBar +
         '<div class="player-hover-card__row">' +
         '<div class="player-hover-card__photo">' +
         (d.photo_url
@@ -268,7 +834,7 @@
         activeAnchor = anchor;
         var cached = cache[playerId];
         if (cached && cached._hoverFmt === HOVER_CARD_CACHE_VER) {
-          renderCard(cached);
+          renderCard(cached, playerId);
           card.hidden = false;
           moveCardNear(anchor);
           return;
@@ -280,7 +846,7 @@
             d._hoverFmt = HOVER_CARD_CACHE_VER;
             cache[playerId] = d;
             if (activeAnchor !== anchor) return;
-            renderCard(d);
+            renderCard(d, playerId);
             card.hidden = false;
             moveCardNear(anchor);
           })
@@ -352,9 +918,44 @@
     track.scrollLeft = Math.max(0, target);
   }
 
+  /** Browsers (including Cursor) only allow image clipboard on https:// or http://localhost — not http://192.168… */
+  function initPlayerShareCardClipboardHint() {
+    var hint = document.getElementById("player-copy-card-hint");
+    if (!hint || canUseClipboardImage()) return;
+    var h = String(location.hostname || "").toLowerCase();
+    var loopback = h === "localhost" || h === "127.0.0.1" || h === "[::1]";
+    var port = location.port;
+    var p = port ? ":" + port : "";
+    var path = location.pathname + location.search + location.hash;
+    var localUrl = "http://127.0.0.1" + p + path;
+    hint.hidden = false;
+    if (!loopback && String(location.protocol || "").toLowerCase() === "http:") {
+      hint.innerHTML =
+        "The Cursor browser (like Chrome) will not copy images from <strong>http://</strong> plus a LAN IP such as yours — only <strong>https://</strong> or <strong>http://localhost</strong> / <strong>127.0.0.1</strong> count as secure for clipboard. " +
+        "On the PC running Flask, open " +
+        '<a href="' +
+        escapeAttr(localUrl) +
+        '">the same page on 127.0.0.1</a>. ' +
+        "Then use <strong>Copy player card</strong> once and paste (Ctrl+V) in Discord. " +
+        "(If this browser is not on the same PC as the server, use <strong>https://</strong> to your LAN IP with dev TLS instead — see run.py <code style=font-size:0.85em>FLASK_DEV_HTTPS</code>.)";
+    } else {
+      hint.textContent =
+        "Image copy needs a secure page (https:// or http://localhost). This URL cannot use the clipboard image API.";
+    }
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
     applyTheme(getPreferredTheme());
+    initPlayerShareCardClipboardHint();
     window.bindPlayerHoverAnchors = initPlayerHoverCards();
+    document.body.addEventListener("click", function (ev) {
+      var btn = ev.target.closest(".js-copy-player-card");
+      if (!btn) return;
+      ev.preventDefault();
+      var pid = parseInt(btn.getAttribute("data-player-id") || "0", 10);
+      if (!pid) return;
+      copyPlayerShareCardImage(pid, btn);
+    });
     document.querySelectorAll(".theme-toggle").forEach(function (el) {
       el.addEventListener("click", toggleTheme);
     });

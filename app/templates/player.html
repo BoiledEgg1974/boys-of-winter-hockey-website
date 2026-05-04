@@ -56,17 +56,19 @@
         {% endif %}
       </div>
     </div>
-    {% if player.overall_ability is not none or player.overall_potential is not none %}
+    {% set _ova = (player_overall_by_id or {}).get(player.id) %}
+    {% set _hero_abi = hero_overall_ability if hero_overall_ability is defined else player.overall_ability %}
+    {% set _hero_pot = hero_overall_potential if hero_overall_potential is defined else player.overall_potential %}
+    {% if _hero_abi is not none or _hero_pot is not none or (_ova and _ova.score is not none) %}
     <div class="player-profile__hero-ratings">
       <div class="player-profile__ap-box">
         <span class="player-profile__ap-label">Ability</span>
-        <span class="player-profile__ap-val" style="{{ player.overall_ability|rating_pill_style if player.overall_ability is not none else '' }}">{{ '%.1f'|format(player.overall_ability) if player.overall_ability is not none else '—' }}</span>
+        <span class="player-profile__ap-val" style="{{ _hero_abi|rating_pill_style if _hero_abi is not none else '' }}">{{ '%.1f'|format(_hero_abi) if _hero_abi is not none else '—' }}</span>
       </div>
       <div class="player-profile__ap-box">
         <span class="player-profile__ap-label">Potential</span>
-        <span class="player-profile__ap-val" style="{{ player.overall_potential|rating_pill_style if player.overall_potential is not none else '' }}">{{ '%.1f'|format(player.overall_potential) if player.overall_potential is not none else '—' }}</span>
+        <span class="player-profile__ap-val" style="{{ _hero_pot|rating_pill_style if _hero_pot is not none else '' }}">{{ '%.1f'|format(_hero_pot) if _hero_pot is not none else '—' }}</span>
       </div>
-      {% set _ova = (player_overall_by_id or {}).get(player.id) %}
       {% if _ova and _ova.score is not none %}
       <div class="player-profile__ap-box player-profile__ap-box--ova">
         <span class="player-profile__ap-label">OVR</span>
@@ -76,13 +78,18 @@
             {% if _ova.delta is not none and _ova.delta != 0 %}<span class="stats-ova__trend stats-ova__trend--{% if _ova.delta > 0 %}up{% else %}down{% endif %}" aria-hidden="true">{% if _ova.delta > 0 %}↑{% else %}↓{% endif %}</span>{% endif %}
           </span>
         </span>
+        {% if request.args.get('ovr_debug') == '1' %}
+        <span class="muted" style="display:block;font-size:0.72rem;margin-top:0.25rem;">
+          score={{ _ova.score if _ova.score is not none else 'None' }}, baseline={{ _ova.baseline if _ova.baseline is not none else 'None' }}, delta={{ _ova.delta if _ova.delta is not none else 'None' }}
+        </span>
+        {% endif %}
       </div>
       {% endif %}
     </div>
     {% endif %}
   </header>
 
-  <div class="player-profile__top-grid player-profile__top-grid--photo-layout {% if player_is_goalie %}player-profile__top-grid--goalie{% endif %}{% if draft_picks %} player-profile__top-grid--with-draft{% endif %}">
+  <div class="player-profile__top-grid player-profile__top-grid--photo-layout {% if player_is_goalie %}player-profile__top-grid--goalie{% endif %} player-profile__top-grid--with-draft">
     <section class="player-profile__card player-profile__card--photo-panel">
       <div class="player-profile__photo-panel-frame">
         <div class="player-profile__photo-panel-inner">
@@ -131,9 +138,9 @@
       </dl>
     </section>
 
-    {% if draft_picks %}
     <section class="player-profile__card player-profile__card--draft-beside-bio">
       <h2 class="player-profile__card-title">Draft History</h2>
+      {% if draft_picks %}
       <div class="table-wrap">
         <table class="data player-profile__draft-table">
           <thead><tr><th>Year</th><th>Draft</th><th>Rd</th><th>Overall</th><th>Team</th></tr></thead>
@@ -150,8 +157,16 @@
           </tbody>
         </table>
       </div>
+      {% else %}
+      <p class="player-profile__draft-empty">No draft history on file.</p>
+      {% endif %}
+      <div class="player-profile__draft-card-footer">
+        <div class="player-profile__copy-card-wrap player-profile__copy-card-wrap--in-draft">
+          <button type="button" class="player-profile__copy-card-btn player-profile__copy-card-btn--in-panel js-copy-player-card" data-player-id="{{ player.id }}" title="Copies the share card image to the clipboard; paste with Ctrl+V in Discord or chat." aria-label="Copy player card as image to clipboard for Discord or chat">Copy player card</button>
+          <p class="player-profile__copy-card-hint player-profile__copy-card-hint--in-panel" id="player-copy-card-hint" hidden></p>
+        </div>
+      </div>
     </section>
-    {% endif %}
 
   </div>
 

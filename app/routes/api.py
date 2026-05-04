@@ -56,11 +56,12 @@ from app.services.homepage_ticker import build_homepage_ticker_items
 from app.services.postseason_odds import build_postseason_odds_payload
 from app.services.playoff_bracket import playoff_bracket_payload
 from app.services.game_preview import game_preview_payload
-from app.services.player_overall_score import build_overall_cell_map_from_players
+from app.services.player_contract_csv import contract_years_remaining_major
+from app.services.player_overall_score import _parse_rating_cell, build_overall_cell_map_from_players
 from app.services.player_rating_avgs import goalie_category_averages, skater_category_averages
 from app.services.player_headshot import resolve_player_headshot_static_filename
 from app.services.news_engagement import add_article_comment, set_article_vote, viewer_can_react_on_news
-from app.services.player_ratings_csv import get_player_ratings_row, player_positions_display_label
+from app.services.player_ratings_csv import fhm_abi_pot_float, get_player_ratings_row, player_positions_display_label
 from app.services.seasons import (
     get_current_season,
     season_age_reference_date,
@@ -470,6 +471,204 @@ def _hover_recent_goalie_seasons(session, player_id: int) -> list[dict[str, obje
     return [by_year[y] for y in years]
 
 
+_SKATER_SHARE_PAIRS: tuple[tuple[str, str], ...] = (
+    ("Skating", "skating"),
+    ("Shooting", "shooting"),
+    ("Playmaking", "playmaking"),
+    ("Defending", "defending"),
+    ("Physicality", "physicality"),
+    ("Conditioning", "conditioning"),
+    ("Character", "character"),
+    ("Hockey sense", "hockey_sense"),
+    ("Screening", "screening"),
+    ("Getting open", "getting_open"),
+    ("Passing", "passing"),
+    ("Puck handling", "puck_handling"),
+    ("Shooting accuracy", "shooting_accuracy"),
+    ("Shooting range", "shooting_range"),
+    ("Offensive read", "offensive_read"),
+    ("Checking", "checking"),
+    ("Faceoffs", "faceoffs"),
+    ("Hitting", "hitting"),
+    ("Positioning", "positioning"),
+    ("Shot blocking", "shot_blocking"),
+    ("Stickchecking", "stickchecking"),
+    ("Defensive read", "defensive_read"),
+    ("Aggression", "aggression"),
+    ("Bravery", "bravery"),
+    ("Determination", "determination"),
+    ("Team Player", "teamplayer"),
+    ("Leadership", "leadership"),
+    ("Temperament", "temperament"),
+    ("Professionalism", "professionalism"),
+    ("Acceleration", "acceleration"),
+    ("Agility", "agility"),
+    ("Balance", "balance"),
+    ("Speed", "speed"),
+    ("Stamina", "stamina"),
+    ("Strength", "strength"),
+    ("Fighting", "fighting"),
+)
+
+_GOALIE_SHARE_LEFT: tuple[tuple[str, str], ...] = (
+    ("Positioning", "g_positioning"),
+    ("Passing", "g_passing"),
+    ("Pokecheck", "g_pokecheck"),
+    ("Blocker", "blocker"),
+    ("Glove", "glove"),
+    ("Rebound", "rebound"),
+    ("Recovery", "recovery"),
+    ("Puckhandling", "g_puckhandling"),
+    ("Low Shots", "low_shots"),
+    ("Skating", "g_skating"),
+    ("Reflexes", "reflexes"),
+)
+
+_GOALIE_SHARE_RIGHT: tuple[tuple[str, str], ...] = (
+    ("Aggression", "aggression"),
+    ("Mental Toughness", "mental_toughness"),
+    ("Determination", "determination"),
+    ("Team Player", "teamplayer"),
+    ("Leadership", "leadership"),
+    ("Stamina", "goalie_stamina"),
+    ("Professionalism", "professionalism"),
+)
+
+
+def _fmt_share_rating_value(v: float) -> str:
+    if abs(v - round(v)) < 0.05:
+        return str(int(round(v)))
+    return f"{v:.1f}"
+
+
+def _share_rating_rows(rr: dict | None, pairs: tuple[tuple[str, str], ...]) -> list[dict[str, str]]:
+    out: list[dict[str, str]] = []
+    for label, key in pairs:
+        raw = rr.get(key) if rr else None
+        cell = _parse_rating_cell(raw)
+        if cell is None:
+            out.append({"label": label, "value": "—"})
+        else:
+            out.append({"label": label, "value": _fmt_share_rating_value(cell)})
+    return out
+
+
+def _skater_share_split_columns(rr: dict | None) -> dict[str, list[dict[str, str]]]:
+    rows = _share_rating_rows(rr, _SKATER_SHARE_PAIRS)
+    if not rows:
+        return {"left": [], "right": []}
+    mid = (len(rows) + 1) // 2
+    return {"left": rows[:mid], "right": rows[mid:]}
+
+
+def _goalie_share_split_columns(rr: dict | None) -> dict[str, list[dict[str, str]]]:
+    return {
+        "left": _share_rating_rows(rr, _GOALIE_SHARE_LEFT),
+        "right": _share_rating_rows(rr, _GOALIE_SHARE_RIGHT),
+    }
+
+
+def _avg_goalie_season_toi(minutes_played: int | None, gp: int) -> str | None:
+    if minutes_played is None or gp <= 0:
+        return None
+    try:
+        secs = int(round(float(minutes_played) * 60.0 / float(gp)))
+    except (TypeError, ValueError, ZeroDivisionError):
+        return None
+    return _fmt_toi(secs)
+
+
+def _latest_rs_season_stats_share(session, player_id: int, is_goalie: bool) -> dict[str, object] | None:
+    if is_goalie:
+        row = session.execute(
+            select(PlayerGoalieStat, Season)
+            .join(Season, PlayerGoalieStat.season_id == Season.id)
+            .where(PlayerGoalieStat.player_id == player_id, PlayerGoalieStat.stat_segment == "rs")
+            .order_by(Season.start_year.desc().nulls_last(), Season.id.desc())
+            .limit(1)
+        ).first()
+        if not row:
+            return None
+        st, sn = row
+        gp = int(st.gp or 0)
+        wins = int(st.wins or 0)
+        losses = int(st.losses or 0)
+        otl = int(st.otl or 0)
+        sa = int(st.sa or 0)
+        ga = int(st.ga or 0)
+        sv = sa - ga if sa else None
+        sv_pct = float(st.sv_pct) if st.sv_pct is not None else None
+        if sv_pct is None and sa > 0 and sv is not None:
+            sv_pct = float(sv) / float(sa)
+        gaa = float(st.gaa) if st.gaa is not None else None
+        mp = st.minutes_played
+        if gaa is None and mp and float(mp) > 0:
+            gaa = float(ga) * 60.0 / float(mp)
+        gr = float(st.game_rating) if st.game_rating is not None else None
+        gs_val = int(st.games_started) if st.games_started is not None else None
+        return {
+            "season": season_display_label(sn),
+            "gp": gp,
+            "record": f"{wins}-{losses}-{otl}",
+            "gaa": round(gaa, 2) if gaa is not None else None,
+            "sv_pct": round(sv_pct, 3) if sv_pct is not None else None,
+            "gr": round(gr, 1) if gr is not None else None,
+            "gs": gs_val,
+            "so": int(st.so or 0),
+            "toi_pg": _avg_goalie_season_toi(mp, gp),
+            "sa": sa,
+            "saves": int(sv) if sv is not None else None,
+            "ga": ga,
+        }
+    row = session.execute(
+        select(PlayerSkaterStat, Season)
+        .join(Season, PlayerSkaterStat.season_id == Season.id)
+        .where(PlayerSkaterStat.player_id == player_id, PlayerSkaterStat.stat_segment == "rs")
+        .order_by(Season.start_year.desc().nulls_last(), Season.id.desc())
+        .limit(1)
+    ).first()
+    if not row:
+        return None
+    st, sn = row
+    gp = int(st.gp or 0)
+    goals = int(st.goals or 0)
+    ast = int(st.assists or 0)
+    pts = int(st.points) if st.points is not None else goals + ast
+    toi_pg = None
+    if st.toi_seconds and gp > 0:
+        toi_pg = _fmt_toi(int(round(st.toi_seconds / gp)))
+    gr = float(st.game_rating) if st.game_rating is not None else None
+    pdo = float(st.pdo) if st.pdo is not None else None
+    return {
+        "season": season_display_label(sn),
+        "gp": gp,
+        "goals": goals,
+        "assists": ast,
+        "points": pts,
+        "plus_minus": st.plus_minus,
+        "pim": int(st.pim or 0),
+        "shots": int(st.shots) if st.shots is not None else None,
+        "hits": int(st.hits) if st.hits is not None else None,
+        "blocked_shots": int(st.blocked_shots) if st.blocked_shots is not None else None,
+        "toi_pg": toi_pg,
+        "gr": round(gr, 1) if gr is not None else None,
+        "pdo": round(pdo, 1) if pdo is not None else None,
+    }
+
+
+def _contract_payload_for_share(session, player: Player, season: Season | None) -> dict[str, object] | None:
+    c = session.scalars(select(PlayerContract).where(PlayerContract.player_id == player.id).limit(1)).first()
+    if not c:
+        return None
+    raw_dir = Path(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR))
+    sy = season.start_year if season else None
+    yrs = contract_years_remaining_major(player.fhm_player_id, sy, raw_dir)
+    aav = int(c.average_salary) if c.average_salary is not None else None
+    if aav is None and yrs is None:
+        return {"aav": None, "years_left": None}
+    return {"aav": aav, "years_left": yrs}
+
+
 @api_bp.get("/player/<int:player_id>/hover-card")
 def player_hover_card(player_id: int):
     player = db.session.get(Player, player_id)
@@ -500,6 +699,14 @@ def player_hover_card(player_id: int):
     ovr_int = int(ovr_score) if ovr_score is not None else None
 
     retired = bool(getattr(player, "retired", False))
+    abi_f: float | None = float(player.overall_ability) if player.overall_ability is not None else None
+    pot_f: float | None = float(player.overall_potential) if player.overall_potential is not None else None
+    # Retired / historical players often have null DB ABI–POT but FHM CSV still has ability/potential.
+    if rr:
+        if abi_f is None:
+            abi_f = fhm_abi_pot_float(rr.get("ability"))
+        if pot_f is None:
+            pot_f = fhm_abi_pot_float(rr.get("potential"))
     if retired:
         recent: list[dict[str, object]] = []
         recent_role = "skater"
@@ -510,6 +717,11 @@ def player_hover_card(player_id: int):
         recent = _hover_recent_skater_seasons(db.session, player.id)
         recent_role = "skater"
 
+    rating_share = _goalie_share_split_columns(rr) if is_goalie else _skater_share_split_columns(rr)
+    latest_stats = None if retired else _latest_rs_season_stats_share(db.session, player.id, is_goalie)
+    contract_payload = _contract_payload_for_share(db.session, player, season)
+    league_display = str(current_app.config.get("LEAGUE_DISPLAY_NAME", "") or "").strip()
+
     return jsonify(
         {
             "id": player.id,
@@ -518,17 +730,24 @@ def player_hover_card(player_id: int):
             "retired": retired,
             "position": player_positions_display_label(player),
             "team_abbr": team.abbreviation if team else "",
+            "team_name": team.full_display_name() if team else "",
+            "team_logo_url": team_logo_url_for_team(team) if team else "",
+            "nationality": (player.nationality or "").strip(),
+            "league_display_name": league_display,
             "age": age,
             "shoots": (player.shoots_catches or "").strip(),
             "height_inches": player.height_inches,
             "weight_lbs": player.weight_lbs,
-            "abi": float(player.overall_ability) if player.overall_ability is not None else None,
-            "pot": float(player.overall_potential) if player.overall_potential is not None else None,
+            "abi": abi_f,
+            "pot": pot_f,
             "is_goalie": is_goalie,
             "attrs": attrs,
             "photo_url": _player_photo_url(player),
             "recent_seasons_role": recent_role,
             "recent_seasons": recent,
+            "rating_columns": rating_share,
+            "latest_season_stats": latest_stats,
+            "contract": contract_payload,
         }
     )
 

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import math
+import re
 from pathlib import Path
 
 from flask import current_app, has_app_context
@@ -11,6 +12,24 @@ from scripts.import_pipeline.encoding_utils import cell_val, read_csv_normalized
 
 # One entry per resolved CSV path so multi-league apps in one process keep correct, warm caches.
 _cache_entries: dict[str, tuple[float, dict[str, dict]]] = {}
+
+
+def fhm_abi_pot_float(val: object) -> float | None:
+    """Parse ability/potential cells that may include FHM grade suffixes (e.g. ``3Aa``)."""
+    if val is None:
+        return None
+    if isinstance(val, float) and val != val:
+        return None
+    s = str(val).strip()
+    if not s or s.lower() == "nan":
+        return None
+    m = re.match(r"^\s*([0-9]+(?:\.[0-9]+)?)", s)
+    if not m:
+        return None
+    try:
+        return float(m.group(1))
+    except (TypeError, ValueError):
+        return None
 
 
 def get_player_ratings_row(fhm_player_id: str | None) -> dict | None:

@@ -4,7 +4,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
-from flask import current_app, has_app_context
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 
@@ -51,23 +50,16 @@ class SeriesAgg:
     last_date: date | None
 
 
-# bowl_cap conferences.csv: 0 = Wales (East), 1 = Campbell (West).
-_CAP_WALES_CONF_ID = 0
-_CAP_CAMPBELL_CONF_ID = 1
+# FHM conferences.csv across league imports: 0 = Wales (East), 1 = Campbell (West).
+_WALES_CONF_ID = 0
+_CAMPBELL_CONF_ID = 1
 
 
 def _series_sort_key(s: SeriesAgg) -> tuple:
     return (s.first_date or date.min, s.team_a_id, s.team_b_id)
 
 
-def _bowl_cap_bracket_conference_reorder_enabled() -> bool:
-    return (
-        has_app_context()
-        and str(current_app.config.get("LEAGUE_SLUG") or "") == "bowl-cap"
-    )
-
-
-def _cap_series_conference_id(s: SeriesAgg, teams: dict[int, Team]) -> int | None:
+def _series_conference_id(s: SeriesAgg, teams: dict[int, Team]) -> int | None:
     """FHM conference id for a series when both teams agree, else first known side."""
     ta = teams.get(s.team_a_id)
     tb = teams.get(s.team_b_id)
@@ -82,14 +74,14 @@ def _cap_series_conference_id(s: SeriesAgg, teams: dict[int, Team]) -> int | Non
     return None
 
 
-def _reorder_bowl_cap_qf_series(first8: list[SeriesAgg], teams: dict[int, Team]) -> list[SeriesAgg]:
+def _reorder_mirror_qf_series(first8: list[SeriesAgg], teams: dict[int, Team]) -> list[SeriesAgg]:
     """Mirror bracket: left column Campbell (West), right column Wales (East)."""
     campbell = sorted(
-        [s for s in first8 if _cap_series_conference_id(s, teams) == _CAP_CAMPBELL_CONF_ID],
+        [s for s in first8 if _series_conference_id(s, teams) == _CAMPBELL_CONF_ID],
         key=_series_sort_key,
     )
     wales = sorted(
-        [s for s in first8 if _cap_series_conference_id(s, teams) == _CAP_WALES_CONF_ID],
+        [s for s in first8 if _series_conference_id(s, teams) == _WALES_CONF_ID],
         key=_series_sort_key,
     )
     left = campbell[:4]
@@ -103,30 +95,30 @@ def _reorder_bowl_cap_qf_series(first8: list[SeriesAgg], teams: dict[int, Team])
     return left + right
 
 
-def _reorder_bowl_cap_round2_for_mirror(
+def _reorder_mirror_round2_for_slots(
     r2: list[SeriesAgg], teams: dict[int, Team]
 ) -> list[SeriesAgg | None]:
-    """Semifinals: indices 0–1 = Campbell side, 2–3 = Wales (mirror JS layout)."""
+    """Semifinals: indices 0–1 = Campbell (West), 2–3 = Wales (East); matches mirror UI."""
     if not r2:
         return []
 
     if len(r2) == 1:
         s = r2[0]
-        side = _cap_series_conference_id(s, teams)
-        if side == _CAP_WALES_CONF_ID:
+        side = _series_conference_id(s, teams)
+        if side == _WALES_CONF_ID:
             return [None, None, s, None]
         return [s, None, None, None]
 
     camp = sorted(
-        [s for s in r2 if _cap_series_conference_id(s, teams) == _CAP_CAMPBELL_CONF_ID],
+        [s for s in r2 if _series_conference_id(s, teams) == _CAMPBELL_CONF_ID],
         key=_series_sort_key,
     )
     wales = sorted(
-        [s for s in r2 if _cap_series_conference_id(s, teams) == _CAP_WALES_CONF_ID],
+        [s for s in r2 if _series_conference_id(s, teams) == _WALES_CONF_ID],
         key=_series_sort_key,
     )
     pool = sorted(
-        [s for s in r2 if _cap_series_conference_id(s, teams) is None],
+        [s for s in r2 if _series_conference_id(s, teams) is None],
         key=_series_sort_key,
     )
 
@@ -159,29 +151,29 @@ def _reorder_bowl_cap_round2_for_mirror(
     return out
 
 
-def _reorder_bowl_cap_round3_for_mirror(
+def _reorder_mirror_round3_for_slots(
     r3: list[SeriesAgg], teams: dict[int, Team]
 ) -> list[SeriesAgg | None]:
-    """Conference finals: index 0 = Campbell, 1 = Wales."""
+    """Conference finals: index 0 = Campbell (West), 1 = Wales (East)."""
     if not r3:
         return []
     if len(r3) == 1:
         s = r3[0]
-        side = _cap_series_conference_id(s, teams)
-        if side == _CAP_WALES_CONF_ID:
+        side = _series_conference_id(s, teams)
+        if side == _WALES_CONF_ID:
             return [None, s]
         return [s, None]
 
     camp = sorted(
-        [s for s in r3 if _cap_series_conference_id(s, teams) == _CAP_CAMPBELL_CONF_ID],
+        [s for s in r3 if _series_conference_id(s, teams) == _CAMPBELL_CONF_ID],
         key=_series_sort_key,
     )
     wales = sorted(
-        [s for s in r3 if _cap_series_conference_id(s, teams) == _CAP_WALES_CONF_ID],
+        [s for s in r3 if _series_conference_id(s, teams) == _WALES_CONF_ID],
         key=_series_sort_key,
     )
     unk = sorted(
-        [s for s in r3 if _cap_series_conference_id(s, teams) is None],
+        [s for s in r3 if _series_conference_id(s, teams) is None],
         key=_series_sort_key,
     )
     if not camp and not wales and unk:
@@ -355,9 +347,9 @@ def playoff_bracket_payload(season_id: int | None) -> dict:
     )
     n = len(ordered)
 
-    if _bowl_cap_bracket_conference_reorder_enabled() and n >= 8:
+    if n >= 8:
         ordered = list(ordered)
-        ordered[:8] = _reorder_bowl_cap_qf_series(ordered[:8], teams)
+        ordered[:8] = _reorder_mirror_qf_series(ordered[:8], teams)
 
     def semantic_playoff_rounds() -> tuple[list[SeriesAgg], list[SeriesAgg], list[SeriesAgg], SeriesAgg | None]:
         """Split ordered series into outer→inner rounds (by schedule order).
@@ -419,13 +411,19 @@ def playoff_bracket_payload(season_id: int | None) -> dict:
         return s1, s2, s3, champ
 
     r1_sem, r2_sem, r3_sem, championship_series = semantic_playoff_rounds()
+    r2_ordered: list[SeriesAgg | None] = (
+        _reorder_mirror_round2_for_slots(list(r2_sem), teams) if r2_sem else []
+    )
+    r3_ordered: list[SeriesAgg | None] = (
+        _reorder_mirror_round3_for_slots(list(r3_sem), teams) if r3_sem else []
+    )
     s1_slots, s2_slots, s3_slots, championship_series = expand_to_mirror_slots(
-        r1_sem, r2_sem, r3_sem, championship_series
+        r1_sem, r2_ordered, r3_ordered, championship_series
     )
 
-    # Legacy field names: non-null series in schedule order for older consumers.
+    # Legacy field names: non-null series for older consumers (mirror: West then East slots).
     quarterfinals = [s for s in r1_sem if s is not None]
-    semifinals = [s for s in r2_sem if s is not None]
+    semifinals = [s for s in r2_ordered if s is not None]
 
     def pack_rounds_fallback(sl: list[SeriesAgg]) -> list[dict]:
         if not sl:
@@ -460,11 +458,15 @@ def playoff_bracket_payload(season_id: int | None) -> dict:
         if quarterfinals or semifinals
         else pack_rounds_fallback(ordered)
     )
-    if r3_sem:
+    if r3_ordered:
         rounds.append(
             {
                 "label": "Conference finals",
-                "series": [_series_json(x, teams, rs_map=rs_map, h2h=h2h) for x in r3_sem],
+                "series": [
+                    _series_json(x, teams, rs_map=rs_map, h2h=h2h)
+                    for x in r3_ordered
+                    if x is not None
+                ],
             }
         )
 

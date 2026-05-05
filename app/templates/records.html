@@ -54,7 +54,7 @@
     </div>
     <div class="records-toolbar__right">
       <a href="{{ url_for('main.milestones', split=split) }}" class="stats-pill">Milestones</a>
-      <a href="{{ rec_url(split, show_goalies, sort, g_sort, sk_order, g_order) }}" class="stats-pill {{ 'is-active' if roster == 'all' else '' }}" title="Full roster (active and retired)">All</a>
+      <a href="{{ rec_url(split, show_goalies, sort, g_sort, sk_order, g_order, expanded, 'all') }}" class="stats-pill {{ 'is-active' if roster == 'all' else '' }}" title="Full roster (active and retired)">All</a>
       <a href="{{ rec_url(split, show_goalies, sort, g_sort, sk_order, g_order, expanded, 'active') }}" class="stats-pill {{ 'is-active' if roster == 'active' else '' }}" title="Active players only">Active</a>
       <a href="{{ rec_url(split, show_goalies, sort, g_sort, sk_order, g_order, expanded, 'retired') }}" class="stats-pill {{ 'is-active' if roster == 'retired' else '' }}" title="Retired players only">Retired</a>
       <a href="{{ rec_url(split, false, sort, g_sort, sk_order, g_order, expanded, roster) }}" class="stats-pill {{ 'is-active' if not show_goalies else '' }}">Skaters</a>

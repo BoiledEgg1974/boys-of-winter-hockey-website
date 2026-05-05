@@ -840,7 +840,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 871;278;278;Jim;Johnson;;69;185;1961-11-7;Winnipeg;MB;Canada;;;0;Left;0
 872;283;283;Mark;Johnson;Magic;69;170;1953-9-22;Minneapolis;MN;The United States;;;0;Left;0
 873;303;303;Ross;Johnstone;;72;185;1959-4-7;Montreal;QC;Canada;;;0;Left;0
-874;216;10;Virgil;Johnson;;69;165;1962-3-4;Minneapolis;MN;The United States;;;0;Left;0
+874;10;10;Virgil;Johnson;;69;165;1962-3-4;Minneapolis;MN;The United States;;;0;Left;1
 875;300;300;Timo;Jutila;;70;187;1953-12-24;Tampere;PIR;Finland;;;0;Left;0
 876;293;293;Bill;Juzda;The Beast;69;190;1954-10-29;Winnipeg;MB;Canada;;;0;Right;0
 877;295;295;Ed;Kachur;;68;170;1956-4-22;Thunder Bay;ON;Canada;;;0;Right;0
@@ -2320,7 +2320,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 2389;168;168;Markus;Søberg;;71;187;1951-4-22;Drammen;BUS;Norway;;;0;Right;0
 2390;25;25;Brian;Pinho;;73;196;1961-5-1;West Yarmouth;MA;The United States;;;0;Right;0
 2391;186;186;Jérémy;Grégoire;;72;194;1956-9-5;Sherbrooke;QC;Canada;;;0;Right;0
-2393;216;10;Rushan;Rafikov;;73;185;1960-5-15;Balakovo;SAR;Russia;;;0;Left;0
+2393;10;10;Rushan;Rafikov;;73;185;1960-5-15;Balakovo;SAR;Russia;;;0;Left;0
 2394;290;290;Peter;Quenneville;;72;185;1961-3-9;Edmonton;AB;Canada;;;0;Right;0
 2395;21;21;Elvis;Merzlikins;;75;192;1955-4-13;Riga;RIG;Latvia;;;0;Left;0
 2397;223;9;Kyle;Wood;;79;236;1960-5-4;Waterloo;ON;Canada;;;0;Right;0
@@ -4421,7 +4421,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 4544;186;186;Sonny;Mignacca;;68;176;1964-1-4;Winnipeg;MB;Canada;;;0;Left;0
 4545;186;186;Brent;Pope;;74;225;1964-2-20;Hamilton;ON;Canada;England;;0;Right;0
 4546;186;186;Ken;Baum;;70;170;1964-1-1;Calgary;AB;Canada;;;0;Left;0
-4547;222;5;Alex;Roberts;;72;174;1964-1-11;Detroit;MI;The United States;;;0;Left;0
+4547;5;5;Alex;Roberts;;72;174;1964-1-11;Detroit;MI;The United States;;;0;Left;1
 4548;186;186;Norman;Walker;;69;172;1964-5-20;Scituate;MA;The United States;;;0;Left;0
 4549;280;280;Ted;Hitchcock;;75;220;1962-3-29;St. John's;NL;Canada;;;0;Right;0
 4550;236;25;Georges;Vezina;The Chicoutimi Cucumber;66;185;1965-1-21;Saguenay;QC;Canada;;;0;Left;0

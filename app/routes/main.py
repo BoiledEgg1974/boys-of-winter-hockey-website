@@ -164,6 +164,11 @@ def _join_league_team_options() -> list[str]:
         except OSError:
             options = []
 
+    # League-specific defaults (used when the instance text file is absent or incomplete).
+    league_slug = str(current_app.config.get("LEAGUE_SLUG") or "").strip().lower()
+    if league_slug == "bowl-fantasy":
+        options.append("Tokyo Katanas")
+
     # De-duplicate while preserving order.
     seen: set[str] = set()
     uniq: list[str] = []

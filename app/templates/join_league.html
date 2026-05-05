@@ -20,6 +20,7 @@
   {% endif %}
 
   <form class="join-league-form" method="post" action="{{ url_for('main.join_league') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <label>First Name<input type="text" name="first_name" required value="{{ form_data.get('first_name', '') }}"></label>
     <label>Last Name<input type="text" name="last_name" required value="{{ form_data.get('last_name', '') }}"></label>
     <label>E-Mail<input type="email" name="email" required value="{{ form_data.get('email', '') }}"></label>

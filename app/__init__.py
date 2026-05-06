@@ -695,7 +695,7 @@ def create_app(config_class: type = Config) -> Flask:
         def team_logo_url_for_season_context(
             team: Team | None, season: object | int | None
         ) -> str:
-            """Era-accurate logo for Historical/Cap when season start year is known; else default team asset.
+            """Era-accurate logo for Historical/Cap/Fantasy when season start year is known; else default team asset.
 
             *season* may be a :class:`~app.models.Season`, any object with ``start_year``, or an ``int`` year.
             """
@@ -715,7 +715,7 @@ def create_app(config_class: type = Config) -> Flask:
                     sy = int(sy)
             else:
                 sy = None
-            if sy is not None and slug in ("bowl-historical", "bowl-cap"):
+            if sy is not None and slug in ("bowl-historical", "bowl-cap", "bowl-fantasy"):
                 tid = getattr(team, "fhm_team_id", None)
                 tid_s = str(tid).strip() if tid is not None and str(tid).strip() else None
                 proxy = SimpleNamespace(

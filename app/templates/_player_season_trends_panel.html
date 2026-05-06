@@ -1,0 +1,331 @@
+{# Skaters: GP/G/A/Pts/GR share one Y max. Goalies: GP, L, T + yellow W, blue SO, orange GR. #}
+{% set tr_count = player_season_trend_rows | length %}
+{% if tr_count > 0 %}
+{% set chart_height = 260 %}
+{% if player_season_trends_goalie_mode %}
+{% set chart_padding_left = 52 %}
+{% set chart_padding_right = 52 %}
+{% else %}
+{% set chart_padding_left = 44 %}
+{% set chart_padding_right = 44 %}
+{% endif %}
+{% set chart_padding_top = 18 %}
+{% set chart_padding_bottom = 60 %}
+{% set inner_height = chart_height - chart_padding_top - chart_padding_bottom %}
+{% set bar_min_width = 16 %}
+{% set bar_gap = 6 %}
+{% set inner_width = (tr_count * bar_min_width) + ((tr_count - 1) * bar_gap) %}
+{% if inner_width < 540 %}{% set inner_width = 540 %}{% endif %}
+{% set chart_width = inner_width + chart_padding_left + chart_padding_right %}
+{% set bar_total_w = inner_width / tr_count if tr_count > 0 else 0 %}
+{% set bar_w = bar_total_w - bar_gap if (bar_total_w - bar_gap) > 4 else (bar_total_w * 0.75) %}
+
+{% if player_season_trends_goalie_mode %}
+{% set gkns = namespace(max_y=0) %}
+{% for r in player_season_trend_rows %}
+  {% if r.gk_gp > gkns.max_y %}{% set gkns.max_y = r.gk_gp %}{% endif %}
+  {% if r.gk_l > gkns.max_y %}{% set gkns.max_y = r.gk_l %}{% endif %}
+  {% if r.gk_t > gkns.max_y %}{% set gkns.max_y = r.gk_t %}{% endif %}
+  {% if r.gk_w > gkns.max_y %}{% set gkns.max_y = r.gk_w %}{% endif %}
+  {% if r.gk_so > gkns.max_y %}{% set gkns.max_y = r.gk_so %}{% endif %}
+  {% if r.game_rating is not none %}
+    {% set grmx = r.game_rating | float %}
+    {% if grmx > gkns.max_y %}{% set gkns.max_y = grmx %}{% endif %}
+  {% endif %}
+{% endfor %}
+{% if gkns.max_y < 1 %}{% set gkns.max_y = 1 %}{% endif %}
+{% else %}
+{% set skns = namespace(max_y=0) %}
+{% for r in player_season_trend_rows %}
+  {% if r.sk_gp > skns.max_y %}{% set skns.max_y = r.sk_gp %}{% endif %}
+  {% set gv0 = r.g or 0 %}
+  {% if gv0 > skns.max_y %}{% set skns.max_y = gv0 %}{% endif %}
+  {% set av0 = r.a or 0 %}
+  {% if av0 > skns.max_y %}{% set skns.max_y = av0 %}{% endif %}
+  {% if r.pts is not none and r.pts > skns.max_y %}{% set skns.max_y = r.pts %}{% endif %}
+  {% if r.game_rating is not none %}
+    {% set grsk = r.game_rating | float %}
+    {% if grsk > skns.max_y %}{% set skns.max_y = grsk %}{% endif %}
+  {% endif %}
+{% endfor %}
+{% if skns.max_y < 1 %}{% set skns.max_y = 1 %}{% endif %}
+{% set sk_max_y = skns.max_y %}
+{% endif %}
+
+<section class="player-profile__card player-season-trends{% if player_season_trends_goalie_mode %} player-season-trends--goalie{% endif %}" aria-labelledby="player-season-trends-h">
+  <h2 id="player-season-trends-h" class="player-profile__card-title">Season trends</h2>
+  {% if player_season_trends_goalie_mode %}
+  <p class="player-season-trends__note muted">Grey bar is games played; red losses and green ties/OTL stack from the bottom; yellow line is wins; light blue line is shutouts; orange line is game rating (GR). Left and right axes use the same scale: the largest value among GP, L, T, W, SO, and GR in the chart. Hover or focus a season column for exact numbers; click opens that season’s team records.</p>
+  {% else %}
+  <p class="player-season-trends__note muted">Grey bar is games played; stacked goals and assists; yellow line is points (goals + assists); orange line is game rating (GR). Left and right axes use the same scale: the largest value among GP, goals, assists, points, and GR in the chart. Hover or focus a season column for exact numbers; click opens that season’s team records.</p>
+  {% endif %}
+
+  <div class="player-season-trends__legend" role="list" aria-label="Chart legend">
+    {% if player_season_trends_goalie_mode %}
+    <span class="player-season-trends__legend-item" role="listitem"><span class="player-season-trends__swatch player-season-trends__swatch--gk-gp"></span>GP</span>
+    <span class="player-season-trends__legend-item" role="listitem"><span class="player-season-trends__swatch player-season-trends__swatch--gk-l"></span>L</span>
+    <span class="player-season-trends__legend-item" role="listitem"><span class="player-season-trends__swatch player-season-trends__swatch--gk-t"></span>T</span>
+    <span class="player-season-trends__legend-item" role="listitem"><span class="player-season-trends__swatch player-season-trends__swatch--line-w"></span>W</span>
+    <span class="player-season-trends__legend-item" role="listitem"><span class="player-season-trends__swatch player-season-trends__swatch--line-so"></span>SO</span>
+    <span class="player-season-trends__legend-item" role="listitem"><span class="player-season-trends__swatch player-season-trends__swatch--line-ovr"></span>GR</span>
+    {% else %}
+    <span class="player-season-trends__legend-item" role="listitem"><span class="player-season-trends__swatch player-season-trends__swatch--gk-gp"></span>GP</span>
+    <span class="player-season-trends__legend-item" role="listitem"><span class="player-season-trends__swatch player-season-trends__swatch--g"></span>Goals</span>
+    <span class="player-season-trends__legend-item" role="listitem"><span class="player-season-trends__swatch player-season-trends__swatch--a"></span>Assists</span>
+    <span class="player-season-trends__legend-item" role="listitem"><span class="player-season-trends__swatch player-season-trends__swatch--pts"></span>Points</span>
+    <span class="player-season-trends__legend-item" role="listitem"><span class="player-season-trends__swatch player-season-trends__swatch--line-ovr"></span>GR</span>
+    {% endif %}
+  </div>
+
+  <div class="player-season-trends__chart-wrap">
+    <div class="player-season-trends__tooltip" data-player-season-trends-tooltip hidden></div>
+    <svg class="player-season-trends__chart"
+         viewBox="0 0 {{ chart_width }} {{ chart_height }}"
+         preserveAspectRatio="xMinYMid meet"
+         role="img"
+         aria-label="Season trends chart">
+      {% if player_season_trends_goalie_mode %}
+      {% for i in range(0, 5) %}
+      {% set y = chart_padding_top + (inner_height * (4 - i) / 4) %}
+      {% set tick_l = (gkns.max_y * i / 4) | round(0, 'common') | int %}
+      <line class="player-season-trends__grid"
+            x1="{{ chart_padding_left }}" y1="{{ y }}"
+            x2="{{ chart_padding_left + inner_width }}" y2="{{ y }}"
+            stroke-dasharray="2,3" />
+      <text class="player-season-trends__tick"
+            x="{{ chart_padding_left - 6 }}" y="{{ y + 3 }}"
+            text-anchor="end">{{ tick_l }}</text>
+      <text class="player-season-trends__tick"
+            x="{{ chart_padding_left + inner_width + 6 }}" y="{{ y + 3 }}"
+            text-anchor="start">{{ tick_l }}</text>
+      {% endfor %}
+      <line class="player-season-trends__axis"
+            x1="{{ chart_padding_left }}" y1="{{ chart_padding_top }}"
+            x2="{{ chart_padding_left }}" y2="{{ chart_padding_top + inner_height }}" />
+      <line class="player-season-trends__axis"
+            x1="{{ chart_padding_left + inner_width }}" y1="{{ chart_padding_top }}"
+            x2="{{ chart_padding_left + inner_width }}" y2="{{ chart_padding_top + inner_height }}" />
+
+      {% for r in player_season_trend_rows %}
+      {% set i = loop.index0 %}
+      {% set x_left = chart_padding_left + (i * (bar_w + bar_gap)) %}
+      {% set bx = x_left %}
+      {% set bar_bottom = chart_padding_top + inner_height %}
+      {% set h_gp = (r.gk_gp / gkns.max_y) * inner_height %}
+      {% set h_l = (r.gk_l / gkns.max_y) * inner_height %}
+      {% set h_t = (r.gk_t / gkns.max_y) * inner_height %}
+      {% set y_gp_top = bar_bottom - h_gp %}
+      {% set y_l_top = bar_bottom - h_l %}
+      {% set y_t_top = bar_bottom - h_l - h_t %}
+      <g>
+        {% if h_gp > 0 %}<rect class="player-season-trends__bar--gk-gp" x="{{ bx }}" y="{{ y_gp_top }}" width="{{ bar_w }}" height="{{ h_gp }}"></rect>{% endif %}
+        {% if h_l > 0 %}<rect class="player-season-trends__bar--gk-l" x="{{ bx }}" y="{{ y_l_top }}" width="{{ bar_w }}" height="{{ h_l }}"></rect>{% endif %}
+        {% if h_t > 0 %}<rect class="player-season-trends__bar--gk-t" x="{{ bx }}" y="{{ y_t_top }}" width="{{ bar_w }}" height="{{ h_t }}"></rect>{% endif %}
+      </g>
+      {% endfor %}
+      {% set prev_w = namespace(x=none, y=none) %}
+      {% for r in player_season_trend_rows %}
+      {% set i = loop.index0 %}
+      {% set x_left = chart_padding_left + (i * (bar_w + bar_gap)) %}
+      {% set bar_bottom = chart_padding_top + inner_height %}
+      {% set cx = x_left + (bar_w / 2) %}
+      {% set y_w = bar_bottom - ((r.gk_w / gkns.max_y) * inner_height) %}
+      {% if prev_w.x is not none %}
+      <line class="player-season-trends__line-w" x1="{{ prev_w.x }}" y1="{{ prev_w.y }}" x2="{{ cx }}" y2="{{ y_w }}" />
+      {% endif %}
+      {% set prev_w.x = cx %}
+      {% set prev_w.y = y_w %}
+      {% endfor %}
+      {% set prev_so = namespace(x=none, y=none) %}
+      {% for r in player_season_trend_rows %}
+      {% set i = loop.index0 %}
+      {% set x_left = chart_padding_left + (i * (bar_w + bar_gap)) %}
+      {% set bar_bottom = chart_padding_top + inner_height %}
+      {% set cx = x_left + (bar_w / 2) %}
+      {% set y_sov = bar_bottom - ((r.gk_so / gkns.max_y) * inner_height) %}
+      {% if prev_so.x is not none %}
+      <line class="player-season-trends__line-so" x1="{{ prev_so.x }}" y1="{{ prev_so.y }}" x2="{{ cx }}" y2="{{ y_sov }}" />
+      {% endif %}
+      {% set prev_so.x = cx %}
+      {% set prev_so.y = y_sov %}
+      {% endfor %}
+      {% set prev_gr = namespace(x=none, y=none, ok=false) %}
+      {% for r in player_season_trend_rows %}
+      {% set i = loop.index0 %}
+      {% set x_left = chart_padding_left + (i * (bar_w + bar_gap)) %}
+      {% set bar_bottom = chart_padding_top + inner_height %}
+      {% set cx = x_left + (bar_w / 2) %}
+      {% if r.game_rating is not none %}
+      {% set grn = r.game_rating | float %}
+      {% if grn < 0 %}{% set grn = 0.0 %}{% endif %}
+      {% set y_gr = bar_bottom - ((grn / gkns.max_y) * inner_height) %}
+      {% if prev_gr.ok and prev_gr.x is not none %}
+      <line class="player-season-trends__line-ovr" x1="{{ prev_gr.x }}" y1="{{ prev_gr.y }}" x2="{{ cx }}" y2="{{ y_gr }}" />
+      {% endif %}
+      {% set prev_gr.x = cx %}
+      {% set prev_gr.y = y_gr %}
+      {% set prev_gr.ok = true %}
+      {% else %}
+      {% set prev_gr.x = none %}
+      {% set prev_gr.y = none %}
+      {% set prev_gr.ok = false %}
+      {% endif %}
+      {% endfor %}
+      {% for r in player_season_trend_rows %}
+      {% set i = loop.index0 %}
+      {% set x_left = chart_padding_left + (i * (bar_w + bar_gap)) %}
+      {% set bar_bottom = chart_padding_top + inner_height %}
+      {% set cx = x_left + (bar_w / 2) %}
+      {% set y_w = bar_bottom - ((r.gk_w / gkns.max_y) * inner_height) %}
+      {% set y_sov = bar_bottom - ((r.gk_so / gkns.max_y) * inner_height) %}
+      <circle class="player-season-trends__dot-w" cx="{{ cx }}" cy="{{ y_w }}" r="3"></circle>
+      <circle class="player-season-trends__dot-so" cx="{{ cx }}" cy="{{ y_sov }}" r="3"></circle>
+      {% if r.game_rating is not none %}
+      {% set grn2 = r.game_rating | float %}
+      {% if grn2 < 0 %}{% set grn2 = 0.0 %}{% endif %}
+      {% set y_gr2 = bar_bottom - ((grn2 / gkns.max_y) * inner_height) %}
+      <circle class="player-season-trends__dot-ovr" cx="{{ cx }}" cy="{{ y_gr2 }}" r="3"></circle>
+      {% endif %}
+      {% endfor %}
+
+      {% else %}
+      {% for i in range(0, 5) %}
+      {% set y = chart_padding_top + (inner_height * (4 - i) / 4) %}
+      {% set tick_v = (sk_max_y * i / 4) | round(0, 'common') | int %}
+      <line class="player-season-trends__grid"
+            x1="{{ chart_padding_left }}" y1="{{ y }}"
+            x2="{{ chart_padding_left + inner_width }}" y2="{{ y }}"
+            stroke-dasharray="2,3" />
+      <text class="player-season-trends__tick"
+            x="{{ chart_padding_left - 6 }}" y="{{ y + 3 }}"
+            text-anchor="end">{{ tick_v }}</text>
+      <text class="player-season-trends__tick"
+            x="{{ chart_padding_left + inner_width + 6 }}" y="{{ y + 3 }}"
+            text-anchor="start">{{ tick_v }}</text>
+      {% endfor %}
+      <line class="player-season-trends__axis"
+            x1="{{ chart_padding_left }}" y1="{{ chart_padding_top }}"
+            x2="{{ chart_padding_left }}" y2="{{ chart_padding_top + inner_height }}" />
+      <line class="player-season-trends__axis"
+            x1="{{ chart_padding_left + inner_width }}" y1="{{ chart_padding_top }}"
+            x2="{{ chart_padding_left + inner_width }}" y2="{{ chart_padding_top + inner_height }}" />
+
+      {% set ns2 = namespace(prev_x=none, prev_y=none) %}
+      {% for r in player_season_trend_rows %}
+      {% set i = loop.index0 %}
+      {% set x_left = chart_padding_left + (i * (bar_w + bar_gap)) %}
+      {% set bx = x_left %}
+      {% set g_val = r.g or 0 %}
+      {% set a_val = r.a or 0 %}
+      {% set gp_val = r.sk_gp or 0 %}
+      {% set h_gp_sk = (gp_val / sk_max_y) * inner_height %}
+      {% set h_g = (g_val / sk_max_y) * inner_height %}
+      {% set h_a = (a_val / sk_max_y) * inner_height %}
+      {% set bar_bottom = chart_padding_top + inner_height %}
+      {% set y_gp_sk = bar_bottom - h_gp_sk %}
+      {% set y_g = bar_bottom - h_g %}
+      {% set y_a = y_g - h_a %}
+      {% set pts_x = bx + (bar_w / 2) %}
+      <g>
+        {% if h_gp_sk > 0 %}<rect class="player-season-trends__bar--gk-gp" x="{{ bx }}" y="{{ y_gp_sk }}" width="{{ bar_w }}" height="{{ h_gp_sk }}"></rect>{% endif %}
+        {% if h_g > 0 %}<rect class="player-season-trends__bar--g" x="{{ bx }}" y="{{ y_g }}" width="{{ bar_w }}" height="{{ h_g }}"></rect>{% endif %}
+        {% if h_a > 0 %}<rect class="player-season-trends__bar--a" x="{{ bx }}" y="{{ y_a }}" width="{{ bar_w }}" height="{{ h_a }}"></rect>{% endif %}
+      </g>
+      {% if r.pts is not none %}
+        {% set pts_y = chart_padding_top + inner_height - ((r.pts / sk_max_y) * inner_height) %}
+        {% if ns2.prev_x is not none %}
+      <line class="player-season-trends__pts-line"
+            x1="{{ ns2.prev_x }}" y1="{{ ns2.prev_y }}"
+            x2="{{ pts_x }}" y2="{{ pts_y }}" />
+        {% endif %}
+        {% set ns2.prev_x = pts_x %}
+        {% set ns2.prev_y = pts_y %}
+      {% else %}
+        {% set ns2.prev_x = none %}
+        {% set ns2.prev_y = none %}
+      {% endif %}
+      {% endfor %}
+      {% set prev_gr_s = namespace(x=none, y=none, ok=false) %}
+      {% for r in player_season_trend_rows %}
+      {% set i = loop.index0 %}
+      {% set x_left = chart_padding_left + (i * (bar_w + bar_gap)) %}
+      {% set bar_bottom = chart_padding_top + inner_height %}
+      {% set cx = x_left + (bar_w / 2) %}
+      {% if r.game_rating is not none %}
+      {% set grs = r.game_rating | float %}
+      {% if grs < 0 %}{% set grs = 0.0 %}{% endif %}
+      {% set y_grs = bar_bottom - ((grs / sk_max_y) * inner_height) %}
+      {% if prev_gr_s.ok and prev_gr_s.x is not none %}
+      <line class="player-season-trends__line-ovr" x1="{{ prev_gr_s.x }}" y1="{{ prev_gr_s.y }}" x2="{{ cx }}" y2="{{ y_grs }}" />
+      {% endif %}
+      {% set prev_gr_s.x = cx %}
+      {% set prev_gr_s.y = y_grs %}
+      {% set prev_gr_s.ok = true %}
+      {% else %}
+      {% set prev_gr_s.x = none %}
+      {% set prev_gr_s.y = none %}
+      {% set prev_gr_s.ok = false %}
+      {% endif %}
+      {% endfor %}
+      {% for r in player_season_trend_rows %}
+      {% set i = loop.index0 %}
+      {% set x_left = chart_padding_left + (i * (bar_w + bar_gap)) %}
+      {% set pts_val = r.pts or 0 %}
+      {% set pts_y = chart_padding_top + inner_height - ((pts_val / sk_max_y) * inner_height) %}
+      {% set pts_x = x_left + (bar_w / 2) %}
+      {% if r.pts is not none %}
+      <circle class="player-season-trends__pts-dot" cx="{{ pts_x }}" cy="{{ pts_y }}" r="3"></circle>
+      {% endif %}
+      {% if r.game_rating is not none %}
+      {% set grs2 = r.game_rating | float %}
+      {% if grs2 < 0 %}{% set grs2 = 0.0 %}{% endif %}
+      {% set y_grs2 = chart_padding_top + inner_height - ((grs2 / sk_max_y) * inner_height) %}
+      <circle class="player-season-trends__dot-ovr" cx="{{ pts_x }}" cy="{{ y_grs2 }}" r="3"></circle>
+      {% endif %}
+      {% endfor %}
+      {% endif %}
+
+      {% for r in player_season_trend_rows %}
+      {% set i = loop.index0 %}
+      {% set x_left = chart_padding_left + (i * (bar_w + bar_gap)) %}
+      {% set lbl_x = x_left + (bar_w / 2) %}
+      {% set lbl_y = chart_padding_top + inner_height + 14 %}
+      {% if tr_count <= 12 %}
+      <text class="player-season-trends__tick"
+            x="{{ lbl_x }}" y="{{ lbl_y }}"
+            text-anchor="middle">{{ r.label }}</text>
+      {% else %}
+      <text class="player-season-trends__tick player-season-trends__tick--rot"
+            x="{{ lbl_x }}" y="{{ lbl_y }}"
+            transform="rotate(-55 {{ lbl_x }} {{ lbl_y }})">{{ r.label }}</text>
+      {% endif %}
+      {% endfor %}
+
+      {% for r in player_season_trend_rows %}
+      {% set i = loop.index0 %}
+      {% set x_left = chart_padding_left + (i * (bar_w + bar_gap)) %}
+      <a href="{{ url_for('main.team_records_season', year_label=r.year_label_hyphen) }}" class="player-season-trends__season-hit">
+        {% if player_season_trends_goalie_mode %}
+        <title>{{ r.label }}: GP {{ r.gk_gp }}, {{ r.gk_w }}W-{{ r.gk_l }}L-{{ r.gk_t }}T, {{ r.gk_so }} SO{% if r.game_rating is not none %}, GR {{ '%.0f'|format(r.game_rating) }}{% endif %}</title>
+        <rect class="player-season-trends__hit" x="{{ x_left }}" y="{{ chart_padding_top }}" width="{{ bar_w }}" height="{{ inner_height }}"
+              fill="transparent" stroke="none" pointer-events="all"
+              data-kind="goalie" data-season="{{ r.label }}"
+              data-gp="{{ r.gk_gp }}" data-w="{{ r.gk_w }}" data-l="{{ r.gk_l }}" data-t="{{ r.gk_t }}" data-so="{{ r.gk_so }}"
+              data-ovr="{{ '%.1f'|format(r.game_rating) if r.game_rating is not none else '' }}" />
+        {% else %}
+        {% set gv = r.g or 0 %}
+        {% set av = r.a or 0 %}
+        {% set gpv = r.sk_gp or 0 %}
+        <title>{{ r.label }}: GP {{ gpv }}, {{ gv }}G {{ av }}A, {{ r.pts }} Pts{% if r.game_rating is not none %}, GR {{ '%.0f'|format(r.game_rating) }}{% endif %}</title>
+        <rect class="player-season-trends__hit" x="{{ x_left }}" y="{{ chart_padding_top }}" width="{{ bar_w }}" height="{{ inner_height }}"
+              fill="transparent" stroke="none" pointer-events="all"
+              data-kind="skater" data-season="{{ r.label }}"
+              data-gp="{{ gpv }}" data-g="{{ gv }}" data-a="{{ av }}" data-pts="{{ r.pts }}"
+              data-ovr="{{ '%.1f'|format(r.game_rating) if r.game_rating is not none else '' }}" />
+        {% endif %}
+      </a>
+      {% endfor %}
+    </svg>
+  </div>
+</section>
+{% endif %}

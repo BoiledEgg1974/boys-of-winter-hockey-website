@@ -9565,6 +9565,198 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
 [data-theme="light"] .player-profile__salary-by-season-amt {
   color: var(--text);
 }
+/* Player profile — season trends chart (above game log) */
+.player-season-trends__note {
+  margin: 0 0 0.65rem;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  max-width: 52rem;
+}
+.player-season-trends__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.8rem;
+}
+.player-season-trends__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.player-season-trends__swatch {
+  display: inline-block;
+  width: 14px;
+  height: 12px;
+  border-radius: 2px;
+}
+.player-season-trends__swatch--g {
+  background: #15803d;
+}
+.player-season-trends__swatch--a {
+  background: #2563eb;
+}
+.player-season-trends__swatch--pim {
+  background: #ea580c;
+}
+.player-season-trends__swatch--so {
+  background: #38bdf8;
+}
+.player-season-trends__swatch--pts {
+  width: 18px;
+  height: 2px;
+  background: #facc15;
+}
+/* Goalie chart: GP bar + L/T stacks + W / SO lines */
+.player-season-trends__swatch--gk-gp {
+  background: #64748b;
+}
+.player-season-trends__swatch--gk-l {
+  background: #ef4444;
+}
+.player-season-trends__swatch--gk-t {
+  background: #22c55e;
+}
+.player-season-trends__swatch--line-w {
+  width: 18px;
+  height: 2px;
+  background: #facc15;
+  border-radius: 1px;
+}
+.player-season-trends__swatch--line-so {
+  width: 18px;
+  height: 2px;
+  background: #7dd3fc;
+  border-radius: 1px;
+}
+.player-season-trends__swatch--line-ovr {
+  width: 18px;
+  height: 2px;
+  background: #fb923c;
+  border-radius: 1px;
+}
+.player-season-trends__chart-wrap {
+  position: relative;
+  width: 100%;
+  overflow-x: auto;
+}
+.player-season-trends__tooltip {
+  position: absolute;
+  z-index: 8;
+  max-width: 16rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  white-space: pre-line;
+  pointer-events: none;
+  background: rgba(15, 23, 42, 0.95);
+  color: #f1f5f9;
+  border: 1px solid rgba(248, 250, 252, 0.14);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+[data-theme="light"] .player-season-trends__tooltip {
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--text);
+  border-color: rgba(15, 23, 42, 0.12);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+}
+.player-season-trends__season-hit {
+  cursor: pointer;
+  outline: none;
+}
+.player-season-trends__season-hit:focus-visible {
+  outline: 2px solid #7dd3fc;
+  outline-offset: 2px;
+}
+.player-season-trends__chart {
+  display: block;
+  min-width: 540px;
+  width: 100%;
+  height: auto;
+  font: inherit;
+}
+.player-season-trends__bar--g {
+  fill: #15803d;
+}
+.player-season-trends__bar--a {
+  fill: #2563eb;
+}
+.player-season-trends__bar--pim {
+  fill: #ea580c;
+}
+.player-season-trends__bar--so {
+  fill: #38bdf8;
+}
+.player-season-trends__bar--gk-gp {
+  fill: #64748b;
+}
+.player-season-trends__bar--gk-l {
+  fill: #ef4444;
+}
+.player-season-trends__bar--gk-t {
+  fill: #22c55e;
+}
+.player-season-trends__line-w {
+  fill: none;
+  stroke: #facc15;
+  stroke-width: 2;
+}
+.player-season-trends__line-so {
+  fill: none;
+  stroke: #7dd3fc;
+  stroke-width: 2;
+}
+.player-season-trends__line-ovr {
+  fill: none;
+  stroke: #fb923c;
+  stroke-width: 2;
+}
+.player-season-trends__dot-w {
+  fill: #facc15;
+  stroke: rgba(0, 0, 0, 0.45);
+  stroke-width: 1;
+}
+.player-season-trends__dot-so {
+  fill: #7dd3fc;
+  stroke: rgba(0, 0, 0, 0.45);
+  stroke-width: 1;
+}
+.player-season-trends__dot-ovr {
+  fill: #fb923c;
+  stroke: rgba(0, 0, 0, 0.45);
+  stroke-width: 1;
+}
+.player-season-trends__pts-line {
+  fill: none;
+  stroke: #facc15;
+  stroke-width: 2;
+}
+.player-season-trends__pts-dot {
+  fill: #facc15;
+  stroke: rgba(0, 0, 0, 0.55);
+  stroke-width: 1;
+}
+.player-season-trends__grid,
+.player-season-trends__axis {
+  stroke: rgba(255, 255, 255, 0.16);
+  stroke-width: 1;
+}
+[data-theme="light"] .player-season-trends__grid,
+[data-theme="light"] .player-season-trends__axis {
+  stroke: rgba(15, 23, 42, 0.14);
+}
+.player-season-trends__tick {
+  fill: rgba(248, 250, 252, 0.72);
+  font-size: 10px;
+}
+[data-theme="light"] .player-season-trends__tick {
+  fill: rgba(15, 23, 42, 0.65);
+}
+.player-season-trends__tick--rot {
+  text-anchor: end;
+}
+
 .player-profile__stats-table th,
 .player-profile__stats-table td,
 .player-profile__game-table th,

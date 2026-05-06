@@ -203,6 +203,25 @@ def ensure_skater_career_line_extra_stats_sqlite(engine: Engine) -> None:
             conn.commit()
 
 
+def ensure_skater_career_line_game_rating_sqlite(engine: Engine) -> None:
+    """Add game_rating (FHM season GR) to player_skater_career_lines when missing."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='player_skater_career_lines'"
+            )
+        ).fetchone()
+        if not exists:
+            return
+        cols = {row[1] for row in conn.execute(text("PRAGMA table_info(player_skater_career_lines)"))}
+        if "game_rating" in cols:
+            return
+        conn.execute(text("ALTER TABLE player_skater_career_lines ADD COLUMN game_rating FLOAT"))
+        conn.commit()
+
+
 def ensure_history_awards_staff_fhm_id_sqlite(engine: Engine) -> None:
     """Add ``staff_fhm_id`` to ``history_awards`` when missing (SQLite)."""
     if engine.dialect.name != "sqlite":

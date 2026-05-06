@@ -919,6 +919,131 @@
   }
 
   /** Browsers (including Cursor) only allow image clipboard on https:// or http://localhost — not http://192.168… */
+  function playerSeasonTrendsTooltipText(ds) {
+    if (!ds || !ds.kind) return "";
+    var season = ds.season || "";
+    if (ds.kind === "goalie") {
+      var gParts =
+        "Season " +
+        season +
+        "\nGP " +
+        ds.gp +
+        " · W " +
+        ds.w +
+        " · L " +
+        ds.l +
+        " · T " +
+        ds.t +
+        "\nShutouts " +
+        ds.so;
+      if (ds.ovr != null && String(ds.ovr).trim() !== "") {
+        gParts += "\nGR " + String(ds.ovr).trim();
+      }
+      return gParts;
+    }
+    var pts = ds.pts != null && ds.pts !== "" ? ds.pts : "—";
+    var gpSk = ds.gp != null && ds.gp !== "" ? ds.gp : "—";
+    var sParts =
+      "Season " +
+      season +
+      "\nGP " +
+      gpSk +
+      "\nGoals " +
+      ds.g +
+      " · Assists " +
+      ds.a +
+      "\nPoints " +
+      pts;
+    if (ds.ovr != null && String(ds.ovr).trim() !== "") {
+      sParts += "\nGR " + String(ds.ovr).trim();
+    }
+    return sParts;
+  }
+
+  function playerSeasonTrendsDatasetFromTarget(el) {
+    if (!el || !el.closest) return null;
+    var hit = el.closest(".player-season-trends__hit");
+    if (hit && hit.dataset && hit.dataset.kind) return hit.dataset;
+    var a = el.closest(".player-season-trends__season-hit");
+    if (a) {
+      var r = a.querySelector(".player-season-trends__hit");
+      if (r && r.dataset && r.dataset.kind) return r.dataset;
+    }
+    return null;
+  }
+
+  function initPlayerSeasonTrendCharts() {
+    document.querySelectorAll(".player-season-trends").forEach(function (card) {
+      var wrap = card.querySelector(".player-season-trends__chart-wrap");
+      var tip = card.querySelector("[data-player-season-trends-tooltip]");
+      if (!wrap || !tip) return;
+
+      function positionTip(clientX, clientY) {
+        var br = wrap.getBoundingClientRect();
+        var pad = 8;
+        var offsetY = 14;
+        var lx = clientX - br.left + wrap.scrollLeft;
+        var ly = clientY - br.top + wrap.scrollTop + offsetY;
+        tip.hidden = false;
+        var tw = tip.offsetWidth;
+        var th = tip.offsetHeight;
+        lx = Math.max(pad, Math.min(lx, wrap.scrollWidth - tw - pad));
+        ly = Math.max(pad, Math.min(ly, wrap.scrollHeight - th - pad));
+        tip.style.left = lx + "px";
+        tip.style.top = ly + "px";
+      }
+
+      function showTip(ds, clientX, clientY) {
+        var t = playerSeasonTrendsTooltipText(ds);
+        if (!t) {
+          tip.hidden = true;
+          tip.textContent = "";
+          return;
+        }
+        tip.textContent = t;
+        tip.hidden = false;
+        requestAnimationFrame(function () {
+          positionTip(clientX, clientY);
+        });
+      }
+
+      function hideTip() {
+        tip.hidden = true;
+        tip.textContent = "";
+      }
+
+      function onPointerOverChart(ev) {
+        var ds = playerSeasonTrendsDatasetFromTarget(ev.target);
+        if (!ds) {
+          hideTip();
+          return;
+        }
+        showTip(ds, ev.clientX, ev.clientY);
+      }
+
+      wrap.addEventListener("pointermove", onPointerOverChart);
+      wrap.addEventListener("pointerleave", hideTip);
+      wrap.addEventListener("pointercancel", hideTip);
+
+      wrap.addEventListener("focusin", function (ev) {
+        var ds = playerSeasonTrendsDatasetFromTarget(ev.target);
+        if (!ds) return;
+        var a = ev.target.closest && ev.target.closest(".player-season-trends__season-hit");
+        if (a) {
+          var ar = a.getBoundingClientRect();
+          showTip(ds, ar.left + ar.width / 2, ar.top + ar.height / 2);
+        } else {
+          var br = wrap.getBoundingClientRect();
+          showTip(ds, br.left + br.width / 2, br.top + 48);
+        }
+      });
+
+      wrap.addEventListener("focusout", function (ev) {
+        if (!wrap.contains(ev.relatedTarget)) hideTip();
+      });
+    });
+  }
+
   function initPlayerShareCardClipboardHint() {
     var hint = document.getElementById("player-copy-card-hint");
     if (!hint || canUseClipboardImage()) return;
@@ -947,6 +1072,7 @@
   document.addEventListener("DOMContentLoaded", function () {
     applyTheme(getPreferredTheme());
     initPlayerShareCardClipboardHint();
+    initPlayerSeasonTrendCharts();
     window.bindPlayerHoverAnchors = initPlayerHoverCards();
     document.body.addEventListener("click", function (ev) {
       var btn = ev.target.closest(".js-copy-player-card");

@@ -106,6 +106,7 @@ from app.services.history_coach_awards import (
 )
 from app.services.history_team_awards import is_team_history_award
 from app.services.player_history_award_badges import player_history_award_badges, team_history_award_badges
+from app.services.player_season_trends import build_player_season_trend_rows, load_skater_career_gr_lookup
 from app.services.team_staff_csv import (
     STAFF_COACH_COLUMNS,
     STAFF_SCOUT_COLUMNS,
@@ -3532,6 +3533,12 @@ def player_page(player_id: int):
     career_po_gk = _dedupe_goalie_playoff_career_lines(
         [ln for ln in gk_career_lines if ln.career_source in ("po", "retired_po")]
     )
+    # BOWL/NHL main league only (excludes minors, juniors, etc.) — chart + career tables + totals.
+    _main_league_ids = frozenset(bowl_nhl_league_ids(db.session))
+    career_rs_sk = [ln for ln in career_rs_sk if ln.league_fhm_id in _main_league_ids]
+    career_po_sk = [ln for ln in career_po_sk if ln.league_fhm_id in _main_league_ids]
+    career_rs_gk = [ln for ln in career_rs_gk if ln.league_fhm_id in _main_league_ids]
+    career_po_gk = [ln for ln in career_po_gk if ln.league_fhm_id in _main_league_ids]
     pos = (player.position or "").strip().upper()
     is_goalie = pos.startswith("G")
     has_sk_career = bool(career_rs_sk or career_po_sk)
@@ -3607,11 +3614,23 @@ def player_page(player_id: int):
     )
     roster_header_team = main_league_roster_team(contract_team, current_team)
     player_award_badges = player_history_award_badges(db.session, player.id)
+    trend_lines = career_rs_gk if (use_goalie_game_log and career_rs_gk) else career_rs_sk
+    if not trend_lines:
+        trend_lines = career_rs_sk or career_rs_gk
+    skater_gr_lookup = None
+    if trend_lines and not isinstance(trend_lines[0], PlayerGoalieCareerLine):
+        if any(getattr(ln, "game_rating", None) is None for ln in trend_lines):
+            skater_gr_lookup = load_skater_career_gr_lookup(raw_dir, player.fhm_player_id)
+            if not skater_gr_lookup:
+                skater_gr_lookup = None
+    player_season_trend_rows, player_season_trends_goalie_mode = build_player_season_trend_rows(
+        db.session, trend_lines, skater_gr_lookup=skater_gr_lookup
+    )
     bowl_league_ids = bowl_nhl_league_ids(db.session)
-    career_rs_sk_bowl = [ln for ln in career_rs_sk if ln.league_fhm_id in bowl_league_ids]
-    career_po_sk_bowl = [ln for ln in career_po_sk if ln.league_fhm_id in bowl_league_ids]
-    career_rs_gk_bowl = [ln for ln in career_rs_gk if ln.league_fhm_id in bowl_league_ids]
-    career_po_gk_bowl = [ln for ln in career_po_gk if ln.league_fhm_id in bowl_league_ids]
+    career_rs_sk_bowl = career_rs_sk
+    career_po_sk_bowl = career_po_sk
+    career_rs_gk_bowl = career_rs_gk
+    career_po_gk_bowl = career_po_gk
     career_rs_sk_totals = skater_career_lines_totals(career_rs_sk_bowl) if career_rs_sk_bowl else None
     career_po_sk_totals = skater_career_lines_totals(career_po_sk_bowl) if career_po_sk_bowl else None
     career_rs_gk_totals = goalie_career_lines_totals(career_rs_gk_bowl) if career_rs_gk_bowl else None
@@ -3651,6 +3670,8 @@ def player_page(player_id: int):
         contract_through_season=contract_through_season,
         contract_salary_by_season=contract_salary_by_season,
         player_award_badges=player_award_badges,
+        player_season_trend_rows=player_season_trend_rows,
+        player_season_trends_goalie_mode=player_season_trends_goalie_mode,
     )
 
 

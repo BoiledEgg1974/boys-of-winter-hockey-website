@@ -190,6 +190,7 @@ class PlayerSkaterCareerLine(db.Model):
     sb: Mapped[int | None] = mapped_column(Integer)
     fights: Mapped[int | None] = mapped_column(Integer)
     fights_won: Mapped[int | None] = mapped_column(Integer)
+    game_rating: Mapped[float | None] = mapped_column(Float)
 
     player: Mapped["Player"] = relationship(back_populates="career_skater_lines")
     team: Mapped["Team | None"] = relationship()

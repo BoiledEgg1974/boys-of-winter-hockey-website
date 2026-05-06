@@ -32,6 +32,7 @@ from app.db_utils import (
     ensure_positional_rank_snapshots_sqlite,
     ensure_skater_career_line_career_source_sqlite,
     ensure_skater_career_line_extra_stats_sqlite,
+    ensure_skater_career_line_game_rating_sqlite,
     ensure_player_goalie_stats_gsaa_sqlite,
     ensure_team_season_aggregate_extra_columns,
     migrate_team_season_aggregates_sqlite,
@@ -102,6 +103,7 @@ def create_app(config_class: type = Config) -> Flask:
         ensure_team_season_aggregate_extra_columns(db.engine)
         ensure_skater_career_line_career_source_sqlite(db.engine)
         ensure_skater_career_line_extra_stats_sqlite(db.engine)
+        ensure_skater_career_line_game_rating_sqlite(db.engine)
         ensure_player_goalie_stats_gsaa_sqlite(db.engine)
         ensure_history_awards_staff_fhm_id_sqlite(db.engine)
         ensure_fts5(db.engine)
@@ -859,6 +861,7 @@ def create_app(config_class: type = Config) -> Flask:
         ensure_team_season_aggregate_extra_columns(db.engine)
         ensure_skater_career_line_career_source_sqlite(db.engine)
         ensure_skater_career_line_extra_stats_sqlite(db.engine)
+        ensure_skater_career_line_game_rating_sqlite(db.engine)
         ensure_player_goalie_stats_gsaa_sqlite(db.engine)
         ensure_history_awards_staff_fhm_id_sqlite(db.engine)
         ensure_fts5(db.engine)

@@ -993,6 +993,7 @@ def import_career_skater_file(
         cl.sb = to_int(cell_val(r, "sb"))
         cl.fights = to_int(cell_val(r, "fights"))
         cl.fights_won = to_int(cell_val(r, "fights_won"))
+        cl.game_rating = to_float(cell_val(r, "gr", "game_rating"))
         n += 1
         if n % 500 == 0:
             db.session.commit()

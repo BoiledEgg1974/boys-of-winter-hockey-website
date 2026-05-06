@@ -16,7 +16,7 @@ from app.services.history_coach_awards import _parse_unresolved_team, is_jim_gre
 
 _SHEET_SEASON_LABEL_RE = re.compile(r"^(\d{4})-(\d{2})$")
 
-# Normalized award titles (see ``_TEAM_HISTORY_AWARD_TITLES`` in routes) that may use era logos.
+# Normalized award titles (see ``TEAM_HISTORY_AWARD_TITLES`` in ``history_team_awards``) that may use era logos.
 _CAP_TEAM_AWARDS_WITH_ERA_LOGOS: frozenset[str] = frozenset(
     (
         "BOILEDEGG'S TROPHY",

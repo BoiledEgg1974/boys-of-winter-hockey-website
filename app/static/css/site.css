@@ -3261,6 +3261,17 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
   color: rgb(248 250 252 / 0.95);
   letter-spacing: 0.02em;
 }
+.team-hero__trophies.player-profile__trophy-strip {
+  margin-top: 0.5rem;
+}
+/* Team banner stays vivid in light theme; keep trophy tiles readable like the player hero. */
+[data-theme="light"] .team-hero .player-profile__trophy-badge {
+  background: rgb(15 23 42 / 0.55);
+  border-color: rgb(255 255 255 / 0.18);
+}
+[data-theme="light"] .team-hero .player-profile__trophy-badge-count {
+  background: #0f172a;
+}
 .team-hero__stats-card {
   position: relative;
   display: flex;
@@ -10749,6 +10760,67 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
 .team-history-panel {
   margin: 0;
 }
+.team-history-panel__header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+}
+.team-history-panel__title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+.team-history-panel__index-link {
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+.team-history-panel__index-link:hover {
+  text-decoration: underline;
+}
+.team-history-panel__subtitle {
+  margin: 1.25rem 0 0.35rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+  opacity: 0.92;
+}
+.team-record-history__table th,
+.team-record-history__table td {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.team-record-history__table th:first-child,
+.team-record-history__table td:first-child,
+.team-record-history__table .team-record-history__result {
+  text-align: left;
+}
+.team-record-history__result {
+  white-space: normal;
+  font-variant-numeric: normal;
+  max-width: 14rem;
+}
+.team-history-panel__more {
+  margin-top: 1rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  padding: 0.5rem 0.75rem;
+}
+.team-history-panel__more-summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  list-style: none;
+}
+.team-history-panel__more-summary::-webkit-details-marker {
+  display: none;
+}
+.team-history-panel__more[open] .team-history-panel__more-summary {
+  margin-bottom: 0.5rem;
+}
 .team-history-panel__chart-wrap {
   width: 100%;
   overflow-x: auto;
@@ -10762,7 +10834,7 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   font: inherit;
 }
 .team-history-panel__chart-bar--w {
-  fill: #16a34a;
+  fill: var(--team-history-win, #16a34a);
 }
 .team-history-panel__chart-bar--l {
   fill: #ef4444;
@@ -10810,7 +10882,7 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   height: 12px;
   border-radius: 2px;
 }
-.team-history-panel__legend-swatch--w { background: #16a34a; }
+.team-history-panel__legend-swatch--w { background: var(--team-history-win, #16a34a); }
 .team-history-panel__legend-swatch--l { background: #ef4444; }
 .team-history-panel__legend-swatch--t { background: #94a3b8; }
 .team-history-panel__legend-swatch--pts {
@@ -10818,32 +10890,32 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   height: 2px;
   background: #facc15;
 }
-.team-history-panel__table {
+.team-history-panel__table--extended {
   width: 100%;
   table-layout: fixed;
   font-size: 0.78rem;
 }
-.team-history-panel__table th,
-.team-history-panel__table td {
+.team-history-panel__table--extended th,
+.team-history-panel__table--extended td {
   padding: 0.2rem 0.25rem;
   text-align: right;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 .team-history-panel .table-wrap {
-  overflow-x: visible;
+  overflow-x: auto;
 }
-.team-history-panel__table th:first-child,
-.team-history-panel__table td:first-child {
+.team-history-panel__table--extended th:first-child,
+.team-history-panel__table--extended td:first-child {
   width: 19%;
 }
-.team-history-panel__table th:last-child,
-.team-history-panel__table td:last-child {
+.team-history-panel__table--extended th:last-child,
+.team-history-panel__table--extended td:last-child {
   width: 18%;
 }
-.team-history-panel__table th:first-child,
-.team-history-panel__table td:first-child,
-.team-history-panel__table .team-history-panel__cell-result {
+.team-history-panel__table--extended th:first-child,
+.team-history-panel__table--extended td:first-child,
+.team-history-panel__table--extended .team-history-panel__cell-result {
   text-align: left;
 }
 .team-history-panel__cell-result {

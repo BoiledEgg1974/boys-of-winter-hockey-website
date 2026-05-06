@@ -104,22 +104,8 @@ from app.services.history_coach_awards import (
     is_jim_gregory_award,
     is_staff_history_award,
 )
-
-
-# Trophies whose ``history_awards`` row stores the winner on ``team_id`` (not ``player_id``).
-_TEAM_HISTORY_AWARD_TITLES: frozenset[str] = frozenset(
-    (
-        "BOILEDEGG'S TROPHY",
-        "PRINCE OF WALES TROPHY",
-        "CLARENCE CAMPBELL TROPHY",
-        "BOWL CUP TROPHY",
-    )
-)
-
-
-def is_team_history_award(award_name: str | None) -> bool:
-    return _norm_award_title(award_name or "") in _TEAM_HISTORY_AWARD_TITLES
-from app.services.player_history_award_badges import player_history_award_badges
+from app.services.history_team_awards import is_team_history_award
+from app.services.player_history_award_badges import player_history_award_badges, team_history_award_badges
 from app.services.team_staff_csv import (
     STAFF_COACH_COLUMNS,
     STAFF_SCOUT_COLUMNS,
@@ -3428,6 +3414,7 @@ def team_page(slug: str):
         "team_page_news": _team_page_news_rows(team.id),
         "news_viewer_can_react": news_viewer_can_react,
         "news_category_label": news_category_label,
+        "team_award_badges": team_history_award_badges(db.session, team),
     }
     depth_ova_ids: set[int] = set()
     for _col in ("goalies", "defensemen", "left_wings", "centers", "right_wings"):

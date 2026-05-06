@@ -82,6 +82,20 @@
         {{ standing.w }}-{{ standing.l }}-{{ standing.ties }}-{{ standing.otl }}{% if standing.pts is not none %} · {{ standing.pts }} PTS{% endif %}{{ hero_record_suffix }}
       </p>
       {% endif %}
+      {% if team_award_badges %}
+      <div class="player-profile__trophy-strip team-hero__trophies" role="list" aria-label="Franchise trophies">
+        {% for b in team_award_badges %}
+        <div class="player-profile__trophy-badge" role="listitem" title="{{ b.tooltip|e }}">
+          {% if b.trophy_rel %}
+          <img class="player-profile__trophy-badge-img" src="{{ url_for('static', filename=b.trophy_rel) }}" alt="" loading="lazy" decoding="async">
+          {% else %}
+          <span class="player-profile__trophy-badge-ph" aria-hidden="true">{{ (b.award_name or '?')[:1] }}</span>
+          {% endif %}
+          <span class="player-profile__trophy-badge-count" aria-label="{{ b.count }} × {{ b.award_name }}">{{ b.count }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
     </div>
   </div>
   {% if show_hero_stats_card %}

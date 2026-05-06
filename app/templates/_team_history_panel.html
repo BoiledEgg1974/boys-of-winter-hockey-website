@@ -1,11 +1,11 @@
-{# Season-by-season chart + table for one team. Renders a stacked W/L/T+OTL bar chart
-   with PTS overlaid as a line, plus a sortable table linking to /team-records/<year>. #}
+{# Team record history (CSV import) + optional season chart. Primary table matches league
+   record layout; extended rate stats live in a collapsible section. #}
 
 {% set primary = team.primary_color or '#16a34a' %}
 {% set rec_count = team_history_records | length %}
 
 {% if rec_count > 0 %}
-{# ---------- Pre-compute geometry in Jinja ---------- #}
+{# ---------- Chart geometry ---------- #}
 {% set chart_height = 260 %}
 {% set chart_padding_left = 44 %}
 {% set chart_padding_right = 44 %}
@@ -20,7 +20,6 @@
 {% set bar_total_w = inner_width / rec_count if rec_count > 0 else 0 %}
 {% set bar_w = bar_total_w - bar_gap if (bar_total_w - bar_gap) > 4 else (bar_total_w * 0.75) %}
 
-{# Compute max GP and max PTS to scale axes #}
 {% set ns = namespace(max_gp=0, max_pts=0) %}
 {% for r in team_history_records %}
   {% set this_gp = (r.w or 0) + (r.l or 0) + (r.t_otl or 0) %}
@@ -30,12 +29,50 @@
 {% if ns.max_gp <= 0 %}{% set ns.max_gp = 82 %}{% endif %}
 {% if ns.max_pts <= 0 %}{% set ns.max_pts = 1 %}{% endif %}
 
-<div class="card team-history-panel">
-  <header style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.4rem;">
-    <h2 style="margin:0;font-size:1.15rem;">Season-by-Season History</h2>
-    <a href="{{ url_for('main.team_records_index') }}" class="muted" style="font-size:0.85rem;">View all Team Records →</a>
-  </header>
+<div class="card team-history-panel" style="--team-history-win: {{ primary }};">
+  <div class="team-history-panel__header-row">
+    <h2 class="team-history-panel__title">Team Record History</h2>
+    <a href="{{ url_for('main.team_records_index') }}" class="team-history-panel__index-link muted">View all Team Records →</a>
+  </div>
 
+  <div class="table-wrap">
+    <table class="data data-sortable team-record-history__table">
+      <thead>
+        <tr>
+          <th scope="col" data-sort-type="num" title="Season start year">Season</th>
+          <th scope="col" data-sort-type="num">GP</th>
+          <th scope="col" data-sort-type="num">W</th>
+          <th scope="col" data-sort-type="num">L</th>
+          <th scope="col" data-sort-type="num" title="Ties and overtime losses">T</th>
+          <th scope="col" data-sort-type="num">PTS</th>
+          <th scope="col" data-sort-type="num">GF</th>
+          <th scope="col" data-sort-type="num">GA</th>
+          <th scope="col" data-sort-nosort>Result</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in team_history_records %}
+        {% set null_cols = (r.null_columns_csv or '').split(',') %}
+        {% set sy = r.start_year if r.start_year is not none else 0 %}
+        <tr>
+          <td data-sort-value="{{ sy }}">
+            <a href="{{ url_for('main.team_records_season', year_label=r.season_year_label) }}">{{ r.season_year_label }}</a>
+          </td>
+          <td data-sort-value="{{ r.gp if r.gp is not none else '' }}">{% if r.gp is not none %}{{ r.gp }}{% elif 'gp' in null_cols %}-{% else %}—{% endif %}</td>
+          <td data-sort-value="{{ r.w if r.w is not none else '' }}">{% if r.w is not none %}{{ r.w }}{% elif 'w' in null_cols %}-{% else %}—{% endif %}</td>
+          <td data-sort-value="{{ r.l if r.l is not none else '' }}">{% if r.l is not none %}{{ r.l }}{% elif 'l' in null_cols %}-{% else %}—{% endif %}</td>
+          <td data-sort-value="{{ r.t_otl if r.t_otl is not none else '' }}">{% if r.t_otl is not none %}{{ r.t_otl }}{% elif 't_otl' in null_cols %}-{% else %}—{% endif %}</td>
+          <td data-sort-value="{{ r.pts if r.pts is not none else '' }}">{% if r.pts is not none %}<strong>{{ r.pts }}</strong>{% elif 'pts' in null_cols %}-{% else %}—{% endif %}</td>
+          <td data-sort-value="{{ r.gf if r.gf is not none else '' }}">{% if r.gf is not none %}{{ r.gf }}{% elif 'gf' in null_cols %}-{% else %}—{% endif %}</td>
+          <td data-sort-value="{{ r.ga if r.ga is not none else '' }}">{% if r.ga is not none %}{{ r.ga }}{% elif 'ga' in null_cols %}-{% else %}—{% endif %}</td>
+          <td class="team-record-history__result">{{ r.result or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <h3 class="team-history-panel__subtitle">Season trends</h3>
   <div class="team-history-panel__legend" role="list" aria-label="Chart legend">
     <span class="team-history-panel__legend-item" role="listitem"><span class="team-history-panel__legend-swatch team-history-panel__legend-swatch--w"></span>Wins</span>
     <span class="team-history-panel__legend-item" role="listitem"><span class="team-history-panel__legend-swatch team-history-panel__legend-swatch--l"></span>Losses</span>
@@ -50,7 +87,6 @@
          role="img"
          aria-label="Season-by-season W/L/T(OTL) bar chart with PTS line">
 
-      {# Y-axis grid lines (4 lines from 0 to max_gp) #}
       {% for i in range(0, 5) %}
       {% set y = chart_padding_top + (inner_height * (4 - i) / 4) %}
       {% set tick_value_left = (ns.max_gp * i / 4) | round(0, 'common') | int %}
@@ -67,7 +103,6 @@
             text-anchor="start">{{ tick_value_right }}</text>
       {% endfor %}
 
-      {# Y-axis lines #}
       <line class="team-history-panel__chart-axis"
             x1="{{ chart_padding_left }}" y1="{{ chart_padding_top }}"
             x2="{{ chart_padding_left }}" y2="{{ chart_padding_top + inner_height }}" />
@@ -75,7 +110,6 @@
             x1="{{ chart_padding_left + inner_width }}" y1="{{ chart_padding_top }}"
             x2="{{ chart_padding_left + inner_width }}" y2="{{ chart_padding_top + inner_height }}" />
 
-      {# Axis labels #}
       <text class="team-history-panel__chart-tick"
             x="{{ chart_padding_left - 6 }}" y="{{ chart_padding_top - 4 }}"
             text-anchor="end" style="font-weight:700;">GP</text>
@@ -83,7 +117,6 @@
             x="{{ chart_padding_left + inner_width + 6 }}" y="{{ chart_padding_top - 4 }}"
             text-anchor="start" style="font-weight:700;">PTS</text>
 
-      {# Bars + tooltips wrapped in <a> linking to detail page #}
       {% set ns2 = namespace(prev_x=none, prev_y=none) %}
       {% for r in team_history_records %}
       {% set i = loop.index0 %}
@@ -109,7 +142,6 @@
         {% if h_t > 0 %}<rect class="team-history-panel__chart-bar--t" x="{{ bx }}" y="{{ y_t }}" width="{{ bar_w }}" height="{{ h_t }}"></rect>{% endif %}
       </a>
 
-      {# Connecting PTS line segment #}
       {% if ns2.prev_x is not none %}
       <line class="team-history-panel__chart-pts-line"
             x1="{{ ns2.prev_x }}" y1="{{ ns2.prev_y }}"
@@ -119,7 +151,6 @@
       {% set ns2.prev_y = pts_y %}
       {% endfor %}
 
-      {# PTS dots — drawn after lines so they sit on top #}
       {% for r in team_history_records %}
       {% set i = loop.index0 %}
       {% set x_left = chart_padding_left + (i * (bar_w + bar_gap)) %}
@@ -131,7 +162,6 @@
       {% endif %}
       {% endfor %}
 
-      {# X-axis season labels (rotated when many seasons) #}
       {% for r in team_history_records %}
       {% set i = loop.index0 %}
       {% set x_left = chart_padding_left + (i * (bar_w + bar_gap)) %}
@@ -150,53 +180,57 @@
     </svg>
   </div>
 
-  <div class="table-wrap">
-    <table class="data team-history-panel__table">
-      <thead>
-        <tr>
-          <th scope="col">Season</th>
-          <th scope="col">GP</th>
-          <th scope="col">W</th>
-          <th scope="col">L</th>
-          <th scope="col">T (OTL)</th>
-          <th scope="col">PTS</th>
-          <th scope="col">GF</th>
-          <th scope="col">GA</th>
-          <th scope="col">Diff</th>
-          <th scope="col">PIM/G</th>
-          <th scope="col">PP%</th>
-          <th scope="col">PK%</th>
-          <th scope="col" class="team-history-panel__cell-result">Result</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for r in team_history_records | reverse %}
-        {% set null_cols = (r.null_columns_csv or '').split(',') %}
-        <tr>
-          <td>
-            <a href="{{ url_for('main.team_records_season', year_label=r.season_year_label) }}">{{ r.season_year_label }}</a>
-          </td>
-          <td>{% if r.gp is not none %}{{ r.gp }}{% elif 'gp' in null_cols %}-{% endif %}</td>
-          <td>{% if r.w is not none %}{{ r.w }}{% elif 'w' in null_cols %}-{% endif %}</td>
-          <td>{% if r.l is not none %}{{ r.l }}{% elif 'l' in null_cols %}-{% endif %}</td>
-          <td>{% if r.t_otl is not none %}{{ r.t_otl }}{% elif 't_otl' in null_cols %}-{% endif %}</td>
-          <td><strong>{% if r.pts is not none %}{{ r.pts }}{% elif 'pts' in null_cols %}-{% endif %}</strong></td>
-          <td>{% if r.gf is not none %}{{ r.gf }}{% elif 'gf' in null_cols %}-{% endif %}</td>
-          <td>{% if r.ga is not none %}{{ r.ga }}{% elif 'ga' in null_cols %}-{% endif %}</td>
-          <td>{% if r.goal_diff is not none %}{{ r.goal_diff }}{% elif 'goal_diff' in null_cols %}-{% endif %}</td>
-          <td>{% if r.pim_per_game is not none %}{{ '%.2f'|format(r.pim_per_game) }}{% elif 'pim_per_game' in null_cols %}-{% endif %}</td>
-          <td>{% if r.pp_pct is not none %}{{ '%.1f'|format(r.pp_pct) }}{% elif 'pp_pct' in null_cols %}-{% endif %}</td>
-          <td>{% if r.pk_pct is not none %}{{ '%.1f'|format(r.pk_pct) }}{% elif 'pk_pct' in null_cols %}-{% endif %}</td>
-          <td class="team-history-panel__cell-result">{{ r.result or '-' }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+  <details class="team-history-panel__more">
+    <summary class="team-history-panel__more-summary">Additional season stats</summary>
+    <div class="table-wrap">
+      <table class="data data-sortable team-history-panel__table team-history-panel__table--extended">
+        <thead>
+          <tr>
+            <th scope="col" data-sort-type="num">Season</th>
+            <th scope="col" data-sort-type="num">GP</th>
+            <th scope="col" data-sort-type="num">W</th>
+            <th scope="col" data-sort-type="num">L</th>
+            <th scope="col" data-sort-type="num" title="Ties and overtime losses">T (OTL)</th>
+            <th scope="col" data-sort-type="num">PTS</th>
+            <th scope="col" data-sort-type="num">GF</th>
+            <th scope="col" data-sort-type="num">GA</th>
+            <th scope="col" data-sort-type="num">Diff</th>
+            <th scope="col" data-sort-type="num">PIM/G</th>
+            <th scope="col" data-sort-type="num">PP%</th>
+            <th scope="col" data-sort-type="num">PK%</th>
+            <th scope="col" data-sort-nosort class="team-history-panel__cell-result">Result</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in team_history_records %}
+          {% set null_cols = (r.null_columns_csv or '').split(',') %}
+          {% set sy = r.start_year if r.start_year is not none else 0 %}
+          <tr>
+            <td data-sort-value="{{ sy }}">
+              <a href="{{ url_for('main.team_records_season', year_label=r.season_year_label) }}">{{ r.season_year_label }}</a>
+            </td>
+            <td data-sort-value="{{ r.gp if r.gp is not none else '' }}">{% if r.gp is not none %}{{ r.gp }}{% elif 'gp' in null_cols %}-{% else %}—{% endif %}</td>
+            <td data-sort-value="{{ r.w if r.w is not none else '' }}">{% if r.w is not none %}{{ r.w }}{% elif 'w' in null_cols %}-{% else %}—{% endif %}</td>
+            <td data-sort-value="{{ r.l if r.l is not none else '' }}">{% if r.l is not none %}{{ r.l }}{% elif 'l' in null_cols %}-{% else %}—{% endif %}</td>
+            <td data-sort-value="{{ r.t_otl if r.t_otl is not none else '' }}">{% if r.t_otl is not none %}{{ r.t_otl }}{% elif 't_otl' in null_cols %}-{% else %}—{% endif %}</td>
+            <td data-sort-value="{{ r.pts if r.pts is not none else '' }}">{% if r.pts is not none %}<strong>{{ r.pts }}</strong>{% elif 'pts' in null_cols %}-{% else %}—{% endif %}</td>
+            <td data-sort-value="{{ r.gf if r.gf is not none else '' }}">{% if r.gf is not none %}{{ r.gf }}{% elif 'gf' in null_cols %}-{% else %}—{% endif %}</td>
+            <td data-sort-value="{{ r.ga if r.ga is not none else '' }}">{% if r.ga is not none %}{{ r.ga }}{% elif 'ga' in null_cols %}-{% else %}—{% endif %}</td>
+            <td data-sort-value="{{ r.goal_diff if r.goal_diff is not none else '' }}">{% if r.goal_diff is not none %}{{ r.goal_diff }}{% elif 'goal_diff' in null_cols %}-{% else %}—{% endif %}</td>
+            <td data-sort-value="{{ r.pim_per_game if r.pim_per_game is not none else '' }}">{% if r.pim_per_game is not none %}{{ '%.2f'|format(r.pim_per_game) }}{% elif 'pim_per_game' in null_cols %}-{% else %}—{% endif %}</td>
+            <td data-sort-value="{{ r.pp_pct if r.pp_pct is not none else '' }}">{% if r.pp_pct is not none %}{{ '%.1f'|format(r.pp_pct) }}{% elif 'pp_pct' in null_cols %}-{% else %}—{% endif %}</td>
+            <td data-sort-value="{{ r.pk_pct if r.pk_pct is not none else '' }}">{% if r.pk_pct is not none %}{{ '%.1f'|format(r.pk_pct) }}{% elif 'pk_pct' in null_cols %}-{% else %}—{% endif %}</td>
+            <td class="team-history-panel__cell-result">{{ r.result or '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </details>
 </div>
 {% else %}
 <div class="card team-history-panel">
-  <h2 style="margin:0 0 0.4rem;font-size:1.15rem;">Season-by-Season History</h2>
+  <h2 class="team-history-panel__title">Team Record History</h2>
   <p class="empty-state">
     No historical season records on file for this franchise yet.
     Add rows for this team to <code>data/imports/raw/{{ config.RAW_IMPORT_DIR.name }}/team_season_records_template.csv</code> and re-run the import.

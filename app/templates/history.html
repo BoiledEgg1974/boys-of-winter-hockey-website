@@ -15,9 +15,9 @@
 {%- if not pl -%}
 <span class="muted">—</span>
 {%- elif award and award.season_team -%}
-{{ team_logo_only(award.season_team) }}
+{{ team_logo_only(award.season_team, season=award.season) }}
 {%- elif award and award.team -%}
-{{ team_logo_only(award.team) }}
+{{ team_logo_only(award.team, season=award.season) }}
 {%- elif pl.retired -%}
 <span class="records-team-retired">Retired</span>
 {%- else -%}
@@ -27,9 +27,9 @@
 {# Coach display from staff_master has ``cd.team``; Jim Gregory note-only rows use ``award.team`` (CSV ``team_id``). #}
 {% macro history_award_coach_team(cd, award=none) -%}
 {%- if cd and cd.team -%}
-{{ team_logo_only(cd.team) }}
+{{ team_logo_only(cd.team, season=award.season if award else none) }}
 {%- elif award and award.team -%}
-{{ team_logo_only(award.team) }}
+{{ team_logo_only(award.team, season=award.season) }}
 {%- elif award and history_jim_gregory_era_logo_url(award) -%}
 <span class="team-name-lockup team-name-lockup--icon" aria-label="Hartford Whalers">
   <img class="team-name-lockup__logo" src="{{ history_jim_gregory_era_logo_url(award) }}" alt="" loading="lazy" decoding="async">
@@ -40,7 +40,7 @@
 {%- endmacro %}
 {% macro history_team_award_lockup(a) -%}
 {% if a.team %}
-{{ team_lockup_full_name(a.team) }}
+{{ team_lockup_full_name(a.team, season=a.season) }}
 {% elif history_team_award_era_logo_url(a) and history_team_award_notes_team_label(a) %}
 <span class="team-name-lockup">
   <img class="team-name-lockup__logo" src="{{ history_team_award_era_logo_url(a) }}" alt="" loading="lazy" decoding="async">
@@ -115,7 +115,7 @@
             <div class="history-award-card__featured">
             {% if panel.team_award and fe.team %}
             <a class="history-award-card__team-logo-hit" href="{{ url_for('main.team_page', slug=fe.team.slug) }}" aria-label="{{ fe.team.full_display_name() }}">
-              <img class="history-award-card__team-logo-img" src="{{ team_logo_url(fe.team) }}" alt="" loading="lazy" decoding="async">
+              <img class="history-award-card__team-logo-img" src="{{ team_logo_url_for_season_context(fe.team, fe.season) }}" alt="" loading="lazy" decoding="async">
             </a>
             {% elif panel.team_award and history_team_award_era_logo_url(fe) %}
             <span class="history-award-card__team-logo-hit" role="img" aria-label="{{ history_team_award_notes_team_label(fe) or 'Team' }}">

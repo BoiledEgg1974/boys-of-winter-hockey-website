@@ -1,0 +1,44 @@
+BOWL Historical vs BOWL Cap — team season records and identity
+
+SHARED BASELINE (naming + logos)
+- Both leagues use the same rules: per-league team_identity_history.csv, shared
+  bowl_historical logo assets, and the app’s era logo/name resolution (Cap also
+  scans bowl_historical for timeline files).
+- Keep franchise display names and logo eras aligned in team_identity_history.csv
+  for both raw folders unless a league intentionally diverges on branding.
+
+TEAM_SEASON_RECORDS_TEMPLATE.CSV — DATA SCOPE
+- Through season 1941-42 (inclusive): Historical and Cap should stay the same
+  NHL-history baseline (stats, results, standings narrative) where both files
+  track the same era.
+- From 1942-43 onward: each league owns its own alternate history. Membership
+  (which FHM team ids exist) can match, but outcomes — W/L, playoffs, awards,
+  leaderboards driven from these CSVs — must be edited independently. Do not
+  bulk-copy Cap rows into Historical (or vice versa) when updating post-1941
+  seasons.
+
+FRANCHISE IDS
+- Cap’s Minnesota North Stars → Dallas lineage uses FHM team id 12 in
+  bowl_cap/team_data.csv. Historical’s expansion Minnesota club may use a
+  different id (e.g. 119) in bowl_historical/team_data.csv; identity rows are
+  keyed by that league’s team_fhm_id.
+
+RELOCATIONS (team_identity_history.csv — Cap + Historical share the same table)
+- 12: Minnesota North Stars through season start year 1991 (1991-92); Dallas Stars
+  from 1992 (1992-93).
+- 19: Atlanta Flames (1972-1979) → Calgary Flames (1980+).
+- 21: Kansas City Scouts (1974-1975) → Colorado Rockies (1976-1981) → New Jersey
+  Devils (1982+).
+- 24: Hartford Whalers (1979-1996) → Carolina Hurricanes (1997+).
+- 25: Quebec Nordiques (1979-1994) → Colorado Avalanche (1995+).
+- 26: Winnipeg Jets (1979-1995) → Phoenix Coyotes (1996-2013) → Arizona Coyotes
+  (2014-2023) → Utah Mammoth (2024+).
+- 36: Atlanta Thrashers (1999-2010) → Winnipeg Jets (2011+).
+- 120: Oakland Seals (1967-1969) → California Golden Seals (1970-1975) → Cleveland
+  Barons (1976-1977).
+
+FRANCHISE LOGO FILES (bowl_historical)
+- Quebec / Colorado / Coyotes / Mammoth marks live under
+  app/static/logos/teams/bowl_historical/ with era splits: Avalanche
+  1995-1998 vs 1999-2018; Phoenix Coyotes Kachina 1996-2002 vs howling coyote
+  2003-2013; Arizona 2014-2023; Utah Mammoth 2024+.

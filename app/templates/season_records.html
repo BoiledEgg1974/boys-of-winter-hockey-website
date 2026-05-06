@@ -45,7 +45,7 @@
                 <td class="league-season-records__td-team">
                   {% if tm %}
                   <a class="league-season-records__team-hit" href="{{ url_for('main.team_page', slug=tm.slug) }}" aria-label="{{ tm.full_display_name() }}">
-                    <img class="league-season-records__team-logo" src="{{ team_logo_url(tm) }}" alt="" loading="lazy" decoding="async">
+                    <img class="league-season-records__team-logo" src="{{ team_logo_url_for_season_context(tm, row.season | season_label_start_year) }}" alt="" loading="lazy" decoding="async">
                   </a>
                   {% else %}
                   <span class="muted">—</span>
@@ -105,7 +105,7 @@
                 <td class="league-season-records__td-team">
                   {% if tm %}
                   <a class="league-season-records__team-hit" href="{{ url_for('main.team_page', slug=tm.slug) }}" aria-label="{{ tm.full_display_name() }}">
-                    <img class="league-season-records__team-logo" src="{{ team_logo_url(tm) }}" alt="" loading="lazy" decoding="async">
+                    <img class="league-season-records__team-logo" src="{{ team_logo_url_for_season_context(tm, row.season | season_label_start_year) }}" alt="" loading="lazy" decoding="async">
                   </a>
                   {% else %}
                   <span class="muted">—</span>

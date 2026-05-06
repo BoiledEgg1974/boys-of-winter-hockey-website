@@ -146,7 +146,7 @@
               <td>
                 {% if row.team %}
                 <a href="{{ url_for('main.team_page', slug=row.team.slug) }}" aria-label="{{ row.team.full_display_name() }}">
-                  <img class="team-records-detail__logo" src="{{ team_logo_url(row.team) }}" alt="" loading="lazy" decoding="async">
+                  <img class="team-records-detail__logo" src="{{ team_logo_url_for_season_context(row.team, detail.start_year) }}" alt="" loading="lazy" decoding="async">
                 </a>
                 {% else %}
                 {% set logo_src = season_team_logo_url(row.logo_record) if row.logo_record is defined else none %}
@@ -211,7 +211,7 @@
               <td>
                 {% if row.team %}
                 <a href="{{ url_for('main.team_page', slug=row.team.slug) }}" aria-label="{{ row.team.full_display_name() }}">
-                  <img class="team-records-detail__logo" src="{{ team_logo_url(row.team) }}" alt="" loading="lazy" decoding="async">
+                  <img class="team-records-detail__logo" src="{{ team_logo_url_for_season_context(row.team, detail.start_year) }}" alt="" loading="lazy" decoding="async">
                 </a>
                 {% else %}
                 {% set logo_src = season_team_logo_url(row.logo_record) if row.logo_record is defined else none %}

@@ -34,6 +34,8 @@ from scripts.import_pipeline.encoding_utils import cell_val, read_csv_normalized
 
 TOP_N = 10
 _MIN_GP_GOALIE_RATE_RS = 20
+# NHL-era team-records leaderboards (Historical + Cap): only seasons with enough GP qualify.
+_MIN_GP_TEAM_SEASON_LEADERBOARD = 30
 
 CHAMPION_RESULT = "BOWL CUP CHAMPION"
 RUNNER_UP_RESULT = "Lost Cup Finals"
@@ -381,6 +383,29 @@ def _awards_for_year(session: Session, year_label: str, start_year: int | None) 
     return _awards_for_year_with_raw(session, year_label, start_year, raw_dir=None)
 
 
+def raw_history_award_csv_season_labels(raw_dir: Path) -> set[str] | None:
+    """Distinct ``season`` / ``season_id`` values present in the league awards CSV, if any.
+
+    Resolution order matches :func:`scripts.import_pipeline.runner._history_awards_csv_path`.
+    """
+    for name in ("history_awards.sheet.csv", "history_awards.csv", "awards_history.csv"):
+        p = raw_dir / name
+        if not p.is_file():
+            continue
+        try:
+            df = read_csv_normalized(p)
+            out: set[str] = set()
+            for _, row in df.iterrows():
+                r = row.to_dict()
+                s = (cell_val(r, "season_id", "season") or "").strip()
+                if s:
+                    out.add(s)
+            return out
+        except Exception:
+            continue
+    return None
+
+
 def _awards_for_year_with_raw(
     session: Session,
     year_label: str,
@@ -390,12 +415,18 @@ def _awards_for_year_with_raw(
 ) -> list[Any]:
     """Awards for season detail.
 
-    Prefer raw `history_awards.csv` from the active league import folder when present so
-    Team Records always reflects per-league sheet data directly.
+    When a league awards CSV exists (sheet or narrow), use it as the only source for
+    that season — including an empty list when the sheet has no rows for ``year_label``
+    (do not fall back to DB, which may hold stale seasons not yet re-imported).
     """
     if raw_dir is not None:
-        raw_csv = Path(raw_dir) / "history_awards.csv"
-        if raw_csv.is_file():
+        raw_csv: Path | None = None
+        for name in ("history_awards.sheet.csv", "history_awards.csv", "awards_history.csv"):
+            p = Path(raw_dir) / name
+            if p.is_file():
+                raw_csv = p
+                break
+        if raw_csv is not None:
             try:
                 df = read_csv_normalized(raw_csv)
                 out: list[Any] = []
@@ -427,9 +458,8 @@ def _awards_for_year_with_raw(
                             season_id=None,
                         )
                     )
-                if out:
-                    out.sort(key=lambda a: (a.award_name or "").upper())
-                    return out
+                out.sort(key=lambda a: (a.award_name or "").upper())
+                return out
             except Exception:
                 # Fall back to DB-backed awards.
                 pass
@@ -761,6 +791,38 @@ _FORMAT_RATE = lambda v: f"{float(v):.2f}"  # noqa: E731
 _FORMAT_INT = lambda v: str(int(round(float(v))))  # noqa: E731
 
 
+def _leaderboard_min_gp_enabled_for_slug(league_slug: str | None) -> bool:
+    s = (league_slug or "").strip()
+    return s in frozenset({"bowl-historical", "bowl-cap"})
+
+
+def _leaderboard_resolve_league_slug(explicit: str | None) -> str | None:
+    s = (explicit or "").strip()
+    if s:
+        return s
+    try:
+        from flask import current_app, has_app_context
+
+        if has_app_context():
+            c = str(current_app.config.get("LEAGUE_SLUG") or "").strip()
+            return c or None
+    except Exception:
+        pass
+    return None
+
+
+def _leaderboard_gp_qualifies(r: TeamSeasonRecord) -> bool:
+    if _is_null_sentinel(r, "gp"):
+        return False
+    g = r.gp
+    if g is None:
+        return False
+    try:
+        return int(g) >= _MIN_GP_TEAM_SEASON_LEADERBOARD
+    except (TypeError, ValueError):
+        return False
+
+
 def _leaderboard_rows(
     records: Iterable[TeamSeasonRecord],
     *,
@@ -768,9 +830,12 @@ def _leaderboard_rows(
     maximize: bool,
     fmt: Callable[[Any], str] = _FORMAT_INT,
     extra_filter: Callable[[TeamSeasonRecord], bool] | None = None,
+    use_min_gp: bool = False,
 ) -> list[dict[str, Any]]:
     scored: list[tuple[float, str, TeamSeasonRecord, Any]] = []
     for r in records:
+        if use_min_gp and not _leaderboard_gp_qualifies(r):
+            continue
         if _is_null_sentinel(r, attr):
             continue
         v = getattr(r, attr, None)
@@ -810,9 +875,14 @@ def _has_any(records: list[TeamSeasonRecord], attr: str) -> bool:
     return any(getattr(r, attr, None) is not None and not _is_null_sentinel(r, attr) for r in records)
 
 
-def build_team_record_leaderboards(session: Session) -> list[LeaderboardSection]:
+def build_team_record_leaderboards(
+    session: Session,
+    *,
+    league_slug: str | None = None,
+) -> list[LeaderboardSection]:
     """The 30+ Most/Fewest panels listed in the original request."""
     records = _load_all_records(session)
+    use_min_gp = _leaderboard_min_gp_enabled_for_slug(_leaderboard_resolve_league_slug(league_slug))
 
     sections: list[LeaderboardSection] = []
 
@@ -827,7 +897,12 @@ def build_team_record_leaderboards(session: Session) -> list[LeaderboardSection]
         if not _has_any(records, attr):
             return
         rows = _leaderboard_rows(
-            records, attr=attr, maximize=maximize, fmt=fmt, extra_filter=extra_filter
+            records,
+            attr=attr,
+            maximize=maximize,
+            fmt=fmt,
+            extra_filter=extra_filter,
+            use_min_gp=use_min_gp,
         )
         if rows:
             sections.append(LeaderboardSection(title=title, rows=rows))

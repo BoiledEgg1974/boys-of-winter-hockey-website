@@ -36,7 +36,7 @@
 1925-26,0,Montreal Maroons,,,,,,36,20,11,5,45,91,73,18,BOWL CUP CHAMPION,15.39,null,7,null,null,2,null,null,null,null,null
 1925-26,15,Pittsburgh Pirates,,,,,,36,19,16,1,39,82,70,12,Missed Playoffs,7.33,null,2,null,null,2,null,null,null,null,null
 1925-26,5,,,,,,,36,17,15,4,38,92,85,7,Missed Playoffs,8.11,null,9,null,null,0,null,null,null,null,null
-1925-26,10,New York Americans,,,,,,36,12,20,4,28,68,89,-21,Missed Playoffs,9.47,null,2,null,null,2,null,null,null,null,null
+1925-26,,New York Americans,,,,,,36,12,20,4,28,68,89,-21,Missed Playoffs,9.47,null,2,null,null,2,null,null,null,null,null
 1925-26,3,,,,,,,36,12,21,3,27,92,114,-22,Missed Playoffs,9.03,null,10,null,null,2,null,null,null,null,null
 1925-26,0,,,,,,,36,11,24,1,23,79,108,-29,Missed Playoffs,12.72,null,10,null,null,4,null,null,null,null,null
 1926-27,10,,,,,American,,44,25,13,6,56,95,72,23,Lost Semi-Finals,8.75,null,0,null,null,0,null,null,null,null,null
@@ -47,7 +47,7 @@
 1926-27,216,Ottawa Senators,,,,Canadian,,44,30,10,4,64,86,69,17,BOWL CUP CHAMPION,13.8,null,3,null,null,0,null,null,null,null,null
 1926-27,0,,,,,Canadian,,44,28,14,2,58,99,67,32,Lost Semi-Finals,9.3,null,0,null,null,0,null,null,null,null,null
 1926-27,0,Montreal Maroons,,,,Canadian,,44,20,20,4,44,71,68,3,Lost Quarterfinals,16.27,null,1,null,null,0,null,null,null,null,null
-1926-27,10,New York Americans,,,,Canadian,,44,17,25,2,36,82,91,-9,Missed Playoffs,8.16,null,1,null,null,1,null,null,null,null,null
+1926-27,,New York Americans,,,,Canadian,,44,17,25,2,36,82,91,-9,Missed Playoffs,8.16,null,1,null,null,1,null,null,null,null,null
 1926-27,3,,,,,Canadian,,44,15,24,5,35,79,94,-15,Missed Playoffs,12.41,null,1,null,null,0,null,null,null,null,null
 1927-28,5,,,,,American,,44,20,13,11,51,77,70,7,Lost Semi-Finals,12.68,null,2,null,null,1,null,null,null,null,null
 1927-28,10,,,,,American,,44,19,16,9,47,94,79,15,BOWL CUP CHAMPION,10.5,null,1,null,null,0,null,null,null,null,null
@@ -58,14 +58,14 @@
 1927-28,0,Montreal Maroons,,,,Canadian,,44,24,14,6,54,96,77,19,Lost Cup Finals,13.36,null,1,null,null,0,null,null,null,null,null
 1927-28,216,Ottawa Senators,,,,Canadian,,44,20,14,10,50,78,57,21,Lost Quarterfinals,10.98,null,2,null,null,2,null,null,null,null,null
 1927-28,3,,,,,Canadian,,44,18,18,8,44,89,88,1,Missed Playoffs,11.86,null,2,null,null,0,null,null,null,null,null
-1927-28,10,New York Americans,,,,Canadian,,44,11,27,6,28,63,128,-65,Missed Playoffs,13.41,null,0,null,null,0,null,null,null,null,null
+1927-28,,New York Americans,,,,Canadian,,44,11,27,6,28,63,128,-65,Missed Playoffs,13.41,null,0,null,null,0,null,null,null,null,null
 1928-29,5,,,,,American,,44,26,13,5,57,89,52,37,BOWL CUP CHAMPION,10.77,null,1,null,null,0,null,null,null,null,null
 1928-29,10,,,,,American,,44,21,13,10,52,72,65,7,Lost Cup Finals,8.68,null,3,null,null,0,null,null,null,null,null
 1928-29,9,,,,,American,,44,19,16,9,47,72,63,9,Lost First Round,8.66,null,3,null,null,0,null,null,null,null,null
 1928-29,15,Pittsburgh Pirates,,,,American,,44,9,27,8,26,46,80,-34,Missed Playoffs,7.36,null,1,null,null,2,null,null,null,null,null
 1928-29,8,,,,,American,,44,7,29,8,22,33,85,-52,Missed Playoffs,8.25,null,0,null,null,0,null,null,null,null,null
 1928-29,0,,,,,Canadian,,44,22,7,15,59,71,43,28,Lost Semi-Finals,10.57,null,0,null,null,1,null,null,null,null,null
-1928-29,10,New York Americans,,,,Canadian,,44,19,13,12,50,53,53,0,Lost First Round,11.05,null,3,null,null,0,null,null,null,null,null
+1928-29,,New York Americans,,,,Canadian,,44,19,13,12,50,53,53,0,Lost First Round,11.05,null,3,null,null,0,null,null,null,null,null
 1928-29,3,,,,,Canadian,,44,21,18,5,47,85,69,16,Lost First Round,12.27,null,5,null,null,1,null,null,null,null,null
 1928-29,216,Ottawa Senators,,,,Canadian,,44,14,17,13,41,54,67,-13,Missed Playoffs,10.52,null,4,null,null,0,null,null,null,null,null
 1928-29,0,Montreal Maroons,,,,Canadian,,44,15,20,9,39,67,65,2,Missed Playoffs,14.45,null,5,null,null,0,null,null,null,null,null
@@ -78,7 +78,7 @@
 1929-30,0,,,,,Canadian,,44,21,14,9,51,142,114,28,BOWL CUP CHAMPION,13.55,null,1,null,null,0,null,null,null,null,null
 1929-30,216,Ottawa Senators,,,,Canadian,,44,21,15,8,50,138,118,20,Lost First Round,12.68,null,8,null,null,0,null,null,null,null,null
 1929-30,3,,,,,Canadian,,44,17,21,6,40,16,124,-8,Missed Playoffs,13.8,null,9,null,null,0,null,null,null,null,null
-1929-30,10,New York Americans,,,,Canadian,,44,14,25,5,33,113,161,-48,Missed Playoffs,8.73,null,2,null,null,0,null,null,null,null,null
+1929-30,,New York Americans,,,,Canadian,,44,14,25,5,33,113,161,-48,Missed Playoffs,8.73,null,2,null,null,0,null,null,null,null,null
 1930-31,5,,,,,American,,44,28,10,6,62,143,90,53,Lost Semi-Finals,10.45,null,1,null,null,0,null,null,null,null,null
 1930-31,8,,,,,American,,44,24,17,3,51,108,78,30,Lost Cup Finals,9.25,null,3,null,null,1,null,null,null,null,null
 1930-31,10,,,,,American,,44,19,16,9,47,106,87,19,Lost Semi-Finals,11.73,null,2,null,null,1,null,null,null,null,null
@@ -87,7 +87,7 @@
 1930-31,0,,,,,Canadian,,44,26,10,8,60,129,89,40,BOWL CUP CHAMPION,13.68,null,5,null,null,0,null,null,null,null,null
 1930-31,3,,,,,Canadian,,44,22,13,9,53,118,99,19,Lost First Round,11.64,null,7,null,null,0,null,null,null,null,null
 1930-31,0,Montreal Maroons,,,,Canadian,,44,20,18,6,46,105,106,-1,Lost First Round,13.77,null,6,null,null,1,null,null,null,null,null
-1930-31,10,New York Americans,,,,Canadian,,44,18,16,10,46,76,74,2,Missed Playoffs,11.43,null,4,null,null,0,null,null,null,null,null
+1930-31,,New York Americans,,,,Canadian,,44,18,16,10,46,76,74,2,Missed Playoffs,11.43,null,4,null,null,0,null,null,null,null,null
 1930-31,216,Ottawa Senators,,,,Canadian,,44,10,30,4,24,91,142,-51,Missed Playoffs,11.05,null,2,null,null,0,null,null,null,null,null
 1931-32,10,,,,,American,,48,23,17,8,54,134,112,22,Lost Cup Finals,10.65,null,1,null,null,0,null,null,null,null,null
 1931-32,8,,,,,American,,48,18,19,11,47,86,101,-15,Lost First Round,10.66,null,1,null,null,0,null,null,null,null,null
@@ -96,7 +96,7 @@
 1931-32,0,,,,,Canadian,,48,25,16,7,57,128,111,17,Lost Semi-Finals,9.33,null,2,null,null,0,null,null,null,null,null
 1931-32,3,,,,,Canadian,,48,23,18,7,53,155,127,28,BOWL CUP CHAMPION,13.02,null,5,null,null,1,null,null,null,null,null
 1931-32,0,Montreal Maroons,,,,Canadian,,48,19,22,7,45,142,139,3,Lost Semi-Finals,13.48,null,2,null,null,2,null,null,null,null,null
-1931-32,10,New York Americans,,,,Canadian,,48,16,24,8,40,95,142,-47,Missed Playoffs,13.39,null,2,null,null,1,null,null,null,null,null
+1931-32,,New York Americans,,,,Canadian,,48,16,24,8,40,95,142,-47,Missed Playoffs,13.39,null,2,null,null,1,null,null,null,null,null
 1932-33,5,,,,,American,,48,25,15,8,58,124,88,36,Lost Semi-Finals,10.77,null,10,null,null,3,null,null,null,null,null
 1932-33,9,,,,,American,,48,25,15,8,58,111,93,18,Lost Semi-Finals,9.63,null,12,null,null,3,null,null,null,null,null
 1932-33,10,,,,,American,,48,23,17,8,54,135,107,28,BOWL CUP CHAMPION,12.48,null,22,null,null,5,null,null,null,null,null
@@ -104,7 +104,7 @@
 1932-33,3,,,,,Canadian,,48,24,18,6,54,119,111,8,Lost Cup Finals,13,null,15,null,null,2,null,null,null,null,null
 1932-33,0,Montreal Maroons,,,,Canadian,,48,22,20,6,50,135,119,16,Lost First Round,9.21,null,15,null,null,6,null,null,null,null,null
 1932-33,0,,,,,Canadian,,48,18,25,5,41,92,115,-23,Lost First Round,10.04,null,14,null,null,2,null,null,null,null,null
-1932-33,10,New York Americans,,,,Canadian,,48,15,22,11,41,91,118,-27,Missed Playoffs,9.96,null,15,null,null,0,null,null,null,null,null
+1932-33,,New York Americans,,,,Canadian,,48,15,22,11,41,91,118,-27,Missed Playoffs,9.96,null,15,null,null,0,null,null,null,null,null
 1932-33,216,Ottawa Senators,,,,Canadian,,48,11,27,10,32,88,131,-43,Missed Playoffs,9.05,null,22,null,null,1,null,null,null,null,null
 1933-34,9,,,,,American,,48,24,14,10,58,113,98,15,Lost Cup Finals,7.67,28,17,null,2,5,null,null,null,null,null
 1933-34,8,,,,,American,,48,20,17,11,51,88,83,5,BOWL CUP CHAMPION,6.98,15,10,null,3,3,null,null,null,null,null
@@ -113,7 +113,7 @@
 1933-34,3,,,,,Canadian,,48,26,13,9,61,174,119,55,Lost Semi-Finals,11.02,27,23,null,6,2,null,null,null,null,null
 1933-34,0,,,,,Canadian,,48,22,20,6,50,99,101,-2,Lost First Round,6.42,21,13,null,4,4,null,null,null,null,null
 1933-34,0,Montreal Maroons,,,,Canadian,,48,19,18,11,49,117,122,-5,Lost First Round,8.63,20,20,null,2,1,null,null,null,null,null
-1933-34,10,New York Americans,,,,Canadian,,48,15,23,10,40,104,132,-28,Missed Playoffs,7.79,14,25,null,2,2,null,null,null,null,null
+1933-34,,New York Americans,,,,Canadian,,48,15,23,10,40,104,132,-28,Missed Playoffs,7.79,14,25,null,2,2,null,null,null,null,null
 1933-34,216,Ottawa Senators,,,,Canadian,,48,13,29,6,32,115,143,-28,Missed Playoffs,7.33,10,18,null,1,4,null,null,null,null,null
 1934-35,5,,,,,American,,48,26,16,6,58,129,112,17,Lost Semi-Finals,7.9,20,17,null,2,2,null,null,null,null,null
 1934-35,8,,,,,American,,48,26,17,5,57,118,88,30,Lost First Round,8.06,13,17,null,1,2,null,null,null,null,null
@@ -122,7 +122,7 @@
 1934-35,3,,,,,Canadian,,48,30,14,4,64,157,111,46,Lost Cup Finals,9.25,29,27,null,3,3,null,null,null,null,null
 1934-35,0,Montreal Maroons,,,,Canadian,,48,24,19,5,53,123,92,31,BOWL CUP CHAMPION,7.98,20,10,null,5,0,null,null,null,null,null
 1934-35,0,,,,,Canadian,,48,19,23,6,44,110,145,-35,Lost First Round,6.46,12,20,null,1,7,null,null,null,null,null
-1934-35,10,New York Americans,,,,Canadian,,48,12,27,9,33,100,142,-42,Missed Playoffs,5.21,15,17,null,1,4,null,null,null,null,null
+1934-35,,New York Americans,,,,Canadian,,48,12,27,9,33,100,142,-42,Missed Playoffs,5.21,15,17,null,1,4,null,null,null,null,null
 1934-35,16,St-Louis Eagles,,,,Canadian,,48,11,31,6,28,86,144,-58,Missed Playoffs,8.38,14,22,null,0,6,null,null,null,null,null
 1935-36,9,,,,,American,,48,24,16,8,56,124,103,21,BOWL CUP CHAMPION,7.83,24,18,null,0,3,null,null,null,null,null
 1935-36,5,,,,,American,,48,22,20,6,50,92,83,9,Lost First Round,8.31,14,10,null,2,3,null,null,null,null,null
@@ -130,7 +130,7 @@
 1935-36,10,,,,,American,,48,19,17,12,50,91,96,-5,Missed Playoffs,8.06,18,17,null,1,4,null,null,null,null,null
 1935-36,0,Montreal Maroons,,,,Canadian,,48,22,16,10,54,114,106,8,Lost Semi-Finals,10.5,18,23,null,6,1,null,null,null,null,null
 1935-36,3,,,,,Canadian,,48,23,19,6,52,126,106,20,Lost Cup Finals,12.06,18,21,null,6,4,null,null,null,null,null
-1935-36,10,New York Americans,,,,Canadian,,48,16,25,7,39,109,122,-13,Lost Semi-Finals,8.17,18,28,null,1,1,null,null,null,null,null
+1935-36,,New York Americans,,,,Canadian,,48,16,25,7,39,109,122,-13,Lost Semi-Finals,8.17,18,28,null,1,1,null,null,null,null,null
 1935-36,0,,,,,Canadian,,48,11,26,11,33,82,123,-41,Missed Playoffs,6.6,10,12,null,0,0,null,null,null,null,null
 1936-37,9,,,,,American,,48,25,14,9,59,128,102,26,BOWL CUP CHAMPION,5.08,3,8,null,1,0,null,null,null,null,null
 1936-37,5,,,,,American,,48,23,18,7,53,120,110,10,Lost First Round,6.31,7,8,null,1,1,null,null,null,null,null
@@ -139,19 +139,19 @@
 1936-37,0,,,,,Canadian,,48,24,18,6,54,115,111,4,Lost Semi-Finals,6.33,19,10,null,1,5,null,null,null,null,null
 1936-37,0,Montreal Maroons,,,,Canadian,,48,22,17,9,53,126,110,16,Lost Semi-Finals,7.94,16,21,null,5,1,null,null,null,null,null
 1936-37,3,,,,,Canadian,,48,22,21,5,49,119,115,4,Lost First Round,7.73,15,16,null,4,3,null,null,null,null,null
-1936-37,10,New York Americans,,,,Canadian,,48,15,29,4,34,122,161,-39,Missed Playoffs,10.06,21,23,null,1,5,null,null,null,null,null
+1936-37,,New York Americans,,,,Canadian,,48,15,29,4,34,122,161,-39,Missed Playoffs,10.06,21,23,null,1,5,null,null,null,null,null
 1937-38,5,,,,,American,,48,30,11,7,67,142,89,53,Lost Semi-Finals,5.83,6,6,null,5,2,null,null,null,null,null
 1937-38,10,,,,,American,,48,27,15,6,60,149,96,53,Lost First Round,9.27,17,14,null,6,4,null,null,null,null,null
 1937-38,8,,,,,American,,48,14,25,9,37,97,139,-42,BOWL CUP CHAMPION,5.04,21,14,null,1,8,null,null,null,null,null
 1937-38,9,,,,,American,,48,12,25,11,35,99,133,-34,Missed Playoffs,5.46,5,5,null,0,3,null,null,null,null,null
 1937-38,3,,,,,Canadian,,48,24,15,9,57,151,127,24,Lost Cup Finals,8.42,17,14,null,6,3,null,null,null,null,null
-1937-38,10,New York Americans,,,,Canadian,,48,19,18,11,49,110,111,-1,Lost Semi-Finals,6.81,11,14,null,1,5,null,null,null,null,null
+1937-38,,New York Americans,,,,Canadian,,48,19,18,11,49,110,111,-1,Lost Semi-Finals,6.81,11,14,null,1,5,null,null,null,null,null
 1937-38,0,,,,,Canadian,,48,18,17,13,49,123,128,-5,Lost First Round,7.13,24,14,null,2,3,null,null,null,null,null
 1937-38,0,Montreal Maroons,,,,Canadian,,48,12,30,6,30,101,149,-48,Missed Playoffs,9.79,16,26,null,4,1,null,null,null,null,null
 1938-39,5,,,,,,,48,36,10,2,74,156,76,80,BOWL CUP CHAMPION,5.23,12,11,null,3,0,null,null,null,null,null
 1938-39,10,,,,,,,48,26,16,6,58,149,105,44,Lost Semi-Finals,8.06,17,15,null,4,4,null,null,null,null,null
 1938-39,3,,,,,,,48,19,20,9,47,114,107,7,Lost Cup Finals,7.75,20,22,null,8,3,null,null,null,null,null
-1938-39,10,New York Americans,,,,,,48,17,21,10,44,119,157,-38,Lost First Round,5.92,27,27,null,4,5,null,null,null,null,null
+1938-39,,New York Americans,,,,,,48,17,21,10,44,119,157,-38,Lost First Round,5.92,27,27,null,4,5,null,null,null,null,null
 1938-39,9,,,,,,,48,18,24,6,42,107,128,-21,Lost Semi-Finals,5.04,18,13,null,3,8,null,null,null,null,null
 1938-39,0,,,,,,,48,15,24,9,39,115,146,-31,Lost First Round,6,18,24,null,0,4,null,null,null,null,null
 1938-39,8,,,,,,,48,12,28,8,32,91,132,-41,Missed Playoffs,7.52,16,16,null,3,1,null,null,null,null,null
@@ -160,7 +160,7 @@
 1939-40,3,,,,,,,48,25,17,6,56,134,110,24,Lost Semi-Finals,9.88,15,14,null,6,8,null,null,null,null,null
 1939-40,8,,,,,,,48,23,19,6,52,112,120,-8,Lost First Round,7.27,16,19,null,2,2,null,null,null,null,null
 1939-40,9,,,,,,,48,16,26,6,38,90,126,-36,Lost Semi-Finals,5.21,14,8,null,4,3,null,null,null,null,null
-1939-40,10,New York Americans,,,,,,48,15,29,4,34,106,140,-34,Lost First Round,4.92,10,15,null,1,9,null,null,null,null,null
+1939-40,,New York Americans,,,,,,48,15,29,4,34,106,140,-34,Lost First Round,4.92,10,15,null,1,9,null,null,null,null,null
 1939-40,0,,,,,,,48,10,33,5,25,90,167,-77,Missed Playoffs,6.71,15,13,null,1,4,null,null,null,null,null
 1940-41,5,,,,,,,48,27,8,13,67,168,102,66,BOWL CUP CHAMPION,5.13,10,8,null,2,2,null,null,null,null,null
 1940-41,3,,,,,,,48,28,14,6,62,145,99,46,Lost Semi-Finals,6.38,16,12,null,2,4,null,null,null,null,null
@@ -168,7 +168,7 @@
 1940-41,10,,,,,,,48,21,19,8,50,143,125,18,Lost Quarterfinals,7.42,12,16,null,9,0,null,null,null,null,null
 1940-41,8,,,,,,,48,16,25,7,39,112,139,-27,Lost Semi-Finals,6.98,14,17,null,3,5,null,null,null,null,null
 1940-41,0,,,,,,,48,16,26,6,38,121,147,-26,Lost Quarterfinals,9.6,14,19,null,3,6,null,null,null,null,null
-1940-41,10,New York Americans,,,,,,48,8,29,11,27,99,186,-87,Missed Playoffs,4.81,14,10,null,3,4,null,null,null,null,null
+1940-41,,New York Americans,,,,,,48,8,29,11,27,99,186,-87,Missed Playoffs,4.81,14,10,null,3,4,null,null,null,null,null
 1941-42,10,,,,,,,48,29,17,2,60,177,143,34,Lost Semi-Finals,8.13,22,22,null,5,3,null,null,null,null,null
 1941-42,3,,,,,,,48,27,18,3,57,158,136,22,BOWL CUP CHAMPION,7.1,20,17,null,6,1,null,null,null,null,null
 1941-42,5,,,,,,,48,25,17,6,56,160,118,42,Lost Semi-Finals,7.06,18,16,null,1,4,null,null,null,null,null

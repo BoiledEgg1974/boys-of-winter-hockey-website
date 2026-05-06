@@ -2,14 +2,16 @@
 {% from "macros/team.html" import team_logo_only, team_lockup_full_name with context %}
 {% block title %}Team Records — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
 
-{% macro team_record_logo(record) -%}
-{%- set logo_src = season_team_logo_url(record) -%}
-{%- if record.team and logo_src -%}
-<a class="team-records-logo-hit" href="{{ url_for('main.team_page', slug=record.team.slug) }}" aria-label="{{ record.team.full_display_name() }}">
+{% macro team_record_logo(spec) -%}
+{# Leaderboard rows are dicts with a ``record`` key; season cards pass ``TeamSeasonRecord`` directly. #}
+{%- set rec = spec['record'] if spec is mapping and 'record' in spec else spec -%}
+{%- set logo_src = season_team_logo_url(rec) -%}
+{%- if rec.team and logo_src -%}
+<a class="team-records-logo-hit" href="{{ url_for('main.team_page', slug=rec.team.slug) }}" aria-label="{{ rec.team.full_display_name() }}">
   <img class="team-records-logo" src="{{ logo_src }}" alt="" loading="lazy" decoding="async">
 </a>
 {%- elif logo_src -%}
-<span class="team-records-logo-hit" role="img" aria-label="{{ record.team_name or '' }}">
+<span class="team-records-logo-hit" role="img" aria-label="{{ season_team_name(rec) or '' }}">
   <img class="team-records-logo" src="{{ logo_src }}" alt="" loading="lazy" decoding="async">
 </span>
 {%- else -%}
@@ -17,14 +19,15 @@
 {%- endif -%}
 {%- endmacro %}
 
-{% macro card_team_logo(record) -%}
-{%- set logo_src = season_team_logo_url(record) -%}
-{%- if record.team and logo_src -%}
-<a class="team-records-card__team-logo-hit" href="{{ url_for('main.team_page', slug=record.team.slug) }}" aria-label="{{ record.team.full_display_name() }}">
+{% macro card_team_logo(spec) -%}
+{%- set rec = spec['record'] if spec is mapping and 'record' in spec else spec -%}
+{%- set logo_src = season_team_logo_url(rec) -%}
+{%- if rec.team and logo_src -%}
+<a class="team-records-card__team-logo-hit" href="{{ url_for('main.team_page', slug=rec.team.slug) }}" aria-label="{{ rec.team.full_display_name() }}">
   <img class="team-records-card__team-logo" src="{{ logo_src }}" alt="" loading="lazy" decoding="async">
 </a>
 {%- elif logo_src -%}
-<span class="team-records-card__team-logo-hit" role="img" aria-label="{{ record.team_name_override or '' }}">
+<span class="team-records-card__team-logo-hit" role="img" aria-label="{{ season_team_name(rec) or '' }}">
   <img class="team-records-card__team-logo" src="{{ logo_src }}" alt="" loading="lazy" decoding="async">
 </span>
 {%- else -%}

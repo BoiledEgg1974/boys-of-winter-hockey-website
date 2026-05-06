@@ -167,6 +167,13 @@ def create_app(config_class: type = Config) -> Flask:
     app.register_blueprint(site_gm_bp)
     app.register_blueprint(site_admin_bp)
 
+    @app.template_filter("season_label_start_year")
+    def season_label_start_year_filter(label: object) -> int | None:
+        """First calendar year from a display label like ``1926–27`` (for era logo lookup)."""
+        from app.services.league_season_records import _label_start_year
+
+        return _label_start_year(str(label).strip() if label is not None else None)
+
     @app.template_filter("season_display")
     def season_display_filter(season: object) -> str:
         """Canonical Boys of Winter season label (July–June year) from ``Season.start_year`` when set."""
@@ -401,12 +408,21 @@ def create_app(config_class: type = Config) -> Flask:
         if str(app.config.get("LEAGUE_SLUG") or "") in league_slugs():
             team_logos_rel = str(app.config.get("TEAM_LOGOS_REL_DIR") or "logos/teams").replace("\\", "/").strip("/")
             team_logos_dir = Path(str(app.config.get("TEAM_LOGOS_DIR") or ""))
+            static_root = Path(app.root_path) / "static"
+            logo_scan_dirs: list[Path] = []
             if team_logos_dir.is_dir():
-                for p in team_logos_dir.iterdir():
+                logo_scan_dirs.append(team_logos_dir)
+            # Cap uses logos/teams/bowl_cap for defaults; era/timeline art lives under bowl_historical (same as Historical app).
+            if str(app.config.get("LEAGUE_SLUG") or "") == "bowl-cap":
+                shared_hist = static_root / "logos" / "teams" / "bowl_historical"
+                if shared_hist.is_dir() and shared_hist.resolve() != team_logos_dir.resolve():
+                    logo_scan_dirs.append(shared_hist)
+            for scan_dir in logo_scan_dirs:
+                for p in scan_dir.iterdir():
                     if not p.is_file() or p.suffix.lower() not in (".png", ".webp", ".jpg", ".jpeg", ".svg"):
                         continue
                     try:
-                        rel = p.relative_to(Path(app.root_path) / "static")
+                        rel = p.relative_to(static_root)
                     except ValueError:
                         continue
                     rel_s = str(rel).replace("\\", "/")
@@ -438,6 +454,16 @@ def create_app(config_class: type = Config) -> Flask:
                         if yr0 > 0 and yr1 > 0:
                             for yy in range(min(yr0, yr1), max(yr0, yr1) + 1):
                                 historical_team_logo_timeline_by_name_year[(key, yy)] = rel_s
+                    # Single season start year: "<team_name>_<YYYY>.png" (one year only).
+                    sm = re.search(r"^(.+?)_(\d{4})$", p.stem.lower())
+                    if sm:
+                        key = _norm_team_logo_name(sm.group(1))
+                        try:
+                            y1 = int(sm.group(2))
+                        except Exception:
+                            y1 = -1
+                        if y1 > 0:
+                            historical_team_logo_timeline_by_name_year[(key, y1)] = rel_s
             # Read per-team fallback names from league team season template (Team Name Override).
             raw_dir = Path(str(app.config.get("RAW_IMPORT_DIR") or ""))
             tsr = raw_dir / "team_season_records_template.csv"
@@ -525,7 +551,7 @@ def create_app(config_class: type = Config) -> Flask:
                     "montreal wanderers", f"{hist_logo_root}/mtw-montreal-wanderers.png"
                 )
                 historical_team_logo_rel_by_name.setdefault(
-                    "montreal maroons", f"{hist_logo_root}/mtl-t6.png"
+                    "montreal maroons", f"{hist_logo_root}/montreal_maroons_1924.png"
                 )
                 historical_team_logo_rel_by_name.setdefault(
                     "pittsburgh pirates", f"{hist_logo_root}/pit-t7.png"
@@ -564,7 +590,14 @@ def create_app(config_class: type = Config) -> Flask:
                 historical_team_logo_override_by_id_year[("4", 1926)] = f"{hist_logo_root}/new_york_americans.png"
 
         def season_team_logo_url(record: object) -> str | None:
+            from collections.abc import Mapping
+
             from flask import url_for
+
+            if isinstance(record, Mapping):
+                inner = record.get("record")
+                if inner is not None:
+                    record = inner
 
             # Explicit season-row override from CSV always wins.
             logo_override_rel = getattr(record, "logo_file_override", None) or getattr(
@@ -621,23 +654,36 @@ def create_app(config_class: type = Config) -> Flask:
             return None
 
         def season_team_name(record: object) -> str | None:
+            # Per-row CSV override wins. When it is blank and the row resolves to a Team,
+            # use that franchise's name — do not let another template row with the same
+            # Team ID (e.g. Montreal Maroons vs Canadiens both as FHM id 0) steal the label.
+            ovr = getattr(record, "team_name_override", None)
+            if ovr and str(ovr).strip():
+                return str(ovr).strip()
             tid = getattr(record, "team_fhm_id_csv", None)
             if tid is None:
                 tid = getattr(record, "team_fhm_id", None)
-            if tid is None:
-                team_obj = getattr(record, "team", None)
-                if team_obj is not None:
-                    tid = getattr(team_obj, "fhm_team_id", None)
-            tid_s = str(tid or "").strip()
-            nm_from_tid = _historical_name_for_tid(record, tid_s) if tid_s else None
-            if nm_from_tid:
-                return nm_from_tid
             team_obj = getattr(record, "team", None)
-            if team_obj:
+            if tid is None and team_obj is not None:
+                tid = getattr(team_obj, "fhm_team_id", None)
+            tid_s = str(tid or "").strip()
+            sy = _record_start_year(record)
+            if tid_s and sy is not None:
+                id_ovr = historical_team_name_override_by_id_year.get((tid_s, sy))
+                if id_ovr:
+                    return id_ovr
+            if team_obj is not None:
                 return team_obj.full_display_name()
-            nm = getattr(record, "team_name_override", None)
-            if nm:
-                return str(nm).strip() or None
+            if tid_s:
+                rows = historical_team_name_rows_by_id.get(tid_s) or []
+                if sy is not None:
+                    for row_year, row_name in rows:
+                        if row_year == sy:
+                            return row_name
+                if tid_s in historical_team_name_by_id:
+                    return historical_team_name_by_id[tid_s]
+                if rows:
+                    return rows[0][1]
             return None
         def season_team_source_id(record: object) -> str | None:
             tid = getattr(record, "team_fhm_id_csv", None)
@@ -645,6 +691,43 @@ def create_app(config_class: type = Config) -> Flask:
                 tid = getattr(record, "team_fhm_id", None)
             tid_s = str(tid or "").strip()
             return tid_s or None
+
+        def team_logo_url_for_season_context(
+            team: Team | None, season: object | int | None
+        ) -> str:
+            """Era-accurate logo for Historical/Cap when season start year is known; else default team asset.
+
+            *season* may be a :class:`~app.models.Season`, any object with ``start_year``, or an ``int`` year.
+            """
+            from types import SimpleNamespace
+
+            from flask import url_for
+
+            if team is None:
+                return url_for("static", filename="logos/teams/placeholder.svg")
+            slug = str(app.config.get("LEAGUE_SLUG") or "")
+            sy: int | None
+            if isinstance(season, int):
+                sy = int(season)
+            elif season is not None:
+                sy = getattr(season, "start_year", None)
+                if sy is not None:
+                    sy = int(sy)
+            else:
+                sy = None
+            if sy is not None and slug in ("bowl-historical", "bowl-cap"):
+                tid = getattr(team, "fhm_team_id", None)
+                tid_s = str(tid).strip() if tid is not None and str(tid).strip() else None
+                proxy = SimpleNamespace(
+                    team=team,
+                    start_year=int(sy),
+                    season_year=int(sy),
+                    team_fhm_id_csv=tid_s,
+                )
+                era = season_team_logo_url(proxy)
+                if era:
+                    return era
+            return team_logo_url(team)
 
         def player_headshot_url(player: Player | None) -> str | None:
             from flask import url_for
@@ -748,6 +831,7 @@ def create_app(config_class: type = Config) -> Flask:
             nav_teams=teams,
             team_logo_url=team_logo_url,
             season_team_logo_url=season_team_logo_url,
+            team_logo_url_for_season_context=team_logo_url_for_season_context,
             season_team_name=season_team_name,
             season_team_source_id=season_team_source_id,
             history_team_award_era_logo_url=history_team_award_era_logo_url,

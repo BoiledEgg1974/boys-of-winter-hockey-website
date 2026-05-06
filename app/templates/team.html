@@ -26,7 +26,7 @@
 {%- endfor -%}
 {%- else -%}—{%- endif -%}
 {%- endmacro %}
-{% macro team_news_panel(team, news_list, news_category_label, news_viewer_can_react) -%}
+{% macro team_news_panel(team, news_list, news_category_label, news_viewer_can_react, era_season=None) -%}
 <section class="card team-page-news" aria-labelledby="team-news-h">
   <h2 id="team-news-h" class="team-mc-band__title">Team headlines</h2>
   {% if news_list %}
@@ -37,7 +37,7 @@
       <span class="news-category-pill">{{ news_category_label(a.category) }}</span>
       <div class="home-news-list__heading">{{ a.title }}</div>
       <div class="home-news-list__byline">
-        <img class="home-news-list__byline-logo" src="{{ team_logo_url(team) }}" alt="" width="22" height="22" loading="lazy" decoding="async">
+        <img class="home-news-list__byline-logo" src="{{ team_logo_url_for_season_context(team, era_season) }}" alt="" width="22" height="22" loading="lazy" decoding="async">
         <span class="home-news-list__byname muted">{{ row.byline }}</span>
       </div>
       {% if a.image_rel_path %}
@@ -62,13 +62,14 @@
 </section>
 {%- endmacro %}
 {% block content %}
+{% set era_season = season or canonical_season %}
 {% set ph = team.primary_color or '#1e3a5f' %}
 {% set sh = team.secondary_color or '#0f172a' %}
 <div class="team-page">
 <div class="team-hero" style="--team-hero-accent: {{ ph }}; background: linear-gradient(135deg, {{ ph }}, {{ sh }});">
   <div class="team-hero__brand">
     <div class="team-hero__logo-wrap">
-      <img class="team-hero__logo" src="{{ team_logo_url(team) }}" alt="{{ team.name }} logo">
+      <img class="team-hero__logo" src="{{ team_logo_url_for_season_context(team, era_season) }}" alt="{{ team.name }} logo">
     </div>
     <div class="team-hero__meta">
       <p class="team-hero__city">{{ hero_city_caps }}</p>
@@ -133,14 +134,14 @@
             <div class="team-schedule-card__body">
               {% if is_next %}
               <span class="team-schedule-card__logos team-schedule-card__logos--pair">
-                <img class="team-schedule-card__logo" src="{{ team_logo_url(team) }}" alt="">
+                <img class="team-schedule-card__logo" src="{{ team_logo_url_for_season_context(team, era_season) }}" alt="">
                 <span class="team-schedule-card__vs">vs</span>
-                <img class="team-schedule-card__logo" src="{{ team_logo_url(opp) }}" alt="">
+                <img class="team-schedule-card__logo" src="{{ team_logo_url_for_season_context(opp, era_season) }}" alt="">
               </span>
               <span class="team-schedule-card__sub">{{ 'Home' if is_home else 'Away' }} · {{ opp.abbreviation if opp else '—' }}</span>
               {% else %}
               <span class="team-schedule-card__logos">
-                <img class="team-schedule-card__logo team-schedule-card__logo--solo" src="{{ team_logo_url(opp) }}" alt="">
+                <img class="team-schedule-card__logo team-schedule-card__logo--solo" src="{{ team_logo_url_for_season_context(opp, era_season) }}" alt="">
               </span>
               <span class="team-schedule-card__opp">{{ '@' if not is_home else 'vs' }} {{ opp.abbreviation if opp else '—' }}</span>
               {% if is_future %}
@@ -229,7 +230,7 @@
       <p class="muted team-mc-band__note">{{ _mc.method_note }}</p>
     </section>
   </div>
-  {{ team_news_panel(team, team_page_news, news_category_label, news_viewer_can_react) }}
+  {{ team_news_panel(team, team_page_news, news_category_label, news_viewer_can_react, era_season) }}
 </div>
 {% else %}
 <div class="team-mc-fullwidth team-mc-fullwidth--with-ap">
@@ -240,7 +241,7 @@
       <p class="muted"><a href="{{ url_for('site_gm.action_points_page') }}">League AP page</a></p>
     </section>
   </div>
-  {{ team_news_panel(team, team_page_news, news_category_label, news_viewer_can_react) }}
+  {{ team_news_panel(team, team_page_news, news_category_label, news_viewer_can_react, era_season) }}
 </div>
 {% endif %}
 <div class="team-panels-grid{% if not team_agg and not team_agg_po %} team-panels-grid--single-col{% endif %}">
@@ -324,7 +325,7 @@
             <span class="team-leaders__headshot team-leaders__headshot--empty" aria-hidden="true"></span>
             {% endif %}
             <span class="team-leaders__team-logo-wrap" aria-hidden="true">
-              <img class="team-leaders__team-logo" src="{{ team_logo_url(team) }}" alt="">
+              <img class="team-leaders__team-logo" src="{{ team_logo_url_for_season_context(team, era_season) }}" alt="">
             </span>
             <span class="team-leaders__caret-rule" aria-hidden="true"></span>
           </div>

@@ -15,9 +15,9 @@
     {% if game.game_type %} • {{ game.game_type }}{% endif %}
   </p>
   {% if game.status == 'final' %}
-  <p class="boxscore-page-head__final"><strong>Final:</strong> {{ team_lockup(game.away_team) }} {{ game.away_score }} — {{ game.home_score }} {{ team_lockup(game.home_team) }}</p>
+  <p class="boxscore-page-head__final"><strong>Final:</strong> {{ team_lockup(game.away_team, season=game.season) }} {{ game.away_score }} — {{ game.home_score }} {{ team_lockup(game.home_team, season=game.season) }}</p>
   {% else %}
-  <p class="boxscore-page-head__final boxscore-page-head__final--preview"><strong>Matchup:</strong> {{ team_lockup(game.away_team) }} @ {{ team_lockup(game.home_team) }}</p>
+  <p class="boxscore-page-head__final boxscore-page-head__final--preview"><strong>Matchup:</strong> {{ team_lockup(game.away_team, season=game.season) }} @ {{ team_lockup(game.home_team, season=game.season) }}</p>
   {% endif %}
 </div>
 <div id="box-root" class="card box-inner" data-game-status="{{ game.status }}"></div>

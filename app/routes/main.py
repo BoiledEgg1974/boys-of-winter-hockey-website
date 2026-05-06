@@ -52,6 +52,7 @@ from app.services.all_time_records import (
     fetch_skater_all_time,
 )
 from app.services.roster_team import main_league_roster_team
+from app.services.team_records import raw_history_award_csv_season_labels
 from app.services.draft_history import (
     build_career_stat_maps,
     draft_row_stat_mode,
@@ -1244,6 +1245,14 @@ def _history_award_start_year(a: HistoryAward) -> int | None:
     return None
 
 
+def _history_award_matches_season_label(a: HistoryAward, label: str) -> bool:
+    if (a.season and (a.season.label or "").strip() == label) or (
+        _history_award_sheet_season_from_notes(a.notes) == label
+    ):
+        return True
+    return False
+
+
 def _attach_history_award_season_teams(awards: list[HistoryAward]) -> None:
     """Annotate awards with ``season_team`` resolved for the winner's season.
 
@@ -1554,17 +1563,24 @@ def _build_award_panels(awards: list[HistoryAward]) -> list[dict]:
 
 @main_bp.get("/history")
 def history():
-    awards = db.session.scalars(
-        select(HistoryAward)
-        .options(
-            joinedload(HistoryAward.season),
-            joinedload(HistoryAward.player).joinedload(Player.current_team),
-            joinedload(HistoryAward.team),
-        )
-        .order_by(HistoryAward.season_id.desc())
-        .limit(2000)
-    ).all()
+    awards = list(
+        db.session.scalars(
+            select(HistoryAward)
+            .options(
+                joinedload(HistoryAward.season),
+                joinedload(HistoryAward.player).joinedload(Player.current_team),
+                joinedload(HistoryAward.team),
+            )
+            .order_by(HistoryAward.season_id.desc())
+            .limit(2000)
+        ).all()
+    )
     raw_dir = Path(str(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)))
+    # Cap: no awards CSV rows for 1998-99 yet — hide stale DB winners until import adds them.
+    if str(current_app.config.get("LEAGUE_SLUG") or "") == "bowl-cap":
+        sheet_seasons = raw_history_award_csv_season_labels(raw_dir)
+        if sheet_seasons is not None and "1998-99" not in sheet_seasons:
+            awards = [a for a in awards if not _history_award_matches_season_label(a, "1998-99")]
     attach_coach_award_displays(awards, db.session, raw_dir)
     _attach_history_award_season_teams(awards)
     award_panels = _build_award_panels(awards)
@@ -1661,7 +1677,10 @@ def team_records_index():
     )
 
     season_cards = list_season_summaries(db.session)
-    leaderboard_sections = build_team_record_leaderboards(db.session)
+    leaderboard_sections = build_team_record_leaderboards(
+        db.session,
+        league_slug=str(current_app.config.get("LEAGUE_SLUG") or ""),
+    )
     return render_template(
         "team_records.html",
         season_cards=season_cards,
@@ -3652,7 +3671,11 @@ def player_page(player_id: int):
 def game_page(game_id: int):
     game = db.session.scalars(
         select(Game)
-        .options(joinedload(Game.home_team), joinedload(Game.away_team))
+        .options(
+            joinedload(Game.home_team),
+            joinedload(Game.away_team),
+            joinedload(Game.season),
+        )
         .where(Game.id == game_id)
         .limit(1)
     ).first()

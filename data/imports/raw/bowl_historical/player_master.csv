@@ -635,7 +635,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 6119;83;83;Len;Frig;;72;190;1950-10-30;Bonnyville;AB;Canada;;;0;Right;0
 4953;119;119;Bob;Paradise;;73;205;1944-4-22;Vadnais Heights;MN;The United States;;;0;Left;0
 5433;24;5;Sheldon;Kannegiesser;;72;198;1947-8-15;North Bay;ON;Canada;;;0;Left;1
-4954;3;3;Brian;Perry;;71;181;1944-4-6;Aldershot;ENG;Canada;England;;0;Left;1
+4954;22;3;Brian;Perry;;71;181;1944-4-6;Aldershot;ENG;Canada;England;;0;Left;0
 5434;24;5;Kerry;Ketter;;73;203;1947-9-20;Princeton;BC;Canada;;;0;Left;1
 3435;90;90;Don;Head;;70;200;1933-6-30;Toronto;ON;Canada;;;0;Left;0
 5251;119;119;Don;Herriman;;70;165;1946-1-2;Sault Ste. Marie;ON;Canada;;;0;Left;1

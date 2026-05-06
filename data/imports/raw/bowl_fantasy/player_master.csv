@@ -3166,7 +3166,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 3281;186;186;Will;MacKinnon;;71;201;1959-4-13;Plymouth;MI;The United States;Canada;;0;Left;0
 3282;186;186;Chris;Renaud;;71;174;1960-4-25;Windsor;ON;Canada;;;0;Left;0
 3283;186;186;Jason;Underhill;;71;190;1957-2-28;Waterloo;ON;Canada;;;0;Left;0
-3284;236;25;Akito;Hirose;;72;170;1962-4-9;Calgary;AB;Canada;;;0;Left;0
+3284;25;25;Akito;Hirose;;72;170;1962-4-9;Calgary;AB;Canada;;;0;Left;1
 3285;186;186;Francis;Leclerc;;73;194;1953-7-2;Stirling;ON;Canada;;;0;Left;0
 3286;186;186;Max;Duganne;;70;170;1955-9-5;Saratoga;CA;The United States;;;0;Left;0
 3287;186;186;Darion;Hanson;;75;181;1957-5-19;East Bethel;MN;The United States;;;0;Left;0
@@ -4657,7 +4657,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 4780;11;11;Josh;Mahura;;72;192;1966-5-5;St. Albert;AB;Canada;;;0;Left;0
 4781;11;11;Earl;Seibert;Si;74;201;1966-12-7;Kitchener;ON;Canada;;;0;Right;0
 4782;25;25;Nick;Schmaltz;;73;181;1966-2-23;Verona;WI;The United States;;;0;Right;0
-4783;236;25;Philip;Tomasino;;72;181;1966-7-28;Mississauga;ON;Canada;;;0;Right;1
+4783;25;25;Philip;Tomasino;;72;181;1966-7-28;Mississauga;ON;Canada;;;0;Right;1
 4784;26;26;Danny;Grant;Tuna;70;188;1966-2-21;Fredericton;NB;Canada;;;0;Left;1
 4785;22;22;Clint;Malarchuk;;72;185;1966-5-1;Grande Prairie;AB;Canada;;;0;Left;1
 4786;18;18;Eamon;Powell;;71;165;1966-5-10;Marcellus;NY;The United States;;;0;Right;0

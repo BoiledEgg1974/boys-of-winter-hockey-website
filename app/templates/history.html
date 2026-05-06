@@ -250,16 +250,25 @@
   </div>
 
   <div class="card">
-    <h2>Seasons on file</h2>
+    <h2>Season History</h2>
     {% if seasons_on_file %}
+    {% set ns = namespace(shown=0) %}
     <ul class="history-seasons-list">
       {% for label in seasons_on_file %}
-      <li>{{ label }}</li>
+      {% set start_year = (label.split('-', 1)[0] | int) if '-' in label else 0 %}
+      {% if start_year >= 1917 %}
+      {% set ns.shown = ns.shown + 1 %}
+      <li><a href="{{ url_for('main.team_records_season', year_label=label) }}">{{ label }}</a></li>
+      {% endif %}
       {% endfor %}
     </ul>
+    {% if ns.shown == 0 %}
+    <p class="empty-state">No season years found in <code>data/imports/raw/{{ config.RAW_IMPORT_DIR.name }}</code> career CSVs.</p>
+    {% endif %}
     {% else %}
     <p class="empty-state">No season years found in <code>data/imports/raw/{{ config.RAW_IMPORT_DIR.name }}</code> career CSVs.</p>
     {% endif %}
   </div>
+
 </div>
 {% endblock %}

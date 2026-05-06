@@ -1,0 +1,297 @@
+{% extends "base.html" %}
+{% from "macros/team.html" import team_logo_only with context %}
+{% block title %}{{ detail.year_label }} Team Records — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+
+{% macro standings_logo(record) -%}
+{%- set logo_src = season_team_logo_url(record) -%}
+{%- if record.team and logo_src -%}
+<a class="team-records-detail__logo-hit" href="{{ url_for('main.team_page', slug=record.team.slug) }}" aria-label="{{ record.team.full_display_name() }}">
+  <img class="team-records-detail__logo" src="{{ logo_src }}" alt="" loading="lazy" decoding="async">
+</a>
+{%- elif logo_src -%}
+<span class="team-records-detail__logo-hit" role="img" aria-label="{{ record.team_name_override or '' }}">
+  <img class="team-records-detail__logo" src="{{ logo_src }}" alt="" loading="lazy" decoding="async">
+</span>
+{%- else -%}
+<span class="team-records-detail__logo-hit team-records-detail__logo-hit--empty" aria-hidden="true"></span>
+{%- endif -%}
+{%- endmacro %}
+
+{% macro standings_team_name(record) -%}
+{%- if record.team -%}
+<a class="team-records-detail__team-name" href="{{ url_for('main.team_page', slug=record.team.slug) }}">{{ season_team_name(record) or record.team.full_display_name() }}</a>
+{%- elif record.team_name_override -%}
+<span class="team-records-detail__team-name team-records-detail__team-name--noteam">{{ record.team_name_override }}</span>
+{%- else -%}
+<span class="muted">—</span>
+{%- endif -%}
+{%- endmacro %}
+
+{% macro cell(record, attr, fmt='int') -%}
+{%- set v = record[attr] -%}
+{%- set null_cols = (record.null_columns_csv or '').split(',') -%}
+{%- if v is none and attr in null_cols -%}-{%- elif v is none -%}{%- elif fmt == 'pct' -%}{{ '%.1f'|format(v) }}{%- elif fmt == 'rate' -%}{{ '%.2f'|format(v) }}{%- else -%}{{ v }}{%- endif -%}
+{%- endmacro %}
+
+{% block content %}
+<div class="card team-records-detail">
+  <nav class="team-records-detail__nav" aria-label="Season navigation">
+    <a class="team-records-detail__nav-back" href="{{ url_for('main.team_records_index') }}">← All Seasons</a>
+    <span class="team-records-detail__nav-spacer" aria-hidden="true">·</span>
+    {% if older_year %}
+    <a class="team-records-detail__nav-prev" href="{{ url_for('main.team_records_season', year_label=older_year) }}">← {{ older_year }}</a>
+    {% endif %}
+    {% if newer_year %}
+    <a class="team-records-detail__nav-next" href="{{ url_for('main.team_records_season', year_label=newer_year) }}">{{ newer_year }} →</a>
+    {% endif %}
+  </nav>
+  <h1 class="page-title">{{ detail.year_label }} Season</h1>
+</div>
+
+<div class="card team-records-detail__standings-card">
+  <h2>Standings</h2>
+  {% for group in detail.standings_groups %}
+  <section class="team-records-detail__group">
+    {% if group.title and group.title != 'League' %}
+    <h3 class="team-records-detail__group-title">{{ group.title }}</h3>
+    {% endif %}
+    <div class="table-wrap">
+      <table class="data team-records-detail__standings-table">
+        <thead>
+          <tr>
+            <th scope="col" class="team-records-detail__th-team">Team</th>
+            <th scope="col">GP</th>
+            <th scope="col">W</th>
+            <th scope="col">L</th>
+            <th scope="col">T (OTL)</th>
+            <th scope="col">PTS</th>
+            <th scope="col">GF</th>
+            <th scope="col">GA</th>
+            <th scope="col">Diff</th>
+            <th scope="col">PIM/G</th>
+            <th scope="col">PP%</th>
+            <th scope="col">PK%</th>
+            <th scope="col" class="team-records-detail__th-result">Result</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in group.rows %}
+          <tr>
+            <td class="team-records-detail__td-team">
+              {{ standings_logo(r) }}
+              {{ standings_team_name(r) }}
+            </td>
+            <td>{{ cell(r, 'gp') }}</td>
+            <td>{{ cell(r, 'w') }}</td>
+            <td>{{ cell(r, 'l') }}</td>
+            <td>{{ cell(r, 't_otl') }}</td>
+            <td class="team-records-detail__td-pts">{{ cell(r, 'pts') }}</td>
+            <td>{{ cell(r, 'gf') }}</td>
+            <td>{{ cell(r, 'ga') }}</td>
+            <td>{{ cell(r, 'goal_diff') }}</td>
+            <td>{{ cell(r, 'pim_per_game', 'rate') }}</td>
+            <td>{{ cell(r, 'pp_pct', 'pct') }}</td>
+            <td>{{ cell(r, 'pk_pct', 'pct') }}</td>
+            <td class="team-records-detail__td-result">
+              <span{% if (r.result or '') == 'BOWL CUP CHAMPION' %} class="team-records-detail__result--champion"{% endif %}>{{ r.result or '-' }}</span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% else %}
+  <p class="empty-state">No standings imported for this season.</p>
+  {% endfor %}
+</div>
+
+<div class="card team-records-detail__top10-card">
+  <h2>Top 10 Skaters</h2>
+  {% if detail.skater_sections %}
+  <div class="team-records-detail__top10-grid">
+    {% for sec in detail.skater_sections %}
+    <div class="card team-records-detail__top10-section">
+      <h3>{{ sec.title }}</h3>
+      {% if sec.rows %}
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr>
+              <th scope="col">#</th>
+              <th scope="col">Player</th>
+              <th scope="col">Team</th>
+              <th scope="col">{{ sec.title }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in sec.rows %}
+            <tr>
+              <td>{{ row.rank }}</td>
+              <td>
+                <span class="team-records-detail__player-cell">
+                  <a class="team-records-detail__player-headshot-hit" href="{{ url_for('main.player_page', player_id=row.player.id) }}" aria-label="{{ row.player.full_name }}">
+                    {% if player_headshot_url(row.player) %}
+                    <img class="team-records-detail__player-headshot" src="{{ player_headshot_url(row.player) }}" alt="" loading="lazy" decoding="async">
+                    {% else %}
+                    <span class="team-records-detail__player-headshot-ph" aria-hidden="true"></span>
+                    {% endif %}
+                  </a>
+                  <span class="team-records-detail__player-meta">
+                    <a class="team-records-detail__player-link" href="{{ url_for('main.player_page', player_id=row.player.id) }}">{{ row.player.full_name }}</a>
+                    <span class="team-records-detail__player-pos muted">{{ row.player | player_positions_display }}</span>
+                  </span>
+                </span>
+              </td>
+              <td>
+                {% if row.team %}
+                <a href="{{ url_for('main.team_page', slug=row.team.slug) }}" aria-label="{{ row.team.full_display_name() }}">
+                  <img class="team-records-detail__logo" src="{{ team_logo_url(row.team) }}" alt="" loading="lazy" decoding="async">
+                </a>
+                {% else %}
+                {% set logo_src = season_team_logo_url(row.logo_record) if row.logo_record is defined else none %}
+                {% if logo_src %}
+                <span class="team-records-detail__logo-hit" role="img" aria-label="{{ season_team_name(row.logo_record) or '' }}">
+                  <img class="team-records-detail__logo" src="{{ logo_src }}" alt="" loading="lazy" decoding="async">
+                </span>
+                {% else %}<span class="muted">—</span>{% endif %}
+                {% endif %}
+              </td>
+              <td>{{ row.value }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="empty-state muted">No data.</p>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="empty-state">No skater leaders for this season.</p>
+  {% endif %}
+</div>
+
+<div class="card team-records-detail__top10-card">
+  <h2>Top 10 Goalies</h2>
+  {% if detail.goalie_sections %}
+  <div class="team-records-detail__top10-grid">
+    {% for sec in detail.goalie_sections %}
+    <div class="card team-records-detail__top10-section">
+      <h3>{{ sec.title }}</h3>
+      {% if sec.rows %}
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr>
+              <th scope="col">#</th>
+              <th scope="col">Player</th>
+              <th scope="col">Team</th>
+              <th scope="col">{{ sec.title }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in sec.rows %}
+            <tr>
+              <td>{{ row.rank }}</td>
+              <td>
+                <span class="team-records-detail__player-cell">
+                  <a class="team-records-detail__player-headshot-hit" href="{{ url_for('main.player_page', player_id=row.player.id) }}" aria-label="{{ row.player.full_name }}">
+                    {% if player_headshot_url(row.player) %}
+                    <img class="team-records-detail__player-headshot" src="{{ player_headshot_url(row.player) }}" alt="" loading="lazy" decoding="async">
+                    {% else %}
+                    <span class="team-records-detail__player-headshot-ph" aria-hidden="true"></span>
+                    {% endif %}
+                  </a>
+                  <a class="team-records-detail__player-link" href="{{ url_for('main.player_page', player_id=row.player.id) }}">{{ row.player.full_name }}</a>
+                </span>
+              </td>
+              <td>
+                {% if row.team %}
+                <a href="{{ url_for('main.team_page', slug=row.team.slug) }}" aria-label="{{ row.team.full_display_name() }}">
+                  <img class="team-records-detail__logo" src="{{ team_logo_url(row.team) }}" alt="" loading="lazy" decoding="async">
+                </a>
+                {% else %}
+                {% set logo_src = season_team_logo_url(row.logo_record) if row.logo_record is defined else none %}
+                {% if logo_src %}
+                <span class="team-records-detail__logo-hit" role="img" aria-label="{{ season_team_name(row.logo_record) or '' }}">
+                  <img class="team-records-detail__logo" src="{{ logo_src }}" alt="" loading="lazy" decoding="async">
+                </span>
+                {% else %}<span class="muted">—</span>{% endif %}
+                {% endif %}
+              </td>
+              <td>{{ row.value }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="empty-state muted">No data.</p>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="empty-state">No goalie leaders for this season.</p>
+  {% endif %}
+</div>
+
+<div class="card team-records-detail__awards-card">
+  <h2>Award Winners</h2>
+  {% if awards_with_meta %}
+  <div class="table-wrap">
+    <table class="data team-records-detail__awards-table">
+      <thead>
+        <tr>
+          <th scope="col">Award</th>
+          <th scope="col">Winner</th>
+          <th scope="col">Team</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in awards_with_meta %}
+        {% set a = row.award %}
+        <tr>
+          <td>
+            <span class="team-records-detail__award-cell">
+              {% if row.trophy_rel %}
+              <img class="team-records-detail__award-trophy" src="{{ url_for('static', filename=row.trophy_rel) }}" alt="" loading="lazy" decoding="async">
+              {% endif %}
+              <span>{{ a.award_name }}</span>
+            </span>
+          </td>
+          <td>
+            {% if row.is_staff_award and a.coach_display %}
+            <span>{{ a.coach_display.full_name }}</span>
+            {% elif a.player %}
+            <a href="{{ url_for('main.player_page', player_id=a.player.id) }}">{{ a.player.full_name }}</a>
+            {% elif ('no_winner=1' in ((a.notes or '') | lower)) %}
+            <span class="muted">No Winner</span>
+            {% else %}
+            <span class="muted">—</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if row.is_staff_award and a.coach_display and a.coach_display.team %}
+            {{ team_logo_only(a.coach_display.team) }}
+            {% elif a.team %}
+            {{ team_logo_only(a.team) }}
+            {% elif a.player and a.player.current_team %}
+            {{ team_logo_only(a.player.current_team) }}
+            {% else %}
+            <span class="muted">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty-state">No award rows linked to this season.</p>
+  {% endif %}
+</div>
+{% endblock %}

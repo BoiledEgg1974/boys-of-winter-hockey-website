@@ -1653,6 +1653,53 @@ def league_season_records():
     )
 
 
+@main_bp.get("/team-records")
+def team_records_index():
+    from app.services.team_records import (
+        build_team_record_leaderboards,
+        list_season_summaries,
+    )
+
+    season_cards = list_season_summaries(db.session)
+    leaderboard_sections = build_team_record_leaderboards(db.session)
+    return render_template(
+        "team_records.html",
+        season_cards=season_cards,
+        leaderboard_sections=leaderboard_sections,
+    )
+
+
+@main_bp.get("/team-records/<year_label>")
+def team_records_season(year_label: str):
+    from app.services.team_records import adjacent_years, season_detail
+
+    raw_dir = Path(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR))
+    detail = season_detail(db.session, year_label, raw_dir=raw_dir)
+    if detail is None:
+        abort(404)
+    # Reuse League History award enrichments (coach display + trophy art) on Team Records season page.
+    attach_coach_award_displays(detail.awards, db.session, raw_dir)
+    trophy_stem_map = _history_award_trophy_stem_map()
+    awards_with_meta = [
+        {
+            "award": a,
+            "trophy_rel": _history_award_trophy_rel_from_map(trophy_stem_map, a.award_name or ""),
+            "is_staff_award": is_staff_history_award(a.award_name),
+            "is_team_award": is_team_history_award(a.award_name),
+            "is_jim_gregory_award": is_jim_gregory_award(a.award_name),
+        }
+        for a in detail.awards
+    ]
+    newer, older = adjacent_years(db.session, year_label)
+    return render_template(
+        "team_records_season.html",
+        detail=detail,
+        awards_with_meta=awards_with_meta,
+        newer_year=newer,
+        older_year=older,
+    )
+
+
 @main_bp.get("/milestones")
 def milestones():
     from app.services.milestones import build_milestone_sections
@@ -3071,6 +3118,7 @@ def team_page(slug: str):
         "staff",
         "franchise",
         "season_records",
+        "team_history",
     }
     if panel not in allowed_team_panels:
         panel = "roster"
@@ -3125,6 +3173,12 @@ def team_page(slug: str):
         season_records_rs_sections, season_records_po_sections = build_team_season_records_bundle(
             db.session, team
         )
+
+    team_history_records: list[object] = []
+    if panel == "team_history":
+        from app.services.team_records import team_year_records
+
+        team_history_records = team_year_records(db.session, team)
 
     raw_dir = Path(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR))
     depth_chart, lines_sections, lines_name_to_id, salary_rows, salary_total = _build_team_lines_views(
@@ -3350,6 +3404,7 @@ def team_page(slug: str):
         "franchise_history_sections": franchise_history_sections,
         "season_records_rs_sections": season_records_rs_sections,
         "season_records_po_sections": season_records_po_sections,
+        "team_history_records": team_history_records,
         "team_ap_balance": compute_team_ap_balance(str(current_app.config.get("LEAGUE_SLUG") or ""), team.id),
         "team_page_news": _team_page_news_rows(team.id),
         "news_viewer_can_react": news_viewer_can_react,

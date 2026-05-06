@@ -18,6 +18,7 @@
         <tr><th>Generated (UTC)</th><td>{{ report.generated_at }}</td></tr>
         <tr><th>Raw folder</th><td><code>{{ report.raw_dir }}</code></td></tr>
         <tr><th>Team logos folder</th><td><code>{{ report.team_logos_dir }}</code></td></tr>
+        {% if report.static_root %}<tr><th>Static root</th><td><code>{{ report.static_root }}</code></td></tr>{% endif %}
       </tbody>
     </table>
   </div>
@@ -71,6 +72,17 @@
   {% endif %}
   {% if report.missing_logos %}
   <p><strong>Missing team logos:</strong> {{ report.missing_logos|join(', ') }}</p>
+  {% endif %}
+
+  {% if report.team_identity_history_issues %}
+  <h3 style="margin:0.85rem 0 0.4rem;">team_identity_history.csv</h3>
+  <p class="muted" style="margin:0 0 0.5rem;">
+    Rows with empty <code>logo_file</code> or a path that does not exist under <code>app/static</code>.
+    CLI: <code>python scripts/validate_team_identity_history_logos.py --league {{ config.LEAGUE_SLUG }}</code>
+  </p>
+  <ul style="margin:0;padding-left:1.2rem;max-height:22rem;overflow:auto;font-size:0.9rem;">
+    {% for line in report.team_identity_history_issues %}<li><code style="word-break:break-all;">{{ line }}</code></li>{% endfor %}
+  </ul>
   {% endif %}
 </div>
 {% endblock %}

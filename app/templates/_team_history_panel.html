@@ -1,0 +1,205 @@
+{# Season-by-season chart + table for one team. Renders a stacked W/L/T+OTL bar chart
+   with PTS overlaid as a line, plus a sortable table linking to /team-records/<year>. #}
+
+{% set primary = team.primary_color or '#16a34a' %}
+{% set rec_count = team_history_records | length %}
+
+{% if rec_count > 0 %}
+{# ---------- Pre-compute geometry in Jinja ---------- #}
+{% set chart_height = 260 %}
+{% set chart_padding_left = 44 %}
+{% set chart_padding_right = 44 %}
+{% set chart_padding_top = 18 %}
+{% set chart_padding_bottom = 60 %}
+{% set inner_height = chart_height - chart_padding_top - chart_padding_bottom %}
+{% set bar_min_width = 16 %}
+{% set bar_gap = 6 %}
+{% set inner_width = (rec_count * bar_min_width) + ((rec_count - 1) * bar_gap) %}
+{% if inner_width < 540 %}{% set inner_width = 540 %}{% endif %}
+{% set chart_width = inner_width + chart_padding_left + chart_padding_right %}
+{% set bar_total_w = inner_width / rec_count if rec_count > 0 else 0 %}
+{% set bar_w = bar_total_w - bar_gap if (bar_total_w - bar_gap) > 4 else (bar_total_w * 0.75) %}
+
+{# Compute max GP and max PTS to scale axes #}
+{% set ns = namespace(max_gp=0, max_pts=0) %}
+{% for r in team_history_records %}
+  {% set this_gp = (r.w or 0) + (r.l or 0) + (r.t_otl or 0) %}
+  {% if this_gp > ns.max_gp %}{% set ns.max_gp = this_gp %}{% endif %}
+  {% if (r.pts or 0) > ns.max_pts %}{% set ns.max_pts = r.pts or 0 %}{% endif %}
+{% endfor %}
+{% if ns.max_gp <= 0 %}{% set ns.max_gp = 82 %}{% endif %}
+{% if ns.max_pts <= 0 %}{% set ns.max_pts = 1 %}{% endif %}
+
+<div class="card team-history-panel">
+  <header style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.4rem;">
+    <h2 style="margin:0;font-size:1.15rem;">Season-by-Season History</h2>
+    <a href="{{ url_for('main.team_records_index') }}" class="muted" style="font-size:0.85rem;">View all Team Records →</a>
+  </header>
+
+  <div class="team-history-panel__legend" role="list" aria-label="Chart legend">
+    <span class="team-history-panel__legend-item" role="listitem"><span class="team-history-panel__legend-swatch team-history-panel__legend-swatch--w"></span>Wins</span>
+    <span class="team-history-panel__legend-item" role="listitem"><span class="team-history-panel__legend-swatch team-history-panel__legend-swatch--l"></span>Losses</span>
+    <span class="team-history-panel__legend-item" role="listitem"><span class="team-history-panel__legend-swatch team-history-panel__legend-swatch--t"></span>Ties / OTL</span>
+    <span class="team-history-panel__legend-item" role="listitem"><span class="team-history-panel__legend-swatch team-history-panel__legend-swatch--pts"></span>Points</span>
+  </div>
+
+  <div class="team-history-panel__chart-wrap">
+    <svg class="team-history-panel__chart"
+         viewBox="0 0 {{ chart_width }} {{ chart_height }}"
+         preserveAspectRatio="xMinYMid meet"
+         role="img"
+         aria-label="Season-by-season W/L/T(OTL) bar chart with PTS line">
+
+      {# Y-axis grid lines (4 lines from 0 to max_gp) #}
+      {% for i in range(0, 5) %}
+      {% set y = chart_padding_top + (inner_height * (4 - i) / 4) %}
+      {% set tick_value_left = (ns.max_gp * i / 4) | round(0, 'common') | int %}
+      {% set tick_value_right = (ns.max_pts * i / 4) | round(0, 'common') | int %}
+      <line class="team-history-panel__chart-grid"
+            x1="{{ chart_padding_left }}" y1="{{ y }}"
+            x2="{{ chart_padding_left + inner_width }}" y2="{{ y }}"
+            stroke-dasharray="2,3" />
+      <text class="team-history-panel__chart-tick"
+            x="{{ chart_padding_left - 6 }}" y="{{ y + 3 }}"
+            text-anchor="end">{{ tick_value_left }}</text>
+      <text class="team-history-panel__chart-tick"
+            x="{{ chart_padding_left + inner_width + 6 }}" y="{{ y + 3 }}"
+            text-anchor="start">{{ tick_value_right }}</text>
+      {% endfor %}
+
+      {# Y-axis lines #}
+      <line class="team-history-panel__chart-axis"
+            x1="{{ chart_padding_left }}" y1="{{ chart_padding_top }}"
+            x2="{{ chart_padding_left }}" y2="{{ chart_padding_top + inner_height }}" />
+      <line class="team-history-panel__chart-axis"
+            x1="{{ chart_padding_left + inner_width }}" y1="{{ chart_padding_top }}"
+            x2="{{ chart_padding_left + inner_width }}" y2="{{ chart_padding_top + inner_height }}" />
+
+      {# Axis labels #}
+      <text class="team-history-panel__chart-tick"
+            x="{{ chart_padding_left - 6 }}" y="{{ chart_padding_top - 4 }}"
+            text-anchor="end" style="font-weight:700;">GP</text>
+      <text class="team-history-panel__chart-tick"
+            x="{{ chart_padding_left + inner_width + 6 }}" y="{{ chart_padding_top - 4 }}"
+            text-anchor="start" style="font-weight:700;">PTS</text>
+
+      {# Bars + tooltips wrapped in <a> linking to detail page #}
+      {% set ns2 = namespace(prev_x=none, prev_y=none) %}
+      {% for r in team_history_records %}
+      {% set i = loop.index0 %}
+      {% set x_left = chart_padding_left + (i * (bar_w + bar_gap)) %}
+      {% set bx = x_left %}
+      {% set w_val = r.w or 0 %}
+      {% set l_val = r.l or 0 %}
+      {% set t_val = r.t_otl or 0 %}
+      {% set pts_val = r.pts or 0 %}
+      {% set h_w = (w_val / ns.max_gp) * inner_height %}
+      {% set h_l = (l_val / ns.max_gp) * inner_height %}
+      {% set h_t = (t_val / ns.max_gp) * inner_height %}
+      {% set bar_bottom = chart_padding_top + inner_height %}
+      {% set y_w = bar_bottom - h_w %}
+      {% set y_l = y_w - h_l %}
+      {% set y_t = y_l - h_t %}
+      {% set pts_y = chart_padding_top + inner_height - ((pts_val / ns.max_pts) * inner_height) %}
+      {% set pts_x = bx + (bar_w / 2) %}
+      <a href="{{ url_for('main.team_records_season', year_label=r.season_year_label) }}">
+        <title>{{ r.season_year_label }}: {{ w_val }}-{{ l_val }}-{{ t_val }}{% if r.pts is not none %} · {{ r.pts }} PTS{% endif %}{% if r.gf is not none and r.ga is not none %} · {{ r.gf }} GF / {{ r.ga }} GA{% endif %}{% if r.result %} · {{ r.result }}{% endif %}</title>
+        {% if h_w > 0 %}<rect class="team-history-panel__chart-bar--w" x="{{ bx }}" y="{{ y_w }}" width="{{ bar_w }}" height="{{ h_w }}"></rect>{% endif %}
+        {% if h_l > 0 %}<rect class="team-history-panel__chart-bar--l" x="{{ bx }}" y="{{ y_l }}" width="{{ bar_w }}" height="{{ h_l }}"></rect>{% endif %}
+        {% if h_t > 0 %}<rect class="team-history-panel__chart-bar--t" x="{{ bx }}" y="{{ y_t }}" width="{{ bar_w }}" height="{{ h_t }}"></rect>{% endif %}
+      </a>
+
+      {# Connecting PTS line segment #}
+      {% if ns2.prev_x is not none %}
+      <line class="team-history-panel__chart-pts-line"
+            x1="{{ ns2.prev_x }}" y1="{{ ns2.prev_y }}"
+            x2="{{ pts_x }}" y2="{{ pts_y }}" />
+      {% endif %}
+      {% set ns2.prev_x = pts_x %}
+      {% set ns2.prev_y = pts_y %}
+      {% endfor %}
+
+      {# PTS dots — drawn after lines so they sit on top #}
+      {% for r in team_history_records %}
+      {% set i = loop.index0 %}
+      {% set x_left = chart_padding_left + (i * (bar_w + bar_gap)) %}
+      {% set pts_val = r.pts or 0 %}
+      {% set pts_y = chart_padding_top + inner_height - ((pts_val / ns.max_pts) * inner_height) %}
+      {% set pts_x = x_left + (bar_w / 2) %}
+      {% if r.pts is not none %}
+      <circle class="team-history-panel__chart-pts-dot" cx="{{ pts_x }}" cy="{{ pts_y }}" r="3"></circle>
+      {% endif %}
+      {% endfor %}
+
+      {# X-axis season labels (rotated when many seasons) #}
+      {% for r in team_history_records %}
+      {% set i = loop.index0 %}
+      {% set x_left = chart_padding_left + (i * (bar_w + bar_gap)) %}
+      {% set lbl_x = x_left + (bar_w / 2) %}
+      {% set lbl_y = chart_padding_top + inner_height + 14 %}
+      {% if rec_count <= 12 %}
+      <text class="team-history-panel__chart-tick"
+            x="{{ lbl_x }}" y="{{ lbl_y }}"
+            text-anchor="middle">{{ r.season_year_label }}</text>
+      {% else %}
+      <text class="team-history-panel__chart-tick team-history-panel__chart-tick--rot"
+            x="{{ lbl_x }}" y="{{ lbl_y }}"
+            transform="rotate(-55 {{ lbl_x }} {{ lbl_y }})">{{ r.season_year_label }}</text>
+      {% endif %}
+      {% endfor %}
+    </svg>
+  </div>
+
+  <div class="table-wrap">
+    <table class="data team-history-panel__table">
+      <thead>
+        <tr>
+          <th scope="col">Season</th>
+          <th scope="col">GP</th>
+          <th scope="col">W</th>
+          <th scope="col">L</th>
+          <th scope="col">T (OTL)</th>
+          <th scope="col">PTS</th>
+          <th scope="col">GF</th>
+          <th scope="col">GA</th>
+          <th scope="col">Diff</th>
+          <th scope="col">PIM/G</th>
+          <th scope="col">PP%</th>
+          <th scope="col">PK%</th>
+          <th scope="col" class="team-history-panel__cell-result">Result</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in team_history_records | reverse %}
+        {% set null_cols = (r.null_columns_csv or '').split(',') %}
+        <tr>
+          <td>
+            <a href="{{ url_for('main.team_records_season', year_label=r.season_year_label) }}">{{ r.season_year_label }}</a>
+          </td>
+          <td>{% if r.gp is not none %}{{ r.gp }}{% elif 'gp' in null_cols %}-{% endif %}</td>
+          <td>{% if r.w is not none %}{{ r.w }}{% elif 'w' in null_cols %}-{% endif %}</td>
+          <td>{% if r.l is not none %}{{ r.l }}{% elif 'l' in null_cols %}-{% endif %}</td>
+          <td>{% if r.t_otl is not none %}{{ r.t_otl }}{% elif 't_otl' in null_cols %}-{% endif %}</td>
+          <td><strong>{% if r.pts is not none %}{{ r.pts }}{% elif 'pts' in null_cols %}-{% endif %}</strong></td>
+          <td>{% if r.gf is not none %}{{ r.gf }}{% elif 'gf' in null_cols %}-{% endif %}</td>
+          <td>{% if r.ga is not none %}{{ r.ga }}{% elif 'ga' in null_cols %}-{% endif %}</td>
+          <td>{% if r.goal_diff is not none %}{{ r.goal_diff }}{% elif 'goal_diff' in null_cols %}-{% endif %}</td>
+          <td>{% if r.pim_per_game is not none %}{{ '%.2f'|format(r.pim_per_game) }}{% elif 'pim_per_game' in null_cols %}-{% endif %}</td>
+          <td>{% if r.pp_pct is not none %}{{ '%.1f'|format(r.pp_pct) }}{% elif 'pp_pct' in null_cols %}-{% endif %}</td>
+          <td>{% if r.pk_pct is not none %}{{ '%.1f'|format(r.pk_pct) }}{% elif 'pk_pct' in null_cols %}-{% endif %}</td>
+          <td class="team-history-panel__cell-result">{{ r.result or '-' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="card team-history-panel">
+  <h2 style="margin:0 0 0.4rem;font-size:1.15rem;">Season-by-Season History</h2>
+  <p class="empty-state">
+    No historical season records on file for this franchise yet.
+    Add rows for this team to <code>data/imports/raw/{{ config.RAW_IMPORT_DIR.name }}/team_season_records_template.csv</code> and re-run the import.
+  </p>
+</div>
+{% endif %}

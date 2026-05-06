@@ -1,5 +1,6 @@
 import colorsys
 import importlib
+import re
 from pathlib import Path
 
 import click
@@ -8,7 +9,7 @@ from flask_login import current_user
 from flask_wtf.csrf import CSRFProtect
 
 from app.auth_login import create_login_manager
-from app.config import LEAGUES, Config
+from app.config import LEAGUES, Config, league_slugs
 from app.db_utils import (
     ensure_fts5,
     ensure_history_awards_staff_fhm_id_sqlite,
@@ -315,6 +316,336 @@ def create_app(config_class: type = Config) -> Flask:
         def team_logo_url(team: Team) -> str:
             return team_logo_url_for_team(team)
 
+        historical_team_logo_rel_by_id: dict[str, str] = {}
+        historical_team_logo_rel_by_name: dict[str, str] = {}
+        historical_team_name_by_id: dict[str, str] = {}
+        historical_team_name_rows_by_id: dict[str, list[tuple[int, str]]] = {}
+        historical_team_name_override_by_id_year: dict[tuple[str, int], str] = {}
+        historical_team_logo_override_by_id_year: dict[tuple[str, int], str] = {}
+        historical_team_logo_timeline_by_name_year: dict[tuple[str, int], str] = {}
+        def _norm_team_logo_name(s: str) -> str:
+            return " ".join(
+                str(s or "")
+                .lower()
+                .replace("-", " ")
+                .replace("_", " ")
+                .split()
+            )
+        def _record_start_year(record: object) -> int | None:
+            for attr in ("season_year", "start_year"):
+                v = getattr(record, attr, None)
+                try:
+                    if v is not None:
+                        return int(v)
+                except Exception:
+                    pass
+            label = getattr(record, "season_year_label", None)
+            if label and "-" in str(label):
+                try:
+                    return int(str(label).split("-", 1)[0])
+                except Exception:
+                    return None
+            return None
+        def _historical_name_for_tid(record: object, tid_s: str) -> str | None:
+            sy = _record_start_year(record)
+            if sy is not None:
+                ovr = historical_team_name_override_by_id_year.get((tid_s, sy))
+                if ovr:
+                    return ovr
+            rows = historical_team_name_rows_by_id.get(tid_s) or []
+            if sy is not None:
+                for row_year, row_name in rows:
+                    if row_year == sy:
+                        return row_name
+            if tid_s in historical_team_name_by_id:
+                return historical_team_name_by_id[tid_s]
+            if rows:
+                return rows[0][1]
+            return None
+        def _record_name_candidates(record: object) -> list[str]:
+            out: list[str] = []
+            for attr in ("team_name_override", "team_name"):
+                v = getattr(record, attr, None)
+                if v:
+                    out.append(_norm_team_logo_name(str(v)))
+            if hasattr(record, "record"):
+                rec = getattr(record, "record")
+                if rec is not None:
+                    for attr in ("team_name_override", "team_name"):
+                        v = getattr(rec, attr, None)
+                        if v:
+                            out.append(_norm_team_logo_name(str(v)))
+            team_obj = getattr(record, "team", None)
+            if team_obj is not None:
+                for attr in ("full_display_name", "name", "city", "nickname"):
+                    v = getattr(team_obj, attr, None)
+                    if callable(v):
+                        try:
+                            v = v()
+                        except Exception:
+                            v = None
+                    if v:
+                        out.append(_norm_team_logo_name(str(v)))
+                city = getattr(team_obj, "city", None)
+                nick = getattr(team_obj, "nickname", None)
+                if city and nick:
+                    out.append(_norm_team_logo_name(f"{city} {nick}"))
+            # preserve order, remove duplicates
+            dedup: list[str] = []
+            seen: set[str] = set()
+            for nm in out:
+                if nm and nm not in seen:
+                    seen.add(nm)
+                    dedup.append(nm)
+            return dedup
+        if str(app.config.get("LEAGUE_SLUG") or "") in league_slugs():
+            team_logos_rel = str(app.config.get("TEAM_LOGOS_REL_DIR") or "logos/teams").replace("\\", "/").strip("/")
+            team_logos_dir = Path(str(app.config.get("TEAM_LOGOS_DIR") or ""))
+            if team_logos_dir.is_dir():
+                for p in team_logos_dir.iterdir():
+                    if not p.is_file() or p.suffix.lower() not in (".png", ".webp", ".jpg", ".jpeg", ".svg"):
+                        continue
+                    try:
+                        rel = p.relative_to(Path(app.root_path) / "static")
+                    except ValueError:
+                        continue
+                    rel_s = str(rel).replace("\\", "/")
+                    m = re.search(r"-t(\d+)$", p.stem.lower())
+                    if m:
+                        tid = m.group(1)
+                        historical_team_logo_rel_by_id[tid] = rel_s
+                    # Optional explicit-name fallback: filenames like "*-montreal-wanderers.*"
+                    parts = p.stem.lower().split("-", 1)
+                    if len(parts) == 2 and parts[1].strip():
+                        historical_team_logo_rel_by_name[_norm_team_logo_name(parts[1])] = rel_s
+                    # Timeline: "<team_name>_<start>-<end>.png" or "<team_name>_<start>-present.png"
+                    # ("present" = still in use; mapped through season year 2100, same as team_identity_history.csv).
+                    tm = re.search(r"^(.+?)_(\d{4})-(present|\d{4})$", p.stem.lower())
+                    if tm:
+                        key = _norm_team_logo_name(tm.group(1))
+                        try:
+                            yr0 = int(tm.group(2))
+                        except Exception:
+                            yr0 = -1
+                        end_tok = tm.group(3)
+                        if end_tok == "present":
+                            yr1 = 2100
+                        else:
+                            try:
+                                yr1 = int(end_tok)
+                            except Exception:
+                                yr1 = -1
+                        if yr0 > 0 and yr1 > 0:
+                            for yy in range(min(yr0, yr1), max(yr0, yr1) + 1):
+                                historical_team_logo_timeline_by_name_year[(key, yy)] = rel_s
+            # Read per-team fallback names from league team season template (Team Name Override).
+            raw_dir = Path(str(app.config.get("RAW_IMPORT_DIR") or ""))
+            tsr = raw_dir / "team_season_records_template.csv"
+            if tsr.is_file():
+                try:
+                    import csv
+
+                    with tsr.open("r", encoding="utf-8-sig", newline="") as f:
+                        sample = f.read(2048)
+                        f.seek(0)
+                        delim = ";" if sample.count(";") >= sample.count(",") else ","
+                        rdr = csv.DictReader(f, delimiter=delim)
+                        for row in rdr:
+                            tid = (row.get("Team ID") or row.get("team_id") or "").strip()
+                            nm = (row.get("Team Name Override") or row.get("team_name_override") or "").strip()
+                            year = (row.get("Year") or row.get("season") or "").strip()
+                            try:
+                                start_year = int(str(year).split("-", 1)[0]) if year and "-" in year else int(year)
+                            except Exception:
+                                start_year = None
+                            if tid and nm and tid not in historical_team_name_by_id:
+                                historical_team_name_by_id[tid] = nm
+                            if tid and nm and start_year is not None:
+                                historical_team_name_rows_by_id.setdefault(tid, []).append((start_year, nm))
+                except Exception:
+                    pass
+            # Optional per-year identity overrides:
+            # team_fhm_id,start_year,end_year,team_name,logo_file
+            ident_csv = raw_dir / "team_identity_history.csv"
+            if ident_csv.is_file():
+                try:
+                    import csv
+
+                    with ident_csv.open("r", encoding="utf-8-sig", newline="") as f:
+                        sample = f.read(2048)
+                        f.seek(0)
+                        delim = ";" if sample.count(";") >= sample.count(",") else ","
+                        rdr = csv.DictReader(f, delimiter=delim)
+                        for row in rdr:
+                            tid = str(
+                                (row.get("team_fhm_id") or row.get("team_id") or "").strip()
+                            )
+                            name = str(
+                                (row.get("team_name") or row.get("display_name") or "").strip()
+                            )
+                            logo = str(
+                                (row.get("logo_file") or row.get("logo_file_override") or "").strip()
+                            )
+                            try:
+                                y0 = int(
+                                    str(
+                                        row.get("start_year")
+                                        or row.get("year_start")
+                                        or row.get("year")
+                                        or ""
+                                    ).strip()
+                                )
+                            except Exception:
+                                continue
+                            try:
+                                y1 = int(str(row.get("end_year") or row.get("year_end") or y0).strip())
+                            except Exception:
+                                y1 = y0
+                            if logo and not logo.startswith("logos/"):
+                                logo = f"{team_logos_rel}/{logo}"
+                            for yy in range(min(y0, y1), max(y0, y1) + 1):
+                                if tid:
+                                    if name:
+                                        historical_team_name_override_by_id_year[(tid, yy)] = name
+                                    if logo:
+                                        historical_team_logo_override_by_id_year[(tid, yy)] = logo
+                                if name and logo:
+                                    historical_team_logo_timeline_by_name_year[
+                                        (_norm_team_logo_name(name), yy)
+                                    ] = logo
+                except Exception:
+                    pass
+            # NHL-era defaults (historical + cap); fantasy uses team_identity_history.csv only.
+            if str(app.config.get("LEAGUE_SLUG") or "") in ("bowl-historical", "bowl-cap"):
+                hist_logo_root = "logos/teams/bowl_historical"
+                historical_team_logo_rel_by_name.setdefault(
+                    "ottawa senators", f"{hist_logo_root}/ott-ottawa-senators.png"
+                )
+                historical_team_logo_rel_by_name.setdefault(
+                    "montreal wanderers", f"{hist_logo_root}/mtw-montreal-wanderers.png"
+                )
+                historical_team_logo_rel_by_name.setdefault(
+                    "montreal maroons", f"{hist_logo_root}/mtl-t6.png"
+                )
+                historical_team_logo_rel_by_name.setdefault(
+                    "pittsburgh pirates", f"{hist_logo_root}/pit-t7.png"
+                )
+                historical_team_logo_rel_by_name.setdefault(
+                    "philadelphia quakers", f"{hist_logo_root}/philadelphia_quakers.png"
+                )
+                historical_team_logo_rel_by_name.setdefault(
+                    "st louis eagles", f"{hist_logo_root}/st__louis_eagles.png"
+                )
+                historical_team_logo_rel_by_name.setdefault(
+                    "quebec bulldogs", f"{hist_logo_root}/quebec_bulldogs.png"
+                )
+                historical_team_logo_rel_by_name.setdefault(
+                    "hamilton tigers", f"{hist_logo_root}/hamilton_tigers.png"
+                )
+                historical_team_logo_rel_by_name.setdefault(
+                    "new york americans", f"{hist_logo_root}/new_york_americans.png"
+                )
+                # Historical correction for reused Team ID 4 on early Joe Malone rows.
+                historical_team_name_override_by_id_year[("4", 1919)] = "Quebec Bulldogs"
+                historical_team_logo_override_by_id_year[("4", 1919)] = f"{hist_logo_root}/quebec_bulldogs.png"
+                historical_team_name_override_by_id_year[("4", 1920)] = "Hamilton Tigers"
+                historical_team_logo_override_by_id_year[("4", 1920)] = f"{hist_logo_root}/hamilton_tigers.png"
+                historical_team_name_override_by_id_year[("4", 1921)] = "Hamilton Tigers"
+                historical_team_logo_override_by_id_year[("4", 1921)] = f"{hist_logo_root}/hamilton_tigers.png"
+                historical_team_name_override_by_id_year[("4", 1922)] = "Hamilton Tigers"
+                historical_team_logo_override_by_id_year[("4", 1922)] = f"{hist_logo_root}/hamilton_tigers.png"
+                historical_team_name_override_by_id_year[("4", 1923)] = "Hamilton Tigers"
+                historical_team_logo_override_by_id_year[("4", 1923)] = f"{hist_logo_root}/hamilton_tigers.png"
+                historical_team_name_override_by_id_year[("4", 1924)] = "Hamilton Tigers"
+                historical_team_logo_override_by_id_year[("4", 1924)] = f"{hist_logo_root}/hamilton_tigers.png"
+                historical_team_name_override_by_id_year[("4", 1925)] = "New York Americans"
+                historical_team_logo_override_by_id_year[("4", 1925)] = f"{hist_logo_root}/new_york_americans.png"
+                historical_team_name_override_by_id_year[("4", 1926)] = "New York Americans"
+                historical_team_logo_override_by_id_year[("4", 1926)] = f"{hist_logo_root}/new_york_americans.png"
+
+        def season_team_logo_url(record: object) -> str | None:
+            from flask import url_for
+
+            # Explicit season-row override from CSV always wins.
+            logo_override_rel = getattr(record, "logo_file_override", None) or getattr(
+                record, "team_logo_override_rel", None
+            )
+            if logo_override_rel:
+                rel = str(logo_override_rel).lstrip("/\\").replace("\\", "/")
+                if rel.startswith("static/"):
+                    rel = rel[7:]
+                if rel:
+                    return url_for("static", filename=rel)
+
+            # Historical site: map Team ID -> logos/teams/bowl_historical/*-t<ID>.*
+            tid = getattr(record, "team_fhm_id_csv", None)
+            if tid is None and hasattr(record, "record"):
+                tid = getattr(getattr(record, "record"), "team_fhm_id_csv", None)
+            if tid is None:
+                tid = getattr(record, "team_fhm_id", None)
+            if tid is None:
+                team_obj = getattr(record, "team", None)
+                if team_obj is not None:
+                    tid = getattr(team_obj, "fhm_team_id", None)
+            tid_s = str(tid or "").strip()
+            sy = _record_start_year(record)
+            if tid_s and sy is not None:
+                rel = historical_team_logo_override_by_id_year.get((tid_s, sy))
+                if rel:
+                    return url_for("static", filename=rel)
+            # Timeline naming convention by team name and year wins over generic Team-ID logos.
+            if sy is not None:
+                for nm in _record_name_candidates(record):
+                    rel = historical_team_logo_timeline_by_name_year.get((nm, sy))
+                    if rel:
+                        return url_for("static", filename=rel)
+            if tid_s and tid_s in historical_team_logo_rel_by_id:
+                return url_for("static", filename=historical_team_logo_rel_by_id[tid_s])
+            # If a historical Team ID has no `*-t<ID>` asset, fall back via known team name.
+            name_from_tid = _historical_name_for_tid(record, tid_s) if tid_s else None
+            if name_from_tid:
+                nm = _norm_team_logo_name(name_from_tid)
+                rel = historical_team_logo_rel_by_name.get(nm)
+                if rel:
+                    return url_for("static", filename=rel)
+
+            # Name-only fallback (historical rows without team id), e.g. "Montreal Wanderers".
+            for nm in _record_name_candidates(record):
+                rel = historical_team_logo_rel_by_name.get(nm)
+                if rel:
+                    return url_for("static", filename=rel)
+
+            team_obj = getattr(record, "team", None)
+            if team_obj:
+                return team_logo_url_for_team(team_obj)
+            return None
+
+        def season_team_name(record: object) -> str | None:
+            tid = getattr(record, "team_fhm_id_csv", None)
+            if tid is None:
+                tid = getattr(record, "team_fhm_id", None)
+            if tid is None:
+                team_obj = getattr(record, "team", None)
+                if team_obj is not None:
+                    tid = getattr(team_obj, "fhm_team_id", None)
+            tid_s = str(tid or "").strip()
+            nm_from_tid = _historical_name_for_tid(record, tid_s) if tid_s else None
+            if nm_from_tid:
+                return nm_from_tid
+            team_obj = getattr(record, "team", None)
+            if team_obj:
+                return team_obj.full_display_name()
+            nm = getattr(record, "team_name_override", None)
+            if nm:
+                return str(nm).strip() or None
+            return None
+        def season_team_source_id(record: object) -> str | None:
+            tid = getattr(record, "team_fhm_id_csv", None)
+            if tid is None:
+                tid = getattr(record, "team_fhm_id", None)
+            tid_s = str(tid or "").strip()
+            return tid_s or None
+
         def player_headshot_url(player: Player | None) -> str | None:
             from flask import url_for
 
@@ -416,6 +747,9 @@ def create_app(config_class: type = Config) -> Flask:
         return dict(
             nav_teams=teams,
             team_logo_url=team_logo_url,
+            season_team_logo_url=season_team_logo_url,
+            season_team_name=season_team_name,
+            season_team_source_id=season_team_source_id,
             history_team_award_era_logo_url=history_team_award_era_logo_url,
             history_team_award_notes_team_label=history_team_award_notes_team_label,
             history_jim_gregory_era_logo_url=history_jim_gregory_era_logo_url,

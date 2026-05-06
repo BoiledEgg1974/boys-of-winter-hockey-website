@@ -10257,3 +10257,596 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   border-radius: 6px;
   border: 1px dashed #4b5563;
 }
+
+/* ============================================================
+   Team Records page (index + season detail) + team page chart
+   ============================================================ */
+.team-records-page {
+  margin-bottom: 0.75rem;
+}
+.team-records-leaderboards {
+  margin-bottom: 0.75rem;
+}
+.team-records-leaderboards__heading {
+  margin: 0 0 0.6rem;
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+.team-records-leaderboards__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(20rem, 1fr));
+  gap: 0.75rem;
+}
+@media (max-width: 1200px) {
+  .team-records-leaderboards__grid {
+    grid-template-columns: repeat(2, minmax(18rem, 1fr));
+  }
+}
+@media (max-width: 720px) {
+  .team-records-leaderboards__grid {
+    grid-template-columns: 1fr;
+  }
+}
+.team-records-leaderboards__card {
+  margin: 0;
+}
+.team-records-leaderboards__card-title {
+  margin: 0 0 0.45rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+.team-records-leaderboards__table {
+  width: 100%;
+  table-layout: fixed;
+  font-size: 0.7rem;
+}
+.team-records-leaderboards__table th,
+.team-records-leaderboards__table td {
+  padding: 0.2rem 0.3rem;
+  vertical-align: middle;
+}
+.team-records-leaderboards .table-wrap {
+  overflow-x: visible;
+}
+.team-records-leaderboards__th-rank,
+.team-records-leaderboards__td-rank {
+  width: 1.75rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.team-records-leaderboards__th-team {
+  width: 50%;
+}
+.team-records-leaderboards__th-season,
+.team-records-leaderboards__td-season {
+  width: 4.6rem;
+  font-variant-numeric: tabular-nums;
+}
+.team-records-leaderboards__th-value,
+.team-records-leaderboards__td-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  width: 3.4rem;
+}
+.team-records-leaderboards__td-team {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.team-records-logo {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  display: block;
+}
+.team-records-logo-hit {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+.team-records-logo-hit--empty {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 50%;
+}
+.team-records-leaderboards__team-link {
+  font-weight: 600;
+  text-decoration: none;
+  color: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.team-records-leaderboards__team-link:hover {
+  text-decoration: underline;
+}
+.team-records-leaderboards__team-link--noteam {
+  font-style: italic;
+  opacity: 0.85;
+}
+
+/* season cards grid */
+.team-records-seasons {
+  margin-bottom: 0.75rem;
+}
+.team-records-seasons__heading {
+  margin: 0 0 0.6rem;
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+.team-records-seasons__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(20rem, 1fr));
+  gap: 0.9rem;
+}
+.team-records-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.9rem 1rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+.team-records-card--season-panel {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 14px rgba(2, 8, 23, 0.28), inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+  background: rgba(10, 18, 38, 0.78);
+  gap: 0;
+  min-height: 12.5rem;
+  overflow: hidden;
+}
+.team-records-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+  transform: translateY(-1px);
+}
+.team-records-card__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.2rem;
+}
+.team-records-card__body {
+  display: flex;
+  flex-direction: column;
+}
+.team-records-card__year-link {
+  text-decoration: none;
+  color: inherit;
+  display: inline-flex;
+  width: 100%;
+}
+.team-records-card__year-link:hover .team-records-card__year,
+.team-records-card__year-link:focus-visible .team-records-card__year {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+}
+.team-records-card__year {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  display: block;
+  width: 100%;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+}
+.team-records-card__year-sub {
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.team-records-card__row {
+  display: grid;
+  grid-template-columns: 7.1rem minmax(0, 1fr);
+  gap: 0.6rem;
+  align-items: start;
+  font-size: 0.88rem;
+  padding: 0.45rem 0.1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+.team-records-card__body .team-records-card__row:first-child {
+  border-top-color: rgba(255, 255, 255, 0.1);
+}
+.team-records-card__label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.72;
+  line-height: 1.25;
+  padding-top: 0.1rem;
+}
+.team-records-card__label--with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.team-records-card__label-icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  opacity: 0.92;
+}
+.team-records-card__value {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 0.4rem;
+  row-gap: 0.2rem;
+  min-width: 0;
+}
+.team-records-card__team-logo {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  display: block;
+}
+.team-records-card__team-logo-hit {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+.team-records-card__team-logo-hit--empty {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 50%;
+}
+.team-records-card__team-name {
+  font-weight: 700;
+  font-size: 0.92rem;
+  line-height: 1.2;
+  text-decoration: none;
+  color: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.team-records-card__team-name--noteam {
+  font-style: italic;
+  opacity: 0.85;
+}
+.team-records-card__person {
+  font-weight: 600;
+  font-size: 0.92rem;
+  line-height: 1.2;
+}
+.team-records-card__person-team .team-name-lockup__logo {
+  width: 18px;
+  height: 18px;
+}
+.team-records-card__metric {
+  justify-self: end;
+  margin-left: 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  opacity: 0.85;
+  font-size: 0.84rem;
+}
+@media (max-width: 840px) {
+  .team-records-seasons__grid {
+    grid-template-columns: 1fr;
+  }
+  .team-records-card__row {
+    grid-template-columns: 6.4rem minmax(0, 1fr);
+  }
+}
+@media (min-width: 841px) and (max-width: 1240px) {
+  .team-records-seasons__grid {
+    grid-template-columns: repeat(2, minmax(18rem, 1fr));
+  }
+}
+
+/* season detail page */
+.team-records-detail__nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.85rem;
+}
+.team-records-detail__nav a {
+  text-decoration: none;
+}
+.team-records-detail__nav a:hover {
+  text-decoration: underline;
+}
+.team-records-detail__nav-spacer {
+  opacity: 0.4;
+}
+.team-records-detail__group + .team-records-detail__group {
+  margin-top: 0.85rem;
+}
+.team-records-detail__group-title {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.team-records-detail__standings-table {
+  width: 100%;
+  table-layout: auto;
+  font-size: 0.72rem;
+}
+.team-records-detail__standings-table th,
+.team-records-detail__standings-table td {
+  padding: 0.16rem 0.15rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.team-records-detail__standings-card .table-wrap {
+  overflow-x: auto;
+}
+.team-records-detail__standings-table th:nth-child(1),
+.team-records-detail__standings-table td:nth-child(1) {
+  width: auto;
+}
+.team-records-detail__standings-table th:nth-child(n+2):nth-child(-n+12),
+.team-records-detail__standings-table td:nth-child(n+2):nth-child(-n+12) {
+  width: 4.2ch;
+}
+.team-records-detail__standings-table th:nth-child(13),
+.team-records-detail__standings-table td:nth-child(13) {
+  width: 16ch;
+}
+.team-records-detail__th-team,
+.team-records-detail__td-team {
+  text-align: left;
+  min-width: 0;
+  white-space: normal;
+}
+.team-records-detail__th-team {
+  display: table-cell;
+}
+.team-records-detail__td-team {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.team-records-detail__th-result,
+.team-records-detail__td-result {
+  text-align: left;
+  white-space: normal;
+  font-variant-numeric: normal;
+}
+.team-records-detail__result--champion {
+  font-weight: 800;
+}
+.team-records-detail__td-pts {
+  font-weight: 700;
+}
+.team-records-detail__logo {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+.team-records-detail__logo-hit {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+.team-records-detail__team-name {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 600;
+  text-decoration: none;
+  color: inherit;
+  line-height: 1.15;
+  white-space: normal;
+  text-overflow: clip;
+  overflow: visible;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+.team-records-detail__team-name:hover {
+  text-decoration: underline;
+}
+.team-records-detail__team-name--noteam {
+  font-style: italic;
+  opacity: 0.85;
+}
+.team-records-detail__top10-card,
+.team-records-detail__awards-card {
+  margin-top: 0.75rem;
+}
+.team-records-detail__top10-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(18rem, 1fr));
+  gap: 0.6rem;
+}
+@media (max-width: 720px) {
+  .team-records-detail__top10-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.team-records-detail__top10-section {
+  margin: 0;
+}
+.team-records-detail__player-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.team-records-detail__player-headshot-hit {
+  display: inline-flex;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  flex: 0 0 auto;
+}
+.team-records-detail__player-headshot {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.team-records-detail__player-headshot-ph {
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.08);
+}
+.team-records-detail__player-meta {
+  display: inline-flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.team-records-detail__player-link {
+  text-decoration: none;
+  color: inherit;
+}
+.team-records-detail__player-link:hover {
+  text-decoration: underline;
+}
+.team-records-detail__player-pos {
+  font-size: 0.72rem;
+  line-height: 1.1;
+}
+.team-records-detail__awards-table {
+  width: 100%;
+  font-size: 0.82rem;
+}
+.team-records-detail__awards-table th,
+.team-records-detail__awards-table td {
+  padding: 0.24rem 0.35rem;
+  vertical-align: middle;
+}
+.team-records-detail__award-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+}
+.team-records-detail__award-trophy {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
+/* ============================================================
+   Team page Season History panel (chart + table)
+   ============================================================ */
+.team-history-panel {
+  margin: 0;
+}
+.team-history-panel__chart-wrap {
+  width: 100%;
+  overflow-x: auto;
+  margin-bottom: 0.75rem;
+}
+.team-history-panel__chart {
+  display: block;
+  min-width: 540px;
+  width: 100%;
+  height: auto;
+  font: inherit;
+}
+.team-history-panel__chart-bar--w {
+  fill: #16a34a;
+}
+.team-history-panel__chart-bar--l {
+  fill: #ef4444;
+}
+.team-history-panel__chart-bar--t {
+  fill: #94a3b8;
+}
+.team-history-panel__chart-pts-line {
+  fill: none;
+  stroke: #facc15;
+  stroke-width: 2;
+}
+.team-history-panel__chart-pts-dot {
+  fill: #facc15;
+  stroke: rgba(0, 0, 0, 0.6);
+  stroke-width: 1;
+}
+.team-history-panel__chart-axis,
+.team-history-panel__chart-grid {
+  stroke: rgba(255, 255, 255, 0.18);
+  stroke-width: 1;
+}
+.team-history-panel__chart-tick {
+  fill: rgba(255, 255, 255, 0.65);
+  font-size: 10px;
+}
+.team-history-panel__chart-tick--rot {
+  text-anchor: end;
+}
+.team-history-panel__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.8rem;
+}
+.team-history-panel__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.team-history-panel__legend-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 12px;
+  border-radius: 2px;
+}
+.team-history-panel__legend-swatch--w { background: #16a34a; }
+.team-history-panel__legend-swatch--l { background: #ef4444; }
+.team-history-panel__legend-swatch--t { background: #94a3b8; }
+.team-history-panel__legend-swatch--pts {
+  width: 18px;
+  height: 2px;
+  background: #facc15;
+}
+.team-history-panel__table {
+  width: 100%;
+  table-layout: fixed;
+  font-size: 0.78rem;
+}
+.team-history-panel__table th,
+.team-history-panel__table td {
+  padding: 0.2rem 0.25rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.team-history-panel .table-wrap {
+  overflow-x: visible;
+}
+.team-history-panel__table th:first-child,
+.team-history-panel__table td:first-child {
+  width: 19%;
+}
+.team-history-panel__table th:last-child,
+.team-history-panel__table td:last-child {
+  width: 18%;
+}
+.team-history-panel__table th:first-child,
+.team-history-panel__table td:first-child,
+.team-history-panel__table .team-history-panel__cell-result {
+  text-align: left;
+}
+.team-history-panel__cell-result {
+  white-space: normal;
+  font-variant-numeric: normal;
+}

@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
-"""Align ``history_awards*.csv`` ``player_id`` values with ``player_master.csv`` (FHM PlayerId).
+"""Align import helper CSV IDs with league master files.
 
-For each award row:
+For ``history_awards*.csv`` rows:
 
 - Keeps ``player_id`` when it matches a ``player_master`` ``PlayerId``.
 - When the ID is missing, a spreadsheet null token, or not in ``player_master``, tries to resolve
   from ``notes`` (``unresolved_player=…`` or ``complex_winner=…``) via ``First Name`` + ``Last Name``.
-- Writes the updated CSV (default: ``history_awards.sheet.csv``) and you can run
-  ``LEAGUE_SLUG=bowl-historical python scripts/reimport_history_awards.py``.
+
+For ``team_season_records_template.csv`` rows (when present):
+
+- Keeps ``Team ID`` when it matches known team IDs from ``team_data.csv``/``teams.csv``.
+- When ``Team ID`` is missing/invalid, tries to resolve from ``Team Name Override``.
+
+Writes updates in-place (or to ``--output`` for awards) so imports can run cleanly.
 
 Example::
 
@@ -81,6 +86,61 @@ def _candidate_names_from_notes(notes: str | None) -> list[str]:
 
 def _is_null_token(pid: str) -> bool:
     return (pid or "").strip().lower() in ("", "null", "none", "nan")
+
+
+def _load_team_index(raw_dir: Path) -> tuple[set[str], dict[str, list[str]]]:
+    """Load valid Team IDs and normalized-name lookups from ``team_data.csv`` / ``teams.csv``."""
+    valid: set[str] = set()
+    by_norm: dict[str, list[str]] = {}
+
+    def _add_name(name: str, tid: str) -> None:
+        s = (name or "").strip()
+        if not s:
+            return
+        for key in {_norm_name(s), _norm_loose(s)}:
+            lst = by_norm.setdefault(key, [])
+            if tid not in lst:
+                lst.append(tid)
+
+    # FHM export master
+    team_data = raw_dir / "team_data.csv"
+    if team_data.is_file():
+        df = read_csv_normalized(team_data)
+        for _, row in df.iterrows():
+            r = row.to_dict()
+            tid = (cell_val(r, "teamid", "team_id", "id") or "").strip()
+            if not tid:
+                continue
+            valid.add(tid)
+            name = (cell_val(r, "name") or "").strip()
+            nick = (cell_val(r, "nickname", "nick") or "").strip()
+            abbr = (cell_val(r, "abbr", "abbreviation") or "").strip()
+            full = f"{name} {nick}".strip()
+            _add_name(full, tid)
+            _add_name(name, tid)
+            _add_name(nick, tid)
+            _add_name(abbr, tid)
+
+    # Legacy/non-FHM fallback
+    teams_csv = raw_dir / "teams.csv"
+    if teams_csv.is_file():
+        df = read_csv_normalized(teams_csv)
+        for _, row in df.iterrows():
+            r = row.to_dict()
+            tid = (cell_val(r, "fhm_team_id", "team_id", "id") or "").strip()
+            if not tid:
+                continue
+            valid.add(tid)
+            name = (cell_val(r, "name", "team_name") or "").strip()
+            nick = (cell_val(r, "nickname", "nick") or "").strip()
+            city = (cell_val(r, "city") or "").strip()
+            abbr = (cell_val(r, "abbreviation", "abbr", "team_abbr") or "").strip()
+            full = f"{city} {nick}".strip() if city and nick else name
+            _add_name(full, tid)
+            _add_name(name, tid)
+            _add_name(abbr, tid)
+
+    return valid, by_norm
 
 
 def _load_master_index(path: Path) -> tuple[set[str], dict[str, list[str]]]:
@@ -253,6 +313,70 @@ def align_rows(
     return out, kept, remapped, unresolved
 
 
+def _align_team_season_records_template(raw_dir: Path) -> tuple[int, int, int]:
+    """Align ``Team ID`` in ``team_season_records_template.csv`` using team master files.
+
+    Returns ``(kept, remapped, unresolved)``.
+    """
+    path = raw_dir / "team_season_records_template.csv"
+    if not path.is_file():
+        return 0, 0, 0
+
+    valid_ids, by_norm = _load_team_index(raw_dir)
+    if not valid_ids:
+        print(f"No team master IDs found in {raw_dir} (team_data.csv/teams.csv missing or empty).")
+        return 0, 0, 0
+
+    with path.open(newline="", encoding="utf-8-sig") as f:
+        rows = list(csv.DictReader(f))
+    if not rows:
+        return 0, 0, 0
+
+    fieldnames = list(rows[0].keys())
+    kept = remapped = unresolved = 0
+    out_rows: list[dict[str, str]] = []
+
+    for row in rows:
+        r = dict(row)
+        tid = (r.get("Team ID") or "").strip()
+        if _is_null_token(tid):
+            tid = ""
+        if tid and tid in valid_ids:
+            kept += 1
+            out_rows.append(r)
+            continue
+
+        hint = (r.get("Team Name Override") or "").strip()
+        new_tid = None
+        if hint:
+            for key_fn in (_norm_name, _norm_loose):
+                hits = by_norm.get(key_fn(hint)) or []
+                if len(hits) == 1:
+                    new_tid = hits[0]
+                    break
+
+        if new_tid:
+            r["Team ID"] = new_tid
+            remapped += 1
+        else:
+            r["Team ID"] = ""
+            unresolved += 1
+        out_rows.append(r)
+
+    with path.open("w", encoding="utf-8-sig", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
+        w.writeheader()
+        for r in out_rows:
+            w.writerow({k: r.get(k, "") for k in fieldnames})
+
+    print(
+        "Aligned team_season_records_template.csv "
+        f"(ids_ok={kept}, remapped={remapped}, unresolved={unresolved}) "
+        f"using {len(valid_ids)} known team ids."
+    )
+    return kept, remapped, unresolved
+
+
 def _raw_dir_for_league_entry(raw_import_dir: str) -> Path:
     return (_REPO / "data" / "imports" / "raw" / raw_import_dir).resolve()
 
@@ -364,6 +488,7 @@ def main() -> int:
         f"(ids_ok_or_blank={kept}, remapped={remapped}, still_unresolved_hints={unresolved}) "
         f"using {len(valid)} player_master ids."
     )
+    _align_team_season_records_template(raw)
     return 0
 
 

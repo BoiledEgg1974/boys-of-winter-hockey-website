@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% from "macros/team.html" import team_logo_only, team_lockup_full_name with context %}
+{% block title %}Team Records — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+
+{% macro team_record_logo(record) -%}
+{%- set logo_src = season_team_logo_url(record) -%}
+{%- if record.team and logo_src -%}
+<a class="team-records-logo-hit" href="{{ url_for('main.team_page', slug=record.team.slug) }}" aria-label="{{ record.team.full_display_name() }}">
+  <img class="team-records-logo" src="{{ logo_src }}" alt="" loading="lazy" decoding="async">
+</a>
+{%- elif logo_src -%}
+<span class="team-records-logo-hit" role="img" aria-label="{{ record.team_name or '' }}">
+  <img class="team-records-logo" src="{{ logo_src }}" alt="" loading="lazy" decoding="async">
+</span>
+{%- else -%}
+<span class="team-records-logo-hit team-records-logo-hit--empty" aria-hidden="true"></span>
+{%- endif -%}
+{%- endmacro %}
+
+{% macro card_team_logo(record) -%}
+{%- set logo_src = season_team_logo_url(record) -%}
+{%- if record.team and logo_src -%}
+<a class="team-records-card__team-logo-hit" href="{{ url_for('main.team_page', slug=record.team.slug) }}" aria-label="{{ record.team.full_display_name() }}">
+  <img class="team-records-card__team-logo" src="{{ logo_src }}" alt="" loading="lazy" decoding="async">
+</a>
+{%- elif logo_src -%}
+<span class="team-records-card__team-logo-hit" role="img" aria-label="{{ record.team_name_override or '' }}">
+  <img class="team-records-card__team-logo" src="{{ logo_src }}" alt="" loading="lazy" decoding="async">
+</span>
+{%- else -%}
+<span class="team-records-card__team-logo-hit team-records-card__team-logo-hit--empty" aria-hidden="true"></span>
+{%- endif -%}
+{%- endmacro %}
+
+{% macro card_team_name(record) -%}
+{%- if record.team -%}
+<a class="team-records-card__team-name" href="{{ url_for('main.team_page', slug=record.team.slug) }}">{{ season_team_name(record) or record.team.full_display_name() }}</a>
+{%- elif record.team_name_override -%}
+<span class="team-records-card__team-name team-records-card__team-name--noteam">{{ record.team_name_override }}</span>
+{%- else -%}
+<span class="muted">—</span>
+{%- endif -%}
+{%- endmacro %}
+
+{% macro leaderboard_metric_abbr(title) -%}
+{%- set key = (title or '')|lower|trim -%}
+{%- if key in ['most wins', 'fewest wins'] -%}W
+{%- elif key in ['most losses', 'fewest losses'] -%}L
+{%- elif key in ['most ties/otl', 'fewest ties/otl'] -%}T/OTL
+{%- elif key in ['highest goal differential', 'lowest goal differential'] -%}+/-
+{%- elif key in ['most goals for', 'fewest goals for'] -%}GF
+{%- elif key in ['most goals against', 'fewest goals against'] -%}GA
+{%- elif key in ['most points', 'fewest points'] -%}PTS
+{%- else -%}Value
+{%- endif -%}
+{%- endmacro %}
+
+{% set cup_trophy_rel = {
+  'bowl-historical': 'img/bowl-historical-playoff-trophy.png',
+  'bowl-fantasy': 'img/bowl-fantasy-playoff-trophy.png',
+  'bowl-cap': 'img/bowl-cap-playoff-trophy.png'
+}.get(config.LEAGUE_SLUG, 'img/bowl-fantasy-playoff-trophy.png') %}
+
+{% block content %}
+<div class="card team-records-page">
+  <h1 class="page-title">Team Records</h1>
+  <p class="muted">Historical team-by-season standings, results, leaders, and awards.</p>
+  <p class="muted">
+    <a href="{{ url_for('main.league_season_records') }}">Season Records</a> ·
+    <a href="{{ url_for('main.all_time_records') }}">All-Time Records</a> ·
+    <a href="{{ url_for('main.history') }}">League History</a>
+  </p>
+</div>
+
+<div class="card team-records-leaderboards">
+  <h2 class="team-records-leaderboards__heading">Single-Season Team Records</h2>
+  {% if leaderboard_sections %}
+  <div class="team-records-leaderboards__grid">
+    {% for sec in leaderboard_sections %}
+    <div class="card team-records-leaderboards__card">
+      <h3 class="team-records-leaderboards__card-title">{{ sec.title }}</h3>
+      <div class="table-wrap">
+        <table class="data team-records-leaderboards__table">
+          <thead>
+            <tr>
+              <th scope="col" class="team-records-leaderboards__th-rank">#</th>
+              <th scope="col" class="team-records-leaderboards__th-team">Team</th>
+              <th scope="col" class="team-records-leaderboards__th-season">Season</th>
+              <th scope="col" class="team-records-leaderboards__th-value">{{ leaderboard_metric_abbr(sec.title) }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in sec.rows %}
+            <tr>
+              <td class="team-records-leaderboards__td-rank">{{ row.rank }}</td>
+              <td class="team-records-leaderboards__td-team">
+                {{ team_record_logo(row) }}
+                {% if row.team %}
+                <a class="team-records-leaderboards__team-link" href="{{ url_for('main.team_page', slug=row.team.slug) }}">{{ row.team.full_display_name() }}</a>
+                {% else %}
+                <span class="team-records-leaderboards__team-link team-records-leaderboards__team-link--noteam">{{ row.team_name }}</span>
+                {% endif %}
+              </td>
+              <td class="team-records-leaderboards__td-season">
+                <a href="{{ url_for('main.team_records_season', year_label=row.year_label) }}">{{ row.year_label }}</a>
+              </td>
+              <td class="team-records-leaderboards__td-value">{{ row.value }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="empty-state">No team-season records have been imported yet. Add a <code>team_season_records_template.csv</code> file to <code>data/imports/raw/{{ config.RAW_IMPORT_DIR.name }}/</code> and re-run the import.</p>
+  {% endif %}
+</div>
+
+<div class="card team-records-seasons">
+  <h2 class="team-records-seasons__heading">Seasons</h2>
+  {% if season_cards %}
+  <div class="team-records-seasons__grid">
+    {% for card in season_cards %}
+    <article class="team-records-card team-records-card--season-panel">
+      <header class="team-records-card__header">
+        <a class="team-records-card__year-link" href="{{ url_for('main.team_records_season', year_label=card.year_label) }}">
+          <span class="team-records-card__year">{{ card.year_label }}</span>
+        </a>
+      </header>
+
+      <div class="team-records-card__body">
+        <div class="team-records-card__row">
+          <span class="team-records-card__label team-records-card__label--with-icon">
+            <img class="team-records-card__label-icon" src="{{ url_for('static', filename=cup_trophy_rel) }}" alt="" loading="lazy" decoding="async">
+            <span>Cup Champion</span>
+          </span>
+          {% if card.champion %}
+          <div class="team-records-card__value">
+            {{ card_team_logo(card.champion) }}
+            {{ card_team_name(card.champion) }}
+          </div>
+          {% else %}
+          <span class="team-records-card__value muted">No Winner</span>
+          {% endif %}
+        </div>
+
+        <div class="team-records-card__row">
+          <span class="team-records-card__label">Runner-up</span>
+          {% if card.runner_up %}
+          <div class="team-records-card__value">
+            {{ card_team_logo(card.runner_up) }}
+            {{ card_team_name(card.runner_up) }}
+          </div>
+          {% else %}
+          <span class="team-records-card__value muted">—</span>
+          {% endif %}
+        </div>
+
+        <div class="team-records-card__row">
+          <span class="team-records-card__label">Top Scorer</span>
+          {% if card.top_scorer %}
+          <div class="team-records-card__value">
+            <span class="team-records-card__person">{{ card.top_scorer.player.full_name }}</span>
+            {% if card.top_scorer.team %}<span class="team-records-card__person-team">{{ team_logo_only(card.top_scorer.team) }}</span>{% endif %}
+            <span class="team-records-card__metric">{{ card.top_scorer.points }} PTS</span>
+          </div>
+          {% else %}
+          <span class="team-records-card__value muted">—</span>
+          {% endif %}
+        </div>
+
+        <div class="team-records-card__row">
+          <span class="team-records-card__label">Top Goalie</span>
+          {% if card.top_goalie %}
+          <div class="team-records-card__value">
+            <span class="team-records-card__person">{{ card.top_goalie.player.full_name }}</span>
+            {% if card.top_goalie.team %}<span class="team-records-card__person-team">{{ team_logo_only(card.top_goalie.team) }}</span>{% endif %}
+            <span class="team-records-card__metric">{{ card.top_goalie.wins }} W</span>
+          </div>
+          {% else %}
+          <span class="team-records-card__value muted">—</span>
+          {% endif %}
+        </div>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="empty-state">No seasons available.</p>
+  {% endif %}
+</div>
+{% endblock %}

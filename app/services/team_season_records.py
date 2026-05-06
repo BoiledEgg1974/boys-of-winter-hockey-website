@@ -23,7 +23,7 @@ from app.services.all_time_records import bowl_nhl_league_ids
 from app.services.franchise_leaders import _team_career_clause
 
 TOP_N = 10
-_MIN_GP_GOALIE_RATE_RS = 50
+_MIN_GP_GOALIE_RATE_RS = 20
 _MIN_GP_GOALIE_RATE_PO = 4
 
 

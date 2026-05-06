@@ -8,6 +8,8 @@ from wsgi import application
 
 if __name__ == "__main__":
     debug = os.environ.get("FLASK_DEBUG", "1") == "1"
+    # Keep debugger + auto-reload by default for local dev; can disable with FLASK_USE_RELOADER=0.
+    use_reloader = os.environ.get("FLASK_USE_RELOADER", "1") == "1"
     port = int(os.environ.get("PORT", "5000"))
     dev_https = os.environ.get("FLASK_DEV_HTTPS", "").strip().lower() in (
         "1",
@@ -20,7 +22,7 @@ if __name__ == "__main__":
         "port": port,
         "application": application,
         "use_debugger": debug,
-        "use_reloader": debug,
+        "use_reloader": debug and use_reloader,
     }
     if dev_https:
         # Self-signed cert: browser will warn once; then image clipboard works on LAN IPs.

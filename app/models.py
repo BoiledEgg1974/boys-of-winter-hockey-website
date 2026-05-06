@@ -554,6 +554,61 @@ class HistoryChampion(db.Model):
     team: Mapped["Team"] = relationship()
 
 
+class TeamSeasonRecord(db.Model):
+    """One row per team per historical season, sourced from ``team_season_records_template.csv``.
+
+    Columns mirror the CSV. Blank cells become ``NULL`` and are filtered out of leaderboards.
+    The literal token ``"null"`` (case-insensitive) also becomes ``NULL`` but its origin is
+    tracked in :attr:`null_columns_csv` so detail tables can render ``-`` for those cells
+    while leaderboards still skip them.
+    """
+
+    __tablename__ = "team_season_records"
+    __table_args__ = (
+        UniqueConstraint(
+            "season_year_label",
+            "team_id",
+            "team_name_override",
+            name="uq_team_season_record_year_team",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    season_year_label: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
+    start_year: Mapped[int | None] = mapped_column(Integer, index=True)
+    team_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id"), nullable=True)
+    team_fhm_id_csv: Mapped[str | None] = mapped_column(String(64))
+    team_name_override: Mapped[str | None] = mapped_column(String(200))
+    conference_id: Mapped[int | None] = mapped_column(Integer)
+    conference_override: Mapped[str | None] = mapped_column(String(120))
+    division_id: Mapped[int | None] = mapped_column(Integer)
+    division_override: Mapped[str | None] = mapped_column(String(120))
+    logo_file_override: Mapped[str | None] = mapped_column(String(500))
+    gp: Mapped[int | None] = mapped_column(Integer)
+    w: Mapped[int | None] = mapped_column(Integer)
+    l: Mapped[int | None] = mapped_column(Integer)
+    t_otl: Mapped[int | None] = mapped_column(Integer)
+    pts: Mapped[int | None] = mapped_column(Integer)
+    gf: Mapped[int | None] = mapped_column(Integer)
+    ga: Mapped[int | None] = mapped_column(Integer)
+    goal_diff: Mapped[int | None] = mapped_column(Integer)
+    result: Mapped[str | None] = mapped_column(String(80))
+    pim_per_game: Mapped[float | None] = mapped_column(Float)
+    ppg: Mapped[int | None] = mapped_column(Integer)
+    ppg_against: Mapped[int | None] = mapped_column(Integer)
+    pp_chances: Mapped[int | None] = mapped_column(Integer)
+    shg: Mapped[int | None] = mapped_column(Integer)
+    shg_against: Mapped[int | None] = mapped_column(Integer)
+    sh_chances: Mapped[int | None] = mapped_column(Integer)
+    pp_pct: Mapped[float | None] = mapped_column(Float)
+    pk_pct: Mapped[float | None] = mapped_column(Float)
+    shots_for: Mapped[int | None] = mapped_column(Integer)
+    shots_against: Mapped[int | None] = mapped_column(Integer)
+    null_columns_csv: Mapped[str | None] = mapped_column(Text)
+
+    team: Mapped["Team | None"] = relationship()
+
+
 class PlayerOverallBaseline(db.Model):
     """Last acknowledged 1–100 overall composite per player (see ``bowl-overall-baseline-refresh`` CLI)."""
 

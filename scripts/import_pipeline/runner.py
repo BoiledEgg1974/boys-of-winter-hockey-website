@@ -842,6 +842,15 @@ def import_history_champions(raw_dir: Path, app) -> int:
     return n
 
 
+def _import_team_season_records_step(raw_dir: Path, app) -> int:
+    """STEPS adapter for the historical ``team_season_records_template.csv`` loader."""
+    from scripts.import_pipeline.team_season_records_loader import (
+        import_team_season_records,
+    )
+
+    return import_team_season_records(raw_dir, app)
+
+
 STEPS = [
     ("teams", import_teams),
     ("seasons", import_seasons),
@@ -859,6 +868,7 @@ STEPS = [
     ("draft_picks", import_draft_picks),
     ("history_awards", import_history_awards),
     ("history_champions", import_history_champions),
+    ("team_season_records", _import_team_season_records_step),
 ]
 
 
@@ -913,6 +923,14 @@ def run_import(raw_dir: Path | None = None) -> None:
                 if hc.is_file():
                     log.info("Applying history_champions.csv after FHM import.")
                     counts["history_champions"] = import_history_champions(raw, app)
+                tsr = raw / "team_season_records_template.csv"
+                if tsr.is_file():
+                    from scripts.import_pipeline.team_season_records_loader import (
+                        import_team_season_records,
+                    )
+
+                    log.info("Applying team_season_records_template.csv after FHM import.")
+                    counts["team_season_records"] = import_team_season_records(raw, app)
                 total = sum(counts.values())
                 ilog.rows_processed = total
                 ilog.status = "success"

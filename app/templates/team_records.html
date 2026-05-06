@@ -99,7 +99,7 @@
               <td class="team-records-leaderboards__td-team">
                 {{ team_record_logo(row) }}
                 {% if row.team %}
-                <a class="team-records-leaderboards__team-link" href="{{ url_for('main.team_page', slug=row.team.slug) }}">{{ row.team.full_display_name() }}</a>
+                <a class="team-records-leaderboards__team-link" href="{{ url_for('main.team_page', slug=row.team.slug) }}">{{ season_team_name(row.record) or row.team.full_display_name() }}</a>
                 {% else %}
                 <span class="team-records-leaderboards__team-link team-records-leaderboards__team-link--noteam">{{ row.team_name }}</span>
                 {% endif %}

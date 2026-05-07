@@ -142,7 +142,7 @@ def notify_membership_registration_pending(
     *,
     user_email: str,
     discord_name: str,
-    membership_rows: Iterable[tuple[str, int]],
+    membership_rows: Iterable[tuple[str, int] | tuple[str, int, str | None]],
 ) -> None:
     """Hub registration: email only (memberships are not tied to a single league slug)."""
     try:
@@ -150,8 +150,14 @@ def notify_membership_registration_pending(
     except Exception:
         hub_url = "/admin/memberships"
     lines = [f"New account registration with pending membership(s).\n", f"Email: {user_email}", f"Discord: {discord_name}", ""]
-    for slug, tid in membership_rows:
-        lines.append(f"  - {slug} · team id {tid}")
+    for row in membership_rows:
+        if len(row) == 3:
+            slug, tid, fhm = str(row[0]), int(row[1]), row[2]
+        else:
+            slug, tid, fhm = str(row[0]), int(row[1]), None
+        fhm_s = (str(fhm).strip() if fhm is not None else "") or ""
+        fhm_part = f" · FHM franchise id {fhm_s}" if fhm_s else ""
+        lines.append(f"  - {slug} · DB teams.id {tid}{fhm_part}")
     lines.extend(["", f"Review memberships:", hub_url, ""])
     subject = "[Boys of Winter] New membership(s) pending approval"
     try_send_admin_review_email(subject=subject, body="\n".join(lines))

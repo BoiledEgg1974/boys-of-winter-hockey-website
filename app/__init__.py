@@ -829,8 +829,18 @@ def create_app(config_class: type = Config) -> Flask:
             except Exception:
                 ann = None
 
+        header_team_logo_season = None
+        if slug_layout in ("bowl-historical", "bowl-cap"):
+            try:
+                from app.services.seasons import get_current_season
+
+                header_team_logo_season = get_current_season()
+            except Exception:
+                header_team_logo_season = None
+
         return dict(
             nav_teams=teams,
+            header_team_logo_season=header_team_logo_season,
             team_logo_url=team_logo_url,
             season_team_logo_url=season_team_logo_url,
             team_logo_url_for_season_context=team_logo_url_for_season_context,

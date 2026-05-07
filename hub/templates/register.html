@@ -33,7 +33,7 @@
               <select name="team_id_{{ e.slug }}" style="width:100%;max-width:24rem;padding:0.45rem;">
                 <option value="">— Select team —</option>
                 {% for t in (team_options.get(e.slug) or []) %}
-                <option value="{{ t.id }}">{{ t.name }} ({{ t.abbr }})</option>
+                <option value="{{ t.id }}">{{ t.name }} ({{ t.abbr }}){% if t.fhm_team_id %} · FHM #{{ t.fhm_team_id }}{% endif %}</option>
                 {% endfor %}
               </select>
             </label>

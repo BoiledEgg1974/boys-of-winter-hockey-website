@@ -34,12 +34,16 @@ class GmLeagueMembership(db.Model):
     __table_args__ = (
         UniqueConstraint("user_id", "league_slug", name="uq_gm_user_league"),
         Index("ix_gm_league_team", "league_slug", "team_id"),
+        Index("ix_gm_league_fhm_team", "league_slug", "fhm_team_id"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("site_users.id"), nullable=False)
     league_slug: Mapped[str] = mapped_column(String(64), nullable=False)
+    # Primary key in that league's ``teams`` table (FK target for ORM / roster queries).
     team_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    # FHM franchise / export ``team_id`` (e.g. Washington 22). Used with CSVs and messaging by franchise.
+    fhm_team_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     status: Mapped[str] = mapped_column(String(24), default="pending", nullable=False)
     terms_version: Mapped[str] = mapped_column(String(32), default="v1", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)

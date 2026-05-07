@@ -53,15 +53,17 @@ def register_post():
     if not league_slugs:
         errors.append("Select at least one league you GM in.")
 
-    memberships_data: list[tuple[str, int]] = []
+    memberships_data: list[tuple[str, int, str | None]] = []
     if not errors:
+        from app.services.register_team_options import fhm_team_id_for_league_team
+
         for slug in league_slugs:
             raw = (request.form.get(f"team_id_{slug}") or "").strip()
             if not raw.isdigit():
                 errors.append(f"Select a team for {slug}.")
                 break
             tid = int(raw)
-            memberships_data.append((slug, tid))
+            memberships_data.append((slug, tid, fhm_team_id_for_league_team(slug, tid)))
 
     if not errors:
         existing = db.session.scalar(select(User.id).where(User.email == email).limit(1))
@@ -87,12 +89,13 @@ def register_post():
     )
     db.session.add(user)
     db.session.flush()
-    for slug, tid in memberships_data:
+    for slug, tid, fhm_tid in memberships_data:
         db.session.add(
             GmLeagueMembership(
                 user_id=user.id,
                 league_slug=slug,
                 team_id=tid,
+                fhm_team_id=fhm_tid,
                 status="pending",
                 terms_version="v1",
             )
@@ -147,14 +150,17 @@ def logout():
 @hub_auth_bp.get("/account")
 @login_required
 def account():
+    from app.services.register_team_options import team_snapshot_for_membership
+
     rows = db.session.scalars(
         select(GmLeagueMembership).where(GmLeagueMembership.user_id == current_user.id)
     ).all()
+    membership_rows = [(m, team_snapshot_for_membership(m.league_slug, m.team_id)) for m in rows]
     active_slugs = {m.league_slug for m in rows if (m.status or "").strip() == "active"}
     league_news_links = [e for e in LEAGUES if e.slug in active_slugs]
     return render_template(
         "account.html",
-        memberships=rows,
+        memberships=membership_rows,
         leagues=LEAGUES,
         league_news_links=league_news_links,
     )
@@ -167,13 +173,17 @@ def admin_memberships():
         from flask import abort
 
         abort(403)
+    from app.services.register_team_options import team_snapshot_for_membership
+
     rows = db.session.execute(
         select(GmLeagueMembership, User)
         .join(User, User.id == GmLeagueMembership.user_id)
         .order_by(GmLeagueMembership.created_at.desc())
     ).all()
-    pairs = [(r[0], r[1]) for r in rows]
-    return render_template("admin_memberships.html", rows=pairs)
+    enriched = [
+        (r[0], r[1], team_snapshot_for_membership(r[0].league_slug, r[0].team_id)) for r in rows
+    ]
+    return render_template("admin_memberships.html", rows=enriched)
 
 
 @hub_auth_bp.post("/admin/memberships/<int:mid>/approve")
@@ -187,8 +197,13 @@ def admin_approve_membership(mid: int):
         abort(403)
     m = db.session.get(GmLeagueMembership, mid)
     if m:
+        from app.services.register_team_options import fhm_team_id_for_league_team
+
         m.status = "active"
         m.approved_at = datetime.utcnow()
+        fhm = fhm_team_id_for_league_team(m.league_slug, int(m.team_id))
+        if fhm:
+            m.fhm_team_id = fhm
         db.session.commit()
     return redirect(url_for("hub_auth.admin_memberships"))
 

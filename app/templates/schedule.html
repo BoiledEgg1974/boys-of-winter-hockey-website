@@ -37,14 +37,14 @@
     <summary>
       <span class="muted">{{ g.game_date or 'TBD' }}{% if g.game_type %} · {{ g.game_type }}{% endif %}</span>
       <span class="scoreline">
-        {{ team_logo_only(g.away_team) }}
+        {{ team_logo_only(g.away_team, season=season) }}
         {% if g.status == 'final' %}
         <strong>{{ g.away_score }}</strong> @
         <strong>{{ g.home_score }}</strong>
         {% else %}
         @
         {% endif %}
-        {{ team_logo_only(g.home_team) }}
+        {{ team_logo_only(g.home_team, season=season) }}
       </span>
       <a href="{{ url_for('main.game_page', game_id=g.id) }}" onclick="event.stopPropagation()">Details</a>
     </summary>

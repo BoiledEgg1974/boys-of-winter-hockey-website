@@ -45,8 +45,15 @@
     {% endif %}
     <h2>League Memberships</h2>
     <ul>
-      {% for m in memberships %}
-      <li><strong>{{ m.league_slug }}</strong> — team id {{ m.team_id }} — <em>{{ m.status }}</em></li>
+      {% for m, snap in memberships %}
+      <li>
+        <strong>{{ m.league_slug }}</strong>
+        {% if snap.name %} — {{ snap.name }}{% if snap.abbr %} ({{ snap.abbr }}){% endif %}{% endif %}
+        — DB id {{ m.team_id }}
+        {% set fid = m.fhm_team_id or snap.fhm_team_id %}
+        {% if fid %} · FHM franchise id {{ fid }}{% endif %}
+        — <em>{{ m.status }}</em>
+      </li>
       {% else %}
       <li class="muted">No memberships yet.</li>
       {% endfor %}

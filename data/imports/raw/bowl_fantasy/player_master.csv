@@ -482,7 +482,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 496;305;305;Art;Boyce;;70;135;1958-8-24;Kingston;ON;Canada;;;0;Right;0
 497;186;186;Bill;Boyd;;70;185;1954-5-15;Belleville;ON;Canada;;;0;Right;0
 498;26;26;Bob;Boyd;Boydie;72;190;1962-11-27;Toronto;ON;Canada;;;0;Right;0
-499;25;25;Steve;Bozek;;71;180;1960-11-26;Kelowna;BC;Canada;;;0;Left;0
+499;236;25;Steve;Bozek;;71;180;1960-11-26;Kelowna;BC;Canada;;;0;Left;0
 500;24;24;Brian;Bradley;;70;181;1961-1-21;Kitchener;ON;Canada;;;0;Right;1
 501;282;282;Lyle;Bradley;;69;161;1953-7-31;Lloydminster;AB;Canada;;;0;Right;0
 502;297;297;Matt;Bradley;;75;201;1954-6-13;Ottawa;ON;Canada;;;0;Right;0
@@ -708,7 +708,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 734;236;15;Jean;Gauthier;;73;196;1954-4-29;Montreal;QC;Canada;;;0;Right;0
 735;186;186;Bob;Geale;;71;175;1957-4-17;Edmonton;AB;Canada;;;0;Right;0
 736;17;17;Martin;Gelinas;;71;202;1962-6-5;Shawinigan;QC;Canada;;;0;Left;0
-737;17;17;Jean-Guy;Gendron;Smitty;69;165;1953-8-30;Montreal;QC;Canada;;;0;Left;0
+737;233;17;Jean-Guy;Gendron;Smitty;69;165;1953-8-30;Montreal;QC;Canada;;;0;Left;0
 738;186;186;Martin;Gendron;;69;190;1952-2-15;Salaberry-de-Valleyfield;QC;Canada;;;0;Right;0
 739;285;285;Bobby;Genge;;76;200;1953-12-20;Gananoque;ON;Canada;;;0;Left;0
 740;226;0;Ray;Getliffe;;71;175;1957-4-3;Cambridge;ON;Canada;;;0;Left;0
@@ -1365,7 +1365,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 1414;293;293;Ryan;VandenBussche;;72;201;1957-2-28;Simcoe;ON;Canada;;;0;Right;0
 1415;186;186;David;Van Drunen;;72;207;1955-1-31;Sherwood Park;AB;Canada;;;0;Right;0
 1416;186;186;Darren;Van Impe;Gimp;73;205;1949-5-18;Saskatoon;SK;Canada;;;0;Left;0
-1417;222;5;Josef;Vasicek;;77;214;1961-9-12;Havlíckuv Brod;VYS;Czech Republic;;;0;Left;0
+1417;5;5;Josef;Vasicek;;77;214;1961-9-12;Havlíckuv Brod;VYS;Czech Republic;;;0;Left;0
 -1;186;186;Rolf;Lundh;;66;157;1962-5-21;Vähäkyrö;OST;Finland;;;0;Left;0
 1421;293;293;Mike;Vellucci;;73;181;1957-8-11;Farmington;IL;The United States;;;0;Left;0
 1422;297;297;Darcy;Verot;;72;203;1957-7-13;Radville;SK;Canada;;;0;Left;0
@@ -3245,7 +3245,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 3361;186;186;Rod;Bloomfield;;66;161;1960-1-5;Bracebridge;ON;Canada;;;0;Left;0
 3362;304;304;Ray;Schultz;;72;194;1956-8-26;Waldheim;SK;Canada;;;0;Left;0
 3363;22;22;Nate;Danielson;;74;187;1959-9-27;Red Deer;AB;Canada;;;0;Right;0
-3364;25;25;Koehn;Ziemmer;;73;203;1959-12-8;Mayerthorpe;AB;Canada;;;0;Right;0
+3364;236;25;Koehn;Ziemmer;;73;203;1959-12-8;Mayerthorpe;AB;Canada;;;0;Right;0
 3365;186;186;Garry;MacMillan;;68;190;1961-8-15;Cornwall;ON;Canada;;;0;Right;0
 3366;186;186;Francis;Roggeveen;;71;174;1950-6-10;Killam;AB;Canada;;;0;Left;0
 3367;186;186;Gaston;Brassard;;72;181;1956-10-21;Thames Centre;ON;Canada;;;0;Left;0

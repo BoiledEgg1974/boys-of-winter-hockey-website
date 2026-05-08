@@ -416,7 +416,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 4155;127;120;Cliff;Schmautz;Grump;70;170;1939-3-17;Swift Current;SK;Canada;;;0;Right;0
 5863;83;83;Doug;Buhr;;75;216;1949-6-29;Vernon;BC;Canada;;;0;Left;0
 3674;90;90;Billy;Harris;Hinky;72;155;1935-7-29;Toronto;ON;Canada;;;0;Left;0
-5242;27;9;Bob;Falkenberg;Steady;72;185;1946-1-1;Strathmore;AB;Canada;;;0;Left;0
+5242;9;9;Bob;Falkenberg;Steady;72;185;1946-1-1;Strathmore;AB;Canada;;;0;Left;1
 5415;119;119;Gary;Edwards;Suitcase;69;165;1947-10-5;Toronto;ON;Canada;;;0;Left;1
 3321;90;90;Marcel;Bonin;;70;170;1932-9-12;Montreal;QC;Canada;;;0;Left;0
 4490;123;123;Mike;McMahon;;71;180;1941-8-30;Richmond;QC;Canada;;;0;Left;0

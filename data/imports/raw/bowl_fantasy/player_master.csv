@@ -291,7 +291,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 291;302;302;Brady;Skjei;;75;211;1954-3-26;Lakeville;MN;The United States;;;0;Left;0
 293;186;186;Rocco;Grimaldi;;66;181;1954-2-8;Rossmoor;CA;The United States;;;0;Right;0
 294;186;186;Eriah;Hayes;;76;210;1947-7-7;La Crosse;WI;The United States;;;0;Right;0
-295;218;14;Joseph;LaBate;;77;210;1962-4-16;Eagan;MN;The United States;;;0;Left;0
+295;14;14;Joseph;LaBate;;77;210;1962-4-16;Eagan;MN;The United States;;;0;Left;1
 296;16;16;Jayson;Megna;;73;194;1962-2-1;Fort Lauderdale;FL;The United States;;;0;Right;1
 297;8;8;Kyle;Rau;;69;179;1962-10-24;Eden Prairie;MN;The United States;;;0;Left;0
 298;298;298;Brandon;Tanev;;72;181;1953-12-31;Toronto;ON;Canada;;;0;Left;0
@@ -953,12 +953,12 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 988;15;15;Al;MacInnis;Chopper;74;204;1953-7-11;Inverness;NS;Canada;;;0;Right;0
 989;10;10;Norm;Maciver;;71;181;1956-9-8;Thunder Bay;ON;Canada;;;0;Left;0
 990;278;278;Calum;MacKay;Baldy;70;179;1962-1-1;Toronto;ON;Canada;;;0;Left;0
-991;186;186;Barry;MacKenzie;The Bear;72;190;1961-8-16;Toronto;ON;Canada;;;0;Left;0
+991;300;300;Barry;MacKenzie;The Bear;72;190;1961-8-16;Toronto;ON;Canada;;;0;Left;0
 992;186;186;David;Mackey;;76;205;1953-7-24;New Westminster;BC;Canada;;;0;Left;0
 993;302;302;Reg;Mackey;;67;155;1955-5-7;Ottawa;ON;Canada;;;0;Left;0
 994;186;186;Shawn;MacKenzie;;70;175;1962-8-22;Bedford;QC;Canada;;;0;Left;0
 995;186;186;Howie;Mackie;;70;190;1958-8-30;Kitchener;ON;Canada;;;0;Left;0
-996;233;17;Brian;MacLellan;;75;220;1962-10-27;Guelph;ON;Canada;;;0;Left;0
+996;17;17;Brian;MacLellan;;75;220;1962-10-27;Guelph;ON;Canada;;;0;Left;1
 998;305;305;Rick;MacLeish;;71;185;1954-1-3;Lindsay;ON;Canada;;;0;Left;0
 999;186;186;Jeff;MacMillan;;75;210;1956-3-30;Durham;ON;Canada;;;0;Left;0
 1000;186;186;Mike;MacWilliam;;76;230;1948-2-14;Burnaby;BC;Canada;;;0;Left;0
@@ -4232,7 +4232,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 4355;19;19;Gary;Croteau;Bull;72;205;1964-6-20;Sudbury;ON;Canada;;;0;Left;1
 4356;25;25;Jackson;LaCombe;;74;190;1964-1-9;Eden Prairie;MN;The United States;;;0;Left;0
 4357;23;23;Olli;Juolevi;;75;198;1964-5-5;Helsinki;UUS;Finland;;;0;Left;0
-4358;22;22;Josh;Green;Greendogg;75;225;1964-11-16;Camrose;AB;Canada;;;0;Left;1
+4358;224;22;Josh;Green;Greendogg;75;225;1964-11-16;Camrose;AB;Canada;;;0;Left;0
 4359;19;19;Stanislav;Chistov;;71;212;1964-4-17;Chelyabinsk;CHE;Russia;;;0;Right;1
 4360;236;25;Michael;Chaput;;74;205;1964-4-9;Montreal;QC;Canada;;;0;Left;1
 4361;11;11;Case;McCarthy;;73;198;1964-1-9;Troy;NY;The United States;;;0;Right;0

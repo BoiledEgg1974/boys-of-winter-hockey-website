@@ -7400,6 +7400,9 @@ table.data.draft-history-table td:nth-child(3) .stats-player-cell {
   text-decoration: none;
   line-height: 0;
 }
+.draft-history-table__team-hit--static {
+  cursor: default;
+}
 .draft-history-table__team-logo {
   width: calc(32px * var(--team-inline-logo-mul));
   height: calc(32px * var(--team-inline-logo-mul));
@@ -9146,6 +9149,78 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
 .player-profile__card--table {
   margin-bottom: var(--pp-panel-gap);
 }
+
+/* Player profile: single card for career stats with RS / Playoffs toggle (CSS-only). */
+.player-profile__career-split {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+.player-profile__career-split-trig {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  border: 0;
+  white-space: nowrap;
+}
+.player-profile__career-split-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+.player-profile__career-split-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.45rem 0.95rem;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  background: rgb(15 23 42 / 0.5);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+  user-select: none;
+}
+.player-profile__career-split-tab:hover {
+  background: rgb(30 41 59 / 0.75);
+}
+.player-profile__career-split-pane {
+  display: none;
+}
+.player-profile__career-split-trig--rs:checked ~ .player-profile__career-split-pane--rs,
+.player-profile__career-split-trig--po:checked ~ .player-profile__career-split-pane--po {
+  display: block;
+}
+.player-profile__career-split-trig--rs:checked ~ .player-profile__career-split-tabs .player-profile__career-split-tab:first-of-type,
+.player-profile__career-split-trig--po:checked ~ .player-profile__career-split-tabs .player-profile__career-split-tab:last-of-type {
+  background: rgb(30 41 59 / 0.95);
+  border-color: rgb(148 163 184 / 0.55);
+  color: #f8fafc;
+}
+[data-theme="light"] .player-profile__career-split-tab {
+  color: var(--text);
+  background: rgb(241 245 249 / 0.9);
+}
+[data-theme="light"] .player-profile__career-split-tab:hover {
+  background: rgb(226 232 240 / 0.95);
+}
+[data-theme="light"] .player-profile__career-split-trig--rs:checked ~ .player-profile__career-split-tabs .player-profile__career-split-tab:first-of-type,
+[data-theme="light"] .player-profile__career-split-trig--po:checked ~ .player-profile__career-split-tabs .player-profile__career-split-tab:last-of-type {
+  background: #fff;
+  border-color: var(--border);
+  color: var(--text);
+}
+
 [data-theme="light"] .player-profile__card {
   --pp-surface: #ffffff;
   --pp-border: var(--border);

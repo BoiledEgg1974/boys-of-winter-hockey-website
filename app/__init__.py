@@ -340,11 +340,29 @@ def create_app(config_class: type = Config) -> Flask:
             return " ".join(
                 str(s or "")
                 .lower()
+                .replace(".", " ")
                 .replace("-", " ")
                 .replace("_", " ")
                 .split()
             )
         def _record_start_year(record: object) -> int | None:
+            from collections.abc import Mapping
+
+            if isinstance(record, Mapping):
+                for key in ("season_year", "start_year"):
+                    v = record.get(key)
+                    try:
+                        if v is not None:
+                            return int(v)
+                    except Exception:
+                        pass
+                label = record.get("season_year_label")
+                if label and "-" in str(label):
+                    try:
+                        return int(str(label).split("-", 1)[0])
+                    except Exception:
+                        return None
+                return None
             for attr in ("season_year", "start_year"):
                 v = getattr(record, attr, None)
                 try:

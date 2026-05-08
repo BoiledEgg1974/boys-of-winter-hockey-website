@@ -48,4 +48,80 @@ team_fhm_id,start_year,end_year,team_name,logo_file
 122,1992,2001,Pittsburgh Penguins,logos/teams/bowl_historical/pittsburgh_penguins_1992-2001.png
 122,2002,2015,Pittsburgh Penguins,logos/teams/bowl_historical/pittsburgh_penguins_2002-2015.png
 122,2016,2100,Pittsburgh Penguins,logos/teams/bowl_historical/pittsburgh_penguins_2016-2018.png
-123,1967,2100,St. Louis Blues,logos/teams/bowl_historical/stl-t123.png
+15,1967,1967,Pittsburgh Penguins,logos/teams/bowl_historical/pittsburgh_penguins_1967-1967.png
+15,1968,1971,Pittsburgh Penguins,logos/teams/bowl_historical/pittsburgh_penguins_1968-1971.png
+15,1972,1991,Pittsburgh Penguins,logos/teams/bowl_historical/pittsburgh_penguins_1972-1991.png
+15,1992,2001,Pittsburgh Penguins,logos/teams/bowl_historical/pittsburgh_penguins_1992-2001.png
+15,2002,2015,Pittsburgh Penguins,logos/teams/bowl_historical/pittsburgh_penguins_2002-2015.png
+15,2016,2100,Pittsburgh Penguins,logos/teams/bowl_historical/pittsburgh_penguins_2016-2018.png
+123,1967,1977,St. Louis Blues,logos/teams/bowl_historical/st__louis_blues_1967-1977.png
+123,1978,1983,St. Louis Blues,logos/teams/bowl_historical/st__louis_blues_1978-1983.png
+123,1984,1986,St. Louis Blues,logos/teams/bowl_historical/st__louis_blues_1984-1986.png
+123,1987,1988,St. Louis Blues,logos/teams/bowl_historical/st__louis_blues_1987-1988.png
+123,1989,1997,St. Louis Blues,logos/teams/bowl_historical/st__louis_blues_1989-1997.png
+123,1998,1998,St. Louis Blues,logos/teams/bowl_historical/st__louis_blues_1998-1998.png
+123,1999,2007,St. Louis Blues,logos/teams/bowl_historical/st__louis_blues_1999-2007.png
+123,2008,2018,St. Louis Blues,logos/teams/bowl_historical/st__louis_blues_2008-2018.png
+123,2019,2100,St. Louis Blues,logos/teams/bowl_historical/st__louis_blues_2008-2018.png
+16,1967,1977,St. Louis Blues,logos/teams/bowl_historical/st__louis_blues_1967-1977.png
+16,1978,1983,St. Louis Blues,logos/teams/bowl_historical/st__louis_blues_1978-1983.png
+16,1984,1986,St. Louis Blues,logos/teams/bowl_historical/st__louis_blues_1984-1986.png
+16,1987,1988,St. Louis Blues,logos/teams/bowl_historical/st__louis_blues_1987-1988.png
+16,1989,1997,St. Louis Blues,logos/teams/bowl_historical/st__louis_blues_1989-1997.png
+16,1998,1998,St. Louis Blues,logos/teams/bowl_historical/st__louis_blues_1998-1998.png
+16,1999,2007,St. Louis Blues,logos/teams/bowl_historical/st__louis_blues_1999-2007.png
+16,2008,2018,St. Louis Blues,logos/teams/bowl_historical/st__louis_blues_2008-2018.png
+16,2019,2100,St. Louis Blues,logos/teams/bowl_historical/st__louis_blues_2008-2018.png
+11,1967,1974,Los Angeles Kings,logos/teams/bowl_historical/los_angeles_kings_1967-1974.png
+11,1975,1986,Los Angeles Kings,logos/teams/bowl_historical/los_angeles_kings_1975-1986.png
+11,1987,1987,Los Angeles Kings,logos/teams/bowl_historical/los_angeles_kings_1987-1987.png
+11,1988,1997,Los Angeles Kings,logos/teams/bowl_historical/los_angeles_kings_1988-1997.png
+11,1998,2001,Los Angeles Kings,logos/teams/bowl_historical/los_angeles_kings_1998-2001.png
+11,2002,2010,Los Angeles Kings,logos/teams/bowl_historical/los_angeles_kings_2002-2010.png
+11,2011,2018,Los Angeles Kings,logos/teams/bowl_historical/los_angeles_kings_2011-2018.png
+11,2019,2100,Los Angeles Kings,logos/teams/bowl_historical/los_angeles_kings_2011-2018.png
+118,1967,1974,Los Angeles Kings,logos/teams/bowl_historical/los_angeles_kings_1967-1974.png
+118,1975,1986,Los Angeles Kings,logos/teams/bowl_historical/los_angeles_kings_1975-1986.png
+118,1987,1987,Los Angeles Kings,logos/teams/bowl_historical/los_angeles_kings_1987-1987.png
+118,1988,1997,Los Angeles Kings,logos/teams/bowl_historical/los_angeles_kings_1988-1997.png
+118,1998,2001,Los Angeles Kings,logos/teams/bowl_historical/los_angeles_kings_1998-2001.png
+118,2002,2010,Los Angeles Kings,logos/teams/bowl_historical/los_angeles_kings_2002-2010.png
+118,2011,2018,Los Angeles Kings,logos/teams/bowl_historical/los_angeles_kings_2011-2018.png
+118,2019,2100,Los Angeles Kings,logos/teams/bowl_historical/los_angeles_kings_2011-2018.png
+17,1970,1995,Buffalo Sabres,logos/teams/bowl_historical/buffalo_sabres_1970-1995.png
+17,1996,1998,Buffalo Sabres,logos/teams/bowl_historical/buffalo_sabres_1996-1998.png
+17,1999,2005,Buffalo Sabres,logos/teams/bowl_historical/buffalo_sabres_1999-2005.png
+17,2006,2009,Buffalo Sabres,logos/teams/bowl_historical/buffalo_sabres_2006-2009.png
+17,2010,2018,Buffalo Sabres,logos/teams/bowl_historical/buffalo_sabres_2010-2018.png
+17,2019,2100,Buffalo Sabres,logos/teams/bowl_historical/buffalo_sabres_2010-2018.png
+20,1972,1994,New York Islanders,logos/teams/bowl_historical/new_york_islanders_1972-1994.png
+20,1995,1996,New York Islanders,logos/teams/bowl_historical/new_york_islanders_1995-1996.png
+20,1997,2009,New York Islanders,logos/teams/bowl_historical/new_york_islanders_1997-2009.png
+20,2010,2016,New York Islanders,logos/teams/bowl_historical/new_york_islanders_2010-2016.png
+20,2017,2018,New York Islanders,logos/teams/bowl_historical/new_york_islanders_2017-2018.png
+20,2019,2100,New York Islanders,logos/teams/bowl_historical/new_york_islanders_2017-2018.png
+22,1974,1994,Washington Capitals,logos/teams/bowl_historical/washington_capitals_1974-1994.png
+22,1995,1996,Washington Capitals,logos/teams/bowl_historical/washington_capitals_1995-1996.png
+22,1997,2006,Washington Capitals,logos/teams/bowl_historical/washington_capitals_1997-2006.png
+22,2007,2018,Washington Capitals,logos/teams/bowl_historical/washington_capitals_2007-2018.png
+22,2019,2100,Washington Capitals,logos/teams/bowl_historical/washington_capitals_2007-2018.png
+18,1970,1977,Vancouver Canucks,logos/teams/bowl_historical/vancouver_canucks_1970-1977.png
+18,1978,1991,Vancouver Canucks,logos/teams/bowl_historical/vancouver_canucks_1978-1991.png
+18,1992,1996,Vancouver Canucks,logos/teams/bowl_historical/vancouver_canucks_1992-1996.png
+18,1997,2006,Vancouver Canucks,logos/teams/bowl_historical/vancouver_canucks_1997-2006.png
+18,2007,2018,Vancouver Canucks,logos/teams/bowl_historical/vancouver_canucks_2007-2018.png
+18,2019,2100,Vancouver Canucks,logos/teams/bowl_historical/vancouver_canucks_2007-2018.png
+23,1979,1985,Edmonton Oilers,logos/teams/bowl_historical/edmonton_oilers_1979-1985.png
+23,1986,1995,Edmonton Oilers,logos/teams/bowl_historical/edmonton_oilers_1986-1995.png
+23,1996,2010,Edmonton Oilers,logos/teams/bowl_historical/edmonton_oilers_1996-2010.png
+23,2011,2016,Edmonton Oilers,logos/teams/bowl_historical/edmonton_oilers_2011-2016.png
+23,2017,2018,Edmonton Oilers,logos/teams/bowl_historical/edmonton_oilers_2017-2018.png
+23,2019,2100,Edmonton Oilers,logos/teams/bowl_historical/edmonton_oilers_2017-2018.png
+3,1926,1937,Toronto Maple Leafs,logos/teams/bowl_historical/toronto_maple_leafs_1926-1937.png
+3,1938,1962,Toronto Maple Leafs,logos/teams/bowl_historical/toronto_maple_leafs_1938-1962.png
+3,1963,1966,Toronto Maple Leafs,logos/teams/bowl_historical/toronto_maple_leafs_1963-1966.png
+3,1967,1969,Toronto Maple Leafs,logos/teams/bowl_historical/toronto_maple_leafs_1967-1969.png
+3,1970,1981,Toronto Maple Leafs,logos/teams/bowl_historical/toronto_maple_leafs_1970-1981.png
+3,1982,2015,Toronto Maple Leafs,logos/teams/bowl_historical/toronto_maple_leafs_1982-2015.png
+3,2016,2018,Toronto Maple Leafs,logos/teams/bowl_historical/toronto_maple_leafs_2016-2018.png
+3,2019,2100,Toronto Maple Leafs,logos/teams/bowl_historical/toronto_maple_leafs_2016-2018.png

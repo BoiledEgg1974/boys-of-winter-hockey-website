@@ -2289,9 +2289,13 @@ def draft():
         for pk in picks:
             did = getattr(pk.draft, "fhm_draft_id", None)
             ov = pk.overall_pick
-            if did is None or ov is None:
+            if ov is None:
                 continue
-            tm = team_lookup.get((int(did), int(ov)))
+            tm = None
+            if did is not None:
+                tm = team_lookup.get((int(did), int(ov)))
+            if tm is None:
+                tm = team_lookup.get((0, int(ov)))
             if tm is not None:
                 draft_pick_team_fhm_by_pick_id[int(pk.id)] = int(tm)
 
@@ -3605,9 +3609,13 @@ def player_page(player_id: int):
         did = getattr(pk.draft, "fhm_draft_id", None)
         yr = pk.draft_year
         ov = pk.overall_pick
-        if did is None or yr is None or ov is None:
+        if yr is None or ov is None:
             continue
-        tm = draft_team_fhm_lookup.get((int(did), int(yr), int(ov)))
+        tm = None
+        if did is not None:
+            tm = draft_team_fhm_lookup.get((int(did), int(yr), int(ov)))
+        if tm is None:
+            tm = draft_team_fhm_lookup.get((0, int(yr), int(ov)))
         if tm is not None:
             draft_pick_team_fhm_by_pick_id[int(pk.id)] = int(tm)
     contract_team = None

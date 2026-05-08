@@ -173,9 +173,10 @@
               <td>
                 {% set tm_fhm = draft_pick_team_fhm_by_pick_id.get(pk.id) if draft_pick_team_fhm_by_pick_id else none %}
                 {% if pk.team %}
-                  {% set team_name = season_team_name({'team': pk.team, 'season_year': pk.draft_year, 'team_fhm_id': pk.team.fhm_team_id}) or team_city_nick(pk.team) %}
+                  {% set name_rec = {'team': pk.team, 'season_year': pk.draft_year, 'team_fhm_id': tm_fhm if tm_fhm is not none else pk.team.fhm_team_id} %}
+                  {% set team_name = season_team_name(name_rec) or team_city_nick(pk.team) %}
                   <a href="{{ url_for('main.team_page', slug=pk.team.slug) }}">
-                    <img class="team-records-detail__logo" src="{{ team_logo_url_for_season_context(pk.team, pk.draft_year) }}" alt="" loading="lazy" decoding="async">
+                    <img class="team-records-detail__logo" src="{{ (season_team_logo_url({'team_fhm_id': tm_fhm, 'season_year': pk.draft_year}) if tm_fhm is not none else none) or team_logo_url_for_season_context(pk.team, pk.draft_year) or team_logo_url(pk.team) }}" alt="" loading="lazy" decoding="async">
                     {{ team_name }}
                   </a>
                 {% elif tm_fhm is not none %}
@@ -377,240 +378,256 @@
   {% endif %}
 
   {% if show_goalie_career_sections %}
-  <section class="player-profile__card player-profile__card--table">
-    <h2 class="player-profile__card-title">Goalie Career — Regular Season</h2>
-    {% if career_rs_gk %}
-    <div class="table-wrap">
-      <table class="data data-sortable player-profile__stats-table player-profile__goalie-career-table">
-        <thead>
-          <tr>
-            <th data-sort-type="num" scope="col">Season</th>
-            <th data-sort-nosort scope="col">Team</th>
-            <th data-sort-type="num" scope="col">GP</th>
-            <th data-sort-type="num" scope="col">W</th>
-            <th data-sort-type="num" scope="col">L</th>
-            <th data-sort-type="num" scope="col">OTL</th>
-            <th data-sort-type="num" scope="col">GAA</th>
-            <th data-sort-type="num" scope="col">SV%</th>
-            <th data-sort-type="num" scope="col">SO</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for ln in career_rs_gk %}
-          {% set sv_pct = ((ln.shots_against - ln.goals_against) / ln.shots_against) if ln.shots_against else none %}
-          {% set gaa = (ln.goals_against / ln.gp) if ln.gp else none %}
-          <tr>
-            <td data-sort-value="{{ ln.season_year }}">{{ season_span(ln.season_year) }}</td>
-            <td>{{ career_line_team_cell(ln) }}</td>
-            <td>{{ ln.gp }}</td><td>{{ ln.wins }}</td><td>{{ ln.losses }}</td><td>{{ ln.ties_otl if ln.ties_otl is not none else '—' }}</td>
-            <td>{{ '%.2f'|format(gaa) if gaa is not none else '—' }}</td>
-            <td>{{ '%.3f'|format(sv_pct) if sv_pct is not none else '—' }}</td>
-            <td>{{ ln.shutouts }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-        {% if career_rs_gk_totals %}
-        {% set t = career_rs_gk_totals %}
-        <tfoot>
-          <tr class="player-profile__career-totals-row">
-            <th scope="row" class="player-profile__career-totals-label">BOWL TOTALS</th>
-            <td>—</td>
-            <td>{{ t.gp }}</td>
-            <td>{{ t.wins }}</td>
-            <td>{{ t.losses }}</td>
-            <td>{{ t.ties_otl if t.ties_otl is not none else '—' }}</td>
-            <td>{{ '%.2f'|format(t.gaa) if t.gaa is not none else '—' }}</td>
-            <td>{{ '%.3f'|format(t.sv_pct) if t.sv_pct is not none else '—' }}</td>
-            <td>{{ t.shutouts }}</td>
-          </tr>
-        </tfoot>
+  <section class="player-profile__card player-profile__card--table player-profile__card--career-rs-po">
+    <h2 class="player-profile__card-title">Goalie career</h2>
+    <div class="player-profile__career-split">
+      <input type="radio" class="player-profile__career-split-trig player-profile__career-split-trig--rs" name="player-career-gk-{{ player.id }}" id="player-career-gk-rs-{{ player.id }}" checked>
+      <input type="radio" class="player-profile__career-split-trig player-profile__career-split-trig--po" name="player-career-gk-{{ player.id }}" id="player-career-gk-po-{{ player.id }}">
+      <div class="player-profile__career-split-tabs" role="tablist" aria-label="Goalie career">
+        <label class="player-profile__career-split-tab" for="player-career-gk-rs-{{ player.id }}" role="tab">Regular season</label>
+        <label class="player-profile__career-split-tab" for="player-career-gk-po-{{ player.id }}" role="tab">Playoffs</label>
+      </div>
+      <div class="player-profile__career-split-pane player-profile__career-split-pane--rs" role="tabpanel">
+        {% if career_rs_gk %}
+        <div class="table-wrap">
+          <table class="data data-sortable player-profile__stats-table player-profile__goalie-career-table">
+            <thead>
+              <tr>
+                <th data-sort-type="num" scope="col">Season</th>
+                <th data-sort-nosort scope="col">Team</th>
+                <th data-sort-type="num" scope="col">GP</th>
+                <th data-sort-type="num" scope="col">W</th>
+                <th data-sort-type="num" scope="col">L</th>
+                <th data-sort-type="num" scope="col">OTL</th>
+                <th data-sort-type="num" scope="col">GAA</th>
+                <th data-sort-type="num" scope="col">SV%</th>
+                <th data-sort-type="num" scope="col">SO</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for ln in career_rs_gk %}
+              {% set sv_pct = ((ln.shots_against - ln.goals_against) / ln.shots_against) if ln.shots_against else none %}
+              {% set gaa = (ln.goals_against / ln.gp) if ln.gp else none %}
+              <tr>
+                <td data-sort-value="{{ ln.season_year }}">{{ season_span(ln.season_year) }}</td>
+                <td>{{ career_line_team_cell(ln) }}</td>
+                <td>{{ ln.gp }}</td><td>{{ ln.wins }}</td><td>{{ ln.losses }}</td><td>{{ ln.ties_otl if ln.ties_otl is not none else '—' }}</td>
+                <td>{{ '%.2f'|format(gaa) if gaa is not none else '—' }}</td>
+                <td>{{ '%.3f'|format(sv_pct) if sv_pct is not none else '—' }}</td>
+                <td>{{ ln.shutouts }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+            {% if career_rs_gk_totals %}
+            {% set t = career_rs_gk_totals %}
+            <tfoot>
+              <tr class="player-profile__career-totals-row">
+                <th scope="row" class="player-profile__career-totals-label">BOWL TOTALS</th>
+                <td>—</td>
+                <td>{{ t.gp }}</td>
+                <td>{{ t.wins }}</td>
+                <td>{{ t.losses }}</td>
+                <td>{{ t.ties_otl if t.ties_otl is not none else '—' }}</td>
+                <td>{{ '%.2f'|format(t.gaa) if t.gaa is not none else '—' }}</td>
+                <td>{{ '%.3f'|format(t.sv_pct) if t.sv_pct is not none else '—' }}</td>
+                <td>{{ t.shutouts }}</td>
+              </tr>
+            </tfoot>
+            {% endif %}
+          </table>
+        </div>
+        {% else %}
+        <p class="empty-state">No regular-season goalie career lines imported.</p>
         {% endif %}
-      </table>
-    </div>
-    {% else %}
-    <p class="empty-state">No regular-season goalie career lines imported.</p>
-    {% endif %}
-  </section>
-
-  <section class="player-profile__card player-profile__card--table">
-    <h2 class="player-profile__card-title">Goalie Career — Playoffs</h2>
-    {% if career_po_gk %}
-    <div class="table-wrap">
-      <table class="data data-sortable player-profile__stats-table player-profile__goalie-career-table">
-        <thead>
-          <tr>
-            <th data-sort-type="num" scope="col">Season</th>
-            <th data-sort-nosort scope="col">Team</th>
-            <th data-sort-type="num" scope="col">GP</th>
-            <th data-sort-type="num" scope="col">W</th>
-            <th data-sort-type="num" scope="col">L</th>
-            <th data-sort-type="num" scope="col">OTL</th>
-            <th data-sort-type="num" scope="col">GAA</th>
-            <th data-sort-type="num" scope="col">SV%</th>
-            <th data-sort-type="num" scope="col">SO</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for ln in career_po_gk %}
-          {% set sv_pct = ((ln.shots_against - ln.goals_against) / ln.shots_against) if ln.shots_against else none %}
-          {% set gaa = (ln.goals_against / ln.gp) if ln.gp else none %}
-          <tr>
-            <td data-sort-value="{{ ln.season_year }}">{{ season_span(ln.season_year) }}</td>
-            <td>{{ career_line_team_cell(ln) }}</td>
-            <td>{{ ln.gp }}</td><td>{{ ln.wins }}</td><td>{{ ln.losses }}</td><td>{{ ln.ties_otl if ln.ties_otl is not none else '—' }}</td>
-            <td>{{ '%.2f'|format(gaa) if gaa is not none else '—' }}</td>
-            <td>{{ '%.3f'|format(sv_pct) if sv_pct is not none else '—' }}</td>
-            <td>{{ ln.shutouts }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-        {% if career_po_gk_totals %}
-        {% set t = career_po_gk_totals %}
-        <tfoot>
-          <tr class="player-profile__career-totals-row">
-            <th scope="row" class="player-profile__career-totals-label">BOWL TOTALS</th>
-            <td>—</td>
-            <td>{{ t.gp }}</td>
-            <td>{{ t.wins }}</td>
-            <td>{{ t.losses }}</td>
-            <td>{{ t.ties_otl if t.ties_otl is not none else '—' }}</td>
-            <td>{{ '%.2f'|format(t.gaa) if t.gaa is not none else '—' }}</td>
-            <td>{{ '%.3f'|format(t.sv_pct) if t.sv_pct is not none else '—' }}</td>
-            <td>{{ t.shutouts }}</td>
-          </tr>
-        </tfoot>
+      </div>
+      <div class="player-profile__career-split-pane player-profile__career-split-pane--po" role="tabpanel">
+        {% if career_po_gk %}
+        <div class="table-wrap">
+          <table class="data data-sortable player-profile__stats-table player-profile__goalie-career-table">
+            <thead>
+              <tr>
+                <th data-sort-type="num" scope="col">Season</th>
+                <th data-sort-nosort scope="col">Team</th>
+                <th data-sort-type="num" scope="col">GP</th>
+                <th data-sort-type="num" scope="col">W</th>
+                <th data-sort-type="num" scope="col">L</th>
+                <th data-sort-type="num" scope="col">OTL</th>
+                <th data-sort-type="num" scope="col">GAA</th>
+                <th data-sort-type="num" scope="col">SV%</th>
+                <th data-sort-type="num" scope="col">SO</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for ln in career_po_gk %}
+              {% set sv_pct = ((ln.shots_against - ln.goals_against) / ln.shots_against) if ln.shots_against else none %}
+              {% set gaa = (ln.goals_against / ln.gp) if ln.gp else none %}
+              <tr>
+                <td data-sort-value="{{ ln.season_year }}">{{ season_span(ln.season_year) }}</td>
+                <td>{{ career_line_team_cell(ln) }}</td>
+                <td>{{ ln.gp }}</td><td>{{ ln.wins }}</td><td>{{ ln.losses }}</td><td>{{ ln.ties_otl if ln.ties_otl is not none else '—' }}</td>
+                <td>{{ '%.2f'|format(gaa) if gaa is not none else '—' }}</td>
+                <td>{{ '%.3f'|format(sv_pct) if sv_pct is not none else '—' }}</td>
+                <td>{{ ln.shutouts }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+            {% if career_po_gk_totals %}
+            {% set t = career_po_gk_totals %}
+            <tfoot>
+              <tr class="player-profile__career-totals-row">
+                <th scope="row" class="player-profile__career-totals-label">BOWL TOTALS</th>
+                <td>—</td>
+                <td>{{ t.gp }}</td>
+                <td>{{ t.wins }}</td>
+                <td>{{ t.losses }}</td>
+                <td>{{ t.ties_otl if t.ties_otl is not none else '—' }}</td>
+                <td>{{ '%.2f'|format(t.gaa) if t.gaa is not none else '—' }}</td>
+                <td>{{ '%.3f'|format(t.sv_pct) if t.sv_pct is not none else '—' }}</td>
+                <td>{{ t.shutouts }}</td>
+              </tr>
+            </tfoot>
+            {% endif %}
+          </table>
+        </div>
+        {% else %}
+        <p class="empty-state">No playoff goalie career lines imported.</p>
         {% endif %}
-      </table>
+      </div>
     </div>
-    {% else %}
-    <p class="empty-state">No playoff goalie career lines imported.</p>
-    {% endif %}
   </section>
   {% endif %}
 
   {% if show_skater_career_sections %}
-  <section class="player-profile__card player-profile__card--table">
-    <h2 class="player-profile__card-title">Skater Career — Regular Season</h2>
-    {% if career_rs_sk %}
-    <div class="table-wrap">
-      <table class="data data-sortable player-profile__stats-table player-profile__skater-career-table">
-        <thead>
-          <tr>
-            <th data-sort-type="num" scope="col">Season</th>
-            <th data-sort-nosort scope="col">Team</th>
-            <th data-sort-type="num" scope="col">GP</th>
-            <th data-sort-type="num" scope="col">G</th>
-            <th data-sort-type="num" scope="col">A</th>
-            <th data-sort-type="num" scope="col">Pts</th>
-            <th data-sort-type="num" scope="col">+/-</th>
-            <th data-sort-type="num" scope="col">PIM</th>
-            <th data-sort-type="num" scope="col">PPG</th>
-            <th data-sort-type="num" scope="col">SHG</th>
-            <th data-sort-type="num" scope="col">SOG</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for ln in career_rs_sk %}
-          <tr>
-            <td data-sort-value="{{ ln.season_year }}">{{ season_span(ln.season_year) }}</td>
-            <td>{{ career_line_team_cell(ln) }}</td>
-            <td>{{ ln.gp }}</td>
-            <td>{{ ln.goals }}</td>
-            <td>{{ ln.assists }}</td>
-            <td>{{ ln.goals + ln.assists }}</td>
-            <td>{{ ln.plus_minus if ln.plus_minus is not none else '—' }}</td>
-            <td>{{ ln.pim }}</td>
-            <td>{{ ln.pp_goals if ln.pp_goals is not none else '—' }}</td>
-            <td>{{ ln.sh_goals if ln.sh_goals is not none else '—' }}</td>
-            <td>{{ ln.shots if ln.shots is not none else '—' }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-        {% if career_rs_sk_totals %}
-        {% set t = career_rs_sk_totals %}
-        <tfoot>
-          <tr class="player-profile__career-totals-row">
-            <th scope="row" class="player-profile__career-totals-label">BOWL TOTALS</th>
-            <td>—</td>
-            <td>{{ t.gp }}</td>
-            <td>{{ t.goals }}</td>
-            <td>{{ t.assists }}</td>
-            <td>{{ t.points }}</td>
-            <td>{{ t.plus_minus if t.plus_minus is not none else '—' }}</td>
-            <td>{{ t.pim }}</td>
-            <td>{{ t.pp_goals if t.pp_goals is not none else '—' }}</td>
-            <td>{{ t.sh_goals if t.sh_goals is not none else '—' }}</td>
-            <td>{{ t.shots if t.shots is not none else '—' }}</td>
-          </tr>
-        </tfoot>
+  <section class="player-profile__card player-profile__card--table player-profile__card--career-rs-po">
+    <h2 class="player-profile__card-title">Skater career</h2>
+    <div class="player-profile__career-split">
+      <input type="radio" class="player-profile__career-split-trig player-profile__career-split-trig--rs" name="player-career-sk-{{ player.id }}" id="player-career-sk-rs-{{ player.id }}" checked>
+      <input type="radio" class="player-profile__career-split-trig player-profile__career-split-trig--po" name="player-career-sk-{{ player.id }}" id="player-career-sk-po-{{ player.id }}">
+      <div class="player-profile__career-split-tabs" role="tablist" aria-label="Skater career">
+        <label class="player-profile__career-split-tab" for="player-career-sk-rs-{{ player.id }}" role="tab">Regular season</label>
+        <label class="player-profile__career-split-tab" for="player-career-sk-po-{{ player.id }}" role="tab">Playoffs</label>
+      </div>
+      <div class="player-profile__career-split-pane player-profile__career-split-pane--rs" role="tabpanel">
+        {% if career_rs_sk %}
+        <div class="table-wrap">
+          <table class="data data-sortable player-profile__stats-table player-profile__skater-career-table">
+            <thead>
+              <tr>
+                <th data-sort-type="num" scope="col">Season</th>
+                <th data-sort-nosort scope="col">Team</th>
+                <th data-sort-type="num" scope="col">GP</th>
+                <th data-sort-type="num" scope="col">G</th>
+                <th data-sort-type="num" scope="col">A</th>
+                <th data-sort-type="num" scope="col">Pts</th>
+                <th data-sort-type="num" scope="col">+/-</th>
+                <th data-sort-type="num" scope="col">PIM</th>
+                <th data-sort-type="num" scope="col">PPG</th>
+                <th data-sort-type="num" scope="col">SHG</th>
+                <th data-sort-type="num" scope="col">SOG</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for ln in career_rs_sk %}
+              <tr>
+                <td data-sort-value="{{ ln.season_year }}">{{ season_span(ln.season_year) }}</td>
+                <td>{{ career_line_team_cell(ln) }}</td>
+                <td>{{ ln.gp }}</td>
+                <td>{{ ln.goals }}</td>
+                <td>{{ ln.assists }}</td>
+                <td>{{ ln.goals + ln.assists }}</td>
+                <td>{{ ln.plus_minus if ln.plus_minus is not none else '—' }}</td>
+                <td>{{ ln.pim }}</td>
+                <td>{{ ln.pp_goals if ln.pp_goals is not none else '—' }}</td>
+                <td>{{ ln.sh_goals if ln.sh_goals is not none else '—' }}</td>
+                <td>{{ ln.shots if ln.shots is not none else '—' }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+            {% if career_rs_sk_totals %}
+            {% set t = career_rs_sk_totals %}
+            <tfoot>
+              <tr class="player-profile__career-totals-row">
+                <th scope="row" class="player-profile__career-totals-label">BOWL TOTALS</th>
+                <td>—</td>
+                <td>{{ t.gp }}</td>
+                <td>{{ t.goals }}</td>
+                <td>{{ t.assists }}</td>
+                <td>{{ t.points }}</td>
+                <td>{{ t.plus_minus if t.plus_minus is not none else '—' }}</td>
+                <td>{{ t.pim }}</td>
+                <td>{{ t.pp_goals if t.pp_goals is not none else '—' }}</td>
+                <td>{{ t.sh_goals if t.sh_goals is not none else '—' }}</td>
+                <td>{{ t.shots if t.shots is not none else '—' }}</td>
+              </tr>
+            </tfoot>
+            {% endif %}
+          </table>
+        </div>
+        {% else %}
+        <p class="empty-state">No regular-season skater career lines imported.</p>
         {% endif %}
-      </table>
-    </div>
-    {% else %}
-    <p class="empty-state">No regular-season skater career lines imported.</p>
-    {% endif %}
-  </section>
-
-  <section class="player-profile__card player-profile__card--table">
-    <h2 class="player-profile__card-title">Skater Career — Playoffs</h2>
-    {% if career_po_sk %}
-    <div class="table-wrap">
-      <table class="data data-sortable player-profile__stats-table player-profile__skater-career-table">
-        <thead>
-          <tr>
-            <th data-sort-type="num" scope="col">Season</th>
-            <th data-sort-nosort scope="col">Team</th>
-            <th data-sort-type="num" scope="col">GP</th>
-            <th data-sort-type="num" scope="col">G</th>
-            <th data-sort-type="num" scope="col">A</th>
-            <th data-sort-type="num" scope="col">Pts</th>
-            <th data-sort-type="num" scope="col">+/-</th>
-            <th data-sort-type="num" scope="col">PIM</th>
-            <th data-sort-type="num" scope="col">PPG</th>
-            <th data-sort-type="num" scope="col">SHG</th>
-            <th data-sort-type="num" scope="col">SOG</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for ln in career_po_sk %}
-          <tr>
-            <td data-sort-value="{{ ln.season_year }}">{{ season_span(ln.season_year) }}</td>
-            <td>{{ career_line_team_cell(ln) }}</td>
-            <td>{{ ln.gp }}</td>
-            <td>{{ ln.goals }}</td>
-            <td>{{ ln.assists }}</td>
-            <td>{{ ln.goals + ln.assists }}</td>
-            <td>{{ ln.plus_minus if ln.plus_minus is not none else '—' }}</td>
-            <td>{{ ln.pim }}</td>
-            <td>{{ ln.pp_goals if ln.pp_goals is not none else '—' }}</td>
-            <td>{{ ln.sh_goals if ln.sh_goals is not none else '—' }}</td>
-            <td>{{ ln.shots if ln.shots is not none else '—' }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-        {% if career_po_sk_totals %}
-        {% set t = career_po_sk_totals %}
-        <tfoot>
-          <tr class="player-profile__career-totals-row">
-            <th scope="row" class="player-profile__career-totals-label">BOWL TOTALS</th>
-            <td>—</td>
-            <td>{{ t.gp }}</td>
-            <td>{{ t.goals }}</td>
-            <td>{{ t.assists }}</td>
-            <td>{{ t.points }}</td>
-            <td>{{ t.plus_minus if t.plus_minus is not none else '—' }}</td>
-            <td>{{ t.pim }}</td>
-            <td>{{ t.pp_goals if t.pp_goals is not none else '—' }}</td>
-            <td>{{ t.sh_goals if t.sh_goals is not none else '—' }}</td>
-            <td>{{ t.shots if t.shots is not none else '—' }}</td>
-          </tr>
-        </tfoot>
+      </div>
+      <div class="player-profile__career-split-pane player-profile__career-split-pane--po" role="tabpanel">
+        {% if career_po_sk %}
+        <div class="table-wrap">
+          <table class="data data-sortable player-profile__stats-table player-profile__skater-career-table">
+            <thead>
+              <tr>
+                <th data-sort-type="num" scope="col">Season</th>
+                <th data-sort-nosort scope="col">Team</th>
+                <th data-sort-type="num" scope="col">GP</th>
+                <th data-sort-type="num" scope="col">G</th>
+                <th data-sort-type="num" scope="col">A</th>
+                <th data-sort-type="num" scope="col">Pts</th>
+                <th data-sort-type="num" scope="col">+/-</th>
+                <th data-sort-type="num" scope="col">PIM</th>
+                <th data-sort-type="num" scope="col">PPG</th>
+                <th data-sort-type="num" scope="col">SHG</th>
+                <th data-sort-type="num" scope="col">SOG</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for ln in career_po_sk %}
+              <tr>
+                <td data-sort-value="{{ ln.season_year }}">{{ season_span(ln.season_year) }}</td>
+                <td>{{ career_line_team_cell(ln) }}</td>
+                <td>{{ ln.gp }}</td>
+                <td>{{ ln.goals }}</td>
+                <td>{{ ln.assists }}</td>
+                <td>{{ ln.goals + ln.assists }}</td>
+                <td>{{ ln.plus_minus if ln.plus_minus is not none else '—' }}</td>
+                <td>{{ ln.pim }}</td>
+                <td>{{ ln.pp_goals if ln.pp_goals is not none else '—' }}</td>
+                <td>{{ ln.sh_goals if ln.sh_goals is not none else '—' }}</td>
+                <td>{{ ln.shots if ln.shots is not none else '—' }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+            {% if career_po_sk_totals %}
+            {% set t = career_po_sk_totals %}
+            <tfoot>
+              <tr class="player-profile__career-totals-row">
+                <th scope="row" class="player-profile__career-totals-label">BOWL TOTALS</th>
+                <td>—</td>
+                <td>{{ t.gp }}</td>
+                <td>{{ t.goals }}</td>
+                <td>{{ t.assists }}</td>
+                <td>{{ t.points }}</td>
+                <td>{{ t.plus_minus if t.plus_minus is not none else '—' }}</td>
+                <td>{{ t.pim }}</td>
+                <td>{{ t.pp_goals if t.pp_goals is not none else '—' }}</td>
+                <td>{{ t.sh_goals if t.sh_goals is not none else '—' }}</td>
+                <td>{{ t.shots if t.shots is not none else '—' }}</td>
+              </tr>
+            </tfoot>
+            {% endif %}
+          </table>
+        </div>
+        {% else %}
+        <p class="empty-state">No playoff skater career lines imported.</p>
         {% endif %}
-      </table>
+      </div>
     </div>
-    {% else %}
-    <p class="empty-state">No playoff skater career lines imported.</p>
-    {% endif %}
   </section>
   {% endif %}
 

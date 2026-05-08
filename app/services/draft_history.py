@@ -221,7 +221,40 @@ def draft_team_fhm_ids_for_player(raw_import_dir: Path, player_fhm_id: str | Non
                 out[(did, yr, ov)] = tm
     except OSError:
         return {}
+    _alias_singleton_draft_id_zero_for_triples(out)
     return out
+
+
+def _alias_singleton_draft_id_zero_for_pairs(out: dict[tuple[int, int], int]) -> None:
+    """If ``draft_info`` rows for this year use a single FHM ``DraftId``, also map ``(0, overall)``.
+
+    Historical exports often use non-zero draft ids (e.g. 1967 → 5) while the DB may still store ``0``,
+    so ``(fhm_draft_id, overall)`` lookups would miss without this alias.
+    """
+    ids = {d for (d, _o) in out}
+    if len(ids) != 1:
+        return
+    sole = next(iter(ids))
+    if sole == 0:
+        return
+    for (d, ov), tm in list(out.items()):
+        if d == sole:
+            out.setdefault((0, ov), tm)
+
+
+def _alias_singleton_draft_id_zero_for_triples(out: dict[tuple[int, int, int], int]) -> None:
+    """Same as :func:`_alias_singleton_draft_id_zero_for_pairs` for ``(draft_id, year, overall)`` keys."""
+    by_y_ov: dict[tuple[int, int], dict[int, int]] = {}
+    for (did, yr, ov), tm in out.items():
+        by_y_ov.setdefault((yr, ov), {})[int(did)] = int(tm)
+    for (yr, ov), per_did in by_y_ov.items():
+        if len(per_did) != 1:
+            continue
+        sole_did = next(iter(per_did))
+        if sole_did == 0:
+            continue
+        tm = per_did[sole_did]
+        out.setdefault((0, yr, ov), tm)
 
 
 def draft_team_fhm_ids_for_year(raw_import_dir: Path, draft_year: int) -> dict[tuple[int, int], int]:
@@ -252,4 +285,5 @@ def draft_team_fhm_ids_for_year(raw_import_dir: Path, draft_year: int) -> dict[t
                 out[(did, ov)] = tm
     except OSError:
         return {}
+    _alias_singleton_draft_id_zero_for_pairs(out)
     return out

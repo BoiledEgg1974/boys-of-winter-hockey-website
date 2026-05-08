@@ -141,6 +141,78 @@ def login():
     return redirect(url_for("hub_auth.account"))
 
 
+@hub_auth_bp.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    if current_user.is_authenticated:
+        return redirect(url_for("hub_auth.account"))
+    if request.method == "GET":
+        return render_template("forgot_password.html", error=None)
+
+    email = (request.form.get("email") or "").strip().lower()
+    if not email or "@" not in email:
+        return render_template("forgot_password.html", error="Enter a valid email address.")
+
+    user = db.session.scalar(select(User).where(func.lower(User.email) == email).limit(1))
+    # Return a generic success message either way so account presence is not exposed.
+    if user is not None and user.revoked_at is None:
+        try:
+            from app.services.password_reset import issue_password_reset_token, send_password_reset_email
+
+            raw_token = issue_password_reset_token(user)
+            send_password_reset_email(user=user, raw_token=raw_token)
+        except Exception as exc:
+            current_app.logger.warning("Password reset email failed for %s: %s", email, exc)
+
+    flash(
+        "If that email is registered, a reset link has been sent.",
+        "ok",
+    )
+    return redirect(url_for("hub_auth.login"))
+
+
+@hub_auth_bp.route("/reset-password/<token>", methods=["GET", "POST"])
+def reset_password(token: str):
+    from app.services.password_reset import consume_reset_token_and_update_password, find_user_for_reset_token
+
+    token = (token or "").strip()
+    if not token:
+        return redirect(url_for("hub_auth.forgot_password"))
+
+    valid_user = find_user_for_reset_token(token)
+    if valid_user is None:
+        return render_template("reset_password.html", token=token, invalid=True, error=None)
+
+    if request.method == "GET":
+        return render_template("reset_password.html", token=token, invalid=False, error=None)
+
+    password = request.form.get("password") or ""
+    password2 = request.form.get("password_confirm") or ""
+    if len(password) < 8:
+        return render_template(
+            "reset_password.html",
+            token=token,
+            invalid=False,
+            error="Password must be at least 8 characters.",
+        )
+    if password != password2:
+        return render_template(
+            "reset_password.html",
+            token=token,
+            invalid=False,
+            error="Passwords do not match.",
+        )
+
+    if not consume_reset_token_and_update_password(raw_token=token, new_password=password):
+        return render_template(
+            "reset_password.html",
+            token=token,
+            invalid=True,
+            error="This reset link is invalid or has expired.",
+        )
+    flash("Password reset complete. You can now log in.", "ok")
+    return redirect(url_for("hub_auth.login"))
+
+
 @hub_auth_bp.post("/logout")
 def logout():
     logout_user()

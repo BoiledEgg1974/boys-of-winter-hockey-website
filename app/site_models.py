@@ -28,6 +28,24 @@ class User(db.Model, UserMixin):
     memberships: Mapped[list["GmLeagueMembership"]] = relationship(back_populates="user")
 
 
+class PasswordResetToken(db.Model):
+    __tablename__ = "password_reset_tokens"
+    __bind_key__ = "site"
+    __table_args__ = (
+        Index("ix_pwd_reset_lookup", "token_hash", "used_at"),
+        Index("ix_pwd_reset_user_created", "user_id", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("site_users.id"), nullable=False)
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    user: Mapped["User"] = relationship()
+
+
 class GmLeagueMembership(db.Model):
     __tablename__ = "gm_league_memberships"
     __bind_key__ = "site"

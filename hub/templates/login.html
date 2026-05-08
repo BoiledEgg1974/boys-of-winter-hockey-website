@@ -11,6 +11,13 @@
     <p><a href="/" style="color:#38bdf8;">← Home</a></p>
     <h1 style="margin-top:0;">GM Log In</h1>
     <p class="muted" style="font-size:0.9rem;">Sign in with the email you registered, or your username if you have one.</p>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <p style="color:{{ '#4ade80' if category == 'ok' else '#f87171' }};">{{ message }}</p>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
     {% if error %}<p style="color:#f87171;">{{ error }}</p>{% endif %}
     <form method="post" class="card" style="padding:1.25rem;display:grid;gap:0.85rem;">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -22,7 +29,10 @@
       <label style="display:flex;align-items:center;gap:0.5rem;"><input type="checkbox" name="remember" value="1"> Stay signed in</label>
       <button type="submit" class="join-league-btn" style="border:none;cursor:pointer;">Log in</button>
     </form>
-    <p class="muted"><a href="{{ url_for('hub_auth.register_get') }}">Create an account</a></p>
+    <p class="muted">
+      <a href="{{ url_for('hub_auth.forgot_password') }}">Forgot password?</a>
+      · <a href="{{ url_for('hub_auth.register_get') }}">Create an account</a>
+    </p>
   </div>
 </body>
 </html>

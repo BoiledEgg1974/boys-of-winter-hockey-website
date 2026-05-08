@@ -18,6 +18,7 @@ from app.db_utils import (
     ensure_homepage_module_settings_sqlite,
     ensure_site_announcements_sqlite,
     ensure_site_users_admin_role_sqlite,
+    ensure_password_reset_tokens_sqlite,
     ensure_league_rule_settings_sqlite,
     ensure_gm_approval_requests_sqlite,
     ensure_gm_trade_proposals_sqlite,
@@ -115,6 +116,7 @@ def create_app(config_class: type = Config) -> Flask:
             ensure_homepage_module_settings_sqlite(site_engine)
             ensure_site_announcements_sqlite(site_engine)
             ensure_site_users_admin_role_sqlite(site_engine)
+            ensure_password_reset_tokens_sqlite(site_engine)
             ensure_league_rule_settings_sqlite(site_engine)
             ensure_gm_approval_requests_sqlite(site_engine)
             ensure_gm_trade_proposals_sqlite(site_engine)

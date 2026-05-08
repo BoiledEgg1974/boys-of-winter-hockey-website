@@ -416,6 +416,52 @@ def ensure_site_users_admin_role_sqlite(engine: Engine) -> None:
         conn.commit()
 
 
+def ensure_password_reset_tokens_sqlite(engine: Engine) -> None:
+    """Create password reset token table on site DB when missing."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='password_reset_tokens'")
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE password_reset_tokens (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    token_hash VARCHAR(64) NOT NULL,
+                    created_at DATETIME NOT NULL,
+                    expires_at DATETIME NOT NULL,
+                    used_at DATETIME,
+                    FOREIGN KEY(user_id) REFERENCES site_users (id)
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE UNIQUE INDEX ix_password_reset_tokens_token_hash "
+                "ON password_reset_tokens (token_hash)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_pwd_reset_lookup "
+                "ON password_reset_tokens (token_hash, used_at)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_pwd_reset_user_created "
+                "ON password_reset_tokens (user_id, created_at)"
+            )
+        )
+        conn.commit()
+
+
 def ensure_league_rule_settings_sqlite(engine: Engine) -> None:
     """Create league rule settings table on site DB when missing."""
     if engine.dialect.name != "sqlite":

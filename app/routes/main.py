@@ -55,6 +55,8 @@ from app.services.roster_team import main_league_roster_team
 from app.services.team_records import raw_history_award_csv_season_labels
 from app.services.draft_history import (
     build_career_stat_maps,
+    draft_team_fhm_ids_for_player,
+    draft_team_fhm_ids_for_year,
     draft_row_stat_mode,
     fetch_nhl_bowl_draft_years,
     fetch_nhl_bowl_picks_for_year,
@@ -2275,12 +2277,23 @@ def draft():
     picks_by_round: list[tuple[int | None, list[DraftPick]]] = []
     skater_career: dict[int, tuple[int, int, int, int]] = {}
     goalie_career: dict[int, tuple[int, int, int, int, float | None, int]] = {}
+    draft_pick_team_fhm_by_pick_id: dict[int, int] = {}
 
     if year is not None:
         picks = fetch_nhl_bowl_picks_for_year(db.session, year)
         picks_by_round = group_picks_by_round(picks)
         pids = [pk.player_id for pk in picks if pk.player_id]
         skater_career, goalie_career = build_career_stat_maps(db.session, pids)
+        raw_dir = Path(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR))
+        team_lookup = draft_team_fhm_ids_for_year(raw_dir, int(year))
+        for pk in picks:
+            did = getattr(pk.draft, "fhm_draft_id", None)
+            ov = pk.overall_pick
+            if did is None or ov is None:
+                continue
+            tm = team_lookup.get((int(did), int(ov)))
+            if tm is not None:
+                draft_pick_team_fhm_by_pick_id[int(pk.id)] = int(tm)
 
     return render_template(
         "draft.html",
@@ -2288,6 +2301,7 @@ def draft():
         draft_year=year,
         picks=picks,
         picks_by_round=picks_by_round,
+        draft_pick_team_fhm_by_pick_id=draft_pick_team_fhm_by_pick_id,
         skater_career=skater_career,
         goalie_career=goalie_career,
         draft_row_stat_mode=draft_row_stat_mode,
@@ -3584,6 +3598,18 @@ def player_page(player_id: int):
         .where(DraftPick.player_id == player.id)
         .order_by(DraftPick.draft_year.desc().nulls_last(), DraftPick.overall_pick)
     ).all()
+    raw_dir = Path(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR))
+    draft_team_fhm_lookup = draft_team_fhm_ids_for_player(raw_dir, player.fhm_player_id)
+    draft_pick_team_fhm_by_pick_id: dict[int, int] = {}
+    for pk in draft_picks:
+        did = getattr(pk.draft, "fhm_draft_id", None)
+        yr = pk.draft_year
+        ov = pk.overall_pick
+        if did is None or yr is None or ov is None:
+            continue
+        tm = draft_team_fhm_lookup.get((int(did), int(yr), int(ov)))
+        if tm is not None:
+            draft_pick_team_fhm_by_pick_id[int(pk.id)] = int(tm)
     contract_team = None
     if contract and contract.fhm_team_id is not None:
         contract_team = db.session.scalars(
@@ -3602,7 +3628,6 @@ def player_page(player_id: int):
     rating_avgs_skater = skater_category_averages(ratings_row)
     rating_avgs_goalie = goalie_category_averages(ratings_row)
     season_start_year = season.start_year if season else None
-    raw_dir = Path(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR))
     contract_years_left = contract_years_remaining_major(
         player.fhm_player_id, season_start_year, raw_dir
     )
@@ -3655,6 +3680,7 @@ def player_page(player_id: int):
         roster_header_team=roster_header_team,
         accent_team=accent_team,
         draft_picks=draft_picks,
+        draft_pick_team_fhm_by_pick_id=draft_pick_team_fhm_by_pick_id,
         ratings_row=ratings_row,
         hero_overall_ability=hero_overall_ability,
         hero_overall_potential=hero_overall_potential,

@@ -94,6 +94,14 @@ def create_hub_app() -> Flask:
 
     with hub_app.app_context():
         db.create_all()
+        try:
+            site_engine = db.engines.get("site")
+        except Exception:
+            site_engine = None
+        if site_engine is not None:
+            from app.db_utils import ensure_site_banned_identities_sqlite
+
+            ensure_site_banned_identities_sqlite(site_engine)
         from app.services.ap_service import seed_ap_catalog_if_empty
 
         seed_ap_catalog_if_empty()

@@ -1,6 +1,7 @@
 """Registration / login on hub only (path ``/``)."""
 from __future__ import annotations
 
+from datetime import datetime
 from urllib.parse import unquote
 
 from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
@@ -10,7 +11,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.config import LEAGUES
 from app.league_db import db
-from app.site_models import GmLeagueMembership, User
+from app.site_models import GmLeagueMembership, SiteBannedIdentity, User
 
 hub_auth_bp = Blueprint("hub_auth", __name__)
 
@@ -65,6 +66,12 @@ def register_post():
             tid = int(raw)
             memberships_data.append((slug, tid, fhm_team_id_for_league_team(slug, tid)))
 
+    if not errors:
+        banned_id = db.session.scalar(
+            select(SiteBannedIdentity.id).where(SiteBannedIdentity.email_norm == email).limit(1)
+        )
+        if banned_id is not None:
+            errors.append("Registration is not allowed for this email address.")
     if not errors:
         existing = db.session.scalar(select(User.id).where(User.email == email).limit(1))
         if existing is not None:
@@ -258,6 +265,127 @@ def admin_memberships():
     return render_template("admin_memberships.html", rows=enriched)
 
 
+@hub_auth_bp.get("/admin/memberships/<int:mid>/remove")
+@login_required
+def admin_remove_membership_confirm(mid: int):
+    if not current_user.is_admin:
+        from flask import abort
+
+        abort(403)
+    from app.services.register_team_options import team_snapshot_for_membership
+
+    m = db.session.get(GmLeagueMembership, mid)
+    if m is None:
+        flash("That membership row no longer exists.", "error")
+        return redirect(url_for("hub_auth.admin_memberships"))
+    u = db.session.get(User, m.user_id)
+    if u is None:
+        db.session.delete(m)
+        db.session.commit()
+        flash("Removed orphan membership row.", "ok")
+        return redirect(url_for("hub_auth.admin_memberships"))
+    snap = team_snapshot_for_membership(m.league_slug, m.team_id)
+    return render_template(
+        "admin_memberships_remove.html",
+        membership=m,
+        user_row=u,
+        team_snap=snap,
+    )
+
+
+@hub_auth_bp.post("/admin/memberships/<int:mid>/remove-only")
+@login_required
+def admin_remove_membership_only(mid: int):
+    if not current_user.is_admin:
+        from flask import abort
+
+        abort(403)
+    m = db.session.get(GmLeagueMembership, mid)
+    if m:
+        db.session.delete(m)
+        db.session.commit()
+        flash("Membership removed from the dashboard (user account unchanged).", "ok")
+    return redirect(url_for("hub_auth.admin_memberships"))
+
+
+@hub_auth_bp.post("/admin/memberships/<int:mid>/ban")
+@login_required
+def admin_ban_membership(mid: int):
+    if not current_user.is_admin:
+        from flask import abort
+
+        abort(403)
+    m = db.session.get(GmLeagueMembership, mid)
+    if not m:
+        return redirect(url_for("hub_auth.admin_memberships"))
+    u = db.session.get(User, m.user_id)
+    if u is None:
+        db.session.delete(m)
+        db.session.commit()
+        flash("Removed orphan membership row.", "ok")
+        return redirect(url_for("hub_auth.admin_memberships"))
+    if u.id == current_user.id:
+        flash("You cannot ban your own account.", "error")
+        return redirect(url_for("hub_auth.admin_memberships"))
+    note = (request.form.get("note") or "").strip()[:4000]
+    email_norm = (u.email or "").strip().lower()
+    league_slug = (m.league_slug or "").strip()
+    existing = db.session.scalar(
+        select(SiteBannedIdentity).where(SiteBannedIdentity.email_norm == email_norm).limit(1)
+    )
+    if existing is None:
+        db.session.add(
+            SiteBannedIdentity(
+                email_norm=email_norm,
+                discord_name=(u.discord_name or "")[:120],
+                note=note,
+                league_slug=league_slug,
+                created_by_user_id=int(current_user.id),
+            )
+        )
+    else:
+        if note:
+            prev = (existing.note or "").strip()
+            existing.note = (prev + "\n" + note).strip()[:4000] if prev else note
+    db.session.delete(m)
+    u.revoked_at = datetime.utcnow()
+    u.is_admin = False
+    db.session.commit()
+    flash("User archived to the ban list, this membership removed, and site login revoked.", "ok")
+    return redirect(url_for("hub_auth.admin_memberships"))
+
+
+@hub_auth_bp.get("/admin/banned")
+@login_required
+def admin_banned_list():
+    if not current_user.is_admin:
+        from flask import abort
+
+        abort(403)
+    rows = db.session.scalars(select(SiteBannedIdentity).order_by(SiteBannedIdentity.created_at.desc())).all()
+    return render_template("admin_banned.html", rows=rows)
+
+
+@hub_auth_bp.post("/admin/banned/<int:bid>/lift")
+@login_required
+def admin_banned_lift(bid: int):
+    if not current_user.is_admin:
+        from flask import abort
+
+        abort(403)
+    row = db.session.get(SiteBannedIdentity, bid)
+    if not row:
+        return redirect(url_for("hub_auth.admin_banned_list"))
+    email_norm = row.email_norm
+    db.session.delete(row)
+    u = db.session.scalar(select(User).where(func.lower(User.email) == email_norm).limit(1))
+    if u is not None:
+        u.revoked_at = None
+    db.session.commit()
+    flash("Ban record removed; if a matching user exists, site login is allowed again.", "ok")
+    return redirect(url_for("hub_auth.admin_banned_list"))
+
+
 @hub_auth_bp.post("/admin/memberships/<int:mid>/approve")
 @login_required
 def admin_approve_membership(mid: int):
@@ -283,6 +411,7 @@ def admin_approve_membership(mid: int):
 @hub_auth_bp.post("/admin/memberships/<int:mid>/revoke")
 @login_required
 def admin_revoke_membership(mid: int):
+    """Legacy: mark membership revoked without deleting the row. Prefer remove / ban flows."""
     if not current_user.is_admin:
         from flask import abort
 

@@ -7406,6 +7406,10 @@ table.data.draft-history-table td:nth-child(3) .stats-player-cell {
   object-fit: contain;
   display: block;
 }
+/* California Seals assets include extra visual weight on the left tail; nudge for optical centering. */
+.draft-history-table__team-logo[src*="california_golden_seals"] {
+  transform: translateX(2px);
+}
 .draft-history-table__retired {
   font-size: 0.75rem;
   font-weight: 700;

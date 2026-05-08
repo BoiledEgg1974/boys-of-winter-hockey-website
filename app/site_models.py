@@ -46,6 +46,21 @@ class PasswordResetToken(db.Model):
     user: Mapped["User"] = relationship()
 
 
+class SiteBannedIdentity(db.Model):
+    """Archived ban list: blocks new registration by email and records why access was removed."""
+
+    __tablename__ = "site_banned_identities"
+    __bind_key__ = "site"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    email_norm: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    discord_name: Mapped[str] = mapped_column(String(120), nullable=False, default="")
+    note: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("site_users.id"), nullable=True)
+
+
 class GmLeagueMembership(db.Model):
     __tablename__ = "gm_league_memberships"
     __bind_key__ = "site"

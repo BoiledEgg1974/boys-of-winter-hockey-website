@@ -6,8 +6,18 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
 </head>
 <body style="background:#0b1220;color:#e2e8f0;font-family:system-ui,sans-serif;padding:1rem;">
-  <p><a href="{{ url_for('hub_auth.account') }}" style="color:#38bdf8;">← Account</a></p>
+  <p>
+    <a href="{{ url_for('hub_auth.account') }}" style="color:#38bdf8;">← Account</a>
+    · <a href="{{ url_for('hub_auth.admin_banned_list') }}" style="color:#38bdf8;">Ban list</a>
+  </p>
   <h1>Membership Dashboard</h1>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <p style="color:{{ '#4ade80' if category == 'ok' else '#f87171' }};">{{ message }}</p>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
   <div class="table-wrap">
     <table class="data">
       <thead><tr><th>User</th><th>Discord</th><th>League</th><th>Team</th><th>DB id</th><th>FHM id</th><th>Status</th><th>Actions</th></tr></thead>
@@ -34,12 +44,7 @@
               <button type="submit">Approve</button>
             </form>
             {% endif %}
-            {% if m.status != 'revoked' %}
-            <form method="post" action="{{ url_for('hub_auth.admin_revoke_membership', mid=m.id) }}" style="display:inline;">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button type="submit" style="background:rgb(248 113 113 / 0.24);border:1px solid rgb(248 113 113 / 0.55);color:#fecaca;border-radius:6px;padding:0.24rem 0.5rem;cursor:pointer;font-weight:700;">REMOVE</button>
-            </form>
-            {% endif %}
+            <a href="{{ url_for('hub_auth.admin_remove_membership_confirm', mid=m.id) }}" style="display:inline-block;background:rgb(248 113 113 / 0.24);border:1px solid rgb(248 113 113 / 0.55);color:#fecaca;border-radius:6px;padding:0.24rem 0.5rem;font-weight:700;text-decoration:none;font-size:0.85rem;">REMOVE</a>
             <form method="post" action="{{ url_for('hub_auth.admin_set_user_admin', uid=u.id) }}" style="display:inline;">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <input type="hidden" name="is_admin" value="{{ '0' if u.is_admin else '1' }}">

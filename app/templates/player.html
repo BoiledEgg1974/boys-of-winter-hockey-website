@@ -15,6 +15,25 @@
 {%- endif -%}
 {%- endif -%}
 {%- endmacro %}
+{# Era-correct franchise label + logo for career lines (team_identity_history + team_season_records template). #}
+{% macro career_line_team_cell(ln) -%}
+{%- if ln.team -%}
+{%- set display_name = season_team_name(ln) or team_city_nick(ln.team) -%}
+<a href="{{ url_for('main.team_page', slug=ln.team.slug) }}">
+{%- if current_league_slug in ('bowl-historical', 'bowl-cap', 'bowl-fantasy') -%}
+<img class="team-records-detail__logo" src="{{ team_logo_url_for_season_context(ln.team, ln.season_year) }}" alt="" loading="lazy" decoding="async">
+{%- endif -%}
+{{- display_name -}}
+</a>
+{%- else -%}
+{%- set team_logo = season_team_logo_url(ln) -%}
+{%- set team_name = season_team_name(ln) -%}
+{%- set team_source_id = season_team_source_id(ln) or ln.team_fhm_id_csv or ln.team_fhm_id -%}
+{%- if team_logo %}<img class="team-records-detail__logo" src="{{ team_logo }}" alt="" loading="lazy" decoding="async">{% endif -%}
+{{- team_name or '' -}}
+{%- if team_source_id %}<span class="muted"> (#{{ team_source_id }})</span>{%- endif -%}
+{%- endif -%}
+{%- endmacro %}
 {% block content %}
 {% set ac = accent_team or current_team %}
 {% set p1 = ac.primary_color or '#1e293b' %}
@@ -151,7 +170,24 @@
               <td>{{ pk.draft.label if pk.draft else '—' }}</td>
               <td>{{ pk.round or '—' }}</td>
               <td>{{ pk.overall_pick }}</td>
-              <td>{% if pk.team %}{{ team_logo_only(pk.team) }}{% else %}—{% endif %}</td>
+              <td>
+                {% set tm_fhm = draft_pick_team_fhm_by_pick_id.get(pk.id) if draft_pick_team_fhm_by_pick_id else none %}
+                {% if pk.team %}
+                  {% set team_name = season_team_name({'team': pk.team, 'season_year': pk.draft_year, 'team_fhm_id': pk.team.fhm_team_id}) or team_city_nick(pk.team) %}
+                  <a href="{{ url_for('main.team_page', slug=pk.team.slug) }}">
+                    <img class="team-records-detail__logo" src="{{ team_logo_url_for_season_context(pk.team, pk.draft_year) }}" alt="" loading="lazy" decoding="async">
+                    {{ team_name }}
+                  </a>
+                {% elif tm_fhm is not none %}
+                  {% set rec = {'team_fhm_id': tm_fhm, 'season_year': pk.draft_year} %}
+                  {% set team_logo = season_team_logo_url(rec) %}
+                  {% set team_name = season_team_name(rec) %}
+                  {% if team_logo %}<img class="team-records-detail__logo" src="{{ team_logo }}" alt="" loading="lazy" decoding="async">{% endif %}
+                  {{ team_name or ('Team #' ~ tm_fhm) }}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
             </tr>
             {% endfor %}
           </tbody>
@@ -365,18 +401,7 @@
           {% set gaa = (ln.goals_against / ln.gp) if ln.gp else none %}
           <tr>
             <td data-sort-value="{{ ln.season_year }}">{{ season_span(ln.season_year) }}</td>
-            <td>
-              {% if ln.team %}
-              <a href="{{ url_for('main.team_page', slug=ln.team.slug) }}">{{ team_city_nick(ln.team) }}</a>
-              {% else %}
-              {% set team_logo = season_team_logo_url(ln) %}
-              {% set team_name = season_team_name(ln) %}
-              {% set team_source_id = season_team_source_id(ln) or ln.team_fhm_id_csv or ln.team_fhm_id %}
-              {% if team_logo %}<img class="team-records-detail__logo" src="{{ team_logo }}" alt="" loading="lazy" decoding="async">{% endif %}
-              {{ team_name or '' }}
-              {% if (not ln.team) and team_source_id %}<span class="muted"> (#{{ team_source_id }})</span>{% endif %}
-              {% endif %}
-            </td>
+            <td>{{ career_line_team_cell(ln) }}</td>
             <td>{{ ln.gp }}</td><td>{{ ln.wins }}</td><td>{{ ln.losses }}</td><td>{{ ln.ties_otl if ln.ties_otl is not none else '—' }}</td>
             <td>{{ '%.2f'|format(gaa) if gaa is not none else '—' }}</td>
             <td>{{ '%.3f'|format(sv_pct) if sv_pct is not none else '—' }}</td>
@@ -431,18 +456,7 @@
           {% set gaa = (ln.goals_against / ln.gp) if ln.gp else none %}
           <tr>
             <td data-sort-value="{{ ln.season_year }}">{{ season_span(ln.season_year) }}</td>
-            <td>
-              {% if ln.team %}
-              <a href="{{ url_for('main.team_page', slug=ln.team.slug) }}">{{ team_city_nick(ln.team) }}</a>
-              {% else %}
-              {% set team_logo = season_team_logo_url(ln) %}
-              {% set team_name = season_team_name(ln) %}
-              {% set team_source_id = season_team_source_id(ln) or ln.team_fhm_id_csv or ln.team_fhm_id %}
-              {% if team_logo %}<img class="team-records-detail__logo" src="{{ team_logo }}" alt="" loading="lazy" decoding="async">{% endif %}
-              {{ team_name or '' }}
-              {% if (not ln.team) and team_source_id %}<span class="muted"> (#{{ team_source_id }})</span>{% endif %}
-              {% endif %}
-            </td>
+            <td>{{ career_line_team_cell(ln) }}</td>
             <td>{{ ln.gp }}</td><td>{{ ln.wins }}</td><td>{{ ln.losses }}</td><td>{{ ln.ties_otl if ln.ties_otl is not none else '—' }}</td>
             <td>{{ '%.2f'|format(gaa) if gaa is not none else '—' }}</td>
             <td>{{ '%.3f'|format(sv_pct) if sv_pct is not none else '—' }}</td>
@@ -499,18 +513,7 @@
           {% for ln in career_rs_sk %}
           <tr>
             <td data-sort-value="{{ ln.season_year }}">{{ season_span(ln.season_year) }}</td>
-            <td>
-              {% if ln.team %}
-              <a href="{{ url_for('main.team_page', slug=ln.team.slug) }}">{{ team_city_nick(ln.team) }}</a>
-              {% else %}
-              {% set team_logo = season_team_logo_url(ln) %}
-              {% set team_name = season_team_name(ln) %}
-              {% set team_source_id = season_team_source_id(ln) or ln.team_fhm_id_csv or ln.team_fhm_id %}
-              {% if team_logo %}<img class="team-records-detail__logo" src="{{ team_logo }}" alt="" loading="lazy" decoding="async">{% endif %}
-              {{ team_name or '' }}
-              {% if (not ln.team) and team_source_id %}<span class="muted"> (#{{ team_source_id }})</span>{% endif %}
-              {% endif %}
-            </td>
+            <td>{{ career_line_team_cell(ln) }}</td>
             <td>{{ ln.gp }}</td>
             <td>{{ ln.goals }}</td>
             <td>{{ ln.assists }}</td>
@@ -572,18 +575,7 @@
           {% for ln in career_po_sk %}
           <tr>
             <td data-sort-value="{{ ln.season_year }}">{{ season_span(ln.season_year) }}</td>
-            <td>
-              {% if ln.team %}
-              <a href="{{ url_for('main.team_page', slug=ln.team.slug) }}">{{ team_city_nick(ln.team) }}</a>
-              {% else %}
-              {% set team_logo = season_team_logo_url(ln) %}
-              {% set team_name = season_team_name(ln) %}
-              {% set team_source_id = season_team_source_id(ln) or ln.team_fhm_id_csv or ln.team_fhm_id %}
-              {% if team_logo %}<img class="team-records-detail__logo" src="{{ team_logo }}" alt="" loading="lazy" decoding="async">{% endif %}
-              {{ team_name or '' }}
-              {% if (not ln.team) and team_source_id %}<span class="muted"> (#{{ team_source_id }})</span>{% endif %}
-              {% endif %}
-            </td>
+            <td>{{ career_line_team_cell(ln) }}</td>
             <td>{{ ln.gp }}</td>
             <td>{{ ln.goals }}</td>
             <td>{{ ln.assists }}</td>

@@ -462,6 +462,41 @@ def ensure_password_reset_tokens_sqlite(engine: Engine) -> None:
         conn.commit()
 
 
+def ensure_site_banned_identities_sqlite(engine: Engine) -> None:
+    """Create site ban list table on site DB when missing."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='site_banned_identities'")
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE site_banned_identities (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    email_norm VARCHAR(255) NOT NULL,
+                    discord_name VARCHAR(120) NOT NULL DEFAULT '',
+                    note TEXT NOT NULL DEFAULT '',
+                    league_slug VARCHAR(64) NOT NULL DEFAULT '',
+                    created_at DATETIME NOT NULL,
+                    created_by_user_id INTEGER,
+                    FOREIGN KEY(created_by_user_id) REFERENCES site_users (id)
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE UNIQUE INDEX uq_site_banned_email_norm "
+                "ON site_banned_identities (email_norm)"
+            )
+        )
+        conn.commit()
+
+
 def ensure_league_rule_settings_sqlite(engine: Engine) -> None:
     """Create league rule settings table on site DB when missing."""
     if engine.dialect.name != "sqlite":

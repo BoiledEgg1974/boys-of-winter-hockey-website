@@ -19,6 +19,7 @@ from app.db_utils import (
     ensure_site_announcements_sqlite,
     ensure_site_users_admin_role_sqlite,
     ensure_password_reset_tokens_sqlite,
+    ensure_site_banned_identities_sqlite,
     ensure_league_rule_settings_sqlite,
     ensure_gm_approval_requests_sqlite,
     ensure_gm_trade_proposals_sqlite,
@@ -117,6 +118,7 @@ def create_app(config_class: type = Config) -> Flask:
             ensure_site_announcements_sqlite(site_engine)
             ensure_site_users_admin_role_sqlite(site_engine)
             ensure_password_reset_tokens_sqlite(site_engine)
+            ensure_site_banned_identities_sqlite(site_engine)
             ensure_league_rule_settings_sqlite(site_engine)
             ensure_gm_approval_requests_sqlite(site_engine)
             ensure_gm_trade_proposals_sqlite(site_engine)
@@ -592,21 +594,44 @@ def create_app(config_class: type = Config) -> Flask:
                 historical_team_logo_override_by_id_year[("4", 1925)] = f"{hist_logo_root}/new_york_americans.png"
                 historical_team_name_override_by_id_year[("4", 1926)] = "New York Americans"
                 historical_team_logo_override_by_id_year[("4", 1926)] = f"{hist_logo_root}/new_york_americans.png"
+                # California Golden Seals / Cleveland Barons alias (legacy FHM id 13 in draft_info).
+                for yy in range(1967, 1970):
+                    historical_team_name_override_by_id_year[("13", yy)] = "Oakland Seals"
+                    historical_team_logo_override_by_id_year[("13", yy)] = f"{hist_logo_root}/oak-t120.png"
+                for yy in range(1970, 1976):
+                    historical_team_name_override_by_id_year[("13", yy)] = "California Golden Seals"
+                    logo = (
+                        f"{hist_logo_root}/california_golden_seals_1970-1973.png"
+                        if yy <= 1973
+                        else f"{hist_logo_root}/california_golden_seals_1974-1975.png"
+                    )
+                    historical_team_logo_override_by_id_year[("13", yy)] = logo
+                for yy in range(1976, 1978):
+                    historical_team_name_override_by_id_year[("13", yy)] = "Cleveland Barons"
+                    historical_team_logo_override_by_id_year[("13", yy)] = (
+                        f"{hist_logo_root}/cleveland_barons_1976-1977.png"
+                    )
 
         def season_team_logo_url(record: object) -> str | None:
             from collections.abc import Mapping
 
             from flask import url_for
 
+            rec_map = record if isinstance(record, Mapping) else None
             if isinstance(record, Mapping):
                 inner = record.get("record")
                 if inner is not None:
                     record = inner
+                    rec_map = inner if isinstance(inner, Mapping) else None
 
             # Explicit season-row override from CSV always wins.
             logo_override_rel = getattr(record, "logo_file_override", None) or getattr(
                 record, "team_logo_override_rel", None
             )
+            if logo_override_rel is None and rec_map is not None:
+                logo_override_rel = rec_map.get("logo_file_override") or rec_map.get(
+                    "team_logo_override_rel"
+                )
             if logo_override_rel:
                 rel = str(logo_override_rel).lstrip("/\\").replace("\\", "/")
                 if rel.startswith("static/"):
@@ -616,12 +641,18 @@ def create_app(config_class: type = Config) -> Flask:
 
             # Historical site: map Team ID -> logos/teams/bowl_historical/*-t<ID>.*
             tid = getattr(record, "team_fhm_id_csv", None)
+            if tid is None and rec_map is not None:
+                tid = rec_map.get("team_fhm_id_csv")
             if tid is None and hasattr(record, "record"):
                 tid = getattr(getattr(record, "record"), "team_fhm_id_csv", None)
             if tid is None:
                 tid = getattr(record, "team_fhm_id", None)
+            if tid is None and rec_map is not None:
+                tid = rec_map.get("team_fhm_id")
             if tid is None:
                 team_obj = getattr(record, "team", None)
+                if team_obj is None and rec_map is not None:
+                    team_obj = rec_map.get("team")
                 if team_obj is not None:
                     tid = getattr(team_obj, "fhm_team_id", None)
             tid_s = str(tid or "").strip()
@@ -658,16 +689,32 @@ def create_app(config_class: type = Config) -> Flask:
             return None
 
         def season_team_name(record: object) -> str | None:
+            from collections.abc import Mapping
+
+            rec_map = record if isinstance(record, Mapping) else None
+            if isinstance(record, Mapping):
+                inner = record.get("record")
+                if inner is not None:
+                    record = inner
+                    rec_map = inner if isinstance(inner, Mapping) else None
             # Per-row CSV override wins. When it is blank and the row resolves to a Team,
             # use that franchise's name — do not let another template row with the same
             # Team ID (e.g. Montreal Maroons vs Canadiens both as FHM id 0) steal the label.
             ovr = getattr(record, "team_name_override", None)
+            if ovr is None and rec_map is not None:
+                ovr = rec_map.get("team_name_override")
             if ovr and str(ovr).strip():
                 return str(ovr).strip()
             tid = getattr(record, "team_fhm_id_csv", None)
+            if tid is None and rec_map is not None:
+                tid = rec_map.get("team_fhm_id_csv")
             if tid is None:
                 tid = getattr(record, "team_fhm_id", None)
+            if tid is None and rec_map is not None:
+                tid = rec_map.get("team_fhm_id")
             team_obj = getattr(record, "team", None)
+            if team_obj is None and rec_map is not None:
+                team_obj = rec_map.get("team")
             if tid is None and team_obj is not None:
                 tid = getattr(team_obj, "fhm_team_id", None)
             tid_s = str(tid or "").strip()
@@ -676,23 +723,37 @@ def create_app(config_class: type = Config) -> Flask:
                 id_ovr = historical_team_name_override_by_id_year.get((tid_s, sy))
                 if id_ovr:
                     return id_ovr
-            if team_obj is not None:
-                return team_obj.full_display_name()
+            rows: list[tuple[int, str]] = []
             if tid_s:
                 rows = historical_team_name_rows_by_id.get(tid_s) or []
                 if sy is not None:
                     for row_year, row_name in rows:
                         if row_year == sy:
                             return row_name
+            if team_obj is not None:
+                return team_obj.full_display_name()
+            if tid_s:
                 if tid_s in historical_team_name_by_id:
                     return historical_team_name_by_id[tid_s]
                 if rows:
                     return rows[0][1]
             return None
         def season_team_source_id(record: object) -> str | None:
+            from collections.abc import Mapping
+
+            rec_map = record if isinstance(record, Mapping) else None
+            if isinstance(record, Mapping):
+                inner = record.get("record")
+                if inner is not None:
+                    record = inner
+                    rec_map = inner if isinstance(inner, Mapping) else None
             tid = getattr(record, "team_fhm_id_csv", None)
+            if tid is None and rec_map is not None:
+                tid = rec_map.get("team_fhm_id_csv")
             if tid is None:
                 tid = getattr(record, "team_fhm_id", None)
+            if tid is None and rec_map is not None:
+                tid = rec_map.get("team_fhm_id")
             tid_s = str(tid or "").strip()
             return tid_s or None
 

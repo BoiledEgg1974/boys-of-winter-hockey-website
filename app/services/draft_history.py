@@ -1,8 +1,10 @@
 """NHL/BOWL draft history: years, picks, and BOWL+NHL career totals from career lines."""
 from __future__ import annotations
 
+import csv
 import math
 from itertools import groupby
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy import func, or_, select
@@ -105,14 +107,15 @@ def draft_row_stat_mode(
         return "none"
     g = gk_map.get(player_id)
     s = sk_map.get(player_id)
-    if is_goalie_player(player):
-        return "goalie"
+    # Prefer observed career data over a potentially stale/mis-tagged player.position.
     if g and not s:
         return "goalie"
     if s and not g:
         return "skater"
     if g and s:
         return "goalie" if g[0] >= s[0] else "skater"
+    if is_goalie_player(player):
+        return "goalie"
     return "skater"
 
 
@@ -179,3 +182,74 @@ def build_career_stat_maps(
             g_map[int(pid)] = (int(gp), int(w), int(l), int(otl), gaa, int(so))
 
     return sk_map, g_map
+
+
+def draft_team_fhm_ids_for_player(raw_import_dir: Path, player_fhm_id: str | None) -> dict[tuple[int, int, int], int]:
+    """Map (fhm_draft_id, year, overall) -> drafting team FHM id from draft_info CSV.
+
+    Used to restore era team identity when ``draft_picks.team_id`` is null (common in old NHL drafts).
+    """
+    pid_txt = str(player_fhm_id or "").strip()
+    try:
+        pid = int(pid_txt)
+    except (TypeError, ValueError):
+        return {}
+    path = raw_import_dir / "draft_info.csv"
+    if not path.is_file():
+        return {}
+    out: dict[tuple[int, int, int], int] = {}
+    try:
+        with path.open("r", encoding="utf-8-sig", newline="") as fh:
+            sample = fh.read(2048)
+            fh.seek(0)
+            delim = ";" if sample.count(";") >= sample.count(",") else ","
+            rdr = csv.DictReader(fh, delimiter=delim)
+            for row in rdr:
+                try:
+                    row_pid = int(str(row.get("PlayerId") or row.get("playerid") or "").strip())
+                except (TypeError, ValueError):
+                    continue
+                if row_pid != pid:
+                    continue
+                try:
+                    did = int(str(row.get("DraftId") or row.get("draftid") or "").strip())
+                    yr = int(str(row.get("Year") or row.get("year") or "").strip())
+                    ov = int(str(row.get("Overall") or row.get("overall") or "").strip())
+                    tm = int(str(row.get("Tam") or row.get("TeamId") or row.get("teamid") or "").strip())
+                except (TypeError, ValueError):
+                    continue
+                out[(did, yr, ov)] = tm
+    except OSError:
+        return {}
+    return out
+
+
+def draft_team_fhm_ids_for_year(raw_import_dir: Path, draft_year: int) -> dict[tuple[int, int], int]:
+    """Map (fhm_draft_id, overall) -> drafting team FHM id for one draft year."""
+    path = raw_import_dir / "draft_info.csv"
+    if not path.is_file():
+        return {}
+    out: dict[tuple[int, int], int] = {}
+    try:
+        with path.open("r", encoding="utf-8-sig", newline="") as fh:
+            sample = fh.read(2048)
+            fh.seek(0)
+            delim = ";" if sample.count(";") >= sample.count(",") else ","
+            rdr = csv.DictReader(fh, delimiter=delim)
+            for row in rdr:
+                try:
+                    yr = int(str(row.get("Year") or row.get("year") or "").strip())
+                except (TypeError, ValueError):
+                    continue
+                if yr != int(draft_year):
+                    continue
+                try:
+                    did = int(str(row.get("DraftId") or row.get("draftid") or "").strip())
+                    ov = int(str(row.get("Overall") or row.get("overall") or "").strip())
+                    tm = int(str(row.get("Tam") or row.get("TeamId") or row.get("teamid") or "").strip())
+                except (TypeError, ValueError):
+                    continue
+                out[(did, ov)] = tm
+    except OSError:
+        return {}
+    return out

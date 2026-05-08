@@ -73,10 +73,19 @@
               {% else %}—{% endif %}
             </td>
             <td class="draft-history-table__logo-cell">
+              {% set tm_fhm = draft_pick_team_fhm_by_pick_id.get(pk.id) if draft_pick_team_fhm_by_pick_id else none %}
               {% if pk.team %}
               <a class="draft-history-table__team-hit" href="{{ url_for('main.team_page', slug=pk.team.slug) }}" title="{{ pk.team.name }}">
-                <img class="draft-history-table__team-logo" src="{{ team_logo_url(pk.team) }}" alt="{{ pk.team.name }}">
+                <img class="draft-history-table__team-logo" src="{% if current_league_slug in ('bowl-historical', 'bowl-cap') and draft_year is not none %}{{ team_logo_url_for_season_context(pk.team, draft_year) }}{% else %}{{ team_logo_url(pk.team) }}{% endif %}" alt="{{ pk.team.name }}" loading="lazy" decoding="async">
               </a>
+              {% elif tm_fhm is not none %}
+              {% set rec = {'team_fhm_id': tm_fhm, 'season_year': draft_year} %}
+              {% set tm_logo = season_team_logo_url(rec) %}
+              {% set tm_name = season_team_name(rec) %}
+              {% if tm_logo %}
+              <img class="draft-history-table__team-logo" src="{{ tm_logo }}" alt="" loading="lazy" decoding="async">
+              {% endif %}
+              {% if tm_name %}<span>{{ tm_name }}</span>{% endif %}
               {% else %}—{% endif %}
             </td>
             <td class="draft-history-table__logo-cell">

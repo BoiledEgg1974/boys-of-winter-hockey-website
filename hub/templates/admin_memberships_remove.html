@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <title>Remove membership</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
+</head>
+<body style="background:#0b1220;color:#e2e8f0;font-family:system-ui,sans-serif;padding:1rem;max-width:40rem;">
+  <p><a href="{{ url_for('hub_auth.admin_memberships') }}" style="color:#38bdf8;">← Membership dashboard</a></p>
+  <h1>Remove membership</h1>
+  <p class="muted" style="font-size:0.95rem;">
+    <strong>{{ user_row.email }}</strong>
+    {% if user_row.discord_name %}· Discord: {{ user_row.discord_name }}{% endif %}
+    <br>League: <code>{{ membership.league_slug }}</code>
+    · Team: {% if team_snap.name %}{{ team_snap.name }}{% if team_snap.abbr %} ({{ team_snap.abbr }}){% endif %}{% else %}—{% endif %}
+    · Status: <strong>{{ membership.status }}</strong>
+  </p>
+
+  {% if membership.status == 'revoked' %}
+  <p>This row is already revoked. Delete it only if you want it gone from the dashboard (the user account is unchanged).</p>
+  <form method="post" action="{{ url_for('hub_auth.admin_remove_membership_only', mid=membership.id) }}" style="margin-top:1rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" style="background:rgb(248 113 113 / 0.24);border:1px solid rgb(248 113 113 / 0.55);color:#fecaca;border-radius:6px;padding:0.5rem 0.85rem;cursor:pointer;font-weight:700;">Delete row from list</button>
+  </form>
+  {% else %}
+  <p>Choose one:</p>
+  <ul style="line-height:1.6;">
+    <li><strong>Remove from dashboard</strong> — deletes this league membership row only. The user can still log in and keep other leagues.</li>
+    <li><strong>Ban &amp; archive</strong> — saves their email to the ban list (blocks new registration), deletes this membership, and revokes site login. Optional note is stored for your records.</li>
+  </ul>
+
+  <form method="post" action="{{ url_for('hub_auth.admin_remove_membership_only', mid=membership.id) }}" style="margin:1rem 0;padding:1rem;border:1px solid rgb(148 163 184 / 0.35);border-radius:8px;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" style="background:rgb(51 65 85 / 0.5);border:1px solid rgb(148 163 184 / 0.45);color:#e2e8f0;border-radius:6px;padding:0.5rem 0.85rem;cursor:pointer;font-weight:600;">Remove from dashboard only</button>
+  </form>
+
+  <form method="post" action="{{ url_for('hub_auth.admin_ban_membership', mid=membership.id) }}" style="margin:1rem 0;padding:1rem;border:1px solid rgb(248 113 113 / 0.45);border-radius:8px;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label style="display:block;margin-bottom:0.5rem;">Note (optional, stored on ban record)<br>
+      <textarea name="note" rows="3" style="width:100%;max-width:100%;padding:0.5rem;border-radius:6px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;"></textarea>
+    </label>
+    <button type="submit" style="background:rgb(185 28 28 / 0.35);border:1px solid rgb(248 113 113 / 0.65);color:#fecaca;border-radius:6px;padding:0.5rem 0.85rem;cursor:pointer;font-weight:700;">Ban &amp; archive</button>
+  </form>
+  {% endif %}
+</body>
+</html>

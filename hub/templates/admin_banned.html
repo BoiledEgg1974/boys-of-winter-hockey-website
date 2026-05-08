@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <title>Banned / archived identities</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
+</head>
+<body style="background:#0b1220;color:#e2e8f0;font-family:system-ui,sans-serif;padding:1rem;">
+  <p>
+    <a href="{{ url_for('hub_auth.admin_memberships') }}" style="color:#38bdf8;">← Membership dashboard</a>
+    · <a href="{{ url_for('hub_auth.account') }}" style="color:#38bdf8;">Account</a>
+  </p>
+  <h1>Ban list</h1>
+  <p class="muted" style="max-width:42rem;font-size:0.95rem;">Emails on this list cannot register new accounts. Lifting a ban removes the record and re-enables login for a matching site user (if one exists).</p>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <p style="color:{{ '#4ade80' if category == 'ok' else '#f87171' }};">{{ message }}</p>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr>
+          <th>Email</th>
+          <th>Discord (snapshot)</th>
+          <th>League context</th>
+          <th>Note</th>
+          <th>Added</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td>{{ r.email_norm }}</td>
+          <td>{{ r.discord_name or '—' }}</td>
+          <td><code>{{ r.league_slug or '—' }}</code></td>
+          <td style="max-width:16rem;white-space:pre-wrap;font-size:0.85rem;">{{ r.note or '—' }}</td>
+          <td style="font-size:0.85rem;">{{ r.created_at.strftime('%Y-%m-%d %H:%M') if r.created_at else '—' }} UTC</td>
+          <td>
+            <form method="post" action="{{ url_for('hub_auth.admin_banned_lift', bid=r.id) }}" style="display:inline;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" style="font-size:0.8rem;">Lift ban</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="muted">No ban records.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>

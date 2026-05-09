@@ -95,7 +95,7 @@
               <span class="draft-history-table__retired">RETIRED</span>
               {% elif ctv.kind == 'team' %}
               <a class="draft-history-table__team-hit" href="{{ url_for('main.team_page', slug=ctv.team.slug) }}" title="{{ ctv.team.name }}">
-                <img class="draft-history-table__team-logo" src="{{ team_logo_url(ctv.team) }}" alt="{{ ctv.team.name }}">
+                <img class="draft-history-table__team-logo" src="{% if current_league_slug in ('bowl-historical', 'bowl-cap') %}{{ team_logo_url_present_franchise(ctv.team) }}{% else %}{{ team_logo_url(ctv.team) }}{% endif %}" alt="{{ ctv.team.name }}">
               </a>
               {% elif ctv.kind == 'minors' %}
               <span class="records-team-minors">Minors</span>

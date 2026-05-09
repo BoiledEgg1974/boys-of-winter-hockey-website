@@ -224,6 +224,11 @@ class Config:
     DISCORD_STORY_WEBHOOK_URL = os.environ.get("DISCORD_STORY_WEBHOOK_URL", "").strip()
     # Shared secret for bot pull/ack API endpoints (override in production via env).
     DISCORD_EVENTS_SHARED_SECRET = os.environ.get("DISCORD_EVENTS_SHARED_SECRET", "bowluniverse").strip()
+    # GM AI Trade Tool (entertainment): OpenAI-compatible Chat Completions API key and model.
+    TRADE_AI_OPENAI_API_KEY = (
+        os.environ.get("TRADE_AI_OPENAI_API_KEY", "").strip() or os.environ.get("OPENAI_API_KEY", "").strip()
+    )
+    TRADE_AI_OPENAI_MODEL = os.environ.get("TRADE_AI_OPENAI_MODEL", "gpt-4o-mini").strip()
 
 
 def league_group_for_slug(slug: str) -> str:

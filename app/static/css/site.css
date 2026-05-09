@@ -10540,6 +10540,115 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   border: 1px dashed #4b5563;
 }
 
+/* —— GM AI Trade Tool (entertainment) —— */
+.ai-trade-tool-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  align-items: flex-start;
+}
+.ai-trade-tool-body .trade-tool-layout {
+  flex: 1 1 720px;
+  min-width: 0;
+}
+.ai-trade-tool-bot-panel {
+  flex: 1 1 280px;
+  max-width: 420px;
+  min-width: 240px;
+}
+.ai-trade-tool-bot-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-end;
+}
+.ai-trade-tool-bot-figure {
+  flex-shrink: 0;
+}
+.ai-trade-tool-bot-img {
+  display: block;
+  width: 100px;
+  height: auto;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
+}
+.ai-trade-tool-bubble {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  background: linear-gradient(165deg, #1e293b 0%, #0f172a 100%);
+  border: 1px solid #334155;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+.ai-trade-tool-bubble::before {
+  content: "";
+  position: absolute;
+  left: -10px;
+  bottom: 18px;
+  width: 0;
+  height: 0;
+  border-top: 10px solid transparent;
+  border-bottom: 10px solid transparent;
+  border-right: 12px solid #334155;
+}
+.ai-trade-tool-bubble::after {
+  content: "";
+  position: absolute;
+  left: -8px;
+  bottom: 19px;
+  width: 0;
+  height: 0;
+  border-top: 9px solid transparent;
+  border-bottom: 9px solid transparent;
+  border-right: 11px solid #0f172a;
+}
+.ai-trade-tool-bubble__verdict {
+  font-weight: 800;
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+  color: #fde047;
+  margin: 0 0 0.45rem;
+}
+.ai-trade-tool-bubble__opinion {
+  margin: 0 0 0.5rem;
+  line-height: 1.45;
+  font-size: 0.92rem;
+  color: #e2e8f0;
+}
+.ai-trade-tool-bubble__suggestions {
+  margin: 0.35rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.86rem;
+  color: #cbd5e1;
+  line-height: 1.4;
+}
+.ai-trade-tool-bubble__suggestions li {
+  margin-bottom: 0.25rem;
+}
+.ai-trade-tool-bubble__hint {
+  margin: 0;
+  font-size: 0.86rem;
+}
+.ai-trade-tool-bubble__loading {
+  margin: 0;
+  font-style: italic;
+  color: #94a3b8;
+}
+.ai-trade-tool-official a {
+  font-weight: 600;
+}
+@media (max-width: 900px) {
+  .ai-trade-tool-bot-row {
+    flex-direction: column;
+    align-items: center;
+    text-align: left;
+  }
+  .ai-trade-tool-bubble::before,
+  .ai-trade-tool-bubble::after {
+    display: none;
+  }
+}
+
 /* ============================================================
    Team Records page (index + season detail) + team page chart
    ============================================================ */

@@ -110,6 +110,7 @@ from app.services.ap_service import (
     publish_news_and_maybe_award_ap,
     team_ap_balance,
 )
+from app.services.trade_ai_opinion import fetch_trade_ai_opinion
 from app.services.trade_tool import (
     STATUS_COMMISSIONER_DECLINED,
     STATUS_PARTNER_DECLINED,
@@ -712,6 +713,8 @@ def trade_tool_assets():
     p_user = db.session.get(User, int(peer.user_id))
     p_team = db.session.get(Team, int(raw_tid))
     draft_cap = trade_tool_draft_round_cap(db.session, slug)
+    if (request.args.get("ai") or "").strip() in ("1", "true", "yes"):
+        draft_cap = min(8, int(draft_cap))
     player_tpl = url_for("main.player_page", player_id=_TRADE_PLAYER_URL_PLACEHOLDER_ID)
     return jsonify(
         {
@@ -807,6 +810,117 @@ def trade_tool_submit():
     db.session.commit()
     flash("Trade submitted. Your partner was messaged and notified in GM Messages.", "ok")
     return redirect(url_for("site_gm.trade_tool"))
+
+
+def _ai_trade_draft_round_cap(session, league_slug: str) -> int:
+    return min(8, int(trade_tool_draft_round_cap(session, league_slug)))
+
+
+@site_gm_bp.route("/ai-trade-tool", methods=["GET"])
+@login_required
+def ai_trade_tool():
+    """Hypothetical trade + entertainment AI opinion (not submitted for approval)."""
+    slug = _league_slug()
+    mem = _membership()
+    if not mem:
+        flash("No active GM membership for this league.", "err")
+        return redirect(url_for("main.home"))
+    my_team = db.session.get(Team, int(mem.team_id))
+    others = list_other_active_gms(slug, current_user.id)
+    team_ids = {m.team_id for m, _ in others}
+    teams_by_id: dict[int, Team] = {}
+    if team_ids:
+        for t in db.session.scalars(select(Team).where(Team.id.in_(team_ids))).all():
+            teams_by_id[t.id] = t
+    partner_options: list[dict[str, object]] = []
+    for m, u in others:
+        tm = teams_by_id.get(int(m.team_id))
+        partner_options.append(
+            {
+                "user_id": int(u.id),
+                "team_id": int(m.team_id),
+                "team_name": tm.full_display_name() if tm else f"Team {m.team_id}",
+                "gm_name": gm_display_name(u),
+            }
+        )
+    partner_options.sort(key=lambda r: str(r.get("team_name") or "").lower())
+    my_team_logo_url = team_logo_url_for_team(my_team) if my_team else ""
+    draft_round_cap = _ai_trade_draft_round_cap(db.session, slug)
+    player_page_url_template = url_for("main.player_page", player_id=_TRADE_PLAYER_URL_PLACEHOLDER_ID)
+    return render_template(
+        "ai_trade_tool.html",
+        membership=mem,
+        my_team=my_team,
+        my_team_logo_url=my_team_logo_url,
+        partner_options=partner_options,
+        gm_display_name=gm_display_name,
+        draft_round_cap=draft_round_cap,
+        player_page_url_template=player_page_url_template,
+    )
+
+
+@site_gm_bp.post("/operations/ai-trade-tool/evaluate")
+@login_required
+def ai_trade_tool_evaluate():
+    from flask_wtf.csrf import validate_csrf
+
+    slug = _league_slug()
+    mem = _membership()
+    if not mem:
+        return jsonify({"error": "No active GM membership for this league."}), 403
+    data = request.get_json(silent=True) or {}
+    try:
+        validate_csrf(data.get("csrf_token"))
+    except Exception:
+        return jsonify({"error": "Invalid or missing CSRF token."}), 400
+    partner_team_id = data.get("partner_team_id")
+    try:
+        partner_team_id = int(partner_team_id)
+    except (TypeError, ValueError):
+        partner_team_id = 0
+    if not partner_team_id or partner_team_id <= 0:
+        return jsonify({"error": "partner_team_id required"}), 400
+    peer_mem = db.session.scalar(
+        select(GmLeagueMembership).where(
+            GmLeagueMembership.league_slug == slug,
+            GmLeagueMembership.team_id == int(partner_team_id),
+            GmLeagueMembership.status == "active",
+            GmLeagueMembership.user_id != int(current_user.id),
+        )
+    )
+    if not peer_mem:
+        return jsonify({"error": "That team is not an active GM partner in this league."}), 400
+    ledger_obj = data.get("ledger")
+    if not isinstance(ledger_obj, dict):
+        return jsonify({"error": "ledger object required"}), 400
+    ledger_raw = json.dumps(ledger_obj)
+    notes = str(data.get("notes") or "").strip()[:8000]
+    left_out, right_out = parse_ledger_payload(ledger_raw)
+    cap = _ai_trade_draft_round_cap(db.session, slug)
+    err = validate_ledger(
+        db.session,
+        int(mem.team_id),
+        int(partner_team_id),
+        left_out,
+        right_out,
+        raw_dir=_trade_tool_raw_dir(),
+        league_slug=slug,
+        draft_round_cap=cap,
+    )
+    if err:
+        return jsonify({"error": err}), 400
+    from_team = db.session.get(Team, int(mem.team_id))
+    to_team = db.session.get(Team, int(partner_team_id))
+    out = fetch_trade_ai_opinion(
+        db.session,
+        user_id=int(current_user.id),
+        from_team=from_team,
+        to_team=to_team,
+        left=left_out,
+        right=right_out,
+        notes=notes,
+    )
+    return jsonify(out)
 
 
 @site_gm_bp.get("/operations/trade-proposal/<int:pid>")

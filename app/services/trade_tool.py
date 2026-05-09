@@ -245,10 +245,15 @@ def validate_ledger(
     *,
     raw_dir: Path | None,
     league_slug: str,
+    draft_round_cap: int | None = None,
 ) -> str | None:
     if len(left_out) > MAX_ASSETS_PER_SIDE or len(right_out) > MAX_ASSETS_PER_SIDE:
         return f"Each side may include at most {MAX_ASSETS_PER_SIDE} assets."
-    cap = trade_tool_draft_round_cap(session, league_slug)
+    cap = (
+        int(draft_round_cap)
+        if draft_round_cap is not None
+        else trade_tool_draft_round_cap(session, league_slug)
+    )
     for k in left_out:
         if not _key_valid_leaving_from_team(session, from_team_id, k, raw_dir=raw_dir, draft_cap=cap):
             return "One or more assets leaving your team are not valid for your roster."

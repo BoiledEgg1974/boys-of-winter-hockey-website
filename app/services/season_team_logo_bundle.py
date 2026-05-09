@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 class SeasonTeamLogoBundle:
     season_team_logo_url: Callable[[object], str | None]
     team_logo_url_for_season_context: Callable[..., str]
+    team_logo_url_present_franchise: Callable[..., str]
     season_team_name: Callable[[object], str | None]
     season_team_source_id: Callable[[object], str | None]
 
@@ -464,9 +465,34 @@ def build_season_team_logo_bundle(app: Flask) -> SeasonTeamLogoBundle:
                 return era
         return team_logo_url_for_team(team)
 
+    # End-of-timeline year used when scanning `*_YYYY-present` filenames (see logo bundle scan).
+    # Resolving logos as-of this year picks the "present" band and the latest `team_identity_history` rows
+    # so draft history "Current team" shows the modern franchise mark, not the draft-year mark.
+    _FRANCHISE_LOGO_END_YEAR = 2100
+
+    def team_logo_url_present_franchise(team: Any) -> str:
+        if team is None:
+            return url_for("static", filename="logos/teams/placeholder.svg")
+        slug = str(app.config.get("LEAGUE_SLUG") or "")
+        if slug not in ("bowl-historical", "bowl-cap"):
+            return team_logo_url_for_team(team)
+        tid = getattr(team, "fhm_team_id", None)
+        tid_s = str(tid).strip() if tid is not None and str(tid).strip() else None
+        proxy = SimpleNamespace(
+            team=team,
+            start_year=_FRANCHISE_LOGO_END_YEAR,
+            season_year=_FRANCHISE_LOGO_END_YEAR,
+            team_fhm_id_csv=tid_s,
+        )
+        era = season_team_logo_url(proxy)
+        if era:
+            return era
+        return team_logo_url_for_team(team)
+
     return SeasonTeamLogoBundle(
         season_team_logo_url=season_team_logo_url,
         team_logo_url_for_season_context=team_logo_url_for_season_context,
+        team_logo_url_present_franchise=team_logo_url_present_franchise,
         season_team_name=season_team_name,
         season_team_source_id=season_team_source_id,
     )

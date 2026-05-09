@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}AI Trade Tool — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="trade-tool-page card ai-trade-tool-page">
+  <header class="trade-tool-page__header">
+    <h1 class="trade-tool-page__title">AI Trade Tool</h1>
+    <p class="trade-tool-page__sub muted">For <strong>entertainment only</strong>. This scenario is <strong>not</strong> submitted for league approval and does not message your trade partner or commissioners.</p>
+    <p class="ai-trade-tool-official muted" style="margin-top:0.35rem;font-size:0.88rem;">Official trades → <a href="{{ url_for('site_gm.trade_tool') }}">Trade Tool</a></p>
+  </header>
+
+  <div class="ai-trade-tool-body">
+    <div class="trade-tool-layout" id="ai-trade-tool-root"
+         data-assets-url="{{ url_for('site_gm.trade_tool_assets') }}?ai=1"
+         data-evaluate-url="{{ url_for('site_gm.ai_trade_tool_evaluate') }}"
+         data-csrf="{{ csrf_token() }}"
+         data-max="5"
+         data-draft-rounds="{{ draft_round_cap }}"
+         data-player-page-tpl="{{ player_page_url_template }}">
+      <div class="trade-tool-col trade-tool-col--left">
+        <div class="trade-tool-teamhead" id="left-teamhead">
+          {% if my_team_logo_url %}
+          <img class="trade-tool-logo" src="{{ my_team_logo_url }}" alt="">
+          {% endif %}
+          <div>
+            <div class="trade-tool-teamname">{{ my_team.full_display_name() if my_team else 'Your team' }}</div>
+            <div class="trade-tool-gm muted">{{ gm_display_name(current_user) }}</div>
+          </div>
+        </div>
+        <div class="trade-tool-assets-scroll">
+          <div id="left-asset-panels" class="trade-tool-assets"></div>
+        </div>
+      </div>
+
+      <div class="trade-tool-col trade-tool-col--center">
+        <div class="trade-tool-ledger-title">BOWL TRADE LEDGER</div>
+        <div class="trade-tool-ledger-banner">MAXIMUM 5 ASSETS PER TEAM</div>
+
+        <div id="ai-trade-tool-form" class="trade-tool-form">
+          <input type="hidden" id="ledger-json-field" value="{}">
+          <label class="trade-tool-partner-label">Trading partner (for loading assets)
+            <select id="partner-team-select" required>
+              <option value="">— Select team —</option>
+              {% for p in partner_options %}
+              <option value="{{ p.team_id }}">{{ p.team_name }} ({{ p.gm_name }})</option>
+              {% endfor %}
+            </select>
+          </label>
+
+          <div class="trade-tool-manual-picks">
+            <p class="trade-tool-manual-picks__intro muted">Draft picks (manual): rounds 1 through {{ draft_round_cap }} (capped at 8 and at your league’s <code>trade_tool_draft_rounds</code> rule). Drag chips into the ledger boxes.</p>
+            <div class="trade-tool-manual-picks__grid">
+              <div class="trade-tool-manual-picks__col">
+                <div class="trade-tool-manual-picks__head">Your team — draft picks (manual)</div>
+                <div class="trade-tool-manual-picks__controls">
+                  <label class="trade-tool-manual-picks__round-label">Round
+                    <select id="sel-draft-left-round" aria-label="Round for your manual draft pick"></select>
+                  </label>
+                  <button type="button" class="trade-tool-manual-picks__add" id="btn-add-draft-left">Add pick</button>
+                </div>
+                <div id="pool-mpleft" class="trade-tool-manual-picks__pool trade-tool-chip-list"></div>
+              </div>
+              <div class="trade-tool-manual-picks__col">
+                <div class="trade-tool-manual-picks__head">Partner — draft picks (manual)</div>
+                <div class="trade-tool-manual-picks__controls">
+                  <label class="trade-tool-manual-picks__round-label">Round
+                    <select id="sel-draft-right-round" aria-label="Round for partner manual draft pick"></select>
+                  </label>
+                  <button type="button" class="trade-tool-manual-picks__add" id="btn-add-draft-right">Add pick</button>
+                </div>
+                <div id="pool-mpright" class="trade-tool-manual-picks__pool trade-tool-chip-list"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="trade-tool-drop-grid">
+            <div class="trade-tool-dropbox" data-zone="from_left_to_right">
+              <div class="trade-tool-dropbox__head">
+                <span class="trade-tool-dropbox__white" id="lbl-leave-left">Leaving {{ my_team.full_display_name() if my_team else 'your team' }}</span>
+                <span class="trade-tool-dropbox__lime" id="lbl-send-right">Sending to partner</span>
+              </div>
+              <div class="trade-tool-dropbox__body" id="zone-from_left_to_right"></div>
+            </div>
+            <div class="trade-tool-dropbox" data-zone="from_right_to_left">
+              <div class="trade-tool-dropbox__head">
+                <span class="trade-tool-dropbox__white" id="lbl-leave-right">Leaving partner</span>
+                <span class="trade-tool-dropbox__lime" id="lbl-send-left">Sending to {{ my_team.full_display_name() if my_team else 'your team' }}</span>
+              </div>
+              <div class="trade-tool-dropbox__body" id="zone-from_right_to_left"></div>
+            </div>
+          </div>
+
+          <label class="trade-tool-notes-label">Notes (optional flavor for the bot)
+            <textarea id="trade-notes" rows="4" maxlength="8000" placeholder="Salary thoughts, timeline, what you’re trying to fix…"></textarea>
+          </label>
+          <div class="trade-tool-actions">
+            <button type="button" class="trade-tool-clear" id="btn-clear-table">Clear table</button>
+            <button type="button" class="trade-tool-submit" id="btn-ai-evaluate">Get AI opinion</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="trade-tool-col trade-tool-col--right">
+        <div class="trade-tool-teamhead" id="right-teamhead">
+          <div class="trade-tool-placeholder muted" id="right-placeholder">Select a trading partner to load their assets.</div>
+          <div id="right-team-loaded" class="trade-tool-teamhead__loaded is-hidden">
+            <img class="trade-tool-logo" id="right-team-logo" src="" alt="" width="48" height="48">
+            <div>
+              <div class="trade-tool-teamname" id="right-teamname"></div>
+              <div class="trade-tool-gm muted" id="right-gm"></div>
+            </div>
+          </div>
+        </div>
+        <div class="trade-tool-assets-scroll">
+          <div id="right-asset-panels" class="trade-tool-assets"></div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="ai-trade-tool-bot-panel" aria-labelledby="ai-bot-heading">
+      <h2 id="ai-bot-heading" class="visually-hidden">Trade bot opinion</h2>
+      <div class="ai-trade-tool-bot-row">
+        <div class="ai-trade-tool-bot-figure">
+          <img class="ai-trade-tool-bot-img" src="{{ url_for('static', filename='img/ai-trade-bot.svg') }}" width="120" height="120" alt="Cartoon trade analyst bot">
+        </div>
+        <div class="ai-trade-tool-bubble" id="ai-trade-bubble" aria-live="polite">
+          <p class="ai-trade-tool-bubble__verdict" id="ai-bubble-verdict" hidden></p>
+          <p class="ai-trade-tool-bubble__opinion" id="ai-bubble-opinion"></p>
+          <ul class="ai-trade-tool-bubble__suggestions" id="ai-bubble-suggestions" hidden></ul>
+          <p class="muted ai-trade-tool-bubble__hint" id="ai-bubble-placeholder">Build a hypothetical package, then tap <strong>Get AI opinion</strong>. I’ll chirp—but it’s all for fun.</p>
+          <p class="ai-trade-tool-bubble__loading" id="ai-bubble-loading" hidden>Thinking…</p>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+<script src="{{ url_for('static', filename='js/ai_trade_tool.js') }}" defer></script>
+{% endblock %}

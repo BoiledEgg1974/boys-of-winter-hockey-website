@@ -15,6 +15,7 @@ from app.config import Config
 from sqlalchemy import func, select, text
 
 from app.logo_urls import team_logo_url_for_team
+from app.services.season_team_logo_bundle import dashboard_team_logo_url
 from app.models import (
     Game,
     GameGoalieStat,
@@ -1047,6 +1048,7 @@ def homepage_summary():
         empty_body["ticker_items"] = build_homepage_ticker_items(empty_body)
         return jsonify(empty_body)
     season = season_with_imported_data_fallback(db.session, canonical_season)
+    logo_sy: int | None = int(season.start_year) if getattr(season, "start_year", None) is not None else None
     recent_form = _recent_form_map(season.id)
     teams_out: list[dict[str, object]] = []
 
@@ -1085,7 +1087,7 @@ def homepage_summary():
                         "player_photo_url": _player_photo_url(pl),
                         "team": tm.abbreviation if tm else "",
                         "team_slug": tm.slug if tm else "",
-                        "team_logo_url": team_logo_url_for_team(tm) if tm else "",
+                        "team_logo_url": dashboard_team_logo_url(tm, logo_sy) if tm else "",
                         "value": getattr(pgs, order_col.key),
                     }
                 )
@@ -1119,7 +1121,7 @@ def homepage_summary():
                     "player_photo_url": _player_photo_url(pl),
                     "team": tm.abbreviation if tm else "",
                     "team_slug": tm.slug if tm else "",
-                    "team_logo_url": team_logo_url_for_team(tm) if tm else "",
+                    "team_logo_url": dashboard_team_logo_url(tm, logo_sy) if tm else "",
                     "value": val,
                 }
             )
@@ -1142,7 +1144,11 @@ def homepage_summary():
     raw_dir = Path(str(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)))
     div_pair, div_by_id = load_division_display_maps(raw_dir / "divisions.csv")
     standings_by_division = build_standings_by_division(
-        db.session, season.id, div_name_by_pair=div_pair, div_name_by_id=div_by_id
+        db.session,
+        season.id,
+        div_name_by_pair=div_pair,
+        div_name_by_id=div_by_id,
+        logo_season_year=logo_sy,
     )
     tm_map = {
         tid: t
@@ -1153,17 +1159,31 @@ def homepage_summary():
     league_cal = league_calendar_anchor_date(db.session, season.id)
     gotn_since = league_cal - timedelta(days=7)
     game_of_the_night = pick_game_of_the_night(
-        db.session, season.id, standings_by_team, tm_map, conf_cutoff, gotn_since
+        db.session,
+        season.id,
+        standings_by_team,
+        tm_map,
+        conf_cutoff,
+        gotn_since,
+        logo_season_year=logo_sy,
     )
     next_game_to_watch = pick_next_game_to_watch(
-        db.session, season.id, standings_by_team, tm_map, conf_cutoff, league_cal
+        db.session,
+        season.id,
+        standings_by_team,
+        tm_map,
+        conf_cutoff,
+        league_cal,
+        logo_season_year=logo_sy,
     )
-    stars_bundle = build_stars_windows(db.session, season.id, league_cal)
-    trending_players = build_trending_players(db.session, season.id, segment, league_cal)
-    trending_teams = build_trending_teams(db.session, season.id, league_cal)
-    team_momentum_streaks = build_team_momentum_streaks(db.session, season.id)
+    stars_bundle = build_stars_windows(db.session, season.id, league_cal, logo_season_year=logo_sy)
+    trending_players = build_trending_players(
+        db.session, season.id, segment, league_cal, logo_season_year=logo_sy
+    )
+    trending_teams = build_trending_teams(db.session, season.id, league_cal, logo_season_year=logo_sy)
+    team_momentum_streaks = build_team_momentum_streaks(db.session, season.id, logo_season_year=logo_sy)
     team_momentum = {"trending": trending_teams, "streaks": team_momentum_streaks}
-    active_streaks = build_active_streaks(db.session, season.id)
+    active_streaks = build_active_streaks(db.session, season.id, logo_season_year=logo_sy)
     agg_rows = db.session.scalars(
         select(TeamSeasonAggregate).where(
             TeamSeasonAggregate.season_id == season.id,
@@ -1189,7 +1209,7 @@ def homepage_summary():
                 "team_name": tm.full_display_name(),
                 "team_city": (tm.city or tm.name or "").strip(),
                 "team_slug": tm.slug,
-                "team_logo_url": team_logo_url_for_team(tm),
+                "team_logo_url": dashboard_team_logo_url(tm, logo_sy),
                 "pp_pct": round(pp_pct, 1) if pp_pct is not None else None,
                 "pk_pct": round(pk_pct, 1) if pk_pct is not None else None,
                 "net_st": round(net_st, 1),
@@ -1202,7 +1222,13 @@ def homepage_summary():
     special_teams.sort(key=lambda x: float(x.get("net_st") or 0), reverse=True)
 
     power_rankings = build_power_rankings(
-        db.session, season.id, standings_by_team, special_teams, recent_form, segment
+        db.session,
+        season.id,
+        standings_by_team,
+        special_teams,
+        recent_form,
+        segment,
+        logo_season_year=logo_sy,
     )
     slug = str(current_app.config.get("LEAGUE_SLUG") or "")
     module_settings = {
@@ -1211,7 +1237,9 @@ def homepage_summary():
     }
     postseason_odds = build_postseason_odds_payload(db.session, season.id, tm_map)
     champions_panel = build_champions_panel(db.session)
-    around_the_league = build_around_the_league(db.session, _news_dashboard_viewer())
+    around_the_league = build_around_the_league(
+        db.session, _news_dashboard_viewer(), logo_season_year=logo_sy
+    )
 
     upcoming_games = db.session.scalars(
         select(Game)
@@ -1244,8 +1272,8 @@ def homepage_summary():
                 "away_name": at.name if at else "",
                 "home_abbr": ht.abbreviation if ht else "",
                 "away_abbr": at.abbreviation if at else "",
-                "home_logo_url": team_logo_url_for_team(ht) if ht else "",
-                "away_logo_url": team_logo_url_for_team(at) if at else "",
+                "home_logo_url": dashboard_team_logo_url(ht, logo_sy) if ht else "",
+                "away_logo_url": dashboard_team_logo_url(at, logo_sy) if at else "",
                 "home_slug": ht.slug if ht else "",
                 "away_slug": at.slug if at else "",
             }
@@ -1337,7 +1365,7 @@ def homepage_summary():
                 "player_photo_url": _player_photo_url(pl),
                 "team": tm.abbreviation if tm else "",
                 "team_slug": tm.slug if tm else "",
-                "team_logo_url": team_logo_url_for_team(tm) if tm else "",
+                "team_logo_url": dashboard_team_logo_url(tm, logo_sy) if tm else "",
                 "gp": gp,
                 "goals": pss.goals,
                 "assists": pss.assists,
@@ -1406,7 +1434,7 @@ def homepage_summary():
                 "player_photo_url": _player_photo_url(pl),
                 "team": tm.abbreviation if tm else "",
                 "team_slug": tm.slug if tm else "",
-                "team_logo_url": team_logo_url_for_team(tm) if tm else "",
+                "team_logo_url": dashboard_team_logo_url(tm, logo_sy) if tm else "",
                 "gp": pgs.gp,
                 "minutes": minutes,
                 "wins": pgs.wins,
@@ -1446,7 +1474,7 @@ def homepage_summary():
                     "player": pl.full_name,
                     "salary": int(contract.average_salary or 0),
                     "team_slug": tm.slug if tm else "",
-                    "team_logo_url": team_logo_url_for_team(tm) if tm else "",
+                    "team_logo_url": dashboard_team_logo_url(tm, logo_sy) if tm else "",
                     "team_name": tm.full_display_name() if tm else "Free agent",
                 }
             )
@@ -1488,8 +1516,8 @@ def homepage_summary():
                 "home_score": g.home_score,
                 "away_score": g.away_score,
                 "game_type": g.game_type or "",
-                "home_logo_url": team_logo_url_for_team(ht) if ht else "",
-                "away_logo_url": team_logo_url_for_team(at) if at else "",
+                "home_logo_url": dashboard_team_logo_url(ht, logo_sy) if ht else "",
+                "away_logo_url": dashboard_team_logo_url(at, logo_sy) if at else "",
                 "home_slug": ht.slug if ht else "",
                 "away_slug": at.slug if at else "",
             }

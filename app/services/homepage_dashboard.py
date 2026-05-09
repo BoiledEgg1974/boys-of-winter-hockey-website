@@ -13,7 +13,7 @@ from flask import current_app, url_for
 from sqlalchemy import func, select
 from sqlalchemy.orm import joinedload
 
-from app.logo_urls import team_logo_url_for_team
+from app.services.season_team_logo_bundle import dashboard_team_logo_url
 from app.services.division_labels import division_group_key_for_standing, team_division_display_label
 from app.models import (
     Game,
@@ -97,7 +97,12 @@ def _champion_banner_urls() -> list[str]:
 
 
 def standing_row_json(
-    st: TeamStanding, tm: Team, rank: int, *, display_division: str | None = None
+    st: TeamStanding,
+    tm: Team,
+    rank: int,
+    *,
+    display_division: str | None = None,
+    logo_season_year: int | None = None,
 ) -> dict[str, Any]:
     div_out = (display_division or "").strip() or None
     if div_out is None:
@@ -107,7 +112,7 @@ def standing_row_json(
         "slug": tm.slug,
         "name": tm.full_display_name(),
         "abbr": tm.abbreviation,
-        "logo_url": team_logo_url_for_team(tm),
+        "logo_url": dashboard_team_logo_url(tm, logo_season_year),
         "gp": st.standing_gp_display(),
         "w": st.w,
         "l": st.l,
@@ -124,6 +129,7 @@ def build_standings_by_division(
     *,
     div_name_by_pair: dict[tuple[int, int], str] | None = None,
     div_name_by_id: dict[int, str] | None = None,
+    logo_season_year: int | None = None,
 ) -> list[dict[str, Any]]:
     pair = div_name_by_pair or {}
     idm = div_name_by_id or {}
@@ -147,7 +153,9 @@ def build_standings_by_division(
         teams_out = []
         for i, (st, tm) in enumerate(group, start=1):
             disp = (team_division_display_label(st, tm, pair, idm) or "").strip() or None
-            teams_out.append(standing_row_json(st, tm, i, display_division=disp))
+            teams_out.append(
+                standing_row_json(st, tm, i, display_division=disp, logo_season_year=logo_season_year)
+            )
         out.append({"division": div_name, "teams": teams_out})
     return out
 
@@ -192,7 +200,7 @@ def _playoff_stake_for_game(
     return score
 
 
-def _game_card_json(session, g: Game) -> dict[str, Any]:
+def _game_card_json(session, g: Game, logo_season_year: int | None = None) -> dict[str, Any]:
     ht = session.get(Team, g.home_team_id)
     at = session.get(Team, g.away_team_id)
     return {
@@ -208,8 +216,8 @@ def _game_card_json(session, g: Game) -> dict[str, Any]:
         "away_abbr": at.abbreviation if at else "",
         "home_slug": ht.slug if ht else "",
         "away_slug": at.slug if at else "",
-        "home_logo_url": team_logo_url_for_team(ht) if ht else "",
-        "away_logo_url": team_logo_url_for_team(at) if at else "",
+        "home_logo_url": dashboard_team_logo_url(ht, logo_season_year) if ht else "",
+        "away_logo_url": dashboard_team_logo_url(at, logo_season_year) if at else "",
     }
 
 
@@ -220,6 +228,7 @@ def pick_game_of_the_night(
     tm_map: dict[int, Team],
     conf_cutoff: dict[str, int],
     since: date | None = None,
+    logo_season_year: int | None = None,
 ) -> dict[str, Any] | None:
     """Pick highest-stakes final in season. Optional ``since`` lower-bounds game_date (sim seasons may be historical dates)."""
     q = select(Game).where(
@@ -249,7 +258,7 @@ def pick_game_of_the_night(
         h = hashlib.md5(f"{season_id}-{tied[0].id}".encode(), usedforsecurity=False).hexdigest()
         pick = int(h[:8], 16) % len(tied)
         g = tied[pick]
-    out = _game_card_json(session, g)
+    out = _game_card_json(session, g, logo_season_year)
     out["stake_score"] = round(_playoff_stake_for_game(g, st_map, tm_map, conf_cutoff), 2)
     return out
 
@@ -261,6 +270,7 @@ def pick_next_game_to_watch(
     tm_map: dict[int, Team],
     conf_cutoff: dict[str, int],
     from_date: date,
+    logo_season_year: int | None = None,
 ) -> dict[str, Any] | None:
     games = session.scalars(
         select(Game)
@@ -288,7 +298,7 @@ def pick_next_game_to_watch(
         if best is None or s > best[0]:
             best = (s, g)
     g = best[1] if best else games[0]
-    out = _game_card_json(session, g)
+    out = _game_card_json(session, g, logo_season_year)
     out["stake_score"] = round(_playoff_stake_for_game(g, st_map, tm_map, conf_cutoff), 2)
     return out
 
@@ -305,7 +315,14 @@ def _player_photo_url(pl: Player) -> str:
     return url_for("static", filename=rel) if rel else ""
 
 
-def _stars_skaters_in_window(session, season_id: int, start: date, end: date, limit: int = 3) -> list[dict[str, Any]]:
+def _stars_skaters_in_window(
+    session,
+    season_id: int,
+    start: date,
+    end: date,
+    limit: int = 3,
+    logo_season_year: int | None = None,
+) -> list[dict[str, Any]]:
     game_ids = session.scalars(
         select(Game.id).where(
             Game.season_id == season_id,
@@ -333,7 +350,7 @@ def _stars_skaters_in_window(session, season_id: int, start: date, end: date, li
         pts_by_player[pid]["player_photo_url"] = _player_photo_url(pl)
         pts_by_player[pid]["team"] = tm.abbreviation if tm else ""
         pts_by_player[pid]["team_slug"] = tm.slug if tm else ""
-        pts_by_player[pid]["team_logo_url"] = team_logo_url_for_team(tm) if tm else ""
+        pts_by_player[pid]["team_logo_url"] = dashboard_team_logo_url(tm, logo_season_year) if tm else ""
         pts_by_player[pid]["g"] += int(gss.goals or 0)
         pts_by_player[pid]["a"] += int(gss.assists or 0)
         pts_by_player[pid]["gp_set"].add(gss.game_id)
@@ -352,12 +369,20 @@ def _stars_skaters_in_window(session, season_id: int, start: date, end: date, li
     return out
 
 
-def build_stars_windows(session, season_id: int, as_of: date) -> dict[str, list[dict[str, Any]]]:
+def build_stars_windows(
+    session, season_id: int, as_of: date, logo_season_year: int | None = None
+) -> dict[str, list[dict[str, Any]]]:
     """Rolling N **league** days ending inclusive on ``as_of`` (see ``league_calendar_anchor_date``)."""
     return {
-        "stars_last_7d": _stars_skaters_in_window(session, season_id, as_of - timedelta(days=7), as_of),
-        "stars_last_14d": _stars_skaters_in_window(session, season_id, as_of - timedelta(days=14), as_of),
-        "stars_last_30d": _stars_skaters_in_window(session, season_id, as_of - timedelta(days=30), as_of),
+        "stars_last_7d": _stars_skaters_in_window(
+            session, season_id, as_of - timedelta(days=7), as_of, logo_season_year=logo_season_year
+        ),
+        "stars_last_14d": _stars_skaters_in_window(
+            session, season_id, as_of - timedelta(days=14), as_of, logo_season_year=logo_season_year
+        ),
+        "stars_last_30d": _stars_skaters_in_window(
+            session, season_id, as_of - timedelta(days=30), as_of, logo_season_year=logo_season_year
+        ),
     }
 
 
@@ -368,6 +393,7 @@ def build_trending_players(
     as_of: date,
     window_days: int = 14,
     limit: int = 5,
+    logo_season_year: int | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
     """Recent form vs season baseline using the last ``window_days`` **league** days ending ``as_of``."""
     start = as_of - timedelta(days=window_days)
@@ -419,7 +445,7 @@ def build_trending_players(
                 "player_photo_url": _player_photo_url(pl),
                 "team": tm.abbreviation if tm else "",
                 "team_slug": tm.slug if tm else "",
-                "team_logo_url": team_logo_url_for_team(tm) if tm else "",
+                "team_logo_url": dashboard_team_logo_url(tm, logo_season_year) if tm else "",
                 "recent_games": rgp,
                 "recent_ppg": round(rppg, 3),
                 "season_ppg": round(sppg, 3),
@@ -437,7 +463,7 @@ def build_trending_players(
                 "player_photo_url": _player_photo_url(pl),
                 "team": tm.abbreviation if tm else "",
                 "team_slug": tm.slug if tm else "",
-                "team_logo_url": team_logo_url_for_team(tm) if tm else "",
+                "team_logo_url": dashboard_team_logo_url(tm, logo_season_year) if tm else "",
                 "recent_games": rgp,
                 "recent_ppg": round(rppg, 3),
                 "season_ppg": round(sppg, 3),
@@ -447,7 +473,9 @@ def build_trending_players(
     return {"hot": hot, "cold": cold}
 
 
-def build_active_streaks(session, season_id: int, limit: int = 5) -> dict[str, list[dict[str, Any]]]:
+def build_active_streaks(
+    session, season_id: int, limit: int = 5, logo_season_year: int | None = None
+) -> dict[str, list[dict[str, Any]]]:
     """Goal streak / point streak from most recent games backward (skaters only)."""
     games = session.scalars(
         select(Game)
@@ -508,7 +536,7 @@ def build_active_streaks(session, season_id: int, limit: int = 5) -> dict[str, l
                     "streak": n,
                     "team": tm.abbreviation if tm else "",
                     "team_slug": tm.slug if tm else "",
-                    "team_logo_url": team_logo_url_for_team(tm) if tm else "",
+                    "team_logo_url": dashboard_team_logo_url(tm, logo_season_year) if tm else "",
                 }
             )
         return out
@@ -565,6 +593,7 @@ def _team_trending_row(
     rgp: int,
     rppg: float,
     sppg: float,
+    logo_season_year: int | None = None,
 ) -> dict[str, Any]:
     return {
         "team_id": tm.id,
@@ -572,7 +601,7 @@ def _team_trending_row(
         "team_name": tm.full_display_name(),
         "team_city": (tm.city or "").strip(),
         "team_slug": tm.slug or "",
-        "team_logo_url": team_logo_url_for_team(tm),
+        "team_logo_url": dashboard_team_logo_url(tm, logo_season_year),
         "recent_games": rgp,
         "recent_ppg": round(rppg, 3),
         "season_ppg": round(sppg, 3),
@@ -586,6 +615,7 @@ def build_trending_teams(
     as_of: date,
     window_days: int = 14,
     limit: int = 5,
+    logo_season_year: int | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
     """Team points pace in the last ``window_days`` league days vs full-season pace (like skater trending)."""
     start = as_of - timedelta(days=window_days)
@@ -626,18 +656,20 @@ def build_trending_teams(
 
     sorted_hot = sorted(deltas, key=lambda x: (-x[0], -x[3], x[1].name or ""))
     hot = [
-        _team_trending_row(dlt, tm, rgp, rppg, sppg)
+        _team_trending_row(dlt, tm, rgp, rppg, sppg, logo_season_year=logo_season_year)
         for dlt, tm, st, rgp, rppg, sppg in sorted_hot[:limit]
     ]
     sorted_cold = sorted(deltas, key=lambda x: (x[0], -x[3], x[1].name or ""))
     cold = [
-        _team_trending_row(dlt, tm, rgp, rppg, sppg)
+        _team_trending_row(dlt, tm, rgp, rppg, sppg, logo_season_year=logo_season_year)
         for dlt, tm, st, rgp, rppg, sppg in sorted_cold[:limit]
     ]
     return {"hot": hot, "cold": cold}
 
 
-def _team_streak_pack(scored: list[tuple[int, Team]], limit: int) -> list[dict[str, Any]]:
+def _team_streak_pack(
+    scored: list[tuple[int, Team]], limit: int, logo_season_year: int | None = None
+) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for n, tm in scored[:limit]:
         out.append(
@@ -647,14 +679,16 @@ def _team_streak_pack(scored: list[tuple[int, Team]], limit: int) -> list[dict[s
                 "team_name": tm.full_display_name(),
                 "team_city": (tm.city or "").strip(),
                 "team_slug": tm.slug or "",
-                "team_logo_url": team_logo_url_for_team(tm),
+                "team_logo_url": dashboard_team_logo_url(tm, logo_season_year),
                 "streak": n,
             }
         )
     return out
 
 
-def build_team_momentum_streaks(session, season_id: int, limit: int = 5) -> dict[str, list[dict[str, Any]]]:
+def build_team_momentum_streaks(
+    session, season_id: int, limit: int = 5, logo_season_year: int | None = None
+) -> dict[str, list[dict[str, Any]]]:
     """Current win, undefeated (W + ties), losing, and winless (L + ties) streaks from most recent games backward."""
     games = session.scalars(
         select(Game)
@@ -721,10 +755,10 @@ def build_team_momentum_streaks(session, season_id: int, limit: int = 5) -> dict
     winless_scored.sort(key=lambda x: (-x[0], x[1].name or ""))
 
     return {
-        "win_streak": _team_streak_pack(win_scored, limit),
-        "undefeated_streak": _team_streak_pack(und_scored, limit),
-        "losing_streak": _team_streak_pack(loss_scored, limit),
-        "winless_streak": _team_streak_pack(winless_scored, limit),
+        "win_streak": _team_streak_pack(win_scored, limit, logo_season_year),
+        "undefeated_streak": _team_streak_pack(und_scored, limit, logo_season_year),
+        "losing_streak": _team_streak_pack(loss_scored, limit, logo_season_year),
+        "winless_streak": _team_streak_pack(winless_scored, limit, logo_season_year),
     }
 
 
@@ -735,6 +769,7 @@ def build_power_rankings(
     special_teams: list[dict[str, Any]],
     recent_form: dict[int, dict[str, int | str]],
     _segment: str,
+    logo_season_year: int | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
     st_net = {str(r.get("team")): float(r.get("net_st") or 0) for r in special_teams if r.get("team")}
     team_ids = list(standings_by_team.keys())
@@ -790,7 +825,7 @@ def build_power_rankings(
             "name": tm.full_display_name(),
             "team_city": (tm.city or "").strip(),
             "abbr": tm.abbreviation,
-            "logo_url": team_logo_url_for_team(tm),
+            "logo_url": dashboard_team_logo_url(tm, logo_season_year),
             "pts": st.pts,
             "gp": st.standing_gp_display(),
             "power_score": round(pr, 2),
@@ -813,19 +848,22 @@ def build_champions_panel(session) -> dict[str, Any]:
     for hc in champs:
         tm = session.get(Team, hc.team_id) if hc.team_id else None
         se = session.get(Season, hc.season_id) if hc.season_id else None
+        champ_logo_y = int(se.start_year) if se and se.start_year is not None else None
         slides.append(
             {
                 "season_label": se.label if se else "",
                 "trophy": hc.trophy or "",
                 "team_name": tm.full_display_name() if tm else "",
                 "team_slug": tm.slug if tm else "",
-                "logo_url": team_logo_url_for_team(tm) if tm else "",
+                "logo_url": dashboard_team_logo_url(tm, champ_logo_y) if tm else "",
             }
         )
     return {"banner_urls": banners, "recent_champions": slides}
 
 
-def build_around_the_league(league_session, viewer: Any | None = None) -> dict[str, Any]:
+def build_around_the_league(
+    league_session, viewer: Any | None = None, logo_season_year: int | None = None
+) -> dict[str, Any]:
     """Published news from site DB; ``league_session`` resolves team slugs/names."""
     from flask import current_app, has_request_context, url_for
 
@@ -899,7 +937,7 @@ def build_around_the_league(league_session, viewer: Any | None = None) -> dict[s
                 "category_label": news_category_label(getattr(a, "category", None)),
                 "team_name": tm.full_display_name() if tm else None,
                 "team_slug": tm.slug if tm else None,
-                "team_logo_url": team_logo_url_for_team(tm) if tm else "",
+                "team_logo_url": dashboard_team_logo_url(tm, logo_season_year) if tm else "",
                 "gm_label": _gm_label(au),
                 "published_at": a.published_at.isoformat() if a.published_at else None,
                 "image_url": image_url,

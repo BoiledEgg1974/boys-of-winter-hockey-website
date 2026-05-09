@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Teams — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+{% set era_season = season or canonical_season %}
+<div class="teams-directory">
+  <header class="teams-directory__head">
+    <h1 class="page-title">Teams</h1>
+    {% if season %}<p class="muted teams-directory__season">Season: <strong>{{ season|season_display }}</strong></p>{% endif %}
+    <p class="teams-directory__lead muted">Choose a franchise to open its team page.</p>
+  </header>
+  <div class="teams-directory__grid" role="list">
+    {% for card in team_banners %}
+    {% set team = card.team %}
+    <div class="teams-directory__cell" role="listitem">
+      <a href="{{ url_for('main.team_page', slug=team.slug) }}" class="teams-directory__banner-hit">
+        <div class="team-hero team-hero--directory-card" style="--team-hero-accent: {{ card.ph }}; background: linear-gradient(135deg, {{ card.ph }}, {{ card.sh }});">
+          <div class="team-hero__brand">
+            <div class="team-hero__logo-wrap">
+              <img class="team-hero__logo" src="{{ team_logo_url_for_season_context(team, era_season) }}" alt="{{ team.name }} logo">
+            </div>
+            <div class="team-hero__meta">
+              <p class="team-hero__city">{{ card.hero_city_caps }}</p>
+              <h2 class="team-hero__nickname">{{ card.hero_display_name }}</h2>
+              <p class="team-hero__arena">
+                {{ card.arena_name or '—' }} · Capacity {{ '{:,}'.format(card.arena_capacity) if card.arena_capacity is not none else '—' }}
+              </p>
+              {% if card.standing and card.season %}
+              <p class="team-hero__record">
+                {{ card.standing.w }}-{{ card.standing.l }}-{{ card.standing.ties }}-{{ card.standing.otl }}{% if card.standing.pts is not none %} · {{ card.standing.pts }} PTS{% endif %}{{ card.hero_record_suffix }}
+              </p>
+              {% endif %}
+            </div>
+          </div>
+          {% if card.show_hero_stats_card %}
+          <div class="team-hero__stats-card" role="group" aria-label="Team season rates">
+            <span class="team-hero__stats-card-caret" aria-hidden="true"></span>
+            <div class="team-hero__stat-col">
+              <span class="team-hero__stat-label">GF/G</span>
+              <span class="team-hero__stat-value">{{ '%.1f'|format(card.hero_gf_g) if card.hero_gf_g is not none else '—' }}</span>
+              <span class="team-hero__stat-rank">{{ card.hero_gf_g_rank_paren }}</span>
+            </div>
+            <div class="team-hero__stat-col">
+              <span class="team-hero__stat-label">GA/G</span>
+              <span class="team-hero__stat-value">{{ '%.1f'|format(card.hero_ga_g) if card.hero_ga_g is not none else '—' }}</span>
+              <span class="team-hero__stat-rank">{{ card.hero_ga_g_rank_paren }}</span>
+            </div>
+            <div class="team-hero__stat-col">
+              <span class="team-hero__stat-label">PP%</span>
+              <span class="team-hero__stat-value">{{ '%.1f'|format(card.hero_pp_pct) if card.hero_pp_pct is not none else '—' }}</span>
+              <span class="team-hero__stat-rank">{{ card.hero_pp_rank_paren }}</span>
+            </div>
+            <div class="team-hero__stat-col">
+              <span class="team-hero__stat-label">PK%</span>
+              <span class="team-hero__stat-value">{{ '%.1f'|format(card.hero_pk_pct) if card.hero_pk_pct is not none else '—' }}</span>
+              <span class="team-hero__stat-rank">{{ card.hero_pk_rank_paren }}</span>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

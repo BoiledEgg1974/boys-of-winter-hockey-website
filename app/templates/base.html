@@ -31,6 +31,16 @@
           <a href="{{ url_for('main.standings') }}">Standings</a>
           <a href="{{ url_for('main.statistics') }}">Statistics</a>
           <a href="{{ url_for('main.schedule') }}">Schedule</a>
+          <span class="nav-teams-dropdown">
+            <a href="{{ url_for('main.teams_index') }}" class="nav-teams-dropdown__trigger">Teams</a>
+            <div class="nav-teams-dropdown__panel" role="group" aria-label="All teams">
+              {% for team in nav_teams %}
+              <a href="{{ url_for('main.team_page', slug=team.slug) }}" class="nav-teams-dropdown__logo-link" title="{{ team.name }}">
+                <img class="nav-teams-dropdown__logo" src="{{ team_logo_url_for_season_context(team, header_team_logo_season) }}" alt="{{ team.name }} logo" width="36" height="36" loading="lazy" decoding="async">
+              </a>
+              {% endfor %}
+            </div>
+          </span>
           <a href="{{ url_for('main.prospects') }}">Prospects</a>
           <span class="main-nav__pair">
             <a href="{{ url_for('main.undrafted_prospects') }}">Undrafted Prospects</a>
@@ -71,15 +81,6 @@
           <button type="submit">Go</button>
         </form>
         <button type="button" class="theme-toggle" aria-label="Toggle dark mode">&#9789;</button>
-      </div>
-    </div>
-    <div class="header-row2">
-      <div class="team-strip" role="navigation" aria-label="Teams">
-        {% for team in nav_teams %}
-        <a href="{{ url_for('main.team_page', slug=team.slug) }}" title="{{ team.name }}">
-          <img class="team-strip__logo" src="{{ team_logo_url_for_season_context(team, header_team_logo_season) }}" alt="{{ team.name }} logo">
-        </a>
-        {% endfor %}
       </div>
     </div>
   </header>

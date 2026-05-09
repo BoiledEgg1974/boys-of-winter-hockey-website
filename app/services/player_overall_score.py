@@ -137,11 +137,56 @@ def fetch_overall_baselines_by_player_ids(session: object, player_ids: Iterable[
     return {int(r.player_id): int(r.baseline_score) for r in rows}
 
 
+def backfill_missing_player_overall_baselines(session: object, players: Iterable[object]) -> int:
+    """Insert ``player_overall_baselines`` rows for players that have none (current OVR = baseline).
+
+    Ensures depth chart / stats trend arrows can compute ``delta`` on hosts that never ran a snapshot.
+    Uses ``flush`` only so the caller's transaction policy controls ``commit``.
+    """
+    from datetime import datetime
+
+    from app.models import PlayerOverallBaseline
+    from app.services.player_ratings_csv import get_player_ratings_row
+
+    pl_list = list(players)
+    if not pl_list:
+        return 0
+    ids = [int(getattr(pl, "id")) for pl in pl_list]
+    have = fetch_overall_baselines_by_player_ids(session, ids)
+    n = 0
+    for pl in pl_list:
+        pid = int(getattr(pl, "id"))
+        if pid in have:
+            continue
+        rr = get_player_ratings_row(getattr(pl, "fhm_player_id", None))
+        sc = compute_player_overall_100(
+            getattr(pl, "overall_ability", None),
+            getattr(pl, "overall_potential", None),
+            rr,
+            is_goalie=player_is_goalie_for_overall(pl),
+        )
+        if sc is None:
+            continue
+        session.add(
+            PlayerOverallBaseline(
+                player_id=pid,
+                baseline_score=int(sc),
+                updated_at=datetime.utcnow(),
+            )
+        )
+        have[pid] = int(sc)
+        n += 1
+    if n:
+        session.flush()
+    return n
+
+
 def build_overall_cell_map_from_players(session: object, players: Iterable[object]) -> dict[int, dict[str, Any]]:
     """Convenience: load CSV rating rows and baselines for a roster or player list."""
     from app.services.player_ratings_csv import get_player_ratings_row
 
     pl_list = list(players)
+    backfill_missing_player_overall_baselines(session, pl_list)
     pairs = [(pl, get_player_ratings_row(getattr(pl, "fhm_player_id", None))) for pl in pl_list]
     bids = fetch_overall_baselines_by_player_ids(session, [int(getattr(pl, "id")) for pl in pl_list])
     return overall_cell_map_for_players(pairs, bids)

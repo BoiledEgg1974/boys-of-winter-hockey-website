@@ -327,7 +327,8 @@ def create_app(config_class: type = Config) -> Flask:
     def inject_layout():
         from app.services.draft_history import draft_pick_current_team_view
 
-        teams = db.session.scalars(select(Team).order_by(Team.name)).all()
+        teams = list(db.session.scalars(select(Team)).all())
+        teams.sort(key=lambda t: (t.full_display_name() or "").strip().lower())
 
         def team_logo_url(team: Team) -> str:
             return team_logo_url_for_team(team)
@@ -561,7 +562,11 @@ def create_app(config_class: type = Config) -> Flask:
 
     @app.cli.command("bowl-overall-baseline-refresh")
     def bowl_overall_baseline_refresh_cmd() -> None:
-        """Save each player's current 1-100 OVR as the comparison baseline for trend arrows (per league DB)."""
+        """Save each player's current 1-100 OVR as the trend baseline (clears ↑/↓ until ratings move again).
+
+        Imports normally snapshot baselines automatically *before* new CSVs; use this command only
+        to acknowledge the current site as the new reference (per league DB).
+        """
         from app.services.player_overall_score import refresh_all_player_overall_baselines
 
         n = refresh_all_player_overall_baselines(db.session)

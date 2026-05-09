@@ -611,7 +611,7 @@ class TeamSeasonRecord(db.Model):
 
 
 class PlayerOverallBaseline(db.Model):
-    """Last acknowledged 1–100 overall composite per player (see ``bowl-overall-baseline-refresh`` CLI)."""
+    """1–100 overall composite baseline for depth-chart ↑/↓ (snapshotted before CSV imports; CLI can reset)."""
 
     __tablename__ = "player_overall_baselines"
 

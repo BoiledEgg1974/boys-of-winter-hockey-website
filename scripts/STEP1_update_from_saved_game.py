@@ -28,6 +28,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 RAW_ROOT = REPO_ROOT / "data" / "imports" / "raw"
 IMPORT_SCRIPT = REPO_ROOT / "scripts" / "import_data.py"
+SNAPSHOT_OVR_SCRIPT = REPO_ROOT / "scripts" / "snapshot_ovr_baseline.py"
 PA_DEPLOY_SCRIPT = REPO_ROOT / "scripts" / "STEP2_pythonanywhere.py"
 PATHS_FILE = REPO_ROOT / "scripts" / "saved_game_csv_paths.json"
 
@@ -129,6 +130,14 @@ def _run_import(slug: str) -> None:
     env = dict(**os.environ)
     env["LEAGUE_SLUG"] = slug
     cmd = [sys.executable, str(IMPORT_SCRIPT)]
+    subprocess.run(cmd, cwd=REPO_ROOT, env=env, check=True)
+
+
+def _snapshot_ovr_baseline(slug: str) -> None:
+    """Freeze current OVR baselines while raw CSVs on disk still match the DB (before copy/import)."""
+    env = dict(**os.environ)
+    env["LEAGUE_SLUG"] = slug
+    cmd = [sys.executable, str(SNAPSHOT_OVR_SCRIPT)]
     subprocess.run(cmd, cwd=REPO_ROOT, env=env, check=True)
 
 
@@ -316,6 +325,8 @@ def main() -> int:
             continue
         print(f"{league.label}: source -> {src}")
         try:
+            print(f"- {league.label}: snapshot OVR baselines (pre-export) …")
+            _snapshot_ovr_baseline(league.slug)
             count = _copy_csvs(src, RAW_ROOT / league.import_dir)
         except FileNotFoundError as exc:
             print(f"! {exc}")

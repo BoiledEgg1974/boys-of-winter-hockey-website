@@ -2970,40 +2970,109 @@ def _hero_city_all_caps(city_or_name: str) -> str:
     return _normalize_trois_rivieres_spelling((city_or_name or "").strip()).upper()
 
 
-def _dense_rank_by_value(pairs: list[tuple[int, float]], team_id: int, high_good: bool) -> int | None:
+def _dense_rank_map_all(pairs: list[tuple[int, float]], high_good: bool) -> dict[int, int]:
+    """Dense ranks for every team id in *pairs* (same tie rules as standings GF/G and GA/G rates)."""
     if not pairs:
-        return None
+        return {}
     ordered = sorted(pairs, key=lambda x: x[1], reverse=high_good)
+    out: dict[int, int] = {}
     prev_val: float | None = None
     rank = 0
     for idx, (tid, v) in enumerate(ordered, start=1):
         if prev_val is None or abs(v - prev_val) > 1e-9:
             rank = idx
             prev_val = v
-        if tid == team_id:
-            return rank
-    return None
+        out[int(tid)] = rank
+    return out
 
 
-def _standing_gf_g_ga_g_ranks(season_id: int, team_id: int) -> tuple[int | None, int | None]:
+def _standing_gf_g_ga_rank_maps(season_id: int) -> tuple[dict[int, int], dict[int, int]]:
     rows = db.session.scalars(select(TeamStanding).where(TeamStanding.season_id == season_id)).all()
     rates_gf: list[tuple[int, float]] = []
     rates_ga: list[tuple[int, float]] = []
     for st in rows:
         gpd = st.standing_gp_display()
-        if gpd > 0:
+        if gpd > 0 and st.team_id is not None:
             rates_gf.append((st.team_id, float(st.gf) / float(gpd)))
             rates_ga.append((st.team_id, float(st.ga) / float(gpd)))
-    return (
-        _dense_rank_by_value(rates_gf, team_id, True),
-        _dense_rank_by_value(rates_ga, team_id, False),
-    )
+    return (_dense_rank_map_all(rates_gf, True), _dense_rank_map_all(rates_ga, False))
+
+
+def _standing_gf_g_ga_g_ranks(season_id: int, team_id: int) -> tuple[int | None, int | None]:
+    gf_map, ga_map = _standing_gf_g_ga_rank_maps(season_id)
+    return (gf_map.get(team_id), ga_map.get(team_id))
 
 
 def _rank_paren(rank: int | None) -> str:
     if rank is None:
         return "—"
     return f"({_english_ordinal(rank)})"
+
+
+def _rank_maps_for_segment(season_id: int, segment: str) -> dict[int, dict[str, int]]:
+    """League-wide dense ranks per stat key for TeamSeasonAggregate rows in one segment (rs / po)."""
+    aggs = db.session.scalars(
+        select(TeamSeasonAggregate).where(
+            TeamSeasonAggregate.season_id == season_id,
+            TeamSeasonAggregate.stat_segment == segment,
+        )
+    ).all()
+    if not aggs:
+        return {}
+
+    specs = {
+        "shots_for": ("shots_for", True),
+        "shots_against": ("shots_against", False),
+        "faceoff_pct": ("faceoff_pct", True),
+        "blocked_shots": ("blocked_shots", True),
+        "hits": ("hits", True),
+        "takeaways": ("takeaways", True),
+        "giveaways": ("giveaways", False),
+        "pp_chances": ("pp_chances", True),
+        "pp_goals": ("pp_goals", True),
+        "pp_pct": ("pp_pct", True),
+        "pk_goals_against": ("pk_goals_against", False),
+        "sh_chances": ("sh_chances", False),
+        "pk_pct": ("pk_pct", True),
+        "sh_goals": ("sh_goals", True),
+        "pim_per_game": ("pim_per_game", False),
+        "attendance_home": ("attendance_home", True),
+        "attendance_away": ("attendance_away", True),
+        "sellouts_home": ("sellouts_home", True),
+        "sellouts_away": ("sellouts_away", True),
+    }
+
+    by_team: dict[int, dict[str, int]] = {}
+    for key, (attr, high_good) in specs.items():
+        vals: list[tuple[int, float]] = []
+        for a in aggs:
+            if attr == "pp_pct":
+                if a.pp_chances and a.pp_chances > 0 and a.pp_goals is not None:
+                    v = float(a.pp_goals) / float(a.pp_chances)
+                else:
+                    v = None
+            elif attr == "pk_pct":
+                if a.sh_chances and a.sh_chances > 0 and a.pk_goals_against is not None:
+                    v = 100.0 - (100.0 * float(a.pk_goals_against) / float(a.sh_chances))
+                else:
+                    v = None
+            else:
+                raw = getattr(a, attr)
+                v = float(raw) if raw is not None else None
+            if v is None or a.team_id is None:
+                continue
+            vals.append((a.team_id, v))
+        if not vals:
+            continue
+        vals.sort(key=lambda tv: tv[1], reverse=high_good)
+        prev_val: float | None = None
+        rank = 0
+        for idx, (tid, v) in enumerate(vals, start=1):
+            if prev_val is None or abs(v - prev_val) > 1e-12:
+                rank = idx
+                prev_val = v
+            by_team.setdefault(tid, {})[key] = rank
+    return by_team
 
 
 def _team_page_news_rows(team_id: int) -> list[dict[str, object]]:
@@ -3045,6 +3114,179 @@ def _team_page_news_rows(team_id: int) -> list[dict[str, object]]:
         body = (a.body or "").strip().replace("\r\n", "\n")
         out.append({"article": a, "byline": byline, "body": body, "engagement": eng.get(a.id)})
     return out
+
+
+@main_bp.get("/teams")
+def teams_index():
+    """Directory of team banners (same layout as each team page hero) for the active league site."""
+    teams_list = list(db.session.scalars(select(Team)).all())
+    teams_list.sort(key=lambda t: (t.full_display_name() or "").strip().lower())
+    canonical_season = get_current_season()
+    season = (
+        season_with_imported_data_fallback(db.session, canonical_season)
+        if canonical_season
+        else None
+    )
+    raw_dir = Path(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR))
+
+    div_name_by_pair, div_name_by_id = load_division_display_maps(raw_dir / "divisions.csv")
+
+    def _display_division(st_row: TeamStanding) -> str | None:
+        if st_row.team is not None and st_row.team.fhm_division_id is not None:
+            did = int(st_row.team.fhm_division_id)
+            cid = (
+                int(st_row.team.fhm_conference_id)
+                if st_row.team.fhm_conference_id is not None
+                else None
+            )
+            if cid is not None and (cid, did) in div_name_by_pair:
+                return div_name_by_pair[(cid, did)]
+            if did in div_name_by_id:
+                return div_name_by_id[did]
+        return st_row.division or st_row.conference
+
+    all_st: list[TeamStanding] = []
+    ranks_rs: dict[int, dict[str, int]] = {}
+    team_agg_by_id: dict[int, TeamSeasonAggregate] = {}
+    if season:
+        all_st = standings_for_season(season)
+        ranks_rs = _rank_maps_for_segment(season.id, "rs")
+        for a in db.session.scalars(
+            select(TeamSeasonAggregate).where(
+                TeamSeasonAggregate.season_id == season.id,
+                TeamSeasonAggregate.stat_segment == "rs",
+            )
+        ).all():
+            if a.team_id is not None:
+                team_agg_by_id[int(a.team_id)] = a
+
+    div_label_by_tid: dict[int, str | None] = {}
+    for st in all_st:
+        if st.team_id is not None:
+            div_label_by_tid[int(st.team_id)] = _display_division(st)
+
+    standing_by_tid: dict[int, TeamStanding] = {}
+    for st in all_st:
+        if st.team_id is not None:
+            standing_by_tid[int(st.team_id)] = st
+
+    gf_rank_map: dict[int, int] = {}
+    ga_rank_map: dict[int, int] = {}
+    if season:
+        gf_rank_map, ga_rank_map = _standing_gf_g_ga_rank_maps(season.id)
+
+    team_banners: list[dict[str, object]] = []
+    for team in teams_list:
+        arena_name = None
+        arena_capacity = None
+        arena_row = db.session.execute(
+            select(
+                Game.arena.label("arena"),
+                func.count(Game.id).label("games"),
+                func.max(Game.attendance).label("max_attendance"),
+            )
+            .where(
+                Game.home_team_id == team.id,
+                Game.arena.isnot(None),
+                Game.arena != "",
+            )
+            .group_by(Game.arena)
+            .order_by(func.count(Game.id).desc(), Game.arena.asc())
+            .limit(1)
+        ).first()
+        if arena_row:
+            arena_name = _normalize_trois_rivieres_spelling(arena_row.arena or "")
+            arena_capacity = int(arena_row.max_attendance) if arena_row.max_attendance is not None else None
+
+        standing = standing_by_tid.get(team.id)
+        division_name = div_label_by_tid.get(team.id) if standing else None
+        division_rank = None
+        if standing and division_name:
+            div_rows = [
+                r
+                for r in all_st
+                if r.team_id is not None
+                and div_label_by_tid.get(int(r.team_id)) == division_name
+            ]
+            for idx, r in enumerate(div_rows, start=1):
+                if r.team_id == team.id:
+                    division_rank = idx
+                    break
+
+        team_agg = team_agg_by_id.get(team.id)
+        tr_rs: dict[str, int] = {}
+        if team_agg and team.id in ranks_rs:
+            tr_rs = ranks_rs[team.id]
+
+        hero_city_caps = _hero_city_all_caps(team.city or team.name or "")
+        hero_display_name = (team.nickname or team.name or "").strip()
+        hero_gf_g: float | None = None
+        hero_ga_g: float | None = None
+        hero_gf_g_rank_paren = "—"
+        hero_ga_g_rank_paren = "—"
+        hero_pp_pct: float | None = None
+        hero_pk_pct: float | None = None
+        hero_pp_rank_paren = "—"
+        hero_pk_rank_paren = "—"
+        hero_record_suffix = ""
+        show_hero_stats_card = bool(standing and season)
+        if standing and season:
+            gpd = standing.standing_gp_display()
+            if gpd > 0:
+                hero_gf_g = round(float(standing.gf) / float(gpd), 1)
+                hero_ga_g = round(float(standing.ga) / float(gpd), 1)
+            rgf = gf_rank_map.get(team.id)
+            rga = ga_rank_map.get(team.id)
+            hero_gf_g_rank_paren = _rank_paren(rgf)
+            hero_ga_g_rank_paren = _rank_paren(rga)
+        if team_agg:
+            if team_agg.pp_chances and team_agg.pp_goals is not None and team_agg.pp_chances > 0:
+                hero_pp_pct = round(100.0 * float(team_agg.pp_goals) / float(team_agg.pp_chances), 1)
+            if team_agg.sh_chances and team_agg.sh_chances > 0 and team_agg.pk_goals_against is not None:
+                hero_pk_pct = round(
+                    100.0 - (100.0 * float(team_agg.pk_goals_against) / float(team_agg.sh_chances)),
+                    1,
+                )
+        hero_pp_rank_paren = _rank_paren(tr_rs.get("pp_pct") if tr_rs else None)
+        hero_pk_rank_paren = _rank_paren(tr_rs.get("pk_pct") if tr_rs else None)
+        if standing and season:
+            if division_rank is not None and division_name:
+                hero_record_suffix = f" ({_english_ordinal(division_rank)} {division_name})"
+            elif division_name:
+                hero_record_suffix = f" ({division_name})"
+
+        ph = team.primary_color or "#1e3a5f"
+        sh = team.secondary_color or "#0f172a"
+        team_banners.append(
+            {
+                "team": team,
+                "ph": ph,
+                "sh": sh,
+                "arena_name": arena_name,
+                "arena_capacity": arena_capacity,
+                "standing": standing,
+                "season": season,
+                "hero_city_caps": hero_city_caps,
+                "hero_display_name": hero_display_name,
+                "hero_gf_g": hero_gf_g,
+                "hero_ga_g": hero_ga_g,
+                "hero_gf_g_rank_paren": hero_gf_g_rank_paren,
+                "hero_ga_g_rank_paren": hero_ga_g_rank_paren,
+                "hero_pp_pct": hero_pp_pct,
+                "hero_pk_pct": hero_pk_pct,
+                "hero_pp_rank_paren": hero_pp_rank_paren,
+                "hero_pk_rank_paren": hero_pk_rank_paren,
+                "hero_record_suffix": hero_record_suffix,
+                "show_hero_stats_card": show_hero_stats_card,
+            }
+        )
+
+    return render_template(
+        "teams.html",
+        team_banners=team_banners,
+        season=season,
+        canonical_season=canonical_season,
+    )
 
 
 @main_bp.get("/team/<slug>")
@@ -3227,77 +3469,9 @@ def team_page(slug: str):
     team_rank_rs: dict[str, int] = {}
     team_rank_po: dict[str, int] = {}
 
-    def _rank_maps_for_segment(segment: str) -> dict[int, dict[str, int]]:
-        if not season:
-            return {}
-        aggs = db.session.scalars(
-            select(TeamSeasonAggregate).where(
-                TeamSeasonAggregate.season_id == season.id,
-                TeamSeasonAggregate.stat_segment == segment,
-            )
-        ).all()
-        if not aggs:
-            return {}
-
-        specs = {
-            "shots_for": ("shots_for", True),
-            "shots_against": ("shots_against", False),
-            "faceoff_pct": ("faceoff_pct", True),
-            "blocked_shots": ("blocked_shots", True),
-            "hits": ("hits", True),
-            "takeaways": ("takeaways", True),
-            "giveaways": ("giveaways", False),
-            "pp_chances": ("pp_chances", True),
-            "pp_goals": ("pp_goals", True),
-            "pp_pct": ("pp_pct", True),
-            "pk_goals_against": ("pk_goals_against", False),
-            "sh_chances": ("sh_chances", False),
-            "pk_pct": ("pk_pct", True),
-            "sh_goals": ("sh_goals", True),
-            "pim_per_game": ("pim_per_game", False),
-            "attendance_home": ("attendance_home", True),
-            "attendance_away": ("attendance_away", True),
-            "sellouts_home": ("sellouts_home", True),
-            "sellouts_away": ("sellouts_away", True),
-        }
-
-        by_team: dict[int, dict[str, int]] = {}
-        for key, (attr, high_good) in specs.items():
-            vals: list[tuple[int, float]] = []
-            for a in aggs:
-                if attr == "pp_pct":
-                    if a.pp_chances and a.pp_chances > 0 and a.pp_goals is not None:
-                        v = float(a.pp_goals) / float(a.pp_chances)
-                    else:
-                        v = None
-                elif attr == "pk_pct":
-                    # Kill success %: 100 − (PK GA / SH CH) × 100  ==  (SH CH − PK GA) / SH CH × 100
-                    if a.sh_chances and a.sh_chances > 0 and a.pk_goals_against is not None:
-                        v = 100.0 - (
-                            100.0 * float(a.pk_goals_against) / float(a.sh_chances)
-                        )
-                    else:
-                        v = None
-                else:
-                    raw = getattr(a, attr)
-                    v = float(raw) if raw is not None else None
-                if v is None or a.team_id is None:
-                    continue
-                vals.append((a.team_id, v))
-            if not vals:
-                continue
-            vals.sort(key=lambda tv: tv[1], reverse=high_good)
-            prev_val = None
-            rank = 0
-            for idx, (tid, v) in enumerate(vals, start=1):
-                if prev_val is None or abs(v - prev_val) > 1e-12:
-                    rank = idx
-                    prev_val = v
-                by_team.setdefault(tid, {})[key] = rank
-        return by_team
     if season:
-        ranks_rs = _rank_maps_for_segment("rs")
-        ranks_po = _rank_maps_for_segment("po")
+        ranks_rs = _rank_maps_for_segment(season.id, "rs")
+        ranks_po = _rank_maps_for_segment(season.id, "po")
         team_leader_rows = build_team_leader_panel_rows(team, season)
         team_agg = db.session.scalars(
             select(TeamSeasonAggregate).where(

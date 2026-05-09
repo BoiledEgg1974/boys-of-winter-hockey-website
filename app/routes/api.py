@@ -50,6 +50,7 @@ from app.services.homepage_dashboard import (
     league_calendar_anchor_date,
     pick_game_of_the_night,
     pick_next_game_to_watch,
+    special_teams_rows_for_power_rankings,
 )
 from app.services.power_rank_snapshots import apply_power_rank_trends, load_latest_power_rank_snapshot
 from app.services.homepage_modules import module_sort_order_map, module_visibility_map
@@ -1117,6 +1118,9 @@ def homepage_summary():
             select(TeamStanding).where(TeamStanding.season_id == season.id)
         ).all()
     }
+    special_teams = special_teams_rows_for_power_rankings(
+        db.session, season.id, segment, standings_by_team, logo_sy
+    )
     raw_dir = Path(str(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)))
     div_pair, div_by_id = load_division_display_maps(raw_dir / "divisions.csv")
     standings_by_division = build_standings_by_division(

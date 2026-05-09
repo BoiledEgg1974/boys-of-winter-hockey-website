@@ -1,7 +1,7 @@
-{# Composite 1-100 + optional trend vs last ``flask bowl-overall-baseline-refresh`` snapshot. #}
+{# Composite 1-100 + optional trend vs ``player_overall_baselines`` (snapshotted before CSV updates). #}
 {% macro overall_cell(ova, sorted_col=false) -%}
 {% if ova and ova.score is not none %}
-<td class="stats-ova-cell{% if sorted_col %} stats-td-sorted{% endif %}" data-sort-value="{{ ova.score }}" title="Composite 1-100 from ability, potential, and overview-style attributes. Arrows compare to the last baseline snapshot (flask bowl-overall-baseline-refresh).">
+<td class="stats-ova-cell{% if sorted_col %} stats-td-sorted{% endif %}" data-sort-value="{{ ova.score }}" title="Composite 1-100 from ability, potential, and overview-style attributes. Arrows compare to the stored OVR baseline (updated before imports; use bowl-overall-baseline-refresh to reset).">
   <span class="stats-ova__inner">
     <span class="stats-ova__score">{{ ova.score }}</span>{% if ova.delta is not none and ova.delta != 0 %}<span class="stats-ova__trend stats-ova__trend--{% if ova.delta > 0 %}up{% else %}down{% endif %}" aria-label="{% if ova.delta > 0 %}Up{% else %}Down{% endif %} {{ ova.delta }} from baseline">{% if ova.delta > 0 %}↑{% else %}↓{% endif %}</span>{% endif %}
   </span>

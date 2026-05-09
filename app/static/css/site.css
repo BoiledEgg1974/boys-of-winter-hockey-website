@@ -1,7 +1,7 @@
 /* Boys of Winter League — layout, themes, responsive */
 :root {
-  /* Sticky site header height band — in-page anchors + draft year bar ``top`` */
-  --scroll-padding-top: 232px;
+  /* Sticky site header height band — in-page anchors + draft year bar ``top`` (no team logo strip) */
+  --scroll-padding-top: 128px;
   /* Multiply prior team logo pixel sizes by 1.1 sitewide */
   --team-logo-mul: 1.1;
   /* Logos beside team names in tables, standings, stats, etc. (not header strip / team hero) */
@@ -185,6 +185,105 @@ a:hover {
   background: rgb(255 255 255 / 0.1);
   opacity: 1;
   text-decoration: none;
+}
+
+.nav-teams-dropdown {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+.nav-teams-dropdown__trigger {
+  color: var(--header-text);
+  opacity: 0.92;
+  padding: 0.3rem 0.65rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  text-decoration: none;
+  cursor: pointer;
+}
+.nav-teams-dropdown__trigger:hover,
+.nav-teams-dropdown__trigger:focus-visible {
+  background: rgb(255 255 255 / 0.1);
+  opacity: 1;
+  text-decoration: none;
+}
+.nav-teams-dropdown__panel {
+  position: absolute;
+  z-index: 1101;
+  left: 50%;
+  /* Slight overlap with trigger so the pointer path stays within :hover */
+  top: calc(100% - 3px);
+  transform: translate(-50%, 6px);
+  /* Grow with content up to viewport so a full league fits on one row without scrolling */
+  width: max-content;
+  max-width: calc(100vw - 1.25rem);
+  min-width: min(260px, 92vw);
+  padding: 0.45rem 0.5rem;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 0.28rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+  background: color-mix(in srgb, var(--header-bg) 96%, #1e293b);
+  border: 1px solid rgb(255 255 255 / 0.14);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.35);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease,
+    visibility 0.15s;
+}
+.nav-teams-dropdown:hover .nav-teams-dropdown__panel,
+.nav-teams-dropdown:focus-within .nav-teams-dropdown__panel {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translate(-50%, 0);
+}
+.nav-teams-dropdown__logo-link {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border-radius: 6px;
+  line-height: 0;
+  background: rgb(255 255 255 / 0.04);
+  transition: box-shadow 0.15s ease, transform 0.12s ease;
+}
+.nav-teams-dropdown__logo-link:hover,
+.nav-teams-dropdown__logo-link:focus-visible {
+  box-shadow: 0 0 0 2px rgb(56 189 248 / 0.55);
+  transform: translateY(-1px);
+}
+.nav-teams-dropdown__logo {
+  width: calc(32px * var(--team-logo-mul));
+  height: calc(32px * var(--team-logo-mul));
+  object-fit: contain;
+  border-radius: 5px;
+  display: block;
+}
+
+/* Desktop: use almost full viewport width and compact tiles so scrolling is rarely needed */
+@media (min-width: 1201px) {
+  .nav-teams-dropdown__panel {
+    max-width: calc(100vw - 2rem);
+    padding: 0.4rem 0.45rem;
+    gap: 0.22rem;
+  }
+  .nav-teams-dropdown__logo {
+    width: calc(30px * var(--team-logo-mul));
+    height: calc(30px * var(--team-logo-mul));
+  }
 }
 
 .nav-toggle {
@@ -468,44 +567,6 @@ a:hover {
 }
 .join-league-submit:hover {
   background: var(--accent-hover);
-}
-
-.header-row2 {
-  padding: 0.5rem 0.75rem 0.7rem;
-  min-height: 118px;
-  border-top: 1px solid rgb(255 255 255 / 0.08);
-}
-.team-strip {
-  display: grid;
-  grid-template-rows: repeat(2, auto);
-  grid-auto-flow: column;
-  grid-auto-columns: max-content;
-  gap: 0.35rem 0.5rem;
-  justify-content: center;
-  justify-items: center;
-  align-items: center;
-  margin: 0 auto;
-  max-width: 1200px;
-}
-.team-strip a {
-  flex: 0 0 auto;
-  display: block;
-  padding: 4px;
-  border-radius: 8px;
-  background: rgb(255 255 255 / 0.02);
-  transition: box-shadow 0.2s, transform 0.15s;
-}
-.team-strip a:hover,
-.team-strip a:focus-visible {
-  box-shadow: 0 0 10px rgb(56 189 248 / 0.5);
-  transform: translateY(-1px);
-}
-.team-strip img {
-  width: calc(44px * var(--team-logo-mul));
-  height: calc(44px * var(--team-logo-mul));
-  object-fit: contain;
-  display: block;
-  border-radius: 6px;
 }
 
 main {
@@ -3186,6 +3247,62 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
   max-width: 100%;
   min-width: 0;
 }
+
+.teams-directory__head {
+  margin-bottom: 1.25rem;
+}
+.teams-directory__head .page-title {
+  margin-bottom: 0.35rem;
+}
+.teams-directory__season {
+  margin: 0 0 0.35rem;
+}
+.teams-directory__lead {
+  margin: 0;
+  max-width: 42rem;
+}
+.teams-directory__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  width: 100%;
+  max-width: 100%;
+}
+@media (min-width: 720px) {
+  .teams-directory__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1100px) {
+  .teams-directory__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.1rem 1.15rem;
+  }
+}
+.teams-directory__cell {
+  min-width: 0;
+}
+.teams-directory__banner-hit {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  border-radius: var(--radius);
+}
+.teams-directory__banner-hit:hover .team-hero--directory-card,
+.teams-directory__banner-hit:focus-visible .team-hero--directory-card {
+  box-shadow: 0 8px 28px rgb(15 23 42 / 0.22);
+  outline: 2px solid rgb(56 189 248 / 0.65);
+  outline-offset: 2px;
+}
+[data-theme="dark"] .teams-directory__banner-hit:hover .team-hero--directory-card,
+[data-theme="dark"] .teams-directory__banner-hit:focus-visible .team-hero--directory-card {
+  box-shadow: 0 10px 32px rgb(0 0 0 / 0.45);
+}
+.team-hero--directory-card {
+  margin-bottom: 0;
+  height: 100%;
+}
+
 .team-hero {
   /* Banner logo vs prior 240×12rem baseline: multiply by this (0.7 = 30% smaller). */
   --team-hero-logo-mul: 0.7;
@@ -6604,7 +6721,7 @@ table.data.team-depth-table th {
 /* Collapse primary nav into Menu toggle on tablets / small laptops — avoids a 5–8 row sticky bar */
 @media (max-width: 1200px) {
   :root {
-    --scroll-padding-top: 198px;
+    --scroll-padding-top: 108px;
   }
   .nav-toggle {
     display: block;
@@ -6640,6 +6757,38 @@ table.data.team-depth-table th {
     font-size: 0.92rem;
     padding: 0.45rem 0.55rem;
   }
+  .nav-teams-dropdown {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+  .nav-teams-dropdown__trigger {
+    width: 100%;
+    box-sizing: border-box;
+    cursor: pointer;
+  }
+  .nav-teams-dropdown__panel {
+    position: static;
+    transform: none;
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    min-width: 0;
+    max-width: none;
+    width: 100%;
+    margin: 0.35rem 0 0.15rem;
+    max-height: none;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    transition: none;
+    box-shadow: none;
+    border: 1px solid rgb(255 255 255 / 0.12);
+  }
+  .nav-teams-dropdown__logo {
+    width: calc(28px * var(--team-logo-mul));
+    height: calc(28px * var(--team-logo-mul));
+  }
   .header-row1 {
     flex-wrap: wrap;
     gap: 0.5rem 0.75rem;
@@ -6658,19 +6807,6 @@ table.data.team-depth-table th {
     font-size: 0.8rem;
     padding: 0 0.55rem;
   }
-  .header-row2 {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    padding: 0.45rem 0.5rem 0.6rem;
-  }
-  .team-strip {
-    min-width: min-content;
-    gap: 0.3rem 0.4rem;
-  }
-  .team-strip img {
-    width: calc(36px * var(--team-logo-mul));
-    height: calc(36px * var(--team-logo-mul));
-  }
 }
 
 @media (min-width: 1201px) {
@@ -6682,7 +6818,7 @@ table.data.team-depth-table th {
 
 @media (max-width: 420px) {
   :root {
-    --scroll-padding-top: 200px;
+    --scroll-padding-top: 112px;
   }
   .league-brand img {
     width: 74px;
@@ -6712,10 +6848,6 @@ table.data.team-depth-table th {
     width: 34px;
     height: 34px;
     font-size: 1rem;
-  }
-  .team-strip img {
-    width: calc(34px * var(--team-logo-mul));
-    height: calc(34px * var(--team-logo-mul));
   }
 }
 
@@ -6762,16 +6894,6 @@ table.data.team-ratings-table td.team-ratings-table__player span.team-ratings-ta
 
 .team-name-lockup--icon:hover .team-name-lockup__logo {
   opacity: 0.92;
-}
-
-.team-strip a {
-  line-height: 0;
-}
-
-.team-strip__logo {
-  border-radius: 3px;
-  object-fit: contain;
-  display: block;
 }
 
 .team-matchup-link .team-name-lockup {

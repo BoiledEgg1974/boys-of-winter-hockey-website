@@ -5,7 +5,7 @@
 {% macro depth_ova_badge(pid) -%}
 {% set ova = player_overall_by_id[pid] if player_overall_by_id is defined and player_overall_by_id and pid in player_overall_by_id else none %}
 {% if ova and ova.score is not none %}
-<span class="team-depth-ova" title="Composite OVR (1–100). Arrow compares to last baseline snapshot.">
+<span class="team-depth-ova" title="Composite OVR (1–100). Arrow compares to the stored baseline (snapshotted before CSV imports).">
   <span class="stats-ova__score">{{ ova.score }}</span>{% if ova.delta is not none and ova.delta != 0 %}<span class="stats-ova__trend stats-ova__trend--{% if ova.delta > 0 %}up{% else %}down{% endif %}" aria-hidden="true">{% if ova.delta > 0 %}↑{% else %}↓{% endif %}</span>{% endif %}
 </span>
 {% endif %}

@@ -468,6 +468,19 @@ def build_import_and_reload_script(
     return "; ".join(parts)
 
 
+def build_snapshot_ovr_baselines_script(remote_project: str, venv_bin: str, slugs: list[str]) -> str:
+    """SSH script: snapshot OVR baselines on the server while remote CSVs are still pre-upload."""
+    rp = shlex.quote(remote_project.rstrip("/"))
+    act = shlex.quote(f"{venv_bin.rstrip('/')}/activate")
+    py = shlex.quote(f"{venv_bin.rstrip('/')}/python")
+    snap = shlex.quote(f"{remote_project.rstrip('/')}/scripts/snapshot_ovr_baseline.py")
+    parts = ["set -euo pipefail", f"cd {rp}", f". {act}"]
+    for slug in slugs:
+        parts.append(f"export LEAGUE_SLUG={shlex.quote(slug)}")
+        parts.append(f"{py} {snap}")
+    return "; ".join(parts)
+
+
 def build_full_remote_rebuild_prep_script(
     remote_project: str,
     venv_bin: str,
@@ -669,6 +682,13 @@ def cmd_deploy(ns: argparse.Namespace) -> int:
                 print("--- full remote rebuild prep ---")
                 run_remote_bash(client, prep_script)
                 print("Full remote rebuild prep finished.")
+        if not ns.skip_imports and not ns.dry_run and slugs:
+            snap_script = build_snapshot_ovr_baselines_script(remote_base, ns.venv_bin, slugs)
+            print("--- remote OVR baseline snapshot (before CSV upload) ---")
+            run_remote_bash(client, snap_script)
+        elif not ns.skip_imports and ns.dry_run and slugs:
+            print("--- would run remote OVR baseline snapshot (before CSV upload) ---")
+            print(build_snapshot_ovr_baselines_script(remote_base, ns.venv_bin, slugs).replace("; ", "\n"))
         print("--- data/imports/raw (from your registered folders) ---")
         u, s = upload_league_raw_folders(
             sftp,

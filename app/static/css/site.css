@@ -9948,7 +9948,7 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
 }
 @media (min-width: 960px) {
   .draft-hub-grid {
-    grid-template-columns: 1.1fr 0.75fr 0.95fr;
+    grid-template-columns: 1.05fr 1fr 0.62fr 0.88fr;
     grid-template-rows: auto 1fr;
   }
   .draft-hub-banner {
@@ -9958,13 +9958,18 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
     grid-row: 2;
     grid-column: 1;
   }
-  .draft-hub-col--order {
+  .draft-hub-col--ai {
     grid-row: 2;
     grid-column: 2;
+    min-width: 0;
+  }
+  .draft-hub-col--order {
+    grid-row: 2;
+    grid-column: 3;
   }
   .draft-hub-col--side {
     grid-row: 2;
-    grid-column: 3;
+    grid-column: 4;
   }
 }
 .draft-hub-banner__status {
@@ -10017,6 +10022,34 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
 }
 .draft-hub-player__name {
   color: var(--accent);
+}
+a.draft-hub-player__name:hover {
+  color: var(--accent-hover);
+}
+.draft-hub-ai-body {
+  max-height: min(70vh, 520px);
+  overflow-y: auto;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+.draft-hub-ai__headline {
+  font-weight: 700;
+  font-size: 1rem;
+  margin: 0 0 0.5rem;
+  color: var(--text);
+}
+.draft-hub-ai__summary {
+  margin: 0 0 0.65rem;
+}
+.draft-hub-ai__list {
+  margin: 0;
+  padding-left: 1.15rem;
+}
+.draft-hub-ai__list li {
+  margin-bottom: 0.4rem;
+}
+.draft-hub-ai__note {
+  margin: 0.75rem 0 0;
 }
 .draft-hub-pot {
   color: #ea580c;
@@ -10140,6 +10173,57 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
 }
 [data-theme="light"] .draft-hub-ticker__label {
   border-right-color: rgb(15 23 42 / 0.12);
+}
+
+/* Draft Hub — wishlist pick authorization */
+.dh-wishlist-auth-host {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  pointer-events: none;
+}
+.dh-wishlist-auth-host:not([hidden]) {
+  pointer-events: auto;
+}
+.dh-wishlist-auth-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgb(0 0 0 / 0.55);
+}
+.dh-wishlist-auth-dialog {
+  position: relative;
+  max-width: 26rem;
+  width: 100%;
+  padding: 1.25rem 1.35rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 16px 48px rgb(0 0 0 / 0.35);
+}
+.dh-wishlist-auth-title {
+  margin: 0 0 0.65rem;
+  font-size: 1.1rem;
+}
+.dh-wishlist-auth-body {
+  margin: 0 0 1rem;
+  line-height: 1.45;
+  font-size: 0.95rem;
+}
+.dh-wishlist-auth-team {
+  font-weight: 700;
+}
+.dh-wishlist-auth-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+.dh-wishlist-auth-form-yes {
+  display: inline;
 }
 
 /* —— BOWL trade tool (GM) —— */

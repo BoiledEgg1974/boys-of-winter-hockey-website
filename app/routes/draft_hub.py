@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from app.auth_login import active_membership_for_league
 from app.league_db import db
 from app.models import Player, Team
+from app.services.draft_hub_ai_advisor import fetch_draft_hub_ai_advice
 from app.services.draft_hub_eligibility import age_as_of, anchor_dates, eligible_players_ordered
 from app.services.draft_hub_state import (
     draft_eligibility_params,
@@ -20,6 +21,7 @@ from app.services.draft_hub_state import (
     record_pick,
     slots_ordered,
     utcnow_naive,
+    wishlist_head_for_user,
 )
 from app.services.player_ratings_csv import get_player_ratings_row, player_positions_display_label
 from app.site_models import LeagueDraft, LeagueDraftPick, LeagueDraftQueueItem, LeagueDraftSoundbite
@@ -201,7 +203,34 @@ def draft_hub_api_state():
             ).all()
         )
         queue_ids = [int(x.player_id) for x in qitems]
-        queue_items = [{"id": int(x.id), "player_id": int(x.player_id)} for x in qitems]
+        q_pids = [int(x.player_id) for x in qitems]
+        name_by_pid: dict[int, str] = {}
+        if q_pids:
+            for pl in db.session.scalars(select(Player).where(Player.id.in_(q_pids))).unique().all():
+                name_by_pid[int(pl.id)] = pl.full_name or ""
+        queue_items = [
+            {
+                "id": int(x.id),
+                "player_id": int(x.player_id),
+                "name": name_by_pid.get(int(x.player_id), ""),
+            }
+            for x in qitems
+        ]
+
+    can_pick = bool(
+        mem
+        and draft.status == "live"
+        and not draft.awaiting_admin_resolution
+        and current_slot
+        and mem.team_id == current_slot["team_id"]
+        and current_user.is_authenticated
+        and int(current_user.id) in gm_user_ids_for_team(db.session, slug, current_slot["team_id"])
+    )
+    wishlist_pick: dict[str, object] | None = None
+    if can_pick:
+        wpid, wname = wishlist_head_for_user(db.session, draft, slug, int(current_user.id))
+        if wpid is not None:
+            wishlist_pick = {"player_id": int(wpid), "player_name": str(wname or f"Player #{wpid}")}
 
     return jsonify(
         {
@@ -223,18 +252,79 @@ def draft_hub_api_state():
                 "sounds": sounds,
                 "queue_player_ids": queue_ids,
                 "queue_items": queue_items,
-                "can_pick": bool(
-                    mem
-                    and draft.status == "live"
-                    and not draft.awaiting_admin_resolution
-                    and current_slot
-                    and mem.team_id == current_slot["team_id"]
-                    and current_user.is_authenticated
-                    and int(current_user.id) in gm_user_ids_for_team(db.session, slug, current_slot["team_id"])
-                ),
+                "can_pick": can_pick,
+                "wishlist_pick": wishlist_pick,
             },
         }
     )
+
+
+@draft_hub_bp.get("/api/ai-advice")
+def draft_hub_api_ai_advice():
+    """JSON for the Draft Hub AI panel (entertainment only)."""
+    slug = _league_slug()
+    q_draft_id = request.args.get("draft_id", type=int)
+    featured = featured_draft(db.session, slug)
+    draft = featured
+    if q_draft_id:
+        row = db.session.get(LeagueDraft, q_draft_id)
+        if row and row.league_slug == slug:
+            draft = row
+    if not draft or draft.league_slug != slug:
+        return jsonify({"ok": False, "error": "no_draft"}), 404
+
+    if draft.status != "live" or draft.awaiting_admin_resolution:
+        return jsonify(
+            {
+                "ok": True,
+                "active": False,
+                "headline": None,
+                "summary": None,
+                "recommendations": [],
+                "fallback": True,
+            }
+        )
+
+    process_tick(db.session, draft)
+    db.session.commit()
+    db.session.refresh(draft)
+
+    slots = slots_ordered(db.session, draft.id)
+    team_by_id = {t.id: t for t in db.session.scalars(select(Team)).all()}
+    current_slot = None
+    if (
+        draft.status == "live"
+        and draft.current_slot_index < len(slots)
+        and not draft.awaiting_admin_resolution
+    ):
+        cs = slots[draft.current_slot_index]
+        if not cs.forfeited:
+            current_slot = cs
+
+    if not current_slot:
+        return jsonify(
+            {
+                "ok": True,
+                "active": False,
+                "headline": None,
+                "summary": None,
+                "recommendations": [],
+                "fallback": True,
+            }
+        )
+
+    tm = team_by_id.get(current_slot.team_id)
+    team_name = tm.full_display_name() if tm else str(current_slot.team_id)
+    payload = fetch_draft_hub_ai_advice(
+        db.session,
+        slug,
+        draft,
+        team_id=int(current_slot.team_id),
+        team_name=team_name,
+        round_no=int(current_slot.round),
+        overall=int(current_slot.overall_pick),
+    )
+    return jsonify({"ok": True, "active": True, **payload})
 
 
 @draft_hub_bp.get("/api/eligible-page")

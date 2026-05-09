@@ -25,8 +25,11 @@
        data-queue-remove-url="{{ url_for('draft_hub.draft_hub_queue_remove') }}"
        data-state-url="{{ url_for('draft_hub.draft_hub_api_state') }}"
        data-eligible-url="{{ url_for('draft_hub.draft_hub_eligible_page') }}"
+       data-ai-advice-url="{{ url_for('draft_hub.draft_hub_api_ai_advice') }}"
+       data-player-page-tpl="{{ url_for('main.player_page', player_id=988776655) }}"
        data-sound-base="{{ url_for('draft_hub.draft_hub_sound', sound_id=0).rsplit('/', 1)[0] }}">
   </div>
+  <div id="dh-wishlist-auth-host" class="dh-wishlist-auth-host" hidden></div>
 
   <noscript>
     <p class="muted">Enable JavaScript for the live draft board, timer, and lists.</p>
@@ -40,6 +43,8 @@
   var csrf = root.getAttribute('data-csrf') || '';
   var stateUrl = root.getAttribute('data-state-url');
   var eligibleUrl = root.getAttribute('data-eligible-url');
+  var aiAdviceUrl = root.getAttribute('data-ai-advice-url') || '';
+  var playerPageTpl = root.getAttribute('data-player-page-tpl') || '';
   var pickUrl = root.getAttribute('data-pick-url');
   var qAddUrl = root.getAttribute('data-queue-add-url');
   var qRemUrl = root.getAttribute('data-queue-remove-url');
@@ -50,6 +55,91 @@
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
   }
 
+  function playerHref(pid) {
+    if (!playerPageTpl || pid == null || pid === '') return '#';
+    return playerPageTpl.replace(/988776655/g, String(pid));
+  }
+
+  var lastAiKey = '';
+  var lastAiPayload = null;
+
+  function renderAiPanelLoading() {
+    var el = document.getElementById('dh-ai-body');
+    if (!el) return;
+    el.innerHTML = '<p class="muted">Fetching a take…</p>';
+  }
+
+  function renderAiPanelIdle(msg) {
+    var el = document.getElementById('dh-ai-body');
+    if (!el) return;
+    el.innerHTML = '<p class="muted">' + esc(msg) + '</p>';
+  }
+
+  function renderAiPanelError() {
+    var el = document.getElementById('dh-ai-body');
+    if (!el) return;
+    el.innerHTML = '<p class="muted">Could not load the AI desk. Refresh and try again.</p>';
+  }
+
+  function renderAiPayload(data) {
+    var el = document.getElementById('dh-ai-body');
+    if (!el) return;
+    if (!data || !data.active) {
+      el.innerHTML = '<p class="muted">Recommendations appear when a team is on the clock.</p>';
+      return;
+    }
+    var h = '<p class="draft-hub-ai__headline">' + esc(data.headline || '') + '</p>';
+    h += '<p class="draft-hub-ai__summary">' + esc(data.summary || '') + '</p>';
+    var recs = data.recommendations || [];
+    if (recs.length) {
+      h += '<ul class="draft-hub-ai__list">';
+      recs.forEach(function (r) {
+        var pid = r.player_id;
+        var nm = r.player_name || '';
+        var link = '<a href="' + esc(playerHref(pid)) + '" target="_blank" rel="noopener noreferrer" title="Open player profile in a new tab">' + esc(nm) + '</a>';
+        h += '<li><strong>' + link + '</strong> — <span class="muted">' + esc(r.blurb || '') + '</span></li>';
+      });
+      h += '</ul>';
+    }
+    if (data.fallback) {
+      h += '<p class="muted small draft-hub-ai__note">Heuristic or offline read — for fun only, not league guidance.</p>';
+    } else {
+      h += '<p class="muted small draft-hub-ai__note">AI-generated entertainment — not league guidance.</p>';
+    }
+    el.innerHTML = h;
+  }
+
+  function refreshAiAdvice(x) {
+    if (!aiAdviceUrl) return;
+    var el = document.getElementById('dh-ai-body');
+    if (!el) return;
+    if (!x || x.status !== 'live' || x.awaiting_admin || !x.current_slot) {
+      lastAiKey = '';
+      lastAiPayload = null;
+      renderAiPanelIdle('Recommendations appear when a team is on the clock.');
+      return;
+    }
+    var key = String(x.id) + ':' + String(x.current_slot.overall) + ':' + String(x.current_slot.team_id);
+    if (key === lastAiKey && lastAiPayload) {
+      renderAiPayload(lastAiPayload);
+      return;
+    }
+    lastAiKey = key;
+    renderAiPanelLoading();
+    var url = aiAdviceUrl + '?draft_id=' + encodeURIComponent(String(x.id));
+    fetch(url, { credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data || !data.ok) {
+          renderAiPanelError();
+          return;
+        }
+        lastAiPayload = data;
+        renderAiPayload(data);
+      })
+      .catch(function () { renderAiPanelError(); });
+  }
+
   function fmtClock(ms) {
     if (ms == null || ms <= 0) return '—';
     var t = Math.ceil(ms / 1000);
@@ -58,11 +148,64 @@
     return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
   }
 
+  function clearWishlistAuthHost() {
+    var host = document.getElementById('dh-wishlist-auth-host');
+    if (host) {
+      host.hidden = true;
+      host.innerHTML = '';
+    }
+  }
+
+  function wishlistAuthStorageKey(draftId, overall) {
+    return 'dhWishlistSkip-' + draftId + '-' + overall;
+  }
+
+  function syncWishlistAuthModal(x) {
+    var host = document.getElementById('dh-wishlist-auth-host');
+    if (!host) return;
+    if (!x || x.status !== 'live' || x.awaiting_admin || !x.can_pick || !x.wishlist_pick || !x.current_slot) {
+      host.hidden = true;
+      host.innerHTML = '';
+      return;
+    }
+    var key = wishlistAuthStorageKey(x.id, x.current_slot.overall);
+    if (sessionStorage.getItem(key)) {
+      host.hidden = true;
+      host.innerHTML = '';
+      return;
+    }
+    var team = x.on_clock_team || 'Your team';
+    var nm = x.wishlist_pick.player_name || '';
+    var pid = x.wishlist_pick.player_id;
+    host.hidden = false;
+    host.innerHTML =
+      '<div class="dh-wishlist-auth-backdrop" role="presentation"></div>' +
+      '<div class="dh-wishlist-auth-dialog" role="dialog" aria-modal="true" aria-labelledby="dh-wishlist-auth-title">' +
+      '<h2 id="dh-wishlist-auth-title" class="dh-wishlist-auth-title">Confirm pick</h2>' +
+      '<p class="dh-wishlist-auth-body"><span class="dh-wishlist-auth-team">' + esc(team) + '</span> is about to pick <strong><a href="' + esc(playerHref(pid)) + '" target="_blank" rel="noopener noreferrer" title="Open player profile in a new tab">' + esc(nm) + '</a></strong>. Do you authorize?</p>' +
+      '<div class="dh-wishlist-auth-actions">' +
+      '<form method="post" action="' + esc(pickUrl) + '" class="dh-wishlist-auth-form-yes">' +
+      '<input type="hidden" name="csrf_token" value="' + esc(csrf) + '">' +
+      '<input type="hidden" name="player_id" value="' + esc(String(pid)) + '">' +
+      '<button type="submit" class="button">Yes</button></form>' +
+      '<button type="button" class="button secondary dh-wishlist-auth-no">No, Other Pick</button>' +
+      '</div></div>';
+    var noBtn = host.querySelector('.dh-wishlist-auth-no');
+    if (noBtn) {
+      noBtn.addEventListener('click', function () {
+        sessionStorage.setItem(key, '1');
+        host.hidden = true;
+        host.innerHTML = '';
+      });
+    }
+  }
+
   function renderState(d) {
     var pageEl = document.getElementById('draft-hub-page-root');
     if (!d || !d.draft) {
       if (pageEl) pageEl.classList.remove('draft-hub-page--ticker');
       root.innerHTML = '<div class="card"><p class="muted">No draft is configured for this site yet. Check back later or ask the commissioner.</p></div>';
+      clearWishlistAuthHost();
       return;
     }
     if (pageEl) pageEl.classList.add('draft-hub-page--ticker');
@@ -101,6 +244,12 @@
     html += '<div id="dh-eligible-list" class="draft-hub-player-list"></div>';
     html += '</section>';
 
+    html += '<section class="draft-hub-col draft-hub-col--ai card">';
+    html += '<h2 class="draft-hub-col__title">AI draft desk</h2>';
+    html += '<p class="muted small" style="margin:0 0 0.5rem;line-height:1.35;">Fun, roster-aware suggestions for whoever is on the clock. Click any linked name to open a full profile in a new tab.</p>';
+    html += '<div id="dh-ai-body" class="draft-hub-ai-body"><p class="muted">Loading…</p></div>';
+    html += '</section>';
+
     html += '<section class="draft-hub-col draft-hub-col--order card">';
     html += '<h2 class="draft-hub-col__title">Draft order</h2>';
     html += '<ol class="draft-hub-order">';
@@ -112,16 +261,20 @@
     html += '</ol></section>';
 
     html += '<section class="draft-hub-col draft-hub-col--side card">';
-    html += '<h2 class="draft-hub-col__title">My auto-pick queue</h2>';
+    html += '<h2 class="draft-hub-col__title">My wishlist</h2>';
+    html += '<p class="muted small" style="margin:0 0 0.5rem;line-height:1.35;">Order players for when you cannot be at the keyboard. If the clock runs out, the site may still use this list automatically. When you are here, you will be asked to confirm your top wishlist name or choose someone else.</p>';
     if (!{{ 'true' if gm_membership else 'false' }}) {
-      html += '<p class="muted">Log in as a GM to manage your queue.</p>';
+      html += '<p class="muted">Log in as a GM to build your wishlist.</p>';
     } else {
       html += '<div id="dh-queue"></div>';
     }
     html += '<h2 class="draft-hub-col__title" style="margin-top:1rem;">Draft history (this event)</h2>';
     html += '<div class="table-wrap"><table class="data draft-hub-mini-table"><thead><tr><th>#</th><th>Team</th><th>Pick</th></tr></thead><tbody>';
     (x.recent_picks || []).forEach(function (p) {
-      html += '<tr><td>R' + esc(String(p.round)) + ' · ' + esc(String(p.overall)) + '</td><td>' + esc(p.team) + '</td><td>' + esc(p.player) + '</td></tr>';
+      var pickCell = (p.player_id != null)
+        ? '<a href="' + esc(playerHref(p.player_id)) + '" target="_blank" rel="noopener noreferrer" title="Open player profile in a new tab">' + esc(p.player) + '</a>'
+        : esc(p.player);
+      html += '<tr><td>R' + esc(String(p.round)) + ' · ' + esc(String(p.overall)) + '</td><td>' + esc(p.team) + '</td><td>' + pickCell + '</td></tr>';
     });
     html += '</tbody></table></div>';
     if ((x.sounds || []).length) {
@@ -181,6 +334,8 @@
 
     loadEligible(x);
     renderQueue(x);
+    syncWishlistAuthModal(x);
+    refreshAiAdvice(x);
   }
 
   function renderQueue(x) {
@@ -188,16 +343,18 @@
     if (!el) return;
     var items = x.queue_items || [];
     if (!items.length) {
-      el.innerHTML = '<p class="muted">Your queue is empty. Add players from the list.</p>';
+      el.innerHTML = '<p class="muted">Your wishlist is empty. Add players from the list.</p>';
       return;
     }
     var h = '<ul class="draft-hub-queue">';
     items.forEach(function (it) {
+      var disp = (it.name && String(it.name).trim()) ? esc(it.name) : ('Player #' + esc(String(it.player_id)));
+      var namePart = '<a href="' + esc(playerHref(it.player_id)) + '" target="_blank" rel="noopener noreferrer" title="Open player profile in a new tab">' + disp + '</a>';
       h += '<li><form method="post" action="' + esc(qRemUrl) + '" style="display:inline;">';
       h += '<input type="hidden" name="csrf_token" value="' + esc(csrf) + '">';
       h += '<input type="hidden" name="queue_id" value="' + esc(String(it.id)) + '">';
       h += '<button type="submit" class="button secondary small">Remove</button></form> ';
-      h += 'Player #' + esc(String(it.player_id)) + '</li>';
+      h += namePart + '</li>';
     });
     h += '</ul>';
     el.innerHTML = h;
@@ -218,7 +375,7 @@
       var html = '';
       rows.forEach(function (p) {
         html += '<div class="draft-hub-player">';
-        html += '<div><strong class="draft-hub-player__name">' + esc(p.name) + '</strong> ';
+        html += '<div><strong><a href="' + esc(playerHref(p.id)) + '" class="draft-hub-player__name" target="_blank" rel="noopener noreferrer" title="Open player profile in a new tab">' + esc(p.name) + '</a></strong> ';
         html += '<span class="muted">' + esc(p.team || '') + '</span><br>';
         html += '<span class="muted small">' + esc(p.pos || '') + ' · Age ' + esc(String(p.age != null ? p.age : '—')) + '</span>';
         html += ' <span class="draft-hub-pot">Pot ' + esc(String(p.pot != null ? p.pot : '—')) + '</span>';
@@ -236,7 +393,7 @@
           html += '<form method="post" action="' + esc(qAddUrl) + '" style="display:inline;margin-left:0.35rem;">';
           html += '<input type="hidden" name="csrf_token" value="' + esc(csrf) + '">';
           html += '<input type="hidden" name="player_id" value="' + esc(String(p.id)) + '">';
-          html += '<button type="submit" class="button">Add to list</button></form>';
+          html += '<button type="submit" class="button">Add to wishlist</button></form>';
         }
         html += '</div></div>';
       });

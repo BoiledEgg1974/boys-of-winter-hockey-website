@@ -8,6 +8,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.models import Player
 from app.services.draft_hub_eligibility import (
     DraftEligibilityParams,
     board_ranks_map,
@@ -87,6 +88,32 @@ def gm_user_ids_for_team(session: Session, league_slug: str, team_id: int) -> li
         .order_by(GmLeagueMembership.user_id.asc())
     ).all()
     return [int(u) for u in rows]
+
+
+def wishlist_head_for_user(
+    session: Session, draft: LeagueDraft, league_slug: str, user_id: int
+) -> tuple[int | None, str | None]:
+    """First still-eligible player on this user's wishlist (queue), for pick authorization UI."""
+    picked = picked_player_ids(session, draft.id)
+    params = draft_eligibility_params(draft)
+    eligible_ids = {p.id for p in eligible_players_ordered(session, league_slug, params)} - picked
+    qrows = list(
+        session.scalars(
+            select(LeagueDraftQueueItem)
+            .where(
+                LeagueDraftQueueItem.league_draft_id == draft.id,
+                LeagueDraftQueueItem.user_id == int(user_id),
+            )
+            .order_by(LeagueDraftQueueItem.sort_order.asc(), LeagueDraftQueueItem.id.asc())
+        ).all()
+    )
+    for qi in qrows:
+        pid = int(qi.player_id)
+        if pid in eligible_ids:
+            pl = session.get(Player, pid)
+            name = pl.full_name if pl else f"Player #{pid}"
+            return pid, name
+    return None, None
 
 
 def _pick_row_for_overall(session: Session, draft_id: int, overall: int) -> LeagueDraftPick | None:

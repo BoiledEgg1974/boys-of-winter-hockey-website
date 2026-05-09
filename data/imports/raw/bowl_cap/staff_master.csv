@@ -81,7 +81,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 79;-1;Doug;Sulliman;;1959-8-29;Glace Bay;NS;Canada;;;0
 80;-1;Gilles;Meloche;;1950-6-12;Montreal;QC;Canada;;;0
 81;-1;Rick;Wilson;;1950-8-10;Prince Albert;SK;Canada;;;0
-82;3;Cap;Raeder;;1953-10-8;Portland;TX;The United States;;;0
+82;-1;Cap;Raeder;;1953-10-8;Portland;TX;The United States;;;0
 83;0;François;Allaire;;1959-10-11;Montreal;QC;Canada;;;0
 84;218;Rick;Bowness;;1955-1-25;Moncton;NB;Canada;;;0
 85;16;Bill;Torrey;;1934-6-23;Montreal;QC;Canada;;;0

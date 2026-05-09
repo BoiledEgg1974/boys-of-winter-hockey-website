@@ -878,7 +878,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 909;216;10;Chris;Kontos;;73;195;1960-12-10;Toronto;ON;Canada;;;0;Left;0
 910;157;157;Evgeny;Korolev;;74;214;1954-7-24;Moscow;MOS;Russia;;;0;Left;0
 911;186;186;Roger;Kortko;;71;195;1954-2-1;Hafford;SK;Canada;;;0;Left;0
-913;224;22;Igor;Kravchuk;;73;218;1962-9-13;Ufa;BAS;Russia;;;0;Left;0
+913;22;22;Igor;Kravchuk;;73;218;1962-9-13;Ufa;BAS;Russia;;;0;Left;1
 914;157;157;Sergei;Krivokrasov;;71;194;1951-4-15;Angarsk;IRK;Russia;;;0;Left;0
 915;299;299;Joe;Krol;;71;173;1961-8-13;Winnipeg;MB;Canada;;;0;Left;0
 916;186;186;Richard;Kromm;;71;180;1951-3-29;Trail;BC;Canada;;;0;Left;0

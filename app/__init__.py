@@ -31,6 +31,8 @@ from app.db_utils import (
     ensure_discord_outbound_sqlite,
     ensure_prospect_system_rank_snapshots_sqlite,
     ensure_positional_rank_snapshots_sqlite,
+    ensure_power_rank_snapshots_sqlite,
+    ensure_prospect_league_rank_snapshots_sqlite,
     ensure_skater_career_line_career_source_sqlite,
     ensure_skater_career_line_extra_stats_sqlite,
     ensure_skater_career_line_game_rating_sqlite,
@@ -130,6 +132,8 @@ def create_app(config_class: type = Config) -> Flask:
             ensure_discord_outbound_sqlite(site_engine)
             ensure_prospect_system_rank_snapshots_sqlite(site_engine)
             ensure_positional_rank_snapshots_sqlite(site_engine)
+            ensure_power_rank_snapshots_sqlite(site_engine)
+            ensure_prospect_league_rank_snapshots_sqlite(site_engine)
         # FTS may be empty until import or seed; seed script calls rebuild
         try:
             from app.services.ratings_position_cache import backfill_null_positions_from_ratings

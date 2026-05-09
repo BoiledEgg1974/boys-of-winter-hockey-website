@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "macros/team.html" import team_lockup_full_name with context %}
 {% from "macros/star_row.html" import star_row %}
+{% from "macros/rankings_change.html" import rankings_change_cell %}
 {% block title %}Standings — Boys of Winter Hockey League{% endblock %}
 {% macro team_stats_panel(title, rows) -%}
 {% if rows %}
@@ -152,9 +153,9 @@
 <section class="card positional-rankings" aria-labelledby="positional-rankings-h">
   <h2 id="positional-rankings-h" class="positional-rankings__title">Positional Rankings</h2>
   {% if positional_rank_snapshot_at %}
-  <p class="muted positional-rankings__meta">Δ vs last baseline: {{ positional_rank_snapshot_at.strftime('%Y-%m-%d %H:%M') }} UTC (saved after each import, or below by an admin).</p>
+  <p class="muted positional-rankings__meta">Change vs last baseline: {{ positional_rank_snapshot_at.strftime('%Y-%m-%d %H:%M') }} UTC (saved after each import, or below by an admin).</p>
   {% else %}
-  <p class="muted positional-rankings__meta">Δ appears after the first import snapshot or when an admin saves a baseline below.</p>
+  <p class="muted positional-rankings__meta">The CHG column appears after the first import snapshot or when an admin saves a baseline below.</p>
   {% endif %}
   {% if viewer_can_save_positional_rank_snapshot %}
   <form method="post" action="{{ url_for('site_admin.admin_positional_rank_snapshot') }}" class="positional-rankings__save-form">
@@ -167,7 +168,7 @@
     <table class="data positional-rankings-table">
       <thead>
         <tr>
-          <th scope="col" class="positional-rankings__trend-col" title="Change in overall positional rank vs last baseline">Δ</th>
+          <th scope="col" class="positional-rankings__trend-col" title="Change in overall positional rank vs last baseline">CHG</th>
           <th scope="col">RANK</th>
           <th scope="col">TEAM</th>
           <th scope="col" title="Forward depth rank">F</th>
@@ -180,19 +181,7 @@
       <tbody>
         {% for row in positional_ranking_rows %}
         <tr>
-          <td class="positional-rankings__trend">
-            {% if row.trend_dir == 'up' %}
-            <span class="stats-ova__trend stats-ova__trend--up" title="Improved {{ row.trend_delta }} spot(s)">↑{{ row.trend_delta }}</span>
-            {% elif row.trend_dir == 'down' %}
-            <span class="stats-ova__trend stats-ova__trend--down" title="Dropped {{ row.trend_delta }} spot(s)">↓{{ row.trend_delta }}</span>
-            {% elif row.trend_dir == 'same' %}
-            <span class="muted" title="Same rank as baseline">—</span>
-            {% elif row.trend_dir == 'new' %}
-            <span class="muted" title="Team not in last baseline">NEW</span>
-            {% else %}
-            <span class="muted" title="No baseline yet">—</span>
-            {% endif %}
-          </td>
+          <td class="positional-rankings__trend">{{ rankings_change_cell(row) }}</td>
           <td class="positional-rankings__rank">{{ row.rank }}</td>
           <td class="positional-rankings__team">
             <span class="positional-rankings__team-inner">

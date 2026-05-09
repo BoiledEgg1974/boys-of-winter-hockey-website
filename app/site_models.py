@@ -638,6 +638,32 @@ class PositionalRankSnapshot(db.Model):
     ranks_json: Mapped[str] = mapped_column(Text, nullable=False)
 
 
+class PowerRankSnapshot(db.Model):
+    """Homepage power ranking order by team_id; Change column vs last snapshot."""
+
+    __tablename__ = "power_rank_snapshots"
+    __bind_key__ = "site"
+    __table_args__ = (Index("ix_power_rank_snap_league_at", "league_slug", "snapshot_at"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    snapshot_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    ranks_json: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class ProspectLeagueRankSnapshot(db.Model):
+    """League-wide prospect board (POT desc); player_id -> rank for /prospects table Δ column."""
+
+    __tablename__ = "prospect_league_rank_snapshots"
+    __bind_key__ = "site"
+    __table_args__ = (Index("ix_prospect_league_snap_league_at", "league_slug", "snapshot_at"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    snapshot_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    ranks_json: Mapped[str] = mapped_column(Text, nullable=False)
+
+
 def meta_dict(entry: ApLedgerEntry) -> dict:
     try:
         return json.loads(entry.meta_json or "{}")

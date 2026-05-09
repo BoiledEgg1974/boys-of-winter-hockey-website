@@ -792,6 +792,24 @@
   function powerSortAria() {
     return powerSortDir === 'desc' ? 'descending' : 'ascending';
   }
+  function formatPowerRankChange(r) {
+    var d = r && r.trend_dir;
+    var n = r && r.trend_delta;
+    if (d === 'up' && n != null) {
+      return '<span class="rankings-change rankings-change--up" title="Improved in saved power order">+' + escape(String(n)) + '</span>';
+    }
+    if (d === 'down' && n != null) {
+      return '<span class="rankings-change rankings-change--down" title="Dropped in saved power order">-' + escape(String(n)) + '</span>';
+    }
+    if (d === 'same') {
+      return '<span class="rankings-change rankings-change--same" title="Unchanged vs baseline">0</span>';
+    }
+    if (d === 'new') {
+      return '<span class="rankings-change rankings-change--new" title="Not in last baseline">NEW</span>';
+    }
+    return '<span class="rankings-change rankings-change--na" title="No baseline yet">—</span>';
+  }
+
   function sortedPowerRows() {
     var rows = powerRows.slice();
     rows.sort(function (a, b) {
@@ -838,6 +856,7 @@
     var rows = sortedPowerRows();
     var h = '<table class="data home-power-table"><thead><tr>';
     h += '<th title="Rank (follows current sort)">#</th>';
+    h += '<th scope="col" title="Change vs last saved power order (after import or when wired)">CHG</th>';
     h += '<th scope="col" title="' + thTeam + '">Team</th>';
     h += '<th class="st-sort-th" scope="col"><button type="button" class="st-sort-btn" data-power-sort="pws" title="' + thPws + '" aria-sort="' + escapeAttr(powerSortAria()) + '">PWS<span class="st-sort-ind" aria-hidden="true">' + (powerSortDir === 'desc' ? '▼' : '▲') + '</span></button></th>';
     h += '</tr></thead><tbody>';
@@ -873,6 +892,8 @@
       h +=
         '<tr><td>' +
         (i + 1) +
+        '</td><td class="home-power-td-change">' +
+        formatPowerRankChange(r) +
         '</td><td class="home-power-td-team">' +
         teamCell +
         '</td><td class="home-power-td-pws">' +

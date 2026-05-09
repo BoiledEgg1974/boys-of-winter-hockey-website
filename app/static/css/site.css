@@ -3040,6 +3040,13 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
 }
 .home-dashboard .home-power-table th:nth-child(2),
 .home-dashboard .home-power-table td:nth-child(2) {
+  text-align: center;
+  width: 2.5rem;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.home-dashboard .home-power-table th:nth-child(3),
+.home-dashboard .home-power-table td:nth-child(3) {
   text-align: left;
 }
 .home-power-td-team {
@@ -3097,6 +3104,7 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
 }
 .home-power-td-pws {
   font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 .home-champions__frame {
   position: relative;
@@ -7308,6 +7316,40 @@ table.data.stats-table .stats-badge.stats-badge--overall {
   background: #b91c1c;
   border: 1px solid #7f1d1d;
 }
+
+/* Rankings "Change" column: signed steps (+ green, − red, 0 neutral) — tables + homepage power ranks */
+.rankings-change {
+  display: inline-block;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  min-width: 1.35rem;
+  text-align: center;
+}
+.rankings-change--up {
+  color: #22c55e;
+}
+.rankings-change--down {
+  color: #f87171;
+}
+.rankings-change--same {
+  color: var(--text);
+  opacity: 0.88;
+  font-weight: 700;
+}
+.rankings-change--new {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+.rankings-change--na {
+  color: var(--muted);
+  font-weight: 600;
+}
+[data-theme="light"] .rankings-change--down {
+  color: #dc2626;
+}
+
 .player-profile__ap-box--ova .player-profile__ap-val--ova {
   display: inline-flex;
   align-items: center;
@@ -7573,10 +7615,8 @@ table.data.prospects-system-rankings-table td.prospects-system-rankings__trend {
   padding-left: 0.25rem;
   padding-right: 0.25rem;
 }
-.prospects-system-rankings__trend .stats-ova__trend {
-  font-size: 0.62rem;
-  min-width: 0;
-  padding: 0.06rem 0.2rem;
+.prospects-system-rankings__trend .rankings-change {
+  font-size: 0.85rem;
 }
 table.data.prospects-system-rankings-table td:nth-child(2) {
   width: 2.35rem;
@@ -7728,10 +7768,8 @@ table.data.positional-rankings-table td.positional-rankings__trend {
   text-align: center;
   white-space: nowrap;
 }
-.positional-rankings__trend .stats-ova__trend {
-  font-size: 0.62rem;
-  min-width: 0;
-  padding: 0.06rem 0.2rem;
+.positional-rankings__trend .rankings-change {
+  font-size: 0.85rem;
 }
 .positional-rankings__rank,
 .positional-rankings__num {
@@ -7838,13 +7876,18 @@ table.data.prospects-rankings-table td {
   text-align: center;
   vertical-align: middle;
 }
-table.data.prospects-rankings-table--league th:nth-child(3),
-table.data.prospects-rankings-table--league td:nth-child(3) {
+table.data.prospects-rankings-table--league th:nth-child(4),
+table.data.prospects-rankings-table--league td:nth-child(4) {
   text-align: left;
 }
-table.data.prospects-rankings-table--league td:nth-child(3) .stats-player-cell {
+table.data.prospects-rankings-table--league td:nth-child(4) .stats-player-cell {
   justify-content: flex-start;
   width: 100%;
+}
+.prospects-rankings-table__change-col {
+  width: 2.6rem;
+  white-space: nowrap;
+  font-size: 0.8rem;
 }
 /* Undrafted: no TEAM column — PLAYER is column 2 */
 table.data.prospects-rankings-table--undrafted th:nth-child(2),

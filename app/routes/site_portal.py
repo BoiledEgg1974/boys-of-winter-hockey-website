@@ -94,8 +94,10 @@ from app.services.discord_events import (
 from app.services.prediction_center import build_prediction_snapshot
 from app.services.positional_rankings import build_positional_ranking_rows, save_positional_rank_snapshot
 from app.services.prospect_system_rankings import (
+    build_prospect_pot_rank_by_player_id,
     build_prospect_system_ranking_rows,
     resolve_prospect_team_fallbacks,
+    save_prospect_league_rank_snapshot,
     save_system_rank_snapshot,
 )
 from app.services.awards_tracker import create_voting_cycle, list_cycles, tally_cycle_ballots
@@ -1440,8 +1442,16 @@ def admin_prospect_system_rank_snapshot():
         flash("No system ranking rows to snapshot.", "err")
         return redirect(url_for("main.prospects"))
     save_system_rank_snapshot(slug, rows)
+    pot_map = build_prospect_pot_rank_by_player_id(
+        session,
+        league_ids=league_ids,
+        age_ref=age_ref,
+        effective_team=_eff,
+    )
+    if pot_map:
+        save_prospect_league_rank_snapshot(slug, pot_map)
     flash(
-        "System rankings baseline saved. Arrows compare to this snapshot until the next import or save.",
+        "Prospect baselines saved (system table + league POT board). Change columns compare to this snapshot until the next import or save.",
         "ok",
     )
     return redirect(url_for("main.prospects"))

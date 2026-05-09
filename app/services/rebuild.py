@@ -75,10 +75,12 @@ def refresh_after_import(engine, app=None) -> None:
     if app is not None:
         try:
             from app.services.positional_rankings import record_positional_rank_snapshot_after_import
+            from app.services.power_rank_snapshots import record_power_rank_snapshot_after_import
             from app.services.prospect_system_rankings import record_system_rank_snapshot_after_import
 
             record_system_rank_snapshot_after_import(app)
             record_positional_rank_snapshot_after_import(app)
+            record_power_rank_snapshot_after_import(app)
         except Exception:
             import logging
 

@@ -24,11 +24,116 @@ from app.models import (
     PlayerSkaterStat,
     Season,
     Team,
+    TeamSeasonAggregate,
     TeamStanding,
 )
 
 _BANNER_FILE_RE = re.compile(r"^banner\s*(\d+)\.(png|webp|jpe?g)$", re.IGNORECASE)
 _BANNER_EXT_PRIORITY = {".png": 0, ".webp": 1, ".jpeg": 2, ".jpg": 2}
+
+
+def _pct_power(numerator: int | None, denominator: int | None) -> float | None:
+    if numerator is None or denominator is None or denominator <= 0:
+        return None
+    return (float(numerator) / float(denominator)) * 100.0
+
+
+def recent_form_last10_map(session, season_id: int) -> dict[int, dict[str, int | str]]:
+    """Last up to 10 final games per team: W/L counts for power-ranking form term."""
+    games = session.scalars(
+        select(Game)
+        .where(Game.season_id == season_id, Game.status == "final")
+        .order_by(Game.game_date.desc().nulls_last(), Game.id.desc())
+        .limit(800)
+    ).all()
+    by_team: dict[int, list[str]] = defaultdict(list)
+    for g in games:
+        if g.home_team_id and len(by_team[g.home_team_id]) < 10:
+            home_res = "W" if (g.home_score or 0) > (g.away_score or 0) else "L"
+            by_team[g.home_team_id].append(home_res)
+        if g.away_team_id and len(by_team[g.away_team_id]) < 10:
+            away_res = "W" if (g.away_score or 0) > (g.home_score or 0) else "L"
+            by_team[g.away_team_id].append(away_res)
+    out: dict[int, dict[str, int | str]] = {}
+    for team_id, recent in by_team.items():
+        wins = sum(1 for r in recent if r == "W")
+        losses = sum(1 for r in recent if r == "L")
+        out[team_id] = {"last10": f"{wins}-{losses}", "last10_wins": wins, "last10_losses": losses}
+    return out
+
+
+def special_teams_rows_for_power_rankings(
+    session,
+    season_id: int,
+    segment: str,
+    standings_by_team: dict[int, TeamStanding],
+    logo_season_year: int | None,
+) -> list[dict[str, Any]]:
+    """PP/PK net rows used by :func:`build_power_rankings` (same shape as homepage API)."""
+    agg_rows = session.scalars(
+        select(TeamSeasonAggregate).where(
+            TeamSeasonAggregate.season_id == season_id,
+            TeamSeasonAggregate.stat_segment == segment,
+        )
+    ).all()
+    special_teams: list[dict[str, Any]] = []
+    for row in agg_rows:
+        tm = session.get(Team, row.team_id)
+        if not tm:
+            continue
+        pp_pct = _pct_power(row.pp_goals, row.pp_chances)
+        pk_pct = None
+        if row.sh_chances is not None and row.sh_chances > 0 and row.pk_goals_against is not None:
+            pk_pct = (1.0 - (float(row.pk_goals_against) / float(row.sh_chances))) * 100.0
+        if pp_pct is None and pk_pct is None:
+            continue
+        net_st = (pp_pct or 0.0) + (pk_pct or 0.0)
+        st = standings_by_team.get(row.team_id)
+        special_teams.append(
+            {
+                "team": tm.abbreviation,
+                "team_name": tm.full_display_name(),
+                "team_city": (tm.city or tm.name or "").strip(),
+                "team_slug": tm.slug,
+                "team_logo_url": dashboard_team_logo_url(tm, logo_season_year),
+                "pp_pct": round(pp_pct, 1) if pp_pct is not None else None,
+                "pk_pct": round(pk_pct, 1) if pk_pct is not None else None,
+                "net_st": round(net_st, 1),
+                "hits": row.hits,
+                "blocks": row.blocked_shots,
+                "fo_pct": round(row.faceoff_pct, 1) if row.faceoff_pct is not None else None,
+                "gp": st.standing_gp_display() if st else None,
+            }
+        )
+    special_teams.sort(key=lambda x: float(x.get("net_st") or 0), reverse=True)
+    return special_teams
+
+
+def compute_power_rankings_payload(
+    session,
+    *,
+    season_id: int,
+    segment: str,
+    logo_season_year: int | None,
+) -> dict[str, list[dict[str, Any]]]:
+    """Standings + special teams + form → power ranking lists (shared by API and import snapshots)."""
+    standings_by_team = {
+        st.team_id: st
+        for st in session.scalars(select(TeamStanding).where(TeamStanding.season_id == season_id)).all()
+    }
+    recent_form = recent_form_last10_map(session, season_id)
+    special_teams = special_teams_rows_for_power_rankings(
+        session, season_id, segment, standings_by_team, logo_season_year
+    )
+    return build_power_rankings(
+        session,
+        season_id,
+        standings_by_team,
+        special_teams,
+        recent_form,
+        segment,
+        logo_season_year=logo_season_year,
+    )
 
 
 def league_calendar_anchor_date(session, season_id: int) -> date:
@@ -821,6 +926,7 @@ def build_power_rankings(
 
     def row(tm: Team, st: TeamStanding, pr: float) -> dict[str, Any]:
         return {
+            "team_id": int(tm.id),
             "slug": tm.slug,
             "name": tm.full_display_name(),
             "team_city": (tm.city or "").strip(),

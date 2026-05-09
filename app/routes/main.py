@@ -80,8 +80,11 @@ from app.services.player_overall_score import (
 )
 from app.services.player_ratings_csv import fhm_abi_pot_float, get_player_ratings_row, player_positions_display_label
 from app.services.prospect_system_rankings import (
+    apply_prospect_league_pot_trends,
     apply_system_rank_trends,
+    build_prospect_pot_rank_by_player_id,
     build_prospect_system_ranking_rows,
+    load_latest_prospect_league_rank_snapshot,
     load_latest_system_rank_snapshot,
     resolve_prospect_team_fallbacks,
 )
@@ -1903,6 +1906,15 @@ def prospects():
     prev_rank_map, system_rank_snapshot_at = load_latest_system_rank_snapshot(league_slug_cfg)
     if prev_rank_map:
         apply_system_rank_trends(system_rankings_rows, prev_rank_map)
+    prev_league_map, prospect_league_snapshot_at = load_latest_prospect_league_rank_snapshot(league_slug_cfg)
+    pot_rank_curr = build_prospect_pot_rank_by_player_id(
+        session,
+        league_ids=frozenset(league_ids),
+        age_ref=age_ref,
+        effective_team=_effective_team,
+    )
+    if prev_league_map and pot_rank_curr:
+        apply_prospect_league_pot_trends(display_rows, prev_league_map, pot_rank_curr)
     viewer_can_save_system_rank_snapshot = bool(
         getattr(current_user, "is_authenticated", False) and getattr(current_user, "is_admin", False)
     )
@@ -1924,6 +1936,7 @@ def prospects():
         player_overall_by_id=player_overall_by_id,
         system_rankings_rows=system_rankings_rows,
         system_rank_snapshot_at=system_rank_snapshot_at,
+        prospect_league_snapshot_at=prospect_league_snapshot_at,
         viewer_can_save_system_rank_snapshot=viewer_can_save_system_rank_snapshot,
     )
 

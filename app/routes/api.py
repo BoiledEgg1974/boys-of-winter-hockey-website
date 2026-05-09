@@ -31,7 +31,6 @@ from app.models import (
     ScoringEvent,
     Season,
     Team,
-    TeamSeasonAggregate,
     TeamStanding,
     db,
 )
@@ -42,16 +41,17 @@ from app.services.homepage_dashboard import (
     build_around_the_league,
     build_champions_panel,
     build_conf_cutoff_map,
-    build_power_rankings,
     build_standings_by_division,
     build_stars_windows,
     build_team_momentum_streaks,
     build_trending_players,
     build_trending_teams,
+    compute_power_rankings_payload,
     league_calendar_anchor_date,
     pick_game_of_the_night,
     pick_next_game_to_watch,
 )
+from app.services.power_rank_snapshots import apply_power_rank_trends, load_latest_power_rank_snapshot
 from app.services.homepage_modules import module_sort_order_map, module_visibility_map
 from app.services.homepage_ticker import build_homepage_ticker_items
 from app.services.postseason_odds import build_postseason_odds_payload
@@ -207,29 +207,6 @@ def _pct(numerator: int | None, denominator: int | None) -> float | None:
     if numerator is None or denominator is None or denominator <= 0:
         return None
     return (float(numerator) / float(denominator)) * 100.0
-
-
-def _recent_form_map(season_id: int) -> dict[int, dict[str, int | str]]:
-    games = db.session.scalars(
-        select(Game)
-        .where(Game.season_id == season_id, Game.status == "final")
-        .order_by(Game.game_date.desc().nulls_last(), Game.id.desc())
-        .limit(800)
-    ).all()
-    by_team: dict[int, list[str]] = defaultdict(list)
-    for g in games:
-        if g.home_team_id and len(by_team[g.home_team_id]) < 10:
-            home_res = "W" if (g.home_score or 0) > (g.away_score or 0) else "L"
-            by_team[g.home_team_id].append(home_res)
-        if g.away_team_id and len(by_team[g.away_team_id]) < 10:
-            away_res = "W" if (g.away_score or 0) > (g.home_score or 0) else "L"
-            by_team[g.away_team_id].append(away_res)
-    out: dict[int, dict[str, int | str]] = {}
-    for team_id, recent in by_team.items():
-        wins = sum(1 for r in recent if r == "W")
-        losses = sum(1 for r in recent if r == "L")
-        out[team_id] = {"last10": f"{wins}-{losses}", "last10_wins": wins, "last10_losses": losses}
-    return out
 
 
 def _rookie_cutoff_date(season: Season) -> date | None:
@@ -1049,7 +1026,6 @@ def homepage_summary():
         return jsonify(empty_body)
     season = season_with_imported_data_fallback(db.session, canonical_season)
     logo_sy: int | None = int(season.start_year) if getattr(season, "start_year", None) is not None else None
-    recent_form = _recent_form_map(season.id)
     teams_out: list[dict[str, object]] = []
 
     league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
@@ -1184,56 +1160,18 @@ def homepage_summary():
     team_momentum_streaks = build_team_momentum_streaks(db.session, season.id, logo_season_year=logo_sy)
     team_momentum = {"trending": trending_teams, "streaks": team_momentum_streaks}
     active_streaks = build_active_streaks(db.session, season.id, logo_season_year=logo_sy)
-    agg_rows = db.session.scalars(
-        select(TeamSeasonAggregate).where(
-            TeamSeasonAggregate.season_id == season.id,
-            TeamSeasonAggregate.stat_segment == segment,
-        )
-    ).all()
-    special_teams: list[dict[str, object]] = []
-    for row in agg_rows:
-        tm = db.session.get(Team, row.team_id)
-        if not tm:
-            continue
-        pp_pct = _pct(row.pp_goals, row.pp_chances)
-        pk_pct = None
-        if row.sh_chances is not None and row.sh_chances > 0 and row.pk_goals_against is not None:
-            pk_pct = (1.0 - (float(row.pk_goals_against) / float(row.sh_chances))) * 100.0
-        if pp_pct is None and pk_pct is None:
-            continue
-        net_st = (pp_pct or 0.0) + (pk_pct or 0.0)
-        st = standings_by_team.get(row.team_id)
-        special_teams.append(
-            {
-                "team": tm.abbreviation,
-                "team_name": tm.full_display_name(),
-                "team_city": (tm.city or tm.name or "").strip(),
-                "team_slug": tm.slug,
-                "team_logo_url": dashboard_team_logo_url(tm, logo_sy),
-                "pp_pct": round(pp_pct, 1) if pp_pct is not None else None,
-                "pk_pct": round(pk_pct, 1) if pk_pct is not None else None,
-                "net_st": round(net_st, 1),
-                "hits": row.hits,
-                "blocks": row.blocked_shots,
-                "fo_pct": round(row.faceoff_pct, 1) if row.faceoff_pct is not None else None,
-                "gp": st.standing_gp_display() if st else None,
-            }
-        )
-    special_teams.sort(key=lambda x: float(x.get("net_st") or 0), reverse=True)
-
-    power_rankings = build_power_rankings(
+    power_rankings = compute_power_rankings_payload(
         db.session,
-        season.id,
-        standings_by_team,
-        special_teams,
-        recent_form,
-        segment,
+        season_id=season.id,
+        segment=segment,
         logo_season_year=logo_sy,
     )
-    slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    prev_power, _ = load_latest_power_rank_snapshot(league_slug)
+    if prev_power:
+        apply_power_rank_trends(power_rankings["teams"], prev_power)
     module_settings = {
-        "visibility": module_visibility_map(db.session, slug),
-        "sort_order": module_sort_order_map(db.session, slug),
+        "visibility": module_visibility_map(db.session, league_slug),
+        "sort_order": module_sort_order_map(db.session, league_slug),
     }
     postseason_odds = build_postseason_odds_payload(db.session, season.id, tm_map)
     champions_panel = build_champions_panel(db.session)

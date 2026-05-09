@@ -1,0 +1,14 @@
+{# Signed rank change vs baseline: +n green, -n red, 0 neutral, — / NEW when no comparison. #}
+{% macro rankings_change_cell(row) -%}
+{% if row.trend_dir == 'up' and row.trend_delta is not none %}
+<span class="rankings-change rankings-change--up" title="Improved {{ row.trend_delta }} spot(s) in the order">+{{ row.trend_delta }}</span>
+{% elif row.trend_dir == 'down' and row.trend_delta is not none %}
+<span class="rankings-change rankings-change--down" title="Dropped {{ row.trend_delta }} spot(s) in the order">-{{ row.trend_delta }}</span>
+{% elif row.trend_dir == 'same' %}
+<span class="rankings-change rankings-change--same" title="Unchanged vs baseline">0</span>
+{% elif row.trend_dir == 'new' %}
+<span class="rankings-change rankings-change--new" title="Not present in last baseline">NEW</span>
+{% else %}
+<span class="rankings-change rankings-change--na" title="No baseline saved yet">—</span>
+{% endif %}
+{%- endmacro %}

@@ -17,7 +17,7 @@ from app.config import Config
 from app.models import Player, PlayerGoalieStat, PlayerSkaterStat, Team, db
 from app.services.player_ratings_csv import get_player_ratings_row, player_positions_display_label
 from app.services.seasons import get_current_season
-from app.site_models import ProspectSystemRankSnapshot
+from app.site_models import ProspectLeagueRankSnapshot, ProspectSystemRankSnapshot
 
 
 def _age_years(birth: date | None, as_of: date | None) -> int | None:
@@ -247,17 +247,117 @@ def build_prospect_system_ranking_rows(
     return system_rankings_rows
 
 
+def build_prospect_pot_rank_by_player_id(
+    session: object,
+    *,
+    league_ids: set[int] | frozenset,
+    age_ref: date | None,
+    effective_team: Callable[[Player], Team | None],
+) -> dict[int, int]:
+    """League-wide prospect board (age ≤22, league teams): rank 1 = best by POT then ABI then name."""
+    q = select(Player).options(joinedload(Player.current_team)).where(
+        Player.retired.is_(False),
+        Player.birth_date.isnot(None),
+    )
+    players = list(session.scalars(q).unique().all())
+    young: list[Player] = []
+    for p in players:
+        tm = effective_team(p)
+        if not tm or tm.fhm_league_id not in league_ids:
+            continue
+        age = _age_years(p.birth_date, age_ref)
+        if age is None or age > 22:
+            continue
+        young.append(p)
+    young.sort(
+        key=lambda pl: (
+            -(_prospect_float(pl.overall_potential) or float("-inf")),
+            -(_prospect_float(pl.overall_ability) or float("-inf")),
+            (pl.full_name or "").lower(),
+            pl.id,
+        )
+    )
+    return {pl.id: i + 1 for i, pl in enumerate(young)}
+
+
+def apply_prospect_league_pot_trends(
+    rows: list[dict[str, Any]],
+    prev_rank_by_player: dict[int, int],
+    current_rank_by_player: dict[int, int],
+) -> None:
+    """Mutate prospect table rows with trend_dir / trend_delta vs POT-board baseline (lower rank # = better)."""
+    for row in rows:
+        pl = row["player"]
+        pid = int(pl.id)
+        cur = current_rank_by_player.get(pid)
+        prev = prev_rank_by_player.get(pid)
+        if cur is None:
+            row["trend_dir"] = None
+            row["trend_delta"] = None
+            continue
+        if prev is None:
+            row["trend_dir"] = "new"
+            row["trend_delta"] = None
+            continue
+        delta = int(prev) - int(cur)
+        if delta > 0:
+            row["trend_dir"] = "up"
+            row["trend_delta"] = delta
+        elif delta < 0:
+            row["trend_dir"] = "down"
+            row["trend_delta"] = -delta
+        else:
+            row["trend_dir"] = "same"
+            row["trend_delta"] = 0
+
+
+def load_latest_prospect_league_rank_snapshot(league_slug: str) -> tuple[dict[int, int], datetime | None]:
+    slug = (league_slug or "").strip()
+    if not slug:
+        return {}, None
+    row = db.session.scalars(
+        select(ProspectLeagueRankSnapshot)
+        .where(ProspectLeagueRankSnapshot.league_slug == slug)
+        .order_by(ProspectLeagueRankSnapshot.snapshot_at.desc())
+        .limit(1)
+    ).first()
+    if not row:
+        return {}, None
+    try:
+        raw = json.loads(row.ranks_json or "{}")
+    except json.JSONDecodeError:
+        return {}, row.snapshot_at
+    out: dict[int, int] = {}
+    for k, v in raw.items():
+        try:
+            out[int(k)] = int(v)
+        except (TypeError, ValueError):
+            continue
+    return out, row.snapshot_at
+
+
+def save_prospect_league_rank_snapshot(league_slug: str, rank_by_player_id: dict[int, int]) -> None:
+    ranks = {str(int(pid)): int(r) for pid, r in rank_by_player_id.items()}
+    snap = ProspectLeagueRankSnapshot(
+        league_slug=(league_slug or "").strip(),
+        snapshot_at=datetime.utcnow(),
+        ranks_json=json.dumps(ranks, sort_keys=True),
+    )
+    db.session.add(snap)
+    db.session.commit()
+
+
 def load_latest_system_rank_snapshot(league_slug: str) -> tuple[dict[int, int], datetime | None]:
     """Return (team_id -> rank from last snapshot, snapshot timestamp). Empty dict if none."""
     slug = (league_slug or "").strip()
     if not slug:
         return {}, None
-    row = (
-        db.session.query(ProspectSystemRankSnapshot)
-        .filter(ProspectSystemRankSnapshot.league_slug == slug)
+    row = db.session.scalars(
+        select(ProspectSystemRankSnapshot)
+        .where(ProspectSystemRankSnapshot.league_slug == slug)
         .order_by(ProspectSystemRankSnapshot.snapshot_at.desc())
-        .first()
-    )
+        .limit(1)
+    ).first()
     if not row:
         return {}, None
     try:
@@ -358,3 +458,11 @@ def record_system_rank_snapshot_after_import(app: object) -> None:
         if not rows:
             return
         save_system_rank_snapshot(slug, rows)
+        pot_map = build_prospect_pot_rank_by_player_id(
+            session,
+            league_ids=league_ids,
+            age_ref=age_ref,
+            effective_team=_eff,
+        )
+        if pot_map:
+            save_prospect_league_rank_snapshot(slug, pot_map)

@@ -153,12 +153,12 @@ def load_latest_positional_rank_snapshot(league_slug: str) -> tuple[dict[int, in
     slug = (league_slug or "").strip()
     if not slug:
         return {}, None
-    row = (
-        db.session.query(PositionalRankSnapshot)
-        .filter(PositionalRankSnapshot.league_slug == slug)
+    row = db.session.scalars(
+        select(PositionalRankSnapshot)
+        .where(PositionalRankSnapshot.league_slug == slug)
         .order_by(PositionalRankSnapshot.snapshot_at.desc())
-        .first()
-    )
+        .limit(1)
+    ).first()
     if not row:
         return {}, None
     try:

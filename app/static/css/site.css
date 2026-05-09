@@ -11302,3 +11302,313 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   white-space: normal;
   font-variant-numeric: normal;
 }
+
+/* —— GM Draft Lottery (BOWL-Fantasy only) —— */
+.draft-lottery-page {
+  max-width: 1200px;
+  margin: 0 auto 2rem;
+  padding: 0 0.75rem;
+}
+.draft-lottery-page__header {
+  margin-bottom: 1.25rem;
+}
+.draft-lottery-page__eyebrow {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #7dd3fc;
+  margin: 0 0 0.35rem;
+}
+.draft-lottery-page__title {
+  font-family: "Bebas Neue", Impact, sans-serif;
+  font-size: clamp(2.2rem, 5vw, 3.2rem);
+  letter-spacing: 0.06em;
+  margin: 0 0 0.5rem;
+  text-shadow: 0 0 28px rgba(94, 234, 212, 0.25);
+}
+.draft-lottery-page__lead {
+  max-width: 52rem;
+  line-height: 1.45;
+  margin: 0;
+}
+.draft-lottery-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 340px) 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+@media (max-width: 960px) {
+  .draft-lottery-layout {
+    grid-template-columns: 1fr;
+  }
+}
+.draft-lottery-panel--controls {
+  padding: 1rem 1.1rem;
+}
+.draft-lottery-panel__title {
+  font-family: "Bebas Neue", Impact, sans-serif;
+  font-size: 1.35rem;
+  letter-spacing: 0.05em;
+  margin: 0 0 0.35rem;
+}
+.draft-lottery-panel__hint {
+  font-size: 0.86rem;
+  margin: 0 0 0.75rem;
+}
+.draft-lottery-slots {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.draft-lottery-slot {
+  display: grid;
+  grid-template-columns: 1fr minmax(0, 1.2fr) 44px;
+  gap: 0.4rem;
+  align-items: center;
+  padding: 0.35rem 0.45rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 92%, #0f172a);
+  border: 1px solid var(--border);
+}
+.draft-lottery-slot__label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.draft-lottery-slot__balls {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+.draft-lottery-slot__select {
+  width: 100%;
+  font-size: 0.82rem;
+  padding: 0.25rem 0.35rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: inherit;
+}
+.draft-lottery-slot__preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.draft-lottery-slot__preview img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+.draft-lottery-order-panel {
+  margin: 1rem 0 0.75rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 94%, #0f172a);
+}
+.draft-lottery-order-panel__title {
+  font-family: "Bebas Neue", Impact, sans-serif;
+  font-size: 1.05rem;
+  letter-spacing: 0.06em;
+  margin: 0 0 0.25rem;
+}
+.draft-lottery-order-panel__sub {
+  font-size: 0.8rem;
+  margin: 0 0 0.5rem;
+  line-height: 1.35;
+}
+.draft-lottery-order-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.draft-lottery-order-list__empty {
+  font-size: 0.84rem;
+  padding: 0.35rem 0;
+}
+.draft-lottery-order-list__row {
+  display: grid;
+  grid-template-columns: 3.5rem 1fr auto;
+  gap: 0.4rem 0.5rem;
+  align-items: center;
+  font-size: 0.84rem;
+  padding: 0.28rem 0.4rem;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  border: 1px solid var(--border);
+}
+.draft-lottery-order-list__place {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #7dd3fc;
+}
+.draft-lottery-order-list__name {
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.draft-lottery-order-list__meta {
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+.draft-lottery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.65rem;
+}
+.btn-draft-lottery {
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.4rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #475569;
+  background: #1e293b;
+  color: #e2e8f0;
+  cursor: pointer;
+}
+.btn-draft-lottery:hover:not(:disabled) {
+  background: #334155;
+}
+.btn-draft-lottery:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.btn-draft-lottery--primary {
+  border-color: #5eead4;
+  background: linear-gradient(165deg, #134e4a 0%, #0f766e 100%);
+  color: #ecfdf5;
+}
+.btn-draft-lottery--primary:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+.btn-draft-lottery--ghost {
+  background: transparent;
+  color: var(--muted);
+}
+.draft-lottery-status {
+  font-size: 0.84rem;
+  min-height: 1.25em;
+}
+.draft-lottery-stage.card {
+  padding: 0;
+  overflow: hidden;
+  background: radial-gradient(ellipse 120% 80% at 50% 0%, #1a2a38 0%, #070b10 55%, #030508 100%);
+  border: 1px solid #334155;
+  box-shadow:
+    0 0 0 1px rgba(148, 163, 184, 0.12),
+    0 20px 50px rgba(0, 0, 0, 0.45);
+}
+.draft-lottery-machine {
+  position: relative;
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+  aspect-ratio: 800 / 960;
+}
+.draft-lottery-machine__glow {
+  position: absolute;
+  inset: 8% 6% 14%;
+  border-radius: 20px;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 30%, rgba(94, 234, 212, 0.12) 0%, transparent 55%);
+  box-shadow: inset 0 0 80px rgba(15, 23, 42, 0.85);
+  z-index: 0;
+}
+.draft-lottery-machine__frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
+}
+.draft-lottery-machine__canvas-wrap {
+  position: absolute;
+  left: 5%;
+  right: 5%;
+  top: 12.5%;
+  bottom: 10%;
+  z-index: 2;
+}
+.draft-lottery-machine__canvas-wrap canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 12px;
+}
+.draft-lottery-lower-third {
+  padding: 0.75rem 1rem 1rem;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.95) 0%, #020617 100%);
+  border-top: 2px solid #64748b;
+}
+.draft-lottery-lower-third__bar {
+  max-width: 800px;
+  margin: 0 auto;
+}
+.draft-lottery-lower-third__label {
+  font-family: "Bebas Neue", Impact, sans-serif;
+  font-size: 1.1rem;
+  letter-spacing: 0.12em;
+  color: #94a3b8;
+  display: block;
+  margin-bottom: 0.35rem;
+}
+.draft-lottery-lower-third__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.draft-lottery-result-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.4rem 0.55rem;
+  border-radius: 6px;
+  background: rgba(30, 41, 59, 0.85);
+  border-left: 3px solid #5eead4;
+  font-size: 0.9rem;
+}
+.draft-lottery-result-row__pick {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #fde047;
+  min-width: 4.5rem;
+}
+.draft-lottery-result-row__name {
+  flex: 1;
+  font-weight: 600;
+}
+.draft-lottery-result-row__slot {
+  font-size: 0.78rem;
+}
+[data-theme="light"] .draft-lottery-stage.card {
+  background: radial-gradient(ellipse 120% 80% at 50% 0%, #e0f2fe 0%, #f8fafc 50%, #e2e8f0 100%);
+  border-color: #cbd5e1;
+}
+[data-theme="light"] .draft-lottery-machine__glow {
+  box-shadow: inset 0 0 60px rgba(148, 163, 184, 0.35);
+}
+[data-theme="light"] .draft-lottery-lower-third {
+  background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%);
+  border-top-color: #94a3b8;
+}
+[data-theme="light"] .draft-lottery-result-row {
+  background: #fff;
+  border-left-color: #0d9488;
+}

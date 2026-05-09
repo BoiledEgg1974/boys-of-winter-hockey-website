@@ -923,6 +923,56 @@ def ai_trade_tool_evaluate():
     return jsonify(out)
 
 
+def _normalize_hex_color(raw: str | None) -> str | None:
+    s = (raw or "").strip()
+    if not s:
+        return None
+    if s.startswith("#"):
+        hx = s[1:]
+    else:
+        hx = s
+    if len(hx) == 3:
+        hx = "".join(c * 2 for c in hx)
+    if len(hx) != 6 or any(c not in "0123456789abcdefABCDEF" for c in hx):
+        return None
+    return "#" + hx.upper()
+
+
+def _draft_lottery_team_rows() -> list[dict[str, object]]:
+    """Serialize teams for the GM draft lottery UI (Fantasy only)."""
+    teams = db.session.scalars(select(Team).order_by(Team.name)).all()
+    rows: list[dict[str, object]] = []
+    for t in teams:
+        rows.append(
+            {
+                "id": int(t.id),
+                "slug": str(t.slug),
+                "name": t.full_display_name(),
+                "abbr": str(t.abbreviation or "")[:8],
+                "logo_url": team_logo_url_for_team(t),
+                "primary": _normalize_hex_color(getattr(t, "primary_color", None)),
+                "secondary": _normalize_hex_color(getattr(t, "secondary_color", None)),
+                "text": _normalize_hex_color(getattr(t, "text_color", None)),
+            }
+        )
+    return rows
+
+
+@site_gm_bp.route("/draft-lottery", methods=["GET"])
+@login_required
+def draft_lottery():
+    """Weighted 8-slot draft lottery sim (BOWL-Fantasy GMs only)."""
+    slug = _league_slug()
+    if slug != "bowl-fantasy":
+        abort(404)
+    mem = _membership()
+    if not mem:
+        flash("No active GM membership for this league.", "err")
+        return redirect(url_for("main.home"))
+    team_rows = _draft_lottery_team_rows()
+    return render_template("draft_lottery.html", team_rows=team_rows)
+
+
 @site_gm_bp.get("/operations/trade-proposal/<int:pid>")
 @login_required
 def trade_proposal_detail(pid: int):

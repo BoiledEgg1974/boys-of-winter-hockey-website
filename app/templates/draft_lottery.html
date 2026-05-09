@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Draft Lottery — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="draft-lottery-page">
+  <header class="draft-lottery-page__header">
+    <p class="draft-lottery-page__eyebrow">BOWL-Fantasy · GM tool</p>
+    <h1 class="draft-lottery-page__title">Draft lottery</h1>
+    <p class="draft-lottery-page__lead muted">Two weighted draws (17th–24th group). Ball counts scale by finish: <strong>17th</strong> place gets <strong>8</strong> balls, <strong>18th</strong> gets 16, … <strong>24th</strong> gets <strong>64</strong> (8× the slot number). Each winner moves up by up to <strong>five</strong> draft spots total across both draws; teams passed drop one spot per pass, and no team may fall more than <strong>two</strong> spots below where they started. Entertainment only — not an official league random draw.</p>
+  </header>
+
+  <div class="draft-lottery-layout">
+    <section class="draft-lottery-panel draft-lottery-panel--controls card" aria-labelledby="dl-slots-title">
+      <h2 id="dl-slots-title" class="draft-lottery-panel__title">Standings slots</h2>
+      <p class="draft-lottery-panel__hint muted">Match each row to the team that finished in that place (17th through 24th). Ball counts stay tied to that finish, not to the team name.</p>
+      <ol class="draft-lottery-slots" id="draft-lottery-slots"></ol>
+      <div class="draft-lottery-order-panel" id="draft-lottery-order-panel">
+        <h3 class="draft-lottery-order-panel__title">Draft order (17th → 24th)</h3>
+        <p class="draft-lottery-order-panel__sub muted" id="draft-lottery-order-sub">Best pick at top. Updates as you assign teams and after each draw.</p>
+        <ol class="draft-lottery-order-list" id="draft-lottery-order-list" aria-live="polite"></ol>
+      </div>
+      <div class="draft-lottery-actions">
+        <button type="button" class="btn-draft-lottery btn-draft-lottery--primary" id="dl-btn-prepare">Prepare machine</button>
+        <button type="button" class="btn-draft-lottery" id="dl-btn-release" disabled>Release balls</button>
+        <button type="button" class="btn-draft-lottery btn-draft-lottery--ghost" id="dl-btn-reset">New lottery</button>
+      </div>
+      <p class="draft-lottery-status muted" id="dl-status" aria-live="polite"></p>
+    </section>
+
+    <section class="draft-lottery-stage card" aria-labelledby="dl-stage-title">
+      <h2 id="dl-stage-title" class="visually-hidden">Lottery machine</h2>
+      <div class="draft-lottery-machine" id="draft-lottery-machine">
+        <div class="draft-lottery-machine__glow" aria-hidden="true"></div>
+        <svg class="draft-lottery-machine__frame" viewBox="0 0 800 960" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+          <defs>
+            <linearGradient id="dlChrome" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" style="stop-color:#e8eef7"/>
+              <stop offset="45%" style="stop-color:#8b9bb8"/>
+              <stop offset="100%" style="stop-color:#3d4a63"/>
+            </linearGradient>
+            <linearGradient id="dlIce" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" style="stop-color:#1a3a52;stop-opacity:0"/>
+              <stop offset="50%" style="stop-color:#5ad0ff;stop-opacity:0.35"/>
+              <stop offset="100%" style="stop-color:#1a3a52;stop-opacity:0"/>
+            </linearGradient>
+          </defs>
+          <rect x="2" y="2" width="796" height="956" rx="28" fill="none" stroke="url(#dlChrome)" stroke-width="4"/>
+          <rect x="24" y="64" width="752" height="820" rx="18" fill="#0a1018" stroke="#2a3d52" stroke-width="2"/>
+          <polygon points="400,72 430,108 370,108" fill="url(#dlChrome)" opacity="0.9"/>
+          <text x="400" y="48" text-anchor="middle" class="draft-lottery-machine__svg-title" font-family="Bebas Neue, Impact, sans-serif" font-size="32" fill="#dce6f2" letter-spacing="0.12em">LOTTERY DRAW</text>
+          <rect x="40" y="120" width="720" height="780" fill="url(#dlIce)" opacity="0.5"/>
+        </svg>
+        <div class="draft-lottery-machine__canvas-wrap" id="draft-lottery-canvas-mount" aria-label="Lottery physics simulation"></div>
+      </div>
+      <div class="draft-lottery-lower-third" id="draft-lottery-results" hidden>
+        <div class="draft-lottery-lower-third__bar">
+          <span class="draft-lottery-lower-third__label">Draw log</span>
+          <ol class="draft-lottery-lower-third__list" id="draft-lottery-results-list"></ol>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script type="application/json" id="draft-lottery-teams-data">{{ team_rows | tojson }}</script>
+<script src="{{ url_for('static', filename='vendor/matter.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/draft_lottery.js') }}" defer></script>
+{% endblock %}

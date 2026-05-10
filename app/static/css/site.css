@@ -11073,12 +11073,29 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
 }
 
 /* —— GM AI Trade Tool (entertainment) —— */
+.trade-tool-page.ai-trade-tool-page {
+  max-width: 1400px;
+}
 .ai-trade-tool-body {
   display: block;
 }
 .ai-trade-tool-body .trade-tool-layout {
   width: 100%;
   min-width: 0;
+  /* Wider ledger than the default trade tool so two-column manual picks do not clip */
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 1.4fr) minmax(0, 1fr);
+}
+.ai-trade-tool-body .trade-tool-col--center {
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+.ai-trade-tool-body .trade-tool-manual-picks__grid > * {
+  min-width: 0;
+}
+@media (max-width: 960px) {
+  .ai-trade-tool-body .trade-tool-layout {
+    grid-template-columns: 1fr;
+  }
 }
 .ai-trade-tool-eval-hint {
   margin: 0.65rem 0 0;
@@ -11094,6 +11111,16 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   background: #0f172a;
   color: #e2e8f0;
   box-shadow: 0 24px 48px rgba(0, 0, 0, 0.45);
+}
+/* Keep the analyst modal in the top-right so it does not cover the partner roster */
+.ai-trade-tool-dialog[open] {
+  position: fixed;
+  top: max(0.75rem, env(safe-area-inset-top, 0px));
+  right: max(0.75rem, env(safe-area-inset-right, 0px));
+  bottom: auto;
+  left: auto;
+  margin: 0;
+  transform: none;
 }
 .ai-trade-tool-dialog::backdrop {
   background: rgba(0, 0, 0, 0.55);
@@ -11143,6 +11170,8 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
 }
 .ai-trade-tool-dialog .ai-trade-tool-bot-row {
   flex: 1 1 auto;
+  flex-direction: row-reverse;
+  align-items: flex-start;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;

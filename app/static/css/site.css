@@ -7535,7 +7535,7 @@ table.data.stats-table .stats-badge.stats-badge--overall {
   border: 1px solid #7f1d1d;
 }
 
-/* Rankings "Change" column: signed steps (+ green, − red, 0 neutral) — tables + homepage power ranks */
+/* Rankings CHG column (+1↑ green, −1↓ red): homepage power ranks, Prospects system + POT board, Standings positional */
 .rankings-change {
   display: inline-block;
   font-weight: 800;
@@ -7544,10 +7544,11 @@ table.data.stats-table .stats-badge.stats-badge--overall {
   min-width: 1.35rem;
   text-align: center;
 }
-.rankings-change--up {
+/* Two-class selectors so td/link inheritance never masks intent on data tables */
+.rankings-change.rankings-change--up {
   color: #22c55e;
 }
-.rankings-change--down {
+.rankings-change.rankings-change--down {
   color: #f87171;
 }
 .rankings-change--same {
@@ -7564,7 +7565,10 @@ table.data.stats-table .stats-badge.stats-badge--overall {
   color: var(--muted);
   font-weight: 600;
 }
-[data-theme="light"] .rankings-change--down {
+[data-theme="light"] .rankings-change.rankings-change--up {
+  color: #15803d;
+}
+[data-theme="light"] .rankings-change.rankings-change--down {
   color: #dc2626;
 }
 

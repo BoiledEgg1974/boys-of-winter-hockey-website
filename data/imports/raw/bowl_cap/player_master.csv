@@ -1623,7 +1623,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 1621;186;186;Greg;Stefan;;71;180;1961-2-11;Brantford;ON;Canada;;;0;Left;0
 1622;186;186;Ronnie;Stern;;72;200;1967-1-11;Sainte-Agathe-des-Monts;QC;Canada;;;0;Right;0
 1623;186;186;John;Stevens;;73;195;1966-5-4;Campbellton;NB;Canada;;;0;Left;0
-1624;223;221;Kevin;Stevens;Artie;75;230;1965-4-15;Brockton;MA;The United States;;;0;Left;0
+1624;221;221;Kevin;Stevens;Artie;75;230;1965-4-15;Brockton;MA;The United States;;;0;Left;0
 1625;186;186;Mike;Stevens;;72;202;1965-12-30;Kitchener;ON;Canada;;;0;Left;0
 1626;22;22;Scott;Stevens;;74;215;1964-4-1;Kitchener;ON;Canada;;;0;Left;0
 1627;186;186;Shayne;Stevenson;Ledgey;73;190;1970-10-26;Aurora;ON;Canada;;;0;Right;0
@@ -1892,7 +1892,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 1890;160;160;Andrei;Kovalev;;72;185;1966-4-2;Vitebsk;VIT;Belarus;;;0;Right;0
 1891;160;160;Yuri;Krivokhizha;;77;209;1968-5-30;Minsk;MIN;Belarus;;;0;Left;0
 14992;179;179;Steve;MacIntyre;;78;255;1980-8-8;Goodsoil;SK;Canada;;;0;Left;0
-1893;221;221;Tony;Virta;;70;196;1972-6-28;Hämeenlinna;KAN;Finland;;;0;Left;0
+1893;223;221;Tony;Virta;;70;196;1972-6-28;Hämeenlinna;KAN;Finland;;;0;Left;0
 16041;181;181;Michel;Ouellet;;73;203;1982-3-5;Rawdon;QC;Canada;;;0;Right;1
 1895;164;164;Søren;True;;74;207;1968-2-9;Aarhus;ARH;Denmark;;;0;Left;0
 1896;164;164;Heinz;Ehlers;;72;190;1966-1-25;Aalborg;NOR;Denmark;;;0;Left;0

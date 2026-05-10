@@ -78,9 +78,13 @@ def refresh_after_import(engine, app=None) -> None:
             from app.services.power_rank_snapshots import record_power_rank_snapshot_after_import
             from app.services.prospect_system_rankings import record_system_rank_snapshot_after_import
 
-            record_system_rank_snapshot_after_import(app)
-            record_positional_rank_snapshot_after_import(app)
-            record_power_rank_snapshot_after_import(app)
+            # Snapshot hooks call url_for("static", ...) for team logos. That needs a request
+            # context (or SERVER_NAME) even though imports only push app_context.
+            with app.app_context():
+                with app.test_request_context("/"):
+                    record_system_rank_snapshot_after_import(app)
+                    record_positional_rank_snapshot_after_import(app)
+                    record_power_rank_snapshot_after_import(app)
         except Exception:
             import logging
 

@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Boost Lottery — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="boost-lottery-page" data-boost-theme="{{ boost_theme }}">
+  <header class="boost-lottery-page__header draft-lottery-page__header">
+    <p class="boost-lottery-page__eyebrow draft-lottery-page__eyebrow">{{ config.LEAGUE_DISPLAY_NAME }} · Admin</p>
+    <h1 class="boost-lottery-page__title draft-lottery-page__title">Boost lottery</h1>
+    <p class="boost-lottery-page__lead draft-lottery-page__lead muted">Weighted ticket pool for draft boost picks: <strong>rounds 2–3</strong> each pick number gets <strong>3 tickets</strong>; <strong>rounds 4–8</strong> each pick number gets <strong>1 ticket</strong>. Set half-open ranges <code>[start, end)</code> (end is exclusive, same as Python). Generate the pool, then draw unique gold and silver winners. Use <strong>Reset pool &amp; results</strong> to clear the pool after changing numbers or to start over — parameters stay editable.</p>
+  </header>
+
+  <div class="boost-lottery-layout draft-lottery-layout">
+    <section class="boost-lottery-panel draft-lottery-panel--controls card" aria-labelledby="bl-params-title">
+      <h2 id="bl-params-title" class="draft-lottery-panel__title">Pool parameters</h2>
+      <p class="draft-lottery-panel__hint muted" id="bl-pool-stale" hidden>Numbers changed since the last pool build — click <strong>Generate pool</strong> again.</p>
+
+      <fieldset class="boost-lottery-fieldset">
+        <legend class="boost-lottery-fieldset__legend">Rounds 2–3 (×3 tickets per pick number)</legend>
+        <div class="boost-lottery-range-row">
+          <label class="boost-lottery-label">Start <span class="muted">(inclusive)</span>
+            <input type="number" id="bl-triple-lo" class="boost-lottery-input" value="28" min="0" step="1" />
+          </label>
+          <label class="boost-lottery-label">End <span class="muted">(exclusive)</span>
+            <input type="number" id="bl-triple-hi" class="boost-lottery-input" value="81" min="1" step="1" />
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset class="boost-lottery-fieldset">
+        <legend class="boost-lottery-fieldset__legend">Rounds 4–8 (×1 ticket per pick number)</legend>
+        <div class="boost-lottery-range-row">
+          <label class="boost-lottery-label">Start <span class="muted">(inclusive)</span>
+            <input type="number" id="bl-single-lo" class="boost-lottery-input" value="82" min="0" step="1" />
+          </label>
+          <label class="boost-lottery-label">End <span class="muted">(exclusive)</span>
+            <input type="number" id="bl-single-hi" class="boost-lottery-input" value="216" min="1" step="1" />
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset class="boost-lottery-fieldset">
+        <legend class="boost-lottery-fieldset__legend">Winners this draw</legend>
+        <div class="boost-lottery-range-row">
+          <label class="boost-lottery-label">Gold count
+            <input type="number" id="bl-gold-n" class="boost-lottery-input" value="4" min="0" max="999" step="1" />
+          </label>
+          <label class="boost-lottery-label">Silver count
+            <input type="number" id="bl-silver-n" class="boost-lottery-input" value="6" min="0" max="999" step="1" />
+          </label>
+        </div>
+      </fieldset>
+
+      <div class="draft-lottery-actions boost-lottery-actions">
+        <button type="button" class="btn-draft-lottery btn-draft-lottery--primary" id="bl-btn-generate">Generate pool</button>
+        <button type="button" class="btn-draft-lottery" id="bl-btn-draw" disabled>Execute draw</button>
+        <button type="button" class="btn-draft-lottery btn-draft-lottery--ghost" id="bl-btn-reset">Reset pool &amp; results</button>
+      </div>
+      <p class="draft-lottery-status muted" id="bl-status" aria-live="polite">Set ranges and counts, then generate the pool.</p>
+    </section>
+
+    <section class="boost-lottery-stage draft-lottery-stage card" aria-labelledby="bl-stage-title">
+      <h2 id="bl-stage-title" class="visually-hidden">Boost lottery output</h2>
+      <div class="boost-lottery-machine draft-lottery-machine">
+        <div class="boost-lottery-machine__glow draft-lottery-machine__glow" aria-hidden="true"></div>
+        <svg class="draft-lottery-machine__frame" viewBox="0 0 800 960" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+          <defs>
+            <linearGradient id="blChrome" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" style="stop-color:#e8eef7"/>
+              <stop offset="45%" style="stop-color:#8b9bb8"/>
+              <stop offset="100%" style="stop-color:#3d4a63"/>
+            </linearGradient>
+            <linearGradient id="blIce" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" style="stop-color:#1a3a52;stop-opacity:0"/>
+              <stop offset="50%" style="stop-color:#5ad0ff;stop-opacity:0.35"/>
+              <stop offset="100%" style="stop-color:#1a3a52;stop-opacity:0"/>
+            </linearGradient>
+          </defs>
+          <rect x="2" y="2" width="796" height="956" rx="28" fill="none" stroke="url(#blChrome)" stroke-width="4"/>
+          <rect x="24" y="64" width="752" height="820" rx="18" fill="#0a1018" stroke="#2a3d52" stroke-width="2"/>
+          <polygon points="400,72 430,108 370,108" fill="url(#blChrome)" opacity="0.9"/>
+          <text x="400" y="48" text-anchor="middle" class="draft-lottery-machine__svg-title" font-family="Bebas Neue, Impact, sans-serif" font-size="32" fill="#dce6f2" letter-spacing="0.12em">BOOST LOTTERY</text>
+          <rect x="40" y="120" width="720" height="780" fill="url(#blIce)" opacity="0.5"/>
+        </svg>
+        <div class="boost-lottery-output-wrap">
+          <div class="boost-lottery-output-inner">
+            <p class="boost-lottery-output__label">Output</p>
+            <div id="bl-pool-summary" class="boost-lottery-output__summary muted" hidden></div>
+            <div id="bl-results" class="boost-lottery-output__results" aria-live="polite"></div>
+            <div class="boost-lottery-output__logo-wrap">
+              <img src="{{ league_logo_url() }}" alt="{{ config.LEAGUE_DISPLAY_NAME }} logo" class="boost-lottery-output__logo" width="120" height="120" decoding="async" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+<script src="{{ url_for('static', filename='js/boost_lottery.js') }}" defer></script>
+{% endblock %}

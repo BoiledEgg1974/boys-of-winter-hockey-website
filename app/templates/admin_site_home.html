@@ -19,6 +19,9 @@
     {% if current_league_slug == 'bowl-fantasy' %}
     <li><a href="{{ url_for('site_gm.draft_lottery') }}">Draft lottery</a> — weighted 17th–24th simulator (admins only)</li>
     {% endif %}
+    {% if current_league_slug in ('bowl-fantasy', 'bowl-cap', 'bowl-historical') %}
+    <li><a href="{{ url_for('site_gm.boost_lottery') }}">Boost lottery</a> — rounds 2–3 triple tickets, 4–8 single; gold/silver draw (admins only)</li>
+    {% endif %}
     <li><a href="{{ url_for('site_admin.admin_operations_queue') }}">GM operations queue</a></li>
     <li><a href="{{ url_for('site_admin.admin_trade_proposals_list') }}">Trade proposals (ledger workflow)</a></li>
     <li><a href="{{ url_for('site_admin.admin_franchise_health') }}">Franchise health dashboard</a></li>

@@ -966,6 +966,20 @@ def draft_lottery():
     return render_template("draft_lottery.html", team_rows=team_rows)
 
 
+@site_gm_bp.route("/boost-lottery", methods=["GET"])
+@login_required
+def boost_lottery():
+    """Draft boost ticket lottery (Fantasy / Cap / Historical site admins)."""
+    slug = _league_slug()
+    if slug not in ("bowl-fantasy", "bowl-cap", "bowl-historical"):
+        abort(404)
+    if not getattr(current_user, "is_admin", False):
+        flash("Boost lottery is only available to league admins.", "err")
+        return redirect(url_for("main.home"))
+    boost_theme = "fantasy" if slug == "bowl-fantasy" else ("cap" if slug == "bowl-cap" else "historical")
+    return render_template("boost_lottery.html", boost_theme=boost_theme)
+
+
 @site_gm_bp.get("/operations/trade-proposal/<int:pid>")
 @login_required
 def trade_proposal_detail(pid: int):

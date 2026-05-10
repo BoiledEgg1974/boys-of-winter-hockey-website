@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-application-root="{{ request.script_root or '' }}">
+<html lang="en" data-application-root="{{ request.script_root or '' }}"{% if current_league_slug in ('bowl-fantasy', 'bowl-cap', 'bowl-historical') %} data-league="{% if current_league_slug == 'bowl-fantasy' %}fantasy{% elif current_league_slug == 'bowl-cap' %}cap{% else %}historical{% endif %}"{% endif %}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -64,8 +64,13 @@
         <a class="header-tools__link" href="{{ url_for('site_gm.trade_tool') }}">Trade Tool</a>
         <a class="header-tools__link" href="{{ url_for('site_gm.ai_trade_tool') }}">AI Trade Tool</a>
         {% endif %}
-        {% if current_user.is_authenticated and current_user.is_admin and current_league_slug == 'bowl-fantasy' %}
+        {% if current_user.is_authenticated and current_user.is_admin %}
+        {% if current_league_slug == 'bowl-fantasy' %}
         <a class="header-tools__link" href="{{ url_for('site_gm.draft_lottery') }}">Draft Lottery</a>
+        {% endif %}
+        {% if current_league_slug in ('bowl-fantasy', 'bowl-cap', 'bowl-historical') %}
+        <a class="header-tools__link" href="{{ url_for('site_gm.boost_lottery') }}">Boost Lottery</a>
+        {% endif %}
         {% endif %}
         {% if gm_membership or (current_user.is_authenticated and current_user.is_admin) %}
         <a class="header-tools__link header-tools__link--messages" href="{{ url_for('site_gm.gm_messages_inbox') }}">Messages{% if gm_messages_unread %}<span class="header-tools__msg-badge" aria-label="{{ gm_messages_unread }} unread">{{ gm_messages_unread }}</span>{% endif %}</a>

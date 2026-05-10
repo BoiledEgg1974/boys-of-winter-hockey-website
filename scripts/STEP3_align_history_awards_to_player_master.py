@@ -14,6 +14,10 @@ For ``team_season_records_template.csv`` rows (when present):
 
 Writes updates in-place (or to ``--output`` for awards) so imports can run cleanly.
 
+If ``player_master.csv`` or a default history-awards CSV is missing, the script still exits
+successfully after printing a short note: it skips that phase but still runs
+``team_season_records_template.csv`` alignment when team master files exist.
+
 Example::
 
   python scripts/align_history_awards_to_player_master.py \\
@@ -443,51 +447,64 @@ def main() -> int:
     else:
         raw = _raw_dir_for_league_entry("bowl_historical")
     mp = raw / "player_master.csv"
-    if not mp.is_file():
-        print(f"player_master.csv not found: {mp}", file=sys.stderr)
-        return 1
+    have_pm = mp.is_file()
+
     if not args.no_merge_manual:
         merge_manual_history_awards_into_sheet(raw)
-    inp = args.input
-    if inp is None:
+
+    inp: Path | None
+    if args.input is not None:
+        inp = args.input.resolve()
+        if not inp.is_file():
+            print(f"Input CSV not found: {inp}", file=sys.stderr)
+            return 1
+    else:
         sheet_p = raw / "history_awards.sheet.csv"
         if sheet_p.is_file():
-            inp = sheet_p
+            inp = sheet_p.resolve()
         else:
+            inp = None
             for name in ("history_awards.csv", "awards_history.csv"):
                 p = raw / name
                 if p.is_file():
-                    inp = p
+                    inp = p.resolve()
                     break
-    if inp is None:
-        print("No history_awards*.csv in raw dir", file=sys.stderr)
-        return 1
-    inp = inp.resolve()
-    outp = args.output.resolve() if args.output else inp
 
-    valid, by_norm = _load_master_index(mp)
-    with inp.open(newline="", encoding="utf-8-sig") as f:
-        rows = list(csv.DictReader(f))
-    fieldnames = list(rows[0].keys()) if rows else [
-        "season",
-        "award_name",
-        "player_id",
-        "team_id",
-        "staff_id",
-        "notes",
-    ]
-    out_rows, kept, remapped, unresolved = align_rows(rows, valid, by_norm)
-    outp.parent.mkdir(parents=True, exist_ok=True)
-    with outp.open("w", encoding="utf-8-sig", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
-        w.writeheader()
-        for r in out_rows:
-            w.writerow({k: r.get(k, "") for k in fieldnames})
-    print(
-        f"Wrote {len(out_rows)} row(s) to {outp} "
-        f"(ids_ok_or_blank={kept}, remapped={remapped}, still_unresolved_hints={unresolved}) "
-        f"using {len(valid)} player_master ids."
-    )
+    if have_pm and inp is not None:
+        outp = args.output.resolve() if args.output else inp
+        valid, by_norm = _load_master_index(mp)
+        with inp.open(newline="", encoding="utf-8-sig") as f:
+            rows = list(csv.DictReader(f))
+        fieldnames = list(rows[0].keys()) if rows else [
+            "season",
+            "award_name",
+            "player_id",
+            "team_id",
+            "staff_id",
+            "notes",
+        ]
+        out_rows, kept, remapped, unresolved = align_rows(rows, valid, by_norm)
+        outp.parent.mkdir(parents=True, exist_ok=True)
+        with outp.open("w", encoding="utf-8-sig", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
+            w.writeheader()
+            for r in out_rows:
+                w.writerow({k: r.get(k, "") for k in fieldnames})
+        print(
+            f"Wrote {len(out_rows)} row(s) to {outp} "
+            f"(ids_ok_or_blank={kept}, remapped={remapped}, still_unresolved_hints={unresolved}) "
+            f"using {len(valid)} player_master ids."
+        )
+    elif not have_pm and inp is None:
+        print(
+            "Note: No player_master.csv and no history_awards.sheet.csv / "
+            "history_awards.csv / awards_history.csv — skipping history awards ID alignment."
+        )
+    elif inp is None:
+        print(f"Note: No history_awards*.csv under {raw} — skipping history awards ID alignment.")
+    elif not have_pm:
+        print("Note: Skipping history awards ID alignment (no player_master.csv).")
+
     _align_team_season_records_template(raw)
     return 0
 

@@ -1,5 +1,10 @@
 """STEP 1 — Interactive updater: copy CSV exports, import all leagues, optionally git push.
 
+After all copies finish, STEP1 runs ``scripts/STEP3_align_history_awards_to_player_master.py``
+once per copied league (before imports). STEP3 aligns what it can from files present in that
+folder and always attempts ``team_season_records_template.csv`` when applicable. Use
+``--no-align-before-import`` to skip entirely.
+
 Optional: after copying, push to PythonAnywhere with ``scripts/STEP2_pythonanywhere.py deploy``.
 That upload only replaces remote CSVs when the local copy is newer (mtime check + small
 skew), then runs server-side imports and reloads WSGI. Local copy uses ``shutil.copy2``,
@@ -7,6 +12,7 @@ so mtimes match your game export folders.
 
 Run directly:
     python scripts/STEP1_update_from_saved_game.py
+    python scripts/STEP1_update_from_saved_game.py --no-align-before-import
     python scripts/STEP1_update_from_saved_game.py --pa-deploy
     python scripts/STEP1_update_from_saved_game.py --pa-deploy --pa-csv-only
     python scripts/STEP1_update_from_saved_game.py --pa-deploy --pa-sync-ap-catalog-local
@@ -29,6 +35,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 RAW_ROOT = REPO_ROOT / "data" / "imports" / "raw"
 IMPORT_SCRIPT = REPO_ROOT / "scripts" / "import_data.py"
 SNAPSHOT_OVR_SCRIPT = REPO_ROOT / "scripts" / "snapshot_ovr_baseline.py"
+STEP3_ALIGN_SCRIPT = REPO_ROOT / "scripts" / "STEP3_align_history_awards_to_player_master.py"
 PA_DEPLOY_SCRIPT = REPO_ROOT / "scripts" / "STEP2_pythonanywhere.py"
 PATHS_FILE = REPO_ROOT / "scripts" / "saved_game_csv_paths.json"
 
@@ -141,6 +148,12 @@ def _snapshot_ovr_baseline(slug: str) -> None:
     subprocess.run(cmd, cwd=REPO_ROOT, env=env, check=True)
 
 
+def _run_step3_align(raw_dir: Path) -> None:
+    """Align history awards / team_season_records_template CSVs in ``raw_dir`` (non-interactive)."""
+    cmd = [sys.executable, str(STEP3_ALIGN_SCRIPT), "--raw-dir", str(raw_dir)]
+    subprocess.run(cmd, cwd=REPO_ROOT, check=True)
+
+
 def _git_changes_present() -> bool:
     res = subprocess.run(
         ["git", "status", "--porcelain"],
@@ -225,6 +238,11 @@ def main() -> int:
             "With --pa-deploy: after deploy, pull live AP catalog JSON and import/verify "
             "it into local site_membership.db."
         ),
+    )
+    parser.add_argument(
+        "--no-align-before-import",
+        action="store_true",
+        help="Skip STEP3 between copy and import (default is to run STEP3 for every copied league).",
     )
     args = parser.parse_args()
 
@@ -337,6 +355,23 @@ def main() -> int:
     if not copied_slugs:
         print("No league CSVs copied. Exiting.")
         return 1
+
+    if not args.no_align_before_import:
+        if not STEP3_ALIGN_SCRIPT.is_file():
+            print(f"ERROR: {STEP3_ALIGN_SCRIPT} not found.", file=sys.stderr)
+            return 1
+        print("\nAligning raw CSVs (STEP3) before imports …")
+        for league in LEAGUES:
+            if league.slug not in copied_slugs:
+                continue
+            raw_dir = (RAW_ROOT / league.import_dir).resolve()
+            print(f"- {league.label}: STEP3 --raw-dir {raw_dir}")
+            try:
+                _run_step3_align(raw_dir)
+            except subprocess.CalledProcessError as exc:
+                print(f"STEP3 failed for {league.label} (exit {exc.returncode}).", file=sys.stderr)
+                return int(exc.returncode or 1)
+        print("STEP3 alignment finished.\n")
 
     print("\nRunning imports...")
     for slug in copied_slugs:

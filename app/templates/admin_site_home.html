@@ -12,10 +12,13 @@
     <li><a href="{{ url_for('site_admin.admin_announcements') }}">Announcement banners</a></li>
     <li><a href="{{ url_for('site_admin.admin_homepage_modules') }}">Homepage modules</a></li>
     <li><a href="{{ url_for('site_admin.admin_import_validation') }}">Import validation</a></li>
-    <li><a href="{{ url_for('main.prospects') }}">Prospects</a> — &quot;Save current rankings as baseline&quot; refreshes system CHG and league POT-board CHG on that page</li>
-    <li><a href="{{ url_for('main.standings', view='overall') }}">Standings</a> — same for positional (F/D/G) CHG on the Positional Rankings panel</li>
+    <li><a href="{{ url_for('main.prospects') }}">Prospects</a> — system CHG and league POT-board CHG use automatic import snapshots (no manual baseline)</li>
+    <li><a href="{{ url_for('main.standings', view='overall') }}">Standings</a> — positional (F/D/G) CHG uses the same automatic snapshots</li>
     <li><a href="{{ url_for('site_admin.admin_rules') }}">League rules (scaffold)</a></li>
     <li><a href="{{ url_for('site_admin.admin_draft_hub') }}">Draft Hub (league-run drafts)</a></li>
+    {% if current_league_slug == 'bowl-fantasy' %}
+    <li><a href="{{ url_for('site_gm.draft_lottery') }}">Draft lottery</a> — weighted 17th–24th simulator (admins only)</li>
+    {% endif %}
     <li><a href="{{ url_for('site_admin.admin_operations_queue') }}">GM operations queue</a></li>
     <li><a href="{{ url_for('site_admin.admin_trade_proposals_list') }}">Trade proposals (ledger workflow)</a></li>
     <li><a href="{{ url_for('site_admin.admin_franchise_health') }}">Franchise health dashboard</a></li>

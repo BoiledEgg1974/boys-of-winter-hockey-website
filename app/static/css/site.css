@@ -3094,24 +3094,42 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
   width: 100%;
   margin-top: 0.35rem;
   font-size: 0.82rem;
+  table-layout: fixed;
+}
+#home-power {
+  min-width: 0;
+  max-width: 100%;
 }
 .home-dashboard .home-power-table th:first-child,
 .home-dashboard .home-power-table td:first-child {
   text-align: left;
+  width: 2.35rem;
 }
 .home-dashboard .home-power-table th:nth-child(2),
 .home-dashboard .home-power-table td:nth-child(2) {
   text-align: center;
-  width: 2.5rem;
+  width: 3.1rem;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 .home-dashboard .home-power-table th:nth-child(3),
 .home-dashboard .home-power-table td:nth-child(3) {
   text-align: left;
+  width: auto;
+  min-width: 0;
+}
+.home-dashboard .home-power-table th:nth-child(4),
+.home-dashboard .home-power-table td:nth-child(4) {
+  width: 4.75rem;
+  text-align: right;
 }
 .home-power-td-team {
   vertical-align: middle;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.home-power-td-change {
   white-space: nowrap;
 }
 .home-power-row-rank {
@@ -3133,6 +3151,8 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
   border-radius: 6px;
   text-decoration: none;
   vertical-align: middle;
+  min-width: 0;
+  max-width: 100%;
 }
 .home-power-tm--city {
   line-height: 1.1;
@@ -3142,6 +3162,11 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
   font-weight: 600;
   color: #cbd5e1;
   line-height: 1.1;
+  min-width: 0;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 .home-power-tm:focus-visible {
   outline: 2px solid var(--accent);
@@ -3164,8 +3189,20 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
   text-decoration: underline;
 }
 .home-power-td-pws {
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
   text-align: right;
+  padding-left: 0.35rem;
+}
+.home-dashboard .home-power-table .st-sort-th {
+  width: 4.75rem;
+  text-align: right;
+}
+.home-dashboard .home-power-table .st-sort-btn {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .home-champions__frame {
   position: relative;
@@ -10978,24 +11015,84 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
 
 /* —— GM AI Trade Tool (entertainment) —— */
 .ai-trade-tool-body {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.25rem;
-  align-items: flex-start;
+  display: block;
 }
 .ai-trade-tool-body .trade-tool-layout {
-  flex: 1 1 720px;
+  width: 100%;
   min-width: 0;
 }
-.ai-trade-tool-bot-panel {
-  flex: 1 1 280px;
-  max-width: 420px;
-  min-width: 240px;
+.ai-trade-tool-eval-hint {
+  margin: 0.65rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+.ai-trade-tool-dialog {
+  width: min(36rem, calc(100vw - 2rem));
+  max-height: min(85vh, 32rem);
+  padding: 0;
+  border: none;
+  border-radius: 16px;
+  background: #0f172a;
+  color: #e2e8f0;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.45);
+}
+.ai-trade-tool-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+}
+.ai-trade-tool-dialog__inner {
+  display: flex;
+  flex-direction: column;
+  max-height: min(85vh, 32rem);
+  padding: 0.85rem 1rem 1rem;
+}
+.ai-trade-tool-dialog__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #334155;
+  flex-shrink: 0;
+}
+.ai-trade-tool-dialog__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: #bef264;
+}
+.ai-trade-tool-dialog__close {
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #475569;
+  border-radius: 8px;
+  background: #1e293b;
+  color: #e2e8f0;
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.ai-trade-tool-dialog__close:hover,
+.ai-trade-tool-dialog__close:focus-visible {
+  background: #334155;
+  outline: none;
+}
+.ai-trade-tool-dialog .ai-trade-tool-bot-row {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 0.15rem;
 }
 .ai-trade-tool-bot-row {
   display: flex;
   gap: 0.75rem;
-  align-items: flex-end;
+  align-items: flex-start;
 }
 .ai-trade-tool-bot-figure {
   flex-shrink: 0;
@@ -11016,7 +11113,8 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   border: 1px solid #334155;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
 }
-.ai-trade-tool-bubble::before {
+/* Speech-tail only when bubble is inline (not in modal) */
+.ai-trade-tool-bubble:not(.ai-trade-tool-bubble--dialog)::before {
   content: "";
   position: absolute;
   left: -10px;
@@ -11027,7 +11125,7 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   border-bottom: 10px solid transparent;
   border-right: 12px solid #334155;
 }
-.ai-trade-tool-bubble::after {
+.ai-trade-tool-bubble:not(.ai-trade-tool-bubble--dialog)::after {
   content: "";
   position: absolute;
   left: -8px;
@@ -11074,15 +11172,31 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   font-weight: 600;
 }
 @media (max-width: 900px) {
-  .ai-trade-tool-bot-row {
+  .ai-trade-tool-dialog .ai-trade-tool-bot-row {
     flex-direction: column;
     align-items: center;
     text-align: left;
   }
-  .ai-trade-tool-bubble::before,
-  .ai-trade-tool-bubble::after {
-    display: none;
-  }
+}
+[data-theme="light"] .ai-trade-tool-dialog {
+  background: #f8fafc;
+  color: #0f172a;
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.2);
+}
+[data-theme="light"] .ai-trade-tool-dialog__header {
+  border-bottom-color: #cbd5e1;
+}
+[data-theme="light"] .ai-trade-tool-dialog__title {
+  color: #3f6212;
+}
+[data-theme="light"] .ai-trade-tool-dialog__close {
+  background: #e2e8f0;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+[data-theme="light"] .ai-trade-tool-dialog__close:hover,
+[data-theme="light"] .ai-trade-tool-dialog__close:focus-visible {
+  background: #cbd5e1;
 }
 
 /* ============================================================
@@ -11739,7 +11853,7 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   font-variant-numeric: normal;
 }
 
-/* —— GM Draft Lottery (BOWL-Fantasy only) —— */
+/* —— Admin Draft Lottery (BOWL-Fantasy only) —— */
 .draft-lottery-page {
   max-width: 1200px;
   margin: 0 auto 2rem;
@@ -11940,7 +12054,7 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
 }
 .draft-lottery-stage.card {
   padding: 0;
-  overflow: hidden;
+  overflow: visible;
   background: radial-gradient(ellipse 120% 80% at 50% 0%, #1a2a38 0%, #070b10 55%, #030508 100%);
   border: 1px solid #334155;
   box-shadow:
@@ -11953,6 +12067,8 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   max-width: 800px;
   margin: 0 auto;
   aspect-ratio: 800 / 960;
+  overflow: visible;
+  isolation: isolate;
 }
 .draft-lottery-machine__glow {
   position: absolute;
@@ -11984,6 +12100,152 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   width: 100% !important;
   height: 100% !important;
   border-radius: 12px;
+  position: relative;
+  z-index: 2;
+}
+/* Invisible band at bottom of drum — screen overlap with balls (yellow bar is visual-only above controls). */
+.draft-lottery-win-hitzone {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: clamp(26px, 5.5%, 48px);
+  z-index: 1;
+  opacity: 0;
+  pointer-events: none;
+  border-radius: 0 0 12px 12px;
+}
+/* Yellow win line above Release / Open hatch (decorative; hit detection uses .draft-lottery-win-hitzone). */
+.draft-lottery-machine__chute-decor {
+  flex: 0 0 auto;
+  align-self: center;
+  width: min(20rem, calc(100% - 0.5rem));
+  height: clamp(20px, 3.2%, 34px);
+  margin: 0 0 0.25rem;
+  pointer-events: none;
+  border-radius: 5px;
+  background: rgba(250, 204, 21, 0.38);
+  border: 1px solid #facc15;
+  box-shadow:
+    0 0 14px rgba(250, 204, 21, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+[data-theme="light"] .draft-lottery-machine__chute-decor {
+  background: rgba(250, 204, 21, 0.45);
+  border-color: #ca8a04;
+  box-shadow:
+    0 0 10px rgba(202, 138, 4, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+/* Winner logo + name centered in the lottery draw frame (name matches SVG “LOTTERY DRAW” titling). */
+.draft-lottery-winner-reveal {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 9;
+  pointer-events: none;
+  text-align: center;
+  width: calc(100% - 1.5rem);
+  max-width: calc(100% - 1.5rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+}
+.draft-lottery-winner-logo {
+  display: block;
+  margin: 0 auto;
+  flex: 0 1 auto;
+  width: auto;
+  height: auto;
+  max-width: min(100%, 420px);
+  /* Leave vertical room for the Bebas team name below (natural-size logos can be huge). */
+  max-height: min(38vmin, 280px);
+  object-fit: contain;
+  image-rendering: auto;
+  filter: drop-shadow(0 10px 28px rgba(0, 0, 0, 0.55));
+}
+[data-theme="light"] .draft-lottery-winner-logo {
+  filter: drop-shadow(0 8px 20px rgba(15, 23, 42, 0.2));
+}
+.draft-lottery-winner-name {
+  margin: 0;
+  padding: 0 0.25rem;
+  max-width: 100%;
+  flex-shrink: 0;
+  font-family: "Bebas Neue", Impact, sans-serif;
+  font-size: clamp(1.35rem, 3.8vw, 2rem);
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  line-height: 1.05;
+  color: #dce6f2;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.65);
+  position: relative;
+  z-index: 1;
+}
+[data-theme="light"] .draft-lottery-winner-name {
+  color: #1e293b;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+.draft-lottery-machine__hud {
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  bottom: 7%;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  pointer-events: none;
+}
+.draft-lottery-machine__hud-inner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  padding: 0.5rem 0.65rem;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.55);
+  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.55);
+  pointer-events: auto;
+}
+.draft-lottery-machine__hud-hint {
+  font-size: 0.68rem;
+  margin: 0;
+  padding: 0 0.15rem;
+  text-align: center;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+}
+.btn-draft-lottery--stage {
+  font-size: 0.9rem;
+  padding: 0.5rem 1rem;
+  min-width: 8.5rem;
+}
+.btn-draft-lottery--gate {
+  border-color: #eab308;
+  background: linear-gradient(165deg, #713f12 0%, #854d0e 100%);
+  color: #fef9c3;
+}
+.btn-draft-lottery--gate:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+[data-theme="light"] .draft-lottery-machine__hud-inner {
+  background: rgba(248, 250, 252, 0.96);
+  border-color: #94a3b8;
+  box-shadow: 0 6px 24px rgba(15, 23, 42, 0.12);
+}
+[data-theme="light"] .btn-draft-lottery--gate {
+  border-color: #ca8a04;
+  background: linear-gradient(165deg, #fef08a 0%, #fde047 100%);
+  color: #422006;
 }
 .draft-lottery-lower-third {
   padding: 0.75rem 1rem 1rem;
@@ -12026,11 +12288,93 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   color: #fde047;
   min-width: 4.5rem;
 }
+.draft-lottery-result-row__name-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.draft-lottery-result-row__logo {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  flex-shrink: 0;
+  border-radius: 4px;
+}
 .draft-lottery-result-row__name {
   flex: 1;
   font-weight: 600;
+  min-width: 0;
 }
 .draft-lottery-result-row__slot {
+  font-size: 0.78rem;
+}
+.draft-lottery-final {
+  padding: 0.85rem 1rem 1.1rem;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.98) 0%, #0f172a 100%);
+  border-top: 2px solid #5eead4;
+}
+.draft-lottery-final__bar {
+  max-width: 800px;
+  margin: 0 auto;
+}
+.draft-lottery-final__label {
+  font-family: "Bebas Neue", Impact, sans-serif;
+  font-size: 1.15rem;
+  letter-spacing: 0.1em;
+  color: #5eead4;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+.draft-lottery-final__hint {
+  font-size: 0.8rem;
+  margin: 0 0 0.65rem;
+}
+.draft-lottery-final__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.draft-lottery-final__row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  background: rgba(30, 41, 59, 0.9);
+  border-left: 3px solid #2dd4bf;
+  font-size: 0.92rem;
+}
+.draft-lottery-final__pick {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #99f6e4;
+  min-width: 5.5rem;
+}
+.draft-lottery-final__name-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.draft-lottery-final__logo {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  flex-shrink: 0;
+  border-radius: 4px;
+}
+.draft-lottery-final__name {
+  flex: 1;
+  font-weight: 600;
+  min-width: 0;
+}
+.draft-lottery-final__meta {
   font-size: 0.78rem;
 }
 [data-theme="light"] .draft-lottery-stage.card {
@@ -12047,4 +12391,15 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
 [data-theme="light"] .draft-lottery-result-row {
   background: #fff;
   border-left-color: #0d9488;
+}
+[data-theme="light"] .draft-lottery-final {
+  background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
+  border-top-color: #0d9488;
+}
+[data-theme="light"] .draft-lottery-final__row {
+  background: #fff;
+  border-left-color: #0d9488;
+}
+[data-theme="light"] .draft-lottery-final__label {
+  color: #0f766e;
 }

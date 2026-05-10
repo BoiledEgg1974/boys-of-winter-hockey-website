@@ -33,13 +33,7 @@
     {% if system_rank_snapshot_at or prospect_league_snapshot_at %}
     <p class="muted prospects-system-rankings__meta">System baseline: {% if system_rank_snapshot_at %}{{ system_rank_snapshot_at.strftime('%Y-%m-%d %H:%M') }} UTC{% else %}—{% endif %}. League POT board baseline: {% if prospect_league_snapshot_at %}{{ prospect_league_snapshot_at.strftime('%Y-%m-%d %H:%M') }} UTC{% else %}—{% endif %}.</p>
     {% else %}
-    <p class="muted prospects-system-rankings__meta">Change columns compare to the first import snapshot or when an admin saves a baseline below.</p>
-    {% endif %}
-    {% if viewer_can_save_system_rank_snapshot %}
-    <form method="post" action="{{ url_for('site_admin.admin_prospect_system_rank_snapshot') }}" class="prospects-system-rankings__save-form">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button type="submit" class="prospects-system-rankings__save-btn">Save current rankings as baseline</button>
-    </form>
+    <p class="muted prospects-system-rankings__meta">Change columns compare to the latest CSV import snapshots (saved automatically when you run the import pipeline).</p>
     {% endif %}
     {% if system_rankings_rows %}
     <div class="table-wrap">

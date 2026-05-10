@@ -52,7 +52,7 @@ from app.services.homepage_dashboard import (
     pick_next_game_to_watch,
     special_teams_rows_for_power_rankings,
 )
-from app.services.power_rank_snapshots import apply_power_rank_trends, load_latest_power_rank_snapshot
+from app.services.power_rank_snapshots import apply_power_rank_trends, select_power_rank_baseline_map
 from app.services.homepage_modules import module_sort_order_map, module_visibility_map
 from app.services.homepage_ticker import build_homepage_ticker_items
 from app.services.postseason_odds import build_postseason_odds_payload
@@ -1170,9 +1170,8 @@ def homepage_summary():
         segment=segment,
         logo_season_year=logo_sy,
     )
-    prev_power, _ = load_latest_power_rank_snapshot(league_slug)
-    if prev_power:
-        apply_power_rank_trends(power_rankings["teams"], prev_power)
+    baseline = select_power_rank_baseline_map(league_slug, power_rankings["teams"])
+    apply_power_rank_trends(power_rankings["teams"], baseline)
     module_settings = {
         "visibility": module_visibility_map(db.session, league_slug),
         "sort_order": module_sort_order_map(db.session, league_slug),

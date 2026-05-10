@@ -40,7 +40,7 @@ from app.models import (  # noqa: E402
     db,
 )
 from app.services.player_headshot import canonical_player_headshot_basename  # noqa: E402
-from app.services.rebuild import refresh_after_import  # noqa: E402
+from app.services.rebuild import refresh_after_import, snapshot_overall_baselines_before_import  # noqa: E402
 from scripts.import_pipeline.encoding_utils import (  # noqa: E402
     cell_val,
     fhm_scoring_period_to_int,
@@ -899,6 +899,7 @@ def run_import(raw_dir: Path | None = None) -> None:
         return
     _sync_team_logos_from_raw(raw, app)
     with app.app_context():
+        snapshot_overall_baselines_before_import(app)
         from scripts.import_pipeline.fhm_loader import is_fhm_export_dir, run_fhm_import
 
         if is_fhm_export_dir(raw):

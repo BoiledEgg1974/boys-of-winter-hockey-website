@@ -564,8 +564,8 @@ def create_app(config_class: type = Config) -> Flask:
     def bowl_overall_baseline_refresh_cmd() -> None:
         """Save each player's current 1-100 OVR as the trend baseline (clears ↑/↓ until ratings move again).
 
-        Imports normally snapshot baselines automatically *before* new CSVs; use this command only
-        to acknowledge the current site as the new reference (per league DB).
+        The import pipeline already snapshots OVR at the start of ``import_data.py`` / ``run_import``.
+        Use this CLI only to reset baselines to the current computed OVR without running a full import.
         """
         from app.services.player_overall_score import refresh_all_player_overall_baselines
 

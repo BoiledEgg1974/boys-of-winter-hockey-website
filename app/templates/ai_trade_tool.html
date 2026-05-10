@@ -96,6 +96,7 @@
             <button type="button" class="trade-tool-clear" id="btn-clear-table">Clear table</button>
             <button type="button" class="trade-tool-submit" id="btn-ai-evaluate">Get AI opinion</button>
           </div>
+          <p class="muted ai-trade-tool-eval-hint">The bot’s reply opens in a pop-up so your partner’s roster stays unobstructed.</p>
         </div>
       </div>
 
@@ -115,14 +116,19 @@
         </div>
       </div>
     </div>
+  </div>
 
-    <aside class="ai-trade-tool-bot-panel" aria-labelledby="ai-bot-heading">
-      <h2 id="ai-bot-heading" class="visually-hidden">Trade bot opinion</h2>
+  <dialog class="ai-trade-tool-dialog" id="ai-trade-bot-dialog" aria-labelledby="ai-bot-heading">
+    <div class="ai-trade-tool-dialog__inner">
+      <header class="ai-trade-tool-dialog__header">
+        <h2 id="ai-bot-heading" class="ai-trade-tool-dialog__title">Trade analyst bot</h2>
+        <button type="button" class="ai-trade-tool-dialog__close" id="ai-trade-dialog-close" aria-label="Close">×</button>
+      </header>
       <div class="ai-trade-tool-bot-row">
         <div class="ai-trade-tool-bot-figure">
-          <img class="ai-trade-tool-bot-img" src="{{ url_for('static', filename='img/ai-trade-bot.svg') }}" width="120" height="120" alt="Cartoon trade analyst bot">
+          <img class="ai-trade-tool-bot-img" src="{{ url_for('static', filename='img/ai-trade-bot.svg') }}" width="120" height="120" alt="">
         </div>
-        <div class="ai-trade-tool-bubble" id="ai-trade-bubble" aria-live="polite">
+        <div class="ai-trade-tool-bubble ai-trade-tool-bubble--dialog" id="ai-trade-bubble" aria-live="polite">
           <p class="ai-trade-tool-bubble__verdict" id="ai-bubble-verdict" hidden></p>
           <p class="ai-trade-tool-bubble__opinion" id="ai-bubble-opinion"></p>
           <ul class="ai-trade-tool-bubble__suggestions" id="ai-bubble-suggestions" hidden></ul>
@@ -130,8 +136,8 @@
           <p class="ai-trade-tool-bubble__loading" id="ai-bubble-loading" hidden>Thinking…</p>
         </div>
       </div>
-    </aside>
-  </div>
+    </div>
+  </dialog>
 </div>
 <script src="{{ url_for('static', filename='js/ai_trade_tool.js') }}" defer></script>
 {% endblock %}

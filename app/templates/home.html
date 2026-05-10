@@ -856,7 +856,7 @@
     var rows = sortedPowerRows();
     var h = '<table class="data home-power-table"><thead><tr>';
     h += '<th title="Rank (follows current sort)">#</th>';
-    h += '<th scope="col" title="Change vs last saved power order (after import or when wired)">CHG</th>';
+    h += '<th scope="col" title="Rank change vs saved power order (automatic CSV import snapshots; right after an import may compare to the prior snapshot when needed)">CHG</th>';
     h += '<th scope="col" title="' + thTeam + '">Team</th>';
     h += '<th class="st-sort-th" scope="col"><button type="button" class="st-sort-btn" data-power-sort="pws" title="' + thPws + '" aria-sort="' + escapeAttr(powerSortAria()) + '">PWS<span class="st-sort-ind" aria-hidden="true">' + (powerSortDir === 'desc' ? '▼' : '▲') + '</span></button></th>';
     h += '</tr></thead><tbody>';

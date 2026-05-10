@@ -1,10 +1,30 @@
 """Recompute derived data after imports."""
 from __future__ import annotations
 
+import logging
+
 from sqlalchemy import select
 
 from app.db_utils import rebuild_player_fts
 from app.models import Game, TeamStanding, db
+
+_log = logging.getLogger(__name__)
+
+
+def snapshot_overall_baselines_before_import(app) -> None:
+    """Freeze composite OVR (1–100) for every player before CSV import so ↑/↓ reflect this update.
+
+    Call inside ``app.app_context()`` (optionally with ``test_request_context``) at the start of the
+    import pipeline. League DB must still reflect the pre-import state.
+    """
+    try:
+        from app.services.player_overall_score import refresh_all_player_overall_baselines
+
+        with app.test_request_context("/"):
+            n = refresh_all_player_overall_baselines(db.session)
+        _log.info("Pre-import OVR baseline snapshot for %s players.", n)
+    except Exception:
+        _log.exception("pre-import OVR baseline snapshot failed (non-fatal)")
 
 
 def recompute_standings_from_games(season_id: int) -> None:
@@ -86,8 +106,4 @@ def refresh_after_import(engine, app=None) -> None:
                     record_positional_rank_snapshot_after_import(app)
                     record_power_rank_snapshot_after_import(app)
         except Exception:
-            import logging
-
-            logging.getLogger(__name__).exception(
-                "record rank snapshots after import failed (non-fatal)"
-            )
+            _log.exception("record rank snapshots after import failed (non-fatal)")

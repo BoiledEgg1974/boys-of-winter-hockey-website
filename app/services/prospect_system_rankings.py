@@ -16,6 +16,7 @@ from sqlalchemy.orm import joinedload
 from app.config import Config
 from app.models import Player, PlayerGoalieStat, PlayerSkaterStat, Team, db
 from app.services.player_ratings_csv import get_player_ratings_row, player_positions_display_label
+from app.services.rank_snapshot_baseline import select_rank_baseline_map
 from app.services.seasons import get_current_season
 from app.site_models import ProspectLeagueRankSnapshot, ProspectSystemRankSnapshot
 
@@ -383,6 +384,15 @@ def save_system_rank_snapshot(league_slug: str, rows: list[dict[str, Any]]) -> N
     )
     db.session.add(snap)
     db.session.commit()
+
+
+def select_system_rank_baseline_map(league_slug: str, rows: list[dict[str, Any]]) -> dict[int, int]:
+    cur = {int(r["team"].id): int(r["rank"]) for r in rows}
+    return select_rank_baseline_map(league_slug, cur, ProspectSystemRankSnapshot)
+
+
+def select_prospect_league_pot_baseline_map(league_slug: str, current_rank_by_player: dict[int, int]) -> dict[int, int]:
+    return select_rank_baseline_map(league_slug, current_rank_by_player, ProspectLeagueRankSnapshot)
 
 
 def apply_system_rank_trends(rows: list[dict[str, Any]], prev_rank_by_team: dict[int, int]) -> None:

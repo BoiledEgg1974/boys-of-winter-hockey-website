@@ -92,14 +92,6 @@ from app.services.discord_events import (
     update_discord_routes,
 )
 from app.services.prediction_center import build_prediction_snapshot
-from app.services.positional_rankings import build_positional_ranking_rows, save_positional_rank_snapshot
-from app.services.prospect_system_rankings import (
-    build_prospect_pot_rank_by_player_id,
-    build_prospect_system_ranking_rows,
-    resolve_prospect_team_fallbacks,
-    save_prospect_league_rank_snapshot,
-    save_system_rank_snapshot,
-)
 from app.services.awards_tracker import create_voting_cycle, list_cycles, tally_cycle_ballots
 from app.services.media_kit import build_media_kit_snapshot
 from app.services.member_digest import build_member_watchlist_digest
@@ -941,7 +933,7 @@ def _normalize_hex_color(raw: str | None) -> str | None:
 
 
 def _draft_lottery_team_rows() -> list[dict[str, object]]:
-    """Serialize teams for the GM draft lottery UI (Fantasy only)."""
+    """Serialize teams for the admin draft lottery UI (BOWL-Fantasy only)."""
     teams = db.session.scalars(select(Team).order_by(Team.name)).all()
     rows: list[dict[str, object]] = []
     for t in teams:
@@ -963,13 +955,12 @@ def _draft_lottery_team_rows() -> list[dict[str, object]]:
 @site_gm_bp.route("/draft-lottery", methods=["GET"])
 @login_required
 def draft_lottery():
-    """Weighted 8-slot draft lottery sim (BOWL-Fantasy GMs only)."""
+    """Weighted 8-slot draft lottery sim (BOWL-Fantasy site admins only)."""
     slug = _league_slug()
     if slug != "bowl-fantasy":
         abort(404)
-    mem = _membership()
-    if not mem:
-        flash("No active GM membership for this league.", "err")
+    if not getattr(current_user, "is_admin", False):
+        flash("Draft lottery is only available to league admins.", "err")
         return redirect(url_for("main.home"))
     team_rows = _draft_lottery_team_rows()
     return render_template("draft_lottery.html", team_rows=team_rows)
@@ -1387,95 +1378,6 @@ def admin_home():
         "admin_site_home.html",
         league_slug=slug,
     )
-
-
-@site_admin_bp.post("/prospect-system-rank-snapshot")
-@login_required
-def admin_prospect_system_rank_snapshot():
-    """Save current system rankings as the comparison baseline (also run automatically after imports)."""
-    require_admin()
-    from flask_wtf.csrf import validate_csrf
-
-    validate_csrf(request.form.get("csrf_token"))
-    slug = _league_slug()
-    session = db.session
-    league_ids = frozenset(bowl_nhl_league_ids(session))
-    if not league_ids:
-        flash("No NHL/BOWL league scope for this site.", "err")
-        return redirect(url_for("main.prospects"))
-    canonical = get_current_season()
-    season_for_stats = season_with_imported_data_fallback(session, canonical) if canonical else None
-    age_ref = season_age_reference_date(canonical or season_for_stats)
-    overview_headers = (
-        ("Skating", "SKT", "skating"),
-        ("Shooting", "SHT", "shooting"),
-        ("Playmaking", "PLM", "playmaking"),
-        ("Defending", "DEF", "defending"),
-        ("Physicality", "PHY", "physicality"),
-        ("Conditioning", "CON", "conditioning"),
-        ("Character", "CHR", "character"),
-        ("Hockey sense", "HSN", "hockey_sense"),
-    )
-    q = select(Player).options(joinedload(Player.current_team)).where(
-        Player.retired.is_(False),
-        Player.birth_date.isnot(None),
-    )
-    players = list(session.scalars(q).unique().all())
-    resolved = resolve_prospect_team_fallbacks(session, players, season_for_stats)
-
-    def _eff(pl: Player) -> Team | None:
-        return pl.current_team or resolved.get(pl.id)
-
-    teams = list(session.scalars(select(Team).where(Team.fhm_league_id.in_(league_ids)).order_by(Team.name)).all())
-    team_by_id = {t.id: t for t in teams}
-    rows = build_prospect_system_ranking_rows(
-        session,
-        players=players,
-        resolved_team_by_player_id=resolved,
-        league_ids=league_ids,
-        age_ref=age_ref,
-        overview_headers=overview_headers,
-        team_by_id=team_by_id,
-        effective_team=_eff,
-    )
-    if not rows:
-        flash("No system ranking rows to snapshot.", "err")
-        return redirect(url_for("main.prospects"))
-    save_system_rank_snapshot(slug, rows)
-    pot_map = build_prospect_pot_rank_by_player_id(
-        session,
-        league_ids=league_ids,
-        age_ref=age_ref,
-        effective_team=_eff,
-    )
-    if pot_map:
-        save_prospect_league_rank_snapshot(slug, pot_map)
-    flash(
-        "Prospect baselines saved (system table + league POT board). Change columns compare to this snapshot until the next import or save.",
-        "ok",
-    )
-    return redirect(url_for("main.prospects"))
-
-
-@site_admin_bp.post("/positional-rank-snapshot")
-@login_required
-def admin_positional_rank_snapshot():
-    """Save current positional (F/D/G) paper rankings baseline for standings Δ column."""
-    require_admin()
-    from flask_wtf.csrf import validate_csrf
-
-    validate_csrf(request.form.get("csrf_token"))
-    slug = _league_slug()
-    rows = build_positional_ranking_rows(db.session)
-    if not rows:
-        flash("No positional ranking rows to snapshot.", "err")
-        return redirect(url_for("main.standings", view="overall"))
-    save_positional_rank_snapshot(slug, rows)
-    flash(
-        "Positional rankings baseline saved. Standings Δ compares to this until the next import or save.",
-        "ok",
-    )
-    return redirect(url_for("main.standings", view="overall"))
 
 
 @site_admin_bp.get("/commissioner-sop")

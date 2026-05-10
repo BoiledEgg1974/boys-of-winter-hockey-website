@@ -153,15 +153,9 @@
 <section class="card positional-rankings" aria-labelledby="positional-rankings-h">
   <h2 id="positional-rankings-h" class="positional-rankings__title">Positional Rankings</h2>
   {% if positional_rank_snapshot_at %}
-  <p class="muted positional-rankings__meta">Change vs last baseline: {{ positional_rank_snapshot_at.strftime('%Y-%m-%d %H:%M') }} UTC (saved after each import, or below by an admin).</p>
+  <p class="muted positional-rankings__meta">Change vs last baseline: {{ positional_rank_snapshot_at.strftime('%Y-%m-%d %H:%M') }} UTC (saved automatically after each CSV import).</p>
   {% else %}
-  <p class="muted positional-rankings__meta">The CHG column appears after the first import snapshot or when an admin saves a baseline below.</p>
-  {% endif %}
-  {% if viewer_can_save_positional_rank_snapshot %}
-  <form method="post" action="{{ url_for('site_admin.admin_positional_rank_snapshot') }}" class="positional-rankings__save-form">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <button type="submit" class="positional-rankings__save-btn">Save current positional rankings as baseline</button>
-  </form>
+  <p class="muted positional-rankings__meta">The CHG column appears after the first import snapshot (created when you run the import pipeline).</p>
   {% endif %}
   <p class="muted positional-rankings__legend">F, D, and G are league-wide ranks (1 = best) by average composite OVR of each club’s top twelve forwards, top six defencemen, and top two goalies on the NHL roster. Overall rank uses the sum of those three ranks. Top player is the roster’s highest OVR skater or goalie.</p>
   <div class="table-wrap">

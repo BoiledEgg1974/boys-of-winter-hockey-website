@@ -87,6 +87,8 @@ from app.services.prospect_system_rankings import (
     load_latest_prospect_league_rank_snapshot,
     load_latest_system_rank_snapshot,
     resolve_prospect_team_fallbacks,
+    select_prospect_league_pot_baseline_map,
+    select_system_rank_baseline_map,
 )
 from app.services.seasons import get_current_season, season_age_reference_date, season_with_imported_data_fallback
 from app.services.franchise_leaders import build_franchise_history_sections
@@ -619,15 +621,13 @@ def standings():
         apply_positional_rank_trends,
         build_positional_ranking_rows,
         load_latest_positional_rank_snapshot,
+        select_positional_rank_baseline_map,
     )
 
     positional_ranking_rows = build_positional_ranking_rows(db.session)
-    prev_pos_map, positional_rank_snapshot_at = load_latest_positional_rank_snapshot(league_slug)
-    if prev_pos_map:
-        apply_positional_rank_trends(positional_ranking_rows, prev_pos_map)
-    viewer_can_save_positional_rank_snapshot = bool(
-        getattr(current_user, "is_authenticated", False) and getattr(current_user, "is_admin", False)
-    )
+    _, positional_rank_snapshot_at = load_latest_positional_rank_snapshot(league_slug)
+    baseline_pos = select_positional_rank_baseline_map(league_slug, positional_ranking_rows)
+    apply_positional_rank_trends(positional_ranking_rows, baseline_pos)
 
     return render_template(
         "standings.html",
@@ -648,7 +648,6 @@ def standings():
         playoff_mirror_rounds=playoff_mirror_rounds,
         positional_ranking_rows=positional_ranking_rows,
         positional_rank_snapshot_at=positional_rank_snapshot_at,
-        viewer_can_save_positional_rank_snapshot=viewer_can_save_positional_rank_snapshot,
     )
 
 
@@ -1903,21 +1902,19 @@ def prospects():
         effective_team=_effective_team,
     )
     league_slug_cfg = str(current_app.config.get("LEAGUE_SLUG") or "")
-    prev_rank_map, system_rank_snapshot_at = load_latest_system_rank_snapshot(league_slug_cfg)
-    if prev_rank_map:
-        apply_system_rank_trends(system_rankings_rows, prev_rank_map)
-    prev_league_map, prospect_league_snapshot_at = load_latest_prospect_league_rank_snapshot(league_slug_cfg)
+    _, system_rank_snapshot_at = load_latest_system_rank_snapshot(league_slug_cfg)
+    baseline_sys = select_system_rank_baseline_map(league_slug_cfg, system_rankings_rows)
+    apply_system_rank_trends(system_rankings_rows, baseline_sys)
+    _, prospect_league_snapshot_at = load_latest_prospect_league_rank_snapshot(league_slug_cfg)
     pot_rank_curr = build_prospect_pot_rank_by_player_id(
         session,
         league_ids=frozenset(league_ids),
         age_ref=age_ref,
         effective_team=_effective_team,
     )
-    if prev_league_map and pot_rank_curr:
-        apply_prospect_league_pot_trends(display_rows, prev_league_map, pot_rank_curr)
-    viewer_can_save_system_rank_snapshot = bool(
-        getattr(current_user, "is_authenticated", False) and getattr(current_user, "is_admin", False)
-    )
+    if pot_rank_curr:
+        baseline_pot = select_prospect_league_pot_baseline_map(league_slug_cfg, pot_rank_curr)
+        apply_prospect_league_pot_trends(display_rows, baseline_pot, pot_rank_curr)
     prospect_pls = [r["player"] for r in display_rows]
     player_overall_by_id = build_overall_cell_map_from_players(session, prospect_pls)
     return render_template(
@@ -1937,7 +1934,6 @@ def prospects():
         system_rankings_rows=system_rankings_rows,
         system_rank_snapshot_at=system_rank_snapshot_at,
         prospect_league_snapshot_at=prospect_league_snapshot_at,
-        viewer_can_save_system_rank_snapshot=viewer_can_save_system_rank_snapshot,
     )
 
 

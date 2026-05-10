@@ -64,7 +64,7 @@
         <a class="header-tools__link" href="{{ url_for('site_gm.trade_tool') }}">Trade Tool</a>
         <a class="header-tools__link" href="{{ url_for('site_gm.ai_trade_tool') }}">AI Trade Tool</a>
         {% endif %}
-        {% if gm_membership and current_league_slug == 'bowl-fantasy' %}
+        {% if current_user.is_authenticated and current_user.is_admin and current_league_slug == 'bowl-fantasy' %}
         <a class="header-tools__link" href="{{ url_for('site_gm.draft_lottery') }}">Draft Lottery</a>
         {% endif %}
         {% if gm_membership or (current_user.is_authenticated and current_user.is_admin) %}

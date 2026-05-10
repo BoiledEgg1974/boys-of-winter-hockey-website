@@ -30,6 +30,8 @@
   var bubblePh = document.getElementById("ai-bubble-placeholder");
   var bubbleLoad = document.getElementById("ai-bubble-loading");
   var btnEval = document.getElementById("btn-ai-evaluate");
+  var botDialog = document.getElementById("ai-trade-bot-dialog");
+  var btnDialogClose = document.getElementById("ai-trade-dialog-close");
   var cached = null;
   var ledger = { from_left_to_right: [], from_right_to_left: [] };
   var dragKey = null;
@@ -411,6 +413,7 @@
   });
 
   function resetBubble() {
+    if (botDialog && botDialog.open) botDialog.close();
     if (bubbleVerdict) {
       bubbleVerdict.hidden = true;
       bubbleVerdict.textContent = "";
@@ -428,6 +431,13 @@
     if (bubbleLoad) bubbleLoad.hidden = !on;
     if (bubblePh) bubblePh.hidden = on;
     if (btnEval) btnEval.disabled = !!on;
+    if (on && botDialog && typeof botDialog.showModal === "function") {
+      try {
+        if (!botDialog.open) botDialog.showModal();
+      } catch (err) {
+        /* e.g. nested modal / browser restriction */
+      }
+    }
   }
 
   function updateLedgerLabels(myTeamName, partnerName) {
@@ -437,6 +447,17 @@
     lblSendRight.textContent = "Sending to " + pShort;
     lblLeaveRight.textContent = "Leaving " + pShort;
     lblSendLeft.textContent = "Sending to " + mShort;
+  }
+
+  if (btnDialogClose && botDialog) {
+    btnDialogClose.addEventListener("click", function () {
+      if (botDialog.open) botDialog.close();
+    });
+  }
+  if (botDialog) {
+    botDialog.addEventListener("click", function (e) {
+      if (e.target === botDialog) botDialog.close();
+    });
   }
 
   partnerSel.addEventListener("change", function () {
@@ -545,7 +566,12 @@
       fetch(evaluateUrl, {
         method: "POST",
         credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          // Flask-WTF only reads CSRF from form fields or these headers—not JSON body.
+          "X-CSRFToken": csrf,
+        },
         body: JSON.stringify({
           csrf_token: csrf,
           partner_team_id: parseInt(partnerSel.value, 10),

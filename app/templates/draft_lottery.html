@@ -3,9 +3,9 @@
 {% block content %}
 <div class="draft-lottery-page">
   <header class="draft-lottery-page__header">
-    <p class="draft-lottery-page__eyebrow">BOWL-Fantasy · GM tool</p>
+    <p class="draft-lottery-page__eyebrow">BOWL-Fantasy · Admin</p>
     <h1 class="draft-lottery-page__title">Draft lottery</h1>
-    <p class="draft-lottery-page__lead muted">Two weighted draws (17th–24th group). Ball counts scale by finish: <strong>17th</strong> place gets <strong>8</strong> balls, <strong>18th</strong> gets 16, … <strong>24th</strong> gets <strong>64</strong> (8× the slot number). Each winner moves up by up to <strong>five</strong> draft spots total across both draws; teams passed drop one spot per pass, and no team may fall more than <strong>two</strong> spots below where they started. Entertainment only — not an official league random draw.</p>
+    <p class="draft-lottery-page__lead muted">Two weighted draws (17th–24th group). Ball counts scale by finish: <strong>17th</strong> place gets <strong>8</strong> balls, <strong>18th</strong> gets 16, … <strong>24th</strong> gets <strong>64</strong> (8× the slot number). The drum <strong>spins slowly</strong> with long radial paddles. Use <strong>Release balls</strong> and <strong>Open hatch</strong> on the overlay at the bottom of the drum. After release, open the hatch to show the yellow win line — first ball to touch that line wins that draw. Each winner moves up by up to <strong>five</strong> draft spots total across both draws; teams passed drop one spot per pass, and no team may fall more than <strong>two</strong> spots below where they started. Entertainment only — not an official league random draw.</p>
   </header>
 
   <div class="draft-lottery-layout">
@@ -49,12 +49,33 @@
           <text x="400" y="48" text-anchor="middle" class="draft-lottery-machine__svg-title" font-family="Bebas Neue, Impact, sans-serif" font-size="32" fill="#dce6f2" letter-spacing="0.12em">LOTTERY DRAW</text>
           <rect x="40" y="120" width="720" height="780" fill="url(#dlIce)" opacity="0.5"/>
         </svg>
-        <div class="draft-lottery-machine__canvas-wrap" id="draft-lottery-canvas-mount" aria-label="Lottery physics simulation"></div>
+        <div class="draft-lottery-machine__canvas-wrap" id="draft-lottery-canvas-mount" aria-label="Lottery physics simulation">
+          <div id="draft-lottery-win-hitzone" class="draft-lottery-win-hitzone" aria-hidden="true"></div>
+        </div>
+        <div class="draft-lottery-machine__hud" role="group" aria-label="Drum controls">
+          <div id="draft-lottery-chute-decor" class="draft-lottery-machine__chute-decor" hidden aria-hidden="true"></div>
+          <div class="draft-lottery-machine__hud-inner">
+            <button type="button" class="btn-draft-lottery btn-draft-lottery--primary btn-draft-lottery--stage" id="dl-btn-release-stage" disabled>Release balls</button>
+            <button type="button" class="btn-draft-lottery btn-draft-lottery--gate btn-draft-lottery--stage" id="dl-btn-open-gate-stage" disabled>Open hatch</button>
+          </div>
+          <p class="draft-lottery-machine__hud-hint muted">Release to mix, then open the hatch — first ball to touch the yellow line wins.</p>
+        </div>
+        <div id="draft-lottery-winner-reveal" class="draft-lottery-winner-reveal" hidden aria-live="polite">
+          <img id="draft-lottery-winner-logo" class="draft-lottery-winner-logo" alt="" decoding="async" />
+          <p id="draft-lottery-winner-name" class="draft-lottery-winner-name"></p>
+        </div>
       </div>
       <div class="draft-lottery-lower-third" id="draft-lottery-results" hidden>
         <div class="draft-lottery-lower-third__bar">
           <span class="draft-lottery-lower-third__label">Draw log</span>
           <ol class="draft-lottery-lower-third__list" id="draft-lottery-results-list"></ol>
+        </div>
+      </div>
+      <div class="draft-lottery-final" id="draft-lottery-final" hidden>
+        <div class="draft-lottery-final__bar">
+          <span class="draft-lottery-final__label">Final draft order</span>
+          <p class="draft-lottery-final__hint muted">After both draws: 1st–2nd picks stay where the lottery placed them; 3rd–8th list worst regular-season finish first (24th → 3rd pick, down to 17th → 8th).</p>
+          <ol class="draft-lottery-final__list" id="draft-lottery-final-list"></ol>
         </div>
       </div>
     </section>

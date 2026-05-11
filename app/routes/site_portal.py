@@ -914,6 +914,8 @@ def ai_trade_tool_evaluate():
         right=right_out,
         notes=notes,
     )
+    if out.get("error"):
+        return jsonify({"error": out["error"]}), 503
     return jsonify(out)
 
 
@@ -4317,11 +4319,76 @@ def _parse_scheduled_start(raw: str) -> datetime | None:
         return None
 
 
+def _parse_draft_deadline_date(raw: str, fallback_month: int, fallback_day: int) -> tuple[int, int]:
+    """Return month/day from a YYYY-MM-DD admin date input, preserving existing values on bad input."""
+    raw = (raw or "").strip()
+    if not raw:
+        return int(fallback_month), int(fallback_day)
+    try:
+        parsed = datetime.strptime(raw[:10], "%Y-%m-%d")
+    except ValueError:
+        return int(fallback_month), int(fallback_day)
+    return int(parsed.month), int(parsed.day)
+
+
+def _purge_draft_soundbite_dir(slug: str, draft_id: int) -> None:
+    """Best-effort removal of soundbite files for a deleted draft."""
+    import shutil
+
+    folder = Path(current_app.instance_path) / "draft_soundbites" / slug / str(draft_id)
+    if folder.is_dir():
+        shutil.rmtree(folder, ignore_errors=True)
+
+
 @site_admin_bp.route("/draft-hub", methods=["GET", "POST"])
 @login_required
 def admin_draft_hub():
     require_admin_role(ADMIN_ROLE_CONTENT, ADMIN_ROLE_LEAGUE)
     slug = _league_slug()
+    if request.method == "POST" and request.form.get("action") == "delete":
+        draft_id_raw = (request.form.get("draft_id") or "").strip()
+        if not draft_id_raw.isdigit():
+            flash("Invalid draft id.", "err")
+            return redirect(url_for("site_admin.admin_draft_hub"))
+        target = db.session.get(LeagueDraft, int(draft_id_raw))
+        if not target or target.league_slug != slug:
+            flash("Draft not found for this site.", "err")
+            return redirect(url_for("site_admin.admin_draft_hub"))
+        if target.status == "live":
+            flash(
+                "This draft is live. Complete it (or undo its picks then delete its slots) before deleting.",
+                "err",
+            )
+            return redirect(url_for("site_admin.admin_draft_hub"))
+        deleted_name = target.name
+        deleted_status = target.status
+        db.session.execute(
+            delete(LeagueDraftQueueItem).where(LeagueDraftQueueItem.league_draft_id == target.id)
+        )
+        db.session.execute(
+            delete(LeagueDraftPick).where(LeagueDraftPick.league_draft_id == target.id)
+        )
+        db.session.execute(
+            delete(LeagueDraftSlot).where(LeagueDraftSlot.league_draft_id == target.id)
+        )
+        db.session.execute(
+            delete(LeagueDraftSoundbite).where(LeagueDraftSoundbite.league_draft_id == target.id)
+        )
+        db.session.delete(target)
+        db.session.add(
+            AdminAuditLog(
+                admin_user_id=int(current_user.id),
+                league_slug=slug,
+                action="draft_hub_delete",
+                detail_json=json.dumps(
+                    {"draft_id": int(draft_id_raw), "name": deleted_name, "status": deleted_status}
+                ),
+            )
+        )
+        db.session.commit()
+        _purge_draft_soundbite_dir(slug, int(draft_id_raw))
+        flash(f"Deleted draft “{deleted_name}”.", "ok")
+        return redirect(url_for("site_admin.admin_draft_hub"))
     if request.method == "POST" and request.form.get("action") == "new":
         from app.services.draft_hub_eligibility import default_eligibility_for_league
         from app.services.seasons import get_current_season
@@ -4333,7 +4400,8 @@ def admin_draft_hub():
             league_slug=slug,
             name=(request.form.get("name") or "Draft").strip()[:200] or "Draft",
             status="setup",
-            rounds=int(request.form.get("rounds") or 1) or 1,
+            rounds=max(1, int(request.form.get("rounds") or 1)),
+            picks_per_round=max(1, int(request.form.get("picks_per_round") or 27)),
             timer_seconds=int(request.form.get("timer_seconds") or 120) or 120,
             empty_queue_timer_seconds=int(request.form.get("empty_queue_timer_seconds") or 120) or 120,
             min_age_years=ddef.min_age_years,
@@ -4367,17 +4435,24 @@ def admin_draft_hub_edit(draft_id: int):
         if act == "save_settings" and row.status == "setup":
             row.name = (request.form.get("name") or row.name).strip()[:200]
             row.rounds = max(1, int(request.form.get("rounds") or row.rounds))
+            row.picks_per_round = max(1, int(request.form.get("picks_per_round") or row.picks_per_round))
             row.timer_seconds = max(5, int(request.form.get("timer_seconds") or row.timer_seconds))
             row.empty_queue_timer_seconds = max(
                 5, int(request.form.get("empty_queue_timer_seconds") or row.empty_queue_timer_seconds)
             )
             row.timeline_year = int(request.form.get("timeline_year") or row.timeline_year)
             row.min_age_years = int(request.form.get("min_age_years") or row.min_age_years)
-            row.min_anchor_month = int(request.form.get("min_anchor_month") or row.min_anchor_month)
-            row.min_anchor_day = int(request.form.get("min_anchor_day") or row.min_anchor_day)
             row.max_age_years = int(request.form.get("max_age_years") or row.max_age_years)
-            row.max_anchor_month = int(request.form.get("max_anchor_month") or row.max_anchor_month)
-            row.max_anchor_day = int(request.form.get("max_anchor_day") or row.max_anchor_day)
+            row.min_anchor_month, row.min_anchor_day = _parse_draft_deadline_date(
+                request.form.get("min_deadline_date") or "",
+                row.min_anchor_month,
+                row.min_anchor_day,
+            )
+            row.max_anchor_month, row.max_anchor_day = _parse_draft_deadline_date(
+                request.form.get("max_deadline_date") or "",
+                row.max_anchor_month,
+                row.max_anchor_day,
+            )
             row.scheduled_start_at = _parse_scheduled_start(request.form.get("scheduled_start_at") or "")
             db.session.commit()
             flash("Settings saved.", "ok")
@@ -4415,6 +4490,40 @@ def admin_draft_hub_edit(draft_id: int):
                 )
                 flash("Last pick removed.", "ok")
             db.session.commit()
+        elif act == "pause_timer" and row.status == "live":
+            from app.services.draft_hub_state import pause_draft_timer
+
+            err = pause_draft_timer(db.session, row)
+            if err:
+                flash(err, "err")
+            else:
+                db.session.add(
+                    AdminAuditLog(
+                        admin_user_id=int(current_user.id),
+                        league_slug=slug,
+                        action="draft_hub_pause_timer",
+                        detail_json=json.dumps({"draft_id": row.id}),
+                    )
+                )
+                flash("Draft clock paused.", "ok")
+            db.session.commit()
+        elif act == "resume_timer" and row.status == "live":
+            from app.services.draft_hub_state import resume_draft_timer
+
+            err = resume_draft_timer(db.session, row)
+            if err:
+                flash(err, "err")
+            else:
+                db.session.add(
+                    AdminAuditLog(
+                        admin_user_id=int(current_user.id),
+                        league_slug=slug,
+                        action="draft_hub_resume_timer",
+                        detail_json=json.dumps({"draft_id": row.id}),
+                    )
+                )
+                flash("Draft clock resumed.", "ok")
+            db.session.commit()
         elif act == "admin_pick" and row.status == "live":
             from app.services.draft_hub_state import resolve_admin_pick
 
@@ -4436,6 +4545,148 @@ def admin_draft_hub_edit(draft_id: int):
                     )
                     flash("Pick recorded.", "ok")
             db.session.commit()
+        elif act == "save_boosts":
+            gold_raw = (request.form.get("gold_picks") or "").strip()
+            silver_raw = (request.form.get("silver_picks") or "").strip()
+
+            def _parse_overall_csv(raw: str) -> set[int]:
+                out: set[int] = set()
+                for token in raw.replace(";", ",").replace("\n", ",").split(","):
+                    t = token.strip()
+                    if t.isdigit():
+                        out.add(int(t))
+                return out
+
+            gold = _parse_overall_csv(gold_raw)
+            silver = _parse_overall_csv(silver_raw)
+            overlap = gold & silver
+            if overlap:
+                flash(
+                    "Pick(s) listed as both gold and silver: "
+                    + ", ".join(str(n) for n in sorted(overlap))
+                    + ". A slot can only have one tier.",
+                    "err",
+                )
+            else:
+                slot_rows = list(
+                    db.session.scalars(
+                        select(LeagueDraftSlot).where(LeagueDraftSlot.league_draft_id == row.id)
+                    ).all()
+                )
+                slot_by_overall = {int(s.overall_pick): s for s in slot_rows}
+                unknown = sorted(
+                    n for n in (gold | silver) if n not in slot_by_overall
+                )
+                applied_gold = 0
+                applied_silver = 0
+                for s in slot_rows:
+                    ov = int(s.overall_pick)
+                    if ov in gold:
+                        s.boost_tier = "gold"
+                        applied_gold += 1
+                    elif ov in silver:
+                        s.boost_tier = "silver"
+                        applied_silver += 1
+                    else:
+                        s.boost_tier = ""
+                db.session.add(
+                    AdminAuditLog(
+                        admin_user_id=int(current_user.id),
+                        league_slug=slug,
+                        action="draft_hub_save_boosts",
+                        detail_json=json.dumps(
+                            {
+                                "draft_id": row.id,
+                                "gold": sorted(gold),
+                                "silver": sorted(silver),
+                            }
+                        ),
+                    )
+                )
+                db.session.commit()
+                msg = (
+                    f"Boost picks saved — Gold: {applied_gold}, Silver: {applied_silver}."
+                )
+                if unknown:
+                    msg += (
+                        " Ignored (no matching slot): "
+                        + ", ".join(str(n) for n in unknown)
+                        + "."
+                    )
+                flash(msg, "ok")
+        elif act == "save_generated_slots" and row.status == "setup":
+            old_tiers = {
+                int(s.overall_pick): s.boost_tier or ""
+                for s in db.session.scalars(
+                    select(LeagueDraftSlot).where(LeagueDraftSlot.league_draft_id == row.id)
+                ).all()
+            }
+            db.session.execute(delete(LeagueDraftSlot).where(LeagueDraftSlot.league_draft_id == row.id))
+            total = int(row.rounds) * int(row.picks_per_round)
+            created = 0
+            for overall in range(1, total + 1):
+                tid_raw = (request.form.get(f"slot_team_{overall}") or "").strip()
+                if not tid_raw.isdigit():
+                    continue
+                tid = int(tid_raw)
+                round_no = ((overall - 1) // int(row.picks_per_round)) + 1
+                db.session.add(
+                    LeagueDraftSlot(
+                        league_draft_id=row.id,
+                        overall_pick=overall,
+                        round=round_no,
+                        original_team_id=tid,
+                        team_id=tid,
+                        boost_tier=old_tiers.get(overall, ""),
+                    )
+                )
+                created += 1
+            db.session.commit()
+            flash(f"Draft order saved from round builder ({created} slots).", "ok")
+        elif act == "save_slot_teams" and row.status in ("setup", "live"):
+            picked_overalls = {
+                int(x)
+                for x in db.session.scalars(
+                    select(LeagueDraftPick.overall_pick).where(LeagueDraftPick.league_draft_id == row.id)
+                ).all()
+            }
+            changed = 0
+            skipped = 0
+            slots_for_update = list(
+                db.session.scalars(
+                    select(LeagueDraftSlot)
+                    .where(LeagueDraftSlot.league_draft_id == row.id)
+                    .order_by(LeagueDraftSlot.overall_pick)
+                ).all()
+            )
+            for slot in slots_for_update:
+                overall = int(slot.overall_pick)
+                tid_raw = (request.form.get(f"slot_team_{overall}") or "").strip()
+                if not tid_raw.isdigit():
+                    continue
+                if overall in picked_overalls:
+                    skipped += 1
+                    continue
+                new_tid = int(tid_raw)
+                if slot.original_team_id is None:
+                    slot.original_team_id = int(slot.team_id)
+                if new_tid != int(slot.team_id):
+                    slot.team_id = new_tid
+                    changed += 1
+            if changed:
+                db.session.add(
+                    AdminAuditLog(
+                        admin_user_id=int(current_user.id),
+                        league_slug=slug,
+                        action="draft_hub_change_pick_teams",
+                        detail_json=json.dumps({"draft_id": row.id, "changed": changed}),
+                    )
+                )
+            db.session.commit()
+            msg = f"Pick ownership saved ({changed} changed)."
+            if skipped:
+                msg += f" {skipped} completed pick(s) were left unchanged."
+            flash(msg, "ok")
         elif act == "save_slots" and row.status == "setup":
             raw = (request.form.get("slots_csv") or "").strip()
             lines = [ln.strip() for ln in raw.splitlines() if ln.strip()]
@@ -4454,6 +4705,7 @@ def admin_draft_hub_edit(draft_id: int):
                         league_draft_id=row.id,
                         overall_pick=int(ov),
                         round=int(rnd),
+                        original_team_id=int(tid),
                         team_id=int(tid),
                         forfeited=ff,
                         notes=notes[:500] if notes else None,
@@ -4506,15 +4758,107 @@ def admin_draft_hub_edit(draft_id: int):
         f"{s.overall_pick},{s.round},{s.team_id},{s.notes or ''},{'forfeit' if s.forfeited else ''}".rstrip(",")
         for s in slots
     )
+    picked_overalls = {
+        int(x)
+        for x in db.session.scalars(
+            select(LeagueDraftPick.overall_pick).where(LeagueDraftPick.league_draft_id == row.id)
+        ).all()
+    }
+    slots_by_overall = {int(s.overall_pick): s for s in slots}
+    max_slot_round = max((int(s.round) for s in slots), default=0)
+    total_rounds = max(int(row.rounds), max_slot_round, 1)
+    round_slot_rows = []
+    for round_no in range(1, total_rounds + 1):
+        round_rows = []
+        for pick_no in range(1, int(row.picks_per_round) + 1):
+            overall = ((round_no - 1) * int(row.picks_per_round)) + pick_no
+            slot = slots_by_overall.get(overall)
+            round_rows.append(
+                {
+                    "overall": overall,
+                    "round": round_no,
+                    "team_id": int(slot.team_id) if slot else None,
+                    "original_team_id": int(slot.original_team_id or slot.team_id) if slot else None,
+                    "boost_tier": slot.boost_tier if slot else "",
+                    "picked": overall in picked_overalls,
+                }
+            )
+        round_slot_rows.append(round_rows)
+    wishlist_guidance = []
+    if row.status == "live" and row.current_slot_index < len(slots):
+        current_slot = slots[row.current_slot_index]
+        if current_slot and not current_slot.forfeited:
+            picked_player_ids = {
+                int(x)
+                for x in db.session.scalars(
+                    select(LeagueDraftPick.player_id).where(LeagueDraftPick.league_draft_id == row.id)
+                ).all()
+            }
+            memberships = list(
+                db.session.scalars(
+                    select(GmLeagueMembership)
+                    .where(
+                        GmLeagueMembership.league_slug == slug,
+                        GmLeagueMembership.team_id == int(current_slot.team_id),
+                        GmLeagueMembership.status == "active",
+                    )
+                    .order_by(GmLeagueMembership.user_id.asc())
+                ).all()
+            )
+            for mem in memberships:
+                user = db.session.get(User, int(mem.user_id))
+                qitems = list(
+                    db.session.scalars(
+                        select(LeagueDraftQueueItem)
+                        .where(
+                            LeagueDraftQueueItem.league_draft_id == row.id,
+                            LeagueDraftQueueItem.user_id == int(mem.user_id),
+                        )
+                        .order_by(LeagueDraftQueueItem.sort_order.asc(), LeagueDraftQueueItem.id.asc())
+                    ).all()
+                )
+                top_item = None
+                for qi in qitems:
+                    if int(qi.player_id) not in picked_player_ids:
+                        top_item = qi
+                        break
+                player = db.session.get(Player, int(top_item.player_id)) if top_item else None
+                wishlist_guidance.append(
+                    {
+                        "gm_name": (
+                            (user.username or user.discord_name or user.email)
+                            if user
+                            else f"User #{mem.user_id}"
+                        ),
+                        "player_id": int(top_item.player_id) if top_item else None,
+                        "player_name": player.full_name if player else "",
+                        "queue_count": len(qitems),
+                    }
+                )
+    gold_csv = ", ".join(str(s.overall_pick) for s in slots if s.boost_tier == "gold")
+    silver_csv = ", ".join(str(s.overall_pick) for s in slots if s.boost_tier == "silver")
     sched = ""
     if row.scheduled_start_at:
         sched = row.scheduled_start_at.strftime("%Y-%m-%dT%H:%M")
+    min_deadline_value = f"{int(row.timeline_year):04d}-{int(row.min_anchor_month):02d}-{int(row.min_anchor_day):02d}"
+    max_deadline_value = f"{int(row.timeline_year):04d}-{int(row.max_anchor_month):02d}-{int(row.max_anchor_day):02d}"
+    year_min_date = f"{int(row.timeline_year):04d}-01-01"
+    year_max_date = f"{int(row.timeline_year):04d}-12-31"
     return render_template(
         "admin_draft_hub_edit.html",
         league_slug=slug,
         draft=row,
         teams=teams,
         slots_csv=slots_csv,
+        round_slot_rows=round_slot_rows,
+        wishlist_guidance=wishlist_guidance,
+        gold_csv=gold_csv,
+        silver_csv=silver_csv,
         sounds=sounds,
         sched_value=sched,
+        min_deadline_value=min_deadline_value,
+        max_deadline_value=max_deadline_value,
+        year_min_date=year_min_date,
+        year_max_date=year_max_date,
+        age_options=list(range(15, 31)),
     )

@@ -1165,3 +1165,55 @@ def ensure_prospect_system_rank_snapshots_sqlite(engine: Engine) -> None:
             )
         )
         conn.commit()
+
+
+def ensure_league_draft_slot_boost_tier_sqlite(engine: Engine) -> None:
+    """Add newer Draft Hub setup columns when missing (site DB, SQLite).
+
+    Slot tier values: '' (default), 'gold', or 'silver' — set by admin after the boost lottery
+    so the public Draft Hub page can highlight those overall picks. Original team tracks draft-day
+    trades separately from the current pick holder.
+    """
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        draft_exists = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='league_drafts'")
+        ).fetchone()
+        if draft_exists:
+            draft_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(league_drafts)"))}
+            if "picks_per_round" not in draft_cols:
+                conn.execute(
+                    text("ALTER TABLE league_drafts ADD COLUMN picks_per_round INTEGER NOT NULL DEFAULT 27")
+                )
+            if "timer_paused" not in draft_cols:
+                conn.execute(
+                    text("ALTER TABLE league_drafts ADD COLUMN timer_paused BOOLEAN NOT NULL DEFAULT 0")
+                )
+            if "timer_paused_remaining_seconds" not in draft_cols:
+                conn.execute(
+                    text("ALTER TABLE league_drafts ADD COLUMN timer_paused_remaining_seconds INTEGER")
+                )
+
+        slot_exists = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='league_draft_slots'")
+        ).fetchone()
+        if slot_exists:
+            cols = {row[1] for row in conn.execute(text("PRAGMA table_info(league_draft_slots)"))}
+            if "original_team_id" not in cols:
+                conn.execute(text("ALTER TABLE league_draft_slots ADD COLUMN original_team_id INTEGER"))
+                conn.execute(
+                    text(
+                        "UPDATE league_draft_slots "
+                        "SET original_team_id = team_id "
+                        "WHERE original_team_id IS NULL"
+                    )
+                )
+            if "boost_tier" not in cols:
+                conn.execute(
+                    text(
+                        "ALTER TABLE league_draft_slots "
+                        "ADD COLUMN boost_tier VARCHAR(16) NOT NULL DEFAULT ''"
+                    )
+                )
+        conn.commit()

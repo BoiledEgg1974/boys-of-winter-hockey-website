@@ -509,6 +509,7 @@ class LeagueDraft(db.Model):
     status: Mapped[str] = mapped_column(String(24), default="setup", nullable=False)  # setup|live|completed
     scheduled_start_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     rounds: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    picks_per_round: Mapped[int] = mapped_column(Integer, default=27, nullable=False)
     timer_seconds: Mapped[int] = mapped_column(Integer, default=120, nullable=False)
     empty_queue_timer_seconds: Mapped[int] = mapped_column(Integer, default=120, nullable=False)
     min_age_years: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -521,6 +522,8 @@ class LeagueDraft(db.Model):
     current_slot_index: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     pick_started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     pick_deadline_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    timer_paused: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    timer_paused_remaining_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     deadline_extended_for_slot: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     awaiting_admin_resolution: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     board_ranks_json: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -552,9 +555,12 @@ class LeagueDraftSlot(db.Model):
     league_draft_id: Mapped[int] = mapped_column(ForeignKey("league_drafts.id"), nullable=False)
     overall_pick: Mapped[int] = mapped_column(Integer, nullable=False)
     round: Mapped[int] = mapped_column(Integer, nullable=False)
+    original_team_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     team_id: Mapped[int] = mapped_column(Integer, nullable=False)
     forfeited: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     notes: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # "", "gold", or "silver" — admin-set after running the boost lottery.
+    boost_tier: Mapped[str] = mapped_column(String(16), default="", nullable=False)
 
     draft: Mapped["LeagueDraft"] = relationship(back_populates="slots")
 

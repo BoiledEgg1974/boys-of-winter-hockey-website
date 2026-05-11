@@ -20,56 +20,9 @@ _LAST_CALL_BY_USER: dict[int, float] = {}
 _MIN_INTERVAL_SEC = 8.0
 
 
-def _ledger_ovr_totals(session: Session, keys: list[str]) -> tuple[float, int]:
-    """Sum rounded OVR for player keys; return (total, count)."""
-    total = 0.0
-    n = 0
-    for k in keys:
-        if not k.startswith("player:"):
-            continue
-        try:
-            pid = int(k.split(":", 1)[1])
-        except (ValueError, IndexError):
-            continue
-        pl = session.get(Player, pid)
-        if not pl:
-            continue
-        rr = get_player_ratings_row(getattr(pl, "fhm_player_id", None))
-        ovr = compute_player_overall_100(
-            pl.overall_ability,
-            pl.overall_potential,
-            rr,
-            is_goalie=player_is_goalie_for_overall(pl),
-        )
-        if ovr is not None:
-            total += float(ovr)
-            n += 1
-    return total, n
-
-
-def _heuristic_fallback(session: Session, left: list[str], right: list[str]) -> dict[str, Any]:
-    lt, ln = _ledger_ovr_totals(session, left)
-    rt, rn = _ledger_ovr_totals(session, right)
-    avg_l = lt / max(ln, 1) if ln else 0.0
-    avg_r = rt / max(rn, 1) if rn else 0.0
-    if ln == 0 and rn == 0:
-        tone = "Mystery meat! Without skaters I can't read the tea leaves—add some players and I'll chirp with conviction."
-    elif avg_l > avg_r + 3 and ln >= rn:
-        tone = "Looks like the left side is packing more star power on paper. The right might want a sweetener—a pick or a prospect with upside."
-    elif avg_r > avg_l + 3 and rn >= ln:
-        tone = "The right side's roster juice has a slight edge here. Left side could toss in futures or a depth piece to balance the scales."
-    else:
-        tone = "Pretty close on paper—could go either way in the court of public opinion. Toss a mid-round pick or swap a depth piece and call it even."
-    return {
-        "verdict": "Rough sketch (no API)",
-        "opinion": tone,
-        "suggestions": [
-            "Add or remove a mid-round draft pick to tilt the ledger.",
-            "Swap a depth skater for one with a tick more upside if one side feels light.",
-            "Re-run with the full trade story in the notes box so the bot has more flavor text.",
-        ],
-        "fallback": True,
-    }
+def _error_payload(message: str) -> dict[str, Any]:
+    """Caller (route) should translate the ``error`` key into an HTTP 5xx so the UI alerts cleanly."""
+    return {"error": message}
 
 
 def build_trade_prompt_block(
@@ -137,19 +90,18 @@ def fetch_trade_ai_opinion(
             "verdict": "Slow down, hotshot",
             "opinion": f"Give the bot {wait}s to catch its breath before another take.",
             "suggestions": [],
-            "fallback": True,
             "rate_limited": True,
         }
     _LAST_CALL_BY_USER[user_id] = now
 
     api_key = str(current_app.config.get("TRADE_AI_OPENAI_API_KEY") or "").strip()
     model = str(current_app.config.get("TRADE_AI_OPENAI_MODEL") or "gpt-4o-mini").strip()
-    block = build_trade_prompt_block(session, from_team, to_team, left, right, notes)
 
     if not api_key:
-        out = _heuristic_fallback(session, left, right)
-        out["fallback"] = True
-        return out
+        current_app.logger.warning("Trade AI: no OPENAI_API_KEY configured")
+        return _error_payload("AI Trade Tool is unavailable — server has no OpenAI API key configured.")
+
+    block = build_trade_prompt_block(session, from_team, to_team, left, right, notes)
 
     system = (
         "You are a witty, knowledgeable hockey armchair GM bot on a fantasy/sim league website. "
@@ -193,33 +145,22 @@ def fetch_trade_ai_opinion(
         except Exception:
             pass
         current_app.logger.warning("Trade AI HTTPError: %s %s", e.code, err_body)
-        out = _heuristic_fallback(session, left, right)
-        out["verdict"] = "Lines are busy"
-        out["opinion"] = (
-            "The scoring assistant couldn't place a call to the cloud. "
-            "Here's a quick offline read instead—still just for fun."
+        return _error_payload(
+            f"AI Trade Tool request rejected (HTTP {e.code}). Check API key, model name, and OpenAI billing."
         )
-        out["fallback"] = True
-        return out
     except (URLError, TimeoutError, OSError, json.JSONDecodeError) as e:
         current_app.logger.warning("Trade AI request failed: %s", e)
-        out = _heuristic_fallback(session, left, right)
-        out["fallback"] = True
-        return out
+        return _error_payload("AI Trade Tool could not reach the model right now. Try again in a moment.")
 
     try:
         content = body["choices"][0]["message"]["content"]
     except (KeyError, IndexError, TypeError):
-        out = _heuristic_fallback(session, left, right)
-        out["fallback"] = True
-        return out
+        return _error_payload("AI Trade Tool got an unreadable response from the model.")
 
     try:
         parsed = json.loads(_strip_json_fence(str(content)))
     except json.JSONDecodeError:
-        out = _heuristic_fallback(session, left, right)
-        out["fallback"] = True
-        return out
+        return _error_payload("AI Trade Tool could not parse the model's JSON reply.")
 
     verdict = str(parsed.get("verdict") or "No verdict").strip()[:200]
     opinion = str(parsed.get("opinion") or "").strip()
@@ -238,5 +179,4 @@ def fetch_trade_ai_opinion(
         "verdict": verdict,
         "opinion": opinion,
         "suggestions": suggestions,
-        "fallback": False,
     }

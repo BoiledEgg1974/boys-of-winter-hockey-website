@@ -13,6 +13,7 @@
     <label>Name <input type="text" name="name" value="Draft" maxlength="200" style="width:100%;max-width:24rem;"></label>
     <div style="margin-top:0.5rem;display:flex;flex-wrap:wrap;gap:0.75rem;align-items:end;">
       <label>Rounds <input type="number" name="rounds" value="1" min="1" style="width:5rem;"></label>
+      <label>Picks per round <input type="number" name="picks_per_round" value="27" min="1" style="width:6rem;"></label>
       <label>Timer (sec) <input type="number" name="timer_seconds" value="120" min="5" style="width:6rem;"></label>
       <label>Empty-queue timer (sec) <input type="number" name="empty_queue_timer_seconds" value="120" min="5" style="width:8rem;"></label>
       <button type="submit" class="button">Create draft</button>
@@ -23,13 +24,25 @@
   {% if not drafts %}
     <p class="muted">None yet.</p>
   {% else %}
-    <ul>
+    <ul style="list-style:none;padding:0;margin:0;">
       {% for d in drafts %}
-        <li>
-          <a href="{{ url_for('site_admin.admin_draft_hub_edit', draft_id=d.id) }}">{{ d.name }}</a>
-          — <span class="muted">{{ d.status }}</span>
-          {% if d.status == 'completed' %}
-            · <a href="{{ url_for('draft_hub.draft_hub_archive_one', draft_id=d.id) }}">public archive</a>
+        <li style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;padding:0.4rem 0;border-bottom:1px solid rgb(255 255 255 / 0.06);">
+          <span>
+            <a href="{{ url_for('site_admin.admin_draft_hub_edit', draft_id=d.id) }}">{{ d.name }}</a>
+            — <span class="muted">{{ d.status }}</span>
+            {% if d.status == 'completed' %}
+              · <a href="{{ url_for('draft_hub.draft_hub_archive_one', draft_id=d.id) }}">public archive</a>
+            {% endif %}
+          </span>
+          {% if d.status != 'live' %}
+            <form method="post" style="margin:0;" onsubmit="return confirm('Delete draft “{{ d.name|e }}”? This removes its slots, picks, queue items, and soundbites for this site. This cannot be undone.');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="action" value="delete">
+              <input type="hidden" name="draft_id" value="{{ d.id }}">
+              <button type="submit" class="button secondary small">Delete</button>
+            </form>
+          {% else %}
+            <span class="muted small">(live — cannot delete)</span>
           {% endif %}
         </li>
       {% endfor %}

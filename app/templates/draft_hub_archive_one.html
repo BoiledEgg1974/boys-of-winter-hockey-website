@@ -9,7 +9,7 @@
   {% set _ = ns.parts.append(piece) %}
 {% endfor %}
 {% set ticker_text = ns.parts | join('          •          ') %}
-<div class="draft-hub-page{% if picks %} draft-hub-page--ticker{% endif %}" style="max-width:52rem;margin:0 auto;">
+<div class="draft-hub-page{% if picks %} draft-hub-page--ticker{% endif %}" style="max-width:74rem;margin:0 auto;">
   <h1 class="page-title">{{ draft.name }}</h1>
   <p class="muted"><a href="{{ url_for('draft_hub.draft_hub_archive_list') }}">← Archive</a></p>
 
@@ -17,49 +17,127 @@
     <p class="muted">{{ summary.note }}</p>
   {% endif %}
 
-  {% if summary.get('top_winners') %}
-    <section class="card" style="padding:1rem;margin:1rem 0;">
-      <h2 class="draft-hub-col__title">Top draft grades (heuristic)</h2>
-      <ol>
-        {% for w in summary.top_winners %}
-          {% set tm = team_by_id.get(w.team_id) %}
-          <li>{{ tm.full_display_name() if tm else ('Team ' ~ w.team_id) }} — surplus {{ w.surplus }}</li>
-        {% endfor %}
-      </ol>
-    </section>
-  {% endif %}
-  {% if summary.get('top_losers') %}
-    <section class="card" style="padding:1rem;margin:1rem 0;">
-      <h2 class="draft-hub-col__title">Lowest grades (heuristic)</h2>
-      <ol>
-        {% for w in summary.top_losers %}
-          {% set tm = team_by_id.get(w.team_id) %}
-          <li>{{ tm.full_display_name() if tm else ('Team ' ~ w.team_id) }} — surplus {{ w.surplus }}</li>
-        {% endfor %}
-      </ol>
-    </section>
+  {% macro grade_row(item) -%}
+    {% set tm = team_by_id.get(item.team_id) %}
+    {% set logo = team_logo_url_by_id.get(item.team_id) %}
+    <li class="draft-hub-grade-row">
+      {% if logo %}
+        <img class="draft-hub-grade-row__logo" src="{{ logo }}" alt="{{ tm.full_display_name() if tm else ('Team ' ~ item.team_id) }} logo">
+      {% else %}
+        <span class="draft-hub-grade-row__logo draft-hub-grade-row__logo--placeholder" aria-hidden="true"></span>
+      {% endif %}
+      <span class="draft-hub-grade-row__name">{{ tm.full_display_name() if tm else ('Team ' ~ item.team_id) }}</span>
+      <span class="draft-hub-grade-row__score">quality {{ item.score }}</span>
+    </li>
+  {%- endmacro %}
+
+  {% if summary.get('top_winners') or summary.get('top_losers') %}
+    <div class="draft-hub-grades-row">
+      {% if summary.get('top_winners') %}
+        <section class="card draft-hub-grade-card">
+          <h2 class="draft-hub-col__title">Top Draft Grades</h2>
+          <ol class="draft-hub-grade-list">
+            {% for w in summary.top_winners %}
+              {{ grade_row(w) }}
+            {% endfor %}
+          </ol>
+        </section>
+      {% endif %}
+      {% if summary.get('top_losers') %}
+        <section class="card draft-hub-grade-card">
+          <h2 class="draft-hub-col__title">Lowest Grades</h2>
+          <ol class="draft-hub-grade-list">
+            {% for w in summary.top_losers %}
+              {{ grade_row(w) }}
+            {% endfor %}
+          </ol>
+        </section>
+      {% endif %}
+    </div>
   {% endif %}
 
-  <div class="table-wrap">
-    <table class="data">
-      <thead>
-        <tr><th>#</th><th>Round</th><th>Team</th><th>Player</th><th>Source</th></tr>
-      </thead>
-      <tbody>
-        {% for p in picks %}
-          {% set pl = players.get(p.player_id) %}
-          {% set tm = team_by_id.get(p.team_id) %}
-          <tr>
-            <td>{{ p.overall_pick }}</td>
-            <td>{{ p.round }}</td>
-            <td>{{ tm.full_display_name() if tm else p.team_id }}</td>
-            <td>{% if pl %}<a href="{{ url_for('main.player_page', player_id=pl.id) }}">{{ pl.full_name }}</a>{% else %}{{ p.player_id }}{% endif %}</td>
-            <td>{{ p.source }}</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+  {% set all_rounds = [] %}
+  {% for group in archive_round_groups %}
+    {% for round in group.rounds %}
+      {% set _ = all_rounds.append(round) %}
+    {% endfor %}
+  {% endfor %}
+
+  {% macro round_panel(panel_key, default_index) -%}
+    <section class="card draft-hub-round-card">
+      <div class="draft-hub-archive-round-picker">
+        <label for="dh-archive-round-{{ panel_key }}" class="draft-hub-col__title" style="margin:0;">Round</label>
+        <select id="dh-archive-round-{{ panel_key }}" class="draft-hub-pos-select" data-panel="{{ panel_key }}">
+          {% for round in all_rounds %}
+            <option value="{{ round.round }}"{% if loop.index0 == default_index %} selected{% endif %}>Round {{ round.round }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      {% for round in all_rounds %}
+        <div class="draft-hub-archive-round" data-panel="{{ panel_key }}" data-round="{{ round.round }}"{% if loop.index0 != default_index %} hidden{% endif %}>
+          <table class="data draft-hub-archive-board">
+            <thead>
+              <tr>
+                <th colspan="3">Round {{ round.round }}</th>
+              </tr>
+              <tr>
+                <th>Pick</th><th>Team</th><th>Player</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in round.rows %}
+                {% set original_tm = team_by_id.get(row.original_team_id) if row.original_team_id else none %}
+                {% set current_tm = team_by_id.get(row.current_team_id) if row.current_team_id else none %}
+                {% set pick_tm = current_tm or original_tm %}
+                {% set pick_logo = team_logo_url_by_id.get(pick_tm.id) if pick_tm else None %}
+                {% set pl = players.get(row.player_id) if row.player_id else none %}
+                <tr>
+                  <td class="{% if row.boost_tier == 'gold' %}draft-hub-pick--gold{% elif row.boost_tier == 'silver' %}draft-hub-pick--silver{% endif %}">
+                    {{ row.overall }}{% if row.boost_tier %} <span class="draft-hub-boost-badge draft-hub-boost-badge--{{ row.boost_tier }}">{{ row.boost_tier|upper }}</span>{% endif %}
+                  </td>
+                  <td class="draft-hub-archive-board__team">
+                    {% if pick_logo %}
+                      <img class="draft-hub-archive-board__logo" src="{{ pick_logo }}" alt="{{ pick_tm.full_display_name() if pick_tm else '' }} logo" title="{{ pick_tm.full_display_name() if pick_tm else '' }}">
+                    {% elif pick_tm %}
+                      {{ pick_tm.abbreviation }}
+                    {% endif %}
+                  </td>
+                  <td>{% if pl %}<a href="{{ url_for('main.player_page', player_id=pl.id) }}">{{ pl.full_name }}</a>{% endif %}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endfor %}
+    </section>
+  {%- endmacro %}
+
+  {% if all_rounds %}
+    <div class="draft-hub-rounds-row">
+      {{ round_panel('a', 0) }}
+      {{ round_panel('b', 1 if all_rounds|length > 1 else 0) }}
+    </div>
+
+    <script>
+      (function () {
+        var selects = document.querySelectorAll('select[id^="dh-archive-round-"]');
+        selects.forEach(function (sel) {
+          sel.addEventListener('change', function () {
+            var panel = sel.getAttribute('data-panel');
+            var pick = sel.value;
+            document.querySelectorAll('.draft-hub-archive-round[data-panel="' + panel + '"]').forEach(function (el) {
+              if (el.getAttribute('data-round') === pick) {
+                el.removeAttribute('hidden');
+              } else {
+                el.setAttribute('hidden', '');
+              }
+            });
+          });
+        });
+      })();
+    </script>
+  {% endif %}
 
   {% if picks and ticker_text %}
   <aside class="draft-hub-ticker" aria-label="All picks in this draft">

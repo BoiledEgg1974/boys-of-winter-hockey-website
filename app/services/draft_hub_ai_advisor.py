@@ -71,51 +71,69 @@ def _sort_roster(session: Session, players: list[Player]) -> list[Player]:
     return sorted(players, key=lambda p: (-ovr_key(p), -(float(p.overall_potential or -1)), p.full_name or ""))
 
 
-def _heuristic(
-    session: Session,
-    *,
-    team_name: str,
-    roster: list[Player],
+def _position_bucket(pl: Player) -> str:
+    label = (player_positions_display_label(pl) or pl.position or "?").upper()
+    if "G" in label:
+        return "G"
+    if "D" in label:
+        return "D"
+    return "F"
+
+
+def _roster_shape(roster: list[Player]) -> tuple[str, list[str], set[str]]:
+    exact_counts: dict[str, int] = {}
+    bucket_counts = {"F": 0, "D": 0, "G": 0}
+    for pl in roster:
+        label = player_positions_display_label(pl) or pl.position or "?"
+        exact_counts[label] = exact_counts.get(label, 0) + 1
+        bucket = _position_bucket(pl)
+        bucket_counts[bucket] = bucket_counts.get(bucket, 0) + 1
+
+    bucket_txt = ", ".join(f"{k}: {v}" for k, v in bucket_counts.items())
+    exact_txt = ", ".join(f"{k}: {v}" for k, v in sorted(exact_counts.items(), key=lambda kv: (kv[1], kv[0]))[:8])
+    summary = f"Broad roster count — {bucket_txt}."
+    if exact_txt:
+        summary += f" Thin exact-position hints — {exact_txt}."
+
+    thin_exact = [k for k, _ in sorted(exact_counts.items(), key=lambda kv: (kv[1], kv[0]))[:3]]
+    fewest_bucket = min(bucket_counts.items(), key=lambda kv: (kv[1], kv[0]))[0]
+    need_buckets = {fewest_bucket}
+    if bucket_counts.get("G", 0) <= 2:
+        need_buckets.add("G")
+    return summary, thin_exact, need_buckets
+
+
+def _need_fit_candidates(
     eligible_top: list[Player],
     rank_by_id: dict[int, int],
-) -> dict[str, Any]:
-    roster_s = _sort_roster(session, roster)
-    depth = roster_s[-8:] if len(roster_s) > 8 else roster_s
-    low_txt = ", ".join((_player_line(session, p) for p in depth[:5])) if depth else "(empty roster in DB)"
+    need_buckets: set[str],
+) -> list[Player]:
+    def score(pl: Player) -> tuple[int, int, str]:
+        rk = int(rank_by_id.get(pl.id, 999))
+        need_bonus = 0 if _position_bucket(pl) in need_buckets else 18
+        return (rk + need_bonus, rk, pl.full_name or "")
 
-    recs: list[dict[str, Any]] = []
-    for i, pl in enumerate(eligible_top[:3]):
-        rk = rank_by_id.get(pl.id)
-        blurb = (
-            "Best blend of upside and present value on the current board."
-            if i == 0
-            else "Strong BPA option if you want to zig from the chalk pick."
-        )
-        recs.append(
-            {
-                "player_id": pl.id,
-                "player_name": pl.full_name or f"Player #{pl.id}",
-                "blurb": blurb + (f" (board #{rk})" if rk else ""),
-            }
-        )
+    pool = eligible_top[:24]
+    ranked = sorted(pool, key=score)
+    out: list[Player] = []
+    seen: set[int] = set()
+    for pl in ranked:
+        if pl.id in seen:
+            continue
+        seen.add(pl.id)
+        out.append(pl)
+        if len(out) >= 6:
+            break
+    return out
 
-    pos_counts: dict[str, int] = {}
-    for pl in roster_s:
-        label = player_positions_display_label(pl) or pl.position or "?"
-        pos_counts[label] = pos_counts.get(label, 0) + 1
-    thin = sorted(pos_counts.items(), key=lambda x: x[1])[:2]
-    thin_note = ""
-    if thin:
-        thin_note = f" Roster counts lean light on {thin[0][0]} ({thin[0][1]}) compared to other spots—use that as a tie-breaker, not a rule."
 
+def _error_payload(message: str) -> dict[str, Any]:
+    """Surface a clear error to the API panel when the live model cannot answer."""
     return {
-        "headline": "Offline board read",
-        "summary": (
-            f"{team_name}: here is a quick best-player-available sketch using roster OVR/POT and the published board order. "
-            f"Depth snapshot (lower end of your pro list): {low_txt}.{thin_note}"
-        ),
-        "recommendations": recs,
-        "fallback": True,
+        "headline": None,
+        "summary": None,
+        "recommendations": [],
+        "error": message,
     }
 
 
@@ -137,6 +155,7 @@ def build_draft_advice_prompt(
         "Current NHL roster on file (sorted roughly by strength; entertainment context only):",
     ]
     roster_s = _sort_roster(session, roster)
+    shape_txt, thin_exact, need_buckets = _roster_shape(roster_s)
     cap = 28
     if not roster_s:
         lines.append("  • (no players with current_team_id set — treat as unknown depth)")
@@ -145,8 +164,29 @@ def build_draft_advice_prompt(
             lines.append(f"  • {_player_line(session, pl)}")
         if len(roster_s) > cap:
             lines.append(f"  • … plus {len(roster_s) - cap} more")
-    lines.extend(["", "Top available prospects from the league eligibility list (already excludes picked players):", ""])
+    lines.extend(
+        [
+            "",
+            "Roster need snapshot:",
+            f"  • {shape_txt}",
+            f"  • Possible thinner spots: {', '.join(thin_exact) if thin_exact else 'unknown'}",
+            "",
+            "Top available prospects from the league eligibility list (already excludes picked players):",
+            "",
+        ]
+    )
     for pl in eligible_top[:14]:
+        rk = rank_by_id.get(pl.id)
+        lines.append(f"  • {_player_line(session, pl, board_rank=rk)}")
+    need_fit = _need_fit_candidates(eligible_top, rank_by_id, need_buckets)
+    lines.extend(
+        [
+            "",
+            "Need-fit candidates to consider (these may be below pure BPA, but should still be respectable board values):",
+            "",
+        ]
+    )
+    for pl in need_fit[:6]:
         rk = rank_by_id.get(pl.id)
         lines.append(f"  • {_player_line(session, pl, board_rank=rk)}")
     return "\n".join(lines)
@@ -183,12 +223,9 @@ def fetch_draft_hub_ai_advice(
     tm = session.get(Team, int(team_id))
 
     if not eligible_top:
-        out = {
-            "headline": "No eligible names",
-            "summary": "The board looks empty from this site's filters—nothing for the bot to rank.",
-            "recommendations": [],
-            "fallback": True,
-        }
+        out = _error_payload(
+            "The board looks empty from this site's filters — nothing for the bot to rank."
+        )
         _CACHE[cache_key] = (now + _CACHE_TTL_SEC, out)
         return out
 
@@ -198,9 +235,10 @@ def fetch_draft_hub_ai_advice(
     allowed_ids = {p.id for p in eligible_all[:40]}
 
     if not api_key:
-        out = _heuristic(session, team_name=team_name, roster=roster, eligible_top=eligible_top, rank_by_id=rank_by_id)
-        _CACHE[cache_key] = (now + _CACHE_TTL_SEC, out)
-        return out
+        current_app.logger.warning("Draft hub AI: no OPENAI_API_KEY configured")
+        return _error_payload(
+            "AI desk is unavailable — server has no OpenAI API key configured."
+        )
 
     block = build_draft_advice_prompt(
         session,
@@ -215,7 +253,10 @@ def fetch_draft_hub_ai_advice(
     system = (
         "You are a sharp, good-natured fantasy hockey armchair GM bot. "
         "ENTERTAINMENT ONLY: never imply official league approval or real contract knowledge. "
-        "Recommend 1–3 draft picks for the team on the clock using roster needs vs best player available. "
+        "Recommend 1–3 draft picks for the team on the clock using roster needs, positional scarcity, and best player available. "
+        "Do NOT automatically choose the top player available; a lower-ranked player is fine when the roster-fit case is better. "
+        "Still respect board value: avoid extreme reaches unless the user-provided data clearly supports the fit. "
+        "In each blurb, name the reason: need-fit, upside, positional scarcity, or safer BPA. "
         "Be concise and playful—no slurs, no harassment. "
         "Output STRICT JSON with keys: "
         "headline (short, under 90 chars), "
@@ -254,21 +295,32 @@ def fetch_draft_hub_ai_advice(
         with urlopen(req, timeout=55) as resp:
             body = json.loads(resp.read().decode("utf-8"))
     except HTTPError as e:
-        current_app.logger.warning("Draft hub AI HTTPError: %s", e.code)
-        return _finish(_heuristic(session, team_name=team_name, roster=roster, eligible_top=eligible_top, rank_by_id=rank_by_id))
+        err_body = ""
+        try:
+            err_body = e.read().decode("utf-8", errors="replace")[:500]
+        except Exception:
+            pass
+        current_app.logger.warning("Draft hub AI HTTPError: %s %s", e.code, err_body)
+        return _finish(
+            _error_payload(
+                f"AI desk request rejected (HTTP {e.code}). Check API key, model name, and OpenAI billing."
+            )
+        )
     except (URLError, TimeoutError, OSError, json.JSONDecodeError) as e:
         current_app.logger.warning("Draft hub AI request failed: %s", e)
-        return _finish(_heuristic(session, team_name=team_name, roster=roster, eligible_top=eligible_top, rank_by_id=rank_by_id))
+        return _finish(
+            _error_payload("AI desk could not reach the model right now. Try again in a moment.")
+        )
 
     try:
         content = body["choices"][0]["message"]["content"]
     except (KeyError, IndexError, TypeError):
-        return _finish(_heuristic(session, team_name=team_name, roster=roster, eligible_top=eligible_top, rank_by_id=rank_by_id))
+        return _finish(_error_payload("AI desk got an unreadable response from the model."))
 
     try:
         parsed = json.loads(_strip_json_fence(str(content)))
     except json.JSONDecodeError:
-        return _finish(_heuristic(session, team_name=team_name, roster=roster, eligible_top=eligible_top, rank_by_id=rank_by_id))
+        return _finish(_error_payload("AI desk could not parse the model's JSON reply."))
 
     headline = str(parsed.get("headline") or "Draft desk").strip()[:200]
     summary = str(parsed.get("summary") or "").strip()
@@ -293,16 +345,17 @@ def fetch_draft_hub_ai_advice(
                 recommendations.append({"player_id": pid, "player_name": pname, "blurb": blurb})
 
     if not summary:
-        summary = "The model wandered offside—treating this as a soft suggestion only."
+        summary = "The model wandered offside — treating this as a soft suggestion only."
 
     if not recommendations:
-        return _finish(_heuristic(session, team_name=team_name, roster=roster, eligible_top=eligible_top, rank_by_id=rank_by_id))
+        return _finish(
+            _error_payload("AI desk returned no valid recommendations from the eligible board.")
+        )
 
     return _finish(
         {
             "headline": headline,
             "summary": summary,
             "recommendations": recommendations,
-            "fallback": False,
         }
     )

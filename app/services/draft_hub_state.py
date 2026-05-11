@@ -132,9 +132,14 @@ def sync_current_slot_and_clock(session: Session, draft: LeagueDraft) -> None:
         draft.status = "completed"
         draft.pick_started_at = None
         draft.pick_deadline_at = None
+        draft.timer_paused = False
+        draft.timer_paused_remaining_seconds = None
         draft.awaiting_admin_resolution = False
         return
     if draft.awaiting_admin_resolution:
+        draft.pick_deadline_at = None
+        return
+    if getattr(draft, "timer_paused", False):
         draft.pick_deadline_at = None
         return
 
@@ -165,12 +170,14 @@ def _finalize_draft_if_done(session: Session, draft: LeagueDraft, slots: list[Le
     draft.status = "completed"
     draft.pick_started_at = None
     draft.pick_deadline_at = None
+    draft.timer_paused = False
+    draft.timer_paused_remaining_seconds = None
     draft.awaiting_admin_resolution = False
     draft.completed_summary_json = json.dumps(compute_winners_losers(session, draft))
 
 
 def compute_winners_losers(session: Session, draft: LeagueDraft) -> dict[str, Any]:
-    """Heuristic team surplus from board ranks at go-live vs pick order."""
+    """Average drafted-player quality per team, scored 0-100 from board rank at go-live."""
     board_raw = draft.board_ranks_json or "{}"
     try:
         board: dict[str, int] = {k: int(v) for k, v in json.loads(board_raw).items()}
@@ -188,23 +195,29 @@ def compute_winners_losers(session: Session, draft: LeagueDraft) -> dict[str, An
         return {"teams": [], "top_winners": [], "top_losers": [], "note": "Insufficient board data."}
 
     n_pool = max(board.values()) if board else 1
-    num_slots = len(picks)
-    team_surplus: dict[int, float] = {}
+    team_scores: dict[int, list[float]] = {}
     for pk in picks:
         pid = str(int(pk.player_id))
         br = board.get(pid)
         if br is None:
             continue
-        expected = max(1, round(n_pool * int(pk.overall_pick) / (num_slots + 1)))
-        surplus = float(expected - br)
-        team_surplus[pk.team_id] = team_surplus.get(pk.team_id, 0.0) + surplus
+        quality = max(0.0, (float(n_pool) - float(br) + 1.0) / float(n_pool) * 100.0)
+        team_scores.setdefault(int(pk.team_id), []).append(quality)
 
-    ranked = sorted(team_surplus.items(), key=lambda kv: kv[1], reverse=True)
-    teams_out = [{"team_id": tid, "surplus": round(s, 2)} for tid, s in ranked]
-    winners = [{"team_id": tid, "surplus": round(s, 2)} for tid, s in ranked[:3]]
-    losers_asc = sorted(team_surplus.items(), key=lambda kv: kv[1])
-    losers = [{"team_id": tid, "surplus": round(s, 2)} for tid, s in losers_asc[:3]]
-    return {"teams": teams_out, "top_winners": winners, "top_losers": losers, "note": "Heuristic from ratings at go-live."}
+    team_avg: dict[int, float] = {
+        tid: (sum(vs) / len(vs)) for tid, vs in team_scores.items() if vs
+    }
+    ranked_desc = sorted(team_avg.items(), key=lambda kv: (-kv[1], kv[0]))
+    ranked_asc = sorted(team_avg.items(), key=lambda kv: (kv[1], kv[0]))
+    teams_out = [{"team_id": tid, "score": round(s, 1)} for tid, s in ranked_desc]
+    winners = [{"team_id": tid, "score": round(s, 1)} for tid, s in ranked_desc[:3]]
+    losers = [{"team_id": tid, "score": round(s, 1)} for tid, s in ranked_asc[:3]]
+    return {
+        "teams": teams_out,
+        "top_winners": winners,
+        "top_losers": losers,
+        "note": "Average pick quality (100 = #1 on the board at go-live).",
+    }
 
 
 def go_live(session: Session, draft: LeagueDraft, admin_user_id: int) -> str | None:
@@ -235,12 +248,54 @@ def go_live(session: Session, draft: LeagueDraft, admin_user_id: int) -> str | N
     draft.deadline_extended_for_slot = False
     draft.pick_started_at = None
     draft.pick_deadline_at = None
+    draft.timer_paused = False
+    draft.timer_paused_remaining_seconds = None
     sync_current_slot_and_clock(session, draft)
     return None
 
 
+def pause_draft_timer(session: Session, draft: LeagueDraft) -> str | None:
+    """Pause the current live pick countdown and remember the remaining time."""
+    if draft.status != "live":
+        return "Draft is not live."
+    if draft.awaiting_admin_resolution:
+        return "Current pick already needs commissioner action."
+    if getattr(draft, "timer_paused", False):
+        return None
+    slots = slots_ordered(session, draft.id)
+    if draft.current_slot_index >= len(slots):
+        return "No active pick slot."
+    now = utcnow_naive()
+    ddl = draft.pick_deadline_at
+    remaining = int(max(1, round((ddl - now).total_seconds()))) if ddl else int(draft.timer_seconds)
+    draft.timer_paused = True
+    draft.timer_paused_remaining_seconds = remaining
+    draft.pick_deadline_at = None
+    return None
+
+
+def resume_draft_timer(session: Session, draft: LeagueDraft) -> str | None:
+    """Resume a paused live pick countdown or restart a commissioner-stopped pick."""
+    if draft.status != "live":
+        return "Draft is not live."
+    slots = slots_ordered(session, draft.id)
+    if draft.current_slot_index >= len(slots):
+        return "No active pick slot."
+    if not getattr(draft, "timer_paused", False) and not draft.awaiting_admin_resolution:
+        return None
+    remaining = int(draft.timer_paused_remaining_seconds or draft.timer_seconds or 120)
+    remaining = max(1, remaining)
+    now = utcnow_naive()
+    draft.awaiting_admin_resolution = False
+    draft.timer_paused = False
+    draft.timer_paused_remaining_seconds = None
+    draft.pick_started_at = now
+    draft.pick_deadline_at = now + timedelta(seconds=remaining)
+    return None
+
+
 def process_tick(session: Session, draft: LeagueDraft) -> None:
-    if draft.status != "live" or draft.awaiting_admin_resolution:
+    if draft.status != "live" or draft.awaiting_admin_resolution or getattr(draft, "timer_paused", False):
         return
     ddl = draft.pick_deadline_at
     if ddl is None:
@@ -359,6 +414,8 @@ def record_pick(
     draft.current_slot_index += 1
     draft.deadline_extended_for_slot = False
     draft.awaiting_admin_resolution = False
+    draft.timer_paused = False
+    draft.timer_paused_remaining_seconds = None
     sync_current_slot_and_clock(session, draft)
     slots2 = slots_ordered(session, draft.id)
     _finalize_draft_if_done(session, draft, slots2)
@@ -386,6 +443,8 @@ def undo_last_pick(session: Session, draft: LeagueDraft) -> str | None:
             break
     draft.awaiting_admin_resolution = False
     draft.deadline_extended_for_slot = False
+    draft.timer_paused = False
+    draft.timer_paused_remaining_seconds = None
     sync_current_slot_and_clock(session, draft)
     return None
 

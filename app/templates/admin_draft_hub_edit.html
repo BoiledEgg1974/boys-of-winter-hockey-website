@@ -14,35 +14,125 @@
     <label>Name<br><input type="text" name="name" value="{{ draft.name }}" style="width:100%;max-width:28rem;"></label>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(10rem,1fr));gap:0.75rem;margin-top:0.75rem;">
       <label>Rounds<br><input type="number" name="rounds" value="{{ draft.rounds }}" min="1"></label>
+      <label>Picks per round<br><input type="number" name="picks_per_round" value="{{ draft.picks_per_round }}" min="1"></label>
       <label>Timer (s)<br><input type="number" name="timer_seconds" value="{{ draft.timer_seconds }}" min="5"></label>
       <label>Empty-queue timer (s)<br><input type="number" name="empty_queue_timer_seconds" value="{{ draft.empty_queue_timer_seconds }}" min="5"></label>
       <label>Timeline year<br><input type="number" name="timeline_year" value="{{ draft.timeline_year }}"></label>
     </div>
-    <p class="muted" style="margin:0.75rem 0 0;">Eligibility: min age by min anchor; max age by max anchor (calendar year = timeline year).</p>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(8rem,1fr));gap:0.75rem;margin-top:0.5rem;">
-      <label>Min age<br><input type="number" name="min_age_years" value="{{ draft.min_age_years }}"></label>
-      <label>Min M<br><input type="number" name="min_anchor_month" value="{{ draft.min_anchor_month }}" min="1" max="12"></label>
-      <label>Min D<br><input type="number" name="min_anchor_day" value="{{ draft.min_anchor_day }}" min="1" max="31"></label>
-      <label>Max age<br><input type="number" name="max_age_years" value="{{ draft.max_age_years }}"></label>
-      <label>Max M<br><input type="number" name="max_anchor_month" value="{{ draft.max_anchor_month }}" min="1" max="12"></label>
-      <label>Max D<br><input type="number" name="max_anchor_day" value="{{ draft.max_anchor_day }}" min="1" max="31"></label>
-    </div>
+    <section class="card" style="padding:1rem;margin-top:1rem;">
+      <h3 style="margin-top:0;">Eligibility age rules</h3>
+      <p class="muted" style="margin:0 0 0.75rem;">
+        Dates use the draft <strong>timeline year</strong>. A player qualifies only if they are at least the minimum age by the minimum-age deadline, and no older than the maximum age on the maximum-age deadline.
+      </p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(18rem,1fr));gap:1rem;">
+        <div class="card" style="padding:0.75rem;">
+          <h4 style="margin:0 0 0.5rem;">Minimum age</h4>
+          <p class="muted" style="margin:0 0 0.75rem;">Example: set age 18 and September 30 to allow 17-year-olds who turn 18 by September 30 of the draft year.</p>
+          <label>Must turn at least this age<br>
+            <select name="min_age_years" style="width:100%;max-width:10rem;">
+              {% for age in age_options %}
+                <option value="{{ age }}"{% if draft.min_age_years == age %} selected{% endif %}>{{ age }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label style="display:block;margin-top:0.75rem;">By this in-game deadline date<br>
+            <input type="date" name="min_deadline_date" value="{{ min_deadline_value }}" min="{{ year_min_date }}" max="{{ year_max_date }}" style="max-width:14rem;">
+          </label>
+        </div>
+        <div class="card" style="padding:0.75rem;">
+          <h4 style="margin:0 0 0.5rem;">Maximum age</h4>
+          <p class="muted" style="margin:0 0 0.75rem;">Example: set age 20 and September 30 to exclude anyone who turns 21 before or on September 30 of the draft year.</p>
+          <label>Must be no older than this age<br>
+            <select name="max_age_years" style="width:100%;max-width:10rem;">
+              {% for age in age_options %}
+                <option value="{{ age }}"{% if draft.max_age_years == age %} selected{% endif %}>{{ age }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label style="display:block;margin-top:0.75rem;">As of this in-game deadline date<br>
+            <input type="date" name="max_deadline_date" value="{{ max_deadline_value }}" min="{{ year_min_date }}" max="{{ year_max_date }}" style="max-width:14rem;">
+          </label>
+        </div>
+      </div>
+    </section>
     <label style="display:block;margin-top:0.75rem;">Display-only scheduled start (local, optional)<br>
       <input type="datetime-local" name="scheduled_start_at" value="{{ sched_value }}" style="max-width:20rem;">
     </label>
     <button type="submit" class="button" style="margin-top:0.75rem;">Save settings</button>
   </form>
 
-  <h2>Draft order (CSV)</h2>
-  <p class="muted">One pick per line: <code>overall,round,team_id</code> optional <code>,notes,forfeit</code> (use word <code>forfeit</code> in 5th column).</p>
-  <form method="post" class="card" style="padding:1rem;margin-bottom:1rem;">
+  <h2>Draft order</h2>
+  <p class="muted">Set the team holding each pick. Use <strong>Copy teams from previous round</strong> to duplicate the previous round's order into the next round.</p>
+  <form method="post" class="card draft-hub-admin-rounds" style="padding:1rem;margin-bottom:1rem;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <input type="hidden" name="action" value="save_slots">
-    <textarea name="slots_csv" rows="14" style="width:100%;font-family:monospace;font-size:0.85rem;">{{ slots_csv }}</textarea>
-    <p class="muted" style="margin:0.35rem 0;">Team IDs: {% for t in teams[:12] %}{{ t.id }}={{ t.abbreviation }}{% if not loop.last %}, {% endif %}{% endfor %}{% if teams|length > 12 %}…{% endif %}</p>
-    <button type="submit" class="button">Save order</button>
+    <input type="hidden" name="action" value="save_generated_slots">
+    {% for round_rows in round_slot_rows %}
+      <section class="card draft-hub-admin-round" data-round="{{ loop.index }}" style="padding:0.75rem;margin:0 0 0.75rem;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;flex-wrap:wrap;">
+          <h3 style="margin:0;">Round {{ loop.index }}</h3>
+          {% if not loop.first %}
+            <button type="button" class="button secondary small dh-copy-prev-round" data-round="{{ loop.index }}">Copy teams from previous round</button>
+          {% endif %}
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(12rem,1fr));gap:0.5rem;margin-top:0.75rem;">
+          {% for slot in round_rows %}
+            <label>
+              Pick {{ slot.overall }}
+              <select name="slot_team_{{ slot.overall }}" data-round="{{ slot.round }}" data-pick-index="{{ loop.index0 }}" style="width:100%;" required>
+                <option value="">Select team</option>
+                {% for t in teams %}
+                  <option value="{{ t.id }}"{% if slot.team_id == t.id %} selected{% endif %}>{{ t.abbreviation or t.name }}</option>
+                {% endfor %}
+              </select>
+            </label>
+          {% endfor %}
+        </div>
+      </section>
+    {% endfor %}
+    <button type="submit" class="button">Save draft order</button>
   </form>
   {% endif %}
+
+  {% if draft.status in ('setup', 'live') and round_slot_rows %}
+  <h2>Pick ownership / trades</h2>
+  <p class="muted">Use this if a pick changes hands on draft day. Completed picks are locked; current and future picks can be reassigned before they are made.</p>
+  <form method="post" class="card" style="padding:1rem;margin-bottom:1rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="save_slot_teams">
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(13rem,1fr));gap:0.5rem;">
+      {% for round_rows in round_slot_rows %}
+        {% for slot in round_rows %}
+          {% if slot.team_id %}
+          <label>
+            R{{ slot.round }} · Pick {{ slot.overall }}{% if slot.picked %} <span class="muted">(picked)</span>{% endif %}
+            <select name="slot_team_{{ slot.overall }}" style="width:100%;"{% if slot.picked %} disabled{% endif %}>
+              {% for t in teams %}
+                <option value="{{ t.id }}"{% if slot.team_id == t.id %} selected{% endif %}>{{ t.abbreviation or t.name }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          {% endif %}
+        {% endfor %}
+      {% endfor %}
+    </div>
+    <button type="submit" class="button" style="margin-top:0.75rem;">Save pick ownership</button>
+  </form>
+  {% endif %}
+
+  <h2>Boost picks (GOLD / SILVER)</h2>
+  <p class="muted">After running the <a href="{{ url_for('site_gm.boost_lottery') }}">Boost Lottery</a>, paste the winning <strong>overall pick numbers</strong> below to highlight them on the public Draft Hub. Comma- or space-separated; an overall number can be gold <em>or</em> silver, not both. Submitting overwrites the previous tags on this draft.</p>
+  <form method="post" class="card" style="padding:1rem;margin-bottom:1rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="save_boosts">
+    <label style="display:block;">Gold picks (overall)<br>
+      <input type="text" name="gold_picks" value="{{ gold_csv }}" placeholder="e.g. 28, 35, 42, 60" style="width:100%;max-width:36rem;font-family:monospace;">
+    </label>
+    <label style="display:block;margin-top:0.5rem;">Silver picks (overall)<br>
+      <input type="text" name="silver_picks" value="{{ silver_csv }}" placeholder="e.g. 31, 47, 55, 70, 88, 102" style="width:100%;max-width:36rem;font-family:monospace;">
+    </label>
+    <button type="submit" class="button" style="margin-top:0.5rem;">Save boost picks</button>
+    <span class="muted" style="margin-left:0.5rem;">Tip: clear both fields and save to remove all gold/silver tags.</span>
+  </form>
 
   <h2>Go live / picks</h2>
   {% if draft.status == 'setup' %}
@@ -57,12 +147,43 @@
     <input type="hidden" name="action" value="undo_pick">
     <button type="submit" class="button secondary">Undo last pick</button>
   </form>
+  <form method="post" style="display:inline;margin-right:0.5rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% if draft.timer_paused %}
+      <input type="hidden" name="action" value="resume_timer">
+      <button type="submit" class="button">Resume Countdown</button>
+      <span class="muted">Paused with about {{ draft.timer_paused_remaining_seconds or draft.timer_seconds }}s left.</span>
+    {% else %}
+      <input type="hidden" name="action" value="pause_timer">
+      <button type="submit" class="button secondary">Pause Countdown</button>
+    {% endif %}
+  </form>
   <form method="post" style="display:inline-flex;gap:0.35rem;align-items:center;flex-wrap:wrap;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="admin_pick">
     <label>Force / resolve pick — player id <input type="number" name="player_id" min="1" style="width:7rem;"></label>
     <button type="submit" class="button">Submit pick</button>
   </form>
+  <section class="card" style="padding:1rem;margin:1rem 0;">
+    <h3 style="margin-top:0;">Current pick wishlist guidance</h3>
+    {% if wishlist_guidance %}
+      <ul style="margin-bottom:0;">
+        {% for row in wishlist_guidance %}
+          <li>
+            <strong>{{ row.gm_name }}</strong>:
+            {% if row.player_id %}
+              {{ row.player_name or ('Player #' ~ row.player_id) }} — ID <code>{{ row.player_id }}</code>
+            {% else %}
+              <span class="muted">No available queued player</span>
+            {% endif %}
+            <span class="muted">({{ row.queue_count }} queued)</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted" style="margin-bottom:0;">No active GM wishlist entries found for the team on the clock.</p>
+    {% endif %}
+  </section>
   {% else %}
   <p class="muted">Draft completed. <a href="{{ url_for('draft_hub.draft_hub_archive_one', draft_id=draft.id) }}">View archive</a></p>
   {% endif %}
@@ -84,4 +205,19 @@
     </ul>
   {% endif %}
 </div>
+<script>
+(function () {
+  document.querySelectorAll('.dh-copy-prev-round').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var round = parseInt(btn.getAttribute('data-round') || '0', 10);
+      if (!round || round <= 1) return;
+      document.querySelectorAll('select[data-round="' + round + '"]').forEach(function (target) {
+        var pickIndex = target.getAttribute('data-pick-index');
+        var source = document.querySelector('select[data-round="' + (round - 1) + '"][data-pick-index="' + pickIndex + '"]');
+        if (source) target.value = source.value;
+      });
+    });
+  });
+})();
+</script>
 {% endblock %}

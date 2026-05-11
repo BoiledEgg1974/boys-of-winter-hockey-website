@@ -10400,36 +10400,46 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
 }
 @media (min-width: 960px) {
   .draft-hub-grid {
-    grid-template-columns: 1.05fr 1fr 0.62fr 0.88fr;
-    grid-template-rows: auto 1fr;
+    grid-template-columns: 0.5fr 1.05fr 0.7fr 0.6fr 1.4fr;
+    grid-template-rows: auto auto 1fr;
   }
-  .draft-hub-banner {
-    grid-column: 1 / -1;
-  }
-  .draft-hub-col--players {
-    grid-row: 2;
+  .draft-hub-upnext {
+    grid-row: 1 / 3;
     grid-column: 1;
   }
+  .draft-hub-banner {
+    grid-row: 1;
+    grid-column: 2 / 5;
+  }
   .draft-hub-col--ai {
-    grid-row: 2;
-    grid-column: 2;
+    grid-row: 1 / 3;
+    grid-column: 5;
     min-width: 0;
   }
-  .draft-hub-col--order {
+  .draft-hub-col--wishlist {
     grid-row: 2;
+    grid-column: 2 / 5;
+  }
+  .draft-hub-col--players {
+    grid-row: 3;
+    grid-column: 1 / 3;
+  }
+  .draft-hub-col--order {
+    grid-row: 3;
     grid-column: 3;
   }
-  .draft-hub-col--side {
-    grid-row: 2;
-    grid-column: 4;
+  .draft-hub-col--history {
+    grid-row: 3;
+    grid-column: 4 / 6;
   }
 }
 .draft-hub-banner__status {
   text-align: center;
   font-family: "Bebas Neue", sans-serif;
-  font-size: 1.35rem;
+  font-size: 2.7rem;
   letter-spacing: 0.06em;
-  margin: 0 0 0.35rem;
+  line-height: 1.05;
+  margin: 0 0 0.55rem;
   color: var(--accent);
 }
 .draft-hub-banner__timer {
@@ -10443,6 +10453,11 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
   text-align: center;
   margin: 0;
   font-size: 0.9rem;
+}
+.draft-hub-admin-timer-form {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.75rem;
 }
 .draft-hub-col__title {
   margin: 0 0 0.65rem;
@@ -10465,12 +10480,49 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
   gap: 0.5rem;
 }
 .draft-hub-player {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr) auto;
+  align-items: center;
   gap: 0.75rem;
-  padding: 0.5rem 0.35rem;
+  padding: 0.55rem 0.35rem;
   border-bottom: 1px solid var(--border);
+}
+.draft-hub-player__photo {
+  display: inline-flex;
+  width: 48px;
+  height: 48px;
+  overflow: hidden;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: rgb(148 163 184 / 0.12);
+  border: 1px solid var(--border, rgb(148 163 184 / 0.2));
+}
+.draft-hub-player__photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.draft-hub-player__photo-ph {
+  width: 100%;
+  height: 100%;
+  background:
+    radial-gradient(circle at 50% 34%, rgb(148 163 184 / 0.55) 0 17%, transparent 18%),
+    radial-gradient(circle at 50% 82%, rgb(148 163 184 / 0.45) 0 36%, transparent 37%);
+}
+.draft-hub-player__main {
+  min-width: 0;
+}
+.draft-hub-player__line {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.55rem;
+  line-height: 1.35;
+}
+.draft-hub-player__line--top {
+  align-items: center;
+  gap: 0.35rem;
 }
 .draft-hub-player__name {
   color: var(--accent);
@@ -10478,11 +10530,23 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
 a.draft-hub-player__name:hover {
   color: var(--accent-hover);
 }
+.draft-hub-player__team {
+  min-width: 0;
+}
+.draft-hub-player__stat {
+  color: var(--muted, #94a3b8);
+  font-weight: 600;
+}
 .draft-hub-ai-body {
-  max-height: min(70vh, 520px);
+  max-height: 260px;
   overflow-y: auto;
   font-size: 0.92rem;
   line-height: 1.45;
+}
+@media (max-width: 959px) {
+  .draft-hub-ai-body {
+    max-height: min(70vh, 520px);
+  }
 }
 .draft-hub-ai__headline {
   font-weight: 700;
@@ -10514,28 +10578,455 @@ a.draft-hub-player__name:hover {
 .draft-hub-player__actions {
   flex-shrink: 0;
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 0.25rem;
   justify-content: flex-end;
 }
+.draft-hub-player__actions .button {
+  min-width: 92px;
+  padding-inline: 0.55rem;
+}
+@media (max-width: 720px) {
+  .draft-hub-player {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+  .draft-hub-player__photo {
+    width: 40px;
+    height: 40px;
+  }
+  .draft-hub-player__actions {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    justify-content: flex-start;
+  }
+}
 .draft-hub-order {
   margin: 0;
-  padding-left: 1.25rem;
+  padding: 0;
+  list-style: none;
   max-height: min(70vh, 520px);
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.draft-hub-order__item {
+  display: grid;
+  grid-template-columns: 2.2rem 36px 1fr;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.3rem 0.4rem;
+  border-radius: 4px;
+}
+.draft-hub-order__logo {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  border-radius: 4px;
+  background: rgb(255 255 255 / 0.04);
+}
+.draft-hub-order__logo--placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--muted, #94a3b8);
+  background: rgb(148 163 184 / 0.12);
+}
+.draft-hub-order__forfeited {
+  text-decoration: line-through;
+  opacity: 0.55;
+}
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
 }
 .draft-hub-order__current {
   background: rgb(250 204 21 / 0.25);
+  border-radius: 4px;
+}
+
+/* Draft Hub — GOLD / SILVER boost-lottery picks */
+.draft-hub-boost-badge {
+  display: inline-block;
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  margin-left: 0.35rem;
+  vertical-align: middle;
+  line-height: 1.25;
+}
+.draft-hub-boost-badge--gold {
+  background: linear-gradient(135deg, #f7d774 0%, #c49a32 100%);
+  color: #1a1300;
+  box-shadow: 0 0 0 1px rgb(255 215 0 / 0.6), 0 0 6px rgb(255 215 0 / 0.35);
+}
+.draft-hub-boost-badge--silver {
+  background: linear-gradient(135deg, #e6ebf2 0%, #93a0b3 100%);
+  color: #14181f;
+  box-shadow: 0 0 0 1px rgb(220 230 240 / 0.6), 0 0 6px rgb(220 230 240 / 0.3);
+}
+
+.draft-hub-order__gold {
+  background: linear-gradient(90deg, rgb(255 215 0 / 0.32), rgb(255 215 0 / 0.08));
   margin-left: -0.35rem;
   padding-left: 0.35rem;
+  border-left: 3px solid #ffd24a;
   border-radius: 4px;
+}
+.draft-hub-order__silver {
+  background: linear-gradient(90deg, rgb(210 220 235 / 0.32), rgb(210 220 235 / 0.06));
+  margin-left: -0.35rem;
+  padding-left: 0.35rem;
+  border-left: 3px solid #c8d2e0;
+  border-radius: 4px;
+}
+.draft-hub-order__gold.draft-hub-order__current,
+.draft-hub-order__current.draft-hub-order__gold {
+  background: linear-gradient(90deg, rgb(255 215 0 / 0.55), rgb(250 204 21 / 0.28));
+}
+.draft-hub-order__silver.draft-hub-order__current,
+.draft-hub-order__current.draft-hub-order__silver {
+  background: linear-gradient(90deg, rgb(220 230 245 / 0.55), rgb(250 204 21 / 0.22));
+}
+
+.draft-hub-pick--gold > td {
+  background: rgb(255 215 0 / 0.12);
+}
+.draft-hub-pick--silver > td {
+  background: rgb(210 220 235 / 0.12);
+}
+.draft-hub-archive-board {
+  width: 100%;
+  font-size: 0.92rem;
+}
+.draft-hub-archive-board th {
+  text-align: center;
+}
+.draft-hub-archive-board th:first-child,
+.draft-hub-archive-board td:first-child {
+  width: 6rem;
+  white-space: nowrap;
+}
+.draft-hub-archive-board th:nth-child(2),
+.draft-hub-archive-board td:nth-child(2) {
+  width: 3.25rem;
+  text-align: center;
+  padding-inline: 0.25rem;
+}
+.draft-hub-archive-board th:last-child,
+.draft-hub-archive-board td:last-child {
+  text-align: left;
+}
+.draft-hub-archive-board__team {
+  vertical-align: middle;
+}
+.draft-hub-archive-board__logo {
+  display: inline-block;
+  width: 2.1rem;
+  height: 2.1rem;
+  object-fit: contain;
+  vertical-align: middle;
+}
+
+.draft-hub-grades-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  margin: 1rem 0;
+}
+@media (min-width: 760px) {
+  .draft-hub-grades-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.draft-hub-grade-card {
+  padding: 1rem;
+  margin: 0;
+}
+.draft-hub-grade-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  counter-reset: dh-grade;
+}
+.draft-hub-grade-row {
+  counter-increment: dh-grade;
+  display: grid;
+  grid-template-columns: 1.5rem 2.25rem 1fr auto;
+  align-items: center;
+  column-gap: 0.55rem;
+  padding: 0.4rem 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.draft-hub-grade-row:first-child {
+  border-top: none;
+}
+.draft-hub-grade-row::before {
+  content: counter(dh-grade) ".";
+  color: var(--muted, #9aa);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.draft-hub-grade-row__logo {
+  width: 2.25rem;
+  height: 2.25rem;
+  object-fit: contain;
+}
+.draft-hub-grade-row__logo--placeholder {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 50%;
+}
+.draft-hub-grade-row__name {
+  font-weight: 600;
+}
+.draft-hub-grade-row__score {
+  color: var(--muted, #9aa);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.draft-hub-rounds-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  margin: 1rem 0;
+}
+@media (min-width: 960px) {
+  .draft-hub-rounds-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.draft-hub-round-card {
+  padding: 1rem;
+  margin: 0;
+}
+.draft-hub-archive-round-picker {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+.draft-hub-archive-board__gap {
+  width: 0.75rem;
+  min-width: 0.75rem;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+
+.draft-hub-banner--gold {
+  border: 2px solid #ffd24a;
+  box-shadow: 0 0 0 1px rgb(255 215 0 / 0.4) inset, 0 0 18px rgb(255 215 0 / 0.25);
+}
+.draft-hub-banner--silver {
+  border: 2px solid #c8d2e0;
+  box-shadow: 0 0 0 1px rgb(220 230 240 / 0.4) inset, 0 0 18px rgb(220 230 240 / 0.25);
+}
+.draft-hub-boost-banner-flag {
+  margin: 0 0 0.35rem;
+  font-family: "Bebas Neue", sans-serif;
+  letter-spacing: 0.16em;
+  font-size: 1rem;
+  display: inline-block;
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+}
+.draft-hub-boost-banner-flag--gold {
+  background: linear-gradient(135deg, #f7d774 0%, #c49a32 100%);
+  color: #1a1300;
+}
+.draft-hub-boost-banner-flag--silver {
+  background: linear-gradient(135deg, #e6ebf2 0%, #93a0b3 100%);
+  color: #14181f;
 }
 .draft-hub-order__ov {
   font-weight: 600;
-  margin-right: 0.35rem;
-}
-.draft-hub-mini-table {
+  min-width: 1.8rem;
+  text-align: right;
+  color: var(--muted, #94a3b8);
   font-size: 0.85rem;
+}
+.draft-hub-mini-table,
+.draft-hub-history-table {
+  font-size: 0.85rem;
+}
+
+/* Up Next panel — split into Up Now (top, full size) + On Deck (below, 75% size). */
+.draft-hub-upnext {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  align-items: stretch;
+  justify-content: flex-start;
+}
+.draft-hub-upnext__title {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.draft-hub-upnext__slot {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    "label badge"
+    "logo  logo";
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.65rem 0.6rem;
+  border: 1px solid var(--border, rgb(148 163 184 / 0.2));
+  border-radius: 10px;
+  background: rgb(148 163 184 / 0.05);
+}
+.draft-hub-upnext__slot--now {
+  background: rgb(250 204 21 / 0.16);
+  border-color: rgb(250 204 21 / 0.4);
+}
+.draft-hub-upnext__label {
+  grid-area: label;
+  font-family: "Bebas Neue", sans-serif;
+  letter-spacing: 0.08em;
+  font-size: 1rem;
+  color: var(--muted, #94a3b8);
+}
+.draft-hub-upnext__slot--now .draft-hub-upnext__label {
+  color: var(--accent, #ef4444);
+  font-size: 1.2rem;
+}
+.draft-hub-upnext__logo {
+  grid-area: logo;
+  justify-self: center;
+  object-fit: contain;
+  margin-top: 0.2rem;
+}
+.draft-hub-upnext__logo--now {
+  width: clamp(110px, 12vw, 160px);
+  height: clamp(110px, 12vw, 160px);
+}
+.draft-hub-upnext__logo--deck {
+  width: clamp(82px, 9vw, 120px);
+  height: clamp(82px, 9vw, 120px);
+}
+.draft-hub-upnext__logo--placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: var(--muted, #94a3b8);
+  background: rgb(148 163 184 / 0.12);
+  border-radius: 8px;
+}
+.draft-hub-upnext .draft-hub-boost-badge {
+  grid-area: badge;
+  justify-self: end;
+  margin-left: 0;
+}
+.draft-hub-upnext__slot--gold {
+  border-color: rgb(255 215 0 / 0.5);
+  box-shadow: 0 0 0 1px rgb(255 215 0 / 0.25) inset;
+}
+.draft-hub-upnext__slot--silver {
+  border-color: rgb(220 230 240 / 0.55);
+  box-shadow: 0 0 0 1px rgb(220 230 240 / 0.25) inset;
+}
+.draft-hub-upnext__slot--empty {
+  align-items: center;
+  justify-items: center;
+  text-align: center;
+}
+
+/* Eligible Prospects filter row */
+.draft-hub-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+  margin-bottom: 0.55rem;
+}
+.draft-hub-filters .draft-hub-search {
+  flex: 1 1 200px;
+  margin-bottom: 0;
+}
+.draft-hub-pos-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+.draft-hub-pos-select,
+.draft-hub-round-select {
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  background: var(--bg, transparent);
+  color: inherit;
+  border: 1px solid var(--border, rgb(148 163 184 / 0.3));
+}
+
+/* Draft History controls + table */
+.draft-hub-history-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+.draft-hub-history-round {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.draft-hub-history-table {
+  width: 100%;
+}
+.draft-hub-history-table th:nth-child(1),
+.draft-hub-history-table td:nth-child(1) {
+  white-space: nowrap;
+  width: 1%;
+  padding-right: 0.75rem;
+}
+.draft-hub-history-table th:nth-child(2),
+.draft-hub-history-table td:nth-child(2) {
+  width: 1%;
+  text-align: center;
+  padding-inline: 0.35rem;
+}
+.draft-hub-history-table th:nth-child(3),
+.draft-hub-history-table td:nth-child(3) {
+  white-space: nowrap;
+}
+.draft-hub-history-table td:nth-child(3) a {
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.draft-hub-history__logo {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  vertical-align: middle;
+  margin-right: 0;
+}
+.draft-hub-history__logo--placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--muted, #94a3b8);
+  background: rgb(148 163 184 / 0.12);
+  border-radius: 4px;
+}
+.draft-hub-history__team {
+  vertical-align: middle;
 }
 .draft-hub-flash__err {
   color: #fecaca;

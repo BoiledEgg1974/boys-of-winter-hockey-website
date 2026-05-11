@@ -15,6 +15,7 @@ from app.db_utils import (
     ensure_players_jersey_number_sqlite,
     ensure_player_overall_baseline_sqlite,
     ensure_homepage_module_settings_sqlite,
+    ensure_league_draft_slot_boost_tier_sqlite,
     ensure_site_announcements_sqlite,
     ensure_site_users_admin_role_sqlite,
     ensure_password_reset_tokens_sqlite,
@@ -134,6 +135,7 @@ def create_app(config_class: type = Config) -> Flask:
             ensure_positional_rank_snapshots_sqlite(site_engine)
             ensure_power_rank_snapshots_sqlite(site_engine)
             ensure_prospect_league_rank_snapshots_sqlite(site_engine)
+            ensure_league_draft_slot_boost_tier_sqlite(site_engine)
         # FTS may be empty until import or seed; seed script calls rebuild
         try:
             from app.services.ratings_position_cache import backfill_null_positions_from_ratings

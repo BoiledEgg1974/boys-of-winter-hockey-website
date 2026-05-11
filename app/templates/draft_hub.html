@@ -26,6 +26,8 @@
        data-state-url="{{ url_for('draft_hub.draft_hub_api_state') }}"
        data-eligible-url="{{ url_for('draft_hub.draft_hub_eligible_page') }}"
        data-ai-advice-url="{{ url_for('draft_hub.draft_hub_api_ai_advice') }}"
+       data-pause-url="{{ url_for('draft_hub.draft_hub_pause_timer') }}"
+       data-resume-url="{{ url_for('draft_hub.draft_hub_resume_timer') }}"
        data-player-page-tpl="{{ url_for('main.player_page', player_id=988776655) }}"
        data-sound-base="{{ url_for('draft_hub.draft_hub_sound', sound_id=0).rsplit('/', 1)[0] }}">
   </div>
@@ -44,6 +46,8 @@
   var stateUrl = root.getAttribute('data-state-url');
   var eligibleUrl = root.getAttribute('data-eligible-url');
   var aiAdviceUrl = root.getAttribute('data-ai-advice-url') || '';
+  var pauseUrl = root.getAttribute('data-pause-url') || '';
+  var resumeUrl = root.getAttribute('data-resume-url') || '';
   var playerPageTpl = root.getAttribute('data-player-page-tpl') || '';
   var pickUrl = root.getAttribute('data-pick-url');
   var qAddUrl = root.getAttribute('data-queue-add-url');
@@ -101,11 +105,7 @@
       });
       h += '</ul>';
     }
-    if (data.fallback) {
-      h += '<p class="muted small draft-hub-ai__note">Heuristic or offline read — for fun only, not league guidance.</p>';
-    } else {
-      h += '<p class="muted small draft-hub-ai__note">AI-generated entertainment — not league guidance.</p>';
-    }
+    h += '<p class="muted small draft-hub-ai__note">AI-generated entertainment — not league guidance.</p>';
     el.innerHTML = h;
   }
 
@@ -128,10 +128,14 @@
     renderAiPanelLoading();
     var url = aiAdviceUrl + '?draft_id=' + encodeURIComponent(String(x.id));
     fetch(url, { credentials: 'same-origin' })
-      .then(function (r) { return r.json(); })
+      .then(function (r) { return r.json().catch(function () { return {}; }); })
       .then(function (data) {
         if (!data || !data.ok) {
-          renderAiPanelError();
+          if (data && data.error) {
+            renderAiPanelIdle(data.error);
+          } else {
+            renderAiPanelError();
+          }
           return;
         }
         lastAiPayload = data;
@@ -212,8 +216,72 @@
     var x = d.draft;
     var html = '';
     html += '<div class="draft-hub-grid">';
-    html += '<header class="draft-hub-banner card">';
-    if (x.status === 'live' && x.on_clock_team && !x.awaiting_admin) {
+
+    // === Banner row: Up Now / On Deck | Banner | AI Draft Desk ===
+    html += '<aside class="draft-hub-upnext card" aria-label="Up Next">';
+    var upNowSlot = null;
+    if (x.status === 'live' && !x.awaiting_admin && x.current_slot) {
+      upNowSlot = {
+        team: x.current_slot.team || x.on_clock_team || '',
+        team_logo_url: x.current_slot.team_logo_url || x.on_clock_logo_url || '',
+        boost_tier: x.current_slot.boost_tier || ''
+      };
+    }
+    var onDeckSlot = null;
+    if ((x.up_next || []).length) {
+      var n = x.up_next[0];
+      onDeckSlot = {
+        team: n.team || '',
+        team_logo_url: n.team_logo_url || '',
+        boost_tier: n.boost_tier || ''
+      };
+    }
+
+    function renderUpNextSlot(slot, kind) {
+      if (!slot) {
+        return '<div class="draft-hub-upnext__slot draft-hub-upnext__slot--' + kind + ' draft-hub-upnext__slot--empty">' +
+               '<span class="draft-hub-upnext__label">' + (kind === 'now' ? 'Up Now' : 'On Deck') + '</span>' +
+               '<span class="muted small">Waiting…</span>' +
+               '</div>';
+      }
+      var slotCls = 'draft-hub-upnext__slot draft-hub-upnext__slot--' + kind;
+      if (slot.boost_tier === 'gold') slotCls += ' draft-hub-upnext__slot--gold';
+      else if (slot.boost_tier === 'silver') slotCls += ' draft-hub-upnext__slot--silver';
+      var labelText = kind === 'now' ? 'Up Now' : 'On Deck';
+      var logoCls = 'draft-hub-upnext__logo draft-hub-upnext__logo--' + kind;
+      var inner = '<span class="draft-hub-upnext__label">' + labelText + '</span>';
+      if (slot.team_logo_url) {
+        inner += '<img class="' + logoCls + '" src="' + esc(slot.team_logo_url) + '" alt="' + esc(slot.team) + ' logo" title="' + esc(slot.team) + '">';
+      } else {
+        inner += '<span class="' + logoCls + ' draft-hub-upnext__logo--placeholder" aria-hidden="true" title="' + esc(slot.team) + '">' + esc((slot.team || '?').substring(0, 2).toUpperCase()) + '</span>';
+      }
+      if (slot.boost_tier === 'gold' || slot.boost_tier === 'silver') {
+        inner += '<span class="draft-hub-boost-badge draft-hub-boost-badge--' + slot.boost_tier + '">' + slot.boost_tier.toUpperCase() + '</span>';
+      }
+      return '<div class="' + slotCls + '">' + inner + '</div>';
+    }
+
+    if (upNowSlot || onDeckSlot) {
+      html += renderUpNextSlot(upNowSlot, 'now');
+      html += renderUpNextSlot(onDeckSlot, 'deck');
+    } else {
+      html += '<h2 class="draft-hub-col__title draft-hub-upnext__title">Up Next</h2>';
+      html += '<p class="muted small">Up Now and On Deck teams will appear once the draft is live.</p>';
+    }
+    html += '</aside>';
+
+    var bannerTier = (x.current_slot && x.current_slot.boost_tier) ? x.current_slot.boost_tier : '';
+    var bannerCls = bannerTier === 'gold'
+      ? ' draft-hub-banner--gold'
+      : (bannerTier === 'silver' ? ' draft-hub-banner--silver' : '');
+    html += '<header class="draft-hub-banner card' + bannerCls + '">';
+    if (bannerTier) {
+      html += '<p class="draft-hub-boost-banner-flag draft-hub-boost-banner-flag--' + esc(bannerTier) + '">' + esc(bannerTier).toUpperCase() + ' BOOST PICK</p>';
+    }
+    if (x.status === 'live' && x.on_clock_team && x.timer_paused && !x.awaiting_admin) {
+      html += '<p class="draft-hub-banner__status">' + esc(x.on_clock_team).toUpperCase() + ' ARE ON THE CLOCK</p>';
+      html += '<p class="draft-hub-banner__timer muted">Paused</p>';
+    } else if (x.status === 'live' && x.on_clock_team && !x.awaiting_admin) {
       html += '<p class="draft-hub-banner__status">' + esc(x.on_clock_team).toUpperCase() + ' ARE ON THE CLOCK</p>';
       html += '<p class="draft-hub-banner__timer" id="dh-timer">' + fmtClock(x.deadline_ms) + '</p>';
     } else if (x.status === 'live' && x.awaiting_admin) {
@@ -235,54 +303,151 @@
     if (x.current_slot) {
       html += '<p class="draft-hub-meta">Round ' + esc(String(x.current_slot.round)) + ' · Overall ' + esc(String(x.current_slot.overall)) + '</p>';
     }
+    if (x.can_admin_control && x.status === 'live') {
+      var shouldResume = !!(x.timer_paused || x.awaiting_admin);
+      var timerAction = shouldResume ? resumeUrl : pauseUrl;
+      var timerLabel = shouldResume ? 'Resume Countdown' : 'Pause Countdown';
+      var timerCls = shouldResume ? 'button' : 'button secondary';
+      html += '<form method="post" action="' + esc(timerAction) + '" class="draft-hub-admin-timer-form">';
+      html += '<input type="hidden" name="csrf_token" value="' + esc(csrf) + '">';
+      html += '<button type="submit" class="' + timerCls + ' small">' + timerLabel + '</button>';
+      html += '</form>';
+    }
     html += '</header>';
 
-    html += '<section class="draft-hub-col draft-hub-col--players card">';
-    html += '<h2 class="draft-hub-col__title">Eligible prospects</h2>';
-    html += '<p class="muted" id="dh-eligible-meta">Loading…</p>';
-    html += '<input type="search" id="dh-search" class="draft-hub-search" placeholder="Search players…" autocomplete="off">';
-    html += '<div id="dh-eligible-list" class="draft-hub-player-list"></div>';
-    html += '</section>';
-
     html += '<section class="draft-hub-col draft-hub-col--ai card">';
-    html += '<h2 class="draft-hub-col__title">AI draft desk</h2>';
+    html += '<h2 class="draft-hub-col__title">AI Draft Desk</h2>';
     html += '<p class="muted small" style="margin:0 0 0.5rem;line-height:1.35;">Fun, roster-aware suggestions for whoever is on the clock. Click any linked name to open a full profile in a new tab.</p>';
     html += '<div id="dh-ai-body" class="draft-hub-ai-body"><p class="muted">Loading…</p></div>';
     html += '</section>';
 
-    html += '<section class="draft-hub-col draft-hub-col--order card">';
-    html += '<h2 class="draft-hub-col__title">Draft order</h2>';
-    html += '<ol class="draft-hub-order">';
-    (x.order || []).forEach(function (row) {
-      var cls = row.is_current ? ' draft-hub-order__current' : '';
-      var strike = row.forfeited ? ' style="text-decoration:line-through;opacity:0.55"' : '';
-      html += '<li class="' + cls.trim() + '"' + strike + '><span class="draft-hub-order__ov">' + esc(String(row.overall)) + '</span> ' + esc(row.team) + '</li>';
-    });
-    html += '</ol></section>';
-
-    html += '<section class="draft-hub-col draft-hub-col--side card">';
-    html += '<h2 class="draft-hub-col__title">My wishlist</h2>';
+    // === My Wishlist (sits directly under the on-the-clock banner) ===
+    html += '<section class="draft-hub-col draft-hub-col--wishlist card">';
+    html += '<h2 class="draft-hub-col__title">My Wishlist</h2>';
     html += '<p class="muted small" style="margin:0 0 0.5rem;line-height:1.35;">Order players for when you cannot be at the keyboard. If the clock runs out, the site may still use this list automatically. When you are here, you will be asked to confirm your top wishlist name or choose someone else.</p>';
     if (!{{ 'true' if gm_membership else 'false' }}) {
       html += '<p class="muted">Log in as a GM to build your wishlist.</p>';
     } else {
       html += '<div id="dh-queue"></div>';
     }
-    html += '<h2 class="draft-hub-col__title" style="margin-top:1rem;">Draft history (this event)</h2>';
-    html += '<div class="table-wrap"><table class="data draft-hub-mini-table"><thead><tr><th>#</th><th>Team</th><th>Pick</th></tr></thead><tbody>';
-    (x.recent_picks || []).forEach(function (p) {
-      var pickCell = (p.player_id != null)
-        ? '<a href="' + esc(playerHref(p.player_id)) + '" target="_blank" rel="noopener noreferrer" title="Open player profile in a new tab">' + esc(p.player) + '</a>'
-        : esc(p.player);
-      html += '<tr><td>R' + esc(String(p.round)) + ' · ' + esc(String(p.overall)) + '</td><td>' + esc(p.team) + '</td><td>' + pickCell + '</td></tr>';
-    });
-    html += '</tbody></table></div>';
     if ((x.sounds || []).length) {
       html += '<h3 class="draft-hub-col__subtitle">Soundboard</h3><div class="draft-hub-sounds">';
       x.sounds.forEach(function (s) {
         html += '<button type="button" class="button secondary dh-sound" data-sid="' + esc(String(s.id)) + '">' + esc(s.name) + '</button>';
       });
       html += '</div>';
+    }
+    html += '</section>';
+
+    // === Body row: Eligible Prospects | Draft Order | Draft History ===
+    html += '<section class="draft-hub-col draft-hub-col--players card">';
+    html += '<h2 class="draft-hub-col__title">Eligible Prospects</h2>';
+    html += '<p class="muted" id="dh-eligible-meta">Loading…</p>';
+    html += '<div class="draft-hub-filters">';
+    html += '<input type="search" id="dh-search" class="draft-hub-search" placeholder="Search players…" autocomplete="off">';
+    html += '<label class="draft-hub-pos-filter">';
+    html += '<span class="muted small">Position</span> ';
+    html += '<select id="dh-pos-filter" class="draft-hub-pos-select">';
+    var posOptions = [
+      { v: '',   t: 'All Positions' },
+      { v: 'LW', t: 'LW · Left Wing' },
+      { v: 'C',  t: 'C · Centre' },
+      { v: 'RW', t: 'RW · Right Wing' },
+      { v: 'LD', t: 'LD · Left Defense' },
+      { v: 'RD', t: 'RD · Right Defense' },
+      { v: 'G',  t: 'G · Goalie' },
+      { v: 'F',  t: 'Forwards (LW · C · RW)' },
+      { v: 'D',  t: 'Defense (LD · RD)' }
+    ];
+    posOptions.forEach(function (o) {
+      var sel = (o.v === posQ) ? ' selected' : '';
+      html += '<option value="' + esc(o.v) + '"' + sel + '>' + esc(o.t) + '</option>';
+    });
+    html += '</select></label>';
+    html += '</div>';
+    html += '<div id="dh-eligible-list" class="draft-hub-player-list"></div>';
+    html += '</section>';
+
+    html += '<section class="draft-hub-col draft-hub-col--order card">';
+    html += '<h2 class="draft-hub-col__title">Draft Order</h2>';
+    html += '<ul class="draft-hub-order">';
+    (x.order || []).forEach(function (row) {
+      var clsParts = ['draft-hub-order__item'];
+      if (row.is_current) clsParts.push('draft-hub-order__current');
+      if (row.boost_tier === 'gold') clsParts.push('draft-hub-order__gold');
+      else if (row.boost_tier === 'silver') clsParts.push('draft-hub-order__silver');
+      if (row.forfeited) clsParts.push('draft-hub-order__forfeited');
+      var cls = clsParts.join(' ');
+      var badge = '';
+      if (row.boost_tier === 'gold' || row.boost_tier === 'silver') {
+        badge = '<span class="draft-hub-boost-badge draft-hub-boost-badge--' + row.boost_tier + '">' + row.boost_tier.toUpperCase() + '</span>';
+      }
+      var logoCell = row.team_logo_url
+        ? '<img class="draft-hub-order__logo" src="' + esc(row.team_logo_url) + '" alt="' + esc(row.team) + ' logo">'
+        : '<span class="draft-hub-order__logo draft-hub-order__logo--placeholder" aria-hidden="true">' + esc((row.team || '?').substring(0, 2).toUpperCase()) + '</span>';
+      html += '<li class="' + cls + '" title="' + esc(row.team) + '">';
+      html += '<span class="draft-hub-order__ov">' + esc(String(row.overall)) + '</span>';
+      html += logoCell;
+      html += badge;
+      html += '<span class="visually-hidden">' + esc(row.team) + '</span>';
+      html += '</li>';
+    });
+    html += '</ul></section>';
+
+    // Draft History — wider panel with round dropdown.
+    html += '<section class="draft-hub-col draft-hub-col--history card">';
+    html += '<h2 class="draft-hub-col__title">Draft History (This Event)</h2>';
+    var allTickerPicks = (x.ticker_picks || []).slice();
+    var roundsMap = {};
+    allTickerPicks.forEach(function (p) {
+      var r = Number(p.round) || 0;
+      if (!roundsMap[r]) roundsMap[r] = [];
+      roundsMap[r].push(p);
+    });
+    var roundsAvailable = Object.keys(roundsMap).map(function (k) { return Number(k); })
+      .filter(function (r) { return r > 0; })
+      .sort(function (a, b) { return a - b; });
+    html += '<div class="draft-hub-history-controls">';
+    html += '<label class="draft-hub-history-round">';
+    html += '<span class="muted small">Round</span> ';
+    html += '<select id="dh-history-round" class="draft-hub-round-select">';
+    html += '<option value="all">All Rounds</option>';
+    roundsAvailable.forEach(function (r) {
+      var sel = (String(r) === String(historyRound)) ? ' selected' : '';
+      html += '<option value="' + r + '"' + sel + '>Round ' + r + '</option>';
+    });
+    html += '</select></label>';
+    if (roundsAvailable.length) {
+      var latestRound = roundsAvailable[roundsAvailable.length - 1];
+      html += '<button type="button" class="button secondary small" id="dh-history-latest" data-round="' + latestRound + '">Jump To Latest</button>';
+    }
+    html += '</div>';
+    var picksToShow;
+    if (historyRound === 'all') {
+      picksToShow = allTickerPicks.slice().reverse();
+    } else {
+      picksToShow = (roundsMap[Number(historyRound)] || []).slice();
+    }
+    if (!picksToShow.length) {
+      html += '<p class="muted small">No picks recorded for this selection yet.</p>';
+    } else {
+      html += '<div class="table-wrap"><table class="data draft-hub-history-table"><thead><tr><th>#</th><th>Team</th><th>Pick</th></tr></thead><tbody>';
+      picksToShow.forEach(function (p) {
+        var pickCell = (p.player_id != null)
+          ? '<a href="' + esc(playerHref(p.player_id)) + '" target="_blank" rel="noopener noreferrer" title="Open player profile in a new tab">' + esc(p.player) + '</a>'
+          : esc(p.player);
+        var rowCls = (p.boost_tier === 'gold')
+          ? ' class="draft-hub-pick--gold"'
+          : (p.boost_tier === 'silver' ? ' class="draft-hub-pick--silver"' : '');
+        var badge = (p.boost_tier === 'gold' || p.boost_tier === 'silver')
+          ? ' <span class="draft-hub-boost-badge draft-hub-boost-badge--' + p.boost_tier + '">' + p.boost_tier.toUpperCase() + '</span>'
+          : '';
+        var logoCell = p.team_logo_url
+          ? '<img class="draft-hub-history__logo" src="' + esc(p.team_logo_url) + '" alt="' + esc(p.team) + ' logo" title="' + esc(p.team) + '">'
+          : '<span class="draft-hub-history__logo draft-hub-history__logo--placeholder" aria-hidden="true">' + esc((p.team || '?').substring(0, 2).toUpperCase()) + '</span>';
+        html += '<tr' + rowCls + '><td>R' + esc(String(p.round)) + ' · ' + esc(String(p.overall)) + badge + '</td><td>' + logoCell + '<span class="visually-hidden">' + esc(p.team) + '</span></td><td>' + pickCell + '</td></tr>';
+      });
+      html += '</tbody></table></div>';
     }
     html += '</section>';
     html += '</div>';
@@ -295,7 +460,10 @@
         : (x.status === 'completed' ? 'No picks recorded for this draft.' : 'No picks yet — waiting for the first selection.');
     } else {
       tickerText = tp.map(function (p) {
-        return '#' + p.overall + ' · R' + p.round + ' · ' + p.team + ' — ' + p.player;
+        var prefix = '';
+        if (p.boost_tier === 'gold') prefix = '★ GOLD ';
+        else if (p.boost_tier === 'silver') prefix = '✦ SILVER ';
+        return prefix + '#' + p.overall + ' · R' + p.round + ' · ' + p.team + ' — ' + p.player;
       }).join('          •          ');
     }
     html += '<aside class="draft-hub-ticker" aria-label="All picks to date">';
@@ -306,7 +474,20 @@
     html += '<span class="draft-hub-ticker__text" aria-hidden="true">' + esc(tickerText) + '</span>';
     html += '</div></div></aside>';
 
+    captureEligibleScroll();
+    var preservedEligibleList = document.getElementById('dh-eligible-list');
+    if (preservedEligibleList && preservedEligibleList.parentNode) {
+      preservedEligibleList.parentNode.removeChild(preservedEligibleList);
+    } else {
+      preservedEligibleList = null;
+    }
     root.innerHTML = html;
+    if (preservedEligibleList) {
+      var freshList = document.getElementById('dh-eligible-list');
+      if (freshList && freshList.parentNode) {
+        freshList.parentNode.replaceChild(preservedEligibleList, freshList);
+      }
+    }
 
     var mq = root.querySelector('.draft-hub-ticker__marquee');
     if (mq && tp.length > 0) {
@@ -361,25 +542,107 @@
   }
 
   var searchQ = '';
+  var posQ = '';
+  var historyRound = 'all';
+  var savedEligibleScroll = 0;
+  var resetEligibleScroll = false;
+
+  function captureEligibleScroll() {
+    var list = document.getElementById('dh-eligible-list');
+    if (list) savedEligibleScroll = list.scrollTop || 0;
+  }
+
+  function restoreEligibleScroll() {
+    var list = document.getElementById('dh-eligible-list');
+    if (!list) return;
+    if (resetEligibleScroll) {
+      resetEligibleScroll = false;
+      savedEligibleScroll = 0;
+      list.scrollTop = 0;
+      return;
+    }
+    if (savedEligibleScroll > 0) {
+      var max = list.scrollHeight - list.clientHeight;
+      list.scrollTop = Math.min(savedEligibleScroll, Math.max(0, max));
+    }
+  }
+
+  function fmtHeight(inches) {
+    var n = Number(inches);
+    if (!Number.isFinite(n) || n <= 0) return '—';
+    return Math.floor(n / 12) + '\'' + (n % 12) + '"';
+  }
+
+  function fmtPlayerStat(v, fallback) {
+    if (v == null || v === '') return fallback || '—';
+    return String(v);
+  }
+
+  function playerDetailsTitle(p) {
+    var bits = [
+      p.name || '',
+      (p.team || ''),
+      (p.pos || '—') + ' · Age ' + (p.age != null ? p.age : '—'),
+      fmtHeight(p.height_in) + ' · ' + (p.weight_lb != null ? p.weight_lb + ' lbs' : '— lbs'),
+      'Potential: ' + fmtPlayerStat(p.pot, '—') + ' · Ability: ' + fmtPlayerStat(p.abi, '—')
+    ];
+    return bits.filter(Boolean).join(' | ');
+  }
+
+  function openPlayerCard(href, name) {
+    if (!href || href === '#') return;
+    var w = Math.min(980, Math.max(640, Math.floor(window.screen.availWidth * 0.65)));
+    var h = Math.min(900, Math.max(560, Math.floor(window.screen.availHeight * 0.85)));
+    var winName = 'dh-player-card-' + (name || 'player').replace(/[^A-Za-z0-9]+/g, '-');
+    var features = 'noopener,noreferrer,width=' + w + ',height=' + h + ',resizable=yes,scrollbars=yes';
+    var win = window.open(href, winName, features);
+    if (!win) {
+      window.open(href, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    if (typeof win.focus === 'function') {
+      try { win.focus(); } catch (_) {}
+    }
+  }
+
   function loadEligible(x) {
     var meta = document.getElementById('dh-eligible-meta');
     var list = document.getElementById('dh-eligible-list');
     if (!list) return;
     var url = eligibleUrl + '?limit=50';
     if (searchQ) url += '&q=' + encodeURIComponent(searchQ);
+    if (posQ) url += '&pos=' + encodeURIComponent(posQ);
     fetch(url, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
       if (!d.ok) return;
       if (meta) meta.textContent = d.total + ' available';
       var rows = d.players || [];
-      var canPick = x.can_pick;
+      var canPick = x.can_pick || x.can_admin_pick;
       var html = '';
       rows.forEach(function (p) {
-        html += '<div class="draft-hub-player">';
-        html += '<div><strong><a href="' + esc(playerHref(p.id)) + '" class="draft-hub-player__name" target="_blank" rel="noopener noreferrer" title="Open player profile in a new tab">' + esc(p.name) + '</a></strong> ';
-        html += '<span class="muted">' + esc(p.team || '') + '</span><br>';
-        html += '<span class="muted small">' + esc(p.pos || '') + ' · Age ' + esc(String(p.age != null ? p.age : '—')) + '</span>';
-        html += ' <span class="draft-hub-pot">Pot ' + esc(String(p.pot != null ? p.pot : '—')) + '</span>';
-        html += ' <span class="draft-hub-abi">Abi ' + esc(String(p.abi != null ? p.abi : '—')) + '</span></div>';
+        var detailTitle = playerDetailsTitle(p);
+        var photo = p.photo_url
+          ? '<img src="' + esc(p.photo_url) + '" alt="' + esc(p.name || '') + ' photo" loading="lazy">'
+          : '<span class="draft-hub-player__photo-ph" aria-hidden="true"></span>';
+        var cardHref = esc(playerHref(p.id));
+        var cardName = esc(p.name || '');
+        html += '<div class="draft-hub-player" title="' + esc(detailTitle) + '">';
+        html += '<a class="draft-hub-player__photo dh-player-card-link" href="' + cardHref + '" target="_blank" rel="noopener noreferrer" data-player-name="' + cardName + '" title="Open player card in a new window">' + photo + '</a>';
+        html += '<div class="draft-hub-player__main">';
+        html += '<div class="draft-hub-player__line draft-hub-player__line--top">';
+        html += '<strong><a href="' + cardHref + '" class="draft-hub-player__name dh-player-card-link" target="_blank" rel="noopener noreferrer" data-player-name="' + cardName + '" title="Open player card in a new window">' + esc(p.name) + '</a></strong> ';
+        html += '<span class="draft-hub-player__team muted">' + esc(p.team || '') + '</span>';
+        html += '</div>';
+        html += '<div class="draft-hub-player__line muted small">';
+        html += '<span>' + esc(p.pos || '—') + '</span>';
+        html += '<span>Age ' + esc(String(p.age != null ? p.age : '—')) + '</span>';
+        html += '<span>' + esc(fmtHeight(p.height_in)) + '</span>';
+        html += '<span>' + esc(String(p.weight_lb != null ? p.weight_lb : '—')) + ' lbs</span>';
+        html += '</div>';
+        html += '<div class="draft-hub-player__line small">';
+        html += '<span class="draft-hub-pot">Potential: ' + esc(String(p.pot != null ? p.pot : '—')) + '</span>';
+        html += '<span class="draft-hub-abi">Ability: ' + esc(String(p.abi != null ? p.abi : '—')) + '</span>';
+        html += '</div>';
+        html += '</div>';
         html += '<div class="draft-hub-player__actions">';
         if (canPick && x.status === 'live' && !x.awaiting_admin) {
           html += '<form method="post" action="' + esc(pickUrl) + '" style="display:inline;">';
@@ -390,40 +653,94 @@
           html += '<button type="button" class="button secondary" disabled>Draft</button>';
         }
         if ({{ 'true' if gm_membership else 'false' }}) {
-          html += '<form method="post" action="' + esc(qAddUrl) + '" style="display:inline;margin-left:0.35rem;">';
+          html += '<form method="post" action="' + esc(qAddUrl) + '" style="display:inline;">';
           html += '<input type="hidden" name="csrf_token" value="' + esc(csrf) + '">';
           html += '<input type="hidden" name="player_id" value="' + esc(String(p.id)) + '">';
-          html += '<button type="submit" class="button">Add to wishlist</button></form>';
+          html += '<button type="submit" class="button">Add To List</button></form>';
         }
         html += '</div></div>';
       });
       list.innerHTML = html || '<p class="muted">No matching players.</p>';
+      restoreEligibleScroll();
+      list.querySelectorAll('.dh-player-card-link').forEach(function (a) {
+        if (a._cardBound) return;
+        a._cardBound = true;
+        a.addEventListener('click', function (ev) {
+          if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.button === 1) return;
+          ev.preventDefault();
+          openPlayerCard(a.getAttribute('href') || '#', a.getAttribute('data-player-name') || '');
+        });
+      });
     }).catch(function () {});
   }
 
-  function poll() {
-    var ae = document.activeElement;
-    if (ae && ae.id === 'dh-search') return;
+  function refetchAndReloadEligible(opts) {
+    if (opts && opts.resetScroll) {
+      resetEligibleScroll = true;
+    } else {
+      captureEligibleScroll();
+    }
+    fetch(stateUrl, { credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(function (d2) {
+        if (d2 && d2.draft) loadEligible(d2.draft);
+      })
+      .catch(function () {});
+  }
+
+  function bindControls() {
+    var s = document.getElementById('dh-search');
+    if (s && !s._bound) {
+      s._bound = true;
+      var t;
+      s.addEventListener('input', function () {
+        searchQ = s.value.trim();
+        clearTimeout(t);
+        t = setTimeout(function () { refetchAndReloadEligible({ resetScroll: true }); }, 250);
+      });
+    }
+    var posSel = document.getElementById('dh-pos-filter');
+    if (posSel && !posSel._bound) {
+      posSel._bound = true;
+      posSel.addEventListener('change', function () {
+        posQ = posSel.value || '';
+        refetchAndReloadEligible({ resetScroll: true });
+      });
+    }
+    var rndSel = document.getElementById('dh-history-round');
+    if (rndSel && !rndSel._bound) {
+      rndSel._bound = true;
+      rndSel.addEventListener('change', function () {
+        historyRound = rndSel.value || 'all';
+        try { rndSel.blur(); } catch (_) {}
+        forceRefresh();
+      });
+    }
+    var jumpBtn = document.getElementById('dh-history-latest');
+    if (jumpBtn && !jumpBtn._bound) {
+      jumpBtn._bound = true;
+      jumpBtn.addEventListener('click', function () {
+        var r = jumpBtn.getAttribute('data-round') || 'all';
+        historyRound = r;
+        forceRefresh();
+      });
+    }
+  }
+
+  function forceRefresh() {
     fetch(stateUrl, { credentials: 'same-origin' })
       .then(function (r) { return r.json(); })
       .then(function (d) {
         renderState(d);
-        var s = document.getElementById('dh-search');
-        if (s && !s._bound) {
-          s._bound = true;
-          var t;
-          s.addEventListener('input', function () {
-            searchQ = s.value.trim();
-            clearTimeout(t);
-            t = setTimeout(function () {
-              fetch(stateUrl, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d2) {
-                if (d2 && d2.draft) loadEligible(d2.draft);
-              });
-            }, 250);
-          });
-        }
+        bindControls();
       })
       .catch(function () {});
+  }
+
+  function poll() {
+    var ae = document.activeElement;
+    if (ae && (ae.id === 'dh-search' || ae.id === 'dh-pos-filter' || ae.id === 'dh-history-round')) return;
+    forceRefresh();
   }
   poll();
   setInterval(poll, 2800);

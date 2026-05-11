@@ -410,7 +410,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 3430;90;90;Billy;Dea;Hard Rock;68;175;1933-4-3;Edmonton;AB;Canada;;;0;Left;0
 4742;119;119;Dennis;Hextall;Hexy;71;176;1943-4-17;East St. Paul;MB;Canada;;;0;Left;0
 4154;3;3;Leon;Rochefort;;72;185;1939-5-4;Ville-Marie;QC;Canada;;;0;Right;0
-5414;3;3;Tim;Ecclestone;;70;195;1947-9-24;Toronto;ON;Canada;;;0;Right;1
+5414;22;3;Tim;Ecclestone;;70;195;1947-9-24;Toronto;ON;Canada;;;0;Right;1
 4609;122;122;Jim;Johnson;;69;185;1942-11-7;Oakbank;MB;Canada;;;0;Left;0
 6338;83;83;Gene;Carr;;71;185;1951-9-17;North Cowichan;BC;Canada;;;0;Left;0
 4155;127;120;Cliff;Schmautz;Grump;70;170;1939-3-17;Swift Current;SK;Canada;;;0;Right;0

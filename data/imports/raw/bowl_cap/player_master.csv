@@ -1098,7 +1098,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 16023;179;179;Bryce;Lampman;;73;199;1982-8-31;Spring Park;MN;The United States;;;0;Left;1
 1097;224;224;Trent;McCleary;;72;182;1972-9-8;Swift Current;SK;Canada;;;0;Right;0
 1098;186;186;Shawn;McCosh;;72;197;1969-6-5;Oshawa;ON;Canada;;;0;Right;0
-13008;17;17;Steven;Reinprecht;;72;195;1976-5-7;Edmonton;AB;Canada;;;0;Left;1
+13008;9;9;Steven;Reinprecht;;72;195;1976-5-7;Edmonton;AB;Canada;;;0;Left;1
 14044;180;180;Marcus;Nilson;;74;196;1978-3-1;Bålsta;UPP;Sweden;;;0;Right;0
 1101;186;186;Darwin;McCutcheon;;77;218;1962-4-19;Brussels;ON;Canada;;;0;Left;0
 1102;186;186;Hubie;McDonough;;69;180;1963-7-8;Manchester;NH;The United States;;;0;Left;0
@@ -4814,7 +4814,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 12456;76;25;Ryan;Kraft;;71;198;1975-11-7;Wahpeton;ND;The United States;;;0;Left;0
 12457;12;12;Vlastimil;Kroupa;;76;215;1975-4-27;Most;UST;Czech Republic;;;0;Left;0
 12458;224;224;Eric;Landry;;70;184;1975-1-20;Longueuil;QC;Canada;;;0;Left;0
-12459;9;9;Jamie;Langenbrunner;;73;205;1975-7-24;Farmington;MN;The United States;;;0;Right;0
+12459;217;217;Jamie;Langenbrunner;;73;205;1975-7-24;Farmington;MN;The United States;;;0;Right;0
 12460;186;186;Scott;Langkow;;72;194;1975-4-21;Elk Point;AB;Canada;;;0;Left;0
 12461;186;186;Jeff;Lank;;75;205;1975-3-1;Kindersley;SK;Canada;;;0;Left;0
 12462;69;18;Cory;Larose;;72;191;1975-5-14;Dalhousie;NB;Canada;;;0;Left;0
@@ -6376,7 +6376,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 14140;24;24;David;Aebischer;;73;187;1978-2-7;Fribourg;FR;Switzerland;;;0;Left;1
 14141;185;185;Erik;Cole;;74;205;1978-11-6;Owego;NY;The United States;;;0;Left;0
 14142;158;158;Jan;Hejda;;76;229;1978-6-18;Prague;PRA;Czech Republic;;;0;Left;0
-14143;9;9;Chris;Phillips;;75;217;1978-3-9;Camrose;AB;Canada;;;0;Left;1
+14143;17;17;Chris;Phillips;;75;217;1978-3-9;Camrose;AB;Canada;;;0;Left;1
 14144;68;17;Mike;York;;70;185;1978-1-3;Wolf Lake;MI;The United States;;;0;Right;0
 14145;74;23;Shawn;Horcoff;;73;209;1978-9-17;Ucluelet;BC;Canada;;;0;Left;0
 14146;0;0;Olli;Jokinen;;74;218;1978-12-5;Kuopio;NSA;Finland;;;0;Left;1

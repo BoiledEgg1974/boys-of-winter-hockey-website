@@ -16,6 +16,7 @@ from app.db_utils import (
     ensure_player_overall_baseline_sqlite,
     ensure_homepage_module_settings_sqlite,
     ensure_league_draft_slot_boost_tier_sqlite,
+    ensure_league_expansion_draft_columns_sqlite,
     ensure_site_announcements_sqlite,
     ensure_site_users_admin_role_sqlite,
     ensure_password_reset_tokens_sqlite,
@@ -136,6 +137,7 @@ def create_app(config_class: type = Config) -> Flask:
             ensure_power_rank_snapshots_sqlite(site_engine)
             ensure_prospect_league_rank_snapshots_sqlite(site_engine)
             ensure_league_draft_slot_boost_tier_sqlite(site_engine)
+            ensure_league_expansion_draft_columns_sqlite(site_engine)
         # FTS may be empty until import or seed; seed script calls rebuild
         try:
             from app.services.ratings_position_cache import backfill_null_positions_from_ratings
@@ -169,10 +171,12 @@ def create_app(config_class: type = Config) -> Flask:
     from app.models import Player, Team
     from app.routes import api_bp, main_bp
     from app.routes.draft_hub import draft_hub_bp
+    from app.routes.expansion_draft_hub import expansion_draft_hub_bp
     from app.routes.site_portal import site_admin_bp, site_gm_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(draft_hub_bp)
+    app.register_blueprint(expansion_draft_hub_bp)
     app.register_blueprint(api_bp, url_prefix="/api")
     csrf.exempt(api_bp)
     app.register_blueprint(site_gm_bp)

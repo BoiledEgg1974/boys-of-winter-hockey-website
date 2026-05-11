@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}Draft Hub — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block title %}Expansion Draft Hub — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
 {% block content %}
 <div class="draft-hub-page" id="draft-hub-page-root">
-  <h1 class="page-title">Draft Hub</h1>
+  <h1 class="page-title">Expansion Draft Hub</h1>
   <p class="muted" style="margin:0 0 1rem;">
-    <a href="{{ url_for('draft_hub.draft_hub_archive_list') }}">Past league drafts (archive)</a>
+    For league GMs and admins. Prospect draft: <a href="{{ url_for('draft_hub.draft_hub_page') }}">Draft Hub</a>
     · <a href="{{ url_for('main.draft') }}">FHM Draft History</a>
   </p>
 
@@ -20,19 +20,13 @@
 
   <div id="dh-root"
        data-csrf="{{ csrf_token() }}"
-       data-pick-url="{{ url_for('draft_hub.draft_hub_pick') }}"
-       data-queue-add-url="{{ url_for('draft_hub.draft_hub_queue_add') }}"
-       data-queue-remove-url="{{ url_for('draft_hub.draft_hub_queue_remove') }}"
-       data-state-url="{{ url_for('draft_hub.draft_hub_api_state') }}"
-       data-eligible-url="{{ url_for('draft_hub.draft_hub_eligible_page') }}"
-       data-ai-advice-url="{{ url_for('draft_hub.draft_hub_api_ai_advice') }}"
-       data-pause-url="{{ url_for('draft_hub.draft_hub_pause_timer') }}"
-       data-resume-url="{{ url_for('draft_hub.draft_hub_resume_timer') }}"
-       data-auto-complete-url="{{ url_for('draft_hub.draft_hub_auto_complete') }}"
-       data-player-page-tpl="{{ url_for('main.player_page', player_id=988776655) }}"
-       data-sound-base="{{ url_for('draft_hub.draft_hub_sound', sound_id=0).rsplit('/', 1)[0] }}">
+       data-pick-url="{{ url_for('expansion_draft_hub.expansion_draft_pick') }}"
+       data-state-url="{{ url_for('expansion_draft_hub.expansion_draft_api_state') }}"
+       data-eligible-url="{{ url_for('expansion_draft_hub.expansion_draft_eligible_page') }}"
+       data-pause-url="{{ url_for('expansion_draft_hub.expansion_draft_pause_timer') }}"
+       data-resume-url="{{ url_for('expansion_draft_hub.expansion_draft_resume_timer') }}"
+       data-player-page-tpl="{{ url_for('main.player_page', player_id=988776655) }}">
   </div>
-  <div id="dh-wishlist-auth-host" class="dh-wishlist-auth-host" hidden></div>
 
   <noscript>
     <p class="muted">Enable JavaScript for the live draft board, timer, and lists.</p>
@@ -46,15 +40,10 @@
   var csrf = root.getAttribute('data-csrf') || '';
   var stateUrl = root.getAttribute('data-state-url');
   var eligibleUrl = root.getAttribute('data-eligible-url');
-  var aiAdviceUrl = root.getAttribute('data-ai-advice-url') || '';
   var pauseUrl = root.getAttribute('data-pause-url') || '';
   var resumeUrl = root.getAttribute('data-resume-url') || '';
-  var autoCompleteUrl = root.getAttribute('data-auto-complete-url') || '';
   var playerPageTpl = root.getAttribute('data-player-page-tpl') || '';
   var pickUrl = root.getAttribute('data-pick-url');
-  var qAddUrl = root.getAttribute('data-queue-add-url');
-  var qRemUrl = root.getAttribute('data-queue-remove-url');
-  var soundBase = root.getAttribute('data-sound-base') || '';
 
   function esc(s) {
     if (!s) return '';
@@ -66,111 +55,6 @@
     return playerPageTpl.replace(/988776655/g, String(pid));
   }
 
-  var lastAiKey = '';
-  var lastAiPayload = null;
-
-  function restoreAiScroll() {
-    var el = document.getElementById('dh-ai-body');
-    if (!el) return;
-    var v = (savedPanelScrolls && savedPanelScrolls['#dh-ai-body']) || 0;
-    if (v <= 0) return;
-    var apply = function () {
-      var max = el.scrollHeight - el.clientHeight;
-      el.scrollTop = Math.min(v, Math.max(0, max));
-    };
-    apply();
-    // Defer once more so newly laid-out content takes effect on its true scrollHeight.
-    if (typeof window.requestAnimationFrame === 'function') {
-      window.requestAnimationFrame(apply);
-    }
-  }
-
-  function renderAiPanelLoading() {
-    var el = document.getElementById('dh-ai-body');
-    if (!el) return;
-    el.innerHTML = '<p class="muted">Fetching a take…</p>';
-    restoreAiScroll();
-  }
-
-  function renderAiPanelIdle(msg, details) {
-    var el = document.getElementById('dh-ai-body');
-    if (!el) return;
-    var h = '<p class="muted">' + esc(msg) + '</p>';
-    if (details) {
-      h += '<p class="muted small" style="margin:0.35rem 0 0;">' + esc(details) + '</p>';
-    }
-    el.innerHTML = h;
-    restoreAiScroll();
-  }
-
-  function renderAiPanelError() {
-    var el = document.getElementById('dh-ai-body');
-    if (!el) return;
-    el.innerHTML = '<p class="muted">Could not load the AI desk. Refresh and try again.</p>';
-    restoreAiScroll();
-  }
-
-  function renderAiPayload(data) {
-    var el = document.getElementById('dh-ai-body');
-    if (!el) return;
-    if (!data || !data.active) {
-      el.innerHTML = '<p class="muted">Recommendations appear when a team is on the clock.</p>';
-      restoreAiScroll();
-      return;
-    }
-    var h = '<p class="draft-hub-ai__headline">' + esc(data.headline || '') + '</p>';
-    h += '<p class="draft-hub-ai__summary">' + esc(data.summary || '') + '</p>';
-    var recs = data.recommendations || [];
-    if (recs.length) {
-      h += '<ul class="draft-hub-ai__list">';
-      recs.forEach(function (r) {
-        var pid = r.player_id;
-        var nm = r.player_name || '';
-        var link = '<a href="' + esc(playerHref(pid)) + '" target="_blank" rel="noopener noreferrer" title="Open player profile in a new tab">' + esc(nm) + '</a>';
-        h += '<li><strong>' + link + '</strong> — <span class="muted">' + esc(r.blurb || '') + '</span></li>';
-      });
-      h += '</ul>';
-    }
-    h += '<p class="muted small draft-hub-ai__note">AI-generated entertainment — not league guidance.</p>';
-    el.innerHTML = h;
-    restoreAiScroll();
-  }
-
-  function refreshAiAdvice(x) {
-    if (!aiAdviceUrl) return;
-    var el = document.getElementById('dh-ai-body');
-    if (!el) return;
-    if (!x || x.status !== 'live' || x.awaiting_admin || !x.current_slot) {
-      lastAiKey = '';
-      lastAiPayload = null;
-      renderAiPanelIdle('Recommendations appear when a team is on the clock.');
-      return;
-    }
-    var key = String(x.id) + ':' + String(x.current_slot.overall) + ':' + String(x.current_slot.team_id);
-    if (key === lastAiKey && lastAiPayload) {
-      renderAiPayload(lastAiPayload);
-      return;
-    }
-    lastAiKey = key;
-    renderAiPanelLoading();
-    var url = aiAdviceUrl + '?draft_id=' + encodeURIComponent(String(x.id));
-    fetch(url, { credentials: 'same-origin' })
-      .then(function (r) { return r.json().catch(function () { return {}; }); })
-      .then(function (data) {
-        if (!data || !data.ok) {
-          if (data && data.error) {
-            renderAiPanelIdle(data.error, data.details || '');
-          } else {
-            renderAiPanelError();
-          }
-          return;
-        }
-        lastAiPayload = data;
-        renderAiPayload(data);
-      })
-      .catch(function () { renderAiPanelError(); });
-  }
-
   function fmtClock(ms) {
     if (ms == null || ms <= 0) return '—';
     var t = Math.ceil(ms / 1000);
@@ -179,64 +63,11 @@
     return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
   }
 
-  function clearWishlistAuthHost() {
-    var host = document.getElementById('dh-wishlist-auth-host');
-    if (host) {
-      host.hidden = true;
-      host.innerHTML = '';
-    }
-  }
-
-  function wishlistAuthStorageKey(draftId, overall) {
-    return 'dhWishlistSkip-' + draftId + '-' + overall;
-  }
-
-  function syncWishlistAuthModal(x) {
-    var host = document.getElementById('dh-wishlist-auth-host');
-    if (!host) return;
-    if (!x || x.status !== 'live' || x.awaiting_admin || !x.can_pick || !x.wishlist_pick || !x.current_slot) {
-      host.hidden = true;
-      host.innerHTML = '';
-      return;
-    }
-    var key = wishlistAuthStorageKey(x.id, x.current_slot.overall);
-    if (sessionStorage.getItem(key)) {
-      host.hidden = true;
-      host.innerHTML = '';
-      return;
-    }
-    var team = x.on_clock_team || 'Your team';
-    var nm = x.wishlist_pick.player_name || '';
-    var pid = x.wishlist_pick.player_id;
-    host.hidden = false;
-    host.innerHTML =
-      '<div class="dh-wishlist-auth-backdrop" role="presentation"></div>' +
-      '<div class="dh-wishlist-auth-dialog" role="dialog" aria-modal="true" aria-labelledby="dh-wishlist-auth-title">' +
-      '<h2 id="dh-wishlist-auth-title" class="dh-wishlist-auth-title">Confirm pick</h2>' +
-      '<p class="dh-wishlist-auth-body"><span class="dh-wishlist-auth-team">' + esc(team) + '</span> is about to pick <strong><a href="' + esc(playerHref(pid)) + '" target="_blank" rel="noopener noreferrer" title="Open player profile in a new tab">' + esc(nm) + '</a></strong>. Do you authorize?</p>' +
-      '<div class="dh-wishlist-auth-actions">' +
-      '<form method="post" action="' + esc(pickUrl) + '" class="dh-wishlist-auth-form-yes">' +
-      '<input type="hidden" name="csrf_token" value="' + esc(csrf) + '">' +
-      '<input type="hidden" name="player_id" value="' + esc(String(pid)) + '">' +
-      '<button type="submit" class="button">Yes</button></form>' +
-      '<button type="button" class="button secondary dh-wishlist-auth-no">No, Other Pick</button>' +
-      '</div></div>';
-    var noBtn = host.querySelector('.dh-wishlist-auth-no');
-    if (noBtn) {
-      noBtn.addEventListener('click', function () {
-        sessionStorage.setItem(key, '1');
-        host.hidden = true;
-        host.innerHTML = '';
-      });
-    }
-  }
-
   function renderState(d) {
     var pageEl = document.getElementById('draft-hub-page-root');
     if (!d || !d.draft) {
       if (pageEl) pageEl.classList.remove('draft-hub-page--ticker');
-      root.innerHTML = '<div class="card"><p class="muted">No draft is configured for this site yet. Check back later or ask the commissioner.</p></div>';
-      clearWishlistAuthHost();
+      root.innerHTML = '<div class="card"><p class="muted">No expansion draft is configured yet. The commissioner can create one from the admin site tools.</p></div>';
       return;
     }
     if (pageEl) pageEl.classList.add('draft-hub-page--ticker');
@@ -323,12 +154,13 @@
       }
       html += '<p class="draft-hub-banner__timer muted">—</p>';
     } else {
-      html += '<p class="draft-hub-banner__status">DRAFT COMPLETE</p>';
-      html += '<p class="muted"><a href="{{ url_for("draft_hub.draft_hub_archive_list") }}">View archive</a></p>';
+      html += '<p class="draft-hub-banner__status">EXPANSION DRAFT COMPLETE</p>';
       html += '<p class="draft-hub-banner__timer muted">—</p>';
     }
     if (x.current_slot) {
-      html += '<p class="draft-hub-meta">Round ' + esc(String(x.current_slot.round)) + ' · Overall ' + esc(String(x.current_slot.overall)) + '</p>';
+      var ph = (x.current_slot.phase || '').toLowerCase();
+      var phLabel = ph === 'goalie' ? 'Goalie round' : (ph === 'skater' ? 'Skater round' : '');
+      html += '<p class="draft-hub-meta">' + esc(phLabel) + (phLabel ? ' · ' : '') + 'Round ' + esc(String(x.current_slot.round)) + ' · Overall ' + esc(String(x.current_slot.overall)) + '</p>';
     }
     if (x.can_admin_control && x.status === 'live') {
       var shouldResume = !!(x.timer_paused || x.awaiting_admin);
@@ -339,43 +171,12 @@
       html += '<input type="hidden" name="csrf_token" value="' + esc(csrf) + '">';
       html += '<button type="submit" class="' + timerCls + ' small">' + timerLabel + '</button>';
       html += '</form>';
-      if (autoCompleteUrl) {
-        html += '<form method="post" action="' + esc(autoCompleteUrl) + '" class="draft-hub-admin-timer-form dh-auto-complete-form" '
-          + 'onsubmit="return confirm(&quot;Auto-complete every remaining pick using each team\\u2019s wishlist (best-available as fallback)? This cannot be undone in bulk.&quot;);">';
-        html += '<input type="hidden" name="csrf_token" value="' + esc(csrf) + '">';
-        html += '<button type="submit" class="button secondary small">Auto-Complete Draft</button>';
-        html += '</form>';
-      }
     }
     html += '</header>';
 
-    html += '<section class="draft-hub-col draft-hub-col--ai card">';
-    html += '<h2 class="draft-hub-col__title">AI Draft Desk</h2>';
-    html += '<p class="muted small" style="margin:0 0 0.5rem;line-height:1.35;">Fun, roster-aware suggestions for whoever is on the clock. Click any linked name to open a full profile in a new tab.</p>';
-    html += '<div id="dh-ai-body" class="draft-hub-ai-body"><p class="muted">Loading…</p></div>';
-    html += '</section>';
-
-    // === My Wishlist (sits directly under the on-the-clock banner) ===
-    html += '<section class="draft-hub-col draft-hub-col--wishlist card">';
-    html += '<h2 class="draft-hub-col__title">My Wishlist</h2>';
-    html += '<p class="muted small" style="margin:0 0 0.5rem;line-height:1.35;">Order players for when you cannot be at the keyboard. If the clock runs out, the site may still use this list automatically. When you are here, you will be asked to confirm your top wishlist name or choose someone else.</p>';
-    if (!{{ 'true' if gm_membership else 'false' }}) {
-      html += '<p class="muted">Log in as a GM to build your wishlist.</p>';
-    } else {
-      html += '<div id="dh-queue"></div>';
-    }
-    if ((x.sounds || []).length) {
-      html += '<h3 class="draft-hub-col__subtitle">Soundboard</h3><div class="draft-hub-sounds">';
-      x.sounds.forEach(function (s) {
-        html += '<button type="button" class="button secondary dh-sound" data-sid="' + esc(String(s.id)) + '">' + esc(s.name) + '</button>';
-      });
-      html += '</div>';
-    }
-    html += '</section>';
-
     // === Body row: Eligible Prospects | Draft Order | Draft History ===
     html += '<section class="draft-hub-col draft-hub-col--players card">';
-    html += '<h2 class="draft-hub-col__title">Eligible Prospects</h2>';
+    html += '<h2 class="draft-hub-col__title">Eligible Players</h2>';
     html += '<p class="muted" id="dh-eligible-meta">Loading…</p>';
     html += '<div class="draft-hub-filters">';
     html += '<input type="search" id="dh-search" class="draft-hub-search" placeholder="Search players…" autocomplete="off">';
@@ -428,6 +229,9 @@
       var rowTitle = row.original_team_abbr
         ? row.team + ' (from ' + row.original_team_abbr + ')'
         : row.team;
+      if (row.phase) {
+        rowTitle = (row.phase === 'goalie' ? 'Goalie · ' : 'Skater · ') + rowTitle;
+      }
       html += '<li class="' + cls + '" title="' + esc(rowTitle) + '">';
       html += '<span class="draft-hub-order__ov">' + esc(String(row.overall)) + '</span>';
       html += logoCell;
@@ -478,11 +282,12 @@
     if (!picksToShow.length) {
       html += '<p class="muted small">No picks recorded for this selection yet.</p>';
     } else {
-      html += '<div class="table-wrap draft-hub-history-table-wrap"><table class="data draft-hub-history-table"><thead><tr><th>#</th><th>Team</th><th>Pick</th></tr></thead><tbody>';
+      html += '<div class="table-wrap draft-hub-history-table-wrap"><table class="data draft-hub-history-table"><thead><tr><th>#</th><th>Team</th><th>From</th><th>Pick</th></tr></thead><tbody>';
       picksToShow.forEach(function (p) {
         var pickCell = (p.player_id != null)
           ? '<a href="' + esc(playerHref(p.player_id)) + '" target="_blank" rel="noopener noreferrer" title="Open player profile in a new tab">' + esc(p.player) + '</a>'
           : esc(p.player);
+        var fromCell = esc(p.from_team || '—');
         var rowCls = (p.boost_tier === 'gold')
           ? ' class="draft-hub-pick--gold"'
           : (p.boost_tier === 'silver' ? ' class="draft-hub-pick--silver"' : '');
@@ -500,7 +305,7 @@
           ? '<span class="draft-hub-history__from"' + fromStyle + '>from ' + esc(p.original_team_abbr) + '</span>'
           : '';
         var teamCellInner = '<span class="draft-hub-history__team">' + logoCell + fromTag + '</span>';
-        html += '<tr' + rowCls + '><td>R' + esc(String(p.round)) + ' · ' + esc(String(p.overall)) + badge + '</td><td>' + teamCellInner + '<span class="visually-hidden">' + esc(teamTitle) + '</span></td><td>' + pickCell + '</td></tr>';
+        html += '<tr' + rowCls + '><td>R' + esc(String(p.round)) + ' · ' + esc(String(p.overall)) + badge + '</td><td>' + teamCellInner + '<span class="visually-hidden">' + esc(teamTitle) + '</span></td><td>' + fromCell + '</td><td>' + pickCell + '</td></tr>';
       });
       html += '</tbody></table></div>';
     }
@@ -563,40 +368,7 @@
       }, 500);
     }
 
-    root.querySelectorAll('.dh-sound').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var sid = btn.getAttribute('data-sid');
-        var au = new Audio(soundBase + '/' + sid);
-        au.play().catch(function () {});
-      });
-    });
-
     loadEligible(x);
-    renderQueue(x);
-    syncWishlistAuthModal(x);
-    refreshAiAdvice(x);
-  }
-
-  function renderQueue(x) {
-    var el = document.getElementById('dh-queue');
-    if (!el) return;
-    var items = x.queue_items || [];
-    if (!items.length) {
-      el.innerHTML = '<p class="muted">Your wishlist is empty. Add players from the list.</p>';
-      return;
-    }
-    var h = '<ul class="draft-hub-queue">';
-    items.forEach(function (it) {
-      var disp = (it.name && String(it.name).trim()) ? esc(it.name) : ('Player #' + esc(String(it.player_id)));
-      var namePart = '<a href="' + esc(playerHref(it.player_id)) + '" target="_blank" rel="noopener noreferrer" title="Open player profile in a new tab">' + disp + '</a>';
-      h += '<li><form method="post" action="' + esc(qRemUrl) + '" style="display:inline;">';
-      h += '<input type="hidden" name="csrf_token" value="' + esc(csrf) + '">';
-      h += '<input type="hidden" name="queue_id" value="' + esc(String(it.id)) + '">';
-      h += '<button type="submit" class="button secondary small">Remove</button></form> ';
-      h += namePart + '</li>';
-    });
-    h += '</ul>';
-    el.innerHTML = h;
   }
 
   var searchQ = '';
@@ -611,9 +383,7 @@
   // The eligible list is handled separately via detach/reattach so it isn't listed here.
   var PANEL_SCROLL_SELECTORS = [
     '.draft-hub-order',
-    '.draft-hub-history-table-wrap',
-    '#dh-queue',
-    '#dh-ai-body'
+    '.draft-hub-history-table-wrap'
   ];
 
   // Live-recorded scroll positions keyed by selector. Updated by a global capture-phase
@@ -802,12 +572,6 @@
           html += '<button type="submit" class="button secondary">Draft</button></form>';
         } else {
           html += '<button type="button" class="button secondary" disabled>Draft</button>';
-        }
-        if ({{ 'true' if gm_membership else 'false' }}) {
-          html += '<form method="post" action="' + esc(qAddUrl) + '" style="display:inline;">';
-          html += '<input type="hidden" name="csrf_token" value="' + esc(csrf) + '">';
-          html += '<input type="hidden" name="player_id" value="' + esc(String(p.id)) + '">';
-          html += '<button type="submit" class="button">Add To List</button></form>';
         }
         html += '</div></div>';
       });

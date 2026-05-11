@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+{% block title %}Admin — Expansion draft{% endblock %}
+{% block content %}
+<div class="card" style="max-width:56rem;margin:0 auto;">
+  <p><a href="{{ url_for('site_admin.admin_expansion_draft_hub') }}">← Expansion Draft admin</a></p>
+  <h1 class="page-title">Edit: {{ draft.name }}</h1>
+  <p class="muted">Status: <strong>{{ draft.status }}</strong> · <a href="{{ url_for('expansion_draft_hub.expansion_draft_hub_page') }}">Open hub</a></p>
+
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+  {% if msgs %}
+  <ul class="draft-hub-flash" style="list-style:none;padding:0;margin:0 0 1rem;">
+    {% for cat, m in msgs %}
+    <li class="draft-hub-flash__{{ cat }}">{{ m }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% endwith %}
+
+  {% if draft.status == 'setup' %}
+  <h2>Settings</h2>
+  <form method="post" class="card" style="padding:1rem;margin-bottom:1rem;" id="expSettingsForm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="save_settings">
+    <label>Name<br><input type="text" name="name" value="{{ draft.name }}" style="width:100%;max-width:28rem;"></label>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(10rem,1fr));gap:0.75rem;margin-top:0.75rem;">
+      <label>Goalie rounds<br><input type="number" name="goalie_rounds" value="{{ draft.goalie_rounds }}" min="0"></label>
+      <label>Skater rounds<br><input type="number" name="skater_rounds" value="{{ draft.skater_rounds }}" min="0"></label>
+      <label>How many expansion teams?<br><input type="number" name="expansion_team_count" value="{{ draft.expansion_team_count }}" min="1"></label>
+      <label>Max players lost / BOWL team<br><input type="number" name="max_players_lost_per_team" value="{{ draft.max_players_lost_per_team }}" min="0"></label>
+      <label>Timer (s)<br><input type="number" name="timer_seconds" value="{{ draft.timer_seconds }}" min="5"></label>
+      <label>Empty timer (s)<br><input type="number" name="empty_queue_timer_seconds" value="{{ draft.empty_queue_timer_seconds }}" min="5"></label>
+    </div>
+    <label style="display:block;margin-top:0.75rem;">Scheduled start (display, optional)<br>
+      <input type="datetime-local" name="scheduled_start_at" value="{{ sched_value }}" style="max-width:20rem;">
+    </label>
+
+    <h3 style="margin:1rem 0 0.5rem;">Expansion franchises</h3>
+    <p class="muted small" style="margin:0 0 0.5rem;">Choose exactly the number of BOWL clubs entered above. Use the picker for a compact list.</p>
+    <p style="margin:0 0 0.5rem;">
+      <button type="button" class="button secondary" id="expOpenDialogBtn">Choose expansion franchises…</button>
+      <span class="muted small" id="expFranchiseSummary" style="margin-left:0.5rem;"></span>
+    </p>
+
+    <h3 style="margin:1rem 0 0.5rem;">Exempt teams</h3>
+    <p class="muted small" style="margin:0 0 0.5rem;">Exempt BOWL clubs (and their minor-league assignments) are omitted from the eligible-player builder below.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:0.5rem 1rem;">
+      {% for t in main_teams %}
+        <label style="white-space:nowrap;">
+          <input type="checkbox" name="exempt_team_{{ t.id }}" value="1"{% if t.id in exempt_ids %} checked{% endif %}>
+          {{ t.abbreviation or t.name }}
+        </label>
+      {% endfor %}
+    </div>
+
+    <fieldset id="expPhaseOrderFieldset" class="exp-phase-order" style="margin:1rem 0;padding:0.75rem;border:1px solid rgb(255 255 255 / 0.12);border-radius:6px;">
+      <legend style="padding:0 0.35rem;">Expansion phase pick order</legend>
+      <p class="muted small" style="margin:0 0 0.75rem;">When there are multiple expansion franchises, choose who is on the clock first for the goalie phase and who leads the skater phase (order rotates each round within that phase).</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(14rem,1fr));gap:0.75rem;">
+        <label>Goalie phase — picks first<br>
+          <select name="goalie_phase_first_team_id" id="selGoalieFirst" style="width:100%;max-width:20rem;">
+            <option value="">—</option>
+            {% for t in main_teams %}
+              <option value="{{ t.id }}"{% if draft.goalie_phase_first_team_id == t.id %} selected{% endif %}>{{ t.full_display_name() }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Skater phase — picks first<br>
+          <select name="skater_phase_first_team_id" id="selSkaterFirst" style="width:100%;max-width:20rem;">
+            <option value="">—</option>
+            {% for t in main_teams %}
+              <option value="{{ t.id }}"{% if draft.skater_phase_first_team_id == t.id %} selected{% endif %}>{{ t.full_display_name() }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+    </fieldset>
+
+    <dialog id="expFranchiseDialog" style="max-width:36rem;width:calc(100% - 2rem);border:1px solid rgb(255 255 255 / 0.15);border-radius:8px;padding:0;background:var(--card-bg, #1a1d24);color:inherit;">
+      <div style="padding:1rem 1rem 0.5rem;">
+        <h3 style="margin:0 0 0.35rem;font-size:1.05rem;">Expansion franchises</h3>
+        <p class="muted small" style="margin:0;">Check exactly <strong id="expDialogNeedCount">{{ draft.expansion_team_count }}</strong> BOWL club(s). These must match “How many expansion teams?” on the form.</p>
+      </div>
+      <div style="padding:0.5rem 1rem;max-height:min(50vh,18rem);overflow:auto;display:flex;flex-wrap:wrap;gap:0.35rem 1rem;">
+        {% for t in main_teams %}
+          <label class="small" style="white-space:nowrap;">
+            <input type="checkbox" name="expansion_franchise" value="{{ t.id }}" class="exp-franchise-cb"{% if t.id in expansion_franchise_ids %} checked{% endif %}>
+            {{ t.abbreviation or t.name }}
+          </label>
+        {% endfor %}
+      </div>
+      <div style="padding:0.75rem 1rem 1rem;display:flex;justify-content:flex-end;gap:0.5rem;border-top:1px solid rgb(255 255 255 / 0.08);">
+        <button type="button" class="button secondary" id="expDialogCancelBtn">Cancel</button>
+        <button type="button" class="button" id="expDialogDoneBtn">Done</button>
+      </div>
+    </dialog>
+
+    <button type="submit" class="button" style="margin-top:0.75rem;">Save settings</button>
+  </form>
+
+  <h2>Generate slots</h2>
+  <p class="muted">Creates picks: all goalie rounds first (in team order), then all skater rounds. Re-run after changing rounds or expansion phase order.</p>
+  <form method="post" class="card" style="padding:1rem;margin-bottom:1rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="regenerate_slots">
+    <button type="submit" class="button">Regenerate slots</button>
+  </form>
+  {% if slots %}
+  <p class="muted small">{{ slots|length }} slot(s) on file.</p>
+  {% endif %}
+
+  <h2>Eligible players (unprotected pool)</h2>
+  <p class="muted">Check every player who should appear on the Expansion Draft Hub board. Each club lists <strong>all players under contract</strong> to that organization: <strong>BOWL roster</strong> (assigned to the big club) and <strong>minors / affiliates</strong> (everyone else on the contract list, including minor-league assignments and unsigned roster holds). Save before going live.</p>
+  <form method="post" class="card" style="padding:1rem;margin-bottom:1rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="save_eligible">
+    {% for t in main_teams %}
+      {% if t.id not in exempt_ids %}
+        {% set buckets = expansion_org_players.get(t.id, {}) %}
+        {% set plist_main = buckets.get('main', []) %}
+        {% set plist_min = buckets.get('minors', []) %}
+        {% if plist_main or plist_min %}
+        <details style="margin-bottom:0.75rem;">
+          <summary><strong>{{ t.full_display_name() }}</strong> ({{ plist_main|length }} BOWL roster{% if plist_min %}, {{ plist_min|length }} other contracted{% endif %}; {{ plist_main|length + plist_min|length }} under contract)</summary>
+          {% if plist_main %}
+          <h4 style="margin:0.75rem 0 0.35rem;font-size:0.9rem;">BOWL roster</h4>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(14rem,1fr));gap:0.35rem;">
+            {% for p in plist_main %}
+              <label class="small" style="display:flex;align-items:center;gap:0.35rem;">
+                <input type="checkbox" name="elig" value="{{ p.id }}"{% if p.id in eligible_ids %} checked{% endif %}>
+                <span>{{ p.full_name }}</span>
+              </label>
+            {% endfor %}
+          </div>
+          {% endif %}
+          {% if plist_min %}
+          <h4 style="margin:0.75rem 0 0.35rem;font-size:0.9rem;">Minors / affiliates</h4>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(14rem,1fr));gap:0.35rem;">
+            {% for p in plist_min %}
+              <label class="small" style="display:flex;align-items:center;gap:0.35rem;">
+                <input type="checkbox" name="elig" value="{{ p.id }}"{% if p.id in eligible_ids %} checked{% endif %}>
+                <span>{{ p.full_name }}{% if p.current_team %} <span class="muted">({{ p.current_team.abbreviation }})</span>{% endif %}</span>
+              </label>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </details>
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+    <button type="submit" class="button" style="margin-top:0.75rem;">Save eligible pool</button>
+  </form>
+
+  <h2>Go live</h2>
+  {% set n_saved_elig = eligible_ids|length %}
+  {% set n_slots = slots|length %}
+  {% set can_go_live = n_saved_elig > 0 and n_slots > 0 %}
+  <div class="card" style="padding:1rem;margin-bottom:1rem;">
+    <p class="muted small" style="margin:0 0 0.5rem;">The hub stays in “not started” until this succeeds. Requirements:</p>
+    <ul class="muted small" style="margin:0;padding-left:1.25rem;">
+      <li><strong>{{ n_slots }}</strong> draft slot(s) — use <strong>Regenerate slots</strong> above if this is zero.</li>
+      <li><strong>{{ n_saved_elig }}</strong> player(s) in the saved unprotected pool — check names below and click <strong>Save eligible pool</strong> (checked boxes are not saved until you submit that form).</li>
+    </ul>
+    {% if not can_go_live %}
+    <p class="draft-hub-flash__err" style="margin:0.75rem 0 0;font-size:0.9rem;">Go live is disabled until both slots and at least one saved eligible player exist.</p>
+    {% endif %}
+  </div>
+  <form method="post" class="card" style="padding:1rem;margin-bottom:1rem;" onsubmit="return confirm('Open the expansion draft room?');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="go_live">
+    <button type="submit" class="button"{% if not can_go_live %} disabled{% endif %}>Go live</button>
+  </form>
+  {% endif %}
+
+  {% if draft.status == 'live' %}
+  <h2>Live controls</h2>
+  <div class="card" style="padding:1rem;margin-bottom:1rem;display:flex;flex-wrap:wrap;gap:0.75rem;align-items:center;">
+    <form method="post" style="margin:0;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="undo_pick">
+      <button type="submit" class="button secondary">Undo last pick</button>
+    </form>
+    <form method="post" style="margin:0;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="pause_timer">
+      <button type="submit" class="button secondary">Pause timer</button>
+    </form>
+    <form method="post" style="margin:0;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="resume_timer">
+      <button type="submit" class="button secondary">Resume timer</button>
+    </form>
+  </div>
+  <h3>Commissioner pick</h3>
+  <form method="post" class="card" style="padding:1rem;margin-bottom:1rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="admin_pick">
+    <label>Player ID <input type="text" name="player_id" inputmode="numeric" style="width:8rem;"></label>
+    <button type="submit" class="button">Record pick</button>
+  </form>
+  <h3 style="margin-top:1.25rem;">Remove this draft</h3>
+  <p class="muted small" style="margin:0 0 0.5rem;">Use only if this event was created by mistake. Deletes all picks, slots, eligible pool rows, and settings for this draft.</p>
+  {% set del_live_confirm = 'This draft is LIVE. Delete “' ~ draft.name ~ '” and all related data? This cannot be undone.' %}
+  <form method="post" action="{{ url_for('site_admin.admin_expansion_draft_hub') }}"
+        style="margin:0;" onsubmit="return confirm({{ del_live_confirm|tojson }});">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="delete">
+    <input type="hidden" name="draft_id" value="{{ draft.id }}">
+    <button type="submit" class="button secondary">Delete expansion draft</button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  var dlg = document.getElementById("expFranchiseDialog");
+  var openBtn = document.getElementById("expOpenDialogBtn");
+  var doneBtn = document.getElementById("expDialogDoneBtn");
+  var cancelBtn = document.getElementById("expDialogCancelBtn");
+  var countInput = document.querySelector('input[name="expansion_team_count"]');
+  var needEl = document.getElementById("expDialogNeedCount");
+  var summaryEl = document.getElementById("expFranchiseSummary");
+  var fieldset = document.getElementById("expPhaseOrderFieldset");
+  var cbs = function () { return document.querySelectorAll(".exp-franchise-cb"); };
+
+  function expansionCheckedCount() {
+    var n = 0;
+    cbs().forEach(function (cb) { if (cb.checked) n++; });
+    return n;
+  }
+
+  function syncDialogNeedCount() {
+    if (!needEl || !countInput) return;
+    var v = parseInt(countInput.value, 10);
+    needEl.textContent = isNaN(v) || v < 1 ? "1" : String(v);
+  }
+
+  function syncSummary() {
+    if (!summaryEl) return;
+    var n = expansionCheckedCount();
+    summaryEl.textContent = n ? n + " franchise(s) selected" : "None selected yet";
+  }
+
+  function syncPhaseFieldset() {
+    if (!fieldset) return;
+    var multi = expansionCheckedCount() > 1;
+    fieldset.disabled = !multi;
+    fieldset.style.opacity = multi ? "1" : "0.55";
+  }
+
+  if (openBtn && dlg && typeof dlg.showModal === "function") {
+    openBtn.addEventListener("click", function () {
+      syncDialogNeedCount();
+      dlg.showModal();
+    });
+  }
+  if (doneBtn && dlg) doneBtn.addEventListener("click", function () { dlg.close(); });
+  if (cancelBtn && dlg) cancelBtn.addEventListener("click", function () { dlg.close(); });
+
+  if (countInput) countInput.addEventListener("input", syncDialogNeedCount);
+  cbs().forEach(function (cb) {
+    cb.addEventListener("change", function () {
+      syncSummary();
+      syncPhaseFieldset();
+    });
+  });
+  syncSummary();
+  syncPhaseFieldset();
+})();
+</script>
+{% endblock %}

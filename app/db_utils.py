@@ -1217,3 +1217,32 @@ def ensure_league_draft_slot_boost_tier_sqlite(engine: Engine) -> None:
                     )
                 )
         conn.commit()
+
+
+def ensure_league_expansion_draft_columns_sqlite(engine: Engine) -> None:
+    """Add expansion draft commissioner fields when missing (site DB, SQLite)."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='league_expansion_drafts'")
+        ).fetchone()
+        if not exists:
+            return
+        cols = {row[1] for row in conn.execute(text("PRAGMA table_info(league_expansion_drafts)"))}
+        if "expansion_team_count" not in cols:
+            conn.execute(
+                text(
+                    "ALTER TABLE league_expansion_drafts "
+                    "ADD COLUMN expansion_team_count INTEGER NOT NULL DEFAULT 1"
+                )
+            )
+        if "goalie_phase_first_team_id" not in cols:
+            conn.execute(
+                text("ALTER TABLE league_expansion_drafts ADD COLUMN goalie_phase_first_team_id INTEGER")
+            )
+        if "skater_phase_first_team_id" not in cols:
+            conn.execute(
+                text("ALTER TABLE league_expansion_drafts ADD COLUMN skater_phase_first_team_id INTEGER")
+            )
+        conn.commit()

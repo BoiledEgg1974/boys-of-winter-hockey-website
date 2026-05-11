@@ -56,6 +56,9 @@
           <a href="{{ url_for('main.milestones') }}">Milestones</a>
           <a href="{{ url_for('main.draft') }}">Draft History</a>
           <a href="{{ url_for('draft_hub.draft_hub_page') }}">Draft Hub</a>
+          {% if gm_membership or (current_user.is_authenticated and current_user.is_admin) %}
+          <a href="{{ url_for('expansion_draft_hub.expansion_draft_hub_page') }}">Expansion Draft</a>
+          {% endif %}
           <a href="{{ url_for('main.league_headlines') }}">Headlines</a>
         </div>
       </nav>

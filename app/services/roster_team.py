@@ -2,7 +2,18 @@
 
 from __future__ import annotations
 
-from app.models import Team
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.models import Player, Prospect, Team
+
+
+def is_main_league_team(t: Team | None) -> bool:
+    """True for BOWL/NHL clubs (``fhm_league_id`` NULL or 0)."""
+    if t is None:
+        return False
+    lid = t.fhm_league_id
+    return lid is None or int(lid) == 0
 
 
 def main_league_roster_team(contract_team: Team | None, current_team: Team | None) -> Team | None:
@@ -13,14 +24,49 @@ def main_league_roster_team(contract_team: Team | None, current_team: Team | Non
     Legacy rows with ``fhm_league_id`` NULL are treated as main league.
     """
 
-    def _is_main_league(t: Team | None) -> bool:
-        if t is None:
-            return False
-        lid = t.fhm_league_id
-        return lid is None or int(lid) == 0
-
-    if _is_main_league(contract_team):
+    if is_main_league_team(contract_team):
         return contract_team
-    if _is_main_league(current_team):
+    if is_main_league_team(current_team):
         return current_team
     return None
+
+
+def contract_team_for_player(session: Session, player: Player) -> Team | None:
+    """Resolve ``PlayerContract.fhm_team_id`` to a :class:`Team`, if any."""
+    c = player.contract
+    if c is None or c.fhm_team_id is None:
+        return None
+    return session.scalars(
+        select(Team).where(Team.fhm_team_id == str(c.fhm_team_id)).limit(1)
+    ).first()
+
+
+def organization_main_team(
+    session: Session, player: Player, *, prospect: Prospect | None = None
+) -> Team | None:
+    """BOWL parent club (rights holder), including minors assignments and prospect-only rights rows."""
+    ct_team = contract_team_for_player(session, player)
+    main = main_league_roster_team(ct_team, player.current_team)
+    if main is not None:
+        return main
+    if prospect is None:
+        pr = session.scalar(select(Prospect).where(Prospect.player_id == player.id).limit(1))
+    else:
+        pr = prospect
+    if pr and pr.team_id:
+        t = session.get(Team, int(pr.team_id))
+        if is_main_league_team(t):
+            return t
+    return None
+
+
+def player_exempt_from_expansion_pool(session: Session, player: Player, exempt_team_ids: set[int]) -> bool:
+    """True if this player belongs to an exempt BOWL org or is assigned to an exempt team id."""
+    if not exempt_team_ids:
+        return False
+    org = organization_main_team(session, player)
+    if org is not None and int(org.id) in exempt_team_ids:
+        return True
+    if player.current_team_id is not None and int(player.current_team_id) in exempt_team_ids:
+        return True
+    return False

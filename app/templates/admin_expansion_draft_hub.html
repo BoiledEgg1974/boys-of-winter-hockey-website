@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Admin — Expansion Draft Hub{% endblock %}
+{% block content %}
+<div class="card" style="max-width:48rem;margin:0 auto;">
+  <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
+  <h1 class="page-title">Expansion Draft Hub</h1>
+  <p class="muted">GMs and admins use the <a href="{{ url_for('expansion_draft_hub.expansion_draft_hub_page') }}">Expansion Draft Hub</a> during the live event.</p>
+
+  <h2>New expansion draft</h2>
+  <form method="post" class="card" style="padding:1rem;margin-bottom:1.5rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="new">
+    <label>Name <input type="text" name="name" value="Expansion Draft" maxlength="200" style="width:100%;max-width:24rem;"></label>
+    <div style="margin-top:0.5rem;display:flex;flex-wrap:wrap;gap:0.75rem;align-items:end;">
+      <label>Goalie rounds <input type="number" name="goalie_rounds" value="1" min="0" style="width:5rem;"></label>
+      <label>Skater rounds <input type="number" name="skater_rounds" value="1" min="0" style="width:5rem;"></label>
+      <label>Expansion teams <input type="number" name="expansion_team_count" value="1" min="1" style="width:5rem;"></label>
+      <label>Max lost / BOWL team <input type="number" name="max_players_lost_per_team" value="1" min="0" style="width:5rem;"></label>
+      <label>Timer (sec) <input type="number" name="timer_seconds" value="120" min="5" style="width:6rem;"></label>
+      <label>Empty timer (sec) <input type="number" name="empty_queue_timer_seconds" value="120" min="5" style="width:6rem;"></label>
+      <button type="submit" class="button">Create</button>
+    </div>
+  </form>
+
+  <h2>Existing</h2>
+  {% if not drafts %}
+    <p class="muted">None yet.</p>
+  {% else %}
+    <ul style="list-style:none;padding:0;margin:0;">
+      {% for d in drafts %}
+        <li style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;padding:0.4rem 0;border-bottom:1px solid rgb(255 255 255 / 0.06);">
+          <span>
+            <a href="{{ url_for('site_admin.admin_expansion_draft_hub_edit', draft_id=d.id) }}">{{ d.name }}</a>
+            — <span class="muted">{{ d.status }}</span>
+          </span>
+          {% set del_confirm = 'This draft is LIVE. Delete “' ~ d.name ~ '” and remove all picks, slots, and pool data? This cannot be undone.' if d.status == 'live' else 'Delete expansion draft “' ~ d.name ~ '”?' %}
+          <form method="post" style="margin:0;" onsubmit="return confirm({{ del_confirm|tojson }});">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" name="draft_id" value="{{ d.id }}">
+            <button type="submit" class="button secondary small">Delete</button>
+          </form>
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+</div>
+{% endblock %}

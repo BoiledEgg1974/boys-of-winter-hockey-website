@@ -17,6 +17,7 @@
     <li><a href="{{ url_for('main.hall_of_fame_page') }}">Hall of Fame</a> — inductees from <code>hall_of_fame.csv</code> (see raw import README)</li>
     <li><a href="{{ url_for('site_admin.admin_rules') }}">League rules (scaffold)</a></li>
     <li><a href="{{ url_for('site_admin.admin_draft_hub') }}">Draft Hub (league-run drafts)</a></li>
+    <li><a href="{{ url_for('site_admin.admin_expansion_draft_hub') }}">Expansion Draft Hub</a></li>
     {% if current_league_slug == 'bowl-fantasy' %}
     <li><a href="{{ url_for('site_gm.draft_lottery') }}">Draft lottery</a> — weighted 17th–24th simulator (admins only)</li>
     {% endif %}

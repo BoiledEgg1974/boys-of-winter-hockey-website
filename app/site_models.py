@@ -618,6 +618,117 @@ class LeagueDraftSoundbite(db.Model):
     draft: Mapped["LeagueDraft"] = relationship(back_populates="soundbites")
 
 
+class LeagueExpansionDraft(db.Model):
+    """Commissioner-run expansion draft (separate from LeagueDraft / prospect draft)."""
+
+    __tablename__ = "league_expansion_drafts"
+    __bind_key__ = "site"
+    __table_args__ = (
+        Index("ix_league_expansion_draft_slug_status", "league_slug", "status"),
+        Index("ix_league_expansion_draft_slug_created", "league_slug", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(200), default="Expansion Draft", nullable=False)
+    status: Mapped[str] = mapped_column(String(24), default="setup", nullable=False)  # setup|live|completed
+    scheduled_start_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    goalie_rounds: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    skater_rounds: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    max_goalies_per_team: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    max_forwards_per_team: Mapped[int] = mapped_column(Integer, default=10, nullable=False)
+    max_defense_per_team: Mapped[int] = mapped_column(Integer, default=8, nullable=False)
+    max_players_lost_per_team: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    expansion_team_count: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    goalie_phase_first_team_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    skater_phase_first_team_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    expansion_team_order_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
+    exempt_team_ids_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
+    timer_seconds: Mapped[int] = mapped_column(Integer, default=120, nullable=False)
+    empty_queue_timer_seconds: Mapped[int] = mapped_column(Integer, default=120, nullable=False)
+    current_slot_index: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    pick_started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    pick_deadline_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    timer_paused: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    timer_paused_remaining_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    deadline_extended_for_slot: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    awaiting_admin_resolution: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    board_ranks_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    completed_summary_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+    slots: Mapped[list["LeagueExpansionDraftSlot"]] = relationship(
+        back_populates="draft", order_by="LeagueExpansionDraftSlot.overall_pick"
+    )
+    picks: Mapped[list["LeagueExpansionDraftPick"]] = relationship(
+        back_populates="draft", order_by="LeagueExpansionDraftPick.overall_pick"
+    )
+    eligible_players: Mapped[list["LeagueExpansionDraftEligiblePlayer"]] = relationship(
+        back_populates="draft"
+    )
+
+
+class LeagueExpansionDraftSlot(db.Model):
+    __tablename__ = "league_expansion_draft_slots"
+    __bind_key__ = "site"
+    __table_args__ = (
+        UniqueConstraint("league_expansion_draft_id", "overall_pick", name="uq_league_exp_slot_overall"),
+        Index("ix_league_exp_slot_draft", "league_expansion_draft_id", "overall_pick"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_expansion_draft_id: Mapped[int] = mapped_column(ForeignKey("league_expansion_drafts.id"), nullable=False)
+    overall_pick: Mapped[int] = mapped_column(Integer, nullable=False)
+    round: Mapped[int] = mapped_column(Integer, nullable=False)
+    phase: Mapped[str] = mapped_column(String(16), nullable=False)  # goalie | skater
+    team_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    forfeited: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    notes: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    draft: Mapped["LeagueExpansionDraft"] = relationship(back_populates="slots")
+
+
+class LeagueExpansionDraftPick(db.Model):
+    __tablename__ = "league_expansion_draft_picks"
+    __bind_key__ = "site"
+    __table_args__ = (
+        UniqueConstraint("league_expansion_draft_id", "overall_pick", name="uq_league_exp_pick_overall"),
+        Index("ix_league_exp_pick_draft", "league_expansion_draft_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_expansion_draft_id: Mapped[int] = mapped_column(ForeignKey("league_expansion_drafts.id"), nullable=False)
+    overall_pick: Mapped[int] = mapped_column(Integer, nullable=False)
+    round: Mapped[int] = mapped_column(Integer, nullable=False)
+    phase: Mapped[str] = mapped_column(String(16), nullable=False)
+    team_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    player_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    from_team_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    source: Mapped[str] = mapped_column(String(24), default="gm", nullable=False)  # gm|admin
+    picked_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+    draft: Mapped["LeagueExpansionDraft"] = relationship(back_populates="picks")
+
+
+class LeagueExpansionDraftEligiblePlayer(db.Model):
+    __tablename__ = "league_expansion_draft_eligible_players"
+    __bind_key__ = "site"
+    __table_args__ = (
+        UniqueConstraint("league_expansion_draft_id", "player_id", name="uq_league_exp_elig_draft_player"),
+        Index("ix_league_exp_elig_draft", "league_expansion_draft_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_expansion_draft_id: Mapped[int] = mapped_column(ForeignKey("league_expansion_drafts.id"), nullable=False)
+    player_id: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    draft: Mapped["LeagueExpansionDraft"] = relationship(back_populates="eligible_players")
+
+
 class ProspectSystemRankSnapshot(db.Model):
     """League-wide prospect system rank by team; compared on next view to show Δ rank."""
 

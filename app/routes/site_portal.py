@@ -11,7 +11,7 @@ from pathlib import Path
 
 from flask import Blueprint, abort, current_app, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import joinedload
 from app.auth_login import (
     ADMIN_ROLE_CONTENT,
@@ -26,7 +26,7 @@ from app.auth_login import (
 from app.config import Config, league_display_name, league_group_for_slug
 from app.logo_urls import team_logo_url_for_team
 from app.league_db import db
-from app.models import Player, PlayerContract, Season, Team
+from app.models import Player, PlayerContract, Prospect, Season, Team
 from app.services.ap_multileague import team_id_for_slug_in_league
 from app.services.all_time_records import bowl_nhl_league_ids
 from app.services.gm_messaging import (
@@ -133,6 +133,10 @@ from app.site_models import (
     LeagueDraftQueueItem,
     LeagueDraftSlot,
     LeagueDraftSoundbite,
+    LeagueExpansionDraft,
+    LeagueExpansionDraftEligiblePlayer,
+    LeagueExpansionDraftPick,
+    LeagueExpansionDraftSlot,
     LeagueRuleSetting,
     NewsArticle,
     SiteAnnouncement,
@@ -4875,4 +4879,344 @@ def admin_draft_hub_edit(draft_id: int):
         year_min_date=year_min_date,
         year_max_date=year_max_date,
         age_options=list(range(15, 31)),
+    )
+
+
+@site_admin_bp.route("/expansion-draft-hub", methods=["GET", "POST"])
+@login_required
+def admin_expansion_draft_hub():
+    require_admin_role(ADMIN_ROLE_CONTENT, ADMIN_ROLE_LEAGUE)
+    slug = _league_slug()
+    if request.method == "POST" and request.form.get("action") == "delete":
+        draft_id_raw = (request.form.get("draft_id") or "").strip()
+        if not draft_id_raw.isdigit():
+            flash("Invalid draft id.", "err")
+            return redirect(url_for("site_admin.admin_expansion_draft_hub"))
+        target = db.session.get(LeagueExpansionDraft, int(draft_id_raw))
+        if not target or target.league_slug != slug:
+            flash("Expansion draft not found for this site.", "err")
+            return redirect(url_for("site_admin.admin_expansion_draft_hub"))
+        did = int(target.id)
+        name = target.name
+        prev_status = target.status
+        db.session.execute(
+            delete(LeagueExpansionDraftEligiblePlayer).where(
+                LeagueExpansionDraftEligiblePlayer.league_expansion_draft_id == did
+            )
+        )
+        db.session.execute(
+            delete(LeagueExpansionDraftPick).where(LeagueExpansionDraftPick.league_expansion_draft_id == did)
+        )
+        db.session.execute(
+            delete(LeagueExpansionDraftSlot).where(LeagueExpansionDraftSlot.league_expansion_draft_id == did)
+        )
+        db.session.delete(target)
+        db.session.add(
+            AdminAuditLog(
+                admin_user_id=int(current_user.id),
+                league_slug=slug,
+                action="expansion_draft_hub_delete",
+                detail_json=json.dumps(
+                    {"draft_id": did, "name": name, "status_before": prev_status}
+                ),
+            )
+        )
+        db.session.commit()
+        flash(f"Deleted expansion draft “{name}”.", "ok")
+        return redirect(url_for("site_admin.admin_expansion_draft_hub"))
+    if request.method == "POST" and request.form.get("action") == "new":
+        row = LeagueExpansionDraft(
+            league_slug=slug,
+            name=(request.form.get("name") or "Expansion Draft").strip()[:200] or "Expansion Draft",
+            status="setup",
+            goalie_rounds=max(0, int(request.form.get("goalie_rounds") or 1)),
+            skater_rounds=max(0, int(request.form.get("skater_rounds") or 1)),
+            max_players_lost_per_team=max(0, int(request.form.get("max_players_lost_per_team") or 1)),
+            expansion_team_count=max(1, int(request.form.get("expansion_team_count") or 1)),
+            timer_seconds=max(5, int(request.form.get("timer_seconds") or 120)),
+            empty_queue_timer_seconds=max(5, int(request.form.get("empty_queue_timer_seconds") or 120)),
+        )
+        db.session.add(row)
+        db.session.commit()
+        flash("Expansion draft created.", "ok")
+        return redirect(url_for("site_admin.admin_expansion_draft_hub_edit", draft_id=row.id))
+    rows = list(
+        db.session.scalars(
+            select(LeagueExpansionDraft)
+            .where(LeagueExpansionDraft.league_slug == slug)
+            .order_by(LeagueExpansionDraft.id.desc())
+        ).all()
+    )
+    return render_template("admin_expansion_draft_hub.html", league_slug=slug, drafts=rows)
+
+
+@site_admin_bp.route("/expansion-draft-hub/<int:draft_id>", methods=["GET", "POST"])
+@login_required
+def admin_expansion_draft_hub_edit(draft_id: int):
+    require_admin_role(ADMIN_ROLE_CONTENT, ADMIN_ROLE_LEAGUE)
+    slug = _league_slug()
+    row = db.session.get(LeagueExpansionDraft, draft_id)
+    if not row or row.league_slug != slug:
+        abort(404)
+
+    from app.services.expansion_draft_state import (
+        exempt_team_ids,
+        expansion_franchise_ids_sorted,
+        go_live,
+        pause_timer,
+        regenerate_slots,
+        replace_eligible_players,
+        resume_timer,
+        resolve_admin_pick,
+        set_exempt_team_ids,
+        set_expansion_team_order,
+        undo_last_pick,
+    )
+    from app.services.roster_team import (
+        is_main_league_team,
+        organization_main_team,
+        player_exempt_from_expansion_pool,
+    )
+
+    if request.method == "POST":
+        act = (request.form.get("action") or "").strip()
+        if act == "save_settings" and row.status == "setup":
+            exp_count = max(1, int(request.form.get("expansion_team_count") or 1))
+            main_ids = {
+                int(x)
+                for x in db.session.scalars(
+                    select(Team.id).where(or_(Team.fhm_league_id.is_(None), Team.fhm_league_id == 0))
+                ).all()
+            }
+            raw_exp: set[int] = set()
+            for pid_s in request.form.getlist("expansion_franchise"):
+                if str(pid_s).strip().isdigit():
+                    tid = int(pid_s)
+                    if tid in main_ids:
+                        raw_exp.add(tid)
+            exp_list = sorted(raw_exp)
+            err_msg: str | None = None
+            if len(exp_list) != exp_count:
+                err_msg = (
+                    f"Select exactly {exp_count} BOWL expansion franchise(s) "
+                    f"(you selected {len(exp_list)})."
+                )
+            g_first_raw = (request.form.get("goalie_phase_first_team_id") or "").strip()
+            s_first_raw = (request.form.get("skater_phase_first_team_id") or "").strip()
+            g_first: int | None = int(g_first_raw) if g_first_raw.isdigit() else None
+            s_first: int | None = int(s_first_raw) if s_first_raw.isdigit() else None
+            if not err_msg and len(exp_list) > 1:
+                if g_first is None or g_first not in exp_list:
+                    err_msg = "Choose which expansion franchise picks first in the goalie phase."
+                elif s_first is None or s_first not in exp_list:
+                    err_msg = "Choose which expansion franchise picks first in the skater phase."
+            if not err_msg and len(exp_list) <= 1:
+                g_first = exp_list[0] if len(exp_list) == 1 else None
+                s_first = exp_list[0] if len(exp_list) == 1 else None
+
+            if err_msg:
+                flash(err_msg, "err")
+            else:
+                row.name = (request.form.get("name") or row.name).strip()[:200]
+                row.goalie_rounds = max(0, int(request.form.get("goalie_rounds") or row.goalie_rounds))
+                row.skater_rounds = max(0, int(request.form.get("skater_rounds") or row.skater_rounds))
+                row.max_players_lost_per_team = max(
+                    0, int(request.form.get("max_players_lost_per_team") or 1)
+                )
+                row.expansion_team_count = exp_count
+                row.timer_seconds = max(5, int(request.form.get("timer_seconds") or row.timer_seconds))
+                row.empty_queue_timer_seconds = max(
+                    5, int(request.form.get("empty_queue_timer_seconds") or row.empty_queue_timer_seconds)
+                )
+                row.scheduled_start_at = _parse_scheduled_start(request.form.get("scheduled_start_at") or "")
+                set_expansion_team_order(row, exp_list)
+                row.goalie_phase_first_team_id = g_first
+                row.skater_phase_first_team_id = s_first
+                exempt: set[int] = set()
+                for tm in db.session.scalars(
+                    select(Team)
+                    .where(or_(Team.fhm_league_id.is_(None), Team.fhm_league_id == 0))
+                    .order_by(Team.name)
+                ).all():
+                    if request.form.get(f"exempt_team_{tm.id}") == "1":
+                        exempt.add(int(tm.id))
+                set_exempt_team_ids(row, exempt)
+                flash("Settings saved.", "ok")
+            db.session.commit()
+        elif act == "regenerate_slots" and row.status == "setup":
+            err = regenerate_slots(db.session, row)
+            if err:
+                flash(err, "err")
+            else:
+                db.session.add(
+                    AdminAuditLog(
+                        admin_user_id=int(current_user.id),
+                        league_slug=slug,
+                        action="expansion_draft_regen_slots",
+                        detail_json=json.dumps({"draft_id": row.id}),
+                    )
+                )
+                flash("Slots regenerated (goalie phase, then skater phase).", "ok")
+            db.session.commit()
+        elif act == "save_eligible" and row.status == "setup":
+            exempt = exempt_team_ids(row)
+            pids: set[int] = set()
+            for pid_s in request.form.getlist("elig"):
+                if not str(pid_s).strip().isdigit():
+                    continue
+                pid = int(pid_s)
+                pl = db.session.get(Player, pid)
+                if pl and not player_exempt_from_expansion_pool(db.session, pl, exempt):
+                    pids.add(pid)
+            replace_eligible_players(db.session, row, pids)
+            db.session.add(
+                AdminAuditLog(
+                    admin_user_id=int(current_user.id),
+                    league_slug=slug,
+                    action="expansion_draft_save_eligible",
+                    detail_json=json.dumps({"draft_id": row.id, "count": len(pids)}),
+                )
+            )
+            db.session.commit()
+            flash(f"Eligible pool updated ({len(pids)} players).", "ok")
+        elif act == "go_live" and row.status == "setup":
+            err = go_live(db.session, row, int(current_user.id))
+            if err:
+                flash(err, "err")
+            else:
+                db.session.add(
+                    AdminAuditLog(
+                        admin_user_id=int(current_user.id),
+                        league_slug=slug,
+                        action="expansion_draft_go_live",
+                        detail_json=json.dumps({"draft_id": row.id}),
+                    )
+                )
+                flash("Expansion draft is now live.", "ok")
+            db.session.commit()
+        elif act == "undo_pick" and row.status == "live":
+            err = undo_last_pick(db.session, row)
+            if err:
+                flash(err, "err")
+            else:
+                db.session.add(
+                    AdminAuditLog(
+                        admin_user_id=int(current_user.id),
+                        league_slug=slug,
+                        action="expansion_draft_undo_pick",
+                        detail_json=json.dumps({"draft_id": row.id}),
+                    )
+                )
+                flash("Last pick removed.", "ok")
+            db.session.commit()
+        elif act == "pause_timer" and row.status == "live":
+            err = pause_timer(db.session, row)
+            if err:
+                flash(err, "err")
+            else:
+                flash("Timer paused.", "ok")
+            db.session.commit()
+        elif act == "resume_timer" and row.status == "live":
+            err = resume_timer(db.session, row)
+            if err:
+                flash(err, "err")
+            else:
+                flash("Timer resumed.", "ok")
+            db.session.commit()
+        elif act == "admin_pick" and row.status == "live":
+            pid_raw = (request.form.get("player_id") or "").strip()
+            if not pid_raw.isdigit():
+                flash("Invalid player id.", "err")
+            else:
+                err = resolve_admin_pick(db.session, row, int(pid_raw), int(current_user.id))
+                if err:
+                    flash(err, "err")
+                else:
+                    db.session.add(
+                        AdminAuditLog(
+                            admin_user_id=int(current_user.id),
+                            league_slug=slug,
+                            action="expansion_draft_admin_pick",
+                            detail_json=json.dumps({"draft_id": row.id, "player_id": int(pid_raw)}),
+                        )
+                    )
+                    flash("Pick recorded.", "ok")
+            db.session.commit()
+        return redirect(url_for("site_admin.admin_expansion_draft_hub_edit", draft_id=draft_id))
+
+    teams = list(db.session.scalars(select(Team).order_by(Team.name)).all())
+    main_teams = [
+        t
+        for t in teams
+        if t.fhm_league_id is None or int(t.fhm_league_id) == 0
+    ]
+    exempt = exempt_team_ids(row)
+    expansion_franchise_ids = expansion_franchise_ids_sorted(row)
+    elig_ids = {
+        int(x)
+        for x in db.session.scalars(
+            select(LeagueExpansionDraftEligiblePlayer.player_id).where(
+                LeagueExpansionDraftEligiblePlayer.league_expansion_draft_id == row.id
+            )
+        ).all()
+    }
+    players_all = list(
+        db.session.scalars(
+            select(Player)
+            .where(Player.retired.is_(False))
+            .options(joinedload(Player.contract), joinedload(Player.current_team))
+            .order_by(Player.full_name.asc())
+        ).unique().all()
+    )
+    expansion_org_players: dict[int, dict[str, list[Player]]] = {}
+    player_ids = [int(p.id) for p in players_all]
+    prospect_by_pid: dict[int, Prospect] = {}
+    if player_ids:
+        for pr in db.session.scalars(select(Prospect).where(Prospect.player_id.in_(player_ids))).all():
+            if pr.player_id is None:
+                continue
+            pid = int(pr.player_id)
+            if pid not in prospect_by_pid:
+                prospect_by_pid[pid] = pr
+    for pl in players_all:
+        if pl.contract is None:
+            continue
+        org = organization_main_team(
+            db.session, pl, prospect=prospect_by_pid.get(int(pl.id))
+        )
+        if org is None:
+            continue
+        tid = int(org.id)
+        ct = pl.current_team
+        if ct is not None and is_main_league_team(ct) and int(ct.id) == tid:
+            bucket = "main"
+        else:
+            bucket = "minors"
+        expansion_org_players.setdefault(tid, {"main": [], "minors": []})[bucket].append(pl)
+    for _tid, buckets in expansion_org_players.items():
+        buckets["main"].sort(key=lambda p: (p.full_name or "").lower())
+        buckets["minors"].sort(key=lambda p: (p.full_name or "").lower())
+
+    slots = list(
+        db.session.scalars(
+            select(LeagueExpansionDraftSlot)
+            .where(LeagueExpansionDraftSlot.league_expansion_draft_id == row.id)
+            .order_by(LeagueExpansionDraftSlot.overall_pick)
+        ).all()
+    )
+    sched = ""
+    if row.scheduled_start_at:
+        sched = row.scheduled_start_at.strftime("%Y-%m-%dT%H:%M")
+    return render_template(
+        "admin_expansion_draft_hub_edit.html",
+        league_slug=slug,
+        draft=row,
+        teams=teams,
+        main_teams=main_teams,
+        exempt_ids=exempt,
+        eligible_ids=elig_ids,
+        expansion_org_players=expansion_org_players,
+        expansion_franchise_ids=expansion_franchise_ids,
+        slots=slots,
+        sched_value=sched,
     )

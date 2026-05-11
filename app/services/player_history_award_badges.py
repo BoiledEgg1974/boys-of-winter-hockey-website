@@ -318,7 +318,7 @@ def _player_on_team_in_season(session: Session, player_id: int, team_db_id: int,
     return bool(n_gk and int(n_gk) > 0)
 
 
-def _player_bowl_cup_season_labels(session: Session, player_id: int) -> list[str]:
+def player_bowl_cup_season_labels(session: Session, player_id: int) -> list[str]:
     """Season labels (``YYYY-YY``) where ``HistoryAward`` BOWL CUP winner matches roster career lines."""
     cup_rows = [
         a
@@ -362,6 +362,11 @@ def _player_bowl_cup_season_labels(session: Session, player_id: int) -> list[str
 
     uniq.sort(key=_lab_key, reverse=True)
     return uniq
+
+
+def player_bowl_cup_win_count(session: Session, player_id: int) -> int:
+    """Number of BOWL Cup championships inferred for this player (same rules as profile trophy strip)."""
+    return len(player_bowl_cup_season_labels(session, player_id))
 
 
 def _display_season_for_badge(a: HistoryAward) -> str:
@@ -413,7 +418,7 @@ def player_history_award_badges(session: Session, player_id: int) -> list[dict]:
             }
         )
 
-    cup_labels = _player_bowl_cup_season_labels(session, player_id)
+    cup_labels = player_bowl_cup_season_labels(session, player_id)
     if cup_labels:
         n_cup = len(cup_labels)
         tip_cup = "; ".join(f"{lab} · {_BOWL_CUP_TITLE}" for lab in cup_labels)

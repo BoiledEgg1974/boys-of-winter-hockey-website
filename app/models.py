@@ -103,6 +103,9 @@ class Player(db.Model):
     career_skater_lines: Mapped[list["PlayerSkaterCareerLine"]] = relationship(back_populates="player")
     career_goalie_lines: Mapped[list["PlayerGoalieCareerLine"]] = relationship(back_populates="player")
     contract: Mapped["PlayerContract | None"] = relationship(back_populates="player", uselist=False)
+    hall_of_fame_entry: Mapped["HallOfFameMember | None"] = relationship(
+        back_populates="player", uselist=False
+    )
 
 
 class LeagueMeta(db.Model):
@@ -553,6 +556,22 @@ class HistoryChampion(db.Model):
 
     season: Mapped["Season"] = relationship()
     team: Mapped["Team"] = relationship()
+
+
+class HallOfFameMember(db.Model):
+    """Inductee list sourced from ``hall_of_fame.csv`` in each league raw import folder (replace-all import)."""
+
+    __tablename__ = "hall_of_fame_members"
+    __table_args__ = (UniqueConstraint("player_id", name="uq_hof_player"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    player_id: Mapped[int] = mapped_column(ForeignKey("players.id"), nullable=False)
+    #: ``skater`` or ``goalie`` — controls which career stat block the HoF page shows.
+    member_kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    inducted_year: Mapped[int] = mapped_column(Integer, nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    player: Mapped["Player"] = relationship(back_populates="hall_of_fame_entry")
 
 
 class TeamSeasonRecord(db.Model):

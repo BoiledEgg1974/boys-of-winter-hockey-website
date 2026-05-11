@@ -8,8 +8,6 @@ import unicodedata
 from datetime import date
 from email.message import EmailMessage
 from pathlib import Path
-from typing import Protocol, TypeVar
-
 from flask import Blueprint, abort, current_app, render_template, request, url_for
 from flask_login import current_user
 from sqlalchemy import case, cast, extract, Float, func, not_, nulls_last, or_, select
@@ -64,6 +62,7 @@ from app.services.draft_history import (
     nhl_bowl_draft_clause,
 )
 from app.services.import_career_seasons import import_folder_season_labels
+from app.services.player_career_bowl_lines import load_player_bowl_career_table_lines
 from app.services.player_career_totals import goalie_career_lines_totals, skater_career_lines_totals
 from app.services.player_contract_csv import (
     contract_final_season_label_from_remaining,
@@ -1584,6 +1583,18 @@ def history():
         award_panels=award_panels,
         seasons_on_file=seasons_on_file,
         champion_banners=champion_banners,
+    )
+
+
+@main_bp.get("/hall-of-fame")
+def hall_of_fame_page():
+    from app.services.hall_of_fame import build_hall_of_fame_plaques
+
+    sk, gk = build_hall_of_fame_plaques(db.session)
+    return render_template(
+        "hall_of_fame.html",
+        hof_skaters=sk,
+        hof_goalies=gk,
     )
 
 
@@ -3648,98 +3659,15 @@ def _player_age_years(birth: date | None, as_of: date | None = None) -> int | No
     return ref.year - birth.year - ((ref.month, ref.day) < (birth.month, birth.day))
 
 
-class _CareerLineDedupeKey(Protocol):
-    season_year: int
-    team_fhm_id: int
-    league_fhm_id: int
-    career_source: str
-
-
-_CDL = TypeVar("_CDL", bound=_CareerLineDedupeKey)
-
-
-def _dedupe_career_lines_by_season_team_league(
-    lines: list[_CDL],
-    source_rank: dict[str, int],
-) -> list[_CDL]:
-    """One row per (season_year, team_fhm_id, league_fhm_id); prefer lower *source_rank*."""
-    if not lines:
-        return []
-    ordered = sorted(
-        lines,
-        key=lambda ln: (
-            -ln.season_year,
-            ln.team_fhm_id,
-            ln.league_fhm_id,
-            source_rank.get(ln.career_source, 9),
-        ),
-    )
-    out: list[_CDL] = []
-    seen: set[tuple[int, int, int]] = set()
-    for ln in ordered:
-        key = (ln.season_year, ln.team_fhm_id, ln.league_fhm_id)
-        if key in seen:
-            continue
-        seen.add(key)
-        out.append(ln)
-    return out
-
-
-def _dedupe_goalie_playoff_career_lines(
-    lines: list[PlayerGoalieCareerLine],
-) -> list[PlayerGoalieCareerLine]:
-    """One playoffs row per (season_year, team_fhm_id, league_fhm_id).
-
-    FHM career imports include both *ps* and *po* files (and active vs *retired_po*), which
-    produced duplicate seasons on the player page. Skater playoffs use only *po* /
-    *retired_po*; we match that and, if both *po* and *retired_po* exist for the same key,
-    keep *po* (season CSV) over *retired_po*.
-    """
-    return _dedupe_career_lines_by_season_team_league(lines, {"po": 0, "retired_po": 1})
-
-
 @main_bp.get("/player/<int:player_id>")
 def player_page(player_id: int):
     player = db.session.get(Player, player_id)
     if not player:
         abort(404)
     season = get_current_season()
-    sk_career_lines = db.session.scalars(
-        select(PlayerSkaterCareerLine)
-        .options(joinedload(PlayerSkaterCareerLine.team))
-        .where(PlayerSkaterCareerLine.player_id == player.id)
-        .order_by(PlayerSkaterCareerLine.season_year.desc())
-    ).all()
-    # rs + retired_rs: active vs retired regular-season career CSVs (see import_career_skater_file).
-    # Same season can exist in both; show one row (prefer *rs* over *retired_rs*).
-    career_rs_sk = _dedupe_career_lines_by_season_team_league(
-        [ln for ln in sk_career_lines if ln.career_source in ("rs", "retired_rs")],
-        {"rs": 0, "retired_rs": 1},
+    career_rs_sk, career_po_sk, career_rs_gk, career_po_gk = load_player_bowl_career_table_lines(
+        db.session, player.id
     )
-    career_po_sk = _dedupe_career_lines_by_season_team_league(
-        [ln for ln in sk_career_lines if ln.career_source in ("po", "retired_po")],
-        {"po": 0, "retired_po": 1},
-    )
-
-    gk_career_lines = db.session.scalars(
-        select(PlayerGoalieCareerLine)
-        .options(joinedload(PlayerGoalieCareerLine.team))
-        .where(PlayerGoalieCareerLine.player_id == player.id)
-        .order_by(PlayerGoalieCareerLine.season_year.desc())
-    ).all()
-    career_rs_gk = _dedupe_career_lines_by_season_team_league(
-        [ln for ln in gk_career_lines if ln.career_source in ("rs", "retired_rs")],
-        {"rs": 0, "retired_rs": 1},
-    )
-    career_po_gk = _dedupe_goalie_playoff_career_lines(
-        [ln for ln in gk_career_lines if ln.career_source in ("po", "retired_po")]
-    )
-    # BOWL/NHL main league only (excludes minors, juniors, etc.) — chart + career tables + totals.
-    _main_league_ids = frozenset(bowl_nhl_league_ids(db.session))
-    career_rs_sk = [ln for ln in career_rs_sk if ln.league_fhm_id in _main_league_ids]
-    career_po_sk = [ln for ln in career_po_sk if ln.league_fhm_id in _main_league_ids]
-    career_rs_gk = [ln for ln in career_rs_gk if ln.league_fhm_id in _main_league_ids]
-    career_po_gk = [ln for ln in career_po_gk if ln.league_fhm_id in _main_league_ids]
     pos = (player.position or "").strip().upper()
     is_goalie = pos.startswith("G")
     has_sk_career = bool(career_rs_sk or career_po_sk)
@@ -3842,7 +3770,6 @@ def player_page(player_id: int):
     player_season_trend_rows, player_season_trends_goalie_mode = build_player_season_trend_rows(
         db.session, trend_lines, skater_gr_lookup=skater_gr_lookup
     )
-    bowl_league_ids = bowl_nhl_league_ids(db.session)
     career_rs_sk_bowl = career_rs_sk
     career_po_sk_bowl = career_po_sk
     career_rs_gk_bowl = career_rs_gk

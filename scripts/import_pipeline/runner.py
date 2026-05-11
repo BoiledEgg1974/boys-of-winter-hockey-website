@@ -25,6 +25,7 @@ from app.models import (  # noqa: E402
     Game,
     GameGoalieStat,
     GameSkaterStat,
+    HallOfFameMember,
     HistoryAward,
     HistoryChampion,
     ImportLog,
@@ -729,6 +730,63 @@ def _history_awards_csv_path(raw_dir: Path) -> Path | None:
     return None
 
 
+def import_hall_of_fame(raw_dir: Path, app) -> int:
+    """Import ``hall_of_fame.csv`` (replace-all).
+
+    Columns (normalized headers):
+    - ``fhm_player_id`` or ``player_id``: FHM player id (same as ``history_awards.csv`` / ``Player.fhm_player_id``).
+    - ``kind`` (optional): ``skater`` / ``goalie`` / ``g`` — if blank, inferred from player position (G → goalie).
+    - ``inducted_year`` (required): calendar year of induction.
+    - ``sort_order`` (optional): lower sorts first within the same ``inducted_year``.
+    """
+    path = raw_dir / "hall_of_fame.csv"
+    if not path.is_file():
+        log.info("Skipping hall_of_fame.csv (not found)")
+        return 0
+    df = read_csv_normalized(path)
+    db.session.execute(delete(HallOfFameMember))
+    db.session.commit()
+    n = 0
+    seen_players: set[int] = set()
+    for _, row in df.iterrows():
+        r = row.to_dict()
+        fhm_key = cell_val(r, "fhm_player_id", "player_id")
+        player = _player_by_fhm(fhm_key)
+        if not player:
+            log.warning("hall_of_fame.csv: skipping unknown player id %r", fhm_key)
+            continue
+        if player.id in seen_players:
+            log.warning("hall_of_fame.csv: duplicate row for player id %s — skipping", player.id)
+            continue
+        kind_raw = (cell_val(r, "kind", "member_kind", "type") or "").strip().lower()
+        if kind_raw in ("goalie", "g", "goaltender"):
+            member_kind = "goalie"
+        elif kind_raw in ("skater", "s", "skater_forward", "forward", "defence", "defense"):
+            member_kind = "skater"
+        else:
+            pos = (player.position or "").strip().upper()
+            member_kind = "goalie" if pos.startswith("G") else "skater"
+        inducted = to_int(cell_val(r, "inducted_year", "inducted", "year"))
+        if inducted is None or inducted <= 0:
+            log.warning("hall_of_fame.csv: skipping %r — invalid inducted_year", fhm_key)
+            continue
+        sort_order = to_int(cell_val(r, "sort_order", "order"), 0)
+        if sort_order is None:
+            sort_order = 0
+        db.session.add(
+            HallOfFameMember(
+                player_id=int(player.id),
+                member_kind=member_kind,
+                inducted_year=int(inducted),
+                sort_order=int(sort_order),
+            )
+        )
+        seen_players.add(int(player.id))
+        n += 1
+    db.session.commit()
+    return n
+
+
 def import_history_awards(
     raw_dir: Path,
     app,
@@ -855,6 +913,7 @@ STEPS = [
     ("teams", import_teams),
     ("seasons", import_seasons),
     ("players", import_players),
+    ("hall_of_fame", import_hall_of_fame),
     ("team_standings", import_team_standings),
     ("games", import_games),
     ("player_skater_stats", import_skater_stats),
@@ -932,6 +991,10 @@ def run_import(raw_dir: Path | None = None) -> None:
 
                     log.info("Applying team_season_records_template.csv after FHM import.")
                     counts["team_season_records"] = import_team_season_records(raw, app)
+                hof = raw / "hall_of_fame.csv"
+                if hof.is_file():
+                    log.info("Applying hall_of_fame.csv after FHM import.")
+                    counts["hall_of_fame"] = import_hall_of_fame(raw, app)
                 total = sum(counts.values())
                 ilog.rows_processed = total
                 ilog.status = "success"

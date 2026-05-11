@@ -19,6 +19,7 @@ Optional: `pip install -r requirements-deploy.txt` only if you use the PythonAny
 | SQLite per league | `instance/bowl-historical.db`, `instance/bowl-fantasy.db`, `instance/bowl-cap.db` (legacy names like `league2.db` may still be used if the new file is empty—see `app/config.py`) |
 | Team logos        | `app/static/logos/teams/<league_folder>/` (importer can copy from optional `team_logos` / `logos` inside each raw folder)                                                         |
 | Player headshots  | `app/static/players/...` (optional)                                                                                                                                               |
+| Hall of Fame list | Optional `hall_of_fame.csv` in each league raw folder (see `data/imports/raw/README.txt`); imported with the pipeline and shown at `/hall-of-fame`.                             |
 
 
 League **URL slugs** (used in `LEAGUE_SLUG` and in URLs): `bowl-historical`, `bowl-fantasy`, `bowl-cap`.

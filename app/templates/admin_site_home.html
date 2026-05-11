@@ -14,6 +14,7 @@
     <li><a href="{{ url_for('site_admin.admin_import_validation') }}">Import validation</a></li>
     <li><a href="{{ url_for('main.prospects') }}">Prospects</a> — system CHG and league POT-board CHG use automatic import snapshots (no manual baseline)</li>
     <li><a href="{{ url_for('main.standings', view='overall') }}">Standings</a> — positional (F/D/G) CHG uses the same automatic snapshots</li>
+    <li><a href="{{ url_for('main.hall_of_fame_page') }}">Hall of Fame</a> — inductees from <code>hall_of_fame.csv</code> (see raw import README)</li>
     <li><a href="{{ url_for('site_admin.admin_rules') }}">League rules (scaffold)</a></li>
     <li><a href="{{ url_for('site_admin.admin_draft_hub') }}">Draft Hub (league-run drafts)</a></li>
     {% if current_league_slug == 'bowl-fantasy' %}

@@ -36,6 +36,7 @@ _HUB_LEAF_REDIRECTS: tuple[str, ...] = (
     "statistics",
     "schedule",
     "history",
+    "hall-of-fame",
     "records",
     "prospects",
     "undrafted-prospects",

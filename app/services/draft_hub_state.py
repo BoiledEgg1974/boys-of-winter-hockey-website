@@ -458,3 +458,94 @@ def resolve_admin_pick(
     if draft.status != "live":
         return "Draft is not live."
     return record_pick(session, draft, player_id, admin_user_id, "admin")
+
+
+def auto_complete_draft(
+    session: Session,
+    draft: LeagueDraft,
+    admin_user_id: int,
+) -> tuple[int, str | None]:
+    """Run every remaining pick automatically using each team's wishlist, then BPA.
+
+    For each open slot:
+      1. Walk the team's GM wishlist (auto-queue) and pick the highest-ranked eligible entry.
+      2. If no wishlist entry is eligible, pick the best player available on the board.
+
+    Clears any commissioner-paused / awaiting-admin state so the loop can proceed.
+    Returns ``(picks_made, error_or_none)``. The caller commits / rolls back.
+    """
+    if draft.status != "live":
+        return 0, "Draft is not live."
+
+    # Allow the loop to run even if the clock is paused or the commissioner was holding things.
+    draft.awaiting_admin_resolution = False
+    draft.timer_paused = False
+    draft.timer_paused_remaining_seconds = None
+
+    picks_made = 0
+    # Safety: cap iterations well above realistic slot counts so a logic bug never spins forever.
+    max_iters = 5000
+    for _ in range(max_iters):
+        if draft.status != "live":
+            break
+        slots = slots_ordered(session, draft.id)
+        if draft.current_slot_index >= len(slots):
+            _finalize_draft_if_done(session, draft, slots)
+            break
+
+        slot = slots[draft.current_slot_index]
+        if slot.forfeited:
+            draft.current_slot_index += 1
+            continue
+        if _pick_row_for_overall(session, draft.id, slot.overall_pick):
+            draft.current_slot_index += 1
+            continue
+
+        picked_ids = picked_player_ids(session, draft.id)
+        params = draft_eligibility_params(draft)
+        eligible_ordered = eligible_players_ordered(session, draft.league_slug, params)
+        eligible_remaining = [p for p in eligible_ordered if p.id not in picked_ids]
+        if not eligible_remaining:
+            _finalize_draft_if_done(session, draft, slots)
+            break
+        eligible_id_set = {p.id for p in eligible_remaining}
+
+        chosen_pid: int | None = None
+        chosen_uid: int | None = None
+        for uid in gm_user_ids_for_team(session, draft.league_slug, slot.team_id):
+            qrows = list(
+                session.scalars(
+                    select(LeagueDraftQueueItem)
+                    .where(
+                        LeagueDraftQueueItem.league_draft_id == draft.id,
+                        LeagueDraftQueueItem.user_id == uid,
+                    )
+                    .order_by(
+                        LeagueDraftQueueItem.sort_order.asc(),
+                        LeagueDraftQueueItem.id.asc(),
+                    )
+                ).all()
+            )
+            for qi in qrows:
+                if int(qi.player_id) in eligible_id_set:
+                    chosen_pid = int(qi.player_id)
+                    chosen_uid = uid
+                    break
+            if chosen_pid is not None:
+                break
+
+        if chosen_pid is None:
+            chosen_pid = eligible_remaining[0].id
+            chosen_uid = admin_user_id
+            source = "admin"
+        else:
+            source = "auto_queue"
+
+        err = record_pick(session, draft, chosen_pid, chosen_uid, source)
+        if err:
+            return picks_made, err
+        picks_made += 1
+    else:
+        return picks_made, "Auto-complete iteration cap reached. Run again to continue."
+
+    return picks_made, None

@@ -20,9 +20,31 @@ _LAST_CALL_BY_USER: dict[int, float] = {}
 _MIN_INTERVAL_SEC = 8.0
 
 
-def _error_payload(message: str) -> dict[str, Any]:
+def _error_payload(message: str, details: str | None = None) -> dict[str, Any]:
     """Caller (route) should translate the ``error`` key into an HTTP 5xx so the UI alerts cleanly."""
-    return {"error": message}
+    return {"error": message, "details": details or ""}
+
+
+def _extract_openai_error_message(body: str) -> str | None:
+    """Best-effort extraction of the human-readable message from an OpenAI error body."""
+    if not body:
+        return None
+    try:
+        obj = json.loads(body)
+    except json.JSONDecodeError:
+        return body.strip()[:280] or None
+    err = obj.get("error") if isinstance(obj, dict) else None
+    if isinstance(err, dict):
+        msg = err.get("message")
+        if isinstance(msg, str) and msg.strip():
+            return msg.strip()[:280]
+    return None
+
+
+def _uses_completion_token_limit(model: str) -> bool:
+    """Newer OpenAI reasoning/GPT-5 models reject the legacy max_tokens field."""
+    m = (model or "").strip().lower()
+    return m.startswith(("gpt-5", "o1", "o3", "o4"))
 
 
 def build_trade_prompt_block(
@@ -98,8 +120,11 @@ def fetch_trade_ai_opinion(
     model = str(current_app.config.get("TRADE_AI_OPENAI_MODEL") or "gpt-4o-mini").strip()
 
     if not api_key:
-        current_app.logger.warning("Trade AI: no OPENAI_API_KEY configured")
-        return _error_payload("AI Trade Tool is unavailable — server has no OpenAI API key configured.")
+        current_app.logger.warning("Trade AI: no OPENAI_API_KEY configured (model=%s)", model)
+        return _error_payload(
+            "AI Trade Tool is unavailable — server has no OpenAI API key configured.",
+            details=f"Model in use: {model}. Set OPENAI_API_KEY in .env and restart the app.",
+        )
 
     block = build_trade_prompt_block(session, from_team, to_team, left, right, notes)
 
@@ -122,10 +147,13 @@ def fetch_trade_ai_opinion(
             {"role": "system", "content": system},
             {"role": "user", "content": user_msg},
         ],
-        "temperature": 0.85,
-        "max_tokens": 600,
         "response_format": {"type": "json_object"},
     }
+    if _uses_completion_token_limit(model):
+        payload["max_completion_tokens"] = 600
+    else:
+        payload["temperature"] = 0.85
+        payload["max_tokens"] = 600
     req = Request(
         "https://api.openai.com/v1/chat/completions",
         data=json.dumps(payload).encode("utf-8"),
@@ -144,9 +172,15 @@ def fetch_trade_ai_opinion(
             err_body = e.read().decode("utf-8", errors="replace")[:500]
         except Exception:
             pass
-        current_app.logger.warning("Trade AI HTTPError: %s %s", e.code, err_body)
+        current_app.logger.warning("Trade AI HTTPError: %s %s (model=%s)", e.code, err_body, model)
+        api_msg = _extract_openai_error_message(err_body)
+        detail_bits: list[str] = []
+        if api_msg:
+            detail_bits.append(api_msg)
+        detail_bits.append(f"Model in use: {model}")
         return _error_payload(
-            f"AI Trade Tool request rejected (HTTP {e.code}). Check API key, model name, and OpenAI billing."
+            f"AI Trade Tool request rejected (HTTP {e.code}). Check API key, model name, and OpenAI billing.",
+            details=" — ".join(detail_bits),
         )
     except (URLError, TimeoutError, OSError, json.JSONDecodeError) as e:
         current_app.logger.warning("Trade AI request failed: %s", e)

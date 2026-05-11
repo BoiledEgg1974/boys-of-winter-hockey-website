@@ -28,6 +28,7 @@
        data-ai-advice-url="{{ url_for('draft_hub.draft_hub_api_ai_advice') }}"
        data-pause-url="{{ url_for('draft_hub.draft_hub_pause_timer') }}"
        data-resume-url="{{ url_for('draft_hub.draft_hub_resume_timer') }}"
+       data-auto-complete-url="{{ url_for('draft_hub.draft_hub_auto_complete') }}"
        data-player-page-tpl="{{ url_for('main.player_page', player_id=988776655) }}"
        data-sound-base="{{ url_for('draft_hub.draft_hub_sound', sound_id=0).rsplit('/', 1)[0] }}">
   </div>
@@ -48,6 +49,7 @@
   var aiAdviceUrl = root.getAttribute('data-ai-advice-url') || '';
   var pauseUrl = root.getAttribute('data-pause-url') || '';
   var resumeUrl = root.getAttribute('data-resume-url') || '';
+  var autoCompleteUrl = root.getAttribute('data-auto-complete-url') || '';
   var playerPageTpl = root.getAttribute('data-player-page-tpl') || '';
   var pickUrl = root.getAttribute('data-pick-url');
   var qAddUrl = root.getAttribute('data-queue-add-url');
@@ -67,22 +69,45 @@
   var lastAiKey = '';
   var lastAiPayload = null;
 
+  function restoreAiScroll() {
+    var el = document.getElementById('dh-ai-body');
+    if (!el) return;
+    var v = (savedPanelScrolls && savedPanelScrolls['#dh-ai-body']) || 0;
+    if (v <= 0) return;
+    var apply = function () {
+      var max = el.scrollHeight - el.clientHeight;
+      el.scrollTop = Math.min(v, Math.max(0, max));
+    };
+    apply();
+    // Defer once more so newly laid-out content takes effect on its true scrollHeight.
+    if (typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(apply);
+    }
+  }
+
   function renderAiPanelLoading() {
     var el = document.getElementById('dh-ai-body');
     if (!el) return;
     el.innerHTML = '<p class="muted">Fetching a take…</p>';
+    restoreAiScroll();
   }
 
-  function renderAiPanelIdle(msg) {
+  function renderAiPanelIdle(msg, details) {
     var el = document.getElementById('dh-ai-body');
     if (!el) return;
-    el.innerHTML = '<p class="muted">' + esc(msg) + '</p>';
+    var h = '<p class="muted">' + esc(msg) + '</p>';
+    if (details) {
+      h += '<p class="muted small" style="margin:0.35rem 0 0;">' + esc(details) + '</p>';
+    }
+    el.innerHTML = h;
+    restoreAiScroll();
   }
 
   function renderAiPanelError() {
     var el = document.getElementById('dh-ai-body');
     if (!el) return;
     el.innerHTML = '<p class="muted">Could not load the AI desk. Refresh and try again.</p>';
+    restoreAiScroll();
   }
 
   function renderAiPayload(data) {
@@ -90,6 +115,7 @@
     if (!el) return;
     if (!data || !data.active) {
       el.innerHTML = '<p class="muted">Recommendations appear when a team is on the clock.</p>';
+      restoreAiScroll();
       return;
     }
     var h = '<p class="draft-hub-ai__headline">' + esc(data.headline || '') + '</p>';
@@ -107,6 +133,7 @@
     }
     h += '<p class="muted small draft-hub-ai__note">AI-generated entertainment — not league guidance.</p>';
     el.innerHTML = h;
+    restoreAiScroll();
   }
 
   function refreshAiAdvice(x) {
@@ -132,7 +159,7 @@
       .then(function (data) {
         if (!data || !data.ok) {
           if (data && data.error) {
-            renderAiPanelIdle(data.error);
+            renderAiPanelIdle(data.error, data.details || '');
           } else {
             renderAiPanelError();
           }
@@ -312,6 +339,13 @@
       html += '<input type="hidden" name="csrf_token" value="' + esc(csrf) + '">';
       html += '<button type="submit" class="' + timerCls + ' small">' + timerLabel + '</button>';
       html += '</form>';
+      if (autoCompleteUrl) {
+        html += '<form method="post" action="' + esc(autoCompleteUrl) + '" class="draft-hub-admin-timer-form dh-auto-complete-form" '
+          + 'onsubmit="return confirm(&quot;Auto-complete every remaining pick using each team\\u2019s wishlist (best-available as fallback)? This cannot be undone in bulk.&quot;);">';
+        html += '<input type="hidden" name="csrf_token" value="' + esc(csrf) + '">';
+        html += '<button type="submit" class="button secondary small">Auto-Complete Draft</button>';
+        html += '</form>';
+      }
     }
     html += '</header>';
 
@@ -385,11 +419,24 @@
       var logoCell = row.team_logo_url
         ? '<img class="draft-hub-order__logo" src="' + esc(row.team_logo_url) + '" alt="' + esc(row.team) + ' logo">'
         : '<span class="draft-hub-order__logo draft-hub-order__logo--placeholder" aria-hidden="true">' + esc((row.team || '?').substring(0, 2).toUpperCase()) + '</span>';
-      html += '<li class="' + cls + '" title="' + esc(row.team) + '">';
+      var fromStyle = row.original_team_color
+        ? ' style="--from-team-color:' + esc(row.original_team_color) + ';"'
+        : '';
+      var fromTag = row.original_team_abbr
+        ? '<span class="draft-hub-order__from"' + fromStyle + ' title="Originally ' + esc(row.original_team_abbr) + '">from ' + esc(row.original_team_abbr) + '</span>'
+        : '';
+      var rowTitle = row.original_team_abbr
+        ? row.team + ' (from ' + row.original_team_abbr + ')'
+        : row.team;
+      html += '<li class="' + cls + '" title="' + esc(rowTitle) + '">';
       html += '<span class="draft-hub-order__ov">' + esc(String(row.overall)) + '</span>';
       html += logoCell;
-      html += badge;
-      html += '<span class="visually-hidden">' + esc(row.team) + '</span>';
+      if (badge || fromTag) {
+        html += '<span class="draft-hub-order__tags">' + badge + fromTag + '</span>';
+      } else {
+        html += '<span class="draft-hub-order__tags" aria-hidden="true"></span>';
+      }
+      html += '<span class="visually-hidden">' + esc(rowTitle) + '</span>';
       html += '</li>';
     });
     html += '</ul></section>';
@@ -431,7 +478,7 @@
     if (!picksToShow.length) {
       html += '<p class="muted small">No picks recorded for this selection yet.</p>';
     } else {
-      html += '<div class="table-wrap"><table class="data draft-hub-history-table"><thead><tr><th>#</th><th>Team</th><th>Pick</th></tr></thead><tbody>';
+      html += '<div class="table-wrap draft-hub-history-table-wrap"><table class="data draft-hub-history-table"><thead><tr><th>#</th><th>Team</th><th>Pick</th></tr></thead><tbody>';
       picksToShow.forEach(function (p) {
         var pickCell = (p.player_id != null)
           ? '<a href="' + esc(playerHref(p.player_id)) + '" target="_blank" rel="noopener noreferrer" title="Open player profile in a new tab">' + esc(p.player) + '</a>'
@@ -442,10 +489,18 @@
         var badge = (p.boost_tier === 'gold' || p.boost_tier === 'silver')
           ? ' <span class="draft-hub-boost-badge draft-hub-boost-badge--' + p.boost_tier + '">' + p.boost_tier.toUpperCase() + '</span>'
           : '';
+        var teamTitle = p.original_team_abbr ? (p.team + ' (from ' + p.original_team_abbr + ')') : p.team;
         var logoCell = p.team_logo_url
-          ? '<img class="draft-hub-history__logo" src="' + esc(p.team_logo_url) + '" alt="' + esc(p.team) + ' logo" title="' + esc(p.team) + '">'
-          : '<span class="draft-hub-history__logo draft-hub-history__logo--placeholder" aria-hidden="true">' + esc((p.team || '?').substring(0, 2).toUpperCase()) + '</span>';
-        html += '<tr' + rowCls + '><td>R' + esc(String(p.round)) + ' · ' + esc(String(p.overall)) + badge + '</td><td>' + logoCell + '<span class="visually-hidden">' + esc(p.team) + '</span></td><td>' + pickCell + '</td></tr>';
+          ? '<img class="draft-hub-history__logo" src="' + esc(p.team_logo_url) + '" alt="' + esc(p.team) + ' logo" title="' + esc(teamTitle) + '">'
+          : '<span class="draft-hub-history__logo draft-hub-history__logo--placeholder" aria-hidden="true" title="' + esc(teamTitle) + '">' + esc((p.team || '?').substring(0, 2).toUpperCase()) + '</span>';
+        var fromStyle = p.original_team_color
+          ? ' style="--from-team-color:' + esc(p.original_team_color) + ';"'
+          : '';
+        var fromTag = p.original_team_abbr
+          ? '<span class="draft-hub-history__from"' + fromStyle + '>from ' + esc(p.original_team_abbr) + '</span>'
+          : '';
+        var teamCellInner = '<span class="draft-hub-history__team">' + logoCell + fromTag + '</span>';
+        html += '<tr' + rowCls + '><td>R' + esc(String(p.round)) + ' · ' + esc(String(p.overall)) + badge + '</td><td>' + teamCellInner + '<span class="visually-hidden">' + esc(teamTitle) + '</span></td><td>' + pickCell + '</td></tr>';
       });
       html += '</tbody></table></div>';
     }
@@ -475,6 +530,7 @@
     html += '</div></div></aside>';
 
     captureEligibleScroll();
+    capturePanelScrolls();
     var preservedEligibleList = document.getElementById('dh-eligible-list');
     if (preservedEligibleList && preservedEligibleList.parentNode) {
       preservedEligibleList.parentNode.removeChild(preservedEligibleList);
@@ -488,6 +544,8 @@
         freshList.parentNode.replaceChild(preservedEligibleList, freshList);
       }
     }
+    sizeDraftOrder(x.picks_per_round);
+    restorePanelScrolls();
 
     var mq = root.querySelector('.draft-hub-ticker__marquee');
     if (mq && tp.length > 0) {
@@ -546,6 +604,75 @@
   var historyRound = 'all';
   var savedEligibleScroll = 0;
   var resetEligibleScroll = false;
+  var savedPanelScrolls = {};
+  var savedWindowScroll = 0;
+
+  // Selectors for scroll containers whose scrollTop should survive auto-refresh.
+  // The eligible list is handled separately via detach/reattach so it isn't listed here.
+  var PANEL_SCROLL_SELECTORS = [
+    '.draft-hub-order',
+    '.draft-hub-history-table-wrap',
+    '#dh-queue',
+    '#dh-ai-body'
+  ];
+
+  // Live-recorded scroll positions keyed by selector. Updated by a global capture-phase
+  // scroll listener so positions survive across renders AND across async content refills
+  // (e.g. the AI panel finishing its fetch on a subsequent refresh cycle).
+  function matchPanelSelector(el) {
+    if (!el || !el.matches) return null;
+    for (var i = 0; i < PANEL_SCROLL_SELECTORS.length; i += 1) {
+      var sel = PANEL_SCROLL_SELECTORS[i];
+      try {
+        if (el.matches(sel)) return sel;
+      } catch (_) {}
+    }
+    return null;
+  }
+  document.addEventListener(
+    'scroll',
+    function (e) {
+      var t = e.target;
+      if (!t || t === document || t === window) return;
+      var sel = matchPanelSelector(t);
+      if (sel) {
+        savedPanelScrolls[sel] = t.scrollTop || 0;
+      }
+    },
+    true
+  );
+  window.addEventListener('scroll', function () {
+    savedWindowScroll = window.pageYOffset || document.documentElement.scrollTop || 0;
+  });
+
+  function capturePanelScrolls() {
+    // Top up live values for any panels the user has not scrolled this session.
+    PANEL_SCROLL_SELECTORS.forEach(function (sel) {
+      var el = document.querySelector(sel);
+      if (el && savedPanelScrolls[sel] == null) {
+        savedPanelScrolls[sel] = el.scrollTop || 0;
+      }
+    });
+    if (!savedWindowScroll) {
+      savedWindowScroll = window.pageYOffset || document.documentElement.scrollTop || 0;
+    }
+  }
+
+  function restorePanelScrolls() {
+    PANEL_SCROLL_SELECTORS.forEach(function (sel) {
+      var el = document.querySelector(sel);
+      if (!el) return;
+      var v = savedPanelScrolls[sel] || 0;
+      if (v <= 0) return;
+      var max = el.scrollHeight - el.clientHeight;
+      if (max <= 0) return; // content not laid out yet; will be picked up by restoreAiScroll etc.
+      el.scrollTop = Math.min(v, Math.max(0, max));
+    });
+    if (savedWindowScroll > 0) {
+      var maxWin = (document.documentElement.scrollHeight || 0) - window.innerHeight;
+      window.scrollTo(0, Math.min(savedWindowScroll, Math.max(0, maxWin)));
+    }
+  }
 
   function captureEligibleScroll() {
     var list = document.getElementById('dh-eligible-list');
@@ -564,6 +691,35 @@
     if (savedEligibleScroll > 0) {
       var max = list.scrollHeight - list.clientHeight;
       list.scrollTop = Math.min(savedEligibleScroll, Math.max(0, max));
+    }
+  }
+
+  function sizeDraftOrder(picksPerRound) {
+    var order = document.querySelector('.draft-hub-order');
+    if (!order) return;
+    var eligibleList = document.getElementById('dh-eligible-list');
+    var n = Math.max(1, Number(picksPerRound) || 27);
+    var first = order.querySelector('.draft-hub-order__item');
+    if (!first) return;
+    var cs = window.getComputedStyle(order);
+    var gap = parseFloat(cs.rowGap || cs.gap || '0') || 0;
+    var padTop = parseFloat(cs.paddingTop || '0') || 0;
+    var padBot = parseFloat(cs.paddingBottom || '0') || 0;
+    var rowH = first.getBoundingClientRect().height;
+    if (rowH <= 0) return;
+    var totalRows = order.querySelectorAll('.draft-hub-order__item').length;
+    if (totalRows <= n) {
+      // Whole round (or fewer) already fits; do not impose a smaller cap.
+      order.style.maxHeight = 'none';
+      if (eligibleList) {
+        eligibleList.style.maxHeight = order.getBoundingClientRect().height + 'px';
+      }
+      return;
+    }
+    var max = (rowH * n) + (gap * (n - 1)) + padTop + padBot;
+    order.style.maxHeight = max + 'px';
+    if (eligibleList) {
+      eligibleList.style.maxHeight = max + 'px';
     }
   }
 

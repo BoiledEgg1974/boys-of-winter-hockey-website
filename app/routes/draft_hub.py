@@ -14,6 +14,7 @@ from app.models import Player, Team
 from app.services.draft_hub_ai_advisor import fetch_draft_hub_ai_advice
 from app.services.draft_hub_eligibility import age_as_of, anchor_dates, eligible_players_ordered
 from app.services.draft_hub_state import (
+    auto_complete_draft,
     compute_winners_losers,
     draft_eligibility_params,
     featured_draft,
@@ -195,10 +196,40 @@ def draft_hub_api_state():
     boost_tier_by_overall: dict[int, str] = {
         int(s.overall_pick): s.boost_tier for s in slots if s.boost_tier
     }
+    # Map every slot's overall_pick → original team id (the team that started with the pick).
+    # We populate from slot.original_team_id when set; otherwise fall back to the current owner,
+    # so untraded picks report identical current/original and the UI quietly skips the badge.
+    original_team_by_overall: dict[int, int] = {
+        int(s.overall_pick): int(s.original_team_id or s.team_id)
+        for s in slots
+        if s.team_id is not None
+    }
+
+    def _team_color(tm: Team | None) -> str | None:
+        raw = (getattr(tm, "primary_color", None) or "").strip()
+        if not raw.startswith("#") or len(raw) not in (4, 7):
+            return None
+        if not all(ch in "0123456789abcdefABCDEF" for ch in raw[1:]):
+            return None
+        return raw
+
+    def _orig_team_meta(
+        overall_pick: int,
+        current_team_id: int | None,
+    ) -> tuple[int | None, str | None, str | None]:
+        orig_tid = original_team_by_overall.get(int(overall_pick))
+        if orig_tid is None or current_team_id is None or orig_tid == int(current_team_id):
+            return None, None, None
+        orig_tm = team_by_id.get(int(orig_tid))
+        return int(orig_tid), (orig_tm.abbreviation if orig_tm else None), _team_color(orig_tm)
 
     def _pick_dict(pk: LeagueDraftPick) -> dict:
         pl = db.session.get(Player, pk.player_id)
         tm = team_by_id.get(pk.team_id)
+        orig_tid, orig_abbr, orig_color = _orig_team_meta(
+            int(pk.overall_pick),
+            int(pk.team_id) if pk.team_id is not None else None,
+        )
         return {
             "overall": pk.overall_pick,
             "round": pk.round,
@@ -209,6 +240,9 @@ def draft_hub_api_state():
             "player_id": pk.player_id,
             "source": pk.source,
             "boost_tier": boost_tier_by_overall.get(int(pk.overall_pick), ""),
+            "original_team_id": orig_tid,
+            "original_team_abbr": orig_abbr,
+            "original_team_color": orig_color,
         }
 
     all_picks_asc = list(
@@ -231,6 +265,10 @@ def draft_hub_api_state():
     if slots:
         for i, s in enumerate(slots):
             tm = team_by_id.get(s.team_id)
+            orig_tid, orig_abbr, orig_color = _orig_team_meta(
+                int(s.overall_pick),
+                int(s.team_id) if s.team_id is not None else None,
+            )
             order_rows.append(
                 {
                     "overall": s.overall_pick,
@@ -240,6 +278,9 @@ def draft_hub_api_state():
                     "team_logo_url": logo_by_team_id.get(int(s.team_id)) if s.team_id is not None else None,
                     "forfeited": s.forfeited,
                     "boost_tier": s.boost_tier or "",
+                    "original_team_id": orig_tid,
+                    "original_team_abbr": orig_abbr,
+                    "original_team_color": orig_color,
                     "is_current": bool(
                     draft.status == "live"
                     and i == draft.current_slot_index
@@ -385,6 +426,7 @@ def draft_hub_api_state():
                 "current_slot": current_slot,
                 "deadline_ms": deadline_ms,
                 "timer_seconds": draft.timer_seconds,
+                "picks_per_round": int(getattr(draft, "picks_per_round", 27) or 27),
                 "eligible_count": eligible_count,
                 "order": order_rows,
                 "recent_picks": pick_payload,
@@ -465,7 +507,12 @@ def draft_hub_api_ai_advice():
         overall=int(current_slot.overall_pick),
     )
     if payload.get("error"):
-        return jsonify({"ok": False, "active": True, "error": payload["error"]}), 503
+        return jsonify({
+            "ok": False,
+            "active": True,
+            "error": payload["error"],
+            "details": payload.get("details") or "",
+        }), 503
     return jsonify({"ok": True, "active": True, **payload})
 
 
@@ -619,6 +666,35 @@ def draft_hub_resume_timer():
         else:
             flash("Draft countdown resumed.", "ok")
     db.session.commit()
+    return redirect(url_for("draft_hub.draft_hub_page"))
+
+
+@draft_hub_bp.post("/auto-complete")
+@login_required
+def draft_hub_auto_complete():
+    from flask_wtf.csrf import validate_csrf
+
+    validate_csrf(request.form.get("csrf_token"))
+    if not getattr(current_user, "is_admin", False):
+        abort(403)
+    slug = _league_slug()
+    draft = featured_draft(db.session, slug)
+    if not draft:
+        flash("No draft is configured.", "err")
+        return redirect(url_for("draft_hub.draft_hub_page"))
+    if draft.status != "live":
+        flash("Draft is not live.", "err")
+        return redirect(url_for("draft_hub.draft_hub_page"))
+    picks_made, err = auto_complete_draft(db.session, draft, int(current_user.id))
+    if err:
+        db.session.rollback()
+        flash(f"Auto-complete stopped after {picks_made} pick(s): {err}", "err")
+    else:
+        db.session.commit()
+        msg = f"Auto-complete made {picks_made} pick(s)."
+        if draft.status == "completed":
+            msg += " Draft is complete."
+        flash(msg, "ok")
     return redirect(url_for("draft_hub.draft_hub_page"))
 
 

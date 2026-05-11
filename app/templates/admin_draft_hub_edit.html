@@ -62,7 +62,7 @@
   </form>
 
   <h2>Draft order</h2>
-  <p class="muted">Set the team holding each pick. Use <strong>Copy teams from previous round</strong> to duplicate the previous round's order into the next round.</p>
+  <p class="muted">Set the team holding each pick. Use <strong>Copy teams from previous round</strong> to duplicate the previous round's order into the next round. <em>Received from</em> records a pre-draft trade — leave it as <em>— No prior trade —</em> for picks that were never traded. Draft-day trades belong in the <strong>Pick ownership / trades</strong> panel below.</p>
   <form method="post" class="card draft-hub-admin-rounds" style="padding:1rem;margin-bottom:1rem;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="save_generated_slots">
@@ -74,17 +74,29 @@
             <button type="button" class="button secondary small dh-copy-prev-round" data-round="{{ loop.index }}">Copy teams from previous round</button>
           {% endif %}
         </div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(12rem,1fr));gap:0.5rem;margin-top:0.75rem;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(13rem,1fr));gap:0.65rem;margin-top:0.75rem;">
           {% for slot in round_rows %}
-            <label>
-              Pick {{ slot.overall }}
-              <select name="slot_team_{{ slot.overall }}" data-round="{{ slot.round }}" data-pick-index="{{ loop.index0 }}" style="width:100%;" required>
-                <option value="">Select team</option>
-                {% for t in teams %}
-                  <option value="{{ t.id }}"{% if slot.team_id == t.id %} selected{% endif %}>{{ t.abbreviation or t.name }}</option>
-                {% endfor %}
-              </select>
-            </label>
+            <div class="draft-hub-admin-slot">
+              <label style="display:block;">
+                Pick {{ slot.overall }}
+                <select name="slot_team_{{ slot.overall }}" data-round="{{ slot.round }}" data-pick-index="{{ loop.index0 }}" data-slot-role="team" style="width:100%;" required>
+                  <option value="">Select team</option>
+                  {% for t in teams %}
+                    <option value="{{ t.id }}"{% if slot.team_id == t.id %} selected{% endif %}>{{ t.abbreviation or t.name }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+              <label style="display:block;margin-top:0.3rem;font-size:0.85rem;color:var(--muted,#94a3b8);">
+                Received from
+                <select name="slot_orig_{{ slot.overall }}" data-round="{{ slot.round }}" data-pick-index="{{ loop.index0 }}" data-slot-role="orig" style="width:100%;">
+                  {% set traded = slot.original_team_id and slot.team_id and slot.original_team_id != slot.team_id %}
+                  <option value=""{% if not traded %} selected{% endif %}>— No prior trade —</option>
+                  {% for t in teams %}
+                    <option value="{{ t.id }}"{% if traded and slot.original_team_id == t.id %} selected{% endif %}>{{ t.abbreviation or t.name }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+            </div>
           {% endfor %}
         </div>
       </section>
@@ -213,7 +225,10 @@
       if (!round || round <= 1) return;
       document.querySelectorAll('select[data-round="' + round + '"]').forEach(function (target) {
         var pickIndex = target.getAttribute('data-pick-index');
-        var source = document.querySelector('select[data-round="' + (round - 1) + '"][data-pick-index="' + pickIndex + '"]');
+        var role = target.getAttribute('data-slot-role') || 'team';
+        var source = document.querySelector(
+          'select[data-round="' + (round - 1) + '"][data-pick-index="' + pickIndex + '"][data-slot-role="' + role + '"]'
+        );
         if (source) target.value = source.value;
       });
     });

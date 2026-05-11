@@ -10606,17 +10606,64 @@ a.draft-hub-player__name:hover {
   list-style: none;
   max-height: min(70vh, 520px);
   overflow-y: auto;
+  scrollbar-gutter: stable;
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
+  padding-right: 0.25rem;
 }
 .draft-hub-order__item {
   display: grid;
-  grid-template-columns: 2.2rem 36px 1fr;
+  grid-template-columns: 2.2rem 36px 1fr auto;
   align-items: center;
   gap: 0.55rem;
   padding: 0.3rem 0.4rem;
   border-radius: 4px;
+  min-width: 0;
+}
+.draft-hub-order__tags {
+  grid-column: 4;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  min-height: 1.4rem;
+}
+.draft-hub-order__from,
+.draft-hub-history__from {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.7rem;
+  line-height: 1;
+  font-style: italic;
+  color: var(--muted, #94a3b8);
+  background: rgb(148 163 184 / 0.12);
+  border: 1px solid rgb(148 163 184 / 0.25);
+  border-radius: 999px;
+  padding: 0.15rem 0.45rem;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+.draft-hub-order__from[style*="--from-team-color"],
+.draft-hub-history__from[style*="--from-team-color"] {
+  color: var(--from-team-color);
+  background: rgb(from var(--from-team-color) r g b / 0.16);
+  border-color: rgb(from var(--from-team-color) r g b / 0.55);
+  box-shadow: 0 0 8px rgb(from var(--from-team-color) r g b / 0.18);
+}
+.draft-hub-history__team {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  line-height: 1;
+}
+.draft-hub-history__team .draft-hub-history__from {
+  margin: 0;
+}
+.draft-hub-order__tags .draft-hub-boost-badge {
+  margin-left: 0;
 }
 .draft-hub-order__logo {
   width: 32px;
@@ -10998,7 +11045,9 @@ a.draft-hub-player__name:hover {
 .draft-hub-history-table td:nth-child(2) {
   width: 1%;
   text-align: center;
-  padding-inline: 0.35rem;
+  padding-inline: 0.5rem;
+  min-width: 4.5rem;
+  vertical-align: middle;
 }
 .draft-hub-history-table th:nth-child(3),
 .draft-hub-history-table td:nth-child(3) {

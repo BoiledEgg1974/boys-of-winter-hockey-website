@@ -915,7 +915,7 @@ def ai_trade_tool_evaluate():
         notes=notes,
     )
     if out.get("error"):
-        return jsonify({"error": out["error"]}), 503
+        return jsonify({"error": out["error"], "details": out.get("details") or ""}), 503
     return jsonify(out)
 
 
@@ -4621,28 +4621,42 @@ def admin_draft_hub_edit(draft_id: int):
                     select(LeagueDraftSlot).where(LeagueDraftSlot.league_draft_id == row.id)
                 ).all()
             }
+            valid_team_ids = {
+                int(tid) for tid in db.session.scalars(select(Team.id)).all()
+            }
             db.session.execute(delete(LeagueDraftSlot).where(LeagueDraftSlot.league_draft_id == row.id))
             total = int(row.rounds) * int(row.picks_per_round)
             created = 0
+            traded_count = 0
             for overall in range(1, total + 1):
                 tid_raw = (request.form.get(f"slot_team_{overall}") or "").strip()
                 if not tid_raw.isdigit():
                     continue
                 tid = int(tid_raw)
+                orig_raw = (request.form.get(f"slot_orig_{overall}") or "").strip()
+                orig_tid = tid
+                if orig_raw.isdigit():
+                    candidate = int(orig_raw)
+                    if candidate in valid_team_ids and candidate != tid:
+                        orig_tid = candidate
+                        traded_count += 1
                 round_no = ((overall - 1) // int(row.picks_per_round)) + 1
                 db.session.add(
                     LeagueDraftSlot(
                         league_draft_id=row.id,
                         overall_pick=overall,
                         round=round_no,
-                        original_team_id=tid,
+                        original_team_id=orig_tid,
                         team_id=tid,
                         boost_tier=old_tiers.get(overall, ""),
                     )
                 )
                 created += 1
             db.session.commit()
-            flash(f"Draft order saved from round builder ({created} slots).", "ok")
+            msg = f"Draft order saved from round builder ({created} slots)."
+            if traded_count:
+                msg += f" {traded_count} pick(s) tagged as received from a prior trade."
+            flash(msg, "ok")
         elif act == "save_slot_teams" and row.status in ("setup", "live"):
             picked_overalls = {
                 int(x)

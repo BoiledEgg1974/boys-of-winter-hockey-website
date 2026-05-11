@@ -587,7 +587,11 @@
         .then(function (res) {
           setBubbleLoading(false);
           if (!res.ok) {
-            alert(res.data && res.data.error ? res.data.error : "Request failed.");
+            var msg = (res.data && res.data.error) ? res.data.error : "Request failed.";
+            if (res.data && res.data.details) {
+              msg += "\n\n" + res.data.details;
+            }
+            alert(msg);
             if (bubblePh) bubblePh.hidden = false;
             return;
           }

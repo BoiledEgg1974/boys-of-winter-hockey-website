@@ -20,7 +20,11 @@ from app.services.player_ratings_csv import get_player_ratings_row, player_posit
 from app.site_models import LeagueDraft
 
 _CACHE: dict[tuple[int, int, int], tuple[float, dict[str, Any]]] = {}
-_CACHE_TTL_SEC = 50.0
+# Cached entries last until the (draft, overall_pick, team_id) tuple changes — i.e. the
+# next team is on the clock. Refreshing the page costs zero tokens. Errors get a much
+# shorter TTL so a transient failure does not lock the panel for the whole pick window.
+_CACHE_TTL_SEC = 24 * 3600.0
+_ERROR_CACHE_TTL_SEC = 30.0
 
 
 def _strip_json_fence(raw: str) -> str:
@@ -43,6 +47,7 @@ def _player_line(session: Session, pl: Player, board_rank: int | None = None) ->
     abi = pl.overall_ability
     pot = pl.overall_potential
     parts = [
+        f"[id={pl.id}]",
         pl.full_name or f"Player #{pl.id}",
         pos,
     ]
@@ -127,14 +132,37 @@ def _need_fit_candidates(
     return out
 
 
-def _error_payload(message: str) -> dict[str, Any]:
+def _error_payload(message: str, details: str | None = None) -> dict[str, Any]:
     """Surface a clear error to the API panel when the live model cannot answer."""
     return {
         "headline": None,
         "summary": None,
         "recommendations": [],
         "error": message,
+        "details": details,
     }
+
+
+def _extract_openai_error_message(body: str) -> str | None:
+    """Best-effort extraction of the human-readable message from an OpenAI error body."""
+    if not body:
+        return None
+    try:
+        obj = json.loads(body)
+    except json.JSONDecodeError:
+        return body.strip()[:280] or None
+    err = obj.get("error") if isinstance(obj, dict) else None
+    if isinstance(err, dict):
+        msg = err.get("message")
+        if isinstance(msg, str) and msg.strip():
+            return msg.strip()[:280]
+    return None
+
+
+def _uses_completion_token_limit(model: str) -> bool:
+    """Newer OpenAI reasoning/GPT-5 models reject the legacy max_tokens field."""
+    m = (model or "").strip().lower()
+    return m.startswith(("gpt-5", "o1", "o3", "o4"))
 
 
 def build_draft_advice_prompt(
@@ -226,18 +254,27 @@ def fetch_draft_hub_ai_advice(
         out = _error_payload(
             "The board looks empty from this site's filters — nothing for the bot to rank."
         )
-        _CACHE[cache_key] = (now + _CACHE_TTL_SEC, out)
+        _CACHE[cache_key] = (now + _ERROR_CACHE_TTL_SEC, out)
         return out
 
     api_key = str(current_app.config.get("TRADE_AI_OPENAI_API_KEY") or "").strip()
     model = str(current_app.config.get("TRADE_AI_OPENAI_MODEL") or "gpt-4o-mini").strip()
 
-    allowed_ids = {p.id for p in eligible_all[:40]}
+    # Validate against the full eligible pool, not just top 40, so a model that loosely
+    # references a name we did not list explicitly can still be matched after a name lookup.
+    allowed_by_id: dict[int, Player] = {p.id: p for p in eligible_all}
+    allowed_ids = set(allowed_by_id.keys())
+    name_to_id: dict[str, int] = {}
+    for pid, pl in allowed_by_id.items():
+        nm = (pl.full_name or "").strip().lower()
+        if nm:
+            name_to_id.setdefault(nm, pid)
 
     if not api_key:
-        current_app.logger.warning("Draft hub AI: no OPENAI_API_KEY configured")
+        current_app.logger.warning("Draft hub AI: no OPENAI_API_KEY configured (model=%s)", model)
         return _error_payload(
-            "AI desk is unavailable — server has no OpenAI API key configured."
+            "AI desk is unavailable — server has no OpenAI API key configured.",
+            details=f"Model in use: {model}. Set OPENAI_API_KEY in .env and restart the app.",
         )
 
     block = build_draft_advice_prompt(
@@ -261,11 +298,14 @@ def fetch_draft_hub_ai_advice(
         "Output STRICT JSON with keys: "
         "headline (short, under 90 chars), "
         "summary (2–4 sentences, plain text), "
-        "recommendations (array of 1–3 objects with keys player_id (int), player_name (string), blurb (one sentence))."
-        " Every player_id MUST be copied exactly from the prospect list in the user message."
+        "recommendations (array of 1–3 objects with keys player_id (int), player_name (string), blurb (one sentence)). "
+        "Each prospect in the user message is tagged with [id=N]; the player_id field MUST be exactly that integer N. "
+        "Never invent player_ids and never reuse IDs from your own training data."
     )
     user_msg = (
-        "Who should this team take next? Use ONLY player_ids that appear in the prospect list.\n\n" + block
+        "Who should this team take next? Only pick from prospects in the user-supplied list, "
+        "and copy the integer that appears in their [id=N] tag into the player_id field.\n\n"
+        + block
     )
     payload = {
         "model": model,
@@ -273,10 +313,13 @@ def fetch_draft_hub_ai_advice(
             {"role": "system", "content": system},
             {"role": "user", "content": user_msg},
         ],
-        "temperature": 0.75,
-        "max_tokens": 650,
         "response_format": {"type": "json_object"},
     }
+    if _uses_completion_token_limit(model):
+        payload["max_completion_tokens"] = 650
+    else:
+        payload["temperature"] = 0.75
+        payload["max_tokens"] = 650
     req = Request(
         "https://api.openai.com/v1/chat/completions",
         data=json.dumps(payload).encode("utf-8"),
@@ -288,7 +331,8 @@ def fetch_draft_hub_ai_advice(
     )
 
     def _finish(data: dict[str, Any]) -> dict[str, Any]:
-        _CACHE[cache_key] = (now + _CACHE_TTL_SEC, data)
+        ttl = _ERROR_CACHE_TTL_SEC if data.get("error") else _CACHE_TTL_SEC
+        _CACHE[cache_key] = (now + ttl, data)
         return data
 
     try:
@@ -300,10 +344,16 @@ def fetch_draft_hub_ai_advice(
             err_body = e.read().decode("utf-8", errors="replace")[:500]
         except Exception:
             pass
-        current_app.logger.warning("Draft hub AI HTTPError: %s %s", e.code, err_body)
+        current_app.logger.warning("Draft hub AI HTTPError: %s %s (model=%s)", e.code, err_body, model)
+        api_msg = _extract_openai_error_message(err_body)
+        detail_bits: list[str] = []
+        if api_msg:
+            detail_bits.append(api_msg)
+        detail_bits.append(f"Model in use: {model}")
         return _finish(
             _error_payload(
-                f"AI desk request rejected (HTTP {e.code}). Check API key, model name, and OpenAI billing."
+                f"AI desk request rejected (HTTP {e.code}). Check API key, model name, and OpenAI billing.",
+                details=" — ".join(detail_bits),
             )
         )
     except (URLError, TimeoutError, OSError, json.JSONDecodeError) as e:
@@ -326,23 +376,36 @@ def fetch_draft_hub_ai_advice(
     summary = str(parsed.get("summary") or "").strip()
     raw_recs = parsed.get("recommendations")
     recommendations: list[dict[str, Any]] = []
+    seen_pids: set[int] = set()
     if isinstance(raw_recs, list):
         for item in raw_recs[:4]:
             if not isinstance(item, dict):
                 continue
+            pid: int | None = None
+            raw_pid = item.get("player_id")
             try:
-                pid = int(item.get("player_id"))
+                if raw_pid is not None and str(raw_pid).strip() != "":
+                    pid = int(raw_pid)
             except (TypeError, ValueError):
+                pid = None
+            nm_in = str(item.get("player_name") or "").strip()
+            if pid is None or pid not in allowed_ids:
+                # Last-resort: try to match by the name the model returned.
+                key = nm_in.lower()
+                if key and key in name_to_id:
+                    pid = name_to_id[key]
+                else:
+                    continue
+            if pid in seen_pids:
                 continue
-            if pid not in allowed_ids:
-                continue
-            pl = session.get(Player, pid)
-            pname = str(item.get("player_name") or (pl.full_name if pl else "")).strip()
+            pl = allowed_by_id.get(pid) or session.get(Player, pid)
+            pname = nm_in or (pl.full_name if pl else "")
             blurb = str(item.get("blurb") or "").strip()
             if pl and pname != (pl.full_name or ""):
                 pname = pl.full_name or pname
             if pname and blurb:
                 recommendations.append({"player_id": pid, "player_name": pname, "blurb": blurb})
+                seen_pids.add(pid)
 
     if not summary:
         summary = "The model wandered offside — treating this as a soft suggestion only."

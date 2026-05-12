@@ -518,14 +518,14 @@ def build_season_team_logo_bundle(app: Flask) -> SeasonTeamLogoBundle:
 
     # End-of-timeline year used when scanning `*_YYYY-present` filenames (see logo bundle scan).
     # Resolving logos as-of this year picks the "present" band and the latest `team_identity_history` rows
-    # so draft history "Current team" shows the modern franchise mark, not the draft-year mark.
+    # so draft history "Current team" (Historical / Cap / Fantasy) shows the modern franchise mark, not the draft-year mark.
     _FRANCHISE_LOGO_END_YEAR = 2100
 
     def team_logo_url_present_franchise(team: Any) -> str:
         if team is None:
             return url_for("static", filename="logos/teams/placeholder.svg")
         slug = str(app.config.get("LEAGUE_SLUG") or "")
-        if slug not in ("bowl-historical", "bowl-cap"):
+        if slug not in ("bowl-historical", "bowl-cap", "bowl-fantasy"):
             return team_logo_url_for_team(team)
         tid = getattr(team, "fhm_team_id", None)
         tid_s = str(tid).strip() if tid is not None and str(tid).strip() else None

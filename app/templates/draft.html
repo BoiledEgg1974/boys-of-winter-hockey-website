@@ -76,7 +76,7 @@
               {% set tm_fhm = draft_pick_team_fhm_by_pick_id.get(pk.id) if draft_pick_team_fhm_by_pick_id else none %}
               {% if pk.team %}
               <a class="draft-history-table__team-hit" href="{{ url_for('main.team_page', slug=pk.team.slug) }}" title="{{ pk.team.name }}">
-                <img class="draft-history-table__team-logo" src="{% if current_league_slug in ('bowl-historical', 'bowl-cap') and draft_year is not none %}{{ (season_team_logo_url({'team_fhm_id': tm_fhm, 'season_year': draft_year}) if tm_fhm is not none else none) or team_logo_url_for_season_context(pk.team, draft_year) or team_logo_url(pk.team) }}{% else %}{{ team_logo_url(pk.team) }}{% endif %}" alt="{{ pk.team.name }}" loading="lazy" decoding="async">
+                <img class="draft-history-table__team-logo" src="{% if current_league_slug in ('bowl-historical', 'bowl-cap', 'bowl-fantasy') and draft_year is not none %}{{ (season_team_logo_url({'team_fhm_id': tm_fhm, 'season_year': draft_year}) if tm_fhm is not none else none) or team_logo_url_for_season_context(pk.team, draft_year) or team_logo_url(pk.team) }}{% else %}{{ team_logo_url(pk.team) }}{% endif %}" alt="{{ pk.team.name }}" loading="lazy" decoding="async">
               </a>
               {% elif tm_fhm is not none %}
               {% set rec = {'team_fhm_id': tm_fhm, 'season_year': draft_year} %}
@@ -95,7 +95,7 @@
               <span class="draft-history-table__retired">RETIRED</span>
               {% elif ctv.kind == 'team' %}
               <a class="draft-history-table__team-hit" href="{{ url_for('main.team_page', slug=ctv.team.slug) }}" title="{{ ctv.team.name }}">
-                <img class="draft-history-table__team-logo" src="{% if current_league_slug in ('bowl-historical', 'bowl-cap') %}{{ team_logo_url_present_franchise(ctv.team) }}{% else %}{{ team_logo_url(ctv.team) }}{% endif %}" alt="{{ ctv.team.name }}">
+                <img class="draft-history-table__team-logo" src="{% if current_league_slug in ('bowl-historical', 'bowl-cap', 'bowl-fantasy') %}{{ team_logo_url_present_franchise(ctv.team) }}{% else %}{{ team_logo_url(ctv.team) }}{% endif %}" alt="{{ ctv.team.name }}">
               </a>
               {% elif ctv.kind == 'minors' %}
               <span class="records-team-minors">Minors</span>

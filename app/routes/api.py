@@ -368,6 +368,103 @@ def _hover_goalie_career_yearly(
     ]
 
 
+def _hover_team_for_skater_season(
+    session, player_id: int, season_start_year: int, stat_team_id: int | None
+) -> Team | None:
+    """Team for a RS season: prefer imported stat row, else dominant BOWL/NHL career line."""
+    if stat_team_id:
+        t = session.get(Team, int(stat_team_id))
+        if t is not None:
+            return t
+    line = PlayerSkaterCareerLine
+    lids = _bowl_league_ids_for_career(session)
+    lines = list(
+        session.scalars(
+            select(line).where(
+                line.player_id == player_id,
+                line.season_year == int(season_start_year),
+                line.career_source.in_(("rs", "retired_rs")),
+                line.league_fhm_id.in_(lids),
+            )
+        ).all()
+    )
+    if not lines:
+        return None
+    lines.sort(key=lambda L: (-int(L.gp or 0), int(L.id)))
+    for ln in lines:
+        if ln.team_id:
+            t = session.get(Team, int(ln.team_id))
+            if t is not None:
+                return t
+    for ln in lines:
+        tf = getattr(ln, "team_fhm_id", None)
+        if tf is None:
+            continue
+        try:
+            fs = str(int(tf))
+        except (TypeError, ValueError):
+            fs = str(tf).strip()
+        if not fs:
+            continue
+        t = session.scalar(select(Team).where(Team.fhm_team_id == fs).limit(1))
+        if t is not None:
+            return t
+    return None
+
+
+def _hover_team_for_goalie_season(
+    session, player_id: int, season_start_year: int, stat_team_id: int | None
+) -> Team | None:
+    if stat_team_id:
+        t = session.get(Team, int(stat_team_id))
+        if t is not None:
+            return t
+    line = PlayerGoalieCareerLine
+    lids = _bowl_league_ids_for_career(session)
+    lines = list(
+        session.scalars(
+            select(line).where(
+                line.player_id == player_id,
+                line.season_year == int(season_start_year),
+                line.career_source.in_(("rs", "retired_rs")),
+                line.league_fhm_id.in_(lids),
+            )
+        ).all()
+    )
+    if not lines:
+        return None
+    lines.sort(key=lambda L: (-int(L.gp or 0), int(L.id)))
+    for ln in lines:
+        if ln.team_id:
+            t = session.get(Team, int(ln.team_id))
+            if t is not None:
+                return t
+    for ln in lines:
+        tf = getattr(ln, "team_fhm_id", None)
+        if tf is None:
+            continue
+        try:
+            fs = str(int(tf))
+        except (TypeError, ValueError):
+            fs = str(tf).strip()
+        if not fs:
+            continue
+        t = session.scalar(select(Team).where(Team.fhm_team_id == fs).limit(1))
+        if t is not None:
+            return t
+    return None
+
+
+def _hover_season_team_logo_url(team: Team | None, season_start_year: int) -> str | None:
+    """Era-accurate team mark for *season_start_year* (same resolver as dashboards)."""
+    if team is None:
+        return None
+    try:
+        return dashboard_team_logo_url(team, int(season_start_year))
+    except Exception:
+        return None
+
+
 def _hover_recent_skater_seasons(session, player_id: int) -> list[dict[str, object]]:
     """Up to 3 most recent RS seasons: prefer ``PlayerSkaterStat`` rows, fill earlier years from career CSV."""
     by_year: dict[int, dict[str, object]] = {}
@@ -381,8 +478,10 @@ def _hover_recent_skater_seasons(session, player_id: int) -> list[dict[str, obje
         if sn.start_year is None:
             continue
         y = int(sn.start_year)
+        team = _hover_team_for_skater_season(session, player_id, y, int(st.team_id) if st.team_id else None)
         by_year[y] = {
             "season": season_display_label(sn),
+            "team_logo_url": _hover_season_team_logo_url(team, y),
             "gp": int(st.gp or 0),
             "goals": int(st.goals or 0),
             "assists": int(st.assists or 0),
@@ -393,8 +492,10 @@ def _hover_recent_skater_seasons(session, player_id: int) -> list[dict[str, obje
     for sy, gp, g, a, pim, pm in _hover_skater_career_yearly(session, player_id):
         if sy in by_year:
             continue
+        team = _hover_team_for_skater_season(session, player_id, int(sy), None)
         by_year[sy] = {
             "season": _hockey_year_label_from_start_year(sy),
+            "team_logo_url": _hover_season_team_logo_url(team, int(sy)),
             "gp": int(gp),
             "goals": int(g),
             "assists": int(a),
@@ -422,8 +523,10 @@ def _hover_recent_goalie_seasons(session, player_id: int) -> list[dict[str, obje
             continue
         y = int(sn.start_year)
         sv = float(st.sv_pct) if st.sv_pct is not None else None
+        team = _hover_team_for_goalie_season(session, player_id, y, int(st.team_id) if st.team_id else None)
         by_year[y] = {
             "season": season_display_label(sn),
+            "team_logo_url": _hover_season_team_logo_url(team, y),
             "gp": int(st.gp or 0),
             "wins": int(st.wins or 0),
             "losses": int(st.losses or 0),
@@ -438,8 +541,10 @@ def _hover_recent_goalie_seasons(session, player_id: int) -> list[dict[str, obje
         sv_pct: float | None = None
         if int(sa) > 0:
             sv_pct = round((float(sa) - float(ga)) / float(sa), 3)
+        team = _hover_team_for_goalie_season(session, player_id, int(sy), None)
         by_year[sy] = {
             "season": _hockey_year_label_from_start_year(sy),
+            "team_logo_url": _hover_season_team_logo_url(team, int(sy)),
             "gp": int(gp),
             "wins": int(w),
             "losses": int(l),

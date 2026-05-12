@@ -6379,6 +6379,21 @@ table.data.team-depth-table th {
   text-align: left;
   padding-left: 0;
 }
+.player-hover-seasons__table th:nth-child(2),
+.player-hover-seasons__table td:nth-child(2) {
+  text-align: center;
+  vertical-align: middle;
+  padding-left: 0.12rem;
+  padding-right: 0.12rem;
+  width: 2rem;
+}
+.player-hover-seasons__tm-img {
+  display: block;
+  margin: 0 auto;
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
 .player-hover-seasons__table tbody tr:nth-child(even) td {
   background: rgb(15 23 42 / 0.35);
 }

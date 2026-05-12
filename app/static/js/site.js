@@ -673,7 +673,7 @@
 
   function initPlayerHoverCards() {
     var cache = {};
-    var HOVER_CARD_CACHE_VER = 5;
+    var HOVER_CARD_CACHE_VER = 6;
     var activeAnchor = null;
     var showTimer = null;
     var hideTimer = null;
@@ -720,6 +720,19 @@
       return String(n);
     }
 
+    function hoverRecentSeasonsTmCell(r) {
+      if (r.team_logo_url) {
+        return (
+          '<td class="player-hover-seasons__tm">' +
+          '<img src="' +
+          escapeAttr(r.team_logo_url) +
+          '" alt="" class="player-hover-seasons__tm-img" width="24" height="24" loading="lazy" decoding="async">' +
+          "</td>"
+        );
+      }
+      return '<td class="player-hover-seasons__tm">—</td>';
+    }
+
     function hoverRecentSeasonsBlock(d) {
       if (d.retired) return "";
       var rows = d.recent_seasons || [];
@@ -729,14 +742,16 @@
         '<div class="player-hover-seasons"><div class="player-hover-seasons__title">Recent seasons (RS)</div><table class="player-hover-seasons__table">';
       if (role === "goalie") {
         h +=
-          "<thead><tr><th>Season</th><th>GP</th><th>W</th><th>L</th><th>GA</th><th>SV%</th></tr></thead><tbody>";
+          "<thead><tr><th>Season</th><th title=\"Team (era logo)\">TM</th><th>GP</th><th>W</th><th>L</th><th>GA</th><th>SV%</th></tr></thead><tbody>";
         rows.forEach(function (r) {
           var sv = r.sv_pct;
           var svS = sv == null ? "—" : escapeHtml(Number(sv).toFixed(3));
           h +=
             "<tr><td>" +
             escapeHtml(r.season || "—") +
-            "</td><td>" +
+            "</td>" +
+            hoverRecentSeasonsTmCell(r) +
+            "<td>" +
             escapeHtml(String(r.gp != null ? r.gp : "—")) +
             "</td><td>" +
             escapeHtml(String(r.wins != null ? r.wins : "—")) +
@@ -750,12 +765,14 @@
         });
       } else {
         h +=
-          "<thead><tr><th>Season</th><th>GP</th><th>G</th><th>A</th><th>PTS</th><th>PIM</th><th>+/-</th></tr></thead><tbody>";
+          "<thead><tr><th>Season</th><th title=\"Team (era logo)\">TM</th><th>GP</th><th>G</th><th>A</th><th>PTS</th><th>PIM</th><th>+/-</th></tr></thead><tbody>";
         rows.forEach(function (r) {
           h +=
             "<tr><td>" +
             escapeHtml(r.season || "—") +
-            "</td><td>" +
+            "</td>" +
+            hoverRecentSeasonsTmCell(r) +
+            "<td>" +
             escapeHtml(String(r.gp != null ? r.gp : "—")) +
             "</td><td>" +
             escapeHtml(String(r.goals != null ? r.goals : "—")) +

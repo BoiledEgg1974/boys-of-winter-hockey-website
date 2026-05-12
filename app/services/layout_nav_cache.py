@@ -10,7 +10,7 @@ from sqlalchemy.engine import Engine
 _NAV_TEAMS_CACHE: dict[int, tuple[str, list]] = {}
 
 
-def _sqlite_league_db_fingerprint(engine: Engine) -> str | None:
+def league_engine_sqlite_fingerprint(engine: Engine) -> str | None:
     url = engine.url
     if url.get_backend_name() != "sqlite" or not url.database:
         return None
@@ -36,7 +36,7 @@ def get_nav_teams_for_layout(app: Flask) -> list:
     from app.models import Team, db
 
     engine = db.engine
-    fp = _sqlite_league_db_fingerprint(engine)
+    fp = league_engine_sqlite_fingerprint(engine)
     if fp is None:
         fp = f"{str(app.config.get('LEAGUE_SLUG') or '')}:{_nav_teams_db_fallback_fingerprint()}"
 

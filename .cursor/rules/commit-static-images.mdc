@@ -1,0 +1,10 @@
+---
+description: Always commit static image changes (players, logos, banners) with related work
+alwaysApply: true
+---
+
+# Static assets in commits
+
+When preparing a commit (or finishing a task), **include renamed, deleted, and newly added images** under `app/static/` (for example `app/static/players/`, `app/static/logos/`, banners, favicons) in the same push whenever they changed in the working tree.
+
+Do not leave asset-only changes unstaged while pushing code. If the change set is mixed, one commit may cover both; if assets are unrelated to the feature, use a separate commit with a clear message (for example `chore: update team logos`).

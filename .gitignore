@@ -31,8 +31,10 @@ instance/*.sqlite3
 instance/*.bak
 *.log
 
-# Cursor IDE (local plans; do not commit)
-.cursor/
+# Cursor IDE: ignore everything in .cursor except shared agent rules
+.cursor/*
+!.cursor/rules/
+!.cursor/rules/**
 
 # Local PythonAnywhere deploy wizard (machine-specific CSV paths)
 scripts/pythonanywhere_csv_sources.json

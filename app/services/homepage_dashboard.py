@@ -692,6 +692,44 @@ def _team_game_outcome_streak(team_id: int, g: Game) -> str | None:
     return None
 
 
+def team_momentum_streak_label_from_games(team_id: int, team_games_chrono: list[Game]) -> tuple[str | None, int]:
+    """Current momentum streak from this team's games in chronological order (oldest first).
+
+    Uses the same W / L / T outcome rules as :func:`build_team_momentum_streaks`. When several
+    streak types apply, picks the most specific label (win over undefeated, loss over winless).
+
+    Returns ``(label, n)`` with ``label`` in Win / Losing / Undefeated / Winless Streak, or
+    ``(None, 0)`` when there is no active streak of two or more games.
+    """
+    recent_first = [_team_game_outcome_streak(team_id, g) for g in reversed(team_games_chrono)]
+    recent_first = [x for x in recent_first if x]
+    if not recent_first:
+        return None, 0
+
+    def run_length(seq: list[str], pred) -> int:
+        n = 0
+        for ch in seq:
+            if pred(ch):
+                n += 1
+            else:
+                break
+        return n
+
+    wn = run_length(recent_first, lambda c: c == "W")
+    un = run_length(recent_first, lambda c: c in ("W", "T"))
+    ln = run_length(recent_first, lambda c: c == "L")
+    wln = run_length(recent_first, lambda c: c in ("L", "T"))
+    if wn >= 2:
+        return "Win Streak", wn
+    if ln >= 2:
+        return "Losing Streak", ln
+    if un >= 2:
+        return "Undefeated Streak", un
+    if wln >= 2:
+        return "Winless Streak", wln
+    return None, 0
+
+
 def _team_trending_row(
     dlt: float,
     tm: Team,

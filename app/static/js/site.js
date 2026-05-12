@@ -916,7 +916,7 @@
 
   function initTeamHoverCards() {
     var cache = {};
-    var HOVER_TEAM_CACHE_VER = 1;
+    var HOVER_TEAM_CACHE_VER = 2;
     var activeAnchor = null;
     var showTimer = null;
     var hideTimer = null;
@@ -991,10 +991,19 @@
         statsParts.length > 0
           ? '<div class="team-hover-preview-card__stats-bar">' + statsParts.join(" | ") + "</div>"
           : "";
-      var streak =
-        d.streak && String(d.streak).trim()
-          ? '<div class="team-hover-preview-card__streak">Streak: ' + escapeHtml(String(d.streak).trim()) + "</div>"
-          : "";
+      var streakLine = "";
+      if (d.streak_subtext && String(d.streak_subtext).trim()) {
+        streakLine =
+          '<div class="team-hover-preview-card__streak team-hover-preview-card__streak--record">' +
+          escapeHtml(String(d.streak_subtext).trim()) +
+          "</div>";
+      } else if (d.streak && String(d.streak).trim()) {
+        streakLine =
+          '<div class="team-hover-preview-card__streak team-hover-preview-card__streak--record">' +
+          "Streak: " +
+          escapeHtml(String(d.streak).trim()) +
+          "</div>";
+      }
 
       var rows = "";
       (d.players || []).forEach(function (p) {
@@ -1087,9 +1096,9 @@
         " pts · " +
         rankLine +
         "</div>" +
+        streakLine +
         "</div></div></div>" +
         statsBar +
-        streak +
         (rows ? '<div class="team-hover-preview-card__players">' + rows + "</div>" : "") +
         footer +
         "</div>";

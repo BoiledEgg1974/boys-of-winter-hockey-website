@@ -1,20 +1,22 @@
 """JSON payload for team hover cards (standings rank, special teams, top roster OVR by position)."""
 from __future__ import annotations
 
+import re
 from datetime import date
 from pathlib import Path
 from typing import Any
 
 from flask import current_app, url_for
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, joinedload
 
-from app.models import Player, Team, TeamSeasonAggregate, TeamStanding
+from app.models import Game, Player, Team, TeamSeasonAggregate, TeamStanding
 from app.services.all_time_records import bowl_nhl_league_ids
 from app.services.expansion_draft_state import player_is_defense, player_is_forward, player_is_goalie
 from app.services.player_overall_score import compute_player_overall_100, player_is_goalie_for_overall
 from app.services.player_ratings_csv import fhm_abi_pot_float, get_player_ratings_row, player_positions_display_label
 from app.services.player_headshot import resolve_player_headshot_static_filename
+from app.services.homepage_dashboard import team_momentum_streak_label_from_games
 from app.services.season_team_logo_bundle import dashboard_team_logo_url
 from app.services.seasons import season_age_reference_date, season_display_label
 from app.services.standings import standings_for_season
@@ -109,6 +111,31 @@ def _serialize_player(
     }
 
 
+def _streak_subtext_from_label_and_count(label: str, n: int) -> str:
+    word = "game" if n == 1 else "games"
+    return f"{label} · {n} {word}"
+
+
+def _streak_subtext_from_import_field(raw: str | None) -> str | None:
+    """Parse standings ``streak`` cell (e.g. W3, L2) when game-by-game data is unavailable."""
+    if not raw:
+        return None
+    s = raw.strip().upper()
+    m = re.match(r"^W(\d+)$", s)
+    if m:
+        n = int(m.group(1))
+        if n < 1:
+            return None
+        return _streak_subtext_from_label_and_count("Win Streak", n)
+    m = re.match(r"^L(\d+)$", s)
+    if m:
+        n = int(m.group(1))
+        if n < 1:
+            return None
+        return _streak_subtext_from_label_and_count("Losing Streak", n)
+    return None
+
+
 def build_team_hover_preview_payload(session: Session, team_slug: str, season: Any) -> dict[str, Any] | None:
     """Return JSON-serializable dict or None if team/season missing."""
     if not season:
@@ -176,6 +203,27 @@ def build_team_hover_preview_payload(session: Session, team_slug: str, season: A
         gf, ga = int(standing.gf or 0), int(standing.ga or 0)
         streak = (standing.streak or "").strip() or None
 
+    team_rs_games = list(
+        session.scalars(
+            select(Game)
+            .where(
+                Game.season_id == season.id,
+                Game.status == "final",
+                Game.game_date.is_not(None),
+                Game.home_score.is_not(None),
+                Game.away_score.is_not(None),
+                or_(Game.home_team_id == team.id, Game.away_team_id == team.id),
+            )
+            .order_by(Game.game_date.asc(), Game.id.asc())
+        ).all()
+    )
+    streak_lbl, streak_n = team_momentum_streak_label_from_games(team.id, team_rs_games)
+    streak_subtext: str | None = None
+    if streak_lbl and streak_n >= 2:
+        streak_subtext = _streak_subtext_from_label_and_count(streak_lbl, streak_n)
+    if streak_subtext is None:
+        streak_subtext = _streak_subtext_from_import_field(streak)
+
     players_out: list[dict[str, Any]] = []
     for role, pl, label in (
         ("forward", top_f, "Top forward"),
@@ -198,6 +246,7 @@ def build_team_hover_preview_payload(session: Session, team_slug: str, season: A
         "n_teams": len(all_rows) if all_rows else None,
         "record": {"w": w, "l": l, "t": t, "otl": otl, "sow": sow, "sol": sol, "pts": pts, "gf": gf, "ga": ga},
         "streak": streak,
+        "streak_subtext": streak_subtext,
         "pp_pct": pp_pct,
         "pk_pct": pk_pct,
         "team_url": url_for("main.team_page", slug=team.slug),

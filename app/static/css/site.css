@@ -6516,6 +6516,14 @@ table.data.team-depth-table th {
   color: #cbd5e1;
   text-align: center;
 }
+.team-hover-preview-card__streak--record {
+  margin-top: 0.16rem;
+  text-align: left;
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: #94a3b8;
+  line-height: 1.25;
+}
 .team-hover-preview-card__players {
   margin-top: 0.45rem;
   border-top: 1px solid rgb(71 85 105 / 0.45);
@@ -6698,6 +6706,9 @@ table.data.team-depth-table th {
 }
 [data-theme="light"] .team-hover-preview-card__streak {
   color: #475569;
+}
+[data-theme="light"] .team-hover-preview-card__streak--record {
+  color: #64748b;
 }
 [data-theme="light"] .team-hover-preview-card__ovr-col {
   background: rgb(241 245 249 / 0.95);

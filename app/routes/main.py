@@ -279,6 +279,21 @@ def champion_banner_urls() -> list[str]:
     return [url_for("static", filename=f"{out_rel}/{name}") for _, (out_rel, name) in ordered]
 
 
+def _home_milestone_teaser_player_eligible(session, player: Player) -> bool:
+    """Home Milestones Watch: only active players on a BOWL/NHL club (omit minors assignments)."""
+    team = player.current_team
+    if team is None:
+        return False
+    lid = team.fhm_league_id
+    if lid is None:
+        return True
+    try:
+        ilid = int(lid)
+    except (TypeError, ValueError):
+        return False
+    return ilid in {int(x) for x in bowl_nhl_league_ids(session)}
+
+
 @main_bp.get("/")
 def home():
     from app.services.milestones import build_milestone_sections
@@ -287,6 +302,8 @@ def home():
     raw_teasers: list[dict[str, object]] = []
     for section in skater_sections:
         for row in section.rows:
+            if not _home_milestone_teaser_player_eligible(db.session, row.player):
+                continue
             raw_teasers.append(
                 {
                     "player": row.player,
@@ -299,6 +316,8 @@ def home():
             )
     for section in goalie_sections:
         for row in section.rows:
+            if not _home_milestone_teaser_player_eligible(db.session, row.player):
+                continue
             raw_teasers.append(
                 {
                     "player": row.player,

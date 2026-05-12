@@ -4,6 +4,8 @@ Run from repo root (same league selection as ``scripts/import_data.py``):
 
   PYTHONPATH=. python scripts/reimport_history_awards.py bowl-cap
 
+  For Cap that loads ``data/imports/raw/bowl_cap/history_awards.sheet.csv`` when the file exists.
+
   # or: set LEAGUE_SLUG then run without positional
 
   Uses ``make_league_config`` so the correct league SQLite file and raw folder are used.
@@ -30,6 +32,18 @@ if str(ROOT) not in sys.path:
 from app import create_app
 from app.config import make_league_config
 from scripts.import_pipeline.runner import import_history_awards
+
+SHEET_NAME = "history_awards.sheet.csv"
+
+
+def _default_awards_csv_path(raw_dir: Path, explicit: Path | None) -> Path | None:
+    """Prefer ``history_awards.sheet.csv`` in the league raw folder when no path is given."""
+    if explicit is not None:
+        return explicit.resolve()
+    sheet = raw_dir / SHEET_NAME
+    if sheet.is_file():
+        return sheet.resolve()
+    return None
 
 
 def main() -> None:
@@ -58,7 +72,10 @@ def main() -> None:
         "--csv-path",
         type=Path,
         default=None,
-        help="Explicit history awards CSV (default: discover under RAW_IMPORT_DIR).",
+        help=(
+            f"Explicit history awards CSV (default: {SHEET_NAME} under RAW_IMPORT_DIR when present, "
+            "else same discovery as import_data: sheet, history_awards.csv, awards_history.csv)."
+        ),
     )
     args = ap.parse_args()
     chosen = (args.league_flag or args.league_positional or "").strip()
@@ -74,13 +91,14 @@ def main() -> None:
     with app.app_context():
         raw = Path(str(app.config["RAW_IMPORT_DIR"]))
         only = (args.only_award or "").strip()
-        csv_p = args.csv_path.resolve() if args.csv_path else None
+        csv_p = _default_awards_csv_path(raw, args.csv_path)
+        src = csv_p if csv_p is not None else raw
         if only:
             n = import_history_awards(raw, app, csv_path=csv_p, replace_award_substring=only)
-            print(f"Imported {n} history_awards row(s) matching {only!r} from {csv_p or raw}.")
+            print(f"Imported {n} history_awards row(s) matching {only!r} from {src}.")
         else:
             n = import_history_awards(raw, app, csv_path=csv_p, replace_all=True)
-            print(f"Imported {n} history_awards row(s) from {csv_p or raw}.")
+            print(f"Imported {n} history_awards row(s) from {src}.")
 
 
 if __name__ == "__main__":

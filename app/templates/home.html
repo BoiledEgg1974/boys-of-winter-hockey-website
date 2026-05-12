@@ -849,7 +849,7 @@
       return;
     }
     var thTeam = escapeAttr(
-      'Team: each row is one franchise. The logo links to the team profile when available; hover the logo for the full team name.'
+      "Team: logo links to the team profile. Hover or focus the logo for the full team name."
     );
     var thPws = escapeAttr(
       'PWS (power ranking score): composite rating blending recent win pace, goal differential per game, special teams net impact, and opponent strength from recent matchups.'
@@ -862,33 +862,33 @@
     h += '<th class="st-sort-th" scope="col"><button type="button" class="st-sort-btn" data-power-sort="pws" title="' + thPws + '" aria-sort="' + escapeAttr(powerSortAria()) + '">PWS<span class="st-sort-ind" aria-hidden="true">' + (powerSortDir === 'desc' ? '▼' : '▲') + '</span></button></th>';
     h += '</tr></thead><tbody>';
     rows.forEach(function (r, i) {
-      var lab = String((r.name || r.abbr || 'Team') || '').trim();
-      var city = String(r.team_city || '').trim();
+      var lab = String((r.name || r.abbr || "Team") || "").trim();
       var logo = r.logo_url
-        ? '<img src="' + escapeAttr(r.logo_url) + '" alt="' + escapeAttr(lab) + '" class="team-name-lockup__logo home-power-team-logo">'
-        : '';
-      var teamCell = '';
+        ? '<img src="' + escapeAttr(r.logo_url) + '" alt="" class="team-name-lockup__logo home-power-team-logo">'
+        : "";
+      var teamCell = "";
       if (r.slug && logo) {
         teamCell =
-          '<a class="home-power-tm home-power-tm--city" href="' +
-          withRoot('/team/' + escapeAttr(r.slug)) +
+          '<a class="home-power-tm home-power-tm--logo" href="' +
+          withRoot("/team/" + escapeAttr(r.slug)) +
           '" title="' +
+          escapeAttr(lab) +
+          '" aria-label="' +
           escapeAttr(lab) +
           '">' +
           logo +
-          '<span class="home-power-city">' + escape(city || r.abbr || '') + '</span>' +
-          '</a>';
+          "</a>";
       } else if (r.slug) {
         teamCell =
-          '<a class="home-power-tm-fallback" href="' +
-          withRoot('/team/' + escapeAttr(r.slug)) +
+          '<a class="home-power-tm home-power-tm--logo home-power-tm--empty" href="' +
+          withRoot("/team/" + escapeAttr(r.slug)) +
           '" title="' +
           escapeAttr(lab) +
-          '">' +
-          escape(lab || '—') +
-          '</a>';
+          '" aria-label="' +
+          escapeAttr(lab) +
+          '"><span class="home-power-tm-ph" aria-hidden="true"></span></a>';
       } else {
-        teamCell = logo || '<span class="visually-hidden">' + escape(lab) + '</span>';
+        teamCell = logo || '<span class="visually-hidden">' + escape(lab) + "</span>";
       }
       h +=
         '<tr><td>' +

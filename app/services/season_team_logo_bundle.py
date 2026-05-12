@@ -27,6 +27,63 @@ class SeasonTeamLogoBundle:
     season_team_source_id: Callable[[object], str | None]
 
 
+_IMG_LOGO_SUFFIXES = (".png", ".webp", ".jpg", ".jpeg", ".svg")
+
+_PROCESS_LOGO_BUNDLES: dict[int, tuple[str, SeasonTeamLogoBundle]] = {}
+
+
+def _logo_scan_dirs_for_league(app: Flask) -> list[Path]:
+    if str(app.config.get("LEAGUE_SLUG") or "") not in league_slugs():
+        return []
+    team_logos_dir = Path(str(app.config.get("TEAM_LOGOS_DIR") or ""))
+    static_root = Path(app.root_path) / "static"
+    logo_scan_dirs: list[Path] = []
+    if team_logos_dir.is_dir():
+        logo_scan_dirs.append(team_logos_dir)
+    if str(app.config.get("LEAGUE_SLUG") or "") == "bowl-cap":
+        shared_hist = static_root / "logos" / "teams" / "bowl_historical"
+        if shared_hist.is_dir() and shared_hist.resolve() != team_logos_dir.resolve():
+            logo_scan_dirs.append(shared_hist)
+    return logo_scan_dirs
+
+
+def _bundle_input_fingerprint(app: Flask) -> str:
+    """Stable key from CSV/logo inputs so we can reuse a built bundle across requests."""
+    slug = str(app.config.get("LEAGUE_SLUG") or "")
+    if slug not in league_slugs():
+        return f"{slug}\x1einactive"
+    parts: list[str] = [slug]
+    parts.append(str(app.config.get("TEAM_LOGOS_REL_DIR") or "").replace("\\", "/").strip("/"))
+    parts.append(str(Path(str(app.config.get("RAW_IMPORT_DIR") or ""))))
+    raw_dir = Path(str(app.config.get("RAW_IMPORT_DIR") or ""))
+    for fn in ("team_identity_history.csv", "team_season_records_template.csv"):
+        p = raw_dir / fn
+        if p.is_file():
+            st = p.stat()
+            parts.append(f"{fn}:{st.st_mtime_ns}:{st.st_size}")
+        else:
+            parts.append(f"{fn}:!")
+    for scan_dir in _logo_scan_dirs_for_league(app):
+        tag = scan_dir.as_posix()
+        max_ns = 0
+        tot_sz = 0
+        n = 0
+        try:
+            for p in scan_dir.iterdir():
+                if not p.is_file() or p.suffix.lower() not in _IMG_LOGO_SUFFIXES:
+                    continue
+                st = p.stat()
+                if st.st_mtime_ns > max_ns:
+                    max_ns = st.st_mtime_ns
+                tot_sz += st.st_size
+                n += 1
+        except OSError:
+            parts.append(f"dir:{tag}:err")
+            continue
+        parts.append(f"dir:{tag}:{n}:{max_ns}:{tot_sz}")
+    return "\x1e".join(parts)
+
+
 def build_season_team_logo_bundle(app: Flask) -> SeasonTeamLogoBundle:
     historical_team_logo_rel_by_id: dict[str, str] = {}
     historical_team_logo_rel_by_name: dict[str, str] = {}
@@ -134,16 +191,10 @@ def build_season_team_logo_bundle(app: Flask) -> SeasonTeamLogoBundle:
         team_logos_rel = str(app.config.get("TEAM_LOGOS_REL_DIR") or "logos/teams").replace("\\", "/").strip("/")
         team_logos_dir = Path(str(app.config.get("TEAM_LOGOS_DIR") or ""))
         static_root = Path(app.root_path) / "static"
-        logo_scan_dirs: list[Path] = []
-        if team_logos_dir.is_dir():
-            logo_scan_dirs.append(team_logos_dir)
-        if str(app.config.get("LEAGUE_SLUG") or "") == "bowl-cap":
-            shared_hist = static_root / "logos" / "teams" / "bowl_historical"
-            if shared_hist.is_dir() and shared_hist.resolve() != team_logos_dir.resolve():
-                logo_scan_dirs.append(shared_hist)
+        logo_scan_dirs = _logo_scan_dirs_for_league(app)
         for scan_dir in logo_scan_dirs:
             for p in scan_dir.iterdir():
-                if not p.is_file() or p.suffix.lower() not in (".png", ".webp", ".jpg", ".jpeg", ".svg"):
+                if not p.is_file() or p.suffix.lower() not in _IMG_LOGO_SUFFIXES:
                     continue
                 try:
                     rel = p.relative_to(static_root)
@@ -499,17 +550,28 @@ def build_season_team_logo_bundle(app: Flask) -> SeasonTeamLogoBundle:
 
 
 def get_season_team_logo_bundle(app: Flask | None = None) -> SeasonTeamLogoBundle:
-    """One bundle per request (when in a request context) so CSV/logo changes apply without restart."""
+    """Return logo/name resolvers; cache per worker while inputs are unchanged.
+
+    Rebuilds when raw CSVs or team logo files change (see ``_bundle_input_fingerprint``).
+    Within a request, also assigns ``g._season_team_logo_bundle`` for consistency.
+    """
     from flask import current_app, g
 
     app = app or current_app
-    if has_request_context():
-        b = getattr(g, "_season_team_logo_bundle", None)
-        if b is None:
-            b = build_season_team_logo_bundle(app)
+    fp = _bundle_input_fingerprint(app)
+    aid = id(app)
+    ent = _PROCESS_LOGO_BUNDLES.get(aid)
+    if ent is not None and ent[0] == fp:
+        b = ent[1]
+        if has_request_context():
             g._season_team_logo_bundle = b
         return b
-    return build_season_team_logo_bundle(app)
+
+    b = build_season_team_logo_bundle(app)
+    _PROCESS_LOGO_BUNDLES[aid] = (fp, b)
+    if has_request_context():
+        g._season_team_logo_bundle = b
+    return b
 
 
 def dashboard_team_logo_url(team: Team | None, season_start_year: int | None) -> str:

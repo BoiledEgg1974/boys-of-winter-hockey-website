@@ -332,9 +332,9 @@ def create_app(config_class: type = Config) -> Flask:
     @app.context_processor
     def inject_layout():
         from app.services.draft_history import draft_pick_current_team_view
+        from app.services.layout_nav_cache import get_nav_teams_for_layout
 
-        teams = list(db.session.scalars(select(Team)).all())
-        teams.sort(key=lambda t: (t.full_display_name() or "").strip().lower())
+        teams = get_nav_teams_for_layout(app)
 
         def team_logo_url(team: Team) -> str:
             return team_logo_url_for_team(team)

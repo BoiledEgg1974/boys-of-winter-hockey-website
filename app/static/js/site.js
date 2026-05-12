@@ -979,20 +979,28 @@
 
       var rows = "";
       (d.players || []).forEach(function (p) {
-        var ovr =
+        var ovrInner =
           p.ovr != null && p.ovr !== ""
-            ? '<span class="team-hover-preview-card__badge team-hover-preview-card__badge--ovr">' +
-              escapeHtml(String(p.ovr)) +
-              "</span>"
-            : "";
-        var abi =
+            ? escapeHtml(String(p.ovr))
+            : '<span class="team-hover-preview-card__ovr-num--muted">—</span>';
+        var badges =
+          '<div class="team-hover-preview-card__pbadges">' +
+          '<div class="team-hover-preview-card__ovr-col">' +
+          '<span class="team-hover-preview-card__score-lbl">OVR</span>' +
+          '<span class="team-hover-preview-card__ovr-num">' +
+          ovrInner +
+          "</span></div>" +
+          '<div class="team-hover-preview-card__ap-col">' +
+          '<div class="team-hover-preview-card__ap-row">' +
+          '<span class="team-hover-preview-card__score-lbl">ABI</span>' +
           '<span class="team-hover-preview-card__badge team-hover-preview-card__badge--abi">' +
           escapeHtml(fmtDec(p.abi)) +
-          "</span>";
-        var pot =
+          "</span></div>" +
+          '<div class="team-hover-preview-card__ap-row">' +
+          '<span class="team-hover-preview-card__score-lbl">POT</span>' +
           '<span class="team-hover-preview-card__badge team-hover-preview-card__badge--pot">' +
           escapeHtml(fmtDec(p.pot)) +
-          "</span>";
+          "</span></div></div></div>";
         var ph =
           p.photo_url
             ? '<img src="' + escapeAttr(p.photo_url) + '" alt="">'
@@ -1015,11 +1023,7 @@
           escapeHtml(p.pos_age || "") +
           "</div>" +
           "</div>" +
-          '<div class="team-hover-preview-card__pbadges">' +
-          ovr +
-          abi +
-          pot +
-          "</div>" +
+          badges +
           "</div>";
       });
 
@@ -1048,6 +1052,7 @@
       card.innerHTML =
         '<div class="team-hover-preview-card__shell">' +
         '<div class="team-hover-preview-card__head">' +
+        '<div class="team-hover-preview-card__head-main">' +
         '<div class="team-hover-preview-card__logo-wrap">' +
         logo +
         "</div>" +
@@ -1063,7 +1068,7 @@
         " pts · " +
         rankLine +
         "</div>" +
-        "</div></div>" +
+        "</div></div></div>" +
         statsBar +
         streak +
         (rows ? '<div class="team-hover-preview-card__players">' + rows + "</div>" : "") +

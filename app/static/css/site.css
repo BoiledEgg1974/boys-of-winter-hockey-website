@@ -6413,29 +6413,34 @@ table.data.team-depth-table th {
 .team-hover-preview-card {
   position: absolute;
   z-index: 2999;
-  width: min(360px, calc(100vw - 20px));
+  width: min(400px, calc(100vw - 20px));
   border: 1px solid rgb(71 85 105 / 0.55);
   border-radius: 12px;
   background: rgb(11 22 44 / 0.98);
   box-shadow: 0 14px 36px rgb(2 6 23 / 0.55);
   padding: 0;
   pointer-events: auto;
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   line-height: 1.25;
 }
 .team-hover-preview-card__shell {
-  padding: 0.65rem 0.7rem 0.55rem;
+  padding: 0.65rem 0.75rem 0.55rem;
 }
 .team-hover-preview-card__head {
-  display: grid;
-  grid-template-columns: 56px minmax(0, 1fr);
-  gap: 0.55rem;
-  align-items: start;
+  width: 100%;
+}
+.team-hover-preview-card__head-main {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0.65rem;
+  width: 100%;
 }
 .team-hover-preview-card__logo-wrap {
-  width: 56px;
-  height: 56px;
-  border-radius: 10px;
+  flex: 0 0 76px;
+  width: 76px;
+  height: 76px;
+  border-radius: 12px;
   overflow: hidden;
   border: 2px solid rgb(from var(--accent) r g b / 0.55);
   background: rgb(30 41 59 / 0.95);
@@ -6452,21 +6457,28 @@ table.data.team-depth-table th {
   height: 100%;
   background: linear-gradient(145deg, #1e293b, #334155);
 }
+.team-hover-preview-card__head-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
 .team-hover-preview-card__title {
   color: #f8fafc;
   font-weight: 800;
-  font-size: 1.02rem;
+  font-size: 1.08rem;
   line-height: 1.15;
 }
 .team-hover-preview-card__sub {
-  margin-top: 0.12rem;
+  margin-top: 0.14rem;
   color: #94a3b8;
-  font-size: 0.72rem;
+  font-size: 0.78rem;
 }
 .team-hover-preview-card__record-line {
-  margin-top: 0.2rem;
+  margin-top: 0.22rem;
   color: #e2e8f0;
-  font-size: 0.74rem;
+  font-size: 0.78rem;
   font-variant-numeric: tabular-nums;
 }
 .team-hover-preview-card__rank-label {
@@ -6480,11 +6492,11 @@ table.data.team-depth-table th {
 .team-hover-preview-card__rank-of {
   color: #64748b;
   font-weight: 600;
-  font-size: 0.68rem;
+  font-size: 0.7rem;
 }
 .team-hover-preview-card__stats-bar {
   margin-top: 0.45rem;
-  padding: 0.32rem 0.45rem;
+  padding: 0.38rem 0.5rem;
   border-radius: 8px;
   background: linear-gradient(
     90deg,
@@ -6492,35 +6504,37 @@ table.data.team-depth-table th {
     rgb(from var(--accent) r g b / 0.08)
   );
   color: #f1f5f9;
-  font-size: 0.72rem;
+  font-size: 0.76rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  text-align: center;
 }
 .team-hover-preview-card__streak {
-  margin-top: 0.28rem;
-  font-size: 0.68rem;
+  margin-top: 0.3rem;
+  font-size: 0.72rem;
   color: #cbd5e1;
+  text-align: center;
 }
 .team-hover-preview-card__players {
   margin-top: 0.45rem;
   border-top: 1px solid rgb(71 85 105 / 0.45);
-  padding-top: 0.35rem;
+  padding-top: 0.4rem;
 }
 .team-hover-preview-card__prow {
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) auto;
-  gap: 0.4rem;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  gap: 0.55rem;
   align-items: center;
-  padding: 0.28rem 0;
+  padding: 0.38rem 0;
   border-bottom: 1px solid rgb(51 65 85 / 0.45);
 }
 .team-hover-preview-card__prow:last-child {
   border-bottom: none;
 }
 .team-hover-preview-card__pphoto {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
   overflow: hidden;
   border: 1px solid rgb(71 85 105 / 0.55);
   background: #0f172a;
@@ -6538,17 +6552,17 @@ table.data.team-depth-table th {
   background: linear-gradient(160deg, #020617, #1e293b);
 }
 .team-hover-preview-card__prole {
-  font-size: 0.58rem;
+  font-size: 0.62rem;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: #93c5fd;
-  margin-bottom: 0.06rem;
+  margin-bottom: 0.08rem;
 }
 .team-hover-preview-card__pname {
   color: #f8fafc;
   font-weight: 700;
-  font-size: 0.8rem;
+  font-size: 0.92rem;
   text-decoration: none;
 }
 .team-hover-preview-card__pname:hover {
@@ -6556,31 +6570,82 @@ table.data.team-depth-table th {
   color: var(--accent-hover);
 }
 .team-hover-preview-card__pmeta {
-  margin-top: 0.06rem;
+  margin-top: 0.08rem;
   color: #94a3b8;
-  font-size: 0.68rem;
+  font-size: 0.76rem;
 }
 .team-hover-preview-card__pbadges {
   display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0.42rem;
+  flex-shrink: 0;
+}
+.team-hover-preview-card__ovr-col {
+  display: flex;
   flex-direction: column;
-  gap: 0.18rem;
-  align-items: flex-end;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  min-width: 3.1rem;
+  padding: 0.22rem 0.38rem;
+  border-radius: 8px;
+  border: 1px solid rgb(from var(--accent) r g b / 0.75);
+  background: rgb(15 23 42 / 0.92);
+  box-sizing: border-box;
+}
+.team-hover-preview-card__score-lbl {
+  font-size: 0.52rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+  line-height: 1;
+  margin-bottom: 0.12rem;
+}
+.team-hover-preview-card__ovr-col .team-hover-preview-card__score-lbl {
+  margin-bottom: 0.14rem;
+}
+.team-hover-preview-card__ovr-num {
+  font-size: 1.45rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: #fefce8;
+}
+.team-hover-preview-card__ovr-num--muted {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #64748b;
+}
+.team-hover-preview-card__ap-col {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-self: stretch;
+  gap: 0.22rem;
+  min-height: 100%;
+}
+.team-hover-preview-card__ap-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.32rem;
+}
+.team-hover-preview-card__ap-row .team-hover-preview-card__score-lbl {
+  flex: 0 0 1.5rem;
+  margin-bottom: 0;
+  text-align: right;
 }
 .team-hover-preview-card__badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 2rem;
-  padding: 0.12rem 0.28rem;
+  min-width: 2.35rem;
+  padding: 0.14rem 0.32rem;
   border-radius: 6px;
-  font-size: 0.72rem;
+  font-size: 0.76rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-}
-.team-hover-preview-card__badge--ovr {
-  border: 1px solid rgb(from var(--accent) r g b / 0.75);
-  background: rgb(15 23 42 / 0.9);
-  color: #fefce8;
 }
 .team-hover-preview-card__badge--abi,
 .team-hover-preview-card__badge--pot {
@@ -6599,6 +6664,7 @@ table.data.team-depth-table th {
   border-top: 1px solid rgb(71 85 105 / 0.35);
   font-size: 0.65rem;
   color: #64748b;
+  text-align: center;
 }
 .team-hover-preview-card__foot-link {
   color: var(--accent);
@@ -6629,8 +6695,18 @@ table.data.team-depth-table th {
 [data-theme="light"] .team-hover-preview-card__pname {
   color: #0f172a;
 }
-[data-theme="light"] .team-hover-preview-card__stats-bar {
+[data-theme="light"] .team-hover-preview-card__streak {
+  color: #475569;
+}
+[data-theme="light"] .team-hover-preview-card__ovr-col {
+  background: rgb(241 245 249 / 0.95);
+  border-color: rgb(from var(--accent) r g b / 0.45);
+}
+[data-theme="light"] .team-hover-preview-card__ovr-num {
   color: #0f172a;
+}
+[data-theme="light"] .team-hover-preview-card__score-lbl {
+  color: #64748b;
 }
 
 /* Off-screen render target for Discord/share PNG (html2canvas) */

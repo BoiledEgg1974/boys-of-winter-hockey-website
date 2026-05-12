@@ -673,7 +673,7 @@
 
   function initPlayerHoverCards() {
     var cache = {};
-    var HOVER_CARD_CACHE_VER = 6;
+    var HOVER_CARD_CACHE_VER = 7;
     var activeAnchor = null;
     var showTimer = null;
     var hideTimer = null;
@@ -742,7 +742,7 @@
         '<div class="player-hover-seasons"><div class="player-hover-seasons__title">Recent seasons (RS)</div><table class="player-hover-seasons__table">';
       if (role === "goalie") {
         h +=
-          "<thead><tr><th>Season</th><th title=\"Team (era logo)\">TM</th><th>GP</th><th>W</th><th>L</th><th>GA</th><th>SV%</th></tr></thead><tbody>";
+          "<thead><tr><th>Season</th><th title=\"Team (era logo)\">TM</th><th>GP</th><th>W</th><th>L</th><th>GA</th><th title=\"Shutouts\">SO</th><th>SV%</th></tr></thead><tbody>";
         rows.forEach(function (r) {
           var sv = r.sv_pct;
           var svS = sv == null ? "—" : escapeHtml(Number(sv).toFixed(3));
@@ -759,6 +759,8 @@
             escapeHtml(String(r.losses != null ? r.losses : "—")) +
             "</td><td>" +
             escapeHtml(String(r.ga != null ? r.ga : "—")) +
+            "</td><td>" +
+            escapeHtml(String(r.so != null ? r.so : "—")) +
             "</td><td>" +
             svS +
             "</td></tr>";

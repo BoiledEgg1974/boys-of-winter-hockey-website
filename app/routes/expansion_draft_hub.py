@@ -20,6 +20,9 @@ from app.services.expansion_draft_state import (
     featured_expansion_draft,
     gm_user_ids_for_team,
     pause_timer,
+    player_is_defense,
+    player_is_forward,
+    player_is_goalie,
     record_pick,
     resolve_admin_pick,
     resume_timer,
@@ -123,11 +126,42 @@ def expansion_draft_api_state():
         int(tid): team_logo_url_for_team(tm) for tid, tm in team_by_id.items()
     }
 
+    def _roster_slot(pl: Player | None, phase: str) -> str:
+        """Single roster column for expansion tracker: G, LD, RD, LW, C, RW."""
+        ph = (phase or "").strip().lower()
+        if ph == "goalie":
+            return "G"
+        if not pl:
+            return "LW"
+        if player_is_goalie(pl):
+            return "G"
+        label = (player_positions_display_label(pl) or "").strip()
+        tokens = _pos_tokens(label)
+        if tokens & {"LD", "RD"}:
+            if "LD" in tokens:
+                return "LD"
+            if "RD" in tokens:
+                return "RD"
+            return "LD"
+        if tokens & {"LW", "C", "RW"}:
+            for pref in ("LW", "C", "RW"):
+                if pref in tokens:
+                    return pref
+        if "G" in tokens:
+            return "G"
+        if player_is_defense(pl):
+            return "LD"
+        if player_is_forward(pl):
+            return "LW"
+        return "LW"
+
     def _pick_dict(pk: LeagueExpansionDraftPick) -> dict:
         pl = db.session.get(Player, pk.player_id)
         tm = team_by_id.get(pk.team_id)
         from_tm = team_by_id.get(pk.from_team_id) if pk.from_team_id else None
         from_tid = int(pk.from_team_id) if pk.from_team_id is not None else None
+        pos_disp = player_positions_display_label(pl) if pl else ""
+        slot = _roster_slot(pl, str(pk.phase or ""))
         return {
             "overall": pk.overall_pick,
             "round": pk.round,
@@ -137,6 +171,8 @@ def expansion_draft_api_state():
             "team_logo_url": logo_by_team_id.get(int(pk.team_id)) if pk.team_id is not None else None,
             "player": pl.full_name if pl else str(pk.player_id),
             "player_id": pk.player_id,
+            "pos_display": pos_disp,
+            "roster_slot": slot,
             "source": pk.source,
             "from_team": from_tm.full_display_name() if from_tm else "",
             "from_team_id": from_tid,
@@ -281,6 +317,24 @@ def expansion_draft_api_state():
         and current_slot
     )
 
+    rt_tid: int | None = None
+    if draft.status == "live" and current_slot and current_slot.get("team_id") is not None:
+        rt_tid = int(current_slot["team_id"])
+    elif exp_order:
+        rt_tid = int(exp_order[0])
+    rt_tm = team_by_id.get(rt_tid) if rt_tid is not None else None
+    roster_tracker = {
+        "team_id": rt_tid,
+        "team_name": rt_tm.full_display_name() if rt_tm else "",
+        "team_logo_url": logo_by_team_id.get(int(rt_tid)) if rt_tid is not None else None,
+        "subtitle": (
+            "Slots for the expansion club currently on the clock."
+            if draft.status == "live" and current_slot
+            else "Slots for the first expansion club in rotation (on-clock club when the draft is live)."
+        ),
+        "expansion_franchise_ids": [int(x) for x in exp_order],
+    }
+
     return jsonify(
         {
             "ok": True,
@@ -304,6 +358,7 @@ def expansion_draft_api_state():
                 "order": order_rows,
                 "recent_picks": pick_payload,
                 "ticker_picks": ticker_picks,
+                "roster_tracker": roster_tracker,
                 "sounds": [],
                 "queue_player_ids": [],
                 "queue_items": [],

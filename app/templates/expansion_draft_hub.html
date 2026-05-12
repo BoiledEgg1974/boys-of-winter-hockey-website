@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Expansion Draft Hub — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
 {% block content %}
-<div class="draft-hub-page" id="draft-hub-page-root">
+<div class="draft-hub-page draft-hub-page--expansion" id="draft-hub-page-root">
   <h1 class="page-title">Expansion Draft Hub</h1>
   <p class="muted" style="margin:0 0 1rem;">
     For league GMs and admins. Prospect draft: <a href="{{ url_for('draft_hub.draft_hub_page') }}">Draft Hub</a>
@@ -63,10 +63,105 @@
     return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
   }
 
+  function buildRosterTrackerHtml(x) {
+    var rt = x.roster_tracker || {};
+    var tid = rt.team_id;
+    if (tid == null || tid === '') {
+      return '<aside class="draft-hub-roster-tracker card" aria-label="Expansion roster slots"><p class="muted small" style="margin:0">Roster tracker appears once expansion franchises are configured.</p></aside>';
+    }
+    var picks = (x.ticker_picks || []).filter(function (p) { return Number(p.team_id) === Number(tid); });
+    picks.sort(function (a, b) { return Number(a.overall) - Number(b.overall); });
+    var g = [], ld = [], rd = [], lw = [], c = [], rw = [];
+    picks.forEach(function (p) {
+      var b = String(p.roster_slot || p.roster_bucket || 'LW').toUpperCase();
+      if (b === 'G' && g.length < 5) g.push(p);
+      else if (b === 'LD' && ld.length < 6) ld.push(p);
+      else if (b === 'RD' && rd.length < 6) rd.push(p);
+      else if (b === 'LW' && lw.length < 7) lw.push(p);
+      else if (b === 'C' && c.length < 7) c.push(p);
+      else if (b === 'RW' && rw.length < 7) rw.push(p);
+      else if (b === 'D') {
+        if (ld.length < 6) ld.push(p);
+        else if (rd.length < 6) rd.push(p);
+      } else if (b === 'F') {
+        if (lw.length < 7) lw.push(p);
+        else if (c.length < 7) c.push(p);
+        else if (rw.length < 7) rw.push(p);
+      }
+    });
+    function slotRow(label, slotClass, pick) {
+      var mid = '<span class="muted">—</span>';
+      var fromCell = '<span class="muted">—</span>';
+      if (pick) {
+        var pos = String(pick.pos_display || '').trim();
+        var pname = pick.player || '';
+        var line = (pos ? pos + ' ' : '') + pname;
+        if (pick.player_id != null) {
+          mid = '<a href="' + esc(playerHref(pick.player_id)) + '" target="_blank" rel="noopener noreferrer">' + esc(line) + '</a>';
+        } else {
+          mid = esc(line);
+        }
+        if (pick.from_team_logo_url) {
+          fromCell = '<img class="draft-hub-roster-tracker__from-logo" src="' + esc(pick.from_team_logo_url) + '" alt="" width="24" height="24" loading="lazy" decoding="async" title="' + esc(pick.from_team || '') + '">';
+        } else if (pick.from_team) {
+          fromCell = '<span class="draft-hub-roster-tracker__from-ph" aria-hidden="true">' + esc(String(pick.from_team).substring(0, 2).toUpperCase()) + '</span>';
+        }
+      }
+      return '<tr><td class="' + slotClass + '">' + esc(label) + '</td><td class="draft-hub-roster-tracker__pn">' + mid + '</td><td class="draft-hub-roster-tracker__old">' + fromCell + '</td></tr>';
+    }
+    function fillSection(labels, slotClass, arr) {
+      var rows = '';
+      for (var i = 0; i < labels.length; i++) {
+        rows += slotRow(labels[i], slotClass, arr[i] || null);
+      }
+      return rows;
+    }
+    var goalieLabels = ['Goalie #1', 'Goalie #2', 'Goalie #3', 'Goalie #4', 'Goalie #5'];
+    var ldLabels = [];
+    for (var li = 1; li <= 6; li++) ldLabels.push('LD #' + li + ' (Left Defense)');
+    var rdLabels = [];
+    for (var ri = 1; ri <= 6; ri++) rdLabels.push('RD #' + ri + ' (Right Defense)');
+    var lwLabels = [];
+    for (var wi = 1; wi <= 7; wi++) lwLabels.push('LW #' + wi + ' (Left Wing)');
+    var cLabels = [];
+    for (var ci = 1; ci <= 7; ci++) cLabels.push('C #' + ci + ' (Center)');
+    var rwLabels = [];
+    for (var rj = 1; rj <= 7; rj++) rwLabels.push('RW #' + rj + ' (Right Wing)');
+    var brand = '';
+    if (rt.team_logo_url) {
+      brand = '<div class="draft-hub-roster-tracker__brand"><img src="' + esc(rt.team_logo_url) + '" alt="' + esc(rt.team_name || 'Expansion team') + ' logo" width="56" height="56" loading="lazy" decoding="async"></div>';
+    } else {
+      brand = '<div class="draft-hub-roster-tracker__brand draft-hub-roster-tracker__brand--ph" aria-hidden="true">' + esc((rt.team_name || '?').substring(0, 3).toUpperCase()) + '</div>';
+    }
+    var sub = rt.subtitle ? '<p class="draft-hub-roster-tracker__sub muted small">' + esc(rt.subtitle) + '</p>' : '';
+    var h = '<aside class="draft-hub-roster-tracker card" aria-label="Expansion roster build">';
+    h += '<h2 class="draft-hub-roster-tracker__title">Roster build</h2>';
+    h += sub;
+    h += brand;
+    h += '<div class="table-wrap draft-hub-roster-tracker__wrap"><table class="data draft-hub-roster-tracker__table">';
+    h += '<thead><tr><th class="draft-hub-roster-tracker__th-slot">Slot</th><th>Position &amp; Name</th><th>Old Team</th></tr></thead>';
+    h += '<tbody class="draft-hub-roster-tracker__tbody draft-hub-roster-tracker__tbody--g">';
+    h += fillSection(goalieLabels, 'draft-hub-roster-tracker__slot draft-hub-roster-tracker__slot--g', g);
+    h += '</tbody><tbody class="draft-hub-roster-tracker__tbody draft-hub-roster-tracker__tbody--ld">';
+    h += fillSection(ldLabels, 'draft-hub-roster-tracker__slot draft-hub-roster-tracker__slot--ld', ld);
+    h += '</tbody><tbody class="draft-hub-roster-tracker__tbody draft-hub-roster-tracker__tbody--rd">';
+    h += fillSection(rdLabels, 'draft-hub-roster-tracker__slot draft-hub-roster-tracker__slot--rd', rd);
+    h += '</tbody><tbody class="draft-hub-roster-tracker__tbody draft-hub-roster-tracker__tbody--lw">';
+    h += fillSection(lwLabels, 'draft-hub-roster-tracker__slot draft-hub-roster-tracker__slot--lw', lw);
+    h += '</tbody><tbody class="draft-hub-roster-tracker__tbody draft-hub-roster-tracker__tbody--c">';
+    h += fillSection(cLabels, 'draft-hub-roster-tracker__slot draft-hub-roster-tracker__slot--c', c);
+    h += '</tbody><tbody class="draft-hub-roster-tracker__tbody draft-hub-roster-tracker__tbody--rw">';
+    h += fillSection(rwLabels, 'draft-hub-roster-tracker__slot draft-hub-roster-tracker__slot--rw', rw);
+    h += '</tbody></table></div></aside>';
+    return h;
+  }
+
   function renderState(d) {
     var pageEl = document.getElementById('draft-hub-page-root');
     if (!d || !d.draft) {
-      if (pageEl) pageEl.classList.remove('draft-hub-page--ticker');
+      if (pageEl) {
+        pageEl.classList.remove('draft-hub-page--ticker');
+      }
       root.innerHTML = '<div class="card"><p class="muted">No expansion draft is configured yet. The commissioner can create one from the admin site tools.</p></div>';
       return;
     }
@@ -173,6 +268,8 @@
       html += '</form>';
     }
     html += '</header>';
+
+    html += buildRosterTrackerHtml(x);
 
     // === Body row: Eligible Prospects | Draft Order | Draft History ===
     html += '<section class="draft-hub-col draft-hub-col--players card">';

@@ -91,7 +91,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 4470;90;90;Bob;Cunningham;;71;168;1941-2-26;Welland;ON;Canada;;;0;Left;0
 5230;28;10;Robin;Burns;;72;195;1946-8-27;Murdochville;QC;Canada;;;0;Left;0
 6092;59;59;Per-Olov;Brasar;Olie;68;172;1950-9-30;Falun;DAL;Sweden;;;0;Left;0
-5401;26;8;Serge;Bernier;Sergio;73;190;1947-4-29;Mistissini;QC;Canada;;;0;Right;0
+5401;8;8;Serge;Bernier;Sergio;73;190;1947-4-29;Mistissini;QC;Canada;;;0;Right;1
 3314;90;90;Dale;Anderson;;75;190;1932-3-5;Regina;SK;Canada;;;0;Left;0
 3043;90;90;Jack;Bownass;;73;190;1930-7-27;Winnipeg;MB;Canada;;;0;Left;0
 4471;5;5;Bob;Dillabough;;71;180;1941-4-27;Belleville;ON;Canada;;;0;Left;0
@@ -805,7 +805,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 6126;85;85;Hilliard;Graves;;71;175;1950-10-18;St. Stephen;NB;Canada;;;0;Right;0
 5897;83;83;Bill;Hogaboam;Hogi;71;170;1949-9-5;Watrous;SK;Canada;;;0;Right;0
 5670;83;83;Murray;Heatley;;68;185;1948-11-7;Camrose;AB;Canada;;;0;Right;0
-5444;26;8;Jim;Lorentz;Batman;72;190;1947-5-1;Waterloo;ON;Canada;;;0;Left;0
+5444;8;8;Jim;Lorentz;Batman;72;190;1947-5-1;Waterloo;ON;Canada;;;0;Left;1
 4762;5;5;Glen;Sather;Slats;71;180;1943-9-2;Irricana;AB;Canada;;;0;Left;0
 4634;60;60;Pentti;Hyytiäinen;;69;172;1941-9-20;Kemi;LAP;Finland;Austria;;0;Left;0
 5257;27;9;Al;Karlander;;68;170;1946-11-5;Sun Peaks;BC;Canada;;;0;Left;0

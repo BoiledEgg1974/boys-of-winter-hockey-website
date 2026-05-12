@@ -5226,7 +5226,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 5351;179;179;Phil;LaBatte;;69;172;1968-7-5;Minneapolis;MN;The United States;;;0;Left;0
 5352;297;297;Daniel;Manzato;;72;187;1968-1-17;Fribourg;FR;Switzerland;;;0;Left;1
 5353;180;180;Doug;Keeler;;70;185;1968-8-16;Espanola;ON;Canada;;;0;Left;0
-5354;291;291;Marian;Brusil;;71;175;1968-8-9;Trebisov;KOS;Slovakia;;;0;Left;0
+5354;12;12;Marian;Brusil;;71;175;1968-8-9;Trebisov;KOS;Slovakia;;;0;Left;1
 5355;181;181;Fred;Radke;;69;172;1968-1-22;Saguenay;QC;Canada;;;0;Left;0
 5356;181;181;Vincent;Arseneau;;74;216;1968-3-26;Quebec City;QC;Canada;;;0;Left;0
 5357;180;180;Dylan;Labbé;;74;205;1968-1-9;Listowel;ON;Canada;;;0;Left;0

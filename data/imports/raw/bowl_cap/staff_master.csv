@@ -1,6 +1,6 @@
 StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate;Nationality_One;Nationality_Two;Nationality_Three;Retired
 0;224;Pat;Quinn;;1943-1-29;Hamilton;ON;Canada;;;0
-1;20;Lou;Lamoriello;;1942-10-21;Johnston;RI;The United States;;;0
+1;-1;Lou;Lamoriello;;1942-10-21;Johnston;RI;The United States;;;0
 2;10;Jurijs;Agureikins;;1952-5-20;Riga;RIG;Latvia;;;0
 3;20;Jacques;Lemaire;;1945-9-7;Montreal;QC;Canada;;;0
 4;-1;Jean;Perron;;1946-10-5;Cookshire;QC;Canada;;;0
@@ -8,7 +8,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 6;-1;Alpo;Suhonen;;1948-6-17;Valkeakoski;PIR;Finland;;;0
 7;11;Vladislav;Tretiak;;1952-4-25;Naberezhnye Chelny;TAT;Russia;;;0
 8;214;Barry;Smith;;1952-8-21;Buffalo;NY;The United States;;;0
-9;20;Scotty;Bowman;;1933-9-18;Montreal;QC;Canada;;;0
+9;3;Scotty;Bowman;;1933-9-18;Montreal;QC;Canada;;;0
 10;219;Ron;Ivany;;1949-4-1;Toronto;ON;Canada;;;0
 11;15;Jari;Helle;;1962-8-10;Tampere;PIR;Finland;;;0
 12;10;Darryl;Sutter;;1958-8-19;Viking;AB;Canada;;;0
@@ -626,9 +626,9 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 624;8;Mark;Parton;;1944-6-28;South Lake Tahoe;CA;The United States;;;0
 625;225;Dewey;Perkins;;1939-11-8;Parkville;PA;The United States;;;0
 626;218;Marvin;Little;;1948-8-9;Foothill Farms;CA;The United States;;;0
-627;-1;Gene;Gaywood;;1939-12-30;Fort Smith;AR;The United States;;;0
+627;15;Gene;Gaywood;;1939-12-30;Fort Smith;AR;The United States;;;0
 628;-1;Jordan;Bill;;1939-6-17;Battle Mountain;NV;The United States;;;0
-629;-1;Dan;Parkinson;;1939-1-14;Phoenix;AZ;The United States;;;0
+629;5;Dan;Parkinson;;1939-1-14;Phoenix;AZ;The United States;;;0
 630;-1;José;Ramirez;;1939-10-11;Lake Forest;CA;The United States;;;0
 631;215;Jimmy;Gaines;;1944-6-7;Rosenberg;TX;The United States;;;0
 632;-1;Harry;Daniel;;1939-12-4;Canton;OH;The United States;;;0
@@ -716,10 +716,10 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 714;56;Dale;Brooks;;1939-2-1;East Palo Alto;CA;The United States;;;0
 715;56;Buck;MacAindra;;1939-11-10;Milwaukee;WI;The United States;;;0
 716;56;Bryan;Pfeffer;;1939-10-24;Mauriceville;TX;The United States;;;0
-717;56;Marshall;Churches;;1939-12-17;Redlands;CA;The United States;;;0
+717;5;Marshall;Churches;;1939-12-17;Redlands;CA;The United States;;;0
 718;56;Wendell;Ince;;1939-1-27;Jackson;OH;The United States;;;0
 719;56;Daniel;Sprayberry;;1939-7-25;Colorado Springs;CO;The United States;;;0
-720;56;Ross;Tamblyn;;1939-9-16;Hialeah;FL;The United States;;;0
+720;5;Ross;Tamblyn;;1939-9-16;Hialeah;FL;The United States;;;0
 721;56;Steven;McClements;;1944-9-4;Brooklyn;NY;The United States;;;0
 722;56;Hal;Fletcher;;1943-4-17;Englewood;NJ;The United States;;;0
 723;57;Tim;Morgan;;1945-1-8;Oklahoma City;OK;The United States;;;0
@@ -757,7 +757,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 755;60;Eric;McFarland;;1947-11-11;Frankfort;IL;The United States;;;0
 756;60;Devin;Skeens;;1939-11-27;Santa Rosa;CA;The United States;;;0
 757;60;Lee;Porter;;1939-6-21;Cypress;TX;The United States;;;0
-758;60;Richard;Burnet;;1939-9-3;Talladega;AL;The United States;;;0
+758;20;Richard;Burnet;;1939-9-3;Talladega;AL;The United States;;;0
 759;60;Anthony;Tucker;;1939-5-5;Mansfield;LA;The United States;;;0
 760;60;Dave;Salmons;;1939-5-8;Topeka;KS;The United States;;;0
 761;60;Roy;Leathers;;1939-6-4;Decatur;IL;The United States;;;0
@@ -821,7 +821,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 819;65;Robert;Clemmer;;1939-8-14;Brooklyn;IN;The United States;;;0
 820;65;Nelson;Ferguson;;1939-12-13;San Diego;CA;The United States;;;0
 821;65;Marvin;Lunday;;1939-11-23;Brownwood;TX;The United States;;;0
-822;65;Johnny;Detwiler;;1944-10-19;Mesa;AZ;The United States;;;0
+822;20;Johnny;Detwiler;;1944-10-19;Mesa;AZ;The United States;;;0
 823;65;Stuart;Carver;;1939-1-18;Suisun City;CA;The United States;;;0
 824;65;Alvin;Guthrie;;1939-11-17;Gonzales;CA;The United States;;;0
 825;65;Tyler;Nolan;;1939-4-24;Brooklyn;NY;The United States;;;0
@@ -1739,7 +1739,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1737;10;John;Dorsey;;1940-11-10;Gatineau;QC;Canada;;;0
 1738;-1;Manuel;Yero;;1940-9-10;Calgary;AB;Canada;;;0
 1739;0;Jeff;Walsh;;1949-9-11;Marathon;ON;Canada;;;0
-1740;5;Cecil;Reece;;1940-4-11;Dalton;GA;The United States;;;0
+1740;-1;Cecil;Reece;;1940-4-11;Dalton;GA;The United States;;;0
 1741;-1;Claude;Farley;;1940-2-1;Saguenay;QC;Canada;;;0
 1742;-1;Marvin;Lane;;1940-5-8;Montreal;QC;Canada;;;0
 1743;-1;Travis;Walsh;;1946-6-16;Edmonton;AB;Canada;;;0
@@ -1787,7 +1787,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1785;215;Kevin;Lessard;;1941-9-28;;;The United States;;;0
 1786;215;David;Fewell;;1943-7-11;Honolulu;HI;The United States;;;0
 1787;215;Pat;Waller;;1948-12-11;;;The United States;;;0
-1788;215;Roger;Mohler;;1941-9-1;;;The United States;;;0
+1788;20;Roger;Mohler;;1941-9-1;;;The United States;;;0
 1789;215;Gerald;MacBrieve;;1946-6-23;;;The United States;;;0
 1790;-1;Slavomir;Lener;;1957-1-1;Beroun;STR;Czech Republic;;;0
 1791;5;George;McPhee;;1958-7-2;Guelph;ON;Canada;;;0
@@ -1875,7 +1875,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1873;-1;Lou;MacDonald;;1943-6-17;Ives Estates;FL;The United States;;;0
 1874;-1;Jerome;Chambers;;1943-1-23;Cambridge;MA;The United States;;;0
 1875;-1;Thomas;Lafond;;1943-2-21;Mississauga;ON;The United States;;;0
-1876;5;Brian;Joyner;;1943-10-6;Los Angeles;CA;The United States;;;0
+1876;-1;Brian;Joyner;;1943-10-6;Los Angeles;CA;The United States;;;0
 1877;15;Justin;Milton;;1943-10-5;Ontario;CA;The United States;;;0
 1878;-1;Eric;O'Lonegan;;1943-6-22;Flagstaff;AZ;The United States;;;0
 1879;-1;Millard;Arnason;;1943-11-7;Hybla Valley;VA;The United States;;;0
@@ -1895,7 +1895,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1893;17;Lindy;Ruff;;1960-2-17;Elk Point;AB;Canada;;;0
 1894;-1;Randy;Carlyle;;1956-4-19;Sudbury;ON;Canada;;;0
 1895;10;Thomas;Gradin;;1956-2-18;Sollefteå;VäS;Sweden;;;0
-1896;20;Joel;Quenneville;;1958-9-15;Windsor;ON;Canada;;;0
+1896;217;Joel;Quenneville;;1958-9-15;Windsor;ON;Canada;;;0
 1897;-1;Marc;Crawford;Crow;1961-2-13;Belleville;ON;Canada;;;0
 1898;225;Chuck;Fletcher;;1967-4-29;Murdochville;QC;Canada;;;0
 1899;-1;Jim;Benning;;1963-4-29;Elk Point;AB;Canada;;;0

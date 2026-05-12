@@ -26,6 +26,7 @@ from app.models import (  # noqa: E402
     GameGoalieStat,
     GameSkaterStat,
     HallOfFameMember,
+    HistoryAllStar,
     HistoryAward,
     HistoryChampion,
     ImportLog,
@@ -877,6 +878,84 @@ def import_history_awards(
     return n
 
 
+def _parse_all_star_team_rank(cell: str | None) -> int | None:
+    s = (cell or "").strip().lower()
+    if s in ("1", "1st", "first", "f"):
+        return 1
+    if s in ("2", "2nd", "second", "s"):
+        return 2
+    v = to_int(cell, None)
+    return v if v in (1, 2) else None
+
+
+def import_history_all_stars(raw_dir: Path, app) -> int:
+    """Import ``history_all_stars.csv`` (replace-all)."""
+    path = raw_dir / "history_all_stars.csv"
+    if not path.is_file():
+        log.info("Skipping history_all_stars.csv (not found)")
+        return 0
+    log.info("Loading history all-stars from %s", path.name)
+    df = read_csv_normalized(path)
+    db.session.execute(delete(HistoryAllStar))
+    db.session.commit()
+    log.info("Removed all history_all_stars rows before CSV re-import.")
+    if df.empty or len(df.index) == 0:
+        log.info("history_all_stars.csv has no data rows — table cleared.")
+        return 0
+    n = 0
+    for _, row in df.iterrows():
+        r = row.to_dict()
+        season_key = cell_val(r, "season_id", "season")
+        season_label_st = (cell_val(r, "season_label") or season_key or "").strip()[:16]
+        season = _season_by_fhm_or_label(season_key)
+        sheet_pref: list[str] = []
+        if not season:
+            all_seasons = db.session.scalars(select(Season)).all()
+            if len(all_seasons) == 1:
+                season = all_seasons[0]
+                if season_key:
+                    sheet_pref.append(f"sheet_season={season_key}")
+        if not season:
+            continue
+        if not season_label_st:
+            continue
+        tr = _parse_all_star_team_rank(cell_val(r, "team", "all_star_team", "team_rank"))
+        if tr not in (1, 2):
+            continue
+        sl = to_int(cell_val(r, "slot", "line"), None)
+        if sl is None or sl < 1 or sl > 6:
+            continue
+        pos = (cell_val(r, "position", "pos") or "?").strip()[:32]
+        pid_raw = cell_val(r, "player_id", "fhm_player_id", "playerid")
+        pid_st = (pid_raw or "").strip()
+        pid_lower = pid_st.lower()
+        sheet_player_null = pid_lower in ("null", "none", "nan", "")
+        player_key = None if sheet_player_null else pid_st
+        player = _player_by_fhm(player_key)
+        team = _team_by_fhm_or_abbr(cell_val(r, "team_id", "team_abbr", "fhm_team_id"))
+        notes_val = cell_val(r, "notes")
+        if sheet_pref:
+            merged = "; ".join(sheet_pref)
+            if notes_val:
+                merged = f"{merged}; {notes_val}"
+            notes_val = merged
+        db.session.add(
+            HistoryAllStar(
+                season_id=season.id,
+                season_label=season_label_st,
+                team_rank=int(tr),
+                slot=int(sl),
+                position=pos or "?",
+                player_id=player.id if player else None,
+                team_id=team.id if team else None,
+                notes=notes_val,
+            )
+        )
+        n += 1
+    db.session.commit()
+    return n
+
+
 def import_history_champions(raw_dir: Path, app) -> int:
     path = raw_dir / "history_champions.csv"
     if not path.exists():
@@ -926,6 +1005,7 @@ STEPS = [
     ("drafts", import_drafts),
     ("draft_picks", import_draft_picks),
     ("history_awards", import_history_awards),
+    ("history_all_stars", import_history_all_stars),
     ("history_champions", import_history_champions),
     ("team_season_records", _import_team_season_records_step),
 ]
@@ -979,6 +1059,10 @@ def run_import(raw_dir: Path | None = None) -> None:
                     counts["team_standings_overlay"] = import_team_standings(raw, app)
                 if _history_awards_csv_path(raw) is not None:
                     counts["history_awards"] = import_history_awards(raw, app)
+                has_all = raw / "history_all_stars.csv"
+                if has_all.is_file():
+                    log.info("Applying history_all_stars.csv after FHM import.")
+                    counts["history_all_stars"] = import_history_all_stars(raw, app)
                 hc = raw / "history_champions.csv"
                 if hc.is_file():
                     log.info("Applying history_champions.csv after FHM import.")

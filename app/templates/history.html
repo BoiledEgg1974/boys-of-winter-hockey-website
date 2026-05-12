@@ -52,6 +52,16 @@
 <span class="muted">—</span>
 {% endif %}
 {%- endmacro %}
+{% macro all_star_unresolved_player_name(notes) -%}
+{%- set ns = namespace(val='') -%}
+{%- for piece in (notes or '').split(';') -%}
+{%- set p = piece | trim -%}
+{%- if not ns.val and p | length > 18 and (p[:18] | lower) == 'unresolved_player=' -%}
+{%- set ns.val = (p[18:] | trim) -%}
+{%- endif -%}
+{%- endfor -%}
+{{- ns.val -}}
+{%- endmacro %}
 {% block title %}League History — Boys of Winter Hockey League{% endblock %}
 {% block content %}
 {# Champion images: static/{{ config.HISTORY_CHAMPIONS_REL_DIR }}/banner1.png, … (transparent background). #}
@@ -80,6 +90,99 @@
     </p>
     {% endif %}
   </div>
+
+  {% if all_star_bundle and all_star_bundle.season_labels %}
+  <div class="card history-all-stars-panel">
+    <h2>All-Star teams</h2>
+    <form class="history-all-stars__picker" method="get" action="{{ url_for('main.history') }}" aria-label="All-Star season">
+      <label class="history-all-stars__picker-label" for="all-star-season-select">Season</label>
+      <select id="all-star-season-select" class="history-all-stars__select" name="all_star_season" onchange="this.form.submit()">
+        {% for lab in all_star_bundle.season_labels %}
+        <option value="{{ lab }}" {% if lab == all_star_bundle.selected %}selected{% endif %}>{{ lab }}</option>
+        {% endfor %}
+      </select>
+    </form>
+    {% if all_star_bundle.display_title %}
+    <p class="history-all-stars__season-title" role="presentation">{{ all_star_bundle.display_title }}</p>
+    {% endif %}
+    <div class="history-all-stars__tables">
+      <div class="history-all-stars__subtable history-all-stars__subtable--first">
+        <div class="history-all-stars__subtable-head">First Team</div>
+        <table class="history-all-stars__table">
+          <thead>
+            <tr>
+              <th scope="col">Position</th>
+              <th scope="col">Team</th>
+              <th scope="col">Player</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in all_star_bundle.first_team %}
+            <tr>
+              <td class="history-all-stars__pos">{{ row.position }}</td>
+              <td class="history-all-stars__team">{% if row.team %}{{ team_logo_only(row.team, season=row.season) }}{% else %}<span class="muted">—</span>{% endif %}</td>
+              <td class="history-all-stars__player">
+                {% if row.player %}
+                <a class="history-all-stars__player-hit" href="{{ url_for('main.player_page', player_id=row.player.id) }}">
+                  {% if player_headshot_url(row.player) %}
+                  <img class="history-all-stars__headshot" src="{{ player_headshot_url(row.player) }}" alt="" loading="lazy" decoding="async" width="40" height="40">
+                  {% else %}
+                  <span class="history-all-stars__headshot-ph" aria-hidden="true"></span>
+                  {% endif %}
+                  <span class="history-all-stars__player-name">{{ row.player.full_name }}</span>
+                </a>
+                {% else %}
+                <span class="history-all-stars__player-hit history-all-stars__player-hit--text">
+                  <span class="history-all-stars__headshot-ph" aria-hidden="true"></span>
+                  <span class="history-all-stars__player-name">{{ all_star_unresolved_player_name(row.notes) or '—' }}</span>
+                </span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="history-all-stars__subtable history-all-stars__subtable--second">
+        <div class="history-all-stars__subtable-head">Second Team</div>
+        <table class="history-all-stars__table">
+          <thead>
+            <tr>
+              <th scope="col">Position</th>
+              <th scope="col">Team</th>
+              <th scope="col">Player</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in all_star_bundle.second_team %}
+            <tr>
+              <td class="history-all-stars__pos">{{ row.position }}</td>
+              <td class="history-all-stars__team">{% if row.team %}{{ team_logo_only(row.team, season=row.season) }}{% else %}<span class="muted">—</span>{% endif %}</td>
+              <td class="history-all-stars__player">
+                {% if row.player %}
+                <a class="history-all-stars__player-hit" href="{{ url_for('main.player_page', player_id=row.player.id) }}">
+                  {% if player_headshot_url(row.player) %}
+                  <img class="history-all-stars__headshot" src="{{ player_headshot_url(row.player) }}" alt="" loading="lazy" decoding="async" width="40" height="40">
+                  {% else %}
+                  <span class="history-all-stars__headshot-ph" aria-hidden="true"></span>
+                  {% endif %}
+                  <span class="history-all-stars__player-name">{{ row.player.full_name }}</span>
+                </a>
+                {% else %}
+                <span class="history-all-stars__player-hit history-all-stars__player-hit--text">
+                  <span class="history-all-stars__headshot-ph" aria-hidden="true"></span>
+                  <span class="history-all-stars__player-name">{{ all_star_unresolved_player_name(row.notes) or '—' }}</span>
+                </span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endif %}
 
   <div class="card history-awards-panel">
     <h2>Awards</h2>

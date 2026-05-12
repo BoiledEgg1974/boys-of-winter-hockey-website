@@ -82,6 +82,7 @@ def build_import_validation_report(*, raw_dir: Path, team_logos_dir: Path, sessi
         "team_stats.csv",
         "history_awards.sheet.csv",
         "history_awards.csv",
+        "history_all_stars.csv",
         "team_identity_history.csv",
     )
     errors: list[str] = []

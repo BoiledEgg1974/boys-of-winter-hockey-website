@@ -13945,3 +13945,145 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   --hof-wood1: color-mix(in srgb, var(--surface) 92%, #c9b8a4 8%);
   --hof-wood2: color-mix(in srgb, var(--surface) 88%, #a8947c 12%);
 }
+
+/* League History — All-Star teams */
+.history-all-stars-panel .history-all-stars__picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.75rem;
+  margin: 0 0 0.85rem;
+}
+.history-all-stars__picker-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.history-all-stars__select {
+  min-width: 8rem;
+  padding: 0.28rem 0.45rem;
+  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, var(--text) 22%, transparent);
+  background: var(--surface);
+  color: var(--text);
+}
+.history-all-stars__season-title {
+  font-weight: 800;
+  text-align: center;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.45rem 0.75rem;
+  margin: 0 0 1rem;
+  border-radius: 3px;
+  background: color-mix(in srgb, #4a1f1f 78%, var(--surface) 22%);
+  color: #f7f0ea;
+  border: 1px solid rgb(0 0 0 / 0.35);
+  font-size: 0.92rem;
+}
+[data-theme="light"] .history-all-stars__season-title {
+  background: color-mix(in srgb, #6b3030 88%, var(--surface) 12%);
+  color: #fff;
+}
+.history-all-stars__tables {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 960px) {
+  .history-all-stars__tables {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.history-all-stars__subtable {
+  border: 1px solid color-mix(in srgb, var(--text) 18%, transparent);
+  border-radius: 4px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--surface) 96%, var(--text) 4%);
+}
+.history-all-stars__subtable-head {
+  font-weight: 800;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 0.38rem 0.5rem;
+  color: #fff;
+  letter-spacing: 0.06em;
+  font-size: 0.78rem;
+}
+.history-all-stars__subtable--first .history-all-stars__subtable-head {
+  background: #1d4ed8;
+}
+.history-all-stars__subtable--second .history-all-stars__subtable-head {
+  background: #b91c1c;
+}
+.history-all-stars__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.history-all-stars__table th {
+  background: color-mix(in srgb, var(--surface) 55%, rgb(128 128 128) 45%);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.68rem;
+  color: color-mix(in srgb, var(--text) 88%, transparent);
+}
+.history-all-stars__table th,
+.history-all-stars__table td {
+  border: 1px solid color-mix(in srgb, var(--text) 16%, transparent);
+  padding: 0.35rem 0.45rem;
+  text-align: center;
+  vertical-align: middle;
+}
+.history-all-stars__pos {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.history-all-stars__team img {
+  max-height: 28px;
+  width: auto;
+  vertical-align: middle;
+}
+.history-all-stars__player {
+  text-align: left;
+}
+.history-all-stars__player-hit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+  color: inherit;
+  max-width: 100%;
+}
+.history-all-stars__player-hit--text {
+  cursor: default;
+}
+.history-all-stars__headshot {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid color-mix(in srgb, var(--text) 22%, transparent);
+}
+.history-all-stars__headshot-ph {
+  display: inline-block;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--surface) 70%, var(--muted) 30%);
+  border: 1px dashed color-mix(in srgb, var(--text) 25%, transparent);
+}
+.history-all-stars__player-name {
+  font-weight: 700;
+  font-size: 0.84rem;
+  line-height: 1.2;
+  word-break: break-word;
+}
+.history-all-stars__player-hit:hover .history-all-stars__player-name {
+  text-decoration: underline;
+}
+.history-all-stars__player-hit--text:hover .history-all-stars__player-name {
+  text-decoration: none;
+}

@@ -11,6 +11,7 @@ from app.auth_login import create_login_manager
 from app.config import LEAGUES, Config
 from app.db_utils import (
     ensure_fts5,
+    ensure_history_all_stars_sqlite,
     ensure_history_awards_staff_fhm_id_sqlite,
     ensure_players_jersey_number_sqlite,
     ensure_player_overall_baseline_sqlite,
@@ -111,6 +112,7 @@ def create_app(config_class: type = Config) -> Flask:
         ensure_skater_career_line_game_rating_sqlite(db.engine)
         ensure_player_goalie_stats_gsaa_sqlite(db.engine)
         ensure_history_awards_staff_fhm_id_sqlite(db.engine)
+        ensure_history_all_stars_sqlite(db.engine)
         ensure_fts5(db.engine)
         try:
             site_engine = db.engines.get("site")
@@ -492,6 +494,7 @@ def create_app(config_class: type = Config) -> Flask:
         ensure_skater_career_line_game_rating_sqlite(db.engine)
         ensure_player_goalie_stats_gsaa_sqlite(db.engine)
         ensure_history_awards_staff_fhm_id_sqlite(db.engine)
+        ensure_history_all_stars_sqlite(db.engine)
         ensure_fts5(db.engine)
         rebuild_player_fts(db.engine)
         print("Database initialized.")

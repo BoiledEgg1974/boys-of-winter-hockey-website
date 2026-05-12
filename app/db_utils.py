@@ -239,6 +239,26 @@ def ensure_history_awards_staff_fhm_id_sqlite(engine: Engine) -> None:
         conn.commit()
 
 
+def ensure_history_all_stars_sqlite(engine: Engine) -> None:
+    """Drop and recreate ``history_all_stars`` when an older table lacked ``season_label``."""
+    if engine.dialect.name != "sqlite":
+        return
+    from sqlalchemy import inspect
+
+    from app.models import HistoryAllStar
+
+    insp = inspect(engine)
+    if not insp.has_table("history_all_stars"):
+        return
+    with engine.connect() as conn:
+        cols = {row[1] for row in conn.execute(text("PRAGMA table_info(history_all_stars)"))}
+    if "season_label" in cols:
+        return
+    with engine.begin() as conn:
+        conn.execute(text("DROP TABLE history_all_stars"))
+    HistoryAllStar.__table__.create(bind=engine, checkfirst=True)
+
+
 def ensure_player_goalie_stats_gsaa_sqlite(engine: Engine) -> None:
     """Add GSAA when missing (SQLite)."""
     if engine.dialect.name != "sqlite":

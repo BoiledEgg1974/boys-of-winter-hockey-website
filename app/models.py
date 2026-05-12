@@ -558,6 +558,38 @@ class HistoryChampion(db.Model):
     team: Mapped["Team"] = relationship()
 
 
+class HistoryAllStar(db.Model):
+    """First / second all-star team lines from ``history_all_stars.csv`` (replace-all import)."""
+
+    __tablename__ = "history_all_stars"
+    __table_args__ = (
+        UniqueConstraint(
+            "season_label",
+            "team_rank",
+            "slot",
+            name="uq_history_all_star_label_team_slot",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    season_id: Mapped[int] = mapped_column(ForeignKey("seasons.id"), nullable=False)
+    #: CSV / display season key (e.g. ``1989-90``). Distinct from :attr:`season_id` when the DB has
+    #: a single placeholder season row and ``notes`` carries ``sheet_season=``.
+    season_label: Mapped[str] = mapped_column(String(16), nullable=False, default="", index=True)
+    #: ``1`` = First Team, ``2`` = Second Team.
+    team_rank: Mapped[int] = mapped_column(Integer, nullable=False)
+    #: Row order within the team (1 = goalie … 6 = right wing).
+    slot: Mapped[int] = mapped_column(Integer, nullable=False)
+    position: Mapped[str] = mapped_column(String(32), nullable=False)
+    player_id: Mapped[int | None] = mapped_column(ForeignKey("players.id"), nullable=True)
+    team_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id"), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text)
+
+    season: Mapped["Season"] = relationship()
+    player: Mapped["Player | None"] = relationship()
+    team: Mapped["Team | None"] = relationship()
+
+
 class HallOfFameMember(db.Model):
     """Inductee list sourced from ``hall_of_fame.csv`` in each league raw import folder (replace-all import)."""
 

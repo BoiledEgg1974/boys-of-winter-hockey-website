@@ -26,6 +26,17 @@
     }
   }
 
+  function teamSlugFromHref(href) {
+    if (!href) return null;
+    try {
+      var u = new URL(href, window.location.origin);
+      var m = u.pathname.match(/\/team\/([^/]+)\/?$/);
+      return m ? decodeURIComponent(m[1]) : null;
+    } catch (err2) {
+      return null;
+    }
+  }
+
   function withRoot(path) {
     var root = document.documentElement.getAttribute("data-application-root") || "";
     root = root.replace(/\/$/, "");
@@ -884,6 +895,249 @@
     return bindPlayerHoverAnchors;
   }
 
+  function initTeamHoverCards() {
+    var cache = {};
+    var HOVER_TEAM_CACHE_VER = 1;
+    var activeAnchor = null;
+    var showTimer = null;
+    var hideTimer = null;
+    var card = document.createElement("div");
+    card.className = "team-hover-preview-card";
+    card.hidden = true;
+    document.body.appendChild(card);
+
+    function hideCard() {
+      card.hidden = true;
+      activeAnchor = null;
+    }
+
+    function scheduleHide() {
+      clearTimeout(showTimer);
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(hideCard, 140);
+    }
+
+    function moveCardNear(anchor) {
+      if (!anchor) return;
+      var rect = anchor.getBoundingClientRect();
+      var pad = 12;
+      var cardRect = card.getBoundingClientRect();
+      var left = rect.left + window.scrollX + rect.width / 2 - cardRect.width / 2;
+      var top = rect.bottom + window.scrollY + pad;
+      var maxLeft = window.scrollX + document.documentElement.clientWidth - cardRect.width - 8;
+      var minLeft = window.scrollX + 8;
+      if (left < minLeft) left = minLeft;
+      if (left > maxLeft) left = maxLeft;
+      var maxTop = window.scrollY + document.documentElement.clientHeight - cardRect.height - 8;
+      if (top > maxTop) {
+        top = rect.top + window.scrollY - cardRect.height - 8;
+      }
+      card.style.left = Math.round(left) + "px";
+      card.style.top = Math.round(top) + "px";
+    }
+
+    function fmtDec(v) {
+      if (v == null || v === "") return "—";
+      var n = Number(v);
+      if (!isFinite(n)) return "—";
+      return n.toFixed(1);
+    }
+
+    function renderTeamCard(d) {
+      var r = d.record || {};
+      var rec =
+        String(r.w != null ? r.w : "0") +
+        "-" +
+        String(r.l != null ? r.l : "0") +
+        "-" +
+        String(r.t != null ? r.t : "0") +
+        "-" +
+        String(r.otl != null ? r.otl : "0");
+      var pts = r.pts != null ? r.pts : "—";
+      var rk = d.overall_rank != null ? "#" + String(d.overall_rank) : "—";
+      var nteams = d.n_teams != null ? " / " + String(d.n_teams) : "";
+      var rankLine =
+        '<span class="team-hover-preview-card__rank-label">Rank:</span> ' +
+        '<span class="team-hover-preview-card__rank">' +
+        escapeHtml(rk) +
+        "</span>" +
+        (nteams ? '<span class="team-hover-preview-card__rank-of">' + escapeHtml(nteams) + "</span>" : "");
+      var sub = d.conf_div ? escapeHtml(d.conf_div) : "";
+      var statsParts = [];
+      if (r.gf != null) statsParts.push("GF " + escapeHtml(String(r.gf)));
+      if (r.ga != null) statsParts.push("GA " + escapeHtml(String(r.ga)));
+      if (d.pp_pct != null) statsParts.push("PP% " + escapeHtml(String(d.pp_pct)) + "%");
+      if (d.pk_pct != null) statsParts.push("PK% " + escapeHtml(String(d.pk_pct)) + "%");
+      var statsBar =
+        statsParts.length > 0
+          ? '<div class="team-hover-preview-card__stats-bar">' + statsParts.join(" | ") + "</div>"
+          : "";
+      var streak =
+        d.streak && String(d.streak).trim()
+          ? '<div class="team-hover-preview-card__streak">Streak: ' + escapeHtml(String(d.streak).trim()) + "</div>"
+          : "";
+
+      var rows = "";
+      (d.players || []).forEach(function (p) {
+        var ovr =
+          p.ovr != null && p.ovr !== ""
+            ? '<span class="team-hover-preview-card__badge team-hover-preview-card__badge--ovr">' +
+              escapeHtml(String(p.ovr)) +
+              "</span>"
+            : "";
+        var abi =
+          '<span class="team-hover-preview-card__badge team-hover-preview-card__badge--abi">' +
+          escapeHtml(fmtDec(p.abi)) +
+          "</span>";
+        var pot =
+          '<span class="team-hover-preview-card__badge team-hover-preview-card__badge--pot">' +
+          escapeHtml(fmtDec(p.pot)) +
+          "</span>";
+        var ph =
+          p.photo_url
+            ? '<img src="' + escapeAttr(p.photo_url) + '" alt="">'
+            : '<span class="team-hover-preview-card__ph"></span>';
+        var nameL =
+          p.url
+            ? '<a class="team-hover-preview-card__pname" href="' + escapeAttr(p.url) + '">' + escapeHtml(p.name || "") + "</a>"
+            : '<span class="team-hover-preview-card__pname">' + escapeHtml(p.name || "") + "</span>";
+        rows +=
+          '<div class="team-hover-preview-card__prow">' +
+          '<div class="team-hover-preview-card__pphoto">' +
+          ph +
+          "</div>" +
+          '<div class="team-hover-preview-card__pbody">' +
+          '<div class="team-hover-preview-card__prole">' +
+          escapeHtml(p.role || "") +
+          "</div>" +
+          nameL +
+          '<div class="team-hover-preview-card__pmeta">' +
+          escapeHtml(p.pos_age || "") +
+          "</div>" +
+          "</div>" +
+          '<div class="team-hover-preview-card__pbadges">' +
+          ovr +
+          abi +
+          pot +
+          "</div>" +
+          "</div>";
+      });
+
+      if (!rows && d.team_slug) {
+        rows =
+          '<div class="team-hover-preview-card__empty">No NHL roster preview (imports / ratings).</div>';
+      }
+
+      var logo =
+        d.logo_url
+          ? '<img src="' + escapeAttr(d.logo_url) + '" alt="">'
+          : '<span class="team-hover-preview-card__logo-ph"></span>';
+      var footParts = [];
+      if (d.season_label) footParts.push(escapeHtml(d.season_label));
+      if (d.league_display_name) footParts.push(escapeHtml(d.league_display_name));
+      var footInner = footParts.join(" · ");
+      if (d.team_url) {
+        footInner +=
+          (footInner ? " · " : "") +
+          '<a class="team-hover-preview-card__foot-link" href="' +
+          escapeAttr(d.team_url) +
+          '">Roster & stats →</a>';
+      }
+      var footer = footInner ? '<div class="team-hover-preview-card__footer">' + footInner + "</div>" : "";
+
+      card.innerHTML =
+        '<div class="team-hover-preview-card__shell">' +
+        '<div class="team-hover-preview-card__head">' +
+        '<div class="team-hover-preview-card__logo-wrap">' +
+        logo +
+        "</div>" +
+        '<div class="team-hover-preview-card__head-text">' +
+        '<div class="team-hover-preview-card__title">' +
+        escapeHtml(d.team_name || "Team") +
+        "</div>" +
+        (sub ? '<div class="team-hover-preview-card__sub">' + sub + "</div>" : "") +
+        '<div class="team-hover-preview-card__record-line">' +
+        escapeHtml(rec) +
+        " · " +
+        escapeHtml(String(pts)) +
+        " pts · " +
+        rankLine +
+        "</div>" +
+        "</div></div>" +
+        statsBar +
+        streak +
+        (rows ? '<div class="team-hover-preview-card__players">' + rows + "</div>" : "") +
+        footer +
+        "</div>";
+    }
+
+    function showFor(anchor, slug) {
+      clearTimeout(hideTimer);
+      clearTimeout(showTimer);
+      showTimer = setTimeout(function () {
+        activeAnchor = anchor;
+        var cached = cache[slug];
+        if (cached && cached._hoverTeamFmt === HOVER_TEAM_CACHE_VER) {
+          renderTeamCard(cached);
+          card.hidden = false;
+          moveCardNear(anchor);
+          return;
+        }
+        fetch(withRoot("/api/team-hover-preview?slug=" + encodeURIComponent(slug)))
+          .then(function (r) {
+            return r.json();
+          })
+          .then(function (d) {
+            if (!d || d.error) return;
+            d._hoverTeamFmt = HOVER_TEAM_CACHE_VER;
+            cache[slug] = d;
+            if (activeAnchor !== anchor) return;
+            renderTeamCard(d);
+            card.hidden = false;
+            moveCardNear(anchor);
+          })
+          .catch(function () {});
+      }, 140);
+    }
+
+    card.addEventListener("mouseenter", function () {
+      clearTimeout(hideTimer);
+    });
+    card.addEventListener("mouseleave", scheduleHide);
+
+    function bindTeamHoverAnchors() {
+      document.querySelectorAll('a[href*="/team/"]').forEach(function (a) {
+        if (a.getAttribute("data-team-hover-bound") === "1") return;
+        var slug = teamSlugFromHref(a.getAttribute("href"));
+        if (!slug) return;
+        a.setAttribute("data-team-hover-bound", "1");
+        a.addEventListener("mouseenter", function () {
+          showFor(a, slug);
+        });
+        a.addEventListener("mouseleave", scheduleHide);
+        a.addEventListener("focusin", function () {
+          showFor(a, slug);
+        });
+        a.addEventListener("focusout", scheduleHide);
+      });
+    }
+
+    bindTeamHoverAnchors();
+
+    window.addEventListener(
+      "scroll",
+      function () {
+        if (!card.hidden && activeAnchor) moveCardNear(activeAnchor);
+      },
+      { passive: true }
+    );
+    window.addEventListener("resize", function () {
+      if (!card.hidden && activeAnchor) moveCardNear(activeAnchor);
+    });
+
+    return bindTeamHoverAnchors;
+  }
+
   const THEME_KEY = "bowl-universe-theme";
   /** Preserve window scroll when switching team page panels (?panel=) across full reloads. */
   var TEAM_TAB_SCROLL_Y_KEY = "bowTeamMgmtTabScrollY";
@@ -1074,6 +1328,7 @@
     initPlayerShareCardClipboardHint();
     initPlayerSeasonTrendCharts();
     window.bindPlayerHoverAnchors = initPlayerHoverCards();
+    window.bindTeamHoverAnchors = initTeamHoverCards();
     document.body.addEventListener("click", function (ev) {
       var btn = ev.target.closest(".js-copy-player-card");
       if (!btn) return;
@@ -1998,6 +2253,7 @@
           }
           container.innerHTML = renderGamePreviewHtml(d);
           if (typeof window.bindPlayerHoverAnchors === "function") window.bindPlayerHoverAnchors();
+          if (typeof window.bindTeamHoverAnchors === "function") window.bindTeamHoverAnchors();
         })
         .catch(function () {
           container.innerHTML = "<p class=\"boxscore-error\">Failed to load preview.</p>";
@@ -2016,6 +2272,7 @@
         }
         container.innerHTML = renderBoxScoreHtml(d);
         if (typeof window.bindPlayerHoverAnchors === "function") window.bindPlayerHoverAnchors();
+        if (typeof window.bindTeamHoverAnchors === "function") window.bindTeamHoverAnchors();
       })
       .catch(function () {
         container.innerHTML = "<p class=\"boxscore-error\">Failed to load box score.</p>";

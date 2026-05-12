@@ -114,6 +114,7 @@
 
   function bindTradeHovers() {
     if (typeof window.bindPlayerHoverAnchors === "function") window.bindPlayerHoverAnchors();
+    if (typeof window.bindTeamHoverAnchors === "function") window.bindTeamHoverAnchors();
   }
 
   function partnerOptionLabel(tid) {

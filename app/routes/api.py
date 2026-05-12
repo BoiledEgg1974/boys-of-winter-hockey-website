@@ -70,6 +70,7 @@ from app.services.seasons import (
     season_display_label,
     season_with_imported_data_fallback,
 )
+from app.services.team_hover_preview import build_team_hover_preview_payload
 from app.services.discord_events import (
     fetch_pending_events_for_bot,
     mark_event_failed,
@@ -732,6 +733,21 @@ def player_hover_card(player_id: int):
             "contract": contract_payload,
         }
     )
+
+
+@api_bp.get("/team-hover-preview")
+def team_hover_preview():
+    slug = (request.args.get("slug") or "").strip()
+    if not slug:
+        return jsonify({"error": "slug required"}), 400
+    canonical = get_current_season()
+    season = season_with_imported_data_fallback(db.session, canonical) if canonical else None
+    payload = build_team_hover_preview_payload(db.session, slug, season)
+    if not payload:
+        return jsonify({"error": "not found"}), 404
+    league_display = str(current_app.config.get("LEAGUE_DISPLAY_NAME", "") or "").strip()
+    payload["league_display_name"] = league_display
+    return jsonify(payload)
 
 
 @api_bp.get("/game/<int:game_id>/boxscore")

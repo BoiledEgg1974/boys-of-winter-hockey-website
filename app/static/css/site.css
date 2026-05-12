@@ -6408,6 +6408,231 @@ table.data.team-depth-table th {
   opacity: 0.65;
   cursor: wait;
 }
+
+/* Team hover preview (standings / roster links) — uses league --accent from html[data-league] */
+.team-hover-preview-card {
+  position: absolute;
+  z-index: 2999;
+  width: min(360px, calc(100vw - 20px));
+  border: 1px solid rgb(71 85 105 / 0.55);
+  border-radius: 12px;
+  background: rgb(11 22 44 / 0.98);
+  box-shadow: 0 14px 36px rgb(2 6 23 / 0.55);
+  padding: 0;
+  pointer-events: auto;
+  font-size: 0.82rem;
+  line-height: 1.25;
+}
+.team-hover-preview-card__shell {
+  padding: 0.65rem 0.7rem 0.55rem;
+}
+.team-hover-preview-card__head {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 0.55rem;
+  align-items: start;
+}
+.team-hover-preview-card__logo-wrap {
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 2px solid rgb(from var(--accent) r g b / 0.55);
+  background: rgb(30 41 59 / 0.95);
+}
+.team-hover-preview-card__logo-wrap img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.team-hover-preview-card__logo-ph {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(145deg, #1e293b, #334155);
+}
+.team-hover-preview-card__title {
+  color: #f8fafc;
+  font-weight: 800;
+  font-size: 1.02rem;
+  line-height: 1.15;
+}
+.team-hover-preview-card__sub {
+  margin-top: 0.12rem;
+  color: #94a3b8;
+  font-size: 0.72rem;
+}
+.team-hover-preview-card__record-line {
+  margin-top: 0.2rem;
+  color: #e2e8f0;
+  font-size: 0.74rem;
+  font-variant-numeric: tabular-nums;
+}
+.team-hover-preview-card__rank-label {
+  color: #94a3b8;
+  font-weight: 600;
+}
+.team-hover-preview-card__rank {
+  color: var(--accent);
+  font-weight: 800;
+}
+.team-hover-preview-card__rank-of {
+  color: #64748b;
+  font-weight: 600;
+  font-size: 0.68rem;
+}
+.team-hover-preview-card__stats-bar {
+  margin-top: 0.45rem;
+  padding: 0.32rem 0.45rem;
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    rgb(from var(--accent) r g b / 0.22),
+    rgb(from var(--accent) r g b / 0.08)
+  );
+  color: #f1f5f9;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.team-hover-preview-card__streak {
+  margin-top: 0.28rem;
+  font-size: 0.68rem;
+  color: #cbd5e1;
+}
+.team-hover-preview-card__players {
+  margin-top: 0.45rem;
+  border-top: 1px solid rgb(71 85 105 / 0.45);
+  padding-top: 0.35rem;
+}
+.team-hover-preview-card__prow {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  gap: 0.4rem;
+  align-items: center;
+  padding: 0.28rem 0;
+  border-bottom: 1px solid rgb(51 65 85 / 0.45);
+}
+.team-hover-preview-card__prow:last-child {
+  border-bottom: none;
+}
+.team-hover-preview-card__pphoto {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgb(71 85 105 / 0.55);
+  background: #0f172a;
+}
+.team-hover-preview-card__pphoto img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.team-hover-preview-card__ph {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(160deg, #020617, #1e293b);
+}
+.team-hover-preview-card__prole {
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #93c5fd;
+  margin-bottom: 0.06rem;
+}
+.team-hover-preview-card__pname {
+  color: #f8fafc;
+  font-weight: 700;
+  font-size: 0.8rem;
+  text-decoration: none;
+}
+.team-hover-preview-card__pname:hover {
+  text-decoration: underline;
+  color: var(--accent-hover);
+}
+.team-hover-preview-card__pmeta {
+  margin-top: 0.06rem;
+  color: #94a3b8;
+  font-size: 0.68rem;
+}
+.team-hover-preview-card__pbadges {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  align-items: flex-end;
+}
+.team-hover-preview-card__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  padding: 0.12rem 0.28rem;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.team-hover-preview-card__badge--ovr {
+  border: 1px solid rgb(from var(--accent) r g b / 0.75);
+  background: rgb(15 23 42 / 0.9);
+  color: #fefce8;
+}
+.team-hover-preview-card__badge--abi,
+.team-hover-preview-card__badge--pot {
+  background: rgb(22 101 52 / 0.85);
+  color: #ecfccb;
+  border: 1px solid rgb(74 222 128 / 0.35);
+}
+.team-hover-preview-card__empty {
+  padding: 0.35rem 0;
+  color: #94a3b8;
+  font-size: 0.72rem;
+}
+.team-hover-preview-card__footer {
+  margin-top: 0.4rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid rgb(71 85 105 / 0.35);
+  font-size: 0.65rem;
+  color: #64748b;
+}
+.team-hover-preview-card__foot-link {
+  color: var(--accent);
+  font-weight: 700;
+  text-decoration: none;
+}
+.team-hover-preview-card__foot-link:hover {
+  text-decoration: underline;
+  color: var(--accent-hover);
+}
+[data-theme="light"] .team-hover-preview-card {
+  background: rgb(248 250 252 / 0.98);
+  border-color: rgb(148 163 184 / 0.55);
+  box-shadow: 0 12px 28px rgb(15 23 42 / 0.12);
+}
+[data-theme="light"] .team-hover-preview-card__title {
+  color: #0f172a;
+}
+[data-theme="light"] .team-hover-preview-card__sub,
+[data-theme="light"] .team-hover-preview-card__pmeta,
+[data-theme="light"] .team-hover-preview-card__footer,
+[data-theme="light"] .team-hover-preview-card__empty {
+  color: #64748b;
+}
+[data-theme="light"] .team-hover-preview-card__record-line {
+  color: #334155;
+}
+[data-theme="light"] .team-hover-preview-card__pname {
+  color: #0f172a;
+}
+[data-theme="light"] .team-hover-preview-card__stats-bar {
+  color: #0f172a;
+}
+
 /* Off-screen render target for Discord/share PNG (html2canvas) */
 .player-share-card {
   width: 430px;

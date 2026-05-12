@@ -62,6 +62,14 @@
 {%- endfor -%}
 {{- ns.val -}}
 {%- endmacro %}
+{% macro all_star_team_logo_only(row) -%}
+{% if row.team %}
+{% set sy = all_star_logo_start_year_for_row(row) %}
+<a class="team-name-lockup team-name-lockup--icon history-all-stars__team-logo-hit" href="{{ url_for('main.team_page', slug=row.team.slug) }}" title="{{ row.team.name }}">
+  <img class="team-name-lockup__logo" src="{{ team_logo_url_for_season_context(row.team, sy) }}" alt="{{ row.team.name }}" loading="lazy" decoding="async">
+</a>
+{% else %}<span class="muted">—</span>{% endif %}
+{%- endmacro %}
 {% block title %}League History — Boys of Winter Hockey League{% endblock %}
 {% block content %}
 {# Champion images: static/{{ config.HISTORY_CHAMPIONS_REL_DIR }}/banner1.png, … (transparent background). #}
@@ -93,7 +101,7 @@
 
   {% if all_star_bundle and all_star_bundle.season_labels %}
   <div class="card history-all-stars-panel">
-    <h2>All-Star teams</h2>
+    <h2>All-Star Teams</h2>
     <form class="history-all-stars__picker" method="get" action="{{ url_for('main.history') }}" aria-label="All-Star season">
       <label class="history-all-stars__picker-label" for="all-star-season-select">Season</label>
       <select id="all-star-season-select" class="history-all-stars__select" name="all_star_season" onchange="this.form.submit()">
@@ -120,7 +128,7 @@
             {% for row in all_star_bundle.first_team %}
             <tr>
               <td class="history-all-stars__pos">{{ row.position }}</td>
-              <td class="history-all-stars__team">{% if row.team %}{{ team_logo_only(row.team, season=row.season) }}{% else %}<span class="muted">—</span>{% endif %}</td>
+              <td class="history-all-stars__team">{{ all_star_team_logo_only(row) }}</td>
               <td class="history-all-stars__player">
                 {% if row.player %}
                 <a class="history-all-stars__player-hit" href="{{ url_for('main.player_page', player_id=row.player.id) }}">
@@ -157,7 +165,7 @@
             {% for row in all_star_bundle.second_team %}
             <tr>
               <td class="history-all-stars__pos">{{ row.position }}</td>
-              <td class="history-all-stars__team">{% if row.team %}{{ team_logo_only(row.team, season=row.season) }}{% else %}<span class="muted">—</span>{% endif %}</td>
+              <td class="history-all-stars__team">{{ all_star_team_logo_only(row) }}</td>
               <td class="history-all-stars__player">
                 {% if row.player %}
                 <a class="history-all-stars__player-hit" href="{{ url_for('main.player_page', player_id=row.player.id) }}">

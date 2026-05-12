@@ -10,6 +10,23 @@ from sqlalchemy.orm import Session, joinedload
 from app.models import HistoryAllStar, Season
 
 _SEASON_TOKEN = re.compile(r"\b(\d{4}-\d{2})\b")
+_LABEL_START_YEAR = re.compile(r"^(\d{4})-\d{2}$")
+
+
+def all_star_logo_start_year_for_row(row: HistoryAllStar) -> int | None:
+    """Calendar start year for era-accurate logos (``1989-90`` → ``1989``)."""
+    for candidate in (
+        (getattr(row, "season_label", None) or "").strip(),
+        history_all_star_season_label(row),
+    ):
+        if not candidate:
+            continue
+        m = _LABEL_START_YEAR.match(candidate.strip())
+        if m:
+            return int(m.group(1))
+    if row.season is not None and row.season.start_year is not None:
+        return int(row.season.start_year)
+    return None
 
 
 def history_all_star_season_label(row: HistoryAllStar) -> str:

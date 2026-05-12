@@ -110,7 +110,10 @@ from app.services.history_coach_awards import (
     is_jim_gregory_award,
     is_staff_history_award,
 )
-from app.services.history_all_stars import build_history_all_stars_bundle
+from app.services.history_all_stars import (
+    all_star_logo_start_year_for_row,
+    build_history_all_stars_bundle,
+)
 from app.services.history_team_awards import is_team_history_award
 from app.services.player_history_award_badges import player_history_award_badges, team_history_award_badges
 from app.services.player_season_trends import build_player_season_trend_rows, load_skater_career_gr_lookup
@@ -1607,6 +1610,7 @@ def history():
         seasons_on_file=seasons_on_file,
         champion_banners=champion_banners,
         all_star_bundle=all_star_bundle,
+        all_star_logo_start_year_for_row=all_star_logo_start_year_for_row,
     )
 
 

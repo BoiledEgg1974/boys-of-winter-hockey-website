@@ -202,6 +202,37 @@ def _season_by_fhm_or_label(key: str | None) -> Season | None:
     return db.session.scalars(select(Season).where(Season.label == key).limit(1)).first()
 
 
+# Stable FK target for ``history_all_stars`` rows whose sheet season (e.g. ``1942-43``) has no
+# matching ``Season`` row (common on bowl-historical). Not used in ``seasons.csv``.
+_HISTORY_ALL_STARS_SHEET_PLACEHOLDER_FHM = "__bowl_hist_all_stars_sheet__"
+
+
+def _season_by_label_substring(key: str | None) -> Season | None:
+    """Match a sheet token like ``1942-43`` inside a longer ``Season.label``."""
+    k = (key or "").strip()
+    if not k or "%" in k:
+        return None
+    return db.session.scalars(select(Season).where(Season.label.like(f"%{k}%")).limit(1)).first()
+
+
+def _ensure_history_all_stars_sheet_placeholder_season() -> Season:
+    """Return a reusable ``Season`` row so every ``history_all_stars`` line can set ``season_id``."""
+    fid = _HISTORY_ALL_STARS_SHEET_PLACEHOLDER_FHM
+    s = db.session.scalars(select(Season).where(Season.fhm_season_id == fid).limit(1)).first()
+    if s:
+        return s
+    s = Season(
+        label="Historical — all-star sheet (import anchor)",
+        fhm_season_id=fid,
+        start_year=None,
+        end_year=None,
+        is_current=False,
+    )
+    db.session.add(s)
+    db.session.flush()
+    return s
+
+
 def _season_for_player_aggregate_import(raw_key: str | None) -> Season | None:
     """Resolve CSV season cell for ``player_*_stats.csv`` rows.
 
@@ -907,12 +938,19 @@ def import_history_all_stars(raw_dir: Path, app) -> int:
         r = row.to_dict()
         season_key = cell_val(r, "season_id", "season")
         season_label_st = (cell_val(r, "season_label") or season_key or "").strip()[:16]
+        league_slug = str(app.config.get("LEAGUE_SLUG") or "").strip()
         season = _season_by_fhm_or_label(season_key)
         sheet_pref: list[str] = []
+        if not season and league_slug == "bowl-historical":
+            season = _season_by_label_substring(season_key)
         if not season:
             all_seasons = db.session.scalars(select(Season)).all()
             if len(all_seasons) == 1:
                 season = all_seasons[0]
+                if season_key:
+                    sheet_pref.append(f"sheet_season={season_key}")
+            elif league_slug == "bowl-historical":
+                season = _ensure_history_all_stars_sheet_placeholder_season()
                 if season_key:
                     sheet_pref.append(f"sheet_season={season_key}")
         if not season:

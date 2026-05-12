@@ -14043,9 +14043,9 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   text-align: center;
 }
 .history-all-stars-panel .history-all-stars__team-logo-hit .team-name-lockup__logo {
-  max-height: 52px;
+  max-height: 64px;
   width: auto;
-  min-height: 36px;
+  min-height: 44px;
   object-fit: contain;
   vertical-align: middle;
 }

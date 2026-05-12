@@ -1,0 +1,12 @@
+---
+description: Include tracked environment template updates in commits and pushes
+alwaysApply: true
+---
+
+# Environment files in commits
+
+Before you commit or push, check `git status` for **environment-related files the repo already tracks** (for example **`.env.example`**). If any of them are modified or newly added, **stage and commit them together** with the rest of the change set so templates and deployment hints stay current.
+
+**Ignored files:** This project lists **`.env`** and **`.env.local`** in `.gitignore` because they usually contain secrets. Do **not** use `git add -f` on them or push them to GitHub unless the user **explicitly** asks in that conversation to commit credentials and accepts the risk. If they want a real `.env` in version control, they must remove it from `.gitignore` themselves first; after that, treat it like any other tracked file when it changes.
+
+If you add new **safe** env templates (e.g. `*.env.example`), ensure they are tracked and included in the same workflow as other committed docs.

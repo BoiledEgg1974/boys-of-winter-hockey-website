@@ -282,12 +282,21 @@
     if (!picksToShow.length) {
       html += '<p class="muted small">No picks recorded for this selection yet.</p>';
     } else {
-      html += '<div class="table-wrap draft-hub-history-table-wrap"><table class="data draft-hub-history-table"><thead><tr><th>#</th><th>Team</th><th>From</th><th>Pick</th></tr></thead><tbody>';
+      html += '<div class="table-wrap draft-hub-history-table-wrap"><table class="data draft-hub-history-table draft-hub-history-table--expansion"><thead><tr><th>#</th><th>Team</th><th>From</th><th>Pick</th></tr></thead><tbody>';
       picksToShow.forEach(function (p) {
         var pickCell = (p.player_id != null)
           ? '<a href="' + esc(playerHref(p.player_id)) + '" target="_blank" rel="noopener noreferrer" title="Open player profile in a new tab">' + esc(p.player) + '</a>'
           : esc(p.player);
-        var fromCell = esc(p.from_team || '—');
+        var fromCell;
+        if (p.from_team) {
+          var fromLogoUrl = p.from_team_logo_url || '';
+          var fromLogoEl = fromLogoUrl
+            ? '<img class="draft-hub-history__logo" src="' + esc(fromLogoUrl) + '" alt="" width="22" height="22" loading="lazy" decoding="async">'
+            : '<span class="draft-hub-history__logo draft-hub-history__logo--placeholder" aria-hidden="true">' + esc((p.from_team || '?').substring(0, 2).toUpperCase()) + '</span>';
+          fromCell = '<span class="draft-hub-history__from-cell" title="' + esc(p.from_team) + '">' + fromLogoEl + '<span class="draft-hub-history__from-label">' + esc(p.from_team) + '</span></span>';
+        } else {
+          fromCell = '—';
+        }
         var rowCls = (p.boost_tier === 'gold')
           ? ' class="draft-hub-pick--gold"'
           : (p.boost_tier === 'silver' ? ' class="draft-hub-pick--silver"' : '');

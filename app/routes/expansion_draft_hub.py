@@ -127,6 +127,7 @@ def expansion_draft_api_state():
         pl = db.session.get(Player, pk.player_id)
         tm = team_by_id.get(pk.team_id)
         from_tm = team_by_id.get(pk.from_team_id) if pk.from_team_id else None
+        from_tid = int(pk.from_team_id) if pk.from_team_id is not None else None
         return {
             "overall": pk.overall_pick,
             "round": pk.round,
@@ -138,7 +139,8 @@ def expansion_draft_api_state():
             "player_id": pk.player_id,
             "source": pk.source,
             "from_team": from_tm.full_display_name() if from_tm else "",
-            "from_team_id": int(pk.from_team_id) if pk.from_team_id is not None else None,
+            "from_team_id": from_tid,
+            "from_team_logo_url": logo_by_team_id.get(from_tid) if from_tid is not None else None,
             "boost_tier": "",
             "original_team_id": None,
             "original_team_abbr": None,

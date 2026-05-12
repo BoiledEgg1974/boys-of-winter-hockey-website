@@ -8354,13 +8354,19 @@ table.data.positional-rankings-table td.positional-rankings__trend {
   gap: 0.45rem;
   min-width: 0;
 }
-/* Match league prospect table: rounded box + padding + contain so shields / triangles are not circular-cropped */
+/* Match league prospect table: rounded box + padding + contain so shields / triangles are not circular-cropped.
+   Override shared .prospects-rankings-table__team-logo-hit slate fill so crests sit on the row (no extra plate). */
 table.data.positional-rankings-table .positional-rankings__team-logo.prospects-rankings-table__team-logo-hit {
   width: calc(36px * var(--team-inline-logo-mul, 1));
   height: calc(36px * var(--team-inline-logo-mul, 1));
   border-radius: 8px;
   padding: 4px;
   box-sizing: border-box;
+  background: transparent;
+  box-shadow: none;
+}
+[data-theme="light"] table.data.positional-rankings-table .positional-rankings__team-logo.prospects-rankings-table__team-logo-hit {
+  background: transparent;
 }
 table.data.positional-rankings-table .positional-rankings__team-logo .prospects-rankings-table__team-logo-img {
   width: auto;
@@ -8369,6 +8375,10 @@ table.data.positional-rankings-table .positional-rankings__team-logo .prospects-
   max-height: 100%;
   object-fit: contain;
   object-position: center;
+}
+/* Dark UI: white JPEG/PNG mats multiply into the row; files with real alpha are unchanged visually. */
+html:not([data-theme="light"]) table.data.positional-rankings-table .positional-rankings__team-logo .prospects-rankings-table__team-logo-img {
+  mix-blend-mode: multiply;
 }
 .positional-rankings__team-name {
   font-weight: 600;
@@ -11398,6 +11408,41 @@ a.draft-hub-player__name:hover {
 .draft-hub-history-table td:nth-child(3) a {
   white-space: nowrap;
   vertical-align: middle;
+}
+/* Expansion draft hub: four columns (# | Team | From | Pick) */
+table.draft-hub-history-table--expansion th:nth-child(3),
+table.draft-hub-history-table--expansion td:nth-child(3) {
+  text-align: left;
+  white-space: normal;
+  min-width: 7.5rem;
+  max-width: 14rem;
+  vertical-align: middle;
+}
+table.draft-hub-history-table--expansion th:nth-child(4),
+table.draft-hub-history-table--expansion td:nth-child(4) {
+  white-space: nowrap;
+}
+table.draft-hub-history-table--expansion td:nth-child(4) a {
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.draft-hub-history__from-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  vertical-align: middle;
+  max-width: 100%;
+  min-width: 0;
+}
+.draft-hub-history__from-label {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text, #e2e8f0);
+  min-width: 0;
+  line-height: 1.2;
+}
+[data-theme="light"] .draft-hub-history__from-label {
+  color: var(--text);
 }
 .draft-hub-history__logo {
   width: 22px;

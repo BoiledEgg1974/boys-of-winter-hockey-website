@@ -40,6 +40,15 @@ def team_logo_url_for_team(team) -> str:
         alt = _FANTASY_LOGO_STEM_ALIASES.get(slug)
         if alt and alt not in stems:
             stems.append(alt)
+    if str(current_app.config.get("LEAGUE_SLUG") or "") == "bowl-cap":
+        # Static PNGs often use ``ATL-t227`` while DB slugs are ``atl-t227`` (case-sensitive URLs on Linux).
+        fid = getattr(team, "fhm_team_id", None)
+        ab = (getattr(team, "abbreviation", None) or "").strip()
+        if fid is not None and ab:
+            raw_id = str(fid).strip()
+            for variant in (f"{ab.upper()}-t{raw_id}", f"{ab.lower()}-t{raw_id}", f"{ab}-t{raw_id}"):
+                if variant and variant not in stems:
+                    stems.append(variant)
 
     for stem in stems:
         for ext in ("png", "webp", "jpg", "svg"):

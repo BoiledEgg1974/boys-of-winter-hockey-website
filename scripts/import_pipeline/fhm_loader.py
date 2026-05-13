@@ -42,6 +42,15 @@ from scripts.import_pipeline.encoding_utils import (
 log = logging.getLogger("bowl.fhm")
 
 
+def team_data_csv_path(raw_dir: Path) -> Path | None:
+    """Resolve FHM team export (``team_data.csv`` or ``Team_Data.csv``)."""
+    for name in ("team_data.csv", "Team_Data.csv"):
+        p = raw_dir / name
+        if p.is_file():
+            return p
+    return None
+
+
 def _league_start_year_from_game_date(d: date) -> int:
     """League year begins July 1: games in Jan–Jun belong to the previous July–June label."""
     return int(d.year) if d.month >= 7 else int(d.year) - 1
@@ -214,7 +223,10 @@ def ensure_season(raw_dir: Path, league_filter: int) -> tuple[Season, bool]:
 
 def import_fhm_teams(raw_dir: Path, league_filter: int, div_map: dict) -> dict[int, int]:
     """Returns map fhm_team_id -> internal Team.id"""
-    path = raw_dir / "team_data.csv"
+    path = team_data_csv_path(raw_dir)
+    if path is None:
+        log.warning("Skipping FHM teams: no team_data.csv / Team_Data.csv in %s", raw_dir)
+        return {}
     df = read_csv_normalized(path)
     fhm_to_id: dict[int, int] = {}
     for _, row in df.iterrows():
@@ -1255,4 +1267,4 @@ def run_fhm_import(raw_dir: Path, app, league_filter: int = 0) -> dict[str, int]
 
 
 def is_fhm_export_dir(raw_dir: Path) -> bool:
-    return (raw_dir / "team_data.csv").is_file()
+    return team_data_csv_path(raw_dir) is not None

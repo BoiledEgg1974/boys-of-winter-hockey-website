@@ -274,21 +274,21 @@ a:hover {
   /* Slight overlap with trigger so the pointer path stays within :hover */
   top: calc(100% - 3px);
   transform: translate(-50%, 6px);
-  /* Grow with content up to viewport so a full league fits on one row without scrolling */
+  /* Cap width to the viewport so logos wrap to extra rows instead of horizontal scrolling */
   width: max-content;
   max-width: calc(100vw - 1.25rem);
   min-width: min(260px, 92vw);
   padding: 0.45rem 0.5rem;
   display: flex;
   flex-direction: row;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   justify-content: flex-start;
   align-items: center;
+  align-content: flex-start;
   gap: 0.28rem;
-  overflow-x: auto;
-  overflow-y: hidden;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-gutter: stable;
+  row-gap: 0.32rem;
+  overflow-x: visible;
+  overflow-y: visible;
   background: color-mix(in srgb, var(--header-bg) 96%, #1e293b);
   border: 1px solid rgb(255 255 255 / 0.14);
   border-radius: 10px;
@@ -7187,9 +7187,11 @@ table.data.team-depth-table th {
     width: 100%;
     margin: 0.35rem 0 0.15rem;
     max-height: none;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    overflow-y: hidden;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    row-gap: 0.28rem;
+    overflow-x: visible;
+    overflow-y: visible;
     transition: none;
     box-shadow: none;
     border: 1px solid rgb(255 255 255 / 0.12);

@@ -119,8 +119,12 @@
         {% set plist_main = buckets.get('main', []) %}
         {% set plist_min = buckets.get('minors', []) %}
         {% if plist_main or plist_min %}
-        <details style="margin-bottom:0.75rem;">
+        <details class="expansion-elig-team" style="margin-bottom:0.75rem;">
           <summary><strong>{{ t.full_display_name() }}</strong> ({{ plist_main|length }} BOWL roster{% if plist_min %}, {{ plist_min|length }} other contracted{% endif %}; {{ plist_main|length + plist_min|length }} under contract)</summary>
+          <div class="expansion-elig-team__actions" style="display:flex;flex-wrap:wrap;align-items:center;gap:0.5rem 0.75rem;margin:0.45rem 0 0.35rem;">
+            <button type="button" class="button secondary js-exp-elig-select-all">Select all</button>
+            <span class="muted small" style="margin:0;">Selects every player in this club; uncheck anyone to exclude before saving.</span>
+          </div>
           {% if plist_main %}
           <h4 style="margin:0.75rem 0 0.35rem;font-size:0.9rem;">BOWL roster</h4>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(14rem,1fr));gap:0.35rem;">
@@ -266,6 +270,16 @@
   });
   syncSummary();
   syncPhaseFieldset();
+
+  document.querySelectorAll(".js-exp-elig-select-all").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var root = btn.closest("details.expansion-elig-team") || btn.closest("details");
+      if (!root) return;
+      root.querySelectorAll('input[type="checkbox"][name="elig"]').forEach(function (cb) {
+        cb.checked = true;
+      });
+    });
+  });
 })();
 </script>
 {% endblock %}

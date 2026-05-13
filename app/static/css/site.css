@@ -10824,9 +10824,6 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
   object-fit: contain;
   display: block;
 }
-html:not([data-theme="light"]) .draft-hub-roster-tracker__brand img {
-  mix-blend-mode: multiply;
-}
 .draft-hub-roster-tracker__brand--ph {
   width: 56px;
   height: 56px;
@@ -10924,9 +10921,6 @@ html:not([data-theme="light"]) .draft-hub-roster-tracker__brand img {
   object-fit: contain;
   vertical-align: middle;
   display: inline-block;
-}
-html:not([data-theme="light"]) .draft-hub-roster-tracker__from-logo {
-  mix-blend-mode: multiply;
 }
 .draft-hub-roster-tracker__from-ph {
   display: inline-flex;

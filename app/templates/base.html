@@ -34,11 +34,23 @@
           <span class="nav-teams-dropdown">
             <a href="{{ url_for('main.teams_index') }}" class="nav-teams-dropdown__trigger">Teams</a>
             <div class="nav-teams-dropdown__panel" role="group" aria-label="All teams">
-              {% for team in nav_teams %}
-              <a href="{{ url_for('main.team_page', slug=team.slug) }}" class="nav-teams-dropdown__logo-link" title="{{ team.name }}">
-                <img class="nav-teams-dropdown__logo" src="{{ team_logo_url_for_season_context(team, header_team_logo_season) }}" alt="{{ team.name }} logo" width="36" height="36" loading="lazy" decoding="async">
-              </a>
-              {% endfor %}
+              {% set half = (nav_teams|length + 1) // 2 %}
+              <div class="nav-teams-dropdown__row">
+                {% for team in nav_teams[:half] %}
+                <a href="{{ url_for('main.team_page', slug=team.slug) }}" class="nav-teams-dropdown__logo-link" title="{{ team.name }}">
+                  <img class="nav-teams-dropdown__logo" src="{{ team_logo_url_for_season_context(team, header_team_logo_season) }}" alt="{{ team.name }} logo" width="36" height="36" loading="lazy" decoding="async">
+                </a>
+                {% endfor %}
+              </div>
+              {% if nav_teams[half:] %}
+              <div class="nav-teams-dropdown__row">
+                {% for team in nav_teams[half:] %}
+                <a href="{{ url_for('main.team_page', slug=team.slug) }}" class="nav-teams-dropdown__logo-link" title="{{ team.name }}">
+                  <img class="nav-teams-dropdown__logo" src="{{ team_logo_url_for_season_context(team, header_team_logo_season) }}" alt="{{ team.name }} logo" width="36" height="36" loading="lazy" decoding="async">
+                </a>
+                {% endfor %}
+              </div>
+              {% endif %}
             </div>
           </span>
           <a href="{{ url_for('main.prospects') }}">Prospects</a>

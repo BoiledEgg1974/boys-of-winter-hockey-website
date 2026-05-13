@@ -44,6 +44,8 @@ If your exports still live under each game’s `import_export\csv` folder, you c
 python scripts\STEP1_update_from_saved_game.py
 ```
 
+For a **single ordered command** that runs local STEP1 (including STEP3 alignment) and then PythonAnywhere deploy without running STEP2 too early, use **`python scripts\run_site_update.py`** (default `to-live`; `python scripts\run_site_update.py --help`).
+
 **STEP 1** — copy FHM exports into `data/imports/raw/…`, run `import_data.py` locally per league, optional Git push, optional PythonAnywhere deploy (`--pa-deploy` chains **STEP 2**).
 
 The first time, answer **y** when asked if paths changed, and paste each league’s CSV folder. Paths are stored in `scripts/saved_game_csv_paths.json` (local only; listed in `.gitignore`). Or pass a single base folder that contains `bowl_historical`, `bowl_fantasy`, and `bowl_cap` subfolders.
@@ -79,6 +81,7 @@ Repeat with each `LEAGUE_SLUG`. **This wipes that league’s database.**
 
 ## Optional scripts (not required for a normal update)
 
+- **League History → Awards** reads the `history_awards` table in that league’s SQLite file, not the CSV on disk. After you change `history_awards.sheet.csv` (or `history_awards.csv`) on the server, run a Cap import (`LEAGUE_SLUG=bowl-cap python scripts/import_data.py`) or only awards: `PYTHONPATH=. python scripts/reimport_history_awards.py bowl-cap`, then restart the web process. Pushing CSVs to Git alone does not refresh production until one of those runs on the host.
 - `scripts/refresh_team_aggregates.py`, `backfill_skater_plus_minus.py`, `import_skater_career_csvs.py` — special fixes; use only if you know you need them.
 - `scripts/STEP2_pythonanywhere.py` / `Deploy-To-PythonAnywhere.bat` — **STEP 2**: SFTP CSVs + `app/static` (newer-only), remote `import_data.py` per league, WSGI reload. Shared importer remains `scripts/import_data.py`.
 

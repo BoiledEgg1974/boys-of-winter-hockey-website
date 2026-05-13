@@ -17,6 +17,8 @@ Open `http://127.0.0.1:5000`.
 
 See **[docs/DATA-UPDATE.md](docs/DATA-UPDATE.md)** (copy CSVs → `import_data.py` per league → restart the server).
 
+For a **single ordered command** from saved-game exports through PythonAnywhere (STEP1 → STEP2, with STEP3 inside STEP1), use **`python scripts/run_site_update.py`** (default workflow `to-live`; see `python scripts/run_site_update.py --help`).
+
 For a **numbered checklist** on a live nested deployment (proxy paths, venv, import order, reload), use **[docs/UPDATE-NESTED-SERVER.md](docs/UPDATE-NESTED-SERVER.md)**.
 
 ## Production

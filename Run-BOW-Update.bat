@@ -4,7 +4,8 @@ setlocal
 set "REPO_DIR=%~dp0"
 cd /d "%REPO_DIR%"
 
-python "scripts\STEP1_update_from_saved_game.py"
+py -3 "%REPO_DIR%scripts\run_site_update.py" local 2>nul
+if errorlevel 9009 python "%REPO_DIR%scripts\run_site_update.py" local
 
 echo.
 echo Finished. Press any key to close.

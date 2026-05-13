@@ -3,8 +3,12 @@
 STEP 2 — PythonAnywhere push from your PC. If ``paramiko`` is missing, the script prints install
 instructions and asks whether to run ``pip install -r requirements-deploy.txt`` for you.
 
+For the usual CSV + import + reload sequence from your machine, prefer
+``python scripts/run_site_update.py to-live`` (or omit ``to-live``) so STEP1 and STEP2 stay in order.
+
   deploy — Upload data/imports/raw + app/static (newer files only), run import_data.py per
-           league on the server, touch WSGI to reload. Use this for CSVs, images, CSS/JS.
+           league on the server, then ``reimport_history_sheet_data.py`` (awards + all-stars),
+           touch WSGI to reload. Use this for CSVs, images, CSS/JS.
 
   sync   — Upload the whole project tree (newer files only), same rules as before; does NOT
            run imports. Use this for code/template changes without a data refresh.
@@ -430,6 +434,42 @@ def upload_tree(
     return uploaded, skipped
 
 
+def upload_named_repo_files(
+    sftp,
+    local_root: Path,
+    relative_paths: tuple[str, ...],
+    remote_base: str,
+    *,
+    dry_run: bool,
+    force: bool,
+    skew_seconds: float,
+) -> tuple[int, int]:
+    """Upload specific repo files (mtime-aware) so remote import steps can rely on them."""
+    uploaded = 0
+    skipped = 0
+    remote_base = remote_base.rstrip("/")
+    for rel in relative_paths:
+        local_path = (local_root / rel).resolve()
+        if not local_path.is_file():
+            continue
+        remote_file = f"{remote_base}/{rel}"
+        local_mtime = local_path.stat().st_mtime
+        rmt = None if force else remote_mtime(sftp, remote_file)
+        if rmt is not None and local_mtime <= rmt + skew_seconds:
+            skipped += 1
+            continue
+        if dry_run:
+            print(f"would upload {rel}")
+            uploaded += 1
+            continue
+        remote_parent = str(PurePosixPath(remote_file).parent)
+        ensure_remote_dir(sftp, remote_parent)
+        sftp.put(str(local_path), remote_file)
+        print(f"upload {rel}")
+        uploaded += 1
+    return uploaded, skipped
+
+
 def run_remote_bash(client, script_body: str) -> None:
     cmd = "bash -lc " + shlex.quote(script_body)
     _stdin, stdout, stderr = client.exec_command(cmd)
@@ -456,6 +496,7 @@ def build_import_and_reload_script(
     act = shlex.quote(f"{venv_bin.rstrip('/')}/activate")
     py = shlex.quote(f"{venv_bin.rstrip('/')}/python")
     imp = shlex.quote(f"{remote_project.rstrip('/')}/scripts/import_data.py")
+    sheet_rel = "scripts/reimport_history_sheet_data.py"
     req = shlex.quote(f"{remote_project.rstrip('/')}/requirements.txt")
     parts = ["set -euo pipefail", f"cd {rp}", f". {act}"]
     if install_requirements:
@@ -463,6 +504,10 @@ def build_import_and_reload_script(
     for slug in slugs:
         parts.append(f"export LEAGUE_SLUG={shlex.quote(slug)}")
         parts.append(f"{py} {imp}")
+        parts.append(
+            f"if test -f {shlex.quote(sheet_rel)}; then {py} {shlex.quote(sheet_rel)} {shlex.quote(slug)}; "
+            f"else echo {shlex.quote('WARN: missing ' + sheet_rel + ' — git pull on server or upgrade repo')}; fi"
+        )
     if wsgi_file:
         parts.append(f"touch {shlex.quote(wsgi_file)}")
     return "; ".join(parts)
@@ -700,6 +745,18 @@ def cmd_deploy(ns: argparse.Namespace) -> int:
         )
         total_up += u
         total_skip += s
+        print("--- scripts (import helpers) ---")
+        su, ss = upload_named_repo_files(
+            sftp,
+            local_root,
+            ("scripts/reimport_history_sheet_data.py",),
+            remote_base,
+            dry_run=ns.dry_run,
+            force=ns.force,
+            skew_seconds=ns.skew_seconds,
+        )
+        total_up += su
+        total_skip += ss
         if not ns.csv_only:
             print("--- app/static ---")
             u, s = upload_tree(

@@ -1,5 +1,8 @@
 """STEP 1 — Interactive updater: copy CSV exports, import all leagues, optionally git push.
 
+Prefer ``scripts/run_site_update.py`` for the full saved-game → PythonAnywhere sequence
+(``to-live``) so STEP1, STEP3 (inside STEP1), and STEP2 always run in order.
+
 After all copies finish, STEP1 runs ``scripts/STEP3_align_history_awards_to_player_master.py``
 once per copied league (before imports). STEP3 aligns what it can from files present in that
 folder and always attempts ``team_season_records_template.csv`` when applicable. Use
@@ -9,6 +12,9 @@ Optional: after copying, push to PythonAnywhere with ``scripts/STEP2_pythonanywh
 That upload only replaces remote CSVs when the local copy is newer (mtime check + small
 skew), then runs server-side imports and reloads WSGI. Local copy uses ``shutil.copy2``,
 so mtimes match your game export folders.
+
+After each league’s ``import_data.py``, STEP1 runs ``scripts/reimport_history_sheet_data.py``
+so League History awards and all-stars always match the CSVs on disk.
 
 Run directly:
     python scripts/STEP1_update_from_saved_game.py
@@ -34,6 +40,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 RAW_ROOT = REPO_ROOT / "data" / "imports" / "raw"
 IMPORT_SCRIPT = REPO_ROOT / "scripts" / "import_data.py"
+HISTORY_SHEET_EXTRAS_SCRIPT = REPO_ROOT / "scripts" / "reimport_history_sheet_data.py"
 SNAPSHOT_OVR_SCRIPT = REPO_ROOT / "scripts" / "snapshot_ovr_baseline.py"
 STEP3_ALIGN_SCRIPT = REPO_ROOT / "scripts" / "STEP3_align_history_awards_to_player_master.py"
 PA_DEPLOY_SCRIPT = REPO_ROOT / "scripts" / "STEP2_pythonanywhere.py"
@@ -138,6 +145,13 @@ def _run_import(slug: str) -> None:
     env["LEAGUE_SLUG"] = slug
     cmd = [sys.executable, str(IMPORT_SCRIPT)]
     subprocess.run(cmd, cwd=REPO_ROOT, env=env, check=True)
+    if HISTORY_SHEET_EXTRAS_SCRIPT.is_file():
+        subprocess.run(
+            [sys.executable, str(HISTORY_SHEET_EXTRAS_SCRIPT), slug],
+            cwd=REPO_ROOT,
+            env=env,
+            check=True,
+        )
 
 
 def _snapshot_ovr_baseline(slug: str) -> None:

@@ -10,7 +10,8 @@ REM   Have your saved-game CSV paths changed? [y/N]
 REM - If No: uses saved locations.
 REM - If Yes: prompts for new per-league paths and saves them.
 
-python scripts\STEP1_update_from_saved_game.py --yes-push
+py -3 "%REPO_DIR%scripts\run_site_update.py" local --yes-push 2>nul
+if errorlevel 9009 python "%REPO_DIR%scripts\run_site_update.py" local --yes-push
 
 echo.
 echo Finished. Press any key to close.

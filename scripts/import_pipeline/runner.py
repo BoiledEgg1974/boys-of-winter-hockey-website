@@ -831,6 +831,8 @@ def import_history_awards(
 
     If ``replace_all`` is True, delete **all** ``HistoryAward`` rows, then import every
     CSV row (full re-import). Do not combine with ``replace_award_substring``.
+    The main import pipeline (``STEPS`` / FHM overlay) calls this with ``replace_all=True``
+    so award rows stay aligned with the CSV.
 
     If ``replace_award_substring`` is set (e.g. ``\"JENNINGS\"``), delete existing
     ``HistoryAward`` rows whose ``award_name`` matches (case-insensitive substring),
@@ -1026,6 +1028,11 @@ def _import_team_season_records_step(raw_dir: Path, app) -> int:
     return import_team_season_records(raw_dir, app)
 
 
+def _import_history_awards_step(raw_dir: Path, app) -> int:
+    """Sync ``history_awards`` from CSV (full replace), same as ``reimport_history_awards`` default."""
+    return import_history_awards(raw_dir, app, replace_all=True)
+
+
 STEPS = [
     ("teams", import_teams),
     ("seasons", import_seasons),
@@ -1042,7 +1049,7 @@ STEPS = [
     ("prospects", import_prospects),
     ("drafts", import_drafts),
     ("draft_picks", import_draft_picks),
-    ("history_awards", import_history_awards),
+    ("history_awards", _import_history_awards_step),
     ("history_all_stars", import_history_all_stars),
     ("history_champions", import_history_champions),
     ("team_season_records", _import_team_season_records_step),
@@ -1096,7 +1103,7 @@ def run_import(raw_dir: Path | None = None) -> None:
                     log.info("Applying team_standings.csv overlay after FHM import.")
                     counts["team_standings_overlay"] = import_team_standings(raw, app)
                 if _history_awards_csv_path(raw) is not None:
-                    counts["history_awards"] = import_history_awards(raw, app)
+                    counts["history_awards"] = import_history_awards(raw, app, replace_all=True)
                 has_all = raw / "history_all_stars.csv"
                 if has_all.is_file():
                     log.info("Applying history_all_stars.csv after FHM import.")

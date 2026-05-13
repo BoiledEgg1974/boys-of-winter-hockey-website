@@ -1,15 +1,20 @@
 #!/usr/bin/env python3
 """BOWL-Site-Update: one-command local + PythonAnywhere update pipeline.
 
+You can run the same flow via ``python scripts/run_site_update.py bowl`` so it sits next to
+``to-live`` / ``local`` / ``deploy`` in one entry point.
+
 Default flow:
 1) Run STEP1 (snapshot OVR baselines, copy saved-game CSVs, local imports, optional git push) with PA deploy skipped.
 2) Align historical awards IDs to player_master (STEP3).
 3) Snapshot bowl-historical OVR baselines, then re-import that league locally (aligned awards).
 4) Commit/push any STEP3-generated file changes (if present).
-5) Run STEP2 deploy to PythonAnywhere (remote OVR snapshot, then CSV upload, imports, reload).
+5) Run STEP2 deploy to PythonAnywhere (remote OVR snapshot, then CSV upload, import helper script,
+   ``import_data.py`` + ``reimport_history_sheet_data.py`` per league, reload).
 
 Examples:
   python scripts/BOWL-Site-Update.py
+  python scripts/run_site_update.py bowl
   python scripts/BOWL-Site-Update.py --mode fullremoterebuild
   python scripts/BOWL-Site-Update.py --allow-stale
   python scripts/BOWL-Site-Update.py --no-deploy
@@ -32,6 +37,7 @@ STEP1 = REPO_ROOT / "scripts" / "STEP1_update_from_saved_game.py"
 STEP2 = REPO_ROOT / "scripts" / "STEP2_pythonanywhere.py"
 STEP3 = REPO_ROOT / "scripts" / "STEP3_align_history_awards_to_player_master.py"
 IMPORT = REPO_ROOT / "scripts" / "import_data.py"
+HISTORY_SHEET_EXTRAS = REPO_ROOT / "scripts" / "reimport_history_sheet_data.py"
 
 HIST_RAW = REPO_ROOT / "data" / "imports" / "raw" / "bowl_historical"
 HIST_AWARDS_SHEET = HIST_RAW / "history_awards.sheet.csv"
@@ -123,6 +129,8 @@ def main() -> int:
     snap = REPO_ROOT / "scripts" / "snapshot_ovr_baseline.py"
     _run([sys.executable, str(snap)], env=env)
     _run([sys.executable, str(IMPORT)], env=env)
+    if HISTORY_SHEET_EXTRAS.is_file():
+        _run([sys.executable, str(HISTORY_SHEET_EXTRAS), "bowl-historical"], env=env)
 
     # 4) Commit + push any new STEP3-alignment changes if enabled.
     if not args.no_push:

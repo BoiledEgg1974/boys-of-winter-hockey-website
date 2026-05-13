@@ -142,9 +142,11 @@ If you only added **logos or headshots** under `app/static/` and did **not** cha
 | 4    | Pull/sync code if needed                                      |
 | 5    | `pip install -r requirements.txt` if needed                   |
 | 6    | Copy CSVs into `data/imports/raw/<league_folder>/`            |
-| 7    | `LEAGUE_SLUG=<slug> python scripts/import_data.py` per league |
+| 7    | `LEAGUE_SLUG=<slug> python scripts/import_data.py` per league, then `python scripts/reimport_history_sheet_data.py <slug>` per league (League History awards / all-stars), or use **`python scripts/run_site_update.py deploy`** from your PC after `git push` — see [scripts/README.md](../scripts/README.md) |
 | 8    | Restart WSGI / web app                                        |
 | 9    | Smoke-test hub + each league + search                         |
+
+For a **single ordered flow** (local copy + imports + git + deploy) from your development machine, use **`python scripts/run_site_update.py to-live`** (see [scripts/README.md](../scripts/README.md)).
 
 
 For a **from-scratch** server install, start with [DATA-UPDATE.md](DATA-UPDATE.md) “What you need on the server”, then use this checklist for every **update** cycle.

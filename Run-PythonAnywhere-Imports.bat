@@ -38,8 +38,9 @@ if errorlevel 1 (
   exit /b 1
 )
 
-REM One remote bash session: cd, venv, three imports, touch WSGI
-ssh "%REMOTE%" bash -lc "set -e; cd '%REMOTE_PROJECT%'; . '%REMOTE_VENV_BIN%/activate'; export LEAGUE_SLUG=bowl-historical; python scripts/import_data.py; export LEAGUE_SLUG=bowl-fantasy; python scripts/import_data.py; export LEAGUE_SLUG=bowl-cap; python scripts/import_data.py; touch '%WSGI_FILE%'"
+REM One remote bash session: cd, venv, import + League History sheet reimport per league, touch WSGI.
+REM Prefer from your PC: python scripts\run_site_update.py deploy
+ssh "%REMOTE%" bash -lc "set -e; cd '%REMOTE_PROJECT%'; . '%REMOTE_VENV_BIN%/activate'; export LEAGUE_SLUG=bowl-historical; python scripts/import_data.py; python scripts/reimport_history_sheet_data.py bowl-historical; export LEAGUE_SLUG=bowl-fantasy; python scripts/import_data.py; python scripts/reimport_history_sheet_data.py bowl-fantasy; export LEAGUE_SLUG=bowl-cap; python scripts/import_data.py; python scripts/reimport_history_sheet_data.py bowl-cap; touch '%WSGI_FILE%'"
 
 if errorlevel 1 (
   echo.

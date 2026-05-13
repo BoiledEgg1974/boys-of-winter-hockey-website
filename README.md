@@ -21,6 +21,8 @@ For a **single ordered command** from saved-game exports through PythonAnywhere 
 
 For a **numbered checklist** on a live nested deployment (proxy paths, venv, import order, reload), use **[docs/UPDATE-NESTED-SERVER.md](docs/UPDATE-NESTED-SERVER.md)**.
 
+Script index and manual vs automated order: **[scripts/README.md](scripts/README.md)**.
+
 ## Production
 
 WSGI entry: **`wsgi.application`**. Configure your host’s Python path and process manager to load this module from the project root.

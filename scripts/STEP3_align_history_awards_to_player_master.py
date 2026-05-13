@@ -20,7 +20,7 @@ successfully after printing a short note: it skips that phase but still runs
 
 Example::
 
-  python scripts/align_history_awards_to_player_master.py \\
+  python scripts/STEP3_align_history_awards_to_player_master.py \\
     --raw-dir data/imports/raw/bowl_historical \\
     --output data/imports/raw/bowl_historical/history_awards.sheet.csv
 

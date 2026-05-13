@@ -752,7 +752,7 @@ def _history_awards_csv_path(raw_dir: Path) -> Path | None:
 
     ``history_awards.sheet.csv`` is preferred (wide-sheet output + continuation rows). When you
     maintain ``history_awards.csv`` by hand, run
-    ``python scripts/align_history_awards_to_player_master.py --raw-dir <league>/raw`` first:
+    ``python scripts/STEP3_align_history_awards_to_player_master.py --raw-dir <league>/raw`` first:
     it merges manual CSV cells into the sheet file and cross-references ``player_master.csv``.
     """
     for name in ("history_awards.sheet.csv", "history_awards.csv", "awards_history.csv"):

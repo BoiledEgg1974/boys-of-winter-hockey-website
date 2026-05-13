@@ -533,7 +533,8 @@ def build_full_remote_rebuild_prep_script(
 ) -> str:
     """Hard-reset repo + rebuild venv on PythonAnywhere before normal deploy/import flow."""
     rp = shlex.quote(remote_project.rstrip("/"))
-    venv_parent = shlex.quote(str(PurePosixPath(venv_bin.rstrip("/")).parent.parent))
+    # venv_bin is .../venv/bin — remove and recreate the .../venv directory only (not its grandparent).
+    venv_root = shlex.quote(str(PurePosixPath(venv_bin.rstrip("/")).parent))
     act = shlex.quote(f"{venv_bin.rstrip('/')}/activate")
     py = shlex.quote(f"{venv_bin.rstrip('/')}/python")
     req = shlex.quote(f"{remote_project.rstrip('/')}/requirements.txt")
@@ -544,8 +545,8 @@ def build_full_remote_rebuild_prep_script(
         "git fetch origin",
         "git checkout master",
         "git reset --hard origin/master",
-        f"rm -rf {venv_parent}",
-        f"python3.11 -m venv {venv_parent}",
+        f"rm -rf {venv_root}",
+        f"python3.11 -m venv {venv_root}",
         f". {act}",
         f"{py} -m pip install --upgrade pip",
         f"{py} -m pip install --upgrade -r {req}",

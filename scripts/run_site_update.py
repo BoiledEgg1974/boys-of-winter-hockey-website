@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Single entry point for league CSV refresh and PythonAnywhere deploy.
 
-Child scripts always run in a safe order so you do not have to remember STEP1 → STEP3 → STEP2.
+Child scripts always run in a safe order so you do not have to remember STEP1, STEP3 (inside STEP1), then STEP2.
 
 Usage (from repo root)::
 

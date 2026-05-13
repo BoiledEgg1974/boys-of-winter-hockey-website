@@ -1,0 +1,16 @@
+---
+description: Stage every repo change (new, modified, renamed, deleted) before commit and push
+alwaysApply: true
+---
+
+# Complete working tree in commits
+
+When the user asks to **commit and push** (or when finishing work that should land on GitHub), run **`git status`** first.
+
+- **Stage and include** all relevant **new**, **modified**, **renamed**, and **deleted** tracked paths (and **newly added** files that belong in the repo), so nothing intended for the change set is left unstaged.
+- Use **`git add -A`** or explicit paths after reviewing status; resolve merge conflicts before committing.
+- **Do not** use `git add -f` on ignored secrets (see the separate env-files rule for `.env` / `.env.local`).
+
+After commit, **push** so the remote matches the commit.
+
+If the user wants unrelated work split across commits, use separate commits with clear messages instead of omitting files from the push.

@@ -372,7 +372,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 378;278;278;Tyson;Jost;;72;194;1957-3-14;Leduc;AB;Canada;;;0;Right;0
 379;19;19;Christian;Dvorak;;73;201;1960-2-2;Frankfort;IL;The United States;;;0;Left;0
 380;218;218;Brandon;Halverson;;76;209;1954-3-29;Traverse City;MI;The United States;;;0;Left;0
-381;279;279;Clayton;Keller;;70;174;1955-7-29;Chesterfield;MO;The United States;;;0;Left;0
+381;-1;-1;Clayton;Keller;;70;174;1955-7-29;Chesterfield;MO;The United States;;;0;Left;0
 382;280;280;Brock;Boeser;;73;192;1962-2-25;Burnsville;MN;The United States;;;0;Right;0
 383;280;280;Ryane;Clowe;;75;225;1960-9-30;St. John's;NL;Canada;;;0;Left;0
 384;25;25;Andrew;Cogliano;;70;185;1960-6-14;Toronto;ON;Canada;;;0;Left;0

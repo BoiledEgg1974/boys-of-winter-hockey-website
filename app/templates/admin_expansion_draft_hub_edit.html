@@ -109,7 +109,7 @@
   {% endif %}
 
   <h2>Eligible players (unprotected pool)</h2>
-  <p class="muted">Check every player who should appear on the Expansion Draft Hub board. Each club lists <strong>all players under contract</strong> to that organization: <strong>BOWL roster</strong> (assigned to the big club) and <strong>minors / affiliates</strong> (everyone else on the contract list, including minor-league assignments and unsigned roster holds). Save before going live.</p>
+  <p class="muted">Check every player who should appear on the Expansion Draft Hub board (age <strong>21+</strong> as of today, UTC). Each club lists: <strong>BOWL roster</strong> (assigned to the big club), <strong>minors / affiliates</strong> (under contract but not on the BOWL roster), and <strong>org rights</strong> (no contract row in the import but rights held via the prospect list for that BOWL organization). Save before going live.</p>
   <form method="post" class="card" style="padding:1rem;margin-bottom:1rem;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="save_eligible">
@@ -118,9 +118,10 @@
         {% set buckets = expansion_org_players.get(t.id, {}) %}
         {% set plist_main = buckets.get('main', []) %}
         {% set plist_min = buckets.get('minors', []) %}
-        {% if plist_main or plist_min %}
+        {% set plist_rights = buckets.get('rights', []) %}
+        {% if plist_main or plist_min or plist_rights %}
         <details class="expansion-elig-team" style="margin-bottom:0.75rem;">
-          <summary><strong>{{ t.full_display_name() }}</strong> ({{ plist_main|length }} BOWL roster{% if plist_min %}, {{ plist_min|length }} other contracted{% endif %}; {{ plist_main|length + plist_min|length }} under contract)</summary>
+          <summary><strong>{{ t.full_display_name() }}</strong> ({{ plist_main|length }} BOWL roster{% if plist_min %}, {{ plist_min|length }} other contracted{% endif %}{% if plist_rights %}, {{ plist_rights|length }} org rights{% endif %}; {{ (plist_main|length) + (plist_min|length) + (plist_rights|length) }} listed, 21+)</summary>
           <div class="expansion-elig-team__actions" style="display:flex;flex-wrap:wrap;align-items:center;gap:0.5rem 0.75rem;margin:0.45rem 0 0.35rem;">
             <button type="button" class="button secondary js-exp-elig-select-all">Select all</button>
             <span class="muted small" style="margin:0;">Selects every player in this club; uncheck anyone to exclude before saving.</span>
@@ -140,6 +141,18 @@
           <h4 style="margin:0.75rem 0 0.35rem;font-size:0.9rem;">Minors / affiliates</h4>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(14rem,1fr));gap:0.35rem;">
             {% for p in plist_min %}
+              <label class="small" style="display:flex;align-items:center;gap:0.35rem;">
+                <input type="checkbox" name="elig" value="{{ p.id }}"{% if p.id in eligible_ids %} checked{% endif %}>
+                <span>{{ p.full_name }}{% if p.current_team %} <span class="muted">({{ p.current_team.abbreviation }})</span>{% endif %}</span>
+              </label>
+            {% endfor %}
+          </div>
+          {% endif %}
+          {% if plist_rights %}
+          <h4 style="margin:0.75rem 0 0.35rem;font-size:0.9rem;">Org rights (21+, no contract row)</h4>
+          <p class="muted small" style="margin:0 0 0.35rem;">Players tied to this BOWL club via the prospect import only (e.g. college / junior rights without a separate contract line).</p>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(14rem,1fr));gap:0.35rem;">
+            {% for p in plist_rights %}
               <label class="small" style="display:flex;align-items:center;gap:0.35rem;">
                 <input type="checkbox" name="elig" value="{{ p.id }}"{% if p.id in eligible_ids %} checked{% endif %}>
                 <span>{{ p.full_name }}{% if p.current_team %} <span class="muted">({{ p.current_team.abbreviation }})</span>{% endif %}</span>

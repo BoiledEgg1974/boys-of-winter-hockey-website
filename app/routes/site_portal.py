@@ -5,7 +5,7 @@ import json
 import os
 import subprocess
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import secrets
 from pathlib import Path
 
@@ -5168,6 +5168,8 @@ def admin_expansion_draft_hub_edit(draft_id: int):
             .order_by(Player.full_name.asc())
         ).unique().all()
     )
+    from app.services.draft_hub_eligibility import age_as_of
+
     expansion_org_players: dict[int, dict[str, list[Player]]] = {}
     player_ids = [int(p.id) for p in players_all]
     prospect_by_pid: dict[int, Prospect] = {}
@@ -5178,24 +5180,35 @@ def admin_expansion_draft_hub_edit(draft_id: int):
             pid = int(pr.player_id)
             if pid not in prospect_by_pid:
                 prospect_by_pid[pid] = pr
+    age_ref = datetime.now(timezone.utc).date()
+
+    def _expansion_pool_age_ok(pl: Player) -> bool:
+        ag = age_as_of(pl.birth_date, age_ref)
+        return ag is not None and ag >= 21
+
     for pl in players_all:
-        if pl.contract is None:
+        if not _expansion_pool_age_ok(pl):
             continue
-        org = organization_main_team(
-            db.session, pl, prospect=prospect_by_pid.get(int(pl.id))
-        )
+        pr = prospect_by_pid.get(int(pl.id))
+        org = organization_main_team(db.session, pl, prospect=pr)
         if org is None:
             continue
         tid = int(org.id)
-        ct = pl.current_team
-        if ct is not None and is_main_league_team(ct) and int(ct.id) == tid:
-            bucket = "main"
+        if tid in exempt:
+            continue
+        if pl.contract is not None:
+            ct = pl.current_team
+            if ct is not None and is_main_league_team(ct) and int(ct.id) == tid:
+                bucket = "main"
+            else:
+                bucket = "minors"
         else:
-            bucket = "minors"
-        expansion_org_players.setdefault(tid, {"main": [], "minors": []})[bucket].append(pl)
+            bucket = "rights"
+        expansion_org_players.setdefault(tid, {"main": [], "minors": [], "rights": []})[bucket].append(pl)
     for _tid, buckets in expansion_org_players.items():
         buckets["main"].sort(key=lambda p: (p.full_name or "").lower())
         buckets["minors"].sort(key=lambda p: (p.full_name or "").lower())
+        buckets["rights"].sort(key=lambda p: (p.full_name or "").lower())
 
     slots = list(
         db.session.scalars(

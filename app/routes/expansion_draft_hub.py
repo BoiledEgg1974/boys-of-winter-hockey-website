@@ -1,7 +1,6 @@
 """Expansion Draft Hub — admin + GM only."""
 from __future__ import annotations
 
-from datetime import date
 from pathlib import Path
 
 from flask import Blueprint, abort, current_app, flash, jsonify, redirect, render_template, request, url_for
@@ -13,6 +12,7 @@ from app.league_db import db
 from app.logo_urls import team_logo_url_for_team
 from app.models import Player, Team
 from app.services.draft_hub_eligibility import age_as_of
+from app.services.seasons import get_current_season, season_age_reference_date
 from app.services.expansion_draft_state import (
     eligible_players_for_board,
     expansion_franchise_ids_sorted,
@@ -414,7 +414,7 @@ def expansion_draft_eligible_page():
                 filtered.append(pl)
         eligible = filtered
     slice_ = eligible[offset : offset + limit]
-    as_of = date.today()
+    as_of = season_age_reference_date(get_current_season())
 
     def age_years(bd):
         return age_as_of(bd, as_of)

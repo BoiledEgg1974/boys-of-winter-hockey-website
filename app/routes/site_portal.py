@@ -5,7 +5,7 @@ import json
 import os
 import subprocess
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 import secrets
 from pathlib import Path
 
@@ -5169,6 +5169,7 @@ def admin_expansion_draft_hub_edit(draft_id: int):
         ).unique().all()
     )
     from app.services.draft_hub_eligibility import age_as_of
+    from app.services.seasons import get_current_season, season_age_reference_date
 
     expansion_org_players: dict[int, dict[str, list[Player]]] = {}
     player_ids = [int(p.id) for p in players_all]
@@ -5180,7 +5181,7 @@ def admin_expansion_draft_hub_edit(draft_id: int):
             pid = int(pr.player_id)
             if pid not in prospect_by_pid:
                 prospect_by_pid[pid] = pr
-    age_ref = datetime.now(timezone.utc).date()
+    age_ref = season_age_reference_date(get_current_season())
 
     def _expansion_pool_age_ok(pl: Player) -> bool:
         ag = age_as_of(pl.birth_date, age_ref)

@@ -12,7 +12,8 @@ from app.league_db import db
 from app.logo_urls import team_logo_url_for_team
 from app.models import Player, Team
 from app.services.draft_hub_ai_advisor import fetch_draft_hub_ai_advice
-from app.services.draft_hub_eligibility import age_as_of, anchor_dates, eligible_players_ordered
+from app.services.draft_hub_eligibility import age_as_of, eligible_players_ordered
+from app.services.seasons import get_current_season, season_age_reference_date
 from app.services.draft_hub_state import (
     auto_complete_draft,
     compute_winners_losers,
@@ -570,10 +571,10 @@ def draft_hub_eligible_page():
                 filtered.append(pl)
         eligible = filtered
     slice_ = eligible[offset : offset + limit]
-    _, max_d = anchor_dates(params)
+    as_of = season_age_reference_date(get_current_season())
 
     def age_years(bd):
-        return age_as_of(bd, max_d)
+        return age_as_of(bd, as_of)
 
     out = []
     for pl in slice_:

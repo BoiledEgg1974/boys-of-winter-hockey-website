@@ -76,7 +76,12 @@ from app.services.player_overall_score import (
     overall_cell_map_for_players,
     player_is_goalie_for_overall,
 )
-from app.services.player_ratings_csv import fhm_abi_pot_float, get_player_ratings_row, player_positions_display_label
+from app.services.player_ratings_csv import (
+    fhm_abi_pot_float,
+    get_player_ratings_row,
+    player_positions_display_label,
+    position_ratings_display_list,
+)
 from app.services.prospect_system_rankings import (
     apply_prospect_league_pot_trends,
     apply_system_rank_trends,
@@ -3760,6 +3765,7 @@ def player_page(player_id: int):
     player_age = _player_age_years(player.birth_date, season_age_reference_date(season))
     rating_avgs_skater = skater_category_averages(ratings_row)
     rating_avgs_goalie = goalie_category_averages(ratings_row)
+    position_ratings_rows = position_ratings_display_list(ratings_row) if ratings_row else []
     season_start_year = season.start_year if season else None
     contract_years_left = contract_years_remaining_major(
         player.fhm_player_id, season_start_year, raw_dir
@@ -3824,6 +3830,7 @@ def player_page(player_id: int):
         use_goalie_game_log=use_goalie_game_log,
         rating_avgs_skater=rating_avgs_skater,
         rating_avgs_goalie=rating_avgs_goalie,
+        position_ratings_rows=position_ratings_rows,
         contract_years_left=contract_years_left,
         contract_through_season=contract_through_season,
         contract_salary_by_season=contract_salary_by_season,

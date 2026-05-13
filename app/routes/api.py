@@ -63,7 +63,12 @@ from app.services.player_overall_score import _parse_rating_cell, build_overall_
 from app.services.player_rating_avgs import goalie_category_averages, skater_category_averages
 from app.services.player_headshot import resolve_player_headshot_static_filename
 from app.services.news_engagement import add_article_comment, set_article_vote, viewer_can_react_on_news
-from app.services.player_ratings_csv import fhm_abi_pot_float, get_player_ratings_row, player_positions_display_label
+from app.services.player_ratings_csv import (
+    fhm_abi_pot_float,
+    get_player_ratings_row,
+    player_positions_display_label,
+    position_ratings_display_list,
+)
 from app.services.seasons import (
     get_current_season,
     season_age_reference_date,
@@ -809,6 +814,7 @@ def player_hover_card(player_id: int):
     latest_stats = None if retired else _latest_rs_season_stats_share(db.session, player.id, is_goalie)
     contract_payload = _contract_payload_for_share(db.session, player, season)
     league_display = str(current_app.config.get("LEAGUE_DISPLAY_NAME", "") or "").strip()
+    position_ratings = position_ratings_display_list(rr) if rr else []
 
     return jsonify(
         {
@@ -834,6 +840,7 @@ def player_hover_card(player_id: int):
             "recent_seasons_role": recent_role,
             "recent_seasons": recent,
             "rating_columns": rating_share,
+            "position_ratings": position_ratings,
             "latest_season_stats": latest_stats,
             "contract": contract_payload,
         }

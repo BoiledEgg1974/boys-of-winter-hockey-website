@@ -7,6 +7,30 @@
 {% endmacro %}
 {% macro rr_val(key) -%}{% if ratings_row %}{{ ratings_row.get(key) }}{% endif %}{%- endmacro %}
 {% macro rr_ok(v) -%}{% if v is not none and v|string|trim != '' and v|string|lower != 'nan' %}1{% endif %}{%- endmacro %}
+{% macro position_ratings_meter_card(player, rows, heading_suffix='') -%}
+{% if rows %}
+<section class="player-profile__card player-profile__card--meter-panel player-profile__position-ratings-card{% if heading_suffix %} player-profile__position-ratings-card--{{ heading_suffix }}{% endif %}" aria-labelledby="pos-ratings-heading-{{ player.id }}{% if heading_suffix %}-{{ heading_suffix }}{% endif %}">
+  <h2 id="pos-ratings-heading-{{ player.id }}{% if heading_suffix %}-{{ heading_suffix }}{% endif %}" class="player-profile__card-title player-profile__card-title--meter">Position ratings</h2>
+  <div class="player-profile__meters">
+    {% for row in rows %}
+    {% set v = row.value %}
+    <div class="player-profile__meter-row">
+      <span class="player-profile__meter-label">{{ row.label }}{% if row.is_primary %}<span class="player-profile__pos-ratings-star" aria-hidden="true"> *</span>{% endif %}</span>
+      <span class="player-profile__meter-val">{% if v is not none %}{{ v|round(0)|int }}{% else %}—{% endif %}</span>
+      <div class="player-profile__meter-track" role="presentation">
+        <div class="player-profile__meter-fill" style="{% if v is not none %}{{ v|rating_meter_fill_style }}{% else %}width:0%;background:transparent{% endif %}"></div>
+      </div>
+    </div>
+    {% endfor %}
+    <div class="player-profile__meter-row player-profile__meter-row--pos-shoots">
+      <span class="player-profile__meter-label">Shoots</span>
+      <span class="player-profile__meter-val">{% set sc = (player.shoots_catches or '')|string|trim %}{% if not sc %}—{% else %}{% set sl = sc|lower %}{% if sl[0] == 'l' %}Left{% elif sl[0] == 'r' %}Right{% else %}{{ sc }}{% endif %}{% endif %}</span>
+      <div class="player-profile__meter-track player-profile__meter-track--pos-shoots" role="presentation"></div>
+    </div>
+  </div>
+</section>
+{% endif %}
+{%- endmacro %}
 {% macro season_span(y) -%}{{ y }}/{{ '%02d'|format((y + 1) % 100) }}{%- endmacro %}
 {% macro team_city_nick(t) -%}
 {%- if t -%}
@@ -246,6 +270,9 @@
         </span>
         {% endfor %}
       </div>
+      <div class="player-profile__skater-overview-pos">
+        {{ position_ratings_meter_card(player, position_ratings_rows, heading_suffix='skater-overview') }}
+      </div>
       <section class="player-profile__card player-profile__card--meter-panel player-profile__skater-panel player-profile__skater-panel--overview">
         <h2 class="player-profile__card-title player-profile__card-title--meter">Overview</h2>
         <div class="player-profile__meters">
@@ -327,6 +354,7 @@
   </div>
   {% elif ratings_row and player_is_goalie %}
   <div class="player-profile__goalie-ratings-layout">
+    {{ position_ratings_meter_card(player, position_ratings_rows, heading_suffix='goalie') }}
     <section class="player-profile__card player-profile__card--meter-panel player-profile__goalie-ratings-goalie">
       <h2 class="player-profile__card-title player-profile__card-title--meter">Goalie Ratings</h2>
       <div class="player-profile__meters">

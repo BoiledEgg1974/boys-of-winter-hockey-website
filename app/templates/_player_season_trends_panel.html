@@ -1,4 +1,4 @@
-{# Skaters: GP/G/A/Pts/GR share one Y max. Goalies: GP, L, T + yellow W, blue SO, orange GR. #}
+{# Skaters: GP/G/A/Pts/GR share one Y max; G and A are side-by-side from baseline (not stacked). Goalies: GP + L/T side-by-side from baseline + W/SO/GR lines. #}
 {% set tr_count = player_season_trend_rows | length %}
 {% if tr_count > 0 %}
 {% set chart_height = 260 %}
@@ -55,9 +55,9 @@
 <section class="player-profile__card player-season-trends{% if player_season_trends_goalie_mode %} player-season-trends--goalie{% endif %}" aria-labelledby="player-season-trends-h">
   <h2 id="player-season-trends-h" class="player-profile__card-title">Season trends</h2>
   {% if player_season_trends_goalie_mode %}
-  <p class="player-season-trends__note muted">Grey bar is games played; red losses and green ties/OTL stack from the bottom; yellow line is wins; light blue line is shutouts; orange line is game rating (GR). Left and right axes use the same scale: the largest value among GP, L, T, W, SO, and GR in the chart. Hover or focus a season column for exact numbers; click opens that season’s team records.</p>
+  <p class="player-season-trends__note muted">Grey bar is games played; red losses (L) and green ties/OTL (T) are side-by-side from the axis baseline (each bar reads against the scale); yellow line is wins; light blue line is shutouts; orange line is game rating (GR). Left and right axes use the same scale: the largest value among GP, L, T, W, SO, and GR in the chart. Hover or focus a season column for exact numbers; click opens that season’s team records.</p>
   {% else %}
-  <p class="player-season-trends__note muted">Grey bar is games played; stacked goals and assists; yellow line is points (goals + assists); orange line is game rating (GR). Left and right axes use the same scale: the largest value among GP, goals, assists, points, and GR in the chart. Hover or focus a season column for exact numbers; click opens that season’s team records.</p>
+  <p class="player-season-trends__note muted">Grey bar is games played; goals and assists are side-by-side from the axis baseline (each bar reads against the scale); yellow line is points (goals + assists); orange line is game rating (GR). Left and right axes use the same scale: the largest value among GP, goals, assists, points, and GR in the chart. Hover or focus a season column for exact numbers; click opens that season’s team records.</p>
   {% endif %}
 
   <div class="player-season-trends__legend" role="list" aria-label="Chart legend">
@@ -106,6 +106,7 @@
             x1="{{ chart_padding_left + inner_width }}" y1="{{ chart_padding_top }}"
             x2="{{ chart_padding_left + inner_width }}" y2="{{ chart_padding_top + inner_height }}" />
 
+      {% set gk_bar_split = 2 %}
       {% for r in player_season_trend_rows %}
       {% set i = loop.index0 %}
       {% set x_left = chart_padding_left + (i * (bar_w + bar_gap)) %}
@@ -116,11 +117,15 @@
       {% set h_t = (r.gk_t / gkns.max_y) * inner_height %}
       {% set y_gp_top = bar_bottom - h_gp %}
       {% set y_l_top = bar_bottom - h_l %}
-      {% set y_t_top = bar_bottom - h_l - h_t %}
+      {% set y_t_top = bar_bottom - h_t %}
+      {% set gk_pair_w = bar_w - gk_bar_split %}
+      {% set gk_half_w = gk_pair_w / 2 %}
+      {% set bx_l = bx %}
+      {% set bx_t = bx + gk_half_w + gk_bar_split %}
       <g>
         {% if h_gp > 0 %}<rect class="player-season-trends__bar--gk-gp" x="{{ bx }}" y="{{ y_gp_top }}" width="{{ bar_w }}" height="{{ h_gp }}"></rect>{% endif %}
-        {% if h_l > 0 %}<rect class="player-season-trends__bar--gk-l" x="{{ bx }}" y="{{ y_l_top }}" width="{{ bar_w }}" height="{{ h_l }}"></rect>{% endif %}
-        {% if h_t > 0 %}<rect class="player-season-trends__bar--gk-t" x="{{ bx }}" y="{{ y_t_top }}" width="{{ bar_w }}" height="{{ h_t }}"></rect>{% endif %}
+        {% if h_l > 0 %}<rect class="player-season-trends__bar--gk-l" x="{{ bx_l }}" y="{{ y_l_top }}" width="{{ gk_half_w }}" height="{{ h_l }}"></rect>{% endif %}
+        {% if h_t > 0 %}<rect class="player-season-trends__bar--gk-t" x="{{ bx_t }}" y="{{ y_t_top }}" width="{{ gk_half_w }}" height="{{ h_t }}"></rect>{% endif %}
       </g>
       {% endfor %}
       {% set prev_w = namespace(x=none, y=none) %}
@@ -210,6 +215,7 @@
             x1="{{ chart_padding_left + inner_width }}" y1="{{ chart_padding_top }}"
             x2="{{ chart_padding_left + inner_width }}" y2="{{ chart_padding_top + inner_height }}" />
 
+      {% set sk_bar_split = 2 %}
       {% set ns2 = namespace(prev_x=none, prev_y=none) %}
       {% for r in player_season_trend_rows %}
       {% set i = loop.index0 %}
@@ -224,12 +230,16 @@
       {% set bar_bottom = chart_padding_top + inner_height %}
       {% set y_gp_sk = bar_bottom - h_gp_sk %}
       {% set y_g = bar_bottom - h_g %}
-      {% set y_a = y_g - h_a %}
+      {% set y_a = bar_bottom - h_a %}
+      {% set sk_pair_w = bar_w - sk_bar_split %}
+      {% set sk_half_w = sk_pair_w / 2 %}
+      {% set bx_g = bx %}
+      {% set bx_a = bx + sk_half_w + sk_bar_split %}
       {% set pts_x = bx + (bar_w / 2) %}
       <g>
         {% if h_gp_sk > 0 %}<rect class="player-season-trends__bar--gk-gp" x="{{ bx }}" y="{{ y_gp_sk }}" width="{{ bar_w }}" height="{{ h_gp_sk }}"></rect>{% endif %}
-        {% if h_g > 0 %}<rect class="player-season-trends__bar--g" x="{{ bx }}" y="{{ y_g }}" width="{{ bar_w }}" height="{{ h_g }}"></rect>{% endif %}
-        {% if h_a > 0 %}<rect class="player-season-trends__bar--a" x="{{ bx }}" y="{{ y_a }}" width="{{ bar_w }}" height="{{ h_a }}"></rect>{% endif %}
+        {% if h_g > 0 %}<rect class="player-season-trends__bar--g" x="{{ bx_g }}" y="{{ y_g }}" width="{{ sk_half_w }}" height="{{ h_g }}"></rect>{% endif %}
+        {% if h_a > 0 %}<rect class="player-season-trends__bar--a" x="{{ bx_a }}" y="{{ y_a }}" width="{{ sk_half_w }}" height="{{ h_a }}"></rect>{% endif %}
       </g>
       {% if r.pts is not none %}
         {% set pts_y = chart_padding_top + inner_height - ((r.pts / sk_max_y) * inner_height) %}

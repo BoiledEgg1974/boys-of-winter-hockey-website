@@ -71,6 +71,60 @@ _POSITION_RATING_COLUMNS: tuple[tuple[str, str], ...] = (
     ("RW", "rw"),
 )
 
+_POSITION_LONG_LABELS: tuple[str, ...] = (
+    "Goalie",
+    "Left Defense",
+    "Right Defense",
+    "Left Wing",
+    "Center",
+    "Right Wing",
+)
+
+
+def _parse_position_rating_float(raw: object) -> float | None:
+    if raw is None:
+        return None
+    if isinstance(raw, float) and math.isnan(raw):
+        return None
+    s = str(raw).strip()
+    if not s or s.lower() == "nan":
+        return None
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
+
+def position_ratings_display_list(rr: dict | None) -> list[dict[str, object]]:
+    """Rows for the player profile / share card: long label, CSV abbr, parsed value, primary = max rating."""
+    if not rr:
+        return []
+    parsed: list[tuple[str, str, str, float | None]] = []
+    for (abbr, key), long_l in zip(_POSITION_RATING_COLUMNS, _POSITION_LONG_LABELS):
+        v = _parse_position_rating_float(rr.get(key))
+        parsed.append((long_l, abbr, key, v))
+    best_idx: int | None = None
+    best_val: float | None = None
+    for i, (_, _, _, v) in enumerate(parsed):
+        if v is None:
+            continue
+        if best_idx is None or best_val is None or v > best_val:
+            best_idx = i
+            best_val = v
+    out: list[dict[str, object]] = []
+    for i, (long_l, abbr, key, v) in enumerate(parsed):
+        is_primary = best_idx is not None and i == best_idx
+        out.append(
+            {
+                "label": long_l,
+                "abbr": abbr,
+                "key": key,
+                "value": v,
+                "is_primary": is_primary,
+            }
+        )
+    return out
+
 
 def eligible_positions_from_ratings_row(
     rr: dict | None,

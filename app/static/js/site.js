@@ -67,6 +67,24 @@
     return "color:rgb(" + r + "," + g + "," + b + ")";
   }
 
+  /** Match Flask ``rating_meter_fill_style`` (0–21 scale) for share-card position bars. */
+  function posRatingMeterFillStyle(val) {
+    if (val == null || val === "") return "width:0%;background-color:transparent";
+    var v = Number(val);
+    if (!isFinite(v)) return "width:0%;background-color:transparent";
+    v = Math.max(0, Math.min(21, v));
+    var pct = (v / 21) * 100;
+    var c;
+    if (v >= 20) c = "rgb(59,130,246)";
+    else if (v >= 17) c = "rgb(34,211,238)";
+    else if (v >= 16) c = "rgb(45,212,191)";
+    else if (v >= 14) c = "rgb(132,204,22)";
+    else if (v >= 13) c = "rgb(190,220,80)";
+    else if (v >= 8) c = "rgb(251,146,60)";
+    else c = "rgb(220,38,38)";
+    return "width:" + pct.toFixed(2) + "%;background-color:" + c + ";";
+  }
+
   function hoverStars(v) {
     if (v == null || isNaN(v)) return '<span class="player-hover-stars__empty">—</span>';
     var steps = Math.round(Number(v) * 2);
@@ -446,6 +464,58 @@
       colHtml(leftTitle, rc.left) +
       colHtml(rightTitle, rc.right) +
       "</div>";
+    var posRatingsHtml = "";
+    var pr = d.position_ratings;
+    if (pr && pr.length) {
+      posRatingsHtml =
+        '<div class="player-share-card__pos-ratings">' +
+        '<div class="player-share-card__pos-ratings-title">Position ratings</div>';
+      pr.forEach(function (row) {
+        var lbl =
+          escapeHtml(row.label || "") +
+          (row.is_primary ? '<span class="player-share-card__pos-star" aria-hidden="true"> *</span>' : "");
+        var nv = row.value;
+        var disp =
+          nv == null || nv === "" || !isFinite(Number(nv))
+            ? "—"
+            : escapeHtml(String(Math.round(Number(nv))));
+        var barStyle =
+          nv != null && nv !== "" && isFinite(Number(nv))
+            ? posRatingMeterFillStyle(Number(nv))
+            : "width:0%;background-color:transparent";
+        posRatingsHtml +=
+          '<div class="player-share-card__pos-row">' +
+          '<span class="player-share-card__pos-lbl">' +
+          lbl +
+          '</span><span class="player-share-card__pos-val">' +
+          disp +
+          '</span><div class="player-share-card__pos-track"><div class="player-share-card__pos-fill" style="' +
+          escapeAttr(barStyle) +
+          '"></div></div></div>';
+      });
+      var shootsCell = (d.shoots || "").trim();
+      if (/^l/i.test(shootsCell)) shootsCell = "Left";
+      else if (/^r/i.test(shootsCell)) shootsCell = "Right";
+      else if (!shootsCell) shootsCell = "—";
+      posRatingsHtml +=
+        '<div class="player-share-card__pos-row player-share-card__pos-row--shoots">' +
+        '<span class="player-share-card__pos-lbl">Shoots</span>' +
+        '<span class="player-share-card__pos-val">' +
+        escapeHtml(shootsCell) +
+        '</span><div class="player-share-card__pos-track player-share-card__pos-track--empty"></div></div>';
+      var prBits = [];
+      pr.forEach(function (row) {
+        var ax = row.abbr || "";
+        var nv3 = row.value;
+        var numS =
+          nv3 == null || nv3 === "" || !isFinite(Number(nv3)) ? "—" : String(Math.round(Number(nv3)));
+        prBits.push(ax + " " + numS + (row.is_primary ? "*" : ""));
+      });
+      posRatingsHtml +=
+        '<div class="player-share-card__pos-ratings-summary">' +
+        escapeHtml(prBits.join(" · ") + " · Shoots " + shootsCell) +
+        "</div></div>";
+    }
     var statsBlk = "";
     if (!d.retired && d.latest_season_stats) {
       var s = d.latest_season_stats;
@@ -520,6 +590,7 @@
       pills +
       chipRow +
       "</div></div>" +
+      posRatingsHtml +
       ratingsBlk +
       statsBlk +
       '<div class="player-share-card__footer">' +

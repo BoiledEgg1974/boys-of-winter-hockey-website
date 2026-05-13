@@ -6891,6 +6891,76 @@ table.data.team-depth-table th {
 .player-share-card__chip {
   color: var(--psc-text);
 }
+.player-share-card__pos-ratings {
+  padding: 0 0.85rem 0.45rem;
+  border-bottom: 1px solid var(--psc-border);
+}
+.player-share-card__pos-ratings-title {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--psc-muted);
+  margin-bottom: 0.35rem;
+}
+.player-share-card__pos-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 2rem minmax(72px, 1fr);
+  align-items: center;
+  gap: 0.35rem 0.45rem;
+  font-size: 0.66rem;
+  padding: 0.14rem 0;
+  border-bottom: 1px solid rgb(148 163 184 / 0.12);
+}
+.player-share-card__pos-row--shoots {
+  border-bottom: none;
+  padding-bottom: 0.1rem;
+}
+.player-share-card__pos-lbl {
+  color: var(--psc-muted);
+  font-weight: 700;
+  min-width: 0;
+}
+.player-share-card__pos-val {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: var(--psc-text);
+}
+.player-share-card__pos-star {
+  color: var(--psc-text);
+  font-weight: 800;
+}
+.player-share-card__pos-track {
+  height: 9px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: rgb(15 23 42 / 0.55);
+  border: 1px solid rgb(30 41 59 / 0.65);
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.35);
+}
+.player-share-card--light .player-share-card__pos-track {
+  background: #cbd5e1;
+  border-color: var(--psc-border);
+}
+.player-share-card__pos-track--empty {
+  background: rgb(15 23 42 / 0.35);
+}
+.player-share-card--light .player-share-card__pos-track--empty {
+  background: #e2e8f0;
+}
+.player-share-card__pos-fill {
+  height: 100%;
+  border-radius: 3px;
+  min-width: 0;
+}
+.player-share-card__pos-ratings-summary {
+  font-size: 0.58rem;
+  line-height: 1.35;
+  color: var(--psc-muted);
+  margin-top: 0.35rem;
+  word-break: break-word;
+}
 .player-share-card__ratings {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -9696,11 +9766,43 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
   gap: var(--pp-panel-gap);
   margin-bottom: var(--pp-panel-gap);
 }
+.player-profile__position-ratings-card--goalie {
+  grid-column: 1 / -1;
+}
+.player-profile__meter-track--pos-shoots {
+  background: rgb(15 23 42 / 0.55);
+}
+[data-theme="light"] .player-profile__meter-track--pos-shoots {
+  background: #cbd5e1;
+}
 .player-profile__skater-overview-row {
   display: grid;
-  grid-template-columns: minmax(148px, 200px) minmax(0, 1fr);
+  grid-template-columns: minmax(148px, 200px) minmax(0, 1fr) minmax(0, 1.1fr);
   gap: var(--pp-panel-gap);
   align-items: stretch;
+}
+.player-profile__skater-overview-pos {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.player-profile__skater-overview-pos .player-profile__position-ratings-card {
+  flex: 1;
+  min-height: 0;
+}
+/* Tighter copy in the split-row middle column (long position names + bars). */
+.player-profile__position-ratings-card--skater-overview {
+  padding: 0.75rem 0.85rem;
+}
+.player-profile__position-ratings-card--skater-overview .player-profile__card-title--meter {
+  font-size: 0.82rem;
+  margin-bottom: 0.35rem;
+}
+.player-profile__position-ratings-card--skater-overview .player-profile__meter-label {
+  font-size: 0.78rem;
+}
+.player-profile__position-ratings-card--skater-overview .player-profile__meter-val {
+  font-size: 0.8rem;
 }
 .player-profile__skater-cat-bar--beside-overview {
   margin: 0;

@@ -5169,8 +5169,10 @@ def admin_expansion_draft_hub_edit(draft_id: int):
         ).unique().all()
     )
     from app.services.draft_hub_eligibility import age_as_of
+    from app.services.free_agents import player_ids_from_player_rights_csv_for_team
     from app.services.seasons import get_current_season, season_age_reference_date
 
+    raw_dir = Path(str(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)))
     expansion_org_players: dict[int, dict[str, list[Player]]] = {}
     player_ids = [int(p.id) for p in players_all]
     prospect_by_pid: dict[int, Prospect] = {}
@@ -5206,6 +5208,38 @@ def admin_expansion_draft_hub_edit(draft_id: int):
         else:
             bucket = "rights"
         expansion_org_players.setdefault(tid, {"main": [], "minors": [], "rights": []})[bucket].append(pl)
+
+    def _player_ids_already_listed_for_team(team_id: int) -> set[int]:
+        b = expansion_org_players.get(team_id) or {}
+        out: set[int] = set()
+        for key in ("main", "minors", "rights"):
+            for p in b.get(key, []):
+                out.add(int(p.id))
+        return out
+
+    players_by_id: dict[int, Player] = {int(p.id): p for p in players_all}
+    for tm in main_teams:
+        tid = int(tm.id)
+        if tid in exempt:
+            continue
+        if not raw_dir.is_dir():
+            continue
+        csv_pids = player_ids_from_player_rights_csv_for_team(db.session, raw_dir, tm)
+        if not csv_pids:
+            continue
+        seen = _player_ids_already_listed_for_team(tid)
+        for pid in csv_pids:
+            if pid in seen:
+                continue
+            pl = players_by_id.get(pid) or db.session.get(Player, pid)
+            if pl is None or pl.retired:
+                continue
+            if not _expansion_pool_age_ok(pl):
+                continue
+            expansion_org_players.setdefault(tid, {"main": [], "minors": [], "rights": []})
+            expansion_org_players[tid]["rights"].append(pl)
+            seen.add(pid)
+
     for _tid, buckets in expansion_org_players.items():
         buckets["main"].sort(key=lambda p: (p.full_name or "").lower())
         buckets["minors"].sort(key=lambda p: (p.full_name or "").lower())

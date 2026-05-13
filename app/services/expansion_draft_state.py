@@ -9,7 +9,9 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.models import Player
+from app.services.draft_hub_eligibility import age_as_of
 from app.services.roster_team import organization_main_team
+from app.services.seasons import get_current_season, season_age_reference_date
 from app.services.player_ratings_csv import (
     ELIGIBLE_POSITION_DISPLAY_MIN_RATING,
     eligible_positions_from_ratings_row,
@@ -25,6 +27,13 @@ from app.site_models import (
 
 _FORWARD_TOKENS = frozenset({"LW", "C", "RW"})
 _DEFENSE_TOKENS = frozenset({"LD", "RD"})
+_EXPANSION_BOARD_MIN_AGE = 21
+
+
+def _expansion_board_age_ok(pl: Player) -> bool:
+    """Players under 21 (league ``season_age_reference_date``) never appear on the expansion board."""
+    ag = age_as_of(pl.birth_date, season_age_reference_date(get_current_season()))
+    return ag is not None and ag >= _EXPANSION_BOARD_MIN_AGE
 
 
 def _rights_holder_team_id_for_losses(session: Session, pl: Player) -> int | None:
@@ -367,7 +376,10 @@ def go_live(session: Session, draft: LeagueExpansionDraft, admin_user_id: int) -
 
     players_for_board = eligible_players_for_board(session, draft)
     if not players_for_board:
-        return "No eligible players remain under current rules (check pool and loss limits)."
+        return (
+            "No eligible players remain under current rules "
+            "(check pool, age 21+, max losses per team, and phase limits)."
+        )
     draft.board_ranks_json = json.dumps({str(p.id): i + 1 for i, p in enumerate(players_for_board)})
     draft.status = "live"
     draft.current_slot_index = 0
@@ -461,7 +473,11 @@ def eligible_players_for_board(
     phase: str | None = None,
     expansion_team_id: int | None = None,
 ) -> list[Player]:
-    """Ordered list of players on the board for UI / BPA (excludes picked, max-loss teams, phase, caps)."""
+    """Ordered list of players on the board for UI / BPA (excludes picked, max-loss teams, phase, caps).
+
+    Always omits players under 21 (same league age reference as the rest of the site), even if
+    they were saved in the commissioner eligible pool.
+    """
     elig_ids = {
         int(x)
         for x in session.scalars(
@@ -496,6 +512,8 @@ def eligible_players_for_board(
                 continue
             if player_skater_category(pl) is None:
                 continue
+        if not _expansion_board_age_ok(pl):
+            continue
         candidates.append(pl)
 
     def sort_key(p: Player) -> tuple:
@@ -527,6 +545,8 @@ def validate_pick(
     )
     if not elig:
         return "Player is not in the eligible pool."
+    if not _expansion_board_age_ok(pl):
+        return "Player is under 21 (league age) and cannot be selected in the expansion draft."
     if int(pl.id) in picked_player_ids(session, draft.id):
         return "Player was already drafted."
     losses = losses_by_team_from_picks(session, draft.id)

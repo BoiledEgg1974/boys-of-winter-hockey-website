@@ -109,7 +109,7 @@
   {% endif %}
 
   <h2>Eligible players (unprotected pool)</h2>
-  <p class="muted">Check every player who should appear on the Expansion Draft Hub board (age <strong>21+</strong> as of the league timeline — same reference date as player ages on the site, usually July&nbsp;1 of the current season). Each club lists: <strong>BOWL roster</strong> (assigned to the big club), <strong>minors / affiliates</strong> (under contract but not on the BOWL roster), and <strong>org rights</strong> (no contract row in the import but rights held via the prospect list for that BOWL organization). Save before going live.</p>
+  <p class="muted">Check every player who should appear on the Expansion Draft Hub board (age <strong>21+</strong> as of the league timeline — same reference date as player ages on the site, usually July&nbsp;1 of the current season). Each club lists: <strong>BOWL roster</strong> (assigned to the big club), <strong>minors / affiliates</strong> (under contract but not on the BOWL roster), and <strong>org / export rights</strong> (from <code>player_rights.csv</code> in this league’s raw import folder, plus prospect-only rows when there is no contract line). Save before going live.</p>
   <form method="post" class="card" style="padding:1rem;margin-bottom:1rem;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="save_eligible">
@@ -121,7 +121,7 @@
         {% set plist_rights = buckets.get('rights', []) %}
         {% if plist_main or plist_min or plist_rights %}
         <details class="expansion-elig-team" style="margin-bottom:0.75rem;">
-          <summary><strong>{{ t.full_display_name() }}</strong> ({{ plist_main|length }} BOWL roster{% if plist_min %}, {{ plist_min|length }} other contracted{% endif %}{% if plist_rights %}, {{ plist_rights|length }} org rights{% endif %}; {{ (plist_main|length) + (plist_min|length) + (plist_rights|length) }} listed, 21+)</summary>
+          <summary><strong>{{ t.full_display_name() }}</strong> ({{ plist_main|length }} BOWL roster{% if plist_min %}, {{ plist_min|length }} other contracted{% endif %}{% if plist_rights %}, {{ plist_rights|length }} org / export rights{% endif %}; {{ (plist_main|length) + (plist_min|length) + (plist_rights|length) }} listed, 21+)</summary>
           <div class="expansion-elig-team__actions" style="display:flex;flex-wrap:wrap;align-items:center;gap:0.5rem 0.75rem;margin:0.45rem 0 0.35rem;">
             <button type="button" class="button secondary js-exp-elig-select-all">Select all</button>
             <span class="muted small" style="margin:0;">Selects every player in this club; uncheck anyone to exclude before saving.</span>
@@ -149,8 +149,8 @@
           </div>
           {% endif %}
           {% if plist_rights %}
-          <h4 style="margin:0.75rem 0 0.35rem;font-size:0.9rem;">Org rights (21+, no contract row)</h4>
-          <p class="muted small" style="margin:0 0 0.35rem;">Players tied to this BOWL club via the prospect import only (e.g. college / junior rights without a separate contract line).</p>
+          <h4 style="margin:0.75rem 0 0.35rem;font-size:0.9rem;">Org / export rights (21+)</h4>
+          <p class="muted small" style="margin:0 0 0.35rem;">Includes <code>player_rights.csv</code> (FHM export) for this BOWL club and any prospect-only rights without a contract row.</p>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(14rem,1fr));gap:0.35rem;">
             {% for p in plist_rights %}
               <label class="small" style="display:flex;align-items:center;gap:0.35rem;">

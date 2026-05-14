@@ -69,7 +69,14 @@
 {{- ns.val -}}
 {%- endmacro %}
 {% macro all_star_team_logo_only(row) -%}
-{% set tm = row.season_team or row.team %}
+{# Explicit sheet team_id wins so logos match the selection year; season_team fills -1 / empty rows. #}
+{% if row.team_id is not none and row.team %}
+{% set tm = row.team %}
+{% elif row.season_team %}
+{% set tm = row.season_team %}
+{% else %}
+{% set tm = row.team %}
+{% endif %}
 {% if tm %}
 {% set sy = all_star_logo_start_year_for_row(row) %}
 <a class="team-name-lockup team-name-lockup--icon history-all-stars__team-logo-hit" href="{{ url_for('main.team_page', slug=tm.slug) }}" title="{{ tm.name }}">

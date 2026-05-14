@@ -115,7 +115,8 @@ def attach_history_all_star_season_teams(session: Session, rows: list[HistoryAll
     1. Prefer ``PlayerSkaterStat`` / ``PlayerGoalieStat`` for the ``Season`` matching the All-Star
        label (sim roster team for that year).
     2. Else same batch logic as League History awards (career lines, then game counts by calendar year).
-    3. Template uses ``season_team or row.team``.
+    3. Template prefers ``row.team`` when ``team_id`` is set (sheet club for that selection),
+       else ``season_team`` from steps 1–2.
     """
     for r in rows:
         setattr(r, "season_team", None)

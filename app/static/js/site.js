@@ -1258,6 +1258,7 @@
       btn.setAttribute("aria-label", theme === "dark" ? "Switch to light mode" : "Switch to dark mode");
       btn.textContent = theme === "dark" ? "\u2600" : "\u263E";
     }
+    refreshGamePreviewOddsSegStyles();
   }
 
   function toggleTheme() {
@@ -2015,12 +2016,167 @@
     return html;
   }
 
+  function previewOddsParseHex(s) {
+    if (!s || typeof s !== "string") return null;
+    var m = String(s).trim().match(/^#([0-9a-fA-F]{6})$/);
+    if (!m) return null;
+    var h = m[1];
+    return {
+      r: parseInt(h.slice(0, 2), 16),
+      g: parseInt(h.slice(2, 4), 16),
+      b: parseInt(h.slice(4, 6), 16),
+    };
+  }
+
+  function previewOddsLuminance(rgb) {
+    var a = [rgb.r, rgb.g, rgb.b].map(function (v) {
+      v /= 255;
+      return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * a[0] + 0.7152 * a[1] + 0.0722 * a[2];
+  }
+
+  function previewOddsMixRgb(a, b, t) {
+    return {
+      r: Math.round(a.r + (b.r - a.r) * t),
+      g: Math.round(a.g + (b.g - a.g) * t),
+      b: Math.round(a.b + (b.b - a.b) * t),
+    };
+  }
+
+  function previewOddsRgbToHex(rgb) {
+    function hx(n) {
+      var s = Math.max(0, Math.min(255, n)).toString(16);
+      return s.length === 1 ? "0" + s : s;
+    }
+    return "#" + hx(rgb.r) + hx(rgb.g) + hx(rgb.b);
+  }
+
+  /** Keep bar fills readable on the dark bar tray and the light bar tray. */
+  function previewOddsClampForBarTray(rgb) {
+    var isLight = document.documentElement.getAttribute("data-theme") === "light";
+    var lo = isLight ? 0 : 0.18;
+    var hi = isLight ? 0.5 : 0.95;
+    var cur = previewOddsLuminance(rgb);
+    var out = rgb;
+    var i;
+    if (cur < lo) {
+      var tw = 0;
+      for (i = 0; i < 22; i += 1) {
+        tw += 0.06;
+        out = previewOddsMixRgb(rgb, { r: 255, g: 255, b: 255 }, Math.min(1, tw));
+        if (previewOddsLuminance(out) >= lo) break;
+      }
+    } else if (cur > hi) {
+      var tb = 0;
+      for (i = 0; i < 22; i += 1) {
+        tb += 0.06;
+        out = previewOddsMixRgb(rgb, { r: 8, g: 10, b: 14 }, Math.min(1, tb));
+        if (previewOddsLuminance(out) <= hi) break;
+      }
+    }
+    return out;
+  }
+
+  function previewOddsColorDistance(a, b) {
+    if (!a || !b) return 999;
+    return Math.sqrt(
+      Math.pow(a.r - b.r, 2) + Math.pow(a.g - b.g, 2) + Math.pow(a.b - b.b, 2)
+    );
+  }
+
+  function previewOddsWinProbSegStyles(awayTeam, homeTeam) {
+    var isLight = document.documentElement.getAttribute("data-theme") === "light";
+    var shade = isLight ? { r: 12, g: 16, b: 24 } : { r: 15, g: 23, b: 42 };
+    function baseRgb(team) {
+      if (!team) return null;
+      return (
+        previewOddsParseHex(team.primary_color) ||
+        previewOddsParseHex(team.secondary_color)
+      );
+    }
+    function segGradient(rgb) {
+      if (!rgb) return "";
+      var c1 = previewOddsRgbToHex(rgb);
+      var c2 = previewOddsRgbToHex(previewOddsMixRgb(rgb, shade, 0.28));
+      return "background:linear-gradient(90deg," + c1 + "," + c2 + ")";
+    }
+    var ar = baseRgb(awayTeam);
+    var hr = baseRgb(homeTeam);
+    if (!ar && !hr) {
+      return { away: "", home: "" };
+    }
+    if (!ar) ar = previewOddsMixRgb(hr, shade, 0.35);
+    if (!hr) hr = previewOddsMixRgb(ar, shade, 0.35);
+    ar = previewOddsClampForBarTray(ar);
+    hr = previewOddsClampForBarTray(hr);
+    if (previewOddsColorDistance(ar, hr) < 52) {
+      var altH = homeTeam && previewOddsParseHex(homeTeam.secondary_color);
+      var altA = awayTeam && previewOddsParseHex(awayTeam.secondary_color);
+      if (altH && previewOddsColorDistance(ar, altH) >= 52) {
+        hr = previewOddsClampForBarTray(altH);
+      } else if (altA && previewOddsColorDistance(altA, hr) >= 52) {
+        ar = previewOddsClampForBarTray(altA);
+      } else {
+        hr = previewOddsMixRgb(hr, isLight ? { r: 18, g: 22, b: 32 } : { r: 230, g: 236, b: 252 }, 0.18);
+        hr = previewOddsClampForBarTray(hr);
+      }
+    }
+    return { away: segGradient(ar), home: segGradient(hr) };
+  }
+
+  function previewOddsSegInlineStyle(widthPct, bgCss) {
+    var w = typeof widthPct === "number" && !isNaN(widthPct) ? widthPct : 50;
+    if (bgCss) return "width:" + w + "%;" + bgCss;
+    return "width:" + w + "%";
+  }
+
+  /** Recompute win-probability segment fills after ``data-theme`` changes (colors depend on light vs dark tray). */
+  function refreshGamePreviewOddsSegStyles() {
+    document.querySelectorAll(".game-preview-odds__bar").forEach(function (bar) {
+      var ds = bar.dataset || {};
+      var awayTeam = {
+        primary_color: ds.awayPrimary || "",
+        secondary_color: ds.awaySecondary || "",
+      };
+      var homeTeam = {
+        primary_color: ds.homePrimary || "",
+        secondary_color: ds.homeSecondary || "",
+      };
+      if (
+        !awayTeam.primary_color &&
+        !awayTeam.secondary_color &&
+        !homeTeam.primary_color &&
+        !homeTeam.secondary_color
+      ) {
+        return;
+      }
+      var segAway = bar.querySelector(".game-preview-odds__seg--away");
+      var segHome = bar.querySelector(".game-preview-odds__seg--home");
+      if (!segAway || !segHome) return;
+      var ap = parseFloat(segAway.style.width);
+      var hp = parseFloat(segHome.style.width);
+      if (!isFinite(ap)) {
+        var m = (segAway.getAttribute("style") || "").match(/width:\s*([\d.]+)\s*%/i);
+        ap = m ? parseFloat(m[1]) : 50;
+      }
+      if (!isFinite(hp)) {
+        var m2 = (segHome.getAttribute("style") || "").match(/width:\s*([\d.]+)\s*%/i);
+        hp = m2 ? parseFloat(m2[1]) : 50;
+      }
+      var segStyles = previewOddsWinProbSegStyles(awayTeam, homeTeam);
+      segAway.setAttribute("style", previewOddsSegInlineStyle(ap, segStyles.away));
+      segHome.setAttribute("style", previewOddsSegInlineStyle(hp, segStyles.home));
+    });
+  }
+
   function renderGamePreviewHtml(d) {
     var away = d.away || {};
     var home = d.home || {};
     var odds = d.odds || {};
     var hp = odds.home_pct_display != null ? Number(odds.home_pct_display) : 50;
     var ap = odds.away_pct_display != null ? Number(odds.away_pct_display) : 50;
+    var segStyles = previewOddsWinProbSegStyles(away.team, home.team);
     var html = '<div class="game-preview-panel">';
     html += '<p class="game-preview-lede muted">' + escapeHtml(d.prediction_method_note || "") + "</p>";
 
@@ -2053,15 +2209,22 @@
     var oddsHtml = "";
     oddsHtml += '<div class="game-preview-odds card">';
     oddsHtml += '<h3 class="game-preview-subhead game-preview-subhead--block game-preview-odds__title">Win probability</h3>';
-    oddsHtml += '<div class="game-preview-odds__bar" title="' + escapeAttr(odds.method_note || "") + '">';
+    var at = away.team || {};
+    var ht = home.team || {};
+    var barAttrs = 'title="' + escapeAttr(odds.method_note || "") + '"';
+    if (at.primary_color) barAttrs += ' data-away-primary="' + escapeAttr(at.primary_color) + '"';
+    if (at.secondary_color) barAttrs += ' data-away-secondary="' + escapeAttr(at.secondary_color) + '"';
+    if (ht.primary_color) barAttrs += ' data-home-primary="' + escapeAttr(ht.primary_color) + '"';
+    if (ht.secondary_color) barAttrs += ' data-home-secondary="' + escapeAttr(ht.secondary_color) + '"';
+    oddsHtml += '<div class="game-preview-odds__bar" ' + barAttrs + ">";
     oddsHtml +=
-      '<div class="game-preview-odds__seg game-preview-odds__seg--away" style="width:' +
-      ap +
-      '%"></div>';
+      '<div class="game-preview-odds__seg game-preview-odds__seg--away" style="' +
+      escapeAttr(previewOddsSegInlineStyle(ap, segStyles.away)) +
+      '"></div>';
     oddsHtml +=
-      '<div class="game-preview-odds__seg game-preview-odds__seg--home" style="width:' +
-      hp +
-      '%"></div>';
+      '<div class="game-preview-odds__seg game-preview-odds__seg--home" style="' +
+      escapeAttr(previewOddsSegInlineStyle(hp, segStyles.home)) +
+      '"></div>';
     oddsHtml += "</div>";
     oddsHtml += '<div class="game-preview-odds__labels">';
     oddsHtml +=

@@ -1063,6 +1063,18 @@ table.data tbody tr.standings-cutline td {
   font-size: 0.75rem !important;
   border-top-color: rgb(51 65 85 / 0.35) !important;
 }
+.bracket-matchup--preview {
+  outline: 1px dashed rgb(148 163 184 / 0.42);
+  outline-offset: 2px;
+}
+.bracket-matchup__footer--preview {
+  font-style: italic;
+  color: #bae6fd;
+  border-top-color: rgb(56 189 248 / 0.28) !important;
+}
+[data-theme="light"] .bracket-matchup__footer--preview {
+  color: #1d4ed8;
+}
 .bracket-team.bracket-team--won .bracket-team__abbr {
   color: #86efac;
 }
@@ -3527,6 +3539,44 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
 [data-theme="dark"] .team-hero__stats-card-caret {
   border-color: transparent color-mix(in srgb, var(--surface) 92%, #1e293b) transparent transparent;
 }
+.team-hero__stats-card:has(.team-hero__stats-card__metrics) {
+  flex-direction: column;
+  align-items: stretch;
+}
+.team-hero__stats-card__metrics {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  justify-content: space-around;
+  gap: 0.5rem 0.65rem;
+  width: 100%;
+}
+.team-hero__stats-card__trophies.player-profile__trophy-strip {
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-bottom: 0.45rem;
+  justify-content: center;
+  border-bottom: 1px solid rgb(15 23 42 / 0.08);
+}
+[data-theme="dark"] .team-hero__stats-card__trophies {
+  border-bottom-color: var(--border);
+}
+.team-hero--directory-card .team-hero__stats-card__trophies .player-profile__trophy-badge {
+  width: 2.05rem;
+  height: 2.05rem;
+  border-radius: 7px;
+}
+.team-hero--directory-card .team-hero__stats-card__trophies .player-profile__trophy-badge-img {
+  padding: 0.1rem;
+}
+[data-theme="light"] .team-hero--directory-card .team-hero__stats-card__trophies .player-profile__trophy-badge {
+  background: rgb(15 23 42 / 0.5);
+  border-color: rgb(255 255 255 / 0.12);
+}
+[data-theme="light"] .team-hero--directory-card .team-hero__stats-card__trophies .player-profile__trophy-badge-count {
+  background: #0f172a;
+}
 .team-hero__stat-col {
   flex: 1 1 0;
   min-width: 0;
@@ -3583,6 +3633,14 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
     flex-wrap: wrap;
     justify-content: space-between;
     padding: 0.85rem 0.9rem;
+  }
+  .team-hero__stats-card:has(.team-hero__stats-card__metrics) {
+    flex-wrap: nowrap;
+    flex-direction: column;
+  }
+  .team-hero__stats-card__metrics {
+    flex-wrap: wrap;
+    justify-content: space-between;
   }
   .team-hero__stat-col {
     flex: 1 1 22%;

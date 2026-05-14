@@ -32,8 +32,23 @@
             </div>
           </div>
           {% if card.show_hero_stats_card %}
-          <div class="team-hero__stats-card" role="group" aria-label="Team season rates">
+          <div class="team-hero__stats-card" role="group" aria-label="Team season rates and franchise trophies">
             <span class="team-hero__stats-card-caret" aria-hidden="true"></span>
+            {% if card.team_award_badges %}
+            <div class="player-profile__trophy-strip team-hero__stats-card__trophies" role="list" aria-label="Franchise trophies">
+              {% for b in card.team_award_badges %}
+              <div class="player-profile__trophy-badge" role="listitem" title="{{ b.tooltip|e }}">
+                {% if b.trophy_rel %}
+                <img class="player-profile__trophy-badge-img" src="{{ url_for('static', filename=b.trophy_rel) }}" alt="" loading="lazy" decoding="async">
+                {% else %}
+                <span class="player-profile__trophy-badge-ph" aria-hidden="true">{{ (b.award_name or '?')[:1] }}</span>
+                {% endif %}
+                <span class="player-profile__trophy-badge-count" aria-label="{{ b.count }} × {{ b.award_name }}">{{ b.count }}</span>
+              </div>
+              {% endfor %}
+            </div>
+            {% endif %}
+            <div class="team-hero__stats-card__metrics">
             <div class="team-hero__stat-col">
               <span class="team-hero__stat-label">GF/G</span>
               <span class="team-hero__stat-value">{{ '%.1f'|format(card.hero_gf_g) if card.hero_gf_g is not none else '—' }}</span>
@@ -53,6 +68,7 @@
               <span class="team-hero__stat-label">PK%</span>
               <span class="team-hero__stat-value">{{ '%.1f'|format(card.hero_pk_pct) if card.hero_pk_pct is not none else '—' }}</span>
               <span class="team-hero__stat-rank">{{ card.hero_pk_rank_paren }}</span>
+            </div>
             </div>
           </div>
           {% endif %}

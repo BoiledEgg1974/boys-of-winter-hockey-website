@@ -447,6 +447,78 @@ def player_history_award_badges(session: Session, player_id: int) -> list[dict]:
     return out
 
 
+def _team_history_award_badges_core(
+    filtered: list[HistoryAward], stem_map: dict[str, str]
+) -> list[dict]:
+    """Build badge dicts from already team-filtered ``HistoryAward`` rows."""
+    by_name_raw: dict[str, list[HistoryAward]] = defaultdict(list)
+    for a in filtered:
+        name = (a.award_name or "").strip() or "Award"
+        by_name_raw[name].append(a)
+    by_name: dict[str, list[HistoryAward]] = {
+        name: _collapse_same_trophy_year_history_awards(_dedupe_history_awards(group))
+        for name, group in by_name_raw.items()
+    }
+
+    out: list[dict] = []
+    for award_name, wins in by_name.items():
+        wins_sorted = sorted(wins, key=_history_award_year_sort_key, reverse=True)
+        tip_parts = [f"{_display_season_for_badge(a)} · {award_name}" for a in wins_sorted]
+        tooltip = "; ".join(tip_parts)
+        rel = _trophy_rel_from_map(stem_map, award_name)
+        out.append(
+            {
+                "award_name": award_name,
+                "count": len(wins_sorted),
+                "trophy_rel": rel,
+                "tooltip": tooltip,
+            }
+        )
+
+    if not out:
+        return []
+    out.sort(key=lambda d: (_award_panel_sort_index(str(d["award_name"])), _norm_award_title(str(d["award_name"]))))
+    return out
+
+
+def team_history_award_badges_for_directory(session: Session, teams: list[Team]) -> dict[int, list[dict]]:
+    """One query + one trophy scan for all teams (``/teams`` directory cards)."""
+    if not teams:
+        return {}
+    tids = [int(t.id) for t in teams]
+    bowl_like = HistoryAward.award_name.ilike("%bowl%cup%trophy%")
+    null_team_names = or_(
+        bowl_like,
+        HistoryAward.award_name.ilike("%prince%wales%"),
+        HistoryAward.award_name.ilike("%campbell%trophy%"),
+        HistoryAward.award_name.ilike("%boiledegg%"),
+    )
+    null_team_awards = and_(HistoryAward.team_id.is_(None), null_team_names)
+    rows = session.scalars(
+        select(HistoryAward)
+        .options(joinedload(HistoryAward.season))
+        .where(or_(HistoryAward.team_id.in_(tids), null_team_awards))
+    ).all()
+    static_root = Path(str(current_app.static_folder or ""))
+    league_slug = str(current_app.config.get("LEAGUE_SLUG") or "bowl-fantasy")
+    stem_map = _build_trophy_stem_map(static_root, league_slug)
+
+    out: dict[int, list[dict]] = {}
+    for t in teams:
+        tid = int(t.id)
+        filtered: list[HistoryAward] = []
+        for a in rows:
+            if a.team_id is not None and int(a.team_id) != tid:
+                continue
+            if not is_team_history_award(a.award_name):
+                continue
+            if _cup_winning_team_db_id(session, a) != tid:
+                continue
+            filtered.append(a)
+        out[tid] = _team_history_award_badges_core(filtered, stem_map)
+    return out
+
+
 def team_history_award_badges(session: Session, team: Team) -> list[dict]:
     """Aggregate team trophies for the franchise hero strip (same dict shape as ``player_history_award_badges``)."""
     tid = int(team.id)
@@ -473,35 +545,8 @@ def team_history_award_badges(session: Session, team: Team) -> list[dict]:
             continue
         filtered.append(a)
 
-    by_name_raw: dict[str, list[HistoryAward]] = defaultdict(list)
-    for a in filtered:
-        name = (a.award_name or "").strip() or "Award"
-        by_name_raw[name].append(a)
-    by_name: dict[str, list[HistoryAward]] = {
-        name: _collapse_same_trophy_year_history_awards(_dedupe_history_awards(group))
-        for name, group in by_name_raw.items()
-    }
-
     static_root = Path(str(current_app.static_folder or ""))
     league_slug = str(current_app.config.get("LEAGUE_SLUG") or "bowl-fantasy")
     stem_map = _build_trophy_stem_map(static_root, league_slug)
 
-    out: list[dict] = []
-    for award_name, wins in by_name.items():
-        wins_sorted = sorted(wins, key=_history_award_year_sort_key, reverse=True)
-        tip_parts = [f"{_display_season_for_badge(a)} · {award_name}" for a in wins_sorted]
-        tooltip = "; ".join(tip_parts)
-        rel = _trophy_rel_from_map(stem_map, award_name)
-        out.append(
-            {
-                "award_name": award_name,
-                "count": len(wins_sorted),
-                "trophy_rel": rel,
-                "tooltip": tooltip,
-            }
-        )
-
-    if not out:
-        return []
-    out.sort(key=lambda d: (_award_panel_sort_index(str(d["award_name"])), _norm_award_title(str(d["award_name"]))))
-    return out
+    return _team_history_award_badges_core(filtered, stem_map)

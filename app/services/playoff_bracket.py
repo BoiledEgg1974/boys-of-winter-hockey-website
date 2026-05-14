@@ -1,4 +1,10 @@
-"""Build playoff bracket payload from completed games (game_type heuristics)."""
+"""Build playoff bracket payload from completed games (game_type heuristics).
+
+Empty slots in the **next** playoff round only may show a projected 0–0 matchup
+(``preview_only``) when **both** feeder series are **real** (from the schedule import)
+and **clinched** (a team at 4 wins). Synthetic previews are **not** chained: e.g. no
+conference-finals or championship projection while semifinal slots are still preview-only.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -48,6 +54,8 @@ class SeriesAgg:
     games_played: int
     first_date: date | None
     last_date: date | None
+    #: True when this row is inferred for empty bracket slots (no games yet in this pairing).
+    preview_only: bool = False
 
 
 # FHM conferences.csv across league imports: 0 = Wales (East), 1 = Campbell (West).
@@ -57,6 +65,117 @@ _CAMPBELL_CONF_ID = 1
 
 def _series_sort_key(s: SeriesAgg) -> tuple:
     return (s.first_date or date.min, s.team_a_id, s.team_b_id)
+
+
+def _preview_winner_team_id(s: SeriesAgg, rs_map: dict[int, dict[str, float]]) -> int | None:
+    """Who advances this slot for bracket preview: clinch, leader, or RS points-rate tiebreaker."""
+    if s.wins_a >= 4:
+        return int(s.team_a_id)
+    if s.wins_b >= 4:
+        return int(s.team_b_id)
+    if s.games_played > 0 and s.wins_a != s.wins_b:
+        return int(s.team_a_id) if s.wins_a > s.wins_b else int(s.team_b_id)
+    ra = float(rs_map.get(int(s.team_a_id), {}).get("pts_rate", 0) or 0)
+    rb = float(rs_map.get(int(s.team_b_id), {}).get("pts_rate", 0) or 0)
+    if ra > rb:
+        return int(s.team_a_id)
+    if rb > ra:
+        return int(s.team_b_id)
+    return int(s.team_a_id)
+
+
+def _synthetic_preview_series(team_a_id: int, team_b_id: int) -> SeriesAgg:
+    return SeriesAgg(
+        team_a_id=int(team_a_id),
+        team_b_id=int(team_b_id),
+        wins_a=0,
+        wins_b=0,
+        games_played=0,
+        first_date=None,
+        last_date=None,
+        preview_only=True,
+    )
+
+
+def _series_is_clinched(s: SeriesAgg) -> bool:
+    return int(s.wins_a) >= 4 or int(s.wins_b) >= 4
+
+
+def _is_real_series_slot(s: SeriesAgg | None) -> bool:
+    """True for series aggregated from played games (not heuristic bracket filler)."""
+    return s is not None and not bool(getattr(s, "preview_only", False))
+
+
+def _all_non_null_slots_real_and_clinched(slots: list[SeriesAgg | None]) -> bool:
+    """True when every populated slot in this round is a real series that has finished (4 wins)."""
+    for s in slots:
+        if s is None:
+            continue
+        if not _is_real_series_slot(s) or not _series_is_clinched(s):
+            return False
+    return True
+
+
+def _fill_mirror_slots_with_preview(
+    s1: list[SeriesAgg | None],
+    s2: list[SeriesAgg | None],
+    s3: list[SeriesAgg | None],
+    championship_series: SeriesAgg | None,
+    rs_map: dict[int, dict[str, float]],
+) -> tuple[list[SeriesAgg | None], list[SeriesAgg | None], list[SeriesAgg | None], SeriesAgg | None]:
+    """Fill empty slots only one bracket level ahead of completed **real** series (no chaining)."""
+    s2_out = list(s2)
+    s3_out = list(s3)
+    champ_out = championship_series
+
+    if _all_non_null_slots_real_and_clinched(s1):
+        for i in range(4):
+            if s2_out[i] is not None:
+                continue
+            a = s1[2 * i] if 2 * i < 8 else None
+            b = s1[2 * i + 1] if 2 * i + 1 < 8 else None
+            if not _is_real_series_slot(a) or not _is_real_series_slot(b):
+                continue
+            if not _series_is_clinched(a) or not _series_is_clinched(b):
+                continue
+            wa = _preview_winner_team_id(a, rs_map)
+            wb = _preview_winner_team_id(b, rs_map)
+            if wa is None or wb is None:
+                continue
+            s2_out[i] = _synthetic_preview_series(wa, wb)
+
+    if _all_non_null_slots_real_and_clinched(s2_out):
+        for i in range(2):
+            if s3_out[i] is not None:
+                continue
+            pa = s2_out[2 * i] if 2 * i < 4 else None
+            pb = s2_out[2 * i + 1] if 2 * i + 1 < 4 else None
+            if not _is_real_series_slot(pa) or not _is_real_series_slot(pb):
+                continue
+            if not _series_is_clinched(pa) or not _series_is_clinched(pb):
+                continue
+            wpa = _preview_winner_team_id(pa, rs_map)
+            wpb = _preview_winner_team_id(pb, rs_map)
+            if wpa is None or wpb is None:
+                continue
+            s3_out[i] = _synthetic_preview_series(wpa, wpb)
+
+    if (
+        champ_out is None
+        and s3_out[0] is not None
+        and s3_out[1] is not None
+        and _all_non_null_slots_real_and_clinched(s3_out)
+    ):
+        if not _is_real_series_slot(s3_out[0]) or not _is_real_series_slot(s3_out[1]):
+            return s2_out, s3_out, champ_out
+        if not _series_is_clinched(s3_out[0]) or not _series_is_clinched(s3_out[1]):
+            return s2_out, s3_out, champ_out
+        ca = _preview_winner_team_id(s3_out[0], rs_map)
+        cb = _preview_winner_team_id(s3_out[1], rs_map)
+        if ca is not None and cb is not None:
+            champ_out = _synthetic_preview_series(ca, cb)
+
+    return s2_out, s3_out, champ_out
 
 
 def _series_conference_id(s: SeriesAgg, teams: dict[int, Team]) -> int | None:
@@ -246,6 +365,7 @@ def _series_json(
         "first_game_date": sa.first_date.isoformat() if sa.first_date else None,
         "last_game_date": sa.last_date.isoformat() if sa.last_date else None,
         "prediction": pred,
+        "preview_only": bool(getattr(sa, "preview_only", False)),
     }
 
 
@@ -419,6 +539,9 @@ def playoff_bracket_payload(season_id: int | None) -> dict:
     )
     s1_slots, s2_slots, s3_slots, championship_series = expand_to_mirror_slots(
         r1_sem, r2_ordered, r3_ordered, championship_series
+    )
+    s2_slots, s3_slots, championship_series = _fill_mirror_slots_with_preview(
+        s1_slots, s2_slots, s3_slots, championship_series, rs_map
     )
 
     # Legacy field names: non-null series for older consumers (mirror: West then East slots).

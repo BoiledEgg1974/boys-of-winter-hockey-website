@@ -28,6 +28,19 @@ PREVIEW_METHOD_NOTE = (
 )
 
 
+def _normalize_hex_color(raw: str | None) -> str | None:
+    """Return ``#RRGGBB`` or None if invalid (safe for JSON / inline CSS)."""
+    s = (raw or "").strip()
+    if not s:
+        return None
+    hx = s[1:] if s.startswith("#") else s
+    if len(hx) == 3:
+        hx = "".join(c * 2 for c in hx)
+    if len(hx) != 6 or any(c not in "0123456789abcdefABCDEF" for c in hx):
+        return None
+    return "#" + hx.upper()
+
+
 def _player_photo_url(pl: Player | None) -> str:
     if not pl:
         return ""
@@ -458,6 +471,9 @@ def _team_card(session, season_id: int, team: Team, anchor: Game, opp: Team) -> 
             "slug": team.slug,
             "logo_url": team_logo_url_for_team(team),
             "display_name": team.full_display_name(),
+            "primary_color": _normalize_hex_color(team.primary_color),
+            "secondary_color": _normalize_hex_color(team.secondary_color),
+            "text_color": _normalize_hex_color(team.text_color),
         },
         "opponent": {
             "abbreviation": opp.abbreviation,

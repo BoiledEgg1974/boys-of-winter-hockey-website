@@ -120,7 +120,11 @@ from app.services.history_all_stars import (
     team_id_from_rs_stats_for_sheet_label,
 )
 from app.services.history_team_awards import is_team_history_award
-from app.services.player_history_award_badges import player_history_award_badges, team_history_award_badges
+from app.services.player_history_award_badges import (
+    player_history_award_badges,
+    team_history_award_badges,
+    team_history_award_badges_for_directory,
+)
 from app.services.player_season_trends import build_player_season_trend_rows, load_skater_career_gr_lookup
 from app.services.team_staff_csv import (
     STAFF_COACH_COLUMNS,
@@ -3302,6 +3306,7 @@ def teams_index():
         gf_rank_map, ga_rank_map = _standing_gf_g_ga_rank_maps(season.id)
 
     team_banners: list[dict[str, object]] = []
+    badges_by_tid = team_history_award_badges_for_directory(db.session, teams_list)
     for team in teams_list:
         arena_name = None
         arena_capacity = None
@@ -3404,6 +3409,7 @@ def teams_index():
                 "hero_pk_rank_paren": hero_pk_rank_paren,
                 "hero_record_suffix": hero_record_suffix,
                 "show_hero_stats_card": show_hero_stats_card,
+                "team_award_badges": badges_by_tid.get(int(team.id), []),
             }
         )
 

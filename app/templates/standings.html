@@ -267,6 +267,14 @@
     return '<div class="bracket-team ' + sideClass + oc + '">' + inner + '</div>';
   }
   function seriesFooter(s) {
+    if (s.preview_only) {
+      return (
+        '<div class="bracket-matchup__footer bracket-matchup__footer--preview">' +
+        '<span class="bracket-matchup__footer-preview-line">Projected Matchup</span>' +
+        '<span class="bracket-matchup__footer-preview-line">Best-of-7</span>' +
+        "</div>"
+      );
+    }
     var wa = s.wins_a, wb = s.wins_b, bo = 7;
     if (wa === wb) {
       return '<div class="bracket-matchup__footer">Tied ' + wa + '-' + wb + ' (' + bo + ')</div>';
@@ -306,6 +314,7 @@
     var oa = outcomeForSide(wa, wb, true);
     var ob = outcomeForSide(wa, wb, false);
     var cls = isFinalSlot ? ' bracket-matchup--championship' : '';
+    if (s.preview_only) cls += ' bracket-matchup--preview';
     return '<div class="bracket-matchup' + cls + '">' +
       '<div class="bracket-matchup__row">' +
         teamSide(s.team_a, 'bracket-team--a', oa) +

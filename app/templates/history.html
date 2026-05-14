@@ -1,9 +1,15 @@
 {% extends "base.html" %}
 {% from "macros/team.html" import team_logo_only, team_lockup_full_name with context %}
 {% macro history_award_season_label(a) -%}
-{%- set n = (a.notes or '') | trim -%}
-{%- if n.startswith('sheet_season=') -%}
-{{- (n.split('sheet_season=', 1)[1].split(';')[0] | trim) -}}
+{%- set ns = namespace(sheet=None) -%}
+{%- for part in ((a.notes or '') | trim).split(';') -%}
+{%- set p = part.strip() -%}
+{%- if p.startswith('sheet_season=') -%}
+{%- set ns.sheet = p.split('=', 1)[1].split(';')[0] | trim -%}
+{%- endif -%}
+{%- endfor -%}
+{%- if ns.sheet -%}
+{{- ns.sheet -}}
 {%- elif a.season -%}
 {{- a.season.label -}}
 {%- else -%}

@@ -215,6 +215,16 @@ def _season_by_label_substring(key: str | None) -> Season | None:
     return db.session.scalars(select(Season).where(Season.label.like(f"%{k}%")).limit(1)).first()
 
 
+def _csv_trophy_season_sheet_token(key: str | None) -> str | None:
+    """Normalize ``YYYY-YY`` season cells from history award CSVs (matches ``Season.label`` shape)."""
+    k = (key or "").strip()
+    if len(k) != 7 or k[4] != "-":
+        return None
+    if k[:4].isdigit() and k[5:7].isdigit():
+        return k
+    return None
+
+
 def _ensure_history_all_stars_sheet_placeholder_season() -> Season:
     """Return a reusable ``Season`` row so every ``history_all_stars`` line can set ``season_id``."""
     fid = _HISTORY_ALL_STARS_SHEET_PLACEHOLDER_FHM
@@ -857,6 +867,7 @@ def import_history_awards(
         db.session.commit()
         log.info("Removed existing history awards matching %r before partial re-import.", needle)
     n = 0
+    league_slug = str(app.config.get("LEAGUE_SLUG") or "").strip()
     for _, row in df.iterrows():
         r = row.to_dict()
         award_cell = (cell_val(r, "award_name", "award") or "").strip()
@@ -865,16 +876,29 @@ def import_history_awards(
         season_key = cell_val(r, "season_id", "season")
         season = _season_by_fhm_or_label(season_key)
         sheet_pref: list[str] = []
+        if not season and league_slug == "bowl-historical":
+            season = _season_by_label_substring(season_key)
         if not season:
             # Fictional trophy years (e.g. 1979-80) often do not match a single imported FHM season row.
             # When exactly one season exists in the DB, attach awards to it and preserve the sheet label in notes.
             all_seasons = db.session.scalars(select(Season)).all()
             if len(all_seasons) == 1:
                 season = all_seasons[0]
-                if season_key:
-                    sheet_pref.append(f"sheet_season={season_key}")
+                sk = (season_key or "").strip()
+                if sk:
+                    sheet_pref.append(f"sheet_season={sk}")
+            elif league_slug == "bowl-historical":
+                season = _ensure_history_all_stars_sheet_placeholder_season()
+                sk = _csv_trophy_season_sheet_token(season_key)
+                if sk:
+                    sheet_pref.append(f"sheet_season={sk}")
         if not season:
             continue
+        sk_sheet = _csv_trophy_season_sheet_token(season_key)
+        if league_slug == "bowl-historical" and sk_sheet:
+            tag = f"sheet_season={sk_sheet}"
+            if not any((p or "").strip() == tag for p in sheet_pref):
+                sheet_pref.insert(0, tag)
         # Same key as ``player_master.csv`` ``PlayerId`` (stored as ``Player.fhm_player_id``), not DB ``players.id``.
         pid_raw = cell_val(r, "player_id", "fhm_player_id", "playerid")
         pid_st = (pid_raw or "").strip()

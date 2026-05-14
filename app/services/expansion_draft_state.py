@@ -297,12 +297,19 @@ def regenerate_slots(session: Session, draft: LeagueExpansionDraft) -> str | Non
     draft.current_slot_index = 0
     invalidate_expansion_eligible_cache(draft.id)
     return None
-    return session.scalar(
-        select(LeagueExpansionDraftPick).where(
+
+
+def _pick_row_for_overall(session: Session, draft_id: int, overall: int) -> bool:
+    """True when a pick has already been stored for this overall slot."""
+    pk = session.scalar(
+        select(LeagueExpansionDraftPick.id)
+        .where(
             LeagueExpansionDraftPick.league_expansion_draft_id == draft_id,
-            LeagueExpansionDraftPick.overall_pick == overall,
+            LeagueExpansionDraftPick.overall_pick == int(overall),
         )
+        .limit(1)
     )
+    return pk is not None
 
 
 def _finalize_if_done(session: Session, draft: LeagueExpansionDraft, slots: list[LeagueExpansionDraftSlot]) -> None:

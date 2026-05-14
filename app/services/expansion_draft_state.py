@@ -30,6 +30,7 @@ from app.site_models import (
 _FORWARD_TOKENS = frozenset({"LW", "C", "RW"})
 _DEFENSE_TOKENS = frozenset({"LD", "RD"})
 _EXPANSION_BOARD_MIN_AGE = 21
+_EXPANSION_INTER_PICK_COOLDOWN_SEC = 5
 
 
 def player_is_unrestricted_free_agent(pl: Player) -> bool:
@@ -373,6 +374,13 @@ def sync_current_slot_and_clock(session: Session, draft: LeagueExpansionDraft) -
             draft.current_slot_index += 1
             continue
         now = utcnow_naive()
+        if getattr(draft, "expansion_pick_cooldown_active", False):
+            ddl_cd = draft.pick_deadline_at
+            if ddl_cd is not None and now < ddl_cd:
+                draft.awaiting_admin_resolution = False
+                return
+            draft.expansion_pick_cooldown_active = False
+
         if draft.pick_deadline_at is None or draft.awaiting_admin_resolution:
             draft.pick_started_at = now
             draft.pick_deadline_at = now + timedelta(seconds=int(draft.timer_seconds))
@@ -423,6 +431,7 @@ def go_live(session: Session, draft: LeagueExpansionDraft, admin_user_id: int) -
     draft.current_slot_index = 0
     draft.awaiting_admin_resolution = False
     draft.deadline_extended_for_slot = False
+    draft.expansion_pick_cooldown_active = False
     draft.pick_started_at = None
     draft.pick_deadline_at = None
     draft.timer_paused = False
@@ -472,6 +481,21 @@ def resume_timer(session: Session, draft: LeagueExpansionDraft) -> str | None:
 def expansion_process_tick(session: Session, draft: LeagueExpansionDraft) -> None:
     if draft.status != "live" or draft.awaiting_admin_resolution or getattr(draft, "timer_paused", False):
         return
+    if getattr(draft, "expansion_pick_cooldown_active", False):
+        ddl_cd = draft.pick_deadline_at
+        if ddl_cd is None:
+            draft.expansion_pick_cooldown_active = False
+            sync_current_slot_and_clock(session, draft)
+            return
+        if utcnow_naive() <= ddl_cd:
+            return
+        draft.expansion_pick_cooldown_active = False
+        now = utcnow_naive()
+        draft.pick_started_at = now
+        draft.pick_deadline_at = now + timedelta(seconds=int(draft.timer_seconds))
+        draft.deadline_extended_for_slot = False
+        return
+
     ddl = draft.pick_deadline_at
     if ddl is None:
         sync_current_slot_and_clock(session, draft)
@@ -767,6 +791,8 @@ def record_pick(
 ) -> str | None:
     if draft.status != "live":
         return "Draft is not live."
+    if getattr(draft, "expansion_pick_cooldown_active", False):
+        return "Brief pause between picks — try again in a few seconds."
     if draft.awaiting_admin_resolution and source != "admin":
         return "Waiting for commissioner to resolve this pick."
     slots = slots_ordered(session, draft.id)
@@ -814,9 +840,18 @@ def record_pick(
     draft.awaiting_admin_resolution = False
     draft.timer_paused = False
     draft.timer_paused_remaining_seconds = None
+    slots_after = slots_ordered(session, draft.id)
+    if draft.current_slot_index < len(slots_after):
+        now = utcnow_naive()
+        draft.expansion_pick_cooldown_active = True
+        draft.pick_started_at = now
+        draft.pick_deadline_at = now + timedelta(seconds=_EXPANSION_INTER_PICK_COOLDOWN_SEC)
+    else:
+        draft.expansion_pick_cooldown_active = False
+        draft.pick_deadline_at = None
+        draft.pick_started_at = None
     sync_current_slot_and_clock(session, draft)
-    slots2 = slots_ordered(session, draft.id)
-    _finalize_if_done(session, draft, slots2)
+    _finalize_if_done(session, draft, slots_after)
     invalidate_expansion_eligible_cache(draft.id)
     return None
 
@@ -853,6 +888,7 @@ def undo_last_pick(session: Session, draft: LeagueExpansionDraft) -> str | None:
             break
     draft.awaiting_admin_resolution = False
     draft.deadline_extended_for_slot = False
+    draft.expansion_pick_cooldown_active = False
     draft.timer_paused = False
     draft.timer_paused_remaining_seconds = None
     sync_current_slot_and_clock(session, draft)

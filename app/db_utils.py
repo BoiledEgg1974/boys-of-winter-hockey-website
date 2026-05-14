@@ -1265,4 +1265,11 @@ def ensure_league_expansion_draft_columns_sqlite(engine: Engine) -> None:
             conn.execute(
                 text("ALTER TABLE league_expansion_drafts ADD COLUMN skater_phase_first_team_id INTEGER")
             )
+        if "expansion_pick_cooldown_active" not in cols:
+            conn.execute(
+                text(
+                    "ALTER TABLE league_expansion_drafts "
+                    "ADD COLUMN expansion_pick_cooldown_active BOOLEAN NOT NULL DEFAULT 0"
+                )
+            )
         conn.commit()

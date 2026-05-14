@@ -652,6 +652,7 @@ class LeagueExpansionDraft(db.Model):
     timer_paused: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     timer_paused_remaining_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     deadline_extended_for_slot: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    expansion_pick_cooldown_active: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     awaiting_admin_resolution: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     board_ranks_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     completed_summary_json: Mapped[str | None] = mapped_column(Text, nullable=True)

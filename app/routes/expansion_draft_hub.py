@@ -305,6 +305,7 @@ def expansion_draft_api_state():
         mem
         and draft.status == "live"
         and not draft.awaiting_admin_resolution
+        and not getattr(draft, "expansion_pick_cooldown_active", False)
         and current_slot
         and mem.team_id == current_slot["team_id"]
         and int(mem.team_id) in exp_set
@@ -315,6 +316,7 @@ def expansion_draft_api_state():
         current_user.is_authenticated
         and getattr(current_user, "is_admin", False)
         and draft.status == "live"
+        and not getattr(draft, "expansion_pick_cooldown_active", False)
         and current_slot
     )
     can_admin_control = bool(

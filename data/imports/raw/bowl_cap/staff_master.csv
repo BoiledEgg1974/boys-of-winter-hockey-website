@@ -694,7 +694,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 692;56;Bryan;Pfeffer;;1939-10-24;Mauriceville;TX;The United States;;;0
 693;-1;Marshall;Churches;;1939-12-17;Redlands;CA;The United States;;;0
 694;56;Wendell;Ince;;1939-1-27;Jackson;OH;The United States;;;0
-695;56;Daniel;Sprayberry;;1939-7-25;Colorado Springs;CO;The United States;;;0
+695;5;Daniel;Sprayberry;;1939-7-25;Colorado Springs;CO;The United States;;;0
 696;5;Ross;Tamblyn;;1939-9-16;Hialeah;FL;The United States;;;0
 697;56;Steven;McClements;;1944-9-4;Brooklyn;NY;The United States;;;0
 698;56;Hal;Fletcher;;1943-4-17;Englewood;NJ;The United States;;;0
@@ -1952,7 +1952,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1950;-1;Jim;Bedard;;1956-11-17;Niagara Falls;ON;Canada;;;0
 1951;-1;Mario;Tremblay;;1956-9-2;Acton Vale;QC;Canada;;;0
 1952;-1;Newell;Brown;;1962-2-14;Cornwall;ON;Canada;;;0
-1953;5;Roy;Sommer;;1957-4-5;Oildale;CA;The United States;;;0
+1953;-1;Roy;Sommer;;1957-4-5;Oildale;CA;The United States;;;0
 1954;21;Benoît;Allaire;;1961-1-1;Murdochville;QC;Canada;;;0
 1955;-1;Dave;MacQueen;;1959-2-8;Woodstock;ON;Canada;;;0
 1956;70;Tom;Renney;;1955-3-1;Cultus Lake;BC;Canada;;;0
@@ -2216,7 +2216,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 2214;-1;Mikaël;Carrier;;1957-9-23;Saguenay;QC;Canada;;;0
 2215;-1;Josh;Hampson;;1952-3-21;Farmington Hills;MI;The United States;;;0
 2216;-1;Morris;MacCrie;;1950-1-30;Akron;OH;The United States;;;0
-2217;5;Jack;Green;;1954-8-17;Mississauga;ON;The United States;;;0
+2217;-1;Jack;Green;;1954-8-17;Mississauga;ON;The United States;;;0
 2218;227;Nick;Sanford;;1949-7-6;Hicksville;NY;The United States;;;0
 2219;227;Bob;Weber;;1949-6-12;Knoxville;TN;The United States;;;0
 2220;227;John;Schmid;;1958-4-10;Austin;TX;The United States;;;0

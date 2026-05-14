@@ -642,7 +642,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 640;-1;Tom;Sanders;;1911-3-18;Markham;ON;Canada;;;0
 641;-1;Casey;Russell;;1911-8-7;Campbellton;NB;Canada;;;0
 642;-1;Gabriel;Gray;;1915-10-10;East Lansing;MI;The United States;;;0
-643;5;Jordan;Filippelli;;1911-5-22;Toronto;ON;Canada;;;0
+643;-1;Jordan;Filippelli;;1911-5-22;Toronto;ON;Canada;;;0
 644;-1;Elliot;Tsui;;1914-4-25;Lévis;QC;Canada;;;0
 645;-1;Lucas;Bédard;;1911-10-28;Hoover;AL;The United States;;;0
 646;19;Paul;Riley;;1911-10-2;Ajax;ON;Canada;;;0

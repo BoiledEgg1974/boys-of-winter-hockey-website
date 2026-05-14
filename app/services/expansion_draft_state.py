@@ -791,7 +791,8 @@ def record_pick(
 ) -> str | None:
     if draft.status != "live":
         return "Draft is not live."
-    if getattr(draft, "expansion_pick_cooldown_active", False):
+    # GMs wait out the short inter-pick cooldown; commissioner (admin) can always record.
+    if getattr(draft, "expansion_pick_cooldown_active", False) and source != "admin":
         return "Brief pause between picks — try again in a few seconds."
     if draft.awaiting_admin_resolution and source != "admin":
         return "Waiting for commissioner to resolve this pick."

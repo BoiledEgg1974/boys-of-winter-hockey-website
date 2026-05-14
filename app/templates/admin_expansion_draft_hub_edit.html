@@ -208,6 +208,8 @@
     </form>
   </div>
   <h3>Commissioner pick</h3>
+  <p class="muted small" style="margin:0 0 0.5rem;">Use the league site <strong>player id</strong> from the player profile URL (for example <code>/player/12345</code>), not an FHM roster id. If the form shows an error, the pick was not saved.</p>
+  <p class="muted small" style="margin:0 0 0.75rem;">Draft history for this event is on the <a href="{{ url_for('expansion_draft_hub.expansion_draft_hub_page') }}">Expansion Draft Hub</a> (it refreshes automatically every few seconds). This admin page does not list picks.</p>
   <form method="post" class="card" style="padding:1rem;margin-bottom:1rem;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="admin_pick">

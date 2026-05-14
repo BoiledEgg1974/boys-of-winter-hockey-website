@@ -460,6 +460,9 @@ def expansion_draft_eligible_page():
             }
         )
     return jsonify({"ok": True, "players": out, "total": total, "offset": offset, "limit": limit})
+
+
+@expansion_draft_hub_bp.post("/pick")
 @login_required
 def expansion_draft_pick():
     from flask_wtf.csrf import validate_csrf

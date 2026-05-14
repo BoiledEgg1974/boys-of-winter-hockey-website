@@ -373,9 +373,9 @@ def go_live(session: Session, draft: LeagueExpansionDraft, admin_user_id: int) -
         return "Generate draft slots before going live."
     n_rows = int(
         session.scalar(
-            select(func.count())
-            .select_from(LeagueExpansionDraftEligiblePlayer)
-            .where(LeagueExpansionDraftEligiblePlayer.league_expansion_draft_id == draft.id)
+            select(func.count(LeagueExpansionDraftEligiblePlayer.id)).where(
+                LeagueExpansionDraftEligiblePlayer.league_expansion_draft_id == draft.id
+            )
         )
         or 0
     )
@@ -514,21 +514,28 @@ def _rights_holder_team_id_from_maps(
 def _eligible_cache_bump_parts(session: Session, draft: LeagueExpansionDraft) -> tuple[int, float, int, int]:
     n_picks = int(
         session.scalar(
-            select(func.count())
-            .select_from(LeagueExpansionDraftPick)
-            .where(LeagueExpansionDraftPick.league_expansion_draft_id == draft.id)
+            select(func.count(LeagueExpansionDraftPick.id)).where(
+                LeagueExpansionDraftPick.league_expansion_draft_id == draft.id
+            )
         )
         or 0
     )
     n_elig = int(
         session.scalar(
-            select(func.count())
-            .select_from(LeagueExpansionDraftEligiblePlayer)
-            .where(LeagueExpansionDraftEligiblePlayer.league_expansion_draft_id == draft.id)
+            select(func.count(LeagueExpansionDraftEligiblePlayer.id)).where(
+                LeagueExpansionDraftEligiblePlayer.league_expansion_draft_id == draft.id
+            )
         )
         or 0
     )
-    ts = draft.updated_at.timestamp() if draft.updated_at else 0.0
+    ua = getattr(draft, "updated_at", None)
+    if isinstance(ua, datetime):
+        try:
+            ts = ua.timestamp()
+        except (OSError, OverflowError, ValueError):
+            ts = 0.0
+    else:
+        ts = 0.0
     return (int(draft.id), ts, n_picks, n_elig)
 
 

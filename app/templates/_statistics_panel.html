@@ -212,7 +212,8 @@
             <td {% if g_sort == 'rank' %}class="stats-td-sorted"{% endif %}>{{ loop.index }}</td>
             <td {% if g_sort == 'player' %}class="stats-td-sorted"{% endif %}>
               <span class="stats-player-cell">
-                {% if row.team_id and teams_by_id.get(row.team_id) %}{{ team_logo_only(teams_by_id.get(row.team_id)) }}{% endif %}
+                {% set _logo_t = (statistics_logo_team_by_player_id or {}).get(pl.id) %}
+                {% if _logo_t %}{{ team_logo_only(_logo_t) }}{% endif %}
                 <a class="stats-player-cell__photo" href="{{ url_for('main.player_page', player_id=pl.id) }}">
                   {% if player_headshot_url(pl) %}
                   <img src="{{ player_headshot_url(pl) }}" alt="">
@@ -305,7 +306,8 @@
             <td {% if sort == 'rank' %}class="stats-td-sorted"{% endif %}>{{ loop.index }}</td>
             <td {% if sort == 'player' %}class="stats-td-sorted"{% endif %}>
               <span class="stats-player-cell">
-                {% if row.team_id and teams_by_id.get(row.team_id) %}{{ team_logo_only(teams_by_id.get(row.team_id)) }}{% endif %}
+                {% set _logo_t = (statistics_logo_team_by_player_id or {}).get(pl.id) %}
+                {% if _logo_t %}{{ team_logo_only(_logo_t) }}{% endif %}
                 <a class="stats-player-cell__photo" href="{{ url_for('main.player_page', player_id=pl.id) }}">
                   {% if player_headshot_url(pl) %}
                   <img src="{{ player_headshot_url(pl) }}" alt="">

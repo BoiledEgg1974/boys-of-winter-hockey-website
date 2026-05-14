@@ -11,7 +11,7 @@ from pathlib import Path
 from flask import Blueprint, abort, current_app, render_template, request, url_for
 from flask_login import current_user
 from sqlalchemy import case, cast, extract, Float, func, not_, nulls_last, or_, select
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 
 from app.config import (
     BASE_DIR,
@@ -49,7 +49,7 @@ from app.services.all_time_records import (
     fetch_goalie_all_time,
     fetch_skater_all_time,
 )
-from app.services.roster_team import main_league_roster_team
+from app.services.roster_team import contract_team_from_loaded_maps, main_league_roster_team
 from app.services.draft_history import (
     build_career_stat_maps,
     draft_team_fhm_ids_for_player,
@@ -678,6 +678,25 @@ def standings():
     )
 
 
+def _statistics_player_logo_team(
+    pl: Player,
+    stat_row: PlayerSkaterStat | PlayerGoalieStat,
+    teams_by_id: dict[int, Team],
+    team_by_fhm_id: dict[str, Team],
+) -> Team | None:
+    """Logo next to a stats row: main-league roster club (contract / current), else stat ``team_id``."""
+    ct = contract_team_from_loaded_maps(pl, team_by_fhm_id)
+    main = main_league_roster_team(ct, pl.current_team)
+    if main is not None and main.id in teams_by_id:
+        return teams_by_id[main.id]
+    if pl.current_team_id and pl.current_team_id in teams_by_id:
+        return teams_by_id[pl.current_team_id]
+    st_tid = getattr(stat_row, "team_id", None)
+    if st_tid and st_tid in teams_by_id:
+        return teams_by_id[st_tid]
+    return None
+
+
 def _build_statistics_view_vars(
     locked_team_id: int | None = None,
     locked_team_slug: str | None = None,
@@ -736,6 +755,7 @@ def _build_statistics_view_vars(
             "statistics_collapsed_url": "",
             "stats_page_limit": stats_page_limit,
             "player_overall_by_id": {},
+            "statistics_logo_team_by_player_id": {},
         }
 
     sk_gp_nf = func.nullif(PlayerSkaterStat.gp, 0)
@@ -812,11 +832,17 @@ def _build_statistics_view_vars(
     if sort not in sk_order_map and sort != "ova":
         sort = "points"
 
-    sk_q = select(PlayerSkaterStat, Player).join(
-        Player, PlayerSkaterStat.player_id == Player.id
-    ).where(
-        PlayerSkaterStat.season_id == season.id,
-        PlayerSkaterStat.stat_segment == segment,
+    sk_q = (
+        select(PlayerSkaterStat, Player)
+        .join(Player, PlayerSkaterStat.player_id == Player.id)
+        .options(
+            selectinload(PlayerSkaterStat.player).selectinload(Player.current_team),
+            selectinload(PlayerSkaterStat.player).selectinload(Player.contract),
+        )
+        .where(
+            PlayerSkaterStat.season_id == season.id,
+            PlayerSkaterStat.stat_segment == segment,
+        )
     )
     if bowl_fhm_for_fantasy is not None:
         sk_q = sk_q.join(Team, PlayerSkaterStat.team_id == Team.id).where(
@@ -890,11 +916,17 @@ def _build_statistics_view_vars(
             sk_q = sk_q.limit(stats_full_limit)
         skaters = db.session.execute(sk_q).all()
 
-    gq = select(PlayerGoalieStat, Player).join(
-        Player, PlayerGoalieStat.player_id == Player.id
-    ).where(
-        PlayerGoalieStat.season_id == season.id,
-        PlayerGoalieStat.stat_segment == segment,
+    gq = (
+        select(PlayerGoalieStat, Player)
+        .join(Player, PlayerGoalieStat.player_id == Player.id)
+        .options(
+            selectinload(PlayerGoalieStat.player).selectinload(Player.current_team),
+            selectinload(PlayerGoalieStat.player).selectinload(Player.contract),
+        )
+        .where(
+            PlayerGoalieStat.season_id == season.id,
+            PlayerGoalieStat.stat_segment == segment,
+        )
     )
     if bowl_fhm_for_fantasy is not None:
         gq = gq.join(Team, PlayerGoalieStat.team_id == Team.id).where(
@@ -975,6 +1007,21 @@ def _build_statistics_view_vars(
     _stat_baselines = fetch_overall_baselines_by_player_ids(db.session, _stat_ids)
     player_overall_by_id = overall_cell_map_for_players(_stat_pairs, _stat_baselines)
 
+    team_by_fhm_id = {
+        str(t.fhm_team_id).strip(): t
+        for t in teams
+        if t.fhm_team_id is not None and str(t.fhm_team_id).strip() != ""
+    }
+    statistics_logo_team_by_player_id: dict[int, Team | None] = {}
+    for row, pl in skaters:
+        statistics_logo_team_by_player_id[pl.id] = _statistics_player_logo_team(
+            pl, row, teams_by_id, team_by_fhm_id
+        )
+    for row, pl in goalies_list:
+        statistics_logo_team_by_player_id[pl.id] = _statistics_player_logo_team(
+            pl, row, teams_by_id, team_by_fhm_id
+        )
+
     _stat_params: dict[str, object] = {
         "segment": segment,
         "sort": sort,
@@ -1022,6 +1069,7 @@ def _build_statistics_view_vars(
         "statistics_collapsed_url": statistics_collapsed_url,
         "stats_page_limit": stats_page_limit,
         "player_overall_by_id": player_overall_by_id,
+        "statistics_logo_team_by_player_id": statistics_logo_team_by_player_id,
     }
 
 

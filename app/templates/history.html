@@ -16,16 +16,16 @@
 {{- a.season_id -}}
 {%- endif -%}
 {%- endmacro %}
-{# Prefer award season team (inferred from season game logs), then explicit award.team. #}
+{# Explicit CSV team_id, then inferred trophy-year club (RS stats / career / games). #}
 {% macro history_award_player_team(pl, award=none) -%}
 {%- if not pl -%}
 <span class="muted">—</span>
+{%- elif award and award.team_id is not none and award.team -%}
+{{ team_logo_only(award.team, season=award.season) }}
 {%- elif award and award.season_team -%}
 {{ team_logo_only(award.season_team, season=award.season) }}
 {%- elif award and award.team -%}
 {{ team_logo_only(award.team, season=award.season) }}
-{%- elif pl.retired -%}
-<span class="records-team-retired">Retired</span>
 {%- else -%}
 <span class="muted">—</span>
 {%- endif -%}

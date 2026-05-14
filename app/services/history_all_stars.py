@@ -109,6 +109,42 @@ def _season_ids_for_all_star_label(session: Session, label: str) -> list[int]:
     return matched
 
 
+def team_id_from_rs_stats_for_sheet_label(session: Session, player_id: int, sheet_label: str) -> int | None:
+    """RS roster team id for ``player_id`` in ``Season`` rows matching ``sheet_label`` (e.g. ``1967-68``)."""
+    lab = _normalize_all_star_sheet_label(sheet_label or "")
+    if not lab:
+        return None
+    sids = _season_ids_for_all_star_label(session, lab)
+    if not sids:
+        return None
+    pid = int(player_id)
+    sk = session.scalars(
+        select(PlayerSkaterStat)
+        .where(
+            PlayerSkaterStat.player_id == pid,
+            PlayerSkaterStat.season_id.in_(sids),
+            PlayerSkaterStat.stat_segment == "rs",
+            PlayerSkaterStat.team_id.isnot(None),
+        )
+        .order_by(PlayerSkaterStat.gp.desc())
+    ).first()
+    if sk is not None and sk.team_id is not None:
+        return int(sk.team_id)
+    gk = session.scalars(
+        select(PlayerGoalieStat)
+        .where(
+            PlayerGoalieStat.player_id == pid,
+            PlayerGoalieStat.season_id.in_(sids),
+            PlayerGoalieStat.stat_segment == "rs",
+            PlayerGoalieStat.team_id.isnot(None),
+        )
+        .order_by(PlayerGoalieStat.gp.desc())
+    ).first()
+    if gk is not None and gk.team_id is not None:
+        return int(gk.team_id)
+    return None
+
+
 def attach_history_all_star_season_teams(session: Session, rows: list[HistoryAllStar]) -> None:
     """Set ``season_team`` for logo display: roster stats for that season, else career/game inference.
 
@@ -127,34 +163,9 @@ def attach_history_all_star_season_teams(session: Session, rows: list[HistoryAll
         if row.player_id is None:
             continue
         lab = history_all_star_season_label(row)
-        sids = _season_ids_for_all_star_label(session, lab)
-        if not sids:
-            continue
-        sk = session.scalars(
-            select(PlayerSkaterStat)
-            .where(
-                PlayerSkaterStat.player_id == int(row.player_id),
-                PlayerSkaterStat.season_id.in_(sids),
-                PlayerSkaterStat.stat_segment == "rs",
-                PlayerSkaterStat.team_id.isnot(None),
-            )
-            .order_by(PlayerSkaterStat.gp.desc())
-        ).first()
-        if sk is not None and sk.team_id is not None:
-            season_team_id_by_row_id[row.id] = int(sk.team_id)
-            continue
-        gk = session.scalars(
-            select(PlayerGoalieStat)
-            .where(
-                PlayerGoalieStat.player_id == int(row.player_id),
-                PlayerGoalieStat.season_id.in_(sids),
-                PlayerGoalieStat.stat_segment == "rs",
-                PlayerGoalieStat.team_id.isnot(None),
-            )
-            .order_by(PlayerGoalieStat.gp.desc())
-        ).first()
-        if gk is not None and gk.team_id is not None:
-            season_team_id_by_row_id[row.id] = int(gk.team_id)
+        tid = team_id_from_rs_stats_for_sheet_label(session, int(row.player_id), lab)
+        if tid is not None:
+            season_team_id_by_row_id[row.id] = tid
 
     key_rows: list[tuple[int, int, HistoryAllStar]] = []
     for row in rows:

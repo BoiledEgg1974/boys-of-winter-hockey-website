@@ -117,6 +117,7 @@ from app.services.history_coach_awards import (
 from app.services.history_all_stars import (
     all_star_logo_start_year_for_row,
     build_history_all_stars_bundle,
+    team_id_from_rs_stats_for_sheet_label,
 )
 from app.services.history_team_awards import is_team_history_award
 from app.services.player_history_award_badges import player_history_award_badges, team_history_award_badges
@@ -1262,12 +1263,23 @@ def _history_award_start_year(a: HistoryAward) -> int | None:
     return None
 
 
-def _attach_history_award_season_teams(awards: list[HistoryAward]) -> None:
-    """Annotate awards with ``season_team`` resolved for the winner's season.
+def _history_award_sheet_label_for_stats(a: HistoryAward) -> str:
+    """``YYYY-YY`` token for RS stat / career lookup (notes first, else a parseable ``Season.label``)."""
+    tok = _history_award_sheet_season_from_notes(a.notes)
+    if tok:
+        return tok
+    lab = (getattr(a.season, "label", None) or "").strip()
+    if lab and _SHEET_SEASON_LABEL_RE.match(lab):
+        return lab
+    return ""
 
-    For player awards that do not store ``team_id``, infer team by counting game-stat rows
-    for that player in the award season window (start year and start+1), choosing the team
-    with the most appearances.
+
+def _attach_history_award_season_teams(awards: list[HistoryAward]) -> None:
+    """Annotate player awards with ``season_team`` for the trophy year (logos on League History).
+
+    Order: RS stats when ``Season`` rows match the sheet label; career for that calendar year
+    (±1); game counts in start year and neighbors; latest career season on or before the start
+    year (covers winners with no row exactly matching the trophy year).
     """
     key_rows: list[tuple[int, int, HistoryAward]] = []
     for a in awards:
@@ -1278,15 +1290,26 @@ def _attach_history_award_season_teams(awards: list[HistoryAward]) -> None:
     if not key_rows:
         return
 
-    player_ids = sorted({pid for pid, _, _ in key_rows})
-    season_years = sorted({sy for _, sy, _ in key_rows})
-    # player_id -> year -> team_id -> appearances
+    season_team_id_by_award_id: dict[int, int] = {}
+
+    for pid, sy, a in key_rows:
+        lab = _history_award_sheet_label_for_stats(a)
+        tid = team_id_from_rs_stats_for_sheet_label(db.session, pid, lab)
+        if tid is not None:
+            season_team_id_by_award_id[a.id] = tid
+
+    remaining = [(pid, sy, a) for pid, sy, a in key_rows if a.id not in season_team_id_by_award_id]
+    if not remaining:
+        _materialize_history_award_season_teams(awards, season_team_id_by_award_id)
+        return
+
+    player_ids = sorted({pid for pid, _, _ in remaining})
+    max_sy = max(sy for _, sy, _ in remaining)
     by_player_year_team: dict[int, dict[int, dict[int, int]]] = {}
-    # (player_id, season_year) -> (gp, team_id, team_fhm_id)
     career_best: dict[tuple[int, int], tuple[int, int | None, int | None]] = {}
 
-    def _add_career_rows(rows: list[tuple[object, object, object, object, object]]) -> None:
-        for pid_raw, year_raw, gp_raw, team_id_raw, team_fhm_raw in rows:
+    def _add_career_rows(rows_in: list[tuple[object, object, object, object, object]]) -> None:
+        for pid_raw, year_raw, gp_raw, team_id_raw, team_fhm_raw in rows_in:
             try:
                 pid = int(pid_raw)
                 year = int(year_raw)
@@ -1308,8 +1331,8 @@ def _attach_history_award_season_teams(awards: list[HistoryAward]) -> None:
             if prev is None or gp > prev[0]:
                 career_best[k] = (gp, team_id, team_fhm_id)
 
-    def _add_counts(rows: list[tuple[object, object, object, object]]) -> None:
-        for pid_raw, year_raw, team_id_raw, n_raw in rows:
+    def _add_counts(rows_in: list[tuple[object, object, object, object]]) -> None:
+        for pid_raw, year_raw, team_id_raw, n_raw in rows_in:
             try:
                 pid = int(pid_raw)
                 year = int(year_raw)
@@ -1329,7 +1352,7 @@ def _attach_history_award_season_teams(awards: list[HistoryAward]) -> None:
             PlayerSkaterCareerLine.team_fhm_id,
         ).where(
             PlayerSkaterCareerLine.player_id.in_(player_ids),
-            PlayerSkaterCareerLine.season_year.in_(season_years),
+            PlayerSkaterCareerLine.season_year <= max_sy,
         )
     ).all()
     _add_career_rows(sk_career)
@@ -1343,7 +1366,7 @@ def _attach_history_award_season_teams(awards: list[HistoryAward]) -> None:
             PlayerGoalieCareerLine.team_fhm_id,
         ).where(
             PlayerGoalieCareerLine.player_id.in_(player_ids),
-            PlayerGoalieCareerLine.season_year.in_(season_years),
+            PlayerGoalieCareerLine.season_year <= max_sy,
         )
     ).all()
     _add_career_rows(gk_career)
@@ -1385,7 +1408,6 @@ def _attach_history_award_season_teams(awards: list[HistoryAward]) -> None:
     if not by_player_year_team:
         by_player_year_team = {}
 
-    season_team_id_by_award_id: dict[int, int] = {}
     team_fhm_ids = sorted(
         {
             int(v[2])
@@ -1401,26 +1423,56 @@ def _attach_history_award_season_teams(awards: list[HistoryAward]) -> None:
             if t.fhm_team_id is not None and str(t.fhm_team_id).strip() != ""
         }
 
-    for pid, sy, a in key_rows:
+    def _resolve_career_tuple(car: tuple[int, int | None, int | None] | None) -> int | None:
+        if car is None:
+            return None
+        _, car_team_id, car_team_fhm = car
+        if car_team_id is not None and int(car_team_id) > 0:
+            return int(car_team_id)
+        if car_team_fhm is not None and car_team_fhm in team_by_fhm:
+            return int(team_by_fhm[car_team_fhm].id)
+        return None
+
+    for pid, sy, a in remaining:
         car = career_best.get((pid, sy))
-        if car is not None:
-            _, car_team_id, car_team_fhm = car
-            if car_team_id is not None:
-                season_team_id_by_award_id[a.id] = car_team_id
-                continue
-            if car_team_fhm is not None and car_team_fhm in team_by_fhm:
-                season_team_id_by_award_id[a.id] = team_by_fhm[car_team_fhm].id
-                continue
+        tid = _resolve_career_tuple(car)
+        if tid is None:
+            for alt in (sy - 1, sy + 1):
+                tid = _resolve_career_tuple(career_best.get((pid, alt)))
+                if tid is not None:
+                    break
+        if tid is not None:
+            season_team_id_by_award_id[a.id] = tid
+            continue
 
         team_counts: dict[int, int] = {}
-        for yr in (sy, sy + 1):
+        for yr in (sy - 1, sy, sy + 1):
             for team_id, n in by_player_year_team.get(pid, {}).get(yr, {}).items():
                 team_counts[team_id] = team_counts.get(team_id, 0) + n
-        if not team_counts:
+        if team_counts:
+            best_team_id = max(team_counts.items(), key=lambda x: (x[1], -x[0]))[0]
+            season_team_id_by_award_id[a.id] = best_team_id
             continue
-        best_team_id = max(team_counts.items(), key=lambda x: (x[1], -x[0]))[0]
-        season_team_id_by_award_id[a.id] = best_team_id
 
+        best_year: int | None = None
+        best_gp = -1
+        best_car: tuple[int, int | None, int | None] | None = None
+        for (p, y), car in career_best.items():
+            if p != pid or y > sy:
+                continue
+            gp, _, _ = car
+            if best_year is None or y > best_year or (y == best_year and gp > best_gp):
+                best_year = y
+                best_gp = gp
+                best_car = car
+        tid = _resolve_career_tuple(best_car)
+        if tid is not None:
+            season_team_id_by_award_id[a.id] = tid
+
+    _materialize_history_award_season_teams(awards, season_team_id_by_award_id)
+
+
+def _materialize_history_award_season_teams(awards: list[HistoryAward], season_team_id_by_award_id: dict[int, int]) -> None:
     if not season_team_id_by_award_id:
         return
     teams = {

@@ -116,17 +116,17 @@
       }
       return rows;
     }
-    var goalieLabels = ['Goalie #1', 'Goalie #2', 'Goalie #3', 'Goalie #4', 'Goalie #5'];
+    var goalieLabels = ['G #1', 'G #2', 'G #3', 'G #4', 'G #5'];
     var ldLabels = [];
-    for (var li = 1; li <= 6; li++) ldLabels.push('LD #' + li + ' (Left Defense)');
+    for (var li = 1; li <= 6; li++) ldLabels.push('LD #' + li);
     var rdLabels = [];
-    for (var ri = 1; ri <= 6; ri++) rdLabels.push('RD #' + ri + ' (Right Defense)');
+    for (var ri = 1; ri <= 6; ri++) rdLabels.push('RD #' + ri);
     var lwLabels = [];
-    for (var wi = 1; wi <= 7; wi++) lwLabels.push('LW #' + wi + ' (Left Wing)');
+    for (var wi = 1; wi <= 7; wi++) lwLabels.push('LW #' + wi);
     var cLabels = [];
-    for (var ci = 1; ci <= 7; ci++) cLabels.push('C #' + ci + ' (Center)');
+    for (var ci = 1; ci <= 7; ci++) cLabels.push('C #' + ci);
     var rwLabels = [];
-    for (var rj = 1; rj <= 7; rj++) rwLabels.push('RW #' + rj + ' (Right Wing)');
+    for (var rj = 1; rj <= 7; rj++) rwLabels.push('RW #' + rj);
     var brand = '';
     if (rt.team_logo_url) {
       brand = '<div class="draft-hub-roster-tracker__brand"><img src="' + esc(rt.team_logo_url) + '" alt="' + esc(rt.team_name || 'Expansion team') + ' logo" width="56" height="56" loading="lazy" decoding="async"></div>';
@@ -135,9 +135,11 @@
     }
     var sub = rt.subtitle ? '<p class="draft-hub-roster-tracker__sub muted small">' + esc(rt.subtitle) + '</p>' : '';
     var h = '<aside class="draft-hub-roster-tracker card" aria-label="Expansion roster build">';
+    h += '<div class="draft-hub-roster-tracker__top">';
     h += '<h2 class="draft-hub-roster-tracker__title">Roster build</h2>';
-    h += sub;
     h += brand;
+    h += '</div>';
+    h += sub;
     h += '<div class="table-wrap draft-hub-roster-tracker__wrap"><table class="data draft-hub-roster-tracker__table">';
     h += '<thead><tr><th class="draft-hub-roster-tracker__th-slot">Slot</th><th>Position &amp; Name</th><th>Old Team</th></tr></thead>';
     h += '<tbody class="draft-hub-roster-tracker__tbody draft-hub-roster-tracker__tbody--g">';

@@ -109,7 +109,7 @@
   {% endif %}
 
   <h2>Eligible players (unprotected pool)</h2>
-  <p class="muted">Check every player who should appear on the Expansion Draft Hub board (age <strong>21+</strong> as of the league timeline — same reference date as player ages on the site, usually July&nbsp;1 of the current season). Each club lists: <strong>BOWL roster</strong> (assigned to the big club), <strong>minors / affiliates</strong> (under contract but not on the BOWL roster), and <strong>org / export rights</strong> (from <code>player_rights.csv</code> in this league’s raw import folder, plus prospect-only rows when there is no contract line). Save before going live.</p>
+  <p class="muted">Check every player who should appear on the Expansion Draft Hub board (age <strong>21+</strong> as of the league timeline — same reference date as player ages on the site, usually July&nbsp;1 of the current season). Players marked <strong>UFA</strong> on their contract in the database are omitted from this list and cannot be drafted. Each club lists: <strong>BOWL roster</strong> (assigned to the big club), <strong>minors / affiliates</strong> (under contract but not on the BOWL roster), and <strong>org / export rights</strong> (from <code>player_rights.csv</code> in this league’s raw import folder, plus prospect-only rows when there is no contract line). Save before going live.</p>
   <form method="post" class="card" style="padding:1rem;margin-bottom:1rem;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="save_eligible">

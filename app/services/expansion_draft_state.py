@@ -10,7 +10,7 @@ from typing import Any
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, joinedload
 
-from app.models import Player, Prospect, Team
+from app.models import Player, PlayerContract, Prospect, Team
 from app.services.draft_hub_eligibility import age_as_of
 from app.services.roster_team import organization_main_team, organization_main_team_from_maps
 from app.services.seasons import get_current_season, season_age_reference_date
@@ -30,6 +30,29 @@ from app.site_models import (
 _FORWARD_TOKENS = frozenset({"LW", "C", "RW"})
 _DEFENSE_TOKENS = frozenset({"LD", "RD"})
 _EXPANSION_BOARD_MIN_AGE = 21
+
+
+def player_is_unrestricted_free_agent(pl: Player) -> bool:
+    """True when the league DB marks the player's contract as UFA (same signal as the free-agent list)."""
+    c = getattr(pl, "contract", None)
+    if c is None:
+        return False
+    return bool(getattr(c, "is_ufa", False))
+
+
+def ufa_contract_player_ids(session: Session, player_ids: set[int]) -> set[int]:
+    if not player_ids:
+        return set()
+    return {
+        int(x)
+        for x in session.scalars(
+            select(PlayerContract.player_id).where(
+                PlayerContract.player_id.in_(player_ids),
+                PlayerContract.is_ufa.is_(True),
+            )
+        ).all()
+        if x is not None
+    }
 
 
 def _expansion_board_age_ok(pl: Player) -> bool:
@@ -591,6 +614,8 @@ def _compute_eligible_player_ids_ordered(
     for pl in players:
         if int(pl.id) in picked:
             continue
+        if player_is_unrestricted_free_agent(pl):
+            continue
         loss_tid = _rights_holder_team_id_from_maps(pl, prospect_by, team_by_id, team_by_fhm_id)
         if loss_tid is not None and int(loss_tid) in blocked_teams:
             continue
@@ -700,6 +725,8 @@ def validate_pick(
     )
     if not elig:
         return "Player is not in the eligible pool."
+    if player_is_unrestricted_free_agent(pl):
+        return "Unrestricted free agents cannot be selected in the expansion draft."
     if not _expansion_board_age_ok(pl):
         return "Player is under 21 (league age) and cannot be selected in the expansion draft."
     if int(pl.id) in picked_player_ids(session, draft.id):
@@ -828,12 +855,14 @@ def undo_last_pick(session: Session, draft: LeagueExpansionDraft) -> str | None:
 
 def replace_eligible_players(session: Session, draft: LeagueExpansionDraft, player_ids: set[int]) -> None:
     """Replace the saved eligible-player pool for a draft in setup (admin UI)."""
+    pids = {int(p) for p in player_ids}
+    pids -= ufa_contract_player_ids(session, pids)
     session.execute(
         delete(LeagueExpansionDraftEligiblePlayer).where(
             LeagueExpansionDraftEligiblePlayer.league_expansion_draft_id == draft.id
         )
     )
-    for pid in sorted(int(p) for p in player_ids):
+    for pid in sorted(pids):
         session.add(
             LeagueExpansionDraftEligiblePlayer(
                 league_expansion_draft_id=draft.id,

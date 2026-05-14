@@ -8371,12 +8371,20 @@ table.data.positional-rankings-table thead th {
   padding: 0.4rem 0.35rem;
   border-bottom: 1px solid rgb(51 65 85 / 0.85);
 }
+html:not([data-theme="light"]) table.data.positional-rankings-table thead th {
+  background: rgb(30 41 59 / 0.98);
+  border-bottom-color: rgb(100 116 139 / 0.55);
+}
 [data-theme="light"] table.data.positional-rankings-table thead th {
   background: rgb(30 41 59 / 0.92);
   color: #f8fafc;
 }
-table.data.positional-rankings-table tbody tr:nth-child(even) {
-  background: rgb(0 0 0 / 0.18);
+/* Dark: stronger zebra than black/alpha so rows read against the card */
+html:not([data-theme="light"]) table.data.positional-rankings-table tbody tr {
+  background: rgb(15 23 42 / 0.5);
+}
+html:not([data-theme="light"]) table.data.positional-rankings-table tbody tr:nth-child(even) {
+  background: rgb(30 41 59 / 0.72);
 }
 [data-theme="light"] table.data.positional-rankings-table tbody tr:nth-child(even) {
   background: rgb(15 23 42 / 0.04);
@@ -8446,6 +8454,11 @@ table.data.positional-rankings-table .positional-rankings__team-logo.prospects-r
   background: transparent;
   box-shadow: none;
 }
+/* Dark: transparent logo hit on all sites; rim + lift keeps crests legible (matches Fantasy treatment). */
+html:not([data-theme="light"]) table.data.positional-rankings-table .positional-rankings__team-logo.prospects-rankings-table__team-logo-hit {
+  background: transparent;
+  box-shadow: none;
+}
 [data-theme="light"] table.data.positional-rankings-table .positional-rankings__team-logo.prospects-rankings-table__team-logo-hit {
   background: transparent;
 }
@@ -8457,9 +8470,9 @@ table.data.positional-rankings-table .positional-rankings__team-logo .prospects-
   object-fit: contain;
   object-position: center;
 }
-/* Dark UI: white JPEG/PNG mats multiply into the row; files with real alpha are unchanged visually. */
 html:not([data-theme="light"]) table.data.positional-rankings-table .positional-rankings__team-logo .prospects-rankings-table__team-logo-img {
-  mix-blend-mode: multiply;
+  mix-blend-mode: normal;
+  filter: brightness(1.1) contrast(1.08) drop-shadow(0 0 0.55px rgb(255 255 255 / 0.95)) drop-shadow(0 0 7px rgb(255 255 255 / 0.2)) drop-shadow(0 1px 4px rgb(0 0 0 / 0.62));
 }
 .positional-rankings__team-name {
   font-weight: 600;
@@ -8468,6 +8481,12 @@ html:not([data-theme="light"]) table.data.positional-rankings-table .positional-
 }
 .positional-rankings__team-name:hover {
   text-decoration: underline;
+}
+html:not([data-theme="light"]) .positional-rankings__team-name {
+  color: #e0f2fe;
+}
+html:not([data-theme="light"]) .positional-rankings__team-name:hover {
+  color: #f8fafc;
 }
 [data-theme="light"] .positional-rankings__team-name {
   color: var(--accent);

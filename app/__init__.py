@@ -29,6 +29,7 @@ from app.db_utils import (
     ensure_story_publish_schedule_extra_columns_sqlite,
     ensure_awards_voting_sqlite,
     ensure_member_watchlists_sqlite,
+    ensure_mobile_push_devices_sqlite,
     ensure_news_engagement_sqlite,
     ensure_admin_undo_actions_sqlite,
     ensure_discord_outbound_sqlite,
@@ -131,6 +132,7 @@ def create_app(config_class: type = Config) -> Flask:
             ensure_story_publish_schedule_extra_columns_sqlite(site_engine)
             ensure_awards_voting_sqlite(site_engine)
             ensure_member_watchlists_sqlite(site_engine)
+            ensure_mobile_push_devices_sqlite(site_engine)
             ensure_news_engagement_sqlite(site_engine)
             ensure_admin_undo_actions_sqlite(site_engine)
             ensure_discord_outbound_sqlite(site_engine)
@@ -425,6 +427,7 @@ def create_app(config_class: type = Config) -> Flask:
                     return url_for("static", filename=f"logos/{name}")
             return url_for("static", filename="logos/league-placeholder.svg")
 
+        from flask import has_request_context, request
         from flask_login import current_user
 
         from app.auth_login import active_membership_for_league
@@ -447,6 +450,10 @@ def create_app(config_class: type = Config) -> Flask:
                 ann = active_announcement(db.session, slug_layout)
             except Exception:
                 ann = None
+
+        admin_compact_layout = bool(
+            has_request_context() and str(getattr(request, "path", "") or "").startswith("/admin")
+        )
 
         header_team_logo_season = None
         if slug_layout in ("bowl-historical", "bowl-cap"):
@@ -478,6 +485,7 @@ def create_app(config_class: type = Config) -> Flask:
             gm_membership=gm_membership,
             gm_messages_unread=gm_messages_unread,
             active_site_announcement=ann,
+            admin_compact_layout=admin_compact_layout,
         )
 
     @app.cli.command("init-db")

@@ -1789,3 +1789,62 @@ def news_article_comment_post(article_id: int):
     if out.get("error"):
         return jsonify(out), 400
     return jsonify(out)
+
+
+@api_bp.post("/mobile/push-token")
+def mobile_push_token_register():
+    """Register or clear a device push token (FCM/APNs) for the current league site user."""
+    from datetime import datetime
+
+    slug = str(current_app.config.get("LEAGUE_SLUG") or "").strip()
+    if not slug:
+        return jsonify({"error": "no_league"}), 400
+    if not current_user.is_authenticated:
+        return jsonify({"error": "auth"}), 401
+
+    site_engine = db.engines.get("site")
+    if site_engine is None:
+        return jsonify({"error": "site_db_unavailable"}), 503
+
+    payload = request.get_json(silent=True) or {}
+    platform = str(payload.get("platform") or "").strip().lower()
+    token = str(payload.get("token") or "").strip()
+
+    if platform not in ("ios", "android"):
+        return jsonify({"error": "bad_platform"}), 400
+
+    uid = int(current_user.id)
+    now = datetime.utcnow()
+
+    if not token:
+        with site_engine.begin() as conn:
+            conn.execute(
+                text(
+                    "DELETE FROM mobile_push_devices "
+                    "WHERE user_id = :uid AND league_slug = :slug AND platform = :plat"
+                ),
+                {"uid": uid, "slug": slug, "plat": platform},
+            )
+        return jsonify({"ok": True, "cleared": True})
+
+    if len(token) > 4096:
+        return jsonify({"error": "bad_token"}), 400
+
+    with site_engine.begin() as conn:
+        conn.execute(
+            text(
+                """
+                INSERT INTO mobile_push_devices (
+                    user_id, league_slug, platform, device_token, created_at, updated_at
+                ) VALUES (
+                    :uid, :slug, :plat, :tok, :now, :now
+                )
+                ON CONFLICT(user_id, league_slug, platform) DO UPDATE SET
+                    device_token = excluded.device_token,
+                    updated_at = excluded.updated_at
+                """
+            ),
+            {"uid": uid, "slug": slug, "plat": platform, "tok": token, "now": now},
+        )
+
+    return jsonify({"ok": True})

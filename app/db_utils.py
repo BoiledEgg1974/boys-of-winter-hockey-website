@@ -1273,3 +1273,39 @@ def ensure_league_expansion_draft_columns_sqlite(engine: Engine) -> None:
                 )
             )
         conn.commit()
+
+
+def ensure_mobile_push_devices_sqlite(engine: Engine) -> None:
+    """Store FCM/APNs registration tokens per user and league (site DB, SQLite)."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='mobile_push_devices'")
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE mobile_push_devices (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    league_slug VARCHAR(64) NOT NULL,
+                    platform VARCHAR(16) NOT NULL,
+                    device_token TEXT NOT NULL,
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL,
+                    CONSTRAINT uq_mobile_push_user_league_platform
+                        UNIQUE (user_id, league_slug, platform)
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_mobile_push_league_user "
+                "ON mobile_push_devices (league_slug, user_id)"
+            )
+        )
+        conn.commit()

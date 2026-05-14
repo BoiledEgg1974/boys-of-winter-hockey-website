@@ -47,3 +47,13 @@ scripts/saved_game_csv_paths.json
 .idea/
 Thumbs.db
 .DS_Store
+
+# Mobile shell (Capacitor) — dependencies and local native artifacts
+mobile/node_modules/
+mobile/android/.gradle/
+mobile/android/app/build/
+mobile/android/build/
+mobile/android/local.properties
+mobile/ios/App/Pods/
+mobile/ios/DerivedData/
+mobile/ios/**/*.xcuserstate

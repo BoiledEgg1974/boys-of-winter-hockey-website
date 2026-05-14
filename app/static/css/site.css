@@ -4403,6 +4403,48 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
   word-break: break-word;
 }
 
+/* Admin — compact layout (phone / tablet Safari, in-app browser) */
+@media (max-width: 900px) {
+  body.admin-compact-layout .site-header .main-nav {
+    max-height: min(55vh, 22rem);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  body.admin-compact-layout #main-content {
+    padding-left: 0.65rem;
+    padding-right: 0.65rem;
+  }
+  body.admin-compact-layout #main-content table.data {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  body.admin-compact-layout #main-content table.data thead,
+  body.admin-compact-layout #main-content table.data tbody,
+  body.admin-compact-layout #main-content table.data tr {
+    width: max-content;
+    min-width: 100%;
+  }
+  body.admin-compact-layout .admin-ops-lane table.data {
+    min-width: 0;
+  }
+  body.admin-compact-layout .admin-news-body-btn,
+  body.admin-compact-layout .join-league-btn,
+  body.admin-compact-layout #main-content button[type="submit"]:not(.nav-toggle):not(.theme-toggle) {
+    min-height: 2.75rem;
+    padding: 0.45rem 0.85rem;
+  }
+  body.admin-compact-layout #main-content select,
+  body.admin-compact-layout #main-content input[type="text"],
+  body.admin-compact-layout #main-content input[type="number"],
+  body.admin-compact-layout #main-content input[type="search"] {
+    min-height: 2.75rem;
+    font-size: 1rem;
+  }
+}
+
 /* Admin — AP redemption queue table */
 .admin-ap-queue .data th {
   font-size: 0.72rem;

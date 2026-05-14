@@ -9,7 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
 </head>
-<body>
+<body{% if admin_compact_layout %} class="admin-compact-layout"{% endif %}>
   <header class="site-header" role="banner">
     <div class="header-row1">
       <div class="league-brand">

@@ -824,12 +824,16 @@ def undo_last_pick(session: Session, draft: LeagueExpansionDraft) -> str | None:
     sync_current_slot_and_clock(session, draft)
     invalidate_expansion_eligible_cache(draft.id)
     return None
+
+
+def replace_eligible_players(session: Session, draft: LeagueExpansionDraft, player_ids: set[int]) -> None:
+    """Replace the saved eligible-player pool for a draft in setup (admin UI)."""
     session.execute(
         delete(LeagueExpansionDraftEligiblePlayer).where(
             LeagueExpansionDraftEligiblePlayer.league_expansion_draft_id == draft.id
         )
     )
-    for pid in sorted(player_ids):
+    for pid in sorted(int(p) for p in player_ids):
         session.add(
             LeagueExpansionDraftEligiblePlayer(
                 league_expansion_draft_id=draft.id,

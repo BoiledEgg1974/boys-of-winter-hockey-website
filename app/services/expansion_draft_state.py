@@ -330,10 +330,12 @@ def _finalize_if_done(session: Session, draft: LeagueExpansionDraft, slots: list
     draft.timer_paused = False
     draft.timer_paused_remaining_seconds = None
     draft.awaiting_admin_resolution = False
-    draft.completed_summary_json = json.dumps(_simple_completion_summary(session, draft))
+    draft.completed_summary_json = json.dumps(_simple_completion_summary(session, draft, ended_early=False))
 
 
-def _simple_completion_summary(session: Session, draft: LeagueExpansionDraft) -> dict[str, Any]:
+def _simple_completion_summary(
+    session: Session, draft: LeagueExpansionDraft, *, ended_early: bool = False
+) -> dict[str, Any]:
     picks = list(
         session.scalars(
             select(LeagueExpansionDraftPick)
@@ -344,8 +346,32 @@ def _simple_completion_summary(session: Session, draft: LeagueExpansionDraft) ->
     return {
         "draft_id": draft.id,
         "picks": len(picks),
-        "note": "Expansion draft complete.",
+        "note": (
+            "Expansion draft ended early by commissioner."
+            if ended_early
+            else "Expansion draft complete."
+        ),
     }
+
+
+def end_expansion_draft_early(
+    session: Session, draft: LeagueExpansionDraft, admin_user_id: int
+) -> str | None:
+    """Mark a live expansion draft completed immediately (partial picks allowed)."""
+    del admin_user_id
+    if draft.status != "live":
+        return "Expansion draft is not live."
+    draft.status = "completed"
+    draft.pick_started_at = None
+    draft.pick_deadline_at = None
+    draft.timer_paused = False
+    draft.timer_paused_remaining_seconds = None
+    draft.awaiting_admin_resolution = False
+    draft.deadline_extended_for_slot = False
+    draft.expansion_pick_cooldown_active = False
+    draft.completed_summary_json = json.dumps(_simple_completion_summary(session, draft, ended_early=True))
+    invalidate_expansion_eligible_cache(draft.id)
+    return None
 
 
 def sync_current_slot_and_clock(session: Session, draft: LeagueExpansionDraft) -> None:

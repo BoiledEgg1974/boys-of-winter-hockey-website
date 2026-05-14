@@ -11921,6 +11921,71 @@ table.draft-hub-history-table--expansion td:nth-child(4) a {
   display: inline;
 }
 
+/* Draft Hub — commissioner slot trade (swap unpicked overall slots) */
+.dh-slot-trade-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 12150;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.dh-slot-trade-modal[hidden] {
+  display: none !important;
+}
+.dh-slot-trade-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgb(0 0 0 / 0.55);
+}
+.dh-slot-trade-modal__dialog {
+  position: relative;
+  max-width: 28rem;
+  width: 100%;
+  padding: 1.25rem 1.35rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 16px 48px rgb(0 0 0 / 0.35);
+}
+.dh-slot-trade-modal__title {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+}
+.dh-slot-trade-modal__intro {
+  margin: 0 0 1rem;
+  line-height: 1.45;
+}
+.dh-slot-trade-modal__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+.dh-slot-trade-modal__label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+}
+.dh-slot-trade-modal__select {
+  width: 100%;
+  max-width: 100%;
+}
+.dh-slot-trade-modal__msg {
+  min-height: 1.25rem;
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+  color: var(--text-muted, #94a3b8);
+}
+.dh-slot-trade-modal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
 /* —— BOWL trade tool (GM) —— */
 .trade-tool-page {
   max-width: 1200px;

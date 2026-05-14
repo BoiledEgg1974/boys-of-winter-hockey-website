@@ -460,6 +460,66 @@ def resolve_admin_pick(
     return record_pick(session, draft, player_id, admin_user_id, "admin")
 
 
+def end_draft_early(session: Session, draft: LeagueDraft, admin_user_id: int) -> str | None:
+    """Mark a live entry (prospect) draft completed immediately (partial picks allowed)."""
+    del admin_user_id
+    if draft.status != "live":
+        return "Draft is not live."
+    draft.status = "completed"
+    draft.pick_started_at = None
+    draft.pick_deadline_at = None
+    draft.timer_paused = False
+    draft.timer_paused_remaining_seconds = None
+    draft.awaiting_admin_resolution = False
+    draft.deadline_extended_for_slot = False
+    draft.completed_summary_json = json.dumps(compute_winners_losers(session, draft))
+    return None
+
+
+def swap_draft_slot_team_ids(
+    session: Session,
+    draft: LeagueDraft,
+    overall_a: int,
+    overall_b: int,
+    admin_user_id: int,
+) -> str | None:
+    """Swap ``team_id`` between two unpicked slots (commissioner pick trade). ``admin_user_id`` reserved for audit hooks."""
+    _ = admin_user_id
+    if draft.status != "live":
+        return "Draft is not live."
+    if draft.awaiting_admin_resolution:
+        return "Resolve the commissioner stop (or resume the clock) before trading slots."
+    if int(overall_a) == int(overall_b):
+        return "Choose two different overall pick numbers."
+    slots = slots_ordered(session, draft.id)
+    by_ov: dict[int, LeagueDraftSlot] = {int(s.overall_pick): s for s in slots}
+    sa = by_ov.get(int(overall_a))
+    sb = by_ov.get(int(overall_b))
+    if sa is None or sb is None:
+        return "Invalid overall pick number(s)."
+    if sa.forfeited or sb.forfeited:
+        return "Cannot trade a forfeited pick slot."
+    if _pick_row_for_overall(session, draft.id, int(overall_a)) or _pick_row_for_overall(
+        session, draft.id, int(overall_b)
+    ):
+        return "Both slots must still be unpicked (already-made picks cannot be reassigned here)."
+    tid_a = int(sa.team_id)
+    tid_b = int(sb.team_id)
+    if tid_a == tid_b:
+        return "Those picks already belong to the same team."
+    # Ensure ``original_team_id`` is set so the hub can show the same "from ABBR" tag as
+    # pre-trade order rows: API uses ``original_team_id or team_id``; if both were null,
+    # a swap-only change would make original == current and hide the badge.
+    if sa.original_team_id is None:
+        sa.original_team_id = tid_a
+    if sb.original_team_id is None:
+        sb.original_team_id = tid_b
+    sa.team_id = tid_b
+    sb.team_id = tid_a
+    sync_current_slot_and_clock(session, draft)
+    return None
+
+
 def auto_complete_draft(
     session: Session,
     draft: LeagueDraft,

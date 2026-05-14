@@ -25,6 +25,7 @@
        data-eligible-url="{{ url_for('expansion_draft_hub.expansion_draft_eligible_page') }}"
        data-pause-url="{{ url_for('expansion_draft_hub.expansion_draft_pause_timer') }}"
        data-resume-url="{{ url_for('expansion_draft_hub.expansion_draft_resume_timer') }}"
+       data-end-draft-url="{{ url_for('expansion_draft_hub.expansion_draft_end_draft_early') }}"
        data-player-page-tpl="{{ url_for('main.player_page', player_id=988776655) }}">
   </div>
 
@@ -42,6 +43,7 @@
   var eligibleUrl = root.getAttribute('data-eligible-url');
   var pauseUrl = root.getAttribute('data-pause-url') || '';
   var resumeUrl = root.getAttribute('data-resume-url') || '';
+  var endDraftUrl = root.getAttribute('data-end-draft-url') || '';
   var playerPageTpl = root.getAttribute('data-player-page-tpl') || '';
   var pickUrl = root.getAttribute('data-pick-url');
 
@@ -268,6 +270,12 @@
       html += '<input type="hidden" name="csrf_token" value="' + esc(csrf) + '">';
       html += '<button type="submit" class="' + timerCls + ' small">' + timerLabel + '</button>';
       html += '</form>';
+    }
+    if (x.can_admin_end_early && x.status === 'live' && endDraftUrl) {
+      html += '<form method="post" action="' + esc(endDraftUrl) + '" class="draft-hub-admin-timer-form dh-end-draft-form" '
+        + 'onsubmit="return confirm(&quot;End this expansion draft now and mark it complete? Remaining slots stay unpicked. This cannot be undone from the hub.&quot;);">';
+      html += '<input type="hidden" name="csrf_token" value="' + esc(csrf) + '">';
+      html += '<button type="submit" class="button secondary small">End draft early</button></form>';
     }
     html += '</header>';
 

@@ -15,6 +15,7 @@ from app.services.draft_hub_eligibility import age_as_of
 from app.services.seasons import get_current_season, season_age_reference_date
 from app.services.expansion_draft_state import (
     eligible_player_ids_for_board,
+    end_expansion_draft_early,
     expansion_franchise_ids_sorted,
     expansion_process_tick,
     featured_expansion_draft,
@@ -325,6 +326,11 @@ def expansion_draft_api_state():
         and draft.status == "live"
         and current_slot
     )
+    can_admin_end_early = bool(
+        current_user.is_authenticated
+        and getattr(current_user, "is_admin", False)
+        and draft.status == "live"
+    )
 
     rt_tid: int | None = None
     if draft.status == "live" and current_slot and current_slot.get("team_id") is not None:
@@ -374,6 +380,7 @@ def expansion_draft_api_state():
                 "can_pick": can_pick,
                 "can_admin_pick": can_admin_pick,
                 "can_admin_control": can_admin_control,
+                "can_admin_end_early": can_admin_end_early,
                 "wishlist_pick": None,
             },
         }
@@ -535,5 +542,31 @@ def expansion_draft_resume_timer():
             flash(err, "err")
         else:
             flash("Countdown resumed.", "ok")
+    db.session.commit()
+    return redirect(url_for("expansion_draft_hub.expansion_draft_hub_page"))
+
+
+@expansion_draft_hub_bp.post("/end-draft-early")
+@login_required
+def expansion_draft_end_draft_early():
+    from flask_wtf.csrf import validate_csrf
+
+    if not _expansion_hub_allowed():
+        abort(403)
+    validate_csrf(request.form.get("csrf_token"))
+    if not getattr(current_user, "is_admin", False):
+        abort(403)
+    slug = _league_slug()
+    draft = featured_expansion_draft(db.session, slug)
+    if not draft:
+        flash("No expansion draft is configured.", "err")
+    elif draft.status != "live":
+        flash("Expansion draft is not live.", "err")
+    else:
+        err = end_expansion_draft_early(db.session, draft, int(current_user.id))
+        if err:
+            flash(err, "err")
+        else:
+            flash("Expansion draft ended and marked complete.", "ok")
     db.session.commit()
     return redirect(url_for("expansion_draft_hub.expansion_draft_hub_page"))

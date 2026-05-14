@@ -18,6 +18,7 @@ from app.services.draft_hub_state import (
     auto_complete_draft,
     compute_winners_losers,
     draft_eligibility_params,
+    end_draft_early,
     featured_draft,
     gm_user_ids_for_team,
     pause_draft_timer,
@@ -27,6 +28,7 @@ from app.services.draft_hub_state import (
     resolve_admin_pick,
     resume_draft_timer,
     slots_ordered,
+    swap_draft_slot_team_ids,
     utcnow_naive,
     wishlist_head_for_user,
 )
@@ -190,6 +192,12 @@ def draft_hub_api_state():
         db.session.refresh(draft)
 
     slots = slots_ordered(db.session, draft.id)
+    pick_overalls = {
+        int(x)
+        for x in db.session.scalars(
+            select(LeagueDraftPick.overall_pick).where(LeagueDraftPick.league_draft_id == draft.id)
+        ).all()
+    }
     team_by_id = {t.id: t for t in db.session.scalars(select(Team)).all()}
     logo_by_team_id: dict[int, str] = {
         int(tid): team_logo_url_for_team(tm) for tid, tm in team_by_id.items()
@@ -283,11 +291,12 @@ def draft_hub_api_state():
                     "original_team_abbr": orig_abbr,
                     "original_team_color": orig_color,
                     "is_current": bool(
-                    draft.status == "live"
-                    and i == draft.current_slot_index
-                    and not s.forfeited
-                    and not draft.awaiting_admin_resolution
-                ),
+                        draft.status == "live"
+                        and i == draft.current_slot_index
+                        and not s.forfeited
+                        and not draft.awaiting_admin_resolution
+                    ),
+                    "has_pick": int(s.overall_pick) in pick_overalls,
                 }
             )
         if draft.status == "live" and draft.current_slot_index < len(slots):
@@ -403,6 +412,20 @@ def draft_hub_api_state():
         and draft.status == "live"
         and current_slot
     )
+    unpicked_tradeable = sum(
+        1 for s in slots if not s.forfeited and int(s.overall_pick) not in pick_overalls
+    )
+    can_admin_slot_swap = bool(
+        current_user.is_authenticated
+        and getattr(current_user, "is_admin", False)
+        and draft.status == "live"
+        and unpicked_tradeable >= 2
+    )
+    can_admin_end_early = bool(
+        current_user.is_authenticated
+        and getattr(current_user, "is_admin", False)
+        and draft.status == "live"
+    )
     wishlist_pick: dict[str, object] | None = None
     if can_pick:
         wpid, wname = wishlist_head_for_user(db.session, draft, slug, int(current_user.id))
@@ -438,6 +461,8 @@ def draft_hub_api_state():
                 "can_pick": can_pick,
                 "can_admin_pick": can_admin_pick,
                 "can_admin_control": can_admin_control,
+                "can_admin_slot_swap": can_admin_slot_swap,
+                "can_admin_end_early": can_admin_end_early,
                 "wishlist_pick": wishlist_pick,
             },
         }
@@ -756,6 +781,65 @@ def draft_hub_queue_remove():
             db.session.delete(row)
     db.session.commit()
     return redirect(url_for("draft_hub.draft_hub_page"))
+
+
+@draft_hub_bp.post("/end-draft-early")
+@login_required
+def draft_hub_end_draft_early():
+    from flask_wtf.csrf import validate_csrf
+
+    validate_csrf(request.form.get("csrf_token"))
+    if not getattr(current_user, "is_admin", False):
+        abort(403)
+    slug = _league_slug()
+    draft = featured_draft(db.session, slug)
+    if not draft:
+        flash("No draft is configured.", "err")
+    elif draft.status != "live":
+        flash("Draft is not live.", "err")
+    else:
+        err = end_draft_early(db.session, draft, int(current_user.id))
+        if err:
+            flash(err, "err")
+        else:
+            flash("Draft ended and marked complete.", "ok")
+    db.session.commit()
+    return redirect(url_for("draft_hub.draft_hub_page"))
+
+
+@draft_hub_bp.post("/admin/swap-slots")
+@login_required
+def draft_hub_admin_swap_slots():
+    """JSON: swap ``team_id`` on two unpicked draft slots (commissioner trade)."""
+    from flask_wtf.csrf import validate_csrf
+
+    if not getattr(current_user, "is_admin", False):
+        return jsonify({"ok": False, "error": "Forbidden."}), 403
+    data = request.get_json(silent=True) or {}
+    try:
+        validate_csrf(data.get("csrf_token"))
+    except Exception:  # noqa: BLE001
+        return jsonify({"ok": False, "error": "Invalid CSRF token."}), 400
+    slug = _league_slug()
+    draft = featured_draft(db.session, slug)
+    if not draft or draft.status != "live":
+        return jsonify({"ok": False, "error": "No live draft."}), 400
+    oa = data.get("overall_a")
+    ob = data.get("overall_b")
+    if oa is None or ob is None:
+        return jsonify({"ok": False, "error": "Missing overall_a / overall_b."}), 400
+    try:
+        overall_a = int(oa)
+        overall_b = int(ob)
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "Overall picks must be integers."}), 400
+    err = swap_draft_slot_team_ids(db.session, draft, overall_a, overall_b, int(current_user.id))
+    if err:
+        db.session.rollback()
+        return jsonify({"ok": False, "error": err}), 400
+    db.session.commit()
+    db.session.refresh(draft)
+    return jsonify({"ok": True, "error": None})
 
 
 @draft_hub_bp.get("/sound/<int:sound_id>")

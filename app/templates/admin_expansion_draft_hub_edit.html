@@ -206,6 +206,12 @@
       <input type="hidden" name="action" value="resume_timer">
       <button type="submit" class="button secondary">Resume timer</button>
     </form>
+    <form method="post" style="margin:0;"
+          onsubmit="return confirm('End this expansion draft now and mark it complete? Remaining slots stay unpicked. This cannot be undone from the admin screen.');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="end_draft_early">
+      <button type="submit" class="button secondary">End draft early</button>
+    </form>
   </div>
   <h3>Commissioner pick</h3>
   <p class="muted small" style="margin:0 0 0.5rem;">Use the league site <strong>player id</strong> from the player profile URL (for example <code>/player/12345</code>), not an FHM roster id. If the form shows an error, the pick was not saved.</p>

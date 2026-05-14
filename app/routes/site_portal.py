@@ -4528,6 +4528,23 @@ def admin_draft_hub_edit(draft_id: int):
                 )
                 flash("Draft clock resumed.", "ok")
             db.session.commit()
+        elif act == "end_draft_early" and row.status == "live":
+            from app.services.draft_hub_state import end_draft_early
+
+            err = end_draft_early(db.session, row, int(current_user.id))
+            if err:
+                flash(err, "err")
+            else:
+                db.session.add(
+                    AdminAuditLog(
+                        admin_user_id=int(current_user.id),
+                        league_slug=slug,
+                        action="draft_hub_end_early",
+                        detail_json=json.dumps({"draft_id": row.id}),
+                    )
+                )
+                flash("Draft ended and marked complete.", "ok")
+            db.session.commit()
         elif act == "admin_pick" and row.status == "live":
             from app.services.draft_hub_state import resolve_admin_pick
 
@@ -4960,6 +4977,7 @@ def admin_expansion_draft_hub_edit(draft_id: int):
         abort(404)
 
     from app.services.expansion_draft_state import (
+        end_expansion_draft_early,
         exempt_team_ids,
         expansion_franchise_ids_sorted,
         go_live,
@@ -5124,6 +5142,21 @@ def admin_expansion_draft_hub_edit(draft_id: int):
                 flash(err, "err")
             else:
                 flash("Timer resumed.", "ok")
+            db.session.commit()
+        elif act == "end_draft_early" and row.status == "live":
+            err = end_expansion_draft_early(db.session, row, int(current_user.id))
+            if err:
+                flash(err, "err")
+            else:
+                db.session.add(
+                    AdminAuditLog(
+                        admin_user_id=int(current_user.id),
+                        league_slug=slug,
+                        action="expansion_draft_end_early",
+                        detail_json=json.dumps({"draft_id": row.id}),
+                    )
+                )
+                flash("Expansion draft ended and marked complete.", "ok")
             db.session.commit()
         elif act == "admin_pick" and row.status == "live":
             pid_raw = (request.form.get("player_id") or "").strip()

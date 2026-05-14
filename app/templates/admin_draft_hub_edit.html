@@ -170,6 +170,12 @@
       <button type="submit" class="button secondary">Pause Countdown</button>
     {% endif %}
   </form>
+  <form method="post" style="display:inline;margin-right:0.5rem;"
+        onsubmit="return confirm('End this draft now and mark it complete? Remaining unpicked slots stay empty. This cannot be undone from the admin screen.');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="end_draft_early">
+    <button type="submit" class="button secondary">End draft early</button>
+  </form>
   <form method="post" style="display:inline-flex;gap:0.35rem;align-items:center;flex-wrap:wrap;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="admin_pick">

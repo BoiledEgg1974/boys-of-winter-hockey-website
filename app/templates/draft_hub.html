@@ -29,8 +29,26 @@
        data-pause-url="{{ url_for('draft_hub.draft_hub_pause_timer') }}"
        data-resume-url="{{ url_for('draft_hub.draft_hub_resume_timer') }}"
        data-auto-complete-url="{{ url_for('draft_hub.draft_hub_auto_complete') }}"
+       data-swap-slots-url="{{ url_for('draft_hub.draft_hub_admin_swap_slots') }}"
+       data-end-draft-url="{{ url_for('draft_hub.draft_hub_end_draft_early') }}"
        data-player-page-tpl="{{ url_for('main.player_page', player_id=988776655) }}"
        data-sound-base="{{ url_for('draft_hub.draft_hub_sound', sound_id=0).rsplit('/', 1)[0] }}">
+  </div>
+  <div id="dh-slot-trade-modal" class="dh-slot-trade-modal" hidden aria-hidden="true">
+    <div class="dh-slot-trade-modal__backdrop" data-dh-trade-close="1"></div>
+    <div class="dh-slot-trade-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="dh-slot-trade-title">
+      <h2 id="dh-slot-trade-title" class="dh-slot-trade-modal__title">Trade draft slots</h2>
+      <p class="muted small dh-slot-trade-modal__intro">Swap which team holds each <strong>unpicked</strong> overall selection. Already-made picks cannot be moved here. The clock keeps running unless you pause it separately.</p>
+      <div class="dh-slot-trade-modal__fields">
+        <label class="dh-slot-trade-modal__label">Slot A <select id="dh-trade-overall-a" class="dh-slot-trade-modal__select"></select></label>
+        <label class="dh-slot-trade-modal__label">Slot B <select id="dh-trade-overall-b" class="dh-slot-trade-modal__select"></select></label>
+      </div>
+      <p id="dh-trade-msg" class="dh-slot-trade-modal__msg" role="status"></p>
+      <div class="dh-slot-trade-modal__actions">
+        <button type="button" class="button" id="dh-trade-submit">Swap teams</button>
+        <button type="button" class="button secondary" id="dh-trade-cancel" data-dh-trade-close="1">Cancel</button>
+      </div>
+    </div>
   </div>
   <div id="dh-wishlist-auth-host" class="dh-wishlist-auth-host" hidden></div>
 
@@ -50,6 +68,8 @@
   var pauseUrl = root.getAttribute('data-pause-url') || '';
   var resumeUrl = root.getAttribute('data-resume-url') || '';
   var autoCompleteUrl = root.getAttribute('data-auto-complete-url') || '';
+  var swapSlotsUrl = root.getAttribute('data-swap-slots-url') || '';
+  var endDraftUrl = root.getAttribute('data-end-draft-url') || '';
   var playerPageTpl = root.getAttribute('data-player-page-tpl') || '';
   var pickUrl = root.getAttribute('data-pick-url');
   var qAddUrl = root.getAttribute('data-queue-add-url');
@@ -68,6 +88,106 @@
 
   var lastAiKey = '';
   var lastAiPayload = null;
+
+  function closeDhSlotTradeModal() {
+    var m = document.getElementById('dh-slot-trade-modal');
+    if (!m) return;
+    m.hidden = true;
+    m.setAttribute('aria-hidden', 'true');
+    var msg = document.getElementById('dh-trade-msg');
+    if (msg) msg.textContent = '';
+  }
+
+  function openDhSlotTradeModal() {
+    var x = window.__dhLastDraftForTrade;
+    var m = document.getElementById('dh-slot-trade-modal');
+    if (!m || !x || !swapSlotsUrl) return;
+    var sa = document.getElementById('dh-trade-overall-a');
+    var sb = document.getElementById('dh-trade-overall-b');
+    if (!sa || !sb) return;
+    var rows = (x.order || []).filter(function (r) {
+      return !r.forfeited && !r.has_pick;
+    });
+    function fill(sel) {
+      sel.innerHTML = '';
+      rows.forEach(function (r) {
+        var opt = document.createElement('option');
+        opt.value = String(r.overall);
+        opt.textContent = '#' + r.overall + ' · R' + r.round + ' — ' + (r.team || '');
+        sel.appendChild(opt);
+      });
+    }
+    fill(sa);
+    fill(sb);
+    if (rows.length < 2) {
+      var msg0 = document.getElementById('dh-trade-msg');
+      if (msg0) msg0.textContent = 'Need at least two unpicked slots to trade.';
+    } else if (sb.options.length > 1) {
+      sb.selectedIndex = 1;
+    }
+    var msg = document.getElementById('dh-trade-msg');
+    if (msg && rows.length >= 2) msg.textContent = '';
+    m.hidden = false;
+    m.removeAttribute('aria-hidden');
+  }
+
+  function submitDhSlotTrade() {
+    var sa = document.getElementById('dh-trade-overall-a');
+    var sb = document.getElementById('dh-trade-overall-b');
+    if (!sa || !sb) return;
+    var oa = parseInt(sa.value, 10);
+    var ob = parseInt(sb.value, 10);
+    var msg = document.getElementById('dh-trade-msg');
+    if (isNaN(oa) || isNaN(ob) || oa === ob) {
+      if (msg) msg.textContent = 'Choose two different unpicked slots.';
+      return;
+    }
+    if (msg) msg.textContent = 'Saving…';
+    fetch(swapSlotsUrl, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ csrf_token: csrf, overall_a: oa, overall_b: ob })
+    })
+      .then(function (r) {
+        return r.json().catch(function () {
+          return {};
+        });
+      })
+      .then(function (data) {
+        if (data && data.ok) {
+          closeDhSlotTradeModal();
+          forceRefresh();
+          return;
+        }
+        if (msg) msg.textContent = (data && data.error) ? data.error : 'Could not swap picks.';
+      })
+      .catch(function () {
+        if (msg) msg.textContent = 'Network error.';
+      });
+  }
+
+  (function setupDhSlotTradeModal() {
+    var m = document.getElementById('dh-slot-trade-modal');
+    if (!m || m._dhBound) return;
+    m._dhBound = true;
+    m.addEventListener('click', function (e) {
+      if (e.target && e.target.getAttribute('data-dh-trade-close')) closeDhSlotTradeModal();
+    });
+    var sub = document.getElementById('dh-trade-submit');
+    if (sub) sub.addEventListener('click', submitDhSlotTrade);
+  })();
+
+  var pageRoot = document.getElementById('draft-hub-page-root');
+  if (pageRoot && !pageRoot._dhTradeOpenBound) {
+    pageRoot._dhTradeOpenBound = true;
+    pageRoot.addEventListener('click', function (e) {
+      if (e.target && e.target.id === 'dh-trade-open') {
+        e.preventDefault();
+        openDhSlotTradeModal();
+      }
+    });
+  }
 
   function restoreAiScroll() {
     var el = document.getElementById('dh-ai-body');
@@ -237,10 +357,12 @@
       if (pageEl) pageEl.classList.remove('draft-hub-page--ticker');
       root.innerHTML = '<div class="card"><p class="muted">No draft is configured for this site yet. Check back later or ask the commissioner.</p></div>';
       clearWishlistAuthHost();
+      window.__dhLastDraftForTrade = null;
       return;
     }
     if (pageEl) pageEl.classList.add('draft-hub-page--ticker');
     var x = d.draft;
+    window.__dhLastDraftForTrade = x;
     var html = '';
     html += '<div class="draft-hub-grid">';
 
@@ -346,6 +468,15 @@
         html += '<button type="submit" class="button secondary small">Auto-Complete Draft</button>';
         html += '</form>';
       }
+    }
+    if (x.can_admin_slot_swap && x.status === 'live') {
+      html += '<button type="button" class="button secondary small" id="dh-trade-open">Trade picks</button>';
+    }
+    if (x.can_admin_end_early && x.status === 'live' && endDraftUrl) {
+      html += '<form method="post" action="' + esc(endDraftUrl) + '" class="draft-hub-admin-timer-form dh-end-draft-form" '
+        + 'onsubmit="return confirm(&quot;End this draft now and mark it complete? Remaining unpicked slots will be left empty. This cannot be undone from the hub.&quot;);">';
+      html += '<input type="hidden" name="csrf_token" value="' + esc(csrf) + '">';
+      html += '<button type="submit" class="button secondary small">End draft early</button></form>';
     }
     html += '</header>';
 

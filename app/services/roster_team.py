@@ -60,6 +60,35 @@ def organization_main_team(
     return None
 
 
+def contract_team_from_loaded_maps(player: Player, team_by_fhm_id: dict[str, Team]) -> Team | None:
+    """Resolve contract club from preloaded :class:`Team` rows keyed by ``Team.fhm_team_id`` string."""
+    c = player.contract
+    if c is None or c.fhm_team_id is None:
+        return None
+    key = str(c.fhm_team_id).strip()
+    return team_by_fhm_id.get(key)
+
+
+def organization_main_team_from_maps(
+    player: Player,
+    *,
+    prospect_by_player_id: dict[int, Prospect | None],
+    team_by_id: dict[int, Team],
+    team_by_fhm_id: dict[str, Team],
+) -> Team | None:
+    """Same contract/prospect/main-league logic as :func:`organization_main_team` without per-player SQL."""
+    ct_team = contract_team_from_loaded_maps(player, team_by_fhm_id)
+    main = main_league_roster_team(ct_team, player.current_team)
+    if main is not None:
+        return main
+    pr = prospect_by_player_id.get(int(player.id))
+    if pr and pr.team_id:
+        t = team_by_id.get(int(pr.team_id))
+        if is_main_league_team(t):
+            return t
+    return None
+
+
 def player_exempt_from_expansion_pool(session: Session, player: Player, exempt_team_ids: set[int]) -> bool:
     """True if this player belongs to an exempt BOWL org or is assigned to an exempt team id."""
     if not exempt_team_ids:

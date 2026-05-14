@@ -3,14 +3,16 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta
+from threading import Lock
+from time import monotonic
 from typing import Any
 
 from sqlalchemy import delete, func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
-from app.models import Player
+from app.models import Player, Prospect, Team
 from app.services.draft_hub_eligibility import age_as_of
-from app.services.roster_team import organization_main_team
+from app.services.roster_team import organization_main_team, organization_main_team_from_maps
 from app.services.seasons import get_current_season, season_age_reference_date
 from app.services.player_ratings_csv import (
     ELIGIBLE_POSITION_DISPLAY_MIN_RATING,
@@ -94,21 +96,29 @@ def phase_pick_order(franchise_ids: list[int], first_team_id: int | None) -> lis
     return ids[i:] + ids[:i]
 
 
-def _pos_tokens_for_player(pl: Player) -> set[str]:
+def _pos_tokens_for_player(pl: Player, tok_cache: dict[int, set[str]] | None = None) -> set[str]:
+    if tok_cache is not None:
+        pid = int(pl.id)
+        if pid in tok_cache:
+            return tok_cache[pid]
     fid = getattr(pl, "fhm_player_id", None)
     rr = get_player_ratings_row(str(fid).strip() if fid else None)
     label = eligible_positions_from_ratings_row(rr, ELIGIBLE_POSITION_DISPLAY_MIN_RATING)
     if label:
-        return {tok.strip().upper() for tok in label.replace(",", "•").split("•") if tok.strip()}
-    pos = (getattr(pl, "position", None) or "").strip().upper()
-    return {pos} if pos else set()
+        out = {tok.strip().upper() for tok in label.replace(",", "•").split("•") if tok.strip()}
+    else:
+        pos = (getattr(pl, "position", None) or "").strip().upper()
+        out = {pos} if pos else set()
+    if tok_cache is not None:
+        tok_cache[int(pl.id)] = out
+    return out
 
 
-def player_is_goalie(pl: Player) -> bool:
+def player_is_goalie(pl: Player, tok_cache: dict[int, set[str]] | None = None) -> bool:
     pos = (getattr(pl, "position", None) or "").strip().upper()
     if pos == "G":
         return True
-    tokens = _pos_tokens_for_player(pl)
+    tokens = _pos_tokens_for_player(pl, tok_cache)
     if not tokens:
         return False
     if "G" in tokens and not (tokens & (_FORWARD_TOKENS | _DEFENSE_TOKENS)):
@@ -116,33 +126,33 @@ def player_is_goalie(pl: Player) -> bool:
     return False
 
 
-def player_is_forward(pl: Player) -> bool:
-    if player_is_goalie(pl):
+def player_is_forward(pl: Player, tok_cache: dict[int, set[str]] | None = None) -> bool:
+    if player_is_goalie(pl, tok_cache):
         return False
-    tokens = _pos_tokens_for_player(pl)
+    tokens = _pos_tokens_for_player(pl, tok_cache)
     if tokens & _FORWARD_TOKENS:
         return True
     pos = (getattr(pl, "position", None) or "").strip().upper()
     return pos in _FORWARD_TOKENS
 
 
-def player_is_defense(pl: Player) -> bool:
-    if player_is_goalie(pl):
+def player_is_defense(pl: Player, tok_cache: dict[int, set[str]] | None = None) -> bool:
+    if player_is_goalie(pl, tok_cache):
         return False
-    tokens = _pos_tokens_for_player(pl)
+    tokens = _pos_tokens_for_player(pl, tok_cache)
     if tokens & _DEFENSE_TOKENS:
         return True
     pos = (getattr(pl, "position", None) or "").strip().upper()
     return pos in _DEFENSE_TOKENS
 
 
-def player_skater_category(pl: Player) -> str | None:
+def player_skater_category(pl: Player, tok_cache: dict[int, set[str]] | None = None) -> str | None:
     """Return 'forward' or 'defense' for skater phase; None if unclassified."""
-    if player_is_goalie(pl):
+    if player_is_goalie(pl, tok_cache):
         return None
-    if player_is_forward(pl):
+    if player_is_forward(pl, tok_cache):
         return "forward"
-    if player_is_defense(pl):
+    if player_is_defense(pl, tok_cache):
         return "defense"
     return None
 
@@ -262,10 +272,8 @@ def regenerate_slots(session: Session, draft: LeagueExpansionDraft) -> str | Non
                 )
             )
     draft.current_slot_index = 0
+    invalidate_expansion_eligible_cache(draft.id)
     return None
-
-
-def _pick_row_for_overall(session: Session, draft_id: int, overall: int) -> LeagueExpansionDraftPick | None:
     return session.scalar(
         select(LeagueExpansionDraftPick).where(
             LeagueExpansionDraftPick.league_expansion_draft_id == draft_id,
@@ -466,18 +474,71 @@ def _team_at_max_losses(losses_by_team: dict[int, int], team_id: int | None, max
     return losses_by_team.get(int(team_id), 0) >= max(0, int(max_loss))
 
 
-def eligible_players_for_board(
+_EXP_ELIG_CACHE: dict[tuple[Any, ...], tuple[tuple[int, ...], float]] = {}
+_EXP_ELIG_LOCK = Lock()
+_EXP_ELIG_TTL_SEC = 18.0
+_EXP_ELIG_MAX_KEYS = 48
+
+
+def invalidate_expansion_eligible_cache(draft_id: int | None = None) -> None:
+    """Drop cached ordered eligible id lists (after picks, pool edits, slot regen)."""
+    with _EXP_ELIG_LOCK:
+        if draft_id is None:
+            _EXP_ELIG_CACHE.clear()
+            return
+        did = int(draft_id)
+        stale = [k for k in _EXP_ELIG_CACHE if k[0] == did]
+        for k in stale:
+            del _EXP_ELIG_CACHE[k]
+
+
+def _rights_holder_team_id_from_maps(
+    pl: Player,
+    prospect_by: dict[int, Prospect | None],
+    team_by_id: dict[int, Team],
+    team_by_fhm_id: dict[str, Team],
+) -> int | None:
+    org = organization_main_team_from_maps(
+        pl,
+        prospect_by_player_id=prospect_by,
+        team_by_id=team_by_id,
+        team_by_fhm_id=team_by_fhm_id,
+    )
+    if org is not None:
+        return int(org.id)
+    if pl.current_team_id is not None:
+        return int(pl.current_team_id)
+    return None
+
+
+def _eligible_cache_bump_parts(session: Session, draft: LeagueExpansionDraft) -> tuple[int, float, int, int]:
+    n_picks = int(
+        session.scalar(
+            select(func.count())
+            .select_from(LeagueExpansionDraftPick)
+            .where(LeagueExpansionDraftPick.league_expansion_draft_id == draft.id)
+        )
+        or 0
+    )
+    n_elig = int(
+        session.scalar(
+            select(func.count())
+            .select_from(LeagueExpansionDraftEligiblePlayer)
+            .where(LeagueExpansionDraftEligiblePlayer.league_expansion_draft_id == draft.id)
+        )
+        or 0
+    )
+    ts = draft.updated_at.timestamp() if draft.updated_at else 0.0
+    return (int(draft.id), ts, n_picks, n_elig)
+
+
+def _compute_eligible_player_ids_ordered(
     session: Session,
     draft: LeagueExpansionDraft,
     *,
-    phase: str | None = None,
-    expansion_team_id: int | None = None,
-) -> list[Player]:
-    """Ordered list of players on the board for UI / BPA (excludes picked, max-loss teams, phase, caps).
-
-    Always omits players under 21 (same league age reference as the rest of the site), even if
-    they were saved in the commissioner eligible pool.
-    """
+    phase: str | None,
+    expansion_team_id: int | None,
+) -> list[int]:
     elig_ids = {
         int(x)
         for x in session.scalars(
@@ -486,31 +547,53 @@ def eligible_players_for_board(
             )
         ).all()
     }
+    if not elig_ids:
+        return []
     picked = picked_player_ids(session, draft.id)
     losses = losses_by_team_from_picks(session, draft.id)
     max_loss = int(draft.max_players_lost_per_team)
-
     blocked_teams: set[int] = set()
     for tid, n in losses.items():
         if n >= max_loss:
             blocked_teams.add(int(tid))
 
+    all_teams = list(session.scalars(select(Team)).all())
+    team_by_id = {int(t.id): t for t in all_teams}
+    team_by_fhm_id: dict[str, Team] = {}
+    for t in all_teams:
+        if t.fhm_team_id is not None:
+            k = str(t.fhm_team_id).strip()
+            if k:
+                team_by_fhm_id[k] = t
+
+    prospect_rows = session.scalars(select(Prospect).where(Prospect.player_id.in_(elig_ids))).all()
+    prospect_by: dict[int, Prospect | None] = {int(pr.player_id): pr for pr in prospect_rows}
+
+    players = list(
+        session.scalars(
+            select(Player)
+            .where(Player.id.in_(elig_ids))
+            .options(joinedload(Player.contract), joinedload(Player.current_team))
+        )
+        .unique()
+        .all()
+    )
+    tok_cache: dict[int, set[str]] = {}
     candidates: list[Player] = []
-    if not elig_ids:
-        return []
-    for pl in session.scalars(select(Player).where(Player.id.in_(elig_ids))).unique().all():
+    ph = (phase or "").strip().lower() if phase else ""
+    for pl in players:
         if int(pl.id) in picked:
             continue
-        loss_tid = _rights_holder_team_id_for_losses(session, pl)
+        loss_tid = _rights_holder_team_id_from_maps(pl, prospect_by, team_by_id, team_by_fhm_id)
         if loss_tid is not None and int(loss_tid) in blocked_teams:
             continue
-        if phase == "goalie":
-            if not player_is_goalie(pl):
+        if ph == "goalie":
+            if not player_is_goalie(pl, tok_cache):
                 continue
-        elif phase == "skater":
-            if player_is_goalie(pl):
+        elif ph == "skater":
+            if player_is_goalie(pl, tok_cache):
                 continue
-            if player_skater_category(pl) is None:
+            if player_skater_category(pl, tok_cache) is None:
                 continue
         if not _expansion_board_age_ok(pl):
             continue
@@ -528,7 +611,72 @@ def eligible_players_for_board(
         return (br, -float(pot), int(p.id))
 
     candidates.sort(key=sort_key)
-    return candidates
+    return [int(p.id) for p in candidates]
+
+
+def hydrate_players_for_ordered_ids(session: Session, ordered_ids: list[int]) -> list[Player]:
+    """Load :class:`Player` rows for ids (with contract + current team) preserving order."""
+    if not ordered_ids:
+        return []
+    uniq = list(dict.fromkeys(int(i) for i in ordered_ids))
+    rows = list(
+        session.scalars(
+            select(Player)
+            .where(Player.id.in_(uniq))
+            .options(joinedload(Player.contract), joinedload(Player.current_team))
+        )
+        .unique()
+        .all()
+    )
+    by_id = {int(p.id): p for p in rows}
+    return [by_id[i] for i in ordered_ids if i in by_id]
+
+
+def eligible_player_ids_for_board(
+    session: Session,
+    draft: LeagueExpansionDraft,
+    *,
+    phase: str | None = None,
+    expansion_team_id: int | None = None,
+) -> list[int]:
+    bump = _eligible_cache_bump_parts(session, draft)
+    ph = (phase or "").strip().lower()
+    ex = int(expansion_team_id) if expansion_team_id is not None else -1
+    key = (*bump, ph, ex)
+    now = monotonic()
+    with _EXP_ELIG_LOCK:
+        hit = _EXP_ELIG_CACHE.get(key)
+        if hit is not None and (now - hit[1]) < _EXP_ELIG_TTL_SEC:
+            return list(hit[0])
+    ids = _compute_eligible_player_ids_ordered(
+        session, draft, phase=phase, expansion_team_id=expansion_team_id
+    )
+    frozen = tuple(ids)
+    store_at = monotonic()
+    with _EXP_ELIG_LOCK:
+        _EXP_ELIG_CACHE[key] = (frozen, store_at)
+        while len(_EXP_ELIG_CACHE) > _EXP_ELIG_MAX_KEYS:
+            drop = min(_EXP_ELIG_CACHE, key=lambda kk: _EXP_ELIG_CACHE[kk][1])
+            del _EXP_ELIG_CACHE[drop]
+    return list(frozen)
+
+
+def eligible_players_for_board(
+    session: Session,
+    draft: LeagueExpansionDraft,
+    *,
+    phase: str | None = None,
+    expansion_team_id: int | None = None,
+) -> list[Player]:
+    """Ordered list of players on the board for UI / BPA (excludes picked, max-loss teams, phase, caps).
+
+    Always omits players under 21 (same league age reference as the rest of the site), even if
+    they were saved in the commissioner eligible pool. Uses batched SQL + a short TTL cache.
+    """
+    ids = eligible_player_ids_for_board(
+        session, draft, phase=phase, expansion_team_id=expansion_team_id
+    )
+    return hydrate_players_for_ordered_ids(session, ids)
 
 
 def validate_pick(
@@ -628,6 +776,7 @@ def record_pick(
     sync_current_slot_and_clock(session, draft)
     slots2 = slots_ordered(session, draft.id)
     _finalize_if_done(session, draft, slots2)
+    invalidate_expansion_eligible_cache(draft.id)
     return None
 
 
@@ -666,10 +815,8 @@ def undo_last_pick(session: Session, draft: LeagueExpansionDraft) -> str | None:
     draft.timer_paused = False
     draft.timer_paused_remaining_seconds = None
     sync_current_slot_and_clock(session, draft)
+    invalidate_expansion_eligible_cache(draft.id)
     return None
-
-
-def replace_eligible_players(session: Session, draft: LeagueExpansionDraft, player_ids: set[int]) -> None:
     session.execute(
         delete(LeagueExpansionDraftEligiblePlayer).where(
             LeagueExpansionDraftEligiblePlayer.league_expansion_draft_id == draft.id
@@ -682,3 +829,4 @@ def replace_eligible_players(session: Session, draft: LeagueExpansionDraft, play
                 player_id=int(pid),
             )
         )
+    invalidate_expansion_eligible_cache(draft.id)

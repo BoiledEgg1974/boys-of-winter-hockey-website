@@ -14,11 +14,12 @@ from app.models import Player, Team
 from app.services.draft_hub_eligibility import age_as_of
 from app.services.seasons import get_current_season, season_age_reference_date
 from app.services.expansion_draft_state import (
-    eligible_players_for_board,
+    eligible_player_ids_for_board,
     expansion_franchise_ids_sorted,
     expansion_process_tick,
     featured_expansion_draft,
     gm_user_ids_for_team,
+    hydrate_players_for_ordered_ids,
     pause_timer,
     player_is_defense,
     player_is_forward,
@@ -155,8 +156,8 @@ def expansion_draft_api_state():
             return "LW"
         return "LW"
 
-    def _pick_dict(pk: LeagueExpansionDraftPick) -> dict:
-        pl = db.session.get(Player, pk.player_id)
+    def _pick_dict(pk: LeagueExpansionDraftPick, player_by_id: dict[int, Player]) -> dict:
+        pl = player_by_id.get(int(pk.player_id))
         tm = team_by_id.get(pk.team_id)
         from_tm = team_by_id.get(pk.from_team_id) if pk.from_team_id else None
         from_tid = int(pk.from_team_id) if pk.from_team_id is not None else None
@@ -190,9 +191,14 @@ def expansion_draft_api_state():
             .order_by(LeagueExpansionDraftPick.overall_pick.asc())
         ).all()
     )
-    ticker_picks = [_pick_dict(pk) for pk in all_picks_asc]
+    pick_player_ids = list({int(pk.player_id) for pk in all_picks_asc})
+    players_for_picks: dict[int, Player] = {}
+    if pick_player_ids:
+        for row in db.session.scalars(select(Player).where(Player.id.in_(pick_player_ids))).unique().all():
+            players_for_picks[int(row.id)] = row
+    ticker_picks = [_pick_dict(pk, players_for_picks) for pk in all_picks_asc]
     tail = all_picks_asc[-24:] if len(all_picks_asc) > 24 else all_picks_asc
-    pick_payload = [_pick_dict(pk) for pk in reversed(tail)]
+    pick_payload = [_pick_dict(pk, players_for_picks) for pk in reversed(tail)]
 
     current_slot = None
     on_clock_team = None
@@ -272,13 +278,14 @@ def expansion_draft_api_state():
         phase_filter = str(current_slot.get("phase") or "")
         exp_team_for_eligible = int(current_slot["team_id"]) if current_slot.get("team_id") is not None else None
 
-    eligible = eligible_players_for_board(
-        db.session,
-        draft,
-        phase=phase_filter if draft.status == "live" else None,
-        expansion_team_id=exp_team_for_eligible if draft.status == "live" else None,
+    eligible_count = len(
+        eligible_player_ids_for_board(
+            db.session,
+            draft,
+            phase=phase_filter if draft.status == "live" else None,
+            expansion_team_id=exp_team_for_eligible if draft.status == "live" else None,
+        )
     )
-    eligible_count = len(eligible)
 
     now = utcnow_naive()
     deadline_ms = None
@@ -396,31 +403,42 @@ def expansion_draft_eligible_page():
                 phase_filter = str(cs.phase or "")
                 exp_team_id = int(cs.team_id)
 
-    eligible = eligible_players_for_board(
+    ordered_ids = eligible_player_ids_for_board(
         db.session,
         draft,
         phase=phase_filter,
         expansion_team_id=exp_team_id,
     )
-    if q:
-        eligible = [p for p in eligible if q in (p.full_name or "").lower()]
-    pos_labels: dict[int, str] = {}
-    if pos_filter:
-        filtered: list = []
-        for pl in eligible:
-            label = player_positions_display_label(pl)
-            pos_labels[int(pl.id)] = label
-            if _player_matches_pos_filter_local(label, pos_filter):
-                filtered.append(pl)
-        eligible = filtered
-    slice_ = eligible[offset : offset + limit]
+    total = len(ordered_ids)
+
+    if q or pos_filter:
+        eligible = hydrate_players_for_ordered_ids(db.session, ordered_ids)
+        if q:
+            eligible = [p for p in eligible if q in (p.full_name or "").lower()]
+        pos_labels: dict[int, str] = {}
+        if pos_filter:
+            filtered: list[Player] = []
+            for pl in eligible:
+                label = player_positions_display_label(pl)
+                pos_labels[int(pl.id)] = label
+                if _player_matches_pos_filter_local(label, pos_filter):
+                    filtered.append(pl)
+            eligible = filtered
+        total = len(eligible)
+        slice_players = eligible[offset : offset + limit]
+    else:
+        total = len(ordered_ids)
+        slice_ids = ordered_ids[offset : offset + limit]
+        slice_players = hydrate_players_for_ordered_ids(db.session, slice_ids)
+        pos_labels = {}
+
     as_of = season_age_reference_date(get_current_season())
 
     def age_years(bd):
         return age_as_of(bd, as_of)
 
     out = []
-    for pl in slice_:
+    for pl in slice_players:
         rr = get_player_ratings_row(pl.fhm_player_id)
         label = pos_labels.get(int(pl.id)) or player_positions_display_label(pl)
         out.append(
@@ -441,10 +459,7 @@ def expansion_draft_eligible_page():
                 "photo_url": _player_photo_url(pl),
             }
         )
-    return jsonify({"ok": True, "players": out, "total": len(eligible), "offset": offset, "limit": limit})
-
-
-@expansion_draft_hub_bp.post("/pick")
+    return jsonify({"ok": True, "players": out, "total": total, "offset": offset, "limit": limit})
 @login_required
 def expansion_draft_pick():
     from flask_wtf.csrf import validate_csrf

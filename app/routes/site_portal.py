@@ -5,7 +5,7 @@ import json
 import os
 import subprocess
 import sys
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 import secrets
 from pathlib import Path
 
@@ -5160,20 +5160,25 @@ def admin_expansion_draft_hub_edit(draft_id: int):
             )
         ).all()
     }
-    players_all = list(
-        db.session.scalars(
-            select(Player)
-            .where(Player.retired.is_(False))
-            .options(joinedload(Player.contract), joinedload(Player.current_team))
-            .order_by(Player.full_name.asc())
-        ).unique().all()
-    )
     from app.services.draft_hub_eligibility import age_as_of
     from app.services.free_agents import player_ids_from_player_rights_csv_for_team
     from app.services.seasons import get_current_season, season_age_reference_date
 
+    age_ref = season_age_reference_date(get_current_season())
+    max_birth_for_expansion_pool = date(age_ref.year - 21, age_ref.month, age_ref.day)
+
     raw_dir = Path(str(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)))
     expansion_org_players: dict[int, dict[str, list[Player]]] = {}
+    players_all = list(
+        db.session.scalars(
+            select(Player)
+            .where(Player.retired.is_(False))
+            .where(Player.birth_date.isnot(None))
+            .where(Player.birth_date <= max_birth_for_expansion_pool)
+            .options(joinedload(Player.contract), joinedload(Player.current_team))
+            .order_by(Player.full_name.asc())
+        ).unique().all()
+    )
     player_ids = [int(p.id) for p in players_all]
     prospect_by_pid: dict[int, Prospect] = {}
     if player_ids:
@@ -5183,7 +5188,6 @@ def admin_expansion_draft_hub_edit(draft_id: int):
             pid = int(pr.player_id)
             if pid not in prospect_by_pid:
                 prospect_by_pid[pid] = pr
-    age_ref = season_age_reference_date(get_current_season())
 
     def _expansion_pool_age_ok(pl: Player) -> bool:
         ag = age_as_of(pl.birth_date, age_ref)

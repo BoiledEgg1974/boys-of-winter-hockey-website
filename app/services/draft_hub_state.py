@@ -422,6 +422,29 @@ def record_pick(
     return None
 
 
+def reassign_pick_team(
+    session: Session,
+    draft: LeagueDraft,
+    overall_pick: int,
+    new_team_id: int,
+    admin_user_id: int,
+) -> str | None:
+    """Re-credit an already-recorded pick to a different franchise (commissioner correction)."""
+    del admin_user_id
+    if draft.status != "live":
+        return "Draft is not live."
+    pk = _pick_row_for_overall(session, draft.id, int(overall_pick))
+    if pk is None:
+        return "No pick recorded for that overall number."
+    tm = session.get(Team, int(new_team_id))
+    if tm is None:
+        return "Unknown team."
+    if int(pk.team_id) == int(new_team_id):
+        return "That pick is already credited to this team."
+    pk.team_id = int(new_team_id)
+    return None
+
+
 def undo_last_pick(session: Session, draft: LeagueDraft) -> str | None:
     if draft.status != "live":
         return "Can only undo during a live draft."

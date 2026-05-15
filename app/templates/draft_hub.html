@@ -30,10 +30,13 @@
        data-resume-url="{{ url_for('draft_hub.draft_hub_resume_timer') }}"
        data-auto-complete-url="{{ url_for('draft_hub.draft_hub_auto_complete') }}"
        data-swap-slots-url="{{ url_for('draft_hub.draft_hub_admin_swap_slots') }}"
+       data-undo-pick-url="{{ url_for('draft_hub.draft_hub_admin_undo_pick') }}"
+       data-reassign-pick-url="{{ url_for('draft_hub.draft_hub_admin_reassign_pick') }}"
        data-end-draft-url="{{ url_for('draft_hub.draft_hub_end_draft_early') }}"
        data-player-page-tpl="{{ url_for('main.player_page', player_id=988776655) }}"
        data-sound-base="{{ url_for('draft_hub.draft_hub_sound', sound_id=0).rsplit('/', 1)[0] }}">
   </div>
+  <script type="application/json" id="dh-teams-data">{{ draft_hub_teams_json | tojson }}</script>
   <div id="dh-slot-trade-modal" class="dh-slot-trade-modal" hidden aria-hidden="true">
     <div class="dh-slot-trade-modal__backdrop" data-dh-trade-close="1"></div>
     <div class="dh-slot-trade-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="dh-slot-trade-title">
@@ -47,6 +50,22 @@
       <div class="dh-slot-trade-modal__actions">
         <button type="button" class="button" id="dh-trade-submit">Swap teams</button>
         <button type="button" class="button secondary" id="dh-trade-cancel" data-dh-trade-close="1">Cancel</button>
+      </div>
+    </div>
+  </div>
+  <div id="dh-reassign-modal" class="dh-slot-trade-modal" hidden aria-hidden="true">
+    <div class="dh-slot-trade-modal__backdrop" data-dh-reassign-close="1"></div>
+    <div class="dh-slot-trade-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="dh-reassign-title">
+      <h2 id="dh-reassign-title" class="dh-slot-trade-modal__title">Change pick team</h2>
+      <p class="muted small dh-slot-trade-modal__intro">Re-credit an <strong>already-made</strong> pick to a different franchise (overall number stays the same). Use after a wrong team was recorded.</p>
+      <div class="dh-slot-trade-modal__fields">
+        <label class="dh-slot-trade-modal__label">Overall pick <select id="dh-reassign-overall" class="dh-slot-trade-modal__select"></select></label>
+        <label class="dh-slot-trade-modal__label">Credit to team <select id="dh-reassign-team" class="dh-slot-trade-modal__select"></select></label>
+      </div>
+      <p id="dh-reassign-msg" class="dh-slot-trade-modal__msg" role="status"></p>
+      <div class="dh-slot-trade-modal__actions">
+        <button type="button" class="button" id="dh-reassign-submit">Save</button>
+        <button type="button" class="button secondary" id="dh-reassign-cancel" data-dh-reassign-close="1">Cancel</button>
       </div>
     </div>
   </div>
@@ -69,12 +88,25 @@
   var resumeUrl = root.getAttribute('data-resume-url') || '';
   var autoCompleteUrl = root.getAttribute('data-auto-complete-url') || '';
   var swapSlotsUrl = root.getAttribute('data-swap-slots-url') || '';
+  var undoPickUrl = root.getAttribute('data-undo-pick-url') || '';
+  var reassignPickUrl = root.getAttribute('data-reassign-pick-url') || '';
   var endDraftUrl = root.getAttribute('data-end-draft-url') || '';
   var playerPageTpl = root.getAttribute('data-player-page-tpl') || '';
   var pickUrl = root.getAttribute('data-pick-url');
   var qAddUrl = root.getAttribute('data-queue-add-url');
   var qRemUrl = root.getAttribute('data-queue-remove-url');
   var soundBase = root.getAttribute('data-sound-base') || '';
+
+  var dhTeams = [];
+  (function loadDhTeams() {
+    var tEl = document.getElementById('dh-teams-data');
+    if (!tEl) return;
+    try {
+      dhTeams = JSON.parse(tEl.textContent || '[]');
+    } catch (_) {
+      dhTeams = [];
+    }
+  })();
 
   function esc(s) {
     if (!s) return '';
@@ -167,6 +199,113 @@
       });
   }
 
+  function closeDhReassignModal() {
+    var m = document.getElementById('dh-reassign-modal');
+    if (!m) return;
+    m.hidden = true;
+    m.setAttribute('aria-hidden', 'true');
+    var msg = document.getElementById('dh-reassign-msg');
+    if (msg) msg.textContent = '';
+  }
+
+  function openDhReassignModal() {
+    var x = window.__dhLastDraftForTrade;
+    var m = document.getElementById('dh-reassign-modal');
+    var selO = document.getElementById('dh-reassign-overall');
+    var selT = document.getElementById('dh-reassign-team');
+    if (!m || !selO || !selT || !x || !reassignPickUrl) return;
+    selO.innerHTML = '';
+    var picked = (x.order || []).filter(function (r) {
+      return r.has_pick && !r.forfeited;
+    });
+    picked.sort(function (a, b) { return (a.overall || 0) - (b.overall || 0); });
+    var msg0 = document.getElementById('dh-reassign-msg');
+    if (!picked.length) {
+      if (msg0) msg0.textContent = 'No completed picks to reassign yet.';
+    } else {
+      picked.forEach(function (r) {
+        var opt = document.createElement('option');
+        opt.value = String(r.overall);
+        opt.textContent = '#' + r.overall + ' · ' + (r.team || '');
+        selO.appendChild(opt);
+      });
+      if (msg0) msg0.textContent = '';
+    }
+    selT.innerHTML = '';
+    var teamsCopy = (dhTeams || []).slice();
+    teamsCopy.sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
+    teamsCopy.forEach(function (t) {
+      var opt = document.createElement('option');
+      opt.value = String(t.id);
+      opt.textContent = t.name || ('Team #' + t.id);
+      selT.appendChild(opt);
+    });
+    m.hidden = false;
+    m.removeAttribute('aria-hidden');
+  }
+
+  function submitDhReassignPick() {
+    var selO = document.getElementById('dh-reassign-overall');
+    var selT = document.getElementById('dh-reassign-team');
+    var msg = document.getElementById('dh-reassign-msg');
+    if (!selO || !selT || !reassignPickUrl) return;
+    if (!selO.options.length) {
+      if (msg) msg.textContent = 'No completed pick selected.';
+      return;
+    }
+    var overall = parseInt(selO.value, 10);
+    var tid = parseInt(selT.value, 10);
+    if (msg) msg.textContent = 'Saving…';
+    fetch(reassignPickUrl, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ csrf_token: csrf, overall_pick: overall, team_id: tid })
+    })
+      .then(function (r) {
+        return r.json().catch(function () {
+          return {};
+        });
+      })
+      .then(function (data) {
+        if (data && data.ok) {
+          closeDhReassignModal();
+          forceRefresh();
+          return;
+        }
+        if (msg) msg.textContent = (data && data.error) ? data.error : 'Could not save.';
+      })
+      .catch(function () {
+        if (msg) msg.textContent = 'Network error.';
+      });
+  }
+
+  function submitDhUndoPick() {
+    if (!undoPickUrl) return;
+    if (!window.confirm('Remove the most recent pick from this draft? The player returns to the eligible pool and the clock resets for that slot.')) return;
+    fetch(undoPickUrl, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ csrf_token: csrf })
+    })
+      .then(function (r) {
+        return r.json().catch(function () {
+          return {};
+        });
+      })
+      .then(function (data) {
+        if (data && data.ok) {
+          forceRefresh();
+          return;
+        }
+        window.alert((data && data.error) ? data.error : 'Could not undo pick.');
+      })
+      .catch(function () {
+        window.alert('Network error.');
+      });
+  }
+
   (function setupDhSlotTradeModal() {
     var m = document.getElementById('dh-slot-trade-modal');
     if (!m || m._dhBound) return;
@@ -178,13 +317,36 @@
     if (sub) sub.addEventListener('click', submitDhSlotTrade);
   })();
 
+  (function setupDhReassignModal() {
+    var m = document.getElementById('dh-reassign-modal');
+    if (!m || m._dhBound) return;
+    m._dhBound = true;
+    m.addEventListener('click', function (e) {
+      if (e.target && e.target.getAttribute('data-dh-reassign-close')) closeDhReassignModal();
+    });
+    var sub = document.getElementById('dh-reassign-submit');
+    if (sub) sub.addEventListener('click', submitDhReassignPick);
+  })();
+
   var pageRoot = document.getElementById('draft-hub-page-root');
-  if (pageRoot && !pageRoot._dhTradeOpenBound) {
-    pageRoot._dhTradeOpenBound = true;
+  if (pageRoot && !pageRoot._dhAdminActionsBound) {
+    pageRoot._dhAdminActionsBound = true;
     pageRoot.addEventListener('click', function (e) {
-      if (e.target && e.target.id === 'dh-trade-open') {
-        e.preventDefault();
+      var t = e.target;
+      if (!t || !t.closest) return;
+      var btn = t.closest('#dh-trade-open, #dh-reassign-open, #dh-undo-pick');
+      if (!btn) return;
+      e.preventDefault();
+      if (btn.id === 'dh-trade-open') {
         openDhSlotTradeModal();
+        return;
+      }
+      if (btn.id === 'dh-reassign-open') {
+        openDhReassignModal();
+        return;
+      }
+      if (btn.id === 'dh-undo-pick') {
+        submitDhUndoPick();
       }
     });
   }
@@ -251,7 +413,7 @@
       });
       h += '</ul>';
     }
-    h += '<p class="muted small draft-hub-ai__note">AI-generated entertainment — not league guidance.</p>';
+    h += '<p class="muted small draft-hub-ai__note">Suggestions are rules-based when the model is off or unavailable; otherwise they may be AI-generated. Entertainment only — not league guidance.</p>';
     el.innerHTML = h;
     restoreAiScroll();
   }
@@ -472,6 +634,12 @@
     if (x.can_admin_slot_swap && x.status === 'live') {
       html += '<button type="button" class="button secondary small" id="dh-trade-open">Trade picks</button>';
     }
+    if (x.can_admin_reassign_pick && x.status === 'live') {
+      html += '<button type="button" class="button secondary small" id="dh-reassign-open">Change pick team…</button>';
+    }
+    if (x.can_admin_undo_pick && x.status === 'live') {
+      html += '<button type="button" class="button secondary small" id="dh-undo-pick">Undo last pick</button>';
+    }
     if (x.can_admin_end_early && x.status === 'live' && endDraftUrl) {
       html += '<form method="post" action="' + esc(endDraftUrl) + '" class="draft-hub-admin-timer-form dh-end-draft-form" '
         + 'onsubmit="return confirm(&quot;End this draft now and mark it complete? Remaining unpicked slots will be left empty. This cannot be undone from the hub.&quot;);">';
@@ -482,7 +650,7 @@
 
     html += '<section class="draft-hub-col draft-hub-col--ai card">';
     html += '<h2 class="draft-hub-col__title">AI Draft Desk</h2>';
-    html += '<p class="muted small" style="margin:0 0 0.5rem;line-height:1.35;">Fun, roster-aware suggestions for whoever is on the clock. Click any linked name to open a full profile in a new tab.</p>';
+    html += '<p class="muted small" style="margin:0 0 0.5rem;line-height:1.35;">Fun, roster-aware suggestions for whoever is on the clock — local heuristics by default, optional OpenAI when configured. Click any linked name to open a full profile in a new tab.</p>';
     html += '<div id="dh-ai-body" class="draft-hub-ai-body"><p class="muted">Loading…</p></div>';
     html += '</section>';
 
@@ -535,8 +703,12 @@
 
     html += '<section class="draft-hub-col draft-hub-col--order card">';
     html += '<h2 class="draft-hub-col__title">Draft Order</h2>';
+    html += '<p class="muted small" style="margin:0 0 0.5rem;line-height:1.35;">Upcoming picks only — completed selections stay in the ticker and history. Overall numbers are official (e.g. #2 stays #2).</p>';
     html += '<ul class="draft-hub-order">';
-    (x.order || []).forEach(function (row) {
+    var orderRows = (x.order || []).filter(function (r) {
+      return !r.has_pick;
+    });
+    orderRows.forEach(function (row) {
       var clsParts = ['draft-hub-order__item'];
       if (row.is_current) clsParts.push('draft-hub-order__current');
       if (row.boost_tier === 'gold') clsParts.push('draft-hub-order__gold');

@@ -25,10 +25,12 @@ from app.services.draft_hub_state import (
     picked_player_ids,
     process_tick,
     record_pick,
+    reassign_pick_team,
     resolve_admin_pick,
     resume_draft_timer,
     slots_ordered,
     swap_draft_slot_team_ids,
+    undo_last_pick,
     utcnow_naive,
     wishlist_head_for_user,
 )
@@ -73,10 +75,12 @@ def draft_hub_page():
     draft = featured_draft(db.session, slug)
     teams = list(db.session.scalars(select(Team).order_by(Team.name)).all())
     team_by_id = {t.id: t for t in teams}
+    draft_hub_teams_json = [{"id": int(t.id), "name": t.full_display_name()} for t in teams]
     return render_template(
         "draft_hub.html",
         featured_draft=draft,
         team_by_id=team_by_id,
+        draft_hub_teams_json=draft_hub_teams_json,
         gm_membership=_membership(),
     )
 
@@ -426,6 +430,24 @@ def draft_hub_api_state():
         and getattr(current_user, "is_admin", False)
         and draft.status == "live"
     )
+    n_picks = int(
+        db.session.scalar(
+            select(func.count()).select_from(LeagueDraftPick).where(LeagueDraftPick.league_draft_id == draft.id)
+        )
+        or 0
+    )
+    can_admin_undo_pick = bool(
+        current_user.is_authenticated
+        and getattr(current_user, "is_admin", False)
+        and draft.status == "live"
+        and n_picks > 0
+    )
+    can_admin_reassign_pick = bool(
+        current_user.is_authenticated
+        and getattr(current_user, "is_admin", False)
+        and draft.status == "live"
+        and n_picks > 0
+    )
     wishlist_pick: dict[str, object] | None = None
     if can_pick:
         wpid, wname = wishlist_head_for_user(db.session, draft, slug, int(current_user.id))
@@ -463,6 +485,8 @@ def draft_hub_api_state():
                 "can_admin_control": can_admin_control,
                 "can_admin_slot_swap": can_admin_slot_swap,
                 "can_admin_end_early": can_admin_end_early,
+                "can_admin_undo_pick": can_admin_undo_pick,
+                "can_admin_reassign_pick": can_admin_reassign_pick,
                 "wishlist_pick": wishlist_pick,
             },
         }
@@ -834,6 +858,67 @@ def draft_hub_admin_swap_slots():
     except (TypeError, ValueError):
         return jsonify({"ok": False, "error": "Overall picks must be integers."}), 400
     err = swap_draft_slot_team_ids(db.session, draft, overall_a, overall_b, int(current_user.id))
+    if err:
+        db.session.rollback()
+        return jsonify({"ok": False, "error": err}), 400
+    db.session.commit()
+    db.session.refresh(draft)
+    return jsonify({"ok": True, "error": None})
+
+
+@draft_hub_bp.post("/admin/undo-pick")
+@login_required
+def draft_hub_admin_undo_pick():
+    """JSON: remove the most recent pick (commissioner correction)."""
+    from flask_wtf.csrf import validate_csrf
+
+    if not getattr(current_user, "is_admin", False):
+        return jsonify({"ok": False, "error": "Forbidden."}), 403
+    data = request.get_json(silent=True) or {}
+    try:
+        validate_csrf(data.get("csrf_token"))
+    except Exception:  # noqa: BLE001
+        return jsonify({"ok": False, "error": "Invalid CSRF token."}), 400
+    slug = _league_slug()
+    draft = featured_draft(db.session, slug)
+    if not draft or draft.status != "live":
+        return jsonify({"ok": False, "error": "No live draft."}), 400
+    err = undo_last_pick(db.session, draft)
+    if err:
+        db.session.rollback()
+        return jsonify({"ok": False, "error": err}), 400
+    db.session.commit()
+    db.session.refresh(draft)
+    return jsonify({"ok": True, "error": None})
+
+
+@draft_hub_bp.post("/admin/reassign-pick")
+@login_required
+def draft_hub_admin_reassign_pick():
+    """JSON: change which team is credited for an existing pick at a given overall."""
+    from flask_wtf.csrf import validate_csrf
+
+    if not getattr(current_user, "is_admin", False):
+        return jsonify({"ok": False, "error": "Forbidden."}), 403
+    data = request.get_json(silent=True) or {}
+    try:
+        validate_csrf(data.get("csrf_token"))
+    except Exception:  # noqa: BLE001
+        return jsonify({"ok": False, "error": "Invalid CSRF token."}), 400
+    slug = _league_slug()
+    draft = featured_draft(db.session, slug)
+    if not draft or draft.status != "live":
+        return jsonify({"ok": False, "error": "No live draft."}), 400
+    ov = data.get("overall_pick", data.get("overall"))
+    tid = data.get("team_id")
+    if ov is None or tid is None:
+        return jsonify({"ok": False, "error": "Missing overall_pick or team_id."}), 400
+    try:
+        overall_pick = int(ov)
+        new_team_id = int(tid)
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "overall_pick and team_id must be integers."}), 400
+    err = reassign_pick_team(db.session, draft, overall_pick, new_team_id, int(current_user.id))
     if err:
         db.session.rollback()
         return jsonify({"ok": False, "error": err}), 400

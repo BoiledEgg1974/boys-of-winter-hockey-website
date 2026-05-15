@@ -112,6 +112,17 @@
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
   }
 
+  function dhPostJson(url, payload) {
+    var headers = { 'Content-Type': 'application/json', Accept: 'application/json' };
+    if (csrf) headers['X-CSRFToken'] = csrf;
+    return fetch(url, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: headers,
+      body: JSON.stringify(payload || {})
+    });
+  }
+
   function playerHref(pid) {
     if (!playerPageTpl || pid == null || pid === '') return '#';
     return playerPageTpl.replace(/988776655/g, String(pid));
@@ -171,12 +182,7 @@
       return;
     }
     if (msg) msg.textContent = 'Saving…';
-    fetch(swapSlotsUrl, {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ csrf_token: csrf, overall_a: oa, overall_b: ob })
-    })
+    dhPostJson(swapSlotsUrl, { csrf_token: csrf, overall_a: oa, overall_b: ob })
       .then(function (r) {
         return r.json().catch(function () {
           return {};
@@ -278,12 +284,7 @@
     var overall = parseInt(selP.value, 10);
     var tid = parseInt(selT.value, 10);
     if (msg) msg.textContent = 'Saving…';
-    fetch(reassignPickUrl, {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ csrf_token: csrf, overall_pick: overall, team_id: tid })
-    })
+    dhPostJson(reassignPickUrl, { csrf_token: csrf, overall_pick: overall, team_id: tid })
       .then(function (r) {
         return r.json().catch(function () {
           return {};
@@ -305,12 +306,7 @@
   function submitDhUndoPick() {
     if (!undoPickUrl) return;
     if (!window.confirm('Remove the most recent pick from this draft? The player returns to the eligible pool and the clock resets for that slot.')) return;
-    fetch(undoPickUrl, {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ csrf_token: csrf })
-    })
+    dhPostJson(undoPickUrl, { csrf_token: csrf })
       .then(function (r) {
         return r.json().catch(function () {
           return {};

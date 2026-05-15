@@ -449,6 +449,7 @@
   var lastTimerKey = '';
   var timerBase = 0;
   var timerMs0 = 0;
+  var lastDhTickerKey = '';
 
   var PANEL_SCROLL_SELECTORS = [
     '.draft-hub-order',
@@ -506,14 +507,30 @@
     });
   }
 
-  function syncDhTickerMarquee(pickCount) {
+  function buildDhTickerText(tp, status) {
+    if (!tp || !tp.length) {
+      return status === 'setup'
+        ? 'No picks yet — draft has not started.'
+        : (status === 'completed' ? 'No picks recorded for this draft.' : 'No picks yet — waiting for the first selection.');
+    }
+    return tp.map(function (p) {
+      var prefix = '';
+      if (p.boost_tier === 'gold') prefix = '★ GOLD ';
+      else if (p.boost_tier === 'silver') prefix = '✦ SILVER ';
+      return prefix + '#' + p.overall + ' · R' + p.round + ' · ' + p.team + ' — ' + p.player;
+    }).join('          •          ');
+  }
+
+  function setDhTickerDuration(pickCount, restartAnimation) {
     var mq = document.querySelector('#dh-ticker .draft-hub-ticker__marquee');
     if (!mq) return;
     var n = pickCount || 0;
     var sec = n > 0 ? Math.min(100, Math.max(22, 14 + n * 1.6)) : 40;
-    mq.style.animation = 'none';
-    void mq.offsetWidth;
-    mq.style.animation = '';
+    if (restartAnimation) {
+      mq.style.animation = 'none';
+      void mq.offsetWidth;
+      mq.style.animation = '';
+    }
     mq.style.animationDuration = sec + 's';
   }
 
@@ -526,13 +543,25 @@
   }
 
   function removeDhTicker() {
+    lastDhTickerKey = '';
     var tick = document.getElementById('dh-ticker');
     if (tick) tick.remove();
   }
 
   function updateDhTicker(tickerText, pickCount) {
+    var key = tickerText || '';
+    if (key === lastDhTickerKey) {
+      return;
+    }
+    lastDhTickerKey = key;
     var ticker = document.getElementById('dh-ticker');
-    if (!ticker) return;
+    if (!ticker) {
+      ticker = document.createElement('aside');
+      ticker.id = 'dh-ticker';
+      ticker.className = 'draft-hub-ticker';
+      ticker.setAttribute('aria-label', 'All picks to date');
+    }
+    ticker.setAttribute('data-ticker-key', key);
     ticker.innerHTML =
       '<div class="draft-hub-ticker__label">Picks</div>' +
       '<div class="draft-hub-ticker__viewport">' +
@@ -541,7 +570,7 @@
       '<span class="draft-hub-ticker__text" aria-hidden="true">' + esc(tickerText) + '</span>' +
       '</div></div>';
     mountDhTickerOnPage();
-    syncDhTickerMarquee(pickCount);
+    setDhTickerDuration(pickCount, true);
   }
 
   function patchDraftPanelsFromHtml(html, x, tp) {
@@ -562,11 +591,7 @@
     copyPanel('dh-order-list', false);
     copyPanel('dh-history-controls', false);
     copyPanel('dh-history-body', false);
-    var tickerSrc = tmp.querySelector('#dh-ticker');
-    if (tickerSrc) {
-      var t0 = tickerSrc.querySelector('.draft-hub-ticker__text');
-      updateDhTicker(t0 ? t0.textContent : '', tp.length);
-    }
+    updateDhTicker(buildDhTickerText(tp, x.status), tp.length);
     stopDhTimer();
     startDhTimer(x);
     bindDhSounds(document.getElementById('dh-wishlist'));
@@ -907,27 +932,7 @@
     html += '</div>';
 
     var tp = x.ticker_picks || [];
-    var tickerText;
-    if (!tp.length) {
-      tickerText = x.status === 'setup'
-        ? 'No picks yet — draft has not started.'
-        : (x.status === 'completed' ? 'No picks recorded for this draft.' : 'No picks yet — waiting for the first selection.');
-    } else {
-      tickerText = tp.map(function (p) {
-        var prefix = '';
-        if (p.boost_tier === 'gold') prefix = '★ GOLD ';
-        else if (p.boost_tier === 'silver') prefix = '✦ SILVER ';
-        return prefix + '#' + p.overall + ' · R' + p.round + ' · ' + p.team + ' — ' + p.player;
-      }).join('          •          ');
-    }
-    html += '<aside id="dh-ticker" class="draft-hub-ticker" aria-label="All picks to date">';
-    html += '<div class="draft-hub-ticker__label">Picks</div>';
-    html += '<div class="draft-hub-ticker__viewport">';
-    html += '<div class="draft-hub-ticker__marquee">';
-    html += '<span class="draft-hub-ticker__text">' + esc(tickerText) + '</span>';
-    html += '<span class="draft-hub-ticker__text" aria-hidden="true">' + esc(tickerText) + '</span>';
-    html += '</div></div></aside>';
-
+    var tickerText = buildDhTickerText(tp, x.status);
     lastDraftPayload = d;
 
     if (dhMounted && document.getElementById('dh-search')) {
@@ -938,11 +943,10 @@
       bindControls();
       sizeDraftOrder(x.picks_per_round);
       restorePanelScrolls();
-      mountDhTickerOnPage();
-      syncDhTickerMarquee(tp.length);
       startDhTimer(x);
       bindDhSounds(document.getElementById('dh-wishlist'));
     }
+    updateDhTicker(tickerText, tp.length);
 
     loadEligible(x);
     renderWishlistPanel(x);

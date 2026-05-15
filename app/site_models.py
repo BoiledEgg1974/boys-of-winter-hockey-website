@@ -466,6 +466,9 @@ class DiscordLeagueBotConfig(db.Model):
     guild_id: Mapped[str] = mapped_column(String(64), default="", nullable=False)
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     notes: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    suppressed_default_route_keys_json: Mapped[str] = mapped_column(
+        Text, default="[]", nullable=False
+    )
     updated_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 

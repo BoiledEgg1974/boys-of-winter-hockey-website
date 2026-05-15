@@ -1185,6 +1185,7 @@ def ensure_discord_outbound_sqlite(engine: Engine) -> None:
                         guild_id VARCHAR(64) NOT NULL DEFAULT '',
                         is_enabled BOOLEAN NOT NULL DEFAULT 1,
                         notes TEXT NOT NULL DEFAULT '',
+                        suppressed_default_route_keys_json TEXT NOT NULL DEFAULT '[]',
                         updated_by_user_id INTEGER,
                         updated_at DATETIME NOT NULL
                     )
@@ -1197,6 +1198,16 @@ def ensure_discord_outbound_sqlite(engine: Engine) -> None:
                     "ON discord_league_bot_config (league_slug)"
                 )
             )
+        else:
+            cfg_cols = conn.execute(text("PRAGMA table_info(discord_league_bot_config)")).fetchall()
+            cfg_col_names = {str(c[1]) for c in cfg_cols}
+            if "suppressed_default_route_keys_json" not in cfg_col_names:
+                conn.execute(
+                    text(
+                        "ALTER TABLE discord_league_bot_config "
+                        "ADD COLUMN suppressed_default_route_keys_json TEXT NOT NULL DEFAULT '[]'"
+                    )
+                )
         has_delivered = conn.execute(
             text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='discord_delivered_sources'")
         ).fetchone()

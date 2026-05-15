@@ -106,6 +106,75 @@ STAT_LEADER_BOT_COMMAND_KEYS = (
 MAX_DELIVERY_ATTEMPTS = 3
 
 
+def _parse_suppressed_default_route_keys(raw: object) -> set[str]:
+    if raw is None:
+        return set()
+    if isinstance(raw, str):
+        s = raw.strip()
+        if not s:
+            return set()
+        try:
+            data = json.loads(s)
+        except json.JSONDecodeError:
+            return set()
+        if isinstance(data, list):
+            return {str(x).strip() for x in data if str(x).strip()}
+        return set()
+    return set()
+
+
+def _suppressed_default_route_keys(session, league_slug: str) -> set[str]:
+    row = session.scalar(
+        select(DiscordLeagueBotConfig).where(DiscordLeagueBotConfig.league_slug == league_slug).limit(1)
+    )
+    if row is None:
+        return set()
+    return _parse_suppressed_default_route_keys(getattr(row, "suppressed_default_route_keys_json", ""))
+
+
+def _ensure_discord_bot_cfg_row(session, league_slug: str) -> DiscordLeagueBotConfig:
+    row = session.scalar(
+        select(DiscordLeagueBotConfig).where(DiscordLeagueBotConfig.league_slug == league_slug).limit(1)
+    )
+    if row is None:
+        row = DiscordLeagueBotConfig(
+            league_slug=league_slug,
+            guild_id="",
+            is_enabled=True,
+            notes="",
+            suppressed_default_route_keys_json="[]",
+            updated_by_user_id=None,
+            updated_at=datetime.utcnow(),
+        )
+        session.add(row)
+        session.flush()
+    return row
+
+
+def _remember_removed_default_route(session, league_slug: str, event_key: str) -> None:
+    key = str(event_key or "").strip()
+    if key not in DEFAULT_EVENT_KEYS:
+        return
+    cfg = _ensure_discord_bot_cfg_row(session, league_slug)
+    suppressed = _parse_suppressed_default_route_keys(cfg.suppressed_default_route_keys_json)
+    suppressed.add(key)
+    cfg.suppressed_default_route_keys_json = json.dumps(sorted(suppressed))
+
+
+def _forget_removed_default_route(session, league_slug: str, event_key: str) -> None:
+    key = str(event_key or "").strip()
+    row = session.scalar(
+        select(DiscordLeagueBotConfig).where(DiscordLeagueBotConfig.league_slug == league_slug).limit(1)
+    )
+    if row is None:
+        return
+    suppressed = _parse_suppressed_default_route_keys(row.suppressed_default_route_keys_json)
+    if key not in suppressed:
+        return
+    suppressed.discard(key)
+    row.suppressed_default_route_keys_json = json.dumps(sorted(suppressed)) if suppressed else "[]"
+
+
 def is_valid_event_key(key: str) -> bool:
     return bool(EVENT_KEY_PATTERN.match(str(key or "").strip()))
 
@@ -227,9 +296,12 @@ def _migrate_ops_request_to_trade_request(session) -> None:
 def ensure_discord_routes(session, league_slug: str, updated_by_user_id: int | None = None) -> None:
     _migrate_ops_request_to_trade_request(session)
     by_key = _route_map(session, league_slug)
+    suppressed = _suppressed_default_route_keys(session, league_slug)
     now = datetime.utcnow()
     changed = False
     for key in sorted(DEFAULT_EVENT_KEYS):
+        if key in suppressed:
+            continue
         if key in by_key:
             continue
         session.add(
@@ -270,6 +342,7 @@ def get_league_bot_config(session, league_slug: str) -> DiscordLeagueBotConfig:
         guild_id="",
         is_enabled=True,
         notes="",
+        suppressed_default_route_keys_json="[]",
         updated_by_user_id=None,
         updated_at=datetime.utcnow(),
     )
@@ -354,6 +427,7 @@ def add_discord_route(
     existing = _route_map(session, league_slug).get(key)
     if existing is not None:
         raise ValueError("Route already exists for this event_key")
+    _forget_removed_default_route(session, league_slug, key)
     now = datetime.utcnow()
     row = DiscordChannelRoute(
         league_slug=league_slug,
@@ -382,6 +456,7 @@ def delete_discord_route(session, *, league_slug: str, event_key: str) -> bool:
     if row is None:
         return False
     session.delete(row)
+    _remember_removed_default_route(session, league_slug, key)
     session.commit()
     return True
 

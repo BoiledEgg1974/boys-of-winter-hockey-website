@@ -31,6 +31,8 @@ In each league’s admin page (`/<league-slug>/admin/discord-integration`):
 
 **Optional:** paste the same Discord channel ID onto multiple routes if you want combined feeds into one `#channel`.
 
+Removing a **default** route (seeded event keys like `calder_trophy_posted`) hides it until you use **Add route** again with that event key—the site remembers removals per league so they are not auto-recreated on refresh.
+
 **Historical example guild `1218341313208914002`:** on **bowl-historical → Discord integration**, set Bot connection guild to that ID, then paste channel IDs: `#announcements` → `announcement_posted`; `#team-news` → `gm_news_published`; `#league-news` → `admin_news_published`; AP channel → `ap_redemption_posted`; `#draft-discussion` → `draft_hub_pick_made`; `#expansion-draft-discussion` → `expansion_draft_pick_made`.
 
 ## 3. Website environment

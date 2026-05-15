@@ -11445,6 +11445,7 @@ a.draft-hub-player__name:hover {
   justify-content: center;
   gap: 0.2rem;
   line-height: 1;
+  vertical-align: middle;
 }
 .draft-hub-history__team .draft-hub-history__from {
   margin: 0;
@@ -11890,14 +11891,14 @@ table.draft-hub-history-table--expansion td:nth-child(4) a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 22px;
+  height: 22px;
+  box-sizing: border-box;
   font-size: 0.65rem;
   font-weight: 700;
   color: var(--muted, #94a3b8);
   background: rgb(148 163 184 / 0.12);
   border-radius: 4px;
-}
-.draft-hub-history__team {
-  vertical-align: middle;
 }
 .draft-hub-flash__err {
   color: #fecaca;

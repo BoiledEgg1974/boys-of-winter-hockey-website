@@ -454,6 +454,43 @@ def record_pick(
         picked_by_user_id=int(user_id) if user_id is not None else None,
     )
     session.add(pk)
+    session.flush()
+    try:
+        from app.services.discord_events import (
+            build_league_public_url,
+            enqueue_discord_event,
+            team_fields_for_discord,
+        )
+
+        tm = session.get(Team, int(pk.team_id))
+        pl = session.get(Player, int(pk.player_id))
+        pos_lbl = (player_positions_display_label(pl) or "").strip() if pl else ""
+        ply_name = pl.full_name if pl else str(pk.player_id)
+        enqueue_discord_event(
+            session,
+            league_slug=draft.league_slug,
+            event_key="draft_hub_pick_made",
+            payload={
+                "title": str(draft.name or "Draft Hub"),
+                "draft_id": int(draft.id),
+                "draft_name": str(draft.name or ""),
+                "overall_pick": int(pk.overall_pick),
+                "round": int(pk.round),
+                "pick_source": str(source),
+                "player_name": ply_name,
+                "player_pos": pos_lbl,
+                "body_preview": f"R{int(pk.round)} #{int(pk.overall_pick)} · {ply_name}"
+                + (f" ({pos_lbl})" if pos_lbl else "")
+                + f" — {source}",
+                "url": build_league_public_url(draft.league_slug, "/draft-hub"),
+                **team_fields_for_discord(tm),
+            },
+            created_by_user_id=int(user_id) if user_id is not None else None,
+            source_type="draft_hub_pick",
+            source_id=int(pk.id),
+        )
+    except Exception:
+        pass
     _remove_player_from_all_queues(session, draft.id, int(player_id))
     draft.current_slot_index += 1
     draft.deadline_extended_for_slot = False

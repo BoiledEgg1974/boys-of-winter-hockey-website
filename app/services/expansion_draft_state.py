@@ -862,6 +862,39 @@ def record_pick(
         picked_by_user_id=int(user_id) if user_id is not None else None,
     )
     session.add(pk)
+    session.flush()
+    try:
+        from app.services.discord_events import (
+            build_league_public_url,
+            enqueue_discord_event,
+            team_fields_for_discord,
+        )
+
+        tm = session.get(Team, int(pk.team_id))
+        pl_name = pl.full_name if pl else str(pk.player_id)
+        enqueue_discord_event(
+            session,
+            league_slug=draft.league_slug,
+            event_key="expansion_draft_pick_made",
+            payload={
+                "title": str(draft.name or "Expansion draft"),
+                "draft_id": int(draft.id),
+                "draft_name": str(draft.name or ""),
+                "overall_pick": int(pk.overall_pick),
+                "round": int(pk.round),
+                "phase": str(pk.phase or ""),
+                "pick_source": str(source),
+                "player_name": pl_name,
+                "body_preview": f"[{pk.phase}] R{int(pk.round)} #{int(pk.overall_pick)} · {pl_name} — {source}",
+                "url": build_league_public_url(draft.league_slug, "/expansion-draft-hub"),
+                **team_fields_for_discord(tm),
+            },
+            created_by_user_id=int(user_id) if user_id is not None else None,
+            source_type="expansion_draft_pick",
+            source_id=int(pk.id),
+        )
+    except Exception:
+        pass
     draft.current_slot_index += 1
     draft.deadline_extended_for_slot = False
     draft.awaiting_admin_resolution = False

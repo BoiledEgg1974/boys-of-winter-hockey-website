@@ -116,6 +116,9 @@
     </section>
     {% endif %}
     {% block content %}{% endblock %}
+    {% if request.endpoint and request.endpoint.startswith('site_admin.') %}
+    {% include 'includes/admin_apply_refresh.html' %}
+    {% endif %}
   </main>
 
   <footer class="site-footer" role="contentinfo">

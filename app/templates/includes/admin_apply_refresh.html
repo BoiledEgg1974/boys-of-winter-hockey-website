@@ -1,0 +1,22 @@
+{# Manual page reload for site admin (replaces auto-refresh). Included from base.html for site_admin.* routes. #}
+<div class="card admin-apply-refresh" role="region" aria-label="Refresh admin page" style="max-width:72rem;margin:1.25rem auto 0;">
+  <p class="muted" id="admin-page-loaded-at" style="margin:0 0 0.65rem;"></p>
+  <div style="display:flex;flex-wrap:wrap;gap:0.6rem;align-items:center;">
+    <button type="button" class="admin-news-body-btn" id="admin-apply-reload-btn">Apply</button>
+    <span class="muted">Reloads this page so tables and status match the server. There is no automatic refresh.</span>
+  </div>
+</div>
+<script>
+(function () {
+  var note = document.getElementById("admin-page-loaded-at");
+  var btn = document.getElementById("admin-apply-reload-btn");
+  if (note) {
+    note.textContent = "Page loaded at " + new Date().toLocaleString() + ".";
+  }
+  if (btn) {
+    btn.addEventListener("click", function () {
+      window.location.reload();
+    });
+  }
+})();
+</script>

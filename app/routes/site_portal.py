@@ -85,11 +85,17 @@ from app.services.story_automation import (
 )
 from app.services.discord_events import (
     STAT_LEADER_BOT_COMMAND_KEYS,
+    add_discord_route,
+    build_league_public_url,
+    delete_discord_route,
     enqueue_discord_event,
+    get_league_bot_config,
     list_heartbeats,
     list_discord_routes,
     list_outbound_events,
+    team_fields_for_discord,
     update_discord_routes,
+    update_league_bot_config,
 )
 from app.services.prediction_center import build_prediction_snapshot
 from app.services.awards_tracker import create_voting_cycle, list_cycles, tally_cycle_ballots
@@ -421,7 +427,13 @@ def _create_undo_action(
     )
 
 
-def _enqueue_discord_event(event_key: str, payload: dict) -> None:
+def _enqueue_discord_event(
+    event_key: str,
+    payload: dict,
+    *,
+    source_type: str | None = None,
+    source_id: str | int | None = None,
+) -> None:
     slug = _league_slug()
     try:
         enqueue_discord_event(
@@ -430,6 +442,8 @@ def _enqueue_discord_event(event_key: str, payload: dict) -> None:
             event_key=event_key,
             payload=payload or {},
             created_by_user_id=int(current_user.id) if getattr(current_user, "is_authenticated", False) else None,
+            source_type=source_type,
+            source_id=source_id,
         )
     except Exception:
         # Never block primary admin flows on outbound queue writes.
@@ -2265,6 +2279,7 @@ def admin_operations_queue_set_status(rid: int):
         flash("Request not changed because a league rule blocked approval.", "err")
     else:
         flash("Request status updated.", "ok")
+        trade_team = db.session.get(Team, int(row.team_id)) if row.team_id else None
         _enqueue_discord_event(
             "trade_request",
             {
@@ -2273,7 +2288,11 @@ def admin_operations_queue_set_status(rid: int):
                 "team_id": int(row.team_id),
                 "status": str(row.status or ""),
                 "admin_note": str(row.admin_note or "")[:240],
+                "url": build_league_public_url(slug, "/admin/operations/queue"),
+                **team_fields_for_discord(trade_team),
             },
+            source_type="trade_request",
+            source_id=int(row.id),
         )
     return redirect(url_for("site_admin.admin_operations_queue", view=queue_view, filter=queue_filter, sort=queue_sort))
 
@@ -2682,7 +2701,10 @@ def admin_story_automation_live_dispatch(sid: int):
                 "article_id": int(row.article_id),
                 "channel": str(row.channel or ""),
                 "message": str(result.get("message") or "Story dispatched"),
+                "url": build_league_public_url(slug, "/"),
             },
+            source_type="story_schedule",
+            source_id=int(row.id),
         )
     db.session.commit()
     flash(
@@ -3169,6 +3191,9 @@ def admin_discord_integration():
                     {
                         "event_key": key,
                         "channel_key": (request.form.get(f"channel_{key}") or "").strip()[:64],
+                        "discord_channel_id": (request.form.get(f"discord_channel_id_{key}") or "").strip(),
+                        "label": (request.form.get(f"label_{key}") or "").strip()[:120],
+                        "description": (request.form.get(f"description_{key}") or "").strip()[:2000],
                         "is_enabled": request.form.get(f"enabled_{key}") == "1",
                     }
                 )
@@ -3183,6 +3208,57 @@ def admin_discord_integration():
             )
             db.session.commit()
             flash("Discord route settings updated.", "ok")
+            return redirect(url_for("site_admin.admin_discord_integration"))
+        if action == "save_bot_config":
+            try:
+                update_league_bot_config(
+                    db.session,
+                    league_slug=slug,
+                    guild_id=(request.form.get("guild_id") or "").strip(),
+                    is_enabled=request.form.get("bot_enabled") == "1",
+                    notes=(request.form.get("bot_notes") or "").strip(),
+                    updated_by_user_id=int(current_user.id),
+                )
+            except ValueError as exc:
+                flash(str(exc), "err")
+                return redirect(url_for("site_admin.admin_discord_integration"))
+            db.session.add(
+                AdminAuditLog(
+                    admin_user_id=int(current_user.id),
+                    league_slug=slug,
+                    action="discord_bot_config_update",
+                    detail_json=json.dumps({"guild_id": (request.form.get("guild_id") or "").strip()}),
+                )
+            )
+            db.session.commit()
+            flash("Discord bot connection settings saved.", "ok")
+            return redirect(url_for("site_admin.admin_discord_integration"))
+        if action == "add_route":
+            event_key = (request.form.get("new_event_key") or "").strip()
+            channel_key = (request.form.get("new_channel_key") or "").strip()
+            discord_channel_id = (request.form.get("new_discord_channel_id") or "").strip()
+            label = (request.form.get("new_label") or "").strip()
+            try:
+                add_discord_route(
+                    db.session,
+                    league_slug=slug,
+                    event_key=event_key,
+                    channel_key=channel_key,
+                    discord_channel_id=discord_channel_id,
+                    label=label,
+                    updated_by_user_id=int(current_user.id),
+                )
+            except ValueError as exc:
+                flash(str(exc), "err")
+                return redirect(url_for("site_admin.admin_discord_integration"))
+            flash(f"Added route for '{event_key}'.", "ok")
+            return redirect(url_for("site_admin.admin_discord_integration"))
+        if action == "remove_route":
+            event_key = (request.form.get("remove_event_key") or "").strip()
+            if not delete_discord_route(db.session, league_slug=slug, event_key=event_key):
+                flash("Route not found.", "err")
+            else:
+                flash(f"Removed route '{event_key}'.", "ok")
             return redirect(url_for("site_admin.admin_discord_integration"))
         if action == "enqueue_test_event":
             event_key = (request.form.get("event_key") or "").strip()
@@ -3299,8 +3375,12 @@ def admin_discord_integration():
             flash(f"Replayed {replayed} dead-letter event(s).", "ok")
             return redirect(url_for("site_admin.admin_discord_integration"))
     status = (request.args.get("status") or "").strip().lower()
+    event_key_filter = (request.args.get("event_key") or "").strip()
     routes = list_discord_routes(db.session, slug)
-    events = list_outbound_events(db.session, league_slug=slug, status=status, limit=250)
+    bot_config = get_league_bot_config(db.session, slug)
+    events = list_outbound_events(
+        db.session, league_slug=slug, status=status, event_key=event_key_filter, limit=250
+    )
     dead_letters = list_outbound_events(db.session, league_slug=slug, status="failed", limit=50)
     heartbeats = list_heartbeats(db.session, league_slug=slug, limit=10)
     secret_set = bool(str(current_app.config.get("DISCORD_EVENTS_SHARED_SECRET") or "").strip())
@@ -3333,9 +3413,11 @@ def admin_discord_integration():
     return render_template(
         "admin_discord_integration.html",
         routes=routes,
+        bot_config=bot_config,
         events=events,
         dead_letters=dead_letters,
         selected_status=status,
+        selected_event_key=event_key_filter,
         secret_set=secret_set,
         queue_recent_ok=queue_recent_ok,
         heartbeat_rows=heartbeat_rows,
@@ -3430,7 +3512,10 @@ def admin_announcements():
                 "title": str(ann.title or ""),
                 "level": str(ann.level or "info"),
                 "body_preview": str(ann.body or "")[:280],
+                "url": build_league_public_url(slug, "/"),
             },
+            source_type="announcement",
+            source_id=int(ann.id),
         )
         db.session.commit()
         flash("Announcement posted.", "ok")
@@ -3691,6 +3776,21 @@ def admin_news_compose():
                 )
             art.image_rel_path = rel
         db.session.commit()
+        _enqueue_discord_event(
+            "admin_news_published",
+            {
+                "article_id": int(art.id),
+                "title": str(art.title or ""),
+                "body_preview": str(art.body or "")[:280],
+                "category": str(art.category or ""),
+                "url": build_league_public_url(slug, "/"),
+                "published_at_utc": art.published_at.isoformat(timespec="seconds") if art.published_at else "",
+                **team_fields_for_discord(team),
+            },
+            source_type="news_article",
+            source_id=int(art.id),
+        )
+        db.session.commit()
         if cat == NEWS_CATEGORY_ADMIN_SUBMISSION:
             notify_all_gms_admin_article(slug, art)
             flash(
@@ -3778,6 +3878,22 @@ def admin_news_publish(aid: int):
         return redirect(url_for("site_admin.admin_news_queue"))
     pts = int(current_app.config.get("NEWS_ARTICLE_AP_POINTS", 3))
     publish_news_and_maybe_award_ap(art, points=pts)
+    team = db.session.get(Team, art.team_id) if art.team_id else None
+    _enqueue_discord_event(
+        "gm_news_published",
+        {
+            "article_id": int(art.id),
+            "title": str(art.title or ""),
+            "body_preview": str(art.body or "")[:280],
+            "category": str(art.category or ""),
+            "url": build_league_public_url(slug, "/"),
+            "published_at_utc": art.published_at.isoformat(timespec="seconds") if art.published_at else "",
+            **team_fields_for_discord(team),
+        },
+        source_type="news_article",
+        source_id=int(art.id),
+    )
+    db.session.commit()
     notify_news_approved(slug, art)
     flash(
         "Approved. It appears on the home page under Around the League. The author was notified in GM Messages.",
@@ -4170,6 +4286,20 @@ def admin_ap_approve(rid: int):
                 status="published",
                 published_at=datetime.utcnow(),
             )
+        )
+        db.session.commit()
+        _enqueue_discord_event(
+            "ap_redemption_posted",
+            {
+                "request_id": int(req.id),
+                "team_id": int(req.team_id),
+                "total_cost": int(req.total_cost),
+                "redemption_label": red_label,
+                "url": build_league_public_url(slug, "/league-news"),
+                **team_fields_for_discord(team),
+            },
+            source_type="ap_redemption",
+            source_id=int(req.id),
         )
         db.session.commit()
         notify_redemption_approved(slug, req)

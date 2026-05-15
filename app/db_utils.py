@@ -1151,6 +1151,83 @@ def ensure_discord_outbound_sqlite(engine: Engine) -> None:
                     "ON discord_bot_heartbeats (bot_name)"
                 )
             )
+        if has_routes:
+            route_cols = conn.execute(text("PRAGMA table_info(discord_channel_routes)")).fetchall()
+            route_names = {str(c[1]) for c in route_cols}
+            if "discord_channel_id" not in route_names:
+                conn.execute(
+                    text(
+                        "ALTER TABLE discord_channel_routes "
+                        "ADD COLUMN discord_channel_id VARCHAR(32) NOT NULL DEFAULT ''"
+                    )
+                )
+            if "label" not in route_names:
+                conn.execute(
+                    text(
+                        "ALTER TABLE discord_channel_routes "
+                        "ADD COLUMN label VARCHAR(120) NOT NULL DEFAULT ''"
+                    )
+                )
+            if "description" not in route_names:
+                conn.execute(
+                    text("ALTER TABLE discord_channel_routes ADD COLUMN description TEXT NOT NULL DEFAULT ''")
+                )
+        has_bot_cfg = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='discord_league_bot_config'")
+        ).fetchone()
+        if not has_bot_cfg:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE discord_league_bot_config (
+                        id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                        league_slug VARCHAR(64) NOT NULL,
+                        guild_id VARCHAR(64) NOT NULL DEFAULT '',
+                        is_enabled BOOLEAN NOT NULL DEFAULT 1,
+                        notes TEXT NOT NULL DEFAULT '',
+                        updated_by_user_id INTEGER,
+                        updated_at DATETIME NOT NULL
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX uq_discord_bot_cfg_league "
+                    "ON discord_league_bot_config (league_slug)"
+                )
+            )
+        has_delivered = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='discord_delivered_sources'")
+        ).fetchone()
+        if not has_delivered:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE discord_delivered_sources (
+                        id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                        league_slug VARCHAR(64) NOT NULL,
+                        source_type VARCHAR(64) NOT NULL,
+                        source_id VARCHAR(64) NOT NULL,
+                        event_key VARCHAR(64) NOT NULL DEFAULT '',
+                        outbound_event_id INTEGER,
+                        delivered_at DATETIME NOT NULL
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX uq_discord_delivered_source "
+                    "ON discord_delivered_sources (league_slug, source_type, source_id)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX ix_discord_delivered_league "
+                    "ON discord_delivered_sources (league_slug, delivered_at)"
+                )
+            )
         conn.commit()
 
 

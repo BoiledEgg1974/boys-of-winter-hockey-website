@@ -448,9 +448,43 @@ class DiscordChannelRoute(db.Model):
     league_slug: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     event_key: Mapped[str] = mapped_column(String(64), nullable=False)
     channel_key: Mapped[str] = mapped_column(String(64), default="", nullable=False)
+    discord_channel_id: Mapped[str] = mapped_column(String(32), default="", nullable=False)
+    label: Mapped[str] = mapped_column(String(120), default="", nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="", nullable=False)
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     updated_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class DiscordLeagueBotConfig(db.Model):
+    __tablename__ = "discord_league_bot_config"
+    __bind_key__ = "site"
+    __table_args__ = (UniqueConstraint("league_slug", name="uq_discord_bot_cfg_league"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    guild_id: Mapped[str] = mapped_column(String(64), default="", nullable=False)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    notes: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    updated_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class DiscordDeliveredSource(db.Model):
+    __tablename__ = "discord_delivered_sources"
+    __bind_key__ = "site"
+    __table_args__ = (
+        UniqueConstraint("league_slug", "source_type", "source_id", name="uq_discord_delivered_source"),
+        Index("ix_discord_delivered_league", "league_slug", "delivered_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    source_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    event_key: Mapped[str] = mapped_column(String(64), default="", nullable=False)
+    outbound_event_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    delivered_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
 
 class DiscordOutboundEvent(db.Model):

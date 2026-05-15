@@ -235,6 +235,11 @@ class Config:
     DISCORD_STORY_WEBHOOK_URL = os.environ.get("DISCORD_STORY_WEBHOOK_URL", "").strip()
     # Shared secret for bot pull/ack API endpoints (override in production via env).
     DISCORD_EVENTS_SHARED_SECRET = os.environ.get("DISCORD_EVENTS_SHARED_SECRET", "bowluniverse").strip()
+    # Unified delivery bot (scripts/league_discord_bot); token is never stored in the database.
+    DISCORD_BOT_TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "").strip()
+    DISCORD_BOT_POLL_SECONDS = float(os.environ.get("DISCORD_BOT_POLL_SECONDS", "8"))
+    # Comma-separated slug:base_url pairs, e.g. bowl-historical:https://www.bowlhockey.com/bowl-historical
+    DISCORD_BOT_LEAGUE_BASE_URLS = os.environ.get("DISCORD_BOT_LEAGUE_BASE_URLS", "").strip()
     # GM AI Trade Tool (entertainment): OpenAI-compatible Chat Completions API key and model.
     TRADE_AI_OPENAI_API_KEY = (
         os.environ.get("TRADE_AI_OPENAI_API_KEY", "").strip() or os.environ.get("OPENAI_API_KEY", "").strip()

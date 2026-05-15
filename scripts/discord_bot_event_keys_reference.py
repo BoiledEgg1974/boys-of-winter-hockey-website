@@ -1,14 +1,13 @@
 # Reference: website event_key → default channel_key (Admin → Discord integration).
 # See docs/DISCORD_SITE_TO_BOT.md for when the site enqueues each event.
 #
-# Bots map channel_key → Discord text channel name via EVENT_CHANNEL_BY_KEY.
+# Delivery uses discord_channel_id from admin (not channel name mapping).
 #
-# Required Discord channel names (create in server or change route map):
-#   league-news, transactions, league-announcements, staff-ops-alerts,
-#   standings, goals-assists-points, power-rankings, prospect-rankings,
-#   positional-rankings, calder-trophy
+# Default channel keys (paste Discord snowflake IDs in admin):
+#   team-news, league-news, ap-redemptions, draft-discussion, expansion-draft-discussion,
+#   league-announcements, transactions, standings, goals-assists-points,
+#   power-rankings, prospect-rankings, positional-rankings, calder-trophy,
+#   staff-ops-alerts
 #
-# Manual !commands (Fantasy/Cap): powerrank, prospectrank, positionalrank, calder
-# Historical: !powerrank, !prospectrank, !positionalrank, !calder
-#
-# Shared secret: DISCORD_EVENTS_SHARED_SECRET — default in repo is bowluniverse; override in production.
+# Env: DISCORD_EVENTS_SHARED_SECRET, DISCORD_BOT_TOKEN, DISCORD_BOT_LEAGUE_BASE_URLS
+# Run worker: python -m scripts.league_discord_bot

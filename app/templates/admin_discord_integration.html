@@ -5,8 +5,8 @@
   <h1 class="page-title">Discord Integration</h1>
   <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
   <p class="muted" style="margin:0 0 0.6rem;">
-    Configure event routing and monitor outbound queue consumed by your league bot.
-    Shared secret status:
+    Configure event routing, Discord channel IDs, and monitor the outbound queue for the unified
+    <code>league_discord_bot</code> worker. Shared secret:
     {% if secret_set %}<strong>configured</strong>{% else %}<strong>missing</strong> (set <code>DISCORD_EVENTS_SHARED_SECRET</code>){% endif %}.
   </p>
   <p class="muted" style="margin:0 0 0.8rem;">
@@ -14,24 +14,13 @@
     <code>POST /api/discord/events/&lt;id&gt;/ack</code>,
     <code>POST /api/discord/events/&lt;id&gt;/fail</code>,
     <code>POST /api/discord/events/heartbeat</code> with header <code>X-Discord-Events-Secret</code>.
+    Pending responses include <code>discord_channel_id</code> and <code>guild_id</code> from this page.
   </p>
   <p class="muted" style="margin:0 0 0.8rem;">
-    What the site can push to bots (event keys, triggers, channel defaults) is summarized in the repo file <code>docs/DISCORD_SITE_TO_BOT.md</code>.
+    Setup: <code>docs/DISCORD_BOT_SETUP.md</code> · Event reference: <code>docs/DISCORD_SITE_TO_BOT.md</code>
   </p>
   <p class="muted" style="margin:0 0 0.8rem;">
-    <strong>Shared secret</strong> is not issued by Discord. Generate a long random string, set the same value as environment variable
-    <code>DISCORD_EVENTS_SHARED_SECRET</code> on the website and on each bot process, then restart. Example (PowerShell):
-    <code style="white-space:normal;">[Convert]::ToBase64String((1..48 | ForEach-Object { Get-Random -Maximum 256 }) -as [byte[]])</code>
-  </p>
-  <p class="muted" style="margin:0 0 0.8rem;">
-    Route <strong>channel keys</strong> are labels your bot maps to Discord channel names or IDs. Defaults:
-    <code>trade_request</code>→<code>transactions</code>,
-    <code>standings_posted</code>→<code>standings</code>,
-    <code>statistical_leaders_posted</code>→<code>goals-assists-points</code> (adjust per league below).
-    Extend each bot’s <code>EVENT_CHANNEL_BY_KEY</code> (or equivalent) to include these keys.
-  </p>
-  <p class="muted" id="discord-health-refresh-note" style="margin:0 0 0.8rem;">
-    Auto-refresh: every 30 seconds. Last refreshed at page load.
+    Use <strong>Apply</strong> at the bottom of the page to reload health and queue tables.
   </p>
 
   <h3 style="margin:0.3rem 0 0.35rem;">Health Check</h3>
@@ -43,6 +32,11 @@
           <td>Website shared secret</td>
           <td>{% if secret_set %}<span style="color:#0a7d28;font-weight:700;">Green</span>{% else %}<span style="color:#b42318;font-weight:700;">Red</span>{% endif %}</td>
           <td>{% if secret_set %}<code>DISCORD_EVENTS_SHARED_SECRET</code> configured{% else %}Set <code>DISCORD_EVENTS_SHARED_SECRET</code> in environment{% endif %}</td>
+        </tr>
+        <tr>
+          <td>Bot delivery enabled</td>
+          <td>{% if bot_config.is_enabled %}<span style="color:#0a7d28;font-weight:700;">Green</span>{% else %}<span style="color:#b42318;font-weight:700;">Red</span>{% endif %}</td>
+          <td>{% if bot_config.is_enabled %}This league accepts outbound Discord events{% else %}Disabled in bot connection settings below{% endif %}</td>
         </tr>
         <tr>
           <td>Queue activity (last 5 min)</td>
@@ -76,25 +70,62 @@
     </table>
   </div>
 
+  <h3 style="margin:0.3rem 0 0.35rem;">Bot Connection</h3>
+  <form method="post" style="margin:0 0 0.9rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="save_bot_config">
+    <p class="muted" style="margin:0 0 0.5rem;">Bot token stays in server environment (<code>DISCORD_BOT_TOKEN</code>), not in the database.</p>
+    <label>Discord server (guild) ID
+      <input type="text" name="guild_id" value="{{ bot_config.guild_id or '' }}" placeholder="Numeric snowflake" style="min-width:18rem;">
+    </label>
+    <label style="margin-left:0.75rem;"><input type="checkbox" name="bot_enabled" value="1"{% if bot_config.is_enabled %} checked{% endif %}> Delivery enabled</label>
+    <div style="margin-top:0.45rem;">
+      <label>Notes
+        <textarea name="bot_notes" rows="2" style="width:100%;max-width:36rem;">{{ bot_config.notes or '' }}</textarea>
+      </label>
+    </div>
+    <button type="submit" class="admin-news-body-btn" style="margin-top:0.45rem;">Save bot connection</button>
+  </form>
+
   <h3 style="margin:0.3rem 0 0.35rem;">Event Route Map</h3>
   <form method="post" style="margin:0 0 0.9rem;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="save_routes">
     <div class="table-wrap">
       <table class="data">
-        <thead><tr><th>Event</th><th>Channel Key</th><th>Enabled</th></tr></thead>
+        <thead><tr><th>Event</th><th>Label</th><th>Channel key</th><th>Discord channel ID</th><th>Enabled</th><th></th></tr></thead>
         <tbody>
           {% for r in routes %}
           <tr>
             <td><code>{{ r.event_key }}</code></td>
-            <td><input type="text" name="channel_{{ r.event_key }}" value="{{ r.channel_key }}" style="min-width:16rem;"></td>
+            <td><input type="text" name="label_{{ r.event_key }}" value="{{ r.label or '' }}" style="min-width:10rem;"></td>
+            <td><input type="text" name="channel_{{ r.event_key }}" value="{{ r.channel_key }}" style="min-width:10rem;"></td>
+            <td><input type="text" name="discord_channel_id_{{ r.event_key }}" value="{{ r.discord_channel_id or '' }}" placeholder="Channel snowflake" style="min-width:14rem;"></td>
             <td><label><input type="checkbox" name="enabled_{{ r.event_key }}" value="1"{% if r.is_enabled %} checked{% endif %}> enabled</label></td>
+            <td></td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
     <button type="submit" class="admin-news-body-btn" style="margin-top:0.45rem;">Save Discord routes</button>
+  </form>
+  {% for r in routes %}
+  <form method="post" style="display:inline;margin:0 0.35rem 0.35rem 0;" onsubmit="return confirm('Remove route {{ r.event_key }}?');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="remove_route">
+    <input type="hidden" name="remove_event_key" value="{{ r.event_key }}">
+    <button type="submit" class="admin-news-body-btn">Remove {{ r.event_key }}</button>
+  </form>
+  {% endfor %}
+  <form method="post" style="display:flex;gap:0.6rem;align-items:end;flex-wrap:wrap;margin:0.9rem 0;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="add_route">
+    <label>New event key <input type="text" name="new_event_key" placeholder="news_published" required style="min-width:12rem;"></label>
+    <label>Channel key <input type="text" name="new_channel_key" placeholder="league-news" style="min-width:10rem;"></label>
+    <label>Discord channel ID <input type="text" name="new_discord_channel_id" placeholder="Snowflake" style="min-width:14rem;"></label>
+    <label>Label <input type="text" name="new_label" placeholder="Display label" style="min-width:10rem;"></label>
+    <button type="submit" class="admin-news-body-btn">Add route</button>
   </form>
 
   <h3 style="margin:0.3rem 0 0.35rem;">Outbound Queue</h3>
@@ -136,6 +167,14 @@
         <option value="failed"{% if selected_status=='failed' %} selected{% endif %}>failed</option>
         <option value="sent"{% if selected_status=='sent' %} selected{% endif %}>sent</option>
         <option value="cancelled"{% if selected_status=='cancelled' %} selected{% endif %}>cancelled</option>
+      </select>
+    </label>
+    <label>Event key
+      <select name="event_key">
+        <option value=""{% if not selected_event_key %} selected{% endif %}>all</option>
+        {% for r in routes %}
+        <option value="{{ r.event_key }}"{% if selected_event_key==r.event_key %} selected{% endif %}>{{ r.event_key }}</option>
+        {% endfor %}
       </select>
     </label>
     <button type="submit" class="admin-news-body-btn">Filter</button>
@@ -208,15 +247,4 @@
     </table>
   </div>
 </div>
-<script>
-  (function () {
-    const note = document.getElementById("discord-health-refresh-note");
-    if (!note) return;
-    const now = new Date();
-    note.textContent = `Auto-refresh: every 30 seconds. Last refreshed at ${now.toLocaleTimeString()}.`;
-    window.setTimeout(function () {
-      window.location.reload();
-    }, 30000);
-  })();
-</script>
 {% endblock %}

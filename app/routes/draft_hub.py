@@ -7,8 +7,8 @@ from flask import Blueprint, abort, current_app, flash, jsonify, redirect, rende
 from flask_login import current_user, login_required
 from sqlalchemy import func, select
 
-from app.auth_login import active_membership_for_league
-from app.league_db import db
+from app.auth_login import active_membership_for_league, league_hub_staff
+from app.league_db import commit_or_release_after_tick, db
 from app.logo_urls import team_logo_url_for_team
 from app.models import Player, Team
 from app.services.draft_hub_ai_advisor import fetch_draft_hub_ai_advice
@@ -192,8 +192,7 @@ def draft_hub_api_state():
 
     if draft.status == "live":
         process_tick(db.session, draft)
-        db.session.commit()
-        db.session.refresh(draft)
+        commit_or_release_after_tick(db.session, draft)
 
     slots = slots_ordered(db.session, draft.id)
     pick_overalls = {
@@ -406,13 +405,13 @@ def draft_hub_api_state():
     )
     can_admin_pick = bool(
         current_user.is_authenticated
-        and getattr(current_user, "is_admin", False)
+        and league_hub_staff(current_user)
         and draft.status == "live"
         and current_slot
     )
     can_admin_control = bool(
         current_user.is_authenticated
-        and getattr(current_user, "is_admin", False)
+        and league_hub_staff(current_user)
         and draft.status == "live"
         and current_slot
     )
@@ -421,13 +420,13 @@ def draft_hub_api_state():
     )
     can_admin_slot_swap = bool(
         current_user.is_authenticated
-        and getattr(current_user, "is_admin", False)
+        and league_hub_staff(current_user)
         and draft.status == "live"
         and unpicked_tradeable >= 2
     )
     can_admin_end_early = bool(
         current_user.is_authenticated
-        and getattr(current_user, "is_admin", False)
+        and league_hub_staff(current_user)
         and draft.status == "live"
     )
     n_picks = int(
@@ -438,13 +437,13 @@ def draft_hub_api_state():
     )
     can_admin_undo_pick = bool(
         current_user.is_authenticated
-        and getattr(current_user, "is_admin", False)
+        and league_hub_staff(current_user)
         and draft.status == "live"
         and n_picks > 0
     )
     can_admin_reassign_pick = bool(
         current_user.is_authenticated
-        and getattr(current_user, "is_admin", False)
+        and league_hub_staff(current_user)
         and draft.status == "live"
         and n_picks > 0
     )
@@ -519,8 +518,7 @@ def draft_hub_api_ai_advice():
         )
 
     process_tick(db.session, draft)
-    db.session.commit()
-    db.session.refresh(draft)
+    commit_or_release_after_tick(db.session, draft)
 
     slots = slots_ordered(db.session, draft.id)
     team_by_id = {t.id: t for t in db.session.scalars(select(Team)).all()}
@@ -665,7 +663,7 @@ def draft_hub_pick():
         pid_raw = (request.form.get("player_id") or "").strip()
         if not pid_raw.isdigit():
             flash_err = "Invalid player."
-        elif getattr(current_user, "is_admin", False):
+        elif league_hub_staff(current_user):
             flash_err = resolve_admin_pick(db.session, draft, int(pid_raw), int(current_user.id))
         else:
             flash_err = record_pick(db.session, draft, int(pid_raw), int(current_user.id), "gm")
@@ -681,7 +679,7 @@ def draft_hub_pause_timer():
     from flask_wtf.csrf import validate_csrf
 
     validate_csrf(request.form.get("csrf_token"))
-    if not getattr(current_user, "is_admin", False):
+    if not league_hub_staff(current_user):
         abort(403)
     slug = _league_slug()
     draft = featured_draft(db.session, slug)
@@ -703,7 +701,7 @@ def draft_hub_resume_timer():
     from flask_wtf.csrf import validate_csrf
 
     validate_csrf(request.form.get("csrf_token"))
-    if not getattr(current_user, "is_admin", False):
+    if not league_hub_staff(current_user):
         abort(403)
     slug = _league_slug()
     draft = featured_draft(db.session, slug)
@@ -725,7 +723,7 @@ def draft_hub_auto_complete():
     from flask_wtf.csrf import validate_csrf
 
     validate_csrf(request.form.get("csrf_token"))
-    if not getattr(current_user, "is_admin", False):
+    if not league_hub_staff(current_user):
         abort(403)
     slug = _league_slug()
     draft = featured_draft(db.session, slug)
@@ -813,7 +811,7 @@ def draft_hub_end_draft_early():
     from flask_wtf.csrf import validate_csrf
 
     validate_csrf(request.form.get("csrf_token"))
-    if not getattr(current_user, "is_admin", False):
+    if not league_hub_staff(current_user):
         abort(403)
     slug = _league_slug()
     draft = featured_draft(db.session, slug)
@@ -837,7 +835,7 @@ def draft_hub_admin_swap_slots():
     """JSON: swap ``team_id`` on two unpicked draft slots (commissioner trade)."""
     from flask_wtf.csrf import validate_csrf
 
-    if not getattr(current_user, "is_admin", False):
+    if not league_hub_staff(current_user):
         return jsonify({"ok": False, "error": "Forbidden."}), 403
     data = request.get_json(silent=True) or {}
     try:
@@ -872,7 +870,7 @@ def draft_hub_admin_undo_pick():
     """JSON: remove the most recent pick (commissioner correction)."""
     from flask_wtf.csrf import validate_csrf
 
-    if not getattr(current_user, "is_admin", False):
+    if not league_hub_staff(current_user):
         return jsonify({"ok": False, "error": "Forbidden."}), 403
     data = request.get_json(silent=True) or {}
     try:
@@ -898,7 +896,7 @@ def draft_hub_admin_reassign_pick():
     """JSON: change which team is credited for an existing pick at a given overall."""
     from flask_wtf.csrf import validate_csrf
 
-    if not getattr(current_user, "is_admin", False):
+    if not league_hub_staff(current_user):
         return jsonify({"ok": False, "error": "Forbidden."}), 403
     data = request.get_json(silent=True) or {}
     try:

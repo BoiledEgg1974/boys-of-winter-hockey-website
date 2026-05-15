@@ -47,6 +47,7 @@ from app.db_utils import (
     repair_fhm_team_city_from_name,
 )
 from app.models import Player, db
+from app.sqlite_pragmas import install_sqlite_connect_pragmas
 
 csrf = CSRFProtect()
 login_manager = create_login_manager()
@@ -88,6 +89,7 @@ def create_app(config_class: type = Config) -> Flask:
         Path(sub).mkdir(parents=True, exist_ok=True)
 
     db.init_app(app)
+    install_sqlite_connect_pragmas()
     csrf.init_app(app)
     login_manager.init_app(app)
 

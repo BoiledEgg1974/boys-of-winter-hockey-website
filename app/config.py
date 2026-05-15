@@ -176,6 +176,14 @@ _ENV_LEAGUE_SLUG = os.environ.get("LEAGUE_SLUG", "bowl-fantasy")
 class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-bow-league-key-change-me")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    # SQLite: longer busy wait + thread-safe pool use (see ``sqlite_pragmas`` for WAL).
+    _SQLITE_BUSY_SECONDS = float(os.environ.get("SQLITE_BUSY_TIMEOUT_SECONDS", "30"))
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        "connect_args": {
+            "timeout": _SQLITE_BUSY_SECONDS,
+            "check_same_thread": False,
+        },
+    }
     SQLALCHEMY_DATABASE_URI = os.environ.get(
         "DATABASE_URL",
         f"sqlite:///{resolve_league_sqlite_path(_ENV_LEAGUE_SLUG)}",

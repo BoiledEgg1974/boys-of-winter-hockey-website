@@ -33,6 +33,7 @@ from app.services.draft_hub_state import (
     undo_last_pick,
     utcnow_naive,
     wishlist_head_for_user,
+    wishlist_items_for_team,
 )
 from app.services.player_headshot import resolve_player_headshot_static_filename
 from app.services.player_ratings_csv import get_player_ratings_row, player_positions_display_label
@@ -250,6 +251,7 @@ def draft_hub_api_state():
             "team_logo_url": logo_by_team_id.get(int(pk.team_id)) if pk.team_id is not None else None,
             "player": pl.full_name if pl else str(pk.player_id),
             "player_id": pk.player_id,
+            "pos": (player_positions_display_label(pl) or "").strip() if pl else "",
             "source": pk.source,
             "boost_tier": boost_tier_by_overall.get(int(pk.overall_pick), ""),
             "original_team_id": orig_tid,
@@ -382,14 +384,17 @@ def draft_hub_api_state():
         queue_ids = [int(x.player_id) for x in qitems]
         q_pids = [int(x.player_id) for x in qitems]
         name_by_pid: dict[int, str] = {}
+        pos_by_pid: dict[int, str] = {}
         if q_pids:
             for pl in db.session.scalars(select(Player).where(Player.id.in_(q_pids))).unique().all():
                 name_by_pid[int(pl.id)] = pl.full_name or ""
+                pos_by_pid[int(pl.id)] = (player_positions_display_label(pl) or "").strip()
         queue_items = [
             {
                 "id": int(x.id),
                 "player_id": int(x.player_id),
                 "name": name_by_pid.get(int(x.player_id), ""),
+                "pos": pos_by_pid.get(int(x.player_id), ""),
             }
             for x in qitems
         ]
@@ -403,6 +408,17 @@ def draft_hub_api_state():
         and current_user.is_authenticated
         and int(current_user.id) in gm_user_ids_for_team(db.session, slug, current_slot["team_id"])
     )
+    show_on_clock_wishlist = bool(
+        current_user.is_authenticated
+        and league_hub_staff(current_user)
+        and draft.status == "live"
+        and on_clock_team_id
+        and not draft.awaiting_admin_resolution
+        and not can_pick
+    )
+    on_clock_wishlist_items: list[dict] = []
+    if show_on_clock_wishlist:
+        on_clock_wishlist_items = wishlist_items_for_team(db.session, draft, slug, int(on_clock_team_id))
     can_admin_pick = bool(
         current_user.is_authenticated
         and league_hub_staff(current_user)
@@ -441,11 +457,14 @@ def draft_hub_api_state():
         and draft.status == "live"
         and n_picks > 0
     )
+    unpicked_slot_count = sum(
+        1 for s in slots if not s.forfeited and int(s.overall_pick) not in pick_overalls
+    )
     can_admin_reassign_pick = bool(
         current_user.is_authenticated
         and league_hub_staff(current_user)
         and draft.status == "live"
-        and n_picks > 0
+        and unpicked_slot_count >= 1
     )
     wishlist_pick: dict[str, object] | None = None
     if can_pick:
@@ -479,6 +498,8 @@ def draft_hub_api_state():
                 "sounds": sounds,
                 "queue_player_ids": queue_ids,
                 "queue_items": queue_items,
+                "show_on_clock_wishlist": show_on_clock_wishlist,
+                "on_clock_wishlist_items": on_clock_wishlist_items,
                 "can_pick": can_pick,
                 "can_admin_pick": can_admin_pick,
                 "can_admin_control": can_admin_control,
@@ -893,7 +914,7 @@ def draft_hub_admin_undo_pick():
 @draft_hub_bp.post("/admin/reassign-pick")
 @login_required
 def draft_hub_admin_reassign_pick():
-    """JSON: change which team is credited for an existing pick at a given overall."""
+    """JSON: assign an unpicked future slot to a different team (overall number unchanged)."""
     from flask_wtf.csrf import validate_csrf
 
     if not league_hub_staff(current_user):

@@ -25,7 +25,6 @@
        data-queue-remove-url="{{ url_for('draft_hub.draft_hub_queue_remove') }}"
        data-state-url="{{ url_for('draft_hub.draft_hub_api_state') }}"
        data-eligible-url="{{ url_for('draft_hub.draft_hub_eligible_page') }}"
-       data-ai-advice-url="{{ url_for('draft_hub.draft_hub_api_ai_advice') }}"
        data-pause-url="{{ url_for('draft_hub.draft_hub_pause_timer') }}"
        data-resume-url="{{ url_for('draft_hub.draft_hub_resume_timer') }}"
        data-auto-complete-url="{{ url_for('draft_hub.draft_hub_auto_complete') }}"
@@ -57,10 +56,11 @@
     <div class="dh-slot-trade-modal__backdrop" data-dh-reassign-close="1"></div>
     <div class="dh-slot-trade-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="dh-reassign-title">
       <h2 id="dh-reassign-title" class="dh-slot-trade-modal__title">Change pick team</h2>
-      <p class="muted small dh-slot-trade-modal__intro">Re-credit an <strong>already-made</strong> pick to a different franchise (overall number stays the same). Use after a wrong team was recorded.</p>
+      <p class="muted small dh-slot-trade-modal__intro">Assign a <strong>future</strong> pick (not yet made) to a franchise. The round and pick number stay the same; only the owning team changes. Completed picks cannot be changed here.</p>
       <div class="dh-slot-trade-modal__fields">
-        <label class="dh-slot-trade-modal__label">Overall pick <select id="dh-reassign-overall" class="dh-slot-trade-modal__select"></select></label>
-        <label class="dh-slot-trade-modal__label">Credit to team <select id="dh-reassign-team" class="dh-slot-trade-modal__select"></select></label>
+        <label class="dh-slot-trade-modal__label">Round <select id="dh-reassign-round" class="dh-slot-trade-modal__select"></select></label>
+        <label class="dh-slot-trade-modal__label">Pick <select id="dh-reassign-pick" class="dh-slot-trade-modal__select"></select></label>
+        <label class="dh-slot-trade-modal__label">Assign to team <select id="dh-reassign-team" class="dh-slot-trade-modal__select"></select></label>
       </div>
       <p id="dh-reassign-msg" class="dh-slot-trade-modal__msg" role="status"></p>
       <div class="dh-slot-trade-modal__actions">
@@ -83,7 +83,6 @@
   var csrf = root.getAttribute('data-csrf') || '';
   var stateUrl = root.getAttribute('data-state-url');
   var eligibleUrl = root.getAttribute('data-eligible-url');
-  var aiAdviceUrl = root.getAttribute('data-ai-advice-url') || '';
   var pauseUrl = root.getAttribute('data-pause-url') || '';
   var resumeUrl = root.getAttribute('data-resume-url') || '';
   var autoCompleteUrl = root.getAttribute('data-auto-complete-url') || '';
@@ -117,9 +116,6 @@
     if (!playerPageTpl || pid == null || pid === '') return '#';
     return playerPageTpl.replace(/988776655/g, String(pid));
   }
-
-  var lastAiKey = '';
-  var lastAiPayload = null;
 
   function closeDhSlotTradeModal() {
     var m = document.getElementById('dh-slot-trade-modal');
@@ -208,27 +204,53 @@
     if (msg) msg.textContent = '';
   }
 
+  var dhReassignSlotsByRound = {};
+
+  function fillDhReassignPickOptions(roundNum) {
+    var selP = document.getElementById('dh-reassign-pick');
+    if (!selP) return;
+    selP.innerHTML = '';
+    var rows = (dhReassignSlotsByRound[String(roundNum)] || []).slice();
+    rows.sort(function (a, b) { return (a.overall || 0) - (b.overall || 0); });
+    rows.forEach(function (r, idx) {
+      var opt = document.createElement('option');
+      opt.value = String(r.overall);
+      opt.textContent = 'Pick ' + (idx + 1) + ' · overall #' + r.overall + ' — ' + (r.team || '');
+      selP.appendChild(opt);
+    });
+  }
+
   function openDhReassignModal() {
     var x = window.__dhLastDraftForTrade;
     var m = document.getElementById('dh-reassign-modal');
-    var selO = document.getElementById('dh-reassign-overall');
+    var selR = document.getElementById('dh-reassign-round');
+    var selP = document.getElementById('dh-reassign-pick');
     var selT = document.getElementById('dh-reassign-team');
-    if (!m || !selO || !selT || !x || !reassignPickUrl) return;
-    selO.innerHTML = '';
-    var picked = (x.order || []).filter(function (r) {
-      return r.has_pick && !r.forfeited;
+    if (!m || !selR || !selP || !selT || !x || !reassignPickUrl) return;
+    dhReassignSlotsByRound = {};
+    var unpicked = (x.order || []).filter(function (r) {
+      return !r.forfeited && !r.has_pick;
     });
-    picked.sort(function (a, b) { return (a.overall || 0) - (b.overall || 0); });
+    unpicked.forEach(function (r) {
+      var rd = String(r.round || 1);
+      if (!dhReassignSlotsByRound[rd]) dhReassignSlotsByRound[rd] = [];
+      dhReassignSlotsByRound[rd].push(r);
+    });
+    var rounds = Object.keys(dhReassignSlotsByRound).map(function (k) { return parseInt(k, 10); });
+    rounds.sort(function (a, b) { return a - b; });
+    selR.innerHTML = '';
+    rounds.forEach(function (rd) {
+      var opt = document.createElement('option');
+      opt.value = String(rd);
+      opt.textContent = 'Round ' + rd;
+      selR.appendChild(opt);
+    });
     var msg0 = document.getElementById('dh-reassign-msg');
-    if (!picked.length) {
-      if (msg0) msg0.textContent = 'No completed picks to reassign yet.';
+    if (!rounds.length) {
+      if (msg0) msg0.textContent = 'No future picks left to assign.';
+      selP.innerHTML = '';
     } else {
-      picked.forEach(function (r) {
-        var opt = document.createElement('option');
-        opt.value = String(r.overall);
-        opt.textContent = '#' + r.overall + ' · ' + (r.team || '');
-        selO.appendChild(opt);
-      });
+      fillDhReassignPickOptions(rounds[0]);
       if (msg0) msg0.textContent = '';
     }
     selT.innerHTML = '';
@@ -245,15 +267,15 @@
   }
 
   function submitDhReassignPick() {
-    var selO = document.getElementById('dh-reassign-overall');
+    var selP = document.getElementById('dh-reassign-pick');
     var selT = document.getElementById('dh-reassign-team');
     var msg = document.getElementById('dh-reassign-msg');
-    if (!selO || !selT || !reassignPickUrl) return;
-    if (!selO.options.length) {
-      if (msg) msg.textContent = 'No completed pick selected.';
+    if (!selP || !selT || !reassignPickUrl) return;
+    if (!selP.options.length) {
+      if (msg) msg.textContent = 'Choose a future pick slot.';
       return;
     }
-    var overall = parseInt(selO.value, 10);
+    var overall = parseInt(selP.value, 10);
     var tid = parseInt(selT.value, 10);
     if (msg) msg.textContent = 'Saving…';
     fetch(reassignPickUrl, {
@@ -326,6 +348,13 @@
     });
     var sub = document.getElementById('dh-reassign-submit');
     if (sub) sub.addEventListener('click', submitDhReassignPick);
+    var selR = document.getElementById('dh-reassign-round');
+    if (selR && !selR._dhBound) {
+      selR._dhBound = true;
+      selR.addEventListener('change', function () {
+        fillDhReassignPickOptions(selR.value);
+      });
+    }
   })();
 
   var pageRoot = document.getElementById('draft-hub-page-root');
@@ -349,108 +378,6 @@
         submitDhUndoPick();
       }
     });
-  }
-
-  function restoreAiScroll() {
-    var el = document.getElementById('dh-ai-body');
-    if (!el) return;
-    var v = (savedPanelScrolls && savedPanelScrolls['#dh-ai-body']) || 0;
-    if (v <= 0) return;
-    var apply = function () {
-      var max = el.scrollHeight - el.clientHeight;
-      el.scrollTop = Math.min(v, Math.max(0, max));
-    };
-    apply();
-    // Defer once more so newly laid-out content takes effect on its true scrollHeight.
-    if (typeof window.requestAnimationFrame === 'function') {
-      window.requestAnimationFrame(apply);
-    }
-  }
-
-  function renderAiPanelLoading() {
-    var el = document.getElementById('dh-ai-body');
-    if (!el) return;
-    el.innerHTML = '<p class="muted">Fetching a take…</p>';
-    restoreAiScroll();
-  }
-
-  function renderAiPanelIdle(msg, details) {
-    var el = document.getElementById('dh-ai-body');
-    if (!el) return;
-    var h = '<p class="muted">' + esc(msg) + '</p>';
-    if (details) {
-      h += '<p class="muted small" style="margin:0.35rem 0 0;">' + esc(details) + '</p>';
-    }
-    el.innerHTML = h;
-    restoreAiScroll();
-  }
-
-  function renderAiPanelError() {
-    var el = document.getElementById('dh-ai-body');
-    if (!el) return;
-    el.innerHTML = '<p class="muted">Could not load the AI desk. Refresh and try again.</p>';
-    restoreAiScroll();
-  }
-
-  function renderAiPayload(data) {
-    var el = document.getElementById('dh-ai-body');
-    if (!el) return;
-    if (!data || !data.active) {
-      el.innerHTML = '<p class="muted">Recommendations appear when a team is on the clock.</p>';
-      restoreAiScroll();
-      return;
-    }
-    var h = '<p class="draft-hub-ai__headline">' + esc(data.headline || '') + '</p>';
-    h += '<p class="draft-hub-ai__summary">' + esc(data.summary || '') + '</p>';
-    var recs = data.recommendations || [];
-    if (recs.length) {
-      h += '<ul class="draft-hub-ai__list">';
-      recs.forEach(function (r) {
-        var pid = r.player_id;
-        var nm = r.player_name || '';
-        var link = '<a href="' + esc(playerHref(pid)) + '" target="_blank" rel="noopener noreferrer" title="Open player profile in a new tab">' + esc(nm) + '</a>';
-        h += '<li><strong>' + link + '</strong> — <span class="muted">' + esc(r.blurb || '') + '</span></li>';
-      });
-      h += '</ul>';
-    }
-    h += '<p class="muted small draft-hub-ai__note">Suggestions are rules-based when the model is off or unavailable; otherwise they may be AI-generated. Entertainment only — not league guidance.</p>';
-    el.innerHTML = h;
-    restoreAiScroll();
-  }
-
-  function refreshAiAdvice(x) {
-    if (!aiAdviceUrl) return;
-    var el = document.getElementById('dh-ai-body');
-    if (!el) return;
-    if (!x || x.status !== 'live' || x.awaiting_admin || !x.current_slot) {
-      lastAiKey = '';
-      lastAiPayload = null;
-      renderAiPanelIdle('Recommendations appear when a team is on the clock.');
-      return;
-    }
-    var key = String(x.id) + ':' + String(x.current_slot.overall) + ':' + String(x.current_slot.team_id);
-    if (key === lastAiKey && lastAiPayload) {
-      renderAiPayload(lastAiPayload);
-      return;
-    }
-    lastAiKey = key;
-    renderAiPanelLoading();
-    var url = aiAdviceUrl + '?draft_id=' + encodeURIComponent(String(x.id));
-    fetch(url, { credentials: 'same-origin' })
-      .then(function (r) { return r.json().catch(function () { return {}; }); })
-      .then(function (data) {
-        if (!data || !data.ok) {
-          if (data && data.error) {
-            renderAiPanelIdle(data.error, data.details || '');
-          } else {
-            renderAiPanelError();
-          }
-          return;
-        }
-        lastAiPayload = data;
-        renderAiPayload(data);
-      })
-      .catch(function () { renderAiPanelError(); });
   }
 
   function fmtClock(ms) {
@@ -513,6 +440,148 @@
     }
   }
 
+  var searchQ = '';
+  var posQ = '';
+  var historyRound = 'all';
+  var savedEligibleScroll = 0;
+  var resetEligibleScroll = false;
+  var savedPanelScrolls = {};
+  var savedWindowScroll = 0;
+  var dhMounted = false;
+  var lastDraftPayload = null;
+  var timerIntervalId = null;
+  var lastTimerKey = '';
+  var timerBase = 0;
+  var timerMs0 = 0;
+
+  var PANEL_SCROLL_SELECTORS = [
+    '.draft-hub-order',
+    '.draft-hub-history-table-wrap',
+    '#dh-queue'
+  ];
+
+  function stopDhTimer() {
+    if (timerIntervalId) {
+      clearInterval(timerIntervalId);
+      timerIntervalId = null;
+    }
+  }
+
+  function fmtHistoryPickLabel(p) {
+    var name = (p.player || '').trim();
+    var pos = (p.pos || p.pos_display || '').trim();
+    if (!name) return '—';
+    return pos ? (pos + ' · ' + name) : name;
+  }
+
+  function startDhTimer(x) {
+    var timerEl = document.getElementById('dh-timer');
+    if (!timerEl || x.status !== 'live' || x.deadline_ms == null || x.awaiting_admin) {
+      stopDhTimer();
+      lastTimerKey = '';
+      return;
+    }
+    var overall = (x.current_slot && x.current_slot.overall != null) ? x.current_slot.overall : '';
+    var key = String(x.id) + ':' + String(overall);
+    timerBase = Date.now();
+    timerMs0 = x.deadline_ms;
+    if (key === lastTimerKey && timerIntervalId) {
+      timerEl.textContent = fmtClock(timerMs0);
+      return;
+    }
+    lastTimerKey = key;
+    stopDhTimer();
+    timerEl.textContent = fmtClock(timerMs0);
+    timerIntervalId = setInterval(function () {
+      timerEl.textContent = fmtClock(timerMs0 - (Date.now() - timerBase));
+    }, 500);
+  }
+
+  function bindDhSounds(container) {
+    if (!container) return;
+    container.querySelectorAll('.dh-sound').forEach(function (btn) {
+      if (btn._dhSoundBound) return;
+      btn._dhSoundBound = true;
+      btn.addEventListener('click', function () {
+        var sid = btn.getAttribute('data-sid');
+        var au = new Audio(soundBase + '/' + sid);
+        au.play().catch(function () {});
+      });
+    });
+  }
+
+  function updateDhTicker(tickerText) {
+    var ticker = document.getElementById('dh-ticker');
+    if (!ticker) return;
+    ticker.innerHTML =
+      '<div class="draft-hub-ticker__label">Picks</div>' +
+      '<div class="draft-hub-ticker__viewport">' +
+      '<div class="draft-hub-ticker__marquee">' +
+      '<span class="draft-hub-ticker__text">' + esc(tickerText) + '</span>' +
+      '<span class="draft-hub-ticker__text" aria-hidden="true">' + esc(tickerText) + '</span>' +
+      '</div></div>';
+  }
+
+  function patchDraftPanelsFromHtml(html, x, tp) {
+    var tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    function copyPanel(id, syncClass) {
+      var src = tmp.querySelector('#' + id);
+      var dst = document.getElementById(id);
+      if (!src || !dst) return;
+      if (syncClass) dst.className = src.className;
+      dst.innerHTML = src.innerHTML;
+    }
+    captureEligibleScroll();
+    capturePanelScrolls();
+    copyPanel('dh-upnext', true);
+    copyPanel('dh-banner', true);
+    copyPanel('dh-wishlist', false);
+    copyPanel('dh-order-list', false);
+    copyPanel('dh-history-controls', false);
+    copyPanel('dh-history-body', false);
+    var tickerSrc = tmp.querySelector('#dh-ticker');
+    if (tickerSrc) {
+      var t0 = tickerSrc.querySelector('.draft-hub-ticker__text');
+      updateDhTicker(t0 ? t0.textContent : '');
+    }
+    stopDhTimer();
+    startDhTimer(x);
+    bindDhSounds(document.getElementById('dh-wishlist'));
+    renderWishlistPanel(x);
+    sizeDraftOrder(x.picks_per_round);
+    var mq = document.querySelector('#dh-ticker .draft-hub-ticker__marquee');
+    if (mq && tp.length > 0) {
+      mq.style.animationDuration = Math.min(100, Math.max(22, 14 + tp.length * 1.6)) + 's';
+    }
+    restorePanelScrolls();
+    restoreEligibleScroll();
+    rebindHistoryControls();
+  }
+
+  function rebindHistoryControls() {
+    var rndSel = document.getElementById('dh-history-round');
+    if (rndSel && !rndSel._bound) {
+      rndSel._bound = true;
+      rndSel.addEventListener('change', function () {
+        historyRound = rndSel.value || 'all';
+        try { rndSel.blur(); } catch (_) {}
+        forceRefresh();
+      });
+    }
+    var jumpBtn = document.getElementById('dh-history-latest');
+    if (jumpBtn && !jumpBtn._bound) {
+      jumpBtn._bound = true;
+      jumpBtn.addEventListener('click', function () {
+        var r = jumpBtn.getAttribute('data-round') || 'all';
+        historyRound = r;
+        var sel = document.getElementById('dh-history-round');
+        if (sel) sel.value = r;
+        forceRefresh();
+      });
+    }
+  }
+
   function renderState(d) {
     var pageEl = document.getElementById('draft-hub-page-root');
     if (!d || !d.draft) {
@@ -520,6 +589,9 @@
       root.innerHTML = '<div class="card"><p class="muted">No draft is configured for this site yet. Check back later or ask the commissioner.</p></div>';
       clearWishlistAuthHost();
       window.__dhLastDraftForTrade = null;
+      dhMounted = false;
+      lastDraftPayload = null;
+      stopDhTimer();
       return;
     }
     if (pageEl) pageEl.classList.add('draft-hub-page--ticker');
@@ -528,8 +600,8 @@
     var html = '';
     html += '<div class="draft-hub-grid">';
 
-    // === Banner row: Up Now / On Deck | Banner | AI Draft Desk ===
-    html += '<aside class="draft-hub-upnext card" aria-label="Up Next">';
+    // === Banner row: Up Now / On Deck | Banner ===
+    html += '<aside id="dh-upnext" class="draft-hub-upnext card" aria-label="Up Next">';
     var upNowSlot = null;
     if (x.status === 'live' && !x.awaiting_admin && x.current_slot) {
       upNowSlot = {
@@ -585,7 +657,7 @@
     var bannerCls = bannerTier === 'gold'
       ? ' draft-hub-banner--gold'
       : (bannerTier === 'silver' ? ' draft-hub-banner--silver' : '');
-    html += '<header class="draft-hub-banner card' + bannerCls + '">';
+    html += '<header id="dh-banner" class="draft-hub-banner card' + bannerCls + '">';
     if (bannerTier) {
       html += '<p class="draft-hub-boost-banner-flag draft-hub-boost-banner-flag--' + esc(bannerTier) + '">' + esc(bannerTier).toUpperCase() + ' BOOST PICK</p>';
     }
@@ -648,17 +720,20 @@
     }
     html += '</header>';
 
-    html += '<section class="draft-hub-col draft-hub-col--ai card">';
-    html += '<h2 class="draft-hub-col__title">AI Draft Desk</h2>';
-    html += '<p class="muted small" style="margin:0 0 0.5rem;line-height:1.35;">Fun, roster-aware suggestions for whoever is on the clock — local heuristics by default, optional OpenAI when configured. Click any linked name to open a full profile in a new tab.</p>';
-    html += '<div id="dh-ai-body" class="draft-hub-ai-body"><p class="muted">Loading…</p></div>';
-    html += '</section>';
 
     // === My Wishlist (sits directly under the on-the-clock banner) ===
-    html += '<section class="draft-hub-col draft-hub-col--wishlist card">';
-    html += '<h2 class="draft-hub-col__title">My Wishlist</h2>';
-    html += '<p class="muted small" style="margin:0 0 0.5rem;line-height:1.35;">Order players for when you cannot be at the keyboard. If the clock runs out, the site may still use this list automatically. When you are here, you will be asked to confirm your top wishlist name or choose someone else.</p>';
-    if (!{{ 'true' if gm_membership else 'false' }}) {
+    html += '<section id="dh-wishlist" class="draft-hub-col draft-hub-col--wishlist card">';
+    var wishlistTitle = (x.show_on_clock_wishlist && x.on_clock_team)
+      ? ('On-clock wishlist — ' + x.on_clock_team)
+      : 'My Wishlist';
+    var wishlistBlurb = x.show_on_clock_wishlist
+      ? 'Wishlist order for the GM on the clock (visible to league admins).'
+      : 'Order players for when you cannot be at the keyboard. If the clock runs out, the site may still use this list automatically. When you are here, you will be asked to confirm your top wishlist name or choose someone else.';
+    html += '<h2 class="draft-hub-col__title" id="dh-wishlist-title">' + esc(wishlistTitle) + '</h2>';
+    html += '<p class="muted small" id="dh-wishlist-blurb" style="margin:0 0 0.5rem;line-height:1.35;">' + esc(wishlistBlurb) + '</p>';
+    if (x.show_on_clock_wishlist) {
+      html += '<div id="dh-queue"></div>';
+    } else if (!{{ 'true' if gm_membership else 'false' }}) {
       html += '<p class="muted">Log in as a GM to build your wishlist.</p>';
     } else {
       html += '<div id="dh-queue"></div>';
@@ -704,7 +779,7 @@
     html += '<section class="draft-hub-col draft-hub-col--order card">';
     html += '<h2 class="draft-hub-col__title">Draft Order</h2>';
     html += '<p class="muted small" style="margin:0 0 0.5rem;line-height:1.35;">Upcoming picks only — completed selections stay in the ticker and history. Overall numbers are official (e.g. #2 stays #2).</p>';
-    html += '<ul class="draft-hub-order">';
+    html += '<ul id="dh-order-list" class="draft-hub-order">';
     var orderRows = (x.order || []).filter(function (r) {
       return !r.has_pick;
     });
@@ -757,7 +832,7 @@
     var roundsAvailable = Object.keys(roundsMap).map(function (k) { return Number(k); })
       .filter(function (r) { return r > 0; })
       .sort(function (a, b) { return a - b; });
-    html += '<div class="draft-hub-history-controls">';
+    html += '<div id="dh-history-controls" class="draft-hub-history-controls">';
     html += '<label class="draft-hub-history-round">';
     html += '<span class="muted small">Round</span> ';
     html += '<select id="dh-history-round" class="draft-hub-round-select">';
@@ -772,6 +847,7 @@
       html += '<button type="button" class="button secondary small" id="dh-history-latest" data-round="' + latestRound + '">Jump To Latest</button>';
     }
     html += '</div>';
+    html += '<div id="dh-history-body">';
     var picksToShow;
     if (historyRound === 'all') {
       picksToShow = allTickerPicks.slice().reverse();
@@ -783,9 +859,10 @@
     } else {
       html += '<div class="table-wrap draft-hub-history-table-wrap"><table class="data draft-hub-history-table"><thead><tr><th>#</th><th>Team</th><th>Pick</th></tr></thead><tbody>';
       picksToShow.forEach(function (p) {
+        var pickLabel = fmtHistoryPickLabel(p);
         var pickCell = (p.player_id != null)
-          ? '<a href="' + esc(playerHref(p.player_id)) + '" target="_blank" rel="noopener noreferrer" title="Open player profile in a new tab">' + esc(p.player) + '</a>'
-          : esc(p.player);
+          ? '<a href="' + esc(playerHref(p.player_id)) + '" target="_blank" rel="noopener noreferrer" title="Open player profile in a new tab">' + esc(pickLabel) + '</a>'
+          : esc(pickLabel);
         var rowCls = (p.boost_tier === 'gold')
           ? ' class="draft-hub-pick--gold"'
           : (p.boost_tier === 'silver' ? ' class="draft-hub-pick--silver"' : '');
@@ -807,7 +884,7 @@
       });
       html += '</tbody></table></div>';
     }
-    html += '</section>';
+    html += '</div></section>';
     html += '</div>';
 
     var tp = x.ticker_picks || [];
@@ -824,7 +901,7 @@
         return prefix + '#' + p.overall + ' · R' + p.round + ' · ' + p.team + ' — ' + p.player;
       }).join('          •          ');
     }
-    html += '<aside class="draft-hub-ticker" aria-label="All picks to date">';
+    html += '<aside id="dh-ticker" class="draft-hub-ticker" aria-label="All picks to date">';
     html += '<div class="draft-hub-ticker__label">Picks</div>';
     html += '<div class="draft-hub-ticker__viewport">';
     html += '<div class="draft-hub-ticker__marquee">';
@@ -832,52 +909,51 @@
     html += '<span class="draft-hub-ticker__text" aria-hidden="true">' + esc(tickerText) + '</span>';
     html += '</div></div></aside>';
 
-    captureEligibleScroll();
-    capturePanelScrolls();
-    var preservedEligibleList = document.getElementById('dh-eligible-list');
-    if (preservedEligibleList && preservedEligibleList.parentNode) {
-      preservedEligibleList.parentNode.removeChild(preservedEligibleList);
+    lastDraftPayload = d;
+
+    if (dhMounted && document.getElementById('dh-search')) {
+      patchDraftPanelsFromHtml(html, x, tp);
     } else {
-      preservedEligibleList = null;
-    }
-    root.innerHTML = html;
-    if (preservedEligibleList) {
-      var freshList = document.getElementById('dh-eligible-list');
-      if (freshList && freshList.parentNode) {
-        freshList.parentNode.replaceChild(preservedEligibleList, freshList);
+      root.innerHTML = html;
+      dhMounted = true;
+      bindControls();
+      sizeDraftOrder(x.picks_per_round);
+      restorePanelScrolls();
+      var mq = root.querySelector('.draft-hub-ticker__marquee');
+      if (mq && tp.length > 0) {
+        mq.style.animationDuration = Math.min(100, Math.max(22, 14 + tp.length * 1.6)) + 's';
       }
+      startDhTimer(x);
+      bindDhSounds(document.getElementById('dh-wishlist'));
     }
-    sizeDraftOrder(x.picks_per_round);
-    restorePanelScrolls();
-
-    var mq = root.querySelector('.draft-hub-ticker__marquee');
-    if (mq && tp.length > 0) {
-      var sec = Math.min(100, Math.max(22, 14 + tp.length * 1.6));
-      mq.style.animationDuration = sec + 's';
-    }
-
-    var timerEl = document.getElementById('dh-timer');
-    if (timerEl && x.status === 'live' && x.deadline_ms != null && !x.awaiting_admin) {
-      var base = Date.now();
-      var ms0 = x.deadline_ms;
-      setInterval(function () {
-        var left = ms0 - (Date.now() - base);
-        timerEl.textContent = fmtClock(left);
-      }, 500);
-    }
-
-    root.querySelectorAll('.dh-sound').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var sid = btn.getAttribute('data-sid');
-        var au = new Audio(soundBase + '/' + sid);
-        au.play().catch(function () {});
-      });
-    });
 
     loadEligible(x);
-    renderQueue(x);
+    renderWishlistPanel(x);
     syncWishlistAuthModal(x);
-    refreshAiAdvice(x);
+  }
+
+  function renderWishlistPanel(x) {
+    var el = document.getElementById('dh-queue');
+    if (!el) return;
+    if (x.show_on_clock_wishlist) {
+      var items = x.on_clock_wishlist_items || [];
+      if (!items.length) {
+        el.innerHTML = '<p class="muted">No wishlist entries for the on-clock team.</p>';
+        return;
+      }
+      var h = '<ol class="draft-hub-queue draft-hub-queue--readonly">';
+      items.forEach(function (it) {
+        var pos = (it.pos || '').trim();
+        var disp = (it.name && String(it.name).trim()) ? it.name : ('Player #' + it.player_id);
+        var label = pos ? (pos + ' · ' + disp) : disp;
+        var namePart = '<a href="' + esc(playerHref(it.player_id)) + '" target="_blank" rel="noopener noreferrer" title="Open player profile in a new tab">' + esc(label) + '</a>';
+        h += '<li>' + namePart + '</li>';
+      });
+      h += '</ol>';
+      el.innerHTML = h;
+      return;
+    }
+    renderQueue(x);
   }
 
   function renderQueue(x) {
@@ -890,8 +966,10 @@
     }
     var h = '<ul class="draft-hub-queue">';
     items.forEach(function (it) {
-      var disp = (it.name && String(it.name).trim()) ? esc(it.name) : ('Player #' + esc(String(it.player_id)));
-      var namePart = '<a href="' + esc(playerHref(it.player_id)) + '" target="_blank" rel="noopener noreferrer" title="Open player profile in a new tab">' + disp + '</a>';
+      var pos = (it.pos || '').trim();
+      var disp = (it.name && String(it.name).trim()) ? it.name : ('Player #' + it.player_id);
+      var label = pos ? (pos + ' · ' + disp) : disp;
+      var namePart = '<a href="' + esc(playerHref(it.player_id)) + '" target="_blank" rel="noopener noreferrer" title="Open player profile in a new tab">' + esc(label) + '</a>';
       h += '<li><form method="post" action="' + esc(qRemUrl) + '" style="display:inline;">';
       h += '<input type="hidden" name="csrf_token" value="' + esc(csrf) + '">';
       h += '<input type="hidden" name="queue_id" value="' + esc(String(it.id)) + '">';
@@ -902,26 +980,6 @@
     el.innerHTML = h;
   }
 
-  var searchQ = '';
-  var posQ = '';
-  var historyRound = 'all';
-  var savedEligibleScroll = 0;
-  var resetEligibleScroll = false;
-  var savedPanelScrolls = {};
-  var savedWindowScroll = 0;
-
-  // Selectors for scroll containers whose scrollTop should survive auto-refresh.
-  // The eligible list is handled separately via detach/reattach so it isn't listed here.
-  var PANEL_SCROLL_SELECTORS = [
-    '.draft-hub-order',
-    '.draft-hub-history-table-wrap',
-    '#dh-queue',
-    '#dh-ai-body'
-  ];
-
-  // Live-recorded scroll positions keyed by selector. Updated by a global capture-phase
-  // scroll listener so positions survive across renders AND across async content refills
-  // (e.g. the AI panel finishing its fetch on a subsequent refresh cycle).
   function matchPanelSelector(el) {
     if (!el || !el.matches) return null;
     for (var i = 0; i < PANEL_SCROLL_SELECTORS.length; i += 1) {
@@ -968,7 +1026,7 @@
       var v = savedPanelScrolls[sel] || 0;
       if (v <= 0) return;
       var max = el.scrollHeight - el.clientHeight;
-      if (max <= 0) return; // content not laid out yet; will be picked up by restoreAiScroll etc.
+      if (max <= 0) return; // content not laid out yet; will be picked up by layout
       el.scrollTop = Math.min(v, Math.max(0, max));
     });
     if (savedWindowScroll > 0) {

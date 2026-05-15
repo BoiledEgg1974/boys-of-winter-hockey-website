@@ -14,6 +14,7 @@ from app.services.draft_hub_eligibility import (
     board_ranks_map,
     eligible_players_ordered,
 )
+from app.services.player_ratings_csv import player_positions_display_label
 from app.site_models import GmLeagueMembership, LeagueDraft, LeagueDraftPick, LeagueDraftQueueItem, LeagueDraftSlot
 
 
@@ -116,6 +117,50 @@ def wishlist_head_for_user(
     return None, None
 
 
+def wishlist_items_for_team(
+    session: Session, draft: LeagueDraft, league_slug: str, team_id: int
+) -> list[dict[str, object]]:
+    """Ordered wishlist rows for all GMs on a franchise (eligible players only)."""
+    picked = picked_player_ids(session, draft.id)
+    params = draft_eligibility_params(draft)
+    eligible_ids = {p.id for p in eligible_players_ordered(session, league_slug, params)} - picked
+    uids = gm_user_ids_for_team(session, league_slug, int(team_id))
+    if not uids:
+        return []
+    qrows = list(
+        session.scalars(
+            select(LeagueDraftQueueItem)
+            .where(
+                LeagueDraftQueueItem.league_draft_id == draft.id,
+                LeagueDraftQueueItem.user_id.in_(uids),
+            )
+            .order_by(LeagueDraftQueueItem.sort_order.asc(), LeagueDraftQueueItem.id.asc())
+        ).all()
+    )
+    if not qrows:
+        return []
+    pids = [int(x.player_id) for x in qrows]
+    name_by_pid: dict[int, str] = {}
+    pos_by_pid: dict[int, str] = {}
+    for pl in session.scalars(select(Player).where(Player.id.in_(pids))).unique().all():
+        name_by_pid[int(pl.id)] = pl.full_name or ""
+        pos_by_pid[int(pl.id)] = player_positions_display_label(pl) or ""
+    out: list[dict[str, object]] = []
+    for qi in qrows:
+        pid = int(qi.player_id)
+        if pid not in eligible_ids:
+            continue
+        out.append(
+            {
+                "id": int(qi.id),
+                "player_id": pid,
+                "name": name_by_pid.get(pid, f"Player #{pid}"),
+                "pos": pos_by_pid.get(pid, ""),
+            }
+        )
+    return out
+
+
 def _pick_row_for_overall(session: Session, draft_id: int, overall: int) -> LeagueDraftPick | None:
     return session.scalar(
         select(LeagueDraftPick).where(
@@ -152,10 +197,9 @@ def sync_current_slot_and_clock(session: Session, draft: LeagueDraft) -> None:
             draft.current_slot_index += 1
             continue
         now = utcnow_naive()
-        if draft.pick_deadline_at is None or draft.awaiting_admin_resolution:
-            draft.pick_started_at = now
-            draft.pick_deadline_at = now + timedelta(seconds=int(draft.timer_seconds))
-            draft.deadline_extended_for_slot = False
+        draft.pick_started_at = now
+        draft.pick_deadline_at = now + timedelta(seconds=int(draft.timer_seconds))
+        draft.deadline_extended_for_slot = False
         draft.awaiting_admin_resolution = False
         return
 
@@ -429,19 +473,31 @@ def reassign_pick_team(
     new_team_id: int,
     admin_user_id: int,
 ) -> str | None:
-    """Re-credit an already-recorded pick to a different franchise (commissioner correction)."""
+    """Assign an unpicked slot to a different franchise (overall number stays the same)."""
     del admin_user_id
     if draft.status != "live":
         return "Draft is not live."
-    pk = _pick_row_for_overall(session, draft.id, int(overall_pick))
-    if pk is None:
-        return "No pick recorded for that overall number."
+    if draft.awaiting_admin_resolution:
+        return "Resolve the commissioner stop before changing slot ownership."
+    slots = slots_ordered(session, draft.id)
+    by_ov: dict[int, LeagueDraftSlot] = {int(s.overall_pick): s for s in slots}
+    slot = by_ov.get(int(overall_pick))
+    if slot is None:
+        return "Invalid pick slot."
+    if slot.forfeited:
+        return "Cannot reassign a forfeited pick slot."
+    if _pick_row_for_overall(session, draft.id, int(overall_pick)):
+        return "That pick has already been made. Undo it first if you need to change ownership."
     tm = session.get(Team, int(new_team_id))
     if tm is None:
         return "Unknown team."
-    if int(pk.team_id) == int(new_team_id):
-        return "That pick is already credited to this team."
-    pk.team_id = int(new_team_id)
+    if int(slot.team_id) == int(new_team_id):
+        return "That slot is already assigned to this team."
+    tid_old = int(slot.team_id)
+    if slot.original_team_id is None:
+        slot.original_team_id = tid_old
+    slot.team_id = int(new_team_id)
+    sync_current_slot_and_clock(session, draft)
     return None
 
 

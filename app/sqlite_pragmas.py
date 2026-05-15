@@ -15,7 +15,8 @@ def install_sqlite_connect_pragmas() -> None:
 
     @event.listens_for(Engine, "connect")
     def _sqlite_pragmas(dbapi_conn, connection_record):  # noqa: ANN001
-        if connection_record.dialect.name != "sqlite":
+        engine = getattr(connection_record, "engine", None)
+        if engine is None or engine.dialect.name != "sqlite":
             return
         cur = dbapi_conn.cursor()
         try:

@@ -8,7 +8,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Player
+from app.models import Player, Team
 from app.services.draft_hub_eligibility import (
     DraftEligibilityParams,
     board_ranks_map,

@@ -446,7 +446,7 @@
         return prefix + '#' + p.overall + ' · R' + p.round + ' · ' + p.team + ' — ' + p.player;
       }).join('          •          ');
     }
-    html += '<aside class="draft-hub-ticker" aria-label="All picks to date">';
+    html += '<aside id="dh-ticker" class="draft-hub-ticker" aria-label="All picks to date">';
     html += '<div class="draft-hub-ticker__label">Picks</div>';
     html += '<div class="draft-hub-ticker__viewport">';
     html += '<div class="draft-hub-ticker__marquee">';
@@ -472,9 +472,17 @@
     sizeDraftOrder(x.picks_per_round);
     restorePanelScrolls();
 
-    var mq = root.querySelector('.draft-hub-ticker__marquee');
-    if (mq && tp.length > 0) {
-      var sec = Math.min(100, Math.max(22, 14 + tp.length * 1.6));
+    var tick = document.getElementById('dh-ticker');
+    var pageEl = document.getElementById('draft-hub-page-root');
+    if (tick && pageEl && tick.parentElement !== pageEl) {
+      pageEl.appendChild(tick);
+    }
+    var mq = document.querySelector('#dh-ticker .draft-hub-ticker__marquee');
+    if (mq) {
+      var sec = tp.length > 0 ? Math.min(100, Math.max(22, 14 + tp.length * 1.6)) : 40;
+      mq.style.animation = 'none';
+      void mq.offsetWidth;
+      mq.style.animation = '';
       mq.style.animationDuration = sec + 's';
     }
 

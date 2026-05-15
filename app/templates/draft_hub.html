@@ -506,7 +506,31 @@
     });
   }
 
-  function updateDhTicker(tickerText) {
+  function syncDhTickerMarquee(pickCount) {
+    var mq = document.querySelector('#dh-ticker .draft-hub-ticker__marquee');
+    if (!mq) return;
+    var n = pickCount || 0;
+    var sec = n > 0 ? Math.min(100, Math.max(22, 14 + n * 1.6)) : 40;
+    mq.style.animation = 'none';
+    void mq.offsetWidth;
+    mq.style.animation = '';
+    mq.style.animationDuration = sec + 's';
+  }
+
+  function mountDhTickerOnPage() {
+    var tick = document.getElementById('dh-ticker');
+    var pageEl = document.getElementById('draft-hub-page-root');
+    if (tick && pageEl && tick.parentElement !== pageEl) {
+      pageEl.appendChild(tick);
+    }
+  }
+
+  function removeDhTicker() {
+    var tick = document.getElementById('dh-ticker');
+    if (tick) tick.remove();
+  }
+
+  function updateDhTicker(tickerText, pickCount) {
     var ticker = document.getElementById('dh-ticker');
     if (!ticker) return;
     ticker.innerHTML =
@@ -516,6 +540,8 @@
       '<span class="draft-hub-ticker__text">' + esc(tickerText) + '</span>' +
       '<span class="draft-hub-ticker__text" aria-hidden="true">' + esc(tickerText) + '</span>' +
       '</div></div>';
+    mountDhTickerOnPage();
+    syncDhTickerMarquee(pickCount);
   }
 
   function patchDraftPanelsFromHtml(html, x, tp) {
@@ -539,17 +565,13 @@
     var tickerSrc = tmp.querySelector('#dh-ticker');
     if (tickerSrc) {
       var t0 = tickerSrc.querySelector('.draft-hub-ticker__text');
-      updateDhTicker(t0 ? t0.textContent : '');
+      updateDhTicker(t0 ? t0.textContent : '', tp.length);
     }
     stopDhTimer();
     startDhTimer(x);
     bindDhSounds(document.getElementById('dh-wishlist'));
     renderWishlistPanel(x);
     sizeDraftOrder(x.picks_per_round);
-    var mq = document.querySelector('#dh-ticker .draft-hub-ticker__marquee');
-    if (mq && tp.length > 0) {
-      mq.style.animationDuration = Math.min(100, Math.max(22, 14 + tp.length * 1.6)) + 's';
-    }
     restorePanelScrolls();
     restoreEligibleScroll();
     rebindHistoryControls();
@@ -582,6 +604,7 @@
     var pageEl = document.getElementById('draft-hub-page-root');
     if (!d || !d.draft) {
       if (pageEl) pageEl.classList.remove('draft-hub-page--ticker');
+      removeDhTicker();
       root.innerHTML = '<div class="card"><p class="muted">No draft is configured for this site yet. Check back later or ask the commissioner.</p></div>';
       clearWishlistAuthHost();
       window.__dhLastDraftForTrade = null;
@@ -915,10 +938,8 @@
       bindControls();
       sizeDraftOrder(x.picks_per_round);
       restorePanelScrolls();
-      var mq = root.querySelector('.draft-hub-ticker__marquee');
-      if (mq && tp.length > 0) {
-        mq.style.animationDuration = Math.min(100, Math.max(22, 14 + tp.length * 1.6)) + 's';
-      }
+      mountDhTickerOnPage();
+      syncDhTickerMarquee(tp.length);
       startDhTimer(x);
       bindDhSounds(document.getElementById('dh-wishlist'));
     }

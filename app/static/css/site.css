@@ -11923,6 +11923,7 @@ table.draft-hub-history-table--expansion td:nth-child(4) a {
   align-items: stretch;
   gap: 0.65rem;
   min-height: 2.35rem;
+  overflow: hidden;
   background: var(--header-bg);
   color: var(--header-text);
   border-top: 1px solid rgb(255 255 255 / 0.12);
@@ -11950,6 +11951,7 @@ table.draft-hub-history-table--expansion td:nth-child(4) a {
 .draft-hub-ticker__marquee {
   display: inline-flex;
   flex-shrink: 0;
+  align-items: center;
   animation: draft-hub-ticker-marquee 40s linear infinite;
   will-change: transform;
 }
@@ -11969,17 +11971,12 @@ table.draft-hub-history-table--expansion td:nth-child(4) a {
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  /* Keep horizontal auto-scroll; avoid manual overflow scrolling */
   .draft-hub-ticker__marquee {
-    animation: none;
-    flex-wrap: wrap;
-    max-width: 100%;
-    row-gap: 0.25rem;
-  }
-  .draft-hub-ticker__text:last-child {
-    display: none;
+    animation: draft-hub-ticker-marquee 140s linear infinite;
   }
   .draft-hub-ticker__viewport {
-    overflow-x: auto;
+    overflow: hidden;
   }
 }
 [data-theme="light"] .draft-hub-ticker {

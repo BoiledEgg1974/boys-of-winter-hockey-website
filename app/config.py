@@ -232,6 +232,9 @@ class Config:
         os.environ.get("TRADE_AI_OPENAI_API_KEY", "").strip() or os.environ.get("OPENAI_API_KEY", "").strip()
     )
     TRADE_AI_OPENAI_MODEL = os.environ.get("TRADE_AI_OPENAI_MODEL", "gpt-4o-mini").strip()
+    # When true, Draft Hub "AI" desk uses local heuristics only (no OpenAI), even if TRADE_AI_OPENAI_API_KEY is set.
+    _DRAFT_HUB_AI_HEURISTIC_ONLY_RAW = os.environ.get("DRAFT_HUB_AI_HEURISTIC_ONLY", "").strip().lower()
+    DRAFT_HUB_AI_HEURISTIC_ONLY = _DRAFT_HUB_AI_HEURISTIC_ONLY_RAW in {"1", "true", "yes", "on"}
 
 
 def league_group_for_slug(slug: str) -> str:

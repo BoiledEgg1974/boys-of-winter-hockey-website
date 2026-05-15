@@ -1,4 +1,4 @@
-"""Entertainment-only draft advice for the team on the clock (OpenAI or heuristic fallback)."""
+"""Entertainment-only draft advice for the team on the clock (OpenAI with local heuristic fallback)."""
 from __future__ import annotations
 
 import json
@@ -143,22 +143,6 @@ def _error_payload(message: str, details: str | None = None) -> dict[str, Any]:
     }
 
 
-def _extract_openai_error_message(body: str) -> str | None:
-    """Best-effort extraction of the human-readable message from an OpenAI error body."""
-    if not body:
-        return None
-    try:
-        obj = json.loads(body)
-    except json.JSONDecodeError:
-        return body.strip()[:280] or None
-    err = obj.get("error") if isinstance(obj, dict) else None
-    if isinstance(err, dict):
-        msg = err.get("message")
-        if isinstance(msg, str) and msg.strip():
-            return msg.strip()[:280]
-    return None
-
-
 def _uses_completion_token_limit(model: str) -> bool:
     """Newer OpenAI reasoning/GPT-5 models reject the legacy max_tokens field."""
     m = (model or "").strip().lower()
@@ -220,6 +204,96 @@ def build_draft_advice_prompt(
     return "\n".join(lines)
 
 
+def _heuristic_draft_advice(
+    session: Session,
+    *,
+    team_name: str,
+    round_no: int,
+    overall: int,
+    roster: list[Player],
+    eligible_all: list[Player],
+    eligible_top: list[Player],
+    rank_by_id: dict[int, int],
+) -> dict[str, Any]:
+    """Rules-based suggestions only (no external API). Same keys as a successful model payload."""
+    roster_s = _sort_roster(session, roster)
+    _shape_txt, thin_exact, need_buckets = _roster_shape(roster_s)
+    need_fit = _need_fit_candidates(eligible_top, rank_by_id, need_buckets)
+
+    def _one_rec(pl: Player, blurb: str) -> dict[str, Any]:
+        return {
+            "player_id": int(pl.id),
+            "player_name": (pl.full_name or f"Player #{pl.id}").strip(),
+            "blurb": blurb,
+        }
+
+    recommendations: list[dict[str, Any]] = []
+    seen: set[int] = set()
+
+    bpa = eligible_all[0] if eligible_all else None
+    if bpa is not None:
+        rk = int(rank_by_id.get(bpa.id, 1))
+        recommendations.append(
+            _one_rec(
+                bpa,
+                f"Best player available on the site's eligibility board right now (published rank #{rk}).",
+            )
+        )
+        seen.add(int(bpa.id))
+
+    need_label = ", ".join(sorted(need_buckets)) if need_buckets else "balance"
+    for pl in need_fit:
+        if pl.id in seen:
+            continue
+        rk = int(rank_by_id.get(pl.id, 0))
+        recommendations.append(
+            _one_rec(
+                pl,
+                f"Need-weighted lean (board #{rk}) favoring thinner {need_label} depth vs pure BPA.",
+            )
+        )
+        seen.add(int(pl.id))
+        if len(recommendations) >= 3:
+            break
+
+    if len(recommendations) < 2 and len(eligible_all) > 1:
+        alt = eligible_all[1]
+        if alt.id not in seen:
+            rk2 = int(rank_by_id.get(alt.id, 0))
+            recommendations.append(
+                _one_rec(
+                    alt,
+                    f"Next BPA signal (board #{rk2}) if you want the next-highest rated profile.",
+                )
+            )
+            seen.add(int(alt.id))
+
+    if not recommendations and eligible_all:
+        pl0 = eligible_all[0]
+        recommendations.append(
+            _one_rec(pl0, "Top available name on the eligibility list.")
+        )
+
+    thin_note = (
+        f" Depth looks thinner at: {', '.join(thin_exact)}."
+        if thin_exact
+        else " Positional counts look fairly even — lean on board rank or upside."
+    )
+    summary = (
+        f"Heuristic desk (no live language model): quick rules for {team_name} in round {round_no}, "
+        f"overall #{overall}.{thin_note} "
+        "Use the BPA line as your anchor, then compare the need-weighted option to your own read."
+    )
+    headline = f"Heuristic desk · R{round_no} pick {overall}"
+    headline = headline.strip()[:90]
+
+    return {
+        "headline": headline,
+        "summary": summary.strip()[:1200],
+        "recommendations": recommendations[:3],
+    }
+
+
 def fetch_draft_hub_ai_advice(
     session: Session,
     league_slug: str,
@@ -270,12 +344,32 @@ def fetch_draft_hub_ai_advice(
         if nm:
             name_to_id.setdefault(nm, pid)
 
-    if not api_key:
-        current_app.logger.warning("Draft hub AI: no OPENAI_API_KEY configured (model=%s)", model)
-        return _error_payload(
-            "AI desk is unavailable — server has no OpenAI API key configured.",
-            details=f"Model in use: {model}. Set OPENAI_API_KEY in .env and restart the app.",
+    def _cache_and_return(data: dict[str, Any]) -> dict[str, Any]:
+        ttl = _ERROR_CACHE_TTL_SEC if data.get("error") else _CACHE_TTL_SEC
+        _CACHE[cache_key] = (now + ttl, data)
+        return data
+
+    def _heuristic_payload() -> dict[str, Any]:
+        return _heuristic_draft_advice(
+            session,
+            team_name=team_name,
+            round_no=round_no,
+            overall=overall,
+            roster=roster,
+            eligible_all=eligible_all,
+            eligible_top=eligible_top,
+            rank_by_id=rank_by_id,
         )
+
+    if current_app.config.get("DRAFT_HUB_AI_HEURISTIC_ONLY"):
+        current_app.logger.info(
+            "Draft hub AI: using heuristic desk (DRAFT_HUB_AI_HEURISTIC_ONLY is set). Skipping OpenAI."
+        )
+        return _cache_and_return(_heuristic_payload())
+
+    if not api_key:
+        current_app.logger.info("Draft hub AI: using heuristic desk (no TRADE_AI_OPENAI_API_KEY). model=%s", model)
+        return _cache_and_return(_heuristic_payload())
 
     block = build_draft_advice_prompt(
         session,
@@ -330,11 +424,6 @@ def fetch_draft_hub_ai_advice(
         method="POST",
     )
 
-    def _finish(data: dict[str, Any]) -> dict[str, Any]:
-        ttl = _ERROR_CACHE_TTL_SEC if data.get("error") else _CACHE_TTL_SEC
-        _CACHE[cache_key] = (now + ttl, data)
-        return data
-
     try:
         with urlopen(req, timeout=55) as resp:
             body = json.loads(resp.read().decode("utf-8"))
@@ -344,33 +433,25 @@ def fetch_draft_hub_ai_advice(
             err_body = e.read().decode("utf-8", errors="replace")[:500]
         except Exception:
             pass
-        current_app.logger.warning("Draft hub AI HTTPError: %s %s (model=%s)", e.code, err_body, model)
-        api_msg = _extract_openai_error_message(err_body)
-        detail_bits: list[str] = []
-        if api_msg:
-            detail_bits.append(api_msg)
-        detail_bits.append(f"Model in use: {model}")
-        return _finish(
-            _error_payload(
-                f"AI desk request rejected (HTTP {e.code}). Check API key, model name, and OpenAI billing.",
-                details=" — ".join(detail_bits),
-            )
+        current_app.logger.warning(
+            "Draft hub AI HTTPError (using heuristic fallback): %s %s (model=%s)", e.code, err_body, model
         )
+        return _cache_and_return(_heuristic_payload())
     except (URLError, TimeoutError, OSError, json.JSONDecodeError) as e:
-        current_app.logger.warning("Draft hub AI request failed: %s", e)
-        return _finish(
-            _error_payload("AI desk could not reach the model right now. Try again in a moment.")
-        )
+        current_app.logger.warning("Draft hub AI request failed (using heuristic fallback): %s", e)
+        return _cache_and_return(_heuristic_payload())
 
     try:
         content = body["choices"][0]["message"]["content"]
     except (KeyError, IndexError, TypeError):
-        return _finish(_error_payload("AI desk got an unreadable response from the model."))
+        current_app.logger.warning("Draft hub AI unreadable choices payload (using heuristic fallback).")
+        return _cache_and_return(_heuristic_payload())
 
     try:
         parsed = json.loads(_strip_json_fence(str(content)))
     except json.JSONDecodeError:
-        return _finish(_error_payload("AI desk could not parse the model's JSON reply."))
+        current_app.logger.warning("Draft hub AI JSON parse failed (using heuristic fallback).")
+        return _cache_and_return(_heuristic_payload())
 
     headline = str(parsed.get("headline") or "Draft desk").strip()[:200]
     summary = str(parsed.get("summary") or "").strip()
@@ -411,11 +492,10 @@ def fetch_draft_hub_ai_advice(
         summary = "The model wandered offside — treating this as a soft suggestion only."
 
     if not recommendations:
-        return _finish(
-            _error_payload("AI desk returned no valid recommendations from the eligible board.")
-        )
+        current_app.logger.warning("Draft hub AI returned no valid recs (using heuristic fallback).")
+        return _cache_and_return(_heuristic_payload())
 
-    return _finish(
+    return _cache_and_return(
         {
             "headline": headline,
             "summary": summary,

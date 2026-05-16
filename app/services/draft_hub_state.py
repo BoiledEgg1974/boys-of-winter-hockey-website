@@ -1,4 +1,4 @@
-"""Draft Hub: go-live, clock, picks, auto-queue, completion + grades."""
+"""Draft Hub: go-live, clock, picks, optional wishlist queue, completion + grades."""
 from __future__ import annotations
 
 import json
@@ -357,40 +357,9 @@ def process_tick(session: Session, draft: LeagueDraft) -> None:
         sync_current_slot_and_clock(session, draft)
         return
 
-    picked_ids = picked_player_ids(session, draft.id)
-    params = draft_eligibility_params(draft)
-    eligible_ordered = eligible_players_ordered(session, draft.league_slug, params)
-    eligible_ids = {p.id for p in eligible_ordered} - picked_ids
-
-    auto_player_id: int | None = None
-    auto_user_id: int | None = None
-    for uid in gm_user_ids_for_team(session, draft.league_slug, slot.team_id):
-        qrows = list(
-            session.scalars(
-                select(LeagueDraftQueueItem)
-                .where(
-                    LeagueDraftQueueItem.league_draft_id == draft.id,
-                    LeagueDraftQueueItem.user_id == uid,
-                )
-                .order_by(LeagueDraftQueueItem.sort_order.asc(), LeagueDraftQueueItem.id.asc())
-            ).all()
-        )
-        for qi in qrows:
-            if int(qi.player_id) in eligible_ids:
-                auto_player_id = int(qi.player_id)
-                auto_user_id = uid
-                break
-        if auto_player_id is not None:
-            break
-
-    if auto_player_id is not None:
-        err = record_pick(session, draft, auto_player_id, auto_user_id, "auto_queue")
-        if not err:
-            draft.deadline_extended_for_slot = False
-            slots2 = slots_ordered(session, draft.id)
-            _finalize_draft_if_done(session, draft, slots2)
-        return
-
+    # Wishlist is never consumed when the pick timer expires — only explicit GM/admin picks
+    # or "Auto-Complete Draft" may record from the queue. Mirror empty-queue handling: one
+    # grace extension, then commissioner resolution.
     if not draft.deadline_extended_for_slot:
         base = draft.pick_deadline_at or utcnow_naive()
         draft.pick_deadline_at = base + timedelta(seconds=int(draft.empty_queue_timer_seconds))
@@ -442,7 +411,7 @@ def record_pick(
             return "You are not the GM on the clock for this team."
         ddl = draft.pick_deadline_at
         if ddl is not None and utcnow_naive() > ddl:
-            return "Pick timer has expired; use the queue or ask the commissioner."
+            return "Pick timer has expired; ask the commissioner to resume this pick."
 
     pk = LeagueDraftPick(
         league_draft_id=draft.id,

@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any
 from flask import Flask, has_request_context, url_for
 
 from app.config import league_slugs
-from app.logo_urls import team_logo_url_for_team
+from app.logo_urls import team_has_dedicated_league_logo, team_logo_url_for_team
 
 if TYPE_CHECKING:
     from app.models import Team
@@ -517,8 +517,6 @@ def build_season_team_logo_bundle(app: Flask) -> SeasonTeamLogoBundle:
         return team_logo_url_for_team(team)
 
     # End-of-timeline year used when scanning `*_YYYY-present` filenames (see logo bundle scan).
-    # Resolving logos as-of this year picks the "present" band and the latest `team_identity_history` rows
-    # so draft history "Current team" (Historical / Cap / Fantasy) shows the modern franchise mark, not the draft-year mark.
     _FRANCHISE_LOGO_END_YEAR = 2100
 
     def team_logo_url_present_franchise(team: Any) -> str:
@@ -526,6 +524,10 @@ def build_season_team_logo_bundle(app: Flask) -> SeasonTeamLogoBundle:
             return url_for("static", filename="logos/teams/placeholder.svg")
         slug = str(app.config.get("LEAGUE_SLUG") or "")
         if slug not in ("bowl-historical", "bowl-cap", "bowl-fantasy"):
+            return team_logo_url_for_team(team)
+        # Prefer the league roster logo (e.g. bowl_cap/phx-t26.png) over franchise timeline rows that
+        # reuse the same FHM id across relocated clubs (Winnipeg → Phoenix → Utah on id 26).
+        if team_has_dedicated_league_logo(team):
             return team_logo_url_for_team(team)
         tid = getattr(team, "fhm_team_id", None)
         tid_s = str(tid).strip() if tid is not None and str(tid).strip() else None

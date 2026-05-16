@@ -26,15 +26,9 @@ _FANTASY_LOGO_STEM_ALIASES: dict[str, str] = {
 }
 
 
-def team_logo_url_for_team(team) -> str:
-    """Return URL for a Team model's logo, or placeholder if missing."""
+def _team_logo_stems(team) -> list[str]:
+    """Filename stems to probe under this league's ``TEAM_LOGOS_REL_DIR``."""
     slug = team.slug
-    static_root = Path(current_app.static_folder or "")
-    league_rel = current_app.config.get("TEAM_LOGOS_REL_DIR", "logos/teams")
-    league_rel = str(league_rel).strip("/\\") or "logos/teams"
-    league_dir = static_root / league_rel
-    legacy_dir = static_root / "logos" / "teams"
-
     stems: list[str] = [slug]
     if str(current_app.config.get("LEAGUE_SLUG") or "") == "bowl-fantasy":
         alt = _FANTASY_LOGO_STEM_ALIASES.get(slug)
@@ -49,8 +43,31 @@ def team_logo_url_for_team(team) -> str:
             for variant in (f"{ab.upper()}-t{raw_id}", f"{ab.lower()}-t{raw_id}", f"{ab}-t{raw_id}"):
                 if variant and variant not in stems:
                     stems.append(variant)
+    return stems
 
-    for stem in stems:
+
+def team_has_dedicated_league_logo(team) -> bool:
+    """True when a non-placeholder logo file exists for this roster team in the league folder."""
+    static_root = Path(current_app.static_folder or "")
+    league_rel = current_app.config.get("TEAM_LOGOS_REL_DIR", "logos/teams")
+    league_rel = str(league_rel).strip("/\\") or "logos/teams"
+    league_dir = static_root / league_rel
+    for stem in _team_logo_stems(team):
+        for ext in ("png", "webp", "jpg", "svg"):
+            if (league_dir / f"{stem}.{ext}").is_file():
+                return True
+    return False
+
+
+def team_logo_url_for_team(team) -> str:
+    """Return URL for a Team model's logo, or placeholder if missing."""
+    static_root = Path(current_app.static_folder or "")
+    league_rel = current_app.config.get("TEAM_LOGOS_REL_DIR", "logos/teams")
+    league_rel = str(league_rel).strip("/\\") or "logos/teams"
+    league_dir = static_root / league_rel
+    legacy_dir = static_root / "logos" / "teams"
+
+    for stem in _team_logo_stems(team):
         for ext in ("png", "webp", "jpg", "svg"):
             p = league_dir / f"{stem}.{ext}"
             if p.is_file():

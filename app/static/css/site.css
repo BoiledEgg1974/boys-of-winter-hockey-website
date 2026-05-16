@@ -8267,6 +8267,82 @@ table.data.draft-history-table td:nth-child(3) .stats-player-cell {
   max-width: 56rem;
   margin: 0 auto;
 }
+.staff-salaries-page__card--browse {
+  max-width: min(96vw, 72rem);
+}
+.staff-salaries-section--browse {
+  margin-top: 2rem;
+}
+.staff-salaries-browse-scroll {
+  max-height: calc(2.05rem * 30 + 2.4rem);
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.staff-salaries-browse-table-wrap {
+  overflow-x: auto;
+}
+.staff-salaries-table--browse {
+  font-size: 0.72rem;
+  width: 100%;
+}
+.staff-salaries-table--browse thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface);
+  box-shadow: 0 1px 0 var(--border);
+}
+.staff-salaries-table--browse .team-staff-th--split {
+  font-size: 0.42rem;
+  max-width: 2.75rem;
+  padding-left: 0.2rem;
+  padding-right: 0.2rem;
+}
+.staff-salaries-table--browse .team-staff-th--text {
+  font-size: 0.58rem;
+  min-width: 7rem;
+}
+.staff-salaries-table--browse .team-staff-th--nat,
+.staff-salaries-table--browse .team-staff-th--photo,
+.staff-salaries-table--browse .team-staff-th--hire {
+  font-size: 0.5rem;
+}
+.staff-salaries-table--browse .team-staff-th--photo {
+  width: 2.5rem;
+}
+.staff-salaries-table--browse .team-staff-th--hire {
+  width: 3rem;
+}
+.staff-salaries-table--browse th,
+.staff-salaries-table--browse td {
+  padding: 0.28rem 0.32rem;
+  vertical-align: middle;
+}
+.staff-salaries-table--browse .team-staff-attr-pill {
+  font-size: 0.62rem;
+  padding: 0.08rem 0.22rem;
+  min-width: 1.25rem;
+  line-height: 1.2;
+}
+.staff-salaries-table--browse .team-staff-name,
+.staff-salaries-browse-name {
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.staff-salaries-browse-photo {
+  width: 2.5rem;
+  text-align: center;
+}
+.staff-salaries-table--browse .staff-salaries-thumb {
+  width: 32px;
+  height: 32px;
+  object-fit: cover;
+}
+.staff-salaries-browse-hire {
+  white-space: nowrap;
+}
 .staff-salaries-page__league,
 .staff-salaries-page__team-line {
   text-align: center;

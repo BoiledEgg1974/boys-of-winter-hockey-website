@@ -27,4 +27,4 @@ def staff_image_url(league_slug: str, staff_fhm_id: str | int | None) -> str | N
 
 
 def staff_placeholder_url() -> str:
-    return url_for("static", filename="staff/placeholder.svg")
+    return url_for("static", filename="staff/default_personnel.png")

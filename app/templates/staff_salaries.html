@@ -1,11 +1,12 @@
 {% extends "base.html" %}
+{% from "_team_staff_panel.html" import staff_attr_td %}
 {% block title %}Staff Salaries — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/staff_salaries.js') }}" defer></script>
 {% endblock %}
 {% block content %}
 <div class="staff-salaries-page">
-  <div class="card staff-salaries-page__card">
+  <div class="card staff-salaries-page__card staff-salaries-page__card--browse">
     <h1 class="page-title staff-salaries-page__banner">Staff — {% if season_label %}{{ season_label }}{% else %}Current season{% endif %}</h1>
     <p class="muted staff-salaries-page__league">{{ config.LEAGUE_DISPLAY_NAME }} · budgets and roster are specific to this league site.</p>
     {% if gm_team %}
@@ -148,7 +149,7 @@
     </section>
     {% endif %}
 
-    <section class="staff-salaries-section" aria-labelledby="staff-browse-heading">
+    <section class="staff-salaries-section staff-salaries-section--browse" aria-labelledby="staff-browse-heading">
       <h2 id="staff-browse-heading" class="staff-salaries-section__title">Browse staff</h2>
       <div class="staff-salaries-browse-tabs" role="tablist">
         {% for fk in browse_filters %}
@@ -156,34 +157,55 @@
         {% endfor %}
       </div>
       {% for fk in browse_filters %}
+      {% set columns = browse_columns_by_filter.get(fk, []) %}
       <div class="staff-salaries-browse-panel{% if loop.first %} is-active{% endif %}" role="tabpanel" data-browse-panel="{{ fk }}"{% if not loop.first %} hidden{% endif %}>
-        <div class="staff-salaries-table-wrap">
-          <table class="staff-salaries-table staff-salaries-table--browse">
-            <thead>
-              <tr>
-                <th scope="col">Photo</th>
-                <th scope="col">Name</th>
-                <th scope="col">Rating</th>
-                {% if can_submit_requests %}<th scope="col">Hire</th>{% endif %}
-              </tr>
-            </thead>
-            <tbody>
-              {% for ent in browse_by_filter.get(fk, []) %}
-              <tr data-staff-id="{{ ent.staff_fhm_id }}" data-staff-name="{{ ent.full_name }}">
-                <td><img class="staff-salaries-thumb" src="{{ ent.image_url }}" alt="" width="40" height="40" loading="lazy"></td>
-                <td><a href="{{ url_for('site_gm.staff_profile_page', staff_fhm_id=ent.staff_fhm_id) }}" target="_blank" rel="noopener">{{ ent.full_name }}</a></td>
-                <td>{% if ent.browse_rating is not none %}{{ ent.browse_rating|round(0)|int }}{% else %}—{% endif %}</td>
-                {% if can_submit_requests %}
-                <td>
-                  <button type="button" class="staff-salaries-btn staff-salaries-btn--small staff-hire-pick" data-staff-id="{{ ent.staff_fhm_id }}" data-staff-name="{{ ent.full_name }}" data-browse-role="{{ fk }}">Hire</button>
-                </td>
-                {% endif %}
-              </tr>
-              {% else %}
-              <tr><td colspan="{% if can_submit_requests %}4{% else %}3{% endif %}" class="muted">No eligible staff for this role.</td></tr>
-              {% endfor %}
-            </tbody>
-          </table>
+        <div class="staff-salaries-browse-scroll">
+          <div class="table-wrap staff-salaries-browse-table-wrap">
+            <table class="data data-sortable team-staff-table staff-salaries-table staff-salaries-table--browse">
+              <thead>
+                <tr>
+                  <th scope="col" class="team-staff-th team-staff-th--photo">Photo</th>
+                  <th data-sort-type="str" scope="col" class="team-staff-th team-staff-th--text">Name</th>
+                  <th data-sort-type="str" scope="col" class="team-staff-th team-staff-th--nat">NAT</th>
+                  {% for key, ln in columns %}
+                  <th data-sort-type="num" scope="col" class="team-staff-th team-staff-th--split" title="{% if ln[1] %}{{ ln[0] }} {{ ln[1] }}{% else %}{{ ln[0] }}{% endif %}">
+                    <span class="team-staff-th__ln1">{{ ln[0] }}</span>{% if ln[1] %}<br><span class="team-staff-th__ln2">{{ ln[1] }}</span>{% endif %}
+                  </th>
+                  {% endfor %}
+                  {% if can_submit_requests %}<th scope="col" class="team-staff-th team-staff-th--hire">Hire</th>{% endif %}
+                </tr>
+              </thead>
+              <tbody>
+                {% for ent in browse_by_filter.get(fk, []) %}
+                <tr data-staff-id="{{ ent.staff_fhm_id }}" data-staff-name="{{ ent.full_name }}">
+                  <td class="staff-salaries-browse-photo">
+                    <img class="staff-salaries-thumb" src="{{ ent.image_url }}" alt="" width="32" height="32" loading="lazy">
+                  </td>
+                  <td data-sort-value="{{ ent.full_name|lower }}">
+                    <a class="team-staff-name staff-salaries-browse-name" href="{{ url_for('site_gm.staff_profile_page', staff_fhm_id=ent.staff_fhm_id) }}" target="_blank" rel="noopener">{{ ent.full_name }}</a>
+                  </td>
+                  <td class="team-staff-nat-cell" data-sort-value="{{ ent.nationality|lower }}">
+                    {% if ent.nationality and ent.nationality != '—' and ent.nationality|nationality_flag_url %}
+                    <img class="team-staff-flag" src="{{ ent.nationality|nationality_flag_url }}" width="20" height="14" alt="{{ ent.nationality }}" title="{{ ent.nationality }}" loading="lazy" decoding="async">
+                    {% else %}
+                    <span class="muted">—</span>
+                    {% endif %}
+                  </td>
+                  {% for key, _ in columns %}
+                  {{ staff_attr_td(ent.attrs, key) }}
+                  {% endfor %}
+                  {% if can_submit_requests %}
+                  <td class="staff-salaries-browse-hire">
+                    <button type="button" class="staff-salaries-btn staff-salaries-btn--small staff-hire-pick" data-staff-id="{{ ent.staff_fhm_id }}" data-staff-name="{{ ent.full_name }}" data-browse-role="{{ fk }}">Hire</button>
+                  </td>
+                  {% endif %}
+                </tr>
+                {% else %}
+                <tr><td colspan="{{ 3 + columns|length + (1 if can_submit_requests else 0) }}" class="muted">No eligible staff for this role.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
       {% endfor %}

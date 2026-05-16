@@ -10,7 +10,22 @@ from sqlalchemy.orm import Session
 from app.models import Season, Team
 from app.services.roster_team import is_main_league_team
 from app.services.seasons import get_current_season, season_display_label
-from app.services.staff_catalog import BROWSE_FILTERS, STAFF_ROLES, list_staff_for_browse, staff_role_label
+from app.services.staff_catalog import (
+    BROWSE_FILTERS,
+    STAFF_ROLES,
+    coach_columns,
+    list_staff_for_browse,
+    scout_columns,
+    staff_role_label,
+    trainer_columns,
+)
+
+BROWSE_COLUMNS_BY_FILTER: dict[str, tuple[tuple[str, tuple[str, str]], ...]] = {
+    "head_coach": coach_columns(),
+    "assistant_coach": coach_columns(),
+    "scout": scout_columns(),
+    "trainer": trainer_columns(),
+}
 from app.services.staff_hire_limits import hire_limit_status
 from app.services.staff_images import staff_image_url
 from app.services.staff_transactions import (
@@ -157,6 +172,7 @@ def staff_salary_context(session: Session, *, league_slug: str) -> dict:
         "staff_role_labels": {r: staff_role_label(r) for r in STAFF_ROLES},
         "browse_filters": BROWSE_FILTERS,
         "browse_by_filter": browse_by_filter,
+        "browse_columns_by_filter": BROWSE_COLUMNS_BY_FILTER,
     }
 
 

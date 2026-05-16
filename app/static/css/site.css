@@ -8216,6 +8216,86 @@ table.data.draft-history-table td:nth-child(3) .stats-player-cell {
   color: var(--muted);
 }
 
+/* Staff salaries (GM) + admin budgets */
+.staff-salaries-page {
+  max-width: 52rem;
+  margin: 0 auto;
+}
+.staff-salaries-page__banner {
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 1.15rem;
+  margin-bottom: 1.25rem;
+  text-decoration: underline;
+}
+.staff-salaries-table-wrap {
+  border: 3px solid #7f1d1d;
+  overflow-x: auto;
+}
+.staff-salaries-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 1rem;
+}
+.staff-salaries-table th,
+.staff-salaries-table td {
+  border: 2px solid #111;
+  padding: 0.65rem 0.75rem;
+  text-align: center;
+}
+.staff-salaries-table thead th {
+  background: #7f1d1d;
+  color: #fff;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.staff-salaries-table tbody td {
+  background: #fff;
+  color: #111;
+  font-weight: 700;
+}
+[data-theme="dark"] .staff-salaries-table tbody td {
+  background: #f8fafc;
+  color: #0f172a;
+}
+.staff-budgets-admin__table-wrap {
+  overflow-x: auto;
+  margin-top: 1rem;
+}
+.staff-budgets-admin__table th {
+  white-space: nowrap;
+}
+.staff-budgets-admin__team {
+  width: 3.5rem;
+  text-align: center;
+}
+.staff-budgets-admin__team-inner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.staff-budgets-admin__logo {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+.staff-budgets-admin__id {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.staff-budgets-admin__th-budget,
+.staff-budgets-admin__budget {
+  text-align: right;
+}
+.staff-budgets-admin__input {
+  width: 11rem;
+  max-width: 100%;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Prospect rankings (league players age ≤20) */
 .free-agents-page__intro {
   margin: -0.25rem 0 1rem;

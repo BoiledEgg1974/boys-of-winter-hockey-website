@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Staff Salary Budgets — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card staff-budgets-admin" style="max-width:56rem;margin:0 auto;">
+  <h1 class="page-title">Staff Salary Budgets</h1>
+  <p class="muted">
+    {% if season_label %}<strong>{{ season_label }}</strong> season{% else %}Current season{% endif %}
+    — amounts feed the <a href="{{ url_for('site_gm.staff_salaries_page') }}">Staff Salaries</a> page GMs see.
+  </p>
+  <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
+  {% with messages = get_flashed_messages() %}
+  {% if messages %}<ul>{% for m in messages %}<li>{{ m }}</li>{% endfor %}</ul>{% endif %}
+  {% endwith %}
+
+  <form method="post" class="staff-budgets-admin__form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="staff-budgets-admin__table-wrap">
+      <table class="data staff-budgets-admin__table">
+        <thead>
+          <tr>
+            <th scope="col">Team</th>
+            <th scope="col">GM</th>
+            <th scope="col">ID</th>
+            <th scope="col" class="staff-budgets-admin__th-budget">Budget</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in team_rows %}
+          {% set t = row.team %}
+          <tr>
+            <td class="staff-budgets-admin__team">
+              <span class="staff-budgets-admin__team-inner">
+                {% if team_logo_url(t) %}
+                <img class="staff-budgets-admin__logo" src="{{ team_logo_url(t) }}" alt="" width="28" height="28" loading="lazy" decoding="async">
+                {% endif %}
+                <span class="visually-hidden">{{ t.full_display_name() }}</span>
+              </span>
+            </td>
+            <td>{{ row.gm_label }}</td>
+            <td class="staff-budgets-admin__id">{{ row.team_id_label }}</td>
+            <td class="staff-budgets-admin__budget">
+              <label class="visually-hidden" for="budget-{{ t.id }}">Budget for {{ t.full_display_name() }}</label>
+              <input
+                type="text"
+                inputmode="numeric"
+                name="budget_{{ t.id }}"
+                id="budget-{{ t.id }}"
+                class="staff-budgets-admin__input"
+                value="{% if row.budget_amount %}{{ row.budget_amount }}{% endif %}"
+                placeholder="0"
+                autocomplete="off"
+              >
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <button type="submit" class="join-league-btn" style="margin-top:1rem;border:none;">Save budgets</button>
+  </form>
+
+  {% if defaults %}
+  <section class="staff-budgets-admin__preview" aria-labelledby="staff-preview-title">
+    <h2 id="staff-preview-title" class="page-title" style="font-size:1.05rem;margin-top:2rem;">Preview — GM Staff Default Salaries</h2>
+    <div class="staff-salaries-table-wrap">
+      <table class="staff-salaries-table">
+        <thead>
+          <tr>
+            <th scope="col">Head Coach</th>
+            <th scope="col">Assistant Coaches</th>
+            <th scope="col">Scouts</th>
+            <th scope="col">Trainer</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>${{ "{:,}".format(defaults.head_coach) }}</td>
+            <td>${{ "{:,}".format(defaults.assistant_coaches) }}</td>
+            <td>${{ "{:,}".format(defaults.scouts) }}</td>
+            <td>${{ "{:,}".format(defaults.trainer) }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

@@ -151,7 +151,13 @@ from app.site_models import (
     MemberWatchlistItem,
     AdminUndoAction,
     DiscordOutboundEvent,
+    TeamStaffBudget,
     User,
+)
+from app.services.staff_salaries import (
+    current_season_start_year,
+    main_league_teams,
+    staff_salary_context,
 )
 
 site_gm_bp = Blueprint("site_gm", __name__)
@@ -998,6 +1004,17 @@ def boost_lottery():
         return redirect(url_for("main.home"))
     boost_theme = "fantasy" if slug == "bowl-fantasy" else ("cap" if slug == "bowl-cap" else "historical")
     return render_template("boost_lottery.html", boost_theme=boost_theme)
+
+
+@site_gm_bp.route("/staff-salaries", methods=["GET"])
+@login_required
+def staff_salaries_page():
+    """GM-only staff default salary table for the current season."""
+    if not _membership():
+        flash("Staff Salaries is available to active GMs only.", "err")
+        return redirect(url_for("main.home"))
+    ctx = staff_salary_context(db.session, league_slug=_league_slug())
+    return render_template("staff_salaries.html", **ctx)
 
 
 @site_gm_bp.get("/operations/trade-proposal/<int:pid>")
@@ -4141,6 +4158,53 @@ def admin_ap_batch_adjust():
     else:
         flash(f"{label}: enter at least one non-zero amount.", "err")
     return redirect(url_for("site_admin.admin_ap_ledger"))
+
+
+@site_admin_bp.route("/staff-budgets", methods=["GET", "POST"])
+@login_required
+def admin_staff_budgets():
+    """Enter per-team staff salary budgets for the current season."""
+    require_admin_role(ADMIN_ROLE_STATS, ADMIN_ROLE_LEAGUE)
+    slug = _league_slug()
+    start_year = current_season_start_year(db.session)
+    if start_year is None:
+        flash("No current season is configured for this league.", "err")
+        return redirect(url_for("site_admin.admin_home"))
+
+    if request.method == "POST":
+        teams = main_league_teams(db.session)
+        for t in teams:
+            tid = int(t.id)
+            raw = (request.form.get(f"budget_{tid}") or "").strip().replace(",", "").replace("$", "")
+            try:
+                amount = max(0, int(raw)) if raw else 0
+            except ValueError:
+                amount = 0
+            row = db.session.scalar(
+                select(TeamStaffBudget).where(
+                    TeamStaffBudget.league_slug == slug,
+                    TeamStaffBudget.season_start_year == int(start_year),
+                    TeamStaffBudget.team_id == tid,
+                ).limit(1)
+            )
+            if row is None:
+                row = TeamStaffBudget(
+                    league_slug=slug,
+                    season_start_year=int(start_year),
+                    team_id=tid,
+                    budget_amount=amount,
+                    updated_by_user_id=int(current_user.id),
+                )
+                db.session.add(row)
+            else:
+                row.budget_amount = amount
+                row.updated_by_user_id = int(current_user.id)
+        db.session.commit()
+        flash("Staff salary budgets saved.", "ok")
+        return redirect(url_for("site_admin.admin_staff_budgets"))
+
+    ctx = staff_salary_context(db.session, league_slug=slug)
+    return render_template("admin_staff_budgets.html", **ctx)
 
 
 @site_admin_bp.route("/ap-ledger", methods=["GET", "POST"])

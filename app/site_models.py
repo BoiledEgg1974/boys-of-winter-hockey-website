@@ -819,6 +819,32 @@ class ProspectLeagueRankSnapshot(db.Model):
     ranks_json: Mapped[str] = mapped_column(Text, nullable=False)
 
 
+class TeamStaffBudget(db.Model):
+    """Per-team staff salary budget for a league season (site DB; ``team_id`` is league ``teams.id``)."""
+
+    __tablename__ = "team_staff_budgets"
+    __bind_key__ = "site"
+    __table_args__ = (
+        UniqueConstraint(
+            "league_slug",
+            "season_start_year",
+            "team_id",
+            name="uq_team_staff_budget_league_season_team",
+        ),
+        Index("ix_team_staff_budget_league_season", "league_slug", "season_start_year"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False)
+    season_start_year: Mapped[int] = mapped_column(Integer, nullable=False)
+    team_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    budget_amount: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+    updated_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
 def meta_dict(entry: ApLedgerEntry) -> dict:
     try:
         return json.loads(entry.meta_json or "{}")

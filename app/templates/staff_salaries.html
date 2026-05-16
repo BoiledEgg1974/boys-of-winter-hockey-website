@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Staff Salaries — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="staff-salaries-page card">
+  <h1 class="page-title staff-salaries-page__banner">Staff Default Salaries — {% if season_label %}{{ season_label }}{% else %}Current season{% endif %}</h1>
+
+  {% if defaults %}
+  <div class="staff-salaries-table-wrap" role="region" aria-label="Staff default salaries">
+    <table class="staff-salaries-table">
+      <thead>
+        <tr>
+          <th scope="col">Head Coach</th>
+          <th scope="col">Assistant Coaches</th>
+          <th scope="col">Scouts</th>
+          <th scope="col">Trainer</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>${{ "{:,}".format(defaults.head_coach) }}</td>
+          <td>${{ "{:,}".format(defaults.assistant_coaches) }}</td>
+          <td>${{ "{:,}".format(defaults.scouts) }}</td>
+          <td>${{ "{:,}".format(defaults.trainer) }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">Staff default salaries are not available yet. The commissioner must enter team staff budgets for this season.</p>
+  {% endif %}
+</div>
+{% endblock %}

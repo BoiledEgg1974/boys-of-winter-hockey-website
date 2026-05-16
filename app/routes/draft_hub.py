@@ -12,7 +12,7 @@ from app.league_db import commit_or_release_after_tick, db
 from app.logo_urls import team_logo_url_for_team
 from app.models import Player, Team
 from app.services.draft_hub_ai_advisor import fetch_draft_hub_ai_advice
-from app.services.draft_hub_eligibility import age_as_of, eligible_players_ordered
+from app.services.draft_hub_eligibility import ELIGIBLE_HUB_BOARD_WINDOW, age_as_of, eligible_players_ordered
 from app.services.seasons import get_current_season, season_age_reference_date
 from app.services.draft_hub_state import (
     auto_complete_draft,
@@ -622,7 +622,7 @@ def draft_hub_eligible_page():
     if pos_filter and pos_filter not in _VALID_POS_FILTERS:
         pos_filter = ""
     offset = max(0, request.args.get("offset", type=int) or 0)
-    limit = min(80, max(1, request.args.get("limit", type=int) or 40))
+    limit = min(ELIGIBLE_HUB_BOARD_WINDOW, max(1, request.args.get("limit", type=int) or 40))
     params = draft_eligibility_params(draft)
     picked = picked_player_ids(db.session, draft.id)
     eligible = eligible_players_ordered(db.session, slug, params)
@@ -638,7 +638,14 @@ def draft_hub_eligible_page():
             if _player_matches_pos_filter(label, pos_filter):
                 filtered.append(pl)
         eligible = filtered
-    slice_ = eligible[offset : offset + limit]
+    using_board_window = not q and not pos_filter
+    if using_board_window:
+        board_eligible = eligible[:ELIGIBLE_HUB_BOARD_WINDOW]
+        display_window_capped = len(eligible) > len(board_eligible)
+    else:
+        board_eligible = eligible
+        display_window_capped = False
+    slice_ = board_eligible[offset : offset + limit]
     as_of = season_age_reference_date(get_current_season())
 
     def age_years(bd):
@@ -666,7 +673,17 @@ def draft_hub_eligible_page():
                 "photo_url": _player_photo_url(pl),
             }
         )
-    return jsonify({"ok": True, "players": out, "total": len(eligible), "offset": offset, "limit": limit})
+    return jsonify(
+        {
+            "ok": True,
+            "players": out,
+            "total": len(eligible),
+            "offset": offset,
+            "limit": limit,
+            "display_window": ELIGIBLE_HUB_BOARD_WINDOW if using_board_window else None,
+            "display_window_capped": display_window_capped,
+        }
+    )
 
 
 @draft_hub_bp.post("/pick")

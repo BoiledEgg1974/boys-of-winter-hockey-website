@@ -23,14 +23,12 @@
        data-pick-url="{{ url_for('expansion_draft_hub.expansion_draft_pick') }}"
        data-state-url="{{ url_for('expansion_draft_hub.expansion_draft_api_state') }}"
        data-eligible-url="{{ url_for('expansion_draft_hub.expansion_draft_eligible_page') }}"
-       data-pause-url="{{ url_for('expansion_draft_hub.expansion_draft_pause_timer') }}"
-       data-resume-url="{{ url_for('expansion_draft_hub.expansion_draft_resume_timer') }}"
        data-end-draft-url="{{ url_for('expansion_draft_hub.expansion_draft_end_draft_early') }}"
        data-player-page-tpl="{{ url_for('main.player_page', player_id=988776655) }}">
   </div>
 
   <noscript>
-    <p class="muted">Enable JavaScript for the live draft board, timer, and lists.</p>
+    <p class="muted">Enable JavaScript for the live draft board and lists.</p>
   </noscript>
 </div>
 
@@ -41,8 +39,6 @@
   var csrf = root.getAttribute('data-csrf') || '';
   var stateUrl = root.getAttribute('data-state-url');
   var eligibleUrl = root.getAttribute('data-eligible-url');
-  var pauseUrl = root.getAttribute('data-pause-url') || '';
-  var resumeUrl = root.getAttribute('data-resume-url') || '';
   var endDraftUrl = root.getAttribute('data-end-draft-url') || '';
   var playerPageTpl = root.getAttribute('data-player-page-tpl') || '';
   var pickUrl = root.getAttribute('data-pick-url');
@@ -117,14 +113,6 @@
       '</div></div>';
     mountDhTickerOnPage();
     setDhTickerDuration(pickCount, true);
-  }
-
-  function fmtClock(ms) {
-    if (ms == null || ms <= 0) return '—';
-    var t = Math.ceil(ms / 1000);
-    var m = Math.floor(t / 60);
-    var s = t % 60;
-    return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
   }
 
   function buildRosterTrackerHtml(x) {
@@ -299,13 +287,10 @@
     }
     if (x.status === 'live' && x.on_clock_team && x.timer_paused && !x.awaiting_admin) {
       html += '<p class="draft-hub-banner__status">' + esc(x.on_clock_team).toUpperCase() + ' ARE ON THE CLOCK</p>';
-      html += '<p class="draft-hub-banner__timer muted">Paused</p>';
     } else if (x.status === 'live' && x.on_clock_team && !x.awaiting_admin) {
       html += '<p class="draft-hub-banner__status">' + esc(x.on_clock_team).toUpperCase() + ' ARE ON THE CLOCK</p>';
-      html += '<p class="draft-hub-banner__timer" id="dh-timer">' + fmtClock(x.deadline_ms) + '</p>';
     } else if (x.status === 'live' && x.awaiting_admin) {
       html += '<p class="draft-hub-banner__status">COMMISSIONER ACTION NEEDED</p>';
-      html += '<p class="draft-hub-banner__timer muted">Timer paused</p>';
     } else if (x.status === 'setup') {
       html += '<p class="draft-hub-banner__status">DRAFT NOT STARTED</p>';
       if (x.scheduled_start_at) {
@@ -313,25 +298,13 @@
       } else {
         html += '<p class="muted">Waiting for the commissioner to open the draft room.</p>';
       }
-      html += '<p class="draft-hub-banner__timer muted">—</p>';
     } else {
       html += '<p class="draft-hub-banner__status">EXPANSION DRAFT COMPLETE</p>';
-      html += '<p class="draft-hub-banner__timer muted">—</p>';
     }
     if (x.current_slot) {
       var ph = (x.current_slot.phase || '').toLowerCase();
       var phLabel = ph === 'goalie' ? 'Goalie round' : (ph === 'skater' ? 'Skater round' : '');
       html += '<p class="draft-hub-meta">' + esc(phLabel) + (phLabel ? ' · ' : '') + 'Round ' + esc(String(x.current_slot.round)) + ' · Overall ' + esc(String(x.current_slot.overall)) + '</p>';
-    }
-    if (x.can_admin_control && x.status === 'live') {
-      var shouldResume = !!(x.timer_paused || x.awaiting_admin);
-      var timerAction = shouldResume ? resumeUrl : pauseUrl;
-      var timerLabel = shouldResume ? 'Resume Countdown' : 'Pause Countdown';
-      var timerCls = shouldResume ? 'button' : 'button secondary';
-      html += '<form method="post" action="' + esc(timerAction) + '" class="draft-hub-admin-timer-form">';
-      html += '<input type="hidden" name="csrf_token" value="' + esc(csrf) + '">';
-      html += '<button type="submit" class="' + timerCls + ' small">' + timerLabel + '</button>';
-      html += '</form>';
     }
     if (x.can_admin_end_early && x.status === 'live' && endDraftUrl) {
       html += '<form method="post" action="' + esc(endDraftUrl) + '" class="draft-hub-admin-timer-form dh-end-draft-form" '
@@ -525,16 +498,6 @@
       updateDhTicker(tickerText, tp.length);
     }
 
-    var timerEl = document.getElementById('dh-timer');
-    if (timerEl && x.status === 'live' && x.deadline_ms != null && !x.awaiting_admin) {
-      var base = Date.now();
-      var ms0 = x.deadline_ms;
-      setInterval(function () {
-        var left = ms0 - (Date.now() - base);
-        timerEl.textContent = fmtClock(left);
-      }, 500);
-    }
-
     loadEligible(x);
   }
 
@@ -698,12 +661,18 @@
     var meta = document.getElementById('dh-eligible-meta');
     var list = document.getElementById('dh-eligible-list');
     if (!list) return;
-    var url = eligibleUrl + '?limit=50';
+    var url = eligibleUrl + '?limit=100';
     if (searchQ) url += '&q=' + encodeURIComponent(searchQ);
     if (posQ) url += '&pos=' + encodeURIComponent(posQ);
     fetch(url, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
       if (!d.ok) return;
-      if (meta) meta.textContent = d.total + ' available';
+      if (meta) {
+        var metaParts = [String(d.total != null ? d.total : 0) + ' available'];
+        if (d.display_window_capped && d.display_window) {
+          metaParts.push('showing top ' + d.display_window + ' on the board');
+        }
+        meta.textContent = metaParts.join(' · ');
+      }
       var rows = d.players || [];
       var canPick = x.can_pick || x.can_admin_pick;
       var html = '';

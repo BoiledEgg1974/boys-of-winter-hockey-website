@@ -11,7 +11,7 @@ from app.auth_login import active_membership_for_league, league_hub_staff
 from app.league_db import commit_or_release_after_tick, db
 from app.logo_urls import team_logo_url_for_team
 from app.models import Player, Team
-from app.services.draft_hub_eligibility import age_as_of
+from app.services.draft_hub_eligibility import ELIGIBLE_HUB_BOARD_WINDOW, age_as_of
 from app.services.seasons import get_current_season, season_age_reference_date
 from app.services.expansion_draft_state import (
     eligible_player_ids_for_board,
@@ -399,7 +399,7 @@ def expansion_draft_eligible_page():
     if pos_filter and pos_filter not in _VALID_POS_FILTERS:
         pos_filter = ""
     offset = max(0, request.args.get("offset", type=int) or 0)
-    limit = min(80, max(1, request.args.get("limit", type=int) or 40))
+    limit = min(ELIGIBLE_HUB_BOARD_WINDOW, max(1, request.args.get("limit", type=int) or 40))
 
     phase_filter = None
     exp_team_id = None
@@ -417,8 +417,8 @@ def expansion_draft_eligible_page():
         phase=phase_filter,
         expansion_team_id=exp_team_id,
     )
-    total = len(ordered_ids)
 
+    using_board_window = not q and not pos_filter
     if q or pos_filter:
         eligible = hydrate_players_for_ordered_ids(db.session, ordered_ids)
         if q:
@@ -434,9 +434,12 @@ def expansion_draft_eligible_page():
             eligible = filtered
         total = len(eligible)
         slice_players = eligible[offset : offset + limit]
+        display_window_capped = False
     else:
         total = len(ordered_ids)
-        slice_ids = ordered_ids[offset : offset + limit]
+        window_ids = ordered_ids[:ELIGIBLE_HUB_BOARD_WINDOW]
+        display_window_capped = len(ordered_ids) > len(window_ids)
+        slice_ids = window_ids[offset : offset + limit]
         slice_players = hydrate_players_for_ordered_ids(db.session, slice_ids)
         pos_labels = {}
 
@@ -467,7 +470,17 @@ def expansion_draft_eligible_page():
                 "photo_url": _player_photo_url(pl),
             }
         )
-    return jsonify({"ok": True, "players": out, "total": total, "offset": offset, "limit": limit})
+    return jsonify(
+        {
+            "ok": True,
+            "players": out,
+            "total": total,
+            "offset": offset,
+            "limit": limit,
+            "display_window": ELIGIBLE_HUB_BOARD_WINDOW if using_board_window else None,
+            "display_window_capped": display_window_capped,
+        }
+    )
 
 
 @expansion_draft_hub_bp.post("/pick")

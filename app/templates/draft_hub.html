@@ -25,8 +25,6 @@
        data-queue-remove-url="{{ url_for('draft_hub.draft_hub_queue_remove') }}"
        data-state-url="{{ url_for('draft_hub.draft_hub_api_state') }}"
        data-eligible-url="{{ url_for('draft_hub.draft_hub_eligible_page') }}"
-       data-pause-url="{{ url_for('draft_hub.draft_hub_pause_timer') }}"
-       data-resume-url="{{ url_for('draft_hub.draft_hub_resume_timer') }}"
        data-auto-complete-url="{{ url_for('draft_hub.draft_hub_auto_complete') }}"
        data-swap-slots-url="{{ url_for('draft_hub.draft_hub_admin_swap_slots') }}"
        data-undo-pick-url="{{ url_for('draft_hub.draft_hub_admin_undo_pick') }}"
@@ -40,7 +38,7 @@
     <div class="dh-slot-trade-modal__backdrop" data-dh-trade-close="1"></div>
     <div class="dh-slot-trade-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="dh-slot-trade-title">
       <h2 id="dh-slot-trade-title" class="dh-slot-trade-modal__title">Trade draft slots</h2>
-      <p class="muted small dh-slot-trade-modal__intro">Swap which team holds each <strong>unpicked</strong> overall selection. Already-made picks cannot be moved here. The clock keeps running unless you pause it separately.</p>
+      <p class="muted small dh-slot-trade-modal__intro">Swap which team holds each <strong>unpicked</strong> overall selection. Already-made picks cannot be moved here.</p>
       <div class="dh-slot-trade-modal__fields">
         <label class="dh-slot-trade-modal__label">Slot A <select id="dh-trade-overall-a" class="dh-slot-trade-modal__select"></select></label>
         <label class="dh-slot-trade-modal__label">Slot B <select id="dh-trade-overall-b" class="dh-slot-trade-modal__select"></select></label>
@@ -72,7 +70,7 @@
   <div id="dh-wishlist-auth-host" class="dh-wishlist-auth-host" hidden></div>
 
   <noscript>
-    <p class="muted">Enable JavaScript for the live draft board, timer, and lists.</p>
+    <p class="muted">Enable JavaScript for the live draft board and lists.</p>
   </noscript>
 </div>
 
@@ -83,8 +81,6 @@
   var csrf = root.getAttribute('data-csrf') || '';
   var stateUrl = root.getAttribute('data-state-url');
   var eligibleUrl = root.getAttribute('data-eligible-url');
-  var pauseUrl = root.getAttribute('data-pause-url') || '';
-  var resumeUrl = root.getAttribute('data-resume-url') || '';
   var autoCompleteUrl = root.getAttribute('data-auto-complete-url') || '';
   var swapSlotsUrl = root.getAttribute('data-swap-slots-url') || '';
   var undoPickUrl = root.getAttribute('data-undo-pick-url') || '';
@@ -376,14 +372,6 @@
     });
   }
 
-  function fmtClock(ms) {
-    if (ms == null || ms <= 0) return '—';
-    var t = Math.ceil(ms / 1000);
-    var m = Math.floor(t / 60);
-    var s = t % 60;
-    return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
-  }
-
   function clearWishlistAuthHost() {
     var host = document.getElementById('dh-wishlist-auth-host');
     if (host) {
@@ -445,10 +433,6 @@
   var savedWindowScroll = 0;
   var dhMounted = false;
   var lastDraftPayload = null;
-  var timerIntervalId = null;
-  var lastTimerKey = '';
-  var timerBase = 0;
-  var timerMs0 = 0;
   var lastDhTickerKey = '';
 
   var PANEL_SCROLL_SELECTORS = [
@@ -457,41 +441,11 @@
     '#dh-queue'
   ];
 
-  function stopDhTimer() {
-    if (timerIntervalId) {
-      clearInterval(timerIntervalId);
-      timerIntervalId = null;
-    }
-  }
-
   function fmtHistoryPickLabel(p) {
     var name = (p.player || '').trim();
     var pos = (p.pos || p.pos_display || '').trim();
     if (!name) return '—';
     return pos ? (pos + ' · ' + name) : name;
-  }
-
-  function startDhTimer(x) {
-    var timerEl = document.getElementById('dh-timer');
-    if (!timerEl || x.status !== 'live' || x.deadline_ms == null || x.awaiting_admin) {
-      stopDhTimer();
-      lastTimerKey = '';
-      return;
-    }
-    var overall = (x.current_slot && x.current_slot.overall != null) ? x.current_slot.overall : '';
-    var key = String(x.id) + ':' + String(overall);
-    timerBase = Date.now();
-    timerMs0 = x.deadline_ms;
-    if (key === lastTimerKey && timerIntervalId) {
-      timerEl.textContent = fmtClock(timerMs0);
-      return;
-    }
-    lastTimerKey = key;
-    stopDhTimer();
-    timerEl.textContent = fmtClock(timerMs0);
-    timerIntervalId = setInterval(function () {
-      timerEl.textContent = fmtClock(timerMs0 - (Date.now() - timerBase));
-    }, 500);
   }
 
   function bindDhSounds(container) {
@@ -592,8 +546,6 @@
     copyPanel('dh-history-controls', false);
     copyPanel('dh-history-body', false);
     updateDhTicker(buildDhTickerText(tp, x.status), tp.length);
-    stopDhTimer();
-    startDhTimer(x);
     bindDhSounds(document.getElementById('dh-wishlist'));
     renderWishlistPanel(x);
     sizeDraftOrder(x.picks_per_round);
@@ -635,7 +587,6 @@
       window.__dhLastDraftForTrade = null;
       dhMounted = false;
       lastDraftPayload = null;
-      stopDhTimer();
       return;
     }
     if (pageEl) pageEl.classList.add('draft-hub-page--ticker');
@@ -707,13 +658,10 @@
     }
     if (x.status === 'live' && x.on_clock_team && x.timer_paused && !x.awaiting_admin) {
       html += '<p class="draft-hub-banner__status">' + esc(x.on_clock_team).toUpperCase() + ' ARE ON THE CLOCK</p>';
-      html += '<p class="draft-hub-banner__timer muted">Paused</p>';
     } else if (x.status === 'live' && x.on_clock_team && !x.awaiting_admin) {
       html += '<p class="draft-hub-banner__status">' + esc(x.on_clock_team).toUpperCase() + ' ARE ON THE CLOCK</p>';
-      html += '<p class="draft-hub-banner__timer" id="dh-timer">' + fmtClock(x.deadline_ms) + '</p>';
     } else if (x.status === 'live' && x.awaiting_admin) {
       html += '<p class="draft-hub-banner__status">COMMISSIONER ACTION NEEDED</p>';
-      html += '<p class="draft-hub-banner__timer muted">Timer paused</p>';
     } else if (x.status === 'setup') {
       html += '<p class="draft-hub-banner__status">DRAFT NOT STARTED</p>';
       if (x.scheduled_start_at) {
@@ -721,24 +669,14 @@
       } else {
         html += '<p class="muted">Waiting for the commissioner to open the draft room.</p>';
       }
-      html += '<p class="draft-hub-banner__timer muted">—</p>';
     } else {
       html += '<p class="draft-hub-banner__status">DRAFT COMPLETE</p>';
       html += '<p class="muted"><a href="{{ url_for("draft_hub.draft_hub_archive_list") }}">View archive</a></p>';
-      html += '<p class="draft-hub-banner__timer muted">—</p>';
     }
     if (x.current_slot) {
       html += '<p class="draft-hub-meta">Round ' + esc(String(x.current_slot.round)) + ' · Overall ' + esc(String(x.current_slot.overall)) + '</p>';
     }
     if (x.can_admin_control && x.status === 'live') {
-      var shouldResume = !!(x.timer_paused || x.awaiting_admin);
-      var timerAction = shouldResume ? resumeUrl : pauseUrl;
-      var timerLabel = shouldResume ? 'Resume Countdown' : 'Pause Countdown';
-      var timerCls = shouldResume ? 'button' : 'button secondary';
-      html += '<form method="post" action="' + esc(timerAction) + '" class="draft-hub-admin-timer-form">';
-      html += '<input type="hidden" name="csrf_token" value="' + esc(csrf) + '">';
-      html += '<button type="submit" class="' + timerCls + ' small">' + timerLabel + '</button>';
-      html += '</form>';
       if (autoCompleteUrl) {
         html += '<form method="post" action="' + esc(autoCompleteUrl) + '" class="draft-hub-admin-timer-form dh-auto-complete-form" '
           + 'onsubmit="return confirm(&quot;Auto-complete every remaining pick using each team\\u2019s wishlist (best-available as fallback)? This cannot be undone in bulk.&quot;);">';
@@ -772,7 +710,7 @@
       : 'My Wishlist';
     var wishlistBlurb = x.show_on_clock_wishlist
       ? 'Wishlist order for the GM on the clock (visible to league admins).'
-      : 'Order players for when you cannot be at the keyboard. If the clock runs out, the site may still use this list automatically. When you are here, you will be asked to confirm your top wishlist name or choose someone else.';
+      : 'Order players for when you cannot be at the keyboard. If you do not pick in time, the site may still use this list automatically. When you are here, you will be asked to confirm your top wishlist name or choose someone else.';
     html += '<h2 class="draft-hub-col__title" id="dh-wishlist-title">' + esc(wishlistTitle) + '</h2>';
     html += '<p class="muted small" id="dh-wishlist-blurb" style="margin:0 0 0.5rem;line-height:1.35;">' + esc(wishlistBlurb) + '</p>';
     if (x.show_on_clock_wishlist) {
@@ -943,7 +881,6 @@
       bindControls();
       sizeDraftOrder(x.picks_per_round);
       restorePanelScrolls();
-      startDhTimer(x);
       bindDhSounds(document.getElementById('dh-wishlist'));
     }
     updateDhTicker(tickerText, tp.length);
@@ -1142,12 +1079,18 @@
     var meta = document.getElementById('dh-eligible-meta');
     var list = document.getElementById('dh-eligible-list');
     if (!list) return;
-    var url = eligibleUrl + '?limit=50';
+    var url = eligibleUrl + '?limit=100';
     if (searchQ) url += '&q=' + encodeURIComponent(searchQ);
     if (posQ) url += '&pos=' + encodeURIComponent(posQ);
     fetch(url, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
       if (!d.ok) return;
-      if (meta) meta.textContent = d.total + ' available';
+      if (meta) {
+        var metaParts = [String(d.total != null ? d.total : 0) + ' available'];
+        if (d.display_window_capped && d.display_window) {
+          metaParts.push('showing top ' + d.display_window + ' by potential');
+        }
+        meta.textContent = metaParts.join(' · ');
+      }
       var rows = d.players || [];
       var canPick = x.can_pick || x.can_admin_pick;
       var html = '';

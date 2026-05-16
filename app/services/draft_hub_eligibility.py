@@ -11,6 +11,10 @@ from app.models import Draft, DraftPick, Player
 from app.services.draft_history import nhl_bowl_draft_clause
 from app.services.free_agents import bowl_org_rights_player_ids
 
+# Max players returned on the live hub eligible board (default view). Full pool remains for
+# picks, counts, and search/position filters — only the unfiltered list is capped.
+ELIGIBLE_HUB_BOARD_WINDOW = 100
+
 
 def age_as_of(birth: date | None, as_of: date) -> int | None:
     if birth is None:

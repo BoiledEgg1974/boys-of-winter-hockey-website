@@ -1009,9 +1009,9 @@ def boost_lottery():
 @site_gm_bp.route("/staff-salaries", methods=["GET"])
 @login_required
 def staff_salaries_page():
-    """GM-only staff default salary table for the current season."""
-    if not _membership():
-        flash("Staff Salaries is available to active GMs only.", "err")
+    """Staff default salary table for the current league season (GMs and site admins)."""
+    if not _membership() and not getattr(current_user, "is_admin", False):
+        flash("Staff Salaries is available to active GMs and league admins.", "err")
         return redirect(url_for("main.home"))
     ctx = staff_salary_context(db.session, league_slug=_league_slug())
     return render_template("staff_salaries.html", **ctx)

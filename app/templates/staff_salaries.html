@@ -3,6 +3,7 @@
 {% block content %}
 <div class="staff-salaries-page card">
   <h1 class="page-title staff-salaries-page__banner">Staff Default Salaries — {% if season_label %}{{ season_label }}{% else %}Current season{% endif %}</h1>
+  <p class="muted staff-salaries-page__league" style="text-align:center;margin-top:-0.75rem;margin-bottom:1rem;">{{ config.LEAGUE_DISPLAY_NAME }} · budgets and season are specific to this league site.</p>
 
   {% if defaults %}
   <div class="staff-salaries-table-wrap" role="region" aria-label="Staff default salaries">

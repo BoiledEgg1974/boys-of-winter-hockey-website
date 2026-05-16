@@ -4,8 +4,10 @@
 <div class="card staff-budgets-admin" style="max-width:56rem;margin:0 auto;">
   <h1 class="page-title">Staff Salary Budgets</h1>
   <p class="muted">
-    {% if season_label %}<strong>{{ season_label }}</strong> season{% else %}Current season{% endif %}
-    — amounts feed the <a href="{{ url_for('site_gm.staff_salaries_page') }}">Staff Salaries</a> page GMs see.
+    <strong>{{ config.LEAGUE_DISPLAY_NAME }}</strong>
+    {% if season_label %}· <strong>{{ season_label }}</strong> season{% else %}· current season{% endif %}
+    — budgets are stored per league and season; other league sites use their own timeline.
+    <a href="{{ url_for('site_gm.staff_salaries_page') }}">Staff Salaries</a> shows the calculated defaults for this site only.
   </p>
   <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
   {% with messages = get_flashed_messages() %}

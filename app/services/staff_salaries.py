@@ -37,14 +37,25 @@ def gm_display_name(user: User | None) -> str:
     return email.upper() or "VACANT"
 
 
-def current_season_start_year(session: Session) -> int | None:
+def resolve_staff_season(session: Session) -> tuple[Season | None, int | None, str]:
+    """Current season for staff budgets/salaries on this league mount only.
+
+    Each site (Historical / Cap / Fantasy) has its own SQLite DB and ``Season`` rows, so
+    ``get_current_season()`` resolves that league's timeline independently.
+    """
     season = get_current_season()
-    if season is not None and season.start_year is not None:
-        return int(season.start_year)
-    season = session.scalar(select(Season).order_by(Season.start_year.desc().nulls_last(), Season.id.desc()).limit(1))
-    if season is not None and season.start_year is not None:
-        return int(season.start_year)
-    return None
+    if season is None:
+        season = session.scalar(
+            select(Season).order_by(Season.start_year.desc().nulls_last(), Season.id.desc()).limit(1)
+        )
+    start_year = int(season.start_year) if season is not None and season.start_year is not None else None
+    label = season_display_label(season)
+    return season, start_year, label
+
+
+def current_season_start_year(session: Session) -> int | None:
+    _, start_year, _ = resolve_staff_season(session)
+    return start_year
 
 
 def main_league_teams(session: Session) -> list[Team]:
@@ -79,13 +90,15 @@ def compute_staff_default_salaries(total_budget: int, team_count: int) -> StaffD
 
 
 def staff_salary_context(session: Session, *, league_slug: str) -> dict:
-    season = get_current_season()
-    season_label = season_display_label(season)
-    start_year = current_season_start_year(session)
+    season, start_year, season_label = resolve_staff_season(session)
     teams = main_league_teams(session)
     budget_by_team: dict[int, int] = {}
     if start_year is not None:
-        budget_by_team = budgets_for_season(session, league_slug=league_slug, season_start_year=start_year)
+        budget_by_team = budgets_for_season(
+            session,
+            league_slug=str(league_slug).strip(),
+            season_start_year=int(start_year),
+        )
 
     active_mems = session.scalars(
         select(GmLeagueMembership).where(
@@ -121,6 +134,7 @@ def staff_salary_context(session: Session, *, league_slug: str) -> dict:
 
     defaults = compute_staff_default_salaries(total_budget, len(teams))
     return {
+        "league_slug": str(league_slug).strip(),
         "season": season,
         "season_label": season_label,
         "season_start_year": start_year,

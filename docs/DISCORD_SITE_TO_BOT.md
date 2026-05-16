@@ -26,6 +26,7 @@ Ack: `POST /api/discord/events/<id>/ack` — marks sent and records `source_type
 | `admin_news_published` | `league-news` | **Admin compose** league article publish |
 | `news_published` | `league-news` | Legacy key (still seeded); **nothing new** is enqueued to this unless you wire it |
 | `ap_redemption_posted` | `ap-redemptions` | AP request approved |
+| `staff_transaction_posted` | `staff-hirings-firings` | Staff hire or fire request approved |
 | `trade_request` | `transactions` | Ops queue status change (non-blocked) |
 | `announcement_posted` | `league-announcements` | Commissioner announcement create |
 | `draft_hub_pick_made` | `draft-discussion` | Every recorded pick on **live Draft Hub** (GM / admin / auto-queue) |

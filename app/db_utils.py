@@ -601,6 +601,104 @@ def ensure_gm_approval_requests_sqlite(engine: Engine) -> None:
         conn.commit()
 
 
+def ensure_staff_change_requests_sqlite(engine: Engine) -> None:
+    """Create staff hire/fire request table on site DB when missing."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='staff_change_requests'")
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE staff_change_requests (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    league_slug VARCHAR(64) NOT NULL,
+                    season_start_year INTEGER NOT NULL,
+                    team_id INTEGER NOT NULL,
+                    user_id INTEGER NOT NULL,
+                    request_type VARCHAR(16) NOT NULL,
+                    role VARCHAR(32),
+                    staff_fhm_id VARCHAR(64) NOT NULL,
+                    staff_name VARCHAR(200) NOT NULL DEFAULT '',
+                    status VARCHAR(24) NOT NULL DEFAULT 'pending',
+                    admin_note TEXT NOT NULL DEFAULT '',
+                    processed_by_user_id INTEGER,
+                    created_at DATETIME NOT NULL,
+                    processed_at DATETIME,
+                    FOREIGN KEY(user_id) REFERENCES site_users (id)
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_staff_change_league_status "
+                "ON staff_change_requests (league_slug, status)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_staff_change_team "
+                "ON staff_change_requests (league_slug, team_id)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_staff_change_staff "
+                "ON staff_change_requests (league_slug, staff_fhm_id)"
+            )
+        )
+        conn.commit()
+
+
+def ensure_team_staff_roster_entries_sqlite(engine: Engine) -> None:
+    """Create approved staff roster table on site DB when missing."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='team_staff_roster_entries'")
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE team_staff_roster_entries (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    league_slug VARCHAR(64) NOT NULL,
+                    season_start_year INTEGER NOT NULL,
+                    team_id INTEGER NOT NULL,
+                    staff_fhm_id VARCHAR(64) NOT NULL,
+                    staff_name VARCHAR(200) NOT NULL DEFAULT '',
+                    role VARCHAR(32) NOT NULL,
+                    hire_request_id INTEGER,
+                    hired_at DATETIME NOT NULL,
+                    fired_at DATETIME,
+                    FOREIGN KEY(hire_request_id) REFERENCES staff_change_requests (id)
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_team_staff_roster_league_team "
+                "ON team_staff_roster_entries (league_slug, team_id)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_team_staff_roster_staff "
+                "ON team_staff_roster_entries (league_slug, staff_fhm_id)"
+            )
+        )
+        conn.commit()
+
+
 def ensure_gm_trade_proposals_sqlite(engine: Engine) -> None:
     """Create GM trade proposals table on site DB when missing."""
     if engine.dialect.name != "sqlite":

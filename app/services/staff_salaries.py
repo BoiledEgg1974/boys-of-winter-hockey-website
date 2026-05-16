@@ -10,6 +10,14 @@ from sqlalchemy.orm import Session
 from app.models import Season, Team
 from app.services.roster_team import is_main_league_team
 from app.services.seasons import get_current_season, season_display_label
+from app.services.staff_catalog import BROWSE_FILTERS, STAFF_ROLES, list_staff_for_browse, staff_role_label
+from app.services.staff_hire_limits import hire_limit_status
+from app.services.staff_images import staff_image_url
+from app.services.staff_transactions import (
+    active_roster_for_team,
+    recent_requests_for_team,
+    staff_unavailable_ids,
+)
 from app.site_models import GmLeagueMembership, TeamStaffBudget, User
 
 if TYPE_CHECKING:
@@ -133,6 +141,10 @@ def staff_salary_context(session: Session, *, league_slug: str) -> dict:
         )
 
     defaults = compute_staff_default_salaries(total_budget, len(teams))
+    unavailable = staff_unavailable_ids(session, league_slug=league_slug)
+    browse_by_filter: dict[str, list[dict]] = {}
+    for fk in BROWSE_FILTERS:
+        browse_by_filter[fk] = list_staff_for_browse(fk, exclude_staff_ids=unavailable)
     return {
         "league_slug": str(league_slug).strip(),
         "season": season,
@@ -141,4 +153,44 @@ def staff_salary_context(session: Session, *, league_slug: str) -> dict:
         "team_rows": team_rows,
         "total_budget": total_budget,
         "defaults": defaults,
+        "staff_roles": STAFF_ROLES,
+        "staff_role_labels": {r: staff_role_label(r) for r in STAFF_ROLES},
+        "browse_filters": BROWSE_FILTERS,
+        "browse_by_filter": browse_by_filter,
     }
+
+
+def staff_portal_context_for_gm(
+    session: Session,
+    *,
+    league_slug: str,
+    team_id: int,
+    base: dict | None = None,
+) -> dict:
+    """Extend staff salary page context with hire/fire portal data for one GM team."""
+    ctx = dict(base or staff_salary_context(session, league_slug=league_slug))
+    start_year = ctx.get("season_start_year")
+    if start_year is None:
+        ctx["hire_limit"] = None
+        ctx["my_roster"] = []
+        ctx["recent_requests"] = []
+        return ctx
+    ctx["hire_limit"] = hire_limit_status(session, league_slug=league_slug, team_id=team_id)
+    roster_entries = active_roster_for_team(
+        session, league_slug=league_slug, team_id=team_id, season_start_year=int(start_year)
+    )
+    ctx["my_roster"] = [
+        {
+            "entry": e,
+            "role_label": staff_role_label(e.role),
+            "image_url": staff_image_url(league_slug, e.staff_fhm_id),
+        }
+        for e in roster_entries
+    ]
+    ctx["recent_requests"] = recent_requests_for_team(
+        session, league_slug=league_slug, team_id=team_id, limit=8
+    )
+    for fk in BROWSE_FILTERS:
+        for ent in ctx.get("browse_by_filter", {}).get(fk, []):
+            ent["image_url"] = staff_image_url(league_slug, ent.get("staff_fhm_id"))
+    return ctx

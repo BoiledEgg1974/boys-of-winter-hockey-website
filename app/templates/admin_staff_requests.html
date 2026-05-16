@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Pending staff requests — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card admin-staff-queue" style="max-width:64rem;margin:0 auto;">
+  <h1 class="page-title">Pending staff hire / fire requests</h1>
+  <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
+  {% with messages = get_flashed_messages() %}
+  {% if messages %}<ul>{% for m in messages %}<li>{{ m }}</li>{% endfor %}</ul>{% endif %}
+  {% endwith %}
+
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr>
+          <th scope="col">Action</th>
+          <th scope="col">Team</th>
+          <th scope="col">Staff</th>
+          <th scope="col">Role</th>
+          <th scope="col">GM</th>
+          <th scope="col">Approve / Deny</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in queue_rows %}
+        {% set req = row.req %}
+        <tr>
+          <td>{{ row.action_label }}</td>
+          <td>
+            {% if row.team and team_logo_url(row.team) %}
+            <img src="{{ team_logo_url(row.team) }}" alt="" width="24" height="24" style="vertical-align:middle;margin-right:0.35rem;">
+            {% endif %}
+            {{ row.team.full_display_name() if row.team else ("Team " ~ req.team_id) }}
+          </td>
+          <td>
+            <a href="{{ url_for('site_admin.admin_staff_request_one', rid=req.id) }}">{{ req.staff_name }}</a>
+          </td>
+          <td>{{ row.role_label }}</td>
+          <td>{{ row.user.email if row.user else req.user_id }}</td>
+          <td>
+            <div class="admin-ap-queue__actions">
+              <form method="post" action="{{ url_for('site_admin.admin_staff_approve', rid=req.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="admin-ap-queue__btn admin-ap-queue__btn--approve" title="Approve">✓</button>
+              </form>
+              <form method="post" action="{{ url_for('site_admin.admin_staff_deny', rid=req.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="admin-ap-queue__btn admin-ap-queue__btn--deny" title="Deny">✕</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="muted">No pending requests.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

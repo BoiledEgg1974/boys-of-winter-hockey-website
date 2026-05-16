@@ -4,7 +4,8 @@ from __future__ import annotations
 from sqlalchemy import func, select
 
 from app.league_db import db
-from app.site_models import ApRedemptionRequest, GmInAppNotification, GmLeagueMembership, NewsArticle
+from app.services.staff_catalog import staff_role_label
+from app.site_models import ApRedemptionRequest, GmInAppNotification, GmLeagueMembership, NewsArticle, StaffChangeRequest
 
 
 def unread_notifications_count(league_slug: str, user_id: int) -> int:
@@ -193,3 +194,59 @@ def notify_trade_outcome_partner(
             article_id=int(proposal_id),
         )
     )
+
+
+def _staff_req_ts(req: StaffChangeRequest) -> str:
+    ts = req.created_at
+    if ts is None:
+        return ""
+    return ts.strftime("%Y-%m-%d %H:%M UTC")
+
+
+def notify_staff_hire_approved(league_slug: str, req: StaffChangeRequest) -> None:
+    role = staff_role_label(req.role)
+    db.session.add(
+        GmInAppNotification(
+            league_slug=league_slug,
+            user_id=req.user_id,
+            kind="staff_hire_approved",
+            title=f"Staff hire approved (#{req.id})",
+            body=f"{req.staff_name} is now your {role}. Requested {_staff_req_ts(req)}.",
+            article_id=req.id,
+        )
+    )
+    db.session.commit()
+
+
+def notify_staff_fire_approved(league_slug: str, req: StaffChangeRequest) -> None:
+    role = staff_role_label(req.role)
+    db.session.add(
+        GmInAppNotification(
+            league_slug=league_slug,
+            user_id=req.user_id,
+            kind="staff_fire_approved",
+            title=f"Staff release approved (#{req.id})",
+            body=f"{req.staff_name} ({role}) has been released. Requested {_staff_req_ts(req)}.",
+            article_id=req.id,
+        )
+    )
+    db.session.commit()
+
+
+def notify_staff_change_denied(league_slug: str, req: StaffChangeRequest) -> None:
+    action = "hire" if req.request_type == "hire" else "release"
+    note = (req.admin_note or "").strip()
+    body = f"Your staff {action} request for {req.staff_name} was denied. Requested {_staff_req_ts(req)}."
+    if note:
+        body += f" Note: {note}"
+    db.session.add(
+        GmInAppNotification(
+            league_slug=league_slug,
+            user_id=req.user_id,
+            kind="staff_change_denied",
+            title=f"Staff request denied (#{req.id})",
+            body=body[:4000],
+            article_id=req.id,
+        )
+    )
+    db.session.commit()

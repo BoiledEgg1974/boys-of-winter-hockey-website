@@ -56,6 +56,23 @@ def format_discord_message(event: dict[str, Any]) -> dict[str, Any]:
         lines.append(f"R{rnd} • Overall #{ov} • **{player}**" + (f" · `{src}`" if src else ""))
         if body:
             lines.append(body)
+    elif event_key == "staff_transaction_posted":
+        action = str(payload.get("action") or "").strip().lower()
+        staff_name = str(payload.get("staff_name") or "").strip()
+        role_label = str(payload.get("role_label") or "").strip()
+        gm_email = str(payload.get("gm_email") or "").strip()
+        head = "**Staff hired**" if action == "hired" else "**Staff fired**"
+        lines.append(head)
+        team_line = format_team_label(league_slug, payload)
+        if team_line:
+            lines.append(team_line)
+        if staff_name:
+            line = staff_name
+            if role_label:
+                line += f" ({role_label})"
+            lines.append(line)
+        if gm_email:
+            lines.append(f"GM: {gm_email}")
     elif event_key == "ap_redemption_posted":
         label = str(payload.get("redemption_label") or "").strip()
         cost = payload.get("total_cost")

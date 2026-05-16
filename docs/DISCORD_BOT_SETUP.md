@@ -23,6 +23,7 @@ In each league’s admin page (`/<league-slug>/admin/discord-integration`):
 | Team news (GM submissions, moderated) | `gm_news_published` | `team-news` |
 | League news (admin compose) | `admin_news_published` | `league-news` |
 | AP redemptions | `ap_redemption_posted` | `ap-redemptions` |
+| Staff hire / fire | `staff_transaction_posted` | `staff-hirings-firings` |
 | Trades / ops | `trade_request` | `transactions` |
 | Announcements | `announcement_posted` | `league-announcements` |
 | Draft Hub — each live pick | `draft_hub_pick_made` | `draft-discussion` |

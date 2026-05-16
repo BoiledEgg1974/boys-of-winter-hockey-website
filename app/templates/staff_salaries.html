@@ -1,33 +1,193 @@
 {% extends "base.html" %}
 {% block title %}Staff Salaries — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/staff_salaries.js') }}" defer></script>
+{% endblock %}
 {% block content %}
-<div class="staff-salaries-page card">
-  <h1 class="page-title staff-salaries-page__banner">Staff Default Salaries — {% if season_label %}{{ season_label }}{% else %}Current season{% endif %}</h1>
-  <p class="muted staff-salaries-page__league" style="text-align:center;margin-top:-0.75rem;margin-bottom:1rem;">{{ config.LEAGUE_DISPLAY_NAME }} · budgets and season are specific to this league site.</p>
+<div class="staff-salaries-page">
+  <div class="card staff-salaries-page__card">
+    <h1 class="page-title staff-salaries-page__banner">Staff — {% if season_label %}{{ season_label }}{% else %}Current season{% endif %}</h1>
+    <p class="muted staff-salaries-page__league">{{ config.LEAGUE_DISPLAY_NAME }} · budgets and roster are specific to this league site.</p>
+    {% if gm_team %}
+    <p class="staff-salaries-page__team-line"><strong>{{ gm_team.full_display_name() }}</strong></p>
+    {% endif %}
 
-  {% if defaults %}
-  <div class="staff-salaries-table-wrap" role="region" aria-label="Staff default salaries">
-    <table class="staff-salaries-table">
-      <thead>
-        <tr>
-          <th scope="col">Head Coach</th>
-          <th scope="col">Assistant Coaches</th>
-          <th scope="col">Scouts</th>
-          <th scope="col">Trainer</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>${{ "{:,}".format(defaults.head_coach) }}</td>
-          <td>${{ "{:,}".format(defaults.assistant_coaches) }}</td>
-          <td>${{ "{:,}".format(defaults.scouts) }}</td>
-          <td>${{ "{:,}".format(defaults.trainer) }}</td>
-        </tr>
-      </tbody>
-    </table>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <ul class="staff-salaries-flash">
+      {% for cat, msg in messages %}
+      <li class="staff-salaries-flash__item staff-salaries-flash__item--{{ cat }}">{{ msg }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% endwith %}
+
+    <section class="staff-salaries-section" aria-labelledby="staff-defaults-heading">
+      <h2 id="staff-defaults-heading" class="staff-salaries-section__title">Default salaries</h2>
+      {% if defaults %}
+      <div class="staff-salaries-table-wrap" role="region" aria-label="Staff default salaries">
+        <table class="staff-salaries-table">
+          <thead>
+            <tr>
+              <th scope="col">Head Coach</th>
+              <th scope="col">Assistant Coaches</th>
+              <th scope="col">Scouts</th>
+              <th scope="col">Trainer</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>${{ "{:,}".format(defaults.head_coach) }}</td>
+              <td>${{ "{:,}".format(defaults.assistant_coaches) }}</td>
+              <td>${{ "{:,}".format(defaults.scouts) }}</td>
+              <td>${{ "{:,}".format(defaults.trainer) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="muted">Staff default salaries are not available yet. The commissioner must enter team staff budgets for this season.</p>
+      {% endif %}
+    </section>
+
+    {% if can_submit_requests and hire_limit %}
+    <section class="staff-salaries-section" aria-labelledby="staff-hire-heading">
+      <h2 id="staff-hire-heading" class="staff-salaries-section__title">Hire request</h2>
+      <p class="staff-salaries-limit muted" id="staff-hire-limit-status" data-limit="{{ hire_limit.limit }}" data-used="{{ hire_limit.used }}" data-remaining="{{ hire_limit.remaining }}">
+        Daily hires today: <strong>{{ hire_limit.used }}</strong> / {{ hire_limit.limit }}
+        <span class="staff-salaries-limit__window">({{ hire_limit.window_label }})</span>
+      </p>
+      <form method="post" class="staff-salaries-form" id="staff-hire-form" action="{{ url_for('site_gm.staff_salaries_page') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="hire">
+        <input type="hidden" name="staff_fhm_id" id="staff-hire-staff-id" value="">
+        <div class="staff-salaries-form__row">
+          <label for="staff-hire-role">Role</label>
+          <select name="role" id="staff-hire-role" required>
+            {% for r in staff_roles %}
+            <option value="{{ r }}">{{ staff_role_labels[r] }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="staff-salaries-form__row">
+          <label for="staff-hire-name-display">Staff</label>
+          <input type="text" id="staff-hire-name-display" readonly placeholder="Choose from browse below" class="staff-salaries-form__staff-display">
+        </div>
+        <button type="submit" class="staff-salaries-btn" {% if hire_limit.limit_reached %}disabled{% endif %}>Submit hire request</button>
+      </form>
+    </section>
+
+    <section class="staff-salaries-section" aria-labelledby="staff-fire-heading">
+      <h2 id="staff-fire-heading" class="staff-salaries-section__title">Fire request</h2>
+      {% if my_roster %}
+      <form method="post" class="staff-salaries-form" action="{{ url_for('site_gm.staff_salaries_page') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="fire">
+        <div class="staff-salaries-form__row">
+          <label for="staff-fire-roster">On your roster</label>
+          <select name="roster_entry_id" id="staff-fire-roster" required>
+            <option value="">— Select —</option>
+            {% for row in my_roster %}
+            {% set e = row.entry %}
+            <option value="{{ e.id }}">{{ e.staff_name }} ({{ row.role_label }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button type="submit" class="staff-salaries-btn staff-salaries-btn--danger">Submit fire request</button>
+      </form>
+      {% else %}
+      <p class="muted">No active staff on your roster yet.</p>
+      {% endif %}
+    </section>
+    {% elif not can_submit_requests %}
+    <p class="muted staff-salaries-section">Hire and fire requests are available to active GMs with a team assignment.</p>
+    {% endif %}
+
+    {% if recent_requests and can_submit_requests %}
+    <section class="staff-salaries-section" aria-labelledby="staff-recent-heading">
+      <h2 id="staff-recent-heading" class="staff-salaries-section__title">Recent requests</h2>
+      <ul class="staff-salaries-recent">
+        {% for req in recent_requests %}
+        <li>
+          <span class="staff-salaries-recent__action">{{ req.request_type|title }}</span>
+          {{ req.staff_name }}
+          <span class="staff-salaries-recent__status staff-salaries-recent__status--{{ req.status }}">{{ req.status }}</span>
+          <time class="muted">{{ req.created_at.strftime('%Y-%m-%d %H:%M') if req.created_at else '' }}</time>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+
+    {% if my_roster %}
+    <section class="staff-salaries-section" aria-labelledby="staff-roster-heading">
+      <h2 id="staff-roster-heading" class="staff-salaries-section__title">My staff</h2>
+      <div class="staff-salaries-table-wrap">
+        <table class="staff-salaries-table staff-salaries-table--roster">
+          <thead>
+            <tr>
+              <th scope="col">Photo</th>
+              <th scope="col">Name</th>
+              <th scope="col">Role</th>
+              <th scope="col">Hired</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in my_roster %}
+            {% set e = row.entry %}
+            <tr>
+              <td><img class="staff-salaries-thumb" src="{{ row.image_url }}" alt="" width="40" height="40" loading="lazy"></td>
+              <td><a href="{{ url_for('site_gm.staff_profile_page', staff_fhm_id=e.staff_fhm_id) }}" target="_blank" rel="noopener">{{ e.staff_name }}</a></td>
+              <td>{{ row.role_label }}</td>
+              <td>{{ e.hired_at.strftime('%Y-%m-%d') if e.hired_at else '—' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+    {% endif %}
+
+    <section class="staff-salaries-section" aria-labelledby="staff-browse-heading">
+      <h2 id="staff-browse-heading" class="staff-salaries-section__title">Browse staff</h2>
+      <div class="staff-salaries-browse-tabs" role="tablist">
+        {% for fk in browse_filters %}
+        <button type="button" class="staff-salaries-browse-tab{% if loop.first %} is-active{% endif %}" role="tab" aria-selected="{{ 'true' if loop.first else 'false' }}" data-browse-tab="{{ fk }}">{{ staff_role_labels[fk] }}</button>
+        {% endfor %}
+      </div>
+      {% for fk in browse_filters %}
+      <div class="staff-salaries-browse-panel{% if loop.first %} is-active{% endif %}" role="tabpanel" data-browse-panel="{{ fk }}"{% if not loop.first %} hidden{% endif %}>
+        <div class="staff-salaries-table-wrap">
+          <table class="staff-salaries-table staff-salaries-table--browse">
+            <thead>
+              <tr>
+                <th scope="col">Photo</th>
+                <th scope="col">Name</th>
+                <th scope="col">Rating</th>
+                {% if can_submit_requests %}<th scope="col">Hire</th>{% endif %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for ent in browse_by_filter.get(fk, []) %}
+              <tr data-staff-id="{{ ent.staff_fhm_id }}" data-staff-name="{{ ent.full_name }}">
+                <td><img class="staff-salaries-thumb" src="{{ ent.image_url }}" alt="" width="40" height="40" loading="lazy"></td>
+                <td><a href="{{ url_for('site_gm.staff_profile_page', staff_fhm_id=ent.staff_fhm_id) }}" target="_blank" rel="noopener">{{ ent.full_name }}</a></td>
+                <td>{% if ent.browse_rating is not none %}{{ ent.browse_rating|round(0)|int }}{% else %}—{% endif %}</td>
+                {% if can_submit_requests %}
+                <td>
+                  <button type="button" class="staff-salaries-btn staff-salaries-btn--small staff-hire-pick" data-staff-id="{{ ent.staff_fhm_id }}" data-staff-name="{{ ent.full_name }}" data-browse-role="{{ fk }}">Hire</button>
+                </td>
+                {% endif %}
+              </tr>
+              {% else %}
+              <tr><td colspan="{% if can_submit_requests %}4{% else %}3{% endif %}" class="muted">No eligible staff for this role.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endfor %}
+    </section>
   </div>
-  {% else %}
-  <p class="muted">Staff default salaries are not available yet. The commissioner must enter team staff budgets for this season.</p>
-  {% endif %}
 </div>
 {% endblock %}

@@ -44,10 +44,29 @@ from app.services.gm_notifications import (
     notify_news_denied,
     notify_redemption_approved,
     notify_redemption_denied,
+    notify_staff_change_denied,
+    notify_staff_fire_approved,
+    notify_staff_hire_approved,
     notify_trade_outcome_partner,
     notify_trade_outcome_proposer,
     notify_trade_proposal_commissioners,
     notify_trade_proposal_partner,
+)
+from app.services.staff_catalog import (
+    coach_columns,
+    get_staff_profile,
+    scout_columns,
+    staff_role_label,
+    trainer_columns,
+)
+from app.services.staff_hire_limits import hire_limit_status
+from app.services.staff_images import staff_image_url, staff_placeholder_url
+from app.services.staff_transactions import (
+    approve_staff_request,
+    deny_staff_request,
+    submit_fire_request,
+    submit_hire_request,
+    transaction_headline,
 )
 from app.services.news_categories import (
     NEWS_CATEGORY_ADMIN_SUBMISSION,
@@ -151,12 +170,14 @@ from app.site_models import (
     MemberWatchlistItem,
     AdminUndoAction,
     DiscordOutboundEvent,
+    StaffChangeRequest,
     TeamStaffBudget,
     User,
 )
 from app.services.staff_salaries import (
     current_season_start_year,
     main_league_teams,
+    staff_portal_context_for_gm,
     staff_salary_context,
 )
 
@@ -1006,15 +1027,122 @@ def boost_lottery():
     return render_template("boost_lottery.html", boost_theme=boost_theme)
 
 
-@site_gm_bp.route("/staff-salaries", methods=["GET"])
+@site_gm_bp.route("/staff-salaries", methods=["GET", "POST"])
 @login_required
 def staff_salaries_page():
-    """Staff default salary table for the current league season (GMs and site admins)."""
-    if not _membership() and not getattr(current_user, "is_admin", False):
+    """Staff salaries, hire/fire requests, browse, and roster (GMs and site admins)."""
+    slug = _league_slug()
+    mem = _membership()
+    is_admin = bool(getattr(current_user, "is_admin", False))
+    if not mem and not is_admin:
         flash("Staff Salaries is available to active GMs and league admins.", "err")
         return redirect(url_for("main.home"))
-    ctx = staff_salary_context(db.session, league_slug=_league_slug())
+    base = staff_salary_context(db.session, league_slug=slug)
+    if request.method == "POST":
+        if not mem:
+            flash("Hire and fire requests require an active GM membership.", "err")
+            return redirect(url_for("site_gm.staff_salaries_page"))
+        start_year = base.get("season_start_year")
+        if start_year is None:
+            flash("Staff requests are unavailable until season budgets are configured.", "err")
+            return redirect(url_for("site_gm.staff_salaries_page"))
+        action = (request.form.get("action") or "").strip()
+        if action == "hire":
+            result = submit_hire_request(
+                db.session,
+                league_slug=slug,
+                season_start_year=int(start_year),
+                team_id=int(mem.team_id),
+                user_id=int(current_user.id),
+                staff_fhm_id=(request.form.get("staff_fhm_id") or "").strip(),
+                role=(request.form.get("role") or "").strip(),
+            )
+        elif action == "fire":
+            try:
+                roster_id = int(request.form.get("roster_entry_id") or "0")
+            except ValueError:
+                roster_id = 0
+            result = submit_fire_request(
+                db.session,
+                league_slug=slug,
+                season_start_year=int(start_year),
+                team_id=int(mem.team_id),
+                user_id=int(current_user.id),
+                roster_entry_id=roster_id,
+            )
+        else:
+            flash("Unknown action.", "err")
+            return redirect(url_for("site_gm.staff_salaries_page"))
+        if result.ok and result.request:
+            try:
+                from app.services.admin_review_notify import notify_staff_change_pending
+
+                notify_staff_change_pending(
+                    league_slug=slug,
+                    league_display_name=league_display_name(slug),
+                    request_id=int(result.request.id),
+                    user_email=str(current_user.email or ""),
+                    team_id=int(mem.team_id),
+                    request_type=str(result.request.request_type),
+                    staff_name=str(result.request.staff_name),
+                    role_label=staff_role_label(result.request.role),
+                )
+            except Exception as exc:
+                current_app.logger.warning("Admin notify (staff change): %s", exc)
+        db.session.commit()
+        flash(result.message, "ok" if result.ok else "err")
+        return redirect(url_for("site_gm.staff_salaries_page"))
+    ctx = dict(base)
+    if mem:
+        ctx = staff_portal_context_for_gm(
+            db.session, league_slug=slug, team_id=int(mem.team_id), base=base
+        )
+    ctx.setdefault("my_roster", [])
+    ctx.setdefault("recent_requests", [])
+    ctx["membership"] = mem
+    ctx["gm_team"] = db.session.get(Team, int(mem.team_id)) if mem else None
+    ctx["can_submit_requests"] = mem is not None
     return render_template("staff_salaries.html", **ctx)
+
+
+@site_gm_bp.get("/staff/<staff_fhm_id>")
+@login_required
+def staff_profile_page(staff_fhm_id: str):
+    if not _membership() and not getattr(current_user, "is_admin", False):
+        flash("Staff profiles are available to active GMs and league admins.", "err")
+        return redirect(url_for("main.home"))
+    slug = _league_slug()
+    prof = get_staff_profile(staff_fhm_id)
+    if prof is None:
+        abort(404)
+    img = staff_image_url(slug, prof.get("staff_fhm_id")) or staff_placeholder_url()
+    return render_template(
+        "staff.html",
+        staff=prof,
+        staff_image_url=img,
+        staff_coach_columns=coach_columns(),
+        staff_scout_columns=scout_columns(),
+        staff_trainer_columns=trainer_columns(),
+    )
+
+
+@site_gm_bp.get("/api/staff/hire-limit")
+@login_required
+def staff_hire_limit_api():
+    mem = _membership()
+    if not mem:
+        return jsonify({"error": "no_membership"}), 403
+    lim = hire_limit_status(db.session, league_slug=_league_slug(), team_id=int(mem.team_id))
+    return jsonify(
+        {
+            "limit": lim.limit,
+            "used": lim.used,
+            "remaining": lim.remaining,
+            "limit_reached": lim.limit_reached,
+            "window_label": lim.window_label,
+            "date_label": lim.date_label,
+        }
+    )
 
 
 @site_gm_bp.get("/operations/trade-proposal/<int:pid>")
@@ -1232,6 +1360,10 @@ def gm_notification_open(nid: int):
         return redirect(url_for("site_admin.admin_news_preview", aid=int(n.article_id)))
     if n.kind == "admin_review_ap" and n.article_id:
         return redirect(url_for("site_admin.ap_request_one", rid=int(n.article_id)))
+    if n.kind == "admin_review_staff" and n.article_id:
+        return redirect(url_for("site_admin.admin_staff_request_one", rid=int(n.article_id)))
+    if n.kind in ("staff_hire_approved", "staff_fire_approved", "staff_change_denied"):
+        return redirect(url_for("site_gm.staff_salaries_page"))
     if n.kind in ("trade_partner_review", "trade_outcome_proposer", "trade_outcome_partner") and n.article_id:
         return redirect(url_for("site_gm.trade_proposal_detail", pid=int(n.article_id)))
     if n.kind == "trade_commish_review" and n.article_id:
@@ -4387,6 +4519,153 @@ def admin_ap_deny(rid: int):
     notify_redemption_denied(slug, req)
     flash("Request denied and GM notified in-app.", "ok")
     return redirect(url_for("site_admin.admin_ap_requests"))
+
+
+@site_admin_bp.get("/staff-requests")
+@login_required
+def admin_staff_requests():
+    require_admin_role(ADMIN_ROLE_STATS, ADMIN_ROLE_LEAGUE)
+    slug = _league_slug()
+    rows = db.session.scalars(
+        select(StaffChangeRequest)
+        .where(StaffChangeRequest.league_slug == slug, StaffChangeRequest.status == "pending")
+        .order_by(StaffChangeRequest.created_at.desc())
+    ).all()
+    team_ids = {r.team_id for r in rows}
+    teams_by_id: dict[int, Team] = {}
+    if team_ids:
+        teams_by_id = {t.id: t for t in db.session.scalars(select(Team).where(Team.id.in_(team_ids))).all()}
+    user_ids = {r.user_id for r in rows}
+    users_by_id: dict[int, User] = {}
+    if user_ids:
+        users_by_id = {u.id: u for u in db.session.scalars(select(User).where(User.id.in_(user_ids))).all()}
+    queue_rows = [
+        {
+            "req": r,
+            "team": teams_by_id.get(r.team_id),
+            "user": users_by_id.get(r.user_id),
+            "role_label": staff_role_label(r.role),
+            "action_label": "Hire" if r.request_type == "hire" else "Fire",
+        }
+        for r in rows
+    ]
+    return render_template("admin_staff_requests.html", queue_rows=queue_rows)
+
+
+@site_admin_bp.get("/staff-requests/<int:rid>")
+@login_required
+def admin_staff_request_one(rid: int):
+    require_admin_role(ADMIN_ROLE_STATS, ADMIN_ROLE_LEAGUE)
+    slug = _league_slug()
+    req = db.session.get(StaffChangeRequest, rid)
+    if not req or req.league_slug != slug:
+        abort(404)
+    team = db.session.get(Team, req.team_id)
+    user = db.session.get(User, req.user_id)
+    return render_template(
+        "admin_staff_request_detail.html",
+        req=req,
+        team=team,
+        user=user,
+        role_label=staff_role_label(req.role),
+        action_label="Hire" if req.request_type == "hire" else "Fire",
+    )
+
+
+@site_admin_bp.post("/staff-requests/<int:rid>/approve")
+@login_required
+def admin_staff_approve(rid: int):
+    require_admin_role(ADMIN_ROLE_STATS, ADMIN_ROLE_LEAGUE)
+    slug = _league_slug()
+    req = db.session.get(StaffChangeRequest, rid)
+    if not req or req.league_slug != slug or req.status != "pending":
+        abort(404)
+    result = approve_staff_request(db.session, req, admin_user_id=int(current_user.id))
+    if not result.ok:
+        db.session.commit()
+        if req.status == "denied":
+            notify_staff_change_denied(slug, req)
+        flash(result.message, "err")
+        return redirect(url_for("site_admin.admin_staff_requests"))
+    team = db.session.get(Team, req.team_id)
+    gm_user = db.session.get(User, req.user_id)
+    db.session.add(
+        NewsArticle(
+            league_slug=slug,
+            team_id=req.team_id,
+            title=transaction_headline(req, team),
+            body=(
+                f"Staff {req.request_type} approved for {req.staff_name} ({staff_role_label(req.role)}).\n"
+                f"Processed by admin."
+            ),
+            category="transactions",
+            author_user_id=req.user_id,
+            status="published",
+            published_at=datetime.utcnow(),
+        )
+    )
+    db.session.add(
+        AdminAuditLog(
+            admin_user_id=int(current_user.id),
+            league_slug=slug,
+            action="staff_change_approved",
+            detail_json=json.dumps(
+                {
+                    "request_id": int(req.id),
+                    "request_type": req.request_type,
+                    "staff_fhm_id": req.staff_fhm_id,
+                    "team_id": int(req.team_id),
+                }
+            ),
+        )
+    )
+    db.session.commit()
+    action = "hired" if req.request_type == "hire" else "fired"
+    _enqueue_discord_event(
+        "staff_transaction_posted",
+        {
+            "request_id": int(req.id),
+            "action": action,
+            "staff_name": req.staff_name,
+            "role_label": staff_role_label(req.role),
+            "gm_email": str(gm_user.email or "") if gm_user else "",
+            "url": build_league_public_url(slug, f"/staff/{req.staff_fhm_id}"),
+            **team_fields_for_discord(team),
+        },
+        source_type="staff_change_request",
+        source_id=int(req.id),
+    )
+    db.session.commit()
+    if req.request_type == "hire":
+        notify_staff_hire_approved(slug, req)
+    else:
+        notify_staff_fire_approved(slug, req)
+    flash("Approved, roster updated, GM notified, and transaction posted.", "ok")
+    return redirect(url_for("site_admin.admin_staff_requests"))
+
+
+@site_admin_bp.post("/staff-requests/<int:rid>/deny")
+@login_required
+def admin_staff_deny(rid: int):
+    require_admin_role(ADMIN_ROLE_STATS, ADMIN_ROLE_LEAGUE)
+    slug = _league_slug()
+    req = db.session.get(StaffChangeRequest, rid)
+    if not req or req.league_slug != slug or req.status != "pending":
+        abort(404)
+    note = (request.form.get("admin_note") or "").strip()
+    deny_staff_request(db.session, req, admin_user_id=int(current_user.id), admin_note=note)
+    db.session.add(
+        AdminAuditLog(
+            admin_user_id=int(current_user.id),
+            league_slug=slug,
+            action="staff_change_denied",
+            detail_json=json.dumps({"request_id": int(req.id), "admin_note": note}),
+        )
+    )
+    db.session.commit()
+    notify_staff_change_denied(slug, req)
+    flash("Request denied and GM notified in-app.", "ok")
+    return redirect(url_for("site_admin.admin_staff_requests"))
 
 
 @site_admin_bp.route("/catalog", methods=["GET", "POST"])

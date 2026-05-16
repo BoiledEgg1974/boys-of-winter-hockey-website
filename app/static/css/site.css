@@ -8216,7 +8216,7 @@ table.data.draft-history-table td:nth-child(3) .stats-player-cell {
   color: var(--muted);
 }
 
-/* Staff salaries (GM) + admin budgets */
+/* Staff salaries (GM) + admin budgets — uses per-league tokens from html[data-league] */
 .staff-salaries-page {
   max-width: 52rem;
   margin: 0 auto;
@@ -8228,10 +8228,14 @@ table.data.draft-history-table td:nth-child(3) .stats-player-cell {
   font-size: 1.15rem;
   margin-bottom: 1.25rem;
   text-decoration: underline;
+  text-decoration-color: var(--accent);
 }
 .staff-salaries-table-wrap {
-  border: 3px solid #7f1d1d;
+  border: 3px solid var(--accent);
+  border-radius: var(--radius);
   overflow-x: auto;
+  background: var(--surface);
+  box-shadow: var(--shadow);
 }
 .staff-salaries-table {
   width: 100%;
@@ -8240,25 +8244,144 @@ table.data.draft-history-table td:nth-child(3) .stats-player-cell {
 }
 .staff-salaries-table th,
 .staff-salaries-table td {
-  border: 2px solid #111;
+  border: 1px solid var(--border);
   padding: 0.65rem 0.75rem;
   text-align: center;
 }
 .staff-salaries-table thead th {
-  background: #7f1d1d;
-  color: #fff;
+  background: var(--accent);
+  color: var(--header-text);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
 .staff-salaries-table tbody td {
-  background: #fff;
-  color: #111;
+  background: var(--surface);
+  color: var(--text);
   font-weight: 700;
 }
-[data-theme="dark"] .staff-salaries-table tbody td {
-  background: #f8fafc;
-  color: #0f172a;
+.staff-salaries-table tbody tr:nth-child(even) td {
+  background: var(--row-alt);
+}
+.staff-salaries-page__card {
+  max-width: 56rem;
+  margin: 0 auto;
+}
+.staff-salaries-page__league,
+.staff-salaries-page__team-line {
+  text-align: center;
+  margin-top: -0.5rem;
+  margin-bottom: 1rem;
+}
+.staff-salaries-section {
+  margin-top: 2rem;
+}
+.staff-salaries-section__title {
+  font-size: 1.05rem;
+  margin: 0 0 0.75rem;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.staff-salaries-form__row {
+  margin-bottom: 0.75rem;
+}
+.staff-salaries-form__row label {
+  display: block;
+  font-size: 0.85rem;
+  margin-bottom: 0.25rem;
+}
+.staff-salaries-form__row select,
+.staff-salaries-form__staff-display {
+  width: 100%;
+  max-width: 24rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+}
+.staff-salaries-btn {
+  margin-top: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: var(--header-text);
+  font-weight: 600;
+  cursor: pointer;
+}
+.staff-salaries-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.staff-salaries-btn--danger {
+  background: #b91c1c;
+  color: #fff;
+}
+.staff-salaries-btn--small {
+  padding: 0.25rem 0.6rem;
+  font-size: 0.85rem;
+}
+.staff-salaries-thumb {
+  border-radius: 4px;
+  object-fit: cover;
+  background: var(--row-alt);
+}
+.staff-salaries-browse-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+}
+.staff-salaries-browse-tab {
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.staff-salaries-browse-tab.is-active {
+  background: var(--accent);
+  color: var(--header-text);
+  border-color: var(--accent);
+}
+.staff-salaries-recent {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.staff-salaries-recent li {
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.staff-salaries-recent__status--pending {
+  color: #eab308;
+}
+.staff-salaries-recent__status--approved {
+  color: #22c55e;
+}
+.staff-salaries-recent__status--denied {
+  color: #ef4444;
+}
+.staff-profile-page__hero {
+  display: flex;
+  gap: 1.25rem;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+.staff-profile-page__photo {
+  border-radius: 8px;
+  object-fit: cover;
+  border: 2px solid var(--accent);
+}
+.staff-profile-page__section {
+  margin-top: 1.5rem;
+}
+.staff-profile-page__section-title {
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
 }
 .staff-budgets-admin__table-wrap {
   overflow-x: auto;

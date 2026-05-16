@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% from "_team_staff_panel.html" import staff_attr_td %}
+{% block title %}{{ staff.full_name }} — Staff — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card staff-profile-page" style="max-width:56rem;margin:0 auto;">
+  <header class="staff-profile-page__hero">
+    <img class="staff-profile-page__photo" src="{{ staff_image_url }}" alt="" width="120" height="120" loading="lazy">
+    <div class="staff-profile-page__hero-text">
+      <h1 class="page-title">{{ staff.full_name }}</h1>
+      <p class="staff-profile-page__meta">
+        {% if staff.nationality and staff.nationality != '—' and staff.nationality|nationality_flag_url %}
+        <img class="staff-profile-page__flag" src="{{ staff.nationality|nationality_flag_url }}" width="24" height="18" alt="{{ staff.nationality }}" loading="lazy">
+        {% endif %}
+        {{ staff.nationality }}
+      </p>
+    </div>
+  </header>
+
+  {% set attrs = staff.attrs %}
+  {% for section_title, columns in [
+    ('Coach ratings', staff_coach_columns),
+    ('Scout ratings', staff_scout_columns),
+    ('Trainer ratings', staff_trainer_columns),
+  ] %}
+  <section class="staff-profile-page__section">
+    <h2 class="staff-profile-page__section-title">{{ section_title }}</h2>
+    <div class="table-wrap">
+      <table class="data team-staff-table">
+        <thead>
+          <tr>
+            {% for key, ln in columns %}
+            <th scope="col" class="team-staff-th team-staff-th--split" title="{% if ln[1] %}{{ ln[0] }} {{ ln[1] }}{% else %}{{ ln[0] }}{% endif %}">
+              <span class="team-staff-th__ln1">{{ ln[0] }}</span>{% if ln[1] %}<br><span class="team-staff-th__ln2">{{ ln[1] }}</span>{% endif %}
+            </th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            {% for key, _ in columns %}
+            {{ staff_attr_td(attrs, key) }}
+            {% endfor %}
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% endfor %}
+  <p class="muted" style="margin-top:1.5rem;"><a href="javascript:history.back()">← Back</a></p>
+</div>
+{% endblock %}

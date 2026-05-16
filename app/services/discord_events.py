@@ -36,6 +36,7 @@ DEFAULT_EVENT_KEYS = {
     "calder_trophy_posted",
     "draft_hub_pick_made",
     "expansion_draft_pick_made",
+    "staff_transaction_posted",
 }
 
 DEFAULT_EVENT_CHANNEL_KEY = {
@@ -55,6 +56,7 @@ DEFAULT_EVENT_CHANNEL_KEY = {
     "calder_trophy_posted": "calder-trophy",
     "draft_hub_pick_made": "draft-discussion",
     "expansion_draft_pick_made": "expansion-draft-discussion",
+    "staff_transaction_posted": "staff-hirings-firings",
 }
 
 DEFAULT_EVENT_LABELS = {
@@ -66,6 +68,7 @@ DEFAULT_EVENT_LABELS = {
     "announcement_posted": "Commissioner announcement",
     "draft_hub_pick_made": "Draft Hub pick (live)",
     "expansion_draft_pick_made": "Expansion draft pick (live)",
+    "staff_transaction_posted": "Staff hire / fire approved",
 }
 
 # Bot command keys for statistical leaderboards (BOWL Fantasy-style names; bots map to Discord channel names).

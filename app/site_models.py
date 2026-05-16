@@ -819,6 +819,59 @@ class ProspectLeagueRankSnapshot(db.Model):
     ranks_json: Mapped[str] = mapped_column(Text, nullable=False)
 
 
+class StaffChangeRequest(db.Model):
+    """GM hire/fire request pending admin approval (site DB)."""
+
+    __tablename__ = "staff_change_requests"
+    __bind_key__ = "site"
+    __table_args__ = (
+        Index("ix_staff_change_league_status", "league_slug", "status"),
+        Index("ix_staff_change_team", "league_slug", "team_id"),
+        Index("ix_staff_change_staff", "league_slug", "staff_fhm_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False)
+    season_start_year: Mapped[int] = mapped_column(Integer, nullable=False)
+    team_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("site_users.id"), nullable=False)
+    request_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    role: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    staff_fhm_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    staff_name: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="pending")
+    admin_note: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    processed_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    user: Mapped["User"] = relationship()
+
+
+class TeamStaffRosterEntry(db.Model):
+    """Approved staff on a team roster for a league season (site DB)."""
+
+    __tablename__ = "team_staff_roster_entries"
+    __bind_key__ = "site"
+    __table_args__ = (
+        Index("ix_team_staff_roster_league_team", "league_slug", "team_id"),
+        Index("ix_team_staff_roster_staff", "league_slug", "staff_fhm_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False)
+    season_start_year: Mapped[int] = mapped_column(Integer, nullable=False)
+    team_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    staff_fhm_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    staff_name: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    role: Mapped[str] = mapped_column(String(32), nullable=False)
+    hire_request_id: Mapped[int | None] = mapped_column(
+        ForeignKey("staff_change_requests.id"), nullable=True
+    )
+    hired_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    fired_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
 class TeamStaffBudget(db.Model):
     """Per-team staff salary budget for a league season (site DB; ``team_id`` is league ``teams.id``)."""
 

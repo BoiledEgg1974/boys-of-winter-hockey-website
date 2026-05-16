@@ -161,3 +161,40 @@ def notify_membership_registration_pending(
     lines.extend(["", f"Review memberships:", hub_url, ""])
     subject = "[Boys of Winter] New membership(s) pending approval"
     try_send_admin_review_email(subject=subject, body="\n".join(lines))
+
+
+def notify_staff_change_pending(
+    *,
+    league_slug: str,
+    league_display_name: str,
+    request_id: int,
+    user_email: str,
+    team_id: int,
+    request_type: str,
+    staff_name: str,
+    role_label: str,
+) -> None:
+    try:
+        detail_url = _abs_url_for("site_admin.admin_staff_request_one", rid=request_id)
+    except Exception:
+        detail_url = f"(admin → Staff requests → #{request_id})"
+    action = "hire" if str(request_type).strip() == "hire" else "fire"
+    subject = f"[{league_display_name}] Staff {action} request #{request_id}"
+    body = (
+        f"A GM submitted a staff {action} request for approval.\n\n"
+        f"League: {league_display_name} ({league_slug})\n"
+        f"Request id: {request_id}\n"
+        f"User: {user_email}\n"
+        f"Team id: {team_id}\n"
+        f"Staff: {staff_name}\n"
+        f"Role: {role_label}\n\n"
+        f"Review:\n{detail_url}\n"
+    )
+    try_send_admin_review_email(subject=subject, body=body)
+    queue_site_admin_in_app_notifications(
+        league_slug=league_slug,
+        kind="admin_review_staff",
+        title=f"Staff {action} pending (#{request_id})",
+        body=f"{staff_name} · {role_label} · {user_email}\n{detail_url}",
+        article_id=request_id,
+    )

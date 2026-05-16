@@ -97,10 +97,20 @@ def has_admin_role(user, *roles: str) -> bool:
 
 
 def league_hub_staff(user) -> bool:
-    """Super-admins and per-league admins: commissioner controls on league Draft / Expansion hubs."""
+    """Users who may use commissioner-style controls on public Draft / Expansion hubs.
+
+    Aligns with site-admin draft routes (``content_admin`` + ``league_admin``, plus super).
+    """
     if not user or not getattr(user, "is_authenticated", False):
         return False
-    return bool(has_admin_role(user, ADMIN_ROLE_SUPER, ADMIN_ROLE_LEAGUE))
+    return bool(
+        has_admin_role(
+            user,
+            ADMIN_ROLE_SUPER,
+            ADMIN_ROLE_LEAGUE,
+            ADMIN_ROLE_CONTENT,
+        )
+    )
 
 
 def require_admin_role(*roles: str):

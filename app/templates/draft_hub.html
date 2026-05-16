@@ -1079,7 +1079,7 @@
     var meta = document.getElementById('dh-eligible-meta');
     var list = document.getElementById('dh-eligible-list');
     if (!list) return;
-    var url = eligibleUrl + '?limit=100';
+    var url = eligibleUrl + '?limit=40';
     if (searchQ) url += '&q=' + encodeURIComponent(searchQ);
     if (posQ) url += '&pos=' + encodeURIComponent(posQ);
     fetch(url, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
@@ -1092,7 +1092,8 @@
         meta.textContent = metaParts.join(' · ');
       }
       var rows = d.players || [];
-      var canPick = x.can_pick || x.can_admin_pick;
+      // GMs cannot draft while awaiting_admin; league staff still can (POST uses admin pick path).
+      var mayDraftFromEligible = (x.can_pick && !x.awaiting_admin) || x.can_admin_pick;
       var html = '';
       rows.forEach(function (p) {
         var detailTitle = playerDetailsTitle(p);
@@ -1120,7 +1121,7 @@
         html += '</div>';
         html += '</div>';
         html += '<div class="draft-hub-player__actions">';
-        if (canPick && x.status === 'live' && !x.awaiting_admin) {
+        if (mayDraftFromEligible && x.status === 'live') {
           html += '<form method="post" action="' + esc(pickUrl) + '" style="display:inline;">';
           html += '<input type="hidden" name="csrf_token" value="' + esc(csrf) + '">';
           html += '<input type="hidden" name="player_id" value="' + esc(String(p.id)) + '">';

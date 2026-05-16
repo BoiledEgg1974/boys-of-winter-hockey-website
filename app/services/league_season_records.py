@@ -69,15 +69,24 @@ def _season_overlap_years(sn: Season) -> set[int]:
 
 
 def _career_row_season_display(session: Session, season_year: int) -> str:
+    """Format FHM career ``Year`` (league start year) as a hockey season label.
+
+    Only trust a matching ``Season`` row when it is a narrow span and its label (if any)
+    agrees with ``season_year``. Historical mounts reuse ``fhm-league-0`` for a wide
+    schedule range; misaligned ``start_year``/label pairs otherwise map 1968 → 1967–68.
+    """
     sy = int(season_year)
     hits = session.scalars(select(Season).where(Season.start_year == sy).order_by(Season.id.asc())).all()
     for hit in hits:
-        if hit.start_year is None:
+        if hit.start_year is None or int(hit.start_year) != sy:
             continue
         end = hit.end_year if hit.end_year is not None else hit.start_year
-        span = int(end) - int(hit.start_year)
-        if span <= 2:
-            return _season_label(hit)
+        if int(end) - int(hit.start_year) > 2:
+            continue
+        lbl_sy = _label_start_year(hit.label)
+        if lbl_sy is not None and lbl_sy != sy:
+            continue
+        return _season_label(hit)
     return f"{sy}–{(sy + 1) % 100:02d}"
 
 
@@ -206,6 +215,7 @@ def _load_skater_rows_merged(session: Session, segment: str) -> list[tuple[Any, 
             tm = teams_by_fhm.get(int(ln.team_fhm_id))
         out.append((_skater_namespace_from_career(ln), pl, tm, _career_row_season_display(session, sy)))
 
+    players_with_career = {pid for pid, _, _ in career_keys}
     for st, pl, sn, tm in session.execute(
         select(PlayerSkaterStat, Player, Season, Team)
         .join(Player, Player.id == PlayerSkaterStat.player_id)
@@ -213,6 +223,8 @@ def _load_skater_rows_merged(session: Session, segment: str) -> list[tuple[Any, 
         .join(Team, Team.id == PlayerSkaterStat.team_id)
         .where(PlayerSkaterStat.stat_segment == segment)
     ).all():
+        if int(st.player_id) in players_with_career:
+            continue
         years = _season_overlap_years(sn) or set()
         tk = _team_key(st.team_id, int(str(tm.fhm_team_id).strip()) if tm.fhm_team_id and str(tm.fhm_team_id).strip().isdigit() else None)
         if any((int(st.player_id), yr, tk) in career_keys for yr in years):
@@ -260,6 +272,7 @@ def _load_goalie_rows_merged(session: Session, segment: str) -> list[tuple[Any, 
             tm = teams_by_fhm.get(int(ln.team_fhm_id))
         out.append((_goalie_namespace_from_career(ln), pl, tm, _career_row_season_display(session, sy)))
 
+    players_with_career = {pid for pid, _, _ in career_keys}
     for st, pl, sn, tm in session.execute(
         select(PlayerGoalieStat, Player, Season, Team)
         .join(Player, Player.id == PlayerGoalieStat.player_id)
@@ -267,6 +280,8 @@ def _load_goalie_rows_merged(session: Session, segment: str) -> list[tuple[Any, 
         .join(Team, Team.id == PlayerGoalieStat.team_id)
         .where(PlayerGoalieStat.stat_segment == segment)
     ).all():
+        if int(st.player_id) in players_with_career:
+            continue
         years = _season_overlap_years(sn) or set()
         tk = _team_key(st.team_id, int(str(tm.fhm_team_id).strip()) if tm.fhm_team_id and str(tm.fhm_team_id).strip().isdigit() else None)
         if any((int(st.player_id), yr, tk) in career_keys for yr in years):

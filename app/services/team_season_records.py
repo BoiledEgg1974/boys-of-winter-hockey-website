@@ -185,20 +185,21 @@ class TeamSeasonRecordSection:
 def _career_row_season_display(session: Session, season_year: int) -> str:
     """Human-readable season for a career CSV ``season_year`` (FHM start year of the hockey season).
 
-    Fantasy/Historical DBs often have one very wide ``Season`` row; mapping every year onto it
-    made every leader show the same label and dropped rows when ``Season`` could not be found.
-    Prefer a **narrow** ``Season`` (≤2 calendar-year span) with matching ``start_year``; otherwise
-    format ``1986–87`` from the FHM year.
+    Prefer a narrow ``Season`` row whose label agrees with ``season_year``; otherwise format
+    from the FHM year (e.g. 1968 → 1968–69).
     """
     sy = int(season_year)
     hits = session.scalars(select(Season).where(Season.start_year == sy).order_by(Season.id.asc())).all()
     for hit in hits:
-        if hit.start_year is None:
+        if hit.start_year is None or int(hit.start_year) != sy:
             continue
         end = hit.end_year if hit.end_year is not None else hit.start_year
-        span = int(end) - int(hit.start_year)
-        if span <= 2:
-            return _season_label(hit)
+        if int(end) - int(hit.start_year) > 2:
+            continue
+        lbl_sy = _label_start_year(hit.label)
+        if lbl_sy is not None and lbl_sy != sy:
+            continue
+        return _season_label(hit)
     return f"{sy}–{(sy + 1) % 100:02d}"
 
 
@@ -288,12 +289,15 @@ def _load_skater_rows_merged(session: Session, team: Team, segment: str) -> list
             lbl = _career_row_season_display(session, sy)
             out.append((_skater_namespace_from_career(ln), pl, lbl))
 
+    players_with_career = {pid for pid, _ in career_year_keys}
     for st, pl, sn in session.execute(
         select(PlayerSkaterStat, Player, Season)
         .join(Player, Player.id == PlayerSkaterStat.player_id)
         .join(Season, Season.id == PlayerSkaterStat.season_id)
         .where(PlayerSkaterStat.team_id == team_id, PlayerSkaterStat.stat_segment == segment)
     ).all():
+        if int(st.player_id) in players_with_career:
+            continue
         overlap_years = _season_row_overlap_years(sn)
         if any((int(st.player_id), yr) in career_year_keys for yr in overlap_years):
             continue
@@ -339,12 +343,15 @@ def _load_goalie_rows_merged(session: Session, team: Team, segment: str) -> list
             lbl = _career_row_season_display(session, sy)
             out.append((_goalie_namespace_from_career(ln), pl, lbl))
 
+    players_with_career = {pid for pid, _ in career_year_keys}
     for st, pl, sn in session.execute(
         select(PlayerGoalieStat, Player, Season)
         .join(Player, Player.id == PlayerGoalieStat.player_id)
         .join(Season, Season.id == PlayerGoalieStat.season_id)
         .where(PlayerGoalieStat.team_id == team_id, PlayerGoalieStat.stat_segment == segment)
     ).all():
+        if int(st.player_id) in players_with_career:
+            continue
         overlap_years = _season_row_overlap_years(sn)
         if any((int(st.player_id), yr) in career_year_keys for yr in overlap_years):
             continue

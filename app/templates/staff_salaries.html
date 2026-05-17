@@ -158,13 +158,13 @@
       </div>
       {% for fk in browse_filters %}
       {% set browse_cols = browse_columns_by_filter.get(fk, []) %}
-      {% set browse_colspan = 4 + (browse_cols|length) + 1 + (1 if can_submit_requests else 0) %}
+      {% set browse_colspan = 6 + (browse_cols|length) %}
       <div class="staff-salaries-browse-panel{% if loop.first %} is-active{% endif %}" role="tabpanel" data-browse-panel="{{ fk }}"{% if not loop.first %} hidden{% endif %}>
         <div class="staff-salaries-browse-scroll">
           <table class="data data-sortable staff-salaries-table staff-salaries-table--browse team-staff-table">
             <thead class="staff-salaries-browse-thead">
                 <tr>
-                  {% if can_submit_requests %}<th scope="col" class="staff-salaries-browse-th staff-salaries-browse-th--hire">Hire</th>{% endif %}
+                  <th scope="col" class="staff-salaries-browse-th staff-salaries-browse-th--hire">Hire</th>
                   <th scope="col" class="staff-salaries-browse-th staff-salaries-browse-th--photo">Photo</th>
                   <th data-sort-type="str" scope="col" class="staff-salaries-browse-th staff-salaries-browse-th--name">Name</th>
                   <th data-sort-type="str" scope="col" class="staff-salaries-browse-th staff-salaries-browse-th--nat">NAT</th>
@@ -180,11 +180,11 @@
               <tbody>
                 {% for ent in browse_by_filter.get(fk, []) %}
                 <tr data-staff-id="{{ ent.staff_fhm_id }}" data-staff-name="{{ ent.full_name }}">
-                  {% if can_submit_requests %}
                   <td class="staff-salaries-browse-hire">
+                    {% if can_submit_requests %}
                     <button type="button" class="staff-salaries-btn staff-salaries-btn--small staff-hire-pick" data-staff-id="{{ ent.staff_fhm_id }}" data-staff-name="{{ ent.full_name }}" data-browse-role="{{ fk }}">Hire</button>
+                    {% endif %}
                   </td>
-                  {% endif %}
                   <td class="staff-salaries-browse-photo">
                     <img class="staff-salaries-thumb" src="{{ ent.image_url or staff_placeholder_url }}" alt="" width="32" height="32" loading="lazy" decoding="async" data-fallback="{{ staff_placeholder_url }}" onerror="if(this.dataset.fallback){this.onerror=null;this.src=this.dataset.fallback;}">
                   </td>

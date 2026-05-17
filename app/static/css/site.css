@@ -8310,7 +8310,19 @@ table.data.draft-history-table td:nth-child(3) .stats-player-cell {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.staff-salaries-browse-th--photo { width: 3.25rem; }
+.staff-salaries-browse-th--photo { width: 3.25rem; text-align: center; }
+table.data.staff-salaries-table--browse.team-staff-table th:nth-child(1),
+table.data.staff-salaries-table--browse.team-staff-table td:nth-child(1),
+table.data.staff-salaries-table--browse.team-staff-table th:nth-child(2),
+table.data.staff-salaries-table--browse.team-staff-table td:nth-child(2) {
+  text-align: center;
+}
+table.data.staff-salaries-table--browse th.staff-salaries-browse-th--photo,
+table.data.staff-salaries-table--browse td.staff-salaries-browse-photo,
+table.data.staff-salaries-table--browse th.staff-salaries-browse-th--hire,
+table.data.staff-salaries-table--browse td.staff-salaries-browse-hire {
+  text-align: center;
+}
 .staff-salaries-browse-th--name { width: auto; }
 .staff-salaries-browse-th--nat { width: 3rem; text-align: center; }
 .staff-salaries-browse-th--role-rating {
@@ -8345,8 +8357,11 @@ table.data.draft-history-table td:nth-child(3) .stats-player-cell {
   text-align: center;
 }
 .staff-salaries-table--browse .staff-salaries-thumb {
+  display: block;
   width: 36px;
   height: 36px;
+  margin-left: auto;
+  margin-right: auto;
   object-fit: cover;
   border-radius: 4px;
   background: var(--row-alt);

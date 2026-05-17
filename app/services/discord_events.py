@@ -193,6 +193,17 @@ def build_league_public_url(league_slug: str, path: str = "/") -> str:
     return f"{base}{mount}{rel}"
 
 
+def build_news_article_public_url(league_slug: str, article_id: int | str) -> str:
+    """Public Around the League article (``/league-headlines#a<id>``)."""
+    try:
+        aid = int(article_id)
+    except (TypeError, ValueError):
+        return ""
+    if aid <= 0:
+        return ""
+    return build_league_public_url(league_slug, f"/league-headlines#a{aid}")
+
+
 def normalize_discord_payload_url(league_slug: str, url: str) -> str:
     """Fix queued relative URLs (e.g. ``/bowl-historical/``) for Discord embeds."""
     u = str(url or "").strip()
@@ -215,12 +226,20 @@ def normalize_discord_payload_url(league_slug: str, url: str) -> str:
 def sanitize_discord_event_payload(league_slug: str, payload: dict) -> dict:
     """Return payload copy safe for Discord (absolute or omitted embed link)."""
     out = dict(payload or {})
-    if "url" in out:
-        fixed = normalize_discord_payload_url(league_slug, str(out.get("url") or ""))
-        if fixed:
-            out["url"] = fixed
-        else:
-            out.pop("url", None)
+    raw_url = str(out.get("url") or "").strip()
+    fixed = normalize_discord_payload_url(league_slug, raw_url)
+    article_id = out.get("article_id")
+    if article_id is not None:
+        article_url = build_news_article_public_url(league_slug, article_id)
+        if article_url and (
+            not fixed
+            or "league-headlines#a" not in raw_url.lower()
+        ):
+            fixed = article_url
+    if fixed:
+        out["url"] = fixed
+    else:
+        out.pop("url", None)
     return out
 
 

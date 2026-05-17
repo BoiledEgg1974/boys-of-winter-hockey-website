@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from app.services.discord_events import (
     build_league_public_url,
+    build_news_article_public_url,
     normalize_discord_payload_url,
     resolve_site_public_base_url,
     sanitize_discord_event_payload,
@@ -41,6 +42,22 @@ class DiscordPublicUrlTest(unittest.TestCase):
         with patch.dict(os.environ, {"SITE_PUBLIC_BASE_URL": "https://www.bowlhockey.com"}, clear=False):
             fixed = normalize_discord_payload_url("bowl-historical", "/bowl-historical/")
         self.assertEqual(fixed, "https://www.bowlhockey.com/bowl-historical/")
+
+    def test_news_article_url_uses_headlines_anchor(self):
+        with patch.dict(os.environ, {"SITE_PUBLIC_BASE_URL": "https://www.bowlhockey.com"}, clear=False):
+            url = build_news_article_public_url("bowl-historical", 42)
+        self.assertEqual(url, "https://www.bowlhockey.com/bowl-historical/league-headlines#a42")
+
+    def test_sanitize_payload_upgrades_home_url_with_article_id(self):
+        with patch.dict(os.environ, {"SITE_PUBLIC_BASE_URL": "https://www.bowlhockey.com"}, clear=False):
+            out = sanitize_discord_event_payload(
+                "bowl-historical",
+                {"article_id": 9, "url": "/", "title": "Test"},
+            )
+        self.assertEqual(
+            out["url"],
+            "https://www.bowlhockey.com/bowl-historical/league-headlines#a9",
+        )
 
     def test_sanitize_payload_drops_relative_without_base(self):
         with patch.dict(os.environ, {}, clear=False):

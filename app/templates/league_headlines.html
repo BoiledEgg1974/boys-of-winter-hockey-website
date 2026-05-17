@@ -6,7 +6,7 @@
   <h1 class="page-title">Around the League</h1>
   <p class="muted">Published headlines from GMs and the league office.</p>
   {% for a in articles %}
-  <article class="card headlines-article" id="a{{ a.id }}" style="padding:1rem;margin-bottom:1rem;">
+  <article class="card headlines-article" id="a{{ a.id }}" style="padding:1rem;margin-bottom:1rem;scroll-margin-top:5rem;">
     <h2 class="headlines-article__title">{{ a.title }}</h2>
     <p class="muted"><span class="news-category-pill">{{ news_category_label(a.category) }}</span></p>
     <div class="headlines-article__byline muted">

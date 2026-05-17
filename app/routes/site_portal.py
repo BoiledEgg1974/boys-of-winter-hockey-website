@@ -103,6 +103,7 @@ from app.services.story_automation import (
 from app.services.discord_events import (
     add_discord_route,
     build_league_public_url,
+    build_news_article_public_url,
     delete_discord_route,
     enqueue_discord_event,
     get_league_bot_config,
@@ -2852,7 +2853,7 @@ def admin_story_automation_live_dispatch(sid: int):
                 "article_id": int(row.article_id),
                 "channel": str(row.channel or ""),
                 "message": str(result.get("message") or "Story dispatched"),
-                "url": build_league_public_url(slug, "/"),
+                "url": build_news_article_public_url(slug, int(row.article_id)),
             },
             source_type="story_schedule",
             source_id=int(row.id),
@@ -3882,7 +3883,7 @@ def admin_news_compose():
                 "title": str(art.title or ""),
                 "body_preview": str(art.body or "")[:280],
                 "category": str(art.category or ""),
-                "url": build_league_public_url(slug, "/"),
+                "url": build_news_article_public_url(slug, art.id),
                 "published_at_utc": art.published_at.isoformat(timespec="seconds") if art.published_at else "",
                 **team_fields_for_discord(team),
             },
@@ -3985,7 +3986,7 @@ def admin_news_publish(aid: int):
             "title": str(art.title or ""),
             "body_preview": str(art.body or "")[:280],
             "category": str(art.category or ""),
-            "url": build_league_public_url(slug, "/"),
+            "url": build_news_article_public_url(slug, art.id),
             "published_at_utc": art.published_at.isoformat(timespec="seconds") if art.published_at else "",
             **team_fields_for_discord(team),
         },
@@ -4417,31 +4418,32 @@ def admin_ap_approve(rid: int):
                 if title:
                     body_parts.append(f"- {title}" + (f" ({cost} AP)" if cost is not None else ""))
         red_label = ", ".join([p.replace("- ", "", 1) for p in body_parts]) if body_parts else f"Request #{req.id}"
-        db.session.add(
-            NewsArticle(
-                league_slug=slug,
-                team_id=req.team_id,
-                title=f"AP Redemption Approved — {team.full_display_name() if team else f'Team {req.team_id}'}",
-                body=(
-                    f"Redemption approved: {red_label}\n"
-                    f"AP deducted: {int(req.total_cost)}\n"
-                    f"Processed by admin."
-                ),
-                category="transactions",
-                author_user_id=req.user_id,
-                status="published",
-                published_at=datetime.utcnow(),
-            )
+        art = NewsArticle(
+            league_slug=slug,
+            team_id=req.team_id,
+            title=f"AP Redemption Approved — {team.full_display_name() if team else f'Team {req.team_id}'}",
+            body=(
+                f"Redemption approved: {red_label}\n"
+                f"AP deducted: {int(req.total_cost)}\n"
+                f"Processed by admin."
+            ),
+            category="transactions",
+            author_user_id=req.user_id,
+            status="published",
+            published_at=datetime.utcnow(),
         )
+        db.session.add(art)
+        db.session.flush()
         db.session.commit()
         _enqueue_discord_event(
             "ap_redemption_posted",
             {
                 "request_id": int(req.id),
+                "article_id": int(art.id),
                 "team_id": int(req.team_id),
                 "total_cost": int(req.total_cost),
                 "redemption_label": red_label,
-                "url": build_league_public_url(slug, "/league-news"),
+                "url": build_news_article_public_url(slug, art.id),
                 **team_fields_for_discord(team),
             },
             source_type="ap_redemption",

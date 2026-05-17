@@ -8,11 +8,17 @@ from flask_login import current_user, login_required
 from sqlalchemy import func, select
 
 from app.auth_login import active_membership_for_league, league_hub_staff
-from app.league_db import commit_or_release_after_tick, db
+from app.league_db import db
 from app.logo_urls import team_logo_url_for_team
 from app.models import Player, Team
 from app.services.draft_hub_ai_advisor import fetch_draft_hub_ai_advice
-from app.services.draft_hub_eligibility import ELIGIBLE_HUB_BOARD_WINDOW, age_as_of, eligible_players_ordered
+from app.services.draft_hub_eligibility import ELIGIBLE_HUB_BOARD_WINDOW, age_as_of
+from app.services.draft_hub_eligibility_cache import (
+    eligible_count_for_draft,
+    eligible_id_set_for_draft,
+    eligible_players_for_board,
+)
+from app.services.draft_hub_poll import maybe_process_tick, players_by_id
 from app.services.seasons import get_current_season, season_age_reference_date
 from app.services.draft_hub_state import (
     auto_complete_draft,
@@ -23,7 +29,6 @@ from app.services.draft_hub_state import (
     gm_user_ids_for_team,
     pause_draft_timer,
     picked_player_ids,
-    process_tick,
     record_pick,
     reassign_pick_team,
     resolve_admin_pick,
@@ -192,8 +197,7 @@ def draft_hub_api_state():
         return jsonify({"ok": True, "draft": None})
 
     if draft.status == "live":
-        process_tick(db.session, draft)
-        commit_or_release_after_tick(db.session, draft)
+        maybe_process_tick(db.session, draft)
 
     slots = slots_ordered(db.session, draft.id)
     pick_overalls = {
@@ -236,8 +240,18 @@ def draft_hub_api_state():
         orig_tm = team_by_id.get(int(orig_tid))
         return int(orig_tid), (orig_tm.abbreviation if orig_tm else None), _team_color(orig_tm)
 
+    all_picks_asc = list(
+        db.session.scalars(
+            select(LeagueDraftPick)
+            .where(LeagueDraftPick.league_draft_id == draft.id)
+            .order_by(LeagueDraftPick.overall_pick.asc())
+        ).all()
+    )
+    pick_player_ids = {int(pk.player_id) for pk in all_picks_asc if pk.player_id is not None}
+    player_by_id = players_by_id(db.session, pick_player_ids)
+
     def _pick_dict(pk: LeagueDraftPick) -> dict:
-        pl = db.session.get(Player, pk.player_id)
+        pl = player_by_id.get(int(pk.player_id)) if pk.player_id is not None else None
         tm = team_by_id.get(pk.team_id)
         orig_tid, orig_abbr, orig_color = _orig_team_meta(
             int(pk.overall_pick),
@@ -259,13 +273,6 @@ def draft_hub_api_state():
             "original_team_color": orig_color,
         }
 
-    all_picks_asc = list(
-        db.session.scalars(
-            select(LeagueDraftPick)
-            .where(LeagueDraftPick.league_draft_id == draft.id)
-            .order_by(LeagueDraftPick.overall_pick.asc())
-        ).all()
-    )
     ticker_picks = [_pick_dict(pk) for pk in all_picks_asc]
     tail = all_picks_asc[-24:] if len(all_picks_asc) > 24 else all_picks_asc
     pick_payload = [_pick_dict(pk) for pk in reversed(tail)]
@@ -344,9 +351,7 @@ def draft_hub_api_state():
 
     params = draft_eligibility_params(draft)
     picked = picked_player_ids(db.session, draft.id)
-    eligible = eligible_players_ordered(db.session, slug, params)
-    eligible = [p for p in eligible if p.id not in picked]
-    eligible_count = len(eligible)
+    eligible_count = eligible_count_for_draft(db.session, slug, params, picked)
 
     now = utcnow_naive()
     deadline_ms = None
@@ -538,8 +543,7 @@ def draft_hub_api_ai_advice():
             }
         )
 
-    process_tick(db.session, draft)
-    commit_or_release_after_tick(db.session, draft)
+    maybe_process_tick(db.session, draft)
 
     slots = slots_ordered(db.session, draft.id)
     team_by_id = {t.id: t for t in db.session.scalars(select(Team)).all()}
@@ -625,8 +629,7 @@ def draft_hub_eligible_page():
     limit = min(ELIGIBLE_HUB_BOARD_WINDOW, max(1, request.args.get("limit", type=int) or 40))
     params = draft_eligibility_params(draft)
     picked = picked_player_ids(db.session, draft.id)
-    eligible = eligible_players_ordered(db.session, slug, params)
-    eligible = [p for p in eligible if p.id not in picked]
+    eligible = eligible_players_for_board(db.session, slug, params, picked)
     if q:
         eligible = [p for p in eligible if q in (p.full_name or "").lower()]
     pos_labels: dict[int, str] = {}
@@ -801,7 +804,7 @@ def draft_hub_queue_add():
     pid = int(pid_raw)
     params = draft_eligibility_params(draft)
     picked = picked_player_ids(db.session, draft.id)
-    eligible_ids = {p.id for p in eligible_players_ordered(db.session, slug, params)} - picked
+    eligible_ids = eligible_id_set_for_draft(db.session, slug, params, picked)
     if pid not in eligible_ids:
         from flask import flash
 

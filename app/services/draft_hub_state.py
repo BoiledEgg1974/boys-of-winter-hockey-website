@@ -9,10 +9,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import Player, Team
-from app.services.draft_hub_eligibility import (
-    DraftEligibilityParams,
-    board_ranks_map,
-    eligible_players_ordered,
+from app.services.draft_hub_eligibility import DraftEligibilityParams, board_ranks_map
+from app.services.draft_hub_eligibility_cache import (
+    eligible_id_set_for_draft,
+    eligible_players_for_board,
 )
 from app.services.player_ratings_csv import player_positions_display_label
 from app.site_models import GmLeagueMembership, LeagueDraft, LeagueDraftPick, LeagueDraftQueueItem, LeagueDraftSlot
@@ -97,7 +97,7 @@ def wishlist_head_for_user(
     """First still-eligible player on this user's wishlist (queue), for pick authorization UI."""
     picked = picked_player_ids(session, draft.id)
     params = draft_eligibility_params(draft)
-    eligible_ids = {p.id for p in eligible_players_ordered(session, league_slug, params)} - picked
+    eligible_ids = eligible_id_set_for_draft(session, league_slug, params, picked)
     qrows = list(
         session.scalars(
             select(LeagueDraftQueueItem)
@@ -123,7 +123,7 @@ def wishlist_items_for_team(
     """Ordered wishlist rows for all GMs on a franchise (eligible players only)."""
     picked = picked_player_ids(session, draft.id)
     params = draft_eligibility_params(draft)
-    eligible_ids = {p.id for p in eligible_players_ordered(session, league_slug, params)} - picked
+    eligible_ids = eligible_id_set_for_draft(session, league_slug, params, picked)
     uids = gm_user_ids_for_team(session, league_slug, int(team_id))
     if not uids:
         return []
@@ -282,7 +282,7 @@ def go_live(session: Session, draft: LeagueDraft, admin_user_id: int) -> str | N
     if not slots:
         return "Add draft order slots before going live."
     params = draft_eligibility_params(draft)
-    players = eligible_players_ordered(session, draft.league_slug, params)
+    players = eligible_players_for_board(session, draft.league_slug, params, set())
     if not players:
         return "No eligible players for this draft (check age rules and pool)."
     draft.board_ranks_json = json.dumps(board_ranks_map(players))
@@ -399,8 +399,7 @@ def record_pick(
     if int(player_id) in picked:
         return "Player was already drafted."
     params = draft_eligibility_params(draft)
-    eligible_ordered = eligible_players_ordered(session, draft.league_slug, params)
-    eligible_ids = {p.id for p in eligible_ordered} - picked
+    eligible_ids = eligible_id_set_for_draft(session, draft.league_slug, params, picked)
     if int(player_id) not in eligible_ids:
         return "Player is not eligible for this draft."
     if source == "gm":
@@ -648,8 +647,9 @@ def auto_complete_draft(
 
         picked_ids = picked_player_ids(session, draft.id)
         params = draft_eligibility_params(draft)
-        eligible_ordered = eligible_players_ordered(session, draft.league_slug, params)
-        eligible_remaining = [p for p in eligible_ordered if p.id not in picked_ids]
+        eligible_remaining = eligible_players_for_board(
+            session, draft.league_slug, params, picked_ids
+        )
         if not eligible_remaining:
             _finalize_draft_if_done(session, draft, slots)
             break

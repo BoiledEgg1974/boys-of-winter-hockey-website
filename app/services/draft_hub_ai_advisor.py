@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import Player, Team
-from app.services.draft_hub_eligibility import eligible_players_ordered
+from app.services.draft_hub_eligibility_cache import eligible_players_for_board
 from app.services.draft_hub_state import draft_eligibility_params, picked_player_ids
 from app.services.player_overall_score import compute_player_overall_100, player_is_goalie_for_overall
 from app.services.player_ratings_csv import get_player_ratings_row, player_positions_display_label
@@ -313,7 +313,7 @@ def fetch_draft_hub_ai_advice(
 
     params = draft_eligibility_params(draft)
     picked = picked_player_ids(session, draft.id)
-    eligible_all = [p for p in eligible_players_ordered(session, league_slug, params) if p.id not in picked]
+    eligible_all = eligible_players_for_board(session, league_slug, params, picked)
     rank_by_id = {p.id: i + 1 for i, p in enumerate(eligible_all)}
     eligible_top = eligible_all[:14]
 

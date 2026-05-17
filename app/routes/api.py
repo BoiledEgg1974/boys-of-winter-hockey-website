@@ -1688,7 +1688,14 @@ def discord_events_pending():
                 "created_at": r.created_at.isoformat(timespec="seconds") if r.created_at else None,
             }
         )
-    return jsonify({"ok": True, "events": out, "bot_enabled": bool(bot_cfg.is_enabled)})
+    return jsonify(
+        {
+            "ok": True,
+            "events": out,
+            "bot_enabled": bool(bot_cfg.is_enabled),
+            "guild_id": str(bot_cfg.guild_id or ""),
+        }
+    )
 
 
 @api_bp.post("/discord/events/<int:event_id>/ack")
@@ -1722,12 +1729,17 @@ def discord_events_heartbeat():
     bot_name = str(data.get("bot_name") or "").strip()[:120]
     if not bot_name:
         bot_name = canonical_discord_bot_name()
+    from app.services.discord_events import get_league_bot_config
+
+    guild_id = str(data.get("guild_id") or "").strip()
+    if not guild_id:
+        guild_id = str(get_league_bot_config(db.session, slug).guild_id or "").strip()
     row = upsert_bot_heartbeat(
         db.session,
         league_slug=slug,
         bot_name=bot_name,
         bot_version=str(data.get("bot_version") or "").strip()[:64],
-        guild_id=str(data.get("guild_id") or "").strip()[:64],
+        guild_id=guild_id[:64],
         extra={
             "pending_count": data.get("pending_count"),
             "sent_count": data.get("sent_count"),

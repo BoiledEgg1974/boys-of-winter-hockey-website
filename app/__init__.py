@@ -142,6 +142,15 @@ def create_app(config_class: type = Config) -> Flask:
             ensure_news_engagement_sqlite(site_engine)
             ensure_admin_undo_actions_sqlite(site_engine)
             ensure_discord_outbound_sqlite(site_engine)
+            try:
+                from sqlalchemy.orm import Session
+
+                from app.services.discord_events import bootstrap_discord_integration_all_leagues
+
+                with Session(site_engine) as site_session:
+                    bootstrap_discord_integration_all_leagues(site_session)
+            except Exception as exc:
+                app.logger.warning("Discord integration bootstrap skipped: %s", exc)
             ensure_prospect_system_rank_snapshots_sqlite(site_engine)
             ensure_positional_rank_snapshots_sqlite(site_engine)
             ensure_power_rank_snapshots_sqlite(site_engine)

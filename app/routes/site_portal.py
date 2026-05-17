@@ -101,7 +101,6 @@ from app.services.story_automation import (
     validate_schedule_datetime,
 )
 from app.services.discord_events import (
-    STAT_LEADER_BOT_COMMAND_KEYS,
     add_discord_route,
     build_league_public_url,
     delete_discord_route,
@@ -3451,61 +3450,6 @@ def admin_discord_integration():
                 flash("Test event skipped: route is disabled or unavailable for that event key.", "err")
             else:
                 flash(f"Test event queued for '{event_key}'.", "ok")
-            return redirect(url_for("site_admin.admin_discord_integration"))
-        if action == "enqueue_standings":
-            payload = {
-                "source": "admin_discord_integration",
-                "league_slug": slug,
-                "requested_at_utc": datetime.utcnow().isoformat(timespec="seconds"),
-            }
-            created = enqueue_discord_event(
-                db.session,
-                league_slug=slug,
-                event_key="standings_posted",
-                payload=payload,
-                created_by_user_id=int(current_user.id),
-            )
-            db.session.add(
-                AdminAuditLog(
-                    admin_user_id=int(current_user.id),
-                    league_slug=slug,
-                    action="discord_standings_event_enqueue",
-                    detail_json=json.dumps({"queued": bool(created is not None)}),
-                )
-            )
-            db.session.commit()
-            if created is None:
-                flash("Standings event skipped: route disabled or missing.", "err")
-            else:
-                flash("Standings update event queued for the bot.", "ok")
-            return redirect(url_for("site_admin.admin_discord_integration"))
-        if action == "enqueue_stat_leaders":
-            payload = {
-                "source": "admin_discord_integration",
-                "league_slug": slug,
-                "leader_command_keys": list(STAT_LEADER_BOT_COMMAND_KEYS),
-                "requested_at_utc": datetime.utcnow().isoformat(timespec="seconds"),
-            }
-            created = enqueue_discord_event(
-                db.session,
-                league_slug=slug,
-                event_key="statistical_leaders_posted",
-                payload=payload,
-                created_by_user_id=int(current_user.id),
-            )
-            db.session.add(
-                AdminAuditLog(
-                    admin_user_id=int(current_user.id),
-                    league_slug=slug,
-                    action="discord_stat_leaders_event_enqueue",
-                    detail_json=json.dumps({"queued": bool(created is not None)}),
-                )
-            )
-            db.session.commit()
-            if created is None:
-                flash("Statistical leaders event skipped: route disabled or missing.", "err")
-            else:
-                flash("Statistical leaders event queued for the bot.", "ok")
             return redirect(url_for("site_admin.admin_discord_integration"))
         if action == "replay_failed":
             failed = list_outbound_events(db.session, league_slug=slug, status="failed", limit=500)

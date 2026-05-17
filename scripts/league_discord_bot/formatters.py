@@ -12,8 +12,73 @@ def _preview(text: str, limit: int = 280) -> str:
     return t[: limit - 1].rstrip() + "…"
 
 
+DISCORD_MAX_CONTENT_LEN = 2000
+DISCORD_MAX_EMBED_DESC_LEN = 4096
+
+
+def _chunk_text(text: str, limit: int, max_parts: int) -> list[str]:
+    rest = str(text or "").strip()
+    if not rest:
+        return []
+    if len(rest) <= limit:
+        return [rest]
+    parts: list[str] = []
+    while rest and len(parts) < max_parts:
+        if len(rest) <= limit:
+            parts.append(rest)
+            break
+        cut = rest.rfind("\n", 0, limit)
+        if cut < limit // 2:
+            cut = rest.rfind(" ", 0, limit)
+        if cut < limit // 2:
+            cut = limit
+        parts.append(rest[:cut].rstrip())
+        rest = rest[cut:].lstrip()
+    if rest and parts:
+        tail = parts[-1]
+        if len(tail) >= limit - 1:
+            parts[-1] = tail[: limit - 1].rstrip() + "…"
+        elif len(parts) >= max_parts:
+            parts[-1] = (tail + " …").strip()[:limit]
+    return parts
+
+
+def _split_message_bodies(msg: dict[str, Any], *, max_parts: int) -> list[dict[str, Any]]:
+    """Split one Discord payload into up to *max_parts* messages under API limits."""
+    content = str(msg.get("content") or "")
+    embeds = list(msg.get("embeds") or [])
+    if embeds:
+        emb = dict(embeds[0])
+        desc = str(emb.get("description") or "")
+        if len(desc) > DISCORD_MAX_EMBED_DESC_LEN:
+            emb["description"] = desc[: DISCORD_MAX_EMBED_DESC_LEN - 1].rstrip() + "…"
+        embeds = [emb]
+
+    if len(content) <= DISCORD_MAX_CONTENT_LEN:
+        out = dict(msg)
+        if embeds:
+            out["embeds"] = embeds
+        return [out]
+
+    chunks = _chunk_text(content, DISCORD_MAX_CONTENT_LEN, max_parts)
+    if not chunks:
+        return [msg]
+    bodies: list[dict[str, Any]] = []
+    for i, chunk in enumerate(chunks):
+        body: dict[str, Any] = {"content": chunk}
+        if i == 0 and embeds:
+            body["embeds"] = embeds
+        bodies.append(body)
+    return bodies
+
+
 def format_discord_message(event: dict[str, Any]) -> dict[str, Any]:
-    """Return Discord REST message JSON (content and/or embeds)."""
+    """Return a single Discord REST message JSON (first part if split would apply)."""
+    return format_discord_messages(event, max_parts=1)[0]
+
+
+def format_discord_messages(event: dict[str, Any], *, max_parts: int = 2) -> list[dict[str, Any]]:
+    """Return one or more Discord REST message bodies (split when over content limit)."""
     league_slug = str(event.get("league_slug") or "")
     event_key = str(event.get("event_key") or "")
     payload = event.get("payload") or {}
@@ -123,4 +188,4 @@ def format_discord_message(event: dict[str, Any]) -> dict[str, Any]:
         msg["embeds"] = [embed]
     if not msg:
         msg["content"] = f"Event `{event_key}`"
-    return msg
+    return _split_message_bodies(msg, max_parts=max(1, int(max_parts)))

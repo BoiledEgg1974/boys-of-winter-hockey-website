@@ -57,6 +57,8 @@ Generate a secret, e.g. PowerShell:
 DISCORD_BOT_TOKEN=<bot-token>
 DISCORD_EVENTS_SHARED_SECRET=<same-as-website>
 DISCORD_BOT_POLL_SECONDS=8
+DISCORD_BOT_DELIVERY_DELAY_SECONDS=1.2
+DISCORD_BOT_MAX_MESSAGE_PARTS=2
 DISCORD_BOT_NAME=league-discord-bot
 DISCORD_BOT_VERSION=1.0.0
 SITE_PUBLIC_BASE_URL=https://www.bowlhockey.com
@@ -88,6 +90,12 @@ Always-on command (adjust venv path):
 ```bash
 cd /home/BoiledEgg1974/boys-of-winter-hockey-website && /home/BoiledEgg1974/venv/bin/python -m scripts.league_discord_bot
 ```
+
+**Rate limits:** `DISCORD_BOT_DELIVERY_DELAY_SECONDS` (default `1.2`) pauses between posts in a batch.
+Long text is split into up to `DISCORD_BOT_MAX_MESSAGE_PARTS` messages (default `2`, Discord content limit 2000 chars).
+On HTTP 429 the worker waits for Discord’s `retry_after` and retries once.
+
+**Guild ID on admin page:** the heartbeat table shows the guild from **Bot connection** (saved on each heartbeat), not only from pending queue events.
 
 ## 6. Team emoji maps
 

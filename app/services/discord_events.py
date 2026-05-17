@@ -21,41 +21,26 @@ from app.site_models import (
 EVENT_KEY_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 DISCORD_SNOWFLAKE_PATTERN = re.compile(r"^\d{17,20}$")
 
+# Default routes seeded per league (blank discord_channel_id until admin fills them in).
 DEFAULT_EVENT_KEYS = {
-    "story_published",
     "news_published",
     "gm_news_published",
     "admin_news_published",
     "ap_redemption_posted",
     "trade_request",
     "announcement_posted",
-    "control_center_restore",
-    "standings_posted",
-    "statistical_leaders_posted",
-    "power_rankings_posted",
-    "prospect_rankings_posted",
-    "positional_rankings_posted",
-    "calder_trophy_posted",
     "draft_hub_pick_made",
     "expansion_draft_pick_made",
     "staff_transaction_posted",
 }
 
 DEFAULT_EVENT_CHANNEL_KEY = {
-    "story_published": "league-news",
     "news_published": "league-news",
     "gm_news_published": "team-news",
     "admin_news_published": "league-news",
     "ap_redemption_posted": "ap-redemptions",
     "trade_request": "transactions",
     "announcement_posted": "league-announcements",
-    "control_center_restore": "staff-ops-alerts",
-    "standings_posted": "standings",
-    "statistical_leaders_posted": "goals-assists-points",
-    "power_rankings_posted": "power-rankings",
-    "prospect_rankings_posted": "prospect-rankings",
-    "positional_rankings_posted": "positional-rankings",
-    "calder_trophy_posted": "calder-trophy",
     "draft_hub_pick_made": "draft-discussion",
     "expansion_draft_pick_made": "expansion-draft-discussion",
     "staff_transaction_posted": "staff-hirings-firings",
@@ -72,41 +57,6 @@ DEFAULT_EVENT_LABELS = {
     "expansion_draft_pick_made": "Expansion draft pick (live)",
     "staff_transaction_posted": "Staff hire / fire approved",
 }
-
-# Bot command keys for statistical leaderboards (BOWL Fantasy-style names; bots map to Discord channel names).
-STAT_LEADER_BOT_COMMAND_KEYS = (
-    "shots",
-    "gap",
-    "richard",
-    "norris",
-    "bourque",
-    "langway",
-    "selke",
-    "ladybyng",
-    "artross",
-    "conn",
-    "pminus",
-    "green",
-    "bs",
-    "hits",
-    "fights",
-    "pim",
-    "ppg",
-    "shg",
-    "gwg",
-    "gva",
-    "tka",
-    "ovr",
-    "grd",
-    "gro",
-    "vezina",
-    "goaliew",
-    "gl",
-    "gaa",
-    "saves",
-    "svp",
-    "so",
-)
 
 MAX_DELIVERY_ATTEMPTS = 3
 
@@ -296,6 +246,16 @@ def _migrate_ops_request_to_trade_request(session) -> None:
     )
     if legacy_routes or (getattr(ev_upd, "rowcount", 0) or 0) > 0:
         session.commit()
+
+
+def bootstrap_discord_integration_all_leagues(session) -> None:
+    """Ensure bot config + default routes exist for every league (blank guild/channel IDs)."""
+    from app.config import league_slugs
+
+    for slug in league_slugs():
+        _ensure_discord_bot_cfg_row(session, str(slug).strip())
+        ensure_discord_routes(session, str(slug).strip())
+    session.commit()
 
 
 def ensure_discord_routes(session, league_slug: str, updated_by_user_id: int | None = None) -> None:

@@ -17,6 +17,8 @@ class BotSettings:
     token: str
     shared_secret: str
     poll_seconds: float
+    delivery_delay_seconds: float
+    max_message_parts: int
     bot_name: str
     bot_version: str
     league_base_urls: dict[str, str]
@@ -52,10 +54,14 @@ def load_settings() -> BotSettings:
         raise RuntimeError(
             "Set DISCORD_BOT_LEAGUE_BASE_URLS (slug:base_url,...) or SITE_PUBLIC_BASE_URL for all leagues"
         )
+    delay_raw = os.environ.get("DISCORD_BOT_DELIVERY_DELAY_SECONDS", "1.2")
+    parts_raw = os.environ.get("DISCORD_BOT_MAX_MESSAGE_PARTS", "2")
     return BotSettings(
         token=token,
         shared_secret=secret,
         poll_seconds=float(os.environ.get("DISCORD_BOT_POLL_SECONDS", "8")),
+        delivery_delay_seconds=max(0.0, float(delay_raw)),
+        max_message_parts=max(1, min(4, int(parts_raw))),
         bot_name=os.environ.get("DISCORD_BOT_NAME", "league-discord-bot").strip()[:120],
         bot_version=os.environ.get("DISCORD_BOT_VERSION", "1.0.0").strip()[:64],
         league_base_urls=urls,

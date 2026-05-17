@@ -38,20 +38,11 @@ Payloads include `source_type` and `source_id` for idempotency where applicable.
 
 **Historical example (Discord server guild `1218341313208914002`):** set that guild ID under Bot connection on `bowl-historical`; map channel snowflakes roughly as: `announcement_posted` → `#announcements`, `ap_redemption_posted` → `#ap-repemptions` (or `#ap-redemptions`), `gm_news_published` → `#team-news`, `admin_news_published` → `#league-news`, `draft_hub_pick_made` → `#draft-discussion`, `expansion_draft_pick_made` → `#expansion-draft-discussion`.
 
-## Manual / admin triggers (and reserved keys)
+## Smoke tests
 
-Routes for these keys are **seeded by default** so you can paste channel IDs anytime; only some auto-enqueue today:
+Use **Queue test event** on **Admin → Discord integration** against any configured route (`event_key` must match `[a-z][a-z0-9_]{0,63}`). Add custom routes with **Add route** if needed.
 
-| Event key | Default channel key | Trigger today |
-|-----------|---------------------|----------------|
-| `standings_posted` | `standings` | Admin → **Queue standings** |
-| `statistical_leaders_posted` | `goals-assists-points` | Admin → **Queue statistical leaders** |
-| `power_rankings_posted` | `power-rankings` | Test button / wire in code later |
-| `prospect_rankings_posted` | `prospect-rankings` | Test / wire later |
-| `positional_rankings_posted` | `positional-rankings` | Test / wire later |
-| `calder_trophy_posted` | `calder-trophy` | Test / wire later |
-
-Use **Queue test event** against any configured route for smoke tests (`event_key` must match `[a-z][a-z0-9_]{0,63}`).
+On app startup, default routes and bot config rows are created for **bowl-historical**, **bowl-fantasy**, and **bowl-cap** with blank guild/channel IDs until you fill them in per league.
 
 ## Shared secret
 

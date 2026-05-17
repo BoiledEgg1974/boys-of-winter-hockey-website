@@ -7,7 +7,7 @@ from typing import Any
 import httpx
 
 from scripts.league_discord_bot.config import BotSettings
-from scripts.league_discord_bot.formatters import format_discord_message
+from scripts.league_discord_bot.formatters import format_discord_messages
 
 log = logging.getLogger(__name__)
 
@@ -31,18 +31,36 @@ class LeagueDiscordBot:
         rel = path if path.startswith("/") else f"/{path}"
         return f"{base}{rel}"
 
-    def poll_pending(self, client: httpx.Client, league_slug: str) -> list[dict[str, Any]]:
+    def poll_pending(self, client: httpx.Client, league_slug: str) -> tuple[list[dict[str, Any]], str]:
         url = self._site_url(league_slug, "/api/discord/events/pending")
         resp = client.get(url, params={"league_slug": league_slug, "limit": 20}, headers=self._headers)
         resp.raise_for_status()
         data = resp.json()
         if not data.get("ok"):
             raise RuntimeError(data.get("message") or "pending fetch failed")
-        return list(data.get("events") or [])
+        return list(data.get("events") or []), str(data.get("guild_id") or "").strip()
+
+    def _post_discord_once(self, client: httpx.Client, channel_id: str, body: dict[str, Any]) -> httpx.Response:
+        url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
+        return client.post(url, headers=self._discord_headers, json=body)
 
     def post_discord(self, client: httpx.Client, channel_id: str, body: dict[str, Any]) -> None:
-        url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
-        resp = client.post(url, headers=self._discord_headers, json=body)
+        resp = self._post_discord_once(client, channel_id, body)
+        if resp.status_code == 429:
+            retry_after = 2.0
+            try:
+                detail = resp.json()
+                retry_after = float(detail.get("retry_after", retry_after))
+            except Exception:
+                raw = resp.headers.get("Retry-After")
+                if raw:
+                    try:
+                        retry_after = float(raw)
+                    except ValueError:
+                        pass
+            log.warning("Discord 429 on channel %s; sleeping %.1fs", channel_id, retry_after)
+            time.sleep(max(0.5, retry_after))
+            resp = self._post_discord_once(client, channel_id, body)
         if resp.status_code >= 400:
             try:
                 detail = resp.json()
@@ -89,18 +107,25 @@ class LeagueDiscordBot:
         channel_id = str(event.get("discord_channel_id") or "").strip()
         if not channel_id:
             raise RuntimeError(f"Event {event_id} missing discord_channel_id in route config")
-        body = format_discord_message(event)
-        self.post_discord(client, channel_id, body)
+        bodies = format_discord_messages(event, max_parts=self.settings.max_message_parts)
+        delay = float(self.settings.delivery_delay_seconds)
+        for i, body in enumerate(bodies):
+            if i > 0 and delay > 0:
+                time.sleep(delay)
+            self.post_discord(client, channel_id, body)
         self.ack(client, league_slug, event_id)
 
     def run_cycle(self, client: httpx.Client) -> str | None:
         last_error: str | None = None
+        delay = float(self.settings.delivery_delay_seconds)
         for slug in sorted(self.settings.league_base_urls):
             try:
-                events = self.poll_pending(client, slug)
-                guild_id = ""
-                for ev in events:
-                    guild_id = str(ev.get("guild_id") or guild_id)
+                events, league_guild_id = self.poll_pending(client, slug)
+                guild_id = league_guild_id
+                for idx, ev in enumerate(events):
+                    guild_id = str(ev.get("guild_id") or guild_id) or guild_id
+                    if idx > 0 and delay > 0:
+                        time.sleep(delay)
                     try:
                         self.deliver_one(client, slug, ev)
                         log.info("delivered event %s for %s", ev.get("id"), slug)
@@ -129,8 +154,10 @@ class LeagueDiscordBot:
     def run_forever(self) -> None:
         logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
         log.info(
-            "Starting league_discord_bot for leagues: %s",
+            "Starting league_discord_bot for leagues: %s (delay=%.1fs, max_parts=%s)",
             ", ".join(sorted(self.settings.league_base_urls)),
+            self.settings.delivery_delay_seconds,
+            self.settings.max_message_parts,
         )
         with httpx.Client(timeout=30.0) as client:
             while True:

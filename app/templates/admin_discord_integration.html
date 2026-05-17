@@ -147,18 +147,6 @@
     </label>
     <button type="submit" class="admin-news-body-btn">Queue test event</button>
   </form>
-  <form method="post" style="display:flex;gap:0.65rem;align-items:center;flex-wrap:wrap;margin:0 0 0.55rem;">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <input type="hidden" name="action" value="enqueue_standings">
-    <button type="submit" class="admin-news-body-btn">Queue standings event</button>
-    <span class="muted">Notifies bot (<code>standings_posted</code>); map route channel key to your <code>#standings</code> channel.</span>
-  </form>
-  <form method="post" style="display:flex;gap:0.65rem;align-items:center;flex-wrap:wrap;margin:0 0 0.55rem;">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <input type="hidden" name="action" value="enqueue_stat_leaders">
-    <button type="submit" class="admin-news-body-btn">Queue statistical leaders event</button>
-    <span class="muted">Payload includes <code>leader_command_keys</code> for bot fan-out (see <code>STAT_LEADER_BOT_COMMAND_KEYS</code> in code).</span>
-  </form>
   <form method="get" style="display:flex;gap:0.6rem;align-items:end;flex-wrap:wrap;margin:0 0 0.45rem;">
     <label>Status
       <select name="status">

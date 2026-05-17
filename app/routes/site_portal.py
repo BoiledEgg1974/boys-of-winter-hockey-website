@@ -107,8 +107,10 @@ from app.services.discord_events import (
     delete_discord_route,
     enqueue_discord_event,
     get_league_bot_config,
+    canonical_discord_bot_name,
     list_heartbeats,
     list_discord_routes,
+    prune_obsolete_discord_bot_heartbeats,
     list_outbound_events,
     team_fields_for_discord,
     update_discord_routes,
@@ -3532,7 +3534,9 @@ def admin_discord_integration():
         db.session, league_slug=slug, status=status, event_key=event_key_filter, limit=250
     )
     dead_letters = list_outbound_events(db.session, league_slug=slug, status="failed", limit=50)
+    prune_obsolete_discord_bot_heartbeats(db.session, league_slug=slug)
     heartbeats = list_heartbeats(db.session, league_slug=slug, limit=10)
+    expected_bot_name = canonical_discord_bot_name()
     secret_set = bool(str(current_app.config.get("DISCORD_EVENTS_SHARED_SECRET") or "").strip())
     now = datetime.utcnow()
     queue_recent_ok = any(
@@ -3540,7 +3544,7 @@ def admin_discord_integration():
     )
     heartbeat_rows = [
         {
-            "bot_name": str(h.bot_name or "discord-bot"),
+            "bot_name": str(h.bot_name or expected_bot_name),
             "bot_version": str(h.bot_version or ""),
             "guild_id": str(h.guild_id or ""),
             "last_seen_at": h.last_seen_at,
@@ -3571,6 +3575,7 @@ def admin_discord_integration():
         secret_set=secret_set,
         queue_recent_ok=queue_recent_ok,
         heartbeat_rows=heartbeat_rows,
+        expected_bot_name=expected_bot_name,
     )
 
 

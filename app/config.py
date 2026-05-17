@@ -237,6 +237,8 @@ class Config:
     DISCORD_EVENTS_SHARED_SECRET = os.environ.get("DISCORD_EVENTS_SHARED_SECRET", "bowluniverse").strip()
     # Unified delivery bot (scripts/league_discord_bot); token is never stored in the database.
     DISCORD_BOT_TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "").strip()
+    DISCORD_BOT_NAME = os.environ.get("DISCORD_BOT_NAME", "league-discord-bot").strip()[:120]
+    DISCORD_BOT_VERSION = os.environ.get("DISCORD_BOT_VERSION", "1.0.0").strip()[:64]
     DISCORD_BOT_POLL_SECONDS = float(os.environ.get("DISCORD_BOT_POLL_SECONDS", "8"))
     # Comma-separated slug:base_url pairs, e.g. bowl-historical:https://www.bowlhockey.com/bowl-historical
     DISCORD_BOT_LEAGUE_BASE_URLS = os.environ.get("DISCORD_BOT_LEAGUE_BASE_URLS", "").strip()

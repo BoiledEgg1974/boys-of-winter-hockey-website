@@ -5,8 +5,10 @@ import json
 import re
 from datetime import datetime, timedelta
 
-from flask import current_app
-from sqlalchemy import or_, select, update
+import os
+
+from flask import current_app, has_app_context
+from sqlalchemy import delete, or_, select, update
 
 from app.site_models import (
     DiscordBotHeartbeat,
@@ -703,6 +705,31 @@ def mark_event_failed(session, event_id: int, error: str) -> bool:
     return True
 
 
+def canonical_discord_bot_name() -> str:
+    """Worker identity for scripts/league_discord_bot (DISCORD_BOT_NAME)."""
+    if has_app_context():
+        name = str(current_app.config.get("DISCORD_BOT_NAME") or "").strip()
+        if name:
+            return name[:120]
+    return (
+        os.environ.get("DISCORD_BOT_NAME", "league-discord-bot").strip()[:120]
+        or "league-discord-bot"
+    )
+
+
+def prune_obsolete_discord_bot_heartbeats(
+    session, *, league_slug: str | None = None
+) -> int:
+    """Remove legacy per-league bot rows (e.g. bowl-historical-bot) after unified worker rollout."""
+    canonical = canonical_discord_bot_name()
+    stmt = delete(DiscordBotHeartbeat).where(DiscordBotHeartbeat.bot_name != canonical)
+    if league_slug:
+        stmt = stmt.where(DiscordBotHeartbeat.league_slug == str(league_slug).strip())
+    result = session.execute(stmt)
+    session.commit()
+    return int(result.rowcount or 0)
+
+
 def upsert_bot_heartbeat(
     session,
     *,
@@ -736,13 +763,19 @@ def upsert_bot_heartbeat(
         row.last_seen_at = datetime.utcnow()
         row.extra_json = json.dumps(extra or {})
     session.commit()
+    if str(bot_name or "").strip() == canonical_discord_bot_name():
+        prune_obsolete_discord_bot_heartbeats(session, league_slug=league_slug)
     return row
 
 
 def list_heartbeats(session, *, league_slug: str, limit: int = 10) -> list[DiscordBotHeartbeat]:
+    canonical = canonical_discord_bot_name()
     return session.scalars(
         select(DiscordBotHeartbeat)
-        .where(DiscordBotHeartbeat.league_slug == league_slug)
+        .where(
+            DiscordBotHeartbeat.league_slug == league_slug,
+            DiscordBotHeartbeat.bot_name == canonical,
+        )
         .order_by(DiscordBotHeartbeat.last_seen_at.desc(), DiscordBotHeartbeat.id.desc())
         .limit(max(1, int(limit)))
     ).all()

@@ -80,6 +80,7 @@ from app.services.discord_events import (
     fetch_pending_events_for_bot,
     mark_event_failed,
     mark_event_sent,
+    canonical_discord_bot_name,
     upsert_bot_heartbeat,
 )
 
@@ -1720,7 +1721,7 @@ def discord_events_heartbeat():
         return jsonify({"ok": False, "message": "league_slug is required"}), 400
     bot_name = str(data.get("bot_name") or "").strip()[:120]
     if not bot_name:
-        bot_name = "discord-bot"
+        bot_name = canonical_discord_bot_name()
     row = upsert_bot_heartbeat(
         db.session,
         league_slug=slug,

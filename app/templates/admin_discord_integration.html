@@ -74,7 +74,7 @@
   <form method="post" style="margin:0 0 0.9rem;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="save_bot_config">
-    <p class="muted" style="margin:0 0 0.5rem;">Bot token stays in server environment (<code>DISCORD_BOT_TOKEN</code>), not in the database.</p>
+    <p class="muted" style="margin:0 0 0.5rem;">Bot token stays in server environment (<code>DISCORD_BOT_TOKEN</code>), not in the database. Run one worker: <code>python -m scripts.league_discord_bot</code> (<code>DISCORD_BOT_NAME={{ expected_bot_name }}</code>).</p>
     <label>Discord server (guild) ID
       <input type="text" name="guild_id" value="{{ bot_config.guild_id or '' }}" placeholder="Numeric snowflake" style="min-width:18rem;">
     </label>

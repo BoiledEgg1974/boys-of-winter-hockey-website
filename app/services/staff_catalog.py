@@ -5,8 +5,12 @@ from pathlib import Path
 from typing import Any
 
 from flask import current_app, has_app_context
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.config import Config
+from app.models import Team
+from app.services.roster_team import is_main_league_team
 from app.services.team_staff_csv import (
     STAFF_COACH_COLUMNS,
     STAFF_SCOUT_COLUMNS,
@@ -213,6 +217,42 @@ def compute_staff_role_overall(
         return None
     raw = 1.0 + 99.0 * (sum(parts) / len(parts))
     return int(max(1, min(100, round(raw))))
+
+
+def main_league_fhm_team_id_set(session: Session) -> set[str]:
+    """FHM team ids for BOWL/NHL clubs in the active league database."""
+    teams = session.scalars(select(Team)).all()
+    return {
+        str(t.fhm_team_id).strip()
+        for t in teams
+        if is_main_league_team(t)
+        and t.fhm_team_id is not None
+        and str(t.fhm_team_id).strip()
+    }
+
+
+def staff_ids_assigned_to_fhm_teams(fhm_team_ids: set[str]) -> set[str]:
+    """Staff FHM ids whose ``staff_master`` teamid is one of the given FHM teams."""
+    if not fhm_team_ids:
+        return set()
+    team_ids = {str(tid).strip() for tid in fhm_team_ids if str(tid).strip()}
+    out: set[str] = set()
+    for sid, entry in _load_catalog().items():
+        tid = str(entry.get("fhm_team_id") or "").strip()
+        if tid and tid in team_ids:
+            out.add(str(sid).strip())
+    return out
+
+
+def is_staff_assigned_to_main_league_team(
+    profile: dict[str, Any] | None, fhm_team_ids: set[str]
+) -> bool:
+    if not profile or not fhm_team_ids:
+        return False
+    tid = str(profile.get("fhm_team_id") or "").strip()
+    if not tid:
+        return False
+    return tid in {str(x).strip() for x in fhm_team_ids}
 
 
 def list_staff_for_browse(

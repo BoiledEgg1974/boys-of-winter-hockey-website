@@ -8,7 +8,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import Team
-from app.services.staff_catalog import STAFF_ROLES, get_staff_profile, staff_role_label
+from app.services.staff_catalog import (
+    STAFF_ROLES,
+    get_staff_profile,
+    is_staff_assigned_to_main_league_team,
+    main_league_fhm_team_id_set,
+    staff_role_label,
+)
 from app.services.staff_hire_limits import hire_limit_status
 from app.site_models import StaffChangeRequest, TeamStaffRosterEntry
 
@@ -105,6 +111,11 @@ def submit_hire_request(
     prof = get_staff_profile(sid)
     if prof is None:
         return StaffRequestResult(False, "Staff member not found in league catalog.")
+    bowl_team_ids = main_league_fhm_team_id_set(session)
+    if is_staff_assigned_to_main_league_team(prof, bowl_team_ids):
+        return StaffRequestResult(
+            False, "That staff member is already under contract with a league team."
+        )
     lim = hire_limit_status(session, league_slug=league_slug, team_id=team_id)
     if lim.limit_reached:
         return StaffRequestResult(

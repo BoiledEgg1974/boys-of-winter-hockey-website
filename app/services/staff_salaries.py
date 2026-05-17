@@ -16,7 +16,9 @@ from app.services.staff_catalog import (
     browse_role_rating_label,
     coach_columns,
     list_staff_for_browse,
+    main_league_fhm_team_id_set,
     scout_columns,
+    staff_ids_assigned_to_fhm_teams,
     staff_role_label,
     trainer_columns,
 )
@@ -158,6 +160,7 @@ def staff_salary_context(session: Session, *, league_slug: str) -> dict:
 
     defaults = compute_staff_default_salaries(total_budget, len(teams))
     unavailable = staff_unavailable_ids(session, league_slug=league_slug)
+    unavailable |= staff_ids_assigned_to_fhm_teams(main_league_fhm_team_id_set(session))
     browse_by_filter: dict[str, list[dict]] = {}
     for fk in BROWSE_FILTERS:
         browse_by_filter[fk] = list_staff_for_browse(fk, exclude_staff_ids=unavailable)

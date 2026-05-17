@@ -276,7 +276,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 274;-1;Nick;Martin;;1906-10-25;Marion;OH;The United States;;;0
 275;-1;Christian;Truss;;1910-11-29;Prince Rupert;BC;Canada;;;0
 276;-1;John;Mann;;1906-10-10;Pickering;ON;Canada;;;0
-277;118;Henry;David;;1909-11-23;Clarington;ON;Canada;;;0
+277;-1;Henry;David;;1909-11-23;Clarington;ON;Canada;;;0
 278;0;Samuel;Gagné;;1906-3-16;Toronto;ON;Canada;;;0
 279;121;Rob;Rohrer;;1906-11-23;Quebec City;QC;Canada;;;0
 280;-1;Brandon;Postma;;1906-3-5;Toronto;ON;Canada;;;0
@@ -949,7 +949,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 947;-1;Pascal;Charron;;1916-6-1;St. Catharines;ON;Canada;;;0
 948;88;Théo;Morissette;;1916-8-30;Montreal;QC;Canada;;;0
 949;118;Samuel;Leblanc;;1916-3-2;Miramichi;NB;Canada;;;0
-950;118;Alex;Thompson;;1920-10-11;Port Stanley;ON;Canada;;;0
+950;-1;Alex;Thompson;;1920-10-11;Port Stanley;ON;Canada;;;0
 951;125;Bill;Duggins;;1923-9-7;New York;NY;The United States;;;0
 952;121;Alex;Achille;;1919-9-29;Langley;BC;Canada;;;0
 953;-1;Ray;Carlton;;1916-8-20;Sparwood;BC;Canada;;;0

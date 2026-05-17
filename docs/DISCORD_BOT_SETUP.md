@@ -72,7 +72,22 @@ From the repo root (venv with project dependencies installed):
 python -m scripts.league_discord_bot
 ```
 
-**PythonAnywhere:** create an **Always-on task** with the same command and env vars.
+**PythonAnywhere:** create an **Always-on task** with the same command. The worker loads
+`boys-of-winter-hockey-website/.env` from the repo root (same as the web app). If your web app
+env vars are set only in the **Web** tab (not in `.env` on disk), copy these into the project
+`.env` on the server or the Always-on task will exit with `DISCORD_BOT_TOKEN is required`:
+
+```env
+DISCORD_BOT_TOKEN=...
+DISCORD_EVENTS_SHARED_SECRET=...
+SITE_PUBLIC_BASE_URL=https://www.bowlhockey.com
+```
+
+Always-on command (adjust venv path):
+
+```bash
+cd /home/BoiledEgg1974/boys-of-winter-hockey-website && /home/BoiledEgg1974/venv/bin/python -m scripts.league_discord_bot
+```
 
 ## 6. Team emoji maps
 

@@ -164,6 +164,7 @@
           <table class="data data-sortable staff-salaries-table staff-salaries-table--browse team-staff-table">
             <thead class="staff-salaries-browse-thead">
                 <tr>
+                  {% if can_submit_requests %}<th scope="col" class="staff-salaries-browse-th staff-salaries-browse-th--hire">Hire</th>{% endif %}
                   <th scope="col" class="staff-salaries-browse-th staff-salaries-browse-th--photo">Photo</th>
                   <th data-sort-type="str" scope="col" class="staff-salaries-browse-th staff-salaries-browse-th--name">Name</th>
                   <th data-sort-type="str" scope="col" class="staff-salaries-browse-th staff-salaries-browse-th--nat">NAT</th>
@@ -174,12 +175,16 @@
                   </th>
                   {% endfor %}
                   <th data-sort-type="num" scope="col" class="staff-salaries-browse-th staff-salaries-browse-th--ovr" title="Overall 1–100 for this role">OVR</th>
-                  {% if can_submit_requests %}<th scope="col" class="staff-salaries-browse-th staff-salaries-browse-th--hire">Hire</th>{% endif %}
                 </tr>
               </thead>
               <tbody>
                 {% for ent in browse_by_filter.get(fk, []) %}
                 <tr data-staff-id="{{ ent.staff_fhm_id }}" data-staff-name="{{ ent.full_name }}">
+                  {% if can_submit_requests %}
+                  <td class="staff-salaries-browse-hire">
+                    <button type="button" class="staff-salaries-btn staff-salaries-btn--small staff-hire-pick" data-staff-id="{{ ent.staff_fhm_id }}" data-staff-name="{{ ent.full_name }}" data-browse-role="{{ fk }}">Hire</button>
+                  </td>
+                  {% endif %}
                   <td class="staff-salaries-browse-photo">
                     <img class="staff-salaries-thumb" src="{{ ent.image_url or staff_placeholder_url }}" alt="" width="32" height="32" loading="lazy" decoding="async" data-fallback="{{ staff_placeholder_url }}" onerror="if(this.dataset.fallback){this.onerror=null;this.src=this.dataset.fallback;}">
                   </td>
@@ -198,11 +203,6 @@
                   {{ staff_browse_attr_td(ent.attrs, key) }}
                   {% endfor %}
                   {{ staff_browse_overall_td(ent.role_overall) }}
-                  {% if can_submit_requests %}
-                  <td class="staff-salaries-browse-hire">
-                    <button type="button" class="staff-salaries-btn staff-salaries-btn--small staff-hire-pick" data-staff-id="{{ ent.staff_fhm_id }}" data-staff-name="{{ ent.full_name }}" data-browse-role="{{ fk }}">Hire</button>
-                  </td>
-                  {% endif %}
                 </tr>
                 {% else %}
                 <tr><td colspan="{{ browse_colspan }}" class="muted">No eligible staff for this role ({{ browse_role_rating_labels[fk] }} rating 16+).</td></tr>

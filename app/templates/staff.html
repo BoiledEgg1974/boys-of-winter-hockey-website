@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros/staff_browse.html" import staff_attr_meter_row %}
+{% from "macros/staff_browse.html" import staff_attr_meter_row, staff_ovr_badge %}
 {% block title %}{{ staff.full_name }} — Staff — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
 {% block content %}
 <div class="card staff-profile-page">
@@ -15,42 +15,32 @@
         {% if staff_primary_role_label %}<span class="staff-profile-page__role-tag">{{ staff_primary_role_label }}</span>{% endif %}
       </p>
     </div>
-    {% if staff_primary_overall is not none %}
+    {% if staff_primary_overall is defined and staff_primary_overall is not none %}
     <div class="staff-profile-page__ovr" role="group" aria-label="Overall rating for primary role">
       <span class="staff-profile-page__ovr-k">Overall</span>
-      <span class="stats-ova__score player-profile__hero-strip-ovr-score staff-profile-page__ovr-score">{{ staff_primary_overall }}</span>
+      {{ staff_ovr_badge(staff_primary_overall) }}
     </div>
     {% endif %}
   </header>
 
   {% set attrs = staff.attrs %}
-  {% for section_title, columns, ovr in [
-    ('Coach ratings', staff_coach_columns, staff_coach_overall),
-    ('Scout ratings', staff_scout_columns, staff_scout_overall),
-    ('Trainer ratings', staff_trainer_columns, staff_trainer_overall),
-  ] %}
-  {% set ns = namespace(has_any=false) %}
-  {% for key, _ in columns %}
-  {% if attrs.get(key) is not none %}{% set ns.has_any = true %}{% endif %}
-  {% endfor %}
-  {% if ns.has_any %}
+  {% for section in staff_sections %}
   <section class="staff-profile-page__section player-profile__card player-profile__card--meter-panel">
     <div class="staff-profile-page__section-head">
-      <h2 class="staff-profile-page__section-title player-profile__card-title player-profile__card-title--meter">{{ section_title }}</h2>
-      {% if ovr is not none %}
+      <h2 class="staff-profile-page__section-title player-profile__card-title player-profile__card-title--meter">{{ section.title }}</h2>
+      {% if section.overall_score is defined and section.overall_score is not none %}
       <div class="staff-profile-page__section-ovr">
         <span class="staff-profile-page__ovr-k">OVR</span>
-        <span class="stats-ova__score staff-profile-page__section-ovr-score">{{ ovr }}</span>
+        {{ staff_ovr_badge(section.overall_score) }}
       </div>
       {% endif %}
     </div>
     <div class="player-profile__meters">
-      {% for key, ln in columns %}
+      {% for key, ln in section.columns %}
       {{ staff_attr_meter_row(attrs, key, ln) }}
       {% endfor %}
     </div>
   </section>
-  {% endif %}
   {% endfor %}
   <p class="muted staff-profile-page__back"><a href="javascript:history.back()">← Back</a></p>
 </div>

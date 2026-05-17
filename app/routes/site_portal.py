@@ -53,13 +53,9 @@ from app.services.gm_notifications import (
     notify_trade_proposal_partner,
 )
 from app.services.staff_catalog import (
-    browse_column_keys,
-    coach_columns,
-    compute_staff_role_overall,
+    build_staff_profile_view,
     get_staff_profile,
-    scout_columns,
     staff_role_label,
-    trainer_columns,
 )
 from app.services.staff_hire_limits import hire_limit_status
 from app.services.staff_images import staff_image_url, staff_placeholder_url
@@ -1119,37 +1115,15 @@ def staff_profile_page(staff_fhm_id: str):
     if prof is None:
         abort(404)
     img = staff_image_url(slug, prof.get("staff_fhm_id")) or staff_placeholder_url()
-    rr = prof.get("ratings_row") or {}
-    attrs = prof.get("attrs") or {}
-    coach_ovr = compute_staff_role_overall(
-        attrs, browse_column_keys("head_coach"), ratings_row=rr, filter_key="head_coach"
-    )
-    scout_ovr = compute_staff_role_overall(
-        attrs, browse_column_keys("scout"), ratings_row=rr, filter_key="scout"
-    )
-    trainer_ovr = compute_staff_role_overall(
-        attrs, browse_column_keys("trainer"), ratings_row=rr, filter_key="trainer"
-    )
-    bucket = str(prof.get("primary_bucket") or "coaches")
-    if bucket == "scouts":
-        primary_overall, primary_label = scout_ovr, "Scout"
-    elif bucket == "trainers":
-        primary_overall, primary_label = trainer_ovr, "Trainer"
-    else:
-        primary_overall, primary_label = coach_ovr, "Coach"
+    view = build_staff_profile_view(prof)
     return render_template(
         "staff.html",
         staff=prof,
         staff_image_url=img,
         staff_placeholder_url=staff_placeholder_url(),
-        staff_coach_columns=coach_columns(),
-        staff_scout_columns=scout_columns(),
-        staff_trainer_columns=trainer_columns(),
-        staff_coach_overall=coach_ovr,
-        staff_scout_overall=scout_ovr,
-        staff_trainer_overall=trainer_ovr,
-        staff_primary_overall=primary_overall,
-        staff_primary_role_label=primary_label,
+        staff_sections=view["sections"],
+        staff_primary_overall=view["primary_overall"],
+        staff_primary_role_label=view["primary_role_label"],
     )
 
 

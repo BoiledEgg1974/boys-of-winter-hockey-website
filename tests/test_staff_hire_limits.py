@@ -4,7 +4,11 @@ from __future__ import annotations
 import unittest
 from datetime import date
 
-from app.services.staff_catalog import _meets_browse_filter, compute_staff_role_overall
+from app.services.staff_catalog import (
+    _meets_browse_filter,
+    build_staff_profile_view,
+    compute_staff_role_overall,
+)
 from app.services.staff_hire_limits import hire_limit_for_calendar_date, hire_window_label
 
 
@@ -47,6 +51,25 @@ class StaffHireLimitsTest(unittest.TestCase):
         assert ovr is not None
         self.assertGreaterEqual(ovr, 90)
         self.assertLessEqual(ovr, 100)
+
+    def test_build_staff_profile_view_sections(self):
+        profile = {
+            "primary_bucket": "coaches",
+            "ratings_row": {"coach": "18", "scout": "12", "trainer": "10"},
+            "attrs": {
+                "coaching_g": 12.0,
+                "coaching_defense": 20.0,
+                "evaluate_ability": 13.0,
+                "trainer_skill": 1.0,
+            },
+        }
+        view = build_staff_profile_view(profile)
+        self.assertIsNotNone(view["primary_overall"])
+        self.assertGreaterEqual(len(view["sections"]), 2)
+        for section in view["sections"]:
+            self.assertIsNotNone(section["overall_score"])
+            self.assertGreaterEqual(section["overall_score"], 1)
+            self.assertLessEqual(section["overall_score"], 100)
 
 
 if __name__ == "__main__":

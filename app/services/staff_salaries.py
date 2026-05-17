@@ -13,6 +13,7 @@ from app.services.seasons import get_current_season, season_display_label
 from app.services.staff_catalog import (
     BROWSE_FILTERS,
     STAFF_ROLES,
+    browse_role_rating_label,
     coach_columns,
     list_staff_for_browse,
     scout_columns,
@@ -174,6 +175,9 @@ def staff_salary_context(session: Session, *, league_slug: str) -> dict:
         "browse_filters": BROWSE_FILTERS,
         "browse_by_filter": browse_by_filter,
         "browse_columns_by_filter": BROWSE_COLUMNS_BY_FILTER,
+        "browse_role_rating_labels": {
+            fk: browse_role_rating_label(fk) for fk in BROWSE_FILTERS
+        },
     }
 
 

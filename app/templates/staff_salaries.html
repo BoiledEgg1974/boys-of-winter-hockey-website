@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros/staff_browse.html" import staff_browse_overall_td %}
+{% from "macros/staff_browse.html" import staff_browse_attr_td, staff_browse_overall_td, staff_browse_role_rating_td %}
 {% block title %}Staff Salaries — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/staff_salaries.js') }}" defer></script>
@@ -157,14 +157,22 @@
         {% endfor %}
       </div>
       {% for fk in browse_filters %}
+      {% set browse_cols = browse_columns_by_filter.get(fk, []) %}
+      {% set browse_colspan = 4 + (browse_cols|length) + 1 + (1 if can_submit_requests else 0) %}
       <div class="staff-salaries-browse-panel{% if loop.first %} is-active{% endif %}" role="tabpanel" data-browse-panel="{{ fk }}"{% if not loop.first %} hidden{% endif %}>
         <div class="staff-salaries-browse-scroll">
-          <table class="data data-sortable staff-salaries-table staff-salaries-table--browse">
+          <table class="data data-sortable staff-salaries-table staff-salaries-table--browse team-staff-table">
             <thead class="staff-salaries-browse-thead">
                 <tr>
                   <th scope="col" class="staff-salaries-browse-th staff-salaries-browse-th--photo">Photo</th>
                   <th data-sort-type="str" scope="col" class="staff-salaries-browse-th staff-salaries-browse-th--name">Name</th>
                   <th data-sort-type="str" scope="col" class="staff-salaries-browse-th staff-salaries-browse-th--nat">NAT</th>
+                  <th data-sort-type="num" scope="col" class="staff-salaries-browse-th staff-salaries-browse-th--role-rating team-staff-th--split" title="{{ browse_role_rating_labels[fk] }} rating (16+ to appear here)">{{ browse_role_rating_labels[fk] }}</th>
+                  {% for key, ln in browse_cols %}
+                  <th data-sort-type="num" scope="col" class="staff-salaries-browse-th staff-salaries-browse-th--attr team-staff-th--split" title="{% if ln[1] %}{{ ln[0] }} {{ ln[1] }}{% else %}{{ ln[0] }}{% endif %}">
+                    <span class="team-staff-th__ln1">{{ ln[0] }}</span>{% if ln[1] %}<br><span class="team-staff-th__ln2">{{ ln[1] }}</span>{% endif %}
+                  </th>
+                  {% endfor %}
                   <th data-sort-type="num" scope="col" class="staff-salaries-browse-th staff-salaries-browse-th--ovr" title="Overall 1–100 for this role">OVR</th>
                   {% if can_submit_requests %}<th scope="col" class="staff-salaries-browse-th staff-salaries-browse-th--hire">Hire</th>{% endif %}
                 </tr>
@@ -175,16 +183,20 @@
                   <td class="staff-salaries-browse-photo">
                     <img class="staff-salaries-thumb" src="{{ ent.image_url or staff_placeholder_url }}" alt="" width="32" height="32" loading="lazy" decoding="async" data-fallback="{{ staff_placeholder_url }}" onerror="if(this.dataset.fallback){this.onerror=null;this.src=this.dataset.fallback;}">
                   </td>
-                  <td data-sort-value="{{ ent.full_name|lower }}">
+                  <td data-sort-value="{{ ent.full_name|lower }}" class="staff-salaries-browse-name-cell">
                     <a class="team-staff-name staff-salaries-browse-name" href="{{ url_for('site_gm.staff_profile_page', staff_fhm_id=ent.staff_fhm_id) }}" target="_blank" rel="noopener">{{ ent.full_name }}</a>
                   </td>
-                  <td class="team-staff-nat-cell" data-sort-value="{{ ent.nationality|lower }}">
+                  <td class="team-staff-nat-cell staff-salaries-browse-nat" data-sort-value="{{ ent.nationality|lower }}">
                     {% if ent.nationality and ent.nationality != '—' and ent.nationality|nationality_flag_url %}
                     <img class="team-staff-flag" src="{{ ent.nationality|nationality_flag_url }}" width="20" height="14" alt="{{ ent.nationality }}" title="{{ ent.nationality }}" loading="lazy" decoding="async">
                     {% else %}
                     <span class="muted">—</span>
                     {% endif %}
                   </td>
+                  {{ staff_browse_role_rating_td(ent.browse_rating) }}
+                  {% for key, _ in browse_cols %}
+                  {{ staff_browse_attr_td(ent.attrs, key) }}
+                  {% endfor %}
                   {{ staff_browse_overall_td(ent.role_overall) }}
                   {% if can_submit_requests %}
                   <td class="staff-salaries-browse-hire">
@@ -193,12 +205,12 @@
                   {% endif %}
                 </tr>
                 {% else %}
-                <tr><td colspan="{% if can_submit_requests %}5{% else %}4{% endif %}" class="muted">No eligible staff for this role.</td></tr>
+                <tr><td colspan="{{ browse_colspan }}" class="muted">No eligible staff for this role ({{ browse_role_rating_labels[fk] }} rating 16+).</td></tr>
                 {% endfor %}
               </tbody>
             </table>
         </div>
-        <p class="muted staff-salaries-browse-hint">Open a name for attribute bars and full ratings.</p>
+        <p class="muted staff-salaries-browse-hint">Role rating 16+ required. Coaches share one pool; scouts and trainers must match that specialty.</p>
       </div>
       {% endfor %}
     </section>

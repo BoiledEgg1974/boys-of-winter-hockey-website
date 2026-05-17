@@ -1,11 +1,36 @@
-{% macro staff_browse_overall_td(overall) -%}
-<td data-sort-value="{% if overall is not none %}{{ overall }}{% endif %}" class="staff-browse-ovr-cell">
-  {% if overall is not none %}
-  <span class="stats-ova__score staff-browse-ovr__score">{{ overall }}</span>
+{% macro staff_browse_attr_td(attrs, key) -%}
+{%- set v = attrs.get(key) if attrs else none -%}
+{%- if v is not none -%}
+<td data-sort-value="{{ v }}" class="staff-browse-attr-cell"><span class="stats-badge stats-badge--rating stats-badge--overall team-staff-attr-pill staff-browse-attr-pill" style="{{ v|attr_rating_style }}">{{ v|round(0)|int }}</span></td>
+{%- else -%}
+<td data-sort-value="" class="staff-browse-attr-cell"><span class="muted">—</span></td>
+{%- endif -%}
+{%- endmacro %}
+
+{% macro staff_browse_role_rating_td(rating) -%}
+<td data-sort-value="{% if rating is not none %}{{ rating }}{% endif %}" class="staff-browse-role-rating-cell">
+  {% if rating is not none %}
+  <span class="stats-badge stats-badge--rating stats-badge--overall team-staff-attr-pill staff-browse-attr-pill" style="{{ rating|attr_rating_style }}">{{ rating|round(0)|int }}</span>
   {% else %}
   <span class="muted">—</span>
   {% endif %}
 </td>
+{%- endmacro %}
+
+{% macro staff_browse_overall_td(overall) -%}
+<td data-sort-value="{% if overall is not none %}{{ overall }}{% endif %}" class="staff-browse-ovr-cell">
+  {% if overall is not none %}
+  <span class="staff-ovr-badge staff-ovr-badge--compact">{{ overall }}</span>
+  {% else %}
+  <span class="muted">—</span>
+  {% endif %}
+</td>
+{%- endmacro %}
+
+{% macro staff_ovr_badge(score, compact=false) -%}
+{% if score is defined and score is not none %}
+<span class="staff-ovr-badge{% if compact %} staff-ovr-badge--compact{% endif %}">{{ score }}</span>
+{% endif %}
 {%- endmacro %}
 
 {% macro staff_attr_meter_row(attrs, key, label_ln) -%}

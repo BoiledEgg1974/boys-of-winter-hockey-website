@@ -137,6 +137,53 @@ def get_staff_profile(staff_fhm_id: str | int | None) -> dict[str, Any] | None:
     return _load_catalog().get(sid)
 
 
+def build_staff_profile_view(profile: dict[str, Any]) -> dict[str, Any]:
+    """Template context: section list with overall scores and primary-role OVR."""
+    rr = profile.get("ratings_row") or {}
+    attrs = profile.get("attrs") or {}
+    sections: list[dict[str, Any]] = []
+    overalls: dict[str, int | None] = {}
+    for title, filter_key, cols_fn in (
+        ("Coach ratings", "head_coach", coach_columns),
+        ("Scout ratings", "scout", scout_columns),
+        ("Trainer ratings", "trainer", trainer_columns),
+    ):
+        columns = cols_fn()
+        keys = browse_column_keys(filter_key)
+        score = compute_staff_role_overall(
+            attrs, keys, ratings_row=rr, filter_key=filter_key
+        )
+        overalls[filter_key] = score
+        if not any(attrs.get(k) is not None for k, _ in columns):
+            continue
+        sections.append(
+            {
+                "title": title,
+                "filter_key": filter_key,
+                "columns": columns,
+                "overall_score": score,
+            }
+        )
+    bucket = str(profile.get("primary_bucket") or "coaches")
+    if bucket == "scouts":
+        primary_overall = overalls.get("scout")
+        primary_label = "Scout"
+    elif bucket == "trainers":
+        primary_overall = overalls.get("trainer")
+        primary_label = "Trainer"
+    else:
+        primary_overall = overalls.get("head_coach")
+        primary_label = "Coach"
+    return {
+        "sections": sections,
+        "primary_overall": primary_overall,
+        "primary_role_label": primary_label,
+        "coach_overall": overalls.get("head_coach"),
+        "scout_overall": overalls.get("scout"),
+        "trainer_overall": overalls.get("trainer"),
+    }
+
+
 def compute_staff_role_overall(
     attrs: dict[str, Any] | None,
     column_keys: tuple[str, ...] | list[str],
@@ -205,6 +252,16 @@ def list_staff_for_browse(
         )
     )
     return rows
+
+
+def browse_role_rating_label(filter_key: str) -> str:
+    if filter_key in ("head_coach", "assistant_coach"):
+        return "Coach"
+    if filter_key == "scout":
+        return "Scout"
+    if filter_key == "trainer":
+        return "Trainer"
+    return "Rating"
 
 
 def browse_column_keys(filter_key: str) -> tuple[str, ...]:

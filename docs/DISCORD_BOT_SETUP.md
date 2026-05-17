@@ -45,6 +45,8 @@ DISCORD_EVENTS_SHARED_SECRET=<long-random-string>
 SITE_PUBLIC_BASE_URL=https://www.bowlhockey.com
 ```
 
+Set `SITE_PUBLIC_BASE_URL` in **`boys-of-winter-hockey-website/.env`** on PythonAnywhere and reload the **Web** app (not only the Always-on task). Without it, queued events have no embed link and older builds could send invalid relative URLs to Discord.
+
 Generate a secret, e.g. PowerShell:
 
 ```powershell

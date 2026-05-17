@@ -5,6 +5,14 @@ from typing import Any
 from scripts.league_discord_bot.team_maps import format_team_label, team_emoji_prefix
 
 
+def _discord_embed_url(url: str) -> str:
+    """Discord embed links must be absolute http(s); site may queue relative paths if unset."""
+    u = str(url or "").strip()
+    if u.lower().startswith(("http://", "https://")):
+        return u
+    return ""
+
+
 def _preview(text: str, limit: int = 280) -> str:
     t = str(text or "").strip()
     if len(t) <= limit:
@@ -84,7 +92,7 @@ def format_discord_messages(event: dict[str, Any], *, max_parts: int = 2) -> lis
     payload = event.get("payload") or {}
     title = str(payload.get("title") or event_key.replace("_", " ").title())
     body = _preview(payload.get("body_preview") or payload.get("message") or payload.get("body") or "")
-    url = str(payload.get("url") or "").strip()
+    url = _discord_embed_url(str(payload.get("url") or ""))
 
     lines: list[str] = []
     if event_key in ("news_published", "gm_news_published", "admin_news_published"):

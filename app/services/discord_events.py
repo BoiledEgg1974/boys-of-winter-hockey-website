@@ -166,23 +166,31 @@ def team_fields_for_discord(team) -> dict:
     return out
 
 
-def build_league_public_url(league_slug: str, path: str = "/") -> str:
+def resolve_site_public_base_url() -> str:
+    """Public site origin (no trailing slash), from Flask config or ``SITE_PUBLIC_BASE_URL`` env."""
     base = ""
     try:
         base = str(current_app.config.get("SITE_PUBLIC_BASE_URL") or "").rstrip("/")
     except RuntimeError:
         base = ""
     if not base:
-        import os
-
         base = str(os.environ.get("SITE_PUBLIC_BASE_URL") or "").rstrip("/")
+    return base
+
+
+def build_league_public_url(league_slug: str, path: str = "/") -> str:
+    """Absolute https URL for Discord embeds and outbound links.
+
+    Returns empty string when ``SITE_PUBLIC_BASE_URL`` is unset (never a relative path).
+    """
+    base = resolve_site_public_base_url()
+    if not base:
+        return ""
     mount = league_mount_path(league_slug)
     rel = str(path or "/")
     if not rel.startswith("/"):
         rel = f"/{rel}"
-    if base:
-        return f"{base}{mount}{rel}"
-    return f"{mount}{rel}" if mount else rel
+    return f"{base}{mount}{rel}"
 
 
 def _source_idempotency_key(

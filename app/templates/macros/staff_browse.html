@@ -1,21 +1,21 @@
-{% macro staff_browse_attr_td(attrs, key) -%}
-{%- set v = attrs.get(key) if attrs else none -%}
-<td data-sort-value="{% if v is not none %}{{ v }}{% endif %}">
-  <div class="staff-browse-meter">
-    <span class="staff-browse-meter__val" style="{% if v is not none %}{{ v|attr_rating_text_style }}{% endif %}">{% if v is not none %}{{ v|round(0)|int }}{% else %}—{% endif %}</span>
-    <div class="staff-browse-meter__track" role="presentation">
-      <div class="staff-browse-meter__fill" style="{% if v is not none %}{{ v|rating_meter_fill_style }}{% else %}width:0%;background:transparent{% endif %}"></div>
-    </div>
-  </div>
-</td>
-{%- endmacro %}
-
 {% macro staff_browse_overall_td(overall) -%}
 <td data-sort-value="{% if overall is not none %}{{ overall }}{% endif %}" class="staff-browse-ovr-cell">
   {% if overall is not none %}
-  <span class="stats-badge stats-badge--rating staff-browse-ovr" style="{{ overall|attr_rating_style }}">{{ overall }}</span>
+  <span class="stats-ova__score staff-browse-ovr__score">{{ overall }}</span>
   {% else %}
   <span class="muted">—</span>
   {% endif %}
 </td>
+{%- endmacro %}
+
+{% macro staff_attr_meter_row(attrs, key, label_ln) -%}
+{%- set v = attrs.get(key) if attrs else none -%}
+{%- set label = label_ln[0] ~ (' ' ~ label_ln[1] if label_ln[1] else '') -%}
+<div class="player-profile__meter-row staff-profile__meter-row">
+  <span class="player-profile__meter-label">{{ label }}</span>
+  <span class="player-profile__meter-val" style="{% if v is not none %}{{ v|attr_rating_text_style }}{% endif %}">{% if v is not none %}{{ v|round(0)|int }}{% else %}—{% endif %}</span>
+  <div class="player-profile__meter-track" role="presentation">
+    <div class="player-profile__meter-fill" style="{% if v is not none %}{{ v|rating_meter_fill_style }}{% else %}width:0%;background:transparent{% endif %}"></div>
+  </div>
+</div>
 {%- endmacro %}

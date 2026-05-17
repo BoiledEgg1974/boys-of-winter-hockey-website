@@ -140,22 +140,32 @@ def get_staff_profile(staff_fhm_id: str | int | None) -> dict[str, Any] | None:
 def compute_staff_role_overall(
     attrs: dict[str, Any] | None,
     column_keys: tuple[str, ...] | list[str],
+    *,
+    ratings_row: dict[str, str] | None = None,
+    filter_key: str | None = None,
 ) -> int | None:
-    """Role overall: mean of displayed attribute columns (0–20), rounded."""
-    if not attrs:
+    """Composite 1–100 overall from FHM role rating + role attribute columns (0–20)."""
+    parts: list[float] = []
+    if ratings_row and filter_key:
+        primary = _role_rating(ratings_row, filter_key)
+        if primary is not None:
+            parts.append(max(0.0, min(1.0, float(primary) / 20.0)))
+    attr_norms: list[float] = []
+    if attrs:
+        for key in column_keys:
+            v = attrs.get(key)
+            if v is None:
+                continue
+            try:
+                attr_norms.append(max(0.0, min(1.0, float(v) / 20.0)))
+            except (TypeError, ValueError):
+                continue
+    if attr_norms:
+        parts.append(sum(attr_norms) / len(attr_norms))
+    if not parts:
         return None
-    vals: list[float] = []
-    for key in column_keys:
-        v = attrs.get(key)
-        if v is None:
-            continue
-        try:
-            vals.append(float(v))
-        except (TypeError, ValueError):
-            continue
-    if not vals:
-        return None
-    return int(round(sum(vals) / len(vals)))
+    raw = 1.0 + 99.0 * (sum(parts) / len(parts))
+    return int(max(1, min(100, round(raw))))
 
 
 def list_staff_for_browse(
@@ -174,7 +184,12 @@ def list_staff_for_browse(
             continue
         rating = _role_rating(rr, filter_key)
         col_keys = browse_column_keys(filter_key)
-        role_overall = compute_staff_role_overall(entry.get("attrs"), col_keys)
+        role_overall = compute_staff_role_overall(
+            entry.get("attrs"),
+            col_keys,
+            ratings_row=rr,
+            filter_key=filter_key,
+        )
         rows.append(
             {
                 **entry,

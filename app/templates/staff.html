@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% from "_team_staff_panel.html" import staff_attr_td %}
+{% from "macros/staff_browse.html" import staff_attr_meter_row %}
 {% block title %}{{ staff.full_name }} — Staff — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
 {% block content %}
-<div class="card staff-profile-page" style="max-width:56rem;margin:0 auto;">
+<div class="card staff-profile-page">
   <header class="staff-profile-page__hero">
-    <img class="staff-profile-page__photo" src="{{ staff_image_url }}" alt="" width="120" height="120" loading="lazy">
+    <img class="staff-profile-page__photo" src="{{ staff_image_url }}" alt="" width="120" height="120" loading="lazy" data-fallback="{{ staff_placeholder_url }}" onerror="if(this.dataset.fallback){this.onerror=null;this.src=this.dataset.fallback;}">
     <div class="staff-profile-page__hero-text">
       <h1 class="page-title">{{ staff.full_name }}</h1>
       <p class="staff-profile-page__meta">
@@ -12,40 +12,46 @@
         <img class="staff-profile-page__flag" src="{{ staff.nationality|nationality_flag_url }}" width="24" height="18" alt="{{ staff.nationality }}" loading="lazy">
         {% endif %}
         {{ staff.nationality }}
+        {% if staff_primary_role_label %}<span class="staff-profile-page__role-tag">{{ staff_primary_role_label }}</span>{% endif %}
       </p>
     </div>
+    {% if staff_primary_overall is not none %}
+    <div class="staff-profile-page__ovr" role="group" aria-label="Overall rating for primary role">
+      <span class="staff-profile-page__ovr-k">Overall</span>
+      <span class="stats-ova__score player-profile__hero-strip-ovr-score staff-profile-page__ovr-score">{{ staff_primary_overall }}</span>
+    </div>
+    {% endif %}
   </header>
 
   {% set attrs = staff.attrs %}
-  {% for section_title, columns in [
-    ('Coach ratings', staff_coach_columns),
-    ('Scout ratings', staff_scout_columns),
-    ('Trainer ratings', staff_trainer_columns),
+  {% for section_title, columns, ovr in [
+    ('Coach ratings', staff_coach_columns, staff_coach_overall),
+    ('Scout ratings', staff_scout_columns, staff_scout_overall),
+    ('Trainer ratings', staff_trainer_columns, staff_trainer_overall),
   ] %}
-  <section class="staff-profile-page__section">
-    <h2 class="staff-profile-page__section-title">{{ section_title }}</h2>
-    <div class="table-wrap">
-      <table class="data team-staff-table">
-        <thead>
-          <tr>
-            {% for key, ln in columns %}
-            <th scope="col" class="team-staff-th team-staff-th--split" title="{% if ln[1] %}{{ ln[0] }} {{ ln[1] }}{% else %}{{ ln[0] }}{% endif %}">
-              <span class="team-staff-th__ln1">{{ ln[0] }}</span>{% if ln[1] %}<br><span class="team-staff-th__ln2">{{ ln[1] }}</span>{% endif %}
-            </th>
-            {% endfor %}
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            {% for key, _ in columns %}
-            {{ staff_attr_td(attrs, key) }}
-            {% endfor %}
-          </tr>
-        </tbody>
-      </table>
+  {% set ns = namespace(has_any=false) %}
+  {% for key, _ in columns %}
+  {% if attrs.get(key) is not none %}{% set ns.has_any = true %}{% endif %}
+  {% endfor %}
+  {% if ns.has_any %}
+  <section class="staff-profile-page__section player-profile__card player-profile__card--meter-panel">
+    <div class="staff-profile-page__section-head">
+      <h2 class="staff-profile-page__section-title player-profile__card-title player-profile__card-title--meter">{{ section_title }}</h2>
+      {% if ovr is not none %}
+      <div class="staff-profile-page__section-ovr">
+        <span class="staff-profile-page__ovr-k">OVR</span>
+        <span class="stats-ova__score staff-profile-page__section-ovr-score">{{ ovr }}</span>
+      </div>
+      {% endif %}
+    </div>
+    <div class="player-profile__meters">
+      {% for key, ln in columns %}
+      {{ staff_attr_meter_row(attrs, key, ln) }}
+      {% endfor %}
     </div>
   </section>
+  {% endif %}
   {% endfor %}
-  <p class="muted" style="margin-top:1.5rem;"><a href="javascript:history.back()">← Back</a></p>
+  <p class="muted staff-profile-page__back"><a href="javascript:history.back()">← Back</a></p>
 </div>
 {% endblock %}

@@ -8267,126 +8267,164 @@ table.data.draft-history-table td:nth-child(3) .stats-player-cell {
   max-width: 56rem;
   margin: 0 auto;
 }
-.staff-salaries-page__card--browse {
-  max-width: min(96vw, 72rem);
-}
 .staff-salaries-section--browse {
   margin-top: 2rem;
 }
 .staff-salaries-browse-scroll {
-  max-height: calc(2.05rem * 30 + 2.4rem);
-  overflow: auto;
+  max-height: calc(2.35rem * 30 + 2.5rem);
+  overflow-x: hidden;
+  overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
 }
-.staff-salaries-browse-table-wrap {
-  overflow-x: auto;
+.staff-salaries-browse-hint {
+  margin: 0.5rem 0 0;
+  font-size: 0.82rem;
 }
 .staff-salaries-table--browse {
-  font-size: 0.72rem;
   width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.88rem;
 }
-.staff-salaries-table--browse thead th {
+.staff-salaries-browse-thead th {
   position: sticky;
   top: 0;
-  z-index: 2;
-  background: var(--surface);
+  z-index: 3;
+  background: var(--accent);
+  color: var(--header-text);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.45rem 0.4rem;
+  border-bottom: 1px solid var(--border);
   box-shadow: 0 1px 0 var(--border);
 }
-.staff-salaries-table--browse .team-staff-th--split {
-  font-size: 0.42rem;
-  max-width: 2.75rem;
-  padding-left: 0.2rem;
-  padding-right: 0.2rem;
-}
-.staff-salaries-table--browse .team-staff-th--text {
-  font-size: 0.58rem;
-  min-width: 7rem;
-}
-.staff-salaries-table--browse .team-staff-th--nat,
-.staff-salaries-table--browse .team-staff-th--photo,
-.staff-salaries-table--browse .team-staff-th--hire {
-  font-size: 0.5rem;
-}
-.staff-salaries-table--browse .team-staff-th--photo {
-  width: 2.5rem;
-}
-.staff-salaries-table--browse .team-staff-th--hire {
-  width: 3rem;
-}
-.staff-salaries-table--browse th,
-.staff-salaries-table--browse td {
-  padding: 0.28rem 0.32rem;
+.staff-salaries-table--browse tbody td {
+  padding: 0.4rem 0.35rem;
   vertical-align: middle;
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.staff-salaries-table--browse .team-staff-attr-pill {
-  font-size: 0.62rem;
-  padding: 0.08rem 0.22rem;
-  min-width: 1.25rem;
-  line-height: 1.2;
-}
-.staff-salaries-table--browse .team-staff-name,
-.staff-salaries-browse-name {
-  font-size: 0.72rem;
-  font-weight: 700;
-}
+.staff-salaries-browse-th--photo { width: 3.25rem; }
+.staff-salaries-browse-th--name { width: auto; }
+.staff-salaries-browse-th--nat { width: 3rem; text-align: center; }
+.staff-salaries-browse-th--ovr { width: 4.5rem; text-align: center; }
+.staff-salaries-browse-th--hire { width: 4.5rem; text-align: center; }
 .staff-salaries-browse-photo {
-  width: 2.5rem;
   text-align: center;
 }
 .staff-salaries-table--browse .staff-salaries-thumb {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   object-fit: cover;
-}
-.staff-salaries-browse-hire {
-  white-space: nowrap;
-}
-.staff-browse-meter {
-  display: grid;
-  grid-template-columns: 1.35rem minmax(2.5rem, 1fr);
-  gap: 0.2rem 0.35rem;
-  align-items: center;
-  min-width: 3.5rem;
-}
-.staff-browse-meter__val {
-  font-size: 0.65rem;
-  font-weight: 700;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.1;
-}
-.staff-browse-meter__track {
-  height: 7px;
-  background: rgb(15 23 42 / 0.92);
   border-radius: 4px;
-  overflow: hidden;
-  border: 1px solid rgb(30 41 59 / 0.85);
-  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.35);
+  background: var(--row-alt);
 }
-[data-theme="light"] .staff-browse-meter__track {
-  background: #cbd5e1;
-  border-color: var(--border);
+.staff-salaries-browse-name-cell {
+  text-align: left;
 }
-.staff-browse-meter__fill {
-  height: 100%;
-  border-radius: 3px;
-  min-width: 0;
+.staff-salaries-browse-name {
+  font-weight: 700;
+  color: var(--text);
+}
+.staff-salaries-browse-nat {
+  text-align: center;
 }
 .staff-browse-ovr-cell {
   text-align: center;
+}
+.staff-browse-ovr__score {
+  display: inline-block;
+  min-width: 2.1rem;
+  font-size: 0.95rem;
+  padding: 0.2rem 0.45rem;
+}
+.staff-salaries-browse-hire {
+  text-align: center;
   white-space: nowrap;
 }
-.staff-browse-ovr {
-  font-size: 0.7rem;
-  font-weight: 700;
-  min-width: 1.6rem;
-  padding: 0.12rem 0.35rem;
+.staff-profile-page {
+  max-width: 52rem;
+  margin: 0 auto;
 }
-.staff-salaries-table--browse .team-staff-th--ovr {
-  font-size: 0.52rem;
-  width: 2.25rem;
+.staff-profile-page__hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
+}
+.staff-profile-page__photo {
+  border-radius: 8px;
+  object-fit: cover;
+  border: 2px solid var(--accent);
+  flex-shrink: 0;
+}
+.staff-profile-page__hero-text {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+.staff-profile-page__role-tag {
+  margin-left: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.staff-profile-page__ovr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius);
+  background: rgb(0 0 0 / 0.35);
+  border: 1px solid var(--border);
+}
+.staff-profile-page__ovr-k {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.staff-profile-page__ovr-score {
+  font-size: 1.75rem;
+  line-height: 1;
+  min-width: 2.5rem;
+  text-align: center;
+}
+.staff-profile-page__section {
+  margin-top: 1rem;
+}
+.staff-profile-page__section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
+}
+.staff-profile-page__section-title {
+  margin: 0;
+}
+.staff-profile-page__section-ovr {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.staff-profile-page__section-ovr-score {
+  font-size: 1.1rem;
+  min-width: 2rem;
+  padding: 0.15rem 0.4rem;
+}
+.staff-profile-page__back {
+  margin-top: 1.5rem;
+}
+.staff-profile__meter-row .player-profile__meter-track {
+  min-width: 0;
 }
 .staff-salaries-page__league,
 .staff-salaries-page__team-line {
@@ -8485,24 +8523,6 @@ table.data.draft-history-table td:nth-child(3) .stats-player-cell {
 }
 .staff-salaries-recent__status--denied {
   color: #ef4444;
-}
-.staff-profile-page__hero {
-  display: flex;
-  gap: 1.25rem;
-  align-items: center;
-  margin-bottom: 1.5rem;
-}
-.staff-profile-page__photo {
-  border-radius: 8px;
-  object-fit: cover;
-  border: 2px solid var(--accent);
-}
-.staff-profile-page__section {
-  margin-top: 1.5rem;
-}
-.staff-profile-page__section-title {
-  font-size: 1rem;
-  margin-bottom: 0.5rem;
 }
 .staff-budgets-admin__table-wrap {
   overflow-x: auto;

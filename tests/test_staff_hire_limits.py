@@ -34,9 +34,19 @@ class StaffHireLimitsTest(unittest.TestCase):
         rr_scout = {"coach": "10", "scout": "18", "trainer": "10"}
         self.assertTrue(_meets_browse_filter(rr_scout, "scout", 16.0))
 
-    def test_staff_role_overall_mean(self):
-        attrs = {"coaching_g": 18.0, "coaching_defense": 16.0, "tactics": 20.0}
-        self.assertEqual(compute_staff_role_overall(attrs, ("coaching_g", "coaching_defense", "tactics")), 18)
+    def test_staff_role_overall_1_100(self):
+        attrs = {"coaching_g": 20.0, "coaching_defense": 20.0, "tactics": 20.0}
+        rr = {"coach": "20", "scout": "10", "trainer": "10"}
+        ovr = compute_staff_role_overall(
+            attrs,
+            ("coaching_g", "coaching_defense", "tactics"),
+            ratings_row=rr,
+            filter_key="head_coach",
+        )
+        self.assertIsNotNone(ovr)
+        assert ovr is not None
+        self.assertGreaterEqual(ovr, 90)
+        self.assertLessEqual(ovr, 100)
 
 
 if __name__ == "__main__":

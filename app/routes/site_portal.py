@@ -1102,6 +1102,7 @@ def staff_salaries_page():
     ctx["membership"] = mem
     ctx["gm_team"] = db.session.get(Team, int(mem.team_id)) if mem else None
     ctx["can_submit_requests"] = mem is not None
+    ctx["staff_placeholder_url"] = staff_placeholder_url()
     return render_template("staff_salaries.html", **ctx)
 
 

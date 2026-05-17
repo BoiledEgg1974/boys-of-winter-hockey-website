@@ -4,7 +4,7 @@ from __future__ import annotations
 import unittest
 from datetime import date
 
-from app.services.staff_catalog import _meets_browse_filter
+from app.services.staff_catalog import _meets_browse_filter, compute_staff_role_overall
 from app.services.staff_hire_limits import hire_limit_for_calendar_date, hire_window_label
 
 
@@ -33,6 +33,10 @@ class StaffHireLimitsTest(unittest.TestCase):
         self.assertFalse(_meets_browse_filter(rr, "scout", 16.0))
         rr_scout = {"coach": "10", "scout": "18", "trainer": "10"}
         self.assertTrue(_meets_browse_filter(rr_scout, "scout", 16.0))
+
+    def test_staff_role_overall_mean(self):
+        attrs = {"coaching_g": 18.0, "coaching_defense": 16.0, "tactics": 20.0}
+        self.assertEqual(compute_staff_role_overall(attrs, ("coaching_g", "coaching_defense", "tactics")), 18)
 
 
 if __name__ == "__main__":

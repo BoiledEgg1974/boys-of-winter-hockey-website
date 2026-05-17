@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_team_staff_panel.html" import staff_attr_td %}
+{% from "macros/staff_browse.html" import staff_browse_attr_td, staff_browse_overall_td %}
 {% block title %}Staff Salaries — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/staff_salaries.js') }}" defer></script>
@@ -137,7 +137,7 @@
             {% for row in my_roster %}
             {% set e = row.entry %}
             <tr>
-              <td><img class="staff-salaries-thumb" src="{{ row.image_url }}" alt="" width="40" height="40" loading="lazy"></td>
+              <td><img class="staff-salaries-thumb" src="{{ row.image_url or staff_placeholder_url }}" alt="" width="40" height="40" loading="lazy" data-fallback="{{ staff_placeholder_url }}" onerror="if(this.dataset.fallback){this.onerror=null;this.src=this.dataset.fallback;}"></td>
               <td><a href="{{ url_for('site_gm.staff_profile_page', staff_fhm_id=e.staff_fhm_id) }}" target="_blank" rel="noopener">{{ e.staff_name }}</a></td>
               <td>{{ row.role_label }}</td>
               <td>{{ e.hired_at.strftime('%Y-%m-%d') if e.hired_at else '—' }}</td>
@@ -167,6 +167,7 @@
                   <th scope="col" class="team-staff-th team-staff-th--photo">Photo</th>
                   <th data-sort-type="str" scope="col" class="team-staff-th team-staff-th--text">Name</th>
                   <th data-sort-type="str" scope="col" class="team-staff-th team-staff-th--nat">NAT</th>
+                  <th data-sort-type="num" scope="col" class="team-staff-th team-staff-th--ovr" title="Overall for this role">OVR</th>
                   {% for key, ln in columns %}
                   <th data-sort-type="num" scope="col" class="team-staff-th team-staff-th--split" title="{% if ln[1] %}{{ ln[0] }} {{ ln[1] }}{% else %}{{ ln[0] }}{% endif %}">
                     <span class="team-staff-th__ln1">{{ ln[0] }}</span>{% if ln[1] %}<br><span class="team-staff-th__ln2">{{ ln[1] }}</span>{% endif %}
@@ -179,7 +180,7 @@
                 {% for ent in browse_by_filter.get(fk, []) %}
                 <tr data-staff-id="{{ ent.staff_fhm_id }}" data-staff-name="{{ ent.full_name }}">
                   <td class="staff-salaries-browse-photo">
-                    <img class="staff-salaries-thumb" src="{{ ent.image_url }}" alt="" width="32" height="32" loading="lazy">
+                    <img class="staff-salaries-thumb" src="{{ ent.image_url or staff_placeholder_url }}" alt="" width="32" height="32" loading="lazy" decoding="async" data-fallback="{{ staff_placeholder_url }}" onerror="if(this.dataset.fallback){this.onerror=null;this.src=this.dataset.fallback;}">
                   </td>
                   <td data-sort-value="{{ ent.full_name|lower }}">
                     <a class="team-staff-name staff-salaries-browse-name" href="{{ url_for('site_gm.staff_profile_page', staff_fhm_id=ent.staff_fhm_id) }}" target="_blank" rel="noopener">{{ ent.full_name }}</a>
@@ -191,8 +192,9 @@
                     <span class="muted">—</span>
                     {% endif %}
                   </td>
+                  {{ staff_browse_overall_td(ent.role_overall) }}
                   {% for key, _ in columns %}
-                  {{ staff_attr_td(ent.attrs, key) }}
+                  {{ staff_browse_attr_td(ent.attrs, key) }}
                   {% endfor %}
                   {% if can_submit_requests %}
                   <td class="staff-salaries-browse-hire">
@@ -201,7 +203,7 @@
                   {% endif %}
                 </tr>
                 {% else %}
-                <tr><td colspan="{{ 3 + columns|length + (1 if can_submit_requests else 0) }}" class="muted">No eligible staff for this role.</td></tr>
+                <tr><td colspan="{{ 4 + columns|length + (1 if can_submit_requests else 0) }}" class="muted">No eligible staff for this role.</td></tr>
                 {% endfor %}
               </tbody>
             </table>

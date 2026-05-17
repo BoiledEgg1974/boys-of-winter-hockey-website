@@ -27,7 +27,7 @@ BROWSE_COLUMNS_BY_FILTER: dict[str, tuple[tuple[str, tuple[str, str]], ...]] = {
     "trainer": trainer_columns(),
 }
 from app.services.staff_hire_limits import hire_limit_status
-from app.services.staff_images import staff_image_url
+from app.services.staff_images import staff_image_url, staff_placeholder_url
 from app.services.staff_transactions import (
     active_roster_for_team,
     recent_requests_for_team,
@@ -160,6 +160,7 @@ def staff_salary_context(session: Session, *, league_slug: str) -> dict:
     browse_by_filter: dict[str, list[dict]] = {}
     for fk in BROWSE_FILTERS:
         browse_by_filter[fk] = list_staff_for_browse(fk, exclude_staff_ids=unavailable)
+    _enrich_browse_entries(str(league_slug).strip(), browse_by_filter)
     return {
         "league_slug": str(league_slug).strip(),
         "season": season,
@@ -206,7 +207,13 @@ def staff_portal_context_for_gm(
     ctx["recent_requests"] = recent_requests_for_team(
         session, league_slug=league_slug, team_id=team_id, limit=8
     )
-    for fk in BROWSE_FILTERS:
-        for ent in ctx.get("browse_by_filter", {}).get(fk, []):
-            ent["image_url"] = staff_image_url(league_slug, ent.get("staff_fhm_id"))
     return ctx
+
+
+def _enrich_browse_entries(league_slug: str, browse_by_filter: dict[str, list[dict]]) -> None:
+    """Ensure browse rows have image URLs (with placeholder fallback)."""
+    placeholder = staff_placeholder_url()
+    for rows in browse_by_filter.values():
+        for ent in rows:
+            url = staff_image_url(league_slug, ent.get("staff_fhm_id"))
+            ent["image_url"] = url or placeholder

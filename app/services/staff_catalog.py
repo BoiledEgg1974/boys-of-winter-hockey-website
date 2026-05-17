@@ -137,6 +137,27 @@ def get_staff_profile(staff_fhm_id: str | int | None) -> dict[str, Any] | None:
     return _load_catalog().get(sid)
 
 
+def compute_staff_role_overall(
+    attrs: dict[str, Any] | None,
+    column_keys: tuple[str, ...] | list[str],
+) -> int | None:
+    """Role overall: mean of displayed attribute columns (0–20), rounded."""
+    if not attrs:
+        return None
+    vals: list[float] = []
+    for key in column_keys:
+        v = attrs.get(key)
+        if v is None:
+            continue
+        try:
+            vals.append(float(v))
+        except (TypeError, ValueError):
+            continue
+    if not vals:
+        return None
+    return int(round(sum(vals) / len(vals)))
+
+
 def list_staff_for_browse(
     filter_key: str,
     *,
@@ -152,20 +173,33 @@ def list_staff_for_browse(
         if not _meets_browse_filter(rr, filter_key, min_rating):
             continue
         rating = _role_rating(rr, filter_key)
+        col_keys = browse_column_keys(filter_key)
+        role_overall = compute_staff_role_overall(entry.get("attrs"), col_keys)
         rows.append(
             {
                 **entry,
                 "browse_rating": rating,
                 "browse_filter": filter_key,
+                "role_overall": role_overall,
             }
         )
     rows.sort(
         key=lambda r: (
-            -(float(r.get("browse_rating") or 0)),
+            -(int(r.get("role_overall") or 0)),
             str(r.get("full_name") or "").lower(),
         )
     )
     return rows
+
+
+def browse_column_keys(filter_key: str) -> tuple[str, ...]:
+    if filter_key in ("head_coach", "assistant_coach"):
+        return tuple(k for k, _ in coach_columns())
+    if filter_key == "scout":
+        return tuple(k for k, _ in scout_columns())
+    if filter_key == "trainer":
+        return tuple(k for k, _ in trainer_columns())
+    return ()
 
 
 def coach_columns() -> tuple[tuple[str, tuple[str, str]], ...]:

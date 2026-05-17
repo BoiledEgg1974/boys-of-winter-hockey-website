@@ -31,22 +31,45 @@ class LeagueDiscordBot:
         rel = path if path.startswith("/") else f"/{path}"
         return f"{base}{rel}"
 
-    def poll_pending(self, client: httpx.Client, league_slug: str) -> tuple[list[dict[str, Any]], str]:
+    def poll_pending(
+        self, client: httpx.Client, league_slug: str, *, site_timeout: float | None = None
+    ) -> tuple[list[dict[str, Any]], str]:
         url = self._site_url(league_slug, "/api/discord/events/pending")
-        resp = client.get(url, params={"league_slug": league_slug, "limit": 20}, headers=self._headers)
+        timeout = site_timeout if site_timeout is not None else self.settings.site_timeout_seconds
+        try:
+            resp = client.get(
+                url,
+                params={"league_slug": league_slug, "limit": 20},
+                headers=self._headers,
+                timeout=timeout,
+            )
+        except httpx.ReadTimeout:
+            log.warning(
+                "pending fetch timed out for %s after %.0fs; retrying once",
+                league_slug,
+                float(timeout),
+            )
+            resp = client.get(
+                url,
+                params={"league_slug": league_slug, "limit": 20},
+                headers=self._headers,
+                timeout=timeout,
+            )
         resp.raise_for_status()
         data = resp.json()
         if not data.get("ok"):
             raise RuntimeError(data.get("message") or "pending fetch failed")
         return list(data.get("events") or []), str(data.get("guild_id") or "").strip()
 
-    def _post_discord_once(self, client: httpx.Client, channel_id: str, body: dict[str, Any]) -> httpx.Response:
+    def _post_discord_once(
+        self, discord_client: httpx.Client, channel_id: str, body: dict[str, Any]
+    ) -> httpx.Response:
         url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
-        return client.post(url, headers=self._discord_headers, json=body)
+        return discord_client.post(url, headers=self._discord_headers, json=body)
 
-    def post_discord(self, client: httpx.Client, channel_id: str, body: dict[str, Any]) -> None:
+    def post_discord(self, discord_client: httpx.Client, channel_id: str, body: dict[str, Any]) -> None:
         body = sanitize_discord_message_body(body)
-        resp = self._post_discord_once(client, channel_id, body)
+        resp = self._post_discord_once(discord_client, channel_id, body)
         if resp.status_code == 429:
             retry_after = 2.0
             try:
@@ -61,7 +84,7 @@ class LeagueDiscordBot:
                         pass
             log.warning("Discord 429 on channel %s; sleeping %.1fs", channel_id, retry_after)
             time.sleep(max(0.5, retry_after))
-            resp = self._post_discord_once(client, channel_id, body)
+            resp = self._post_discord_once(discord_client, channel_id, body)
         if resp.status_code >= 400:
             try:
                 detail = resp.json()
@@ -103,7 +126,13 @@ class LeagueDiscordBot:
         )
         resp.raise_for_status()
 
-    def deliver_one(self, client: httpx.Client, league_slug: str, event: dict[str, Any]) -> None:
+    def deliver_one(
+        self,
+        site_client: httpx.Client,
+        discord_client: httpx.Client,
+        league_slug: str,
+        event: dict[str, Any],
+    ) -> None:
         event_id = int(event["id"])
         channel_id = str(event.get("discord_channel_id") or "").strip()
         if not channel_id:
@@ -113,33 +142,33 @@ class LeagueDiscordBot:
         for i, body in enumerate(bodies):
             if i > 0 and delay > 0:
                 time.sleep(delay)
-            self.post_discord(client, channel_id, body)
-        self.ack(client, league_slug, event_id)
+            self.post_discord(discord_client, channel_id, body)
+        self.ack(site_client, league_slug, event_id)
 
-    def run_cycle(self, client: httpx.Client) -> str | None:
+    def run_cycle(self, site_client: httpx.Client, discord_client: httpx.Client) -> str | None:
         last_error: str | None = None
         delay = float(self.settings.delivery_delay_seconds)
         for slug in sorted(self.settings.league_base_urls):
             try:
-                events, league_guild_id = self.poll_pending(client, slug)
+                events, league_guild_id = self.poll_pending(site_client, slug)
                 guild_id = league_guild_id
                 for idx, ev in enumerate(events):
                     guild_id = str(ev.get("guild_id") or guild_id) or guild_id
                     if idx > 0 and delay > 0:
                         time.sleep(delay)
                     try:
-                        self.deliver_one(client, slug, ev)
+                        self.deliver_one(site_client, discord_client, slug, ev)
                         log.info("delivered event %s for %s", ev.get("id"), slug)
                     except Exception as exc:
                         last_error = str(exc)
                         log.warning("delivery failed event %s %s: %s", ev.get("id"), slug, exc)
                         try:
-                            self.fail(client, slug, int(ev["id"]), last_error)
+                            self.fail(site_client, slug, int(ev["id"]), last_error)
                         except Exception:
                             log.exception("fail report failed for event %s", ev.get("id"))
                 try:
                     self.heartbeat(
-                        client,
+                        site_client,
                         league_slug=slug,
                         guild_id=guild_id,
                         pending_count=len(events),
@@ -155,12 +184,22 @@ class LeagueDiscordBot:
     def run_forever(self) -> None:
         logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
         log.info(
-            "Starting league_discord_bot for leagues: %s (delay=%.1fs, max_parts=%s)",
+            "Starting league_discord_bot for leagues: %s (delay=%.1fs, max_parts=%s, site_timeout=%.0fs)",
             ", ".join(sorted(self.settings.league_base_urls)),
             self.settings.delivery_delay_seconds,
             self.settings.max_message_parts,
+            self.settings.site_timeout_seconds,
         )
-        with httpx.Client(timeout=30.0) as client:
+        site_timeout = httpx.Timeout(
+            connect=15.0,
+            read=float(self.settings.site_timeout_seconds),
+            write=30.0,
+            pool=30.0,
+        )
+        discord_timeout = httpx.Timeout(connect=15.0, read=60.0, write=30.0, pool=30.0)
+        with httpx.Client(timeout=site_timeout) as site_client, httpx.Client(
+            timeout=discord_timeout
+        ) as discord_client:
             while True:
-                self.run_cycle(client)
+                self.run_cycle(site_client, discord_client)
                 time.sleep(max(2.0, float(self.settings.poll_seconds)))

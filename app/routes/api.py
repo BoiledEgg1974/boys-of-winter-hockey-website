@@ -1662,38 +1662,16 @@ def discord_events_pending():
     except ValueError:
         limit = 20
     from app.services.discord_events import (
-        bot_event_delivery_fields,
+        fetch_pending_events_for_bot,
         get_league_bot_config,
-        sanitize_discord_event_payload,
+        serialize_pending_events_for_bot,
     )
 
     rows = fetch_pending_events_for_bot(db.session, league_slug=slug, limit=limit)
     bot_cfg = get_league_bot_config(db.session, slug)
-    out = []
-    for r in rows:
-        try:
-            payload = sanitize_discord_event_payload(
-                slug, json.loads(r.payload_json or "{}")
-            )
-        except Exception:
-            payload = {}
-        delivery = bot_event_delivery_fields(
-            db.session, league_slug=slug, event_key=str(r.event_key or "")
-        )
-        out.append(
-            {
-                "id": int(r.id),
-                "league_slug": str(r.league_slug or ""),
-                "event_key": str(r.event_key or ""),
-                "channel_key": str(r.channel_key or ""),
-                "discord_channel_id": delivery.get("discord_channel_id") or "",
-                "guild_id": delivery.get("guild_id") or str(bot_cfg.guild_id or ""),
-                "idempotency_key": str(r.idempotency_key or ""),
-                "payload": payload,
-                "attempts": int(r.attempts or 0),
-                "created_at": r.created_at.isoformat(timespec="seconds") if r.created_at else None,
-            }
-        )
+    out = serialize_pending_events_for_bot(
+        db.session, league_slug=slug, rows=rows
+    )
     return jsonify(
         {
             "ok": True,

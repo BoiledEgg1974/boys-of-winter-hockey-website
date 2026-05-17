@@ -653,13 +653,65 @@ def fetch_pending_events_for_bot(session, *, league_slug: str, limit: int = 20) 
 
 
 def bot_event_delivery_fields(session, *, league_slug: str, event_key: str) -> dict[str, str]:
-    route = _route_map(session, league_slug).get(str(event_key or ""))
+    routes = _route_map(session, league_slug)
     cfg = get_league_bot_config(session, league_slug)
+    return bot_event_delivery_fields_cached(
+        routes, cfg, event_key=event_key
+    )
+
+
+def bot_event_delivery_fields_cached(
+    routes: dict[str, DiscordChannelRoute],
+    bot_cfg: DiscordLeagueBotConfig,
+    *,
+    event_key: str,
+) -> dict[str, str]:
+    route = routes.get(str(event_key or ""))
     return {
         "discord_channel_id": str(route.discord_channel_id or "") if route else "",
-        "guild_id": str(cfg.guild_id or ""),
+        "guild_id": str(bot_cfg.guild_id or ""),
         "channel_key": str(route.channel_key or "") if route else "",
     }
+
+
+def serialize_pending_events_for_bot(
+    session,
+    *,
+    league_slug: str,
+    rows: list[DiscordOutboundEvent],
+) -> list[dict]:
+    """Build bot JSON for pending rows (one route-map load per request)."""
+    routes = _route_map(session, league_slug)
+    bot_cfg = get_league_bot_config(session, league_slug)
+    guild_default = str(bot_cfg.guild_id or "")
+    out: list[dict] = []
+    for r in rows:
+        try:
+            payload = sanitize_discord_event_payload(
+                league_slug, json.loads(r.payload_json or "{}")
+            )
+        except Exception:
+            payload = {}
+        delivery = bot_event_delivery_fields_cached(
+            routes, bot_cfg, event_key=str(r.event_key or "")
+        )
+        out.append(
+            {
+                "id": int(r.id),
+                "league_slug": str(r.league_slug or ""),
+                "event_key": str(r.event_key or ""),
+                "channel_key": str(r.channel_key or ""),
+                "discord_channel_id": delivery.get("discord_channel_id") or "",
+                "guild_id": delivery.get("guild_id") or guild_default,
+                "idempotency_key": str(r.idempotency_key or ""),
+                "payload": payload,
+                "attempts": int(r.attempts or 0),
+                "created_at": r.created_at.isoformat(timespec="seconds")
+                if r.created_at
+                else None,
+            }
+        )
+    return out
 
 
 def mark_event_sent(session, event_id: int) -> bool:

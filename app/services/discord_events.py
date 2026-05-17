@@ -16,6 +16,31 @@ from app.site_models import (
     DiscordDeliveredSource,
     DiscordLeagueBotConfig,
     DiscordOutboundEvent,
+    GmApprovalRequest,
+    LeagueDraft,
+    LeagueDraftPick,
+    LeagueExpansionDraft,
+    LeagueExpansionDraftPick,
+    NewsArticle,
+    StaffChangeRequest,
+)
+
+NEWS_DISCORD_EVENT_KEYS = frozenset(
+    {
+        "news_published",
+        "gm_news_published",
+        "admin_news_published",
+        "story_published",
+    }
+)
+
+OPS_TEXT_ONLY_DISCORD_EVENT_KEYS = frozenset(
+    {
+        "trade_request",
+        "staff_transaction_posted",
+        "draft_hub_pick_made",
+        "expansion_draft_pick_made",
+    }
 )
 
 EVENT_KEY_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
@@ -202,6 +227,321 @@ def build_news_article_public_url(league_slug: str, article_id: int | str) -> st
     if aid <= 0:
         return ""
     return build_league_public_url(league_slug, f"/league-headlines#a{aid}")
+
+
+def _parse_json_object(raw: str) -> dict:
+    text = str(raw or "").strip()
+    if not text:
+        return {}
+    try:
+        data = json.loads(text)
+    except Exception:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def trade_request_discord_body(row: GmApprovalRequest) -> str:
+    """Human-readable ops / trade request text for Discord."""
+    lines: list[str] = []
+    title = str(row.title or "").strip()
+    if title:
+        lines.append(title)
+    req_type = str(row.request_type or "").strip()
+    if req_type and req_type != "trade":
+        plain = str(row.body or "").strip()
+        if plain:
+            lines.append(plain)
+        return "\n".join(lines)
+    payload = _parse_json_object(row.body or "")
+    details = str(payload.get("details") or "").strip()
+    if details:
+        lines.append(details)
+    inc = payload.get("incoming_count")
+    out = payload.get("outgoing_count")
+    if inc is not None and out is not None:
+        lines.append(f"Incoming skaters: {inc} · Outgoing skaters: {out}")
+    partner_tid = payload.get("partner_team_id")
+    partner_inc = payload.get("partner_incoming_count")
+    partner_out = payload.get("partner_outgoing_count")
+    if partner_tid is not None and partner_inc is not None and partner_out is not None:
+        lines.append(
+            f"Partner team #{partner_tid}: +{partner_inc} / -{partner_out}"
+        )
+    if not lines:
+        plain = str(row.body or "").strip()
+        if plain and not plain.startswith("{"):
+            lines.append(plain)
+    return "\n".join(lines)
+
+
+def trade_request_discord_payload(
+    row: GmApprovalRequest,
+    *,
+    team_fields: dict | None = None,
+    **extra: object,
+) -> dict:
+    body = trade_request_discord_body(row)
+    title = str(row.title or "").strip() or f"Trade / ops request #{int(row.id)}"
+    return {
+        "request_id": int(row.id),
+        "request_type": str(row.request_type or ""),
+        "team_id": int(row.team_id),
+        "status": str(row.status or ""),
+        "admin_note": str(row.admin_note or ""),
+        "title": title,
+        "body": body,
+        "body_preview": body[:280],
+        "has_image": False,
+        **(team_fields or {}),
+        **extra,
+    }
+
+
+def staff_transaction_discord_payload(
+    req: StaffChangeRequest,
+    *,
+    role_label: str = "",
+    team_fields: dict | None = None,
+    gm_email: str = "",
+    **extra: object,
+) -> dict:
+    action = "hired" if str(req.request_type or "") == "hire" else "fired"
+    staff_name = str(req.staff_name or "").strip()
+    body_lines = [f"{staff_name} ({role_label})" if role_label else staff_name]
+    if gm_email:
+        body_lines.append(f"GM: {gm_email}")
+    body = "\n".join([ln for ln in body_lines if ln])
+    title = "Staff hired" if action == "hired" else "Staff fired"
+    return {
+        "request_id": int(req.id),
+        "action": action,
+        "staff_name": staff_name,
+        "role_label": role_label,
+        "gm_email": gm_email,
+        "title": title,
+        "body": body,
+        "body_preview": body[:280],
+        "has_image": False,
+        **(team_fields or {}),
+        **extra,
+    }
+
+
+def draft_hub_pick_discord_payload(
+    *,
+    draft: LeagueDraft,
+    pick: LeagueDraftPick,
+    player_name: str,
+    player_pos: str = "",
+    team_fields: dict | None = None,
+    **extra: object,
+) -> dict:
+    pos = str(player_pos or "").strip()
+    ply = player_name + (f" ({pos})" if pos else "")
+    pick_line = (
+        f"Round {int(pick.round)} · Overall #{int(pick.overall_pick)} · {ply}"
+        f" · {str(pick.source or '')}"
+    )
+    dname = str(draft.name or "Draft Hub")
+    return {
+        "title": dname,
+        "draft_id": int(draft.id),
+        "draft_name": dname,
+        "overall_pick": int(pick.overall_pick),
+        "round": int(pick.round),
+        "pick_source": str(pick.source or ""),
+        "player_name": player_name,
+        "player_pos": pos,
+        "body": pick_line,
+        "body_preview": pick_line[:280],
+        "has_image": False,
+        **(team_fields or {}),
+        **extra,
+    }
+
+
+def expansion_draft_pick_discord_payload(
+    *,
+    draft: LeagueExpansionDraft,
+    pick: LeagueExpansionDraftPick,
+    player_name: str,
+    team_fields: dict | None = None,
+    **extra: object,
+) -> dict:
+    phase = str(pick.phase or "").strip()
+    ph = f"[{phase}] " if phase else ""
+    pick_line = (
+        f"{ph}Round {int(pick.round)} · Overall #{int(pick.overall_pick)} · {player_name}"
+        f" · {str(pick.source or '')}"
+    )
+    dname = str(draft.name or "Expansion draft")
+    return {
+        "title": dname,
+        "draft_id": int(draft.id),
+        "draft_name": dname,
+        "overall_pick": int(pick.overall_pick),
+        "round": int(pick.round),
+        "phase": phase,
+        "pick_source": str(pick.source or ""),
+        "player_name": player_name,
+        "body": pick_line,
+        "body_preview": pick_line[:280],
+        "has_image": False,
+        **(team_fields or {}),
+        **extra,
+    }
+
+
+def news_article_discord_payload(article: NewsArticle, **extra: object) -> dict:
+    """Queue payload fields for news-style Discord events."""
+    body = str(article.body or "")
+    has_image = bool(str(article.image_rel_path or "").strip())
+    return {
+        "article_id": int(article.id),
+        "title": str(article.title or ""),
+        "body": body,
+        "body_preview": body[:280],
+        "has_image": has_image,
+        **extra,
+    }
+
+
+def enrich_discord_payload_for_bot(
+    session,
+    *,
+    league_slug: str,
+    event_key: str,
+    payload: dict,
+) -> dict:
+    """Fill full article body and image flag for pending delivery (replay-safe)."""
+    out = dict(payload or {})
+    ek = str(event_key or "")
+    if ek in NEWS_DISCORD_EVENT_KEYS:
+        aid = out.get("article_id")
+        if aid is None:
+            return out
+        try:
+            article_id = int(aid)
+        except (TypeError, ValueError):
+            return out
+        art = session.get(NewsArticle, article_id)
+        if art is None or str(art.league_slug or "") != str(league_slug or ""):
+            return out
+        enriched = news_article_discord_payload(art)
+        merged = {**enriched, **out}
+        merged["body"] = enriched["body"]
+        merged["has_image"] = enriched["has_image"]
+        if len(str(out.get("body_preview") or "")) < len(enriched["body_preview"]):
+            merged["body_preview"] = enriched["body_preview"]
+        return merged
+    if ek == "announcement_posted":
+        if not str(out.get("body") or "").strip():
+            preview = str(out.get("body_preview") or "").strip()
+            if preview:
+                out["body"] = preview
+        out.setdefault("has_image", False)
+        return out
+    if ek == "trade_request":
+        rid = out.get("request_id")
+        if rid is None:
+            return out
+        try:
+            request_id = int(rid)
+        except (TypeError, ValueError):
+            return out
+        row = session.get(GmApprovalRequest, request_id)
+        if row is None or str(row.league_slug or "") != str(league_slug or ""):
+            return out
+        enriched = trade_request_discord_payload(row, team_fields={})
+        merged = {**enriched, **out}
+        merged["body"] = enriched["body"]
+        merged["has_image"] = False
+        if str(out.get("admin_note") or "").strip():
+            note = str(out["admin_note"]).strip()
+            if note not in merged["body"]:
+                merged["body"] = f"{merged['body']}\n\nAdmin note: {note}".strip()
+        return merged
+    if ek == "staff_transaction_posted":
+        rid = out.get("request_id")
+        if rid is None:
+            return out
+        try:
+            request_id = int(rid)
+        except (TypeError, ValueError):
+            return out
+        req = session.get(StaffChangeRequest, request_id)
+        if req is None or str(req.league_slug or "") != str(league_slug or ""):
+            return out
+        enriched = staff_transaction_discord_payload(
+            req,
+            role_label=str(out.get("role_label") or ""),
+            team_fields={},
+            gm_email=str(out.get("gm_email") or ""),
+        )
+        merged = {**enriched, **out}
+        merged["body"] = enriched["body"]
+        merged["has_image"] = False
+        return merged
+    if ek == "draft_hub_pick_made":
+        pick_id = out.get("pick_id") or out.get("source_id")
+        if pick_id is None:
+            return _fill_body_from_preview(out)
+        try:
+            pid = int(pick_id)
+        except (TypeError, ValueError):
+            return _fill_body_from_preview(out)
+        pk = session.get(LeagueDraftPick, pid)
+        if pk is None:
+            return _fill_body_from_preview(out)
+        draft = session.get(LeagueDraft, int(pk.league_draft_id))
+        if draft is None or str(draft.league_slug or "") != str(league_slug or ""):
+            return _fill_body_from_preview(out)
+        enriched = draft_hub_pick_discord_payload(
+            draft=draft,
+            pick=pk,
+            player_name=str(out.get("player_name") or ""),
+            player_pos=str(out.get("player_pos") or ""),
+            team_fields={},
+        )
+        merged = {**enriched, **out}
+        merged["body"] = enriched["body"]
+        merged["has_image"] = False
+        return merged
+    if ek == "expansion_draft_pick_made":
+        pick_id = out.get("pick_id") or out.get("source_id")
+        if pick_id is None:
+            return _fill_body_from_preview(out)
+        try:
+            pid = int(pick_id)
+        except (TypeError, ValueError):
+            return _fill_body_from_preview(out)
+        pk = session.get(LeagueExpansionDraftPick, pid)
+        if pk is None:
+            return _fill_body_from_preview(out)
+        draft = session.get(LeagueExpansionDraft, int(pk.league_expansion_draft_id))
+        if draft is None or str(draft.league_slug or "") != str(league_slug or ""):
+            return _fill_body_from_preview(out)
+        enriched = expansion_draft_pick_discord_payload(
+            draft=draft,
+            pick=pk,
+            player_name=str(out.get("player_name") or ""),
+            team_fields={},
+        )
+        merged = {**enriched, **out}
+        merged["body"] = enriched["body"]
+        merged["has_image"] = False
+        return merged
+    return out
+
+
+def _fill_body_from_preview(payload: dict) -> dict:
+    out = dict(payload or {})
+    if not str(out.get("body") or "").strip():
+        preview = str(out.get("body_preview") or "").strip()
+        if preview:
+            out["body"] = preview
+    out.setdefault("has_image", False)
+    return out
 
 
 def normalize_discord_payload_url(league_slug: str, url: str) -> str:
@@ -706,9 +1046,16 @@ def serialize_pending_events_for_bot(
     out: list[dict] = []
     for r in rows:
         try:
-            payload = sanitize_discord_event_payload(
-                league_slug, json.loads(r.payload_json or "{}")
+            raw_payload = json.loads(r.payload_json or "{}")
+            payload = enrich_discord_payload_for_bot(
+                session,
+                league_slug=league_slug,
+                event_key=str(r.event_key or ""),
+                payload=raw_payload,
             )
+            payload = sanitize_discord_event_payload(league_slug, payload)
+            if str(r.event_key or "") in OPS_TEXT_ONLY_DISCORD_EVENT_KEYS:
+                payload.pop("url", None)
         except Exception:
             payload = {}
         delivery = bot_event_delivery_fields_cached(

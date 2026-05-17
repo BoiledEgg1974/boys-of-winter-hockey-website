@@ -110,6 +110,9 @@ from app.services.discord_events import (
     canonical_discord_bot_name,
     list_heartbeats,
     list_discord_routes,
+    news_article_discord_payload,
+    staff_transaction_discord_payload,
+    trade_request_discord_payload,
     prune_obsolete_discord_bot_heartbeats,
     list_outbound_events,
     team_fields_for_discord,
@@ -2434,15 +2437,10 @@ def admin_operations_queue_set_status(rid: int):
         trade_team = db.session.get(Team, int(row.team_id)) if row.team_id else None
         _enqueue_discord_event(
             "trade_request",
-            {
-                "request_id": int(row.id),
-                "request_type": str(row.request_type or ""),
-                "team_id": int(row.team_id),
-                "status": str(row.status or ""),
-                "admin_note": str(row.admin_note or "")[:240],
-                "url": build_league_public_url(slug, "/admin/operations/queue"),
-                **team_fields_for_discord(trade_team),
-            },
+            trade_request_discord_payload(
+                row,
+                team_fields=team_fields_for_discord(trade_team),
+            ),
             source_type="trade_request",
             source_id=int(row.id),
         )
@@ -2846,15 +2844,28 @@ def admin_story_automation_live_dispatch(sid: int):
         )
     )
     if result.get("ok"):
-        _enqueue_discord_event(
-            "story_published",
-            {
+        story_art = db.session.get(NewsArticle, int(row.article_id))
+        if story_art and story_art.league_slug == slug:
+            story_payload = news_article_discord_payload(
+                story_art,
+                schedule_id=int(row.id),
+                channel=str(row.channel or ""),
+                url=build_news_article_public_url(slug, story_art.id),
+            )
+        else:
+            story_payload = {
                 "schedule_id": int(row.id),
                 "article_id": int(row.article_id),
+                "title": "Story published",
+                "body": str(result.get("message") or "Story dispatched"),
+                "body_preview": str(result.get("message") or "Story dispatched")[:280],
+                "has_image": False,
                 "channel": str(row.channel or ""),
-                "message": str(result.get("message") or "Story dispatched"),
                 "url": build_news_article_public_url(slug, int(row.article_id)),
-            },
+            }
+        _enqueue_discord_event(
+            "story_published",
+            story_payload,
             source_type="story_schedule",
             source_id=int(row.id),
         )
@@ -3605,13 +3616,16 @@ def admin_announcements():
                 ),
             )
         )
+        ann_body = str(ann.body or "")
         _enqueue_discord_event(
             "announcement_posted",
             {
                 "announcement_id": int(ann.id),
                 "title": str(ann.title or ""),
                 "level": str(ann.level or "info"),
-                "body_preview": str(ann.body or "")[:280],
+                "body": ann_body,
+                "body_preview": ann_body[:280],
+                "has_image": False,
                 "url": build_league_public_url(slug, "/"),
             },
             source_type="announcement",
@@ -3878,15 +3892,15 @@ def admin_news_compose():
         db.session.commit()
         _enqueue_discord_event(
             "admin_news_published",
-            {
-                "article_id": int(art.id),
-                "title": str(art.title or ""),
-                "body_preview": str(art.body or "")[:280],
-                "category": str(art.category or ""),
-                "url": build_news_article_public_url(slug, art.id),
-                "published_at_utc": art.published_at.isoformat(timespec="seconds") if art.published_at else "",
+            news_article_discord_payload(
+                art,
+                category=str(art.category or ""),
+                url=build_news_article_public_url(slug, art.id),
+                published_at_utc=art.published_at.isoformat(timespec="seconds")
+                if art.published_at
+                else "",
                 **team_fields_for_discord(team),
-            },
+            ),
             source_type="news_article",
             source_id=int(art.id),
         )
@@ -3981,15 +3995,15 @@ def admin_news_publish(aid: int):
     team = db.session.get(Team, art.team_id) if art.team_id else None
     _enqueue_discord_event(
         "gm_news_published",
-        {
-            "article_id": int(art.id),
-            "title": str(art.title or ""),
-            "body_preview": str(art.body or "")[:280],
-            "category": str(art.category or ""),
-            "url": build_news_article_public_url(slug, art.id),
-            "published_at_utc": art.published_at.isoformat(timespec="seconds") if art.published_at else "",
+        news_article_discord_payload(
+            art,
+            category=str(art.category or ""),
+            url=build_news_article_public_url(slug, art.id),
+            published_at_utc=art.published_at.isoformat(timespec="seconds")
+            if art.published_at
+            else "",
             **team_fields_for_discord(team),
-        },
+        ),
         source_type="news_article",
         source_id=int(art.id),
     )
@@ -4437,15 +4451,15 @@ def admin_ap_approve(rid: int):
         db.session.commit()
         _enqueue_discord_event(
             "ap_redemption_posted",
-            {
-                "request_id": int(req.id),
-                "article_id": int(art.id),
-                "team_id": int(req.team_id),
-                "total_cost": int(req.total_cost),
-                "redemption_label": red_label,
-                "url": build_news_article_public_url(slug, art.id),
+            news_article_discord_payload(
+                art,
+                request_id=int(req.id),
+                team_id=int(req.team_id),
+                total_cost=int(req.total_cost),
+                redemption_label=red_label,
+                url=build_news_article_public_url(slug, art.id),
                 **team_fields_for_discord(team),
-            },
+            ),
             source_type="ap_redemption",
             source_id=int(req.id),
         )
@@ -4575,15 +4589,12 @@ def admin_staff_approve(rid: int):
     action = "hired" if req.request_type == "hire" else "fired"
     _enqueue_discord_event(
         "staff_transaction_posted",
-        {
-            "request_id": int(req.id),
-            "action": action,
-            "staff_name": req.staff_name,
-            "role_label": staff_role_label(req.role),
-            "gm_email": str(gm_user.email or "") if gm_user else "",
-            "url": build_league_public_url(slug, f"/staff/{req.staff_fhm_id}"),
-            **team_fields_for_discord(team),
-        },
+        staff_transaction_discord_payload(
+            req,
+            role_label=staff_role_label(req.role),
+            team_fields=team_fields_for_discord(team),
+            gm_email=str(gm_user.email or "") if gm_user else "",
+        ),
         source_type="staff_change_request",
         source_id=int(req.id),
     )

@@ -865,8 +865,8 @@ def record_pick(
     session.flush()
     try:
         from app.services.discord_events import (
-            build_league_public_url,
             enqueue_discord_event,
+            expansion_draft_pick_discord_payload,
             team_fields_for_discord,
         )
 
@@ -876,19 +876,13 @@ def record_pick(
             session,
             league_slug=draft.league_slug,
             event_key="expansion_draft_pick_made",
-            payload={
-                "title": str(draft.name or "Expansion draft"),
-                "draft_id": int(draft.id),
-                "draft_name": str(draft.name or ""),
-                "overall_pick": int(pk.overall_pick),
-                "round": int(pk.round),
-                "phase": str(pk.phase or ""),
-                "pick_source": str(source),
-                "player_name": pl_name,
-                "body_preview": f"[{pk.phase}] R{int(pk.round)} #{int(pk.overall_pick)} · {pl_name} — {source}",
-                "url": build_league_public_url(draft.league_slug, "/expansion-draft-hub"),
-                **team_fields_for_discord(tm),
-            },
+            payload=expansion_draft_pick_discord_payload(
+                draft=draft,
+                pick=pk,
+                player_name=pl_name,
+                team_fields=team_fields_for_discord(tm),
+                pick_id=int(pk.id),
+            ),
             created_by_user_id=int(user_id) if user_id is not None else None,
             source_type="expansion_draft_pick",
             source_id=int(pk.id),

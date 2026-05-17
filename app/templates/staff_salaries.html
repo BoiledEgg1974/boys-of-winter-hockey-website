@@ -168,13 +168,13 @@
                   <th scope="col" class="staff-salaries-browse-th staff-salaries-browse-th--photo">Photo</th>
                   <th data-sort-type="str" scope="col" class="staff-salaries-browse-th staff-salaries-browse-th--name">Name</th>
                   <th data-sort-type="str" scope="col" class="staff-salaries-browse-th staff-salaries-browse-th--nat">NAT</th>
+                  <th data-sort-type="num" scope="col" class="staff-salaries-browse-th staff-salaries-browse-th--ovr" title="Overall 1–100 for this role">OVR</th>
                   <th data-sort-type="num" scope="col" class="staff-salaries-browse-th staff-salaries-browse-th--role-rating team-staff-th--split" title="{{ browse_role_rating_labels[fk] }} rating (16+ to appear here)">{{ browse_role_rating_labels[fk] }}</th>
                   {% for key, ln in browse_cols %}
                   <th data-sort-type="num" scope="col" class="staff-salaries-browse-th staff-salaries-browse-th--attr team-staff-th--split" title="{% if ln[1] %}{{ ln[0] }} {{ ln[1] }}{% else %}{{ ln[0] }}{% endif %}">
                     <span class="team-staff-th__ln1">{{ ln[0] }}</span>{% if ln[1] %}<br><span class="team-staff-th__ln2">{{ ln[1] }}</span>{% endif %}
                   </th>
                   {% endfor %}
-                  <th data-sort-type="num" scope="col" class="staff-salaries-browse-th staff-salaries-browse-th--ovr" title="Overall 1–100 for this role">OVR</th>
                 </tr>
               </thead>
               <tbody>
@@ -198,11 +198,11 @@
                     <span class="muted">—</span>
                     {% endif %}
                   </td>
+                  {{ staff_browse_overall_td(ent.role_overall) }}
                   {{ staff_browse_role_rating_td(ent.browse_rating) }}
                   {% for key, _ in browse_cols %}
                   {{ staff_browse_attr_td(ent.attrs, key) }}
                   {% endfor %}
-                  {{ staff_browse_overall_td(ent.role_overall) }}
                 </tr>
                 {% else %}
                 <tr><td colspan="{{ browse_colspan }}" class="muted">No eligible staff for this role ({{ browse_role_rating_labels[fk] }} rating 16+).</td></tr>

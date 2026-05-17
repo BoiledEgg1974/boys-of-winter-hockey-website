@@ -5,8 +5,13 @@ import os
 import unittest
 from unittest.mock import patch
 
-from app.services.discord_events import build_league_public_url, resolve_site_public_base_url
-from scripts.league_discord_bot.formatters import _discord_embed_url
+from app.services.discord_events import (
+    build_league_public_url,
+    normalize_discord_payload_url,
+    resolve_site_public_base_url,
+    sanitize_discord_event_payload,
+)
+from scripts.league_discord_bot.formatters import _discord_embed_url, sanitize_discord_message_body
 
 
 class DiscordPublicUrlTest(unittest.TestCase):
@@ -31,6 +36,26 @@ class DiscordPublicUrlTest(unittest.TestCase):
     def test_resolve_base_from_env(self):
         with patch.dict(os.environ, {"SITE_PUBLIC_BASE_URL": "https://example.com"}, clear=False):
             self.assertEqual(resolve_site_public_base_url(), "https://example.com")
+
+    def test_normalize_relative_historical_url(self):
+        with patch.dict(os.environ, {"SITE_PUBLIC_BASE_URL": "https://www.bowlhockey.com"}, clear=False):
+            fixed = normalize_discord_payload_url("bowl-historical", "/bowl-historical/")
+        self.assertEqual(fixed, "https://www.bowlhockey.com/bowl-historical/")
+
+    def test_sanitize_payload_drops_relative_without_base(self):
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("SITE_PUBLIC_BASE_URL", None)
+            out = sanitize_discord_event_payload("bowl-historical", {"url": "/bowl-historical/"})
+        self.assertNotIn("url", out)
+
+    def test_sanitize_message_body_strips_bad_embed_url(self):
+        body = sanitize_discord_message_body(
+            {
+                "content": "hi",
+                "embeds": [{"title": "T", "url": "/bowl-historical/"}],
+            }
+        )
+        self.assertEqual(body.get("embeds"), [{"title": "T"}])
 
 
 if __name__ == "__main__":

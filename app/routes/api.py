@@ -1661,14 +1661,20 @@ def discord_events_pending():
         limit = int(request.args.get("limit") or "20")
     except ValueError:
         limit = 20
-    from app.services.discord_events import bot_event_delivery_fields, get_league_bot_config
+    from app.services.discord_events import (
+        bot_event_delivery_fields,
+        get_league_bot_config,
+        sanitize_discord_event_payload,
+    )
 
     rows = fetch_pending_events_for_bot(db.session, league_slug=slug, limit=limit)
     bot_cfg = get_league_bot_config(db.session, slug)
     out = []
     for r in rows:
         try:
-            payload = json.loads(r.payload_json or "{}")
+            payload = sanitize_discord_event_payload(
+                slug, json.loads(r.payload_json or "{}")
+            )
         except Exception:
             payload = {}
         delivery = bot_event_delivery_fields(

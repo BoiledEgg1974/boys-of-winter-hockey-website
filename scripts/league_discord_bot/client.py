@@ -7,7 +7,7 @@ from typing import Any
 import httpx
 
 from scripts.league_discord_bot.config import BotSettings
-from scripts.league_discord_bot.formatters import format_discord_messages
+from scripts.league_discord_bot.formatters import format_discord_messages, sanitize_discord_message_body
 
 log = logging.getLogger(__name__)
 
@@ -45,6 +45,7 @@ class LeagueDiscordBot:
         return client.post(url, headers=self._discord_headers, json=body)
 
     def post_discord(self, client: httpx.Client, channel_id: str, body: dict[str, Any]) -> None:
+        body = sanitize_discord_message_body(body)
         resp = self._post_discord_once(client, channel_id, body)
         if resp.status_code == 429:
             retry_after = 2.0

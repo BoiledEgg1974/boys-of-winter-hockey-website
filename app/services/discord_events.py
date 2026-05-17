@@ -193,6 +193,37 @@ def build_league_public_url(league_slug: str, path: str = "/") -> str:
     return f"{base}{mount}{rel}"
 
 
+def normalize_discord_payload_url(league_slug: str, url: str) -> str:
+    """Fix queued relative URLs (e.g. ``/bowl-historical/``) for Discord embeds."""
+    u = str(url or "").strip()
+    if not u:
+        return ""
+    if u.lower().startswith(("http://", "https://")):
+        return u
+    base = resolve_site_public_base_url()
+    if not base:
+        return ""
+    mount = league_mount_path(league_slug)
+    path = u if u.startswith("/") else f"/{u}"
+    if mount and (path == mount or path.startswith(f"{mount}/")):
+        path = path[len(mount) :] or "/"
+        if not path.startswith("/"):
+            path = f"/{path}"
+    return f"{base}{mount}{path}"
+
+
+def sanitize_discord_event_payload(league_slug: str, payload: dict) -> dict:
+    """Return payload copy safe for Discord (absolute or omitted embed link)."""
+    out = dict(payload or {})
+    if "url" in out:
+        fixed = normalize_discord_payload_url(league_slug, str(out.get("url") or ""))
+        if fixed:
+            out["url"] = fixed
+        else:
+            out.pop("url", None)
+    return out
+
+
 def _source_idempotency_key(
     *, league_slug: str, event_key: str, source_type: str, source_id: str
 ) -> str:

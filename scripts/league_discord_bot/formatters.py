@@ -13,6 +13,27 @@ def _discord_embed_url(url: str) -> str:
     return ""
 
 
+def sanitize_discord_message_body(body: dict[str, Any]) -> dict[str, Any]:
+    """Last-line cleanup before Discord REST POST (strips invalid embed URLs)."""
+    out: dict[str, Any] = {}
+    content = str(body.get("content") or "").strip()
+    if content:
+        out["content"] = content
+    clean_embeds: list[dict[str, Any]] = []
+    for emb in body.get("embeds") or []:
+        if not isinstance(emb, dict):
+            continue
+        e = {k: v for k, v in emb.items() if v is not None and v != ""}
+        link = _discord_embed_url(str(e.pop("url", "") or ""))
+        if link:
+            e["url"] = link
+        if e:
+            clean_embeds.append(e)
+    if clean_embeds:
+        out["embeds"] = clean_embeds
+    return out or {"content": str(body.get("content") or "Notification")}
+
+
 def _preview(text: str, limit: int = 280) -> str:
     t = str(text or "").strip()
     if len(t) <= limit:
@@ -60,6 +81,11 @@ def _split_message_bodies(msg: dict[str, Any], *, max_parts: int) -> list[dict[s
         desc = str(emb.get("description") or "")
         if len(desc) > DISCORD_MAX_EMBED_DESC_LEN:
             emb["description"] = desc[: DISCORD_MAX_EMBED_DESC_LEN - 1].rstrip() + "…"
+        link = _discord_embed_url(str(emb.get("url") or ""))
+        if link:
+            emb["url"] = link
+        else:
+            emb.pop("url", None)
         embeds = [emb]
 
     if len(content) <= DISCORD_MAX_CONTENT_LEN:

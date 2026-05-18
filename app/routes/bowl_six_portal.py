@@ -19,6 +19,7 @@ from app.auth_login import (
 from app.league_db import db
 from app.models import Player, PlayerGoalieStat, PlayerSkaterStat, Team
 from app.services.player_headshot import resolve_player_headshot_static_filename
+from app.services.player_overall_score import build_overall_cell_map_from_players
 from app.services.player_ratings_csv import player_positions_display_label
 from app.routes.site_portal import site_admin_bp, site_gm_bp
 from app.services.bowl_six import (
@@ -70,6 +71,30 @@ def _require_bowl_six_access():
     if not _can_use_gm_messaging():
         flash("BOWL Six is available to active GMs and league admins.", "err")
         abort(403)
+
+
+BOWL_SIX_POOL_MAX_PLAYERS = 5000
+
+
+def _pool_name_filter(pattern: str):
+    """Case-insensitive name contains (for server-side pool search)."""
+    text = (pattern or "").strip()
+    if not text:
+        return None
+    escaped = text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return Player.full_name.ilike(f"%{escaped}%", escape="\\")
+
+
+def _jinja_filter_style(filter_name: str, val: object) -> str:
+    if val is None:
+        return ""
+    fn = current_app.jinja_env.filters.get(filter_name)
+    if fn is None:
+        return ""
+    try:
+        return str(fn(val) or "")
+    except (TypeError, ValueError):
+        return ""
 
 
 def _player_headshot_url(player: Player) -> str | None:
@@ -281,9 +306,6 @@ def bowl_six_api_players():
         ) or 0
 
     def pool_row(player: Player, team: Team | None) -> dict | None:
-        name_lc = player.full_name.lower()
-        if q and q not in name_lc:
-            return None
         pk = position_kind(player.position)
         if pos_filter == "gk" and pk != "gk":
             return None
@@ -297,6 +319,16 @@ def bowl_six_api_players():
         pick_pct = None
         if wk and total_lineups > 0 and wk.pick_count:
             pick_pct = round(100.0 * int(wk.pick_count) / total_lineups, 1)
+        abi = (
+            float(player.overall_ability)
+            if player.overall_ability is not None
+            else None
+        )
+        pot = (
+            float(player.overall_potential)
+            if player.overall_potential is not None
+            else None
+        )
         return {
             "id": pid,
             "name": player.full_name,
@@ -310,10 +342,14 @@ def bowl_six_api_players():
             "pick_pct": pick_pct,
             "blocked": bool(blocked_reason),
             "blocked_reason": blocked_reason,
+            "abi": abi,
+            "pot": pot,
+            "_player": player,
         }
 
     seen: set[int] = set()
     out: list[dict] = []
+    name_clause = _pool_name_filter(q)
     skater_q = (
         db.session.query(Player, PlayerSkaterStat, Team)
         .join(
@@ -324,9 +360,12 @@ def bowl_six_api_players():
         )
         .outerjoin(Team, Team.id == PlayerSkaterStat.team_id)
     )
+    if name_clause is not None:
+        skater_q = skater_q.filter(name_clause)
     if team_filter and str(team_filter).isdigit():
         skater_q = skater_q.filter(PlayerSkaterStat.team_id == int(team_filter))
-    for player, _st, team in skater_q.limit(600).all():
+    skater_q = skater_q.order_by(Player.full_name.asc())
+    for player, _st, team in skater_q.limit(BOWL_SIX_POOL_MAX_PLAYERS).all():
         pid = int(player.id)
         if pid in seen:
             continue
@@ -344,9 +383,12 @@ def bowl_six_api_players():
         )
         .outerjoin(Team, Team.id == PlayerGoalieStat.team_id)
     )
+    if name_clause is not None:
+        goalie_q = goalie_q.filter(name_clause)
     if team_filter and str(team_filter).isdigit():
         goalie_q = goalie_q.filter(PlayerGoalieStat.team_id == int(team_filter))
-    for player, _st, team in goalie_q.limit(200).all():
+    goalie_q = goalie_q.order_by(Player.full_name.asc())
+    for player, _st, team in goalie_q.limit(BOWL_SIX_POOL_MAX_PLAYERS).all():
         pid = int(player.id)
         if pid in seen:
             continue
@@ -355,7 +397,22 @@ def bowl_six_api_players():
             seen.add(pid)
             out.append(row)
     out.sort(key=lambda x: x["name"])
-    return jsonify({"players": out[:200]})
+    if out:
+        pl_list = [row.pop("_player") for row in out]
+        ova_map = build_overall_cell_map_from_players(db.session, pl_list)
+        for row in out:
+            pid = int(row["id"])
+            ova = ova_map.get(pid) or {}
+            ovr = ova.get("score")
+            row["ovr"] = int(ovr) if ovr is not None else None
+            row["ovr_style"] = (
+                _jinja_filter_style("attr_rating_style", float(ovr) * 20.0 / 100.0)
+                if ovr is not None
+                else ""
+            )
+            row["abi_style"] = _jinja_filter_style("rating_pill_style", row.get("abi"))
+            row["pot_style"] = _jinja_filter_style("rating_pill_style", row.get("pot"))
+    return jsonify({"players": out})
 
 
 @site_admin_bp.post("/control-center/bowl-six/score")

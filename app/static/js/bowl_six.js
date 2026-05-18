@@ -278,6 +278,24 @@
     return n + "/3";
   }
 
+  function ratingPillHtml(val, style, decimals) {
+    if (val == null || val === "" || isNaN(Number(val))) return "—";
+    var label =
+      decimals === 0
+        ? String(Math.round(Number(val)))
+        : Number(val).toFixed(1);
+    if (style) {
+      return (
+        '<span class="stats-badge stats-badge--rating stats-badge--overall bowl-six-pool__rating" style="' +
+        esc(style) +
+        '">' +
+        esc(label) +
+        "</span>"
+      );
+    }
+    return esc(label);
+  }
+
   function playerCellHtml(p) {
     var href = esc(playerPageUrl(p.id));
     var blockedNote = p.blocked
@@ -309,7 +327,6 @@
 
   function renderPool() {
     if (!poolBody) return;
-    var q = (searchEl && searchEl.value) || "";
     var pf = positionKindFromFilter(posEl && posEl.value);
     var html = "";
     var counts = teamCounts();
@@ -317,7 +334,6 @@
     players.forEach(function (p) {
       if (pickedIds[p.id]) return;
       if (pf && p.position_kind !== pf) return;
-      if (q && p.name.toLowerCase().indexOf(q.toLowerCase()) < 0) return;
       var blocked = p.blocked;
       var teamFull = p.team_id && counts[p.team_id] >= 3;
       var dis = blocked || teamFull || !cfg.editable;
@@ -347,6 +363,12 @@
         playerCellHtml(p) +
         '</td><td class="bowl-six-pool__col-pos">' +
         esc(p.positions || p.position || "—") +
+        '</td><td class="bowl-six-pool__col-rating">' +
+        ratingPillHtml(p.ovr, p.ovr_style, 0) +
+        '</td><td class="bowl-six-pool__col-rating">' +
+        ratingPillHtml(p.abi, p.abi_style, 1) +
+        '</td><td class="bowl-six-pool__col-rating">' +
+        ratingPillHtml(p.pot, p.pot_style, 1) +
         '</td><td class="bowl-six-pool__col-team"><span class="' +
         teamCls +
         '" title="' +
@@ -360,7 +382,7 @@
         "</td></tr>";
     });
     poolBody.innerHTML =
-      html || '<tr><td colspan="6" class="muted">No players</td></tr>';
+      html || '<tr><td colspan="9" class="muted">No players</td></tr>';
     poolBody.querySelectorAll("input[name=pool_pick]").forEach(function (radio) {
       radio.addEventListener("change", function () {
         if (!activeSlot) {
@@ -384,8 +406,20 @@
     bindPoolHovers();
   }
 
-  function loadPlayers() {
+  function loadPlayers(searchText) {
     var url = cfg.playersUrl;
+    var q = (searchText != null ? searchText : searchEl && searchEl.value) || "";
+    q = String(q).trim();
+    if (q) {
+      url +=
+        (url.indexOf("?") >= 0 ? "&" : "?") +
+        "q=" +
+        encodeURIComponent(q);
+    }
+    if (poolBody) {
+      poolBody.innerHTML =
+        '<tr><td colspan="9" class="muted">Loading…</td></tr>';
+    }
     fetch(url, { credentials: "same-origin" })
       .then(function (r) {
         return r.json();
@@ -404,6 +438,12 @@
             headshot_url: p.headshot_url || null,
             fantasy_points: p.fantasy_points,
             pick_pct: p.pick_pct,
+            ovr: p.ovr,
+            abi: p.abi,
+            pot: p.pot,
+            ovr_style: p.ovr_style || "",
+            abi_style: p.abi_style || "",
+            pot_style: p.pot_style || "",
           };
         });
         renderAllSlots();
@@ -413,7 +453,7 @@
         renderAllSlots();
         if (poolBody) {
           poolBody.innerHTML =
-            '<tr><td colspan="6">Failed to load players.</td></tr>';
+            '<tr><td colspan="9">Failed to load players.</td></tr>';
         }
       });
   }
@@ -424,7 +464,15 @@
     });
   });
 
-  if (searchEl) searchEl.addEventListener("input", renderPool);
+  var poolSearchTimer = null;
+  if (searchEl) {
+    searchEl.addEventListener("input", function () {
+      clearTimeout(poolSearchTimer);
+      poolSearchTimer = setTimeout(function () {
+        loadPlayers(searchEl.value);
+      }, 280);
+    });
+  }
   if (posEl) posEl.addEventListener("change", renderPool);
 
   var capBtn = document.getElementById("bowl-six-pick-captain");

@@ -21,7 +21,7 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="captain_player_id" id="bowl-six-captain-id" value="{{ lineup.captain_player_id if lineup and lineup.captain_player_id else '' }}">
 
-    <div class="bowl-six-lineup__rink" style="background-image:url('{{ url_for('static', filename='bowl_six/rink-topdown.svg') }}');">
+    <div class="bowl-six-lineup__rink" style="background-image:url('{{ url_for('static', filename='bowl_six/rink-half-vertical.svg') }}');">
       {% for slot in slots %}
       {% set pid = pick_map.get(slot) %}
       {% set player = namespace(obj=none) %}
@@ -52,13 +52,16 @@
               <th class="bowl-six-pool__col-pick" scope="col"></th>
               <th scope="col">Player</th>
               <th class="bowl-six-pool__col-pos" scope="col">Pos</th>
+              <th class="bowl-six-pool__col-rating" scope="col" title="Composite overall (1–100)">OVR</th>
+              <th class="bowl-six-pool__col-rating" scope="col" title="Ability">ABI</th>
+              <th class="bowl-six-pool__col-rating" scope="col" title="Potential">POT</th>
               <th class="bowl-six-pool__col-team" scope="col" title="Your lineup picks from this team (max 3)">Team</th>
               <th class="bowl-six-pool__col-num" scope="col">Pts</th>
               <th class="bowl-six-pool__col-num" scope="col" title="League pick rate this week">Picked</th>
             </tr>
           </thead>
           <tbody id="bowl-six-pool-body">
-            <tr><td colspan="6" class="muted">Loading…</td></tr>
+            <tr><td colspan="9" class="muted">Loading…</td></tr>
           </tbody>
         </table>
       </div>

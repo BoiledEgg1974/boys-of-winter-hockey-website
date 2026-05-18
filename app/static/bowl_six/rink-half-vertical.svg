@@ -16,6 +16,8 @@
       <stop offset="100%" stop-color="#1e4a7a" stop-opacity="0"/>
     </radialGradient>
   </defs>
+  <!-- Flipped: goal at top, center line at bottom (GK → DEF → FWD top-to-bottom on screen) -->
+  <g transform="translate(0,560) scale(1,-1)">
   <!-- Ice surface (defensive zone through center line) -->
   <rect width="360" height="560" fill="url(#ice)"/>
   <rect x="18" y="0" width="324" height="560" fill="url(#boards)" opacity="0.35"/>
@@ -72,5 +74,6 @@
   <g stroke="#ffffff" stroke-width="1" opacity="0.04">
     <path d="M 60 300 Q 120 280 180 300 T 300 300"/>
     <path d="M 80 380 Q 140 360 200 380 T 280 380"/>
+  </g>
   </g>
 </svg>

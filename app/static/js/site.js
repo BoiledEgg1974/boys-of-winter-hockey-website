@@ -1668,9 +1668,11 @@
   }
 
   function initSortableTable(table) {
+    if (table.getAttribute("data-sort-bound") === "1") return;
     var tbody = table.tBodies[0];
     var thead = table.tHead;
     if (!tbody || !thead || !thead.rows[0]) return;
+    table.setAttribute("data-sort-bound", "1");
     var headerRow = thead.rows[0];
     var headers = headerRow.cells;
     if (!headers.length) return;
@@ -1752,6 +1754,8 @@
       })(c);
     }
   }
+
+  window.initSortableTable = initSortableTable;
 
   document.addEventListener("DOMContentLoaded", function () {
     document.querySelectorAll("table.data-sortable").forEach(initSortableTable);

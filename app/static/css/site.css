@@ -15116,6 +15116,7 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   grid-template-columns: minmax(280px, 380px) 1fr;
   gap: 1rem;
   align-items: start;
+  overflow: visible;
 }
 @media (max-width: 900px) {
   .bowl-six-lineup-layout {
@@ -15126,13 +15127,15 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   position: relative;
   width: 100%;
   max-width: 360px;
-  min-height: 520px;
+  min-height: 560px;
   margin: 0 auto;
+  padding: 0.65rem 0.35rem 1.35rem;
   border-radius: 12px;
   background-repeat: no-repeat;
   background-size: contain;
-  background-position: center bottom;
-  overflow: hidden;
+  background-position: center top;
+  overflow: visible;
+  box-sizing: border-box;
 }
 .bowl-six-lineup__rink::before {
   content: "";
@@ -15154,30 +15157,30 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   width: 5.75rem;
   transform: translate(-50%, -50%);
 }
-/* Vertical half-rink: forwards at center line (top), defense at blue line, goalie in net (bottom) */
-.bowl-six-slot--fwd1 {
-  left: 24%;
-  top: 14%;
-}
-.bowl-six-slot--fwd2 {
+/* Vertical half-rink: goalie in net (top), defense at blue line, forwards at center line (bottom) */
+.bowl-six-slot--gk {
   left: 50%;
-  top: 10%;
-}
-.bowl-six-slot--fwd3 {
-  left: 76%;
-  top: 14%;
+  top: 11%;
 }
 .bowl-six-slot--def1 {
   left: 30%;
-  top: 46%;
+  top: 44%;
 }
 .bowl-six-slot--def2 {
   left: 70%;
-  top: 46%;
+  top: 44%;
 }
-.bowl-six-slot--gk {
+.bowl-six-slot--fwd1 {
+  left: 24%;
+  top: 78%;
+}
+.bowl-six-slot--fwd2 {
   left: 50%;
-  top: 84%;
+  top: 82%;
+}
+.bowl-six-slot--fwd3 {
+  left: 76%;
+  top: 78%;
 }
 .bowl-six-slot__label {
   display: block;
@@ -15301,6 +15304,20 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   text-align: center;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+}
+.bowl-six-pool__col-ovr {
+  width: 3rem;
+  text-align: center;
+  vertical-align: middle;
+}
+.bowl-six-pool__col-ovr .stats-ova__score {
+  font-size: 0.88rem;
+  min-width: 1.85rem;
+  padding: 0.12rem 0.45rem;
+}
+.bowl-six-pool__table thead th.th-sortable {
+  cursor: pointer;
+  user-select: none;
 }
 .bowl-six-pool__rating {
   display: inline-block;

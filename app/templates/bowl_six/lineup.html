@@ -46,18 +46,18 @@
       </div>
       <p class="bowl-six-pool__hint muted">Max 3 per team. Players used last slate cannot be selected again. Selected players are removed from the pool.</p>
       <div class="bowl-six-pool__table-wrap">
-        <table class="data bowl-six-pool__table">
+        <table id="bowl-six-pool-table" class="data data-sortable bowl-six-pool__table">
           <thead>
             <tr>
-              <th class="bowl-six-pool__col-pick" scope="col"></th>
-              <th scope="col">Player</th>
-              <th class="bowl-six-pool__col-pos" scope="col">Pos</th>
-              <th class="bowl-six-pool__col-rating" scope="col" title="Composite overall (1–100)">OVR</th>
-              <th class="bowl-six-pool__col-rating" scope="col" title="Ability">ABI</th>
-              <th class="bowl-six-pool__col-rating" scope="col" title="Potential">POT</th>
-              <th class="bowl-six-pool__col-team" scope="col" title="Your lineup picks from this team (max 3)">Team</th>
-              <th class="bowl-six-pool__col-num" scope="col">Pts</th>
-              <th class="bowl-six-pool__col-num" scope="col" title="League pick rate this week">Picked</th>
+              <th class="bowl-six-pool__col-pick" scope="col" data-sort-nosort></th>
+              <th scope="col" data-sort-type="str">Player</th>
+              <th class="bowl-six-pool__col-pos" scope="col" data-sort-type="str">Pos</th>
+              <th class="bowl-six-pool__col-ovr" scope="col" data-sort-type="num" title="Composite overall (1–100)">OVR</th>
+              <th class="bowl-six-pool__col-rating" scope="col" data-sort-type="num" title="Ability">ABI</th>
+              <th class="bowl-six-pool__col-rating" scope="col" data-sort-type="num" title="Potential">POT</th>
+              <th class="bowl-six-pool__col-team" scope="col" data-sort-type="num" title="Your lineup picks from this team (max 3)">Team</th>
+              <th class="bowl-six-pool__col-num" scope="col" data-sort-type="num">Pts</th>
+              <th class="bowl-six-pool__col-num" scope="col" data-sort-type="num" title="League pick rate this week">Picked</th>
             </tr>
           </thead>
           <tbody id="bowl-six-pool-body">

@@ -296,6 +296,37 @@
     return esc(label);
   }
 
+  function ovrCellHtml(p) {
+    if (p.ovr == null || isNaN(Number(p.ovr))) {
+      return '<td class="bowl-six-pool__col-ovr" data-sort-value="">—</td>';
+    }
+    return (
+      '<td class="bowl-six-pool__col-ovr" data-sort-value="' +
+      esc(String(p.ovr)) +
+      '"><span class="stats-ova__score">' +
+      esc(String(p.ovr)) +
+      "</span></td>"
+    );
+  }
+
+  function ratingCellHtml(val, style, decimals, colClass) {
+    var sortVal =
+      val != null && val !== "" && !isNaN(Number(val)) ? String(Number(val)) : "";
+    return (
+      '<td class="' +
+      colClass +
+      '" data-sort-value="' +
+      esc(sortVal) +
+      '">' +
+      ratingPillHtml(val, style, decimals) +
+      "</td>"
+    );
+  }
+
+  function poolSortValueNum(val) {
+    return val != null && val !== "" && !isNaN(Number(val)) ? String(Number(val)) : "";
+  }
+
   function playerCellHtml(p) {
     var href = esc(playerPageUrl(p.id));
     var blockedNote = p.blocked
@@ -331,9 +362,13 @@
     var html = "";
     var counts = teamCounts();
     var pickedIds = pickedPlayerIds();
+    var rows = [];
     players.forEach(function (p) {
       if (pickedIds[p.id]) return;
       if (pf && p.position_kind !== pf) return;
+      rows.push(p);
+    });
+    rows.forEach(function (p) {
       var blocked = p.blocked;
       var teamFull = p.team_id && counts[p.team_id] >= 3;
       var dis = blocked || teamFull || !cfg.editable;
@@ -359,25 +394,33 @@
         esc(p.position_kind) +
         '" ' +
         (dis ? "disabled" : "") +
-        "></td><td>" +
+        '"></td><td data-sort-value="' +
+        esc((p.name || "").toLowerCase()) +
+        '">' +
         playerCellHtml(p) +
-        '</td><td class="bowl-six-pool__col-pos">' +
+        '</td><td class="bowl-six-pool__col-pos" data-sort-value="' +
+        esc((p.positions || p.position || "").toLowerCase()) +
+        '">' +
         esc(p.positions || p.position || "—") +
-        '</td><td class="bowl-six-pool__col-rating">' +
-        ratingPillHtml(p.ovr, p.ovr_style, 0) +
-        '</td><td class="bowl-six-pool__col-rating">' +
-        ratingPillHtml(p.abi, p.abi_style, 1) +
-        '</td><td class="bowl-six-pool__col-rating">' +
-        ratingPillHtml(p.pot, p.pot_style, 1) +
-        '</td><td class="bowl-six-pool__col-team"><span class="' +
+        "</td>" +
+        ovrCellHtml(p) +
+        ratingCellHtml(p.abi, p.abi_style, 1, "bowl-six-pool__col-rating") +
+        ratingCellHtml(p.pot, p.pot_style, 1, "bowl-six-pool__col-rating") +
+        '<td class="bowl-six-pool__col-team" data-sort-value="' +
+        esc(String(teamN)) +
+        '"><span class="' +
         teamCls +
         '" title="' +
         esc(p.team_name || "No team") +
         '">' +
         teamCountLabel(p, counts) +
-        "</span></td><td class=\"bowl-six-pool__col-num\">" +
+        '</span></td><td class="bowl-six-pool__col-num" data-sort-value="' +
+        esc(poolSortValueNum(p.fantasy_points)) +
+        '">' +
         esc(pts) +
-        '</td><td class="bowl-six-pool__col-num">' +
+        '</td><td class="bowl-six-pool__col-num" data-sort-value="' +
+        esc(poolSortValueNum(p.pick_pct != null ? p.pick_pct : "")) +
+        '">' +
         esc(pickedPct) +
         "</td></tr>";
     });

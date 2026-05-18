@@ -151,6 +151,60 @@ def seed_ap_catalog_if_empty() -> None:
             )
         db.session.commit()
     _reconcile_ap_catalog_defaults()
+    _reconcile_fantasy_ap_catalog()
+
+
+def _normalize_catalog_title(title: str) -> str:
+    return " ".join(str(title or "").strip().lower().split())
+
+
+# (sort_order, title, description, cost_ap) — added when missing from fantasy catalog.
+_FANTASY_CATALOG_DEFAULTS: tuple[tuple[int, str, str, int], ...] = (
+    (0, "Change a Rival", "Designate a league rival team.", 5),
+    (1, "Retire a Number", "Retire a jersey number for your franchise.", 5),
+    (2, "Supplemental Staff Hiring", "+1 supplemental staff hire above the free signing per sim.", 15),
+    (3, "Market / Fan / Media +1", "Increase Market, Fan Loyalty, or Media Coverage by 1.", 30),
+    (4, "Change Injury Proneness", "Adjust injury proneness for a body part or general.", 55),
+    (5, "Re-Allocate 1 Point from Any Attribute", "Move one attribute point to another.", 55),
+    (6, "Add 2 Points to a Position", "Add 2 points to a skater position rating.", 55),
+    (7, "Add 2 Points to Coach's Attribute", "Add 2 points to a GM or coach attribute.", 55),
+    (8, "Purchase a Silver Boost for one of your Draftees.", "Silver draft boost for one draftee.", 200),
+    (9, "Purchase a Gold Boost for one of your Draftees.", "Gold draft boost for one draftee.", 300),
+    (10, "Relocate Your Team", "Move your franchise — commissioner completes after approval.", 100),
+    (11, "Retire Your Created Player", "Retire a created player from your roster.", 55),
+    (12, "Reclassify Your Created Player", "Change created player position (FROM → TO).", 55),
+    (13, "Create a 3-Star Potential Player", "Commissioner creates a 3-star potential player.", 300),
+    (14, "Create a 4-Star Potential Player", "Commissioner creates a 4-star potential player.", 400),
+    (15, "Create a 5-Star Potential Player", "Commissioner creates a 5-star potential player.", 500),
+)
+
+
+def _reconcile_fantasy_ap_catalog() -> None:
+    """Ensure fantasy redemption catalog includes standard perks (by title)."""
+    existing = list(
+        db.session.scalars(
+            select(ApRedemptionCatalog).where(ApRedemptionCatalog.league_group == "fantasy")
+        ).all()
+    )
+    by_title = {_normalize_catalog_title(r.title): r for r in existing}
+    changed = False
+    for order, title, desc, cost in _FANTASY_CATALOG_DEFAULTS:
+        key = _normalize_catalog_title(title)
+        row = by_title.get(key)
+        if row is None:
+            db.session.add(
+                ApRedemptionCatalog(
+                    league_group="fantasy",
+                    sort_order=order,
+                    title=title,
+                    description=desc,
+                    cost_ap=cost,
+                    is_active=True,
+                )
+            )
+            changed = True
+    if changed:
+        db.session.commit()
 
 
 def maybe_credit_daily_export_for_team(

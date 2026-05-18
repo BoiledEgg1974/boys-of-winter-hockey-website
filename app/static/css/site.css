@@ -4855,6 +4855,14 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
   margin: 0.25rem 0 0;
   font-size: 0.85rem;
 }
+.ap-redeem-field__notice {
+  margin: 0 0 0.5rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 6px;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  font-size: 0.9rem;
+}
 .admin-ap-detail-list {
   margin: 1rem 0;
   padding-left: 1.2rem;

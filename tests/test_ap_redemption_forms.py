@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 
 from app.services.ap_redemption_forms import (
     catalog_item_form_key,
+    catalog_item_has_detail_form,
     format_details_summary,
     parse_catalog_item_details,
 )
@@ -48,6 +49,29 @@ class ApRedemptionFormsTest(unittest.TestCase):
         )
         self.assertIsNone(err2)
         self.assertEqual(details2.get("body_part"), "Knee")
+
+    def test_fantasy_commissioner_and_created_player_forms(self):
+        self.assertTrue(catalog_item_has_detail_form(catalog_item_form_key("Relocate Your Team")))
+        self.assertTrue(
+            catalog_item_has_detail_form(
+                catalog_item_form_key("Create a 5-Star Potential Player")
+            )
+        )
+        details, err = parse_catalog_item_details(
+            "relocate_team",
+            {"ack": "1"},
+            session=MagicMock(),
+        )
+        self.assertIsNone(err)
+        self.assertTrue(details.get("commissioner_followup"))
+
+        details2, err2 = parse_catalog_item_details(
+            "reclassify_created_player",
+            {"from_position": "center", "to_position": "left_wing"},
+            session=MagicMock(),
+        )
+        self.assertIsNone(err2)
+        self.assertEqual(details2.get("from_position_label"), "Center")
 
     def test_change_rival_resolves_team_name(self):
         team = MagicMock()

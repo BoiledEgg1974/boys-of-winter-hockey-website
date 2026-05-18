@@ -1,7 +1,6 @@
-"""Per-catalog-item GM input fields for AP redemptions (cap / historical group)."""
+"""Per-catalog-item GM input fields for AP redemptions (cap/historical + fantasy)."""
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -15,7 +14,7 @@ from app.models import Team
 class RedemptionFormField:
     name: str
     label: str
-    field_type: str  # text, select, checkbox_group
+    field_type: str  # text, select, checkbox_group, notice
     required: bool = True
     options: tuple[tuple[str, str], ...] = ()
     help_text: str = ""
@@ -48,8 +47,31 @@ COACH_ROLE_OPTIONS: tuple[tuple[str, str], ...] = (
     ("coach", "Coach"),
 )
 
+COMMISSIONER_CONTACT_MSG = (
+    "Once this redemption is approved, contact the Commissioner to complete it."
+)
+
+_COMMISSIONER_ACK_FIELD = (
+    RedemptionFormField(
+        "ack",
+        "",
+        "notice",
+        True,
+        help_text=COMMISSIONER_CONTACT_MSG,
+    ),
+)
+
 # Longest / most specific title matches first.
 _TITLE_FORM_KEY_RULES: tuple[tuple[str, str], ...] = (
+    ("create a 5-star potential", "commissioner_star_5"),
+    ("create a 4-star potential", "commissioner_star_4"),
+    ("create a 3-star potential", "commissioner_star_3"),
+    ("create a 5 star potential", "commissioner_star_5"),
+    ("create a 4 star potential", "commissioner_star_4"),
+    ("create a 3 star potential", "commissioner_star_3"),
+    ("relocate your team", "relocate_team"),
+    ("reclassify your created player", "reclassify_created_player"),
+    ("retire your created player", "retire_created_player"),
     ("purchase a gold boost", "gold_draft_boost"),
     ("purchase a silver boost", "silver_draft_boost"),
     ("re-allocate 1 point", "reallocate_attribute"),
@@ -60,6 +82,15 @@ _TITLE_FORM_KEY_RULES: tuple[tuple[str, str], ...] = (
     ("supplemental staff", "supplemental_staff"),
     ("retire a number", "retire_number"),
     ("change a rival", "change_rival"),
+)
+
+_COMMISSIONER_ACK_FORM_KEYS = frozenset(
+    {
+        "relocate_team",
+        "commissioner_star_3",
+        "commissioner_star_4",
+        "commissioner_star_5",
+    }
 )
 
 _FORM_FIELDS: dict[str, tuple[RedemptionFormField, ...]] = {
@@ -136,7 +167,34 @@ _FORM_FIELDS: dict[str, tuple[RedemptionFormField, ...]] = {
     "gold_draft_boost": (
         RedemptionFormField("player_name", "Draftee (player name)", "text", True),
     ),
+    "relocate_team": _COMMISSIONER_ACK_FIELD,
+    "commissioner_star_3": _COMMISSIONER_ACK_FIELD,
+    "commissioner_star_4": _COMMISSIONER_ACK_FIELD,
+    "commissioner_star_5": _COMMISSIONER_ACK_FIELD,
+    "retire_created_player": (
+        RedemptionFormField("created_player_name", "Created player name", "text", True),
+    ),
+    "reclassify_created_player": (
+        RedemptionFormField(
+            "from_position",
+            "FROM",
+            "select",
+            True,
+            options=POSITION_OPTIONS,
+        ),
+        RedemptionFormField(
+            "to_position",
+            "TO",
+            "select",
+            True,
+            options=POSITION_OPTIONS,
+        ),
+    ),
 }
+
+
+def catalog_item_has_detail_form(form_key: str | None) -> bool:
+    return bool(form_key and form_key in _FORM_FIELDS)
 
 
 def catalog_item_form_key(title: str) -> str | None:
@@ -293,6 +351,41 @@ def parse_catalog_item_details(
         details["player_name"] = player
         return details, None
 
+    if form_key == "retire_created_player":
+        name = _clean_text(raw.get("created_player_name"))
+        if not name:
+            return None, "Enter your created player name."
+        details["created_player_name"] = name
+        return details, None
+
+    if form_key == "reclassify_created_player":
+        frm = _clean_text(raw.get("from_position"), max_len=40)
+        to = _clean_text(raw.get("to_position"), max_len=40)
+        valid = {k for k, _ in POSITION_OPTIONS}
+        if frm not in valid or to not in valid:
+            return None, "Choose valid FROM and TO positions."
+        if frm == to:
+            return None, "FROM and TO positions must be different."
+        pos_labels = dict(POSITION_OPTIONS)
+        details["from_position"] = frm
+        details["to_position"] = to
+        details["from_position_label"] = pos_labels[frm]
+        details["to_position_label"] = pos_labels[to]
+        return details, None
+
+    if form_key in _COMMISSIONER_ACK_FORM_KEYS:
+        ack = str(raw.get("ack") or "").strip().lower()
+        if ack not in ("1", "on", "true", "yes"):
+            return None, "Confirm you will contact the Commissioner after approval."
+        details["commissioner_followup"] = True
+        details["instructions"] = COMMISSIONER_CONTACT_MSG
+        if form_key == "relocate_team":
+            details["perk"] = "relocate_team"
+        else:
+            details["perk"] = "create_star_player"
+            details["star_level"] = int(form_key.rsplit("_", 1)[-1])
+        return details, None
+
     return {}, None
 
 
@@ -322,6 +415,20 @@ def format_details_summary(details: dict[str, Any] | None) -> str:
         return f"+2 coach attr ({roles}): {details.get('attribute', '')}"
     if fk in ("silver_draft_boost", "gold_draft_boost"):
         return f"Draftee: {details.get('player_name', '')}"
+    if fk == "retire_created_player":
+        return f"Created player: {details.get('created_player_name', '')}"
+    if fk == "reclassify_created_player":
+        return (
+            f"Reclassify: {details.get('from_position_label', '')} → "
+            f"{details.get('to_position_label', '')}"
+        )
+    if fk in _COMMISSIONER_ACK_FORM_KEYS:
+        if details.get("perk") == "relocate_team":
+            return "Contact Commissioner to relocate team"
+        star = details.get("star_level")
+        if star:
+            return f"Contact Commissioner to create {star}-star potential player"
+        return "Contact Commissioner after approval"
     return ""
 
 
@@ -336,7 +443,11 @@ def extract_raw_details_for_catalog_id(form, catalog_id: int) -> dict[str, Any]:
         if not field:
             continue
         values = form.getlist(key)
-        if field in ("choices", "general", "coach_roles"):
+        if field == "ack":
+            val = str(form.get(key) or "").strip()
+            if val:
+                raw[field] = val
+        elif field in ("choices", "general", "coach_roles"):
             raw[field] = [v for v in values if str(v).strip()]
         elif len(values) > 1:
             raw[field] = values

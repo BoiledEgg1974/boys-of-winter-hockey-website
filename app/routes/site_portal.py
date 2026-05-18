@@ -518,6 +518,7 @@ def action_points_page():
     bal = team_ap_balance(slug, mem.team_id) if mem else None
     from app.services.ap_redemption_forms import (
         catalog_item_form_key,
+        catalog_item_has_detail_form,
         form_fields_for_key,
         team_select_options,
     )
@@ -532,6 +533,7 @@ def action_points_page():
                 {
                     "item": it,
                     "form_key": fk,
+                    "has_form": catalog_item_has_detail_form(fk),
                     "fields": form_fields_for_key(fk),
                 }
             )
@@ -583,7 +585,7 @@ def action_points_redeem():
             continue
         form_key = catalog_item_form_key(it.title)
         details: dict = {}
-        if form_key and form_fields_for_key(form_key):
+        if catalog_item_has_detail_form(form_key):
             raw = extract_raw_details_for_catalog_id(request.form, int(it.id))
             details, err = parse_catalog_item_details(
                 form_key, raw, session=db.session

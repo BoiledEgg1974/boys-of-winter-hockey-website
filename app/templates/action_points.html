@@ -72,7 +72,7 @@
     </div>
 
     {% for row in catalog_rows %}
-    {% if row.fields %}
+    {% if row.has_form %}
     <section
       id="ap-detail-{{ row.item.id }}"
       class="ap-redeem-detail"
@@ -83,7 +83,18 @@
       <div class="ap-redeem-detail__fields">
         {% for field in row.fields %}
         <div class="ap-redeem-field">
-          {% if field.field_type == 'checkbox_group' %}
+          {% if field.field_type == 'notice' %}
+          <p class="ap-redeem-field__notice">{{ field.help_text }}</p>
+          <label class="ap-redeem-field__check">
+            <input
+              type="checkbox"
+              name="detail_{{ row.item.id }}_ack"
+              value="1"
+              data-required="1"
+            >
+            I understand — I will contact the Commissioner once this redemption is approved.
+          </label>
+          {% elif field.field_type == 'checkbox_group' %}
           <span class="ap-redeem-field__group-label">{{ field.label }}{% if field.required %} <span class="ap-redeem-field__req">*</span>{% endif %}</span>
           <div class="ap-redeem-field__checks">
             {% for opt_val, opt_label in field.options %}

@@ -1,10 +1,31 @@
 {% extends "base.html" %}
 {% block title %}AP request #{{ req.id }}{% endblock %}
 {% block content %}
-<div class="card" style="max-width:40rem;margin:0 auto;">
+<div class="card admin-ap-detail" style="max-width:44rem;margin:0 auto;">
   <h1>Redemption #{{ req.id }}</h1>
   <p><a href="{{ url_for('site_admin.admin_ap_requests') }}">← Queue</a></p>
-  <p>Team id: {{ req.team_id }} · Total: {{ req.total_cost }} AP</p>
+
+  <div class="admin-ap-detail__meta">
+    <div class="admin-ap-detail__party">
+      {% if team and team_logo_url(team) %}
+      <img class="admin-ap-detail__logo" src="{{ team_logo_url(team) }}" alt="" width="40" height="40">
+      {% endif %}
+      <div class="admin-ap-detail__party-text">
+        <p class="admin-ap-detail__team-name">{{ team_name }}</p>
+        <p class="admin-ap-detail__gm muted">GM: <strong class="admin-ap-detail__gm-name">{{ gm_name }}</strong></p>
+        {% if gm_email %}
+        <p class="admin-ap-detail__email muted">{{ gm_email }}</p>
+        {% endif %}
+      </div>
+    </div>
+    <p class="admin-ap-detail__totals">
+      <strong>{{ req.total_cost }} AP</strong> requested · Team balance: <strong>{{ balance }} AP</strong>
+      {% if req.created_at %}
+      · Submitted {{ req.created_at.strftime('%Y-%m-%d %H:%M') }} UTC
+      {% endif %}
+    </p>
+  </div>
+
   {% if line_rows %}
   <ul class="admin-ap-detail-list">
     {% for line in line_rows %}
@@ -18,15 +39,18 @@
     {% endfor %}
   </ul>
   {% else %}
-  <pre style="white-space:pre-wrap;background:#0f172a;padding:1rem;border-radius:8px;">{{ req.lines_json }}</pre>
+  <pre class="admin-ap-detail__raw">{{ req.lines_json }}</pre>
   {% endif %}
-  <form method="post" action="{{ url_for('site_admin.admin_ap_approve', rid=req.id) }}" style="display:inline;">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <button type="submit">Approve</button>
-  </form>
-  <form method="post" action="{{ url_for('site_admin.admin_ap_deny', rid=req.id) }}" style="display:inline;">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <button type="submit">Deny</button>
-  </form>
+
+  <div class="admin-ap-detail__actions">
+    <form method="post" action="{{ url_for('site_admin.admin_ap_approve', rid=req.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="join-league-btn" style="border:none;cursor:pointer;">Approve</button>
+    </form>
+    <form method="post" action="{{ url_for('site_admin.admin_ap_deny', rid=req.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="admin-ap-detail__deny">Deny</button>
+    </form>
+  </div>
 </div>
 {% endblock %}

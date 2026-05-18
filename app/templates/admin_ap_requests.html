@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Pending AP Redemptions — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
 {% block content %}
-<div class="card admin-ap-queue" style="max-width:64rem;margin:0 auto;">
+<div class="card admin-ap-queue" style="max-width:72rem;margin:0 auto;">
   <h1 class="page-title">Pending AP Redemptions</h1>
   <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
   {% with messages = get_flashed_messages() %}
@@ -12,6 +12,7 @@
     <table class="data">
       <thead>
         <tr>
+          <th scope="col">GM</th>
           <th scope="col">Team</th>
           <th scope="col">Redemption</th>
           <th scope="col">AP Cost</th>
@@ -23,6 +24,7 @@
         {% for row in queue_rows %}
         {% set req = row.req %}
         <tr>
+          <td class="admin-ap-queue__gm">{{ row.gm_name }}</td>
           <td>
             <span class="admin-ap-queue__team-lockup">
               {% if row.team and team_logo_url(row.team) %}
@@ -30,7 +32,7 @@
               {% else %}
               <span class="admin-ap-queue__logo-ph" aria-hidden="true"></span>
               {% endif %}
-              <span>{{ row.team.full_display_name() if row.team else ("Team " ~ req.team_id) }}</span>
+              <span>{{ row.team_name }}</span>
             </span>
           </td>
           <td>
@@ -62,7 +64,7 @@
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="5" class="muted">No pending requests.</td></tr>
+        <tr><td colspan="6" class="muted">No pending requests.</td></tr>
         {% endfor %}
       </tbody>
     </table>

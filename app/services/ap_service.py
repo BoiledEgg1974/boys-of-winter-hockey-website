@@ -10,7 +10,78 @@ from sqlalchemy import func, select
 
 from app.config import league_group_for_slug
 from app.league_db import db
-from app.site_models import ApLedgerEntry, ApRedemptionCatalog, ApRedemptionRequest, NewsArticle
+from app.models import Team
+from app.site_models import ApLedgerEntry, ApRedemptionCatalog, ApRedemptionRequest, NewsArticle, User
+
+
+def load_ap_redemption_parties(
+    session,
+    rows: list[ApRedemptionRequest],
+) -> tuple[dict[int, Team], dict[int, User]]:
+    """Batch-load teams and submitting users for redemption request rows."""
+    team_ids = {int(r.team_id) for r in rows if r.team_id}
+    user_ids = {int(r.user_id) for r in rows if r.user_id}
+    teams_by_id: dict[int, Team] = {}
+    if team_ids:
+        teams_by_id = {
+            t.id: t for t in session.scalars(select(Team).where(Team.id.in_(team_ids))).all()
+        }
+    users_by_id: dict[int, User] = {}
+    if user_ids:
+        users_by_id = {
+            u.id: u for u in session.scalars(select(User).where(User.id.in_(user_ids))).all()
+        }
+    return teams_by_id, users_by_id
+
+
+def ap_redemption_party_display(
+    req: ApRedemptionRequest,
+    *,
+    team: Team | None,
+    user: User | None,
+) -> dict[str, str]:
+    """Human-readable GM and team labels for admin redemption views."""
+    from app.services.gm_messaging import gm_display_name
+
+    team_name = team.full_display_name() if team else f"Team {int(req.team_id)}"
+    if user is not None:
+        gm_name = gm_display_name(user)
+    else:
+        gm_name = f"User #{int(req.user_id)}"
+    return {
+        "gm_name": gm_name,
+        "team_name": team_name,
+        "gm_email": str(getattr(user, "email", "") or "").strip(),
+    }
+
+
+def parse_redemption_line_labels(lines_json: str) -> list[str]:
+    """Display strings for each catalog line on a redemption request."""
+    titles: list[str] = []
+    try:
+        from app.services.ap_redemption_forms import line_item_display_title
+
+        items = json.loads(lines_json or "[]")
+        if not isinstance(items, list):
+            return titles
+        for it in items:
+            if not isinstance(it, dict):
+                continue
+            title = str(it.get("title") or "").strip()
+            if not title:
+                continue
+            cost = it.get("cost")
+            details = it.get("details")
+            label = line_item_display_title(
+                title, details if isinstance(details, dict) else None
+            )
+            if cost is None:
+                titles.append(label)
+            else:
+                titles.append(f"{label} ({cost} AP)")
+    except Exception:
+        pass
+    return titles
 
 
 def team_ap_balance(league_slug: str, team_id: int) -> int:

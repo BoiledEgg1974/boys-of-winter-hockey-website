@@ -621,11 +621,14 @@ def action_points_redeem():
         from app.config import league_display_name as _league_display_name
         from app.services.admin_review_notify import notify_ap_redemption_pending
 
+        redeem_team = db.session.get(Team, int(mem.team_id))
         notify_ap_redemption_pending(
             league_slug=slug,
             league_display_name=_league_display_name(slug),
             request_id=int(req.id),
             user_email=str(current_user.email or ""),
+            gm_name=gm_display_name(current_user),
+            team_name=redeem_team.full_display_name() if redeem_team else f"Team {mem.team_id}",
             team_id=int(mem.team_id),
             total_ap=int(total),
         )
@@ -4409,36 +4412,27 @@ def admin_ap_requests():
         .where(ApRedemptionRequest.league_slug == slug, ApRedemptionRequest.status == "pending")
         .order_by(ApRedemptionRequest.created_at.desc())
     ).all()
-    team_ids = {r.team_id for r in rows if r.team_id}
-    teams_by_id: dict[int, Team] = {}
-    if team_ids:
-        teams_by_id = {t.id: t for t in db.session.scalars(select(Team).where(Team.id.in_(team_ids))).all()}
+    from app.services.ap_service import (
+        ap_redemption_party_display,
+        load_ap_redemption_parties,
+        parse_redemption_line_labels,
+    )
+
+    teams_by_id, users_by_id = load_ap_redemption_parties(db.session, list(rows))
     queue_rows: list[dict] = []
     for r in rows:
-        titles: list[str] = []
-        try:
-            from app.services.ap_redemption_forms import line_item_display_title
-
-            items = json.loads(r.lines_json or "[]")
-            if isinstance(items, list):
-                for it in items:
-                    title = str((it or {}).get("title") or "").strip()
-                    if title:
-                        cost = (it or {}).get("cost")
-                        details = (it or {}).get("details")
-                        label = line_item_display_title(
-                            title, details if isinstance(details, dict) else None
-                        )
-                        if cost is None:
-                            titles.append(label)
-                        else:
-                            titles.append(f"{label} ({cost} AP)")
-        except Exception:
-            pass
+        party = ap_redemption_party_display(
+            r,
+            team=teams_by_id.get(int(r.team_id)),
+            user=users_by_id.get(int(r.user_id)),
+        )
+        titles = parse_redemption_line_labels(r.lines_json or "[]")
         queue_rows.append(
             {
                 "req": r,
-                "team": teams_by_id.get(r.team_id),
+                "team": teams_by_id.get(int(r.team_id)),
+                "gm_name": party["gm_name"],
+                "team_name": party["team_name"],
                 "redemption_items": titles,
                 "redemption": ", ".join(titles) if titles else "Custom redemption",
                 "balance": team_ap_balance(slug, r.team_id),
@@ -4455,6 +4449,11 @@ def ap_request_one(rid: int):
     req = db.session.get(ApRedemptionRequest, rid)
     if not req or req.league_slug != slug:
         abort(404)
+    from app.services.ap_service import ap_redemption_party_display
+
+    team = db.session.get(Team, int(req.team_id))
+    user = db.session.get(User, int(req.user_id))
+    party = ap_redemption_party_display(req, team=team, user=user)
     line_rows: list[dict] = []
     try:
         from app.services.ap_redemption_forms import line_item_display_title
@@ -4483,6 +4482,11 @@ def ap_request_one(rid: int):
         "admin_ap_request_detail.html",
         req=req,
         line_rows=line_rows,
+        team=team,
+        gm_name=party["gm_name"],
+        team_name=party["team_name"],
+        gm_email=party["gm_email"],
+        balance=team_ap_balance(slug, int(req.team_id)),
     )
 
 

@@ -4517,6 +4517,67 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
   border-color: rgb(248 113 113 / 0.55);
   color: #fecaca;
 }
+.admin-ap-queue__gm {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.admin-ap-detail__meta {
+  margin: 1rem 0 1.25rem;
+  padding: 0.85rem 1rem;
+  border-radius: 8px;
+  background: rgb(15 23 42 / 0.45);
+  border: 1px solid rgb(148 163 184 / 0.2);
+}
+.admin-ap-detail__party {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
+}
+.admin-ap-detail__logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+.admin-ap-detail__team-name {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+.admin-ap-detail__gm,
+.admin-ap-detail__email {
+  margin: 0.15rem 0 0;
+  font-size: 0.9rem;
+}
+.admin-ap-detail__gm-name {
+  color: inherit;
+  font-weight: 600;
+}
+.admin-ap-detail__totals {
+  margin: 0;
+  font-size: 0.9rem;
+}
+.admin-ap-detail__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+.admin-ap-detail__actions form {
+  margin: 0;
+}
+.admin-ap-detail__deny {
+  padding: 0.45rem 1rem;
+  border-radius: 6px;
+  border: 1px solid rgb(248 113 113 / 0.55);
+  background: rgb(248 113 113 / 0.2);
+  color: #fecaca;
+  cursor: pointer;
+  font-weight: 600;
+}
 
 .catalog-sort-btn {
   background: transparent;

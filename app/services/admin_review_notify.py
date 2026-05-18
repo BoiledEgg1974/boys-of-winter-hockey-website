@@ -111,6 +111,8 @@ def notify_ap_redemption_pending(
     league_display_name: str,
     request_id: int,
     user_email: str,
+    gm_name: str = "",
+    team_name: str = "",
     team_id: int,
     total_ap: int,
 ) -> None:
@@ -119,12 +121,15 @@ def notify_ap_redemption_pending(
     except Exception:
         detail_url = f"(admin → AP requests → #{request_id})"
     subject = f"[{league_display_name}] AP redemption request #{request_id}"
+    gm_label = (gm_name or user_email or "GM").strip()
+    team_label = (team_name or f"Team {team_id}").strip()
     body = (
         f"A GM submitted an AP redemption for approval.\n\n"
         f"League: {league_display_name} ({league_slug})\n"
         f"Request id: {request_id}\n"
-        f"User: {user_email}\n"
-        f"Team id: {team_id}\n"
+        f"GM: {gm_label}\n"
+        f"Team: {team_label}\n"
+        f"Email: {user_email}\n"
         f"Total AP: {total_ap}\n\n"
         f"Review:\n{detail_url}\n"
     )
@@ -133,7 +138,7 @@ def notify_ap_redemption_pending(
         league_slug=league_slug,
         kind="admin_review_ap",
         title=f"AP redemption pending (#{request_id})",
-        body=f"{user_email} · team {team_id} · {total_ap} AP\n{detail_url}",
+        body=f"{gm_label} · {team_label} · {total_ap} AP\n{detail_url}",
         article_id=request_id,
     )
 

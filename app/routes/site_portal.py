@@ -516,11 +516,31 @@ def action_points_page():
     mem = _membership() if current_user.is_authenticated else None
     catalog = active_redemption_items(slug) if mem else []
     bal = team_ap_balance(slug, mem.team_id) if mem else None
+    from app.services.ap_redemption_forms import (
+        catalog_item_form_key,
+        form_fields_for_key,
+        team_select_options,
+    )
+
+    catalog_rows = []
+    team_options: list[tuple[str, str]] = []
+    if mem:
+        team_options = team_select_options(db.session)
+        for it in catalog:
+            fk = catalog_item_form_key(it.title)
+            catalog_rows.append(
+                {
+                    "item": it,
+                    "form_key": fk,
+                    "fields": form_fields_for_key(fk),
+                }
+            )
     return render_template(
         "action_points.html",
         rows=rows,
         membership=mem,
-        catalog=catalog,
+        catalog_rows=catalog_rows,
+        team_options=team_options,
         balance=bal,
     )
 
@@ -548,12 +568,37 @@ def action_points_redeem():
         return redirect(url_for("site_gm.action_points_page"))
     items = db.session.scalars(select(ApRedemptionCatalog).where(ApRedemptionCatalog.id.in_(ids))).all()
     group = league_group_for_slug(slug)
+    from app.services.ap_redemption_forms import (
+        catalog_item_form_key,
+        extract_raw_details_for_catalog_id,
+        format_details_summary,
+        form_fields_for_key,
+        parse_catalog_item_details,
+    )
+
     lines = []
     total = 0
     for it in items:
         if not it.is_active or it.league_group != group:
             continue
-        lines.append({"id": it.id, "title": it.title, "cost": it.cost_ap})
+        form_key = catalog_item_form_key(it.title)
+        details: dict = {}
+        if form_key and form_fields_for_key(form_key):
+            raw = extract_raw_details_for_catalog_id(request.form, int(it.id))
+            details, err = parse_catalog_item_details(
+                form_key, raw, session=db.session
+            )
+            if err:
+                flash(f"{it.title}: {err}", "err")
+                return redirect(url_for("site_gm.action_points_page"))
+        line = {
+            "id": it.id,
+            "title": it.title,
+            "cost": it.cost_ap,
+            "details": details,
+            "summary": format_details_summary(details) if details else "",
+        }
+        lines.append(line)
         total += int(it.cost_ap)
     bal = team_ap_balance(slug, mem.team_id)
     if total <= 0 or bal < total:
@@ -4370,16 +4415,22 @@ def admin_ap_requests():
     for r in rows:
         titles: list[str] = []
         try:
+            from app.services.ap_redemption_forms import line_item_display_title
+
             items = json.loads(r.lines_json or "[]")
             if isinstance(items, list):
                 for it in items:
                     title = str((it or {}).get("title") or "").strip()
                     if title:
                         cost = (it or {}).get("cost")
+                        details = (it or {}).get("details")
+                        label = line_item_display_title(
+                            title, details if isinstance(details, dict) else None
+                        )
                         if cost is None:
-                            titles.append(title)
+                            titles.append(label)
                         else:
-                            titles.append(f"{title} ({cost} AP)")
+                            titles.append(f"{label} ({cost} AP)")
         except Exception:
             pass
         queue_rows.append(
@@ -4402,7 +4453,35 @@ def ap_request_one(rid: int):
     req = db.session.get(ApRedemptionRequest, rid)
     if not req or req.league_slug != slug:
         abort(404)
-    return render_template("admin_ap_request_detail.html", req=req)
+    line_rows: list[dict] = []
+    try:
+        from app.services.ap_redemption_forms import line_item_display_title
+
+        parsed = json.loads(req.lines_json or "[]")
+        if isinstance(parsed, list):
+            for it in parsed:
+                if not isinstance(it, dict):
+                    continue
+                title = str(it.get("title") or "").strip()
+                details = it.get("details")
+                line_rows.append(
+                    {
+                        "title": title,
+                        "cost": it.get("cost"),
+                        "summary": str(it.get("summary") or "").strip()
+                        or line_item_display_title(
+                            title, details if isinstance(details, dict) else None
+                        ),
+                        "details": details if isinstance(details, dict) else {},
+                    }
+                )
+    except Exception:
+        pass
+    return render_template(
+        "admin_ap_request_detail.html",
+        req=req,
+        line_rows=line_rows,
+    )
 
 
 @site_admin_bp.post("/ap-requests/<int:rid>/approve")
@@ -4426,11 +4505,17 @@ def admin_ap_approve(rid: int):
         team = db.session.get(Team, req.team_id)
         body_parts = []
         if isinstance(line_items, list):
+            from app.services.ap_redemption_forms import line_item_display_title
+
             for it in line_items:
                 title = str((it or {}).get("title") or "").strip()
                 cost = (it or {}).get("cost")
+                details = (it or {}).get("details")
                 if title:
-                    body_parts.append(f"- {title}" + (f" ({cost} AP)" if cost is not None else ""))
+                    label = line_item_display_title(
+                        title, details if isinstance(details, dict) else None
+                    )
+                    body_parts.append(f"- {label}" + (f" ({cost} AP)" if cost is not None else ""))
         red_label = ", ".join([p.replace("- ", "", 1) for p in body_parts]) if body_parts else f"Request #{req.id}"
         art = NewsArticle(
             league_slug=slug,

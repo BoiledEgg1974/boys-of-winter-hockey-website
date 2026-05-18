@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Action Points — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
 {% block content %}
-<div class="card" style="max-width:56rem;margin:0 auto;">
+<div class="card ap-page" style="max-width:56rem;margin:0 auto;">
   <h1 class="page-title">Action Points</h1>
   {% with messages = get_flashed_messages(with_categories=true) %}
   {% if messages %}
@@ -41,15 +41,26 @@
   <p><strong>Your team balance:</strong> {{ balance }} AP</p>
   <p class="muted">Submit GM news articles from your <a href="/account">Account</a> page.</p>
   <h2>Request redemption</h2>
-  <form method="post" action="{{ url_for('site_gm.action_points_redeem') }}">
+  <p class="muted ap-page__hint">Check one or more perks, then complete any details shown below before submitting.</p>
+  <form method="post" action="{{ url_for('site_gm.action_points_redeem') }}" id="ap-redeem-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="table-wrap">
       <table class="data">
         <thead><tr><th></th><th>Perk</th><th>Cost</th></tr></thead>
         <tbody>
-          {% for it in catalog %}
+          {% for row in catalog_rows %}
+          {% set it = row.item %}
           <tr>
-            <td><input type="checkbox" name="catalog_id" value="{{ it.id }}"></td>
+            <td>
+              <input
+                type="checkbox"
+                name="catalog_id"
+                value="{{ it.id }}"
+                class="ap-redeem-check"
+                data-catalog-id="{{ it.id }}"
+                aria-controls="ap-detail-{{ it.id }}"
+              >
+            </td>
             <td><strong title="{{ it.description }}">{{ it.title }}</strong></td>
             <td>{{ it.cost_ap }}</td>
           </tr>
@@ -59,7 +70,78 @@
         </tbody>
       </table>
     </div>
-    <p><button type="submit" class="join-league-btn" style="border:none;cursor:pointer;">Submit redemption request</button></p>
+
+    {% for row in catalog_rows %}
+    {% if row.fields %}
+    <section
+      id="ap-detail-{{ row.item.id }}"
+      class="ap-redeem-detail"
+      data-catalog-id="{{ row.item.id }}"
+      hidden
+    >
+      <h3 class="ap-redeem-detail__title">{{ row.item.title }}</h3>
+      <div class="ap-redeem-detail__fields">
+        {% for field in row.fields %}
+        <div class="ap-redeem-field">
+          {% if field.field_type == 'checkbox_group' %}
+          <span class="ap-redeem-field__group-label">{{ field.label }}{% if field.required %} <span class="ap-redeem-field__req">*</span>{% endif %}</span>
+          <div class="ap-redeem-field__checks">
+            {% for opt_val, opt_label in field.options %}
+            <label class="ap-redeem-field__check">
+              <input
+                type="checkbox"
+                name="detail_{{ row.item.id }}_{{ field.name }}"
+                value="{{ opt_val }}"
+                {% if field.required %}data-required-group="{{ field.name }}"{% endif %}
+              >
+              {{ opt_label }}
+            </label>
+            {% endfor %}
+          </div>
+          {% else %}
+          <label class="ap-redeem-field__label" for="detail-{{ row.item.id }}-{{ field.name }}">
+            {{ field.label }}{% if field.required %} <span class="ap-redeem-field__req">*</span>{% endif %}
+          </label>
+          {% if field.field_type == 'text' %}
+          <input
+            type="text"
+            id="detail-{{ row.item.id }}-{{ field.name }}"
+            name="detail_{{ row.item.id }}_{{ field.name }}"
+            class="ap-redeem-field__input"
+            maxlength="200"
+            {% if field.required %}data-required="1"{% endif %}
+          >
+          {% elif field.field_type == 'select' %}
+          <select
+            id="detail-{{ row.item.id }}-{{ field.name }}"
+            name="detail_{{ row.item.id }}_{{ field.name }}"
+            class="ap-redeem-field__input"
+            {% if field.required %}data-required="1"{% endif %}
+          >
+            <option value="">— Select —</option>
+            {% if field.name == 'rival_team_id' %}
+            {% for opt_val, opt_label in team_options %}
+            <option value="{{ opt_val }}">{{ opt_label }}</option>
+            {% endfor %}
+            {% else %}
+            {% for opt_val, opt_label in field.options %}
+            <option value="{{ opt_val }}">{{ opt_label }}</option>
+            {% endfor %}
+            {% endif %}
+          </select>
+          {% endif %}
+          {% endif %}
+          {% if field.help_text %}
+          <p class="muted ap-redeem-field__help">{{ field.help_text }}</p>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+    {% endfor %}
+
+    <p><button type="submit" class="join-league-btn ap-redeem-submit" style="border:none;cursor:pointer;">Submit redemption request</button></p>
   </form>
   {% else %}
   <p class="muted"><a href="/login">Log in</a> on the hub and ensure your membership is approved for this league.</p>
@@ -118,4 +200,50 @@
     </div>
   </div>
 </div>
+{% endblock %}
+{% block scripts %}
+{% if membership and catalog_rows %}
+<script>
+(function () {
+  var form = document.getElementById('ap-redeem-form');
+  if (!form) return;
+
+  function syncDetailPanels() {
+    form.querySelectorAll('.ap-redeem-detail').forEach(function (panel) {
+      var id = panel.getAttribute('data-catalog-id');
+      var cb = form.querySelector('.ap-redeem-check[data-catalog-id="' + id + '"]');
+      var show = cb && cb.checked;
+      panel.hidden = !show;
+      panel.querySelectorAll('[data-required="1"]').forEach(function (el) {
+        el.required = show;
+      });
+    });
+  }
+
+  form.querySelectorAll('.ap-redeem-check').forEach(function (cb) {
+    cb.addEventListener('change', syncDetailPanels);
+  });
+  syncDetailPanels();
+
+  form.addEventListener('submit', function (ev) {
+    var ok = true;
+    form.querySelectorAll('.ap-redeem-detail:not([hidden])').forEach(function (panel) {
+      var groups = {};
+      panel.querySelectorAll('[data-required-group]').forEach(function (el) {
+        groups[el.getAttribute('data-required-group')] = true;
+      });
+      Object.keys(groups).forEach(function (group) {
+        if (!panel.querySelector('[data-required-group="' + group + '"]:checked')) {
+          ok = false;
+        }
+      });
+    });
+    if (!ok) {
+      ev.preventDefault();
+      alert('Complete all required details for the perks you selected (including checkbox groups).');
+    }
+  });
+})();
+</script>
+{% endif %}
 {% endblock %}

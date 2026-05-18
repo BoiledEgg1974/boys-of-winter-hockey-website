@@ -4804,6 +4804,68 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
 .ap-teams-board__col .table-wrap {
   margin-bottom: 0;
 }
+.ap-page__hint {
+  margin-bottom: 0.75rem;
+}
+.ap-redeem-detail {
+  margin: 1rem 0 0;
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.45);
+}
+.ap-redeem-detail__title {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+.ap-redeem-detail__fields {
+  display: grid;
+  gap: 0.85rem;
+}
+.ap-redeem-field__label,
+.ap-redeem-field__group-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+.ap-redeem-field__req {
+  color: #f87171;
+}
+.ap-redeem-field__input {
+  width: 100%;
+  max-width: 28rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: #0f172a;
+  color: inherit;
+}
+.ap-redeem-field__checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1.25rem;
+}
+.ap-redeem-field__check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 400;
+}
+.ap-redeem-field__help {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+}
+.admin-ap-detail-list {
+  margin: 1rem 0;
+  padding-left: 1.2rem;
+}
+.admin-ap-detail-list__item {
+  margin-bottom: 0.65rem;
+}
+.admin-ap-detail-list__summary {
+  margin-top: 0.2rem;
+  color: #cbd5e1;
+}
 /* Override global `table.data` nth-child(1–2) { text-align: left } for AP column */
 table.data.ap-teams-table th:nth-child(2),
 table.data.ap-teams-table td:nth-child(2) {

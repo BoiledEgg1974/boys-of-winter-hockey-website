@@ -5,7 +5,21 @@
   <h1>Redemption #{{ req.id }}</h1>
   <p><a href="{{ url_for('site_admin.admin_ap_requests') }}">← Queue</a></p>
   <p>Team id: {{ req.team_id }} · Total: {{ req.total_cost }} AP</p>
+  {% if line_rows %}
+  <ul class="admin-ap-detail-list">
+    {% for line in line_rows %}
+    <li class="admin-ap-detail-list__item">
+      <strong>{{ line.title }}</strong>
+      {% if line.cost is not none %}<span class="muted"> ({{ line.cost }} AP)</span>{% endif %}
+      {% if line.summary %}
+      <div class="admin-ap-detail-list__summary">{{ line.summary }}</div>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
   <pre style="white-space:pre-wrap;background:#0f172a;padding:1rem;border-radius:8px;">{{ req.lines_json }}</pre>
+  {% endif %}
   <form method="post" action="{{ url_for('site_admin.admin_ap_approve', rid=req.id) }}" style="display:inline;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <button type="submit">Approve</button>

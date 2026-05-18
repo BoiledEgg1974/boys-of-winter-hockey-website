@@ -82,6 +82,7 @@
         {% endif %}
         {% if gm_membership or (current_user.is_authenticated and current_user.is_admin) %}
         <a class="header-tools__link" href="{{ url_for('site_gm.staff_salaries_page') }}">Staff Salaries</a>
+        <a class="header-tools__link" href="{{ url_for('site_gm.bowl_six_hub') }}">BOWL Six</a>
         {% endif %}
         {% if current_user.is_authenticated and current_user.is_admin %}
         {% if current_league_slug == 'bowl-fantasy' %}

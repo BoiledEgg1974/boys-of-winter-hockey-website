@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import date, datetime
 
 from flask_login import UserMixin
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.league_db import db
@@ -903,3 +903,92 @@ def meta_dict(entry: ApLedgerEntry) -> dict:
         return json.loads(entry.meta_json or "{}")
     except json.JSONDecodeError:
         return {}
+
+
+class BowlSixSlate(db.Model):
+    """Weekly BOWL Six pick window for one league mount."""
+
+    __tablename__ = "bowl_six_slates"
+    __bind_key__ = "site"
+    __table_args__ = (
+        Index("ix_bowl_six_slate_league_week", "league_slug", "week_start"),
+        UniqueConstraint("league_slug", "week_start", name="uq_bowl_six_slate_league_week"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False)
+    week_start: Mapped[date] = mapped_column(Date, nullable=False)
+    week_end: Mapped[date] = mapped_column(Date, nullable=False)
+    lock_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), default="open", nullable=False)
+    label: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    skip_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ap_place1_team_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    ap_place2_team_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    ap_place3_team_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    scoring_version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+    lineups: Mapped[list["BowlSixLineup"]] = relationship(back_populates="slate")
+
+
+class BowlSixLineup(db.Model):
+    __tablename__ = "bowl_six_lineups"
+    __bind_key__ = "site"
+    __table_args__ = (UniqueConstraint("slate_id", "user_id", name="uq_bowl_six_lineup_slate_user"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    slate_id: Mapped[int] = mapped_column(ForeignKey("bowl_six_slates.id"), nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("site_users.id"), nullable=False)
+    captain_player_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    slate: Mapped["BowlSixSlate"] = relationship(back_populates="lineups")
+    picks: Mapped[list["BowlSixLineupPick"]] = relationship(
+        back_populates="lineup", cascade="all, delete-orphan"
+    )
+    score: Mapped["BowlSixLineupScore | None"] = relationship(
+        back_populates="lineup", uselist=False, cascade="all, delete-orphan"
+    )
+
+
+class BowlSixLineupPick(db.Model):
+    __tablename__ = "bowl_six_lineup_picks"
+    __bind_key__ = "site"
+    __table_args__ = (UniqueConstraint("lineup_id", "slot", name="uq_bowl_six_pick_slot"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    lineup_id: Mapped[int] = mapped_column(ForeignKey("bowl_six_lineups.id"), nullable=False)
+    slot: Mapped[str] = mapped_column(String(8), nullable=False)
+    player_id: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    lineup: Mapped["BowlSixLineup"] = relationship(back_populates="picks")
+
+
+class BowlSixLineupScore(db.Model):
+    __tablename__ = "bowl_six_lineup_scores"
+    __bind_key__ = "site"
+    __table_args__ = (UniqueConstraint("lineup_id", name="uq_bowl_six_lineup_score"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    lineup_id: Mapped[int] = mapped_column(ForeignKey("bowl_six_lineups.id"), nullable=False)
+    points_json: Mapped[str] = mapped_column(Text, default="{}", nullable=False)
+    total_points: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    scored_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+    lineup: Mapped["BowlSixLineup"] = relationship(back_populates="score")
+
+
+class BowlSixPlayerWeekStat(db.Model):
+    __tablename__ = "bowl_six_player_week_stats"
+    __bind_key__ = "site"
+    __table_args__ = (
+        UniqueConstraint("slate_id", "player_id", name="uq_bowl_six_player_week"),
+        Index("ix_bowl_six_player_week_slate_pts", "slate_id", "fantasy_points"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    slate_id: Mapped[int] = mapped_column(ForeignKey("bowl_six_slates.id"), nullable=False)
+    player_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    fantasy_points: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    pick_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)

@@ -36,6 +36,8 @@ League **URL slugs** (used in `LEAGUE_SLUG` and in URLs): `bowl-historical`, `bo
 
 The import rebuilds the player search index (FTS) and related pieces automatically.
 
+After import, if a **BOWL Six** slate week is locked and box scores changed, open **Admin → League Control Center → BOWL Six** and run **Re-score slate** (type `RESCORE` to confirm).
+
 ## Copy from FHM saved-game folders (Windows)
 
 If your exports still live under each game’s `import_export\csv` folder, you can use:

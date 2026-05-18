@@ -1776,6 +1776,11 @@ def admin_control_center():
     raw_dir = Path(str(current_app.config.get("RAW_IMPORT_DIR") or ""))
     snap = build_control_center_snapshot(db.session, raw_dir)
     schedule_frozen = rule_bool(db.session, slug, "schedule_frozen", default=False)
+    from app.services.bowl_six import bowl_six_enabled, get_or_create_current_slate, list_slates
+
+    bowl_six_on = bowl_six_enabled(db.session, slug)
+    bowl_six_current = get_or_create_current_slate(db.session, slug) if bowl_six_on else None
+    bowl_six_slates = list_slates(db.session, slug, limit=12) if bowl_six_on else []
     backup_rows = list_league_backups(slug, limit=20)
     restore_preview = None
     preview_name = (request.args.get("restore_preview") or "").strip()
@@ -1807,6 +1812,9 @@ def admin_control_center():
         rollover_preview=rollover_preview,
         rollover_defaults=_season_rollover_defaults(),
         schedule_frozen=schedule_frozen,
+        bowl_six_enabled=bowl_six_on,
+        bowl_six_current=bowl_six_current,
+        bowl_six_slates=bowl_six_slates,
         restore_preview=restore_preview,
         execute_result=None,
         backup_rows=backup_rows,

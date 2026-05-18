@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}BOWL Six GM Leaders — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card bowl-six-leaders-page">
+  <p><a href="{{ url_for('site_gm.bowl_six_hub') }}">← BOWL Six</a></p>
+  <h1 class="page-title">GM leaders</h1>
+  <p class="muted">Season standings — regular-season slates only.</p>
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>GM</th>
+          <th>Team</th>
+          <th>Weeks</th>
+          <th>Points</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td>{{ row.gm_name }}</td>
+          <td>
+            {% if row.team %}
+            {% if team_logo_url(row.team) %}
+            <img src="{{ team_logo_url(row.team) }}" alt="" width="24" height="24" style="vertical-align:middle;margin-right:0.35rem;">
+            {% endif %}
+            {{ row.team.full_display_name() }}
+            {% else %}—{% endif %}
+          </td>
+          <td>{{ row.weeks_played }}</td>
+          <td class="bowl-six-leaders__pts">{{ '%.1f'|format(row.season_points) }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="muted">No scored slates yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -17,6 +17,9 @@ DEFAULT_LEAGUE_RULES: tuple[dict[str, str], ...] = (
     {"rule_key": "playoff_roster_lock", "rule_value": "true"},
     # Trade Tool: max draft round number shown for manual (non-CSV) pick chips (1–this value).
     {"rule_key": "trade_tool_draft_rounds", "rule_value": "8"},
+    {"rule_key": "bowl_six_enabled", "rule_value": "true"},
+    {"rule_key": "bowl_six_week_start_dow", "rule_value": "0"},
+    {"rule_key": "bowl_six_lock_time_utc", "rule_value": "00:00"},
 )
 
 

@@ -200,6 +200,9 @@ def create_app(config_class: type = Config) -> Flask:
     csrf.exempt(api_bp)
     app.register_blueprint(site_gm_bp)
     app.register_blueprint(site_admin_bp)
+    from app.routes.bowl_six_portal import register_bowl_six_routes
+
+    register_bowl_six_routes(site_gm_bp, site_admin_bp)
 
     @app.template_filter("season_label_start_year")
     def season_label_start_year_filter(label: object) -> int | None:

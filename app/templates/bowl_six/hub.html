@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}BOWL Six — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="bowl-six-page card">
+  <header class="bowl-six-hero" style="background-image:url('{{ url_for('static', filename='bowl_six/rink-hero.svg') }}');">
+    <h1 class="page-title bowl-six-hero__title">BOWL Six</h1>
+    <p class="bowl-six-hero__lede muted">Pick six players each week. Goals, assists, saves, and everything on the scoresheet counts toward your total.</p>
+    {% if slate and slate.status != 'skipped' and lock_at %}
+    <div class="bowl-six-lock" id="bowl-six-lock-banner" data-lock-at="{{ lock_at.strftime('%Y-%m-%dT%H:%M:%S') }}Z">
+      <span class="bowl-six-lock__label">Lineup locks in</span>
+      <span class="bowl-six-lock__timer" id="bowl-six-lock-timer">—</span>
+    </div>
+    {% elif slate and slate.status == 'skipped' %}
+    <p class="bowl-six-bye">No BOWL Six slate this week{% if slate.skip_reason %}: {{ slate.skip_reason }}{% else %} (commissioner bye){% endif %}.</p>
+    {% endif %}
+    <div class="bowl-six-hero__actions">
+      <a class="join-league-btn" href="{{ url_for('site_gm.bowl_six_lineup') }}">Build lineup</a>
+      <a class="header-tools__link" href="{{ url_for('site_gm.bowl_six_leaders') }}">GM leaders</a>
+    </div>
+  </header>
+
+  {% if last_slate and last_ranked %}
+  <section class="bowl-six-recap" aria-labelledby="bowl-six-recap-h">
+    <h2 id="bowl-six-recap-h" class="bowl-six-section__title">Last week</h2>
+    <ol class="bowl-six-podium">
+      {% for row in last_ranked[:3] %}
+      <li class="bowl-six-podium__item bowl-six-podium__item--{{ loop.index }}">
+        <span class="bowl-six-podium__rank">#{{ loop.index }}</span>
+        <span class="bowl-six-podium__pts">{{ '%.1f'|format(row.total_points) }} pts</span>
+        <span class="bowl-six-podium__ap">+{{ ap_prizes[loop.index] }} AP</span>
+      </li>
+      {% endfor %}
+    </ol>
+  </section>
+  {% endif %}
+
+  <div class="bowl-six-insights">
+    <section class="bowl-six-insights__col" aria-labelledby="bowl-six-top-h">
+      <h2 id="bowl-six-top-h" class="bowl-six-section__title">Top performers</h2>
+      {% if top_performers %}
+      <ol class="bowl-six-player-list">
+        {% for item in top_performers %}
+        <li class="bowl-six-player-list__item{% if loop.first %} bowl-six-player-list__item--lead{% endif %}">
+          <span class="bowl-six-player-list__rank">{{ loop.index }}</span>
+          {% if item.player and player_headshot_url(item.player) %}
+          <img class="bowl-six-player-list__img" src="{{ player_headshot_url(item.player) }}" alt="" width="40" height="40">
+          {% endif %}
+          <span class="bowl-six-player-list__meta">
+            <a class="bowl-six-player-list__name" href="{{ url_for('main.player_page', player_id=item.player.id) if item.player else '#' }}">{{ item.player.full_name if item.player else ('Player #' ~ item.row.player_id) }}</a>
+            <span class="bowl-six-player-list__pts">{{ '%.1f'|format(item.row.fantasy_points) }} pts</span>
+          </span>
+        </li>
+        {% endfor %}
+      </ol>
+      {% else %}
+      <p class="muted">No stats yet for this slate.</p>
+      {% endif %}
+    </section>
+    <section class="bowl-six-insights__col" aria-labelledby="bowl-six-picked-h">
+      <h2 id="bowl-six-picked-h" class="bowl-six-section__title">Most picked</h2>
+      {% if most_picked %}
+      <ol class="bowl-six-player-list">
+        {% for item in most_picked %}
+        <li class="bowl-six-player-list__item{% if loop.first %} bowl-six-player-list__item--lead{% endif %}">
+          <span class="bowl-six-player-list__rank">{{ loop.index }}</span>
+          {% if item.player and player_headshot_url(item.player) %}
+          <img class="bowl-six-player-list__img" src="{{ player_headshot_url(item.player) }}" alt="" width="40" height="40">
+          {% endif %}
+          <span class="bowl-six-player-list__meta">
+            <a class="bowl-six-player-list__name" href="{{ url_for('main.player_page', player_id=item.player.id) if item.player else '#' }}">{{ item.player.full_name if item.player else ('Player #' ~ item.row.player_id) }}</a>
+            <span class="bowl-six-player-list__pct">{{ '%.0f'|format(item.pick_pct) }}%</span>
+          </span>
+        </li>
+        {% endfor %}
+      </ol>
+      {% else %}
+      <p class="muted">No picks yet.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <section class="bowl-six-how" aria-labelledby="bowl-six-how-h">
+    <h2 id="bowl-six-how-h" class="bowl-six-section__title">How to play</h2>
+    <div class="bowl-six-how__grid">
+      <div class="bowl-six-how__card">
+        <h3>Build your six</h3>
+        <p>1 goalie, 2 defense, 3 forwards. Max 3 from the same team. No repeat picks from your previous lineup.</p>
+      </div>
+      <div class="bowl-six-how__card">
+        <h3>Captain</h3>
+        <p>Name a skater captain for double points on their week. Goalies cannot be captain.</p>
+      </div>
+      <div class="bowl-six-how__card">
+        <h3>Weekly prizes</h3>
+        <p>Top GMs earn AP: 1st {{ ap_prizes[1] }}, 2nd {{ ap_prizes[2] }}, 3rd {{ ap_prizes[3] }}.</p>
+      </div>
+    </div>
+  </section>
+</div>
+<script src="{{ url_for('static', filename='js/bowl_six.js') }}"></script>
+{% endblock %}

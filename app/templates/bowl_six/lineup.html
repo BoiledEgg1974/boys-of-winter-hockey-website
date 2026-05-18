@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}BOWL Six Lineup — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="bowl-six-lineup-page card">
+  <p><a href="{{ url_for('site_gm.bowl_six_hub') }}">← BOWL Six</a></p>
+  <h1 class="page-title">Build your lineup</h1>
+  {% if slate %}
+  <p class="muted">Week {{ slate.week_start }} – {{ slate.week_end }}{% if not editable %} · <strong>Locked</strong>{% endif %}</p>
+  {% if lock_at and editable %}
+  <div class="bowl-six-lock" data-lock-at="{{ lock_at.strftime('%Y-%m-%dT%H:%M:%S') }}Z">
+    <span class="bowl-six-lock__label">Locks in</span>
+    <span class="bowl-six-lock__timer bowl-six-lock-timer">—</span>
+  </div>
+  {% endif %}
+  {% endif %}
+
+  <form method="post" id="bowl-six-lineup-form" class="bowl-six-lineup-layout" data-editable="{{ '1' if editable else '0' }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="captain_player_id" id="bowl-six-captain-id" value="{{ lineup.captain_player_id if lineup and lineup.captain_player_id else '' }}">
+
+    <div class="bowl-six-lineup__rink" style="background-image:url('{{ url_for('static', filename='bowl_six/rink-topdown.svg') }}');">
+      {% for slot in slots %}
+      {% set pid = pick_map.get(slot) %}
+      {% set player = namespace(obj=none) %}
+      <div class="bowl-six-slot bowl-six-slot--{{ slot }}" data-slot="{{ slot }}">
+        <span class="bowl-six-slot__label">{{ slot_labels[slot] }}</span>
+        <div class="bowl-six-slot__jersey" data-slot-target="{{ slot }}">
+          <img class="bowl-six-slot__jersey-img" src="{{ url_for('static', filename='bowl_six/jersey-empty.svg') }}" alt="">
+          <span class="bowl-six-slot__name" id="slot-name-{{ slot }}">{{ pick_names.get(slot, 'Pick') if pid else 'Pick' }}</span>
+        </div>
+        <input type="hidden" name="slot_{{ slot }}" id="slot-input-{{ slot }}" value="{{ pid or '' }}">
+      </div>
+      {% endfor %}
+    </div>
+
+    <aside class="bowl-six-pool">
+      <h2 class="bowl-six-pool__title">Player pool</h2>
+      <div class="bowl-six-pool__filters">
+        <input type="search" id="bowl-six-search" placeholder="Search name…" autocomplete="off">
+        <select id="bowl-six-pos-filter">
+          <option value="">All positions</option>
+          <option value="gk">Goalies</option>
+          <option value="def">Defense</option>
+          <option value="fwd">Forwards</option>
+        </select>
+      </div>
+      <p class="bowl-six-pool__hint muted">Max 3 per team. Players used last slate cannot be selected again.</p>
+      <div class="bowl-six-pool__table-wrap">
+        <table class="data bowl-six-pool__table">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Player</th>
+              <th>Pts</th>
+              <th>Picked</th>
+            </tr>
+          </thead>
+          <tbody id="bowl-six-pool-body">
+            <tr><td colspan="4" class="muted">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      {% if editable %}
+      <button type="button" class="admin-news-body-btn" id="bowl-six-pick-captain">Pick captain</button>
+      <button type="submit" class="join-league-btn bowl-six-save-btn">Save lineup</button>
+      {% endif %}
+    </aside>
+  </form>
+</div>
+<script>
+  window.BOWL_SIX = {
+    playersUrl: {{ url_for('site_gm.bowl_six_api_players')|tojson }},
+    blockedIds: {{ blocked_ids|list|tojson }},
+    pickMap: {{ pick_map|tojson }},
+    editable: {{ editable|tojson }}
+  };
+</script>
+<script src="{{ url_for('static', filename='js/bowl_six.js') }}"></script>
+{% endblock %}

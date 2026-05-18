@@ -74,6 +74,9 @@ _TITLE_FORM_KEY_RULES: tuple[tuple[str, str], ...] = (
     ("retire your created player", "retire_created_player"),
     ("purchase a gold boost", "gold_draft_boost"),
     ("purchase a silver boost", "silver_draft_boost"),
+    ("slow aging", "slow_aging"),
+    ("development speed", "development_speed"),
+    ("increase development", "development_speed"),
     ("re-allocate 1 point", "reallocate_attribute"),
     ("add 2 points to a position", "add_position_points"),
     ("add 2 points to coach", "coach_attribute_points"),
@@ -82,6 +85,10 @@ _TITLE_FORM_KEY_RULES: tuple[tuple[str, str], ...] = (
     ("supplemental staff", "supplemental_staff"),
     ("retire a number", "retire_number"),
     ("change a rival", "change_rival"),
+)
+
+_PLAYER_NAME_FIELD = (
+    RedemptionFormField("player_name", "Player name", "text", True),
 )
 
 _COMMISSIONER_ACK_FORM_KEYS = frozenset(
@@ -122,6 +129,7 @@ _FORM_FIELDS: dict[str, tuple[RedemptionFormField, ...]] = {
         ),
     ),
     "injury_proneness": (
+        RedemptionFormField("player_name", "Player name", "text", True),
         RedemptionFormField(
             "body_part",
             "Body part (if specific)",
@@ -138,10 +146,12 @@ _FORM_FIELDS: dict[str, tuple[RedemptionFormField, ...]] = {
         ),
     ),
     "reallocate_attribute": (
+        RedemptionFormField("player_name", "Player name", "text", True),
         RedemptionFormField("from_attribute", "FROM (attribute)", "text", True),
         RedemptionFormField("to_attribute", "TO (attribute)", "text", True),
     ),
     "add_position_points": (
+        RedemptionFormField("player_name", "Player name", "text", True),
         RedemptionFormField(
             "position",
             "Position",
@@ -151,6 +161,7 @@ _FORM_FIELDS: dict[str, tuple[RedemptionFormField, ...]] = {
         ),
     ),
     "coach_attribute_points": (
+        RedemptionFormField("coach_gm_name", "Coach/GM name", "text", True),
         RedemptionFormField(
             "coach_roles",
             "Apply to",
@@ -161,6 +172,8 @@ _FORM_FIELDS: dict[str, tuple[RedemptionFormField, ...]] = {
         ),
         RedemptionFormField("attribute", "Attribute", "text", True),
     ),
+    "slow_aging": _PLAYER_NAME_FIELD,
+    "development_speed": _PLAYER_NAME_FIELD,
     "silver_draft_boost": (
         RedemptionFormField("player_name", "Draftee (player name)", "text", True),
     ),
@@ -298,13 +311,24 @@ def parse_catalog_item_details(
         details["choice_labels"] = labels
         return details, None
 
+    if form_key in ("slow_aging", "development_speed"):
+        player = _clean_text(raw.get("player_name"))
+        if not player:
+            return None, "Enter the player name."
+        details["player_name"] = player
+        return details, None
+
     if form_key == "injury_proneness":
+        player = _clean_text(raw.get("player_name"))
+        if not player:
+            return None, "Enter the player name."
         body_part = _clean_text(raw.get("body_part"))
         general = "general" in _selected_checkbox_values(raw, "general")
         if general and body_part:
             return None, "Choose either a body part or General, not both."
         if not general and not body_part:
             return None, "Enter a body part or select General."
+        details["player_name"] = player
         if general:
             details["scope"] = "general"
         else:
@@ -313,32 +337,44 @@ def parse_catalog_item_details(
         return details, None
 
     if form_key == "reallocate_attribute":
+        player = _clean_text(raw.get("player_name"))
         frm = _clean_text(raw.get("from_attribute"))
         to = _clean_text(raw.get("to_attribute"))
+        if not player:
+            return None, "Enter the player name."
         if not frm or not to:
             return None, "Enter both FROM and TO attributes."
+        details["player_name"] = player
         details["from_attribute"] = frm
         details["to_attribute"] = to
         return details, None
 
     if form_key == "add_position_points":
+        player = _clean_text(raw.get("player_name"))
         pos = _clean_text(raw.get("position"), max_len=40)
         valid = {k for k, _ in POSITION_OPTIONS}
+        if not player:
+            return None, "Enter the player name."
         if pos not in valid:
             return None, "Choose a position."
+        details["player_name"] = player
         details["position"] = pos
         details["position_label"] = dict(POSITION_OPTIONS)[pos]
         return details, None
 
     if form_key == "coach_attribute_points":
+        coach_gm_name = _clean_text(raw.get("coach_gm_name"))
         roles = _selected_checkbox_values(raw, "coach_roles")
         valid_roles = {k for k, _ in COACH_ROLE_OPTIONS}
         roles = [r for r in roles if r in valid_roles]
         attr = _clean_text(raw.get("attribute"))
+        if not coach_gm_name:
+            return None, "Enter the Coach/GM name."
         if not roles:
             return None, "Select GM and/or Coach."
         if not attr:
             return None, "Enter the attribute name."
+        details["coach_gm_name"] = coach_gm_name
         details["coach_roles"] = roles
         details["coach_role_labels"] = [dict(COACH_ROLE_OPTIONS)[r] for r in roles]
         details["attribute"] = attr
@@ -402,17 +438,29 @@ def format_details_summary(details: dict[str, Any] | None) -> str:
     if fk == "market_fan_media":
         labels = details.get("choice_labels") or details.get("choices") or []
         return "Market/Fan/Media: " + ", ".join(str(x) for x in labels)
+    if fk in ("slow_aging", "development_speed"):
+        return f"Player: {details.get('player_name', '')}"
     if fk == "injury_proneness":
+        player = details.get("player_name", "")
         if details.get("scope") == "general":
-            return "Injury proneness: General"
-        return f"Injury proneness: {details.get('body_part', '')}"
+            return f"{player} — Injury proneness: General"
+        return f"{player} — Injury proneness: {details.get('body_part', '')}"
     if fk == "reallocate_attribute":
-        return f"Reallocate: {details.get('from_attribute', '')} → {details.get('to_attribute', '')}"
+        return (
+            f"{details.get('player_name', '')}: "
+            f"{details.get('from_attribute', '')} → {details.get('to_attribute', '')}"
+        )
     if fk == "add_position_points":
-        return f"+2 position: {details.get('position_label', details.get('position', ''))}"
+        return (
+            f"{details.get('player_name', '')}: "
+            f"+2 {details.get('position_label', details.get('position', ''))}"
+        )
     if fk == "coach_attribute_points":
         roles = ", ".join(str(x) for x in (details.get("coach_role_labels") or []))
-        return f"+2 coach attr ({roles}): {details.get('attribute', '')}"
+        return (
+            f"{details.get('coach_gm_name', '')} ({roles}): "
+            f"{details.get('attribute', '')}"
+        )
     if fk in ("silver_draft_boost", "gold_draft_boost"):
         return f"Draftee: {details.get('player_name', '')}"
     if fk == "retire_created_player":

@@ -193,6 +193,8 @@ def create_app(config_class: type = Config) -> Flask:
     from app.routes.expansion_draft_hub import expansion_draft_hub_bp
     from app.routes.site_portal import site_admin_bp, site_gm_bp
 
+    from app.routes import bowl_six_portal as _bowl_six_portal  # noqa: F401 — routes on shared blueprints
+
     app.register_blueprint(main_bp)
     app.register_blueprint(draft_hub_bp)
     app.register_blueprint(expansion_draft_hub_bp)
@@ -200,9 +202,6 @@ def create_app(config_class: type = Config) -> Flask:
     csrf.exempt(api_bp)
     app.register_blueprint(site_gm_bp)
     app.register_blueprint(site_admin_bp)
-    from app.routes.bowl_six_portal import register_bowl_six_routes
-
-    register_bowl_six_routes(site_gm_bp, site_admin_bp)
 
     @app.template_filter("season_label_start_year")
     def season_label_start_year_filter(label: object) -> int | None:

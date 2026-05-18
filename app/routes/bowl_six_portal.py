@@ -4,9 +4,11 @@ from __future__ import annotations
 import json
 from datetime import date, datetime, timedelta
 
-from flask import abort, flash, jsonify, redirect, render_template, request, url_for
+from pathlib import Path
+
+from flask import abort, current_app, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.auth_login import (
     ADMIN_ROLE_LEAGUE,
@@ -15,7 +17,9 @@ from app.auth_login import (
     require_admin_role,
 )
 from app.league_db import db
-from app.models import Player, PlayerSkaterStat, Team
+from app.models import Player, PlayerGoalieStat, PlayerSkaterStat, Team
+from app.services.player_headshot import resolve_player_headshot_static_filename
+from app.services.player_ratings_csv import player_positions_display_label
 from app.routes.site_portal import site_admin_bp, site_gm_bp
 from app.services.bowl_six import (
     AP_PRIZES,
@@ -28,15 +32,18 @@ from app.services.bowl_six import (
     last_scored_slate,
     lineup_is_editable,
     most_picked_for_slate,
+    auto_update_bowl_six_slates,
+    extend_slate_lock_at,
     save_lineup,
     score_slate,
+    slate_lock_ui,
     slate_rankings,
     top_players_for_slate,
 )
 from app.services.bowl_six_scoring import SLOT_ORDER as SCORING_SLOTS
 from app.services.gm_messaging import gm_display_name
 from app.services.seasons import get_current_season
-from app.site_models import AdminAuditLog, BowlSixSlate, User
+from app.site_models import AdminAuditLog, BowlSixPlayerWeekStat, BowlSixSlate, User
 
 
 def _league_slug() -> str:
@@ -65,6 +72,18 @@ def _require_bowl_six_access():
         abort(403)
 
 
+def _player_headshot_url(player: Player) -> str | None:
+    static_root = Path(current_app.root_path) / (current_app.static_folder or "static")
+    rel = resolve_player_headshot_static_filename(
+        static_root,
+        player,
+        current_app.config.get("PLAYER_HEADSHOTS_REL_DIR", "players"),
+    )
+    if not rel:
+        return None
+    return url_for("static", filename=rel)
+
+
 def _audit(admin_action: str, detail: dict) -> None:
     db.session.add(
         AdminAuditLog(
@@ -81,6 +100,11 @@ def _audit(admin_action: str, detail: dict) -> None:
 def bowl_six_hub():
     _require_bowl_six_access()
     slug = _league_slug()
+    try:
+        auto_update_bowl_six_slates(db.session, db.session, slug)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
     if not bowl_six_enabled(db.session, slug):
         flash("BOWL Six is disabled for this league.", "err")
         return redirect(url_for("main.home"))
@@ -101,7 +125,7 @@ def bowl_six_hub():
         for r in most_picked_rows
     ]
     gm_mini = gm_season_standings(db.session, slug)[:10]
-    lock_at = slate.lock_at if slate else None
+    lock_ui = slate_lock_ui(slate)
     return render_template(
         "bowl_six/hub.html",
         slate=slate,
@@ -111,7 +135,7 @@ def bowl_six_hub():
         top_performers=top_perf,
         most_picked=most_picked,
         gm_mini=gm_mini,
-        lock_at=lock_at,
+        lock_ui=lock_ui,
         ap_prizes=AP_PRIZES,
         membership=mem,
     )
@@ -170,23 +194,30 @@ def bowl_six_lineup():
     if mem:
         lineup = get_lineup(db.session, slate.id, int(current_user.id))
     pick_map = {p.slot: int(p.player_id) for p in (lineup.picks if lineup else [])}
-    pick_names: dict[str, str] = {}
+    pick_players: dict[str, dict] = {}
     for slot, pid in pick_map.items():
         pl = db.session.get(Player, pid)
-        pick_names[slot] = pl.full_name if pl else f"#{pid}"
+        if pl is None:
+            continue
+        pick_players[slot] = {
+            "id": int(pl.id),
+            "name": pl.full_name,
+            "positions": player_positions_display_label(pl) or (pl.position or ""),
+            "headshot_url": _player_headshot_url(pl),
+        }
     teams = list(db.session.scalars(select(Team).order_by(Team.name)).all())
     return render_template(
         "bowl_six/lineup.html",
         slate=slate,
         lineup=lineup,
         pick_map=pick_map,
-        pick_names=pick_names,
+        pick_players=pick_players,
         slots=SCORING_SLOTS,
         slot_labels=SLOT_LABELS,
         editable=editable,
         blocked_ids=list(blocked),
         teams=teams,
-        lock_at=slate.lock_at,
+        lock_ui=slate_lock_ui(slate),
     )
 
 
@@ -214,6 +245,8 @@ def bowl_six_leaders():
 @site_gm_bp.get("/bowl-six/api/players")
 @login_required
 def bowl_six_api_players():
+    from app.services.bowl_six_scoring import position_kind
+
     _require_bowl_six_access()
     slug = _league_slug()
     slate = get_or_create_current_slate(db.session, slug)
@@ -228,7 +261,60 @@ def bowl_six_api_players():
     season = get_current_season()
     if season is None:
         return jsonify({"players": []})
-    query = (
+    week_stats: dict[int, BowlSixPlayerWeekStat] = {}
+    if slate:
+        for row in db.session.scalars(
+            select(BowlSixPlayerWeekStat).where(BowlSixPlayerWeekStat.slate_id == slate.id)
+        ):
+            week_stats[int(row.player_id)] = row
+    total_lineups = 0
+    if slate:
+        from app.site_models import BowlSixLineup
+
+        total_lineups = db.session.scalar(
+            select(func.count())
+            .select_from(BowlSixLineup)
+            .where(
+                BowlSixLineup.slate_id == slate.id,
+                BowlSixLineup.submitted_at.is_not(None),
+            )
+        ) or 0
+
+    def pool_row(player: Player, team: Team | None) -> dict | None:
+        name_lc = player.full_name.lower()
+        if q and q not in name_lc:
+            return None
+        pk = position_kind(player.position)
+        if pos_filter == "gk" and pk != "gk":
+            return None
+        if pos_filter == "def" and pk != "def":
+            return None
+        if pos_filter == "fwd" and pk != "fwd":
+            return None
+        pid = int(player.id)
+        blocked_reason = "Used last slate" if pid in blocked else ""
+        wk = week_stats.get(pid)
+        pick_pct = None
+        if wk and total_lineups > 0 and wk.pick_count:
+            pick_pct = round(100.0 * int(wk.pick_count) / total_lineups, 1)
+        return {
+            "id": pid,
+            "name": player.full_name,
+            "position": player.position or "",
+            "positions": player_positions_display_label(player) or (player.position or ""),
+            "position_kind": pk,
+            "team_id": int(team.id) if team else None,
+            "team_name": team.full_display_name() if team else "",
+            "headshot_url": _player_headshot_url(player),
+            "fantasy_points": float(wk.fantasy_points) if wk and wk.fantasy_points is not None else None,
+            "pick_pct": pick_pct,
+            "blocked": bool(blocked_reason),
+            "blocked_reason": blocked_reason,
+        }
+
+    seen: set[int] = set()
+    out: list[dict] = []
+    skater_q = (
         db.session.query(Player, PlayerSkaterStat, Team)
         .join(
             PlayerSkaterStat,
@@ -239,35 +325,35 @@ def bowl_six_api_players():
         .outerjoin(Team, Team.id == PlayerSkaterStat.team_id)
     )
     if team_filter and str(team_filter).isdigit():
-        query = query.filter(PlayerSkaterStat.team_id == int(team_filter))
-    rows = query.limit(500).all()
-    out = []
-    for player, _st, team in rows:
-        name = player.full_name.lower()
-        if q and q not in name:
-            continue
-        from app.services.bowl_six_scoring import position_kind
-
-        pk = position_kind(player.position)
-        if pos_filter == "gk" and pk != "gk":
-            continue
-        if pos_filter == "def" and pk != "def":
-            continue
-        if pos_filter == "fwd" and pk != "fwd":
-            continue
+        skater_q = skater_q.filter(PlayerSkaterStat.team_id == int(team_filter))
+    for player, _st, team in skater_q.limit(600).all():
         pid = int(player.id)
-        blocked_reason = "Used last slate" if pid in blocked else ""
-        out.append(
-            {
-                "id": pid,
-                "name": player.full_name,
-                "position": player.position or "",
-                "team_id": int(team.id) if team else None,
-                "team_name": team.full_display_name() if team else "",
-                "blocked": bool(blocked_reason),
-                "blocked_reason": blocked_reason,
-            }
+        if pid in seen:
+            continue
+        row = pool_row(player, team)
+        if row:
+            seen.add(pid)
+            out.append(row)
+    goalie_q = (
+        db.session.query(Player, PlayerGoalieStat, Team)
+        .join(
+            PlayerGoalieStat,
+            (PlayerGoalieStat.player_id == Player.id)
+            & (PlayerGoalieStat.season_id == season.id)
+            & (PlayerGoalieStat.stat_segment == "rs"),
         )
+        .outerjoin(Team, Team.id == PlayerGoalieStat.team_id)
+    )
+    if team_filter and str(team_filter).isdigit():
+        goalie_q = goalie_q.filter(PlayerGoalieStat.team_id == int(team_filter))
+    for player, _st, team in goalie_q.limit(200).all():
+        pid = int(player.id)
+        if pid in seen:
+            continue
+        row = pool_row(player, team)
+        if row:
+            seen.add(pid)
+            out.append(row)
     out.sort(key=lambda x: x["name"])
     return jsonify({"players": out[:200]})
 
@@ -303,9 +389,9 @@ def admin_bowl_six_rescore():
     if not slate or slate.league_slug != slug:
         flash("Invalid slate.", "err")
         return redirect(url_for("site_admin.admin_control_center"))
-    n = score_slate(db.session, db.session, slate)
-    db.session.commit()
-    _audit("bowl_six_rescore", {"slate_id": sid, "lineups_scored": n})
+        n = score_slate(db.session, db.session, slate, notify=False)
+        db.session.commit()
+        _audit("bowl_six_rescore", {"slate_id": sid, "lineups_scored": n})
     db.session.commit()
     flash(f"BOWL Six slate re-scored ({n} lineups).", "ok")
     return redirect(url_for("site_admin.admin_control_center"))
@@ -341,22 +427,32 @@ def admin_bowl_six_extend_lock():
     require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
     slug = _league_slug()
     sid = int(request.form.get("slate_id") or "0")
-    slate = db.session.get(BowlSixSlate, sid)
-    if not slate or slate.league_slug != slug:
+    if sid <= 0:
         flash("Invalid slate.", "err")
         return redirect(url_for("site_admin.admin_control_center"))
-    raw = (request.form.get("lock_at") or "").strip()
-    try:
-        slate.lock_at = datetime.fromisoformat(raw.replace("Z", ""))
-    except ValueError:
-        flash("Invalid lock datetime.", "err")
+    ok, msg = extend_slate_lock_at(
+        db.session,
+        league_slug=slug,
+        slate_id=sid,
+        lock_date=request.form.get("lock_date") or "",
+        lock_time=request.form.get("lock_time") or "00:00",
+    )
+    if not ok:
+        flash(msg, "err")
         return redirect(url_for("site_admin.admin_control_center"))
-    if slate.status == "locked" and datetime.utcnow() < slate.lock_at:
-        slate.status = "open"
-    db.session.commit()
-    _audit("bowl_six_extend_lock", {"slate_id": sid, "lock_at": raw})
-    db.session.commit()
-    flash("Lock time updated.", "ok")
+    try:
+        db.session.commit()
+        _audit(
+            "bowl_six_extend_lock",
+            {"slate_id": sid, "lock_at": msg},
+        )
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception("BOWL Six extend lock commit failed")
+        flash("Could not save lock time. Try again.", "err")
+        return redirect(url_for("site_admin.admin_control_center"))
+    flash(f"Lock time updated to {msg}.", "ok")
     return redirect(url_for("site_admin.admin_control_center"))
 
 

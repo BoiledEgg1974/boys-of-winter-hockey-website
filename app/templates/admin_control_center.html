@@ -127,42 +127,108 @@
 
   <h3 style="margin:0.7rem 0 0.35rem;">BOWL Six</h3>
   {% if bowl_six_enabled and bowl_six_current %}
-  <p class="muted">Weekly GM pick game — current slate: {{ bowl_six_current.week_start }} – {{ bowl_six_current.week_end }} ({{ bowl_six_current.status }})</p>
-  <form method="post" action="{{ url_for('site_admin.admin_bowl_six_score') }}" style="display:inline;margin-right:0.5rem;">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <input type="hidden" name="slate_id" value="{{ bowl_six_current.id }}">
-    <button type="submit" class="join-league-btn">Score current slate</button>
-  </form>
-  <form method="post" action="{{ url_for('site_admin.admin_bowl_six_rescore') }}" style="display:inline-flex;gap:0.5rem;align-items:center;margin:0.5rem 0;">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <input type="hidden" name="slate_id" value="{{ bowl_six_current.id }}">
-    <input type="text" name="confirm_phrase" placeholder="RESCORE" autocomplete="off" style="max-width:6rem;">
-    <button type="submit" class="admin-news-body-btn">Re-score slate</button>
-  </form>
-  <form method="post" action="{{ url_for('site_admin.admin_bowl_six_unlock') }}" style="margin:0.5rem 0;">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <input type="hidden" name="slate_id" value="{{ bowl_six_current.id }}">
-    <label><input type="checkbox" name="confirm_unlock" value="1"> Unlock slate (not scored)</label>
-    <button type="submit" class="admin-news-body-btn">Unlock</button>
-  </form>
-  <form method="post" action="{{ url_for('site_admin.admin_bowl_six_extend_lock') }}" style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:end;margin:0.5rem 0;">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <input type="hidden" name="slate_id" value="{{ bowl_six_current.id }}">
-    <label>New lock (UTC ISO) <input type="datetime-local" name="lock_at" value="{{ bowl_six_current.lock_at.strftime('%Y-%m-%dT%H:%M') }}"></label>
-    <button type="submit" class="admin-news-body-btn">Extend lock</button>
-  </form>
-  <form method="post" action="{{ url_for('site_admin.admin_bowl_six_skip_week') }}" style="margin:0.5rem 0;">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <input type="hidden" name="slate_id" value="{{ bowl_six_current.id }}">
-    <label>Skip reason <input type="text" name="skip_reason" placeholder="Bye week"></label>
-    <button type="submit" class="admin-news-body-btn">Skip this week</button>
-  </form>
-  <form method="post" action="{{ url_for('site_admin.admin_bowl_six_advance_week') }}" style="margin:0 0 0.8rem;">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <button type="submit" class="admin-news-body-btn">Create next week slate</button>
-  </form>
+  {% set bowl_six_phase = {
+    'open': 'GMs are still picking their six players.',
+    'locked': 'Picks are locked. Import sim results as usual — scores update on their own.',
+    'scored': 'This week is finished. Top three GMs were paid AP and notified.',
+    'skipped': 'This week has no BOWL Six contest.'
+  }.get(bowl_six_current.status, bowl_six_current.status) %}
+  <div class="bowl-six-admin-panel">
+    <p class="bowl-six-admin-panel__week"><strong>Week:</strong> {{ bowl_six_current.week_start }} – {{ bowl_six_current.week_end }}</p>
+    <p class="muted bowl-six-admin-panel__lock"><strong>Lineups lock:</strong> {{ bowl_six_lock_display }}</p>
+    <p class="bowl-six-admin-panel__phase">{{ bowl_six_phase }}</p>
+    {% if bowl_six_week_games_total %}
+    <p class="muted bowl-six-admin-panel__games">
+      Games played: <strong>{{ bowl_six_week_games_final }}</strong> of <strong>{{ bowl_six_week_games_total }}</strong>
+      {% if bowl_six_week_complete %} — all done; week will close out automatically{% endif %}
+    </p>
+    {% else %}
+    <p class="muted bowl-six-admin-panel__games">No games found for these dates yet. Run your normal league import.</p>
+    {% endif %}
+    <p class="bowl-six-admin-panel__hint muted">You do not need to press a score button. Import CSVs like every other week.</p>
+    <details class="bowl-six-admin-panel__fixes">
+      <summary>Fix or change this week (rare)</summary>
+      <ul class="bowl-six-admin-fixes">
+        {% if bowl_six_current.status == 'scored' %}
+        <li class="bowl-six-admin-fix">
+          <strong>Fixed stats after import?</strong>
+          <form method="post" action="{{ url_for('site_admin.admin_bowl_six_rescore') }}" class="bowl-six-admin-fix__form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="slate_id" value="{{ bowl_six_current.id }}">
+            <input type="text" name="confirm_phrase" placeholder="Type RESCORE" autocomplete="off" aria-label="Type RESCORE to confirm">
+            <button type="submit" class="admin-news-body-btn">Update scores</button>
+          </form>
+        </li>
+        {% endif %}
+        {% if bowl_six_current.status in ('open', 'locked') %}
+        <li class="bowl-six-admin-fix">
+          <strong>No contest this week?</strong>
+          <form method="post" action="{{ url_for('site_admin.admin_bowl_six_skip_week') }}" class="bowl-six-admin-fix__form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="slate_id" value="{{ bowl_six_current.id }}">
+            <input type="text" name="skip_reason" placeholder="e.g. Bye week" aria-label="Skip reason">
+            <button type="submit" class="admin-news-body-btn">Skip week</button>
+          </form>
+        </li>
+        {% endif %}
+        {% if bowl_six_current.status == 'locked' and not bowl_six_week_complete %}
+        <li class="bowl-six-admin-fix">
+          <strong>End week early?</strong>
+          <form method="post" action="{{ url_for('site_admin.admin_bowl_six_score') }}" class="bowl-six-admin-fix__form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="slate_id" value="{{ bowl_six_current.id }}">
+            <button type="submit" class="admin-news-body-btn">Close week now</button>
+          </form>
+          <span class="muted">Pays AP even if some games are not final yet.</span>
+        </li>
+        {% endif %}
+        {% if bowl_six_current.status == 'open' %}
+        <li class="bowl-six-admin-fix">
+          <strong>Give GMs more pick time</strong>
+          <form method="post" action="{{ url_for('site_admin.admin_bowl_six_extend_lock') }}" class="bowl-six-admin-fix__form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="slate_id" value="{{ bowl_six_current.id }}">
+            <input type="date" name="lock_date" value="{{ bowl_six_lock_et.lock_date }}" required aria-label="Lock date Eastern">
+            <input type="time" name="lock_time" value="{{ bowl_six_lock_et.lock_time }}" step="60" required aria-label="Lock time Eastern">
+            <span class="muted">Eastern</span>
+            <button type="submit" class="admin-news-body-btn">Change lock time</button>
+          </form>
+        </li>
+        {% endif %}
+        {% if bowl_six_current.status == 'locked' %}
+        <li class="bowl-six-admin-fix">
+          <strong>Let GMs edit picks again</strong>
+          <form method="post" action="{{ url_for('site_admin.admin_bowl_six_unlock') }}" class="bowl-six-admin-fix__form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="slate_id" value="{{ bowl_six_current.id }}">
+            <label><input type="checkbox" name="confirm_unlock" value="1"> I am sure</label>
+            <button type="submit" class="admin-news-body-btn">Unlock picks</button>
+          </form>
+        </li>
+        <li class="bowl-six-admin-fix">
+          <strong>Push lock time later</strong>
+          <form method="post" action="{{ url_for('site_admin.admin_bowl_six_extend_lock') }}" class="bowl-six-admin-fix__form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="slate_id" value="{{ bowl_six_current.id }}">
+            <input type="date" name="lock_date" value="{{ bowl_six_lock_et.lock_date }}" required aria-label="Lock date Eastern">
+            <input type="time" name="lock_time" value="{{ bowl_six_lock_et.lock_time }}" step="60" required aria-label="Lock time Eastern">
+            <span class="muted">Eastern</span>
+            <button type="submit" class="admin-news-body-btn">Change lock time</button>
+          </form>
+        </li>
+        {% endif %}
+        <li class="bowl-six-admin-fix">
+          <strong>Open next week early</strong>
+          <form method="post" action="{{ url_for('site_admin.admin_bowl_six_advance_week') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="admin-news-body-btn">Start next week</button>
+          </form>
+        </li>
+      </ul>
+    </details>
+  </div>
   {% else %}
-  <p class="muted">BOWL Six is disabled for this league (see League rules).</p>
+  <p class="muted">BOWL Six is off for this league. Turn it on under <a href="{{ url_for('site_admin.admin_rules') }}">League rules</a> if needed.</p>
   {% endif %}
 
   <h3 style="margin:0.7rem 0 0.35rem;">Backup & Restore Workflow</h3>

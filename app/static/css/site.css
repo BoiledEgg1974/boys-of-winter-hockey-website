@@ -15178,20 +15178,88 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   letter-spacing: 0.08em;
   margin-bottom: 0.25rem;
 }
+.bowl-six-slot__jersey {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 6.5rem;
+}
 .bowl-six-slot__jersey-img {
   width: 56px;
   height: 64px;
 }
-.bowl-six-slot__name {
+.bowl-six-slot__placeholder {
   display: block;
   font-size: 0.78rem;
   margin-top: 0.2rem;
-  max-width: 7rem;
-  margin-left: auto;
-  margin-right: auto;
+  color: rgb(148 163 184);
+}
+.bowl-six-slot__jersey--filled .bowl-six-slot__player {
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+.bowl-six-slot__photo {
+  display: block;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid rgb(96 165 250 / 0.55);
+}
+.bowl-six-slot__photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.bowl-six-slot__photo .stats-player-cell__photo-ph {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 52px;
+}
+.bowl-six-slot__name {
+  display: block;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  max-width: 6.5rem;
+  text-align: center;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.bowl-six-slot__name:hover {
+  text-decoration: underline;
+}
+.bowl-six-slot__name-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  max-width: 7.5rem;
+}
+.bowl-six-slot__clear {
+  flex-shrink: 0;
+  width: 1.15rem;
+  height: 1.15rem;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgb(248 113 113 / 0.2);
+  color: #f87171;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+.bowl-six-slot__clear:hover {
+  background: rgb(248 113 113 / 0.45);
+  color: #fecaca;
+}
+.bowl-six-slot__clear:focus-visible {
+  outline: 2px solid #f87171;
+  outline-offset: 2px;
 }
 .bowl-six-pool__filters {
   display: flex;
@@ -15202,8 +15270,83 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   max-height: 360px;
   overflow: auto;
 }
+.bowl-six-pool__table .stats-player-cell__photo {
+  width: 36px;
+  height: 36px;
+}
+.bowl-six-pool__table .stats-player-cell__photo img {
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+}
+.bowl-six-pool__col-pick {
+  width: 2rem;
+}
+.bowl-six-pool__col-pos {
+  width: 3rem;
+  white-space: nowrap;
+  font-size: 0.82rem;
+  color: rgb(148 163 184);
+}
+.bowl-six-pool__col-team,
+.bowl-six-pool__col-num {
+  width: 3.25rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.bowl-six-pool__team-count--active {
+  color: var(--accent, #60a5fa);
+  font-weight: 600;
+}
+.bowl-six-pool__team-count--full {
+  color: #f87171;
+  font-weight: 700;
+}
+.bowl-six-pool__row--disabled .stats-player-cell__name {
+  opacity: 0.55;
+}
 .bowl-six-save-btn {
   margin-top: 0.65rem;
+}
+.bowl-six-admin-panel {
+  margin: 0 0 0.85rem;
+  padding: 0.85rem 1rem;
+  border-radius: 8px;
+  border: 1px solid rgb(51 65 85 / 0.8);
+  background: rgb(15 23 42 / 0.45);
+  max-width: 52rem;
+}
+.bowl-six-admin-panel__phase {
+  margin: 0.35rem 0;
+  font-size: 1rem;
+  line-height: 1.45;
+}
+.bowl-six-admin-panel__hint {
+  margin: 0.5rem 0 0.65rem;
+}
+.bowl-six-admin-panel__fixes summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: rgb(148 163 184);
+}
+.bowl-six-admin-fixes {
+  list-style: none;
+  margin: 0.65rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.bowl-six-admin-fix strong {
+  display: block;
+  margin-bottom: 0.35rem;
+}
+.bowl-six-admin-fix__form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
 }
 .bowl-six-podium {
   list-style: none;

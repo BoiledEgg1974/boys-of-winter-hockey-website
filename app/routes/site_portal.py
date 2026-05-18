@@ -1776,11 +1776,51 @@ def admin_control_center():
     raw_dir = Path(str(current_app.config.get("RAW_IMPORT_DIR") or ""))
     snap = build_control_center_snapshot(db.session, raw_dir)
     schedule_frozen = rule_bool(db.session, slug, "schedule_frozen", default=False)
-    from app.services.bowl_six import bowl_six_enabled, get_or_create_current_slate, list_slates
+    from app.services.bowl_six import (
+        auto_update_bowl_six_slates,
+        bowl_six_enabled,
+        get_or_create_current_slate,
+        list_slates,
+        lock_at_display_eastern,
+        lock_at_eastern_form_values,
+        rs_games_in_slate_week,
+        slate_week_rs_games_complete,
+    )
 
+    try:
+        auto_update_bowl_six_slates(db.session, db.session, slug)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
     bowl_six_on = bowl_six_enabled(db.session, slug)
     bowl_six_current = get_or_create_current_slate(db.session, slug) if bowl_six_on else None
     bowl_six_slates = list_slates(db.session, slug, limit=12) if bowl_six_on else []
+    bowl_six_week_games_final = 0
+    bowl_six_week_games_total = 0
+    bowl_six_week_complete = False
+    if bowl_six_on and bowl_six_current:
+        week_games = rs_games_in_slate_week(db.session, bowl_six_current)
+        bowl_six_week_games_total = len(week_games)
+        bowl_six_week_games_final = sum(
+            1 for g in week_games if (g.status or "").lower() == "final"
+        )
+        bowl_six_week_complete = slate_week_rs_games_complete(db.session, bowl_six_current)
+        from app.services.bowl_six import sync_slate_lock_status
+
+        sync_slate_lock_status(db.session, bowl_six_current)
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+        db.session.refresh(bowl_six_current)
+    bowl_six_lock_et = (
+        lock_at_eastern_form_values(bowl_six_current.lock_at)
+        if bowl_six_current
+        else {"lock_date": "", "lock_time": ""}
+    )
+    bowl_six_lock_display = (
+        lock_at_display_eastern(bowl_six_current.lock_at) if bowl_six_current else ""
+    )
     backup_rows = list_league_backups(slug, limit=20)
     restore_preview = None
     preview_name = (request.args.get("restore_preview") or "").strip()
@@ -1815,6 +1855,11 @@ def admin_control_center():
         bowl_six_enabled=bowl_six_on,
         bowl_six_current=bowl_six_current,
         bowl_six_slates=bowl_six_slates,
+        bowl_six_week_games_final=bowl_six_week_games_final,
+        bowl_six_week_games_total=bowl_six_week_games_total,
+        bowl_six_week_complete=bowl_six_week_complete,
+        bowl_six_lock_et=bowl_six_lock_et,
+        bowl_six_lock_display=bowl_six_lock_display,
         restore_preview=restore_preview,
         execute_result=None,
         backup_rows=backup_rows,

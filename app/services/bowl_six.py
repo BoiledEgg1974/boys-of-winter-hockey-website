@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, joinedload
@@ -12,6 +14,9 @@ from sqlalchemy.orm import Session, joinedload
 from app.auth_login import active_membership_for_league
 from app.league_db import db
 from app.models import Game, Player, Team
+from app.services.postseason_odds import _is_regular_season_game
+
+_log = logging.getLogger(__name__)
 from app.services.ap_service import add_ledger_entry
 from app.services.bowl_six_scoring import (
     SLOT_ORDER,
@@ -33,6 +38,8 @@ from app.site_models import (
 )
 
 AP_PRIZES = {1: 10, 2: 6, 3: 3}
+BOWL_SIX_LOCK_TZ = ZoneInfo("America/New_York")
+BOWL_SIX_LOCK_TZ_LABEL = "ET"
 SLOT_LABELS = {
     "gk": "GK",
     "def1": "DEF",
@@ -74,17 +81,175 @@ def _parse_lock_time(rule_val: str) -> time:
         return time(0, 0)
 
 
+def utcnow_naive() -> datetime:
+    """Naive UTC wall time for lock comparisons and storage."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def _combine_date_time_form(date_str: str, time_str: str) -> datetime | None:
+    d = (date_str or "").strip()
+    if not d:
+        return None
+    t = (time_str or "00:00").strip() or "00:00"
+    try:
+        day = date.fromisoformat(d)
+        parts = t.split(":")
+        hour = int(parts[0])
+        minute = int(parts[1]) if len(parts) > 1 else 0
+        return datetime.combine(day, time(hour % 24, minute % 60))
+    except (ValueError, TypeError):
+        return None
+
+
+def utc_naive_from_eastern(naive_eastern: datetime) -> datetime:
+    """Convert Eastern wall time to naive UTC for DB storage."""
+    aware = naive_eastern.replace(tzinfo=BOWL_SIX_LOCK_TZ)
+    return aware.astimezone(timezone.utc).replace(tzinfo=None)
+
+
+def eastern_naive_from_utc_naive(utc_naive: datetime) -> datetime:
+    """Convert stored naive UTC to Eastern wall time for forms/display."""
+    aware_utc = utc_naive.replace(tzinfo=timezone.utc)
+    return aware_utc.astimezone(BOWL_SIX_LOCK_TZ).replace(tzinfo=None)
+
+
+def parse_lock_at_eastern_form(date_str: str, time_str: str = "00:00") -> datetime | None:
+    """Admin date + time in US Eastern; returns naive UTC for storage."""
+    naive = _combine_date_time_form(date_str, time_str)
+    if naive is None:
+        return None
+    return utc_naive_from_eastern(naive)
+
+
+def parse_lock_at_utc_form(date_str: str, time_str: str = "00:00") -> datetime | None:
+    """Backward-compatible alias; treats form values as Eastern."""
+    return parse_lock_at_eastern_form(date_str, time_str)
+
+
+def parse_lock_at_utc_iso(raw: str) -> datetime | None:
+    """Parse ``2026-05-19T20:00`` or ``2026-05-19T20:00:00Z`` as UTC naive."""
+    text = (raw or "").strip()
+    if not text:
+        return None
+    text = text.replace("Z", "").replace("z", "")
+    if len(text) == 16:
+        text += ":00"
+    try:
+        return datetime.fromisoformat(text)
+    except ValueError:
+        return None
+
+
+def lock_at_iso_z(lock_at: datetime | None) -> str | None:
+    if lock_at is None:
+        return None
+    return lock_at.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def lock_at_display_eastern(lock_at: datetime | None) -> str:
+    if lock_at is None:
+        return "—"
+    et = eastern_naive_from_utc_naive(lock_at)
+    hour = et.hour % 12 or 12
+    ampm = "AM" if et.hour < 12 else "PM"
+    return f"{et.strftime('%a %b %d, %Y')} {hour}:{et.minute:02d} {ampm} {BOWL_SIX_LOCK_TZ_LABEL}"
+
+
+def lock_at_eastern_form_values(lock_at: datetime | None) -> dict[str, str]:
+    if lock_at is None:
+        return {"lock_date": "", "lock_time": ""}
+    et = eastern_naive_from_utc_naive(lock_at)
+    return {
+        "lock_date": et.strftime("%Y-%m-%d"),
+        "lock_time": et.strftime("%H:%M"),
+    }
+
+
+def slate_lock_ui(slate: BowlSixSlate | None) -> dict[str, Any]:
+    """Hub/lineup lock banner: countdown vs locked message."""
+    empty: dict[str, Any] = {
+        "show_countdown": False,
+        "lock_iso": None,
+        "lock_display": "",
+        "banner_label": "",
+        "banner_value": "",
+    }
+    if slate is None or slate.status == "skipped":
+        return empty
+    lock_iso = lock_at_iso_z(slate.lock_at)
+    lock_display = lock_at_display_eastern(slate.lock_at)
+    if slate.status == "scored":
+        return {
+            **empty,
+            "lock_iso": lock_iso,
+            "lock_display": lock_display,
+            "banner_label": "Week status",
+            "banner_value": "Complete",
+        }
+    if not lock_time_is_future(slate):
+        return {
+            "show_countdown": False,
+            "lock_iso": lock_iso,
+            "lock_display": lock_display,
+            "banner_label": "Lineups locked",
+            "banner_value": lock_display,
+        }
+    return {
+        "show_countdown": True,
+        "lock_iso": lock_iso,
+        "lock_display": lock_display,
+        "banner_label": "Lineup locks in",
+        "banner_value": "",
+    }
+
+
 def default_lock_at(week_start: date, league_slug: str, session: Session) -> datetime:
-    lock_t = _parse_lock_time(get_rule_value(session, league_slug, "bowl_six_lock_time_utc", "00:00"))
-    return datetime.combine(week_start, lock_t)
+    raw = get_rule_value(session, league_slug, "bowl_six_lock_time_et", None)
+    if not raw:
+        raw = get_rule_value(session, league_slug, "bowl_six_lock_time_utc", "00:00")
+    lock_t = _parse_lock_time(raw)
+    return utc_naive_from_eastern(datetime.combine(week_start, lock_t))
+
+
+def lock_time_is_future(slate: BowlSixSlate) -> bool:
+    return utcnow_naive() < slate.lock_at
 
 
 def sync_slate_lock_status(session: Session, slate: BowlSixSlate) -> None:
     if slate.status in ("scored", "skipped"):
         return
-    now = datetime.utcnow()
+    now = utcnow_naive()
+    if now < slate.lock_at and slate.status == "locked":
+        slate.status = "open"
+        return
     if slate.status == "open" and now >= slate.lock_at:
         slate.status = "locked"
+
+
+def extend_slate_lock_at(
+    session: Session,
+    *,
+    league_slug: str,
+    slate_id: int,
+    lock_date: str,
+    lock_time: str,
+) -> tuple[bool, str]:
+    """Set lock deadline from Eastern date/time fields. Returns (ok, message)."""
+    lock_at = parse_lock_at_eastern_form(lock_date, lock_time)
+    if lock_at is None:
+        return False, "Invalid lock date or time."
+    slate = session.scalar(
+        select(BowlSixSlate).where(
+            BowlSixSlate.id == int(slate_id),
+            BowlSixSlate.league_slug == league_slug,
+        )
+    )
+    if slate is None:
+        return False, "Invalid slate for this league."
+    slate.lock_at = lock_at
+    sync_slate_lock_status(session, slate)
+    session.flush()
+    return True, lock_at_display_eastern(lock_at)
 
 
 def get_slate(session: Session, slate_id: int) -> BowlSixSlate | None:
@@ -174,7 +339,9 @@ def get_lineup(session: Session, slate_id: int, user_id: int) -> BowlSixLineup |
 
 def lineup_is_editable(slate: BowlSixSlate) -> bool:
     sync_slate_lock_status(db.session, slate)
-    return slate.status == "open" and datetime.utcnow() < slate.lock_at
+    if slate.status in ("scored", "skipped"):
+        return False
+    return lock_time_is_future(slate)
 
 
 def validate_lineup_picks(
@@ -275,18 +442,36 @@ def save_lineup(
     return LineupValidation(True)
 
 
-def rs_game_ids_for_slate(league_session: Session, slate: BowlSixSlate) -> list[int]:
+def rs_games_in_slate_week(league_session: Session, slate: BowlSixSlate) -> list[Game]:
+    """Regular-season games dated within the slate week (any status)."""
     season = get_current_season()
     if season is None:
         return []
-    q = select(Game.id).where(
-        Game.season_id == int(season.id),
-        Game.status == "final",
-        Game.game_date.is_not(None),
-        Game.game_date >= slate.week_start,
-        Game.game_date <= slate.week_end,
-    )
-    return [int(x) for x in league_session.scalars(q).all()]
+    rows = league_session.scalars(
+        select(Game).where(
+            Game.season_id == int(season.id),
+            Game.game_date.isnot(None),
+            Game.game_date >= slate.week_start,
+            Game.game_date <= slate.week_end,
+        )
+    ).all()
+    return [g for g in rows if _is_regular_season_game(g.game_type)]
+
+
+def rs_game_ids_for_slate(league_session: Session, slate: BowlSixSlate) -> list[int]:
+    return [
+        int(g.id)
+        for g in rs_games_in_slate_week(league_session, slate)
+        if (g.status or "").lower() == "final"
+    ]
+
+
+def slate_week_rs_games_complete(league_session: Session, slate: BowlSixSlate) -> bool:
+    """True when every RS game in the week is final (and at least one exists)."""
+    games = rs_games_in_slate_week(league_session, slate)
+    if not games:
+        return False
+    return all((g.status or "").lower() == "final" for g in games)
 
 
 def refresh_player_week_stats(session: Session, slate: BowlSixSlate, league_session: Session) -> None:
@@ -326,14 +511,12 @@ def refresh_player_week_stats(session: Session, slate: BowlSixSlate, league_sess
         )
 
 
-def score_slate(session: Session, league_session: Session, slate: BowlSixSlate) -> int:
-    """Score all submitted lineups; award AP; notify GMs. Returns count scored."""
+def refresh_slate_lineup_scores(
+    session: Session, league_session: Session, slate: BowlSixSlate
+) -> int:
+    """Recalculate submitted lineup totals from final RS games in the week."""
     if slate.status == "skipped":
         return 0
-    if slate.status == "open":
-        sync_slate_lock_status(session, slate)
-    if slate.status == "open":
-        slate.status = "locked"
     season = get_current_season()
     if season is None:
         return 0
@@ -371,12 +554,106 @@ def score_slate(session: Session, league_session: Session, slate: BowlSixSlate) 
                 )
             )
         n += 1
-    slate.scoring_version = int(slate.scoring_version or 0) + 1
-    slate.status = "scored"
-    refresh_player_week_stats(session, slate, league_session)
-    sync_bowl_six_slate_ap_awards(session, slate)
-    notify_slate_scored(session, slate)
     return n
+
+
+def finalize_slate(
+    session: Session,
+    league_session: Session,
+    slate: BowlSixSlate,
+    *,
+    notify: bool = True,
+) -> int:
+    """Mark slate scored, refresh pool stats, sync AP prizes; optionally notify GMs once."""
+    if slate.status == "skipped":
+        return 0
+    was_scored = slate.status == "scored"
+    n = refresh_slate_lineup_scores(session, league_session, slate)
+    slate.scoring_version = int(slate.scoring_version or 0) + 1
+    refresh_player_week_stats(session, slate, league_session)
+    slate.status = "scored"
+    sync_bowl_six_slate_ap_awards(session, slate)
+    if notify and not was_scored:
+        notify_slate_scored(session, slate)
+    return n
+
+
+def score_slate(
+    session: Session,
+    league_session: Session,
+    slate: BowlSixSlate,
+    *,
+    notify: bool | None = None,
+) -> int:
+    """Lock if needed, refresh scores, finalize (AP + optional GM notifications)."""
+    if slate.status == "skipped":
+        return 0
+    if slate.status == "open":
+        sync_slate_lock_status(session, slate)
+    if slate.status == "open":
+        slate.status = "locked"
+    if notify is None:
+        notify = slate.status != "scored"
+    return finalize_slate(session, league_session, slate, notify=notify)
+
+
+def auto_update_bowl_six_slates(
+    session: Session, league_session: Session, league_slug: str
+) -> list[str]:
+    """Refresh locked/scored slates after imports or page loads. Returns log lines."""
+    if not bowl_six_enabled(session, league_slug):
+        return []
+    lookback = date.today() - timedelta(days=21)
+    slates = list(
+        session.scalars(
+            select(BowlSixSlate)
+            .where(
+                BowlSixSlate.league_slug == league_slug,
+                BowlSixSlate.status.in_(["open", "locked", "scored"]),
+                BowlSixSlate.week_end >= lookback,
+            )
+            .order_by(BowlSixSlate.week_start.desc())
+        ).all()
+    )
+    notes: list[str] = []
+    for slate in slates:
+        try:
+            note = _auto_update_single_slate(session, league_session, slate)
+            if note:
+                notes.append(note)
+        except Exception:
+            _log.exception("BOWL Six auto-update failed for slate %s", slate.id)
+    return notes
+
+
+def _auto_update_single_slate(
+    session: Session, league_session: Session, slate: BowlSixSlate
+) -> str | None:
+    if slate.status == "skipped":
+        return None
+    sync_slate_lock_status(session, slate)
+    if slate.status == "open":
+        return None
+    if slate.status == "locked":
+        n = refresh_slate_lineup_scores(session, league_session, slate)
+        refresh_player_week_stats(session, slate, league_session)
+        if slate_week_rs_games_complete(league_session, slate):
+            finalize_slate(session, league_session, slate, notify=True)
+            return (
+                f"Week {slate.week_start}: finalized ({n} lineups), "
+                "all RS games final — AP and notifications sent."
+            )
+        if n:
+            return f"Week {slate.week_start}: updated {n} lineup(s) from completed games."
+        return None
+    if slate.status == "scored":
+        n = refresh_slate_lineup_scores(session, league_session, slate)
+        refresh_player_week_stats(session, slate, league_session)
+        sync_bowl_six_slate_ap_awards(session, slate)
+        if n:
+            return f"Week {slate.week_start}: re-synced {n} lineup(s) after data change."
+        return None
+    return None
 
 
 def sync_bowl_six_slate_ap_awards(session: Session, slate: BowlSixSlate) -> None:

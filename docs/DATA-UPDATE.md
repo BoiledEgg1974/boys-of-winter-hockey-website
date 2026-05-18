@@ -36,7 +36,7 @@ League **URL slugs** (used in `LEAGUE_SLUG` and in URLs): `bowl-historical`, `bo
 
 The import rebuilds the player search index (FTS) and related pieces automatically.
 
-After import, if a **BOWL Six** slate week is locked and box scores changed, open **Admin → League Control Center → BOWL Six** and run **Re-score slate** (type `RESCORE` to confirm).
+**BOWL Six** scoring runs automatically after each import (and when commissioners or GMs open the Control Center or BOWL Six hub): locked slates pick up points from completed RS games; when every RS game in the week is final, the slate finalizes (AP + GM notifications). If box scores change after a week is already scored, use **Re-score slate** in Control Center (type `RESCORE` to confirm).
 
 ## Copy from FHM saved-game folders (Windows)
 

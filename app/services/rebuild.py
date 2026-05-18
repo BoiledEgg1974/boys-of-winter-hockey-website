@@ -105,5 +105,12 @@ def refresh_after_import(engine, app=None) -> None:
                     record_system_rank_snapshot_after_import(app)
                     record_positional_rank_snapshot_after_import(app)
                     record_power_rank_snapshot_after_import(app)
+                    from app.league_db import db
+                    from app.services.bowl_six import auto_update_bowl_six_slates
+
+                    slug = str(app.config.get("LEAGUE_SLUG") or "").strip()
+                    if slug:
+                        auto_update_bowl_six_slates(db.session, db.session, slug)
+                        db.session.commit()
         except Exception:
-            _log.exception("record rank snapshots after import failed (non-fatal)")
+            _log.exception("post-import hooks failed (non-fatal)")

@@ -5,10 +5,13 @@
   <header class="bowl-six-hero" style="background-image:url('{{ url_for('static', filename='bowl_six/rink-hero.svg') }}');">
     <h1 class="page-title bowl-six-hero__title">BOWL Six</h1>
     <p class="bowl-six-hero__lede muted">Pick six players each week. Goals, assists, saves, and everything on the scoresheet counts toward your total.</p>
-    {% if slate and slate.status != 'skipped' and lock_at %}
-    <div class="bowl-six-lock" id="bowl-six-lock-banner" data-lock-at="{{ lock_at.strftime('%Y-%m-%dT%H:%M:%S') }}Z">
-      <span class="bowl-six-lock__label">Lineup locks in</span>
-      <span class="bowl-six-lock__timer" id="bowl-six-lock-timer">—</span>
+    {% if slate and slate.status != 'skipped' and lock_ui.lock_iso %}
+    <div class="bowl-six-lock" id="bowl-six-lock-banner"
+      data-lock-mode="{{ 'countdown' if lock_ui.show_countdown else 'locked' }}"
+      data-lock-at="{{ lock_ui.lock_iso if lock_ui.show_countdown else '' }}"
+      data-lock-display="{{ lock_ui.lock_display }}">
+      <span class="bowl-six-lock__label">{{ lock_ui.banner_label }}</span>
+      <span class="bowl-six-lock__timer" id="bowl-six-lock-timer">{% if not lock_ui.show_countdown %}{{ lock_ui.banner_value }}{% else %}—{% endif %}</span>
     </div>
     {% elif slate and slate.status == 'skipped' %}
     <p class="bowl-six-bye">No BOWL Six slate this week{% if slate.skip_reason %}: {{ slate.skip_reason }}{% else %} (commissioner bye){% endif %}.</p>

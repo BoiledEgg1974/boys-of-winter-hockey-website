@@ -210,7 +210,7 @@ def bowl_six_lineup():
         )
         if result.ok:
             db.session.commit()
-            flash("Lineup saved.", "ok")
+            flash("Lineup saved successfully.", "ok")
         else:
             db.session.rollback()
             flash(result.message, "err")

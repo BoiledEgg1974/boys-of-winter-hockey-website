@@ -14,6 +14,25 @@
       .replace(/"/g, "&quot;");
   }
 
+  function showBowlSixToast(message, kind) {
+    var root = document.getElementById("bowl-six-toast-root");
+    if (!root || !message) return;
+    var cat = kind === "err" || kind === "error" ? "err" : "ok";
+    var toast = document.createElement("div");
+    toast.className = "bowl-six-toast bowl-six-toast--" + cat;
+    toast.setAttribute("role", "status");
+    toast.textContent = message;
+    root.appendChild(toast);
+    window.setTimeout(function () {
+      toast.classList.add("bowl-six-toast--hide");
+      window.setTimeout(function () {
+        if (toast.parentNode) toast.parentNode.removeChild(toast);
+      }, 320);
+    }, 4500);
+  }
+
+  window.showBowlSixToast = showBowlSixToast;
+
   function updateLockTimers() {
     var now = Date.now();
     document.querySelectorAll(".bowl-six-lock").forEach(function (parent) {
@@ -543,6 +562,14 @@
       if (idx >= 0 && idx < picks.length) {
         document.getElementById("bowl-six-captain-id").value = picks[idx].id;
         alert("Captain set.");
+      }
+    });
+  }
+
+  if (cfg.flashMessages && cfg.flashMessages.length) {
+    cfg.flashMessages.forEach(function (entry) {
+      if (entry && entry.length >= 2) {
+        showBowlSixToast(entry[1], entry[0]);
       }
     });
   }

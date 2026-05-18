@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 {% block title %}BOWL Six Lineup — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
 {% block content %}
+{% with flash_msgs = get_flashed_messages(with_categories=true) %}
+<div id="bowl-six-toast-root" class="bowl-six-toast-root" aria-live="polite" aria-atomic="true"></div>
 <div class="bowl-six-lineup-page card">
   <p><a href="{{ url_for('site_gm.bowl_six_hub') }}">← BOWL Six</a></p>
   <h1 class="page-title">Build your lineup</h1>
@@ -81,8 +83,10 @@
     pickMap: {{ pick_map|tojson }},
     pickPlayers: {{ pick_players|tojson }},
     slots: {{ slots|list|tojson }},
-    editable: {{ editable|tojson }}
+    editable: {{ editable|tojson }},
+    flashMessages: {{ flash_msgs|tojson }}
   };
 </script>
 <script src="{{ url_for('static', filename='js/bowl_six.js') }}"></script>
+{% endwith %}
 {% endblock %}

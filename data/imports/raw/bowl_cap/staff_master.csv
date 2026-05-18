@@ -8,7 +8,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 6;-1;Alpo;Suhonen;;1948-6-17;Valkeakoski;PIR;Finland;;;0
 7;11;Vladislav;Tretiak;;1952-4-25;Naberezhnye Chelny;TAT;Russia;;;0
 8;214;Barry;Smith;;1952-8-21;Buffalo;NY;The United States;;;0
-9;21;Scotty;Bowman;;1933-9-18;Montreal;QC;Canada;;;0
+9;3;Scotty;Bowman;;1933-9-18;Montreal;QC;Canada;;;0
 10;219;Ron;Ivany;;1949-4-1;Toronto;ON;Canada;;;0
 11;15;Jari;Helle;;1962-8-10;Tampere;PIR;Finland;;;0
 12;10;Darryl;Sutter;;1958-8-19;Viking;AB;Canada;;;0
@@ -621,7 +621,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 619;215;Joppe;Van Den Eynde;;1939-6-14;Duffel;ANT;Belgium;;;0
 620;-1;Danick;Trudeau;;1939-9-21;St. Marys;PA;The United States;;;0
 621;-1;Nick;Cox;;1939-2-11;Chesapeake;VA;The United States;;;0
-622;20;Tim;McGinn;;1940-10-4;Islip Terrace;NY;The United States;;;0
+622;-1;Tim;McGinn;;1940-10-4;Islip Terrace;NY;The United States;;;0
 623;-1;Alan;Tarrant;;1939-6-5;Fresno;CA;The United States;;;0
 624;10;Keith;Maldonado;;1939-5-12;Paradise;CA;The United States;;;0
 625;-1;Phil;Carson;;1939-1-19;Portland;OR;The United States;;;0
@@ -663,7 +663,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 661;51;Jeremy;Means;;1941-2-18;Chesterfield Township;MI;The United States;;;0
 662;51;Bryan;Maxwell;;1941-8-3;Akron;OH;The United States;;;0
 663;51;Ray;Wilbraham;;1946-11-8;Manteca;CA;The United States;;;0
-664;51;Tim;Norrish;;1939-1-30;Napili-Honokowai;HI;The United States;;;0
+664;20;Tim;Norrish;;1939-1-30;Napili-Honokowai;HI;The United States;;;0
 665;51;George;Gordon;;1939-12-24;Diamond Bar;CA;The United States;;;0
 666;51;Phil;Workman;;1939-7-14;New York;NY;The United States;;;0
 667;51;Barrett;Wall;;1939-9-10;Huntington Beach;CA;The United States;;;0
@@ -708,7 +708,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 706;57;Rhett;Shaffer;;1939-10-4;New York;NY;The United States;;;0
 707;57;Knut;Pyszny;;1939-10-7;Rawicz;WIE;Poland;;;0
 708;57;Mauro;Guijosa;;1939-7-23;French Valley;CA;The United States;;;0
-709;57;Spencer;Umbleby;;1939-5-24;Philadelphia;PA;The United States;;;0
+709;-1;Spencer;Umbleby;;1939-5-24;Philadelphia;PA;The United States;;;0
 710;57;Jay;Ward;;1945-3-13;Avondale;AZ;The United States;;;0
 711;57;Scott;Harper;;1939-4-28;Brockton;MA;The United States;;;0
 712;57;Brian;Kirtley;;1939-10-9;Hemet;CA;The United States;;;0
@@ -724,7 +724,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 722;59;Bill;Gravitt;;1939-12-14;Yorktown;NY;The United States;;;0
 723;59;Eric;Lambert;;1939-8-29;Conshohocken;PA;The United States;;;0
 724;59;Brit;Cholmondeley;;1939-9-15;Berkeley;CA;The United States;;;0
-725;59;Bob;Caine;;1944-7-23;Des Plaines;IL;The United States;;;0
+725;20;Bob;Caine;;1944-7-23;Des Plaines;IL;The United States;;;0
 726;59;Clifford;Manning;;1939-4-20;Farmers Branch;TX;The United States;;;0
 727;59;Clint;Enlow;;1939-4-13;McGregor;FL;The United States;;;0
 728;59;Walter;Stone;;1939-4-26;San Marcos;CA;The United States;;;0
@@ -797,7 +797,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 795;65;Robert;Clemmer;;1939-8-14;Brooklyn;IN;The United States;;;0
 796;65;Nelson;Ferguson;;1939-12-13;San Diego;CA;The United States;;;0
 797;65;Marvin;Lunday;;1939-11-23;Brownwood;TX;The United States;;;0
-798;20;Johnny;Detwiler;;1944-10-19;Mesa;AZ;The United States;;;0
+798;-1;Johnny;Detwiler;;1944-10-19;Mesa;AZ;The United States;;;0
 799;65;Stuart;Carver;;1939-1-18;Suisun City;CA;The United States;;;0
 800;65;Alvin;Guthrie;;1939-11-17;Gonzales;CA;The United States;;;0
 801;65;Tyler;Nolan;;1939-4-24;Brooklyn;NY;The United States;;;0
@@ -1657,7 +1657,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1655;-1;Eric;Burnett;;1943-9-25;Kannapolis;NC;The United States;;;0
 1656;-1;Andy;McLeod;;1945-11-19;Orlando;FL;The United States;;;0
 1657;-1;Ken;Ducker;;1946-6-26;Faro;YT;Canada;;;0
-1658;20;Travis;Harland;;1940-2-2;Montreal;QC;Canada;;;0
+1658;-1;Travis;Harland;;1940-2-2;Montreal;QC;Canada;;;0
 1659;-1;Taylor;Hunt;;1940-11-25;Ridley Township;PA;The United States;;;0
 1660;-1;Scott;Hudson;;1940-2-14;Sherbrooke;QC;Canada;;;0
 1661;-1;Quinton;Hrehoriak;;1940-2-6;Lethbridge;AB;Canada;;;0
@@ -1800,7 +1800,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1798;219;Ryan;Czepiel;;1942-3-29;;;The United States;;;0
 1799;219;Ron;Shaw;;1942-3-16;Shaw;MS;The United States;;;0
 1800;219;Adam;DeVille;;1942-1-27;Durham;NC;The United States;;;0
-1801;219;Joe;Little;;1942-9-12;Midway City;CA;The United States;;;0
+1801;20;Joe;Little;;1942-9-12;Midway City;CA;The United States;;;0
 1802;219;Pepe;Orozco;;1945-1-27;;;The United States;;;0
 1803;-1;Randy;Sexton;;1959-7-24;Brockville;ON;Canada;;;0
 1804;17;Ray;Shero;;1962-7-28;Tell City;IN;The United States;;;0

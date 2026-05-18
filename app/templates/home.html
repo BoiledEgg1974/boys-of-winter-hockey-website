@@ -1007,7 +1007,9 @@
       } else if (a.team_name) {
         h += ' <span class="muted">' + escape(a.team_name) + '</span>';
       }
-      if (a.body) {
+      if (a.body_html) {
+        h += '<div class="home-news-list__body home-news-list__body--linked">' + a.body_html + '</div>';
+      } else if (a.body) {
         h += '<div class="home-news-list__body">' + escape(a.body) + '</div>';
       }
       h += htmlNewsEngagement(a, viewerCan);

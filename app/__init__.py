@@ -348,6 +348,16 @@ def create_app(config_class: type = Config) -> Flask:
 
         return player_positions_display_label(player)
 
+    @app.template_filter("linkify_news_body")
+    def linkify_news_body_filter(body: object):
+        from app.league_db import db
+        from app.services.news_entity_linkify import linkify_news_body
+        from markupsafe import Markup
+
+        if body is None or not str(body).strip():
+            return Markup("")
+        return linkify_news_body(db.session, str(body))
+
     @app.context_processor
     def inject_layout():
         from app.services.draft_history import draft_pick_current_team_view

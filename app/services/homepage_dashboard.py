@@ -1069,6 +1069,9 @@ def build_around_the_league(
     for a in rows:
         tm = league_session.get(Team, a.team_id) if a.team_id else None
         body = (a.body or "").strip().replace("\r\n", "\n")
+        from app.services.news_entity_linkify import linkify_news_body
+
+        body_html = str(linkify_news_body(db.session, body))
         au = authors.get(a.author_user_id)
         rel_img = (getattr(a, "image_rel_path", None) or "").strip()
         image_url = _static_url(rel_img) if rel_img else ""
@@ -1078,6 +1081,7 @@ def build_around_the_league(
                 "id": a.id,
                 "title": a.title,
                 "body": body,
+                "body_html": body_html,
                 "category_label": news_category_label(getattr(a, "category", None)),
                 "team_name": tm.full_display_name() if tm else None,
                 "team_slug": tm.slug if tm else None,

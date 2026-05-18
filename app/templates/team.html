@@ -46,7 +46,7 @@
       </div>
       {% endif %}
       {% if row.body %}
-      <div class="home-news-list__body">{{ row.body }}</div>
+      <div class="home-news-list__body home-news-list__body--linked">{{ row.body | linkify_news_body }}</div>
       {% endif %}
       {% if a.published_at %}
       <p class="team-page-news__date muted">{{ a.published_at.strftime('%b %d, %Y') }}</p>

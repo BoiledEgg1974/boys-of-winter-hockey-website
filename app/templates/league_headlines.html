@@ -30,7 +30,7 @@
       <img class="headlines-article__img" src="{{ url_for('static', filename=a.image_rel_path) }}" alt="" loading="lazy" decoding="async">
     </div>
     {% endif %}
-    <div class="headlines-article__body" style="white-space:pre-wrap;">{{ a.body }}</div>
+    <div class="headlines-article__body headlines-article__body--linked" style="white-space:pre-wrap;">{{ a.body | linkify_news_body }}</div>
     {{ news_engagement_block(a.id, engagement_by_article.get(a.id), news_viewer_can_react) }}
   </article>
   {% else %}

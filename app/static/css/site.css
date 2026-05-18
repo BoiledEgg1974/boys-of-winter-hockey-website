@@ -4121,6 +4121,16 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
   margin-top: 0.45rem;
   white-space: pre-wrap;
 }
+.home-news-list__body--linked a,
+.headlines-article__body--linked a {
+  color: #7dd3fc;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.home-news-list__body--linked a:hover,
+.headlines-article__body--linked a:hover {
+  color: #bae6fd;
+}
 .home-news-list__media {
   margin-top: 0.45rem;
 }

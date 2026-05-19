@@ -18,9 +18,21 @@ from app.config import league_slugs, make_league_config
 from hub import create_hub_app
 
 
+def _lazy_league_wsgi(slug: str):
+    """Load each league Flask app on first request (avoids 3× heavy init per worker at import)."""
+    loaded: list = []
+
+    def application(environ, start_response):
+        if not loaded:
+            loaded.append(create_app(make_league_config(slug)).wsgi_app)
+        return loaded[0](environ, start_response)
+
+    return application
+
+
 def create_combined_application():
     hub = create_hub_app()
-    mounts = {f"/{slug}": create_app(make_league_config(slug)).wsgi_app for slug in league_slugs()}
+    mounts = {f"/{slug}": _lazy_league_wsgi(slug) for slug in league_slugs()}
     return DispatcherMiddleware(hub.wsgi_app, mounts)
 
 

@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 import threading
 import time
 from collections.abc import Callable
@@ -29,6 +30,10 @@ _lock = threading.Lock()
 _mem_cache: dict[tuple, tuple[float, float, dict[str, Any]]] = {}
 _compute_locks: dict[str, threading.Lock] = {}
 _refresh_inflight: set[str] = set()
+# Cap concurrent cache rebuild threads per process (homepage builds are heavy).
+_background_refresh_slots = threading.Semaphore(
+    max(1, int(os.environ.get("LEAGUE_JSON_CACHE_MAX_BACKGROUND_JOBS", "2") or 2))
+)
 
 DEFAULT_FRESH_TTL_SECONDS: dict[str, float] = {
     "homepage_summary": 120.0,
@@ -207,6 +212,8 @@ def store_cached_json(
     *,
     app: Flask | None = None,
 ) -> None:
+    if app is not None:
+        body = prefix_league_static_urls(body, app=app)
     key = cache_key(namespace, key_suffix, app=app)
     saved_at = _write_file(key, body)
     now = time.monotonic()
@@ -240,6 +247,11 @@ def _schedule_background_refresh(
         _refresh_inflight.add(digest)
 
     def _run() -> None:
+        acquired = _background_refresh_slots.acquire(blocking=False)
+        if not acquired:
+            with _lock:
+                _refresh_inflight.discard(digest)
+            return
         try:
             with league_test_request_context(bound_app):
                 body = builder()
@@ -247,6 +259,7 @@ def _schedule_background_refresh(
         except Exception:
             _log.exception("background cache refresh failed for %s %s", namespace, key_suffix)
         finally:
+            _background_refresh_slots.release()
             with _lock:
                 _refresh_inflight.discard(digest)
 

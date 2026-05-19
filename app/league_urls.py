@@ -31,19 +31,40 @@ def league_mount_prefix(app: Flask | None = None) -> str:
     return configured if configured and configured != "/" else ""
 
 
+def static_urls_already_prefixed(value: Any, *, prefix: str | None = None, app: Flask | None = None) -> bool:
+    """Fast check whether cached JSON already has mount-prefixed static URLs."""
+    mount = (prefix if prefix is not None else league_mount_prefix(app)).rstrip("/")
+    if not mount:
+        return True
+    marker = f"{mount}/static/"
+
+    def _scan(v: Any, depth: int) -> bool | None:
+        if depth > 4:
+            return None
+        if isinstance(v, str) and v.startswith("/static/"):
+            return v.startswith(marker)
+        if isinstance(v, dict):
+            for x in v.values():
+                hit = _scan(x, depth + 1)
+                if hit is not None:
+                    return hit
+        if isinstance(v, list):
+            for x in v[:8]:
+                hit = _scan(x, depth + 1)
+                if hit is not None:
+                    return hit
+        return None
+
+    return _scan(value, 0) is True
+
+
 def prefix_league_static_urls(value: Any, *, prefix: str | None = None, app: Flask | None = None) -> Any:
     """Rewrite ``/static/...`` strings to include the league mount prefix when needed."""
     mount = (prefix if prefix is not None else league_mount_prefix(app)).rstrip("/")
     if not mount:
-
-        def _walk(v: Any) -> Any:
-            if isinstance(v, dict):
-                return {k: _walk(x) for k, x in v.items()}
-            if isinstance(v, list):
-                return [_walk(x) for x in v]
-            return v
-
-        return _walk(value)
+        return value
+    if static_urls_already_prefixed(value, prefix=mount):
+        return value
 
     marker = f"{mount}/static/"
 

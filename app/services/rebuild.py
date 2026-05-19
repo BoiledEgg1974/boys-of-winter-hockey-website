@@ -112,5 +112,10 @@ def refresh_after_import(engine, app=None) -> None:
                     if slug:
                         auto_update_bowl_six_slates(db.session, db.session, slug)
                         db.session.commit()
+                    from app.services.homepage_summary_cache import invalidate_homepage_summary_cache
+                    from app.services.league_json_cache import invalidate_league_json_cache
+
+                    invalidate_league_json_cache(league_slug=slug or None)
+                    invalidate_homepage_summary_cache(league_slug=slug or None)
         except Exception:
             _log.exception("post-import hooks failed (non-fatal)")

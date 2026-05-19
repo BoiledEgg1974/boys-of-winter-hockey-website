@@ -268,6 +268,19 @@ def search_players():
     q = request.args.get("q", "").strip()
     if len(q) < 2:
         return jsonify({"results": []})
+    from app.services.cached_api_responses import jsonify_cached
+    from app.services.league_json_cache import DEFAULT_TTL_SECONDS
+
+    return jsonify_cached(
+        "search_players",
+        ("q", q.lower()),
+        DEFAULT_TTL_SECONDS["search_players"],
+        lambda: _build_search_players_payload(q),
+        cache_control=15,
+    )
+
+
+def _build_search_players_payload(q: str) -> dict[str, object]:
     pat = _fts_match_pattern(q)
     ids: list[int] = []
     if pat:
@@ -309,7 +322,7 @@ def search_players():
                 "team_slug": tm.slug if tm else "",
             }
         )
-    return jsonify({"results": out})
+    return {"results": out}
 
 
 def _hockey_year_label_from_start_year(y: int) -> str:
@@ -765,9 +778,24 @@ def _contract_payload_for_share(session, player: Player, season: Season | None) 
 
 @api_bp.get("/player/<int:player_id>/hover-card")
 def player_hover_card(player_id: int):
+    if not db.session.get(Player, player_id):
+        return jsonify({"error": "not found"}), 404
+    from app.services.cached_api_responses import jsonify_cached
+    from app.services.league_json_cache import DEFAULT_TTL_SECONDS
+
+    return jsonify_cached(
+        "player_hover",
+        (int(player_id),),
+        DEFAULT_TTL_SECONDS["player_hover"],
+        lambda: _build_player_hover_card_payload(player_id),
+        cache_control=60,
+    )
+
+
+def _build_player_hover_card_payload(player_id: int) -> dict[str, object]:
     player = db.session.get(Player, player_id)
     if not player:
-        return jsonify({"error": "not found"}), 404
+        return {"error": "not found"}
     team = db.session.get(Team, player.current_team_id) if player.current_team_id else None
     season = get_current_season()
     age = _player_age_years(player.birth_date, season_age_reference_date(season) if season else None)
@@ -817,35 +845,33 @@ def player_hover_card(player_id: int):
     league_display = str(current_app.config.get("LEAGUE_DISPLAY_NAME", "") or "").strip()
     position_ratings = position_ratings_display_list(rr) if rr else []
 
-    return jsonify(
-        {
-            "id": player.id,
-            "name": player.full_name or "",
-            "player_ovr": ovr_int,
-            "retired": retired,
-            "position": player_positions_display_label(player),
-            "team_abbr": team.abbreviation if team else "",
-            "team_name": team.full_display_name() if team else "",
-            "team_logo_url": team_logo_url_for_team(team) if team else "",
-            "nationality": (player.nationality or "").strip(),
-            "league_display_name": league_display,
-            "age": age,
-            "shoots": (player.shoots_catches or "").strip(),
-            "height_inches": player.height_inches,
-            "weight_lbs": player.weight_lbs,
-            "abi": abi_f,
-            "pot": pot_f,
-            "is_goalie": is_goalie,
-            "attrs": attrs,
-            "photo_url": _player_photo_url(player),
-            "recent_seasons_role": recent_role,
-            "recent_seasons": recent,
-            "rating_columns": rating_share,
-            "position_ratings": position_ratings,
-            "latest_season_stats": latest_stats,
-            "contract": contract_payload,
-        }
-    )
+    return {
+        "id": player.id,
+        "name": player.full_name or "",
+        "player_ovr": ovr_int,
+        "retired": retired,
+        "position": player_positions_display_label(player),
+        "team_abbr": team.abbreviation if team else "",
+        "team_name": team.full_display_name() if team else "",
+        "team_logo_url": team_logo_url_for_team(team) if team else "",
+        "nationality": (player.nationality or "").strip(),
+        "league_display_name": league_display,
+        "age": age,
+        "shoots": (player.shoots_catches or "").strip(),
+        "height_inches": player.height_inches,
+        "weight_lbs": player.weight_lbs,
+        "abi": abi_f,
+        "pot": pot_f,
+        "is_goalie": is_goalie,
+        "attrs": attrs,
+        "photo_url": _player_photo_url(player),
+        "recent_seasons_role": recent_role,
+        "recent_seasons": recent,
+        "rating_columns": rating_share,
+        "position_ratings": position_ratings,
+        "latest_season_stats": latest_stats,
+        "contract": contract_payload,
+    }
 
 
 @api_bp.get("/team-hover-preview")
@@ -855,12 +881,28 @@ def team_hover_preview():
         return jsonify({"error": "slug required"}), 400
     canonical = get_current_season()
     season = season_with_imported_data_fallback(db.session, canonical) if canonical else None
+    if not build_team_hover_preview_payload(db.session, slug, season):
+        return jsonify({"error": "not found"}), 404
+    from app.services.cached_api_responses import jsonify_cached
+    from app.services.league_json_cache import DEFAULT_TTL_SECONDS
+
+    season_id = int(season.id) if season is not None else 0
+    return jsonify_cached(
+        "team_hover",
+        (slug, season_id),
+        DEFAULT_TTL_SECONDS["team_hover"],
+        lambda: _build_team_hover_preview_payload(slug, season),
+        cache_control=60,
+    )
+
+
+def _build_team_hover_preview_payload(slug: str, season: Season | None) -> dict[str, object]:
     payload = build_team_hover_preview_payload(db.session, slug, season)
     if not payload:
-        return jsonify({"error": "not found"}), 404
+        return {"error": "not found"}
     league_display = str(current_app.config.get("LEAGUE_DISPLAY_NAME", "") or "").strip()
     payload["league_display_name"] = league_display
-    return jsonify(payload)
+    return payload
 
 
 @api_bp.get("/game/<int:game_id>/boxscore")
@@ -868,6 +910,23 @@ def game_boxscore(game_id: int):
     game = db.session.get(Game, game_id)
     if not game:
         return jsonify({"error": "not found"}), 404
+    from app.services.cached_api_responses import jsonify_cached
+    from app.services.league_json_cache import ttl_for_namespace
+
+    live = (game.status or "").lower() != "final"
+    return jsonify_cached(
+        "game_boxscore",
+        (int(game_id), str(game.status or "")),
+        ttl_for_namespace("game_boxscore", live=live),
+        lambda: _build_game_boxscore_payload(game_id),
+        cache_control=120 if not live else 30,
+    )
+
+
+def _build_game_boxscore_payload(game_id: int) -> dict[str, object]:
+    game = db.session.get(Game, game_id)
+    if not game:
+        return {"error": "not found"}
     home = db.session.get(Team, game.home_team_id)
     away = db.session.get(Team, game.away_team_id)
     away_id = game.away_team_id
@@ -976,67 +1035,102 @@ def game_boxscore(game_id: int):
         )
     home_shots, away_shots = _effective_team_shots(game, goalie_lines)
 
-    return jsonify(
-        {
-            "game_id": game.id,
-            "date": game.game_date.isoformat() if game.game_date else None,
-            "status": game.status,
-            "game_type": game.game_type,
-            "arena": game.arena,
-            "attendance": game.attendance,
-            "pim_home": game.pim_home,
-            "pim_away": game.pim_away,
-            "period_columns": period_columns,
-            "special_teams": {
-                "home_pp": f"{game.pp_goals_home or 0}/{game.pp_opp_home or 0}"
-                if game.pp_opp_home
-                else None,
-                "away_pp": f"{game.pp_goals_away or 0}/{game.pp_opp_away or 0}"
-                if game.pp_opp_away
-                else None,
-                "pim": f"{game.pim_home or 0}–{game.pim_away or 0}"
-                if game.pim_home is not None
-                else None,
-                "hits": f"{game.hits_home or 0}–{game.hits_away or 0}"
-                if game.hits_home is not None
-                else None,
-            },
-            "stars": [
-                _star_entry(game, game.fhm_star1_player_id),
-                _star_entry(game, game.fhm_star2_player_id),
-                _star_entry(game, game.fhm_star3_player_id),
-            ],
-            "home": {
-                "abbr": home.abbreviation if home else "",
-                "slug": home.slug if home else "",
-                "name": home.name if home else "",
-                "score": game.home_score,
-                "shots": home_shots,
-                "logo_url": team_logo_url_for_team(home) if home else "",
-            },
-            "away": {
-                "abbr": away.abbreviation if away else "",
-                "slug": away.slug if away else "",
-                "name": away.name if away else "",
-                "score": game.away_score,
-                "shots": away_shots,
-                "logo_url": team_logo_url_for_team(away) if away else "",
-            },
-            "goals": goals,
-            "skaters": skaters[:50],
-            "goalies": goalies,
-        }
-    )
+    return {
+        "game_id": game.id,
+        "date": game.game_date.isoformat() if game.game_date else None,
+        "status": game.status,
+        "game_type": game.game_type,
+        "arena": game.arena,
+        "attendance": game.attendance,
+        "pim_home": game.pim_home,
+        "pim_away": game.pim_away,
+        "period_columns": period_columns,
+        "special_teams": {
+            "home_pp": f"{game.pp_goals_home or 0}/{game.pp_opp_home or 0}"
+            if game.pp_opp_home
+            else None,
+            "away_pp": f"{game.pp_goals_away or 0}/{game.pp_opp_away or 0}"
+            if game.pp_opp_away
+            else None,
+            "pim": f"{game.pim_home or 0}–{game.pim_away or 0}"
+            if game.pim_home is not None
+            else None,
+            "hits": f"{game.hits_home or 0}–{game.hits_away or 0}"
+            if game.hits_home is not None
+            else None,
+        },
+        "stars": [
+            _star_entry(game, game.fhm_star1_player_id),
+            _star_entry(game, game.fhm_star2_player_id),
+            _star_entry(game, game.fhm_star3_player_id),
+        ],
+        "home": {
+            "abbr": home.abbreviation if home else "",
+            "slug": home.slug if home else "",
+            "name": home.name if home else "",
+            "score": game.home_score,
+            "shots": home_shots,
+            "logo_url": team_logo_url_for_team(home) if home else "",
+        },
+        "away": {
+            "abbr": away.abbreviation if away else "",
+            "slug": away.slug if away else "",
+            "name": away.name if away else "",
+            "score": game.away_score,
+            "shots": away_shots,
+            "logo_url": team_logo_url_for_team(away) if away else "",
+        },
+        "goals": goals,
+        "skaters": skaters[:50],
+        "goalies": goalies,
+    }
 
 
 @api_bp.get("/game/<int:game_id>/preview")
 def game_preview(game_id: int):
+    game = db.session.get(Game, game_id)
+    if not game:
+        return jsonify({"error": "not found"}), 404
     payload = game_preview_payload(game_id)
     if payload is None:
         return jsonify({"error": "not found"}), 404
     if payload.get("error") == "final":
         return jsonify(payload), 400
-    return jsonify(payload)
+    from app.services.cached_api_responses import jsonify_cached
+    from app.services.league_json_cache import ttl_for_namespace
+
+    live = (game.status or "").lower() != "final"
+    return jsonify_cached(
+        "game_preview",
+        (int(game_id), str(game.status or "")),
+        ttl_for_namespace("game_preview", live=live),
+        lambda: game_preview_payload(game_id) or {"error": "not found"},
+        cache_control=60 if live else 120,
+    )
+
+
+@api_bp.get("/playoff-bracket")
+def playoff_bracket():
+    """JSON for standings page playoff bracket (single-league, no conferences)."""
+    season = get_current_season()
+    sid = season.id if season else None
+    if request.args.get("season_id"):
+        try:
+            sid = int(request.args.get("season_id", ""))
+        except ValueError:
+            sid = season.id if season else None
+    from app.services.cached_api_responses import jsonify_cached
+    from app.services.league_json_cache import DEFAULT_TTL_SECONDS
+
+    season_key = int(sid or 0)
+
+    return jsonify_cached(
+        "playoff_bracket",
+        (season_key,),
+        DEFAULT_TTL_SECONDS["playoff_bracket"],
+        lambda: playoff_bracket_payload(sid),
+        cache_control=60,
+    )
 
 
 def _misc_statistics_panel(special_teams: list[dict[str, object]]) -> dict[str, object] | None:
@@ -1100,6 +1194,29 @@ def homepage_summary():
     if segment not in ("rs", "ps", "po"):
         segment = "rs"
     canonical_season = get_current_season()
+    dashboard_season = (
+        season_with_imported_data_fallback(db.session, canonical_season)
+        if canonical_season
+        else None
+    )
+    from app.services.homepage_summary_cache import build_homepage_summary_cached
+
+    body = build_homepage_summary_cached(
+        segment,
+        canonical_season,
+        dashboard_season,
+        lambda: _build_homepage_summary_payload(segment, canonical_season, dashboard_season),
+    )
+    resp = jsonify(body)
+    resp.headers["Cache-Control"] = "private, max-age=30"
+    return resp
+
+
+def _build_homepage_summary_payload(
+    segment: str,
+    canonical_season: Season | None,
+    dashboard_season: Season | None,
+) -> dict[str, object]:
     lm = db.session.scalars(
         select(LeagueMeta).where(LeagueMeta.fhm_league_id == 0).limit(1)
     ).first() or db.session.scalars(select(LeagueMeta).limit(1)).first()
@@ -1153,8 +1270,10 @@ def homepage_summary():
             "segment": segment,
         }
         empty_body["ticker_items"] = build_homepage_ticker_items(empty_body)
-        return jsonify(empty_body)
-    season = season_with_imported_data_fallback(db.session, canonical_season)
+        return empty_body
+    season = dashboard_season or season_with_imported_data_fallback(
+        db.session, canonical_season
+    )
     logo_sy: int | None = int(season.start_year) if getattr(season, "start_year", None) is not None else None
     teams_out: list[dict[str, object]] = []
 
@@ -1626,20 +1745,7 @@ def homepage_summary():
         "segment": segment,
     }
     summary_body["ticker_items"] = build_homepage_ticker_items(summary_body)
-    return jsonify(summary_body)
-
-
-@api_bp.get("/playoff-bracket")
-def playoff_bracket():
-    """JSON for standings page playoff bracket (single-league, no conferences)."""
-    season = get_current_season()
-    sid = season.id if season else None
-    if request.args.get("season_id"):
-        try:
-            sid = int(request.args.get("season_id", ""))
-        except ValueError:
-            sid = season.id if season else None
-    return jsonify(playoff_bracket_payload(sid))
+    return summary_body
 
 
 def _discord_secret_ok() -> bool:
@@ -1768,6 +1874,14 @@ def news_article_vote(article_id: int):
         return jsonify(out), 404
     if out.get("error"):
         return jsonify(out), 400
+    try:
+        from app.services.league_json_cache import invalidate_league_json_cache
+
+        invalidate_league_json_cache(
+            league_slug=slug, namespace="homepage_summary"
+        )
+    except Exception:
+        pass
     return jsonify(out)
 
 
@@ -1793,6 +1907,14 @@ def news_article_comment_post(article_id: int):
         return jsonify(out), 404
     if out.get("error"):
         return jsonify(out), 400
+    try:
+        from app.services.league_json_cache import invalidate_league_json_cache
+
+        invalidate_league_json_cache(
+            league_slug=slug, namespace="homepage_summary"
+        )
+    except Exception:
+        pass
     return jsonify(out)
 
 

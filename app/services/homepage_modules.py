@@ -146,6 +146,14 @@ def save_homepage_module_settings(
         row.updated_by_user_id = updated_by_user_id
         row.updated_at = now
     session.commit()
+    try:
+        from app.services.homepage_summary_cache import invalidate_homepage_summary_cache
+        from app.services.league_json_cache import invalidate_league_json_cache
+
+        invalidate_league_json_cache(league_slug=league_slug, namespace="homepage_summary")
+        invalidate_homepage_summary_cache(league_slug=league_slug)
+    except Exception:
+        pass
     out_rows = get_homepage_module_settings(session, league_slug)
     return [
         {

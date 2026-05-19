@@ -207,6 +207,9 @@ class Config:
     ROOKIE_RS_GOALIE_MIN_MINUTES_PCT = float(_ROOKIE["rs_goalie_min_minutes_pct"])
     ROOKIE_PSPO_SKATER_MIN_GP = int(_ROOKIE["pspo_skater_min_gp"])
     ROOKIE_PSPO_GOALIE_MIN_MINUTES = int(_ROOKIE["pspo_goalie_min_minutes"])
+    _CACHE_WARM_RAW = os.environ.get("LEAGUE_JSON_CACHE_WARM_ON_STARTUP", "1").strip().lower()
+    LEAGUE_JSON_CACHE_WARM_ON_STARTUP = _CACHE_WARM_RAW in ("1", "true", "yes", "on")
+    HOMEPAGE_POSTSEASON_MC_SIMS = int(os.environ.get("HOMEPAGE_POSTSEASON_MC_SIMS", "600") or 600)
     JOIN_LEAGUE_RECIPIENT = os.environ.get("JOIN_LEAGUE_RECIPIENT", "keenovdecimanus@gmail.com")
     # Optional comma-separated extra inboxes for admin review alerts (news, AP, memberships).
     ADMIN_ALERT_EMAILS = os.environ.get("ADMIN_ALERT_EMAILS", "")

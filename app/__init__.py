@@ -203,6 +203,11 @@ def create_app(config_class: type = Config) -> Flask:
     app.register_blueprint(site_gm_bp)
     app.register_blueprint(site_admin_bp)
 
+    if app.config.get("LEAGUE_JSON_CACHE_WARM_ON_STARTUP", True):
+        from app.services.homepage_summary_cache import warm_homepage_summary_cache
+
+        warm_homepage_summary_cache(app)
+
     @app.template_filter("season_label_start_year")
     def season_label_start_year_filter(label: object) -> int | None:
         """First calendar year from a display label like ``1926–27`` (for era logo lookup)."""

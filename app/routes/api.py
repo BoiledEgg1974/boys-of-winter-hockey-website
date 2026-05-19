@@ -1201,15 +1201,64 @@ def homepage_summary():
     )
     from app.services.homepage_summary_cache import build_homepage_summary_cached
 
-    body = build_homepage_summary_cached(
+    body, cache_status = build_homepage_summary_cached(
         segment,
         canonical_season,
         dashboard_season,
         lambda: _build_homepage_summary_payload(segment, canonical_season, dashboard_season),
     )
     resp = jsonify(body)
-    resp.headers["Cache-Control"] = "private, max-age=30"
+    resp.headers["Cache-Control"] = "private, max-age=60"
+    resp.headers["X-Cache-Status"] = cache_status
     return resp
+
+
+@api_bp.get("/homepage/postseason-odds")
+def homepage_postseason_odds():
+    """Monte Carlo postseason odds (lazy-loaded after the main dashboard JSON)."""
+    from app.services.cached_api_responses import jsonify_cached
+    from app.services.league_json_cache import DEFAULT_TTL_SECONDS
+
+    canonical_season = get_current_season()
+    dashboard_season = (
+        season_with_imported_data_fallback(db.session, canonical_season)
+        if canonical_season
+        else None
+    )
+    season_id = int(getattr(dashboard_season, "id", None) or 0)
+
+    return jsonify_cached(
+        "postseason_odds",
+        (season_id,),
+        DEFAULT_TTL_SECONDS["postseason_odds"],
+        _build_homepage_postseason_odds_payload,
+        cache_control=60,
+    )
+
+
+def _build_homepage_postseason_odds_payload() -> dict[str, object]:
+    canonical_season = get_current_season()
+    if not canonical_season:
+        return {}
+    season = season_with_imported_data_fallback(db.session, canonical_season)
+    if not season:
+        return {}
+    standings_by_team = {
+        st.team_id: st
+        for st in db.session.scalars(
+            select(TeamStanding).where(TeamStanding.season_id == season.id)
+        ).all()
+    }
+    tm_map = {
+        tid: t
+        for tid in standings_by_team
+        if (t := db.session.get(Team, tid)) is not None
+    }
+    n_sims = int(current_app.config.get("HOMEPAGE_POSTSEASON_MC_SIMS", 600) or 600)
+    payload = build_postseason_odds_payload(
+        db.session, season.id, tm_map, n_sims=max(100, min(n_sims, 2000))
+    )
+    return payload or {}
 
 
 def _build_homepage_summary_payload(
@@ -1424,7 +1473,6 @@ def _build_homepage_summary_payload(
         "visibility": module_visibility_map(db.session, league_slug),
         "sort_order": module_sort_order_map(db.session, league_slug),
     }
-    postseason_odds = build_postseason_odds_payload(db.session, season.id, tm_map)
     champions_panel = build_champions_panel(db.session)
     around_the_league = build_around_the_league(
         db.session, _news_dashboard_viewer(), logo_season_year=logo_sy
@@ -1740,7 +1788,7 @@ def _build_homepage_summary_payload(
         "rookies": rookies,
         "league_spotlight": league_spotlight,
         "identity_panel": identity_panel,
-        "postseason_odds": postseason_odds,
+        "postseason_odds": None,
         "league": league_info,
         "segment": segment,
     }

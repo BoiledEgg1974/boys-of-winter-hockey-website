@@ -104,6 +104,26 @@ def build_season_team_logo_bundle(app: Flask) -> SeasonTeamLogoBundle:
             .split()
         )
 
+    static_root = Path(app.root_path) / (app.static_folder or "static")
+
+    def _url_for_logo_rel(rel: str | None) -> str | None:
+        if not rel:
+            return None
+        rel_s = str(rel).lstrip("/\\").replace("\\", "/")
+        if rel_s.startswith("static/"):
+            rel_s = rel_s[7:]
+        path = static_root / rel_s
+        if path.is_file():
+            return url_for("static", filename=rel_s)
+        parent = path.parent
+        if parent.is_dir():
+            want = path.name.lower()
+            for candidate in parent.iterdir():
+                if candidate.is_file() and candidate.name.lower() == want:
+                    rel_hit = str(candidate.relative_to(static_root)).replace("\\", "/")
+                    return url_for("static", filename=rel_hit)
+        return None
+
     def _record_start_year(record: object) -> int | None:
         if isinstance(record, Mapping):
             for key in ("season_year", "start_year"):
@@ -376,11 +396,9 @@ def build_season_team_logo_bundle(app: Flask) -> SeasonTeamLogoBundle:
         if logo_override_rel is None and rec_map is not None:
             logo_override_rel = rec_map.get("logo_file_override") or rec_map.get("team_logo_override_rel")
         if logo_override_rel:
-            rel = str(logo_override_rel).lstrip("/\\").replace("\\", "/")
-            if rel.startswith("static/"):
-                rel = rel[7:]
-            if rel:
-                return url_for("static", filename=rel)
+            hit = _url_for_logo_rel(str(logo_override_rel))
+            if hit:
+                return hit
 
         tid = getattr(record, "team_fhm_id_csv", None)
         if tid is None and rec_map is not None:
@@ -403,13 +421,15 @@ def build_season_team_logo_bundle(app: Flask) -> SeasonTeamLogoBundle:
         def _timeline_logo_for_year(name_key: str, year: int) -> str | None:
             rel = historical_team_logo_timeline_by_name_year.get((name_key, year))
             if rel:
-                return url_for("static", filename=rel)
+                return _url_for_logo_rel(rel)
             return None
 
         if tid_s and sy is not None:
             rel = historical_team_logo_override_by_id_year.get((tid_s, sy))
             if rel:
-                return url_for("static", filename=rel)
+                hit = _url_for_logo_rel(rel)
+                if hit:
+                    return hit
         if sy is not None:
             for nm in _record_name_candidates(record):
                 hit = _timeline_logo_for_year(nm, sy)
@@ -423,18 +443,24 @@ def build_season_team_logo_bundle(app: Flask) -> SeasonTeamLogoBundle:
         # Non-era franchise files (-t{id}) are only for requests without a season year.
         if sy is None:
             if tid_s and tid_s in historical_team_logo_rel_by_id:
-                return url_for("static", filename=historical_team_logo_rel_by_id[tid_s])
+                hit = _url_for_logo_rel(historical_team_logo_rel_by_id[tid_s])
+                if hit:
+                    return hit
             name_from_tid = _historical_name_for_tid(record, tid_s) if tid_s else None
             if name_from_tid:
                 nm = _norm_team_logo_name(name_from_tid)
                 rel = historical_team_logo_rel_by_name.get(nm)
                 if rel:
-                    return url_for("static", filename=rel)
+                    hit = _url_for_logo_rel(rel)
+                    if hit:
+                        return hit
 
             for nm in _record_name_candidates(record):
                 rel = historical_team_logo_rel_by_name.get(nm)
                 if rel:
-                    return url_for("static", filename=rel)
+                    hit = _url_for_logo_rel(rel)
+                    if hit:
+                        return hit
 
         team_obj = getattr(record, "team", None)
         if team_obj is None and rec_map is not None:
@@ -533,6 +559,8 @@ def build_season_team_logo_bundle(app: Flask) -> SeasonTeamLogoBundle:
             era = season_team_logo_url(proxy)
             if era:
                 return era
+            if team_has_dedicated_league_logo(team):
+                return team_logo_url_for_team(team)
             return url_for("static", filename="logos/teams/placeholder.svg")
         return team_logo_url_for_team(team)
 

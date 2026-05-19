@@ -117,5 +117,8 @@ def refresh_after_import(engine, app=None) -> None:
 
                     invalidate_league_json_cache(league_slug=slug or None)
                     invalidate_homepage_summary_cache(league_slug=slug or None)
+                    from app.services.homepage_summary_cache import warm_homepage_summary_cache
+
+                    warm_homepage_summary_cache(app)
         except Exception:
             _log.exception("post-import hooks failed (non-fatal)")

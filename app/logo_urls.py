@@ -26,6 +26,30 @@ _FANTASY_LOGO_STEM_ALIASES: dict[str, str] = {
 }
 
 
+def _find_logo_file(league_dir: Path, stem: str) -> Path | None:
+    """Resolve a logo file under ``league_dir`` (case-insensitive stem match)."""
+    for ext in ("png", "webp", "jpg", "jpeg", "svg"):
+        exact = league_dir / f"{stem}.{ext}"
+        if exact.is_file():
+            return exact
+    want_prefix = f"{stem}.".lower()
+    try:
+        for p in league_dir.iterdir():
+            if not p.is_file():
+                continue
+            if p.name.lower().startswith(want_prefix) and p.suffix.lower() in (
+                ".png",
+                ".webp",
+                ".jpg",
+                ".jpeg",
+                ".svg",
+            ):
+                return p
+    except OSError:
+        return None
+    return None
+
+
 def _team_logo_stems(team) -> list[str]:
     """Filename stems to probe under this league's ``TEAM_LOGOS_REL_DIR``."""
     slug = team.slug
@@ -53,9 +77,8 @@ def team_has_dedicated_league_logo(team) -> bool:
     league_rel = str(league_rel).strip("/\\") or "logos/teams"
     league_dir = static_root / league_rel
     for stem in _team_logo_stems(team):
-        for ext in ("png", "webp", "jpg", "svg"):
-            if (league_dir / f"{stem}.{ext}").is_file():
-                return True
+        if _find_logo_file(league_dir, stem) is not None:
+            return True
     return False
 
 
@@ -68,14 +91,14 @@ def team_logo_url_for_team(team) -> str:
     legacy_dir = static_root / "logos" / "teams"
 
     for stem in _team_logo_stems(team):
-        for ext in ("png", "webp", "jpg", "svg"):
-            p = league_dir / f"{stem}.{ext}"
-            if p.is_file():
-                return url_for("static", filename=f"{league_rel}/{stem}.{ext}")
-            # Backward compatibility if logos are still in the old shared folder.
-            p_legacy = legacy_dir / f"{stem}.{ext}"
-            if p_legacy.is_file():
-                return url_for("static", filename=f"logos/teams/{stem}.{ext}")
+        p = _find_logo_file(league_dir, stem)
+        if p is not None:
+            rel = p.relative_to(static_root).as_posix()
+            return url_for("static", filename=rel)
+        p_legacy = _find_logo_file(legacy_dir, stem)
+        if p_legacy is not None:
+            rel = p_legacy.relative_to(static_root).as_posix()
+            return url_for("static", filename=rel)
     p_placeholder = league_dir / "placeholder.svg"
     if p_placeholder.is_file():
         return url_for("static", filename=f"{league_rel}/placeholder.svg")

@@ -4,9 +4,15 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from flask import Response, jsonify
+from flask import Response, current_app, jsonify
 
-from app.services.league_json_cache import get_or_build_cached_json
+from app.services.league_json_cache import (
+    DEFAULT_FRESH_TTL_SECONDS,
+    DEFAULT_STALE_TTL_SECONDS,
+    fresh_ttl_from_config,
+    get_or_build_cached_json_swr,
+    stale_ttl_from_config,
+)
 
 
 def jsonify_cached(
@@ -17,14 +23,31 @@ def jsonify_cached(
     *,
     cache_control: int = 30,
     refresh: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
+    stale_ttl_seconds: float | None = None,
 ) -> Response:
-    body = get_or_build_cached_json(
+    stale = float(
+        stale_ttl_seconds
+        if stale_ttl_seconds is not None
+        else stale_ttl_from_config(
+            current_app,
+            namespace,
+            default=DEFAULT_STALE_TTL_SECONDS.get(
+                namespace, max(ttl_seconds * 30, ttl_seconds + 120)
+            ),
+        )
+    )
+    fresh = fresh_ttl_from_config(
+        current_app, namespace, default=ttl_seconds
+    )
+    body, status = get_or_build_cached_json_swr(
         namespace,
         key_suffix,
-        ttl_seconds,
-        builder,
+        fresh_ttl=fresh,
+        stale_ttl=stale,
+        builder=builder,
         refresh=refresh,
     )
     resp = jsonify(body)
     resp.headers["Cache-Control"] = f"private, max-age={int(cache_control)}"
+    resp.headers["X-Cache-Status"] = status
     return resp

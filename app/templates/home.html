@@ -1723,13 +1723,55 @@
     }
   }
 
-  function loadSummary() {
-    var errEl = document.getElementById('home-load-error');
-    if (errEl) errEl.hidden = true;
-    fetch(withRoot('/api/homepage/summary?segment=' + encodeURIComponent(seg)))
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        var noteEl = document.getElementById('home-dashboard-season-note');
+  function loadPostseasonOdds() {
+    var panel = document.getElementById('home-postseason-odds');
+    if (panel) {
+      panel.innerHTML = '<p class="empty-state">Loading…</p>';
+    }
+    fetch(withRoot('/api/homepage/postseason-odds'))
+      .then(function (r) {
+        return r.json();
+      })
+      .then(function (bundle) {
+        paintPostseasonOdds(bundle && Object.keys(bundle).length ? bundle : null);
+      })
+      .catch(function () {
+        paintPostseasonOdds(null);
+      });
+  }
+
+  var SUMMARY_STORAGE_MAX_AGE_MS = 30 * 60 * 1000;
+
+  function summaryStorageKey() {
+    var root = document.documentElement.getAttribute('data-application-root') || '';
+    return 'bwlHomeSummary:v1:' + root + ':' + seg;
+  }
+
+  function readStoredSummary() {
+    try {
+      var raw = sessionStorage.getItem(summaryStorageKey());
+      if (!raw) return null;
+      var pack = JSON.parse(raw);
+      if (!pack || !pack.data || !pack.ts) return null;
+      if (Date.now() - pack.ts > SUMMARY_STORAGE_MAX_AGE_MS) return null;
+      return pack.data;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function writeStoredSummary(data) {
+    try {
+      sessionStorage.setItem(
+        summaryStorageKey(),
+        JSON.stringify({ ts: Date.now(), data: data })
+      );
+    } catch (e) {}
+  }
+
+  function applyHomeSummaryData(data) {
+    if (!data) return;
+    var noteEl = document.getElementById('home-dashboard-season-note');
         if (noteEl) {
           if (data.dashboard_uses_prior_season_data) {
             noteEl.textContent =
@@ -1766,7 +1808,7 @@
         paintPower(data.power_rankings || {});
         paintChampions(data.champions_panel || {});
         paintAroundNews(data.around_the_league || {});
-        paintPostseasonOdds(data.postseason_odds);
+        loadPostseasonOdds();
 
         leaderData = data.leaders || leaderData;
         leaderTab = 'goals';
@@ -1822,9 +1864,23 @@
           a.style.fontWeight = a.getAttribute('data-seg') === seg ? '700' : '400';
         });
         syncPlayerHoverCards();
+  }
+
+  function loadSummary() {
+    var errEl = document.getElementById('home-load-error');
+    if (errEl) errEl.hidden = true;
+    var stored = readStoredSummary();
+    if (stored) {
+      applyHomeSummaryData(stored);
+    }
+    fetch(withRoot('/api/homepage/summary?segment=' + encodeURIComponent(seg)))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        writeStoredSummary(data);
+        applyHomeSummaryData(data);
       })
       .catch(function () {
-        if (errEl) errEl.hidden = false;
+        if (!stored && errEl) errEl.hidden = false;
       });
   }
   document.querySelectorAll('a.seg-pick').forEach(function (a) {

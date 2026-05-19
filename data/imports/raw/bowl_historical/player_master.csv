@@ -1238,7 +1238,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 4970;59;59;Leif;Henriksson;;73;172;1943-5-26;Helsingborg;SKå;Sweden;;;0;Right;0
 5460;90;90;Jake;Rathwell;;72;190;1947-8-12;Thetford Mines;QC;Canada;;;0;Left;1
 5461;10;10;Mickey;Redmond;;71;185;1947-12-27;Kirkland Lake;ON;Canada;;;0;Right;0
-5462;123;123;Craig;Reichmuth;;71;185;1947-9-22;Holland;MB;Canada;;;0;Left;1
+5462;124;123;Craig;Reichmuth;;71;185;1947-9-22;Holland;MB;Canada;;;0;Left;1
 5463;60;60;Seppo;Repo;;70;180;1947-9-21;Turku;SOU;Finland;;;0;Right;0
 5464;126;119;Garth;Rizzuto;;70;185;1947-9-11;Ucluelet;BC;Canada;;;0;Left;1
 5465;90;90;John;Schella;;72;181;1947-5-9;Thunder Bay;ON;Canada;;;0;Right;1
@@ -1833,7 +1833,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 2956;90;90;Sid;McNabney;;67;150;1929-1-15;Toronto;ON;Canada;;;0;Left;0
 2957;90;90;Paul;Meger;;67;160;1929-2-17;Watrous;SK;Canada;;;0;Left;0
 2958;90;90;Al;Millar;;71;175;1929-9-18;Winnipeg;MB;Canada;;;0;Left;0
-2959;5;5;Jacques;Plante;Jake the Snake;72;175;1929-1-17;Shawinigan;QC;Canada;;;0;Left;0
+2959;123;123;Jacques;Plante;Jake the Snake;72;175;1929-1-17;Shawinigan;QC;Canada;;;0;Left;0
 2960;90;90;Roland;Rousseau;;68;160;1929-12-1;Montreal;QC;Canada;;;0;Left;0
 2961;9;9;Terry;Sawchuk;;71;195;1929-12-28;Winnipeg;MB;Canada;;;0;Left;0
 2962;90;90;George;Senick;;71;195;1929-9-16;Saskatoon;SK;Canada;;;0;Left;0

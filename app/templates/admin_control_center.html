@@ -146,6 +146,11 @@
     <p class="muted bowl-six-admin-panel__games">No games found for these dates yet. Run your normal league import.</p>
     {% endif %}
     <p class="bowl-six-admin-panel__hint muted">You do not need to press a score button. Import CSVs like every other week.</p>
+    {% if bowl_six_submissions %}
+    {% with submissions=bowl_six_submissions, title='GM submissions' %}
+    {% include "bowl_six/_submissions.html" %}
+    {% endwith %}
+    {% endif %}
     <details class="bowl-six-admin-panel__fixes">
       <summary>Fix or change this week (rare)</summary>
       <ul class="bowl-six-admin-fixes">

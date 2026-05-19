@@ -15459,6 +15459,98 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
 .bowl-six-podium__item--1 {
   background: rgb(37 99 235 / 0.35);
 }
+.bowl-six-submissions {
+  margin: 1.25rem 0;
+}
+.bowl-six-submissions__summary {
+  margin: 0 0 0.65rem;
+}
+.bowl-six-submissions__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+.bowl-six-submissions__item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid rgb(148 163 184 / 0.15);
+}
+.bowl-six-submissions__item--in {
+  background: rgb(132 204 22 / 0.1);
+  border-color: rgb(132 204 22 / 0.35);
+}
+.bowl-six-submissions__item--out {
+  background: rgb(15 23 42 / 0.35);
+}
+.bowl-six-submissions__status {
+  flex: 0 0 1.25rem;
+  font-weight: 800;
+  text-align: center;
+  color: #84cc16;
+}
+.bowl-six-submissions__item--out .bowl-six-submissions__status {
+  color: rgb(148 163 184 / 0.7);
+}
+.bowl-six-submissions__gm {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+.bowl-six-submissions__logo {
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.bowl-six-submissions__names {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.bowl-six-submissions__team {
+  font-weight: 600;
+  line-height: 1.2;
+}
+.bowl-six-submissions__person {
+  font-size: 0.85rem;
+  line-height: 1.2;
+}
+.bowl-six-submissions__label {
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgb(148 163 184 / 0.95);
+}
+.bowl-six-submissions__item--in .bowl-six-submissions__label {
+  color: #a3e635;
+}
+.bowl-six-submissions__note {
+  margin: 0.65rem 0 0;
+  font-size: 0.85rem;
+}
+.bowl-six-admin-panel .bowl-six-submissions {
+  margin-top: 0.85rem;
+}
+.bowl-six-leaders-page .bowl-six-leaders__section {
+  margin-bottom: 1.75rem;
+}
+.bowl-six-leaders-page .bowl-six-leaders__section:last-child {
+  margin-bottom: 0;
+}
+.bowl-six-leaders__week-meta {
+  margin: 0 0 0.35rem;
+}
+.bowl-six-leaders__week-note {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+}
 .bowl-six-leaders__pts {
   font-variant-numeric: tabular-nums;
   font-weight: 700;

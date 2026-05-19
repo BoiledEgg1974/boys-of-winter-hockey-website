@@ -22,6 +22,10 @@
     </div>
   </header>
 
+  {% if slate and slate.status != 'skipped' %}
+  {% include "bowl_six/_submissions.html" %}
+  {% endif %}
+
   {% if last_slate and last_ranked %}
   <section class="bowl-six-recap" aria-labelledby="bowl-six-recap-h">
     <h2 id="bowl-six-recap-h" class="bowl-six-section__title">Last week</h2>

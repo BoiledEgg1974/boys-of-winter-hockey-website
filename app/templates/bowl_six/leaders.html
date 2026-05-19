@@ -4,39 +4,87 @@
 <div class="card bowl-six-leaders-page">
   <p><a href="{{ url_for('site_gm.bowl_six_hub') }}">← BOWL Six</a></p>
   <h1 class="page-title">GM leaders</h1>
-  <p class="muted">Season standings — regular-season slates only.</p>
-  <div class="table-wrap">
-    <table class="data">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>GM</th>
-          <th>Team</th>
-          <th>Weeks</th>
-          <th>Points</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for row in rows %}
-        <tr>
-          <td>{{ loop.index }}</td>
-          <td>{{ row.gm_name }}</td>
-          <td>
-            {% if row.team %}
-            {% if team_logo_url(row.team) %}
-            <img src="{{ team_logo_url(row.team) }}" alt="" width="24" height="24" style="vertical-align:middle;margin-right:0.35rem;">
-            {% endif %}
-            {{ row.team.full_display_name() }}
-            {% else %}—{% endif %}
-          </td>
-          <td>{{ row.weeks_played }}</td>
-          <td class="bowl-six-leaders__pts">{{ '%.1f'|format(row.season_points) }}</td>
-        </tr>
-        {% else %}
-        <tr><td colspan="5" class="muted">No scored slates yet.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+
+  {% if in_progress_slate %}
+  <section class="bowl-six-leaders__section" aria-labelledby="bowl-six-leaders-week-h">
+    <h2 id="bowl-six-leaders-week-h" class="bowl-six-section__title">This week (in progress)</h2>
+    <p class="muted bowl-six-leaders__week-meta">
+      Week {{ in_progress_slate.week_start }} – {{ in_progress_slate.week_end }} · lineups locked
+      {% if week_progress and week_progress.total > 0 %}
+      · {{ week_progress.final }} of {{ week_progress.total }} regular-season games final
+      {% endif %}
+    </p>
+    <p class="muted bowl-six-leaders__week-note">Points update as games finish. Standings finalize when every game in the week is final.</p>
+    <div class="table-wrap">
+      <table class="data bowl-six-leaders__table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>GM</th>
+            <th>Team</th>
+            <th>Points</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in in_progress_rows %}
+          <tr>
+            <td>{{ loop.index }}</td>
+            <td>{{ row.gm_name }}</td>
+            <td>
+              {% if row.team %}
+              {% if team_logo_url(row.team) %}
+              <img src="{{ team_logo_url(row.team) }}" alt="" width="24" height="24" style="vertical-align:middle;margin-right:0.35rem;">
+              {% endif %}
+              {{ row.team.full_display_name() }}
+              {% else %}—{% endif %}
+            </td>
+            <td class="bowl-six-leaders__pts">{{ '%.1f'|format(row.points) }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" class="muted">No submitted lineups yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="bowl-six-leaders__section" aria-labelledby="bowl-six-leaders-season-h">
+    <h2 id="bowl-six-leaders-season-h" class="bowl-six-section__title">Season standings</h2>
+    <p class="muted">Cumulative points from finalized weeks only.</p>
+    <div class="table-wrap">
+      <table class="data bowl-six-leaders__table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>GM</th>
+            <th>Team</th>
+            <th>Weeks</th>
+            <th>Points</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          <tr>
+            <td>{{ loop.index }}</td>
+            <td>{{ row.gm_name }}</td>
+            <td>
+              {% if row.team %}
+              {% if team_logo_url(row.team) %}
+              <img src="{{ team_logo_url(row.team) }}" alt="" width="24" height="24" style="vertical-align:middle;margin-right:0.35rem;">
+              {% endif %}
+              {{ row.team.full_display_name() }}
+              {% else %}—{% endif %}
+            </td>
+            <td>{{ row.weeks_played }}</td>
+            <td class="bowl-six-leaders__pts">{{ '%.1f'|format(row.points) }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="muted">No scored slates yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
 </div>
 {% endblock %}

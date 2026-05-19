@@ -739,6 +739,109 @@ def slate_rankings(session: Session, slate: BowlSixSlate) -> list[dict[str, Any]
     return out
 
 
+def slate_rankings_in_progress(session: Session, slate: BowlSixSlate) -> list[dict[str, Any]]:
+    """Submitted lineups for a locked (not yet scored) slate, including 0 pts before first final game."""
+    rows = session.execute(
+        select(
+            BowlSixLineup.user_id,
+            BowlSixLineup.submitted_at,
+            BowlSixLineupScore.total_points,
+        )
+        .outerjoin(BowlSixLineupScore, BowlSixLineupScore.lineup_id == BowlSixLineup.id)
+        .where(
+            BowlSixLineup.slate_id == slate.id,
+            BowlSixLineup.submitted_at.is_not(None),
+        )
+        .order_by(
+            func.coalesce(BowlSixLineupScore.total_points, 0).desc(),
+            BowlSixLineup.submitted_at.asc(),
+        )
+    ).all()
+    out: list[dict[str, Any]] = []
+    for uid, submitted_at, pts in rows:
+        out.append(
+            {
+                "user_id": int(uid),
+                "total_points": float(pts or 0),
+                "submitted_at": submitted_at,
+            }
+        )
+    return out
+
+
+def slate_gm_submission_roster(
+    session: Session,
+    league_slug: str,
+    slate: BowlSixSlate,
+) -> dict[str, Any]:
+    """Active GMs and whether each saved a valid lineup for this slate (names only, not picks)."""
+    from app.services.gm_messaging import gm_display_name
+
+    memberships = list(
+        session.scalars(
+            select(GmLeagueMembership).where(
+                GmLeagueMembership.league_slug == league_slug,
+                GmLeagueMembership.status == "active",
+            )
+        ).all()
+    )
+    lineups = {
+        int(l.user_id): l
+        for l in session.scalars(
+            select(BowlSixLineup)
+            .where(BowlSixLineup.slate_id == slate.id)
+            .options(joinedload(BowlSixLineup.picks))
+        ).all()
+    }
+    rows: list[dict[str, Any]] = []
+    for mem in memberships:
+        user = session.get(User, int(mem.user_id))
+        lineup = lineups.get(int(mem.user_id))
+        submitted = bool(lineup and lineup.submitted_at)
+        rows.append(
+            {
+                "user_id": int(mem.user_id),
+                "team_id": int(mem.team_id),
+                "gm_name": gm_display_name(user) if user else f"User #{mem.user_id}",
+                "submitted": submitted,
+                "has_captain": bool(lineup and lineup.captain_player_id),
+            }
+        )
+    submitted_count = sum(1 for r in rows if r["submitted"])
+    return {
+        "rows": rows,
+        "total_gms": len(rows),
+        "submitted_count": submitted_count,
+        "pending_count": len(rows) - submitted_count,
+    }
+
+
+def slate_gm_submission_roster_enriched(
+    site_session: Session,
+    league_session: Session,
+    league_slug: str,
+    slate: BowlSixSlate,
+) -> dict[str, Any]:
+    """Submission roster with team objects; waiting GMs listed before submitted."""
+    roster = slate_gm_submission_roster(site_session, league_slug, slate)
+    enriched: list[dict[str, Any]] = []
+    for r in roster["rows"]:
+        team = league_session.get(Team, int(r["team_id"]))
+        sort_name = team.full_display_name() if team else str(r.get("gm_name") or "")
+        enriched.append({**r, "team": team, "team_sort": sort_name})
+    enriched.sort(key=lambda x: (x["submitted"], x["team_sort"].lower()))
+    return {**roster, "rows": enriched}
+
+
+def slate_week_game_progress(league_session: Session, slate: BowlSixSlate) -> dict[str, int | bool]:
+    games = rs_games_in_slate_week(league_session, slate)
+    total = len(games)
+    if total == 0:
+        return {"total": 0, "final": 0, "complete": False}
+    final = sum(1 for g in games if (g.status or "").lower() == "final")
+    return {"total": total, "final": final, "complete": final == total}
+
+
 def gm_season_standings(session: Session, league_slug: str) -> list[dict[str, Any]]:
     """Cumulative BOWL Six points across scored slates this league."""
     rows = session.execute(

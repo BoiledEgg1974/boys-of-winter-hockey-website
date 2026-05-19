@@ -39,6 +39,9 @@ from app.services.bowl_six import (
     score_slate,
     slate_lock_ui,
     slate_rankings,
+    slate_gm_submission_roster_enriched,
+    slate_rankings_in_progress,
+    slate_week_game_progress,
     top_players_for_slate,
 )
 from app.services.bowl_six_scoring import SLOT_ORDER as SCORING_SLOTS
@@ -109,6 +112,23 @@ def _player_headshot_url(player: Player) -> str | None:
     return url_for("static", filename=rel)
 
 
+def _enrich_gm_leader_rows(slug: str, rows: list[dict], *, points_key: str) -> list[dict]:
+    enriched: list[dict] = []
+    for r in rows:
+        user = db.session.get(User, int(r["user_id"]))
+        mem = active_membership_for_league(user, slug) if user else None
+        team = db.session.get(Team, int(mem.team_id)) if mem else None
+        enriched.append(
+            {
+                **r,
+                "gm_name": gm_display_name(user) if user else f"User #{r['user_id']}",
+                "team": team,
+                "points": float(r.get(points_key) or 0),
+            }
+        )
+    return enriched
+
+
 def _audit(admin_action: str, detail: dict) -> None:
     db.session.add(
         AdminAuditLog(
@@ -151,6 +171,9 @@ def bowl_six_hub():
     ]
     gm_mini = gm_season_standings(db.session, slug)[:10]
     lock_ui = slate_lock_ui(slate)
+    submissions = None
+    if slate and slate.status != "skipped":
+        submissions = slate_gm_submission_roster_enriched(db.session, db.session, slug, slate)
     return render_template(
         "bowl_six/hub.html",
         slate=slate,
@@ -163,6 +186,7 @@ def bowl_six_hub():
         lock_ui=lock_ui,
         ap_prizes=AP_PRIZES,
         membership=mem,
+        submissions=submissions,
     )
 
 
@@ -251,20 +275,33 @@ def bowl_six_lineup():
 def bowl_six_leaders():
     _require_bowl_six_access()
     slug = _league_slug()
-    rows = gm_season_standings(db.session, slug)
-    enriched = []
-    for r in rows:
-        user = db.session.get(User, int(r["user_id"]))
-        mem = active_membership_for_league(user, slug)
-        team = db.session.get(Team, int(mem.team_id)) if mem else None
-        enriched.append(
-            {
-                **r,
-                "gm_name": gm_display_name(user) if user else f"User #{r['user_id']}",
-                "team": team,
-            }
+    try:
+        auto_update_bowl_six_slates(db.session, db.session, slug)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+    in_progress_slate = None
+    in_progress_rows: list[dict] = []
+    week_progress: dict | None = None
+    slate = get_or_create_current_slate(db.session, slug)
+    if slate and slate.status == "locked":
+        in_progress_slate = slate
+        in_progress_rows = _enrich_gm_leader_rows(
+            slug,
+            slate_rankings_in_progress(db.session, slate),
+            points_key="total_points",
         )
-    return render_template("bowl_six/leaders.html", rows=enriched)
+        week_progress = slate_week_game_progress(db.session, slate)
+    season_rows = _enrich_gm_leader_rows(
+        slug, gm_season_standings(db.session, slug), points_key="season_points"
+    )
+    return render_template(
+        "bowl_six/leaders.html",
+        rows=season_rows,
+        in_progress_slate=in_progress_slate,
+        in_progress_rows=in_progress_rows,
+        week_progress=week_progress,
+    )
 
 
 @site_gm_bp.get("/bowl-six/api/players")

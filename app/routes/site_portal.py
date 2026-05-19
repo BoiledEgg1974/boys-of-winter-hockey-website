@@ -1784,6 +1784,7 @@ def admin_control_center():
         lock_at_display_eastern,
         lock_at_eastern_form_values,
         rs_games_in_slate_week,
+        slate_gm_submission_roster_enriched,
         slate_week_rs_games_complete,
     )
 
@@ -1821,6 +1822,11 @@ def admin_control_center():
     bowl_six_lock_display = (
         lock_at_display_eastern(bowl_six_current.lock_at) if bowl_six_current else ""
     )
+    bowl_six_submissions = None
+    if bowl_six_on and bowl_six_current and bowl_six_current.status != "skipped":
+        bowl_six_submissions = slate_gm_submission_roster_enriched(
+            db.session, db.session, slug, bowl_six_current
+        )
     backup_rows = list_league_backups(slug, limit=20)
     restore_preview = None
     preview_name = (request.args.get("restore_preview") or "").strip()
@@ -1860,6 +1866,7 @@ def admin_control_center():
         bowl_six_week_complete=bowl_six_week_complete,
         bowl_six_lock_et=bowl_six_lock_et,
         bowl_six_lock_display=bowl_six_lock_display,
+        bowl_six_submissions=bowl_six_submissions,
         restore_preview=restore_preview,
         execute_result=None,
         backup_rows=backup_rows,

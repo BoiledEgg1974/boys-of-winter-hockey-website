@@ -1,0 +1,29 @@
+{% if submissions and submissions.total_gms %}
+<div class="bowl-six-submissions">
+  <h2 class="bowl-six-section__title">{{ title or "Who's in" }}</h2>
+  <p class="muted bowl-six-submissions__summary">
+    <strong>{{ submissions.submitted_count }}</strong> of <strong>{{ submissions.total_gms }}</strong> GMs saved a lineup
+    {% if submissions.pending_count %} · <strong>{{ submissions.pending_count }}</strong> still waiting{% endif %}
+  </p>
+  <ul class="bowl-six-submissions__list">
+    {% for row in submissions.rows %}
+    <li class="bowl-six-submissions__item bowl-six-submissions__item--{{ 'in' if row.submitted else 'out' }}">
+      <span class="bowl-six-submissions__status" aria-hidden="true">{% if row.submitted %}✓{% else %}—{% endif %}</span>
+      <span class="bowl-six-submissions__gm">
+        {% if row.team and team_logo_url(row.team) %}
+        <img src="{{ team_logo_url(row.team) }}" alt="" width="22" height="22" class="bowl-six-submissions__logo">
+        {% endif %}
+        <span class="bowl-six-submissions__names">
+          <span class="bowl-six-submissions__team">{% if row.team %}{{ row.team.full_display_name() }}{% else %}—{% endif %}</span>
+          <span class="bowl-six-submissions__person muted">{{ row.gm_name }}</span>
+        </span>
+      </span>
+      <span class="bowl-six-submissions__label">
+        {% if row.submitted %}In{% else %}Waiting{% endif %}
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+  <p class="muted bowl-six-submissions__note">Lineup details stay private until the week is scored.</p>
+</div>
+{% endif %}

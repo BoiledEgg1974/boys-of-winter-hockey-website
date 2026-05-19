@@ -313,7 +313,13 @@ def bowl_six_api_lineup_snapshot(user_id: int):
     slate = get_or_create_current_slate(db.session, slug)
     if not slate or slate.status == "skipped":
         abort(404)
-    slots = bowl_six_lineup_snapshot_slots(db.session, db.session, slate, user_id)
+    try:
+        slots = bowl_six_lineup_snapshot_slots(db.session, db.session, slate, user_id)
+    except Exception:
+        current_app.logger.exception(
+            "BOWL Six lineup snapshot failed slate=%s user=%s", slate.id, user_id
+        )
+        abort(500)
     if not slots:
         abort(404)
     forward_slots = [s for s in slots if str(s["slot"]).startswith("fwd")]

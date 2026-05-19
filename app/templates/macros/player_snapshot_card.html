@@ -22,28 +22,28 @@
       {% if card.is_goalie %}
       <span class="team-lines-player-card__attr-row">
         <span class="team-lines-player-card__attr-label">Goa</span>
-        <span class="team-lines-player-card__attr-value" style="{{ card.attrs.goa|attr_rating_text_style if card.attrs.goa is not none else '' }}">{{ card.attrs.goa if card.attrs.goa is not none else '—' }}</span>
+        <span class="team-lines-player-card__attr-value" style="{{ card.attrs['goa']|attr_rating_text_style if card.attrs['goa'] is not none else '' }}">{{ card.attrs['goa'] if card.attrs['goa'] is not none else '—' }}</span>
       </span>
       <span class="team-lines-player-card__attr-row">
         <span class="team-lines-player-card__attr-label">Men</span>
-        <span class="team-lines-player-card__attr-value" style="{{ card.attrs.men|attr_rating_text_style if card.attrs.men is not none else '' }}">{{ card.attrs.men if card.attrs.men is not none else '—' }}</span>
+        <span class="team-lines-player-card__attr-value" style="{{ card.attrs['men']|attr_rating_text_style if card.attrs['men'] is not none else '' }}">{{ card.attrs['men'] if card.attrs['men'] is not none else '—' }}</span>
       </span>
       {% else %}
       <span class="team-lines-player-card__attr-row">
         <span class="team-lines-player-card__attr-label">Off</span>
-        <span class="team-lines-player-card__attr-value" style="{{ card.attrs.off|attr_rating_text_style if card.attrs.off is not none else '' }}">{{ card.attrs.off if card.attrs.off is not none else '—' }}</span>
+        <span class="team-lines-player-card__attr-value" style="{{ card.attrs['off']|attr_rating_text_style if card.attrs['off'] is not none else '' }}">{{ card.attrs['off'] if card.attrs['off'] is not none else '—' }}</span>
       </span>
       <span class="team-lines-player-card__attr-row">
         <span class="team-lines-player-card__attr-label">Def</span>
-        <span class="team-lines-player-card__attr-value" style="{{ card.attrs.def|attr_rating_text_style if card.attrs.def is not none else '' }}">{{ card.attrs.def if card.attrs.def is not none else '—' }}</span>
+        <span class="team-lines-player-card__attr-value" style="{{ card.attrs['def']|attr_rating_text_style if card.attrs['def'] is not none else '' }}">{{ card.attrs['def'] if card.attrs['def'] is not none else '—' }}</span>
       </span>
       <span class="team-lines-player-card__attr-row">
         <span class="team-lines-player-card__attr-label">Phy</span>
-        <span class="team-lines-player-card__attr-value" style="{{ card.attrs.phy|attr_rating_text_style if card.attrs.phy is not none else '' }}">{{ card.attrs.phy if card.attrs.phy is not none else '—' }}</span>
+        <span class="team-lines-player-card__attr-value" style="{{ card.attrs['phy']|attr_rating_text_style if card.attrs['phy'] is not none else '' }}">{{ card.attrs['phy'] if card.attrs['phy'] is not none else '—' }}</span>
       </span>
       <span class="team-lines-player-card__attr-row">
         <span class="team-lines-player-card__attr-label">Men</span>
-        <span class="team-lines-player-card__attr-value" style="{{ card.attrs.men|attr_rating_text_style if card.attrs.men is not none else '' }}">{{ card.attrs.men if card.attrs.men is not none else '—' }}</span>
+        <span class="team-lines-player-card__attr-value" style="{{ card.attrs['men']|attr_rating_text_style if card.attrs['men'] is not none else '' }}">{{ card.attrs['men'] if card.attrs['men'] is not none else '—' }}</span>
       </span>
       {% endif %}
     </div>

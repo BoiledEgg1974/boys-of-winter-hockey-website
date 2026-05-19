@@ -844,12 +844,18 @@ def bowl_six_lineup_snapshot_slots(
             BowlSixLineup.user_id == int(user_id),
             BowlSixLineup.submitted_at.is_not(None),
         )
-        .options(joinedload(BowlSixLineup.picks))
         .limit(1)
-    ).unique().first()
-    if lineup is None or len(lineup.picks) < 6:
+    ).first()
+    if lineup is None:
         return None
-    pick_by_slot = {p.slot: int(p.player_id) for p in lineup.picks}
+    pick_rows = list(
+        site_session.scalars(
+            select(BowlSixLineupPick).where(BowlSixLineupPick.lineup_id == lineup.id)
+        ).all()
+    )
+    pick_by_slot = {p.slot: int(p.player_id) for p in pick_rows}
+    if len(pick_by_slot) < 6:
+        return None
     captain_id = int(lineup.captain_player_id) if lineup.captain_player_id else None
     age_ref = season_age_reference_date(get_current_season())
     slots: list[dict[str, Any]] = []

@@ -71,14 +71,17 @@
   setInterval(updateLockTimers, 1000);
   updateLockTimers();
 
-  var LINEUP_USER_PH = "988776655";
+  function bowlSixLineupApiUrl(rootEl, userId) {
+    var base = (rootEl.getAttribute("data-lineup-api-base") || "").replace(/\/$/, "");
+    if (!base) return "";
+    return base + "/" + encodeURIComponent(String(userId));
+  }
 
   function initBowlSixSubmissions() {
     var root = document.querySelector(".bowl-six-submissions");
     if (!root || root.getAttribute("data-submissions-bound") === "1") return;
     root.setAttribute("data-submissions-bound", "1");
-    var tpl = root.getAttribute("data-lineup-snapshot-tpl") || "";
-    if (!tpl) return;
+    if (!bowlSixLineupApiUrl(root, "0")) return;
     root.querySelectorAll(".bowl-six-submissions__toggle").forEach(function (btn) {
       btn.addEventListener("click", function () {
         var uid = btn.getAttribute("data-user-id");
@@ -92,7 +95,8 @@
           btn.classList.remove("bowl-six-submissions__toggle--open");
           return;
         }
-        var url = tpl.split(LINEUP_USER_PH).join(String(uid));
+        var url = bowlSixLineupApiUrl(root, uid);
+        if (!url) return;
         if (!panel.dataset.loaded) {
           panel.innerHTML = '<p class="muted bowl-six-submissions__loading">Loading lineup…</p>';
           panel.hidden = false;

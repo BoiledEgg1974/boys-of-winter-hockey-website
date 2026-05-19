@@ -1,6 +1,6 @@
 {% if submissions and submissions.total_gms %}
 <div class="bowl-six-submissions"
-  data-lineup-snapshot-tpl="{{ url_for('site_gm.bowl_six_api_lineup_snapshot', user_id=988776655) }}">
+  data-lineup-api-base="{{ (request.script_root or '') ~ '/bowl-six/api/lineup' }}">
   <h2 class="bowl-six-section__title">{{ title or "Who's in" }}</h2>
   <p class="muted bowl-six-submissions__summary">
     <strong>{{ submissions.submitted_count }}</strong> of <strong>{{ submissions.total_gms }}</strong> GMs saved a lineup

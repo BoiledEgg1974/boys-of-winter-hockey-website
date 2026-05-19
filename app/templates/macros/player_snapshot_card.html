@@ -1,0 +1,62 @@
+{% from "macros/star_row.html" import star_row %}
+{# card: output of build_player_snapshot_card(); slot_label: GK / DEF / FWD / LW etc. #}
+{% macro player_snapshot_card(slot_label, card, is_captain=false) %}
+<article class="team-lines-player-card{% if is_captain %} team-lines-player-card--captain{% endif %}">
+  <span class="team-lines-player-card__slot">{{ slot_label }}{% if is_captain %} <span class="bowl-six-captain-badge" title="Captain">C</span>{% endif %}</span>
+  {% if card and card.player %}
+  <a class="team-lines-player-card__headshot" href="{{ url_for('main.player_page', player_id=card.player.id) }}">
+    {% if player_headshot_url(card.player) %}
+    <img src="{{ player_headshot_url(card.player) }}" alt="">
+    {% else %}
+    <span class="team-lines-player-card__headshot-ph" aria-hidden="true"></span>
+    {% endif %}
+  </a>
+  <div class="team-lines-player-card__main">
+    <a class="team-lines-player-card__name" href="{{ url_for('main.player_page', player_id=card.player.id) }}">
+      {{ card.player.full_name }}
+    </a>
+    <div class="team-lines-player-card__meta">
+      {{ card.player | player_positions_display }}, {{ card.team_abbr }} · Age {{ card.age if card.age is not none else '—' }} | Shoots {{ card.shoots }} | {{ card.height }} - {{ card.weight if card.weight is not none else '—' }} lbs
+    </div>
+    <div class="team-lines-player-card__ratings">
+      {% if card.is_goalie %}
+      <span class="team-lines-player-card__attr-row">
+        <span class="team-lines-player-card__attr-label">Goa</span>
+        <span class="team-lines-player-card__attr-value" style="{{ card.attrs.goa|attr_rating_text_style if card.attrs.goa is not none else '' }}">{{ card.attrs.goa if card.attrs.goa is not none else '—' }}</span>
+      </span>
+      <span class="team-lines-player-card__attr-row">
+        <span class="team-lines-player-card__attr-label">Men</span>
+        <span class="team-lines-player-card__attr-value" style="{{ card.attrs.men|attr_rating_text_style if card.attrs.men is not none else '' }}">{{ card.attrs.men if card.attrs.men is not none else '—' }}</span>
+      </span>
+      {% else %}
+      <span class="team-lines-player-card__attr-row">
+        <span class="team-lines-player-card__attr-label">Off</span>
+        <span class="team-lines-player-card__attr-value" style="{{ card.attrs.off|attr_rating_text_style if card.attrs.off is not none else '' }}">{{ card.attrs.off if card.attrs.off is not none else '—' }}</span>
+      </span>
+      <span class="team-lines-player-card__attr-row">
+        <span class="team-lines-player-card__attr-label">Def</span>
+        <span class="team-lines-player-card__attr-value" style="{{ card.attrs.def|attr_rating_text_style if card.attrs.def is not none else '' }}">{{ card.attrs.def if card.attrs.def is not none else '—' }}</span>
+      </span>
+      <span class="team-lines-player-card__attr-row">
+        <span class="team-lines-player-card__attr-label">Phy</span>
+        <span class="team-lines-player-card__attr-value" style="{{ card.attrs.phy|attr_rating_text_style if card.attrs.phy is not none else '' }}">{{ card.attrs.phy if card.attrs.phy is not none else '—' }}</span>
+      </span>
+      <span class="team-lines-player-card__attr-row">
+        <span class="team-lines-player-card__attr-label">Men</span>
+        <span class="team-lines-player-card__attr-value" style="{{ card.attrs.men|attr_rating_text_style if card.attrs.men is not none else '' }}">{{ card.attrs.men if card.attrs.men is not none else '—' }}</span>
+      </span>
+      {% endif %}
+    </div>
+    <div class="team-lines-player-card__ap">
+      <span class="team-lines-player-card__ap-label">ABI</span>
+      <span class="team-lines-player-card__stars">{{ star_row(card.player.overall_ability) }}</span>
+      <span class="team-lines-player-card__ap-sep">|</span>
+      <span class="team-lines-player-card__ap-label">POT</span>
+      <span class="team-lines-player-card__stars">{{ star_row(card.player.overall_potential) }}</span>
+    </div>
+  </div>
+  {% else %}
+  <div class="team-lines-player-card__empty">—</div>
+  {% endif %}
+</article>
+{% endmacro %}

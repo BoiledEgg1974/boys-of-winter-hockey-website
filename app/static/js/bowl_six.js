@@ -71,8 +71,66 @@
   setInterval(updateLockTimers, 1000);
   updateLockTimers();
 
-  var cfg = window.BOWL_SIX;
-  if (!cfg || !cfg.playersUrl) return;
+  var LINEUP_USER_PH = "988776655";
+
+  function initBowlSixSubmissions() {
+    var root = document.querySelector(".bowl-six-submissions");
+    if (!root || root.getAttribute("data-submissions-bound") === "1") return;
+    root.setAttribute("data-submissions-bound", "1");
+    var tpl = root.getAttribute("data-lineup-snapshot-tpl") || "";
+    if (!tpl) return;
+    root.querySelectorAll(".bowl-six-submissions__toggle").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var uid = btn.getAttribute("data-user-id");
+        if (!uid) return;
+        var panel = document.getElementById("bowl-six-lineup-panel-" + uid);
+        if (!panel) return;
+        var expanded = btn.getAttribute("aria-expanded") === "true";
+        if (expanded) {
+          btn.setAttribute("aria-expanded", "false");
+          panel.hidden = true;
+          btn.classList.remove("bowl-six-submissions__toggle--open");
+          return;
+        }
+        var url = tpl.split(LINEUP_USER_PH).join(String(uid));
+        if (!panel.dataset.loaded) {
+          panel.innerHTML = '<p class="muted bowl-six-submissions__loading">Loading lineup…</p>';
+          panel.hidden = false;
+          fetch(url, { credentials: "same-origin" })
+            .then(function (r) {
+              if (!r.ok) throw new Error("load failed");
+              return r.text();
+            })
+            .then(function (html) {
+              panel.innerHTML = html;
+              panel.dataset.loaded = "1";
+              btn.setAttribute("aria-expanded", "true");
+              btn.classList.add("bowl-six-submissions__toggle--open");
+            })
+            .catch(function () {
+              panel.innerHTML =
+                '<p class="muted">Could not load lineup.</p>';
+            });
+          return;
+        }
+        panel.hidden = false;
+        btn.setAttribute("aria-expanded", "true");
+        btn.classList.add("bowl-six-submissions__toggle--open");
+      });
+    });
+  }
+
+  initBowlSixSubmissions();
+
+  var cfg = window.BOWL_SIX || {};
+  if (cfg.flashMessages && cfg.flashMessages.length) {
+    cfg.flashMessages.forEach(function (entry) {
+      if (entry && entry.length >= 2) {
+        showBowlSixToast(entry[1], entry[0]);
+      }
+    });
+  }
+  if (!cfg.playersUrl) return;
 
   var poolBody = document.getElementById("bowl-six-pool-body");
   var searchEl = document.getElementById("bowl-six-search");
@@ -562,14 +620,6 @@
       if (idx >= 0 && idx < picks.length) {
         document.getElementById("bowl-six-captain-id").value = picks[idx].id;
         alert("Captain set.");
-      }
-    });
-  }
-
-  if (cfg.flashMessages && cfg.flashMessages.length) {
-    cfg.flashMessages.forEach(function (entry) {
-      if (entry && entry.length >= 2) {
-        showBowlSixToast(entry[1], entry[0]);
       }
     });
   }

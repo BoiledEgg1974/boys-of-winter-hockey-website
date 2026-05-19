@@ -1,0 +1,18 @@
+{% from "macros/player_snapshot_card.html" import player_snapshot_card %}
+<div class="bowl-six-lineup-snapshot">
+  <div class="bowl-six-lineup-snapshot__row bowl-six-lineup-snapshot__row--forwards">
+    {% for slot in forward_slots %}
+    {{ player_snapshot_card(slot.label, slot.card, slot.is_captain) }}
+    {% endfor %}
+  </div>
+  <div class="bowl-six-lineup-snapshot__row bowl-six-lineup-snapshot__row--defense">
+    {% for slot in defense_slots %}
+    {{ player_snapshot_card(slot.label, slot.card, slot.is_captain) }}
+    {% endfor %}
+  </div>
+  <div class="bowl-six-lineup-snapshot__row bowl-six-lineup-snapshot__row--goalie">
+    {% for slot in goalie_slots %}
+    {{ player_snapshot_card(slot.label, slot.card, false) }}
+    {% endfor %}
+  </div>
+</div>

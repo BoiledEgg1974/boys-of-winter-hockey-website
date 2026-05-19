@@ -25,6 +25,7 @@ from app.services.bowl_six_scoring import (
     score_lineup_for_slate,
     slot_accepts_position,
 )
+from app.services.player_snapshot_card import build_player_snapshot_card
 from app.services.league_rules import get_rule_value, rule_bool, rule_int
 from app.services.seasons import get_current_season
 from app.site_models import (
@@ -815,6 +816,63 @@ def slate_gm_submission_roster(
         "submitted_count": submitted_count,
         "pending_count": len(rows) - submitted_count,
     }
+
+
+BOWL_SIX_SNAPSHOT_DISPLAY: list[tuple[str, str]] = [
+    ("fwd1", "FWD"),
+    ("fwd2", "FWD"),
+    ("fwd3", "FWD"),
+    ("def1", "DEF"),
+    ("def2", "DEF"),
+    ("gk", "GK"),
+]
+
+
+def bowl_six_lineup_snapshot_slots(
+    site_session: Session,
+    league_session: Session,
+    slate: BowlSixSlate,
+    user_id: int,
+) -> list[dict[str, Any]] | None:
+    """Submitted lineup as snapshot card slots (forwards, defense, goalie), or None."""
+    from app.services.seasons import season_age_reference_date
+
+    lineup = site_session.scalars(
+        select(BowlSixLineup)
+        .where(
+            BowlSixLineup.slate_id == slate.id,
+            BowlSixLineup.user_id == int(user_id),
+            BowlSixLineup.submitted_at.is_not(None),
+        )
+        .options(joinedload(BowlSixLineup.picks))
+        .limit(1)
+    ).unique().first()
+    if lineup is None or len(lineup.picks) < 6:
+        return None
+    pick_by_slot = {p.slot: int(p.player_id) for p in lineup.picks}
+    captain_id = int(lineup.captain_player_id) if lineup.captain_player_id else None
+    age_ref = season_age_reference_date(get_current_season())
+    slots: list[dict[str, Any]] = []
+    for slot_key, label in BOWL_SIX_SNAPSHOT_DISPLAY:
+        pid = pick_by_slot.get(slot_key)
+        if not pid:
+            slots.append({"slot": slot_key, "label": label, "card": None, "is_captain": False})
+            continue
+        player = league_session.get(Player, pid)
+        if player is None:
+            slots.append({"slot": slot_key, "label": label, "card": None, "is_captain": False})
+            continue
+        team = league_session.get(Team, int(player.current_team_id)) if player.current_team_id else None
+        abbr = team.abbreviation if team and team.abbreviation else "—"
+        slots.append(
+            {
+                "slot": slot_key,
+                "label": label,
+                "card": build_player_snapshot_card(player, team_abbr=abbr, age_ref=age_ref),
+                "is_captain": bool(captain_id and captain_id == pid),
+            }
+        )
+    return slots
 
 
 def slate_gm_submission_roster_enriched(

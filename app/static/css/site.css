@@ -15472,13 +15472,98 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   display: grid;
   gap: 0.35rem;
 }
+.bowl-six-submissions__entry {
+  list-style: none;
+}
 .bowl-six-submissions__item {
   display: flex;
   align-items: center;
   gap: 0.55rem;
+  width: 100%;
   padding: 0.45rem 0.6rem;
   border-radius: 8px;
   border: 1px solid rgb(148 163 184 / 0.15);
+  box-sizing: border-box;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+}
+button.bowl-six-submissions__toggle {
+  cursor: pointer;
+}
+button.bowl-six-submissions__toggle:hover {
+  filter: brightness(1.06);
+}
+.bowl-six-submissions__toggle--open {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.bowl-six-submissions__chevron {
+  flex-shrink: 0;
+  width: 0.45rem;
+  height: 0.45rem;
+  margin-left: 0.15rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  opacity: 0.75;
+  transition: transform 0.2s ease;
+}
+.bowl-six-submissions__toggle--open .bowl-six-submissions__chevron {
+  transform: rotate(-135deg);
+  margin-top: 0.2rem;
+}
+.bowl-six-submissions__detail {
+  padding: 0.65rem 0.5rem 0.85rem;
+  border: 1px solid rgb(132 204 22 / 0.35);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  background: rgb(15 23 42 / 0.55);
+}
+.bowl-six-submissions__loading {
+  margin: 0;
+  padding: 0.5rem 0.25rem;
+}
+.bowl-six-lineup-snapshot__row {
+  display: grid;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.bowl-six-lineup-snapshot__row--forwards {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.bowl-six-lineup-snapshot__row--defense {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.bowl-six-lineup-snapshot__row--goalie {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 420px;
+  margin-left: auto;
+  margin-right: auto;
+}
+@media (max-width: 900px) {
+  .bowl-six-lineup-snapshot__row--forwards {
+    grid-template-columns: 1fr;
+  }
+  .bowl-six-lineup-snapshot__row--defense {
+    grid-template-columns: 1fr;
+  }
+}
+.team-lines-player-card--captain {
+  box-shadow: 0 0 0 1px rgb(250 204 21 / 0.55);
+}
+.bowl-six-captain-badge {
+  display: inline-block;
+  margin-left: 0.2rem;
+  padding: 0.05rem 0.3rem;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  line-height: 1.2;
+  color: #0b1324;
+  background: #facc15;
+  vertical-align: middle;
 }
 .bowl-six-submissions__item--in {
   background: rgb(132 204 22 / 0.1);

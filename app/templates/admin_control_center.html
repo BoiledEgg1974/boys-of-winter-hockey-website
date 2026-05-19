@@ -150,6 +150,7 @@
     {% with submissions=bowl_six_submissions, title='GM submissions' %}
     {% include "bowl_six/_submissions.html" %}
     {% endwith %}
+    <script src="{{ url_for('static', filename='js/bowl_six.js') }}"></script>
     {% endif %}
     <details class="bowl-six-admin-panel__fixes">
       <summary>Fix or change this week (rare)</summary>

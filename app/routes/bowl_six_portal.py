@@ -39,6 +39,7 @@ from app.services.bowl_six import (
     score_slate,
     slate_lock_ui,
     slate_rankings,
+    bowl_six_lineup_snapshot_slots,
     slate_gm_submission_roster_enriched,
     slate_rankings_in_progress,
     slate_week_game_progress,
@@ -301,6 +302,28 @@ def bowl_six_leaders():
         in_progress_slate=in_progress_slate,
         in_progress_rows=in_progress_rows,
         week_progress=week_progress,
+    )
+
+
+@site_gm_bp.get("/bowl-six/api/lineup/<int:user_id>")
+@login_required
+def bowl_six_api_lineup_snapshot(user_id: int):
+    _require_bowl_six_access()
+    slug = _league_slug()
+    slate = get_or_create_current_slate(db.session, slug)
+    if not slate or slate.status == "skipped":
+        abort(404)
+    slots = bowl_six_lineup_snapshot_slots(db.session, db.session, slate, user_id)
+    if not slots:
+        abort(404)
+    forward_slots = [s for s in slots if str(s["slot"]).startswith("fwd")]
+    defense_slots = [s for s in slots if str(s["slot"]).startswith("def")]
+    goalie_slots = [s for s in slots if str(s["slot"]) == "gk"]
+    return render_template(
+        "bowl_six/_lineup_snapshot.html",
+        forward_slots=forward_slots,
+        defense_slots=defense_slots,
+        goalie_slots=goalie_slots,
     )
 
 

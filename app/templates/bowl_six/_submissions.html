@@ -1,5 +1,6 @@
 {% if submissions and submissions.total_gms %}
-<div class="bowl-six-submissions">
+<div class="bowl-six-submissions"
+  data-lineup-snapshot-tpl="{{ url_for('site_gm.bowl_six_api_lineup_snapshot', user_id=988776655) }}">
   <h2 class="bowl-six-section__title">{{ title or "Who's in" }}</h2>
   <p class="muted bowl-six-submissions__summary">
     <strong>{{ submissions.submitted_count }}</strong> of <strong>{{ submissions.total_gms }}</strong> GMs saved a lineup
@@ -7,23 +8,44 @@
   </p>
   <ul class="bowl-six-submissions__list">
     {% for row in submissions.rows %}
-    <li class="bowl-six-submissions__item bowl-six-submissions__item--{{ 'in' if row.submitted else 'out' }}">
-      <span class="bowl-six-submissions__status" aria-hidden="true">{% if row.submitted %}✓{% else %}—{% endif %}</span>
-      <span class="bowl-six-submissions__gm">
-        {% if row.team and team_logo_url(row.team) %}
-        <img src="{{ team_logo_url(row.team) }}" alt="" width="22" height="22" class="bowl-six-submissions__logo">
-        {% endif %}
-        <span class="bowl-six-submissions__names">
-          <span class="bowl-six-submissions__team">{% if row.team %}{{ row.team.full_display_name() }}{% else %}—{% endif %}</span>
-          <span class="bowl-six-submissions__person muted">{{ row.gm_name }}</span>
+    <li class="bowl-six-submissions__entry bowl-six-submissions__entry--{{ 'in' if row.submitted else 'out' }}">
+      {% if row.submitted %}
+      <button type="button" class="bowl-six-submissions__item bowl-six-submissions__item--in bowl-six-submissions__toggle"
+        data-user-id="{{ row.user_id }}"
+        aria-expanded="false"
+        aria-controls="bowl-six-lineup-panel-{{ row.user_id }}">
+        <span class="bowl-six-submissions__status" aria-hidden="true">✓</span>
+        <span class="bowl-six-submissions__gm">
+          {% if row.team and team_logo_url(row.team) %}
+          <img src="{{ team_logo_url(row.team) }}" alt="" width="22" height="22" class="bowl-six-submissions__logo">
+          {% endif %}
+          <span class="bowl-six-submissions__names">
+            <span class="bowl-six-submissions__team">{% if row.team %}{{ row.team.full_display_name() }}{% else %}—{% endif %}</span>
+            <span class="bowl-six-submissions__person muted">{{ row.gm_name }}</span>
+          </span>
         </span>
-      </span>
-      <span class="bowl-six-submissions__label">
-        {% if row.submitted %}In{% else %}Waiting{% endif %}
-      </span>
+        <span class="bowl-six-submissions__label">In · view lineup</span>
+        <span class="bowl-six-submissions__chevron" aria-hidden="true"></span>
+      </button>
+      <div class="bowl-six-submissions__detail" id="bowl-six-lineup-panel-{{ row.user_id }}" hidden></div>
+      {% else %}
+      <div class="bowl-six-submissions__item bowl-six-submissions__item--out">
+        <span class="bowl-six-submissions__status" aria-hidden="true">—</span>
+        <span class="bowl-six-submissions__gm">
+          {% if row.team and team_logo_url(row.team) %}
+          <img src="{{ team_logo_url(row.team) }}" alt="" width="22" height="22" class="bowl-six-submissions__logo">
+          {% endif %}
+          <span class="bowl-six-submissions__names">
+            <span class="bowl-six-submissions__team">{% if row.team %}{{ row.team.full_display_name() }}{% else %}—{% endif %}</span>
+            <span class="bowl-six-submissions__person muted">{{ row.gm_name }}</span>
+          </span>
+        </span>
+        <span class="bowl-six-submissions__label">Waiting</span>
+      </div>
+      {% endif %}
     </li>
     {% endfor %}
   </ul>
-  <p class="muted bowl-six-submissions__note">Lineup details stay private until the week is scored.</p>
+  <p class="muted bowl-six-submissions__note">Submitted GMs: click a row to expand their six-player snapshot lineup.</p>
 </div>
 {% endif %}

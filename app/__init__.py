@@ -378,6 +378,7 @@ def create_app(config_class: type = Config) -> Flask:
         team_logo_url_present_franchise = _logo_bundle.team_logo_url_present_franchise
         season_team_name = _logo_bundle.season_team_name
         season_team_source_id = _logo_bundle.season_team_source_id
+        draft_pick_team_logo_url = _logo_bundle.draft_pick_team_logo_url
 
         def player_headshot_url(player: Player | None) -> str | None:
             from flask import url_for
@@ -500,6 +501,7 @@ def create_app(config_class: type = Config) -> Flask:
             team_logo_url_present_franchise=team_logo_url_present_franchise,
             season_team_name=season_team_name,
             season_team_source_id=season_team_source_id,
+            draft_pick_team_logo_url=draft_pick_team_logo_url,
             history_team_award_era_logo_url=history_team_award_era_logo_url,
             history_team_award_notes_team_label=history_team_award_notes_team_label,
             history_jim_gregory_era_logo_url=history_jim_gregory_era_logo_url,

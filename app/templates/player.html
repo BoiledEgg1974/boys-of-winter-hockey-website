@@ -221,19 +221,19 @@
               <td>{{ pk.overall_pick }}</td>
               <td>
                 {% set tm_fhm = draft_pick_team_fhm_by_pick_id.get(pk.id) if draft_pick_team_fhm_by_pick_id else none %}
-                {% if pk.team %}
-                  {% set name_rec = {'team': pk.team, 'season_year': pk.draft_year, 'team_fhm_id': tm_fhm if tm_fhm is not none else pk.team.fhm_team_id} %}
-                  {% set team_name = season_team_name(name_rec) or team_city_nick(pk.team) %}
+                {% if pk.team or tm_fhm is not none %}
+                  {% set name_rec = {'team': pk.team, 'season_year': pk.draft_year, 'team_fhm_id': tm_fhm if tm_fhm is not none else (pk.team.fhm_team_id if pk.team else none)} %}
+                  {% set team_name = season_team_name(name_rec) or (team_city_nick(pk.team) if pk.team else none) %}
+                  {% set team_logo = draft_pick_team_logo_url(pk, tm_fhm=tm_fhm, season_year=pk.draft_year) %}
+                  {% if pk.team %}
                   <a href="{{ url_for('main.team_page', slug=pk.team.slug) }}">
-                    <img class="team-records-detail__logo" src="{{ (season_team_logo_url({'team_fhm_id': tm_fhm, 'season_year': pk.draft_year}) if tm_fhm is not none else none) or team_logo_url_for_season_context(pk.team, pk.draft_year) or team_logo_url(pk.team) }}" alt="" loading="lazy" decoding="async">
+                    {% if team_logo %}<img class="team-records-detail__logo" src="{{ team_logo }}" alt="" loading="lazy" decoding="async">{% endif %}
                     {{ team_name }}
                   </a>
-                {% elif tm_fhm is not none %}
-                  {% set rec = {'team_fhm_id': tm_fhm, 'season_year': pk.draft_year} %}
-                  {% set team_logo = season_team_logo_url(rec) %}
-                  {% set team_name = season_team_name(rec) %}
+                  {% else %}
                   {% if team_logo %}<img class="team-records-detail__logo" src="{{ team_logo }}" alt="" loading="lazy" decoding="async">{% endif %}
                   {{ team_name or ('Team #' ~ tm_fhm) }}
+                  {% endif %}
                 {% else %}
                   —
                 {% endif %}

@@ -25,6 +25,7 @@ class SeasonTeamLogoBundle:
     team_logo_url_present_franchise: Callable[..., str]
     season_team_name: Callable[[object], str | None]
     season_team_source_id: Callable[[object], str | None]
+    draft_pick_team_logo_url: Callable[..., str | None]
 
 
 _IMG_LOGO_SUFFIXES = (".png", ".webp", ".jpg", ".jpeg", ".svg")
@@ -398,30 +399,48 @@ def build_season_team_logo_bundle(app: Flask) -> SeasonTeamLogoBundle:
                 tid = getattr(team_obj, "fhm_team_id", None)
         tid_s = str(tid or "").strip()
         sy = _record_start_year(record)
+
+        def _timeline_logo_for_year(name_key: str, year: int) -> str | None:
+            rel = historical_team_logo_timeline_by_name_year.get((name_key, year))
+            if rel:
+                return url_for("static", filename=rel)
+            return None
+
         if tid_s and sy is not None:
             rel = historical_team_logo_override_by_id_year.get((tid_s, sy))
             if rel:
                 return url_for("static", filename=rel)
         if sy is not None:
             for nm in _record_name_candidates(record):
-                rel = historical_team_logo_timeline_by_name_year.get((nm, sy))
+                hit = _timeline_logo_for_year(nm, sy)
+                if hit:
+                    return hit
+            name_from_tid = _historical_name_for_tid(record, tid_s) if tid_s else None
+            if name_from_tid:
+                hit = _timeline_logo_for_year(_norm_team_logo_name(name_from_tid), sy)
+                if hit:
+                    return hit
+        # Non-era franchise files (-t{id}) are only for requests without a season year.
+        if sy is None:
+            if tid_s and tid_s in historical_team_logo_rel_by_id:
+                return url_for("static", filename=historical_team_logo_rel_by_id[tid_s])
+            name_from_tid = _historical_name_for_tid(record, tid_s) if tid_s else None
+            if name_from_tid:
+                nm = _norm_team_logo_name(name_from_tid)
+                rel = historical_team_logo_rel_by_name.get(nm)
                 if rel:
                     return url_for("static", filename=rel)
-        if tid_s and tid_s in historical_team_logo_rel_by_id:
-            return url_for("static", filename=historical_team_logo_rel_by_id[tid_s])
-        name_from_tid = _historical_name_for_tid(record, tid_s) if tid_s else None
-        if name_from_tid:
-            nm = _norm_team_logo_name(name_from_tid)
-            rel = historical_team_logo_rel_by_name.get(nm)
-            if rel:
-                return url_for("static", filename=rel)
 
-        for nm in _record_name_candidates(record):
-            rel = historical_team_logo_rel_by_name.get(nm)
-            if rel:
-                return url_for("static", filename=rel)
+            for nm in _record_name_candidates(record):
+                rel = historical_team_logo_rel_by_name.get(nm)
+                if rel:
+                    return url_for("static", filename=rel)
 
         team_obj = getattr(record, "team", None)
+        if team_obj is None and rec_map is not None:
+            team_obj = rec_map.get("team")
+        if sy is not None:
+            return None
         if team_obj:
             return team_logo_url_for_team(team_obj)
         return None
@@ -514,7 +533,45 @@ def build_season_team_logo_bundle(app: Flask) -> SeasonTeamLogoBundle:
             era = season_team_logo_url(proxy)
             if era:
                 return era
+            return url_for("static", filename="logos/teams/placeholder.svg")
         return team_logo_url_for_team(team)
+
+    _ERA_LEAGUE_SLUGS = ("bowl-historical", "bowl-cap", "bowl-fantasy")
+
+    def draft_pick_team_logo_url(
+        pick: object | None,
+        *,
+        tm_fhm: int | None = None,
+        season_year: int | None = None,
+    ) -> str | None:
+        """Logo for the team that drafted a pick, using draft year for era-correct art."""
+        sy = season_year
+        if sy is None and pick is not None:
+            sy = getattr(pick, "draft_year", None)
+        try:
+            sy_int = int(sy) if sy is not None else None
+        except (TypeError, ValueError):
+            sy_int = None
+        team = getattr(pick, "team", None) if pick is not None else None
+        tid = tm_fhm
+        if tid is None and team is not None:
+            tid = getattr(team, "fhm_team_id", None)
+        rec: dict[str, object | None] = {
+            "team": team,
+            "season_year": sy_int,
+            "team_fhm_id": tid,
+        }
+        slug = str(app.config.get("LEAGUE_SLUG") or "")
+        if slug in _ERA_LEAGUE_SLUGS and sy_int is not None:
+            url = season_team_logo_url(rec)
+            if url:
+                return url
+            if team is not None:
+                return team_logo_url_for_season_context(team, sy_int)
+            return url_for("static", filename="logos/teams/placeholder.svg")
+        if team is not None:
+            return team_logo_url_for_team(team)
+        return season_team_logo_url(rec)
 
     # End-of-timeline year used when scanning `*_YYYY-present` filenames (see logo bundle scan).
     _FRANCHISE_LOGO_END_YEAR = 2100
@@ -548,6 +605,7 @@ def build_season_team_logo_bundle(app: Flask) -> SeasonTeamLogoBundle:
         team_logo_url_present_franchise=team_logo_url_present_franchise,
         season_team_name=season_team_name,
         season_team_source_id=season_team_source_id,
+        draft_pick_team_logo_url=draft_pick_team_logo_url,
     )
 
 

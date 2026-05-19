@@ -317,24 +317,24 @@ def blocked_player_ids_from_prior_slate(
     prev = prior_submitted_slate_for_user(session, league_slug, user_id, slate)
     if prev is None:
         return set()
-    lineup = session.scalar(
+    lineup = session.scalars(
         select(BowlSixLineup)
         .where(BowlSixLineup.slate_id == prev.id, BowlSixLineup.user_id == int(user_id))
         .options(joinedload(BowlSixLineup.picks))
         .limit(1)
-    )
+    ).unique().first()
     if not lineup or not lineup.picks:
         return set()
     return {int(p.player_id) for p in lineup.picks}
 
 
 def get_lineup(session: Session, slate_id: int, user_id: int) -> BowlSixLineup | None:
-    return session.scalar(
+    return session.scalars(
         select(BowlSixLineup)
         .where(BowlSixLineup.slate_id == int(slate_id), BowlSixLineup.user_id == int(user_id))
         .options(joinedload(BowlSixLineup.picks), joinedload(BowlSixLineup.score))
         .limit(1)
-    )
+    ).unique().first()
 
 
 def lineup_is_editable(slate: BowlSixSlate) -> bool:
@@ -526,7 +526,9 @@ def refresh_slate_lineup_scores(
             select(BowlSixLineup)
             .where(BowlSixLineup.slate_id == slate.id, BowlSixLineup.submitted_at.is_not(None))
             .options(joinedload(BowlSixLineup.picks))
-        ).all()
+        )
+        .unique()
+        .all()
     )
     n = 0
     for lineup in lineups:
@@ -788,9 +790,7 @@ def slate_gm_submission_roster(
     lineups = {
         int(l.user_id): l
         for l in session.scalars(
-            select(BowlSixLineup)
-            .where(BowlSixLineup.slate_id == slate.id)
-            .options(joinedload(BowlSixLineup.picks))
+            select(BowlSixLineup).where(BowlSixLineup.slate_id == slate.id)
         ).all()
     }
     rows: list[dict[str, Any]] = []

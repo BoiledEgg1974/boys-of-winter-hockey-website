@@ -35,6 +35,7 @@ from app.site_models import (
     BowlSixSlate,
     GmInAppNotification,
     GmLeagueMembership,
+    User,
 )
 
 AP_PRIZES = {1: 10, 2: 6, 3: 3}

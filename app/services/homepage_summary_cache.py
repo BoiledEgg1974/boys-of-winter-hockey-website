@@ -12,6 +12,7 @@ from app.config import BASE_DIR
 from app.services.homepage_dashboard import build_around_the_league
 from app.services.homepage_modules import module_sort_order_map, module_visibility_map
 from app.services.homepage_ticker import build_homepage_ticker_items
+from app.league_urls import league_test_request_context, real_flask_app
 from app.services.league_json_cache import (
     DEFAULT_FRESH_TTL_SECONDS,
     DEFAULT_STALE_TTL_SECONDS,
@@ -120,39 +121,40 @@ def build_homepage_summary_cached(
 
 def warm_homepage_summary_cache(app: Flask | None = None) -> None:
     """Pre-build RS homepage cache in the background (per league worker)."""
-    app = app or current_app
-    slug = str(app.config.get("LEAGUE_SLUG") or "").strip()
+    try:
+        bound_app = real_flask_app(app if app is not None else current_app)
+    except RuntimeError:
+        return
+    slug = str(bound_app.config.get("LEAGUE_SLUG") or "").strip()
     if slug not in _BOWL_SLUGS:
         return
-    if not app.config.get("LEAGUE_JSON_CACHE_WARM_ON_STARTUP", True):
+    if not bound_app.config.get("LEAGUE_JSON_CACHE_WARM_ON_STARTUP", True):
         return
 
     def _run() -> None:
         try:
-            with app.app_context():
-                script_root = f"/{slug}".rstrip("/") or "/"
-                with app.test_request_context(script_root + "/"):
-                    from app.models import db
-                    from app.routes.api import _build_homepage_summary_payload
-                    from app.services.seasons import (
-                        get_current_season,
-                        season_with_imported_data_fallback,
-                    )
+            with league_test_request_context(bound_app):
+                from app.models import db
+                from app.routes.api import _build_homepage_summary_payload
+                from app.services.seasons import (
+                    get_current_season,
+                    season_with_imported_data_fallback,
+                )
 
-                    canonical = get_current_season()
-                    dashboard = (
-                        season_with_imported_data_fallback(db.session, canonical)
-                        if canonical
-                        else None
-                    )
-                    build_homepage_summary_cached(
-                        "rs",
-                        canonical,
-                        dashboard,
-                        lambda: _build_homepage_summary_payload(
-                            "rs", canonical, dashboard
-                        ),
-                    )
+                canonical = get_current_season()
+                dashboard = (
+                    season_with_imported_data_fallback(db.session, canonical)
+                    if canonical
+                    else None
+                )
+                build_homepage_summary_cached(
+                    "rs",
+                    canonical,
+                    dashboard,
+                    lambda: _build_homepage_summary_payload(
+                        "rs", canonical, dashboard
+                    ),
+                )
         except Exception:
             _log.exception("homepage cache warm failed for %s", slug)
 

@@ -5,24 +5,40 @@ from pathlib import Path
 
 from flask import current_app, url_for
 
-# BOWL-Fantasy: DB slugs are ``fw-t26``-style; many PNGs use descriptive stems
-# (``fort_wayne_komets.png``). Try slug first, then this alias stem.
+# BOWL-Fantasy: roster slug → logo filename under ``logos/teams/bowl_fantasy/``.
+# Keep in sync with ``data/imports/raw/bowl_fantasy/team_identity_history.csv``.
+FANTASY_ROSTER_LOGO_FILES: dict[str, str] = {
+    "bgk-t22": "bangkok_roosters.png",
+    "can-t25": "canmore_eagles.png",
+    "chi-t8": "chicago_blackhawks.png",
+    "edm-t23": "edm-t23.png",
+    "fla-t21": "fla-t21.png",
+    "fw-t26": "fort_wayne_komets.png",
+    "hal-t9": "halifax_privateers.png",
+    "ham-t5": "hamilton_steel.png",
+    "ind-t278": "indianapolis_racers.png",
+    "ken-t19": "kenya_pride.png",
+    "kun-t11": "kunlun_red_star.png",
+    "lon-t14": "london_black_knights.png",
+    "me-t279": "maine_mariners.png",
+    "mon-t10": "moncton_wildcats.png",
+    "mtl-t20": "montreal_canadiens.png",
+    "pit-t15": "pittsburgh_penguins.png",
+    "por-t12": "portland_buckaroos.png",
+    "six-t18": "six-t18.png",
+    "tok-t17": "tok-t17.png",
+    "tor-t3": "tor-t3.png",
+    "trl-t24": "trl-t24.png",
+    "vcr-t280": "vcr-t280.png",
+    "vic-t16": "vic-t16.png",
+    "wic-t0": "wic-t0.png",
+}
+
+# When the PNG stem differs from the DB slug, probe the canonical filename second.
 _FANTASY_LOGO_STEM_ALIASES: dict[str, str] = {
-    "mon-t10": "moncton_wildcats",
-    "kun-t11": "kunlun_red_star",
-    "por-t12": "portland_buckaroos",
-    "lon-t14": "london_black_knights",
-    "pit-t15": "pittsburgh_penguins",
-    "ken-t19": "kenya_pride",
-    "mtl-t20": "montreal_canadiens",
-    "bgk-t22": "bangkok_roosters",
-    "can-t25": "canmore_eagles",
-    "fw-t26": "fort_wayne_komets",
-    "ham-t5": "hamilton_steel",
-    "chi-t8": "chicago_blackhawks",
-    "hal-t9": "halifax_privateers",
-    "ind-t278": "indianapolis_racers",
-    "me-t279": "maine_mariners",
+    slug: Path(filename).stem
+    for slug, filename in FANTASY_ROSTER_LOGO_FILES.items()
+    if Path(filename).stem != slug
 }
 
 

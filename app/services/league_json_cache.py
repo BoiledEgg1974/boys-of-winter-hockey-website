@@ -19,9 +19,11 @@ from typing import Any
 from flask import Flask, current_app
 
 from app.config import BASE_DIR
+from app.league_urls import league_test_request_context, prefix_league_static_urls, real_flask_app
 from app.services.layout_nav_cache import league_engine_sqlite_fingerprint
 
 _log = logging.getLogger(__name__)
+
 
 _lock = threading.Lock()
 _mem_cache: dict[tuple, tuple[float, float, dict[str, Any]]] = {}
@@ -202,8 +204,10 @@ def store_cached_json(
     namespace: str,
     key_suffix: tuple,
     body: dict[str, Any],
+    *,
+    app: Flask | None = None,
 ) -> None:
-    key = cache_key(namespace, key_suffix)
+    key = cache_key(namespace, key_suffix, app=app)
     saved_at = _write_file(key, body)
     now = time.monotonic()
     with _lock:
@@ -227,7 +231,8 @@ def _schedule_background_refresh(
     key_suffix: tuple,
     builder: Callable[[], dict[str, Any]],
 ) -> None:
-    key = cache_key(namespace, key_suffix, app=app)
+    bound_app = real_flask_app(app)
+    key = cache_key(namespace, key_suffix, app=bound_app)
     digest = _digest(key)
     with _lock:
         if digest in _refresh_inflight:
@@ -236,11 +241,9 @@ def _schedule_background_refresh(
 
     def _run() -> None:
         try:
-            with app.app_context():
-                script_root = f"/{app.config.get('LEAGUE_SLUG', '')}".rstrip("/") or "/"
-                with app.test_request_context(script_root + "/"):
-                    body = builder()
-                    store_cached_json(namespace, key_suffix, body)
+            with league_test_request_context(bound_app):
+                body = builder()
+                store_cached_json(namespace, key_suffix, body, app=bound_app)
         except Exception:
             _log.exception("background cache refresh failed for %s %s", namespace, key_suffix)
         finally:
@@ -261,12 +264,17 @@ def get_or_build_cached_json_swr(
     app: Flask | None = None,
 ) -> tuple[dict[str, Any], str]:
     """Return payload and cache status (HIT-FRESH, HIT-STALE, MISS)."""
-    app = app or current_app
+    app = real_flask_app(app or current_app)
+
+    def _prepare(body: dict[str, Any]) -> dict[str, Any]:
+        out = prefix_league_static_urls(body, app=app)
+        return refresh(out) if refresh else out  # type: ignore[return-value]
+
     ent = get_cache_entry(
         namespace, key_suffix, fresh_ttl=fresh_ttl, stale_ttl=stale_ttl, app=app
     )
     if ent is not None:
-        body = refresh(ent.body) if refresh else ent.body
+        body = _prepare(ent.body)
         if not ent.is_fresh:
             _schedule_background_refresh(app, namespace, key_suffix, builder)
             return body, "HIT-STALE"
@@ -277,15 +285,14 @@ def get_or_build_cached_json_swr(
             namespace, key_suffix, fresh_ttl=fresh_ttl, stale_ttl=stale_ttl, app=app
         )
         if ent is not None:
-            body = refresh(ent.body) if refresh else ent.body
+            body = _prepare(ent.body)
             status = "HIT-FRESH" if ent.is_fresh else "HIT-STALE"
             if not ent.is_fresh:
                 _schedule_background_refresh(app, namespace, key_suffix, builder)
             return body, status
         core = builder()
         store_cached_json(namespace, key_suffix, core)
-        body = refresh(core) if refresh else core
-        return body, "MISS"
+        return _prepare(core), "MISS"
 
 
 def get_or_build_cached_json(

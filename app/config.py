@@ -277,6 +277,7 @@ def make_league_config(slug: str) -> type:
         SQLALCHEMY_DATABASE_URI = f"sqlite:///{db_path}"
         RAW_IMPORT_DIR = raw_path
         LEAGUE_SLUG = slug
+        APPLICATION_ROOT = f"/{slug}"
         LEAGUE_DISPLAY_NAME = entry.display_name
         TEAM_LOGOS_REL_DIR = team_logos_rel
         TEAM_LOGOS_DIR = BASE_DIR / "app" / "static" / team_logos_rel

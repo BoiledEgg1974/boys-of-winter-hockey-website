@@ -4,9 +4,10 @@
 Place all team logos for BOWL-Fantasy in this folder.
 
 Naming convention:
-- Preferred: ``{team_slug}.png`` in this folder (e.g. ``vic-t16.png``, ``fw-t26.png``).
-- Also supported: descriptive stems listed in ``app/logo_urls.py`` as
-  ``_FANTASY_LOGO_STEM_ALIASES`` (e.g. ``fort_wayne_komets.png`` for slug ``fw-t26``).
+- Canonical mapping: ``app/logo_urls.py`` → ``FANTASY_ROSTER_LOGO_FILES`` (slug → filename).
+- Many teams use descriptive filenames (e.g. ``fort_wayne_komets.png`` for ``fw-t26``); others
+  use slug filenames (e.g. ``tor-t3.png``).
+- Era / history rows: ``data/imports/raw/bowl_fantasy/team_identity_history.csv``.
 - extensions: .png, .webp, .jpg, .svg
 
 If a team logo is missing, placeholder.svg is used.

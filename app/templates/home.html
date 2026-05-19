@@ -214,6 +214,27 @@
     if (!path.startsWith("/")) path = "/" + path;
     return root + path;
   }
+  function rewriteSummaryStaticUrls(data) {
+    var root = document.documentElement.getAttribute("data-application-root") || "";
+    root = root.replace(/\/$/, "");
+    if (!root || !data) return data;
+    var marker = root + "/static/";
+    function walk(v) {
+      if (v && typeof v === "object") {
+        if (Array.isArray(v)) return v.map(walk);
+        var o = {};
+        Object.keys(v).forEach(function (k) {
+          o[k] = walk(v[k]);
+        });
+        return o;
+      }
+      if (typeof v === "string" && v.indexOf("/static/") === 0 && v.indexOf(marker) !== 0) {
+        return root + v;
+      }
+      return v;
+    }
+    return walk(data);
+  }
   function escapeAttr(s) {
     if (s == null || s === '') return '';
     return String(s)
@@ -1871,11 +1892,12 @@
     if (errEl) errEl.hidden = true;
     var stored = readStoredSummary();
     if (stored) {
-      applyHomeSummaryData(stored);
+      applyHomeSummaryData(rewriteSummaryStaticUrls(stored));
     }
     fetch(withRoot('/api/homepage/summary?segment=' + encodeURIComponent(seg)))
       .then(function (r) { return r.json(); })
       .then(function (data) {
+        data = rewriteSummaryStaticUrls(data);
         writeStoredSummary(data);
         applyHomeSummaryData(data);
       })

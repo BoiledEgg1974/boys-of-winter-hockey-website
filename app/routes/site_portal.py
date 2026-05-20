@@ -572,6 +572,7 @@ def action_points_redeem():
     group = league_group_for_slug(slug)
     from app.services.ap_redemption_forms import (
         catalog_item_form_key,
+        catalog_item_has_detail_form,
         extract_raw_details_for_catalog_id,
         format_details_summary,
         form_fields_for_key,

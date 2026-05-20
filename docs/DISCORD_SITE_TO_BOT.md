@@ -33,8 +33,11 @@ Ack: `POST /api/discord/events/<id>/ack` — marks sent and records `source_type
 | `expansion_draft_pick_made` | `expansion-draft-discussion` | Every recorded pick on **live Expansion Draft Hub** |
 | `story_published` | `league-news` | Story automation live dispatch |
 | `control_center_restore` | `staff-ops-alerts` | Control Center backup restore succeeds |
+| `bowl_six_leaders_update` | `bowl-six-leaders` | BOWL Six top performers + GM week/season leaders (first post, then **edit** same message) |
 
 Payloads include `source_type` and `source_id` for idempotency where applicable.
+
+**BOWL Six leaders:** Queued when slate scores/stats change (hub load, import, control center). Configure the route on each league’s **Admin → Discord integration**. The bot **PATCH**es when `payload.edit_message_id` is set; ack may include `discord_message_id`.
 
 **Historical example (Discord server guild `1218341313208914002`):** set that guild ID under Bot connection on `bowl-historical`; map channel snowflakes roughly as: `announcement_posted` → `#announcements`, `ap_redemption_posted` → `#ap-repemptions` (or `#ap-redemptions`), `gm_news_published` → `#team-news`, `admin_news_published` → `#league-news`, `draft_hub_pick_made` → `#draft-discussion`, `expansion_draft_pick_made` → `#expansion-draft-discussion`.
 

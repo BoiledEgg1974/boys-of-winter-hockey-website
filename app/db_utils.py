@@ -1340,6 +1340,34 @@ def ensure_discord_outbound_sqlite(engine: Engine) -> None:
         conn.commit()
 
 
+def ensure_bowl_six_slates_discord_columns_sqlite(engine: Engine) -> None:
+    """Add Discord leader-board tracking columns on site DB slates."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='bowl_six_slates'")
+        ).fetchone()
+        if not exists:
+            return
+        cols = {str(c[1]) for c in conn.execute(text("PRAGMA table_info(bowl_six_slates)")).fetchall()}
+        if "discord_leaders_message_id" not in cols:
+            conn.execute(
+                text(
+                    "ALTER TABLE bowl_six_slates "
+                    "ADD COLUMN discord_leaders_message_id VARCHAR(32)"
+                )
+            )
+        if "discord_leaders_payload_hash" not in cols:
+            conn.execute(
+                text(
+                    "ALTER TABLE bowl_six_slates "
+                    "ADD COLUMN discord_leaders_payload_hash VARCHAR(64)"
+                )
+            )
+        conn.commit()
+
+
 def ensure_prospect_system_rank_snapshots_sqlite(engine: Engine) -> None:
     """Create prospect system rank snapshot table on site DB when missing."""
     if engine.dialect.name != "sqlite":

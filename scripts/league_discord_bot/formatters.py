@@ -26,6 +26,7 @@ ALWAYS_TEXT_ONLY_DISCORD_EVENT_KEYS = frozenset(
         "staff_transaction_posted",
         "draft_hub_pick_made",
         "expansion_draft_pick_made",
+        "bowl_six_leaders_update",
     }
 )
 
@@ -166,6 +167,11 @@ def _text_only_header_lines(
         if status:
             lines.append(f"Status: **{status}**")
         lines.append(f"**{title}**")
+    elif event_key == "bowl_six_leaders_update":
+        lines.append(f"**{title}**")
+        status = str(payload.get("slate_status") or "").strip()
+        if status:
+            lines.append(f"Slate: **{status}**")
     else:
         lines.append(f"**{title}**")
     return lines

@@ -927,6 +927,8 @@ class BowlSixSlate(db.Model):
     ap_place2_team_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     ap_place3_team_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     scoring_version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    discord_leaders_message_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    discord_leaders_payload_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
     lineups: Mapped[list["BowlSixLineup"]] = relationship(back_populates="slate")

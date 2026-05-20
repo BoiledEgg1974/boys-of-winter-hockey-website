@@ -40,8 +40,13 @@ OPS_TEXT_ONLY_DISCORD_EVENT_KEYS = frozenset(
         "staff_transaction_posted",
         "draft_hub_pick_made",
         "expansion_draft_pick_made",
+        "bowl_six_leaders_update",
     }
 )
+
+BOWL_SIX_LEADERS_EVENT_KEY = "bowl_six_leaders_update"
+
+REPEATABLE_DISCORD_EVENT_KEYS = frozenset({BOWL_SIX_LEADERS_EVENT_KEY})
 
 EVENT_KEY_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 DISCORD_SNOWFLAKE_PATTERN = re.compile(r"^\d{17,20}$")
@@ -57,6 +62,7 @@ DEFAULT_EVENT_KEYS = {
     "draft_hub_pick_made",
     "expansion_draft_pick_made",
     "staff_transaction_posted",
+    "bowl_six_leaders_update",
 }
 
 DEFAULT_EVENT_CHANNEL_KEY = {
@@ -69,6 +75,7 @@ DEFAULT_EVENT_CHANNEL_KEY = {
     "draft_hub_pick_made": "draft-discussion",
     "expansion_draft_pick_made": "expansion-draft-discussion",
     "staff_transaction_posted": "staff-hirings-firings",
+    "bowl_six_leaders_update": "bowl-six-leaders",
 }
 
 DEFAULT_EVENT_LABELS = {
@@ -81,6 +88,7 @@ DEFAULT_EVENT_LABELS = {
     "draft_hub_pick_made": "Draft Hub pick (live)",
     "expansion_draft_pick_made": "Expansion draft pick (live)",
     "staff_transaction_posted": "Staff hire / fire approved",
+    "bowl_six_leaders_update": "BOWL Six live leaders (post + edit)",
 }
 
 MAX_DELIVERY_ATTEMPTS = 3
@@ -599,6 +607,10 @@ def _source_idempotency_key(
     return hashlib.sha256(material).hexdigest()[:64]
 
 
+def bowl_six_leaders_idempotency_key(*, league_slug: str, slate_id: int) -> str:
+    return f"bowl-six-leaders:{str(league_slug or '').strip()}:{int(slate_id)}"
+
+
 def _event_idempotency_key(*, league_slug: str, event_key: str, channel_key: str, payload: dict) -> str:
     material = json.dumps(
         {
@@ -955,6 +967,68 @@ def enqueue_discord_event(
     return row
 
 
+def enqueue_repeatable_discord_event(
+    session,
+    *,
+    league_slug: str,
+    event_key: str,
+    payload: dict,
+    created_by_user_id: int | None,
+    slate_id: int,
+) -> DiscordOutboundEvent | None:
+    """Queue a live-updating Discord post (replaces pending; allows repeat delivery)."""
+    key = str(event_key or "").strip()
+    if key not in REPEATABLE_DISCORD_EVENT_KEYS or not is_valid_event_key(key):
+        return None
+    ensure_discord_routes(session, league_slug)
+    route = _route_map(session, league_slug).get(key)
+    if route is None or not bool(route.is_enabled):
+        return None
+    bot_cfg = get_league_bot_config(session, league_slug)
+    if not bool(bot_cfg.is_enabled):
+        return None
+    payload_clean = dict(payload or {})
+    channel_key = str(route.channel_key or DEFAULT_EVENT_CHANNEL_KEY.get(key, ""))
+    idem_key = bowl_six_leaders_idempotency_key(league_slug=league_slug, slate_id=int(slate_id))
+    pending = session.scalar(
+        select(DiscordOutboundEvent)
+        .where(
+            DiscordOutboundEvent.league_slug == league_slug,
+            DiscordOutboundEvent.idempotency_key == idem_key,
+            DiscordOutboundEvent.status == "pending",
+        )
+        .order_by(DiscordOutboundEvent.id.desc())
+        .limit(1)
+    )
+    if pending is not None:
+        pending.event_key = key
+        pending.channel_key = channel_key
+        pending.payload_json = json.dumps(payload_clean)
+        pending.attempts = 0
+        pending.last_error = ""
+        pending.next_attempt_at = None
+        pending.created_at = datetime.utcnow()
+        session.flush()
+        return pending
+    row = DiscordOutboundEvent(
+        league_slug=league_slug,
+        event_key=key,
+        channel_key=channel_key,
+        idempotency_key=idem_key,
+        payload_json=json.dumps(payload_clean),
+        status="pending",
+        attempts=0,
+        last_error="",
+        created_by_user_id=created_by_user_id,
+        created_at=datetime.utcnow(),
+        next_attempt_at=None,
+        sent_at=None,
+    )
+    session.add(row)
+    session.flush()
+    return row
+
+
 def list_outbound_events(
     session, *, league_slug: str, status: str = "", event_key: str = "", limit: int = 250
 ) -> list[DiscordOutboundEvent]:
@@ -995,7 +1069,13 @@ def fetch_pending_events_for_bot(session, *, league_slug: str, limit: int = 20) 
         payload = _parse_payload(row)
         st = str(payload.get("source_type") or "").strip()
         sid = str(payload.get("source_id") or "").strip()
-        if st and sid and is_source_delivered(session, league_slug=league_slug, source_type=st, source_id=sid):
+        ek = str(row.event_key or "")
+        if (
+            ek not in REPEATABLE_DISCORD_EVENT_KEYS
+            and st
+            and sid
+            and is_source_delivered(session, league_slug=league_slug, source_type=st, source_id=sid)
+        ):
             row.status = "sent"
             row.attempts = int(row.attempts or 0) + 1
             row.last_error = ""
@@ -1080,20 +1160,28 @@ def serialize_pending_events_for_bot(
     return out
 
 
-def mark_event_sent(session, event_id: int) -> bool:
+def mark_event_sent(session, event_id: int, *, discord_message_id: str = "") -> bool:
     row = session.get(DiscordOutboundEvent, int(event_id))
     if row is None or str(row.status) in {"cancelled", "sent"}:
         return False
     payload = _parse_payload(row)
     st = str(payload.get("source_type") or "").strip()
     sid = str(payload.get("source_id") or "").strip()
-    if st and sid:
+    ek = str(row.event_key or "")
+    mid = str(discord_message_id or "").strip()
+    if mid:
+        from app.services.bowl_six_discord import record_bowl_six_leaders_discord_ack
+
+        record_bowl_six_leaders_discord_ack(
+            session, event_key=ek, payload=payload, discord_message_id=mid
+        )
+    if ek not in REPEATABLE_DISCORD_EVENT_KEYS and st and sid:
         record_delivered_source(
             session,
             league_slug=str(row.league_slug or ""),
             source_type=st,
             source_id=sid,
-            event_key=str(row.event_key or ""),
+            event_key=ek,
             outbound_event_id=int(row.id),
         )
     row.status = "sent"

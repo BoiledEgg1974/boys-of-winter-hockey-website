@@ -67,9 +67,26 @@ class LeagueDiscordBot:
         url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
         return discord_client.post(url, headers=self._discord_headers, json=body)
 
-    def post_discord(self, discord_client: httpx.Client, channel_id: str, body: dict[str, Any]) -> None:
-        body = sanitize_discord_message_body(body)
-        resp = self._post_discord_once(discord_client, channel_id, body)
+    def _patch_discord_once(
+        self,
+        discord_client: httpx.Client,
+        channel_id: str,
+        message_id: str,
+        body: dict[str, Any],
+    ) -> httpx.Response:
+        url = (
+            f"https://discord.com/api/v10/channels/{channel_id}/messages/{message_id}"
+        )
+        return discord_client.patch(url, headers=self._discord_headers, json=body)
+
+    def _discord_request_with_retry(
+        self,
+        discord_client: httpx.Client,
+        request_fn,
+        *,
+        channel_id: str,
+    ) -> httpx.Response:
+        resp = request_fn()
         if resp.status_code == 429:
             retry_after = 2.0
             try:
@@ -84,17 +101,63 @@ class LeagueDiscordBot:
                         pass
             log.warning("Discord 429 on channel %s; sleeping %.1fs", channel_id, retry_after)
             time.sleep(max(0.5, retry_after))
-            resp = self._post_discord_once(discord_client, channel_id, body)
+            resp = request_fn()
         if resp.status_code >= 400:
             try:
                 detail = resp.json()
             except Exception:
                 detail = resp.text
             raise RuntimeError(f"Discord API {resp.status_code}: {detail}")
+        return resp
 
-    def ack(self, client: httpx.Client, league_slug: str, event_id: int) -> None:
+    def post_discord(
+        self, discord_client: httpx.Client, channel_id: str, body: dict[str, Any]
+    ) -> str:
+        body = sanitize_discord_message_body(body)
+        resp = self._discord_request_with_retry(
+            discord_client,
+            lambda: self._post_discord_once(discord_client, channel_id, body),
+            channel_id=channel_id,
+        )
+        try:
+            return str((resp.json() or {}).get("id") or "").strip()
+        except Exception:
+            return ""
+
+    def patch_discord(
+        self,
+        discord_client: httpx.Client,
+        channel_id: str,
+        message_id: str,
+        body: dict[str, Any],
+    ) -> str:
+        body = sanitize_discord_message_body(body)
+        resp = self._discord_request_with_retry(
+            discord_client,
+            lambda: self._patch_discord_once(
+                discord_client, channel_id, message_id, body
+            ),
+            channel_id=channel_id,
+        )
+        try:
+            return str((resp.json() or {}).get("id") or message_id or "").strip()
+        except Exception:
+            return str(message_id or "").strip()
+
+    def ack(
+        self,
+        client: httpx.Client,
+        league_slug: str,
+        event_id: int,
+        *,
+        discord_message_id: str = "",
+    ) -> None:
         url = self._site_url(league_slug, f"/api/discord/events/{event_id}/ack")
-        resp = client.post(url, headers=self._headers)
+        body: dict[str, str] = {}
+        mid = str(discord_message_id or "").strip()
+        if mid:
+            body["discord_message_id"] = mid
+        resp = client.post(url, headers=self._headers, json=body or None)
         resp.raise_for_status()
 
     def fail(self, client: httpx.Client, league_slug: str, event_id: int, error: str) -> None:
@@ -137,13 +200,28 @@ class LeagueDiscordBot:
         channel_id = str(event.get("discord_channel_id") or "").strip()
         if not channel_id:
             raise RuntimeError(f"Event {event_id} missing discord_channel_id in route config")
+        payload = event.get("payload") or {}
+        edit_message_id = str(payload.get("edit_message_id") or "").strip()
         bodies = format_discord_messages(event, max_parts=self.settings.max_message_parts)
         delay = float(self.settings.delivery_delay_seconds)
+        delivered_message_id = ""
         for i, body in enumerate(bodies):
             if i > 0 and delay > 0:
                 time.sleep(delay)
-            self.post_discord(discord_client, channel_id, body)
-        self.ack(site_client, league_slug, event_id)
+            if i == 0 and edit_message_id:
+                delivered_message_id = self.patch_discord(
+                    discord_client, channel_id, edit_message_id, body
+                )
+            else:
+                delivered_message_id = self.post_discord(
+                    discord_client, channel_id, body
+                )
+        self.ack(
+            site_client,
+            league_slug,
+            event_id,
+            discord_message_id=delivered_message_id,
+        )
 
     def run_cycle(self, site_client: httpx.Client, discord_client: httpx.Client) -> str | None:
         last_error: str | None = None

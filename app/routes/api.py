@@ -1840,7 +1840,11 @@ def discord_events_pending():
 def discord_events_ack(event_id: int):
     if not _discord_secret_ok():
         return jsonify({"ok": False, "message": "Unauthorized"}), 401
-    ok = mark_event_sent(db.session, event_id)
+    data = request.get_json(silent=True) or {}
+    discord_message_id = str(data.get("discord_message_id") or "").strip()
+    ok = mark_event_sent(
+        db.session, event_id, discord_message_id=discord_message_id
+    )
     return jsonify({"ok": bool(ok)})
 
 

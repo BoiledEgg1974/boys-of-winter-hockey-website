@@ -34,6 +34,7 @@ from app.db_utils import (
     ensure_mobile_push_devices_sqlite,
     ensure_news_engagement_sqlite,
     ensure_admin_undo_actions_sqlite,
+    ensure_bowl_six_slates_discord_columns_sqlite,
     ensure_discord_outbound_sqlite,
     ensure_prospect_system_rank_snapshots_sqlite,
     ensure_positional_rank_snapshots_sqlite,
@@ -141,6 +142,7 @@ def create_app(config_class: type = Config) -> Flask:
             ensure_mobile_push_devices_sqlite(site_engine)
             ensure_news_engagement_sqlite(site_engine)
             ensure_admin_undo_actions_sqlite(site_engine)
+            ensure_bowl_six_slates_discord_columns_sqlite(site_engine)
             ensure_discord_outbound_sqlite(site_engine)
             try:
                 from sqlalchemy.orm import Session

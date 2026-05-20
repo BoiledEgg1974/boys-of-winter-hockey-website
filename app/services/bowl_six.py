@@ -700,6 +700,23 @@ def auto_update_bowl_six_slates(
     return notes
 
 
+def _enqueue_bowl_six_discord_leaders_safe(
+    session: Session,
+    league_session: Session,
+    slate: BowlSixSlate,
+    *,
+    force: bool = False,
+) -> None:
+    try:
+        from app.services.bowl_six_discord import maybe_enqueue_bowl_six_leaders_discord
+
+        maybe_enqueue_bowl_six_leaders_discord(
+            session, league_session, slate, force=force
+        )
+    except Exception:
+        _log.exception("BOWL Six Discord leaders enqueue failed for slate %s", slate.id)
+
+
 def _auto_update_single_slate(
     session: Session, league_session: Session, slate: BowlSixSlate
 ) -> str | None:
@@ -714,6 +731,7 @@ def _auto_update_single_slate(
         if rs_game_ids_for_slate(league_session, slate):
             refresh_player_week_stats(session, slate, league_session)
             n = refresh_slate_lineup_scores(session, league_session, slate)
+            _enqueue_bowl_six_discord_leaders_safe(session, league_session, slate)
             if n:
                 return (
                     f"Week {slate.week_start}: updated {n} lineup(s) "
@@ -725,10 +743,14 @@ def _auto_update_single_slate(
         refresh_player_week_stats(session, slate, league_session)
         if slate_week_rs_games_complete(league_session, slate):
             finalize_slate(session, league_session, slate, notify=True)
+            _enqueue_bowl_six_discord_leaders_safe(
+                session, league_session, slate, force=True
+            )
             return (
                 f"Week {slate.week_start}: finalized ({n} lineups), "
                 "all RS games final — AP and notifications sent."
             )
+        _enqueue_bowl_six_discord_leaders_safe(session, league_session, slate)
         if n:
             return f"Week {slate.week_start}: updated {n} lineup(s) from completed games."
         return None
@@ -736,6 +758,7 @@ def _auto_update_single_slate(
         n = refresh_slate_lineup_scores(session, league_session, slate)
         refresh_player_week_stats(session, slate, league_session)
         sync_bowl_six_slate_ap_awards(session, slate)
+        _enqueue_bowl_six_discord_leaders_safe(session, league_session, slate)
         if n:
             return f"Week {slate.week_start}: re-synced {n} lineup(s) after data change."
         return None

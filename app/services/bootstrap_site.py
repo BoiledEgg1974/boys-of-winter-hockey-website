@@ -6,6 +6,7 @@ import os
 from sqlalchemy import func, or_, select, text
 from werkzeug.security import generate_password_hash
 
+from app.auth_login import ADMIN_ROLE_SUPER
 from app.league_db import db
 from app.site_models import GmLeagueMembership, User
 
@@ -117,13 +118,12 @@ def ensure_commish_admin(app) -> None:
         u = db.session.scalar(
             select(User).where(func.lower(User.email) == func.lower(_COMMISH_EMAIL_LEGACY)).limit(1)
         )
+    if u is None:
+        u = db.session.scalar(
+            select(User).where(func.lower(User.email) == func.lower(_COMMISH_EMAIL)).limit(1)
+        )
 
     if u is None:
-        taken = db.session.scalar(
-            select(User.id).where(func.lower(User.email) == func.lower(_COMMISH_EMAIL)).limit(1)
-        )
-        if taken is not None:
-            return
         db.session.add(
             User(
                 email=_COMMISH_EMAIL,
@@ -131,6 +131,7 @@ def ensure_commish_admin(app) -> None:
                 password_hash=generate_password_hash(pw),
                 discord_name=_COMMISH_DISCORD,
                 is_admin=True,
+                admin_role=ADMIN_ROLE_SUPER,
             )
         )
         db.session.commit()
@@ -139,6 +140,9 @@ def ensure_commish_admin(app) -> None:
     changed = False
     if not u.is_admin:
         u.is_admin = True
+        changed = True
+    if (u.admin_role or "") != ADMIN_ROLE_SUPER:
+        u.admin_role = ADMIN_ROLE_SUPER
         changed = True
     if getattr(u, "username", None) in (None, ""):
         u.username = _COMMISH_USERNAME

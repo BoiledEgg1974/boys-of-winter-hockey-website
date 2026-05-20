@@ -68,7 +68,7 @@ def active_membership_for_league(user, league_slug: str):
 def require_admin():
     from flask import abort
 
-    if not current_user.is_authenticated or not getattr(current_user, "is_admin", False):
+    if not has_admin_role(current_user):
         abort(403)
 
 

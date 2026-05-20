@@ -9,6 +9,7 @@ from flask_login import current_user, login_required, login_user, logout_user
 from sqlalchemy import func, select
 from werkzeug.security import check_password_hash, generate_password_hash
 
+from app.auth_login import has_admin_role
 from app.config import LEAGUES
 from app.league_db import db
 from app.site_models import GmLeagueMembership, SiteBannedIdentity, User
@@ -122,13 +123,29 @@ def register_post():
     return redirect(url_for("hub_auth.login"))
 
 
+def _login_redirect_target() -> str:
+    nxt = (request.args.get("next") or request.form.get("next") or "").strip()
+    if nxt:
+        return unquote(nxt)
+    return url_for("hub_auth.account")
+
+
+def _next_targets_admin(next_url: str) -> bool:
+    path = (next_url or "").lower()
+    return "/admin" in path
+
+
 @hub_auth_bp.route("/login", methods=["GET", "POST"])
 def login():
+    from app.auth_login import clear_legacy_mount_session_cookies, ensure_commissioner_admin_flags, has_admin_role
+
+    nxt_raw = (request.args.get("next") or request.form.get("next") or "").strip()
     if current_user.is_authenticated:
-        nxt = (request.args.get("next") or "").strip()
-        if nxt:
-            return redirect(unquote(nxt))
-        return redirect(url_for("hub_auth.account"))
+        if nxt_raw and _next_targets_admin(nxt_raw) and not has_admin_role(current_user):
+            logout_user()
+            flash("Signed out the previous account. Log in with a site admin account.", "error")
+            return render_template("login.html", error=None)
+        return clear_legacy_mount_session_cookies(redirect(_login_redirect_target()))
     if request.method == "GET":
         return render_template("login.html", error=None)
     login_id = (request.form.get("email") or "").strip()
@@ -141,14 +158,10 @@ def login():
         return render_template("login.html", error="Invalid email/username or password.")
     if user.revoked_at is not None:
         return render_template("login.html", error="This account has been revoked.")
-    from app.auth_login import ensure_commissioner_admin_flags
-
+    logout_user()
     ensure_commissioner_admin_flags(user)
-    login_user(user, remember=bool(request.form.get("remember")))
-    nxt = (request.args.get("next") or request.form.get("next") or "").strip()
-    if nxt:
-        return redirect(unquote(nxt))
-    return redirect(url_for("hub_auth.account"))
+    login_user(user, remember=bool(request.form.get("remember")), fresh=True)
+    return clear_legacy_mount_session_cookies(redirect(_login_redirect_target()))
 
 
 @hub_auth_bp.route("/forgot-password", methods=["GET", "POST"])
@@ -225,8 +238,10 @@ def reset_password(token: str):
 
 @hub_auth_bp.post("/logout")
 def logout():
+    from app.auth_login import clear_legacy_mount_session_cookies
+
     logout_user()
-    return redirect("/")
+    return clear_legacy_mount_session_cookies(redirect("/"))
 
 
 @hub_auth_bp.get("/account")
@@ -251,7 +266,7 @@ def account():
 @hub_auth_bp.get("/admin/memberships")
 @login_required
 def admin_memberships():
-    if not current_user.is_admin:
+    if not has_admin_role(current_user):
         from flask import abort
 
         abort(403)
@@ -271,7 +286,7 @@ def admin_memberships():
 @hub_auth_bp.get("/admin/memberships/<int:mid>/remove")
 @login_required
 def admin_remove_membership_confirm(mid: int):
-    if not current_user.is_admin:
+    if not has_admin_role(current_user):
         from flask import abort
 
         abort(403)
@@ -299,7 +314,7 @@ def admin_remove_membership_confirm(mid: int):
 @hub_auth_bp.post("/admin/memberships/<int:mid>/remove-only")
 @login_required
 def admin_remove_membership_only(mid: int):
-    if not current_user.is_admin:
+    if not has_admin_role(current_user):
         from flask import abort
 
         abort(403)
@@ -314,7 +329,7 @@ def admin_remove_membership_only(mid: int):
 @hub_auth_bp.post("/admin/memberships/<int:mid>/ban")
 @login_required
 def admin_ban_membership(mid: int):
-    if not current_user.is_admin:
+    if not has_admin_role(current_user):
         from flask import abort
 
         abort(403)
@@ -361,7 +376,7 @@ def admin_ban_membership(mid: int):
 @hub_auth_bp.get("/admin/banned")
 @login_required
 def admin_banned_list():
-    if not current_user.is_admin:
+    if not has_admin_role(current_user):
         from flask import abort
 
         abort(403)
@@ -372,7 +387,7 @@ def admin_banned_list():
 @hub_auth_bp.post("/admin/banned/<int:bid>/lift")
 @login_required
 def admin_banned_lift(bid: int):
-    if not current_user.is_admin:
+    if not has_admin_role(current_user):
         from flask import abort
 
         abort(403)
@@ -394,7 +409,7 @@ def admin_banned_lift(bid: int):
 def admin_approve_membership(mid: int):
     from datetime import datetime
 
-    if not current_user.is_admin:
+    if not has_admin_role(current_user):
         from flask import abort
 
         abort(403)
@@ -415,7 +430,7 @@ def admin_approve_membership(mid: int):
 @login_required
 def admin_revoke_membership(mid: int):
     """Legacy: mark membership revoked without deleting the row. Prefer remove / ban flows."""
-    if not current_user.is_admin:
+    if not has_admin_role(current_user):
         from flask import abort
 
         abort(403)
@@ -429,7 +444,7 @@ def admin_revoke_membership(mid: int):
 @hub_auth_bp.post("/admin/users/<int:uid>/set-admin")
 @login_required
 def admin_set_user_admin(uid: int):
-    if not current_user.is_admin:
+    if not has_admin_role(current_user):
         from flask import abort
 
         abort(403)

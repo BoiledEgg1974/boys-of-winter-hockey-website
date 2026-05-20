@@ -68,7 +68,7 @@
           <a href="{{ url_for('main.milestones') }}">Milestones</a>
           <a href="{{ url_for('main.draft') }}">Draft History</a>
           <a href="{{ url_for('draft_hub.draft_hub_page') }}">Draft Hub</a>
-          {% if gm_membership or (current_user.is_authenticated and current_user.is_admin) %}
+          {% if gm_membership or site_has_admin %}
           <a href="{{ url_for('expansion_draft_hub.expansion_draft_hub_page') }}">Expansion Draft</a>
           {% endif %}
           <a href="{{ url_for('main.league_headlines') }}">Headlines</a>
@@ -80,11 +80,11 @@
         <a class="header-tools__link" href="{{ url_for('site_gm.trade_tool') }}">Trade Tool</a>
         <a class="header-tools__link" href="{{ url_for('site_gm.ai_trade_tool') }}">AI Trade Tool</a>
         {% endif %}
-        {% if gm_membership or (current_user.is_authenticated and current_user.is_admin) %}
+        {% if gm_membership or site_has_admin %}
         <a class="header-tools__link" href="{{ url_for('site_gm.staff_salaries_page') }}">Staff Salaries</a>
         <a class="header-tools__link" href="{{ url_for('site_gm.bowl_six_hub') }}">BOWL Six</a>
         {% endif %}
-        {% if current_user.is_authenticated and current_user.is_admin %}
+        {% if site_has_admin %}
         {% if current_league_slug == 'bowl-fantasy' %}
         <a class="header-tools__link" href="{{ url_for('site_gm.draft_lottery') }}">Draft Lottery</a>
         {% endif %}
@@ -92,11 +92,22 @@
         <a class="header-tools__link" href="{{ url_for('site_gm.boost_lottery') }}">Boost Lottery</a>
         {% endif %}
         {% endif %}
-        {% if gm_membership or (current_user.is_authenticated and current_user.is_admin) %}
+        {% if gm_membership or site_has_admin %}
         <a class="header-tools__link header-tools__link--messages" href="{{ url_for('site_gm.gm_messages_inbox') }}">Messages{% if gm_messages_unread %}<span class="header-tools__msg-badge" aria-label="{{ gm_messages_unread }} unread">{{ gm_messages_unread }}</span>{% endif %}</a>
         {% endif %}
-        <a class="header-tools__link" href="/login">GM Log In</a>
+        {% if current_user.is_authenticated %}
+        <span class="header-tools__user muted" title="{{ current_user.email }}">{{ current_user.username or current_user.email }}</span>
         <a class="header-tools__link" href="/account">Account</a>
+        {% if site_has_admin %}
+        <a class="header-tools__link" href="{{ url_for('site_admin.admin_home') }}">Admin</a>
+        {% endif %}
+        <form class="header-tools__logout" method="post" action="/logout" style="display:inline;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="header-tools__link" style="background:none;border:none;cursor:pointer;padding:0;font:inherit;color:inherit;">Log out</button>
+        </form>
+        {% else %}
+        <a class="header-tools__link" href="/login?next={{ request.url | urlencode }}">GM Log In</a>
+        {% endif %}
         <a class="join-league-btn" href="{{ url_for('main.join_league') }}">JOIN OUR LEAGUE!</a>
         <form class="search-form" action="{{ url_for('main.search_page') }}" method="get" role="search" autocomplete="off">
           <div style="position:relative;">

@@ -7,7 +7,7 @@ from flask import Flask, session
 from flask_login import current_user
 from flask_wtf.csrf import CSRFProtect
 
-from app.auth_login import create_login_manager
+from app.auth_login import login_manager
 from app.config import LEAGUES, Config
 from app.db_utils import (
     ensure_fts5,
@@ -53,7 +53,6 @@ from app.models import Player, db
 from app.sqlite_pragmas import install_sqlite_connect_pragmas
 
 csrf = CSRFProtect()
-login_manager = create_login_manager()
 from app.services.player_headshot import resolve_player_headshot_static_filename
 from app.services.roster_team import main_league_roster_team
 
@@ -465,7 +464,7 @@ def create_app(config_class: type = Config) -> Flask:
         from flask import has_request_context, request
         from flask_login import current_user
 
-        from app.auth_login import active_membership_for_league
+        from app.auth_login import active_membership_for_league, has_admin_role
         from app.services.gm_notifications import gm_inbox_badge_unread
         from app.services.site_announcements import active_announcement
 
@@ -474,7 +473,7 @@ def create_app(config_class: type = Config) -> Flask:
         gm_messages_unread = 0
         if getattr(current_user, "is_authenticated", False) and slug_layout:
             gm_membership = active_membership_for_league(current_user, slug_layout)
-            if gm_membership or getattr(current_user, "is_admin", False):
+            if gm_membership or has_admin_role(current_user):
                 try:
                     gm_messages_unread = gm_inbox_badge_unread(slug_layout, int(current_user.id))
                 except Exception:
@@ -522,6 +521,9 @@ def create_app(config_class: type = Config) -> Flask:
             gm_messages_unread=gm_messages_unread,
             active_site_announcement=ann,
             admin_compact_layout=admin_compact_layout,
+            site_has_admin=has_admin_role(current_user)
+            if getattr(current_user, "is_authenticated", False)
+            else False,
         )
 
     @app.cli.command("init-db")

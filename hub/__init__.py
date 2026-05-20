@@ -9,14 +9,11 @@ from flask import Flask, redirect, render_template, request, send_from_directory
 from flask_login import current_user
 from flask_wtf.csrf import CSRFProtect
 
-from app.auth_login import create_login_manager
+from app.auth_login import login_manager
 from app.config import BASE_DIR, Config, LEAGUES, league_slugs, resolve_site_sqlite_path
 from app.league_db import db
 
 csrf = CSRFProtect()
-login_manager = create_login_manager()
-
-
 def _default_league_slug() -> str:
     return os.environ.get("DEFAULT_LEAGUE_SLUG", league_slugs()[0])
 
@@ -79,6 +76,7 @@ def create_hub_app() -> Flask:
         SESSION_IDLE_TIMEOUT_MINUTES=Config.SESSION_IDLE_TIMEOUT_MINUTES,
         PERMANENT_SESSION_LIFETIME=Config.PERMANENT_SESSION_LIFETIME,
         SESSION_COOKIE_PATH=Config.SESSION_COOKIE_PATH,
+        REMEMBER_COOKIE_PATH=Config.REMEMBER_COOKIE_PATH,
         COMMISH_ADMIN_PASSWORD=Config.COMMISH_ADMIN_PASSWORD,
     )
 
@@ -123,6 +121,13 @@ def create_hub_app() -> Flask:
     from app.routes.hub_auth import hub_auth_bp
 
     hub_app.register_blueprint(hub_auth_bp)
+
+    @hub_app.context_processor
+    def _inject_site_auth():
+        from app.auth_login import has_admin_role
+
+        authed = getattr(current_user, "is_authenticated", False)
+        return dict(site_has_admin=has_admin_role(current_user) if authed else False)
 
     @hub_app.get("/")
     def splash():

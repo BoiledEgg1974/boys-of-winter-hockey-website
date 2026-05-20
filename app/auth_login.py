@@ -1,6 +1,7 @@
-"""Flask-Login: one LoginManager factory per Flask app instance (hub vs league mounts)."""
+"""Flask-Login: shared LoginManager for hub and league mounts (one site session)."""
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from urllib.parse import quote
 
 from flask import redirect, request
@@ -70,18 +71,33 @@ def load_site_user(user_id: str) -> User | None:
     return u
 
 
+login_manager = LoginManager()
+login_manager.user_loader(load_site_user)
+login_manager.login_message = "Please log in to continue."
+
+
+@login_manager.unauthorized_handler
+def _unauth():
+    # Hub mounts at / ; league at /<slug>/ — redirect to hub login with return URL
+    next_url = request.url
+    return redirect("/login?next=" + quote(next_url, safe=""))
+
+
+def clear_legacy_mount_session_cookies(response):
+    """Expire path-scoped session/remember cookies from before SESSION_COOKIE_PATH=/."""
+    from app.config import league_slugs
+
+    expired = datetime(1970, 1, 1, tzinfo=timezone.utc)
+    for slug in league_slugs():
+        path = f"/{slug}"
+        for name in ("session", "remember_token"):
+            response.set_cookie(name, "", expires=expired, path=path, httponly=True, samesite="Lax")
+    return response
+
+
 def create_login_manager() -> LoginManager:
-    lm = LoginManager()
-    lm.user_loader(load_site_user)
-    lm.login_message = "Please log in to continue."
-
-    @lm.unauthorized_handler
-    def _unauth():
-        # Hub mounts at / ; league at /<slug>/ — redirect to hub login with return URL
-        next_url = request.url
-        return redirect("/login?next=" + quote(next_url, safe=""))
-
-    return lm
+    """Backward-compatible alias; prefer ``login_manager``."""
+    return login_manager
 
 
 def active_membership_for_league(user, league_slug: str):

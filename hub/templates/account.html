@@ -22,7 +22,7 @@
       </ul>
     </section>
     {% endif %}
-    {% if current_user.is_admin %}
+    {% if site_has_admin %}
     <p>
       <a href="{{ url_for('hub_auth.admin_memberships') }}">Admin: Memberships</a>
       · <a href="{{ url_for('hub_auth.admin_banned_list') }}">Ban list</a>

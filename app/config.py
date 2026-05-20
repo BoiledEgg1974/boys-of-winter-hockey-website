@@ -231,7 +231,9 @@ class Config:
     SESSION_IDLE_TIMEOUT_MINUTES = int(os.environ.get("SESSION_IDLE_TIMEOUT_MINUTES", "30"))
     PERMANENT_SESSION_LIFETIME = timedelta(minutes=SESSION_IDLE_TIMEOUT_MINUTES)
     # Hub + league mounts share one login session across / and /<slug>/.
+    # (Without these, APPLICATION_ROOT on league apps scopes cookies to /bowl-*/.)
     SESSION_COOKIE_PATH = "/"
+    REMEMBER_COOKIE_PATH = "/"
     WTF_CSRF_TIME_LIMIT = None
     # Initial password for auto-created commissioner user (override in production).
     COMMISH_ADMIN_PASSWORD = os.environ.get("COMMISH_ADMIN_PASSWORD", "Claudette81!")
@@ -281,6 +283,8 @@ def make_league_config(slug: str) -> type:
         RAW_IMPORT_DIR = raw_path
         LEAGUE_SLUG = slug
         APPLICATION_ROOT = f"/{slug}"
+        SESSION_COOKIE_PATH = "/"
+        REMEMBER_COOKIE_PATH = "/"
         LEAGUE_DISPLAY_NAME = entry.display_name
         TEAM_LOGOS_REL_DIR = team_logos_rel
         TEAM_LOGOS_DIR = BASE_DIR / "app" / "static" / team_logos_rel

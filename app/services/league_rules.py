@@ -20,7 +20,7 @@ DEFAULT_LEAGUE_RULES: tuple[dict[str, str], ...] = (
     {"rule_key": "bowl_six_enabled", "rule_value": "true"},
     {"rule_key": "bowl_six_week_start_dow", "rule_value": "0"},
     {"rule_key": "bowl_six_lock_time_utc", "rule_value": "00:00"},
-    {"rule_key": "bowl_six_lock_time_et", "rule_value": "00:00"},
+    {"rule_key": "bowl_six_lock_time_et", "rule_value": "20:00"},
 )
 
 
@@ -44,6 +44,15 @@ def ensure_league_rules(session, league_slug: str, updated_by_user_id: int | Non
                 updated_at=now,
             )
         )
+        changed = True
+    # BOWL Six now uses real-time Monday 8 PM ET locks. Older installs seeded 00:00
+    # as the default value; move that legacy default forward on every league.
+    lock_row = by_key.get("bowl_six_lock_time_et")
+    if lock_row is not None and str(lock_row.rule_value or "").strip() in {"", "00:00"}:
+        lock_row.rule_value = "20:00"
+        lock_row.updated_at = now
+        if updated_by_user_id is not None:
+            lock_row.updated_by_user_id = updated_by_user_id
         changed = True
     if changed:
         session.commit()

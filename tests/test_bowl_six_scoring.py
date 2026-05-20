@@ -13,10 +13,12 @@ from datetime import date
 
 from app.services.bowl_six import (
     _week_bounds_for_date,
+    default_lock_at,
     eastern_naive_from_utc_naive,
     lock_at_display_eastern,
     lock_at_iso_z,
     parse_lock_at_eastern_form,
+    slate_award_at,
     slate_lock_ui,
     slate_week_rs_games_complete,
     sync_slate_week_to_league_calendar,
@@ -103,6 +105,29 @@ class BowlSixScoringTest(unittest.TestCase):
             __import__("datetime").datetime(2026, 5, 20, 0, 30),
         )
         self.assertIsNone(parse_lock_at_eastern_form("", "12:00"))
+
+    def test_default_bowl_six_lock_is_monday_8_pm_et(self):
+        session = MagicMock()
+        with unittest.mock.patch(
+            "app.services.bowl_six.get_rule_value", return_value="20:00"
+        ):
+            self.assertEqual(
+                default_lock_at(date(2026, 5, 18), "bowl-cap", session),
+                __import__("datetime").datetime(2026, 5, 19, 0, 0),
+            )
+
+    def test_slate_award_at_is_next_monday_midnight_et(self):
+        slate = BowlSixSlate(
+            league_slug="bowl-cap",
+            week_start=date(2026, 5, 18),
+            week_end=date(2026, 5, 24),
+            lock_at=__import__("datetime").datetime(2026, 5, 19, 0, 0),
+            status="locked",
+        )
+        self.assertEqual(
+            slate_award_at(slate),
+            __import__("datetime").datetime(2026, 5, 25, 4, 0),
+        )
 
     def test_eastern_utc_round_trip(self):
         dt = __import__("datetime").datetime(2026, 5, 20, 0, 30)
@@ -197,8 +222,10 @@ class BowlSixScoringTest(unittest.TestCase):
                 site_session, league_session, "bowl-historical", slate
             )
         self.assertTrue(changed)
-        self.assertEqual(slate.week_start, cal_start)
-        self.assertEqual(slate.week_end, cal_end)
+        self.assertEqual(slate.week_start, date(2026, 5, 18))
+        self.assertEqual(slate.week_end, date(2026, 5, 24))
+        self.assertEqual(slate.scoring_week_start, cal_start)
+        self.assertEqual(slate.scoring_week_end, cal_end)
 
     def test_slate_lock_ui_locked_when_past(self):
         past = __import__("datetime").datetime(2020, 1, 1, 0, 0)

@@ -603,12 +603,17 @@ def admin_bowl_six_skip_week():
 def admin_bowl_six_advance_week():
     require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
     slug = _league_slug()
-    from app.services.bowl_six import _week_bounds_for_date, default_lock_at
-    from app.services.league_rules import rule_int
+    from app.services.bowl_six import (
+        _current_scoring_week_bounds,
+        _real_bowl_six_week_bounds,
+        default_lock_at,
+        utcnow_naive,
+    )
 
-    today = date.today()
-    week_start_dow = rule_int(db.session, slug, "bowl_six_week_start_dow", 0)
-    ws, we = _week_bounds_for_date(today + timedelta(days=7), week_start_dow)
+    current_ws, _ = _real_bowl_six_week_bounds(utcnow_naive())
+    ws = current_ws + timedelta(days=7)
+    we = ws + timedelta(days=6)
+    scoring_start, scoring_end = _current_scoring_week_bounds(db.session)
     if db.session.scalar(
         select(BowlSixSlate)
         .where(BowlSixSlate.league_slug == slug, BowlSixSlate.week_start == ws)
@@ -620,6 +625,8 @@ def admin_bowl_six_advance_week():
         league_slug=slug,
         week_start=ws,
         week_end=we,
+        scoring_week_start=scoring_start,
+        scoring_week_end=scoring_end,
         lock_at=default_lock_at(ws, slug, db.session),
         status="open",
         label=f"Week of {ws.isoformat()}",

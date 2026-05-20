@@ -1341,7 +1341,7 @@ def ensure_discord_outbound_sqlite(engine: Engine) -> None:
 
 
 def ensure_bowl_six_slates_discord_columns_sqlite(engine: Engine) -> None:
-    """Add Discord leader-board tracking columns on site DB slates."""
+    """Add post-launch BOWL Six slate columns on site DB."""
     if engine.dialect.name != "sqlite":
         return
     with engine.connect() as conn:
@@ -1351,6 +1351,20 @@ def ensure_bowl_six_slates_discord_columns_sqlite(engine: Engine) -> None:
         if not exists:
             return
         cols = {str(c[1]) for c in conn.execute(text("PRAGMA table_info(bowl_six_slates)")).fetchall()}
+        if "scoring_week_start" not in cols:
+            conn.execute(
+                text(
+                    "ALTER TABLE bowl_six_slates "
+                    "ADD COLUMN scoring_week_start DATE"
+                )
+            )
+        if "scoring_week_end" not in cols:
+            conn.execute(
+                text(
+                    "ALTER TABLE bowl_six_slates "
+                    "ADD COLUMN scoring_week_end DATE"
+                )
+            )
         if "discord_leaders_message_id" not in cols:
             conn.execute(
                 text(

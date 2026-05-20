@@ -919,6 +919,8 @@ class BowlSixSlate(db.Model):
     league_slug: Mapped[str] = mapped_column(String(64), nullable=False)
     week_start: Mapped[date] = mapped_column(Date, nullable=False)
     week_end: Mapped[date] = mapped_column(Date, nullable=False)
+    scoring_week_start: Mapped[date | None] = mapped_column(Date, nullable=True)
+    scoring_week_end: Mapped[date | None] = mapped_column(Date, nullable=True)
     lock_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     status: Mapped[str] = mapped_column(String(16), default="open", nullable=False)
     label: Mapped[str | None] = mapped_column(String(120), nullable=True)

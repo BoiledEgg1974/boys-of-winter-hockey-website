@@ -26,6 +26,7 @@ from app.services.bowl_six_scoring import (
     slot_accepts_position,
 )
 from app.services.player_snapshot_card import build_player_snapshot_card
+from app.services.homepage_dashboard import league_calendar_anchor_date
 from app.services.league_rules import get_rule_value, rule_bool, rule_int
 from app.services.seasons import get_current_season
 from app.site_models import (
@@ -70,6 +71,59 @@ def _week_bounds_for_date(d: date, week_start_dow: int) -> tuple[date, date]:
     week_start = d - timedelta(days=delta)
     week_end = week_start + timedelta(days=6)
     return week_start, week_end
+
+
+def _bowl_six_anchor_date(league_session: Session) -> date:
+    """League 'today' for slate weeks (sim seasons use in-world game dates, not the real clock)."""
+    season = get_current_season()
+    if season is None:
+        return date.today()
+    return league_calendar_anchor_date(league_session, int(season.id))
+
+
+def _count_rs_games_in_range(
+    league_session: Session,
+    season_id: int,
+    week_start: date,
+    week_end: date,
+) -> int:
+    rows = league_session.scalars(
+        select(Game).where(
+            Game.season_id == int(season_id),
+            Game.game_date.isnot(None),
+            Game.game_date >= week_start,
+            Game.game_date <= week_end,
+        )
+    ).all()
+    return sum(1 for g in rows if _is_regular_season_game(g.game_type))
+
+
+def sync_slate_week_to_league_calendar(
+    session: Session,
+    league_session: Session,
+    league_slug: str,
+    slate: BowlSixSlate,
+) -> bool:
+    """Realign an in-progress slate when its stored week has no RS games in the sim calendar."""
+    if slate.status in ("scored", "skipped"):
+        return False
+    season = get_current_season()
+    if season is None:
+        return False
+    season_id = int(season.id)
+    if _count_rs_games_in_range(league_session, season_id, slate.week_start, slate.week_end) > 0:
+        return False
+    week_start_dow = rule_int(session, league_slug, "bowl_six_week_start_dow", 0)
+    anchor = league_calendar_anchor_date(league_session, season_id)
+    cal_start, cal_end = _week_bounds_for_date(anchor, week_start_dow)
+    if slate.week_start == cal_start and slate.week_end == cal_end:
+        return False
+    if _count_rs_games_in_range(league_session, season_id, cal_start, cal_end) <= 0:
+        return False
+    slate.week_start = cal_start
+    slate.week_end = cal_end
+    slate.label = f"Week of {cal_start.isoformat()}"
+    return True
 
 
 def _parse_lock_time(rule_val: str) -> time:
@@ -269,17 +323,32 @@ def list_slates(session: Session, league_slug: str, *, limit: int = 20) -> list[
     )
 
 
-def get_or_create_current_slate(session: Session, league_slug: str) -> BowlSixSlate | None:
+def get_or_create_current_slate(
+    session: Session,
+    league_slug: str,
+    league_session: Session | None = None,
+) -> BowlSixSlate | None:
     if not bowl_six_enabled(session, league_slug):
         return None
-    today = date.today()
+    league_session = league_session or db.session
     week_start_dow = rule_int(session, league_slug, "bowl_six_week_start_dow", 0)
-    week_start, week_end = _week_bounds_for_date(today, week_start_dow)
+    anchor = _bowl_six_anchor_date(league_session)
+    week_start, week_end = _week_bounds_for_date(anchor, week_start_dow)
     slate = session.scalar(
         select(BowlSixSlate)
-        .where(BowlSixSlate.league_slug == league_slug, BowlSixSlate.week_start == week_start)
+        .where(
+            BowlSixSlate.league_slug == league_slug,
+            BowlSixSlate.status.in_(("open", "locked")),
+        )
+        .order_by(BowlSixSlate.week_start.desc())
         .limit(1)
     )
+    if slate is None:
+        slate = session.scalar(
+            select(BowlSixSlate)
+            .where(BowlSixSlate.league_slug == league_slug, BowlSixSlate.week_start == week_start)
+            .limit(1)
+        )
     if slate is None:
         slate = BowlSixSlate(
             league_slug=league_slug,
@@ -291,6 +360,7 @@ def get_or_create_current_slate(session: Session, league_slug: str) -> BowlSixSl
         )
         session.add(slate)
         session.flush()
+    sync_slate_week_to_league_calendar(session, league_session, league_slug, slate)
     sync_slate_lock_status(session, slate)
     return slate
 
@@ -635,8 +705,20 @@ def _auto_update_single_slate(
 ) -> str | None:
     if slate.status == "skipped":
         return None
+    if sync_slate_week_to_league_calendar(
+        session, league_session, str(slate.league_slug), slate
+    ):
+        session.flush()
     sync_slate_lock_status(session, slate)
     if slate.status == "open":
+        if rs_game_ids_for_slate(league_session, slate):
+            refresh_player_week_stats(session, slate, league_session)
+            n = refresh_slate_lineup_scores(session, league_session, slate)
+            if n:
+                return (
+                    f"Week {slate.week_start}: updated {n} lineup(s) "
+                    "from completed games (lineups still open)."
+                )
         return None
     if slate.status == "locked":
         n = refresh_slate_lineup_scores(session, league_session, slate)

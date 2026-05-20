@@ -133,6 +133,7 @@ from app.services.ap_service import (
     publish_news_and_maybe_award_ap,
     team_ap_balance,
 )
+from app.services.draft_pick_ownership import draft_pick_ownership_exists
 from app.services.discord_events import team_fields_for_discord
 from app.services.trade_ai_opinion import fetch_trade_ai_opinion
 from app.services.trade_market import (
@@ -935,6 +936,9 @@ def trade_tool_assets():
             "right_team_id": int(raw_tid),
             "left": left,
             "right": right,
+            "draft_picks_imported": draft_pick_ownership_exists(
+                db.session, league_slug=slug
+            ),
             "draft_round_cap": int(draft_cap),
             "player_page_url_template": player_tpl,
             "partner_team_name": p_team.full_display_name() if p_team else "",

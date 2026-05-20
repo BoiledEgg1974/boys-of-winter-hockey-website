@@ -336,10 +336,10 @@
     );
   }
 
-  function renderList(title, items, side) {
+  function renderList(title, items, side, emptyText) {
     var h = '<div class="trade-tool-asset-block"><div class="trade-tool-asset-block__title">' + esc(title) + "</div>";
     if (!items || !items.length) {
-      h += '<p class="muted trade-tool-empty">None</p>';
+      h += '<p class="muted trade-tool-empty">' + esc(emptyText || "None") + "</p>";
     } else {
       h += '<div class="trade-tool-chip-list trade-tool-chip-list--players">';
       for (var i = 0; i < items.length; i++) {
@@ -373,17 +373,28 @@
     var lu = partitionUnsigned(cached.left.unsigned);
     var ru = partitionUnsigned(cached.right.unsigned);
     leftPanels.innerHTML =
-      renderList("Rostered players", cached.left.roster, "left") +
-      renderList("Org rights (export / non-roster)", lu.rights, "left") +
-      renderList("Prospects & unsigned (DB)", lu.other, "left") +
-      renderList("Owned draft picks (import)", cached.left.draft_picks || [], "left");
+      renderList("Rostered Players", cached.left.roster, "left") +
+      renderList("Org Rights (Export / Non-Roster)", lu.rights, "left") +
+      renderList("Prospects & Unsigned (DB)", lu.other, "left") +
+      renderList(
+        "Owned Draft Picks (Import)",
+        cached.left.draft_picks || [],
+        "left",
+        "No Imported Draft Picks Found For This Team"
+      );
     rightPanels.innerHTML =
-      renderList("Rostered players", cached.right.roster, "right") +
-      renderList("Org rights (export / non-roster)", ru.rights, "right") +
-      renderList("Prospects & unsigned (DB)", ru.other, "right") +
-      renderList("Owned draft picks (import)", cached.right.draft_picks || [], "right");
+      renderList("Rostered Players", cached.right.roster, "right") +
+      renderList("Org Rights (Export / Non-Roster)", ru.rights, "right") +
+      renderList("Prospects & Unsigned (DB)", ru.other, "right") +
+      renderList(
+        "Owned Draft Picks (Import)",
+        cached.right.draft_picks || [],
+        "right",
+        "No Imported Draft Picks Found For This Team"
+      );
     var manualBox = document.getElementById("trade-tool-manual-picks");
-    var useImport = (cached.left.draft_picks && cached.left.draft_picks.length) ||
+    var useImport = !!cached.draft_picks_imported ||
+      (cached.left.draft_picks && cached.left.draft_picks.length) ||
       (cached.right.draft_picks && cached.right.draft_picks.length);
     if (manualBox) manualBox.style.display = useImport ? "none" : "";
     bindTradeHovers();

@@ -11,6 +11,7 @@ from app.services.trade_market import (
     sort_selling_rows,
     _validate_owned_asset,
 )
+from app.services.trade_tool import validate_ledger
 
 
 class TradeMarketServiceTest(unittest.TestCase):
@@ -75,6 +76,27 @@ class TradeMarketServiceTest(unittest.TestCase):
                     raw_dir=None,
                 )
         self.assertFalse(ok)
+
+    def test_trade_tool_blocks_manual_picks_when_csv_ownership_exists(self) -> None:
+        session = MagicMock()
+        with patch(
+            "app.services.trade_tool.draft_pick_ownership_exists",
+            return_value=True,
+        ):
+            err = validate_ledger(
+                session,
+                from_team_id=1,
+                to_team_id=2,
+                left_out=["mpleft:1:testpick"],
+                right_out=[],
+                raw_dir=None,
+                league_slug="bowl-cap",
+                draft_round_cap=12,
+            )
+        self.assertEqual(
+            err,
+            "One or more assets leaving your team are not valid for your roster.",
+        )
 
 
 if __name__ == "__main__":

@@ -186,10 +186,10 @@
     );
   }
 
-  function renderList(title, items, side) {
+  function renderList(title, items, side, emptyText) {
     var h = '<div class="trade-tool-asset-block"><div class="trade-tool-asset-block__title">' + esc(title) + "</div>";
     if (!items || !items.length) {
-      h += '<p class="muted trade-tool-empty">None</p>';
+      h += '<p class="muted trade-tool-empty">' + esc(emptyText || "None") + "</p>";
     } else {
       h += '<div class="trade-tool-chip-list trade-tool-chip-list--players">';
       for (var i = 0; i < items.length; i++) {
@@ -223,19 +223,43 @@
     var lu = partitionUnsigned(cached.left.unsigned);
     var ru = partitionUnsigned(cached.right.unsigned);
     leftPanels.innerHTML =
-      renderList("Rostered players", cached.left.roster, "left") +
-      renderList("Org rights (export / non-roster)", lu.rights, "left") +
-      renderList("Prospects & unsigned (DB)", lu.other, "left");
+      renderList("Rostered Players", cached.left.roster, "left") +
+      renderList("Org Rights (Export / Non-Roster)", lu.rights, "left") +
+      renderList("Prospects & Unsigned (DB)", lu.other, "left") +
+      renderList(
+        "Owned Draft Picks (Import)",
+        cached.left.draft_picks || [],
+        "left",
+        "No Imported Draft Picks Found For This Team"
+      );
     rightPanels.innerHTML =
-      renderList("Rostered players", cached.right.roster, "right") +
-      renderList("Org rights (export / non-roster)", ru.rights, "right") +
-      renderList("Prospects & unsigned (DB)", ru.other, "right");
+      renderList("Rostered Players", cached.right.roster, "right") +
+      renderList("Org Rights (Export / Non-Roster)", ru.rights, "right") +
+      renderList("Prospects & Unsigned (DB)", ru.other, "right") +
+      renderList(
+        "Owned Draft Picks (Import)",
+        cached.right.draft_picks || [],
+        "right",
+        "No Imported Draft Picks Found For This Team"
+      );
+    var manualBox = root.querySelector(".trade-tool-manual-picks");
+    var useImport = !!cached.draft_picks_imported ||
+      (cached.left.draft_picks && cached.left.draft_picks.length) ||
+      (cached.right.draft_picks && cached.right.draft_picks.length);
+    if (manualBox) manualBox.style.display = useImport ? "none" : "";
     bindTradeHovers();
   }
 
   function findPlayerItem(key) {
     if (!cached || key.indexOf("player:") !== 0) return null;
-    var pools = [cached.left.roster, cached.left.unsigned, cached.right.roster, cached.right.unsigned];
+    var pools = [
+      cached.left.roster,
+      cached.left.unsigned,
+      cached.left.draft_picks || [],
+      cached.right.roster,
+      cached.right.unsigned,
+      cached.right.draft_picks || [],
+    ];
     for (var i = 0; i < pools.length; i++) {
       for (var j = 0; j < pools[i].length; j++) {
         if (pools[i][j].drag_key === key) return pools[i][j];
@@ -281,6 +305,20 @@
   }
 
   function describeKey(key) {
+    if (key.indexOf("dpick:") === 0) {
+      if (!cached) return { label: key, pos: "PICK" };
+      var draftPools = [
+        cached.left.draft_picks || [],
+        cached.right.draft_picks || [],
+      ];
+      for (var d = 0; d < draftPools.length; d++) {
+        for (var e = 0; e < draftPools[d].length; e++) {
+          if (draftPools[d][e].drag_key === key)
+            return { label: draftPools[d][e].label, pos: "PICK" };
+        }
+      }
+      return { label: "Draft Pick", pos: "PICK" };
+    }
     if (key.indexOf("mpleft:") === 0 || key.indexOf("mpright:") === 0) {
       var p = key.split(":");
       var rd = p.length > 1 ? p[1] : "?";
@@ -294,7 +332,14 @@
       }
       return null;
     }
-    var pools = [cached.left.roster, cached.left.unsigned, cached.right.roster, cached.right.unsigned];
+    var pools = [
+      cached.left.roster,
+      cached.left.unsigned,
+      cached.left.draft_picks || [],
+      cached.right.roster,
+      cached.right.unsigned,
+      cached.right.draft_picks || [],
+    ];
     for (var j = 0; j < pools.length; j++) {
       var f = scan(pools[j]);
       if (f) return f;

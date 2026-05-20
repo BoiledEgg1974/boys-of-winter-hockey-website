@@ -158,6 +158,19 @@ def owned_draft_picks_for_team(
     )
 
 
+def draft_pick_ownership_exists(site_session: Session, *, league_slug: str) -> bool:
+    """Return True once draft_pick_ownership.csv has been imported for a league."""
+    slug = str(league_slug or "").strip()
+    if not slug:
+        return False
+    row_id = site_session.scalar(
+        select(TradeMarketDraftPickOwnership.id)
+        .where(TradeMarketDraftPickOwnership.league_slug == slug)
+        .limit(1)
+    )
+    return row_id is not None
+
+
 def owned_draft_pick_drag_keys(
     site_session: Session, *, league_slug: str, team_id: int
 ) -> set[str]:

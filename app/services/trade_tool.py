@@ -20,8 +20,8 @@ from app.services.draft_pick_ownership import (
     DRAFT_PICK_DRAG_PREFIX,
     describe_draft_pick_row,
     draft_pick_asset_dicts,
+    draft_pick_ownership_exists,
     draft_pick_owned_by_team,
-    owned_draft_pick_drag_keys,
     parse_draft_pick_drag_key,
 )
 from app.site_models import GmTradeProposal, NewsArticle, User
@@ -240,7 +240,7 @@ def _key_valid_leaving_from_team(
         return draft_pick_owned_by_team(
             session, league_slug=slug, team_id=int(from_team_id), drag_key=key
         ) is not None
-    if slug and owned_draft_pick_drag_keys(session, league_slug=slug, team_id=int(from_team_id)):
+    if slug and draft_pick_ownership_exists(session, league_slug=slug):
         if _manual_pick_key_ok(key, MANUAL_PICK_PREFIX_LEFT, draft_cap):
             return False
     elif _manual_pick_key_ok(key, MANUAL_PICK_PREFIX_LEFT, draft_cap):
@@ -266,7 +266,7 @@ def _key_valid_leaving_to_team(
         return draft_pick_owned_by_team(
             session, league_slug=slug, team_id=int(to_team_id), drag_key=key
         ) is not None
-    if slug and owned_draft_pick_drag_keys(session, league_slug=slug, team_id=int(to_team_id)):
+    if slug and draft_pick_ownership_exists(session, league_slug=slug):
         if _manual_pick_key_ok(key, MANUAL_PICK_PREFIX_RIGHT, draft_cap):
             return False
     elif _manual_pick_key_ok(key, MANUAL_PICK_PREFIX_RIGHT, draft_cap):

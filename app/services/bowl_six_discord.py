@@ -23,8 +23,7 @@ from app.services.discord_events import (
 from app.services.gm_messaging import gm_display_name
 from app.site_models import BowlSixSlate, GmLeagueMembership, User
 
-_LEADERS_GM_LIMIT = 5
-_LEADERS_PLAYER_LIMIT = 5
+_LEADERS_PLAYER_LIMIT = 6
 
 
 def _fmt_short_date(d: date, *, with_year: bool = False) -> str:
@@ -101,7 +100,7 @@ def build_bowl_six_leaders_discord_payload(
     else:
         gm_week = slate_rankings_in_progress(session, slate)
     week_standings: list[dict[str, Any]] = []
-    for i, row in enumerate(gm_week[:_LEADERS_GM_LIMIT], start=1):
+    for i, row in enumerate(gm_week, start=1):
         team_name, gm_name = _gm_row_display(
             session, league_session, league_slug, int(row["user_id"])
         )
@@ -114,7 +113,7 @@ def build_bowl_six_leaders_discord_payload(
             }
         )
 
-    season_rows = gm_season_standings(session, league_slug)[:_LEADERS_GM_LIMIT]
+    season_rows = gm_season_standings(session, league_slug)
     season_standings: list[dict[str, Any]] = []
     for i, row in enumerate(season_rows, start=1):
         team_name, gm_name = _gm_row_display(

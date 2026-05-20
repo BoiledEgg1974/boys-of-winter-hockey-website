@@ -118,6 +118,29 @@ class DiscordMessageSplitTest(unittest.TestCase):
             "https://www.bowlhockey.com/bowl-historical/league-headlines#a1",
         )
 
+    def test_bowl_six_leaders_are_embed_only(self):
+        body = "Week: Week of 1969-03-10\nSlate status: locked\n\nTop performers\n1. Andre Lacroix — 19.5 pts"
+        parts = format_discord_messages(
+            {
+                "league_slug": "bowl-historical",
+                "event_key": "bowl_six_leaders_update",
+                "payload": {
+                    "title": "BOWL Six leaders — Week of 1969-03-10",
+                    "body": body,
+                    "body_preview": body[:40],
+                    "url": "https://www.bowlhockey.com/bowl-historical/bowl-six",
+                },
+            },
+            max_parts=2,
+        )
+        self.assertEqual(len(parts), 1)
+        self.assertNotIn("content", parts[0])
+        self.assertEqual(parts[0]["embeds"][0]["description"], body)
+        self.assertEqual(
+            parts[0]["embeds"][0]["url"],
+            "https://www.bowlhockey.com/bowl-historical/bowl-six",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

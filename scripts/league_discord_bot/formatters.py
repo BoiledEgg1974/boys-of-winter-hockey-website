@@ -26,7 +26,6 @@ ALWAYS_TEXT_ONLY_DISCORD_EVENT_KEYS = frozenset(
         "staff_transaction_posted",
         "draft_hub_pick_made",
         "expansion_draft_pick_made",
-        "bowl_six_leaders_update",
     }
 )
 
@@ -334,6 +333,19 @@ def format_discord_messages(event: dict[str, Any], *, max_parts: int = 2) -> lis
         payload.get("body_preview") or payload.get("message") or payload.get("body") or ""
     )
     url = _discord_embed_url(str(payload.get("url") or ""))
+
+    if event_key == "bowl_six_leaders_update":
+        body_full = _body_text(payload, full=True) or body_short
+        embed: dict[str, Any] = {
+            "title": title[:256],
+            "description": body_full[:DISCORD_MAX_EMBED_DESC_LEN] if body_full else None,
+        }
+        if url:
+            embed["url"] = url
+        embed = {k: v for k, v in embed.items() if v}
+        if embed.get("description") or embed.get("url"):
+            return _split_message_bodies({"embeds": [embed]}, max_parts=max(1, int(max_parts)))
+        return [{"content": f"**{title}**"}]
 
     if _is_text_only_discord_post(event_key, payload):
         lines = _text_only_header_lines(league_slug, event_key, payload, title=title)

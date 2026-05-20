@@ -6,7 +6,12 @@ import os
 from sqlalchemy import func, or_, select, text
 from werkzeug.security import generate_password_hash
 
-from app.auth_login import ADMIN_ROLE_SUPER, COMMISSIONER_ADMIN_EMAILS, COMMISSIONER_ADMIN_USERNAMES
+from app.auth_login import (
+    ADMIN_ROLE_SUPER,
+    COMMISSIONER_ADMIN_EMAILS,
+    COMMISSIONER_ADMIN_USERNAMES,
+    ensure_commissioner_admin_flags,
+)
 from app.league_db import db
 from app.site_models import GmLeagueMembership, User
 
@@ -138,11 +143,7 @@ def ensure_commish_admin(app) -> None:
 
     changed = False
     for u in commissioner_users:
-        if not u.is_admin:
-            u.is_admin = True
-            changed = True
-        if (u.admin_role or "") != ADMIN_ROLE_SUPER:
-            u.admin_role = ADMIN_ROLE_SUPER
+        if ensure_commissioner_admin_flags(u):
             changed = True
         if u.discord_name != _COMMISH_DISCORD:
             u.discord_name = _COMMISH_DISCORD

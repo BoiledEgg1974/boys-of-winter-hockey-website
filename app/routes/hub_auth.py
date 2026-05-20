@@ -141,6 +141,9 @@ def login():
         return render_template("login.html", error="Invalid email/username or password.")
     if user.revoked_at is not None:
         return render_template("login.html", error="This account has been revoked.")
+    from app.auth_login import ensure_commissioner_admin_flags
+
+    ensure_commissioner_admin_flags(user)
     login_user(user, remember=bool(request.form.get("remember")))
     nxt = (request.args.get("next") or request.form.get("next") or "").strip()
     if nxt:

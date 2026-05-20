@@ -78,6 +78,7 @@ def create_hub_app() -> Flask:
         WTF_CSRF_TIME_LIMIT=None,
         SESSION_IDLE_TIMEOUT_MINUTES=Config.SESSION_IDLE_TIMEOUT_MINUTES,
         PERMANENT_SESSION_LIFETIME=Config.PERMANENT_SESSION_LIFETIME,
+        SESSION_COOKIE_PATH=Config.SESSION_COOKIE_PATH,
         COMMISH_ADMIN_PASSWORD=Config.COMMISH_ADMIN_PASSWORD,
     )
 
@@ -101,8 +102,12 @@ def create_hub_app() -> Flask:
         except Exception:
             site_engine = None
         if site_engine is not None:
-            from app.db_utils import ensure_site_banned_identities_sqlite
+            from app.db_utils import (
+                ensure_site_banned_identities_sqlite,
+                ensure_site_users_admin_role_sqlite,
+            )
 
+            ensure_site_users_admin_role_sqlite(site_engine)
             ensure_site_banned_identities_sqlite(site_engine)
         from app.services.ap_service import seed_ap_catalog_if_empty
 

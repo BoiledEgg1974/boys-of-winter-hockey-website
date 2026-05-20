@@ -32,12 +32,41 @@ COMMISSIONER_ADMIN_EMAILS = frozenset(
 COMMISSIONER_ADMIN_USERNAMES = frozenset({"commish"})
 
 
+def is_commissioner_identity(user) -> bool:
+    if user is None:
+        return False
+    email = str(getattr(user, "email", "") or "").strip().lower()
+    username = str(getattr(user, "username", "") or "").strip().lower()
+    return email in COMMISSIONER_ADMIN_EMAILS or username in COMMISSIONER_ADMIN_USERNAMES
+
+
+def ensure_commissioner_admin_flags(user) -> bool:
+    """Persist super-admin flags for commissioner identities (returns True if changed)."""
+    if not is_commissioner_identity(user):
+        return False
+    changed = False
+    if not bool(getattr(user, "is_admin", False)):
+        user.is_admin = True
+        changed = True
+    if str(getattr(user, "admin_role", None) or "").strip().lower() != ADMIN_ROLE_SUPER:
+        user.admin_role = ADMIN_ROLE_SUPER
+        changed = True
+    if changed:
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            return False
+    return changed
+
+
 def load_site_user(user_id: str) -> User | None:
     if not user_id or not str(user_id).isdigit():
         return None
     u = db.session.get(User, int(user_id))
     if u is None or u.revoked_at is not None:
         return None
+    ensure_commissioner_admin_flags(u)
     return u
 
 
@@ -83,9 +112,7 @@ def require_admin():
 def user_admin_role(user) -> str | None:
     if not user or not getattr(user, "is_authenticated", False):
         return None
-    email = str(getattr(user, "email", "") or "").strip().lower()
-    username = str(getattr(user, "username", "") or "").strip().lower()
-    if email in COMMISSIONER_ADMIN_EMAILS or username in COMMISSIONER_ADMIN_USERNAMES:
+    if is_commissioner_identity(user):
         return ADMIN_ROLE_SUPER
     raw = (getattr(user, "admin_role", None) or "").strip().lower()
     if raw in ADMIN_ROLE_VALUES:

@@ -561,6 +561,7 @@ def create_app(config_class: type = Config) -> Flask:
             print("User not found:", email)
             return
         u.is_admin = True
+        u.admin_role = "super_admin"
         db.session.commit()
         print("Admin granted:", email)
 

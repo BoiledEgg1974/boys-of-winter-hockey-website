@@ -79,7 +79,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 77;224;22;Chuck;Kobasew;;72;198;1954-4-17;Vancouver;BC;Canada;;;0;Right;0
 78;237;3;Konstantin;Koltsov;;72;223;1961-4-17;Minsk;MIN;Belarus;Russia;;0;Left;0
 79;15;15;Maxim;Kondratyev;;73;202;1957-1-20;Togliatti;SAM;Russia;;;0;Left;0
-80;305;305;Tomáš;Kopecký;;75;209;1954-2-5;Ilava;TRE;Slovakia;;;0;Left;0
+80;294;294;Tomáš;Kopecký;;75;209;1954-2-5;Ilava;TRE;Slovakia;;;0;Left;0
 81;286;286;Alexander;Korolyuk;;69;190;1954-1-15;Moscow;MOS;Russia;;;0;Left;0
 82;12;12;Lauri;Korpikoski;;73;195;1953-7-28;Turku;SOU;Finland;;;0;Left;0
 83;280;280;Niklas;Kronwall;;72;194;1954-1-12;Stockholm;STO;Sweden;;;0;Left;0
@@ -1020,7 +1020,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 1060;23;23;Howie;Meeker;;69;165;1962-11-4;Kitchener;ON;Canada;;;0;Right;0
 1061;297;297;Mike;Meeker;;71;195;1958-2-23;Kingston;ON;Canada;;;0;Right;0
 1062;17;17;Scott;Mellanby;;73;210;1959-6-11;Montreal;QC;Canada;;;0;Right;0
-1063;216;216;Tom;Mellor;;73;185;1960-1-27;Cranston;RI;The United States;;;0;Right;0
+1063;214;214;Tom;Mellor;;73;185;1960-1-27;Cranston;RI;The United States;;;0;Right;0
 1064;186;186;Barry;Melrose;;72;205;1953-7-15;Kelvington;SK;Canada;;;0;Right;0
 1065;186;186;Bill;Meronek;Smiley;69;155;1950-4-15;Stony Mountain;MB;Canada;;;0;Left;0
 1066;19;19;Wayne;Merrick;;73;196;1960-4-23;Sarnia;ON;Canada;;;0;Left;0
@@ -2338,7 +2338,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 2409;155;155;Victor;Olofsson;;71;183;1946-7-18;Örnsköldsvik;VäS;Sweden;;;0;Left;0
 2410;289;289;Axel;Holmström;;73;218;1955-6-29;Arvidsjaur;NOR;Sweden;;;0;Left;0
 2411;186;186;Dwyer;Tschantz;;77;209;1962-3-22;Chicago;IL;The United States;;;0;Right;0
-2412;214;214;Mitchell;Stephens;;72;194;1954-2-5;Peterborough;ON;Canada;;;0;Right;0
+2412;216;216;Mitchell;Stephens;;72;194;1954-2-5;Peterborough;ON;Canada;;;0;Right;0
 2413;296;296;Julius;Nättinen;;74;205;1955-1-14;Jyväskylä;FIN;Finland;;;0;Left;0
 2414;18;18;Dan;Vladar;;77;194;1960-8-20;Prague;PRA;Czech Republic;;;0;Left;0
 2415;224;224;Jens;Lööke;;73;183;1958-4-11;Gävle;GäV;Sweden;;;0;Right;0
@@ -2608,7 +2608,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 2708;214;214;Kristian;Pospisil;;74;205;1961-4-22;Zvolen;BAN;Slovakia;;;0;Left;0
 2709;292;292;Lukas;Klok;;73;198;1959-6-7;Ostrava;MOR;Czech Republic;;;0;Left;0
 2710;186;186;Scott;Eansor;;69;174;1958-1-3;Englewood;CO;The United States;;;0;Left;0
-2711;236;236;Kevin;Foster;;68;174;1962-10-5;Glen Ridge;NJ;The United States;;;0;Left;0
+2711;236;236;Kevin;Foster;;68;165;1962-10-5;Glen Ridge;NJ;The United States;;;0;Left;0
 2712;158;158;Ondrej;Pavel;;74;205;1955-8-29;Praha;TX;Czech Republic;;;0;Left;0
 2713;294;294;Milos;Kelemen;;74;212;1956-7-6;Zvolen;BAN;Slovakia;;;0;Left;0
 2714;158;158;Jakub;Pour;;75;198;1953-4-24;Rokycany;PLZ;Czech Republic;;;0;Left;0
@@ -3010,7 +3010,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 3124;159;159;Kevin;Schulze;;70;174;1952-4-23;White Bear Lake;MN;The United States;;;0;Left;0
 3125;170;170;Kevin;Morris;;76;205;1955-12-6;Massena;NY;The United States;;;0;Left;0
 3126;186;186;Eric;Sweetman;;71;194;1961-1-25;Woodbine;MD;The United States;;;0;Left;0
-3127;294;294;Jeff;Kubiak;;76;209;1954-1-18;Tinley Park;IL;The United States;;;0;Left;0
+3127;305;305;Jeff;Kubiak;;76;209;1954-1-18;Tinley Park;IL;The United States;;;0;Left;0
 3129;186;186;Joe;Spagnoli;;70;174;1957-1-25;Cranston;RI;The United States;;;0;Left;0
 3130;287;287;Devin;Brosseau;;73;203;1954-7-4;Saint-Lambert;QC;Canada;;;0;Left;0
 3131;186;186;Mark;Simpson;;77;205;1948-4-24;Richmond;BC;Canada;;;0;Left;0
@@ -5332,7 +5332,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 5457;162;162;Paul;Samonig;;69;172;1968-9-2;Melk;NIE;Austria;;;0;Left;0
 5458;158;158;Milan;Razym;;68;159;1968-10-12;Frenstat;MOR;Czech Republic;;;0;Left;0
 5459;181;181;Jeff;Walker;;71;185;1968-12-17;Saint John;NB;Canada;;;0;Left;0
-5460;292;292;Clint;Benedict;Praying Bennie;72;165;1967-9-26;Ottawa;ON;Canada;;;0;Left;1
+5460;16;16;Clint;Benedict;Praying Bennie;72;165;1967-9-26;Ottawa;ON;Canada;;;0;Left;1
 5461;183;183;Taylor;Hall;;73;209;1969-11-14;Calgary;AB;Canada;;;0;Left;0
 5462;183;183;Gordie;Howe;Mr. Hockey;72;205;1969-3-31;Floral;SK;Canada;;;0;Right;0
 5463;183;183;Cory;Schneider;;75;205;1969-3-18;Marblehead;MA;The United States;Switzerland;;0;Left;1

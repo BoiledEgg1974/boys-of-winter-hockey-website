@@ -23,6 +23,14 @@ ADMIN_ROLE_VALUES = {
     ADMIN_ROLE_READONLY,
 }
 
+COMMISSIONER_ADMIN_EMAILS = frozenset(
+    {
+        "keenovdecimanus@gmail.com",
+        "commish@bowl-league.site",
+    }
+)
+COMMISSIONER_ADMIN_USERNAMES = frozenset({"commish"})
+
 
 def load_site_user(user_id: str) -> User | None:
     if not user_id or not str(user_id).isdigit():
@@ -75,6 +83,10 @@ def require_admin():
 def user_admin_role(user) -> str | None:
     if not user or not getattr(user, "is_authenticated", False):
         return None
+    email = str(getattr(user, "email", "") or "").strip().lower()
+    username = str(getattr(user, "username", "") or "").strip().lower()
+    if email in COMMISSIONER_ADMIN_EMAILS or username in COMMISSIONER_ADMIN_USERNAMES:
+        return ADMIN_ROLE_SUPER
     raw = (getattr(user, "admin_role", None) or "").strip().lower()
     if raw in ADMIN_ROLE_VALUES:
         return raw

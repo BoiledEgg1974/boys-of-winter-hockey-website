@@ -6,7 +6,7 @@ import os
 from sqlalchemy import func, or_, select, text
 from werkzeug.security import generate_password_hash
 
-from app.auth_login import ADMIN_ROLE_SUPER
+from app.auth_login import ADMIN_ROLE_SUPER, COMMISSIONER_ADMIN_EMAILS, COMMISSIONER_ADMIN_USERNAMES
 from app.league_db import db
 from app.site_models import GmLeagueMembership, User
 
@@ -111,19 +111,18 @@ def ensure_commish_admin(app) -> None:
         or os.environ.get("COMMISH_ADMIN_PASSWORD", "Claudette81!")
     )
 
-    u = db.session.scalar(
-        select(User).where(func.lower(User.username) == func.lower(_COMMISH_USERNAME)).limit(1)
+    commissioner_users = list(
+        db.session.scalars(
+            select(User).where(
+                or_(
+                    func.lower(User.username).in_(COMMISSIONER_ADMIN_USERNAMES),
+                    func.lower(User.email).in_(COMMISSIONER_ADMIN_EMAILS),
+                )
+            )
+        ).all()
     )
-    if u is None:
-        u = db.session.scalar(
-            select(User).where(func.lower(User.email) == func.lower(_COMMISH_EMAIL_LEGACY)).limit(1)
-        )
-    if u is None:
-        u = db.session.scalar(
-            select(User).where(func.lower(User.email) == func.lower(_COMMISH_EMAIL)).limit(1)
-        )
 
-    if u is None:
+    if not commissioner_users:
         db.session.add(
             User(
                 email=_COMMISH_EMAIL,
@@ -138,30 +137,43 @@ def ensure_commish_admin(app) -> None:
         return
 
     changed = False
-    if not u.is_admin:
-        u.is_admin = True
-        changed = True
-    if (u.admin_role or "") != ADMIN_ROLE_SUPER:
-        u.admin_role = ADMIN_ROLE_SUPER
-        changed = True
-    if getattr(u, "username", None) in (None, ""):
-        u.username = _COMMISH_USERNAME
-        changed = True
-    if (u.username or "").lower() == _COMMISH_USERNAME.lower() or (
-        u.email or ""
-    ).lower() == _COMMISH_EMAIL_LEGACY.lower():
+    for u in commissioner_users:
+        if not u.is_admin:
+            u.is_admin = True
+            changed = True
+        if (u.admin_role or "") != ADMIN_ROLE_SUPER:
+            u.admin_role = ADMIN_ROLE_SUPER
+            changed = True
         if u.discord_name != _COMMISH_DISCORD:
             u.discord_name = _COMMISH_DISCORD
             changed = True
-        if (u.email or "").lower() != _COMMISH_EMAIL.lower():
-            other = db.session.scalar(
-                select(User.id).where(
-                    func.lower(User.email) == func.lower(_COMMISH_EMAIL),
-                    User.id != u.id,
-                ).limit(1)
-            )
-            if other is None:
-                u.email = _COMMISH_EMAIL
-                changed = True
+
+    primary = next(
+        (
+            u
+            for u in commissioner_users
+            if (u.email or "").strip().lower() == _COMMISH_EMAIL
+        ),
+        commissioner_users[0],
+    )
+    username_taken = db.session.scalar(
+        select(User.id).where(
+            func.lower(User.username) == func.lower(_COMMISH_USERNAME),
+            User.id != primary.id,
+        ).limit(1)
+    )
+    if getattr(primary, "username", None) in (None, "") and username_taken is None:
+        primary.username = _COMMISH_USERNAME
+        changed = True
+    if (primary.email or "").lower() == _COMMISH_EMAIL_LEGACY.lower():
+        email_taken = db.session.scalar(
+            select(User.id).where(
+                func.lower(User.email) == func.lower(_COMMISH_EMAIL),
+                User.id != primary.id,
+            ).limit(1)
+        )
+        if email_taken is None:
+            primary.email = _COMMISH_EMAIL
+            changed = True
     if changed:
         db.session.commit()

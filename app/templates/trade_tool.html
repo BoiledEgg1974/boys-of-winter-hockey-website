@@ -3,7 +3,7 @@
 {% block content %}
 <div class="trade-tool-page card">
   <header class="trade-tool-page__header">
-    <h1 class="trade-tool-page__title">Trade negotiation portal</h1>
+    <h1 class="trade-tool-page__title">Trade Negotiation Portal</h1>
     <p class="trade-tool-page__sub muted">Build a trade on the BOWL trade ledger. Your team is on the left; choose a partner on the right. Nothing moves in the database until imports reflect it.</p>
   </header>
 
@@ -13,6 +13,7 @@
        data-csrf="{{ csrf_token() }}"
        data-max="{{ 5 }}"
        data-draft-rounds="{{ draft_round_cap }}"
+       data-admin-team-id="{{ admin_team_id or '' }}"
        data-player-page-tpl="{{ player_page_url_template }}">
     <div class="trade-tool-col trade-tool-col--left">
       <div class="trade-tool-teamhead" id="left-teamhead">
@@ -20,8 +21,8 @@
         <img class="trade-tool-logo" src="{{ my_team_logo_url }}" alt="">
         {% endif %}
         <div>
-          <div class="trade-tool-teamname">{{ my_team.full_display_name() if my_team else 'Your team' }}</div>
-          <div class="trade-tool-gm muted">{{ gm_display_name(current_user) }}</div>
+          <div class="trade-tool-teamname">{{ my_team.full_display_name() if my_team else ('Choose a team' if admin_read_only else 'Your team') }}</div>
+          <div class="trade-tool-gm muted">{{ 'Admin Acting As Team' if admin_read_only else gm_display_name(current_user) }}</div>
         </div>
       </div>
       <div class="trade-tool-assets-scroll">
@@ -35,21 +36,37 @@
 
       <form method="post" action="{{ url_for('site_gm.trade_tool_submit') }}" id="trade-tool-form" class="trade-tool-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        {% if admin_read_only and admin_team_id %}
+        <input type="hidden" name="admin_team_id" value="{{ admin_team_id }}">
+        {% endif %}
         <input type="hidden" name="ledger_json" id="ledger-json-field" value="{}">
-        <label class="trade-tool-partner-label">Trading partner
+        {% if admin_read_only %}
+        <div class="trade-tool-admin-view">
+          <label class="trade-tool-partner-label">Admin View As Team
+            <select id="admin-team-select">
+              <option value="">— Select Team —</option>
+              {% for p in admin_team_options %}
+              <option value="{{ p.team_id }}" {% if admin_team_id and p.team_id == admin_team_id %}selected{% endif %}>{{ p.team_name }} ({{ p.gm_name }})</option>
+              {% endfor %}
+            </select>
+          </label>
+          <p class="muted">Admin mode can submit on behalf of the selected team when a GM is unavailable.</p>
+        </div>
+        {% endif %}
+        <label class="trade-tool-partner-label">Trading Partner
           <select name="partner_team_id" id="partner-team-select" required>
-            <option value="">— Select team —</option>
+            <option value="">— Select Team —</option>
             {% for p in partner_options %}
             <option value="{{ p.team_id }}">{{ p.team_name }} ({{ p.gm_name }})</option>
             {% endfor %}
           </select>
         </label>
 
-        <div class="trade-tool-manual-picks">
-          <p class="trade-tool-manual-picks__intro muted">Draft picks are chosen here (not loaded from CSV). Drag chips into the ledger boxes above. Max rounds is set under <strong>Admin → League rules</strong> (<code>trade_tool_draft_rounds</code>).</p>
+        <div class="trade-tool-manual-picks" id="trade-tool-manual-picks">
+          <p class="trade-tool-manual-picks__intro muted" id="trade-tool-manual-picks-intro">Draft picks are chosen here (not loaded from CSV). Drag chips into the ledger boxes above. Max rounds is set under <strong>Admin → League rules</strong> (<code>trade_tool_draft_rounds</code>).</p>
           <div class="trade-tool-manual-picks__grid">
             <div class="trade-tool-manual-picks__col">
-              <div class="trade-tool-manual-picks__head">Your team — draft picks (manual)</div>
+              <div class="trade-tool-manual-picks__head">Your Team — Draft Picks (Manual)</div>
               <div class="trade-tool-manual-picks__controls">
                 <label class="trade-tool-manual-picks__round-label">Round
                   <select id="sel-draft-left-round" aria-label="Round for your manual draft pick"></select>
@@ -59,7 +76,7 @@
               <div id="pool-mpleft" class="trade-tool-manual-picks__pool trade-tool-chip-list"></div>
             </div>
             <div class="trade-tool-manual-picks__col">
-              <div class="trade-tool-manual-picks__head">Partner — draft picks (manual)</div>
+              <div class="trade-tool-manual-picks__head">Partner — Draft Picks (Manual)</div>
               <div class="trade-tool-manual-picks__controls">
                 <label class="trade-tool-manual-picks__round-label">Round
                   <select id="sel-draft-right-round" aria-label="Round for partner manual draft pick"></select>
@@ -88,12 +105,12 @@
           </div>
         </div>
 
-        <label class="trade-tool-notes-label">Trade notes &amp; conditions
+        <label class="trade-tool-notes-label">Trade Notes &amp; Conditions
           <textarea name="notes" id="trade-notes" rows="4" maxlength="8000" placeholder="Conditions, salary retention, future considerations…"></textarea>
         </label>
         <div class="trade-tool-actions">
-          <button type="button" class="trade-tool-clear" id="btn-clear-table">Clear table</button>
-          <button type="submit" class="trade-tool-submit">Submit trade</button>
+          <button type="button" class="trade-tool-clear" id="btn-clear-table">Clear Table</button>
+          <button type="submit" class="trade-tool-submit">Submit Trade</button>
         </div>
       </form>
     </div>
@@ -117,7 +134,7 @@
 
   {% if recent_proposals %}
   <section class="trade-tool-recent">
-    <h2 class="trade-tool-recent__title">Your recent proposals</h2>
+    <h2 class="trade-tool-recent__title">Your Recent Proposals</h2>
     <table class="trade-tool-table">
       <thead>
         <tr>
@@ -147,6 +164,8 @@
   var assetsUrl = root.getAttribute("data-assets-url");
   var maxN = parseInt(root.getAttribute("data-max") || "5", 10) || 5;
   var draftRoundCap = parseInt(root.getAttribute("data-draft-rounds") || "8", 10) || 8;
+  var adminTeamId = root.getAttribute("data-admin-team-id") || "";
+  var adminTeamSel = document.getElementById("admin-team-select");
   var partnerSel = document.getElementById("partner-team-select");
   var leftPanels = document.getElementById("left-asset-panels");
   var rightPanels = document.getElementById("right-asset-panels");
@@ -169,6 +188,15 @@
   var ledger = { from_left_to_right: [], from_right_to_left: [] };
   var dragKey = null;
   var PLAYER_URL_PH = "988776655";
+
+  if (adminTeamSel) {
+    adminTeamSel.addEventListener("change", function () {
+      var url = new URL(window.location.href);
+      if (adminTeamSel.value) url.searchParams.set("admin_team_id", adminTeamSel.value);
+      else url.searchParams.delete("admin_team_id");
+      window.location.href = url.toString();
+    });
+  }
 
   function esc(s) {
     return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
@@ -347,17 +375,30 @@
     leftPanels.innerHTML =
       renderList("Rostered players", cached.left.roster, "left") +
       renderList("Org rights (export / non-roster)", lu.rights, "left") +
-      renderList("Prospects & unsigned (DB)", lu.other, "left");
+      renderList("Prospects & unsigned (DB)", lu.other, "left") +
+      renderList("Owned draft picks (import)", cached.left.draft_picks || [], "left");
     rightPanels.innerHTML =
       renderList("Rostered players", cached.right.roster, "right") +
       renderList("Org rights (export / non-roster)", ru.rights, "right") +
-      renderList("Prospects & unsigned (DB)", ru.other, "right");
+      renderList("Prospects & unsigned (DB)", ru.other, "right") +
+      renderList("Owned draft picks (import)", cached.right.draft_picks || [], "right");
+    var manualBox = document.getElementById("trade-tool-manual-picks");
+    var useImport = (cached.left.draft_picks && cached.left.draft_picks.length) ||
+      (cached.right.draft_picks && cached.right.draft_picks.length);
+    if (manualBox) manualBox.style.display = useImport ? "none" : "";
     bindTradeHovers();
   }
 
   function findPlayerItem(key) {
     if (!cached || key.indexOf("player:") !== 0) return null;
-    var pools = [cached.left.roster, cached.left.unsigned, cached.right.roster, cached.right.unsigned];
+    var pools = [
+      cached.left.roster,
+      cached.left.unsigned,
+      cached.left.draft_picks || [],
+      cached.right.roster,
+      cached.right.unsigned,
+      cached.right.draft_picks || [],
+    ];
     for (var i = 0; i < pools.length; i++) {
       for (var j = 0; j < pools[i].length; j++) {
         if (pools[i][j].drag_key === key) return pools[i][j];
@@ -403,6 +444,20 @@
   }
 
   function describeKey(key) {
+    if (key.indexOf("dpick:") === 0) {
+      if (!cached) return { label: key, pos: "PICK" };
+      var pools = [
+        cached.left.draft_picks || [],
+        cached.right.draft_picks || [],
+      ];
+      for (var d = 0; d < pools.length; d++) {
+        for (var e = 0; e < pools[d].length; e++) {
+          if (pools[d][e].drag_key === key)
+            return { label: pools[d][e].label, pos: "PICK" };
+        }
+      }
+      return { label: "Draft pick", pos: "PICK" };
+    }
     if (key.indexOf("mpleft:") === 0 || key.indexOf("mpright:") === 0) {
       var p = key.split(":");
       var rd = p.length > 1 ? p[1] : "?";
@@ -416,7 +471,14 @@
       }
       return null;
     }
-    var pools = [cached.left.roster, cached.left.unsigned, cached.right.roster, cached.right.unsigned];
+    var pools = [
+      cached.left.roster,
+      cached.left.unsigned,
+      cached.left.draft_picks || [],
+      cached.right.roster,
+      cached.right.unsigned,
+      cached.right.draft_picks || [],
+    ];
     for (var j = 0; j < pools.length; j++) {
       var f = scan(pools[j]);
       if (f) return f;
@@ -453,7 +515,9 @@
       return false;
     }
     if (!cached) return true;
-    return has(cached.left.roster) || has(cached.left.unsigned);
+    return has(cached.left.roster) ||
+      has(cached.left.unsigned) ||
+      has(cached.left.draft_picks || []);
   }
 
   function applyDrop(zoneName, k) {
@@ -563,7 +627,9 @@
     rightPh.classList.add("is-hidden");
     rightLoaded.classList.remove("is-hidden");
     var optLab = partnerOptionLabel(tid);
-    fetch(assetsUrl + "?partner_team_id=" + encodeURIComponent(tid), { credentials: "same-origin" })
+    var assetQuery = "?partner_team_id=" + encodeURIComponent(tid);
+    if (adminTeamId) assetQuery += "&admin_team_id=" + encodeURIComponent(adminTeamId);
+    fetch(assetsUrl + assetQuery, { credentials: "same-origin" })
       .then(function (r) {
         return r.json().then(function (data) {
           return { ok: r.ok, data: data };
@@ -601,6 +667,11 @@
 
   form.addEventListener("submit", function (ev) {
     syncLedgerField();
+    if (adminTeamSel && !adminTeamId) {
+      ev.preventDefault();
+      alert("Choose the team you are acting as.");
+      return;
+    }
     if (!partnerSel.value) {
       ev.preventDefault();
       alert("Choose a trading partner.");

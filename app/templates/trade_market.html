@@ -1,0 +1,381 @@
+{% extends "base.html" %}
+{% block title %}Trade Market — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="trade-market-page card" id="trade-market-root"
+     data-assets-url="{{ url_for('site_gm.trade_market_assets') }}"
+     data-selling-url="{{ url_for('site_gm.trade_market_selling_save') }}"
+     data-buying-url="{{ url_for('site_gm.trade_market_buying_save') }}"
+     data-csrf="{{ csrf_token() }}"
+     data-admin-team-id="{{ admin_team_id or '' }}"
+     data-player-page-tpl="{{ player_page_url_template }}">
+  <header class="trade-market-page__header">
+    <h1 class="trade-market-page__title">Trade Market</h1>
+    <p class="trade-market-page__sub muted">
+      GMs publish assets for sale and team buying interests. Updates can post to Discord
+      <code>trade-selling</code> and <code>trade-buying</code> when content changes.
+    </p>
+    {% if not membership and admin_team_options %}
+    <div class="trade-market-admin-view">
+      <label class="trade-tool-partner-label">Admin Act As Team
+        <select id="admin-market-team-select">
+          <option value="">— Select Team —</option>
+          {% for p in admin_team_options %}
+          <option value="{{ p.team_id }}" {% if admin_team_id and p.team_id == admin_team_id %}selected{% endif %}>{{ p.team_name }} ({{ p.gm_name }})</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    {% endif %}
+    {% if admin_can_act %}
+    <div class="trade-market-page__actions">
+      <button type="button" class="btn" id="btn-edit-selling">Edit Selling</button>
+      <button type="button" class="btn" id="btn-edit-buying">Edit Buying</button>
+    </div>
+    {% else %}
+    <p class="muted">Admin View: select a team above to edit selling and buying choices for that team.</p>
+    {% endif %}
+  </header>
+
+  <section class="trade-market-section">
+    <h2 class="trade-market-section__title">Selling</h2>
+    {% if selling_rows %}
+    <div class="trade-market-table-wrap">
+      <table class="trade-tool-table trade-market-table">
+        <thead>
+          <tr>
+            {% macro sort_link(col, label) -%}
+            <th scope="col">
+              <a href="{{ url_for('site_gm.trade_market_page', sort=col, order=('asc' if sort_key == col and sort_order == 'desc' else 'desc')) }}"
+                 class="trade-market-sort{% if sort_key == col %} trade-market-sort--active{% endif %}">
+                {{ label }}{% if sort_key == col %} {{ '▲' if sort_order == 'asc' else '▼' }}{% endif %}
+              </a>
+            </th>
+            {%- endmacro %}
+            {{ sort_link('team', 'Team') }}
+            {{ sort_link('player', 'Player / pick') }}
+            {{ sort_link('type', 'Type') }}
+            {{ sort_link('ovr', 'OVR') }}
+            {{ sort_link('abi', 'ABI') }}
+            {{ sort_link('agi', 'AGI') }}
+            {{ sort_link('aav', 'AAV') }}
+            {{ sort_link('ask', 'Asking') }}
+            {{ sort_link('wants', 'Wants') }}
+            {{ sort_link('updated', 'Updated') }}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in selling_rows %}
+          <tr>
+            <td>{{ row.team_name }}</td>
+            <td>
+              {% if row.player_id %}
+              <span class="stats-player-cell">
+                <a class="stats-player-cell__name" href="{{ url_for('main.player_page', player_id=row.player_id) }}">{{ row.asset_label }}</a>
+                {% if row.positions %}<span class="stats-player-cell__pos muted">{{ row.positions }}</span>{% endif %}
+              </span>
+              {% else %}
+              {{ row.asset_label }}
+              {% endif %}
+            </td>
+            <td>{{ row.asset_type_label }}</td>
+            <td>{% if row.ovr is not none %}{{ row.ovr }}{% else %}—{% endif %}</td>
+            <td>{% if row.abi is not none %}{{ '%.0f'|format(row.abi) }}{% else %}—{% endif %}</td>
+            <td>{% if row.agi is not none %}{{ '%.0f'|format(row.agi) }}{% else %}—{% endif %}</td>
+            <td>{% if row.aav is not none %}${{ '{:,}'.format(row.aav) }}{% else %}—{% endif %}</td>
+            <td>{{ row.asking_price or '—' }}</td>
+            <td>{{ row.wants_labels }}</td>
+            <td class="muted">{% if row.updated_at %}{{ row.updated_at.strftime('%Y-%m-%d') }}{% else %}—{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="muted">No Active Selling Listings Yet.</p>
+    {% endif %}
+  </section>
+
+  <section class="trade-market-section">
+    <h2 class="trade-market-section__title">Buying Interests</h2>
+    {% if buying_rows %}
+    <table class="trade-tool-table trade-market-table">
+      <thead>
+        <tr>
+          <th>Team</th>
+          <th>GM</th>
+          <th>Categories</th>
+          <th>Note</th>
+          <th>Updated</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in buying_rows %}
+        <tr>
+          <td>{{ row.team_name }}</td>
+          <td>{{ row.gm_name }}</td>
+          <td>{{ row.category_labels }}</td>
+          <td>{{ row.note or '—' }}</td>
+          <td class="muted">{% if row.updated_at %}{{ row.updated_at.strftime('%Y-%m-%d') }}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">No Buying Wishlists Posted Yet.</p>
+    {% endif %}
+  </section>
+</div>
+
+<dialog class="trade-market-dialog" id="dialog-selling">
+  <form method="dialog" class="trade-market-dialog__inner" id="form-selling">
+    <header class="trade-market-dialog__head">
+      <h3>Edit Selling List</h3>
+      <button type="button" class="trade-market-dialog__close" data-close-selling aria-label="Close">×</button>
+    </header>
+    <p class="muted trade-market-dialog__hint">Select assets your team owns. Set asking price and what you want back.</p>
+    <div id="selling-asset-panels" class="trade-market-dialog__assets"></div>
+    <footer class="trade-market-dialog__foot">
+      <button type="button" class="btn" data-close-selling>Cancel</button>
+      <button type="submit" class="btn btn--primary" id="btn-save-selling">Save Selling List</button>
+    </footer>
+  </form>
+</dialog>
+
+<dialog class="trade-market-dialog" id="dialog-buying">
+  <form method="dialog" class="trade-market-dialog__inner" id="form-buying">
+    <header class="trade-market-dialog__head">
+      <h3>Edit Buying Wishlist</h3>
+      <button type="button" class="trade-market-dialog__close" data-close-buying aria-label="Close">×</button>
+    </header>
+    <p class="muted">Choose categories your team wants to acquire.</p>
+    <div class="trade-market-buying-cats">
+      {% for key, label in buying_categories %}
+      <label class="trade-market-buying-cats__item">
+        <input type="checkbox" name="buy_cat" value="{{ key }}" class="buy-cat-cb">
+        {{ label }}
+      </label>
+      {% endfor %}
+    </div>
+    <label class="trade-market-notes-label">Note
+      <textarea id="buying-note-field" rows="3" maxlength="2000" placeholder="Optional details for other GMs"></textarea>
+    </label>
+    <footer class="trade-market-dialog__foot">
+      <button type="button" class="btn" data-close-buying>Cancel</button>
+      <button type="submit" class="btn btn--primary" id="btn-save-buying">Save Buying List</button>
+    </footer>
+  </form>
+</dialog>
+
+<script type="application/json" id="trade-market-my-listings">{{ my_listings | tojson }}</script>
+<script type="application/json" id="trade-market-my-buying">{{ my_buying | tojson }}</script>
+
+<style>
+.trade-market-page__header { margin-bottom: 1.25rem; }
+.trade-market-page__actions { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.75rem; }
+.trade-market-section { margin-top: 2rem; }
+.trade-market-section__title { font-size: 1.1rem; margin-bottom: 0.75rem; }
+.trade-market-table-wrap { overflow-x: auto; }
+.trade-market-sort { color: inherit; text-decoration: none; }
+.trade-market-sort--active { font-weight: 600; }
+.trade-market-dialog { max-width: 52rem; width: 95vw; border: 1px solid var(--border, #333); border-radius: 8px; padding: 0; background: var(--card-bg, #1a1a1a); color: inherit; }
+.trade-market-dialog__inner { padding: 1rem 1.25rem; }
+.trade-market-dialog__head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+.trade-market-dialog__close { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: inherit; }
+.trade-market-dialog__assets { max-height: 50vh; overflow-y: auto; margin: 1rem 0; }
+.trade-market-asset-group { margin-bottom: 1rem; }
+.trade-market-asset-group__title { font-weight: 600; font-size: 0.9rem; margin-bottom: 0.35rem; }
+.trade-market-asset-row { display: grid; grid-template-columns: auto 1fr; gap: 0.5rem 1rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border, #333); align-items: start; }
+.trade-market-asset-row__fields { display: none; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.35rem; }
+.trade-market-asset-row--on .trade-market-asset-row__fields { display: grid; }
+.trade-market-asset-row label { font-size: 0.85rem; }
+.trade-market-asset-row input[type="text"], .trade-market-asset-row select { width: 100%; }
+.trade-market-buying-cats { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: 0.35rem 0.75rem; margin: 1rem 0; }
+.trade-market-buying-cats__item { display: flex; align-items: center; gap: 0.35rem; font-size: 0.9rem; }
+.trade-market-notes-label { display: block; margin-top: 0.75rem; }
+.trade-market-notes-label textarea { width: 100%; margin-top: 0.25rem; }
+.trade-market-dialog__foot { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem; }
+</style>
+
+<script>
+(function () {
+  var root = document.getElementById("trade-market-root");
+  if (!root) return;
+  var assetsUrl = root.getAttribute("data-assets-url");
+  var sellingUrl = root.getAttribute("data-selling-url");
+  var buyingUrl = root.getAttribute("data-buying-url");
+  var csrf = root.getAttribute("data-csrf");
+  var adminTeamId = root.getAttribute("data-admin-team-id") || "";
+  var adminTeamSel = document.getElementById("admin-market-team-select");
+  var myListings = [];
+  var myBuying = null;
+  try {
+    myListings = JSON.parse(document.getElementById("trade-market-my-listings").textContent || "[]");
+  } catch (e) {}
+  try {
+    myBuying = JSON.parse(document.getElementById("trade-market-my-buying").textContent || "null");
+  } catch (e) {}
+  var listingByRef = {};
+  myListings.forEach(function (r) {
+    if (r.asset_ref) listingByRef[r.asset_ref] = r;
+  });
+
+  var dlgSell = document.getElementById("dialog-selling");
+  var dlgBuy = document.getElementById("dialog-buying");
+  var panels = document.getElementById("selling-asset-panels");
+  var cachedAssets = null;
+
+  if (adminTeamSel) {
+    adminTeamSel.addEventListener("change", function () {
+      var url = new URL(window.location.href);
+      if (adminTeamSel.value) url.searchParams.set("admin_team_id", adminTeamSel.value);
+      else url.searchParams.delete("admin_team_id");
+      window.location.href = url.toString();
+    });
+  }
+
+  function esc(s) {
+    return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+  }
+
+  function renderSellingPanels(assets) {
+    var groups = [
+      ["Contracts (roster)", assets.roster || []],
+      ["Prospects & unsigned", assets.unsigned || []],
+      ["Draft picks", assets.draft_picks || []],
+    ];
+    var html = "";
+    groups.forEach(function (g) {
+      html += '<div class="trade-market-asset-group"><div class="trade-market-asset-group__title">' + esc(g[0]) + "</div>";
+      if (!g[1].length) {
+        html += '<p class="muted">None</p>';
+      }
+      g[1].forEach(function (row) {
+        var ref = row.asset_ref || "";
+        var prev = listingByRef[ref] || {};
+        var wants = prev.wants || [];
+        var wantOpts = "";
+        {% for key, label in buying_categories %}
+        wantOpts += '<label><input type="checkbox" class="want-cb" value="{{ key }}"' +
+          (wants.indexOf("{{ key }}") >= 0 ? " checked" : "") + "> {{ label }}</label> ";
+        {% endfor %}
+        html +=
+          '<div class="trade-market-asset-row" data-ref="' + esc(ref) + '" data-type="' + esc(row.asset_type) + '">' +
+          '<label><input type="checkbox" class="sell-cb"' + (prev.listing_id ? " checked" : "") + "> " +
+          esc(row.label || row.full_name || ref) + "</label>" +
+          '<div class="trade-market-asset-row__fields">' +
+          '<label>Asking <input type="text" class="ask-in" maxlength="120" value="' + esc(prev.asking_price || "") + '"></label>' +
+          '<label>Wants <span class="trade-market-wants">' + wantOpts + "</span></label>" +
+          '<label style="grid-column:1/-1">Note <input type="text" class="note-in" maxlength="500" value="' + esc(prev.note || "") + '"></label>' +
+          "</div></div>";
+      });
+      html += "</div>";
+    });
+    panels.innerHTML = html;
+    panels.querySelectorAll(".sell-cb").forEach(function (cb) {
+      cb.addEventListener("change", function () {
+        var row = cb.closest(".trade-market-asset-row");
+        if (row) row.classList.toggle("trade-market-asset-row--on", cb.checked);
+      });
+      var row = cb.closest(".trade-market-asset-row");
+      if (row && cb.checked) row.classList.add("trade-market-asset-row--on");
+    });
+  }
+
+  function loadAssets() {
+    var url = assetsUrl;
+    if (adminTeamId) url += "?admin_team_id=" + encodeURIComponent(adminTeamId);
+    return fetch(url, { credentials: "same-origin" })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        cachedAssets = data.assets || data;
+        renderSellingPanels(cachedAssets);
+      });
+  }
+
+  var btnEditSelling = document.getElementById("btn-edit-selling");
+  if (btnEditSelling) {
+    btnEditSelling.addEventListener("click", function () {
+      (cachedAssets ? Promise.resolve() : loadAssets()).then(function () {
+        dlgSell.showModal();
+      });
+    });
+  }
+  var btnEditBuying = document.getElementById("btn-edit-buying");
+  if (btnEditBuying) {
+    btnEditBuying.addEventListener("click", function () {
+      if (myBuying && myBuying.categories) {
+        document.querySelectorAll(".buy-cat-cb").forEach(function (cb) {
+          cb.checked = myBuying.categories.indexOf(cb.value) >= 0;
+        });
+        document.getElementById("buying-note-field").value = myBuying.note || "";
+      }
+      dlgBuy.showModal();
+    });
+  }
+  document.querySelectorAll("[data-close-selling]").forEach(function (el) {
+    el.addEventListener("click", function () { dlgSell.close(); });
+  });
+  document.querySelectorAll("[data-close-buying]").forEach(function (el) {
+    el.addEventListener("click", function () { dlgBuy.close(); });
+  });
+
+  document.getElementById("form-selling").addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    var items = [];
+    panels.querySelectorAll(".trade-market-asset-row").forEach(function (row) {
+      var cb = row.querySelector(".sell-cb");
+      if (!cb || !cb.checked) return;
+      var wants = [];
+      row.querySelectorAll(".want-cb:checked").forEach(function (w) { wants.push(w.value); });
+      items.push({
+        asset_type: row.getAttribute("data-type"),
+        asset_ref: row.getAttribute("data-ref"),
+        asking_price: (row.querySelector(".ask-in") || {}).value || "",
+        wants: wants,
+        note: (row.querySelector(".note-in") || {}).value || "",
+      });
+    });
+    fetch(sellingUrl, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ csrf_token: csrf, admin_team_id: adminTeamId, items: items }),
+    })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        if (!res.ok) {
+          alert(res.j.error || "Save failed");
+          return;
+        }
+        window.location.reload();
+      });
+  });
+
+  document.getElementById("form-buying").addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    var cats = [];
+    document.querySelectorAll(".buy-cat-cb:checked").forEach(function (cb) { cats.push(cb.value); });
+    var note = document.getElementById("buying-note-field").value || "";
+    fetch(buyingUrl, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        csrf_token: csrf,
+        admin_team_id: adminTeamId,
+        categories: cats,
+        note: note,
+      }),
+    })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        if (!res.ok) {
+          alert(res.j.error || "Save failed");
+          return;
+        }
+        window.location.reload();
+      });
+  });
+})();
+</script>
+{% endblock %}

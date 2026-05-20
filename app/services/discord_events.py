@@ -63,6 +63,8 @@ DEFAULT_EVENT_KEYS = {
     "expansion_draft_pick_made",
     "staff_transaction_posted",
     "bowl_six_leaders_update",
+    "trade_market_selling_posted",
+    "trade_market_buying_posted",
 }
 
 DEFAULT_EVENT_CHANNEL_KEY = {
@@ -76,6 +78,8 @@ DEFAULT_EVENT_CHANNEL_KEY = {
     "expansion_draft_pick_made": "expansion-draft-discussion",
     "staff_transaction_posted": "staff-hirings-firings",
     "bowl_six_leaders_update": "bowl-six-leaders",
+    "trade_market_selling_posted": "trade-selling",
+    "trade_market_buying_posted": "trade-buying",
 }
 
 DEFAULT_EVENT_LABELS = {
@@ -89,6 +93,8 @@ DEFAULT_EVENT_LABELS = {
     "expansion_draft_pick_made": "Expansion draft pick (live)",
     "staff_transaction_posted": "Staff hire / fire approved",
     "bowl_six_leaders_update": "BOWL Six live leaders (post + edit)",
+    "trade_market_selling_posted": "Trade Market — selling update",
+    "trade_market_buying_posted": "Trade Market — buying interests",
 }
 
 MAX_DELIVERY_ATTEMPTS = 3

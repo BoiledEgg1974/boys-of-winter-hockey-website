@@ -26,6 +26,8 @@ ALWAYS_TEXT_ONLY_DISCORD_EVENT_KEYS = frozenset(
         "staff_transaction_posted",
         "draft_hub_pick_made",
         "expansion_draft_pick_made",
+        "trade_market_selling_posted",
+        "trade_market_buying_posted",
     }
 )
 
@@ -171,6 +173,11 @@ def _text_only_header_lines(
         status = str(payload.get("slate_status") or "").strip()
         if status:
             lines.append(f"Slate: **{status}**")
+    elif event_key in ("trade_market_selling_posted", "trade_market_buying_posted"):
+        team_line = format_team_label(league_slug, payload)
+        if team_line:
+            lines.append(team_line)
+        lines.append(f"**{title}**")
     else:
         lines.append(f"**{title}**")
     return lines

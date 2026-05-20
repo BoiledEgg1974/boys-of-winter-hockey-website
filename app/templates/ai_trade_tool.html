@@ -15,6 +15,7 @@
          data-csrf="{{ csrf_token() }}"
          data-max="5"
          data-draft-rounds="{{ draft_round_cap }}"
+         data-admin-team-id="{{ admin_team_id or '' }}"
          data-player-page-tpl="{{ player_page_url_template }}">
       <div class="trade-tool-col trade-tool-col--left">
         <div class="trade-tool-teamhead" id="left-teamhead">
@@ -22,8 +23,8 @@
           <img class="trade-tool-logo" src="{{ my_team_logo_url }}" alt="">
           {% endif %}
           <div>
-            <div class="trade-tool-teamname">{{ my_team.full_display_name() if my_team else 'Your team' }}</div>
-            <div class="trade-tool-gm muted">{{ gm_display_name(current_user) }}</div>
+            <div class="trade-tool-teamname">{{ my_team.full_display_name() if my_team else ('Choose a team' if admin_read_only else 'Your team') }}</div>
+            <div class="trade-tool-gm muted">{{ 'Admin Acting As Team' if admin_read_only else gm_display_name(current_user) }}</div>
           </div>
         </div>
         <div class="trade-tool-assets-scroll">
@@ -37,9 +38,21 @@
 
         <div id="ai-trade-tool-form" class="trade-tool-form">
           <input type="hidden" id="ledger-json-field" value="{}">
-          <label class="trade-tool-partner-label">Trading partner (for loading assets)
+          {% if admin_read_only %}
+          <div class="trade-tool-admin-view">
+            <label class="trade-tool-partner-label">Admin View As Team
+              <select id="admin-team-select">
+                <option value="">— Select Team —</option>
+                {% for p in admin_team_options %}
+                <option value="{{ p.team_id }}" {% if admin_team_id and p.team_id == admin_team_id %}selected{% endif %}>{{ p.team_name }} ({{ p.gm_name }})</option>
+                {% endfor %}
+              </select>
+            </label>
+          </div>
+          {% endif %}
+          <label class="trade-tool-partner-label">Trading Partner (For Loading Assets)
             <select id="partner-team-select" required>
-              <option value="">— Select team —</option>
+              <option value="">— Select Team —</option>
               {% for p in partner_options %}
               <option value="{{ p.team_id }}">{{ p.team_name }} ({{ p.gm_name }})</option>
               {% endfor %}
@@ -50,7 +63,7 @@
             <p class="trade-tool-manual-picks__intro muted">Draft picks (manual): rounds 1 through {{ draft_round_cap }} (capped at 8 and at your league’s <code>trade_tool_draft_rounds</code> rule). Drag chips into the ledger boxes.</p>
             <div class="trade-tool-manual-picks__grid">
               <div class="trade-tool-manual-picks__col">
-                <div class="trade-tool-manual-picks__head">Your team — draft picks (manual)</div>
+                <div class="trade-tool-manual-picks__head">Your Team — Draft Picks (Manual)</div>
                 <div class="trade-tool-manual-picks__controls">
                   <label class="trade-tool-manual-picks__round-label">Round
                     <select id="sel-draft-left-round" aria-label="Round for your manual draft pick"></select>
@@ -60,7 +73,7 @@
                 <div id="pool-mpleft" class="trade-tool-manual-picks__pool trade-tool-chip-list"></div>
               </div>
               <div class="trade-tool-manual-picks__col">
-                <div class="trade-tool-manual-picks__head">Partner — draft picks (manual)</div>
+                <div class="trade-tool-manual-picks__head">Partner — Draft Picks (Manual)</div>
                 <div class="trade-tool-manual-picks__controls">
                   <label class="trade-tool-manual-picks__round-label">Round
                     <select id="sel-draft-right-round" aria-label="Round for partner manual draft pick"></select>
@@ -93,7 +106,7 @@
             <textarea id="trade-notes" rows="4" maxlength="8000" placeholder="Salary thoughts, timeline, what you’re trying to fix…"></textarea>
           </label>
           <div class="trade-tool-actions">
-            <button type="button" class="trade-tool-clear" id="btn-clear-table">Clear table</button>
+            <button type="button" class="trade-tool-clear" id="btn-clear-table">Clear Table</button>
             <button type="button" class="trade-tool-submit" id="btn-ai-evaluate">Get AI opinion</button>
           </div>
           <p class="muted ai-trade-tool-eval-hint">The bot’s reply opens in a pop-up so your partner’s roster stays unobstructed.</p>

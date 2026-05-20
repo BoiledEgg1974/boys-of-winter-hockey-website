@@ -6,6 +6,8 @@
   var csrf = root.getAttribute("data-csrf") || "";
   var maxN = parseInt(root.getAttribute("data-max") || "5", 10) || 5;
   var draftRoundCap = parseInt(root.getAttribute("data-draft-rounds") || "8", 10) || 8;
+  var adminTeamId = root.getAttribute("data-admin-team-id") || "";
+  var adminTeamSel = document.getElementById("admin-team-select");
   var partnerSel = document.getElementById("partner-team-select");
   var leftPanels = document.getElementById("left-asset-panels");
   var rightPanels = document.getElementById("right-asset-panels");
@@ -36,6 +38,15 @@
   var ledger = { from_left_to_right: [], from_right_to_left: [] };
   var dragKey = null;
   var PLAYER_URL_PH = "988776655";
+
+  if (adminTeamSel) {
+    adminTeamSel.addEventListener("change", function () {
+      var url = new URL(window.location.href);
+      if (adminTeamSel.value) url.searchParams.set("admin_team_id", adminTeamSel.value);
+      else url.searchParams.delete("admin_team_id");
+      window.location.href = url.toString();
+    });
+  }
 
   function esc(s) {
     return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
@@ -318,7 +329,9 @@
       return false;
     }
     if (!cached) return true;
-    return has(cached.left.roster) || has(cached.left.unsigned);
+    return has(cached.left.roster) ||
+      has(cached.left.unsigned) ||
+      has(cached.left.draft_picks || []);
   }
 
   function applyDrop(zoneName, k) {
@@ -481,7 +494,9 @@
     rightLoaded.classList.remove("is-hidden");
     var optLab = partnerOptionLabel(tid);
     var sep = assetsUrl.indexOf("?") >= 0 ? "&" : "?";
-    fetch(assetsUrl + sep + "partner_team_id=" + encodeURIComponent(tid), { credentials: "same-origin" })
+    var assetQuery = sep + "partner_team_id=" + encodeURIComponent(tid);
+    if (adminTeamId) assetQuery += "&admin_team_id=" + encodeURIComponent(adminTeamId);
+    fetch(assetsUrl + assetQuery, { credentials: "same-origin" })
       .then(function (r) {
         return r.json().then(function (data) {
           return { ok: r.ok, data: data };
@@ -575,6 +590,7 @@
         },
         body: JSON.stringify({
           csrf_token: csrf,
+          admin_team_id: adminTeamId ? parseInt(adminTeamId, 10) : null,
           partner_team_id: parseInt(partnerSel.value, 10),
           ledger: ledger,
           notes: (notesEl && notesEl.value) || "",

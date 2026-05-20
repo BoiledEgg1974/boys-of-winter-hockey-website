@@ -742,6 +742,121 @@ def ensure_gm_trade_proposals_sqlite(engine: Engine) -> None:
         conn.commit()
 
 
+def ensure_trade_market_sqlite(engine: Engine) -> None:
+    """Create Trade Market tables on site DB when missing."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        if not conn.execute(
+            text(
+                "SELECT 1 FROM sqlite_master WHERE type='table' "
+                "AND name='trade_market_draft_pick_ownership'"
+            )
+        ).fetchone():
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE trade_market_draft_pick_ownership (
+                        id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                        league_slug VARCHAR(64) NOT NULL,
+                        draft_year INTEGER NOT NULL,
+                        original_team_fhm_id INTEGER NOT NULL,
+                        original_team_id INTEGER,
+                        round INTEGER NOT NULL,
+                        owner_team_fhm_id INTEGER NOT NULL,
+                        owner_team_id INTEGER,
+                        updated_at DATETIME NOT NULL
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX uq_trade_dpick_league_year_orig_round "
+                    "ON trade_market_draft_pick_ownership "
+                    "(league_slug, draft_year, original_team_fhm_id, round)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX ix_trade_dpick_owner "
+                    "ON trade_market_draft_pick_ownership (league_slug, owner_team_id)"
+                )
+            )
+        if not conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='trade_market_listings'")
+        ).fetchone():
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE trade_market_listings (
+                        id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                        league_slug VARCHAR(64) NOT NULL,
+                        user_id INTEGER NOT NULL,
+                        team_id INTEGER NOT NULL,
+                        asset_type VARCHAR(24) NOT NULL,
+                        asset_ref VARCHAR(120) NOT NULL,
+                        asking_price VARCHAR(120) NOT NULL DEFAULT '',
+                        wants_json TEXT NOT NULL DEFAULT '[]',
+                        note TEXT NOT NULL DEFAULT '',
+                        status VARCHAR(16) NOT NULL DEFAULT 'active',
+                        discord_payload_hash VARCHAR(64),
+                        created_at DATETIME NOT NULL,
+                        updated_at DATETIME NOT NULL,
+                        FOREIGN KEY(user_id) REFERENCES site_users (id)
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX ix_trade_market_listing_league_team "
+                    "ON trade_market_listings (league_slug, team_id, status)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX ix_trade_market_listing_league_asset "
+                    "ON trade_market_listings (league_slug, asset_type, asset_ref)"
+                )
+            )
+        if not conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='trade_market_buying_needs'")
+        ).fetchone():
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE trade_market_buying_needs (
+                        id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                        league_slug VARCHAR(64) NOT NULL,
+                        user_id INTEGER NOT NULL,
+                        team_id INTEGER NOT NULL,
+                        category VARCHAR(40) NOT NULL,
+                        note TEXT NOT NULL DEFAULT '',
+                        status VARCHAR(16) NOT NULL DEFAULT 'active',
+                        discord_payload_hash VARCHAR(64),
+                        created_at DATETIME NOT NULL,
+                        updated_at DATETIME NOT NULL,
+                        FOREIGN KEY(user_id) REFERENCES site_users (id)
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX uq_trade_market_buying_team_category "
+                    "ON trade_market_buying_needs (league_slug, team_id, category)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX ix_trade_market_buying_league "
+                    "ON trade_market_buying_needs (league_slug, status)"
+                )
+            )
+        conn.commit()
+
+
 def ensure_story_publish_schedules_sqlite(engine: Engine) -> None:
     """Create story publish schedules table on site DB when missing."""
     if engine.dialect.name != "sqlite":

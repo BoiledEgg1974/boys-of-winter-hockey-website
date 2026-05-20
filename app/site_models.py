@@ -355,6 +355,91 @@ class GmTradeProposal(db.Model):
     commissioner_acted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
+class TradeMarketDraftPickOwnership(db.Model):
+    """Future draft-pick holder per original franchise (imported from draft_pick_ownership.csv)."""
+
+    __tablename__ = "trade_market_draft_pick_ownership"
+    __bind_key__ = "site"
+    __table_args__ = (
+        UniqueConstraint(
+            "league_slug",
+            "draft_year",
+            "original_team_fhm_id",
+            "round",
+            name="uq_trade_dpick_league_year_orig_round",
+        ),
+        Index("ix_trade_dpick_owner", "league_slug", "owner_team_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False)
+    draft_year: Mapped[int] = mapped_column(Integer, nullable=False)
+    original_team_fhm_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    original_team_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    round: Mapped[int] = mapped_column(Integer, nullable=False)
+    owner_team_fhm_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    owner_team_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+
+class TradeMarketListing(db.Model):
+    """GM-published asset available for trade on the Trade Market."""
+
+    __tablename__ = "trade_market_listings"
+    __bind_key__ = "site"
+    __table_args__ = (
+        Index("ix_trade_market_listing_league_team", "league_slug", "team_id", "status"),
+        Index("ix_trade_market_listing_league_asset", "league_slug", "asset_type", "asset_ref"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("site_users.id"), nullable=False)
+    team_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    asset_type: Mapped[str] = mapped_column(String(24), nullable=False)
+    asset_ref: Mapped[str] = mapped_column(String(120), nullable=False)
+    asking_price: Mapped[str] = mapped_column(String(120), default="", nullable=False)
+    wants_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
+    note: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    status: Mapped[str] = mapped_column(String(16), default="active", nullable=False)
+    discord_payload_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+
+class TradeMarketBuyingNeed(db.Model):
+    """Team-level wishlist of asset types the GM wants to acquire."""
+
+    __tablename__ = "trade_market_buying_needs"
+    __bind_key__ = "site"
+    __table_args__ = (
+        UniqueConstraint(
+            "league_slug",
+            "team_id",
+            "category",
+            name="uq_trade_market_buying_team_category",
+        ),
+        Index("ix_trade_market_buying_league", "league_slug", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("site_users.id"), nullable=False)
+    team_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    category: Mapped[str] = mapped_column(String(40), nullable=False)
+    note: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    status: Mapped[str] = mapped_column(String(16), default="active", nullable=False)
+    discord_payload_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+
 class StoryPublishSchedule(db.Model):
     __tablename__ = "story_publish_schedules"
     __bind_key__ = "site"

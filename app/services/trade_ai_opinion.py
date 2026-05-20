@@ -48,9 +48,18 @@ def _uses_completion_token_limit(model: str) -> bool:
 
 
 def build_trade_prompt_block(
-    session: Session, from_team: Team | None, to_team: Team | None, left: list[str], right: list[str], notes: str
+    session: Session,
+    from_team: Team | None,
+    to_team: Team | None,
+    left: list[str],
+    right: list[str],
+    notes: str,
+    *,
+    league_slug: str = "",
 ) -> str:
-    base = format_ledger_summary(session, from_team, to_team, left, right)
+    base = format_ledger_summary(
+        session, from_team, to_team, left, right, league_slug=league_slug
+    )
     extras: list[str] = ["", "Extra roster context (OVR ~100 scale where available):"]
     for label, keys in (("Outgoing package (left → right)", left), ("Return package (right → left)", right)):
         extras.append(f"  {label}:")
@@ -102,6 +111,7 @@ def fetch_trade_ai_opinion(
     left: list[str],
     right: list[str],
     notes: str,
+    league_slug: str = "",
 ) -> dict[str, Any]:
     """Return dict: verdict, opinion, suggestions (list[str]), fallback (bool)."""
     now = time.time()
@@ -126,7 +136,9 @@ def fetch_trade_ai_opinion(
             details=f"Model in use: {model}. Set OPENAI_API_KEY in .env and restart the app.",
         )
 
-    block = build_trade_prompt_block(session, from_team, to_team, left, right, notes)
+    block = build_trade_prompt_block(
+        session, from_team, to_team, left, right, notes, league_slug=league_slug
+    )
 
     system = (
         "You are a witty, knowledgeable hockey armchair GM bot on a fantasy/sim league website. "

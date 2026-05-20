@@ -76,8 +76,9 @@
       </nav>
       <div class="header-tools">
         <a class="header-tools__link" href="{{ url_for('site_gm.action_points_page') }}">AP</a>
-        {% if gm_membership %}
+        {% if gm_membership or site_has_admin %}
         <a class="header-tools__link" href="{{ url_for('site_gm.trade_tool') }}">Trade Tool</a>
+        <a class="header-tools__link" href="{{ url_for('site_gm.trade_market_page') }}">Trade Market</a>
         <a class="header-tools__link" href="{{ url_for('site_gm.ai_trade_tool') }}">AI Trade Tool</a>
         {% endif %}
         {% if gm_membership or site_has_admin %}

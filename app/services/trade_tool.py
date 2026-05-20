@@ -16,6 +16,14 @@ from app.auth_login import ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER, has_admin_role
 from app.models import DraftPick, Player, Prospect, Team
 from app.services.free_agents import player_ids_from_player_rights_csv_for_team
 from app.services.league_rules import rule_int
+from app.services.draft_pick_ownership import (
+    DRAFT_PICK_DRAG_PREFIX,
+    describe_draft_pick_row,
+    draft_pick_asset_dicts,
+    draft_pick_owned_by_team,
+    owned_draft_pick_drag_keys,
+    parse_draft_pick_drag_key,
+)
 from app.site_models import GmTradeProposal, NewsArticle, User
 
 MAX_ASSETS_PER_SIDE = 5
@@ -99,12 +107,16 @@ def _player_row_dict(session: Session, pl: Player, section: str) -> dict[str, An
 
 
 def trade_assets_for_team(
-    session: Session, team_id: int, *, raw_dir: Path | None = None
+    session: Session,
+    team_id: int,
+    *,
+    raw_dir: Path | None = None,
+    league_slug: str | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
-    """Roster + rights (DB prospects + ``player_rights.csv`` for this league). No DB draft picks."""
+    """Roster + rights + imported draft picks owned by this team."""
     tm = session.get(Team, team_id)
     if not tm:
-        return {"roster": [], "unsigned": []}
+        return {"roster": [], "unsigned": [], "draft_picks": []}
     roster_ids = _roster_player_ids(session, team_id)
     roster = list(
         session.scalars(
@@ -144,12 +156,41 @@ def trade_assets_for_team(
     roster_out: list[dict[str, Any]] = []
     for pl in roster:
         roster_out.append(_player_row_dict(session, pl, "roster"))
-    return {"roster": roster_out, "unsigned": unsigned}
+    draft_picks: list[dict[str, Any]] = []
+    slug = str(league_slug or "").strip()
+    if slug:
+        draft_picks = draft_pick_asset_dicts(
+            session, session, league_slug=slug, team_id=int(team_id)
+        )
+    return {"roster": roster_out, "unsigned": unsigned, "draft_picks": draft_picks}
 
 
-def player_drag_keys_for_team(session: Session, team_id: int, raw_dir: Path | None) -> set[str]:
-    s = trade_assets_for_team(session, team_id, raw_dir=raw_dir)
+def player_drag_keys_for_team(
+    session: Session,
+    team_id: int,
+    raw_dir: Path | None,
+    *,
+    league_slug: str | None = None,
+) -> set[str]:
+    s = trade_assets_for_team(
+        session, team_id, raw_dir=raw_dir, league_slug=league_slug
+    )
     return {str(x["drag_key"]) for x in [*s.get("roster", []), *s.get("unsigned", [])]}
+
+
+def tradable_drag_keys_for_team(
+    session: Session,
+    team_id: int,
+    raw_dir: Path | None,
+    *,
+    league_slug: str | None = None,
+) -> set[str]:
+    s = trade_assets_for_team(
+        session, team_id, raw_dir=raw_dir, league_slug=league_slug
+    )
+    keys = {str(x["drag_key"]) for x in [*s.get("roster", []), *s.get("unsigned", [])]}
+    keys |= {str(x["drag_key"]) for x in s.get("draft_picks", [])}
+    return keys
 
 
 def _manual_pick_key_ok(key: str, prefix: str, cap: int) -> bool:
@@ -192,12 +233,23 @@ def _key_valid_leaving_from_team(
     *,
     raw_dir: Path | None,
     draft_cap: int,
+    league_slug: str | None = None,
 ) -> bool:
-    if _manual_pick_key_ok(key, MANUAL_PICK_PREFIX_LEFT, draft_cap):
+    slug = str(league_slug or "").strip()
+    if slug and parse_draft_pick_drag_key(key) is not None:
+        return draft_pick_owned_by_team(
+            session, league_slug=slug, team_id=int(from_team_id), drag_key=key
+        ) is not None
+    if slug and owned_draft_pick_drag_keys(session, league_slug=slug, team_id=int(from_team_id)):
+        if _manual_pick_key_ok(key, MANUAL_PICK_PREFIX_LEFT, draft_cap):
+            return False
+    elif _manual_pick_key_ok(key, MANUAL_PICK_PREFIX_LEFT, draft_cap):
         return True
     if _legacy_db_pick_owned(session, from_team_id, key):
         return True
-    return key in player_drag_keys_for_team(session, from_team_id, raw_dir)
+    return key in player_drag_keys_for_team(
+        session, from_team_id, raw_dir, league_slug=league_slug
+    )
 
 
 def _key_valid_leaving_to_team(
@@ -207,12 +259,23 @@ def _key_valid_leaving_to_team(
     *,
     raw_dir: Path | None,
     draft_cap: int,
+    league_slug: str | None = None,
 ) -> bool:
-    if _manual_pick_key_ok(key, MANUAL_PICK_PREFIX_RIGHT, draft_cap):
+    slug = str(league_slug or "").strip()
+    if slug and parse_draft_pick_drag_key(key) is not None:
+        return draft_pick_owned_by_team(
+            session, league_slug=slug, team_id=int(to_team_id), drag_key=key
+        ) is not None
+    if slug and owned_draft_pick_drag_keys(session, league_slug=slug, team_id=int(to_team_id)):
+        if _manual_pick_key_ok(key, MANUAL_PICK_PREFIX_RIGHT, draft_cap):
+            return False
+    elif _manual_pick_key_ok(key, MANUAL_PICK_PREFIX_RIGHT, draft_cap):
         return True
     if _legacy_db_pick_owned(session, to_team_id, key):
         return True
-    return key in player_drag_keys_for_team(session, to_team_id, raw_dir)
+    return key in player_drag_keys_for_team(
+        session, to_team_id, raw_dir, league_slug=league_slug
+    )
 
 
 def parse_ledger_payload(raw: str | None) -> tuple[list[str], list[str]]:
@@ -255,17 +318,43 @@ def validate_ledger(
         else trade_tool_draft_round_cap(session, league_slug)
     )
     for k in left_out:
-        if not _key_valid_leaving_from_team(session, from_team_id, k, raw_dir=raw_dir, draft_cap=cap):
+        if not _key_valid_leaving_from_team(
+            session,
+            from_team_id,
+            k,
+            raw_dir=raw_dir,
+            draft_cap=cap,
+            league_slug=league_slug,
+        ):
             return "One or more assets leaving your team are not valid for your roster."
     for k in right_out:
-        if not _key_valid_leaving_to_team(session, to_team_id, k, raw_dir=raw_dir, draft_cap=cap):
+        if not _key_valid_leaving_to_team(
+            session,
+            to_team_id,
+            k,
+            raw_dir=raw_dir,
+            draft_cap=cap,
+            league_slug=league_slug,
+        ):
             return "One or more assets from the partner team are not valid."
     if not left_out and not right_out:
         return "Add at least one asset to one side of the ledger."
     return None
 
 
-def describe_drag_key(session: Session, drag_key: str) -> str:
+def describe_drag_key(
+    session: Session, drag_key: str, *, league_slug: str | None = None
+) -> str:
+    rid = parse_draft_pick_drag_key(drag_key)
+    if rid is not None:
+        from app.site_models import TradeMarketDraftPickOwnership
+
+        row = session.get(TradeMarketDraftPickOwnership, int(rid))
+        if row is not None:
+            orig = session.get(Team, int(row.original_team_id)) if row.original_team_id else None
+            owner = session.get(Team, int(row.owner_team_id)) if row.owner_team_id else None
+            return describe_draft_pick_row(row, original_team=orig, owner_team=owner)
+        return f"Draft pick #{rid}"
     if drag_key.startswith(f"{MANUAL_PICK_PREFIX_LEFT}:") or drag_key.startswith(
         f"{MANUAL_PICK_PREFIX_RIGHT}:"
     ):
@@ -313,21 +402,27 @@ def describe_drag_key(session: Session, drag_key: str) -> str:
 
 
 def format_ledger_summary(
-    session: Session, from_team: Team | None, to_team: Team | None, left_out: list[str], right_out: list[str]
+    session: Session,
+    from_team: Team | None,
+    to_team: Team | None,
+    left_out: list[str],
+    right_out: list[str],
+    *,
+    league_slug: str | None = None,
 ) -> str:
     fn = from_team.full_display_name() if from_team else "Team A"
     tn = to_team.full_display_name() if to_team else "Team B"
     lines: list[str] = [f"{fn} sends to {tn}:"]
     if left_out:
         for k in left_out:
-            lines.append(f"  • {describe_drag_key(session, k)}")
+            lines.append(f"  • {describe_drag_key(session, k, league_slug=league_slug)}")
     else:
         lines.append("  • (none)")
     lines.append("")
     lines.append(f"{tn} sends to {fn}:")
     if right_out:
         for k in right_out:
-            lines.append(f"  • {describe_drag_key(session, k)}")
+            lines.append(f"  • {describe_drag_key(session, k, league_slug=league_slug)}")
     else:
         lines.append("  • (none)")
     return "\n".join(lines)
@@ -335,7 +430,14 @@ def format_ledger_summary(
 
 def format_trade_news_body(session: Session, proposal: GmTradeProposal, from_team: Team | None, to_team: Team | None) -> str:
     left_out, right_out = parse_ledger_payload(proposal.ledger_json)
-    summary = format_ledger_summary(session, from_team, to_team, left_out, right_out)
+    summary = format_ledger_summary(
+        session,
+        from_team,
+        to_team,
+        left_out,
+        right_out,
+        league_slug=str(proposal.league_slug or ""),
+    )
     notes = (proposal.notes or "").strip()
     parts = [summary, "", "Approved by the league office. Roster updates follow future data imports."]
     if notes:

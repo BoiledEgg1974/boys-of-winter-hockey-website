@@ -27,6 +27,7 @@ from app.db_utils import (
     ensure_staff_change_requests_sqlite,
     ensure_team_staff_roster_entries_sqlite,
     ensure_gm_trade_proposals_sqlite,
+    ensure_trade_market_sqlite,
     ensure_story_publish_schedules_sqlite,
     ensure_story_publish_schedule_extra_columns_sqlite,
     ensure_awards_voting_sqlite,
@@ -134,6 +135,7 @@ def create_app(config_class: type = Config) -> Flask:
             ensure_staff_change_requests_sqlite(site_engine)
             ensure_team_staff_roster_entries_sqlite(site_engine)
             ensure_gm_trade_proposals_sqlite(site_engine)
+            ensure_trade_market_sqlite(site_engine)
             ensure_story_publish_schedules_sqlite(site_engine)
             ensure_story_publish_schedule_extra_columns_sqlite(site_engine)
             ensure_awards_voting_sqlite(site_engine)

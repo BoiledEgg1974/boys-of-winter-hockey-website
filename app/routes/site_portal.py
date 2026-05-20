@@ -20,6 +20,7 @@ from app.auth_login import (
     ADMIN_ROLE_STATS,
     ADMIN_ROLE_VALUES,
     active_membership_for_league,
+    has_admin_role,
     require_admin,
     require_admin_role,
 )
@@ -132,7 +133,19 @@ from app.services.ap_service import (
     publish_news_and_maybe_award_ap,
     team_ap_balance,
 )
+from app.services.discord_events import team_fields_for_discord
 from app.services.trade_ai_opinion import fetch_trade_ai_opinion
+from app.services.trade_market import (
+    BUYING_CATEGORIES,
+    active_buying_rows,
+    active_selling_rows,
+    maybe_enqueue_buying_discord,
+    maybe_enqueue_selling_discord,
+    replace_buying_needs,
+    replace_selling_listings,
+    selectable_selling_assets,
+    sort_selling_rows,
+)
 from app.services.trade_tool import (
     STATUS_COMMISSIONER_DECLINED,
     STATUS_PARTNER_DECLINED,
@@ -169,6 +182,8 @@ from app.site_models import (
     NewsArticle,
     SiteAnnouncement,
     StoryPublishSchedule,
+    TradeMarketBuyingNeed,
+    TradeMarketListing,
     AwardsVotingCycle,
     MemberWatchlistItem,
     AdminUndoAction,
@@ -201,7 +216,7 @@ _TRADE_PLAYER_URL_PLACEHOLDER_ID = 988_776_655
 
 def _finalize_trade_asset_side_urls(side: dict) -> None:
     """Turn ``headshot_rel`` into ``headshot_url`` for JSON (drop internal rel)."""
-    for g in ("roster", "unsigned"):
+    for g in ("roster", "unsigned", "draft_picks"):
         for it in side.get(g, []):
             if it.get("kind") != "player":
                 continue
@@ -422,13 +437,111 @@ def _membership():
     return active_membership_for_league(current_user, _league_slug())
 
 
+def _is_site_admin() -> bool:
+    """League-mount admins (any admin role) can use trade pages on all three sites."""
+    if not current_user.is_authenticated:
+        return False
+    return has_admin_role(current_user)
+
+
+def _trade_page_allowed(mem=None) -> bool:
+    """Trade pages are visible to active GMs and site admins."""
+    return mem is not None or _is_site_admin()
+
+
 def _can_use_gm_messaging() -> bool:
     """Active GMs and site admins may use the in-league GM messages inbox."""
     if not current_user.is_authenticated:
         return False
-    if getattr(current_user, "is_admin", False):
+    if _is_site_admin():
         return True
     return _membership() is not None
+
+
+def _active_trade_memberships(slug: str) -> list[tuple[GmLeagueMembership, User]]:
+    rows = list(
+        db.session.execute(
+            select(GmLeagueMembership, User)
+            .join(User, User.id == GmLeagueMembership.user_id)
+            .where(
+                GmLeagueMembership.league_slug == slug,
+                GmLeagueMembership.status == "active",
+            )
+        ).all()
+    )
+    return [(m, u) for m, u in rows]
+
+
+def _trade_partner_options(
+    slug: str,
+    *,
+    exclude_user_id: int | None = None,
+    exclude_team_id: int | None = None,
+) -> list[dict[str, object]]:
+    memberships = _active_trade_memberships(slug)
+    team_ids = {int(m.team_id) for m, _ in memberships if m.team_id is not None}
+    teams_by_id: dict[int, Team] = {}
+    if team_ids:
+        for t in db.session.scalars(select(Team).where(Team.id.in_(team_ids))).all():
+            teams_by_id[int(t.id)] = t
+
+    seen_team_ids: set[int] = set()
+    options: list[dict[str, object]] = []
+    for m, u in memberships:
+        tid = int(m.team_id)
+        if exclude_user_id is not None and int(u.id) == int(exclude_user_id):
+            continue
+        if exclude_team_id is not None and tid == int(exclude_team_id):
+            continue
+        if tid in seen_team_ids:
+            continue
+        seen_team_ids.add(tid)
+        tm = teams_by_id.get(tid)
+        options.append(
+            {
+                "user_id": int(u.id),
+                "team_id": tid,
+                "team_name": tm.full_display_name() if tm else f"Team {tid}",
+                "gm_name": gm_display_name(u),
+            }
+        )
+    options.sort(key=lambda r: str(r.get("team_name") or "").lower())
+    return options
+
+
+def _trade_team_options(*, exclude_team_id: int | None = None) -> list[dict[str, object]]:
+    """All league teams for admin "act as team" selectors."""
+    active_by_team: dict[int, User] = {}
+    for m, u in _active_trade_memberships(_league_slug()):
+        if m.team_id is not None and int(m.team_id) not in active_by_team:
+            active_by_team[int(m.team_id)] = u
+
+    rows: list[dict[str, object]] = []
+    teams = db.session.scalars(select(Team).order_by(Team.name.asc())).all()
+    for tm in teams:
+        tid = int(tm.id)
+        if exclude_team_id is not None and tid == int(exclude_team_id):
+            continue
+        gm_user = active_by_team.get(tid)
+        rows.append(
+            {
+                "user_id": int(gm_user.id) if gm_user else None,
+                "team_id": tid,
+                "team_name": tm.full_display_name(),
+                "gm_name": gm_display_name(gm_user) if gm_user else "No active GM",
+            }
+        )
+    rows.sort(key=lambda r: str(r.get("team_name") or "").lower())
+    return rows
+
+
+def _admin_trade_team_id() -> int | None:
+    if not _is_site_admin():
+        return None
+    tid = request.args.get("admin_team_id", type=int) or request.form.get(
+        "admin_team_id", type=int
+    )
+    return int(tid) if tid and tid > 0 else None
 
 
 def _create_undo_action(
@@ -728,28 +841,22 @@ def operations_request_redirect():
 def trade_tool():
     slug = _league_slug()
     mem = _membership()
-    if not mem:
+    if not _trade_page_allowed(mem):
         flash("No active GM membership for this league.", "err")
         return redirect(url_for("main.home"))
-    my_team = db.session.get(Team, int(mem.team_id))
-    others = list_other_active_gms(slug, current_user.id)
-    team_ids = {m.team_id for m, _ in others}
-    teams_by_id: dict[int, Team] = {}
-    if team_ids:
-        for t in db.session.scalars(select(Team).where(Team.id.in_(team_ids))).all():
-            teams_by_id[t.id] = t
-    partner_options: list[dict[str, object]] = []
-    for m, u in others:
-        tm = teams_by_id.get(int(m.team_id))
-        partner_options.append(
-            {
-                "user_id": int(u.id),
-                "team_id": int(m.team_id),
-                "team_name": tm.full_display_name() if tm else f"Team {m.team_id}",
-                "gm_name": gm_display_name(u),
-            }
+    admin_team_id = _admin_trade_team_id() if mem is None else None
+    my_team_id = int(mem.team_id) if mem else admin_team_id
+    my_team = db.session.get(Team, int(my_team_id)) if my_team_id else None
+    if mem is None and _is_site_admin():
+        partner_options = _trade_team_options(exclude_team_id=my_team_id)
+        admin_team_options = _trade_team_options()
+    else:
+        partner_options = _trade_partner_options(
+            slug,
+            exclude_user_id=int(current_user.id),
+            exclude_team_id=my_team_id,
         )
-    partner_options.sort(key=lambda r: str(r.get("team_name") or "").lower())
+        admin_team_options = []
     recent = list(
         db.session.scalars(
             select(GmTradeProposal)
@@ -771,6 +878,9 @@ def trade_tool():
         my_team=my_team,
         my_team_logo_url=my_team_logo_url,
         partner_options=partner_options,
+        admin_team_options=admin_team_options,
+        admin_team_id=admin_team_id,
+        admin_read_only=mem is None and _is_site_admin(),
         recent_proposals=recent,
         gm_display_name=gm_display_name,
         draft_round_cap=draft_round_cap,
@@ -783,27 +893,37 @@ def trade_tool():
 def trade_tool_assets():
     slug = _league_slug()
     mem = _membership()
-    if not mem:
+    admin_team_id = _admin_trade_team_id() if mem is None else None
+    if not mem and not (_is_site_admin() and admin_team_id):
         abort(404)
+    left_team_id = int(mem.team_id) if mem else int(admin_team_id)
     raw_tid = request.args.get("partner_team_id", type=int)
     if not raw_tid or raw_tid <= 0:
         return jsonify({"error": "partner_team_id required"}), 400
-    peer = db.session.scalar(
-        select(GmLeagueMembership).where(
-            GmLeagueMembership.league_slug == slug,
-            GmLeagueMembership.team_id == int(raw_tid),
-            GmLeagueMembership.status == "active",
-            GmLeagueMembership.user_id != int(current_user.id),
+    peer = None
+    if mem is not None:
+        peer = db.session.scalar(
+            select(GmLeagueMembership).where(
+                GmLeagueMembership.league_slug == slug,
+                GmLeagueMembership.team_id == int(raw_tid),
+                GmLeagueMembership.status == "active",
+                GmLeagueMembership.team_id != int(left_team_id),
+            )
         )
-    )
-    if not peer:
+        if not peer:
+            return jsonify({"error": "Invalid trading partner team."}), 400
+    elif int(raw_tid) == int(left_team_id) or db.session.get(Team, int(raw_tid)) is None:
         return jsonify({"error": "Invalid trading partner team."}), 400
     raw_dir = _trade_tool_raw_dir()
-    left = trade_assets_for_team(db.session, int(mem.team_id), raw_dir=raw_dir)
-    right = trade_assets_for_team(db.session, int(raw_tid), raw_dir=raw_dir)
+    left = trade_assets_for_team(
+        db.session, int(left_team_id), raw_dir=raw_dir, league_slug=slug
+    )
+    right = trade_assets_for_team(
+        db.session, int(raw_tid), raw_dir=raw_dir, league_slug=slug
+    )
     _finalize_trade_asset_side_urls(left)
     _finalize_trade_asset_side_urls(right)
-    p_user = db.session.get(User, int(peer.user_id))
+    p_user = db.session.get(User, int(peer.user_id)) if peer else None
     p_team = db.session.get(Team, int(raw_tid))
     draft_cap = trade_tool_draft_round_cap(db.session, slug)
     if (request.args.get("ai") or "").strip() in ("1", "true", "yes"):
@@ -811,7 +931,7 @@ def trade_tool_assets():
     player_tpl = url_for("main.player_page", player_id=_TRADE_PLAYER_URL_PLACEHOLDER_ID)
     return jsonify(
         {
-            "left_team_id": int(mem.team_id),
+            "left_team_id": int(left_team_id),
             "right_team_id": int(raw_tid),
             "left": left,
             "right": right,
@@ -829,30 +949,43 @@ def trade_tool_assets():
 def trade_tool_submit():
     slug = _league_slug()
     mem = _membership()
-    if not mem:
+    admin_team_id = _admin_trade_team_id() if mem is None else None
+    if not mem and not (_is_site_admin() and admin_team_id):
         flash("No active GM membership for this league.", "err")
         return redirect(url_for("main.home"))
+    left_team_id = int(mem.team_id) if mem else int(admin_team_id)
+    return_url = (
+        url_for("site_gm.trade_tool", admin_team_id=left_team_id)
+        if mem is None
+        else url_for("site_gm.trade_tool")
+    )
     partner_team_id = request.form.get("partner_team_id", type=int)
     ledger_raw = (request.form.get("ledger_json") or "").strip()
     notes = (request.form.get("notes") or "").strip()
     if not partner_team_id or partner_team_id <= 0:
         flash("Choose a trading partner team.", "err")
-        return redirect(url_for("site_gm.trade_tool"))
+        return redirect(return_url)
     peer_mem = db.session.scalar(
         select(GmLeagueMembership).where(
             GmLeagueMembership.league_slug == slug,
             GmLeagueMembership.team_id == int(partner_team_id),
             GmLeagueMembership.status == "active",
-            GmLeagueMembership.user_id != int(current_user.id),
+            GmLeagueMembership.team_id != int(left_team_id),
         )
     )
-    if not peer_mem:
+    if mem is not None and not peer_mem:
         flash("That team is not an active GM partner in this league.", "err")
-        return redirect(url_for("site_gm.trade_tool"))
+        return redirect(return_url)
+    if mem is None and (
+        int(partner_team_id) == int(left_team_id)
+        or db.session.get(Team, int(partner_team_id)) is None
+    ):
+        flash("Choose a valid trading partner team.", "err")
+        return redirect(return_url)
     left_out, right_out = parse_ledger_payload(ledger_raw)
     err = validate_ledger(
         db.session,
-        int(mem.team_id),
+        int(left_team_id),
         int(partner_team_id),
         left_out,
         right_out,
@@ -861,48 +994,259 @@ def trade_tool_submit():
     )
     if err:
         flash(err, "err")
-        return redirect(url_for("site_gm.trade_tool"))
+        return redirect(return_url)
     payload_obj = {"from_left_to_right": left_out, "from_right_to_left": right_out}
     prop = GmTradeProposal(
         league_slug=slug,
         from_user_id=int(current_user.id),
-        from_team_id=int(mem.team_id),
-        to_user_id=int(peer_mem.user_id),
+        from_team_id=int(left_team_id),
+        to_user_id=int(peer_mem.user_id) if peer_mem else int(current_user.id),
         to_team_id=int(partner_team_id),
-        status=STATUS_PENDING_PARTNER,
+        status=STATUS_PENDING_PARTNER if peer_mem else STATUS_PENDING_COMMISSIONER,
         ledger_json=json.dumps(payload_obj),
         notes=notes[:8000],
     )
     db.session.add(prop)
     db.session.flush()
-    from_team = db.session.get(Team, int(mem.team_id))
+    from_team = db.session.get(Team, int(left_team_id))
     to_team = db.session.get(Team, int(partner_team_id))
-    summary = format_ledger_summary(db.session, from_team, to_team, left_out, right_out)
-    peer = db.session.get(User, int(peer_mem.user_id))
+    summary = format_ledger_summary(
+        db.session, from_team, to_team, left_out, right_out, league_slug=slug
+    )
     review_path = url_for("site_gm.trade_proposal_detail", pid=int(prop.id))
-    msg_body = (
-        f"You have a new trade proposal from {gm_display_name(current_user)} "
-        f"({from_team.full_display_name() if from_team else 'your partner'}).\n\n"
-        f"{summary}\n\n"
-        f"Open to approve or decline:\n{review_path}"
-    )
-    db.session.add(
-        GmLeagueMessage(
-            league_slug=slug,
-            from_user_id=int(current_user.id),
-            to_user_id=int(peer_mem.user_id),
-            body=msg_body[:_GM_MESSAGE_MAX_LEN],
+    if peer_mem:
+        msg_body = (
+            f"You have a new trade proposal from {gm_display_name(current_user)} "
+            f"({from_team.full_display_name() if from_team else 'your partner'}).\n\n"
+            f"{summary}\n\n"
+            f"Open to approve or decline:\n{review_path}"
         )
-    )
-    notify_trade_proposal_partner(
-        slug,
-        partner_user_id=int(peer_mem.user_id),
-        proposal_id=int(prop.id),
-        summary_preview=summary,
-    )
+        db.session.add(
+            GmLeagueMessage(
+                league_slug=slug,
+                from_user_id=int(current_user.id),
+                to_user_id=int(peer_mem.user_id),
+                body=msg_body[:_GM_MESSAGE_MAX_LEN],
+            )
+        )
+        notify_trade_proposal_partner(
+            slug,
+            partner_user_id=int(peer_mem.user_id),
+            proposal_id=int(prop.id),
+            summary_preview=summary,
+        )
+    else:
+        comm_ids = league_commissioner_user_ids(slug)
+        notify_trade_proposal_commissioners(
+            slug,
+            commissioner_user_ids=comm_ids,
+            proposal_id=int(prop.id),
+            summary_preview=summary,
+        )
     db.session.commit()
     flash("Trade submitted. Your partner was messaged and notified in GM Messages.", "ok")
-    return redirect(url_for("site_gm.trade_tool"))
+    return redirect(return_url)
+
+
+def _trade_market_prev_discord_hash(rows, attr: str = "discord_payload_hash") -> str:
+    for row in rows:
+        h = str(getattr(row, attr, None) or "").strip()
+        if h:
+            return h
+    return ""
+
+
+@site_gm_bp.route("/trade-market", methods=["GET"])
+@login_required
+def trade_market_page():
+    slug = _league_slug()
+    mem = _membership()
+    if not _trade_page_allowed(mem):
+        flash("No active GM membership for this league.", "err")
+        return redirect(url_for("main.home"))
+    admin_team_id = _admin_trade_team_id() if mem is None else None
+    my_team_id = int(mem.team_id) if mem else admin_team_id
+    my_team = db.session.get(Team, int(my_team_id)) if my_team_id else None
+    admin_team_options = _trade_team_options() if mem is None and _is_site_admin() else []
+    sort_key = (request.args.get("sort") or "updated").strip()
+    sort_order = (request.args.get("order") or "desc").strip()
+    selling_rows = sort_selling_rows(
+        active_selling_rows(db.session, db.session, league_slug=slug),
+        sort_key=sort_key,
+        order=sort_order,
+    )
+    buying_rows = active_buying_rows(db.session, db.session, league_slug=slug)
+    my_listings = [
+        r
+        for r in selling_rows
+        if my_team_id and int(r.get("team_id") or 0) == int(my_team_id)
+    ]
+    my_buying = next(
+        (
+            r
+            for r in buying_rows
+            if my_team_id and int(r.get("team_id") or 0) == int(my_team_id)
+        ),
+        None,
+    )
+    player_page_url_template = url_for(
+        "main.player_page", player_id=_TRADE_PLAYER_URL_PLACEHOLDER_ID
+    )
+    return render_template(
+        "trade_market.html",
+        membership=mem,
+        my_team=my_team,
+        admin_team_options=admin_team_options,
+        admin_team_id=admin_team_id,
+        admin_can_act=mem is not None or bool(admin_team_id),
+        selling_rows=selling_rows,
+        buying_rows=buying_rows,
+        my_listings=my_listings,
+        my_buying=my_buying,
+        buying_categories=BUYING_CATEGORIES,
+        sort_key=sort_key,
+        sort_order=sort_order,
+        gm_display_name=gm_display_name,
+        player_page_url_template=player_page_url_template,
+    )
+
+
+@site_gm_bp.get("/trade-market/assets")
+@login_required
+def trade_market_assets():
+    slug = _league_slug()
+    mem = _membership()
+    admin_team_id = _admin_trade_team_id() if mem is None else None
+    if not mem and not (_is_site_admin() and admin_team_id):
+        abort(404)
+    team_id = int(mem.team_id) if mem else int(admin_team_id)
+    raw_dir = _trade_tool_raw_dir()
+    assets = selectable_selling_assets(
+        db.session,
+        db.session,
+        league_slug=slug,
+        team_id=int(team_id),
+        raw_dir=raw_dir,
+    )
+    _finalize_trade_asset_side_urls(assets)
+    return jsonify({"assets": assets})
+
+
+@site_gm_bp.post("/trade-market/selling")
+@login_required
+def trade_market_selling_save():
+    from flask_wtf.csrf import validate_csrf
+
+    slug = _league_slug()
+    mem = _membership()
+    data = request.get_json(silent=True) or {}
+    admin_team_id = None
+    if mem is None and _is_site_admin():
+        try:
+            admin_team_id = int(data.get("admin_team_id") or 0)
+        except (TypeError, ValueError):
+            admin_team_id = 0
+    if not mem and not (_is_site_admin() and admin_team_id):
+        return jsonify({"error": "No active GM membership for this league."}), 403
+    left_team_id = int(mem.team_id) if mem else int(admin_team_id)
+    try:
+        validate_csrf(data.get("csrf_token"))
+    except Exception:
+        return jsonify({"error": "Invalid or missing CSRF token."}), 400
+    items = data.get("items")
+    if not isinstance(items, list):
+        return jsonify({"error": "items array required"}), 400
+    old_rows = list(
+        db.session.scalars(
+            select(TradeMarketListing).where(
+                TradeMarketListing.league_slug == slug,
+                TradeMarketListing.team_id == int(left_team_id),
+            )
+        ).all()
+    )
+    prev_hash = _trade_market_prev_discord_hash(old_rows)
+    raw_dir = _trade_tool_raw_dir()
+    rows, err = replace_selling_listings(
+        db.session,
+        db.session,
+        league_slug=slug,
+        user_id=int(current_user.id),
+        team_id=int(left_team_id),
+        items=items,
+        raw_dir=raw_dir,
+    )
+    if err:
+        db.session.rollback()
+        return jsonify({"error": err}), 400
+    my_team = db.session.get(Team, int(left_team_id))
+    tf = team_fields_for_discord(my_team) if my_team else {}
+    maybe_enqueue_selling_discord(
+        db.session,
+        db.session,
+        league_slug=slug,
+        team_id=int(left_team_id),
+        listings=rows,
+        team_fields=tf,
+        previous_hash=prev_hash,
+    )
+    db.session.commit()
+    return jsonify({"ok": True, "count": len(rows)})
+
+
+@site_gm_bp.post("/trade-market/buying")
+@login_required
+def trade_market_buying_save():
+    from flask_wtf.csrf import validate_csrf
+
+    slug = _league_slug()
+    mem = _membership()
+    data = request.get_json(silent=True) or {}
+    admin_team_id = None
+    if mem is None and _is_site_admin():
+        try:
+            admin_team_id = int(data.get("admin_team_id") or 0)
+        except (TypeError, ValueError):
+            admin_team_id = 0
+    if not mem and not (_is_site_admin() and admin_team_id):
+        return jsonify({"error": "No active GM membership for this league."}), 403
+    left_team_id = int(mem.team_id) if mem else int(admin_team_id)
+    try:
+        validate_csrf(data.get("csrf_token"))
+    except Exception:
+        return jsonify({"error": "Invalid or missing CSRF token."}), 400
+    cats = data.get("categories")
+    if not isinstance(cats, list):
+        return jsonify({"error": "categories array required"}), 400
+    note = str(data.get("note") or "").strip()
+    old_rows = list(
+        db.session.scalars(
+            select(TradeMarketBuyingNeed).where(
+                TradeMarketBuyingNeed.league_slug == slug,
+                TradeMarketBuyingNeed.team_id == int(left_team_id),
+            )
+        ).all()
+    )
+    prev_hash = _trade_market_prev_discord_hash(old_rows)
+    needs = replace_buying_needs(
+        db.session,
+        league_slug=slug,
+        user_id=int(current_user.id),
+        team_id=int(left_team_id),
+        categories=cats,
+        note=note,
+    )
+    my_team = db.session.get(Team, int(left_team_id))
+    tf = team_fields_for_discord(my_team) if my_team else {}
+    maybe_enqueue_buying_discord(
+        db.session,
+        league_slug=slug,
+        team_id=int(left_team_id),
+        needs=needs,
+        team_fields=tf,
+        previous_hash=prev_hash,
+    )
+    db.session.commit()
+    return jsonify({"ok": True, "count": len(needs)})
 
 
 def _ai_trade_draft_round_cap(session, league_slug: str) -> int:
@@ -915,28 +1259,22 @@ def ai_trade_tool():
     """Hypothetical trade + entertainment AI opinion (not submitted for approval)."""
     slug = _league_slug()
     mem = _membership()
-    if not mem:
+    if not _trade_page_allowed(mem):
         flash("No active GM membership for this league.", "err")
         return redirect(url_for("main.home"))
-    my_team = db.session.get(Team, int(mem.team_id))
-    others = list_other_active_gms(slug, current_user.id)
-    team_ids = {m.team_id for m, _ in others}
-    teams_by_id: dict[int, Team] = {}
-    if team_ids:
-        for t in db.session.scalars(select(Team).where(Team.id.in_(team_ids))).all():
-            teams_by_id[t.id] = t
-    partner_options: list[dict[str, object]] = []
-    for m, u in others:
-        tm = teams_by_id.get(int(m.team_id))
-        partner_options.append(
-            {
-                "user_id": int(u.id),
-                "team_id": int(m.team_id),
-                "team_name": tm.full_display_name() if tm else f"Team {m.team_id}",
-                "gm_name": gm_display_name(u),
-            }
+    admin_team_id = _admin_trade_team_id() if mem is None else None
+    my_team_id = int(mem.team_id) if mem else admin_team_id
+    my_team = db.session.get(Team, int(my_team_id)) if my_team_id else None
+    if mem is None and _is_site_admin():
+        partner_options = _trade_team_options(exclude_team_id=my_team_id)
+        admin_team_options = _trade_team_options()
+    else:
+        partner_options = _trade_partner_options(
+            slug,
+            exclude_user_id=int(current_user.id),
+            exclude_team_id=my_team_id,
         )
-    partner_options.sort(key=lambda r: str(r.get("team_name") or "").lower())
+        admin_team_options = []
     my_team_logo_url = team_logo_url_for_team(my_team) if my_team else ""
     draft_round_cap = _ai_trade_draft_round_cap(db.session, slug)
     player_page_url_template = url_for("main.player_page", player_id=_TRADE_PLAYER_URL_PLACEHOLDER_ID)
@@ -946,6 +1284,9 @@ def ai_trade_tool():
         my_team=my_team,
         my_team_logo_url=my_team_logo_url,
         partner_options=partner_options,
+        admin_team_options=admin_team_options,
+        admin_team_id=admin_team_id,
+        admin_read_only=mem is None and _is_site_admin(),
         gm_display_name=gm_display_name,
         draft_round_cap=draft_round_cap,
         player_page_url_template=player_page_url_template,
@@ -978,7 +1319,7 @@ def ai_trade_tool_evaluate():
             GmLeagueMembership.league_slug == slug,
             GmLeagueMembership.team_id == int(partner_team_id),
             GmLeagueMembership.status == "active",
-            GmLeagueMembership.user_id != int(current_user.id),
+            GmLeagueMembership.team_id != int(left_team_id),
         )
     )
     if not peer_mem:
@@ -992,7 +1333,7 @@ def ai_trade_tool_evaluate():
     cap = _ai_trade_draft_round_cap(db.session, slug)
     err = validate_ledger(
         db.session,
-        int(mem.team_id),
+        int(left_team_id),
         int(partner_team_id),
         left_out,
         right_out,
@@ -1002,7 +1343,7 @@ def ai_trade_tool_evaluate():
     )
     if err:
         return jsonify({"error": err}), 400
-    from_team = db.session.get(Team, int(mem.team_id))
+    from_team = db.session.get(Team, int(left_team_id))
     to_team = db.session.get(Team, int(partner_team_id))
     out = fetch_trade_ai_opinion(
         db.session,
@@ -1012,6 +1353,7 @@ def ai_trade_tool_evaluate():
         left=left_out,
         right=right_out,
         notes=notes,
+        league_slug=slug,
     )
     if out.get("error"):
         return jsonify({"error": out["error"], "details": out.get("details") or ""}), 503
@@ -1221,7 +1563,9 @@ def trade_proposal_detail(pid: int):
     from_team = db.session.get(Team, int(prop.from_team_id))
     to_team = db.session.get(Team, int(prop.to_team_id))
     left_out, right_out = parse_ledger_payload(prop.ledger_json)
-    summary = format_ledger_summary(db.session, from_team, to_team, left_out, right_out)
+    summary = format_ledger_summary(
+        db.session, from_team, to_team, left_out, right_out, league_slug=slug
+    )
     can_partner_act = is_partner and prop.status == STATUS_PENDING_PARTNER
     proposer_u = db.session.get(User, int(prop.from_user_id))
     partner_u = db.session.get(User, int(prop.to_user_id))
@@ -1261,7 +1605,9 @@ def trade_proposal_partner_respond(pid: int):
     from_team = db.session.get(Team, int(prop.from_team_id))
     to_team = db.session.get(Team, int(prop.to_team_id))
     left_out, right_out = parse_ledger_payload(prop.ledger_json)
-    summary = format_ledger_summary(db.session, from_team, to_team, left_out, right_out)
+    summary = format_ledger_summary(
+        db.session, from_team, to_team, left_out, right_out, league_slug=slug
+    )
     if action == "decline":
         prop.status = STATUS_PARTNER_DECLINED
         prop.partner_acted_at = datetime.utcnow()
@@ -1517,7 +1863,9 @@ def admin_trade_proposal_detail(pid: int):
     from_team = db.session.get(Team, int(prop.from_team_id))
     to_team = db.session.get(Team, int(prop.to_team_id))
     left_out, right_out = parse_ledger_payload(prop.ledger_json)
-    summary = format_ledger_summary(db.session, from_team, to_team, left_out, right_out)
+    summary = format_ledger_summary(
+        db.session, from_team, to_team, left_out, right_out, league_slug=slug
+    )
     if request.method == "POST":
         action = (request.form.get("action") or "").strip().lower()
         if prop.status != STATUS_PENDING_COMMISSIONER:

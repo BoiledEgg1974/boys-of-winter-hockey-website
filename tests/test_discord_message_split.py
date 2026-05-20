@@ -118,6 +118,26 @@ class DiscordMessageSplitTest(unittest.TestCase):
             "https://www.bowlhockey.com/bowl-historical/league-headlines#a1",
         )
 
+    def test_trade_market_selling_is_text_only(self):
+        parts = format_discord_messages(
+            {
+                "league_slug": "bowl-cap",
+                "event_key": "trade_market_selling_posted",
+                "payload": {
+                    "title": "Trade Market — selling update",
+                    "body": "Now selling:\n• Player X — ask $2M · wants Prospects",
+                    "url": "https://www.bowlhockey.com/bowl-cap/trade-market",
+                    "team_abbrev": "TOR",
+                },
+            },
+            max_parts=2,
+        )
+        self.assertEqual(len(parts), 1)
+        self.assertNotIn("embeds", parts[0])
+        content = parts[0].get("content", "")
+        self.assertIn("selling", content.lower())
+        self.assertIn(DISCORD_SITE_MORE_FOOTER, content)
+
     def test_bowl_six_leaders_are_embed_only(self):
         body = "Week: Week of 1969-03-10\nSlate status: locked\n\nTop performers\n1. Andre Lacroix — 19.5 pts"
         parts = format_discord_messages(

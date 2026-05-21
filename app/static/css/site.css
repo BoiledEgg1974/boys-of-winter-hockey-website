@@ -8696,6 +8696,21 @@ table.data.staff-salaries-table--browse td.staff-salaries-browse-hire {
   padding: 0.25rem 0.6rem;
   font-size: 0.85rem;
 }
+.staff-salaries-table--fire .staff-salaries-fire-th {
+  width: 5rem;
+  text-align: center;
+}
+.staff-salaries-fire-cell {
+  text-align: center;
+  vertical-align: middle;
+}
+.staff-salaries-fire-form {
+  margin: 0;
+}
+.staff-salaries-fire-hint {
+  margin-top: 0.5rem;
+  font-size: 0.88rem;
+}
 .staff-salaries-thumb {
   border-radius: 4px;
   object-fit: cover;

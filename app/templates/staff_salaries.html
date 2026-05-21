@@ -81,21 +81,37 @@
     <section class="staff-salaries-section" aria-labelledby="staff-fire-heading">
       <h2 id="staff-fire-heading" class="staff-salaries-section__title">Fire request</h2>
       {% if my_roster %}
-      <form method="post" class="staff-salaries-form" action="{{ url_for('site_gm.staff_salaries_page') }}">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="hidden" name="action" value="fire">
-        <div class="staff-salaries-form__row">
-          <label for="staff-fire-roster">On your roster</label>
-          <select name="roster_entry_id" id="staff-fire-roster" required>
-            <option value="">— Select —</option>
+      <div class="staff-salaries-table-wrap" role="region" aria-label="Current staff — submit fire request">
+        <table class="staff-salaries-table staff-salaries-table--fire">
+          <thead>
+            <tr>
+              <th scope="col" class="staff-salaries-fire-th">Fire</th>
+              <th scope="col">Name</th>
+              <th scope="col">Role</th>
+            </tr>
+          </thead>
+          <tbody>
             {% for row in my_roster %}
             {% set e = row.entry %}
-            <option value="{{ e.id }}">{{ e.staff_name }} ({{ row.role_label }})</option>
+            <tr>
+              <td class="staff-salaries-fire-cell">
+                <form method="post" class="staff-salaries-fire-form" action="{{ url_for('site_gm.staff_salaries_page') }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="action" value="fire">
+                  <input type="hidden" name="roster_entry_id" value="{{ e.id }}">
+                  <button type="submit" class="staff-salaries-btn staff-salaries-btn--danger staff-salaries-btn--small"{% if row.pending_fire %} disabled title="Fire request already pending"{% endif %}>Fire</button>
+                </form>
+              </td>
+              <td>
+                <a href="{{ url_for('site_gm.staff_profile_page', staff_fhm_id=e.staff_fhm_id) }}" target="_blank" rel="noopener">{{ e.staff_name }}</a>
+              </td>
+              <td>{{ row.role_label }}</td>
+            </tr>
             {% endfor %}
-          </select>
-        </div>
-        <button type="submit" class="staff-salaries-btn staff-salaries-btn--danger">Submit fire request</button>
-      </form>
+          </tbody>
+        </table>
+      </div>
+      <p class="muted staff-salaries-fire-hint">Each Fire button submits a request for admin approval.</p>
       {% else %}
       <p class="muted">No active staff on your roster yet.</p>
       {% endif %}

@@ -12,6 +12,7 @@ from app.services.staff_catalog import (
     STAFF_ROLES,
     get_staff_profile,
     is_staff_assigned_to_any_fhm_team,
+    list_staff_profiles_for_fhm_team,
     staff_role_label,
 )
 from app.services.staff_hire_limits import hire_limit_status
@@ -58,6 +59,87 @@ def staff_unavailable_ids(session: Session, *, league_slug: str) -> set[str]:
     ).all():
         out.add(str(row).strip())
     return out
+
+
+def _infer_staff_role_for_team(profiles: list[dict], profile: dict) -> str:
+    """Map FHM staff_master assignment to site roster role keys."""
+    bucket = str(profile.get("primary_bucket") or "coaches")
+    if bucket == "scouts":
+        return "scout"
+    if bucket == "trainers":
+        return "trainer"
+    coaches = [p for p in profiles if str(p.get("primary_bucket") or "") == "coaches"]
+    if len(coaches) <= 1:
+        return "head_coach"
+    head = max(
+        coaches,
+        key=lambda p: (
+            float(p.get("coach_rating") or -1),
+            str(p.get("full_name") or "").lower(),
+        ),
+    )
+    return "head_coach" if head is profile else "assistant_coach"
+
+
+def sync_team_roster_from_fhm(
+    session: Session,
+    *,
+    league_slug: str,
+    team_id: int,
+    season_start_year: int,
+    fhm_team_id: str | int | None,
+) -> int:
+    """Ensure site roster rows exist for staff assigned to this team in FHM CSVs."""
+    profiles = list_staff_profiles_for_fhm_team(fhm_team_id)
+    if not profiles:
+        return 0
+    active = active_roster_for_team(
+        session,
+        league_slug=league_slug,
+        team_id=int(team_id),
+        season_start_year=int(season_start_year),
+    )
+    on_team = {str(e.staff_fhm_id).strip() for e in active}
+    added = 0
+    now = datetime.utcnow()
+    for prof in profiles:
+        sid = str(prof.get("staff_fhm_id") or "").strip()
+        if not sid or sid in on_team:
+            continue
+        other = _active_roster_entry(session, league_slug=league_slug, staff_fhm_id=sid)
+        if other is not None and int(other.team_id) != int(team_id):
+            continue
+        session.add(
+            TeamStaffRosterEntry(
+                league_slug=league_slug,
+                season_start_year=int(season_start_year),
+                team_id=int(team_id),
+                staff_fhm_id=sid,
+                staff_name=str(prof.get("full_name") or "—"),
+                role=_infer_staff_role_for_team(profiles, prof),
+                hire_request_id=None,
+                hired_at=now,
+            )
+        )
+        on_team.add(sid)
+        added += 1
+    if added:
+        session.flush()
+    return added
+
+
+def pending_fire_staff_ids(
+    session: Session, *, league_slug: str, team_id: int
+) -> set[str]:
+    rows = session.scalars(
+        select(StaffChangeRequest.staff_fhm_id).where(
+            StaffChangeRequest.league_slug == league_slug,
+            StaffChangeRequest.team_id == int(team_id),
+            StaffChangeRequest.request_type == "fire",
+            StaffChangeRequest.status == "pending",
+        )
+    ).all()
+    return {str(r).strip() for r in rows if str(r).strip()}
 
 
 def active_roster_for_team(

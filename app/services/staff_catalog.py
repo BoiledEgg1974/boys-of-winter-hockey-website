@@ -141,6 +141,20 @@ def get_staff_profile(staff_fhm_id: str | int | None) -> dict[str, Any] | None:
     return _load_catalog().get(sid)
 
 
+def list_staff_profiles_for_fhm_team(fhm_team_id: str | int | None) -> list[dict[str, Any]]:
+    """Staff catalog rows currently assigned to the given FHM team id in staff_master."""
+    tid = str(fhm_team_id or "").strip()
+    if not tid or tid == "-1":
+        return []
+    rows = [
+        p
+        for p in _load_catalog().values()
+        if str(p.get("fhm_team_id") or "").strip() == tid
+    ]
+    rows.sort(key=lambda p: str(p.get("full_name") or "").lower())
+    return rows
+
+
 def build_staff_profile_view(profile: dict[str, Any]) -> dict[str, Any]:
     """Template context: section list with overall scores and primary-role OVR."""
     rr = profile.get("ratings_row") or {}

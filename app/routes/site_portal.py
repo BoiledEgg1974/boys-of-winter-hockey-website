@@ -65,6 +65,7 @@ from app.services.staff_transactions import (
     deny_staff_request,
     submit_fire_request,
     submit_hire_request,
+    sync_team_roster_from_fhm,
     transaction_headline,
 )
 from app.services.news_categories import (
@@ -1459,6 +1460,16 @@ def staff_salaries_page():
                 role=(request.form.get("role") or "").strip(),
             )
         elif action == "fire":
+            gm_team_fire = db.session.get(Team, int(mem.team_id))
+            if gm_team_fire and start_year is not None:
+                if sync_team_roster_from_fhm(
+                    db.session,
+                    league_slug=slug,
+                    team_id=int(mem.team_id),
+                    season_start_year=int(start_year),
+                    fhm_team_id=getattr(gm_team_fire, "fhm_team_id", None),
+                ):
+                    db.session.flush()
             try:
                 roster_id = int(request.form.get("roster_entry_id") or "0")
             except ValueError:
@@ -1493,15 +1504,23 @@ def staff_salaries_page():
         db.session.commit()
         flash(result.message, "ok" if result.ok else "err")
         return redirect(url_for("site_gm.staff_salaries_page"))
+    gm_team = None
     ctx = dict(base)
     if mem:
+        gm_team = db.session.get(Team, int(mem.team_id))
         ctx = staff_portal_context_for_gm(
-            db.session, league_slug=slug, team_id=int(mem.team_id), base=base
+            db.session,
+            league_slug=slug,
+            team_id=int(mem.team_id),
+            fhm_team_id=getattr(gm_team, "fhm_team_id", None) if gm_team else None,
+            base=base,
         )
+        if ctx.get("roster_synced"):
+            db.session.commit()
     ctx.setdefault("my_roster", [])
     ctx.setdefault("recent_requests", [])
     ctx["membership"] = mem
-    ctx["gm_team"] = db.session.get(Team, int(mem.team_id)) if mem else None
+    ctx["gm_team"] = gm_team if mem else None
     ctx["can_submit_requests"] = mem is not None
     ctx["staff_placeholder_url"] = staff_placeholder_url()
     return render_template("staff_salaries.html", **ctx)

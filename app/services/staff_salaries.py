@@ -32,8 +32,10 @@ from app.services.staff_hire_limits import hire_limit_status
 from app.services.staff_images import staff_image_url, staff_placeholder_url
 from app.services.staff_transactions import (
     active_roster_for_team,
+    pending_fire_staff_ids,
     recent_requests_for_team,
     staff_unavailable_ids,
+    sync_team_roster_from_fhm,
 )
 from app.site_models import GmLeagueMembership, TeamStaffBudget, User
 
@@ -188,6 +190,7 @@ def staff_portal_context_for_gm(
     *,
     league_slug: str,
     team_id: int,
+    fhm_team_id: str | int | None = None,
     base: dict | None = None,
 ) -> dict:
     """Extend staff salary page context with hire/fire portal data for one GM team."""
@@ -198,15 +201,26 @@ def staff_portal_context_for_gm(
         ctx["my_roster"] = []
         ctx["recent_requests"] = []
         return ctx
+    ctx["roster_synced"] = sync_team_roster_from_fhm(
+        session,
+        league_slug=league_slug,
+        team_id=int(team_id),
+        season_start_year=int(start_year),
+        fhm_team_id=fhm_team_id,
+    )
     ctx["hire_limit"] = hire_limit_status(session, league_slug=league_slug, team_id=team_id)
     roster_entries = active_roster_for_team(
         session, league_slug=league_slug, team_id=team_id, season_start_year=int(start_year)
+    )
+    pending_fire = pending_fire_staff_ids(
+        session, league_slug=league_slug, team_id=int(team_id)
     )
     ctx["my_roster"] = [
         {
             "entry": e,
             "role_label": staff_role_label(e.role),
             "image_url": staff_image_url(league_slug, e.staff_fhm_id),
+            "pending_fire": str(e.staff_fhm_id).strip() in pending_fire,
         }
         for e in roster_entries
     ]

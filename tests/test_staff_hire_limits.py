@@ -10,7 +10,9 @@ from app.services.staff_catalog import (
     _meets_browse_filter,
     build_staff_profile_view,
     compute_staff_role_overall,
+    is_staff_assigned_to_any_fhm_team,
     is_staff_assigned_to_main_league_team,
+    staff_ids_assigned_to_any_fhm_team,
     staff_ids_assigned_to_fhm_teams,
 )
 from app.services.staff_hire_limits import hire_limit_for_calendar_date, hire_window_label
@@ -66,11 +68,28 @@ class StaffHireLimitsTest(unittest.TestCase):
             ids = staff_ids_assigned_to_fhm_teams({"5"})
         self.assertEqual(ids, {"101"})
 
+    def test_staff_ids_assigned_to_any_fhm_team(self):
+        catalog = {
+            "101": {"fhm_team_id": "5", "full_name": "On BOWL Team"},
+            "102": {"fhm_team_id": "", "full_name": "Free"},
+            "103": {"fhm_team_id": "-1", "full_name": "Also Free"},
+            "104": {"fhm_team_id": "99", "full_name": "On Non-BOWL Team"},
+        }
+        with patch("app.services.staff_catalog._load_catalog", return_value=catalog):
+            ids = staff_ids_assigned_to_any_fhm_team()
+        self.assertEqual(ids, {"101", "104"})
+
     def test_is_staff_assigned_to_main_league_team(self):
         prof = {"fhm_team_id": "12"}
         self.assertTrue(is_staff_assigned_to_main_league_team(prof, {"12", "34"}))
         self.assertFalse(is_staff_assigned_to_main_league_team(prof, {"99"}))
         self.assertFalse(is_staff_assigned_to_main_league_team({"fhm_team_id": ""}, {"12"}))
+
+    def test_is_staff_assigned_to_any_fhm_team(self):
+        self.assertTrue(is_staff_assigned_to_any_fhm_team({"fhm_team_id": "99"}))
+        self.assertTrue(is_staff_assigned_to_any_fhm_team({"fhm_team_id": "12"}))
+        self.assertFalse(is_staff_assigned_to_any_fhm_team({"fhm_team_id": ""}))
+        self.assertFalse(is_staff_assigned_to_any_fhm_team({"fhm_team_id": "-1"}))
 
     def test_build_staff_profile_view_sections(self):
         profile = {

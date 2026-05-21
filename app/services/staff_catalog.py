@@ -244,6 +244,23 @@ def staff_ids_assigned_to_fhm_teams(fhm_team_ids: set[str]) -> set[str]:
     return out
 
 
+def staff_ids_assigned_to_any_fhm_team() -> set[str]:
+    """Staff FHM ids already contracted to any FHM team, including non-BOWL clubs."""
+    out: set[str] = set()
+    for sid, entry in _load_catalog().items():
+        tid = str(entry.get("fhm_team_id") or "").strip()
+        if tid and tid != "-1":
+            out.add(str(sid).strip())
+    return out
+
+
+def is_staff_assigned_to_any_fhm_team(profile: dict[str, Any] | None) -> bool:
+    if not profile:
+        return False
+    tid = str(profile.get("fhm_team_id") or "").strip()
+    return bool(tid and tid != "-1")
+
+
 def is_staff_assigned_to_main_league_team(
     profile: dict[str, Any] | None, fhm_team_ids: set[str]
 ) -> bool:

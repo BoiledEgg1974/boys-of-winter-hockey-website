@@ -4,8 +4,9 @@ Example:
 
   python scripts/backfill_bowl_six_scoring_games.py bowl-historical --start 1969-03-10 --end 1969-03-16
 
-By default this replaces the active slate's current real-time scoring markers for the
-league, then re-scores the slate and queues a Discord leaders refresh.
+By default this targets the current real-time slate, replaces that slate's markers,
+moves the selected game markers into that slate's scoring window, then re-scores the
+slate and queues a Discord leaders refresh.
 """
 from __future__ import annotations
 
@@ -15,7 +16,7 @@ import sys
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -26,6 +27,7 @@ from app.config import make_league_config
 from app.league_db import db
 from app.models import Game
 from app.services.bowl_six import (
+    _real_bowl_six_week_bounds,
     refresh_player_week_stats,
     refresh_slate_lineup_scores,
     record_bowl_six_game_finals,
@@ -56,7 +58,7 @@ def main() -> None:
     ap.add_argument("league", help="League slug, e.g. bowl-historical")
     ap.add_argument("--start", required=True, type=_parse_date, help="In-game start date")
     ap.add_argument("--end", required=True, type=_parse_date, help="In-game end date")
-    ap.add_argument("--slate-id", type=int, default=0, help="Optional slate id; defaults to latest active slate")
+    ap.add_argument("--slate-id", type=int, default=0, help="Optional slate id; defaults to current real-time slate")
     ap.add_argument(
         "--append",
         action="store_true",
@@ -74,17 +76,22 @@ def main() -> None:
             if slate is None or slate.league_slug != slug:
                 raise SystemExit(f"No slate {args.slate_id} for {slug}.")
         else:
+            week_start, week_end = _real_bowl_six_week_bounds()
             slate = db.session.scalar(
                 select(BowlSixSlate)
                 .where(
                     BowlSixSlate.league_slug == slug,
+                    BowlSixSlate.week_start == week_start,
+                    BowlSixSlate.week_end == week_end,
                     BowlSixSlate.status.in_(("open", "locked")),
                 )
-                .order_by(BowlSixSlate.week_start.desc())
                 .limit(1)
             )
             if slate is None:
-                raise SystemExit(f"No active BOWL Six slate found for {slug}.")
+                raise SystemExit(
+                    f"No active BOWL Six slate found for {slug} week {week_start}..{week_end}. "
+                    "Pass --slate-id to target a specific slate."
+                )
 
         season = get_current_season()
         if season is None:
@@ -113,8 +120,13 @@ def main() -> None:
             result = db.session.execute(
                 delete(BowlSixGameFinal).where(
                     BowlSixGameFinal.league_slug == slug,
-                    BowlSixGameFinal.first_final_at >= window_start,
-                    BowlSixGameFinal.first_final_at < window_end,
+                    or_(
+                        BowlSixGameFinal.game_id.in_(game_ids),
+                        (
+                            (BowlSixGameFinal.first_final_at >= window_start)
+                            & (BowlSixGameFinal.first_final_at < window_end)
+                        ),
+                    ),
                 )
             )
             removed = int(result.rowcount or 0)

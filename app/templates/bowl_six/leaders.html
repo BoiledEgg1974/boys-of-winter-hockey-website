@@ -27,9 +27,15 @@
         </thead>
         <tbody>
           {% for row in in_progress_rows %}
-          <tr>
+          {% set detail_id = 'bowl-six-lineup-' ~ in_progress_slate.id ~ '-' ~ row.user_id %}
+          <tr class="bowl-six-leaders__gm-row" data-bowl-six-row="{{ detail_id }}">
             <td>{{ loop.index }}</td>
-            <td>{{ row.gm_name }}</td>
+            <td>
+              <button class="bowl-six-leaders__toggle" type="button" data-bowl-six-toggle="{{ detail_id }}" aria-controls="{{ detail_id }}" aria-expanded="false">
+                <span class="bowl-six-leaders__toggle-icon" aria-hidden="true">▸</span>
+                <span>{{ row.gm_name }}</span>
+              </button>
+            </td>
             <td>
               {% if row.team %}
               {% if team_logo_url(row.team) %}
@@ -39,6 +45,45 @@
               {% else %}—{% endif %}
             </td>
             <td class="bowl-six-leaders__pts">{{ '%.1f'|format(row.points) }}</td>
+          </tr>
+          <tr id="{{ detail_id }}" class="bowl-six-leaders__details-row" hidden>
+            <td colspan="4">
+              <div class="bowl-six-leaders__details">
+                {% if row.lineup_details %}
+                <div class="bowl-six-leaders__lineup-grid">
+                  {% for item in row.lineup_details %}
+                  <div class="bowl-six-leaders__lineup-player{% if item.is_captain %} bowl-six-leaders__lineup-player--captain{% endif %}">
+                    <span class="bowl-six-leaders__slot">{{ item.slot_label }}</span>
+                    <span class="bowl-six-leaders__player">
+                      {% if item.player %}
+                      <a href="{{ url_for('main.player_page', player_id=item.player.id) }}">{{ item.player_name }}</a>
+                      {% else %}
+                      {{ item.player_name }}
+                      {% endif %}
+                      {% if item.is_captain %}<span class="bowl-six-leaders__captain">C</span>{% endif %}
+                    </span>
+                    <span class="bowl-six-leaders__player-points">
+                      {% if item.is_captain %}
+                      {{ '%.1f'|format(item.base_points) }} + {{ '%.1f'|format(item.captain_bonus) }} = {{ '%.1f'|format(item.total_points) }}
+                      {% else %}
+                      {{ '%.1f'|format(item.total_points) }}
+                      {% endif %}
+                    </span>
+                  </div>
+                  {% endfor %}
+                </div>
+                <p class="bowl-six-leaders__lineup-total muted">
+                  Player subtotal {{ '%.1f'|format(row.lineup_subtotal) }}
+                  {% if row.lineup_captain_bonus %}
+                  · captain bonus {{ '%.1f'|format(row.lineup_captain_bonus) }}
+                  {% endif %}
+                  · total {{ '%.1f'|format(row.points) }}
+                </p>
+                {% else %}
+                <p class="muted">No lineup breakdown available yet.</p>
+                {% endif %}
+              </div>
+            </td>
           </tr>
           {% else %}
           <tr><td colspan="4" class="muted">No submitted lineups yet.</td></tr>
@@ -87,4 +132,18 @@
     </div>
   </section>
 </div>
+<script>
+document.querySelectorAll('[data-bowl-six-toggle]').forEach((button) => {
+  button.addEventListener('click', () => {
+    const targetId = button.getAttribute('data-bowl-six-toggle');
+    const target = targetId ? document.getElementById(targetId) : null;
+    if (!target) return;
+    const isOpen = !target.hasAttribute('hidden');
+    target.toggleAttribute('hidden', isOpen);
+    button.setAttribute('aria-expanded', String(!isOpen));
+    const icon = button.querySelector('.bowl-six-leaders__toggle-icon');
+    if (icon) icon.textContent = isOpen ? '▸' : '▾';
+  });
+});
+</script>
 {% endblock %}

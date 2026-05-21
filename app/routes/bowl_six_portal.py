@@ -9,6 +9,7 @@ from pathlib import Path
 from flask import abort, current_app, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 from sqlalchemy import func, select
+from sqlalchemy.orm import joinedload
 
 from app.auth_login import (
     ADMIN_ROLE_LEAGUE,
@@ -48,7 +49,7 @@ from app.services.bowl_six import (
 from app.services.bowl_six_scoring import SLOT_ORDER as SCORING_SLOTS
 from app.services.gm_messaging import gm_display_name
 from app.services.seasons import get_current_season
-from app.site_models import AdminAuditLog, BowlSixPlayerWeekStat, BowlSixSlate, User
+from app.site_models import AdminAuditLog, BowlSixLineup, BowlSixPlayerWeekStat, BowlSixSlate, User
 
 
 def _league_slug() -> str:
@@ -128,6 +129,69 @@ def _enrich_gm_leader_rows(slug: str, rows: list[dict], *, points_key: str) -> l
             }
         )
     return enriched
+
+
+def _attach_bowl_six_lineup_details(slate: BowlSixSlate, rows: list[dict]) -> None:
+    """Add current lineup player/point breakdowns to already-enriched leader rows."""
+    user_ids = [int(r["user_id"]) for r in rows if r.get("user_id") is not None]
+    if not user_ids:
+        return
+    lineups = {
+        int(lineup.user_id): lineup
+        for lineup in db.session.scalars(
+            select(BowlSixLineup)
+            .where(
+                BowlSixLineup.slate_id == int(slate.id),
+                BowlSixLineup.user_id.in_(user_ids),
+                BowlSixLineup.submitted_at.is_not(None),
+            )
+            .options(joinedload(BowlSixLineup.picks), joinedload(BowlSixLineup.score))
+        )
+        .unique()
+        .all()
+    }
+    for row in rows:
+        lineup = lineups.get(int(row["user_id"]))
+        if lineup is None:
+            row["lineup_details"] = []
+            row["lineup_subtotal"] = 0.0
+            row["lineup_captain_bonus"] = 0.0
+            continue
+        try:
+            payload = json.loads(lineup.score.points_json or "{}") if lineup.score else {}
+        except (TypeError, ValueError):
+            payload = {}
+        by_slot = payload.get("by_slot") if isinstance(payload, dict) else {}
+        if not isinstance(by_slot, dict):
+            by_slot = {}
+        pick_by_slot = {p.slot: int(p.player_id) for p in lineup.picks}
+        captain_id = int(lineup.captain_player_id) if lineup.captain_player_id else None
+        details: list[dict] = []
+        for slot in SCORING_SLOTS:
+            pid = pick_by_slot.get(slot)
+            if not pid:
+                continue
+            player = db.session.get(Player, int(pid))
+            slot_payload = by_slot.get(slot) if isinstance(by_slot.get(slot), dict) else {}
+            base_points = float(slot_payload.get("points") or 0)
+            is_captain = bool(captain_id and int(pid) == captain_id)
+            details.append(
+                {
+                    "slot": slot,
+                    "slot_label": SLOT_LABELS.get(slot, slot.upper()),
+                    "player": player,
+                    "player_name": player.full_name if player else f"Player #{pid}",
+                    "base_points": base_points,
+                    "captain_bonus": base_points if is_captain else 0.0,
+                    "total_points": base_points * 2 if is_captain else base_points,
+                    "is_captain": is_captain,
+                }
+            )
+        row["lineup_details"] = details
+        row["lineup_subtotal"] = float(payload.get("subtotal") or 0) if isinstance(payload, dict) else 0.0
+        row["lineup_captain_bonus"] = (
+            float(payload.get("captain_bonus") or 0) if isinstance(payload, dict) else 0.0
+        )
 
 
 def _audit(admin_action: str, detail: dict) -> None:
@@ -309,6 +373,7 @@ def bowl_six_leaders():
             slate_rankings_in_progress(db.session, slate),
             points_key="total_points",
         )
+        _attach_bowl_six_lineup_details(slate, in_progress_rows)
         week_progress = slate_week_game_progress(db.session, slate)
     season_rows = _enrich_gm_leader_rows(
         slug, gm_season_standings(db.session, slug), points_key="season_points"

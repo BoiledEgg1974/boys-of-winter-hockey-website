@@ -74,11 +74,62 @@
         {% set fid = m.fhm_team_id or snap.fhm_team_id %}
         {% if fid %} · FHM franchise id {{ fid }}{% endif %}
         — <em>{{ m.status }}</em>
+        {% if m.status == 'active' %}
+        <form method="post" action="{{ url_for('hub_auth.account_request_membership_remove', mid=m.id) }}" style="display:inline;margin-left:0.5rem;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit">Request Remove</button>
+        </form>
+        {% elif m.status == 'remove_pending' %}
+        <span class="muted"> · removal pending admin review</span>
+        {% endif %}
       </li>
       {% else %}
       <li class="muted">No memberships yet.</li>
       {% endfor %}
     </ul>
+    <section style="margin:1.25rem 0;padding:1rem;border:1px solid rgb(148 163 184 / 0.25);border-radius:8px;">
+      <h2 style="margin-top:0;font-size:1.05rem;">Request Additional Franchise</h2>
+      <p class="muted" style="font-size:0.9rem;margin-top:0;">Submit a new franchise request for admin approval. One active or pending franchise is allowed per league site.</p>
+      <form method="post" action="{{ url_for('hub_auth.account_request_membership_add') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label>League
+          <select name="league_slug" id="account-add-league" required>
+            <option value="">— Select League —</option>
+            {% for league in leagues %}
+            <option value="{{ league.slug }}" {% if league.slug in existing_membership_slugs %}disabled{% endif %}>{{ league.display_name }}{% if league.slug in existing_membership_slugs %} — already requested{% endif %}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label style="display:block;margin-top:0.6rem;">Team
+          <select name="team_id" id="account-add-team" required>
+            <option value="">— Select Team —</option>
+            {% for league in leagues %}
+              {% for team in team_options.get(league.slug, []) %}
+              <option value="{{ team.id }}" data-league="{{ league.slug }}">{{ team.name }}{% if team.abbr %} ({{ team.abbr }}){% endif %}{% if team.fhm_team_id %} · FHM {{ team.fhm_team_id }}{% endif %}</option>
+              {% endfor %}
+            {% endfor %}
+          </select>
+        </label>
+        <button type="submit" style="margin-top:0.75rem;">Request Add Franchise</button>
+      </form>
+    </section>
+    <script>
+    (function () {
+      var leagueSel = document.getElementById("account-add-league");
+      var teamSel = document.getElementById("account-add-team");
+      if (!leagueSel || !teamSel) return;
+      function filterTeams() {
+        var slug = leagueSel.value || "";
+        Array.prototype.forEach.call(teamSel.options, function (opt) {
+          if (!opt.value) return;
+          opt.hidden = opt.getAttribute("data-league") !== slug;
+        });
+        teamSel.value = "";
+      }
+      leagueSel.addEventListener("change", filterTeams);
+      filterTeams();
+    })();
+    </script>
     <form method="post" action="{{ url_for('hub_auth.logout') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button type="submit">Log out</button>

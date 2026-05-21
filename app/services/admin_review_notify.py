@@ -168,6 +168,47 @@ def notify_membership_registration_pending(
     try_send_admin_review_email(subject=subject, body="\n".join(lines))
 
 
+def notify_membership_change_pending(
+    *,
+    action: str,
+    user_email: str,
+    discord_name: str,
+    league_slug: str,
+    team_id: int,
+    team_label: str,
+    fhm_team_id: str = "",
+    membership_id: int | None = None,
+) -> None:
+    try:
+        hub_url = _abs_url_for("hub_auth.admin_memberships")
+    except Exception:
+        hub_url = "/admin/memberships"
+    action_l = "remove" if action == "remove" else "add"
+    action_title = "Removal" if action_l == "remove" else "Add"
+    fhm_part = f" · FHM franchise id {fhm_team_id}" if fhm_team_id else ""
+    subject = f"[Boys of Winter] Membership {action_l} request pending"
+    body = "\n".join(
+        [
+            f"GM membership {action_l} request pending admin review.",
+            "",
+            f"Email: {user_email}",
+            f"Discord: {discord_name}",
+            f"League: {league_slug}",
+            f"Team: {team_label} · DB teams.id {team_id}{fhm_part}",
+            "",
+            f"Review memberships: {hub_url}",
+        ]
+    )
+    try_send_admin_review_email(subject=subject, body=body)
+    queue_site_admin_in_app_notifications(
+        league_slug=league_slug,
+        kind="admin_review_membership",
+        title=f"Membership {action_title} Request",
+        body=body,
+        article_id=membership_id,
+    )
+
+
 def notify_staff_change_pending(
     *,
     league_slug: str,

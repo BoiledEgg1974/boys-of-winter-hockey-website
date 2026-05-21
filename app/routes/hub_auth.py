@@ -247,7 +247,7 @@ def logout():
 @hub_auth_bp.get("/account")
 @login_required
 def account():
-    from app.services.register_team_options import team_snapshot_for_membership
+    from app.services.register_team_options import all_league_team_options, team_snapshot_for_membership
 
     rows = db.session.scalars(
         select(GmLeagueMembership).where(GmLeagueMembership.user_id == current_user.id)
@@ -255,12 +255,114 @@ def account():
     membership_rows = [(m, team_snapshot_for_membership(m.league_slug, m.team_id)) for m in rows]
     active_slugs = {m.league_slug for m in rows if (m.status or "").strip() == "active"}
     league_news_links = [e for e in LEAGUES if e.slug in active_slugs]
+    existing_slugs = {m.league_slug for m in rows if (m.status or "").strip() in {"active", "pending", "remove_pending"}}
     return render_template(
         "account.html",
         memberships=membership_rows,
         leagues=LEAGUES,
         league_news_links=league_news_links,
+        team_options=all_league_team_options(),
+        existing_membership_slugs=existing_slugs,
     )
+
+
+def _notify_membership_change_pending(
+    *,
+    action: str,
+    user: User,
+    membership: GmLeagueMembership,
+    team_snap: dict[str, str],
+) -> None:
+    try:
+        from app.services.admin_review_notify import notify_membership_change_pending
+
+        team_label = team_snap.get("name") or f"Team {membership.team_id}"
+        if team_snap.get("abbr"):
+            team_label = f"{team_label} ({team_snap.get('abbr')})"
+        notify_membership_change_pending(
+            action=action,
+            user_email=user.email,
+            discord_name=user.discord_name or "",
+            league_slug=membership.league_slug,
+            team_id=int(membership.team_id),
+            team_label=team_label,
+            fhm_team_id=str(membership.fhm_team_id or team_snap.get("fhm_team_id") or ""),
+            membership_id=int(membership.id),
+        )
+    except Exception as exc:
+        current_app.logger.warning("Admin notify (membership %s request): %s", action, exc)
+
+
+@hub_auth_bp.post("/account/memberships/request-add")
+@login_required
+def account_request_membership_add():
+    from app.services.register_team_options import fhm_team_id_for_league_team, team_snapshot_for_membership
+
+    slug = (request.form.get("league_slug") or "").strip()
+    team_raw = (request.form.get("team_id") or "").strip()
+    league_slugs = {e.slug for e in LEAGUES}
+    if slug not in league_slugs or not team_raw.isdigit():
+        flash("Choose a valid league and team.", "error")
+        return redirect(url_for("hub_auth.account"))
+    team_id = int(team_raw)
+    existing = db.session.scalar(
+        select(GmLeagueMembership)
+        .where(
+            GmLeagueMembership.user_id == int(current_user.id),
+            GmLeagueMembership.league_slug == slug,
+        )
+        .limit(1)
+    )
+    if existing is not None and existing.status in {"active", "pending", "remove_pending"}:
+        flash("You already have a membership or pending request for that league.", "error")
+        return redirect(url_for("hub_auth.account"))
+    fhm_tid = fhm_team_id_for_league_team(slug, team_id)
+    if existing is None:
+        membership = GmLeagueMembership(
+            user_id=int(current_user.id),
+            league_slug=slug,
+            team_id=team_id,
+            fhm_team_id=fhm_tid,
+            status="pending",
+            terms_version="v1",
+        )
+        db.session.add(membership)
+    else:
+        membership = existing
+        membership.team_id = team_id
+        membership.fhm_team_id = fhm_tid
+        membership.status = "pending"
+        membership.approved_at = None
+    db.session.flush()
+    snap = team_snapshot_for_membership(slug, team_id)
+    _notify_membership_change_pending(
+        action="add", user=current_user, membership=membership, team_snap=snap
+    )
+    db.session.commit()
+    flash("Franchise add request sent to admins for approval.", "ok")
+    return redirect(url_for("hub_auth.account"))
+
+
+@hub_auth_bp.post("/account/memberships/<int:mid>/request-remove")
+@login_required
+def account_request_membership_remove(mid: int):
+    from app.services.register_team_options import team_snapshot_for_membership
+
+    membership = db.session.get(GmLeagueMembership, int(mid))
+    if membership is None or int(membership.user_id) != int(current_user.id):
+        flash("Membership not found.", "error")
+        return redirect(url_for("hub_auth.account"))
+    if membership.status != "active":
+        flash("Only active memberships can be requested for removal.", "error")
+        return redirect(url_for("hub_auth.account"))
+    membership.status = "remove_pending"
+    snap = team_snapshot_for_membership(membership.league_slug, int(membership.team_id))
+    _notify_membership_change_pending(
+        action="remove", user=current_user, membership=membership, team_snap=snap
+    )
+    db.session.commit()
+    flash("Franchise removal request sent to admins for approval.", "ok")
+    return redirect(url_for("hub_auth.account"))
 
 
 @hub_auth_bp.get("/admin/memberships")
@@ -417,11 +519,36 @@ def admin_approve_membership(mid: int):
     if m:
         from app.services.register_team_options import fhm_team_id_for_league_team
 
-        m.status = "active"
-        m.approved_at = datetime.utcnow()
-        fhm = fhm_team_id_for_league_team(m.league_slug, int(m.team_id))
-        if fhm:
-            m.fhm_team_id = fhm
+        if m.status == "remove_pending":
+            db.session.delete(m)
+            flash("Membership removal approved.", "ok")
+            db.session.commit()
+            return redirect(url_for("hub_auth.admin_memberships"))
+        else:
+            m.status = "active"
+            m.approved_at = datetime.utcnow()
+            fhm = fhm_team_id_for_league_team(m.league_slug, int(m.team_id))
+            if fhm:
+                m.fhm_team_id = fhm
+            db.session.commit()
+    return redirect(url_for("hub_auth.admin_memberships"))
+
+
+@hub_auth_bp.post("/admin/memberships/<int:mid>/deny")
+@login_required
+def admin_deny_membership(mid: int):
+    if not has_admin_role(current_user):
+        from flask import abort
+
+        abort(403)
+    m = db.session.get(GmLeagueMembership, mid)
+    if m:
+        if m.status == "pending":
+            db.session.delete(m)
+            flash("Pending membership request denied.", "ok")
+        elif m.status == "remove_pending":
+            m.status = "active"
+            flash("Membership removal request denied; membership remains active.", "ok")
         db.session.commit()
     return redirect(url_for("hub_auth.admin_memberships"))
 

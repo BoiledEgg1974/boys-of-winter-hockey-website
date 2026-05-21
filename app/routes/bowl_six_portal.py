@@ -141,6 +141,21 @@ def _audit(admin_action: str, detail: dict) -> None:
     )
 
 
+def _enqueue_bowl_six_discord_after_admin_score(slate: BowlSixSlate, *, force: bool = True) -> None:
+    """Queue or refresh the leaders Discord post after manual score/rescore."""
+    try:
+        from app.services.bowl_six_discord import maybe_enqueue_bowl_six_leaders_discord
+
+        maybe_enqueue_bowl_six_leaders_discord(
+            db.session, db.session, slate, force=force
+        )
+    except Exception:
+        current_app.logger.exception(
+            "BOWL Six Discord leaders enqueue failed after admin score slate=%s",
+            slate.id,
+        )
+
+
 @site_gm_bp.get("/bowl-six")
 @login_required
 def bowl_six_hub():
@@ -151,6 +166,7 @@ def bowl_six_hub():
         db.session.commit()
     except Exception:
         db.session.rollback()
+        current_app.logger.exception("BOWL Six auto-update failed for %s", slug)
     if not bowl_six_enabled(db.session, slug):
         flash("BOWL Six is disabled for this league.", "err")
         return redirect(url_for("main.home"))
@@ -281,6 +297,7 @@ def bowl_six_leaders():
         db.session.commit()
     except Exception:
         db.session.rollback()
+        current_app.logger.exception("BOWL Six leaders auto-update failed for %s", slug)
     in_progress_slate = None
     in_progress_rows: list[dict] = []
     week_progress: dict | None = None
@@ -492,7 +509,7 @@ def admin_bowl_six_score():
         flash("Invalid slate.", "err")
         return redirect(url_for("site_admin.admin_control_center"))
     n = score_slate(db.session, db.session, slate)
-    db.session.commit()
+    _enqueue_bowl_six_discord_after_admin_score(slate, force=True)
     _audit("bowl_six_score", {"slate_id": sid, "lineups_scored": n})
     db.session.commit()
     flash(f"BOWL Six slate scored ({n} lineups).", "ok")
@@ -512,9 +529,9 @@ def admin_bowl_six_rescore():
     if not slate or slate.league_slug != slug:
         flash("Invalid slate.", "err")
         return redirect(url_for("site_admin.admin_control_center"))
-        n = score_slate(db.session, db.session, slate, notify=False)
-        db.session.commit()
-        _audit("bowl_six_rescore", {"slate_id": sid, "lineups_scored": n})
+    n = score_slate(db.session, db.session, slate, notify=False)
+    _enqueue_bowl_six_discord_after_admin_score(slate, force=True)
+    _audit("bowl_six_rescore", {"slate_id": sid, "lineups_scored": n})
     db.session.commit()
     flash(f"BOWL Six slate re-scored ({n} lineups).", "ok")
     return redirect(url_for("site_admin.admin_control_center"))
@@ -604,7 +621,6 @@ def admin_bowl_six_advance_week():
     require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
     slug = _league_slug()
     from app.services.bowl_six import (
-        _current_scoring_week_bounds,
         _real_bowl_six_week_bounds,
         default_lock_at,
         utcnow_naive,
@@ -613,7 +629,6 @@ def admin_bowl_six_advance_week():
     current_ws, _ = _real_bowl_six_week_bounds(utcnow_naive())
     ws = current_ws + timedelta(days=7)
     we = ws + timedelta(days=6)
-    scoring_start, scoring_end = _current_scoring_week_bounds(db.session)
     if db.session.scalar(
         select(BowlSixSlate)
         .where(BowlSixSlate.league_slug == slug, BowlSixSlate.week_start == ws)
@@ -625,8 +640,8 @@ def admin_bowl_six_advance_week():
         league_slug=slug,
         week_start=ws,
         week_end=we,
-        scoring_week_start=scoring_start,
-        scoring_week_end=scoring_end,
+        scoring_week_start=ws,
+        scoring_week_end=we,
         lock_at=default_lock_at(ws, slug, db.session),
         status="open",
         label=f"Week of {ws.isoformat()}",

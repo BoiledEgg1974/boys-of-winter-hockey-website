@@ -1081,3 +1081,21 @@ class BowlSixPlayerWeekStat(db.Model):
     player_id: Mapped[int] = mapped_column(Integer, nullable=False)
     fantasy_points: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     pick_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+
+class BowlSixGameFinal(db.Model):
+    """Real-time marker for when a league game first became final for BOWL Six."""
+
+    __tablename__ = "bowl_six_game_finals"
+    __bind_key__ = "site"
+    __table_args__ = (
+        UniqueConstraint("league_slug", "game_id", name="uq_bowl_six_game_final_league_game"),
+        Index("ix_bowl_six_game_final_league_seen", "league_slug", "first_final_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False)
+    game_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    season_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    fhm_game_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    first_final_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)

@@ -156,6 +156,7 @@ def import_seasons(raw_dir: Path, app) -> int:
         return 0
     df = read_csv_normalized(path)
     n = 0
+    newly_final_game_ids: set[int] = set()
     for _, row in df.iterrows():
         r = row.to_dict()
         label = cell_val(r, "label", "season", "name")
@@ -421,8 +422,11 @@ def import_games(raw_dir: Path, app) -> int:
                 away_team_id=away.id,
             )
             db.session.add(g)
+            db.session.flush()
+            prev_status = ""
         else:
             g = existing
+            prev_status = str(g.status or "").lower()
         g.fhm_game_id = fhm
         g.season_id = season.id
         g.home_team_id = home.id
@@ -438,12 +442,28 @@ def import_games(raw_dir: Path, app) -> int:
         g.home_score = to_int(cell_val(r, "home_score", "home_goals"))
         g.away_score = to_int(cell_val(r, "away_score", "away_goals"))
         g.status = (cell_val(r, "status") or "final").lower()
+        if g.status == "final" and prev_status != "final":
+            newly_final_game_ids.add(int(g.id))
         g.went_to_overtime = to_bool(cell_val(r, "went_to_overtime", "ot", "overtime"))
         g.went_to_shootout = to_bool(cell_val(r, "went_to_shootout", "so", "shootout"))
         g.home_shots = to_int(cell_val(r, "home_shots"))
         g.away_shots = to_int(cell_val(r, "away_shots"))
         n += 1
     db.session.commit()
+    if newly_final_game_ids:
+        try:
+            from app.services.bowl_six import record_bowl_six_game_finals
+
+            record_bowl_six_game_finals(
+                db.session,
+                db.session,
+                league_slug=str(app.config.get("LEAGUE_SLUG") or ""),
+                game_ids=newly_final_game_ids,
+            )
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            log.exception("BOWL Six game-final tracking failed (non-fatal)")
     return n
 
 

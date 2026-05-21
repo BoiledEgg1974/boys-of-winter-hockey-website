@@ -26,10 +26,10 @@ from app.services.bowl_six_scoring import (
     slot_accepts_position,
 )
 from app.services.player_snapshot_card import build_player_snapshot_card
-from app.services.homepage_dashboard import league_calendar_anchor_date
-from app.services.league_rules import get_rule_value, rule_bool, rule_int
+from app.services.league_rules import get_rule_value, rule_bool
 from app.services.seasons import get_current_season
 from app.site_models import (
+    BowlSixGameFinal,
     BowlSixLineup,
     BowlSixLineupPick,
     BowlSixLineupScore,
@@ -82,43 +82,14 @@ def _real_bowl_six_week_bounds(now_utc: datetime | None = None) -> tuple[date, d
     return _week_bounds_for_date(today_et, BOWL_SIX_REAL_WEEK_START_DOW)
 
 
-def _bowl_six_anchor_date(league_session: Session) -> date:
-    """League 'today' for slate weeks (sim seasons use in-world game dates, not the real clock)."""
-    season = get_current_season()
-    if season is None:
-        return date.today()
-    return league_calendar_anchor_date(league_session, int(season.id))
-
-
 def _current_scoring_week_bounds(league_session: Session) -> tuple[date, date]:
-    """Sim/game-calendar week used to score players for the current real slate."""
-    anchor = _bowl_six_anchor_date(league_session)
-    return _week_bounds_for_date(anchor, BOWL_SIX_REAL_WEEK_START_DOW)
+    """Real-world week used to score BOWL Six slates."""
+    return _real_bowl_six_week_bounds()
 
 
 def slate_scoring_week_bounds(slate: BowlSixSlate) -> tuple[date, date]:
-    """Player scoring dates; falls back to legacy slate dates before migration."""
-    return (
-        slate.scoring_week_start or slate.week_start,
-        slate.scoring_week_end or slate.week_end,
-    )
-
-
-def _count_rs_games_in_range(
-    league_session: Session,
-    season_id: int,
-    week_start: date,
-    week_end: date,
-) -> int:
-    rows = league_session.scalars(
-        select(Game).where(
-            Game.season_id == int(season_id),
-            Game.game_date.isnot(None),
-            Game.game_date >= week_start,
-            Game.game_date <= week_end,
-        )
-    ).all()
-    return sum(1 for g in rows if _is_regular_season_game(g.game_type))
+    """Display/scoring dates for BOWL Six: always the real-world slate week."""
+    return slate.week_start, slate.week_end
 
 
 def sync_slate_week_to_league_calendar(
@@ -127,28 +98,35 @@ def sync_slate_week_to_league_calendar(
     league_slug: str,
     slate: BowlSixSlate,
 ) -> bool:
-    """Realign an in-progress slate's scoring dates to the sim/game calendar."""
+    """Legacy compatibility shim: keep in-progress slates on the real calendar."""
     if slate.status in ("scored", "skipped"):
         return False
-    season = get_current_season()
-    if season is None:
+    week_start, week_end = _real_bowl_six_week_bounds()
+    changed = False
+    if slate.week_start != week_start or slate.week_end != week_end:
+        existing = session.scalar(
+            select(BowlSixSlate)
+            .where(
+                BowlSixSlate.league_slug == league_slug,
+                BowlSixSlate.week_start == week_start,
+                BowlSixSlate.id != slate.id,
+            )
+            .limit(1)
+        )
+        if existing is not None:
+            return False
+        slate.week_start = week_start
+        slate.week_end = week_end
+        slate.label = f"Week of {week_start.isoformat()}"
+        changed = True
+    if slate.scoring_week_start != week_start:
+        slate.scoring_week_start = week_start
+        changed = True
+    if slate.scoring_week_end != week_end:
+        slate.scoring_week_end = week_end
+        changed = True
+    if not changed:
         return False
-    season_id = int(season.id)
-    score_start, score_end = slate_scoring_week_bounds(slate)
-    if _count_rs_games_in_range(league_session, season_id, score_start, score_end) > 0:
-        if slate.scoring_week_start is None or slate.scoring_week_end is None:
-            slate.scoring_week_start = score_start
-            slate.scoring_week_end = score_end
-            return True
-        return False
-    anchor = league_calendar_anchor_date(league_session, season_id)
-    cal_start, cal_end = _week_bounds_for_date(anchor, BOWL_SIX_REAL_WEEK_START_DOW)
-    if score_start == cal_start and score_end == cal_end:
-        return False
-    if _count_rs_games_in_range(league_session, season_id, cal_start, cal_end) <= 0:
-        return False
-    slate.scoring_week_start = cal_start
-    slate.scoring_week_end = cal_end
     return True
 
 
@@ -307,6 +285,63 @@ def slate_award_time_reached(slate: BowlSixSlate) -> bool:
 
 def lock_time_is_future(slate: BowlSixSlate) -> bool:
     return utcnow_naive() < slate.lock_at
+
+
+def slate_real_scoring_window_utc(slate: BowlSixSlate) -> tuple[datetime, datetime]:
+    """Inclusive start, exclusive end for real-time BOWL Six scoring."""
+    start_et = datetime.combine(slate.week_start, time(20, 1))
+    end_et = datetime.combine(slate.week_end + timedelta(days=1), time(0, 0))
+    return utc_naive_from_eastern(start_et), utc_naive_from_eastern(end_et)
+
+
+def record_bowl_six_game_finals(
+    session: Session,
+    league_session: Session,
+    *,
+    league_slug: str,
+    game_ids: set[int] | list[int],
+    observed_at: datetime | None = None,
+) -> int:
+    """Persist real-time first-final markers for games that just became final."""
+    slug = str(league_slug or "").strip()
+    ids = {int(gid) for gid in game_ids if gid}
+    if not slug or not ids:
+        return 0
+    existing = {
+        int(row.game_id)
+        for row in session.scalars(
+            select(BowlSixGameFinal).where(
+                BowlSixGameFinal.league_slug == slug,
+                BowlSixGameFinal.game_id.in_(ids),
+            )
+        ).all()
+    }
+    missing = ids - existing
+    if not missing:
+        return 0
+    seen_at = observed_at or utcnow_naive()
+    games = {
+        int(g.id): g
+        for g in league_session.scalars(select(Game).where(Game.id.in_(missing))).all()
+    }
+    n = 0
+    for gid in missing:
+        game = games.get(int(gid))
+        if game is None or (game.status or "").lower() != "final":
+            continue
+        session.add(
+            BowlSixGameFinal(
+                league_slug=slug,
+                game_id=int(gid),
+                season_id=int(game.season_id) if game.season_id else None,
+                fhm_game_id=str(game.fhm_game_id or "") or None,
+                first_final_at=seen_at,
+            )
+        )
+        n += 1
+    if n:
+        session.flush()
+    return n
 
 
 def sync_slate_lock_status(session: Session, slate: BowlSixSlate) -> None:
@@ -561,20 +596,79 @@ def save_lineup(
 
 
 def rs_games_in_slate_week(league_session: Session, slate: BowlSixSlate) -> list[Game]:
-    """Regular-season games dated within the slate's sim scoring week (any status)."""
+    """Regular-season games first observed final during the slate's real-time scoring window."""
     season = get_current_season()
     if season is None:
         return []
-    score_start, score_end = slate_scoring_week_bounds(slate)
-    rows = league_session.scalars(
-        select(Game).where(
-            Game.season_id == int(season.id),
-            Game.game_date.isnot(None),
-            Game.game_date >= score_start,
-            Game.game_date <= score_end,
+    window_start, window_end = slate_real_scoring_window_utc(slate)
+    markers = list(
+        db.session.scalars(
+            select(BowlSixGameFinal).where(
+                BowlSixGameFinal.league_slug == slate.league_slug,
+                BowlSixGameFinal.first_final_at >= window_start,
+                BowlSixGameFinal.first_final_at < window_end,
+            )
+        ).all()
+    )
+    game_ids = {int(m.game_id) for m in markers}
+    if not game_ids:
+        return []
+    rows = list(
+        league_session.scalars(
+            select(Game).where(
+                Game.season_id == int(season.id),
+                Game.id.in_(game_ids),
+            )
+        ).all()
+    )
+    return [
+        g
+        for g in rows
+        if (g.status or "").lower() == "final" and _is_regular_season_game(g.game_type)
+    ]
+
+
+def _backfill_active_slate_final_markers_from_legacy_window(
+    session: Session,
+    league_session: Session,
+    slate: BowlSixSlate,
+) -> int:
+    """One-time migration aid for already-locked slates created before real-time tracking."""
+    if slate.status not in ("locked", "open"):
+        return 0
+    existing = session.scalar(
+        select(func.count())
+        .select_from(BowlSixGameFinal)
+        .where(BowlSixGameFinal.league_slug == slate.league_slug)
+    ) or 0
+    if int(existing) > 0:
+        return 0
+    if not slate.scoring_week_start or not slate.scoring_week_end:
+        return 0
+    if (slate.scoring_week_start, slate.scoring_week_end) == (slate.week_start, slate.week_end):
+        return 0
+    season = get_current_season()
+    if season is None:
+        return 0
+    rows = list(
+        league_session.scalars(
+            select(Game).where(
+                Game.season_id == int(season.id),
+                Game.game_date.isnot(None),
+                Game.game_date >= slate.scoring_week_start,
+                Game.game_date <= slate.scoring_week_end,
+                Game.status == "final",
+            )
         )
-    ).all()
-    return [g for g in rows if _is_regular_season_game(g.game_type)]
+    )
+    game_ids = [int(g.id) for g in rows if _is_regular_season_game(g.game_type)]
+    return record_bowl_six_game_finals(
+        session,
+        league_session,
+        league_slug=str(slate.league_slug or ""),
+        game_ids=game_ids,
+        observed_at=max(utcnow_naive(), slate_real_scoring_window_utc(slate)[0]),
+    )
 
 
 def rs_game_ids_for_slate(league_session: Session, slate: BowlSixSlate) -> list[int]:
@@ -586,11 +680,9 @@ def rs_game_ids_for_slate(league_session: Session, slate: BowlSixSlate) -> list[
 
 
 def slate_week_rs_games_complete(league_session: Session, slate: BowlSixSlate) -> bool:
-    """True when every RS game in the week is final (and at least one exists)."""
-    games = rs_games_in_slate_week(league_session, slate)
-    if not games:
-        return False
-    return all((g.status or "").lower() == "final" for g in games)
+    """Real-time BOWL Six weeks complete at Sunday 11:59 PM ET."""
+    _, window_end = slate_real_scoring_window_utc(slate)
+    return utcnow_naive() >= window_end
 
 
 def refresh_player_week_stats(session: Session, slate: BowlSixSlate, league_session: Session) -> None:
@@ -769,6 +861,7 @@ def _auto_update_single_slate(
 ) -> str | None:
     if slate.status == "skipped":
         return None
+    _backfill_active_slate_final_markers_from_legacy_window(session, league_session, slate)
     if sync_slate_week_to_league_calendar(
         session, league_session, str(slate.league_slug), slate
     ):
@@ -1052,11 +1145,8 @@ def slate_gm_submission_roster_enriched(
 
 def slate_week_game_progress(league_session: Session, slate: BowlSixSlate) -> dict[str, int | bool]:
     games = rs_games_in_slate_week(league_session, slate)
-    total = len(games)
-    if total == 0:
-        return {"total": 0, "final": 0, "complete": False}
-    final = sum(1 for g in games if (g.status or "").lower() == "final")
-    return {"total": total, "final": final, "complete": final == total}
+    final = len(games)
+    return {"total": final, "final": final, "complete": slate_week_rs_games_complete(league_session, slate)}
 
 
 def gm_season_standings(session: Session, league_slug: str) -> list[dict[str, Any]]:

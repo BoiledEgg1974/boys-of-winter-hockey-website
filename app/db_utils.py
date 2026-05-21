@@ -1497,6 +1497,40 @@ def ensure_bowl_six_slates_discord_columns_sqlite(engine: Engine) -> None:
         conn.commit()
 
 
+def ensure_bowl_six_game_finals_sqlite(engine: Engine) -> None:
+    """Create BOWL Six real-time game-final tracking table on site DB."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='bowl_six_game_finals'")
+        ).fetchone()
+        if not exists:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE bowl_six_game_finals (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        league_slug VARCHAR(64) NOT NULL,
+                        game_id INTEGER NOT NULL,
+                        season_id INTEGER,
+                        fhm_game_id VARCHAR(64),
+                        first_final_at DATETIME NOT NULL,
+                        CONSTRAINT uq_bowl_six_game_final_league_game
+                            UNIQUE (league_slug, game_id)
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX ix_bowl_six_game_final_league_seen "
+                    "ON bowl_six_game_finals (league_slug, first_final_at)"
+                )
+            )
+        conn.commit()
+
+
 def ensure_prospect_system_rank_snapshots_sqlite(engine: Engine) -> None:
     """Create prospect system rank snapshot table on site DB when missing."""
     if engine.dialect.name != "sqlite":

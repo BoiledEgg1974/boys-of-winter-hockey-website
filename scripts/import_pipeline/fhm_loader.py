@@ -471,6 +471,7 @@ def import_games(
     season: Season,
     teams_fhm: dict[int, int],
     league_filter: int,
+    app=None,
 ) -> dict[str, int]:
     """Returns fhm_game_id -> internal game id"""
     path = raw_dir / "schedules.csv"
@@ -489,6 +490,7 @@ def import_games(
         return sum(vals)
 
     fhm_to_gid: dict[str, int] = {}
+    newly_final_game_ids: set[int] = set()
     for _, row in df.iterrows():
         r = row.to_dict()
         if to_int(cell_val(r, "league_id", "leagueid")) != league_filter:
@@ -514,7 +516,9 @@ def import_games(
             )
             db.session.add(g)
             db.session.flush()
+            prev_status = ""
         else:
+            prev_status = str(g.status or "").lower()
             # Re-bind to the active FHM season row; reused ``fhm_game_id`` rows must not keep
             # a stale ``season_id`` from an older league-year row after rollover.
             g.season_id = int(season.id)
@@ -526,12 +530,28 @@ def import_games(
         g.away_score = to_int(cell_val(r, "score_away"))
         played = cell_val(r, "played")
         g.status = "final" if played == "1" else "scheduled"
+        if g.status == "final" and prev_status != "final":
+            newly_final_game_ids.add(int(g.id))
         g.went_to_overtime = to_bool(cell_val(r, "overtime")) or cell_val(r, "overtime") == "1"
         g.went_to_shootout = to_bool(cell_val(r, "shootout")) or cell_val(r, "shootout") == "1"
         g.game_type = cell_val(r, "type")
         g.fhm_league_id = league_filter
         fhm_to_gid[gid] = g.id
     db.session.commit()
+    if app is not None and newly_final_game_ids:
+        try:
+            from app.services.bowl_six import record_bowl_six_game_finals
+
+            record_bowl_six_game_finals(
+                db.session,
+                db.session,
+                league_slug=str(app.config.get("LEAGUE_SLUG") or ""),
+                game_ids=newly_final_game_ids,
+            )
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            log.exception("BOWL Six game-final tracking failed (non-fatal)")
 
     # Enrich from boxscore_summary
     bpath = raw_dir / "boxscore_summary.csv"
@@ -1203,7 +1223,7 @@ def run_fhm_import(raw_dir: Path, app, league_filter: int = 0) -> dict[str, int]
     counts["team_aggregates_po"] = import_team_season_stats(
         raw_dir, season, teams_fhm, league_filter, filename="team_stats_playoffs.csv", stat_segment="po"
     )
-    games_fhm = import_games(raw_dir, season, teams_fhm, league_filter)
+    games_fhm = import_games(raw_dir, season, teams_fhm, league_filter, app=app)
     counts["games"] = len(games_fhm)
 
     _clear_game_details()

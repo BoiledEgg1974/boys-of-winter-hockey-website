@@ -12,7 +12,6 @@ from app.services.bowl_six_scoring import (
 from datetime import date
 
 from app.services.bowl_six import (
-    _week_bounds_for_date,
     default_lock_at,
     eastern_naive_from_utc_naive,
     lock_at_display_eastern,
@@ -75,7 +74,7 @@ class BowlSixScoringTest(unittest.TestCase):
         )
         self.assertFalse(v.ok)
 
-    def test_slate_week_complete_requires_all_final_rs_games(self):
+    def test_slate_week_complete_uses_real_time_window(self):
         slate = BowlSixSlate(
             league_slug="bowl-cap",
             week_start=date(2026, 5, 18),
@@ -84,19 +83,16 @@ class BowlSixScoringTest(unittest.TestCase):
             status="locked",
         )
         league_session = MagicMock()
-        g1 = MagicMock(status="final", game_type="RS")
-        g2 = MagicMock(status="scheduled", game_type="RS")
         with unittest.mock.patch(
-            "app.services.bowl_six.rs_games_in_slate_week", return_value=[g1, g2]
+            "app.services.bowl_six.utcnow_naive",
+            return_value=__import__("datetime").datetime(2026, 5, 25, 3, 59),
         ):
             self.assertFalse(slate_week_rs_games_complete(league_session, slate))
         with unittest.mock.patch(
-            "app.services.bowl_six.rs_games_in_slate_week",
-            return_value=[g1, MagicMock(status="final", game_type="RS")],
+            "app.services.bowl_six.utcnow_naive",
+            return_value=__import__("datetime").datetime(2026, 5, 25, 4, 0),
         ):
             self.assertTrue(slate_week_rs_games_complete(league_session, slate))
-        with unittest.mock.patch("app.services.bowl_six.rs_games_in_slate_week", return_value=[]):
-            self.assertFalse(slate_week_rs_games_complete(league_session, slate))
 
     def test_parse_lock_at_eastern_form(self):
         # May 19 2026 8:30 PM EDT (UTC-4) -> May 20 00:30 UTC
@@ -185,38 +181,22 @@ class BowlSixScoringTest(unittest.TestCase):
         sync_slate_lock_status(unittest.mock.MagicMock(), slate)
         self.assertEqual(slate.status, "open")
 
-    def test_sync_slate_week_realigns_when_stored_week_has_no_rs_games(self):
+    def test_sync_slate_week_realigns_legacy_sim_week_to_real_week(self):
         slate = BowlSixSlate(
             league_slug="bowl-historical",
-            week_start=date(2026, 5, 18),
-            week_end=date(2026, 5, 24),
+            week_start=date(1969, 3, 10),
+            week_end=date(1969, 3, 16),
+            scoring_week_start=date(1969, 3, 10),
+            scoring_week_end=date(1969, 3, 16),
             lock_at=__import__("datetime").datetime(2026, 5, 18),
             status="open",
         )
         site_session = MagicMock()
+        site_session.scalar.return_value = None
         league_session = MagicMock()
-        anchor = date(1987, 5, 18)
-        cal_start, cal_end = _week_bounds_for_date(anchor, 0)
-
-        def _count(session, season_id, ws, we):
-            if ws == date(2026, 5, 18):
-                return 0
-            if ws == cal_start:
-                return 2
-            return 0
-
         with unittest.mock.patch(
-            "app.services.bowl_six.get_current_season",
-            return_value=MagicMock(id=1),
-        ), unittest.mock.patch(
-            "app.services.bowl_six.league_calendar_anchor_date",
-            return_value=anchor,
-        ), unittest.mock.patch(
-            "app.services.bowl_six.rule_int",
-            return_value=0,
-        ), unittest.mock.patch(
-            "app.services.bowl_six._count_rs_games_in_range",
-            side_effect=_count,
+            "app.services.bowl_six._real_bowl_six_week_bounds",
+            return_value=(date(2026, 5, 18), date(2026, 5, 24)),
         ):
             changed = sync_slate_week_to_league_calendar(
                 site_session, league_session, "bowl-historical", slate
@@ -224,8 +204,8 @@ class BowlSixScoringTest(unittest.TestCase):
         self.assertTrue(changed)
         self.assertEqual(slate.week_start, date(2026, 5, 18))
         self.assertEqual(slate.week_end, date(2026, 5, 24))
-        self.assertEqual(slate.scoring_week_start, cal_start)
-        self.assertEqual(slate.scoring_week_end, cal_end)
+        self.assertEqual(slate.scoring_week_start, date(2026, 5, 18))
+        self.assertEqual(slate.scoring_week_end, date(2026, 5, 24))
 
     def test_slate_lock_ui_locked_when_past(self):
         past = __import__("datetime").datetime(2020, 1, 1, 0, 0)

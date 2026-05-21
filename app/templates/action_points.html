@@ -61,7 +61,25 @@
                 aria-controls="ap-detail-{{ it.id }}"
               >
             </td>
-            <td><strong title="{{ it.description }}">{{ it.title }}</strong></td>
+            <td>
+              <strong title="{{ it.description }}">{{ it.title }}</strong>
+              {% if row.allows_quantity %}
+              <label class="ap-redeem-qty" for="catalog-qty-{{ it.id }}">
+                Qty
+                <input
+                  type="number"
+                  id="catalog-qty-{{ it.id }}"
+                  name="catalog_qty_{{ it.id }}"
+                  class="ap-redeem-qty__input"
+                  min="1"
+                  max="99"
+                  value="1"
+                  inputmode="numeric"
+                  data-qty-for="{{ it.id }}"
+                >
+              </label>
+              {% endif %}
+            </td>
             <td>{{ it.cost_ap }}</td>
           </tr>
           {% else %}
@@ -233,6 +251,16 @@
 
   form.querySelectorAll('.ap-redeem-check').forEach(function (cb) {
     cb.addEventListener('change', syncDetailPanels);
+  });
+  form.querySelectorAll('[data-qty-for]').forEach(function (input) {
+    input.addEventListener('input', function () {
+      var id = input.getAttribute('data-qty-for');
+      var cb = form.querySelector('.ap-redeem-check[data-catalog-id="' + id + '"]');
+      if (cb && parseInt(input.value || '0', 10) > 0) {
+        cb.checked = true;
+        syncDetailPanels();
+      }
+    });
   });
   syncDetailPanels();
 

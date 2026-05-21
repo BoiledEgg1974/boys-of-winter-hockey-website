@@ -4924,6 +4924,23 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
   border: 1px solid rgba(56, 189, 248, 0.35);
   font-size: 0.9rem;
 }
+.ap-redeem-qty {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: 0.75rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.ap-redeem-qty__input {
+  width: 4rem;
+  padding: 0.2rem 0.35rem;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  border-radius: 6px;
+  background: #0f172a;
+  color: inherit;
+}
 .admin-ap-detail-list {
   margin: 1rem 0;
   padding-left: 1.2rem;

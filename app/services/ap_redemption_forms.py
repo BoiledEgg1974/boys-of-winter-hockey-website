@@ -210,6 +210,14 @@ def catalog_item_has_detail_form(form_key: str | None) -> bool:
     return bool(form_key and form_key in _FORM_FIELDS)
 
 
+def catalog_item_allows_quantity(title: str) -> bool:
+    """Catalog items that can be redeemed more than once in one request."""
+    t = str(title or "").strip().lower()
+    if not t:
+        return False
+    return "financial starting points" in t or t == "financial boost"
+
+
 def catalog_item_form_key(title: str) -> str | None:
     t = str(title or "").strip().lower()
     if not t:
@@ -505,6 +513,14 @@ def extract_raw_details_for_catalog_id(form, catalog_id: int) -> dict[str, Any]:
 
 
 def line_item_display_title(title: str, details: dict[str, Any] | None) -> str:
+    quantity = 1
+    if isinstance(details, dict):
+        try:
+            quantity = int(details.get("quantity") or 1)
+        except (TypeError, ValueError):
+            quantity = 1
+    if quantity > 1:
+        title = f"{title} x{quantity}"
     summary = format_details_summary(details)
     if summary:
         return f"{title} — {summary}"

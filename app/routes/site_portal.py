@@ -634,6 +634,7 @@ def action_points_page():
     from app.services.ap_redemption_forms import (
         catalog_item_form_key,
         catalog_item_has_detail_form,
+        catalog_item_allows_quantity,
         form_fields_for_key,
         team_select_options,
     )
@@ -649,6 +650,7 @@ def action_points_page():
                     "item": it,
                     "form_key": fk,
                     "has_form": catalog_item_has_detail_form(fk),
+                    "allows_quantity": catalog_item_allows_quantity(it.title),
                     "fields": form_fields_for_key(fk),
                 }
             )
@@ -686,6 +688,7 @@ def action_points_redeem():
     items = db.session.scalars(select(ApRedemptionCatalog).where(ApRedemptionCatalog.id.in_(ids))).all()
     group = league_group_for_slug(slug)
     from app.services.ap_redemption_forms import (
+        catalog_item_allows_quantity,
         catalog_item_form_key,
         catalog_item_has_detail_form,
         extract_raw_details_for_catalog_id,
@@ -701,6 +704,16 @@ def action_points_redeem():
             continue
         form_key = catalog_item_form_key(it.title)
         details: dict = {}
+        quantity = 1
+        if catalog_item_allows_quantity(it.title):
+            qty_raw = request.form.get(f"catalog_qty_{int(it.id)}", "1")
+            try:
+                quantity = int(qty_raw)
+            except (TypeError, ValueError):
+                quantity = 0
+            if quantity < 1 or quantity > 99:
+                flash(f"{it.title}: enter a quantity from 1 to 99.", "err")
+                return redirect(url_for("site_gm.action_points_page"))
         if catalog_item_has_detail_form(form_key):
             raw = extract_raw_details_for_catalog_id(request.form, int(it.id))
             details, err = parse_catalog_item_details(
@@ -709,15 +722,20 @@ def action_points_redeem():
             if err:
                 flash(f"{it.title}: {err}", "err")
                 return redirect(url_for("site_gm.action_points_page"))
+        if quantity > 1:
+            details = dict(details)
+            details["quantity"] = quantity
         line = {
             "id": it.id,
             "title": it.title,
-            "cost": it.cost_ap,
+            "cost": int(it.cost_ap) * quantity,
+            "unit_cost": int(it.cost_ap),
+            "quantity": quantity,
             "details": details,
             "summary": format_details_summary(details) if details else "",
         }
         lines.append(line)
-        total += int(it.cost_ap)
+        total += int(it.cost_ap) * quantity
     bal = team_ap_balance(slug, mem.team_id)
     if total <= 0 or bal < total:
         flash("Insufficient AP or invalid selection.", "err")

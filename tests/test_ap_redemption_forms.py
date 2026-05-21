@@ -5,9 +5,11 @@ import unittest
 from unittest.mock import MagicMock
 
 from app.services.ap_redemption_forms import (
+    catalog_item_allows_quantity,
     catalog_item_form_key,
     catalog_item_has_detail_form,
     format_details_summary,
+    line_item_display_title,
     parse_catalog_item_details,
 )
 
@@ -35,6 +37,19 @@ class ApRedemptionFormsTest(unittest.TestCase):
             catalog_item_has_detail_form(
                 catalog_item_form_key("Add 2 Points to Coach's Attribute")
             )
+        )
+
+    def test_financial_starting_points_allows_quantity(self):
+        self.assertTrue(
+            catalog_item_allows_quantity("Financial Starting Points +15%")
+        )
+        self.assertTrue(catalog_item_allows_quantity("Financial Boost"))
+        self.assertFalse(catalog_item_allows_quantity("Change a Rival"))
+        self.assertEqual(
+            line_item_display_title(
+                "Financial Starting Points +15%", {"quantity": 3}
+            ),
+            "Financial Starting Points +15% x3",
         )
 
     def test_market_fan_media_requires_choice(self):

@@ -156,7 +156,6 @@ def import_seasons(raw_dir: Path, app) -> int:
         return 0
     df = read_csv_normalized(path)
     n = 0
-    newly_final_game_ids: set[int] = set()
     for _, row in df.iterrows():
         r = row.to_dict()
         label = cell_val(r, "label", "season", "name")
@@ -276,6 +275,7 @@ def import_players(raw_dir: Path, app) -> int:
         return 0
     df = read_csv_normalized(path)
     n = 0
+    newly_final_game_ids: set[int] = set()
     for _, row in df.iterrows():
         r = row.to_dict()
         fn = cell_val(r, "first_name", "firstname", "fname")
@@ -348,6 +348,7 @@ def import_team_standings(raw_dir: Path, app) -> int:
 
     df = read_csv_normalized(path)
     n = 0
+    newly_final_game_ids: set[int] = set()
     for _, row in df.iterrows():
         r = row.to_dict()
         sk = cell_val(r, "season_id", "season", "fhm_season_id")

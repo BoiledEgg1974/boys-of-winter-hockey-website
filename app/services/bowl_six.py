@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.auth_login import active_membership_for_league
 from app.league_db import db
 from app.models import Game, Player, Team
+from app.services.homepage_dashboard import league_calendar_anchor_date
 from app.services.postseason_odds import _is_regular_season_game
 
 _log = logging.getLogger(__name__)
@@ -671,6 +672,44 @@ def _backfill_active_slate_final_markers_from_legacy_window(
     )
 
 
+def _record_current_calendar_final_markers_for_active_slate(
+    session: Session,
+    league_session: Session,
+    slate: BowlSixSlate,
+) -> int:
+    """Catch up finals first seen after real-time tracking was deployed."""
+    if slate.status not in ("locked", "open"):
+        return 0
+    now = utcnow_naive()
+    window_start, window_end = slate_real_scoring_window_utc(slate)
+    if now < window_start or now >= window_end:
+        return 0
+    season = get_current_season()
+    if season is None:
+        return 0
+    anchor = league_calendar_anchor_date(league_session, int(season.id))
+    cal_start, cal_end = _week_bounds_for_date(anchor, BOWL_SIX_REAL_WEEK_START_DOW)
+    rows = list(
+        league_session.scalars(
+            select(Game).where(
+                Game.season_id == int(season.id),
+                Game.game_date.isnot(None),
+                Game.game_date >= cal_start,
+                Game.game_date <= cal_end,
+                Game.status == "final",
+            )
+        )
+    )
+    game_ids = [int(g.id) for g in rows if _is_regular_season_game(g.game_type)]
+    return record_bowl_six_game_finals(
+        session,
+        league_session,
+        league_slug=str(slate.league_slug or ""),
+        game_ids=game_ids,
+        observed_at=now,
+    )
+
+
 def rs_game_ids_for_slate(league_session: Session, slate: BowlSixSlate) -> list[int]:
     return [
         int(g.id)
@@ -862,6 +901,7 @@ def _auto_update_single_slate(
     if slate.status == "skipped":
         return None
     _backfill_active_slate_final_markers_from_legacy_window(session, league_session, slate)
+    _record_current_calendar_final_markers_for_active_slate(session, league_session, slate)
     if sync_slate_week_to_league_calendar(
         session, league_session, str(slate.league_slug), slate
     ):

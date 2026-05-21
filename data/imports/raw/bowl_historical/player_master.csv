@@ -727,7 +727,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 4630;61;61;Anatoli;Firsov;;69;154;1941-2-1;Moscow;MOS;Russia;;;0;Right;0
 4505;59;59;Leif;Andersson;;69;172;1940-3-3;Stockholm;STO;Sweden;;;0;Left;0
 4631;59;59;Hans;Dahllöf;Länsman;68;154;1941-1-25;Gävle;GäV;Sweden;;;0;Left;0
-4961;118;118;Bob;Sneddon;;74;194;1944-5-31;Murdochville;QC;Canada;;;0;Right;0
+4961;125;118;Bob;Sneddon;;74;194;1944-5-31;Murdochville;QC;Canada;;;0;Right;0
 4761;118;118;Gary;Sabourin;Gaye;71;181;1943-12-4;Parry Sound;ON;Canada;;;0;Right;0
 4632;59;59;Lennart;Johansson;;74;198;1941-6-7;Motala;ÖST;Sweden;;;0;Left;0
 5091;90;90;Roger;Pelletier;;71;195;1945-6-22;Murdochville;QC;Canada;;;0;Right;0
@@ -801,7 +801,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 4510;60;60;Timo;Ahlqvist;;69;172;1940-4-2;Tampere;PIR;Finland;;;0;Right;0
 4964;26;8;Ron;Ward;Magic;71;175;1944-9-12;Cornwall;ON;Canada;;;0;Right;0
 5669;24;5;Gerry;Hart;;69;190;1948-1-1;Killarney;MB;Canada;;;0;Left;1
-5256;125;118;Joe;Junkin;;71;181;1946-9-8;Lindsay;ON;Canada;;;0;Left;0
+5256;118;118;Joe;Junkin;;71;181;1946-9-8;Lindsay;ON;Canada;;;0;Left;1
 6126;85;85;Hilliard;Graves;;71;175;1950-10-18;St. Stephen;NB;Canada;;;0;Right;0
 5897;83;83;Bill;Hogaboam;Hogi;71;170;1949-9-5;Watrous;SK;Canada;;;0;Right;0
 5670;83;83;Murray;Heatley;;68;185;1948-11-7;Camrose;AB;Canada;;;0;Right;0

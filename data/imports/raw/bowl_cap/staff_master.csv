@@ -34,7 +34,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 32;16;Bob;Gainey;;1953-12-13;Peterborough;ON;Canada;;;0
 33;11;Glen;Sather;Slats;1943-9-2;High River;AB;Canada;;;0
 34;18;Brian;Burke;Burkie;1955-6-30;Providence;KY;The United States;;;0
-35;16;Bryan;Murray;;1942-12-5;Shawville;QC;Canada;;;0
+35;-1;Bryan;Murray;;1942-12-5;Shawville;QC;Canada;;;0
 36;221;Don;Maloney;;1958-9-5;Lindsay;ON;Canada;;;0
 37;-1;Pierre;McGuire;;1961-8-8;Englewood;NJ;Canada;The United States;;0
 38;-1;Dave;King;;1947-12-22;North Battleford;SK;Canada;;;0
@@ -102,7 +102,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 100;-1;André;Savard;;1953-9-2;Temiskaming Shores;ON;Canada;;;0
 101;-1;Mike;O'Connell;;1955-11-25;Chicago;IL;The United States;;;0
 102;8;Tom;Watt;;1935-6-17;Toronto;ON;Canada;;;0
-103;16;Gerry;Cheevers;Cheesy;1940-12-7;St. Catharines;ON;Canada;;;0
+103;-1;Gerry;Cheevers;Cheesy;1940-12-7;St. Catharines;ON;Canada;;;0
 104;-1;Keith;Magnuson;;1947-4-27;Saskatoon;SK;Canada;;;0
 105;-1;Bill;Goldsworthy;;1944-8-24;Waterloo;ON;Canada;;;0
 106;-1;Rogie;Vachon;;1945-9-8;Palmarolle;QC;Canada;;;0
@@ -1549,7 +1549,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1547;192;Jeremy;Cummins;;1939-7-8;Cairns;QLD;Australia;;;0
 1548;12;Doug;Storey;;1939-11-10;Georgetown;ON;Canada;;;0
 1549;220;Tony;Carroll;;1943-3-10;Brooklyn;NY;The United States;;;0
-1550;16;Greg;Bruce;;1939-2-11;Surrey;BC;Canada;;;0
+1550;-1;Greg;Bruce;;1939-2-11;Surrey;BC;Canada;;;0
 1551;3;Michael;Bretner;;1939-8-11;St. Catharines;ON;Canada;;;0
 1552;-1;Dwight;Dowie;;1946-7-18;Austin;TX;The United States;;;0
 1553;21;Kevin;Vaillancourt;;1939-1-4;Georgina;ON;Canada;;;0
@@ -1862,7 +1862,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1860;223;Bill;Turner;;1943-12-18;;;The United States;;;0
 1861;223;Mike;Dudley;;1947-7-16;;;The United States;;;0
 1862;17;Lindy;Ruff;;1960-2-17;Elk Point;AB;Canada;;;0
-1863;216;Randy;Carlyle;;1956-4-19;Sudbury;ON;Canada;;;0
+1863;16;Randy;Carlyle;;1956-4-19;Sudbury;ON;Canada;;;0
 1864;10;Thomas;Gradin;;1956-2-18;Sollefteå;VäS;Sweden;;;0
 1865;217;Joel;Quenneville;;1958-9-15;Windsor;ON;Canada;;;0
 1866;228;Marc;Crawford;Crow;1961-2-13;Belleville;ON;Canada;;;0

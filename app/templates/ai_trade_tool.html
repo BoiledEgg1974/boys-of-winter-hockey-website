@@ -139,7 +139,14 @@
       </header>
       <div class="ai-trade-tool-bot-row">
         <div class="ai-trade-tool-bot-figure">
-          <img class="ai-trade-tool-bot-img" src="{{ url_for('static', filename='img/ai-trade-bot.svg') }}" width="120" height="120" alt="">
+          {% if config.LEAGUE_SLUG == 'bowl-fantasy' %}
+          {% set bot_img = 'img/ai-trade-bot-fantasy.png' %}
+          {% elif config.LEAGUE_SLUG == 'bowl-cap' %}
+          {% set bot_img = 'img/ai-trade-bot-cap.png' %}
+          {% else %}
+          {% set bot_img = 'img/ai-trade-bot-historical.png' %}
+          {% endif %}
+          <img class="ai-trade-tool-bot-img" src="{{ url_for('static', filename=bot_img) }}" width="120" height="120" alt="">
         </div>
         <div class="ai-trade-tool-bubble ai-trade-tool-bubble--dialog" id="ai-trade-bubble" aria-live="polite">
           <p class="ai-trade-tool-bubble__verdict" id="ai-bubble-verdict" hidden></p>

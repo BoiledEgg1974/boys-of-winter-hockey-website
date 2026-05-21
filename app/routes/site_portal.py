@@ -1306,6 +1306,7 @@ def ai_trade_tool_evaluate():
     mem = _membership()
     if not mem:
         return jsonify({"error": "No active GM membership for this league."}), 403
+    left_team_id = int(mem.team_id)
     data = request.get_json(silent=True) or {}
     try:
         validate_csrf(data.get("csrf_token"))

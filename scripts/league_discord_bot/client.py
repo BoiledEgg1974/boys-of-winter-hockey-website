@@ -131,7 +131,12 @@ class LeagueDiscordBot:
         message_id: str,
         body: dict[str, Any],
     ) -> str:
+        clear_stale_content = bool(body.get("embeds")) and not str(body.get("content") or "").strip()
         body = sanitize_discord_message_body(body)
+        if clear_stale_content and body.get("embeds") and "content" not in body:
+            # Discord PATCH preserves omitted content; explicitly clear old text when editing
+            # an existing BOWL Six post into an embed-only message.
+            body["content"] = ""
         resp = self._discord_request_with_retry(
             discord_client,
             lambda: self._patch_discord_once(

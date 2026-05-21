@@ -30,6 +30,7 @@ instance/*.sqlite
 instance/*.sqlite3
 instance/*.bak
 instance/draft_hub_eligible_cache/
+instance/league_json_cache/
 *.log
 
 # Cursor IDE: ignore everything in .cursor except shared agent rules

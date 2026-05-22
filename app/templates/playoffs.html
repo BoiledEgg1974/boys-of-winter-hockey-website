@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Playoffs — Boys of Winter Hockey League{% endblock %}
+{% macro team_label(t) -%}
+{% if t %}
+  {% if t.logo_url %}<img class="team-logo" src="{{ t.logo_url }}" alt="" width="24" height="24" loading="lazy" decoding="async"> {% endif %}
+  {% if t.slug %}<a href="{{ url_for('main.team_page', slug=t.slug) }}">{{ t.abbreviation or t.name }}</a>{% else %}{{ t.abbreviation or t.name }}{% endif %}
+{% else %}
+  TBD
+{% endif %}
+{%- endmacro %}
+{% macro series_card(s) -%}
+<article class="card" style="margin-bottom:10px">
+  {% if s %}
+  <h3 style="margin-top:0">
+    {{ team_label(s.team_a) }} vs {{ team_label(s.team_b) }}
+  </h3>
+  <p>
+    <strong>{{ s.wins_a }}-{{ s.wins_b }}</strong>
+    {% if s.series_complete and s.winner %} · {{ s.winner.abbreviation or s.winner.name }} wins{% elif s.preview_only %} · Projected{% else %} · In progress{% endif %}
+  </p>
+  {% if s.prediction %}
+  <p class="muted">Prediction: {{ s.prediction.team_a_label }} {{ s.prediction.team_a_pct }} / {{ s.prediction.team_b_label }} {{ s.prediction.team_b_pct }}</p>
+  {% endif %}
+  {% else %}
+  <h3 style="margin-top:0">TBD</h3>
+  <p class="muted">Awaiting matchup.</p>
+  {% endif %}
+</article>
+{%- endmacro %}
+{% block content %}
+<div class="page">
+  <h1 class="page-title">Playoff Bracket</h1>
+  <p class="muted">
+    {% if season %}{{ season.label }} · {% endif %}
+    Built from imported playoff games in this league database.
+  </p>
+  {% if bracket.empty %}
+  <div class="card">
+    <p class="empty-state">{{ bracket.message }}</p>
+  </div>
+  {% else %}
+  {% if bracket.championship %}
+  <section>
+    <h2>Championship</h2>
+    {{ series_card(bracket.championship) }}
+  </section>
+  {% endif %}
+  {% for round in bracket.rounds %}
+  <section>
+    <h2>{{ round.label }}</h2>
+    <div class="grid2">
+      {% for s in round.series %}
+      {{ series_card(s) }}
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+  {% if bracket.prediction_method_note %}
+  <p class="muted">{{ bracket.prediction_method_note }}</p>
+  {% endif %}
+  {% endif %}
+</div>
+{% endblock %}

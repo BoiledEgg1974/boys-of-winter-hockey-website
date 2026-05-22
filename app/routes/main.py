@@ -5,6 +5,7 @@ import csv
 import re
 import smtplib
 import unicodedata
+from dataclasses import replace
 from datetime import date
 from email.message import EmailMessage
 from pathlib import Path
@@ -16,6 +17,7 @@ from sqlalchemy.orm import joinedload, selectinload
 from app.config import (
     BASE_DIR,
     Config,
+    league_display_name,
     undrafted_prospects_age_filter_options,
     undrafted_prospects_max_age,
 )
@@ -37,6 +39,7 @@ from app.models import (
     Team,
     TeamSeasonAggregate,
     TeamStanding,
+    TradeLogEntry,
     db,
 )
 from app.services.ap_service import team_ap_balance as compute_team_ap_balance
@@ -142,6 +145,20 @@ from app.services.standings import (
     team_aggregate_rows,
 )
 from app.services.postseason_odds import build_team_page_mc_bundle
+from app.services.draft_hub_eligibility import (
+    DraftEligibilityParams,
+    age_as_of,
+    default_eligibility_for_league,
+    eligible_players_ordered,
+)
+from app.services.draft_hub_state import (
+    draft_eligibility_params,
+    featured_draft,
+    picked_player_ids,
+)
+from app.services.playoff_bracket import playoff_bracket_payload
+from app.services.team_alumni import team_alumni_rows as build_team_alumni_rows
+from app.services.trade_log import trade_log_rows as build_trade_log_rows
 main_bp = Blueprint("main", __name__)
 
 
@@ -681,6 +698,39 @@ def standings():
         playoff_mirror_rounds=playoff_mirror_rounds,
         positional_ranking_rows=positional_ranking_rows,
         positional_rank_snapshot_at=positional_rank_snapshot_at,
+    )
+
+
+@main_bp.get("/trade-log")
+def trade_log_page():
+    """Published commissioner trades and optional ``trades.csv`` import history."""
+    slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    rows = build_trade_log_rows(db.session, db.session, league_slug=slug)
+    has_csv = bool(
+        db.session.scalar(select(func.count()).select_from(TradeLogEntry)) or 0
+    )
+    return render_template(
+        "trade_log.html",
+        trade_rows=rows,
+        has_csv_import=has_csv,
+    )
+
+
+@main_bp.get("/playoffs")
+def playoffs_page():
+    """Direct playoff bracket page backed by imported playoff games."""
+    canonical_season = get_current_season()
+    season = (
+        season_with_imported_data_fallback(db.session, canonical_season)
+        if canonical_season
+        else None
+    )
+    payload = playoff_bracket_payload(season.id if season else None)
+    return render_template(
+        "playoffs.html",
+        season=season,
+        canonical_season=canonical_season,
+        bracket=payload,
     )
 
 
@@ -2249,6 +2299,152 @@ def undrafted_prospects():
     )
 
 
+def _draft_eligible_params_for_page(
+    league_slug: str, season: Season | None
+) -> tuple[DraftEligibilityParams, str]:
+    draft = featured_draft(db.session, league_slug)
+    if draft:
+        return draft_eligibility_params(draft), f"{draft.name} settings"
+
+    params = default_eligibility_for_league(league_slug)
+    timeline_year = (
+        int(season.end_year)
+        if season and season.end_year
+        else int(season.start_year) + 1
+        if season and season.start_year
+        else date.today().year
+    )
+    return replace(params, timeline_year=timeline_year), "league defaults"
+
+
+@main_bp.get("/draft-eligible")
+def draft_eligible():
+    """Draft-eligible pool from the current league database and timeline rules."""
+    pos = request.args.get("position")
+    q = (request.args.get("q") or "").strip().lower()
+    expanded = request.args.get("expanded") == "1"
+    page_limit = 100
+    league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    season = get_current_season()
+    params, params_source = _draft_eligible_params_for_page(league_slug, season)
+    draft = featured_draft(db.session, league_slug)
+    picked: set[int] = picked_player_ids(db.session, draft.id) if draft else set()
+
+    overview_headers = (
+        ("Skating", "SKT", "skating"),
+        ("Shooting", "SHT", "shooting"),
+        ("Playmaking", "PLM", "playmaking"),
+        ("Defending", "DEF", "defending"),
+        ("Physicality", "PHY", "physicality"),
+        ("Conditioning", "CON", "conditioning"),
+        ("Character", "CHR", "character"),
+        ("Hockey sense", "HSN", "hockey_sense"),
+    )
+    attr_sort_keys = frozenset(h[2] for h in overview_headers)
+    valid_sorts = frozenset({"rank", "player", "age", "abi", "pot", "ova", *attr_sort_keys})
+    sort_default_desc = frozenset({"rank", "abi", "pot", "ova", *attr_sort_keys})
+    sort_col = request.args.get("sort") or "rank"
+    order = request.args.get("order") or ("asc" if sort_col == "rank" else "desc")
+    if sort_col not in valid_sorts:
+        sort_col = "rank"
+    if order not in ("asc", "desc"):
+        order = "asc" if sort_col == "rank" else "desc"
+
+    players = [p for p in eligible_players_ordered(db.session, league_slug, params) if int(p.id) not in picked]
+    if q:
+        players = [p for p in players if q in (p.full_name or "").lower()]
+    if pos:
+        players = [p for p in players if _prospect_pos_matches(p.position, pos)]
+
+    age_ref = date(params.timeline_year, params.max_anchor_month, params.max_anchor_day)
+    items: list[dict] = []
+    for pl in players:
+        rr = get_player_ratings_row(pl.fhm_player_id)
+        attrs: dict[str, float | None] = {}
+        attrs_display: dict[str, object | None] = {}
+        if rr:
+            for _full, _abbr, key in overview_headers:
+                raw_cell = rr.get(key)
+                attrs_display[key] = raw_cell
+                attrs[key] = _prospect_float(raw_cell)
+        items.append(
+            {
+                "pl": pl,
+                "attrs": attrs,
+                "attrs_display": attrs_display,
+                "age": age_as_of(pl.birth_date, age_ref),
+                "rr": rr,
+            }
+        )
+
+    rev = order == "desc"
+    if sort_col == "rank":
+        # Preserve eligibility board order unless explicitly reversed.
+        if rev:
+            items.reverse()
+    elif sort_col == "player":
+        items.sort(key=lambda it: ((it["pl"].full_name or "").lower(), it["pl"].id), reverse=rev)
+    else:
+
+        def num_key(it: dict) -> tuple:
+            pl = it["pl"]
+            if sort_col == "age":
+                v = it["age"]
+            elif sort_col == "abi":
+                v = _prospect_float(pl.overall_ability) if pl.overall_ability is not None else None
+            elif sort_col == "pot":
+                v = _prospect_float(pl.overall_potential) if pl.overall_potential is not None else None
+            elif sort_col == "ova":
+                ov = compute_player_overall_100(
+                    pl.overall_ability,
+                    pl.overall_potential,
+                    it.get("rr"),
+                    is_goalie=player_is_goalie_for_overall(pl),
+                )
+                v = float(ov) if ov is not None else None
+            else:
+                v = it["attrs"].get(sort_col)
+            if v is None:
+                sentinel = float("-inf") if rev else float("inf")
+                return (sentinel, pl.full_name or "", pl.id)
+            return (v, pl.full_name or "", pl.id)
+
+        items.sort(key=num_key, reverse=rev)
+
+    rows_out = [
+        {
+            "rank": i,
+            "player": it["pl"],
+            "age": it["age"],
+            "attrs": it["attrs_display"],
+        }
+        for i, it in enumerate(items, start=1)
+    ]
+    total = len(rows_out)
+    display_rows = rows_out if expanded or total <= page_limit else rows_out[:page_limit]
+    player_overall_by_id = build_overall_cell_map_from_players(
+        db.session, [r["player"] for r in display_rows]
+    )
+    return render_template(
+        "draft_eligible.html",
+        prospect_rows=display_rows,
+        total_prospects=total,
+        prospect_page_limit=page_limit,
+        prospect_expanded=expanded,
+        prospect_overview_headers=overview_headers,
+        position=pos,
+        q=q,
+        prospect_sort=sort_col,
+        prospect_order=order,
+        prospect_sort_desc_defaults=sort_default_desc,
+        player_overall_by_id=player_overall_by_id,
+        eligibility_params=params,
+        eligibility_params_source=params_source,
+        active_draft=draft,
+        league_display=league_display_name(league_slug),
+    )
+
+
 @main_bp.get("/free-agents")
 def free_agents():
     """Free pool: not on NHL/BOWL roster and no NHL/BOWL org contract/prospect link; excludes undrafted pool."""
@@ -3539,6 +3735,8 @@ def team_page(slug: str):
         "salary",
         "statistics",
         "staff",
+        "alumni",
+        "trades",
         "franchise",
         "season_records",
         "team_history",
@@ -3602,6 +3800,17 @@ def team_page(slug: str):
         from app.services.team_records import team_year_records
 
         team_history_records = team_year_records(db.session, team)
+
+    team_alumni = []
+    if panel == "alumni":
+        team_alumni = build_team_alumni_rows(db.session, team)
+
+    team_trade_log: list = []
+    if panel == "trades":
+        slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+        team_trade_log = build_trade_log_rows(
+            db.session, db.session, league_slug=slug, team_id=int(team.id), limit=80
+        )
 
     raw_dir = Path(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR))
     depth_chart, lines_sections, lines_name_to_id, salary_rows, salary_total = _build_team_lines_views(
@@ -3760,6 +3969,8 @@ def team_page(slug: str):
         "season_records_rs_sections": season_records_rs_sections,
         "season_records_po_sections": season_records_po_sections,
         "team_history_records": team_history_records,
+        "team_alumni_rows": team_alumni,
+        "team_trade_log_rows": team_trade_log,
         "team_ap_balance": compute_team_ap_balance(str(current_app.config.get("LEAGUE_SLUG") or ""), team.id),
         "team_page_news": _team_page_news_rows(team.id),
         "news_viewer_can_react": news_viewer_can_react,

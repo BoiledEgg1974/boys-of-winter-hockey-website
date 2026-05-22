@@ -29,6 +29,7 @@
       <nav id="main-nav" class="main-nav" aria-label="Primary">
         <div class="main-nav__row" style="width:100%">
           <a href="{{ url_for('main.standings') }}">Standings</a>
+          <a href="{{ url_for('main.playoffs_page') }}">Playoffs</a>
           <a href="{{ url_for('main.statistics') }}">Statistics</a>
           <a href="{{ url_for('main.schedule') }}">Schedule</a>
           <span class="nav-teams-dropdown">
@@ -56,12 +57,13 @@
           <a href="{{ url_for('main.prospects') }}">Prospects</a>
           <span class="main-nav__pair">
             <a href="{{ url_for('main.undrafted_prospects') }}">Undrafted Prospects</a>
+            <a href="{{ url_for('main.draft_eligible') }}">Draft Eligible</a>
             <a href="{{ url_for('main.free_agents') }}">Free Agents</a>
           </span>
           <a href="{{ url_for('main.history') }}">League History</a>
-          <a href="{{ url_for('main.hall_of_fame_page') }}">Hall of Fame</a>
         </div>
         <div class="main-nav__row" style="width:100%">
+          <a href="{{ url_for('main.hall_of_fame_page') }}">Hall of Fame</a>
           <a href="{{ url_for('main.league_season_records') }}">Season Records</a>
           <a href="{{ url_for('main.team_records_index') }}">Team Records</a>
           <a href="{{ url_for('main.all_time_records') }}">All-Time Records</a>
@@ -72,6 +74,7 @@
           <a href="{{ url_for('expansion_draft_hub.expansion_draft_hub_page') }}">Expansion Draft</a>
           {% endif %}
           <a href="{{ url_for('main.league_headlines') }}">Headlines</a>
+          <a href="{{ url_for('main.trade_log_page') }}">Trade Log</a>
         </div>
       </nav>
       <div class="header-tools">

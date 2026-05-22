@@ -688,6 +688,27 @@ class PlayerRatingSnapshot(db.Model):
     player: Mapped["Player"] = relationship()
 
 
+class TradeLogEntry(db.Model):
+    """League trade history from optional ``trades.csv`` in the raw import folder (replace-all import)."""
+
+    __tablename__ = "trade_log_entries"
+    __table_args__ = (
+        UniqueConstraint("external_id", name="uq_trade_log_external_id"),
+        Index("ix_trade_log_trade_date", "trade_date"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    trade_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    team_a_id: Mapped[int] = mapped_column(ForeignKey("teams.id"), nullable=False)
+    team_b_id: Mapped[int] = mapped_column(ForeignKey("teams.id"), nullable=False)
+    summary: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    external_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    source: Mapped[str] = mapped_column(String(16), default="csv", nullable=False)
+
+    team_a: Mapped["Team"] = relationship(foreign_keys=[team_a_id])
+    team_b: Mapped["Team"] = relationship(foreign_keys=[team_b_id])
+
+
 class ImportLog(db.Model):
     __tablename__ = "import_logs"
 

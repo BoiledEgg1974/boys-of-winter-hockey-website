@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Trade Log — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% macro team_label(t) -%}
+{% if t %}
+  {% if t.slug %}<a href="{{ url_for('main.team_page', slug=t.slug) }}">{{ t.full_display_name() }}</a>{% else %}{{ t.full_display_name() }}{% endif %}
+{% else %}
+  —
+{% endif %}
+{%- endmacro %}
+{% block content %}
+<div class="page" style="max-width:46rem;margin:0 auto;">
+  <h1 class="page-title">Trade Log</h1>
+  <p class="muted">
+    League-approved trades published on this site{% if has_csv_import %} and trades imported from <code>trades.csv</code>{% endif %}.
+    Roster changes still follow FHM save exports.
+  </p>
+  {% for row in trade_rows %}
+  <article class="card" style="padding:1rem;margin-bottom:1rem;">
+    <h2 style="margin-top:0;font-size:1.1rem;">{{ row.title }}</h2>
+    <p class="muted">
+      {% if row.trade_date %}{{ row.trade_date.strftime('%Y-%m-%d') }}{% elif row.sort_at %}{{ row.sort_at.strftime('%Y-%m-%d %H:%M') }}{% endif %}
+      · {{ team_label(row.team_a) }} ↔ {{ team_label(row.team_b) }}
+      {% if row.source == 'site' %}<span class="news-category-pill">Site</span>{% endif %}
+    </p>
+    {% if row.body %}
+    <div style="white-space:pre-wrap;">{{ row.body | linkify_news_body }}</div>
+    {% endif %}
+  </article>
+  {% else %}
+  <p class="empty-state">No trades recorded yet. Approved GM trades appear here after the commissioner publishes them.</p>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -30,6 +30,7 @@ from app.models import (  # noqa: E402
     HistoryAward,
     HistoryChampion,
     ImportLog,
+    TradeLogEntry,
     PenaltyEvent,
     Player,
     PlayerGoalieStat,
@@ -46,6 +47,7 @@ from app.services.rebuild import refresh_after_import, snapshot_overall_baseline
 from scripts.import_pipeline.encoding_utils import (  # noqa: E402
     cell_val,
     fhm_scoring_period_to_int,
+    parse_fhm_date,
     read_csv_normalized,
     to_bool,
     to_float,
@@ -1041,6 +1043,55 @@ def import_history_all_stars(raw_dir: Path, app) -> int:
     return n
 
 
+def import_trade_log(raw_dir: Path, app) -> int:
+    """Import ``trades.csv`` (replace-all).
+
+    Columns (normalized headers):
+    - ``trade_date`` / ``date``: trade date (ISO or FHM date string).
+    - ``team_a`` / ``from_team`` / ``team_a_abbr``: team abbreviation or FHM team id.
+    - ``team_b`` / ``to_team`` / ``team_b_abbr``: other team.
+    - ``summary`` / ``body`` / ``notes``: trade description (assets, picks, conditions).
+    - ``external_id`` (optional): stable id for the row (must be unique if set).
+    """
+    path = raw_dir / "trades.csv"
+    if not path.is_file():
+        return 0
+    df = read_csv_normalized(path)
+    db.session.execute(delete(TradeLogEntry))
+    db.session.commit()
+    n = 0
+    for _, row in df.iterrows():
+        r = row.to_dict()
+        ta = _team_by_fhm_or_abbr(cell_val(r, "team_a", "from_team", "team_a_abbr", "team_a_id"))
+        tb = _team_by_fhm_or_abbr(cell_val(r, "team_b", "to_team", "team_b_abbr", "team_b_id"))
+        if not ta or not tb:
+            log.warning(
+                "trades.csv: skipping row — unknown team(s) %r / %r",
+                cell_val(r, "team_a", "from_team", "team_a_abbr"),
+                cell_val(r, "team_b", "to_team", "team_b_abbr"),
+            )
+            continue
+        raw_date = cell_val(r, "trade_date", "date", "traded_at")
+        trade_date = parse_fhm_date(raw_date) if raw_date else None
+        summary = (cell_val(r, "summary", "body", "notes", "description") or "").strip()
+        ext = (cell_val(r, "external_id", "trade_id", "id") or "").strip() or None
+        if ext and len(ext) > 64:
+            ext = ext[:64]
+        db.session.add(
+            TradeLogEntry(
+                trade_date=trade_date,
+                team_a_id=int(ta.id),
+                team_b_id=int(tb.id),
+                summary=summary,
+                external_id=ext,
+                source="csv",
+            )
+        )
+        n += 1
+    db.session.commit()
+    return n
+
+
 def import_history_champions(raw_dir: Path, app) -> int:
     path = raw_dir / "history_champions.csv"
     if not path.exists():
@@ -1097,6 +1148,7 @@ STEPS = [
     ("history_awards", _import_history_awards_step),
     ("history_all_stars", import_history_all_stars),
     ("history_champions", import_history_champions),
+    ("trades", import_trade_log),
     ("team_season_records", _import_team_season_records_step),
 ]
 
@@ -1163,6 +1215,10 @@ def run_import(raw_dir: Path | None = None) -> None:
                 if hc.is_file():
                     log.info("Applying history_champions.csv after FHM import.")
                     counts["history_champions"] = import_history_champions(raw, app)
+                tr = raw / "trades.csv"
+                if tr.is_file():
+                    log.info("Applying trades.csv after FHM import.")
+                    counts["trades"] = import_trade_log(raw, app)
                 tsr = raw / "team_season_records_template.csv"
                 if tsr.is_file():
                     from scripts.import_pipeline.team_season_records_loader import (

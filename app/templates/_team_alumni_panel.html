@@ -1,0 +1,102 @@
+<div class="card">
+  <h2>Team Alumni</h2>
+  <p class="muted">Former players with imported regular-season career lines for {{ team.full_display_name() }}.</p>
+  {% if team_alumni_rows %}
+  {% set alumni_skaters = team_alumni_rows | selectattr('kind', 'equalto', 'skater') | list %}
+  {% set alumni_goalies = team_alumni_rows | selectattr('kind', 'equalto', 'goalie') | list %}
+  <div class="team-alumni-tabs">
+    <input class="team-alumni-tabs__radio team-alumni-tabs__radio--skaters" type="radio" name="team-alumni-tab-{{ team.id }}" id="team-alumni-skaters-{{ team.id }}" checked>
+    <input class="team-alumni-tabs__radio team-alumni-tabs__radio--goalies" type="radio" name="team-alumni-tab-{{ team.id }}" id="team-alumni-goalies-{{ team.id }}">
+    <div class="team-alumni-tabs__nav" role="tablist" aria-label="Team alumni position group">
+      <label class="team-alumni-tabs__btn" for="team-alumni-skaters-{{ team.id }}" role="tab">Skaters <span>{{ alumni_skaters|length }}</span></label>
+      <label class="team-alumni-tabs__btn" for="team-alumni-goalies-{{ team.id }}" role="tab">Goalies <span>{{ alumni_goalies|length }}</span></label>
+    </div>
+    <div class="team-alumni-tabs__panel team-alumni-tabs__panel--skaters" role="tabpanel">
+      {% if alumni_skaters %}
+      <div class="table-wrap team-alumni-table-wrap">
+        <table class="data data-sortable">
+          <thead>
+            <tr>
+              <th>Player</th>
+              <th data-sort-type="num">Seasons</th>
+              <th>Years</th>
+              <th data-sort-type="num">GP</th>
+              <th data-sort-type="num">G</th>
+              <th data-sort-type="num">A</th>
+              <th data-sort-type="num">PTS</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in alumni_skaters %}
+            <tr>
+              <td>
+                <a href="{{ url_for('main.player_page', player_id=row.player.id) }}">{{ row.player.full_name }}</a>
+                <span class="muted"> · {{ row.player | player_positions_display }}</span>
+              </td>
+              <td>{{ row.seasons }}</td>
+              <td>
+                {% if row.first_year and row.last_year %}
+                  {{ row.first_year }}{% if row.last_year != row.first_year %}-{{ (row.last_year + 1) % 100 }}{% endif %}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td>{{ row.gp }}</td>
+              <td>{{ row.goals if row.goals is not none else '—' }}</td>
+              <td>{{ row.assists if row.assists is not none else '—' }}</td>
+              <td>{{ row.points if row.points is not none else '—' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="empty-state">No skater alumni regular-season lines are available for this team yet.</p>
+      {% endif %}
+    </div>
+    <div class="team-alumni-tabs__panel team-alumni-tabs__panel--goalies" role="tabpanel">
+      {% if alumni_goalies %}
+      <div class="table-wrap team-alumni-table-wrap">
+        <table class="data data-sortable">
+          <thead>
+            <tr>
+              <th>Player</th>
+              <th data-sort-type="num">Seasons</th>
+              <th>Years</th>
+              <th data-sort-type="num">GP</th>
+              <th data-sort-type="num">W</th>
+              <th data-sort-type="num">SO</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in alumni_goalies %}
+            <tr>
+              <td>
+                <a href="{{ url_for('main.player_page', player_id=row.player.id) }}">{{ row.player.full_name }}</a>
+                <span class="muted"> · {{ row.player | player_positions_display }}</span>
+              </td>
+              <td>{{ row.seasons }}</td>
+              <td>
+                {% if row.first_year and row.last_year %}
+                  {{ row.first_year }}{% if row.last_year != row.first_year %}-{{ (row.last_year + 1) % 100 }}{% endif %}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td>{{ row.gp }}</td>
+              <td>{{ row.wins if row.wins is not none else '—' }}</td>
+              <td>{{ row.shutouts if row.shutouts is not none else '—' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="empty-state">No goalie alumni regular-season lines are available for this team yet.</p>
+      {% endif %}
+    </div>
+  </div>
+  {% else %}
+  <p class="empty-state">No alumni regular-season career lines are available for this team yet.</p>
+  {% endif %}
+</div>

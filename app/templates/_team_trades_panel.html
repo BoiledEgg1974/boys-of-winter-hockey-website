@@ -1,0 +1,23 @@
+<section class="card" aria-labelledby="team-trades-h">
+  <h2 id="team-trades-h" class="team-mc-band__title">Trade history</h2>
+  <p class="muted">Trades involving {{ team.full_display_name() }} from site publications{% if team_trade_log_rows %} and imports{% endif %}.</p>
+  {% if team_trade_log_rows %}
+  <ul class="home-news-list team-page-news__list" role="list">
+    {% for row in team_trade_log_rows %}
+    <li class="home-news-list__item">
+      <div class="home-news-list__heading">{{ row.title }}</div>
+      <p class="muted">
+        {% if row.trade_date %}{{ row.trade_date.strftime('%b %d, %Y') }}{% elif row.sort_at %}{{ row.sort_at.strftime('%b %d, %Y') }}{% endif %}
+      </p>
+      {% if row.body %}
+      <div class="home-news-list__body home-news-list__body--linked">{{ row.body | linkify_news_body }}</div>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  <p class="link-more"><a href="{{ url_for('main.trade_log_page') }}">Full league trade log</a></p>
+  {% else %}
+  <p class="empty-state muted">No trades recorded for this team yet.</p>
+  <p class="link-more"><a href="{{ url_for('main.trade_log_page') }}">League trade log</a></p>
+  {% endif %}
+</section>

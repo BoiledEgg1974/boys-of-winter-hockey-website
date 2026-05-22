@@ -5646,6 +5646,75 @@ table.data.ap-teams-table td:nth-child(2) {
   border-color: rgb(from var(--accent) r g b / 0.75);
 }
 
+.team-alumni-tabs {
+  margin-top: 1rem;
+}
+.team-alumni-tabs__radio {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  border: 0;
+  white-space: nowrap;
+}
+.team-alumni-tabs__nav {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0 0 0.85rem;
+  flex-wrap: wrap;
+}
+.team-alumni-tabs__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.42rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgb(15 23 42 / 0.55);
+  color: #cbd5e1;
+  font-weight: 700;
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+.team-alumni-tabs__btn span {
+  color: #94a3b8;
+  font-size: 0.74rem;
+}
+.team-alumni-tabs__panel {
+  display: none;
+}
+.team-alumni-tabs__radio--skaters:checked ~ .team-alumni-tabs__nav .team-alumni-tabs__btn:first-child,
+.team-alumni-tabs__radio--goalies:checked ~ .team-alumni-tabs__nav .team-alumni-tabs__btn:last-child {
+  background: rgb(30 41 59 / 0.95);
+  color: #e2e8f0;
+  border-color: rgb(from var(--accent) r g b / 0.75);
+}
+.team-alumni-tabs__radio--skaters:checked ~ .team-alumni-tabs__panel--skaters,
+.team-alumni-tabs__radio--goalies:checked ~ .team-alumni-tabs__panel--goalies {
+  display: block;
+}
+.team-alumni-table-wrap {
+  max-height: calc(2.35rem * 51);
+  overflow-y: auto;
+  border: 1px solid rgb(148 163 184 / 0.16);
+  border-radius: 10px;
+}
+.team-alumni-table-wrap table {
+  margin: 0;
+}
+.team-alumni-table-wrap thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--card-bg, #0f172a);
+}
+
 .team-season-records__block + .team-season-records__block {
   margin-top: 2rem;
 }

@@ -379,6 +379,8 @@
   <a class="team-management-tabs__btn{% if active_panel == 'staff' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='staff') }}">Staff</a>
   <a class="team-management-tabs__btn{% if active_panel == 'season_records' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='season_records') }}">Season Records</a>
   <a class="team-management-tabs__btn{% if active_panel == 'team_history' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='team_history') }}">Season History</a>
+  <a class="team-management-tabs__btn{% if active_panel == 'alumni' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='alumni') }}">Alumni</a>
+  <a class="team-management-tabs__btn{% if active_panel == 'trades' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='trades') }}">Trades</a>
   <a class="team-management-tabs__btn{% if active_panel == 'franchise' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='franchise') }}">Franchise History</a>
 </div>
 
@@ -628,6 +630,10 @@
 {% include "_team_season_records_panel.html" %}
 {% elif active_panel == 'team_history' %}
 {% include "_team_history_panel.html" %}
+{% elif active_panel == 'alumni' %}
+{% include "_team_alumni_panel.html" %}
+{% elif active_panel == 'trades' %}
+{% include "_team_trades_panel.html" %}
 {% elif active_panel == 'staff' %}
 {% include "_team_staff_panel.html" %}
 {% elif active_panel == 'franchise' %}

@@ -15,6 +15,7 @@ from app.db_utils import (
     ensure_history_awards_staff_fhm_id_sqlite,
     ensure_players_jersey_number_sqlite,
     ensure_player_overall_baseline_sqlite,
+    ensure_player_rating_snapshots_sqlite,
     ensure_homepage_module_settings_sqlite,
     ensure_league_draft_slot_boost_tier_sqlite,
     ensure_league_expansion_draft_columns_sqlite,
@@ -113,6 +114,7 @@ def create_app(config_class: type = Config) -> Flask:
         repair_fhm_team_city_from_name(db.engine)
         ensure_players_jersey_number_sqlite(db.engine)
         ensure_player_overall_baseline_sqlite(db.engine)
+        ensure_player_rating_snapshots_sqlite(db.engine)
         ensure_team_season_aggregate_extra_columns(db.engine)
         ensure_skater_career_line_career_source_sqlite(db.engine)
         ensure_skater_career_line_extra_stats_sqlite(db.engine)
@@ -431,39 +433,9 @@ def create_app(config_class: type = Config) -> Flask:
             return None
 
         def league_logo_url() -> str:
-            from flask import current_app, url_for
+            from app.logo_urls import league_logo_url as _league_logo_url
 
-            static_root = Path(current_app.root_path) / (current_app.static_folder or "static")
-            slug = current_app.config.get("LEAGUE_SLUG")
-            rel_dir = str(current_app.config.get("LEAGUE_LOGO_REL_DIR", "logos")).strip("/\\")
-            rel_path = Path(rel_dir)
-            specific_dir = static_root / rel_path
-            if specific_dir.is_dir():
-                for name in ("league-logo.png", "league-logo.webp", "league-logo.svg"):
-                    if (specific_dir / name).is_file():
-                        return url_for("static", filename=f"{rel_dir}/{name}")
-            # Pre–slug-rename folders (logos/league2, logos/bow, logos/league3)
-            _legacy_league_logo_dir = {
-                "bowl-historical": "league2",
-                "bowl-fantasy": "bow",
-                "bowl-cap": "league3",
-            }.get(slug or "")
-            if _legacy_league_logo_dir:
-                leg = static_root / "logos" / _legacy_league_logo_dir
-                if leg.is_dir():
-                    for name in ("league-logo.png", "league-logo.webp", "league-logo.svg"):
-                        if (leg / name).is_file():
-                            return url_for("static", filename=f"logos/{_legacy_league_logo_dir}/{name}")
-            if slug:
-                sub = static_root / "logos" / slug
-                if sub.is_dir():
-                    for name in ("league-logo.png", "league-logo.webp", "league-logo.svg"):
-                        if (sub / name).is_file():
-                            return url_for("static", filename=f"logos/{slug}/{name}")
-            for name in ("league-logo.png", "league-logo.webp", "league-logo.svg"):
-                if (static_root / "logos" / name).is_file():
-                    return url_for("static", filename=f"logos/{name}")
-            return url_for("static", filename="logos/league-placeholder.svg")
+            return _league_logo_url()
 
         from flask import has_request_context, request
         from flask_login import current_user
@@ -538,6 +510,7 @@ def create_app(config_class: type = Config) -> Flask:
         repair_fhm_team_city_from_name(db.engine)
         ensure_players_jersey_number_sqlite(db.engine)
         ensure_player_overall_baseline_sqlite(db.engine)
+        ensure_player_rating_snapshots_sqlite(db.engine)
         ensure_team_season_aggregate_extra_columns(db.engine)
         ensure_skater_career_line_career_source_sqlite(db.engine)
         ensure_skater_career_line_extra_stats_sqlite(db.engine)

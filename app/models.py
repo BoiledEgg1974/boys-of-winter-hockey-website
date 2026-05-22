@@ -671,6 +671,23 @@ class PlayerOverallBaseline(db.Model):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
 
+class PlayerRatingSnapshot(db.Model):
+    """Point-in-time copy of ``player_ratings.csv`` values for development trend charts."""
+
+    __tablename__ = "player_rating_snapshots"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    player_id: Mapped[int] = mapped_column(Integer, ForeignKey("players.id"), nullable=False, index=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    snapshot_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    ratings_json: Mapped[str] = mapped_column(Text, nullable=False)
+    ability: Mapped[float | None] = mapped_column(Float)
+    potential: Mapped[float | None] = mapped_column(Float)
+    overall_score: Mapped[int | None] = mapped_column(Integer)
+
+    player: Mapped["Player"] = relationship()
+
+
 class ImportLog(db.Model):
     __tablename__ = "import_logs"
 

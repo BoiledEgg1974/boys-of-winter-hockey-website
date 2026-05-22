@@ -1,4 +1,4 @@
-"""Resolve static URLs for team logos (shared by context processor and API routes)."""
+"""Resolve static URLs for team and league logos (shared by context processor and API routes)."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -119,3 +119,39 @@ def team_logo_url_for_team(team) -> str:
     if p_placeholder.is_file():
         return url_for("static", filename=f"{league_rel}/placeholder.svg")
     return url_for("static", filename="logos/teams/placeholder.svg")
+
+
+def league_logo_url() -> str:
+    """Return URL for the current league logo, or the shared placeholder if missing."""
+    static_root = Path(current_app.static_folder or "")
+    slug = current_app.config.get("LEAGUE_SLUG")
+    rel_dir = str(current_app.config.get("LEAGUE_LOGO_REL_DIR", "logos")).strip("/\\")
+    specific_dir = static_root / rel_dir
+    if specific_dir.is_dir():
+        for name in ("league-logo.png", "league-logo.webp", "league-logo.svg"):
+            if (specific_dir / name).is_file():
+                return url_for("static", filename=f"{rel_dir}/{name}")
+
+    legacy_league_logo_dir = {
+        "bowl-historical": "league2",
+        "bowl-fantasy": "bow",
+        "bowl-cap": "league3",
+    }.get(str(slug or ""))
+    if legacy_league_logo_dir:
+        legacy_dir = static_root / "logos" / legacy_league_logo_dir
+        if legacy_dir.is_dir():
+            for name in ("league-logo.png", "league-logo.webp", "league-logo.svg"):
+                if (legacy_dir / name).is_file():
+                    return url_for("static", filename=f"logos/{legacy_league_logo_dir}/{name}")
+
+    if slug:
+        slug_dir = static_root / "logos" / str(slug)
+        if slug_dir.is_dir():
+            for name in ("league-logo.png", "league-logo.webp", "league-logo.svg"):
+                if (slug_dir / name).is_file():
+                    return url_for("static", filename=f"logos/{slug}/{name}")
+
+    for name in ("league-logo.png", "league-logo.webp", "league-logo.svg"):
+        if (static_root / "logos" / name).is_file():
+            return url_for("static", filename=f"logos/{name}")
+    return url_for("static", filename="logos/league-placeholder.svg")

@@ -52,8 +52,11 @@
 {% set sk_max_y = skns.max_y %}
 {% endif %}
 
-<section class="player-profile__card player-season-trends{% if player_season_trends_goalie_mode %} player-season-trends--goalie{% endif %}" aria-labelledby="player-season-trends-h">
-  <h2 id="player-season-trends-h" class="player-profile__card-title">Season trends</h2>
+<details class="player-profile__card player-profile__panel player-season-trends{% if player_season_trends_goalie_mode %} player-season-trends--goalie{% endif %}">
+  <summary class="player-profile__panel-summary">
+    <span class="player-profile__panel-title">Season Trends</span>
+    <span class="player-profile__panel-meta">{{ tr_count }} seasons</span>
+  </summary>
   {% if player_season_trends_goalie_mode %}
   <p class="player-season-trends__note muted">Grey bar is games played; red losses (L) and green ties/OTL (T) are side-by-side from the axis baseline (each bar reads against the scale); yellow line is wins; light blue line is shutouts; orange line is game rating (GR). Left and right axes use the same scale: the largest value among GP, L, T, W, SO, and GR in the chart. Hover or focus a season column for exact numbers; click opens that season’s team records.</p>
   {% else %}
@@ -337,5 +340,5 @@
       {% endfor %}
     </svg>
   </div>
-</section>
+</details>
 {% endif %}

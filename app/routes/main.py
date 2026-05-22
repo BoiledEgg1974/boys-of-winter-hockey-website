@@ -125,6 +125,8 @@ from app.services.player_history_award_badges import (
     team_history_award_badges,
     team_history_award_badges_for_directory,
 )
+from app.services.player_analytics import build_player_analytics_panel
+from app.services.player_development import build_player_development_panel
 from app.services.player_season_trends import build_player_season_trend_rows, load_skater_career_gr_lookup
 from app.services.team_staff_csv import (
     STAFF_COACH_COLUMNS,
@@ -3915,6 +3917,34 @@ def player_page(player_id: int):
     career_rs_gk_totals = goalie_career_lines_totals(career_rs_gk_bowl) if career_rs_gk_bowl else None
     career_po_gk_totals = goalie_career_lines_totals(career_po_gk_bowl) if career_po_gk_bowl else None
     player_overall_by_id = build_overall_cell_map_from_players(db.session, [player])
+    _ova_bundle = (player_overall_by_id or {}).get(player.id) or {}
+    player_analytics = build_player_analytics_panel(
+        db.session,
+        player,
+        ratings_row=ratings_row,
+        season=season,
+        is_goalie=is_goalie,
+        use_goalie_game_log=use_goalie_game_log,
+        game_log=game_log,
+        position_ratings_rows=position_ratings_rows,
+        hero_abi=hero_overall_ability,
+        hero_pot=hero_overall_potential,
+        player_ovr=_ova_bundle.get("score"),
+        season_trend_rows=player_season_trend_rows,
+        goalie_trend_mode=player_season_trends_goalie_mode,
+        retired=bool(player.retired),
+    )
+    player_development = build_player_development_panel(
+        db.session,
+        player,
+        ratings_row=ratings_row,
+        is_goalie=is_goalie,
+        hero_abi=hero_overall_ability,
+        hero_pot=hero_overall_potential,
+        player_ovr=_ova_bundle.get("score"),
+        retired=bool(player.retired),
+        league_slug=str(current_app.config.get("LEAGUE_SLUG") or ""),
+    )
     return render_template(
         "player.html",
         player=player,
@@ -3953,6 +3983,8 @@ def player_page(player_id: int):
         player_award_badges=player_award_badges,
         player_season_trend_rows=player_season_trend_rows,
         player_season_trends_goalie_mode=player_season_trends_goalie_mode,
+        player_analytics=player_analytics,
+        player_development=player_development,
     )
 
 

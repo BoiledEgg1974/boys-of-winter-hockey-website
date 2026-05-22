@@ -1,0 +1,260 @@
+{% if player_analytics is defined and player_analytics %}
+{% if player_analytics.enabled %}
+<details class="player-profile__card player-profile__panel player-profile__panel--analytics">
+  <summary class="player-profile__panel-summary">
+    <span class="player-profile__panel-title">Analytics</span>
+    <span class="player-profile__panel-meta">{{ player_analytics.summary_meta }}</span>
+  </summary>
+  <div class="player-analytics" data-goalie="{{ '1' if player_analytics.is_goalie else '0' }}">
+    <section class="player-analytics__section player-analytics__role" aria-labelledby="pa-role-heading">
+      <h3 id="pa-role-heading" class="player-analytics__heading">Current Skill</h3>
+      <p class="player-analytics__role-title">{{ player_analytics.role_title }}</p>
+      <div class="player-analytics__tier-bar" role="list" aria-label="Role tier">
+        {% for tier in player_analytics.role_tiers %}
+        <div class="player-analytics__tier-seg{% if tier.active %} player-analytics__tier-seg--active{% endif %}"
+             role="listitem"
+             style="width: {{ tier.width_pct }}%"
+             title="{{ tier.name }}">
+          <span class="player-analytics__tier-label">{{ tier.label }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    {% if player_analytics.mental %}
+    <section class="player-analytics__section player-analytics__mental" aria-labelledby="pa-mental-heading">
+      <h3 id="pa-mental-heading" class="player-analytics__heading">Mental Skillset</h3>
+      <div class="player-analytics__mental-grid">
+        <div class="player-analytics__mental-card player-analytics__mental-card--trust">
+          {% if player_analytics.mental.score is not none %}
+          <div class="player-analytics__teammate">
+            <span class="player-analytics__teammate-label">Locker-room fit</span>
+            <div class="player-analytics__teammate-track" aria-hidden="true">
+              <div class="player-analytics__teammate-fill" style="width: {{ player_analytics.mental.score }}%"></div>
+            </div>
+            <span class="player-analytics__teammate-score">{{ player_analytics.mental.score }}</span>
+          </div>
+          {% endif %}
+          <div class="player-analytics__chips">
+            {% for chip in player_analytics.mental.chips %}
+            <span class="player-analytics__chip">
+              <span class="player-analytics__chip-label">{{ chip.label }}</span>
+              <span class="player-analytics__chip-val">{% if chip.value is not none %}{{ chip.value }}{% else %}—{% endif %}</span>
+            </span>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="player-analytics__mental-card player-analytics__mental-card--leadership">
+          <span class="player-analytics__leadership-kicker">Leadership Model</span>
+          <strong class="player-analytics__leadership-title">{{ player_analytics.mental.leadership.label }}</strong>
+          <div class="player-analytics__leadership-track" aria-hidden="true">
+            <div class="player-analytics__leadership-fill" style="width: {{ player_analytics.mental.leadership.pct }}%"></div>
+          </div>
+          <div class="player-analytics__leadership-tiers">
+            {% for tier in player_analytics.mental.leadership.tiers %}
+            <span>{{ tier }}</span>
+            {% endfor %}
+          </div>
+          <div class="player-analytics__capabilities">
+            {% for cap in player_analytics.mental.capabilities %}
+            <span class="player-analytics__capability">
+              <span class="player-analytics__capability-top">
+                <span>{{ cap.label }}</span>
+                <strong>{% if cap.value is not none %}{{ cap.value }}{% else %}—{% endif %}</strong>
+              </span>
+              <span class="player-analytics__capability-track"><span style="width: {{ cap.pct }}%"></span></span>
+            </span>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </section>
+    {% endif %}
+
+    <section class="player-analytics__section player-analytics__dna" aria-labelledby="pa-dna-heading">
+      <h3 id="pa-dna-heading" class="player-analytics__heading">{% if player_analytics.is_goalie %}Skill DNA{% else %}Skill DNA{% endif %}</h3>
+      <div class="player-analytics__tiles">
+        {% for tile in player_analytics.skill_dna %}
+        <div class="player-analytics__tile">
+          <span class="player-analytics__tile-label">{{ tile.label }}</span>
+          <span class="player-analytics__tile-val">{% if tile.value is not none %}{{ tile.value }}{% else %}—{% endif %}</span>
+          <div class="player-analytics__tile-bar" aria-hidden="true">
+            <div class="player-analytics__tile-fill" style="width: {{ tile.pct }}%"></div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    {% if player_analytics.is_goalie and player_analytics.crease_profile %}
+    <section class="player-analytics__section player-analytics__crease" aria-labelledby="pa-crease-heading">
+      <h3 id="pa-crease-heading" class="player-analytics__heading">Crease Profile</h3>
+      <div class="player-analytics__gauge-grid player-analytics__gauge-grid--wide">
+        {% for m in player_analytics.crease_profile %}
+        <div class="player-analytics__gauge" title="{{ m.help or m.label }}">
+          <span class="player-analytics__gauge-label">{{ m.label }}</span>
+          <span class="player-analytics__gauge-val">{{ m.value }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    {% elif player_analytics.usage %}
+    <section class="player-analytics__section player-analytics__usage" aria-labelledby="pa-usage-heading">
+      <h3 id="pa-usage-heading" class="player-analytics__heading">Usage Fingerprint</h3>
+      <div class="player-analytics__gauge-grid player-analytics__gauge-grid--wide">
+        {% for m in player_analytics.usage %}
+        <div class="player-analytics__gauge" title="{{ m.help or m.label }}">
+          <span class="player-analytics__gauge-label">{{ m.label }}</span>
+          <span class="player-analytics__gauge-val">{{ m.value }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+    {% if player_analytics.assignments and not player_analytics.is_goalie %}
+    <section class="player-analytics__section player-analytics__lines" aria-labelledby="pa-lines-heading">
+      <h3 id="pa-lines-heading" class="player-analytics__heading">Line Deployment</h3>
+      <div class="player-analytics__assignment-grid">
+        {% for group in player_analytics.deployment_groups %}
+        <div class="player-analytics__assignment-card{% if not group.assignments %} player-analytics__assignment-card--empty{% endif %}">
+          <span class="player-analytics__assignment-title">{{ group.title }}</span>
+          {% if group.assignments %}
+          {% for a in group.assignments %}
+          <span class="player-analytics__assignment-value" title="{{ a.label }}">{{ a.assignment }}</span>
+          {% endfor %}
+          {% else %}
+          <span class="player-analytics__assignment-value">Not assigned</span>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% if player_analytics.linemate_groups %}
+      {% for group in player_analytics.linemate_groups %}
+      <div class="player-analytics__linemates">
+        <span class="player-analytics__linemates-label">{{ group.title }}</span>
+        <div class="player-analytics__linemate-grid">
+          {% for mate in group.mates %}
+          <article class="player-analytics__linemate-card">
+            <div class="player-analytics__linemate-main">
+              <span class="player-analytics__linemate-avatar" aria-hidden="true">
+                {% if mate.player and player_headshot_url(mate.player) %}
+                <img src="{{ player_headshot_url(mate.player) }}" alt="" loading="lazy" decoding="async">
+                {% else %}
+                <span class="player-analytics__linemate-avatar-ph"></span>
+                {% endif %}
+              </span>
+              <span>
+                <span class="player-analytics__linemate-name">{{ mate.name }}</span>
+                <span class="player-analytics__linemate-assigned">Assigned: {{ mate.assigned }}</span>
+              </span>
+            </div>
+            <div class="player-analytics__linemate-ratings">
+              <span class="player-analytics__linemate-ovr">{% if mate.overall is not none %}{{ mate.overall }}{% else %}—{% endif %}</span>
+              <span class="player-analytics__linemate-pill">{% if mate.passing is not none %}{{ mate.passing }}{% else %}—{% endif %}</span>
+              <span class="player-analytics__linemate-pill">{% if mate.getting_open is not none %}{{ mate.getting_open }}{% else %}—{% endif %}</span>
+            </div>
+            <div class="player-analytics__linemate-details">
+              <span><small>Team Player</small>{% if mate.team_player is not none %}{{ mate.team_player }}{% else %}—{% endif %}</span>
+              <span><small>Passing</small>{% if mate.passing is not none %}{{ mate.passing }}{% else %}—{% endif %}</span>
+              <span><small>Getting Open</small>{% if mate.getting_open is not none %}{{ mate.getting_open }}{% else %}—{% endif %}</span>
+            </div>
+          </article>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+      {% endif %}
+      {% if player_analytics.chemistry_candidates %}
+      <div class="player-analytics__chemistry">
+        <div class="player-analytics__chemistry-head">
+          <span class="player-analytics__linemates-label">Best Chemistry Fits</span>
+          <span class="player-analytics__chemistry-help">Based on team sheet roles, playmaking, getting open, team-player rating, and overall.</span>
+        </div>
+        <div class="player-analytics__chemistry-grid">
+          {% for fit in player_analytics.chemistry_candidates %}
+          <article class="player-analytics__chemistry-card{% if fit.current_linemate %} player-analytics__chemistry-card--current{% endif %}">
+            <div class="player-analytics__chemistry-main">
+              <span class="player-analytics__chemistry-player">
+                <span class="player-analytics__linemate-avatar" aria-hidden="true">
+                  {% if fit.player and player_headshot_url(fit.player) %}
+                  <img src="{{ player_headshot_url(fit.player) }}" alt="" loading="lazy" decoding="async">
+                  {% else %}
+                  <span class="player-analytics__linemate-avatar-ph"></span>
+                  {% endif %}
+                </span>
+                <span>
+                  <span class="player-analytics__linemate-name">{{ fit.name }}</span>
+                  <span class="player-analytics__linemate-assigned">{{ fit.unit_title }} · {{ fit.assigned }}{% if fit.current_linemate %} · Current linemate{% endif %}</span>
+                </span>
+              </span>
+              <strong class="player-analytics__chemistry-score">{{ fit.chemistry.score }}</strong>
+            </div>
+            <div class="player-analytics__chemistry-track" aria-hidden="true">
+              <span style="width: {{ fit.chemistry.score }}%"></span>
+            </div>
+            <div class="player-analytics__chemistry-meta">
+              <strong>{{ fit.chemistry.label }}</strong>
+              {% if fit.chemistry.reasons %}
+              <span>{{ fit.chemistry.reasons|join(' · ') }}</span>
+              {% endif %}
+            </div>
+          </article>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </section>
+    {% elif not player_analytics.is_goalie %}
+    <p class="player-analytics__empty">No current line assignments in import data.</p>
+    {% endif %}
+
+    {% if player_analytics.trajectory and player_analytics.trajectory.spark %}
+    <section class="player-analytics__section player-analytics__trajectory" aria-labelledby="pa-traj-heading">
+      <h3 id="pa-traj-heading" class="player-analytics__heading">Trajectory</h3>
+      <div class="player-analytics__trajectory-summary">
+        <div>
+          <strong>{{ player_analytics.trajectory.direction }}</strong>
+          <span>{{ player_analytics.trajectory.direction_detail }}</span>
+        </div>
+        {% if player_analytics.trajectory.peak_label %}
+        <div>
+          <strong>{{ player_analytics.trajectory.peak_value|round(0)|int }} {{ player_analytics.trajectory.metric_label }}</strong>
+          <span>Best imported season: {{ player_analytics.trajectory.peak_label }}</span>
+        </div>
+        {% endif %}
+      </div>
+      <div class="player-analytics__season-timeline">
+        {% for pt in player_analytics.trajectory.points %}
+        <div class="player-analytics__season-point">
+          <span class="player-analytics__season-label">{{ pt.label }}</span>
+          <div class="player-analytics__season-bar" aria-hidden="true"><span style="width: {{ pt.pct }}%"></span></div>
+          <strong>{{ pt.value }}</strong>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+    {% if player_analytics.coach_notes %}
+    <section class="player-analytics__section player-analytics__notes" aria-labelledby="pa-notes-heading">
+      <h3 id="pa-notes-heading" class="player-analytics__heading">Coach Notes</h3>
+      <ul class="player-analytics__notes-list">
+        {% for note in player_analytics.coach_notes %}
+        <li>{{ note }}</li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+  </div>
+</details>
+{% elif player_analytics.summary_meta %}
+<details class="player-profile__card player-profile__panel player-profile__panel--analytics">
+  <summary class="player-profile__panel-summary">
+    <span class="player-profile__panel-title">Analytics</span>
+    <span class="player-profile__panel-meta">{{ player_analytics.summary_meta }}</span>
+  </summary>
+  <p class="player-analytics__empty">Analytics are not available for this player.</p>
+</details>
+{% endif %}
+{% endif %}

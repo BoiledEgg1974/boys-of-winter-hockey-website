@@ -138,5 +138,10 @@ def refresh_after_import(engine, app=None) -> None:
                     from app.services.homepage_summary_cache import warm_homepage_summary_cache
 
                     warm_homepage_summary_cache(app)
+                    from app.services.player_rating_snapshots import (
+                        record_player_rating_snapshots_after_import,
+                    )
+
+                    record_player_rating_snapshots_after_import(app)
         except Exception:
             _log.exception("post-import hooks failed (non-fatal)")

@@ -342,23 +342,17 @@
     var shoots = d.shoots || "—";
     if (/^l/i.test(shoots)) shoots = "Left";
     else if (/^r/i.test(shoots)) shoots = "Right";
-    var hw = formatHeight(d.height_inches) + " · " + (d.weight_lbs != null ? escapeHtml(String(d.weight_lbs)) + " lbs" : "—");
-    var sub =
-      "Age " +
-      escapeHtml(String(d.age != null ? d.age : "—")) +
+    var hw =
+      formatHeight(d.height_inches) +
       " · " +
-      escapeHtml(nat) +
-      " · " +
-      hw +
-      " · Shoots " +
-      escapeHtml(shoots);
+      (d.weight_lbs != null ? escapeHtml(String(d.weight_lbs)) + " lbs" : "—");
     var contr = d.contract;
+    var contractLine = "";
     if (contr && (contr.aav != null || contr.years_left != null)) {
-      sub += " · ";
-      if (contr.aav != null) sub += "AAV " + escapeHtml(fmtMoneyShare(contr.aav));
+      if (contr.aav != null) contractLine += "AAV " + escapeHtml(fmtMoneyShare(contr.aav));
       if (contr.years_left != null) {
-        if (contr.aav != null) sub += " · ";
-        sub +=
+        if (contr.aav != null) contractLine += " · ";
+        contractLine +=
           escapeHtml(String(contr.years_left)) +
           " yr" +
           (Number(contr.years_left) === 1 ? "" : "s") +
@@ -368,6 +362,9 @@
     var logoHtml = d.team_logo_url
       ? '<img class="player-share-card__team-logo" src="' + escapeAttr(d.team_logo_url) + '" alt="">'
       : '<span class="player-share-card__team-logo-ph"></span>';
+    var leagueLogoHtml = d.league_logo_url
+      ? '<img class="player-share-card__league-logo" src="' + escapeAttr(d.league_logo_url) + '" alt="">'
+      : "";
     var photoHtml = d.photo_url
       ? '<img class="player-share-card__photo" src="' + escapeAttr(d.photo_url) + '" alt="">'
       : '<span class="player-share-card__photo-ph">No photo</span>';
@@ -384,17 +381,23 @@
     var ovr = shareFmtInt(d.player_ovr);
     var abiS = shareFmtFixed1(d.abi);
     var potS = shareFmtFixed1(d.pot);
-    var pills =
-      '<div class="player-share-card__pills">' +
-      '<span class="player-share-card__pill player-share-card__pill--ovr"><span class="player-share-card__pill-lbl">OVR</span> ' +
-      ovr +
-      "</span>" +
-      '<span class="player-share-card__pill player-share-card__pill--ap"><span class="player-share-card__pill-lbl">ABI</span> ' +
-      abiS +
-      "</span>" +
-      '<span class="player-share-card__pill player-share-card__pill--ap"><span class="player-share-card__pill-lbl">POT</span> ' +
-      potS +
-      "</span></div>";
+    function scoreTile(label, value, cls) {
+      return (
+        '<div class="player-share-card__score player-share-card__score--' +
+        cls +
+        '"><span>' +
+        escapeHtml(label) +
+        "</span><strong>" +
+        value +
+        "</strong></div>"
+      );
+    }
+    var scores =
+      '<div class="player-share-card__scores">' +
+      scoreTile("Overall", ovr, "ovr") +
+      scoreTile("Ability", abiS, "ap") +
+      scoreTile("Potential", potS, "ap") +
+      "</div>";
     var at = d.attrs || {};
     var chipRow = "";
     if (d.is_goalie) {
@@ -435,11 +438,10 @@
         "</strong></span></div>";
     }
     var rc = d.rating_columns || { left: [], right: [] };
-    var leftTitle = d.is_goalie ? "Goalie" : "Attributes";
-    var rightTitle = d.is_goalie ? "Mental" : "Attributes";
-    function colHtml(title, rows) {
+    var sections = d.rating_sections || [];
+    function sectionHtml(title, rows) {
       var h =
-        '<div class="player-share-card__col"><div class="player-share-card__col-title">' +
+        '<div class="player-share-card__section"><div class="player-share-card__section-title">' +
         escapeHtml(title) +
         "</div>";
       (rows || []).forEach(function (row) {
@@ -459,17 +461,23 @@
       h += "</div>";
       return h;
     }
-    var ratingsBlk =
-      '<div class="player-share-card__ratings">' +
-      colHtml(leftTitle, rc.left) +
-      colHtml(rightTitle, rc.right) +
-      "</div>";
+    var ratingsBlk = '<div class="player-share-card__section-grid">';
+    if (sections && sections.length) {
+      sections.forEach(function (sec) {
+        ratingsBlk += sectionHtml(sec.title || "Attributes", sec.rows || []);
+      });
+    } else {
+      ratingsBlk +=
+        sectionHtml(d.is_goalie ? "Goalie" : "Attributes", rc.left) +
+        sectionHtml(d.is_goalie ? "Mental" : "Attributes", rc.right);
+    }
+    ratingsBlk += "</div>";
     var posRatingsHtml = "";
     var pr = d.position_ratings;
     if (pr && pr.length) {
       posRatingsHtml =
-        '<div class="player-share-card__pos-ratings">' +
-        '<div class="player-share-card__pos-ratings-title">Position ratings</div>';
+        '<div class="player-share-card__section player-share-card__pos-ratings">' +
+        '<div class="player-share-card__section-title">Position ratings</div>';
       pr.forEach(function (row) {
         var lbl =
           escapeHtml(row.label || "") +
@@ -503,18 +511,7 @@
         '<span class="player-share-card__pos-val">' +
         escapeHtml(shootsCell) +
         '</span><div class="player-share-card__pos-track player-share-card__pos-track--empty"></div></div>';
-      var prBits = [];
-      pr.forEach(function (row) {
-        var ax = row.abbr || "";
-        var nv3 = row.value;
-        var numS =
-          nv3 == null || nv3 === "" || !isFinite(Number(nv3)) ? "—" : String(Math.round(Number(nv3)));
-        prBits.push(ax + " " + numS + (row.is_primary ? "*" : ""));
-      });
-      posRatingsHtml +=
-        '<div class="player-share-card__pos-ratings-summary">' +
-        escapeHtml(prBits.join(" · ") + " · Shoots " + shootsCell) +
-        "</div></div>";
+      posRatingsHtml += "</div>";
     }
     var statsBlk = "";
     if (!d.retired && d.latest_season_stats) {
@@ -580,22 +577,38 @@
       "</div>" +
       '<div class="player-share-card__team">' +
       escapeHtml(teamNm) +
-      "</div></div></div>" +
-      '<div class="player-share-card__sub">' +
-      sub +
+      "</div></div>" +
+      '<div class="player-share-card__contract">' +
+      '<div>Age ' +
+      escapeHtml(String(d.age != null ? d.age : "—")) +
+      " · " +
+      escapeHtml(nat) +
       "</div>" +
-      '<div class="player-share-card__body-row">' +
+      (contractLine ? "<strong>" + contractLine + "</strong>" : "") +
+      "</div></div>" +
+      '<div class="player-share-card__sub">' +
+      hw +
+      " · Shoots " +
+      escapeHtml(shoots) +
+      "</div>" +
+      scores +
+      '<div class="player-share-card__hero">' +
       photoHtml +
       '<div class="player-share-card__body-main">' +
-      pills +
       chipRow +
       "</div></div>" +
+      '<div class="player-share-card__content">' +
+      '<div class="player-share-card__top-grid">' +
       posRatingsHtml +
+      "</div>" +
       ratingsBlk +
       statsBlk +
+      "</div>" +
       '<div class="player-share-card__footer">' +
+      leagueLogoHtml +
+      '<span>' +
       escapeHtml(league) +
-      "</div></div>";
+      "</span></div></div>";
     var wrap = document.createElement("div");
     wrap.innerHTML = html;
     return wrap.firstElementChild;

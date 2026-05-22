@@ -1,0 +1,181 @@
+{% if player_development is defined and player_development and player_development.enabled %}
+<details class="player-profile__card player-profile__panel player-profile__panel--development">
+  <summary class="player-profile__panel-summary">
+    <span class="player-profile__panel-title">Development</span>
+    <span class="player-profile__panel-meta">{{ player_development.summary_meta }}</span>
+  </summary>
+  <div class="player-development" data-goalie="{{ '1' if player_development.is_goalie else '0' }}">
+    <div class="player-development__explainer">
+      <div>
+        <strong>{{ player_development.role_note }}</strong>
+        <span>{{ player_development.tracking_help }}</span>
+      </div>
+      <div class="player-development__legend" aria-label="Trend legend">
+        <span class="player-development__legend-item player-development__legend-item--up">Progressing</span>
+        <span class="player-development__legend-item player-development__legend-item--down">Regressing</span>
+        <span class="player-development__legend-item player-development__legend-item--flat">Stable</span>
+      </div>
+    </div>
+    <div class="player-development-tabset player-development-tabset--{{ player_development.tab_count }}">
+      {% for tab in player_development.tabs %}
+      <input type="radio"
+             class="player-development-tabset__radio"
+             name="pdev-tab-{{ player.id }}"
+             id="pdev-tab-{{ player.id }}-{{ tab.index }}"
+             {% if tab.index == 0 %}checked{% endif %}>
+      {% endfor %}
+      <div class="player-development-tabset__labels" role="tablist" aria-label="Development categories">
+        {% for tab in player_development.tabs %}
+        <label class="player-development-tabset__label"
+               for="pdev-tab-{{ player.id }}-{{ tab.index }}"
+               role="tab">{{ tab.title }}</label>
+        {% endfor %}
+      </div>
+      {% for tab in player_development.tabs %}
+      <div class="player-development-tabset__panel player-development-tabset__panel--{{ tab.index }}"
+           role="tabpanel"
+           aria-labelledby="pdev-tab-{{ player.id }}-{{ tab.index }}">
+        {% if tab.id == 'summary' %}
+        <section class="player-development__summary" aria-labelledby="pdev-summary-heading-{{ player.id }}">
+          <div class="player-development__section-head">
+            <h3 id="pdev-summary-heading-{{ player.id }}" class="player-development__heading">1-year development</h3>
+            <span class="player-development__window">{{ tab.summary.window_label }}</span>
+          </div>
+          <p class="player-development__headline">{{ tab.summary.headline }}</p>
+          {% if tab.summary.has_trend %}
+          <div class="player-development__summary-grid">
+            <div class="player-development__stat-card">
+              <span class="player-development__stat-label">Moved</span>
+              <strong class="player-development__stat-value">{{ tab.summary.attrs_changed }}</strong>
+              <span class="player-development__stat-help">+{{ tab.summary.improved_count }} / {{ tab.summary.regressed_count }} down</span>
+            </div>
+            <div class="player-development__stat-card">
+              <span class="player-development__stat-label">Overall</span>
+              <strong class="player-development__stat-value">
+                {% if tab.summary.overall_delta is not none %}{{ '%+.0f'|format(tab.summary.overall_delta) }}{% else %}—{% endif %}
+              </strong>
+            </div>
+            <div class="player-development__stat-card">
+              <span class="player-development__stat-label">Ability</span>
+              <strong class="player-development__stat-value">
+                {% if tab.summary.ability_delta is not none %}{{ '%+.1f'|format(tab.summary.ability_delta) }}{% else %}—{% endif %}
+              </strong>
+            </div>
+            <div class="player-development__stat-card">
+              <span class="player-development__stat-label">Potential</span>
+              <strong class="player-development__stat-value">
+                {% if tab.summary.potential_delta is not none %}{{ '%+.1f'|format(tab.summary.potential_delta) }}{% else %}—{% endif %}
+              </strong>
+            </div>
+          </div>
+          <div class="player-development__movers">
+            <div class="player-development__mover-col">
+              <h4 class="player-development__subheading">Biggest risers</h4>
+              {% if tab.summary.risers %}
+              <ul class="player-development__mover-list">
+                {% for item in tab.summary.risers %}
+                <li><span>{{ item.label }}</span><strong>+{{ item.delta }}</strong></li>
+                {% endfor %}
+              </ul>
+              {% else %}
+              <p class="player-development__empty">No meaningful gains in this window.</p>
+              {% endif %}
+            </div>
+            <div class="player-development__mover-col">
+              <h4 class="player-development__subheading">Biggest fallers</h4>
+              {% if tab.summary.fallers %}
+              <ul class="player-development__mover-list">
+                {% for item in tab.summary.fallers %}
+                <li><span>{{ item.label }}</span><strong>{{ item.delta }}</strong></li>
+                {% endfor %}
+              </ul>
+              {% else %}
+              <p class="player-development__empty">No meaningful declines in this window.</p>
+              {% endif %}
+            </div>
+          </div>
+          {% else %}
+          <div class="player-development__summary-grid">
+            <div class="player-development__stat-card">
+              <span class="player-development__stat-label">Current overall</span>
+              <strong class="player-development__stat-value">{% if tab.overall is not none %}{{ tab.overall }}{% else %}—{% endif %}</strong>
+              <span class="player-development__stat-help">Baseline for future imports</span>
+            </div>
+            <div class="player-development__stat-card">
+              <span class="player-development__stat-label">Current ability</span>
+              <strong class="player-development__stat-value">{% if tab.ability is not none %}{{ tab.ability }}{% else %}—{% endif %}</strong>
+              <span class="player-development__stat-help">No movement yet</span>
+            </div>
+            <div class="player-development__stat-card">
+              <span class="player-development__stat-label">Current potential</span>
+              <strong class="player-development__stat-value">{% if tab.potential is not none %}{{ tab.potential }}{% else %}—{% endif %}</strong>
+              <span class="player-development__stat-help">No movement yet</span>
+            </div>
+          </div>
+          <p class="player-development__notice">{{ tab.summary.note }}</p>
+          {% endif %}
+          {% if tab.summary.has_trend %}
+          <p class="player-development__note">{{ tab.summary.note }}</p>
+          {% endif %}
+          <p class="player-development__snapshots">{{ tab.snapshot_count }} snapshot{{ 's' if tab.snapshot_count != 1 else '' }} tracked</p>
+        </section>
+        {% else %}
+        <div class="player-development__category-help">
+          <span>Each card shows the current rating first. Once multiple snapshots exist, the badge shows change over the tracked window.</span>
+        </div>
+        <div class="player-development__attrs">
+          {% for attr in tab.attributes %}
+          <details class="player-development__attr player-development__attr--{{ attr.status_kind }}"{% if attr.expanded %} open{% endif %}>
+            <summary class="player-development__attr-summary">
+              <span class="player-development__attr-main">
+                <span class="player-development__attr-label">{{ attr.label }}</span>
+                <span class="player-development__attr-range">{{ attr.range_label }}</span>
+              </span>
+              <span class="player-development__attr-current">
+                <span class="player-development__attr-current-label">Current</span>
+                <strong>{% if attr.current is not none %}{{ attr.current|round(1) }}{% else %}—{% endif %}</strong>
+              </span>
+              <span class="player-development__attr-delta player-development__attr-delta--{{ attr.status_kind }}">
+                {{ attr.status_label }}
+              </span>
+            </summary>
+            <div class="player-development__attr-body">
+              {% if attr.chart.has_trend %}
+              <div class="player-development__attr-compare">
+                <span>Baseline {% if attr.baseline is not none %}{{ attr.baseline|round(1) }}{% else %}—{% endif %}</span>
+                <span>Current {% if attr.current is not none %}{{ attr.current|round(1) }}{% else %}—{% endif %}</span>
+              </div>
+              {% endif %}
+              {% if attr.chart.has_trend and attr.chart.svg %}
+              <svg class="player-development__chart"
+                   viewBox="0 0 {{ attr.chart.svg.width }} {{ attr.chart.svg.height }}"
+                   width="100%"
+                   height="{{ attr.chart.svg.height }}"
+                   role="img"
+                   aria-label="{{ attr.label }} trend">
+                <path class="player-development__chart-line"
+                      d="{{ attr.chart.svg.path_d }}"
+                      fill="none"
+                      stroke-width="2"
+                      vector-effect="non-scaling-stroke"></path>
+                {% for dot in attr.chart.svg.dots %}
+                <circle class="player-development__chart-dot"
+                        cx="{{ dot.cx }}"
+                        cy="{{ dot.cy }}"
+                        r="3"></circle>
+                {% endfor %}
+              </svg>
+              {% else %}
+              <p class="player-development__chart-empty">{{ attr.chart.message }}</p>
+              {% endif %}
+            </div>
+          </details>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</details>
+{% endif %}

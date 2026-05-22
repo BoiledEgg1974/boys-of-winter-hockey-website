@@ -14,7 +14,7 @@ from flask_login import current_user
 from app.config import Config
 from sqlalchemy import func, select, text
 
-from app.logo_urls import team_logo_url_for_team
+from app.logo_urls import league_logo_url, team_logo_url_for_team
 from app.services.season_team_logo_bundle import dashboard_team_logo_url
 from app.models import (
     Game,
@@ -660,6 +660,26 @@ def _share_rating_rows(rr: dict | None, pairs: tuple[tuple[str, str], ...]) -> l
     return out
 
 
+def _share_rating_sections(
+    rr: dict | None, sections: tuple[tuple[str, tuple[tuple[str, str], ...]], ...]
+) -> list[dict[str, object]]:
+    return [{"title": title, "rows": _share_rating_rows(rr, pairs)} for title, pairs in sections]
+
+
+_SKATER_SHARE_SECTIONS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
+    ("Offense", _SKATER_SHARE_PAIRS[8:15]),
+    ("Defense", _SKATER_SHARE_PAIRS[15:22]),
+    ("Mental", _SKATER_SHARE_PAIRS[22:29]),
+    ("Physical", _SKATER_SHARE_PAIRS[29:36]),
+)
+
+
+_GOALIE_SHARE_SECTIONS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
+    ("Goalie", _GOALIE_SHARE_LEFT),
+    ("Mental", _GOALIE_SHARE_RIGHT),
+)
+
+
 def _skater_share_split_columns(rr: dict | None) -> dict[str, list[dict[str, str]]]:
     rows = _share_rating_rows(rr, _SKATER_SHARE_PAIRS)
     if not rows:
@@ -840,6 +860,11 @@ def _build_player_hover_card_payload(player_id: int) -> dict[str, object]:
         recent_role = "skater"
 
     rating_share = _goalie_share_split_columns(rr) if is_goalie else _skater_share_split_columns(rr)
+    rating_sections = (
+        _share_rating_sections(rr, _GOALIE_SHARE_SECTIONS)
+        if is_goalie
+        else _share_rating_sections(rr, _SKATER_SHARE_SECTIONS)
+    )
     latest_stats = None if retired else _latest_rs_season_stats_share(db.session, player.id, is_goalie)
     contract_payload = _contract_payload_for_share(db.session, player, season)
     league_display = str(current_app.config.get("LEAGUE_DISPLAY_NAME", "") or "").strip()
@@ -856,6 +881,7 @@ def _build_player_hover_card_payload(player_id: int) -> dict[str, object]:
         "team_logo_url": team_logo_url_for_team(team) if team else "",
         "nationality": (player.nationality or "").strip(),
         "league_display_name": league_display,
+        "league_logo_url": league_logo_url(),
         "age": age,
         "shoots": (player.shoots_catches or "").strip(),
         "height_inches": player.height_inches,
@@ -868,6 +894,7 @@ def _build_player_hover_card_payload(player_id: int) -> dict[str, object]:
         "recent_seasons_role": recent_role,
         "recent_seasons": recent,
         "rating_columns": rating_share,
+        "rating_sections": rating_sections,
         "position_ratings": position_ratings,
         "latest_season_stats": latest_stats,
         "contract": contract_payload,

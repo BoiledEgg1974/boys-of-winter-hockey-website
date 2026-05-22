@@ -151,6 +151,44 @@ def ensure_player_overall_baseline_sqlite(engine: Engine) -> None:
         conn.commit()
 
 
+def ensure_player_rating_snapshots_sqlite(engine: Engine) -> None:
+    """Create player_rating_snapshots for development panel trend lines (SQLite)."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='player_rating_snapshots'"
+            )
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE player_rating_snapshots (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    player_id INTEGER NOT NULL,
+                    league_slug VARCHAR(64) NOT NULL,
+                    snapshot_at DATETIME NOT NULL,
+                    ratings_json TEXT NOT NULL,
+                    ability FLOAT,
+                    potential FLOAT,
+                    overall_score INTEGER,
+                    FOREIGN KEY(player_id) REFERENCES players (id)
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_player_rating_snapshots_player_at "
+                "ON player_rating_snapshots (player_id, snapshot_at)"
+            )
+        )
+        conn.commit()
+
+
 def ensure_skater_career_line_career_source_sqlite(engine: Engine) -> None:
     """Add career_source to player_skater_career_lines when missing (pre-unique-key schema)."""
     if engine.dialect.name != "sqlite":

@@ -401,8 +401,12 @@
   {% endif %}
 
   {% if contract %}
-  <section class="player-profile__contract player-profile__contract--cap">
-    <h2 class="player-profile__card-title player-profile__card-title--contract">Contract</h2>
+  <details class="player-profile__card player-profile__panel player-profile__panel--contract">
+    <summary class="player-profile__panel-summary">
+      <span class="player-profile__panel-title">Contract</span>
+      <span class="player-profile__panel-meta">{% if contract.average_salary is not none %}${{ '{:,}'.format(contract.average_salary) }} AAV{% else %}Cap details{% endif %}</span>
+    </summary>
+    <div class="player-profile__contract player-profile__contract--cap">
     <div class="player-profile__contract-line">
       <span><strong class="player-profile__contract-acronym player-profile__contract-acronym--ntc" title="No-trade clause">NTC</strong> {{ 'Yes' if contract.has_ntc else 'No' }}</span>
       <span><strong class="player-profile__contract-acronym player-profile__contract-acronym--nmc" title="No-move clause">NMC</strong> {{ 'Yes' if contract.has_nmc else 'No' }}</span>
@@ -429,12 +433,16 @@
       {% endfor %}
     </div>
     {% endif %}
-  </section>
+    </div>
+  </details>
   {% endif %}
 
   {% if show_goalie_career_sections %}
-  <section class="player-profile__card player-profile__card--table player-profile__card--career-rs-po">
-    <h2 class="player-profile__card-title">Goalie career</h2>
+  <details class="player-profile__card player-profile__card--table player-profile__card--career-rs-po player-profile__panel">
+    <summary class="player-profile__panel-summary">
+      <span class="player-profile__panel-title">Stats</span>
+      <span class="player-profile__panel-meta">Goalie career</span>
+    </summary>
     <div class="player-profile__career-split">
       <input type="radio" class="player-profile__career-split-trig player-profile__career-split-trig--rs" name="player-career-gk-{{ player.id }}" id="player-career-gk-rs-{{ player.id }}" checked>
       <input type="radio" class="player-profile__career-split-trig player-profile__career-split-trig--po" name="player-career-gk-{{ player.id }}" id="player-career-gk-po-{{ player.id }}">
@@ -549,12 +557,15 @@
         {% endif %}
       </div>
     </div>
-  </section>
+  </details>
   {% endif %}
 
   {% if show_skater_career_sections %}
-  <section class="player-profile__card player-profile__card--table player-profile__card--career-rs-po">
-    <h2 class="player-profile__card-title">Skater career</h2>
+  <details class="player-profile__card player-profile__card--table player-profile__card--career-rs-po player-profile__panel">
+    <summary class="player-profile__panel-summary">
+      <span class="player-profile__panel-title">Stats</span>
+      <span class="player-profile__panel-meta">Skater career</span>
+    </summary>
     <div class="player-profile__career-split">
       <input type="radio" class="player-profile__career-split-trig player-profile__career-split-trig--rs" name="player-career-sk-{{ player.id }}" id="player-career-sk-rs-{{ player.id }}" checked>
       <input type="radio" class="player-profile__career-split-trig player-profile__career-split-trig--po" name="player-career-sk-{{ player.id }}" id="player-career-sk-po-{{ player.id }}">
@@ -683,14 +694,17 @@
         {% endif %}
       </div>
     </div>
-  </section>
+  </details>
   {% endif %}
 
   {% include "_player_season_trends_panel.html" %}
 
   {% if not player.retired %}
-  <section class="player-profile__card player-profile__card--table">
-    <h2 class="player-profile__card-title">Game Log</h2>
+  <details class="player-profile__card player-profile__card--table player-profile__panel">
+    <summary class="player-profile__panel-summary">
+      <span class="player-profile__panel-title">Game Log</span>
+      <span class="player-profile__panel-meta">{{ game_log|length if game_log else 0 }} recent games</span>
+    </summary>
     {% if game_log and use_goalie_game_log %}
     <div class="table-wrap">
       <table class="data data-sortable player-profile__game-table">
@@ -766,7 +780,10 @@
     {% else %}
     <p class="empty-state">No Recent Game Logs</p>
     {% endif %}
-  </section>
+  </details>
   {% endif %}
+
+  {% include "_player_analytics_panel.html" %}
+  {% include "_player_development_panel.html" %}
 </div>
 {% endblock %}

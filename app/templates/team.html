@@ -493,6 +493,99 @@
     </table>
   </div>
 </div>
+<div class="team-depth-extras">
+  <section class="card team-depth-extra-card">
+    <h2>Prospects</h2>
+    {% if team_depth_prospects %}
+    <div class="table-wrap">
+      <table class="data team-depth-prospects-table">
+        <thead>
+          <tr>
+            <th>Player Name</th>
+            <th>Nationality</th>
+            <th>Age</th>
+            <th>Positions</th>
+            <th>Potential</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in team_depth_prospects %}
+          {% set pl = row.player %}
+          <tr>
+            <td>
+              <span class="team-roster-player team-depth-prospect-player">
+                <a class="team-roster-player__photo" href="{{ url_for('main.player_page', player_id=pl.id) }}">
+                  {% if player_headshot_url(pl) %}
+                  <img src="{{ player_headshot_url(pl) }}" alt="">
+                  {% else %}
+                  <span class="team-roster-player__photo-ph" aria-hidden="true"></span>
+                  {% endif %}
+                </a>
+                <a class="team-roster-player__name" href="{{ url_for('main.player_page', player_id=pl.id) }}">{{ pl.full_name }}</a>
+              </span>
+            </td>
+            <td>
+              {% if pl.nationality %}
+                {% if pl.nationality|nationality_flag_url %}
+                <img class="team-roster-player__flag" src="{{ pl.nationality|nationality_flag_url }}" width="18" height="13" alt="" loading="lazy" decoding="async">
+                {% endif %}
+                {{ pl.nationality }}
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td>{{ row.age if row.age is not none else '—' }}</td>
+            <td>{{ pl | player_positions_display }}</td>
+            <td>
+              {% if row.potential is not none %}
+              <span class="team-depth-rating team-depth-rating--large" style="{{ row.potential|rating_pill_style }}">{{ '%.1f'|format(row.potential) }}</span>
+              {% else %}—{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="empty-state">No age-22-or-younger prospects found for this organization.</p>
+    {% endif %}
+  </section>
+  <section class="card team-depth-extra-card">
+    <h2>Draft Picks</h2>
+    {% if team_depth_draft_picks %}
+    <div class="table-wrap">
+      <table class="data team-depth-draft-picks-table">
+        <thead>
+          <tr>
+            <th>Year</th>
+            <th class="team-depth-draft-picks-table__round">Round</th>
+            <th>Team</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for pick in team_depth_draft_picks %}
+          <tr>
+            <td>{{ pick.year }}</td>
+            <td class="team-depth-draft-picks-table__round">{{ pick.round }}</td>
+            <td class="team-depth-draft-picks-table__team">
+              {% if pick.original_team %}
+              <span class="team-depth-pick-logo-wrap" title="{{ pick.original_team_label }}">
+                <img class="team-depth-pick-logo" src="{{ team_logo_url_for_season_context(pick.original_team, pick.year) }}" alt="{{ pick.original_team_label }} logo" loading="lazy" decoding="async">
+              </span>
+              {% else %}
+              {{ pick.original_team_label }}
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="empty-state">No imported draft picks found for this team.</p>
+    {% endif %}
+  </section>
+</div>
 {% elif active_panel == 'ratings' %}
 {% include "_team_ratings_panel.html" %}
 {% elif active_panel == 'lines' %}
@@ -641,7 +734,7 @@
 {% include "_team_franchise_leaders.html" %}
 </div>
 {% endif %}
-{% if prospects_list %}
+{% if prospects_list and active_panel != 'depth' %}
 <div class="card">
   <h2>Prospects</h2>
   <ul>

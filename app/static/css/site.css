@@ -6381,6 +6381,62 @@ table.data.team-depth-table th {
 .team-depth-empty {
   color: #94a3b8;
 }
+.team-depth-extras {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+@media (min-width: 980px) {
+  .team-depth-extras {
+    grid-template-columns: minmax(0, 1.45fr) minmax(260px, 0.75fr);
+    align-items: start;
+  }
+}
+.team-depth-extra-card {
+  min-width: 0;
+}
+.team-depth-extra-card h2 {
+  margin-bottom: 0.85rem;
+}
+.team-depth-prospects-table,
+.team-depth-draft-picks-table {
+  font-size: 0.82rem;
+}
+.team-depth-prospects-table th,
+.team-depth-prospects-table td,
+.team-depth-draft-picks-table th,
+.team-depth-draft-picks-table td {
+  padding: 0.45rem 0.55rem;
+  vertical-align: middle;
+}
+.team-depth-prospect-player {
+  --team-roster-photo-size: 34px;
+}
+.team-depth-rating--large {
+  min-width: 1.9rem;
+  min-height: 1.25rem;
+  font-size: 0.7rem;
+}
+.team-depth-draft-picks-table__team {
+  width: 5rem;
+}
+table.data.team-depth-draft-picks-table th.team-depth-draft-picks-table__round,
+table.data.team-depth-draft-picks-table td.team-depth-draft-picks-table__round {
+  text-align: center;
+}
+.team-depth-pick-logo-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.4rem;
+  height: 2.4rem;
+}
+.team-depth-pick-logo {
+  display: block;
+  width: 2.2rem;
+  height: 2.2rem;
+  object-fit: contain;
+}
 .team-lines-stack {
   display: grid;
   gap: 0.9rem;

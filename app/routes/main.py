@@ -156,6 +156,7 @@ from app.services.draft_hub_state import (
     featured_draft,
     picked_player_ids,
 )
+from app.services.draft_pick_ownership import owned_draft_picks_for_team
 from app.services.playoff_bracket import playoff_bracket_payload
 from app.services.team_alumni import team_alumni_rows as build_team_alumni_rows
 from app.services.trade_log import trade_log_rows as build_trade_log_rows
@@ -3120,6 +3121,81 @@ def _player_is_goalie_position(player: Player) -> bool:
     return first == "G"
 
 
+def _build_team_depth_prospect_rows(team: Team, season: Season | None) -> list[dict[str, object]]:
+    session = db.session
+    league_ids = bowl_nhl_league_ids(session)
+    age_ref = season_age_reference_date(season or get_current_season())
+    players = session.scalars(
+        select(Player)
+        .options(joinedload(Player.current_team))
+        .where(Player.retired.is_(False), Player.birth_date.isnot(None))
+    ).unique().all()
+    resolved_team_by_player_id = resolve_prospect_team_fallbacks(session, players, season)
+
+    def effective_team(pl: Player) -> Team | None:
+        return pl.current_team or resolved_team_by_player_id.get(pl.id)
+
+    rows: list[dict[str, object]] = []
+    for pl in players:
+        eff_team = effective_team(pl)
+        if not eff_team or eff_team.id != team.id or eff_team.fhm_league_id not in league_ids:
+            continue
+        age = _player_age_years(pl.birth_date, age_ref)
+        if age is None or age > 22:
+            continue
+        rows.append({"player": pl, "age": age, "potential": _prospect_float(pl.overall_potential)})
+
+    rows.sort(
+        key=lambda row: (
+            -(float(row["potential"]) if row["potential"] is not None else float("-inf")),
+            str(row["player"].full_name if row["player"] else "").lower(),
+        )
+    )
+    return rows
+
+
+def _build_team_depth_draft_pick_rows(team: Team, league_slug: str) -> list[dict[str, object]]:
+    rows = owned_draft_picks_for_team(
+        db.session,
+        league_slug=league_slug,
+        team_id=int(team.id),
+    )
+    original_ids = {int(r.original_team_id) for r in rows if r.original_team_id}
+    original_fhm_ids = {int(r.original_team_fhm_id) for r in rows if r.original_team_fhm_id}
+    teams_by_id = {
+        int(t.id): t
+        for t in db.session.scalars(select(Team).where(Team.id.in_(original_ids))).all()
+    } if original_ids else {}
+    teams_by_fhm = {
+        int(t.fhm_team_id): t
+        for t in db.session.scalars(
+            select(Team).where(Team.fhm_team_id.in_([str(fid) for fid in original_fhm_ids]))
+        ).all()
+        if t.fhm_team_id is not None
+    } if original_fhm_ids else {}
+
+    out: list[dict[str, object]] = []
+    for row in rows:
+        original_team = None
+        if row.original_team_id:
+            original_team = teams_by_id.get(int(row.original_team_id))
+        if original_team is None:
+            original_team = teams_by_fhm.get(int(row.original_team_fhm_id))
+        out.append(
+            {
+                "year": int(row.draft_year),
+                "round": int(row.round),
+                "original_team": original_team,
+                "original_team_label": (
+                    (original_team.abbreviation or original_team.name or "Team")
+                    if original_team is not None
+                    else f"Team {int(row.original_team_fhm_id)}"
+                ),
+            }
+        )
+    return out
+
+
 def _pick_skater_stat_leader(
     pairs: list[tuple[PlayerSkaterStat, Player]],
     value_fn,
@@ -3816,6 +3892,11 @@ def team_page(slug: str):
     depth_chart, lines_sections, lines_name_to_id, salary_rows, salary_total = _build_team_lines_views(
         team, roster, season, raw_dir
     )
+    team_depth_prospects: list[dict[str, object]] = []
+    team_depth_draft_picks: list[dict[str, object]] = []
+    if panel == "depth":
+        team_depth_prospects = _build_team_depth_prospect_rows(team, canonical_season or season)
+        team_depth_draft_picks = _build_team_depth_draft_pick_rows(team, league_slug)
     team_leader_rows: list[dict[str, object]] = []
     team_agg = None
     team_agg_po = None
@@ -3952,6 +4033,8 @@ def team_page(slug: str):
         "team_rank_po": team_rank_po,
         "active_panel": panel,
         "depth_chart": depth_chart,
+        "team_depth_prospects": team_depth_prospects,
+        "team_depth_draft_picks": team_depth_draft_picks,
         "lines_sections": lines_sections,
         "lines_name_to_id": lines_name_to_id,
         "salary_rows": salary_rows,

@@ -3315,6 +3315,7 @@ def teams_index():
                 Game.arena.label("arena"),
                 func.count(Game.id).label("games"),
                 func.max(Game.attendance).label("max_attendance"),
+                func.max(Game.game_date).label("latest_game_date"),
             )
             .where(
                 Game.home_team_id == team.id,
@@ -3322,12 +3323,16 @@ def teams_index():
                 Game.arena != "",
             )
             .group_by(Game.arena)
-            .order_by(func.count(Game.id).desc(), Game.arena.asc())
+            .order_by(func.max(Game.game_date).desc(), func.count(Game.id).desc(), Game.arena.asc())
             .limit(1)
         ).first()
         if arena_row:
             arena_name = _normalize_trois_rivieres_spelling(arena_row.arena or "")
-            arena_capacity = int(arena_row.max_attendance) if arena_row.max_attendance is not None else None
+            arena_capacity = (
+                int(arena_row.max_attendance)
+                if arena_row.max_attendance is not None and int(arena_row.max_attendance) > 0
+                else None
+            )
 
         standing = standing_by_tid.get(team.id)
         division_name = div_label_by_tid.get(team.id) if standing else None
@@ -3442,6 +3447,7 @@ def team_page(slug: str):
             Game.arena.label("arena"),
             func.count(Game.id).label("games"),
             func.max(Game.attendance).label("max_attendance"),
+            func.max(Game.game_date).label("latest_game_date"),
         )
         .where(
             Game.home_team_id == team.id,
@@ -3449,12 +3455,16 @@ def team_page(slug: str):
             Game.arena != "",
         )
         .group_by(Game.arena)
-        .order_by(func.count(Game.id).desc(), Game.arena.asc())
+        .order_by(func.max(Game.game_date).desc(), func.count(Game.id).desc(), Game.arena.asc())
         .limit(1)
     ).first()
     if arena_row:
         arena_name = _normalize_trois_rivieres_spelling(arena_row.arena or "")
-        arena_capacity = int(arena_row.max_attendance) if arena_row.max_attendance is not None else None
+        arena_capacity = (
+            int(arena_row.max_attendance)
+            if arena_row.max_attendance is not None and int(arena_row.max_attendance) > 0
+            else None
+        )
     standing = None
     if season:
         standing = db.session.scalars(

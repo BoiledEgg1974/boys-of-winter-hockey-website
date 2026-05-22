@@ -12,7 +12,7 @@ from app.league_db import db
 from app.logo_urls import team_logo_url_for_team
 from app.models import Player, Team
 from app.services.draft_hub_ai_advisor import fetch_draft_hub_ai_advice
-from app.services.draft_hub_eligibility import ELIGIBLE_HUB_BOARD_WINDOW, age_as_of
+from app.services.draft_hub_eligibility import age_as_of
 from app.services.draft_hub_eligibility_cache import (
     eligible_count_for_draft,
     eligible_id_set_for_draft,
@@ -40,7 +40,6 @@ from app.services.draft_hub_state import (
     wishlist_head_for_user,
     wishlist_items_for_team,
 )
-from app.services.player_headshot import resolve_player_headshot_static_filename
 from app.services.player_ratings_csv import get_player_ratings_row, player_positions_display_label
 from app.site_models import (
     LeagueDraft,
@@ -51,6 +50,7 @@ from app.site_models import (
 )
 
 draft_hub_bp = Blueprint("draft_hub", __name__, url_prefix="/draft-hub")
+ELIGIBLE_HUB_FULL_POOL_LIMIT = 5000
 
 
 def _league_slug() -> str:
@@ -61,18 +61,6 @@ def _membership():
     if not current_user.is_authenticated:
         return None
     return active_membership_for_league(current_user, _league_slug())
-
-
-def _player_photo_url(player: Player | None) -> str:
-    if not player:
-        return ""
-    static_root = Path(current_app.root_path) / (current_app.static_folder or "static")
-    rel = resolve_player_headshot_static_filename(
-        static_root,
-        player,
-        str(current_app.config.get("PLAYER_HEADSHOTS_REL_DIR") or "players"),
-    )
-    return url_for("static", filename=rel) if rel else ""
 
 
 @draft_hub_bp.get("")
@@ -626,7 +614,10 @@ def draft_hub_eligible_page():
     if pos_filter and pos_filter not in _VALID_POS_FILTERS:
         pos_filter = ""
     offset = max(0, request.args.get("offset", type=int) or 0)
-    limit = min(ELIGIBLE_HUB_BOARD_WINDOW, max(1, request.args.get("limit", type=int) or 40))
+    limit = min(
+        ELIGIBLE_HUB_FULL_POOL_LIMIT,
+        max(1, request.args.get("limit", type=int) or ELIGIBLE_HUB_FULL_POOL_LIMIT),
+    )
     params = draft_eligibility_params(draft)
     picked = picked_player_ids(db.session, draft.id)
     eligible = eligible_players_for_board(db.session, slug, params, picked)
@@ -641,14 +632,7 @@ def draft_hub_eligible_page():
             if _player_matches_pos_filter(label, pos_filter):
                 filtered.append(pl)
         eligible = filtered
-    using_board_window = not q and not pos_filter
-    if using_board_window:
-        board_eligible = eligible[:ELIGIBLE_HUB_BOARD_WINDOW]
-        display_window_capped = len(eligible) > len(board_eligible)
-    else:
-        board_eligible = eligible
-        display_window_capped = False
-    slice_ = board_eligible[offset : offset + limit]
+    slice_ = eligible[offset : offset + limit]
     as_of = season_age_reference_date(get_current_season())
 
     def age_years(bd):
@@ -673,7 +657,6 @@ def draft_hub_eligible_page():
                 "svp": rr.get("svp") if rr else None,
                 "height_in": pl.height_inches,
                 "weight_lb": pl.weight_lbs,
-                "photo_url": _player_photo_url(pl),
             }
         )
     return jsonify(
@@ -683,8 +666,8 @@ def draft_hub_eligible_page():
             "total": len(eligible),
             "offset": offset,
             "limit": limit,
-            "display_window": ELIGIBLE_HUB_BOARD_WINDOW if using_board_window else None,
-            "display_window_capped": display_window_capped,
+            "display_window": None,
+            "display_window_capped": False,
         }
     )
 

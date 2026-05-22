@@ -426,6 +426,8 @@
 
   var searchQ = '';
   var posQ = '';
+  var eligibleOffset = 0;
+  var eligiblePageSize = 40;
   var historyRound = 'all';
   var savedEligibleScroll = 0;
   var resetEligibleScroll = false;
@@ -756,6 +758,7 @@
     html += '</select></label>';
     html += '</div>';
     html += '<div id="dh-eligible-list" class="draft-hub-player-list"></div>';
+    html += '<div id="dh-eligible-pager" class="draft-hub-eligible-pager" aria-label="Eligible prospect pages"></div>';
     html += '</section>';
 
     html += '<section class="draft-hub-col draft-hub-col--order card">';
@@ -1079,16 +1082,25 @@
     var meta = document.getElementById('dh-eligible-meta');
     var list = document.getElementById('dh-eligible-list');
     if (!list) return;
-    var url = eligibleUrl + '?limit=40';
+    var url = eligibleUrl + '?limit=' + encodeURIComponent(String(eligiblePageSize)) + '&offset=' + encodeURIComponent(String(eligibleOffset));
     if (searchQ) url += '&q=' + encodeURIComponent(searchQ);
     if (posQ) url += '&pos=' + encodeURIComponent(posQ);
     fetch(url, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
       if (!d.ok) return;
+      var total = Number(d.total || 0);
+      if (total > 0 && eligibleOffset >= total) {
+        eligibleOffset = Math.max(0, Math.floor((total - 1) / eligiblePageSize) * eligiblePageSize);
+        loadEligible(x);
+        return;
+      }
       if (meta) {
-        var metaParts = [String(d.total != null ? d.total : 0) + ' available'];
-        if (d.display_window_capped && d.display_window) {
-          metaParts.push('showing top ' + d.display_window + ' by potential');
+        var pageStart = total > 0 ? eligibleOffset + 1 : 0;
+        var pageEnd = Math.min(eligibleOffset + eligiblePageSize, total);
+        var metaParts = [String(total) + ' available'];
+        if (total > 0) {
+          metaParts.push('showing ' + pageStart + '-' + pageEnd);
         }
+        metaParts.push('sorted by highest potential');
         meta.textContent = metaParts.join(' · ');
       }
       var rows = d.players || [];
@@ -1097,13 +1109,9 @@
       var html = '';
       rows.forEach(function (p) {
         var detailTitle = playerDetailsTitle(p);
-        var photo = p.photo_url
-          ? '<img src="' + esc(p.photo_url) + '" alt="' + esc(p.name || '') + ' photo" loading="lazy">'
-          : '<span class="draft-hub-player__photo-ph" aria-hidden="true"></span>';
         var cardHref = esc(playerHref(p.id));
         var cardName = esc(p.name || '');
         html += '<div class="draft-hub-player" title="' + esc(detailTitle) + '">';
-        html += '<a class="draft-hub-player__photo dh-player-card-link" href="' + cardHref + '" target="_blank" rel="noopener noreferrer" data-player-name="' + cardName + '" title="Open player card in a new window">' + photo + '</a>';
         html += '<div class="draft-hub-player__main">';
         html += '<div class="draft-hub-player__line draft-hub-player__line--top">';
         html += '<strong><a href="' + cardHref + '" class="draft-hub-player__name dh-player-card-link" target="_blank" rel="noopener noreferrer" data-player-name="' + cardName + '" title="Open player card in a new window">' + esc(p.name) + '</a></strong> ';
@@ -1138,6 +1146,7 @@
         html += '</div></div>';
       });
       list.innerHTML = html || '<p class="muted">No matching players.</p>';
+      renderEligiblePager(total);
       restoreEligibleScroll();
       list.querySelectorAll('.dh-player-card-link').forEach(function (a) {
         if (a._cardBound) return;
@@ -1149,6 +1158,24 @@
         });
       });
     }).catch(function () {});
+  }
+
+  function renderEligiblePager(total) {
+    var pager = document.getElementById('dh-eligible-pager');
+    if (!pager) return;
+    total = Number(total || 0);
+    if (total <= eligiblePageSize) {
+      pager.innerHTML = '';
+      return;
+    }
+    var currentPage = Math.floor(eligibleOffset / eligiblePageSize) + 1;
+    var totalPages = Math.max(1, Math.ceil(total / eligiblePageSize));
+    var prevDisabled = eligibleOffset <= 0 ? ' disabled' : '';
+    var nextDisabled = eligibleOffset + eligiblePageSize >= total ? ' disabled' : '';
+    pager.innerHTML =
+      '<button type="button" class="button secondary dh-eligible-page-prev"' + prevDisabled + '>Previous 40</button>' +
+      '<span class="draft-hub-eligible-pager__status">Page ' + esc(String(currentPage)) + ' of ' + esc(String(totalPages)) + '</span>' +
+      '<button type="button" class="button secondary dh-eligible-page-next"' + nextDisabled + '>Next 40</button>';
   }
 
   function refetchAndReloadEligible(opts) {
@@ -1172,6 +1199,7 @@
       var t;
       s.addEventListener('input', function () {
         searchQ = s.value.trim();
+        eligibleOffset = 0;
         clearTimeout(t);
         t = setTimeout(function () { refetchAndReloadEligible({ resetScroll: true }); }, 250);
       });
@@ -1181,6 +1209,23 @@
       posSel._bound = true;
       posSel.addEventListener('change', function () {
         posQ = posSel.value || '';
+        eligibleOffset = 0;
+        refetchAndReloadEligible({ resetScroll: true });
+      });
+    }
+    var pager = document.getElementById('dh-eligible-pager');
+    if (pager && !pager._bound) {
+      pager._bound = true;
+      pager.addEventListener('click', function (ev) {
+        var btn = ev.target && ev.target.closest ? ev.target.closest('button') : null;
+        if (!btn || btn.disabled) return;
+        if (btn.classList.contains('dh-eligible-page-prev')) {
+          eligibleOffset = Math.max(0, eligibleOffset - eligiblePageSize);
+        } else if (btn.classList.contains('dh-eligible-page-next')) {
+          eligibleOffset += eligiblePageSize;
+        } else {
+          return;
+        }
         refetchAndReloadEligible({ resetScroll: true });
       });
     }

@@ -13154,6 +13154,10 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
   flex-direction: column;
   gap: 0.5rem;
 }
+.draft-hub-page .draft-hub-player-list {
+  max-height: none;
+  overflow-y: visible;
+}
 .draft-hub-player {
   display: grid;
   grid-template-columns: 54px minmax(0, 1fr) auto;
@@ -13161,6 +13165,22 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
   gap: 0.75rem;
   padding: 0.55rem 0.35rem;
   border-bottom: 1px solid var(--border);
+}
+.draft-hub-page .draft-hub-player {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.draft-hub-eligible-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.8rem;
+}
+.draft-hub-eligible-pager__status {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-align: center;
 }
 .draft-hub-player__photo {
   display: inline-flex;

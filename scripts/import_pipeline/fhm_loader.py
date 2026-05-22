@@ -38,6 +38,7 @@ from scripts.import_pipeline.encoding_utils import (
     to_float,
     to_int,
 )
+from scripts.import_pipeline.sqlite_session import commit_with_sqlite_retry
 
 log = logging.getLogger("bowl.fhm")
 
@@ -967,6 +968,36 @@ def _goalie_career_minutes(raw) -> int | None:
     return v // 100
 
 
+def _career_line_key(
+    player_id: int,
+    season_year: int,
+    team_fhm_id: int,
+    league_fhm_id: int,
+    career_source: str,
+) -> tuple[int, int, int, int, str]:
+    return (player_id, season_year, team_fhm_id, league_fhm_id, career_source)
+
+
+def _skater_career_index(career_source: str) -> dict[tuple[int, int, int, int, str], PlayerSkaterCareerLine]:
+    rows = db.session.scalars(
+        select(PlayerSkaterCareerLine).where(PlayerSkaterCareerLine.career_source == career_source)
+    ).all()
+    return {
+        _career_line_key(r.player_id, r.season_year, r.team_fhm_id, r.league_fhm_id, r.career_source): r
+        for r in rows
+    }
+
+
+def _goalie_career_index(career_source: str) -> dict[tuple[int, int, int, int, str], PlayerGoalieCareerLine]:
+    rows = db.session.scalars(
+        select(PlayerGoalieCareerLine).where(PlayerGoalieCareerLine.career_source == career_source)
+    ).all()
+    return {
+        _career_line_key(r.player_id, r.season_year, r.team_fhm_id, r.league_fhm_id, r.career_source): r
+        for r in rows
+    }
+
+
 def import_career_skater_file(
     raw_dir: Path,
     filename: str,
@@ -978,58 +1009,55 @@ def import_career_skater_file(
     if not path.exists():
         return 0
     df = read_csv_normalized(path)
+    index = _skater_career_index(career_source)
     n = 0
-    for _, row in df.iterrows():
-        r = row.to_dict()
-        pid = to_int(cell_val(r, "playerid"))
-        year = to_int(cell_val(r, "year"))
-        tm_fhm = to_int(cell_val(r, "team_id", "teamid"))
-        lid = to_int(cell_val(r, "league_id", "leagueid"))
-        if pid is None or year is None or tm_fhm is None or lid is None:
-            continue
-        if pid not in players_fhm:
-            continue
-        cl = db.session.scalars(
-            select(PlayerSkaterCareerLine).where(
-                PlayerSkaterCareerLine.player_id == players_fhm[pid],
-                PlayerSkaterCareerLine.season_year == year,
-                PlayerSkaterCareerLine.team_fhm_id == tm_fhm,
-                PlayerSkaterCareerLine.league_fhm_id == lid,
-                PlayerSkaterCareerLine.career_source == career_source,
-            ).limit(1)
-        ).first()
-        if not cl:
-            cl = PlayerSkaterCareerLine(
-                player_id=players_fhm[pid],
-                season_year=year,
-                team_fhm_id=tm_fhm,
-                league_fhm_id=lid,
-                career_source=career_source,
-            )
-            db.session.add(cl)
-        cl.team_id = teams_fhm.get(tm_fhm)
-        cl.gp = to_int(cell_val(r, "gp"), 0) or 0
-        cl.goals = to_int(cell_val(r, "g"), 0) or 0
-        cl.assists = to_int(cell_val(r, "a"), 0) or 0
-        cl.pim = to_int(cell_val(r, "pim"), 0) or 0
-        cl.plus_minus = to_int(cell_val(r, "+_", "+__", "plus_minus", "pm"))
-        cl.pp_goals = to_int(cell_val(r, "pp_g"))
-        cl.pp_assists = to_int(cell_val(r, "pp_a"))
-        cl.sh_goals = to_int(cell_val(r, "sh_g"))
-        cl.sh_assists = to_int(cell_val(r, "sh_a"))
-        cl.gwg = to_int(cell_val(r, "gwg"))
-        cl.shots = to_int(cell_val(r, "sog"))
-        cl.hits = to_int(cell_val(r, "hit"))
-        cl.gva = to_int(cell_val(r, "gva"))
-        cl.tka = to_int(cell_val(r, "tka"))
-        cl.sb = to_int(cell_val(r, "sb"))
-        cl.fights = to_int(cell_val(r, "fights"))
-        cl.fights_won = to_int(cell_val(r, "fights_won"))
-        cl.game_rating = to_float(cell_val(r, "gr", "game_rating"))
-        n += 1
-        if n % 500 == 0:
-            db.session.commit()
-    db.session.commit()
+    with db.session.no_autoflush:
+        for _, row in df.iterrows():
+            r = row.to_dict()
+            pid = to_int(cell_val(r, "playerid"))
+            year = to_int(cell_val(r, "year"))
+            tm_fhm = to_int(cell_val(r, "team_id", "teamid"))
+            lid = to_int(cell_val(r, "league_id", "leagueid"))
+            if pid is None or year is None or tm_fhm is None or lid is None:
+                continue
+            if pid not in players_fhm:
+                continue
+            player_id = players_fhm[pid]
+            key = _career_line_key(player_id, year, tm_fhm, lid, career_source)
+            cl = index.get(key)
+            if not cl:
+                cl = PlayerSkaterCareerLine(
+                    player_id=player_id,
+                    season_year=year,
+                    team_fhm_id=tm_fhm,
+                    league_fhm_id=lid,
+                    career_source=career_source,
+                )
+                db.session.add(cl)
+                index[key] = cl
+            cl.team_id = teams_fhm.get(tm_fhm)
+            cl.gp = to_int(cell_val(r, "gp"), 0) or 0
+            cl.goals = to_int(cell_val(r, "g"), 0) or 0
+            cl.assists = to_int(cell_val(r, "a"), 0) or 0
+            cl.pim = to_int(cell_val(r, "pim"), 0) or 0
+            cl.plus_minus = to_int(cell_val(r, "+_", "+__", "plus_minus", "pm"))
+            cl.pp_goals = to_int(cell_val(r, "pp_g"))
+            cl.pp_assists = to_int(cell_val(r, "pp_a"))
+            cl.sh_goals = to_int(cell_val(r, "sh_g"))
+            cl.sh_assists = to_int(cell_val(r, "sh_a"))
+            cl.gwg = to_int(cell_val(r, "gwg"))
+            cl.shots = to_int(cell_val(r, "sog"))
+            cl.hits = to_int(cell_val(r, "hit"))
+            cl.gva = to_int(cell_val(r, "gva"))
+            cl.tka = to_int(cell_val(r, "tka"))
+            cl.sb = to_int(cell_val(r, "sb"))
+            cl.fights = to_int(cell_val(r, "fights"))
+            cl.fights_won = to_int(cell_val(r, "fights_won"))
+            cl.game_rating = to_float(cell_val(r, "gr", "game_rating"))
+            n += 1
+            if n % 500 == 0:
+                commit_with_sqlite_retry(db.session)
+    commit_with_sqlite_retry(db.session)
     return n
 
 
@@ -1044,51 +1072,48 @@ def import_career_goalie_file(
     if not path.exists():
         return 0
     df = read_csv_normalized(path)
+    index = _goalie_career_index(career_source)
     n = 0
-    for _, row in df.iterrows():
-        r = row.to_dict()
-        pid = to_int(cell_val(r, "playerid"))
-        year = to_int(cell_val(r, "year"))
-        tm_fhm = to_int(cell_val(r, "team_id", "teamid"))
-        lid = to_int(cell_val(r, "league_id", "leagueid"))
-        if pid is None or year is None or tm_fhm is None or lid is None:
-            continue
-        if pid not in players_fhm:
-            continue
-        gl = db.session.scalars(
-            select(PlayerGoalieCareerLine).where(
-                PlayerGoalieCareerLine.player_id == players_fhm[pid],
-                PlayerGoalieCareerLine.season_year == year,
-                PlayerGoalieCareerLine.team_fhm_id == tm_fhm,
-                PlayerGoalieCareerLine.league_fhm_id == lid,
-                PlayerGoalieCareerLine.career_source == career_source,
-            ).limit(1)
-        ).first()
-        if not gl:
-            gl = PlayerGoalieCareerLine(
-                player_id=players_fhm[pid],
-                season_year=year,
-                team_fhm_id=tm_fhm,
-                league_fhm_id=lid,
-                career_source=career_source,
-            )
-            db.session.add(gl)
-        gl.team_id = teams_fhm.get(tm_fhm)
-        gl.gp = to_int(cell_val(r, "gp"), 0) or 0
-        gl.games_started = to_int(cell_val(r, "gs"))
-        gl.minutes_played = _goalie_career_minutes(cell_val(r, "min"))
-        gl.wins = to_int(cell_val(r, "w"), 0) or 0
-        gl.losses = to_int(cell_val(r, "l"), 0) or 0
-        gl.ties_otl = to_int(cell_val(r, "t_ol", "tol", "otl"))
-        gl.empty_net_goals = to_int(cell_val(r, "eng"))
-        gl.shutouts = to_int(cell_val(r, "so"), 0) or 0
-        gl.goals_against = to_int(cell_val(r, "ga"), 0) or 0
-        gl.shots_against = to_int(cell_val(r, "sa"), 0) or 0
-        gl.game_rating = to_float(cell_val(r, "gr"))
-        n += 1
-        if n % 500 == 0:
-            db.session.commit()
-    db.session.commit()
+    with db.session.no_autoflush:
+        for _, row in df.iterrows():
+            r = row.to_dict()
+            pid = to_int(cell_val(r, "playerid"))
+            year = to_int(cell_val(r, "year"))
+            tm_fhm = to_int(cell_val(r, "team_id", "teamid"))
+            lid = to_int(cell_val(r, "league_id", "leagueid"))
+            if pid is None or year is None or tm_fhm is None or lid is None:
+                continue
+            if pid not in players_fhm:
+                continue
+            player_id = players_fhm[pid]
+            key = _career_line_key(player_id, year, tm_fhm, lid, career_source)
+            gl = index.get(key)
+            if not gl:
+                gl = PlayerGoalieCareerLine(
+                    player_id=player_id,
+                    season_year=year,
+                    team_fhm_id=tm_fhm,
+                    league_fhm_id=lid,
+                    career_source=career_source,
+                )
+                db.session.add(gl)
+                index[key] = gl
+            gl.team_id = teams_fhm.get(tm_fhm)
+            gl.gp = to_int(cell_val(r, "gp"), 0) or 0
+            gl.games_started = to_int(cell_val(r, "gs"))
+            gl.minutes_played = _goalie_career_minutes(cell_val(r, "min"))
+            gl.wins = to_int(cell_val(r, "w"), 0) or 0
+            gl.losses = to_int(cell_val(r, "l"), 0) or 0
+            gl.ties_otl = to_int(cell_val(r, "t_ol", "tol", "otl"))
+            gl.empty_net_goals = to_int(cell_val(r, "eng"))
+            gl.shutouts = to_int(cell_val(r, "so"), 0) or 0
+            gl.goals_against = to_int(cell_val(r, "ga"), 0) or 0
+            gl.shots_against = to_int(cell_val(r, "sa"), 0) or 0
+            gl.game_rating = to_float(cell_val(r, "gr"))
+            n += 1
+            if n % 500 == 0:
+                commit_with_sqlite_retry(db.session)
+    commit_with_sqlite_retry(db.session)
     return n
 
 
@@ -1238,7 +1263,7 @@ def run_fhm_import(raw_dir: Path, app, league_filter: int = 0) -> dict[str, int]
     sid = int(season.id)
     db.session.execute(delete(PlayerSkaterStat).where(PlayerSkaterStat.season_id == sid))
     db.session.execute(delete(PlayerGoalieStat).where(PlayerGoalieStat.season_id == sid))
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     log.info("Cleared player_skater_stats / player_goalie_stats for season_id=%s before FHM segment import.", sid)
 
     for fname, seg in [

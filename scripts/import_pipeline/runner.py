@@ -1117,12 +1117,18 @@ def run_import(raw_dir: Path | None = None) -> None:
         log.warning("LEAGUE_SLUG %r is not in LEAGUES registry; using default Config.", slug)
         app = create_app(Config)
     raw = Path(raw_dir or app.config["RAW_IMPORT_DIR"])
+    db_uri = str(app.config.get("SQLALCHEMY_DATABASE_URI") or "")
     log.info(
         "Import paths — LEAGUE_SLUG=%r SQLALCHEMY_DATABASE_URI=%s RAW_IMPORT_DIR=%s",
         slug,
-        app.config.get("SQLALCHEMY_DATABASE_URI"),
+        db_uri,
         raw.resolve(),
     )
+    if db_uri.startswith("sqlite:///"):
+        log.info(
+            "SQLite import: pause or reload the league web app on PythonAnywhere if you see "
+            "'database is locked' (live workers hold read transactions during long writes)."
+        )
     if not raw.is_dir():
         log.error("Raw import directory does not exist: %s", raw)
         return
@@ -1175,6 +1181,7 @@ def run_import(raw_dir: Path | None = None) -> None:
                 ilog.message = str(counts)
             except Exception as e:
                 log.exception("FHM import failed")
+                db.session.rollback()
                 ilog.status = "error"
                 ilog.message = str(e)
             ilog.finished_at = datetime.utcnow()
@@ -1197,6 +1204,7 @@ def run_import(raw_dir: Path | None = None) -> None:
                 ilog.message = f"{count} rows"
             except Exception as e:
                 log.exception("Import step %s failed", name)
+                db.session.rollback()
                 ilog.status = "error"
                 ilog.message = str(e)
             ilog.finished_at = datetime.utcnow()

@@ -468,10 +468,13 @@
       root.innerHTML = '<p class="empty-state">' + esc(data && data.message ? data.message : 'No playoff data.') + '</p>';
       return;
     }
+    var intro = data.projection_only && data.message
+      ? '<p class="muted playoff-bracket-dialog__projection-note">' + esc(data.message) + '</p>'
+      : '';
     var parts = normalizeRounds(data);
     var layout = bracketAttr('data-bracket-layout');
     if (layout === 'mirror') {
-      root.innerHTML = renderMirrorBracket(data, parts);
+      root.innerHTML = intro + renderMirrorBracket(data, parts);
       return;
     }
     var html = '<section class="bracket-visual-wrap" aria-label="Playoff bracket">';
@@ -484,7 +487,7 @@
     }
     html += finalColumn(data.championship);
     html += '</div></section>';
-    root.innerHTML = html;
+    root.innerHTML = intro + html;
   }
   function load() {
     root.innerHTML = '<p class="muted playoff-bracket-dialog__loading">Loading bracket…</p>';

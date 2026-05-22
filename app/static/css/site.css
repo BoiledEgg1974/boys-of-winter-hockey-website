@@ -886,6 +886,13 @@ table.data tbody tr.standings-cutline td {
 .playoff-bracket-dialog__loading {
   margin: 0.5rem 0;
 }
+.playoff-bracket-dialog__projection-note {
+  margin: 0 0 0.9rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid rgb(148 163 184 / 0.22);
+  border-radius: 10px;
+  background: rgb(15 23 42 / 0.45);
+}
 .bracket-visual-wrap {
   margin: 0;
 }

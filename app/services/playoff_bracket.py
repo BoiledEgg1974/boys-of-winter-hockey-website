@@ -10,11 +10,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
+from flask import current_app, has_app_context
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 
 from app.logo_urls import team_logo_url_for_team
-from app.models import Game, Team, db
+from app.models import Game, Team, TeamStanding, db
 from app.services.playoff_series_prediction import (
     PREDICTION_METHOD_NOTE,
     load_rs_head_to_head,
@@ -62,6 +63,9 @@ class SeriesAgg:
 _WALES_CONF_ID = 0
 _CAMPBELL_CONF_ID = 1
 
+_PROJECTED_PAIRINGS_8: tuple[tuple[int, int], ...] = ((0, 7), (3, 4), (2, 5), (1, 6))
+_PROJECTED_PAIRINGS_4: tuple[tuple[int, int], ...] = ((0, 3), (1, 2))
+
 
 def _series_sort_key(s: SeriesAgg) -> tuple:
     return (s.first_date or date.min, s.team_a_id, s.team_b_id)
@@ -95,6 +99,104 @@ def _synthetic_preview_series(team_a_id: int, team_b_id: int) -> SeriesAgg:
         last_date=None,
         preview_only=True,
     )
+
+
+def _standing_sort_key(st: TeamStanding) -> tuple[int, int, int, int, int, str]:
+    """Sort standings rows the same way the projection model breaks ties."""
+    row = max(int(st.w or 0) - int(st.shootout_wins or 0), 0)
+    gd = int(st.gf or 0) - int(st.ga or 0)
+    name = ""
+    if getattr(st, "team", None) is not None:
+        name = (st.team.full_display_name() or "").lower()
+    return (
+        int(st.pts or 0),
+        row,
+        gd,
+        int(st.gf or 0),
+        -int(st.team_id or 0),
+        name,
+    )
+
+
+def _projected_series_for_seeded_rows(
+    rows: list[TeamStanding],
+    pairings: tuple[tuple[int, int], ...],
+) -> list[SeriesAgg]:
+    out: list[SeriesAgg] = []
+    for ai, bi in pairings:
+        if ai >= len(rows) or bi >= len(rows):
+            continue
+        out.append(_synthetic_preview_series(int(rows[ai].team_id), int(rows[bi].team_id)))
+    return out
+
+
+def _projected_bracket_slots_from_standings(
+    season_id: int,
+) -> tuple[list[SeriesAgg | None], list[SeriesAgg | None], list[SeriesAgg | None], dict[int, Team], str]:
+    """Build a current-if-season-ended bracket from regular-season standings."""
+    rows = db.session.scalars(
+        select(TeamStanding)
+        .options(joinedload(TeamStanding.team))
+        .where(TeamStanding.season_id == season_id)
+    ).all()
+    rows = [st for st in rows if st.team is not None]
+    if not rows:
+        return [], [], [], {}, "No standings rows available for projected playoff seeding."
+
+    teams = {int(st.team_id): st.team for st in rows if st.team is not None}
+    by_conf: dict[int, list[TeamStanding]] = {}
+    for st in rows:
+        conf = st.team.fhm_conference_id if st.team is not None else None
+        if conf is None:
+            continue
+        by_conf.setdefault(int(conf), []).append(st)
+    for conf_rows in by_conf.values():
+        conf_rows.sort(key=_standing_sort_key, reverse=True)
+
+    league_slug = (
+        str(current_app.config.get("LEAGUE_SLUG") or "").strip()
+        if has_app_context()
+        else ""
+    )
+    # Historical uses the compact mirror UI: Division Semi-Finals -> Division Finals -> Final.
+    if league_slug == "bowl-historical":
+        s2_slots: list[SeriesAgg | None] = [None] * 4
+        for conf_id, offset in ((_CAMPBELL_CONF_ID, 0), (_WALES_CONF_ID, 2)):
+            seeded = by_conf.get(conf_id, [])[:4]
+            series = _projected_series_for_seeded_rows(seeded, _PROJECTED_PAIRINGS_4)
+            for idx, s in enumerate(series[:2]):
+                s2_slots[offset + idx] = s
+        if any(s2_slots):
+            return [None] * 8, s2_slots, [None] * 2, teams, (
+                "Projected from current regular-season standings; matchups update as games are imported."
+            )
+
+    if len(by_conf) >= 2:
+        s1_slots: list[SeriesAgg | None] = [None] * 8
+        for conf_id, offset in ((_CAMPBELL_CONF_ID, 0), (_WALES_CONF_ID, 4)):
+            seeded = by_conf.get(conf_id, [])[:8]
+            series = _projected_series_for_seeded_rows(seeded, _PROJECTED_PAIRINGS_8)
+            for idx, s in enumerate(series[:4]):
+                s1_slots[offset + idx] = s
+        if any(s1_slots):
+            return s1_slots, [None] * 4, [None] * 2, teams, (
+                "Projected from current regular-season standings; matchups update as games are imported."
+            )
+
+    # Fallback for a single-table league: top 16 overall, traditional outside-in bracket.
+    overall = sorted(rows, key=_standing_sort_key, reverse=True)[:16]
+    series = _projected_series_for_seeded_rows(
+        overall,
+        ((0, 15), (7, 8), (4, 11), (3, 12), (2, 13), (5, 10), (6, 9), (1, 14)),
+    )
+    s1_slots = [None] * 8
+    for idx, s in enumerate(series[:8]):
+        s1_slots[idx] = s
+    if any(s1_slots):
+        return s1_slots, [None] * 4, [None] * 2, teams, (
+            "Projected from current regular-season standings; matchups update as games are imported."
+        )
+    return [], [], [], teams, "Not enough standings rows to project a playoff bracket yet."
 
 
 def _series_is_clinched(s: SeriesAgg) -> bool:
@@ -393,10 +495,52 @@ def playoff_bracket_payload(season_id: int | None) -> dict:
 
     playoff: list[Game] = [g for g in games if is_playoff_game_type(g.game_type)]
     if not playoff:
+        rs_map = load_rs_strength_by_team(db.session, season_id)
+        h2h = load_rs_head_to_head(db.session, season_id)
+        s1_slots, s2_slots, s3_slots, teams, projection_message = (
+            _projected_bracket_slots_from_standings(season_id)
+        )
+        if any(s1_slots) or any(s2_slots) or any(s3_slots):
+            def _slot_json(s: SeriesAgg | None) -> dict | None:
+                return _series_json(s, teams, rs_map=rs_map, h2h=h2h) if s else None
+
+            first_round = [_slot_json(s) for s in s1_slots]
+            second_round = [_slot_json(s) for s in s2_slots]
+            conference_finals = [_slot_json(s) for s in s3_slots]
+            rounds = []
+            if any(first_round):
+                rounds.append(
+                    {
+                        "label": "Projected first round",
+                        "series": [s for s in first_round if s is not None],
+                    }
+                )
+            if any(second_round):
+                rounds.append(
+                    {
+                        "label": "Projected division semifinals",
+                        "series": [s for s in second_round if s is not None],
+                    }
+                )
+            return {
+                "season_id": season_id,
+                "empty": False,
+                "message": projection_message,
+                "projection_only": True,
+                "prediction_method_note": PREDICTION_METHOD_NOTE,
+                "championship": None,
+                "first_round": first_round,
+                "second_round": second_round,
+                "conference_finals": conference_finals,
+                "quarterfinals": [s for s in first_round if s is not None],
+                "semifinals": [s for s in second_round if s is not None],
+                "rounds": rounds,
+                "series_total": len([s for s in first_round + second_round + conference_finals if s is not None]),
+            }
         return {
             "season_id": season_id,
             "empty": True,
-            "message": "No playoff games found. Games need a playoff-type label in the schedule import (e.g. Playoffs).",
+            "message": projection_message,
             "championship": None,
             "first_round": [],
             "second_round": [],

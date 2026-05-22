@@ -62,7 +62,19 @@
   </form>
 
   <h2>Draft order</h2>
-  <p class="muted">Set the team holding each pick. Use <strong>Copy teams from previous round</strong> to duplicate the previous round's order into the next round. <em>Received from</em> records a pre-draft trade — leave it as <em>— No prior trade —</em> for picks that were never traded. Draft-day trades belong in the <strong>Pick ownership / trades</strong> panel below.</p>
+  <form method="post" class="card" style="padding:1rem;margin-bottom:1rem;" onsubmit="return confirm('Replace all draft order slots with generated order from last season standings and imported pick ownership? Existing slot assignments will be lost.');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="generate_order_from_standings">
+    <p class="muted" style="margin-top:0;">
+      <strong>Generate order from last season + imported pick ownership</strong> builds every round using
+      <em>{{ draft.timeline_year - 1 }}–{{ '%02d'|format(draft.timeline_year % 100) }}</em> standings
+      (worst record → pick 1, best → last pick) and applies <code>draft_pick_ownership.csv</code> for draft year
+      <strong>{{ draft.timeline_year }}</strong> so traded picks show the current owner and original franchise.
+      Re-run after updating the CSV. Gold/silver boost tags on existing slots are preserved.
+    </p>
+    <button type="submit" class="button">Generate order from last season + pick ownership</button>
+  </form>
+  <p class="muted">Or set the team holding each pick manually. Use <strong>Copy teams from previous round</strong> to duplicate the previous round's order into the next round. <em>Received from</em> records a pre-draft trade — leave it as <em>— No prior trade —</em> for picks that were never traded. Draft-day trades belong in the <strong>Pick ownership / trades</strong> panel below.</p>
   <form method="post" class="card draft-hub-admin-rounds" style="padding:1rem;margin-bottom:1rem;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="save_generated_slots">

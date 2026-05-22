@@ -5395,8 +5395,40 @@ def admin_draft_hub():
             timeline_year=ty,
         )
         db.session.add(row)
-        db.session.commit()
-        flash("Draft created.", "ok")
+        db.session.flush()
+        from app.services.draft_hub_order import generate_draft_order_from_prior_season
+
+        created, gen_err, summary = generate_draft_order_from_prior_season(
+            db.session,
+            db.session,
+            league_slug=slug,
+            draft=row,
+        )
+        if gen_err:
+            db.session.commit()
+            flash(f"Draft created. {gen_err}", "err")
+        else:
+            db.session.add(
+                AdminAuditLog(
+                    admin_user_id=int(current_user.id),
+                    league_slug=slug,
+                    action="draft_hub_generate_order",
+                    detail_json=json.dumps(
+                        {
+                            "draft_id": int(row.id),
+                            "created": created,
+                            "auto_on_create": True,
+                            **summary,
+                        }
+                    ),
+                )
+            )
+            db.session.commit()
+            label = str(summary.get("standings_season_label") or "prior season")
+            msg = f"Draft created with {created} slots from {label} standings (worst → best)."
+            if int(summary.get("traded_count") or 0):
+                msg += f" {int(summary['traded_count'])} traded pick(s) applied."
+            flash(msg, "ok")
         return redirect(url_for("site_admin.admin_draft_hub_edit", draft_id=row.id))
     rows = list(
         db.session.scalars(select(LeagueDraft).where(LeagueDraft.league_slug == slug).order_by(LeagueDraft.id.desc())).all()
@@ -5611,6 +5643,56 @@ def admin_draft_hub_edit(draft_id: int):
                         " Ignored (no matching slot): "
                         + ", ".join(str(n) for n in unknown)
                         + "."
+                    )
+                flash(msg, "ok")
+        elif act == "generate_order_from_standings" and row.status == "setup":
+            from app.services.draft_hub_order import generate_draft_order_from_prior_season
+
+            old_tiers = {
+                int(s.overall_pick): s.boost_tier or ""
+                for s in db.session.scalars(
+                    select(LeagueDraftSlot).where(LeagueDraftSlot.league_draft_id == row.id)
+                ).all()
+            }
+            db.session.execute(delete(LeagueDraftSlot).where(LeagueDraftSlot.league_draft_id == row.id))
+            created, err, summary = generate_draft_order_from_prior_season(
+                db.session,
+                db.session,
+                league_slug=slug,
+                draft=row,
+                preserve_boost_tiers=old_tiers,
+            )
+            if err:
+                db.session.rollback()
+                flash(err, "err")
+            else:
+                db.session.add(
+                    AdminAuditLog(
+                        admin_user_id=int(current_user.id),
+                        league_slug=slug,
+                        action="draft_hub_generate_order",
+                        detail_json=json.dumps(
+                            {
+                                "draft_id": row.id,
+                                "created": created,
+                                **summary,
+                            }
+                        ),
+                    )
+                )
+                db.session.commit()
+                label = str(summary.get("standings_season_label") or "prior season")
+                msg = (
+                    f"Generated {created} slots from {label} standings "
+                    f"(worst record → pick 1)."
+                )
+                traded = int(summary.get("traded_count") or 0)
+                if traded:
+                    msg += f" {traded} pick(s) use imported trade ownership."
+                if not summary.get("has_ownership_csv"):
+                    msg += (
+                        " No draft_pick_ownership.csv found for this league — "
+                        "owners match original teams until you import trades and regenerate."
                     )
                 flash(msg, "ok")
         elif act == "save_generated_slots" and row.status == "setup":

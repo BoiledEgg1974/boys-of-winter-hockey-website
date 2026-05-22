@@ -77,6 +77,33 @@ class FantasyTeamLogoTests(unittest.TestCase):
         conn.close()
         self.assertEqual(set(FANTASY_ROSTER_LOGO_FILES), slugs)
 
+    def test_helsinki_relocation_era_logos(self) -> None:
+        app = create_app(make_league_config("bowl-fantasy"))
+        team = type(
+            "Team",
+            (),
+            {
+                "slug": "hel-t12",
+                "name": "Helsinki",
+                "abbreviation": "HEL",
+                "fhm_team_id": "12",
+            },
+        )()
+        with app.app_context():
+            with app.test_request_context(
+                path="/", base_url="http://127.0.0.1/bowl-fantasy/"
+            ):
+                bundle = get_season_team_logo_bundle(app)
+                self.assertIn(
+                    "portland_buckaroos.png",
+                    bundle.team_logo_url_for_season_context(team, 1986),
+                )
+                self.assertIn(
+                    "helsinki_jokerit.png",
+                    bundle.team_logo_url_for_season_context(team, 1987),
+                )
+                self.assertIn("helsinki_jokerit.png", team_logo_url_for_team(team))
+
 
 if __name__ == "__main__":
     unittest.main()

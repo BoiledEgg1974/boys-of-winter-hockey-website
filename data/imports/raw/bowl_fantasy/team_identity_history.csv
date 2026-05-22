@@ -23,7 +23,8 @@ team_fhm_id,start_year,end_year,team_name,logo_file
 20,1979,1980,Ho Chi Minh City Hockey Club,ho_chi_minh_city_hockey_club.png
 20,1981,2100,Montreal Canadiens,montreal_canadiens.png
 12,1979,1984,Dallas Stars,Dallas_Stars.png
-12,1985,2100,Portland Buckaroos,portland_buckaroos.png
+12,1985,1986,Portland Buckaroos,portland_buckaroos.png
+12,1987,2100,Helsinki Jokerit,helsinki_jokerit.png
 280,1979,1984,Moscow CSKA Red Army,Moscow_CSKA_Red_Army.png
 280,1985,2100,Vancouver Giants,vcr-t280.png
 16,1979,1981,Windy City Wolves,Windy_City_Wolves.png

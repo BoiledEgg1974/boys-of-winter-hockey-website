@@ -24,7 +24,7 @@ FANTASY_ROSTER_LOGO_FILES: dict[str, str] = {
     "mon-t10": "moncton_wildcats.png",
     "mtl-t20": "montreal_canadiens.png",
     "pit-t15": "pittsburgh_penguins.png",
-    "por-t12": "portland_buckaroos.png",
+    "hel-t12": "helsinki_jokerit.png",
     "six-t18": "six-t18.png",
     "tok-t17": "tok-t17.png",
     "tor-t3": "tor-t3.png",

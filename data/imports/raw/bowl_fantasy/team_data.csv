@@ -1,25 +1,25 @@
 TeamId;LeagueId;Name;Nickname;Abbr;Parent Team 1;Parent Team 2;Parent Team 3;Parent Team 4;Parent Team 5;Parent Team 6;Parent Team 7;Parent Team 8;Primary Color;Secondary Color;Text Color;Conference Id;Division Id
-0;0;Wichita;Thunder;WIC;-1;-1;-1;-1;-1;-1;-1;-1;#005da6;#878589;#fefef4;0;1
+0;0;Wichita;Thunder;WIC;-1;-1;-1;-1;-1;-1;-1;-1;#005da6;#878589;#fefef4;0;0
 3;0;Toronto;Maple Leafs;TOR;-1;-1;-1;-1;-1;-1;-1;-1;#000084;#000084;#fefef4;0;0
 5;0;Hamilton;Steel;HAM;-1;-1;-1;-1;-1;-1;-1;-1;#000000;#ea8804;#ffffff;0;0
-8;0;Chicago;Black Hawks;CHI;-1;-1;-1;-1;-1;-1;-1;-1;#c8102e;#000000;#fefef4;1;0
-9;0;Halifax;Privateers;HAL;-1;-1;-1;-1;-1;-1;-1;-1;#0b2945;#a48049;#fefef4;1;0
-10;0;Moncton;Wildcats;MON;-1;-1;-1;-1;-1;-1;-1;-1;#003087;#cc1140;#fefef4;0;0
+8;0;Chicago;Black Hawks;CHI;-1;-1;-1;-1;-1;-1;-1;-1;#c8102e;#000000;#fefef4;1;1
+9;0;Halifax;Privateers;HAL;-1;-1;-1;-1;-1;-1;-1;-1;#0b2945;#a48049;#fefef4;0;0
+10;0;Moncton;Wildcats;MON;-1;-1;-1;-1;-1;-1;-1;-1;#003087;#cc1140;#fefef4;0;1
 11;0;Kunlun;Red Star;KUN;-1;-1;-1;-1;-1;-1;-1;-1;#dc1621;#e3bc61;#000000;1;0
-12;0;Portland;Buckaroos;POR;-1;-1;-1;-1;-1;-1;-1;-1;#ec171d;#000000;#fefef4;1;1
+12;0;Helsinki;Jokerit;HEL;-1;-1;-1;-1;-1;-1;-1;-1;#e31b31;#00137f;#ffde00;0;0
 14;0;London;Black Knights;LON;-1;-1;-1;-1;-1;-1;-1;-1;#000000;#d0bf71;#fefef4;0;1
 15;0;Pittsburgh;Penguins;PIT;-1;-1;-1;-1;-1;-1;-1;-1;#00205b;#010101;#fefef4;1;0
-16;0;Victoria;Royals;VIC;-1;-1;-1;-1;-1;-1;-1;-1;#053e7e;#b2b7bb;#ffffff;0;0
-17;0;Tokyo;Katanas;TOK;-1;-1;-1;-1;-1;-1;-1;-1;#b01215;#010401;#fefef4;1;0
+16;0;Victoria;Royals;VIC;-1;-1;-1;-1;-1;-1;-1;-1;#053e7e;#b2b7bb;#ffffff;1;1
+17;0;Tokyo;Katanas;TOK;-1;-1;-1;-1;-1;-1;-1;-1;#b01215;#010401;#fefef4;1;1
 18;0;Toronto;Six;SIX;-1;-1;-1;-1;-1;-1;-1;-1;#ed1c24;#ccad6e;#fefef4;1;1
 19;0;Kenya;Pride;KEN;-1;-1;-1;-1;-1;-1;-1;-1;#114d23;#c81a10;#fefef4;0;1
 20;0;Montreal;Canadiens;MTL;-1;-1;-1;-1;-1;-1;-1;-1;#c8102e;#003087;#fefef4;1;1
 21;0;Florida;Party Animals;FLA;-1;-1;-1;-1;-1;-1;-1;-1;#fe60bb;#3baad0;#ffffff;1;1
-22;0;Bangkok;Roosters;BGK;-1;-1;-1;-1;-1;-1;-1;-1;#ae3031;#3d50d0;#fefef4;1;1
-23;0;Edmonton;Oilers;EDM;-1;-1;-1;-1;-1;-1;-1;-1;#00205b;#ff6319;#fefef4;0;0
+22;0;Bangkok;Roosters;BGK;-1;-1;-1;-1;-1;-1;-1;-1;#ae3031;#3d50d0;#fefef4;0;0
+23;0;Edmonton;Oilers;EDM;-1;-1;-1;-1;-1;-1;-1;-1;#00205b;#ff6319;#fefef4;1;0
 24;0;Trois-Rivières;Lions;TRL;-1;-1;-1;-1;-1;-1;-1;-1;#223a85;#cdc7c7;#fefef4;0;1
-25;0;Canmore;Eagles;CAN;-1;-1;-1;-1;-1;-1;-1;-1;#0a0d4a;#2e6cd2;#fefef4;0;1
-26;0;Fort Wayne;Komets;FW;-1;-1;-1;-1;-1;-1;-1;-1;#fc5804;#0c0c0c;#fefef4;1;0
+25;0;Canmore;Eagles;CAN;-1;-1;-1;-1;-1;-1;-1;-1;#0a0d4a;#2e6cd2;#fefef4;1;0
+26;0;Fort Wayne;Komets;FW;-1;-1;-1;-1;-1;-1;-1;-1;#fc5804;#0c0c0c;#fefef4;0;1
 51;3;Independent;Team;Ind;-1;-1;-1;-1;-1;-1;-1;-1;#c60000;#0031ad;#fefef4;-1;0
 54;3;Independent;Team;Ind;-1;-1;-1;-1;-1;-1;-1;-1;#000000;#000000;#fefef4;-1;0
 56;3;Independent;Team;Ind;-1;-1;-1;-1;-1;-1;-1;-1;#000000;#eaaa00;#fefef4;-1;0
@@ -90,9 +90,9 @@ TeamId;LeagueId;Name;Nickname;Abbr;Parent Team 1;Parent Team 2;Parent Team 3;Par
 233;9;Rochester;Americans;ROC;17;-1;-1;-1;-1;-1;-1;-1;#ff0000;#0000ff;#ffffff;-1;1
 236;9;Syracuse;Firebirds;SYR;15;25;-1;-1;-1;-1;-1;-1;#ffffff;#ffa500;#ffff00;-1;1
 237;9;New Brunswick;Hawks;NB;3;8;-1;-1;-1;-1;-1;-1;#0000ff;#0000ff;#ffffff;-1;0
-278;0;Indianapolis;Racers;IND;-1;-1;-1;-1;-1;-1;-1;-1;#db0405;#141274;#ffffff;1;1
-279;0;Maine;Mariners;ME;-1;-1;-1;-1;-1;-1;-1;-1;#007548;#00354f;#ffffff;0;1
-280;0;Vancouver;Giants;VCR;-1;-1;-1;-1;-1;-1;-1;-1;#95032d;#251f24;#ffffff;0;0
+278;0;Indianapolis;Racers;IND;-1;-1;-1;-1;-1;-1;-1;-1;#db0405;#141274;#ffffff;1;0
+279;0;Maine;Mariners;ME;-1;-1;-1;-1;-1;-1;-1;-1;#007548;#00354f;#ffffff;1;0
+280;0;Vancouver;Giants;VCR;-1;-1;-1;-1;-1;-1;-1;-1;#95032d;#251f24;#ffffff;0;1
 282;12;New York;Marlins;NEW;-1;-1;-1;-1;-1;-1;-1;-1;#ef4923;#6daadc;#ffffff;-1;0
 283;12;Los Angeles;Makos;LOS;-1;-1;-1;-1;-1;-1;-1;-1;#ef4923;#5c0e67;#ffffff;-1;0
 284;12;Seattle;Crocs;SEA;-1;-1;-1;-1;-1;-1;-1;-1;#006838;#e6e6e6;#ffffff;-1;0

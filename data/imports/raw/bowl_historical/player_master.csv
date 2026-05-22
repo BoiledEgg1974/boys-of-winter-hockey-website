@@ -274,7 +274,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 4356;90;90;Les;Kozak;;72;185;1940-10-28;Gimli;MB;Canada;;;0;Left;0
 3957;121;121;Wayne;Hicks;;71;185;1937-4-9;Aberdeen;WA;The United States;Canada;;0;Right;0
 4058;90;90;Don;Keenan;;72;170;1938-8-8;Toronto;ON;Canada;;;0;Left;0
-5406;24;5;Larry;Brown;;74;210;1947-4-14;Carman;MB;Canada;;;0;Left;0
+5406;5;5;Larry;Brown;;74;210;1947-4-14;Carman;MB;Canada;;;0;Left;1
 3134;90;90;Norm;Corcoran;;70;160;1931-8-15;Toronto;ON;Canada;;;0;Right;0
 4479;124;123;Larry;Hale;Stoney;73;182;1941-10-9;Trail;BC;Canada;;;0;Left;0
 3318;121;121;Andy;Bathgate;;72;180;1932-8-28;Winnipeg;MB;Canada;;;0;Right;0
@@ -491,7 +491,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 5420;125;118;Andre;Gaudette;;67;159;1947-12-16;Sorel-Tracy;QC;Canada;;;0;Left;1
 5867;89;89;Jean-Yves;Cartier;;69;180;1949-6-18;Murdochville;QC;Canada;;;0;Left;0
 4066;122;122;Gerry;Odrowski;Snowy;70;185;1938-10-4;Powassan;ON;Canada;;;0;Left;0
-4612;129;122;Ralph;MacSweyn;;71;190;1942-9-8;Hawkesbury;ON;Canada;;;0;Right;0
+4612;122;122;Ralph;MacSweyn;;71;190;1942-9-8;Hawkesbury;ON;Canada;;;0;Right;1
 5421;125;118;Brian;Gibbons;;75;190;1947-7-7;Stephenville;NL;Canada;;;0;Left;1
 4613;90;90;Larry;Mavety;;71;185;1942-5-29;Woodstock;ON;Canada;;;0;Right;0
 4614;90;90;Wayne;Maxner;;71;180;1942-9-27;Inverness;NS;Canada;;;0;Left;0

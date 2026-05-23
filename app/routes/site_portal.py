@@ -5939,11 +5939,21 @@ def admin_draft_hub_edit(draft_id: int):
     max_deadline_value = f"{int(row.timeline_year):04d}-{int(row.max_anchor_month):02d}-{int(row.max_anchor_day):02d}"
     year_min_date = f"{int(row.timeline_year):04d}-01-01"
     year_max_date = f"{int(row.timeline_year):04d}-12-31"
+    from app.services.draft_hub_order import resolve_prior_season_for_draft
+    from app.services.seasons import season_display_label
+
+    standings_season = resolve_prior_season_for_draft(db.session, draft_year=int(row.timeline_year))
+    standings_order_label = (
+        season_display_label(standings_season)
+        if standings_season is not None
+        else f"{int(row.timeline_year) - 1}–{int(row.timeline_year) % 100:02d}"
+    )
     return render_template(
         "admin_draft_hub_edit.html",
         league_slug=slug,
         draft=row,
         teams=teams,
+        standings_order_label=standings_order_label,
         slots_csv=slots_csv,
         round_slot_rows=round_slot_rows,
         wishlist_guidance=wishlist_guidance,

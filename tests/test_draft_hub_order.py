@@ -4,10 +4,14 @@ from __future__ import annotations
 import unittest
 from unittest.mock import MagicMock
 
+from app import create_app
+from app.config import make_league_config
+from app.league_db import db
 from app.services.draft_hub_order import (
     _standing_worst_first_key,
     generate_draft_order_from_prior_season,
     pick_ownership_lookup,
+    resolve_prior_season_for_draft,
 )
 
 
@@ -28,6 +32,14 @@ class DraftHubOrderTest(unittest.TestCase):
         out = pick_ownership_lookup(site, league_slug="bowl-historical", draft_year=1969)
         self.assertEqual(out[(2, 5)], 102)
 
+    def test_resolve_prior_season_prefers_season_with_standings(self) -> None:
+        app = create_app(make_league_config("bowl-historical"))
+        with app.app_context():
+            season = resolve_prior_season_for_draft(db.session, draft_year=1969)
+            self.assertIsNotNone(season)
+            assert season is not None
+            self.assertEqual(int(season.id), 1)
+
     def test_generate_applies_traded_owner(self) -> None:
         draft = MagicMock(
             id=1,
@@ -43,7 +55,6 @@ class DraftHubOrderTest(unittest.TestCase):
         season = MagicMock(id=3, start_year=1968, label="1968-69")
 
         league = MagicMock()
-        league.scalar.side_effect = [season]
         league.scalars.return_value.all.return_value = [st_worst, st_best]
 
         site = MagicMock()
@@ -51,9 +62,15 @@ class DraftHubOrderTest(unittest.TestCase):
             MagicMock(original_team_fhm_id=5, round=1, owner_team_id=99),
         ]
 
-        with unittest.mock.patch(
-            "app.services.draft_hub_order.draft_pick_ownership_exists",
-            return_value=True,
+        with (
+            unittest.mock.patch(
+                "app.services.draft_hub_order.resolve_prior_season_for_draft",
+                return_value=season,
+            ),
+            unittest.mock.patch(
+                "app.services.draft_hub_order.draft_pick_ownership_exists",
+                return_value=True,
+            ),
         ):
             created, err, summary = generate_draft_order_from_prior_season(
                 league,

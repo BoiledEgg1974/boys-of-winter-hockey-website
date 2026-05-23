@@ -177,10 +177,12 @@
 .trade-market-table-wrap { overflow-x: auto; }
 .trade-market-sort { color: inherit; text-decoration: none; }
 .trade-market-sort--active { font-weight: 600; }
-.trade-market-dialog { max-width: 52rem; width: 95vw; border: 1px solid var(--border, #333); border-radius: 8px; padding: 0; background: var(--card-bg, #1a1a1a); color: inherit; }
+.trade-market-dialog { max-width: 52rem; width: 95vw; border: 1px solid var(--border, #333); border-radius: 8px; padding: 0; background: var(--surface, #ffffff); color: var(--text, #0f172a); box-shadow: 0 24px 48px rgb(15 23 42 / 0.22); }
+.trade-market-dialog::backdrop { background: rgb(15 23 42 / 0.55); }
 .trade-market-dialog__inner { padding: 1rem 1.25rem; }
 .trade-market-dialog__head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
 .trade-market-dialog__close { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: inherit; }
+.trade-market-dialog .muted { color: var(--muted, #64748b); }
 .trade-market-dialog__assets { max-height: 50vh; overflow-y: auto; margin: 1rem 0; }
 .trade-market-asset-group { margin-bottom: 1rem; }
 .trade-market-asset-group__title { font-weight: 600; font-size: 0.9rem; margin-bottom: 0.35rem; }
@@ -189,11 +191,15 @@
 .trade-market-asset-row--on .trade-market-asset-row__fields { display: grid; }
 .trade-market-asset-row label { font-size: 0.85rem; }
 .trade-market-asset-row input[type="text"], .trade-market-asset-row select { width: 100%; }
+.trade-market-dialog input[type="text"], .trade-market-dialog select, .trade-market-dialog textarea { background: var(--surface, #ffffff); color: var(--text, #0f172a); border: 1px solid var(--border, #cbd5e1); border-radius: 4px; }
+.trade-market-dialog input[type="checkbox"] { accent-color: var(--accent, #0369a1); }
 .trade-market-buying-cats { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: 0.35rem 0.75rem; margin: 1rem 0; }
 .trade-market-buying-cats__item { display: flex; align-items: center; gap: 0.35rem; font-size: 0.9rem; }
 .trade-market-notes-label { display: block; margin-top: 0.75rem; }
 .trade-market-notes-label textarea { width: 100%; margin-top: 0.25rem; }
 .trade-market-dialog__foot { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem; }
+[data-theme="light"] .trade-market-dialog { background: #ffffff; color: #0f172a; border-color: #cbd5e1; }
+[data-theme="light"] .trade-market-dialog input[type="text"], [data-theme="light"] .trade-market-dialog select, [data-theme="light"] .trade-market-dialog textarea { background: #ffffff; color: #0f172a; border-color: #94a3b8; }
 </style>
 
 <script>
@@ -338,7 +344,7 @@
     fetch(sellingUrl, {
       method: "POST",
       credentials: "same-origin",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-CSRFToken": csrf },
       body: JSON.stringify({ csrf_token: csrf, admin_team_id: adminTeamId, items: items }),
     })
       .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
@@ -359,7 +365,7 @@
     fetch(buyingUrl, {
       method: "POST",
       credentials: "same-origin",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-CSRFToken": csrf },
       body: JSON.stringify({
         csrf_token: csrf,
         admin_team_id: adminTeamId,

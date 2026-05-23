@@ -54,6 +54,21 @@ class TradeMarketAllLeaguesTest(unittest.TestCase):
         self.assertIn("trade_market_selling_posted", DEFAULT_EVENT_KEYS)
         self.assertIn("trade_market_buying_posted", DEFAULT_EVENT_KEYS)
 
+    def test_trade_market_json_posts_include_csrf_header(self) -> None:
+        """Flask-WTF CSRFProtect requires X-CSRFToken on JSON POST (body alone is not enough)."""
+        path = (
+            Path(__file__).resolve().parents[1]
+            / "app"
+            / "templates"
+            / "trade_market.html"
+        )
+        text = path.read_text(encoding="utf-8")
+        self.assertGreaterEqual(
+            text.count('"X-CSRFToken": csrf'),
+            2,
+            "selling and buying save fetch calls must send X-CSRFToken",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

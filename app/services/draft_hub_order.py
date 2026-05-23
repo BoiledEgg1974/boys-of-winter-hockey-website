@@ -1,17 +1,34 @@
 """Build Draft Hub slot order from prior-season standings and imported pick ownership."""
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
-from app.models import Season, Team, TeamStanding
+from app.models import Game, Season, Team, TeamStanding
 from app.services.draft_pick_ownership import draft_pick_ownership_exists
 from app.services.roster_team import is_main_league_team
 from app.services.seasons import season_display_label
 from app.site_models import LeagueDraft, LeagueDraftSlot, TradeMarketDraftPickOwnership
 
 
-def _standing_worst_first_key(row: TeamStanding) -> tuple[float, float, float, float, str]:
+@dataclass(frozen=True)
+class DraftOrderStanding:
+    """Minimal standings row used to seed draft order."""
+
+    team: Team
+    gp: int = 0
+    w: int = 0
+    l: int = 0
+    ties: int = 0
+    otl: int = 0
+    pts: int = 0
+    gf: int = 0
+    ga: int = 0
+
+
+def _standing_worst_first_key(row: TeamStanding | DraftOrderStanding) -> tuple[float, float, float, float, str]:
     """Worst record first: PTS asc, W asc, goal diff asc, GF asc, then name."""
     gd = float(int(row.gf or 0) - int(row.ga or 0))
     team_name = ""
@@ -87,7 +104,7 @@ def resolve_prior_season_for_draft(
 
 def main_league_standings_worst_to_best(
     league_session: Session, season: Season
-) -> list[TeamStanding]:
+) -> list[TeamStanding | DraftOrderStanding]:
     rows = list(
         league_session.scalars(
             select(TeamStanding)
@@ -96,7 +113,89 @@ def main_league_standings_worst_to_best(
         ).all()
     )
     filtered = [r for r in rows if r.team is not None and is_main_league_team(r.team)]
+    if _standings_have_record_data(filtered):
+        return sorted(filtered, key=_standing_worst_first_key)
+    derived = _derive_main_league_standings_from_games(league_session, season)
+    if derived:
+        return sorted(derived, key=_standing_worst_first_key)
     return sorted(filtered, key=_standing_worst_first_key)
+
+
+def _standings_have_record_data(rows: list[TeamStanding]) -> bool:
+    for row in rows:
+        if any(
+            int(getattr(row, attr, 0) or 0) > 0
+            for attr in ("gp", "w", "l", "ties", "otl", "pts", "gf", "ga")
+        ):
+            return True
+    return False
+
+
+def _derive_main_league_standings_from_games(
+    league_session: Session, season: Season
+) -> list[DraftOrderStanding]:
+    teams = list(league_session.scalars(select(Team)).all())
+    main_team_by_id = {int(t.id): t for t in teams if is_main_league_team(t)}
+    if not main_team_by_id:
+        return []
+    stats = {
+        tid: {"gp": 0, "w": 0, "l": 0, "ties": 0, "otl": 0, "pts": 0, "gf": 0, "ga": 0}
+        for tid in main_team_by_id
+    }
+    games = league_session.scalars(
+        select(Game)
+        .where(
+            Game.season_id == int(season.id),
+            Game.status == "final",
+            Game.home_score.isnot(None),
+            Game.away_score.isnot(None),
+        )
+        .order_by(Game.game_date.asc(), Game.id.asc())
+    ).all()
+    has_regular_games = False
+    for game in games:
+        if str(game.game_type or "").strip().lower() != "regular season":
+            continue
+        home_id = int(game.home_team_id)
+        away_id = int(game.away_team_id)
+        if home_id not in stats or away_id not in stats:
+            continue
+        has_regular_games = True
+        home_score = int(game.home_score or 0)
+        away_score = int(game.away_score or 0)
+        home = stats[home_id]
+        away = stats[away_id]
+        home["gp"] += 1
+        away["gp"] += 1
+        home["gf"] += home_score
+        home["ga"] += away_score
+        away["gf"] += away_score
+        away["ga"] += home_score
+        loser_gets_point = bool(game.went_to_overtime or game.went_to_shootout)
+        if home_score > away_score:
+            home["w"] += 1
+            home["pts"] += 2
+            if loser_gets_point:
+                away["otl"] += 1
+                away["pts"] += 1
+            else:
+                away["l"] += 1
+        elif away_score > home_score:
+            away["w"] += 1
+            away["pts"] += 2
+            if loser_gets_point:
+                home["otl"] += 1
+                home["pts"] += 1
+            else:
+                home["l"] += 1
+        else:
+            home["ties"] += 1
+            away["ties"] += 1
+            home["pts"] += 1
+            away["pts"] += 1
+    if not has_regular_games:
+        return []
+    return [DraftOrderStanding(team=main_team_by_id[tid], **values) for tid, values in stats.items()]
 
 
 def pick_ownership_lookup(

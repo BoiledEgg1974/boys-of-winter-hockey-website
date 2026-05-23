@@ -1139,7 +1139,8 @@ def game_preview(game_id: int):
 @api_bp.get("/playoff-bracket")
 def playoff_bracket():
     """JSON for standings page playoff bracket (single-league, no conferences)."""
-    season = get_current_season()
+    canonical = get_current_season()
+    season = season_with_imported_data_fallback(db.session, canonical) if canonical else None
     sid = season.id if season else None
     if request.args.get("season_id"):
         try:

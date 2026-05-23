@@ -20,13 +20,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 
 from app.logo_urls import team_logo_url_for_team
-from app.models import Game, Team, TeamStanding, db
+from app.models import Game, Season, Team, TeamStanding, db
 from app.services.playoff_series_prediction import (
     PREDICTION_METHOD_NOTE,
     load_rs_head_to_head,
     load_rs_strength_by_team,
     matchup_prediction_dict,
 )
+from app.services.season_team_logo_bundle import dashboard_team_logo_url
 
 
 def is_playoff_game_type(game_type: str | None) -> bool:
@@ -49,6 +50,13 @@ def is_playoff_game_type(game_type: str | None) -> bool:
     if t in ("po", "p", "playoffs"):
         return True
     return False
+
+
+def _is_regular_season_game_type(game_type: str | None) -> bool:
+    if not game_type:
+        return False
+    t = game_type.strip().lower()
+    return "regular" in t or t in ("rs", "r")
 
 
 @dataclass
@@ -74,6 +82,7 @@ _PROJECTED_PAIRINGS_4: tuple[tuple[int, int], ...] = ((0, 3), (1, 2))
 _PROJECTION_NOTE = (
     "Projected from current regular-season standings; matchups update as games are imported."
 )
+_BRACKET_CACHE_VERSION = "postseason-window-v2"
 
 
 def _league_slug() -> str:
@@ -101,6 +110,38 @@ def _merge_projected_empty_slots(
         if out[i] is None and proj is not None:
             out[i] = proj
     return out
+
+
+def _current_postseason_games(games: list[Game]) -> list[Game]:
+    """Use the latest postseason window, ignoring stale prior playoff games on reused season rows."""
+    playoff = [g for g in games if is_playoff_game_type(g.game_type)]
+    if not playoff:
+        return []
+    latest_regular_date = max(
+        (
+            g.game_date
+            for g in games
+            if g.game_date is not None and _is_regular_season_game_type(g.game_type)
+        ),
+        default=None,
+    )
+    if latest_regular_date is None:
+        return playoff
+    current = [
+        g
+        for g in playoff
+        if g.game_date is None or g.game_date > latest_regular_date
+    ]
+    return current or playoff
+
+
+def _season_logo_year(season_id: int | None) -> int | None:
+    if season_id is None:
+        return None
+    season = db.session.get(Season, int(season_id))
+    if season is None or season.start_year is None:
+        return None
+    return int(season.start_year)
 
 
 def _blend_opening_round_from_standings(
@@ -329,17 +370,33 @@ def _fill_mirror_slots_with_preview(
 
 
 def _series_conference_id(s: SeriesAgg, teams: dict[int, Team]) -> int | None:
-    """FHM conference id for a series when both teams agree, else first known side."""
+    """Mirror-side id for a series: conference when present, else division fallback."""
     ta = teams.get(s.team_a_id)
     tb = teams.get(s.team_b_id)
     ca = int(ta.fhm_conference_id) if ta and ta.fhm_conference_id is not None else None
     cb = int(tb.fhm_conference_id) if tb and tb.fhm_conference_id is not None else None
+    if ca is not None and ca < 0:
+        ca = None
+    if cb is not None and cb < 0:
+        cb = None
     if ca is not None and cb is not None and ca == cb:
         return ca
     if ca is not None:
         return ca
     if cb is not None:
         return cb
+    da = int(ta.fhm_division_id) if ta and ta.fhm_division_id is not None else None
+    dbv = int(tb.fhm_division_id) if tb and tb.fhm_division_id is not None else None
+    if da is not None and da < 0:
+        da = None
+    if dbv is not None and dbv < 0:
+        dbv = None
+    if da is not None and dbv is not None and da == dbv:
+        return da
+    if da is not None:
+        return da
+    if dbv is not None:
+        return dbv
     return None
 
 
@@ -464,9 +521,10 @@ def _reorder_mirror_round3_for_slots(
     ]
 
 
-def _team_json(t: Team | None) -> dict | None:
+def _team_json(t: Team | None, *, logo_year: int | None = None) -> dict | None:
     if not t:
         return None
+    logo_url = dashboard_team_logo_url(t, logo_year) if logo_year is not None else team_logo_url_for_team(t)
     return {
         "id": t.id,
         "slug": t.slug,
@@ -474,7 +532,7 @@ def _team_json(t: Team | None) -> dict | None:
         "abbreviation": t.abbreviation,
         "city": t.city or "",
         "nickname": t.nickname or "",
-        "logo_url": team_logo_url_for_team(t),
+        "logo_url": logo_url,
     }
 
 
@@ -484,6 +542,7 @@ def _series_json(
     *,
     rs_map: dict[int, dict[str, float]] | None = None,
     h2h: dict[tuple[int, int], tuple[int, int, int]] | None = None,
+    logo_year: int | None = None,
 ) -> dict:
     ta = teams.get(sa.team_a_id)
     tb = teams.get(sa.team_b_id)
@@ -505,12 +564,12 @@ def _series_json(
             teams=teams,
         )
     return {
-        "team_a": _team_json(ta),
-        "team_b": _team_json(tb),
+        "team_a": _team_json(ta, logo_year=logo_year),
+        "team_b": _team_json(tb, logo_year=logo_year),
         "wins_a": sa.wins_a,
         "wins_b": sa.wins_b,
         "games_played": sa.games_played,
-        "winner": _team_json(w),
+        "winner": _team_json(w, logo_year=logo_year),
         "series_complete": (sa.wins_a >= 4 or sa.wins_b >= 4),
         "first_game_date": sa.first_date.isoformat() if sa.first_date else None,
         "last_game_date": sa.last_date.isoformat() if sa.last_date else None,
@@ -523,41 +582,30 @@ def playoff_bracket_cache_fingerprint(season_id: int | None) -> str:
     """Small cache key fragment that changes when playoff schedule/results change."""
     if season_id is None:
         return "no-season"
-    rows = db.session.execute(
-        select(
-            Game.id,
-            Game.game_date,
-            Game.home_team_id,
-            Game.away_team_id,
-            Game.home_score,
-            Game.away_score,
-            Game.status,
-            Game.game_type,
-        ).where(Game.season_id == int(season_id))
+    rows = db.session.scalars(
+        select(Game).where(Game.season_id == int(season_id))
     ).all()
+    current_playoff = _current_postseason_games(list(rows))
     parts: list[str] = []
-    for row in rows:
-        game_type = row.game_type
-        if not is_playoff_game_type(game_type):
-            continue
+    for game in current_playoff:
         parts.append(
             "|".join(
                 (
-                    str(row.id),
-                    row.game_date.isoformat() if row.game_date else "",
-                    str(row.home_team_id),
-                    str(row.away_team_id),
-                    "" if row.home_score is None else str(row.home_score),
-                    "" if row.away_score is None else str(row.away_score),
-                    str(row.status or ""),
-                    str(game_type or ""),
+                    str(game.id),
+                    game.game_date.isoformat() if game.game_date else "",
+                    str(game.home_team_id),
+                    str(game.away_team_id),
+                    "" if game.home_score is None else str(game.home_score),
+                    "" if game.away_score is None else str(game.away_score),
+                    str(game.status or ""),
+                    str(game.game_type or ""),
                 )
             )
         )
     if not parts:
-        return "no-playoff-games"
+        return f"{_BRACKET_CACHE_VERSION}-no-current-playoff-games"
     digest = hashlib.sha1("\n".join(sorted(parts)).encode("utf-8")).hexdigest()[:16]
-    return f"{len(parts)}-{digest}"
+    return f"{_BRACKET_CACHE_VERSION}-{len(parts)}-{digest}"
 
 
 def playoff_bracket_payload(season_id: int | None) -> dict:
@@ -577,21 +625,24 @@ def playoff_bracket_payload(season_id: int | None) -> dict:
         }
 
     games = db.session.scalars(
-        select(Game)
+        select(
+            Game
+        )
         .options(joinedload(Game.home_team), joinedload(Game.away_team))
         .where(Game.season_id == season_id)
     ).all()
 
-    playoff: list[Game] = [g for g in games if is_playoff_game_type(g.game_type)]
+    playoff: list[Game] = _current_postseason_games(list(games))
     if not playoff:
         rs_map = load_rs_strength_by_team(db.session, season_id)
         h2h = load_rs_head_to_head(db.session, season_id)
+        logo_year = _season_logo_year(season_id)
         s1_slots, s2_slots, s3_slots, teams, projection_message = (
             _projected_bracket_slots_from_standings(season_id)
         )
         if any(s1_slots) or any(s2_slots) or any(s3_slots):
             def _slot_json(s: SeriesAgg | None) -> dict | None:
-                return _series_json(s, teams, rs_map=rs_map, h2h=h2h) if s else None
+                return _series_json(s, teams, rs_map=rs_map, h2h=h2h, logo_year=logo_year) if s else None
 
             first_round = [_slot_json(s) for s in s1_slots]
             second_round = [_slot_json(s) for s in s2_slots]
@@ -645,7 +696,11 @@ def playoff_bracket_payload(season_id: int | None) -> dict:
         by_pair.setdefault((a, b), []).append(g)
 
     series_list: list[SeriesAgg] = []
-    for (tid_a, tid_b), gl in by_pair.items():
+    for (_pair_a, _pair_b), gl in by_pair.items():
+        gl = sorted(gl, key=lambda g: (g.game_date or date.min, g.id))
+        first_game = gl[0]
+        tid_a = int(first_game.away_team_id)
+        tid_b = int(first_game.home_team_id)
         wa = wb = 0
         first_d: date | None = None
         last_d: date | None = None
@@ -693,6 +748,7 @@ def playoff_bracket_payload(season_id: int | None) -> dict:
 
     rs_map = load_rs_strength_by_team(db.session, season_id)
     h2h = load_rs_head_to_head(db.session, season_id)
+    logo_year = _season_logo_year(season_id)
 
     # Order by first playoff game so rounds read left-to-right in schedule order.
     ordered = sorted(
@@ -799,29 +855,29 @@ def playoff_bracket_payload(season_id: int | None) -> dict:
             return []
         n = len(sl)
         if n <= 2:
-            return [{"label": "Playoff series", "series": [_series_json(x, teams, rs_map=rs_map, h2h=h2h) for x in sl]}]
+            return [{"label": "Playoff series", "series": [_series_json(x, teams, rs_map=rs_map, h2h=h2h, logo_year=logo_year) for x in sl]}]
         third = (n + 2) // 3
         chunks = [sl[:third], sl[third : 2 * third], sl[2 * third :]]
         labels = ("Round 1", "Round 2", "Semifinals")
         out = []
         for lab, chunk in zip(labels, chunks):
             if chunk:
-                out.append({"label": lab, "series": [_series_json(x, teams, rs_map=rs_map, h2h=h2h) for x in chunk]})
+                out.append({"label": lab, "series": [_series_json(x, teams, rs_map=rs_map, h2h=h2h, logo_year=logo_year) for x in chunk]})
         return out
 
     def _slot_json(s: SeriesAgg | None) -> dict | None:
-        return _series_json(s, teams, rs_map=rs_map, h2h=h2h) if s else None
+        return _series_json(s, teams, rs_map=rs_map, h2h=h2h, logo_year=logo_year) if s else None
 
     # Legacy "rounds" grid for older clients.
     rounds = (
         [
             {
                 "label": "First round",
-                "series": [_series_json(x, teams, rs_map=rs_map, h2h=h2h) for x in quarterfinals],
+                "series": [_series_json(x, teams, rs_map=rs_map, h2h=h2h, logo_year=logo_year) for x in quarterfinals],
             },
             {
                 "label": "Second round",
-                "series": [_series_json(x, teams, rs_map=rs_map, h2h=h2h) for x in semifinals],
+                "series": [_series_json(x, teams, rs_map=rs_map, h2h=h2h, logo_year=logo_year) for x in semifinals],
             },
         ]
         if quarterfinals or semifinals
@@ -832,7 +888,7 @@ def playoff_bracket_payload(season_id: int | None) -> dict:
             {
                 "label": "Conference finals",
                 "series": [
-                    _series_json(x, teams, rs_map=rs_map, h2h=h2h)
+                    _series_json(x, teams, rs_map=rs_map, h2h=h2h, logo_year=logo_year)
                     for x in r3_ordered
                     if x is not None
                 ],
@@ -840,7 +896,7 @@ def playoff_bracket_payload(season_id: int | None) -> dict:
         )
 
     champ_j = (
-        _series_json(championship_series, teams, rs_map=rs_map, h2h=h2h)
+        _series_json(championship_series, teams, rs_map=rs_map, h2h=h2h, logo_year=logo_year)
         if championship_series
         else None
     )
@@ -854,8 +910,8 @@ def playoff_bracket_payload(season_id: int | None) -> dict:
         "first_round": [_slot_json(s) for s in s1_slots],
         "second_round": [_slot_json(s) for s in s2_slots],
         "conference_finals": [_slot_json(s) for s in s3_slots],
-        "quarterfinals": [_series_json(x, teams, rs_map=rs_map, h2h=h2h) for x in quarterfinals],
-        "semifinals": [_series_json(x, teams, rs_map=rs_map, h2h=h2h) for x in semifinals],
+        "quarterfinals": [_series_json(x, teams, rs_map=rs_map, h2h=h2h, logo_year=logo_year) for x in quarterfinals],
+        "semifinals": [_series_json(x, teams, rs_map=rs_map, h2h=h2h, logo_year=logo_year) for x in semifinals],
         "rounds": rounds,
         "series_total": n,
     }

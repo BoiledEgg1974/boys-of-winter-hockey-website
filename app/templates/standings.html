@@ -198,7 +198,7 @@
 </section>
 {% endif %}
 
-{% if canonical_season %}
+{% if season %}
 <dialog class="playoff-bracket-dialog" id="playoff-bracket-dialog" aria-labelledby="playoff-bracket-title">
   <div class="playoff-bracket-dialog__shell">
     <header class="playoff-bracket-dialog__head">
@@ -491,7 +491,7 @@
   }
   function load() {
     root.innerHTML = '<p class="muted playoff-bracket-dialog__loading">Loading bracket…</p>';
-    var url = withRoot('/api/playoff-bracket?season_id={{ canonical_season.id }}');
+    var url = withRoot('/api/playoff-bracket?season_id={{ season.id }}');
     fetch(url).then(function (r) { return r.json(); }).then(render).catch(function () {
       root.innerHTML = '<p class="empty-state">Could not load playoff bracket.</p>';
     });

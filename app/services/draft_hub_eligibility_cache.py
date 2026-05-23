@@ -19,6 +19,7 @@ from app.services.draft_hub_eligibility import (
 )
 
 _CACHE_TTL_SECONDS = 120.0
+_CACHE_VERSION = 3
 _lock = Lock()
 _pool_cache: dict[tuple, tuple[float, list[int], dict[str, int]]] = {}
 
@@ -36,7 +37,7 @@ def _params_key(params: DraftEligibilityParams) -> tuple:
 
 
 def _cache_key(league_slug: str, params: DraftEligibilityParams) -> tuple:
-    return (str(league_slug).strip(), _params_key(params))
+    return (str(league_slug).strip(), _CACHE_VERSION, _params_key(params))
 
 
 def _cache_dir() -> Path:

@@ -8,7 +8,7 @@ from pathlib import Path
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
-from app.config import BASE_DIR, LEAGUES, free_agents_exclude_nhl_bowl_drafted_max_age
+from app.config import BASE_DIR, LEAGUES, free_agents_exclude_nhl_bowl_drafted_max_age, league_raw_import_dir
 from app.models import Draft, DraftPick, Player, PlayerContract, Prospect, Team
 from app.services.draft_history import nhl_bowl_draft_clause
 
@@ -188,8 +188,14 @@ def player_ids_from_player_rights_csv_for_team(session: Session, raw_dir: Path, 
     return out
 
 
-def bowl_rights_player_ids_from_raw_exports(session: Session) -> frozenset[int]:
-    """Player ids with rights to a main BOWL team from any league's raw ``player_rights.csv``."""
+def _bowl_rights_player_ids_from_raw_dir(session: Session, raw_dir: Path) -> set[int]:
+    """Resolve ``player_rights.csv`` in one raw import folder to internal player ids."""
+    rights_path = raw_dir / "player_rights.csv"
+    if not rights_path.is_file():
+        return set()
+    main_team_ids = _main_team_fhm_ids_by_raw_dir(raw_dir)
+    if not main_team_ids:
+        return set()
     id_by_fhm: dict[str, int] = {}
     for pid, fhm_pid in session.execute(select(Player.id, Player.fhm_player_id)).all():
         if fhm_pid is None:
@@ -198,21 +204,28 @@ def bowl_rights_player_ids_from_raw_exports(session: Session) -> frozenset[int]:
         if fp:
             id_by_fhm[fp] = int(pid)
     out: set[int] = set()
+    for row in _read_csv_rows(rights_path):
+        player_s = (row.get("PlayerId") or row.get("playerid") or "").strip()
+        team_s = (row.get("Team") or row.get("team") or "").strip()
+        if not player_s or not team_s or team_s not in main_team_ids:
+            continue
+        pid = id_by_fhm.get(player_s)
+        if pid is not None:
+            out.add(pid)
+    return out
+
+
+def bowl_rights_player_ids_from_raw_exports_for_league(session: Session, league_slug: str) -> frozenset[int]:
+    """Player ids with rights to a main BOWL team from this league's raw ``player_rights.csv``."""
+    raw_dir = BASE_DIR / "data" / "imports" / "raw" / league_raw_import_dir(league_slug)
+    return frozenset(_bowl_rights_player_ids_from_raw_dir(session, raw_dir))
+
+
+def bowl_rights_player_ids_from_raw_exports(session: Session) -> frozenset[int]:
+    """Player ids with rights to a main BOWL team from any league's raw ``player_rights.csv``."""
+    out: set[int] = set()
     for raw_dir in _all_raw_import_dirs():
-        rights_path = raw_dir / "player_rights.csv"
-        if not rights_path.is_file():
-            continue
-        main_team_ids = _main_team_fhm_ids_by_raw_dir(raw_dir)
-        if not main_team_ids:
-            continue
-        for row in _read_csv_rows(rights_path):
-            player_s = (row.get("PlayerId") or row.get("playerid") or "").strip()
-            team_s = (row.get("Team") or row.get("team") or "").strip()
-            if not player_s or not team_s or team_s not in main_team_ids:
-                continue
-            pid = id_by_fhm.get(player_s)
-            if pid is not None:
-                out.add(pid)
+        out.update(_bowl_rights_player_ids_from_raw_dir(session, raw_dir))
     return frozenset(out)
 
 
@@ -321,6 +334,13 @@ def bowl_nhl_org_rights_player_ids(session: Session) -> frozenset[int]:
     ).all():
         if pid is not None:
             out.add(int(pid))
+    return frozenset(out)
+
+
+def bowl_org_rights_player_ids_for_league(session: Session, league_slug: str) -> frozenset[int]:
+    """Player ids with BOWL rights in this league (DB links plus that league's raw exports)."""
+    out = set(bowl_nhl_org_rights_player_ids(session))
+    out.update(bowl_rights_player_ids_from_raw_exports_for_league(session, league_slug))
     return frozenset(out)
 
 

@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 from app.services.staff_transactions import (
     _infer_staff_role_for_team,
+    submit_hire_request,
     sync_team_roster_from_fhm,
 )
 
@@ -53,6 +54,59 @@ class StaffRosterSyncTest(unittest.TestCase):
             fhm_team_id="12",
         )
         self.assertEqual(added, 1)
+        session.add.assert_called_once()
+        session.flush.assert_called_once()
+
+    @patch("app.services.staff_transactions.main_league_fhm_team_id_set", return_value={"12"})
+    @patch("app.services.staff_transactions.get_staff_profile")
+    def test_submit_hire_blocks_staff_on_bowl_team_only(
+        self,
+        mock_profile: MagicMock,
+        _mock_main_ids: MagicMock,
+    ) -> None:
+        session = MagicMock()
+        mock_profile.return_value = {"staff_fhm_id": "99", "full_name": "Coach", "fhm_team_id": "12"}
+
+        result = submit_hire_request(
+            session,
+            league_slug="bowl-fantasy",
+            season_start_year=1987,
+            team_id=1,
+            user_id=2,
+            staff_fhm_id="99",
+            role="head_coach",
+        )
+
+        self.assertFalse(result.ok)
+        self.assertIn("BOWL team", result.message)
+
+    @patch("app.services.staff_transactions._active_roster_entry", return_value=None)
+    @patch("app.services.staff_transactions.hire_limit_status")
+    @patch("app.services.staff_transactions.main_league_fhm_team_id_set", return_value={"12"})
+    @patch("app.services.staff_transactions.get_staff_profile")
+    def test_submit_hire_allows_staff_on_non_bowl_team(
+        self,
+        mock_profile: MagicMock,
+        _mock_main_ids: MagicMock,
+        mock_limit: MagicMock,
+        _mock_active: MagicMock,
+    ) -> None:
+        session = MagicMock()
+        session.scalar.return_value = None
+        mock_limit.return_value = MagicMock(limit_reached=False)
+        mock_profile.return_value = {"staff_fhm_id": "99", "full_name": "Coach", "fhm_team_id": "99"}
+
+        result = submit_hire_request(
+            session,
+            league_slug="bowl-fantasy",
+            season_start_year=1987,
+            team_id=1,
+            user_id=2,
+            staff_fhm_id="99",
+            role="head_coach",
+        )
+
+        self.assertTrue(result.ok)
         session.add.assert_called_once()
         session.flush.assert_called_once()
 

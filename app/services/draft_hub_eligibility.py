@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Draft, DraftPick, Player
 from app.services.draft_history import nhl_bowl_draft_clause
-from app.services.free_agents import bowl_nhl_org_rights_player_ids
+from app.services.free_agents import bowl_org_rights_player_ids_for_league
 
 # Max players returned on the live hub eligible board (default view). Full pool remains for
 # picks, counts, and search/position filters — only the unfiltered list is capped.
@@ -87,8 +87,7 @@ def undrafted_nhl_bowl_player_subquery():
 
 def eligible_player_ids(session: Session, league_slug: str, params: DraftEligibilityParams) -> list[int]:
     drafted_subq = undrafted_nhl_bowl_player_subquery()
-    # DB prospect/contract rights only; raw player_rights.csv can include draft-pool players.
-    rights_ids = bowl_nhl_org_rights_player_ids(session)
+    rights_ids = bowl_org_rights_player_ids_for_league(session, league_slug)
     q_where = [
         Player.retired.is_(False),
         Player.birth_date.isnot(None),

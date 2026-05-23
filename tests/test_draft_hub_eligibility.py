@@ -30,27 +30,27 @@ class DraftHubEligibilityTest(unittest.TestCase):
         self.assertFalse(player_passes_age_rules(phaneuf_birth, params))
         self.assertTrue(player_passes_age_rules(howe_birth, params))
 
-    def test_eligible_pool_uses_nhl_org_rights_not_raw_exports(self) -> None:
+    def test_eligible_pool_excludes_league_scoped_bowl_org_rights(self) -> None:
         params = replace(default_eligibility_for_league("bowl-fantasy"), timeline_year=1988)
         session = MagicMock()
-        player = MagicMock(
+        available_player = MagicMock(
             id=5259,
             birth_date=date(1969, 3, 31),
             retired=False,
         )
-        session.scalars.return_value.unique.return_value.all.return_value = [player]
+        session.scalars.return_value.unique.return_value.all.return_value = [available_player]
         with (
             patch(
                 "app.services.draft_hub_eligibility.undrafted_nhl_bowl_player_subquery",
                 return_value=MagicMock(),
             ),
             patch(
-                "app.services.draft_hub_eligibility.bowl_nhl_org_rights_player_ids",
-                return_value=frozenset(),
-            ) as nhl_rights,
+                "app.services.draft_hub_eligibility.bowl_org_rights_player_ids_for_league",
+                return_value=frozenset({5260}),
+            ) as org_rights,
         ):
             ids = eligible_player_ids(session, "bowl-fantasy", params)
-        nhl_rights.assert_called_once()
+        org_rights.assert_called_once_with(session, "bowl-fantasy")
         self.assertEqual(ids, [5259])
 
     def test_season_age_reference_july_first(self) -> None:

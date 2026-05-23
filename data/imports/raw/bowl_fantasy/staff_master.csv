@@ -390,7 +390,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 388;24;Matti;Suonperä;;1935-1-1;Naantali;SOU;Finland;;;0
 389;278;Xaver;Unsinn;;1929-11-29;Gelnhausen;HES;Germany;;;0
 390;14;Ján;Starsi;;1933-10-17;Skalica;TRN;Slovakia;;;0
-391;25;Hans;Rampf;;1931-2-2;Vaterstetten;BAV;Germany;;;0
+391;-1;Hans;Rampf;;1931-2-2;Vaterstetten;BAV;Germany;;;0
 392;216;Art;Berglund;;1940-9-4;Bayou Vista;TX;The United States;;;0
 393;21;Igor;Dmitriyev;;1941-10-19;Aksay;ROS;Russia;;;0
 394;298;Gaston;Pelletier;;1933-11-16;Laval;QC;Canada;Switzerland;;0

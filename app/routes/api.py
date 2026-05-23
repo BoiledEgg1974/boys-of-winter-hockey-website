@@ -56,7 +56,7 @@ from app.services.power_rank_snapshots import apply_power_rank_trends, select_po
 from app.services.homepage_modules import module_sort_order_map, module_visibility_map
 from app.services.homepage_ticker import build_homepage_ticker_items
 from app.services.postseason_odds import build_postseason_odds_payload
-from app.services.playoff_bracket import playoff_bracket_payload
+from app.services.playoff_bracket import playoff_bracket_cache_fingerprint, playoff_bracket_payload
 from app.services.game_preview import game_preview_payload
 from app.services.player_contract_csv import contract_years_remaining_major
 from app.services.player_overall_score import _parse_rating_cell, build_overall_cell_map_from_players
@@ -1150,10 +1150,11 @@ def playoff_bracket():
     from app.services.league_json_cache import DEFAULT_TTL_SECONDS
 
     season_key = int(sid or 0)
+    playoff_key = playoff_bracket_cache_fingerprint(sid)
 
     return jsonify_cached(
         "playoff_bracket",
-        (season_key,),
+        (season_key, playoff_key),
         DEFAULT_TTL_SECONDS["playoff_bracket"],
         lambda: playoff_bracket_payload(sid),
         cache_control=60,

@@ -468,7 +468,7 @@
       root.innerHTML = '<p class="empty-state">' + esc(data && data.message ? data.message : 'No playoff data.') + '</p>';
       return;
     }
-    var intro = data.projection_only && data.message
+    var intro = data.message
       ? '<p class="muted playoff-bracket-dialog__projection-note">' + esc(data.message) + '</p>'
       : '';
     var parts = normalizeRounds(data);

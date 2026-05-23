@@ -1,4 +1,8 @@
-"""Build playoff bracket payload from completed games (game_type heuristics).
+"""Build playoff bracket payload for Historical, Fantasy, and Cap.
+
+When a postseason has not started (or only partly imported), opening-round slots are
+filled from current regular-season standings with series-win predictions. Scheduled and
+final playoff games both count toward visible matchups; wins count only from final games.
 
 Empty slots in the **next** playoff round only may show a projected 0–0 matchup
 (``preview_only``) when **both** feeder series are **real** (from the schedule import)
@@ -7,6 +11,7 @@ conference-finals or championship projection while semifinal slots are still pre
 """
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 from datetime import date
 
@@ -65,6 +70,60 @@ _CAMPBELL_CONF_ID = 1
 
 _PROJECTED_PAIRINGS_8: tuple[tuple[int, int], ...] = ((0, 7), (3, 4), (2, 5), (1, 6))
 _PROJECTED_PAIRINGS_4: tuple[tuple[int, int], ...] = ((0, 3), (1, 2))
+
+_PROJECTION_NOTE = (
+    "Projected from current regular-season standings; matchups update as games are imported."
+)
+
+
+def _league_slug() -> str:
+    if not has_app_context():
+        return ""
+    return str(current_app.config.get("LEAGUE_SLUG") or "").strip()
+
+
+def _compact_mirror_opening_round() -> bool:
+    """Historical mirror UI renders the opening round in ``second_round`` slots."""
+    return _league_slug() == "bowl-historical"
+
+
+def _merge_projected_empty_slots(
+    slots: list[SeriesAgg | None],
+    projected: list[SeriesAgg | None],
+) -> list[SeriesAgg | None]:
+    """Fill empty bracket cells from standings seeding without overwriting real series."""
+    if not projected:
+        return list(slots)
+    out = list(slots)
+    for i, proj in enumerate(projected):
+        if i >= len(out):
+            break
+        if out[i] is None and proj is not None:
+            out[i] = proj
+    return out
+
+
+def _blend_opening_round_from_standings(
+    season_id: int,
+    s1_slots: list[SeriesAgg | None],
+    s2_slots: list[SeriesAgg | None],
+    s3_slots: list[SeriesAgg | None],
+    teams: dict[int, Team],
+) -> tuple[list[SeriesAgg | None], list[SeriesAgg | None], list[SeriesAgg | None], str]:
+    """Backfill missing opening-round matchups when playoffs are starting across all leagues."""
+    proj_s1, proj_s2, proj_s3, proj_teams, msg = _projected_bracket_slots_from_standings(season_id)
+    if not (any(proj_s1) or any(proj_s2) or any(proj_s3)):
+        return s1_slots, s2_slots, s3_slots, ""
+    teams.update(proj_teams)
+    if _compact_mirror_opening_round():
+        s2_out = _merge_projected_empty_slots(s2_slots, proj_s2)
+        if s2_out != s2_slots:
+            return s1_slots, s2_out, s3_slots, msg or _PROJECTION_NOTE
+        return s1_slots, s2_slots, s3_slots, ""
+    s1_out = _merge_projected_empty_slots(s1_slots, proj_s1)
+    if s1_out != s1_slots:
+        return s1_out, s2_slots, s3_slots, msg or _PROJECTION_NOTE
+    return s1_slots, s2_slots, s3_slots, ""
 
 
 def _series_sort_key(s: SeriesAgg) -> tuple:
@@ -153,13 +212,8 @@ def _projected_bracket_slots_from_standings(
     for conf_rows in by_conf.values():
         conf_rows.sort(key=_standing_sort_key, reverse=True)
 
-    league_slug = (
-        str(current_app.config.get("LEAGUE_SLUG") or "").strip()
-        if has_app_context()
-        else ""
-    )
-    # Historical uses the compact mirror UI: Division Semi-Finals -> Division Finals -> Final.
-    if league_slug == "bowl-historical":
+    # Historical compact mirror: Division Semi-Finals -> Division Finals -> Final.
+    if _compact_mirror_opening_round():
         s2_slots: list[SeriesAgg | None] = [None] * 4
         for conf_id, offset in ((_CAMPBELL_CONF_ID, 0), (_WALES_CONF_ID, 2)):
             seeded = by_conf.get(conf_id, [])[:4]
@@ -167,9 +221,7 @@ def _projected_bracket_slots_from_standings(
             for idx, s in enumerate(series[:2]):
                 s2_slots[offset + idx] = s
         if any(s2_slots):
-            return [None] * 8, s2_slots, [None] * 2, teams, (
-                "Projected from current regular-season standings; matchups update as games are imported."
-            )
+            return [None] * 8, s2_slots, [None] * 2, teams, _PROJECTION_NOTE
 
     if len(by_conf) >= 2:
         s1_slots: list[SeriesAgg | None] = [None] * 8
@@ -179,9 +231,7 @@ def _projected_bracket_slots_from_standings(
             for idx, s in enumerate(series[:4]):
                 s1_slots[offset + idx] = s
         if any(s1_slots):
-            return s1_slots, [None] * 4, [None] * 2, teams, (
-                "Projected from current regular-season standings; matchups update as games are imported."
-            )
+            return s1_slots, [None] * 4, [None] * 2, teams, _PROJECTION_NOTE
 
     # Fallback for a single-table league: top 16 overall, traditional outside-in bracket.
     overall = sorted(rows, key=_standing_sort_key, reverse=True)[:16]
@@ -193,9 +243,7 @@ def _projected_bracket_slots_from_standings(
     for idx, s in enumerate(series[:8]):
         s1_slots[idx] = s
     if any(s1_slots):
-        return s1_slots, [None] * 4, [None] * 2, teams, (
-            "Projected from current regular-season standings; matchups update as games are imported."
-        )
+        return s1_slots, [None] * 4, [None] * 2, teams, _PROJECTION_NOTE
     return [], [], [], teams, "Not enough standings rows to project a playoff bracket yet."
 
 
@@ -471,6 +519,47 @@ def _series_json(
     }
 
 
+def playoff_bracket_cache_fingerprint(season_id: int | None) -> str:
+    """Small cache key fragment that changes when playoff schedule/results change."""
+    if season_id is None:
+        return "no-season"
+    rows = db.session.execute(
+        select(
+            Game.id,
+            Game.game_date,
+            Game.home_team_id,
+            Game.away_team_id,
+            Game.home_score,
+            Game.away_score,
+            Game.status,
+            Game.game_type,
+        ).where(Game.season_id == int(season_id))
+    ).all()
+    parts: list[str] = []
+    for row in rows:
+        game_type = row.game_type
+        if not is_playoff_game_type(game_type):
+            continue
+        parts.append(
+            "|".join(
+                (
+                    str(row.id),
+                    row.game_date.isoformat() if row.game_date else "",
+                    str(row.home_team_id),
+                    str(row.away_team_id),
+                    "" if row.home_score is None else str(row.home_score),
+                    "" if row.away_score is None else str(row.away_score),
+                    str(row.status or ""),
+                    str(game_type or ""),
+                )
+            )
+        )
+    if not parts:
+        return "no-playoff-games"
+    digest = hashlib.sha1("\n".join(sorted(parts)).encode("utf-8")).hexdigest()[:16]
+    return f"{len(parts)}-{digest}"
+
+
 def playoff_bracket_payload(season_id: int | None) -> dict:
     """Return JSON-serializable bracket data for a season."""
     if season_id is None:
@@ -490,7 +579,7 @@ def playoff_bracket_payload(season_id: int | None) -> dict:
     games = db.session.scalars(
         select(Game)
         .options(joinedload(Game.home_team), joinedload(Game.away_team))
-        .where(Game.season_id == season_id, Game.status == "final")
+        .where(Game.season_id == season_id)
     ).all()
 
     playoff: list[Game] = [g for g in games if is_playoff_game_type(g.game_type)]
@@ -562,13 +651,14 @@ def playoff_bracket_payload(season_id: int | None) -> dict:
         last_d: date | None = None
         played = 0
         for g in gl:
-            if g.home_score is None or g.away_score is None:
-                continue
-            played += 1
             gd = g.game_date
             if gd:
                 first_d = gd if first_d is None or gd < first_d else first_d
                 last_d = gd if last_d is None or gd > last_d else last_d
+            is_final = str(g.status or "").strip().lower() == "final"
+            if not is_final or g.home_score is None or g.away_score is None:
+                continue
+            played += 1
             if g.home_team_id == tid_a:
                 if g.home_score > g.away_score:
                     wa += 1
@@ -619,10 +709,19 @@ def playoff_bracket_payload(season_id: int | None) -> dict:
         """Split ordered series into outer→inner rounds (by schedule order).
 
         For 8+ series, assume bracket order: 8 first-round, then 4, then 2, then championship.
-        For smaller brackets, preserve the previous 4+2(+1) semantics and map in the UI.
+        Historical's compact mirror uses second_round as the visible opening round.
+        For other smaller brackets, preserve the previous 4+2(+1) semantics and map in the UI.
         """
         if n == 0:
             return [], [], [], None
+        if _compact_mirror_opening_round():
+            if n == 1:
+                return [], [ordered[0]], [], None
+            if n <= 4:
+                return [], ordered, [], None
+            if n <= 6:
+                return [], ordered[:4], ordered[4:n], None
+            return [], ordered[:4], ordered[4:6], ordered[6]
         if n == 1:
             return [], [], [], ordered[0]
         if n == 2:
@@ -683,6 +782,9 @@ def playoff_bracket_payload(season_id: int | None) -> dict:
     )
     s1_slots, s2_slots, s3_slots, championship_series = expand_to_mirror_slots(
         r1_sem, r2_ordered, r3_ordered, championship_series
+    )
+    s1_slots, s2_slots, s3_slots, blend_message = _blend_opening_round_from_standings(
+        season_id, s1_slots, s2_slots, s3_slots, teams
     )
     s2_slots, s3_slots, championship_series = _fill_mirror_slots_with_preview(
         s1_slots, s2_slots, s3_slots, championship_series, rs_map
@@ -746,7 +848,7 @@ def playoff_bracket_payload(season_id: int | None) -> dict:
     return {
         "season_id": season_id,
         "empty": False,
-        "message": "",
+        "message": blend_message,
         "prediction_method_note": PREDICTION_METHOD_NOTE,
         "championship": champ_j,
         "first_round": [_slot_json(s) for s in s1_slots],

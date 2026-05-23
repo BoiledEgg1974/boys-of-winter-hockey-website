@@ -2308,13 +2308,22 @@ def _draft_eligible_params_for_page(
         return draft_eligibility_params(draft), f"{draft.name} settings"
 
     params = default_eligibility_for_league(league_slug)
-    timeline_year = (
-        int(season.end_year)
-        if season and season.end_year
-        else int(season.start_year) + 1
-        if season and season.start_year
-        else date.today().year
-    )
+    if league_slug in ("bowl-fantasy", "bowl-cap"):
+        timeline_year = (
+            int(season.start_year)
+            if season and season.start_year
+            else int(season.end_year) - 1
+            if season and season.end_year
+            else date.today().year
+        )
+    else:
+        timeline_year = (
+            int(season.end_year)
+            if season and season.end_year
+            else int(season.start_year) + 1
+            if season and season.start_year
+            else date.today().year
+        )
     return replace(params, timeline_year=timeline_year), "league defaults"
 
 
@@ -2357,7 +2366,7 @@ def draft_eligible():
     if pos:
         players = [p for p in players if _prospect_pos_matches(p.position, pos)]
 
-    age_ref = date(params.timeline_year, params.max_anchor_month, params.max_anchor_day)
+    age_ref = season_age_reference_date(season)
     items: list[dict] = []
     for pl in players:
         rr = get_player_ratings_row(pl.fhm_player_id)

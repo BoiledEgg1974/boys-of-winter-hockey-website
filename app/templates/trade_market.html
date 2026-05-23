@@ -5,8 +5,10 @@
      data-assets-url="{{ url_for('site_gm.trade_market_assets') }}"
      data-selling-url="{{ url_for('site_gm.trade_market_selling_save') }}"
      data-buying-url="{{ url_for('site_gm.trade_market_buying_save') }}"
+     data-chat-url="{{ url_for('site_gm.trade_market_chat_start') }}"
      data-csrf="{{ csrf_token() }}"
      data-admin-team-id="{{ admin_team_id or '' }}"
+     data-active-team-id="{{ active_team_id or '' }}"
      data-player-page-tpl="{{ player_page_url_template }}">
   <header class="trade-market-page__header">
     <h1 class="trade-market-page__title">Trade Market</h1>
@@ -26,11 +28,13 @@
       </label>
     </div>
     {% endif %}
-    {% if admin_can_act %}
+    {% if membership or active_team_id %}
     <div class="trade-market-page__actions">
       <button type="button" class="btn" id="btn-edit-selling">Edit Selling</button>
       <button type="button" class="btn" id="btn-edit-buying">Edit Buying</button>
     </div>
+    {% elif is_site_admin %}
+    <p class="muted">Admin View: use the row actions below to edit or delete any team's buying and selling posts, or select a team above to create a new post.</p>
     {% else %}
     <p class="muted">Admin View: select a team above to edit selling and buying choices for that team.</p>
     {% endif %}
@@ -61,6 +65,7 @@
             {{ sort_link('ask', 'Asking') }}
             {{ sort_link('wants', 'Wants') }}
             {{ sort_link('updated', 'Updated') }}
+            {% if admin_can_act %}<th scope="col">Actions</th>{% endif %}
           </tr>
         </thead>
         <tbody>
@@ -85,6 +90,27 @@
             <td>{{ row.asking_price or '—' }}</td>
             <td>{{ row.wants_labels }}</td>
             <td class="muted">{% if row.updated_at %}{{ row.updated_at.strftime('%Y-%m-%d') }}{% else %}—{% endif %}</td>
+            {% if admin_can_act %}
+            <td>
+              {% set owns_market_row = (active_team_id and (row.team_id|int) == (active_team_id|int)) or ((row.user_id|int) == (current_user.id|int)) %}
+              {% if is_site_admin or owns_market_row %}
+              <div class="trade-market-row-actions">
+                <button type="button" class="btn btn--small trade-market-edit-selling" data-team-id="{{ row.team_id }}" data-asset-ref="{{ row.asset_ref }}">Edit</button>
+                <button type="button" class="btn btn--small trade-market-delete-selling" data-team-id="{{ row.team_id }}" data-asset-ref="{{ row.asset_ref }}" data-asset-label="{{ row.asset_label }}">Delete</button>
+              </div>
+              {% elif membership %}
+              <button type="button" class="btn btn--small trade-market-chat"
+                      data-peer-user-id="{{ row.user_id }}"
+                      data-peer-name="{{ row.gm_name }}"
+                      data-chat-kind="Selling"
+                      data-chat-context="{{ row.asset_label }}{% if row.asking_price %} | Asking: {{ row.asking_price }}{% endif %}">
+                Chat
+              </button>
+              {% else %}
+              —
+              {% endif %}
+            </td>
+            {% endif %}
           </tr>
           {% endfor %}
         </tbody>
@@ -106,6 +132,7 @@
           <th>Categories</th>
           <th>Note</th>
           <th>Updated</th>
+          {% if admin_can_act %}<th>Actions</th>{% endif %}
         </tr>
       </thead>
       <tbody>
@@ -116,6 +143,27 @@
           <td>{{ row.category_labels }}</td>
           <td>{{ row.note or '—' }}</td>
           <td class="muted">{% if row.updated_at %}{{ row.updated_at.strftime('%Y-%m-%d') }}{% else %}—{% endif %}</td>
+          {% if admin_can_act %}
+          <td>
+            {% set owns_market_row = (active_team_id and (row.team_id|int) == (active_team_id|int)) or ((row.user_id|int) == (current_user.id|int)) %}
+            {% if is_site_admin or owns_market_row %}
+            <div class="trade-market-row-actions">
+              <button type="button" class="btn btn--small trade-market-edit-buying" data-team-id="{{ row.team_id }}">Edit</button>
+              <button type="button" class="btn btn--small trade-market-delete-buying" data-team-id="{{ row.team_id }}">Delete</button>
+            </div>
+            {% elif membership %}
+            <button type="button" class="btn btn--small trade-market-chat"
+                    data-peer-user-id="{{ row.user_id }}"
+                    data-peer-name="{{ row.gm_name }}"
+                    data-chat-kind="Buying"
+                    data-chat-context="{{ row.category_labels }}{% if row.note %} | Note: {{ row.note }}{% endif %}">
+              Chat
+            </button>
+            {% else %}
+            —
+            {% endif %}
+          </td>
+          {% endif %}
         </tr>
         {% endfor %}
       </tbody>
@@ -166,8 +214,27 @@
   </form>
 </dialog>
 
+<dialog class="trade-market-dialog trade-market-chat-dialog" id="dialog-chat">
+  <form method="dialog" class="trade-market-dialog__inner" id="form-chat">
+    <header class="trade-market-dialog__head">
+      <h3>Trade Market Chat</h3>
+      <button type="button" class="trade-market-dialog__close" data-close-chat aria-label="Close">×</button>
+    </header>
+    <p class="muted trade-market-dialog__hint" id="trade-market-chat-context"></p>
+    <label class="trade-market-notes-label">Message
+      <textarea id="trade-market-chat-body" rows="5" maxlength="6000" required placeholder="Start negotiating with this GM"></textarea>
+    </label>
+    <footer class="trade-market-dialog__foot">
+      <button type="button" class="btn" data-close-chat>Cancel</button>
+      <button type="submit" class="btn btn--primary" id="btn-send-chat">Send Chat</button>
+    </footer>
+  </form>
+</dialog>
+
 <script type="application/json" id="trade-market-my-listings">{{ my_listings | tojson }}</script>
 <script type="application/json" id="trade-market-my-buying">{{ my_buying | tojson }}</script>
+<script type="application/json" id="trade-market-all-listings">{{ selling_rows | tojson }}</script>
+<script type="application/json" id="trade-market-all-buying">{{ buying_rows | tojson }}</script>
 
 <style>
 .trade-market-page__header { margin-bottom: 1.25rem; }
@@ -177,6 +244,8 @@
 .trade-market-table-wrap { overflow-x: auto; }
 .trade-market-sort { color: inherit; text-decoration: none; }
 .trade-market-sort--active { font-weight: 600; }
+.trade-market-row-actions { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+.trade-market-row-actions .btn { padding: 0.25rem 0.55rem; font-size: 0.8rem; }
 .trade-market-dialog { max-width: 52rem; width: 95vw; border: 1px solid var(--border, #333); border-radius: 8px; padding: 0; background: var(--surface, #ffffff); color: var(--text, #0f172a); box-shadow: 0 24px 48px rgb(15 23 42 / 0.22); }
 .trade-market-dialog::backdrop { background: rgb(15 23 42 / 0.55); }
 .trade-market-dialog__inner { padding: 1rem 1.25rem; }
@@ -209,26 +278,149 @@
   var assetsUrl = root.getAttribute("data-assets-url");
   var sellingUrl = root.getAttribute("data-selling-url");
   var buyingUrl = root.getAttribute("data-buying-url");
+  var chatUrl = root.getAttribute("data-chat-url");
   var csrf = root.getAttribute("data-csrf");
   var adminTeamId = root.getAttribute("data-admin-team-id") || "";
+  var activeTeamId = root.getAttribute("data-active-team-id") || "";
   var adminTeamSel = document.getElementById("admin-market-team-select");
   var myListings = [];
+  var allListings = [];
+  var allBuying = [];
   var myBuying = null;
   try {
     myListings = JSON.parse(document.getElementById("trade-market-my-listings").textContent || "[]");
   } catch (e) {}
   try {
+    allListings = JSON.parse(document.getElementById("trade-market-all-listings").textContent || "[]");
+  } catch (e) {}
+  try {
+    allBuying = JSON.parse(document.getElementById("trade-market-all-buying").textContent || "[]");
+  } catch (e) {}
+  try {
     myBuying = JSON.parse(document.getElementById("trade-market-my-buying").textContent || "null");
   } catch (e) {}
-  var listingByRef = {};
-  myListings.forEach(function (r) {
-    if (r.asset_ref) listingByRef[r.asset_ref] = r;
+  var listingsByTeam = {};
+  allListings.forEach(function (r) {
+    var tid = String(r.team_id || "");
+    if (!tid) return;
+    if (!listingsByTeam[tid]) listingsByTeam[tid] = [];
+    listingsByTeam[tid].push(r);
   });
+  var buyingByTeam = {};
+  allBuying.forEach(function (r) {
+    if (r.team_id) buyingByTeam[String(r.team_id)] = r;
+  });
+  var listingByRef = {};
+  var currentSellingTeamId = String(activeTeamId || adminTeamId || "");
+  var currentBuyingTeamId = String(activeTeamId || adminTeamId || "");
+
+  function syncListingRefs(teamId) {
+    var tid = String(teamId || activeTeamId || adminTeamId || "");
+    var rows = listingsByTeam[tid] || myListings || [];
+    listingByRef = {};
+    rows.forEach(function (r) {
+      if (r.asset_ref) listingByRef[r.asset_ref] = r;
+    });
+  }
+
+  syncListingRefs(currentSellingTeamId);
 
   var dlgSell = document.getElementById("dialog-selling");
   var dlgBuy = document.getElementById("dialog-buying");
+  var dlgChat = document.getElementById("dialog-chat");
+  var chatState = { peerUserId: "", peerName: "", kind: "", context: "" };
   var panels = document.getElementById("selling-asset-panels");
-  var cachedAssets = null;
+  var cachedAssetsByTeam = {};
+
+  function listingToItem(r) {
+    return {
+      asset_type: r.asset_type || "",
+      asset_ref: r.asset_ref || "",
+      asking_price: r.asking_price || "",
+      wants: r.wants || [],
+      note: r.note || "",
+    };
+  }
+
+  function responseJson(r) {
+    return r.json().then(function (j) { return { ok: r.ok, j: j }; });
+  }
+
+  function saveSellingItems(items, teamId) {
+    return fetch(sellingUrl, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json", "X-CSRFToken": csrf },
+      body: JSON.stringify({ csrf_token: csrf, admin_team_id: teamId || adminTeamId, items: items }),
+    }).then(responseJson);
+  }
+
+  function saveBuyingNeeds(categories, note, teamId) {
+    return fetch(buyingUrl, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json", "X-CSRFToken": csrf },
+      body: JSON.stringify({
+        csrf_token: csrf,
+        admin_team_id: teamId || adminTeamId,
+        categories: categories,
+        note: note || "",
+      }),
+    }).then(responseJson);
+  }
+
+  function handleSaveResult(res) {
+    if (!res.ok) {
+      alert(res.j.error || "Save failed");
+      return;
+    }
+    window.location.reload();
+  }
+
+  function openChatDialog(btn) {
+    chatState.peerUserId = btn.getAttribute("data-peer-user-id") || "";
+    chatState.peerName = btn.getAttribute("data-peer-name") || "this GM";
+    chatState.kind = btn.getAttribute("data-chat-kind") || "Trade Market";
+    chatState.context = btn.getAttribute("data-chat-context") || "";
+    document.getElementById("trade-market-chat-context").textContent =
+      "Message " + chatState.peerName + " about " + chatState.kind.toLowerCase() +
+      (chatState.context ? ": " + chatState.context : "") + ".";
+    document.getElementById("trade-market-chat-body").value = "";
+    dlgChat.showModal();
+    document.getElementById("trade-market-chat-body").focus();
+  }
+
+  function populateBuyingDialog(teamId) {
+    currentBuyingTeamId = String(teamId || activeTeamId || adminTeamId || "");
+    var row = buyingByTeam[currentBuyingTeamId] || myBuying;
+    document.querySelectorAll(".buy-cat-cb").forEach(function (cb) {
+      cb.checked = !!(row && row.categories && row.categories.indexOf(cb.value) >= 0);
+    });
+    document.getElementById("buying-note-field").value = (row && row.note) || "";
+  }
+
+  function findAssetRow(assetRef) {
+    var found = null;
+    panels.querySelectorAll(".trade-market-asset-row").forEach(function (row) {
+      if (!found && row.getAttribute("data-ref") === assetRef) found = row;
+    });
+    return found;
+  }
+
+  function openSellingDialog(assetRef, teamId) {
+    currentSellingTeamId = String(teamId || activeTeamId || adminTeamId || "");
+    syncListingRefs(currentSellingTeamId);
+    loadAssets(currentSellingTeamId).then(function () {
+      dlgSell.showModal();
+      if (!assetRef) return;
+      var row = findAssetRow(assetRef);
+      if (row) {
+        row.scrollIntoView({ block: "center" });
+        var cb = row.querySelector(".sell-cb");
+        if (cb) cb.focus();
+      }
+    });
+  }
 
   if (adminTeamSel) {
     adminTeamSel.addEventListener("change", function () {
@@ -287,42 +479,75 @@
     });
   }
 
-  function loadAssets() {
+  function loadAssets(teamId) {
+    var tid = String(teamId || activeTeamId || adminTeamId || "");
+    if (cachedAssetsByTeam[tid]) {
+      renderSellingPanels(cachedAssetsByTeam[tid]);
+      return Promise.resolve(cachedAssetsByTeam[tid]);
+    }
     var url = assetsUrl;
-    if (adminTeamId) url += "?admin_team_id=" + encodeURIComponent(adminTeamId);
+    if (tid) url += "?admin_team_id=" + encodeURIComponent(tid);
     return fetch(url, { credentials: "same-origin" })
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        cachedAssets = data.assets || data;
-        renderSellingPanels(cachedAssets);
+        cachedAssetsByTeam[tid] = data.assets || data;
+        renderSellingPanels(cachedAssetsByTeam[tid]);
+        return cachedAssetsByTeam[tid];
       });
   }
 
   var btnEditSelling = document.getElementById("btn-edit-selling");
   if (btnEditSelling) {
     btnEditSelling.addEventListener("click", function () {
-      (cachedAssets ? Promise.resolve() : loadAssets()).then(function () {
-        dlgSell.showModal();
-      });
+      openSellingDialog("");
     });
   }
   var btnEditBuying = document.getElementById("btn-edit-buying");
   if (btnEditBuying) {
     btnEditBuying.addEventListener("click", function () {
-      if (myBuying && myBuying.categories) {
-        document.querySelectorAll(".buy-cat-cb").forEach(function (cb) {
-          cb.checked = myBuying.categories.indexOf(cb.value) >= 0;
-        });
-        document.getElementById("buying-note-field").value = myBuying.note || "";
-      }
+      populateBuyingDialog(currentBuyingTeamId);
       dlgBuy.showModal();
     });
   }
+  document.querySelectorAll(".trade-market-edit-selling").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      openSellingDialog(btn.getAttribute("data-asset-ref") || "", btn.getAttribute("data-team-id") || "");
+    });
+  });
+  document.querySelectorAll(".trade-market-delete-selling").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var ref = btn.getAttribute("data-asset-ref") || "";
+      var teamId = btn.getAttribute("data-team-id") || activeTeamId || adminTeamId;
+      var label = btn.getAttribute("data-asset-label") || "this listing";
+      if (!ref || !confirm("Delete " + label + " from your selling list?")) return;
+      var items = (listingsByTeam[String(teamId)] || myListings).filter(function (r) { return r.asset_ref !== ref; }).map(listingToItem);
+      saveSellingItems(items, teamId).then(handleSaveResult);
+    });
+  });
+  document.querySelectorAll(".trade-market-edit-buying").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      populateBuyingDialog(btn.getAttribute("data-team-id") || "");
+      dlgBuy.showModal();
+    });
+  });
+  document.querySelectorAll(".trade-market-delete-buying").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var teamId = btn.getAttribute("data-team-id") || activeTeamId || adminTeamId;
+      if (!teamId || !confirm("Delete this buying wishlist?")) return;
+      saveBuyingNeeds([], "", teamId).then(handleSaveResult);
+    });
+  });
+  document.querySelectorAll(".trade-market-chat").forEach(function (btn) {
+    btn.addEventListener("click", function () { openChatDialog(btn); });
+  });
   document.querySelectorAll("[data-close-selling]").forEach(function (el) {
     el.addEventListener("click", function () { dlgSell.close(); });
   });
   document.querySelectorAll("[data-close-buying]").forEach(function (el) {
     el.addEventListener("click", function () { dlgBuy.close(); });
+  });
+  document.querySelectorAll("[data-close-chat]").forEach(function (el) {
+    el.addEventListener("click", function () { dlgChat.close(); });
   });
 
   document.getElementById("form-selling").addEventListener("submit", function (ev) {
@@ -341,20 +566,7 @@
         note: (row.querySelector(".note-in") || {}).value || "",
       });
     });
-    fetch(sellingUrl, {
-      method: "POST",
-      credentials: "same-origin",
-      headers: { "Content-Type": "application/json", "X-CSRFToken": csrf },
-      body: JSON.stringify({ csrf_token: csrf, admin_team_id: adminTeamId, items: items }),
-    })
-      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
-      .then(function (res) {
-        if (!res.ok) {
-          alert(res.j.error || "Save failed");
-          return;
-        }
-        window.location.reload();
-      });
+    saveSellingItems(items, currentSellingTeamId).then(handleSaveResult);
   });
 
   document.getElementById("form-buying").addEventListener("submit", function (ev) {
@@ -362,24 +574,31 @@
     var cats = [];
     document.querySelectorAll(".buy-cat-cb:checked").forEach(function (cb) { cats.push(cb.value); });
     var note = document.getElementById("buying-note-field").value || "";
-    fetch(buyingUrl, {
+    saveBuyingNeeds(cats, note, currentBuyingTeamId).then(handleSaveResult);
+  });
+
+  document.getElementById("form-chat").addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    var body = document.getElementById("trade-market-chat-body").value || "";
+    fetch(chatUrl, {
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json", "X-CSRFToken": csrf },
       body: JSON.stringify({
         csrf_token: csrf,
-        admin_team_id: adminTeamId,
-        categories: cats,
-        note: note,
+        peer_user_id: chatState.peerUserId,
+        kind: chatState.kind,
+        context: chatState.context,
+        body: body,
       }),
     })
-      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(responseJson)
       .then(function (res) {
         if (!res.ok) {
-          alert(res.j.error || "Save failed");
+          alert(res.j.error || "Chat failed");
           return;
         }
-        window.location.reload();
+        window.location.href = res.j.thread_url || "{{ url_for('site_gm.gm_messages_inbox') }}";
       });
   });
 })();

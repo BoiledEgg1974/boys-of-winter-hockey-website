@@ -1091,6 +1091,7 @@ def trade_market_page():
     my_team_id = int(mem.team_id) if mem else admin_team_id
     my_team = db.session.get(Team, int(my_team_id)) if my_team_id else None
     admin_team_options = _trade_team_options() if mem is None and _is_site_admin() else []
+    is_site_admin = _is_site_admin()
     sort_key = (request.args.get("sort") or "updated").strip()
     sort_order = (request.args.get("order") or "desc").strip()
     selling_rows = sort_selling_rows(
@@ -1121,7 +1122,9 @@ def trade_market_page():
         my_team=my_team,
         admin_team_options=admin_team_options,
         admin_team_id=admin_team_id,
-        admin_can_act=mem is not None or bool(admin_team_id),
+        active_team_id=my_team_id,
+        is_site_admin=is_site_admin,
+        admin_can_act=mem is not None or is_site_admin,
         selling_rows=selling_rows,
         buying_rows=buying_rows,
         my_listings=my_listings,
@@ -1270,6 +1273,57 @@ def trade_market_buying_save():
     )
     db.session.commit()
     return jsonify({"ok": True, "count": len(needs)})
+
+
+@site_gm_bp.post("/trade-market/chat")
+@login_required
+def trade_market_chat_start():
+    from flask_wtf.csrf import validate_csrf
+
+    slug = _league_slug()
+    mem = _membership()
+    if mem is None:
+        return jsonify({"error": "No active GM membership for this league."}), 403
+    data = request.get_json(silent=True) or {}
+    try:
+        validate_csrf(data.get("csrf_token"))
+    except Exception:
+        return jsonify({"error": "Invalid or missing CSRF token."}), 400
+    try:
+        peer_user_id = int(data.get("peer_user_id") or 0)
+    except (TypeError, ValueError):
+        peer_user_id = 0
+    if not peer_user_id or peer_user_id == int(current_user.id):
+        return jsonify({"error": "Choose another GM to chat with."}), 400
+    peer_mem = active_peer_membership(slug, peer_user_id)
+    if not peer_mem:
+        return jsonify({"error": "That GM is not active in this league."}), 404
+    context = str(data.get("context") or "").strip()
+    kind = str(data.get("kind") or "Trade Market").strip() or "Trade Market"
+    body = str(data.get("body") or "").strip()
+    if not body:
+        return jsonify({"error": "Message cannot be empty."}), 400
+    if len(body) > _GM_MESSAGE_MAX_LEN:
+        return jsonify({"error": f"Message is too long (max {_GM_MESSAGE_MAX_LEN} characters)."}), 400
+    prefix = f"Trade Market chat ({kind})"
+    if context:
+        prefix += f": {context[:500]}"
+    msg_body = f"{prefix}\n\n{body}"
+    db.session.add(
+        GmLeagueMessage(
+            league_slug=slug,
+            from_user_id=int(current_user.id),
+            to_user_id=peer_user_id,
+            body=msg_body[:_GM_MESSAGE_MAX_LEN],
+        )
+    )
+    db.session.commit()
+    return jsonify(
+        {
+            "ok": True,
+            "thread_url": url_for("site_gm.gm_messages_thread", peer_user_id=peer_user_id),
+        }
+    )
 
 
 def _ai_trade_draft_round_cap(session, league_slug: str) -> int:

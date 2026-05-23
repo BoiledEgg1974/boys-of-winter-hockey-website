@@ -20,6 +20,7 @@ class TradeMarketAllLeaguesTest(unittest.TestCase):
             "site_gm.trade_market_assets",
             "site_gm.trade_market_selling_save",
             "site_gm.trade_market_buying_save",
+            "site_gm.trade_market_chat_start",
         }
         for entry in LEAGUES:
             app = create_app(make_league_config(entry.slug))
@@ -68,6 +69,42 @@ class TradeMarketAllLeaguesTest(unittest.TestCase):
             2,
             "selling and buying save fetch calls must send X-CSRFToken",
         )
+
+    def test_trade_market_template_has_owner_edit_delete_controls(self) -> None:
+        path = (
+            Path(__file__).resolve().parents[1]
+            / "app"
+            / "templates"
+            / "trade_market.html"
+        )
+        text = path.read_text(encoding="utf-8")
+        self.assertIn('data-active-team-id="{{ active_team_id or \'\' }}"', text)
+        self.assertIn("is_site_admin or owns_market_row", text)
+        self.assertIn("owns_market_row", text)
+        self.assertIn("(row.user_id|int) == (current_user.id|int)", text)
+        self.assertIn('data-team-id="{{ row.team_id }}"', text)
+        self.assertIn("trade-market-all-listings", text)
+        self.assertIn("trade-market-all-buying", text)
+        for selector in (
+            "trade-market-edit-selling",
+            "trade-market-delete-selling",
+            "trade-market-edit-buying",
+            "trade-market-delete-buying",
+        ):
+            self.assertIn(selector, text)
+
+    def test_trade_market_template_has_chat_controls(self) -> None:
+        path = (
+            Path(__file__).resolve().parents[1]
+            / "app"
+            / "templates"
+            / "trade_market.html"
+        )
+        text = path.read_text(encoding="utf-8")
+        self.assertIn('data-chat-url="{{ url_for(\'site_gm.trade_market_chat_start\') }}"', text)
+        self.assertIn("trade-market-chat", text)
+        self.assertIn("dialog-chat", text)
+        self.assertIn("peer_user_id: chatState.peerUserId", text)
 
 
 if __name__ == "__main__":

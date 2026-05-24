@@ -1863,6 +1863,79 @@ def discord_events_fail(event_id: int):
     return jsonify({"ok": bool(ok)})
 
 
+@api_bp.get("/discord/dms/pending")
+def discord_dms_pending():
+    if not _discord_secret_ok():
+        return jsonify({"ok": False, "message": "Unauthorized"}), 401
+    slug = str(request.args.get("league_slug") or current_app.config.get("LEAGUE_SLUG") or "").strip()
+    if not slug:
+        return jsonify({"ok": False, "message": "league_slug is required"}), 400
+    try:
+        limit = int(request.args.get("limit") or "20")
+    except ValueError:
+        limit = 20
+    from app.services.discord_direct_messages import (
+        fetch_pending_direct_messages_for_bot,
+        serialize_direct_messages_for_bot,
+    )
+
+    rows = fetch_pending_direct_messages_for_bot(db.session, league_slug=slug, limit=limit)
+    return jsonify({"ok": True, "league_slug": slug, "events": serialize_direct_messages_for_bot(rows)})
+
+
+@api_bp.post("/discord/dms/<int:event_id>/ack")
+def discord_dms_ack(event_id: int):
+    if not _discord_secret_ok():
+        return jsonify({"ok": False, "message": "Unauthorized"}), 401
+    data = request.get_json(silent=True) or {}
+    from app.services.discord_direct_messages import mark_direct_message_sent
+
+    ok = mark_direct_message_sent(
+        db.session,
+        event_id,
+        discord_channel_id=str(data.get("discord_channel_id") or "").strip(),
+        discord_message_id=str(data.get("discord_message_id") or "").strip(),
+    )
+    return jsonify({"ok": bool(ok)})
+
+
+@api_bp.post("/discord/dms/<int:event_id>/fail")
+def discord_dms_fail(event_id: int):
+    if not _discord_secret_ok():
+        return jsonify({"ok": False, "message": "Unauthorized"}), 401
+    data = request.get_json(silent=True) or {}
+    error = str(data.get("error") or request.form.get("error") or "delivery failed").strip()
+    from app.services.discord_direct_messages import mark_direct_message_failed
+
+    ok = mark_direct_message_failed(db.session, event_id, error)
+    return jsonify({"ok": bool(ok)})
+
+
+@api_bp.post("/discord/interactions")
+def discord_interactions():
+    from app.services.discord_interactions import (
+        handle_slash_interaction,
+        verify_interaction_signature,
+    )
+
+    raw_body = request.get_data() or b""
+    public_key = str(current_app.config.get("DISCORD_INTERACTIONS_PUBLIC_KEY") or "").strip()
+    if public_key:
+        timestamp = str(request.headers.get("X-Signature-Timestamp") or "")
+        signature = str(request.headers.get("X-Signature-Ed25519") or "")
+        if not verify_interaction_signature(
+            body=raw_body,
+            timestamp=timestamp,
+            signature=signature,
+            public_key=public_key,
+        ):
+            return jsonify({"error": "invalid request signature"}), 401
+    elif not _discord_secret_ok():
+        return jsonify({"error": "Discord interactions public key is not configured"}), 401
+    payload = request.get_json(silent=True) or {}
+    return jsonify(handle_slash_interaction(payload))
+
+
 @api_bp.post("/discord/events/heartbeat")
 def discord_events_heartbeat():
     if not _discord_secret_ok():

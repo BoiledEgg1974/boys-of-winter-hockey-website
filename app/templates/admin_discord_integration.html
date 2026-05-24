@@ -208,6 +208,51 @@
       </tbody>
     </table>
   </div>
+  <h3 style="margin:0.85rem 0 0.35rem;">Private DM Queue</h3>
+  <p class="muted" style="margin:0 0 0.45rem;">
+    These are recipient-specific Discord alerts for GM Messages and in-site notifications. They use each user's Discord User ID and DM preference from the Membership Dashboard.
+  </p>
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr><th>When (UTC)</th><th>Recipient</th><th>Event</th><th>Status</th><th>Attempts</th><th>Last Error</th><th>Payload</th><th>Actions</th></tr>
+      </thead>
+      <tbody>
+        {% for e in dm_events %}
+        <tr>
+          <td>{{ e.created_at.strftime('%Y-%m-%d %H:%M:%S') if e.created_at else '—' }}</td>
+          <td>{{ e.recipient_user_id }}<br><code>{{ e.discord_user_id }}</code></td>
+          <td><code>{{ e.event_key }}</code></td>
+          <td>{{ e.status }}</td>
+          <td>{{ e.attempts or 0 }}</td>
+          <td style="max-width:14rem;word-break:break-word;">
+            {{ e.last_error or '—' }}
+            {% if e.next_attempt_at and e.status == 'pending' %}
+              <div class="muted">next retry: {{ e.next_attempt_at.strftime('%Y-%m-%d %H:%M:%S') }}</div>
+            {% endif %}
+          </td>
+          <td><code style="white-space:pre-wrap;">{{ e.payload_json or '{}' }}</code></td>
+          <td>
+            {% if e.status in ('failed','pending') %}
+            <form method="post" action="{{ url_for('site_admin.admin_discord_dm_requeue', eid=e.id) }}" style="display:inline;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="admin-news-body-btn">Requeue</button>
+            </form>
+            {% endif %}
+            {% if e.status != 'sent' and e.status != 'cancelled' %}
+            <form method="post" action="{{ url_for('site_admin.admin_discord_dm_cancel', eid=e.id) }}" style="display:inline;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="admin-news-body-btn">Cancel</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="muted">No private DM events found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
   <h3 style="margin:0.85rem 0 0.35rem;">Dead-Letter Queue (Permanent Failures)</h3>
   <div class="table-wrap">
     <table class="data">

@@ -21,6 +21,7 @@ class User(db.Model, UserMixin):
     password_hash: Mapped[str] = mapped_column(String(256), nullable=False)
     discord_name: Mapped[str] = mapped_column(String(120), nullable=False, default="")
     discord_user_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    discord_dm_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     admin_role: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -597,6 +598,35 @@ class DiscordOutboundEvent(db.Model):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class DiscordDirectMessageEvent(db.Model):
+    __tablename__ = "discord_direct_message_events"
+    __bind_key__ = "site"
+    __table_args__ = (
+        Index("ix_discord_dm_status_created", "status", "created_at"),
+        Index("ix_discord_dm_league_status", "league_slug", "status"),
+        Index("ix_discord_dm_recipient_status", "recipient_user_id", "status"),
+        Index("ix_discord_dm_idempotency_key", "idempotency_key"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    recipient_user_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    discord_user_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    event_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_type: Mapped[str] = mapped_column(String(64), default="", nullable=False)
+    source_id: Mapped[str] = mapped_column(String(64), default="", nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(64), default="", nullable=False, index=True)
+    payload_json: Mapped[str] = mapped_column(Text, default="{}", nullable=False)
+    status: Mapped[str] = mapped_column(String(24), default="pending", nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    last_error: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    discord_channel_id: Mapped[str] = mapped_column(String(32), default="", nullable=False)
+    discord_message_id: Mapped[str] = mapped_column(String(32), default="", nullable=False)
 
 
 class DiscordBotHeartbeat(db.Model):

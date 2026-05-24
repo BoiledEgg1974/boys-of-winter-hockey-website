@@ -32,6 +32,7 @@ from app.services.ap_multileague import team_id_for_slug_in_league
 from app.services.all_time_records import bowl_nhl_league_ids
 from app.services.gm_messaging import (
     active_peer_membership,
+    create_gm_message,
     gm_display_name,
     inbox_threads,
     list_other_active_gms,
@@ -169,8 +170,8 @@ from app.site_models import (
     GmInAppNotification,
     GmApprovalRequest,
     GmLeagueMembership,
-    GmLeagueMessage,
     GmTradeProposal,
+    DiscordDirectMessageEvent,
     LeagueDraft,
     LeagueDraftPick,
     LeagueDraftQueueItem,
@@ -1044,13 +1045,12 @@ def trade_tool_submit():
             f"{summary}\n\n"
             f"Open to approve or decline:\n{review_path}"
         )
-        db.session.add(
-            GmLeagueMessage(
-                league_slug=slug,
-                from_user_id=int(current_user.id),
-                to_user_id=int(peer_mem.user_id),
-                body=msg_body[:_GM_MESSAGE_MAX_LEN],
-            )
+        create_gm_message(
+            league_slug=slug,
+            from_user_id=int(current_user.id),
+            to_user_id=int(peer_mem.user_id),
+            body=msg_body[:_GM_MESSAGE_MAX_LEN],
+            event_key="trade_partner_review",
         )
         notify_trade_proposal_partner(
             slug,
@@ -1309,13 +1309,12 @@ def trade_market_chat_start():
     if context:
         prefix += f": {context[:500]}"
     msg_body = f"{prefix}\n\n{body}"
-    db.session.add(
-        GmLeagueMessage(
-            league_slug=slug,
-            from_user_id=int(current_user.id),
-            to_user_id=peer_user_id,
-            body=msg_body[:_GM_MESSAGE_MAX_LEN],
-        )
+    create_gm_message(
+        league_slug=slug,
+        from_user_id=int(current_user.id),
+        to_user_id=peer_user_id,
+        body=msg_body[:_GM_MESSAGE_MAX_LEN],
+        event_key="trade_market_chat",
     )
     db.session.commit()
     return jsonify(
@@ -1711,13 +1710,12 @@ def trade_proposal_partner_respond(pid: int):
             f"Your trade proposal to {to_team.full_display_name() if to_team else 'partner'} "
             f"was declined by {gm_display_name(current_user)}.\n\n{summary}"
         )
-        db.session.add(
-            GmLeagueMessage(
-                league_slug=slug,
-                from_user_id=int(current_user.id),
-                to_user_id=int(prop.from_user_id),
-                body=decline_msg[:_GM_MESSAGE_MAX_LEN],
-            )
+        create_gm_message(
+            league_slug=slug,
+            from_user_id=int(current_user.id),
+            to_user_id=int(prop.from_user_id),
+            body=decline_msg[:_GM_MESSAGE_MAX_LEN],
+            event_key="trade_outcome_proposer",
         )
         notify_trade_outcome_proposer(
             slug,
@@ -1740,16 +1738,15 @@ def trade_proposal_partner_respond(pid: int):
     prop.partner_acted_at = datetime.utcnow()
     admin_path = url_for("site_admin.admin_trade_proposal_detail", pid=int(prop.id))
     for cid in comm_ids:
-        db.session.add(
-            GmLeagueMessage(
-                league_slug=slug,
-                from_user_id=int(current_user.id),
-                to_user_id=int(cid),
-                body=(
-                    f"Trade proposal approved by both GMs; commissioner review needed.\n\n{summary}\n\n"
-                    f"Admin: {admin_path}"
-                )[:_GM_MESSAGE_MAX_LEN],
-            )
+        create_gm_message(
+            league_slug=slug,
+            from_user_id=int(current_user.id),
+            to_user_id=int(cid),
+            body=(
+                f"Trade proposal approved by both GMs; commissioner review needed.\n\n{summary}\n\n"
+                f"Admin: {admin_path}"
+            )[:_GM_MESSAGE_MAX_LEN],
+            event_key="trade_commish_review",
         )
     notify_trade_proposal_commissioners(
         slug,
@@ -1762,13 +1759,12 @@ def trade_proposal_partner_respond(pid: int):
         f"({from_team.full_display_name() if from_team else ''} / {to_team.full_display_name() if to_team else ''}). "
         f"It is now with the league office for final approval.\n\n{summary}"
     )
-    db.session.add(
-        GmLeagueMessage(
-            league_slug=slug,
-            from_user_id=int(current_user.id),
-            to_user_id=int(prop.from_user_id),
-            body=approve_peer_msg[:_GM_MESSAGE_MAX_LEN],
-        )
+    create_gm_message(
+        league_slug=slug,
+        from_user_id=int(current_user.id),
+        to_user_id=int(prop.from_user_id),
+        body=approve_peer_msg[:_GM_MESSAGE_MAX_LEN],
+        event_key="trade_outcome_proposer",
     )
     db.session.commit()
     flash("You approved the trade. The commissioner was notified.", "ok")
@@ -1897,13 +1893,12 @@ def gm_messages_thread(peer_user_id: int):
         elif len(body) > _GM_MESSAGE_MAX_LEN:
             flash(f"Message is too long (max {_GM_MESSAGE_MAX_LEN} characters).", "err")
         else:
-            db.session.add(
-                GmLeagueMessage(
-                    league_slug=slug,
-                    from_user_id=current_user.id,
-                    to_user_id=peer_user_id,
-                    body=body[:_GM_MESSAGE_MAX_LEN],
-                )
+            create_gm_message(
+                league_slug=slug,
+                from_user_id=int(current_user.id),
+                to_user_id=peer_user_id,
+                body=body[:_GM_MESSAGE_MAX_LEN],
+                event_key="gm_direct_message",
             )
             db.session.commit()
             flash("Sent.", "ok")
@@ -4045,6 +4040,15 @@ def admin_discord_integration():
         db.session, league_slug=slug, status=status, event_key=event_key_filter, limit=250
     )
     dead_letters = list_outbound_events(db.session, league_slug=slug, status="failed", limit=50)
+    dm_events = list(
+        db.session.scalars(
+            select(DiscordDirectMessageEvent)
+            .where(DiscordDirectMessageEvent.league_slug == slug)
+            .order_by(DiscordDirectMessageEvent.created_at.desc())
+            .limit(100)
+        ).all()
+    )
+    dm_dead_letters = [e for e in dm_events if e.status == "failed"][:50]
     prune_obsolete_discord_bot_heartbeats(db.session, league_slug=slug)
     heartbeats = list_heartbeats(db.session, league_slug=slug, limit=10)
     expected_bot_name = canonical_discord_bot_name()
@@ -4081,6 +4085,8 @@ def admin_discord_integration():
         bot_config=bot_config,
         events=events,
         dead_letters=dead_letters,
+        dm_events=dm_events,
+        dm_dead_letters=dm_dead_letters,
         selected_status=status,
         selected_event_key=event_key_filter,
         secret_set=secret_set,
@@ -4133,6 +4139,52 @@ def admin_discord_event_cancel(eid: int):
     )
     db.session.commit()
     flash("Event cancelled.", "ok")
+    return redirect(url_for("site_admin.admin_discord_integration"))
+
+
+@site_admin_bp.post("/discord-dms/<int:eid>/requeue")
+@login_required
+def admin_discord_dm_requeue(eid: int):
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER, ADMIN_ROLE_CONTENT)
+    slug = _league_slug()
+    row = db.session.get(DiscordDirectMessageEvent, eid)
+    if not row or row.league_slug != slug:
+        abort(404)
+    row.status = "pending"
+    row.last_error = ""
+    row.next_attempt_at = None
+    db.session.add(
+        AdminAuditLog(
+            admin_user_id=int(current_user.id),
+            league_slug=slug,
+            action="discord_dm_requeue",
+            detail_json=json.dumps({"event_id": int(row.id), "event_key": str(row.event_key or "")}),
+        )
+    )
+    db.session.commit()
+    flash("DM event requeued.", "ok")
+    return redirect(url_for("site_admin.admin_discord_integration"))
+
+
+@site_admin_bp.post("/discord-dms/<int:eid>/cancel")
+@login_required
+def admin_discord_dm_cancel(eid: int):
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER, ADMIN_ROLE_CONTENT)
+    slug = _league_slug()
+    row = db.session.get(DiscordDirectMessageEvent, eid)
+    if not row or row.league_slug != slug:
+        abort(404)
+    row.status = "cancelled"
+    db.session.add(
+        AdminAuditLog(
+            admin_user_id=int(current_user.id),
+            league_slug=slug,
+            action="discord_dm_cancel",
+            detail_json=json.dumps({"event_id": int(row.id), "event_key": str(row.event_key or "")}),
+        )
+    )
+    db.session.commit()
+    flash("DM event cancelled.", "ok")
     return redirect(url_for("site_admin.admin_discord_integration"))
 
 

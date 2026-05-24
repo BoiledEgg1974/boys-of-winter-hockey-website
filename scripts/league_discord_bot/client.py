@@ -7,7 +7,11 @@ from typing import Any
 import httpx
 
 from scripts.league_discord_bot.config import BotSettings
-from scripts.league_discord_bot.formatters import format_discord_messages, sanitize_discord_message_body
+from scripts.league_discord_bot.formatters import (
+    format_direct_message,
+    format_discord_messages,
+    sanitize_discord_message_body,
+)
 
 log = logging.getLogger(__name__)
 
@@ -67,6 +71,16 @@ class LeagueDiscordBot:
         url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
         return discord_client.post(url, headers=self._discord_headers, json=body)
 
+    def _create_dm_channel_once(
+        self, discord_client: httpx.Client, discord_user_id: str
+    ) -> httpx.Response:
+        url = "https://discord.com/api/v10/users/@me/channels"
+        return discord_client.post(
+            url,
+            headers=self._discord_headers,
+            json={"recipient_id": str(discord_user_id).strip()},
+        )
+
     def _patch_discord_once(
         self,
         discord_client: httpx.Client,
@@ -124,6 +138,17 @@ class LeagueDiscordBot:
         except Exception:
             return ""
 
+    def create_dm_channel(self, discord_client: httpx.Client, discord_user_id: str) -> str:
+        resp = self._discord_request_with_retry(
+            discord_client,
+            lambda: self._create_dm_channel_once(discord_client, discord_user_id),
+            channel_id=f"dm:{discord_user_id}",
+        )
+        try:
+            return str((resp.json() or {}).get("id") or "").strip()
+        except Exception:
+            return ""
+
     def patch_discord(
         self,
         discord_client: httpx.Client,
@@ -167,6 +192,48 @@ class LeagueDiscordBot:
 
     def fail(self, client: httpx.Client, league_slug: str, event_id: int, error: str) -> None:
         url = self._site_url(league_slug, f"/api/discord/events/{event_id}/fail")
+        resp = client.post(url, headers=self._headers, json={"error": error[:1200]})
+        resp.raise_for_status()
+
+    def poll_pending_dms(
+        self, client: httpx.Client, league_slug: str, *, site_timeout: float | None = None
+    ) -> list[dict[str, Any]]:
+        url = self._site_url(league_slug, "/api/discord/dms/pending")
+        timeout = site_timeout if site_timeout is not None else self.settings.site_timeout_seconds
+        resp = client.get(
+            url,
+            params={"league_slug": league_slug, "limit": 20},
+            headers=self._headers,
+            timeout=timeout,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        if not data.get("ok"):
+            raise RuntimeError(data.get("message") or "pending DM fetch failed")
+        return list(data.get("events") or [])
+
+    def ack_dm(
+        self,
+        client: httpx.Client,
+        league_slug: str,
+        event_id: int,
+        *,
+        discord_channel_id: str = "",
+        discord_message_id: str = "",
+    ) -> None:
+        url = self._site_url(league_slug, f"/api/discord/dms/{event_id}/ack")
+        resp = client.post(
+            url,
+            headers=self._headers,
+            json={
+                "discord_channel_id": str(discord_channel_id or "").strip(),
+                "discord_message_id": str(discord_message_id or "").strip(),
+            },
+        )
+        resp.raise_for_status()
+
+    def fail_dm(self, client: httpx.Client, league_slug: str, event_id: int, error: str) -> None:
+        url = self._site_url(league_slug, f"/api/discord/dms/{event_id}/fail")
         resp = client.post(url, headers=self._headers, json={"error": error[:1200]})
         resp.raise_for_status()
 
@@ -228,6 +295,30 @@ class LeagueDiscordBot:
             discord_message_id=delivered_message_id,
         )
 
+    def deliver_dm(
+        self,
+        site_client: httpx.Client,
+        discord_client: httpx.Client,
+        league_slug: str,
+        event: dict[str, Any],
+    ) -> None:
+        event_id = int(event["id"])
+        discord_user_id = str(event.get("discord_user_id") or "").strip()
+        if not discord_user_id:
+            raise RuntimeError(f"DM event {event_id} missing discord_user_id")
+        channel_id = self.create_dm_channel(discord_client, discord_user_id)
+        if not channel_id:
+            raise RuntimeError(f"Could not create DM channel for event {event_id}")
+        body = format_direct_message(event)
+        message_id = self.post_discord(discord_client, channel_id, body)
+        self.ack_dm(
+            site_client,
+            league_slug,
+            event_id,
+            discord_channel_id=channel_id,
+            discord_message_id=message_id,
+        )
+
     def run_cycle(self, site_client: httpx.Client, discord_client: httpx.Client) -> str | None:
         last_error: str | None = None
         delay = float(self.settings.delivery_delay_seconds)
@@ -249,6 +340,20 @@ class LeagueDiscordBot:
                             self.fail(site_client, slug, int(ev["id"]), last_error)
                         except Exception:
                             log.exception("fail report failed for event %s", ev.get("id"))
+                dm_events = self.poll_pending_dms(site_client, slug)
+                for idx, ev in enumerate(dm_events):
+                    if idx > 0 and delay > 0:
+                        time.sleep(delay)
+                    try:
+                        self.deliver_dm(site_client, discord_client, slug, ev)
+                        log.info("delivered DM event %s for %s", ev.get("id"), slug)
+                    except Exception as exc:
+                        last_error = str(exc)
+                        log.warning("DM delivery failed event %s %s: %s", ev.get("id"), slug, exc)
+                        try:
+                            self.fail_dm(site_client, slug, int(ev["id"]), last_error)
+                        except Exception:
+                            log.exception("DM fail report failed for event %s", ev.get("id"))
                 try:
                     self.heartbeat(
                         site_client,

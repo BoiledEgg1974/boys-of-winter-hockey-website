@@ -248,6 +248,8 @@ class Config:
     DISCORD_BOT_NAME = os.environ.get("DISCORD_BOT_NAME", "league-discord-bot").strip()[:120]
     DISCORD_BOT_VERSION = os.environ.get("DISCORD_BOT_VERSION", "1.0.0").strip()[:64]
     DISCORD_BOT_POLL_SECONDS = float(os.environ.get("DISCORD_BOT_POLL_SECONDS", "8"))
+    # Discord application public key for slash-command interaction verification.
+    DISCORD_INTERACTIONS_PUBLIC_KEY = os.environ.get("DISCORD_INTERACTIONS_PUBLIC_KEY", "").strip()
     # Comma-separated slug:base_url pairs, e.g. bowl-historical:https://www.bowlhockey.com/bowl-historical
     DISCORD_BOT_LEAGUE_BASE_URLS = os.environ.get("DISCORD_BOT_LEAGUE_BASE_URLS", "").strip()
     # GM AI Trade Tool (entertainment): OpenAI-compatible Chat Completions API key and model.

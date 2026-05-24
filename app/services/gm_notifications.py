@@ -8,6 +8,23 @@ from app.services.staff_catalog import staff_role_label
 from app.site_models import ApRedemptionRequest, GmInAppNotification, GmLeagueMembership, NewsArticle, StaffChangeRequest
 
 
+def _add_notification(notification: GmInAppNotification) -> GmInAppNotification:
+    db.session.add(notification)
+    db.session.flush()
+    try:
+        from app.services.discord_direct_messages import enqueue_notification_dm
+
+        enqueue_notification_dm(
+            db.session,
+            league_slug=notification.league_slug,
+            notification=notification,
+        )
+    except Exception:
+        # Discord DMs are advisory and should never block the site message itself.
+        pass
+    return notification
+
+
 def unread_notifications_count(league_slug: str, user_id: int) -> int:
     n = db.session.scalar(
         select(func.count())
@@ -59,7 +76,7 @@ def notify_all_gms_admin_article(league_slug: str, art: NewsArticle) -> None:
         if uid in seen:
             continue
         seen.add(int(uid))
-        db.session.add(
+        _add_notification(
             GmInAppNotification(
                 league_slug=league_slug,
                 user_id=int(uid),
@@ -73,7 +90,7 @@ def notify_all_gms_admin_article(league_slug: str, art: NewsArticle) -> None:
 
 
 def notify_news_approved(league_slug: str, art: NewsArticle) -> None:
-    db.session.add(
+    _add_notification(
         GmInAppNotification(
             league_slug=league_slug,
             user_id=art.author_user_id,
@@ -87,7 +104,7 @@ def notify_news_approved(league_slug: str, art: NewsArticle) -> None:
 
 
 def notify_news_denied(league_slug: str, art: NewsArticle) -> None:
-    db.session.add(
+    _add_notification(
         GmInAppNotification(
             league_slug=league_slug,
             user_id=art.author_user_id,
@@ -101,7 +118,7 @@ def notify_news_denied(league_slug: str, art: NewsArticle) -> None:
 
 
 def notify_redemption_approved(league_slug: str, req: ApRedemptionRequest) -> None:
-    db.session.add(
+    _add_notification(
         GmInAppNotification(
             league_slug=league_slug,
             user_id=req.user_id,
@@ -115,7 +132,7 @@ def notify_redemption_approved(league_slug: str, req: ApRedemptionRequest) -> No
 
 
 def notify_redemption_denied(league_slug: str, req: ApRedemptionRequest) -> None:
-    db.session.add(
+    _add_notification(
         GmInAppNotification(
             league_slug=league_slug,
             user_id=req.user_id,
@@ -135,7 +152,7 @@ def notify_trade_proposal_partner(
     body = (summary_preview or "").strip().replace("\r\n", "\n")
     if len(body) > 900:
         body = body[:900] + "…"
-    db.session.add(
+    _add_notification(
         GmInAppNotification(
             league_slug=league_slug,
             user_id=int(partner_user_id),
@@ -154,7 +171,7 @@ def notify_trade_proposal_commissioners(
     if len(body) > 900:
         body = body[:900] + "…"
     for uid in commissioner_user_ids:
-        db.session.add(
+        _add_notification(
             GmInAppNotification(
                 league_slug=league_slug,
                 user_id=int(uid),
@@ -169,7 +186,7 @@ def notify_trade_proposal_commissioners(
 def notify_trade_outcome_proposer(
     league_slug: str, *, proposer_user_id: int, proposal_id: int, title: str, body: str
 ) -> None:
-    db.session.add(
+    _add_notification(
         GmInAppNotification(
             league_slug=league_slug,
             user_id=int(proposer_user_id),
@@ -184,7 +201,7 @@ def notify_trade_outcome_proposer(
 def notify_trade_outcome_partner(
     league_slug: str, *, partner_user_id: int, proposal_id: int, title: str, body: str
 ) -> None:
-    db.session.add(
+    _add_notification(
         GmInAppNotification(
             league_slug=league_slug,
             user_id=int(partner_user_id),
@@ -205,7 +222,7 @@ def _staff_req_ts(req: StaffChangeRequest) -> str:
 
 def notify_staff_hire_approved(league_slug: str, req: StaffChangeRequest) -> None:
     role = staff_role_label(req.role)
-    db.session.add(
+    _add_notification(
         GmInAppNotification(
             league_slug=league_slug,
             user_id=req.user_id,
@@ -220,7 +237,7 @@ def notify_staff_hire_approved(league_slug: str, req: StaffChangeRequest) -> Non
 
 def notify_staff_fire_approved(league_slug: str, req: StaffChangeRequest) -> None:
     role = staff_role_label(req.role)
-    db.session.add(
+    _add_notification(
         GmInAppNotification(
             league_slug=league_slug,
             user_id=req.user_id,
@@ -239,7 +256,7 @@ def notify_staff_change_denied(league_slug: str, req: StaffChangeRequest) -> Non
     body = f"Your staff {action} request for {req.staff_name} was denied. Requested {_staff_req_ts(req)}."
     if note:
         body += f" Note: {note}"
-    db.session.add(
+    _add_notification(
         GmInAppNotification(
             league_slug=league_slug,
             user_id=req.user_id,

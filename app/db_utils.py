@@ -464,6 +464,10 @@ def ensure_site_users_admin_role_sqlite(engine: Engine) -> None:
         cols = {row[1] for row in conn.execute(text("PRAGMA table_info(site_users)"))}
         if "discord_user_id" not in cols:
             conn.execute(text("ALTER TABLE site_users ADD COLUMN discord_user_id VARCHAR(32)"))
+        if "discord_dm_enabled" not in cols:
+            conn.execute(
+                text("ALTER TABLE site_users ADD COLUMN discord_dm_enabled BOOLEAN NOT NULL DEFAULT 1")
+            )
         if "admin_role" not in cols:
             conn.execute(text("ALTER TABLE site_users ADD COLUMN admin_role VARCHAR(32)"))
         idx = conn.execute(
@@ -1404,6 +1408,72 @@ def ensure_discord_outbound_sqlite(engine: Engine) -> None:
                     "ON discord_bot_heartbeats (bot_name)"
                 )
             )
+        has_dm = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='discord_direct_message_events'")
+        ).fetchone()
+        if not has_dm:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE discord_direct_message_events (
+                        id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                        league_slug VARCHAR(64) NOT NULL,
+                        recipient_user_id INTEGER NOT NULL,
+                        discord_user_id VARCHAR(32) NOT NULL,
+                        event_key VARCHAR(64) NOT NULL,
+                        source_type VARCHAR(64) NOT NULL DEFAULT '',
+                        source_id VARCHAR(64) NOT NULL DEFAULT '',
+                        idempotency_key VARCHAR(64) NOT NULL DEFAULT '',
+                        payload_json TEXT NOT NULL DEFAULT '{}',
+                        status VARCHAR(24) NOT NULL DEFAULT 'pending',
+                        attempts INTEGER NOT NULL DEFAULT 0,
+                        last_error TEXT NOT NULL DEFAULT '',
+                        created_at DATETIME NOT NULL,
+                        next_attempt_at DATETIME,
+                        sent_at DATETIME,
+                        discord_channel_id VARCHAR(32) NOT NULL DEFAULT '',
+                        discord_message_id VARCHAR(32) NOT NULL DEFAULT ''
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX ix_discord_dm_status_created "
+                    "ON discord_direct_message_events (status, created_at)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX ix_discord_dm_league_status "
+                    "ON discord_direct_message_events (league_slug, status)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX ix_discord_dm_recipient_status "
+                    "ON discord_direct_message_events (recipient_user_id, status)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX ix_discord_dm_idempotency_key "
+                    "ON discord_direct_message_events (idempotency_key)"
+                )
+            )
+        else:
+            dm_cols = conn.execute(text("PRAGMA table_info(discord_direct_message_events)")).fetchall()
+            dm_names = {str(c[1]) for c in dm_cols}
+            for col_name, ddl in {
+                "source_type": "ALTER TABLE discord_direct_message_events ADD COLUMN source_type VARCHAR(64) NOT NULL DEFAULT ''",
+                "source_id": "ALTER TABLE discord_direct_message_events ADD COLUMN source_id VARCHAR(64) NOT NULL DEFAULT ''",
+                "idempotency_key": "ALTER TABLE discord_direct_message_events ADD COLUMN idempotency_key VARCHAR(64) NOT NULL DEFAULT ''",
+                "next_attempt_at": "ALTER TABLE discord_direct_message_events ADD COLUMN next_attempt_at DATETIME",
+                "discord_channel_id": "ALTER TABLE discord_direct_message_events ADD COLUMN discord_channel_id VARCHAR(32) NOT NULL DEFAULT ''",
+                "discord_message_id": "ALTER TABLE discord_direct_message_events ADD COLUMN discord_message_id VARCHAR(32) NOT NULL DEFAULT ''",
+            }.items():
+                if col_name not in dm_names:
+                    conn.execute(text(ddl))
         if has_routes:
             route_cols = conn.execute(text("PRAGMA table_info(discord_channel_routes)")).fetchall()
             route_names = {str(c[1]) for c in route_cols}

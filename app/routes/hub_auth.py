@@ -598,6 +598,7 @@ def admin_update_user_profile(uid: int):
         flash("Discord User ID must be numeric.", "error")
         return redirect(url_for("hub_auth.admin_memberships"))
     u.discord_user_id = discord_user_id[:32] or None
+    u.discord_dm_enabled = request.form.get("discord_dm_enabled") == "1"
     db.session.commit()
     flash("GM profile updated.", "ok")
     return redirect(url_for("hub_auth.admin_memberships"))

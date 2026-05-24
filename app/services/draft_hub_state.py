@@ -201,6 +201,10 @@ def sync_current_slot_and_clock(session: Session, draft: LeagueDraft) -> None:
         draft.pick_deadline_at = now + timedelta(seconds=int(draft.timer_seconds))
         draft.deadline_extended_for_slot = False
         draft.awaiting_admin_resolution = False
+        try:
+            _enqueue_on_clock_dms(session, draft, slot)
+        except Exception:
+            pass
         return
 
     _finalize_draft_if_done(session, draft, slots)
@@ -218,6 +222,30 @@ def _finalize_draft_if_done(session: Session, draft: LeagueDraft, slots: list[Le
     draft.timer_paused_remaining_seconds = None
     draft.awaiting_admin_resolution = False
     draft.completed_summary_json = json.dumps(compute_winners_losers(session, draft))
+
+
+def _enqueue_on_clock_dms(session: Session, draft: LeagueDraft, slot: LeagueDraftSlot) -> None:
+    uids = gm_user_ids_for_team(session, draft.league_slug, int(slot.team_id))
+    if not uids:
+        return
+    tm = session.get(Team, int(slot.team_id))
+    team_label = tm.full_display_name() if tm else f"Team #{slot.team_id}"
+    deadline = draft.pick_deadline_at.strftime("%Y-%m-%d %H:%M UTC") if draft.pick_deadline_at else "soon"
+    from app.services.discord_direct_messages import enqueue_direct_message
+    from app.services.discord_events import build_league_public_url
+
+    for uid in uids:
+        enqueue_direct_message(
+            session,
+            league_slug=draft.league_slug,
+            recipient_user_id=int(uid),
+            event_key="draft_on_clock",
+            title=f"{draft.name}: {team_label} is on the clock",
+            body=f"Pick #{slot.overall_pick} (round {slot.round}) is ready. Deadline: {deadline}.",
+            source_type="draft_on_clock",
+            source_id=f"{int(draft.id)}:{int(slot.overall_pick)}",
+            url=build_league_public_url(draft.league_slug, f"/draft-hub/{int(draft.id)}"),
+        )
 
 
 def compute_winners_losers(session: Session, draft: LeagueDraft) -> dict[str, Any]:

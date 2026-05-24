@@ -61,6 +61,26 @@ def sanitize_discord_message_body(body: dict[str, Any]) -> dict[str, Any]:
     return out or {"content": str(body.get("content") or "Notification")}
 
 
+def format_direct_message(event: dict[str, Any]) -> dict[str, Any]:
+    """Assistant-style private DM alert for a recipient-specific site notification."""
+    payload = event.get("payload") or {}
+    name = str(payload.get("discord_name") or "there").strip()
+    title = _preview(str(payload.get("title") or "New site notification"), 180)
+    preview = _preview(str(payload.get("preview") or ""), 260)
+    url = str(payload.get("url") or "").strip()
+    league = str(payload.get("league_slug") or event.get("league_slug") or "your league").strip()
+    lines = [
+        f"Hi {name}, your BOWL assistant here.",
+        f"You have a new {league} message waiting in GM Messages.",
+        f"**{title}**",
+    ]
+    if preview:
+        lines.append(f"> {preview}")
+    if url:
+        lines.append(f"Open it here: {url}")
+    return sanitize_discord_message_body({"content": "\n".join(lines)})
+
+
 def _preview(text: str, limit: int = 280) -> str:
     t = str(text or "").strip()
     if len(t) <= limit:

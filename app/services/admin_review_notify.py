@@ -56,16 +56,26 @@ def queue_site_admin_in_app_notifications(
     if len(body_trim) > 1900:
         body_trim = body_trim[:1900] + "…"
     for uid in admin_ids:
-        db.session.add(
-            GmInAppNotification(
-                league_slug=league_slug,
-                user_id=int(uid),
-                kind=kind,
-                title=title[:400],
-                body=body_trim,
-                article_id=article_id,
-            )
+        notif = GmInAppNotification(
+            league_slug=league_slug,
+            user_id=int(uid),
+            kind=kind,
+            title=title[:400],
+            body=body_trim,
+            article_id=article_id,
         )
+        db.session.add(notif)
+        db.session.flush()
+        try:
+            from app.services.discord_direct_messages import enqueue_notification_dm
+
+            enqueue_notification_dm(
+                db.session,
+                league_slug=league_slug,
+                notification=notif,
+            )
+        except Exception:
+            pass
 
 
 def _abs_url_for(endpoint: str, **values: object) -> str:

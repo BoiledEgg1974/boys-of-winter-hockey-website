@@ -333,6 +333,32 @@ def _finalize_if_done(session: Session, draft: LeagueExpansionDraft, slots: list
     draft.completed_summary_json = json.dumps(_simple_completion_summary(session, draft, ended_early=False))
 
 
+def _enqueue_on_clock_dms(
+    session: Session, draft: LeagueExpansionDraft, slot: LeagueExpansionDraftSlot
+) -> None:
+    uids = gm_user_ids_for_team(session, draft.league_slug, int(slot.team_id))
+    if not uids:
+        return
+    tm = session.get(Team, int(slot.team_id))
+    team_label = tm.full_display_name() if tm else f"Team #{slot.team_id}"
+    deadline = draft.pick_deadline_at.strftime("%Y-%m-%d %H:%M UTC") if draft.pick_deadline_at else "soon"
+    from app.services.discord_direct_messages import enqueue_direct_message
+    from app.services.discord_events import build_league_public_url
+
+    for uid in uids:
+        enqueue_direct_message(
+            session,
+            league_slug=draft.league_slug,
+            recipient_user_id=int(uid),
+            event_key="expansion_draft_on_clock",
+            title=f"{draft.name}: {team_label} is on the clock",
+            body=f"Expansion pick #{slot.overall_pick} ({slot.phase}, round {slot.round}) is ready. Deadline: {deadline}.",
+            source_type="expansion_draft_on_clock",
+            source_id=f"{int(draft.id)}:{int(slot.overall_pick)}",
+            url=build_league_public_url(draft.league_slug, f"/expansion-draft-hub/{int(draft.id)}"),
+        )
+
+
 def _simple_completion_summary(
     session: Session, draft: LeagueExpansionDraft, *, ended_early: bool = False
 ) -> dict[str, Any]:
@@ -411,6 +437,10 @@ def sync_current_slot_and_clock(session: Session, draft: LeagueExpansionDraft) -
             draft.pick_started_at = now
             draft.pick_deadline_at = now + timedelta(seconds=int(draft.timer_seconds))
             draft.deadline_extended_for_slot = False
+            try:
+                _enqueue_on_clock_dms(session, draft, slot)
+            except Exception:
+                pass
         draft.awaiting_admin_resolution = False
         return
 

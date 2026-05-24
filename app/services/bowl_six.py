@@ -1271,16 +1271,22 @@ def notify_slate_scored(session: Session, slate: BowlSixSlate) -> None:
         ap_note = ""
         if rank and rank <= 3:
             ap_note = f" +{AP_PRIZES[rank]} AP"
-        session.add(
-            GmInAppNotification(
-                league_slug=slate.league_slug,
-                user_id=int(lineup.user_id),
-                kind="bowl_six_scored",
-                title=f"BOWL Six week complete — #{rank or '—'}",
-                body=f"You scored {pts:.1f} pts this week.{ap_note}",
-                article_id=int(slate.id),
-            )
+        notif = GmInAppNotification(
+            league_slug=slate.league_slug,
+            user_id=int(lineup.user_id),
+            kind="bowl_six_scored",
+            title=f"BOWL Six week complete — #{rank or '—'}",
+            body=f"You scored {pts:.1f} pts this week.{ap_note}",
+            article_id=int(slate.id),
         )
+        session.add(notif)
+        session.flush()
+        try:
+            from app.services.discord_direct_messages import enqueue_notification_dm
+
+            enqueue_notification_dm(session, league_slug=slate.league_slug, notification=notif)
+        except Exception:
+            pass
 
 
 def last_scored_slate(session: Session, league_slug: str) -> BowlSixSlate | None:

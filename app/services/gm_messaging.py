@@ -21,6 +21,43 @@ def gm_display_name(user: User | None) -> str:
     return (user.email or "").strip() or "—"
 
 
+def create_gm_message(
+    *,
+    league_slug: str,
+    from_user_id: int,
+    to_user_id: int,
+    body: str,
+    event_key: str = "gm_direct_message",
+) -> GmLeagueMessage:
+    msg = GmLeagueMessage(
+        league_slug=league_slug,
+        from_user_id=int(from_user_id),
+        to_user_id=int(to_user_id),
+        body=str(body or ""),
+    )
+    db.session.add(msg)
+    db.session.flush()
+    try:
+        sender = db.session.get(User, int(from_user_id))
+        from_name = gm_display_name(sender)
+        from app.services.discord_direct_messages import enqueue_direct_message
+
+        enqueue_direct_message(
+            db.session,
+            league_slug=league_slug,
+            recipient_user_id=int(to_user_id),
+            event_key=event_key,
+            title=f"New GM message from {from_name}",
+            body=msg.body,
+            source_type="gm_message",
+            source_id=int(msg.id),
+            preview=msg.body,
+        )
+    except Exception:
+        pass
+    return msg
+
+
 def active_peer_membership(league_slug: str, peer_user_id: int) -> GmLeagueMembership | None:
     return db.session.scalar(
         select(GmLeagueMembership)

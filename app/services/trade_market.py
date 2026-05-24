@@ -22,7 +22,7 @@ from app.services.draft_pick_ownership import (
 from app.services.gm_messaging import gm_display_name
 from app.services.player_ratings_csv import fhm_abi_pot_float, get_player_ratings_row
 from app.services.trade_tool import enrich_trade_player_row, trade_assets_for_team
-from app.site_models import TradeMarketBuyingNeed, TradeMarketListing, User
+from app.site_models import MemberWatchlistItem, TradeMarketBuyingNeed, TradeMarketListing, User
 
 TRADE_MARKET_SELLING_EVENT = "trade_market_selling_posted"
 TRADE_MARKET_BUYING_EVENT = "trade_market_buying_posted"
@@ -186,6 +186,17 @@ def replace_selling_listings(
         site_session.add(row)
         rows.append(row)
     site_session.flush()
+    _enqueue_trade_market_watch_alerts(
+        site_session,
+        league_slug=slug,
+        actor_user_id=int(user_id),
+        team_id=int(team_id),
+        event_key="trade_market_watch_selling",
+        title="Trade Market watch alert",
+        body="A team on your watchlist updated its Trade Market selling list.",
+        source_prefix="selling",
+        source_ids=[int(r.id) for r in rows],
+    )
     return rows, None
 
 
@@ -223,7 +234,64 @@ def replace_buying_needs(
         site_session.add(row)
         rows.append(row)
     site_session.flush()
+    _enqueue_trade_market_watch_alerts(
+        site_session,
+        league_slug=slug,
+        actor_user_id=int(user_id),
+        team_id=int(team_id),
+        event_key="trade_market_watch_buying",
+        title="Trade Market watch alert",
+        body="A team on your watchlist updated its Trade Market buying interests.",
+        source_prefix="buying",
+        source_ids=[int(r.id) for r in rows],
+    )
     return rows
+
+
+def _enqueue_trade_market_watch_alerts(
+    site_session: Session,
+    *,
+    league_slug: str,
+    actor_user_id: int,
+    team_id: int,
+    event_key: str,
+    title: str,
+    body: str,
+    source_prefix: str,
+    source_ids: list[int],
+) -> None:
+    if not source_ids:
+        return
+    watchers = site_session.scalars(
+        select(MemberWatchlistItem.user_id).where(
+            MemberWatchlistItem.league_slug == league_slug,
+            MemberWatchlistItem.target_type == "team",
+            MemberWatchlistItem.target_ref == str(int(team_id)),
+            MemberWatchlistItem.user_id != int(actor_user_id),
+        )
+    ).all()
+    seen: set[int] = set()
+    try:
+        from app.services.discord_direct_messages import enqueue_direct_message
+
+        for uid in watchers:
+            uid_i = int(uid)
+            if uid_i in seen:
+                continue
+            seen.add(uid_i)
+            enqueue_direct_message(
+                site_session,
+                league_slug=league_slug,
+                recipient_user_id=uid_i,
+                event_key=event_key,
+                title=title,
+                body=body,
+                source_type="trade_market_watch",
+                source_id=f"{source_prefix}:{int(team_id)}:{','.join(str(x) for x in source_ids[:8])}",
+                url=build_league_public_url(league_slug, "/trade-market"),
+            )
+    except Exception:
+        pass
 
 
 def enrich_listing_row(

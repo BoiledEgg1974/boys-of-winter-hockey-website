@@ -334,13 +334,15 @@ def staff_transaction_discord_payload(
     role_label: str = "",
     team_fields: dict | None = None,
     gm_email: str = "",
+    gm_name: str = "",
     **extra: object,
 ) -> dict:
     action = "hired" if str(req.request_type or "") == "hire" else "fired"
     staff_name = str(req.staff_name or "").strip()
     body_lines = [f"{staff_name} ({role_label})" if role_label else staff_name]
-    if gm_email:
-        body_lines.append(f"GM: {gm_email}")
+    gm_label = str(gm_name or "").strip() or str(gm_email or "").strip()
+    if gm_label:
+        body_lines.append(f"GM: {gm_label}")
     body = "\n".join([ln for ln in body_lines if ln])
     title = "Staff hired" if action == "hired" else "Staff fired"
     return {
@@ -348,6 +350,7 @@ def staff_transaction_discord_payload(
         "action": action,
         "staff_name": staff_name,
         "role_label": role_label,
+        "gm_name": gm_label,
         "gm_email": gm_email,
         "title": title,
         "body": body,
@@ -507,6 +510,7 @@ def enrich_discord_payload_for_bot(
             req,
             role_label=str(out.get("role_label") or ""),
             team_fields={},
+            gm_name=str(out.get("gm_name") or ""),
             gm_email=str(out.get("gm_email") or ""),
         )
         merged = {**enriched, **out}

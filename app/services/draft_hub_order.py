@@ -232,6 +232,7 @@ def generate_draft_order_from_prior_season(
     league_slug: str,
     draft: LeagueDraft,
     preserve_boost_tiers: dict[int, str] | None = None,
+    preserve_penalty_picks: set[int] | None = None,
 ) -> tuple[int, str | None, dict[str, object]]:
     """
     Replace all slots on *draft* with order from prior-season standings (worst→best)
@@ -273,6 +274,7 @@ def generate_draft_order_from_prior_season(
     traded_count = 0
     missing_fhm = 0
     old_tiers = preserve_boost_tiers or {}
+    old_penalties = preserve_penalty_picks or set()
     created = 0
 
     for round_no in range(1, rounds + 1):
@@ -301,6 +303,7 @@ def generate_draft_order_from_prior_season(
                     original_team_id=original_team_id,
                     team_id=int(owner_team_id),
                     boost_tier=old_tiers.get(overall, ""),
+                    penalty_pick=overall in old_penalties,
                 )
             )
             created += 1

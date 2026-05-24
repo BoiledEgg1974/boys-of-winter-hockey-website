@@ -93,8 +93,8 @@
                 {% set pick_logo = team_logo_url_by_id.get(pick_tm.id) if pick_tm else None %}
                 {% set pl = players.get(row.player_id) if row.player_id else none %}
                 <tr>
-                  <td class="{% if row.boost_tier == 'gold' %}draft-hub-pick--gold{% elif row.boost_tier == 'silver' %}draft-hub-pick--silver{% endif %}">
-                    {{ row.overall }}{% if row.boost_tier %} <span class="draft-hub-boost-badge draft-hub-boost-badge--{{ row.boost_tier }}">{{ row.boost_tier|upper }}</span>{% endif %}
+                  <td class="{% if row.penalty_pick %}draft-hub-pick--penalty{% elif row.boost_tier == 'gold' %}draft-hub-pick--gold{% elif row.boost_tier == 'silver' %}draft-hub-pick--silver{% endif %}">
+                    {{ row.overall }}{% if row.penalty_pick %} <span class="draft-hub-penalty-badge">PENALTY</span>{% endif %}{% if row.boost_tier %} <span class="draft-hub-boost-badge draft-hub-boost-badge--{{ row.boost_tier }}">{{ row.boost_tier|upper }}</span>{% endif %}
                   </td>
                   <td class="draft-hub-archive-board__team">
                     {% if pick_logo %}

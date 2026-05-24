@@ -13475,6 +13475,20 @@ a.draft-hub-player__name:hover {
   color: #14181f;
   box-shadow: 0 0 0 1px rgb(220 230 240 / 0.6), 0 0 6px rgb(220 230 240 / 0.3);
 }
+.draft-hub-penalty-badge {
+  display: inline-block;
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  margin-left: 0.35rem;
+  vertical-align: middle;
+  line-height: 1.25;
+  background: linear-gradient(135deg, #fca5a5 0%, #dc2626 100%);
+  color: #2a0505;
+  box-shadow: 0 0 0 1px rgb(248 113 113 / 0.65), 0 0 8px rgb(248 113 113 / 0.35);
+}
 
 .draft-hub-order__gold {
   background: linear-gradient(90deg, rgb(255 215 0 / 0.32), rgb(255 215 0 / 0.08));
@@ -13490,6 +13504,13 @@ a.draft-hub-player__name:hover {
   border-left: 3px solid #c8d2e0;
   border-radius: 4px;
 }
+.draft-hub-order__penalty {
+  background: linear-gradient(90deg, rgb(220 38 38 / 0.42), rgb(127 29 29 / 0.14));
+  margin-left: -0.35rem;
+  padding-left: 0.35rem;
+  border-left: 3px solid #ef4444;
+  border-radius: 4px;
+}
 .draft-hub-order__gold.draft-hub-order__current,
 .draft-hub-order__current.draft-hub-order__gold {
   background: linear-gradient(90deg, rgb(255 215 0 / 0.55), rgb(250 204 21 / 0.28));
@@ -13498,12 +13519,28 @@ a.draft-hub-player__name:hover {
 .draft-hub-order__current.draft-hub-order__silver {
   background: linear-gradient(90deg, rgb(220 230 245 / 0.55), rgb(250 204 21 / 0.22));
 }
+.draft-hub-order__penalty.draft-hub-order__current,
+.draft-hub-order__current.draft-hub-order__penalty {
+  background: linear-gradient(90deg, rgb(220 38 38 / 0.62), rgb(250 204 21 / 0.18));
+}
 
 .draft-hub-pick--gold > td {
   background: rgb(255 215 0 / 0.12);
 }
+.draft-hub-pick--gold {
+  background: rgb(255 215 0 / 0.12);
+}
 .draft-hub-pick--silver > td {
   background: rgb(210 220 235 / 0.12);
+}
+.draft-hub-pick--silver {
+  background: rgb(210 220 235 / 0.12);
+}
+.draft-hub-pick--penalty > td {
+  background: rgb(220 38 38 / 0.18);
+}
+.draft-hub-pick--penalty {
+  background: rgb(220 38 38 / 0.18);
 }
 .draft-hub-archive-board {
   width: 100%;
@@ -13633,6 +13670,11 @@ a.draft-hub-player__name:hover {
   border: 2px solid #c8d2e0;
   box-shadow: 0 0 0 1px rgb(220 230 240 / 0.4) inset, 0 0 18px rgb(220 230 240 / 0.25);
 }
+.draft-hub-banner--penalty {
+  border: 2px solid #ef4444;
+  background: linear-gradient(135deg, rgb(127 29 29 / 0.34), rgb(15 23 42 / 0.9));
+  box-shadow: 0 0 0 1px rgb(239 68 68 / 0.45) inset, 0 0 22px rgb(239 68 68 / 0.28);
+}
 .draft-hub-boost-banner-flag {
   margin: 0 0 0.35rem;
   font-family: "Bebas Neue", sans-serif;
@@ -13649,6 +13691,17 @@ a.draft-hub-player__name:hover {
 .draft-hub-boost-banner-flag--silver {
   background: linear-gradient(135deg, #e6ebf2 0%, #93a0b3 100%);
   color: #14181f;
+}
+.draft-hub-penalty-banner-flag {
+  margin: 0 0 0.35rem;
+  font-family: "Bebas Neue", sans-serif;
+  letter-spacing: 0.16em;
+  font-size: 1rem;
+  display: inline-block;
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #fca5a5 0%, #dc2626 100%);
+  color: #2a0505;
 }
 .draft-hub-order__ov {
   font-weight: 600;
@@ -13730,6 +13783,11 @@ a.draft-hub-player__name:hover {
   justify-self: end;
   margin-left: 0;
 }
+.draft-hub-upnext .draft-hub-penalty-badge {
+  grid-area: badge;
+  justify-self: end;
+  margin-left: 0;
+}
 .draft-hub-upnext__slot--gold {
   border-color: rgb(255 215 0 / 0.5);
   box-shadow: 0 0 0 1px rgb(255 215 0 / 0.25) inset;
@@ -13737,6 +13795,11 @@ a.draft-hub-player__name:hover {
 .draft-hub-upnext__slot--silver {
   border-color: rgb(220 230 240 / 0.55);
   box-shadow: 0 0 0 1px rgb(220 230 240 / 0.25) inset;
+}
+.draft-hub-upnext__slot--penalty {
+  background: rgb(220 38 38 / 0.18);
+  border-color: rgb(239 68 68 / 0.55);
+  box-shadow: 0 0 0 1px rgb(239 68 68 / 0.25) inset, 0 0 18px rgb(239 68 68 / 0.18);
 }
 .draft-hub-upnext__slot--empty {
   align-items: center;

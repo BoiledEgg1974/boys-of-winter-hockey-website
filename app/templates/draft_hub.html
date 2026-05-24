@@ -604,7 +604,8 @@
       upNowSlot = {
         team: x.current_slot.team || x.on_clock_team || '',
         team_logo_url: x.current_slot.team_logo_url || x.on_clock_logo_url || '',
-        boost_tier: x.current_slot.boost_tier || ''
+        boost_tier: x.current_slot.boost_tier || '',
+        penalty_pick: !!x.current_slot.penalty_pick
       };
     }
     var onDeckSlot = null;
@@ -613,7 +614,8 @@
       onDeckSlot = {
         team: n.team || '',
         team_logo_url: n.team_logo_url || '',
-        boost_tier: n.boost_tier || ''
+        boost_tier: n.boost_tier || '',
+        penalty_pick: !!n.penalty_pick
       };
     }
 
@@ -627,6 +629,7 @@
       var slotCls = 'draft-hub-upnext__slot draft-hub-upnext__slot--' + kind;
       if (slot.boost_tier === 'gold') slotCls += ' draft-hub-upnext__slot--gold';
       else if (slot.boost_tier === 'silver') slotCls += ' draft-hub-upnext__slot--silver';
+      if (slot.penalty_pick) slotCls += ' draft-hub-upnext__slot--penalty';
       var labelText = kind === 'now' ? 'Up Now' : 'On Deck';
       var logoCls = 'draft-hub-upnext__logo draft-hub-upnext__logo--' + kind;
       var inner = '<span class="draft-hub-upnext__label">' + labelText + '</span>';
@@ -635,8 +638,11 @@
       } else {
         inner += '<span class="' + logoCls + ' draft-hub-upnext__logo--placeholder" aria-hidden="true" title="' + esc(slot.team) + '">' + esc((slot.team || '?').substring(0, 2).toUpperCase()) + '</span>';
       }
-      if (slot.boost_tier === 'gold' || slot.boost_tier === 'silver') {
+      if (!slot.penalty_pick && (slot.boost_tier === 'gold' || slot.boost_tier === 'silver')) {
         inner += '<span class="draft-hub-boost-badge draft-hub-boost-badge--' + slot.boost_tier + '">' + slot.boost_tier.toUpperCase() + '</span>';
+      }
+      if (slot.penalty_pick) {
+        inner += '<span class="draft-hub-penalty-badge">PENALTY</span>';
       }
       return '<div class="' + slotCls + '">' + inner + '</div>';
     }
@@ -651,10 +657,16 @@
     html += '</aside>';
 
     var bannerTier = (x.current_slot && x.current_slot.boost_tier) ? x.current_slot.boost_tier : '';
-    var bannerCls = bannerTier === 'gold'
+    var bannerPenalty = !!(x.current_slot && x.current_slot.penalty_pick);
+    var bannerCls = bannerPenalty
+      ? ' draft-hub-banner--penalty'
+      : (bannerTier === 'gold'
       ? ' draft-hub-banner--gold'
-      : (bannerTier === 'silver' ? ' draft-hub-banner--silver' : '');
+      : (bannerTier === 'silver' ? ' draft-hub-banner--silver' : ''));
     html += '<header id="dh-banner" class="draft-hub-banner card' + bannerCls + '">';
+    if (bannerPenalty) {
+      html += '<p class="draft-hub-penalty-banner-flag">PENALTY PICK</p>';
+    }
     if (bannerTier) {
       html += '<p class="draft-hub-boost-banner-flag draft-hub-boost-banner-flag--' + esc(bannerTier) + '">' + esc(bannerTier).toUpperCase() + ' BOOST PICK</p>';
     }
@@ -773,12 +785,14 @@
       if (row.is_current) clsParts.push('draft-hub-order__current');
       if (row.boost_tier === 'gold') clsParts.push('draft-hub-order__gold');
       else if (row.boost_tier === 'silver') clsParts.push('draft-hub-order__silver');
+      if (row.penalty_pick) clsParts.push('draft-hub-order__penalty');
       if (row.forfeited) clsParts.push('draft-hub-order__forfeited');
       var cls = clsParts.join(' ');
       var badge = '';
       if (row.boost_tier === 'gold' || row.boost_tier === 'silver') {
         badge = '<span class="draft-hub-boost-badge draft-hub-boost-badge--' + row.boost_tier + '">' + row.boost_tier.toUpperCase() + '</span>';
       }
+      var penaltyBadge = row.penalty_pick ? '<span class="draft-hub-penalty-badge">PENALTY</span>' : '';
       var logoCell = row.team_logo_url
         ? '<img class="draft-hub-order__logo" src="' + esc(row.team_logo_url) + '" alt="' + esc(row.team) + ' logo">'
         : '<span class="draft-hub-order__logo draft-hub-order__logo--placeholder" aria-hidden="true">' + esc((row.team || '?').substring(0, 2).toUpperCase()) + '</span>';
@@ -794,8 +808,8 @@
       html += '<li class="' + cls + '" title="' + esc(rowTitle) + '">';
       html += '<span class="draft-hub-order__ov">' + esc(String(row.overall)) + '</span>';
       html += logoCell;
-      if (badge || fromTag) {
-        html += '<span class="draft-hub-order__tags">' + badge + fromTag + '</span>';
+      if (badge || penaltyBadge || fromTag) {
+        html += '<span class="draft-hub-order__tags">' + badge + penaltyBadge + fromTag + '</span>';
       } else {
         html += '<span class="draft-hub-order__tags" aria-hidden="true"></span>';
       }
@@ -848,12 +862,17 @@
         var pickCell = (p.player_id != null)
           ? '<a href="' + esc(playerHref(p.player_id)) + '" target="_blank" rel="noopener noreferrer" title="Open player profile in a new tab">' + esc(pickLabel) + '</a>'
           : esc(pickLabel);
-        var rowCls = (p.boost_tier === 'gold')
-          ? ' class="draft-hub-pick--gold"'
-          : (p.boost_tier === 'silver' ? ' class="draft-hub-pick--silver"' : '');
+        var rowClasses = [];
+        if (p.boost_tier === 'gold') rowClasses.push('draft-hub-pick--gold');
+        else if (p.boost_tier === 'silver') rowClasses.push('draft-hub-pick--silver');
+        if (p.penalty_pick) rowClasses.push('draft-hub-pick--penalty');
+        var rowCls = rowClasses.length ? ' class="' + rowClasses.join(' ') + '"' : '';
         var badge = (p.boost_tier === 'gold' || p.boost_tier === 'silver')
           ? ' <span class="draft-hub-boost-badge draft-hub-boost-badge--' + p.boost_tier + '">' + p.boost_tier.toUpperCase() + '</span>'
           : '';
+        if (p.penalty_pick) {
+          badge += ' <span class="draft-hub-penalty-badge">PENALTY</span>';
+        }
         var teamTitle = p.original_team_abbr ? (p.team + ' (from ' + p.original_team_abbr + ')') : p.team;
         var logoCell = p.team_logo_url
           ? '<img class="draft-hub-history__logo" src="' + esc(p.team_logo_url) + '" alt="' + esc(p.team) + ' logo" title="' + esc(teamTitle) + '">'

@@ -96,6 +96,28 @@ class DiscordMessageSplitTest(unittest.TestCase):
         self.assertNotIn("embeds", parts[0])
         self.assertIn("Trade approved", parts[0].get("content", ""))
 
+    def test_staff_transaction_uses_gm_display_name_not_email(self):
+        parts = format_discord_messages(
+            {
+                "league_slug": "bowl-cap",
+                "event_key": "staff_transaction_posted",
+                "payload": {
+                    "action": "hired",
+                    "staff_name": "Coach Example",
+                    "role_label": "Head Coach",
+                    "gm_name": "ARCHIE5",
+                    "gm_email": "archie@example.invalid",
+                    "body": "Coach Example (Head Coach)\nGM: ARCHIE5",
+                    "has_image": False,
+                    "team_abbrev": "TOR",
+                },
+            },
+            max_parts=2,
+        )
+        content = parts[0].get("content", "")
+        self.assertIn("GM: ARCHIE5", content)
+        self.assertNotIn("archie@example.invalid", content)
+
     def test_news_with_image_keeps_embed_link(self):
         parts = format_discord_messages(
             {

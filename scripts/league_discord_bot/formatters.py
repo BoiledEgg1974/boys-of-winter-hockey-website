@@ -449,7 +449,7 @@ def format_discord_messages(event: dict[str, Any], *, max_parts: int = 2) -> lis
         action = str(payload.get("action") or "").strip().lower()
         staff_name = str(payload.get("staff_name") or "").strip()
         role_label = str(payload.get("role_label") or "").strip()
-        gm_email = str(payload.get("gm_email") or "").strip()
+        gm_name = str(payload.get("gm_name") or payload.get("gm_email") or "").strip()
         head = "**Staff hired**" if action == "hired" else "**Staff fired**"
         lines.append(head)
         team_line = format_team_label(league_slug, payload)
@@ -460,8 +460,8 @@ def format_discord_messages(event: dict[str, Any], *, max_parts: int = 2) -> lis
             if role_label:
                 line += f" ({role_label})"
             lines.append(line)
-        if gm_email:
-            lines.append(f"GM: {gm_email}")
+        if gm_name:
+            lines.append(f"GM: {gm_name}")
     elif event_key == "ap_redemption_posted":
         label = str(payload.get("redemption_label") or "").strip()
         cost = payload.get("total_cost")

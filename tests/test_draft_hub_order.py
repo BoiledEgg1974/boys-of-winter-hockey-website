@@ -77,6 +77,7 @@ class DraftHubOrderTest(unittest.TestCase):
                 site,
                 league_slug="bowl-historical",
                 draft=draft,
+                preserve_penalty_picks={2},
             )
         self.assertIsNone(err)
         self.assertEqual(created, 2)
@@ -86,8 +87,25 @@ class DraftHubOrderTest(unittest.TestCase):
         first_slot = added[0]
         self.assertEqual(first_slot.original_team_id, 10)
         self.assertEqual(first_slot.team_id, 99)
+        self.assertFalse(first_slot.penalty_pick)
         self.assertEqual(added[1].original_team_id, 11)
         self.assertEqual(added[1].team_id, 11)
+        self.assertTrue(added[1].penalty_pick)
+
+    def test_draft_hub_admin_template_has_penalty_checkbox(self) -> None:
+        from pathlib import Path
+
+        path = Path(__file__).resolve().parents[1] / "app" / "templates" / "admin_draft_hub_edit.html"
+        text = path.read_text(encoding="utf-8")
+        self.assertIn("Penalty pick", text)
+        self.assertIn("slot_penalty_", text)
+
+    def test_penalty_pick_column_is_bootstrapped(self) -> None:
+        from pathlib import Path
+
+        path = Path(__file__).resolve().parents[1] / "app" / "db_utils.py"
+        text = path.read_text(encoding="utf-8")
+        self.assertIn("ADD COLUMN penalty_pick BOOLEAN NOT NULL DEFAULT 0", text)
 
 
 if __name__ == "__main__":

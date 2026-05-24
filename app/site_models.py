@@ -711,6 +711,7 @@ class LeagueDraftSlot(db.Model):
     original_team_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     team_id: Mapped[int] = mapped_column(Integer, nullable=False)
     forfeited: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    penalty_pick: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     notes: Mapped[str | None] = mapped_column(String(500), nullable=True)
     # "", "gold", or "silver" — admin-set after running the boost lottery.
     boost_tier: Mapped[str] = mapped_column(String(16), default="", nullable=False)

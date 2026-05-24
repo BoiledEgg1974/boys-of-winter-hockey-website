@@ -74,7 +74,7 @@
     </p>
     <button type="submit" class="button">Generate order from last season + pick ownership</button>
   </form>
-  <p class="muted">Or set the team holding each pick manually. Use <strong>Copy teams from previous round</strong> to duplicate the previous round's order into the next round. <em>Received from</em> records a pre-draft trade — leave it as <em>— No prior trade —</em> for picks that were never traded. Draft-day trades belong in the <strong>Pick ownership / trades</strong> panel below.</p>
+  <p class="muted">Or set the team holding each pick manually. Use <strong>Copy teams from previous round</strong> to duplicate the previous round's order into the next round. <em>Received from</em> records a pre-draft trade — leave it as <em>— No prior trade —</em> for picks that were never traded. Check <strong>Penalty pick</strong> to flag that selection red on the public Draft Hub. Draft-day trades belong in the <strong>Pick ownership / trades</strong> panel below.</p>
   <form method="post" class="card draft-hub-admin-rounds" style="padding:1rem;margin-bottom:1rem;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="save_generated_slots">
@@ -108,6 +108,10 @@
                   {% endfor %}
                 </select>
               </label>
+              <label style="display:flex;gap:0.35rem;align-items:center;margin-top:0.35rem;font-size:0.85rem;color:#fecaca;">
+                <input type="checkbox" name="slot_penalty_{{ slot.overall }}" value="1"{% if slot.penalty_pick %} checked{% endif %}>
+                Penalty pick
+              </label>
             </div>
           {% endfor %}
         </div>
@@ -134,6 +138,10 @@
                 <option value="{{ t.id }}"{% if slot.team_id == t.id %} selected{% endif %}>{{ t.abbreviation or t.name }}</option>
               {% endfor %}
             </select>
+            <span style="display:flex;gap:0.35rem;align-items:center;margin-top:0.25rem;font-size:0.85rem;color:#fecaca;">
+              <input type="checkbox" name="slot_penalty_{{ slot.overall }}" value="1"{% if slot.penalty_pick %} checked{% endif %}{% if slot.picked %} disabled{% endif %}>
+              Penalty pick
+            </span>
           </label>
           {% endif %}
         {% endfor %}

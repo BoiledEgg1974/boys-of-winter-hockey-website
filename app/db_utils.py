@@ -1679,7 +1679,8 @@ def ensure_league_draft_slot_boost_tier_sqlite(engine: Engine) -> None:
 
     Slot tier values: '' (default), 'gold', or 'silver' — set by admin after the boost lottery
     so the public Draft Hub page can highlight those overall picks. Original team tracks draft-day
-    trades separately from the current pick holder.
+    trades separately from the current pick holder. Penalty picks are red-highlighted commissioner
+    setup flags.
     """
     if engine.dialect.name != "sqlite":
         return
@@ -1721,6 +1722,13 @@ def ensure_league_draft_slot_boost_tier_sqlite(engine: Engine) -> None:
                     text(
                         "ALTER TABLE league_draft_slots "
                         "ADD COLUMN boost_tier VARCHAR(16) NOT NULL DEFAULT ''"
+                    )
+                )
+            if "penalty_pick" not in cols:
+                conn.execute(
+                    text(
+                        "ALTER TABLE league_draft_slots "
+                        "ADD COLUMN penalty_pick BOOLEAN NOT NULL DEFAULT 0"
                     )
                 )
         conn.commit()

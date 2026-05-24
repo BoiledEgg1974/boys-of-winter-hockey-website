@@ -5242,7 +5242,7 @@ def admin_staff_approve(rid: int):
             req,
             role_label=staff_role_label(req.role),
             team_fields=team_fields_for_discord(team),
-            gm_email=str(gm_user.email or "") if gm_user else "",
+            gm_name=gm_display_name(gm_user) if gm_user else "",
         ),
         source_type="staff_change_request",
         source_id=int(req.id),
@@ -5761,6 +5761,13 @@ def admin_draft_hub_edit(draft_id: int):
                     select(LeagueDraftSlot).where(LeagueDraftSlot.league_draft_id == row.id)
                 ).all()
             }
+            old_penalties = {
+                int(s.overall_pick)
+                for s in db.session.scalars(
+                    select(LeagueDraftSlot).where(LeagueDraftSlot.league_draft_id == row.id)
+                ).all()
+                if bool(getattr(s, "penalty_pick", False))
+            }
             db.session.execute(delete(LeagueDraftSlot).where(LeagueDraftSlot.league_draft_id == row.id))
             created, err, summary = generate_draft_order_from_prior_season(
                 db.session,
@@ -5768,6 +5775,7 @@ def admin_draft_hub_edit(draft_id: int):
                 league_slug=slug,
                 draft=row,
                 preserve_boost_tiers=old_tiers,
+                preserve_penalty_picks=old_penalties,
             )
             if err:
                 db.session.rollback()
@@ -5829,6 +5837,7 @@ def admin_draft_hub_edit(draft_id: int):
                         orig_tid = candidate
                         traded_count += 1
                 round_no = ((overall - 1) // int(row.picks_per_round)) + 1
+                penalty_pick = request.form.get(f"slot_penalty_{overall}") == "1"
                 db.session.add(
                     LeagueDraftSlot(
                         league_draft_id=row.id,
@@ -5837,6 +5846,7 @@ def admin_draft_hub_edit(draft_id: int):
                         original_team_id=orig_tid,
                         team_id=tid,
                         boost_tier=old_tiers.get(overall, ""),
+                        penalty_pick=penalty_pick,
                     )
                 )
                 created += 1
@@ -5853,6 +5863,7 @@ def admin_draft_hub_edit(draft_id: int):
                 ).all()
             }
             changed = 0
+            penalty_changed = 0
             skipped = 0
             slots_for_update = list(
                 db.session.scalars(
@@ -5875,6 +5886,10 @@ def admin_draft_hub_edit(draft_id: int):
                 if new_tid != int(slot.team_id):
                     slot.team_id = new_tid
                     changed += 1
+                new_penalty = request.form.get(f"slot_penalty_{overall}") == "1"
+                if bool(getattr(slot, "penalty_pick", False)) != new_penalty:
+                    slot.penalty_pick = new_penalty
+                    penalty_changed += 1
             if changed:
                 db.session.add(
                     AdminAuditLog(
@@ -5885,7 +5900,7 @@ def admin_draft_hub_edit(draft_id: int):
                     )
                 )
             db.session.commit()
-            msg = f"Pick ownership saved ({changed} changed)."
+            msg = f"Pick ownership saved ({changed} team change(s), {penalty_changed} penalty flag change(s))."
             if skipped:
                 msg += f" {skipped} completed pick(s) were left unchanged."
             flash(msg, "ok")
@@ -5982,6 +5997,7 @@ def admin_draft_hub_edit(draft_id: int):
                     "team_id": int(slot.team_id) if slot else None,
                     "original_team_id": int(slot.original_team_id or slot.team_id) if slot else None,
                     "boost_tier": slot.boost_tier if slot else "",
+                    "penalty_pick": bool(getattr(slot, "penalty_pick", False)) if slot else False,
                     "picked": overall in picked_overalls,
                 }
             )

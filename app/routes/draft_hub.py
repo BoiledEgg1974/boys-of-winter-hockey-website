@@ -156,6 +156,7 @@ def draft_hub_archive_one(draft_id: int):
                     "current_team_id": current_team_id,
                     "player_id": int(pick.player_id) if pick else None,
                     "boost_tier": (slot.boost_tier if slot else "") or "",
+                    "penalty_pick": bool(getattr(slot, "penalty_pick", False)) if slot else False,
                 }
             )
         if rows:
@@ -200,6 +201,9 @@ def draft_hub_api_state():
     }
     boost_tier_by_overall: dict[int, str] = {
         int(s.overall_pick): s.boost_tier for s in slots if s.boost_tier
+    }
+    penalty_by_overall: dict[int, bool] = {
+        int(s.overall_pick): bool(getattr(s, "penalty_pick", False)) for s in slots
     }
     # Map every slot's overall_pick → original team id (the team that started with the pick).
     # We populate from slot.original_team_id when set; otherwise fall back to the current owner,
@@ -256,6 +260,7 @@ def draft_hub_api_state():
             "pos": (player_positions_display_label(pl) or "").strip() if pl else "",
             "source": pk.source,
             "boost_tier": boost_tier_by_overall.get(int(pk.overall_pick), ""),
+            "penalty_pick": penalty_by_overall.get(int(pk.overall_pick), False),
             "original_team_id": orig_tid,
             "original_team_abbr": orig_abbr,
             "original_team_color": orig_color,
@@ -287,6 +292,7 @@ def draft_hub_api_state():
                     "team_logo_url": logo_by_team_id.get(int(s.team_id)) if s.team_id is not None else None,
                     "forfeited": s.forfeited,
                     "boost_tier": s.boost_tier or "",
+                    "penalty_pick": bool(getattr(s, "penalty_pick", False)),
                     "original_team_id": orig_tid,
                     "original_team_abbr": orig_abbr,
                     "original_team_color": orig_color,
@@ -310,6 +316,7 @@ def draft_hub_api_state():
                     "team": cs_tm.full_display_name() if cs_tm else str(cs.team_id),
                     "team_logo_url": logo_by_team_id.get(int(cs.team_id)) if cs.team_id is not None else None,
                     "boost_tier": cs.boost_tier or "",
+                    "penalty_pick": bool(getattr(cs, "penalty_pick", False)),
                 }
                 on_clock_team = cs_tm.full_display_name() if cs_tm else str(cs.team_id)
                 on_clock_team_id = int(cs.team_id) if cs.team_id is not None else None
@@ -334,6 +341,7 @@ def draft_hub_api_state():
                         "team": ns_tm.full_display_name() if ns_tm else str(ns.team_id),
                         "team_logo_url": logo_by_team_id.get(int(ns.team_id)) if ns.team_id is not None else None,
                         "boost_tier": ns.boost_tier or "",
+                        "penalty_pick": bool(getattr(ns, "penalty_pick", False)),
                     }
                 )
 

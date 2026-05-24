@@ -452,7 +452,7 @@ def ensure_site_announcements_sqlite(engine: Engine) -> None:
 
 
 def ensure_site_users_admin_role_sqlite(engine: Engine) -> None:
-    """Add site_users.admin_role when missing (site DB, SQLite)."""
+    """Add missing site_users profile/admin columns (site DB, SQLite)."""
     if engine.dialect.name != "sqlite":
         return
     with engine.connect() as conn:
@@ -462,6 +462,8 @@ def ensure_site_users_admin_role_sqlite(engine: Engine) -> None:
         if not exists:
             return
         cols = {row[1] for row in conn.execute(text("PRAGMA table_info(site_users)"))}
+        if "discord_user_id" not in cols:
+            conn.execute(text("ALTER TABLE site_users ADD COLUMN discord_user_id VARCHAR(32)"))
         if "admin_role" not in cols:
             conn.execute(text("ALTER TABLE site_users ADD COLUMN admin_role VARCHAR(32)"))
         idx = conn.execute(

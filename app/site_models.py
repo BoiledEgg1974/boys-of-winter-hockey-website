@@ -20,6 +20,7 @@ class User(db.Model, UserMixin):
     username: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(256), nullable=False)
     discord_name: Mapped[str] = mapped_column(String(120), nullable=False, default="")
+    discord_user_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     admin_role: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

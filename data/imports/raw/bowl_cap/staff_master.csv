@@ -434,7 +434,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 432;15;Boris;Shagas;;1941-10-8;Moscow;MOS;Russia;;;0
 433;-1;Doug;Woods;;1951-1-1;Shawinigan;QC;Canada;;;0
 434;23;Rusty;Jones;;1948-1-1;Yarmouth;ME;The United States;;;0
-435;16;Ron;Waske;;1939-1-1;Canton;NY;The United States;;;0
+435;-1;Ron;Waske;;1939-1-1;Canton;NY;The United States;;;0
 436;-1;Cliff;Koroll;;1946-10-1;Canora;SK;Canada;;;0
 437;10;Jack;Barzee;;1941-2-13;New Haven;MI;The United States;;;0
 438;19;Christopher;Martin;;1955-1-1;Edmonton;AB;Canada;;;0
@@ -1734,7 +1734,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1732;215;Jeff;Sutton;;1940-1-11;Sainte-Marthe-sur-le-Lac;QC;Canada;;;0
 1733;-1;Joel;Rheault;;1940-2-25;Toronto;ON;Canada;;;0
 1734;222;Ryan;Fraser;;1940-2-20;Surrey;BC;Canada;;;0
-1735;-1;Nick;O'Cawley;;1940-7-15;Plano;TX;The United States;;;0
+1735;16;Nick;O'Cawley;;1940-7-15;Plano;TX;The United States;;;0
 1736;-1;Ollie;Millington;;1940-3-18;Montreal;QC;Canada;;;0
 1737;-1;Colin;Simmons;;1940-9-24;Plessisville;QC;Canada;;;0
 1738;20;Wayne;Hackinen;;1940-6-6;Lévis;QC;Canada;;;0

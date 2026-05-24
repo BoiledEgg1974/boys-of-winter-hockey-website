@@ -580,3 +580,24 @@ def admin_set_user_admin(uid: int):
         u.is_admin = request.form.get("is_admin") == "1"
         db.session.commit()
     return redirect(url_for("hub_auth.admin_memberships"))
+
+
+@hub_auth_bp.post("/admin/users/<int:uid>/profile")
+@login_required
+def admin_update_user_profile(uid: int):
+    if not has_admin_role(current_user):
+        from flask import abort
+
+        abort(403)
+    u = db.session.get(User, uid)
+    if not u:
+        flash("User not found.", "error")
+        return redirect(url_for("hub_auth.admin_memberships"))
+    discord_user_id = (request.form.get("discord_user_id") or "").strip()
+    if discord_user_id and not discord_user_id.isdigit():
+        flash("Discord User ID must be numeric.", "error")
+        return redirect(url_for("hub_auth.admin_memberships"))
+    u.discord_user_id = discord_user_id[:32] or None
+    db.session.commit()
+    flash("GM profile updated.", "ok")
+    return redirect(url_for("hub_auth.admin_memberships"))

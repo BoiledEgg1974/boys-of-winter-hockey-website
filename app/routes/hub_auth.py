@@ -382,7 +382,10 @@ def admin_memberships():
     enriched = [
         (r[0], r[1], team_snapshot_for_membership(r[0].league_slug, r[0].team_id)) for r in rows
     ]
-    return render_template("admin_memberships.html", rows=enriched)
+    users = db.session.scalars(
+        select(User).order_by(User.is_admin.desc(), User.email.asc())
+    ).all()
+    return render_template("admin_memberships.html", rows=enriched, users=users)
 
 
 @hub_auth_bp.get("/admin/memberships/<int:mid>/remove")

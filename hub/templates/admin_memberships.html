@@ -18,6 +18,49 @@
       {% endfor %}
     {% endif %}
   {% endwith %}
+  <h2 style="margin:1rem 0 0.45rem;">Site Users / DM Profiles</h2>
+  <p style="color:#94a3b8;margin:0 0 0.7rem;">
+    Add a Discord User ID here for admins or GMs who should receive private bot DMs. This list includes site admins even when they do not have a league membership row below.
+  </p>
+  <div class="table-wrap" style="margin-bottom:1.25rem;">
+    <table class="data">
+      <thead><tr><th>User</th><th>Role</th><th>Discord Name</th><th>Discord User ID</th><th>DM Alerts</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td>{{ u.email }}</td>
+          <td>{% if u.is_admin %}Admin{% else %}User{% endif %}</td>
+          <td>{{ u.discord_name or '—' }}</td>
+          <td>
+            <form method="post" action="{{ url_for('hub_auth.admin_update_user_profile', uid=u.id) }}" style="display:flex;gap:0.35rem;align-items:center;flex-wrap:wrap;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="text" name="discord_user_id" inputmode="numeric" pattern="[0-9]*" value="{{ u.discord_user_id or '' }}" placeholder="Discord ID" style="width:12rem;padding:0.2rem 0.35rem;">
+              <label style="display:flex;gap:0.25rem;align-items:center;font-size:0.85rem;white-space:nowrap;">
+                <input type="checkbox" name="discord_dm_enabled" value="1" {% if u.discord_dm_enabled %}checked{% endif %}>
+                DM alerts
+              </label>
+              <button type="submit">Save profile</button>
+            </form>
+          </td>
+          <td>{{ 'On' if u.discord_dm_enabled else 'Off' }}</td>
+          <td>
+            {% if u.id != current_user.id %}
+            <form method="post" action="{{ url_for('hub_auth.admin_set_user_admin', uid=u.id) }}" style="display:inline;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="is_admin" value="{{ '0' if u.is_admin else '1' }}">
+              <button type="submit">{% if u.is_admin %}Remove admin{% else %}Make admin{% endif %}</button>
+            </form>
+            {% else %}
+            —
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <h2 style="margin:1rem 0 0.45rem;">League Memberships</h2>
   <div class="table-wrap">
     <table class="data">
       <thead><tr><th>User</th><th>Discord</th><th>Discord User ID</th><th>DMs</th><th>League</th><th>Team</th><th>DB id</th><th>FHM id</th><th>Status</th><th>Actions</th></tr></thead>

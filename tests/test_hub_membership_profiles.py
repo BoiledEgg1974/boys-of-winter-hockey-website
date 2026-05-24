@@ -25,6 +25,8 @@ class HubMembershipProfilesTest(unittest.TestCase):
         )
         text = path.read_text(encoding="utf-8")
         self.assertIn("Discord User ID", text)
+        self.assertIn("Site Users / DM Profiles", text)
+        self.assertIn("includes site admins", text)
         self.assertIn("admin_update_user_profile", text)
         self.assertIn('name="discord_user_id"', text)
 
@@ -33,6 +35,7 @@ class HubMembershipProfilesTest(unittest.TestCase):
         text = path.read_text(encoding="utf-8")
         self.assertIn('"/admin/users/<int:uid>/profile"', text)
         self.assertIn("discord_user_id.isdigit()", text)
+        self.assertIn("users=users", text)
 
 
 if __name__ == "__main__":

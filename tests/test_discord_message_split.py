@@ -118,6 +118,49 @@ class DiscordMessageSplitTest(unittest.TestCase):
         self.assertIn("GM: ARCHIE5", content)
         self.assertNotIn("archie@example.invalid", content)
 
+    def test_staff_transaction_does_not_fall_back_to_gm_email(self):
+        parts = format_discord_messages(
+            {
+                "league_slug": "bowl-cap",
+                "event_key": "staff_transaction_posted",
+                "payload": {
+                    "action": "fired",
+                    "staff_name": "Coach Example",
+                    "role_label": "Assistant Coach",
+                    "gm_email": "archie@example.invalid",
+                    "body": "Coach Example (Assistant Coach)",
+                    "has_image": False,
+                    "team_abbrev": "TOR",
+                },
+            },
+            max_parts=2,
+        )
+        content = parts[0].get("content", "")
+        self.assertNotIn("archie@example.invalid", content)
+        self.assertNotIn("GM:", content)
+
+    def test_ap_redemption_uses_gm_display_name_not_email(self):
+        parts = format_discord_messages(
+            {
+                "league_slug": "bowl-cap",
+                "event_key": "ap_redemption_posted",
+                "payload": {
+                    "title": "AP redemption approved",
+                    "body": "Redemption approved: Gold boost",
+                    "has_image": False,
+                    "team_abbrev": "TOR",
+                    "gm_name": "ARCHIE5",
+                    "gm_email": "archie@example.invalid",
+                    "redemption_label": "Gold boost",
+                    "total_cost": 50,
+                },
+            },
+            max_parts=2,
+        )
+        content = parts[0].get("content", "")
+        self.assertIn("GM: ARCHIE5", content)
+        self.assertNotIn("archie@example.invalid", content)
+
     def test_news_with_image_keeps_embed_link(self):
         parts = format_discord_messages(
             {

@@ -20,7 +20,7 @@ from app.services.discord_events import (
     build_league_public_url,
     enqueue_repeatable_discord_event,
 )
-from app.services.gm_messaging import gm_display_name
+from app.services.gm_messaging import gm_discord_name
 from app.site_models import BowlSixSlate, GmLeagueMembership, User
 
 _LEADERS_PLAYER_LIMIT = 6
@@ -69,7 +69,7 @@ def _gm_row_display(
             team_name = team.full_display_name()
         user = session.get(User, int(mem.user_id))
         if user is not None:
-            gm_name = gm_display_name(user)
+            gm_name = gm_discord_name(user)
     return team_name, gm_name
 
 

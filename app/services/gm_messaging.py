@@ -21,6 +21,18 @@ def gm_display_name(user: User | None) -> str:
     return (user.email or "").strip() or "—"
 
 
+def gm_discord_name(user: User | None) -> str:
+    """Display a GM in Discord posts without exposing email addresses."""
+    if not user:
+        return "—"
+    for attr in ("discord_name", "username"):
+        v = (getattr(user, attr, None) or "").strip()
+        if v:
+            return v
+    uid = getattr(user, "id", None)
+    return f"User #{uid}" if uid is not None else "—"
+
+
 def create_gm_message(
     *,
     league_slug: str,
@@ -39,7 +51,7 @@ def create_gm_message(
     db.session.flush()
     try:
         sender = db.session.get(User, int(from_user_id))
-        from_name = gm_display_name(sender)
+        from_name = gm_discord_name(sender)
         from app.services.discord_direct_messages import enqueue_direct_message
 
         enqueue_direct_message(

@@ -137,10 +137,13 @@ def _text_only_header_lines(
         if level:
             lines.append(f"Level: {level}")
     elif event_key == "ap_redemption_posted":
+        gm_name = str(payload.get("gm_name") or "").strip()
         lines.append("**AP redemption approved**")
         team_line = format_team_label(league_slug, payload)
         if team_line:
             lines.append(team_line)
+        if gm_name:
+            lines.append(f"GM: {gm_name}")
         lines.append(f"**{title}**")
     elif event_key == "story_published":
         lines.append(f"**{title}**")
@@ -449,7 +452,7 @@ def format_discord_messages(event: dict[str, Any], *, max_parts: int = 2) -> lis
         action = str(payload.get("action") or "").strip().lower()
         staff_name = str(payload.get("staff_name") or "").strip()
         role_label = str(payload.get("role_label") or "").strip()
-        gm_name = str(payload.get("gm_name") or payload.get("gm_email") or "").strip()
+        gm_name = str(payload.get("gm_name") or "").strip()
         head = "**Staff hired**" if action == "hired" else "**Staff fired**"
         lines.append(head)
         team_line = format_team_label(league_slug, payload)
@@ -464,11 +467,14 @@ def format_discord_messages(event: dict[str, Any], *, max_parts: int = 2) -> lis
             lines.append(f"GM: {gm_name}")
     elif event_key == "ap_redemption_posted":
         label = str(payload.get("redemption_label") or "").strip()
+        gm_name = str(payload.get("gm_name") or "").strip()
         cost = payload.get("total_cost")
         lines.append("**AP redemption approved**")
         team_line = format_team_label(league_slug, payload)
         if team_line:
             lines.append(team_line)
+        if gm_name:
+            lines.append(f"GM: {gm_name}")
         if label:
             lines.append(label)
         if cost is not None:

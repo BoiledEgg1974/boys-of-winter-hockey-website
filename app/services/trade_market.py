@@ -19,7 +19,7 @@ from app.services.draft_pick_ownership import (
     owned_draft_pick_drag_keys,
     parse_draft_pick_drag_key,
 )
-from app.services.gm_messaging import gm_display_name
+from app.services.gm_messaging import gm_discord_name
 from app.services.player_ratings_csv import fhm_abi_pot_float, get_player_ratings_row
 from app.services.trade_tool import enrich_trade_player_row, trade_assets_for_team
 from app.site_models import MemberWatchlistItem, TradeMarketBuyingNeed, TradeMarketListing, User
@@ -306,7 +306,7 @@ def enrich_listing_row(
 
     tm = teams_by_id.get(int(listing.team_id))
     u = users_by_id.get(int(listing.user_id))
-    gm = gm_display_name(u) if u else f"User #{listing.user_id}"
+    gm = gm_discord_name(u) if u else f"User #{listing.user_id}"
     at = str(listing.asset_type or "")
     ref = str(listing.asset_ref or "")
     wants = []
@@ -492,7 +492,7 @@ def active_buying_rows(
                 "team_id": tid,
                 "user_id": int(n.user_id),
                 "team_name": tm.full_display_name() if tm else f"Team {tid}",
-                "gm_name": gm_display_name(u) if u else f"User #{n.user_id}",
+                "gm_name": gm_discord_name(u) if u else f"User #{n.user_id}",
                 "categories": [],
                 "category_labels": [],
                 "note": str(n.note or ""),

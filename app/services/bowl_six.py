@@ -1064,7 +1064,7 @@ def slate_gm_submission_roster(
     slate: BowlSixSlate,
 ) -> dict[str, Any]:
     """Active GMs and whether each saved a valid lineup for this slate (names only, not picks)."""
-    from app.services.gm_messaging import gm_display_name
+    from app.services.gm_messaging import gm_discord_name
 
     memberships = list(
         session.scalars(
@@ -1089,7 +1089,7 @@ def slate_gm_submission_roster(
             {
                 "user_id": int(mem.user_id),
                 "team_id": int(mem.team_id),
-                "gm_name": gm_display_name(user) if user else f"User #{mem.user_id}",
+                "gm_name": gm_discord_name(user) if user else f"User #{mem.user_id}",
                 "submitted": submitted,
                 "has_captain": bool(lineup and lineup.captain_player_id),
             }

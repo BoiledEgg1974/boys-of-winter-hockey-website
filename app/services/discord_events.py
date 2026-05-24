@@ -23,6 +23,7 @@ from app.site_models import (
     LeagueExpansionDraftPick,
     NewsArticle,
     StaffChangeRequest,
+    User,
 )
 
 NEWS_DISCORD_EVENT_KEYS = frozenset(
@@ -340,7 +341,7 @@ def staff_transaction_discord_payload(
     action = "hired" if str(req.request_type or "") == "hire" else "fired"
     staff_name = str(req.staff_name or "").strip()
     body_lines = [f"{staff_name} ({role_label})" if role_label else staff_name]
-    gm_label = str(gm_name or "").strip() or str(gm_email or "").strip()
+    gm_label = str(gm_name or "").strip()
     if gm_label:
         body_lines.append(f"GM: {gm_label}")
     body = "\n".join([ln for ln in body_lines if ln])
@@ -351,7 +352,6 @@ def staff_transaction_discord_payload(
         "staff_name": staff_name,
         "role_label": role_label,
         "gm_name": gm_label,
-        "gm_email": gm_email,
         "title": title,
         "body": body,
         "body_preview": body[:280],
@@ -506,12 +506,18 @@ def enrich_discord_payload_for_bot(
         req = session.get(StaffChangeRequest, request_id)
         if req is None or str(req.league_slug or "") != str(league_slug or ""):
             return out
+        gm_name = str(out.get("gm_name") or "").strip()
+        if not gm_name:
+            user = session.get(User, int(req.user_id))
+            if user is not None:
+                from app.services.gm_messaging import gm_discord_name
+
+                gm_name = gm_discord_name(user)
         enriched = staff_transaction_discord_payload(
             req,
             role_label=str(out.get("role_label") or ""),
             team_fields={},
-            gm_name=str(out.get("gm_name") or ""),
-            gm_email=str(out.get("gm_email") or ""),
+            gm_name=gm_name,
         )
         merged = {**enriched, **out}
         merged["body"] = enriched["body"]

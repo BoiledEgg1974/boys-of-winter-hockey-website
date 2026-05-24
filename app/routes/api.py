@@ -54,6 +54,7 @@ from app.services.homepage_dashboard import (
 )
 from app.services.power_rank_snapshots import apply_power_rank_trends, select_power_rank_baseline_map
 from app.services.homepage_modules import module_sort_order_map, module_visibility_map
+from app.services.homepage_leaders import build_homepage_leaders_payload
 from app.services.homepage_ticker import build_homepage_ticker_items
 from app.services.postseason_odds import build_postseason_odds_payload
 from app.services.playoff_bracket import playoff_bracket_cache_fingerprint, playoff_bracket_payload
@@ -1242,6 +1243,55 @@ def homepage_summary():
     return resp
 
 
+@api_bp.get("/homepage/leaders")
+def homepage_leaders():
+    """League Leaders panel only (RS / PS / PO); avoids reloading the full dashboard."""
+    segment = request.args.get("segment", "rs") or "rs"
+    if segment not in ("rs", "ps", "po"):
+        segment = "rs"
+    canonical_season = get_current_season()
+    dashboard_season = (
+        season_with_imported_data_fallback(db.session, canonical_season)
+        if canonical_season
+        else None
+    )
+    if not dashboard_season:
+        return jsonify(
+            {
+                "segment": segment,
+                "leaders": {
+                    "goals": [],
+                    "assists": [],
+                    "points": [],
+                    "goalie_wins": [],
+                    "goalie_shutouts": [],
+                },
+            }
+        )
+
+    from app.services.cached_api_responses import jsonify_cached
+    from app.services.league_json_cache import DEFAULT_FRESH_TTL_SECONDS
+
+    season_id = int(dashboard_season.id)
+    canonical_id = int(canonical_season.id) if canonical_season else 0
+
+    def _build() -> dict[str, object]:
+        return build_homepage_leaders_payload(
+            db.session,
+            dashboard_season,
+            segment,
+            player_photo_url=_player_photo_url,
+        )
+
+    return jsonify_cached(
+        "homepage_leaders",
+        (segment, canonical_id, season_id),
+        DEFAULT_FRESH_TTL_SECONDS["homepage_leaders"],
+        _build,
+        cache_control=60,
+    )
+
+
 @api_bp.get("/homepage/postseason-odds")
 def homepage_postseason_odds():
     """Monte Carlo postseason odds (lazy-loaded after the main dashboard JSON)."""
@@ -1356,87 +1406,13 @@ def _build_homepage_summary_payload(
     teams_out: list[dict[str, object]] = []
 
     league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
-    bowl_main_fhm_league_ids: tuple[int, ...] | None = None
-    if league_slug in ("bowl-fantasy", "bowl-historical", "bowl-cap"):
-        bowl_main_fhm_league_ids = bowl_nhl_league_ids(db.session)
-        if not bowl_main_fhm_league_ids:
-            bowl_main_fhm_league_ids = (0,)
-
-    def leader_rows(stat, order_col, limit=10, goalie=False):
-        if goalie:
-            q = select(PlayerGoalieStat, Player).join(
-                Player, PlayerGoalieStat.player_id == Player.id
-            )
-            if bowl_main_fhm_league_ids is not None:
-                q = q.join(Team, PlayerGoalieStat.team_id == Team.id).where(
-                    PlayerGoalieStat.season_id == season.id,
-                    PlayerGoalieStat.stat_segment == segment,
-                    Team.fhm_league_id.in_(bowl_main_fhm_league_ids),
-                )
-            else:
-                q = q.where(
-                    PlayerGoalieStat.season_id == season.id,
-                    PlayerGoalieStat.stat_segment == segment,
-                )
-            q = q.order_by(order_col.desc(), Player.id.asc()).limit(limit)
-            rows = db.session.execute(q).all()
-            out = []
-            for pgs, pl in rows:
-                tm = db.session.get(Team, pgs.team_id) if pgs.team_id else None
-                out.append(
-                    {
-                        "player_id": pl.id,
-                        "player": pl.full_name,
-                        "player_photo_url": _player_photo_url(pl),
-                        "team": tm.abbreviation if tm else "",
-                        "team_slug": tm.slug if tm else "",
-                        "team_logo_url": dashboard_team_logo_url(tm, logo_sy) if tm else "",
-                        "value": getattr(pgs, order_col.key),
-                    }
-                )
-            return out
-        q = select(PlayerSkaterStat, Player).join(
-            Player, PlayerSkaterStat.player_id == Player.id
-        )
-        if bowl_main_fhm_league_ids is not None:
-            q = q.join(Team, PlayerSkaterStat.team_id == Team.id).where(
-                PlayerSkaterStat.season_id == season.id,
-                PlayerSkaterStat.stat_segment == segment,
-                Team.fhm_league_id.in_(bowl_main_fhm_league_ids),
-                skaters_only_position_clause(),
-            )
-        else:
-            q = q.where(
-                PlayerSkaterStat.season_id == season.id,
-                PlayerSkaterStat.stat_segment == segment,
-                skaters_only_position_clause(),
-            )
-        q = q.order_by(order_col.desc(), Player.id.asc()).limit(limit)
-        rows = db.session.execute(q).all()
-        out = []
-        for pss, pl in rows:
-            tm = db.session.get(Team, pss.team_id) if pss.team_id else None
-            val = getattr(pss, stat)
-            out.append(
-                {
-                    "player_id": pl.id,
-                    "player": pl.full_name,
-                    "player_photo_url": _player_photo_url(pl),
-                    "team": tm.abbreviation if tm else "",
-                    "team_slug": tm.slug if tm else "",
-                    "team_logo_url": dashboard_team_logo_url(tm, logo_sy) if tm else "",
-                    "value": val,
-                }
-            )
-        return out
-
-    leaders = {
-        "goals": leader_rows("goals", PlayerSkaterStat.goals),
-        "assists": leader_rows("assists", PlayerSkaterStat.assists),
-        "points": leader_rows("points", PlayerSkaterStat.points),
-        "goalie_wins": leader_rows("", PlayerGoalieStat.wins, goalie=True),
-        "goalie_shutouts": leader_rows("", PlayerGoalieStat.so, goalie=True),
-    }
+    leaders = build_homepage_leaders_payload(
+        db.session,
+        season,
+        segment,
+        league_slug=league_slug,
+        player_photo_url=_player_photo_url,
+    )["leaders"]
 
     standings_by_team = {
         st.team_id: st

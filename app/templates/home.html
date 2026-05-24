@@ -1652,8 +1652,13 @@
     goalie_wins: 'Wins',
     goalie_shutouts: 'Shutouts'
   };
-  function rowLeaders(rows, statLabel) {
-    if (!rows.length) return '<p class="empty-state">No stats yet.</p>';
+  function leadersEmptyMessage(split) {
+    if (split === 'po') return 'No playoff stats yet.';
+    if (split === 'ps') return 'No preseason stats yet.';
+    return 'No stats yet.';
+  }
+  function rowLeaders(rows, statLabel, split) {
+    if (!rows.length) return '<p class="empty-state">' + leadersEmptyMessage(split || seg) + '</p>';
     var col = statLabel || 'Stat';
     var h = '<table class="data home-leaders-table"><thead><tr><th>#</th><th>Player</th><th>Tm</th><th>' + escape(col) + '</th></tr></thead><tbody>';
     rows.forEach(function (r, i) {
@@ -1684,7 +1689,7 @@
   var elLeaders = document.getElementById('home-leaders');
   function paintLeaders() {
     if (!elLeaders) return;
-    elLeaders.innerHTML = rowLeaders(leaderData[leaderTab] || [], leaderStatLabels[leaderTab]);
+    elLeaders.innerHTML = rowLeaders(leaderData[leaderTab] || [], leaderStatLabels[leaderTab], seg);
     document.querySelectorAll('.mini-leaders .subtabs button').forEach(function (b) {
       var on = b.getAttribute('data-tab') === leaderTab;
       b.classList.toggle('is-active', on);
@@ -1881,9 +1886,7 @@
         }
         paintLeagueScheduleStrip(data.games || [], data.upcoming || []);
 
-        document.querySelectorAll('a.seg-pick').forEach(function (a) {
-          a.style.fontWeight = a.getAttribute('data-seg') === seg ? '700' : '400';
-        });
+        paintSegPicks();
         syncPlayerHoverCards();
   }
 
@@ -1905,11 +1908,42 @@
         if (!stored && errEl) errEl.hidden = false;
       });
   }
+  function paintSegPicks() {
+    document.querySelectorAll('a.seg-pick').forEach(function (a) {
+      a.style.fontWeight = a.getAttribute('data-seg') === seg ? '700' : '400';
+    });
+  }
+
+  function loadLeaders() {
+    var mySeg = seg;
+    if (elLeaders) {
+      elLeaders.innerHTML = '<p class="empty-state">Loading…</p>';
+    }
+    paintSegPicks();
+    fetch(withRoot('/api/homepage/leaders?segment=' + encodeURIComponent(mySeg)))
+      .then(function (r) {
+        return r.json();
+      })
+      .then(function (data) {
+        if (mySeg !== seg) return;
+        data = rewriteSummaryStaticUrls(data);
+        if (data.segment && data.segment !== mySeg) return;
+        leaderData = data.leaders || leaderData;
+        leaderTab = 'goals';
+        paintLeaders();
+        syncPlayerHoverCards();
+      })
+      .catch(function () {
+        if (mySeg !== seg || !elLeaders) return;
+        elLeaders.innerHTML = '<p class="empty-state">Could not load leaders.</p>';
+      });
+  }
+
   document.querySelectorAll('a.seg-pick').forEach(function (a) {
     a.addEventListener('click', function (e) {
       e.preventDefault();
       seg = a.getAttribute('data-seg') || 'rs';
-      loadSummary();
+      loadLeaders();
     });
   });
 

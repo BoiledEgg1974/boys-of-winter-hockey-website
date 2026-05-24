@@ -37,6 +37,7 @@ _background_refresh_slots = threading.Semaphore(
 
 DEFAULT_FRESH_TTL_SECONDS: dict[str, float] = {
     "homepage_summary": 120.0,
+    "homepage_leaders": 120.0,
     "playoff_bracket": 300.0,
     "game_boxscore_final": 3600.0,
     "game_boxscore_live": 45.0,
@@ -50,6 +51,7 @@ DEFAULT_FRESH_TTL_SECONDS: dict[str, float] = {
 
 DEFAULT_STALE_TTL_SECONDS: dict[str, float] = {
     "homepage_summary": 7200.0,
+    "homepage_leaders": 7200.0,
     "playoff_bracket": 7200.0,
     "game_boxscore_final": 86400.0,
     "game_boxscore_live": 600.0,

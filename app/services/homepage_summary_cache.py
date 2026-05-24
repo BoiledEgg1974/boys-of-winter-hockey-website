@@ -155,6 +155,21 @@ def warm_homepage_summary_cache(app: Flask | None = None) -> None:
                         "rs", canonical, dashboard
                     ),
                 )
+                from app.services.cached_api_responses import jsonify_cached
+                from app.services.homepage_leaders import build_homepage_leaders_payload
+                from app.services.league_json_cache import DEFAULT_FRESH_TTL_SECONDS
+
+                season_id = int(dashboard.id)
+                canonical_id = int(canonical.id) if canonical else 0
+                for leaders_seg in ("rs", "ps", "po"):
+                    jsonify_cached(
+                        "homepage_leaders",
+                        (leaders_seg, canonical_id, season_id),
+                        DEFAULT_FRESH_TTL_SECONDS["homepage_leaders"],
+                        lambda seg=leaders_seg: build_homepage_leaders_payload(
+                            db.session, dashboard, seg
+                        ),
+                    )
         except Exception:
             _log.exception("homepage cache warm failed for %s", slug)
 

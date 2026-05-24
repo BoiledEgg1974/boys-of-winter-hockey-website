@@ -88,7 +88,11 @@ def _current_dashboard_season():
     return season_with_imported_data_fallback(db.session, canonical) if canonical else None
 
 
-def handle_slash_interaction(payload: dict[str, Any]) -> dict[str, Any]:
+def handle_slash_interaction(
+    payload: dict[str, Any],
+    *,
+    league_slug: str | None = None,
+) -> dict[str, Any]:
     if int(payload.get("type") or 0) == 1:
         return {"type": 1}
     if int(payload.get("type") or 0) != 2:
@@ -96,7 +100,7 @@ def handle_slash_interaction(payload: dict[str, Any]) -> dict[str, Any]:
 
     data = payload.get("data") or {}
     command = str(data.get("name") or "").strip().lower()
-    slug = str(current_app.config.get("LEAGUE_SLUG") or "").strip()
+    slug = str(league_slug or current_app.config.get("LEAGUE_SLUG") or "").strip()
     if command == "inbox":
         user = _site_user_for_discord(payload)
         if user is None:

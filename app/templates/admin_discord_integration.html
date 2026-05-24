@@ -17,6 +17,12 @@
     Pending responses include <code>discord_channel_id</code> and <code>guild_id</code> from this page.
   </p>
   <p class="muted" style="margin:0 0 0.8rem;">
+  Slash commands: set the Discord app <strong>Interactions Endpoint URL</strong> once to
+  <code>{{ site_public_base_url or 'https://your-site' }}/api/discord/interactions</code>
+  (not this league path). The <strong>Server ID</strong> below links this Discord server to
+  <code>{{ config.LEAGUE_SLUG }}</code> for <code>/inbox</code>, <code>/standings</code>, etc.
+  </p>
+  <p class="muted" style="margin:0 0 0.8rem;">
     Setup: <code>docs/DISCORD_BOT_SETUP.md</code> · Event reference: <code>docs/DISCORD_SITE_TO_BOT.md</code>
   </p>
   <p class="muted" style="margin:0 0 0.8rem;">

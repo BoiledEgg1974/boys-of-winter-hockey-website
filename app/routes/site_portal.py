@@ -4093,6 +4093,7 @@ def admin_discord_integration():
         queue_recent_ok=queue_recent_ok,
         heartbeat_rows=heartbeat_rows,
         expected_bot_name=expected_bot_name,
+        site_public_base_url=str(current_app.config.get("SITE_PUBLIC_BASE_URL") or "").strip().rstrip("/"),
     )
 
 

@@ -14,6 +14,17 @@ if str(ROOT) not in sys.path:
 from app.services.discord_interactions import COMMAND_DEFINITIONS
 
 
+def _register_commands(*, token: str, application_id: str, url: str, scope: str) -> None:
+    resp = httpx.put(
+        url,
+        headers={"Authorization": f"Bot {token}", "Content-Type": "application/json"},
+        json=COMMAND_DEFINITIONS,
+        timeout=30,
+    )
+    resp.raise_for_status()
+    print(f"Registered {len(COMMAND_DEFINITIONS)} BOWL slash command(s) for {scope}.")
+
+
 def main() -> None:
     load_dotenv(ROOT / ".env")
     token = os.environ.get("DISCORD_BOT_TOKEN", "").strip()
@@ -24,16 +35,32 @@ def main() -> None:
     if not application_id:
         raise RuntimeError("DISCORD_APPLICATION_ID is required")
     base = f"https://discord.com/api/v10/applications/{application_id}"
-    url = f"{base}/guilds/{guild_id}/commands" if guild_id else f"{base}/commands"
-    resp = httpx.put(
-        url,
-        headers={"Authorization": f"Bot {token}", "Content-Type": "application/json"},
-        json=COMMAND_DEFINITIONS,
-        timeout=30,
+
+    if guild_id:
+        _register_commands(
+            token=token,
+            application_id=application_id,
+            url=f"{base}/guilds/{guild_id}/commands",
+            scope=f"guild {guild_id}",
+        )
+        return
+
+    # One bot, three servers: register global commands; the hub interactions URL routes by guild id.
+    _register_commands(
+        token=token,
+        application_id=application_id,
+        url=f"{base}/commands",
+        scope="global (all servers)",
     )
-    resp.raise_for_status()
-    scope = f"guild {guild_id}" if guild_id else "global"
-    print(f"Registered {len(COMMAND_DEFINITIONS)} BOWL slash command(s) for {scope}.")
+    print(
+        "Set Interactions Endpoint URL to "
+        "https://www.bowlhockey.com/api/discord/interactions "
+        "(or your SITE_PUBLIC_BASE_URL + /api/discord/interactions)."
+    )
+    print(
+        "Ensure each league's Discord Integration page has the correct Server ID "
+        "(guild id) for bowl-historical, bowl-fantasy, and bowl-cap."
+    )
 
 
 if __name__ == "__main__":

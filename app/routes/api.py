@@ -1913,27 +1913,17 @@ def discord_dms_fail(event_id: int):
 
 @api_bp.post("/discord/interactions")
 def discord_interactions():
-    from app.services.discord_interactions import (
-        handle_slash_interaction,
-        verify_interaction_signature,
-    )
+    from app.services.discord_interaction_dispatch import process_discord_interaction
 
     raw_body = request.get_data() or b""
-    public_key = str(current_app.config.get("DISCORD_INTERACTIONS_PUBLIC_KEY") or "").strip()
-    if public_key:
-        timestamp = str(request.headers.get("X-Signature-Timestamp") or "")
-        signature = str(request.headers.get("X-Signature-Ed25519") or "")
-        if not verify_interaction_signature(
-            body=raw_body,
-            timestamp=timestamp,
-            signature=signature,
-            public_key=public_key,
-        ):
-            return jsonify({"error": "invalid request signature"}), 401
-    elif not _discord_secret_ok():
-        return jsonify({"error": "Discord interactions public key is not configured"}), 401
-    payload = request.get_json(silent=True) or {}
-    return jsonify(handle_slash_interaction(payload))
+    status, body = process_discord_interaction(
+        raw_body=raw_body,
+        timestamp=str(request.headers.get("X-Signature-Timestamp") or ""),
+        signature=str(request.headers.get("X-Signature-Ed25519") or ""),
+        public_key=str(current_app.config.get("DISCORD_INTERACTIONS_PUBLIC_KEY") or "").strip(),
+        shared_secret=str(current_app.config.get("DISCORD_EVENTS_SHARED_SECRET") or "").strip(),
+    )
+    return jsonify(body), status
 
 
 @api_bp.post("/discord/events/heartbeat")

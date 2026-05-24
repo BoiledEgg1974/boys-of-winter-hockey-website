@@ -78,6 +78,8 @@ def create_hub_app() -> Flask:
         SESSION_COOKIE_PATH=Config.SESSION_COOKIE_PATH,
         REMEMBER_COOKIE_PATH=Config.REMEMBER_COOKIE_PATH,
         COMMISH_ADMIN_PASSWORD=Config.COMMISH_ADMIN_PASSWORD,
+        DISCORD_INTERACTIONS_PUBLIC_KEY=Config.DISCORD_INTERACTIONS_PUBLIC_KEY,
+        DISCORD_EVENTS_SHARED_SECRET=Config.DISCORD_EVENTS_SHARED_SECRET,
     )
 
     @hub_app.before_request
@@ -121,6 +123,24 @@ def create_hub_app() -> Flask:
     from app.routes.hub_auth import hub_auth_bp
 
     hub_app.register_blueprint(hub_auth_bp)
+
+    @hub_app.post("/api/discord/interactions")
+    @csrf.exempt
+    def hub_discord_interactions():
+        """Single Discord interactions URL for all leagues (routes by guild id)."""
+        from flask import jsonify, request
+
+        from app.services.discord_interaction_dispatch import process_discord_interaction
+
+        raw_body = request.get_data() or b""
+        status, body = process_discord_interaction(
+            raw_body=raw_body,
+            timestamp=str(request.headers.get("X-Signature-Timestamp") or ""),
+            signature=str(request.headers.get("X-Signature-Ed25519") or ""),
+            public_key=str(hub_app.config.get("DISCORD_INTERACTIONS_PUBLIC_KEY") or "").strip(),
+            shared_secret=str(hub_app.config.get("DISCORD_EVENTS_SHARED_SECRET") or "").strip(),
+        )
+        return jsonify(body), status
 
     @hub_app.context_processor
     def _inject_site_auth():

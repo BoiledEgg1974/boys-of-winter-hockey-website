@@ -14,6 +14,28 @@ if str(ROOT) not in sys.path:
 from app.services.discord_interactions import COMMAND_DEFINITIONS
 
 
+def _resolve_application_id(token: str, configured_id: str) -> str:
+    app_id = str(configured_id or "").strip()
+    if app_id:
+        return app_id
+    resp = httpx.get(
+        "https://discord.com/api/v10/oauth2/applications/@me",
+        headers={"Authorization": f"Bot {token}"},
+        timeout=30,
+    )
+    if resp.status_code >= 400:
+        raise RuntimeError(
+            "DISCORD_APPLICATION_ID is not set and could not be read from the bot token. "
+            "Add DISCORD_APPLICATION_ID to .env (Developer Portal → your app → General Information → Application ID), "
+            "or fix DISCORD_BOT_TOKEN if it is invalid."
+        ) from None
+    app_id = str((resp.json() or {}).get("id") or "").strip()
+    if not app_id:
+        raise RuntimeError("Discord returned no application id for this bot token.")
+    print(f"Using application id {app_id} (from bot token).")
+    return app_id
+
+
 def _register_commands(*, token: str, application_id: str, url: str, scope: str) -> None:
     resp = httpx.put(
         url,
@@ -31,9 +53,11 @@ def main() -> None:
     application_id = os.environ.get("DISCORD_APPLICATION_ID", "").strip()
     guild_id = os.environ.get("DISCORD_GUILD_ID", "").strip()
     if not token:
-        raise RuntimeError("DISCORD_BOT_TOKEN is required")
-    if not application_id:
-        raise RuntimeError("DISCORD_APPLICATION_ID is required")
+        raise RuntimeError(
+            "DISCORD_BOT_TOKEN is required. Set it in boys-of-winter-hockey-website/.env "
+            "(Developer Portal → your app → Bot → Reset Token / copy token)."
+        )
+    application_id = _resolve_application_id(token, application_id)
     base = f"https://discord.com/api/v10/applications/{application_id}"
 
     if guild_id:

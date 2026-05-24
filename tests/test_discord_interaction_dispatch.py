@@ -83,6 +83,8 @@ class DiscordInteractionDispatchTests(unittest.TestCase):
             signature=sig,
             public_key=self.public_key,
             shared_secret="",
+            hub_app=self.hub,
+            defer_slash_commands=False,
         )
 
   def test_guild_id_from_interaction(self) -> None:
@@ -140,6 +142,7 @@ class DiscordInteractionDispatchTests(unittest.TestCase):
             signature="00" * 64,
             public_key=self.public_key,
             shared_secret="",
+            hub_app=self.hub,
         )
         self.assertEqual(status, 401)
         self.assertIn("signature", body["error"])

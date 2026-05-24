@@ -139,6 +139,7 @@ def create_hub_app() -> Flask:
             signature=str(request.headers.get("X-Signature-Ed25519") or ""),
             public_key=str(hub_app.config.get("DISCORD_INTERACTIONS_PUBLIC_KEY") or "").strip(),
             shared_secret=str(hub_app.config.get("DISCORD_EVENTS_SHARED_SECRET") or "").strip(),
+            hub_app=hub_app,
         )
         return jsonify(body), status
 

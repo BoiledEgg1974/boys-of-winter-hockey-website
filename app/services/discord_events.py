@@ -202,6 +202,23 @@ def team_fields_for_discord(team) -> dict:
             out["fhm_team_id"] = int(str(fhm).strip())
         except ValueError:
             out["fhm_team_id"] = str(fhm).strip()
+    try:
+        from app.logo_urls import team_logo_url_for_team
+
+        logo_url = str(team_logo_url_for_team(team) or "").strip()
+        if logo_url:
+            if logo_url.lower().startswith(("http://", "https://")):
+                out["team_logo_url"] = logo_url
+            else:
+                slug = str(current_app.config.get("LEAGUE_SLUG") or "").strip()
+                mount = league_mount_path(slug)
+                if mount and logo_url.startswith(f"{mount}/"):
+                    base = resolve_site_public_base_url()
+                    out["team_logo_url"] = f"{base}{logo_url}" if base else ""
+                else:
+                    out["team_logo_url"] = build_league_public_url(slug, logo_url)
+    except Exception:
+        pass
     return out
 
 

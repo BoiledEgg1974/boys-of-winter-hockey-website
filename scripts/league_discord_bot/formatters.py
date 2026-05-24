@@ -26,8 +26,6 @@ ALWAYS_TEXT_ONLY_DISCORD_EVENT_KEYS = frozenset(
         "staff_transaction_posted",
         "draft_hub_pick_made",
         "expansion_draft_pick_made",
-        "trade_market_selling_posted",
-        "trade_market_buying_posted",
     }
 )
 
@@ -311,6 +309,28 @@ def _build_full_text_messages(
     return [{"content": chunk} for chunk in chunks if chunk]
 
 
+def _trade_market_embed(payload: dict[str, Any], *, title: str, body: str, url: str) -> dict[str, Any]:
+    team_name = str(payload.get("team_name") or "").strip()
+    team_abbrev = str(payload.get("team_abbrev") or "").strip()
+    team_logo_url = _discord_embed_url(str(payload.get("team_logo_url") or ""))
+    embed: dict[str, Any] = {
+        "title": title[:256],
+        "description": body[:DISCORD_MAX_EMBED_DESC_LEN] if body else None,
+    }
+    if url:
+        embed["url"] = url
+    if team_name:
+        author_name = team_name
+        if team_abbrev and team_abbrev not in team_name:
+            author_name = f"{team_name} ({team_abbrev})"
+        embed["author"] = {"name": author_name[:256]}
+        if team_logo_url:
+            embed["author"]["icon_url"] = team_logo_url
+    if team_logo_url:
+        embed["thumbnail"] = {"url": team_logo_url}
+    return {k: v for k, v in embed.items() if v}
+
+
 def _split_message_bodies(msg: dict[str, Any], *, max_parts: int) -> list[dict[str, Any]]:
     """Split one Discord payload into up to *max_parts* messages under API limits."""
     content = str(msg.get("content") or "")
@@ -370,6 +390,13 @@ def format_discord_messages(event: dict[str, Any], *, max_parts: int = 2) -> lis
         if url:
             embed["url"] = url
         embed = {k: v for k, v in embed.items() if v}
+        if embed.get("description") or embed.get("url"):
+            return _split_message_bodies({"embeds": [embed]}, max_parts=max(1, int(max_parts)))
+        return [{"content": f"**{title}**"}]
+
+    if event_key in ("trade_market_selling_posted", "trade_market_buying_posted"):
+        body_full = _body_text(payload, full=True) or body_short
+        embed = _trade_market_embed(payload, title=title, body=body_full, url=url)
         if embed.get("description") or embed.get("url"):
             return _split_message_bodies({"embeds": [embed]}, max_parts=max(1, int(max_parts)))
         return [{"content": f"**{title}**"}]

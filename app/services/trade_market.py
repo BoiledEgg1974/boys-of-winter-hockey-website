@@ -243,7 +243,7 @@ def replace_buying_needs(
         title="Trade Market watch alert",
         body="A team on your watchlist updated its Trade Market buying interests.",
         source_prefix="buying",
-        source_ids=[int(r.id) for r in rows],
+        source_ids=[int(r.id) for r in rows if r.id is not None],
     )
     return rows
 
@@ -536,8 +536,14 @@ def selling_discord_body(
         )
         ask = enriched.get("asking_price") or "—"
         wants = enriched.get("wants_labels") or "—"
+        asset_label = str(enriched.get("asset_label", lst.asset_ref) or lst.asset_ref)
+        player_id = enriched.get("player_id")
+        if player_id:
+            player_url = build_league_public_url(league_slug, f"/player/{int(player_id)}")
+            if player_url:
+                asset_label = f"[{asset_label}]({player_url})"
         lines.append(
-            f"• {enriched.get('asset_label', lst.asset_ref)} — ask {ask} · wants {wants}"
+            f"• {asset_label} — ask {ask} · wants {wants}"
         )
     return "Now selling:\n" + "\n".join(lines)
 

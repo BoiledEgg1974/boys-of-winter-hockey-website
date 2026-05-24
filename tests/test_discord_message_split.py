@@ -118,25 +118,54 @@ class DiscordMessageSplitTest(unittest.TestCase):
             "https://www.bowlhockey.com/bowl-historical/league-headlines#a1",
         )
 
-    def test_trade_market_selling_is_text_only(self):
+    def test_trade_market_selling_is_embed_only(self):
         parts = format_discord_messages(
             {
                 "league_slug": "bowl-cap",
                 "event_key": "trade_market_selling_posted",
                 "payload": {
                     "title": "Trade Market — selling update",
-                    "body": "Now selling:\n• Player X — ask $2M · wants Prospects",
+                    "body": "Now selling:\n• [Player X](https://www.bowlhockey.com/bowl-cap/player/99) — ask $2M · wants Prospects",
                     "url": "https://www.bowlhockey.com/bowl-cap/trade-market",
                     "team_abbrev": "TOR",
+                    "team_name": "Toronto Towers",
+                    "team_logo_url": "https://www.bowlhockey.com/bowl-cap/static/logos/teams/tor.png",
                 },
             },
             max_parts=2,
         )
         self.assertEqual(len(parts), 1)
-        self.assertNotIn("embeds", parts[0])
-        content = parts[0].get("content", "")
-        self.assertIn("selling", content.lower())
-        self.assertIn(DISCORD_SITE_MORE_FOOTER, content)
+        self.assertNotIn("content", parts[0])
+        embed = parts[0]["embeds"][0]
+        self.assertEqual(embed["url"], "https://www.bowlhockey.com/bowl-cap/trade-market")
+        self.assertIn("[Player X](https://www.bowlhockey.com/bowl-cap/player/99)", embed["description"])
+        self.assertEqual(embed["author"]["name"], "Toronto Towers (TOR)")
+        self.assertEqual(
+            embed["thumbnail"]["url"],
+            "https://www.bowlhockey.com/bowl-cap/static/logos/teams/tor.png",
+        )
+
+    def test_trade_market_buying_is_embed_only(self):
+        parts = format_discord_messages(
+            {
+                "league_slug": "bowl-fantasy",
+                "event_key": "trade_market_buying_posted",
+                "payload": {
+                    "title": "Trade Market — buying interests",
+                    "body": "Looking to acquire:\n• Draft Picks\n• Prospects",
+                    "url": "https://www.bowlhockey.com/bowl-fantasy/trade-market",
+                    "team_abbrev": "HAL",
+                    "team_name": "Halifax Privateers",
+                    "team_logo_url": "https://www.bowlhockey.com/bowl-fantasy/static/logos/teams/halifax.png",
+                },
+            },
+            max_parts=2,
+        )
+        self.assertEqual(len(parts), 1)
+        self.assertNotIn("content", parts[0])
+        embed = parts[0]["embeds"][0]
+        self.assertIn("Looking to acquire", embed["description"])
+        self.assertEqual(embed["author"]["name"], "Halifax Privateers (HAL)")
 
     def test_bowl_six_leaders_are_embed_only(self):
         body = "Week: Week of 1969-03-10\nSlate status: locked\n\nTop performers\n1. Andre Lacroix — 19.5 pts"

@@ -175,7 +175,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 173;25;Anders;Hedberg;;1951-2-25;Örnsköldsvik;VäS;Sweden;;;0
 174;-1;Paul;Baxter;;1955-10-28;Winnipeg;MB;Canada;;;0
 175;-1;John;Cunniff;;1944-7-9;Boston;MA;The United States;;;0
-176;18;Dave;Chambers;;1940-5-7;Toronto;ON;Canada;;;0
+176;-1;Dave;Chambers;;1940-5-7;Toronto;ON;Canada;;;0
 177;-1;Glen;Williamson;;1955-2-22;Souris;MB;Canada;;;0
 178;-1;Joe;Micheletti;;1954-10-24;International Falls;MN;The United States;;;0
 179;216;Tim;Higgins;;1958-2-7;Ottawa;ON;Canada;;;0
@@ -324,7 +324,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 322;23;Ed;Chadwick;;1933-5-8;Fergus;ON;Canada;;;0
 323;221;Harry;Howell;;1932-12-28;Hamilton;ON;Canada;;;0
 324;228;André;Beaulieu;;1940-1-22;Montreal;QC;Canada;;;0
-325;18;Claude;Ruel;;1938-9-12;Sherbrooke;QC;Canada;;;0
+325;-1;Claude;Ruel;;1938-9-12;Sherbrooke;QC;Canada;;;0
 326;-1;Tim;Ecclestone;;1947-9-24;Toronto;ON;Canada;;;0
 327;-1;Gordon;Gund;;1939-10-15;Cleveland;TX;The United States;;;0
 328;-1;Barry;van Gerbig;;1939-1-1;New York;NY;The United States;;;0
@@ -708,7 +708,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 706;57;Rhett;Shaffer;;1939-10-4;New York;NY;The United States;;;0
 707;57;Knut;Pyszny;;1939-10-7;Rawicz;WIE;Poland;;;0
 708;57;Mauro;Guijosa;;1939-7-23;French Valley;CA;The United States;;;0
-709;-1;Spencer;Umbleby;;1939-5-24;Philadelphia;PA;The United States;;;0
+709;18;Spencer;Umbleby;;1939-5-24;Philadelphia;PA;The United States;;;0
 710;57;Jay;Ward;;1945-3-13;Avondale;AZ;The United States;;;0
 711;57;Scott;Harper;;1939-4-28;Brockton;MA;The United States;;;0
 712;57;Brian;Kirtley;;1939-10-9;Hemet;CA;The United States;;;0
@@ -1551,7 +1551,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1549;220;Tony;Carroll;;1943-3-10;Brooklyn;NY;The United States;;;0
 1550;-1;Greg;Bruce;;1939-2-11;Surrey;BC;Canada;;;0
 1551;3;Michael;Bretner;;1939-8-11;St. Catharines;ON;Canada;;;0
-1552;-1;Dwight;Dowie;;1946-7-18;Austin;TX;The United States;;;0
+1552;18;Dwight;Dowie;;1946-7-18;Austin;TX;The United States;;;0
 1553;21;Kevin;Vaillancourt;;1939-1-4;Georgina;ON;Canada;;;0
 1554;-1;Joe;Richards;;1939-2-19;Palmerton;PA;The United States;;;0
 1555;221;Steven;Morgan;;1947-10-30;Ottawa;ON;Canada;;;0
@@ -1657,7 +1657,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1655;-1;Eric;Burnett;;1943-9-25;Kannapolis;NC;The United States;;;0
 1656;-1;Andy;McLeod;;1945-11-19;Orlando;FL;The United States;;;0
 1657;-1;Ken;Ducker;;1946-6-26;Faro;YT;Canada;;;0
-1658;-1;Travis;Harland;;1940-2-2;Montreal;QC;Canada;;;0
+1658;18;Travis;Harland;;1940-2-2;Montreal;QC;Canada;;;0
 1659;-1;Taylor;Hunt;;1940-11-25;Ridley Township;PA;The United States;;;0
 1660;-1;Scott;Hudson;;1940-2-14;Sherbrooke;QC;Canada;;;0
 1661;-1;Quinton;Hrehoriak;;1940-2-6;Lethbridge;AB;Canada;;;0

@@ -597,6 +597,32 @@ def _enqueue_discord_event(
         pass
 
 
+def _enqueue_trade_proposal_news_discord(
+    *,
+    proposal_id: int,
+    article_id: int | None,
+    team: Team | None,
+) -> None:
+    if not article_id:
+        return
+    slug = _league_slug()
+    trade_article = db.session.get(NewsArticle, int(article_id))
+    if trade_article is None:
+        return
+    _enqueue_discord_event(
+        "admin_news_published",
+        news_article_discord_payload(
+            trade_article,
+            category=str(trade_article.category or ""),
+            proposal_id=int(proposal_id),
+            url=build_news_article_public_url(slug, int(trade_article.id)),
+            **team_fields_for_discord(team),
+        ),
+        source_type="trade_proposal_news",
+        source_id=int(proposal_id),
+    )
+
+
 def _season_rollover_defaults() -> dict[str, object]:
     cur = db.session.scalar(select(Season).where(Season.is_current.is_(True)).limit(1))
     if cur is None:
@@ -1960,6 +1986,24 @@ def admin_trade_proposal_detail(pid: int):
     )
     if request.method == "POST":
         action = (request.form.get("action") or "").strip().lower()
+        if action == "republish_news":
+            if prop.status != STATUS_PUBLISHED:
+                flash("Only published proposals can be repaired/requeued.", "err")
+                return redirect(url_for("site_admin.admin_trade_proposal_detail", pid=pid))
+            from_article_id, _to_article_id = publish_trade_news_articles(
+                db.session,
+                league_slug=slug,
+                proposal=prop,
+                commissioner_user_id=int(prop.commissioner_user_id or current_user.id),
+            )
+            _enqueue_trade_proposal_news_discord(
+                proposal_id=int(prop.id),
+                article_id=from_article_id,
+                team=from_team,
+            )
+            db.session.commit()
+            flash("Trade news verified for Around the League and Discord was queued if missing.", "ok")
+            return redirect(url_for("site_admin.admin_trade_proposal_detail", pid=pid))
         if prop.status != STATUS_PENDING_COMMISSIONER:
             flash("This proposal is not awaiting commissioner action.", "err")
             return redirect(url_for("site_admin.admin_trade_proposal_detail", pid=pid))
@@ -1980,11 +2024,16 @@ def admin_trade_proposal_detail(pid: int):
                     "err",
                 )
                 return redirect(url_for("site_admin.admin_trade_proposal_detail", pid=pid))
-            publish_trade_news_articles(
+            from_article_id, _to_article_id = publish_trade_news_articles(
                 db.session,
                 league_slug=slug,
                 proposal=prop,
                 commissioner_user_id=int(current_user.id),
+            )
+            _enqueue_trade_proposal_news_discord(
+                proposal_id=int(prop.id),
+                article_id=from_article_id,
+                team=from_team,
             )
             prop.status = STATUS_PUBLISHED
             prop.commissioner_user_id = int(current_user.id)

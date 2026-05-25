@@ -26,6 +26,15 @@
       <button type="submit" class="trade-proposal-detail__btn trade-proposal-detail__btn--deny trade-proposal-detail__deny-submit">Deny</button>
     </form>
   </div>
+  {% elif proposal.status == 'published' %}
+  <div class="trade-proposal-detail__commissioner-actions">
+    <form method="post" action="{{ url_for('site_admin.admin_trade_proposal_detail', pid=proposal.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="republish_news">
+      <button type="submit" class="trade-tool-submit trade-proposal-detail__btn trade-proposal-detail__btn--approve">Repair / requeue news</button>
+    </form>
+    <p class="muted">Creates any missing Around the League trade articles and queues Discord if no trade post exists yet.</p>
+  </div>
   {% elif proposal.status == 'commissioner_declined' and (proposal.commissioner_note or '')|trim %}
   <p class="muted">Commissioner note: {{ proposal.commissioner_note }}</p>
   {% endif %}

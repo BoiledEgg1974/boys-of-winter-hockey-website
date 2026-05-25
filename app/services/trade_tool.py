@@ -452,7 +452,11 @@ def publish_trade_news_articles(
     proposal: GmTradeProposal,
     commissioner_user_id: int,
 ) -> tuple[int | None, int | None]:
-    """Two published transaction articles (one per team) for team pages + Around the League."""
+    """Two published transaction articles (one per team) for team pages + Around the League.
+
+    Idempotent for repair/retry flows: if a matching article already exists for a side, return it
+    instead of creating a duplicate.
+    """
     from_team = session.get(Team, proposal.from_team_id)
     to_team = session.get(Team, proposal.to_team_id)
     title = (
@@ -461,29 +465,38 @@ def publish_trade_news_articles(
     )
     body = format_trade_news_body(session, proposal, from_team, to_team)
     now = datetime.utcnow()
-    a1 = NewsArticle(
-        league_slug=league_slug,
-        team_id=int(proposal.from_team_id),
-        title=title[:300],
-        body=body,
-        category="transactions",
-        author_user_id=commissioner_user_id,
-        status="published",
-        published_at=now,
-        ap_awarded=False,
-    )
-    a2 = NewsArticle(
-        league_slug=league_slug,
-        team_id=int(proposal.to_team_id),
-        title=title[:300],
-        body=body,
-        category="transactions",
-        author_user_id=commissioner_user_id,
-        status="published",
-        published_at=now,
-        ap_awarded=False,
-    )
-    session.add(a1)
-    session.add(a2)
+
+    def _article_for_team(team_id: int) -> NewsArticle:
+        existing = session.scalar(
+            select(NewsArticle)
+            .where(
+                NewsArticle.league_slug == league_slug,
+                NewsArticle.team_id == int(team_id),
+                NewsArticle.title == title[:300],
+                NewsArticle.body == body,
+                NewsArticle.category == "transactions",
+                NewsArticle.status == "published",
+            )
+            .order_by(NewsArticle.id.desc())
+            .limit(1)
+        )
+        if existing is not None:
+            return existing
+        article = NewsArticle(
+            league_slug=league_slug,
+            team_id=int(team_id),
+            title=title[:300],
+            body=body,
+            category="transactions",
+            author_user_id=commissioner_user_id,
+            status="published",
+            published_at=now,
+            ap_awarded=False,
+        )
+        session.add(article)
+        return article
+
+    a1 = _article_for_team(int(proposal.from_team_id))
+    a2 = _article_for_team(int(proposal.to_team_id))
     session.flush()
     return int(a1.id), int(a2.id)

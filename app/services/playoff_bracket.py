@@ -27,6 +27,7 @@ from app.services.playoff_series_prediction import (
     load_rs_strength_by_team,
     matchup_prediction_dict,
 )
+from app.services.league_rules import get_rule_value
 from app.services.season_team_logo_bundle import dashboard_team_logo_url
 
 
@@ -78,11 +79,14 @@ _CAMPBELL_CONF_ID = 1
 
 _PROJECTED_PAIRINGS_8: tuple[tuple[int, int], ...] = ((0, 7), (3, 4), (2, 5), (1, 6))
 _PROJECTED_PAIRINGS_4: tuple[tuple[int, int], ...] = ((0, 3), (1, 2))
+_PROJECTED_PAIRINGS_4_HISTORICAL_DEFAULT: tuple[tuple[int, int], ...] = ((0, 2), (1, 3))
 
 _PROJECTION_NOTE = (
-    "Projected from current regular-season standings; matchups update as games are imported."
+    "Projected from current regular-season standings; matchups update as games are imported. "
+    "Higher seeds are treated as having home-ice advantage."
 )
 _BRACKET_CACHE_VERSION = "postseason-window-v2"
+_PROJECTION_RULE_KEY = "playoff_projection_first_round_format"
 
 
 def _league_slug() -> str:
@@ -94,6 +98,45 @@ def _league_slug() -> str:
 def _compact_mirror_opening_round() -> bool:
     """Historical mirror UI renders the opening round in ``second_round`` slots."""
     return _league_slug() == "bowl-historical"
+
+
+def _projection_format_key() -> str:
+    slug = _league_slug()
+    raw = str(get_rule_value(db.session, slug, _PROJECTION_RULE_KEY, "default") or "").strip().lower()
+    if raw in {"", "default"}:
+        return "division_1v3_2v4" if slug == "bowl-historical" else "conference_division_winners_top3"
+    aliases = {
+        "division-winners-top3": "conference_division_winners_top3",
+        "division_winners_top3": "conference_division_winners_top3",
+        "top8": "conference_points",
+        "conference_top8": "conference_points",
+        "1v3": "division_1v3_2v4",
+        "1v4": "division_1v4_2v3",
+    }
+    return aliases.get(raw, raw)
+
+
+def _division_key_for_standing(st: TeamStanding) -> tuple[int, str]:
+    team = getattr(st, "team", None)
+    if team is not None and team.fhm_division_id is not None:
+        return (int(team.fhm_division_id), "")
+    return (-1, str(st.division or "").strip().lower())
+
+
+def _seed_conference_with_division_winners(rows: list[TeamStanding]) -> list[TeamStanding]:
+    """Seed top 8 by conference with division winners in the top slots by points."""
+    by_division: dict[tuple[int, str], list[TeamStanding]] = {}
+    for st in rows:
+        by_division.setdefault(_division_key_for_standing(st), []).append(st)
+    division_winners: list[TeamStanding] = []
+    for div_rows in by_division.values():
+        if not div_rows:
+            continue
+        division_winners.append(sorted(div_rows, key=_standing_sort_key, reverse=True)[0])
+    division_winners.sort(key=_standing_sort_key, reverse=True)
+    winner_ids = {int(st.team_id) for st in division_winners}
+    remaining = [st for st in sorted(rows, key=_standing_sort_key, reverse=True) if int(st.team_id) not in winner_ids]
+    return (division_winners[:3] + remaining)[:8]
 
 
 def _merge_projected_empty_slots(
@@ -133,6 +176,17 @@ def _current_postseason_games(games: list[Game]) -> list[Game]:
         if g.game_date is None or g.game_date > latest_regular_date
     ]
     return current or playoff
+
+
+def _playoff_window_has_started(playoff_games: list[Game]) -> bool:
+    """Official bracket takes over once playoff games are today/past or have finals imported."""
+    today = date.today()
+    for game in playoff_games:
+        if str(game.status or "").strip().lower() == "final":
+            return True
+        if game.game_date is not None and game.game_date <= today:
+            return True
+    return False
 
 
 def _season_logo_year(season_id: int | None) -> int | None:
@@ -253,12 +307,24 @@ def _projected_bracket_slots_from_standings(
     for conf_rows in by_conf.values():
         conf_rows.sort(key=_standing_sort_key, reverse=True)
 
+    format_key = _projection_format_key()
+
     # Historical compact mirror: Division Semi-Finals -> Division Finals -> Final.
     if _compact_mirror_opening_round():
         s2_slots: list[SeriesAgg | None] = [None] * 4
-        for conf_id, offset in ((_CAMPBELL_CONF_ID, 0), (_WALES_CONF_ID, 2)):
-            seeded = by_conf.get(conf_id, [])[:4]
-            series = _projected_series_for_seeded_rows(seeded, _PROJECTED_PAIRINGS_4)
+        by_division: dict[tuple[int, str], list[TeamStanding]] = {}
+        for st in rows:
+            by_division.setdefault(_division_key_for_standing(st), []).append(st)
+        division_keys = sorted(by_division.keys(), key=lambda k: (k[0], k[1]))
+        pairings = (
+            _PROJECTED_PAIRINGS_4
+            if format_key == "division_1v4_2v3"
+            else _PROJECTED_PAIRINGS_4_HISTORICAL_DEFAULT
+        )
+        for div_idx, div_key in enumerate(division_keys[:2]):
+            seeded = sorted(by_division.get(div_key, []), key=_standing_sort_key, reverse=True)[:4]
+            series = _projected_series_for_seeded_rows(seeded, pairings)
+            offset = div_idx * 2
             for idx, s in enumerate(series[:2]):
                 s2_slots[offset + idx] = s
         if any(s2_slots):
@@ -267,7 +333,11 @@ def _projected_bracket_slots_from_standings(
     if len(by_conf) >= 2:
         s1_slots: list[SeriesAgg | None] = [None] * 8
         for conf_id, offset in ((_CAMPBELL_CONF_ID, 0), (_WALES_CONF_ID, 4)):
-            seeded = by_conf.get(conf_id, [])[:8]
+            conf_rows = by_conf.get(conf_id, [])
+            if format_key == "conference_points":
+                seeded = sorted(conf_rows, key=_standing_sort_key, reverse=True)[:8]
+            else:
+                seeded = _seed_conference_with_division_winners(conf_rows)
             series = _projected_series_for_seeded_rows(seeded, _PROJECTED_PAIRINGS_8)
             for idx, s in enumerate(series[:4]):
                 s1_slots[offset + idx] = s
@@ -586,6 +656,8 @@ def playoff_bracket_cache_fingerprint(season_id: int | None) -> str:
         select(Game).where(Game.season_id == int(season_id))
     ).all()
     current_playoff = _current_postseason_games(list(rows))
+    if current_playoff and not _playoff_window_has_started(current_playoff):
+        current_playoff = []
     parts: list[str] = []
     for game in current_playoff:
         parts.append(
@@ -603,7 +675,33 @@ def playoff_bracket_cache_fingerprint(season_id: int | None) -> str:
             )
         )
     if not parts:
-        return f"{_BRACKET_CACHE_VERSION}-no-current-playoff-games"
+        standings = db.session.scalars(
+            select(TeamStanding)
+            .options(joinedload(TeamStanding.team))
+            .where(TeamStanding.season_id == int(season_id))
+        ).all()
+        st_parts: list[str] = [_projection_format_key()]
+        for st in standings:
+            team = getattr(st, "team", None)
+            st_parts.append(
+                "|".join(
+                    (
+                        str(st.team_id),
+                        str(st.pts or 0),
+                        str(st.w or 0),
+                        str(st.l or 0),
+                        str(st.ties or 0),
+                        str(st.otl or 0),
+                        str(st.gf or 0),
+                        str(st.ga or 0),
+                        str(team.fhm_conference_id if team is not None else ""),
+                        str(team.fhm_division_id if team is not None else ""),
+                        str(st.division or ""),
+                    )
+                )
+            )
+        digest = hashlib.sha1("\n".join(sorted(st_parts)).encode("utf-8")).hexdigest()[:16]
+        return f"{_BRACKET_CACHE_VERSION}-projection-{len(standings)}-{digest}"
     digest = hashlib.sha1("\n".join(sorted(parts)).encode("utf-8")).hexdigest()[:16]
     return f"{_BRACKET_CACHE_VERSION}-{len(parts)}-{digest}"
 
@@ -633,6 +731,8 @@ def playoff_bracket_payload(season_id: int | None) -> dict:
     ).all()
 
     playoff: list[Game] = _current_postseason_games(list(games))
+    if playoff and not _playoff_window_has_started(playoff):
+        playoff = []
     if not playoff:
         rs_map = load_rs_strength_by_team(db.session, season_id)
         h2h = load_rs_head_to_head(db.session, season_id)

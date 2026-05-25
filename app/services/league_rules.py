@@ -15,6 +15,12 @@ DEFAULT_LEAGUE_RULES: tuple[dict[str, str], ...] = (
     {"rule_key": "salary_cap_enabled", "rule_value": "false"},
     {"rule_key": "salary_cap_amount", "rule_value": ""},
     {"rule_key": "playoff_roster_lock", "rule_value": "true"},
+    # Projected standings-page bracket while the current season is still pre-playoff.
+    # Use "default" for each league's house format:
+    # - Cap/Fantasy: conference_division_winners_top3
+    # - Historical: division_1v3_2v4
+    # Other supported values: conference_points, division_1v4_2v3.
+    {"rule_key": "playoff_projection_first_round_format", "rule_value": "default"},
     # Trade Tool: max draft round number shown for manual (non-CSV) pick chips (1–this value).
     {"rule_key": "trade_tool_draft_rounds", "rule_value": "8"},
     {"rule_key": "bowl_six_enabled", "rule_value": "true"},

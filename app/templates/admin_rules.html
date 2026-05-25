@@ -7,6 +7,8 @@
   <p class="muted" style="margin:0 0 0.7rem;">
     These settings are stored and audited. They are not enforced automatically until a rule is wired into league logic.
     <strong><code>trade_tool_draft_rounds</code></strong> (default 8) caps the highest round number GMs can add as manual draft-pick chips on the Trade Tool (1–32).
+    <strong><code>playoff_projection_first_round_format</code></strong> controls the standings-page projected playoff bracket before the official playoff bracket begins.
+    Use <code>default</code>, <code>conference_division_winners_top3</code>, <code>conference_points</code>, <code>division_1v3_2v4</code>, or <code>division_1v4_2v3</code>.
   </p>
   <form method="post">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

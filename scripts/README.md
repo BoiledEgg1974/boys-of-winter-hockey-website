@@ -75,7 +75,10 @@ touch /var/www/www_bowlhockey_com_wsgi.py   # use your real WSGI path
 | `snapshot_ovr_baseline.py` | OVR baseline snapshot (STEP1 / STEP2 call this). |
 | `import_ap_catalog.py`, `verify_ap_catalog_sync.py`, `export_ap_catalog.py` | AP catalog maintenance. |
 | `import_all.cmd`, `import_*.cmd` | Windows shortcuts to set `LEAGUE_SLUG` and run `import_data.py`. |
-| `convert_trophy_history_sheet.py`, `convert_wide_all_stars_to_history_csv.py` | Spreadsheet → importer CSV helpers. |
-| `diagnose_stats.py`, `refresh_team_aggregates.py`, `backfill_skater_plus_minus.py`, … | One-off fixes and diagnostics. |
+| `convert_trophy_history_sheet.py` | Spreadsheet → importer CSV helper used by STEP3. |
+| `refresh_team_aggregates.py`, `backfill_skater_plus_minus.py` | Special fixes still wired into admin/CLI flows. |
 
 The **`import_pipeline/`** package is the core loader; do not remove it.
+
+Legacy one-off repairs and diagnostics live under **`archive/one_off/`**. They are kept for reference
+but are not part of the default update/deploy/runtime path.

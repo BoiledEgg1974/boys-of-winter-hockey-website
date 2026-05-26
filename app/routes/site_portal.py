@@ -5352,6 +5352,7 @@ def admin_ap_approve(rid: int):
         except Exception:
             line_items = []
         team = db.session.get(Team, req.team_id)
+        gm_user = db.session.get(User, int(req.user_id))
         body_parts = []
         if isinstance(line_items, list):
             from app.services.ap_redemption_forms import line_item_display_title
@@ -5391,7 +5392,7 @@ def admin_ap_approve(rid: int):
                 team_id=int(req.team_id),
                 total_cost=int(req.total_cost),
                 redemption_label=red_label,
-                gm_name=gm_discord_name(user),
+                gm_name=gm_discord_name(gm_user),
                 url=build_news_article_public_url(slug, art.id),
                 **team_fields_for_discord(team),
             ),

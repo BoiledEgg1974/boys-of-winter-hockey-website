@@ -5339,8 +5339,11 @@ def admin_ap_approve(rid: int):
     require_admin_role(ADMIN_ROLE_STATS, ADMIN_ROLE_LEAGUE)
     slug = _league_slug()
     req = db.session.get(ApRedemptionRequest, rid)
-    if not req or req.league_slug != slug or req.status != "pending":
+    if not req or req.league_slug != slug:
         abort(404)
+    if req.status != "pending":
+        flash(f"Request #{req.id} has already been {req.status}.", "warn")
+        return redirect(url_for("site_admin.admin_ap_requests"))
     pe = evaluate_points_economy_mutations_allowed(db.session, slug)
     if not pe.allowed:
         flash(pe.message, "err")
@@ -5413,8 +5416,11 @@ def admin_ap_deny(rid: int):
     require_admin_role(ADMIN_ROLE_STATS, ADMIN_ROLE_LEAGUE)
     slug = _league_slug()
     req = db.session.get(ApRedemptionRequest, rid)
-    if not req or req.league_slug != slug or req.status != "pending":
+    if not req or req.league_slug != slug:
         abort(404)
+    if req.status != "pending":
+        flash(f"Request #{req.id} has already been {req.status}.", "warn")
+        return redirect(url_for("site_admin.admin_ap_requests"))
     req.status = "denied"
     req.processed_at = datetime.utcnow()
     db.session.commit()

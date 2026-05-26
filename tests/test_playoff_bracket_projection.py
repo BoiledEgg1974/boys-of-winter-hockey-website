@@ -50,6 +50,11 @@ class PlayoffBracketProjectionTests(unittest.TestCase):
         current = SimpleNamespace(id=3, game_date=date(1969, 4, 5), game_type="Playoffs")
         self.assertEqual(_current_postseason_games([stale, regular, current]), [current])
 
+    def test_current_postseason_games_returns_empty_when_only_stale_playoffs_exist(self) -> None:
+        stale = SimpleNamespace(id=1, game_date=date(1999, 4, 12), game_type="Playoffs")
+        regular = SimpleNamespace(id=2, game_date=date(2000, 4, 5), game_type="Regular Season")
+        self.assertEqual(_current_postseason_games([stale, regular]), [])
+
     def test_mirror_round_uses_division_fallback_when_conference_missing(self) -> None:
         west_a = SimpleNamespace(fhm_conference_id=-1, fhm_division_id=1)
         west_b = SimpleNamespace(fhm_conference_id=-1, fhm_division_id=1)

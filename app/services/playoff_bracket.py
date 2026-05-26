@@ -175,7 +175,7 @@ def _current_postseason_games(games: list[Game]) -> list[Game]:
         for g in playoff
         if g.game_date is None or g.game_date > latest_regular_date
     ]
-    return current or playoff
+    return current
 
 
 def _playoff_window_has_started(playoff_games: list[Game]) -> bool:

@@ -27,101 +27,106 @@
       </div>
       <button type="button" class="nav-toggle" aria-expanded="false" aria-controls="main-nav">Menu</button>
       <nav id="main-nav" class="main-nav" aria-label="Primary">
-        <div class="main-nav__row" style="width:100%">
-          <a href="{{ url_for('main.standings') }}">Standings</a>
-          <a href="{{ url_for('main.playoffs_page') }}">Playoffs</a>
-          <a href="{{ url_for('main.statistics') }}">Statistics</a>
-          <a href="{{ url_for('main.schedule') }}">Schedule</a>
-          <span class="nav-teams-dropdown">
-            <a href="{{ url_for('main.teams_index') }}" class="nav-teams-dropdown__trigger">Teams</a>
-            <div class="nav-teams-dropdown__panel" role="group" aria-label="All teams">
-              {% set half = (nav_teams|length + 1) // 2 %}
-              <div class="nav-teams-dropdown__row">
-                {% for team in nav_teams[:half] %}
-                <a href="{{ url_for('main.team_page', slug=team.slug) }}" class="nav-teams-dropdown__logo-link" title="{{ team.name }}">
-                  <img class="nav-teams-dropdown__logo" src="{{ team_logo_url_for_season_context(team, header_team_logo_season) }}" alt="{{ team.name }} logo" width="36" height="36" loading="lazy" decoding="async">
-                </a>
-                {% endfor %}
+        <section class="main-nav__section main-nav__section--public" aria-labelledby="main-nav-public-label">
+          <span class="main-nav__section-label" id="main-nav-public-label">Public</span>
+          <div class="main-nav__row">
+            <a href="{{ url_for('main.standings') }}">Standings</a>
+            <a href="{{ url_for('main.playoffs_page') }}">Playoffs</a>
+            <a href="{{ url_for('main.statistics') }}">Statistics</a>
+            <a href="{{ url_for('main.schedule') }}">Schedule</a>
+            <span class="nav-teams-dropdown">
+              <a href="{{ url_for('main.teams_index') }}" class="nav-teams-dropdown__trigger">Teams</a>
+              <div class="nav-teams-dropdown__panel" role="group" aria-label="All teams">
+                {% set half = (nav_teams|length + 1) // 2 %}
+                <div class="nav-teams-dropdown__row">
+                  {% for team in nav_teams[:half] %}
+                  <a href="{{ url_for('main.team_page', slug=team.slug) }}" class="nav-teams-dropdown__logo-link" title="{{ team.name }}">
+                    <img class="nav-teams-dropdown__logo" src="{{ team_logo_url_for_season_context(team, header_team_logo_season) }}" alt="{{ team.name }} logo" width="36" height="36" loading="lazy" decoding="async">
+                  </a>
+                  {% endfor %}
+                </div>
+                {% if nav_teams[half:] %}
+                <div class="nav-teams-dropdown__row">
+                  {% for team in nav_teams[half:] %}
+                  <a href="{{ url_for('main.team_page', slug=team.slug) }}" class="nav-teams-dropdown__logo-link" title="{{ team.name }}">
+                    <img class="nav-teams-dropdown__logo" src="{{ team_logo_url_for_season_context(team, header_team_logo_season) }}" alt="{{ team.name }} logo" width="36" height="36" loading="lazy" decoding="async">
+                  </a>
+                  {% endfor %}
+                </div>
+                {% endif %}
               </div>
-              {% if nav_teams[half:] %}
-              <div class="nav-teams-dropdown__row">
-                {% for team in nav_teams[half:] %}
-                <a href="{{ url_for('main.team_page', slug=team.slug) }}" class="nav-teams-dropdown__logo-link" title="{{ team.name }}">
-                  <img class="nav-teams-dropdown__logo" src="{{ team_logo_url_for_season_context(team, header_team_logo_season) }}" alt="{{ team.name }} logo" width="36" height="36" loading="lazy" decoding="async">
-                </a>
-                {% endfor %}
-              </div>
-              {% endif %}
-            </div>
-          </span>
-          <a href="{{ url_for('main.prospects') }}">Prospects</a>
-          <span class="main-nav__pair">
-            <a href="{{ url_for('main.undrafted_prospects') }}">Undrafted Prospects</a>
-            <a href="{{ url_for('main.draft_eligible') }}">Draft Eligible</a>
-            <a href="{{ url_for('main.free_agents') }}">Free Agents</a>
-          </span>
-          <a href="{{ url_for('main.history') }}">League History</a>
-        </div>
-        <div class="main-nav__row" style="width:100%">
-          <a href="{{ url_for('main.hall_of_fame_page') }}">Hall of Fame</a>
-          <a href="{{ url_for('main.league_season_records') }}">Season Records</a>
-          <a href="{{ url_for('main.team_records_index') }}">Team Records</a>
-          <a href="{{ url_for('main.all_time_records') }}">All-Time Records</a>
-          <a href="{{ url_for('main.milestones') }}">Milestones</a>
-          <a href="{{ url_for('main.draft') }}">Draft History</a>
-          <a href="{{ url_for('draft_hub.draft_hub_page') }}">Draft Hub</a>
-          {% if gm_membership or site_has_admin %}
-          <a href="{{ url_for('expansion_draft_hub.expansion_draft_hub_page') }}">Expansion Draft</a>
-          {% endif %}
-          <a href="{{ url_for('main.league_headlines') }}">Headlines</a>
-          <a href="{{ url_for('main.trade_log_page') }}">Trade Log</a>
-        </div>
-      </nav>
-      <div class="header-tools">
-        <a class="header-tools__link" href="{{ url_for('site_gm.action_points_page') }}">AP</a>
-        {% if gm_membership or site_has_admin %}
-        <a class="header-tools__link" href="{{ url_for('site_gm.trade_tool') }}">Trade Tool</a>
-        <a class="header-tools__link" href="{{ url_for('site_gm.trade_market_page') }}">Trade Market</a>
-        <a class="header-tools__link" href="{{ url_for('site_gm.ai_trade_tool') }}">AI Trade Tool</a>
-        {% endif %}
-        {% if gm_membership or site_has_admin %}
-        <a class="header-tools__link" href="{{ url_for('site_gm.staff_salaries_page') }}">Staff Salaries</a>
-        <a class="header-tools__link" href="{{ url_for('site_gm.bowl_six_hub') }}">BOWL Six</a>
-        {% endif %}
-        {% if site_has_admin %}
-        {% if current_league_slug == 'bowl-fantasy' %}
-        <a class="header-tools__link" href="{{ url_for('site_gm.draft_lottery') }}">Draft Lottery</a>
-        {% endif %}
-        {% if current_league_slug in ('bowl-fantasy', 'bowl-cap', 'bowl-historical') %}
-        <a class="header-tools__link" href="{{ url_for('site_gm.boost_lottery') }}">Boost Lottery</a>
-        {% endif %}
-        {% endif %}
-        {% if gm_membership or site_has_admin %}
-        <a class="header-tools__link header-tools__link--messages" href="{{ url_for('site_gm.gm_messages_inbox') }}">Messages{% if gm_messages_unread %}<span class="header-tools__msg-badge" aria-label="{{ gm_messages_unread }} unread">{{ gm_messages_unread }}</span>{% endif %}</a>
-        {% endif %}
-        {% if current_user.is_authenticated %}
-        <span class="header-tools__user muted" title="{{ current_user.email }}">{{ current_user.username or current_user.email }}</span>
-        <a class="header-tools__link" href="/account">Account</a>
-        {% if site_has_admin %}
-        <a class="header-tools__link" href="{{ url_for('site_admin.admin_home') }}">Admin</a>
-        {% endif %}
-        <form class="header-tools__logout" method="post" action="/logout" style="display:inline;">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button type="submit" class="header-tools__link" style="background:none;border:none;cursor:pointer;padding:0;font:inherit;color:inherit;">Log out</button>
-        </form>
-        {% else %}
-        <a class="header-tools__link" href="/login?next={{ request.url | urlencode }}">GM Log In</a>
-        {% endif %}
-        <a class="join-league-btn" href="{{ url_for('main.join_league') }}">JOIN OUR LEAGUE!</a>
-        <form class="search-form" action="{{ url_for('main.search_page') }}" method="get" role="search" autocomplete="off">
-          <div style="position:relative;">
-            <input type="search" id="global-search" name="q" placeholder="Search players…" aria-label="Search players" autocomplete="off">
-            <div id="search-autocomplete" class="autocomplete-panel" role="listbox" aria-label="Search suggestions"></div>
+            </span>
+            <a href="{{ url_for('main.prospects') }}">Prospects</a>
+            <span class="main-nav__pair">
+              <a href="{{ url_for('main.undrafted_prospects') }}">Undrafted Prospects</a>
+              <a href="{{ url_for('main.draft_eligible') }}">Draft Eligible</a>
+              <a href="{{ url_for('main.free_agents') }}">Free Agents</a>
+            </span>
+            <a href="{{ url_for('main.history') }}">League History</a>
           </div>
-          <button type="submit">Go</button>
-        </form>
-        <button type="button" class="theme-toggle" aria-label="Toggle dark mode">&#9789;</button>
-      </div>
+          <div class="main-nav__row">
+            <a href="{{ url_for('main.hall_of_fame_page') }}">Hall of Fame</a>
+            <a href="{{ url_for('main.league_season_records') }}">Season Records</a>
+            <a href="{{ url_for('main.team_records_index') }}">Team Records</a>
+            <a href="{{ url_for('main.all_time_records') }}">All-Time Records</a>
+            <a href="{{ url_for('main.milestones') }}">Milestones</a>
+            <a href="{{ url_for('main.draft') }}">Draft History</a>
+            <a href="{{ url_for('draft_hub.draft_hub_page') }}">Draft Hub</a>
+            {% if gm_membership or site_has_admin %}
+            <a href="{{ url_for('expansion_draft_hub.expansion_draft_hub_page') }}">Expansion Draft</a>
+            {% endif %}
+            <a href="{{ url_for('main.league_headlines') }}">Headlines</a>
+            <a href="{{ url_for('main.trade_log_page') }}">Trade Log</a>
+          </div>
+        </section>
+        {% if gm_membership or site_has_admin %}
+        <section class="main-nav__section main-nav__section--private" aria-labelledby="main-nav-private-label">
+          <span class="main-nav__section-label" id="main-nav-private-label">GM / Admin</span>
+          <div class="header-tools header-tools--member">
+            <a class="header-tools__link" href="{{ url_for('site_gm.action_points_page') }}">AP</a>
+            <a class="header-tools__link" href="{{ url_for('site_gm.trade_tool') }}">Trade Tool</a>
+            <a class="header-tools__link" href="{{ url_for('site_gm.trade_market_page') }}">Trade Market</a>
+            <a class="header-tools__link" href="{{ url_for('site_gm.ai_trade_tool') }}">AI Trade Tool</a>
+            <a class="header-tools__link" href="{{ url_for('site_gm.staff_salaries_page') }}">Staff Salaries</a>
+            <a class="header-tools__link" href="{{ url_for('site_gm.bowl_six_hub') }}">BOWL Six</a>
+            {% if site_has_admin %}
+            {% if current_league_slug == 'bowl-fantasy' %}
+            <a class="header-tools__link" href="{{ url_for('site_gm.draft_lottery') }}">Draft Lottery</a>
+            {% endif %}
+            {% if current_league_slug in ('bowl-fantasy', 'bowl-cap', 'bowl-historical') %}
+            <a class="header-tools__link" href="{{ url_for('site_gm.boost_lottery') }}">Boost Lottery</a>
+            {% endif %}
+            <a class="header-tools__link header-tools__link--admin" href="{{ url_for('site_admin.admin_home') }}">Admin</a>
+            {% endif %}
+            <a class="header-tools__link header-tools__link--messages" href="{{ url_for('site_gm.gm_messages_inbox') }}">Messages{% if gm_messages_unread %}<span class="header-tools__msg-badge" aria-label="{{ gm_messages_unread }} unread">{{ gm_messages_unread }}</span>{% endif %}</a>
+          </div>
+        </section>
+        {% endif %}
+        <section class="main-nav__section main-nav__section--utility" aria-labelledby="main-nav-utility-label">
+          <span class="main-nav__section-label" id="main-nav-utility-label">Account</span>
+          <div class="header-tools header-tools--utility">
+            {% if current_user.is_authenticated %}
+            <span class="header-tools__user muted" title="{{ current_user.email }}">{{ current_user.username or current_user.email }}</span>
+            <a class="header-tools__link" href="/account">Account</a>
+            <form class="header-tools__logout" method="post" action="/logout" style="display:inline;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="header-tools__link" style="background:none;border:none;cursor:pointer;padding:0;font:inherit;color:inherit;">Log out</button>
+            </form>
+            {% else %}
+            <a class="header-tools__link" href="/login?next={{ request.url | urlencode }}">GM Log In</a>
+            {% endif %}
+            <a class="join-league-btn" href="{{ url_for('main.join_league') }}">JOIN OUR LEAGUE!</a>
+            <form class="search-form" action="{{ url_for('main.search_page') }}" method="get" role="search" autocomplete="off">
+              <div style="position:relative;">
+                <input type="search" id="global-search" name="q" placeholder="Search players…" aria-label="Search players" autocomplete="off">
+                <div id="search-autocomplete" class="autocomplete-panel" role="listbox" aria-label="Search suggestions"></div>
+              </div>
+              <button type="submit">Go</button>
+            </form>
+            <button type="button" class="theme-toggle" aria-label="Toggle dark mode">&#9789;</button>
+          </div>
+        </section>
+      </nav>
     </div>
   </header>
 

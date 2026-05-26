@@ -218,13 +218,43 @@ a:hover {
   flex-wrap: nowrap;
   justify-content: center;
   flex: 1;
-  gap: 0.15rem;
+  gap: 0.28rem;
+  min-width: 0;
+}
+.main-nav__section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.16rem;
+  min-width: 0;
+  width: 100%;
+}
+.main-nav__section--private,
+.main-nav__section--utility {
+  align-items: center;
+  padding: 0.16rem 0.35rem;
+  border-radius: 10px;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  background: rgb(255 255 255 / 0.045);
+}
+.main-nav__section--utility {
+  background: rgb(0 0 0 / 0.1);
+}
+.main-nav__section-label {
+  align-self: center;
+  color: var(--header-text);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  line-height: 1;
+  opacity: 0.64;
+  text-transform: uppercase;
 }
 .main-nav__row {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: 0.25rem;
+  width: 100%;
 }
 .main-nav__pair {
   display: inline-flex;
@@ -366,8 +396,16 @@ a:hover {
 .header-tools {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
   flex-wrap: wrap;
+  width: 100%;
+}
+.header-tools--member {
+  max-width: 72rem;
+}
+.header-tools--utility {
+  max-width: 64rem;
 }
 .join-league-btn {
   display: inline-flex;
@@ -7703,6 +7741,26 @@ table.data.team-depth-draft-picks-table td.team-depth-draft-picks-table__round {
   .main-nav.is-open {
     display: flex;
   }
+  .main-nav__section {
+    align-items: stretch;
+    gap: 0.32rem;
+    padding: 0.42rem 0;
+  }
+  .main-nav__section + .main-nav__section {
+    border-top: 1px solid rgb(255 255 255 / 0.12);
+  }
+  .main-nav__section--private,
+  .main-nav__section--utility {
+    padding: 0.55rem 0;
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+  .main-nav__section-label {
+    align-self: flex-start;
+    padding: 0 0.55rem;
+  }
   .main-nav__row {
     justify-content: flex-start;
     flex-wrap: nowrap;
@@ -7717,6 +7775,24 @@ table.data.team-depth-draft-picks-table td.team-depth-draft-picks-table__round {
   .main-nav a {
     font-size: 0.92rem;
     padding: 0.45rem 0.55rem;
+  }
+  .header-tools {
+    justify-content: flex-start;
+    gap: 0.38rem;
+  }
+  .header-tools__link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.2rem;
+    padding: 0.45rem 0.55rem;
+    border-radius: 6px;
+    background: rgb(255 255 255 / 0.06);
+  }
+  .header-tools--member .header-tools__link {
+    flex: 1 1 9.5rem;
+  }
+  .header-tools--utility {
+    align-items: stretch;
   }
   .nav-teams-dropdown {
     flex-direction: column;
@@ -7794,8 +7870,13 @@ table.data.team-depth-draft-picks-table td.team-depth-draft-picks-table__round {
   }
   .header-tools {
     width: 100%;
-    justify-content: space-between;
+    justify-content: flex-start;
     gap: 0.35rem;
+  }
+  .header-tools--member .header-tools__link,
+  .header-tools--utility .header-tools__link,
+  .header-tools__logout {
+    flex: 1 1 100%;
   }
   .join-league-btn {
     font-size: 0.7rem;

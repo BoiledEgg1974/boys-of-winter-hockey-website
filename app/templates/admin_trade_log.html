@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Manual Trade Log — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:58rem;margin:0 auto;">
+  <h1 class="page-title">Manual trade log</h1>
+  <p class="muted">Add historical trades from before the Trade Tool workflow. These appear on the public <a href="{{ url_for('main.trade_log_page') }}">Trade Log</a> with source <strong>Manual</strong>.</p>
+  <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
+
+  <form method="post" style="margin:0 0 1.25rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="create">
+    <div style="display:grid;gap:0.55rem;">
+      <label>Trade date (optional)
+        <input type="date" name="trade_date">
+      </label>
+      <label>Team A
+        <select name="team_a_id" required>
+          <option value="">— Select —</option>
+          {% for t in teams %}
+          <option value="{{ t.id }}">{{ t.full_display_name() }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Team B
+        <select name="team_b_id" required>
+          <option value="">— Select —</option>
+          {% for t in teams %}
+          <option value="{{ t.id }}">{{ t.full_display_name() }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Summary
+        <textarea name="summary" rows="5" maxlength="8000" required placeholder="Players/picks exchanged, notes…"></textarea>
+      </label>
+      <div>
+        <button type="submit" class="join-league-btn">Add entry</button>
+      </div>
+    </div>
+  </form>
+
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Teams</th>
+          <th>Summary</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in manual_rows %}
+        {% set ta = teams_by_id.get(e.team_a_id) %}
+        {% set tb = teams_by_id.get(e.team_b_id) %}
+        <tr>
+          <td>{{ e.trade_date.strftime('%Y-%m-%d') if e.trade_date else '—' }}</td>
+          <td>{{ ta.full_display_name() if ta else e.team_a_id }} ↔ {{ tb.full_display_name() if tb else e.team_b_id }}</td>
+          <td style="white-space:pre-wrap;max-width:28rem;">{{ e.summary }}</td>
+          <td>
+            <a href="{{ url_for('site_admin.admin_trade_log_edit', entry_id=e.id) }}">Edit</a>
+            <form method="post" action="{{ url_for('site_admin.admin_trade_log_delete', entry_id=e.id) }}" style="display:inline;margin-left:0.5rem;" onsubmit="return confirm('Delete this manual trade entry?');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="admin-news-body-btn">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="muted">No manual entries yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -9,6 +9,26 @@
   </header>
 
   <div class="ai-trade-tool-body">
+    {% if recent_trade_rows %}
+    <aside class="ai-trade-tool-recent card" aria-labelledby="ai-recent-trades-h">
+      <h2 id="ai-recent-trades-h" class="ai-trade-tool-recent__title">Recent league trades</h2>
+      <p class="muted ai-trade-tool-recent__sub">Context the bot may reference when you evaluate a hypothetical deal.</p>
+      <ul class="ai-trade-tool-recent__list">
+        {% for row in recent_trade_rows[:12] %}
+        <li class="ai-trade-tool-recent__item">
+          <div class="ai-trade-tool-recent__when muted">
+            {% if row.trade_date %}{{ row.trade_date.strftime('%Y-%m-%d') }}{% elif row.sort_at %}{{ row.sort_at.strftime('%Y-%m-%d') }}{% endif %}
+          </div>
+          <div class="ai-trade-tool-recent__teams">{{ row.team_a.full_display_name() if row.team_a else '?' }} ↔ {{ row.team_b.full_display_name() if row.team_b else '?' }}</div>
+          {% if row.body %}
+          <div class="ai-trade-tool-recent__body">{{ row.body[:180] }}{% if row.body|length > 180 %}…{% endif %}</div>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      <p class="link-more"><a href="{{ url_for('main.trade_log_page') }}">Full trade log</a></p>
+    </aside>
+    {% endif %}
     <div class="trade-tool-layout" id="ai-trade-tool-root"
          data-assets-url="{{ url_for('site_gm.trade_tool_assets') }}?ai=1"
          data-evaluate-url="{{ url_for('site_gm.ai_trade_tool_evaluate') }}"

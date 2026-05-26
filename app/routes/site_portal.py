@@ -27,7 +27,7 @@ from app.auth_login import (
 from app.config import Config, league_display_name, league_group_for_slug
 from app.logo_urls import team_logo_url_for_team
 from app.league_db import db
-from app.models import Player, PlayerContract, Prospect, Season, Team
+from app.models import Player, PlayerContract, Prospect, Season, Team, TradeLogEntry
 from app.services.ap_multileague import team_id_for_slug_in_league
 from app.services.all_time_records import bowl_nhl_league_ids
 from app.services.gm_messaging import (
@@ -139,7 +139,12 @@ from app.services.ap_service import (
 )
 from app.services.draft_pick_ownership import draft_pick_ownership_exists
 from app.services.discord_events import team_fields_for_discord
-from app.services.trade_ai_opinion import fetch_trade_ai_opinion
+from app.services.trade_ai_opinion import (
+    fetch_logged_trade_ai_opinion,
+    fetch_trade_ai_opinion,
+    recent_trades_prompt_block,
+)
+from app.services.trade_log import resolve_trade_log_row, trade_log_rows as build_trade_log_rows
 from app.services.trade_market import (
     BUYING_CATEGORIES,
     active_buying_rows,
@@ -1382,6 +1387,9 @@ def ai_trade_tool():
     my_team_logo_url = team_logo_url_for_team(my_team) if my_team else ""
     draft_round_cap = _ai_trade_draft_round_cap(db.session, slug)
     player_page_url_template = url_for("main.player_page", player_id=_TRADE_PLAYER_URL_PLACEHOLDER_ID)
+    recent_trade_rows = build_trade_log_rows(
+        db.session, db.session, league_slug=slug, limit=15
+    )
     return render_template(
         "ai_trade_tool.html",
         membership=mem,
@@ -1394,6 +1402,7 @@ def ai_trade_tool():
         gm_display_name=gm_display_name,
         draft_round_cap=draft_round_cap,
         player_page_url_template=player_page_url_template,
+        recent_trade_rows=recent_trade_rows,
     )
 
 
@@ -1450,6 +1459,9 @@ def ai_trade_tool_evaluate():
         return jsonify({"error": err}), 400
     from_team = db.session.get(Team, int(left_team_id))
     to_team = db.session.get(Team, int(partner_team_id))
+    recent_ctx = recent_trades_prompt_block(
+        build_trade_log_rows(db.session, db.session, league_slug=slug, limit=12)
+    )
     out = fetch_trade_ai_opinion(
         db.session,
         user_id=int(current_user.id),
@@ -1459,10 +1471,156 @@ def ai_trade_tool_evaluate():
         right=right_out,
         notes=notes,
         league_slug=slug,
+        recent_trades_context=recent_ctx,
     )
     if out.get("error"):
         return jsonify({"error": out["error"], "details": out.get("details") or ""}), 503
     return jsonify(out)
+
+
+@site_gm_bp.post("/operations/trade-log/ai-take")
+@login_required
+def trade_log_ai_take():
+    """Entertainment AI opinion on an existing trade-log row."""
+    from flask_wtf.csrf import validate_csrf
+
+    if not _trade_page_allowed(_membership()):
+        return jsonify({"error": "Trade log AI is for active GMs and league admins."}), 403
+    data = request.get_json(silent=True) or {}
+    try:
+        validate_csrf(data.get("csrf_token"))
+    except Exception:
+        return jsonify({"error": "Invalid or missing CSRF token."}), 400
+    source = str(data.get("source") or "").strip().lower()
+    try:
+        row_id = int(data.get("id"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "id required"}), 400
+    if source not in ("manual", "csv", "site") or row_id <= 0:
+        return jsonify({"error": "Invalid trade log reference."}), 400
+    slug = _league_slug()
+    row = resolve_trade_log_row(db.session, db.session, league_slug=slug, source=source, row_id=row_id)
+    if not row:
+        return jsonify({"error": "Trade not found."}), 404
+    out = fetch_logged_trade_ai_opinion(user_id=int(current_user.id), row=row)
+    if out.get("error"):
+        return jsonify({"error": out["error"], "details": out.get("details") or ""}), 503
+    return jsonify(out)
+
+
+def _parse_trade_log_date(raw: str | None) -> date | None:
+    s = (raw or "").strip()
+    if not s:
+        return None
+    try:
+        return date.fromisoformat(s)
+    except ValueError:
+        return None
+
+
+def _admin_trade_log_team_options() -> list[Team]:
+    return list(db.session.scalars(select(Team).order_by(Team.name)).all())
+
+
+@site_admin_bp.route("/trade-log", methods=["GET", "POST"])
+@login_required
+def admin_trade_log():
+    """Manual historical trade log entries (pre–Trade Tool workflow)."""
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    slug = _league_slug()
+    teams = _admin_trade_log_team_options()
+    if request.method == "POST":
+        action = (request.form.get("action") or "create").strip().lower()
+        if action == "create":
+            try:
+                team_a_id = int(request.form.get("team_a_id") or 0)
+                team_b_id = int(request.form.get("team_b_id") or 0)
+            except (TypeError, ValueError):
+                team_a_id = team_b_id = 0
+            summary = (request.form.get("summary") or "").strip()
+            trade_d = _parse_trade_log_date(request.form.get("trade_date"))
+            if not team_a_id or not team_b_id or team_a_id == team_b_id:
+                flash("Choose two different teams.", "err")
+            elif not summary:
+                flash("Summary is required.", "err")
+            else:
+                ent = TradeLogEntry(
+                    trade_date=trade_d,
+                    team_a_id=team_a_id,
+                    team_b_id=team_b_id,
+                    summary=summary[:8000],
+                    source="manual",
+                    external_id=None,
+                )
+                db.session.add(ent)
+                db.session.commit()
+                flash("Manual trade log entry added.", "ok")
+                return redirect(url_for("site_admin.admin_trade_log"))
+        return redirect(url_for("site_admin.admin_trade_log"))
+
+    manual_rows = list(
+        db.session.scalars(
+            select(TradeLogEntry)
+            .where(TradeLogEntry.source == "manual")
+            .order_by(TradeLogEntry.trade_date.desc().nulls_last(), TradeLogEntry.id.desc())
+            .limit(200)
+        ).all()
+    )
+    teams_by_id = {int(t.id): t for t in teams}
+    return render_template(
+        "admin_trade_log.html",
+        manual_rows=manual_rows,
+        teams=teams,
+        teams_by_id=teams_by_id,
+    )
+
+
+@site_admin_bp.route("/trade-log/<int:entry_id>/edit", methods=["GET", "POST"])
+@login_required
+def admin_trade_log_edit(entry_id: int):
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    ent = db.session.get(TradeLogEntry, entry_id)
+    if not ent or (ent.source or "").strip().lower() != "manual":
+        abort(404)
+    teams = _admin_trade_log_team_options()
+    if request.method == "POST":
+        try:
+            team_a_id = int(request.form.get("team_a_id") or 0)
+            team_b_id = int(request.form.get("team_b_id") or 0)
+        except (TypeError, ValueError):
+            team_a_id = team_b_id = 0
+        summary = (request.form.get("summary") or "").strip()
+        trade_d = _parse_trade_log_date(request.form.get("trade_date"))
+        if not team_a_id or not team_b_id or team_a_id == team_b_id:
+            flash("Choose two different teams.", "err")
+        elif not summary:
+            flash("Summary is required.", "err")
+        else:
+            ent.trade_date = trade_d
+            ent.team_a_id = team_a_id
+            ent.team_b_id = team_b_id
+            ent.summary = summary[:8000]
+            db.session.commit()
+            flash("Trade log entry updated.", "ok")
+            return redirect(url_for("site_admin.admin_trade_log"))
+    return render_template(
+        "admin_trade_log_edit.html",
+        entry=ent,
+        teams=teams,
+    )
+
+
+@site_admin_bp.post("/trade-log/<int:entry_id>/delete")
+@login_required
+def admin_trade_log_delete(entry_id: int):
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    ent = db.session.get(TradeLogEntry, entry_id)
+    if not ent or (ent.source or "").strip().lower() != "manual":
+        abort(404)
+    db.session.delete(ent)
+    db.session.commit()
+    flash("Manual trade log entry deleted.", "ok")
+    return redirect(url_for("site_admin.admin_trade_log"))
 
 
 def _normalize_hex_color(raw: str | None) -> str | None:

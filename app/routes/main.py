@@ -11,6 +11,7 @@ from email.message import EmailMessage
 from pathlib import Path
 from flask import Blueprint, abort, current_app, render_template, request, url_for
 from flask_login import current_user
+from flask_wtf.csrf import generate_csrf
 from sqlalchemy import case, cast, extract, Float, func, not_, nulls_last, or_, select
 from sqlalchemy.orm import joinedload, selectinload
 
@@ -39,7 +40,6 @@ from app.models import (
     Team,
     TeamSeasonAggregate,
     TeamStanding,
-    TradeLogEntry,
     db,
 )
 from app.services.ap_service import team_ap_balance as compute_team_ap_balance
@@ -414,10 +414,16 @@ def league_headlines():
     from app.services.news_engagement import engagement_bundle_for_articles, viewer_can_react_on_news
     from app.site_models import NewsArticle, User
 
+    from app.services.news_retention import published_news_age_filter
+
     slug = str(current_app.config.get("LEAGUE_SLUG") or "")
     rows = db.session.scalars(
         select(NewsArticle)
-        .where(NewsArticle.league_slug == slug, NewsArticle.status == "published")
+        .where(
+            NewsArticle.league_slug == slug,
+            NewsArticle.status == "published",
+            published_news_age_filter(NewsArticle),
+        )
         .order_by(NewsArticle.published_at.desc().nulls_last(), NewsArticle.id.desc())
         .limit(100)
     ).all()
@@ -704,16 +710,23 @@ def standings():
 
 @main_bp.get("/trade-log")
 def trade_log_page():
-    """Published commissioner trades and optional ``trades.csv`` import history."""
+    """Trade Tool publications and admin-entered manual trade history."""
+    from app.auth_login import active_membership_for_league, has_admin_role
+    from app.services.trade_log import trade_log_source_label
+
     slug = str(current_app.config.get("LEAGUE_SLUG") or "")
     rows = build_trade_log_rows(db.session, db.session, league_slug=slug)
-    has_csv = bool(
-        db.session.scalar(select(func.count()).select_from(TradeLogEntry)) or 0
-    )
+    viewer = current_user if getattr(current_user, "is_authenticated", False) else None
+    mem = active_membership_for_league(viewer, slug) if viewer else None
+    can_trade_ai = mem is not None or (viewer is not None and has_admin_role(viewer))
+    trade_log_ai_url = url_for("site_gm.trade_log_ai_take") if can_trade_ai else ""
     return render_template(
         "trade_log.html",
         trade_rows=rows,
-        has_csv_import=has_csv,
+        trade_log_source_label=trade_log_source_label,
+        can_trade_ai=can_trade_ai,
+        trade_log_ai_url=trade_log_ai_url,
+        trade_log_csrf=generate_csrf() if can_trade_ai else "",
     )
 
 
@@ -3493,6 +3506,8 @@ def _team_page_news_rows(team_id: int) -> list[dict[str, object]]:
     from app.services.news_engagement import engagement_bundle_for_articles
     from app.site_models import NewsArticle, User
 
+    from app.services.news_retention import published_news_age_filter
+
     slug = str(current_app.config.get("LEAGUE_SLUG") or "")
     if not slug:
         return []
@@ -3502,6 +3517,7 @@ def _team_page_news_rows(team_id: int) -> list[dict[str, object]]:
             NewsArticle.league_slug == slug,
             NewsArticle.status == "published",
             NewsArticle.team_id == team_id,
+            published_news_age_filter(NewsArticle),
         )
         .order_by(NewsArticle.published_at.desc().nulls_last(), NewsArticle.id.desc())
         .limit(5)

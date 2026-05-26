@@ -1016,10 +1016,16 @@ def build_around_the_league(
     from app.services.news_engagement import engagement_bundle_for_articles, viewer_can_react_on_news
     from app.site_models import NewsArticle, User
 
+    from app.services.news_retention import published_news_age_filter
+
     slug = str(current_app.config.get("LEAGUE_SLUG") or "")
     rows = db.session.scalars(
         select(NewsArticle)
-        .where(NewsArticle.league_slug == slug, NewsArticle.status == "published")
+        .where(
+            NewsArticle.league_slug == slug,
+            NewsArticle.status == "published",
+            published_news_age_filter(NewsArticle),
+        )
         .order_by(NewsArticle.published_at.desc().nulls_last(), NewsArticle.id.desc())
         .limit(5)
     ).all()

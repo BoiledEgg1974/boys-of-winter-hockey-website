@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Edit Trade Log Entry — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:40rem;margin:0 auto;">
+  <h1 class="page-title">Edit manual trade</h1>
+  <p><a href="{{ url_for('site_admin.admin_trade_log') }}">← Manual trade log</a></p>
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div style="display:grid;gap:0.55rem;">
+      <label>Trade date (optional)
+        <input type="date" name="trade_date" value="{{ entry.trade_date.isoformat() if entry.trade_date else '' }}">
+      </label>
+      <label>Team A
+        <select name="team_a_id" required>
+          {% for t in teams %}
+          <option value="{{ t.id }}" {% if t.id == entry.team_a_id %}selected{% endif %}>{{ t.full_display_name() }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Team B
+        <select name="team_b_id" required>
+          {% for t in teams %}
+          <option value="{{ t.id }}" {% if t.id == entry.team_b_id %}selected{% endif %}>{{ t.full_display_name() }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Summary
+        <textarea name="summary" rows="6" maxlength="8000" required>{{ entry.summary }}</textarea>
+      </label>
+      <div>
+        <button type="submit" class="join-league-btn">Save</button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

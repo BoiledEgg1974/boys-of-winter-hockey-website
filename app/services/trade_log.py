@@ -1,4 +1,4 @@
-"""Trade log: optional CSV import plus published site transaction articles."""
+"""Trade log: Trade Tool publications plus admin-entered historical trades."""
 from __future__ import annotations
 
 import re
@@ -26,6 +26,107 @@ class TradeLogRow:
     body: str
     source: str
     article_id: int | None = None
+    entry_id: int | None = None
+    log_key: str = ""
+
+
+def trade_log_source_label(source: str) -> str:
+    """Human label for trade log provenance."""
+    s = (source or "").strip().lower()
+    if s == "manual":
+        return "Manual"
+    if s == "csv":
+        return "CSV import"
+    if s == "site":
+        return "Trade Tool"
+    return (source or "Unknown").strip() or "Unknown"
+
+
+def trade_log_row_key(*, source: str, entry_id: int | None = None, article_id: int | None = None) -> str:
+    s = (source or "").strip().lower()
+    if s == "site" and article_id:
+        return f"site:{int(article_id)}"
+    if entry_id is not None:
+        return f"{s}:{int(entry_id)}"
+    return ""
+
+
+def format_recent_trades_for_prompt(rows: list[TradeLogRow], *, limit: int = 12) -> str:
+    """Condensed recent-trade block for hypothetical AI prompts."""
+    cap = max(1, min(30, int(limit)))
+    lines = ["Recent league trades (newest first, for pattern context only):"]
+    for row in rows[:cap]:
+        when = ""
+        if row.trade_date:
+            when = row.trade_date.isoformat()
+        elif row.sort_at and row.sort_at != datetime.min:
+            when = row.sort_at.strftime("%Y-%m-%d")
+        ta = row.team_a.full_display_name() if row.team_a else "?"
+        tb = row.team_b.full_display_name() if row.team_b else "?"
+        body = (row.body or "").strip().replace("\n", " ")[:240]
+        src = trade_log_source_label(row.source)
+        lines.append(f"  • [{src}] {when} — {ta} ↔ {tb}: {body or row.title}")
+    if len(lines) == 1:
+        lines.append("  • (none on record)")
+    return "\n".join(lines)
+
+
+def resolve_trade_log_row(
+    league_session: Session,
+    site_session: Session,
+    *,
+    league_slug: str,
+    source: str,
+    row_id: int,
+) -> TradeLogRow | None:
+    """Resolve a trade-log row by ``source`` + id (``entry_id`` or ``article_id``)."""
+    src = (source or "").strip().lower()
+    rid = int(row_id)
+    if src == "manual":
+        ent = league_session.get(TradeLogEntry, rid)
+        if not ent or (ent.source or "").strip().lower() != src:
+            return None
+        ta = league_session.get(Team, ent.team_a_id)
+        tb = league_session.get(Team, ent.team_b_id)
+        sort_at = datetime.combine(ent.trade_date, datetime.min.time()) if ent.trade_date else datetime.min
+        title = (
+            f"Trade: {ta.full_display_name() if ta else ent.team_a_id} "
+            f"↔ {tb.full_display_name() if tb else ent.team_b_id}"
+        )
+        return TradeLogRow(
+            sort_at=sort_at,
+            trade_date=ent.trade_date,
+            team_a=ta,
+            team_b=tb,
+            title=title,
+            body=(ent.summary or "").strip(),
+            source=src,
+            entry_id=int(ent.id),
+            log_key=trade_log_row_key(source=src, entry_id=int(ent.id)),
+        )
+    if src == "site":
+        art = site_session.get(NewsArticle, rid)
+        if not art or art.league_slug != league_slug or art.status != "published":
+            return None
+        if (art.category or "").strip().lower() != "transactions":
+            return None
+        if not _TRADE_TITLE_RE.match((art.title or "").strip()):
+            return None
+        ta, tb = _teams_from_trade_title(league_session, art.title)
+        sort_at = art.published_at or art.created_at or datetime.min
+        trade_d = sort_at.date() if isinstance(sort_at, datetime) else None
+        return TradeLogRow(
+            sort_at=sort_at if isinstance(sort_at, datetime) else datetime.min,
+            trade_date=trade_d,
+            team_a=ta,
+            team_b=tb,
+            title=art.title,
+            body=(art.body or "").strip(),
+            source="site",
+            article_id=int(art.id),
+            log_key=trade_log_row_key(source="site", article_id=int(art.id)),
+        )
+    return None
 
 
 def _team_by_display_label(session: Session, label: str, teams: list[Team]) -> Team | None:
@@ -62,6 +163,10 @@ def _dedupe_site_transaction_articles(articles: list[NewsArticle]) -> list[NewsA
     seen: set[tuple[str, str | None, str]] = set()
     out: list[NewsArticle] = []
     for a in articles:
+        # Only Trade Tool articles use the canonical "Trade: Team ↔ Team" headline.
+        # Other transaction news, such as waivers, belongs in league headlines only.
+        if not _TRADE_TITLE_RE.match((a.title or "").strip()):
+            continue
         pub = a.published_at.isoformat() if a.published_at else ""
         key = (a.title, pub, (a.body or "").strip())
         if key in seen:
@@ -87,11 +192,11 @@ def trade_log_rows(
     team_id: int | None = None,
     limit: int = 200,
 ) -> list[TradeLogRow]:
-    """Merged trade history newest first."""
+    """Trade Tool history plus manual admin entries, newest first."""
     rows: list[TradeLogRow] = []
 
     for ent in league_session.scalars(
-        select(TradeLogEntry).order_by(
+        select(TradeLogEntry).where(TradeLogEntry.source == "manual").order_by(
             TradeLogEntry.trade_date.desc().nulls_last(), TradeLogEntry.id.desc()
         )
     ).all():
@@ -102,6 +207,7 @@ def trade_log_rows(
             f"Trade: {ta.full_display_name() if ta else ent.team_a_id} "
             f"↔ {tb.full_display_name() if tb else ent.team_b_id}"
         )
+        src = (ent.source or "csv").strip().lower() or "csv"
         row = TradeLogRow(
             sort_at=sort_at,
             trade_date=ent.trade_date,
@@ -109,7 +215,9 @@ def trade_log_rows(
             team_b=tb,
             title=title,
             body=(ent.summary or "").strip(),
-            source=ent.source or "csv",
+            source=src,
+            entry_id=int(ent.id),
+            log_key=trade_log_row_key(source=src, entry_id=int(ent.id)),
         )
         if team_id is None or _row_involves_team(row, team_id):
             rows.append(row)
@@ -138,6 +246,7 @@ def trade_log_rows(
                 body=(a.body or "").strip(),
                 source="site",
                 article_id=int(a.id),
+                log_key=trade_log_row_key(source="site", article_id=int(a.id)),
             )
             if team_id is None or _row_involves_team(row, team_id):
                 rows.append(row)

@@ -1,33 +1,122 @@
 {% extends "base.html" %}
+
 {% block title %}Trade Log — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+
 {% macro team_label(t) -%}
+
 {% if t %}
+
   {% if t.slug %}<a href="{{ url_for('main.team_page', slug=t.slug) }}">{{ t.full_display_name() }}</a>{% else %}{{ t.full_display_name() }}{% endif %}
+
 {% else %}
+
   —
+
 {% endif %}
+
 {%- endmacro %}
+
 {% block content %}
-<div class="page" style="max-width:46rem;margin:0 auto;">
+
+<div class="page trade-log-page" style="max-width:46rem;margin:0 auto;"
+
+     {% if can_trade_ai %}id="trade-log-root" data-ai-url="{{ trade_log_ai_url }}" data-csrf="{{ trade_log_csrf }}"{% endif %}>
+
   <h1 class="page-title">Trade Log</h1>
+
   <p class="muted">
-    League-approved trades published on this site{% if has_csv_import %} and trades imported from <code>trades.csv</code>{% endif %}.
+
+    League-approved trades submitted through the Trade Tool and manual historical entries added by admins.
+
     Roster changes still follow FHM save exports.
+
   </p>
+
+  {% if can_trade_ai %}
+
+  <p class="muted trade-log-ai-hint">GMs and admins can ask the entertainment bot for a take on any deal below.</p>
+
+  {% endif %}
+
   {% for row in trade_rows %}
-  <article class="card" style="padding:1rem;margin-bottom:1rem;">
+
+  <article class="card trade-log-card" style="padding:1rem;margin-bottom:1rem;"
+
+           {% if can_trade_ai %}data-source="{{ row.source }}" data-row-id="{{ row.article_id if row.source == 'site' else row.entry_id }}"{% endif %}>
+
     <h2 style="margin-top:0;font-size:1.1rem;">{{ row.title }}</h2>
-    <p class="muted">
+
+    <p class="muted trade-log-card__meta">
+
       {% if row.trade_date %}{{ row.trade_date.strftime('%Y-%m-%d') }}{% elif row.sort_at %}{{ row.sort_at.strftime('%Y-%m-%d %H:%M') }}{% endif %}
+
       · {{ team_label(row.team_a) }} ↔ {{ team_label(row.team_b) }}
-      {% if row.source == 'site' %}<span class="news-category-pill">Site</span>{% endif %}
+
+      <span class="news-category-pill">{{ trade_log_source_label(row.source) }}</span>
+
     </p>
+
     {% if row.body %}
+
     <div style="white-space:pre-wrap;">{{ row.body | linkify_news_body }}</div>
+
     {% endif %}
+
+    {% if can_trade_ai and (row.entry_id or row.article_id) %}
+
+    <p class="trade-log-card__actions">
+
+      <button type="button" class="trade-log-ai-btn admin-news-body-btn" data-trade-ai>Get AI take</button>
+
+    </p>
+
+    {% endif %}
+
   </article>
+
   {% else %}
-  <p class="empty-state">No trades recorded yet. Approved GM trades appear here after the commissioner publishes them.</p>
+
+  <p class="empty-state">No trades recorded yet. Approved Trade Tool deals and admin-added manual entries appear here.</p>
+
   {% endfor %}
+
 </div>
+
+{% if can_trade_ai %}
+
+<dialog class="ai-trade-tool-dialog trade-log-ai-dialog" id="trade-log-ai-dialog" aria-labelledby="trade-log-ai-heading">
+
+  <div class="ai-trade-tool-dialog__inner">
+
+    <header class="ai-trade-tool-dialog__header">
+
+      <h2 id="trade-log-ai-heading" class="ai-trade-tool-dialog__title">Trade analyst bot</h2>
+
+      <button type="button" class="ai-trade-tool-dialog__close" id="trade-log-ai-close" aria-label="Close">×</button>
+
+    </header>
+
+    <div class="ai-trade-tool-bubble ai-trade-tool-bubble--dialog" id="trade-log-ai-bubble" aria-live="polite">
+
+      <p class="ai-trade-tool-bubble__verdict" id="trade-log-ai-verdict" hidden></p>
+
+      <p class="ai-trade-tool-bubble__opinion" id="trade-log-ai-opinion"></p>
+
+      <ul class="ai-trade-tool-bubble__suggestions" id="trade-log-ai-suggestions" hidden></ul>
+
+      <p class="muted ai-trade-tool-bubble__hint" id="trade-log-ai-placeholder">Entertainment only — not league office approval.</p>
+
+      <p class="ai-trade-tool-bubble__loading" id="trade-log-ai-loading" hidden>Thinking…</p>
+
+    </div>
+
+  </div>
+
+</dialog>
+
+<script src="{{ url_for('static', filename='js/trade_log.js') }}" defer></script>
+
+{% endif %}
+
 {% endblock %}
+

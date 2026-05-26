@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.models import Player, Team
 from app.services.player_overall_score import compute_player_overall_100, player_is_goalie_for_overall
 from app.services.player_ratings_csv import get_player_ratings_row
+from app.services.trade_log import TradeLogRow, format_recent_trades_for_prompt, trade_log_source_label
 from app.services.trade_tool import describe_drag_key, format_ledger_summary
 
 _LAST_CALL_BY_USER: dict[int, float] = {}
@@ -56,6 +57,7 @@ def build_trade_prompt_block(
     notes: str,
     *,
     league_slug: str = "",
+    recent_trades_context: str = "",
 ) -> str:
     base = format_ledger_summary(
         session, from_team, to_team, left, right, league_slug=league_slug
@@ -91,29 +93,46 @@ def build_trade_prompt_block(
     notes = (notes or "").strip()
     if notes:
         extras.extend(["", "GM notes (flavor only):", notes[:2000]])
-    return base + "\n".join(extras)
+    out = base + "\n".join(extras)
+    ctx = (recent_trades_context or "").strip()
+    if ctx:
+        out += "\n\n" + ctx
+    return out
 
 
-def _strip_json_fence(raw: str) -> str:
-    s = (raw or "").strip()
-    if s.startswith("```"):
-        s = re.sub(r"^```[a-zA-Z]*\s*", "", s)
-        s = re.sub(r"\s*```$", "", s)
-    return s.strip()
+def build_logged_trade_prompt_block(row: TradeLogRow) -> str:
+    """Prompt body for an existing trade-log row (not a hypothetical ledger)."""
+    when = ""
+    if row.trade_date:
+        when = row.trade_date.isoformat()
+    elif row.sort_at and row.sort_at.year > 1970:
+        when = row.sort_at.strftime("%Y-%m-%d")
+    ta = row.team_a.full_display_name() if row.team_a else "?"
+    tb = row.team_b.full_display_name() if row.team_b else "?"
+    src = trade_log_source_label(row.source)
+    lines = [
+        f"Logged trade ({src})",
+        f"Date: {when or 'unknown'}",
+        f"Teams: {ta} ↔ {tb}",
+        f"Headline: {row.title}",
+    ]
+    body = (row.body or "").strip()
+    if body:
+        lines.extend(["", "Summary / details:", body[:4000]])
+    return "\n".join(lines)
 
 
-def fetch_trade_ai_opinion(
-    session: Session,
+def recent_trades_prompt_block(rows: list[TradeLogRow], *, limit: int = 12) -> str:
+    return format_recent_trades_for_prompt(rows, limit=limit)
+
+
+def _openai_trade_json_response(
     *,
     user_id: int,
-    from_team: Team | None,
-    to_team: Team | None,
-    left: list[str],
-    right: list[str],
-    notes: str,
-    league_slug: str = "",
+    system: str,
+    user_msg: str,
 ) -> dict[str, Any]:
-    """Return dict: verdict, opinion, suggestions (list[str]), fallback (bool)."""
+    """Shared OpenAI JSON call with rate limiting; returns parsed opinion or error dict."""
     now = time.time()
     last = _LAST_CALL_BY_USER.get(user_id, 0.0)
     if now - last < _MIN_INTERVAL_SEC:
@@ -136,23 +155,6 @@ def fetch_trade_ai_opinion(
             details=f"Model in use: {model}. Set OPENAI_API_KEY in .env and restart the app.",
         )
 
-    block = build_trade_prompt_block(
-        session, from_team, to_team, left, right, notes, league_slug=league_slug
-    )
-
-    system = (
-        "You are a witty, knowledgeable hockey armchair GM bot on a fantasy/sim league website. "
-        "Your job is ENTERTAINMENT ONLY: never claim official league approval, salary cap legality, "
-        "or real-world trade acceptance. Keep it clever and fun—short metaphors, light chirps, no slurs, "
-        "no harassment. Output STRICT JSON with keys: "
-        'verdict (short punchy headline, under 80 chars), '
-        'opinion (2-4 sentences, plain text, no HTML), '
-        'suggestions (array of 2-4 short strings: concrete ideas to balance the deal, still entertainment).'
-    )
-    user_msg = (
-        "Here is a hypothetical trade scenario. Give your spicy-but-good-natured read and how to even it up.\n\n"
-        f"{block}"
-    )
     payload = {
         "model": model,
         "messages": [
@@ -226,3 +228,76 @@ def fetch_trade_ai_opinion(
         "opinion": opinion,
         "suggestions": suggestions,
     }
+
+
+def _strip_json_fence(raw: str) -> str:
+    s = (raw or "").strip()
+    if s.startswith("```"):
+        s = re.sub(r"^```[a-zA-Z]*\s*", "", s)
+        s = re.sub(r"\s*```$", "", s)
+    return s.strip()
+
+
+def fetch_trade_ai_opinion(
+    session: Session,
+    *,
+    user_id: int,
+    from_team: Team | None,
+    to_team: Team | None,
+    left: list[str],
+    right: list[str],
+    notes: str,
+    league_slug: str = "",
+    recent_trades_context: str = "",
+) -> dict[str, Any]:
+    """Return dict: verdict, opinion, suggestions (list[str]), fallback (bool)."""
+    block = build_trade_prompt_block(
+        session,
+        from_team,
+        to_team,
+        left,
+        right,
+        notes,
+        league_slug=league_slug,
+        recent_trades_context=recent_trades_context,
+    )
+
+    system = (
+        "You are a witty, knowledgeable hockey armchair GM bot on a fantasy/sim league website. "
+        "Your job is ENTERTAINMENT ONLY: never claim official league approval, salary cap legality, "
+        "or real-world trade acceptance. Keep it clever and fun—short metaphors, light chirps, no slurs, "
+        "no harassment. Output STRICT JSON with keys: "
+        'verdict (short punchy headline, under 80 chars), '
+        'opinion (2-4 sentences, plain text, no HTML), '
+        'suggestions (array of 2-4 short strings: concrete ideas to balance the deal, still entertainment).'
+    )
+    user_msg = (
+        "Here is a hypothetical trade scenario. Give your spicy-but-good-natured read and how to even it up. "
+        "If recent league trades are listed, you may reference patterns—but judge only this scenario.\n\n"
+        f"{block}"
+    )
+    return _openai_trade_json_response(user_id=user_id, system=system, user_msg=user_msg)
+
+
+def fetch_logged_trade_ai_opinion(
+    *,
+    user_id: int,
+    row: TradeLogRow,
+) -> dict[str, Any]:
+    """AI take on a completed trade already in the league trade log."""
+    block = build_logged_trade_prompt_block(row)
+    system = (
+        "You are a witty hockey armchair GM bot on a fantasy/sim league website. "
+        "This trade ALREADY HAPPENED in the league log—your job is ENTERTAINMENT ONLY: "
+        "react to whether it looks lopsided, fun, or sneaky-good in hindsight. "
+        "Never claim official league approval or retroactive veto power. "
+        "Output STRICT JSON with keys: "
+        'verdict (short punchy headline, under 80 chars), '
+        'opinion (2-4 sentences, plain text, no HTML), '
+        'suggestions (array of 1-3 short strings: what each side might chase next, still entertainment).'
+    )
+    user_msg = (
+        "Here is a completed trade from the league trade log. Give your spicy-but-good-natured hindsight take.\n\n"
+        f"{block}"
+    )
+    return _openai_trade_json_response(user_id=user_id, system=system, user_msg=user_msg)

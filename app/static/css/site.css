@@ -14619,7 +14619,9 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   max-width: 1400px;
 }
 .ai-trade-tool-body {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 .ai-trade-tool-body .trade-tool-layout {
   width: 100%;
@@ -14797,6 +14799,64 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   margin: 0;
   font-style: italic;
   color: #94a3b8;
+}
+.ai-trade-tool-recent {
+  padding: 1rem 1.1rem;
+  max-width: 100%;
+}
+.ai-trade-tool-recent__title {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+}
+.ai-trade-tool-recent__sub {
+  margin: 0 0 0.75rem;
+  font-size: 0.88rem;
+}
+.ai-trade-tool-recent__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.65rem;
+  max-height: 14rem;
+  overflow-y: auto;
+}
+.ai-trade-tool-recent__item {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 0.55rem;
+}
+.ai-trade-tool-recent__item:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+.ai-trade-tool-recent__teams {
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+.ai-trade-tool-recent__body {
+  font-size: 0.85rem;
+  margin-top: 0.2rem;
+  opacity: 0.9;
+}
+@media (min-width: 1100px) {
+  .ai-trade-tool-body {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+  .ai-trade-tool-recent {
+    flex: 0 0 16rem;
+    max-width: 16rem;
+  }
+  .ai-trade-tool-body > .trade-tool-layout {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+.trade-log-card__actions {
+  margin: 0.75rem 0 0;
+}
+.trade-log-ai-hint {
+  font-size: 0.88rem;
 }
 .ai-trade-tool-official a {
   font-weight: 600;

@@ -76,6 +76,19 @@ def create_app(config_class: type = Config) -> Flask:
             session.permanent = True
             session.modified = True
 
+    @app.before_request
+    def _maybe_purge_old_published_news():
+        from flask import request
+
+        if request.endpoint == "static":
+            return
+        slug = str(app.config.get("LEAGUE_SLUG") or "").strip()
+        if not slug:
+            return
+        from app.services.news_retention import maybe_purge_old_published_news
+
+        maybe_purge_old_published_news(db.session, league_slug=slug)
+
     site_uri = app.config.get("SITE_SQLALCHEMY_DATABASE_URI")
     if site_uri:
         binds = dict(app.config.get("SQLALCHEMY_BINDS") or {})

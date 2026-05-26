@@ -29,8 +29,11 @@
           {% endfor %}
         </select>
       </label>
-      <label>Summary
-        <textarea name="summary" rows="5" maxlength="8000" required placeholder="Players/picks exchanged, notes…"></textarea>
+      <label>Leaving Team A
+        <textarea name="team_a_outgoing" rows="4" maxlength="4000" required placeholder="Players/picks leaving Team A…"></textarea>
+      </label>
+      <label>Leaving Team B
+        <textarea name="team_b_outgoing" rows="4" maxlength="4000" required placeholder="Players/picks leaving Team B…"></textarea>
       </label>
       <div>
         <button type="submit" class="join-league-btn">Add entry</button>
@@ -44,7 +47,8 @@
         <tr>
           <th>Date</th>
           <th>Teams</th>
-          <th>Summary</th>
+          <th>Team A sent</th>
+          <th>Team B sent</th>
           <th></th>
         </tr>
       </thead>
@@ -52,10 +56,12 @@
         {% for e in manual_rows %}
         {% set ta = teams_by_id.get(e.team_a_id) %}
         {% set tb = teams_by_id.get(e.team_b_id) %}
+        {% set parts = manual_trade_summary_parts(e.summary) %}
         <tr>
           <td>{{ e.trade_date.strftime('%Y-%m-%d') if e.trade_date else '—' }}</td>
           <td>{{ ta.full_display_name() if ta else e.team_a_id }} ↔ {{ tb.full_display_name() if tb else e.team_b_id }}</td>
-          <td style="white-space:pre-wrap;max-width:28rem;">{{ e.summary }}</td>
+          <td style="white-space:pre-wrap;max-width:20rem;">{{ parts[0] }}</td>
+          <td style="white-space:pre-wrap;max-width:20rem;">{{ parts[1] }}</td>
           <td>
             <a href="{{ url_for('site_admin.admin_trade_log_edit', entry_id=e.id) }}">Edit</a>
             <form method="post" action="{{ url_for('site_admin.admin_trade_log_delete', entry_id=e.id) }}" style="display:inline;margin-left:0.5rem;" onsubmit="return confirm('Delete this manual trade entry?');">
@@ -65,7 +71,7 @@
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="4" class="muted">No manual entries yet.</td></tr>
+        <tr><td colspan="5" class="muted">No manual entries yet.</td></tr>
         {% endfor %}
       </tbody>
     </table>

@@ -934,6 +934,11 @@ table.data tbody tr.standings-cutline td {
 .bracket-visual-wrap {
   margin: 0;
 }
+
+/* Dedicated Playoffs page spacing (keep using shared bracket styles). */
+.playoffs-page .bracket-visual-wrap {
+  margin-top: 0.85rem;
+}
 .bracket-visual:not(.bracket-visual--mirror) {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

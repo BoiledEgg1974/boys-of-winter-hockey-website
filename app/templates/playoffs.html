@@ -1,63 +1,244 @@
 {% extends "base.html" %}
 {% block title %}Playoffs — Boys of Winter Hockey League{% endblock %}
-{% macro team_label(t) -%}
-{% if t %}
-  {% if t.logo_url %}<img class="team-logo" src="{{ t.logo_url }}" alt="" width="24" height="24" loading="lazy" decoding="async"> {% endif %}
-  {% if t.slug %}<a href="{{ url_for('main.team_page', slug=t.slug) }}">{{ t.abbreviation or t.name }}</a>{% else %}{{ t.abbreviation or t.name }}{% endif %}
-{% else %}
-  TBD
-{% endif %}
+
+{% macro team_side(team, side_class, outcome) -%}
+  {%- if not team -%}
+    <span class="bracket-team bracket-team--empty">—</span>
+  {%- else -%}
+    {%- set logo = team.logo_url if team.logo_url else "" -%}
+    {%- set abbr = (team.abbreviation or team.name or "")|string -%}
+    {%- set oc = "" -%}
+    {%- if outcome == 'win' -%}
+      {%- set oc = ' bracket-team--won' -%}
+    {%- elif outcome == 'loss' -%}
+      {%- set oc = ' bracket-team--lost' -%}
+    {%- endif -%}
+    {%- if team.slug -%}
+      {%- set href = url_for('main.team_page', slug=team.slug) -%}
+      <div class="bracket-team {{ side_class }}{{ oc }}">
+        <a class="bracket-team__link" href="{{ href }}">
+          {% if logo %}
+          <img src="{{ logo }}" alt="" class="bracket-team__logo" width="56" height="56">
+          {% endif %}
+          <span class="bracket-team__abbr">{{ abbr }}</span>
+        </a>
+      </div>
+    {%- else -%}
+      <div class="bracket-team {{ side_class }}{{ oc }}">
+        <span class="bracket-team__nolink">
+          {% if logo %}
+          <img src="{{ logo }}" alt="" class="bracket-team__logo" width="56" height="56">
+          {% endif %}
+          <span class="bracket-team__abbr">{{ abbr }}</span>
+        </span>
+      </div>
+    {%- endif -%}
+  {%- endif -%}
 {%- endmacro %}
-{% macro series_card(s) -%}
-<article class="card" style="margin-bottom:10px">
-  {% if s %}
-  <h3 style="margin-top:0">
-    {{ team_label(s.team_a) }} vs {{ team_label(s.team_b) }}
-  </h3>
-  <p>
-    <strong>{{ s.wins_a }}-{{ s.wins_b }}</strong>
-    {% if s.series_complete and s.winner %} · {{ s.winner.abbreviation or s.winner.name }} wins{% elif s.preview_only %} · Projected{% else %} · In progress{% endif %}
-  </p>
-  {% if s.prediction %}
-  <p class="muted">Prediction: {{ s.prediction.team_a_label }} {{ s.prediction.team_a_pct }} / {{ s.prediction.team_b_label }} {{ s.prediction.team_b_pct }}</p>
-  {% endif %}
-  {% else %}
-  <h3 style="margin-top:0">TBD</h3>
-  <p class="muted">Awaiting matchup.</p>
-  {% endif %}
-</article>
+
+{% macro placeholder_card() -%}
+  <div class="bracket-matchup bracket-matchup--placeholder" aria-hidden="true">
+    <div class="bracket-matchup__row bracket-matchup__row--tbd">
+      <span class="bracket-matchup__tbd">TBD</span>
+    </div>
+    <div class="bracket-matchup__footer bracket-matchup__footer--placeholder">—</div>
+  </div>
 {%- endmacro %}
+
+{% macro series_footer(s) -%}
+  {%- if s.preview_only -%}
+    <div class="bracket-matchup__footer bracket-matchup__footer--preview">
+      <span class="bracket-matchup__footer-preview-line">Projected Matchup</span>
+      <span class="bracket-matchup__footer-preview-line">Best-of-7</span>
+    </div>
+  {%- else -%}
+    {%- set wa = s.wins_a|int -%}
+    {%- set wb = s.wins_b|int -%}
+    {%- if wa == wb -%}
+      <div class="bracket-matchup__footer">Tied {{ wa }}-{{ wb }} (7)</div>
+    {%- else -%}
+      {%- if wa > wb -%}
+        {%- set hi = wa -%}{%- set lo = wb -%}{%- set leader = s.team_a -%}
+      {%- else -%}
+        {%- set hi = wb -%}{%- set lo = wa -%}{%- set leader = s.team_b -%}
+      {%- endif -%}
+      <div class="bracket-matchup__footer">
+        {{ leader.name if leader and leader.name else '' }} {{ hi }}-{{ lo }} (7)
+      </div>
+    {%- endif -%}
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro series_prediction_row(s) -%}
+  {%- set p = s.prediction -%}
+  {%- if not p or p.team_a_win_series is none -%}
+    {# nothing #}
+  {%- else -%}
+    {%- set ta = p.team_a -%}
+    {%- set tb = p.team_b -%}
+    {%- set abA = (ta.abbreviation or ta.name) if ta else '' -%}
+    {%- set abB = (tb.abbreviation or tb.name) if tb else '' -%}
+    {%- set pa = (p.team_a_win_series * 100) | round(1) -%}
+    {%- set pb = ((1 - p.team_a_win_series) * 100) | round(1) -%}
+    {%- set tip = p.method_note if p.method_note else '' -%}
+    <div class="bracket-matchup__pred" title="{{ tip }}">
+      <span class="bracket-matchup__pred-label">Prediction</span>
+      <span class="bracket-matchup__pred-data">
+        {{ abA }} {{ pa }}% · {{ abB }} {{ pb }}%
+      </span>
+    </div>
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro series_card(s, is_final_slot=false) -%}
+  {%- if not s -%}
+    {{ placeholder_card() }}
+  {%- else -%}
+    {%- set wa = s.wins_a|int -%}
+    {%- set wb = s.wins_b|int -%}
+    {%- set oa = '' -%}
+    {%- set ob = '' -%}
+    {%- if wa != wb -%}
+      {%- if wa > wb -%}
+        {%- set oa = 'win' -%}
+        {%- set ob = 'loss' -%}
+      {%- else -%}
+        {%- set oa = 'loss' -%}
+        {%- set ob = 'win' -%}
+      {%- endif -%}
+    {%- endif -%}
+
+    {%- set cls = 'bracket-matchup' -%}
+    {%- if is_final_slot -%}
+      {%- set cls = cls + ' bracket-matchup--championship' -%}
+    {%- endif -%}
+    {%- if s.preview_only -%}
+      {%- set cls = cls + ' bracket-matchup--preview' -%}
+    {%- endif -%}
+
+    <div class="{{ cls }}">
+      <div class="bracket-matchup__row">
+        {{ team_side(s.team_a, 'bracket-team--a', oa) }}
+        <span class="bracket-matchup__at">AT</span>
+        {{ team_side(s.team_b, 'bracket-team--b', ob) }}
+      </div>
+      {{ series_prediction_row(s) }}
+      {{ series_footer(s) }}
+    </div>
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro mirror_stack(label, slots) -%}
+  <div class="bracket-mirror-col">
+    <h4 class="bracket-round__label bracket-round__label--visual">{{ label }}</h4>
+    <div class="bracket-round__matchups">
+      {% for s in slots %}
+        {% if s %}
+          {{ series_card(s, false) }}
+        {% else %}
+          {{ placeholder_card() }}
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+{%- endmacro %}
+
+{% macro mirror_center_column(championship, trophy_url, bowl) -%}
+  <div class="bracket-mirror-center bracket-col--final">
+    <h4 class="bracket-round__label bracket-round__label--visual">Championship</h4>
+    {% if trophy_url %}
+    <div class="bracket-final-banner bracket-final-banner--mirror">
+      {% if bowl %}
+      <p class="bracket-bowl-title">BOWL Championship</p>
+      {% endif %}
+      <img class="bracket-trophy-img bracket-trophy-img--mirror" src="{{ trophy_url }}" width="160" height="200" alt="">
+    </div>
+    {% else %}
+    <div class="bracket-final-banner bracket-final-banner--minimal">
+      <p class="bracket-bowl-title bracket-bowl-title--generic">Championship</p>
+    </div>
+    {% endif %}
+    <div class="bracket-round__matchups bracket-round__matchups--single">
+      {% if championship %}
+        {{ series_card(championship, true) }}
+      {% else %}
+        {{ placeholder_card() }}
+      {% endif %}
+    </div>
+  </div>
+{%- endmacro %}
+
 {% block content %}
-<div class="page">
+<div class="page playoffs-page">
   <h1 class="page-title">Playoff Bracket</h1>
   <p class="muted">
     {% if season %}{{ season.label }} · {% endif %}
     Built from imported playoff games in this league database.
   </p>
+
   {% if bracket.empty %}
-  <div class="card">
-    <p class="empty-state">{{ bracket.message }}</p>
-  </div>
-  {% else %}
-  {% if bracket.championship %}
-  <section>
-    <h2>Championship</h2>
-    {{ series_card(bracket.championship) }}
-  </section>
-  {% endif %}
-  {% for round in bracket.rounds %}
-  <section>
-    <h2>{{ round.label }}</h2>
-    <div class="grid2">
-      {% for s in round.series %}
-      {{ series_card(s) }}
-      {% endfor %}
+    <div class="card">
+      <p class="empty-state">{{ bracket.message }}</p>
     </div>
-  </section>
-  {% endfor %}
-  {% if bracket.prediction_method_note %}
-  <p class="muted">{{ bracket.prediction_method_note }}</p>
-  {% endif %}
+  {% else %}
+    {% if bracket.message %}
+      <p class="muted playoff-bracket-dialog__projection-note">{{ bracket.message }}</p>
+    {% endif %}
+
+    {% if playoff_bracket_layout == 'mirror' %}
+      {% set histCompact = playoff_mirror_rounds == 'historical' %}
+      {% set bowl = playoff_bowl_championship == '1' %}
+      <section class="bracket-visual-wrap" aria-label="Playoff bracket">
+        <div class="bracket-visual bracket-visual--mirror{% if histCompact %} bracket-visual--mirror-historical{% endif %}">
+
+          {% set r1 = bracket.first_round or [] %}
+          {% set r2 = bracket.second_round or [] %}
+          {% set r3 = bracket.conference_finals or [] %}
+
+          {% if histCompact %}
+            {# Historical compact mirror: Division SF -> Division Final -> Championship #}
+            {% set sfL = r2[0:2] %}
+            {% set cfL = r3[0:1] %}
+            {% set sfR = r2[2:4] %}
+            {% set cfR = r3[1:2] %}
+
+            {{ mirror_stack('Division Semi-Finals (BO7)', sfL) }}
+            {{ mirror_stack('Division Finals (BO7)', cfL) }}
+            {{ mirror_center_column(bracket.championship, playoff_trophy_url, bowl) }}
+            {{ mirror_stack('Division Finals (BO7)', cfR) }}
+            {{ mirror_stack('Division Semi-Finals (BO7)', sfR) }}
+          {% else %}
+            {# Cap / Fantasy mirror: QF -> SF -> Conf Finals -> Trophy -> Final #}
+            {% set qfL = r1[0:4] %}
+            {% set qfR = r1[4:8] %}
+            {% set sfL = r2[0:2] %}
+            {% set sfR = r2[2:4] %}
+            {% set cfL = r3[0:1] %}
+            {% set cfR = r3[1:2] %}
+
+            {{ mirror_stack('Quarterfinals (BO7)', qfL) }}
+            {{ mirror_stack('Semifinals (BO7)', sfL) }}
+            {{ mirror_stack('Conference finals (BO7)', cfL) }}
+            {{ mirror_center_column(bracket.championship, playoff_trophy_url, bowl) }}
+            {{ mirror_stack('Conference finals (BO7)', cfR) }}
+            {{ mirror_stack('Semifinals (BO7)', sfR) }}
+            {{ mirror_stack('Quarterfinals (BO7)', qfR) }}
+          {% endif %}
+        </div>
+      </section>
+    {% else %}
+      {# Fallback: keep the old textual rounds list if we ever change layout behavior. #}
+      {% for round in bracket.rounds %}
+        <section>
+          <h2>{{ round.label }}</h2>
+          <div class="grid2">
+            {% for s in round.series %}
+              {{ series_card(s, false) }}
+            {% endfor %}
+          </div>
+        </section>
+      {% endfor %}
+    {% endif %}
   {% endif %}
 </div>
 {% endblock %}

@@ -1522,6 +1522,39 @@ def _admin_trade_log_team_options() -> list[Team]:
     return list(db.session.scalars(select(Team).order_by(Team.name)).all())
 
 
+def _manual_trade_summary_from_parts(
+    *,
+    team_a_label: str,
+    team_b_label: str,
+    team_a_outgoing: str,
+    team_b_outgoing: str,
+) -> str:
+    """Store split manual trade details in the existing summary field."""
+    a_label = (team_a_label or "Team A").strip() or "Team A"
+    b_label = (team_b_label or "Team B").strip() or "Team B"
+    a_body = (team_a_outgoing or "").strip()
+    b_body = (team_b_outgoing or "").strip()
+    return f"{a_label} sends:\n{a_body}\n\n{b_label} sends:\n{b_body}"
+
+
+def _manual_trade_summary_parts(summary: str | None) -> tuple[str, str]:
+    """Split structured manual trade summaries back into Team A / Team B fields."""
+    text = (summary or "").strip()
+    if not text:
+        return "", ""
+    blocks = text.split("\n\n", 1)
+    if len(blocks) != 2:
+        return text, ""
+
+    def _body_after_heading(block: str) -> str:
+        lines = block.splitlines()
+        if len(lines) >= 2 and lines[0].strip().lower().endswith(" sends:"):
+            return "\n".join(lines[1:]).strip()
+        return block.strip()
+
+    return _body_after_heading(blocks[0]), _body_after_heading(blocks[1])
+
+
 @site_admin_bp.route("/trade-log", methods=["GET", "POST"])
 @login_required
 def admin_trade_log():
@@ -1537,13 +1570,23 @@ def admin_trade_log():
                 team_b_id = int(request.form.get("team_b_id") or 0)
             except (TypeError, ValueError):
                 team_a_id = team_b_id = 0
-            summary = (request.form.get("summary") or "").strip()
+            team_a_outgoing = (request.form.get("team_a_outgoing") or "").strip()
+            team_b_outgoing = (request.form.get("team_b_outgoing") or "").strip()
             trade_d = _parse_trade_log_date(request.form.get("trade_date"))
             if not team_a_id or not team_b_id or team_a_id == team_b_id:
                 flash("Choose two different teams.", "err")
-            elif not summary:
-                flash("Summary is required.", "err")
+            elif not team_a_outgoing or not team_b_outgoing:
+                flash("Enter what left both teams.", "err")
             else:
+                teams_by_id = {int(t.id): t for t in teams}
+                ta = teams_by_id.get(team_a_id)
+                tb = teams_by_id.get(team_b_id)
+                summary = _manual_trade_summary_from_parts(
+                    team_a_label=ta.full_display_name() if ta else "Team A",
+                    team_b_label=tb.full_display_name() if tb else "Team B",
+                    team_a_outgoing=team_a_outgoing,
+                    team_b_outgoing=team_b_outgoing,
+                )
                 ent = TradeLogEntry(
                     trade_date=trade_d,
                     team_a_id=team_a_id,
@@ -1572,6 +1615,7 @@ def admin_trade_log():
         manual_rows=manual_rows,
         teams=teams,
         teams_by_id=teams_by_id,
+        manual_trade_summary_parts=_manual_trade_summary_parts,
     )
 
 
@@ -1589,13 +1633,23 @@ def admin_trade_log_edit(entry_id: int):
             team_b_id = int(request.form.get("team_b_id") or 0)
         except (TypeError, ValueError):
             team_a_id = team_b_id = 0
-        summary = (request.form.get("summary") or "").strip()
+        team_a_outgoing = (request.form.get("team_a_outgoing") or "").strip()
+        team_b_outgoing = (request.form.get("team_b_outgoing") or "").strip()
         trade_d = _parse_trade_log_date(request.form.get("trade_date"))
         if not team_a_id or not team_b_id or team_a_id == team_b_id:
             flash("Choose two different teams.", "err")
-        elif not summary:
-            flash("Summary is required.", "err")
+        elif not team_a_outgoing or not team_b_outgoing:
+            flash("Enter what left both teams.", "err")
         else:
+            teams_by_id = {int(t.id): t for t in teams}
+            ta = teams_by_id.get(team_a_id)
+            tb = teams_by_id.get(team_b_id)
+            summary = _manual_trade_summary_from_parts(
+                team_a_label=ta.full_display_name() if ta else "Team A",
+                team_b_label=tb.full_display_name() if tb else "Team B",
+                team_a_outgoing=team_a_outgoing,
+                team_b_outgoing=team_b_outgoing,
+            )
             ent.trade_date = trade_d
             ent.team_a_id = team_a_id
             ent.team_b_id = team_b_id
@@ -1607,6 +1661,7 @@ def admin_trade_log_edit(entry_id: int):
         "admin_trade_log_edit.html",
         entry=ent,
         teams=teams,
+        summary_parts=_manual_trade_summary_parts(ent.summary),
     )
 
 

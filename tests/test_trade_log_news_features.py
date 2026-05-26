@@ -11,6 +11,10 @@ from app import create_app
 from app.config import make_league_config
 from app.league_db import db
 from app.models import Team, TradeLogEntry
+from app.routes.site_portal import (
+    _manual_trade_summary_from_parts,
+    _manual_trade_summary_parts,
+)
 from app.services.trade_ai_opinion import (
     build_logged_trade_prompt_block,
     build_trade_prompt_block,
@@ -30,6 +34,28 @@ class TradeLogSourceLabelTest(unittest.TestCase):
         self.assertEqual(trade_log_source_label("manual"), "Manual")
         self.assertEqual(trade_log_source_label("csv"), "CSV import")
         self.assertEqual(trade_log_source_label("site"), "Trade Tool")
+
+
+class ManualTradeLogSummaryTest(unittest.TestCase):
+    def test_manual_summary_round_trips_split_fields(self) -> None:
+        summary = _manual_trade_summary_from_parts(
+            team_a_label="Springfield",
+            team_b_label="Shelbyville",
+            team_a_outgoing="Player A\n2027 2nd",
+            team_b_outgoing="Player B",
+        )
+
+        self.assertIn("Springfield sends:", summary)
+        self.assertEqual(
+            _manual_trade_summary_parts(summary),
+            ("Player A\n2027 2nd", "Player B"),
+        )
+
+    def test_legacy_manual_summary_stays_editable(self) -> None:
+        self.assertEqual(
+            _manual_trade_summary_parts("Old one-field summary"),
+            ("Old one-field summary", ""),
+        )
 
 
 class TradeLogPromptTest(unittest.TestCase):

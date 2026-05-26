@@ -24,8 +24,11 @@
           {% endfor %}
         </select>
       </label>
-      <label>Summary
-        <textarea name="summary" rows="6" maxlength="8000" required>{{ entry.summary }}</textarea>
+      <label>Leaving Team A
+        <textarea name="team_a_outgoing" rows="5" maxlength="4000" required placeholder="Players/picks leaving Team A…">{{ summary_parts[0] }}</textarea>
+      </label>
+      <label>Leaving Team B
+        <textarea name="team_b_outgoing" rows="5" maxlength="4000" required placeholder="Players/picks leaving Team B…">{{ summary_parts[1] }}</textarea>
       </label>
       <div>
         <button type="submit" class="join-league-btn">Save</button>

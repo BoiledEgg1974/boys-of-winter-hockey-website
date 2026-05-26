@@ -756,12 +756,31 @@ def playoffs_page():
         if canonical_season
         else None
     )
+    league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    if league_slug == "bowl-cap":
+        playoff_bracket_layout = "mirror"
+        playoff_trophy_url = url_for("static", filename="img/bowl-cap-playoff-trophy.png")
+    elif league_slug == "bowl-fantasy":
+        playoff_bracket_layout = "mirror"
+        playoff_trophy_url = url_for("static", filename="img/bowl-fantasy-playoff-trophy.png")
+    elif league_slug == "bowl-historical":
+        playoff_bracket_layout = "mirror"
+        playoff_trophy_url = url_for("static", filename="img/bowl-championship-cup.png")
+    else:
+        playoff_bracket_layout = ""
+        playoff_trophy_url = ""
+    playoff_bowl_championship = "1" if league_slug == "bowl-historical" else ""
+    playoff_mirror_rounds = "historical" if league_slug == "bowl-historical" else ""
     payload = playoff_bracket_payload(season.id if season else None)
     return render_template(
         "playoffs.html",
         season=season,
         canonical_season=canonical_season,
         bracket=payload,
+        playoff_bracket_layout=playoff_bracket_layout,
+        playoff_trophy_url=playoff_trophy_url,
+        playoff_bowl_championship=playoff_bowl_championship,
+        playoff_mirror_rounds=playoff_mirror_rounds,
     )
 
 

@@ -334,6 +334,24 @@ def _trade_market_embed(payload: dict[str, Any], *, title: str, body: str, url: 
     return {k: v for k, v in embed.items() if v}
 
 
+def _news_embed(league_slug: str, payload: dict[str, Any], *, title: str, body: str, url: str) -> dict[str, Any]:
+    embed: dict[str, Any] = {
+        "title": title[:256],
+        "description": body[:DISCORD_MAX_EMBED_DESC_LEN] if body else None,
+    }
+    if url:
+        embed["url"] = url
+    team_label = format_team_label(league_slug, payload)
+    if team_label:
+        embed["author"] = {"name": team_label[:256]}
+    image_url = _discord_embed_url(
+        str(payload.get("image_url") or payload.get("thumbnail_url") or "")
+    )
+    if image_url:
+        embed["image"] = {"url": image_url}
+    return {k: v for k, v in embed.items() if v}
+
+
 def _split_message_bodies(msg: dict[str, Any], *, max_parts: int) -> list[dict[str, Any]]:
     """Split one Discord payload into up to *max_parts* messages under API limits."""
     content = str(msg.get("content") or "")
@@ -400,6 +418,13 @@ def format_discord_messages(event: dict[str, Any], *, max_parts: int = 2) -> lis
     if event_key in ("trade_market_selling_posted", "trade_market_buying_posted"):
         body_full = _body_text(payload, full=True) or body_short
         embed = _trade_market_embed(payload, title=title, body=body_full, url=url)
+        if embed.get("description") or embed.get("url"):
+            return _split_message_bodies({"embeds": [embed]}, max_parts=max(1, int(max_parts)))
+        return [{"content": f"**{title}**"}]
+
+    if event_key in ("news_published", "gm_news_published", "admin_news_published") and _payload_has_image(payload):
+        body_full = _body_text(payload, full=True) or body_short
+        embed = _news_embed(league_slug, payload, title=title, body=body_full, url=url)
         if embed.get("description") or embed.get("url"):
             return _split_message_bodies({"embeds": [embed]}, max_parts=max(1, int(max_parts)))
         return [{"content": f"**{title}**"}]

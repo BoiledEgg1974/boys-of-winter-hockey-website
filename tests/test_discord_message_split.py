@@ -177,11 +177,35 @@ class DiscordMessageSplitTest(unittest.TestCase):
             max_parts=2,
         )
         self.assertEqual(len(parts), 1)
+        self.assertNotIn("content", parts[0])
         self.assertIn("embeds", parts[0])
         self.assertEqual(
             parts[0]["embeds"][0]["url"],
             "https://www.bowlhockey.com/bowl-historical/league-headlines#a1",
         )
+
+    def test_news_with_image_does_not_duplicate_content_and_embed_body(self):
+        parts = format_discord_messages(
+            {
+                "league_slug": "bowl-fantasy",
+                "event_key": "admin_news_published",
+                "payload": {
+                    "title": "C Suzuki to Stick Around Trois-Rivieres Under New Deal",
+                    "body": "Cole Suzuki said his new contract came together quite easily.",
+                    "body_preview": "Cole Suzuki said his new contract came together quite easily.",
+                    "has_image": True,
+                    "url": "https://www.bowlhockey.com/bowl-fantasy/league-headlines#a1",
+                    "team_abbrev": "TRL",
+                    "team_name": "Trois-Rivières Lions",
+                },
+            },
+            max_parts=2,
+        )
+        self.assertEqual(len(parts), 1)
+        self.assertNotIn("content", parts[0])
+        embed = parts[0]["embeds"][0]
+        self.assertIn("Cole Suzuki", embed["description"])
+        self.assertIn("TRL", embed["author"]["name"])
 
     def test_trade_market_selling_is_embed_only(self):
         parts = format_discord_messages(

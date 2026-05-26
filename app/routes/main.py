@@ -1994,7 +1994,8 @@ def prospects():
     prospect_page_limit = 25
     session = db.session
     league_ids = bowl_nhl_league_ids(session)
-    age_ref = season_age_reference_date(get_current_season())
+    season = get_current_season()
+    age_ref = season_age_reference_date(season)
 
     # (full name for header tooltip, column abbreviation, ratings CSV key)
     overview_headers = (
@@ -2018,7 +2019,6 @@ def prospects():
     if order not in ("asc", "desc"):
         order = "desc"
 
-    season = get_current_season()
     q = select(Player).options(joinedload(Player.current_team)).where(
         Player.retired.is_(False),
         Player.birth_date.isnot(None),
@@ -2170,6 +2170,7 @@ def prospects():
         system_rankings_rows=system_rankings_rows,
         system_rank_snapshot_at=system_rank_snapshot_at,
         prospect_league_snapshot_at=prospect_league_snapshot_at,
+        prospect_logo_season=season,
     )
 
 

@@ -58,7 +58,7 @@
             <td class="prospects-system-rankings__team">
               <span class="prospects-system-rankings__team-inner">
                 <a class="prospects-rankings-table__team-logo-hit prospects-system-rankings__team-logo" href="{{ url_for('main.team_page', slug=row.team.slug) }}" title="{{ row.team.name }}">
-                  <img class="prospects-rankings-table__team-logo-img" src="{{ team_logo_url(row.team) }}" alt="" loading="lazy" decoding="async">
+                  <img class="prospects-rankings-table__team-logo-img" src="{{ team_logo_url_for_season_context(row.team, prospect_logo_season) }}" alt="" loading="lazy" decoding="async">
                 </a>
                 <a class="prospects-system-rankings__team-name" href="{{ url_for('main.team_page', slug=row.team.slug) }}">{{ row.team.name }}</a>
               </span>
@@ -130,7 +130,7 @@
             <td class="prospects-rankings-table__team-cell">
               {% if row.team %}
               <a class="prospects-rankings-table__team-logo-hit" href="{{ url_for('main.team_page', slug=row.team.slug) }}" title="{{ row.team.name }}">
-                <img class="prospects-rankings-table__team-logo-img" src="{{ team_logo_url(row.team) }}" alt="{{ row.team.name }}" loading="lazy" decoding="async">
+                <img class="prospects-rankings-table__team-logo-img" src="{{ team_logo_url_for_season_context(row.team, prospect_logo_season) }}" alt="{{ row.team.name }}" loading="lazy" decoding="async">
               </a>
               {% else %}—{% endif %}
             </td>

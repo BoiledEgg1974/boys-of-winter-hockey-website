@@ -6,6 +6,9 @@
   <h1 class="page-title">{{ article.title }}</h1>
   <p class="muted" style="font-size:0.9rem;"><span class="news-category-pill">{{ news_category_label(article.category) }}</span></p>
   <p class="muted" style="font-size:0.9rem;">
+    {% if team_logo_src %}
+    <img class="admin-news-submitby__logo" src="{{ team_logo_src }}" alt="" width="28" height="28" style="vertical-align:middle;margin-right:0.35rem;">
+    {% endif %}
     {% if team %}{{ team.full_display_name() }}{% endif %}
     {% if team and author %} · {% endif %}
     {% if author %}{{ author.discord_name or author.username or author.email }}{% endif %}

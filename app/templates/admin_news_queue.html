@@ -19,11 +19,12 @@
         {% for a in articles %}
         {% set u = news_authors_by_id.get(a.author_user_id) %}
         {% set tm = news_teams_by_id.get(a.team_id) if a.team_id else none %}
+        {% set logo_url = news_team_logo_url_by_article_id.get(a.id) if news_team_logo_url_by_article_id is defined else '' %}
         <tr>
           <td>
             <div class="admin-news-submitby">
-              {% if tm and team_logo_url(tm) %}
-              <img class="admin-news-submitby__logo" src="{{ team_logo_url(tm) }}" alt="" width="28" height="28">
+              {% if logo_url %}
+              <img class="admin-news-submitby__logo" src="{{ logo_url }}" alt="" width="28" height="28">
               {% else %}
               <span class="admin-news-submitby__logo-ph" aria-hidden="true"></span>
               {% endif %}

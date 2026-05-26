@@ -128,6 +128,7 @@ from app.services.awards_tracker import create_voting_cycle, list_cycles, tally_
 from app.services.media_kit import build_media_kit_snapshot
 from app.services.member_digest import build_member_watchlist_digest
 from app.services.seasons import get_current_season, season_age_reference_date, season_with_imported_data_fallback
+from app.services.season_team_logo_bundle import dashboard_team_logo_url
 from app.services.ap_service import (
     active_redemption_items,
     add_ledger_entry,
@@ -4579,6 +4580,18 @@ def admin_news_compose():
     )
 
 
+def _admin_news_logo_season_year() -> int | None:
+    """Use the active league timeline for admin news row logos."""
+    canonical = get_current_season()
+    season = season_with_imported_data_fallback(db.session, canonical) if canonical else None
+    if season is None:
+        season = canonical
+    try:
+        return int(season.start_year) if season and season.start_year is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
 @site_admin_bp.get("/news")
 @login_required
 def admin_news_queue():
@@ -4602,11 +4615,18 @@ def admin_news_queue():
     if team_ids:
         for t in db.session.scalars(select(Team).where(Team.id.in_(team_ids))).all():
             news_teams_by_id[t.id] = t
+    logo_season_year = _admin_news_logo_season_year()
+    news_team_logo_url_by_article_id = {
+        int(a.id): dashboard_team_logo_url(news_teams_by_id.get(int(a.team_id)), logo_season_year)
+        for a in rows
+        if a.team_id and int(a.team_id) in news_teams_by_id
+    }
     return render_template(
         "admin_news_queue.html",
         articles=rows,
         news_authors_by_id=news_authors_by_id,
         news_teams_by_id=news_teams_by_id,
+        news_team_logo_url_by_article_id=news_team_logo_url_by_article_id,
         news_category_label=news_category_label,
     )
 
@@ -4621,11 +4641,13 @@ def admin_news_preview(aid: int):
         abort(404)
     author = db.session.get(User, art.author_user_id)
     team = db.session.get(Team, art.team_id) if art.team_id else None
+    logo_season_year = _admin_news_logo_season_year()
     return render_template(
         "admin_news_preview.html",
         article=art,
         author=author,
         team=team,
+        team_logo_src=dashboard_team_logo_url(team, logo_season_year) if team else "",
         news_category_label=news_category_label,
     )
 

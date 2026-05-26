@@ -6247,6 +6247,99 @@ table.data.league-season-records__table .league-season-records__td-value {
   font-variant-numeric: tabular-nums;
 }
 
+/* —— League Team Reports (CSV skater averages) —— */
+.team-reports-page__intro {
+  margin: 0 0 1rem;
+  max-width: 42rem;
+}
+.team-reports-card {
+  padding: 1rem 1.1rem 1.15rem;
+}
+.team-reports-tabset__radio {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.team-reports-tabset__labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0 0 0.85rem;
+}
+.team-reports-tabset__label {
+  display: inline-block;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgb(51 65 85 / 0.9);
+  background: rgb(15 23 42 / 0.55);
+  color: #94a3b8;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.team-reports-tabset__label:hover {
+  color: #e2e8f0;
+  border-color: rgb(71 85 105);
+}
+.team-reports-tabset .team-reports-tabset__panel {
+  display: none;
+}
+.team-reports-tabset--five > .team-reports-tabset__radio:nth-of-type(1):checked ~ .team-reports-tabset__panel--overview,
+.team-reports-tabset--five > .team-reports-tabset__radio:nth-of-type(2):checked ~ .team-reports-tabset__panel--offense,
+.team-reports-tabset--five > .team-reports-tabset__radio:nth-of-type(3):checked ~ .team-reports-tabset__panel--defense,
+.team-reports-tabset--five > .team-reports-tabset__radio:nth-of-type(4):checked ~ .team-reports-tabset__panel--mental,
+.team-reports-tabset--five > .team-reports-tabset__radio:nth-of-type(5):checked ~ .team-reports-tabset__panel--physical {
+  display: block;
+}
+.team-reports-tabset--five > .team-reports-tabset__radio:nth-of-type(1):checked ~ .team-reports-tabset__labels label:nth-child(1),
+.team-reports-tabset--five > .team-reports-tabset__radio:nth-of-type(2):checked ~ .team-reports-tabset__labels label:nth-child(2),
+.team-reports-tabset--five > .team-reports-tabset__radio:nth-of-type(3):checked ~ .team-reports-tabset__labels label:nth-child(3),
+.team-reports-tabset--five > .team-reports-tabset__radio:nth-of-type(4):checked ~ .team-reports-tabset__labels label:nth-child(4),
+.team-reports-tabset--five > .team-reports-tabset__radio:nth-of-type(5):checked ~ .team-reports-tabset__labels label:nth-child(5) {
+  background: rgb(30 41 59 / 0.95);
+  color: #e2e8f0;
+  border-color: rgb(from var(--accent) r g b / 0.75);
+}
+.team-reports-table-wrap {
+  overflow-x: auto;
+  margin: 0 -0.25rem;
+}
+.team-reports-table th,
+.team-reports-table td {
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.team-reports-table th:first-child,
+.team-reports-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: #182235;
+  box-shadow: 10px 0 14px -14px rgb(0 0 0 / 0.75);
+}
+.team-reports-table th:first-child {
+  z-index: 3;
+}
+.team-reports-table__team {
+  min-width: 11rem;
+  white-space: normal;
+}
+.team-reports-table__team .team-name-lockup__logo {
+  width: 32px;
+  height: 32px;
+}
+.team-reports-table__team .team-name-lockup > span {
+  font-weight: 600;
+}
+.team-reports-attr-pill {
+  font-variant-numeric: tabular-nums;
+}
+[data-theme="light"] .team-reports-table th:first-child,
+[data-theme="light"] .team-reports-table td:first-child {
+  background: #f8fafc;
+  box-shadow: 10px 0 14px -14px rgb(15 23 42 / 0.4);
+}
+
 /* Team page — Staff (FHM staff_master + staff_ratings) */
 .team-staff-stack {
   display: flex;

@@ -708,6 +708,23 @@ def standings():
     )
 
 
+@main_bp.get("/team-reports")
+def team_reports_page():
+    """League-wide team average skater ratings from player_ratings.csv."""
+    from app.services.team_reports import (
+        build_team_report_rows,
+        format_team_report_display,
+        team_report_categories,
+    )
+
+    return render_template(
+        "team_reports.html",
+        categories=team_report_categories(),
+        report_rows=build_team_report_rows(db.session),
+        format_team_report_display=format_team_report_display,
+    )
+
+
 @main_bp.get("/trade-log")
 def trade_log_page():
     """Trade Tool publications and admin-entered manual trade history."""

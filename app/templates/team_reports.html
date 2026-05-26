@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Team Reports — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+
+{% macro tr_team_td(row) -%}
+<td class="team-reports-table__team" data-sort-value="{{ (row.team.full_display_name() or '')|lower }}">
+  <a class="team-name-lockup team-name-lockup--icon" href="{{ url_for('main.team_page', slug=row.team.slug) }}">
+    {% if team_logo_url(row.team) %}
+    <img class="team-name-lockup__logo" src="{{ team_logo_url(row.team) }}" alt="" width="32" height="32" loading="lazy" decoding="async">
+    {% endif %}
+    <span>{{ row.team.full_display_name() }}</span>
+  </a>
+</td>
+{%- endmacro %}
+
+{% macro tr_metric_td(row, col) -%}
+{%- set v = row.values.get(col.key) -%}
+{%- set disp = format_team_report_display(v, col.kind) -%}
+<td data-sort-value="{% if v is not none %}{{ '%.6f'|format(v) }}{% endif %}">
+  {%- if v is none -%}
+  —
+  {%- elif col.kind == 'abi' or col.kind == 'pot' -%}
+  <span class="stats-badge stats-badge--rating stats-badge--overall team-reports-attr-pill" style="{{ v|rating_pill_style }}">{{ disp }}</span>
+  {%- elif col.kind == 'attr' -%}
+  <span class="stats-badge stats-badge--rating stats-badge--overall team-reports-attr-pill" style="{{ v|attr_rating_style }}">{{ disp }}</span>
+  {%- else -%}
+  {{ disp }}
+  {%- endif -%}
+</td>
+{%- endmacro %}
+
+{% block content %}
+<div class="page team-reports-page" style="max-width:72rem;margin:0 auto;">
+  <h1 class="page-title">Team Reports</h1>
+  <p class="muted team-reports-page__intro">
+    Team averages from active skater rosters and this league’s <code>player_ratings.csv</code> import.
+    Goalies are excluded. Ratings use the same color scale as player profiles (lower → higher).
+  </p>
+
+  <div class="card team-reports-card">
+    <div class="team-reports-tabset team-reports-tabset--five">
+      {% for cat in categories %}
+      <input class="team-reports-tabset__radio" type="radio" name="team-reports-cat" id="tr-cat-{{ cat.key }}"{% if loop.first %} checked{% endif %}>
+      {% endfor %}
+      <div class="team-reports-tabset__labels" role="tablist" aria-label="Rating categories">
+        {% for cat in categories %}
+        <label class="team-reports-tabset__label" for="tr-cat-{{ cat.key }}" role="tab">{{ cat.label }}</label>
+        {% endfor %}
+      </div>
+      {% for cat in categories %}
+      <div class="team-reports-tabset__panel team-reports-tabset__panel--{{ cat.key }}" id="team-reports-panel-{{ cat.key }}">
+        <div class="table-wrap team-reports-table-wrap">
+          <table class="data data-sortable team-reports-table" data-sort-renumber="0">
+            <thead>
+              <tr>
+                <th data-sort-type="str" scope="col">Team</th>
+                {% for col in cat.columns %}
+                <th data-sort-type="num" scope="col">{{ col.label }}</th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in report_rows %}
+              <tr>
+                {{ tr_team_td(row) }}
+                {% for col in cat.columns %}
+                {{ tr_metric_td(row, col) }}
+                {% endfor %}
+              </tr>
+              {% else %}
+              <tr><td colspan="{{ cat.columns|length + 1 }}" class="muted">No teams found.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

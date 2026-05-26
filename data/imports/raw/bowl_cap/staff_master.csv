@@ -663,7 +663,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 661;51;Jeremy;Means;;1941-2-18;Chesterfield Township;MI;The United States;;;0
 662;51;Bryan;Maxwell;;1941-8-3;Akron;OH;The United States;;;0
 663;51;Ray;Wilbraham;;1946-11-8;Manteca;CA;The United States;;;0
-664;20;Tim;Norrish;;1939-1-30;Napili-Honokowai;HI;The United States;;;0
+664;-1;Tim;Norrish;;1939-1-30;Napili-Honokowai;HI;The United States;;;0
 665;51;George;Gordon;;1939-12-24;Diamond Bar;CA;The United States;;;0
 666;51;Phil;Workman;;1939-7-14;New York;NY;The United States;;;0
 667;51;Barrett;Wall;;1939-9-10;Huntington Beach;CA;The United States;;;0
@@ -1799,7 +1799,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1797;219;Ken;Spencer;;1942-2-28;;;The United States;;;0
 1798;219;Ryan;Czepiel;;1942-3-29;;;The United States;;;0
 1799;219;Ron;Shaw;;1942-3-16;Shaw;MS;The United States;;;0
-1800;219;Adam;DeVille;;1942-1-27;Durham;NC;The United States;;;0
+1800;20;Adam;DeVille;;1942-1-27;Durham;NC;The United States;;;0
 1801;20;Joe;Little;;1942-9-12;Midway City;CA;The United States;;;0
 1802;219;Pepe;Orozco;;1945-1-27;;;The United States;;;0
 1803;-1;Randy;Sexton;;1959-7-24;Brockville;ON;Canada;;;0

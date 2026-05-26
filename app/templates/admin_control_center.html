@@ -190,6 +190,16 @@
         {% endif %}
         {% if bowl_six_current.status == 'open' %}
         <li class="bowl-six-admin-fix">
+          <strong>Reset this week’s lineups</strong>
+          <form method="post" action="{{ url_for('site_admin.admin_bowl_six_reset_lineups') }}" class="bowl-six-admin-fix__form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="slate_id" value="{{ bowl_six_current.id }}">
+            <label><input type="checkbox" name="confirm_reset" value="1"> Clear all submitted lineups for this open week</label>
+            <button type="submit" class="admin-news-body-btn">Reset lineups</button>
+          </form>
+          <span class="muted">Use this if an old week’s picks carried into the current week.</span>
+        </li>
+        <li class="bowl-six-admin-fix">
           <strong>Give GMs more pick time</strong>
           <form method="post" action="{{ url_for('site_admin.admin_bowl_six_extend_lock') }}" class="bowl-six-admin-fix__form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

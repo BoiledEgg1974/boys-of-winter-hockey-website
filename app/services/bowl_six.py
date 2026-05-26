@@ -99,32 +99,15 @@ def sync_slate_week_to_league_calendar(
     league_slug: str,
     slate: BowlSixSlate,
 ) -> bool:
-    """Legacy compatibility shim: keep in-progress slates on the real calendar."""
+    """Legacy compatibility shim: fill missing scoring bounds without moving slates."""
     if slate.status in ("scored", "skipped"):
         return False
-    week_start, week_end = _real_bowl_six_week_bounds()
     changed = False
-    if slate.week_start != week_start or slate.week_end != week_end:
-        existing = session.scalar(
-            select(BowlSixSlate)
-            .where(
-                BowlSixSlate.league_slug == league_slug,
-                BowlSixSlate.week_start == week_start,
-                BowlSixSlate.id != slate.id,
-            )
-            .limit(1)
-        )
-        if existing is not None:
-            return False
-        slate.week_start = week_start
-        slate.week_end = week_end
-        slate.label = f"Week of {week_start.isoformat()}"
+    if slate.scoring_week_start is None:
+        slate.scoring_week_start = slate.week_start
         changed = True
-    if slate.scoring_week_start != week_start:
-        slate.scoring_week_start = week_start
-        changed = True
-    if slate.scoring_week_end != week_end:
-        slate.scoring_week_end = week_end
+    if slate.scoring_week_end is None:
+        slate.scoring_week_end = slate.week_end
         changed = True
     if not changed:
         return False
@@ -411,17 +394,10 @@ def get_or_create_current_slate(
         select(BowlSixSlate)
         .where(
             BowlSixSlate.league_slug == league_slug,
-            BowlSixSlate.status.in_(("open", "locked")),
+            BowlSixSlate.week_start == week_start,
         )
-        .order_by(BowlSixSlate.week_start.desc())
         .limit(1)
     )
-    if slate is None:
-        slate = session.scalar(
-            select(BowlSixSlate)
-            .where(BowlSixSlate.league_slug == league_slug, BowlSixSlate.week_start == week_start)
-            .limit(1)
-        )
     if slate is None:
         slate = BowlSixSlate(
             league_slug=league_slug,
@@ -445,6 +421,22 @@ def get_or_create_current_slate(
     sync_slate_week_to_league_calendar(session, league_session, league_slug, slate)
     sync_slate_lock_status(session, slate)
     return slate
+
+
+def ensure_current_slate_after_finalization(
+    session: Session,
+    league_session: Session,
+    finalized_slate: BowlSixSlate,
+) -> BowlSixSlate | None:
+    """After scoring an old week, open the current week with an empty slate."""
+    week_start, _week_end = _real_bowl_six_week_bounds()
+    if week_start <= finalized_slate.week_start:
+        return None
+    return get_or_create_current_slate(
+        session,
+        str(finalized_slate.league_slug or ""),
+        league_session=league_session,
+    )
 
 
 def prior_submitted_slate_for_user(
@@ -827,6 +819,7 @@ def finalize_slate(
     sync_bowl_six_slate_ap_awards(session, slate)
     if notify and not was_scored:
         notify_slate_scored(session, slate)
+    ensure_current_slate_after_finalization(session, league_session, slate)
     return n
 
 
@@ -938,6 +931,7 @@ def _auto_update_single_slate(
         n = refresh_slate_lineup_scores(session, league_session, slate)
         refresh_player_week_stats(session, slate, league_session)
         sync_bowl_six_slate_ap_awards(session, slate)
+        ensure_current_slate_after_finalization(session, league_session, slate)
         _enqueue_bowl_six_discord_leaders_safe(session, league_session, slate)
         if n:
             return f"Week {slate.week_start}: re-synced {n} lineup(s) after data change."

@@ -626,6 +626,43 @@ def admin_bowl_six_unlock():
     return redirect(url_for("site_admin.admin_control_center"))
 
 
+@site_admin_bp.post("/control-center/bowl-six/reset-lineups")
+@login_required
+def admin_bowl_six_reset_lineups():
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    slug = _league_slug()
+    sid = int(request.form.get("slate_id") or "0")
+    slate = db.session.get(BowlSixSlate, sid)
+    if not slate or slate.league_slug != slug:
+        flash("Invalid slate.", "err")
+        return redirect(url_for("site_admin.admin_control_center"))
+    if slate.status != "open":
+        flash("Only an open BOWL Six slate can be reset.", "err")
+        return redirect(url_for("site_admin.admin_control_center"))
+    if request.form.get("confirm_reset") != "1":
+        flash("Check the confirmation box before resetting lineups.", "err")
+        return redirect(url_for("site_admin.admin_control_center"))
+    lineups = list(
+        db.session.scalars(
+            select(BowlSixLineup)
+            .where(BowlSixLineup.slate_id == int(slate.id))
+            .options(joinedload(BowlSixLineup.picks), joinedload(BowlSixLineup.score))
+        )
+        .unique()
+        .all()
+    )
+    for lineup in lineups:
+        db.session.delete(lineup)
+    db.session.query(BowlSixPlayerWeekStat).filter(
+        BowlSixPlayerWeekStat.slate_id == int(slate.id)
+    ).delete(synchronize_session=False)
+    slate.scoring_version = int(slate.scoring_version or 0) + 1
+    _audit("bowl_six_reset_lineups", {"slate_id": sid, "lineups_removed": len(lineups)})
+    db.session.commit()
+    flash(f"Reset BOWL Six lineups for this week ({len(lineups)} removed).", "ok")
+    return redirect(url_for("site_admin.admin_control_center"))
+
+
 @site_admin_bp.post("/control-center/bowl-six/extend-lock")
 @login_required
 def admin_bowl_six_extend_lock():

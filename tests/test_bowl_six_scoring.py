@@ -14,6 +14,8 @@ from datetime import date
 from app.services.bowl_six import (
     default_lock_at,
     eastern_naive_from_utc_naive,
+    ensure_current_slate_after_finalization,
+    get_or_create_current_slate,
     lock_at_display_eastern,
     lock_at_iso_z,
     parse_lock_at_eastern_form,
@@ -181,13 +183,13 @@ class BowlSixScoringTest(unittest.TestCase):
         sync_slate_lock_status(unittest.mock.MagicMock(), slate)
         self.assertEqual(slate.status, "open")
 
-    def test_sync_slate_week_realigns_legacy_sim_week_to_real_week(self):
+    def test_sync_slate_week_preserves_prior_week_lineups_for_repeat_blocking(self):
         slate = BowlSixSlate(
             league_slug="bowl-historical",
-            week_start=date(1969, 3, 10),
-            week_end=date(1969, 3, 16),
-            scoring_week_start=date(1969, 3, 10),
-            scoring_week_end=date(1969, 3, 16),
+            week_start=date(2026, 5, 18),
+            week_end=date(2026, 5, 24),
+            scoring_week_start=None,
+            scoring_week_end=None,
             lock_at=__import__("datetime").datetime(2026, 5, 18),
             status="open",
         )
@@ -196,7 +198,7 @@ class BowlSixScoringTest(unittest.TestCase):
         league_session = MagicMock()
         with unittest.mock.patch(
             "app.services.bowl_six._real_bowl_six_week_bounds",
-            return_value=(date(2026, 5, 18), date(2026, 5, 24)),
+            return_value=(date(2026, 5, 25), date(2026, 5, 31)),
         ):
             changed = sync_slate_week_to_league_calendar(
                 site_session, league_session, "bowl-historical", slate
@@ -206,6 +208,86 @@ class BowlSixScoringTest(unittest.TestCase):
         self.assertEqual(slate.week_end, date(2026, 5, 24))
         self.assertEqual(slate.scoring_week_start, date(2026, 5, 18))
         self.assertEqual(slate.scoring_week_end, date(2026, 5, 24))
+
+    def test_current_slate_creation_does_not_query_latest_open_prior_slate(self):
+        class FakeSession:
+            def __init__(self):
+                self.added = None
+
+            def scalar(self, stmt):
+                sql = str(stmt)
+                if "status IN" in sql:
+                    raise AssertionError("current slate lookup must not reuse an older open slate")
+                return None
+
+            def add(self, obj):
+                self.added = obj
+
+            def flush(self):
+                pass
+
+        site_session = FakeSession()
+        with unittest.mock.patch("app.services.bowl_six.bowl_six_enabled", return_value=True), \
+            unittest.mock.patch(
+                "app.services.bowl_six._real_bowl_six_week_bounds",
+                return_value=(date(2026, 5, 25), date(2026, 5, 31)),
+            ), \
+            unittest.mock.patch(
+                "app.services.bowl_six._current_scoring_week_bounds",
+                return_value=(date(2026, 5, 25), date(2026, 5, 31)),
+            ), \
+            unittest.mock.patch(
+                "app.services.bowl_six.default_lock_at",
+                return_value=__import__("datetime").datetime(2099, 1, 1, 0, 0),
+            ):
+            slate = get_or_create_current_slate(
+                site_session, "bowl-historical", league_session=MagicMock()
+            )
+        self.assertIs(slate, site_session.added)
+        self.assertEqual(slate.week_start, date(2026, 5, 25))
+
+    def test_finalize_reset_opens_current_week_only_after_calendar_advances(self):
+        prior_slate = BowlSixSlate(
+            league_slug="bowl-historical",
+            week_start=date(2026, 5, 18),
+            week_end=date(2026, 5, 24),
+            lock_at=__import__("datetime").datetime(2026, 5, 19, 0, 0),
+            status="scored",
+        )
+
+        class FakeSession:
+            def __init__(self):
+                self.added = None
+
+            def scalar(self, _stmt):
+                return None
+
+            def add(self, obj):
+                self.added = obj
+
+            def flush(self):
+                pass
+
+        site_session = FakeSession()
+        with unittest.mock.patch("app.services.bowl_six.bowl_six_enabled", return_value=True), \
+            unittest.mock.patch(
+                "app.services.bowl_six._real_bowl_six_week_bounds",
+                return_value=(date(2026, 5, 25), date(2026, 5, 31)),
+            ), \
+            unittest.mock.patch(
+                "app.services.bowl_six._current_scoring_week_bounds",
+                return_value=(date(2026, 5, 25), date(2026, 5, 31)),
+            ), \
+            unittest.mock.patch(
+                "app.services.bowl_six.default_lock_at",
+                return_value=__import__("datetime").datetime(2099, 1, 1, 0, 0),
+            ):
+            current = ensure_current_slate_after_finalization(
+                site_session, MagicMock(), prior_slate
+            )
+        self.assertIs(current, site_session.added)
+        self.assertEqual(current.week_start, date(2026, 5, 25))
+        self.assertEqual(current.status, "open")
 
     def test_slate_lock_ui_locked_when_past(self):
         past = __import__("datetime").datetime(2020, 1, 1, 0, 0)

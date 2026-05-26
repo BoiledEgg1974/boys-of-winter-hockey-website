@@ -14,6 +14,26 @@ from app.services.free_agents import bowl_org_rights_player_ids_for_league
 # Max players returned on the live hub eligible board (default view). Full pool remains for
 # picks, counts, and search/position filters — only the unfiltered list is capped.
 ELIGIBLE_HUB_BOARD_WINDOW = 40
+HISTORICAL_AMATEUR_BIRTH_CUTOFF = date(1950, 1, 1)
+HISTORICAL_EASTERN_BLOC_NATIONALITIES = frozenset(
+    {
+        "bulgaria",
+        "czech republic",
+        "czechia",
+        "czechoslovakia",
+        "east germany",
+        "german democratic republic",
+        "gdr",
+        "hungary",
+        "poland",
+        "romania",
+        "russia",
+        "russian federation",
+        "slovakia",
+        "soviet union",
+        "ussr",
+    }
+)
 
 
 def age_as_of(birth: date | None, as_of: date) -> int | None:
@@ -75,6 +95,14 @@ def player_passes_age_rules(birth: date | None, params: DraftEligibilityParams) 
     return age_min_ref >= params.min_age_years and age_max_ref <= params.max_age_years
 
 
+def player_passes_historical_amateur_rules(player: Player) -> bool:
+    """Historical draft page excludes post-1949 and Eastern Bloc amateur players."""
+    if player.birth_date is None or player.birth_date >= HISTORICAL_AMATEUR_BIRTH_CUTOFF:
+        return False
+    nationality = (getattr(player, "nationality", None) or "").strip().lower()
+    return nationality not in HISTORICAL_EASTERN_BLOC_NATIONALITIES
+
+
 def undrafted_nhl_bowl_player_subquery():
     return (
         select(DraftPick.player_id)
@@ -98,8 +126,11 @@ def eligible_player_ids(session: Session, league_slug: str, params: DraftEligibi
     players = session.scalars(select(Player).where(*q_where)).unique().all()
     out: list[int] = []
     for p in players:
-        if player_passes_age_rules(p.birth_date, params):
-            out.append(int(p.id))
+        if not player_passes_age_rules(p.birth_date, params):
+            continue
+        if league_slug == "bowl-historical" and not player_passes_historical_amateur_rules(p):
+            continue
+        out.append(int(p.id))
     return out
 
 

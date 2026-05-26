@@ -32,6 +32,13 @@
     min age {{ eligibility_params.min_age_years }} as of {{ '%02d'|format(eligibility_params.min_anchor_month) }}/{{ '%02d'|format(eligibility_params.min_anchor_day) }},
     max age {{ eligibility_params.max_age_years }} as of {{ '%02d'|format(eligibility_params.max_anchor_month) }}/{{ '%02d'|format(eligibility_params.max_anchor_day) }}.
   </p>
+  {% if eligibility_notes %}
+  <ul class="muted">
+    {% for note in eligibility_notes %}
+    <li>{{ note }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
   <form method="get" class="card prospects-rankings-page__filters">
     <input type="hidden" name="sort" value="{{ prospect_sort }}">
     <input type="hidden" name="order" value="{{ prospect_order }}">

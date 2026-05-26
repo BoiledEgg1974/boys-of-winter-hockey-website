@@ -2388,6 +2388,12 @@ def draft_eligible():
     params, params_source = _draft_eligible_params_for_page(league_slug, season)
     draft = featured_draft(db.session, league_slug)
     picked: set[int] = picked_player_ids(db.session, draft.id) if draft else set()
+    eligibility_notes = []
+    if league_slug == "bowl-historical":
+        eligibility_notes.append(
+            "Historical amateur pool excludes players born on/after January 1, 1950 and "
+            "Eastern Bloc nationalities."
+        )
 
     overview_headers = (
         ("Skating", "SKT", "skating"),
@@ -2499,6 +2505,7 @@ def draft_eligible():
         player_overall_by_id=player_overall_by_id,
         eligibility_params=params,
         eligibility_params_source=params_source,
+        eligibility_notes=eligibility_notes,
         active_draft=draft,
         league_display=league_display_name(league_slug),
     )

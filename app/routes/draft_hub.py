@@ -403,6 +403,7 @@ def draft_hub_api_state():
     can_pick = bool(
         mem
         and draft.status == "live"
+        and bool(getattr(draft, "gm_picks_enabled", False))
         and not draft.awaiting_admin_resolution
         and current_slot
         and mem.team_id == current_slot["team_id"]
@@ -509,6 +510,8 @@ def draft_hub_api_state():
                 "can_admin_undo_pick": can_admin_undo_pick,
                 "can_admin_reassign_pick": can_admin_reassign_pick,
                 "wishlist_pick": wishlist_pick,
+                "gm_picks_enabled": bool(getattr(draft, "gm_picks_enabled", False)),
+                "discord_on_deck_enabled": bool(getattr(draft, "discord_on_deck_enabled", False)),
             },
         }
     )

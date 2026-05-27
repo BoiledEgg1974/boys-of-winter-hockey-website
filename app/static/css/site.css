@@ -1,7 +1,7 @@
 /* Boys of Winter League — layout, themes, responsive */
 :root {
   /* Sticky site header height band — in-page anchors + draft year bar ``top`` (no team logo strip) */
-  --scroll-padding-top: 128px;
+  --scroll-padding-top: 180px;
   /* Multiply prior team logo pixel sizes by 1.1 sitewide */
   --team-logo-mul: 1.1;
   /* Logos beside team names in tables, standings, stats, etc. (not header strip / team hero) */
@@ -146,8 +146,9 @@ a:hover {
 
 .league-brand {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.42rem;
 }
 .league-brand__link {
   display: inline-flex;
@@ -168,8 +169,8 @@ a:hover {
   white-space: nowrap;
 }
 .league-brand img {
-  width: 90px;
-  height: 90px;
+  width: 118px;
+  height: 118px;
   object-fit: contain;
   border-radius: 12px;
   transition: filter 0.2s, box-shadow 0.2s;
@@ -194,8 +195,10 @@ a:hover {
 .league-switcher-wrap {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   align-items: center;
   gap: 0.5rem 0.75rem;
+  width: 100%;
 }
 .league-switcher {
   font: inherit;
@@ -7818,7 +7821,7 @@ table.data.team-depth-draft-picks-table td.team-depth-draft-picks-table__round {
 /* Collapse primary nav into Menu toggle on tablets / small laptops — avoids a 5–8 row sticky bar */
 @media (max-width: 1200px) {
   :root {
-    --scroll-padding-top: 108px;
+    --scroll-padding-top: 180px;
   }
   .nav-toggle {
     display: block;
@@ -7957,11 +7960,11 @@ table.data.team-depth-draft-picks-table td.team-depth-draft-picks-table__round {
 
 @media (max-width: 420px) {
   :root {
-    --scroll-padding-top: 112px;
+    --scroll-padding-top: 156px;
   }
   .league-brand img {
-    width: 74px;
-    height: 74px;
+    width: 96px;
+    height: 96px;
   }
   .league-brand__home-text {
     font-size: 0.9rem;

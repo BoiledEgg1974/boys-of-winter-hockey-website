@@ -25,6 +25,9 @@ ALWAYS_TEXT_ONLY_DISCORD_EVENT_KEYS = frozenset(
         "trade_request",
         "staff_transaction_posted",
         "draft_hub_pick_made",
+        "draft_hub_on_clock",
+        "draft_hub_on_deck",
+        "draft_hub_completed",
         "expansion_draft_pick_made",
     }
 )
@@ -147,6 +150,41 @@ def _text_only_header_lines(
         lines.append(f"**{title}**")
     elif event_key == "story_published":
         lines.append(f"**{title}**")
+    elif event_key == "draft_hub_on_clock":
+        prefix = team_emoji_prefix(league_slug, payload)
+        team_name = str(payload.get("team_name") or "").strip()
+        rnd = payload.get("round")
+        sel = payload.get("selection")
+        mentions = str(payload.get("gm_mentions") or "GM").strip()
+        mins = payload.get("timer_minutes") or 2
+        lines.append(f"On the clock: {prefix}{team_name}".strip())
+        lines.append(f"Round {rnd}, Selection {sel}")
+        lines.append(f"**{mentions}, you have {mins} minute{'s' if int(mins) != 1 else ''}!**")
+    elif event_key == "draft_hub_on_deck":
+        prefix = team_emoji_prefix(league_slug, payload)
+        team_name = str(payload.get("team_name") or "").strip()
+        rnd = payload.get("round")
+        sel = payload.get("selection")
+        mentions = str(payload.get("gm_mentions") or "GM").strip()
+        lines.append(f"On deck: {prefix}{team_name}".strip())
+        lines.append(f"Round {rnd}, Selection {sel}")
+        lines.append(f"{mentions}, get ready!")
+    elif event_key == "draft_hub_completed":
+        dname = str(payload.get("draft_name") or "Draft Hub")
+        pick_count = payload.get("pick_count")
+        lines.append(f"**{dname} complete**")
+        if pick_count is not None:
+            lines.append(f"{pick_count} pick(s) recorded.")
+        recap = payload.get("recap_lines") or []
+        if isinstance(recap, list) and recap:
+            lines.append("")
+            lines.append("Highlights:")
+            for row in recap[:8]:
+                lines.append(f"· {row}")
+        archive_url = str(payload.get("archive_url") or "").strip()
+        if archive_url:
+            lines.append("")
+            lines.append(f"Archive: {archive_url}")
     elif event_key == "draft_hub_pick_made":
         dname = str(payload.get("draft_name") or "Draft Hub")
         rnd = payload.get("round")
@@ -218,6 +256,10 @@ def _text_only_body_text(
         src = str(payload.get("pick_source") or "").strip()
         if src and src not in body:
             body = f"{body} · `{src}`" if body else f"Source: `{src}`"
+    if event_key in ("draft_hub_on_clock", "draft_hub_on_deck"):
+        url = str(payload.get("url") or "").strip()
+        if url and url not in body:
+            body = f"{body}\n{url}".strip() if body else url
     return body
 
 

@@ -1278,13 +1278,10 @@
       .catch(function () {});
   }
 
-  function poll() {
-    var ae = document.activeElement;
-    if (ae && (ae.id === 'dh-search' || ae.id === 'dh-pos-filter' || ae.id === 'dh-history-round')) return;
-    forceRefresh();
-  }
-  poll();
-  setInterval(poll, 2800);
+  // Auto-refresh intentionally suspended per admin request.
+  // State updates happen via explicit refreshes after user actions.
+  // Still load once on initial page mount.
+  forceRefresh();
 })();
 </script>
 {% endblock %}

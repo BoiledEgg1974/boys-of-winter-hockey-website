@@ -58,6 +58,17 @@
     <label style="display:block;margin-top:0.75rem;">Display-only scheduled start (local, optional)<br>
       <input type="datetime-local" name="scheduled_start_at" value="{{ sched_value }}" style="max-width:20rem;">
     </label>
+    <fieldset style="margin-top:0.75rem;border:0;padding:0;">
+      <legend class="muted" style="margin-bottom:0.35rem;">Draft controls</legend>
+      <label style="display:block;margin-bottom:0.35rem;">
+        <input type="checkbox" name="gm_picks_enabled" value="1"{% if draft.gm_picks_enabled %} checked{% endif %}>
+        Allow GMs to submit their own picks on the public Draft Hub
+      </label>
+      <label style="display:block;">
+        <input type="checkbox" name="discord_on_deck_enabled" value="1"{% if draft.discord_on_deck_enabled %} checked{% endif %}>
+        Post Discord on-deck alerts in <code>#draft-discussion</code> (requires channel ID in Discord Integration)
+      </label>
+    </fieldset>
     <button type="submit" class="button" style="margin-top:0.75rem;">Save settings</button>
   </form>
 
@@ -167,6 +178,22 @@
   </form>
 
   <h2>Go live / picks</h2>
+  {% if draft.status in ('setup', 'live') %}
+  <form method="post" class="card" style="padding:1rem;margin-bottom:1rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="save_controls">
+    <p class="muted" style="margin-top:0;">Toggle GM self-picks and optional Discord on-deck alerts. On-clock pings for rounds 1–2 use the <code>draft_hub_on_clock</code> route in Discord Integration.</p>
+    <label style="display:block;margin-bottom:0.35rem;">
+      <input type="checkbox" name="gm_picks_enabled" value="1"{% if draft.gm_picks_enabled %} checked{% endif %}>
+      Allow GMs to submit their own picks on the public Draft Hub
+    </label>
+    <label style="display:block;margin-bottom:0.75rem;">
+      <input type="checkbox" name="discord_on_deck_enabled" value="1"{% if draft.discord_on_deck_enabled %} checked{% endif %}>
+      Post Discord on-deck alerts in <code>#draft-discussion</code>
+    </label>
+    <button type="submit" class="button secondary">Save draft controls</button>
+  </form>
+  {% endif %}
   {% if draft.status == 'setup' %}
   <form method="post" style="display:inline;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

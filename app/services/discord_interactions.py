@@ -39,6 +39,10 @@ COMMAND_DEFINITIONS: list[dict[str, Any]] = [
             }
         ],
     },
+    {
+        "name": "draftstatus",
+        "description": "Show the live Draft Hub clock, on-deck team, and recent picks.",
+    },
 ]
 
 
@@ -101,6 +105,10 @@ def handle_slash_interaction(
     data = payload.get("data") or {}
     command = str(data.get("name") or "").strip().lower()
     slug = str(league_slug or current_app.config.get("LEAGUE_SLUG") or "").strip()
+    if command == "draftstatus":
+        from app.services.draft_hub_discord import build_draft_status_message
+
+        return _ephemeral(build_draft_status_message(db.session, slug))
     if command == "inbox":
         user = _site_user_for_discord(payload)
         if user is None:

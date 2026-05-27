@@ -14,16 +14,16 @@
     <div class="header-row1">
       <div class="league-brand">
         <a href="{{ url_for('main.home') }}" class="league-brand__link" aria-label="Home — {{ config.LEAGUE_DISPLAY_NAME }}">
-          <img src="{{ league_logo_url() }}" alt="{{ config.LEAGUE_DISPLAY_NAME }} logo" width="90" height="90">
+          <img src="{{ league_logo_url() }}" alt="{{ config.LEAGUE_DISPLAY_NAME }} logo" width="118" height="118">
         </a>
-      </div>
-      <div class="league-switcher-wrap">
-        <label class="visually-hidden" for="league-switcher">League</label>
-        <select id="league-switcher" class="league-switcher" aria-label="Switch league site">
-          {% for league in league_entries %}
-          <option value="{{ league.slug }}"{% if league.slug == current_league_slug %} selected{% endif %}>{{ league.display_name }}</option>
-          {% endfor %}
-        </select>
+        <div class="league-switcher-wrap">
+          <label class="visually-hidden" for="league-switcher">League</label>
+          <select id="league-switcher" class="league-switcher" aria-label="Switch league site">
+            {% for league in league_entries %}
+            <option value="{{ league.slug }}"{% if league.slug == current_league_slug %} selected{% endif %}>{{ league.display_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
       </div>
       <button type="button" class="nav-toggle" aria-expanded="false" aria-controls="main-nav">Menu</button>
       <nav id="main-nav" class="main-nav" aria-label="Primary">

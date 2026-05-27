@@ -205,6 +205,12 @@ def sync_current_slot_and_clock(session: Session, draft: LeagueDraft) -> None:
             _enqueue_on_clock_dms(session, draft, slot)
         except Exception:
             pass
+        try:
+            from app.services.draft_hub_discord import enqueue_draft_hub_discord_alerts
+
+            enqueue_draft_hub_discord_alerts(session, draft, slot, slots)
+        except Exception:
+            pass
         return
 
     _finalize_draft_if_done(session, draft, slots)
@@ -222,6 +228,12 @@ def _finalize_draft_if_done(session: Session, draft: LeagueDraft, slots: list[Le
     draft.timer_paused_remaining_seconds = None
     draft.awaiting_admin_resolution = False
     draft.completed_summary_json = json.dumps(compute_winners_losers(session, draft))
+    try:
+        from app.services.draft_hub_discord import enqueue_draft_hub_completed
+
+        enqueue_draft_hub_completed(session, draft)
+    except Exception:
+        pass
 
 
 def _enqueue_on_clock_dms(session: Session, draft: LeagueDraft, slot: LeagueDraftSlot) -> None:
@@ -431,6 +443,8 @@ def record_pick(
     if int(player_id) not in eligible_ids:
         return "Player is not eligible for this draft."
     if source == "gm":
+        if not bool(getattr(draft, "gm_picks_enabled", False)):
+            return "GM self-picks are disabled for this draft; the commissioner will make selections."
         if user_id is None:
             return "Not authenticated."
         mids = gm_user_ids_for_team(session, draft.league_slug, slot.team_id)

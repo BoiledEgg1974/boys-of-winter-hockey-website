@@ -1702,6 +1702,16 @@ def ensure_league_draft_slot_boost_tier_sqlite(engine: Engine) -> None:
                 conn.execute(
                     text("ALTER TABLE league_drafts ADD COLUMN timer_paused_remaining_seconds INTEGER")
                 )
+            if "gm_picks_enabled" not in draft_cols:
+                conn.execute(
+                    text("ALTER TABLE league_drafts ADD COLUMN gm_picks_enabled BOOLEAN NOT NULL DEFAULT 0")
+                )
+            if "discord_on_deck_enabled" not in draft_cols:
+                conn.execute(
+                    text(
+                        "ALTER TABLE league_drafts ADD COLUMN discord_on_deck_enabled BOOLEAN NOT NULL DEFAULT 0"
+                    )
+                )
 
         slot_exists = conn.execute(
             text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='league_draft_slots'")

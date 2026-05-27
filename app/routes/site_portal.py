@@ -5868,8 +5868,15 @@ def admin_draft_hub_edit(draft_id: int):
                 row.max_anchor_day,
             )
             row.scheduled_start_at = _parse_scheduled_start(request.form.get("scheduled_start_at") or "")
+            row.gm_picks_enabled = request.form.get("gm_picks_enabled") == "1"
+            row.discord_on_deck_enabled = request.form.get("discord_on_deck_enabled") == "1"
             db.session.commit()
             flash("Settings saved.", "ok")
+        elif act == "save_controls" and row.status in ("setup", "live"):
+            row.gm_picks_enabled = request.form.get("gm_picks_enabled") == "1"
+            row.discord_on_deck_enabled = request.form.get("discord_on_deck_enabled") == "1"
+            db.session.commit()
+            flash("Draft controls updated.", "ok")
         elif act == "go_live" and row.status == "setup":
             from app.services.draft_hub_state import go_live
 

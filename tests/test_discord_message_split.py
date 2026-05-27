@@ -76,6 +76,34 @@ class DiscordMessageSplitTest(unittest.TestCase):
         self.assertIn("Connor Bedard", content)
         self.assertIn(DISCORD_SITE_MORE_FOOTER, content)
 
+    def test_draft_hub_on_clock_is_text_only_with_bold_gm_mention_and_url(self):
+        parts = format_discord_messages(
+            {
+                "league_slug": "bowl-fantasy",
+                "event_key": "draft_hub_on_clock",
+                "payload": {
+                    "draft_name": "2026 Draft Hub",
+                    "team_name": "Toronto Towers",
+                    "team_abbrev": "TOR",
+                    "round": 1,
+                    "selection": 3,
+                    "gm_mentions": "<@123456789012345678>",
+                    "timer_minutes": 2,
+                    "url": "https://www.bowlhockey.com/bowl-fantasy/draft-hub",
+                    "has_image": False,
+                },
+            },
+            max_parts=2,
+        )
+        self.assertEqual(len(parts), 1)
+        content = parts[0].get("content", "")
+        self.assertNotIn("embeds", parts[0])
+        self.assertIn("On the clock:", content)
+        self.assertIn("Round 1, Selection 3", content)
+        self.assertIn("**<@123456789012345678>, you have 2 minutes!**", content)
+        self.assertIn("https://www.bowlhockey.com/bowl-fantasy/draft-hub", content)
+        self.assertIn(DISCORD_SITE_MORE_FOOTER, content)
+
     def test_trade_request_is_text_only_without_embed(self):
         parts = format_discord_messages(
             {

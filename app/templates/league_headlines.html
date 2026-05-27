@@ -5,6 +5,12 @@
 <div class="card" style="max-width:46rem;margin:0 auto;">
   <h1 class="page-title">Around the League</h1>
   <p class="muted">Published headlines from GMs and the league office.</p>
+  {% if headlines_total > 0 %}
+  <p class="muted headlines-page-meta">
+    Showing page {{ headlines_page }} of {{ headlines_total_pages }}
+    ({{ headlines_total }} article{{ 's' if headlines_total != 1 else '' }}).
+  </p>
+  {% endif %}
   {% for a in articles %}
   <article class="card headlines-article" id="a{{ a.id }}" style="padding:1rem;margin-bottom:1rem;scroll-margin-top:5rem;">
     <h2 class="headlines-article__title">{{ a.title }}</h2>
@@ -36,5 +42,20 @@
   {% else %}
   <p class="empty-state">No published articles yet.</p>
   {% endfor %}
+  {% if headlines_total_pages > 1 %}
+  <nav class="headlines-pagination" aria-label="Headlines pages">
+    {% if headlines_page > 1 %}
+    <a class="headlines-pagination__link" href="{{ url_for('main.league_headlines', page=headlines_page - 1) }}">← Newer</a>
+    {% else %}
+    <span class="headlines-pagination__link headlines-pagination__link--disabled" aria-hidden="true">← Newer</span>
+    {% endif %}
+    <span class="headlines-pagination__status muted">Page {{ headlines_page }} / {{ headlines_total_pages }}</span>
+    {% if headlines_page < headlines_total_pages %}
+    <a class="headlines-pagination__link" href="{{ url_for('main.league_headlines', page=headlines_page + 1) }}">Older →</a>
+    {% else %}
+    <span class="headlines-pagination__link headlines-pagination__link--disabled" aria-hidden="true">Older →</span>
+    {% endif %}
+  </nav>
+  {% endif %}
 </div>
 {% endblock %}

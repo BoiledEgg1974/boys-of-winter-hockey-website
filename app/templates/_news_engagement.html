@@ -1,5 +1,5 @@
 {# Reactions + GM comments for Around the League articles (home JSON, team page, headlines). #}
-{% macro news_engagement_block(article_id, engagement, viewer_can_react) -%}
+{% macro news_engagement_block(article_id, engagement, viewer_can_react, comment_href=None) -%}
 {% set eng = engagement if engagement is not none else {} %}
 {% set upc = eng.get('thumbs_up', 0) %}
 {% set dnc = eng.get('thumbs_down', 0) %}
@@ -13,6 +13,9 @@
     <button type="button" class="news-eng__btn news-eng__btn--clear muted" data-news-vote="0" title="Clear your vote">Clear</button>
     {% endif %}
   </div>
+  {% if comment_href %}
+  <p class="news-eng__hint muted"><a href="{{ comment_href }}">Read full article{% if viewer_can_react %} &amp; comment on Headlines{% else %} on Headlines{% endif %}</a></p>
+  {% else %}
   {% if cmts %}
   <ul class="news-eng__comments" aria-label="Comments">
     {% for c in cmts %}
@@ -31,6 +34,7 @@
   </form>
   {% else %}
   <p class="news-eng__hint muted">Log in with an active GM seat (or as league admin) to vote or comment.</p>
+  {% endif %}
   {% endif %}
 </div>
 {%- endmacro %}

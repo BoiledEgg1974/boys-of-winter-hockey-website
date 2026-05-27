@@ -932,6 +932,55 @@
     });
   }
 
+  function htmlNewsEngagementHome(a, viewerCan, headlinesPath) {
+    viewerCan = !!viewerCan;
+    var upc = a.thumbs_up != null ? Number(a.thumbs_up) : 0;
+    var dnc = a.thumbs_down != null ? Number(a.thumbs_down) : 0;
+    var mv = a.my_vote;
+    var upSel = mv === 1 ? ' is-selected' : '';
+    var dnSel = mv === -1 ? ' is-selected' : '';
+    var aid = String(a.id);
+    var articleHref = escapeAttr(withRoot(headlinesPath + '#a' + aid));
+    var h =
+      '<div class="news-eng" data-news-article-id="' +
+      escapeAttr(aid) +
+      '"><div class="news-eng__toolbar" role="group" aria-label="Article reactions">';
+    h +=
+      '<button type="button" class="news-eng__btn news-eng__btn--up' +
+      upSel +
+      '" data-news-vote="1" title="Thumbs up" aria-pressed="' +
+      (mv === 1 ? 'true' : 'false') +
+      '">▲ <span class="news-eng__cnt" data-news-cnt="up">' +
+      upc +
+      '</span></button>';
+    h +=
+      '<button type="button" class="news-eng__btn news-eng__btn--down' +
+      dnSel +
+      '" data-news-vote="-1" title="Thumbs down" aria-pressed="' +
+      (mv === -1 ? 'true' : 'false') +
+      '">▼ <span class="news-eng__cnt" data-news-cnt="down">' +
+      dnc +
+      '</span></button>';
+    if (viewerCan && mv) {
+      h +=
+        '<button type="button" class="news-eng__btn news-eng__btn--clear muted" data-news-vote="0" title="Clear your vote">Clear</button>';
+    }
+    h += '</div>';
+    if (viewerCan) {
+      h +=
+        '<p class="news-eng__hint muted"><a href="' +
+        articleHref +
+        '">Read full article &amp; comment on Headlines</a></p>';
+    } else {
+      h +=
+        '<p class="news-eng__hint muted"><a href="' +
+        articleHref +
+        '">Read full article on Headlines</a></p>';
+    }
+    h += '</div>';
+    return h;
+  }
+
   function htmlNewsEngagement(a, viewerCan) {
     viewerCan = !!viewerCan;
     var upc = a.thumbs_up != null ? Number(a.thumbs_up) : 0;
@@ -1028,12 +1077,20 @@
       } else if (a.team_name) {
         h += ' <span class="muted">' + escape(a.team_name) + '</span>';
       }
-      if (a.body_html) {
+      if (a.body_excerpt) {
+        h += '<div class="home-news-list__excerpt">' + escape(String(a.body_excerpt)) + '</div>';
+        h +=
+          '<p class="home-news-list__more"><a href="' +
+          escapeAttr(withRoot(headlinesPath + '#a' + String(a.id))) +
+          '">Read full article</a></p>';
+      } else if (a.body_html) {
         h += '<div class="home-news-list__body home-news-list__body--linked">' + a.body_html + '</div>';
       } else if (a.body) {
         h += '<div class="home-news-list__body">' + escape(a.body) + '</div>';
       }
-      h += htmlNewsEngagement(a, viewerCan);
+      h += a.body_excerpt
+        ? htmlNewsEngagementHome(a, viewerCan, headlinesPath)
+        : htmlNewsEngagement(a, viewerCan);
       h += '</li>';
     });
     h +=
@@ -1041,6 +1098,25 @@
       escapeAttr(withRoot(headlinesPath)) +
       '">View all headlines</a></p>';
     el.innerHTML = h;
+  }
+
+  function loadAroundTheLeague() {
+    var el = document.getElementById('home-news');
+    if (!el) return;
+    el.innerHTML = '<p class="empty-state">Loading headlines…</p>';
+    fetch(withRoot('/api/homepage/around-the-league'), {
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' },
+    })
+      .then(function (r) {
+        return r.json();
+      })
+      .then(function (around) {
+        paintAroundNews(around || {});
+      })
+      .catch(function () {
+        el.innerHTML = '<p class="muted">Could not load headlines.</p>';
+      });
   }
 
   var championsTimer = null;
@@ -1833,7 +1909,7 @@
         powerSortDir = 'desc';
         paintPower(data.power_rankings || {});
         paintChampions(data.champions_panel || {});
-        paintAroundNews(data.around_the_league || {});
+        loadAroundTheLeague();
         loadPostseasonOdds();
 
         leaderData = data.leaders || leaderData;

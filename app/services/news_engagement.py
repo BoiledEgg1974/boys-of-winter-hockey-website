@@ -73,7 +73,11 @@ def engagement_bundle_for_articles(
         ).all():
             out[int(v.article_id)]["my_vote"] = int(v.value)
 
-    lim = max(1, min(int(comments_per_article or 80), 200))
+    lim = int(comments_per_article if comments_per_article is not None else 80)
+    if lim <= 0:
+        return out
+
+    lim = max(1, min(lim, 200))
     comments = session.scalars(
         select(NewsArticleComment)
         .options(joinedload(NewsArticleComment.user))

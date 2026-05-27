@@ -16,7 +16,7 @@ class HomepageSummaryCacheTests(unittest.TestCase):
         }
         core = _strip_volatile_fields(body)
         self.assertIn("leaders", core)
-        self.assertNotIn("around_the_league", core)
+        self.assertIn("around_the_league", core)
         self.assertNotIn("module_settings", core)
         self.assertNotIn("ticker_items", core)
 

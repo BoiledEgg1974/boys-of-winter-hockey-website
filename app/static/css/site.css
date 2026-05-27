@@ -4325,6 +4325,35 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
   border-radius: 8px;
   display: block;
 }
+.headlines-page-meta {
+  margin: 0 0 1rem;
+  font-size: 0.88rem;
+}
+.headlines-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+}
+.headlines-pagination__link {
+  font-weight: 600;
+  text-decoration: none;
+}
+.headlines-pagination__link--disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+.headlines-pagination__status {
+  font-size: 0.88rem;
+}
+.home-news-list__more {
+  margin: 0.35rem 0 0.5rem;
+  font-size: 0.88rem;
+}
 
 /* Admin — news moderation queue */
 .admin-news-queue .data th {

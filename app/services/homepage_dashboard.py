@@ -1006,9 +1006,18 @@ def build_champions_panel(session) -> dict[str, Any]:
 
 
 def build_around_the_league(
-    league_session, viewer: Any | None = None, logo_season_year: int | None = None
+    league_session,
+    viewer: Any | None = None,
+    logo_season_year: int | None = None,
+    *,
+    for_home: bool = False,
 ) -> dict[str, Any]:
     """Published news from site DB; ``league_session`` resolves team slugs/names."""
+    from app.services.news_text import (
+        HOMEPAGE_AROUND_COUNT,
+        HOMEPAGE_BODY_EXCERPT_LEN,
+        news_body_excerpt,
+    )
     from flask import current_app, has_request_context, url_for
 
     from app.league_db import db
@@ -1027,7 +1036,7 @@ def build_around_the_league(
             published_news_age_filter(NewsArticle),
         )
         .order_by(NewsArticle.published_at.desc().nulls_last(), NewsArticle.id.desc())
-        .limit(5)
+        .limit(HOMEPAGE_AROUND_COUNT)
     ).all()
     viewer_can = viewer_can_react_on_news(viewer, slug) if slug else False
 
@@ -1069,38 +1078,43 @@ def build_around_the_league(
         return em.split("@", 1)[0] if em else ""
 
     eng = engagement_bundle_for_articles(
-        db.session, slug, [a.id for a in rows], viewer, comments_per_article=5
+        db.session,
+        slug,
+        [a.id for a in rows],
+        viewer,
+        comments_per_article=0 if for_home else 5,
     )
     articles: list[dict[str, Any]] = []
     for a in rows:
         tm = league_session.get(Team, a.team_id) if a.team_id else None
         body = (a.body or "").strip().replace("\r\n", "\n")
-        from app.services.news_entity_linkify import linkify_news_body
-
-        body_html = str(linkify_news_body(db.session, body))
         au = authors.get(a.author_user_id)
         rel_img = (getattr(a, "image_rel_path", None) or "").strip()
         image_url = _static_url(rel_img) if rel_img else ""
         e = eng.get(a.id, {})
-        articles.append(
-            {
-                "id": a.id,
-                "title": a.title,
-                "body": body,
-                "body_html": body_html,
-                "category_label": news_category_label(getattr(a, "category", None)),
-                "team_name": tm.full_display_name() if tm else None,
-                "team_slug": tm.slug if tm else None,
-                "team_logo_url": dashboard_team_logo_url(tm, logo_season_year) if tm else "",
-                "gm_label": _gm_label(au),
-                "published_at": a.published_at.isoformat() if a.published_at else None,
-                "image_url": image_url,
-                "thumbs_up": int(e.get("thumbs_up") or 0),
-                "thumbs_down": int(e.get("thumbs_down") or 0),
-                "my_vote": e.get("my_vote"),
-                "comments": e.get("comments") or [],
-            }
-        )
+        item: dict[str, Any] = {
+            "id": a.id,
+            "title": a.title,
+            "category_label": news_category_label(getattr(a, "category", None)),
+            "team_name": tm.full_display_name() if tm else None,
+            "team_slug": tm.slug if tm else None,
+            "team_logo_url": dashboard_team_logo_url(tm, logo_season_year) if tm else "",
+            "gm_label": _gm_label(au),
+            "published_at": a.published_at.isoformat() if a.published_at else None,
+            "image_url": image_url,
+            "thumbs_up": int(e.get("thumbs_up") or 0),
+            "thumbs_down": int(e.get("thumbs_down") or 0),
+            "my_vote": e.get("my_vote"),
+            "comments": e.get("comments") or [],
+        }
+        if for_home:
+            item["body_excerpt"] = news_body_excerpt(body, max_len=HOMEPAGE_BODY_EXCERPT_LEN)
+        else:
+            from app.services.news_entity_linkify import linkify_news_body
+
+            item["body"] = body
+            item["body_html"] = str(linkify_news_body(db.session, body))
+        articles.append(item)
     return {
         "enabled": True,
         "message": "",

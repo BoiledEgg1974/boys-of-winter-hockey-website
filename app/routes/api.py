@@ -1218,6 +1218,26 @@ def _misc_statistics_panel(special_teams: list[dict[str, object]]) -> dict[str, 
     }
 
 
+@api_bp.get("/homepage/around-the-league")
+def homepage_around_the_league():
+    """Light Around the League block for the homepage (loaded after the main summary)."""
+    from app.services.seasons import get_current_season
+
+    logo_sy: int | None = None
+    season = get_current_season()
+    if season is not None and getattr(season, "start_year", None) is not None:
+        logo_sy = int(season.start_year)
+    payload = build_around_the_league(
+        db.session,
+        _news_dashboard_viewer(),
+        logo_season_year=logo_sy,
+        for_home=True,
+    )
+    resp = jsonify(payload)
+    resp.headers["Cache-Control"] = "private, max-age=30"
+    return resp
+
+
 @api_bp.get("/homepage/summary")
 def homepage_summary():
     segment = request.args.get("segment", "rs") or "rs"
@@ -1352,7 +1372,6 @@ def _build_homepage_summary_payload(
         {"name": lm.name, "abbr": lm.abbreviation or ""} if lm else {"name": "", "abbr": ""}
     )
     if not canonical_season:
-        empty_news = build_around_the_league(db.session, _news_dashboard_viewer())
         empty_body: dict[str, object] = {
             "league_calendar_date": None,
             "teams": [],
@@ -1379,7 +1398,6 @@ def _build_homepage_summary_payload(
                 "sort_order": module_sort_order_map(db.session, str(current_app.config.get("LEAGUE_SLUG") or "")),
             },
             "champions_panel": {"banner_urls": [], "recent_champions": []},
-            "around_the_league": empty_news,
             "leaders": {
                 "goals": [],
                 "assists": [],
@@ -1479,9 +1497,6 @@ def _build_homepage_summary_payload(
         "sort_order": module_sort_order_map(db.session, league_slug),
     }
     champions_panel = build_champions_panel(db.session)
-    around_the_league = build_around_the_league(
-        db.session, _news_dashboard_viewer(), logo_season_year=logo_sy
-    )
 
     upcoming_games = db.session.scalars(
         select(Game)
@@ -1785,7 +1800,6 @@ def _build_homepage_summary_payload(
         "power_rankings": power_rankings,
         "module_settings": module_settings,
         "champions_panel": champions_panel,
-        "around_the_league": around_the_league,
         "leaders": leaders,
         "games": games_out,
         "upcoming": upcoming_out,

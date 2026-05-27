@@ -9,7 +9,6 @@ from typing import Any
 from flask import Flask, current_app
 
 from app.config import BASE_DIR
-from app.services.homepage_dashboard import build_around_the_league
 from app.services.homepage_modules import module_sort_order_map, module_visibility_map
 from app.services.homepage_ticker import build_homepage_ticker_items
 from app.league_urls import league_test_request_context, real_flask_app
@@ -26,7 +25,7 @@ from app.services.league_json_cache import (
 _log = logging.getLogger(__name__)
 
 _NAMESPACE = "homepage_summary"
-_VOLATILE_KEYS = frozenset({"around_the_league", "module_settings", "ticker_items"})
+_VOLATILE_KEYS = frozenset({"module_settings", "ticker_items"})
 _LEGACY_CACHE_DIR = BASE_DIR / "instance" / "homepage_summary_cache"
 _BOWL_SLUGS = frozenset({"bowl-historical", "bowl-cap", "bowl-fantasy"})
 
@@ -45,12 +44,6 @@ def _summary_key_suffix(
 
 def _strip_volatile_fields(body: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in body.items() if k not in _VOLATILE_KEYS}
-
-
-def _news_dashboard_viewer() -> Any | None:
-    from flask_login import current_user
-
-    return current_user if getattr(current_user, "is_authenticated", False) else None
 
 
 def _homepage_fresh_ttl(app: Flask | None = None) -> float:
@@ -82,9 +75,6 @@ def refresh_volatile_homepage_fields(body: dict[str, Any]) -> dict[str, Any]:
             logo_sy = int(season.start_year)
     except Exception:
         logo_sy = None
-    out["around_the_league"] = build_around_the_league(
-        db.session, _news_dashboard_viewer(), logo_season_year=logo_sy
-    )
     out["module_settings"] = {
         "visibility": module_visibility_map(db.session, league_slug),
         "sort_order": module_sort_order_map(db.session, league_slug),

@@ -411,21 +411,37 @@ def _headline_byline_team(
 @main_bp.get("/league-headlines")
 def league_headlines():
     """Public published articles (Around the League)."""
+    from math import ceil
+
     from app.services.news_engagement import engagement_bundle_for_articles, viewer_can_react_on_news
+    from app.services.news_text import HEADLINES_COMMENTS_PER_ARTICLE, HEADLINES_PER_PAGE
     from app.site_models import NewsArticle, User
 
     from app.services.news_retention import published_news_age_filter
 
     slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    try:
+        page = max(1, int(request.args.get("page", 1) or 1))
+    except (TypeError, ValueError):
+        page = 1
+    filters = (
+        NewsArticle.league_slug == slug,
+        NewsArticle.status == "published",
+        published_news_age_filter(NewsArticle),
+    )
+    total = int(
+        db.session.scalar(select(func.count()).select_from(NewsArticle).where(*filters)) or 0
+    )
+    per_page = HEADLINES_PER_PAGE
+    total_pages = max(1, ceil(total / per_page)) if total else 1
+    page = min(page, total_pages)
+    offset = (page - 1) * per_page
     rows = db.session.scalars(
         select(NewsArticle)
-        .where(
-            NewsArticle.league_slug == slug,
-            NewsArticle.status == "published",
-            published_news_age_filter(NewsArticle),
-        )
+        .where(*filters)
         .order_by(NewsArticle.published_at.desc().nulls_last(), NewsArticle.id.desc())
-        .limit(100)
+        .offset(offset)
+        .limit(per_page)
     ).all()
     teams = {t.id: t for t in db.session.scalars(select(Team)).all()}
     author_ids = {a.author_user_id for a in rows}
@@ -436,7 +452,13 @@ def league_headlines():
     byline_teams = {a.id: _headline_byline_team(slug, a, authors_by_id, teams) for a in rows}
     viewer = current_user if getattr(current_user, "is_authenticated", False) else None
     engagement_by_article = (
-        engagement_bundle_for_articles(db.session, slug, [a.id for a in rows], viewer, comments_per_article=120)
+        engagement_bundle_for_articles(
+            db.session,
+            slug,
+            [a.id for a in rows],
+            viewer,
+            comments_per_article=HEADLINES_COMMENTS_PER_ARTICLE,
+        )
         if rows
         else {}
     )
@@ -451,6 +473,10 @@ def league_headlines():
         news_viewer_can_react=news_viewer_can_react,
         news_category_label=news_category_label,
         gm_display_name=gm_display_name,
+        headlines_page=page,
+        headlines_total_pages=total_pages,
+        headlines_total=total,
+        headlines_per_page=per_page,
     )
 
 
@@ -3575,8 +3601,14 @@ def _team_page_news_rows(team_id: int) -> list[dict[str, object]]:
     for u in db.session.scalars(select(User).where(User.id.in_(author_ids))).all():
         authors[u.id] = u
     viewer = current_user if getattr(current_user, "is_authenticated", False) else None
+    from app.services.news_text import HOMEPAGE_BODY_EXCERPT_LEN, news_body_excerpt
+
     eng = engagement_bundle_for_articles(
-        db.session, slug, [a.id for a in rows], viewer, comments_per_article=40
+        db.session,
+        slug,
+        [a.id for a in rows],
+        viewer,
+        comments_per_article=0,
     )
     out: list[dict[str, object]] = []
     for a in rows:
@@ -3587,7 +3619,14 @@ def _team_page_news_rows(team_id: int) -> list[dict[str, object]]:
         else:
             byline = gm_display_name(u)
         body = (a.body or "").strip().replace("\r\n", "\n")
-        out.append({"article": a, "byline": byline, "body": body, "engagement": eng.get(a.id)})
+        out.append(
+            {
+                "article": a,
+                "byline": byline,
+                "body_excerpt": news_body_excerpt(body, max_len=HOMEPAGE_BODY_EXCERPT_LEN),
+                "engagement": eng.get(a.id),
+            }
+        )
     return out
 
 

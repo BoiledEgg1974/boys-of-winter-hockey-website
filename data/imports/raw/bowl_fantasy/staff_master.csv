@@ -11,7 +11,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 9;19;David;Poile;;1950-2-14;Toronto;OH;The United States;;;0
 10;5;Larry;Pleau;;1947-6-29;Boston;MA;The United States;;;0
 11;21;Glen;Sather;Slats;1943-9-2;High River;AB;Canada;;;0
-12;16;Fred;Shero;The Fog;1925-10-23;Winnipeg;MB;Canada;;;0
+12;-1;Fred;Shero;The Fog;1925-10-23;Winnipeg;MB;Canada;;;0
 13;3;Bryan;Murray;;1942-12-5;Shawville;QC;Canada;;;0
 14;24;Gene;Ubriaco;;1937-12-26;Sault Ste. Marie;ON;Canada;;;0
 15;299;Jacques;Caron;;1939-4-21;Rouyn-Noranda;QC;Canada;;;0
@@ -1966,7 +1966,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1964;20;Ralph;Atcheson;;1931-11-1;Toronto;ON;Canada;;;0
 1965;-1;Dan;Carman;;1929-4-30;Palm Coast;FL;The United States;;;0
 1966;15;Fred;Spencer;;1938-6-28;Foremost;AB;Canada;;;0
-1967;11;Jake;Weaver;;1938-3-26;Calgary;AB;Canada;;;0
+1967;-1;Jake;Weaver;;1938-3-26;Calgary;AB;Canada;;;0
 1968;-1;Melvin;Flint;;1929-2-2;Brampton;ON;Canada;;;0
 1969;18;Victor;Mullins;;1934-7-8;Santa Ana;CA;The United States;;;0
 1970;-1;Ryan;Plumer;;1931-10-2;Halethorpe;MD;The United States;;;0
@@ -2147,7 +2147,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 2145;216;Mark;Rice;;1939-11-19;Brooklyn;NY;The United States;;;0
 2146;-1;Scott;Salyer;;1932-5-13;Chicago;IL;The United States;;;0
 2147;222;Joe;McElroy;;1933-6-22;San Francisco;CA;The United States;;;0
-2148;-1;Lyle;Richard;;1932-10-23;Dale City;VA;The United States;;;0
+2148;11;Lyle;Richard;;1932-10-23;Dale City;VA;The United States;;;0
 2149;-1;Artie;O'Brien;;1932-5-4;Fort Worth;TX;The United States;;;0
 2150;-1;George;Lorenz;;1938-11-30;Washington;DC;The United States;;;0
 2151;10;Kane;Teehan;;1932-6-29;Oxnard;CA;The United States;;;0

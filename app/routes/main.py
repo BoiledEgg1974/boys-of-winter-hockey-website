@@ -3,11 +3,9 @@ from __future__ import annotations
 
 import csv
 import re
-import smtplib
 import unicodedata
 from dataclasses import replace
 from datetime import date
-from email.message import EmailMessage
 from pathlib import Path
 from flask import Blueprint, abort, current_app, render_template, request, url_for
 from flask_login import current_user
@@ -156,6 +154,7 @@ from app.services.draft_hub_state import (
     featured_draft,
     picked_player_ids,
 )
+from app.services.join_league import join_league_team_options, send_join_league_email
 from app.services.draft_pick_ownership import owned_draft_picks_for_team
 from app.services.playoff_bracket import playoff_bracket_payload
 from app.services.team_alumni import team_alumni_rows as build_team_alumni_rows
@@ -168,99 +167,6 @@ def _require_join_field(form: dict[str, str], key: str, label: str, errors: list
     if not v:
         errors.append(f"{label} is required.")
     return v
-
-
-def _join_league_team_options() -> list[str]:
-    """Admin-editable team options for the join form; always starts with ``Waitlist``.
-
-    Source file (optional): ``<instance>/join_league_available_teams.txt`` one team per line.
-    Lines starting with ``#`` are ignored. If the file is missing or has no team lines, only
-    ``Waitlist`` is offered until you add teams to the file.
-    """
-    options: list[str] = []
-    teams_file = Path(current_app.instance_path) / "join_league_available_teams.txt"
-    if teams_file.is_file():
-        try:
-            for raw in teams_file.read_text(encoding="utf-8").splitlines():
-                v = raw.strip()
-                if not v or v.startswith("#"):
-                    continue
-                if v.lower() == "waitlist":
-                    continue
-                options.append(v)
-        except OSError:
-            options = []
-
-    # League-specific defaults (used when the instance text file is absent or incomplete).
-    league_slug = str(current_app.config.get("LEAGUE_SLUG") or "").strip().lower()
-    if league_slug == "bowl-fantasy":
-        options.append("Tokyo Katanas")
-
-    # De-duplicate while preserving order.
-    seen: set[str] = set()
-    uniq: list[str] = []
-    for t in options:
-        if t not in seen:
-            seen.add(t)
-            uniq.append(t)
-    return ["Waitlist", *uniq]
-
-
-def _send_join_league_email(payload: dict[str, str], heard_from: list[str]) -> None:
-    recipient = str(current_app.config.get("JOIN_LEAGUE_RECIPIENT", "keenovdecimanus@gmail.com")).strip()
-    smtp_host = str(current_app.config.get("MAIL_SMTP_HOST", "")).strip()
-    smtp_port = int(current_app.config.get("MAIL_SMTP_PORT", 587))
-    smtp_user = str(current_app.config.get("MAIL_SMTP_USERNAME", "")).strip()
-    smtp_pass = str(current_app.config.get("MAIL_SMTP_PASSWORD", "")).strip()
-    smtp_from = str(current_app.config.get("MAIL_FROM", smtp_user or recipient)).strip()
-    use_tls = bool(current_app.config.get("MAIL_SMTP_USE_TLS", True))
-    use_ssl = bool(current_app.config.get("MAIL_SMTP_USE_SSL", False))
-
-    if not smtp_host:
-        raise RuntimeError("MAIL_SMTP_HOST is not configured.")
-
-    msg = EmailMessage()
-    msg["Subject"] = f"[{current_app.config.get('LEAGUE_DISPLAY_NAME', 'League')}] Join League Application - {payload['first_name']} {payload['last_name']}"
-    msg["From"] = smtp_from
-    msg["To"] = recipient
-    body_lines = [
-        f"League: {current_app.config.get('LEAGUE_DISPLAY_NAME', '')}",
-        f"First Name: {payload['first_name']}",
-        f"Last Name: {payload['last_name']}",
-        f"Email: {payload['email']}",
-        f"Age: {payload['age']}",
-        f"Location: {payload['location']}",
-        f"Discord: {payload['discord_status']}",
-        f"Available Team: {payload['available_team']}",
-        f"Heard About League From: {', '.join(heard_from)}",
-        f"Other Leagues Active In: {payload['other_leagues_count']}",
-        f"Favorite NHL Team: {payload['favorite_nhl_team']}",
-        f"Favorite Player: {payload['favorite_player']}",
-        "",
-        "Experience Description:",
-        payload["experience"],
-        "",
-        "Hockey Knowledge Description:",
-        payload["knowledge"],
-        "",
-        "Team Building Style:",
-        payload["team_building_style"],
-    ]
-    msg.set_content("\n".join(body_lines))
-
-    if use_ssl:
-        with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=30) as server:
-            if smtp_user:
-                server.login(smtp_user, smtp_pass)
-            server.send_message(msg)
-        return
-
-    with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as server:
-        if use_tls:
-            server.starttls()
-        if smtp_user:
-            server.login(smtp_user, smtp_pass)
-        server.send_message(msg)
 
 
 # Banner / Banner1.png / banner 1.png — case-insensitive; optional space before digits; png/webp/jpeg
@@ -482,7 +388,7 @@ def league_headlines():
 
 @main_bp.route("/join-league", methods=["GET", "POST"])
 def join_league():
-    available_teams = _join_league_team_options()
+    available_teams = join_league_team_options()
     if request.method == "GET":
         return render_template(
             "join_league.html",
@@ -546,7 +452,7 @@ def join_league():
         "team_building_style": team_building_style,
     }
     try:
-        _send_join_league_email(payload, heard_from)
+        send_join_league_email(payload, heard_from)
     except Exception as exc:
         return render_template(
             "join_league.html",

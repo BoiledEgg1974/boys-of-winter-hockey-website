@@ -82,7 +82,14 @@ from app.services.homepage_modules import (
     get_homepage_module_settings,
     save_homepage_module_settings,
 )
+from app.mail_util import send_site_email
 from app.services.import_validation import build_import_validation_report
+from app.services.join_league import (
+    configured_join_team_options,
+    join_available_teams_path,
+    mail_settings_summary,
+    save_join_team_options,
+)
 from app.services.league_rules import (
     evaluate_contract_mutation_allowed,
     evaluate_points_economy_mutations_allowed,
@@ -552,6 +559,38 @@ def _admin_trade_team_id() -> int | None:
         "admin_team_id", type=int
     )
     return int(tid) if tid and tid > 0 else None
+
+
+def _join_league_availability_rows() -> tuple[list[dict[str, object]], list[str]]:
+    configured_names, _ = configured_join_team_options()
+    configured_keys = {name.casefold() for name in configured_names}
+
+    active_by_team: dict[int, User] = {}
+    slug = _league_slug()
+    for mem, user in _active_trade_memberships(slug):
+        if mem.team_id is not None and int(mem.team_id) not in active_by_team:
+            active_by_team[int(mem.team_id)] = user
+
+    rows: list[dict[str, object]] = []
+    seen_configured: set[str] = set()
+    for team in main_league_teams(db.session):
+        team_name = team.full_display_name()
+        key = team_name.casefold()
+        seen_configured.add(key)
+        gm_user = active_by_team.get(int(team.id))
+        rows.append(
+            {
+                "team": team,
+                "team_name": team_name,
+                "is_open": key in configured_keys,
+                "has_active_gm": gm_user is not None,
+                "gm_name": gm_display_name(gm_user) if gm_user else "",
+            }
+        )
+
+    rows.sort(key=lambda r: str(r.get("team_name") or "").lower())
+    stale_options = [name for name in configured_names if name.casefold() not in seen_configured]
+    return rows, stale_options
 
 
 def _create_undo_action(
@@ -2328,6 +2367,67 @@ def admin_home():
 def admin_commissioner_sop():
     require_admin()
     return render_template("admin_commissioner_sop.html")
+
+
+@site_admin_bp.route("/join-league", methods=["GET", "POST"])
+@login_required
+def admin_join_league():
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    slug = _league_slug()
+    if request.method == "POST":
+        action = (request.form.get("action") or "save").strip()
+        if action == "test_email":
+            recipient = (
+                request.form.get("test_recipient")
+                or getattr(current_user, "email", "")
+                or current_app.config.get("JOIN_LEAGUE_RECIPIENT", "")
+            )
+            recipient = str(recipient or "").strip()
+            try:
+                send_site_email(
+                    subject=f"[{current_app.config.get('LEAGUE_DISPLAY_NAME', 'League')}] Join League email test",
+                    body=(
+                        "This is a test of the Join Our League email settings.\n\n"
+                        f"League: {current_app.config.get('LEAGUE_DISPLAY_NAME', '')}\n"
+                        f"Public Join Our League page: {url_for('main.join_league', _external=True)}\n"
+                        f"Admin availability page: {url_for('site_admin.admin_join_league', _external=True)}\n\n"
+                        "If this message arrived and both links open, SMTP delivery and the join links are functional."
+                    ),
+                    to_addrs=[recipient],
+                )
+            except Exception as exc:
+                flash(f"Could not send test email: {exc}", "err")
+            else:
+                flash(f"Test email sent to {recipient}.", "ok")
+            return redirect(url_for("site_admin.admin_join_league"))
+
+        selected = request.form.getlist("open_team")
+        _, stale_options = _join_league_availability_rows()
+        keep_stale = request.form.getlist("keep_stale_option")
+        save_join_team_options([*selected, *[x for x in stale_options if x in keep_stale]])
+        db.session.add(
+            AdminAuditLog(
+                admin_user_id=int(current_user.id),
+                league_slug=slug,
+                action="join_league_availability_update",
+                detail_json=json.dumps({"open_teams": selected, "kept_custom_options": keep_stale}),
+            )
+        )
+        db.session.commit()
+        flash("Join League availability updated.", "ok")
+        return redirect(url_for("site_admin.admin_join_league"))
+
+    rows, stale_options = _join_league_availability_rows()
+    configured_names, has_admin_file = configured_join_team_options()
+    return render_template(
+        "admin_join_league.html",
+        rows=rows,
+        stale_options=stale_options,
+        configured_names=configured_names,
+        has_admin_file=has_admin_file,
+        teams_file=join_available_teams_path(),
+        mail_settings=mail_settings_summary(),
+    )
 
 
 @site_admin_bp.route("/roles", methods=["GET", "POST"])

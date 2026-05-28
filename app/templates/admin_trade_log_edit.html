@@ -4,6 +4,7 @@
 <div class="card" style="max-width:40rem;margin:0 auto;">
   <h1 class="page-title">Edit manual trade</h1>
   <p><a href="{{ url_for('site_admin.admin_trade_log') }}">← Manual trade log</a></p>
+  <p class="muted">Use full player names when possible; the public Trade Log and admin list link matching players automatically.</p>
   <form method="post">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div style="display:grid;gap:0.55rem;">

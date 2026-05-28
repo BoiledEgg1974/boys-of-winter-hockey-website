@@ -4,6 +4,7 @@
 <div class="card" style="max-width:58rem;margin:0 auto;">
   <h1 class="page-title">Manual trade log</h1>
   <p class="muted">Add historical trades from before the Trade Tool workflow. These appear on the public <a href="{{ url_for('main.trade_log_page') }}">Trade Log</a> with source <strong>Manual</strong>.</p>
+  <p class="muted">Player, team, and staff names are linked automatically when they match site records. Use full player names for the most reliable links.</p>
   <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
 
   <form method="post" style="margin:0 0 1.25rem;">
@@ -60,8 +61,8 @@
         <tr>
           <td>{{ e.trade_date.strftime('%Y-%m-%d') if e.trade_date else '—' }}</td>
           <td>{{ ta.full_display_name() if ta else e.team_a_id }} ↔ {{ tb.full_display_name() if tb else e.team_b_id }}</td>
-          <td style="white-space:pre-wrap;max-width:20rem;">{{ parts[0] }}</td>
-          <td style="white-space:pre-wrap;max-width:20rem;">{{ parts[1] }}</td>
+          <td class="manual-trade-log__assets">{{ parts[0] | linkify_news_body }}</td>
+          <td class="manual-trade-log__assets">{{ parts[1] | linkify_news_body }}</td>
           <td>
             <a href="{{ url_for('site_admin.admin_trade_log_edit', entry_id=e.id) }}">Edit</a>
             <form method="post" action="{{ url_for('site_admin.admin_trade_log_delete', entry_id=e.id) }}" style="display:inline;margin-left:0.5rem;" onsubmit="return confirm('Delete this manual trade entry?');">

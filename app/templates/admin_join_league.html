@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Join League Availability — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card admin-join-league">
+  <h1 class="page-title">Join League Availability</h1>
+  <p class="muted">
+    Choose which GM positions appear in the public <a href="{{ url_for('main.join_league') }}">Join Our League</a>
+    team selector. <strong>Waitlist</strong> is always available.
+  </p>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="admin-join-league__messages">
+    {% for category, message in messages %}
+    <p class="join-league-status join-league-status--{{ 'ok' if category == 'ok' else 'err' }}">{{ message }}</p>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endwith %}
+
+  <form method="post" action="{{ url_for('site_admin.admin_join_league') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="save">
+    <div class="table-wrap">
+      <table class="data admin-join-league__table">
+        <thead>
+          <tr>
+            <th>Open on Join Form</th>
+            <th>Team</th>
+            <th>Current GM Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          <tr class="{% if row.has_active_gm %}admin-join-league__row--filled{% endif %}">
+            <td>
+              <label class="admin-join-league__check">
+                <input type="checkbox" name="open_team" value="{{ row.team_name }}" {% if row.is_open %}checked{% endif %}>
+                Open
+              </label>
+            </td>
+            <td>{{ row.team_name }}</td>
+            <td>
+              {% if row.has_active_gm %}
+              Filled — {{ row.gm_name }}
+              {% else %}
+              <span class="admin-join-league__open">No active GM</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if stale_options %}
+    <section class="admin-join-league__custom card">
+      <h2>Configured options not found in current teams</h2>
+      <p class="muted">These are still in the availability file. Uncheck any you want removed.</p>
+      {% for opt in stale_options %}
+      <label class="admin-join-league__check">
+        <input type="checkbox" name="keep_stale_option" value="{{ opt }}" checked>
+        {{ opt }}
+      </label>
+      {% endfor %}
+    </section>
+    {% endif %}
+
+    <p class="muted admin-join-league__file">
+      Saved to <code>{{ teams_file }}</code>. Current open teams:
+      {% if configured_names %}{{ configured_names|join(', ') }}{% else %}none{% endif %}.
+      {% if not has_admin_file %}No admin file exists yet; this site may still use a legacy default until you save.{% endif %}
+    </p>
+
+    <button type="submit" class="btn">Save Availability</button>
+  </form>
+
+  <hr>
+
+  <section class="admin-join-league__mail">
+    <h2>Email Settings Test</h2>
+    <dl class="admin-join-league__settings">
+      <div><dt>Recipient</dt><dd>{{ mail_settings.recipient or 'Not configured' }}</dd></div>
+      <div><dt>SMTP Host</dt><dd>{{ mail_settings.host or 'Not configured' }}</dd></div>
+      <div><dt>SMTP Port</dt><dd>{{ mail_settings.port }}</dd></div>
+      <div><dt>Username</dt><dd>{{ mail_settings.username or 'Not configured' }}</dd></div>
+      <div><dt>Password</dt><dd>{{ 'Configured' if mail_settings.has_password else 'Not configured' }}</dd></div>
+      <div><dt>From</dt><dd>{{ mail_settings.from_addr or 'Default sender' }}</dd></div>
+      <div><dt>Security</dt><dd>{% if mail_settings.use_ssl %}SSL{% elif mail_settings.use_tls %}TLS{% else %}None{% endif %}</dd></div>
+    </dl>
+    <form method="post" action="{{ url_for('site_admin.admin_join_league') }}" class="admin-join-league__test-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="test_email">
+      <label>Send test email to
+        <input type="email" name="test_recipient" value="{{ current_user.email or mail_settings.recipient }}" required>
+      </label>
+      <button type="submit" class="btn">Send Test Email</button>
+    </form>
+  </section>
+</div>
+{% endblock %}

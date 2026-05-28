@@ -10,8 +10,20 @@ from sqlalchemy.orm import Session
 
 from app.models import Team, TradeLogEntry
 from app.site_models import NewsArticle
+from app.services.franchise_identities import team_identity_for_season
 
 _TRADE_TITLE_RE = re.compile(r"^Trade:\s*(.+?)\s*↔\s*(.+?)\s*$", re.IGNORECASE)
+
+
+def _trade_team_labels(
+    session: Session, team_a: Team | None, team_b: Team | None, trade_d: date | None
+) -> tuple[str, str]:
+    sy = int(trade_d.year) if trade_d is not None else None
+    ia = team_identity_for_season(session, team_a, sy) if sy is not None else None
+    ib = team_identity_for_season(session, team_b, sy) if sy is not None else None
+    la = ia.display_name if ia else (team_a.full_display_name() if team_a else "—")
+    lb = ib.display_name if ib else (team_b.full_display_name() if team_b else "—")
+    return la, lb
 
 
 @dataclass(frozen=True)
@@ -25,6 +37,8 @@ class TradeLogRow:
     title: str
     body: str
     source: str
+    team_a_label: str | None = None
+    team_b_label: str | None = None
     article_id: int | None = None
     entry_id: int | None = None
     log_key: str = ""
@@ -61,8 +75,8 @@ def format_recent_trades_for_prompt(rows: list[TradeLogRow], *, limit: int = 12)
             when = row.trade_date.isoformat()
         elif row.sort_at and row.sort_at != datetime.min:
             when = row.sort_at.strftime("%Y-%m-%d")
-        ta = row.team_a.full_display_name() if row.team_a else "?"
-        tb = row.team_b.full_display_name() if row.team_b else "?"
+        ta = row.team_a_label or (row.team_a.full_display_name() if row.team_a else "?")
+        tb = row.team_b_label or (row.team_b.full_display_name() if row.team_b else "?")
         body = (row.body or "").strip().replace("\n", " ")[:240]
         src = trade_log_source_label(row.source)
         lines.append(f"  • [{src}] {when} — {ta} ↔ {tb}: {body or row.title}")
@@ -89,18 +103,19 @@ def resolve_trade_log_row(
         ta = league_session.get(Team, ent.team_a_id)
         tb = league_session.get(Team, ent.team_b_id)
         sort_at = datetime.combine(ent.trade_date, datetime.min.time()) if ent.trade_date else datetime.min
-        title = (
-            f"Trade: {ta.full_display_name() if ta else ent.team_a_id} "
-            f"↔ {tb.full_display_name() if tb else ent.team_b_id}"
-        )
+        trade_d = ent.trade_date
+        label_a, label_b = _trade_team_labels(league_session, ta, tb, trade_d)
+        title = f"Trade: {label_a if ta else ent.team_a_id} ↔ {label_b if tb else ent.team_b_id}"
         return TradeLogRow(
             sort_at=sort_at,
-            trade_date=ent.trade_date,
+            trade_date=trade_d,
             team_a=ta,
             team_b=tb,
             title=title,
             body=(ent.summary or "").strip(),
             source=src,
+            team_a_label=label_a,
+            team_b_label=label_b,
             entry_id=int(ent.id),
             log_key=trade_log_row_key(source=src, entry_id=int(ent.id)),
         )
@@ -115,6 +130,7 @@ def resolve_trade_log_row(
         ta, tb = _teams_from_trade_title(league_session, art.title)
         sort_at = art.published_at or art.created_at or datetime.min
         trade_d = sort_at.date() if isinstance(sort_at, datetime) else None
+        label_a, label_b = _trade_team_labels(league_session, ta, tb, trade_d)
         return TradeLogRow(
             sort_at=sort_at if isinstance(sort_at, datetime) else datetime.min,
             trade_date=trade_d,
@@ -123,6 +139,8 @@ def resolve_trade_log_row(
             title=art.title,
             body=(art.body or "").strip(),
             source="site",
+            team_a_label=label_a,
+            team_b_label=label_b,
             article_id=int(art.id),
             log_key=trade_log_row_key(source="site", article_id=int(art.id)),
         )
@@ -203,19 +221,20 @@ def trade_log_rows(
         ta = league_session.get(Team, ent.team_a_id)
         tb = league_session.get(Team, ent.team_b_id)
         sort_at = datetime.combine(ent.trade_date, datetime.min.time()) if ent.trade_date else datetime.min
-        title = (
-            f"Trade: {ta.full_display_name() if ta else ent.team_a_id} "
-            f"↔ {tb.full_display_name() if tb else ent.team_b_id}"
-        )
+        trade_d = ent.trade_date
+        label_a, label_b = _trade_team_labels(league_session, ta, tb, trade_d)
+        title = f"Trade: {label_a if ta else ent.team_a_id} ↔ {label_b if tb else ent.team_b_id}"
         src = (ent.source or "csv").strip().lower() or "csv"
         row = TradeLogRow(
             sort_at=sort_at,
-            trade_date=ent.trade_date,
+            trade_date=trade_d,
             team_a=ta,
             team_b=tb,
             title=title,
             body=(ent.summary or "").strip(),
             source=src,
+            team_a_label=label_a,
+            team_b_label=label_b,
             entry_id=int(ent.id),
             log_key=trade_log_row_key(source=src, entry_id=int(ent.id)),
         )
@@ -237,6 +256,7 @@ def trade_log_rows(
             ta, tb = _teams_from_trade_title(league_session, a.title)
             sort_at = a.published_at or a.created_at or datetime.min
             trade_d = sort_at.date() if isinstance(sort_at, datetime) else None
+            label_a, label_b = _trade_team_labels(league_session, ta, tb, trade_d)
             row = TradeLogRow(
                 sort_at=sort_at if isinstance(sort_at, datetime) else datetime.min,
                 trade_date=trade_d,
@@ -245,6 +265,8 @@ def trade_log_rows(
                 title=a.title,
                 body=(a.body or "").strip(),
                 source="site",
+                team_a_label=label_a,
+                team_b_label=label_b,
                 article_id=int(a.id),
                 log_key=trade_log_row_key(source="site", article_id=int(a.id)),
             )

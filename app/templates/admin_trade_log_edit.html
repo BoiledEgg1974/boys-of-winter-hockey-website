@@ -13,16 +13,34 @@
       </label>
       <label>Team A
         <select name="team_a_id" required>
-          {% for t in teams %}
-          <option value="{{ t.id }}" {% if t.id == entry.team_a_id %}selected{% endif %}>{{ t.full_display_name() }}</option>
+          {% if defunct_team_options %}
+          <optgroup label="Defunct / historical teams">
+            {% for opt in defunct_team_options %}
+            <option value="{{ opt.value }}">{{ opt.label }}</option>
+            {% endfor %}
+          </optgroup>
+          {% endif %}
+          <optgroup label="Active teams">
+          {% for opt in active_team_options %}
+          <option value="{{ opt.value }}" {% if opt.value == 'team:' ~ entry.team_a_id %}selected{% endif %}>{{ opt.label }}</option>
           {% endfor %}
+          </optgroup>
         </select>
       </label>
       <label>Team B
         <select name="team_b_id" required>
-          {% for t in teams %}
-          <option value="{{ t.id }}" {% if t.id == entry.team_b_id %}selected{% endif %}>{{ t.full_display_name() }}</option>
+          {% if defunct_team_options %}
+          <optgroup label="Defunct / historical teams">
+            {% for opt in defunct_team_options %}
+            <option value="{{ opt.value }}">{{ opt.label }}</option>
+            {% endfor %}
+          </optgroup>
+          {% endif %}
+          <optgroup label="Active teams">
+          {% for opt in active_team_options %}
+          <option value="{{ opt.value }}" {% if opt.value == 'team:' ~ entry.team_b_id %}selected{% endif %}>{{ opt.label }}</option>
           {% endfor %}
+          </optgroup>
         </select>
       </label>
       <label>Leaving Team A

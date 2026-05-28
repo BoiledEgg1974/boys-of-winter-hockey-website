@@ -661,6 +661,34 @@ class TeamSeasonRecord(db.Model):
     team: Mapped["Team | None"] = relationship()
 
 
+class FranchiseTeamIdentity(db.Model):
+    """Era-specific display identity for relocated/renamed franchises.
+
+    Rows are keyed to the current franchise ``teams.id`` when possible, with
+    ``team_fhm_id`` as a fallback for historical career/draft rows that only
+    carry FHM source IDs.
+    """
+
+    __tablename__ = "franchise_team_identities"
+    __table_args__ = (
+        Index("ix_franchise_identity_team_year", "team_id", "start_year", "end_year"),
+        Index("ix_franchise_identity_fhm_year", "team_fhm_id", "start_year", "end_year"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    team_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id"), nullable=True)
+    team_fhm_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    display_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    abbreviation: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    logo_file: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    start_year: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    end_year: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    status: Mapped[str] = mapped_column(String(32), default="historical", nullable=False)
+    notes: Mapped[str] = mapped_column(Text, default="", nullable=False)
+
+    team: Mapped["Team | None"] = relationship()
+
+
 class PlayerOverallBaseline(db.Model):
     """1–100 overall composite baseline for depth-chart ↑/↓ (snapshotted at import start; optional CLI reset)."""
 

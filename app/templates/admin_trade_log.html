@@ -17,17 +17,35 @@
       <label>Team A
         <select name="team_a_id" required>
           <option value="">— Select —</option>
-          {% for t in teams %}
-          <option value="{{ t.id }}">{{ t.full_display_name() }}</option>
+          {% if defunct_team_options %}
+          <optgroup label="Defunct / historical teams">
+            {% for opt in defunct_team_options %}
+            <option value="{{ opt.value }}">{{ opt.label }}</option>
+            {% endfor %}
+          </optgroup>
+          {% endif %}
+          <optgroup label="Active teams">
+          {% for opt in active_team_options %}
+          <option value="{{ opt.value }}">{{ opt.label }}</option>
           {% endfor %}
+          </optgroup>
         </select>
       </label>
       <label>Team B
         <select name="team_b_id" required>
           <option value="">— Select —</option>
-          {% for t in teams %}
-          <option value="{{ t.id }}">{{ t.full_display_name() }}</option>
+          {% if defunct_team_options %}
+          <optgroup label="Defunct / historical teams">
+            {% for opt in defunct_team_options %}
+            <option value="{{ opt.value }}">{{ opt.label }}</option>
+            {% endfor %}
+          </optgroup>
+          {% endif %}
+          <optgroup label="Active teams">
+          {% for opt in active_team_options %}
+          <option value="{{ opt.value }}">{{ opt.label }}</option>
           {% endfor %}
+          </optgroup>
         </select>
       </label>
       <label>Leaving Team A

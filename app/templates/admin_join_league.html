@@ -79,15 +79,27 @@
 
   <section class="admin-join-league__mail">
     <h2>Email Settings Test</h2>
+    <p class="muted">
+      Gmail error <code>535 … Username and Password not accepted</code> means SMTP login failed.
+      Use a <strong>Google App Password</strong> (not your normal Gmail password), set
+      <code>MAIL_SMTP_USERNAME</code> to the full Gmail address, and keep
+      <code>MAIL_SMTP_USE_TLS=1</code> with port <code>587</code>. Restart the web app after changing <code>.env</code>.
+    </p>
     <dl class="admin-join-league__settings">
       <div><dt>Recipient</dt><dd>{{ mail_settings.recipient or 'Not configured' }}</dd></div>
       <div><dt>SMTP Host</dt><dd>{{ mail_settings.host or 'Not configured' }}</dd></div>
       <div><dt>SMTP Port</dt><dd>{{ mail_settings.port }}</dd></div>
       <div><dt>Username</dt><dd>{{ mail_settings.username or 'Not configured' }}</dd></div>
-      <div><dt>Password</dt><dd>{{ 'Configured' if mail_settings.has_password else 'Not configured' }}</dd></div>
+      <div><dt>App password length</dt><dd>{% if mail_settings.password_length_ok %}<span class="admin-join-league__open">{{ mail_settings.password_length }} (OK)</span>{% else %}<span class="join-league-status--err">{{ mail_settings.password_length or 0 }} — must be 16</span>{% endif %}</div>
       <div><dt>From</dt><dd>{{ mail_settings.from_addr or 'Default sender' }}</dd></div>
-      <div><dt>Security</dt><dd>{% if mail_settings.use_ssl %}SSL{% elif mail_settings.use_tls %}TLS{% else %}None{% endif %}</dd></div>
+      <div><dt>Security</dt><dd>{{ mail_settings.tls_mode }}</dd></div>
+      <div><dt>Last SMTP login test</dt><dd>{% if smtp_login.ok %}<span class="admin-join-league__open">Success</span>{% else %}<span class="join-league-status--err">Failed</span>{% if smtp_login.error %} — {{ smtp_login.error }}{% endif %}{% endif %}</dd></div>
     </dl>
+    <form method="post" action="{{ url_for('site_admin.admin_join_league') }}" class="admin-join-league__test-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="test_smtp_login">
+      <button type="submit" class="btn">Test SMTP login only</button>
+    </form>
     <form method="post" action="{{ url_for('site_admin.admin_join_league') }}" class="admin-join-league__test-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="action" value="test_email">

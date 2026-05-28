@@ -673,6 +673,55 @@ a:hover {
   border-radius: 7px;
   padding: 0.5rem 0.6rem;
 }
+.admin-franchise-identities {
+  max-width: 62rem;
+  margin: 0 auto 1rem;
+}
+.admin-franchise-identities__form {
+  display: grid;
+  gap: 0.6rem;
+}
+.admin-franchise-identities__seed-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin: 0 0 1rem;
+}
+.admin-franchise-identities__form input,
+.admin-franchise-identities__form select,
+.admin-franchise-identities__form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: rgb(0 0 0 / 0.22);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 0.5rem 0.6rem;
+}
+.admin-franchise-identities__form-title {
+  margin: 0 0 0.25rem;
+  font-size: 1.05rem;
+}
+.admin-franchise-identities__form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+.admin-franchise-identities__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.65rem;
+}
+.admin-franchise-identities__actions form {
+  display: inline;
+  margin: 0;
+}
+.admin-franchise-identities tr.is-editing td {
+  background: rgb(255 255 255 / 0.06);
+}
 .admin-join-league button {
   justify-self: start;
   border: 0;

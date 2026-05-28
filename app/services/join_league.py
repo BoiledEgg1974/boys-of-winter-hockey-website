@@ -113,15 +113,6 @@ def send_join_league_email(payload: dict[str, str], heard_from: list[str]) -> No
 
 
 def mail_settings_summary() -> dict[str, object]:
-    smtp_user = str(current_app.config.get("MAIL_SMTP_USERNAME", "") or "").strip()
-    smtp_pass = str(current_app.config.get("MAIL_SMTP_PASSWORD", "") or "")
-    return {
-        "recipient": str(current_app.config.get("JOIN_LEAGUE_RECIPIENT", "") or "").strip(),
-        "host": str(current_app.config.get("MAIL_SMTP_HOST", "") or "").strip(),
-        "port": int(current_app.config.get("MAIL_SMTP_PORT", 587) or 587),
-        "username": smtp_user,
-        "has_password": bool(smtp_pass),
-        "from_addr": str(current_app.config.get("MAIL_FROM", "") or "").strip(),
-        "use_tls": bool(current_app.config.get("MAIL_SMTP_USE_TLS", True)),
-        "use_ssl": bool(current_app.config.get("MAIL_SMTP_USE_SSL", False)),
-    }
+    from app.mail_util import smtp_config_diagnostics
+
+    return smtp_config_diagnostics()

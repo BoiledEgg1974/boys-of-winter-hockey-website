@@ -33,6 +33,7 @@ from app.db_utils import (
     ensure_story_publish_schedule_extra_columns_sqlite,
     ensure_awards_voting_sqlite,
     ensure_member_watchlists_sqlite,
+    ensure_franchise_team_identities_sqlite,
     ensure_mobile_push_devices_sqlite,
     ensure_news_engagement_sqlite,
     ensure_admin_undo_actions_sqlite,
@@ -135,6 +136,20 @@ def create_app(config_class: type = Config) -> Flask:
         ensure_player_goalie_stats_gsaa_sqlite(db.engine)
         ensure_history_awards_staff_fhm_id_sqlite(db.engine)
         ensure_history_all_stars_sqlite(db.engine)
+        ensure_franchise_team_identities_sqlite(db.engine)
+        try:
+            from sqlalchemy import func, select
+
+            from app.models import FranchiseTeamIdentity
+            from app.services.franchise_identities import seed_franchise_identities_from_csv
+
+            identity_count = db.session.scalar(select(func.count()).select_from(FranchiseTeamIdentity)) or 0
+            identity_csv = Path(app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)) / "team_identity_history.csv"
+            if int(identity_count) == 0 and identity_csv.is_file():
+                seed_franchise_identities_from_csv(db.session, identity_csv)
+                db.session.commit()
+        except Exception:
+            db.session.rollback()
         ensure_fts5(db.engine)
         try:
             site_engine = db.engines.get("site")

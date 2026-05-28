@@ -36,15 +36,21 @@
 {% block content %}
 <div class="card team-records-detail">
   <nav class="team-records-detail__nav" aria-label="Season navigation">
-    <a class="team-records-detail__nav-back" href="{{ url_for('main.team_records_index') }}">← All Seasons</a>
+    <a class="team-records-detail__nav-back" href="{{ url_for('main.team_records_index', identity_view=identity_view) }}">← All Seasons</a>
     <span class="team-records-detail__nav-spacer" aria-hidden="true">·</span>
     {% if older_year %}
-    <a class="team-records-detail__nav-prev" href="{{ url_for('main.team_records_season', year_label=older_year) }}">← {{ older_year }}</a>
+    <a class="team-records-detail__nav-prev" href="{{ url_for('main.team_records_season', year_label=older_year, identity_view=identity_view) }}">← {{ older_year }}</a>
     {% endif %}
     {% if newer_year %}
-    <a class="team-records-detail__nav-next" href="{{ url_for('main.team_records_season', year_label=newer_year) }}">{{ newer_year }} →</a>
+    <a class="team-records-detail__nav-next" href="{{ url_for('main.team_records_season', year_label=newer_year, identity_view=identity_view) }}">{{ newer_year }} →</a>
     {% endif %}
   </nav>
+  <p class="muted">
+    View mode:
+    <a href="{{ url_for('main.team_records_season', year_label=detail.year_label, identity_view='era') }}" {% if identity_view == 'era' %}style="font-weight:700;"{% endif %}>Era identities</a>
+    ·
+    <a href="{{ url_for('main.team_records_season', year_label=detail.year_label, identity_view='franchise') }}" {% if identity_view == 'franchise' %}style="font-weight:700;"{% endif %}>Franchise totals</a>
+  </p>
   <h1 class="page-title">{{ detail.year_label }} Season</h1>
 </div>
 

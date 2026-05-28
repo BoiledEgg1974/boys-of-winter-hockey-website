@@ -12,7 +12,9 @@ from typing import TYPE_CHECKING, Any
 from flask import Flask, has_request_context, url_for
 
 from app.config import league_slugs
+from app.league_db import db
 from app.logo_urls import team_has_dedicated_league_logo, team_logo_url_for_team
+from app.services.franchise_identities import identity_for_record, identity_logo_url
 
 if TYPE_CHECKING:
     from app.models import Team
@@ -418,6 +420,12 @@ def build_season_team_logo_bundle(app: Flask) -> SeasonTeamLogoBundle:
         tid_s = str(tid or "").strip()
         sy = _record_start_year(record)
 
+        ident = identity_for_record(db.session, record)
+        if ident and ident.logo_file:
+            hit = identity_logo_url(ident.logo_file)
+            if hit:
+                return hit
+
         def _timeline_logo_for_year(name_key: str, year: int) -> str | None:
             rel = historical_team_logo_timeline_by_name_year.get((name_key, year))
             if rel:
@@ -497,6 +505,9 @@ def build_season_team_logo_bundle(app: Flask) -> SeasonTeamLogoBundle:
             tid = getattr(team_obj, "fhm_team_id", None)
         tid_s = str(tid or "").strip()
         sy = _record_start_year(record)
+        ident = identity_for_record(db.session, record)
+        if ident and ident.display_name:
+            return ident.display_name
         if tid_s and sy is not None:
             id_ovr = historical_team_name_override_by_id_year.get((tid_s, sy))
             if id_ovr:

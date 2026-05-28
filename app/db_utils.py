@@ -1136,6 +1136,50 @@ def ensure_member_watchlists_sqlite(engine: Engine) -> None:
         conn.commit()
 
 
+def ensure_franchise_team_identities_sqlite(engine: Engine) -> None:
+    """Create editable historical franchise identity rows in league DB when missing."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='franchise_team_identities'")
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE franchise_team_identities (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    team_id INTEGER,
+                    team_fhm_id VARCHAR(64),
+                    display_name VARCHAR(200) NOT NULL,
+                    abbreviation VARCHAR(16),
+                    logo_file VARCHAR(500),
+                    start_year INTEGER NOT NULL,
+                    end_year INTEGER,
+                    status VARCHAR(32) NOT NULL DEFAULT 'historical',
+                    notes TEXT NOT NULL DEFAULT '',
+                    FOREIGN KEY(team_id) REFERENCES teams (id)
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_franchise_identity_team_year "
+                "ON franchise_team_identities (team_id, start_year, end_year)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_franchise_identity_fhm_year "
+                "ON franchise_team_identities (team_fhm_id, start_year, end_year)"
+            )
+        )
+        conn.commit()
+
+
 def ensure_admin_undo_actions_sqlite(engine: Engine) -> None:
     """Create admin undo action table on site DB when missing."""
     if engine.dialect.name != "sqlite":

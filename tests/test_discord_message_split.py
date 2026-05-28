@@ -104,6 +104,58 @@ class DiscordMessageSplitTest(unittest.TestCase):
         self.assertIn("https://www.bowlhockey.com/bowl-fantasy/draft-hub", content)
         self.assertIn(DISCORD_SITE_MORE_FOOTER, content)
 
+    def test_draft_hub_on_deck_is_text_only_with_mention_and_url(self):
+        parts = format_discord_messages(
+            {
+                "league_slug": "bowl-fantasy",
+                "event_key": "draft_hub_on_deck",
+                "payload": {
+                    "draft_name": "2026 Draft Hub",
+                    "team_name": "Hamilton Steel",
+                    "team_abbrev": "HAM",
+                    "round": 1,
+                    "selection": 4,
+                    "gm_mentions": "<@222222222222222222>",
+                    "url": "https://www.bowlhockey.com/bowl-fantasy/draft-hub",
+                    "has_image": False,
+                },
+            },
+            max_parts=2,
+        )
+        self.assertEqual(len(parts), 1)
+        content = parts[0].get("content", "")
+        self.assertNotIn("embeds", parts[0])
+        self.assertIn("On deck:", content)
+        self.assertIn("Round 1, Selection 4", content)
+        self.assertIn("<@222222222222222222>, get ready!", content)
+        self.assertIn("https://www.bowlhockey.com/bowl-fantasy/draft-hub", content)
+
+    def test_draft_hub_completed_is_text_only_with_archive_link(self):
+        parts = format_discord_messages(
+            {
+                "league_slug": "bowl-fantasy",
+                "event_key": "draft_hub_completed",
+                "payload": {
+                    "draft_name": "2026 Draft Hub",
+                    "pick_count": 3,
+                    "recap_lines": [
+                        "#1 · Toronto Towers: Player One (C)",
+                        "#2 · Hamilton Steel: Player Two (G)",
+                    ],
+                    "archive_url": "https://www.bowlhockey.com/bowl-fantasy/draft-hub/archive/7",
+                    "has_image": False,
+                },
+            },
+            max_parts=2,
+        )
+        self.assertEqual(len(parts), 1)
+        content = parts[0].get("content", "")
+        self.assertNotIn("embeds", parts[0])
+        self.assertIn("**2026 Draft Hub complete**", content)
+        self.assertIn("3 pick(s) recorded.", content)
+        self.assertIn("#1 · Toronto Towers: Player One (C)", content)
+        self.assertIn("Archive: https://www.bowlhockey.com/bowl-fantasy/draft-hub/archive/7", content)
+
     def test_trade_request_is_text_only_without_embed(self):
         parts = format_discord_messages(
             {

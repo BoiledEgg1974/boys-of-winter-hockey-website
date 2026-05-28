@@ -454,9 +454,12 @@ def join_league():
     try:
         send_join_league_email(payload, heard_from)
     except Exception as exc:
+        from app.mail_util import log_email_send_failure, user_facing_email_send_error
+
+        log_email_send_failure("Join league application email", exc)
         return render_template(
             "join_league.html",
-            errors=[f"Could not send application email: {exc}"],
+            errors=[user_facing_email_send_error(exc)],
             submitted=False,
             form_data=form_data,
             available_teams=available_teams,
@@ -1835,6 +1838,9 @@ def team_records_index():
         list_season_summaries,
     )
 
+    identity_view = request.args.get("identity_view", "era") or "era"
+    if identity_view not in ("era", "franchise"):
+        identity_view = "era"
     season_cards = list_season_summaries(db.session)
     leaderboard_sections = build_team_record_leaderboards(
         db.session,
@@ -1844,6 +1850,7 @@ def team_records_index():
         "team_records.html",
         season_cards=season_cards,
         leaderboard_sections=leaderboard_sections,
+        identity_view=identity_view,
     )
 
 
@@ -1851,6 +1858,9 @@ def team_records_index():
 def team_records_season(year_label: str):
     from app.services.team_records import adjacent_years, season_detail
 
+    identity_view = request.args.get("identity_view", "era") or "era"
+    if identity_view not in ("era", "franchise"):
+        identity_view = "era"
     raw_dir = Path(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR))
     detail = season_detail(db.session, year_label, raw_dir=raw_dir)
     if detail is None:
@@ -1875,6 +1885,7 @@ def team_records_season(year_label: str):
         awards_with_meta=awards_with_meta,
         newer_year=newer,
         older_year=older,
+        identity_view=identity_view,
     )
 
 

@@ -27,7 +27,7 @@ from app.auth_login import (
 from app.config import Config, league_display_name, league_group_for_slug
 from app.logo_urls import team_logo_url_for_team
 from app.league_db import db
-from app.models import Player, PlayerContract, Prospect, Season, Team, TradeLogEntry
+from app.models import FranchiseTeamIdentity, Player, PlayerContract, Prospect, Season, Team, TradeLogEntry
 from app.services.ap_multileague import team_id_for_slug_in_league
 from app.services.all_time_records import bowl_nhl_league_ids
 from app.services.gm_messaging import (
@@ -559,6 +559,10 @@ def _admin_trade_team_id() -> int | None:
         "admin_team_id", type=int
     )
     return int(tid) if tid and tid > 0 else None
+
+
+def _franchise_identity_team_options() -> list[Team]:
+    return list(db.session.scalars(select(Team).order_by(Team.name.asc(), Team.id.asc())).all())
 
 
 def _join_league_availability_rows() -> tuple[list[dict[str, object]], list[str]]:
@@ -1561,6 +1565,65 @@ def _admin_trade_log_team_options() -> list[Team]:
     return list(db.session.scalars(select(Team).order_by(Team.name)).all())
 
 
+def _admin_trade_log_team_option_groups() -> tuple[list[dict[str, str]], list[dict[str, str]], list[Team]]:
+    teams = _admin_trade_log_team_options()
+    teams_by_fhm = {str(t.fhm_team_id or "").strip(): t for t in teams if str(t.fhm_team_id or "").strip()}
+    defunct_options: list[dict[str, str]] = []
+    rows = db.session.scalars(
+        select(FranchiseTeamIdentity)
+        .options(joinedload(FranchiseTeamIdentity.team))
+        .where(FranchiseTeamIdentity.end_year.is_not(None))
+        .order_by(
+            FranchiseTeamIdentity.display_name.asc(),
+            FranchiseTeamIdentity.start_year.asc(),
+            FranchiseTeamIdentity.id.asc(),
+        )
+    ).all()
+    for ident in rows:
+        team = ident.team or teams_by_fhm.get(str(ident.team_fhm_id or "").strip())
+        if team is None:
+            continue
+        years = f"{ident.start_year}-{ident.end_year}" if ident.end_year else str(ident.start_year)
+        defunct_options.append(
+            {
+                "value": f"identity:{int(ident.id)}",
+                "label": f"{ident.display_name} ({years})",
+            }
+        )
+    active_options = [{"value": f"team:{int(t.id)}", "label": t.full_display_name()} for t in teams]
+    return defunct_options, active_options, teams
+
+
+def _resolve_admin_trade_log_team_choice(raw: str | None) -> tuple[int, str] | None:
+    value = str(raw or "").strip()
+    if not value:
+        return None
+    if value.startswith("identity:"):
+        try:
+            rid = int(value.split(":", 1)[1])
+        except (TypeError, ValueError):
+            return None
+        ident = db.session.get(FranchiseTeamIdentity, rid)
+        if ident is None:
+            return None
+        team = ident.team
+        if team is None and ident.team_fhm_id:
+            team = db.session.scalar(select(Team).where(Team.fhm_team_id == str(ident.team_fhm_id)).limit(1))
+        if team is None:
+            return None
+        return int(team.id), (ident.display_name or team.full_display_name()).strip()
+    if value.startswith("team:"):
+        value = value.split(":", 1)[1]
+    try:
+        tid = int(value)
+    except (TypeError, ValueError):
+        return None
+    team = db.session.get(Team, tid)
+    if team is None:
+        return None
+    return int(team.id), team.full_display_name()
+
+
 def _manual_trade_summary_from_parts(
     *,
     team_a_label: str,
@@ -1600,15 +1663,14 @@ def admin_trade_log():
     """Manual historical trade log entries (pre–Trade Tool workflow)."""
     require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
     slug = _league_slug()
-    teams = _admin_trade_log_team_options()
+    defunct_team_options, active_team_options, teams = _admin_trade_log_team_option_groups()
     if request.method == "POST":
         action = (request.form.get("action") or "create").strip().lower()
         if action == "create":
-            try:
-                team_a_id = int(request.form.get("team_a_id") or 0)
-                team_b_id = int(request.form.get("team_b_id") or 0)
-            except (TypeError, ValueError):
-                team_a_id = team_b_id = 0
+            team_a_choice = _resolve_admin_trade_log_team_choice(request.form.get("team_a_id"))
+            team_b_choice = _resolve_admin_trade_log_team_choice(request.form.get("team_b_id"))
+            team_a_id = team_a_choice[0] if team_a_choice else 0
+            team_b_id = team_b_choice[0] if team_b_choice else 0
             team_a_outgoing = (request.form.get("team_a_outgoing") or "").strip()
             team_b_outgoing = (request.form.get("team_b_outgoing") or "").strip()
             trade_d = _parse_trade_log_date(request.form.get("trade_date"))
@@ -1617,12 +1679,9 @@ def admin_trade_log():
             elif not team_a_outgoing or not team_b_outgoing:
                 flash("Enter what left both teams.", "err")
             else:
-                teams_by_id = {int(t.id): t for t in teams}
-                ta = teams_by_id.get(team_a_id)
-                tb = teams_by_id.get(team_b_id)
                 summary = _manual_trade_summary_from_parts(
-                    team_a_label=ta.full_display_name() if ta else "Team A",
-                    team_b_label=tb.full_display_name() if tb else "Team B",
+                    team_a_label=team_a_choice[1] if team_a_choice else "Team A",
+                    team_b_label=team_b_choice[1] if team_b_choice else "Team B",
                     team_a_outgoing=team_a_outgoing,
                     team_b_outgoing=team_b_outgoing,
                 )
@@ -1653,6 +1712,8 @@ def admin_trade_log():
         "admin_trade_log.html",
         manual_rows=manual_rows,
         teams=teams,
+        defunct_team_options=defunct_team_options,
+        active_team_options=active_team_options,
         teams_by_id=teams_by_id,
         manual_trade_summary_parts=_manual_trade_summary_parts,
     )
@@ -1665,13 +1726,12 @@ def admin_trade_log_edit(entry_id: int):
     ent = db.session.get(TradeLogEntry, entry_id)
     if not ent or (ent.source or "").strip().lower() != "manual":
         abort(404)
-    teams = _admin_trade_log_team_options()
+    defunct_team_options, active_team_options, teams = _admin_trade_log_team_option_groups()
     if request.method == "POST":
-        try:
-            team_a_id = int(request.form.get("team_a_id") or 0)
-            team_b_id = int(request.form.get("team_b_id") or 0)
-        except (TypeError, ValueError):
-            team_a_id = team_b_id = 0
+        team_a_choice = _resolve_admin_trade_log_team_choice(request.form.get("team_a_id"))
+        team_b_choice = _resolve_admin_trade_log_team_choice(request.form.get("team_b_id"))
+        team_a_id = team_a_choice[0] if team_a_choice else 0
+        team_b_id = team_b_choice[0] if team_b_choice else 0
         team_a_outgoing = (request.form.get("team_a_outgoing") or "").strip()
         team_b_outgoing = (request.form.get("team_b_outgoing") or "").strip()
         trade_d = _parse_trade_log_date(request.form.get("trade_date"))
@@ -1680,12 +1740,9 @@ def admin_trade_log_edit(entry_id: int):
         elif not team_a_outgoing or not team_b_outgoing:
             flash("Enter what left both teams.", "err")
         else:
-            teams_by_id = {int(t.id): t for t in teams}
-            ta = teams_by_id.get(team_a_id)
-            tb = teams_by_id.get(team_b_id)
             summary = _manual_trade_summary_from_parts(
-                team_a_label=ta.full_display_name() if ta else "Team A",
-                team_b_label=tb.full_display_name() if tb else "Team B",
+                team_a_label=team_a_choice[1] if team_a_choice else "Team A",
+                team_b_label=team_b_choice[1] if team_b_choice else "Team B",
                 team_a_outgoing=team_a_outgoing,
                 team_b_outgoing=team_b_outgoing,
             )
@@ -1700,6 +1757,8 @@ def admin_trade_log_edit(entry_id: int):
         "admin_trade_log_edit.html",
         entry=ent,
         teams=teams,
+        defunct_team_options=defunct_team_options,
+        active_team_options=active_team_options,
         summary_parts=_manual_trade_summary_parts(ent.summary),
     )
 
@@ -2369,6 +2428,122 @@ def admin_commissioner_sop():
     return render_template("admin_commissioner_sop.html")
 
 
+@site_admin_bp.route("/franchise-identities", methods=["GET", "POST"])
+@login_required
+def admin_franchise_identities():
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    slug = _league_slug()
+    if request.method == "POST":
+        action = (request.form.get("action") or "").strip()
+        if action == "seed_csv":
+            from app.services.franchise_identities import seed_franchise_identities_from_csv
+
+            raw_dir = Path(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR))
+            result = seed_franchise_identities_from_csv(db.session, raw_dir / "team_identity_history.csv")
+            db.session.add(
+                AdminAuditLog(
+                    admin_user_id=int(current_user.id),
+                    league_slug=slug,
+                    action="franchise_identity_seed_csv",
+                    detail_json=json.dumps(
+                        {
+                            "created": result.created,
+                            "updated": result.updated,
+                            "skipped": result.skipped,
+                        }
+                    ),
+                )
+            )
+            db.session.commit()
+            flash(
+                f"Seeded franchise identities: {result.created} created, "
+                f"{result.updated} updated, {result.skipped} skipped.",
+                "ok",
+            )
+            return redirect(url_for("site_admin.admin_franchise_identities"))
+        if action == "delete":
+            rid = request.form.get("identity_id", type=int)
+            row = db.session.get(FranchiseTeamIdentity, rid) if rid else None
+            if row:
+                db.session.delete(row)
+                db.session.commit()
+                flash("Franchise identity deleted.", "ok")
+            return redirect(url_for("site_admin.admin_franchise_identities"))
+
+        rid = request.form.get("identity_id", type=int)
+        row = db.session.get(FranchiseTeamIdentity, rid) if rid else None
+        if row is None:
+            row = FranchiseTeamIdentity()
+        team_id = request.form.get("team_id", type=int)
+        team = db.session.get(Team, team_id) if team_id else None
+        row.team_id = int(team.id) if team else None
+        row.team_fhm_id = (request.form.get("team_fhm_id") or (team.fhm_team_id if team else "") or "").strip() or None
+        row.display_name = (request.form.get("display_name") or "").strip()
+        row.abbreviation = (request.form.get("abbreviation") or "").strip() or None
+        row.logo_file = (request.form.get("logo_file") or "").strip() or None
+        row.status = (request.form.get("status") or "historical").strip() or "historical"
+        row.notes = (request.form.get("notes") or "").strip()
+        try:
+            row.start_year = int((request.form.get("start_year") or "").strip())
+        except (TypeError, ValueError):
+            flash("Start year is required.", "err")
+            return redirect(url_for("site_admin.admin_franchise_identities"))
+        end_raw = (request.form.get("end_year") or "").strip()
+        if end_raw:
+            try:
+                row.end_year = int(end_raw)
+            except ValueError:
+                flash("End year must be blank or a year.", "err")
+                return redirect(url_for("site_admin.admin_franchise_identities"))
+        else:
+            row.end_year = None
+        if not row.display_name:
+            flash("Display name is required.", "err")
+            return redirect(url_for("site_admin.admin_franchise_identities"))
+        if row.team_id is None and not row.team_fhm_id:
+            flash("Pick a current franchise or provide an FHM team id.", "err")
+            return redirect(url_for("site_admin.admin_franchise_identities"))
+        db.session.add(row)
+        db.session.add(
+            AdminAuditLog(
+                admin_user_id=int(current_user.id),
+                league_slug=slug,
+                action="franchise_identity_save",
+                detail_json=json.dumps(
+                    {
+                        "identity_id": getattr(row, "id", None),
+                        "team_id": row.team_id,
+                        "team_fhm_id": row.team_fhm_id,
+                        "display_name": row.display_name,
+                        "start_year": row.start_year,
+                        "end_year": row.end_year,
+                    }
+                ),
+            )
+        )
+        db.session.commit()
+        flash("Franchise identity saved.", "ok")
+        return redirect(url_for("site_admin.admin_franchise_identities"))
+
+    rows = db.session.scalars(
+        select(FranchiseTeamIdentity)
+        .options(joinedload(FranchiseTeamIdentity.team))
+        .order_by(
+            FranchiseTeamIdentity.start_year.desc(),
+            FranchiseTeamIdentity.display_name.asc(),
+            FranchiseTeamIdentity.id.desc(),
+        )
+    ).all()
+    edit_id = request.args.get("edit", type=int)
+    edit_row = db.session.get(FranchiseTeamIdentity, edit_id) if edit_id else None
+    return render_template(
+        "admin_franchise_identities.html",
+        rows=rows,
+        teams=_franchise_identity_team_options(),
+        edit_row=edit_row,
+    )
+
+
 @site_admin_bp.route("/join-league", methods=["GET", "POST"])
 @login_required
 def admin_join_league():
@@ -2376,7 +2551,33 @@ def admin_join_league():
     slug = _league_slug()
     if request.method == "POST":
         action = (request.form.get("action") or "save").strip()
+        if action == "test_smtp_login":
+            from app.mail_util import test_smtp_login
+
+            result = test_smtp_login()
+            if result.get("ok"):
+                flash(
+                    f"SMTP login OK for {result.get('username')} "
+                    f"(app password length {result.get('password_length')}).",
+                    "ok",
+                )
+            else:
+                hint = str(result.get("hint") or "").strip()
+                flash(
+                    f"SMTP login failed: {result.get('error')}"
+                    + (f" {hint}" if hint else ""),
+                    "err",
+                )
+            return redirect(url_for("site_admin.admin_join_league"))
+
         if action == "test_email":
+            from app.mail_util import test_smtp_login
+
+            login = test_smtp_login()
+            if not login.get("ok"):
+                flash(f"SMTP login failed (email not sent): {login.get('error')}", "err")
+                return redirect(url_for("site_admin.admin_join_league"))
+
             recipient = (
                 request.form.get("test_recipient")
                 or getattr(current_user, "email", "")
@@ -2417,6 +2618,8 @@ def admin_join_league():
         flash("Join League availability updated.", "ok")
         return redirect(url_for("site_admin.admin_join_league"))
 
+    from app.mail_util import test_smtp_login
+
     rows, stale_options = _join_league_availability_rows()
     configured_names, has_admin_file = configured_join_team_options()
     return render_template(
@@ -2427,6 +2630,7 @@ def admin_join_league():
         has_admin_file=has_admin_file,
         teams_file=join_available_teams_path(),
         mail_settings=mail_settings_summary(),
+        smtp_login=test_smtp_login(),
     )
 
 

@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block title %}Franchise Identities — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+
+{% block content %}
+
+<div class="card admin-franchise-identities">
+
+  <h1 class="page-title">Franchise Identities</h1>
+
+  <p class="muted">Manage historical names/logos for relocated or renamed franchises.</p>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+
+  {% if messages %}
+
+  {% for category, message in messages %}
+
+  <p class="join-league-status join-league-status--{{ 'ok' if category == 'ok' else 'err' }}">{{ message }}</p>
+
+  {% endfor %}
+
+  {% endif %}
+
+  {% endwith %}
+
+
+  <form method="post" class="admin-franchise-identities__seed-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="seed_csv">
+    <button type="submit" class="button secondary">Seed from team identity CSV</button>
+    <span class="muted">Loads <code>team_identity_history.csv</code> for this league and updates matching rows.</span>
+  </form>
+
+
+  <form method="post" class="admin-franchise-identities__form">
+
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <input type="hidden" name="action" value="save">
+
+    {% if edit_row %}
+
+    <input type="hidden" name="identity_id" value="{{ edit_row.id }}">
+
+    <h2 class="admin-franchise-identities__form-title">Edit identity</h2>
+
+    {% else %}
+
+    <h2 class="admin-franchise-identities__form-title">Add identity</h2>
+
+    {% endif %}
+
+    <label>Current franchise
+
+      <select name="team_id">
+
+        <option value="">Use FHM team id only</option>
+
+        {% for t in teams %}
+
+        <option value="{{ t.id }}" {% if edit_row and edit_row.team_id == t.id %}selected{% endif %}>{{ t.full_display_name() }}{% if t.fhm_team_id %} (#{{ t.fhm_team_id }}){% endif %}</option>
+
+        {% endfor %}
+
+      </select>
+
+    </label>
+
+    <label>FHM team id (optional fallback)<input type="text" name="team_fhm_id" value="{{ edit_row.team_fhm_id if edit_row else '' }}"></label>
+
+    <label>Display name<input type="text" name="display_name" required value="{{ edit_row.display_name if edit_row else '' }}"></label>
+
+    <label>Abbreviation<input type="text" name="abbreviation" maxlength="16" value="{{ edit_row.abbreviation if edit_row and edit_row.abbreviation else '' }}"></label>
+
+    <label>Logo file<input type="text" name="logo_file" placeholder="logo.png or logos/teams/bowl_fantasy/logo.png" value="{{ edit_row.logo_file if edit_row and edit_row.logo_file else '' }}"></label>
+
+    <label>Start year<input type="number" name="start_year" required value="{{ edit_row.start_year if edit_row else '' }}"></label>
+
+    <label>End year<input type="number" name="end_year" value="{{ edit_row.end_year if edit_row and edit_row.end_year is not none else '' }}"></label>
+
+    <label>Status
+
+      <select name="status">
+
+        {% set st = (edit_row.status if edit_row else 'historical') %}
+
+        <option value="relocated" {% if st == 'relocated' %}selected{% endif %}>relocated</option>
+
+        <option value="renamed" {% if st == 'renamed' %}selected{% endif %}>renamed</option>
+
+        <option value="defunct" {% if st == 'defunct' %}selected{% endif %}>defunct</option>
+
+        <option value="historical" {% if st == 'historical' %}selected{% endif %}>historical</option>
+
+      </select>
+
+    </label>
+
+    <label>Notes<textarea name="notes" rows="2">{{ edit_row.notes if edit_row and edit_row.notes else '' }}</textarea></label>
+
+    <div class="admin-franchise-identities__form-actions">
+
+      <button type="submit">{% if edit_row %}Save changes{% else %}Add identity{% endif %}</button>
+
+      {% if edit_row %}
+
+      <a class="button secondary" href="{{ url_for('site_admin.admin_franchise_identities') }}">Cancel edit</a>
+
+      {% endif %}
+
+    </div>
+
+  </form>
+
+</div>
+
+
+
+<div class="card admin-franchise-identities">
+
+  <h2>Configured identities</h2>
+
+  <div class="table-wrap">
+
+    <table class="data">
+
+      <thead>
+
+        <tr><th>Years</th><th>Name</th><th>Franchise / FHM id</th><th>Logo file</th><th>Status</th><th>Action</th></tr>
+
+      </thead>
+
+      <tbody>
+
+        {% for r in rows %}
+
+        <tr{% if edit_row and edit_row.id == r.id %} class="is-editing"{% endif %}>
+
+          <td>{{ r.start_year }}{% if r.end_year %}-{{ r.end_year }}{% else %}-present{% endif %}</td>
+
+          <td>{{ r.display_name }}{% if r.abbreviation %} ({{ r.abbreviation }}){% endif %}</td>
+
+          <td>{% if r.team %}{{ r.team.full_display_name() }}{% else %}—{% endif %}{% if r.team_fhm_id %} #{{ r.team_fhm_id }}{% endif %}</td>
+
+          <td><code>{{ r.logo_file or '' }}</code></td>
+
+          <td>{{ r.status }}</td>
+
+          <td class="admin-franchise-identities__actions">
+
+            <a href="{{ url_for('site_admin.admin_franchise_identities', edit=r.id) }}">Edit</a>
+
+            <form method="post" onsubmit="return confirm('Delete this identity?');">
+
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+              <input type="hidden" name="action" value="delete">
+
+              <input type="hidden" name="identity_id" value="{{ r.id }}">
+
+              <button type="submit">Delete</button>
+
+            </form>
+
+          </td>
+
+        </tr>
+
+        {% else %}
+
+        <tr><td colspan="6" class="muted">No identities configured yet.</td></tr>
+
+        {% endfor %}
+
+      </tbody>
+
+    </table>
+
+  </div>
+
+</div>
+
+{% endblock %}
+

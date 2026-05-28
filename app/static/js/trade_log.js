@@ -60,13 +60,19 @@
     setLoading(true);
     fetch(aiUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-CSRFToken": csrf },
       credentials: "same-origin",
       body: JSON.stringify({ csrf_token: csrf, source: source, id: parseInt(id, 10) }),
     })
       .then(function (r) {
-        return r.json().then(function (body) {
-          return { ok: r.ok, body: body };
+        return r.text().then(function (text) {
+          var body = {};
+          try {
+            body = text ? JSON.parse(text) : {};
+          } catch (err) {
+            body = { error: text || "Could not get AI take." };
+          }
+          return { ok: r.ok, body: body, status: r.status };
         });
       })
       .then(function (res) {
@@ -74,7 +80,7 @@
           setLoading(false);
           if (phEl) {
             phEl.hidden = false;
-            phEl.textContent = res.body.error || "Could not get AI take.";
+            phEl.textContent = res.body.error || ("Could not get AI take. HTTP " + res.status + ".");
           }
           return;
         }

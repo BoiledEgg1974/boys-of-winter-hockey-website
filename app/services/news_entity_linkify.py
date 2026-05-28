@@ -91,7 +91,7 @@ def build_news_entity_link_phrases(session: Session) -> tuple[_LinkPhrase, ...]:
     for team in session.scalars(select(Team)).all():
         href = url_for("main.team_page", slug=team.slug)
         _team_phrases(team, href, bucket)
-    for player in session.scalars(select(Player).where(Player.retired.is_(False))).all():
+    for player in session.scalars(select(Player)).all():
         href = url_for("main.player_page", player_id=int(player.id))
         _player_phrases(player, href, bucket)
     for staff in _load_catalog().values():

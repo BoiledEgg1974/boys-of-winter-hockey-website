@@ -197,48 +197,6 @@ def ensure_player_overall_baseline_sqlite(engine: Engine) -> None:
         conn.commit()
 
 
-def ensure_homepage_dashboard_snapshots_sqlite(engine: Engine) -> None:
-    """Create homepage_dashboard_snapshots for precomputed league home JSON (SQLite)."""
-    if engine.dialect.name != "sqlite":
-        return
-    with engine.connect() as conn:
-        exists = conn.execute(
-            text(
-                "SELECT 1 FROM sqlite_master WHERE type='table' "
-                "AND name='homepage_dashboard_snapshots'"
-            )
-        ).fetchone()
-        if exists:
-            return
-        conn.execute(
-            text(
-                """
-                CREATE TABLE homepage_dashboard_snapshots (
-                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-                    segment VARCHAR(8) NOT NULL,
-                    canonical_season_id INTEGER NOT NULL,
-                    dashboard_season_id INTEGER NOT NULL,
-                    league_slug VARCHAR(64) NOT NULL,
-                    payload_json TEXT NOT NULL,
-                    built_at DATETIME NOT NULL,
-                    status VARCHAR(16) NOT NULL,
-                    error_message TEXT,
-                    CONSTRAINT uq_homepage_dashboard_snapshot_key UNIQUE (
-                        segment, canonical_season_id, dashboard_season_id
-                    )
-                )
-                """
-            )
-        )
-        conn.execute(
-            text(
-                "CREATE INDEX ix_homepage_dashboard_snapshot_lookup "
-                "ON homepage_dashboard_snapshots (segment, canonical_season_id, dashboard_season_id, status)"
-            )
-        )
-        conn.commit()
-
-
 def ensure_player_rating_snapshots_sqlite(engine: Engine) -> None:
     """Create player_rating_snapshots for development panel trend lines (SQLite)."""
     if engine.dialect.name != "sqlite":

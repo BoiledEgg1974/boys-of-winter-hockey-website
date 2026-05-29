@@ -130,18 +130,13 @@ def refresh_after_import(engine, app=None) -> None:
                             _log.exception(
                                 "draft_pick_ownership import failed (non-fatal)"
                             )
-                    from app.services.homepage_dashboard_snapshot import (
-                        warm_all_homepage_snapshots,
-                    )
-                    from app.services.homepage_summary_cache import (
-                        invalidate_homepage_summary_cache,
-                        warm_homepage_summary_cache,
-                    )
+                    from app.services.homepage_summary_cache import invalidate_homepage_summary_cache
                     from app.services.league_json_cache import invalidate_league_json_cache
 
                     invalidate_league_json_cache(league_slug=slug or None)
                     invalidate_homepage_summary_cache(league_slug=slug or None)
-                    warm_all_homepage_snapshots(app)
+                    from app.services.homepage_summary_cache import warm_homepage_summary_cache
+
                     warm_homepage_summary_cache(app)
                     from app.services.player_rating_snapshots import (
                         record_player_rating_snapshots_after_import,

@@ -83,89 +83,13 @@ def refresh_volatile_homepage_fields(body: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-def _fast_homepage_summary_fallback(
-    segment: str,
-    canonical_season: object | None,
-    dashboard_season: object | None,
-) -> dict[str, Any]:
-    """Tiny dashboard payload used when the expensive summary cache is cold."""
-    from app.services.seasons import season_display_label
-
-    league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
-    league_name = str(current_app.config.get("LEAGUE_DISPLAY_NAME") or league_slug)
-    season_label = season_display_label(canonical_season)
-    dashboard_label = season_display_label(dashboard_season)
-    return {
-        "league_calendar_date": None,
-        "league_season_label": season_label,
-        "dashboard_data_season_label": dashboard_label,
-        "dashboard_uses_prior_season_data": bool(
-            canonical_season is not None
-            and dashboard_season is not None
-            and getattr(canonical_season, "id", None) != getattr(dashboard_season, "id", None)
-        ),
-        "dashboard_summary_pending": True,
-        "teams": [],
-        "standings_by_division": [],
-        "game_of_the_night": None,
-        "next_game_to_watch": None,
-        "stars_last_7d": [],
-        "stars_last_14d": [],
-        "stars_last_30d": [],
-        "trending_players": {"hot": [], "cold": []},
-        "team_momentum": {
-            "trending": {"hot": [], "cold": []},
-            "streaks": {
-                "win_streak": [],
-                "undefeated_streak": [],
-                "losing_streak": [],
-                "winless_streak": [],
-            },
-        },
-        "active_streaks": {"goal_streak": [], "point_streak": []},
-        "power_rankings": {"teams": [], "top5": [], "bottom5": []},
-        "champions_panel": {"banner_urls": [], "recent_champions": []},
-        "leaders": {
-            "goals": [],
-            "assists": [],
-            "points": [],
-            "goalie_wins": [],
-            "goalie_shutouts": [],
-        },
-        "games": [],
-        "upcoming": [],
-        "special_teams": [],
-        "rookies": {"skaters": [], "goalies": [], "criteria": {}},
-        "league_spotlight": {"title": "", "items": []},
-        "identity_panel": None,
-        "postseason_odds": None,
-        "league": {"name": league_name, "abbr": ""},
-        "segment": segment,
-    }
-
-
 def build_homepage_summary_cached(
     segment: str,
     canonical_season: object | None,
     dashboard_season: object | None,
     builder,
 ) -> tuple[dict[str, Any], str]:
-    """Return dashboard JSON and cache status (HIT-SNAPSHOT, HIT-FRESH, MISS-FALLBACK, …)."""
-    from app.models import db
-    from app.services.homepage_dashboard_snapshot import (
-        load_ready_homepage_snapshot,
-        schedule_homepage_snapshot_rebuild,
-    )
-
-    snapshot_body = load_ready_homepage_snapshot(
-        db.session,
-        segment=segment,
-        canonical_season=canonical_season,
-        dashboard_season=dashboard_season,
-    )
-    if snapshot_body is not None:
-        return refresh_volatile_homepage_fields(snapshot_body), "HIT-SNAPSHOT"
-
+    """Return dashboard JSON and cache status (HIT-FRESH, HIT-STALE, MISS)."""
     app = current_app
     suffix = _summary_key_suffix(segment, canonical_season, dashboard_season)
     fresh_ttl = _homepage_fresh_ttl(app)
@@ -183,20 +107,7 @@ def build_homepage_summary_cached(
         app=app,
         include_site_db_fingerprint=False,
         refresh_stale_in_background=False,
-        build_on_miss=False,
-        miss_fallback=lambda: _fast_homepage_summary_fallback(
-            segment, canonical_season, dashboard_season
-        ),
-        refresh_miss_in_background=False,
     )
-    if status == "MISS-FALLBACK":
-        schedule_homepage_snapshot_rebuild(
-            real_flask_app(app),
-            segment=segment,
-            canonical_season=canonical_season,
-            dashboard_season=dashboard_season,
-            builder=builder,
-        )
     return refresh_volatile_homepage_fields(body), status
 
 
@@ -261,18 +172,6 @@ def warm_homepage_summary_cache(app: Flask | None = None) -> None:
 
 def invalidate_homepage_summary_cache(*, league_slug: str | None = None) -> None:
     invalidate_league_json_cache(league_slug=league_slug, namespace=_NAMESPACE)
-    try:
-        from flask import has_app_context
-
-        if has_app_context():
-            from app.models import db
-            from app.services.homepage_dashboard_snapshot import (
-                invalidate_homepage_dashboard_snapshots,
-            )
-
-            invalidate_homepage_dashboard_snapshots(db.session)
-    except Exception:
-        _log.exception("homepage dashboard snapshot invalidate failed")
     if league_slug is None:
         try:
             if _LEGACY_CACHE_DIR.is_dir():

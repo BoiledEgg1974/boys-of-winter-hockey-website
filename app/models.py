@@ -699,30 +699,6 @@ class PlayerOverallBaseline(db.Model):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
 
-class HomepageDashboardSnapshot(db.Model):
-    """Precomputed JSON for ``/api/homepage/summary`` (one row per segment + season pair)."""
-
-    __tablename__ = "homepage_dashboard_snapshots"
-    __table_args__ = (
-        UniqueConstraint(
-            "segment",
-            "canonical_season_id",
-            "dashboard_season_id",
-            name="uq_homepage_dashboard_snapshot_key",
-        ),
-    )
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    segment: Mapped[str] = mapped_column(String(8), nullable=False, default="rs")
-    canonical_season_id: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    dashboard_season_id: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    league_slug: Mapped[str] = mapped_column(String(64), nullable=False, default="")
-    payload_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
-    built_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
-    status: Mapped[str] = mapped_column(String(16), default="ready", nullable=False)
-    error_message: Mapped[str | None] = mapped_column(Text)
-
-
 class PlayerRatingSnapshot(db.Model):
     """Point-in-time copy of ``player_ratings.csv`` values for development trend charts."""
 

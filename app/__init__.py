@@ -14,7 +14,6 @@ from app.db_utils import (
     ensure_history_all_stars_sqlite,
     ensure_history_awards_staff_fhm_id_sqlite,
     ensure_boost_lottery_team_results_sqlite,
-    ensure_homepage_dashboard_snapshots_sqlite,
     ensure_homepage_performance_indexes_sqlite,
     ensure_players_jersey_number_sqlite,
     ensure_player_overall_baseline_sqlite,
@@ -134,7 +133,6 @@ def create_app(config_class: type = Config) -> Flask:
         ensure_player_overall_baseline_sqlite(db.engine)
         ensure_player_rating_snapshots_sqlite(db.engine)
         ensure_team_season_aggregate_extra_columns(db.engine)
-        ensure_homepage_dashboard_snapshots_sqlite(db.engine)
         ensure_homepage_performance_indexes_sqlite(db.engine)
         ensure_skater_career_line_career_source_sqlite(db.engine)
         ensure_skater_career_line_extra_stats_sqlite(db.engine)
@@ -245,10 +243,6 @@ def create_app(config_class: type = Config) -> Flask:
     csrf.exempt(api_bp)
     app.register_blueprint(site_gm_bp)
     app.register_blueprint(site_admin_bp)
-
-    from app.services.homepage_dashboard_snapshot import warm_all_homepage_snapshots
-
-    warm_all_homepage_snapshots(app)
 
     if app.config.get("LEAGUE_JSON_CACHE_WARM_ON_STARTUP", True):
         from app.services.homepage_summary_cache import warm_homepage_summary_cache

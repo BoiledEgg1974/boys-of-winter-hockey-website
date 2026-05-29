@@ -1743,6 +1743,7 @@ def history():
         champion_banners=champion_banners,
         all_star_bundle=all_star_bundle,
         all_star_logo_start_year_for_row=all_star_logo_start_year_for_row,
+        history_award_logo_start_year_for_row=_history_award_start_year,
     )
 
 

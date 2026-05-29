@@ -198,7 +198,12 @@ def resolve_staff_history_display(
             tid = hit.get("teamid")
             if tid:
                 team_staff = session.scalars(select(Team).where(Team.fhm_team_id == str(tid)).limit(1)).first()
-            label = _jack_adams_csv_label(award.notes) if is_jack_adams_award(award.award_name) else ""
+            if is_jack_adams_award(award.award_name):
+                label = _jack_adams_csv_label(award.notes)
+            elif is_jim_gregory_award(award.award_name):
+                label = _parse_unresolved_team(award.notes) or _parse_display_name(award.notes) or ""
+            else:
+                label = ""
             name_out = label if label else hit["full_name"]
             team_out = getattr(award, "team", None) or team_staff
             return CoachAwardDisplay(full_name=name_out, team=team_out)

@@ -16440,50 +16440,79 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   color: var(--boost-accent);
 }
 .boost-lottery-tracker__table-wrap {
-  max-height: 26rem;
-  overflow: auto;
+  overflow: visible;
   border: 1px solid color-mix(in srgb, var(--boost-edge) 42%, var(--border));
   border-radius: 10px;
   background: color-mix(in srgb, var(--surface) 92%, #020617);
 }
 .boost-lottery-tracker__table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
 }
 .boost-lottery-tracker__table th,
 .boost-lottery-tracker__table td {
-  padding: 0.35rem 0.4rem;
+  padding: 0.28rem 0.3rem;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
   text-align: center;
 }
 .boost-lottery-tracker__table th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
   background: color-mix(in srgb, var(--surface) 86%, #020617);
   color: var(--boost-accent);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
-.boost-lottery-tracker__team {
-  min-width: 9rem;
-  text-align: left !important;
-  display: flex;
+.boost-lottery-tracker__table th:first-child {
+  width: 3.5rem;
+}
+.boost-lottery-tracker__sort {
+  display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
+  justify-content: center;
+  gap: 0.2rem;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+.boost-lottery-tracker__sort::after {
+  content: "↕";
+  font-size: 0.62rem;
+  opacity: 0.65;
+}
+.boost-lottery-tracker__sort[aria-sort="descending"]::after {
+  content: "↓";
+}
+.boost-lottery-tracker__sort[aria-sort="ascending"]::after {
+  content: "↑";
+}
+.boost-lottery-tracker__team {
+  text-align: center !important;
 }
 .boost-lottery-tracker__logo {
-  width: 1.65rem;
-  height: 1.65rem;
+  width: 1.75rem;
+  height: 1.75rem;
   object-fit: contain;
-  flex: 0 0 auto;
+  vertical-align: middle;
 }
-.boost-lottery-tracker__name {
-  line-height: 1.15;
+.boost-lottery-tracker__abbr {
+  display: inline-flex;
+  width: 1.75rem;
+  height: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 0.65rem;
+  font-weight: 800;
 }
 .boost-lottery-tracker__input {
-  width: 4.2rem;
+  width: 3.35rem;
   padding: 0.25rem 0.35rem;
   border: 1px solid var(--border);
   border-radius: 7px;

@@ -68,19 +68,20 @@
               <thead>
                 <tr>
                   <th scope="col">Team</th>
-                  <th scope="col">Gold</th>
-                  <th scope="col">Silver</th>
-                  <th scope="col">Total</th>
+                  <th scope="col"><button type="button" class="boost-lottery-tracker__sort" data-sort-key="gold" aria-label="Sort by gold boosts">Gold</button></th>
+                  <th scope="col"><button type="button" class="boost-lottery-tracker__sort" data-sort-key="silver" aria-label="Sort by silver boosts">Silver</button></th>
+                  <th scope="col"><button type="button" class="boost-lottery-tracker__sort" data-sort-key="total" aria-label="Sort by total boosts">Total</button></th>
                 </tr>
               </thead>
               <tbody>
                 {% for row in boost_team_rows %}
-                <tr>
+                <tr data-team-name="{{ row.name|lower }}" data-gold="{{ row.gold_count }}" data-silver="{{ row.silver_count }}" data-total="{{ row.total_count }}">
                   <td class="boost-lottery-tracker__team">
                     {% if row.logo_url %}
-                      <img src="{{ row.logo_url }}" alt="" class="boost-lottery-tracker__logo" loading="lazy" decoding="async">
+                      <img src="{{ row.logo_url }}" alt="{{ row.name }}" title="{{ row.name }}" class="boost-lottery-tracker__logo" loading="lazy" decoding="async">
+                    {% else %}
+                      <span class="boost-lottery-tracker__abbr" title="{{ row.name }}">{{ row.abbr }}</span>
                     {% endif %}
-                    <span class="boost-lottery-tracker__name">{{ row.name }}</span>
                   </td>
                   <td><input type="number" name="gold_{{ row.team_id }}" value="{{ row.gold_count }}" min="0" step="1" class="boost-lottery-tracker__input" aria-label="Gold boosts for {{ row.name }}"></td>
                   <td><input type="number" name="silver_{{ row.team_id }}" value="{{ row.silver_count }}" min="0" step="1" class="boost-lottery-tracker__input" aria-label="Silver boosts for {{ row.name }}"></td>

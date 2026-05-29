@@ -224,7 +224,13 @@
         var total = row.querySelector(".boost-lottery-tracker__total");
         if (!gold || !silver || !total) return;
         function refresh() {
-          total.textContent = String(Math.max(0, readInt(gold, 0)) + Math.max(0, readInt(silver, 0)));
+          var goldValue = Math.max(0, readInt(gold, 0));
+          var silverValue = Math.max(0, readInt(silver, 0));
+          var totalValue = goldValue + silverValue;
+          total.textContent = String(totalValue);
+          row.dataset.gold = String(goldValue);
+          row.dataset.silver = String(silverValue);
+          row.dataset.total = String(totalValue);
         }
         gold.addEventListener("input", refresh);
         silver.addEventListener("input", refresh);
@@ -232,9 +238,49 @@
     }
   }
 
+  function bindTrackerSorting() {
+    var table = document.querySelector(".boost-lottery-tracker__table");
+    if (!table || !table.tBodies.length) return;
+    var tbody = table.tBodies[0];
+    var buttons = table.querySelectorAll(".boost-lottery-tracker__sort");
+    var state = { key: "total", dir: "desc" };
+
+    function rowValue(row, key) {
+      var n = parseInt(row.dataset[key] || "0", 10);
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function sortRows(key) {
+      state.dir = state.key === key && state.dir === "desc" ? "asc" : "desc";
+      state.key = key;
+      var dirMul = state.dir === "desc" ? -1 : 1;
+      var rows = Array.prototype.slice.call(tbody.querySelectorAll("tr"));
+      rows.sort(function (a, b) {
+        var diff = rowValue(a, key) - rowValue(b, key);
+        if (diff !== 0) return diff * dirMul;
+        return String(a.dataset.teamName || "").localeCompare(String(b.dataset.teamName || ""));
+      });
+      rows.forEach(function (row) {
+        tbody.appendChild(row);
+      });
+      buttons.forEach(function (button) {
+        var isActive = button.dataset.sortKey === key;
+        button.setAttribute("aria-sort", isActive ? (state.dir === "desc" ? "descending" : "ascending") : "none");
+      });
+    }
+
+    buttons.forEach(function (button) {
+      button.setAttribute("aria-sort", "none");
+      button.addEventListener("click", function () {
+        sortRows(button.dataset.sortKey || "total");
+      });
+    });
+  }
+
   elBtnGen.addEventListener("click", onGenerate);
   elBtnDraw.addEventListener("click", onDraw);
   elBtnReset.addEventListener("click", onReset);
   bindInputs();
   bindTrackerTotals();
+  bindTrackerSorting();
 })();

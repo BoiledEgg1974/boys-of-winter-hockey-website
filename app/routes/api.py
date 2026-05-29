@@ -2047,14 +2047,6 @@ def news_article_vote(article_id: int):
         return jsonify(out), 404
     if out.get("error"):
         return jsonify(out), 400
-    try:
-        from app.services.league_json_cache import invalidate_league_json_cache
-
-        invalidate_league_json_cache(
-            league_slug=slug, namespace="homepage_summary"
-        )
-    except Exception:
-        pass
     return jsonify(out)
 
 
@@ -2080,14 +2072,6 @@ def news_article_comment_post(article_id: int):
         return jsonify(out), 404
     if out.get("error"):
         return jsonify(out), 400
-    try:
-        from app.services.league_json_cache import invalidate_league_json_cache
-
-        invalidate_league_json_cache(
-            league_slug=slug, namespace="homepage_summary"
-        )
-    except Exception:
-        pass
     return jsonify(out)
 
 

@@ -42,6 +42,8 @@ from app.site_models import (
 )
 
 AP_PRIZES = {1: 10, 2: 6, 3: 3}
+BOWL_SIX_ROSTERS_UNLOCKED_EVENT_KEY = "bowl_six_rosters_unlocked"
+BOWL_SIX_LOCK_WARNING_EVENT_KEY = "bowl_six_lock_warning"
 BOWL_SIX_LOCK_TZ = ZoneInfo("America/New_York")
 BOWL_SIX_LOCK_TZ_LABEL = "ET"
 BOWL_SIX_REAL_WEEK_START_DOW = 0  # Monday
@@ -271,6 +273,16 @@ def slate_award_time_reached(slate: BowlSixSlate) -> bool:
     return utcnow_naive() >= slate_award_at(slate)
 
 
+def _slate_unlock_at(slate: BowlSixSlate) -> datetime:
+    """Naive UTC Monday 12:00 AM ET for the slate week."""
+    return utc_naive_from_eastern(datetime.combine(slate.week_start, time(0, 0)))
+
+
+def _slate_lock_warning_at(slate: BowlSixSlate) -> datetime:
+    """Naive UTC instant for the 30-minute lock warning."""
+    return slate.lock_at - timedelta(minutes=30)
+
+
 def lock_time_is_future(slate: BowlSixSlate) -> bool:
     return utcnow_naive() < slate.lock_at
 
@@ -343,6 +355,103 @@ def sync_slate_lock_status(session: Session, slate: BowlSixSlate) -> None:
         return
     if slate.status == "open" and now >= slate.lock_at:
         slate.status = "locked"
+
+
+def _gm_role_mention_for_league(session: Session, league_slug: str) -> str:
+    try:
+        from app.services.discord_events import get_league_bot_config
+
+        cfg = get_league_bot_config(session, league_slug)
+        rid = str(getattr(cfg, "gm_role_id", "") or "").strip()
+    except Exception:
+        rid = ""
+    return f"<@&{rid}>" if rid else "@GM"
+
+
+def _bowl_six_reminder_payload(
+    session: Session,
+    slate: BowlSixSlate,
+    *,
+    event_key: str,
+) -> dict[str, Any]:
+    from app.services.discord_events import build_league_public_url
+
+    league_slug = str(slate.league_slug or "")
+    role = _gm_role_mention_for_league(session, league_slug)
+    hub_url = build_league_public_url(league_slug, "/bowl-six") or f"/{league_slug}/bowl-six"
+    lock_display = lock_at_display_eastern(slate.lock_at)
+    week_label = str(slate.label or "").strip() or f"Week of {slate.week_start.isoformat()}"
+    if event_key == BOWL_SIX_ROSTERS_UNLOCKED_EVENT_KEY:
+        title = "BOWL Six rosters are unlocked"
+        body = (
+            f"{role} BOWL Six rosters are unlocked for {week_label}.\n"
+            f"Lineups lock Monday at {lock_display}.\n{hub_url}"
+        )
+    else:
+        title = "BOWL Six rosters lock in 30 minutes"
+        body = (
+            f"{role} Final reminder: BOWL Six rosters lock in 30 minutes "
+            f"at {lock_display}.\n{hub_url}"
+        )
+    return {
+        "title": title,
+        "body": body,
+        "body_preview": body[:280],
+        "url": hub_url,
+        "slate_id": int(slate.id),
+        "week_start": slate.week_start.isoformat() if slate.week_start else "",
+        "week_label": week_label,
+        "lock_display": lock_display,
+        "gm_role_mention": role,
+        "has_image": False,
+    }
+
+
+def maybe_enqueue_bowl_six_roster_reminders(
+    session: Session,
+    league_slug: str,
+    *,
+    now: datetime | None = None,
+) -> int:
+    """Queue unlock and 30-minute lock reminders once per active weekly slate."""
+    if not bowl_six_enabled(session, league_slug):
+        return 0
+    slate = get_or_create_current_slate(session, league_slug)
+    if slate is None or slate.status in ("scored", "skipped"):
+        return 0
+    now_utc = now or utcnow_naive()
+    queued = 0
+    from app.services.discord_events import enqueue_discord_event
+
+    reminders = (
+        (
+            BOWL_SIX_ROSTERS_UNLOCKED_EVENT_KEY,
+            _slate_unlock_at(slate),
+            f"bowl_six:slate:{int(slate.id)}:rosters_unlocked",
+        ),
+        (
+            BOWL_SIX_LOCK_WARNING_EVENT_KEY,
+            _slate_lock_warning_at(slate),
+            f"bowl_six:slate:{int(slate.id)}:lock_warning_30",
+        ),
+    )
+    for event_key, trigger_at, source_id in reminders:
+        if now_utc < trigger_at:
+            continue
+        if event_key == BOWL_SIX_LOCK_WARNING_EVENT_KEY and now_utc >= slate.lock_at:
+            continue
+        row = enqueue_discord_event(
+            session,
+            league_slug=league_slug,
+            event_key=event_key,
+            payload=_bowl_six_reminder_payload(session, slate, event_key=event_key),
+            created_by_user_id=None,
+            source_type="bowl_six_roster_reminder",
+            source_id=source_id,
+        )
+        if row is not None:
+            queued += 1
+    return queued
 
 
 def extend_slate_lock_at(

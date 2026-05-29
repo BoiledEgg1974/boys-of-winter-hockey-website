@@ -551,6 +551,7 @@ class DiscordLeagueBotConfig(db.Model):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     league_slug: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     guild_id: Mapped[str] = mapped_column(String(64), default="", nullable=False)
+    gm_role_id: Mapped[str] = mapped_column(String(64), default="", nullable=False)
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     notes: Mapped[str] = mapped_column(Text, default="", nullable=False)
     suppressed_default_route_keys_json: Mapped[str] = mapped_column(

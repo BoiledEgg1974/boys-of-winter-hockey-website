@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 import os
 
 from flask import current_app, has_app_context
-from sqlalchemy import delete, or_, select, update
+from sqlalchemy import delete, or_, select, text, update
 
 from app.site_models import (
     DiscordBotHeartbeat,
@@ -45,6 +45,8 @@ OPS_TEXT_ONLY_DISCORD_EVENT_KEYS = frozenset(
         "draft_hub_completed",
         "expansion_draft_pick_made",
         "bowl_six_leaders_update",
+        "bowl_six_rosters_unlocked",
+        "bowl_six_lock_warning",
     }
 )
 
@@ -72,6 +74,8 @@ DEFAULT_EVENT_KEYS = {
     "expansion_draft_pick_made",
     "staff_transaction_posted",
     "bowl_six_leaders_update",
+    "bowl_six_rosters_unlocked",
+    "bowl_six_lock_warning",
     "trade_market_selling_posted",
     "trade_market_buying_posted",
 }
@@ -92,6 +96,8 @@ DEFAULT_EVENT_CHANNEL_KEY = {
     "expansion_draft_pick_made": "expansion-draft-discussion",
     "staff_transaction_posted": "staff-hirings-firings",
     "bowl_six_leaders_update": "bowl-six-leaders",
+    "bowl_six_rosters_unlocked": "bowl-six",
+    "bowl_six_lock_warning": "bowl-six",
     "trade_market_selling_posted": "trade-selling",
     "trade_market_buying_posted": "trade-buying",
 }
@@ -112,6 +118,8 @@ DEFAULT_EVENT_LABELS = {
     "expansion_draft_pick_made": "Expansion draft pick (live)",
     "staff_transaction_posted": "Staff hire / fire approved",
     "bowl_six_leaders_update": "BOWL Six live leaders (post + edit)",
+    "bowl_six_rosters_unlocked": "BOWL Six rosters unlocked",
+    "bowl_six_lock_warning": "BOWL Six 30-minute lock warning",
     "trade_market_selling_posted": "Trade Market — selling update",
     "trade_market_buying_posted": "Trade Market — buying interests",
 }
@@ -137,6 +145,7 @@ def _parse_suppressed_default_route_keys(raw: object) -> set[str]:
 
 
 def _suppressed_default_route_keys(session, league_slug: str) -> set[str]:
+    _ensure_discord_bot_config_columns(session)
     row = session.scalar(
         select(DiscordLeagueBotConfig).where(DiscordLeagueBotConfig.league_slug == league_slug).limit(1)
     )
@@ -146,6 +155,7 @@ def _suppressed_default_route_keys(session, league_slug: str) -> set[str]:
 
 
 def _ensure_discord_bot_cfg_row(session, league_slug: str) -> DiscordLeagueBotConfig:
+    _ensure_discord_bot_config_columns(session)
     row = session.scalar(
         select(DiscordLeagueBotConfig).where(DiscordLeagueBotConfig.league_slug == league_slug).limit(1)
     )
@@ -153,6 +163,7 @@ def _ensure_discord_bot_cfg_row(session, league_slug: str) -> DiscordLeagueBotCo
         row = DiscordLeagueBotConfig(
             league_slug=league_slug,
             guild_id="",
+            gm_role_id="",
             is_enabled=True,
             notes="",
             suppressed_default_route_keys_json="[]",
@@ -758,6 +769,7 @@ def list_discord_routes(session, league_slug: str) -> list[DiscordChannelRoute]:
 
 
 def get_league_bot_config(session, league_slug: str) -> DiscordLeagueBotConfig:
+    _ensure_discord_bot_config_columns(session)
     row = session.scalar(
         select(DiscordLeagueBotConfig).where(DiscordLeagueBotConfig.league_slug == league_slug).limit(1)
     )
@@ -766,6 +778,7 @@ def get_league_bot_config(session, league_slug: str) -> DiscordLeagueBotConfig:
     row = DiscordLeagueBotConfig(
         league_slug=league_slug,
         guild_id="",
+        gm_role_id="",
         is_enabled=True,
         notes="",
         suppressed_default_route_keys_json="[]",
@@ -777,6 +790,27 @@ def get_league_bot_config(session, league_slug: str) -> DiscordLeagueBotConfig:
     return row
 
 
+def _ensure_discord_bot_config_columns(session) -> None:
+    """Lightweight guard for hub/standalone contexts before model SELECTs run."""
+    try:
+        bind = session.get_bind(mapper=DiscordLeagueBotConfig)
+        if bind.dialect.name != "sqlite":
+            return
+        with bind.begin() as conn:
+            cols = {str(c[1]) for c in conn.execute(text("PRAGMA table_info(discord_league_bot_config)")).fetchall()}
+            if "gm_role_id" not in cols:
+                conn.execute(
+                    text(
+                        "ALTER TABLE discord_league_bot_config "
+                        "ADD COLUMN gm_role_id VARCHAR(64) NOT NULL DEFAULT ''"
+                    )
+                )
+    except Exception:
+        # Normal migration runs at app startup; this only keeps tests/hub contexts
+        # from failing before that migration gets a chance to execute.
+        return
+
+
 def update_league_bot_config(
     session,
     *,
@@ -785,12 +819,17 @@ def update_league_bot_config(
     is_enabled: bool,
     notes: str,
     updated_by_user_id: int,
+    gm_role_id: str = "",
 ) -> DiscordLeagueBotConfig:
     row = get_league_bot_config(session, league_slug)
     gid = str(guild_id or "").strip()
     if gid and not DISCORD_SNOWFLAKE_PATTERN.match(gid):
         raise ValueError("guild_id must be a numeric Discord snowflake")
+    role_id = str(gm_role_id or "").strip()
+    if role_id and not DISCORD_SNOWFLAKE_PATTERN.match(role_id):
+        raise ValueError("gm_role_id must be a numeric Discord snowflake")
     row.guild_id = gid[:64]
+    row.gm_role_id = role_id[:64]
     row.is_enabled = bool(is_enabled)
     row.notes = str(notes or "")[:2000]
     row.updated_by_user_id = int(updated_by_user_id)

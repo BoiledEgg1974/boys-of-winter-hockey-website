@@ -4786,6 +4786,7 @@ def admin_discord_integration():
                     is_enabled=request.form.get("bot_enabled") == "1",
                     notes=(request.form.get("bot_notes") or "").strip(),
                     updated_by_user_id=int(current_user.id),
+                    gm_role_id=(request.form.get("gm_role_id") or "").strip(),
                 )
             except ValueError as exc:
                 flash(str(exc), "err")
@@ -4795,7 +4796,12 @@ def admin_discord_integration():
                     admin_user_id=int(current_user.id),
                     league_slug=slug,
                     action="discord_bot_config_update",
-                    detail_json=json.dumps({"guild_id": (request.form.get("guild_id") or "").strip()}),
+                    detail_json=json.dumps(
+                        {
+                            "guild_id": (request.form.get("guild_id") or "").strip(),
+                            "gm_role_id": (request.form.get("gm_role_id") or "").strip(),
+                        }
+                    ),
                 )
             )
             db.session.commit()

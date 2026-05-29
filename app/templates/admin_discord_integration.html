@@ -84,6 +84,9 @@
     <label>Discord server (guild) ID
       <input type="text" name="guild_id" value="{{ bot_config.guild_id or '' }}" placeholder="Numeric snowflake" style="min-width:18rem;">
     </label>
+    <label style="margin-left:0.75rem;">GM role ID
+      <input type="text" name="gm_role_id" value="{{ bot_config.gm_role_id or '' }}" placeholder="Role snowflake for @GM" style="min-width:18rem;">
+    </label>
     <label style="margin-left:0.75rem;"><input type="checkbox" name="bot_enabled" value="1"{% if bot_config.is_enabled %} checked{% endif %}> Delivery enabled</label>
     <div style="margin-top:0.45rem;">
       <label>Notes

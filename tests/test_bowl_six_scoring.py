@@ -9,7 +9,7 @@ from app.services.bowl_six_scoring import (
     score_skater_line,
     slot_accepts_position,
 )
-from datetime import date
+from datetime import date, datetime
 
 from app.services.bowl_six import (
     default_lock_at,
@@ -18,6 +18,7 @@ from app.services.bowl_six import (
     get_or_create_current_slate,
     lock_at_display_eastern,
     lock_at_iso_z,
+    maybe_enqueue_bowl_six_roster_reminders,
     parse_lock_at_eastern_form,
     slate_award_at,
     slate_real_scoring_window_utc,
@@ -333,7 +334,7 @@ class BowlSixScoringTest(unittest.TestCase):
             league_slug="bowl-historical",
             week_start=date(2026, 5, 18),
             week_end=date(2026, 5, 24),
-            lock_at=__import__("datetime").datetime(2026, 5, 18, 23, 59),
+            lock_at=datetime(2026, 5, 18, 23, 59),
             status="scored",
             scoring_version=3,
             ap_place1_team_id=20,
@@ -350,6 +351,55 @@ class BowlSixScoringTest(unittest.TestCase):
         self.assertIn("bowl_six:slate:99:place:1:rev:3", source_refs)
         self.assertIn("bowl_six:slate:99:place:1:award:3", source_refs)
         self.assertEqual(slate.ap_place1_team_id, 10)
+
+    def test_bowl_six_roster_reminders_queue_unlock_and_warning(self):
+        slate = BowlSixSlate(
+            id=99,
+            league_slug="bowl-historical",
+            week_start=date(2026, 5, 18),
+            week_end=date(2026, 5, 24),
+            lock_at=datetime(2026, 5, 18, 23, 59),
+            status="open",
+            label="Week of 2026-05-18",
+        )
+        session = MagicMock()
+        with unittest.mock.patch("app.services.bowl_six.bowl_six_enabled", return_value=True), \
+            unittest.mock.patch("app.services.bowl_six.get_or_create_current_slate", return_value=slate), \
+            unittest.mock.patch("app.services.bowl_six._gm_role_mention_for_league", return_value="<@&123456789012345678>"), \
+            unittest.mock.patch("app.services.discord_events.build_league_public_url", return_value="https://site/bowl-historical/bowl-six"), \
+            unittest.mock.patch("app.services.discord_events.enqueue_discord_event", return_value=object()) as enqueue:
+            queued = maybe_enqueue_bowl_six_roster_reminders(
+                session,
+                "bowl-historical",
+                now=datetime(2026, 5, 18, 23, 30),
+            )
+        self.assertEqual(queued, 2)
+        event_keys = [call.kwargs["event_key"] for call in enqueue.call_args_list]
+        self.assertEqual(event_keys, ["bowl_six_rosters_unlocked", "bowl_six_lock_warning"])
+        payload = enqueue.call_args_list[0].kwargs["payload"]
+        self.assertIn("<@&123456789012345678>", payload["body"])
+
+    def test_bowl_six_lock_warning_not_queued_after_lock(self):
+        slate = BowlSixSlate(
+            id=99,
+            league_slug="bowl-cap",
+            week_start=date(2026, 5, 18),
+            week_end=date(2026, 5, 24),
+            lock_at=datetime(2026, 5, 18, 23, 59),
+            status="locked",
+        )
+        session = MagicMock()
+        with unittest.mock.patch("app.services.bowl_six.bowl_six_enabled", return_value=True), \
+            unittest.mock.patch("app.services.bowl_six.get_or_create_current_slate", return_value=slate), \
+            unittest.mock.patch("app.services.discord_events.build_league_public_url", return_value="https://site/bowl-cap/bowl-six"), \
+            unittest.mock.patch("app.services.discord_events.enqueue_discord_event", return_value=object()) as enqueue:
+            maybe_enqueue_bowl_six_roster_reminders(
+                session,
+                "bowl-cap",
+                now=datetime(2026, 5, 19, 0, 0),
+            )
+        event_keys = [call.kwargs["event_key"] for call in enqueue.call_args_list]
+        self.assertEqual(event_keys, ["bowl_six_rosters_unlocked"])
 
 
 if __name__ == "__main__":

@@ -1627,6 +1627,7 @@ def ensure_discord_outbound_sqlite(engine: Engine) -> None:
                         id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
                         league_slug VARCHAR(64) NOT NULL,
                         guild_id VARCHAR(64) NOT NULL DEFAULT '',
+                        gm_role_id VARCHAR(64) NOT NULL DEFAULT '',
                         is_enabled BOOLEAN NOT NULL DEFAULT 1,
                         notes TEXT NOT NULL DEFAULT '',
                         suppressed_default_route_keys_json TEXT NOT NULL DEFAULT '[]',
@@ -1650,6 +1651,13 @@ def ensure_discord_outbound_sqlite(engine: Engine) -> None:
                     text(
                         "ALTER TABLE discord_league_bot_config "
                         "ADD COLUMN suppressed_default_route_keys_json TEXT NOT NULL DEFAULT '[]'"
+                    )
+                )
+            if "gm_role_id" not in cfg_col_names:
+                conn.execute(
+                    text(
+                        "ALTER TABLE discord_league_bot_config "
+                        "ADD COLUMN gm_role_id VARCHAR(64) NOT NULL DEFAULT ''"
                     )
                 )
         has_delivered = conn.execute(

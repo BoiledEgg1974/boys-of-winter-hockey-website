@@ -29,6 +29,8 @@ ALWAYS_TEXT_ONLY_DISCORD_EVENT_KEYS = frozenset(
         "draft_hub_on_deck",
         "draft_hub_completed",
         "expansion_draft_pick_made",
+        "bowl_six_rosters_unlocked",
+        "bowl_six_lock_warning",
     }
 )
 
@@ -232,6 +234,11 @@ def _text_only_header_lines(
         status = str(payload.get("slate_status") or "").strip()
         if status:
             lines.append(f"Slate: **{status}**")
+    elif event_key in ("bowl_six_rosters_unlocked", "bowl_six_lock_warning"):
+        lines.append(f"**{title}**")
+        lock_display = str(payload.get("lock_display") or "").strip()
+        if lock_display:
+            lines.append(f"Lock: {lock_display}")
     elif event_key in ("trade_market_selling_posted", "trade_market_buying_posted"):
         team_line = format_team_label(league_slug, payload)
         if team_line:

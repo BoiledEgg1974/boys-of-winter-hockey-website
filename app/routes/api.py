@@ -1869,6 +1869,15 @@ def discord_events_pending():
         serialize_pending_events_for_bot,
     )
 
+    try:
+        from app.services.bowl_six import maybe_enqueue_bowl_six_roster_reminders
+
+        if maybe_enqueue_bowl_six_roster_reminders(db.session, slug):
+            db.session.commit()
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception("BOWL Six roster reminder enqueue failed for %s", slug)
+
     rows = fetch_pending_events_for_bot(db.session, league_slug=slug, limit=limit)
     bot_cfg = get_league_bot_config(db.session, slug)
     out = serialize_pending_events_for_bot(

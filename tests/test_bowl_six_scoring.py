@@ -20,8 +20,10 @@ from app.services.bowl_six import (
     lock_at_iso_z,
     parse_lock_at_eastern_form,
     slate_award_at,
+    slate_real_scoring_window_utc,
     slate_lock_ui,
     slate_week_rs_games_complete,
+    sync_bowl_six_slate_ap_awards,
     sync_slate_week_to_league_calendar,
     utc_naive_from_eastern,
     validate_lineup_picks,
@@ -104,14 +106,24 @@ class BowlSixScoringTest(unittest.TestCase):
         )
         self.assertIsNone(parse_lock_at_eastern_form("", "12:00"))
 
-    def test_default_bowl_six_lock_is_monday_8_pm_et(self):
+    def test_default_bowl_six_lock_is_monday_759_pm_et(self):
+        session = MagicMock()
+        with unittest.mock.patch(
+            "app.services.bowl_six.get_rule_value", return_value="19:59"
+        ):
+            self.assertEqual(
+                default_lock_at(date(2026, 5, 18), "bowl-cap", session),
+                __import__("datetime").datetime(2026, 5, 18, 23, 59),
+            )
+
+    def test_default_bowl_six_lock_normalizes_legacy_8pm_et(self):
         session = MagicMock()
         with unittest.mock.patch(
             "app.services.bowl_six.get_rule_value", return_value="20:00"
         ):
             self.assertEqual(
-                default_lock_at(date(2026, 5, 18), "bowl-cap", session),
-                __import__("datetime").datetime(2026, 5, 19, 0, 0),
+                default_lock_at(date(2026, 5, 18), "bowl-historical", session),
+                __import__("datetime").datetime(2026, 5, 18, 23, 59),
             )
 
     def test_slate_award_at_is_next_monday_midnight_et(self):
@@ -119,13 +131,26 @@ class BowlSixScoringTest(unittest.TestCase):
             league_slug="bowl-cap",
             week_start=date(2026, 5, 18),
             week_end=date(2026, 5, 24),
-            lock_at=__import__("datetime").datetime(2026, 5, 19, 0, 0),
+            lock_at=__import__("datetime").datetime(2026, 5, 18, 23, 59),
             status="locked",
         )
         self.assertEqual(
             slate_award_at(slate),
             __import__("datetime").datetime(2026, 5, 25, 4, 0),
         )
+
+    def test_scoring_window_starts_immediately_after_759_lock_for_all_leagues(self):
+        for slug in ("bowl-fantasy", "bowl-cap", "bowl-historical"):
+            slate = BowlSixSlate(
+                league_slug=slug,
+                week_start=date(2026, 5, 18),
+                week_end=date(2026, 5, 24),
+                lock_at=__import__("datetime").datetime(2026, 5, 18, 23, 59),
+                status="locked",
+            )
+            start, end = slate_real_scoring_window_utc(slate)
+            self.assertEqual(start, __import__("datetime").datetime(2026, 5, 19, 0, 0))
+            self.assertEqual(end, __import__("datetime").datetime(2026, 5, 25, 4, 0))
 
     def test_eastern_utc_round_trip(self):
         dt = __import__("datetime").datetime(2026, 5, 20, 0, 30)
@@ -251,7 +276,7 @@ class BowlSixScoringTest(unittest.TestCase):
             league_slug="bowl-historical",
             week_start=date(2026, 5, 18),
             week_end=date(2026, 5, 24),
-            lock_at=__import__("datetime").datetime(2026, 5, 19, 0, 0),
+            lock_at=__import__("datetime").datetime(2026, 5, 18, 23, 59),
             status="scored",
         )
 
@@ -301,6 +326,30 @@ class BowlSixScoringTest(unittest.TestCase):
         ui = slate_lock_ui(slate)
         self.assertFalse(ui["show_countdown"])
         self.assertEqual(ui["banner_label"], "Lineups locked")
+
+    def test_bowl_six_ap_awards_are_versioned_for_rescore_reaward(self):
+        slate = BowlSixSlate(
+            id=99,
+            league_slug="bowl-historical",
+            week_start=date(2026, 5, 18),
+            week_end=date(2026, 5, 24),
+            lock_at=__import__("datetime").datetime(2026, 5, 18, 23, 59),
+            status="scored",
+            scoring_version=3,
+            ap_place1_team_id=20,
+        )
+        session = MagicMock()
+        mem = MagicMock(team_id=10)
+        session.scalar.return_value = mem
+        with unittest.mock.patch(
+            "app.services.bowl_six.slate_rankings",
+            return_value=[{"user_id": 1, "total_points": 100.0}],
+        ), unittest.mock.patch("app.services.bowl_six.add_ledger_entry") as add_entry:
+            sync_bowl_six_slate_ap_awards(session, slate)
+        source_refs = [call.kwargs["source_ref"] for call in add_entry.call_args_list]
+        self.assertIn("bowl_six:slate:99:place:1:rev:3", source_refs)
+        self.assertIn("bowl_six:slate:99:place:1:award:3", source_refs)
+        self.assertEqual(slate.ap_place1_team_id, 10)
 
 
 if __name__ == "__main__":

@@ -45,7 +45,7 @@ AP_PRIZES = {1: 10, 2: 6, 3: 3}
 BOWL_SIX_LOCK_TZ = ZoneInfo("America/New_York")
 BOWL_SIX_LOCK_TZ_LABEL = "ET"
 BOWL_SIX_REAL_WEEK_START_DOW = 0  # Monday
-BOWL_SIX_DEFAULT_LOCK_TIME_ET = "20:00"
+BOWL_SIX_DEFAULT_LOCK_TIME_ET = "19:59"
 SLOT_LABELS = {
     "gk": "GK",
     "def1": "DEF",
@@ -253,6 +253,10 @@ def default_lock_at(week_start: date, league_slug: str, session: Session) -> dat
         raw = get_rule_value(session, league_slug, "bowl_six_lock_time_utc", BOWL_SIX_DEFAULT_LOCK_TIME_ET)
     if str(raw or "").strip() in {"", "00:00"}:
         raw = BOWL_SIX_DEFAULT_LOCK_TIME_ET
+    # Align all leagues to the current BOWL Six lock standard. Older installs
+    # stored the previous 8:00 PM default as a rule row.
+    if str(raw or "").strip() == "20:00":
+        raw = BOWL_SIX_DEFAULT_LOCK_TIME_ET
     lock_t = _parse_lock_time(raw)
     return utc_naive_from_eastern(datetime.combine(week_start, lock_t))
 
@@ -273,7 +277,9 @@ def lock_time_is_future(slate: BowlSixSlate) -> bool:
 
 def slate_real_scoring_window_utc(slate: BowlSixSlate) -> tuple[datetime, datetime]:
     """Inclusive start, exclusive end for real-time BOWL Six scoring."""
-    start_et = datetime.combine(slate.week_start, time(20, 1))
+    # Rosters unlock Monday 12:00 AM ET and lock Monday 7:59 PM ET; BOWL Six
+    # scoring begins immediately after the lock for every league site.
+    start_et = datetime.combine(slate.week_start, time(20, 0))
     end_et = datetime.combine(slate.week_end + timedelta(days=1), time(0, 0))
     return utc_naive_from_eastern(start_et), utc_naive_from_eastern(end_et)
 
@@ -413,7 +419,8 @@ def get_or_create_current_slate(
         session.flush()
     if slate.week_start == week_start and slate.week_end == week_end:
         legacy_midnight_lock = utc_naive_from_eastern(datetime.combine(week_start, time(0, 0)))
-        if slate.lock_at == legacy_midnight_lock:
+        legacy_8pm_lock = utc_naive_from_eastern(datetime.combine(week_start, time(20, 0)))
+        if slate.lock_at in (legacy_midnight_lock, legacy_8pm_lock):
             slate.lock_at = default_lock_at(week_start, league_slug, session)
         if slate.scoring_week_start is None or slate.scoring_week_end is None:
             slate.scoring_week_start = scoring_start
@@ -989,7 +996,7 @@ def sync_bowl_six_slate_ap_awards(session: Session, slate: BowlSixSlate) -> None
                     "user_id": new[1],
                     "scoring_version": version,
                 },
-                source_ref=f"bowl_six:slate:{slate.id}:place:{place}",
+                source_ref=f"bowl_six:slate:{slate.id}:place:{place}:award:{version}",
             )
     slate.ap_place1_team_id = desired[1][0] if 1 in desired else None
     slate.ap_place2_team_id = desired[2][0] if 2 in desired else None

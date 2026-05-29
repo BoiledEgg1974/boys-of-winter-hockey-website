@@ -1823,6 +1823,35 @@ def _discord_secret_ok() -> bool:
     return presented == expected
 
 
+@api_bp.get("/bowl-six/leaders")
+def bowl_six_leaders_payload():
+    """Public BOWL Six leaderboard payload for the stats bot."""
+    slug = str(current_app.config.get("LEAGUE_SLUG") or "").strip()
+    if not slug:
+        return jsonify({"ok": False, "message": "league slug is not configured"}), 400
+    try:
+        from app.services.bowl_six import (
+            auto_update_bowl_six_slates,
+            bowl_six_enabled,
+            get_or_create_current_slate,
+        )
+        from app.services.bowl_six_discord import build_bowl_six_leaders_discord_payload
+
+        if not bowl_six_enabled(db.session, slug):
+            return jsonify({"ok": False, "message": "BOWL Six is disabled"}), 404
+        auto_update_bowl_six_slates(db.session, db.session, slug)
+        db.session.commit()
+        slate = get_or_create_current_slate(db.session, slug)
+        if slate is None or str(slate.status or "") == "skipped":
+            return jsonify({"ok": False, "message": "No active BOWL Six slate"}), 404
+        payload = build_bowl_six_leaders_discord_payload(db.session, db.session, slate)
+        return jsonify({"ok": True, "payload": payload})
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception("BOWL Six leaders API failed for %s", slug)
+        return jsonify({"ok": False, "message": "BOWL Six leaders unavailable"}), 500
+
+
 @api_bp.get("/discord/events/pending")
 def discord_events_pending():
     if not _discord_secret_ok():

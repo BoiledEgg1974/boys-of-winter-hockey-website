@@ -1974,6 +1974,7 @@ def discord_interactions():
         signature=str(request.headers.get("X-Signature-Ed25519") or ""),
         public_key=str(current_app.config.get("DISCORD_INTERACTIONS_PUBLIC_KEY") or "").strip(),
         shared_secret=str(current_app.config.get("DISCORD_EVENTS_SHARED_SECRET") or "").strip(),
+        hub_app=current_app._get_current_object(),
     )
     return jsonify(body), status
 

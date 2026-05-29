@@ -98,14 +98,14 @@ def _post_interaction_followup(application_id: str, interaction_token: str, cont
         log.warning("cannot post interaction followup: missing application_id or token")
         return
     url = f"https://discord.com/api/v10/webhooks/{app_id}/{token}/messages/@original"
-    resp = httpx.post(
+    resp = httpx.patch(
         url,
-        json={"content": content[:1900] or "Done.", "flags": 64},
+        json={"content": content[:1900] or "Done."},
         timeout=15.0,
     )
     if resp.status_code >= 400:
         log.warning(
-            "interaction followup failed status=%s body=%s",
+            "interaction original-response edit failed status=%s body=%s",
             resp.status_code,
             resp.text[:500],
         )

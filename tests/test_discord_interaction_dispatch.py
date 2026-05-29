@@ -9,10 +9,12 @@ from nacl.signing import SigningKey
 from app.config import make_league_config
 from app.league_db import db
 from app.services.discord_events import get_league_bot_config, update_league_bot_config
+from app.services.discord_interactions import COMMAND_DEFINITIONS
 from app.services.discord_interaction_dispatch import (
     clear_league_app_cache,
     guild_id_from_interaction,
     league_slug_for_guild_id,
+    _post_interaction_followup,
     process_discord_interaction,
 )
 from app.site_models import DiscordLeagueBotConfig, User
@@ -146,6 +148,65 @@ class DiscordInteractionDispatchTests(unittest.TestCase):
         )
         self.assertEqual(status, 401)
         self.assertIn("signature", body["error"])
+
+  def test_all_registered_commands_return_immediate_thinking_response(self) -> None:
+        import app.services.discord_interaction_dispatch as dispatch
+
+        started: list[dict] = []
+        original_run = dispatch._run_slash_command_async
+        try:
+            dispatch._run_slash_command_async = lambda **kwargs: started.append(kwargs)
+            for command in COMMAND_DEFINITIONS:
+                with self.subTest(command=command["name"]):
+                    body = json.dumps(
+                        {
+                            "type": 2,
+                            "application_id": "111111111111111111",
+                            "token": f"token-{command['name']}",
+                            "guild_id": self.guild_fantasy,
+                            "data": {"name": command["name"]},
+                            "member": {"user": {"id": "987654321098765432"}},
+                        },
+                        separators=(",", ":"),
+                    ).encode()
+                    ts = str(int(time.time()))
+                    sig = self.signing_key.sign(ts.encode() + body).signature.hex()
+                    status, payload = process_discord_interaction(
+                        raw_body=body,
+                        timestamp=ts,
+                        signature=sig,
+                        public_key=self.public_key,
+                        shared_secret="",
+                        hub_app=self.hub,
+                    )
+                    self.assertEqual(status, 200)
+                    self.assertEqual(payload, {"type": 5, "data": {"flags": 64}})
+        finally:
+            dispatch._run_slash_command_async = original_run
+        self.assertEqual(len(started), len(COMMAND_DEFINITIONS))
+        self.assertTrue(all(item["league_slug"] == "bowl-fantasy" for item in started))
+
+  def test_deferred_followup_edits_original_response(self) -> None:
+        class Response:
+            status_code = 200
+            text = ""
+
+        calls: list[dict] = []
+
+        def fake_patch(url: str, *, json: dict, timeout: float):
+            calls.append({"url": url, "json": json, "timeout": timeout})
+            return Response()
+
+        import app.services.discord_interaction_dispatch as dispatch
+
+        original_patch = dispatch.httpx.patch
+        try:
+            dispatch.httpx.patch = fake_patch
+            _post_interaction_followup("123", "abc", "Done")
+        finally:
+            dispatch.httpx.patch = original_patch
+        self.assertEqual(calls[0]["url"], "https://discord.com/api/v10/webhooks/123/abc/messages/@original")
+        self.assertEqual(calls[0]["json"], {"content": "Done"})
 
 
 if __name__ == "__main__":

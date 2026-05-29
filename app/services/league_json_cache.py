@@ -108,14 +108,16 @@ def cache_key(
     key_suffix: tuple,
     *,
     app: Flask | None = None,
+    include_site_db_fingerprint: bool = True,
 ) -> tuple:
     app = app or current_app
     league_slug = str(app.config.get("LEAGUE_SLUG") or "").strip()
+    site_fp = site_db_fingerprint(app) if include_site_db_fingerprint else "site:any"
     return (
         str(namespace).strip(),
         league_slug,
         league_db_fingerprint(app),
-        site_db_fingerprint(app),
+        site_fp,
         *key_suffix,
     )
 
@@ -172,8 +174,14 @@ def get_cache_entry(
     fresh_ttl: float,
     stale_ttl: float,
     app: Flask | None = None,
+    include_site_db_fingerprint: bool = True,
 ) -> CacheEntry | None:
-    key = cache_key(namespace, key_suffix, app=app)
+    key = cache_key(
+        namespace,
+        key_suffix,
+        app=app,
+        include_site_db_fingerprint=include_site_db_fingerprint,
+    )
     now = time.time()
     with _lock:
         hit = _mem_cache.get(key)
@@ -198,9 +206,16 @@ def get_cached_json(
     *,
     refresh: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
     stale_ttl_seconds: float | None = None,
+    include_site_db_fingerprint: bool = True,
 ) -> dict[str, Any] | None:
     stale = float(stale_ttl_seconds if stale_ttl_seconds is not None else max(ttl_seconds * 30, ttl_seconds + 120))
-    ent = get_cache_entry(namespace, key_suffix, fresh_ttl=ttl_seconds, stale_ttl=stale)
+    ent = get_cache_entry(
+        namespace,
+        key_suffix,
+        fresh_ttl=ttl_seconds,
+        stale_ttl=stale,
+        include_site_db_fingerprint=include_site_db_fingerprint,
+    )
     if ent is None:
         return None
     body = ent.body
@@ -213,18 +228,33 @@ def store_cached_json(
     body: dict[str, Any],
     *,
     app: Flask | None = None,
+    include_site_db_fingerprint: bool = True,
 ) -> None:
     if app is not None:
         body = prefix_league_static_urls(body, app=app)
-    key = cache_key(namespace, key_suffix, app=app)
+    key = cache_key(
+        namespace,
+        key_suffix,
+        app=app,
+        include_site_db_fingerprint=include_site_db_fingerprint,
+    )
     saved_at = _write_file(key, body)
     now = time.monotonic()
     with _lock:
         _mem_cache[key] = (saved_at, now, body)
 
 
-def compute_lock(namespace: str, key_suffix: tuple) -> threading.Lock:
-    key = cache_key(namespace, key_suffix)
+def compute_lock(
+    namespace: str,
+    key_suffix: tuple,
+    *,
+    include_site_db_fingerprint: bool = True,
+) -> threading.Lock:
+    key = cache_key(
+        namespace,
+        key_suffix,
+        include_site_db_fingerprint=include_site_db_fingerprint,
+    )
     digest = _digest(key)
     with _lock:
         lk = _compute_locks.get(digest)
@@ -239,9 +269,16 @@ def _schedule_background_refresh(
     namespace: str,
     key_suffix: tuple,
     builder: Callable[[], dict[str, Any]],
+    *,
+    include_site_db_fingerprint: bool = True,
 ) -> None:
     bound_app = real_flask_app(app)
-    key = cache_key(namespace, key_suffix, app=bound_app)
+    key = cache_key(
+        namespace,
+        key_suffix,
+        app=bound_app,
+        include_site_db_fingerprint=include_site_db_fingerprint,
+    )
     digest = _digest(key)
     with _lock:
         if digest in _refresh_inflight:
@@ -257,7 +294,13 @@ def _schedule_background_refresh(
         try:
             with league_test_request_context(bound_app):
                 body = builder()
-                store_cached_json(namespace, key_suffix, body, app=bound_app)
+                store_cached_json(
+                    namespace,
+                    key_suffix,
+                    body,
+                    app=bound_app,
+                    include_site_db_fingerprint=include_site_db_fingerprint,
+                )
         except Exception:
             _log.exception("background cache refresh failed for %s %s", namespace, key_suffix)
         finally:
@@ -277,6 +320,7 @@ def get_or_build_cached_json_swr(
     builder: Callable[[], dict[str, Any]],
     refresh: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
     app: Flask | None = None,
+    include_site_db_fingerprint: bool = True,
 ) -> tuple[dict[str, Any], str]:
     """Return payload and cache status (HIT-FRESH, HIT-STALE, MISS)."""
     app = real_flask_app(app or current_app)
@@ -286,27 +330,59 @@ def get_or_build_cached_json_swr(
         return refresh(out) if refresh else out  # type: ignore[return-value]
 
     ent = get_cache_entry(
-        namespace, key_suffix, fresh_ttl=fresh_ttl, stale_ttl=stale_ttl, app=app
+        namespace,
+        key_suffix,
+        fresh_ttl=fresh_ttl,
+        stale_ttl=stale_ttl,
+        app=app,
+        include_site_db_fingerprint=include_site_db_fingerprint,
     )
     if ent is not None:
         body = _prepare(ent.body)
         if not ent.is_fresh:
-            _schedule_background_refresh(app, namespace, key_suffix, builder)
+            _schedule_background_refresh(
+                app,
+                namespace,
+                key_suffix,
+                builder,
+                include_site_db_fingerprint=include_site_db_fingerprint,
+            )
             return body, "HIT-STALE"
         return body, "HIT-FRESH"
 
-    with compute_lock(namespace, key_suffix):
+    with compute_lock(
+        namespace,
+        key_suffix,
+        include_site_db_fingerprint=include_site_db_fingerprint,
+    ):
         ent = get_cache_entry(
-            namespace, key_suffix, fresh_ttl=fresh_ttl, stale_ttl=stale_ttl, app=app
+            namespace,
+            key_suffix,
+            fresh_ttl=fresh_ttl,
+            stale_ttl=stale_ttl,
+            app=app,
+            include_site_db_fingerprint=include_site_db_fingerprint,
         )
         if ent is not None:
             body = _prepare(ent.body)
             status = "HIT-FRESH" if ent.is_fresh else "HIT-STALE"
             if not ent.is_fresh:
-                _schedule_background_refresh(app, namespace, key_suffix, builder)
+                _schedule_background_refresh(
+                    app,
+                    namespace,
+                    key_suffix,
+                    builder,
+                    include_site_db_fingerprint=include_site_db_fingerprint,
+                )
             return body, status
         core = builder()
-        store_cached_json(namespace, key_suffix, core)
+        store_cached_json(
+            namespace,
+            key_suffix,
+            core,
+            app=app,
+            include_site_db_fingerprint=include_site_db_fingerprint,
+        )
         return _prepare(core), "MISS"
 
 
@@ -318,6 +394,7 @@ def get_or_build_cached_json(
     *,
     refresh: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
     stale_ttl_seconds: float | None = None,
+    include_site_db_fingerprint: bool = True,
 ) -> dict[str, Any]:
     stale = float(
         stale_ttl_seconds
@@ -331,6 +408,7 @@ def get_or_build_cached_json(
         stale_ttl=stale,
         builder=builder,
         refresh=refresh,
+        include_site_db_fingerprint=include_site_db_fingerprint,
     )
     return body
 

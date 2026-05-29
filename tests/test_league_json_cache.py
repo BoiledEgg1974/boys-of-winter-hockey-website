@@ -25,6 +25,20 @@ class LeagueJsonCacheTests(unittest.TestCase):
         self.assertEqual(key[1], "bowl-cap")
         self.assertEqual(key[4], 99)
 
+    def test_cache_key_can_ignore_site_fingerprint(self) -> None:
+        app = MagicMock()
+        app.config = {"LEAGUE_SLUG": "bowl-cap"}
+        with patch("app.services.league_json_cache.league_db_fingerprint", return_value="league:1"):
+            with patch("app.services.league_json_cache.site_db_fingerprint") as site_fp:
+                key = cache_key(
+                    "homepage_summary",
+                    ("rs", 1, 1),
+                    app=app,
+                    include_site_db_fingerprint=False,
+                )
+        site_fp.assert_not_called()
+        self.assertEqual(key[:4], ("homepage_summary", "bowl-cap", "league:1", "site:any"))
+
     def test_invalidate_namespace_filter(self) -> None:
         invalidate_league_json_cache(league_slug="bowl-fantasy", namespace="search_players")
 

@@ -288,14 +288,14 @@ def handle_slash_interaction(
             select(TeamStanding, Team)
             .join(Team, TeamStanding.team_id == Team.id)
             .where(TeamStanding.season_id == season.id)
-            .order_by(TeamStanding.points.desc(), TeamStanding.wins.desc(), Team.abbreviation.asc())
+            .order_by(TeamStanding.pts.desc(), TeamStanding.w.desc(), Team.abbreviation.asc())
             .limit(5)
         ).all()
         if not rows:
             return _ephemeral("No standings data is available yet.")
         lines = ["Top standings:"]
         for i, (st, tm) in enumerate(rows, start=1):
-            lines.append(f"{i}. {tm.abbreviation or tm.name}: {st.points} pts ({st.wins}-{st.losses}-{st.ot_losses})")
+            lines.append(f"{i}. {tm.abbreviation or tm.name}: {st.pts} pts ({st.w}-{st.l}-{st.otl})")
         return _ephemeral("\n".join(lines))
 
     if command == "nextgame":
@@ -328,6 +328,6 @@ def handle_slash_interaction(
         )
         if st is None:
             return _ephemeral(f"{team.name} ({team.abbreviation}) has no standings row yet.")
-        return _ephemeral(f"{team.name} ({team.abbreviation}): {st.points} pts, {st.wins}-{st.losses}-{st.ot_losses}.")
+        return _ephemeral(f"{team.name} ({team.abbreviation}): {st.pts} pts, {st.w}-{st.l}-{st.otl}.")
 
     return _ephemeral("Unknown BOWL command.")

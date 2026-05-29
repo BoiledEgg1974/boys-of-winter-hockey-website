@@ -8,11 +8,12 @@ from flask import current_app
 from sqlalchemy import select
 
 from app.league_db import db
-from app.models import Game, Team, TeamStanding
+from app.models import Game, Player, Team, TeamStanding
 from app.services.gm_messaging import unread_count_for_user
 from app.services.gm_notifications import unread_notifications_count
+from app.services.player_ratings_csv import player_positions_display_label
 from app.services.seasons import get_current_season, season_with_imported_data_fallback
-from app.site_models import User
+from app.site_models import DiscordChannelRoute, User
 
 COMMAND_DEFINITIONS: list[dict[str, Any]] = [
     {
@@ -42,6 +43,22 @@ COMMAND_DEFINITIONS: list[dict[str, Any]] = [
     {
         "name": "draftstatus",
         "description": "Show the live Draft Hub clock, on-deck team, and recent picks.",
+    },
+    {
+        "name": "draft",
+        "description": "Make your Draft Hub pick when your team is on the clock.",
+        "options": [
+            {
+                "name": "player",
+                "description": "Player name or site player id",
+                "type": 3,
+                "required": True,
+            }
+        ],
+    },
+    {
+        "name": "list",
+        "description": "Show the top 20 remaining Draft Hub eligible players.",
     },
 ]
 
@@ -87,9 +104,149 @@ def _site_user_for_discord(payload: dict[str, Any]) -> User | None:
     return db.session.scalar(select(User).where(User.discord_user_id == discord_id).limit(1))
 
 
+def _command_channel_id(payload: dict[str, Any]) -> str:
+    return str(payload.get("channel_id") or "").strip()
+
+
+def _channel_check(league_slug: str, event_key: str, payload: dict[str, Any]) -> str | None:
+    """Return an error when a slash command is outside its configured channel."""
+    row = db.session.scalar(
+        select(DiscordChannelRoute)
+        .where(
+            DiscordChannelRoute.league_slug == league_slug,
+            DiscordChannelRoute.event_key == event_key,
+        )
+        .limit(1)
+    )
+    if row is None:
+        return (
+            f"An admin needs to add the Discord route `{event_key}` "
+            "on Admin -> Discord Integration before this command can be used."
+        )
+    if not bool(row.is_enabled):
+        return f"The `{event_key}` Discord route is disabled for this league."
+    configured = str(row.discord_channel_id or "").strip()
+    if not configured:
+        return (
+            f"An admin needs to set the channel ID for `{event_key}` "
+            "on Admin -> Discord Integration."
+        )
+    actual = _command_channel_id(payload)
+    if actual != configured:
+        label = str(row.channel_key or row.label or "configured draft channel").strip()
+        return f"Use this command in the configured `{label}` channel."
+    return None
+
+
 def _current_dashboard_season():
     canonical = get_current_season()
     return season_with_imported_data_fallback(db.session, canonical) if canonical else None
+
+
+def _fmt_rating(value: object) -> str:
+    if value is None:
+        return "-"
+    try:
+        return f"{float(value):.1f}"
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def _eligible_remaining_players(league_slug: str) -> tuple[Any | None, list[Player]]:
+    from app.services.draft_hub_eligibility_cache import eligible_players_for_board
+    from app.services.draft_hub_state import draft_eligibility_params, featured_draft, picked_player_ids
+
+    draft = featured_draft(db.session, league_slug)
+    if draft is None or draft.status != "live":
+        return draft, []
+    picked = picked_player_ids(db.session, int(draft.id))
+    params = draft_eligibility_params(draft)
+    return draft, eligible_players_for_board(db.session, league_slug, params, picked)
+
+
+def _player_search_text(player: Player) -> str:
+    parts = [
+        str(player.id or ""),
+        str(player.fhm_player_id or ""),
+        str(player.full_name or ""),
+    ]
+    return " ".join(p for p in parts if p).casefold()
+
+
+def _resolve_draft_player(query: str, players: list[Player]) -> tuple[Player | None, str | None]:
+    q = str(query or "").strip()
+    if not q:
+        return None, "Tell me which player to draft."
+    q_cf = q.casefold()
+    if q.isdigit():
+        for p in players:
+            if str(p.id) == q or str(p.fhm_player_id or "") == q:
+                return p, None
+    exact = [p for p in players if str(p.full_name or "").casefold() == q_cf]
+    if len(exact) == 1:
+        return exact[0], None
+    matches = [p for p in players if q_cf in _player_search_text(p)]
+    if not matches:
+        return None, f"No remaining draft-eligible player matched `{q}`."
+    if len(matches) == 1:
+        return matches[0], None
+    lines = [f"Multiple players matched `{q}`. Try the full name or player id:"]
+    for p in matches[:8]:
+        pos = player_positions_display_label(p) or "-"
+        lines.append(f"- {p.full_name} ({pos}) · id `{p.id}` · POT {_fmt_rating(p.overall_potential)}")
+    if len(matches) > 8:
+        lines.append(f"...and {len(matches) - 8} more.")
+    return None, "\n".join(lines)
+
+
+def _handle_draft_list_command(payload: dict[str, Any], league_slug: str) -> dict[str, Any]:
+    err = _channel_check(league_slug, "draft_hub_command_list", payload)
+    if err:
+        return _ephemeral(err)
+    draft, players = _eligible_remaining_players(league_slug)
+    if draft is None or getattr(draft, "status", None) != "live":
+        return _ephemeral("No live Draft Hub draft for this league right now.")
+    if not players:
+        return _ephemeral("No remaining eligible players found for the live draft.")
+    lines = [f"**{draft.name or 'Draft Hub'}** — top 20 remaining eligible players:"]
+    for idx, p in enumerate(players[:20], start=1):
+        pos = player_positions_display_label(p) or "-"
+        lines.append(
+            f"{idx}. {p.full_name} ({pos}) · POT {_fmt_rating(p.overall_potential)} "
+            f"· ABI {_fmt_rating(p.overall_ability)} · id `{p.id}`"
+        )
+    return _ephemeral("\n".join(lines))
+
+
+def _handle_draft_pick_command(payload: dict[str, Any], league_slug: str) -> dict[str, Any]:
+    err = _channel_check(league_slug, "draft_hub_command_pick", payload)
+    if err:
+        return _ephemeral(err)
+    user = _site_user_for_discord(payload)
+    if user is None:
+        return _ephemeral(
+            "I could not match your Discord account to a BOWL user yet. "
+            "Ask an admin to add your Discord User ID."
+        )
+    draft, players = _eligible_remaining_players(league_slug)
+    if draft is None or getattr(draft, "status", None) != "live":
+        return _ephemeral("No live Draft Hub draft for this league right now.")
+    player, resolve_err = _resolve_draft_player(_command_option(payload, "player"), players)
+    if resolve_err:
+        return _ephemeral(resolve_err)
+    assert player is not None
+    from app.services.draft_hub_state import record_pick
+
+    pick_err = record_pick(db.session, draft, int(player.id), int(user.id), "gm")
+    if pick_err:
+        db.session.rollback()
+        return _ephemeral(pick_err)
+    db.session.commit()
+    pos = player_positions_display_label(player) or "-"
+    return _ephemeral(
+        f"Draft pick recorded: **{player.full_name}** ({pos}) for {draft.name or 'Draft Hub'}. "
+        "The Draft Hub page and Discord pick post will update."
+    )
 
 
 def handle_slash_interaction(
@@ -109,6 +266,10 @@ def handle_slash_interaction(
         from app.services.draft_hub_discord import build_draft_status_message
 
         return _ephemeral(build_draft_status_message(db.session, slug))
+    if command == "draft":
+        return _handle_draft_pick_command(payload, slug)
+    if command == "list":
+        return _handle_draft_list_command(payload, slug)
     if command == "inbox":
         user = _site_user_for_discord(payload)
         if user is None:

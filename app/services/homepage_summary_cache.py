@@ -150,7 +150,22 @@ def build_homepage_summary_cached(
     dashboard_season: object | None,
     builder,
 ) -> tuple[dict[str, Any], str]:
-    """Return dashboard JSON and cache status (HIT-FRESH, HIT-STALE, MISS)."""
+    """Return dashboard JSON and cache status (HIT-SNAPSHOT, HIT-FRESH, MISS-FALLBACK, …)."""
+    from app.models import db
+    from app.services.homepage_dashboard_snapshot import (
+        load_ready_homepage_snapshot,
+        schedule_homepage_snapshot_rebuild,
+    )
+
+    snapshot_body = load_ready_homepage_snapshot(
+        db.session,
+        segment=segment,
+        canonical_season=canonical_season,
+        dashboard_season=dashboard_season,
+    )
+    if snapshot_body is not None:
+        return refresh_volatile_homepage_fields(snapshot_body), "HIT-SNAPSHOT"
+
     app = current_app
     suffix = _summary_key_suffix(segment, canonical_season, dashboard_season)
     fresh_ttl = _homepage_fresh_ttl(app)
@@ -172,8 +187,16 @@ def build_homepage_summary_cached(
         miss_fallback=lambda: _fast_homepage_summary_fallback(
             segment, canonical_season, dashboard_season
         ),
-        refresh_miss_in_background=True,
+        refresh_miss_in_background=False,
     )
+    if status == "MISS-FALLBACK":
+        schedule_homepage_snapshot_rebuild(
+            real_flask_app(app),
+            segment=segment,
+            canonical_season=canonical_season,
+            dashboard_season=dashboard_season,
+            builder=builder,
+        )
     return refresh_volatile_homepage_fields(body), status
 
 
@@ -238,6 +261,18 @@ def warm_homepage_summary_cache(app: Flask | None = None) -> None:
 
 def invalidate_homepage_summary_cache(*, league_slug: str | None = None) -> None:
     invalidate_league_json_cache(league_slug=league_slug, namespace=_NAMESPACE)
+    try:
+        from flask import has_app_context
+
+        if has_app_context():
+            from app.models import db
+            from app.services.homepage_dashboard_snapshot import (
+                invalidate_homepage_dashboard_snapshots,
+            )
+
+            invalidate_homepage_dashboard_snapshots(db.session)
+    except Exception:
+        _log.exception("homepage dashboard snapshot invalidate failed")
     if league_slug is None:
         try:
             if _LEGACY_CACHE_DIR.is_dir():

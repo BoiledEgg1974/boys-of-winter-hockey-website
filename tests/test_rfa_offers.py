@@ -172,6 +172,13 @@ class RfaTemplateRouteTest(unittest.TestCase):
         self.assertIn("rfa-offer-modal", text)
         self.assertIn("rfa_compensation_preview", text)
         self.assertIn("submit_disabled", text)
+        self.assertIn("Own RFA", text)
+
+    def test_gm_page_lists_all_candidates_not_filtered_by_own_team(self):
+        from pathlib import Path
+
+        text = Path("app/routes/site_portal.py").read_text(encoding="utf-8")
+        self.assertIn("candidates = list_rfa_candidates(db.session, league_slug=slug)", text)
 
     def test_admin_template_has_happiness_and_decision(self):
         from pathlib import Path

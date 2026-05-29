@@ -13,9 +13,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import Config
-from app.models import DraftPick, Player, PlayerContract, Team
+from app.models import DraftPick, Player, PlayerContract, Prospect, Team
 from app.services.draft_hub_eligibility import age_as_of
 from app.services.draft_pick_ownership import describe_draft_pick_row, owned_draft_picks_for_team
+from app.services.free_agents import player_ids_from_player_rights_csv_for_team
 from app.services.player_contract_csv import _contract_row_map, _contract_year_salary_int, contract_years_remaining_major
 from app.services.player_overall_score import build_overall_cell_map_from_players
 from app.services.player_ratings_csv import fhm_abi_pot_float, get_player_ratings_row, player_positions_display_label
@@ -320,7 +321,12 @@ def derive_rfa_category(
     return ("group_ii", "Default Group II (age unavailable).")
 
 
-def _previous_salary(session: Session, player: Player, contract: PlayerContract, season_start_year: int) -> int:
+def _previous_salary(
+    session: Session,
+    player: Player,
+    contract: PlayerContract | None,
+    season_start_year: int,
+) -> int:
     raw_dir = _raw_import_dir()
     fhm = str(player.fhm_player_id or "").strip()
     row = _contract_row_map(raw_dir / "player_contract.csv").get(fhm) if fhm else None
@@ -335,10 +341,12 @@ def _previous_salary(session: Session, player: Player, contract: PlayerContract,
         major_cur = _contract_year_salary_int(row, "major", int(season_start_year))
         if major_cur is not None and major_cur >= 0:
             return int(major_cur)
-    try:
-        return max(0, int(contract.average_salary or 0))
-    except (TypeError, ValueError):
-        return 0
+    if contract is not None:
+        try:
+            return max(0, int(contract.average_salary or 0))
+        except (TypeError, ValueError):
+            return 0
+    return 0
 
 
 def minimum_offer_amount(category: str, previous_salary: int) -> int:
@@ -356,6 +364,43 @@ def _rights_team_for_contract(session: Session, contract: PlayerContract) -> Tea
     if pl and pl.current_team_id:
         return session.get(Team, int(pl.current_team_id))
     return None
+
+
+def _rights_team_by_player_from_rights_csv(session: Session, raw_dir: Path) -> dict[int, Team]:
+    out: dict[int, Team] = {}
+    teams = list(
+        session.scalars(
+            select(Team)
+            .where(Team.fhm_team_id.isnot(None))
+            .order_by(Team.id.asc())
+        ).all()
+    )
+    for team in teams:
+        for pid in player_ids_from_player_rights_csv_for_team(session, raw_dir, team):
+            out.setdefault(int(pid), team)
+    return out
+
+
+def _rights_team_by_player_from_prospects(session: Session) -> dict[int, Team]:
+    out: dict[int, Team] = {}
+    team_cache: dict[int, Team | None] = {}
+    rows = list(
+        session.scalars(
+            select(Prospect)
+            .where(Prospect.player_id.isnot(None), Prospect.team_id.isnot(None))
+            .order_by(Prospect.id.asc())
+        ).all()
+    )
+    for pr in rows:
+        if pr.player_id is None or pr.team_id is None:
+            continue
+        tid = int(pr.team_id)
+        if tid not in team_cache:
+            team_cache[tid] = session.get(Team, tid)
+        team = team_cache.get(tid)
+        if team is not None:
+            out.setdefault(int(pr.player_id), team)
+    return out
 
 
 def is_rfa_eligible(
@@ -441,39 +486,73 @@ def list_rfa_candidates(
     raw_dir = _raw_import_dir()
     sy = _season_start_year(session)
     age_ref = season_age_reference_date(get_current_season())
-    contracts = session.scalars(
+    contracts = list(session.scalars(
         select(PlayerContract).join(Player, Player.id == PlayerContract.player_id)
-    ).all()
-    players: list[Player] = []
-    rows: list[RfaCandidateRow] = []
+    ).all())
+    contract_by_player_id: dict[int, PlayerContract] = {}
+    players_by_id: dict[int, Player] = {}
+    rights_by_player_id: dict[int, Team] = {}
+
     for c in contracts:
         pl = c.player
-        if pl is None or not is_rfa_eligible(session, pl, c, season_start_year=sy, raw_dir=raw_dir):
+        if pl is None:
             continue
+        pid = int(pl.id)
+        contract_by_player_id[pid] = c
+        players_by_id[pid] = pl
         rights = _rights_team_for_contract(session, c)
-        if rights is None:
+        if rights is not None:
+            rights_by_player_id.setdefault(pid, rights)
+
+    # Some imports represent restricted rights outside PlayerContract. Add those so the page
+    # remains complete after each league's CSV refresh, even when contract rows are sparse.
+    rights_by_player_id.update({
+        pid: team
+        for pid, team in _rights_team_by_player_from_rights_csv(session, raw_dir).items()
+        if pid not in rights_by_player_id
+    })
+    rights_by_player_id.update({
+        pid: team
+        for pid, team in _rights_team_by_player_from_prospects(session).items()
+        if pid not in rights_by_player_id
+    })
+
+    players: list[Player] = []
+    candidate_player_ids: set[int] = set()
+    rows: list[RfaCandidateRow] = []
+    for pid, rights in rights_by_player_id.items():
+        pl = players_by_id.get(pid) or session.get(Player, pid)
+        if pl is None or bool(getattr(pl, "retired", False)):
+            continue
+        contract = contract_by_player_id.get(pid)
+        if contract is not None and not is_rfa_eligible(
+            session, pl, contract, season_start_year=sy, raw_dir=raw_dir
+        ):
             continue
         if offering_team_id is not None and int(rights.id) == int(offering_team_id):
             continue
+        players_by_id[pid] = pl
+        candidate_player_ids.add(pid)
         players.append(pl)
     overall_map = build_overall_cell_map_from_players(session, players)
-    for c in contracts:
-        pl = c.player
-        if pl is None or pl not in players:
+    for pid in candidate_player_ids:
+        pl = players_by_id.get(pid)
+        rights = rights_by_player_id.get(pid)
+        contract = contract_by_player_id.get(pid)
+        if pl is None:
             continue
-        rights = _rights_team_for_contract(session, c)
         if rights is None:
             continue
         age = age_as_of(pl.birth_date, age_ref) if pl.birth_date else None
         category, explanation = derive_rfa_category(session, pl, season_start_year=int(sy or 0), age=age)
-        prev_sal = _previous_salary(session, pl, c, int(sy or 0))
+        prev_sal = _previous_salary(session, pl, contract, int(sy or 0))
         min_offer = minimum_offer_amount(category, prev_sal)
         rr = get_player_ratings_row(pl.fhm_player_id)
         abi = fhm_abi_pot_float(rr.get("ability")) if rr else None
         pot = fhm_abi_pot_float(rr.get("potential")) if rr else None
         ov_cell = overall_map.get(int(pl.id), {})
         ovr = ov_cell.get("score")
-        yrs_left = contract_years_remaining_major(pl.fhm_player_id, sy, raw_dir)
+        yrs_left = contract_years_remaining_major(pl.fhm_player_id, sy, raw_dir) if sy else None
         contract_label = f"${prev_sal:,} AAV"
         if yrs_left is not None:
             contract_label += f" · {yrs_left} yr left"

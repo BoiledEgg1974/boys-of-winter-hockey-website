@@ -2055,8 +2055,7 @@ def rfa_offers_page():
         db.session.commit()
         flash(f"Offer sheet submitted for {candidate.player.full_name} — pending admin review.", "ok")
         return redirect(url_for("site_gm.rfa_offers_page"))
-    offering_team_id = int(mem.team_id) if mem else None
-    candidates = list_rfa_candidates(db.session, league_slug=slug, offering_team_id=offering_team_id)
+    candidates = list_rfa_candidates(db.session, league_slug=slug)
     tier_rows = []
     if mem:
         tier_rows = [

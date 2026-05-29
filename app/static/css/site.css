@@ -16423,6 +16423,81 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
 .boost-lottery-actions {
   margin-top: 0.5rem;
 }
+.boost-lottery-tracker {
+  margin-top: 1rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid color-mix(in srgb, var(--boost-edge) 35%, transparent);
+}
+.boost-lottery-tracker__head {
+  margin-bottom: 0.55rem;
+}
+.boost-lottery-tracker__title {
+  margin: 0 0 0.25rem;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--boost-accent);
+}
+.boost-lottery-tracker__table-wrap {
+  max-height: 26rem;
+  overflow: auto;
+  border: 1px solid color-mix(in srgb, var(--boost-edge) 42%, var(--border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 92%, #020617);
+}
+.boost-lottery-tracker__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+.boost-lottery-tracker__table th,
+.boost-lottery-tracker__table td {
+  padding: 0.35rem 0.4rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  text-align: center;
+}
+.boost-lottery-tracker__table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: color-mix(in srgb, var(--surface) 86%, #020617);
+  color: var(--boost-accent);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.boost-lottery-tracker__team {
+  min-width: 9rem;
+  text-align: left !important;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+.boost-lottery-tracker__logo {
+  width: 1.65rem;
+  height: 1.65rem;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+.boost-lottery-tracker__name {
+  line-height: 1.15;
+}
+.boost-lottery-tracker__input {
+  width: 4.2rem;
+  padding: 0.25rem 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  color: inherit;
+  text-align: center;
+}
+.boost-lottery-tracker__total {
+  font-weight: 800;
+  color: color-mix(in srgb, var(--boost-accent) 85%, var(--text));
+}
+.boost-lottery-tracker__save {
+  margin-top: 0.65rem;
+}
 .boost-lottery-output-wrap {
   position: absolute;
   left: 5%;

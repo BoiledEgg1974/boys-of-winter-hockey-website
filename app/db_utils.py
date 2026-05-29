@@ -1873,6 +1873,49 @@ def ensure_league_draft_slot_boost_tier_sqlite(engine: Engine) -> None:
         conn.commit()
 
 
+def ensure_boost_lottery_team_results_sqlite(engine: Engine) -> None:
+    """Create admin-maintained Boost Lottery winner totals on the site DB."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text(
+                "SELECT 1 FROM sqlite_master "
+                "WHERE type='table' AND name='boost_lottery_team_results'"
+            )
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE boost_lottery_team_results (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    league_slug VARCHAR(64) NOT NULL,
+                    team_id INTEGER NOT NULL,
+                    gold_count INTEGER NOT NULL DEFAULT 0,
+                    silver_count INTEGER NOT NULL DEFAULT 0,
+                    updated_by_user_id INTEGER,
+                    updated_at DATETIME NOT NULL
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE UNIQUE INDEX uq_boost_lottery_team_league_team "
+                "ON boost_lottery_team_results (league_slug, team_id)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_boost_lottery_team_league "
+                "ON boost_lottery_team_results (league_slug, team_id)"
+            )
+        )
+        conn.commit()
+
+
 def ensure_league_expansion_draft_columns_sqlite(engine: Engine) -> None:
     """Add expansion draft commissioner fields when missing (site DB, SQLite)."""
     if engine.dialect.name != "sqlite":

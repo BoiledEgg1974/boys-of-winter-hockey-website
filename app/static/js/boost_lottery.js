@@ -214,8 +214,27 @@
     }
   }
 
+  function bindTrackerTotals() {
+    var rows = document.querySelectorAll(".boost-lottery-tracker__table tbody tr");
+    var i;
+    for (i = 0; i < rows.length; i++) {
+      (function (row) {
+        var gold = row.querySelector('input[name^="gold_"]');
+        var silver = row.querySelector('input[name^="silver_"]');
+        var total = row.querySelector(".boost-lottery-tracker__total");
+        if (!gold || !silver || !total) return;
+        function refresh() {
+          total.textContent = String(Math.max(0, readInt(gold, 0)) + Math.max(0, readInt(silver, 0)));
+        }
+        gold.addEventListener("input", refresh);
+        silver.addEventListener("input", refresh);
+      })(rows[i]);
+    }
+  }
+
   elBtnGen.addEventListener("click", onGenerate);
   elBtnDraw.addEventListener("click", onDraw);
   elBtnReset.addEventListener("click", onReset);
   bindInputs();
+  bindTrackerTotals();
 })();

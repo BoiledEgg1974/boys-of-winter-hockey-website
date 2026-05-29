@@ -186,6 +186,7 @@ from app.site_models import (
     AdminAuditLog,
     ApRedemptionCatalog,
     ApRedemptionRequest,
+    BoostLotteryTeamResult,
     GmInAppNotification,
     GmApprovalRequest,
     GmLeagueMembership,
@@ -1849,6 +1850,74 @@ def _draft_lottery_team_rows() -> list[dict[str, object]]:
     return rows
 
 
+def _boost_lottery_team_rows(league_slug: str) -> list[dict[str, object]]:
+    teams = db.session.scalars(select(Team).order_by(Team.name)).all()
+    result_rows = db.session.scalars(
+        select(BoostLotteryTeamResult).where(BoostLotteryTeamResult.league_slug == league_slug)
+    ).all()
+    by_team = {int(r.team_id): r for r in result_rows}
+    rows: list[dict[str, object]] = []
+    for team in teams:
+        stored = by_team.get(int(team.id))
+        gold = int(getattr(stored, "gold_count", 0) or 0)
+        silver = int(getattr(stored, "silver_count", 0) or 0)
+        rows.append(
+            {
+                "team_id": int(team.id),
+                "name": team.full_display_name(),
+                "abbr": str(team.abbreviation or "")[:8],
+                "logo_url": team_logo_url_for_team(team),
+                "gold_count": gold,
+                "silver_count": silver,
+                "total_count": gold + silver,
+            }
+        )
+    rows.sort(key=lambda r: (-int(r["total_count"]), -int(r["gold_count"]), str(r["name"]).lower()))
+    return rows
+
+
+def _save_boost_lottery_team_rows(league_slug: str, user_id: int) -> int:
+    teams = db.session.scalars(select(Team).order_by(Team.id)).all()
+    existing = {
+        int(r.team_id): r
+        for r in db.session.scalars(
+            select(BoostLotteryTeamResult).where(BoostLotteryTeamResult.league_slug == league_slug)
+        ).all()
+    }
+    changed = 0
+    now = datetime.utcnow()
+    for team in teams:
+        tid = int(team.id)
+        try:
+            gold = max(0, int(request.form.get(f"gold_{tid}") or "0"))
+        except ValueError:
+            gold = 0
+        try:
+            silver = max(0, int(request.form.get(f"silver_{tid}") or "0"))
+        except ValueError:
+            silver = 0
+        row = existing.get(tid)
+        if row is None and (gold or silver):
+            row = BoostLotteryTeamResult(
+                league_slug=league_slug,
+                team_id=tid,
+                gold_count=gold,
+                silver_count=silver,
+                updated_by_user_id=user_id,
+                updated_at=now,
+            )
+            db.session.add(row)
+            changed += 1
+        elif row is not None and (int(row.gold_count or 0), int(row.silver_count or 0)) != (gold, silver):
+            row.gold_count = gold
+            row.silver_count = silver
+            row.updated_by_user_id = user_id
+            row.updated_at = now
+            changed += 1
+    db.session.commit()
+    return changed
+
+
 @site_gm_bp.route("/draft-lottery", methods=["GET"])
 @login_required
 def draft_lottery():
@@ -1863,7 +1932,7 @@ def draft_lottery():
     return render_template("draft_lottery.html", team_rows=team_rows)
 
 
-@site_gm_bp.route("/boost-lottery", methods=["GET"])
+@site_gm_bp.route("/boost-lottery", methods=["GET", "POST"])
 @login_required
 def boost_lottery():
     """Draft boost ticket lottery (Fantasy / Cap / Historical site admins)."""
@@ -1874,7 +1943,15 @@ def boost_lottery():
         flash("Boost lottery is only available to league admins.", "err")
         return redirect(url_for("main.home"))
     boost_theme = "fantasy" if slug == "bowl-fantasy" else ("cap" if slug == "bowl-cap" else "historical")
-    return render_template("boost_lottery.html", boost_theme=boost_theme)
+    if request.method == "POST":
+        changed = _save_boost_lottery_team_rows(slug, int(current_user.id))
+        flash(f"Boost Lottery winner tracker saved ({changed} team row{'s' if changed != 1 else ''} changed).", "ok")
+        return redirect(url_for("site_gm.boost_lottery"))
+    return render_template(
+        "boost_lottery.html",
+        boost_theme=boost_theme,
+        boost_team_rows=_boost_lottery_team_rows(slug),
+    )
 
 
 @site_gm_bp.route("/staff-salaries", methods=["GET", "POST"])

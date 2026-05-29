@@ -647,6 +647,25 @@ class DiscordBotHeartbeat(db.Model):
     extra_json: Mapped[str] = mapped_column(Text, default="{}", nullable=False)
 
 
+class BoostLotteryTeamResult(db.Model):
+    """Admin-maintained gold/silver boost totals by team and league."""
+
+    __tablename__ = "boost_lottery_team_results"
+    __bind_key__ = "site"
+    __table_args__ = (
+        UniqueConstraint("league_slug", "team_id", name="uq_boost_lottery_team_league_team"),
+        Index("ix_boost_lottery_team_league", "league_slug", "team_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    team_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    gold_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    silver_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    updated_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class LeagueDraft(db.Model):
     """League-run draft hub (one row per event; separate from FHM Draft / DraftPick)."""
 

@@ -13,6 +13,7 @@ from app.db_utils import (
     ensure_fts5,
     ensure_history_all_stars_sqlite,
     ensure_history_awards_staff_fhm_id_sqlite,
+    ensure_boost_lottery_team_results_sqlite,
     ensure_players_jersey_number_sqlite,
     ensure_player_overall_baseline_sqlite,
     ensure_player_rating_snapshots_sqlite,
@@ -193,6 +194,7 @@ def create_app(config_class: type = Config) -> Flask:
             ensure_power_rank_snapshots_sqlite(site_engine)
             ensure_prospect_league_rank_snapshots_sqlite(site_engine)
             ensure_league_draft_slot_boost_tier_sqlite(site_engine)
+            ensure_boost_lottery_team_results_sqlite(site_engine)
             ensure_league_expansion_draft_columns_sqlite(site_engine)
         # FTS may be empty until import or seed; seed script calls rebuild
         try:

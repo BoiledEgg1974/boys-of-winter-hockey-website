@@ -107,6 +107,52 @@ def ensure_team_season_aggregate_extra_columns(engine: Engine) -> None:
         conn.commit()
 
 
+def ensure_homepage_performance_indexes_sqlite(engine: Engine) -> None:
+    """Add SQLite indexes for query-heavy homepage dashboard builders."""
+    if engine.dialect.name != "sqlite":
+        return
+    index_sql = (
+        "CREATE INDEX IF NOT EXISTS ix_games_homepage_status_date "
+        "ON games(season_id, status, game_date, id)",
+        "CREATE INDEX IF NOT EXISTS ix_games_homepage_date "
+        "ON games(season_id, game_date, id)",
+        "CREATE INDEX IF NOT EXISTS ix_games_homepage_unplayed "
+        "ON games(season_id, status, home_team_id, away_team_id)",
+        "CREATE INDEX IF NOT EXISTS ix_game_skater_stats_game "
+        "ON game_skater_stats(game_id)",
+        "CREATE INDEX IF NOT EXISTS ix_game_skater_stats_player_game "
+        "ON game_skater_stats(player_id, game_id)",
+        "CREATE INDEX IF NOT EXISTS ix_game_goalie_stats_game "
+        "ON game_goalie_stats(game_id)",
+        "CREATE INDEX IF NOT EXISTS ix_team_standings_homepage "
+        "ON team_standings(season_id, pts, w, team_id)",
+        "CREATE INDEX IF NOT EXISTS ix_team_agg_homepage "
+        "ON team_season_aggregates(season_id, stat_segment, team_id)",
+        "CREATE INDEX IF NOT EXISTS ix_player_skater_homepage_gp "
+        "ON player_skater_stats(season_id, stat_segment, gp, points, goals)",
+        "CREATE INDEX IF NOT EXISTS ix_player_goalie_homepage_minutes "
+        "ON player_goalie_stats(season_id, stat_segment, minutes_played, wins)",
+        "CREATE INDEX IF NOT EXISTS ix_skater_career_homepage_rookie "
+        "ON player_skater_career_lines(player_id, career_source, league_fhm_id, season_year)",
+        "CREATE INDEX IF NOT EXISTS ix_goalie_career_homepage_rookie "
+        "ON player_goalie_career_lines(player_id, career_source, league_fhm_id, season_year)",
+        "CREATE INDEX IF NOT EXISTS ix_player_contracts_homepage_salary "
+        "ON player_contracts(average_salary)",
+    )
+    with engine.connect() as conn:
+        existing_tables = {
+            row[0]
+            for row in conn.execute(
+                text("SELECT name FROM sqlite_master WHERE type='table'")
+            )
+        }
+        for sql in index_sql:
+            table_name = sql.split(" ON ", 1)[1].split("(", 1)[0].strip()
+            if table_name in existing_tables:
+                conn.execute(text(sql))
+        conn.commit()
+
+
 def ensure_players_jersey_number_sqlite(engine: Engine) -> None:
     """Add jersey_number to players when missing (SQLite)."""
     if engine.dialect.name != "sqlite":

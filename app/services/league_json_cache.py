@@ -321,6 +321,7 @@ def get_or_build_cached_json_swr(
     refresh: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
     app: Flask | None = None,
     include_site_db_fingerprint: bool = True,
+    refresh_stale_in_background: bool = True,
 ) -> tuple[dict[str, Any], str]:
     """Return payload and cache status (HIT-FRESH, HIT-STALE, MISS)."""
     app = real_flask_app(app or current_app)
@@ -339,7 +340,7 @@ def get_or_build_cached_json_swr(
     )
     if ent is not None:
         body = _prepare(ent.body)
-        if not ent.is_fresh:
+        if not ent.is_fresh and refresh_stale_in_background:
             _schedule_background_refresh(
                 app,
                 namespace,
@@ -366,7 +367,7 @@ def get_or_build_cached_json_swr(
         if ent is not None:
             body = _prepare(ent.body)
             status = "HIT-FRESH" if ent.is_fresh else "HIT-STALE"
-            if not ent.is_fresh:
+            if not ent.is_fresh and refresh_stale_in_background:
                 _schedule_background_refresh(
                     app,
                     namespace,
@@ -395,6 +396,7 @@ def get_or_build_cached_json(
     refresh: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
     stale_ttl_seconds: float | None = None,
     include_site_db_fingerprint: bool = True,
+    refresh_stale_in_background: bool = True,
 ) -> dict[str, Any]:
     stale = float(
         stale_ttl_seconds
@@ -409,6 +411,7 @@ def get_or_build_cached_json(
         builder=builder,
         refresh=refresh,
         include_site_db_fingerprint=include_site_db_fingerprint,
+        refresh_stale_in_background=refresh_stale_in_background,
     )
     return body
 

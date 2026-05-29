@@ -5,7 +5,7 @@ from sqlalchemy import func, select
 
 from app.league_db import db
 from app.services.staff_catalog import staff_role_label
-from app.site_models import ApRedemptionRequest, GmInAppNotification, GmLeagueMembership, NewsArticle, StaffChangeRequest
+from app.site_models import ApRedemptionRequest, GmInAppNotification, GmLeagueMembership, NewsArticle, RfaOfferRequest, StaffChangeRequest
 
 
 def _add_notification(notification: GmInAppNotification) -> GmInAppNotification:
@@ -264,6 +264,157 @@ def notify_staff_change_denied(league_slug: str, req: StaffChangeRequest) -> Non
             title=f"Staff request denied (#{req.id})",
             body=body[:4000],
             article_id=req.id,
+        )
+    )
+    db.session.commit()
+
+
+def _rfa_player_name(player) -> str:
+    if player is None:
+        return "Player"
+    return str(getattr(player, "full_name", None) or f"Player #{getattr(player, 'id', '?')}")
+
+
+def _rfa_offer_summary(req: RfaOfferRequest, *, player=None) -> str:
+    name = _rfa_player_name(player)
+    return (
+        f"{name}: ${int(req.offer_salary):,} × {int(req.offer_years)} yr"
+        f" · request #{int(req.id)}"
+    )
+
+
+def notify_rfa_player_rejected(league_slug: str, req: RfaOfferRequest, *, player=None) -> None:
+    body = f"The player rejected your offer sheet. {_rfa_offer_summary(req, player=player)}"
+    _add_notification(
+        GmInAppNotification(
+            league_slug=league_slug,
+            user_id=int(req.offering_user_id),
+            kind="rfa_player_rejected",
+            title=f"RFA offer rejected (#{req.id})",
+            body=body[:4000],
+            article_id=int(req.id),
+        )
+    )
+    db.session.commit()
+
+
+def notify_rfa_awaiting_equalization(league_slug: str, req: RfaOfferRequest, *, player=None) -> None:
+    summary = _rfa_offer_summary(req, player=player)
+    body = (
+        f"Player accepted your offer. Submit an equalization trade agreement within 24 hours.\n{summary}"
+    )
+    _add_notification(
+        GmInAppNotification(
+            league_slug=league_slug,
+            user_id=int(req.offering_user_id),
+            kind="rfa_awaiting_equalization",
+            title=f"RFA accepted — equalization needed (#{req.id})",
+            body=body[:4000],
+            article_id=int(req.id),
+        )
+    )
+    rights_mem = db.session.scalar(
+        select(GmLeagueMembership.user_id).where(
+            GmLeagueMembership.league_slug == league_slug,
+            GmLeagueMembership.team_id == int(req.rights_team_id),
+            GmLeagueMembership.status == "active",
+        ).limit(1)
+    )
+    if rights_mem:
+        _add_notification(
+            GmInAppNotification(
+                league_slug=league_slug,
+                user_id=int(rights_mem),
+                kind="rfa_awaiting_equalization",
+                title=f"RFA equalization trade required (#{req.id})",
+                body=(
+                    f"Your former RFA accepted an offer sheet. Work with the offering GM on equalization.\n{summary}"
+                )[:4000],
+                article_id=int(req.id),
+            )
+        )
+    db.session.commit()
+
+
+def notify_rfa_awaiting_match(league_slug: str, req: RfaOfferRequest, *, player=None) -> None:
+    rights_mem = db.session.scalar(
+        select(GmLeagueMembership.user_id).where(
+            GmLeagueMembership.league_slug == league_slug,
+            GmLeagueMembership.team_id == int(req.rights_team_id),
+            GmLeagueMembership.status == "active",
+        ).limit(1)
+    )
+    if not rights_mem:
+        db.session.commit()
+        return
+    comp_note = ""
+    if req.rfa_category == "group_ii" and req.compensation_label:
+        comp_note = f" Compensation if you decline: {req.compensation_label}."
+    body = (
+        f"{_rfa_player_name(player)} accepted an offer sheet from another team."
+        f" Match or reject within 24 hours.{comp_note}\n{_rfa_offer_summary(req, player=player)}"
+    )
+    _add_notification(
+        GmInAppNotification(
+            league_slug=league_slug,
+            user_id=int(rights_mem),
+            kind="rfa_awaiting_match",
+            title=f"RFA match decision needed (#{req.id})",
+            body=body[:4000],
+            article_id=int(req.id),
+        )
+    )
+    _add_notification(
+        GmInAppNotification(
+            league_slug=league_slug,
+            user_id=int(req.offering_user_id),
+            kind="rfa_offer_completed",
+            title=f"RFA accepted — awaiting match (#{req.id})",
+            body=f"Player accepted. Original team has 24 hours to match or reject.\n{_rfa_offer_summary(req, player=player)}"[:4000],
+            article_id=int(req.id),
+        )
+    )
+    db.session.commit()
+
+
+def notify_rfa_original_team_decision(
+    league_slug: str, req: RfaOfferRequest, *, player=None, offering_team=None
+) -> None:
+    matched = str(req.original_team_decision or "").strip().lower() == "match"
+    team_name = offering_team.full_display_name() if offering_team else f"team {req.offering_team_id}"
+    if matched:
+        title = f"RFA matched by original team (#{req.id})"
+        body = f"The original team matched your offer for {_rfa_player_name(player)}. The player remains with their club."
+    else:
+        title = f"RFA not matched — proceed (#{req.id})"
+        body = f"The original team declined to match {_rfa_player_name(player)}."
+        if req.rfa_category == "group_ii" and req.compensation_label and req.compensation_label != "No Compensation":
+            body += f" They owe you {req.compensation_label}."
+        body += f" Coordinate roster moves with {team_name} and admins."
+    _add_notification(
+        GmInAppNotification(
+            league_slug=league_slug,
+            user_id=int(req.offering_user_id),
+            kind="rfa_original_matched" if matched else "rfa_original_rejected",
+            title=title[:400],
+            body=body[:4000],
+            article_id=int(req.id),
+        )
+    )
+    db.session.commit()
+
+
+def notify_rfa_offer_outcome(
+    league_slug: str, req: RfaOfferRequest, *, player=None, title: str, body: str
+) -> None:
+    _add_notification(
+        GmInAppNotification(
+            league_slug=league_slug,
+            user_id=int(req.offering_user_id),
+            kind="rfa_offer_completed",
+            title=title[:400],
+            body=(body or _rfa_offer_summary(req, player=player))[:4000],
+            article_id=int(req.id),
         )
     )
     db.session.commit()

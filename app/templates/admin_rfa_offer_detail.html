@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}RFA offer #{{ req.id }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:44rem;margin:0 auto;">
+  <h1>RFA offer sheet #{{ req.id }}</h1>
+  <p><a href="{{ url_for('site_admin.admin_rfa_offers') }}">← Queue</a></p>
+  {% with messages = get_flashed_messages() %}
+  {% if messages %}<ul>{% for m in messages %}<li>{{ m }}</li>{% endfor %}</ul>{% endif %}
+  {% endwith %}
+  <ul>
+    <li>Status: {{ status_label(req.status) }}</li>
+    <li>Player:
+      {% if player %}
+      <a href="{{ url_for('main.player_page', player_id=player.id) }}">{{ player.full_name }}</a>
+      {% else %}{{ req.player_id }}{% endif %}
+    </li>
+    <li>Offering: {{ offering_team.full_display_name() if offering_team else req.offering_team_id }}</li>
+    <li>Rights: {{ rights_team.full_display_name() if rights_team else req.rights_team_id }}</li>
+    <li>GM: {{ offering_user.email if offering_user else req.offering_user_id }}</li>
+    <li>Offer: ${{ "{:,}".format(req.offer_salary) }} × {{ req.offer_years }} years</li>
+    <li>Minimum was: ${{ "{:,}".format(req.minimum_offer_salary) }}</li>
+    <li>Category: {{ category_labels.get(req.rfa_category, req.rfa_category) }}
+      <span class="muted" title="{{ req.category_explanation }}">(?)</span></li>
+    <li>Compensation tier: {{ req.compensation_label or '—' }}
+      {% if req.compensation_draft_year %}({{ req.compensation_draft_year }} draft){% endif %}</li>
+    {% if req.special_clauses %}
+    <li>Clauses: {{ req.special_clauses }}</li>
+    {% endif %}
+    <li>Submitted: {{ req.created_at.strftime('%Y-%m-%d %H:%M UTC') if req.created_at else '—' }}</li>
+    {% if req.happiness %}
+    <li>Happiness: {{ happiness_label(req.happiness) }}</li>
+    {% endif %}
+    {% if req.player_accepted is not none %}
+    <li>Player decision: {{ 'Accepted' if req.player_accepted else 'Rejected' }}
+      {% if req.player_decision_roll is not none %}(roll {{ '%.1f'|format(req.player_decision_roll) }}){% endif %}
+    </li>
+    {% endif %}
+    {% if req.group_iii_allows_match is not none %}
+    <li>Group III allows match: {{ 'Yes' if req.group_iii_allows_match else 'No' }}</li>
+    {% endif %}
+    {% if req.original_team_decision %}
+    <li>Original team: {{ req.original_team_decision }}</li>
+    {% endif %}
+  </ul>
+
+  {% if req.status == 'pending_admin' %}
+  <section style="margin-top:1.5rem;">
+    <h2>Player happiness</h2>
+    <form method="post" action="{{ url_for('site_admin.admin_rfa_set_happiness', rid=req.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <select name="happiness" required>
+        <option value="">— select —</option>
+        {% for h in happiness_levels %}
+        <option value="{{ h }}" {% if req.happiness == h %}selected{% endif %}>
+          {{ happiness_label(h) }}
+        </option>
+        {% endfor %}
+      </select>
+      <button type="submit">Save happiness</button>
+    </form>
+  </section>
+  <section style="margin-top:1rem;">
+    <h2>Player's decision</h2>
+    <p class="muted">Rolls accept odds from league rules based on happiness and category.</p>
+    <form method="post" action="{{ url_for('site_admin.admin_rfa_player_decision', rid=req.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" {% if not req.happiness %}disabled{% endif %}>Player's Decision</button>
+    </form>
+  </section>
+  {% endif %}
+
+  {% if req.status in ('awaiting_equalization', 'awaiting_original_match', 'original_rejected') %}
+  <section style="margin-top:1.5rem;">
+    <h2>Mark completed</h2>
+    <form method="post" action="{{ url_for('site_admin.admin_rfa_complete', rid=req.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>Admin note <input type="text" name="admin_note" maxlength="500"></label>
+      <button type="submit">Mark completed</button>
+    </form>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}RFA offer queue — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card admin-rfa-queue" style="max-width:72rem;margin:0 auto;">
+  <h1 class="page-title">RFA offer sheets</h1>
+  <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
+  {% with messages = get_flashed_messages() %}
+  {% if messages %}<ul>{% for m in messages %}<li>{{ m }}</li>{% endfor %}</ul>{% endif %}
+  {% endwith %}
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Player</th>
+          <th>Offering team</th>
+          <th>Rights team</th>
+          <th>Offer</th>
+          <th>Category</th>
+          <th>Status</th>
+          <th>GM</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in queue_rows %}
+        {% set req = row.req %}
+        <tr>
+          <td><a href="{{ url_for('site_admin.admin_rfa_offer_one', rid=req.id) }}">{{ req.id }}</a></td>
+          <td>
+            {% if row.player %}
+            <a href="{{ url_for('main.player_page', player_id=row.player.id) }}">{{ row.player.full_name }}</a>
+            {% else %}{{ req.player_id }}{% endif %}
+          </td>
+          <td>{{ row.offering_team.full_display_name() if row.offering_team else req.offering_team_id }}</td>
+          <td>{{ row.rights_team.full_display_name() if row.rights_team else req.rights_team_id }}</td>
+          <td>${{ "{:,}".format(req.offer_salary) }} × {{ req.offer_years }}</td>
+          <td>{{ row.category_label }}</td>
+          <td>{{ status_label(req.status) }}</td>
+          <td>{{ row.user.email if row.user else req.offering_user_id }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="muted">No active RFA offer sheets.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

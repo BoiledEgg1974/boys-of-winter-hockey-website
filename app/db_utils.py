@@ -1136,6 +1136,83 @@ def ensure_member_watchlists_sqlite(engine: Engine) -> None:
         conn.commit()
 
 
+def ensure_rfa_offer_requests_sqlite(engine: Engine) -> None:
+    """Create RFA offer sheet request table on site DB when missing."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='rfa_offer_requests'")
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE rfa_offer_requests (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    league_slug VARCHAR(64) NOT NULL,
+                    offering_user_id INTEGER NOT NULL,
+                    offering_team_id INTEGER NOT NULL,
+                    player_id INTEGER NOT NULL,
+                    player_fhm_id VARCHAR(64),
+                    rights_team_id INTEGER NOT NULL,
+                    rfa_category VARCHAR(16) NOT NULL,
+                    category_explanation TEXT NOT NULL DEFAULT '',
+                    previous_contract_salary INTEGER NOT NULL DEFAULT 0,
+                    minimum_offer_salary INTEGER NOT NULL DEFAULT 0,
+                    offer_salary INTEGER NOT NULL,
+                    offer_years INTEGER NOT NULL,
+                    special_clauses TEXT NOT NULL DEFAULT '',
+                    compensation_tier_key VARCHAR(32) NOT NULL DEFAULT 'none',
+                    compensation_label VARCHAR(200) NOT NULL DEFAULT '',
+                    compensation_picks_json TEXT NOT NULL DEFAULT '[]',
+                    compensation_draft_year INTEGER,
+                    compensation_valid BOOLEAN NOT NULL DEFAULT 0,
+                    status VARCHAR(32) NOT NULL DEFAULT 'pending_admin',
+                    happiness VARCHAR(32),
+                    player_decision_roll REAL,
+                    player_accepted BOOLEAN,
+                    group_iii_allows_match BOOLEAN,
+                    original_team_decision VARCHAR(16),
+                    original_team_user_id INTEGER,
+                    original_team_decided_at DATETIME,
+                    admin_note TEXT NOT NULL DEFAULT '',
+                    processed_by_user_id INTEGER,
+                    created_at DATETIME NOT NULL,
+                    processed_at DATETIME,
+                    FOREIGN KEY(offering_user_id) REFERENCES site_users (id)
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_rfa_offer_league_status "
+                "ON rfa_offer_requests (league_slug, status)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_rfa_offer_offering_team "
+                "ON rfa_offer_requests (league_slug, offering_team_id)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_rfa_offer_rights_team "
+                "ON rfa_offer_requests (league_slug, rights_team_id)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_rfa_offer_player "
+                "ON rfa_offer_requests (league_slug, player_id)"
+            )
+        )
+        conn.commit()
+
+
 def ensure_franchise_team_identities_sqlite(engine: Engine) -> None:
     """Create editable historical franchise identity rows in league DB when missing."""
     if engine.dialect.name != "sqlite":

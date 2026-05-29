@@ -26,6 +26,7 @@ from app.db_utils import (
     ensure_league_rule_settings_sqlite,
     ensure_gm_approval_requests_sqlite,
     ensure_staff_change_requests_sqlite,
+    ensure_rfa_offer_requests_sqlite,
     ensure_team_staff_roster_entries_sqlite,
     ensure_gm_trade_proposals_sqlite,
     ensure_trade_market_sqlite,
@@ -164,6 +165,7 @@ def create_app(config_class: type = Config) -> Flask:
             ensure_league_rule_settings_sqlite(site_engine)
             ensure_gm_approval_requests_sqlite(site_engine)
             ensure_staff_change_requests_sqlite(site_engine)
+            ensure_rfa_offer_requests_sqlite(site_engine)
             ensure_team_staff_roster_entries_sqlite(site_engine)
             ensure_gm_trade_proposals_sqlite(site_engine)
             ensure_trade_market_sqlite(site_engine)

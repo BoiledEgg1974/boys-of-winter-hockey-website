@@ -254,3 +254,42 @@ def notify_staff_change_pending(
         body=f"{staff_name} · {role_label} · {user_email}\n{detail_url}",
         article_id=request_id,
     )
+
+
+def notify_rfa_offer_pending(
+    *,
+    league_slug: str,
+    league_display_name: str,
+    request_id: int,
+    user_email: str,
+    offering_team_id: int,
+    offering_team_name: str,
+    player_name: str,
+    offer_salary: int,
+    offer_years: int,
+    category_label: str,
+) -> None:
+    try:
+        detail_url = _abs_url_for("site_admin.admin_rfa_offer_one", rid=request_id)
+    except Exception:
+        detail_url = f"(admin → RFA offers → #{request_id})"
+    subject = f"[{league_display_name}] RFA offer sheet #{request_id}"
+    body = (
+        f"A GM submitted an RFA offer sheet for admin review.\n\n"
+        f"League: {league_display_name} ({league_slug})\n"
+        f"Request id: {request_id}\n"
+        f"GM: {user_email}\n"
+        f"Offering team: {offering_team_name} (id {offering_team_id})\n"
+        f"Player: {player_name}\n"
+        f"Category: {category_label}\n"
+        f"Offer: ${int(offer_salary):,} × {int(offer_years)} years\n\n"
+        f"Review:\n{detail_url}\n"
+    )
+    try_send_admin_review_email(subject=subject, body=body)
+    queue_site_admin_in_app_notifications(
+        league_slug=league_slug,
+        kind="admin_review_rfa",
+        title=f"RFA offer pending (#{request_id})",
+        body=f"{player_name} · ${int(offer_salary):,} · {category_label}\n{detail_url}",
+        article_id=request_id,
+    )

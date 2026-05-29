@@ -50,6 +50,11 @@ from app.services.gm_notifications import (
     notify_staff_change_denied,
     notify_staff_fire_approved,
     notify_staff_hire_approved,
+    notify_rfa_awaiting_equalization,
+    notify_rfa_awaiting_match,
+    notify_rfa_offer_outcome,
+    notify_rfa_original_team_decision,
+    notify_rfa_player_rejected,
     notify_trade_outcome_partner,
     notify_trade_outcome_proposer,
     notify_trade_proposal_commissioners,
@@ -206,6 +211,7 @@ from app.site_models import (
     AdminUndoAction,
     DiscordOutboundEvent,
     StaffChangeRequest,
+    RfaOfferRequest,
     TeamStaffBudget,
     User,
 )
@@ -214,6 +220,21 @@ from app.services.staff_salaries import (
     main_league_teams,
     staff_portal_context_for_gm,
     staff_salary_context,
+)
+from app.services.rfa_offers import (
+    CATEGORY_LABELS,
+    CATEGORY_TOOLTIPS,
+    HAPPINESS_LEVELS,
+    compensation_for_offer,
+    compensation_panel_dict,
+    create_rfa_offer_request,
+    happiness_label,
+    list_rfa_candidates,
+    roll_group_iii_allows_match,
+    roll_player_accepts,
+    status_label,
+    validate_offer_submission,
+    _scaled_tiers,
 )
 
 site_gm_bp = Blueprint("site_gm", __name__)
@@ -452,6 +473,23 @@ def _league_slug() -> str:
 
 def _membership():
     return active_membership_for_league(current_user, _league_slug())
+
+
+def _gm_membership_for_team(slug: str, team_id: int) -> GmLeagueMembership | None:
+    return db.session.scalar(
+        select(GmLeagueMembership).where(
+            GmLeagueMembership.league_slug == slug,
+            GmLeagueMembership.team_id == int(team_id),
+            GmLeagueMembership.status == "active",
+        ).limit(1)
+    )
+
+
+def _gm_user_for_team(slug: str, team_id: int) -> User | None:
+    mem = _gm_membership_for_team(slug, team_id)
+    if not mem:
+        return None
+    return db.session.get(User, int(mem.user_id))
 
 
 def _is_site_admin() -> bool:
@@ -1936,6 +1974,244 @@ def staff_salaries_page():
     return render_template("staff_salaries.html", **ctx)
 
 
+@site_gm_bp.route("/rfa-offers", methods=["GET", "POST"])
+@login_required
+def rfa_offers_page():
+    """Restricted free agent offer sheets (GMs and league admins)."""
+    slug = _league_slug()
+    mem = _membership()
+    is_admin = bool(getattr(current_user, "is_admin", False))
+    if not mem and not is_admin:
+        flash("RFA Offers is available to active GMs and league admins.", "err")
+        return redirect(url_for("main.home"))
+    if request.method == "POST":
+        if not mem:
+            flash("Submitting offer sheets requires an active GM membership.", "err")
+            return redirect(url_for("site_gm.rfa_offers_page"))
+        try:
+            player_id = int(request.form.get("player_id") or "0")
+            offer_salary = int(str(request.form.get("offer_salary") or "0").replace(",", "").replace("$", ""))
+            offer_years = int(request.form.get("offer_years") or "0")
+        except ValueError:
+            flash("Invalid offer amount or term.", "err")
+            return redirect(url_for("site_gm.rfa_offers_page"))
+        special_clauses = (request.form.get("special_clauses") or "").strip()
+        candidate, comp, err = validate_offer_submission(
+            db.session,
+            db.session,
+            league_slug=slug,
+            offering_team_id=int(mem.team_id),
+            player_id=player_id,
+            offer_salary=offer_salary,
+            offer_years=offer_years,
+        )
+        if err or candidate is None or comp is None:
+            flash(err or "Unable to submit offer.", "err")
+            return redirect(url_for("site_gm.rfa_offers_page"))
+        open_req = db.session.scalar(
+            select(RfaOfferRequest.id)
+            .where(
+                RfaOfferRequest.league_slug == slug,
+                RfaOfferRequest.player_id == int(player_id),
+                RfaOfferRequest.offering_team_id == int(mem.team_id),
+                RfaOfferRequest.status.in_(
+                    ("pending_admin", "awaiting_equalization", "awaiting_original_match")
+                ),
+            )
+            .limit(1)
+        )
+        if open_req:
+            flash("You already have an open offer sheet for this player.", "warn")
+            return redirect(url_for("site_gm.rfa_offers_page"))
+        req = create_rfa_offer_request(
+            db.session,
+            league_slug=slug,
+            offering_user_id=int(current_user.id),
+            offering_team_id=int(mem.team_id),
+            candidate=candidate,
+            offer_salary=offer_salary,
+            offer_years=offer_years,
+            special_clauses=special_clauses,
+            comp=comp,
+        )
+        try:
+            from app.services.admin_review_notify import notify_rfa_offer_pending
+
+            gm_team = db.session.get(Team, int(mem.team_id))
+            notify_rfa_offer_pending(
+                league_slug=slug,
+                league_display_name=league_display_name(slug),
+                request_id=int(req.id),
+                user_email=str(current_user.email or ""),
+                offering_team_id=int(mem.team_id),
+                offering_team_name=gm_team.full_display_name() if gm_team else str(mem.team_id),
+                player_name=candidate.player.full_name or f"Player #{player_id}",
+                offer_salary=offer_salary,
+                offer_years=offer_years,
+                category_label=CATEGORY_LABELS.get(candidate.category, candidate.category),
+            )
+        except Exception as exc:
+            current_app.logger.warning("Admin notify (RFA offer): %s", exc)
+        db.session.commit()
+        flash(f"Offer sheet submitted for {candidate.player.full_name} — pending admin review.", "ok")
+        return redirect(url_for("site_gm.rfa_offers_page"))
+    offering_team_id = int(mem.team_id) if mem else None
+    candidates = list_rfa_candidates(db.session, league_slug=slug, offering_team_id=offering_team_id)
+    tier_rows = []
+    if mem:
+        tier_rows = [
+            {"lo": lo, "hi": hi, "key": key, "label": lbl}
+            for lo, hi, key, lbl in _scaled_tiers(slug, db.session)
+        ]
+    my_offers: list[RfaOfferRequest] = []
+    match_queue: list[RfaOfferRequest] = []
+    if mem:
+        my_offers = list(
+            db.session.scalars(
+                select(RfaOfferRequest)
+                .where(
+                    RfaOfferRequest.league_slug == slug,
+                    RfaOfferRequest.offering_team_id == int(mem.team_id),
+                )
+                .order_by(RfaOfferRequest.created_at.desc())
+                .limit(20)
+            ).all()
+        )
+        match_queue = list(
+            db.session.scalars(
+                select(RfaOfferRequest)
+                .where(
+                    RfaOfferRequest.league_slug == slug,
+                    RfaOfferRequest.rights_team_id == int(mem.team_id),
+                    RfaOfferRequest.status == "awaiting_original_match",
+                )
+                .order_by(RfaOfferRequest.created_at.desc())
+            ).all()
+        )
+    player_ids = {int(r.player_id) for r in my_offers + match_queue}
+    players_by_id: dict[int, Player] = {}
+    if player_ids:
+        players_by_id = {
+            int(p.id): p
+            for p in db.session.scalars(select(Player).where(Player.id.in_(player_ids))).all()
+        }
+    team_ids = {int(r.offering_team_id) for r in my_offers + match_queue} | {
+        int(r.rights_team_id) for r in my_offers + match_queue
+    }
+    teams_by_id: dict[int, Team] = {}
+    if team_ids:
+        teams_by_id = {
+            int(t.id): t for t in db.session.scalars(select(Team).where(Team.id.in_(team_ids))).all()
+        }
+    return render_template(
+        "rfa_offers.html",
+        membership=mem,
+        gm_team=db.session.get(Team, int(mem.team_id)) if mem else None,
+        candidates=candidates,
+        category_labels=CATEGORY_LABELS,
+        category_tooltips=CATEGORY_TOOLTIPS,
+        tier_rows=tier_rows,
+        my_offers=my_offers,
+        match_queue=match_queue,
+        players_by_id=players_by_id,
+        teams_by_id=teams_by_id,
+        status_label=status_label,
+        can_submit=mem is not None,
+    )
+
+
+@site_gm_bp.get("/rfa-offers/compensation-preview")
+@login_required
+def rfa_compensation_preview():
+    slug = _league_slug()
+    mem = _membership()
+    if not mem:
+        return jsonify({"error": "no_membership"}), 403
+    try:
+        player_id = int(request.args.get("player_id") or "0")
+        offer_salary = int(str(request.args.get("offer_salary") or "0").replace(",", "").replace("$", ""))
+    except ValueError:
+        return jsonify({"error": "invalid_input"}), 400
+    candidate = next(
+        (
+            r
+            for r in list_rfa_candidates(db.session, league_slug=slug, offering_team_id=int(mem.team_id))
+            if int(r.player.id) == int(player_id)
+        ),
+        None,
+    )
+    if candidate is None:
+        return jsonify({"error": "not_eligible"}), 404
+    comp = compensation_for_offer(
+        db.session,
+        db.session,
+        league_slug=slug,
+        offering_team_id=int(mem.team_id),
+        offer_salary=offer_salary,
+        category=candidate.category,
+    )
+    panel = compensation_panel_dict(comp, category=candidate.category)
+    panel["minimum_offer"] = int(candidate.minimum_offer)
+    panel["submit_disabled"] = candidate.category == "group_ii" and not comp.valid
+    return jsonify(panel)
+
+
+@site_gm_bp.route("/rfa-offers/<int:rid>/respond", methods=["GET", "POST"])
+@login_required
+def rfa_offer_respond(rid: int):
+    """Original-team match or reject after player accepts (Groups II–IV)."""
+    slug = _league_slug()
+    mem = _membership()
+    if not mem:
+        flash("Match/reject requires an active GM membership.", "err")
+        return redirect(url_for("main.home"))
+    req = db.session.get(RfaOfferRequest, rid)
+    if not req or req.league_slug != slug or int(req.rights_team_id) != int(mem.team_id):
+        abort(404)
+    if req.status != "awaiting_original_match":
+        flash("This offer is no longer awaiting a match/reject decision.", "warn")
+        return redirect(url_for("site_gm.rfa_offers_page"))
+    player = db.session.get(Player, int(req.player_id))
+    offering_team = db.session.get(Team, int(req.offering_team_id))
+    rights_team = db.session.get(Team, int(req.rights_team_id))
+    if request.method == "POST":
+        decision = (request.form.get("decision") or "").strip().lower()
+        if decision not in ("match", "reject"):
+            flash("Choose Match or Reject.", "err")
+            return redirect(url_for("site_gm.rfa_offer_respond", rid=rid))
+        req.original_team_decision = decision
+        req.original_team_user_id = int(current_user.id)
+        req.original_team_decided_at = datetime.utcnow()
+        req.processed_at = datetime.utcnow()
+        req.status = "original_matched" if decision == "match" else "original_rejected"
+        db.session.add(
+            AdminAuditLog(
+                admin_user_id=int(current_user.id),
+                league_slug=slug,
+                action=f"rfa_original_{decision}",
+                detail_json=json.dumps({"request_id": int(req.id), "player_id": int(req.player_id)}),
+            )
+        )
+        db.session.commit()
+        notify_rfa_original_team_decision(slug, req, player=player, offering_team=offering_team)
+        flash(
+            "You matched the offer — player stays with your club."
+            if decision == "match"
+            else "You declined to match — the offering team may proceed.",
+            "ok",
+        )
+        return redirect(url_for("site_gm.rfa_offers_page"))
+    return render_template(
+        "rfa_offer_respond.html",
+        req=req,
+        player=player,
+        offering_team=offering_team,
+        rights_team=rights_team,
+        category_labels=CATEGORY_LABELS,
+        happiness_label=happiness_label,
+    )
+
+
 @site_gm_bp.get("/staff/<staff_fhm_id>")
 @login_required
 def staff_profile_page(staff_fhm_id: str):
@@ -2198,6 +2474,18 @@ def gm_notification_open(nid: int):
         return redirect(url_for("site_admin.admin_staff_request_one", rid=int(n.article_id)))
     if n.kind in ("staff_hire_approved", "staff_fire_approved", "staff_change_denied"):
         return redirect(url_for("site_gm.staff_salaries_page"))
+    if n.kind == "admin_review_rfa" and n.article_id:
+        return redirect(url_for("site_admin.admin_rfa_offer_one", rid=int(n.article_id)))
+    if n.kind in (
+        "rfa_player_rejected",
+        "rfa_awaiting_equalization",
+        "rfa_original_matched",
+        "rfa_original_rejected",
+        "rfa_offer_completed",
+    ):
+        return redirect(url_for("site_gm.rfa_offers_page"))
+    if n.kind == "rfa_awaiting_match" and n.article_id:
+        return redirect(url_for("site_gm.rfa_offer_respond", rid=int(n.article_id)))
     if n.kind in ("trade_partner_review", "trade_outcome_proposer", "trade_outcome_partner") and n.article_id:
         return redirect(url_for("site_gm.trade_proposal_detail", pid=int(n.article_id)))
     if n.kind == "trade_commish_review" and n.article_id:
@@ -5875,6 +6163,175 @@ def admin_staff_deny(rid: int):
     notify_staff_change_denied(slug, req)
     flash("Request denied and GM notified in-app.", "ok")
     return redirect(url_for("site_admin.admin_staff_requests"))
+
+
+@site_admin_bp.get("/rfa-offers")
+@login_required
+def admin_rfa_offers():
+    require_admin_role(ADMIN_ROLE_STATS, ADMIN_ROLE_LEAGUE)
+    slug = _league_slug()
+    rows = db.session.scalars(
+        select(RfaOfferRequest)
+        .where(
+            RfaOfferRequest.league_slug == slug,
+            RfaOfferRequest.status.in_(
+                ("pending_admin", "awaiting_equalization", "awaiting_original_match")
+            ),
+        )
+        .order_by(RfaOfferRequest.created_at.desc())
+    ).all()
+    player_ids = {int(r.player_id) for r in rows}
+    team_ids = {int(r.offering_team_id) for r in rows} | {int(r.rights_team_id) for r in rows}
+    players_by_id = {
+        int(p.id): p
+        for p in db.session.scalars(select(Player).where(Player.id.in_(player_ids))).all()
+    } if player_ids else {}
+    teams_by_id = {
+        int(t.id): t for t in db.session.scalars(select(Team).where(Team.id.in_(team_ids))).all()
+    } if team_ids else {}
+    user_ids = {int(r.offering_user_id) for r in rows}
+    users_by_id = {
+        int(u.id): u for u in db.session.scalars(select(User).where(User.id.in_(user_ids))).all()
+    } if user_ids else {}
+    queue_rows = [
+        {
+            "req": r,
+            "player": players_by_id.get(int(r.player_id)),
+            "offering_team": teams_by_id.get(int(r.offering_team_id)),
+            "rights_team": teams_by_id.get(int(r.rights_team_id)),
+            "user": users_by_id.get(int(r.offering_user_id)),
+            "category_label": CATEGORY_LABELS.get(r.rfa_category, r.rfa_category),
+        }
+        for r in rows
+    ]
+    return render_template("admin_rfa_offers.html", queue_rows=queue_rows, status_label=status_label)
+
+
+@site_admin_bp.get("/rfa-offers/<int:rid>")
+@login_required
+def admin_rfa_offer_one(rid: int):
+    require_admin_role(ADMIN_ROLE_STATS, ADMIN_ROLE_LEAGUE)
+    slug = _league_slug()
+    req = db.session.get(RfaOfferRequest, rid)
+    if not req or req.league_slug != slug:
+        abort(404)
+    player = db.session.get(Player, int(req.player_id))
+    offering_team = db.session.get(Team, int(req.offering_team_id))
+    rights_team = db.session.get(Team, int(req.rights_team_id))
+    offering_user = db.session.get(User, int(req.offering_user_id))
+    return render_template(
+        "admin_rfa_offer_detail.html",
+        req=req,
+        player=player,
+        offering_team=offering_team,
+        rights_team=rights_team,
+        offering_user=offering_user,
+        category_labels=CATEGORY_LABELS,
+        category_tooltips=CATEGORY_TOOLTIPS,
+        happiness_levels=HAPPINESS_LEVELS,
+        happiness_label=happiness_label,
+        status_label=status_label,
+    )
+
+
+@site_admin_bp.post("/rfa-offers/<int:rid>/happiness")
+@login_required
+def admin_rfa_set_happiness(rid: int):
+    require_admin_role(ADMIN_ROLE_STATS, ADMIN_ROLE_LEAGUE)
+    slug = _league_slug()
+    req = db.session.get(RfaOfferRequest, rid)
+    if not req or req.league_slug != slug or req.status != "pending_admin":
+        abort(404)
+    happiness = (request.form.get("happiness") or "").strip().lower()
+    if happiness not in HAPPINESS_LEVELS:
+        flash("Choose a happiness level.", "err")
+        return redirect(url_for("site_admin.admin_rfa_offer_one", rid=rid))
+    req.happiness = happiness
+    db.session.commit()
+    flash(f"Happiness set to {happiness_label(happiness)}.", "ok")
+    return redirect(url_for("site_admin.admin_rfa_offer_one", rid=rid))
+
+
+@site_admin_bp.post("/rfa-offers/<int:rid>/player-decision")
+@login_required
+def admin_rfa_player_decision(rid: int):
+    require_admin_role(ADMIN_ROLE_STATS, ADMIN_ROLE_LEAGUE)
+    slug = _league_slug()
+    req = db.session.get(RfaOfferRequest, rid)
+    if not req or req.league_slug != slug or req.status != "pending_admin":
+        abort(404)
+    if not req.happiness:
+        flash("Set player happiness before rolling the decision.", "err")
+        return redirect(url_for("site_admin.admin_rfa_offer_one", rid=rid))
+    player = db.session.get(Player, int(req.player_id))
+    accepted, roll = roll_player_accepts(req.rfa_category, str(req.happiness))
+    req.player_decision_roll = float(roll)
+    req.player_accepted = bool(accepted)
+    req.processed_by_user_id = int(current_user.id)
+    req.processed_at = datetime.utcnow()
+    if not accepted:
+        req.status = "player_rejected"
+        db.session.commit()
+        notify_rfa_player_rejected(slug, req, player=player)
+        flash(f"Player rejected the offer (roll {roll:.1f}). Offering GM notified.", "ok")
+        return redirect(url_for("site_admin.admin_rfa_offers"))
+    if req.rfa_category == "group_i":
+        req.status = "awaiting_equalization"
+        db.session.commit()
+        notify_rfa_awaiting_equalization(slug, req, player=player)
+        flash("Player accepted — both GMs notified to submit equalization trade.", "ok")
+        return redirect(url_for("site_admin.admin_rfa_offers"))
+    if req.rfa_category == "group_ii":
+        req.status = "awaiting_original_match"
+        db.session.commit()
+        notify_rfa_awaiting_match(slug, req, player=player)
+        flash("Player accepted — original team GM notified for match/reject.", "ok")
+        return redirect(url_for("site_admin.admin_rfa_offers"))
+    if req.rfa_category == "group_iii":
+        allows_match, match_roll = roll_group_iii_allows_match(str(req.happiness))
+        req.group_iii_allows_match = bool(allows_match)
+        if allows_match:
+            req.status = "awaiting_original_match"
+            db.session.commit()
+            notify_rfa_awaiting_match(slug, req, player=player)
+            flash(
+                f"Player accepted and allows matching (roll {match_roll:.1f}). Original team notified.",
+                "ok",
+            )
+        else:
+            req.status = "awaiting_equalization"
+            db.session.commit()
+            notify_rfa_awaiting_equalization(slug, req, player=player)
+            flash(
+                f"Player accepted but blocked matching (roll {match_roll:.1f}). Equalization required.",
+                "ok",
+            )
+        return redirect(url_for("site_admin.admin_rfa_offers"))
+    req.status = "awaiting_original_match"
+    db.session.commit()
+    notify_rfa_awaiting_match(slug, req, player=player)
+    flash("Player accepted — original team GM notified for match/reject (no compensation).", "ok")
+    return redirect(url_for("site_admin.admin_rfa_offers"))
+
+
+@site_admin_bp.post("/rfa-offers/<int:rid>/complete")
+@login_required
+def admin_rfa_complete(rid: int):
+    require_admin_role(ADMIN_ROLE_STATS, ADMIN_ROLE_LEAGUE)
+    slug = _league_slug()
+    req = db.session.get(RfaOfferRequest, rid)
+    if not req or req.league_slug != slug:
+        abort(404)
+    note = (request.form.get("admin_note") or "").strip()
+    req.admin_note = note
+    req.status = "completed"
+    req.processed_by_user_id = int(current_user.id)
+    req.processed_at = datetime.utcnow()
+    db.session.commit()
+    player = db.session.get(Player, int(req.player_id))
+    notify_rfa_offer_outcome(slug, req, player=player, title="RFA offer completed", body=note or "Commissioner marked complete.")
+    flash("Offer marked completed.", "ok")
+    return redirect(url_for("site_admin.admin_rfa_offers"))
 
 
 @site_admin_bp.route("/catalog", methods=["GET", "POST"])

@@ -1133,3 +1133,50 @@ class BowlSixGameFinal(db.Model):
     season_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     fhm_game_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     first_final_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class RfaOfferRequest(db.Model):
+    """GM offer sheet for a restricted free agent pending admin / original-team workflow."""
+
+    __tablename__ = "rfa_offer_requests"
+    __bind_key__ = "site"
+    __table_args__ = (
+        Index("ix_rfa_offer_league_status", "league_slug", "status"),
+        Index("ix_rfa_offer_offering_team", "league_slug", "offering_team_id"),
+        Index("ix_rfa_offer_rights_team", "league_slug", "rights_team_id"),
+        Index("ix_rfa_offer_player", "league_slug", "player_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False)
+    offering_user_id: Mapped[int] = mapped_column(ForeignKey("site_users.id"), nullable=False)
+    offering_team_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    player_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    player_fhm_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    rights_team_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    rfa_category: Mapped[str] = mapped_column(String(16), nullable=False)
+    category_explanation: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    previous_contract_salary: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    minimum_offer_salary: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    offer_salary: Mapped[int] = mapped_column(Integer, nullable=False)
+    offer_years: Mapped[int] = mapped_column(Integer, nullable=False)
+    special_clauses: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    compensation_tier_key: Mapped[str] = mapped_column(String(32), nullable=False, default="none")
+    compensation_label: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    compensation_picks_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
+    compensation_draft_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    compensation_valid: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending_admin")
+    happiness: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    player_decision_roll: Mapped[float | None] = mapped_column(Float, nullable=True)
+    player_accepted: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    group_iii_allows_match: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    original_team_decision: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    original_team_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    original_team_decided_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    admin_note: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    processed_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    offering_user: Mapped["User"] = relationship(foreign_keys=[offering_user_id])

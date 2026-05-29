@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+{% block title %}RFA Offers — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:72rem;margin:0 auto;">
+  <h1 class="page-title">Restricted Free Agent Offers</h1>
+  {% if gm_team %}
+  <p><strong>{{ gm_team.full_display_name() }}</strong></p>
+  {% endif %}
+  <p class="muted">Submit offer sheets for eligible RFAs. Admin reviews happiness and player decision; original teams may match per category rules.</p>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <ul>{% for cat, msg in messages %}<li class="flash-{{ cat }}">{{ msg }}</li>{% endfor %}</ul>
+  {% endif %}
+  {% endwith %}
+
+  {% if match_queue %}
+  <section style="margin:1.5rem 0;">
+    <h2>Match / reject required</h2>
+    <ul>
+      {% for req in match_queue %}
+      {% set pl = players_by_id.get(req.player_id) %}
+      {% set off = teams_by_id.get(req.offering_team_id) %}
+      <li>
+        <a href="{{ url_for('site_gm.rfa_offer_respond', rid=req.id) }}">
+          #{{ req.id }} — {{ pl.full_name if pl else req.player_id }}
+          ({{ off.full_display_name() if off else req.offering_team_id }})
+        </a>
+        · ${{ "{:,}".format(req.offer_salary) }} × {{ req.offer_years }} yr
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  {% if my_offers %}
+  <section style="margin:1.5rem 0;">
+    <h2>Your recent offer sheets</h2>
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th>Offer</th>
+            <th>Category</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for req in my_offers %}
+          {% set pl = players_by_id.get(req.player_id) %}
+          <tr>
+            <td>
+              {% if pl %}
+              <a href="{{ url_for('main.player_page', player_id=pl.id) }}">{{ pl.full_name }}</a>
+              {% else %}{{ req.player_id }}{% endif %}
+            </td>
+            <td>${{ "{:,}".format(req.offer_salary) }} × {{ req.offer_years }}</td>
+            <td>{{ category_labels.get(req.rfa_category, req.rfa_category) }}</td>
+            <td>{{ status_label(req.status) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% endif %}
+
+  <section>
+    <h2>Eligible RFAs</h2>
+    <div class="table-wrap">
+      <table class="data" id="rfa-candidates-table">
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th>Pos</th>
+            <th>Rights</th>
+            <th>Prev contract</th>
+            <th>OVR</th>
+            <th>ABI</th>
+            <th>POT</th>
+            <th>Category</th>
+            {% if can_submit %}<th></th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in candidates %}
+          <tr>
+            <td><a href="{{ url_for('main.player_page', player_id=row.player.id) }}">{{ row.player.full_name }}</a></td>
+            <td>{{ row.position_label }}</td>
+            <td>{{ row.rights_team.full_display_name() }}</td>
+            <td>{{ row.previous_contract_label }}</td>
+            <td>{{ row.ovr if row.ovr is not none else '—' }}</td>
+            <td>{{ '%.1f'|format(row.abi) if row.abi is not none else '—' }}</td>
+            <td>{{ '%.1f'|format(row.pot) if row.pot is not none else '—' }}</td>
+            <td>
+              <span title="{{ row.category_explanation }}">{{ category_labels.get(row.category, row.category) }}</span>
+            </td>
+            {% if can_submit %}
+            <td>
+              <button type="button" class="rfa-offer-open"
+                data-player-id="{{ row.player.id }}"
+                data-player-name="{{ row.player.full_name|e }}"
+                data-position="{{ row.position_label|e }}"
+                data-rights-team="{{ row.rights_team.full_display_name()|e }}"
+                data-previous-contract="{{ row.previous_contract_label|e }}"
+                data-min-offer="{{ row.minimum_offer }}"
+                data-category="{{ row.category }}"
+                data-category-label="{{ category_labels.get(row.category, row.category)|e }}"
+                data-category-tip="{{ row.category_explanation|e }}">Offer</button>
+            </td>
+            {% endif %}
+          </tr>
+          {% else %}
+          <tr><td colspan="{{ 9 if can_submit else 8 }}" class="muted">No eligible RFAs found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  {% if tier_rows %}
+  <details style="margin-top:1.5rem;">
+    <summary>Compensation tiers (Group II — scaled to current league salaries)</summary>
+    <ul>
+      {% for t in tier_rows %}
+      <li>${{ "{:,}".format(t.lo) }}–${{ "{:,}".format(t.hi) }}: {{ t.label }}</li>
+      {% endfor %}
+    </ul>
+  </details>
+  {% endif %}
+</div>
+
+{% if can_submit %}
+<div id="rfa-offer-modal" hidden aria-hidden="true" style="position:fixed;inset:0;z-index:1000;">
+  <div id="rfa-offer-backdrop" style="position:absolute;inset:0;background:rgba(0,0,0,.45);"></div>
+  <div role="dialog" aria-modal="true" aria-labelledby="rfa-offer-title"
+       style="position:relative;max-width:32rem;margin:4rem auto;background:var(--card-bg,#fff);padding:1.25rem;border-radius:8px;">
+    <h2 id="rfa-offer-title">Submit offer sheet</h2>
+    <form method="post" action="{{ url_for('site_gm.rfa_offers_page') }}" id="rfa-offer-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="player_id" id="rfa-player-id" value="">
+      <dl style="margin:0 0 1rem;">
+        <dt class="muted">Player</dt><dd id="rfa-d-player"></dd>
+        <dt class="muted">Position</dt><dd id="rfa-d-position"></dd>
+        <dt class="muted">Previous team</dt><dd id="rfa-d-rights"></dd>
+        <dt class="muted">Previous contract</dt><dd id="rfa-d-contract"></dd>
+        <dt class="muted">Category</dt>
+        <dd><span id="rfa-d-category"></span> <span class="muted" id="rfa-d-category-tip" title=""></span></dd>
+      </dl>
+      <label>Offer salary ($)
+        <input type="number" name="offer_salary" id="rfa-offer-salary" min="1" step="1000" required>
+      </label>
+      <p class="muted small">Minimum: <span id="rfa-min-offer">—</span></p>
+      <label>Years
+        <input type="number" name="offer_years" id="rfa-offer-years" min="1" max="15" value="1" required>
+      </label>
+      <label>Special clauses (optional)
+        <textarea name="special_clauses" rows="3" maxlength="2000"></textarea>
+      </label>
+      <section id="rfa-comp-panel" style="margin:1rem 0;padding:.75rem;border:1px solid var(--border,#ccc);border-radius:6px;">
+        <h3 style="margin:0 0 .5rem;font-size:1rem;">Draft pick compensation</h3>
+        <p id="rfa-comp-tier" class="muted">Enter salary to preview tier.</p>
+        <ul id="rfa-comp-picks"></ul>
+        <p id="rfa-comp-warning" class="flash-err" hidden></p>
+      </section>
+      <div style="display:flex;gap:.5rem;margin-top:1rem;">
+        <button type="submit" id="rfa-submit-btn">Submit offer sheet</button>
+        <button type="button" id="rfa-offer-close">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+(function () {
+  var modal = document.getElementById('rfa-offer-modal');
+  var previewUrl = {{ url_for('site_gm.rfa_compensation_preview')|tojson }};
+  var currentCategory = '';
+  function fmt(n) { return '$' + Number(n).toLocaleString(); }
+  function closeModal() {
+    modal.hidden = true;
+    modal.setAttribute('aria-hidden', 'true');
+  }
+  function openModal(btn) {
+    document.getElementById('rfa-player-id').value = btn.dataset.playerId;
+    document.getElementById('rfa-d-player').textContent = btn.dataset.playerName;
+    document.getElementById('rfa-d-position').textContent = btn.dataset.position;
+    document.getElementById('rfa-d-rights').textContent = btn.dataset.rightsTeam;
+    document.getElementById('rfa-d-contract').textContent = btn.dataset.previousContract;
+    document.getElementById('rfa-d-category').textContent = btn.dataset.categoryLabel;
+    document.getElementById('rfa-d-category-tip').textContent = '(' + btn.dataset.categoryTip + ')';
+    document.getElementById('rfa-min-offer').textContent = fmt(btn.dataset.minOffer);
+    document.getElementById('rfa-offer-salary').value = btn.dataset.minOffer;
+    document.getElementById('rfa-offer-salary').min = btn.dataset.minOffer;
+    currentCategory = btn.dataset.category;
+    modal.hidden = false;
+    modal.setAttribute('aria-hidden', 'false');
+    refreshComp();
+  }
+  function refreshComp() {
+    var pid = document.getElementById('rfa-player-id').value;
+    var sal = document.getElementById('rfa-offer-salary').value;
+    var warn = document.getElementById('rfa-comp-warning');
+    var submit = document.getElementById('rfa-submit-btn');
+    var picks = document.getElementById('rfa-comp-picks');
+    if (!pid || !sal) return;
+    fetch(previewUrl + '?player_id=' + encodeURIComponent(pid) + '&offer_salary=' + encodeURIComponent(sal))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.error) return;
+        document.getElementById('rfa-comp-tier').textContent = data.applies
+          ? (data.label + ' (' + data.draft_year + ' draft)')
+          : 'No draft pick compensation for this category.';
+        picks.innerHTML = '';
+        (data.picks_available || []).forEach(function (p) {
+          var li = document.createElement('li'); li.textContent = '✓ ' + p; picks.appendChild(li);
+        });
+        (data.picks_missing || []).forEach(function (p) {
+          var li = document.createElement('li'); li.textContent = '✗ Missing: ' + p; picks.appendChild(li);
+        });
+        if (data.submit_disabled) {
+          warn.hidden = false;
+          warn.textContent = 'You lack required following-year picks — submit disabled.';
+          submit.disabled = true;
+        } else {
+          warn.hidden = true;
+          submit.disabled = false;
+        }
+      })
+      .catch(function () {});
+  }
+  document.querySelectorAll('.rfa-offer-open').forEach(function (btn) {
+    btn.addEventListener('click', function () { openModal(btn); });
+  });
+  document.getElementById('rfa-offer-close').addEventListener('click', closeModal);
+  document.getElementById('rfa-offer-backdrop').addEventListener('click', closeModal);
+  document.getElementById('rfa-offer-salary').addEventListener('input', refreshComp);
+})();
+</script>
+{% endif %}
+{% endblock %}

@@ -153,9 +153,13 @@ class DiscordInteractionDispatchTests(unittest.TestCase):
         import app.services.discord_interaction_dispatch as dispatch
 
         started: list[dict] = []
-        original_run = dispatch._run_slash_command_async
+        original_run = dispatch._run_dispatched_slash_command_async
+        original_lookup = dispatch.league_slug_for_guild_id
         try:
-            dispatch._run_slash_command_async = lambda **kwargs: started.append(kwargs)
+            dispatch._run_dispatched_slash_command_async = lambda **kwargs: started.append(kwargs)
+            dispatch.league_slug_for_guild_id = lambda guild_id: self.fail(
+                "deferred slash commands should not resolve the guild before responding"
+            )
             for command in COMMAND_DEFINITIONS:
                 with self.subTest(command=command["name"]):
                     body = json.dumps(
@@ -182,9 +186,10 @@ class DiscordInteractionDispatchTests(unittest.TestCase):
                     self.assertEqual(status, 200)
                     self.assertEqual(payload, {"type": 5, "data": {"flags": 64}})
         finally:
-            dispatch._run_slash_command_async = original_run
+            dispatch._run_dispatched_slash_command_async = original_run
+            dispatch.league_slug_for_guild_id = original_lookup
         self.assertEqual(len(started), len(COMMAND_DEFINITIONS))
-        self.assertTrue(all(item["league_slug"] == "bowl-fantasy" for item in started))
+        self.assertTrue(all(item["hub_app"] is self.hub for item in started))
 
   def test_deferred_followup_edits_original_response(self) -> None:
         class Response:

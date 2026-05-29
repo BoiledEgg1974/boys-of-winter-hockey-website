@@ -141,6 +141,55 @@ def _run_slash_command_async(
     threading.Thread(target=_work, name=f"discord-cmd-{league_slug}", daemon=True).start()
 
 
+def _run_dispatched_slash_command_async(
+    *,
+    hub_app: Flask,
+    payload: dict[str, Any],
+) -> None:
+    """Resolve the Discord guild and run the command after the HTTP defer returns."""
+    application_id = str(payload.get("application_id") or "").strip()
+    interaction_token = str(payload.get("token") or "").strip()
+
+    def _work() -> None:
+        guild_id = guild_id_from_interaction(payload)
+        if not guild_id:
+            _post_interaction_followup(
+                application_id,
+                interaction_token,
+                "Run this command in your league's Discord server so I know which BOWL site to use. "
+                "DM commands are not supported yet.",
+            )
+            return
+        try:
+            with hub_app.app_context():
+                league_slug = league_slug_for_guild_id(guild_id)
+                if not league_slug:
+                    _post_interaction_followup(
+                        application_id,
+                        interaction_token,
+                        "This Discord server is not linked to a BOWL league yet. "
+                        "An admin can add the Server ID on that league's Discord Integration page "
+                        "(Admin -> Discord Integration -> Server ID).",
+                    )
+                    return
+                league_app = _league_app(league_slug)
+                with league_app.app_context():
+                    response = handle_slash_interaction(payload, league_slug=league_slug)
+                content = _content_from_handler_response(response)
+                if not content:
+                    content = "Command finished but returned no message."
+            _post_interaction_followup(application_id, interaction_token, content)
+        except Exception:
+            log.exception("async slash command dispatch failed")
+            _post_interaction_followup(
+                application_id,
+                interaction_token,
+                "Something went wrong running that command. Try again in a moment.",
+            )
+
+    threading.Thread(target=_work, name="discord-cmd-dispatch", daemon=True).start()
+
+
 def process_discord_interaction(
     *,
     raw_body: bytes,
@@ -175,6 +224,10 @@ def process_discord_interaction(
             prewarm_league_apps()
         return 200, {"type": 1}
 
+    if defer_slash_commands and hub_app is not None and int(payload.get("type") or 0) == 2:
+        _run_dispatched_slash_command_async(hub_app=hub_app, payload=payload)
+        return 200, _deferred_ephemeral()
+
     guild_id = guild_id_from_interaction(payload)
     if not guild_id:
         return 200, _ephemeral_error(
@@ -197,11 +250,6 @@ def process_discord_interaction(
             "An admin can add the Server ID on that league's Discord Integration page "
             "(Admin → Discord Integration → Server ID)."
         )
-
-    if defer_slash_commands and hub_app is not None and int(payload.get("type") or 0) == 2:
-        prewarm_league_apps()
-        _run_slash_command_async(hub_app=hub_app, payload=payload, league_slug=league_slug)
-        return 200, _deferred_ephemeral()
 
     league_app = _league_app(league_slug)
     with league_app.app_context():

@@ -15,6 +15,7 @@ from app.db_utils import (
     ensure_history_awards_staff_fhm_id_sqlite,
     ensure_boost_lottery_team_results_sqlite,
     ensure_homepage_performance_indexes_sqlite,
+    ensure_players_boost_tier_sqlite,
     ensure_players_jersey_number_sqlite,
     ensure_player_overall_baseline_sqlite,
     ensure_player_rating_snapshots_sqlite,
@@ -130,6 +131,7 @@ def create_app(config_class: type = Config) -> Flask:
         migrate_team_season_aggregates_sqlite(db.engine)
         repair_fhm_team_city_from_name(db.engine)
         ensure_players_jersey_number_sqlite(db.engine)
+        ensure_players_boost_tier_sqlite(db.engine)
         ensure_player_overall_baseline_sqlite(db.engine)
         ensure_player_rating_snapshots_sqlite(db.engine)
         ensure_team_season_aggregate_extra_columns(db.engine)

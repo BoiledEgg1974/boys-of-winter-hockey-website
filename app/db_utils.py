@@ -170,6 +170,23 @@ def ensure_players_jersey_number_sqlite(engine: Engine) -> None:
         conn.commit()
 
 
+def ensure_players_boost_tier_sqlite(engine: Engine) -> None:
+    """Add admin-managed gold/silver boost markers to players when missing (SQLite)."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='players'")
+        ).fetchone()
+        if not exists:
+            return
+        cols = {row[1] for row in conn.execute(text("PRAGMA table_info(players)"))}
+        if "boost_tier" in cols:
+            return
+        conn.execute(text("ALTER TABLE players ADD COLUMN boost_tier VARCHAR(16) NOT NULL DEFAULT ''"))
+        conn.commit()
+
+
 def ensure_player_overall_baseline_sqlite(engine: Engine) -> None:
     """Create player_overall_baselines for post-update trend arrows (SQLite)."""
     if engine.dialect.name != "sqlite":

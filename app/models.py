@@ -96,6 +96,7 @@ class Player(db.Model):
     jersey_number: Mapped[int | None] = mapped_column(Integer)
     overall_ability: Mapped[float | None] = mapped_column(Float)
     overall_potential: Mapped[float | None] = mapped_column(Float)
+    boost_tier: Mapped[str] = mapped_column(String(16), default="", nullable=False)
 
     current_team: Mapped["Team | None"] = relationship(back_populates="players")
     skater_season_stats: Mapped[list["PlayerSkaterStat"]] = relationship(back_populates="player")

@@ -7,7 +7,7 @@ import unicodedata
 from dataclasses import replace
 from datetime import date
 from pathlib import Path
-from flask import Blueprint, abort, current_app, render_template, request, url_for
+from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, url_for
 from flask_login import current_user
 from flask_wtf.csrf import generate_csrf
 from sqlalchemy import case, cast, extract, Float, func, not_, nulls_last, or_, select
@@ -20,6 +20,7 @@ from app.config import (
     undrafted_prospects_age_filter_options,
     undrafted_prospects_max_age,
 )
+from app.auth_login import ADMIN_ROLE_LEAGUE, ADMIN_ROLE_STATS, ADMIN_ROLE_SUPER, has_admin_role
 from app.models import (
     Draft,
     DraftPick,
@@ -4307,7 +4308,30 @@ def player_page(player_id: int):
         player_season_trends_goalie_mode=player_season_trends_goalie_mode,
         player_analytics=player_analytics,
         player_development=player_development,
+        can_manage_player_boost=has_admin_role(
+            current_user, ADMIN_ROLE_SUPER, ADMIN_ROLE_LEAGUE, ADMIN_ROLE_STATS
+        ),
     )
+
+
+@main_bp.post("/player/<int:player_id>/boost")
+def update_player_boost(player_id: int):
+    """Admin-only gold/silver marker for player profile pages."""
+    if not has_admin_role(current_user, ADMIN_ROLE_SUPER, ADMIN_ROLE_LEAGUE, ADMIN_ROLE_STATS):
+        abort(403)
+    player = db.session.get(Player, player_id)
+    if not player:
+        abort(404)
+    tier = (request.form.get("boost_tier") or "").strip().lower()
+    if tier not in ("", "gold", "silver"):
+        abort(400)
+    player.boost_tier = tier
+    db.session.commit()
+    if tier:
+        flash(f"{player.full_name} marked with a {tier} boost.", "ok")
+    else:
+        flash(f"Boost marker removed from {player.full_name}.", "ok")
+    return redirect(url_for("main.player_page", player_id=player.id))
 
 
 @main_bp.get("/game/<int:game_id>")

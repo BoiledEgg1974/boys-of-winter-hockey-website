@@ -10706,6 +10706,51 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
   background: rgb(15 23 42 / 0.55);
   box-shadow: 0 2px 8px rgb(0 0 0 / 0.25);
 }
+.player-profile__boost-strip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.55rem;
+}
+.player-profile__boost-badge-img {
+  display: block;
+  width: 5.8rem;
+  max-width: 40vw;
+  height: auto;
+  filter: drop-shadow(0 3px 8px rgb(0 0 0 / 0.32));
+}
+.player-profile__boost-admin {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.55rem;
+}
+.player-profile__boost-admin-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 0.72);
+}
+.player-profile__boost-admin-btn {
+  border: 1px solid rgb(255 255 255 / 0.24);
+  border-radius: 999px;
+  background: rgb(15 23 42 / 0.48);
+  color: var(--pp-text-on);
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  padding: 0.18rem 0.55rem;
+  text-transform: uppercase;
+}
+.player-profile__boost-admin-btn:hover,
+.player-profile__boost-admin-btn.is-active {
+  border-color: rgb(255 255 255 / 0.72);
+  background: rgb(255 255 255 / 0.18);
+}
 .player-profile__trophy-badge-img {
   display: block;
   width: 100%;

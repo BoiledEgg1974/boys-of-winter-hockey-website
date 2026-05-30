@@ -10710,11 +10710,11 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-top: 0.55rem;
+  flex: 0 0 auto;
 }
 .player-profile__boost-badge-img {
   display: block;
-  width: 5.8rem;
+  width: 6.25rem;
   max-width: 40vw;
   height: auto;
   filter: drop-shadow(0 3px 8px rgb(0 0 0 / 0.32));
@@ -10813,6 +10813,7 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
   display: flex;
   align-items: center;
   align-self: center;
+  gap: 0.85rem;
 }
 .player-profile__hero-strip {
   display: flex;

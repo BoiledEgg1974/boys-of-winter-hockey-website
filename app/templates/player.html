@@ -98,11 +98,6 @@
         </div>
         {% endif %}
         {% set player_boost_tier = (player.boost_tier or '')|lower %}
-        {% if player_boost_tier in ('gold', 'silver') %}
-        <div class="player-profile__boost-strip" aria-label="{{ player_boost_tier|title }} boost">
-          <img class="player-profile__boost-badge-img" src="{{ url_for('static', filename='img/boosts/' ~ player_boost_tier ~ '-boost.png') }}" alt="{{ player_boost_tier|title }} boost" loading="lazy" decoding="async">
-        </div>
-        {% endif %}
         {% if can_manage_player_boost %}
         <form class="player-profile__boost-admin" method="post" action="{{ url_for('main.update_player_boost', player_id=player.id) }}" aria-label="Set player boost marker">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -120,6 +115,11 @@
     {% set _hero_strip = (_hero_abi is not none or _hero_pot is not none or (_ova and _ova.score is not none)) %}
     {% if _hero_strip %}
     <div class="player-profile__hero-ratings">
+      {% if player_boost_tier in ('gold', 'silver') %}
+      <div class="player-profile__boost-strip" aria-label="{{ player_boost_tier|title }} boost">
+        <img class="player-profile__boost-badge-img" src="{{ url_for('static', filename='img/boosts/' ~ player_boost_tier ~ '-boost.png') }}" alt="{{ player_boost_tier|title }} boost" loading="lazy" decoding="async">
+      </div>
+      {% endif %}
       <div class="player-profile__hero-strip" role="group" aria-label="Overall rating, ability, potential, and share card">
         <div class="player-profile__hero-strip-head">
           <div class="player-profile__hero-strip-ovr">

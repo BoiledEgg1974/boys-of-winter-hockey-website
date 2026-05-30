@@ -692,6 +692,8 @@ class LeagueDraft(db.Model):
     max_anchor_month: Mapped[int] = mapped_column(Integer, nullable=False)
     max_anchor_day: Mapped[int] = mapped_column(Integer, nullable=False)
     timeline_year: Mapped[int] = mapped_column(Integer, nullable=False)
+    eligibility_pool_source: Mapped[str] = mapped_column(String(32), default="age_rules", nullable=False)
+    born_before_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     current_slot_index: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     pick_started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     pick_deadline_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

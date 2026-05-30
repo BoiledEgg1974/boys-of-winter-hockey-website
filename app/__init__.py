@@ -214,6 +214,20 @@ def create_app(config_class: type = Config) -> Flask:
             app.logger.warning("Position backfill from ratings skipped: %s", exc)
 
         try:
+            from app.services.player_ability_potential import (
+                backfill_missing_ability_potential_from_ratings,
+            )
+
+            n = backfill_missing_ability_potential_from_ratings(db.session)
+            if n:
+                app.logger.info(
+                    "Backfilled player ABI/POT from player_ratings.csv for %s players (was NULL)",
+                    n,
+                )
+        except Exception as exc:
+            app.logger.warning("Ability/potential backfill from ratings skipped: %s", exc)
+
+        try:
             from app.services.ap_service import seed_ap_catalog_if_empty
 
             seed_ap_catalog_if_empty()

@@ -7,9 +7,14 @@ from datetime import date
 from unittest.mock import MagicMock, patch
 
 from app.services.draft_hub_eligibility import (
+    DRAFT_POOL_BORN_BEFORE,
+    DRAFT_POOL_DRAFT_ELIGIBLE_PAGE,
     age_as_of,
     default_eligibility_for_league,
+    draft_eligible_page_params_for_league,
+    effective_eligibility_params,
     eligible_player_ids,
+    player_passes_born_before_rule,
     player_passes_historical_amateur_rules,
     player_passes_age_rules,
 )
@@ -53,6 +58,50 @@ class DraftHubEligibilityTest(unittest.TestCase):
             ids = eligible_player_ids(session, "bowl-fantasy", params)
         org_rights.assert_called_once_with(session, "bowl-fantasy")
         self.assertEqual(ids, [5259])
+
+    def test_born_before_pool_source_uses_exclusive_cutoff(self) -> None:
+        self.assertTrue(player_passes_born_before_rule(date(1967, 12, 31), date(1968, 1, 1)))
+        self.assertFalse(player_passes_born_before_rule(date(1968, 1, 1), date(1968, 1, 1)))
+
+    def test_eligible_pool_supports_born_before_source(self) -> None:
+        params = replace(
+            default_eligibility_for_league("bowl-fantasy"),
+            timeline_year=1988,
+            pool_source=DRAFT_POOL_BORN_BEFORE,
+            born_before_date=date(1968, 1, 1),
+        )
+        session = MagicMock()
+        allowed = MagicMock(id=1, birth_date=date(1967, 12, 31), retired=False)
+        blocked = MagicMock(id=2, birth_date=date(1968, 1, 1), retired=False)
+        session.scalars.return_value.unique.return_value.all.return_value = [allowed, blocked]
+        with (
+            patch(
+                "app.services.draft_hub_eligibility.undrafted_nhl_bowl_player_subquery",
+                return_value=MagicMock(),
+            ),
+            patch(
+                "app.services.draft_hub_eligibility.bowl_org_rights_player_ids_for_league",
+                return_value=frozenset(),
+            ),
+        ):
+            ids = eligible_player_ids(session, "bowl-fantasy", params)
+
+        self.assertEqual(ids, [1])
+
+    def test_draft_eligible_page_source_resolves_to_league_defaults(self) -> None:
+        params = replace(
+            default_eligibility_for_league("bowl-historical"),
+            timeline_year=1968,
+            pool_source=DRAFT_POOL_DRAFT_ELIGIBLE_PAGE,
+            min_age_years=15,
+            max_age_years=30,
+        )
+
+        effective = effective_eligibility_params("bowl-historical", params)
+        expected = draft_eligible_page_params_for_league("bowl-historical", 1968)
+
+        self.assertEqual(effective, expected)
+        self.assertEqual(effective.pool_source, "age_rules")
 
     def test_historical_amateur_rules_exclude_1950_and_eastern_bloc(self) -> None:
         canadian_1949 = MagicMock(birth_date=date(1949, 12, 31), nationality="Canada")

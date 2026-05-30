@@ -145,9 +145,13 @@ from app.services.standings import (
 )
 from app.services.postseason_odds import build_team_page_mc_bundle
 from app.services.draft_hub_eligibility import (
+    DRAFT_POOL_BORN_BEFORE,
+    DRAFT_POOL_DRAFT_ELIGIBLE_PAGE,
     DraftEligibilityParams,
     age_as_of,
+    draft_eligible_page_params_for_league,
     default_eligibility_for_league,
+    effective_eligibility_params,
     eligible_players_ordered,
 )
 from app.services.draft_hub_state import (
@@ -2316,7 +2320,13 @@ def _draft_eligible_params_for_page(
 ) -> tuple[DraftEligibilityParams, str]:
     draft = featured_draft(db.session, league_slug)
     if draft:
-        return draft_eligibility_params(draft), f"{draft.name} settings"
+        draft_params = draft_eligibility_params(draft)
+        if draft_params.pool_source == DRAFT_POOL_DRAFT_ELIGIBLE_PAGE:
+            return (
+                draft_eligible_page_params_for_league(league_slug, draft_params.timeline_year),
+                "Draft Eligible page settings",
+            )
+        return effective_eligibility_params(league_slug, draft_params), f"{draft.name} settings"
 
     params = default_eligibility_for_league(league_slug)
     if league_slug in ("bowl-fantasy", "bowl-cap"):

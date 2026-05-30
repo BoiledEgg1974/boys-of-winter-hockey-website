@@ -1904,6 +1904,15 @@ def ensure_league_draft_slot_boost_tier_sqlite(engine: Engine) -> None:
                         "ALTER TABLE league_drafts ADD COLUMN discord_on_deck_enabled BOOLEAN NOT NULL DEFAULT 0"
                     )
                 )
+            if "eligibility_pool_source" not in draft_cols:
+                conn.execute(
+                    text(
+                        "ALTER TABLE league_drafts "
+                        "ADD COLUMN eligibility_pool_source VARCHAR(32) NOT NULL DEFAULT 'age_rules'"
+                    )
+                )
+            if "born_before_date" not in draft_cols:
+                conn.execute(text("ALTER TABLE league_drafts ADD COLUMN born_before_date DATE"))
 
         slot_exists = conn.execute(
             text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='league_draft_slots'")

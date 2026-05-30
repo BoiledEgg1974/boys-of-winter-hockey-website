@@ -14,6 +14,12 @@ from app.services.free_agents import bowl_org_rights_player_ids_for_league
 # Max players returned on the live hub eligible board (default view). Full pool remains for
 # picks, counts, and search/position filters — only the unfiltered list is capped.
 ELIGIBLE_HUB_BOARD_WINDOW = 40
+DRAFT_POOL_AGE_RULES = "age_rules"
+DRAFT_POOL_BORN_BEFORE = "born_before"
+DRAFT_POOL_DRAFT_ELIGIBLE_PAGE = "draft_eligible_page"
+DRAFT_POOL_SOURCE_VALUES = frozenset(
+    {DRAFT_POOL_AGE_RULES, DRAFT_POOL_BORN_BEFORE, DRAFT_POOL_DRAFT_ELIGIBLE_PAGE}
+)
 HISTORICAL_AMATEUR_BIRTH_CUTOFF = date(1950, 1, 1)
 HISTORICAL_EASTERN_BLOC_NATIONALITIES = frozenset(
     {
@@ -51,6 +57,8 @@ class DraftEligibilityParams:
     max_age_years: int
     max_anchor_month: int
     max_anchor_day: int
+    pool_source: str = DRAFT_POOL_AGE_RULES
+    born_before_date: date | None = None
 
 
 def default_eligibility_for_league(league_slug: str) -> DraftEligibilityParams:
@@ -76,6 +84,25 @@ def default_eligibility_for_league(league_slug: str) -> DraftEligibilityParams:
     )
 
 
+def draft_eligible_page_params_for_league(league_slug: str, timeline_year: int) -> DraftEligibilityParams:
+    """Eligibility rule set used by the public Draft Eligible page for a timeline year."""
+    return DraftEligibilityParams(
+        **{
+            **default_eligibility_for_league(league_slug).__dict__,
+            "timeline_year": int(timeline_year),
+            "pool_source": DRAFT_POOL_AGE_RULES,
+            "born_before_date": None,
+        }
+    )
+
+
+def effective_eligibility_params(league_slug: str, params: DraftEligibilityParams) -> DraftEligibilityParams:
+    """Resolve indirect pool sources into concrete rules for filtering and display."""
+    if params.pool_source == DRAFT_POOL_DRAFT_ELIGIBLE_PAGE:
+        return draft_eligible_page_params_for_league(league_slug, params.timeline_year)
+    return params
+
+
 def anchor_dates(params: DraftEligibilityParams) -> tuple[date, date]:
     y = params.timeline_year
     return (
@@ -93,6 +120,12 @@ def player_passes_age_rules(birth: date | None, params: DraftEligibilityParams) 
     if age_min_ref is None or age_max_ref is None:
         return False
     return age_min_ref >= params.min_age_years and age_max_ref <= params.max_age_years
+
+
+def player_passes_born_before_rule(birth: date | None, cutoff: date | None) -> bool:
+    if birth is None or cutoff is None:
+        return False
+    return birth < cutoff
 
 
 def player_passes_historical_amateur_rules(player: Player) -> bool:
@@ -114,6 +147,7 @@ def undrafted_nhl_bowl_player_subquery():
 
 
 def eligible_player_ids(session: Session, league_slug: str, params: DraftEligibilityParams) -> list[int]:
+    params = effective_eligibility_params(league_slug, params)
     drafted_subq = undrafted_nhl_bowl_player_subquery()
     rights_ids = bowl_org_rights_player_ids_for_league(session, league_slug)
     q_where = [
@@ -126,7 +160,11 @@ def eligible_player_ids(session: Session, league_slug: str, params: DraftEligibi
     players = session.scalars(select(Player).where(*q_where)).unique().all()
     out: list[int] = []
     for p in players:
-        if not player_passes_age_rules(p.birth_date, params):
+        if params.pool_source == DRAFT_POOL_BORN_BEFORE:
+            passes_pool = player_passes_born_before_rule(p.birth_date, params.born_before_date)
+        else:
+            passes_pool = player_passes_age_rules(p.birth_date, params)
+        if not passes_pool:
             continue
         if league_slug == "bowl-historical" and not player_passes_historical_amateur_rules(p):
             continue

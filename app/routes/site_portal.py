@@ -6556,6 +6556,16 @@ def _parse_draft_deadline_date(raw: str, fallback_month: int, fallback_day: int)
     return int(parsed.month), int(parsed.day)
 
 
+def _parse_draft_born_before_date(raw: str) -> date | None:
+    raw = (raw or "").strip()
+    if not raw:
+        return None
+    try:
+        return date.fromisoformat(raw[:10])
+    except ValueError:
+        return None
+
+
 def _purge_draft_soundbite_dir(slug: str, draft_id: int) -> None:
     """Best-effort removal of soundbite files for a deleted draft."""
     import shutil
@@ -6615,7 +6625,7 @@ def admin_draft_hub():
         flash(f"Deleted draft “{deleted_name}”.", "ok")
         return redirect(url_for("site_admin.admin_draft_hub"))
     if request.method == "POST" and request.form.get("action") == "new":
-        from app.services.draft_hub_eligibility import default_eligibility_for_league
+        from app.services.draft_hub_eligibility import DRAFT_POOL_AGE_RULES, default_eligibility_for_league
         from app.services.seasons import get_current_season
 
         season = get_current_season()
@@ -6636,6 +6646,7 @@ def admin_draft_hub():
             max_anchor_month=ddef.max_anchor_month,
             max_anchor_day=ddef.max_anchor_day,
             timeline_year=ty,
+            eligibility_pool_source=DRAFT_POOL_AGE_RULES,
         )
         db.session.add(row)
         db.session.flush()
@@ -6690,6 +6701,13 @@ def admin_draft_hub_edit(draft_id: int):
     if request.method == "POST":
         act = (request.form.get("action") or "").strip()
         if act == "save_settings" and row.status == "setup":
+            from app.services.draft_hub_eligibility import (
+                DRAFT_POOL_AGE_RULES,
+                DRAFT_POOL_BORN_BEFORE,
+                DRAFT_POOL_DRAFT_ELIGIBLE_PAGE,
+                DRAFT_POOL_SOURCE_VALUES,
+            )
+
             row.name = (request.form.get("name") or row.name).strip()[:200]
             row.rounds = max(1, int(request.form.get("rounds") or row.rounds))
             row.picks_per_round = max(1, int(request.form.get("picks_per_round") or row.picks_per_round))
@@ -6710,6 +6728,20 @@ def admin_draft_hub_edit(draft_id: int):
                 row.max_anchor_month,
                 row.max_anchor_day,
             )
+            pool_source = (request.form.get("eligibility_pool_source") or DRAFT_POOL_AGE_RULES).strip()
+            if pool_source not in DRAFT_POOL_SOURCE_VALUES:
+                pool_source = DRAFT_POOL_AGE_RULES
+            row.eligibility_pool_source = pool_source
+            row.born_before_date = (
+                _parse_draft_born_before_date(request.form.get("born_before_date") or "")
+                if pool_source == DRAFT_POOL_BORN_BEFORE
+                else None
+            )
+            if pool_source == DRAFT_POOL_BORN_BEFORE and row.born_before_date is None:
+                row.eligibility_pool_source = DRAFT_POOL_AGE_RULES
+                flash("Player born before date was invalid, so the draft stayed on age rules.", "err")
+            elif pool_source == DRAFT_POOL_DRAFT_ELIGIBLE_PAGE:
+                flash("Draft pool will use the public Draft Eligible page list.", "ok")
             row.scheduled_start_at = _parse_scheduled_start(request.form.get("scheduled_start_at") or "")
             row.gm_picks_enabled = request.form.get("gm_picks_enabled") == "1"
             row.discord_on_deck_enabled = request.form.get("discord_on_deck_enabled") == "1"
@@ -7205,7 +7237,15 @@ def admin_draft_hub_edit(draft_id: int):
     max_deadline_value = f"{int(row.timeline_year):04d}-{int(row.max_anchor_month):02d}-{int(row.max_anchor_day):02d}"
     year_min_date = f"{int(row.timeline_year):04d}-01-01"
     year_max_date = f"{int(row.timeline_year):04d}-12-31"
+    born_before_value = ""
+    if getattr(row, "born_before_date", None):
+        born_before_value = row.born_before_date.isoformat()
     from app.services.draft_hub_order import resolve_prior_season_for_draft
+    from app.services.draft_hub_eligibility import (
+        DRAFT_POOL_AGE_RULES,
+        DRAFT_POOL_BORN_BEFORE,
+        DRAFT_POOL_DRAFT_ELIGIBLE_PAGE,
+    )
     from app.services.seasons import season_display_label
 
     standings_season = resolve_prior_season_for_draft(db.session, draft_year=int(row.timeline_year))
@@ -7229,8 +7269,12 @@ def admin_draft_hub_edit(draft_id: int):
         sched_value=sched,
         min_deadline_value=min_deadline_value,
         max_deadline_value=max_deadline_value,
+        born_before_value=born_before_value,
         year_min_date=year_min_date,
         year_max_date=year_max_date,
+        draft_pool_age_rules=DRAFT_POOL_AGE_RULES,
+        draft_pool_born_before=DRAFT_POOL_BORN_BEFORE,
+        draft_pool_draft_eligible_page=DRAFT_POOL_DRAFT_ELIGIBLE_PAGE,
         age_options=list(range(15, 31)),
     )
 

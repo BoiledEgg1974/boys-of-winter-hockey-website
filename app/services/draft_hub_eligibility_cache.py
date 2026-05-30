@@ -19,7 +19,7 @@ from app.services.draft_hub_eligibility import (
 )
 
 _CACHE_TTL_SECONDS = 120.0
-_CACHE_VERSION = 3
+_CACHE_VERSION = 4
 _lock = Lock()
 _pool_cache: dict[tuple, tuple[float, list[int], dict[str, int]]] = {}
 
@@ -33,6 +33,12 @@ def _params_key(params: DraftEligibilityParams) -> tuple:
         int(params.max_age_years),
         int(params.max_anchor_month),
         int(params.max_anchor_day),
+        str(getattr(params, "pool_source", "age_rules") or "age_rules"),
+        (
+            params.born_before_date.isoformat()
+            if getattr(params, "born_before_date", None) is not None
+            else ""
+        ),
     )
 
 

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import select
@@ -23,6 +23,12 @@ def utcnow_naive() -> datetime:
 
 
 def params_from_draft_row(draft: LeagueDraft) -> DraftEligibilityParams:
+    born_before = getattr(draft, "born_before_date", None)
+    if born_before is not None and not isinstance(born_before, date):
+        try:
+            born_before = date.fromisoformat(str(born_before))
+        except ValueError:
+            born_before = None
     return DraftEligibilityParams(
         timeline_year=int(draft.timeline_year),
         min_age_years=int(draft.min_age_years),
@@ -31,6 +37,8 @@ def params_from_draft_row(draft: LeagueDraft) -> DraftEligibilityParams:
         max_age_years=int(draft.max_age_years),
         max_anchor_month=int(draft.max_anchor_month),
         max_anchor_day=int(draft.max_anchor_day),
+        pool_source=(getattr(draft, "eligibility_pool_source", "") or "age_rules"),
+        born_before_date=born_before,
     )
 
 

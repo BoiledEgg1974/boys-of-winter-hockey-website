@@ -20,9 +20,29 @@
       <label>Timeline year<br><input type="number" name="timeline_year" value="{{ draft.timeline_year }}"></label>
     </div>
     <section class="card" style="padding:1rem;margin-top:1rem;">
+      {% set pool_source = draft.eligibility_pool_source or draft_pool_age_rules %}
+      <h3 style="margin-top:0;">Eligibility pool source</h3>
+      <p class="muted" style="margin:0 0 0.75rem;">
+        Choose how the Draft Hub builds the player pool for picks, queues, and the live board.
+      </p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(14rem,1fr));gap:0.75rem;margin-bottom:1rem;">
+        <label class="card" style="padding:0.75rem;">
+          <input type="radio" name="eligibility_pool_source" value="{{ draft_pool_age_rules }}"{% if pool_source == draft_pool_age_rules %} checked{% endif %}>
+          Use age rules below
+        </label>
+        <label class="card" style="padding:0.75rem;">
+          <input type="radio" name="eligibility_pool_source" value="{{ draft_pool_born_before }}"{% if pool_source == draft_pool_born_before %} checked{% endif %}>
+          Player born before
+          <input type="date" name="born_before_date" value="{{ born_before_value }}" style="display:block;margin-top:0.5rem;max-width:14rem;">
+        </label>
+        <label class="card" style="padding:0.75rem;">
+          <input type="radio" name="eligibility_pool_source" value="{{ draft_pool_draft_eligible_page }}"{% if pool_source == draft_pool_draft_eligible_page %} checked{% endif %}>
+          Import list from the Draft Eligible page
+        </label>
+      </div>
       <h3 style="margin-top:0;">Eligibility age rules</h3>
       <p class="muted" style="margin:0 0 0.75rem;">
-        Dates use the draft <strong>timeline year</strong>. A player qualifies only if they are at least the minimum age by the minimum-age deadline, and no older than the maximum age on the maximum-age deadline.
+        Dates use the draft <strong>timeline year</strong>. These rules apply when the pool source is <strong>Use age rules below</strong>. A player qualifies only if they are at least the minimum age by the minimum-age deadline, and no older than the maximum age on the maximum-age deadline.
       </p>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(18rem,1fr));gap:1rem;">
         <div class="card" style="padding:0.75rem;">

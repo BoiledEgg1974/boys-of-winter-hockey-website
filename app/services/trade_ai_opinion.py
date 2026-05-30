@@ -107,8 +107,8 @@ def build_logged_trade_prompt_block(row: TradeLogRow) -> str:
         when = row.trade_date.isoformat()
     elif row.sort_at and row.sort_at.year > 1970:
         when = row.sort_at.strftime("%Y-%m-%d")
-    ta = row.team_a.full_display_name() if row.team_a else "?"
-    tb = row.team_b.full_display_name() if row.team_b else "?"
+    ta = row.team_a_label or (row.team_a.full_display_name() if row.team_a else "?")
+    tb = row.team_b_label or (row.team_b.full_display_name() if row.team_b else "?")
     src = trade_log_source_label(row.source)
     lines = [
         f"Logged trade ({src})",
@@ -117,9 +117,51 @@ def build_logged_trade_prompt_block(row: TradeLogRow) -> str:
         f"Headline: {row.title}",
     ]
     body = (row.body or "").strip()
+    direction = _logged_trade_direction_block(body)
+    if direction:
+        lines.extend(["", direction])
     if body:
         lines.extend(["", "Summary / details:", body[:4000]])
     return "\n".join(lines)
+
+
+def _logged_trade_direction_block(body: str) -> str:
+    """Turn manual ``Team sends:`` summaries into unambiguous traded-away/received lines."""
+    blocks = [b.strip() for b in (body or "").strip().split("\n\n", 1)]
+    if len(blocks) != 2:
+        return ""
+
+    def _parse_sends_block(block: str) -> tuple[str, list[str]] | None:
+        lines = [ln.strip() for ln in block.splitlines() if ln.strip()]
+        if len(lines) < 2:
+            return None
+        heading = lines[0]
+        if not heading.lower().endswith(" sends:"):
+            return None
+        team = heading[: -len(" sends:")].strip()
+        assets = lines[1:]
+        if not team or not assets:
+            return None
+        return team, assets
+
+    left = _parse_sends_block(blocks[0])
+    right = _parse_sends_block(blocks[1])
+    if not left or not right:
+        return ""
+    team_a, sent_by_a = left
+    team_b, sent_by_b = right
+    fmt_a = "; ".join(sent_by_a)
+    fmt_b = "; ".join(sent_by_b)
+    return "\n".join(
+        [
+            "Directional interpretation (authoritative):",
+            f"- {team_a} traded away: {fmt_a}",
+            f"- {team_b} traded away: {fmt_b}",
+            f"- {team_a} received from {team_b}: {fmt_b}",
+            f"- {team_b} received from {team_a}: {fmt_a}",
+            "Do not describe an asset as acquired by the same team whose 'sends' block lists it.",
+        ]
+    )
 
 
 def recent_trades_prompt_block(rows: list[TradeLogRow], *, limit: int = 12) -> str:

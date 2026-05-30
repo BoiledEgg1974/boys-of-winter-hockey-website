@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import Config
-from app.models import Player, PlayerGoalieStat, PlayerSkaterStat, Season
+from app.models import Player, PlayerGoalieStat, PlayerSkaterStat, Season, Team
 from app.services.player_overall_score import compute_player_overall_100
 from app.services.player_rating_avgs import goalie_category_averages, skater_category_averages
 from app.services.player_ratings_csv import fhm_abi_pot_float, get_player_ratings_row
@@ -516,6 +516,97 @@ def _chemistry_candidates(
     )[:6]
 
 
+def _chemistry_candidates_from_team_roster(
+    session: Session,
+    player: Player,
+    team: Team | None,
+    *,
+    current_linemates: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    """Fallback chemistry fits when a player is not present in imported line assignments."""
+    if team is None or player.id is None:
+        return []
+    anchor_fhm = _player_fhm_str(player) or ""
+    anchor = _resolve_player_summary(session, anchor_fhm)
+    if anchor.get("name", "").startswith("Player #"):
+        anchor = {
+            "player": player,
+            "name": player.full_name,
+            "position": (player.position or "").strip().upper(),
+            "overall": None,
+            "shooting": None,
+            "playmaking": None,
+            "team_player": None,
+            "leadership": None,
+            "passing": None,
+            "getting_open": None,
+        }
+        rr = get_player_ratings_row(getattr(player, "fhm_player_id", None))
+        if rr:
+            abi = getattr(player, "overall_ability", None)
+            pot = getattr(player, "overall_potential", None)
+            anchor.update(
+                {
+                    "overall": compute_player_overall_100(
+                        abi,
+                        pot,
+                        rr,
+                        is_goalie=((player.position or "").strip().upper() == "G"),
+                    ),
+                    "shooting": _int_rating(rr, "shooting"),
+                    "playmaking": _int_rating(rr, "playmaking"),
+                    "team_player": _int_rating(rr, "teamplayer"),
+                    "leadership": _int_rating(rr, "leadership"),
+                    "passing": _int_rating(rr, "passing"),
+                    "getting_open": _int_rating(rr, "getting_open"),
+                }
+            )
+    current_ids = {str(m.get("fhm_player_id")) for m in (current_linemates or [])}
+    rows = session.scalars(
+        select(Player)
+        .where(
+            Player.current_team_id == int(team.id),
+            Player.id != int(player.id),
+            Player.retired.is_(False),
+        )
+        .limit(80)
+    ).all()
+    candidates: list[dict[str, Any]] = []
+    for mate in rows:
+        if (mate.position or "").strip().upper().startswith("G"):
+            continue
+        fhm = _player_fhm_str(mate) or ""
+        if not fhm or fhm == anchor_fhm:
+            continue
+        summary = _resolve_player_summary(session, fhm)
+        chemistry = _chemistry_fit(anchor, summary, current=fhm in current_ids)
+        candidates.append(
+            {
+                "fhm_player_id": fhm,
+                "player": summary["player"] or mate,
+                "name": summary["name"] or mate.full_name,
+                "position": summary["position"],
+                "assigned": "Roster fit",
+                "unit_title": "Team Roster",
+                "overall": summary["overall"],
+                "team_player": summary["team_player"],
+                "passing": summary["passing"],
+                "getting_open": summary["getting_open"],
+                "chemistry": chemistry,
+                "current_linemate": fhm in current_ids,
+            }
+        )
+    return sorted(
+        candidates,
+        key=lambda c: (
+            int(c.get("current_linemate") or False),
+            int((c.get("chemistry") or {}).get("score") or 0),
+            int(c.get("overall") or 0),
+        ),
+        reverse=True,
+    )[:6]
+
+
 def _primary_position_rating(position_rows: list[dict[str, object]]) -> float | None:
     best: float | None = None
     for row in position_rows:
@@ -953,6 +1044,7 @@ def build_player_analytics_panel(
     player_ovr: int | None,
     season_trend_rows: list[dict[str, Any]],
     goalie_trend_mode: bool,
+    team_context: Team | None = None,
     retired: bool = False,
 ) -> dict[str, Any]:
     if retired:
@@ -963,10 +1055,11 @@ def build_player_analytics_panel(
         }
 
     raw_dir = Path(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR))
+    context_team = team_context or player.current_team
     team_fhm = None
-    if player.current_team and player.current_team.fhm_team_id:
+    if context_team and context_team.fhm_team_id:
         try:
-            team_fhm = int(str(player.current_team.fhm_team_id).strip())
+            team_fhm = int(str(context_team.fhm_team_id).strip())
         except (TypeError, ValueError):
             team_fhm = None
     player_fhm = _player_fhm_str(player)
@@ -1052,6 +1145,13 @@ def build_player_analytics_panel(
         session=session,
         current_linemates=linemates,
     )
+    if not chemistry_candidates:
+        chemistry_candidates = _chemistry_candidates_from_team_roster(
+            session,
+            player,
+            context_team,
+            current_linemates=linemates,
+        )
     gp = int(season_stat_sk.gp or 0) if season_stat_sk else 0
     toi_pg = None
     ppg = None

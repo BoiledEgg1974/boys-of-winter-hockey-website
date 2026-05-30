@@ -4255,6 +4255,7 @@ def player_page(player_id: int):
         player_ovr=_ova_bundle.get("score"),
         season_trend_rows=player_season_trend_rows,
         goalie_trend_mode=player_season_trends_goalie_mode,
+        team_context=roster_header_team,
         retired=bool(player.retired),
     )
     player_development = build_player_development_panel(

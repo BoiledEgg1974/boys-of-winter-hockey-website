@@ -112,9 +112,10 @@
     </section>
     {% endif %}
 
-    {% if player_analytics.assignments and not player_analytics.is_goalie %}
+    {% if (player_analytics.assignments or player_analytics.chemistry_candidates) and not player_analytics.is_goalie %}
     <section class="player-analytics__section player-analytics__lines" aria-labelledby="pa-lines-heading">
       <h3 id="pa-lines-heading" class="player-analytics__heading">Line Deployment</h3>
+      {% if player_analytics.assignments %}
       <div class="player-analytics__assignment-grid">
         {% for group in player_analytics.deployment_groups %}
         <div class="player-analytics__assignment-card{% if not group.assignments %} player-analytics__assignment-card--empty{% endif %}">
@@ -164,6 +165,9 @@
         </div>
       </div>
       {% endfor %}
+      {% endif %}
+      {% else %}
+      <p class="player-analytics__empty">No current line assignments in import data. Showing roster-based chemistry fits.</p>
       {% endif %}
       {% if player_analytics.chemistry_candidates %}
       <div class="player-analytics__chemistry">

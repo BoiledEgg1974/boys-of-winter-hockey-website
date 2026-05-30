@@ -8,6 +8,7 @@ from app import create_app
 from app.config import LEAGUES, make_league_config
 from app.services.draft_pick_ownership import DRAFT_PICK_CSV_NAME
 from app.services.discord_events import DEFAULT_EVENT_KEYS
+from scripts.import_pipeline.encoding_utils import read_csv_normalized
 
 
 class TradeMarketAllLeaguesTest(unittest.TestCase):
@@ -50,6 +51,19 @@ class TradeMarketAllLeaguesTest(unittest.TestCase):
             text = path.read_text(encoding="utf-8")
             self.assertIn("10th Round", text)
             self.assertIn("Year", text)
+            df = read_csv_normalized(path)
+            self.assertFalse(
+                df.empty,
+                f"{entry.slug} {DRAFT_PICK_CSV_NAME} must parse (check column counts)",
+            )
+            if entry.raw_import_dir == "bowl_historical":
+                round_counts_by_year: dict[str, set[int]] = {}
+                for line in text.splitlines()[1:]:
+                    parts = line.split(";")
+                    round_counts_by_year.setdefault(parts[0], set()).add(len(parts) - 2)
+                self.assertEqual(round_counts_by_year.get("1969"), {10})
+                self.assertEqual(round_counts_by_year.get("1970"), {13})
+                self.assertEqual(round_counts_by_year.get("1971"), {15})
 
     def test_discord_trade_market_events_registered_for_all_leagues(self) -> None:
         self.assertIn("trade_market_selling_posted", DEFAULT_EVENT_KEYS)

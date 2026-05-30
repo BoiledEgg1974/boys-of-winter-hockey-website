@@ -16572,12 +16572,22 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   color: inherit;
   text-align: center;
 }
+.boost-lottery-tracker__input--readonly {
+  display: inline-block;
+  min-height: 1.7rem;
+  line-height: 1.1rem;
+  font-weight: 700;
+}
 .boost-lottery-tracker__total {
   font-weight: 800;
   color: color-mix(in srgb, var(--boost-accent) 85%, var(--text));
 }
 .boost-lottery-tracker__save {
   margin-top: 0.65rem;
+}
+.boost-lottery-tracker-page__panel {
+  max-width: 34rem;
+  margin: 0 auto;
 }
 .boost-lottery-output-wrap {
   position: absolute;

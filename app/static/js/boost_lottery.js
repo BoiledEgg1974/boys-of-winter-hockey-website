@@ -23,8 +23,6 @@
   var elResults = $("bl-results");
   var elStale = $("bl-pool-stale");
 
-  if (!elBtnGen || !elBtnDraw) return;
-
   var ticketList = [];
   var poolFingerprint = "";
 
@@ -277,10 +275,12 @@
     });
   }
 
-  elBtnGen.addEventListener("click", onGenerate);
-  elBtnDraw.addEventListener("click", onDraw);
-  elBtnReset.addEventListener("click", onReset);
-  bindInputs();
+  if (elBtnGen && elBtnDraw && elBtnReset) {
+    elBtnGen.addEventListener("click", onGenerate);
+    elBtnDraw.addEventListener("click", onDraw);
+    elBtnReset.addEventListener("click", onReset);
+    bindInputs();
+  }
   bindTrackerTotals();
   bindTrackerSorting();
 })();

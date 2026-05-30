@@ -1918,6 +1918,10 @@ def _save_boost_lottery_team_rows(league_slug: str, user_id: int) -> int:
     return changed
 
 
+def _boost_lottery_theme(league_slug: str) -> str:
+    return "fantasy" if league_slug == "bowl-fantasy" else ("cap" if league_slug == "bowl-cap" else "historical")
+
+
 @site_gm_bp.route("/draft-lottery", methods=["GET"])
 @login_required
 def draft_lottery():
@@ -1942,15 +1946,33 @@ def boost_lottery():
     if not getattr(current_user, "is_admin", False):
         flash("Boost lottery is only available to league admins.", "err")
         return redirect(url_for("main.home"))
-    boost_theme = "fantasy" if slug == "bowl-fantasy" else ("cap" if slug == "bowl-cap" else "historical")
     if request.method == "POST":
         changed = _save_boost_lottery_team_rows(slug, int(current_user.id))
         flash(f"Boost Lottery winner tracker saved ({changed} team row{'s' if changed != 1 else ''} changed).", "ok")
         return redirect(url_for("site_gm.boost_lottery"))
     return render_template(
         "boost_lottery.html",
-        boost_theme=boost_theme,
+        boost_theme=_boost_lottery_theme(slug),
         boost_team_rows=_boost_lottery_team_rows(slug),
+    )
+
+
+@site_gm_bp.get("/boost-lottery-tracker")
+@login_required
+def boost_lottery_tracker():
+    """Read-only boost winner totals for active GMs."""
+    slug = _league_slug()
+    if slug not in ("bowl-fantasy", "bowl-cap", "bowl-historical"):
+        abort(404)
+    mem = _membership()
+    if not mem:
+        flash("Boost Lottery Tracker is available to active GMs.", "err")
+        return redirect(url_for("main.home"))
+    return render_template(
+        "boost_lottery_tracker.html",
+        boost_theme=_boost_lottery_theme(slug),
+        boost_team_rows=_boost_lottery_team_rows(slug),
+        membership=mem,
     )
 
 

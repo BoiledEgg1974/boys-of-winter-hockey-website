@@ -56,46 +56,8 @@
       </div>
       <p class="draft-lottery-status muted" id="bl-status" aria-live="polite">Set ranges and counts, then generate the pool.</p>
 
-      <section class="boost-lottery-tracker" aria-labelledby="bl-tracker-title">
-        <div class="boost-lottery-tracker__head">
-          <h3 id="bl-tracker-title" class="boost-lottery-tracker__title">Boost winner tracker</h3>
-          <p class="muted">Edit gold and silver boosts by team after each draw. Totals save for this site only.</p>
-        </div>
-        <form method="post">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <div class="boost-lottery-tracker__table-wrap">
-            <table class="boost-lottery-tracker__table">
-              <thead>
-                <tr>
-                  <th scope="col">Team</th>
-                  <th scope="col"><button type="button" class="boost-lottery-tracker__sort" data-sort-key="gold" aria-label="Sort by gold boosts">Gold</button></th>
-                  <th scope="col"><button type="button" class="boost-lottery-tracker__sort" data-sort-key="silver" aria-label="Sort by silver boosts">Silver</button></th>
-                  <th scope="col"><button type="button" class="boost-lottery-tracker__sort" data-sort-key="total" aria-label="Sort by total boosts">Total</button></th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for row in boost_team_rows %}
-                <tr data-team-name="{{ row.name|lower }}" data-gold="{{ row.gold_count }}" data-silver="{{ row.silver_count }}" data-total="{{ row.total_count }}">
-                  <td class="boost-lottery-tracker__team">
-                    {% if row.logo_url %}
-                      <img src="{{ row.logo_url }}" alt="{{ row.name }}" title="{{ row.name }}" class="boost-lottery-tracker__logo" loading="lazy" decoding="async">
-                    {% else %}
-                      <span class="boost-lottery-tracker__abbr" title="{{ row.name }}">{{ row.abbr }}</span>
-                    {% endif %}
-                  </td>
-                  <td><input type="number" name="gold_{{ row.team_id }}" value="{{ row.gold_count }}" min="0" step="1" class="boost-lottery-tracker__input" aria-label="Gold boosts for {{ row.name }}"></td>
-                  <td><input type="number" name="silver_{{ row.team_id }}" value="{{ row.silver_count }}" min="0" step="1" class="boost-lottery-tracker__input" aria-label="Silver boosts for {{ row.name }}"></td>
-                  <td class="boost-lottery-tracker__total">{{ row.total_count }}</td>
-                </tr>
-                {% else %}
-                <tr><td colspan="4" class="muted">No teams found for this site.</td></tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-          <button type="submit" class="btn-draft-lottery btn-draft-lottery--primary boost-lottery-tracker__save">Save winner tracker</button>
-        </form>
-      </section>
+      {% set boost_tracker_editable = true %}
+      {% include "_boost_lottery_tracker.html" %}
     </section>
 
     <section class="boost-lottery-stage draft-lottery-stage card" aria-labelledby="bl-stage-title">

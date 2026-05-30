@@ -26,6 +26,9 @@
 {% block content %}
 <div class="prospects-rankings-page">
   <h1 class="page-title">Draft Eligible</h1>
+  {% if eligibility_summary %}
+  <p class="muted">{{ eligibility_summary }}</p>
+  {% else %}
   <p class="muted">
     {{ league_display }} pool from the league database using {{ eligibility_params_source }}:
     timeline {{ eligibility_params.timeline_year }}{% if eligibility_params.pool_source == 'born_before' and eligibility_params.born_before_date %},
@@ -33,6 +36,7 @@
     min age {{ eligibility_params.min_age_years }} as of {{ '%02d'|format(eligibility_params.min_anchor_month) }}/{{ '%02d'|format(eligibility_params.min_anchor_day) }},
     max age {{ eligibility_params.max_age_years }} as of {{ '%02d'|format(eligibility_params.max_anchor_month) }}/{{ '%02d'|format(eligibility_params.max_anchor_day) }}{% endif %}.
   </p>
+  {% endif %}
   {% if eligibility_notes %}
   <ul class="muted">
     {% for note in eligibility_notes %}

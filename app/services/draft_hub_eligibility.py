@@ -86,6 +86,15 @@ def default_eligibility_for_league(league_slug: str) -> DraftEligibilityParams:
 
 def draft_eligible_page_params_for_league(league_slug: str, timeline_year: int) -> DraftEligibilityParams:
     """Eligibility rule set used by the public Draft Eligible page for a timeline year."""
+    if league_slug == "bowl-historical":
+        return DraftEligibilityParams(
+            **{
+                **default_eligibility_for_league(league_slug).__dict__,
+                "timeline_year": int(timeline_year),
+                "pool_source": DRAFT_POOL_DRAFT_ELIGIBLE_PAGE,
+                "born_before_date": None,
+            }
+        )
     return DraftEligibilityParams(
         **{
             **default_eligibility_for_league(league_slug).__dict__,
@@ -160,7 +169,9 @@ def eligible_player_ids(session: Session, league_slug: str, params: DraftEligibi
     players = session.scalars(select(Player).where(*q_where)).unique().all()
     out: list[int] = []
     for p in players:
-        if params.pool_source == DRAFT_POOL_BORN_BEFORE:
+        if league_slug == "bowl-historical" and params.pool_source == DRAFT_POOL_DRAFT_ELIGIBLE_PAGE:
+            passes_pool = True
+        elif params.pool_source == DRAFT_POOL_BORN_BEFORE:
             passes_pool = player_passes_born_before_rule(p.birth_date, params.born_before_date)
         else:
             passes_pool = player_passes_age_rules(p.birth_date, params)

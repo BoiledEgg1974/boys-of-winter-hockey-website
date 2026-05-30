@@ -145,17 +145,13 @@ from app.services.standings import (
 )
 from app.services.postseason_odds import build_team_page_mc_bundle
 from app.services.draft_hub_eligibility import (
-    DRAFT_POOL_BORN_BEFORE,
-    DRAFT_POOL_DRAFT_ELIGIBLE_PAGE,
     DraftEligibilityParams,
     age_as_of,
     draft_eligible_page_params_for_league,
     default_eligibility_for_league,
-    effective_eligibility_params,
     eligible_players_ordered,
 )
 from app.services.draft_hub_state import (
-    draft_eligibility_params,
     featured_draft,
     picked_player_ids,
 )
@@ -2323,16 +2319,6 @@ def undrafted_prospects():
 def _draft_eligible_params_for_page(
     league_slug: str, season: Season | None
 ) -> tuple[DraftEligibilityParams, str]:
-    draft = featured_draft(db.session, league_slug)
-    if draft:
-        draft_params = draft_eligibility_params(draft)
-        if draft_params.pool_source == DRAFT_POOL_DRAFT_ELIGIBLE_PAGE:
-            return (
-                draft_eligible_page_params_for_league(league_slug, draft_params.timeline_year),
-                "Draft Eligible page settings",
-            )
-        return effective_eligibility_params(league_slug, draft_params), f"{draft.name} settings"
-
     params = default_eligibility_for_league(league_slug)
     if league_slug in ("bowl-fantasy", "bowl-cap"):
         timeline_year = (
@@ -2350,7 +2336,10 @@ def _draft_eligible_params_for_page(
             if season and season.start_year
             else date.today().year
         )
-    return replace(params, timeline_year=timeline_year), "league defaults"
+    page_params = draft_eligible_page_params_for_league(league_slug, timeline_year)
+    if league_slug == "bowl-historical":
+        return page_params, "Historical amateur pool"
+    return page_params, "league defaults"
 
 
 @main_bp.get("/draft-eligible")
@@ -2365,9 +2354,10 @@ def draft_eligible():
     params, params_source = _draft_eligible_params_for_page(league_slug, season)
     draft = featured_draft(db.session, league_slug)
     picked: set[int] = picked_player_ids(db.session, draft.id) if draft else set()
+    eligibility_summary = None
     eligibility_notes = []
     if league_slug == "bowl-historical":
-        eligibility_notes.append(
+        eligibility_summary = (
             "Historical amateur pool excludes players born on/after January 1, 1950 and "
             "Eastern Bloc nationalities."
         )
@@ -2488,6 +2478,7 @@ def draft_eligible():
         player_overall_by_id=player_overall_by_id,
         eligibility_params=params,
         eligibility_params_source=params_source,
+        eligibility_summary=eligibility_summary,
         eligibility_notes=eligibility_notes,
         active_draft=draft,
         league_display=league_display_name(league_slug),

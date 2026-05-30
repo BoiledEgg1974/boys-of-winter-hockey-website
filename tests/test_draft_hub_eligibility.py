@@ -88,7 +88,7 @@ class DraftHubEligibilityTest(unittest.TestCase):
 
         self.assertEqual(ids, [1])
 
-    def test_draft_eligible_page_source_resolves_to_league_defaults(self) -> None:
+    def test_historical_draft_eligible_page_source_resolves_to_public_page_pool(self) -> None:
         params = replace(
             default_eligibility_for_league("bowl-historical"),
             timeline_year=1968,
@@ -101,7 +101,7 @@ class DraftHubEligibilityTest(unittest.TestCase):
         expected = draft_eligible_page_params_for_league("bowl-historical", 1968)
 
         self.assertEqual(effective, expected)
-        self.assertEqual(effective.pool_source, "age_rules")
+        self.assertEqual(effective.pool_source, DRAFT_POOL_DRAFT_ELIGIBLE_PAGE)
 
     def test_historical_amateur_rules_exclude_1950_and_eastern_bloc(self) -> None:
         canadian_1949 = MagicMock(birth_date=date(1949, 12, 31), nationality="Canada")
@@ -138,6 +138,46 @@ class DraftHubEligibilityTest(unittest.TestCase):
         session.scalars.return_value.unique.return_value.all.return_value = [
             allowed,
             too_young,
+            eastern_bloc,
+        ]
+        with (
+            patch(
+                "app.services.draft_hub_eligibility.undrafted_nhl_bowl_player_subquery",
+                return_value=MagicMock(),
+            ),
+            patch(
+                "app.services.draft_hub_eligibility.bowl_org_rights_player_ids_for_league",
+                return_value=frozenset(),
+            ),
+        ):
+            ids = eligible_player_ids(session, "bowl-historical", params)
+
+        self.assertEqual(ids, [1])
+
+    def test_historical_draft_eligible_page_pool_does_not_apply_age_window(self) -> None:
+        params = draft_eligible_page_params_for_league("bowl-historical", 1969)
+        session = MagicMock()
+        older_amateur = MagicMock(
+            id=1,
+            birth_date=date(1940, 1, 1),
+            retired=False,
+            nationality="Canada",
+        )
+        post_cutoff = MagicMock(
+            id=2,
+            birth_date=date(1950, 1, 1),
+            retired=False,
+            nationality="Canada",
+        )
+        eastern_bloc = MagicMock(
+            id=3,
+            birth_date=date(1940, 1, 1),
+            retired=False,
+            nationality="Soviet Union",
+        )
+        session.scalars.return_value.unique.return_value.all.return_value = [
+            older_amateur,
+            post_cutoff,
             eastern_bloc,
         ]
         with (

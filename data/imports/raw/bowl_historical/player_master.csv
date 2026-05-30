@@ -582,7 +582,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 4073;90;90;Tom;Thurlby;;70;175;1938-11-9;Kingston;ON;Canada;;;0;Left;0
 6117;85;85;Connie;Forey;;74;185;1950-10-18;Murdochville;QC;Canada;;;0;Left;0
 6347;85;85;Norm;Dubé;;71;185;1951-9-12;Sorel-Tracy;QC;Canada;;;0;Left;0
-4371;8;8;Jimmy;Roberts;;70;185;1940-4-9;Toronto;ON;Canada;;;0;Right;0
+4371;8;8;Jimmy;Roberts;;70;176;1940-4-9;Toronto;ON;Canada;;;0;Right;0
 4759;120;120;Tracy;Pratt;;74;195;1943-3-8;Newburgh;NY;Canada;The United States;;0;Left;0
 6118;84;84;John;French;;71;165;1950-8-25;Orillia;ON;Canada;;;0;Left;0
 5665;84;84;Gerry;Gray;;72;165;1948-1-28;Brantford;ON;Canada;;;0;Left;0
@@ -930,7 +930,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 3467;59;59;Gösta;Sandberg;;69;172;1932-8-6;Solna;STO;Sweden;;;0;Left;0
 3163;90;90;Jack;Douglas;;71;190;1930-4-24;Quinte West;ON;Canada;;;0;Left;0
 3468;60;60;Esko;Rekomaa;;69;172;1932-12-24;Paimio;SOU;Finland;;;0;Left;0
-3345;129;122;Dean;Prentice;;71;180;1932-10-5;Timmins;ON;Canada;;;0;Left;0
+3345;122;122;Dean;Prentice;;71;180;1932-10-5;Timmins;ON;Canada;;;0;Left;0
 3164;60;60;Risto;Aaltonen;;69;172;1930-10-24;Turku;SOU;Finland;;;0;Left;0
 3165;62;62;Bronislav;Danda;;68;165;1930-1-10;Hradec Kralové;KRA;Czech Republic;;;0;Left;0
 3346;90;90;Jack;Price;;69;180;1932-5-8;Goderich;ON;Canada;;;0;Left;0

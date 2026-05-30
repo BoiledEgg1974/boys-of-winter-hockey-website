@@ -43,6 +43,22 @@ from scripts.import_pipeline.sqlite_session import commit_with_sqlite_retry
 log = logging.getLogger("bowl.fhm")
 
 
+def _fhm_ability_potential_float(val: object) -> float | None:
+    """Parse FHM ability/potential grades that may include scouting suffixes, e.g. ``2.5Bc``."""
+    if val is None:
+        return None
+    s = str(val).strip()
+    if not s or s.lower() == "nan":
+        return None
+    m = re.match(r"^([0-9]+(?:\.[0-9]+)?)", s)
+    if not m:
+        return None
+    try:
+        return float(m.group(1))
+    except (TypeError, ValueError):
+        return None
+
+
 def team_data_csv_path(raw_dir: Path) -> Path | None:
     """Resolve FHM team export (``team_data.csv`` or ``Team_Data.csv``)."""
     for name in ("team_data.csv", "Team_Data.csv"):
@@ -337,8 +353,8 @@ def import_ratings(raw_dir: Path, players_fhm: dict[int, int]) -> int:
         pl = db.session.get(Player, players_fhm[pid])
         if not pl:
             continue
-        pl.overall_ability = to_float(cell_val(r, "ability"))
-        pl.overall_potential = to_float(cell_val(r, "potential"))
+        pl.overall_ability = _fhm_ability_potential_float(cell_val(r, "ability"))
+        pl.overall_potential = _fhm_ability_potential_float(cell_val(r, "potential"))
         # Position from highest among G, LD, RD, ...
         pos_cols = [
             ("G", "g"),

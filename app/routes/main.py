@@ -1931,6 +1931,14 @@ def _prospect_float(val) -> float | None:
         return None
 
 
+def _player_abi_pot_value(pl: Player, ratings_row: dict | None, key: str) -> float | None:
+    db_attr = "overall_ability" if key == "ability" else "overall_potential"
+    db_val = _prospect_float(getattr(pl, db_attr, None))
+    if db_val is not None:
+        return db_val
+    return fhm_abi_pot_float(ratings_row.get(key) if ratings_row else None)
+
+
 @main_bp.get("/prospects")
 def prospects():
     team_slug = request.args.get("team")
@@ -1995,6 +2003,8 @@ def prospects():
     items: list[dict] = []
     for pl in young:
         rr = get_player_ratings_row(pl.fhm_player_id)
+        abi = _player_abi_pot_value(pl, rr, "ability")
+        pot = _player_abi_pot_value(pl, rr, "potential")
         attrs: dict[str, float | None] = {}
         attrs_display: dict[str, object | None] = {}
         if rr:
@@ -2009,6 +2019,8 @@ def prospects():
                 "attrs_display": attrs_display,
                 "age": _player_age_years(pl.birth_date, age_ref),
                 "rr": rr,
+                "abi": abi,
+                "pot": pot,
             }
         )
 
@@ -2025,15 +2037,13 @@ def prospects():
         def num_key(it: dict) -> tuple:
             pl = it["pl"]
             if sort_col == "abi":
-                raw = pl.overall_ability
-                v = _prospect_float(raw) if raw is not None else None
+                v = it.get("abi")
             elif sort_col == "pot":
-                raw = pl.overall_potential
-                v = _prospect_float(raw) if raw is not None else None
+                v = it.get("pot")
             elif sort_col == "ova":
                 ov = compute_player_overall_100(
-                    pl.overall_ability,
-                    pl.overall_potential,
+                    it.get("abi"),
+                    it.get("pot"),
                     it.get("rr"),
                     is_goalie=player_is_goalie_for_overall(pl),
                 )
@@ -2058,6 +2068,8 @@ def prospects():
                 "team": _effective_team(pl),
                 "age": it["age"],
                 "attrs": it["attrs_display"],
+                "abi": it["abi"],
+                "pot": it["pot"],
             }
         )
 
@@ -2191,6 +2203,8 @@ def undrafted_prospects():
     items: list[dict] = []
     for pl in pool:
         rr = get_player_ratings_row(pl.fhm_player_id)
+        abi = _player_abi_pot_value(pl, rr, "ability")
+        pot = _player_abi_pot_value(pl, rr, "potential")
         attrs: dict[str, float | None] = {}
         attrs_display: dict[str, object | None] = {}
         if rr:
@@ -2205,6 +2219,8 @@ def undrafted_prospects():
                 "attrs_display": attrs_display,
                 "age": _player_age_years(pl.birth_date, age_ref),
                 "rr": rr,
+                "abi": abi,
+                "pot": pot,
             }
         )
 
@@ -2213,8 +2229,8 @@ def undrafted_prospects():
 
         def rank_key(it: dict) -> tuple:
             pl = it["pl"]
-            pot = _prospect_float(pl.overall_potential)
-            abi = _prospect_float(pl.overall_ability)
+            pot = it.get("pot")
+            abi = it.get("abi")
             pot_v = pot if pot is not None else float("-inf")
             abi_v = abi if abi is not None else float("-inf")
             return (pot_v, abi_v, pl.full_name or "", pl.id)
@@ -2232,15 +2248,13 @@ def undrafted_prospects():
         def num_key(it: dict) -> tuple:
             pl = it["pl"]
             if sort_col == "abi":
-                raw = pl.overall_ability
-                v = _prospect_float(raw) if raw is not None else None
+                v = it.get("abi")
             elif sort_col == "pot":
-                raw = pl.overall_potential
-                v = _prospect_float(raw) if raw is not None else None
+                v = it.get("pot")
             elif sort_col == "ova":
                 ov = compute_player_overall_100(
-                    pl.overall_ability,
-                    pl.overall_potential,
+                    it.get("abi"),
+                    it.get("pot"),
                     it.get("rr"),
                     is_goalie=player_is_goalie_for_overall(pl),
                 )
@@ -2264,6 +2278,8 @@ def undrafted_prospects():
                 "player": pl,
                 "age": it["age"],
                 "attrs": it["attrs_display"],
+                "abi": it["abi"],
+                "pot": it["pot"],
             }
         )
 
@@ -2371,6 +2387,8 @@ def draft_eligible():
     items: list[dict] = []
     for pl in players:
         rr = get_player_ratings_row(pl.fhm_player_id)
+        abi = _player_abi_pot_value(pl, rr, "ability")
+        pot = _player_abi_pot_value(pl, rr, "potential")
         attrs: dict[str, float | None] = {}
         attrs_display: dict[str, object | None] = {}
         if rr:
@@ -2385,6 +2403,8 @@ def draft_eligible():
                 "attrs_display": attrs_display,
                 "age": age_as_of(pl.birth_date, age_ref),
                 "rr": rr,
+                "abi": abi,
+                "pot": pot,
             }
         )
 
@@ -2402,13 +2422,13 @@ def draft_eligible():
             if sort_col == "age":
                 v = it["age"]
             elif sort_col == "abi":
-                v = _prospect_float(pl.overall_ability) if pl.overall_ability is not None else None
+                v = it.get("abi")
             elif sort_col == "pot":
-                v = _prospect_float(pl.overall_potential) if pl.overall_potential is not None else None
+                v = it.get("pot")
             elif sort_col == "ova":
                 ov = compute_player_overall_100(
-                    pl.overall_ability,
-                    pl.overall_potential,
+                    it.get("abi"),
+                    it.get("pot"),
                     it.get("rr"),
                     is_goalie=player_is_goalie_for_overall(pl),
                 )
@@ -2428,6 +2448,8 @@ def draft_eligible():
             "player": it["pl"],
             "age": it["age"],
             "attrs": it["attrs_display"],
+            "abi": it["abi"],
+            "pot": it["pot"],
         }
         for i, it in enumerate(items, start=1)
     ]
@@ -2507,6 +2529,8 @@ def free_agents():
     items: list[dict[str, object]] = []
     for pl in pool:
         rr = get_player_ratings_row(pl.fhm_player_id)
+        abi = _player_abi_pot_value(pl, rr, "ability")
+        pot = _player_abi_pot_value(pl, rr, "potential")
         attrs: dict[str, float | None] = {}
         attrs_display: dict[str, object | None] = {}
         for _full, _abbr, key in active_headers:
@@ -2520,6 +2544,8 @@ def free_agents():
                 "attrs_display": attrs_display,
                 "age": _player_age_years(pl.birth_date, age_ref),
                 "rr": rr,
+                "abi": abi,
+                "pot": pot,
             }
         )
 
@@ -2528,8 +2554,8 @@ def free_agents():
 
         def rank_key(it: dict) -> tuple:
             pl = it["pl"]
-            pot = _prospect_float(pl.overall_potential)
-            abi = _prospect_float(pl.overall_ability)
+            pot = it.get("pot")
+            abi = it.get("abi")
             pot_v = pot if pot is not None else float("-inf")
             abi_v = abi if abi is not None else float("-inf")
             return (pot_v, abi_v, pl.full_name or "", pl.id)
@@ -2558,15 +2584,13 @@ def free_agents():
         def num_key(it: dict) -> tuple:
             pl = it["pl"]
             if sort_col == "abi":
-                raw = pl.overall_ability
-                v = _prospect_float(raw) if raw is not None else None
+                v = it.get("abi")
             elif sort_col == "pot":
-                raw = pl.overall_potential
-                v = _prospect_float(raw) if raw is not None else None
+                v = it.get("pot")
             elif sort_col == "ova":
                 ov = compute_player_overall_100(
-                    pl.overall_ability,
-                    pl.overall_potential,
+                    it.get("abi"),
+                    it.get("pot"),
                     it.get("rr"),
                     is_goalie=player_is_goalie_for_overall(pl),
                 )
@@ -2590,6 +2614,8 @@ def free_agents():
                 "player": pl,
                 "age": it["age"],
                 "attrs": it["attrs_display"],
+                "abi": it["abi"],
+                "pot": it["pot"],
             }
         )
 

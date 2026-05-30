@@ -97,8 +97,8 @@
               </span>
             </td>
             <td {% if fa_sort == 'age' %}class="stats-td-sorted"{% endif %}>{{ row.age if row.age is not none else '—' }}</td>
-            <td {% if fa_sort == 'abi' %}class="stats-td-sorted"{% endif %}>{{ abi_pot_pill(pl.overall_ability) }}</td>
-            <td {% if fa_sort == 'pot' %}class="stats-td-sorted"{% endif %}>{{ abi_pot_pill(pl.overall_potential) }}</td>
+            <td {% if fa_sort == 'abi' %}class="stats-td-sorted"{% endif %}>{{ abi_pot_pill(row.abi) }}</td>
+            <td {% if fa_sort == 'pot' %}class="stats-td-sorted"{% endif %}>{{ abi_pot_pill(row.pot) }}</td>
             {{ overall_cell((player_overall_by_id or {}).get(pl.id), fa_sort == 'ova') }}
             {% for _full, _abbr, key in fa_headers %}
             <td {% if fa_sort == key %}class="stats-td-sorted"{% endif %}>{{ attr_pill(row.attrs.get(key)) }}</td>

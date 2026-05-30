@@ -15,7 +15,7 @@ from sqlalchemy.orm import joinedload
 
 from app.config import Config
 from app.models import Player, PlayerGoalieStat, PlayerSkaterStat, Team, db
-from app.services.player_ratings_csv import get_player_ratings_row, player_positions_display_label
+from app.services.player_ratings_csv import fhm_abi_pot_float, get_player_ratings_row, player_positions_display_label
 from app.services.rank_snapshot_baseline import select_rank_baseline_map
 from app.services.seasons import get_current_season
 from app.site_models import ProspectLeagueRankSnapshot, ProspectSystemRankSnapshot
@@ -40,6 +40,14 @@ def _prospect_float(val: object) -> float | None:
         return float(s)
     except (TypeError, ValueError):
         return None
+
+
+def _player_abi_pot_value(pl: Player, ratings_row: dict | None, key: str) -> float | None:
+    db_attr = "overall_ability" if key == "ability" else "overall_potential"
+    db_val = _prospect_float(getattr(pl, db_attr, None))
+    if db_val is not None:
+        return db_val
+    return fhm_abi_pot_float(ratings_row.get(key) if ratings_row else None)
 
 
 def resolve_prospect_team_fallbacks(session: object, players: list[Player], season: object | None) -> dict[int, Team | None]:
@@ -192,8 +200,7 @@ def build_prospect_system_ranking_rows(
 
     def _system_pot_sort_key(it: dict) -> tuple:
         pl = it["pl"]
-        raw = pl.overall_potential
-        v = _prospect_float(raw) if raw is not None else None
+        v = _player_abi_pot_value(pl, it.get("rr"), "potential")
         if v is None:
             return (float("-inf"), (pl.full_name or "").lower(), pl.id)
         return (v, (pl.full_name or "").lower(), pl.id)
@@ -270,14 +277,20 @@ def build_prospect_pot_rank_by_player_id(
         if age is None or age > 22:
             continue
         young.append(p)
-    young.sort(
-        key=lambda pl: (
-            -(_prospect_float(pl.overall_potential) or float("-inf")),
-            -(_prospect_float(pl.overall_ability) or float("-inf")),
+    ratings_by_player_id = {pl.id: get_player_ratings_row(pl.fhm_player_id) for pl in young}
+
+    def _pot_rank_sort_key(pl: Player) -> tuple:
+        rr = ratings_by_player_id.get(pl.id)
+        pot = _player_abi_pot_value(pl, rr, "potential")
+        abi = _player_abi_pot_value(pl, rr, "ability")
+        return (
+            -(pot if pot is not None else float("-inf")),
+            -(abi if abi is not None else float("-inf")),
             (pl.full_name or "").lower(),
             pl.id,
         )
-    )
+
+    young.sort(key=_pot_rank_sort_key)
     return {pl.id: i + 1 for i, pl in enumerate(young)}
 
 

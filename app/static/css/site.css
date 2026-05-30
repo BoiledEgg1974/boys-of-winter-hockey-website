@@ -6656,8 +6656,14 @@ table.data.team-depth-table th {
   color: #4ade80;
   font-weight: 700;
 }
-.team-depth-player.is-non-roster {
+.team-depth-player.is-minor {
   color: var(--accent);
+}
+.team-depth-player.is-rights {
+  color: #f87171;
+}
+.team-depth-player.is-non-roster {
+  color: var(--muted);
 }
 .team-depth-ratings {
   display: inline-flex;

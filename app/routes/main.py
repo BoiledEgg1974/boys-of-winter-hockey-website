@@ -1689,11 +1689,16 @@ def _build_award_panels(awards: list[HistoryAward]) -> list[dict]:
 
     trophy_stem_map = _history_award_trophy_stem_map()
     by_name: dict[str, list[HistoryAward]] = defaultdict(list)
+    display_name_by_key: dict[str, str] = {}
     for a in awards:
-        key = (a.award_name or "").strip() or "Award"
+        raw_name = (a.award_name or "").strip() or "Award"
+        norm_name = _AWARD_NAME_ALIASES.get(_norm_award_title(raw_name), _norm_award_title(raw_name))
+        key = norm_name or raw_name
+        display_name_by_key.setdefault(key, raw_name)
         by_name[key].append(a)
     panels: list[dict] = []
-    for name, rows in by_name.items():
+    for key, rows in by_name.items():
+        name = display_name_by_key.get(key) or key or "Award"
         rows = _dedupe_history_awards(rows)
         rows = _collapse_same_trophy_year_history_awards(rows)
         rows_sorted = sorted(rows, key=_history_award_year_sort_key, reverse=True)
@@ -2800,6 +2805,7 @@ def _build_team_lines_views(
             if p.fhm_player_id is not None:
                 players_by_fhm[str(p.fhm_player_id)] = p
     org_players_by_id: dict[int, Player] = {p.id: p for p in roster}
+    contracted_org_player_ids: set[int] = set()
     # Include organization-owned players not on the active roster (e.g., minors/reserves)
     if team.fhm_team_id is not None:
         contracted_org_players = db.session.scalars(
@@ -2809,12 +2815,15 @@ def _build_team_lines_views(
         ).all()
         for p in contracted_org_players:
             org_players_by_id[p.id] = p
+            contracted_org_player_ids.add(int(p.id))
     # Include prospects assigned to the team, if linked to player records
     prospect_org_players = db.session.scalars(
         select(Player).join(Prospect, Prospect.player_id == Player.id).where(Prospect.team_id == team.id)
     ).all()
+    rights_org_player_ids: set[int] = set()
     for p in prospect_org_players:
         org_players_by_id[p.id] = p
+        rights_org_player_ids.add(int(p.id))
 
     allowed_org_ids = set(org_players_by_id.keys())
 
@@ -2866,9 +2875,18 @@ def _build_team_lines_views(
         # Prefer explicit lineup/depth slots from team_lines.csv for "main club".
         # Fallback to current_team_id when line data is unavailable.
         is_main = (fhm_pid in main_line_player_ids) if main_line_player_ids else (pl.current_team_id == team.id)
+        if is_main:
+            roster_status = "main"
+        elif int(pl.id) in rights_org_player_ids:
+            roster_status = "rights"
+        elif int(pl.id) in contracted_org_player_ids:
+            roster_status = "minor"
+        else:
+            roster_status = "non-roster"
         return {
             "name": pl.full_name,
             "is_main_roster": is_main,
+            "roster_status": roster_status,
             "abi": round(float(pl.overall_ability), 1) if pl.overall_ability is not None else None,
             "pot": round(float(pl.overall_potential), 1) if pl.overall_potential is not None else None,
             "pid": pl.id,

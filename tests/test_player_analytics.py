@@ -77,6 +77,18 @@ class RoleTierTests(unittest.TestCase):
         self.assertGreaterEqual(idx, 3)
         self.assertEqual(pa.SKATER_ROLE_TIERS[idx], pa.SKATER_ROLE_TIERS[min(idx, 5)])
 
+    def test_low_ovr_skater_without_usage_stays_depth(self) -> None:
+        idx = pa._skater_role_index(
+            pos_rating=20.0,
+            abi=0.5,
+            pot=1.5,
+            ovr=27,
+            toi_pg_sec=None,
+            ppg=None,
+            assignments=[],
+        )
+        self.assertEqual(pa.SKATER_ROLE_TIERS[idx], "Depth")
+
     def test_goalie_not_qualified_without_usage(self) -> None:
         idx = pa._goalie_role_index(
             pos_rating=14.0,

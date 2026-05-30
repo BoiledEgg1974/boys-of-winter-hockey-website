@@ -670,13 +670,13 @@ def _skater_role_index(
 ) -> int:
     score = 0.0
     if pos_rating is not None:
-        score += pos_rating * 2.2
+        score += pos_rating * 1.4
     if abi is not None:
-        score += abi * 4.0
+        score += abi * 7.0
     if pot is not None:
         score += pot * 1.5
     if ovr is not None:
-        score += ovr * 0.35
+        score += ovr * 0.25
     if toi_pg_sec is not None:
         mpg = toi_pg_sec / 60.0
         if mpg >= 20:
@@ -709,6 +709,14 @@ def _skater_role_index(
         idx = 2
     elif score >= 30:
         idx = 1
+    has_usage_signal = bool(assignments) or toi_pg_sec is not None or ppg is not None
+    if ovr is not None and not has_usage_signal:
+        if ovr < 35:
+            idx = min(idx, 0)
+        elif ovr < 50:
+            idx = min(idx, 1)
+        elif ovr < 65:
+            idx = min(idx, 2)
     return min(idx, len(SKATER_ROLE_TIERS) - 1)
 
 

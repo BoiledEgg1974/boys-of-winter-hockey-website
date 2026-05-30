@@ -1,4 +1,4 @@
-"""Tests for player analytics panel payload and team line parsing."""
+"""Player analytics display helpers."""
 from __future__ import annotations
 
 import tempfile
@@ -8,6 +8,20 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from app.services import player_analytics as pa
+
+
+class PlayerAnalyticsTests(unittest.TestCase):
+    def test_linked_assignment_uses_actual_defense_position(self) -> None:
+        self.assertEqual(
+            pa._linked_assignment_card_text("es_l1_lw", {"position": "D"}),
+            "D - 1st line",
+        )
+
+    def test_linked_assignment_keeps_actual_forward_position(self) -> None:
+        self.assertEqual(
+            pa._linked_assignment_card_text("pp5on4_l2_ld", {"position": "RW"}),
+            "RW - 2nd Unit",
+        )
 
 
 class AssignmentParsingTests(unittest.TestCase):

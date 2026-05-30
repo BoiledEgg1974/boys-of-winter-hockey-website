@@ -267,6 +267,41 @@ def _assignment_card_text(col: str) -> str:
     return f"{pos} - {line} {suffix}"
 
 
+def _linked_assignment_card_text(col: str, summary: dict[str, Any]) -> str:
+    """Assignment text for linked players, preferring their true roster position over the line slot."""
+    c = col.lower()
+    m = re.match(r"^(es|pp[a-z0-9]*|pk[a-z0-9]*|4on4|3on3)_l(\d+)_(\w+)$", c)
+    if not m:
+        return _assignment_card_text(col)
+    actual_pos = _display_position(summary.get("position"))
+    if not actual_pos:
+        return _assignment_card_text(col)
+    unit_raw = m.group(1)
+    line = _ordinal(m.group(2))
+    if unit_raw == "es":
+        suffix = "line"
+    elif unit_raw.startswith("pp") or unit_raw.startswith("pk"):
+        suffix = "Unit"
+    else:
+        suffix = "Group"
+    return f"{actual_pos} - {line} {suffix}"
+
+
+def _display_position(pos: object) -> str:
+    raw = str(pos or "").strip().upper()
+    if not raw:
+        return ""
+    if raw in {"LD", "RD", "D"}:
+        return "D"
+    if raw in {"LW", "C", "RW", "F"}:
+        return raw
+    if "/" in raw:
+        first = raw.split("/", 1)[0].strip()
+        if first in {"LW", "C", "RW", "D", "LD", "RD"}:
+            return "D" if first in {"LD", "RD"} else first
+    return raw[:3]
+
+
 def _assignment_label(col: str) -> str:
     c = col.lower()
     if c.startswith("goalie_"):
@@ -349,10 +384,11 @@ def _linemates_from_assignments(
             unit_key, unit_title = _assignment_unit(oc)
             summary = _resolve_player_summary(session, opid)
             chemistry = _chemistry_fit(_resolve_player_summary(session, player_fhm), summary, current=True)
+            assigned = _linked_assignment_card_text(oc, summary)
             mates.append(
                 {
                     "slot": slot_label,
-                    "assigned": _assignment_card_text(oc),
+                    "assigned": assigned,
                     "fhm_player_id": opid,
                     "player": summary["player"],
                     "name": summary["name"],
@@ -497,7 +533,7 @@ def _chemistry_candidates(
             "player": summary["player"],
             "name": summary["name"],
             "position": summary["position"],
-            "assigned": _assignment_card_text(col),
+            "assigned": _linked_assignment_card_text(col, summary),
             "unit_title": _assignment_unit(col)[1],
             "overall": summary["overall"],
             "team_player": summary["team_player"],

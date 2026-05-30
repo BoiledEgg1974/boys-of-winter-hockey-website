@@ -116,9 +116,9 @@
   {% if all_star_bundle and all_star_bundle.season_labels %}
   <div class="card history-all-stars-panel">
     <h2>All-Star Teams</h2>
-    <form class="history-all-stars__picker" method="get" action="{{ url_for('main.history') }}" aria-label="All-Star season">
+    <form class="history-all-stars__picker" method="get" action="{{ url_for('main.history') }}" aria-label="All-Star season" autocomplete="off">
       <label class="history-all-stars__picker-label" for="all-star-season-select">Season</label>
-      <select id="all-star-season-select" class="history-all-stars__select" name="all_star_season" onchange="this.form.submit()">
+      <select id="all-star-season-select" class="history-all-stars__select" name="all_star_season" onchange="this.form.submit()" autocomplete="off">
         {% for lab in all_star_bundle.season_labels %}
         <option value="{{ lab }}" {% if lab == all_star_bundle.selected %}selected{% endif %}>{{ lab }}</option>
         {% endfor %}

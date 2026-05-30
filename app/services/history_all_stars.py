@@ -336,6 +336,19 @@ def _group_start_year(rows: list[HistoryAllStar]) -> int:
     return max(ys) if ys else 0
 
 
+def _all_star_label_start_year(label: str) -> int | None:
+    token = _season_token_from_sheet_label(label)
+    if not token:
+        return None
+    match = _LABEL_START_YEAR.match(token)
+    return int(match.group(1)) if match else None
+
+
+def _all_star_label_sort_key(label: str, rows: list[HistoryAllStar]) -> tuple[int, str]:
+    year = _all_star_label_start_year(label)
+    return (year if year is not None else _group_start_year(rows), label)
+
+
 def build_history_all_stars_bundle(session: Session, selected_season: str | None) -> dict[str, Any]:
     """Season dropdown + first/second team rows for the League History page."""
     rows = list(
@@ -373,7 +386,7 @@ def build_history_all_stars_bundle(session: Session, selected_season: str | None
 
     season_labels = sorted(
         by_label.keys(),
-        key=lambda lab: (_group_start_year(by_label[lab]), lab),
+        key=lambda lab: _all_star_label_sort_key(lab, by_label[lab]),
         reverse=True,
     )
 

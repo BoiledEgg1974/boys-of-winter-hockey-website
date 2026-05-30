@@ -33,6 +33,10 @@ class ApRedemptionFormsTest(unittest.TestCase):
             catalog_item_form_key("Slow aging by 2 points"),
             "slow_aging",
         )
+        self.assertEqual(
+            catalog_item_form_key("Decrease Injury Time by 25%"),
+            "decrease_injury_time",
+        )
         self.assertTrue(
             catalog_item_has_detail_form(
                 catalog_item_form_key("Add 2 Points to Coach's Attribute")
@@ -87,6 +91,21 @@ class ApRedemptionFormsTest(unittest.TestCase):
         )
         self.assertIsNone(err)
         self.assertIn("Alex", format_details_summary(details))
+
+        injury_details, injury_err = parse_catalog_item_details(
+            "decrease_injury_time",
+            {"player_name": "Connor McDavid"},
+            session=MagicMock(),
+        )
+        self.assertIsNone(injury_err)
+        self.assertIn("Connor", format_details_summary(injury_details))
+
+        _, injury_missing_err = parse_catalog_item_details(
+            "decrease_injury_time",
+            {},
+            session=MagicMock(),
+        )
+        self.assertIn("player name", injury_missing_err or "")
 
         details2, err2 = parse_catalog_item_details(
             "reallocate_attribute",

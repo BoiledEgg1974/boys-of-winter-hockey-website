@@ -1,0 +1,72 @@
+{% set view = trade_log_card_view(row) %}
+{% set logo_a = trade_log_team_logo_url(row, row.team_a, view.team_a.team_label) if trade_log_team_logo_url is defined else '' %}
+{% set logo_b = trade_log_team_logo_url(row, row.team_b, view.team_b.team_label) if trade_log_team_logo_url is defined else '' %}
+{% set trade_ref = row.entry_id if row.entry_id else row.article_id %}
+<article class="trade-log-card trade-log-modern-card"
+         {% if can_trade_ai is defined and can_trade_ai %}data-source="{{ row.source }}" data-row-id="{{ row.article_id if row.source == 'site' else row.entry_id }}"{% endif %}>
+  <header class="trade-log-modern-card__top">
+    <span>Trade{% if trade_ref %} #{{ trade_ref }}{% endif %}</span>
+    <span>
+      {% if row.trade_date %}
+      Date: {{ row.trade_date.strftime('%B %d, %Y') }}
+      {% elif row.sort_at %}
+      Date: {{ row.sort_at.strftime('%B %d, %Y') }}
+      {% else %}
+      Date: —
+      {% endif %}
+    </span>
+  </header>
+
+  <div class="trade-log-modern-card__body">
+    <section class="trade-log-modern-card__side">
+      <h2 class="trade-log-modern-card__team-heading">
+        {% if logo_a %}<img class="trade-log-modern-card__logo" src="{{ logo_a }}" alt="">{% endif %}
+        <span>{{ view.team_a.team_label }} Trade:</span>
+      </h2>
+      {% if view.team_a.acquired %}
+      <ul class="trade-log-modern-card__assets">
+        {% for item in view.team_a.acquired %}
+        <li>{{ item | linkify_news_body }}</li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted trade-log-modern-card__empty">Future considerations</p>
+      {% endif %}
+    </section>
+
+    <section class="trade-log-modern-card__side">
+      <h2 class="trade-log-modern-card__team-heading">
+        {% if logo_b %}<img class="trade-log-modern-card__logo" src="{{ logo_b }}" alt="">{% endif %}
+        <span>{{ view.team_b.team_label }} Trade:</span>
+      </h2>
+      {% if view.team_b.acquired %}
+      <ul class="trade-log-modern-card__assets">
+        {% for item in view.team_b.acquired %}
+        <li>{{ item | linkify_news_body }}</li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted trade-log-modern-card__empty">Future considerations</p>
+      {% endif %}
+    </section>
+  </div>
+
+  {% if view.supplemental %}
+  <div class="trade-log-modern-card__note">
+    <strong>Note:</strong>
+    <span>{{ view.supplemental | linkify_news_body }}</span>
+  </div>
+  {% elif view.fallback_body %}
+  <div class="trade-log-modern-card__note trade-log-modern-card__note--body">
+    <strong>Details:</strong>
+    <span>{{ view.fallback_body | linkify_news_body }}</span>
+  </div>
+  {% endif %}
+
+  <footer class="trade-log-modern-card__footer">
+    <span class="news-category-pill">{{ trade_log_source_label(row.source) }}</span>
+    {% if can_trade_ai is defined and can_trade_ai and (row.entry_id or row.article_id) %}
+    <button type="button" class="trade-log-ai-btn trade-log-modern-card__ai-btn" data-trade-ai>AI Take</button>
+    {% endif %}
+  </footer>
+</article>

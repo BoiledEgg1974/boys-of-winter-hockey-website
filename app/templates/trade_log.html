@@ -2,23 +2,9 @@
 
 {% block title %}Trade Log — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
 
-{% macro team_label(t) -%}
-
-{% if t %}
-
-  {% if t.slug %}<a href="{{ url_for('main.team_page', slug=t.slug) }}">{{ t.full_display_name() }}</a>{% else %}{{ t.full_display_name() }}{% endif %}
-
-{% else %}
-
-  —
-
-{% endif %}
-
-{%- endmacro %}
-
 {% block content %}
 
-<div class="page trade-log-page" style="max-width:46rem;margin:0 auto;"
+<div class="page trade-log-page"
 
      {% if can_trade_ai %}id="trade-log-root" data-ai-url="{{ trade_log_ai_url }}" data-csrf="{{ trade_log_csrf }}"{% endif %}>
 
@@ -40,39 +26,7 @@
 
   {% for row in trade_rows %}
 
-  <article class="card trade-log-card" style="padding:1rem;margin-bottom:1rem;"
-
-           {% if can_trade_ai %}data-source="{{ row.source }}" data-row-id="{{ row.article_id if row.source == 'site' else row.entry_id }}"{% endif %}>
-
-    <h2 style="margin-top:0;font-size:1.1rem;">{{ row.title }}</h2>
-
-    <p class="muted trade-log-card__meta">
-
-      {% if row.trade_date %}{{ row.trade_date.strftime('%Y-%m-%d') }}{% elif row.sort_at %}{{ row.sort_at.strftime('%Y-%m-%d %H:%M') }}{% endif %}
-
-      · {{ row.team_a_label or team_label(row.team_a) }} ↔ {{ row.team_b_label or team_label(row.team_b) }}
-
-      <span class="news-category-pill">{{ trade_log_source_label(row.source) }}</span>
-
-    </p>
-
-    {% if row.body %}
-
-    <div style="white-space:pre-wrap;">{{ row.body | linkify_news_body }}</div>
-
-    {% endif %}
-
-    {% if can_trade_ai and (row.entry_id or row.article_id) %}
-
-    <p class="trade-log-card__actions">
-
-      <button type="button" class="trade-log-ai-btn admin-news-body-btn" data-trade-ai>Get AI take</button>
-
-    </p>
-
-    {% endif %}
-
-  </article>
+  {% include "_trade_log_card.html" %}
 
   {% else %}
 

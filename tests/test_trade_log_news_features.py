@@ -24,6 +24,7 @@ from app.services.trade_log import (
     TradeLogRow,
     format_recent_trades_for_prompt,
     resolve_trade_log_row,
+    trade_log_card_view,
     trade_log_rows,
     trade_log_source_label,
 )
@@ -59,6 +60,32 @@ class ManualTradeLogSummaryTest(unittest.TestCase):
 
 
 class TradeLogPromptTest(unittest.TestCase):
+    def test_card_view_turns_sends_blocks_into_acquired_columns(self) -> None:
+        row = TradeLogRow(
+            sort_at=datetime(2025, 11, 29, 10, 8, 35),
+            trade_date=date(2025, 11, 29),
+            team_a=None,
+            team_b=None,
+            title="Trade: Tampa Bay Lightning ↔ Vancouver Canucks",
+            body=(
+                "Tampa Bay Lightning sends to Vancouver Canucks:\n"
+                "  • Dmitry Mikhaltsev\n\n"
+                "Vancouver Canucks sends to Tampa Bay Lightning:\n"
+                "  • 2043 2nd Round Pick (VAN)\n"
+                "  • 2044 1st Round Pick (VAN)\n\n"
+                "Tampa Bay Retains 50%"
+            ),
+            source="site",
+            team_a_label="Tampa Bay Lightning",
+            team_b_label="Vancouver Canucks",
+        )
+
+        view = trade_log_card_view(row)
+
+        self.assertEqual(view.team_a.acquired, ("2043 2nd Round Pick (VAN)", "2044 1st Round Pick (VAN)"))
+        self.assertEqual(view.team_b.acquired, ("Dmitry Mikhaltsev",))
+        self.assertEqual(view.supplemental, "Tampa Bay Retains 50%")
+
     def test_recent_trades_prompt_includes_rows(self) -> None:
         row = TradeLogRow(
             sort_at=__import__("datetime").datetime(2024, 6, 1),

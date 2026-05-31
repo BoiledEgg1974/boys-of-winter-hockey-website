@@ -44,6 +44,20 @@ class TradeLogRow:
     log_key: str = ""
 
 
+@dataclass(frozen=True)
+class TradeLogCardSide:
+    team_label: str
+    acquired: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class TradeLogCardView:
+    team_a: TradeLogCardSide
+    team_b: TradeLogCardSide
+    supplemental: str
+    fallback_body: str
+
+
 def trade_log_source_label(source: str) -> str:
     """Human label for trade log provenance."""
     s = (source or "").strip().lower()
@@ -54,6 +68,70 @@ def trade_log_source_label(source: str) -> str:
     if s == "site":
         return "Trade Tool"
     return (source or "Unknown").strip() or "Unknown"
+
+
+def _clean_trade_asset_line(line: str) -> str:
+    text = (line or "").strip()
+    for prefix in ("•", "-", "*"):
+        if text.startswith(prefix):
+            text = text[len(prefix) :].strip()
+    return text
+
+
+def _parse_sent_block(block: str) -> tuple[str, tuple[str, ...]] | None:
+    lines = [line.rstrip() for line in (block or "").splitlines()]
+    while lines and not lines[0].strip():
+        lines.pop(0)
+    if len(lines) < 2:
+        return None
+    heading = lines[0].strip()
+    heading_lower = heading.lower()
+    if heading_lower.endswith(" sends:"):
+        label = heading[: -len(" sends:")].strip()
+    elif " sends to " in heading_lower and heading.endswith(":"):
+        marker_at = heading_lower.index(" sends to ")
+        label = heading[:marker_at].strip()
+    else:
+        return None
+    items = tuple(
+        item
+        for item in (_clean_trade_asset_line(line) for line in lines[1:])
+        if item and item.lower() != "(none)"
+    )
+    return label, items
+
+
+def trade_log_card_view(row: TradeLogRow) -> TradeLogCardView:
+    """Split trade text into FHM-style acquired columns plus optional condition banner."""
+    label_a = row.team_a_label or (row.team_a.full_display_name() if row.team_a else "Team A")
+    label_b = row.team_b_label or (row.team_b.full_display_name() if row.team_b else "Team B")
+    body = (row.body or "").strip()
+    if not body:
+        return TradeLogCardView(
+            team_a=TradeLogCardSide(label_a, ()),
+            team_b=TradeLogCardSide(label_b, ()),
+            supplemental="",
+            fallback_body="",
+        )
+
+    paragraphs = re.split(r"\n\s*\n", body)
+    left_sent = _parse_sent_block(paragraphs[0]) if len(paragraphs) >= 1 else None
+    right_sent = _parse_sent_block(paragraphs[1]) if len(paragraphs) >= 2 else None
+    if left_sent and right_sent:
+        supplemental = "\n\n".join(p.strip() for p in paragraphs[2:] if p.strip())
+        return TradeLogCardView(
+            team_a=TradeLogCardSide(left_sent[0] or label_a, right_sent[1]),
+            team_b=TradeLogCardSide(right_sent[0] or label_b, left_sent[1]),
+            supplemental=supplemental,
+            fallback_body="",
+        )
+
+    return TradeLogCardView(
+        team_a=TradeLogCardSide(label_a, ()),
+        team_b=TradeLogCardSide(label_b, ()),
+        supplemental="",
+        fallback_body=body,
+    )
 
 
 def trade_log_row_key(*, source: str, entry_id: int | None = None, article_id: int | None = None) -> str:

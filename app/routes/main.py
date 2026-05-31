@@ -7,6 +7,7 @@ import unicodedata
 from dataclasses import replace
 from datetime import date
 from pathlib import Path
+from types import SimpleNamespace
 from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, url_for
 from flask_login import current_user
 from flask_wtf.csrf import generate_csrf
@@ -665,10 +666,36 @@ def team_reports_page():
 def trade_log_page():
     """Trade Tool publications and admin-entered manual trade history."""
     from app.auth_login import active_membership_for_league, has_admin_role
-    from app.services.trade_log import trade_log_source_label
+    from app.services.season_team_logo_bundle import get_season_team_logo_bundle
+    from app.services.trade_log import trade_log_card_view, trade_log_source_label
 
     slug = str(current_app.config.get("LEAGUE_SLUG") or "")
     rows = build_trade_log_rows(db.session, db.session, league_slug=slug)
+    logo_bundle = get_season_team_logo_bundle()
+
+    def _trade_log_team_logo_url(row, team, label=""):
+        if team is None:
+            return ""
+        label_s = str(label or "").strip()
+        logo_year = int(row.trade_date.year) if row.trade_date else None
+        display_name = label_s
+        m = re.match(r"^(.+?)\s+\((\d{4})(?:-\d{4})?\)$", label_s)
+        if m:
+            display_name = m.group(1).strip()
+            logo_year = int(m.group(2))
+        if logo_year is not None:
+            proxy = SimpleNamespace(
+                team=team,
+                start_year=int(logo_year),
+                season_year=int(logo_year),
+                team_name_override=display_name,
+                team_fhm_id_csv=str(getattr(team, "fhm_team_id", "") or "").strip() or None,
+            )
+            return logo_bundle.season_team_logo_url(proxy) or logo_bundle.team_logo_url_for_season_context(
+                team, int(logo_year)
+            )
+        return logo_bundle.team_logo_url_present_franchise(team)
+
     viewer = current_user if getattr(current_user, "is_authenticated", False) else None
     mem = active_membership_for_league(viewer, slug) if viewer else None
     can_trade_ai = mem is not None or (viewer is not None and has_admin_role(viewer))
@@ -677,6 +704,8 @@ def trade_log_page():
         "trade_log.html",
         trade_rows=rows,
         trade_log_source_label=trade_log_source_label,
+        trade_log_card_view=trade_log_card_view,
+        trade_log_team_logo_url=_trade_log_team_logo_url,
         can_trade_ai=can_trade_ai,
         trade_log_ai_url=trade_log_ai_url,
         trade_log_csrf=generate_csrf() if can_trade_ai else "",
@@ -3956,11 +3985,45 @@ def team_page(slug: str):
         team_alumni = build_team_alumni_rows(db.session, team)
 
     team_trade_log: list = []
+    trade_log_card_view_fn = None
+    trade_log_team_logo_url_fn = None
+    trade_log_source_label_fn = None
     if panel == "trades":
+        from app.services.season_team_logo_bundle import get_season_team_logo_bundle
+        from app.services.trade_log import trade_log_card_view, trade_log_source_label
+
         slug = str(current_app.config.get("LEAGUE_SLUG") or "")
         team_trade_log = build_trade_log_rows(
             db.session, db.session, league_slug=slug, team_id=int(team.id), limit=80
         )
+        logo_bundle = get_season_team_logo_bundle()
+
+        def _team_page_trade_log_team_logo_url(row, trade_team, label=""):
+            if trade_team is None:
+                return ""
+            label_s = str(label or "").strip()
+            logo_year = int(row.trade_date.year) if row.trade_date else None
+            display_name = label_s
+            m = re.match(r"^(.+?)\s+\((\d{4})(?:-\d{4})?\)$", label_s)
+            if m:
+                display_name = m.group(1).strip()
+                logo_year = int(m.group(2))
+            if logo_year is not None:
+                proxy = SimpleNamespace(
+                    team=trade_team,
+                    start_year=int(logo_year),
+                    season_year=int(logo_year),
+                    team_name_override=display_name,
+                    team_fhm_id_csv=str(getattr(trade_team, "fhm_team_id", "") or "").strip() or None,
+                )
+                return logo_bundle.season_team_logo_url(proxy) or logo_bundle.team_logo_url_for_season_context(
+                    trade_team, int(logo_year)
+                )
+            return logo_bundle.team_logo_url_present_franchise(trade_team)
+
+        trade_log_card_view_fn = trade_log_card_view
+        trade_log_team_logo_url_fn = _team_page_trade_log_team_logo_url
+        trade_log_source_label_fn = trade_log_source_label
 
     raw_dir = Path(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR))
     depth_chart, lines_sections, lines_name_to_id, salary_rows, salary_total = _build_team_lines_views(
@@ -4128,6 +4191,10 @@ def team_page(slug: str):
         "team_history_records": team_history_records,
         "team_alumni_rows": team_alumni,
         "team_trade_log_rows": team_trade_log,
+        "trade_log_card_view": trade_log_card_view_fn,
+        "trade_log_team_logo_url": trade_log_team_logo_url_fn,
+        "trade_log_source_label": trade_log_source_label_fn,
+        "can_trade_ai": False,
         "team_ap_balance": compute_team_ap_balance(str(current_app.config.get("LEAGUE_SLUG") or ""), team.id),
         "team_page_news": _team_page_news_rows(team.id),
         "news_viewer_can_react": news_viewer_can_react,

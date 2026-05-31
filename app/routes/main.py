@@ -690,6 +690,23 @@ def _trade_log_identity_from_label(team, label: str, era_year: int | None):
     display_name, label_year = _trade_log_label_name_and_year(label)
     if not display_name:
         return None
+    if label_year is not None or era_year is not None:
+        year = int(label_year if label_year is not None else era_year)
+        global_stmt = select(FranchiseTeamIdentity).where(
+            FranchiseTeamIdentity.display_name == display_name,
+            FranchiseTeamIdentity.start_year <= year,
+            or_(FranchiseTeamIdentity.end_year.is_(None), FranchiseTeamIdentity.end_year >= year),
+        )
+        global_hit = db.session.scalar(
+            global_stmt.order_by(
+                FranchiseTeamIdentity.logo_file.is_(None).asc(),
+                FranchiseTeamIdentity.team_id.is_(None).asc(),
+                FranchiseTeamIdentity.start_year.desc(),
+                FranchiseTeamIdentity.id.desc(),
+            ).limit(1)
+        )
+        if global_hit is not None:
+            return global_hit
     team_clauses = [FranchiseTeamIdentity.team_id == int(team.id)]
     fhm = str(getattr(team, "fhm_team_id", "") or "").strip()
     if fhm:

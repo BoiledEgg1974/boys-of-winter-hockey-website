@@ -75,6 +75,8 @@ from app.services.staff_transactions import (
     sync_team_roster_from_fhm,
     transaction_headline,
 )
+from app.services.franchise_identities import identity_logo_url
+from app.services.season_team_logo_bundle import get_season_team_logo_bundle
 from app.services.news_categories import (
     NEWS_CATEGORY_ADMIN_SUBMISSION,
     NEWS_CATEGORY_CHOICES_ADMIN,
@@ -1607,6 +1609,15 @@ def _admin_trade_log_team_options() -> list[Team]:
 def _admin_trade_log_team_option_groups() -> tuple[list[dict[str, str]], list[dict[str, str]], list[Team]]:
     teams = _admin_trade_log_team_options()
     teams_by_fhm = {str(t.fhm_team_id or "").strip(): t for t in teams if str(t.fhm_team_id or "").strip()}
+    logo_bundle = get_season_team_logo_bundle()
+
+    def _identity_option_logo(ident: FranchiseTeamIdentity, team: Team) -> str:
+        if ident.logo_file:
+            hit = identity_logo_url(ident.logo_file)
+            if hit:
+                return hit
+        return logo_bundle.team_logo_url_for_season_context(team, int(ident.start_year))
+
     defunct_options: list[dict[str, str]] = []
     rows = db.session.scalars(
         select(FranchiseTeamIdentity)
@@ -1623,13 +1634,26 @@ def _admin_trade_log_team_option_groups() -> tuple[list[dict[str, str]], list[di
         if team is None:
             continue
         years = f"{ident.start_year}-{ident.end_year}" if ident.end_year else str(ident.start_year)
+        label = f"{ident.display_name} ({years})"
         defunct_options.append(
             {
                 "value": f"identity:{int(ident.id)}",
-                "label": f"{ident.display_name} ({years})",
+                "label": label,
+                "display_name": ident.display_name,
+                "team_id": str(int(team.id)),
+                "logo_url": _identity_option_logo(ident, team),
             }
         )
-    active_options = [{"value": f"team:{int(t.id)}", "label": t.full_display_name()} for t in teams]
+    active_options = [
+        {
+            "value": f"team:{int(t.id)}",
+            "label": t.full_display_name(),
+            "display_name": t.full_display_name(),
+            "team_id": str(int(t.id)),
+            "logo_url": logo_bundle.team_logo_url_present_franchise(t),
+        }
+        for t in teams
+    ]
     return defunct_options, active_options, teams
 
 
@@ -1650,7 +1674,9 @@ def _resolve_admin_trade_log_team_choice(raw: str | None) -> tuple[int, str] | N
             team = db.session.scalar(select(Team).where(Team.fhm_team_id == str(ident.team_fhm_id)).limit(1))
         if team is None:
             return None
-        return int(team.id), (ident.display_name or team.full_display_name()).strip()
+        years = f"{ident.start_year}-{ident.end_year}" if ident.end_year else str(ident.start_year)
+        label = f"{ident.display_name} ({years})" if ident.display_name else team.full_display_name()
+        return int(team.id), label.strip()
     if value.startswith("team:"):
         value = value.split(":", 1)[1]
     try:
@@ -1678,22 +1704,120 @@ def _manual_trade_summary_from_parts(
     return f"{a_label} sends:\n{a_body}\n\n{b_label} sends:\n{b_body}"
 
 
-def _manual_trade_summary_parts(summary: str | None) -> tuple[str, str]:
-    """Split structured manual trade summaries back into Team A / Team B fields."""
+def _manual_trade_summary_blocks(summary: str | None) -> tuple[tuple[str, str], tuple[str, str]]:
+    """Split structured manual trade summaries into stored headings and bodies."""
     text = (summary or "").strip()
     if not text:
-        return "", ""
+        return ("", ""), ("", "")
     blocks = text.split("\n\n", 1)
     if len(blocks) != 2:
-        return text, ""
+        return ("", text), ("", "")
 
-    def _body_after_heading(block: str) -> str:
+    def _heading_and_body(block: str) -> tuple[str, str]:
         lines = block.splitlines()
         if len(lines) >= 2 and lines[0].strip().lower().endswith(" sends:"):
-            return "\n".join(lines[1:]).strip()
-        return block.strip()
+            label = lines[0].strip()[: -len(" sends:")].strip()
+            return label, "\n".join(lines[1:]).strip()
+        return "", block.strip()
 
-    return _body_after_heading(blocks[0]), _body_after_heading(blocks[1])
+    return _heading_and_body(blocks[0]), _heading_and_body(blocks[1])
+
+
+def _manual_trade_summary_parts(summary: str | None) -> tuple[str, str]:
+    """Split structured manual trade summaries back into Team A / Team B fields."""
+    a_block, b_block = _manual_trade_summary_blocks(summary)
+    return a_block[1], b_block[1]
+
+
+def _manual_trade_summary_labels(summary: str | None) -> tuple[str, str]:
+    a_block, b_block = _manual_trade_summary_blocks(summary)
+    return a_block[0], b_block[0]
+
+
+def _manual_trade_identity_from_label(label: str, team: Team | None) -> FranchiseTeamIdentity | None:
+    raw = (label or "").strip()
+    if not raw:
+        return None
+    display_name = raw
+    start_year = end_year = None
+    if raw.endswith(")") and "(" in raw:
+        display_name, years_raw = raw.rsplit("(", 1)
+        display_name = display_name.strip()
+        years = years_raw[:-1].strip()
+        if "-" in years:
+            first, second = years.split("-", 1)
+            try:
+                start_year = int(first.strip())
+            except (TypeError, ValueError):
+                start_year = None
+            try:
+                end_year = int(second.strip())
+            except (TypeError, ValueError):
+                end_year = None
+        else:
+            try:
+                start_year = int(years)
+            except (TypeError, ValueError):
+                start_year = None
+    predicates = [FranchiseTeamIdentity.display_name == display_name]
+    if team is not None:
+        team_clauses = [FranchiseTeamIdentity.team_id == int(team.id)]
+        fhm = str(team.fhm_team_id or "").strip()
+        if fhm:
+            team_clauses.append(FranchiseTeamIdentity.team_fhm_id == fhm)
+        predicates.append(or_(*team_clauses))
+    if start_year is not None:
+        predicates.append(FranchiseTeamIdentity.start_year == start_year)
+    if end_year is not None:
+        predicates.append(FranchiseTeamIdentity.end_year == end_year)
+
+    return db.session.scalar(
+        select(FranchiseTeamIdentity)
+        .where(*predicates)
+        .order_by(
+            FranchiseTeamIdentity.start_year.desc(),
+            FranchiseTeamIdentity.id.desc(),
+        )
+        .limit(1)
+    )
+
+
+def _manual_trade_team_view(_entry: TradeLogEntry, team: Team | None, label: str) -> dict[str, str]:
+    display = (label or "").strip() or (team.full_display_name() if team else "Team")
+    logo_bundle = get_season_team_logo_bundle()
+    logo_url = ""
+    ident = _manual_trade_identity_from_label(display, team)
+    if ident is not None and ident.logo_file:
+        logo_url = identity_logo_url(ident.logo_file) or ""
+    if not logo_url and ident is not None and team is not None:
+        logo_url = logo_bundle.team_logo_url_for_season_context(team, int(ident.start_year))
+    if not logo_url and team is not None:
+        logo_url = logo_bundle.team_logo_url_present_franchise(team)
+    return {"label": display, "logo_url": logo_url}
+
+
+def _manual_trade_selected_value(
+    entry: TradeLogEntry,
+    side: str,
+    defunct_options: list[dict[str, str]],
+) -> str:
+    team_id = int(entry.team_a_id if side == "a" else entry.team_b_id)
+    labels = _manual_trade_summary_labels(entry.summary)
+    label = labels[0] if side == "a" else labels[1]
+    ident = _manual_trade_identity_from_label(label, db.session.get(Team, team_id))
+    if ident is not None:
+        return f"identity:{int(ident.id)}"
+    normalized = " ".join((label or "").lower().split())
+    if normalized:
+        for opt in defunct_options:
+            if opt.get("team_id") == str(team_id):
+                opt_names = {
+                    " ".join(str(opt.get("label") or "").lower().split()),
+                    " ".join(str(opt.get("display_name") or "").lower().split()),
+                }
+                if normalized in opt_names:
+                    return str(opt.get("value") or "")
+    return f"team:{team_id}"
 
 
 @site_admin_bp.route("/trade-log", methods=["GET", "POST"])
@@ -1755,6 +1879,8 @@ def admin_trade_log():
         active_team_options=active_team_options,
         teams_by_id=teams_by_id,
         manual_trade_summary_parts=_manual_trade_summary_parts,
+        manual_trade_summary_labels=_manual_trade_summary_labels,
+        manual_trade_team_view=_manual_trade_team_view,
     )
 
 
@@ -1799,6 +1925,8 @@ def admin_trade_log_edit(entry_id: int):
         defunct_team_options=defunct_team_options,
         active_team_options=active_team_options,
         summary_parts=_manual_trade_summary_parts(ent.summary),
+        selected_team_a_value=_manual_trade_selected_value(ent, "a", defunct_team_options),
+        selected_team_b_value=_manual_trade_selected_value(ent, "b", defunct_team_options),
     )
 
 

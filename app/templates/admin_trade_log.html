@@ -15,38 +15,44 @@
         <input type="date" name="trade_date">
       </label>
       <label>Team A
-        <select name="team_a_id" required>
+        <span class="manual-trade-log__team-select">
+        <select name="team_a_id" required data-logo-preview="manual-team-a-logo">
           <option value="">— Select —</option>
           {% if defunct_team_options %}
           <optgroup label="Defunct / historical teams">
             {% for opt in defunct_team_options %}
-            <option value="{{ opt.value }}">{{ opt.label }}</option>
+            <option value="{{ opt.value }}" data-logo-url="{{ opt.logo_url }}">{{ opt.label }}</option>
             {% endfor %}
           </optgroup>
           {% endif %}
           <optgroup label="Active teams">
           {% for opt in active_team_options %}
-          <option value="{{ opt.value }}">{{ opt.label }}</option>
+          <option value="{{ opt.value }}" data-logo-url="{{ opt.logo_url }}">{{ opt.label }}</option>
           {% endfor %}
           </optgroup>
         </select>
+        <span class="manual-trade-log__logo-preview" aria-hidden="true"><img id="manual-team-a-logo" alt=""></span>
+        </span>
       </label>
       <label>Team B
-        <select name="team_b_id" required>
+        <span class="manual-trade-log__team-select">
+        <select name="team_b_id" required data-logo-preview="manual-team-b-logo">
           <option value="">— Select —</option>
           {% if defunct_team_options %}
           <optgroup label="Defunct / historical teams">
             {% for opt in defunct_team_options %}
-            <option value="{{ opt.value }}">{{ opt.label }}</option>
+            <option value="{{ opt.value }}" data-logo-url="{{ opt.logo_url }}">{{ opt.label }}</option>
             {% endfor %}
           </optgroup>
           {% endif %}
           <optgroup label="Active teams">
           {% for opt in active_team_options %}
-          <option value="{{ opt.value }}">{{ opt.label }}</option>
+          <option value="{{ opt.value }}" data-logo-url="{{ opt.logo_url }}">{{ opt.label }}</option>
           {% endfor %}
           </optgroup>
         </select>
+        <span class="manual-trade-log__logo-preview" aria-hidden="true"><img id="manual-team-b-logo" alt=""></span>
+        </span>
       </label>
       <label>Leaving Team A
         <textarea name="team_a_outgoing" rows="4" maxlength="4000" required placeholder="Players/picks leaving Team A…"></textarea>
@@ -76,9 +82,24 @@
         {% set ta = teams_by_id.get(e.team_a_id) %}
         {% set tb = teams_by_id.get(e.team_b_id) %}
         {% set parts = manual_trade_summary_parts(e.summary) %}
+        {% set labels = manual_trade_summary_labels(e.summary) %}
+        {% set team_a_view = manual_trade_team_view(e, ta, labels[0]) %}
+        {% set team_b_view = manual_trade_team_view(e, tb, labels[1]) %}
         <tr>
           <td>{{ e.trade_date.strftime('%Y-%m-%d') if e.trade_date else '—' }}</td>
-          <td>{{ ta.full_display_name() if ta else e.team_a_id }} ↔ {{ tb.full_display_name() if tb else e.team_b_id }}</td>
+          <td>
+            <span class="manual-trade-log__matchup">
+              <span class="team-name-lockup">
+                {% if team_a_view.logo_url %}<img class="team-name-lockup__logo" src="{{ team_a_view.logo_url }}" alt="">{% endif %}
+                <span>{{ team_a_view.label }}</span>
+              </span>
+              <span aria-hidden="true">↔</span>
+              <span class="team-name-lockup">
+                {% if team_b_view.logo_url %}<img class="team-name-lockup__logo" src="{{ team_b_view.logo_url }}" alt="">{% endif %}
+                <span>{{ team_b_view.label }}</span>
+              </span>
+            </span>
+          </td>
           <td class="manual-trade-log__assets">{{ parts[0] | linkify_news_body }}</td>
           <td class="manual-trade-log__assets">{{ parts[1] | linkify_news_body }}</td>
           <td>
@@ -96,4 +117,20 @@
     </table>
   </div>
 </div>
+<script>
+(function () {
+  function updateLogo(select) {
+    var img = document.getElementById(select.getAttribute('data-logo-preview') || '');
+    if (!img) return;
+    var opt = select.options[select.selectedIndex];
+    var url = opt ? opt.getAttribute('data-logo-url') : '';
+    img.src = url || '';
+    img.style.display = url ? '' : 'none';
+  }
+  document.querySelectorAll('select[data-logo-preview]').forEach(function (select) {
+    select.addEventListener('change', function () { updateLogo(select); });
+    updateLogo(select);
+  });
+})();
+</script>
 {% endblock %}

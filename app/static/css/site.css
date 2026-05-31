@@ -736,6 +736,29 @@ a:hover {
   white-space: pre-wrap;
   max-width: 20rem;
 }
+.manual-trade-log__team-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.manual-trade-log__logo-preview {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+}
+.manual-trade-log__logo-preview img {
+  width: 1.45rem;
+  height: 1.45rem;
+  object-fit: contain;
+}
+.manual-trade-log__matchup {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
 .join-league-form textarea {
   resize: vertical;
 }

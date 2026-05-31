@@ -10640,6 +10640,7 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
   --pp-border: rgb(148 163 184 / 0.15);
 }
 .player-profile__hero {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: stretch;
@@ -10655,6 +10656,20 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
   );
   color: var(--pp-text-on);
   box-shadow: var(--shadow);
+}
+.player-profile__hero--hof {
+  padding-right: 10.25rem;
+}
+.player-profile__hof-corner-badge {
+  position: absolute;
+  top: 0.75rem;
+  right: 1.25rem;
+  height: calc(100% - 1.5rem);
+  width: auto;
+  max-width: min(9rem, 24vw);
+  object-fit: contain;
+  z-index: 2;
+  filter: drop-shadow(0 3px 8px rgb(0 0 0 / 0.38));
 }
 .player-profile__hero-main {
   display: flex;
@@ -10999,6 +11014,13 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
   border-color: rgb(15 23 42 / 0.12);
 }
 @media (max-width: 520px) {
+  .player-profile__hero--hof {
+    padding-right: 7rem;
+  }
+  .player-profile__hof-corner-badge {
+    height: calc(100% - 1.5rem);
+    right: 1rem;
+  }
   .player-profile__hero-strip {
     max-width: 100%;
     width: 100%;
@@ -16899,7 +16921,7 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.65rem;
+  gap: clamp(1rem, 3vw, 2.25rem);
   margin: 0 0 0.5rem;
   font-size: 1.65rem;
   font-weight: 800;
@@ -16909,7 +16931,7 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   text-shadow: 0 1px 0 rgb(0 0 0 / 0.35);
 }
 .hof-page__title-badge {
-  width: clamp(3rem, 8vw, 4.8rem);
+  width: clamp(4.8rem, 9vw, 6.5rem);
   height: auto;
   flex-shrink: 0;
   filter: drop-shadow(0 3px 8px rgb(0 0 0 / 0.35));
@@ -16966,9 +16988,9 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
 }
 .hof-plaque__badge {
   position: absolute;
-  top: 0.45rem;
-  right: 0.45rem;
-  width: 2.65rem;
+  top: 0.55rem;
+  right: 0.55rem;
+  width: 3.65rem;
   height: auto;
   z-index: 1;
   filter: drop-shadow(0 2px 5px rgb(0 0 0 / 0.4));
@@ -17002,7 +17024,7 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
 .hof-plaque__identity {
   min-width: 0;
   flex: 1;
-  padding-right: 2.85rem;
+  padding-right: 3.95rem;
 }
 .hof-plaque__name {
   font-family: Georgia, "Times New Roman", serif;

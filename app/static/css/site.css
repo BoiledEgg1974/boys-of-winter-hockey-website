@@ -10748,6 +10748,9 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
   height: auto;
   filter: drop-shadow(0 3px 8px rgb(0 0 0 / 0.32));
 }
+.player-profile__boost-badge-img--hof {
+  width: 5.25rem;
+}
 .player-profile__boost-admin {
   display: flex;
   flex-wrap: wrap;
@@ -10779,6 +10782,10 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
 .player-profile__boost-admin-btn.is-active {
   border-color: rgb(255 255 255 / 0.72);
   background: rgb(255 255 255 / 0.18);
+}
+.player-profile__boost-admin-btn--hof.is-active {
+  border-color: #d4a574;
+  background: rgb(212 165 116 / 0.22);
 }
 .player-profile__trophy-badge-img {
   display: block;

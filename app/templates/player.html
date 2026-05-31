@@ -101,9 +101,10 @@
         {% if can_manage_player_boost %}
         <form class="player-profile__boost-admin" method="post" action="{{ url_for('main.update_player_boost', player_id=player.id) }}" aria-label="Set player boost marker">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <span class="player-profile__boost-admin-label">Admin boost icon</span>
+          <span class="player-profile__boost-admin-label">Admin profile icon</span>
           <button type="submit" name="boost_tier" value="gold" class="player-profile__boost-admin-btn player-profile__boost-admin-btn--gold{% if player_boost_tier == 'gold' %} is-active{% endif %}">Gold</button>
           <button type="submit" name="boost_tier" value="silver" class="player-profile__boost-admin-btn player-profile__boost-admin-btn--silver{% if player_boost_tier == 'silver' %} is-active{% endif %}">Silver</button>
+          <button type="submit" name="boost_tier" value="hof" class="player-profile__boost-admin-btn player-profile__boost-admin-btn--hof{% if player_boost_tier == 'hof' %} is-active{% endif %}">HoF</button>
           <button type="submit" name="boost_tier" value="" class="player-profile__boost-admin-btn player-profile__boost-admin-btn--clear{% if not player_boost_tier %} is-active{% endif %}">None</button>
         </form>
         {% endif %}
@@ -115,9 +116,13 @@
     {% set _hero_strip = (_hero_abi is not none or _hero_pot is not none or (_ova and _ova.score is not none)) %}
     {% if _hero_strip %}
     <div class="player-profile__hero-ratings">
-      {% if player_boost_tier in ('gold', 'silver') %}
-      <div class="player-profile__boost-strip" aria-label="{{ player_boost_tier|title }} boost">
+      {% if player_boost_tier in ('gold', 'silver', 'hof') %}
+      <div class="player-profile__boost-strip" aria-label="{% if player_boost_tier == 'hof' %}Hall of Fame{% else %}{{ player_boost_tier|title }} boost{% endif %}">
+        {% if player_boost_tier == 'hof' %}
+        <img class="player-profile__boost-badge-img player-profile__boost-badge-img--hof" src="{{ url_for('static', filename='img/boosts/hof-badge.png') }}" alt="Hall of Fame" loading="lazy" decoding="async">
+        {% else %}
         <img class="player-profile__boost-badge-img" src="{{ url_for('static', filename='img/boosts/' ~ player_boost_tier ~ '-boost.png') }}" alt="{{ player_boost_tier|title }} boost" loading="lazy" decoding="async">
+        {% endif %}
       </div>
       {% endif %}
       <div class="player-profile__hero-strip" role="group" aria-label="Overall rating, ability, potential, and share card">

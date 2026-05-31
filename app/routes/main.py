@@ -4499,21 +4499,22 @@ def player_page(player_id: int):
 
 @main_bp.post("/player/<int:player_id>/boost")
 def update_player_boost(player_id: int):
-    """Admin-only gold/silver marker for player profile pages."""
+    """Admin-only profile marker for player profile pages."""
     if not has_admin_role(current_user, ADMIN_ROLE_SUPER, ADMIN_ROLE_LEAGUE, ADMIN_ROLE_STATS):
         abort(403)
     player = db.session.get(Player, player_id)
     if not player:
         abort(404)
     tier = (request.form.get("boost_tier") or "").strip().lower()
-    if tier not in ("", "gold", "silver"):
+    if tier not in ("", "gold", "silver", "hof"):
         abort(400)
     player.boost_tier = tier
     db.session.commit()
     if tier:
-        flash(f"{player.full_name} marked with a {tier} boost.", "ok")
+        label = "Hall of Fame" if tier == "hof" else f"{tier} boost"
+        flash(f"{player.full_name} marked with a {label}.", "ok")
     else:
-        flash(f"Boost marker removed from {player.full_name}.", "ok")
+        flash(f"Profile marker removed from {player.full_name}.", "ok")
     return redirect(url_for("main.player_page", player_id=player.id))
 
 

@@ -18,7 +18,10 @@
 {% block content %}
 <div class="hof-page card">
   <header class="hof-page__header">
-    <h1 class="hof-page__title">BOWL {{ hof_league_tail }} Hall of Fame</h1>
+    <h1 class="hof-page__title">
+      <img class="hof-page__title-badge" src="{{ url_for('static', filename='img/boosts/hof-badge.png') }}" alt="BOWL Hall of Fame" loading="lazy" decoding="async">
+      <span>BOWL {{ hof_league_tail }} Hall of Fame</span>
+    </h1>
     <p class="hof-page__lede muted">Honouring careers in BOWL-{{ hof_league_tail }}.</p>
   </header>
 
@@ -34,6 +37,7 @@
       <article class="hof-plaque">
         <div class="hof-plaque__frame">
           <div class="hof-plaque__inner">
+            <img class="hof-plaque__badge" src="{{ url_for('static', filename='img/boosts/hof-badge.png') }}" alt="BOWL Hall of Fame" loading="lazy" decoding="async">
             <div class="hof-plaque__top">
               <a class="hof-plaque__photo-link" href="{{ url_for('main.player_page', player_id=p.player.id) }}">
                 {% set hs = player_headshot_url(p.player) %}
@@ -96,6 +100,7 @@
       <article class="hof-plaque">
         <div class="hof-plaque__frame">
           <div class="hof-plaque__inner">
+            <img class="hof-plaque__badge" src="{{ url_for('static', filename='img/boosts/hof-badge.png') }}" alt="BOWL Hall of Fame" loading="lazy" decoding="async">
             <div class="hof-plaque__top">
               <a class="hof-plaque__photo-link" href="{{ url_for('main.player_page', player_id=p.player.id) }}">
                 {% set hs = player_headshot_url(p.player) %}

@@ -34,6 +34,22 @@
 
   {% endfor %}
 
+  {% if trade_log_total_pages > 1 %}
+  <nav class="headlines-pagination trade-log-pagination" aria-label="Trade log pages">
+    {% if trade_log_page > 1 %}
+    <a class="headlines-pagination__link" href="{{ url_for('main.trade_log_page', page=trade_log_page - 1) }}">← Newer</a>
+    {% else %}
+    <span class="headlines-pagination__link headlines-pagination__link--disabled" aria-hidden="true">← Newer</span>
+    {% endif %}
+    <span class="headlines-pagination__status muted">Page {{ trade_log_page }} / {{ trade_log_total_pages }}</span>
+    {% if trade_log_page < trade_log_total_pages %}
+    <a class="headlines-pagination__link" href="{{ url_for('main.trade_log_page', page=trade_log_page + 1) }}">Older →</a>
+    {% else %}
+    <span class="headlines-pagination__link headlines-pagination__link--disabled" aria-hidden="true">Older →</span>
+    {% endif %}
+  </nav>
+  {% endif %}
+
 </div>
 
 {% if can_trade_ai %}

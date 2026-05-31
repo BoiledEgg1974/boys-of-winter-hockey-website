@@ -775,12 +775,24 @@ def _trade_log_team_logo_url_for_label(row, team, label: str, logo_bundle) -> st
 @main_bp.get("/trade-log")
 def trade_log_page():
     """Trade Tool publications and admin-entered manual trade history."""
+    from math import ceil
+
     from app.auth_login import active_membership_for_league, has_admin_role
     from app.services.season_team_logo_bundle import get_season_team_logo_bundle
     from app.services.trade_log import trade_log_card_view, trade_log_source_label
 
     slug = str(current_app.config.get("LEAGUE_SLUG") or "")
-    rows = build_trade_log_rows(db.session, db.session, league_slug=slug)
+    try:
+        page = max(1, int(request.args.get("page", 1) or 1))
+    except (TypeError, ValueError):
+        page = 1
+    per_page = 10
+    all_rows = build_trade_log_rows(db.session, db.session, league_slug=slug, limit=500)
+    total = len(all_rows)
+    total_pages = max(1, ceil(total / per_page)) if total else 1
+    page = min(page, total_pages)
+    offset = (page - 1) * per_page
+    rows = all_rows[offset : offset + per_page]
     logo_bundle = get_season_team_logo_bundle()
 
     def _trade_log_team_logo_url(row, team, label=""):
@@ -799,6 +811,10 @@ def trade_log_page():
         can_trade_ai=can_trade_ai,
         trade_log_ai_url=trade_log_ai_url,
         trade_log_csrf=generate_csrf() if can_trade_ai else "",
+        trade_log_page=page,
+        trade_log_total_pages=total_pages,
+        trade_log_total=total,
+        trade_log_per_page=per_page,
     )
 
 

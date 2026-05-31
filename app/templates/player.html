@@ -40,6 +40,17 @@
 {%- endif -%}
 {%- endmacro %}
 {# Era-correct franchise label + logo for career lines (team_identity_history + team_season_records template). #}
+{% macro player_boost_badge_strip(tier) -%}
+{%- if tier in ('gold', 'silver', 'hof') -%}
+<div class="player-profile__boost-strip" aria-label="{% if tier == 'hof' %}Hall of Fame{% else %}{{ tier|title }} boost{% endif %}">
+  {%- if tier == 'hof' -%}
+  <img class="player-profile__boost-badge-img player-profile__boost-badge-img--hof" src="{{ url_for('static', filename='img/boosts/hof-badge.png') }}" alt="Hall of Fame" loading="lazy" decoding="async">
+  {%- else -%}
+  <img class="player-profile__boost-badge-img" src="{{ url_for('static', filename='img/boosts/' ~ tier ~ '-boost.png') }}" alt="{{ tier|title }} boost" loading="lazy" decoding="async">
+  {%- endif -%}
+</div>
+{%- endif -%}
+{%- endmacro %}
 {% macro career_line_team_cell(ln) -%}
 {%- if ln.team -%}
 {%- set display_name = season_team_name(ln) or team_city_nick(ln.team) -%}
@@ -65,6 +76,11 @@
 {% set tx = ac.text_color or '#f8fafc' %}
 {% set banner = p1 %}
 <div class="player-profile" style="--pp-banner: {{ banner }}; --pp-accent: {{ p1 }}; --pp-accent2: {{ p2 }}; --pp-text-on: {{ tx }};">
+  {% set player_boost_tier = (player.boost_tier or '')|lower %}
+  {% set _ova = (player_overall_by_id or {}).get(player.id) %}
+  {% set _hero_abi = hero_overall_ability if hero_overall_ability is defined else player.overall_ability %}
+  {% set _hero_pot = hero_overall_potential if hero_overall_potential is defined else player.overall_potential %}
+  {% set _hero_strip = (_hero_abi is not none or _hero_pot is not none or (_ova and _ova.score is not none)) %}
   <header class="player-profile__hero">
     <div class="player-profile__hero-main">
       {% if ac %}{{ team_logo_only(ac) }}{% endif %}
@@ -97,7 +113,9 @@
           {% endfor %}
         </div>
         {% endif %}
-        {% set player_boost_tier = (player.boost_tier or '')|lower %}
+        {% if player_boost_tier in ('gold', 'silver', 'hof') and not _hero_strip %}
+        {{ player_boost_badge_strip(player_boost_tier) }}
+        {% endif %}
         {% if can_manage_player_boost %}
         <form class="player-profile__boost-admin" method="post" action="{{ url_for('main.update_player_boost', player_id=player.id) }}" aria-label="Set player boost marker">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -110,21 +128,9 @@
         {% endif %}
       </div>
     </div>
-    {% set _ova = (player_overall_by_id or {}).get(player.id) %}
-    {% set _hero_abi = hero_overall_ability if hero_overall_ability is defined else player.overall_ability %}
-    {% set _hero_pot = hero_overall_potential if hero_overall_potential is defined else player.overall_potential %}
-    {% set _hero_strip = (_hero_abi is not none or _hero_pot is not none or (_ova and _ova.score is not none)) %}
     {% if _hero_strip %}
     <div class="player-profile__hero-ratings">
-      {% if player_boost_tier in ('gold', 'silver', 'hof') %}
-      <div class="player-profile__boost-strip" aria-label="{% if player_boost_tier == 'hof' %}Hall of Fame{% else %}{{ player_boost_tier|title }} boost{% endif %}">
-        {% if player_boost_tier == 'hof' %}
-        <img class="player-profile__boost-badge-img player-profile__boost-badge-img--hof" src="{{ url_for('static', filename='img/boosts/hof-badge.png') }}" alt="Hall of Fame" loading="lazy" decoding="async">
-        {% else %}
-        <img class="player-profile__boost-badge-img" src="{{ url_for('static', filename='img/boosts/' ~ player_boost_tier ~ '-boost.png') }}" alt="{{ player_boost_tier|title }} boost" loading="lazy" decoding="async">
-        {% endif %}
-      </div>
-      {% endif %}
+      {{ player_boost_badge_strip(player_boost_tier) }}
       <div class="player-profile__hero-strip" role="group" aria-label="Overall rating, ability, potential, and share card">
         <div class="player-profile__hero-strip-head">
           <div class="player-profile__hero-strip-ovr">

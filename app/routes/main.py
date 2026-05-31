@@ -684,6 +684,16 @@ def _trade_log_manual_era_year(row) -> int | None:
     return min(viable) if viable else None
 
 
+def _trade_log_current_league_year() -> int | None:
+    season = db.session.scalar(
+        select(Season)
+        .where(Season.start_year.is_not(None))
+        .order_by(Season.is_current.desc(), Season.start_year.desc(), Season.id.desc())
+        .limit(1)
+    )
+    return int(season.start_year) if season and season.start_year is not None else None
+
+
 def _trade_log_identity_from_label(team, label: str, era_year: int | None):
     if team is None:
         return None
@@ -737,6 +747,8 @@ def _trade_log_team_logo_url_for_label(row, team, label: str, logo_bundle) -> st
         return ""
     display_name, label_year = _trade_log_label_name_and_year(label)
     inferred_year = label_year or _trade_log_manual_era_year(row)
+    if inferred_year is None and str(getattr(row, "source", "") or "").strip().lower() == "manual":
+        inferred_year = _trade_log_current_league_year()
     ident = _trade_log_identity_from_label(team, label, inferred_year)
     if ident is not None:
         if ident.logo_file:

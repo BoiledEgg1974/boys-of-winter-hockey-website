@@ -5,15 +5,43 @@ from datetime import datetime
 from typing import Any
 
 from flask import current_app
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 
 from app.league_db import db
-from app.models import Game, Player, Team, TeamStanding
+from app.models import (
+    Game,
+    HallOfFameMember,
+    HistoryAward,
+    HistoryChampion,
+    Player,
+    PlayerGoalieStat,
+    PlayerSkaterStat,
+    Season,
+    Team,
+    TeamSeasonRecord,
+    TeamStanding,
+)
+from app.services.ap_service import team_ap_balance
+from app.services.draft_pick_ownership import describe_draft_pick_row, owned_draft_picks_for_team
 from app.services.gm_messaging import unread_count_for_user
 from app.services.gm_notifications import unread_notifications_count
 from app.services.player_ratings_csv import player_positions_display_label
 from app.services.seasons import get_current_season, season_with_imported_data_fallback
-from app.site_models import DiscordChannelRoute, User
+from app.site_models import (
+    ApLedgerEntry,
+    ApRedemptionRequest,
+    BoostLotteryTeamResult,
+    DiscordChannelRoute,
+    GmLeagueMembership,
+    NewsArticle,
+    RfaOfferRequest,
+    StaffChangeRequest,
+    TeamStaffBudget,
+    TeamStaffRosterEntry,
+    TradeMarketBuyingNeed,
+    TradeMarketListing,
+    User,
+)
 
 COMMAND_DEFINITIONS: list[dict[str, Any]] = [
     {
@@ -60,6 +88,118 @@ COMMAND_DEFINITIONS: list[dict[str, Any]] = [
         "name": "list",
         "description": "Show the top 20 remaining Draft Hub eligible players.",
     },
+    {
+        "name": "player",
+        "description": "Show a quick player lookup.",
+        "options": [
+            {
+                "name": "query",
+                "description": "Player name or site/FHM player id",
+                "type": 3,
+                "required": True,
+            }
+        ],
+    },
+    {
+        "name": "schedule",
+        "description": "Show upcoming games for the league or a team.",
+        "options": [
+            {"name": "team", "description": "Optional team name or abbreviation", "type": 3, "required": False}
+        ],
+    },
+    {
+        "name": "results",
+        "description": "Show recent final scores for the league or a team.",
+        "options": [
+            {"name": "team", "description": "Optional team name or abbreviation", "type": 3, "required": False}
+        ],
+    },
+    {
+        "name": "leaders",
+        "description": "Show top statistical leaders.",
+        "options": [
+            {
+                "name": "category",
+                "description": "Leader category",
+                "type": 3,
+                "required": True,
+                "choices": [
+                    {"name": "Points", "value": "points"},
+                    {"name": "Goals", "value": "goals"},
+                    {"name": "Assists", "value": "assists"},
+                    {"name": "Goalies", "value": "goalies"},
+                    {"name": "Rookies", "value": "rookies"},
+                ],
+            }
+        ],
+    },
+    {
+        "name": "drafteligible",
+        "description": "Show top public Draft Eligible page players.",
+        "options": [
+            {"name": "position", "description": "Optional position filter (C, LW, RW, D, G)", "type": 3, "required": False},
+            {"name": "query", "description": "Optional player name filter", "type": 3, "required": False},
+        ],
+    },
+    {
+        "name": "picks",
+        "description": "Show draft picks owned by a team.",
+        "options": [
+            {"name": "team", "description": "Team name or abbreviation", "type": 3, "required": True},
+            {"name": "year", "description": "Optional draft year", "type": 4, "required": False},
+        ],
+    },
+    {"name": "ap", "description": "Show your team's AP balance and recent ledger items."},
+    {
+        "name": "boosts",
+        "description": "Show Boost Lottery tracker totals.",
+        "options": [
+            {"name": "team", "description": "Optional team name or abbreviation", "type": 3, "required": False}
+        ],
+    },
+    {
+        "name": "tradeblock",
+        "description": "Show Trade Market selling/buying posts.",
+        "options": [
+            {"name": "team", "description": "Optional team name or abbreviation", "type": 3, "required": False}
+        ],
+    },
+    {
+        "name": "rfa",
+        "description": "Show active RFA offer requests.",
+        "options": [
+            {"name": "team", "description": "Optional offering/rights team", "type": 3, "required": False}
+        ],
+    },
+    {
+        "name": "staff",
+        "description": "Show staff roster and pending requests for a team.",
+        "options": [
+            {"name": "team", "description": "Optional team name or abbreviation", "type": 3, "required": False}
+        ],
+    },
+    {
+        "name": "news",
+        "description": "Show recent league news headlines.",
+        "options": [
+            {"name": "count", "description": "Number of headlines (1-5)", "type": 4, "required": False}
+        ],
+    },
+    {
+        "name": "history",
+        "description": "Show a player's awards/Hall of Fame history.",
+        "options": [
+            {"name": "player", "description": "Player name or id", "type": 3, "required": True}
+        ],
+    },
+    {"name": "champions", "description": "Show recent league champions."},
+    {
+        "name": "records",
+        "description": "Show team record info.",
+        "options": [
+            {"name": "team", "description": "Optional team name or abbreviation", "type": 3, "required": False}
+        ],
+    },
 ]
 
 
@@ -95,6 +235,16 @@ def _command_option(payload: dict[str, Any], name: str) -> str:
         if str(opt.get("name") or "") == name:
             return str(opt.get("value") or "").strip()
     return ""
+
+
+def _command_option_int(payload: dict[str, Any], name: str, default: int | None = None) -> int | None:
+    raw = _command_option(payload, name)
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return default
 
 
 def _site_user_for_discord(payload: dict[str, Any]) -> User | None:
@@ -150,6 +300,131 @@ def _fmt_rating(value: object) -> str:
         return f"{float(value):.1f}"
     except (TypeError, ValueError):
         return str(value)
+
+
+def _site_path(league_slug: str, path: str) -> str:
+    return f"/{league_slug}/{str(path or '').lstrip('/')}"
+
+
+def _fmt_date(value: object) -> str:
+    if value is None:
+        return "TBD"
+    if hasattr(value, "isoformat"):
+        return value.isoformat()  # type: ignore[no-any-return]
+    return str(value)
+
+
+def _team_label(team: Team | None) -> str:
+    if team is None:
+        return "Team"
+    return str(team.abbreviation or team.full_display_name() or f"Team {team.id}")
+
+
+def _resolve_team(query: str) -> Team | None:
+    q = str(query or "").strip()
+    if not q:
+        return None
+    if q.isdigit():
+        team = db.session.get(Team, int(q))
+        if team is not None:
+            return team
+    exact = db.session.scalar(select(Team).where(func.lower(Team.abbreviation) == q.lower()).limit(1))
+    if exact is not None:
+        return exact
+    return db.session.scalar(
+        select(Team)
+        .where(
+            or_(
+                Team.abbreviation.ilike(f"%{q}%"),
+                Team.name.ilike(f"%{q}%"),
+                Team.nickname.ilike(f"%{q}%"),
+            )
+        )
+        .order_by(Team.abbreviation.asc())
+        .limit(1)
+    )
+
+
+def _active_membership_for_payload(payload: dict[str, Any], league_slug: str) -> GmLeagueMembership | None:
+    user = _site_user_for_discord(payload)
+    if user is None:
+        return None
+    return db.session.scalar(
+        select(GmLeagueMembership)
+        .where(
+            GmLeagueMembership.user_id == int(user.id),
+            GmLeagueMembership.league_slug == league_slug,
+            GmLeagueMembership.status == "approved",
+        )
+        .limit(1)
+    )
+
+
+def _team_from_option_or_membership(
+    payload: dict[str, Any],
+    league_slug: str,
+    *,
+    option_name: str = "team",
+    require: bool = False,
+) -> tuple[Team | None, str | None]:
+    query = _command_option(payload, option_name)
+    if query:
+        team = _resolve_team(query)
+        if team is None:
+            return None, f"I could not find a team matching `{query}`."
+        return team, None
+    mem = _active_membership_for_payload(payload, league_slug)
+    if mem is not None:
+        team = db.session.get(Team, int(mem.team_id))
+        if team is not None:
+            return team, None
+    if require:
+        return None, "Tell me which team to use."
+    return None, None
+
+
+def _resolve_player_any(query: str) -> tuple[Player | None, str | None]:
+    q = str(query or "").strip()
+    if not q:
+        return None, "Tell me which player to look up."
+    if q.isdigit():
+        player = db.session.get(Player, int(q))
+        if player is not None:
+            return player, None
+        player = db.session.scalar(select(Player).where(Player.fhm_player_id == q).limit(1))
+        if player is not None:
+            return player, None
+    exact = list(db.session.scalars(select(Player).where(func.lower(Player.full_name) == q.lower()).limit(3)).all())
+    if len(exact) == 1:
+        return exact[0], None
+    matches = list(
+        db.session.scalars(
+            select(Player)
+            .where(Player.full_name.ilike(f"%{q}%"))
+            .order_by(Player.full_name.asc())
+            .limit(9)
+        ).all()
+    )
+    if not matches:
+        return None, f"No player matched `{q}`."
+    if len(matches) == 1:
+        return matches[0], None
+    lines = [f"Multiple players matched `{q}`. Try the full name or id:"]
+    for p in matches[:8]:
+        lines.append(f"- {p.full_name} ({player_positions_display_label(p) or '-'}) · id `{p.id}`")
+    return None, "\n".join(lines)
+
+
+def _game_line(game: Game) -> str:
+    home = db.session.get(Team, int(game.home_team_id))
+    away = db.session.get(Team, int(game.away_team_id))
+    prefix = _fmt_date(game.game_date)
+    if str(game.status or "").lower() == "final":
+        return (
+            f"{prefix}: {_team_label(away)} {game.away_score if game.away_score is not None else '-'} "
+            f"at {_team_label(home)} {game.home_score if game.home_score is not None else '-'}"
+        )
+    return f"{prefix}: {_team_label(away)} at {_team_label(home)}"
 
 
 def _eligible_remaining_players(league_slug: str) -> tuple[Any | None, list[Player]]:
@@ -249,6 +524,353 @@ def _handle_draft_pick_command(payload: dict[str, Any], league_slug: str) -> dic
     )
 
 
+def _handle_player_command(payload: dict[str, Any], league_slug: str, season: Season) -> dict[str, Any]:
+    player, err = _resolve_player_any(_command_option(payload, "query"))
+    if err:
+        return _ephemeral(err)
+    assert player is not None
+    team = db.session.get(Team, int(player.current_team_id)) if player.current_team_id else None
+    pos = player_positions_display_label(player) or str(player.position or "-")
+    lines = [
+        f"**{player.full_name}** ({pos})",
+        f"Team: {_team_label(team)} · ABI {_fmt_rating(player.overall_ability)} · POT {_fmt_rating(player.overall_potential)}",
+    ]
+    sk = db.session.scalar(
+        select(PlayerSkaterStat)
+        .where(PlayerSkaterStat.season_id == season.id, PlayerSkaterStat.player_id == player.id, PlayerSkaterStat.stat_segment == "rs")
+        .limit(1)
+    )
+    gk = db.session.scalar(
+        select(PlayerGoalieStat)
+        .where(PlayerGoalieStat.season_id == season.id, PlayerGoalieStat.player_id == player.id, PlayerGoalieStat.stat_segment == "rs")
+        .limit(1)
+    )
+    if sk:
+        lines.append(f"Stats: {sk.gp} GP, {sk.goals}-{sk.assists}-{sk.points}, {sk.pim} PIM")
+    elif gk:
+        sv = f"{float(gk.sv_pct):.3f}" if gk.sv_pct is not None else "-"
+        gaa = f"{float(gk.gaa):.2f}" if gk.gaa is not None else "-"
+        lines.append(f"Stats: {gk.gp} GP, {gk.wins}-{gk.losses}-{gk.otl}, {sv} SV%, {gaa} GAA")
+    lines.append(f"Link: {_site_path(league_slug, f'player/{player.id}')}")
+    return _ephemeral("\n".join(lines))
+
+
+def _handle_schedule_command(payload: dict[str, Any], season: Season) -> dict[str, Any]:
+    team, err = _team_from_option_or_membership(payload, str(current_app.config.get("LEAGUE_SLUG") or ""))
+    if err:
+        return _ephemeral(err)
+    conditions = [Game.season_id == season.id, Game.status != "final"]
+    if team is not None:
+        conditions.append(or_(Game.home_team_id == team.id, Game.away_team_id == team.id))
+    games = list(
+        db.session.scalars(select(Game).where(*conditions).order_by(Game.game_date.asc().nulls_last(), Game.id.asc()).limit(5)).all()
+    )
+    if not games:
+        return _ephemeral("No upcoming games found.")
+    title = f"Next games for {_team_label(team)}:" if team else "Next league games:"
+    return _ephemeral("\n".join([title, *(_game_line(g) for g in games)]))
+
+
+def _handle_results_command(payload: dict[str, Any], season: Season) -> dict[str, Any]:
+    team, err = _team_from_option_or_membership(payload, str(current_app.config.get("LEAGUE_SLUG") or ""))
+    if err:
+        return _ephemeral(err)
+    conditions = [Game.season_id == season.id, Game.status == "final"]
+    if team is not None:
+        conditions.append(or_(Game.home_team_id == team.id, Game.away_team_id == team.id))
+    games = list(
+        db.session.scalars(select(Game).where(*conditions).order_by(Game.game_date.desc().nulls_last(), Game.id.desc()).limit(5)).all()
+    )
+    if not games:
+        return _ephemeral("No final scores found.")
+    title = f"Recent results for {_team_label(team)}:" if team else "Recent league results:"
+    return _ephemeral("\n".join([title, *(_game_line(g) for g in games)]))
+
+
+def _handle_leaders_command(payload: dict[str, Any], season: Season) -> dict[str, Any]:
+    cat = (_command_option(payload, "category") or "points").lower()
+    if cat == "goalies":
+        rows = db.session.execute(
+            select(PlayerGoalieStat, Player)
+            .join(Player, PlayerGoalieStat.player_id == Player.id)
+            .where(PlayerGoalieStat.season_id == season.id, PlayerGoalieStat.stat_segment == "rs")
+            .order_by(PlayerGoalieStat.wins.desc(), PlayerGoalieStat.sv_pct.desc().nulls_last())
+            .limit(10)
+        ).all()
+        if not rows:
+            return _ephemeral("No goalie leaders found.")
+        lines = ["Goalie leaders:"]
+        for i, (st, p) in enumerate(rows, start=1):
+            sv = f"{float(st.sv_pct):.3f}" if st.sv_pct is not None else "-"
+            lines.append(f"{i}. {p.full_name}: {st.wins} W, {sv} SV%, {_fmt_rating(st.gaa)} GAA")
+        return _ephemeral("\n".join(lines))
+    attr = {"goals": PlayerSkaterStat.goals, "assists": PlayerSkaterStat.assists}.get(cat, PlayerSkaterStat.points)
+    rows = db.session.execute(
+        select(PlayerSkaterStat, Player)
+        .join(Player, PlayerSkaterStat.player_id == Player.id)
+        .where(PlayerSkaterStat.season_id == season.id, PlayerSkaterStat.stat_segment == "rs")
+        .order_by(attr.desc(), PlayerSkaterStat.points.desc())
+        .limit(10)
+    ).all()
+    if cat == "rookies":
+        rows = rows[:10]
+    if not rows:
+        return _ephemeral("No skater leaders found.")
+    label = {"goals": "Goal", "assists": "Assist", "rookies": "Rookie point"}.get(cat, "Point")
+    lines = [f"{label} leaders:"]
+    for i, (st, p) in enumerate(rows, start=1):
+        value = getattr(st, "goals" if cat == "goals" else "assists" if cat == "assists" else "points")
+        lines.append(f"{i}. {p.full_name}: {value} ({st.goals}-{st.assists}-{st.points})")
+    return _ephemeral("\n".join(lines))
+
+
+def _handle_drafteligible_command(payload: dict[str, Any], league_slug: str) -> dict[str, Any]:
+    from app.routes.main import _prospect_pos_matches
+    from app.services.draft_hub_eligibility import draft_eligible_page_params_for_league, eligible_players_ordered
+
+    season = _current_dashboard_season()
+    timeline = int(season.start_year or season.end_year or datetime.utcnow().year) if season else datetime.utcnow().year
+    params = draft_eligible_page_params_for_league(league_slug, timeline)
+    players = eligible_players_ordered(db.session, league_slug, params)
+    pos = _command_option(payload, "position")
+    q = _command_option(payload, "query").casefold()
+    if pos:
+        players = [p for p in players if _prospect_pos_matches(p.position, pos)]
+    if q:
+        players = [p for p in players if q in str(p.full_name or "").casefold()]
+    if not players:
+        return _ephemeral("No draft-eligible players matched that filter.")
+    lines = ["Top Draft Eligible players:"]
+    for i, p in enumerate(players[:15], start=1):
+        lines.append(f"{i}. {p.full_name} ({player_positions_display_label(p) or '-'}) · POT {_fmt_rating(p.overall_potential)} · id `{p.id}`")
+    return _ephemeral("\n".join(lines))
+
+
+def _handle_picks_command(payload: dict[str, Any], league_slug: str) -> dict[str, Any]:
+    team, err = _team_from_option_or_membership(payload, league_slug, require=True)
+    if err:
+        return _ephemeral(err)
+    assert team is not None
+    year = _command_option_int(payload, "year")
+    rows = owned_draft_picks_for_team(db.session, league_slug=league_slug, team_id=int(team.id))
+    if year is not None:
+        rows = [r for r in rows if int(r.draft_year) == year]
+    if not rows:
+        return _ephemeral(f"No owned draft picks found for {_team_label(team)}.")
+    lines = [f"Draft picks owned by {_team_label(team)}:"]
+    for row in rows[:20]:
+        orig = db.session.get(Team, int(row.original_team_id)) if row.original_team_id else None
+        owner = db.session.get(Team, int(row.owner_team_id)) if row.owner_team_id else None
+        lines.append(f"- {describe_draft_pick_row(row, original_team=orig, owner_team=owner)}")
+    return _ephemeral("\n".join(lines))
+
+
+def _handle_ap_command(payload: dict[str, Any], league_slug: str) -> dict[str, Any]:
+    mem = _active_membership_for_payload(payload, league_slug)
+    if mem is None:
+        return _ephemeral("I could not find your approved GM membership for this league.")
+    team = db.session.get(Team, int(mem.team_id))
+    bal = team_ap_balance(league_slug, int(mem.team_id))
+    rows = list(
+        db.session.scalars(
+            select(ApLedgerEntry)
+            .where(ApLedgerEntry.league_slug == league_slug, ApLedgerEntry.team_id == int(mem.team_id))
+            .order_by(ApLedgerEntry.created_at.desc())
+            .limit(5)
+        ).all()
+    )
+    lines = [f"{_team_label(team)} AP balance: **{bal}**"]
+    for r in rows:
+        sign = "+" if int(r.delta) >= 0 else ""
+        lines.append(f"- {sign}{r.delta} · {r.reason_code} · {_fmt_date(r.created_at.date() if r.created_at else None)}")
+    pending = db.session.scalar(
+        select(func.count()).select_from(ApRedemptionRequest).where(
+            ApRedemptionRequest.league_slug == league_slug,
+            ApRedemptionRequest.team_id == int(mem.team_id),
+            ApRedemptionRequest.status == "pending",
+        )
+    )
+    if pending:
+        lines.append(f"Pending redemptions: {int(pending)}")
+    return _ephemeral("\n".join(lines))
+
+
+def _handle_boosts_command(payload: dict[str, Any], league_slug: str) -> dict[str, Any]:
+    team, err = _team_from_option_or_membership(payload, league_slug)
+    if err:
+        return _ephemeral(err)
+    query = select(BoostLotteryTeamResult).where(BoostLotteryTeamResult.league_slug == league_slug)
+    if team is not None:
+        query = query.where(BoostLotteryTeamResult.team_id == int(team.id))
+    rows = list(db.session.scalars(query).all())
+    rows.sort(key=lambda r: (-(int(r.gold_count or 0) + int(r.silver_count or 0)), -int(r.gold_count or 0)))
+    if not rows:
+        return _ephemeral("No Boost Lottery tracker totals found yet.")
+    lines = [f"Boost Lottery totals{' for ' + _team_label(team) if team else ''}:"]
+    for r in rows[:10]:
+        tm = db.session.get(Team, int(r.team_id))
+        total = int(r.gold_count or 0) + int(r.silver_count or 0)
+        lines.append(f"- {_team_label(tm)}: {r.gold_count} gold, {r.silver_count} silver ({total} total)")
+    return _ephemeral("\n".join(lines))
+
+
+def _handle_tradeblock_command(payload: dict[str, Any], league_slug: str) -> dict[str, Any]:
+    team, err = _team_from_option_or_membership(payload, league_slug)
+    if err:
+        return _ephemeral(err)
+    listing_query = select(TradeMarketListing).where(TradeMarketListing.league_slug == league_slug, TradeMarketListing.status == "active")
+    buying_query = select(TradeMarketBuyingNeed).where(TradeMarketBuyingNeed.league_slug == league_slug, TradeMarketBuyingNeed.status == "active")
+    if team is not None:
+        listing_query = listing_query.where(TradeMarketListing.team_id == int(team.id))
+        buying_query = buying_query.where(TradeMarketBuyingNeed.team_id == int(team.id))
+    listings = list(db.session.scalars(listing_query.order_by(TradeMarketListing.updated_at.desc()).limit(5)).all())
+    needs = list(db.session.scalars(buying_query.order_by(TradeMarketBuyingNeed.updated_at.desc()).limit(5)).all())
+    if not listings and not needs:
+        return _ephemeral("No active Trade Market posts found.")
+    lines = [f"Trade Market{' for ' + _team_label(team) if team else ''}:"]
+    for row in listings:
+        tm = db.session.get(Team, int(row.team_id))
+        lines.append(f"- Selling {_team_label(tm)}: {row.asset_type} {row.asset_ref} · ask: {row.asking_price or '-'}")
+    for row in needs:
+        tm = db.session.get(Team, int(row.team_id))
+        lines.append(f"- Buying {_team_label(tm)}: {row.category} · {row.note or '-'}")
+    return _ephemeral("\n".join(lines))
+
+
+def _handle_rfa_command(payload: dict[str, Any], league_slug: str) -> dict[str, Any]:
+    team, err = _team_from_option_or_membership(payload, league_slug)
+    if err:
+        return _ephemeral(err)
+    query = select(RfaOfferRequest).where(RfaOfferRequest.league_slug == league_slug)
+    if team is not None:
+        query = query.where(or_(RfaOfferRequest.offering_team_id == int(team.id), RfaOfferRequest.rights_team_id == int(team.id)))
+    rows = list(db.session.scalars(query.order_by(RfaOfferRequest.created_at.desc()).limit(10)).all())
+    if not rows:
+        return _ephemeral("No RFA offers found.")
+    lines = [f"RFA offers{' for ' + _team_label(team) if team else ''}:"]
+    for r in rows[:8]:
+        pl = db.session.get(Player, int(r.player_id))
+        off = db.session.get(Team, int(r.offering_team_id))
+        rights = db.session.get(Team, int(r.rights_team_id))
+        lines.append(f"- {pl.full_name if pl else 'Player'}: {_team_label(off)} offer, rights {_team_label(rights)} · {r.status} · ${int(r.offer_salary):,} x {r.offer_years}")
+    return _ephemeral("\n".join(lines))
+
+
+def _handle_staff_command(payload: dict[str, Any], league_slug: str) -> dict[str, Any]:
+    team, err = _team_from_option_or_membership(payload, league_slug, require=True)
+    if err:
+        return _ephemeral(err)
+    assert team is not None
+    season = _current_dashboard_season()
+    start_year = int(season.start_year or season.end_year or 0) if season else 0
+    roster = list(
+        db.session.scalars(
+            select(TeamStaffRosterEntry)
+            .where(TeamStaffRosterEntry.league_slug == league_slug, TeamStaffRosterEntry.team_id == int(team.id), TeamStaffRosterEntry.fired_at.is_(None))
+            .order_by(TeamStaffRosterEntry.role.asc(), TeamStaffRosterEntry.staff_name.asc())
+            .limit(8)
+        ).all()
+    )
+    budget = db.session.scalar(
+        select(TeamStaffBudget).where(TeamStaffBudget.league_slug == league_slug, TeamStaffBudget.team_id == int(team.id), TeamStaffBudget.season_start_year == start_year).limit(1)
+    ) if start_year else None
+    pending = list(
+        db.session.scalars(
+            select(StaffChangeRequest)
+            .where(StaffChangeRequest.league_slug == league_slug, StaffChangeRequest.team_id == int(team.id), StaffChangeRequest.status == "pending")
+            .order_by(StaffChangeRequest.created_at.desc())
+            .limit(5)
+        ).all()
+    )
+    lines = [f"Staff for {_team_label(team)}:"]
+    if budget:
+        lines.append(f"Budget: ${int(budget.budget_amount):,}")
+    lines.extend([f"- {r.role}: {r.staff_name}" for r in roster] or ["- No approved staff roster entries found."])
+    if pending:
+        lines.append("Pending requests:")
+        lines.extend(f"- {r.request_type} {r.staff_name} ({r.role or '-'})" for r in pending)
+    return _ephemeral("\n".join(lines))
+
+
+def _handle_news_command(payload: dict[str, Any], league_slug: str) -> dict[str, Any]:
+    count = max(1, min(5, _command_option_int(payload, "count", 3) or 3))
+    rows = list(
+        db.session.scalars(
+            select(NewsArticle)
+            .where(NewsArticle.league_slug == league_slug, NewsArticle.status == "published")
+            .order_by(NewsArticle.published_at.desc().nulls_last(), NewsArticle.created_at.desc())
+            .limit(count)
+        ).all()
+    )
+    if not rows:
+        return _ephemeral("No published news found.")
+    lines = ["Latest news:"]
+    for r in rows:
+        lines.append(f"- {r.title} · {_fmt_date(r.published_at.date() if r.published_at else r.created_at.date())} · {_site_path(league_slug, 'headlines')}")
+    return _ephemeral("\n".join(lines))
+
+
+def _handle_history_command(payload: dict[str, Any], league_slug: str) -> dict[str, Any]:
+    player, err = _resolve_player_any(_command_option(payload, "player"))
+    if err:
+        return _ephemeral(err)
+    assert player is not None
+    hof = db.session.scalar(select(HallOfFameMember).where(HallOfFameMember.player_id == int(player.id)).limit(1))
+    awards = list(
+        db.session.execute(
+            select(HistoryAward, Season)
+            .join(Season, HistoryAward.season_id == Season.id)
+            .where(HistoryAward.player_id == int(player.id))
+            .order_by(Season.start_year.desc().nulls_last())
+            .limit(8)
+        ).all()
+    )
+    lines = [f"History for **{player.full_name}**:"]
+    if hof:
+        lines.append(f"Hall of Fame: inducted {hof.inducted_year}")
+    if awards:
+        for award, season in awards:
+            lines.append(f"- {season.label}: {award.award_name}")
+    if len(lines) == 1:
+        lines.append("No awards or Hall of Fame entry found.")
+    lines.append(f"Link: {_site_path(league_slug, f'player/{player.id}')}")
+    return _ephemeral("\n".join(lines))
+
+
+def _handle_champions_command() -> dict[str, Any]:
+    rows = list(
+        db.session.execute(
+            select(HistoryChampion, Season, Team)
+            .join(Season, HistoryChampion.season_id == Season.id)
+            .join(Team, HistoryChampion.team_id == Team.id)
+            .order_by(Season.start_year.desc().nulls_last(), HistoryChampion.id.desc())
+            .limit(8)
+        ).all()
+    )
+    if not rows:
+        return _ephemeral("No champion history found.")
+    lines = ["Recent champions:"]
+    for champ, season, team in rows:
+        trophy = f" ({champ.trophy})" if champ.trophy else ""
+        lines.append(f"- {season.label}: {team.full_display_name()}{trophy}")
+    return _ephemeral("\n".join(lines))
+
+
+def _handle_records_command(payload: dict[str, Any], season: Season) -> dict[str, Any]:
+    team, err = _team_from_option_or_membership(payload, str(current_app.config.get("LEAGUE_SLUG") or ""))
+    if err:
+        return _ephemeral(err)
+    if team is not None:
+        st = db.session.scalar(select(TeamStanding).where(TeamStanding.season_id == season.id, TeamStanding.team_id == int(team.id)).limit(1))
+        if st is None:
+            return _ephemeral(f"No current standings record found for {_team_label(team)}.")
+        return _ephemeral(f"{team.full_display_name()}: {st.w}-{st.l}-{st.otl}, {st.pts} pts, GF/GA {st.gf}/{st.ga}, streak {st.streak or '-'}.")
+    rec = db.session.scalar(select(TeamSeasonRecord).where(TeamSeasonRecord.pts.isnot(None)).order_by(TeamSeasonRecord.pts.desc()).limit(1))
+    if rec is None:
+        return _ephemeral("No team record data found.")
+    return _ephemeral(f"Top season record: {rec.team_name_override or 'Team'} {rec.season_year_label}: {rec.w}-{rec.l}-{rec.t_otl}, {rec.pts} pts.")
+
+
 def handle_slash_interaction(
     payload: dict[str, Any],
     *,
@@ -278,10 +900,41 @@ def handle_slash_interaction(
         if unread:
             return _ephemeral(f"You have {unread} unread GM Messages / site notification(s): /{slug}/gm/messages")
         return _ephemeral("You are all caught up. No unread GM Messages right now.")
+    if command == "drafteligible":
+        return _handle_drafteligible_command(payload, slug)
+    if command == "picks":
+        return _handle_picks_command(payload, slug)
+    if command == "ap":
+        return _handle_ap_command(payload, slug)
+    if command == "boosts":
+        return _handle_boosts_command(payload, slug)
+    if command == "tradeblock":
+        return _handle_tradeblock_command(payload, slug)
+    if command == "rfa":
+        return _handle_rfa_command(payload, slug)
+    if command == "staff":
+        return _handle_staff_command(payload, slug)
+    if command == "news":
+        return _handle_news_command(payload, slug)
+    if command == "history":
+        return _handle_history_command(payload, slug)
+    if command == "champions":
+        return _handle_champions_command()
 
     season = _current_dashboard_season()
     if season is None:
         return _ephemeral("No imported season data is available yet.")
+
+    if command == "player":
+        return _handle_player_command(payload, slug, season)
+    if command == "schedule":
+        return _handle_schedule_command(payload, season)
+    if command == "results":
+        return _handle_results_command(payload, season)
+    if command == "leaders":
+        return _handle_leaders_command(payload, season)
+    if command == "records":
+        return _handle_records_command(payload, season)
 
     if command == "standings":
         rows = db.session.execute(

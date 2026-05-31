@@ -52,7 +52,7 @@
           <select id="ps-odds-team" class="home-postseason-odds__select"></select>
         </div>
         <div id="home-postseason-odds" class="home-postseason-odds__body" aria-live="polite">
-          <p class="empty-state">Loading…</p>
+          <p class="empty-state loading-with-puck">Loading…</p>
         </div>
       </section>
       <section class="card home-dashboard__card" aria-labelledby="gotn-h" data-module-key="game_of_the_night">
@@ -119,7 +119,7 @@
       <section class="card home-dashboard__card" aria-labelledby="special-teams-h" data-module-key="special_teams_snapshot">
         <h2 id="special-teams-h">Special Teams Snapshot</h2>
         <div id="home-special-teams" class="table-wrap">
-          <p class="empty-state">Loading…</p>
+          <p class="empty-state loading-with-puck">Loading…</p>
         </div>
       </section>
     </aside>
@@ -144,14 +144,14 @@
           <button type="button" data-tab="goalie_shutouts" role="tab" aria-selected="false">G Sho</button>
         </div>
         <div id="home-leaders" class="table-wrap">
-          <p class="empty-state">Loading…</p>
+          <p class="empty-state loading-with-puck">Loading…</p>
         </div>
         <a class="link-more" href="{{ url_for('main.statistics') }}">View full statistics</a>
       </section>
       <section id="dash-rookies" class="card home-dashboard__card" aria-labelledby="rookies-h" data-module-key="top_rookies">
         <h2 id="rookies-h">Top Rookies</h2>
         <div id="home-rookies" class="table-wrap">
-          <p class="empty-state">Loading…</p>
+          <p class="empty-state loading-with-puck">Loading…</p>
         </div>
       </section>
       <section id="dash-momentum" class="card home-dashboard__card" aria-labelledby="momentum-h" data-module-key="player_momentum">
@@ -173,7 +173,7 @@
       <section id="home-spotlight-card" class="card home-dashboard__card" aria-labelledby="spotlight-h" data-module-key="league_spotlight">
         <h2 id="spotlight-h">League Spotlight</h2>
         <div id="home-spotlight" class="table-wrap">
-          <p class="empty-state">Loading…</p>
+          <p class="empty-state loading-with-puck">Loading…</p>
         </div>
       </section>
     </div>
@@ -1103,7 +1103,7 @@
   function loadAroundTheLeague() {
     var el = document.getElementById('home-news');
     if (!el) return;
-    el.innerHTML = '<p class="empty-state">Loading headlines…</p>';
+    el.innerHTML = '<p class="empty-state loading-with-puck">Loading headlines…</p>';
     fetch(withRoot('/api/homepage/around-the-league'), {
       credentials: 'same-origin',
       headers: { Accept: 'application/json' },
@@ -1828,7 +1828,7 @@
   function loadPostseasonOdds() {
     var panel = document.getElementById('home-postseason-odds');
     if (panel) {
-      panel.innerHTML = '<p class="empty-state">Loading…</p>';
+      panel.innerHTML = '<p class="empty-state loading-with-puck">Loading…</p>';
     }
     fetch(withRoot('/api/homepage/postseason-odds'))
       .then(function (r) {
@@ -1993,7 +1993,7 @@
   function loadLeaders() {
     var mySeg = seg;
     if (elLeaders) {
-      elLeaders.innerHTML = '<p class="empty-state">Loading…</p>';
+      elLeaders.innerHTML = '<p class="empty-state loading-with-puck">Loading…</p>';
     }
     paintSegPicks();
     fetch(withRoot('/api/homepage/leaders?segment=' + encodeURIComponent(mySeg)))

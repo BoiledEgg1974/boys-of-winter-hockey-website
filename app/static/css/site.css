@@ -17767,3 +17767,47 @@ button.bowl-six-submissions__toggle:hover {
   margin: 0.65rem 0 0;
   font-size: 0.86rem;
 }
+
+/* Shared loading cue: spinning hockey puck */
+.loading-with-puck,
+.playoff-bracket-dialog__loading,
+.boxscore-loading,
+.ai-trade-tool-bubble__loading,
+.bowl-six-submissions__loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+.loading-with-puck::before,
+.playoff-bracket-dialog__loading::before,
+.boxscore-loading::before,
+.ai-trade-tool-bubble__loading::before,
+.bowl-six-submissions__loading::before {
+  content: "";
+  width: 1.05rem;
+  height: 1.05rem;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  border: 2px solid rgb(226 232 240 / 0.72);
+  border-top-color: rgb(34 211 238 / 0.95);
+  border-bottom-color: rgb(15 23 42 / 0.95);
+  background:
+    radial-gradient(circle at 50% 50%, rgb(15 23 42) 0 35%, transparent 36%),
+    linear-gradient(90deg, rgb(15 23 42) 0 44%, rgb(71 85 105) 45% 55%, rgb(15 23 42) 56% 100%);
+  box-shadow: 0 0 0 1px rgb(34 211 238 / 0.18), 0 0 10px rgb(34 211 238 / 0.2);
+  animation: puck-spin 0.8s linear infinite;
+}
+@keyframes puck-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loading-with-puck::before,
+  .playoff-bracket-dialog__loading::before,
+  .boxscore-loading::before,
+  .ai-trade-tool-bubble__loading::before,
+  .bowl-six-submissions__loading::before {
+    animation-duration: 1.8s;
+  }
+}

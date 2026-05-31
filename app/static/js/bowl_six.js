@@ -542,7 +542,7 @@
     }
     if (poolBody) {
       poolBody.innerHTML =
-        '<tr><td colspan="9" class="muted">Loading…</td></tr>';
+        '<tr><td colspan="9" class="muted"><span class="loading-with-puck">Loading…</span></td></tr>';
     }
     fetch(url, { credentials: "same-origin" })
       .then(function (r) {

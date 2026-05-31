@@ -199,7 +199,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 4054;120;120;Michel;Harvey;;71;183;1938-1-31;Alma;QC;Canada;;;0;Left;0
 4728;5;5;Bill;Collins;;73;181;1943-7-13;Ottawa;ON;Canada;;;0;Right;1
 5234;90;90;Bob;Cook;Cookie;72;190;1946-1-6;Sudbury;ON;Canada;;;0;Right;0
-5053;24;5;Wayne;Cashman;Cash;73;209;1945-6-24;Kingston;ON;Canada;;;0;Right;0
+5053;5;5;Wayne;Cashman;Cash;73;209;1945-6-24;Kingston;ON;Canada;;;0;Right;0
 3548;90;90;Murray;Costello;Muzz;75;190;1934-2-24;Timmins;ON;Canada;;;0;Right;0
 4475;3;3;Rod;Gilbert;;69;180;1941-7-1;Murdochville;QC;Canada;;;0;Right;0
 6574;84;84;Bill;Barber;Swannie;72;195;1952-7-11;Callander;ON;Canada;;;0;Left;1
@@ -212,7 +212,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 3044;90;90;Bart;Bradley;;68;150;1930-7-29;Thunder Bay;ON;Canada;;;0;Left;0
 6577;85;85;Yves;Belanger;Toots;71;170;1952-9-30;Baie-Saint-Paul;QC;Canada;;;0;Left;1
 5853;83;83;Milt;Black;;72;190;1949-6-20;Oakbank;MB;Canada;;;0;Right;0
-4476;24;5;Andre;Gill;Cannon;67;150;1941-9-19;Châteauguay;QC;Canada;;;0;Left;0
+4476;5;5;Andre;Gill;Cannon;67;150;1941-9-19;Châteauguay;QC;Canada;;;0;Left;0
 5054;90;90;Jack;Chipchase;;71;205;1945-4-5;Seaforth;ON;Canada;;;0;Left;0
 3858;90;90;Charlie;Burns;;71;170;1936-2-14;Detroit;MI;Canada;The United States;;0;Left;0
 6099;83;83;Brian;Carlin;;70;175;1950-6-13;Camrose;AB;Canada;;;0;Left;0
@@ -804,7 +804,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 5256;118;118;Joe;Junkin;;71;181;1946-9-8;Lindsay;ON;Canada;;;0;Left;1
 6126;85;85;Hilliard;Graves;;71;175;1950-10-18;St. Stephen;NB;Canada;;;0;Right;0
 5897;83;83;Bill;Hogaboam;Hogi;71;170;1949-9-5;Watrous;SK;Canada;;;0;Right;0
-5670;83;83;Murray;Heatley;;68;185;1948-11-7;Camrose;AB;Canada;;;0;Right;0
+5670;123;123;Murray;Heatley;;68;185;1948-11-7;Camrose;AB;Canada;;;0;Right;1
 5444;8;8;Jim;Lorentz;Batman;72;190;1947-5-1;Waterloo;ON;Canada;;;0;Left;1
 4762;5;5;Glen;Sather;Slats;71;180;1943-9-2;Irricana;AB;Canada;;;0;Left;0
 4634;60;60;Pentti;Hyytiäinen;;69;172;1941-9-20;Kemi;LAP;Finland;Austria;;0;Left;0
@@ -1291,7 +1291,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 4528;61;61;Yuri;Moiseyev;;67;161;1940-7-15;Penza;PEN;Russia;;;0;Left;0
 4651;61;61;Viktor;Zinger;;68;154;1941-10-29;Ryazan;RYA;Russia;;;0;Left;0
 4213;58;58;Horst;Heinze;;69;172;1938-11-28;Ilmenau;THU;Germany;;;0;Left;0
-4773;24;5;John;Gofton;;70;174;1943-11-27;Woodstock;ON;Canada;;;0;Left;0
+4773;5;5;John;Gofton;;70;174;1943-11-27;Woodstock;ON;Canada;;;0;Left;1
 4402;90;90;Marshall;Tschida;;69;172;1939-6-23;Vadnais Heights;MN;The United States;;;0;Left;0
 4014;90;90;John;Thomas;;69;172;1936-3-11;Melbourne;VIC;Australia;;;0;Left;0
 4214;75;75;Jozef;Goralczyk;;69;172;1938-11-3;Grodzisk Wielkopolski;WIE;Poland;;;0;Left;0
@@ -1589,7 +1589,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 5935;89;89;Wally;Olds;;74;203;1949-8-17;Belle Plaine;KS;The United States;;;0;Right;0
 5704;119;119;Gene;Peacosh;;71;180;1948-9-28;Nesbitt;MB;Canada;;;0;Left;1
 5936;83;83;Rusty;Patenaude;;69;175;1949-10-17;Surrey;BC;Canada;;;0;Right;0
-5705;24;5;Gerry;Pinder;Mouse;68;165;1948-9-15;Swift Current;SK;Canada;;;0;Right;1
+5705;5;5;Gerry;Pinder;Mouse;68;165;1948-9-15;Swift Current;SK;Canada;;;0;Right;1
 4990;90;90;Michihiro;Sato;;66;150;1943-11-18;Kagoshima;KAG;Japan;;;0;Left;0
 5290;128;121;Bob;Sicinski;;71;175;1946-11-13;Toronto;ON;Canada;;;0;Left;0
 5130;90;90;Doug;Woog;;67;170;1944-1-28;Winnebago;MN;The United States;;;0;Left;0
@@ -2356,7 +2356,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 6217;83;83;Doug;Moyes;;70;185;1950-2-25;Coquitlam;BC;Canada;;;0;Left;0
 6707;85;85;Denis;Deslauriers;;73;201;1952-5-29;Saint-Félicien;QC;Canada;;;0;Left;1
 3818;72;72;Mika;Tønnessen;;68;169;1933-7-19;Stavanger;ROG;Norway;;;0;Left;0
-5726;84;84;Rick;Smith;;71;201;1948-6-29;Hamilton;ON;Canada;;;0;Left;0
+5726;119;119;Rick;Smith;;71;201;1948-6-29;Hamilton;ON;Canada;;;0;Left;1
 5509;24;5;Bob;Birdsell;;72;185;1947-12-10;Strathmore;AB;Canada;;;0;Right;1
 3821;72;72;Sindre;Berger;;71;206;1933-3-29;Bærum;AKE;Norway;;;0;Left;0
 6218;83;83;Murray;McNeil;;70;190;1950-11-12;Rosthem;SK;Canada;;;0;Left;0

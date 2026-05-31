@@ -2267,7 +2267,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 2265;-1;Kelly;Miller;;1963-3-3;Laurel Hollow;NY;The United States;;;0
 2266;-1;Robert;Mancini;;1958-3-16;Seneca Falls;NY;The United States;;;0
 2267;-1;Hannu;Laine;;1965-1-1;Helsinki;UUS;Finland;;;0
-2268;-1;Shane;Churla;;1965-6-24;Gold River;BC;Canada;;;0
+2268;9;Shane;Churla;;1965-6-24;Gold River;BC;Canada;;;0
 2269;20;Charles;Wang;;1944-8-19;Shanghai;SHA;The United States;China;;0
 2270;-1;Blair;Reid;;1965-1-1;Hamilton;ON;Canada;;;0
 2271;-1;Dan;Stuchal;;1965-1-1;Villa Rica;GA;The United States;;;0

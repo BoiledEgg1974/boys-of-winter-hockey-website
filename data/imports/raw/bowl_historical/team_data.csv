@@ -38,7 +38,7 @@ TeamId;LeagueId;Name;Nickname;Abbr;Parent Team 1;Parent Team 2;Parent Team 3;Par
 82;5;Yugoslavia;;YUG;-1;-1;-1;-1;-1;-1;-1;-1;#101073;#c62100;#fefef4;-1;-1
 83;6;WCHL;;WCHL;-1;-1;-1;-1;-1;-1;-1;-1;#fa4616;#000000;#fefef4;-1;-1
 84;6;OHA;;OHA;-1;-1;-1;-1;-1;-1;-1;-1;#000084;#000084;#fefef4;-1;-1
-85;6;QJAHL;;QJAHL;-1;-1;-1;-1;-1;-1;-1;-1;#0065bd;#d52b1e;#fefef4;-1;-1
+85;6;QMJHL;;QMJHL;-1;-1;-1;-1;-1;-1;-1;-1;#0065bd;#d52b1e;#fefef4;-1;-1
 86;6;Canadian Junior;;CJr;-1;-1;-1;-1;-1;-1;-1;-1;#2c5234;#f2c711;#fefef4;-1;-1
 87;6;High School;;HIG;-1;-1;-1;-1;-1;-1;-1;-1;#c60c30;#002147;#fefef4;-1;-1
 88;7;Canadian University;;CIAU;-1;-1;-1;-1;-1;-1;-1;-1;#c8102e;#c8102e;#fefef4;-1;-1
@@ -58,7 +58,7 @@ TeamId;LeagueId;Name;Nickname;Abbr;Parent Team 1;Parent Team 2;Parent Team 3;Par
 123;0;St. Louis;Blues;STL;-1;-1;-1;-1;-1;-1;-1;-1;#003087;#003087;#fedb00;-1;1
 124;3;Independent;Team;Ind;123;-1;-1;-1;-1;-1;-1;-1;#3052b4;#fefef4;#f9b300;-1;0
 125;3;Independent;Team;Ind;118;-1;-1;-1;-1;-1;-1;-1;#000000;#000000;#fefef4;-1;0
-126;3;Independent;Team;Ind;119;-1;-1;-1;-1;-1;-1;-1;#3d924e;#3d924e;#fefef4;-1;0
+126;3;Independent;Team;Ind;119;-1;-1;-1;-1;-1;-1;-1;#246930;#dcd214;#fefef4;-1;0
 127;3;Independent;Team;Ind;120;-1;-1;-1;-1;-1;-1;-1;#006200;#006200;#ffc620;-1;2
 128;3;Independent;Team;Ind;121;-1;-1;-1;-1;-1;-1;-1;#000000;#000000;#fefef4;-1;0
 129;3;Independent;Team;Ind;122;-1;-1;-1;-1;-1;-1;-1;#000000;#000000;#fefef4;-1;0

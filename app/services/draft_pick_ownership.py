@@ -2,14 +2,17 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import delete, select
+from sqlalchemy import and_, delete, select
 from sqlalchemy.orm import Session
 
-from app.models import Team
-from app.site_models import TradeMarketDraftPickOwnership
+from app.models import Season, Team
+from app.services.roster_team import is_main_league_team
+from app.services.seasons import season_with_imported_data_fallback
+from app.site_models import DraftPickOwnershipYear, LeagueDraft, TradeMarketDraftPickOwnership
 from scripts.import_pipeline.encoding_utils import cell_val, read_csv_normalized, to_int
 
 DRAFT_PICK_DRAG_PREFIX = "dpick"
@@ -145,9 +148,18 @@ def owned_draft_picks_for_team(
     return list(
         site_session.scalars(
             select(TradeMarketDraftPickOwnership)
+            .join(
+                DraftPickOwnershipYear,
+                and_(
+                    DraftPickOwnershipYear.league_slug == TradeMarketDraftPickOwnership.league_slug,
+                    DraftPickOwnershipYear.draft_year == TradeMarketDraftPickOwnership.draft_year,
+                    DraftPickOwnershipYear.status != "completed",
+                ),
+            )
             .where(
                 TradeMarketDraftPickOwnership.league_slug == slug,
                 TradeMarketDraftPickOwnership.owner_team_id == int(team_id),
+                TradeMarketDraftPickOwnership.round <= DraftPickOwnershipYear.round_count,
             )
             .order_by(
                 TradeMarketDraftPickOwnership.draft_year.asc(),
@@ -159,12 +171,20 @@ def owned_draft_picks_for_team(
 
 
 def draft_pick_ownership_exists(site_session: Session, *, league_slug: str) -> bool:
-    """Return True once draft_pick_ownership.csv has been imported for a league."""
+    """Return True once admin-managed draft-pick ownership exists for a league."""
     slug = str(league_slug or "").strip()
     if not slug:
         return False
     row_id = site_session.scalar(
         select(TradeMarketDraftPickOwnership.id)
+        .join(
+            DraftPickOwnershipYear,
+            and_(
+                DraftPickOwnershipYear.league_slug == TradeMarketDraftPickOwnership.league_slug,
+                DraftPickOwnershipYear.draft_year == TradeMarketDraftPickOwnership.draft_year,
+                DraftPickOwnershipYear.status != "completed",
+            ),
+        )
         .where(TradeMarketDraftPickOwnership.league_slug == slug)
         .limit(1)
     )
@@ -242,3 +262,511 @@ def draft_pick_owned_by_team(
     if int(row.owner_team_id or -1) != int(team_id):
         return None
     return row
+
+
+def draft_pick_teams_for_grid(league_session: Session) -> list[Team]:
+    """Main-league teams with numeric FHM ids for ownership grids."""
+    rows = list(league_session.scalars(select(Team).order_by(Team.id.asc())).all())
+    out: list[Team] = []
+    for team in rows:
+        raw = str(getattr(team, "fhm_team_id", None) or "").strip()
+        if not raw.isdigit():
+            continue
+        if not is_main_league_team(team):
+            continue
+        out.append(team)
+    return out
+
+
+def list_draft_pick_ownership_year_panels(
+    site_session: Session,
+    *,
+    league_slug: str,
+) -> list[DraftPickOwnershipYear]:
+    slug = str(league_slug or "").strip()
+    if not slug:
+        return []
+    rows = list(
+        site_session.scalars(
+            select(DraftPickOwnershipYear)
+            .where(DraftPickOwnershipYear.league_slug == slug)
+            .order_by(
+                DraftPickOwnershipYear.display_order.asc(),
+                DraftPickOwnershipYear.draft_year.asc(),
+                DraftPickOwnershipYear.id.asc(),
+            )
+        ).all()
+    )
+    active = [r for r in rows if str(r.status or "active") != "completed"]
+    completed = [r for r in rows if str(r.status or "active") == "completed"]
+    return [*active, *completed]
+
+
+def _next_panel_year(site_session: Session, *, league_slug: str, fallback_start: int) -> int:
+    max_year = site_session.scalar(
+        select(DraftPickOwnershipYear.draft_year)
+        .where(DraftPickOwnershipYear.league_slug == str(league_slug))
+        .order_by(DraftPickOwnershipYear.draft_year.desc())
+        .limit(1)
+    )
+    if max_year is not None:
+        return int(max_year) + 1
+    return int(fallback_start)
+
+
+def default_draft_pick_ownership_start_year(
+    site_session: Session,
+    league_session: Session,
+    *,
+    league_slug: str,
+) -> int:
+    """Initial panel year from in-game state, never from the real calendar unless no data exists."""
+    slug = str(league_slug or "").strip()
+    if slug:
+        draft_year = site_session.scalar(
+            select(LeagueDraft.timeline_year)
+            .where(
+                LeagueDraft.league_slug == slug,
+                LeagueDraft.status != "completed",
+                LeagueDraft.timeline_year.isnot(None),
+            )
+            .order_by(LeagueDraft.timeline_year.asc(), LeagueDraft.id.asc())
+            .limit(1)
+        )
+        if draft_year is not None:
+            return int(draft_year)
+    season = league_session.scalar(
+        select(Season)
+        .where(Season.is_current.is_(True))
+        .order_by(Season.start_year.desc().nulls_last(), Season.id.desc())
+        .limit(1)
+    )
+    if season is None:
+        season = league_session.scalar(
+            select(Season).order_by(Season.start_year.desc().nulls_last(), Season.id.desc()).limit(1)
+        )
+    season = season_with_imported_data_fallback(league_session, season) or season
+    if season is not None:
+        if season.start_year is not None:
+            return int(season.start_year)
+        if season.end_year is not None:
+            return int(season.end_year)
+    return datetime.utcnow().year
+
+
+def reset_calendar_seeded_panels_if_needed(
+    site_session: Session,
+    league_session: Session,
+    *,
+    league_slug: str,
+) -> bool:
+    """Repair panels accidentally seeded from today's calendar for historical leagues."""
+    slug = str(league_slug or "").strip()
+    if not slug:
+        return False
+    default_year = default_draft_pick_ownership_start_year(
+        site_session, league_session, league_slug=slug
+    )
+    panels = list_draft_pick_ownership_year_panels(site_session, league_slug=slug)
+    active = [p for p in panels if str(p.status or "active") != "completed"]
+    if not active:
+        return False
+    if min(int(p.draft_year) for p in active) <= default_year + 20:
+        return False
+    years = [int(p.draft_year) for p in active]
+    site_session.execute(
+        delete(TradeMarketDraftPickOwnership).where(
+            TradeMarketDraftPickOwnership.league_slug == slug,
+            TradeMarketDraftPickOwnership.draft_year.in_(years),
+        )
+    )
+    for panel in active:
+        site_session.delete(panel)
+    site_session.commit()
+    return True
+
+
+def _reorder_year_panels(site_session: Session, *, league_slug: str) -> None:
+    rows = list_draft_pick_ownership_year_panels(site_session, league_slug=league_slug)
+    for idx, row in enumerate(rows, start=1):
+        row.display_order = int(idx)
+
+
+def _team_fhm_by_db_id(league_session: Session) -> dict[int, int]:
+    out: dict[int, int] = {}
+    for team in league_session.scalars(select(Team)).all():
+        raw = str(getattr(team, "fhm_team_id", None) or "").strip()
+        if raw.isdigit():
+            out[int(team.id)] = int(raw)
+    return out
+
+
+def _ensure_year_rows(
+    site_session: Session,
+    *,
+    league_slug: str,
+    draft_year: int,
+    round_count: int,
+    teams: list[Team],
+) -> int:
+    """Ensure one ownership row per team+round exists for a draft year."""
+    slug = str(league_slug or "").strip()
+    if not slug:
+        return 0
+    rounds = max(1, min(15, int(round_count)))
+    deleted = site_session.execute(
+        delete(TradeMarketDraftPickOwnership).where(
+            TradeMarketDraftPickOwnership.league_slug == slug,
+            TradeMarketDraftPickOwnership.draft_year == int(draft_year),
+            TradeMarketDraftPickOwnership.round > rounds,
+        )
+    )
+    existing = list(
+        site_session.scalars(
+            select(TradeMarketDraftPickOwnership).where(
+                TradeMarketDraftPickOwnership.league_slug == slug,
+                TradeMarketDraftPickOwnership.draft_year == int(draft_year),
+            )
+        ).all()
+    )
+    existing_by_key = {
+        (int(r.original_team_fhm_id), int(r.round)): r
+        for r in existing
+    }
+    created = 0
+    for team in teams:
+        raw = str(getattr(team, "fhm_team_id", None) or "").strip()
+        if not raw.isdigit():
+            continue
+        fhm_id = int(raw)
+        for rnd in range(1, rounds + 1):
+            if (fhm_id, rnd) in existing_by_key:
+                continue
+            site_session.add(
+                TradeMarketDraftPickOwnership(
+                    league_slug=slug,
+                    draft_year=int(draft_year),
+                    original_team_fhm_id=fhm_id,
+                    original_team_id=int(team.id),
+                    round=int(rnd),
+                    owner_team_fhm_id=fhm_id,
+                    owner_team_id=int(team.id),
+                )
+            )
+            created += 1
+    return int((deleted.rowcount or 0) + created)
+
+
+def ensure_draft_pick_ownership_panels(
+    site_session: Session,
+    league_session: Session,
+    *,
+    league_slug: str,
+    active_count: int = 3,
+    default_round_count: int = 10,
+) -> list[DraftPickOwnershipYear]:
+    """Guarantee the league has the configured number of active future-year panels."""
+    slug = str(league_slug or "").strip()
+    if not slug:
+        return []
+    target_active = max(1, int(active_count))
+    rounds = max(1, min(15, int(default_round_count)))
+    panels = list_draft_pick_ownership_year_panels(site_session, league_slug=slug)
+    if panels:
+        seed_start = max(int(p.draft_year) for p in panels) + 1
+    else:
+        latest_completed = site_session.scalar(
+            select(DraftPickOwnershipYear.draft_year)
+            .where(
+                DraftPickOwnershipYear.league_slug == slug,
+                DraftPickOwnershipYear.status == "completed",
+            )
+            .order_by(DraftPickOwnershipYear.draft_year.desc())
+            .limit(1)
+        )
+        seed_start = (
+            int(latest_completed) + 1
+            if latest_completed is not None
+            else default_draft_pick_ownership_start_year(
+                site_session,
+                league_session,
+                league_slug=slug,
+            )
+        )
+    active = [p for p in panels if str(p.status or "active") != "completed"]
+    teams = draft_pick_teams_for_grid(league_session)
+    while len(active) < target_active:
+        next_year = _next_panel_year(site_session, league_slug=slug, fallback_start=seed_start)
+        panel = DraftPickOwnershipYear(
+            league_slug=slug,
+            draft_year=int(next_year),
+            round_count=rounds,
+            status="active",
+            display_order=9999,
+        )
+        site_session.add(panel)
+        site_session.flush()
+        _ensure_year_rows(
+            site_session,
+            league_slug=slug,
+            draft_year=int(next_year),
+            round_count=int(panel.round_count),
+            teams=teams,
+        )
+        active.append(panel)
+        panels.append(panel)
+        seed_start = int(next_year) + 1
+    _reorder_year_panels(site_session, league_slug=slug)
+    site_session.commit()
+    return list_draft_pick_ownership_year_panels(site_session, league_slug=slug)
+
+
+def mark_completed_draft_year_and_roll_forward(
+    site_session: Session,
+    league_session: Session,
+    *,
+    league_slug: str,
+    draft_year: int,
+    active_count: int = 3,
+    default_round_count: int = 10,
+) -> list[DraftPickOwnershipYear]:
+    """Mark a draft-year panel completed, then top back up to the active panel target."""
+    slug = str(league_slug or "").strip()
+    if not slug:
+        return []
+    panel = site_session.scalar(
+        select(DraftPickOwnershipYear).where(
+            DraftPickOwnershipYear.league_slug == slug,
+            DraftPickOwnershipYear.draft_year == int(draft_year),
+        ).limit(1)
+    )
+    if panel is not None:
+        panel.status = "completed"
+    panels = ensure_draft_pick_ownership_panels(
+        site_session,
+        league_session,
+        league_slug=slug,
+        active_count=active_count,
+        default_round_count=default_round_count,
+    )
+    return panels
+
+
+def build_draft_pick_ownership_year_grid(
+    site_session: Session,
+    league_session: Session,
+    *,
+    league_slug: str,
+    draft_year: int,
+    round_count: int,
+) -> list[dict[str, Any]]:
+    """Grid rows for admin display/edit of one draft year."""
+    slug = str(league_slug or "").strip()
+    rounds = max(1, min(15, int(round_count)))
+    teams = draft_pick_teams_for_grid(league_session)
+    _ensure_year_rows(
+        site_session,
+        league_slug=slug,
+        draft_year=int(draft_year),
+        round_count=rounds,
+        teams=teams,
+    )
+    site_session.commit()
+    rows = list(
+        site_session.scalars(
+            select(TradeMarketDraftPickOwnership).where(
+                TradeMarketDraftPickOwnership.league_slug == slug,
+                TradeMarketDraftPickOwnership.draft_year == int(draft_year),
+                TradeMarketDraftPickOwnership.round <= rounds,
+            )
+        ).all()
+    )
+    by_key = {(int(r.original_team_fhm_id), int(r.round)): r for r in rows}
+    out: list[dict[str, Any]] = []
+    for team in teams:
+        raw = str(getattr(team, "fhm_team_id", None) or "").strip()
+        if not raw.isdigit():
+            continue
+        fhm_id = int(raw)
+        cells: list[dict[str, Any]] = []
+        for rnd in range(1, rounds + 1):
+            row = by_key.get((fhm_id, rnd))
+            cells.append(
+                {
+                    "round": int(rnd),
+                    "row_id": int(row.id) if row else None,
+                    "owner_team_id": int(row.owner_team_id) if row and row.owner_team_id else None,
+                    "owner_team_fhm_id": int(row.owner_team_fhm_id) if row else None,
+                }
+            )
+        out.append(
+            {
+                "team_id": int(team.id),
+                "team_fhm_id": int(fhm_id),
+                "abbr": str(team.abbreviation or "").strip() or f"T{fhm_id}",
+                "name": team.full_display_name(),
+                "team": team,
+                "cells": cells,
+            }
+        )
+    return out
+
+
+def save_draft_pick_ownership_year_grid(
+    site_session: Session,
+    league_session: Session,
+    *,
+    league_slug: str,
+    draft_year: int,
+    round_count: int,
+    owner_by_key: dict[tuple[int, int], int],
+) -> int:
+    """Persist ownership map for one year; key is (original_team_fhm_id, round)."""
+    slug = str(league_slug or "").strip()
+    rounds = max(1, min(15, int(round_count)))
+    teams = draft_pick_teams_for_grid(league_session)
+    _ensure_year_rows(
+        site_session,
+        league_slug=slug,
+        draft_year=int(draft_year),
+        round_count=rounds,
+        teams=teams,
+    )
+    panel = site_session.scalar(
+        select(DraftPickOwnershipYear).where(
+            DraftPickOwnershipYear.league_slug == slug,
+            DraftPickOwnershipYear.draft_year == int(draft_year),
+        ).limit(1)
+    )
+    if panel is None:
+        panel = DraftPickOwnershipYear(
+            league_slug=slug,
+            draft_year=int(draft_year),
+            round_count=rounds,
+            status="active",
+            display_order=9999,
+        )
+        site_session.add(panel)
+        site_session.flush()
+    panel.round_count = rounds
+    db_to_fhm = _team_fhm_by_db_id(league_session)
+    rows = list(
+        site_session.scalars(
+            select(TradeMarketDraftPickOwnership).where(
+                TradeMarketDraftPickOwnership.league_slug == slug,
+                TradeMarketDraftPickOwnership.draft_year == int(draft_year),
+                TradeMarketDraftPickOwnership.round <= rounds,
+            )
+        ).all()
+    )
+    updated = 0
+    for row in rows:
+        key = (int(row.original_team_fhm_id), int(row.round))
+        owner_team_id = owner_by_key.get(key)
+        if owner_team_id is None:
+            continue
+        if int(row.owner_team_id or -1) == int(owner_team_id):
+            continue
+        row.owner_team_id = int(owner_team_id)
+        row.owner_team_fhm_id = int(
+            db_to_fhm.get(int(owner_team_id), int(row.owner_team_fhm_id or row.original_team_fhm_id))
+        )
+        updated += 1
+    _reorder_year_panels(site_session, league_slug=slug)
+    site_session.commit()
+    return updated
+
+
+def transfer_approved_trade_draft_pick_rows(
+    site_session: Session,
+    league_session: Session,
+    *,
+    league_slug: str,
+    from_team_id: int,
+    to_team_id: int,
+    left_out: list[str],
+    right_out: list[str],
+) -> list[dict[str, int]]:
+    """Move ownership rows for approved trade ledger draft-pick assets."""
+    slug = str(league_slug or "").strip()
+    if not slug:
+        return []
+    db_to_fhm = _team_fhm_by_db_id(league_session)
+    moves: list[tuple[str, int]] = []
+    for key in left_out:
+        rid = parse_draft_pick_drag_key(key)
+        if rid is not None:
+            moves.append(("to", int(rid)))
+    for key in right_out:
+        rid = parse_draft_pick_drag_key(key)
+        if rid is not None:
+            moves.append(("from", int(rid)))
+    changed: list[dict[str, int]] = []
+    seen_ids: set[int] = set()
+    for direction, rid in moves:
+        if rid in seen_ids:
+            continue
+        seen_ids.add(rid)
+        row = site_session.get(TradeMarketDraftPickOwnership, int(rid))
+        if row is None or str(row.league_slug or "") != slug:
+            continue
+        target_team_id = int(to_team_id if direction == "to" else from_team_id)
+        if int(row.owner_team_id or -1) == target_team_id:
+            continue
+        prev_owner_id = int(row.owner_team_id or -1)
+        row.owner_team_id = target_team_id
+        row.owner_team_fhm_id = int(
+            db_to_fhm.get(target_team_id, int(row.owner_team_fhm_id or row.original_team_fhm_id))
+        )
+        changed.append(
+            {
+                "row_id": int(row.id),
+                "draft_year": int(row.draft_year),
+                "round": int(row.round),
+                "original_team_fhm_id": int(row.original_team_fhm_id),
+                "previous_owner_team_id": prev_owner_id,
+                "new_owner_team_id": target_team_id,
+            }
+        )
+    return changed
+
+
+def sync_draft_pick_ownership_rollover_for_completed_drafts(
+    site_session: Session,
+    league_session: Session,
+    *,
+    league_slug: str,
+    active_count: int = 3,
+    default_round_count: int = 10,
+) -> list[DraftPickOwnershipYear]:
+    """Mark any completed draft years as completed panels, then top up active panel count."""
+    slug = str(league_slug or "").strip()
+    if not slug:
+        return []
+    completed_years = {
+        int(y)
+        for y in site_session.scalars(
+            select(LeagueDraft.timeline_year).where(
+                LeagueDraft.league_slug == slug,
+                LeagueDraft.status == "completed",
+                LeagueDraft.timeline_year.isnot(None),
+            )
+        ).all()
+        if y is not None
+    }
+    if completed_years:
+        for panel in site_session.scalars(
+            select(DraftPickOwnershipYear).where(
+                DraftPickOwnershipYear.league_slug == slug,
+                DraftPickOwnershipYear.draft_year.in_(sorted(completed_years)),
+                DraftPickOwnershipYear.status != "completed",
+            )
+        ).all():
+            panel.status = "completed"
+    return ensure_draft_pick_ownership_panels(
+        site_session,
+        league_session,
+        league_slug=slug,
+        active_count=active_count,
+        default_round_count=default_round_count,
+    )

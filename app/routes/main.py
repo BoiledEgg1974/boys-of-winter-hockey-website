@@ -29,6 +29,7 @@ from app.models import (
     Game,
     GameGoalieStat,
     GameSkaterStat,
+    HallOfFameMember,
     HistoryAward,
     Player,
     PlayerContract,
@@ -3386,7 +3387,21 @@ def _build_team_depth_draft_pick_rows(team: Team, league_slug: str) -> list[dict
                 ),
             }
         )
-    return out
+    grouped: dict[int, list[dict[str, object]]] = {}
+    for pick in out:
+        yr = int(pick["year"])
+        grouped.setdefault(yr, []).append(pick)
+    grouped_rows: list[dict[str, object]] = []
+    for year in sorted(grouped.keys()):
+        picks = sorted(
+            grouped[year],
+            key=lambda p: (
+                int(p.get("round") or 0),
+                str(p.get("original_team_label") or ""),
+            ),
+        )
+        grouped_rows.append({"year": int(year), "picks": picks})
+    return grouped_rows
 
 
 def _pick_skater_stat_leader(
@@ -4417,6 +4432,11 @@ def player_page(player_id: int):
     )
     roster_header_team = main_league_roster_team(contract_team, current_team)
     player_award_badges = player_history_award_badges(db.session, player.id)
+    player_is_hof = (player.boost_tier or "").strip().lower() == "hof" or bool(
+        db.session.scalar(
+            select(HallOfFameMember.id).where(HallOfFameMember.player_id == int(player.id)).limit(1)
+        )
+    )
     trend_lines = career_rs_gk if (use_goalie_game_log and career_rs_gk) else career_rs_sk
     if not trend_lines:
         trend_lines = career_rs_sk or career_rs_gk
@@ -4503,6 +4523,7 @@ def player_page(player_id: int):
         contract_through_season=contract_through_season,
         contract_salary_by_season=contract_salary_by_season,
         player_award_badges=player_award_badges,
+        player_is_hof=player_is_hof,
         player_season_trend_rows=player_season_trend_rows,
         player_season_trends_goalie_mode=player_season_trends_goalie_mode,
         player_analytics=player_analytics,

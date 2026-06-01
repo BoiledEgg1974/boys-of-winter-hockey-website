@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Admin — Draft Pick Ownership{% endblock %}
+{% block content %}
+<div class="card" style="max-width:95vw;margin:0 auto;">
+  <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
+  <h1 class="page-title">Draft Pick Ownership</h1>
+  <p class="muted">Manage future pick ownership for <strong>{{ league_slug }}</strong>. Each panel stores one draft year and custom round count.</p>
+
+  <div style="display:flex;flex-wrap:wrap;gap:0.75rem;align-items:end;margin-bottom:1rem;">
+    <form method="post" class="card" style="padding:0.7rem;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="add_year">
+      <label>Draft year <input type="number" name="draft_year" value="{{ next_year }}" min="1900" max="2600" style="width:7rem;"></label>
+      <label style="margin-left:0.5rem;">Rounds <input type="number" name="round_count" value="10" min="1" max="15" style="width:5rem;"></label>
+      <button type="submit" class="button" style="margin-left:0.5rem;">Add year panel</button>
+    </form>
+  </div>
+
+  {% if not panels_view %}
+  <p class="muted">No draft ownership panels yet.</p>
+  {% endif %}
+
+  {% for row in panels_view %}
+  {% set panel = row.panel %}
+  <section class="card" style="padding:0.8rem;margin-bottom:1rem;">
+    <h2 style="margin:0 0 0.65rem;">{{ panel.draft_year }} Draft Ownership <span class="muted">({{ panel.status }})</span></h2>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="save_year">
+      <input type="hidden" name="panel_id" value="{{ panel.id }}">
+      <div style="display:flex;align-items:end;gap:0.65rem;margin-bottom:0.6rem;">
+        <label>Rounds <input type="number" name="round_count" value="{{ panel.round_count }}" min="1" max="15" style="width:5rem;"></label>
+        <button type="submit" class="button">Save {{ panel.draft_year }}</button>
+      </div>
+      {% set logo_year = panel.draft_year - 1 %}
+      <div class="table-wrap draft-pick-admin-grid-wrap">
+        <table class="data draft-pick-admin-grid">
+          <thead>
+            <tr>
+              <th class="draft-pick-admin-grid__team-head">Team</th>
+              {% for rnd in row.rounds %}
+              <th>{{ rnd }}{% if rnd == 1 %}st{% elif rnd == 2 %}nd{% elif rnd == 3 %}rd{% else %}th{% endif %}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for team_row in row.grid_rows %}
+            <tr>
+              <td class="draft-pick-admin-grid__team-cell">
+                <span class="team-depth-pick-logo-wrap" title="{{ team_row.name }}">
+                  <img class="team-depth-pick-logo" src="{{ team_logo_url_for_season_context(team_row.team, logo_year) }}" alt="{{ team_row.abbr }} logo" loading="lazy" decoding="async">
+                </span>
+                {{ team_row.abbr }}
+              </td>
+              {% for cell in team_row.cells %}
+              <td>
+                <div class="draft-pick-admin-grid__cell">
+                  <select name="owner_{{ team_row.team_fhm_id }}_{{ cell.round }}">
+                    {% for opt in team_choices %}
+                    <option value="{{ opt.id }}"{% if opt.id == cell.owner_team_id %} selected{% endif %}>{{ opt.abbr }}</option>
+                    {% endfor %}
+                  </select>
+                  {% for opt in team_choices %}
+                    {% if opt.id == cell.owner_team_id %}
+                    <span class="team-depth-pick-logo-wrap" title="Owned by {{ opt.name }}">
+                      <img class="team-depth-pick-logo" src="{{ team_logo_url_for_season_context(opt.team, logo_year) }}" alt="{{ opt.abbr }} logo" loading="lazy" decoding="async">
+                    </span>
+                    {% endif %}
+                  {% endfor %}
+                </div>
+              </td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </form>
+  </section>
+  {% endfor %}
+</div>
+{% endblock %}

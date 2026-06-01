@@ -386,6 +386,28 @@ class TradeMarketDraftPickOwnership(db.Model):
     )
 
 
+class DraftPickOwnershipYear(db.Model):
+    """Admin-managed draft-pick ownership panel metadata per league and draft year."""
+
+    __tablename__ = "draft_pick_ownership_years"
+    __bind_key__ = "site"
+    __table_args__ = (
+        UniqueConstraint("league_slug", "draft_year", name="uq_dpick_year_league_year"),
+        Index("ix_dpick_year_league_status_order", "league_slug", "status", "display_order"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False)
+    draft_year: Mapped[int] = mapped_column(Integer, nullable=False)
+    round_count: Mapped[int] = mapped_column(Integer, default=10, nullable=False)
+    status: Mapped[str] = mapped_column(String(24), default="active", nullable=False)
+    display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+
 class TradeMarketListing(db.Model):
     """GM-published asset available for trade on the Trade Market."""
 

@@ -3,14 +3,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from sqlalchemy import select
+from sqlalchemy import and_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.models import Game, Season, Team, TeamStanding
 from app.services.draft_pick_ownership import draft_pick_ownership_exists
 from app.services.roster_team import is_main_league_team
 from app.services.seasons import season_display_label
-from app.site_models import LeagueDraft, LeagueDraftSlot, TradeMarketDraftPickOwnership
+from app.site_models import DraftPickOwnershipYear, LeagueDraft, LeagueDraftSlot, TradeMarketDraftPickOwnership
 
 
 @dataclass(frozen=True)
@@ -209,9 +209,19 @@ def pick_ownership_lookup(
     if not slug:
         return {}
     rows = site_session.scalars(
-        select(TradeMarketDraftPickOwnership).where(
+        select(TradeMarketDraftPickOwnership)
+        .join(
+            DraftPickOwnershipYear,
+            and_(
+                DraftPickOwnershipYear.league_slug == TradeMarketDraftPickOwnership.league_slug,
+                DraftPickOwnershipYear.draft_year == TradeMarketDraftPickOwnership.draft_year,
+                DraftPickOwnershipYear.status != "completed",
+            ),
+        )
+        .where(
             TradeMarketDraftPickOwnership.league_slug == slug,
             TradeMarketDraftPickOwnership.draft_year == int(draft_year),
+            TradeMarketDraftPickOwnership.round <= DraftPickOwnershipYear.round_count,
         )
     ).all()
     out: dict[tuple[int, int], int] = {}

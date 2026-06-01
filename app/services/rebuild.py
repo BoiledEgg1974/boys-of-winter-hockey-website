@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 
 from sqlalchemy import select
 
@@ -113,23 +112,6 @@ def refresh_after_import(engine, app=None) -> None:
                     if slug:
                         auto_update_bowl_six_slates(db.session, db.session, slug)
                         db.session.commit()
-                        try:
-                            from app.services.draft_pick_ownership import (
-                                import_draft_pick_ownership_csv,
-                            )
-
-                            raw_dir = Path(str(app.config.get("RAW_IMPORT_DIR") or ""))
-                            if raw_dir.is_dir():
-                                import_draft_pick_ownership_csv(
-                                    db.session,
-                                    db.session,
-                                    league_slug=slug,
-                                    raw_dir=raw_dir,
-                                )
-                        except Exception:
-                            _log.exception(
-                                "draft_pick_ownership import failed (non-fatal)"
-                            )
                     from app.services.homepage_summary_cache import invalidate_homepage_summary_cache
                     from app.services.league_json_cache import invalidate_league_json_cache
 

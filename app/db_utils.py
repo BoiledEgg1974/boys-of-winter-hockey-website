@@ -961,6 +961,37 @@ def ensure_trade_market_sqlite(engine: Engine) -> None:
                     "ON trade_market_buying_needs (league_slug, status)"
                 )
             )
+        if not conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='draft_pick_ownership_years'")
+        ).fetchone():
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE draft_pick_ownership_years (
+                        id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                        league_slug VARCHAR(64) NOT NULL,
+                        draft_year INTEGER NOT NULL,
+                        round_count INTEGER NOT NULL DEFAULT 10,
+                        status VARCHAR(24) NOT NULL DEFAULT 'active',
+                        display_order INTEGER NOT NULL DEFAULT 0,
+                        created_at DATETIME NOT NULL,
+                        updated_at DATETIME NOT NULL
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX uq_dpick_year_league_year "
+                    "ON draft_pick_ownership_years (league_slug, draft_year)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX ix_dpick_year_league_status_order "
+                    "ON draft_pick_ownership_years (league_slug, status, display_order)"
+                )
+            )
         conn.commit()
 
 

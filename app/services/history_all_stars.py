@@ -1,9 +1,12 @@
 """League History: First / Second all-star team tables from ``history_all_stars`` rows."""
 from __future__ import annotations
 
+import csv
 import re
+from pathlib import Path
 from typing import Any
 
+from flask import current_app
 from sqlalchemy import extract, func, select
 from sqlalchemy.orm import Session, joinedload
 
@@ -145,6 +148,41 @@ def team_id_from_rs_stats_for_sheet_label(session: Session, player_id: int, shee
     return None
 
 
+def _raw_team_parent_fhm_map() -> dict[int, int]:
+    """Map non-imported FHM team ids to their parent NHL/BOWL club from ``team_data.csv``."""
+    try:
+        raw_dir = Path(str(current_app.config.get("RAW_IMPORT_DIR") or ""))
+    except RuntimeError:
+        return {}
+    path = raw_dir / "team_data.csv"
+    if not path.is_file():
+        return {}
+    out: dict[int, int] = {}
+    try:
+        with path.open("r", encoding="utf-8-sig", newline="") as f:
+            sample = f.read(2048)
+            f.seek(0)
+            delimiter = ";" if sample.count(";") >= sample.count(",") else ","
+            for row in csv.DictReader(f, delimiter=delimiter):
+                raw_tid = (row.get("TeamId") or row.get("team_id") or "").strip()
+                parent_tid = (
+                    row.get("Parent Team 1")
+                    or row.get("parent_team_1")
+                    or row.get("ParentTeam1")
+                    or ""
+                ).strip()
+                try:
+                    tid = int(raw_tid)
+                    parent = int(parent_tid)
+                except (TypeError, ValueError):
+                    continue
+                if parent >= 0 and parent != tid:
+                    out[tid] = parent
+    except OSError:
+        return {}
+    return out
+
+
 def attach_history_all_star_season_teams(session: Session, rows: list[HistoryAllStar]) -> None:
     """Set ``season_team`` for logo display: roster stats for that season, else career/game inference.
 
@@ -279,13 +317,18 @@ def attach_history_all_star_season_teams(session: Session, rows: list[HistoryAll
         ).all()
         _add_counts(gk_games)
 
-        team_fhm_ids = sorted(
-            {
-                int(v[2])
-                for v in career_best.values()
-                if v[2] is not None and str(v[2]).strip() != ""
-            }
+        parent_fhm_by_team_fhm = _raw_team_parent_fhm_map()
+        team_fhm_id_set = {
+            int(v[2])
+            for v in career_best.values()
+            if v[2] is not None and str(v[2]).strip() != ""
+        }
+        team_fhm_id_set.update(
+            parent_fhm
+            for team_fhm, parent_fhm in parent_fhm_by_team_fhm.items()
+            if team_fhm in team_fhm_id_set
         )
+        team_fhm_ids = sorted(team_fhm_id_set)
         team_by_fhm: dict[int, Team] = {}
         if team_fhm_ids:
             team_by_fhm = {
@@ -303,6 +346,10 @@ def attach_history_all_star_season_teams(session: Session, rows: list[HistoryAll
                     continue
                 if car_team_fhm is not None and car_team_fhm in team_by_fhm:
                     season_team_id_by_row_id[row.id] = team_by_fhm[car_team_fhm].id
+                    continue
+                parent_fhm = parent_fhm_by_team_fhm.get(car_team_fhm) if car_team_fhm is not None else None
+                if parent_fhm is not None and parent_fhm in team_by_fhm:
+                    season_team_id_by_row_id[row.id] = team_by_fhm[parent_fhm].id
                     continue
 
             team_counts: dict[int, int] = {}

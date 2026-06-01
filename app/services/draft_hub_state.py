@@ -242,6 +242,18 @@ def _finalize_draft_if_done(session: Session, draft: LeagueDraft, slots: list[Le
         enqueue_draft_hub_completed(session, draft)
     except Exception:
         pass
+    try:
+        from app.services.draft_pick_ownership import mark_completed_draft_year_and_roll_forward
+
+        if draft.timeline_year is not None:
+            mark_completed_draft_year_and_roll_forward(
+                session,
+                session,
+                league_slug=str(draft.league_slug or ""),
+                draft_year=int(draft.timeline_year),
+            )
+    except Exception:
+        pass
 
 
 def _enqueue_on_clock_dms(session: Session, draft: LeagueDraft, slot: LeagueDraftSlot) -> None:
@@ -600,6 +612,18 @@ def end_draft_early(session: Session, draft: LeagueDraft, admin_user_id: int) ->
     draft.awaiting_admin_resolution = False
     draft.deadline_extended_for_slot = False
     draft.completed_summary_json = json.dumps(compute_winners_losers(session, draft))
+    try:
+        from app.services.draft_pick_ownership import mark_completed_draft_year_and_roll_forward
+
+        if draft.timeline_year is not None:
+            mark_completed_draft_year_and_roll_forward(
+                session,
+                session,
+                league_slug=str(draft.league_slug or ""),
+                draft_year=int(draft.timeline_year),
+            )
+    except Exception:
+        pass
     return None
 
 

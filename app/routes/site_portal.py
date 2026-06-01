@@ -151,7 +151,15 @@ from app.services.ap_service import (
     publish_news_and_maybe_award_ap,
     team_ap_balance,
 )
-from app.services.draft_pick_ownership import draft_pick_ownership_exists
+from app.services.draft_pick_ownership import (
+    build_draft_pick_ownership_year_grid,
+    draft_pick_ownership_exists,
+    draft_pick_teams_for_grid,
+    ensure_draft_pick_ownership_panels,
+    reset_calendar_seeded_panels_if_needed,
+    save_draft_pick_ownership_year_grid,
+    transfer_approved_trade_draft_pick_rows,
+)
 from app.services.discord_events import team_fields_for_discord
 from app.services.trade_ai_opinion import (
     fetch_logged_trade_ai_opinion,
@@ -205,8 +213,10 @@ from app.site_models import (
     LeagueExpansionDraftSlot,
     LeagueRuleSetting,
     NewsArticle,
+    DraftPickOwnershipYear,
     SiteAnnouncement,
     StoryPublishSchedule,
+    TradeMarketDraftPickOwnership,
     TradeMarketBuyingNeed,
     TradeMarketListing,
     AwardsVotingCycle,
@@ -2856,6 +2866,15 @@ def admin_trade_proposal_detail(pid: int):
                 proposal=prop,
                 commissioner_user_id=int(current_user.id),
             )
+            moved_draft_picks = transfer_approved_trade_draft_pick_rows(
+                db.session,
+                db.session,
+                league_slug=slug,
+                from_team_id=int(prop.from_team_id),
+                to_team_id=int(prop.to_team_id),
+                left_out=left_out,
+                right_out=right_out,
+            )
             _enqueue_trade_proposal_news_discord(
                 proposal_id=int(prop.id),
                 article_id=from_article_id,
@@ -2883,8 +2902,25 @@ def admin_trade_proposal_detail(pid: int):
                 title="Trade approved by commissioner",
                 body=ok_body,
             )
+            if moved_draft_picks:
+                db.session.add(
+                    AdminAuditLog(
+                        admin_user_id=int(current_user.id),
+                        league_slug=slug,
+                        action="trade_proposal_draft_pick_transfer",
+                        detail_json=json.dumps(
+                            {
+                                "proposal_id": int(prop.id),
+                                "moved_rows": moved_draft_picks,
+                            }
+                        ),
+                    )
+                )
             db.session.commit()
-            flash("Trade approved and published as league news for both teams.", "ok")
+            msg = "Trade approved and published as league news for both teams."
+            if moved_draft_picks:
+                msg += f" Draft ownership updated for {len(moved_draft_picks)} pick(s)."
+            flash(msg, "ok")
             return redirect(url_for("site_admin.admin_trade_proposals_list"))
         if action == "deny":
             note = (request.form.get("commissioner_note") or "").strip()
@@ -2932,6 +2968,134 @@ def admin_home():
     return render_template(
         "admin_site_home.html",
         league_slug=slug,
+    )
+
+
+@site_admin_bp.route("/draft-pick-ownership", methods=["GET", "POST"])
+@login_required
+def admin_draft_pick_ownership():
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    slug = _league_slug()
+    reset_calendar_seeded_panels_if_needed(
+        db.session,
+        db.session,
+        league_slug=slug,
+    )
+    if request.method == "POST":
+        action = (request.form.get("action") or "").strip().lower()
+        if action == "add_year":
+            year = int(request.form.get("draft_year") or 0)
+            rounds = max(1, min(15, int(request.form.get("round_count") or 10)))
+            if year <= 0:
+                flash("Enter a valid draft year.", "err")
+                return redirect(url_for("site_admin.admin_draft_pick_ownership"))
+            panel = db.session.scalar(
+                select(DraftPickOwnershipYear).where(
+                    DraftPickOwnershipYear.league_slug == slug,
+                    DraftPickOwnershipYear.draft_year == year,
+                ).limit(1)
+            )
+            if panel is None:
+                panel = DraftPickOwnershipYear(
+                    league_slug=slug,
+                    draft_year=year,
+                    round_count=rounds,
+                    status="active",
+                    display_order=9999,
+                )
+                db.session.add(panel)
+                db.session.commit()
+            else:
+                panel.round_count = rounds
+                panel.status = "active"
+                db.session.commit()
+            ensure_draft_pick_ownership_panels(
+                db.session,
+                db.session,
+                league_slug=slug,
+                active_count=3,
+                default_round_count=rounds,
+            )
+            flash(f"Draft panel for {year} is ready.", "ok")
+            return redirect(url_for("site_admin.admin_draft_pick_ownership"))
+        if action == "save_year":
+            panel_id = int(request.form.get("panel_id") or 0)
+            panel = db.session.get(DraftPickOwnershipYear, panel_id)
+            if panel is None or panel.league_slug != slug:
+                flash("Draft panel not found.", "err")
+                return redirect(url_for("site_admin.admin_draft_pick_ownership"))
+            rounds = max(1, min(15, int(request.form.get("round_count") or panel.round_count or 10)))
+            owner_by_key: dict[tuple[int, int], int] = {}
+            team_ids = {int(t.id) for t in draft_pick_teams_for_grid(db.session)}
+            for key, value in request.form.items():
+                if not key.startswith("owner_"):
+                    continue
+                parts = key.split("_")
+                if len(parts) != 3:
+                    continue
+                try:
+                    original_fhm = int(parts[1])
+                    rnd = int(parts[2])
+                    owner_team_id = int(value)
+                except ValueError:
+                    continue
+                if owner_team_id not in team_ids:
+                    continue
+                owner_by_key[(original_fhm, rnd)] = owner_team_id
+            changed = save_draft_pick_ownership_year_grid(
+                db.session,
+                db.session,
+                league_slug=slug,
+                draft_year=int(panel.draft_year),
+                round_count=rounds,
+                owner_by_key=owner_by_key,
+            )
+            flash(f"Saved {panel.draft_year} ownership grid ({changed} updated cells).", "ok")
+            return redirect(url_for("site_admin.admin_draft_pick_ownership"))
+        flash("Unknown action.", "err")
+        return redirect(url_for("site_admin.admin_draft_pick_ownership"))
+    panels = ensure_draft_pick_ownership_panels(
+        db.session,
+        db.session,
+        league_slug=slug,
+        active_count=3,
+        default_round_count=10,
+    )
+    teams = draft_pick_teams_for_grid(db.session)
+    team_choices = [
+        {
+            "id": int(t.id),
+            "abbr": (t.abbreviation or "").strip() or f"T{t.id}",
+            "name": t.full_display_name(),
+            "team": t,
+        }
+        for t in teams
+    ]
+    panels_view: list[dict[str, object]] = []
+    max_year = 0
+    for panel in panels:
+        max_year = max(max_year, int(panel.draft_year))
+        grid_rows = build_draft_pick_ownership_year_grid(
+            db.session,
+            db.session,
+            league_slug=slug,
+            draft_year=int(panel.draft_year),
+            round_count=max(1, int(panel.round_count)),
+        )
+        panels_view.append(
+            {
+                "panel": panel,
+                "grid_rows": grid_rows,
+                "rounds": list(range(1, max(1, int(panel.round_count)) + 1)),
+            }
+        )
+    next_year = (max_year + 1) if max_year > 0 else datetime.utcnow().year
+    return render_template(
+        "admin_draft_pick_ownership.html",
+        league_slug=slug,
+        panels_view=panels_view,
+        team_choices=team_choices,
+        next_year=next_year,
     )
 
 

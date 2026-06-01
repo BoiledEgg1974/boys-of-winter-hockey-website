@@ -757,7 +757,7 @@
 
   function initPlayerHoverCards() {
     var cache = {};
-    var HOVER_CARD_CACHE_VER = 7;
+    var HOVER_CARD_CACHE_VER = 8;
     var activeAnchor = null;
     var showTimer = null;
     var hideTimer = null;
@@ -908,6 +908,13 @@
           ? '<span class="player-hover-card__ovr"> · ' + escapeHtml(String(d.player_ovr)) + " OVR</span>"
           : "";
       var seasonsHtml = hoverRecentSeasonsBlock(d);
+      var hofBadgeHtml =
+        d.is_hof && d.hof_badge_url
+          ? '<img class="player-hover-card__hof-badge" src="' +
+            escapeAttr(d.hof_badge_url) +
+            '" alt="Hall of Fame" loading="lazy" decoding="async">'
+          : "";
+      card.classList.toggle("player-hover-card--hof", !!hofBadgeHtml);
       var copyBar =
         '<div class="player-hover-card__toolbar">' +
         '<button type="button" class="player-hover-card__copy js-copy-player-card" data-player-id="' +
@@ -915,6 +922,7 @@
         '" title="Copies the player card image to the clipboard for Discord.">Copy card</button></div>';
       card.innerHTML =
         copyBar +
+        hofBadgeHtml +
         '<div class="player-hover-card__row">' +
         '<div class="player-hover-card__photo">' +
         (d.photo_url

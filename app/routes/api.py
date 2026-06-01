@@ -22,6 +22,7 @@ from app.models import (
     GameSkaterStat,
     HistoryAward,
     LeagueMeta,
+    HallOfFameMember,
     Player,
     PlayerContract,
     PlayerGoalieCareerLine,
@@ -870,6 +871,11 @@ def _build_player_hover_card_payload(player_id: int) -> dict[str, object]:
     contract_payload = _contract_payload_for_share(db.session, player, season)
     league_display = str(current_app.config.get("LEAGUE_DISPLAY_NAME", "") or "").strip()
     position_ratings = position_ratings_display_list(rr) if rr else []
+    is_hof = (player.boost_tier or "").strip().lower() == "hof" or bool(
+        db.session.scalar(
+            select(HallOfFameMember.id).where(HallOfFameMember.player_id == int(player.id)).limit(1)
+        )
+    )
 
     return {
         "id": player.id,
@@ -883,6 +889,8 @@ def _build_player_hover_card_payload(player_id: int) -> dict[str, object]:
         "nationality": (player.nationality or "").strip(),
         "league_display_name": league_display,
         "league_logo_url": league_logo_url(),
+        "is_hof": is_hof,
+        "hof_badge_url": url_for("static", filename="img/boosts/hof-badge.png") if is_hof else "",
         "age": age,
         "shoots": (player.shoots_catches or "").strip(),
         "height_inches": player.height_inches,

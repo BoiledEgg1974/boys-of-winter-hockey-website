@@ -30,6 +30,7 @@ from app.services.player_snapshot_card import build_player_snapshot_card
 from app.services.league_rules import get_rule_value, rule_bool
 from app.services.seasons import get_current_season
 from app.site_models import (
+    ApLedgerEntry,
     BowlSixGameFinal,
     BowlSixLineup,
     BowlSixLineupPick,
@@ -1110,6 +1111,128 @@ def sync_bowl_six_slate_ap_awards(session: Session, slate: BowlSixSlate) -> None
     slate.ap_place1_team_id = desired[1][0] if 1 in desired else None
     slate.ap_place2_team_id = desired[2][0] if 2 in desired else None
     slate.ap_place3_team_id = desired[3][0] if 3 in desired else None
+
+
+def _bowl_six_award_ledger_exists(
+    session: Session,
+    slate: BowlSixSlate,
+    *,
+    place: int,
+    team_id: int,
+) -> bool:
+    prize = AP_PRIZES.get(place, 0)
+    if prize <= 0:
+        return True
+    prefix = f"bowl_six:slate:{int(slate.id)}:place:{place}:award:"
+    row_id = session.scalar(
+        select(ApLedgerEntry.id)
+        .where(
+            ApLedgerEntry.league_slug == str(slate.league_slug or ""),
+            ApLedgerEntry.team_id == int(team_id),
+            ApLedgerEntry.delta == int(prize),
+            ApLedgerEntry.reason_code == "bowl_six_slate_prize",
+            ApLedgerEntry.source_ref.like(f"{prefix}%"),
+        )
+        .limit(1)
+    )
+    return row_id is not None
+
+
+def ensure_bowl_six_slate_prize_ledgers(session: Session, slate: BowlSixSlate) -> int:
+    """Repair missing AP prize ledger rows for an already-scored slate."""
+    if slate.status != "scored":
+        return 0
+    sync_bowl_six_slate_ap_awards(session, slate)
+    ranked = slate_rankings(session, slate)
+    created = 0
+    version = int(slate.scoring_version or 1)
+    for place, row in enumerate(ranked[:3], start=1):
+        prize = AP_PRIZES.get(place, 0)
+        if prize <= 0:
+            continue
+        team_id = getattr(slate, f"ap_place{place}_team_id", None)
+        if not team_id:
+            continue
+        if _bowl_six_award_ledger_exists(session, slate, place=place, team_id=int(team_id)):
+            continue
+        added = add_ledger_entry(
+            league_slug=str(slate.league_slug or ""),
+            team_id=int(team_id),
+            delta=prize,
+            reason_code="bowl_six_slate_prize",
+            meta={
+                "slate_id": int(slate.id),
+                "place": place,
+                "user_id": int(row["user_id"]),
+                "scoring_version": version,
+                "repair": True,
+            },
+            source_ref=f"bowl_six:slate:{int(slate.id)}:place:{place}:award:repair:{version}",
+        )
+        if added is not None:
+            created += 1
+    return created
+
+
+def ensure_past_week_bowl_six_prizes(
+    session: Session,
+    league_session: Session,
+    league_slug: str,
+) -> dict[str, Any]:
+    """Finalize/repair AP prizes for the most recent completed BOWL Six week."""
+    slug = str(league_slug or "").strip()
+    current_start, _ = _real_bowl_six_week_bounds()
+    target_start = current_start - timedelta(days=7)
+    slate = session.scalar(
+        select(BowlSixSlate)
+        .where(
+            BowlSixSlate.league_slug == slug,
+            BowlSixSlate.week_start == target_start,
+        )
+        .limit(1)
+    )
+    if slate is None:
+        return {
+            "ok": False,
+            "message": f"No BOWL Six slate found for week of {target_start.isoformat()}.",
+            "slate_id": None,
+            "lineups_scored": 0,
+            "ledgers_created": 0,
+        }
+    if slate.status == "skipped":
+        return {
+            "ok": True,
+            "message": f"Week of {slate.week_start.isoformat()} was skipped.",
+            "slate_id": int(slate.id),
+            "lineups_scored": 0,
+            "ledgers_created": 0,
+        }
+    if not slate_award_time_reached(slate):
+        return {
+            "ok": False,
+            "message": f"Week of {slate.week_start.isoformat()} is not ready for AP payout yet.",
+            "slate_id": int(slate.id),
+            "lineups_scored": 0,
+            "ledgers_created": 0,
+        }
+    if slate.status != "scored":
+        lineups = score_slate(session, league_session, slate, notify=True)
+    else:
+        lineups = refresh_slate_lineup_scores(session, league_session, slate)
+        refresh_player_week_stats(session, slate, league_session)
+        sync_bowl_six_slate_ap_awards(session, slate)
+        ensure_current_slate_after_finalization(session, league_session, slate)
+    ledgers_created = ensure_bowl_six_slate_prize_ledgers(session, slate)
+    return {
+        "ok": True,
+        "message": (
+            f"Week of {slate.week_start.isoformat()} is scored; "
+            f"AP prize ledgers verified ({ledgers_created} repaired)."
+        ),
+        "slate_id": int(slate.id),
+        "lineups_scored": int(lineups or 0),
+        "ledgers_created": int(ledgers_created or 0),
+    }
 
 
 def slate_rankings(session: Session, slate: BowlSixSlate) -> list[dict[str, Any]]:

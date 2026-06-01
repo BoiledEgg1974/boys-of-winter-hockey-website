@@ -14,6 +14,7 @@ from datetime import date, datetime
 from app.services.bowl_six import (
     default_lock_at,
     eastern_naive_from_utc_naive,
+    ensure_bowl_six_slate_prize_ledgers,
     ensure_current_slate_after_finalization,
     get_or_create_current_slate,
     lock_at_display_eastern,
@@ -351,6 +352,33 @@ class BowlSixScoringTest(unittest.TestCase):
         self.assertIn("bowl_six:slate:99:place:1:rev:3", source_refs)
         self.assertIn("bowl_six:slate:99:place:1:award:3", source_refs)
         self.assertEqual(slate.ap_place1_team_id, 10)
+
+    def test_bowl_six_prize_ledger_repair_adds_missing_award(self):
+        slate = BowlSixSlate(
+            id=99,
+            league_slug="bowl-historical",
+            week_start=date(2026, 5, 18),
+            week_end=date(2026, 5, 24),
+            lock_at=datetime(2026, 5, 18, 23, 59),
+            status="scored",
+            scoring_version=3,
+            ap_place1_team_id=10,
+        )
+        with unittest.mock.patch("app.services.bowl_six.sync_bowl_six_slate_ap_awards"), \
+            unittest.mock.patch(
+                "app.services.bowl_six.slate_rankings",
+                return_value=[{"user_id": 1, "total_points": 100.0}],
+            ), \
+            unittest.mock.patch(
+                "app.services.bowl_six._bowl_six_award_ledger_exists",
+                return_value=False,
+            ), \
+            unittest.mock.patch("app.services.bowl_six.add_ledger_entry", return_value=object()) as add_entry:
+            created = ensure_bowl_six_slate_prize_ledgers(MagicMock(), slate)
+        self.assertEqual(created, 1)
+        self.assertEqual(add_entry.call_args.kwargs["team_id"], 10)
+        self.assertEqual(add_entry.call_args.kwargs["delta"], 10)
+        self.assertTrue(add_entry.call_args.kwargs["meta"]["repair"])
 
     def test_bowl_six_roster_reminders_queue_unlock_and_warning(self):
         slate = BowlSixSlate(

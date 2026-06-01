@@ -234,6 +234,14 @@
         </li>
         {% endif %}
         <li class="bowl-six-admin-fix">
+          <strong>Ensure past week’s prizes</strong>
+          <form method="post" action="{{ url_for('site_admin.admin_bowl_six_ensure_past_week_prizes') }}" class="bowl-six-admin-fix__form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="admin-news-body-btn">Verify AP prizes</button>
+          </form>
+          <span class="muted">Finalizes last week if needed and repairs missing AP prize ledger rows.</span>
+        </li>
+        <li class="bowl-six-admin-fix">
           <strong>Open next week early</strong>
           <form method="post" action="{{ url_for('site_admin.admin_bowl_six_advance_week') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

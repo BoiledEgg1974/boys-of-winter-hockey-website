@@ -35,6 +35,7 @@ from app.services.bowl_six import (
     lineup_is_editable,
     most_picked_for_slate,
     auto_update_bowl_six_slates,
+    ensure_past_week_bowl_six_prizes,
     extend_slate_lock_at,
     save_lineup,
     score_slate,
@@ -599,6 +600,22 @@ def admin_bowl_six_rescore():
     _audit("bowl_six_rescore", {"slate_id": sid, "lineups_scored": n})
     db.session.commit()
     flash(f"BOWL Six slate re-scored ({n} lineups).", "ok")
+    return redirect(url_for("site_admin.admin_control_center"))
+
+
+@site_admin_bp.post("/control-center/bowl-six/ensure-past-week-prizes")
+@login_required
+def admin_bowl_six_ensure_past_week_prizes():
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    result = ensure_past_week_bowl_six_prizes(db.session, db.session, _league_slug())
+    slate_id = result.get("slate_id")
+    if slate_id:
+        slate = db.session.get(BowlSixSlate, int(slate_id))
+        if slate is not None:
+            _enqueue_bowl_six_discord_after_admin_score(slate, force=True)
+    _audit("bowl_six_ensure_past_week_prizes", result)
+    db.session.commit()
+    flash(str(result.get("message") or "BOWL Six past-week prizes checked."), "ok" if result.get("ok") else "err")
     return redirect(url_for("site_admin.admin_control_center"))
 
 

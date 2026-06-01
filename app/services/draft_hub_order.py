@@ -1,4 +1,4 @@
-"""Build Draft Hub slot order from prior-season standings and imported pick ownership."""
+"""Build Draft Hub slot order from prior-season standings and admin-managed pick ownership."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -246,7 +246,7 @@ def generate_draft_order_from_prior_season(
 ) -> tuple[int, str | None, dict[str, object]]:
     """
     Replace all slots on *draft* with order from prior-season standings (worst→best)
-    and per-round pick ownership from ``draft_pick_ownership.csv``.
+    and per-round pick ownership from the admin-managed ownership grid.
 
     Returns (slots_created, error_message, summary_dict).
     """
@@ -280,7 +280,7 @@ def generate_draft_order_from_prior_season(
     ownership = pick_ownership_lookup(
         site_session, league_slug=slug, draft_year=draft_year
     )
-    has_ownership_csv = draft_pick_ownership_exists(site_session, league_slug=slug)
+    has_ownership_rows = draft_pick_ownership_exists(site_session, league_slug=slug)
     traded_count = 0
     missing_fhm = 0
     old_tiers = preserve_boost_tiers or {}
@@ -324,7 +324,7 @@ def generate_draft_order_from_prior_season(
         "draft_year": draft_year,
         "traded_count": traded_count,
         "missing_fhm": missing_fhm,
-        "has_ownership_csv": has_ownership_csv,
+        "has_ownership_rows": has_ownership_rows,
         "rounds": rounds,
         "picks_per_round": picks_per_round,
     }

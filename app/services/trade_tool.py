@@ -113,7 +113,7 @@ def trade_assets_for_team(
     raw_dir: Path | None = None,
     league_slug: str | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
-    """Roster + rights + imported draft picks owned by this team."""
+    """Roster, rights, and admin-managed draft picks owned by this team."""
     tm = session.get(Team, team_id)
     if not tm:
         return {"roster": [], "unsigned": [], "draft_picks": []}

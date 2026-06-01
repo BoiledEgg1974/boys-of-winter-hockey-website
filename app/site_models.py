@@ -358,7 +358,7 @@ class GmTradeProposal(db.Model):
 
 
 class TradeMarketDraftPickOwnership(db.Model):
-    """Future draft-pick holder per original franchise (imported from draft_pick_ownership.csv)."""
+    """Future draft-pick holder per original franchise."""
 
     __tablename__ = "trade_market_draft_pick_ownership"
     __bind_key__ = "site"

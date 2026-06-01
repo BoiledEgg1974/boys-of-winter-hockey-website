@@ -32,14 +32,13 @@
         <label>Rounds <input type="number" name="round_count" value="{{ panel.round_count }}" min="1" max="15" style="width:5rem;"></label>
         <button type="submit" class="button">Save {{ panel.draft_year }}</button>
       </div>
-      {% set logo_year = panel.draft_year - 1 %}
       <div class="table-wrap draft-pick-admin-grid-wrap">
-        <table class="data draft-pick-admin-grid">
+        <table class="data draft-pick-admin-grid{% if row.rounds|length <= 10 %} draft-pick-admin-grid--compact{% endif %}" style="--draft-pick-rounds: {{ row.rounds|length }};">
           <thead>
             <tr>
               <th class="draft-pick-admin-grid__team-head">Team</th>
               {% for rnd in row.rounds %}
-              <th>{{ rnd }}{% if rnd == 1 %}st{% elif rnd == 2 %}nd{% elif rnd == 3 %}rd{% else %}th{% endif %}</th>
+              <th class="draft-pick-admin-grid__round-head">{{ rnd }}{% if rnd == 1 %}st{% elif rnd == 2 %}nd{% elif rnd == 3 %}rd{% else %}th{% endif %}</th>
               {% endfor %}
             </tr>
           </thead>
@@ -47,10 +46,9 @@
             {% for team_row in row.grid_rows %}
             <tr>
               <td class="draft-pick-admin-grid__team-cell">
-                <span class="team-depth-pick-logo-wrap" title="{{ team_row.name }}">
-                  <img class="team-depth-pick-logo" src="{{ team_logo_url_for_season_context(team_row.team, logo_year) }}" alt="{{ team_row.abbr }} logo" loading="lazy" decoding="async">
+                <span class="team-depth-pick-logo-wrap draft-pick-admin-grid__team-logo-wrap" title="{{ team_row.name }}">
+                  <img class="team-depth-pick-logo draft-pick-admin-grid__team-logo" src="{{ row.team_logo_urls.get(team_row.team_id) }}" alt="{{ team_row.name }} logo" loading="lazy" decoding="async">
                 </span>
-                {{ team_row.abbr }}
               </td>
               {% for cell in team_row.cells %}
               <td>
@@ -63,7 +61,7 @@
                   {% for opt in team_choices %}
                     {% if opt.id == cell.owner_team_id %}
                     <span class="team-depth-pick-logo-wrap" title="Owned by {{ opt.name }}">
-                      <img class="team-depth-pick-logo" src="{{ team_logo_url_for_season_context(opt.team, logo_year) }}" alt="{{ opt.abbr }} logo" loading="lazy" decoding="async">
+                      <img class="team-depth-pick-logo" src="{{ row.team_logo_urls.get(opt.id) }}" alt="{{ opt.name }} logo" loading="lazy" decoding="async">
                     </span>
                     {% endif %}
                   {% endfor %}

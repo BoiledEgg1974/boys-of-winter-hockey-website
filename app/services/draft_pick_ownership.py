@@ -1,9 +1,7 @@
-"""Import and query draft-pick ownership from draft_pick_ownership.csv (site DB)."""
+"""Admin-managed draft-pick ownership rows for trade and draft workflows."""
 from __future__ import annotations
 
-import re
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 
 from sqlalchemy import and_, delete, select
@@ -13,12 +11,8 @@ from app.models import Season, Team
 from app.services.roster_team import is_main_league_team
 from app.services.seasons import season_with_imported_data_fallback
 from app.site_models import DraftPickOwnershipYear, LeagueDraft, TradeMarketDraftPickOwnership
-from scripts.import_pipeline.encoding_utils import cell_val, read_csv_normalized, to_int
 
 DRAFT_PICK_DRAG_PREFIX = "dpick"
-DRAFT_PICK_CSV_NAME = "draft_pick_ownership.csv"
-
-_ROUND_COLUMN_PATTERN = re.compile(r"^(\d+)(?:st|nd|rd|th)?[\s_]*round$", re.I)
 
 
 def draft_pick_drag_key(row_id: int) -> str:
@@ -32,17 +26,6 @@ def parse_draft_pick_drag_key(key: str) -> int | None:
         return int(str(key).split(":", 1)[1])
     except (ValueError, IndexError):
         return None
-
-
-def _round_from_column(header: str) -> int | None:
-    h = str(header or "").strip().replace("_", " ")
-    if not h:
-        return None
-    match = _ROUND_COLUMN_PATTERN.match(h)
-    if not match:
-        return None
-    rnd = to_int(match.group(1))
-    return rnd if rnd and rnd > 0 else None
 
 
 def fhm_team_id_to_db_id(league_session: Session) -> dict[int, int]:
@@ -77,63 +60,6 @@ def describe_draft_pick_row(
     if int(row.original_team_fhm_id) == int(row.owner_team_fhm_id):
         return f"{year} {owner} {rnd}{suffix} Round pick"
     return f"{year} {rnd}{suffix} Round ({orig}) — held by {owner}"
-
-
-def import_draft_pick_ownership_csv(
-    site_session: Session,
-    league_session: Session,
-    *,
-    league_slug: str,
-    raw_dir: Path | None,
-) -> int:
-    """Replace all ownership rows for *league_slug* from CSV. Returns rows imported."""
-    slug = str(league_slug or "").strip()
-    if not slug or raw_dir is None:
-        return 0
-    path = Path(raw_dir) / DRAFT_PICK_CSV_NAME
-    if not path.is_file():
-        return 0
-    df = read_csv_normalized(path)
-    if df.empty:
-        return 0
-    col_rounds: list[tuple[int, str]] = []
-    for col in df.columns:
-        rnd = _round_from_column(str(col))
-        if rnd is not None:
-            col_rounds.append((rnd, str(col)))
-    if not col_rounds:
-        return 0
-    fhm_map = fhm_team_id_to_db_id(league_session)
-    site_session.execute(
-        delete(TradeMarketDraftPickOwnership).where(
-            TradeMarketDraftPickOwnership.league_slug == slug
-        )
-    )
-    n = 0
-    for _, row in df.iterrows():
-        r = row.to_dict()
-        year = to_int(cell_val(r, "year"))
-        orig_fhm = to_int(cell_val(r, "team id", "team_id", "teamid"))
-        if year is None or orig_fhm is None:
-            continue
-        for rnd, col_name in col_rounds:
-            owner_fhm = to_int(cell_val(r, col_name))
-            if owner_fhm is None:
-                continue
-            site_session.add(
-                TradeMarketDraftPickOwnership(
-                    league_slug=slug,
-                    draft_year=int(year),
-                    original_team_fhm_id=int(orig_fhm),
-                    original_team_id=fhm_map.get(int(orig_fhm)),
-                    round=int(rnd),
-                    owner_team_fhm_id=int(owner_fhm),
-                    owner_team_id=fhm_map.get(int(owner_fhm)),
-                )
-            )
-            n += 1
-    site_session.commit()
-    return n
 
 
 def owned_draft_picks_for_team(
@@ -275,7 +201,23 @@ def draft_pick_teams_for_grid(league_session: Session) -> list[Team]:
         if not is_main_league_team(team):
             continue
         out.append(team)
-    return out
+    return sorted(out, key=_draft_pick_team_sort_key)
+
+
+def _draft_pick_team_sort_key(team: Team) -> tuple[str, str, int]:
+    name = ""
+    try:
+        name = str(team.full_display_name() or "")
+    except Exception:
+        name = ""
+    if not name.strip():
+        name = str(getattr(team, "name", "") or "")
+    abbr = str(getattr(team, "abbreviation", "") or "")
+    try:
+        tid = int(getattr(team, "id", 0) or 0)
+    except (TypeError, ValueError):
+        tid = 0
+    return (name.casefold(), abbr.casefold(), tid)
 
 
 def list_draft_pick_ownership_year_panels(

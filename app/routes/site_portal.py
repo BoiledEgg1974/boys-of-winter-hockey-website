@@ -1083,7 +1083,7 @@ def trade_tool_assets():
             "right_team_id": int(raw_tid),
             "left": left,
             "right": right,
-            "draft_picks_imported": draft_pick_ownership_exists(
+            "draft_pick_ownership_available": draft_pick_ownership_exists(
                 db.session, league_slug=slug
             ),
             "draft_round_cap": int(draft_cap),
@@ -3071,10 +3071,18 @@ def admin_draft_pick_ownership():
         }
         for t in teams
     ]
+    logo_bundle = get_season_team_logo_bundle()
+
+    def _admin_draft_pick_logo_url(team: Team, logo_year: int) -> str:
+        if slug == "bowl-fantasy":
+            return logo_bundle.team_logo_url_present_franchise(team)
+        return logo_bundle.team_logo_url_for_season_context(team, int(logo_year))
+
     panels_view: list[dict[str, object]] = []
     max_year = 0
     for panel in panels:
         max_year = max(max_year, int(panel.draft_year))
+        logo_year = int(panel.draft_year) - 1
         grid_rows = build_draft_pick_ownership_year_grid(
             db.session,
             db.session,
@@ -3082,11 +3090,16 @@ def admin_draft_pick_ownership():
             draft_year=int(panel.draft_year),
             round_count=max(1, int(panel.round_count)),
         )
+        team_logo_urls = {
+            int(t.id): _admin_draft_pick_logo_url(t, logo_year)
+            for t in teams
+        }
         panels_view.append(
             {
                 "panel": panel,
                 "grid_rows": grid_rows,
                 "rounds": list(range(1, max(1, int(panel.round_count)) + 1)),
+                "team_logo_urls": team_logo_urls,
             }
         )
     next_year = (max_year + 1) if max_year > 0 else datetime.utcnow().year
@@ -7292,11 +7305,11 @@ def admin_draft_hub_edit(draft_id: int):
                 )
                 traded = int(summary.get("traded_count") or 0)
                 if traded:
-                    msg += f" {traded} pick(s) use imported trade ownership."
-                if not summary.get("has_ownership_csv"):
+                    msg += f" {traded} pick(s) use admin-managed trade ownership."
+                if not summary.get("has_ownership_rows"):
                     msg += (
-                        " No draft_pick_ownership.csv found for this league — "
-                        "owners match original teams until you import trades and regenerate."
+                        " No active draft-pick ownership panels were found for this league — "
+                        "owners match original teams until panels are configured and regenerated."
                     )
                 flash(msg, "ok")
         elif act == "save_generated_slots" and row.status == "setup":

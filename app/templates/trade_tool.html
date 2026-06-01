@@ -63,7 +63,7 @@
         </label>
 
         <div class="trade-tool-manual-picks" id="trade-tool-manual-picks">
-          <p class="trade-tool-manual-picks__intro muted" id="trade-tool-manual-picks-intro">Draft picks are chosen here (not loaded from CSV). Drag chips into the ledger boxes above. Max rounds is set under <strong>Admin → League rules</strong> (<code>trade_tool_draft_rounds</code>).</p>
+          <p class="trade-tool-manual-picks__intro muted" id="trade-tool-manual-picks-intro">Draft picks are chosen here when no admin-managed ownership panel is active. Drag chips into the ledger boxes above. Max rounds is set under <strong>Admin → League rules</strong> (<code>trade_tool_draft_rounds</code>).</p>
           <div class="trade-tool-manual-picks__grid">
             <div class="trade-tool-manual-picks__col">
               <div class="trade-tool-manual-picks__head">Your Team — Draft Picks (Manual)</div>
@@ -377,26 +377,26 @@
       renderList("Org Rights (Export / Non-Roster)", lu.rights, "left") +
       renderList("Prospects & Unsigned (DB)", lu.other, "left") +
       renderList(
-        "Owned Draft Picks (Import)",
+        "Owned Draft Picks",
         cached.left.draft_picks || [],
         "left",
-        "No Imported Draft Picks Found For This Team"
+        "No Draft Picks Found For This Team"
       );
     rightPanels.innerHTML =
       renderList("Rostered Players", cached.right.roster, "right") +
       renderList("Org Rights (Export / Non-Roster)", ru.rights, "right") +
       renderList("Prospects & Unsigned (DB)", ru.other, "right") +
       renderList(
-        "Owned Draft Picks (Import)",
+        "Owned Draft Picks",
         cached.right.draft_picks || [],
         "right",
-        "No Imported Draft Picks Found For This Team"
+        "No Draft Picks Found For This Team"
       );
     var manualBox = document.getElementById("trade-tool-manual-picks");
-    var useImport = !!cached.draft_picks_imported ||
+    var useOwnership = !!cached.draft_pick_ownership_available ||
       (cached.left.draft_picks && cached.left.draft_picks.length) ||
       (cached.right.draft_picks && cached.right.draft_picks.length);
-    if (manualBox) manualBox.style.display = useImport ? "none" : "";
+    if (manualBox) manualBox.style.display = useOwnership ? "none" : "";
     bindTradeHovers();
   }
 

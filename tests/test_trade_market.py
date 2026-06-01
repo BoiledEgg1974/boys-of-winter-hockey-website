@@ -77,7 +77,7 @@ class TradeMarketServiceTest(unittest.TestCase):
                 )
         self.assertFalse(ok)
 
-    def test_trade_tool_blocks_manual_picks_when_csv_ownership_exists(self) -> None:
+    def test_trade_tool_blocks_manual_picks_when_admin_ownership_exists(self) -> None:
         session = MagicMock()
         with patch(
             "app.services.trade_tool.draft_pick_ownership_exists",

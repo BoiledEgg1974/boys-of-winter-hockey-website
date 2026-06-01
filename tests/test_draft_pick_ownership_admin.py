@@ -6,12 +6,29 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 from app.services.draft_pick_ownership import (
+    draft_pick_teams_for_grid,
     sync_draft_pick_ownership_rollover_for_completed_drafts,
     transfer_approved_trade_draft_pick_rows,
 )
 
 
 class DraftPickOwnershipAdminTests(unittest.TestCase):
+    def test_draft_pick_grid_teams_are_alphabetical(self) -> None:
+        def team(tid: int, name: str, abbr: str):
+            row = MagicMock(id=tid, fhm_team_id=str(tid), abbreviation=abbr)
+            row.full_display_name.return_value = name
+            return row
+
+        league_session = MagicMock()
+        league_session.scalars.return_value.all.return_value = [
+            team(3, "Winnipeg Thunder", "WIC"),
+            team(1, "Hamilton Steel", "HAM"),
+            team(2, "Helsinki Jokerit", "HEL"),
+        ]
+        with unittest.mock.patch("app.services.draft_pick_ownership.is_main_league_team", return_value=True):
+            rows = draft_pick_teams_for_grid(league_session)
+        self.assertEqual([r.abbreviation for r in rows], ["HAM", "HEL", "WIC"])
+
     def test_transfer_approved_trade_draft_pick_rows_moves_row_owner(self) -> None:
         league_session = MagicMock()
         league_session.scalars.return_value.all.return_value = [

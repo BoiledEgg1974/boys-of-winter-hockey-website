@@ -324,13 +324,34 @@ def league_headlines():
     """Public published articles (Around the League)."""
     from math import ceil
 
+    from flask import redirect, url_for
+
     from app.services.news_engagement import engagement_bundle_for_articles, viewer_can_react_on_news
-    from app.services.news_text import HEADLINES_COMMENTS_PER_ARTICLE, HEADLINES_PER_PAGE
+    from app.services.news_text import (
+        HEADLINES_COMMENTS_PER_ARTICLE,
+        HEADLINES_PER_PAGE,
+        headlines_page_for_article_id,
+    )
     from app.site_models import NewsArticle, User
 
     from app.services.news_retention import published_news_age_filter
 
     slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    article_arg = (request.args.get("article") or "").strip()
+    if article_arg.isdigit():
+        target_page = headlines_page_for_article_id(
+            db.session, slug, int(article_arg), per_page=HEADLINES_PER_PAGE
+        )
+        if target_page is not None:
+            try:
+                req_page = max(1, int(request.args.get("page", 1) or 1))
+            except (TypeError, ValueError):
+                req_page = 1
+            if req_page != target_page:
+                return redirect(
+                    url_for("main.league_headlines", page=target_page, article=article_arg)
+                    + f"#a{article_arg}"
+                )
     try:
         page = max(1, int(request.args.get("page", 1) or 1))
     except (TypeError, ValueError):

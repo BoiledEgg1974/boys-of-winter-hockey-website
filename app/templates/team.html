@@ -47,12 +47,12 @@
       {% endif %}
       {% if row.body_excerpt %}
       <div class="home-news-list__excerpt">{{ row.body_excerpt }}</div>
-      <p class="home-news-list__more"><a href="{{ url_for('main.league_headlines') }}#a{{ a.id }}">Read full article</a></p>
+      <p class="home-news-list__more"><a href="{{ url_for('main.league_headlines', article=a.id) }}#a{{ a.id }}">Read full article</a></p>
       {% endif %}
       {% if a.published_at %}
       <p class="team-page-news__date muted">{{ a.published_at.strftime('%b %d, %Y') }}</p>
       {% endif %}
-      {{ news_engagement_block(a.id, row.engagement, news_viewer_can_react, url_for('main.league_headlines') ~ '#a' ~ a.id) }}
+      {{ news_engagement_block(a.id, row.engagement, news_viewer_can_react, url_for('main.league_headlines', article=a.id) ~ '#a' ~ a.id) }}
     </li>
     {% endfor %}
   </ul>

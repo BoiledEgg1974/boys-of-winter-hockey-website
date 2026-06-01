@@ -212,6 +212,9 @@
     var root = document.documentElement.getAttribute("data-application-root") || "";
     root = root.replace(/\/$/, "");
     if (!path.startsWith("/")) path = "/" + path;
+    if (root && (path === root || path.indexOf(root + "/") === 0)) {
+      return path;
+    }
     return root + path;
   }
   function rewriteSummaryStaticUrls(data) {
@@ -932,6 +935,10 @@
     });
   }
 
+  function headlinesArticleHref(headlinesPath, articleId) {
+    return withRoot(headlinesPath + '?article=' + String(articleId) + '#a' + String(articleId));
+  }
+
   function htmlNewsEngagementHome(a, viewerCan, headlinesPath) {
     viewerCan = !!viewerCan;
     var upc = a.thumbs_up != null ? Number(a.thumbs_up) : 0;
@@ -940,7 +947,7 @@
     var upSel = mv === 1 ? ' is-selected' : '';
     var dnSel = mv === -1 ? ' is-selected' : '';
     var aid = String(a.id);
-    var articleHref = escapeAttr(withRoot(headlinesPath + '#a' + aid));
+    var articleHref = escapeAttr(headlinesArticleHref(headlinesPath, aid));
     var h =
       '<div class="news-eng" data-news-article-id="' +
       escapeAttr(aid) +
@@ -1081,7 +1088,7 @@
         h += '<div class="home-news-list__excerpt">' + escape(String(a.body_excerpt)) + '</div>';
         h +=
           '<p class="home-news-list__more"><a href="' +
-          escapeAttr(withRoot(headlinesPath + '#a' + String(a.id))) +
+          escapeAttr(headlinesArticleHref(headlinesPath, a.id)) +
           '">Read full article</a></p>';
       } else if (a.body_html) {
         h += '<div class="home-news-list__body home-news-list__body--linked">' + a.body_html + '</div>';

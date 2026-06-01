@@ -2693,9 +2693,9 @@ def gm_notification_open(nid: int):
     n.read_at = datetime.utcnow()
     db.session.commit()
     if n.kind == "news_approved" and n.article_id:
-        return redirect(url_for("main.league_headlines") + f"#a{n.article_id}")
+        return redirect(url_for("main.league_headlines", article=n.article_id) + f"#a{n.article_id}")
     if n.kind == "admin_league_article" and n.article_id:
-        return redirect(url_for("main.league_headlines") + f"#a{n.article_id}")
+        return redirect(url_for("main.league_headlines", article=n.article_id) + f"#a{n.article_id}")
     if n.kind == "news_denied":
         return redirect(url_for("site_gm.league_news"))
     if n.kind == "redemption_approved":

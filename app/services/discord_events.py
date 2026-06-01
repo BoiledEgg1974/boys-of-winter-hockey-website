@@ -694,8 +694,28 @@ def _route_map(session, league_slug: str) -> dict[str, DiscordChannelRoute]:
     return {str(r.event_key): r for r in rows}
 
 
+def _legacy_ops_request_remains(session) -> bool:
+    legacy_route_id = session.scalar(
+        select(DiscordChannelRoute.id)
+        .where(DiscordChannelRoute.event_key == "ops_request_status")
+        .limit(1)
+    )
+    if legacy_route_id is not None:
+        return True
+    legacy_event_id = session.scalar(
+        select(DiscordOutboundEvent.id)
+        .where(DiscordOutboundEvent.event_key == "ops_request_status")
+        .limit(1)
+    )
+    return legacy_event_id is not None
+
+
 def _migrate_ops_request_to_trade_request(session) -> None:
     """Rename legacy ops_request_status routes/events to trade_request (per-league, no duplicate key)."""
+    if not _legacy_ops_request_remains(session):
+        return
+    from app.sqlite_retry import commit_with_sqlite_retry
+
     legacy_routes = session.scalars(
         select(DiscordChannelRoute).where(DiscordChannelRoute.event_key == "ops_request_status")
     ).all()
@@ -717,7 +737,7 @@ def _migrate_ops_request_to_trade_request(session) -> None:
         .values(event_key="trade_request")
     )
     if legacy_routes or (getattr(ev_upd, "rowcount", 0) or 0) > 0:
-        session.commit()
+        commit_with_sqlite_retry(session)
 
 
 def bootstrap_discord_integration_all_leagues(session) -> None:
@@ -756,7 +776,9 @@ def ensure_discord_routes(session, league_slug: str, updated_by_user_id: int | N
         )
         changed = True
     if changed:
-        session.commit()
+        from app.sqlite_retry import commit_with_sqlite_retry
+
+        commit_with_sqlite_retry(session)
 
 
 def list_discord_routes(session, league_slug: str) -> list[DiscordChannelRoute]:
@@ -1357,7 +1379,9 @@ def upsert_bot_heartbeat(
         row.guild_id = str(guild_id or "")[:64]
         row.last_seen_at = datetime.utcnow()
         row.extra_json = json.dumps(extra or {})
-    session.commit()
+    from app.sqlite_retry import commit_with_sqlite_retry
+
+    commit_with_sqlite_retry(session)
     if str(bot_name or "").strip() == canonical_discord_bot_name():
         prune_obsolete_discord_bot_heartbeats(session, league_slug=league_slug)
     return row

@@ -240,6 +240,9 @@
     var r = document.documentElement.getAttribute('data-application-root') || '';
     r = r.replace(/\/$/, '');
     if (!path.startsWith('/')) path = '/' + path;
+    if (r && (path === r || path.indexOf(r + '/') === 0)) {
+      return path;
+    }
     return r + path;
   }
   function esc(s) {

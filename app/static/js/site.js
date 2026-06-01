@@ -41,6 +41,9 @@
     var root = document.documentElement.getAttribute("data-application-root") || "";
     root = root.replace(/\/$/, "");
     if (!path.startsWith("/")) path = "/" + path;
+    if (root && (path === root || path.indexOf(root + "/") === 0)) {
+      return path;
+    }
     return root + path;
   }
 

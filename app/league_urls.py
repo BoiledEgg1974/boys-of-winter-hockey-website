@@ -15,6 +15,24 @@ def real_flask_app(app: Flask) -> Flask:
     return app
 
 
+def league_mount_relative_path(path: str, *, app: Flask | None = None) -> str:
+    """Strip mount prefix from a path so client ``withRoot()`` adds it exactly once.
+
+    ``url_for`` under DispatcherMiddleware includes ``request.script_root``; homepage
+    JSON must not double-prefix when the browser also uses ``data-application-root``.
+    """
+    p = (path or "").strip()
+    if not p:
+        return "/"
+    if not p.startswith("/"):
+        p = f"/{p}"
+    mount = league_mount_prefix(app).rstrip("/")
+    if mount and (p == mount or p.startswith(f"{mount}/")):
+        rest = p[len(mount) :]
+        return rest if rest.startswith("/") else "/"
+    return p
+
+
 def league_mount_prefix(app: Flask | None = None) -> str:
     """Path prefix for this league (e.g. ``/bowl-fantasy``), or ``''`` at domain root."""
     from flask import current_app, has_request_context, request

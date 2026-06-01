@@ -1042,7 +1042,9 @@ def build_around_the_league(
 
     def _headlines_path() -> str:
         if has_request_context():
-            return str(url_for("main.league_headlines"))
+            from app.league_urls import league_mount_relative_path
+
+            return league_mount_relative_path(str(url_for("main.league_headlines")))
         return "/league-headlines"
 
     def _static_url(rel: str) -> str:

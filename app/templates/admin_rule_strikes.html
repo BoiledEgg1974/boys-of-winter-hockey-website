@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Admin — Cap Strike Tracker{% endblock %}
 {% block content %}
-<div class="card" style="max-width:54rem;margin:0 auto;">
+<div class="card cap-strike-admin" style="max-width:70rem;margin:0 auto;">
   <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
   <h1 class="page-title">Cap Strike Penalty Tracker</h1>
   <p class="muted">
@@ -10,33 +10,25 @@
   </p>
   <form method="post">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="table-wrap" style="max-height:72vh;overflow:auto;">
-      <table class="data">
-        <thead>
-          <tr>
-            <th>Team</th>
-            <th>1st Strike</th>
-            <th>2nd Strike</th>
-            <th>3rd Strike</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for row in rows %}
-          <tr>
-            <td>
-              <span class="team-depth-pick-logo-wrap" title="{{ row.team_name }}">
-                <img class="team-depth-pick-logo" src="{{ team_logo_url(row.team) }}" alt="{{ row.team_name }} logo" loading="lazy" decoding="async">
-              </span>
-            </td>
-            {% for strike_no in (1, 2, 3) %}
-            <td>
-              <input type="checkbox" name="strike_{{ row.team_id }}_{{ strike_no }}" value="1"{% if strike_no in row.strikes %} checked{% endif %} aria-label="{{ row.team_name }} strike {{ strike_no }}">
-            </td>
-            {% endfor %}
-          </tr>
+    <div class="cap-strike-admin__grid">
+      {% for row in rows %}
+      <div class="cap-strike-admin__team-card">
+        <div class="cap-strike-admin__team">
+          <span class="cap-strike-admin__logo-wrap" title="{{ row.team_name }}">
+            <img class="cap-strike-admin__logo" src="{{ team_logo_url(row.team) }}" alt="{{ row.team_name }} logo" loading="lazy" decoding="async">
+          </span>
+          <span class="cap-strike-admin__team-name">{{ row.team_name }}</span>
+        </div>
+        <div class="cap-strike-admin__checks">
+          {% for strike_no in (1, 2, 3) %}
+          <label class="cap-strike-admin__check">
+            <span>{{ strike_no }}{% if strike_no == 1 %}st{% elif strike_no == 2 %}nd{% else %}rd{% endif %}</span>
+            <input type="checkbox" name="strike_{{ row.team_id }}_{{ strike_no }}" value="1"{% if strike_no in row.strikes %} checked{% endif %} aria-label="{{ row.team_name }} strike {{ strike_no }}">
+          </label>
           {% endfor %}
-        </tbody>
-      </table>
+        </div>
+      </div>
+      {% endfor %}
     </div>
     <button type="submit" class="button" style="margin-top:0.75rem;">Apply</button>
   </form>

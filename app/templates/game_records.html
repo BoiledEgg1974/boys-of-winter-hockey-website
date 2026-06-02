@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Game Records — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+
+{% block content %}
+<div class="page game-records-page" style="max-width:72rem;margin:0 auto;">
+  <h1 class="page-title">Game Records</h1>
+
+  <div class="game-records-filters">
+    <div class="game-records-filters__group" role="group" aria-label="Season segment">
+      <span class="game-records-filters__label">Segment</span>
+      <a class="game-records-filters__pill{% if segment == 'rs' %} is-active{% endif %}" href="{{ url_for('main.game_records_page', segment='rs', scope=scope, kind=player_kind) }}">Regular Season</a>
+      <a class="game-records-filters__pill{% if segment == 'po' %} is-active{% endif %}" href="{{ url_for('main.game_records_page', segment='po', scope=scope, kind=player_kind) }}">Playoffs</a>
+    </div>
+    <div class="game-records-filters__group" role="group" aria-label="Player scope">
+      <span class="game-records-filters__label">Players</span>
+      <a class="game-records-filters__pill{% if scope == 'all' %} is-active{% endif %}" href="{{ url_for('main.game_records_page', segment=segment, scope='all', kind=player_kind) }}">All Players</a>
+      <a class="game-records-filters__pill{% if scope == 'rookie' %} is-active{% endif %}" href="{{ url_for('main.game_records_page', segment=segment, scope='rookie', kind=player_kind) }}">Rookies</a>
+    </div>
+    <div class="game-records-filters__group" role="group" aria-label="Player type">
+      <span class="game-records-filters__label">Type</span>
+      <a class="game-records-filters__pill{% if player_kind == 'skater' %} is-active{% endif %}" href="{{ url_for('main.game_records_page', segment=segment, scope=scope, kind='skater') }}">Skaters</a>
+      <a class="game-records-filters__pill{% if player_kind == 'goalie' %} is-active{% endif %}" href="{{ url_for('main.game_records_page', segment=segment, scope=scope, kind='goalie') }}">Goalies</a>
+    </div>
+  </div>
+
+  <p class="muted game-records-page__meta">{{ segment_label }} · {{ scope_label }} · {{ kind_label }}</p>
+
+  <div class="game-records-grid">
+    {% for card in cards %}
+    <article class="game-records-card">
+      <h2 class="game-records-card__title">{{ card.title }}</h2>
+      <div class="game-records-card__body">
+        <div class="game-records-card__photo-col">
+          {% if card.player and player_headshot_url(card.player) %}
+          <img class="game-records-card__photo" src="{{ player_headshot_url(card.player) }}" alt="" width="52" height="52" loading="lazy" decoding="async">
+          {% else %}
+          <span class="game-records-card__photo-ph stats-player-cell__photo-ph" aria-hidden="true"></span>
+          {% endif %}
+        </div>
+        <div class="game-records-card__main">
+          {% if card.player %}
+          <a class="game-records-card__player" href="{{ url_for('main.player_page', player_id=card.player.id) }}">{{ card.player.full_name }}</a>
+          {% else %}
+          <span class="game-records-card__player muted">—</span>
+          {% endif %}
+          <div class="game-records-card__value">{{ card.display_value }}</div>
+          {% if card.team %}
+          <a class="game-records-card__team" href="{{ url_for('main.team_page', slug=card.team.slug) }}">{{ card.team.full_display_name() }}</a>
+          {% endif %}
+          {% if card.opponent_team %}
+          <span class="game-records-card__vs muted">vs {{ card.opponent_team.full_display_name() }}</span>
+          {% endif %}
+          {% if card.game_date %}
+          <time class="game-records-card__date muted" datetime="{{ card.game_date.isoformat() }}">{{ card.game_date.strftime('%B %d, %Y') }}</time>
+          {% elif card.season_label %}
+          <span class="game-records-card__date muted">{{ card.season_label }}</span>
+          {% endif %}
+        </div>
+        {% if card.team %}
+        <div class="game-records-card__logo-col">
+          <a href="{{ url_for('main.team_page', slug=card.team.slug) }}" aria-label="{{ card.team.full_display_name() }}">
+            <img class="game-records-card__logo" src="{{ team_logo_url(card.team) }}" alt="" loading="lazy" decoding="async">
+          </a>
+        </div>
+        {% endif %}
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

@@ -22,6 +22,7 @@ ARTICLE_TEXT_DISCORD_EVENT_KEYS = frozenset(
 
 ALWAYS_TEXT_ONLY_DISCORD_EVENT_KEYS = frozenset(
     {
+        "confirmed_trade",
         "trade_request",
         "staff_transaction_posted",
         "draft_hub_pick_made",
@@ -131,7 +132,7 @@ def _text_only_header_lines(
     title: str,
 ) -> list[str]:
     lines: list[str] = []
-    if event_key in ("news_published", "gm_news_published", "admin_news_published"):
+    if event_key in ("news_published", "gm_news_published", "admin_news_published", "confirmed_trade"):
         team_line = format_team_label(league_slug, payload)
         if team_line:
             lines.append(team_line)

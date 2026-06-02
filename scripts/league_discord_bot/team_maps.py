@@ -140,11 +140,16 @@ def format_team_label(league_slug: str, payload: dict, *, fallback_name: str = "
     prefix = team_emoji_prefix(league_slug, payload)
     entry = entry_for_fhm_team_id(league_slug, payload.get("fhm_team_id"))
     name = str(fallback_name or payload.get("team_name") or "").strip()
+    team_url = str(payload.get("team_url") or "").strip()
+
+    def link(label: str) -> str:
+        return f"[{label}]({team_url})" if team_url else label
+
     if entry:
         abbrev = entry[0]
         if name:
-            return f"{prefix}**{abbrev}** — {name}".strip()
-        return f"{prefix}**{abbrev}**".strip()
+            return f"{prefix}**{link(abbrev)}** — {link(name)}".strip()
+        return f"{prefix}**{link(abbrev)}**".strip()
     if name:
-        return f"{prefix}**{name}**".strip()
+        return f"{prefix}**{link(name)}**".strip()
     return prefix.strip()

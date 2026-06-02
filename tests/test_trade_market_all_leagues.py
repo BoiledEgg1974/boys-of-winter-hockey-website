@@ -6,7 +6,8 @@ from pathlib import Path
 
 from app import create_app
 from app.config import LEAGUES, make_league_config
-from app.services.discord_events import DEFAULT_EVENT_KEYS
+from app.services.discord_events import DEFAULT_EVENT_CHANNEL_KEY, DEFAULT_EVENT_KEYS
+from scripts.league_discord_bot.formatters import format_discord_message
 
 
 class TradeMarketAllLeaguesTest(unittest.TestCase):
@@ -35,6 +36,31 @@ class TradeMarketAllLeaguesTest(unittest.TestCase):
     def test_discord_trade_market_events_registered_for_all_leagues(self) -> None:
         self.assertIn("trade_market_selling_posted", DEFAULT_EVENT_KEYS)
         self.assertIn("trade_market_buying_posted", DEFAULT_EVENT_KEYS)
+
+    def test_confirmed_trade_discord_event_uses_confirm_trade_channel(self) -> None:
+        self.assertIn("confirmed_trade", DEFAULT_EVENT_KEYS)
+        self.assertEqual(DEFAULT_EVENT_CHANNEL_KEY.get("confirmed_trade"), "confirm-trade")
+
+    def test_confirmed_trade_discord_formatter_is_text_post(self) -> None:
+        msg = format_discord_message(
+            {
+                "league_slug": "bowl-historical",
+                "event_key": "confirmed_trade",
+                "payload": {
+                    "title": "Trade: Oakland Seals ↔ Boston Bruins",
+                    "body": "Oakland sends a pick.\n\nBoston sends a player.",
+                    "team_abbrev": "OAK",
+                    "team_name": "Oakland Seals",
+                    "fhm_team_id": 120,
+                    "team_url": "https://www.bowlhockey.com/bowl-historical/team/oakland-seals",
+                },
+            }
+        )
+        content = msg.get("content", "")
+        self.assertIn("Trade: Oakland Seals", content)
+        self.assertIn("[OAK](https://www.bowlhockey.com/bowl-historical/team/oakland-seals)", content)
+        self.assertIn("Oakland sends a pick", content)
+        self.assertNotIn("embeds", msg)
 
     def test_trade_market_json_posts_include_csrf_header(self) -> None:
         """Flask-WTF CSRFProtect requires X-CSRFToken on JSON POST (body alone is not enough)."""

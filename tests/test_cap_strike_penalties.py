@@ -68,6 +68,15 @@ class CapStrikePenaltiesTest(unittest.TestCase):
         self.assertIn("current_league_slug == 'bowl-cap'", text)
         self.assertIn("admin_rule_strikes", text)
 
+    def test_admin_template_uses_two_column_card_grid(self) -> None:
+        from pathlib import Path
+
+        path = Path(__file__).resolve().parents[1] / "app" / "templates" / "admin_rule_strikes.html"
+        text = path.read_text(encoding="utf-8")
+        self.assertIn("cap-strike-admin__grid", text)
+        self.assertIn("cap-strike-admin__team-card", text)
+        self.assertIn("cap-strike-admin__checks", text)
+
 
 if __name__ == "__main__":
     unittest.main()

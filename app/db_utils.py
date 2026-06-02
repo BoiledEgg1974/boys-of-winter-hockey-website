@@ -2019,6 +2019,57 @@ def ensure_boost_lottery_team_results_sqlite(engine: Engine) -> None:
         conn.commit()
 
 
+def ensure_game_record_baselines_sqlite(engine: Engine) -> None:
+    """Create admin-seeded single-game record baselines table (league DB)."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='game_record_baselines'"
+            )
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE game_record_baselines (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    metric_key VARCHAR(64) NOT NULL,
+                    segment VARCHAR(8) NOT NULL DEFAULT 'rs',
+                    scope VARCHAR(16) NOT NULL DEFAULT 'all',
+                    player_kind VARCHAR(16) NOT NULL DEFAULT 'skater',
+                    value FLOAT NOT NULL,
+                    player_id INTEGER,
+                    team_id INTEGER,
+                    opponent_team_id INTEGER,
+                    game_id INTEGER,
+                    game_date DATE,
+                    season_label VARCHAR(32),
+                    notes TEXT,
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL,
+                    FOREIGN KEY(player_id) REFERENCES players (id),
+                    FOREIGN KEY(team_id) REFERENCES teams (id),
+                    FOREIGN KEY(opponent_team_id) REFERENCES teams (id),
+                    FOREIGN KEY(game_id) REFERENCES games (id),
+                    CONSTRAINT uq_game_record_baseline_metric UNIQUE (
+                        metric_key, segment, scope, player_kind
+                    )
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_game_record_baseline_segment "
+                "ON game_record_baselines (segment, scope, player_kind)"
+            )
+        )
+        conn.commit()
+
+
 def ensure_gm_rule_strikes_sqlite(engine: Engine) -> None:
     """Create cap strike-tracking table on the site DB."""
     if engine.dialect.name != "sqlite":

@@ -750,6 +750,45 @@ class ImportLog(db.Model):
     message: Mapped[str | None] = mapped_column(Text)
 
 
+class GameRecordBaseline(db.Model):
+    """Admin-seeded single-game record baselines; boxscore imports may surpass these values."""
+
+    __tablename__ = "game_record_baselines"
+    __table_args__ = (
+        UniqueConstraint(
+            "metric_key",
+            "segment",
+            "scope",
+            "player_kind",
+            name="uq_game_record_baseline_metric",
+        ),
+        Index("ix_game_record_baseline_segment", "segment", "scope", "player_kind"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    metric_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    segment: Mapped[str] = mapped_column(String(8), nullable=False, default="rs")
+    scope: Mapped[str] = mapped_column(String(16), nullable=False, default="all")
+    player_kind: Mapped[str] = mapped_column(String(16), nullable=False, default="skater")
+    value: Mapped[float] = mapped_column(Float, nullable=False)
+    player_id: Mapped[int | None] = mapped_column(ForeignKey("players.id"))
+    team_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id"))
+    opponent_team_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id"))
+    game_id: Mapped[int | None] = mapped_column(ForeignKey("games.id"))
+    game_date: Mapped[date | None] = mapped_column(Date)
+    season_label: Mapped[str | None] = mapped_column(String(32))
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+    player: Mapped["Player | None"] = relationship(foreign_keys=[player_id])
+    team: Mapped["Team | None"] = relationship(foreign_keys=[team_id])
+    opponent_team: Mapped["Team | None"] = relationship(foreign_keys=[opponent_team_id])
+    game: Mapped["Game | None"] = relationship()
+
+
 Index("ix_games_season_status", Game.season_id, Game.status)
 Index("ix_player_skater_points", PlayerSkaterStat.season_id, PlayerSkaterStat.stat_segment, PlayerSkaterStat.points)
 Index("ix_player_goalie_wins", PlayerGoalieStat.season_id, PlayerGoalieStat.stat_segment, PlayerGoalieStat.wins)

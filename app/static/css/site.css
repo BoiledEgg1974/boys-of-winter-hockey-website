@@ -6440,6 +6440,136 @@ table.data.league-season-records__table .league-season-records__td-value {
   font-variant-numeric: tabular-nums;
 }
 
+/* —— Game Records (single-game boxscore leaders) —— */
+.game-records-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  margin: 0 0 0.85rem;
+}
+.game-records-filters__group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.45rem;
+}
+.game-records-filters__label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-right: 0.15rem;
+}
+.game-records-filters__pill {
+  display: inline-block;
+  padding: 0.28rem 0.62rem;
+  border-radius: 999px;
+  border: 1px solid rgb(148 163 184 / 0.35);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #cbd5e1;
+  text-decoration: none;
+}
+.game-records-filters__pill.is-active,
+.game-records-filters__pill:hover {
+  border-color: var(--accent);
+  color: #f8fafc;
+  background: rgb(56 189 248 / 0.12);
+}
+.game-records-page__meta {
+  margin: 0 0 1rem;
+}
+.game-records-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+@media (max-width: 1200px) {
+  .game-records-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 760px) {
+  .game-records-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 480px) {
+  .game-records-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.game-records-card {
+  margin: 0;
+  padding: 0.55rem 0.6rem 0.62rem;
+  border-radius: 0.35rem;
+  border: 1px solid rgb(148 163 184 / 0.22);
+  background: rgb(15 23 42 / 0.55);
+}
+[data-theme="light"] .game-records-card {
+  background: rgb(248 250 252 / 0.9);
+  border-color: rgb(148 163 184 / 0.35);
+}
+.game-records-card__title {
+  margin: 0 0 0.4rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+.game-records-card__body {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.45rem;
+  align-items: start;
+}
+.game-records-card__photo,
+.game-records-card__photo-ph {
+  width: 52px;
+  height: 52px;
+  border-radius: 0.25rem;
+  object-fit: cover;
+  display: block;
+}
+.game-records-card__player {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #f8fafc;
+  text-decoration: none;
+}
+[data-theme="light"] .game-records-card__player {
+  color: var(--text);
+}
+.game-records-card__value {
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1.1;
+  margin: 0.12rem 0 0.2rem;
+  font-variant-numeric: tabular-nums;
+}
+.game-records-card__team {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #cbd5e1;
+  text-decoration: none;
+}
+.game-records-card__vs,
+.game-records-card__date {
+  display: block;
+  font-size: 0.68rem;
+  margin-top: 0.12rem;
+}
+.game-records-card__logo {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+}
+
 /* —— League Team Reports (CSV skater averages) —— */
 .team-reports-page__intro {
   margin: 0 0 1rem;
@@ -6680,13 +6810,16 @@ table.data.team-depth-table th {
   font-weight: 700;
 }
 .team-depth-player.is-minor {
-  color: var(--accent);
+  color: #60a5fa;
+  font-weight: 400;
 }
 .team-depth-player.is-rights {
   color: #f87171;
+  font-weight: 400;
 }
 .team-depth-player.is-non-roster {
   color: var(--muted);
+  font-weight: 400;
 }
 .team-depth-ratings {
   display: inline-flex;
@@ -6785,6 +6918,80 @@ table.data.team-depth-draft-picks-table td.team-depth-draft-picks-table__round {
   width: 1.85rem;
   height: 1.85rem;
   object-fit: contain;
+}
+.cap-strike-admin__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+.cap-strike-admin__team-card {
+  display: grid;
+  grid-template-columns: minmax(11rem, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 0.75rem;
+  background: rgba(15, 23, 42, 0.18);
+}
+.cap-strike-admin__team {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 0.65rem;
+}
+.cap-strike-admin__logo-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 2.35rem;
+  height: 2.35rem;
+}
+.cap-strike-admin__logo {
+  display: block;
+  width: 2.15rem;
+  height: 2.15rem;
+  object-fit: contain;
+}
+.cap-strike-admin__team-name {
+  overflow: hidden;
+  color: var(--text);
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cap-strike-admin__checks {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.cap-strike-admin__check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.cap-strike-admin__check input {
+  width: 1rem;
+  height: 1rem;
+}
+@media (max-width: 780px) {
+  .cap-strike-admin__grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 520px) {
+  .cap-strike-admin__team-card {
+    grid-template-columns: 1fr;
+  }
+  .cap-strike-admin__checks {
+    justify-content: space-between;
+  }
 }
 .draft-pick-admin-grid-wrap {
   max-height: 72vh;
@@ -7063,8 +7270,21 @@ table.data.draft-pick-admin-grid .draft-pick-admin-grid__round-head {
   z-index: 1;
   filter: drop-shadow(0 2px 6px rgb(0 0 0 / 0.42));
 }
+.player-hover-card__boost-badge {
+  position: absolute;
+  right: 0.58rem;
+  top: 2.4rem;
+  width: 4.45rem;
+  max-width: 28%;
+  height: auto;
+  z-index: 1;
+  filter: drop-shadow(0 2px 6px rgb(0 0 0 / 0.42));
+}
 .player-hover-card--hof .player-hover-card__body {
   padding-right: 3.45rem;
+}
+.player-hover-card--boosted .player-hover-card__body {
+  padding-right: 4.75rem;
 }
 .player-hover-card__row {
   display: grid;

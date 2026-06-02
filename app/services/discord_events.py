@@ -37,6 +37,7 @@ NEWS_DISCORD_EVENT_KEYS = frozenset(
 
 OPS_TEXT_ONLY_DISCORD_EVENT_KEYS = frozenset(
     {
+        "confirmed_trade",
         "trade_request",
         "staff_transaction_posted",
         "draft_hub_pick_made",
@@ -63,6 +64,7 @@ DEFAULT_EVENT_KEYS = {
     "gm_news_published",
     "admin_news_published",
     "ap_redemption_posted",
+    "confirmed_trade",
     "trade_request",
     "announcement_posted",
     "draft_hub_pick_made",
@@ -85,6 +87,7 @@ DEFAULT_EVENT_CHANNEL_KEY = {
     "gm_news_published": "team-news",
     "admin_news_published": "league-news",
     "ap_redemption_posted": "ap-redemptions",
+    "confirmed_trade": "confirm-trade",
     "trade_request": "transactions",
     "announcement_posted": "league-announcements",
     "draft_hub_pick_made": "draft-discussion",
@@ -107,6 +110,7 @@ DEFAULT_EVENT_LABELS = {
     "gm_news_published": "Team news — GM submissions (moderated)",
     "admin_news_published": "League news — admin compose",
     "ap_redemption_posted": "AP redemption approved",
+    "confirmed_trade": "Confirmed trade",
     "trade_request": "Trade / ops request",
     "announcement_posted": "Commissioner announcement",
     "draft_hub_pick_made": "Draft Hub pick (live)",
@@ -232,6 +236,11 @@ def team_fields_for_discord(team) -> dict:
             out["fhm_team_id"] = int(str(fhm).strip())
         except ValueError:
             out["fhm_team_id"] = str(fhm).strip()
+    team_slug = str(getattr(team, "slug", "") or "").strip()
+    if team_slug:
+        team_url = build_league_public_url(str(current_app.config.get("LEAGUE_SLUG") or ""), f"/team/{team_slug}")
+        if team_url:
+            out["team_url"] = team_url
     try:
         from app.logo_urls import team_logo_url_for_team
 
@@ -761,12 +770,22 @@ def ensure_discord_routes(session, league_slug: str, updated_by_user_id: int | N
             continue
         if key in by_key:
             continue
+        channel_key = DEFAULT_EVENT_CHANNEL_KEY.get(key, "")
+        discord_channel_id = ""
+        if key == "confirmed_trade":
+            trade_route = by_key.get("trade_request")
+            if (
+                trade_route is not None
+                and str(trade_route.channel_key or "").strip() == "confirm-trade"
+                and str(trade_route.discord_channel_id or "").strip()
+            ):
+                discord_channel_id = str(trade_route.discord_channel_id or "").strip()
         session.add(
             DiscordChannelRoute(
                 league_slug=league_slug,
                 event_key=key,
-                channel_key=DEFAULT_EVENT_CHANNEL_KEY.get(key, ""),
-                discord_channel_id="",
+                channel_key=channel_key,
+                discord_channel_id=discord_channel_id[:32],
                 label=DEFAULT_EVENT_LABELS.get(key, ""),
                 description="",
                 is_enabled=True,
@@ -774,6 +793,18 @@ def ensure_discord_routes(session, league_slug: str, updated_by_user_id: int | N
                 updated_at=now,
             )
         )
+        changed = True
+    confirmed_route = by_key.get("confirmed_trade")
+    trade_route = by_key.get("trade_request")
+    if (
+        confirmed_route is not None
+        and not str(confirmed_route.discord_channel_id or "").strip()
+        and trade_route is not None
+        and str(trade_route.channel_key or "").strip() == "confirm-trade"
+        and str(trade_route.discord_channel_id or "").strip()
+    ):
+        confirmed_route.discord_channel_id = str(trade_route.discord_channel_id or "").strip()[:32]
+        confirmed_route.updated_at = now
         changed = True
     if changed:
         from app.sqlite_retry import commit_with_sqlite_retry

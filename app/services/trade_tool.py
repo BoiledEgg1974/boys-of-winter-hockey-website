@@ -401,6 +401,67 @@ def describe_drag_key(
     return drag_key
 
 
+def _discord_markdown_link(label: str, url: str) -> str:
+    text = str(label or "").strip()
+    href = str(url or "").strip()
+    if not text or not href:
+        return text
+    safe = text.replace("[", "\\[").replace("]", "\\]")
+    return f"[{safe}]({href})"
+
+
+def _team_discord_label(league_slug: str, team: Team | None, fallback: str) -> str:
+    name = team.full_display_name() if team is not None else str(fallback)
+    if team is None or not str(getattr(team, "slug", "") or "").strip():
+        return name
+    from app.services.discord_events import build_league_public_url
+
+    url = build_league_public_url(league_slug, f"/team/{team.slug}")
+    return _discord_markdown_link(name, url)
+
+
+def _player_discord_label(league_slug: str, player: Player | None, fallback: str) -> str:
+    if player is None:
+        return str(fallback)
+    from app.services.discord_events import build_league_public_url
+
+    pos = (player.position or "").strip() or "—"
+    name = _discord_markdown_link(player.full_name or f"Player #{player.id}", build_league_public_url(league_slug, f"/player/{int(player.id)}"))
+    return f"{pos} {name}".strip()
+
+
+def describe_drag_key_for_discord(
+    session: Session, drag_key: str, *, league_slug: str
+) -> str:
+    rid = parse_draft_pick_drag_key(drag_key)
+    if rid is not None:
+        from app.site_models import TradeMarketDraftPickOwnership
+
+        row = session.get(TradeMarketDraftPickOwnership, int(rid))
+        if row is not None:
+            rnd = int(row.round)
+            suffix = {1: "st", 2: "nd", 3: "rd"}.get(rnd, "th")
+            year = int(row.draft_year)
+            orig = session.get(Team, int(row.original_team_id)) if row.original_team_id else None
+            owner = session.get(Team, int(row.owner_team_id)) if row.owner_team_id else None
+            owner_label = _team_discord_label(league_slug, owner, f"Team {int(row.owner_team_fhm_id)}")
+            if int(row.original_team_fhm_id) == int(row.owner_team_fhm_id):
+                return f"{year} {owner_label} {rnd}{suffix} Round pick"
+            orig_label = _team_discord_label(league_slug, orig, f"Team {int(row.original_team_fhm_id)}")
+            return f"{year} {rnd}{suffix} Round ({orig_label}) — held by {owner_label}"
+        return f"Draft pick #{rid}"
+    if ":" not in drag_key:
+        return drag_key
+    kind, _, rest = drag_key.partition(":")
+    if kind == "player":
+        try:
+            pid = int(rest)
+        except ValueError:
+            return drag_key
+        return _player_discord_label(league_slug, session.get(Player, pid), f"Player #{pid}")
+    return describe_drag_key(session, drag_key, league_slug=league_slug)
+
+
 def format_ledger_summary(
     session: Session,
     from_team: Team | None,
@@ -428,6 +489,33 @@ def format_ledger_summary(
     return "\n".join(lines)
 
 
+def format_ledger_summary_for_discord(
+    session: Session,
+    from_team: Team | None,
+    to_team: Team | None,
+    left_out: list[str],
+    right_out: list[str],
+    *,
+    league_slug: str,
+) -> str:
+    fn = _team_discord_label(league_slug, from_team, "Team A")
+    tn = _team_discord_label(league_slug, to_team, "Team B")
+    lines: list[str] = [f"{fn} sends to {tn}:"]
+    if left_out:
+        for k in left_out:
+            lines.append(f"  • {describe_drag_key_for_discord(session, k, league_slug=league_slug)}")
+    else:
+        lines.append("  • (none)")
+    lines.append("")
+    lines.append(f"{tn} sends to {fn}:")
+    if right_out:
+        for k in right_out:
+            lines.append(f"  • {describe_drag_key_for_discord(session, k, league_slug=league_slug)}")
+    else:
+        lines.append("  • (none)")
+    return "\n".join(lines)
+
+
 def format_trade_news_body(session: Session, proposal: GmTradeProposal, from_team: Team | None, to_team: Team | None) -> str:
     left_out, right_out = parse_ledger_payload(proposal.ledger_json)
     summary = format_ledger_summary(
@@ -437,6 +525,24 @@ def format_trade_news_body(session: Session, proposal: GmTradeProposal, from_tea
         left_out,
         right_out,
         league_slug=str(proposal.league_slug or ""),
+    )
+    notes = (proposal.notes or "").strip()
+    parts = [summary, "", "Approved by the league office. Roster updates follow future data imports."]
+    if notes:
+        parts = [summary, "", "Notes & conditions (as submitted):", notes, "", parts[-1]]
+    return "\n".join(parts)
+
+
+def format_trade_discord_body(session: Session, proposal: GmTradeProposal, from_team: Team | None, to_team: Team | None) -> str:
+    league_slug = str(proposal.league_slug or "")
+    left_out, right_out = parse_ledger_payload(proposal.ledger_json)
+    summary = format_ledger_summary_for_discord(
+        session,
+        from_team,
+        to_team,
+        left_out,
+        right_out,
+        league_slug=league_slug,
     )
     notes = (proposal.notes or "").strip()
     parts = [summary, "", "Approved by the league office. Roster updates follow future data imports."]

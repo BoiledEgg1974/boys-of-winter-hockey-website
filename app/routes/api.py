@@ -219,38 +219,11 @@ def _pct(numerator: int | None, denominator: int | None) -> float | None:
     return (float(numerator) / float(denominator)) * 100.0
 
 
-def _rookie_cutoff_date(season: Season) -> date | None:
-    if season.start_year:
-        return date(season.start_year, 9, 15)
-    if season.end_year:
-        return date(season.end_year - 1, 9, 15)
-    return None
-
-
-def _is_nhl_style_rookie(prior_gp_by_season: list[int], birth_date: date | None, season: Season) -> bool:
-    if not prior_gp_by_season:
-        prior_gp_by_season = []
-    if any(gp > 25 for gp in prior_gp_by_season):
-        return False
-    if sum(1 for gp in prior_gp_by_season if gp >= 6) >= 2:
-        return False
-    if birth_date:
-        cutoff = _rookie_cutoff_date(season)
-        age = _player_age_years(birth_date, cutoff)
-        if age is not None and age >= 26:
-            return False
-    return True
-
-
-def _rookie_stat_team_is_bowl_nhl(team: Team | None, league_ids: tuple[int, ...]) -> bool:
-    """True when the player's season stat row is assigned to a BOWL/NHL club (excludes minor leagues)."""
-    if team is None:
-        return False
-    lid = team.fhm_league_id
-    if lid is None:
-        # Legacy rows: NULL league id is the main sim league roster.
-        return True
-    return int(lid) in league_ids
+from app.services.rookie_eligibility import (  # noqa: E402
+    is_nhl_style_rookie as _is_nhl_style_rookie,
+    rookie_cutoff_date as _rookie_cutoff_date,
+    rookie_stat_team_is_bowl_nhl as _rookie_stat_team_is_bowl_nhl,
+)
 
 
 def _fts_match_pattern(q: str) -> str:
@@ -807,7 +780,7 @@ def player_hover_card(player_id: int):
 
     return jsonify_cached(
         "player_hover",
-        (int(player_id),),
+        (int(player_id), "boost-badge-v1"),
         DEFAULT_TTL_SECONDS["player_hover"],
         lambda: _build_player_hover_card_payload(player_id),
         cache_control=60,
@@ -871,7 +844,13 @@ def _build_player_hover_card_payload(player_id: int) -> dict[str, object]:
     contract_payload = _contract_payload_for_share(db.session, player, season)
     league_display = str(current_app.config.get("LEAGUE_DISPLAY_NAME", "") or "").strip()
     position_ratings = position_ratings_display_list(rr) if rr else []
-    is_hof = (player.boost_tier or "").strip().lower() == "hof" or bool(
+    boost_tier = (player.boost_tier or "").strip().lower()
+    boost_badge_url = (
+        url_for("static", filename=f"img/boosts/{boost_tier}-boost.png")
+        if boost_tier in {"gold", "silver"}
+        else ""
+    )
+    is_hof = boost_tier == "hof" or bool(
         db.session.scalar(
             select(HallOfFameMember.id).where(HallOfFameMember.player_id == int(player.id)).limit(1)
         )
@@ -891,6 +870,9 @@ def _build_player_hover_card_payload(player_id: int) -> dict[str, object]:
         "league_logo_url": league_logo_url(),
         "is_hof": is_hof,
         "hof_badge_url": url_for("static", filename="img/boosts/hof-badge.png") if is_hof else "",
+        "boost_tier": boost_tier if boost_tier in {"gold", "silver"} else "",
+        "boost_badge_url": boost_badge_url,
+        "boost_badge_label": f"{boost_tier.title()} boost" if boost_tier in {"gold", "silver"} else "",
         "age": age,
         "shoots": (player.shoots_catches or "").strip(),
         "height_inches": player.height_inches,

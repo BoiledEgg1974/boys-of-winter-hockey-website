@@ -760,7 +760,7 @@
 
   function initPlayerHoverCards() {
     var cache = {};
-    var HOVER_CARD_CACHE_VER = 8;
+    var HOVER_CARD_CACHE_VER = 9;
     var activeAnchor = null;
     var showTimer = null;
     var hideTimer = null;
@@ -917,7 +917,20 @@
             escapeAttr(d.hof_badge_url) +
             '" alt="Hall of Fame" loading="lazy" decoding="async">'
           : "";
+      var boostBadgeHtml =
+        d.boost_badge_url && d.boost_tier
+          ? '<img class="player-hover-card__boost-badge player-hover-card__boost-badge--' +
+            escapeAttr(String(d.boost_tier).toLowerCase()) +
+            '" src="' +
+            escapeAttr(d.boost_badge_url) +
+            '" alt="' +
+            escapeAttr(d.boost_badge_label || d.boost_tier + " boost") +
+            '" title="' +
+            escapeAttr(d.boost_badge_label || d.boost_tier + " boost") +
+            '" loading="lazy" decoding="async">'
+          : "";
       card.classList.toggle("player-hover-card--hof", !!hofBadgeHtml);
+      card.classList.toggle("player-hover-card--boosted", !!boostBadgeHtml);
       var copyBar =
         '<div class="player-hover-card__toolbar">' +
         '<button type="button" class="player-hover-card__copy js-copy-player-card" data-player-id="' +
@@ -926,6 +939,7 @@
       card.innerHTML =
         copyBar +
         hofBadgeHtml +
+        boostBadgeHtml +
         '<div class="player-hover-card__row">' +
         '<div class="player-hover-card__photo">' +
         (d.photo_url

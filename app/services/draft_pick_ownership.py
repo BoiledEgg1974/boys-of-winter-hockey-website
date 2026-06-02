@@ -264,7 +264,7 @@ def default_draft_pick_ownership_start_year(
 ) -> int:
     """Initial panel year from in-game state, never from the real calendar unless no data exists."""
     slug = str(league_slug or "").strip()
-    cutoff_year = in_game_draft_ownership_cutoff_year(league_session)
+    cutoff_year = in_game_draft_ownership_cutoff_year(league_session, league_slug=slug)
     if slug:
         draft_year = site_session.scalar(
             select(LeagueDraft.timeline_year)
@@ -290,15 +290,32 @@ def default_draft_pick_ownership_start_year(
         )
     season = season_with_imported_data_fallback(league_session, season) or season
     if season is not None:
+        return _ownership_current_draft_year_for_season(season, league_slug=slug)
+    return datetime.utcnow().year
+
+
+def _ownership_current_draft_year_for_season(season: Season, *, league_slug: str) -> int | None:
+    """League-specific draft year for ownership panels."""
+    slug = str(league_slug or "").strip()
+    if slug == "bowl-historical":
         if season.start_year is not None:
             return int(season.start_year)
         if season.end_year is not None:
             return int(season.end_year)
-    return datetime.utcnow().year
+        return None
+    if season.end_year is not None:
+        return int(season.end_year)
+    if season.start_year is not None:
+        return int(season.start_year)
+    return None
 
 
-def in_game_draft_ownership_cutoff_year(league_session: Session) -> int | None:
-    """Draft ownership panels before this in-game season start year are no longer active."""
+def in_game_draft_ownership_cutoff_year(
+    league_session: Session,
+    *,
+    league_slug: str = "",
+) -> int | None:
+    """Draft ownership panels before the current in-game draft year are no longer active."""
     season = league_session.scalar(
         select(Season)
         .where(Season.is_current.is_(True))
@@ -312,11 +329,7 @@ def in_game_draft_ownership_cutoff_year(league_session: Session) -> int | None:
     season = season_with_imported_data_fallback(league_session, season) or season
     if season is None:
         return None
-    if season.start_year is not None:
-        return int(season.start_year)
-    if season.end_year is not None:
-        return int(season.end_year)
-    return None
+    return _ownership_current_draft_year_for_season(season, league_slug=league_slug)
 
 
 def complete_stale_draft_pick_ownership_panels(
@@ -329,7 +342,7 @@ def complete_stale_draft_pick_ownership_panels(
     slug = str(league_slug or "").strip()
     if not slug:
         return 0
-    cutoff_year = in_game_draft_ownership_cutoff_year(league_session)
+    cutoff_year = in_game_draft_ownership_cutoff_year(league_session, league_slug=slug)
     if cutoff_year is None:
         return 0
     panels = list(
@@ -344,6 +357,31 @@ def complete_stale_draft_pick_ownership_panels(
     for panel in panels:
         panel.status = "completed"
     return len(panels)
+
+
+def reactivate_current_draft_pick_ownership_panel_if_needed(
+    site_session: Session,
+    league_session: Session,
+    *,
+    league_slug: str,
+) -> bool:
+    """Undo stale completion when a league's current draft year rule changes."""
+    slug = str(league_slug or "").strip()
+    if not slug:
+        return False
+    current_year = in_game_draft_ownership_cutoff_year(league_session, league_slug=slug)
+    if current_year is None:
+        return False
+    panel = site_session.scalar(
+        select(DraftPickOwnershipYear).where(
+            DraftPickOwnershipYear.league_slug == slug,
+            DraftPickOwnershipYear.draft_year == int(current_year),
+        ).limit(1)
+    )
+    if panel is None or str(panel.status or "active") != "completed":
+        return False
+    panel.status = "active"
+    return True
 
 
 def reset_calendar_seeded_panels_if_needed(
@@ -468,6 +506,11 @@ def ensure_draft_pick_ownership_panels(
         league_session,
         league_slug=slug,
     )
+    reactivate_current_draft_pick_ownership_panel_if_needed(
+        site_session,
+        league_session,
+        league_slug=slug,
+    )
     panels = list_draft_pick_ownership_year_panels(site_session, league_slug=slug)
     if panels:
         seed_start = max(int(p.draft_year) for p in panels) + 1
@@ -491,6 +534,12 @@ def ensure_draft_pick_ownership_panels(
             )
         )
     active = [p for p in panels if str(p.status or "active") != "completed"]
+    if len(active) > target_active:
+        active_sorted = sorted(active, key=lambda p: (int(p.draft_year), int(p.display_order or 0), int(p.id or 0)))
+        keep_ids = {int(p.id) for p in active_sorted[:target_active] if p.id is not None}
+        for panel in active_sorted[target_active:]:
+            panel.status = "completed"
+        active = [p for p in active if p.id is None or int(p.id) in keep_ids]
     teams = draft_pick_teams_for_grid(league_session)
     while len(active) < target_active:
         next_year = _next_panel_year(site_session, league_slug=slug, fallback_start=seed_start)
@@ -741,6 +790,11 @@ def sync_draft_pick_ownership_rollover_for_completed_drafts(
     if not slug:
         return []
     complete_stale_draft_pick_ownership_panels(
+        site_session,
+        league_session,
+        league_slug=slug,
+    )
+    reactivate_current_draft_pick_ownership_panel_if_needed(
         site_session,
         league_session,
         league_slug=slug,

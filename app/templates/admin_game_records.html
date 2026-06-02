@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Admin — Game Records{% endblock %}
+{% block content %}
+<div class="card" style="max-width:70rem;margin:0 auto;">
+  <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a> · <a href="{{ url_for('main.game_records_page') }}">View public page</a></p>
+  <h1 class="page-title">Game Records — Baselines</h1>
+  <p class="muted">
+    Seed starting single-game records here. Imported boxscores automatically replace a baseline when a player posts a better mark.
+  </p>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <ul class="flash-list">
+    {% for category, message in messages %}
+    <li class="flash flash--{{ category }}">{{ message }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% endwith %}
+
+  <section class="card" style="margin:1rem 0;padding:0.75rem;">
+    <h2 style="margin:0 0 0.6rem;font-size:1rem;">Add / update baseline</h2>
+    <form method="post" class="game-records-admin-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="save">
+      <div class="game-records-admin-form__grid">
+        <label>Metric
+          <select name="metric_key" required>
+            {% for key, label, kind in metric_choices %}
+            <option value="{{ key }}" data-kind="{{ kind }}">{{ label }} ({{ kind }})</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Player kind
+          <select name="player_kind" required>
+            <option value="skater">Skater</option>
+            <option value="goalie">Goalie</option>
+          </select>
+        </label>
+        <label>Segment
+          <select name="segment">
+            <option value="rs">Regular season</option>
+            <option value="po">Playoffs</option>
+          </select>
+        </label>
+        <label>Scope
+          <select name="scope">
+            <option value="all">All players</option>
+            <option value="rookie">Rookies</option>
+          </select>
+        </label>
+        <label>Value
+          <input type="number" name="value" step="any" required>
+        </label>
+        <label>Player
+          <select name="player_id">
+            <option value="">—</option>
+            {% for pl in players %}
+            <option value="{{ pl.id }}">{{ pl.full_name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Team
+          <select name="team_id">
+            <option value="">—</option>
+            {% for tm in teams %}
+            <option value="{{ tm.id }}">{{ tm.full_display_name() }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Opponent
+          <select name="opponent_team_id">
+            <option value="">—</option>
+            {% for tm in teams %}
+            <option value="{{ tm.id }}">{{ tm.full_display_name() }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Game date
+          <input type="date" name="game_date">
+        </label>
+        <label>Season label
+          <input type="text" name="season_label" placeholder="1968-69">
+        </label>
+        <label>Game ID
+          <input type="number" name="game_id" min="1" step="1">
+        </label>
+        <label class="game-records-admin-form__notes">Notes
+          <input type="text" name="notes" maxlength="240">
+        </label>
+      </div>
+      <button type="submit" class="button" style="margin-top:0.65rem;">Save baseline</button>
+    </form>
+  </section>
+
+  <div class="table-wrap">
+    <table class="data game-records-admin-table">
+      <thead>
+        <tr>
+          <th>Metric</th>
+          <th>Segment</th>
+          <th>Scope</th>
+          <th>Kind</th>
+          <th>Value</th>
+          <th>Player</th>
+          <th>Team</th>
+          <th>Date</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in baselines %}
+        <tr>
+          <td>{{ row.metric_key }}</td>
+          <td>{{ row.segment|upper }}</td>
+          <td>{{ row.scope }}</td>
+          <td>{{ row.player_kind }}</td>
+          <td>{{ row.value }}</td>
+          <td>{% if row.player_id %}{% for pl in players if pl.id == row.player_id %}{{ pl.full_name }}{% endfor %}{% else %}—{% endif %}</td>
+          <td>{% if row.team_id %}{% for tm in teams if tm.id == row.team_id %}{{ tm.abbreviation }}{% endfor %}{% else %}—{% endif %}</td>
+          <td>{{ row.game_date or row.season_label or '—' }}</td>
+          <td>
+            <form method="post" style="display:inline;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="action" value="delete">
+              <input type="hidden" name="baseline_id" value="{{ row.id }}">
+              <button type="submit" class="button button--small">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9" class="muted">No baselines yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

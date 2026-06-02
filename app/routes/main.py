@@ -114,6 +114,7 @@ from app.services.free_agents import (
     SKATER_VIEWS,
     bowl_org_rights_player_ids,
     fetch_free_agent_players,
+    player_ids_from_player_rights_csv_for_team,
 )
 from app.services.history_coach_awards import (
     attach_coach_award_displays,
@@ -684,6 +685,23 @@ def team_reports_page():
         report_rows=build_team_report_rows(db.session),
         format_team_report_display=format_team_report_display,
     )
+
+
+@main_bp.get("/game-records")
+def game_records_page():
+    """Single-game league records (regular season / playoffs, all players / rookies)."""
+    from app.services.game_records import build_game_records_page
+
+    segment = (request.args.get("segment") or "rs").strip().lower()
+    scope = (request.args.get("scope") or "all").strip().lower()
+    player_kind = (request.args.get("kind") or "skater").strip().lower()
+    page = build_game_records_page(
+        db.session,
+        segment=segment,
+        scope=scope,
+        player_kind=player_kind,
+    )
+    return render_template("game_records.html", **page)
 
 
 def _trade_log_label_name_and_year(label: str) -> tuple[str, int | None]:
@@ -2935,11 +2953,6 @@ def _build_team_lines_views(
             if (row.get("TeamId") or row.get("teamid") or "").strip() == team_fhm:
                 lines_row = row
                 break
-    main_line_player_ids: set[str] = {
-        str(v).strip()
-        for v in lines_row.values()
-        if v is not None and str(v).strip().isdigit()
-    }
     line_pids = sorted(
         {
             str(v).strip()
@@ -2953,7 +2966,24 @@ def _build_team_lines_views(
             if p.fhm_player_id is not None:
                 players_by_fhm[str(p.fhm_player_id)] = p
     org_players_by_id: dict[int, Player] = {p.id: p for p in roster}
+    contract_rows = _contract_rows_by_playerid(raw_import_dir)
+    season_start_year = int(season.start_year) if season and season.start_year is not None else None
+
+    def _has_current_contract(pl: Player) -> bool:
+        if pl.current_team_id is not None:
+            return True
+        if season_start_year is None:
+            return False
+        crow = contract_rows.get(str(pl.fhm_player_id or "").strip())
+        major_v = _contract_year_val(crow, "major", season_start_year)
+        minor_v = _contract_year_val(crow, "minor", season_start_year)
+        return bool(
+            (major_v is not None and major_v >= 0)
+            or (minor_v is not None and minor_v >= 0)
+        )
+
     contracted_org_player_ids: set[int] = set()
+    rights_org_player_ids: set[int] = set()
     # Include organization-owned players not on the active roster (e.g., minors/reserves)
     if team.fhm_team_id is not None:
         contracted_org_players = db.session.scalars(
@@ -2963,15 +2993,23 @@ def _build_team_lines_views(
         ).all()
         for p in contracted_org_players:
             org_players_by_id[p.id] = p
-            contracted_org_player_ids.add(int(p.id))
+            if _has_current_contract(p):
+                contracted_org_player_ids.add(int(p.id))
+            else:
+                rights_org_player_ids.add(int(p.id))
     # Include prospects assigned to the team, if linked to player records
     prospect_org_players = db.session.scalars(
         select(Player).join(Prospect, Prospect.player_id == Player.id).where(Prospect.team_id == team.id)
     ).all()
-    rights_org_player_ids: set[int] = set()
     for p in prospect_org_players:
         org_players_by_id[p.id] = p
         rights_org_player_ids.add(int(p.id))
+    for pid in player_ids_from_player_rights_csv_for_team(db.session, raw_import_dir, team):
+        pl = db.session.get(Player, int(pid))
+        if pl is None or bool(getattr(pl, "retired", False)):
+            continue
+        org_players_by_id[int(pl.id)] = pl
+        rights_org_player_ids.add(int(pl.id))
 
     allowed_org_ids = set(org_players_by_id.keys())
 
@@ -3019,16 +3057,15 @@ def _build_team_lines_views(
             by_pos[b].append(p)
 
     def _depth_entry(pl: Player) -> dict[str, object]:
-        fhm_pid = str(pl.fhm_player_id or "").strip()
-        # Prefer explicit lineup/depth slots from team_lines.csv for "main club".
-        # Fallback to current_team_id when line data is unavailable.
-        is_main = (fhm_pid in main_line_player_ids) if main_line_player_ids else (pl.current_team_id == team.id)
+        # Main club membership comes from the current roster assignment. team_lines.csv can
+        # be incomplete and is only used for line/position display, not roster status.
+        is_main = pl.current_team_id == team.id
         if is_main:
             roster_status = "main"
-        elif int(pl.id) in rights_org_player_ids:
-            roster_status = "rights"
         elif int(pl.id) in contracted_org_player_ids:
             roster_status = "minor"
+        elif int(pl.id) in rights_org_player_ids:
+            roster_status = "rights"
         else:
             roster_status = "non-roster"
         return {
@@ -3246,7 +3283,6 @@ def _build_team_lines_views(
     salary_rows: list[dict[str, object]] = []
     salary_total = 0
     salary_years = [int(season.start_year) + i for i in range(6)] if season and season.start_year else []
-    contract_rows = _contract_rows_by_playerid(raw_import_dir)
     contracts_q = select(PlayerContract).join(Player, Player.id == PlayerContract.player_id)
     if team.fhm_team_id is not None:
         contracts_q = contracts_q.where(PlayerContract.fhm_team_id == team.fhm_team_id)

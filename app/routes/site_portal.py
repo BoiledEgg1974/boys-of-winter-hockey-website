@@ -191,6 +191,7 @@ from app.services.trade_tool import (
     STATUS_PENDING_COMMISSIONER,
     STATUS_PENDING_PARTNER,
     STATUS_PUBLISHED,
+    format_trade_discord_body,
     format_ledger_summary,
     league_commissioner_user_ids,
     parse_ledger_payload,
@@ -726,6 +727,38 @@ def _enqueue_trade_proposal_news_discord(
             **team_fields_for_discord(team),
         ),
         source_type="trade_proposal_news",
+        source_id=int(proposal_id),
+    )
+
+
+def _enqueue_confirmed_trade_discord(
+    *,
+    proposal: GmTradeProposal,
+    proposal_id: int,
+    article_id: int | None,
+    from_team: Team | None,
+    to_team: Team | None,
+    team: Team | None,
+) -> None:
+    if not article_id:
+        return
+    slug = _league_slug()
+    trade_article = db.session.get(NewsArticle, int(article_id))
+    if trade_article is None:
+        return
+    payload = news_article_discord_payload(
+        trade_article,
+        category=str(trade_article.category or ""),
+        proposal_id=int(proposal_id),
+        url=build_news_article_public_url(slug, int(trade_article.id)),
+        **team_fields_for_discord(team),
+    )
+    payload["body"] = format_trade_discord_body(db.session, proposal, from_team, to_team)
+    payload["body_preview"] = str(payload["body"])[:280]
+    _enqueue_discord_event(
+        "confirmed_trade",
+        payload,
+        source_type="confirmed_trade",
         source_id=int(proposal_id),
     )
 
@@ -2858,8 +2891,16 @@ def admin_trade_proposal_detail(pid: int):
                 article_id=from_article_id,
                 team=from_team,
             )
+            _enqueue_confirmed_trade_discord(
+                proposal=prop,
+                proposal_id=int(prop.id),
+                article_id=from_article_id,
+                from_team=from_team,
+                to_team=to_team,
+                team=from_team,
+            )
             db.session.commit()
-            flash("Trade news verified for Around the League and Discord was queued if missing.", "ok")
+            flash("Trade news verified and Discord confirmation was queued if missing.", "ok")
             return redirect(url_for("site_admin.admin_trade_proposal_detail", pid=pid))
         if prop.status != STATUS_PENDING_COMMISSIONER:
             flash("This proposal is not awaiting commissioner action.", "err")
@@ -2899,6 +2940,14 @@ def admin_trade_proposal_detail(pid: int):
             _enqueue_trade_proposal_news_discord(
                 proposal_id=int(prop.id),
                 article_id=from_article_id,
+                team=from_team,
+            )
+            _enqueue_confirmed_trade_discord(
+                proposal=prop,
+                proposal_id=int(prop.id),
+                article_id=from_article_id,
+                from_team=from_team,
+                to_team=to_team,
                 team=from_team,
             )
             prop.status = STATUS_PUBLISHED
@@ -3096,8 +3145,6 @@ def admin_draft_pick_ownership():
     logo_bundle = get_season_team_logo_bundle()
 
     def _admin_draft_pick_logo_url(team: Team, logo_year: int) -> str:
-        if slug == "bowl-fantasy":
-            return logo_bundle.team_logo_url_present_franchise(team)
         return logo_bundle.team_logo_url_for_season_context(team, int(logo_year))
 
     panels_view: list[dict[str, object]] = []
@@ -3131,6 +3178,132 @@ def admin_draft_pick_ownership():
         panels_view=panels_view,
         team_choices=team_choices,
         next_year=next_year,
+    )
+
+
+@site_admin_bp.route("/game-records", methods=["GET", "POST"])
+@login_required
+def admin_game_records():
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    slug = _league_slug()
+    from app.services.game_records import (
+        delete_baseline,
+        list_baselines,
+        metric_choices_for_admin,
+        upsert_baseline,
+    )
+
+    players = db.session.scalars(select(Player).order_by(Player.last_name, Player.first_name)).all()
+    teams = db.session.scalars(select(Team).order_by(Team.name)).all()
+    metric_choices = metric_choices_for_admin()
+
+    if request.method == "POST":
+        action = (request.form.get("action") or "").strip()
+        if action == "delete":
+            bid = request.form.get("baseline_id")
+            try:
+                baseline_id = int(bid or "")
+            except (TypeError, ValueError):
+                flash("Invalid baseline id.", "err")
+                return redirect(url_for("site_admin.admin_game_records"))
+            if delete_baseline(db.session, baseline_id):
+                db.session.add(
+                    AdminAuditLog(
+                        admin_user_id=int(current_user.id),
+                        league_slug=slug,
+                        action="game_records_baseline_delete",
+                        detail_json=json.dumps({"baseline_id": baseline_id}),
+                    )
+                )
+                db.session.commit()
+                flash("Deleted game record baseline.", "ok")
+            else:
+                flash("Baseline not found.", "err")
+            return redirect(url_for("site_admin.admin_game_records"))
+
+        if action in ("save", "create"):
+            metric_key = (request.form.get("metric_key") or "").strip()
+            segment = (request.form.get("segment") or "rs").strip().lower()
+            scope = (request.form.get("scope") or "all").strip().lower()
+            player_kind = (request.form.get("player_kind") or "skater").strip().lower()
+            raw_val = (request.form.get("value") or "").strip()
+            try:
+                value = float(raw_val)
+            except ValueError:
+                flash("Record value must be a number.", "err")
+                return redirect(url_for("site_admin.admin_game_records"))
+            if segment not in ("rs", "po") or scope not in ("all", "rookie"):
+                flash("Invalid segment or scope.", "err")
+                return redirect(url_for("site_admin.admin_game_records"))
+            valid_keys = {k for k, _, kind in metric_choices if kind == player_kind}
+            if metric_key not in valid_keys:
+                flash("Invalid metric.", "err")
+                return redirect(url_for("site_admin.admin_game_records"))
+
+            def _opt_int(name: str) -> int | None:
+                raw = (request.form.get(name) or "").strip()
+                if not raw:
+                    return None
+                try:
+                    return int(raw)
+                except ValueError:
+                    return None
+
+            game_date_raw = (request.form.get("game_date") or "").strip()
+            game_date_val = None
+            if game_date_raw:
+                try:
+                    game_date_val = date.fromisoformat(game_date_raw)
+                except ValueError:
+                    flash("Invalid game date.", "err")
+                    return redirect(url_for("site_admin.admin_game_records"))
+
+            row = upsert_baseline(
+                db.session,
+                metric_key=metric_key,
+                segment=segment,
+                scope=scope,
+                player_kind=player_kind,
+                value=value,
+                player_id=_opt_int("player_id"),
+                team_id=_opt_int("team_id"),
+                opponent_team_id=_opt_int("opponent_team_id"),
+                game_id=_opt_int("game_id"),
+                game_date=game_date_val,
+                season_label=(request.form.get("season_label") or "").strip() or None,
+                notes=(request.form.get("notes") or "").strip() or None,
+            )
+            db.session.add(
+                AdminAuditLog(
+                    admin_user_id=int(current_user.id),
+                    league_slug=slug,
+                    action="game_records_baseline_save",
+                    detail_json=json.dumps(
+                        {
+                            "baseline_id": int(row.id or 0),
+                            "metric_key": metric_key,
+                            "segment": segment,
+                            "scope": scope,
+                            "player_kind": player_kind,
+                            "value": value,
+                        }
+                    ),
+                )
+            )
+            db.session.commit()
+            flash("Saved game record baseline.", "ok")
+            return redirect(url_for("site_admin.admin_game_records"))
+
+        return redirect(url_for("site_admin.admin_game_records"))
+
+    baselines = list_baselines(db.session)
+    return render_template(
+        "admin_game_records.html",
+        league_slug=slug,
+        baselines=baselines,
+        players=players,
+        teams=teams,
+        metric_choices=metric_choices,
     )
 
 

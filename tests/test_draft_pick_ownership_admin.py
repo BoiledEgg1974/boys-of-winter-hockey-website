@@ -9,6 +9,9 @@ from app.services.draft_pick_ownership import (
     complete_stale_draft_pick_ownership_panels,
     default_draft_pick_ownership_start_year,
     draft_pick_teams_for_grid,
+    ensure_draft_pick_ownership_panels,
+    in_game_draft_ownership_cutoff_year,
+    reactivate_current_draft_pick_ownership_panel_if_needed,
     sync_draft_pick_ownership_rollover_for_completed_drafts,
     transfer_approved_trade_draft_pick_rows,
 )
@@ -112,10 +115,10 @@ class DraftPickOwnershipAdminTests(unittest.TestCase):
 
     def test_default_year_does_not_lag_behind_current_in_game_season(self) -> None:
         site_session = MagicMock()
-        site_session.scalar.return_value = 1968
+        site_session.scalar.return_value = 1999
         with unittest.mock.patch(
             "app.services.draft_pick_ownership.in_game_draft_ownership_cutoff_year",
-            return_value=1969,
+            return_value=2000,
         ):
             year = default_draft_pick_ownership_start_year(
                 site_session,
@@ -123,7 +126,86 @@ class DraftPickOwnershipAdminTests(unittest.TestCase):
                 league_slug="bowl-historical",
             )
 
-        self.assertEqual(year, 1969)
+        self.assertEqual(year, 2000)
+
+    def test_cutoff_uses_season_end_year_as_draft_year(self) -> None:
+        season = MagicMock(start_year=1999, end_year=2000)
+        league_session = MagicMock()
+        league_session.scalar.return_value = season
+        with unittest.mock.patch(
+            "app.services.draft_pick_ownership.season_with_imported_data_fallback",
+            return_value=None,
+        ):
+            cutoff = in_game_draft_ownership_cutoff_year(league_session)
+
+        self.assertEqual(cutoff, 2000)
+
+    def test_historical_cutoff_uses_season_start_year_as_draft_year(self) -> None:
+        season = MagicMock(start_year=1969, end_year=1970)
+        league_session = MagicMock()
+        league_session.scalar.return_value = season
+        with unittest.mock.patch(
+            "app.services.draft_pick_ownership.season_with_imported_data_fallback",
+            return_value=None,
+        ):
+            cutoff = in_game_draft_ownership_cutoff_year(
+                league_session,
+                league_slug="bowl-historical",
+            )
+
+        self.assertEqual(cutoff, 1969)
+
+    def test_current_draft_year_panel_reactivates_after_rule_change(self) -> None:
+        site_session = MagicMock()
+        panel = MagicMock(status="completed")
+        site_session.scalar.return_value = panel
+        with unittest.mock.patch(
+            "app.services.draft_pick_ownership.in_game_draft_ownership_cutoff_year",
+            return_value=1969,
+        ):
+            changed = reactivate_current_draft_pick_ownership_panel_if_needed(
+                site_session,
+                MagicMock(),
+                league_slug="bowl-historical",
+            )
+
+        self.assertTrue(changed)
+        self.assertEqual(panel.status, "active")
+
+    def test_ensure_panels_trims_extra_active_future_years(self) -> None:
+        panels = [
+            MagicMock(id=1, draft_year=1969, display_order=1, status="active"),
+            MagicMock(id=2, draft_year=1970, display_order=2, status="active"),
+            MagicMock(id=3, draft_year=1971, display_order=3, status="active"),
+            MagicMock(id=4, draft_year=1972, display_order=4, status="active"),
+        ]
+        site_session = MagicMock()
+        with (
+            unittest.mock.patch(
+                "app.services.draft_pick_ownership.complete_stale_draft_pick_ownership_panels",
+                return_value=0,
+            ),
+            unittest.mock.patch(
+                "app.services.draft_pick_ownership.reactivate_current_draft_pick_ownership_panel_if_needed",
+                return_value=False,
+            ),
+            unittest.mock.patch(
+                "app.services.draft_pick_ownership.list_draft_pick_ownership_year_panels",
+                side_effect=[panels, panels, panels],
+            ),
+            unittest.mock.patch(
+                "app.services.draft_pick_ownership.draft_pick_teams_for_grid",
+                return_value=[],
+            ),
+        ):
+            ensure_draft_pick_ownership_panels(
+                site_session,
+                MagicMock(),
+                league_slug="bowl-historical",
+                active_count=3,
+            )
+
+        self.assertEqual(panels[3].status, "completed")
 
     def test_admin_template_includes_owner_dropdown_grid(self) -> None:
         path = (
@@ -135,6 +217,13 @@ class DraftPickOwnershipAdminTests(unittest.TestCase):
         text = path.read_text(encoding="utf-8")
         self.assertIn("name=\"owner_{{ team_row.team_fhm_id }}_{{ cell.round }}\"", text)
         self.assertIn("Draft Pick Ownership", text)
+
+    def test_admin_route_uses_era_aware_logos_for_all_leagues(self) -> None:
+        path = Path(__file__).resolve().parents[1] / "app" / "routes" / "site_portal.py"
+        text = path.read_text(encoding="utf-8")
+        self.assertIn("logo_year = int(panel.draft_year) - 1", text)
+        self.assertIn("team_logo_url_for_season_context(team, int(logo_year))", text)
+        self.assertNotIn('if slug == "bowl-fantasy":\n            return logo_bundle.team_logo_url_present_franchise(team)', text)
 
     def test_site_admin_home_links_to_draft_pick_ownership(self) -> None:
         path = (
@@ -152,6 +241,27 @@ class DraftPickOwnershipAdminTests(unittest.TestCase):
         self.assertIn("team-depth-draft-years", text)
         self.assertIn("year_block.year", text)
         self.assertIn("OVR", text)
+
+    def test_team_depth_chart_roster_status_colors_are_explicit(self) -> None:
+        css = (Path(__file__).resolve().parents[1] / "app" / "static" / "css" / "site.css").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(".team-depth-player.is-main", css)
+        self.assertIn("color: #4ade80", css)
+        self.assertIn(".team-depth-player.is-minor", css)
+        self.assertIn("color: #60a5fa", css)
+        self.assertIn(".team-depth-player.is-rights", css)
+        self.assertIn("color: #f87171", css)
+
+    def test_team_depth_builder_prefers_minor_contract_over_rights_only(self) -> None:
+        path = Path(__file__).resolve().parents[1] / "app" / "routes" / "main.py"
+        text = path.read_text(encoding="utf-8")
+        self.assertIn("player_ids_from_player_rights_csv_for_team", text)
+        self.assertIn("is_main = pl.current_team_id == team.id", text)
+        self.assertNotIn("is_main = (fhm_pid in main_line_player_ids)", text)
+        minor_idx = text.index('roster_status = "minor"')
+        rights_idx = text.index('roster_status = "rights"')
+        self.assertLess(minor_idx, rights_idx)
 
 
 if __name__ == "__main__":

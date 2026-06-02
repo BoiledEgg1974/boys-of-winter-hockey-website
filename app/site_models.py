@@ -408,6 +408,35 @@ class DraftPickOwnershipYear(db.Model):
     )
 
 
+class GmRuleStrike(db.Model):
+    """Admin-managed GM/team rule strikes by league and in-game cycle year."""
+
+    __tablename__ = "gm_rule_strikes"
+    __bind_key__ = "site"
+    __table_args__ = (
+        UniqueConstraint(
+            "league_slug",
+            "cycle_year",
+            "team_id",
+            "strike_no",
+            name="uq_gm_rule_strike_cycle_team_no",
+        ),
+        Index("ix_gm_rule_strike_cycle", "league_slug", "cycle_year", "team_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False)
+    cycle_year: Mapped[int] = mapped_column(Integer, nullable=False)
+    team_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    strike_no: Mapped[int] = mapped_column(Integer, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+
 class TradeMarketListing(db.Model):
     """GM-published asset available for trade on the Trade Market."""
 

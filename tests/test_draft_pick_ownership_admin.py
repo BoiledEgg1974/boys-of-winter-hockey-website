@@ -6,6 +6,8 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 from app.services.draft_pick_ownership import (
+    complete_stale_draft_pick_ownership_panels,
+    default_draft_pick_ownership_start_year,
     draft_pick_teams_for_grid,
     sync_draft_pick_ownership_rollover_for_completed_drafts,
     transfer_approved_trade_draft_pick_rows,
@@ -69,10 +71,16 @@ class DraftPickOwnershipAdminTests(unittest.TestCase):
         panel_scalars.all.return_value = [panel]
         site_session.scalars.side_effect = [completed_scalars, panel_scalars]
 
-        with unittest.mock.patch(
-            "app.services.draft_pick_ownership.ensure_draft_pick_ownership_panels",
-            return_value=["ok"],
-        ) as ensure_panels:
+        with (
+            unittest.mock.patch(
+                "app.services.draft_pick_ownership.complete_stale_draft_pick_ownership_panels",
+                return_value=0,
+            ),
+            unittest.mock.patch(
+                "app.services.draft_pick_ownership.ensure_draft_pick_ownership_panels",
+                return_value=["ok"],
+            ) as ensure_panels,
+        ):
             out = sync_draft_pick_ownership_rollover_for_completed_drafts(
                 site_session,
                 MagicMock(),
@@ -81,6 +89,41 @@ class DraftPickOwnershipAdminTests(unittest.TestCase):
         self.assertEqual(out, ["ok"])
         self.assertEqual(panel.status, "completed")
         ensure_panels.assert_called_once()
+
+    def test_july_rollover_completes_prior_in_game_draft_year_panels(self) -> None:
+        site_session = MagicMock()
+        stale = MagicMock(status="active", draft_year=1968)
+        current = MagicMock(status="active", draft_year=1969)
+        site_session.scalars.return_value.all.return_value = [stale]
+
+        with unittest.mock.patch(
+            "app.services.draft_pick_ownership.in_game_draft_ownership_cutoff_year",
+            return_value=1969,
+        ):
+            changed = complete_stale_draft_pick_ownership_panels(
+                site_session,
+                MagicMock(),
+                league_slug="bowl-historical",
+            )
+
+        self.assertEqual(changed, 1)
+        self.assertEqual(stale.status, "completed")
+        self.assertEqual(current.status, "active")
+
+    def test_default_year_does_not_lag_behind_current_in_game_season(self) -> None:
+        site_session = MagicMock()
+        site_session.scalar.return_value = 1968
+        with unittest.mock.patch(
+            "app.services.draft_pick_ownership.in_game_draft_ownership_cutoff_year",
+            return_value=1969,
+        ):
+            year = default_draft_pick_ownership_start_year(
+                site_session,
+                MagicMock(),
+                league_slug="bowl-historical",
+            )
+
+        self.assertEqual(year, 1969)
 
     def test_admin_template_includes_owner_dropdown_grid(self) -> None:
         path = (

@@ -26,6 +26,21 @@ def _error_payload(message: str, details: str | None = None) -> dict[str, Any]:
     return {"error": message, "details": details or ""}
 
 
+def _redact_provider_secrets(text: str) -> str:
+    """Avoid echoing API key material into member alerts or server logs."""
+    return re.sub(r"sk-[A-Za-z0-9_*.-]+", "sk-...redacted", str(text or ""))
+
+
+def _fallback_payload(verdict: str, opinion: str, suggestions: list[str]) -> dict[str, Any]:
+    """Local entertainment take used when the model provider is unavailable."""
+    return {
+        "verdict": verdict,
+        "opinion": opinion,
+        "suggestions": suggestions,
+        "fallback": True,
+    }
+
+
 def _extract_openai_error_message(body: str) -> str | None:
     """Best-effort extraction of the human-readable message from an OpenAI error body."""
     if not body:
@@ -38,7 +53,7 @@ def _extract_openai_error_message(body: str) -> str | None:
     if isinstance(err, dict):
         msg = err.get("message")
         if isinstance(msg, str) and msg.strip():
-            return msg.strip()[:280]
+            return _redact_provider_secrets(msg.strip())[:280]
     return None
 
 
@@ -168,11 +183,85 @@ def recent_trades_prompt_block(rows: list[TradeLogRow], *, limit: int = 12) -> s
     return format_recent_trades_for_prompt(rows, limit=limit)
 
 
+def _team_label(team: Team | None, fallback: str) -> str:
+    if team is None:
+        return fallback
+    try:
+        return team.full_display_name()
+    except Exception:
+        return fallback
+
+
+def _asset_label(session: Session, key: str) -> str:
+    try:
+        return describe_drag_key(session, key)
+    except Exception:
+        return str(key)
+
+
+def _local_hypothetical_trade_opinion(
+    session: Session,
+    *,
+    from_team: Team | None,
+    to_team: Team | None,
+    left: list[str],
+    right: list[str],
+    notes: str,
+) -> dict[str, Any]:
+    """Rule-based fallback so members still get a useful trade read if OpenAI rejects config."""
+    left_count = len(left)
+    right_count = len(right)
+    from_name = _team_label(from_team, "Team A")
+    to_name = _team_label(to_team, "Team B")
+    left_preview = ", ".join(_asset_label(session, k) for k in left[:3]) or "nothing"
+    right_preview = ", ".join(_asset_label(session, k) for k in right[:3]) or "nothing"
+    if left_count > right_count + 1:
+        verdict = f"{to_name} is loading up"
+        lean = f"{from_name} is sending a bigger pile, so the return needs quality or cap/roster logic to make it sing."
+    elif right_count > left_count + 1:
+        verdict = f"{from_name} is asking for a haul"
+        lean = f"{to_name} is sending more pieces, so {from_name} better be giving up the best asset in the deal."
+    else:
+        verdict = "Close enough for the war room"
+        lean = "The package sizes are close, so this comes down to who is getting the best player or most useful pick."
+    note_line = " The GM note helps explain the angle." if (notes or "").strip() else ""
+    opinion = (
+        f"Local scout take: {from_name} sends {left_preview}; {to_name} sends {right_preview}. "
+        f"{lean}{note_line} The live AI provider is unavailable right now, so treat this as a quick desk-check."
+    )
+    suggestions = [
+        "If one side is getting the clear best player, add a mid-round pick or useful depth piece the other way.",
+        "Check roster need first: a fair asset swap can still be a bad fit.",
+        "Use recent league trades as the final sanity check before sending it to another GM.",
+    ]
+    return _fallback_payload(verdict, opinion, suggestions)
+
+
+def _local_logged_trade_opinion(row: TradeLogRow) -> dict[str, Any]:
+    ta = row.team_a_label or (row.team_a.full_display_name() if row.team_a else "Team A")
+    tb = row.team_b_label or (row.team_b.full_display_name() if row.team_b else "Team B")
+    title = (row.title or "Logged trade").strip()
+    return _fallback_payload(
+        "Archivist's quick take",
+        (
+            f"Local scout take on {title}: {ta} and {tb} made the move, and the fun part is judging "
+            "whether the best asset or the better fit carried the day. The live AI provider is unavailable "
+            "right now, so this is a quick fallback read rather than a full bot breakdown."
+        ),
+        [
+            "Look for who received the highest-upside player.",
+            "Check whether the pick value matches the player value.",
+            "Revisit after a few sim weeks to see which side filled the bigger need.",
+        ],
+    )
+
+
 def _openai_trade_json_response(
     *,
     user_id: int,
     system: str,
     user_msg: str,
+    fallback: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Shared OpenAI JSON call with rate limiting; returns parsed opinion or error dict."""
     now = time.time()
@@ -192,6 +281,8 @@ def _openai_trade_json_response(
 
     if not api_key:
         current_app.logger.warning("Trade AI: no OPENAI_API_KEY configured (model=%s)", model)
+        if fallback is not None:
+            return fallback
         return _error_payload(
             "AI Trade Tool is unavailable — server has no OpenAI API key configured.",
             details=f"Model in use: {model}. Set OPENAI_API_KEY in .env and restart the app.",
@@ -228,7 +319,14 @@ def _openai_trade_json_response(
             err_body = e.read().decode("utf-8", errors="replace")[:500]
         except Exception:
             pass
-        current_app.logger.warning("Trade AI HTTPError: %s %s (model=%s)", e.code, err_body, model)
+        current_app.logger.warning(
+            "Trade AI HTTPError: %s %s (model=%s)",
+            e.code,
+            _redact_provider_secrets(err_body),
+            model,
+        )
+        if fallback is not None:
+            return fallback
         api_msg = _extract_openai_error_message(err_body)
         detail_bits: list[str] = []
         if api_msg:
@@ -240,16 +338,22 @@ def _openai_trade_json_response(
         )
     except (URLError, TimeoutError, OSError, json.JSONDecodeError) as e:
         current_app.logger.warning("Trade AI request failed: %s", e)
+        if fallback is not None:
+            return fallback
         return _error_payload("AI Trade Tool could not reach the model right now. Try again in a moment.")
 
     try:
         content = body["choices"][0]["message"]["content"]
     except (KeyError, IndexError, TypeError):
+        if fallback is not None:
+            return fallback
         return _error_payload("AI Trade Tool got an unreadable response from the model.")
 
     try:
         parsed = json.loads(_strip_json_fence(str(content)))
     except json.JSONDecodeError:
+        if fallback is not None:
+            return fallback
         return _error_payload("AI Trade Tool could not parse the model's JSON reply.")
 
     verdict = str(parsed.get("verdict") or "No verdict").strip()[:200]
@@ -318,7 +422,20 @@ def fetch_trade_ai_opinion(
         "If recent league trades are listed, you may reference patterns—but judge only this scenario.\n\n"
         f"{block}"
     )
-    return _openai_trade_json_response(user_id=user_id, system=system, user_msg=user_msg)
+    fallback = _local_hypothetical_trade_opinion(
+        session,
+        from_team=from_team,
+        to_team=to_team,
+        left=left,
+        right=right,
+        notes=notes,
+    )
+    return _openai_trade_json_response(
+        user_id=user_id,
+        system=system,
+        user_msg=user_msg,
+        fallback=fallback,
+    )
 
 
 def fetch_logged_trade_ai_opinion(
@@ -342,4 +459,9 @@ def fetch_logged_trade_ai_opinion(
         "Here is a completed trade from the league trade log. Give your spicy-but-good-natured hindsight take.\n\n"
         f"{block}"
     )
-    return _openai_trade_json_response(user_id=user_id, system=system, user_msg=user_msg)
+    return _openai_trade_json_response(
+        user_id=user_id,
+        system=system,
+        user_msg=user_msg,
+        fallback=_local_logged_trade_opinion(row),
+    )

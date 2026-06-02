@@ -143,6 +143,12 @@ from app.services.media_kit import build_media_kit_snapshot
 from app.services.member_digest import build_member_watchlist_digest
 from app.services.seasons import get_current_season, season_age_reference_date, season_with_imported_data_fallback
 from app.services.season_team_logo_bundle import dashboard_team_logo_url
+from app.services.cap_strike_penalties import (
+    STRIKE_TO_ROUND,
+    active_cycle_year,
+    save_cycle_strikes,
+    strike_grid_rows,
+)
 from app.services.ap_service import (
     active_redemption_items,
     add_ledger_entry,
@@ -153,6 +159,7 @@ from app.services.ap_service import (
 )
 from app.services.draft_pick_ownership import (
     build_draft_pick_ownership_year_grid,
+    complete_stale_draft_pick_ownership_panels,
     draft_pick_ownership_exists,
     draft_pick_teams_for_grid,
     ensure_draft_pick_ownership_panels,
@@ -1063,6 +1070,13 @@ def trade_tool_assets():
     elif int(raw_tid) == int(left_team_id) or db.session.get(Team, int(raw_tid)) is None:
         return jsonify({"error": "Invalid trading partner team."}), 400
     raw_dir = _trade_tool_raw_dir()
+    completed_panels = complete_stale_draft_pick_ownership_panels(
+        db.session,
+        db.session,
+        league_slug=slug,
+    )
+    if completed_panels:
+        db.session.commit()
     left = trade_assets_for_team(
         db.session, int(left_team_id), raw_dir=raw_dir, league_slug=slug
     )
@@ -1274,6 +1288,13 @@ def trade_market_assets():
         abort(404)
     team_id = int(mem.team_id) if mem else int(admin_team_id)
     raw_dir = _trade_tool_raw_dir()
+    completed_panels = complete_stale_draft_pick_ownership_panels(
+        db.session,
+        db.session,
+        league_slug=slug,
+    )
+    if completed_panels:
+        db.session.commit()
     assets = selectable_selling_assets(
         db.session,
         db.session,
@@ -3061,6 +3082,7 @@ def admin_draft_pick_ownership():
         active_count=3,
         default_round_count=10,
     )
+    panels = [p for p in panels if str(p.status or "active") != "completed"]
     teams = draft_pick_teams_for_grid(db.session)
     team_choices = [
         {
@@ -3109,6 +3131,67 @@ def admin_draft_pick_ownership():
         panels_view=panels_view,
         team_choices=team_choices,
         next_year=next_year,
+    )
+
+
+@site_admin_bp.route("/rule-strikes", methods=["GET", "POST"])
+@login_required
+def admin_rule_strikes():
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    slug = _league_slug()
+    if slug != "bowl-cap":
+        abort(404)
+    cycle_year = active_cycle_year(db.session)
+    rows, _active = strike_grid_rows(
+        db.session,
+        db.session,
+        league_slug=slug,
+        cycle_year=cycle_year,
+    )
+    if request.method == "POST":
+        selected: dict[int, set[int]] = {}
+        for row in rows:
+            tid = int(row["team_id"])
+            strikes: set[int] = set()
+            for strike_no in (1, 2, 3):
+                if request.form.get(f"strike_{tid}_{strike_no}") == "1":
+                    strikes.add(strike_no)
+            if strikes:
+                selected[tid] = strikes
+        created, teams_with_any = save_cycle_strikes(
+            db.session,
+            league_slug=slug,
+            cycle_year=cycle_year,
+            selected=selected,
+            admin_user_id=int(current_user.id),
+        )
+        db.session.add(
+            AdminAuditLog(
+                admin_user_id=int(current_user.id),
+                league_slug=slug,
+                action="cap_rule_strikes_save",
+                detail_json=json.dumps(
+                    {
+                        "cycle_year": int(cycle_year),
+                        "strike_rows": int(created),
+                        "teams_with_any_strike": int(teams_with_any),
+                    }
+                ),
+            )
+        )
+        db.session.commit()
+        flash(
+            f"Saved strike tracker for cycle {cycle_year} ({created} active strike row(s)).",
+            "ok",
+        )
+        return redirect(url_for("site_admin.admin_rule_strikes"))
+    strike_round_map = {int(k): int(v) for k, v in STRIKE_TO_ROUND.items()}
+    return render_template(
+        "admin_rule_strikes.html",
+        league_slug=slug,
+        cycle_year=int(cycle_year),
+        rows=rows,
+        strike_round_map=strike_round_map,
     )
 
 
@@ -7311,7 +7394,13 @@ def admin_draft_hub_edit(draft_id: int):
                         " No active draft-pick ownership panels were found for this league — "
                         "owners match original teams until panels are configured and regenerated."
                     )
+                auto_penalties = int(summary.get("auto_penalties_applied") or 0)
+                if auto_penalties:
+                    msg += f" Cap strike penalties auto-applied: {auto_penalties}."
                 flash(msg, "ok")
+                for warning in list(summary.get("strike_warnings") or []):
+                    if warning:
+                        flash(str(warning), "warn")
         elif act == "save_generated_slots" and row.status == "setup":
             old_tiers = {
                 int(s.overall_pick): s.boost_tier or ""

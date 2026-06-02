@@ -2019,6 +2019,51 @@ def ensure_boost_lottery_team_results_sqlite(engine: Engine) -> None:
         conn.commit()
 
 
+def ensure_gm_rule_strikes_sqlite(engine: Engine) -> None:
+    """Create cap strike-tracking table on the site DB."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text(
+                "SELECT 1 FROM sqlite_master "
+                "WHERE type='table' AND name='gm_rule_strikes'"
+            )
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE gm_rule_strikes (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    league_slug VARCHAR(64) NOT NULL,
+                    cycle_year INTEGER NOT NULL,
+                    team_id INTEGER NOT NULL,
+                    strike_no INTEGER NOT NULL,
+                    is_active BOOLEAN NOT NULL DEFAULT 1,
+                    created_by_user_id INTEGER,
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE UNIQUE INDEX uq_gm_rule_strike_cycle_team_no "
+                "ON gm_rule_strikes (league_slug, cycle_year, team_id, strike_no)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_gm_rule_strike_cycle "
+                "ON gm_rule_strikes (league_slug, cycle_year, team_id)"
+            )
+        )
+        conn.commit()
+
+
 def ensure_league_expansion_draft_columns_sqlite(engine: Engine) -> None:
     """Add expansion draft commissioner fields when missing (site DB, SQLite)."""
     if engine.dialect.name != "sqlite":

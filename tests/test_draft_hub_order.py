@@ -92,6 +92,47 @@ class DraftHubOrderTest(unittest.TestCase):
         self.assertEqual(added[1].team_id, 11)
         self.assertTrue(added[1].penalty_pick)
 
+    def test_generate_includes_cap_strike_summary_warnings(self) -> None:
+        draft = MagicMock(
+            id=1,
+            status="setup",
+            timeline_year=1969,
+            rounds=1,
+            picks_per_round=2,
+        )
+        t_worst = MagicMock(id=10, fhm_team_id="5", fhm_league_id=None, full_display_name=lambda: "Worst")
+        t_best = MagicMock(id=11, fhm_team_id="8", fhm_league_id=None, full_display_name=lambda: "Best")
+        st_worst = MagicMock(pts=40, w=10, gf=100, ga=200, team=t_worst)
+        st_best = MagicMock(pts=90, w=50, gf=250, ga=150, team=t_best)
+        season = MagicMock(id=3, start_year=1968, label="1968-69")
+        league = MagicMock()
+        league.scalars.return_value.all.return_value = [st_worst, st_best]
+        site = MagicMock()
+        site.scalars.return_value.all.return_value = []
+
+        with (
+            unittest.mock.patch(
+                "app.services.draft_hub_order.resolve_prior_season_for_draft",
+                return_value=season,
+            ),
+            unittest.mock.patch(
+                "app.services.draft_hub_order.draft_pick_ownership_exists",
+                return_value=True,
+            ),
+            unittest.mock.patch(
+                "app.services.draft_hub_order.apply_cycle_strikes_to_slots",
+                return_value=(1, ["Hamilton Strike 2 not applied"]),
+            ),
+        ):
+            _created, _err, summary = generate_draft_order_from_prior_season(
+                league,
+                site,
+                league_slug="bowl-cap",
+                draft=draft,
+            )
+        self.assertEqual(summary.get("auto_penalties_applied"), 1)
+        self.assertEqual(summary.get("strike_warnings"), ["Hamilton Strike 2 not applied"])
+
     def test_draft_hub_admin_template_has_penalty_checkbox(self) -> None:
         from pathlib import Path
 

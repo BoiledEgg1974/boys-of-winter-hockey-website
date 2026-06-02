@@ -7,6 +7,7 @@ from sqlalchemy import and_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.models import Game, Season, Team, TeamStanding
+from app.services.cap_strike_penalties import apply_cycle_strikes_to_slots
 from app.services.draft_pick_ownership import draft_pick_ownership_exists
 from app.services.roster_team import is_main_league_team
 from app.services.seasons import season_display_label
@@ -286,6 +287,7 @@ def generate_draft_order_from_prior_season(
     old_tiers = preserve_boost_tiers or {}
     old_penalties = preserve_penalty_picks or set()
     created = 0
+    slots_by_orig_round: dict[tuple[int, int], LeagueDraftSlot] = {}
 
     for round_no in range(1, rounds + 1):
         for pick_no in range(1, picks_per_round + 1):
@@ -305,18 +307,29 @@ def generate_draft_order_from_prior_season(
             else:
                 missing_fhm += 1
 
-            site_session.add(
-                LeagueDraftSlot(
-                    league_draft_id=int(draft.id),
-                    overall_pick=overall,
-                    round=round_no,
-                    original_team_id=original_team_id,
-                    team_id=int(owner_team_id),
-                    boost_tier=old_tiers.get(overall, ""),
-                    penalty_pick=overall in old_penalties,
-                )
+            slot = LeagueDraftSlot(
+                league_draft_id=int(draft.id),
+                overall_pick=overall,
+                round=round_no,
+                original_team_id=original_team_id,
+                team_id=int(owner_team_id),
+                boost_tier=old_tiers.get(overall, ""),
+                penalty_pick=overall in old_penalties,
             )
+            site_session.add(slot)
+            slots_by_orig_round[(original_team_id, round_no)] = slot
             created += 1
+
+    auto_penalties_applied = 0
+    strike_warnings: list[str] = []
+    if slug == "bowl-cap":
+        auto_penalties_applied, strike_warnings = apply_cycle_strikes_to_slots(
+            site_session,
+            league_slug=slug,
+            cycle_year=draft_year,
+            draft=draft,
+            slots_by_orig_round=slots_by_orig_round,
+        )
 
     summary: dict[str, object] = {
         "standings_season_label": season_display_label(season),
@@ -327,5 +340,7 @@ def generate_draft_order_from_prior_season(
         "has_ownership_rows": has_ownership_rows,
         "rounds": rounds,
         "picks_per_round": picks_per_round,
+        "auto_penalties_applied": int(auto_penalties_applied),
+        "strike_warnings": strike_warnings,
     }
     return created, None, summary

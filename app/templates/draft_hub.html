@@ -775,11 +775,13 @@
 
     html += '<section class="draft-hub-col draft-hub-col--order card">';
     html += '<h2 class="draft-hub-col__title">Draft Order</h2>';
-    html += '<p class="muted small" style="margin:0 0 0.5rem;line-height:1.35;">Upcoming picks only — completed selections stay in the ticker and history. Overall numbers are official (e.g. #2 stays #2).</p>';
+    html += '<p class="muted small" style="margin:0 0 0.5rem;line-height:1.35;">Next two rounds only — completed selections stay in the ticker and history. Overall numbers are official (e.g. #2 stays #2).</p>';
     html += '<ul id="dh-order-list" class="draft-hub-order">';
     var orderRows = (x.order || []).filter(function (r) {
       return !r.has_pick;
     });
+    var maxOrderRows = Math.max(1, Number(x.picks_per_round) || 27) * 2;
+    orderRows = orderRows.slice(0, maxOrderRows);
     orderRows.forEach(function (row) {
       var clsParts = ['draft-hub-order__item'];
       if (row.is_current) clsParts.push('draft-hub-order__current');
@@ -1038,7 +1040,7 @@
   function sizeDraftOrder(picksPerRound) {
     var order = document.querySelector('.draft-hub-order');
     if (!order) return;
-    var n = Math.max(1, Number(picksPerRound) || 27);
+    var n = Math.max(1, Number(picksPerRound) || 27) * 2;
     var first = order.querySelector('.draft-hub-order__item');
     if (!first) {
       order.style.maxHeight = 'none';

@@ -9,7 +9,6 @@ from sqlalchemy import func, select
 
 from app.auth_login import active_membership_for_league, league_hub_staff
 from app.league_db import db
-from app.logo_urls import team_logo_url_for_team
 from app.models import Player, Team
 from app.services.draft_hub_ai_advisor import fetch_draft_hub_ai_advice
 from app.services.draft_hub_eligibility import age_as_of
@@ -41,6 +40,7 @@ from app.services.draft_hub_state import (
     wishlist_items_for_team,
 )
 from app.services.player_ratings_csv import get_player_ratings_row, player_positions_display_label
+from app.services.season_team_logo_bundle import get_season_team_logo_bundle
 from app.site_models import (
     LeagueDraft,
     LeagueDraftPick,
@@ -61,6 +61,22 @@ def _membership():
     if not current_user.is_authenticated:
         return None
     return active_membership_for_league(current_user, _league_slug())
+
+
+def _draft_logo_context_year(draft: LeagueDraft | None) -> int | None:
+    try:
+        return int(getattr(draft, "timeline_year", None))
+    except (TypeError, ValueError):
+        return None
+
+
+def _draft_team_logo_url(team: Team | None, draft: LeagueDraft | None) -> str | None:
+    if team is None:
+        return None
+    return get_season_team_logo_bundle(current_app).team_logo_url_for_season_context(
+        team,
+        _draft_logo_context_year(draft),
+    )
 
 
 @draft_hub_bp.get("")
@@ -113,7 +129,7 @@ def draft_hub_archive_one(draft_id: int):
             players[pl.id] = pl
     teams = {t.id: t for t in db.session.scalars(select(Team)).all()}
     team_logo_url_by_id: dict[int, str] = {
-        int(tid): team_logo_url_for_team(tm) for tid, tm in teams.items()
+        int(tid): _draft_team_logo_url(tm, draft) for tid, tm in teams.items()
     }
     summary = compute_winners_losers(db.session, draft)
     boost_tier_by_overall = {
@@ -197,7 +213,7 @@ def draft_hub_api_state():
     }
     team_by_id = {t.id: t for t in db.session.scalars(select(Team)).all()}
     logo_by_team_id: dict[int, str] = {
-        int(tid): team_logo_url_for_team(tm) for tid, tm in team_by_id.items()
+        int(tid): _draft_team_logo_url(tm, draft) for tid, tm in team_by_id.items()
     }
     boost_tier_by_overall: dict[int, str] = {
         int(s.overall_pick): s.boost_tier for s in slots if s.boost_tier

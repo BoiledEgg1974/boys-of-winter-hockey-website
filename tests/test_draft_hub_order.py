@@ -148,6 +148,24 @@ class DraftHubOrderTest(unittest.TestCase):
         text = path.read_text(encoding="utf-8")
         self.assertIn("ADD COLUMN penalty_pick BOOLEAN NOT NULL DEFAULT 0", text)
 
+    def test_public_draft_hub_uses_draft_timeline_logos(self) -> None:
+        from pathlib import Path
+
+        path = Path(__file__).resolve().parents[1] / "app" / "routes" / "draft_hub.py"
+        text = path.read_text(encoding="utf-8")
+        self.assertIn("_draft_logo_context_year", text)
+        self.assertIn("team_logo_url_for_season_context", text)
+        self.assertNotIn("from app.logo_urls import team_logo_url_for_team", text)
+
+    def test_public_draft_order_displays_two_rounds(self) -> None:
+        from pathlib import Path
+
+        path = Path(__file__).resolve().parents[1] / "app" / "templates" / "draft_hub.html"
+        text = path.read_text(encoding="utf-8")
+        self.assertIn("Next two rounds only", text)
+        self.assertIn("maxOrderRows = Math.max(1, Number(x.picks_per_round) || 27) * 2", text)
+        self.assertIn("var n = Math.max(1, Number(picksPerRound) || 27) * 2", text)
+
 
 if __name__ == "__main__":
     unittest.main()

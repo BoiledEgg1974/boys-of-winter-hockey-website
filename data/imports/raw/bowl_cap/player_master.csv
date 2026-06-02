@@ -593,7 +593,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 591;186;186;Mike;Greenlay;;75;200;1968-9-15;Vitória;ESP;Canada;;;0;Left;0
 12393;5;5;Éric;Perrin;;69;176;1975-11-1;Gatineau;QC;Canada;;;0;Left;1
 593;14;14;Travis;Green;;73;204;1970-12-20;Castlegar;BC;Canada;;;0;Right;0
-12999;217;217;Jan;Hlavác;Bubák;72;201;1976-9-20;Prague;PRA;Czech Republic;;;0;Left;0
+12999;219;217;Jan;Hlavác;Bubák;72;201;1976-9-20;Prague;PRA;Czech Republic;;;0;Left;0
 595;186;186;Mark;Greig;;71;190;1970-1-25;High River;AB;Canada;;;0;Right;0
 13499;215;214;Jean-Luc;Grand-Pierre;;75;225;1977-2-2;Murdochville;QC;Canada;;;0;Right;0
 13000;51;0;Jason;Holland;;76;219;1976-4-30;Okotoks;AB;Canada;Germany;;0;Right;0
@@ -6180,7 +6180,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 13885;186;186;Jake;Ortmeyer;;75;212;1977-9-20;Weeping Water;NE;The United States;;;0;Right;0
 13886;186;186;Riley;Nelson;;69;172;1977-11-8;Cultus Lake;BC;Canada;;;0;Left;0
 13887;186;186;Scott;Stirling;;74;205;1977-8-2;Mansfield Center;MA;The United States;;;0;Right;0
-13888;220;220;Bryan;Lundbohm;;70;185;1977-8-24;Shoreview;MN;The United States;;;0;Left;1
+13888;222;220;Bryan;Lundbohm;;70;185;1977-8-24;Shoreview;MN;The United States;;;0;Left;0
 13889;186;186;Justin;Harney;;74;194;1977-11-14;Littleton Common;MA;The United States;;;0;Right;0
 13890;186;186;Eric;Schneider;;72;196;1977-9-15;Camrose;AB;Canada;;;0;Left;0
 13891;186;186;Ian;Manzano;;72;201;1977-4-26;Vernon;BC;Canada;Spain;;0;Left;0

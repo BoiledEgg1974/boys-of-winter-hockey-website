@@ -281,7 +281,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 279;-1;Jon;Ledger;;1907-12-21;Toronto;ON;Canada;;;0
 280;9;Tyler;Ward;;1911-11-7;Quebec City;QC;Canada;;;0
 281;-1;Allen;O'Neill;;1911-9-10;Guelph;ON;Canada;;;0
-282;-1;Millard;Porte;;1907-3-6;Mississauga;ON;Canada;;;0
+282;123;Millard;Porte;;1907-3-6;Mississauga;ON;Canada;;;0
 283;8;Steffen;Trapp;;1913-4-9;Toronto;ON;Canada;;;0
 284;-1;Gabriel;Richardson;;1907-10-23;Richmond Hill;ON;Canada;;;0
 285;-1;Pat;Bower;;1907-8-31;Montreal;QC;Canada;;;0
@@ -742,7 +742,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 740;82;Vic;Burtynsky;;1913-7-14;Calgary;AB;Canada;;;0
 741;82;Cody;Sveinson;;1913-4-28;Saskatoon;SK;Canada;;;0
 742;26;Carlos;Silva;;1913-2-24;Bracebridge;ON;Canada;;;0
-743;-1;César;Fernandez;;1913-10-10;Mississauga;ON;Canada;;;0
+743;123;César;Fernandez;;1913-10-10;Mississauga;ON;Canada;;;0
 744;77;Neil;Knisley;;1917-12-20;Edmundston;NB;Canada;;;0
 745;-1;Allen;Schmidt;;1913-4-21;County of Brant;ON;Canada;;;0
 746;-1;Josh;Gardiner;;1913-10-26;Toronto;ON;Canada;;;0
@@ -1079,7 +1079,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1077;-1;B.J.;Tate;;1918-8-18;South Frontenac;ON;Canada;;;0
 1078;-1;Jed;Law;;1917-2-2;Fishers;IN;The United States;;;0
 1079;-1;Logan;Orchard;;1917-4-2;Les Îles de la Madeleine;QC;Canada;;;0
-1080;-1;Bryan;Neal;;1917-6-27;Port Hope;ON;Canada;;;0
+1080;123;Bryan;Neal;;1917-6-27;Port Hope;ON;Canada;;;0
 1081;-1;Joseph;Pollock;;1918-4-30;Milwaukie;OR;The United States;;;0
 1082;-1;Tyler;Ross;;1926-5-11;London;ON;Canada;;;0
 1083;118;Danny;Heyward;;1926-5-6;Vaughan;ON;Canada;;;0
@@ -1231,7 +1231,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1229;70;Nicolò;Panza;;1927-5-29;Vancouver;BC;Canada;;;0
 1230;-1;Dan;Martin;;1918-11-28;Saguenay;QC;Canada;;;0
 1231;26;Dan;Jacobsen;;1918-1-22;Eugene;OR;The United States;;;0
-1232;-1;Pat;Hayes;;1925-11-3;Tracadie-Sheila;NB;Canada;;;0
+1232;9;Pat;Hayes;;1925-11-3;Tracadie-Sheila;NB;Canada;;;0
 1233;73;Jorge;Monroy;;1918-3-30;Phoenix;AZ;The United States;;;0
 1234;-1;Kevin;Holloway;;1918-6-18;Mississauga;ON;Canada;;;0
 1235;86;Andy;Watson;;1918-2-23;Lakeshore;ON;Canada;;;0

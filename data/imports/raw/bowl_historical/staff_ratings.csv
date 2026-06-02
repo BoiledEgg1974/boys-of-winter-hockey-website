@@ -742,7 +742,7 @@ StaffId;Executive;Manager;Coach;Scout;Trainer;Off Pref;Phy Pref;Line Matching;Go
 740;10;10;15;20;1;Offensive;Physical;Passive;Balanced;Prefers Prospects;Balanced;Loyal;7;15;12;6;1;5;3;1;3;13;9;15;5;5;0;;11;10
 741;10;10;15;20;1;Defensive;Very Physical;Balanced;Balanced;Prefers Prospects;Balanced;Loyal;2;2;6;9;10;9;11;3;17;11;11;17;16;8;0;;11;13
 742;10;10;15;20;1;Standard;Balanced;Aggressive;Balanced;Balanced;Balanced;Balanced;1;2;13;13;15;9;14;1;9;16;8;8;10;9;0;;14;10
-743;1;1;5;1;20;Defensive;Physical;Balanced;Balanced;Loves Prospects;Balanced;Balanced;0;0;0;0;0;0;0;9;0;0;4;0;0;0;20;;0;0
+743;1;1;5;1;20;Defensive;Physical;Balanced;Balanced;Loves Prospects;Balanced;Balanced;1;1;1;1;1;1;1;9;1;1;4;1;1;1;20;;1;1
 744;1;1;5;1;20;Defensive;Balanced;Aggressive;Balanced;Prefers Prospects;Innovative;Balanced;0;0;0;0;0;0;0;4;0;0;5;0;0;0;19;;0;0
 745;1;1;5;1;20;Standard;Balanced;Very Passive;Balanced;Balanced;Very Conservative;Ruthless;0;0;0;0;0;0;0;1;0;0;2;0;0;0;16;;0;0
 746;1;1;5;1;20;Standard;Balanced;Balanced;Aggressive;Balanced;Balanced;Ruthless;0;0;0;0;0;0;0;5;0;0;6;0;0;0;20;;0;0
@@ -1231,7 +1231,7 @@ StaffId;Executive;Manager;Coach;Scout;Trainer;Off Pref;Phy Pref;Line Matching;Go
 1229;10;10;15;20;1;Defensive;Balanced;Aggressive;Balanced;Balanced;Conservative;Balanced;11;12;8;10;14;4;1;5;13;14;1;15;18;7;0;;11;10
 1230;1;1;5;1;20;Defensive;Balanced;Very Passive;Aggressive;Balanced;Conservative;Loyal;0;0;0;0;0;0;0;5;0;0;9;0;0;0;16;;0;0
 1231;1;1;5;1;20;Defensive;Non-physical;Aggressive;Balanced;Balanced;Balanced;Very Ruthless;0;0;0;0;0;0;0;7;0;0;5;0;0;0;20;;0;0
-1232;1;1;5;1;20;Standard;Non-physical;Passive;Balanced;Prefers Veterans;Balanced;Loyal;0;0;0;0;0;0;0;3;0;0;6;0;0;0;20;;0;0
+1232;1;1;5;1;20;Standard;Non-physical;Passive;Balanced;Prefers Veterans;Balanced;Loyal;1;1;1;1;1;1;1;3;1;1;6;1;1;1;20;;1;1
 1233;1;1;5;1;20;Offensive;Balanced;Balanced;Balanced;Prefers Prospects;Balanced;Balanced;0;0;0;0;0;0;0;3;0;0;3;0;0;0;18;;0;0
 1234;1;1;5;1;20;Standard;Balanced;Balanced;Conservative;Balanced;Balanced;Loyal;0;0;0;0;0;0;0;4;0;0;2;0;0;0;20;;0;0
 1235;1;1;5;1;20;Defensive;Balanced;Aggressive;Balanced;Prefers Veterans;Innovative;Balanced;0;0;0;0;0;0;0;2;0;0;1;0;0;0;18;;0;0

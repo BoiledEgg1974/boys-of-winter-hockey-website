@@ -1199,7 +1199,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1197;118;Fernie;Flaman;;1927-1-25;Dysart;ON;Canada;;;0
 1198;27;Hal;Laycoe;;1922-6-23;Swift Current;SK;Canada;;;0
 1199;3;John;Bassett;;1915-8-25;Ottawa;ON;Canada;;;0
-1200;-1;Clare;Rothermel;;1934-1-1;Saskatoon;SK;Canada;;;0
+1200;121;Clare;Rothermel;;1934-1-1;Saskatoon;SK;Canada;;;0
 1201;-1;Jason;Herbert;;1920-3-10;Surrey;BC;Canada;;;0
 1202;-1;Jack;Pryde;;1918-2-23;Toronto;ON;Canada;;;0
 1203;-1;Mark;O'Halahan;;1918-3-24;Pleasant Run;OH;The United States;;;0
@@ -1213,7 +1213,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1211;-1;Matt;Dumaine;;1923-10-15;Regina;SK;Canada;;;0
 1212;118;Jimmy;Blodgett;;1925-12-5;Fort Myers Beach;FL;The United States;;;0
 1213;-1;Dave;Myers;;1918-4-12;Bois-des-Filion;QC;Canada;;;0
-1214;-1;Casey;Greenaway;;1922-4-19;Saint-Jérôme;QC;Canada;;;0
+1214;121;Casey;Greenaway;;1922-4-19;Saint-Jérôme;QC;Canada;;;0
 1215;-1;Jamie;Irvin;;1918-4-8;Houston;TX;The United States;;;0
 1216;123;Artie;Logan;;1918-7-10;Laval;QC;Canada;;;0
 1217;-1;Ryan;Kissick;;1918-1-24;Granby;QC;Canada;;;0

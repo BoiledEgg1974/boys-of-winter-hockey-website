@@ -20,7 +20,8 @@ DRAFT_POOL_DRAFT_ELIGIBLE_PAGE = "draft_eligible_page"
 DRAFT_POOL_SOURCE_VALUES = frozenset(
     {DRAFT_POOL_AGE_RULES, DRAFT_POOL_BORN_BEFORE, DRAFT_POOL_DRAFT_ELIGIBLE_PAGE}
 )
-HISTORICAL_AMATEUR_BIRTH_CUTOFF = date(1950, 1, 1)
+HISTORICAL_AMATEUR_BIRTH_START = date(1949, 12, 28)
+HISTORICAL_AMATEUR_BIRTH_END = date(1950, 12, 31)
 HISTORICAL_EASTERN_BLOC_NATIONALITIES = frozenset(
     {
         "bulgaria",
@@ -84,6 +85,32 @@ def default_eligibility_for_league(league_slug: str) -> DraftEligibilityParams:
     )
 
 
+def draft_eligible_timeline_year_for_league(
+    league_slug: str,
+    season_start_year: int | None,
+    season_end_year: int | None,
+    fallback_year: int,
+) -> int:
+    """Timeline year for the public Draft Eligible pool."""
+    if league_slug == "bowl-cap":
+        if season_end_year:
+            return int(season_end_year)
+        if season_start_year:
+            return int(season_start_year) + 1
+        return int(fallback_year)
+    if league_slug == "bowl-fantasy":
+        if season_start_year:
+            return int(season_start_year)
+        if season_end_year:
+            return int(season_end_year) - 1
+        return int(fallback_year)
+    if season_end_year:
+        return int(season_end_year)
+    if season_start_year:
+        return int(season_start_year) + 1
+    return int(fallback_year)
+
+
 def draft_eligible_page_params_for_league(league_slug: str, timeline_year: int) -> DraftEligibilityParams:
     """Eligibility rule set used by the public Draft Eligible page for a timeline year."""
     if league_slug == "bowl-historical":
@@ -138,8 +165,12 @@ def player_passes_born_before_rule(birth: date | None, cutoff: date | None) -> b
 
 
 def player_passes_historical_amateur_rules(player: Player) -> bool:
-    """Historical draft page excludes post-1949 and Eastern Bloc amateur players."""
-    if player.birth_date is None or player.birth_date >= HISTORICAL_AMATEUR_BIRTH_CUTOFF:
+    """Historical draft page uses a birth-date window and excludes Iron Curtain players."""
+    if (
+        player.birth_date is None
+        or player.birth_date < HISTORICAL_AMATEUR_BIRTH_START
+        or player.birth_date > HISTORICAL_AMATEUR_BIRTH_END
+    ):
         return False
     nationality = (getattr(player, "nationality", None) or "").strip().lower()
     return nationality not in HISTORICAL_EASTERN_BLOC_NATIONALITIES

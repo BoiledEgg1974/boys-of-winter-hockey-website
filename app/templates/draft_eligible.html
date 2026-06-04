@@ -14,9 +14,9 @@
 {% macro de_sort_th(sk, label, tip='') -%}
 {% set ord = ('asc' if prospect_order == 'desc' else 'desc') if sk == prospect_sort else ('desc' if sk in prospect_sort_desc_defaults else 'asc') %}
 {% if prospect_expanded %}
-{% set href = url_for('main.draft_eligible', sort=sk, order=ord, q=q or none, position=position or none, expanded=1) %}
+{% set href = url_for('main.draft_eligible', tab='eligible', sort=sk, order=ord, q=q or none, position=position or none, expanded=1) %}
 {% else %}
-{% set href = url_for('main.draft_eligible', sort=sk, order=ord, q=q or none, position=position or none) %}
+{% set href = url_for('main.draft_eligible', tab='eligible', sort=sk, order=ord, q=q or none, position=position or none) %}
 {% endif %}
 <th scope="col"{% if tip %} title="{{ tip|e }}"{% endif %}>
   <a href="{{ href }}"
@@ -44,7 +44,67 @@
     {% endfor %}
   </ul>
   {% endif %}
+  <nav class="subnav" aria-label="Draft eligible sections" style="margin:0 0 1rem;">
+    <a href="{{ url_for('main.draft_eligible', tab='eligible') }}" class="{% if active_tab == 'eligible' %}is-active{% endif %}">Draft Eligible</a>
+    <a href="{{ url_for('main.draft_eligible', tab='mock') }}" class="{% if active_tab == 'mock' %}is-active{% endif %}">Mock Draft</a>
+  </nav>
+  {% if active_tab == 'mock' %}
+  <div class="card">
+    <h2 style="margin-top:0;">Mock Draft</h2>
+    <p class="muted">Three-round entertainment mock based on current standings, admin draft-pick ownership, and broad organizational needs from current rosters.</p>
+    {% if mock_draft_rows %}
+    <div class="table-wrap">
+      <table class="data prospects-rankings-table">
+        <thead>
+          <tr>
+            <th>Pick</th>
+            <th>Team Picking</th>
+            <th>Original Pick</th>
+            <th>Need</th>
+            <th>Player</th>
+            <th>Board Rank</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in mock_draft_rows %}
+          <tr>
+            <td>{{ row.overall }} <span class="muted">(R{{ row.round }}, P{{ row.round_pick }})</span></td>
+            <td>
+              <a href="{{ url_for('main.team_page', slug=row.owner_team.slug) }}">{{ row.owner_team.full_display_name() }}</a>
+              {% if row.traded %}<span class="muted">via trade</span>{% endif %}
+            </td>
+            <td>
+              <a href="{{ url_for('main.team_page', slug=row.original_team.slug) }}">{{ row.original_team.abbreviation or row.original_team.name }}</a>
+            </td>
+            <td>{{ row.need_bucket }} <span class="muted">{{ row.need_summary }}</span></td>
+            <td>
+              <span class="stats-player-cell">
+                <a class="stats-player-cell__photo" href="{{ url_for('main.player_page', player_id=row.player.id) }}">
+                  {% if player_headshot_url(row.player) %}
+                  <img src="{{ player_headshot_url(row.player) }}" alt="">
+                  {% else %}
+                  <span class="stats-player-cell__photo-ph" aria-hidden="true"></span>
+                  {% endif %}
+                </a>
+                <span class="stats-player-cell__text">
+                  <a class="stats-player-cell__name" href="{{ url_for('main.player_page', player_id=row.player.id) }}">{{ row.player.full_name }}</a>
+                  <span class="stats-player-cell__pos">{{ row.player | player_positions_display }}</span>
+                </span>
+              </span>
+            </td>
+            <td>{{ row.player_rank }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="empty-state">No mock draft is available yet. This needs standings, eligible players, and main-league teams.</p>
+    {% endif %}
+  </div>
+  {% else %}
   <form method="get" class="card prospects-rankings-page__filters">
+    <input type="hidden" name="tab" value="eligible">
     <input type="hidden" name="sort" value="{{ prospect_sort }}">
     <input type="hidden" name="order" value="{{ prospect_order }}">
     {% if prospect_expanded %}<input type="hidden" name="expanded" value="1">{% endif %}
@@ -113,9 +173,9 @@
     {% if total_prospects > prospect_page_limit %}
     <p class="stats-list-foot muted prospects-rankings-page__foot">
       {% if prospect_expanded %}
-      Showing all {{ total_prospects }} players. <a href="{{ url_for('main.draft_eligible', sort=prospect_sort, order=prospect_order, q=q or none, position=position or none) }}">Show top {{ prospect_page_limit }} only</a>
+      Showing all {{ total_prospects }} players. <a href="{{ url_for('main.draft_eligible', tab='eligible', sort=prospect_sort, order=prospect_order, q=q or none, position=position or none) }}">Show top {{ prospect_page_limit }} only</a>
       {% else %}
-      Showing top {{ prospect_page_limit }} of {{ total_prospects }}. <a href="{{ url_for('main.draft_eligible', sort=prospect_sort, order=prospect_order, q=q or none, position=position or none, expanded=1) }}">Show all</a>
+      Showing top {{ prospect_page_limit }} of {{ total_prospects }}. <a href="{{ url_for('main.draft_eligible', tab='eligible', sort=prospect_sort, order=prospect_order, q=q or none, position=position or none, expanded=1) }}">Show all</a>
       {% endif %}
     </p>
     {% endif %}
@@ -123,5 +183,6 @@
     <p class="empty-state">No draft-eligible players found{% if q or position %} for this filter{% endif %}.</p>
     {% endif %}
   </div>
+  {% endif %}
 </div>
 {% endblock %}

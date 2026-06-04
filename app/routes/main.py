@@ -154,6 +154,7 @@ from app.services.draft_hub_eligibility import (
     DraftEligibilityParams,
     age_as_of,
     draft_eligible_page_params_for_league,
+    draft_eligible_timeline_year_for_league,
     default_eligibility_for_league,
     eligible_players_ordered,
 )
@@ -2496,31 +2497,26 @@ def _draft_eligible_params_for_page(
     league_slug: str, season: Season | None
 ) -> tuple[DraftEligibilityParams, str]:
     params = default_eligibility_for_league(league_slug)
-    if league_slug in ("bowl-fantasy", "bowl-cap"):
-        timeline_year = (
-            int(season.start_year)
-            if season and season.start_year
-            else int(season.end_year) - 1
-            if season and season.end_year
-            else date.today().year
-        )
-    else:
-        timeline_year = (
-            int(season.end_year)
-            if season and season.end_year
-            else int(season.start_year) + 1
-            if season and season.start_year
-            else date.today().year
-        )
+    timeline_year = draft_eligible_timeline_year_for_league(
+        league_slug,
+        int(season.start_year) if season and season.start_year else None,
+        int(season.end_year) if season and season.end_year else None,
+        date.today().year,
+    )
     page_params = draft_eligible_page_params_for_league(league_slug, timeline_year)
     if league_slug == "bowl-historical":
         return page_params, "Historical amateur pool"
+    if league_slug == "bowl-cap":
+        return page_params, "Cap draft-year rules"
     return page_params, "league defaults"
 
 
 @main_bp.get("/draft-eligible")
 def draft_eligible():
     """Draft-eligible pool from the current league database and timeline rules."""
+    active_tab = (request.args.get("tab") or "eligible").strip().lower()
+    if active_tab not in ("eligible", "mock"):
+        active_tab = "eligible"
     pos = request.args.get("position")
     q = (request.args.get("q") or "").strip().lower()
     expanded = request.args.get("expanded") == "1"
@@ -2534,8 +2530,14 @@ def draft_eligible():
     eligibility_notes = []
     if league_slug == "bowl-historical":
         eligibility_summary = (
-            "Historical amateur pool excludes players born on/after January 1, 1950 and "
-            "Eastern Bloc nationalities."
+            "Historical amateur pool shows players born from December 28, 1949 through "
+            "December 31, 1950, excluding Iron Curtain nationalities."
+        )
+    elif league_slug == "bowl-cap":
+        eligibility_summary = (
+            f"Cap draft eligible pool for the {params.timeline_year} in-game draft: players must be "
+            f"at least {params.min_age_years} by September 15, {params.timeline_year}, and not older "
+            f"than {params.max_age_years} by December 31, {params.timeline_year}."
         )
 
     overview_headers = (
@@ -2558,7 +2560,8 @@ def draft_eligible():
     if order not in ("asc", "desc"):
         order = "asc" if sort_col == "rank" else "desc"
 
-    players = [p for p in eligible_players_ordered(db.session, league_slug, params) if int(p.id) not in picked]
+    eligible_pool = [p for p in eligible_players_ordered(db.session, league_slug, params) if int(p.id) not in picked]
+    players = eligible_pool
     if q:
         players = [p for p in players if q in (p.full_name or "").lower()]
     if pos:
@@ -2639,8 +2642,19 @@ def draft_eligible():
     player_overall_by_id = build_overall_cell_map_from_players(
         db.session, [r["player"] for r in display_rows]
     )
+    from app.services.draft_mock import build_mock_draft
+
+    mock_draft_rows = build_mock_draft(
+        db.session,
+        db.session,
+        league_slug=league_slug,
+        season=season,
+        draft_year=int(params.timeline_year),
+        eligible_players=eligible_pool,
+    )
     return render_template(
         "draft_eligible.html",
+        active_tab=active_tab,
         prospect_rows=display_rows,
         total_prospects=total,
         prospect_page_limit=page_limit,
@@ -2658,6 +2672,7 @@ def draft_eligible():
         eligibility_notes=eligibility_notes,
         active_draft=draft,
         league_display=league_display_name(league_slug),
+        mock_draft_rows=mock_draft_rows,
     )
 
 

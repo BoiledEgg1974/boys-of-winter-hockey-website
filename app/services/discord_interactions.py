@@ -626,10 +626,19 @@ def _handle_leaders_command(payload: dict[str, Any], season: Season) -> dict[str
 
 def _handle_drafteligible_command(payload: dict[str, Any], league_slug: str) -> dict[str, Any]:
     from app.routes.main import _prospect_pos_matches
-    from app.services.draft_hub_eligibility import draft_eligible_page_params_for_league, eligible_players_ordered
+    from app.services.draft_hub_eligibility import (
+        draft_eligible_page_params_for_league,
+        draft_eligible_timeline_year_for_league,
+        eligible_players_ordered,
+    )
 
     season = _current_dashboard_season()
-    timeline = int(season.start_year or season.end_year or datetime.utcnow().year) if season else datetime.utcnow().year
+    timeline = draft_eligible_timeline_year_for_league(
+        league_slug,
+        int(season.start_year) if season and season.start_year else None,
+        int(season.end_year) if season and season.end_year else None,
+        datetime.utcnow().year,
+    )
     params = draft_eligible_page_params_for_league(league_slug, timeline)
     players = eligible_players_ordered(db.session, league_slug, params)
     pos = _command_option(payload, "position")

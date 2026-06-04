@@ -104,6 +104,7 @@ class GameRecordsServiceTest(unittest.TestCase):
 
         self.assertNotIn("game_rating", by_key)
         self.assertNotIn("save_pct", by_key)
+        self.assertNotIn("minutes_played", by_key)
         self.assertIn("goals_allowed", by_key)
         self.assertTrue(by_key["goals_allowed"].higher_is_better)
 

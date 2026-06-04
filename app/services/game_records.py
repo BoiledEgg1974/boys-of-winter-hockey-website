@@ -50,7 +50,6 @@ def game_record_metrics(*, player_kind: str) -> list[GameRecordMetric]:
             GameRecordMetric("saves", "Saves", "goalie"),
             GameRecordMetric("shots_against", "Shots Against", "goalie"),
             GameRecordMetric("goals_allowed", "Goals Allowed", "goalie"),
-            GameRecordMetric("minutes_played", "Min Played", "goalie", value_kind="time"),
         ]
     return [
         GameRecordMetric("goals", "Goals", "skater"),

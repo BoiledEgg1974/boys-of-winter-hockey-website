@@ -18,6 +18,7 @@ from app.services.game_records import (
     _merge_holders,
     build_game_records_page,
     format_game_record_value,
+    game_record_metrics,
     resolve_game_record,
     upsert_baseline,
 )
@@ -90,6 +91,46 @@ class GameRecordsServiceTest(unittest.TestCase):
         )
         merged = _merge_holders(baseline, computed, metric)
         self.assertEqual(merged.source, "baseline")
+
+    def test_goalie_metrics_exclude_game_rating_and_save_pct(self) -> None:
+        metrics = game_record_metrics(player_kind="goalie")
+        by_key = {m.key: m for m in metrics}
+
+        self.assertNotIn("game_rating", by_key)
+        self.assertNotIn("save_pct", by_key)
+        self.assertIn("goals_allowed", by_key)
+        self.assertTrue(by_key["goals_allowed"].higher_is_better)
+
+    def test_goals_allowed_prefers_most_allowed(self) -> None:
+        metric = GameRecordMetric("goals_allowed", "Goals Allowed", "goalie")
+        baseline = GameRecordHolder(
+            metric=metric,
+            value=4.0,
+            display_value="4",
+            player=None,
+            team=None,
+            opponent_team=None,
+            game_date=None,
+            season_label=None,
+            game_id=None,
+            source="baseline",
+        )
+        computed = GameRecordHolder(
+            metric=metric,
+            value=7.0,
+            display_value="7",
+            player=None,
+            team=None,
+            opponent_team=None,
+            game_date=None,
+            season_label=None,
+            game_id=1,
+            source="boxscore",
+        )
+
+        merged = _merge_holders(baseline, computed, metric)
+        self.assertEqual(merged.source, "boxscore")
+        self.assertEqual(merged.value, 7.0)
 
     def test_rookie_cutoff_date_uses_season_start(self) -> None:
         season = SimpleNamespace(start_year=1969, end_year=1970)

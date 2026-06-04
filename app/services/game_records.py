@@ -39,10 +39,8 @@ def game_record_metrics(*, player_kind: str) -> list[GameRecordMetric]:
         return [
             GameRecordMetric("saves", "Saves", "goalie"),
             GameRecordMetric("shots_against", "Shots Against", "goalie"),
-            GameRecordMetric("goals_allowed", "Goals Allowed", "goalie", higher_is_better=False),
-            GameRecordMetric("save_pct", "Save %", "goalie", value_kind="pct"),
+            GameRecordMetric("goals_allowed", "Goals Allowed", "goalie"),
             GameRecordMetric("minutes_played", "Min Played", "goalie", value_kind="time"),
-            GameRecordMetric("game_rating", "Game Rating", "goalie", value_kind="rating"),
         ]
     return [
         GameRecordMetric("goals", "Goals", "skater"),

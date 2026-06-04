@@ -736,6 +736,7 @@ class TeamRetiredNumber(db.Model):
     player_name: Mapped[str] = mapped_column(String(200), nullable=False)
     jersey_number: Mapped[int] = mapped_column(Integer, nullable=False)
     jersey_image_rel_path: Mapped[str | None] = mapped_column(String(500))
+    number_color: Mapped[str | None] = mapped_column(String(16))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     notes: Mapped[str] = mapped_column(Text, default="", nullable=False)

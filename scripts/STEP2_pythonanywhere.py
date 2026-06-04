@@ -550,7 +550,7 @@ def build_full_remote_rebuild_prep_script(
         f". {act}",
         f"{py} -m pip install --upgrade pip",
         f"{py} -m pip install --upgrade -r {req}",
-        f"{py} -c \"import flask, flask_login, flask_sqlalchemy, flask_wtf; print('imports ok')\"",
+        f"{py} -c \"import flask, flask_login, flask_sqlalchemy, flask_wtf, werkzeug; print('imports ok')\"",
         f"{py} -c \"import sys; print(sys.executable)\"",
     ]
     if wsgi_file:

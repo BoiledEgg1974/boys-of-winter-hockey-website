@@ -3986,6 +3986,14 @@ def admin_team_honors():
     team_id = request.args.get("team_id", type=int) or request.form.get("team_id", type=int)
     team = db.session.get(Team, team_id) if team_id else None
 
+    def _clean_hex_color(raw: str | None, fallback: str = "#111827") -> str:
+        value = str(raw or "").strip()
+        if not value.startswith("#"):
+            value = f"#{value}"
+        if len(value) == 7 and all(ch in "0123456789abcdefABCDEF" for ch in value[1:]):
+            return value.lower()
+        return fallback
+
     if request.method == "POST":
         action = (request.form.get("action") or "").strip()
         if not team:
@@ -4063,6 +4071,11 @@ def admin_team_honors():
                 return redirect(url_for("site_admin.admin_team_honors", team_id=team.id))
             row.player_name = player_name
             row.jersey_number = jersey_number
+            default_number_color = team.text_color or team.primary_color or "#111827"
+            row.number_color = _clean_hex_color(
+                request.form.get("number_color"),
+                _clean_hex_color(default_number_color),
+            )
             row.is_active = request.form.get("is_active") == "on"
             try:
                 row.sort_order = int((request.form.get("sort_order") or "0").strip())

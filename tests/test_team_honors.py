@@ -23,14 +23,18 @@ class TeamHonorsTemplateTest(unittest.TestCase):
         self.assertIn("retired_section_enabled", text)
         self.assertIn('name="jersey_image"', text)
         self.assertIn('name="banner_image"', text)
+        self.assertIn('name="number_color"', text)
+        self.assertIn('action" value="delete_retired"', text)
+        self.assertIn("admin-team-honors__color-chip", text)
 
     def test_team_page_has_honors_section(self) -> None:
         root = Path(__file__).resolve().parents[1]
         text = (root / "app" / "templates" / "team.html").read_text(encoding="utf-8")
         self.assertIn("team-honors", text)
-        self.assertIn("Retired Number", text)
+        self.assertIn("RETIRED NUMBERS", text)
         self.assertIn("Championship Banners", text)
         self.assertIn("team-honors__jersey-num", text)
+        self.assertIn("--team-honors-number-color", text)
 
 
 class TeamHonorsMediaTest(unittest.TestCase):

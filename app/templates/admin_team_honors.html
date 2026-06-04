@@ -41,7 +41,7 @@
     <h2>{{ team.full_display_name() }}</h2>
     <label class="admin-team-honors__check">
       <input type="checkbox" name="retired_section_enabled" {% if honors_meta and honors_meta.retired_section_enabled %}checked{% endif %}>
-      Show <strong>Retired Number</strong> panel on team page
+      Show <strong>Retired Numbers</strong> panel on team page
     </label>
     <button type="submit">Save display settings</button>
   </form>
@@ -65,6 +65,19 @@
         <label>Jersey number
           <input type="number" name="jersey_number" required min="0" max="99" value="{{ edit_retired.jersey_number if edit_retired else '' }}">
         </label>
+        {% set retired_number_color = (edit_retired.number_color if edit_retired and edit_retired.number_color else (team.text_color or team.primary_color or '#111827')) %}
+        <label>Number color
+          <input type="color" name="number_color" value="{{ retired_number_color }}">
+          <span class="muted">Use a team color with enough contrast against the uploaded jersey.</span>
+        </label>
+        <div class="admin-team-honors__color-suggestions" aria-label="Team color suggestions">
+          {% for label, color in [('Primary', team.primary_color), ('Secondary', team.secondary_color), ('Text', team.text_color)] if color %}
+          <span class="admin-team-honors__color-chip" style="--chip-color: {{ color }};">
+            <span class="admin-team-honors__color-swatch" aria-hidden="true"></span>
+            {{ label }} {{ color }}
+          </span>
+          {% endfor %}
+        </div>
         <label>Jersey image (T{{ team.id }}-Jersey&lt;n&gt;)
           <input type="file" name="jersey_image" accept=".png,.jpg,.jpeg,.webp,.gif">
         </label>
@@ -92,13 +105,23 @@
       <div class="table-wrap">
         <table class="data">
           <thead>
-            <tr><th>#</th><th>Player</th><th>Image</th><th>Order</th><th>Active</th><th></th></tr>
+            <tr><th>#</th><th>Player</th><th>Color</th><th>Image</th><th>Order</th><th>Active</th><th></th></tr>
           </thead>
           <tbody>
             {% for r in retired_rows %}
             <tr{% if edit_retired and edit_retired.id == r.id %} class="is-editing"{% endif %}>
               <td>{{ r.jersey_number }}</td>
               <td>{{ r.player_name }}</td>
+              <td>
+                {% if r.number_color %}
+                <span class="admin-team-honors__color-chip" style="--chip-color: {{ r.number_color }};">
+                  <span class="admin-team-honors__color-swatch" aria-hidden="true"></span>
+                  {{ r.number_color }}
+                </span>
+                {% else %}
+                —
+                {% endif %}
+              </td>
               <td><code>{{ r.jersey_image_rel_path or '—' }}</code></td>
               <td>{{ r.sort_order }}</td>
               <td>{{ 'yes' if r.is_active else 'no' }}</td>
@@ -114,7 +137,7 @@
               </td>
             </tr>
             {% else %}
-            <tr><td colspan="6" class="muted">No retired numbers yet.</td></tr>
+            <tr><td colspan="7" class="muted">No retired numbers yet.</td></tr>
             {% endfor %}
           </tbody>
         </table>

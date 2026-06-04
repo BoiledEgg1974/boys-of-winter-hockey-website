@@ -1419,6 +1419,10 @@ def ensure_team_retired_numbers_sqlite(engine: Engine) -> None:
             text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='team_retired_numbers'")
         ).fetchone()
         if exists:
+            cols = {row[1] for row in conn.execute(text("PRAGMA table_info(team_retired_numbers)"))}
+            if "number_color" not in cols:
+                conn.execute(text("ALTER TABLE team_retired_numbers ADD COLUMN number_color VARCHAR(16)"))
+                conn.commit()
             return
         conn.execute(
             text(
@@ -1429,6 +1433,7 @@ def ensure_team_retired_numbers_sqlite(engine: Engine) -> None:
                     player_name VARCHAR(200) NOT NULL,
                     jersey_number INTEGER NOT NULL,
                     jersey_image_rel_path VARCHAR(500),
+                    number_color VARCHAR(16),
                     is_active BOOLEAN NOT NULL DEFAULT 1,
                     sort_order INTEGER NOT NULL DEFAULT 0,
                     notes TEXT NOT NULL DEFAULT '',

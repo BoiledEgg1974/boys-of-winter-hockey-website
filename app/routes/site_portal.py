@@ -3201,6 +3201,7 @@ def admin_game_records():
     require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
     slug = _league_slug()
     from app.services.game_records import (
+        baseline_team_choices_for_admin,
         delete_baseline,
         list_baselines,
         metric_choices_for_admin,
@@ -3209,6 +3210,7 @@ def admin_game_records():
 
     players = db.session.scalars(select(Player).order_by(Player.last_name, Player.first_name)).all()
     teams = db.session.scalars(select(Team).order_by(Team.name)).all()
+    team_choices = baseline_team_choices_for_admin(db.session)
     metric_choices = metric_choices_for_admin()
 
     if request.method == "POST":
@@ -3317,6 +3319,7 @@ def admin_game_records():
         baselines=baselines,
         players=players,
         teams=teams,
+        team_choices=team_choices,
         metric_choices=metric_choices,
     )
 

@@ -16,8 +16,10 @@ from app.services.game_records import (
     GameRecordHolder,
     GameRecordMetric,
     _merge_holders,
+    baseline_team_choices_for_admin,
     build_game_records_page,
     format_game_record_value,
+    game_record_season_year,
     game_record_metrics,
     resolve_game_record,
     upsert_baseline,
@@ -131,6 +133,39 @@ class GameRecordsServiceTest(unittest.TestCase):
         merged = _merge_holders(baseline, computed, metric)
         self.assertEqual(merged.source, "boxscore")
         self.assertEqual(merged.value, 7.0)
+
+    def test_game_record_season_year_prefers_label_and_handles_winter_dates(self) -> None:
+        self.assertEqual(game_record_season_year(date(1993, 2, 10), "1992-93"), 1992)
+        self.assertEqual(game_record_season_year(date(1992, 11, 25), None), 1992)
+        self.assertEqual(game_record_season_year(date(1993, 2, 10), None), 1992)
+
+    def test_baseline_team_choices_include_defunct_identities(self) -> None:
+        current = SimpleNamespace(
+            id=7,
+            fhm_team_id="23",
+            name="Carolina",
+            nickname="Hurricanes",
+            full_display_name=lambda: "Carolina Hurricanes",
+        )
+        identity = SimpleNamespace(
+            id=42,
+            team_id=7,
+            team_fhm_id="23",
+            display_name="Hartford Whalers",
+            start_year=1989,
+            end_year=1992,
+        )
+        session = MagicMock()
+        teams_scalars = MagicMock()
+        teams_scalars.all.return_value = [current]
+        identities_scalars = MagicMock()
+        identities_scalars.all.return_value = [identity]
+        session.scalars.side_effect = [teams_scalars, identities_scalars]
+
+        choices = baseline_team_choices_for_admin(session)
+
+        self.assertIn(("Carolina Hurricanes", 7), [(c.label, c.value) for c in choices])
+        self.assertIn(("Hartford Whalers (1989-1992)", 7), [(c.label, c.value) for c in choices])
 
     def test_rookie_cutoff_date_uses_season_start(self) -> None:
         season = SimpleNamespace(start_year=1969, end_year=1970)

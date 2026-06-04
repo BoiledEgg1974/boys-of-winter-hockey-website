@@ -17,12 +17,20 @@ class GameRecordsAdminTest(unittest.TestCase):
         text = path.read_text(encoding="utf-8")
         self.assertIn("game-records-admin-form", text)
         self.assertIn('name="metric_key"', text)
+        self.assertIn("team_choices", text)
+        self.assertIn("season_team_name(row)", text)
         self.assertIn('action" value="delete"', text)
 
     def test_public_nav_links_game_records(self) -> None:
         path = Path(__file__).resolve().parents[1] / "app" / "templates" / "base.html"
         text = path.read_text(encoding="utf-8")
         self.assertIn("game_records_page", text)
+
+    def test_public_game_records_uses_era_logo_resolver(self) -> None:
+        path = Path(__file__).resolve().parents[1] / "app" / "templates" / "game_records.html"
+        text = path.read_text(encoding="utf-8")
+        self.assertIn("season_team_name(card)", text)
+        self.assertIn("season_team_logo_url(card)", text)
 
 
 if __name__ == "__main__":

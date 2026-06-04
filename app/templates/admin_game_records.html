@@ -63,16 +63,16 @@
         <label>Team
           <select name="team_id">
             <option value="">—</option>
-            {% for tm in teams %}
-            <option value="{{ tm.id }}">{{ tm.full_display_name() }}</option>
+            {% for choice in team_choices %}
+            <option value="{{ choice.value }}">{{ choice.label }}</option>
             {% endfor %}
           </select>
         </label>
         <label>Opponent
           <select name="opponent_team_id">
             <option value="">—</option>
-            {% for tm in teams %}
-            <option value="{{ tm.id }}">{{ tm.full_display_name() }}</option>
+            {% for choice in team_choices %}
+            <option value="{{ choice.value }}">{{ choice.label }}</option>
             {% endfor %}
           </select>
         </label>
@@ -117,7 +117,7 @@
           <td>{{ row.player_kind }}</td>
           <td>{{ row.value }}</td>
           <td>{% if row.player_id %}{% for pl in players if pl.id == row.player_id %}{{ pl.full_name }}{% endfor %}{% else %}—{% endif %}</td>
-          <td>{% if row.team_id %}{% for tm in teams if tm.id == row.team_id %}{{ tm.abbreviation }}{% endfor %}{% else %}—{% endif %}</td>
+          <td>{% if row.team %}{{ season_team_name(row) or row.team.abbreviation }}{% else %}—{% endif %}</td>
           <td>{{ row.game_date or row.season_label or '—' }}</td>
           <td>
             <form method="post" style="display:inline;">

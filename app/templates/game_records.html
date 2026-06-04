@@ -45,10 +45,12 @@
           {% endif %}
           <div class="game-records-card__value">{{ card.display_value }}</div>
           {% if card.team %}
-          <a class="game-records-card__team" href="{{ url_for('main.team_page', slug=card.team.slug) }}">{{ card.team.full_display_name() }}</a>
+          {% set card_team_name = season_team_name(card) or card.team.full_display_name() %}
+          <a class="game-records-card__team" href="{{ url_for('main.team_page', slug=card.team.slug) }}">{{ card_team_name }}</a>
           {% endif %}
           {% if card.opponent_team %}
-          <span class="game-records-card__vs muted">vs {{ card.opponent_team.full_display_name() }}</span>
+          {% set opponent_team_name = season_team_name({'team': card.opponent_team, 'season_year': card.season_year}) or card.opponent_team.full_display_name() %}
+          <span class="game-records-card__vs muted">vs {{ opponent_team_name }}</span>
           {% endif %}
           {% if card.game_date %}
           <time class="game-records-card__date muted" datetime="{{ card.game_date.isoformat() }}">{{ card.game_date.strftime('%B %d, %Y') }}</time>
@@ -58,8 +60,9 @@
         </div>
         {% if card.team %}
         <div class="game-records-card__logo-col">
-          <a href="{{ url_for('main.team_page', slug=card.team.slug) }}" aria-label="{{ card.team.full_display_name() }}">
-            <img class="game-records-card__logo" src="{{ team_logo_url(card.team) }}" alt="" loading="lazy" decoding="async">
+          {% set card_team_name = season_team_name(card) or card.team.full_display_name() %}
+          <a href="{{ url_for('main.team_page', slug=card.team.slug) }}" aria-label="{{ card_team_name }}">
+            <img class="game-records-card__logo" src="{{ season_team_logo_url(card) or team_logo_url(card.team) }}" alt="" loading="lazy" decoding="async">
           </a>
         </div>
         {% endif %}

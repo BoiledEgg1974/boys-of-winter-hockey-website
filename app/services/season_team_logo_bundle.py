@@ -127,6 +127,26 @@ def build_season_team_logo_bundle(app: Flask) -> SeasonTeamLogoBundle:
         return None
 
     def _record_start_year(record: object) -> int | None:
+        def _year_from_label(label: object) -> int | None:
+            if label and "-" in str(label):
+                try:
+                    return int(str(label).split("-", 1)[0])
+                except Exception:
+                    return None
+            return None
+
+        def _year_from_game_date(value: object) -> int | None:
+            year = getattr(value, "year", None)
+            month = getattr(value, "month", None)
+            try:
+                if year is None or month is None:
+                    return None
+                year_i = int(year)
+                month_i = int(month)
+            except Exception:
+                return None
+            return year_i if month_i >= 7 else year_i - 1
+
         if isinstance(record, Mapping):
             for key in ("season_year", "start_year"):
                 v = record.get(key)
@@ -135,12 +155,13 @@ def build_season_team_logo_bundle(app: Flask) -> SeasonTeamLogoBundle:
                         return int(v)
                 except Exception:
                     pass
-            label = record.get("season_year_label")
-            if label and "-" in str(label):
-                try:
-                    return int(str(label).split("-", 1)[0])
-                except Exception:
-                    return None
+            for key in ("season_year_label", "season_label"):
+                year = _year_from_label(record.get(key))
+                if year is not None:
+                    return year
+            year = _year_from_game_date(record.get("game_date"))
+            if year is not None:
+                return year
             return None
         for attr in ("season_year", "start_year"):
             v = getattr(record, attr, None)
@@ -149,12 +170,13 @@ def build_season_team_logo_bundle(app: Flask) -> SeasonTeamLogoBundle:
                     return int(v)
             except Exception:
                 pass
-        label = getattr(record, "season_year_label", None)
-        if label and "-" in str(label):
-            try:
-                return int(str(label).split("-", 1)[0])
-            except Exception:
-                return None
+        for attr in ("season_year_label", "season_label"):
+            year = _year_from_label(getattr(record, attr, None))
+            if year is not None:
+                return year
+        year = _year_from_game_date(getattr(record, "game_date", None))
+        if year is not None:
+            return year
         return None
 
     def _historical_name_for_tid(record: object, tid_s: str) -> str | None:

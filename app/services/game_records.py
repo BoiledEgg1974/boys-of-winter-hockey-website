@@ -1,14 +1,16 @@
 """Single-game league records from boxscores + admin baselines."""
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-from sqlalchemy import and_, case, func, or_, select
+from sqlalchemy import and_, case, or_, select
 from sqlalchemy.orm import Session
 
 from app.models import (
+    FranchiseTeamIdentity,
     Game,
     GameGoalieStat,
     GameRecordBaseline,
@@ -32,6 +34,14 @@ class GameRecordMetric:
     defense_only: bool = False
     value_kind: str = "int"
     source: str = "skater"
+
+
+@dataclass(frozen=True)
+class GameRecordTeamChoice:
+    value: int
+    label: str
+    sort_label: str
+    identity_id: int | None = None
 
 
 def game_record_metrics(*, player_kind: str) -> list[GameRecordMetric]:
@@ -91,6 +101,26 @@ def _fmt_toi(seconds: int | None) -> str:
     return f"{m}:{s:02d}"
 
 
+def _season_start_year_from_label(label: str | None) -> int | None:
+    m = re.search(r"(\d{4})", str(label or ""))
+    if not m:
+        return None
+    try:
+        return int(m.group(1))
+    except ValueError:
+        return None
+
+
+def game_record_season_year(game_date: date | None, season_label: str | None) -> int | None:
+    """Best-effort season start year for era-correct baseline identities."""
+    from_label = _season_start_year_from_label(season_label)
+    if from_label is not None:
+        return from_label
+    if game_date is None:
+        return None
+    return int(game_date.year) if int(game_date.month) >= 7 else int(game_date.year) - 1
+
+
 def format_game_record_value(value: float | None, metric: GameRecordMetric) -> str:
     if value is None:
         return "—"
@@ -139,6 +169,7 @@ class GameRecordHolder:
     source: str
 
     def to_template_dict(self) -> dict[str, Any]:
+        season_year = game_record_season_year(self.game_date, self.season_label)
         return {
             "metric": self.metric,
             "title": self.metric.title,
@@ -147,6 +178,8 @@ class GameRecordHolder:
             "player": self.player,
             "team": self.team,
             "opponent_team": self.opponent_team,
+            "season_year": season_year,
+            "season_year_label": self.season_label,
             "game_date": self.game_date,
             "season_label": self.season_label,
             "game_id": self.game_id,
@@ -532,6 +565,66 @@ def list_baselines(session: Session) -> list[GameRecordBaseline]:
             )
         ).all()
     )
+
+
+def _identity_range_label(identity: FranchiseTeamIdentity) -> str:
+    start = int(identity.start_year)
+    end = identity.end_year
+    if end is None or int(end) >= 2100:
+        return f"{start}-present"
+    if int(end) == start:
+        return str(start)
+    return f"{start}-{int(end)}"
+
+
+def baseline_team_choices_for_admin(session: Session) -> list[GameRecordTeamChoice]:
+    """Current teams plus era identities, all saving back to the canonical franchise team id."""
+    teams = list(session.scalars(select(Team).order_by(Team.name, Team.nickname)).all())
+    by_id = {int(t.id): t for t in teams}
+    by_fhm = {
+        str(t.fhm_team_id).strip(): t
+        for t in teams
+        if str(t.fhm_team_id or "").strip()
+    }
+    choices: list[GameRecordTeamChoice] = [
+        GameRecordTeamChoice(
+            value=int(t.id),
+            label=t.full_display_name(),
+            sort_label=t.full_display_name(),
+        )
+        for t in teams
+    ]
+    seen_identity_choices: set[tuple[int, str]] = set()
+    identities = session.scalars(
+        select(FranchiseTeamIdentity).order_by(
+            FranchiseTeamIdentity.display_name,
+            FranchiseTeamIdentity.start_year,
+            FranchiseTeamIdentity.id,
+        )
+    ).all()
+    for identity in identities:
+        team = by_id.get(int(identity.team_id)) if identity.team_id else None
+        if team is None and identity.team_fhm_id:
+            team = by_fhm.get(str(identity.team_fhm_id).strip())
+        if team is None:
+            continue
+        name = (identity.display_name or "").strip()
+        if not name:
+            continue
+        label = f"{name} ({_identity_range_label(identity)})"
+        key = (int(team.id), label)
+        if key in seen_identity_choices:
+            continue
+        seen_identity_choices.add(key)
+        choices.append(
+            GameRecordTeamChoice(
+                value=int(team.id),
+                label=label,
+                sort_label=name,
+                identity_id=int(identity.id),
+            )
+        )
+    return sorted(choices, key=lambda c: (c.sort_label.casefold(), c.label.casefold(), c.value))
 
 
 def upsert_baseline(

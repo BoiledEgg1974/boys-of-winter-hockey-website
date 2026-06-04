@@ -55,12 +55,14 @@ def goalie_career_lines_totals(lines: list[PlayerGoalieCareerLine]) -> dict[str,
 
     gaa = (goals_against / gp) if gp else None
     sv_pct = ((shots_against - goals_against) / shots_against) if shots_against else None
+    win_pct = ((wins + ((ties_otl or 0) * 0.5)) / gp) if gp else None
 
     return {
         "gp": gp,
         "wins": wins,
         "losses": losses,
         "ties_otl": ties_otl,
+        "win_pct": win_pct,
         "gaa": gaa,
         "sv_pct": sv_pct,
         "shutouts": shutouts,

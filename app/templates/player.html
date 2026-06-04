@@ -497,6 +497,7 @@
                 <th data-sort-type="num" scope="col">W</th>
                 <th data-sort-type="num" scope="col">L</th>
                 <th data-sort-type="num" scope="col">OTL</th>
+                <th data-sort-type="num" scope="col" title="Winning percentage">W%</th>
                 <th data-sort-type="num" scope="col">GAA</th>
                 <th data-sort-type="num" scope="col">SV%</th>
                 <th data-sort-type="num" scope="col">SO</th>
@@ -506,10 +507,12 @@
               {% for ln in career_rs_gk %}
               {% set sv_pct = ((ln.shots_against - ln.goals_against) / ln.shots_against) if ln.shots_against else none %}
               {% set gaa = (ln.goals_against / ln.gp) if ln.gp else none %}
+              {% set win_pct = ((ln.wins + ((ln.ties_otl or 0) * 0.5)) / ln.gp) if ln.gp else none %}
               <tr>
                 <td data-sort-value="{{ ln.season_year }}">{{ season_span(ln.season_year) }}</td>
                 <td>{{ career_line_team_cell(ln) }}</td>
                 <td>{{ ln.gp }}</td><td>{{ ln.wins }}</td><td>{{ ln.losses }}</td><td>{{ ln.ties_otl if ln.ties_otl is not none else '—' }}</td>
+                <td>{{ '%.3f'|format(win_pct) if win_pct is not none else '—' }}</td>
                 <td>{{ '%.2f'|format(gaa) if gaa is not none else '—' }}</td>
                 <td>{{ '%.3f'|format(sv_pct) if sv_pct is not none else '—' }}</td>
                 <td>{{ ln.shutouts }}</td>
@@ -526,6 +529,7 @@
                 <td>{{ t.wins }}</td>
                 <td>{{ t.losses }}</td>
                 <td>{{ t.ties_otl if t.ties_otl is not none else '—' }}</td>
+                <td>{{ '%.3f'|format(t.win_pct) if t.win_pct is not none else '—' }}</td>
                 <td>{{ '%.2f'|format(t.gaa) if t.gaa is not none else '—' }}</td>
                 <td>{{ '%.3f'|format(t.sv_pct) if t.sv_pct is not none else '—' }}</td>
                 <td>{{ t.shutouts }}</td>
@@ -550,6 +554,7 @@
                 <th data-sort-type="num" scope="col">W</th>
                 <th data-sort-type="num" scope="col">L</th>
                 <th data-sort-type="num" scope="col">OTL</th>
+                <th data-sort-type="num" scope="col" title="Winning percentage">W%</th>
                 <th data-sort-type="num" scope="col">GAA</th>
                 <th data-sort-type="num" scope="col">SV%</th>
                 <th data-sort-type="num" scope="col">SO</th>
@@ -559,10 +564,12 @@
               {% for ln in career_po_gk %}
               {% set sv_pct = ((ln.shots_against - ln.goals_against) / ln.shots_against) if ln.shots_against else none %}
               {% set gaa = (ln.goals_against / ln.gp) if ln.gp else none %}
+              {% set win_pct = ((ln.wins + ((ln.ties_otl or 0) * 0.5)) / ln.gp) if ln.gp else none %}
               <tr>
                 <td data-sort-value="{{ ln.season_year }}">{{ season_span(ln.season_year) }}</td>
                 <td>{{ career_line_team_cell(ln) }}</td>
                 <td>{{ ln.gp }}</td><td>{{ ln.wins }}</td><td>{{ ln.losses }}</td><td>{{ ln.ties_otl if ln.ties_otl is not none else '—' }}</td>
+                <td>{{ '%.3f'|format(win_pct) if win_pct is not none else '—' }}</td>
                 <td>{{ '%.2f'|format(gaa) if gaa is not none else '—' }}</td>
                 <td>{{ '%.3f'|format(sv_pct) if sv_pct is not none else '—' }}</td>
                 <td>{{ ln.shutouts }}</td>
@@ -579,6 +586,7 @@
                 <td>{{ t.wins }}</td>
                 <td>{{ t.losses }}</td>
                 <td>{{ t.ties_otl if t.ties_otl is not none else '—' }}</td>
+                <td>{{ '%.3f'|format(t.win_pct) if t.win_pct is not none else '—' }}</td>
                 <td>{{ '%.2f'|format(t.gaa) if t.gaa is not none else '—' }}</td>
                 <td>{{ '%.3f'|format(t.sv_pct) if t.sv_pct is not none else '—' }}</td>
                 <td>{{ t.shutouts }}</td>

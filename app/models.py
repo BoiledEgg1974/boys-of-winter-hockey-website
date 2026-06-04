@@ -541,6 +541,12 @@ class HistoryAward(db.Model):
     #: FHM ``StaffId`` from ``staff_master.csv`` (Jack Adams / Jim Gregory history rows).
     staff_fhm_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text)
+    #: ``csv`` (import) or ``admin`` (protected from replace-all imports).
+    source: Mapped[str] = mapped_column(String(16), default="csv", nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+    updated_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     season: Mapped["Season"] = relationship()
     player: Mapped["Player | None"] = relationship()
@@ -585,6 +591,11 @@ class HistoryAllStar(db.Model):
     player_id: Mapped[int | None] = mapped_column(ForeignKey("players.id"), nullable=True)
     team_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id"), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text)
+    source: Mapped[str] = mapped_column(String(16), default="csv", nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+    updated_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     season: Mapped["Season"] = relationship()
     player: Mapped["Player | None"] = relationship()
@@ -658,6 +669,11 @@ class TeamSeasonRecord(db.Model):
     shots_for: Mapped[int | None] = mapped_column(Integer)
     shots_against: Mapped[int | None] = mapped_column(Integer)
     null_columns_csv: Mapped[str | None] = mapped_column(Text)
+    source: Mapped[str] = mapped_column(String(16), default="csv", nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+    updated_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     team: Mapped["Team | None"] = relationship()
 
@@ -688,6 +704,65 @@ class FranchiseTeamIdentity(db.Model):
     notes: Mapped[str] = mapped_column(Text, default="", nullable=False)
 
     team: Mapped["Team | None"] = relationship()
+
+
+class TeamHonorsMeta(db.Model):
+    """Per-team display toggles for the team page honors section."""
+
+    __tablename__ = "team_honors_meta"
+
+    team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"), primary_key=True)
+    retired_section_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    team: Mapped["Team"] = relationship()
+
+
+class TeamRetiredNumber(db.Model):
+    """Franchise retired jersey numbers shown on team pages."""
+
+    __tablename__ = "team_retired_numbers"
+    __table_args__ = (
+        UniqueConstraint("team_id", "jersey_number", name="uq_team_retired_jersey"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"), nullable=False, index=True)
+    player_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    jersey_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    jersey_image_rel_path: Mapped[str | None] = mapped_column(String(500))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    notes: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+    team: Mapped["Team"] = relationship()
+
+
+class TeamVictoryBanner(db.Model):
+    """Team championship / victory banner images (TXX-BannerY assets)."""
+
+    __tablename__ = "team_victory_banners"
+    __table_args__ = (
+        UniqueConstraint("team_id", "victory_number", name="uq_team_victory_banner"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String(200), default="", nullable=False)
+    victory_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    banner_image_rel_path: Mapped[str | None] = mapped_column(String(500))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    notes: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+    team: Mapped["Team"] = relationship()
 
 
 class PlayerOverallBaseline(db.Model):

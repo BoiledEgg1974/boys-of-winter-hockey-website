@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+
+{% block title %}Team Honors — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+
+{% block content %}
+<div class="card admin-team-honors">
+  <h1 class="page-title">Team honors</h1>
+  <p class="muted">
+    Retired numbers and championship banners for team pages. Assets are saved as
+    <code>T{id}-Jersey{n}</code> and <code>T{id}-Banner{n}</code> under
+    <code>app/static/team_honors/</code>.
+  </p>
+  <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  {% for category, message in messages %}
+  <p class="join-league-status join-league-status--{{ 'ok' if category == 'ok' else 'err' }}">{{ message }}</p>
+  {% endfor %}
+  {% endif %}
+  {% endwith %}
+
+  <form method="get" class="admin-team-honors__team-pick">
+    <label>Franchise
+      <select name="team_id" onchange="this.form.submit()">
+        <option value="">Select a team…</option>
+        {% for t in teams %}
+        <option value="{{ t.id }}" {% if team and team.id == t.id %}selected{% endif %}>
+          {{ t.full_display_name() }}{% if t.fhm_team_id %} (#{{ t.fhm_team_id }}){% endif %}
+        </option>
+        {% endfor %}
+      </select>
+    </label>
+  </form>
+
+  {% if team %}
+  <form method="post" class="admin-team-honors__meta-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="save_meta">
+    <input type="hidden" name="team_id" value="{{ team.id }}">
+    <h2>{{ team.full_display_name() }}</h2>
+    <label class="admin-team-honors__check">
+      <input type="checkbox" name="retired_section_enabled" {% if honors_meta and honors_meta.retired_section_enabled %}checked{% endif %}>
+      Show <strong>Retired Number</strong> panel on team page
+    </label>
+    <button type="submit">Save display settings</button>
+  </form>
+
+  <div class="admin-team-honors__grid">
+    <section class="card admin-team-honors__section">
+      <h2>Retired numbers</h2>
+      <form method="post" enctype="multipart/form-data" class="admin-team-honors__form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="save_retired">
+        <input type="hidden" name="team_id" value="{{ team.id }}">
+        {% if edit_retired %}
+        <input type="hidden" name="retired_id" value="{{ edit_retired.id }}">
+        <h3>Edit retired number</h3>
+        {% else %}
+        <h3>Add retired number</h3>
+        {% endif %}
+        <label>Player name
+          <input type="text" name="player_name" required value="{{ edit_retired.player_name if edit_retired else '' }}">
+        </label>
+        <label>Jersey number
+          <input type="number" name="jersey_number" required min="0" max="99" value="{{ edit_retired.jersey_number if edit_retired else '' }}">
+        </label>
+        <label>Jersey image (T{{ team.id }}-Jersey&lt;n&gt;)
+          <input type="file" name="jersey_image" accept=".png,.jpg,.jpeg,.webp,.gif">
+        </label>
+        {% if edit_retired and edit_retired.jersey_image_rel_path %}
+        <p class="muted">Current: <code>{{ edit_retired.jersey_image_rel_path }}</code></p>
+        {% endif %}
+        <label>Sort order
+          <input type="number" name="sort_order" value="{{ edit_retired.sort_order if edit_retired else 0 }}">
+        </label>
+        <label class="admin-team-honors__check">
+          <input type="checkbox" name="is_active" {% if not edit_retired or edit_retired.is_active %}checked{% endif %}>
+          Active (visible on team page)
+        </label>
+        <label>Notes
+          <textarea name="notes" rows="2">{{ edit_retired.notes if edit_retired else '' }}</textarea>
+        </label>
+        <div class="admin-team-honors__form-actions">
+          <button type="submit">{% if edit_retired %}Save{% else %}Add{% endif %} retired number</button>
+          {% if edit_retired %}
+          <a class="button secondary" href="{{ url_for('site_admin.admin_team_honors', team_id=team.id) }}">Cancel edit</a>
+          {% endif %}
+        </div>
+      </form>
+
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr><th>#</th><th>Player</th><th>Image</th><th>Order</th><th>Active</th><th></th></tr>
+          </thead>
+          <tbody>
+            {% for r in retired_rows %}
+            <tr{% if edit_retired and edit_retired.id == r.id %} class="is-editing"{% endif %}>
+              <td>{{ r.jersey_number }}</td>
+              <td>{{ r.player_name }}</td>
+              <td><code>{{ r.jersey_image_rel_path or '—' }}</code></td>
+              <td>{{ r.sort_order }}</td>
+              <td>{{ 'yes' if r.is_active else 'no' }}</td>
+              <td class="admin-team-honors__actions">
+                <a href="{{ url_for('site_admin.admin_team_honors', team_id=team.id, edit_retired=r.id) }}">Edit</a>
+                <form method="post" onsubmit="return confirm('Delete this retired number?');">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="action" value="delete_retired">
+                  <input type="hidden" name="team_id" value="{{ team.id }}">
+                  <input type="hidden" name="retired_id" value="{{ r.id }}">
+                  <button type="submit">Delete</button>
+                </form>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="muted">No retired numbers yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card admin-team-honors__section">
+      <h2>Victory / championship banners</h2>
+      <form method="post" enctype="multipart/form-data" class="admin-team-honors__form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="save_banner">
+        <input type="hidden" name="team_id" value="{{ team.id }}">
+        {% if edit_banner %}
+        <input type="hidden" name="banner_id" value="{{ edit_banner.id }}">
+        <h3>Edit banner</h3>
+        {% else %}
+        <h3>Add banner</h3>
+        {% endif %}
+        <label>Victory number (sort key)
+          <input type="number" name="victory_number" required min="1" value="{{ edit_banner.victory_number if edit_banner else '' }}">
+        </label>
+        <label>Title (optional, for accessibility)
+          <input type="text" name="title" value="{{ edit_banner.title if edit_banner else '' }}">
+        </label>
+        <label>Banner image (T{{ team.id }}-Banner&lt;n&gt;)
+          <input type="file" name="banner_image" accept=".png,.jpg,.jpeg,.webp,.gif">
+        </label>
+        {% if edit_banner and edit_banner.banner_image_rel_path %}
+        <p class="muted">Current: <code>{{ edit_banner.banner_image_rel_path }}</code></p>
+        {% endif %}
+        <label>Sort order (0 = use victory number)
+          <input type="number" name="sort_order" value="{{ edit_banner.sort_order if edit_banner else 0 }}">
+        </label>
+        <label class="admin-team-honors__check">
+          <input type="checkbox" name="is_active" {% if not edit_banner or edit_banner.is_active %}checked{% endif %}>
+          Active (visible on team page)
+        </label>
+        <label>Notes
+          <textarea name="notes" rows="2">{{ edit_banner.notes if edit_banner else '' }}</textarea>
+        </label>
+        <div class="admin-team-honors__form-actions">
+          <button type="submit">{% if edit_banner %}Save{% else %}Add{% endif %} banner</button>
+          {% if edit_banner %}
+          <a class="button secondary" href="{{ url_for('site_admin.admin_team_honors', team_id=team.id) }}">Cancel edit</a>
+          {% endif %}
+        </div>
+      </form>
+
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr><th>Victory #</th><th>Title</th><th>Image</th><th>Order</th><th>Active</th><th></th></tr>
+          </thead>
+          <tbody>
+            {% for b in banner_rows %}
+            <tr{% if edit_banner and edit_banner.id == b.id %} class="is-editing"{% endif %}>
+              <td>{{ b.victory_number }}</td>
+              <td>{{ b.title or '—' }}</td>
+              <td><code>{{ b.banner_image_rel_path or '—' }}</code></td>
+              <td>{{ b.sort_order }}</td>
+              <td>{{ 'yes' if b.is_active else 'no' }}</td>
+              <td class="admin-team-honors__actions">
+                <a href="{{ url_for('site_admin.admin_team_honors', team_id=team.id, edit_banner=b.id) }}">Edit</a>
+                <form method="post" onsubmit="return confirm('Delete this banner?');">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="action" value="delete_banner">
+                  <input type="hidden" name="team_id" value="{{ team.id }}">
+                  <input type="hidden" name="banner_id" value="{{ b.id }}">
+                  <button type="submit">Delete</button>
+                </form>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="muted">No victory banners yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+  {% else %}
+  <p class="muted">Choose a franchise to manage retired numbers and banners.</p>
+  {% endif %}
+</div>
+{% endblock %}

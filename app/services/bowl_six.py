@@ -43,6 +43,8 @@ from app.site_models import (
 )
 
 AP_PRIZES = {1: 10, 2: 6, 3: 3}
+SEASON_AP_PRIZES = {1: 30, 2: 20, 3: 10}
+SEASON_PARTICIPATION_AP = 2
 BOWL_SIX_ROSTERS_UNLOCKED_EVENT_KEY = "bowl_six_rosters_unlocked"
 BOWL_SIX_LOCK_WARNING_EVENT_KEY = "bowl_six_lock_warning"
 BOWL_SIX_LOCK_TZ = ZoneInfo("America/New_York")
@@ -69,6 +71,15 @@ def bowl_six_enabled(session: Session, league_slug: str) -> bool:
     return rule_bool(session, league_slug, "bowl_six_enabled", default=True)
 
 
+def season_ap_prize_for_rank(rank: int) -> int:
+    """Projected season-end BOWL Six AP prize for a standings rank."""
+    try:
+        r = int(rank)
+    except (TypeError, ValueError):
+        return 0
+    return SEASON_AP_PRIZES.get(r, SEASON_PARTICIPATION_AP if r > 0 else 0)
+
+
 def _week_bounds_for_date(d: date, week_start_dow: int) -> tuple[date, date]:
     """Monday=0 .. Sunday=6 style offset from rule (default Monday=0)."""
     dow = int(d.weekday())
@@ -84,6 +95,14 @@ def _real_bowl_six_week_bounds(now_utc: datetime | None = None) -> tuple[date, d
     now = now_utc or utcnow_naive()
     today_et = eastern_naive_from_utc_naive(now).date()
     return _week_bounds_for_date(today_et, BOWL_SIX_REAL_WEEK_START_DOW)
+
+
+def bowl_six_real_season_bounds(today: date | None = None) -> tuple[date, date]:
+    """Real-world BOWL Six season window (July 1 through June 30)."""
+    if today is None:
+        today = eastern_naive_from_utc_naive(utcnow_naive()).date()
+    start_year = int(today.year) if int(today.month) >= 7 else int(today.year) - 1
+    return date(start_year, 7, 1), date(start_year + 1, 6, 30)
 
 
 def _current_scoring_week_bounds(league_session: Session) -> tuple[date, date]:
@@ -1422,8 +1441,18 @@ def slate_week_game_progress(league_session: Session, slate: BowlSixSlate) -> di
     return {"total": final, "final": final, "complete": slate_week_rs_games_complete(league_session, slate)}
 
 
-def gm_season_standings(session: Session, league_slug: str) -> list[dict[str, Any]]:
-    """Cumulative BOWL Six points across scored slates this league."""
+def gm_season_standings(
+    session: Session,
+    league_slug: str,
+    *,
+    season_start: date | None = None,
+    season_end: date | None = None,
+) -> list[dict[str, Any]]:
+    """Cumulative BOWL Six points across scored slates in the current real season."""
+    if season_start is None or season_end is None:
+        default_start, default_end = bowl_six_real_season_bounds()
+        season_start = season_start or default_start
+        season_end = season_end or default_end
     rows = session.execute(
         select(
             BowlSixLineup.user_id,
@@ -1435,17 +1464,21 @@ def gm_season_standings(session: Session, league_slug: str) -> list[dict[str, An
         .where(
             BowlSixSlate.league_slug == league_slug,
             BowlSixSlate.status == "scored",
+            BowlSixSlate.week_start >= season_start,
+            BowlSixSlate.week_start <= season_end,
         )
         .group_by(BowlSixLineup.user_id)
         .order_by(func.sum(BowlSixLineupScore.total_points).desc())
     ).all()
     result: list[dict[str, Any]] = []
-    for uid, total, weeks in rows:
+    for rank, (uid, total, weeks) in enumerate(rows, start=1):
         result.append(
             {
+                "rank": rank,
                 "user_id": int(uid),
                 "season_points": float(total or 0),
                 "weeks_played": int(weeks or 0),
+                "season_ap_award": season_ap_prize_for_rank(rank),
             }
         )
     return result

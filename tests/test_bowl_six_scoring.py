@@ -13,6 +13,7 @@ from datetime import date, datetime
 
 from app.services.bowl_six import (
     default_lock_at,
+    bowl_six_real_season_bounds,
     eastern_naive_from_utc_naive,
     ensure_bowl_six_slate_prize_ledgers,
     ensure_current_slate_after_finalization,
@@ -23,6 +24,7 @@ from app.services.bowl_six import (
     parse_lock_at_eastern_form,
     slate_award_at,
     slate_real_scoring_window_utc,
+    season_ap_prize_for_rank,
     slate_lock_ui,
     slate_week_rs_games_complete,
     sync_bowl_six_slate_ap_awards,
@@ -117,6 +119,22 @@ class BowlSixScoringTest(unittest.TestCase):
                 default_lock_at(date(2026, 5, 18), "bowl-cap", session),
                 __import__("datetime").datetime(2026, 5, 18, 23, 59),
             )
+
+    def test_season_ap_prizes_by_rank(self):
+        self.assertEqual(season_ap_prize_for_rank(1), 30)
+        self.assertEqual(season_ap_prize_for_rank(2), 20)
+        self.assertEqual(season_ap_prize_for_rank(3), 10)
+        self.assertEqual(season_ap_prize_for_rank(4), 2)
+
+    def test_bowl_six_real_season_bounds(self):
+        self.assertEqual(
+            bowl_six_real_season_bounds(date(2026, 6, 3)),
+            (date(2025, 7, 1), date(2026, 6, 30)),
+        )
+        self.assertEqual(
+            bowl_six_real_season_bounds(date(2026, 7, 1)),
+            (date(2026, 7, 1), date(2027, 6, 30)),
+        )
 
     def test_default_bowl_six_lock_normalizes_legacy_8pm_et(self):
         session = MagicMock()

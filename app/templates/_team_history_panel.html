@@ -5,6 +5,17 @@
 {% set rec_count = team_history_records | length %}
 
 {% if rec_count > 0 %}
+{% set totals = namespace(gp=0, w=0, l=0, t_otl=0, pts=0, gf=0, ga=0) %}
+{% for r in team_history_records %}
+  {% set totals.gp = totals.gp + (r.gp or 0) %}
+  {% set totals.w = totals.w + (r.w or 0) %}
+  {% set totals.l = totals.l + (r.l or 0) %}
+  {% set totals.t_otl = totals.t_otl + (r.t_otl or 0) %}
+  {% set totals.pts = totals.pts + (r.pts or 0) %}
+  {% set totals.gf = totals.gf + (r.gf or 0) %}
+  {% set totals.ga = totals.ga + (r.ga or 0) %}
+{% endfor %}
+{% set totals_pct = ((totals.w + (totals.t_otl * 0.5)) / totals.gp) if totals.gp else none %}
 {# ---------- Chart geometry ---------- #}
 {% set chart_height = 260 %}
 {% set chart_padding_left = 44 %}
@@ -44,6 +55,7 @@
           <th scope="col" data-sort-type="num">W</th>
           <th scope="col" data-sort-type="num">L</th>
           <th scope="col" data-sort-type="num" title="Ties and overtime losses">T</th>
+          <th scope="col" data-sort-type="num" title="Winning percentage">W%</th>
           <th scope="col" data-sort-type="num">PTS</th>
           <th scope="col" data-sort-type="num">GF</th>
           <th scope="col" data-sort-type="num">GA</th>
@@ -54,6 +66,8 @@
         {% for r in team_history_records %}
         {% set null_cols = (r.null_columns_csv or '').split(',') %}
         {% set sy = r.start_year if r.start_year is not none else 0 %}
+        {% set gp_val = r.gp if r.gp is not none else ((r.w or 0) + (r.l or 0) + (r.t_otl or 0)) %}
+        {% set win_pct = ((r.w + ((r.t_otl or 0) * 0.5)) / gp_val) if r.w is not none and gp_val else none %}
         <tr>
           <td data-sort-value="{{ sy }}">
             <a href="{{ url_for('main.team_records_season', year_label=r.season_year_label) }}">{{ r.season_year_label }}</a>
@@ -62,6 +76,7 @@
           <td data-sort-value="{{ r.w if r.w is not none else '' }}">{% if r.w is not none %}{{ r.w }}{% elif 'w' in null_cols %}-{% else %}—{% endif %}</td>
           <td data-sort-value="{{ r.l if r.l is not none else '' }}">{% if r.l is not none %}{{ r.l }}{% elif 'l' in null_cols %}-{% else %}—{% endif %}</td>
           <td data-sort-value="{{ r.t_otl if r.t_otl is not none else '' }}">{% if r.t_otl is not none %}{{ r.t_otl }}{% elif 't_otl' in null_cols %}-{% else %}—{% endif %}</td>
+          <td data-sort-value="{{ win_pct if win_pct is not none else '' }}">{% if win_pct is not none %}{{ '%.3f'|format(win_pct) }}{% else %}—{% endif %}</td>
           <td data-sort-value="{{ r.pts if r.pts is not none else '' }}">{% if r.pts is not none %}<strong>{{ r.pts }}</strong>{% elif 'pts' in null_cols %}-{% else %}—{% endif %}</td>
           <td data-sort-value="{{ r.gf if r.gf is not none else '' }}">{% if r.gf is not none %}{{ r.gf }}{% elif 'gf' in null_cols %}-{% else %}—{% endif %}</td>
           <td data-sort-value="{{ r.ga if r.ga is not none else '' }}">{% if r.ga is not none %}{{ r.ga }}{% elif 'ga' in null_cols %}-{% else %}—{% endif %}</td>
@@ -69,6 +84,20 @@
         </tr>
         {% endfor %}
       </tbody>
+      <tfoot>
+        <tr class="team-record-history__totals-row">
+          <th scope="row">TOTAL</th>
+          <td>{{ totals.gp }}</td>
+          <td>{{ totals.w }}</td>
+          <td>{{ totals.l }}</td>
+          <td>{{ totals.t_otl }}</td>
+          <td>{{ '%.3f'|format(totals_pct) if totals_pct is not none else '—' }}</td>
+          <td><strong>{{ totals.pts }}</strong></td>
+          <td>{{ totals.gf }}</td>
+          <td>{{ totals.ga }}</td>
+          <td class="team-record-history__result">—</td>
+        </tr>
+      </tfoot>
     </table>
   </div>
 
@@ -191,6 +220,7 @@
             <th scope="col" data-sort-type="num">W</th>
             <th scope="col" data-sort-type="num">L</th>
             <th scope="col" data-sort-type="num" title="Ties and overtime losses">T (OTL)</th>
+            <th scope="col" data-sort-type="num" title="Winning percentage">W%</th>
             <th scope="col" data-sort-type="num">PTS</th>
             <th scope="col" data-sort-type="num">GF</th>
             <th scope="col" data-sort-type="num">GA</th>
@@ -205,6 +235,8 @@
           {% for r in team_history_records %}
           {% set null_cols = (r.null_columns_csv or '').split(',') %}
           {% set sy = r.start_year if r.start_year is not none else 0 %}
+          {% set gp_val = r.gp if r.gp is not none else ((r.w or 0) + (r.l or 0) + (r.t_otl or 0)) %}
+          {% set win_pct = ((r.w + ((r.t_otl or 0) * 0.5)) / gp_val) if r.w is not none and gp_val else none %}
           <tr>
             <td data-sort-value="{{ sy }}">
               <a href="{{ url_for('main.team_records_season', year_label=r.season_year_label) }}">{{ r.season_year_label }}</a>
@@ -213,6 +245,7 @@
             <td data-sort-value="{{ r.w if r.w is not none else '' }}">{% if r.w is not none %}{{ r.w }}{% elif 'w' in null_cols %}-{% else %}—{% endif %}</td>
             <td data-sort-value="{{ r.l if r.l is not none else '' }}">{% if r.l is not none %}{{ r.l }}{% elif 'l' in null_cols %}-{% else %}—{% endif %}</td>
             <td data-sort-value="{{ r.t_otl if r.t_otl is not none else '' }}">{% if r.t_otl is not none %}{{ r.t_otl }}{% elif 't_otl' in null_cols %}-{% else %}—{% endif %}</td>
+            <td data-sort-value="{{ win_pct if win_pct is not none else '' }}">{% if win_pct is not none %}{{ '%.3f'|format(win_pct) }}{% else %}—{% endif %}</td>
             <td data-sort-value="{{ r.pts if r.pts is not none else '' }}">{% if r.pts is not none %}<strong>{{ r.pts }}</strong>{% elif 'pts' in null_cols %}-{% else %}—{% endif %}</td>
             <td data-sort-value="{{ r.gf if r.gf is not none else '' }}">{% if r.gf is not none %}{{ r.gf }}{% elif 'gf' in null_cols %}-{% else %}—{% endif %}</td>
             <td data-sort-value="{{ r.ga if r.ga is not none else '' }}">{% if r.ga is not none %}{{ r.ga }}{% elif 'ga' in null_cols %}-{% else %}—{% endif %}</td>
@@ -224,6 +257,24 @@
           </tr>
           {% endfor %}
         </tbody>
+        <tfoot>
+          <tr class="team-record-history__totals-row">
+            <th scope="row">TOTAL</th>
+            <td>{{ totals.gp }}</td>
+            <td>{{ totals.w }}</td>
+            <td>{{ totals.l }}</td>
+            <td>{{ totals.t_otl }}</td>
+            <td>{{ '%.3f'|format(totals_pct) if totals_pct is not none else '—' }}</td>
+            <td><strong>{{ totals.pts }}</strong></td>
+            <td>{{ totals.gf }}</td>
+            <td>{{ totals.ga }}</td>
+            <td>{{ totals.gf - totals.ga }}</td>
+            <td>—</td>
+            <td>—</td>
+            <td>—</td>
+            <td class="team-history-panel__cell-result">—</td>
+          </tr>
+        </tfoot>
       </table>
     </div>
   </details>

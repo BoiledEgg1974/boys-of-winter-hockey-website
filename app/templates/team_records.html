@@ -172,7 +172,11 @@
           {% if card.top_scorer %}
           <div class="team-records-card__value">
             <span class="team-records-card__person">{{ card.top_scorer.player.full_name }}</span>
-            {% if card.top_scorer.team %}<span class="team-records-card__person-team">{{ team_logo_only(card.top_scorer.team) }}</span>{% endif %}
+            {% if card.top_scorer.team %}
+            <span class="team-records-card__person-team">
+              <img class="team-name-lockup__logo" src="{{ team_logo_url_for_season_context(card.top_scorer.team, card.start_year) }}" alt="" loading="lazy" decoding="async">
+            </span>
+            {% endif %}
             <span class="team-records-card__metric">{{ card.top_scorer.points }} PTS</span>
           </div>
           {% else %}
@@ -185,7 +189,11 @@
           {% if card.top_goalie %}
           <div class="team-records-card__value">
             <span class="team-records-card__person">{{ card.top_goalie.player.full_name }}</span>
-            {% if card.top_goalie.team %}<span class="team-records-card__person-team">{{ team_logo_only(card.top_goalie.team) }}</span>{% endif %}
+            {% if card.top_goalie.team %}
+            <span class="team-records-card__person-team">
+              <img class="team-name-lockup__logo" src="{{ team_logo_url_for_season_context(card.top_goalie.team, card.start_year) }}" alt="" loading="lazy" decoding="async">
+            </span>
+            {% endif %}
             <span class="team-records-card__metric">{{ card.top_goalie.wins }} W</span>
           </div>
           {% else %}

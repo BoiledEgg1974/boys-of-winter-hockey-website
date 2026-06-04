@@ -3558,6 +3558,165 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
   min-width: 0;
 }
 
+.team-honors {
+  margin-bottom: 1.25rem;
+}
+.team-honors__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  align-items: stretch;
+}
+@media (min-width: 900px) {
+  .team-honors__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.team-honors__panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 1.1rem 1rem 1.25rem;
+  min-width: 0;
+}
+.team-honors__panel:only-child {
+  grid-column: 1 / -1;
+  max-width: 36rem;
+  margin-inline: auto;
+  width: 100%;
+}
+.team-honors__title {
+  margin: 0 0 1rem;
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  width: 100%;
+}
+.team-honors__retired-list,
+.team-honors__banner-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 1.25rem 1.5rem;
+  width: 100%;
+}
+.team-honors__retired-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 10rem;
+}
+.team-honors__jersey-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 7.5rem;
+  max-width: 100%;
+}
+.team-honors__jersey-wrap--no-img {
+  min-height: 6.5rem;
+  border-radius: var(--radius);
+  background: rgb(from var(--surface-2, #e2e8f0) r g b / 0.35);
+}
+.team-honors__jersey-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+.team-honors__jersey-num {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  transform: translate(-50%, -50%);
+  font-size: clamp(1.75rem, 5vw, 2.35rem);
+  font-weight: 800;
+  line-height: 1;
+  color: #1a1a1a;
+  text-shadow: 0 1px 0 rgb(255 255 255 / 0.65);
+  pointer-events: none;
+}
+[data-theme="dark"] .team-honors__jersey-num {
+  color: #f8fafc;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.55);
+}
+.team-honors__jersey-num--solo {
+  position: static;
+  transform: none;
+}
+.team-honors__player-name {
+  margin: 0;
+  font-weight: 600;
+  font-size: 0.95rem;
+  line-height: 1.25;
+  text-align: center;
+}
+.team-honors__banner-item {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  max-width: 12rem;
+}
+.team-honors__banner-img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+  margin: 0 auto;
+}
+.team-honors__empty {
+  margin: 0;
+}
+.admin-team-honors__team-pick {
+  margin: 1rem 0;
+}
+.admin-team-honors__meta-form {
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+}
+.admin-team-honors__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+}
+@media (min-width: 960px) {
+  .admin-team-honors__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.admin-team-honors__form label {
+  display: block;
+  margin-bottom: 0.65rem;
+}
+.admin-team-honors__form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+.admin-team-honors__check {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.admin-team-honors__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.6rem;
+  align-items: center;
+}
+.admin-team-honors__actions form {
+  display: inline;
+}
+
 .teams-directory__head {
   margin-bottom: 1.25rem;
 }
@@ -9737,6 +9896,35 @@ table.data.staff-salaries-table--browse td.staff-salaries-browse-hire {
 }
 .free-agents-page__tabs--secondary {
   margin-bottom: 1.1rem;
+}
+.free-agents-page__groups {
+  display: grid;
+  gap: 1.35rem;
+}
+.free-agents-page__group + .free-agents-page__group {
+  padding-top: 1.2rem;
+  border-top: 1px solid rgb(148 163 184 / 0.18);
+}
+.free-agents-page__group-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.75rem;
+}
+.free-agents-page__group-title {
+  margin: 0;
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+}
+.free-agents-page__group-count {
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+.free-agents-page__group-empty {
+  margin: 0;
 }
 .free-agents-page__tab {
   display: inline-block;
@@ -16265,6 +16453,12 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   font-variant-numeric: normal;
   max-width: 14rem;
 }
+.team-record-history__totals-row th,
+.team-record-history__totals-row td {
+  border-top: 2px solid var(--border);
+  font-weight: 700;
+  background: color-mix(in srgb, var(--surface) 82%, var(--accent) 18%);
+}
 .team-history-panel__more {
   margin-top: 1rem;
   border-radius: var(--radius);
@@ -18051,6 +18245,21 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
 }
 .bowl-six-podium__item--1 {
   background: rgb(37 99 235 / 0.35);
+}
+.bowl-six-podium__rank,
+.bowl-six-podium__gm,
+.bowl-six-podium__team,
+.bowl-six-podium__pts,
+.bowl-six-podium__ap {
+  display: block;
+}
+.bowl-six-podium__gm {
+  margin-top: 0.25rem;
+  font-weight: 800;
+}
+.bowl-six-podium__team {
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 .bowl-six-submissions {
   margin: 1.25rem 0;

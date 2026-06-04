@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Admin — Team Season Records{% endblock %}
+{% block content %}
+<div class="card" style="max-width:72rem;margin:0 auto;">
+  <p>
+    <a href="{{ url_for('site_admin.admin_history_records_home') }}">← Historical records</a>
+    · <a href="{{ url_for('main.team_records_index') }}">Public Team Records</a>
+  </p>
+  <h1 class="page-title">Team season records</h1>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <ul class="flash-list">
+    {% for category, message in messages %}
+    <li class="flash flash--{{ category }}">{{ message }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% endwith %}
+
+  <form method="get" class="history-admin-filter" style="margin:0.75rem 0;">
+    <label>Filter season
+      <input type="text" name="season" value="{{ season_filter }}" placeholder="1968-69">
+    </label>
+    <button type="submit" class="button">Filter</button>
+    {% if season_filter %}<a href="{{ url_for('site_admin.admin_history_team_seasons') }}">Clear</a>{% endif %}
+  </form>
+
+  <section class="card" style="margin:1rem 0;padding:0.75rem;">
+    <h2 style="margin:0 0 0.6rem;font-size:1rem;">{% if edit_row %}Edit{% else %}Add{% endif %} row</h2>
+    <form method="post" class="history-admin-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="save">
+      {% if edit_row %}<input type="hidden" name="record_id" value="{{ edit_row.id }}">{% endif %}
+      <div class="history-admin-form__grid">
+        <label>Season label
+          <input type="text" name="season_year_label" required value="{{ edit_row.season_year_label if edit_row else season_filter }}" placeholder="1968-69">
+        </label>
+        <label>Team
+          <select name="team_id">
+            <option value="">—</option>
+            {% for tm in teams %}
+            <option value="{{ tm.id }}" {% if edit_row and edit_row.team_id == tm.id %}selected{% endif %}>{{ tm.full_display_name() }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Team FHM id (optional)
+          <input type="text" name="team_fhm_id_csv" value="{{ edit_row.team_fhm_id_csv if edit_row else '' }}">
+        </label>
+        <label>Team name override
+          <input type="text" name="team_name_override" value="{{ edit_row.team_name_override if edit_row else '' }}" placeholder="Philadelphia Quakers">
+        </label>
+        <label>GP <input type="number" name="gp" value="{{ edit_row.gp if edit_row and edit_row.gp is not none else '' }}"></label>
+        <label>W <input type="number" name="w" value="{{ edit_row.w if edit_row and edit_row.w is not none else '' }}"></label>
+        <label>L <input type="number" name="l" value="{{ edit_row.l if edit_row and edit_row.l is not none else '' }}"></label>
+        <label>T/OTL <input type="number" name="t_otl" value="{{ edit_row.t_otl if edit_row and edit_row.t_otl is not none else '' }}"></label>
+        <label>PTS <input type="number" name="pts" value="{{ edit_row.pts if edit_row and edit_row.pts is not none else '' }}"></label>
+        <label>GF <input type="number" name="gf" value="{{ edit_row.gf if edit_row and edit_row.gf is not none else '' }}"></label>
+        <label>GA <input type="number" name="ga" value="{{ edit_row.ga if edit_row and edit_row.ga is not none else '' }}"></label>
+        <label>Goal diff <input type="number" name="goal_diff" value="{{ edit_row.goal_diff if edit_row and edit_row.goal_diff is not none else '' }}"></label>
+        <label>Result <input type="text" name="result" value="{{ edit_row.result if edit_row else '' }}"></label>
+        <label>Conference override <input type="text" name="conference_override" value="{{ edit_row.conference_override if edit_row else '' }}"></label>
+        <label>Division override <input type="text" name="division_override" value="{{ edit_row.division_override if edit_row else '' }}"></label>
+        <label>Logo file override <input type="text" name="logo_file_override" value="{{ edit_row.logo_file_override if edit_row else '' }}"></label>
+      </div>
+      <button type="submit" class="button" style="margin-top:0.65rem;">Save row</button>
+      {% if edit_row %}<a href="{{ url_for('site_admin.admin_history_team_seasons', season=season_filter or none) }}" style="margin-left:0.5rem;">Cancel edit</a>{% endif %}
+    </form>
+  </section>
+
+  <div class="table-wrap">
+    <table class="data history-admin-table">
+      <thead>
+        <tr>
+          <th>Season</th>
+          <th>Team</th>
+          <th>GP</th>
+          <th>W-L-T</th>
+          <th>PTS</th>
+          <th>Result</th>
+          <th>Src</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>{{ row.season_year_label }}</td>
+          <td>{% if row.team %}{{ row.team.abbreviation }}{% elif row.team_name_override %}{{ row.team_name_override }}{% else %}—{% endif %}</td>
+          <td>{{ row.gp if row.gp is not none else '—' }}</td>
+          <td>{{ row.w if row.w is not none else '—' }}-{{ row.l if row.l is not none else '—' }}-{{ row.t_otl if row.t_otl is not none else '—' }}</td>
+          <td>{{ row.pts if row.pts is not none else '—' }}</td>
+          <td>{{ row.result or '—' }}</td>
+          <td>{{ row.source or 'csv' }}</td>
+          <td>
+            <a href="{{ url_for('site_admin.admin_history_team_seasons', edit=row.id, season=season_filter or none) }}">Edit</a>
+            <form method="post" style="display:inline;" onsubmit="return confirm('Delete this row?');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="action" value="delete">
+              <input type="hidden" name="record_id" value="{{ row.id }}">
+              <button type="submit" class="link-button">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="muted">No rows{% if season_filter %} for {{ season_filter }}{% endif %}.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

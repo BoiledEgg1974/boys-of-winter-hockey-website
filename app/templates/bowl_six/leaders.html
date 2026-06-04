@@ -96,7 +96,7 @@
 
   <section class="bowl-six-leaders__section" aria-labelledby="bowl-six-leaders-season-h">
     <h2 id="bowl-six-leaders-season-h" class="bowl-six-section__title">Season standings</h2>
-    <p class="muted">Cumulative points from finalized weeks only.</p>
+    <p class="muted">Cumulative points from finalized weeks only. Season AP: 1st {{ season_ap_prizes[1] }}, 2nd {{ season_ap_prizes[2] }}, 3rd {{ season_ap_prizes[3] }}, every other ranked GM {{ season_participation_ap }}.</p>
     <div class="table-wrap">
       <table class="data bowl-six-leaders__table">
         <thead>
@@ -106,6 +106,7 @@
             <th>Team</th>
             <th>Weeks</th>
             <th>Points</th>
+            <th>Season AP</th>
           </tr>
         </thead>
         <tbody>
@@ -123,9 +124,10 @@
             </td>
             <td>{{ row.weeks_played }}</td>
             <td class="bowl-six-leaders__pts">{{ '%.1f'|format(row.points) }}</td>
+            <td>{{ row.season_ap_award }} AP</td>
           </tr>
           {% else %}
-          <tr><td colspan="5" class="muted">No scored slates yet.</td></tr>
+          <tr><td colspan="6" class="muted">No scored slates yet.</td></tr>
           {% endfor %}
         </tbody>
       </table>

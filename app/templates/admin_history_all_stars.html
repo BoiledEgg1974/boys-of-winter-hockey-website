@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block title %}Admin — All-Star Teams{% endblock %}
+{% block content %}
+<div class="card" style="max-width:72rem;margin:0 auto;">
+  <p>
+    <a href="{{ url_for('site_admin.admin_history_records_home') }}">← Historical records</a>
+    · <a href="{{ url_for('main.history') }}">Public League History</a>
+  </p>
+  <h1 class="page-title">First &amp; Second Team All-Stars</h1>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <ul class="flash-list">
+    {% for category, message in messages %}
+    <li class="flash flash--{{ category }}">{{ message }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% endwith %}
+
+  <form method="get" class="history-admin-filter" style="margin:0.75rem 0;display:flex;gap:0.75rem;flex-wrap:wrap;align-items:end;">
+    <label>Season
+      <input type="text" name="season" value="{{ season_filter }}" placeholder="1989-90">
+    </label>
+    <label>Team
+      <select name="team_rank">
+        <option value="">Both</option>
+        <option value="1" {% if team_rank_filter == 1 %}selected{% endif %}>First Team</option>
+        <option value="2" {% if team_rank_filter == 2 %}selected{% endif %}>Second Team</option>
+      </select>
+    </label>
+    <button type="submit" class="button">Filter</button>
+  </form>
+
+  <section class="card" style="margin:1rem 0;padding:0.75rem;">
+    <h2 style="margin:0 0 0.6rem;font-size:1rem;">Save six slots (batch)</h2>
+    <form method="post" class="history-admin-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="save">
+      <div class="history-admin-form__grid" style="margin-bottom:0.75rem;">
+        <label>Season label
+          <input type="text" name="season_label" required value="{{ edit_season or season_filter }}" placeholder="1989-90">
+        </label>
+        <label>All-star team
+          <select name="team_rank" required>
+            <option value="1" {% if team_rank_filter != 2 %}selected{% endif %}>First Team</option>
+            <option value="2" {% if team_rank_filter == 2 %}selected{% endif %}>Second Team</option>
+          </select>
+        </label>
+      </div>
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr><th>Slot</th><th>Pos</th><th>Player</th><th>Team</th><th>Notes</th></tr>
+          </thead>
+          <tbody>
+            {% for slot_num, default_pos in slot_defaults %}
+            <tr>
+              <td>{{ slot_num }}</td>
+              <td><input type="text" name="position_{{ slot_num }}" value="{{ default_pos }}" style="width:3.5rem;"></td>
+              <td>
+                <select name="player_id_{{ slot_num }}">
+                  <option value="">—</option>
+                  {% for pl in players %}
+                  <option value="{{ pl.id }}">{{ pl.full_name }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td>
+                <select name="team_id_{{ slot_num }}">
+                  <option value="">—</option>
+                  {% for tm in teams %}
+                  <option value="{{ tm.id }}">{{ tm.abbreviation }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td><input type="text" name="notes_{{ slot_num }}" placeholder="unresolved player name"></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <button type="submit" class="button" style="margin-top:0.65rem;">Save filled slots</button>
+    </form>
+  </section>
+
+  {% if edit_row %}
+  <section class="card" style="margin:1rem 0;padding:0.75rem;">
+    <h2 style="margin:0 0 0.6rem;font-size:1rem;">Edit single slot</h2>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="save_one">
+      <input type="hidden" name="row_id" value="{{ edit_row.id }}">
+      <input type="hidden" name="slot" value="{{ edit_row.slot }}">
+      <div class="history-admin-form__grid">
+        <label>Season <input type="text" name="season_label" value="{{ edit_row.season_label }}" required></label>
+        <label>Team rank
+          <select name="team_rank">
+            <option value="1" {% if edit_row.team_rank == 1 %}selected{% endif %}>First</option>
+            <option value="2" {% if edit_row.team_rank == 2 %}selected{% endif %}>Second</option>
+          </select>
+        </label>
+        <label>Position <input type="text" name="position" value="{{ edit_row.position }}"></label>
+        <label>Player
+          <select name="player_id">
+            <option value="">—</option>
+            {% for pl in players %}
+            <option value="{{ pl.id }}" {% if edit_row.player_id == pl.id %}selected{% endif %}>{{ pl.full_name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Team
+          <select name="team_id">
+            <option value="">—</option>
+            {% for tm in teams %}
+            <option value="{{ tm.id }}" {% if edit_row.team_id == tm.id %}selected{% endif %}>{{ tm.abbreviation }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Notes <input type="text" name="notes" value="{{ edit_row.notes or '' }}"></label>
+      </div>
+      <button type="submit" class="button" style="margin-top:0.5rem;">Update slot</button>
+      <a href="{{ url_for('site_admin.admin_history_all_stars', season=season_filter or none, team_rank=team_rank_filter or none) }}">Cancel</a>
+    </form>
+  </section>
+  {% endif %}
+
+  <div class="table-wrap">
+    <table class="data history-admin-table">
+      <thead>
+        <tr>
+          <th>Season</th>
+          <th>Team</th>
+          <th>Slot</th>
+          <th>Pos</th>
+          <th>Player</th>
+          <th>NHL Team</th>
+          <th>Src</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>{{ row.season_label }}</td>
+          <td>{% if row.team_rank == 1 %}1st{% else %}2nd{% endif %}</td>
+          <td>{{ row.slot }}</td>
+          <td>{{ row.position }}</td>
+          <td>{% if row.player %}{{ row.player.full_name }}{% else %}—{% endif %}</td>
+          <td>{% if row.team %}{{ row.team.abbreviation }}{% else %}—{% endif %}</td>
+          <td>{{ row.source or 'csv' }}</td>
+          <td>
+            <a href="{{ url_for('site_admin.admin_history_all_stars', edit=row.id, season=season_filter or none, team_rank=team_rank_filter or none) }}">Edit</a>
+            <form method="post" style="display:inline;" onsubmit="return confirm('Delete?');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="action" value="delete">
+              <input type="hidden" name="row_id" value="{{ row.id }}">
+              <button type="submit" class="link-button">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="muted">No all-star rows{% if season_filter %} for {{ season_filter }}{% endif %}.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -10,7 +10,9 @@ from sqlalchemy.orm import Session
 
 from app.models import Player, Team
 from app.services.bowl_six import (
+    AP_PRIZES,
     gm_season_standings,
+    season_ap_prize_for_rank,
     slate_rankings,
     slate_rankings_in_progress,
     top_players_for_slate,
@@ -126,6 +128,9 @@ def build_bowl_six_leaders_discord_payload(
                 "gm": gm_name,
                 "points": float(row.get("season_points") or 0),
                 "weeks_played": int(row.get("weeks_played") or 0),
+                "season_ap_award": int(
+                    row.get("season_ap_award") or season_ap_prize_for_rank(i)
+                ),
             }
         )
 
@@ -141,10 +146,11 @@ def build_bowl_six_leaders_discord_payload(
 
     if week_standings:
         body_lines.append("")
-        body_lines.append("This week (GM)")
+        body_lines.append("Last week winners" if status == "scored" else "This week (GM)")
         for r in week_standings:
+            ap_note = f" +{AP_PRIZES[r['rank']]} AP" if r["rank"] in AP_PRIZES else ""
             body_lines.append(
-                f"{r['rank']}. {r['team']} ({r['gm']}) — {r['points']:.1f} pts"
+                f"{r['rank']}. {r['team']} ({r['gm']}) — {r['points']:.1f} pts{ap_note}"
             )
 
     if season_standings:
@@ -154,7 +160,7 @@ def build_bowl_six_leaders_discord_payload(
             wp = r["weeks_played"]
             suffix = f" · {wp} wk{'s' if wp != 1 else ''}" if wp else ""
             body_lines.append(
-                f"{r['rank']}. {r['team']} ({r['gm']}) — {r['points']:.1f} pts{suffix}"
+                f"{r['rank']}. {r['team']} ({r['gm']}) — {r['points']:.1f} pts{suffix} · season AP {r['season_ap_award']}"
             )
 
     body = "\n".join(body_lines).strip()

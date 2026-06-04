@@ -99,8 +99,17 @@ def import_team_season_records(raw_dir: Path, app) -> int:
         log.info("Skipping %s (not found in %s).", CSV_FILENAME, raw_dir)
         return 0
 
-    db.session.execute(delete(TeamSeasonRecord))
+    from app.services.admin_history_records import (
+        HISTORY_SOURCE_CSV,
+        delete_non_admin_team_season_records,
+    )
+
+    removed = delete_non_admin_team_season_records(db.session)
     db.session.commit()
+    log.info(
+        "Removed %s non-admin team_season_records rows before CSV re-import (admin rows kept).",
+        removed,
+    )
 
     df = read_csv_normalized(path)
     available_cols = set(df.columns)
@@ -131,6 +140,7 @@ def import_team_season_records(raw_dir: Path, app) -> int:
             team_id=team.id if team is not None else None,
             team_fhm_id_csv=team_id_csv,
             team_name_override=team_name_override,
+            source=HISTORY_SOURCE_CSV,
             conference_id=to_int(cell_val(r, "conference_id")) if "conference_id" in available_cols else None,
             conference_override=cell_val(r, "conference_override"),
             division_id=to_int(cell_val(r, "division_id")) if "division_id" in available_cols else None,

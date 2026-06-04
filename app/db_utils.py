@@ -340,6 +340,40 @@ def ensure_history_awards_staff_fhm_id_sqlite(engine: Engine) -> None:
         conn.commit()
 
 
+def ensure_history_records_admin_metadata_sqlite(engine: Engine) -> None:
+    """Add ``source`` / ``updated_at`` / ``updated_by_user_id`` on history tables (SQLite)."""
+    if engine.dialect.name != "sqlite":
+        return
+    specs = (
+        "history_awards",
+        "history_all_stars",
+        "team_season_records",
+    )
+    with engine.connect() as conn:
+        for table in specs:
+            exists = conn.execute(
+                text(f"SELECT 1 FROM sqlite_master WHERE type='table' AND name='{table}'")
+            ).fetchone()
+            if not exists:
+                continue
+            cols = {row[1] for row in conn.execute(text(f"PRAGMA table_info({table})"))}
+            if "source" not in cols:
+                conn.execute(
+                    text(
+                        f"ALTER TABLE {table} ADD COLUMN source VARCHAR(16) NOT NULL DEFAULT 'csv'"
+                    )
+                )
+            if "updated_at" not in cols:
+                # SQLite only allows constant defaults on ALTER TABLE ADD COLUMN.
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN updated_at DATETIME"))
+                conn.execute(
+                    text(f"UPDATE {table} SET updated_at = datetime('now') WHERE updated_at IS NULL")
+                )
+            if "updated_by_user_id" not in cols:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN updated_by_user_id INTEGER"))
+        conn.commit()
+
+
 def ensure_history_all_stars_sqlite(engine: Engine) -> None:
     """Drop and recreate ``history_all_stars`` when an older table lacked ``season_label``."""
     if engine.dialect.name != "sqlite":
@@ -1347,6 +1381,102 @@ def ensure_franchise_team_identities_sqlite(engine: Engine) -> None:
                 "CREATE INDEX ix_franchise_identity_fhm_year "
                 "ON franchise_team_identities (team_fhm_id, start_year, end_year)"
             )
+        )
+        conn.commit()
+
+
+def ensure_team_honors_meta_sqlite(engine: Engine) -> None:
+    """Create per-team honors display toggles when missing (league DB)."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='team_honors_meta'")
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE team_honors_meta (
+                    team_id INTEGER NOT NULL PRIMARY KEY,
+                    retired_section_enabled BOOLEAN NOT NULL DEFAULT 0,
+                    FOREIGN KEY(team_id) REFERENCES teams (id)
+                )
+                """
+            )
+        )
+        conn.commit()
+
+
+def ensure_team_retired_numbers_sqlite(engine: Engine) -> None:
+    """Create franchise retired number rows when missing (league DB)."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='team_retired_numbers'")
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE team_retired_numbers (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    team_id INTEGER NOT NULL,
+                    player_name VARCHAR(200) NOT NULL,
+                    jersey_number INTEGER NOT NULL,
+                    jersey_image_rel_path VARCHAR(500),
+                    is_active BOOLEAN NOT NULL DEFAULT 1,
+                    sort_order INTEGER NOT NULL DEFAULT 0,
+                    notes TEXT NOT NULL DEFAULT '',
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL,
+                    FOREIGN KEY(team_id) REFERENCES teams (id),
+                    CONSTRAINT uq_team_retired_jersey UNIQUE (team_id, jersey_number)
+                )
+                """
+            )
+        )
+        conn.execute(
+            text("CREATE INDEX ix_team_retired_numbers_team ON team_retired_numbers (team_id)")
+        )
+        conn.commit()
+
+
+def ensure_team_victory_banners_sqlite(engine: Engine) -> None:
+    """Create team victory banner rows when missing (league DB)."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='team_victory_banners'")
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE team_victory_banners (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    team_id INTEGER NOT NULL,
+                    title VARCHAR(200) NOT NULL DEFAULT '',
+                    victory_number INTEGER NOT NULL,
+                    banner_image_rel_path VARCHAR(500),
+                    is_active BOOLEAN NOT NULL DEFAULT 1,
+                    sort_order INTEGER NOT NULL DEFAULT 0,
+                    notes TEXT NOT NULL DEFAULT '',
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL,
+                    FOREIGN KEY(team_id) REFERENCES teams (id),
+                    CONSTRAINT uq_team_victory_banner UNIQUE (team_id, victory_number)
+                )
+                """
+            )
+        )
+        conn.execute(
+            text("CREATE INDEX ix_team_victory_banners_team ON team_victory_banners (team_id)")
         )
         conn.commit()
 

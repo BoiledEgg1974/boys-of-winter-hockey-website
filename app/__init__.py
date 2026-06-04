@@ -13,6 +13,7 @@ from app.db_utils import (
     ensure_fts5,
     ensure_history_all_stars_sqlite,
     ensure_history_awards_staff_fhm_id_sqlite,
+    ensure_history_records_admin_metadata_sqlite,
     ensure_boost_lottery_team_results_sqlite,
     ensure_homepage_performance_indexes_sqlite,
     ensure_players_boost_tier_sqlite,
@@ -40,6 +41,9 @@ from app.db_utils import (
     ensure_awards_voting_sqlite,
     ensure_member_watchlists_sqlite,
     ensure_franchise_team_identities_sqlite,
+    ensure_team_honors_meta_sqlite,
+    ensure_team_retired_numbers_sqlite,
+    ensure_team_victory_banners_sqlite,
     ensure_mobile_push_devices_sqlite,
     ensure_news_engagement_sqlite,
     ensure_admin_undo_actions_sqlite,
@@ -144,8 +148,12 @@ def create_app(config_class: type = Config) -> Flask:
         ensure_player_goalie_stats_gsaa_sqlite(db.engine)
         ensure_game_record_baselines_sqlite(db.engine)
         ensure_history_awards_staff_fhm_id_sqlite(db.engine)
+        ensure_history_records_admin_metadata_sqlite(db.engine)
         ensure_history_all_stars_sqlite(db.engine)
         ensure_franchise_team_identities_sqlite(db.engine)
+        ensure_team_honors_meta_sqlite(db.engine)
+        ensure_team_retired_numbers_sqlite(db.engine)
+        ensure_team_victory_banners_sqlite(db.engine)
         try:
             from sqlalchemy import func, select
 
@@ -572,6 +580,7 @@ def create_app(config_class: type = Config) -> Flask:
         ensure_player_goalie_stats_gsaa_sqlite(db.engine)
         ensure_game_record_baselines_sqlite(db.engine)
         ensure_history_awards_staff_fhm_id_sqlite(db.engine)
+        ensure_history_records_admin_metadata_sqlite(db.engine)
         ensure_history_all_stars_sqlite(db.engine)
         ensure_fts5(db.engine)
         rebuild_player_fts(db.engine)

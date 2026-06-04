@@ -875,15 +875,20 @@ def import_history_awards(
     path = csv_path.resolve() if csv_path else _history_awards_csv_path(raw_dir)
     if path is None or not path.is_file():
         return 0
+    from app.services.admin_history_records import HISTORY_SOURCE_CSV, delete_non_admin_history_awards
+
     log.info("Loading history awards from %s", path.name)
     df = read_csv_normalized(path)
     needle = (replace_award_substring or "").strip()
     if replace_all:
         if needle:
             raise ValueError("replace_all cannot be combined with replace_award_substring.")
-        db.session.execute(delete(HistoryAward))
+        removed = delete_non_admin_history_awards(db.session)
         db.session.commit()
-        log.info("Removed all history_awards rows before full CSV re-import.")
+        log.info(
+            "Removed %s non-admin history_awards rows before CSV re-import (admin rows kept).",
+            removed,
+        )
     elif needle:
         sub = needle.upper()
         db.session.execute(delete(HistoryAward).where(HistoryAward.award_name.ilike(f"%{needle}%")))
@@ -951,6 +956,7 @@ def import_history_awards(
             team_id=team.id if team else None,
             staff_fhm_id=staff_fhm_id,
             notes=notes_val,
+            source=HISTORY_SOURCE_CSV,
         )
         db.session.add(a)
         n += 1
@@ -976,9 +982,17 @@ def import_history_all_stars(raw_dir: Path, app) -> int:
         return 0
     log.info("Loading history all-stars from %s", path.name)
     df = read_csv_normalized(path)
-    db.session.execute(delete(HistoryAllStar))
+    from app.services.admin_history_records import (
+        HISTORY_SOURCE_CSV,
+        delete_non_admin_all_stars,
+    )
+
+    removed = delete_non_admin_all_stars(db.session)
     db.session.commit()
-    log.info("Removed all history_all_stars rows before CSV re-import.")
+    log.info(
+        "Removed %s non-admin history_all_stars rows before CSV re-import (admin rows kept).",
+        removed,
+    )
     if df.empty or len(df.index) == 0:
         log.info("history_all_stars.csv has no data rows — table cleared.")
         return 0
@@ -1036,6 +1050,7 @@ def import_history_all_stars(raw_dir: Path, app) -> int:
                 player_id=player.id if player else None,
                 team_id=team.id if team else None,
                 notes=notes_val,
+                source=HISTORY_SOURCE_CSV,
             )
         )
         n += 1

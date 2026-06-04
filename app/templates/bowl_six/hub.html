@@ -33,6 +33,14 @@
       {% for row in last_ranked[:3] %}
       <li class="bowl-six-podium__item bowl-six-podium__item--{{ loop.index }}">
         <span class="bowl-six-podium__rank">#{{ loop.index }}</span>
+        <span class="bowl-six-podium__gm">{{ row.gm_name }}</span>
+        <span class="bowl-six-podium__team">
+          {% if row.team %}
+          {{ row.team.full_display_name() }}
+          {% else %}
+          —
+          {% endif %}
+        </span>
         <span class="bowl-six-podium__pts">{{ '%.1f'|format(row.total_points) }} pts</span>
         <span class="bowl-six-podium__ap">+{{ ap_prizes[loop.index] }} AP</span>
       </li>
@@ -100,6 +108,10 @@
       <div class="bowl-six-how__card">
         <h3>Weekly prizes</h3>
         <p>Top GMs earn AP: 1st {{ ap_prizes[1] }}, 2nd {{ ap_prizes[2] }}, 3rd {{ ap_prizes[3] }}.</p>
+      </div>
+      <div class="bowl-six-how__card">
+        <h3>Season prizes</h3>
+        <p>Season totals award AP: 1st {{ season_ap_prizes[1] }}, 2nd {{ season_ap_prizes[2] }}, 3rd {{ season_ap_prizes[3] }}, every other ranked GM {{ season_participation_ap }}.</p>
       </div>
     </div>
   </section>

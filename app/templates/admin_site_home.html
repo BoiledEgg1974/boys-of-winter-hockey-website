@@ -12,6 +12,7 @@
     <li><a href="{{ url_for('site_admin.admin_announcements') }}">Announcement banners</a></li>
     <li><a href="{{ url_for('site_admin.admin_homepage_modules') }}">Homepage modules</a></li>
     <li><a href="{{ url_for('site_admin.admin_franchise_identities') }}">Franchise identities (relocations/history)</a></li>
+    <li><a href="{{ url_for('site_admin.admin_team_honors') }}">Team honors (retired numbers &amp; banners)</a></li>
     <li><a href="{{ url_for('site_admin.admin_join_league') }}">Join League availability & email test</a></li>
     <li><a href="{{ url_for('site_admin.admin_import_validation') }}">Import validation</a></li>
     <li><a href="{{ url_for('main.prospects') }}">Prospects</a> — system CHG and league POT-board CHG use automatic import snapshots (no manual baseline)</li>
@@ -30,6 +31,7 @@
     <li><a href="{{ url_for('site_admin.admin_trade_proposals_list') }}">Trade proposals (ledger workflow)</a></li>
     <li><a href="{{ url_for('site_admin.admin_draft_pick_ownership') }}">Draft pick ownership panels</a></li>
     <li><a href="{{ url_for('site_admin.admin_game_records') }}">Game records (baseline seeding)</a></li>
+    <li><a href="{{ url_for('site_admin.admin_history_records_home') }}">Historical records editor</a> — team seasons, awards, all-stars</li>
     {% if current_league_slug == 'bowl-cap' %}
     <li><a href="{{ url_for('site_admin.admin_rule_strikes') }}">Cap strike penalty tracker</a> — 3-strike penalties feeding Draft Hub penalty picks</li>
     {% endif %}

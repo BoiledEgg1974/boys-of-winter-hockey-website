@@ -362,6 +362,14 @@ def position_clause_for_role(role: str):
     raise ValueError(role)
 
 
+def free_agent_status_key(player: Player) -> str:
+    """Display bucket for the Free Agents page: RFA when contract rights remain, otherwise UFA."""
+    contract = getattr(player, "contract", None)
+    if contract is not None and not bool(getattr(contract, "is_ufa", False)):
+        return "rfa"
+    return "ufa"
+
+
 def fetch_free_agent_players(
     session: Session, role: str, *, age_ref: date, undrafted_max_age: int, league_slug: str = ""
 ) -> list[Player]:

@@ -25,6 +25,8 @@ from app.services.player_ratings_csv import player_positions_display_label
 from app.routes.site_portal import site_admin_bp, site_gm_bp
 from app.services.bowl_six import (
     AP_PRIZES,
+    SEASON_AP_PRIZES,
+    SEASON_PARTICIPATION_AP,
     SLOT_LABELS,
     blocked_player_ids_from_prior_slate,
     bowl_six_enabled,
@@ -39,6 +41,7 @@ from app.services.bowl_six import (
     extend_slate_lock_at,
     save_lineup,
     score_slate,
+    season_ap_prize_for_rank,
     slate_lock_ui,
     slate_rankings,
     bowl_six_lineup_snapshot_slots,
@@ -117,16 +120,20 @@ def _player_headshot_url(player: Player) -> str | None:
 
 def _enrich_gm_leader_rows(slug: str, rows: list[dict], *, points_key: str) -> list[dict]:
     enriched: list[dict] = []
-    for r in rows:
+    for idx, r in enumerate(rows, start=1):
         user = db.session.get(User, int(r["user_id"]))
         mem = active_membership_for_league(user, slug) if user else None
         team = db.session.get(Team, int(mem.team_id)) if mem else None
         enriched.append(
             {
                 **r,
+                "rank": int(r.get("rank") or idx),
                 "gm_name": gm_display_name(user) if user else f"User #{r['user_id']}",
                 "team": team,
                 "points": float(r.get(points_key) or 0),
+                "season_ap_award": int(
+                    r.get("season_ap_award") or season_ap_prize_for_rank(int(r.get("rank") or idx))
+                ),
             }
         )
     return enriched
@@ -241,7 +248,11 @@ def bowl_six_hub():
     if mem and slate:
         my_lineup = get_lineup(db.session, slate.id, int(current_user.id))
     last = last_scored_slate(db.session, slug)
-    last_ranked = slate_rankings(db.session, last) if last else []
+    last_ranked = (
+        _enrich_gm_leader_rows(slug, slate_rankings(db.session, last), points_key="total_points")
+        if last
+        else []
+    )
     top_perf_rows = top_players_for_slate(db.session, slate, limit=5) if slate and slate.status != "skipped" else []
     most_picked_rows = most_picked_for_slate(db.session, slate, limit=5) if slate and slate.status != "skipped" else []
     top_perf = [
@@ -267,6 +278,8 @@ def bowl_six_hub():
         gm_mini=gm_mini,
         lock_ui=lock_ui,
         ap_prizes=AP_PRIZES,
+        season_ap_prizes=SEASON_AP_PRIZES,
+        season_participation_ap=SEASON_PARTICIPATION_AP,
         membership=mem,
         submissions=submissions,
     )
@@ -385,6 +398,8 @@ def bowl_six_leaders():
         in_progress_slate=in_progress_slate,
         in_progress_rows=in_progress_rows,
         week_progress=week_progress,
+        season_ap_prizes=SEASON_AP_PRIZES,
+        season_participation_ap=SEASON_PARTICIPATION_AP,
     )
 
 

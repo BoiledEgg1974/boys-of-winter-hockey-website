@@ -48,9 +48,7 @@ def league_raw_import_dir(slug: str) -> str:
 
 def undrafted_prospects_max_age(league_slug: str) -> int:
     """Inclusive upper age for the Undrafted Prospects list (and matching Free Agents exclusion)."""
-    if league_slug in ("bowl-fantasy", "bowl-cap"):
-        return 18
-    return 20
+    return 22
 
 
 def undrafted_prospects_age_filter_options(league_slug: str) -> tuple[int, ...]:

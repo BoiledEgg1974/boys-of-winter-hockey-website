@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Admin — History Awards{% endblock %}
+{% block content %}
+<div class="card" style="max-width:72rem;margin:0 auto;">
+  <p>
+    <a href="{{ url_for('site_admin.admin_history_records_home') }}">← Historical records</a>
+    · <a href="{{ url_for('main.history') }}">Public League History</a>
+  </p>
+  <h1 class="page-title">Season award winners</h1>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <ul class="flash-list">
+    {% for category, message in messages %}
+    <li class="flash flash--{{ category }}">{{ message }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% endwith %}
+
+  <form method="get" class="history-admin-filter" style="margin:0.75rem 0;">
+    <label>Filter season
+      <input type="text" name="season" value="{{ season_filter }}" placeholder="1989-90">
+    </label>
+    <button type="submit" class="button">Filter</button>
+    {% if season_filter %}<a href="{{ url_for('site_admin.admin_history_awards') }}">Clear</a>{% endif %}
+  </form>
+
+  <section class="card" style="margin:1rem 0;padding:0.75rem;">
+    <h2 style="margin:0 0 0.6rem;font-size:1rem;">{% if edit_row %}Edit{% else %}Add{% endif %} award</h2>
+    <form method="post" class="history-admin-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="save">
+      {% if edit_row %}<input type="hidden" name="award_id" value="{{ edit_row.id }}">{% endif %}
+      <div class="history-admin-form__grid">
+        <label>Season label
+          <input type="text" name="season_label" required value="{{ edit_season_label if edit_row else season_filter }}" placeholder="1989-90">
+        </label>
+        <label>Award name
+          <select name="award_name" required>
+            <option value="">Select award</option>
+            {% for award_name in award_choices %}
+            <option value="{{ award_name }}" {% if edit_row and edit_award_name == award_name %}selected{% endif %}>{{ award_name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Player
+          <select name="player_id">
+            <option value="">—</option>
+            {% for pl in players %}
+            <option value="{{ pl.id }}" {% if edit_row and edit_row.player_id == pl.id %}selected{% endif %}>{{ pl.full_name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Team (team trophies)
+          <select name="team_id">
+            <option value="">—</option>
+            {% for tm in teams %}
+            <option value="{{ tm.id }}" {% if edit_row and edit_row.team_id == tm.id %}selected{% endif %}>{{ tm.full_display_name() }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Staff FHM id (coach/GM awards)
+          <input type="text" name="staff_fhm_id" value="{{ edit_row.staff_fhm_id if edit_row else '' }}">
+        </label>
+        <label class="history-admin-form__notes">Notes
+          <input type="text" name="notes" value="{{ edit_row.notes if edit_row else '' }}" placeholder="no_winner=1; extra metadata">
+        </label>
+      </div>
+      <button type="submit" class="button" style="margin-top:0.65rem;">Save award</button>
+      {% if edit_row %}<a href="{{ url_for('site_admin.admin_history_awards', season=season_filter or none) }}">Cancel edit</a>{% endif %}
+    </form>
+  </section>
+
+  <div class="table-wrap">
+    <table class="data history-admin-table">
+      <thead>
+        <tr>
+          <th>Award</th>
+          <th>Player</th>
+          <th>Team</th>
+          <th>Staff</th>
+          <th>Notes</th>
+          <th>Src</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>{{ row.award_name }}</td>
+          <td>{% if row.player %}{{ row.player.full_name }}{% else %}—{% endif %}</td>
+          <td>{% if row.team %}{{ row.team.abbreviation }}{% else %}—{% endif %}</td>
+          <td>{{ row.staff_fhm_id or '—' }}</td>
+          <td class="muted" style="max-width:14rem;overflow:hidden;text-overflow:ellipsis;">{{ row.notes or '—' }}</td>
+          <td>{{ row.source or 'csv' }}</td>
+          <td>
+            <a href="{{ url_for('site_admin.admin_history_awards', edit=row.id, season=season_filter or none) }}">Edit</a>
+            <form method="post" style="display:inline;" onsubmit="return confirm('Delete?');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="action" value="delete">
+              <input type="hidden" name="award_id" value="{{ row.id }}">
+              <button type="submit" class="link-button">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="muted">No awards{% if season_filter %} for {{ season_filter }}{% endif %}.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -351,6 +351,16 @@ def build_season_team_logo_bundle(app: Flask) -> SeasonTeamLogoBundle:
             historical_team_logo_rel_by_name.setdefault(
                 "new york americans", f"{hist_logo_root}/new_york_americans.png"
             )
+            for yy in range(1917, 1922):
+                historical_team_logo_override_by_id_year[("3", yy)] = f"{hist_logo_root}/toronto_st_pats_1919-1921.png"
+            for yy in range(1922, 1926):
+                historical_team_logo_override_by_id_year[("3", yy)] = f"{hist_logo_root}/toronto_st_pats_1922-1926.png"
+            for yy in range(1926, 1930):
+                historical_team_name_override_by_id_year[("9", yy)] = "Detroit Cougars"
+                historical_team_logo_override_by_id_year[("9", yy)] = f"{hist_logo_root}/detroit_cougars_1926-1929.png"
+            for yy in range(1930, 1932):
+                historical_team_name_override_by_id_year[("9", yy)] = "Detroit Falcons"
+                historical_team_logo_override_by_id_year[("9", yy)] = f"{hist_logo_root}/detroit_falcons.png"
             historical_team_name_override_by_id_year[("4", 1919)] = "Quebec Bulldogs"
             historical_team_logo_override_by_id_year[("4", 1919)] = f"{hist_logo_root}/quebec_bulldogs.png"
             historical_team_name_override_by_id_year[("4", 1920)] = "Hamilton Tigers"
@@ -448,27 +458,38 @@ def build_season_team_logo_bundle(app: Flask) -> SeasonTeamLogoBundle:
                 hit = _timeline_logo_for_year(_norm_team_logo_name(name_from_tid), sy)
                 if hit:
                     return hit
+
+        def _name_fallback_logo() -> str | None:
+            name_fallbacks = list(_record_name_candidates(record))
+            name_from_tid = _historical_name_for_tid(record, tid_s) if tid_s else None
+            if name_from_tid:
+                name_fallbacks.append(_norm_team_logo_name(name_from_tid))
+            seen_name_fallbacks: set[str] = set()
+            for nm in name_fallbacks:
+                if not nm or nm in seen_name_fallbacks:
+                    continue
+                seen_name_fallbacks.add(nm)
+                rel = historical_team_logo_rel_by_name.get(nm)
+                if rel:
+                    hit = _url_for_logo_rel(rel)
+                    if hit:
+                        return hit
+            return None
+
+        if sy is not None:
+            hit = _name_fallback_logo()
+            if hit:
+                return hit
+
         # Non-era franchise files (-t{id}) are only for requests without a season year.
         if sy is None:
             if tid_s and tid_s in historical_team_logo_rel_by_id:
                 hit = _url_for_logo_rel(historical_team_logo_rel_by_id[tid_s])
                 if hit:
                     return hit
-            name_from_tid = _historical_name_for_tid(record, tid_s) if tid_s else None
-            if name_from_tid:
-                nm = _norm_team_logo_name(name_from_tid)
-                rel = historical_team_logo_rel_by_name.get(nm)
-                if rel:
-                    hit = _url_for_logo_rel(rel)
-                    if hit:
-                        return hit
-
-            for nm in _record_name_candidates(record):
-                rel = historical_team_logo_rel_by_name.get(nm)
-                if rel:
-                    hit = _url_for_logo_rel(rel)
-                    if hit:
-                        return hit
+            hit = _name_fallback_logo()
+            if hit:
+                return hit
 
         team_obj = getattr(record, "team", None)
         if team_obj is None and rec_map is not None:

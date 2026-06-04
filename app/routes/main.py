@@ -114,6 +114,7 @@ from app.services.free_agents import (
     SKATER_VIEWS,
     bowl_org_rights_player_ids,
     fetch_free_agent_players,
+    free_agent_status_key,
     player_ids_from_player_rights_csv_for_team,
 )
 from app.services.history_coach_awards import (
@@ -2797,6 +2798,7 @@ def free_agents():
                 "attrs": it["attrs_display"],
                 "abi": it["abi"],
                 "pot": it["pot"],
+                "fa_status": free_agent_status_key(pl),
             }
         )
 
@@ -2806,11 +2808,30 @@ def free_agents():
     else:
         display_rows = rows_out[:page_limit]
 
+    fa_status_labels = {
+        "rfa": "RFA (Restricted Free Agents)",
+        "ufa": "UFA (Unrestricted Free Agents)",
+    }
+    fa_status_counts = {
+        "rfa": sum(1 for row in rows_out if row.get("fa_status") == "rfa"),
+        "ufa": sum(1 for row in rows_out if row.get("fa_status") == "ufa"),
+    }
+    fa_groups = [
+        {
+            "key": key,
+            "label": fa_status_labels[key],
+            "total": fa_status_counts[key],
+            "rows": [row for row in display_rows if row.get("fa_status") == key],
+        }
+        for key in ("ufa", "rfa")
+    ]
+
     fa_pls = [r["player"] for r in display_rows]
     player_overall_by_id = build_overall_cell_map_from_players(session, fa_pls)
     return render_template(
         "free_agents.html",
         fa_rows=display_rows,
+        fa_groups=fa_groups,
         fa_total=total_n,
         fa_page_limit=page_limit,
         fa_expanded=fa_expanded,
@@ -4294,6 +4315,9 @@ def team_page(slug: str):
         current_user if getattr(current_user, "is_authenticated", False) else None,
         league_slug,
     )
+    from app.services.team_honors import team_honors_page_bundle
+
+    honors_bundle = team_honors_page_bundle(db.session, int(team.id))
     tmpl_kwargs: dict[str, object] = {
         "team": team,
         "arena_name": arena_name,
@@ -4358,6 +4382,7 @@ def team_page(slug: str):
         "news_viewer_can_react": news_viewer_can_react,
         "news_category_label": news_category_label,
         "team_award_badges": team_history_award_badges(db.session, team),
+        **honors_bundle,
     }
     depth_ova_ids: set[int] = set()
     for _col in ("goalies", "defensemen", "left_wings", "centers", "right_wings"):

@@ -413,66 +413,11 @@ def _awards_for_year_with_raw(
     *,
     raw_dir: Path | None,
 ) -> list[Any]:
-    """Awards for season detail.
+    """Awards for season detail from DB (admin edits and imports share ``history_awards``)."""
+    from app.services.admin_history_records import list_awards_for_season_label
 
-    When a league awards CSV exists (sheet or narrow), use it as the only source for
-    that season — including an empty list when the sheet has no rows for ``year_label``
-    (do not fall back to DB, which may hold stale seasons not yet re-imported).
-    """
-    if raw_dir is not None:
-        raw_csv: Path | None = None
-        for name in ("history_awards.sheet.csv", "history_awards.csv", "awards_history.csv"):
-            p = Path(raw_dir) / name
-            if p.is_file():
-                raw_csv = p
-                break
-        if raw_csv is not None:
-            try:
-                df = read_csv_normalized(raw_csv)
-                out: list[Any] = []
-                for _, row in df.iterrows():
-                    r = row.to_dict()
-                    season_cell = (cell_val(r, "season_id", "season") or "").strip()
-                    if season_cell != year_label:
-                        continue
-                    player_key = (cell_val(r, "player_id", "fhm_player_id", "playerid") or "").strip()
-                    team_key = (cell_val(r, "team_id", "team_abbr") or "").strip()
-                    player = None
-                    team = None
-                    if player_key and player_key.lower() not in ("null", "none", "nan"):
-                        player = session.scalars(
-                            select(Player).where(Player.fhm_player_id == player_key).limit(1)
-                        ).first()
-                    if team_key:
-                        team = session.scalars(
-                            select(Team).where(Team.fhm_team_id == team_key).limit(1)
-                        ).first()
-                    out.append(
-                        SimpleNamespace(
-                            award_name=(cell_val(r, "award_name", "award") or "Award"),
-                            player=player,
-                            team=team,
-                            notes=cell_val(r, "notes"),
-                            staff_fhm_id=(cell_val(r, "staff_id", "staff_fhm_id", "fhm_staff_id") or "").strip() or None,
-                            season=None,
-                            season_id=None,
-                        )
-                    )
-                out.sort(key=lambda a: (a.award_name or "").upper())
-                return out
-            except Exception:
-                # Fall back to DB-backed awards.
-                pass
-    season = _season_for_year(session, year_label, start_year)
-    if season is None:
-        return []
-    return list(
-        session.scalars(
-            select(HistoryAward)
-            .where(HistoryAward.season_id == season.id)
-            .order_by(HistoryAward.award_name.asc())
-        ).all()
-    )
+    _ = raw_dir, start_year  # legacy signature; CSV is no longer preferred over DB.
+    return list_awards_for_season_label(session, year_label)
 
 
 # --------------------------- top-10 player builders for a single season --------------------------- #

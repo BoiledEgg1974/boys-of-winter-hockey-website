@@ -125,6 +125,52 @@
   </div>
   {% endif %}
 </div>
+{% if team_honors_show_section %}
+<section class="team-honors" aria-label="Franchise honors">
+  <div class="team-honors__grid">
+    {% if team_honors_show_retired_panel %}
+    <div class="card team-honors__panel team-honors__panel--retired">
+      <h2 class="team-honors__title">Retired Number</h2>
+      {% if team_honors_retired_rows %}
+      <ul class="team-honors__retired-list" role="list">
+        {% for row in team_honors_retired_rows %}
+        <li class="team-honors__retired-item" role="listitem">
+          {% if row.jersey_image_rel_path %}
+          <div class="team-honors__jersey-wrap">
+            <img class="team-honors__jersey-img" src="{{ url_for('static', filename=row.jersey_image_rel_path) }}" alt="" loading="lazy" decoding="async">
+            <span class="team-honors__jersey-num" aria-hidden="true">{{ row.jersey_number }}</span>
+          </div>
+          {% else %}
+          <div class="team-honors__jersey-wrap team-honors__jersey-wrap--no-img">
+            <span class="team-honors__jersey-num team-honors__jersey-num--solo" aria-hidden="true">{{ row.jersey_number }}</span>
+          </div>
+          {% endif %}
+          <p class="team-honors__player-name">{{ row.player_name }}</p>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted team-honors__empty">No retired numbers configured yet.</p>
+      {% endif %}
+    </div>
+    {% endif %}
+    {% if team_honors_show_banner_panel %}
+    <div class="card team-honors__panel team-honors__panel--banners">
+      <h2 class="team-honors__title">Championship Banners</h2>
+      <ul class="team-honors__banner-list" role="list">
+        {% for row in team_honors_banner_rows %}
+        {% if row.banner_image_rel_path %}
+        <li class="team-honors__banner-item" role="listitem">
+          <img class="team-honors__banner-img" src="{{ url_for('static', filename=row.banner_image_rel_path) }}" alt="{{ row.title or ('Championship banner ' ~ row.victory_number) }}" loading="lazy" decoding="async">
+        </li>
+        {% endif %}
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
 {% if schedule_games %}
 <div class="team-schedule-fullwidth">
   <div class="card card--team-schedule" style="--schedule-accent: {{ ph }};">

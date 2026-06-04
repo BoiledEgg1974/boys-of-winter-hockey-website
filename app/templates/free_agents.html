@@ -30,6 +30,55 @@
      class="stats-th-link{% if sk == fa_sort %} is-sorted {{ 'is-sorted-asc' if fa_order == 'asc' else 'is-sorted-desc' }}{% endif %}">{{ label }}</a>
 </th>
 {%- endmacro %}
+{% macro free_agents_table(rows) -%}
+<div class="table-wrap">
+  <table class="data prospects-rankings-table prospects-rankings-table--free-agents">
+    <thead>
+      <tr>
+        {{ fa_sort_th('rank', '#', 'Rank (potential, ability, name)') }}
+        {{ fa_sort_th('player', 'PLAYER', 'Player') }}
+        <th scope="col" title="Age">AGE</th>
+        {{ fa_sort_th('abi', 'ABI.', 'Ability') }}
+        {{ fa_sort_th('pot', 'POT.', 'Potential') }}
+        {{ fa_sort_th('ova', 'OVR', 'Composite 1-100 overall') }}
+        {% for full, abbr, key in fa_headers %}
+        {{ fa_sort_th(key, abbr, full) }}
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      {% set pl = row.player %}
+      <tr>
+        <td {% if fa_sort == 'rank' %}class="stats-td-sorted"{% endif %}>{{ row.rank }}</td>
+        <td {% if fa_sort == 'player' %}class="stats-td-sorted"{% endif %}>
+          <span class="stats-player-cell">
+            <a class="stats-player-cell__photo" href="{{ url_for('main.player_page', player_id=pl.id) }}">
+              {% if player_headshot_url(pl) %}
+              <img src="{{ player_headshot_url(pl) }}" alt="">
+              {% else %}
+              <span class="stats-player-cell__photo-ph" aria-hidden="true"></span>
+              {% endif %}
+            </a>
+            <span class="stats-player-cell__text">
+              <a class="stats-player-cell__name" href="{{ url_for('main.player_page', player_id=pl.id) }}">{{ pl.full_name }}</a>
+              <span class="stats-player-cell__pos stats-player-cell__pos--eligible">{{ row.player | player_positions_display }}</span>
+            </span>
+          </span>
+        </td>
+        <td {% if fa_sort == 'age' %}class="stats-td-sorted"{% endif %}>{{ row.age if row.age is not none else '—' }}</td>
+        <td {% if fa_sort == 'abi' %}class="stats-td-sorted"{% endif %}>{{ abi_pot_pill(row.abi) }}</td>
+        <td {% if fa_sort == 'pot' %}class="stats-td-sorted"{% endif %}>{{ abi_pot_pill(row.pot) }}</td>
+        {{ overall_cell((player_overall_by_id or {}).get(pl.id), fa_sort == 'ova') }}
+        {% for _full, _abbr, key in fa_headers %}
+        <td {% if fa_sort == key %}class="stats-td-sorted"{% endif %}>{{ attr_pill(row.attrs.get(key)) }}</td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{%- endmacro %}
 {% block content %}
 <div class="prospects-rankings-page free-agents-page">
   <h1 class="page-title">Free Agents</h1>
@@ -61,52 +110,20 @@
 
   <div class="card">
     {% if fa_rows %}
-    <div class="table-wrap">
-      <table class="data prospects-rankings-table prospects-rankings-table--free-agents">
-        <thead>
-          <tr>
-            {{ fa_sort_th('rank', '#', 'Rank (potential, ability, name)') }}
-            {{ fa_sort_th('player', 'PLAYER', 'Player') }}
-            <th scope="col" title="Age">AGE</th>
-            {{ fa_sort_th('abi', 'ABI.', 'Ability') }}
-            {{ fa_sort_th('pot', 'POT.', 'Potential') }}
-            {{ fa_sort_th('ova', 'OVR', 'Composite 1-100 overall') }}
-            {% for full, abbr, key in fa_headers %}
-            {{ fa_sort_th(key, abbr, full) }}
-            {% endfor %}
-          </tr>
-        </thead>
-        <tbody>
-          {% for row in fa_rows %}
-          {% set pl = row.player %}
-          <tr>
-            <td {% if fa_sort == 'rank' %}class="stats-td-sorted"{% endif %}>{{ row.rank }}</td>
-            <td {% if fa_sort == 'player' %}class="stats-td-sorted"{% endif %}>
-              <span class="stats-player-cell">
-                <a class="stats-player-cell__photo" href="{{ url_for('main.player_page', player_id=pl.id) }}">
-                  {% if player_headshot_url(pl) %}
-                  <img src="{{ player_headshot_url(pl) }}" alt="">
-                  {% else %}
-                  <span class="stats-player-cell__photo-ph" aria-hidden="true"></span>
-                  {% endif %}
-                </a>
-                <span class="stats-player-cell__text">
-                  <a class="stats-player-cell__name" href="{{ url_for('main.player_page', player_id=pl.id) }}">{{ pl.full_name }}</a>
-                  <span class="stats-player-cell__pos stats-player-cell__pos--eligible">{{ row.player | player_positions_display }}</span>
-                </span>
-              </span>
-            </td>
-            <td {% if fa_sort == 'age' %}class="stats-td-sorted"{% endif %}>{{ row.age if row.age is not none else '—' }}</td>
-            <td {% if fa_sort == 'abi' %}class="stats-td-sorted"{% endif %}>{{ abi_pot_pill(row.abi) }}</td>
-            <td {% if fa_sort == 'pot' %}class="stats-td-sorted"{% endif %}>{{ abi_pot_pill(row.pot) }}</td>
-            {{ overall_cell((player_overall_by_id or {}).get(pl.id), fa_sort == 'ova') }}
-            {% for _full, _abbr, key in fa_headers %}
-            <td {% if fa_sort == key %}class="stats-td-sorted"{% endif %}>{{ attr_pill(row.attrs.get(key)) }}</td>
-            {% endfor %}
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    <div class="free-agents-page__groups">
+      {% for group in fa_groups %}
+      <section class="free-agents-page__group free-agents-page__group--{{ group.key }}" aria-labelledby="free-agents-group-{{ group.key }}">
+        <div class="free-agents-page__group-head">
+          <h2 id="free-agents-group-{{ group.key }}" class="free-agents-page__group-title">{{ group.label }}</h2>
+          <span class="free-agents-page__group-count">{{ group.total }} total</span>
+        </div>
+        {% if group.rows %}
+        {{ free_agents_table(group.rows) }}
+        {% else %}
+        <p class="empty-state free-agents-page__group-empty">No {{ group.label }} match this filter.</p>
+        {% endif %}
+      </section>
+      {% endfor %}
     </div>
     {% if fa_total > fa_page_limit %}
     <p class="stats-list-foot muted prospects-rankings-page__foot">

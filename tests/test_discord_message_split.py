@@ -105,7 +105,6 @@ class DiscordMessageSplitTest(unittest.TestCase):
                     "round": 1,
                     "selection": 3,
                     "gm_mentions": "<@123456789012345678>",
-                    "timer_minutes": 2,
                     "url": "https://www.bowlhockey.com/bowl-fantasy/draft-hub",
                     "has_image": False,
                 },
@@ -117,7 +116,7 @@ class DiscordMessageSplitTest(unittest.TestCase):
         self.assertNotIn("embeds", parts[0])
         self.assertIn("On the clock:", content)
         self.assertIn("Round 1, Selection 3", content)
-        self.assertIn("**<@123456789012345678>, you have 2 minutes!**", content)
+        self.assertIn("**<@123456789012345678>, make your selection with /draft when ready.**", content)
         self.assertIn("https://www.bowlhockey.com/bowl-fantasy/draft-hub", content)
         self.assertIn(DISCORD_SITE_MORE_FOOTER, content)
 

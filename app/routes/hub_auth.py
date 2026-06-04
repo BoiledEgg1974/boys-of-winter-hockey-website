@@ -6,13 +6,13 @@ from urllib.parse import unquote
 
 from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required, login_user, logout_user
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.auth_login import has_admin_role
 from app.config import LEAGUES
 from app.league_db import db
-from app.site_models import GmLeagueMembership, SiteBannedIdentity, User
+from app.site_models import GmLeagueMembership, PasswordResetToken, SiteBannedIdentity, User
 
 hub_auth_bp = Blueprint("hub_auth", __name__)
 
@@ -604,4 +604,59 @@ def admin_update_user_profile(uid: int):
     u.discord_dm_enabled = request.form.get("discord_dm_enabled") == "1"
     db.session.commit()
     flash("GM profile updated.", "ok")
+    return redirect(url_for("hub_auth.admin_memberships"))
+
+
+@hub_auth_bp.post("/admin/users/<int:uid>/delete-profile")
+@login_required
+def admin_delete_user_profile(uid: int):
+    """Remove a non-member profile while preserving historical rows that reference user_id.
+
+    A hard delete would break old news, votes, messages, draft picks, and audit-like rows that
+    point at ``site_users.id``. Instead, release the unique email/username so the person can
+    register again, revoke the old login, and remove all league membership rows.
+    """
+    if not has_admin_role(current_user):
+        from flask import abort
+
+        abort(403)
+    u = db.session.get(User, uid)
+    if not u:
+        flash("User not found.", "error")
+        return redirect(url_for("hub_auth.admin_memberships"))
+    if int(u.id) == int(current_user.id):
+        flash("You cannot delete/release your own account.", "error")
+        return redirect(url_for("hub_auth.admin_memberships"))
+    original_email = (u.email or "").strip()
+    ts = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+    released_email = f"deleted-user-{int(u.id)}-{ts}@deleted.local"
+
+    membership_count = int(
+        db.session.scalar(
+            select(func.count())
+            .select_from(GmLeagueMembership)
+            .where(GmLeagueMembership.user_id == int(u.id))
+        )
+        or 0
+    )
+    db.session.execute(
+        delete(GmLeagueMembership).where(GmLeagueMembership.user_id == int(u.id))
+    )
+    db.session.execute(
+        delete(PasswordResetToken).where(PasswordResetToken.user_id == int(u.id))
+    )
+    u.email = released_email
+    u.username = None
+    u.discord_name = f"Deleted user #{int(u.id)}"
+    u.discord_user_id = None
+    u.discord_dm_enabled = False
+    u.is_admin = False
+    u.admin_role = None
+    u.revoked_at = datetime.utcnow()
+    db.session.commit()
+    flash(
+        f"Deleted/released {original_email or 'user'}: removed {membership_count} membership row(s) "
+        "and freed the original email for a new registration.",
+        "ok",
+    )
     return redirect(url_for("hub_auth.admin_memberships"))

@@ -810,10 +810,17 @@ def import_hall_of_fame(raw_dir: Path, app) -> int:
         log.info("Skipping hall_of_fame.csv (not found)")
         return 0
     df = read_csv_normalized(path)
-    db.session.execute(delete(HallOfFameMember))
+    db.session.execute(
+        delete(HallOfFameMember).where(HallOfFameMember.source != "admin")
+    )
     commit_with_sqlite_retry(db.session)
     n = 0
-    seen_players: set[int] = set()
+    seen_players: set[int] = {
+        int(x)
+        for x in db.session.scalars(
+            select(HallOfFameMember.player_id).where(HallOfFameMember.source == "admin")
+        ).all()
+    }
     for _, row in df.iterrows():
         r = row.to_dict()
         fhm_key = cell_val(r, "fhm_player_id", "player_id")
@@ -845,6 +852,7 @@ def import_hall_of_fame(raw_dir: Path, app) -> int:
                 member_kind=member_kind,
                 inducted_year=int(inducted),
                 sort_order=int(sort_order),
+                source="csv",
             )
         )
         seen_players.add(int(player.id))

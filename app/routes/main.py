@@ -2848,7 +2848,6 @@ def free_agents():
 @main_bp.get("/draft")
 def draft():
     years = fetch_nhl_bowl_draft_years(db.session)
-    current_season = get_current_season()
     year = request.args.get("year", type=int)
     if year is None and years:
         year = years[0]
@@ -2888,7 +2887,6 @@ def draft():
         picks=picks,
         picks_by_round=picks_by_round,
         draft_pick_team_fhm_by_pick_id=draft_pick_team_fhm_by_pick_id,
-        current_team_logo_season=current_season,
         skater_career=skater_career,
         goalie_career=goalie_career,
         draft_row_stat_mode=draft_row_stat_mode,

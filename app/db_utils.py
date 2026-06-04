@@ -341,13 +341,14 @@ def ensure_history_awards_staff_fhm_id_sqlite(engine: Engine) -> None:
 
 
 def ensure_history_records_admin_metadata_sqlite(engine: Engine) -> None:
-    """Add ``source`` / ``updated_at`` / ``updated_by_user_id`` on history tables (SQLite)."""
+    """Add ``source`` / ``updated_at`` / ``updated_by_user_id`` on admin-managed history tables."""
     if engine.dialect.name != "sqlite":
         return
     specs = (
         "history_awards",
         "history_all_stars",
         "team_season_records",
+        "hall_of_fame_members",
     )
     with engine.connect() as conn:
         for table in specs:

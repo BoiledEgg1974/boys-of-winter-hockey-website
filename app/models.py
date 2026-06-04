@@ -603,7 +603,7 @@ class HistoryAllStar(db.Model):
 
 
 class HallOfFameMember(db.Model):
-    """Inductee list sourced from ``hall_of_fame.csv`` in each league raw import folder (replace-all import)."""
+    """Inductee list sourced from CSV imports or protected admin entries."""
 
     __tablename__ = "hall_of_fame_members"
     __table_args__ = (UniqueConstraint("player_id", name="uq_hof_player"),)
@@ -614,6 +614,12 @@ class HallOfFameMember(db.Model):
     member_kind: Mapped[str] = mapped_column(String(16), nullable=False)
     inducted_year: Mapped[int] = mapped_column(Integer, nullable=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    #: ``csv`` (replaceable import) or ``admin`` (protected from replace-all imports).
+    source: Mapped[str] = mapped_column(String(16), default="csv", nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+    updated_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     player: Mapped["Player"] = relationship(back_populates="hall_of_fame_entry")
 

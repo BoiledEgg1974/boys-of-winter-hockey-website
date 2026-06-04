@@ -170,10 +170,9 @@ def _text_only_header_lines(
         rnd = payload.get("round")
         sel = payload.get("selection")
         mentions = str(payload.get("gm_mentions") or "GM").strip()
-        mins = payload.get("timer_minutes") or 2
         lines.append(f"On the clock: {prefix}{team_name}".strip())
         lines.append(f"Round {rnd}, Selection {sel}")
-        lines.append(f"**{mentions}, you have {mins} minute{'s' if int(mins) != 1 else ''}!**")
+        lines.append(f"**{mentions}, make your selection with /draft when ready.**")
     elif event_key == "draft_hub_on_deck":
         prefix = team_emoji_prefix(league_slug, payload)
         team_name = str(payload.get("team_name") or "").strip()

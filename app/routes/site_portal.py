@@ -29,6 +29,7 @@ from app.logo_urls import team_logo_url_for_team
 from app.league_db import db
 from app.models import (
     FranchiseTeamIdentity,
+    HallOfFameMember,
     HistoryAllStar,
     HistoryAward,
     Player,
@@ -3331,6 +3332,75 @@ def _admin_history_player_team_choices():
 def admin_history_records_home():
     require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
     return render_template("admin_history_records_home.html", league_slug=_league_slug())
+
+
+@site_admin_bp.route("/hall-of-fame", methods=["GET", "POST"])
+@login_required
+def admin_hall_of_fame():
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    from app.services.admin_hall_of_fame import (
+        delete_hof_member,
+        list_hof_admin,
+        player_name_choices,
+        upsert_hof_member,
+    )
+
+    edit_id = request.args.get("edit", type=int)
+    if request.method == "POST":
+        action = (request.form.get("action") or "save").strip()
+        if action == "delete":
+            mid = int(request.form.get("member_id") or 0)
+            if delete_hof_member(db.session, mid):
+                _audit("admin_hall_of_fame_delete", {"member_id": mid})
+                db.session.commit()
+                flash("Hall of Fame inductee removed.", "ok")
+            else:
+                db.session.rollback()
+                flash("Hall of Fame row not found.", "err")
+            return redirect(url_for("site_admin.admin_hall_of_fame"))
+
+        member_id = int(request.form.get("member_id") or 0) or None
+        player_name = (request.form.get("player_name") or "").strip()
+        try:
+            inducted_year = int(request.form.get("inducted_year") or "0")
+        except ValueError:
+            inducted_year = 0
+        row, err = upsert_hof_member(
+            db.session,
+            member_id=member_id,
+            player_name=player_name,
+            inducted_year=inducted_year,
+            user_id=int(current_user.id),
+        )
+        if err:
+            db.session.rollback()
+            flash(err, "err")
+            return redirect(
+                url_for("site_admin.admin_hall_of_fame", edit=member_id)
+                if member_id
+                else url_for("site_admin.admin_hall_of_fame")
+            )
+        assert row is not None
+        _audit(
+            "admin_hall_of_fame_save",
+            {
+                "member_id": int(row.id),
+                "player_id": int(row.player_id),
+                "inducted_year": int(row.inducted_year),
+            },
+        )
+        db.session.commit()
+        flash("Hall of Fame inductee saved.", "ok")
+        return redirect(url_for("site_admin.admin_hall_of_fame"))
+
+    rows = list_hof_admin(db.session)
+    edit_row = db.session.get(HallOfFameMember, edit_id) if edit_id else None
+    return render_template(
+        "admin_hall_of_fame.html",
+        rows=rows,
+        edit_row=edit_row,
+        player_name_choices=player_name_choices(db.session),
+    )
 
 
 @site_admin_bp.route("/history-records/team-seasons", methods=["GET", "POST"])

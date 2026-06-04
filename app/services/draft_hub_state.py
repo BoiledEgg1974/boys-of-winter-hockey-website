@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import json
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -179,7 +179,11 @@ def _pick_row_for_overall(session: Session, draft_id: int, overall: int) -> Leag
 
 
 def sync_current_slot_and_clock(session: Session, draft: LeagueDraft) -> None:
-    """Move index past forfeited / already-picked slots; start clock when a pick is needed."""
+    """Move index past forfeited / already-picked slots; start the active pick when needed.
+
+    The Draft Hub is intentionally untimed: a live pick stays on the board until the GM
+    or commissioner records a selection, including via the Discord bot.
+    """
     slots = slots_ordered(session, draft.id)
     if not slots:
         draft.status = "completed"
@@ -204,21 +208,23 @@ def sync_current_slot_and_clock(session: Session, draft: LeagueDraft) -> None:
         if _pick_row_for_overall(session, draft.id, slot.overall_pick):
             draft.current_slot_index += 1
             continue
-        now = utcnow_naive()
-        draft.pick_started_at = now
-        draft.pick_deadline_at = now + timedelta(seconds=int(draft.timer_seconds))
+        first_start_for_slot = draft.pick_started_at is None
+        if first_start_for_slot:
+            draft.pick_started_at = utcnow_naive()
+        draft.pick_deadline_at = None
         draft.deadline_extended_for_slot = False
         draft.awaiting_admin_resolution = False
-        try:
-            _enqueue_on_clock_dms(session, draft, slot)
-        except Exception:
-            pass
-        try:
-            from app.services.draft_hub_discord import enqueue_draft_hub_discord_alerts
+        if first_start_for_slot:
+            try:
+                _enqueue_on_clock_dms(session, draft, slot)
+            except Exception:
+                pass
+            try:
+                from app.services.draft_hub_discord import enqueue_draft_hub_discord_alerts
 
-            enqueue_draft_hub_discord_alerts(session, draft, slot, slots)
-        except Exception:
-            pass
+                enqueue_draft_hub_discord_alerts(session, draft, slot, slots)
+            except Exception:
+                pass
         return
 
     _finalize_draft_if_done(session, draft, slots)
@@ -262,7 +268,6 @@ def _enqueue_on_clock_dms(session: Session, draft: LeagueDraft, slot: LeagueDraf
         return
     tm = session.get(Team, int(slot.team_id))
     team_label = tm.full_display_name() if tm else f"Team #{slot.team_id}"
-    deadline = draft.pick_deadline_at.strftime("%Y-%m-%d %H:%M UTC") if draft.pick_deadline_at else "soon"
     from app.services.discord_direct_messages import enqueue_direct_message
     from app.services.discord_events import build_league_public_url
 
@@ -273,7 +278,7 @@ def _enqueue_on_clock_dms(session: Session, draft: LeagueDraft, slot: LeagueDraf
             recipient_user_id=int(uid),
             event_key="draft_on_clock",
             title=f"{draft.name}: {team_label} is on the clock",
-            body=f"Pick #{slot.overall_pick} (round {slot.round}) is ready. Deadline: {deadline}.",
+            body=f"Pick #{slot.overall_pick} (round {slot.round}) is ready. Use /draft in Discord or the Draft Hub to make the selection.",
             source_type="draft_on_clock",
             source_id=f"{int(draft.id)}:{int(slot.overall_pick)}",
             url=build_league_public_url(draft.league_slug, f"/draft-hub/{int(draft.id)}"),
@@ -359,75 +364,47 @@ def go_live(session: Session, draft: LeagueDraft, admin_user_id: int) -> str | N
 
 
 def pause_draft_timer(session: Session, draft: LeagueDraft) -> str | None:
-    """Pause the current live pick countdown and remember the remaining time."""
+    """Legacy no-op: normal Draft Hub picks are untimed."""
+    del session
     if draft.status != "live":
         return "Draft is not live."
-    if draft.awaiting_admin_resolution:
-        return "Current pick already needs commissioner action."
-    if getattr(draft, "timer_paused", False):
-        return None
-    slots = slots_ordered(session, draft.id)
-    if draft.current_slot_index >= len(slots):
-        return "No active pick slot."
-    now = utcnow_naive()
-    ddl = draft.pick_deadline_at
-    remaining = int(max(1, round((ddl - now).total_seconds()))) if ddl else int(draft.timer_seconds)
-    draft.timer_paused = True
-    draft.timer_paused_remaining_seconds = remaining
     draft.pick_deadline_at = None
+    draft.timer_paused = False
+    draft.timer_paused_remaining_seconds = None
     return None
 
 
 def resume_draft_timer(session: Session, draft: LeagueDraft) -> str | None:
-    """Resume a paused live pick countdown or restart a commissioner-stopped pick."""
+    """Legacy no-op: normal Draft Hub picks are untimed."""
     if draft.status != "live":
         return "Draft is not live."
-    slots = slots_ordered(session, draft.id)
-    if draft.current_slot_index >= len(slots):
-        return "No active pick slot."
-    if not getattr(draft, "timer_paused", False) and not draft.awaiting_admin_resolution:
-        return None
-    remaining = int(draft.timer_paused_remaining_seconds or draft.timer_seconds or 120)
-    remaining = max(1, remaining)
-    now = utcnow_naive()
     draft.awaiting_admin_resolution = False
     draft.timer_paused = False
     draft.timer_paused_remaining_seconds = None
-    draft.pick_started_at = now
-    draft.pick_deadline_at = now + timedelta(seconds=remaining)
+    draft.pick_deadline_at = None
+    sync_current_slot_and_clock(session, draft)
     return None
 
 
 def process_tick(session: Session, draft: LeagueDraft) -> None:
-    if draft.status != "live" or draft.awaiting_admin_resolution or getattr(draft, "timer_paused", False):
+    if draft.status != "live":
         return
-    ddl = draft.pick_deadline_at
-    if ddl is None:
-        sync_current_slot_and_clock(session, draft)
+    if draft.awaiting_admin_resolution or getattr(draft, "timer_paused", False):
+        draft.awaiting_admin_resolution = False
+        draft.timer_paused = False
+        draft.timer_paused_remaining_seconds = None
+        draft.pick_deadline_at = None
+        if draft.pick_started_at is None:
+            sync_current_slot_and_clock(session, draft)
         return
-    if utcnow_naive() <= ddl:
+    if draft.pick_deadline_at is None:
+        if draft.pick_started_at is None:
+            sync_current_slot_and_clock(session, draft)
         return
-
-    slots = slots_ordered(session, draft.id)
-    if draft.current_slot_index >= len(slots):
-        _finalize_draft_if_done(session, draft, slots)
-        return
-    slot = slots[draft.current_slot_index]
-    if slot.forfeited:
-        sync_current_slot_and_clock(session, draft)
-        return
-
-    # Wishlist is never consumed when the pick timer expires — only explicit GM/admin picks
-    # or "Auto-Complete Draft" may record from the queue. Mirror empty-queue handling: one
-    # grace extension, then commissioner resolution.
-    if not draft.deadline_extended_for_slot:
-        base = draft.pick_deadline_at or utcnow_naive()
-        draft.pick_deadline_at = base + timedelta(seconds=int(draft.empty_queue_timer_seconds))
-        draft.deadline_extended_for_slot = True
-        return
-
-    draft.awaiting_admin_resolution = True
+    # Clear any legacy deadline left by an older deployment without expiring the pick.
     draft.pick_deadline_at = None
+    if draft.pick_started_at is None:
+        sync_current_slot_and_clock(session, draft)
 
 
 def _remove_player_from_all_queues(session: Session, draft_id: int, player_id: int) -> None:
@@ -446,7 +423,8 @@ def record_pick(
     if draft.status != "live":
         return "Draft is not live."
     if draft.awaiting_admin_resolution and source != "admin":
-        return "Waiting for commissioner to resolve this pick."
+        draft.awaiting_admin_resolution = False
+        draft.pick_deadline_at = None
     slots = slots_ordered(session, draft.id)
     if draft.current_slot_index >= len(slots):
         return "No active pick slot."
@@ -472,7 +450,7 @@ def record_pick(
             return "You are not the GM on the clock for this team."
         ddl = draft.pick_deadline_at
         if ddl is not None and utcnow_naive() > ddl:
-            return "Pick timer has expired; ask the commissioner to resume this pick."
+            draft.pick_deadline_at = None
 
     pk = LeagueDraftPick(
         league_draft_id=draft.id,
@@ -518,6 +496,8 @@ def record_pick(
     draft.current_slot_index += 1
     draft.deadline_extended_for_slot = False
     draft.awaiting_admin_resolution = False
+    draft.pick_started_at = None
+    draft.pick_deadline_at = None
     draft.timer_paused = False
     draft.timer_paused_remaining_seconds = None
     sync_current_slot_and_clock(session, draft)
@@ -582,6 +562,8 @@ def undo_last_pick(session: Session, draft: LeagueDraft) -> str | None:
             break
     draft.awaiting_admin_resolution = False
     draft.deadline_extended_for_slot = False
+    draft.pick_started_at = None
+    draft.pick_deadline_at = None
     draft.timer_paused = False
     draft.timer_paused_remaining_seconds = None
     sync_current_slot_and_clock(session, draft)

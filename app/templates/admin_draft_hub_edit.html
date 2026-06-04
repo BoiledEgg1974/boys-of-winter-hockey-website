@@ -15,10 +15,9 @@
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(10rem,1fr));gap:0.75rem;margin-top:0.75rem;">
       <label>Rounds<br><input type="number" name="rounds" value="{{ draft.rounds }}" min="1"></label>
       <label>Picks per round<br><input type="number" name="picks_per_round" value="{{ draft.picks_per_round }}" min="1"></label>
-      <label>Timer (s)<br><input type="number" name="timer_seconds" value="{{ draft.timer_seconds }}" min="5"></label>
-      <label>Empty-queue timer (s)<br><input type="number" name="empty_queue_timer_seconds" value="{{ draft.empty_queue_timer_seconds }}" min="5"></label>
       <label>Timeline year<br><input type="number" name="timeline_year" value="{{ draft.timeline_year }}"></label>
     </div>
+    <p class="muted small" style="margin:0.75rem 0 0;">Live picks are untimed; GMs can make selections from the Draft Hub or with the Discord bot.</p>
     <section class="card" style="padding:1rem;margin-top:1rem;">
       {% set pool_source = draft.eligibility_pool_source or draft_pool_age_rules %}
       <h3 style="margin-top:0;">Eligibility pool source</h3>
@@ -225,17 +224,6 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="undo_pick">
     <button type="submit" class="button secondary">Undo last pick</button>
-  </form>
-  <form method="post" style="display:inline;margin-right:0.5rem;">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    {% if draft.timer_paused %}
-      <input type="hidden" name="action" value="resume_timer">
-      <button type="submit" class="button">Resume Countdown</button>
-      <span class="muted">Paused with about {{ draft.timer_paused_remaining_seconds or draft.timer_seconds }}s left.</span>
-    {% else %}
-      <input type="hidden" name="action" value="pause_timer">
-      <button type="submit" class="button secondary">Pause Countdown</button>
-    {% endif %}
   </form>
   <form method="post" style="display:inline;margin-right:0.5rem;"
         onsubmit="return confirm('End this draft now and mark it complete? Remaining unpicked slots stay empty. This cannot be undone from the admin screen.');">

@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import Player, Team
-from app.services.draft_hub_state import featured_draft, gm_user_ids_for_team, slots_ordered, utcnow_naive
+from app.services.draft_hub_state import featured_draft, gm_user_ids_for_team, slots_ordered
 from app.services.gm_messaging import gm_discord_name
 from app.services.player_ratings_csv import player_positions_display_label
 from app.site_models import LeagueDraft, LeagueDraftPick, LeagueDraftSlot, User
@@ -74,8 +74,6 @@ def draft_hub_on_clock_payload(
     team_name = tf.get("team_name") or (tm.full_display_name() if tm else f"Team #{slot.team_id}")
     ppr = max(1, int(getattr(draft, "picks_per_round", 27) or 27))
     sel = selection_in_round(int(slot.overall_pick), ppr)
-    timer_sec = max(5, int(draft.timer_seconds or 120))
-    timer_mins = max(1, (timer_sec + 59) // 60)
     return {
         **tf,
         "draft_id": int(draft.id),
@@ -85,7 +83,6 @@ def draft_hub_on_clock_payload(
         "selection": sel,
         "overall_pick": int(slot.overall_pick),
         "gm_mentions": gm_discord_mentions(session, draft.league_slug, int(slot.team_id)),
-        "timer_minutes": timer_mins,
         "url": build_league_public_url(draft.league_slug, "/draft-hub"),
         "has_image": False,
     }
@@ -210,12 +207,8 @@ def build_draft_status_message(session: Session, league_slug: str) -> str:
     lines = [f"**{draft.name}** — live"]
     if draft.awaiting_admin_resolution:
         lines.append("Status: waiting for commissioner to resolve the current pick.")
-    elif getattr(draft, "timer_paused", False):
-        rem = draft.timer_paused_remaining_seconds or draft.timer_seconds
-        lines.append(f"Status: timer paused (~{rem}s remaining).")
-    elif draft.pick_deadline_at:
-        sec = max(0, int((draft.pick_deadline_at - utcnow_naive()).total_seconds()))
-        lines.append(f"Status: on the clock ({sec}s left).")
+    elif draft.current_slot_index < len(slots):
+        lines.append("Status: on the clock; waiting for the GM selection.")
     else:
         lines.append("Status: between picks.")
     if draft.current_slot_index < len(slots):

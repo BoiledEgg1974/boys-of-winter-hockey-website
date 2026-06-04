@@ -35,6 +35,10 @@ class DraftHubDiscordTests(unittest.TestCase):
 
         with (
             patch.object(draft_hub_discord, "gm_user_ids_for_team", return_value=[]),
+            patch(
+                "app.services.discord_events.team_fields_for_discord",
+                return_value={"team_name": "Toronto Towers", "team_abbrev": "TOR"},
+            ),
             patch("app.services.discord_events.enqueue_discord_event") as enqueue,
         ):
             draft_hub_discord.enqueue_draft_hub_discord_alerts(session, draft, current, [current, next_slot])

@@ -301,7 +301,7 @@
 
   function submitDhUndoPick() {
     if (!undoPickUrl) return;
-    if (!window.confirm('Remove the most recent pick from this draft? The player returns to the eligible pool and the clock resets for that slot.')) return;
+    if (!window.confirm('Remove the most recent pick from this draft? The player returns to the eligible pool and that team goes back on the clock.')) return;
     dhPostJson(undoPickUrl, { csrf_token: csrf })
       .then(function (r) {
         return r.json().catch(function () {
@@ -670,9 +670,7 @@
     if (bannerTier) {
       html += '<p class="draft-hub-boost-banner-flag draft-hub-boost-banner-flag--' + esc(bannerTier) + '">' + esc(bannerTier).toUpperCase() + ' BOOST PICK</p>';
     }
-    if (x.status === 'live' && x.on_clock_team && x.timer_paused && !x.awaiting_admin) {
-      html += '<p class="draft-hub-banner__status">' + esc(x.on_clock_team).toUpperCase() + ' ARE ON THE CLOCK</p>';
-    } else if (x.status === 'live' && x.on_clock_team && !x.awaiting_admin) {
+    if (x.status === 'live' && x.on_clock_team && !x.awaiting_admin) {
       html += '<p class="draft-hub-banner__status">' + esc(x.on_clock_team).toUpperCase() + ' ARE ON THE CLOCK</p>';
     } else if (x.status === 'live' && x.awaiting_admin) {
       html += '<p class="draft-hub-banner__status">COMMISSIONER ACTION NEEDED</p>';
@@ -724,7 +722,7 @@
       : 'My Wishlist';
     var wishlistBlurb = x.show_on_clock_wishlist
       ? 'Wishlist order for the GM on the clock (visible to league admins).'
-      : 'Order players for quick reference or to confirm your top choice when you are on the clock. The site does not make picks from this list when time runs out; use Draft or ask the commissioner. When you are here, you may be asked to confirm your top wishlist name or choose someone else.';
+      : 'Order players for quick reference or to confirm your top choice when you are on the clock. The site does not auto-pick from this list; use Draft Hub, the Discord bot, or ask the commissioner.';
     html += '<h2 class="draft-hub-col__title" id="dh-wishlist-title">' + esc(wishlistTitle) + '</h2>';
     html += '<p class="muted small" id="dh-wishlist-blurb" style="margin:0 0 0.5rem;line-height:1.35;">' + esc(wishlistBlurb) + '</p>';
     if (x.show_on_clock_wishlist) {

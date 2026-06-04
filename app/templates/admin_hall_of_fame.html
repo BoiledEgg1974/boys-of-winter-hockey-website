@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Admin — Hall of Fame{% endblock %}
+{% block content %}
+<div class="card" style="max-width:58rem;margin:0 auto;">
+  <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
+  <h1 class="page-title">Hall of Fame inductees</h1>
+  <p class="muted">Add a player name and induction year. The Hall of Fame page, player page HoF badge, and player hover card all use this database table.</p>
+
+  <section class="card" style="padding:1rem;margin:1rem 0;">
+    <h2 style="margin-top:0;">{% if edit_row %}Edit inductee{% else %}Add inductee{% endif %}</h2>
+    <form method="post" style="display:grid;grid-template-columns:2fr 10rem auto;gap:0.75rem;align-items:end;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="save">
+      {% if edit_row %}<input type="hidden" name="member_id" value="{{ edit_row.id }}">{% endif %}
+      <label>Player name or ID<br>
+        <input list="hof-player-names" name="player_name" value="{{ edit_row.player.full_name if edit_row and edit_row.player else '' }}" required style="width:100%;">
+      </label>
+      <label>Inducted year<br>
+        <input type="number" name="inducted_year" min="1900" max="2200" value="{{ edit_row.inducted_year if edit_row else '' }}" required style="width:100%;">
+      </label>
+      <button type="submit" class="button">{% if edit_row %}Save changes{% else %}Add inductee{% endif %}</button>
+    </form>
+    {% if edit_row %}
+    <p style="margin:0.75rem 0 0;"><a href="{{ url_for('site_admin.admin_hall_of_fame') }}">Cancel edit</a></p>
+    {% endif %}
+    <datalist id="hof-player-names">
+      {% for name in player_name_choices %}
+      <option value="{{ name }}">
+      {% endfor %}
+    </datalist>
+  </section>
+
+  <h2>Current inductees</h2>
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr>
+          <th>Year</th>
+          <th>Name</th>
+          <th>Kind</th>
+          <th>Source</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>{{ row.inducted_year }}</td>
+          <td>
+            {% if row.player %}
+            <a href="{{ url_for('main.player_page', player_id=row.player.id) }}">{{ row.player.full_name }}</a>
+            <span class="muted">#{{ row.player.id }}</span>
+            {% else %}
+            <span class="muted">Missing player #{{ row.player_id }}</span>
+            {% endif %}
+          </td>
+          <td>{{ row.member_kind|title }}</td>
+          <td>{{ row.source or 'csv' }}</td>
+          <td>
+            <a class="button secondary small" href="{{ url_for('site_admin.admin_hall_of_fame', edit=row.id) }}">Edit</a>
+            <form method="post" style="display:inline;" onsubmit="return confirm('Remove this Hall of Fame inductee?');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="action" value="delete">
+              <input type="hidden" name="member_id" value="{{ row.id }}">
+              <button type="submit" class="button secondary small">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="muted">No Hall of Fame inductees yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

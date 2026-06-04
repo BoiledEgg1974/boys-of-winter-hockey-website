@@ -16,6 +16,7 @@ from pathlib import Path
 from sqlalchemy import delete, select
 
 from app.models import Team, TeamSeasonRecord, db
+from scripts.import_pipeline.sqlite_session import commit_with_sqlite_retry
 from scripts.import_pipeline.encoding_utils import (
     cell_val,
     read_csv_normalized,
@@ -105,7 +106,7 @@ def import_team_season_records(raw_dir: Path, app) -> int:
     )
 
     removed = delete_non_admin_team_season_records(db.session)
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     log.info(
         "Removed %s non-admin team_season_records rows before CSV re-import (admin rows kept).",
         removed,
@@ -174,9 +175,9 @@ def import_team_season_records(raw_dir: Path, app) -> int:
         db.session.add(rec)
         n += 1
         if n % 400 == 0:
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
 
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     log.info(
         "Imported %s rows from %s (skipped %s rows with no resolvable team).",
         n,

@@ -174,7 +174,7 @@ def import_league_meta(raw_dir: Path, league_filter: int) -> int:
         lm.name = name
         lm.abbreviation = abbr
         n += 1
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return n
 
 
@@ -234,7 +234,7 @@ def ensure_season(raw_dir: Path, league_filter: int) -> tuple[Season, bool]:
         s.start_year = y0
         s.end_year = y1
         s.is_current = True
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return s, league_year_changed
 
 
@@ -282,7 +282,7 @@ def import_fhm_teams(raw_dir: Path, league_filter: int, div_map: dict) -> dict[i
         t.fhm_conference_id = cid
         t.fhm_division_id = did
         fhm_to_id[tid] = t.id
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return fhm_to_id
 
 
@@ -333,9 +333,9 @@ def import_players(raw_dir: Path, teams_fhm: dict[int, int]) -> dict[int, int]:
         fhm_to_id[pid] = p.id
         batch += 1
         if batch >= 400:
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
             batch = 0
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return fhm_to_id
 
 
@@ -374,7 +374,7 @@ def import_ratings(raw_dir: Path, players_fhm: dict[int, int]) -> int:
         if best and not pl.position:
             pl.position = best
         n += 1
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return n
 
 
@@ -424,7 +424,7 @@ def import_standings(raw_dir: Path, season: Season, teams_fhm: dict[int, int], d
         st.division = resolve_division_name(div_map, league_filter, team.fhm_conference_id, did)
         st.conference = None
         n += 1
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return n
 
 
@@ -479,7 +479,7 @@ def import_team_season_stats(
         agg.sellouts_away = to_int(cell_val(r, "sellouts_away"))
         agg.capacity_use_pct = to_float(cell_val(r, "capacity_use"))
         n += 1
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return n
 
 
@@ -554,7 +554,7 @@ def import_games(
         g.game_type = cell_val(r, "type")
         g.fhm_league_id = league_filter
         fhm_to_gid[gid] = g.id
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     if app is not None and newly_final_game_ids:
         try:
             from app.services.bowl_six import record_bowl_six_game_finals
@@ -565,7 +565,7 @@ def import_games(
                 league_slug=str(app.config.get("LEAGUE_SLUG") or ""),
                 game_ids=newly_final_game_ids,
             )
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
         except Exception:
             db.session.rollback()
             log.exception("BOWL Six game-final tracking failed (non-fatal)")
@@ -606,7 +606,7 @@ def import_games(
             gd = _parse_date(y, m, d)
             if gd:
                 g.game_date = gd
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return fhm_to_gid
 
 
@@ -614,7 +614,7 @@ def _clear_game_details() -> None:
     db.session.execute(delete(GameSkaterStat))
     db.session.execute(delete(GameGoalieStat))
     db.session.execute(delete(ScoringEvent))
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
 
 
 def ensure_players_from_boxscore_csvs(raw_dir: Path, players_fhm: dict[int, int]) -> int:
@@ -654,7 +654,7 @@ def ensure_players_from_boxscore_csvs(raw_dir: Path, players_fhm: dict[int, int]
         db.session.flush()
         players_fhm[pid] = p.id
         n += 1
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return n
 
 
@@ -695,7 +695,7 @@ def ensure_players_from_draft_info(raw_dir: Path, players_fhm: dict[int, int]) -
         db.session.flush()
         players_fhm[pid] = p.id
         n += 1
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return n
 
 
@@ -755,9 +755,9 @@ def import_boxscore_skaters(raw_dir: Path, games_fhm: dict[str, int], players_fh
         n += 1
         batch += 1
         if batch >= 500:
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
             batch = 0
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return n
 
 
@@ -801,7 +801,7 @@ def import_boxscore_goalies(raw_dir: Path, games_fhm: dict[str, int], players_fh
                 pct = pct / 100.0
         gg.toi_seconds = _toi_seconds(cell_val(r, "toi"))
         n += 1
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return n
 
 
@@ -836,8 +836,8 @@ def import_period_scoring(raw_dir: Path, games_fhm: dict[str, int], players_fhm:
         db.session.add(ev)
         n += 1
         if n % 500 == 0:
-            db.session.commit()
-    db.session.commit()
+            commit_with_sqlite_retry(db.session)
+    commit_with_sqlite_retry(db.session)
     return n
 
 
@@ -906,8 +906,8 @@ def import_skater_segment(
         row_db.pdo = to_float(cell_val(r, "pdo"))
         n += 1
         if n % 400 == 0:
-            db.session.commit()
-    db.session.commit()
+            commit_with_sqlite_retry(db.session)
+    commit_with_sqlite_retry(db.session)
     return n
 
 
@@ -966,7 +966,7 @@ def import_goalie_segment(
             cell_val(r, "gsaa", "goals_saved_above_average", "goals_saved_above_avg")
         )
         n += 1
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return n
 
 
@@ -1157,7 +1157,7 @@ def import_contracts(raw_dir: Path, players_fhm: dict[int, int]) -> int:
         pc.is_elc = (cell_val(r, "elc") or "").lower() == "yes"
         pc.is_ufa = to_bool(cell_val(r, "ufa"))
         n += 1
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return n
 
 
@@ -1168,7 +1168,7 @@ def import_drafts_fhm(raw_dir: Path, players_fhm: dict[int, int], teams_fhm: dic
         return 0
     for d in db.session.scalars(select(Draft).where(Draft.fhm_draft_id.isnot(None))).all():
         db.session.execute(delete(DraftPick).where(DraftPick.draft_id == d.id))
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
 
     idf = read_csv_normalized(idx)
     draft_by_fhm: dict[int, int] = {}
@@ -1186,7 +1186,7 @@ def import_drafts_fhm(raw_dir: Path, players_fhm: dict[int, int], teams_fhm: dic
         else:
             d.label = label
         draft_by_fhm[did] = d.id
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
 
     n = 0
     for r in _iter_draft_info_dicts(raw_dir):
@@ -1206,7 +1206,7 @@ def import_drafts_fhm(raw_dir: Path, players_fhm: dict[int, int], teams_fhm: dic
         )
         db.session.add(pk)
         n += 1
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return n
 
 
@@ -1230,7 +1230,7 @@ def import_player_jersey_numbers(raw_dir: Path, players_fhm: dict[int, int]) -> 
             continue
         p.jersey_number = jn
         n += 1
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return n
 
 

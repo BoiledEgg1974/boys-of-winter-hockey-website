@@ -36,6 +36,15 @@ League **URL slugs** (used in `LEAGUE_SLUG` and in URLs): `bowl-historical`, `bo
 
 The import rebuilds the player search index (FTS) and related pieces automatically.
 
+### `database is locked` during import
+
+SQLite allows only one writer at a time. On PythonAnywhere (or any host where the site stays up), **live web workers and the Discord bot** can hold read locks on the same `instance/<league>.db` while `import_data.py` runs. The importer retries commits automatically, but if the error persists:
+
+1. **Reload the web app** on PythonAnywhere (Web → your app → Reload) before importing that league.
+2. **Pause the league Discord bot** if it polls that league while you import.
+3. Run **one league at a time** (`bowl-cap`, then `bowl-historical`, etc.)—each uses a different database file, but step 1 still matters per league.
+4. Optionally raise `SQLITE_BUSY_TIMEOUT_SECONDS` (default 30) in the environment if imports are slow.
+
 **BOWL Six** scoring runs automatically after each import (and when commissioners or GMs open the Control Center or BOWL Six hub): locked slates pick up points from completed RS games; when every RS game in the week is final, the slate finalizes (AP + GM notifications). If box scores change after a week is already scored, use **Re-score slate** in Control Center (type `RESCORE` to confirm).
 
 ## Copy from FHM saved-game folders (Windows)

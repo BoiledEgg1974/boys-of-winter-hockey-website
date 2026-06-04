@@ -44,6 +44,7 @@ from app.models import (  # noqa: E402
 )
 from app.services.player_headshot import canonical_player_headshot_basename  # noqa: E402
 from app.services.rebuild import refresh_after_import, snapshot_overall_baselines_before_import  # noqa: E402
+from scripts.import_pipeline.sqlite_session import commit_with_sqlite_retry  # noqa: E402
 from scripts.import_pipeline.encoding_utils import (  # noqa: E402
     cell_val,
     fhm_scoring_period_to_int,
@@ -147,7 +148,7 @@ def import_teams(raw_dir: Path, app) -> int:
         t.primary_color = cell_val(r, "primary_color", "primary")
         t.secondary_color = cell_val(r, "secondary_color", "secondary")
         n += 1
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return n
 
 
@@ -182,7 +183,7 @@ def import_seasons(raw_dir: Path, app) -> int:
         s.end_year = to_int(cell_val(r, "end_year"))
         s.is_current = to_bool(cell_val(r, "is_current", "current"))
         n += 1
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return n
 
 
@@ -337,7 +338,7 @@ def import_players(raw_dir: Path, app) -> int:
             if jn is not None:
                 p.jersey_number = jn
         n += 1
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return n
 
 
@@ -394,7 +395,7 @@ def import_team_standings(raw_dir: Path, app) -> int:
             pct = st.pts / (2.0 * st.gp)
         st.win_pct = pct
         n += 1
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return n
 
 
@@ -452,7 +453,7 @@ def import_games(raw_dir: Path, app) -> int:
         g.home_shots = to_int(cell_val(r, "home_shots"))
         g.away_shots = to_int(cell_val(r, "away_shots"))
         n += 1
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     if newly_final_game_ids:
         try:
             from app.services.bowl_six import record_bowl_six_game_finals
@@ -463,7 +464,7 @@ def import_games(raw_dir: Path, app) -> int:
                 league_slug=str(app.config.get("LEAGUE_SLUG") or ""),
                 game_ids=newly_final_game_ids,
             )
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
         except Exception:
             db.session.rollback()
             log.exception("BOWL Six game-final tracking failed (non-fatal)")
@@ -488,7 +489,7 @@ def import_skater_stats(raw_dir: Path, app) -> int:
         sid = int(cur.id)
         db.session.execute(delete(PlayerSkaterStat).where(PlayerSkaterStat.season_id == sid))
         db.session.execute(delete(PlayerGoalieStat).where(PlayerGoalieStat.season_id == sid))
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
     df = read_csv_normalized(path)
     n = 0
     for _, row in df.iterrows():
@@ -522,7 +523,7 @@ def import_skater_stats(raw_dir: Path, app) -> int:
         row_db.shg = to_int(cell_val(r, "shg", "sh_goals"))
         row_db.gwg = to_int(cell_val(r, "gwg"))
         n += 1
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return n
 
 
@@ -566,7 +567,7 @@ def import_goalie_stats(raw_dir: Path, app) -> int:
             cell_val(r, "gsaa", "goals_saved_above_average", "goals_saved_above_avg")
         )
         n += 1
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return n
 
 
@@ -604,7 +605,7 @@ def import_game_skater_stats(raw_dir: Path, app) -> int:
         row_db.toi_seconds = to_int(cell_val(r, "toi_seconds", "toi"))
         row_db.plus_minus = to_int(cell_val(r, "+_", "+__", "plus_minus", "pm"))
         n += 1
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return n
 
 
@@ -634,7 +635,7 @@ def import_game_goalie_stats(raw_dir: Path, app) -> int:
         row_db.goals_allowed = to_int(cell_val(r, "goals_allowed", "ga"), 0) or 0
         row_db.decision = cell_val(r, "decision", "result")
         n += 1
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return n
 
 
@@ -669,7 +670,7 @@ def import_scoring_events(raw_dir: Path, app) -> int:
         )
         db.session.add(ev)
         n += 1
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return n
 
 
@@ -697,7 +698,7 @@ def import_penalty_events(raw_dir: Path, app) -> int:
         )
         db.session.add(ev)
         n += 1
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return n
 
 
@@ -722,7 +723,7 @@ def import_prospects(raw_dir: Path, app) -> int:
         )
         db.session.add(pr)
         n += 1
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return n
 
 
@@ -740,7 +741,7 @@ def import_drafts(raw_dir: Path, app) -> int:
         db.session.add(d)
         db.session.flush()
         n += 1
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return n
 
 
@@ -776,7 +777,7 @@ def import_draft_picks(raw_dir: Path, app) -> int:
         )
         db.session.add(pick)
         n += 1
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return n
 
 
@@ -810,7 +811,7 @@ def import_hall_of_fame(raw_dir: Path, app) -> int:
         return 0
     df = read_csv_normalized(path)
     db.session.execute(delete(HallOfFameMember))
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     n = 0
     seen_players: set[int] = set()
     for _, row in df.iterrows():
@@ -848,7 +849,7 @@ def import_hall_of_fame(raw_dir: Path, app) -> int:
         )
         seen_players.add(int(player.id))
         n += 1
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return n
 
 
@@ -884,7 +885,7 @@ def import_history_awards(
         if needle:
             raise ValueError("replace_all cannot be combined with replace_award_substring.")
         removed = delete_non_admin_history_awards(db.session)
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
         log.info(
             "Removed %s non-admin history_awards rows before CSV re-import (admin rows kept).",
             removed,
@@ -892,7 +893,7 @@ def import_history_awards(
     elif needle:
         sub = needle.upper()
         db.session.execute(delete(HistoryAward).where(HistoryAward.award_name.ilike(f"%{needle}%")))
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
         log.info("Removed existing history awards matching %r before partial re-import.", needle)
     n = 0
     league_slug = str(app.config.get("LEAGUE_SLUG") or "").strip()
@@ -960,7 +961,7 @@ def import_history_awards(
         )
         db.session.add(a)
         n += 1
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return n
 
 
@@ -988,7 +989,7 @@ def import_history_all_stars(raw_dir: Path, app) -> int:
     )
 
     removed = delete_non_admin_all_stars(db.session)
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     log.info(
         "Removed %s non-admin history_all_stars rows before CSV re-import (admin rows kept).",
         removed,
@@ -1054,7 +1055,7 @@ def import_history_all_stars(raw_dir: Path, app) -> int:
             )
         )
         n += 1
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return n
 
 
@@ -1073,7 +1074,7 @@ def import_trade_log(raw_dir: Path, app) -> int:
         return 0
     df = read_csv_normalized(path)
     db.session.execute(delete(TradeLogEntry))
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     n = 0
     for _, row in df.iterrows():
         r = row.to_dict()
@@ -1103,7 +1104,7 @@ def import_trade_log(raw_dir: Path, app) -> int:
             )
         )
         n += 1
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return n
 
 
@@ -1126,7 +1127,7 @@ def import_history_champions(raw_dir: Path, app) -> int:
         )
         db.session.add(c)
         n += 1
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return n
 
 
@@ -1212,7 +1213,7 @@ def run_import(raw_dir: Path | None = None) -> None:
                 status="started",
             )
             db.session.add(ilog)
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
             counts: dict = {}
             try:
                 counts = run_fhm_import(raw, app, league_filter=0)
@@ -1256,7 +1257,7 @@ def run_import(raw_dir: Path | None = None) -> None:
                 ilog.status = "error"
                 ilog.message = str(e)
             ilog.finished_at = datetime.utcnow()
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
             refresh_after_import(db.engine, app)
             _run_post_import_safeguards()
             log.info("FHM import finished. Counts: %s", counts if ilog.status == "success" else {})
@@ -1266,7 +1267,7 @@ def run_import(raw_dir: Path | None = None) -> None:
         for name, fn in STEPS:
             ilog = ImportLog(file_name=f"{name}.csv", started_at=datetime.utcnow(), status="started")
             db.session.add(ilog)
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
             try:
                 count = fn(raw, app)
                 total += count
@@ -1279,7 +1280,7 @@ def run_import(raw_dir: Path | None = None) -> None:
                 ilog.status = "error"
                 ilog.message = str(e)
             ilog.finished_at = datetime.utcnow()
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
         refresh_after_import(db.engine, app)
         _run_post_import_safeguards()
         log.info("Import finished. Total row operations (approx): %s", total)

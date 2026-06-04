@@ -3,11 +3,14 @@ from __future__ import annotations
 
 import os
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
+from unittest.mock import MagicMock
 
 from app.services.discord_events import (
     build_league_public_url,
     build_news_article_public_url,
+    enrich_discord_payload_for_bot,
     normalize_discord_payload_url,
     resolve_site_public_base_url,
     sanitize_discord_event_payload,
@@ -73,6 +76,30 @@ class DiscordPublicUrlTest(unittest.TestCase):
             }
         )
         self.assertEqual(body.get("embeds"), [{"title": "T"}])
+
+    def test_news_payload_enrichment_adds_team_gm_mention(self):
+        session = MagicMock()
+        session.get.return_value = SimpleNamespace(
+            id=42,
+            league_slug="bowl-cap",
+            team_id=7,
+            title="Team story",
+            body="Full story.",
+            image_rel_path=None,
+        )
+        with patch(
+            "app.services.discord_events._discord_user_mention_for_team",
+            return_value="<@123456789012345678>",
+        ):
+            out = enrich_discord_payload_for_bot(
+                session,
+                league_slug="bowl-cap",
+                event_key="gm_news_published",
+                payload={"article_id": 42},
+            )
+
+        self.assertEqual(out["team_id"], 7)
+        self.assertEqual(out["team_gm_mention"], "<@123456789012345678>")
 
 
 if __name__ == "__main__":

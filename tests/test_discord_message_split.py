@@ -51,6 +51,23 @@ class DiscordMessageSplitTest(unittest.TestCase):
         self.assertIn("Paragraph one.", joined)
         self.assertIn(DISCORD_SITE_MORE_FOOTER, parts[-1].get("content", ""))
 
+    def test_text_only_news_includes_team_gm_mention(self):
+        parts = format_discord_messages(
+            {
+                "league_slug": "bowl-cap",
+                "event_key": "gm_news_published",
+                "payload": {
+                    "title": "Team update",
+                    "body": "A team-tagged story.",
+                    "has_image": False,
+                    "team_abbrev": "TOR",
+                    "team_gm_mention": "<@123456789012345678>",
+                },
+            },
+            max_parts=2,
+        )
+        self.assertIn("<@123456789012345678>", parts[0].get("content", ""))
+
     def test_draft_pick_is_text_only_without_embed(self):
         parts = format_discord_messages(
             {
@@ -263,6 +280,24 @@ class DiscordMessageSplitTest(unittest.TestCase):
             parts[0]["embeds"][0]["url"],
             "https://www.bowlhockey.com/bowl-historical/league-headlines#a1",
         )
+
+    def test_news_with_image_puts_team_gm_mention_in_content(self):
+        parts = format_discord_messages(
+            {
+                "league_slug": "bowl-historical",
+                "event_key": "gm_news_published",
+                "payload": {
+                    "title": "Photo post",
+                    "body": "Full story text.",
+                    "has_image": True,
+                    "url": "https://www.bowlhockey.com/bowl-historical/league-headlines#a1",
+                    "team_gm_mention": "<@222222222222222222>",
+                },
+            },
+            max_parts=2,
+        )
+        self.assertEqual(parts[0].get("content"), "<@222222222222222222>")
+        self.assertIn("embeds", parts[0])
 
     def test_news_with_image_does_not_duplicate_content_and_embed_body(self):
         parts = format_discord_messages(

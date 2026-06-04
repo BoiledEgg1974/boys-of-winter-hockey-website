@@ -106,6 +106,11 @@ def _payload_has_image(payload: dict[str, Any]) -> bool:
     return False
 
 
+def _team_gm_mention_line(payload: dict[str, Any]) -> str:
+    mention = str(payload.get("team_gm_mention") or "").strip()
+    return mention if mention.startswith("<@") and mention.endswith(">") else ""
+
+
 def _body_text(payload: dict[str, Any], *, full: bool = False) -> str:
     if full:
         raw = payload.get("body") or payload.get("body_preview") or payload.get("message") or ""
@@ -136,6 +141,9 @@ def _text_only_header_lines(
         team_line = format_team_label(league_slug, payload)
         if team_line:
             lines.append(team_line)
+        mention = _team_gm_mention_line(payload)
+        if mention and event_key in ("news_published", "gm_news_published", "admin_news_published"):
+            lines.append(mention)
         lines.append(f"**{title}**")
     elif event_key == "announcement_posted":
         lines.append(f"**{title}**")
@@ -152,6 +160,9 @@ def _text_only_header_lines(
             lines.append(f"GM: {gm_name}")
         lines.append(f"**{title}**")
     elif event_key == "story_published":
+        mention = _team_gm_mention_line(payload)
+        if mention:
+            lines.append(mention)
         lines.append(f"**{title}**")
     elif event_key == "draft_hub_on_clock":
         prefix = team_emoji_prefix(league_slug, payload)
@@ -476,7 +487,11 @@ def format_discord_messages(event: dict[str, Any], *, max_parts: int = 2) -> lis
         body_full = _body_text(payload, full=True) or body_short
         embed = _news_embed(league_slug, payload, title=title, body=body_full, url=url)
         if embed.get("description") or embed.get("url"):
-            return _split_message_bodies({"embeds": [embed]}, max_parts=max(1, int(max_parts)))
+            mention = _team_gm_mention_line(payload)
+            msg = {"embeds": [embed]}
+            if mention:
+                msg["content"] = mention
+            return _split_message_bodies(msg, max_parts=max(1, int(max_parts)))
         return [{"content": f"**{title}**"}]
 
     if _is_text_only_discord_post(event_key, payload):
@@ -493,6 +508,9 @@ def format_discord_messages(event: dict[str, Any], *, max_parts: int = 2) -> lis
         team_line = format_team_label(league_slug, payload)
         if team_line:
             lines.append(team_line)
+        mention = _team_gm_mention_line(payload)
+        if mention:
+            lines.append(mention)
         lines.append(f"**{title}**")
         if body_short:
             lines.append(body_short)

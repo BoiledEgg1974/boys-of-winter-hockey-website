@@ -17,6 +17,7 @@ from app.site_models import (
     DiscordLeagueBotConfig,
     DiscordOutboundEvent,
     GmApprovalRequest,
+    GmLeagueMembership,
     LeagueDraft,
     LeagueDraftPick,
     LeagueExpansionDraft,
@@ -468,7 +469,7 @@ def news_article_discord_payload(article: NewsArticle, **extra: object) -> dict:
     """Queue payload fields for news-style Discord events."""
     body = str(article.body or "")
     has_image = bool(str(article.image_rel_path or "").strip())
-    return {
+    out = {
         "article_id": int(article.id),
         "title": str(article.title or ""),
         "body": body,
@@ -476,6 +477,31 @@ def news_article_discord_payload(article: NewsArticle, **extra: object) -> dict:
         "has_image": has_image,
         **extra,
     }
+    if article.team_id is not None:
+        out["team_id"] = int(article.team_id)
+    return out
+
+
+def _discord_user_mention_for_team(session, *, league_slug: str, team_id: int | None) -> str:
+    if team_id is None:
+        return ""
+    user = session.scalar(
+        select(User)
+        .join(GmLeagueMembership, GmLeagueMembership.user_id == User.id)
+        .where(
+            GmLeagueMembership.league_slug == str(league_slug or "").strip(),
+            GmLeagueMembership.team_id == int(team_id),
+            GmLeagueMembership.status == "active",
+        )
+        .order_by(GmLeagueMembership.approved_at.desc().nulls_last(), GmLeagueMembership.id.desc())
+        .limit(1)
+    )
+    if user is None:
+        return ""
+    discord_id = str(getattr(user, "discord_user_id", "") or "").strip()
+    if not DISCORD_SNOWFLAKE_PATTERN.match(discord_id):
+        return ""
+    return f"<@{discord_id}>"
 
 
 def enrich_discord_payload_for_bot(
@@ -503,6 +529,11 @@ def enrich_discord_payload_for_bot(
         merged = {**enriched, **out}
         merged["body"] = enriched["body"]
         merged["has_image"] = enriched["has_image"]
+        mention = str(merged.get("team_gm_mention") or "").strip()
+        if not mention:
+            merged["team_gm_mention"] = _discord_user_mention_for_team(
+                session, league_slug=league_slug, team_id=art.team_id
+            )
         if len(str(out.get("body_preview") or "")) < len(enriched["body_preview"]):
             merged["body_preview"] = enriched["body_preview"]
         return merged

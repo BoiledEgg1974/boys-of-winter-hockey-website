@@ -24,7 +24,11 @@ from app.services.game_records import (
     resolve_game_record,
     upsert_baseline,
 )
-from app.services.rookie_eligibility import is_nhl_style_rookie, rookie_cutoff_date
+from app.services.rookie_eligibility import (
+    is_nhl_style_rookie,
+    prior_skater_gp_by_season_for_players,
+    rookie_cutoff_date,
+)
 
 
 class GameRecordsServiceTest(unittest.TestCase):
@@ -175,6 +179,22 @@ class GameRecordsServiceTest(unittest.TestCase):
         season = SimpleNamespace(start_year=1969, end_year=1970)
         self.assertFalse(is_nhl_style_rookie([30], date(1950, 1, 1), season))
 
+    def test_prior_skater_gp_aggregates_first_row_without_keyerror(self) -> None:
+        session = MagicMock()
+        session.execute.return_value.all.return_value = [
+            (1, 1990, 10),
+            (1, 1991, 15),
+            (2, 1990, 5),
+        ]
+        result = prior_skater_gp_by_season_for_players(
+            session,
+            player_ids=[1, 2],
+            before_season_year=1992,
+            league_ids=(0,),
+        )
+        self.assertEqual(result[1], [10, 15])
+        self.assertEqual(result[2], [5])
+
     def test_upsert_baseline_creates_and_updates(self) -> None:
         session = MagicMock()
         session.scalars.return_value.first.return_value = None
@@ -219,6 +239,14 @@ class GameRecordsRoutesTest(unittest.TestCase):
             self.assertIn(b"Playoffs", r.data)
             self.assertIn(b"Rookies", r.data)
             self.assertIn(b"Saves", r.data)
+
+    def test_cap_rookie_skater_game_records_renders(self) -> None:
+        app = create_app(make_league_config("bowl-cap"))
+        with app.test_client() as client:
+            r = client.get("/game-records?scope=rookie&kind=skater")
+            self.assertEqual(r.status_code, 200)
+            self.assertIn(b"Rookies", r.data)
+            self.assertIn(b"game-records-grid", r.data)
 
     def test_build_page_includes_skater_metrics(self) -> None:
         app = create_app(make_league_config("bowl-historical"))

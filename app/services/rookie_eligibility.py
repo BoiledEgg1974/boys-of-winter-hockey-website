@@ -92,7 +92,8 @@ def prior_skater_gp_by_season_for_players(
             continue
         pid_i = int(pid)
         yr_i = int(season_year)
-        out.setdefault(pid_i, {})[yr_i] = out[pid_i].get(yr_i, 0) + int(gp or 0)
+        by_year = out.setdefault(pid_i, {})
+        by_year[yr_i] = by_year.get(yr_i, 0) + int(gp or 0)
     return {pid: list(yrs.values()) for pid, yrs in out.items()}
 
 
@@ -124,7 +125,8 @@ def prior_goalie_gp_by_season_for_players(
             continue
         pid_i = int(pid)
         yr_i = int(season_year)
-        out.setdefault(pid_i, {})[yr_i] = out[pid_i].get(yr_i, 0) + int(gp or 0)
+        by_year = out.setdefault(pid_i, {})
+        by_year[yr_i] = by_year.get(yr_i, 0) + int(gp or 0)
     return {pid: list(yrs.values()) for pid, yrs in out.items()}
 
 

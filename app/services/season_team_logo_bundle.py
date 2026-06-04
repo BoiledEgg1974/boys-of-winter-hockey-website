@@ -678,6 +678,11 @@ def get_season_team_logo_bundle(app: Flask | None = None) -> SeasonTeamLogoBundl
     from flask import current_app, g
 
     app = app or current_app
+    if has_request_context():
+        cached = getattr(g, "_season_team_logo_bundle", None)
+        if cached is not None:
+            return cached
+
     fp = _bundle_input_fingerprint(app)
     aid = id(app)
     ent = _PROCESS_LOGO_BUNDLES.get(aid)

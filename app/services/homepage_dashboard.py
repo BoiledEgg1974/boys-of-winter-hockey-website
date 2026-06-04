@@ -9,7 +9,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
-from flask import current_app, url_for
+from flask import current_app, g, has_request_context, url_for
 from sqlalchemy import func, select
 from sqlalchemy.orm import joinedload
 
@@ -411,13 +411,25 @@ def pick_next_game_to_watch(
 def _player_photo_url(pl: Player) -> str:
     from app.services.player_headshot import resolve_player_headshot_static_filename
 
+    if has_request_context():
+        cache = getattr(g, "_homepage_player_photo_url_cache", None)
+        if cache is None:
+            cache = {}
+            g._homepage_player_photo_url_cache = cache
+        key = int(pl.id)
+        if key in cache:
+            return cache[key]
+
     static_root = Path(current_app.root_path) / "static"
     rel = resolve_player_headshot_static_filename(
         static_root,
         pl,
         current_app.config.get("PLAYER_HEADSHOTS_REL_DIR", "players"),
     )
-    return url_for("static", filename=rel) if rel else ""
+    out = url_for("static", filename=rel) if rel else ""
+    if has_request_context():
+        cache[key] = out
+    return out
 
 
 def _stars_skaters_in_window(

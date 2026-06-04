@@ -106,7 +106,7 @@ def build_homepage_summary_cached(
         builder=_build_core,
         app=app,
         include_site_db_fingerprint=False,
-        refresh_stale_in_background=False,
+        refresh_stale_in_background=True,
     )
     return refresh_volatile_homepage_fields(body), status
 

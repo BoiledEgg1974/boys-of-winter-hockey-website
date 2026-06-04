@@ -11,7 +11,7 @@ from sqlalchemy import select
 from app import create_app
 from app.config import make_league_config
 from app.league_db import db
-from app.models import GameRecordBaseline, Player
+from app.models import GameRecordBaseline, Player, Team
 from app.services.game_records import (
     GameRecordHolder,
     GameRecordMetric,
@@ -228,6 +228,25 @@ class GameRecordsRoutesTest(unittest.TestCase):
             self.assertIn("Goals", titles)
             self.assertIn("Points", titles)
             self.assertIn("PP Goals", titles)
+
+    def test_cap_game_record_card_uses_canadiens_era_logo_for_1992_montreal(self) -> None:
+        app = create_app(make_league_config("bowl-cap"))
+        with app.test_request_context("/game-records?segment=po"):
+            from app.services.season_team_logo_bundle import get_season_team_logo_bundle
+
+            team = db.session.scalar(select(Team).where(Team.fhm_team_id == "0").limit(1))
+            if team is None:
+                self.skipTest("missing Montreal team in cap test db")
+            card = {
+                "team": team,
+                "season_year": 1992,
+                "season_year_label": "1992-93",
+            }
+            logo_url = get_season_team_logo_bundle(app).season_team_logo_url(card)
+
+            self.assertIsNotNone(logo_url)
+            self.assertIn("montreal_canadiens_1956-1998.png", logo_url)
+            self.assertNotIn("wanderers", logo_url.lower())
 
 
 class GameRecordsBaselineIntegrationTest(unittest.TestCase):

@@ -198,6 +198,12 @@ def build_season_team_logo_bundle(app: Flask) -> SeasonTeamLogoBundle:
 
     def _record_name_candidates(record: object) -> list[str]:
         out: list[str] = []
+        rec_map = record if isinstance(record, Mapping) else None
+        if rec_map is not None:
+            for key in ("team_name_override", "team_name"):
+                v = rec_map.get(key)
+                if v:
+                    out.append(_norm_team_logo_name(str(v)))
         for attr in ("team_name_override", "team_name"):
             v = getattr(record, attr, None)
             if v:
@@ -210,6 +216,8 @@ def build_season_team_logo_bundle(app: Flask) -> SeasonTeamLogoBundle:
                     if v:
                         out.append(_norm_team_logo_name(str(v)))
         team_obj = getattr(record, "team", None)
+        if team_obj is None and rec_map is not None:
+            team_obj = rec_map.get("team")
         if team_obj is not None:
             for attr in ("full_display_name", "name", "city", "nickname"):
                 v = getattr(team_obj, attr, None)

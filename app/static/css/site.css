@@ -3634,7 +3634,7 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
 .team-honors__jersey-num {
   position: absolute;
   left: 50%;
-  top: 51%;
+  top: 60%;
   transform: translate(-50%, -50%);
   font-size: clamp(2rem, 5.4vw, 2.7rem);
   font-weight: 800;

@@ -36,6 +36,12 @@ class TeamHonorsTemplateTest(unittest.TestCase):
         self.assertIn("team-honors__jersey-num", text)
         self.assertIn("--team-honors-number-color", text)
 
+    def test_retired_number_overlay_is_lower_on_jersey(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        text = (root / "app" / "static" / "css" / "site.css").read_text(encoding="utf-8")
+        self.assertIn(".team-honors__jersey-num", text)
+        self.assertIn("top: 60%;", text)
+
 
 class TeamHonorsMediaTest(unittest.TestCase):
     def test_filename_conventions(self) -> None:

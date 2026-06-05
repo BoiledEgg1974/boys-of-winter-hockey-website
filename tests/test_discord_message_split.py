@@ -93,6 +93,26 @@ class DiscordMessageSplitTest(unittest.TestCase):
         self.assertIn("Connor Bedard", content)
         self.assertIn(DISCORD_SITE_MORE_FOOTER, content)
 
+    def test_draft_pick_includes_team_gm_mention(self):
+        parts = format_discord_messages(
+            {
+                "league_slug": "bowl-fantasy",
+                "event_key": "draft_hub_pick_made",
+                "payload": {
+                    "draft_name": "2026 Draft",
+                    "round": 1,
+                    "overall_pick": 3,
+                    "player_name": "Connor Bedard",
+                    "has_image": False,
+                    "team_abbrev": "CHI",
+                    "team_gm_mention": "<@123456789012345678>",
+                },
+            },
+            max_parts=2,
+        )
+
+        self.assertIn("<@123456789012345678>", parts[0].get("content", ""))
+
     def test_draft_hub_on_clock_is_text_only_with_bold_gm_mention_and_url(self):
         parts = format_discord_messages(
             {
@@ -191,6 +211,27 @@ class DiscordMessageSplitTest(unittest.TestCase):
         )
         self.assertNotIn("embeds", parts[0])
         self.assertIn("Trade approved", parts[0].get("content", ""))
+
+    def test_trade_request_includes_team_gm_mention(self):
+        parts = format_discord_messages(
+            {
+                "league_slug": "bowl-cap",
+                "event_key": "trade_request",
+                "payload": {
+                    "request_id": 12,
+                    "request_type": "trade",
+                    "status": "approved",
+                    "title": "Trade approved",
+                    "body": "Leafs send prospect for pick.",
+                    "has_image": False,
+                    "team_abbrev": "TOR",
+                    "team_gm_mention": "<@123456789012345678>",
+                },
+            },
+            max_parts=2,
+        )
+
+        self.assertIn("<@123456789012345678>", parts[0].get("content", ""))
 
     def test_staff_transaction_uses_gm_display_name_not_email(self):
         parts = format_discord_messages(
@@ -369,6 +410,26 @@ class DiscordMessageSplitTest(unittest.TestCase):
         embed = parts[0]["embeds"][0]
         self.assertIn("Looking to acquire", embed["description"])
         self.assertEqual(embed["author"]["name"], "Halifax Privateers (HAL)")
+
+    def test_trade_market_embed_includes_team_gm_mention_content(self):
+        parts = format_discord_messages(
+            {
+                "league_slug": "bowl-fantasy",
+                "event_key": "trade_market_buying_posted",
+                "payload": {
+                    "title": "Trade Market — buying interests",
+                    "body": "Looking to acquire:\n• Draft Picks",
+                    "url": "https://www.bowlhockey.com/bowl-fantasy/trade-market",
+                    "team_abbrev": "HAL",
+                    "team_name": "Halifax Privateers",
+                    "team_gm_mention": "<@123456789012345678>",
+                },
+            },
+            max_parts=2,
+        )
+
+        self.assertEqual(parts[0].get("content"), "<@123456789012345678>")
+        self.assertIn("embeds", parts[0])
 
     def test_bowl_six_leaders_are_embed_only(self):
         body = "Week: Week of 1969-03-10\nSlate status: locked\n\nTop performers\n1. Andre Lacroix — 19.5 pts"

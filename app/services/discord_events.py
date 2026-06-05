@@ -223,6 +223,12 @@ def team_fields_for_discord(team) -> dict:
     if team is None:
         return {}
     out: dict = {}
+    tid = getattr(team, "id", None)
+    if tid is not None:
+        try:
+            out["team_id"] = int(tid)
+        except (TypeError, ValueError):
+            pass
     name_fn = getattr(team, "full_display_name", None)
     if callable(name_fn):
         out["team_name"] = str(name_fn() or "")
@@ -502,6 +508,31 @@ def _discord_user_mention_for_team(session, *, league_slug: str, team_id: int | 
     if not DISCORD_SNOWFLAKE_PATTERN.match(discord_id):
         return ""
     return f"<@{discord_id}>"
+
+
+def _payload_team_id(payload: dict) -> int | None:
+    raw = payload.get("team_id")
+    if raw is None:
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def _ensure_team_gm_mention_for_payload(session, *, league_slug: str, payload: dict) -> dict:
+    out = dict(payload or {})
+    if str(out.get("team_gm_mention") or "").strip():
+        return out
+    if str(out.get("gm_mentions") or "").strip():
+        return out
+    team_id = _payload_team_id(out)
+    if team_id is None:
+        return out
+    mention = _discord_user_mention_for_team(session, league_slug=league_slug, team_id=team_id)
+    if mention:
+        out["team_gm_mention"] = mention
+    return out
 
 
 def enrich_discord_payload_for_bot(
@@ -1306,6 +1337,11 @@ def serialize_pending_events_for_bot(
                 league_slug=league_slug,
                 event_key=str(r.event_key or ""),
                 payload=raw_payload,
+            )
+            payload = _ensure_team_gm_mention_for_payload(
+                session,
+                league_slug=league_slug,
+                payload=payload,
             )
             payload = sanitize_discord_event_payload(league_slug, payload)
             if str(r.event_key or "") in OPS_TEXT_ONLY_DISCORD_EVENT_KEYS:

@@ -506,6 +506,17 @@ def _league_slug() -> str:
     return str(current_app.config.get("LEAGUE_SLUG") or "")
 
 
+def _audit(admin_action: str, detail: dict) -> None:
+    db.session.add(
+        AdminAuditLog(
+            admin_user_id=int(current_user.id),
+            league_slug=_league_slug(),
+            action=admin_action,
+            detail_json=json.dumps(detail),
+        )
+    )
+
+
 def _membership():
     return active_membership_for_league(current_user, _league_slug())
 

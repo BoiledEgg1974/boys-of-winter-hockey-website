@@ -8,6 +8,7 @@ from unittest.mock import patch
 from unittest.mock import MagicMock
 
 from app.services.discord_events import (
+    _ensure_team_gm_mention_for_payload,
     build_league_public_url,
     build_news_article_public_url,
     enrich_discord_payload_for_bot,
@@ -100,6 +101,30 @@ class DiscordPublicUrlTest(unittest.TestCase):
 
         self.assertEqual(out["team_id"], 7)
         self.assertEqual(out["team_gm_mention"], "<@123456789012345678>")
+
+    def test_generic_payload_enrichment_adds_team_gm_mention(self):
+        session = MagicMock()
+        session.scalar.return_value = SimpleNamespace(discord_user_id="123456789012345678")
+
+        out = _ensure_team_gm_mention_for_payload(
+            session,
+            league_slug="bowl-cap",
+            payload={"team_id": 7, "title": "Trade update"},
+        )
+
+        self.assertEqual(out["team_gm_mention"], "<@123456789012345678>")
+
+    def test_generic_payload_enrichment_does_not_duplicate_draft_mentions(self):
+        session = MagicMock()
+
+        out = _ensure_team_gm_mention_for_payload(
+            session,
+            league_slug="bowl-fantasy",
+            payload={"team_id": 7, "gm_mentions": "<@222222222222222222>"},
+        )
+
+        self.assertNotIn("team_gm_mention", out)
+        session.scalar.assert_not_called()
 
 
 if __name__ == "__main__":

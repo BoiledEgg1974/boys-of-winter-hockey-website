@@ -111,6 +111,12 @@ def _team_gm_mention_line(payload: dict[str, Any]) -> str:
     return mention if mention.startswith("<@") and mention.endswith(">") else ""
 
 
+def _append_team_gm_mention(lines: list[str], payload: dict[str, Any]) -> None:
+    mention = _team_gm_mention_line(payload)
+    if mention and mention not in lines:
+        lines.append(mention)
+
+
 def _body_text(payload: dict[str, Any], *, full: bool = False) -> str:
     if full:
         raw = payload.get("body") or payload.get("body_preview") or payload.get("message") or ""
@@ -141,9 +147,7 @@ def _text_only_header_lines(
         team_line = format_team_label(league_slug, payload)
         if team_line:
             lines.append(team_line)
-        mention = _team_gm_mention_line(payload)
-        if mention and event_key in ("news_published", "gm_news_published", "admin_news_published"):
-            lines.append(mention)
+            _append_team_gm_mention(lines, payload)
         lines.append(f"**{title}**")
     elif event_key == "announcement_posted":
         lines.append(f"**{title}**")
@@ -156,6 +160,7 @@ def _text_only_header_lines(
         team_line = format_team_label(league_slug, payload)
         if team_line:
             lines.append(team_line)
+            _append_team_gm_mention(lines, payload)
         if gm_name:
             lines.append(f"GM: {gm_name}")
         lines.append(f"**{title}**")
@@ -206,6 +211,7 @@ def _text_only_header_lines(
         pos = str(payload.get("player_pos") or "").strip()
         prefix = team_emoji_prefix(league_slug, payload)
         lines.append(f"{prefix}**{dname}** — pick".strip())
+        _append_team_gm_mention(lines, payload)
         ply = player + (f" ({pos})" if pos else "")
         lines.append(f"R{rnd} • Overall #{ov} • {ply}")
     elif event_key == "expansion_draft_pick_made":
@@ -217,6 +223,7 @@ def _text_only_header_lines(
         prefix = team_emoji_prefix(league_slug, payload)
         ph_part = f" [{phase}]" if phase else ""
         lines.append(f"{prefix}**{dname}**{ph_part} — pick".strip())
+        _append_team_gm_mention(lines, payload)
         lines.append(f"R{rnd} • Overall #{ov} • **{player}**")
     elif event_key == "staff_transaction_posted":
         action = str(payload.get("action") or "").strip().lower()
@@ -225,6 +232,7 @@ def _text_only_header_lines(
         team_line = format_team_label(league_slug, payload)
         if team_line:
             lines.append(team_line)
+            _append_team_gm_mention(lines, payload)
     elif event_key == "trade_request":
         prefix = team_emoji_prefix(league_slug, payload)
         lines.append(
@@ -233,6 +241,7 @@ def _text_only_header_lines(
         team_line = format_team_label(league_slug, payload)
         if team_line:
             lines.append(team_line)
+            _append_team_gm_mention(lines, payload)
         req_type = str(payload.get("request_type") or "").strip()
         status = str(payload.get("status") or "").strip()
         if req_type:
@@ -254,6 +263,7 @@ def _text_only_header_lines(
         team_line = format_team_label(league_slug, payload)
         if team_line:
             lines.append(team_line)
+            _append_team_gm_mention(lines, payload)
         lines.append(f"**{title}**")
     else:
         lines.append(f"**{title}**")
@@ -479,7 +489,11 @@ def format_discord_messages(event: dict[str, Any], *, max_parts: int = 2) -> lis
         body_full = _body_text(payload, full=True) or body_short
         embed = _trade_market_embed(payload, title=title, body=body_full, url=url)
         if embed.get("description") or embed.get("url"):
-            return _split_message_bodies({"embeds": [embed]}, max_parts=max(1, int(max_parts)))
+            msg = {"embeds": [embed]}
+            mention = _team_gm_mention_line(payload)
+            if mention:
+                msg["content"] = mention
+            return _split_message_bodies(msg, max_parts=max(1, int(max_parts)))
         return [{"content": f"**{title}**"}]
 
     if event_key in ("news_published", "gm_news_published", "admin_news_published") and _payload_has_image(payload):
@@ -507,9 +521,7 @@ def format_discord_messages(event: dict[str, Any], *, max_parts: int = 2) -> lis
         team_line = format_team_label(league_slug, payload)
         if team_line:
             lines.append(team_line)
-        mention = _team_gm_mention_line(payload)
-        if mention:
-            lines.append(mention)
+            _append_team_gm_mention(lines, payload)
         lines.append(f"**{title}**")
         if body_short:
             lines.append(body_short)
@@ -523,6 +535,7 @@ def format_discord_messages(event: dict[str, Any], *, max_parts: int = 2) -> lis
         prefix = team_emoji_prefix(league_slug, payload)
         head = f"{prefix}**{dname}** — pick".strip()
         lines.append(head)
+        _append_team_gm_mention(lines, payload)
         ply = player + (f" ({pos})" if pos else "")
         lines.append(f"R{rnd} • Overall #{ov} • {ply}" + (f" · `{src}`" if src else ""))
         if body_short:
@@ -537,6 +550,7 @@ def format_discord_messages(event: dict[str, Any], *, max_parts: int = 2) -> lis
         prefix = team_emoji_prefix(league_slug, payload)
         ph_part = f" [{phase}]" if phase else ""
         lines.append(f"{prefix}**{dname}**{ph_part} — pick".strip())
+        _append_team_gm_mention(lines, payload)
         lines.append(f"R{rnd} • Overall #{ov} • **{player}**" + (f" · `{src}`" if src else ""))
         if body_short:
             lines.append(body_short)
@@ -550,6 +564,7 @@ def format_discord_messages(event: dict[str, Any], *, max_parts: int = 2) -> lis
         team_line = format_team_label(league_slug, payload)
         if team_line:
             lines.append(team_line)
+            _append_team_gm_mention(lines, payload)
         if staff_name:
             line = staff_name
             if role_label:
@@ -565,6 +580,7 @@ def format_discord_messages(event: dict[str, Any], *, max_parts: int = 2) -> lis
         team_line = format_team_label(league_slug, payload)
         if team_line:
             lines.append(team_line)
+            _append_team_gm_mention(lines, payload)
         if gm_name:
             lines.append(f"GM: {gm_name}")
         if label:
@@ -580,6 +596,7 @@ def format_discord_messages(event: dict[str, Any], *, max_parts: int = 2) -> lis
         team_line = format_team_label(league_slug, payload)
         if team_line:
             lines.append(team_line)
+            _append_team_gm_mention(lines, payload)
         if req_type:
             lines.append(f"Type: {req_type}")
         if status:

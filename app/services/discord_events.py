@@ -498,6 +498,31 @@ def _discord_user_mention_for_team(session, *, league_slug: str, team_id: int | 
             GmLeagueMembership.league_slug == str(league_slug or "").strip(),
             GmLeagueMembership.team_id == int(team_id),
             GmLeagueMembership.status == "active",
+            User.revoked_at.is_(None),
+        )
+        .order_by(GmLeagueMembership.approved_at.desc().nulls_last(), GmLeagueMembership.id.desc())
+        .limit(1)
+    )
+    if user is None:
+        return ""
+    discord_id = str(getattr(user, "discord_user_id", "") or "").strip()
+    if not DISCORD_SNOWFLAKE_PATTERN.match(discord_id):
+        return ""
+    return f"<@{discord_id}>"
+
+
+def _discord_user_mention_for_fhm_team(session, *, league_slug: str, fhm_team_id: object) -> str:
+    fhm = str(fhm_team_id or "").strip()
+    if not fhm:
+        return ""
+    user = session.scalar(
+        select(User)
+        .join(GmLeagueMembership, GmLeagueMembership.user_id == User.id)
+        .where(
+            GmLeagueMembership.league_slug == str(league_slug or "").strip(),
+            GmLeagueMembership.fhm_team_id == fhm,
+            GmLeagueMembership.status == "active",
+            User.revoked_at.is_(None),
         )
         .order_by(GmLeagueMembership.approved_at.desc().nulls_last(), GmLeagueMembership.id.desc())
         .limit(1)
@@ -520,16 +545,29 @@ def _payload_team_id(payload: dict) -> int | None:
         return None
 
 
+def _payload_fhm_team_id(payload: dict) -> str:
+    return str(payload.get("fhm_team_id") or "").strip()
+
+
+def _team_gm_mention_for_payload(session, *, league_slug: str, payload: dict) -> str:
+    fhm_team_id = _payload_fhm_team_id(payload)
+    team_id = _payload_team_id(payload)
+    if fhm_team_id:
+        return _discord_user_mention_for_fhm_team(
+            session,
+            league_slug=league_slug,
+            fhm_team_id=fhm_team_id,
+        )
+    return _discord_user_mention_for_team(session, league_slug=league_slug, team_id=team_id)
+
+
 def _ensure_team_gm_mention_for_payload(session, *, league_slug: str, payload: dict) -> dict:
     out = dict(payload or {})
     if str(out.get("team_gm_mention") or "").strip():
         return out
     if str(out.get("gm_mentions") or "").strip():
         return out
-    team_id = _payload_team_id(out)
-    if team_id is None:
-        return out
-    mention = _discord_user_mention_for_team(session, league_slug=league_slug, team_id=team_id)
+    mention = _team_gm_mention_for_payload(session, league_slug=league_slug, payload=out)
     if mention:
         out["team_gm_mention"] = mention
     return out
@@ -562,8 +600,10 @@ def enrich_discord_payload_for_bot(
         merged["has_image"] = enriched["has_image"]
         mention = str(merged.get("team_gm_mention") or "").strip()
         if not mention:
-            merged["team_gm_mention"] = _discord_user_mention_for_team(
-                session, league_slug=league_slug, team_id=art.team_id
+            merged = _ensure_team_gm_mention_for_payload(
+                session,
+                league_slug=league_slug,
+                payload=merged,
             )
         if len(str(out.get("body_preview") or "")) < len(enriched["body_preview"]):
             merged["body_preview"] = enriched["body_preview"]

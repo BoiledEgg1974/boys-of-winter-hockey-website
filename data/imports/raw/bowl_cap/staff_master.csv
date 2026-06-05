@@ -1806,7 +1806,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1804;17;Ray;Shero;;1962-7-28;Tell City;IN;The United States;;;0
 1805;17;Alain;Vigneault;;1961-5-14;Richmond;QC;Canada;;;0
 1806;-1;Zinetula;Bilyaletdinov;;1955-3-13;Moscow;MOS;Russia;;;0
-1807;9;Kevin;Constantine;;1958-12-28;Madison;MN;The United States;;;0
+1807;-1;Kevin;Constantine;;1958-12-28;Madison;MN;The United States;;;0
 1808;-1;John;Ferguson;;1969-7-7;Murdochville;QC;Canada;;;0
 1809;-1;Bryan;Trottier;;1956-7-17;Waldheim;SK;Canada;;;0
 1810;-1;Sam;St. Laurent;;1959-2-16;Chisasibi;QC;Canada;;;0
@@ -2056,7 +2056,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 2054;-1;Doug;Overton;;1963-1-1;Windsor;ON;Canada;;;0
 2055;17;Kari;Kettunen;;1963-1-1;Korsholm;OST;Finland;;;0
 2056;17;Steve;Baker;;1957-5-6;Canton;MA;The United States;;;0
-2057;-1;Dale;Derkatch;;1964-10-17;Oakbank;MB;Canada;;;0
+2057;9;Dale;Derkatch;;1964-10-17;Oakbank;MB;Canada;;;0
 2058;25;Paul;Guay;;1963-9-2;Versailles;KY;The United States;;;0
 2059;-1;Stéphane;Dube;;1972-1-1;Gatineau;QC;Canada;;;0
 2060;-1;Craig;Mortenson;;1948-10-3;Largo;FL;The United States;;;0
@@ -2266,13 +2266,13 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 2264;-1;Brian;Daccord;;1964-8-18;Murdochville;QC;Switzerland;Canada;;0
 2265;-1;Kelly;Miller;;1963-3-3;Laurel Hollow;NY;The United States;;;0
 2266;-1;Robert;Mancini;;1958-3-16;Seneca Falls;NY;The United States;;;0
-2267;-1;Hannu;Laine;;1965-1-1;Helsinki;UUS;Finland;;;0
+2267;9;Hannu;Laine;;1965-1-1;Helsinki;UUS;Finland;;;0
 2268;9;Shane;Churla;;1965-6-24;Gold River;BC;Canada;;;0
 2269;20;Charles;Wang;;1944-8-19;Shanghai;SHA;The United States;China;;0
 2270;-1;Blair;Reid;;1965-1-1;Hamilton;ON;Canada;;;0
 2271;-1;Dan;Stuchal;;1965-1-1;Villa Rica;GA;The United States;;;0
 2272;-1;Mark;Yannetti;;1971-6-7;Charlemont;MA;The United States;;;0
-2273;-1;Vadim;Podrezov;;1965-9-29;Omsk;OMS;Russia;;;0
+2273;9;Vadim;Podrezov;;1965-9-29;Omsk;OMS;Russia;;;0
 2274;-1;Michel;Boucher;;1951-8-13;Richmond;QC;Canada;;;0
 2275;-1;Mike;Rooney;;1965-1-1;Warman;SK;Canada;;;0
 2276;217;Vaclav;Slansky;;1949-1-1;Kladno;STR;Czech Republic;;;0

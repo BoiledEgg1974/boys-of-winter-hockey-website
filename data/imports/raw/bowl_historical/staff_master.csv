@@ -1193,7 +1193,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1191;-1;Vic;Stasiuk;;1929-5-23;Manning;AB;Canada;;;0
 1192;-1;Charlie;Burns;;1936-2-14;Elk Rapids;MI;Canada;The United States;;0
 1193;118;Dave;Lucas;;1932-3-22;Abbotsford;BC;Canada;;;0
-1194;-1;Jack;Button;;1940-1-1;Canton;NY;The United States;;;0
+1194;5;Jack;Button;;1940-1-1;Canton;NY;The United States;;;0
 1195;-1;Garry;Young;;1936-1-2;Toronto;ON;Canada;;;0
 1196;118;Bob;Turner;;1934-1-31;Saskatoon;SK;Canada;;;0
 1197;118;Fernie;Flaman;;1927-1-25;Dysart;ON;Canada;;;0

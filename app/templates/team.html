@@ -132,7 +132,8 @@
     <div class="card team-honors__panel team-honors__panel--retired">
       <h2 class="team-honors__title">RETIRED NUMBERS</h2>
       {% if team_honors_retired_rows %}
-      <ul class="team-honors__retired-list" role="list">
+      {% set retired_count = team_honors_retired_rows|length %}
+      <ul class="team-honors__retired-list" role="list" style="--team-honors-count: {{ retired_count }}; --team-honors-jersey-width: {% if retired_count <= 4 %}7.5rem{% elif retired_count <= 6 %}6.4rem{% elif retired_count <= 8 %}5.4rem{% else %}4.6rem{% endif %}; --team-honors-number-size: {% if retired_count <= 4 %}2.7rem{% elif retired_count <= 6 %}2.25rem{% elif retired_count <= 8 %}1.9rem{% else %}1.55rem{% endif %}; --team-honors-name-size: {% if retired_count <= 4 %}0.95rem{% elif retired_count <= 6 %}0.82rem{% elif retired_count <= 8 %}0.72rem{% else %}0.62rem{% endif %};">
         {% for row in team_honors_retired_rows %}
         <li class="team-honors__retired-item" role="listitem">
           {% if row.jersey_image_rel_path %}
@@ -157,7 +158,8 @@
     {% if team_honors_show_banner_panel %}
     <div class="card team-honors__panel team-honors__panel--banners">
       <h2 class="team-honors__title">Championship Banners</h2>
-      <ul class="team-honors__banner-list" role="list">
+      {% set banner_count = team_honors_banner_rows|selectattr('banner_image_rel_path')|list|length %}
+      <ul class="team-honors__banner-list" role="list" style="--team-honors-count: {{ banner_count }}; --team-honors-banner-height: {% if banner_count <= 3 %}10rem{% elif banner_count <= 5 %}8rem{% elif banner_count <= 7 %}6rem{% else %}4.75rem{% endif %};">
         {% for row in team_honors_banner_rows %}
         {% if row.banner_image_rel_path %}
         <li class="team-honors__banner-item" role="listitem">

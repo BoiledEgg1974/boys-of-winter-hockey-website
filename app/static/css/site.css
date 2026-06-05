@@ -3567,11 +3567,6 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
   gap: 1rem;
   align-items: stretch;
 }
-@media (min-width: 900px) {
-  .team-honors__grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
 .team-honors__panel {
   display: flex;
   flex-direction: column;
@@ -3579,12 +3574,6 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
   text-align: center;
   padding: 1.1rem 1rem 1.25rem;
   min-width: 0;
-}
-.team-honors__panel:only-child {
-  grid-column: 1 / -1;
-  max-width: 36rem;
-  margin-inline: auto;
-  width: 100%;
 }
 .team-honors__title {
   margin: 0 0 1rem;
@@ -3599,29 +3588,32 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
   margin: 0;
   padding: 0;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: center;
   align-items: flex-start;
-  gap: 1.25rem 1.5rem;
+  gap: var(--team-honors-gap, clamp(0.35rem, 1.4vw, 1.5rem));
   width: 100%;
+  overflow: hidden;
 }
 .team-honors__retired-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
+  flex: 1 1 0;
+  gap: clamp(0.25rem, 0.8vw, 0.5rem);
   max-width: 10rem;
+  min-width: 0;
 }
 .team-honors__jersey-wrap {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 7.5rem;
+  width: min(var(--team-honors-jersey-width, 7.5rem), 100%);
   max-width: 100%;
 }
 .team-honors__jersey-wrap--no-img {
-  min-height: 6.5rem;
+  min-height: min(6.5rem, var(--team-honors-jersey-width, 7.5rem));
   border-radius: var(--radius);
   background: rgb(from var(--surface-2, #e2e8f0) r g b / 0.35);
 }
@@ -3636,7 +3628,7 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
   left: 50%;
   top: 60%;
   transform: translate(-50%, -50%);
-  font-size: clamp(2rem, 5.4vw, 2.7rem);
+  font-size: var(--team-honors-number-size, 2.7rem);
   font-weight: 800;
   line-height: 1;
   color: var(--team-honors-number-color, #1a1a1a);
@@ -3655,19 +3647,26 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
 .team-honors__player-name {
   margin: 0;
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: var(--team-honors-name-size, 0.95rem);
   line-height: 1.25;
   text-align: center;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .team-honors__banner-item {
   display: flex;
   justify-content: center;
   align-items: center;
+  flex: 1 1 0;
   max-width: 12rem;
+  min-width: 0;
 }
 .team-honors__banner-img {
   display: block;
   max-width: 100%;
+  max-height: var(--team-honors-banner-height, 10rem);
   height: auto;
   object-fit: contain;
   margin: 0 auto;

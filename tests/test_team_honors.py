@@ -36,6 +36,24 @@ class TeamHonorsTemplateTest(unittest.TestCase):
         self.assertIn("team-honors__jersey-num", text)
         self.assertIn("--team-honors-number-color", text)
 
+    def test_team_honors_rows_scale_from_item_count(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        template = (root / "app" / "templates" / "team.html").read_text(encoding="utf-8")
+        css = (root / "app" / "static" / "css" / "site.css").read_text(encoding="utf-8")
+
+        self.assertIn("--team-honors-count: {{ retired_count }}", template)
+        self.assertIn("--team-honors-jersey-width", template)
+        self.assertIn("--team-honors-number-size", template)
+        self.assertIn("--team-honors-name-size", template)
+        self.assertIn("team_honors_banner_rows|selectattr('banner_image_rel_path')|list|length", template)
+        self.assertIn("--team-honors-banner-height", template)
+        self.assertIn("flex-wrap: nowrap;", css)
+        self.assertNotIn("@media (min-width: 900px) {\n  .team-honors__grid", css)
+        self.assertIn("flex: 1 1 0;", css)
+        self.assertIn("var(--team-honors-jersey-width", css)
+        self.assertIn("var(--team-honors-banner-height", css)
+        self.assertIn("text-overflow: ellipsis;", css)
+
     def test_retired_number_overlay_is_lower_on_jersey(self) -> None:
         root = Path(__file__).resolve().parents[1]
         text = (root / "app" / "static" / "css" / "site.css").read_text(encoding="utf-8")

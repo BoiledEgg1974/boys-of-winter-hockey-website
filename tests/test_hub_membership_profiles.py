@@ -37,6 +37,12 @@ class HubMembershipProfilesTest(unittest.TestCase):
         self.assertIn("discord_user_id.isdigit()", text)
         self.assertIn("users=users", text)
 
+    def test_membership_dashboard_hides_revoked_deleted_profiles(self) -> None:
+        path = Path(__file__).resolve().parents[1] / "app" / "routes" / "hub_auth.py"
+        text = path.read_text(encoding="utf-8")
+        self.assertIn(".where(User.revoked_at.is_(None))", text)
+        self.assertIn("deleted-user-", text)
+
 
 if __name__ == "__main__":
     unittest.main()

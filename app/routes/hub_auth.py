@@ -377,13 +377,16 @@ def admin_memberships():
     rows = db.session.execute(
         select(GmLeagueMembership, User)
         .join(User, User.id == GmLeagueMembership.user_id)
+        .where(User.revoked_at.is_(None))
         .order_by(GmLeagueMembership.created_at.desc())
     ).all()
     enriched = [
         (r[0], r[1], team_snapshot_for_membership(r[0].league_slug, r[0].team_id)) for r in rows
     ]
     users = db.session.scalars(
-        select(User).order_by(User.is_admin.desc(), User.email.asc())
+        select(User)
+        .where(User.revoked_at.is_(None))
+        .order_by(User.is_admin.desc(), User.email.asc())
     ).all()
     return render_template("admin_memberships.html", rows=enriched, users=users)
 

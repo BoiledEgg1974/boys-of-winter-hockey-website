@@ -3907,7 +3907,7 @@ def admin_rule_strikes():
     slug = _league_slug()
     if slug != "bowl-cap":
         abort(404)
-    cycle_year = active_cycle_year(db.session)
+    cycle_year = active_cycle_year(db.session, league_slug=slug)
     rows, _active = strike_grid_rows(
         db.session,
         db.session,

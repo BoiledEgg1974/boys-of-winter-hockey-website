@@ -5,7 +5,7 @@
   <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
   <h1 class="page-title">Cap Strike Penalty Tracker</h1>
   <p class="muted">
-    Cycle year <strong>{{ cycle_year }}</strong>. Strikes reset when the in-game timeline rolls into the next season (Oct 1 boundary).
+    Draft year <strong>{{ cycle_year }}</strong>. Strikes reset when the in-game timeline rolls into the next season (Oct 1 boundary).
     Draft mapping: Strike 1 → Round {{ strike_round_map.get(1) }}, Strike 2 → Round {{ strike_round_map.get(2) }}, Strike 3 → Round {{ strike_round_map.get(3) }}.
   </p>
   <form method="post">

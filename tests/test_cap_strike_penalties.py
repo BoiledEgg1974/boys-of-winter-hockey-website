@@ -3,12 +3,28 @@ from __future__ import annotations
 
 import unittest
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
-from app.services.cap_strike_penalties import apply_cycle_strikes_to_slots, save_cycle_strikes
+from app.services.cap_strike_penalties import (
+    active_cycle_year,
+    apply_cycle_strikes_to_slots,
+    save_cycle_strikes,
+)
 
 
 class CapStrikePenaltiesTest(unittest.TestCase):
+    def test_active_cycle_year_uses_current_draft_year(self) -> None:
+        session = MagicMock()
+        with patch(
+            "app.services.cap_strike_penalties.in_game_draft_ownership_cutoff_year",
+            return_value=2000,
+        ) as cutoff:
+            year = active_cycle_year(session, league_slug="bowl-cap")
+
+        self.assertEqual(year, 2000)
+        cutoff.assert_called_once_with(session, league_slug="bowl-cap")
+        session.scalar.assert_not_called()
+
     def test_save_cycle_strikes_replaces_with_checked_rows(self) -> None:
         site = MagicMock()
         created, teams_with_any = save_cycle_strikes(

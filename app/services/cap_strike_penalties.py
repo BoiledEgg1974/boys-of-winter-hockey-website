@@ -7,14 +7,20 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.models import Season, Team
-from app.services.draft_pick_ownership import draft_pick_teams_for_grid
+from app.services.draft_pick_ownership import (
+    draft_pick_teams_for_grid,
+    in_game_draft_ownership_cutoff_year,
+)
 from app.site_models import GmRuleStrike, LeagueDraftSlot
 
 STRIKE_TO_ROUND: dict[int, int] = {1: 5, 2: 4, 3: 3}
 
 
-def active_cycle_year(league_session: Session) -> int:
-    """Current in-game cycle keyed to season start year (resets each Oct 1 timeline)."""
+def active_cycle_year(league_session: Session, *, league_slug: str = "bowl-cap") -> int:
+    """Current penalty cycle keyed to the active in-game draft year."""
+    draft_year = in_game_draft_ownership_cutoff_year(league_session, league_slug=league_slug)
+    if draft_year is not None:
+        return int(draft_year)
     season = league_session.scalar(
         select(Season)
         .where(Season.is_current.is_(True))

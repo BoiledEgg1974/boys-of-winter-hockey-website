@@ -233,9 +233,10 @@ def draft_hub_archive_one(draft_id: int):
 def draft_hub_api_state():
     slug = _league_slug()
     min_draft_year = in_game_draft_ownership_cutoff_year(db.session, league_slug=slug)
-    draft = _public_draft_room(featured_draft(db.session, slug), min_draft_year=min_draft_year)
+    featured = featured_draft(db.session, slug)
+    draft = _public_draft_room(featured, min_draft_year=min_draft_year)
     team_by_id = {t.id: t for t in db.session.scalars(select(Team)).all()}
-    tracker = _tracker_payload(draft, team_by_id) if draft else None
+    tracker = _tracker_payload(featured, team_by_id)
     if not draft:
         return jsonify({"ok": True, "draft": None, "tracker": tracker})
 

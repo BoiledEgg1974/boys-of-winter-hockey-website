@@ -135,6 +135,15 @@ def _featured_draft_is_current_for_tracker(
         return False
 
 
+def _draft_is_at_or_after_year(draft: LeagueDraft, min_draft_year: int | None) -> bool:
+    if min_draft_year is None:
+        return True
+    try:
+        return int(draft.timeline_year) >= int(min_draft_year)
+    except (TypeError, ValueError):
+        return False
+
+
 def build_draft_hub_tracker(
     site_session: Session,
     league_session: Session,
@@ -338,8 +347,16 @@ def build_draft_hub_tracker(
             .order_by(LeagueDraft.id.desc())
         ).all()
     )
-    pending_drafts = [d for d in drafts_all if str(d.status or "") == "setup"]
-    live_drafts = [d for d in drafts_all if str(d.status or "") == "live"]
+    pending_drafts = [
+        d
+        for d in drafts_all
+        if str(d.status or "") == "setup" and _draft_is_at_or_after_year(d, min_draft_year)
+    ]
+    live_drafts = [
+        d
+        for d in drafts_all
+        if str(d.status or "") == "live" and _draft_is_at_or_after_year(d, min_draft_year)
+    ]
     hub_links: list[dict[str, Any]] = []
     if live_drafts:
         d = live_drafts[0]
@@ -351,18 +368,18 @@ def build_draft_hub_tracker(
                 "draft_id": int(d.id),
             }
         )
-    elif featured_draft and str(featured_draft.status or "") in {"setup", "live"}:
+    elif tracker_draft and str(tracker_draft.status or "") in {"setup", "live"}:
         hub_links.append(
             {
-                "label": featured_draft.name,
+                "label": tracker_draft.name,
                 "url": draft_hub_url(),
-                "status": str(featured_draft.status or "setup"),
-                "draft_id": int(featured_draft.id),
+                "status": str(tracker_draft.status or "setup"),
+                "draft_id": int(tracker_draft.id),
             }
         )
     if pending_drafts:
         for d in pending_drafts[:3]:
-            if featured_draft and int(d.id) == int(featured_draft.id):
+            if tracker_draft and int(d.id) == int(tracker_draft.id):
                 continue
             hub_links.append(
                 {

@@ -220,10 +220,11 @@ class DraftHubTrackerTest(unittest.TestCase):
         text = path.read_text(encoding="utf-8")
         self.assertIn("build_draft_hub_tracker", text)
         self.assertIn('"tracker": tracker', text)
-        self.assertIn("_public_draft_room(featured_draft", text)
+        self.assertIn("_public_draft_room(featured, min_draft_year=min_draft_year)", text)
         self.assertIn("min_draft_year=min_draft_year", text)
         self.assertIn("in_game_draft_ownership_cutoff_year", text)
-        self.assertIn("tracker = _tracker_payload(draft, team_by_id) if draft else None", text)
+        self.assertIn("featured = featured_draft(db.session, slug)", text)
+        self.assertIn("tracker = _tracker_payload(featured, team_by_id)", text)
         self.assertIn('{"setup", "live"}', text)
 
     def test_draft_hub_template_has_tracker_sections(self) -> None:

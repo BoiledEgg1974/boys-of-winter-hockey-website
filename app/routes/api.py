@@ -1400,7 +1400,6 @@ def _build_homepage_summary_payload(
             "special_teams": [],
             "rookies": {"skaters": [], "goalies": [], "criteria": {}},
             "league_spotlight": {"title": "", "items": []},
-            "league_pulse": {},
             "identity_panel": None,
             "postseason_odds": None,
             "league": league_info,
@@ -1802,11 +1801,6 @@ def _build_homepage_summary_payload(
         "league": league_info,
         "segment": segment,
     }
-    from app.services.league_pulse import build_league_pulse_payload
-
-    summary_body["league_pulse"] = build_league_pulse_payload(
-        db.session, league_slug=league_slug
-    )
     summary_body["ticker_items"] = build_homepage_ticker_items(summary_body)
     return summary_body
 

@@ -4435,17 +4435,6 @@ def team_page(slug: str):
     from app.services.team_honors import team_honors_page_bundle
 
     honors_bundle = team_honors_page_bundle(db.session, int(team.id))
-    from app.services.team_dashboard import build_team_dashboard_strip
-
-    team_dashboard_strip = build_team_dashboard_strip(
-        db.session,
-        team=team,
-        season=season,
-        standing=standing,
-        league_slug=league_slug,
-    )
-    if division_rank is not None:
-        team_dashboard_strip["division_rank"] = division_rank
     tmpl_kwargs: dict[str, object] = {
         "team": team,
         "arena_name": arena_name,
@@ -4510,7 +4499,6 @@ def team_page(slug: str):
         "news_viewer_can_react": news_viewer_can_react,
         "news_category_label": news_category_label,
         "team_award_badges": team_history_award_badges(db.session, team),
-        "team_dashboard_strip": team_dashboard_strip,
         **honors_bundle,
     }
     depth_ova_ids: set[int] = set()

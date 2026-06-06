@@ -19007,41 +19007,6 @@ button.bowl-six-submissions__toggle:hover {
   box-shadow: 0 14px 28px rgb(15 23 42 / 0.28);
 }
 
-.team-dashboard-strip {
-  margin: 0 0 1rem;
-  padding: 0.85rem 1rem;
-  border-radius: 0.75rem;
-  background: linear-gradient(135deg, rgb(15 23 42 / 0.92), rgb(30 41 59 / 0.88));
-  border: 1px solid rgb(148 163 184 / 0.18);
-  box-shadow: inset 3px 0 0 var(--team-dash-accent, var(--accent));
-}
-.team-dashboard-strip__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
-  gap: 0.65rem;
-}
-.team-dashboard-strip__card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  min-width: 0;
-}
-.team-dashboard-strip__label {
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #94a3b8;
-}
-.team-dashboard-strip__value {
-  font-size: 0.95rem;
-  font-weight: 800;
-  color: #f8fafc;
-}
-.team-dashboard-strip__card--salary .team-dashboard-strip__value {
-  color: #fde68a;
-}
-
 .trade-market-ticker {
   overflow: hidden;
   margin: 0 0 1rem;
@@ -19170,29 +19135,6 @@ button.bowl-six-submissions__toggle:hover {
   50% {
     box-shadow: 0 0 0 2px rgb(250 204 21 / 0.7), 0 0 16px rgb(250 204 21 / 0.25);
   }
-}
-
-.home-league-pulse__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-  gap: 0.65rem;
-}
-.home-league-pulse__tile {
-  padding: 0.65rem 0.75rem;
-  border-radius: 0.55rem;
-  background: rgb(15 23 42 / 0.55);
-  border: 1px solid rgb(148 163 184 / 0.14);
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  font-size: 0.86rem;
-}
-.home-league-pulse__k {
-  font-size: 0.66rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #94a3b8;
 }
 
 .record-chase-panel__list,

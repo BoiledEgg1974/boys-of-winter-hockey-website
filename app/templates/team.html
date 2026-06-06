@@ -125,67 +125,6 @@
   </div>
   {% endif %}
 </div>
-{% if team_dashboard_strip is defined and team_dashboard_strip %}
-<section class="team-dashboard-strip" style="--team-dash-accent: {{ ph }};" aria-label="Franchise dashboard">
-  <div class="team-dashboard-strip__grid">
-    {% if team_dashboard_strip.record %}
-    <div class="team-dashboard-strip__card">
-      <span class="team-dashboard-strip__label">Record</span>
-      <strong class="team-dashboard-strip__value">{{ team_dashboard_strip.record }}</strong>
-      {% if team_dashboard_strip.pts is not none %}<span class="muted">{{ team_dashboard_strip.pts }} PTS</span>{% endif %}
-    </div>
-    {% endif %}
-    {% if team_dashboard_strip.last10 %}
-    <div class="team-dashboard-strip__card">
-      <span class="team-dashboard-strip__label">Last 10</span>
-      <strong class="team-dashboard-strip__value">{{ team_dashboard_strip.last10 }}</strong>
-    </div>
-    {% endif %}
-    {% if team_dashboard_strip.streak_label %}
-    <div class="team-dashboard-strip__card">
-      <span class="team-dashboard-strip__label">Streak</span>
-      <strong class="team-dashboard-strip__value">{{ team_dashboard_strip.streak_n }} {{ team_dashboard_strip.streak_label }}</strong>
-    </div>
-    {% endif %}
-    {% if team_dashboard_strip.gf_rank or team_dashboard_strip.ga_rank %}
-    <div class="team-dashboard-strip__card">
-      <span class="team-dashboard-strip__label">GF / GA rank</span>
-      <strong class="team-dashboard-strip__value">{% if team_dashboard_strip.gf_rank %}#{{ team_dashboard_strip.gf_rank }}{% else %}—{% endif %} / {% if team_dashboard_strip.ga_rank %}#{{ team_dashboard_strip.ga_rank }}{% else %}—{% endif %}</strong>
-    </div>
-    {% endif %}
-    {% if team_dashboard_strip.pp_rank or team_dashboard_strip.pk_rank %}
-    <div class="team-dashboard-strip__card">
-      <span class="team-dashboard-strip__label">PP / PK rank</span>
-      <strong class="team-dashboard-strip__value">{% if team_dashboard_strip.pp_rank %}#{{ team_dashboard_strip.pp_rank }}{% else %}—{% endif %} / {% if team_dashboard_strip.pk_rank %}#{{ team_dashboard_strip.pk_rank }}{% else %}—{% endif %}</strong>
-    </div>
-    {% endif %}
-    {% if team_dashboard_strip.top_scorer %}
-    <div class="team-dashboard-strip__card">
-      <span class="team-dashboard-strip__label">Top scorer</span>
-      <strong class="team-dashboard-strip__value"><a href="{{ url_for('main.player_page', player_id=team_dashboard_strip.top_scorer_id) }}">{{ team_dashboard_strip.top_scorer }}</a></strong>
-    </div>
-    {% endif %}
-    {% if team_dashboard_strip.top_goalie %}
-    <div class="team-dashboard-strip__card">
-      <span class="team-dashboard-strip__label">Top goalie</span>
-      <strong class="team-dashboard-strip__value"><a href="{{ url_for('main.player_page', player_id=team_dashboard_strip.top_goalie_id) }}">{{ team_dashboard_strip.top_goalie }}</a></strong>
-    </div>
-    {% endif %}
-    {% if team_dashboard_strip.playoff_pct is not none %}
-    <div class="team-dashboard-strip__card">
-      <span class="team-dashboard-strip__label">Playoff odds</span>
-      <strong class="team-dashboard-strip__value">{{ '%.1f'|format(team_dashboard_strip.playoff_pct * 100) }}%</strong>
-    </div>
-    {% endif %}
-    {% if config.LEAGUE_SLUG == 'bowl-cap' and team_dashboard_strip.salary_total is not none %}
-    <div class="team-dashboard-strip__card team-dashboard-strip__card--salary">
-      <span class="team-dashboard-strip__label">Cap hit</span>
-      <strong class="team-dashboard-strip__value">${{ '{:,}'.format(team_dashboard_strip.salary_total) }}</strong>
-    </div>
-    {% endif %}
-  </div>
-</section>
-{% endif %}
 {% if team_honors_show_section %}
 <section class="team-honors" aria-label="Franchise honors">
   {% set retired_count = team_honors_retired_rows|length if team_honors_retired_rows else 0 %}

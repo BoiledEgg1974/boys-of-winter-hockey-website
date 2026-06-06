@@ -24,7 +24,6 @@ ALLOWED_HOMEPAGE_MODULE_KEYS = (
     "power_rankings",
     "identity_panel",
     "champions",
-    "league_pulse",
 )
 
 DEFAULT_HOMEPAGE_MODULES = (
@@ -45,7 +44,6 @@ DEFAULT_HOMEPAGE_MODULES = (
     {"module_key": "power_rankings", "sort_order": 150},
     {"module_key": "identity_panel", "sort_order": 160},
     {"module_key": "champions", "sort_order": 170},
-    {"module_key": "league_pulse", "sort_order": 25},
 )
 
 DEFAULT_VISIBILITY = {r["module_key"]: True for r in DEFAULT_HOMEPAGE_MODULES}

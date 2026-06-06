@@ -143,6 +143,10 @@ from app.services.team_staff_csv import (
     get_staff_sections_for_team,
 )
 from app.services.division_labels import load_division_display_maps
+from app.services.playoff_seeding import (
+    league_uses_conference_division_winner_seeding,
+    order_conference_by_playoff_seeding,
+)
 from app.services.standings import (
     conferences_for_season,
     divisions_for_season,
@@ -623,6 +627,14 @@ def standings():
             rows = [st for st in rows if (getattr(st, "division_label", "") or "").strip() == selected_div]
 
     league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    conference_playoff_seeding = (
+        view == "conference"
+        and bool(selected_conf)
+        and league_uses_conference_division_winner_seeding(league_slug)
+        and bool(rows)
+    )
+    if conference_playoff_seeding:
+        rows = order_conference_by_playoff_seeding(rows)
     if league_slug == "bowl-cap":
         playoff_bracket_layout = "mirror"
         playoff_trophy_url = url_for("static", filename="img/bowl-cap-playoff-trophy.png")
@@ -663,6 +675,7 @@ def standings():
         division_names=division_names,
         sel_conference=selected_conf,
         sel_division=div,
+        conference_playoff_seeding=conference_playoff_seeding,
         playoff_bracket_layout=playoff_bracket_layout,
         playoff_trophy_url=playoff_trophy_url,
         playoff_bowl_championship=playoff_bowl_championship,

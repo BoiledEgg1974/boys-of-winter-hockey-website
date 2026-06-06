@@ -28,6 +28,11 @@ from app.services.playoff_series_prediction import (
     matchup_prediction_dict,
 )
 from app.services.league_rules import get_rule_value
+from app.services.playoff_seeding import (
+    division_key_for_standing,
+    seed_conference_with_division_winners,
+    standing_sort_key,
+)
 from app.services.season_team_logo_bundle import dashboard_team_logo_url
 
 
@@ -114,29 +119,6 @@ def _projection_format_key() -> str:
         "1v4": "division_1v4_2v3",
     }
     return aliases.get(raw, raw)
-
-
-def _division_key_for_standing(st: TeamStanding) -> tuple[int, str]:
-    team = getattr(st, "team", None)
-    if team is not None and team.fhm_division_id is not None:
-        return (int(team.fhm_division_id), "")
-    return (-1, str(st.division or "").strip().lower())
-
-
-def _seed_conference_with_division_winners(rows: list[TeamStanding]) -> list[TeamStanding]:
-    """Seed top 8 by conference with division winners in the top slots by points."""
-    by_division: dict[tuple[int, str], list[TeamStanding]] = {}
-    for st in rows:
-        by_division.setdefault(_division_key_for_standing(st), []).append(st)
-    division_winners: list[TeamStanding] = []
-    for div_rows in by_division.values():
-        if not div_rows:
-            continue
-        division_winners.append(sorted(div_rows, key=_standing_sort_key, reverse=True)[0])
-    division_winners.sort(key=_standing_sort_key, reverse=True)
-    winner_ids = {int(st.team_id) for st in division_winners}
-    remaining = [st for st in sorted(rows, key=_standing_sort_key, reverse=True) if int(st.team_id) not in winner_ids]
-    return (division_winners[:3] + remaining)[:8]
 
 
 def _merge_projected_empty_slots(
@@ -255,23 +237,6 @@ def _synthetic_preview_series(team_a_id: int, team_b_id: int) -> SeriesAgg:
     )
 
 
-def _standing_sort_key(st: TeamStanding) -> tuple[int, int, int, int, int, str]:
-    """Sort standings rows the same way the projection model breaks ties."""
-    row = max(int(st.w or 0) - int(st.shootout_wins or 0), 0)
-    gd = int(st.gf or 0) - int(st.ga or 0)
-    name = ""
-    if getattr(st, "team", None) is not None:
-        name = (st.team.full_display_name() or "").lower()
-    return (
-        int(st.pts or 0),
-        row,
-        gd,
-        int(st.gf or 0),
-        -int(st.team_id or 0),
-        name,
-    )
-
-
 def _projected_series_for_seeded_rows(
     rows: list[TeamStanding],
     pairings: tuple[tuple[int, int], ...],
@@ -282,6 +247,45 @@ def _projected_series_for_seeded_rows(
             continue
         out.append(_synthetic_preview_series(int(rows[ai].team_id), int(rows[bi].team_id)))
     return out
+
+
+def _series_pair_key(s: SeriesAgg) -> tuple[int, int]:
+    return tuple(sorted((int(s.team_a_id), int(s.team_b_id))))
+
+
+def _slot_series_by_projected_opening_round(
+    real_series: list[SeriesAgg],
+    projected_slots: list[SeriesAgg | None],
+) -> list[SeriesAgg | None] | None:
+    """Place imported opening-round series into the same slots as standings projection."""
+    if not real_series or not any(projected_slots):
+        return None
+
+    by_pair = {_series_pair_key(s): s for s in real_series}
+    used_pairs: set[tuple[int, int]] = set()
+    slots: list[SeriesAgg | None] = []
+    matched = False
+    for projected in projected_slots:
+        if projected is None:
+            slots.append(None)
+            continue
+        key = _series_pair_key(projected)
+        real = by_pair.get(key)
+        if real is None:
+            slots.append(None)
+            continue
+        slots.append(real)
+        used_pairs.add(key)
+        matched = True
+
+    if not matched:
+        return None
+
+    extras = [s for s in real_series if _series_pair_key(s) not in used_pairs]
+    for idx, slot in enumerate(slots):
+        if slot is None and extras:
+            slots[idx] = extras.pop(0)
+    return slots
 
 
 def _projected_bracket_slots_from_standings(
@@ -305,7 +309,7 @@ def _projected_bracket_slots_from_standings(
             continue
         by_conf.setdefault(int(conf), []).append(st)
     for conf_rows in by_conf.values():
-        conf_rows.sort(key=_standing_sort_key, reverse=True)
+        conf_rows.sort(key=standing_sort_key, reverse=True)
 
     format_key = _projection_format_key()
 
@@ -314,7 +318,7 @@ def _projected_bracket_slots_from_standings(
         s2_slots: list[SeriesAgg | None] = [None] * 4
         by_division: dict[tuple[int, str], list[TeamStanding]] = {}
         for st in rows:
-            by_division.setdefault(_division_key_for_standing(st), []).append(st)
+            by_division.setdefault(division_key_for_standing(st), []).append(st)
         division_keys = sorted(by_division.keys(), key=lambda k: (k[0], k[1]))
         pairings = (
             _PROJECTED_PAIRINGS_4
@@ -322,7 +326,7 @@ def _projected_bracket_slots_from_standings(
             else _PROJECTED_PAIRINGS_4_HISTORICAL_DEFAULT
         )
         for div_idx, div_key in enumerate(division_keys[:2]):
-            seeded = sorted(by_division.get(div_key, []), key=_standing_sort_key, reverse=True)[:4]
+            seeded = sorted(by_division.get(div_key, []), key=standing_sort_key, reverse=True)[:4]
             series = _projected_series_for_seeded_rows(seeded, pairings)
             offset = div_idx * 2
             for idx, s in enumerate(series[:2]):
@@ -335,9 +339,9 @@ def _projected_bracket_slots_from_standings(
         for conf_id, offset in ((_CAMPBELL_CONF_ID, 0), (_WALES_CONF_ID, 4)):
             conf_rows = by_conf.get(conf_id, [])
             if format_key == "conference_points":
-                seeded = sorted(conf_rows, key=_standing_sort_key, reverse=True)[:8]
+                seeded = sorted(conf_rows, key=standing_sort_key, reverse=True)[:8]
             else:
-                seeded = _seed_conference_with_division_winners(conf_rows)
+                seeded = seed_conference_with_division_winners(conf_rows)
             series = _projected_series_for_seeded_rows(seeded, _PROJECTED_PAIRINGS_8)
             for idx, s in enumerate(series[:4]):
                 s1_slots[offset + idx] = s
@@ -345,7 +349,7 @@ def _projected_bracket_slots_from_standings(
             return s1_slots, [None] * 4, [None] * 2, teams, _PROJECTION_NOTE
 
     # Fallback for a single-table league: top 16 overall, traditional outside-in bracket.
-    overall = sorted(rows, key=_standing_sort_key, reverse=True)[:16]
+    overall = sorted(rows, key=standing_sort_key, reverse=True)[:16]
     series = _projected_series_for_seeded_rows(
         overall,
         ((0, 15), (7, 8), (4, 11), (3, 12), (2, 13), (5, 10), (6, 9), (1, 14)),
@@ -849,6 +853,15 @@ def playoff_bracket_payload(season_id: int | None) -> dict:
     rs_map = load_rs_strength_by_team(db.session, season_id)
     h2h = load_rs_head_to_head(db.session, season_id)
     logo_year = _season_logo_year(season_id)
+    projected_opening_slots: list[SeriesAgg | None] = []
+    projected_opening_pair_keys: set[tuple[int, int]] = set()
+    if not _compact_mirror_opening_round():
+        projected_opening_slots, _proj_s2, _proj_s3, _proj_teams, _proj_msg = (
+            _projected_bracket_slots_from_standings(season_id)
+        )
+        projected_opening_pair_keys = {
+            _series_pair_key(s) for s in projected_opening_slots if s is not None
+        }
 
     # Order by first playoff game so rounds read left-to-right in schedule order.
     ordered = sorted(
@@ -878,6 +891,15 @@ def playoff_bracket_payload(season_id: int | None) -> dict:
             if n <= 6:
                 return [], ordered[:4], ordered[4:n], None
             return [], ordered[:4], ordered[4:6], ordered[6]
+        if n < 8 and projected_opening_pair_keys:
+            first_round = [
+                s for s in ordered if _series_pair_key(s) in projected_opening_pair_keys
+            ]
+            if first_round:
+                later = [
+                    s for s in ordered if _series_pair_key(s) not in projected_opening_pair_keys
+                ]
+                return first_round, later[:4], later[4:6], later[6] if len(later) >= 7 else None
         if n == 1:
             return [], [], [], ordered[0]
         if n == 2:
@@ -907,8 +929,16 @@ def playoff_bracket_payload(season_id: int | None) -> dict:
     ) -> tuple[list[SeriesAgg | None], list[SeriesAgg | None], list[SeriesAgg | None], SeriesAgg | None]:
         """Fixed slots for mirror UI: 8 QF (4+4), 4 SF (2+2), 2 conference finals (1+1)."""
         s1: list[SeriesAgg | None] = [None] * 8
-        for i, s in enumerate(r1[:8]):
-            s1[i] = s
+        seeded_s1 = _slot_series_by_projected_opening_round(
+            [s for s in r1[:8] if s is not None],
+            projected_opening_slots[:8],
+        )
+        if seeded_s1 is not None:
+            for i, s in enumerate(seeded_s1[:8]):
+                s1[i] = s
+        else:
+            for i, s in enumerate(r1[:8]):
+                s1[i] = s
         s2: list[SeriesAgg | None] = [None] * 4
         lr2 = len(r2)
         if lr2 == 1:

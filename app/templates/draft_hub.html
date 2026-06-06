@@ -173,9 +173,26 @@
       var v = dhBreakdownMode === 'count' ? r.pick_count : r.pick_value;
       if (v > maxVal) maxVal = v;
     });
+    function niceAxisMax(v) {
+      v = Math.max(1, Number(v) || 1);
+      if (dhBreakdownMode === 'count') return Math.ceil(v);
+      var mag = Math.pow(10, Math.floor(Math.log10(v)));
+      var n = v / mag;
+      var nice = n <= 2 ? 2 : (n <= 5 ? 5 : 10);
+      return nice * mag;
+    }
+    var axisMax = niceAxisMax(maxVal);
+    var tickCount = 4;
+    var axisLines = '';
+    for (var ti = 1; ti <= tickCount; ti++) {
+      var val = axisMax * ti / tickCount;
+      var yPct = Math.round((val / axisMax) * 100);
+      var label = dhBreakdownMode === 'count' ? String(Math.round(val)) : String(Math.round(val * 10) / 10);
+      axisLines += '<span class="dh-breakdown-axis__line" style="--axis-y:' + yPct + '%;"><span>' + esc(label) + '</span></span>';
+    }
     var bars = rows.map(function (row) {
       var metric = dhBreakdownMode === 'count' ? row.pick_count : row.pick_value;
-      var pct = Math.max(4, Math.round((metric / maxVal) * 100));
+      var pct = Math.max(4, Math.round((metric / axisMax) * 100));
       var color = row.team_color || '#38bdf8';
       var tip = row.team_name + ' — ' + row.pick_count + ' pick' + (row.pick_count === 1 ? '' : 's')
         + ', ' + row.pick_value.toFixed(1) + ' value'
@@ -205,7 +222,10 @@
       + '<option value="value"' + (dhBreakdownMode === 'value' ? ' selected' : '') + '>Draft Pick Value</option>'
       + '</select></label></div>'
       + '<div class="dh-breakdown__rounds">' + roundChecks + '</div>'
-      + '<div class="dh-breakdown__chart-wrap"><div class="dh-breakdown__chart">' + (bars || '<p class="muted dh-breakdown__empty">No draft pick ownership data yet.</p>') + '</div></div>'
+      + '<div class="dh-breakdown__chart-wrap"><div class="dh-breakdown__chart">'
+      + '<div class="dh-breakdown-axis" aria-hidden="true">' + axisLines + '</div>'
+      + '<div class="dh-breakdown__bars" style="--bar-count:' + Math.max(1, rows.length) + ';">' + (bars || '<p class="muted dh-breakdown__empty">No draft pick ownership data yet.</p>') + '</div>'
+      + '</div></div>'
       + '</section>';
     bindBreakdownControls(tracker);
   }
@@ -775,7 +795,7 @@
     if (!d || !d.draft) {
       if (pageEl) pageEl.classList.remove('draft-hub-page--ticker');
       removeDhTicker();
-      root.innerHTML = '<div class="card"><p class="muted">No draft is configured for this site yet. Check back later or ask the commissioner.</p></div>';
+      root.innerHTML = '<div class="card"><p class="muted">No active Draft Hub room is open. Completed drafts are available in the <a href="{{ url_for("draft_hub.draft_hub_archive_list") }}">Draft Archive</a>.</p></div>';
       clearWishlistAuthHost();
       window.__dhLastDraftForTrade = null;
       dhMounted = false;

@@ -100,11 +100,72 @@ class DraftHubTrackerTest(unittest.TestCase):
         self.assertEqual(team_a["pick_count"], 1)
         self.assertGreater(payload["highest_pick_value"]["value"], 0)
 
+    def test_completed_featured_draft_defers_to_next_active_panel(self) -> None:
+        site = MagicMock()
+        league = MagicMock()
+        completed = MagicMock(id=5, timeline_year=1969, status="completed", scheduled_start_at=None)
+        panel = MagicMock(draft_year=1970, round_count=7, status="active", display_order=1)
+        t1 = MagicMock(
+            id=1,
+            slug="la-kings",
+            abbreviation="LAK",
+            full_display_name=lambda: "Los Angeles Kings",
+            primary_color="#552583",
+        )
+        t2 = MagicMock(
+            id=2,
+            slug="philadelphia-flyers",
+            abbreviation="PHI",
+            full_display_name=lambda: "Philadelphia Flyers",
+            primary_color="#f74902",
+        )
+        ownership_row = MagicMock(
+            owner_team_id=2,
+            original_team_id=1,
+            round=1,
+        )
+        site.scalars.return_value.all.side_effect = [
+            [ownership_row],
+            [],
+        ]
+        league.scalar.return_value = None
+
+        with (
+            unittest.mock.patch(
+                "app.services.draft_hub_tracker._active_ownership_panel",
+                return_value=panel,
+            ),
+            unittest.mock.patch(
+                "app.services.draft_hub_tracker._round1_position_by_team_id",
+                return_value={1: 1, 2: 2},
+            ),
+        ):
+            payload = build_draft_hub_tracker(
+                site,
+                league,
+                league_slug="bowl-historical",
+                featured_draft=completed,
+                team_by_id={1: t1, 2: t2},
+                team_logo_url=lambda _tm, _d: "/logo.png",
+                team_page_url=lambda tm: f"/team/{tm.slug}",
+                draft_hub_url=lambda: "/draft-hub",
+                draft_archive_url=lambda: "/draft-hub/archive",
+                draft_archive_one_url=lambda _id: "/draft-hub/archive/1",
+            )
+
+        self.assertEqual(payload["draft_year"], 1970)
+        self.assertEqual(payload["status_label"], "Upcoming")
+        self.assertEqual(payload["first_pick"]["team_id"], 2)
+        self.assertEqual([x["label"] for x in payload["hub_links"]], ["Draft Archive"])
+
     def test_draft_hub_route_exposes_tracker_payload(self) -> None:
         path = Path(__file__).resolve().parents[1] / "app" / "routes" / "draft_hub.py"
         text = path.read_text(encoding="utf-8")
         self.assertIn("build_draft_hub_tracker", text)
         self.assertIn('"tracker": tracker', text)
+        self.assertIn("_public_draft_room(featured_draft", text)
+        self.assertIn("tracker = _tracker_payload(draft, team_by_id) if draft else None", text)
+        self.assertIn('{"setup", "live"}', text)
 
     def test_draft_hub_template_has_tracker_sections(self) -> None:
         path = Path(__file__).resolve().parents[1] / "app" / "templates" / "draft_hub.html"
@@ -114,6 +175,10 @@ class DraftHubTrackerTest(unittest.TestCase):
         self.assertIn("dh-links-shell", text)
         self.assertIn("renderTrackerPanels", text)
         self.assertIn("dh-breakdown-mode", text)
+        self.assertIn("dh-breakdown-axis", text)
+        self.assertIn("--bar-count", text)
+        self.assertIn("No active Draft Hub room is open", text)
+        self.assertIn("Draft Archive", text)
         self.assertIn("Perri Pick Value Calculator", text)
 
     def test_draft_hub_css_has_tracker_styles(self) -> None:
@@ -121,6 +186,8 @@ class DraftHubTrackerTest(unittest.TestCase):
         text = path.read_text(encoding="utf-8")
         self.assertIn(".dh-tracker__panel", text)
         self.assertIn(".dh-breakdown__chart", text)
+        self.assertIn("@keyframes dh-breakdown-bar-rise", text)
+        self.assertIn(".dh-breakdown-axis__line", text)
         self.assertIn(".dh-links__list", text)
 
 

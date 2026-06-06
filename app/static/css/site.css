@@ -14058,26 +14058,59 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
 .dh-breakdown__chart-wrap {
   border: 1px solid var(--border, #334155);
   border-radius: 0.65rem;
-  padding: 0.75rem 0.5rem 0.35rem;
+  padding: 2.65rem 0.65rem 0.35rem 2.35rem;
   background: rgb(15 23 42 / 0.2);
-  overflow-x: auto;
+  overflow: visible;
 }
 
 .dh-breakdown__chart {
-  display: flex;
-  align-items: flex-end;
-  gap: 0.35rem;
+  position: relative;
   min-height: 14rem;
-  min-width: min(100%, 48rem);
-  padding-top: 2.5rem;
+  height: 14rem;
+  isolation: isolate;
+}
+
+.dh-breakdown-axis {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.dh-breakdown-axis__line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--axis-y, 0%);
+  border-top: 1px dashed rgb(148 163 184 / 0.24);
+}
+
+.dh-breakdown-axis__line span {
+  position: absolute;
+  left: -2rem;
+  top: -0.65rem;
+  min-width: 1.5rem;
+  text-align: right;
+  font-size: 0.68rem;
+  color: var(--muted, #94a3b8);
+  font-weight: 700;
+}
+
+.dh-breakdown__bars {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(var(--bar-count, 1), minmax(0, 1fr));
+  align-items: end;
+  gap: clamp(0.35rem, 1.2vw, 0.75rem);
+  height: 100%;
+  width: 100%;
 }
 
 .dh-breakdown-bar {
   position: relative;
-  flex: 1 1 0;
-  min-width: 2.1rem;
-  max-width: 3.25rem;
-  height: 12rem;
+  min-width: 0;
+  height: 100%;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -14093,17 +14126,33 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
   height: var(--bar-height, 10%);
   border-radius: 0.35rem 0.35rem 0 0;
   background: var(--bar-color, #38bdf8);
-  transition: opacity 0.15s ease;
+  transition: height 0.35s ease, opacity 0.15s ease, transform 0.2s ease;
+  animation: dh-breakdown-bar-rise 0.42s ease both;
+  transform-origin: bottom;
+}
+
+@keyframes dh-breakdown-bar-rise {
+  from {
+    height: 4%;
+    opacity: 0.6;
+  }
+  to {
+    height: var(--bar-height, 10%);
+    opacity: 1;
+  }
 }
 
 .dh-breakdown-bar:hover::before,
 .dh-breakdown-bar:focus-visible::before {
   opacity: 0.82;
+  transform: translateY(-2px);
 }
 
 .dh-breakdown-bar__logo {
   position: absolute;
-  top: 0;
+  top: -2.25rem;
+  left: 50%;
+  transform: translateX(-50%);
   width: 1.65rem;
   height: 1.65rem;
   object-fit: contain;
@@ -14122,8 +14171,8 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
 .dh-breakdown-bar__tip {
   position: absolute;
   left: 50%;
-  bottom: calc(var(--bar-height, 10%) + 0.35rem);
-  transform: translateX(-50%);
+  bottom: min(calc(var(--bar-height, 10%) + 0.45rem), calc(100% - 1.5rem));
+  transform: translate(-50%, 0.3rem);
   min-width: 10rem;
   max-width: 14rem;
   padding: 0.45rem 0.55rem;
@@ -14135,12 +14184,14 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
   text-align: center;
   pointer-events: none;
   opacity: 0;
-  z-index: 2;
+  z-index: 5;
+  transition: opacity 0.16s ease, transform 0.16s ease;
 }
 
 .dh-breakdown-bar:hover .dh-breakdown-bar__tip,
 .dh-breakdown-bar:focus-visible .dh-breakdown-bar__tip {
   opacity: 1;
+  transform: translate(-50%, 0);
 }
 
 .dh-breakdown__empty {

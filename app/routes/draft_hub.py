@@ -98,6 +98,13 @@ def _tracker_payload(draft: LeagueDraft | None, team_by_id: dict[int, Team]) -> 
     )
 
 
+def _public_draft_room(draft: LeagueDraft | None) -> LeagueDraft | None:
+    """Only setup/live drafts render on the main Draft Hub page; completed drafts live in Archive."""
+    if draft is None:
+        return None
+    return draft if str(draft.status or "").strip().lower() in {"setup", "live"} else None
+
+
 @draft_hub_bp.get("")
 def draft_hub_page():
     slug = _league_slug()
@@ -216,9 +223,9 @@ def draft_hub_archive_one(draft_id: int):
 @draft_hub_bp.get("/api/state")
 def draft_hub_api_state():
     slug = _league_slug()
-    draft = featured_draft(db.session, slug)
+    draft = _public_draft_room(featured_draft(db.session, slug))
     team_by_id = {t.id: t for t in db.session.scalars(select(Team)).all()}
-    tracker = _tracker_payload(draft, team_by_id)
+    tracker = _tracker_payload(draft, team_by_id) if draft else None
     if not draft:
         return jsonify({"ok": True, "draft": None, "tracker": tracker})
 

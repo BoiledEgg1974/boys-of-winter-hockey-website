@@ -1,7 +1,6 @@
 """Draft Hub tracker summary: countdown, first pick, team pick breakdown."""
 from __future__ import annotations
 
-from collections import defaultdict
 from datetime import date
 from typing import Any, Callable
 
@@ -105,6 +104,23 @@ def _teams_tied_at_value(rows: list[dict[str, Any]], key: str) -> list[dict[str,
     return [r for r in rows if abs(float(r.get(key) or 0) - best) < 0.001]
 
 
+def _featured_draft_is_current_for_tracker(
+    featured_draft: LeagueDraft | None,
+    panel: DraftPickOwnershipYear | None,
+) -> bool:
+    if featured_draft is None:
+        return False
+    status = str(featured_draft.status or "").strip().lower()
+    if status != "completed":
+        return True
+    if panel is None:
+        return True
+    try:
+        return int(featured_draft.timeline_year) >= int(panel.draft_year)
+    except (TypeError, ValueError):
+        return False
+
+
 def build_draft_hub_tracker(
     site_session: Session,
     league_session: Session,
@@ -121,13 +137,19 @@ def build_draft_hub_tracker(
     slug = str(league_slug or "").strip()
     attr = pick_value_attribution()
     panel = _active_ownership_panel(site_session, league_slug=slug)
-    draft_year = int(getattr(featured_draft, "timeline_year", None) or (panel.draft_year if panel else 0) or 0)
+    use_featured_draft = _featured_draft_is_current_for_tracker(featured_draft, panel)
+    tracker_draft = featured_draft if use_featured_draft else None
+    draft_year = int(
+        (getattr(tracker_draft, "timeline_year", None) if tracker_draft else None)
+        or (panel.draft_year if panel else 0)
+        or 0
+    )
     round_count = int(panel.round_count) if panel else 7
     round_count = max(1, min(7, round_count))
 
     slots = (
-        _slot_rows_for_draft(site_session, int(featured_draft.id))
-        if featured_draft and featured_draft.id
+        _slot_rows_for_draft(site_session, int(tracker_draft.id))
+        if tracker_draft and tracker_draft.id
         else []
     )
     use_slots = bool(slots)
@@ -160,6 +182,7 @@ def build_draft_hub_tracker(
                     "round": int(row.round),
                     "overall_pick": None,
                     "original_team_id": orig_tid,
+                    "original_round1_position": r1_pos.get(orig_tid),
                 }
             )
 
@@ -171,7 +194,7 @@ def build_draft_hub_tracker(
             "team_abbr": (tm.abbreviation or "").strip() if tm else "",
             "team_slug": (tm.slug or "").strip() if tm else "",
             "team_color": _team_color(tm),
-            "team_logo_url": team_logo_url(tm, featured_draft),
+            "team_logo_url": team_logo_url(tm, tracker_draft),
             "team_page_url": team_page_url(tm) if tm else "",
             "pick_count": 0,
             "pick_value": 0.0,
@@ -227,14 +250,23 @@ def build_draft_hub_tracker(
                 "overall_pick": int(first_slot.overall_pick),
             }
     elif r1_pos:
-        worst_tid = next((tid for tid, pos in r1_pos.items() if int(pos) == 1), None)
-        if worst_tid is not None:
-            tm = team_by_id.get(int(worst_tid))
+        first_asset = next(
+            (
+                a
+                for a in pick_assets
+                if int(a.get("round") or 0) == 1
+                and int(a.get("original_round1_position") or 0) == 1
+            ),
+            None,
+        )
+        first_owner_tid = int(first_asset["owner_team_id"]) if first_asset else None
+        if first_owner_tid is not None:
+            tm = team_by_id.get(int(first_owner_tid))
             first_pick = {
-                "team_id": int(worst_tid),
-                "team_name": tm.full_display_name() if tm else f"Team {worst_tid}",
+                "team_id": int(first_owner_tid),
+                "team_name": tm.full_display_name() if tm else f"Team {first_owner_tid}",
                 "team_abbr": (tm.abbreviation or "").strip() if tm else "",
-                "team_logo_url": team_logo_url(tm, featured_draft),
+                "team_logo_url": team_logo_url(tm, tracker_draft),
                 "overall_pick": 1,
             }
 
@@ -247,8 +279,8 @@ def build_draft_hub_tracker(
 
     current_game_date = _latest_game_date(league_session)
     draft_target_date: date | None = None
-    if featured_draft and featured_draft.scheduled_start_at:
-        draft_target_date = featured_draft.scheduled_start_at.date()
+    if tracker_draft and tracker_draft.scheduled_start_at:
+        draft_target_date = tracker_draft.scheduled_start_at.date()
     elif draft_year:
         draft_target_date = date(int(draft_year), 6, 26)
 
@@ -264,14 +296,16 @@ def build_draft_hub_tracker(
             countdown_label = "Draft underway"
 
     status_label = "Pending setup"
-    if featured_draft:
-        st = str(featured_draft.status or "").strip().lower()
+    if tracker_draft:
+        st = str(tracker_draft.status or "").strip().lower()
         if st == "live":
             status_label = "Live now"
         elif st == "completed":
             status_label = "Completed"
         elif st == "setup":
             status_label = "Pending setup"
+    elif panel is not None:
+        status_label = "Upcoming"
 
     drafts_all = list(
         site_session.scalars(
@@ -282,8 +316,6 @@ def build_draft_hub_tracker(
     )
     pending_drafts = [d for d in drafts_all if str(d.status or "") == "setup"]
     live_drafts = [d for d in drafts_all if str(d.status or "") == "live"]
-    archived_drafts = [d for d in drafts_all if str(d.status or "") == "completed"][:8]
-
     hub_links: list[dict[str, Any]] = []
     if live_drafts:
         d = live_drafts[0]
@@ -316,16 +348,7 @@ def build_draft_hub_tracker(
                     "draft_id": int(d.id),
                 }
             )
-    hub_links.append({"label": "Draft archive", "url": draft_archive_url(), "status": "archive"})
-    for d in archived_drafts[:5]:
-        hub_links.append(
-            {
-                "label": d.name,
-                "url": draft_archive_one_url(int(d.id)),
-                "status": "completed",
-                "draft_id": int(d.id),
-            }
-        )
+    hub_links.append({"label": "Draft Archive", "url": draft_archive_url(), "status": "archive"})
 
     title_year = draft_year or (int(featured_draft.timeline_year) if featured_draft else None)
     return {
@@ -338,8 +361,8 @@ def build_draft_hub_tracker(
         "current_game_date": current_game_date.isoformat() if current_game_date else None,
         "draft_target_date": draft_target_date.isoformat() if draft_target_date else None,
         "scheduled_start_at": (
-            featured_draft.scheduled_start_at.isoformat()
-            if featured_draft and featured_draft.scheduled_start_at
+            tracker_draft.scheduled_start_at.isoformat()
+            if tracker_draft and tracker_draft.scheduled_start_at
             else None
         ),
         "first_pick": first_pick,

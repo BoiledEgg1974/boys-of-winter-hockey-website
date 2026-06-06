@@ -3671,7 +3671,7 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
 .team-honors__banner-img {
   display: block;
   max-width: 100%;
-  height: var(--team-honors-banner-fixed-height, 5rem);
+  height: var(--team-honors-banner-fixed-height, 7.5rem);
   max-height: none;
   width: auto;
   object-fit: contain;

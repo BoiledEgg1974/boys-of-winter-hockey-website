@@ -54,7 +54,7 @@ class TeamHonorsTemplateTest(unittest.TestCase):
         self.assertIn(".team-honors__grid--split", css)
         self.assertIn("flex: 1 1 0;", css)
         self.assertIn("var(--team-honors-jersey-width", css)
-        self.assertIn("--team-honors-banner-fixed-height, 5rem", css)
+        self.assertIn("--team-honors-banner-fixed-height, 7.5rem", css)
         self.assertIn("max-height: none;", css)
         self.assertIn("text-overflow: ellipsis;", css)
 

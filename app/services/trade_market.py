@@ -17,7 +17,6 @@ from app.services.draft_pick_ownership import (
     draft_pick_drag_key,
     draft_pick_owned_by_team,
     owned_draft_pick_drag_keys,
-    parse_draft_pick_drag_key,
 )
 from app.services.gm_messaging import gm_discord_name
 from app.services.player_ratings_csv import fhm_abi_pot_float, get_player_ratings_row
@@ -111,6 +110,10 @@ def _validate_owned_asset(
     at = str(asset_type or "").strip().lower()
     ref = str(asset_ref or "").strip()
     if at == "draft_pick":
+        if ref not in owned_draft_pick_drag_keys(
+            site_session, league_slug=league_slug, team_id=int(team_id)
+        ):
+            return False
         return (
             draft_pick_owned_by_team(
                 site_session,
@@ -168,10 +171,11 @@ def replace_selling_listings(
             raw_dir=raw_dir,
         ):
             return [], "One or more selected assets are not on your team."
-        wants = it.get("wants") or []
-        if isinstance(wants, str):
-            wants = [wants]
-        wants_clean = [str(w).strip() for w in wants if str(w).strip() in BUYING_CATEGORY_KEYS]
+        wants_raw = it.get("wants_text", it.get("wants", ""))
+        if isinstance(wants_raw, list):
+            wants_text = ", ".join(str(w).strip() for w in wants_raw if str(w).strip())
+        else:
+            wants_text = str(wants_raw or "").strip()
         row = TradeMarketListing(
             league_slug=slug,
             user_id=int(user_id),
@@ -179,7 +183,7 @@ def replace_selling_listings(
             asset_type=at,
             asset_ref=ref,
             asking_price=str(it.get("asking_price") or "").strip()[:120],
-            wants_json=json.dumps(wants_clean),
+            wants_json=json.dumps([wants_text[:500]] if wants_text else []),
             note=str(it.get("note") or "").strip()[:2000],
             status="active",
         )
@@ -302,8 +306,6 @@ def enrich_listing_row(
     teams_by_id: dict[int, Team],
     users_by_id: dict[int, User],
 ) -> dict[str, Any]:
-    from app.site_models import TradeMarketDraftPickOwnership
-
     tm = teams_by_id.get(int(listing.team_id))
     u = users_by_id.get(int(listing.user_id))
     gm = gm_discord_name(u) if u else f"User #{listing.user_id}"
@@ -314,7 +316,11 @@ def enrich_listing_row(
         wants = json.loads(listing.wants_json or "[]")
     except json.JSONDecodeError:
         wants = []
-    wants_labels = [buying_category_label(str(w)) for w in wants if w]
+    wants_labels = [
+        buying_category_label(str(w)) if str(w) in BUYING_CATEGORY_KEYS else str(w)
+        for w in wants
+        if str(w or "").strip()
+    ]
 
     out: dict[str, Any] = {
         "listing_id": int(listing.id),
@@ -333,6 +339,7 @@ def enrich_listing_row(
         "asset_label": ref,
         "asking_price": str(listing.asking_price or ""),
         "wants": wants,
+        "wants_text": ", ".join(wants_labels),
         "wants_labels": ", ".join(wants_labels) if wants_labels else "—",
         "note": str(listing.note or ""),
         "updated_at": listing.updated_at,
@@ -342,18 +349,31 @@ def enrich_listing_row(
         "aav": None,
         "player_id": None,
         "positions": "",
+        "is_current_asset": True,
     }
 
     if at == "draft_pick":
-        rid = parse_draft_pick_drag_key(ref)
-        if rid:
-            dp = site_session.get(TradeMarketDraftPickOwnership, int(rid))
-            if dp:
-                orig = league_session.get(Team, int(dp.original_team_id)) if dp.original_team_id else None
-                owner = league_session.get(Team, int(dp.owner_team_id)) if dp.owner_team_id else None
-                out["asset_label"] = describe_draft_pick_row(
-                    dp, original_team=orig, owner_team=owner
-                )
+        if ref not in owned_draft_pick_drag_keys(
+            site_session,
+            league_slug=str(listing.league_slug or ""),
+            team_id=int(listing.team_id),
+        ):
+            out["is_current_asset"] = False
+            return out
+        dp = draft_pick_owned_by_team(
+            site_session,
+            league_slug=str(listing.league_slug or ""),
+            team_id=int(listing.team_id),
+            drag_key=ref,
+        )
+        if dp is None:
+            out["is_current_asset"] = False
+            return out
+        orig = league_session.get(Team, int(dp.original_team_id)) if dp.original_team_id else None
+        owner = league_session.get(Team, int(dp.owner_team_id)) if dp.owner_team_id else None
+        out["asset_label"] = describe_draft_pick_row(
+            dp, original_team=orig, owner_team=owner
+        )
         return out
 
     parsed = parse_player_asset_ref(ref)
@@ -407,12 +427,13 @@ def active_selling_rows(
     users = {
         u.id: u for u in site_session.scalars(select(User).where(User.id.in_(user_ids))).all()
     }
-    return [
+    rows = [
         enrich_listing_row(
             site_session, league_session, lst, teams_by_id=teams, users_by_id=users
         )
         for lst in listings
     ]
+    return [r for r in rows if r.get("is_current_asset", True)]
 
 
 def sort_selling_rows(

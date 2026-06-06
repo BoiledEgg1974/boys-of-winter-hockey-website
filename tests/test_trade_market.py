@@ -2,12 +2,15 @@
 from __future__ import annotations
 
 import unittest
-from datetime import datetime
+import json
+from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
 from app.services.trade_market import (
     BUYING_CATEGORY_KEYS,
+    enrich_listing_row,
     replace_buying_needs,
+    replace_selling_listings,
     sort_selling_rows,
     _validate_owned_asset,
 )
@@ -55,6 +58,40 @@ class TradeMarketServiceTest(unittest.TestCase):
         self.assertEqual(cats, {"prospects", "goalie"})
         self.assertTrue(cats <= BUYING_CATEGORY_KEYS)
 
+    def test_replace_selling_stores_free_text_wants(self) -> None:
+        site = MagicMock()
+        site.execute.return_value = None
+        site.flush.return_value = None
+        added = []
+        def capture(row):
+            row.id = len(added) + 1
+            added.append(row)
+
+        site.add.side_effect = capture
+        with patch("app.services.trade_market._validate_owned_asset", return_value=True):
+            with patch("app.services.trade_market._enqueue_trade_market_watch_alerts"):
+                rows, err = replace_selling_listings(
+                    site,
+                    MagicMock(),
+                    league_slug="bowl-cap",
+                    user_id=1,
+                    team_id=10,
+                    items=[
+                        {
+                            "asset_type": "contract",
+                            "asset_ref": "player:99:roster",
+                            "asking_price": "2nd round pick",
+                            "wants": "Top-four RD or defensive center",
+                            "note": "",
+                        }
+                    ],
+                    raw_dir=None,
+                )
+
+        self.assertIsNone(err)
+        self.assertEqual(rows, added)
+        self.assertEqual(json.loads(rows[0].wants_json), ["Top-four RD or defensive center"])
+
     def test_validate_owned_asset_rejects_unknown_player(self) -> None:
         site = MagicMock()
         league = MagicMock()
@@ -76,6 +113,50 @@ class TradeMarketServiceTest(unittest.TestCase):
                     raw_dir=None,
                 )
         self.assertFalse(ok)
+
+    def test_validate_owned_asset_rejects_unavailable_draft_pick(self) -> None:
+        site = MagicMock()
+        league = MagicMock()
+        with patch(
+            "app.services.trade_market.owned_draft_pick_drag_keys",
+            return_value=set(),
+        ):
+            ok = _validate_owned_asset(
+                site,
+                league,
+                league_slug="bowl-cap",
+                team_id=1,
+                asset_type="draft_pick",
+                asset_ref="dpick:42",
+                raw_dir=None,
+            )
+        self.assertFalse(ok)
+
+    def test_enrich_listing_marks_stale_draft_pick_unavailable(self) -> None:
+        listing = MagicMock(
+            id=10,
+            team_id=1,
+            user_id=2,
+            league_slug="bowl-cap",
+            asset_type="draft_pick",
+            asset_ref="dpick:42",
+            asking_price="",
+            wants_json="[]",
+            note="",
+            updated_at=datetime.now(UTC),
+        )
+        with patch(
+            "app.services.trade_market.owned_draft_pick_drag_keys",
+            return_value=set(),
+        ):
+            row = enrich_listing_row(
+                MagicMock(),
+                MagicMock(),
+                listing,
+                teams_by_id={},
+                users_by_id={},
+            )
+        self.assertFalse(row["is_current_asset"])
 
     def test_trade_tool_blocks_manual_picks_when_admin_ownership_exists(self) -> None:
         session = MagicMock()

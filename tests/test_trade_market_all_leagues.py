@@ -113,6 +113,24 @@ class TradeMarketAllLeaguesTest(unittest.TestCase):
         self.assertIn("dialog-chat", text)
         self.assertIn("peer_user_id: chatState.peerUserId", text)
 
+    def test_trade_market_template_uses_card_layout_and_shared_rating_classes(self) -> None:
+        path = (
+            Path(__file__).resolve().parents[1]
+            / "app"
+            / "templates"
+            / "trade_market.html"
+        )
+        text = path.read_text(encoding="utf-8")
+        self.assertIn("trade-market-board--selling", text)
+        self.assertIn("trade-market-card--buying", text)
+        self.assertIn("stats-player-cell__name trade-market-asset__name", text)
+        self.assertIn("stats-badge stats-badge--rating stats-badge--overall", text)
+        self.assertIn("stats-ova__score trade-market-rating__value", text)
+        self.assertIn("trade-market-sortbar", text)
+        self.assertIn("class=\"wants-in\"", text)
+        self.assertIn("top-four RD", text)
+        self.assertNotIn("class=\"want-cb\"", text)
+
 
 if __name__ == "__main__":
     unittest.main()

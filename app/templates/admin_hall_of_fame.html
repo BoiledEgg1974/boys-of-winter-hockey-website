@@ -8,12 +8,19 @@
 
   <section class="card" style="padding:1rem;margin:1rem 0;">
     <h2 style="margin-top:0;">{% if edit_row %}Edit inductee{% else %}Add inductee{% endif %}</h2>
-    <form method="post" style="display:grid;grid-template-columns:2fr 10rem auto;gap:0.75rem;align-items:end;">
+    <form method="post" style="display:grid;grid-template-columns:2fr 9rem 10rem auto;gap:0.75rem;align-items:end;">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="action" value="save">
       {% if edit_row %}<input type="hidden" name="member_id" value="{{ edit_row.id }}">{% endif %}
       <label>Player name or ID<br>
         <input list="hof-player-names" name="player_name" value="{{ edit_row.player.full_name if edit_row and edit_row.player else '' }}" required style="width:100%;">
+      </label>
+      <label>Category<br>
+        <select name="member_kind" required style="width:100%;">
+          {% set selected_kind = edit_row.member_kind if edit_row else 'skater' %}
+          <option value="skater"{% if selected_kind == 'skater' %} selected{% endif %}>Skater</option>
+          <option value="goalie"{% if selected_kind == 'goalie' %} selected{% endif %}>Goalie</option>
+        </select>
       </label>
       <label>Inducted year<br>
         <input type="number" name="inducted_year" min="1900" max="2200" value="{{ edit_row.inducted_year if edit_row else '' }}" required style="width:100%;">

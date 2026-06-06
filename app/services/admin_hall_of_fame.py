@@ -11,6 +11,7 @@ from app.models import HallOfFameMember, Player
 
 HOF_SOURCE_ADMIN = "admin"
 HOF_SOURCE_CSV = "csv"
+HOF_MEMBER_KINDS = ("skater", "goalie")
 
 
 @dataclass(frozen=True)
@@ -19,9 +20,9 @@ class PlayerResolveResult:
     error: str | None = None
 
 
-def _kind_for_player(player: Player) -> str:
-    pos = (player.position or "").strip().upper()
-    return "goalie" if pos.startswith("G") else "skater"
+def normalize_hof_member_kind(raw: str) -> str | None:
+    kind = (raw or "").strip().lower()
+    return kind if kind in HOF_MEMBER_KINDS else None
 
 
 def resolve_player_for_hof(session: Session, name_or_id: str) -> PlayerResolveResult:
@@ -98,6 +99,7 @@ def upsert_hof_member(
     *,
     member_id: int | None,
     player_name: str,
+    member_kind: str,
     inducted_year: int,
     user_id: int | None,
 ) -> tuple[HallOfFameMember | None, str | None]:
@@ -105,6 +107,9 @@ def upsert_hof_member(
     if resolved.error:
         return None, resolved.error
     assert resolved.player is not None
+    normalized_kind = normalize_hof_member_kind(member_kind)
+    if normalized_kind is None:
+        return None, "Choose whether this Hall of Fame inductee is a skater or goalie."
     if inducted_year <= 0:
         return None, "Enter a valid induction year."
 
@@ -118,10 +123,10 @@ def upsert_hof_member(
 
     row = session.get(HallOfFameMember, int(member_id)) if member_id else None
     if row is None:
-        row = HallOfFameMember(player_id=int(resolved.player.id), member_kind=_kind_for_player(resolved.player))
+        row = HallOfFameMember(player_id=int(resolved.player.id), member_kind=normalized_kind)
         session.add(row)
     row.player_id = int(resolved.player.id)
-    row.member_kind = _kind_for_player(resolved.player)
+    row.member_kind = normalized_kind
     row.inducted_year = int(inducted_year)
     row.source = HOF_SOURCE_ADMIN
     row.updated_at = datetime.utcnow()

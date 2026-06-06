@@ -3375,6 +3375,7 @@ def admin_hall_of_fame():
 
         member_id = int(request.form.get("member_id") or 0) or None
         player_name = (request.form.get("player_name") or "").strip()
+        member_kind = (request.form.get("member_kind") or "").strip()
         try:
             inducted_year = int(request.form.get("inducted_year") or "0")
         except ValueError:
@@ -3383,6 +3384,7 @@ def admin_hall_of_fame():
             db.session,
             member_id=member_id,
             player_name=player_name,
+            member_kind=member_kind,
             inducted_year=inducted_year,
             user_id=int(current_user.id),
         )
@@ -3400,6 +3402,7 @@ def admin_hall_of_fame():
             {
                 "member_id": int(row.id),
                 "player_id": int(row.player_id),
+                "member_kind": row.member_kind,
                 "inducted_year": int(row.inducted_year),
             },
         )

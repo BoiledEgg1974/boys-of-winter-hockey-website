@@ -158,12 +158,71 @@ class DraftHubTrackerTest(unittest.TestCase):
         self.assertEqual(payload["first_pick"]["team_id"], 2)
         self.assertEqual([x["label"] for x in payload["hub_links"]], ["Draft Archive"])
 
+    def test_stale_setup_draft_defers_to_current_ingame_year(self) -> None:
+        site = MagicMock()
+        league = MagicMock()
+        stale_setup = MagicMock(id=7, timeline_year=1999, status="setup", scheduled_start_at=None)
+        panel = MagicMock(draft_year=2000, round_count=7, status="active", display_order=1)
+        t1 = MagicMock(
+            id=1,
+            slug="atlanta-thrashers",
+            abbreviation="ATL",
+            full_display_name=lambda: "Atlanta Thrashers",
+            primary_color="#4b2e83",
+        )
+        ownership_row = MagicMock(
+            owner_team_id=1,
+            original_team_id=1,
+            round=1,
+        )
+        site.scalars.return_value.all.side_effect = [
+            [ownership_row],
+            [],
+        ]
+
+        with (
+            unittest.mock.patch(
+                "app.services.draft_hub_tracker.in_game_draft_ownership_cutoff_year",
+                return_value=2000,
+            ),
+            unittest.mock.patch(
+                "app.services.draft_hub_tracker._active_ownership_panel",
+                return_value=panel,
+            ),
+            unittest.mock.patch(
+                "app.services.draft_hub_tracker._round1_position_by_team_id",
+                return_value={1: 1},
+            ),
+            unittest.mock.patch(
+                "app.services.draft_hub_tracker._latest_game_date",
+                return_value=None,
+            ),
+        ):
+            payload = build_draft_hub_tracker(
+                site,
+                league,
+                league_slug="bowl-cap",
+                featured_draft=stale_setup,
+                team_by_id={1: t1},
+                team_logo_url=lambda _tm, _d: "/logo.png",
+                team_page_url=lambda tm: f"/team/{tm.slug}",
+                draft_hub_url=lambda: "/draft-hub",
+                draft_archive_url=lambda: "/draft-hub/archive",
+                draft_archive_one_url=lambda _id: "/draft-hub/archive/1",
+            )
+
+        self.assertEqual(payload["draft_year"], 2000)
+        self.assertEqual(payload["status_label"], "Upcoming")
+        self.assertEqual(payload["first_pick"]["team_id"], 1)
+
     def test_draft_hub_route_exposes_tracker_payload(self) -> None:
         path = Path(__file__).resolve().parents[1] / "app" / "routes" / "draft_hub.py"
         text = path.read_text(encoding="utf-8")
         self.assertIn("build_draft_hub_tracker", text)
         self.assertIn('"tracker": tracker', text)
         self.assertIn("_public_draft_room(featured_draft", text)
+        self.assertIn("min_draft_year=min_draft_year", text)
+        self.assertIn("in_game_draft_ownership_cutoff_year", text)
         self.assertIn("tracker = _tracker_payload(draft, team_by_id) if draft else None", text)
         self.assertIn('{"setup", "live"}', text)
 

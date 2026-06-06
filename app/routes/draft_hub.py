@@ -19,6 +19,7 @@ from app.services.draft_hub_eligibility_cache import (
 )
 from app.services.draft_hub_poll import maybe_process_tick, players_by_id
 from app.services.draft_hub_tracker import build_draft_hub_tracker
+from app.services.draft_pick_ownership import in_game_draft_ownership_cutoff_year
 from app.services.seasons import get_current_season, season_age_reference_date
 from app.services.draft_hub_state import (
     auto_complete_draft,
@@ -98,11 +99,19 @@ def _tracker_payload(draft: LeagueDraft | None, team_by_id: dict[int, Team]) -> 
     )
 
 
-def _public_draft_room(draft: LeagueDraft | None) -> LeagueDraft | None:
+def _public_draft_room(draft: LeagueDraft | None, *, min_draft_year: int | None = None) -> LeagueDraft | None:
     """Only setup/live drafts render on the main Draft Hub page; completed drafts live in Archive."""
     if draft is None:
         return None
-    return draft if str(draft.status or "").strip().lower() in {"setup", "live"} else None
+    if str(draft.status or "").strip().lower() not in {"setup", "live"}:
+        return None
+    try:
+        if min_draft_year is not None and int(draft.timeline_year) < int(min_draft_year):
+            return None
+    except (TypeError, ValueError):
+        if min_draft_year is not None:
+            return None
+    return draft
 
 
 @draft_hub_bp.get("")
@@ -223,7 +232,8 @@ def draft_hub_archive_one(draft_id: int):
 @draft_hub_bp.get("/api/state")
 def draft_hub_api_state():
     slug = _league_slug()
-    draft = _public_draft_room(featured_draft(db.session, slug))
+    min_draft_year = in_game_draft_ownership_cutoff_year(db.session, league_slug=slug)
+    draft = _public_draft_room(featured_draft(db.session, slug), min_draft_year=min_draft_year)
     team_by_id = {t.id: t for t in db.session.scalars(select(Team)).all()}
     tracker = _tracker_payload(draft, team_by_id) if draft else None
     if not draft:

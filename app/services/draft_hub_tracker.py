@@ -9,7 +9,10 @@ from sqlalchemy.orm import Session
 
 from app.models import Game, Team
 from app.services.draft_hub_order import main_league_standings_worst_to_best, resolve_prior_season_for_draft
-from app.services.draft_pick_ownership import list_draft_pick_ownership_year_panels
+from app.services.draft_pick_ownership import (
+    in_game_draft_ownership_cutoff_year,
+    list_draft_pick_ownership_year_panels,
+)
 from app.services.draft_pick_values import (
     perri_pick_value_for_asset,
     pick_value_attribution,
@@ -36,12 +39,16 @@ def _latest_game_date(league_session: Session) -> date | None:
 
 
 def _active_ownership_panel(
-    site_session: Session, *, league_slug: str
+    site_session: Session, *, league_slug: str, min_draft_year: int | None = None
 ) -> DraftPickOwnershipYear | None:
     panels = list_draft_pick_ownership_year_panels(site_session, league_slug=league_slug)
     active = [p for p in panels if str(p.status or "active") != "completed"]
     if not active:
         return None
+    if min_draft_year is not None:
+        current = [p for p in active if int(p.draft_year) >= int(min_draft_year)]
+        if current:
+            return sorted(current, key=lambda p: (int(p.draft_year), int(p.display_order)))[0]
     return sorted(active, key=lambda p: (int(p.display_order), int(p.draft_year)))[0]
 
 
@@ -107,9 +114,16 @@ def _teams_tied_at_value(rows: list[dict[str, Any]], key: str) -> list[dict[str,
 def _featured_draft_is_current_for_tracker(
     featured_draft: LeagueDraft | None,
     panel: DraftPickOwnershipYear | None,
+    min_draft_year: int | None = None,
 ) -> bool:
     if featured_draft is None:
         return False
+    try:
+        if min_draft_year is not None and int(featured_draft.timeline_year) < int(min_draft_year):
+            return False
+    except (TypeError, ValueError):
+        if min_draft_year is not None:
+            return False
     status = str(featured_draft.status or "").strip().lower()
     if status != "completed":
         return True
@@ -136,12 +150,22 @@ def build_draft_hub_tracker(
 ) -> dict[str, Any]:
     slug = str(league_slug or "").strip()
     attr = pick_value_attribution()
-    panel = _active_ownership_panel(site_session, league_slug=slug)
-    use_featured_draft = _featured_draft_is_current_for_tracker(featured_draft, panel)
+    min_draft_year = in_game_draft_ownership_cutoff_year(league_session, league_slug=slug)
+    panel = _active_ownership_panel(
+        site_session,
+        league_slug=slug,
+        min_draft_year=min_draft_year,
+    )
+    use_featured_draft = _featured_draft_is_current_for_tracker(
+        featured_draft,
+        panel,
+        min_draft_year=min_draft_year,
+    )
     tracker_draft = featured_draft if use_featured_draft else None
     draft_year = int(
         (getattr(tracker_draft, "timeline_year", None) if tracker_draft else None)
         or (panel.draft_year if panel else 0)
+        or min_draft_year
         or 0
     )
     round_count = int(panel.round_count) if panel else 7

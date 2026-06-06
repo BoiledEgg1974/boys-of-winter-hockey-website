@@ -72,7 +72,7 @@
         {{ trade_market_sort_link('player', 'Asset') }}
         {{ trade_market_sort_link('ovr', 'OVR') }}
         {{ trade_market_sort_link('abi', 'ABI') }}
-        {{ trade_market_sort_link('agi', 'AGI') }}
+        {{ trade_market_sort_link('pot', 'POT') }}
         {{ trade_market_sort_link('aav', 'AAV') }}
       </div>
     </div>
@@ -81,13 +81,20 @@
       {% for block in market_team_rows %}
       {% set buying = block.buying %}
       {% set selling = block.selling or [] %}
-      <article class="trade-market-team-block">
+      <article class="trade-market-team-block" style="--trade-team-color: {{ block.team_color or '#facc15' }}; --trade-team-text-color: {{ block.team_text_color or '#0f172a' }};">
         <header class="trade-market-team-block__head">
-          <div>
-            <h3 class="trade-market-team-block__title">{{ block.team_name }}</h3>
-            {% if can_show_gm_names and block.gm_name %}
-            <p class="trade-market-card__gm muted">{{ block.gm_name }}</p>
+          <div class="trade-market-team-block__identity">
+            {% if block.team_logo_url %}
+            <img class="trade-market-team-block__logo" src="{{ block.team_logo_url }}" alt="" loading="lazy" decoding="async">
+            {% else %}
+            <span class="trade-market-team-block__logo trade-market-team-block__logo--placeholder">{{ block.team_abbr or 'TM' }}</span>
             {% endif %}
+            <div>
+              <h3 class="trade-market-team-block__title">{{ block.team_name }}</h3>
+            {% if can_show_gm_names and block.gm_name %}
+              <p class="trade-market-card__gm">{{ block.gm_name }}</p>
+            {% endif %}
+            </div>
           </div>
           <div class="trade-market-team-block__actions">
             {% if block.updated_at %}
@@ -148,13 +155,13 @@
                     {% else %}
                     <span class="trade-market-asset__name">{{ row.asset_label }}</span>
                     {% endif %}
-                    {% if row.positions %}
-                    <span class="trade-market-asset__meta">{{ row.positions }}</span>
+                    {% if row.age or row.positions %}
+                    <span class="trade-market-asset__meta">{% if row.age %}<strong>Age {{ row.age }}</strong>{% endif %}{% if row.age and row.positions %} · {% endif %}{{ row.positions }}</span>
                     {% endif %}
                     <div class="trade-market-ratings">
                       {{ trade_market_rating('OVR', row.ovr) }}
                       {{ trade_market_rating('ABI', row.abi, row.abi_style or (row.abi|rating_pill_style)) }}
-                      {{ trade_market_rating('AGI', row.agi, row.agi|rating_pill_style) }}
+                      {{ trade_market_rating('POT', row.pot, row.pot_style or (row.pot|rating_pill_style)) }}
                     </div>
                   </div>
                 </div>
@@ -275,42 +282,47 @@
 .trade-market-sort--active { font-weight: 700; border-color: var(--accent, #38bdf8); background: rgb(56 189 248 / 0.14); }
 .trade-market-board { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr)); gap: 0.85rem; }
 .trade-market-team-list { display: grid; gap: 1rem; }
-.trade-market-team-block { border: 1px solid var(--border, #334155); border-radius: 0.75rem; overflow: hidden; background: rgb(15 23 42 / 0.1); }
-.trade-market-team-block__head { display: flex; justify-content: space-between; gap: 1rem; align-items: center; padding: 0.8rem 1rem; border-bottom: 1px solid var(--border, #334155); background: rgb(250 204 21 / 0.9); color: #0f172a; text-align: center; }
-.trade-market-team-block__title { margin: 0; font-size: 1rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.04em; }
+.trade-market-team-block { border: 1px solid color-mix(in srgb, var(--trade-team-color, #facc15) 52%, var(--border, #334155)); border-radius: 0.75rem; overflow: hidden; background: rgb(15 23 42 / 0.1); }
+.trade-market-team-block__head { display: flex; justify-content: space-between; gap: 1rem; align-items: center; padding: 0.65rem 0.9rem; border-bottom: 1px solid var(--border, #334155); background: linear-gradient(90deg, var(--trade-team-color, #facc15), color-mix(in srgb, var(--trade-team-color, #facc15) 72%, #020617)); color: var(--trade-team-text-color, #0f172a); }
+.trade-market-team-block__identity { display: flex; align-items: center; gap: 0.65rem; min-width: 0; }
+.trade-market-team-block__logo { width: 2.75rem; height: 2.75rem; object-fit: contain; flex: 0 0 auto; filter: drop-shadow(0 2px 5px rgb(2 6 23 / 0.22)); }
+.trade-market-team-block__logo--placeholder { display: grid; place-items: center; border-radius: 0.5rem; background: rgb(15 23 42 / 0.18); font-size: 0.75rem; font-weight: 900; }
+.trade-market-team-block__title { margin: 0; font-size: 1rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.04em; line-height: 1.1; }
 .trade-market-team-block__actions { display: flex; align-items: center; justify-content: flex-end; gap: 0.65rem; flex-wrap: wrap; }
+.trade-market-team-block__actions .muted,
+.trade-market-team-block__head .trade-market-card__gm { color: color-mix(in srgb, var(--trade-team-text-color, #0f172a) 76%, transparent); }
 .trade-market-team-block__grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); min-height: 14rem; }
 .trade-market-team-block__col { min-width: 0; padding: 0.9rem; }
 .trade-market-team-block__col + .trade-market-team-block__col { border-left: 1px solid var(--border, #334155); }
 .trade-market-team-block__col-title { margin: -0.9rem -0.9rem 0.85rem; padding: 0.62rem 0.8rem; text-align: center; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 900; color: #fff; }
-.trade-market-team-block__col-title--buying { background: #020617; }
-.trade-market-team-block__col-title--selling { background: #f97316; }
-.trade-market-selling-list { display: grid; gap: 0.7rem; }
+.trade-market-team-block__col-title--buying { background: color-mix(in srgb, var(--trade-team-color, #facc15) 64%, #020617); }
+.trade-market-team-block__col-title--selling { background: color-mix(in srgb, var(--trade-team-color, #facc15) 82%, #f97316); color: var(--trade-team-text-color, #0f172a); }
+.trade-market-selling-list { display: grid; gap: 0.5rem; max-height: 35rem; overflow-y: auto; padding-right: 0.25rem; scrollbar-gutter: stable; }
 .trade-market-empty-col { min-height: 9rem; display: grid; place-items: center; margin: 0; text-align: center; }
 .trade-market-card { border: 1px solid var(--border, #334155); border-radius: 0.65rem; padding: 0.85rem; background: rgb(15 23 42 / 0.14); box-shadow: 0 10px 28px rgb(2 6 23 / 0.12); }
-.trade-market-card--compact { box-shadow: none; }
+.trade-market-card--compact { box-shadow: none; padding: 0.55rem 0.65rem; }
 .trade-market-card__head, .trade-market-card__foot { display: flex; justify-content: space-between; align-items: start; gap: 0.75rem; }
 .trade-market-card__team { margin: 0; font-weight: 800; }
 .trade-market-card__gm { margin: 0.15rem 0 0; font-size: 0.84rem; }
-.trade-market-card__type { border: 1px solid var(--border, #334155); border-radius: 999px; padding: 0.16rem 0.5rem; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; background: rgb(148 163 184 / 0.12); }
-.trade-market-asset { display: grid; grid-template-columns: 3.25rem minmax(0, 1fr); gap: 0.75rem; align-items: center; margin-top: 0.8rem; }
-.trade-market-asset__media { width: 3.25rem; height: 3.25rem; border-radius: 0.5rem; overflow: hidden; display: grid; place-items: center; background: rgb(15 23 42 / 0.35); border: 1px solid var(--border, #334155); }
+.trade-market-card__type { display: inline-flex; border: 1px solid var(--border, #334155); border-radius: 999px; padding: 0.11rem 0.45rem; font-size: 0.66rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; background: rgb(148 163 184 / 0.12); }
+.trade-market-asset { display: grid; grid-template-columns: 2.85rem minmax(0, 1fr); gap: 0.55rem; align-items: center; margin-top: 0; }
+.trade-market-asset__media { width: 2.85rem; height: 2.85rem; border-radius: 0.45rem; overflow: hidden; display: grid; place-items: center; background: rgb(15 23 42 / 0.35); border: 1px solid var(--border, #334155); }
 .trade-market-asset__media img { width: 100%; height: 100%; object-fit: cover; }
 .trade-market-asset__placeholder { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.06em; color: var(--muted, #94a3b8); }
 .trade-market-asset__body { min-width: 0; }
-.trade-market-asset__name { display: block; font-weight: 800; line-height: 1.2; overflow-wrap: anywhere; }
-.trade-market-asset__meta { display: block; margin-top: 0.16rem; color: var(--muted, #94a3b8); font-size: 0.82rem; }
-.trade-market-ratings { display: flex; gap: 0.38rem; flex-wrap: wrap; margin-top: 0.5rem; }
+.trade-market-asset__name { display: block; font-weight: 800; line-height: 1.15; overflow-wrap: anywhere; }
+.trade-market-asset__meta { display: block; margin-top: 0.1rem; color: var(--muted, #94a3b8); font-size: 0.78rem; }
+.trade-market-ratings { display: flex; gap: 0.3rem; flex-wrap: wrap; margin-top: 0.38rem; }
 .trade-market-rating { display: inline-flex; align-items: center; gap: 0.22rem; }
-.trade-market-rating__label { color: var(--muted, #94a3b8); font-size: 0.68rem; font-weight: 800; letter-spacing: 0.04em; }
-.trade-market-rating__value, .trade-market-rating__empty { min-width: 2rem; justify-content: center; }
-.trade-market-rating__value--ovr { display: inline-flex; align-items: center; justify-content: center; min-height: 1.55rem; padding: 0 0.5rem; }
-.trade-market-rating__empty { display: inline-flex; align-items: center; min-height: 1.55rem; color: var(--muted, #94a3b8); }
-.trade-market-card__details { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; margin: 0.85rem 0 0; }
-.trade-market-card__details div { border: 1px solid var(--border, #334155); border-radius: 0.5rem; padding: 0.45rem 0.5rem; background: rgb(148 163 184 / 0.08); min-width: 0; }
-.trade-market-card__details dt { color: var(--muted, #94a3b8); font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
-.trade-market-card__details dd { margin: 0.15rem 0 0; font-size: 0.86rem; overflow-wrap: anywhere; }
-.trade-market-card__note { margin: 0.75rem 0 0; color: var(--muted, #94a3b8); line-height: 1.4; }
+.trade-market-rating__label { color: var(--muted, #94a3b8); font-size: 0.63rem; font-weight: 800; letter-spacing: 0.04em; }
+.trade-market-rating__value, .trade-market-rating__empty { min-width: 1.8rem; justify-content: center; }
+.trade-market-rating__value--ovr { display: inline-flex; align-items: center; justify-content: center; min-height: 1.35rem; padding: 0 0.4rem; }
+.trade-market-rating__empty { display: inline-flex; align-items: center; min-height: 1.35rem; color: var(--muted, #94a3b8); }
+.trade-market-card__details { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.35rem; margin: 0.5rem 0 0; }
+.trade-market-card__details div { border: 1px solid var(--border, #334155); border-radius: 0.42rem; padding: 0.32rem 0.42rem; background: rgb(148 163 184 / 0.08); min-width: 0; }
+.trade-market-card__details dt { color: var(--muted, #94a3b8); font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
+.trade-market-card__details dd { margin: 0.1rem 0 0; font-size: 0.78rem; overflow-wrap: anywhere; }
+.trade-market-card__note { margin: 0.5rem 0 0; color: var(--muted, #94a3b8); line-height: 1.35; font-size: 0.82rem; }
 .trade-market-card__foot { margin-top: 0.85rem; align-items: center; }
 .trade-market-buying-list { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.75rem; }
 .trade-market-chip { border-radius: 999px; border: 1px solid var(--border, #334155); padding: 0.2rem 0.55rem; font-size: 0.8rem; background: rgb(148 163 184 / 0.1); font-weight: 650; }

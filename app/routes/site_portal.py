@@ -1324,23 +1324,38 @@ def trade_market_page():
         ),
         None,
     )
+    market_team_ids = {
+        int(r.get("team_id") or 0)
+        for r in [*selling_rows, *buying_rows]
+        if int(r.get("team_id") or 0) > 0
+    }
+    market_teams = {
+        int(t.id): t
+        for t in db.session.scalars(select(Team).where(Team.id.in_(market_team_ids))).all()
+    } if market_team_ids else {}
+
+    def _team_block_defaults(tid: int, row: dict[str, object]) -> dict[str, object]:
+        team = market_teams.get(int(tid))
+        return {
+            "team_id": tid,
+            "team_name": (team.full_display_name() if team else None) or row.get("team_name") or f"Team {tid}",
+            "team_abbr": (team.abbreviation if team else "") or "",
+            "team_logo_url": team_logo_url_for_team(team) if team else "",
+            "team_color": (team.primary_color if team else "") or "",
+            "team_text_color": (team.text_color if team else "") or "",
+            "gm_name": row.get("gm_name") or "",
+            "user_id": int(row.get("user_id") or 0),
+            "selling": [],
+            "buying": None,
+            "updated_at": row.get("updated_at"),
+        }
+
     team_market_rows: dict[int, dict[str, object]] = {}
     for row in selling_rows:
         tid = int(row.get("team_id") or 0)
         if tid <= 0:
             continue
-        team_market_rows.setdefault(
-            tid,
-            {
-                "team_id": tid,
-                "team_name": row.get("team_name") or f"Team {tid}",
-                "gm_name": row.get("gm_name") or "",
-                "user_id": int(row.get("user_id") or 0),
-                "selling": [],
-                "buying": None,
-                "updated_at": row.get("updated_at"),
-            },
-        )
+        team_market_rows.setdefault(tid, _team_block_defaults(tid, row))
         team_market_rows[tid]["selling"].append(row)  # type: ignore[index]
         if row.get("updated_at") and (
             not team_market_rows[tid].get("updated_at")
@@ -1351,18 +1366,7 @@ def trade_market_page():
         tid = int(row.get("team_id") or 0)
         if tid <= 0:
             continue
-        entry = team_market_rows.setdefault(
-            tid,
-            {
-                "team_id": tid,
-                "team_name": row.get("team_name") or f"Team {tid}",
-                "gm_name": row.get("gm_name") or "",
-                "user_id": int(row.get("user_id") or 0),
-                "selling": [],
-                "buying": None,
-                "updated_at": row.get("updated_at"),
-            },
-        )
+        entry = team_market_rows.setdefault(tid, _team_block_defaults(tid, row))
         entry["buying"] = row
         if not entry.get("gm_name"):
             entry["gm_name"] = row.get("gm_name") or ""

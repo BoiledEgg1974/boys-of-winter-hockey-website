@@ -19,7 +19,7 @@ from app.services.draft_pick_ownership import (
     owned_draft_pick_drag_keys,
 )
 from app.services.gm_messaging import gm_discord_name
-from app.services.player_ratings_csv import fhm_abi_pot_float, get_player_ratings_row
+from app.services.seasons import get_current_season, season_age_reference_date
 from app.services.trade_tool import enrich_trade_player_row, trade_assets_for_team
 from app.site_models import MemberWatchlistItem, TradeMarketBuyingNeed, TradeMarketListing, User
 
@@ -62,11 +62,14 @@ def parse_player_asset_ref(ref: str) -> tuple[int, str] | None:
         return None
 
 
-def _agi_from_ratings(pl: Player) -> float | None:
-    rr = get_player_ratings_row(getattr(pl, "fhm_player_id", None))
-    if not rr:
+def _player_age_years(birth_date: date | None, ref_date: date | None) -> int | None:
+    if birth_date is None:
         return None
-    return fhm_abi_pot_float(rr.get("agility"))
+    rd = ref_date or date.today()
+    years = rd.year - birth_date.year
+    if (rd.month, rd.day) < (birth_date.month, birth_date.day):
+        years -= 1
+    return years
 
 
 def latest_trade_market_game_date(league_session: Session) -> date | None:
@@ -416,9 +419,10 @@ def enrich_listing_row(
         "updated_at": listing.updated_at,
         "ovr": None,
         "abi": None,
-        "agi": None,
+        "pot": None,
         "aav": None,
         "player_id": None,
+        "age": None,
         "positions": "",
         "is_current_asset": True,
     }
@@ -459,8 +463,11 @@ def enrich_listing_row(
             out["positions"] = tmp.get("positions") or (pl.position or "")
             out["ovr"] = tmp.get("ovr")
             out["abi"] = float(pl.overall_ability) if pl.overall_ability is not None else None
-            out["agi"] = _agi_from_ratings(pl)
+            out["pot"] = float(pl.overall_potential) if pl.overall_potential is not None else None
             out["abi_style"] = tmp.get("abi_style", "")
+            out["pot_style"] = tmp.get("pot_style", "")
+            season = get_current_season()
+            out["age"] = _player_age_years(pl.birth_date, season_age_reference_date(season))
             out["headshot_rel"] = tmp.get("headshot_rel")
             pc = league_session.scalar(
                 select(PlayerContract).where(PlayerContract.player_id == int(pl.id)).limit(1)
@@ -529,8 +536,8 @@ def sort_selling_rows(
         if key == "abi":
             v = row.get("abi")
             return (v if v is not None else -1, str(row.get("asset_label") or ""))
-        if key == "agi":
-            v = row.get("agi")
+        if key in ("pot", "agi"):
+            v = row.get("pot")
             return (v if v is not None else -1, str(row.get("asset_label") or ""))
         if key == "aav":
             v = row.get("aav")

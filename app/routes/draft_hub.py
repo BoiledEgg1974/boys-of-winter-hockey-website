@@ -18,6 +18,7 @@ from app.services.draft_hub_eligibility_cache import (
     eligible_players_for_board,
 )
 from app.services.draft_hub_poll import maybe_process_tick, players_by_id
+from app.services.draft_hub_tracker import build_draft_hub_tracker
 from app.services.seasons import get_current_season, season_age_reference_date
 from app.services.draft_hub_state import (
     auto_complete_draft,
@@ -76,6 +77,24 @@ def _draft_team_logo_url(team: Team | None, draft: LeagueDraft | None) -> str | 
     return get_season_team_logo_bundle(current_app).team_logo_url_for_season_context(
         team,
         _draft_logo_context_year(draft),
+    )
+
+
+def _tracker_payload(draft: LeagueDraft | None, team_by_id: dict[int, Team]) -> dict:
+    slug = _league_slug()
+    return build_draft_hub_tracker(
+        db.session,
+        db.session,
+        league_slug=slug,
+        featured_draft=draft,
+        team_by_id=team_by_id,
+        team_logo_url=_draft_team_logo_url,
+        team_page_url=lambda tm: url_for("main.team_page", slug=tm.slug),
+        draft_hub_url=lambda: url_for("draft_hub.draft_hub_page"),
+        draft_archive_url=lambda: url_for("draft_hub.draft_hub_archive_list"),
+        draft_archive_one_url=lambda draft_id: url_for(
+            "draft_hub.draft_hub_archive_one", draft_id=int(draft_id)
+        ),
     )
 
 
@@ -198,8 +217,10 @@ def draft_hub_archive_one(draft_id: int):
 def draft_hub_api_state():
     slug = _league_slug()
     draft = featured_draft(db.session, slug)
+    team_by_id = {t.id: t for t in db.session.scalars(select(Team)).all()}
+    tracker = _tracker_payload(draft, team_by_id)
     if not draft:
-        return jsonify({"ok": True, "draft": None})
+        return jsonify({"ok": True, "draft": None, "tracker": tracker})
 
     if draft.status == "live":
         maybe_process_tick(db.session, draft)
@@ -211,7 +232,6 @@ def draft_hub_api_state():
             select(LeagueDraftPick.overall_pick).where(LeagueDraftPick.league_draft_id == draft.id)
         ).all()
     }
-    team_by_id = {t.id: t for t in db.session.scalars(select(Team)).all()}
     logo_by_team_id: dict[int, str] = {
         int(tid): _draft_team_logo_url(tm, draft) for tid, tm in team_by_id.items()
     }
@@ -493,6 +513,7 @@ def draft_hub_api_state():
     return jsonify(
         {
             "ok": True,
+            "tracker": tracker,
             "draft": {
                 "id": draft.id,
                 "name": draft.name,

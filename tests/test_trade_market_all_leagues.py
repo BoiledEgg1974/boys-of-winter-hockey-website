@@ -121,8 +121,10 @@ class TradeMarketAllLeaguesTest(unittest.TestCase):
             / "trade_market.html"
         )
         text = path.read_text(encoding="utf-8")
-        self.assertIn("trade-market-board--selling", text)
-        self.assertIn("trade-market-card--buying", text)
+        self.assertIn("trade-market-team-list", text)
+        self.assertIn("trade-market-team-block__grid", text)
+        self.assertIn("trade-market-team-block__col-title--buying", text)
+        self.assertIn("trade-market-team-block__col-title--selling", text)
         self.assertIn("stats-player-cell__name trade-market-asset__name", text)
         self.assertIn("stats-badge stats-badge--rating stats-badge--overall", text)
         self.assertIn("stats-ova__score trade-market-rating__value", text)
@@ -130,6 +132,25 @@ class TradeMarketAllLeaguesTest(unittest.TestCase):
         self.assertIn("class=\"wants-in\"", text)
         self.assertIn("top-four RD", text)
         self.assertNotIn("class=\"want-cb\"", text)
+
+    def test_trade_market_public_route_hides_guest_gm_details(self) -> None:
+        route_path = Path(__file__).resolve().parents[1] / "app" / "routes" / "site_portal.py"
+        route_text = route_path.read_text(encoding="utf-8")
+        self.assertIn('if not current_user.is_authenticated:', route_text)
+        self.assertIn('row["gm_name"] = ""', route_text)
+        self.assertIn("can_show_gm_names=current_user.is_authenticated", route_text)
+        self.assertIn("cleanup_stale_selling_listings", route_text)
+
+        template_path = Path(__file__).resolve().parents[1] / "app" / "templates" / "trade_market.html"
+        template_text = template_path.read_text(encoding="utf-8")
+        self.assertIn("can_show_gm_names and block.gm_name", template_text)
+        self.assertIn("can_message_gms and block.user_id", template_text)
+
+    def test_trade_market_listing_has_posted_game_date_column(self) -> None:
+        model_path = Path(__file__).resolve().parents[1] / "app" / "site_models.py"
+        db_utils_path = Path(__file__).resolve().parents[1] / "app" / "db_utils.py"
+        self.assertIn("posted_game_date", model_path.read_text(encoding="utf-8"))
+        self.assertIn("posted_game_date DATE", db_utils_path.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

@@ -458,6 +458,7 @@ class TradeMarketListing(db.Model):
     note: Mapped[str] = mapped_column(Text, default="", nullable=False)
     status: Mapped[str] = mapped_column(String(16), default="active", nullable=False)
     discord_payload_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    posted_game_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False

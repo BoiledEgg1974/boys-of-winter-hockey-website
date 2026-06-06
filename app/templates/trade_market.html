@@ -55,16 +55,18 @@
     </div>
     {% elif is_site_admin %}
     <p class="muted">Admin View: use the row actions below to edit or delete any team's buying and selling posts, or select a team above to create a new post.</p>
+    {% elif current_user.is_authenticated %}
+    <p class="muted">Browse each team's buying interests and selling list. Active GMs can message teams or manage their own block.</p>
     {% else %}
-    <p class="muted">Admin View: select a team above to edit selling and buying choices for that team.</p>
+    <p class="muted">Browse each team's buying interests and selling list. Log in as a GM to message teams or manage your own block.</p>
     {% endif %}
   </header>
 
   <section class="trade-market-section">
     <div class="trade-market-section__head">
-      <h2 class="trade-market-section__title">Selling</h2>
+      <h2 class="trade-market-section__title">Team Trade Blocks</h2>
       <div class="trade-market-sortbar" aria-label="Sort selling listings">
-        <span class="muted">Sort:</span>
+        <span class="muted">Sort selling assets:</span>
         {{ trade_market_sort_link('updated', 'Updated') }}
         {{ trade_market_sort_link('team', 'Team') }}
         {{ trade_market_sort_link('player', 'Asset') }}
@@ -74,130 +76,127 @@
         {{ trade_market_sort_link('aav', 'AAV') }}
       </div>
     </div>
-    {% if selling_rows %}
-    <div class="trade-market-board trade-market-board--selling">
-      {% for row in selling_rows %}
-      <article class="trade-market-card trade-market-card--selling">
-        <header class="trade-market-card__head">
+    {% if market_team_rows %}
+    <div class="trade-market-team-list">
+      {% for block in market_team_rows %}
+      {% set buying = block.buying %}
+      {% set selling = block.selling or [] %}
+      <article class="trade-market-team-block">
+        <header class="trade-market-team-block__head">
           <div>
-            <p class="trade-market-card__team">{{ row.team_name }}</p>
-            <p class="trade-market-card__gm muted">{{ row.gm_name }}</p>
+            <h3 class="trade-market-team-block__title">{{ block.team_name }}</h3>
+            {% if can_show_gm_names and block.gm_name %}
+            <p class="trade-market-card__gm muted">{{ block.gm_name }}</p>
+            {% endif %}
           </div>
-          <span class="trade-market-card__type">{{ row.asset_type_label }}</span>
+          <div class="trade-market-team-block__actions">
+            {% if block.updated_at %}
+            <span class="muted">Updated {{ block.updated_at.strftime('%Y-%m-%d') }}</span>
+            {% endif %}
+            {% if can_message_gms and block.user_id and (block.user_id|int) != (current_user.id|int) %}
+            <button type="button" class="btn btn--small trade-market-chat"
+                    data-peer-user-id="{{ block.user_id }}"
+                    data-peer-name="{{ block.gm_name or block.team_name }}"
+                    data-chat-kind="Trade Market"
+                    data-chat-context="{{ block.team_name }} trade block">
+              Message
+            </button>
+            {% endif %}
+          </div>
         </header>
-        <div class="trade-market-asset">
-          <div class="trade-market-asset__media">
-            {% if row.player_id and row.headshot_rel %}
-            <img src="{{ url_for('static', filename=row.headshot_rel) }}" alt="" loading="lazy" decoding="async">
-            {% else %}
-            <span class="trade-market-asset__placeholder" aria-hidden="true">{{ 'PICK' if row.asset_type == 'draft_pick' else 'TM' }}</span>
-            {% endif %}
-          </div>
-          <div class="trade-market-asset__body">
-            {% if row.player_id %}
-            <a class="stats-player-cell__name trade-market-asset__name" href="{{ url_for('main.player_page', player_id=row.player_id) }}">{{ row.asset_label }}</a>
-            {% else %}
-            <span class="trade-market-asset__name">{{ row.asset_label }}</span>
-            {% endif %}
-            {% if row.positions %}
-            <span class="trade-market-asset__meta">{{ row.positions }}</span>
-            {% endif %}
-            <div class="trade-market-ratings">
-              {{ trade_market_rating('OVR', row.ovr) }}
-              {{ trade_market_rating('ABI', row.abi, row.abi_style or (row.abi|rating_pill_style)) }}
-              {{ trade_market_rating('AGI', row.agi, row.agi|rating_pill_style) }}
+        <div class="trade-market-team-block__grid">
+          <section class="trade-market-team-block__col trade-market-team-block__col--buying">
+            <h4 class="trade-market-team-block__col-title trade-market-team-block__col-title--buying">Buying</h4>
+            {% if buying %}
+            <div class="trade-market-buying-list" aria-label="Buying categories">
+              {% for label in buying.category_labels.split(', ') if label %}
+              <span class="trade-market-chip">{{ label }}</span>
+              {% endfor %}
             </div>
-          </div>
+            <p class="trade-market-card__note">{{ buying.note or 'No additional note.' }}</p>
+            {% if admin_can_act %}
+            {% set owns_buying_row = (active_team_id and (buying.team_id|int) == (active_team_id|int)) or ((buying.user_id|int) == (current_user.id|int)) %}
+            {% if is_site_admin or owns_buying_row %}
+            <div class="trade-market-row-actions">
+              <button type="button" class="btn btn--small trade-market-edit-buying" data-team-id="{{ buying.team_id }}">Edit</button>
+              <button type="button" class="btn btn--small trade-market-delete-buying" data-team-id="{{ buying.team_id }}">Delete</button>
+            </div>
+            {% endif %}
+            {% endif %}
+            {% else %}
+            <p class="muted trade-market-empty-col">No buying interests posted.</p>
+            {% endif %}
+          </section>
+          <section class="trade-market-team-block__col trade-market-team-block__col--selling">
+            <h4 class="trade-market-team-block__col-title trade-market-team-block__col-title--selling">Selling</h4>
+            {% if selling %}
+            <div class="trade-market-selling-list">
+              {% for row in selling %}
+              <article class="trade-market-card trade-market-card--selling trade-market-card--compact">
+                <div class="trade-market-asset">
+                  <div class="trade-market-asset__media">
+                    {% if row.player_id and row.headshot_rel %}
+                    <img src="{{ url_for('static', filename=row.headshot_rel) }}" alt="" loading="lazy" decoding="async">
+                    {% else %}
+                    <span class="trade-market-asset__placeholder" aria-hidden="true">{{ 'PICK' if row.asset_type == 'draft_pick' else 'TM' }}</span>
+                    {% endif %}
+                  </div>
+                  <div class="trade-market-asset__body">
+                    <span class="trade-market-card__type">{{ row.asset_type_label }}</span>
+                    {% if row.player_id %}
+                    <a class="stats-player-cell__name trade-market-asset__name" href="{{ url_for('main.player_page', player_id=row.player_id) }}">{{ row.asset_label }}</a>
+                    {% else %}
+                    <span class="trade-market-asset__name">{{ row.asset_label }}</span>
+                    {% endif %}
+                    {% if row.positions %}
+                    <span class="trade-market-asset__meta">{{ row.positions }}</span>
+                    {% endif %}
+                    <div class="trade-market-ratings">
+                      {{ trade_market_rating('OVR', row.ovr) }}
+                      {{ trade_market_rating('ABI', row.abi, row.abi_style or (row.abi|rating_pill_style)) }}
+                      {{ trade_market_rating('AGI', row.agi, row.agi|rating_pill_style) }}
+                    </div>
+                  </div>
+                </div>
+                <dl class="trade-market-card__details">
+                  <div>
+                    <dt>AAV</dt>
+                    <dd>{% if row.aav is not none %}${{ '{:,}'.format(row.aav) }}{% else %}—{% endif %}</dd>
+                  </div>
+                  <div>
+                    <dt>Asking</dt>
+                    <dd>{{ row.asking_price or '—' }}</dd>
+                  </div>
+                  <div>
+                    <dt>Wants</dt>
+                    <dd>{{ row.wants_labels }}</dd>
+                  </div>
+                </dl>
+                {% if row.note %}
+                <p class="trade-market-card__note">{{ row.note }}</p>
+                {% endif %}
+                {% if admin_can_act %}
+                {% set owns_market_row = (active_team_id and (row.team_id|int) == (active_team_id|int)) or ((row.user_id|int) == (current_user.id|int)) %}
+                {% if is_site_admin or owns_market_row %}
+                <div class="trade-market-row-actions">
+                  <button type="button" class="btn btn--small trade-market-edit-selling" data-team-id="{{ row.team_id }}" data-asset-ref="{{ row.asset_ref }}">Edit</button>
+                  <button type="button" class="btn btn--small trade-market-delete-selling" data-team-id="{{ row.team_id }}" data-asset-ref="{{ row.asset_ref }}" data-asset-label="{{ row.asset_label }}">Delete</button>
+                </div>
+                {% endif %}
+                {% endif %}
+              </article>
+              {% endfor %}
+            </div>
+            {% else %}
+            <p class="muted trade-market-empty-col">No active selling listings.</p>
+            {% endif %}
+          </section>
         </div>
-        <dl class="trade-market-card__details">
-          <div>
-            <dt>AAV</dt>
-            <dd>{% if row.aav is not none %}${{ '{:,}'.format(row.aav) }}{% else %}—{% endif %}</dd>
-          </div>
-          <div>
-            <dt>Asking</dt>
-            <dd>{{ row.asking_price or '—' }}</dd>
-          </div>
-          <div>
-            <dt>Wants</dt>
-            <dd>{{ row.wants_labels }}</dd>
-          </div>
-        </dl>
-        {% if row.note %}
-        <p class="trade-market-card__note">{{ row.note }}</p>
-        {% endif %}
-        <footer class="trade-market-card__foot">
-          <span class="muted">{% if row.updated_at %}Updated {{ row.updated_at.strftime('%Y-%m-%d') }}{% else %}Updated —{% endif %}</span>
-          {% if admin_can_act %}
-          {% set owns_market_row = (active_team_id and (row.team_id|int) == (active_team_id|int)) or ((row.user_id|int) == (current_user.id|int)) %}
-          {% if is_site_admin or owns_market_row %}
-          <div class="trade-market-row-actions">
-            <button type="button" class="btn btn--small trade-market-edit-selling" data-team-id="{{ row.team_id }}" data-asset-ref="{{ row.asset_ref }}">Edit</button>
-            <button type="button" class="btn btn--small trade-market-delete-selling" data-team-id="{{ row.team_id }}" data-asset-ref="{{ row.asset_ref }}" data-asset-label="{{ row.asset_label }}">Delete</button>
-          </div>
-          {% elif membership %}
-          <button type="button" class="btn btn--small trade-market-chat"
-                  data-peer-user-id="{{ row.user_id }}"
-                  data-peer-name="{{ row.gm_name }}"
-                  data-chat-kind="Selling"
-                  data-chat-context="{{ row.asset_label }}{% if row.asking_price %} | Asking: {{ row.asking_price }}{% endif %}">
-            Chat
-          </button>
-          {% endif %}
-          {% endif %}
-        </footer>
       </article>
       {% endfor %}
     </div>
     {% else %}
-    <p class="muted">No Active Selling Listings Yet.</p>
-    {% endif %}
-  </section>
-
-  <section class="trade-market-section">
-    <h2 class="trade-market-section__title">Buying Interests</h2>
-    {% if buying_rows %}
-    <div class="trade-market-board trade-market-board--buying">
-      {% for row in buying_rows %}
-      <article class="trade-market-card trade-market-card--buying">
-        <header class="trade-market-card__head">
-          <div>
-            <p class="trade-market-card__team">{{ row.team_name }}</p>
-            <p class="trade-market-card__gm muted">{{ row.gm_name }}</p>
-          </div>
-          <span class="trade-market-card__type">Buying</span>
-        </header>
-        <div class="trade-market-buying-list" aria-label="Buying categories">
-          {% for label in row.category_labels.split(', ') if label %}
-          <span class="trade-market-chip">{{ label }}</span>
-          {% endfor %}
-        </div>
-        <p class="trade-market-card__note">{{ row.note or 'No additional note.' }}</p>
-        <footer class="trade-market-card__foot">
-          <span class="muted">{% if row.updated_at %}Updated {{ row.updated_at.strftime('%Y-%m-%d') }}{% else %}Updated —{% endif %}</span>
-          {% if admin_can_act %}
-          {% set owns_market_row = (active_team_id and (row.team_id|int) == (active_team_id|int)) or ((row.user_id|int) == (current_user.id|int)) %}
-          {% if is_site_admin or owns_market_row %}
-          <div class="trade-market-row-actions">
-            <button type="button" class="btn btn--small trade-market-edit-buying" data-team-id="{{ row.team_id }}">Edit</button>
-            <button type="button" class="btn btn--small trade-market-delete-buying" data-team-id="{{ row.team_id }}">Delete</button>
-          </div>
-          {% elif membership %}
-          <button type="button" class="btn btn--small trade-market-chat"
-                  data-peer-user-id="{{ row.user_id }}"
-                  data-peer-name="{{ row.gm_name }}"
-                  data-chat-kind="Buying"
-                  data-chat-context="{{ row.category_labels }}{% if row.note %} | Note: {{ row.note }}{% endif %}">
-            Chat
-          </button>
-          {% endif %}
-          {% endif %}
-        </footer>
-      </article>
-      {% endfor %}
-    </div>
-    {% else %}
-    <p class="muted">No Buying Wishlists Posted Yet.</p>
+    <p class="muted">No Trade Market posts yet.</p>
     {% endif %}
   </section>
 </div>
@@ -275,7 +274,21 @@
 .trade-market-sort { color: inherit; text-decoration: none; border: 1px solid var(--border, #334155); border-radius: 999px; padding: 0.18rem 0.55rem; background: rgb(148 163 184 / 0.08); }
 .trade-market-sort--active { font-weight: 700; border-color: var(--accent, #38bdf8); background: rgb(56 189 248 / 0.14); }
 .trade-market-board { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr)); gap: 0.85rem; }
+.trade-market-team-list { display: grid; gap: 1rem; }
+.trade-market-team-block { border: 1px solid var(--border, #334155); border-radius: 0.75rem; overflow: hidden; background: rgb(15 23 42 / 0.1); }
+.trade-market-team-block__head { display: flex; justify-content: space-between; gap: 1rem; align-items: center; padding: 0.8rem 1rem; border-bottom: 1px solid var(--border, #334155); background: rgb(250 204 21 / 0.9); color: #0f172a; text-align: center; }
+.trade-market-team-block__title { margin: 0; font-size: 1rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.04em; }
+.trade-market-team-block__actions { display: flex; align-items: center; justify-content: flex-end; gap: 0.65rem; flex-wrap: wrap; }
+.trade-market-team-block__grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); min-height: 14rem; }
+.trade-market-team-block__col { min-width: 0; padding: 0.9rem; }
+.trade-market-team-block__col + .trade-market-team-block__col { border-left: 1px solid var(--border, #334155); }
+.trade-market-team-block__col-title { margin: -0.9rem -0.9rem 0.85rem; padding: 0.62rem 0.8rem; text-align: center; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 900; color: #fff; }
+.trade-market-team-block__col-title--buying { background: #020617; }
+.trade-market-team-block__col-title--selling { background: #f97316; }
+.trade-market-selling-list { display: grid; gap: 0.7rem; }
+.trade-market-empty-col { min-height: 9rem; display: grid; place-items: center; margin: 0; text-align: center; }
 .trade-market-card { border: 1px solid var(--border, #334155); border-radius: 0.65rem; padding: 0.85rem; background: rgb(15 23 42 / 0.14); box-shadow: 0 10px 28px rgb(2 6 23 / 0.12); }
+.trade-market-card--compact { box-shadow: none; }
 .trade-market-card__head, .trade-market-card__foot { display: flex; justify-content: space-between; align-items: start; gap: 0.75rem; }
 .trade-market-card__team { margin: 0; font-weight: 800; }
 .trade-market-card__gm { margin: 0.15rem 0 0; font-size: 0.84rem; }
@@ -303,6 +316,11 @@
 .trade-market-chip { border-radius: 999px; border: 1px solid var(--border, #334155); padding: 0.2rem 0.55rem; font-size: 0.8rem; background: rgb(148 163 184 / 0.1); font-weight: 650; }
 .trade-market-row-actions { display: flex; gap: 0.35rem; flex-wrap: wrap; }
 .trade-market-row-actions .btn { padding: 0.25rem 0.55rem; font-size: 0.8rem; }
+@media (max-width: 760px) {
+  .trade-market-team-block__head { align-items: flex-start; flex-direction: column; text-align: left; }
+  .trade-market-team-block__grid { grid-template-columns: 1fr; }
+  .trade-market-team-block__col + .trade-market-team-block__col { border-left: 0; border-top: 1px solid var(--border, #334155); }
+}
 .trade-market-dialog { max-width: 52rem; width: 95vw; border: 1px solid var(--border, #333); border-radius: 8px; padding: 0; background: var(--surface, #ffffff); color: var(--text, #0f172a); box-shadow: 0 24px 48px rgb(15 23 42 / 0.22); }
 .trade-market-dialog::backdrop { background: rgb(15 23 42 / 0.55); }
 .trade-market-dialog__inner { padding: 1rem 1.25rem; }

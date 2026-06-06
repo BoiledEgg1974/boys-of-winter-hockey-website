@@ -192,6 +192,7 @@ from app.services.trade_market import (
     BUYING_CATEGORIES,
     active_buying_rows,
     active_selling_rows,
+    cleanup_stale_selling_listings,
     maybe_enqueue_buying_discord,
     maybe_enqueue_selling_discord,
     replace_buying_needs,
@@ -1279,26 +1280,37 @@ def _trade_market_prev_discord_hash(rows, attr: str = "discord_payload_hash") ->
 
 
 @site_gm_bp.route("/trade-market", methods=["GET"])
-@login_required
 def trade_market_page():
     slug = _league_slug()
-    mem = _membership()
-    if not _trade_page_allowed(mem):
-        flash("No active GM membership for this league.", "err")
-        return redirect(url_for("main.home"))
-    admin_team_id = _admin_trade_team_id() if mem is None else None
+    mem = _membership() if current_user.is_authenticated else None
+    admin_team_id = _admin_trade_team_id() if mem is None and _is_site_admin() else None
     my_team_id = int(mem.team_id) if mem else admin_team_id
     my_team = db.session.get(Team, int(my_team_id)) if my_team_id else None
     admin_team_options = _trade_team_options() if mem is None and _is_site_admin() else []
     is_site_admin = _is_site_admin()
     sort_key = (request.args.get("sort") or "updated").strip()
     sort_order = (request.args.get("order") or "desc").strip()
+    cleaned = cleanup_stale_selling_listings(
+        db.session,
+        db.session,
+        league_slug=slug,
+        raw_dir=_trade_tool_raw_dir(),
+    )
+    if cleaned:
+        db.session.commit()
     selling_rows = sort_selling_rows(
         active_selling_rows(db.session, db.session, league_slug=slug),
         sort_key=sort_key,
         order=sort_order,
     )
     buying_rows = active_buying_rows(db.session, db.session, league_slug=slug)
+    if not current_user.is_authenticated:
+        for row in selling_rows:
+            row["gm_name"] = ""
+            row["user_id"] = 0
+        for row in buying_rows:
+            row["gm_name"] = ""
+            row["user_id"] = 0
     my_listings = [
         r
         for r in selling_rows
@@ -1312,6 +1324,58 @@ def trade_market_page():
         ),
         None,
     )
+    team_market_rows: dict[int, dict[str, object]] = {}
+    for row in selling_rows:
+        tid = int(row.get("team_id") or 0)
+        if tid <= 0:
+            continue
+        team_market_rows.setdefault(
+            tid,
+            {
+                "team_id": tid,
+                "team_name": row.get("team_name") or f"Team {tid}",
+                "gm_name": row.get("gm_name") or "",
+                "user_id": int(row.get("user_id") or 0),
+                "selling": [],
+                "buying": None,
+                "updated_at": row.get("updated_at"),
+            },
+        )
+        team_market_rows[tid]["selling"].append(row)  # type: ignore[index]
+        if row.get("updated_at") and (
+            not team_market_rows[tid].get("updated_at")
+            or row.get("updated_at") > team_market_rows[tid].get("updated_at")
+        ):
+            team_market_rows[tid]["updated_at"] = row.get("updated_at")
+    for row in buying_rows:
+        tid = int(row.get("team_id") or 0)
+        if tid <= 0:
+            continue
+        entry = team_market_rows.setdefault(
+            tid,
+            {
+                "team_id": tid,
+                "team_name": row.get("team_name") or f"Team {tid}",
+                "gm_name": row.get("gm_name") or "",
+                "user_id": int(row.get("user_id") or 0),
+                "selling": [],
+                "buying": None,
+                "updated_at": row.get("updated_at"),
+            },
+        )
+        entry["buying"] = row
+        if not entry.get("gm_name"):
+            entry["gm_name"] = row.get("gm_name") or ""
+        if not entry.get("user_id"):
+            entry["user_id"] = int(row.get("user_id") or 0)
+        if row.get("updated_at") and (
+            not entry.get("updated_at") or row.get("updated_at") > entry.get("updated_at")
+        ):
+            entry["updated_at"] = row.get("updated_at")
+    market_team_rows = sorted(
+        team_market_rows.values(),
+        key=lambda r: str(r.get("team_name") or "").casefold(),
+    )
     player_page_url_template = url_for(
         "main.player_page", player_id=_TRADE_PLAYER_URL_PLACEHOLDER_ID
     )
@@ -1324,8 +1388,11 @@ def trade_market_page():
         active_team_id=my_team_id,
         is_site_admin=is_site_admin,
         admin_can_act=mem is not None or is_site_admin,
+        can_show_gm_names=current_user.is_authenticated,
+        can_message_gms=mem is not None,
         selling_rows=selling_rows,
         buying_rows=buying_rows,
+        market_team_rows=market_team_rows,
         my_listings=my_listings,
         my_buying=my_buying,
         buying_categories=BUYING_CATEGORIES,

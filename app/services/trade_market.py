@@ -3,13 +3,13 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, joinedload
 
-from app.models import Player, PlayerContract, Team
+from app.models import Game, Player, PlayerContract, Team
 from app.services.discord_events import build_league_public_url, enqueue_discord_event
 from app.services.draft_pick_ownership import (
     describe_draft_pick_row,
@@ -38,6 +38,7 @@ BUYING_CATEGORIES: tuple[tuple[str, str], ...] = (
 )
 
 BUYING_CATEGORY_KEYS = frozenset(k for k, _ in BUYING_CATEGORIES)
+TRADE_MARKET_LISTING_INGAME_TTL_DAYS = 45
 
 
 def buying_category_label(key: str) -> str:
@@ -66,6 +67,28 @@ def _agi_from_ratings(pl: Player) -> float | None:
     if not rr:
         return None
     return fhm_abi_pot_float(rr.get("agility"))
+
+
+def latest_trade_market_game_date(league_session: Session) -> date | None:
+    """Latest imported game date; used as the league's in-game clock for listing expiry."""
+    return league_session.scalar(
+        select(Game.game_date)
+        .where(Game.game_date.isnot(None))
+        .order_by(Game.game_date.desc(), Game.id.desc())
+        .limit(1)
+    )
+
+
+def _listing_expired_by_ingame_days(
+    listing: TradeMarketListing,
+    *,
+    latest_game_date: date | None,
+    max_days: int = TRADE_MARKET_LISTING_INGAME_TTL_DAYS,
+) -> bool:
+    posted = getattr(listing, "posted_game_date", None)
+    if latest_game_date is None or posted is None:
+        return False
+    return (latest_game_date - posted).days > int(max_days)
 
 
 def selectable_selling_assets(
@@ -137,6 +160,52 @@ def _validate_owned_asset(
     return False
 
 
+def cleanup_stale_selling_listings(
+    site_session: Session,
+    league_session: Session,
+    *,
+    league_slug: str,
+    raw_dir,
+) -> int:
+    """Delete stale selling rows and stamp current rows so future cleanup can age them out."""
+    slug = str(league_slug or "").strip()
+    if not slug:
+        return 0
+    latest_game_date = latest_trade_market_game_date(league_session)
+    listings = list(
+        site_session.scalars(
+            select(TradeMarketListing).where(
+                TradeMarketListing.league_slug == slug,
+                TradeMarketListing.status == "active",
+            )
+        ).all()
+    )
+    changed = 0
+    for listing in listings:
+        if _listing_expired_by_ingame_days(listing, latest_game_date=latest_game_date):
+            site_session.delete(listing)
+            changed += 1
+            continue
+        if not _validate_owned_asset(
+            site_session,
+            league_session,
+            league_slug=slug,
+            team_id=int(listing.team_id),
+            asset_type=str(listing.asset_type or ""),
+            asset_ref=str(listing.asset_ref or ""),
+            raw_dir=raw_dir,
+        ):
+            site_session.delete(listing)
+            changed += 1
+            continue
+        if latest_game_date is not None and getattr(listing, "posted_game_date", None) is None:
+            listing.posted_game_date = latest_game_date
+            changed += 1
+    if changed:
+        site_session.flush()
+    return changed
+
+
 def replace_selling_listings(
     site_session: Session,
     league_session: Session,
@@ -156,6 +225,7 @@ def replace_selling_listings(
         )
     )
     rows: list[TradeMarketListing] = []
+    posted_game_date = latest_trade_market_game_date(league_session)
     for it in items:
         at = str(it.get("asset_type") or "").strip().lower()
         ref = str(it.get("asset_ref") or "").strip()
@@ -185,6 +255,7 @@ def replace_selling_listings(
             asking_price=str(it.get("asking_price") or "").strip()[:120],
             wants_json=json.dumps([wants_text[:500]] if wants_text else []),
             note=str(it.get("note") or "").strip()[:2000],
+            posted_game_date=posted_game_date,
             status="active",
         )
         site_session.add(row)

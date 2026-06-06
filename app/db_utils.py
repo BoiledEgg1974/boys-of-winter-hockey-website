@@ -943,6 +943,7 @@ def ensure_trade_market_sqlite(engine: Engine) -> None:
                         note TEXT NOT NULL DEFAULT '',
                         status VARCHAR(16) NOT NULL DEFAULT 'active',
                         discord_payload_hash VARCHAR(64),
+                        posted_game_date DATE,
                         created_at DATETIME NOT NULL,
                         updated_at DATETIME NOT NULL,
                         FOREIGN KEY(user_id) REFERENCES site_users (id)
@@ -962,6 +963,13 @@ def ensure_trade_market_sqlite(engine: Engine) -> None:
                     "ON trade_market_listings (league_slug, asset_type, asset_ref)"
                 )
             )
+        else:
+            cols = {
+                str(row[1])
+                for row in conn.execute(text("PRAGMA table_info(trade_market_listings)")).fetchall()
+            }
+            if "posted_game_date" not in cols:
+                conn.execute(text("ALTER TABLE trade_market_listings ADD COLUMN posted_game_date DATE"))
         if not conn.execute(
             text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='trade_market_buying_needs'")
         ).fetchone():

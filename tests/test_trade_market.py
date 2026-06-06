@@ -3,16 +3,18 @@ from __future__ import annotations
 
 import unittest
 import json
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from unittest.mock import MagicMock, patch
 
 from app.services.trade_market import (
     BUYING_CATEGORY_KEYS,
+    cleanup_stale_selling_listings,
     enrich_listing_row,
     replace_buying_needs,
     replace_selling_listings,
     sort_selling_rows,
     _validate_owned_asset,
+    _listing_expired_by_ingame_days,
 )
 from app.services.trade_tool import validate_ledger
 
@@ -157,6 +159,44 @@ class TradeMarketServiceTest(unittest.TestCase):
                 users_by_id={},
             )
         self.assertFalse(row["is_current_asset"])
+
+    def test_listing_expires_after_45_ingame_days(self) -> None:
+        listing = MagicMock(posted_game_date=date(2001, 1, 1))
+        self.assertFalse(
+            _listing_expired_by_ingame_days(
+                listing,
+                latest_game_date=date(2001, 2, 15),
+            )
+        )
+        self.assertTrue(
+            _listing_expired_by_ingame_days(
+                listing,
+                latest_game_date=date(2001, 2, 16),
+            )
+        )
+
+    def test_cleanup_deletes_invalid_active_selling_listing(self) -> None:
+        site = MagicMock()
+        league = MagicMock()
+        listing = MagicMock(
+            league_slug="bowl-cap",
+            team_id=10,
+            asset_type="contract",
+            asset_ref="player:99:roster",
+            posted_game_date=date(2001, 1, 1),
+        )
+        site.scalars.return_value.all.return_value = [listing]
+        with patch("app.services.trade_market.latest_trade_market_game_date", return_value=date(2001, 1, 2)):
+            with patch("app.services.trade_market._validate_owned_asset", return_value=False):
+                deleted = cleanup_stale_selling_listings(
+                    site,
+                    league,
+                    league_slug="bowl-cap",
+                    raw_dir=None,
+                )
+
+        self.assertEqual(deleted, 1)
+        site.delete.assert_called_once_with(listing)
 
     def test_trade_tool_blocks_manual_picks_when_admin_ownership_exists(self) -> None:
         session = MagicMock()

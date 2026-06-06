@@ -173,7 +173,7 @@ def build_draft_hub_tracker(
         or 0
     )
     round_count = int(panel.round_count) if panel else 7
-    round_count = max(1, min(7, round_count))
+    round_count = max(1, min(15, round_count))
 
     slots = (
         _slot_rows_for_draft(site_session, int(tracker_draft.id))
@@ -226,8 +226,8 @@ def build_draft_hub_tracker(
             "team_page_url": team_page_url(tm) if tm else "",
             "pick_count": 0,
             "pick_value": 0.0,
-            "picks_by_round": {str(r): 0 for r in range(1, 8)},
-            "value_by_round": {str(r): 0.0 for r in range(1, 8)},
+            "picks_by_round": {str(r): 0 for r in range(1, round_count + 1)},
+            "value_by_round": {str(r): 0.0 for r in range(1, round_count + 1)},
             "picks": [],
         }
 

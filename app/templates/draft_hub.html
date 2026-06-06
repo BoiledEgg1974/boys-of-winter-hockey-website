@@ -115,6 +115,20 @@
   var dhBreakdownRounds = {1:true,2:true,3:true,4:true,5:true,6:true,7:true};
   var dhLastTracker = null;
 
+  function trackerRoundCount(tracker) {
+    var n = parseInt((tracker && tracker.round_count) || 7, 10);
+    if (!isFinite(n) || n < 1) n = 7;
+    return Math.max(1, Math.min(15, n));
+  }
+
+  function ensureBreakdownRoundState(tracker) {
+    var roundCount = trackerRoundCount(tracker);
+    for (var r = 1; r <= roundCount; r++) {
+      if (typeof dhBreakdownRounds[r] === 'undefined') dhBreakdownRounds[r] = true;
+    }
+    return roundCount;
+  }
+
   function renderTeamChip(team, extraCls) {
     if (!team) return '';
     var cls = 'dh-tracker-team' + (extraCls ? ' ' + extraCls : '');
@@ -130,11 +144,12 @@
 
   function filteredBreakdownRows(tracker) {
     var rows = (tracker && tracker.team_breakdown) ? tracker.team_breakdown.slice() : [];
+    var roundCount = ensureBreakdownRoundState(tracker);
     return rows.map(function (row) {
       var pickCount = 0;
       var pickValue = 0;
       var roundParts = [];
-      for (var r = 1; r <= 7; r++) {
+      for (var r = 1; r <= roundCount; r++) {
         if (!dhBreakdownRounds[r]) continue;
         var rk = String(r);
         var c = Number((row.picks_by_round || {})[rk] || 0);
@@ -207,7 +222,8 @@
         + '</a>';
     }).join('');
     var roundChecks = '';
-    for (var rd = 1; rd <= 7; rd++) {
+    var roundCount = ensureBreakdownRoundState(tracker);
+    for (var rd = 1; rd <= roundCount; rd++) {
       roundChecks += '<label class="dh-breakdown-round"><input type="checkbox" class="dh-breakdown-round-cb" data-round="' + rd + '"'
         + (dhBreakdownRounds[rd] ? ' checked' : '') + '> Round ' + rd + '</label>';
     }
@@ -247,7 +263,8 @@
         if (!rd) return;
         dhBreakdownRounds[rd] = !!cb.checked;
         var any = false;
-        for (var k = 1; k <= 7; k++) { if (dhBreakdownRounds[k]) any = true; }
+        var roundCount = ensureBreakdownRoundState(tracker || dhLastTracker);
+        for (var k = 1; k <= roundCount; k++) { if (dhBreakdownRounds[k]) any = true; }
         if (!any) {
           dhBreakdownRounds[rd] = true;
           cb.checked = true;

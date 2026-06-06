@@ -158,6 +158,61 @@ class DraftHubTrackerTest(unittest.TestCase):
         self.assertEqual(payload["first_pick"]["team_id"], 2)
         self.assertEqual([x["label"] for x in payload["hub_links"]], ["Draft Archive"])
 
+    def test_tracker_honors_admin_ownership_round_count_above_seven(self) -> None:
+        site = MagicMock()
+        league = MagicMock()
+        panel = MagicMock(draft_year=2000, round_count=9, status="active", display_order=1)
+        t1 = MagicMock(
+            id=1,
+            slug="atlanta-thrashers",
+            abbreviation="ATL",
+            full_display_name=lambda: "Atlanta Thrashers",
+            primary_color="#4b2e83",
+        )
+        round_one = MagicMock(
+            owner_team_id=1,
+            original_team_id=1,
+            round=1,
+        )
+        round_nine = MagicMock(
+            owner_team_id=1,
+            original_team_id=1,
+            round=9,
+        )
+        site.scalars.return_value.all.side_effect = [
+            [round_one, round_nine],
+            [],
+        ]
+        league.scalar.return_value = None
+
+        with (
+            unittest.mock.patch(
+                "app.services.draft_hub_tracker._active_ownership_panel",
+                return_value=panel,
+            ),
+            unittest.mock.patch(
+                "app.services.draft_hub_tracker._round1_position_by_team_id",
+                return_value={1: 1},
+            ),
+        ):
+            payload = build_draft_hub_tracker(
+                site,
+                league,
+                league_slug="bowl-cap",
+                featured_draft=None,
+                team_by_id={1: t1},
+                team_logo_url=lambda _tm, _d: "/logo.png",
+                team_page_url=lambda tm: f"/team/{tm.slug}",
+                draft_hub_url=lambda: "/draft-hub",
+                draft_archive_url=lambda: "/draft-hub/archive",
+                draft_archive_one_url=lambda _id: "/draft-hub/archive/1",
+            )
+
+        self.assertEqual(payload["round_count"], 9)
+        team = payload["team_breakdown"][0]
+        self.assertEqual(team["pick_count"], 2)
+        self.assertEqual(team["picks_by_round"]["9"], 1)
+
     def test_completed_featured_draft_never_drives_tracker_year(self) -> None:
         site = MagicMock()
         league = MagicMock()

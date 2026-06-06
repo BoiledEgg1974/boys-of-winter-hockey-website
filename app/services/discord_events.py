@@ -535,6 +535,20 @@ def _discord_user_mention_for_fhm_team(session, *, league_slug: str, fhm_team_id
     return f"<@{discord_id}>"
 
 
+def _discord_user_mention_for_user_id(session, user_id: object) -> str:
+    try:
+        uid = int(user_id)
+    except (TypeError, ValueError):
+        return ""
+    user = session.get(User, uid)
+    if user is None or getattr(user, "revoked_at", None) is not None:
+        return ""
+    discord_id = str(getattr(user, "discord_user_id", "") or "").strip()
+    if not DISCORD_SNOWFLAKE_PATTERN.match(discord_id):
+        return ""
+    return f"<@{discord_id}>"
+
+
 def _payload_team_id(payload: dict) -> int | None:
     raw = payload.get("team_id")
     if raw is None:
@@ -662,6 +676,10 @@ def enrich_discord_payload_for_bot(
         merged = {**enriched, **out}
         merged["body"] = enriched["body"]
         merged["has_image"] = False
+        if not str(merged.get("team_gm_mention") or "").strip():
+            mention = _discord_user_mention_for_user_id(session, getattr(req, "user_id", None))
+            if mention:
+                merged["team_gm_mention"] = mention
         return merged
     if ek == "draft_hub_pick_made":
         pick_id = out.get("pick_id") or out.get("source_id")

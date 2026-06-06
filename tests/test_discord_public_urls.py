@@ -103,6 +103,40 @@ class DiscordPublicUrlTest(unittest.TestCase):
         self.assertEqual(out["team_id"], 7)
         self.assertEqual(out["team_gm_mention"], "<@123456789012345678>")
 
+    def test_staff_payload_enrichment_adds_requesting_gm_mention(self):
+        session = MagicMock()
+        req = SimpleNamespace(
+            id=12,
+            league_slug="bowl-cap",
+            team_id=7,
+            user_id=44,
+            request_type="hire",
+            staff_name="Coach Example",
+            role="scout",
+        )
+        gm = SimpleNamespace(
+            id=44,
+            discord_name="ARCHIE5",
+            username="archie",
+            discord_user_id="123456789012345678",
+            revoked_at=None,
+        )
+        session.get.side_effect = lambda model, row_id: req if row_id == 12 else gm
+
+        out = enrich_discord_payload_for_bot(
+            session,
+            league_slug="bowl-cap",
+            event_key="staff_transaction_posted",
+            payload={
+                "request_id": 12,
+                "team_id": 7,
+                "team_abbrev": "TOR",
+                "role_label": "Scout",
+            },
+        )
+
+        self.assertEqual(out["team_gm_mention"], "<@123456789012345678>")
+
     def test_generic_payload_enrichment_adds_team_gm_mention(self):
         session = MagicMock()
         session.scalar.return_value = SimpleNamespace(discord_user_id="123456789012345678")

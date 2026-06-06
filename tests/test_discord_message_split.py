@@ -255,6 +255,29 @@ class DiscordMessageSplitTest(unittest.TestCase):
         self.assertIn("GM: ARCHIE5", content)
         self.assertNotIn("archie@example.invalid", content)
 
+    def test_staff_transaction_includes_gm_mention_when_available(self):
+        parts = format_discord_messages(
+            {
+                "league_slug": "bowl-cap",
+                "event_key": "staff_transaction_posted",
+                "payload": {
+                    "action": "hired",
+                    "staff_name": "Coach Example",
+                    "role_label": "Scout",
+                    "gm_name": "ARCHIE5",
+                    "body": "Coach Example (Scout)\nGM: ARCHIE5",
+                    "has_image": False,
+                    "team_abbrev": "TOR",
+                    "team_gm_mention": "<@123456789012345678>",
+                },
+            },
+            max_parts=2,
+        )
+
+        content = parts[0].get("content", "")
+        self.assertIn("<@123456789012345678>", content)
+        self.assertIn("GM: ARCHIE5", content)
+
     def test_staff_transaction_does_not_fall_back_to_gm_email(self):
         parts = format_discord_messages(
             {

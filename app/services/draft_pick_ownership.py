@@ -8,6 +8,7 @@ from sqlalchemy import and_, delete, select
 from sqlalchemy.orm import Session
 
 from app.models import Season, Team
+from app.services.draft_hub_eligibility import draft_eligible_timeline_year_for_league
 from app.services.roster_team import is_main_league_team
 from app.services.seasons import season_with_imported_data_fallback
 from app.site_models import DraftPickOwnershipYear, LeagueDraft, TradeMarketDraftPickOwnership
@@ -295,19 +296,18 @@ def default_draft_pick_ownership_start_year(
 
 
 def _ownership_current_draft_year_for_season(season: Season, *, league_slug: str) -> int | None:
-    """League-specific draft year for ownership panels."""
-    slug = str(league_slug or "").strip()
-    if slug == "bowl-historical":
-        if season.start_year is not None:
-            return int(season.start_year)
-        if season.end_year is not None:
-            return int(season.end_year)
+    """Match ownership panels to the same timeline year as the Draft Eligible page."""
+    if season.start_year is None and season.end_year is None:
         return None
-    if season.end_year is not None:
-        return int(season.end_year)
-    if season.start_year is not None:
-        return int(season.start_year)
-    return None
+    fallback = season.end_year or season.start_year
+    if fallback is None:
+        return None
+    return draft_eligible_timeline_year_for_league(
+        str(league_slug or "").strip(),
+        season.start_year,
+        season.end_year,
+        int(fallback),
+    )
 
 
 def in_game_draft_ownership_cutoff_year(

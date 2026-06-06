@@ -125,14 +125,9 @@ def _featured_draft_is_current_for_tracker(
         if min_draft_year is not None:
             return False
     status = str(featured_draft.status or "").strip().lower()
-    if status != "completed":
-        return True
-    if panel is None:
-        return True
-    try:
-        return int(featured_draft.timeline_year) >= int(panel.draft_year)
-    except (TypeError, ValueError):
+    if status == "completed":
         return False
+    return True
 
 
 def _draft_is_at_or_after_year(draft: LeagueDraft, min_draft_year: int | None) -> bool:

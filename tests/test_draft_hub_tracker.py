@@ -158,6 +158,49 @@ class DraftHubTrackerTest(unittest.TestCase):
         self.assertEqual(payload["first_pick"]["team_id"], 2)
         self.assertEqual([x["label"] for x in payload["hub_links"]], ["Draft Archive"])
 
+    def test_completed_featured_draft_never_drives_tracker_year(self) -> None:
+        site = MagicMock()
+        league = MagicMock()
+        completed = MagicMock(id=5, timeline_year=1969, status="completed", scheduled_start_at=None)
+        site.scalars.return_value.all.side_effect = [
+            [],  # league drafts list
+        ]
+
+        with (
+            unittest.mock.patch(
+                "app.services.draft_hub_tracker.in_game_draft_ownership_cutoff_year",
+                return_value=1970,
+            ),
+            unittest.mock.patch(
+                "app.services.draft_hub_tracker._active_ownership_panel",
+                return_value=None,
+            ),
+            unittest.mock.patch(
+                "app.services.draft_hub_tracker._round1_position_by_team_id",
+                return_value={},
+            ),
+            unittest.mock.patch(
+                "app.services.draft_hub_tracker._latest_game_date",
+                return_value=None,
+            ),
+        ):
+            payload = build_draft_hub_tracker(
+                site,
+                league,
+                league_slug="bowl-historical",
+                featured_draft=completed,
+                team_by_id={},
+                team_logo_url=lambda _tm, _d: "/logo.png",
+                team_page_url=lambda tm: f"/team/{tm.slug}",
+                draft_hub_url=lambda: "/draft-hub",
+                draft_archive_url=lambda: "/draft-hub/archive",
+                draft_archive_one_url=lambda _id: "/draft-hub/archive/1",
+            )
+
+        self.assertEqual(payload["draft_year"], 1970)
+        self.assertNotEqual(payload["status_label"], "Completed")
+        self.assertEqual(payload["countdown_label"], "Draft date TBD")
+
     def test_stale_setup_draft_defers_to_current_ingame_year(self) -> None:
         site = MagicMock()
         league = MagicMock()

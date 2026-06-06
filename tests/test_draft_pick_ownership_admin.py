@@ -140,7 +140,7 @@ class DraftPickOwnershipAdminTests(unittest.TestCase):
 
         self.assertEqual(cutoff, 2000)
 
-    def test_historical_cutoff_uses_season_start_year_as_draft_year(self) -> None:
+    def test_historical_cutoff_uses_draft_eligible_timeline_year(self) -> None:
         season = MagicMock(start_year=1969, end_year=1970)
         league_session = MagicMock()
         league_session.scalar.return_value = season
@@ -153,7 +153,7 @@ class DraftPickOwnershipAdminTests(unittest.TestCase):
                 league_slug="bowl-historical",
             )
 
-        self.assertEqual(cutoff, 1969)
+        self.assertEqual(cutoff, 1970)
 
     def test_current_draft_year_panel_reactivates_after_rule_change(self) -> None:
         site_session = MagicMock()
@@ -161,7 +161,7 @@ class DraftPickOwnershipAdminTests(unittest.TestCase):
         site_session.scalar.return_value = panel
         with unittest.mock.patch(
             "app.services.draft_pick_ownership.in_game_draft_ownership_cutoff_year",
-            return_value=1969,
+            return_value=1970,
         ):
             changed = reactivate_current_draft_pick_ownership_panel_if_needed(
                 site_session,

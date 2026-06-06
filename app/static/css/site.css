@@ -3567,6 +3567,11 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
   gap: 1rem;
   align-items: stretch;
 }
+@media (min-width: 900px) {
+  .team-honors__grid--split {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
 .team-honors__panel {
   display: flex;
   flex-direction: column;
@@ -3666,8 +3671,9 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
 .team-honors__banner-img {
   display: block;
   max-width: 100%;
-  max-height: var(--team-honors-banner-height, 10rem);
-  height: auto;
+  height: var(--team-honors-banner-fixed-height, 5rem);
+  max-height: none;
+  width: auto;
   object-fit: contain;
   margin: 0 auto;
 }

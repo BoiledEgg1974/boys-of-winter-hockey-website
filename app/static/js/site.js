@@ -771,6 +771,7 @@
 
     function hideCard() {
       card.hidden = true;
+      card.classList.remove("is-visible");
       activeAnchor = null;
     }
 
@@ -975,6 +976,7 @@
         if (cached && cached._hoverFmt === HOVER_CARD_CACHE_VER) {
           renderCard(cached, playerId);
           card.hidden = false;
+          card.classList.add("is-visible");
           moveCardNear(anchor);
           return;
         }
@@ -987,6 +989,7 @@
             if (activeAnchor !== anchor) return;
             renderCard(d, playerId);
             card.hidden = false;
+            card.classList.add("is-visible");
             moveCardNear(anchor);
           })
           .catch(function () {});
@@ -1466,10 +1469,29 @@
     }
   }
 
+  function initPlayerMeterAnimations() {
+    var root = document.querySelector(".player-profile");
+    if (!root) return;
+    var reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    root.querySelectorAll(".player-profile__meter-fill").forEach(function (fill) {
+      var style = fill.getAttribute("style") || "";
+      var match = style.match(/width:\s*([^;]+)/i);
+      if (!match) return;
+      var target = match[1].trim();
+      if (reduced) return;
+      fill.style.width = "0%";
+      requestAnimationFrame(function () {
+        fill.classList.add("player-profile__meter-fill--animate");
+        fill.style.width = target;
+      });
+    });
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
     applyTheme(getPreferredTheme());
     initPlayerShareCardClipboardHint();
     initPlayerSeasonTrendCharts();
+    initPlayerMeterAnimations();
     window.bindPlayerHoverAnchors = initPlayerHoverCards();
     window.bindTeamHoverAnchors = initTeamHoverCards();
     document.body.addEventListener("click", function (ev) {

@@ -68,6 +68,9 @@
                       {% else %}
                       {{ '%.1f'|format(item.total_points) }}
                       {% endif %}
+                      {% if item.ownership_pct is not none %}
+                      <span class="bowl-six-leaders__ownership muted" title="Share of submitted lineups this week">{{ '%.0f'|format(item.ownership_pct) }}% owned</span>
+                      {% endif %}
                     </span>
                   </div>
                   {% endfor %}

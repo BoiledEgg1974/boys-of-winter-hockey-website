@@ -280,8 +280,22 @@
       if (tracker.scheduled_start_at) dateLine += ' · ' + esc(tracker.scheduled_start_at);
       dateLine += '</p>';
     }
+    var trackerLiveCls = (tracker.status_label === 'Live now') ? ' dh-tracker--live' : '';
+    var swingsHtml = '';
+    var breakdown = tracker.team_breakdown || [];
+    if (breakdown.length) {
+      var topValue = breakdown.slice().sort(function (a, b) {
+        return (parseFloat(b.pick_value) || 0) - (parseFloat(a.pick_value) || 0);
+      }).slice(0, 4);
+      swingsHtml = '<div class="dh-tracker__swings"><h3 class="dh-tracker__swings-title">Largest pick-value holdings</h3><ul class="dh-tracker__swings-list">';
+      topValue.forEach(function (row) {
+        swingsHtml += '<li><span class="dh-tracker__swings-team">' + esc(row.team_abbr || row.team_name || '') + '</span>'
+          + '<span class="dh-tracker__swings-val">' + esc(String(row.pick_value != null ? row.pick_value : 0)) + '</span></li>';
+      });
+      swingsHtml += '</ul></div>';
+    }
     trackerShell.innerHTML =
-      '<section class="card dh-tracker">'
+      '<section class="card dh-tracker' + trackerLiveCls + '">'
       + '<div class="dh-tracker__intro"><h2 class="dh-tracker__title">' + esc(tracker.title || 'Draft Tracker') + '</h2>'
       + '<p class="muted dh-tracker__subtitle">' + esc(tracker.subtitle || '') + '</p></div>'
       + '<div class="dh-tracker__panel">'
@@ -300,7 +314,7 @@
       + '<div class="dh-tracker-stat"><span class="dh-tracker-stat__label">Highest Pick Value</span>'
       + '<strong class="dh-tracker-stat__value">' + esc(String(topVal.value != null ? topVal.value : 0)) + '</strong>'
       + '<div class="dh-tracker-stat__teams">' + renderTeamChipList(topVal.teams || []) + '</div></div>'
-      + '</div></div>'
+      + '</div></div>' + swingsHtml
       + '<p class="dh-tracker__attr muted small">'
       + esc(attr.text || '')
       + (attr.calculator_url ? ' <a href="' + esc(attr.calculator_url) + '" target="_blank" rel="noopener noreferrer">Perri Pick Value Calculator</a>.' : '')
@@ -795,7 +809,7 @@
     if (!d || !d.draft) {
       if (pageEl) pageEl.classList.remove('draft-hub-page--ticker');
       removeDhTicker();
-      root.innerHTML = '<div class="card"><p class="muted">No active Draft Hub room is open. Completed drafts are available in the <a href="{{ url_for("draft_hub.draft_hub_archive_list") }}">Draft Archive</a>.</p></div>';
+      root.innerHTML = '<div class="card dh-empty-room"><p class="muted">No live draft room is open right now. Pick ownership tracker and breakdown charts above stay current; when a commissioner starts a room, the live board appears here.</p><p class="muted"><a href="{{ url_for("draft_hub.draft_hub_archive_list") }}">Browse completed drafts in the archive</a></p></div>';
       clearWishlistAuthHost();
       window.__dhLastDraftForTrade = null;
       dhMounted = false;
@@ -874,7 +888,8 @@
       : (bannerTier === 'gold'
       ? ' draft-hub-banner--gold'
       : (bannerTier === 'silver' ? ' draft-hub-banner--silver' : ''));
-    html += '<header id="dh-banner" class="draft-hub-banner card' + bannerCls + '">';
+    var onClockCls = (x.status === 'live' && x.on_clock_team && !x.awaiting_admin) ? ' draft-hub-banner--on-clock' : '';
+    html += '<header id="dh-banner" class="draft-hub-banner card' + bannerCls + onClockCls + '">';
     if (bannerPenalty) {
       html += '<p class="draft-hub-penalty-banner-flag">PENALTY PICK</p>';
     }

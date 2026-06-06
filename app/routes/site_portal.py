@@ -192,13 +192,19 @@ from app.services.trade_market import (
     BUYING_CATEGORIES,
     active_buying_rows,
     active_selling_rows,
+    annotate_trade_market_need_matches,
+    annotate_trade_market_watchlist,
+    build_trade_market_activity_ticker,
+    buying_discord_update_should_enqueue,
     cleanup_stale_selling_listings,
     maybe_enqueue_buying_discord,
     maybe_enqueue_selling_discord,
     replace_buying_needs,
     replace_selling_listings,
+    selling_discord_update_should_enqueue,
     selectable_selling_assets,
     sort_selling_rows,
+    user_watchlist_team_ids,
 )
 from app.services.trade_tool import (
     STATUS_COMMISSIONER_DECLINED,
@@ -1304,6 +1310,25 @@ def trade_market_page():
         order=sort_order,
     )
     buying_rows = active_buying_rows(db.session, db.session, league_slug=slug)
+    watchlist_team_ids: set[int] = set()
+    my_buying_categories: set[str] = set()
+    if current_user.is_authenticated:
+        watchlist_team_ids = user_watchlist_team_ids(
+            db.session, league_slug=slug, user_id=int(current_user.id)
+        )
+        if my_team_id:
+            my_buy_row = next(
+                (r for r in buying_rows if int(r.get("team_id") or 0) == int(my_team_id)),
+                None,
+            )
+            if my_buy_row:
+                my_buying_categories = {str(c) for c in (my_buy_row.get("categories") or [])}
+    annotate_trade_market_watchlist(selling_rows, watchlist_team_ids=watchlist_team_ids)
+    annotate_trade_market_watchlist(buying_rows, watchlist_team_ids=watchlist_team_ids)
+    annotate_trade_market_need_matches(
+        selling_rows, my_buying_categories=my_buying_categories
+    )
+    activity_ticker = build_trade_market_activity_ticker(selling_rows, buying_rows)
     if not current_user.is_authenticated:
         for row in selling_rows:
             row["gm_name"] = ""
@@ -1404,6 +1429,7 @@ def trade_market_page():
         sort_order=sort_order,
         gm_display_name=gm_display_name,
         player_page_url_template=player_page_url_template,
+        activity_ticker=activity_ticker,
     )
 
 
@@ -1483,15 +1509,16 @@ def trade_market_selling_save():
         return jsonify({"error": err}), 400
     my_team = db.session.get(Team, int(left_team_id))
     tf = team_fields_for_discord(my_team) if my_team else {}
-    maybe_enqueue_selling_discord(
-        db.session,
-        db.session,
-        league_slug=slug,
-        team_id=int(left_team_id),
-        listings=rows,
-        team_fields=tf,
-        previous_hash=prev_hash,
-    )
+    if selling_discord_update_should_enqueue(old_rows, rows):
+        maybe_enqueue_selling_discord(
+            db.session,
+            db.session,
+            league_slug=slug,
+            team_id=int(left_team_id),
+            listings=rows,
+            team_fields=tf,
+            previous_hash=prev_hash,
+        )
     db.session.commit()
     return jsonify({"ok": True, "count": len(rows)})
 
@@ -1540,14 +1567,15 @@ def trade_market_buying_save():
     )
     my_team = db.session.get(Team, int(left_team_id))
     tf = team_fields_for_discord(my_team) if my_team else {}
-    maybe_enqueue_buying_discord(
-        db.session,
-        league_slug=slug,
-        team_id=int(left_team_id),
-        needs=needs,
-        team_fields=tf,
-        previous_hash=prev_hash,
-    )
+    if buying_discord_update_should_enqueue(old_rows, needs):
+        maybe_enqueue_buying_discord(
+            db.session,
+            league_slug=slug,
+            team_id=int(left_team_id),
+            needs=needs,
+            team_fields=tf,
+            previous_hash=prev_hash,
+        )
     db.session.commit()
     return jsonify({"ok": True, "count": len(needs)})
 

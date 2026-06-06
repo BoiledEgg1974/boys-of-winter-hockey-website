@@ -44,6 +44,21 @@
 {% endmacro %}
 {% block content %}
 <div class="records-page">
+  {% if record_chase_rows is defined and record_chase_rows %}
+  <section class="card record-chase-panel" aria-labelledby="record-chase-h">
+    <h2 id="record-chase-h" class="record-chase-panel__title">Active Record Chases</h2>
+    <p class="muted record-chase-panel__sub">Active players within five of the next career milestone</p>
+    <ul class="record-chase-panel__list">
+      {% for row in record_chase_rows %}
+      <li class="record-chase-panel__item">
+        <a href="{{ url_for('main.player_page', player_id=row.player.id) }}">{{ row.player.full_name }}</a>
+        <span class="muted">{{ row.title }}: {{ row.current }}/{{ row.next }} ({{ row.remaining }} away)</span>
+      </li>
+      {% endfor %}
+    </ul>
+    <p class="link-more"><a href="{{ url_for('main.milestones', split=split) }}">Full milestones page</a></p>
+  </section>
+  {% endif %}
   <div class="records-toolbar card">
     <div class="records-toolbar__left">
       <h1 class="records-toolbar__title">ALL-TIME RECORDS</h1>

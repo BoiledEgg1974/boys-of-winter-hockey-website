@@ -3,15 +3,23 @@ from __future__ import annotations
 
 import unittest
 import json
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 from app.services.trade_market import (
     BUYING_CATEGORY_KEYS,
+    annotate_trade_market_need_matches,
+    annotate_trade_market_watchlist,
+    build_trade_market_activity_ticker,
+    buying_discord_update_should_enqueue,
     cleanup_stale_selling_listings,
     enrich_listing_row,
+    listing_freshness_badge,
+    maybe_enqueue_buying_discord,
+    maybe_enqueue_selling_discord,
     replace_buying_needs,
     replace_selling_listings,
+    selling_discord_update_should_enqueue,
     sort_selling_rows,
     _validate_owned_asset,
     _listing_expired_by_ingame_days,
@@ -59,6 +67,88 @@ class TradeMarketServiceTest(unittest.TestCase):
         cats = {r.category for r in rows}
         self.assertEqual(cats, {"prospects", "goalie"})
         self.assertTrue(cats <= BUYING_CATEGORY_KEYS)
+
+    def test_selling_delete_only_update_skips_discord(self) -> None:
+        old_rows = [
+            MagicMock(asset_type="contract", asset_ref="player:1:roster"),
+            MagicMock(asset_type="draft_pick", asset_ref="dpick:42"),
+        ]
+        remaining_rows = [MagicMock(asset_type="contract", asset_ref="player:1:roster")]
+        added_rows = [
+            MagicMock(asset_type="contract", asset_ref="player:1:roster"),
+            MagicMock(asset_type="prospect", asset_ref="player:2:unsigned"),
+        ]
+
+        self.assertFalse(selling_discord_update_should_enqueue(old_rows, remaining_rows))
+        self.assertFalse(selling_discord_update_should_enqueue(old_rows, []))
+        self.assertTrue(selling_discord_update_should_enqueue(old_rows, added_rows))
+
+    def test_buying_delete_only_update_skips_discord(self) -> None:
+        old_rows = [
+            MagicMock(category="prospects"),
+            MagicMock(category="goalie"),
+        ]
+        remaining_rows = [MagicMock(category="prospects")]
+        added_rows = [
+            MagicMock(category="prospects"),
+            MagicMock(category="top_4_defense"),
+        ]
+
+        self.assertFalse(buying_discord_update_should_enqueue(old_rows, remaining_rows))
+        self.assertFalse(buying_discord_update_should_enqueue(old_rows, []))
+        self.assertTrue(buying_discord_update_should_enqueue(old_rows, added_rows))
+
+    def test_empty_trade_market_lists_do_not_enqueue_discord(self) -> None:
+        with patch("app.services.trade_market.enqueue_discord_event") as enqueue:
+            maybe_enqueue_selling_discord(
+                MagicMock(),
+                MagicMock(),
+                league_slug="bowl-cap",
+                team_id=10,
+                listings=[],
+            )
+            maybe_enqueue_buying_discord(
+                MagicMock(),
+                league_slug="bowl-cap",
+                team_id=10,
+                needs=[],
+            )
+
+        enqueue.assert_not_called()
+
+    def test_listing_freshness_badge_new_vs_updated(self) -> None:
+        now = datetime(2026, 6, 6, 12, 0, 0)
+        created = now - timedelta(hours=2)
+        self.assertEqual(
+            listing_freshness_badge(created_at=created, updated_at=created, now=now),
+            "new",
+        )
+        self.assertEqual(
+            listing_freshness_badge(
+                created_at=created - timedelta(days=3),
+                updated_at=created,
+                now=now,
+            ),
+            "updated",
+        )
+
+    def test_activity_ticker_orders_recent_updates(self) -> None:
+        older = datetime(2026, 6, 1, 12, 0, 0)
+        newer = datetime(2026, 6, 5, 12, 0, 0)
+        ticker = build_trade_market_activity_ticker(
+            [{"team_name": "A", "asset_label": "Player", "updated_at": older}],
+            [{"team_name": "B", "category_labels": "Goalie", "updated_at": newer}],
+            limit=5,
+        )
+        self.assertEqual(len(ticker), 2)
+        self.assertEqual(ticker[0]["team_name"], "B")
+
+    def test_watchlist_and_need_match_annotations(self) -> None:
+        rows = [{"team_id": 3, "wants": ["goalie"]}]
+        annotate_trade_market_watchlist(rows, watchlist_team_ids={3})
+        annotate_trade_market_need_matches(rows, my_buying_categories={"goalie"})
+        self.assertTrue(rows[0]["watchlist_match"])
+        self.assertTrue(rows[0]["need_match"])
 
     def test_replace_selling_stores_free_text_wants(self) -> None:
         site = MagicMock()

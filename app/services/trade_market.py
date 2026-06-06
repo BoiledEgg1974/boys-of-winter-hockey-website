@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import delete, select
@@ -18,6 +18,7 @@ from app.services.draft_pick_ownership import (
     draft_pick_owned_by_team,
     owned_draft_pick_drag_keys,
 )
+from app.services.draft_pick_values import perri_pick_value_for_asset
 from app.services.gm_messaging import gm_discord_name
 from app.services.seasons import get_current_season, season_age_reference_date
 from app.services.trade_tool import enrich_trade_player_row, trade_assets_for_team
@@ -39,6 +40,7 @@ BUYING_CATEGORIES: tuple[tuple[str, str], ...] = (
 
 BUYING_CATEGORY_KEYS = frozenset(k for k, _ in BUYING_CATEGORIES)
 TRADE_MARKET_LISTING_INGAME_TTL_DAYS = 45
+TRADE_MARKET_FRESH_HOURS = 48
 
 
 def buying_category_label(key: str) -> str:
@@ -372,6 +374,120 @@ def _enqueue_trade_market_watch_alerts(
         pass
 
 
+def _naive_utc(dt: datetime | None) -> datetime | None:
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        return dt.astimezone(UTC).replace(tzinfo=None)
+    return dt
+
+
+def listing_freshness_badge(
+    *,
+    created_at: datetime | None,
+    updated_at: datetime | None,
+    now: datetime | None = None,
+) -> str | None:
+    """Return ``new`` or ``updated`` when a listing changed recently."""
+    ref = _naive_utc(now) or datetime.now(UTC).replace(tzinfo=None)
+    created = _naive_utc(created_at)
+    updated = _naive_utc(updated_at)
+    window = timedelta(hours=TRADE_MARKET_FRESH_HOURS)
+    if updated and (ref - updated) <= window:
+        if isinstance(created, datetime) and abs((updated - created).total_seconds()) < 120:
+            return "new"
+        return "updated"
+    if isinstance(created, datetime) and (ref - created) <= window:
+        return "new"
+    return None
+
+
+def build_trade_market_activity_ticker(
+    selling_rows: list[dict[str, Any]],
+    buying_rows: list[dict[str, Any]],
+    *,
+    limit: int = 8,
+) -> list[dict[str, Any]]:
+    """Recent Trade Market updates for the page ticker."""
+    events: list[tuple[datetime, dict[str, Any]]] = []
+    for row in selling_rows:
+        ts = row.get("updated_at")
+        if not isinstance(ts, datetime):
+            continue
+        events.append(
+            (
+                ts,
+                {
+                    "kind": "selling",
+                    "team_name": row.get("team_name") or "",
+                    "asset_label": row.get("asset_label") or "",
+                    "updated_at": ts,
+                },
+            )
+        )
+    for row in buying_rows:
+        ts = row.get("updated_at")
+        if not isinstance(ts, datetime):
+            continue
+        events.append(
+            (
+                ts,
+                {
+                    "kind": "buying",
+                    "team_name": row.get("team_name") or "",
+                    "asset_label": row.get("category_labels") or "Buying interests",
+                    "updated_at": ts,
+                },
+            )
+        )
+    events.sort(key=lambda x: x[0], reverse=True)
+    return [item for _, item in events[: max(1, int(limit))]]
+
+
+def user_watchlist_team_ids(
+    site_session: Session,
+    *,
+    league_slug: str,
+    user_id: int,
+) -> set[int]:
+    rows = site_session.scalars(
+        select(MemberWatchlistItem.target_ref).where(
+            MemberWatchlistItem.league_slug == league_slug,
+            MemberWatchlistItem.target_type == "team",
+            MemberWatchlistItem.user_id == int(user_id),
+        )
+    ).all()
+    out: set[int] = set()
+    for ref in rows:
+        try:
+            out.add(int(ref))
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+def annotate_trade_market_watchlist(
+    rows: list[dict[str, Any]],
+    *,
+    watchlist_team_ids: set[int],
+) -> None:
+    for row in rows:
+        tid = int(row.get("team_id") or 0)
+        row["watchlist_match"] = tid > 0 and tid in watchlist_team_ids
+
+
+def annotate_trade_market_need_matches(
+    selling_rows: list[dict[str, Any]],
+    *,
+    my_buying_categories: set[str] | frozenset[str],
+) -> None:
+    if not my_buying_categories:
+        return
+    for row in selling_rows:
+        wants = row.get("wants") or []
+        row["need_match"] = any(str(w) in my_buying_categories for w in wants)
+
+
 def enrich_listing_row(
     site_session: Session,
     league_session: Session,
@@ -425,6 +541,13 @@ def enrich_listing_row(
         "age": None,
         "positions": "",
         "is_current_asset": True,
+        "freshness_badge": listing_freshness_badge(
+            created_at=listing.created_at,
+            updated_at=listing.updated_at,
+        ),
+        "pick_value": None,
+        "watchlist_match": False,
+        "need_match": False,
     }
 
     if at == "draft_pick":
@@ -448,6 +571,16 @@ def enrich_listing_row(
         owner = league_session.get(Team, int(dp.owner_team_id)) if dp.owner_team_id else None
         out["asset_label"] = describe_draft_pick_row(
             dp, original_team=orig, owner_team=owner
+        )
+        out["pick_value"] = round(
+            float(
+                perri_pick_value_for_asset(
+                    round_no=int(dp.round),
+                    overall_pick=None,
+                    order_known=False,
+                )
+            ),
+            1,
         )
         return out
 
@@ -613,6 +746,38 @@ def _content_hash(body: str) -> str:
     return hashlib.sha256(body.encode("utf-8")).hexdigest()[:32]
 
 
+def _row_identity(row, *attrs: str) -> str:
+    return ":".join(str(getattr(row, attr, "") or "").strip() for attr in attrs)
+
+
+def selling_discord_update_should_enqueue(
+    old_rows: list[TradeMarketListing],
+    new_rows: list[TradeMarketListing],
+) -> bool:
+    """Skip Discord when a save only removes selling assets."""
+    if not new_rows:
+        return False
+    old_ids = {_row_identity(r, "asset_type", "asset_ref") for r in old_rows}
+    new_ids = {_row_identity(r, "asset_type", "asset_ref") for r in new_rows}
+    if old_ids and new_ids < old_ids:
+        return False
+    return True
+
+
+def buying_discord_update_should_enqueue(
+    old_rows: list[TradeMarketBuyingNeed],
+    new_rows: list[TradeMarketBuyingNeed],
+) -> bool:
+    """Skip Discord when a save only removes buying categories."""
+    if not new_rows:
+        return False
+    old_ids = {_row_identity(r, "category") for r in old_rows}
+    new_ids = {_row_identity(r, "category") for r in new_rows}
+    if old_ids and new_ids < old_ids:
+        return False
+    return True
+
+
 def selling_discord_body(
     site_session: Session,
     league_session: Session,
@@ -622,8 +787,6 @@ def selling_discord_body(
     teams_by_id: dict[int, Team] | None = None,
     users_by_id: dict[int, User] | None = None,
 ) -> str:
-    if not listings:
-        return "Selling list cleared (no assets listed)."
     lines = []
     for lst in listings:
         enriched = enrich_listing_row(
@@ -657,6 +820,8 @@ def maybe_enqueue_selling_discord(
     team_fields: dict | None = None,
     previous_hash: str = "",
 ) -> None:
+    if not listings:
+        return
     body = selling_discord_body(
         site_session, league_session, listings, league_slug=league_slug
     )
@@ -695,11 +860,10 @@ def maybe_enqueue_buying_discord(
     team_fields: dict | None = None,
     previous_hash: str = "",
 ) -> None:
+    if not needs:
+        return
     cats = [buying_category_label(str(n.category)) for n in needs]
-    if not cats:
-        body = "Buying wishlist cleared."
-    else:
-        body = "Looking to acquire:\n" + "\n".join(f"• {c}" for c in cats)
+    body = "Looking to acquire:\n" + "\n".join(f"• {c}" for c in cats)
     h = _content_hash(body)
     old_hash = str(previous_hash or "").strip()
     if h == old_hash:

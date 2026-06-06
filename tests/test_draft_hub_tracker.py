@@ -280,8 +280,8 @@ class DraftHubTrackerTest(unittest.TestCase):
         self.assertIn("dh-breakdown-mode", text)
         self.assertIn("dh-breakdown-axis", text)
         self.assertIn("--bar-count", text)
-        self.assertIn("No active Draft Hub room is open", text)
-        self.assertIn("Draft Archive", text)
+        self.assertIn("No live draft room is open", text)
+        self.assertIn("archive", text)
         self.assertIn("Perri Pick Value Calculator", text)
 
     def test_draft_hub_css_has_tracker_styles(self) -> None:

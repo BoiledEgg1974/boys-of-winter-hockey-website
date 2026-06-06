@@ -62,6 +62,21 @@
     {% endif %}
   </header>
 
+  {% if activity_ticker %}
+  <div class="trade-market-ticker" aria-label="Recent trade market activity">
+    <div class="trade-market-ticker__track">
+      {% for ev in activity_ticker %}
+      <span class="trade-market-ticker__item">
+        {% if ev.kind == 'buying' %}<span class="trade-market-ticker__tag trade-market-ticker__tag--buying">Buying</span>{% else %}<span class="trade-market-ticker__tag trade-market-ticker__tag--selling">Selling</span>{% endif %}
+        <strong>{{ ev.team_name }}</strong>
+        <span class="muted">{{ ev.asset_label }}</span>
+        {% if ev.updated_at %}<time class="trade-market-ticker__time" datetime="{{ ev.updated_at.isoformat() }}">{{ ev.updated_at.strftime('%b %d') }}</time>{% endif %}
+      </span>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
   <section class="trade-market-section">
     <div class="trade-market-section__head">
       <h2 class="trade-market-section__title">Team Trade Blocks</h2>
@@ -117,9 +132,12 @@
             {% if buying %}
             <div class="trade-market-buying-list" aria-label="Buying categories">
               {% for label in buying.category_labels.split(', ') if label %}
-              <span class="trade-market-chip">{{ label }}</span>
+              <span class="trade-market-chip trade-market-chip--need" style="--trade-need-color: {{ block.team_color or '#facc15' }};">{{ label }}</span>
               {% endfor %}
             </div>
+            {% if buying.watchlist_match %}
+            <span class="trade-market-badge trade-market-badge--watchlist" title="Team on your watchlist">Watchlist</span>
+            {% endif %}
             <p class="trade-market-card__note">{{ buying.note or 'No additional note.' }}</p>
             {% if admin_can_act %}
             {% set owns_buying_row = (active_team_id and (buying.team_id|int) == (active_team_id|int)) or ((buying.user_id|int) == (current_user.id|int)) %}
@@ -139,7 +157,16 @@
             {% if selling %}
             <div class="trade-market-selling-list">
               {% for row in selling %}
-              <article class="trade-market-card trade-market-card--selling trade-market-card--compact">
+              <article class="trade-market-card trade-market-card--selling trade-market-card--compact{% if row.freshness_badge %} trade-market-card--{{ row.freshness_badge }}{% endif %}">
+                {% if row.freshness_badge %}
+                <span class="trade-market-badge trade-market-badge--{{ row.freshness_badge }}">{{ row.freshness_badge|title }}</span>
+                {% endif %}
+                {% if row.watchlist_match %}
+                <span class="trade-market-badge trade-market-badge--watchlist" title="Team on your watchlist">Watchlist</span>
+                {% endif %}
+                {% if row.need_match %}
+                <span class="trade-market-badge trade-market-badge--match" title="Matches your buying needs">Need match</span>
+                {% endif %}
                 <div class="trade-market-asset">
                   <div class="trade-market-asset__media">
                     {% if row.player_id and row.headshot_rel %}
@@ -166,6 +193,12 @@
                   </div>
                 </div>
                 <dl class="trade-market-card__details">
+                  {% if row.pick_value is not none %}
+                  <div>
+                    <dt>Pick value</dt>
+                    <dd><span class="trade-market-pick-value" title="Perri draft pick value">{{ row.pick_value }}</span></dd>
+                  </div>
+                  {% endif %}
                   <div>
                     <dt>AAV</dt>
                     <dd>{% if row.aav is not none %}${{ '{:,}'.format(row.aav) }}{% else %}—{% endif %}</dd>

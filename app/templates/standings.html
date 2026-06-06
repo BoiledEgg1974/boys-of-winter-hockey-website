@@ -116,16 +116,25 @@
           <th data-sort-type="num" scope="col">#</th>
           <th data-sort-type="str" scope="col">Team</th>
           {% if view != 'overall' %}<th data-sort-type="str" scope="col">Conf / Div</th>{% endif %}
+          <th data-sort-type="num" scope="col" class="standings-col--form" title="Last 10 games (W-L)">L10</th>
+          <th data-sort-type="str" scope="col" class="standings-col--streak" title="Current streak">Streak</th>
+          <th data-sort-type="num" scope="col" class="standings-col--odds" title="Estimated playoff probability">Playoff %</th>
           <th data-sort-type="num" scope="col">GP</th><th data-sort-type="num" scope="col">W</th><th data-sort-type="num" scope="col">L</th><th data-sort-type="num" scope="col">T</th><th data-sort-type="num" scope="col">OTL</th><th data-sort-type="num" scope="col">SOW</th><th data-sort-type="num" scope="col">SOL</th><th data-sort-type="num" scope="col">Pts</th><th data-sort-type="num" scope="col">Pct</th><th data-sort-type="num" scope="col">GF</th><th data-sort-type="num" scope="col">GA</th><th data-sort-type="num" scope="col">Diff</th>
         </tr>
       </thead>
       <tbody>
         {% for st in standings %}
         {% set diff_v = st.gf - st.ga %}
-        <tr{% if config.LEAGUE_SLUG == 'bowl-cap' and view == 'conference' and sel_conference and loop.index == 9 %} class="standings-cutline"{% endif %}>
+        {% set ctx = standings_ctx.get(st.team_id, {}) if standings_ctx is defined else {} %}
+        {% set row_cls = '' %}
+        {% if config.LEAGUE_SLUG == 'bowl-cap' and view == 'conference' and sel_conference and loop.index == 9 %}{% set row_cls = 'standings-cutline' %}{% endif %}
+        <tr class="{{ row_cls }} standings-row--enter{% if ctx.get('trend_dir') == 'up' %} standings-row--up{% elif ctx.get('trend_dir') == 'down' %} standings-row--down{% endif %}">
           <td data-sort-value="{{ loop.index0 }}">{{ loop.index }}</td>
           <td data-sort-value="{{ (st.team.full_display_name() or st.team.slug)|lower }}">{{ team_lockup_full_name(st.team, season=season) }}</td>
           {% if view != 'overall' %}<td data-sort-value="{{ ((st.conference_label or '') ~ ' ' ~ (st.division_label or st.division or ''))|lower }}">{{ st.conference_label or '—' }} / {{ st.division_label or st.division or '—' }}</td>{% endif %}
+          <td class="standings-col--form" data-sort-value="{{ ctx.get('last10_wins', 0) }}">{{ ctx.get('last10') or '—' }}</td>
+          <td class="standings-col--streak" data-sort-value="{{ ctx.get('streak_n', 0) }}">{% if ctx.get('streak_label') %}<span class="standings-badge standings-badge--streak">{{ ctx.get('streak_n') }} {{ ctx.get('streak_label') }}</span>{% else %}—{% endif %}</td>
+          <td class="standings-col--odds" data-sort-value="{{ '%.4f'|format(ctx.get('playoff_pct')) if ctx.get('playoff_pct') is not none else '' }}">{% if ctx.get('playoff_pct') is not none %}{{ '%.1f'|format(ctx.get('playoff_pct') * 100) }}%{% else %}—{% endif %}</td>
           <td data-sort-value="{{ st.standing_gp_display() }}">{{ st.standing_gp_display() }}</td><td data-sort-value="{{ st.w }}">{{ st.w }}</td><td data-sort-value="{{ st.l }}">{{ st.l }}</td><td data-sort-value="{{ st.ties }}">{{ st.ties }}</td><td data-sort-value="{{ st.otl }}">{{ st.otl }}</td>
           <td data-sort-value="{{ st.shootout_wins }}">{{ st.shootout_wins }}</td><td data-sort-value="{{ st.shootout_losses }}">{{ st.shootout_losses }}</td><td data-sort-value="{{ st.pts }}">{{ st.pts }}</td>
           <td data-sort-value="{{ '%.6f'|format(st.win_pct) if st.win_pct is not none else '' }}">{{ '%.3f'|format(st.win_pct) if st.win_pct is not none else '—' }}</td>
@@ -178,7 +187,7 @@
       </thead>
       <tbody>
         {% for row in positional_ranking_rows %}
-        <tr>
+        <tr class="standings-row--enter{% if row.trend_dir == 'up' %} standings-row--up{% elif row.trend_dir == 'down' %} standings-row--down{% endif %}">
           <td class="positional-rankings__trend">{{ rankings_change_cell(row) }}</td>
           <td class="positional-rankings__rank">{{ row.rank }}</td>
           <td class="positional-rankings__team">
@@ -194,6 +203,41 @@
           <td class="positional-rankings__num">{{ row.g_rank }}</td>
           <td class="positional-rankings__top">{% if row.top_player %}<a href="{{ url_for('main.player_page', player_id=row.top_player.id) }}">{{ row.top_pos_label }} {{ row.top_player.full_name }}</a>{% else %}—{% endif %}</td>
           <td class="positional-rankings__stars">{{ star_row(row.talent_stars) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+{% if power_ranking_rows is defined and power_ranking_rows %}
+<section class="card power-rankings-standings" aria-labelledby="power-rankings-h">
+  <h2 id="power-rankings-h" class="power-rankings-standings__title">Power Rankings</h2>
+  <p class="muted power-rankings-standings__meta">Composite score from recent form, goal differential, special teams, and strength of schedule. CHG vs last import snapshot.</p>
+  <div class="table-wrap">
+    <table class="data power-rankings-standings-table">
+      <thead>
+        <tr>
+          <th scope="col" class="power-rankings-standings__chg" title="Change vs last baseline">CHG</th>
+          <th scope="col">#</th>
+          <th scope="col">Team</th>
+          <th scope="col">Pts</th>
+          <th scope="col" title="Power score">PWR</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in power_ranking_rows %}
+        <tr class="standings-row--enter{% if row.trend_dir == 'up' %} standings-row--up{% elif row.trend_dir == 'down' %} standings-row--down{% endif %}">
+          <td class="power-rankings-standings__chg">{{ rankings_change_cell(row) }}</td>
+          <td>{{ loop.index }}</td>
+          <td>
+            {% if row.slug %}
+            <a href="{{ url_for('main.team_page', slug=row.slug) }}">{{ row.name }}</a>
+            {% else %}{{ row.name }}{% endif %}
+          </td>
+          <td>{{ row.pts }}</td>
+          <td>{{ row.power_score }}</td>
         </tr>
         {% endfor %}
       </tbody>

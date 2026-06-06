@@ -19,6 +19,7 @@
   <p id="home-load-error" class="empty-state home-dashboard__banner-msg" hidden>Could not load dashboard.</p>
   <div class="home-dashboard__toc-sticky">
     <nav class="home-dashboard__toc" aria-label="On this page">
+      <a class="home-dashboard__toc-link" href="#dash-league-pulse">League Pulse</a>
       <a class="home-dashboard__toc-link" href="#dash-schedule">Schedule</a>
       <a class="home-dashboard__toc-link" href="#dash-around">Around The League</a>
       <a class="home-dashboard__toc-link" href="#dash-leaders">League Leaders</a>
@@ -28,6 +29,14 @@
       <a class="home-dashboard__toc-link" href="#dash-standings">Standings</a>
     </nav>
   </div>
+  <section id="dash-league-pulse" class="card home-dashboard__card home-league-pulse" aria-labelledby="league-pulse-h" data-module-key="league_pulse">
+    <h2 id="league-pulse-h" class="home-dashboard__h">League Pulse</h2>
+    <p class="muted home-dashboard__sub">Tonight’s spotlight, hot/cold teams, milestones, and market moves</p>
+    <div id="home-league-pulse" class="home-league-pulse__body" aria-live="polite">
+      <p class="empty-state loading-with-puck">Loading…</p>
+    </div>
+  </section>
+
   <div id="dash-schedule" class="home-dash-schedule-ribbon" data-module-key="schedule">
     <div class="card card--team-schedule home-dash-schedule-ribbon__card" style="--schedule-accent: var(--accent);">
       <h2 class="card--team-schedule__title">Schedule</h2>
@@ -1968,9 +1977,45 @@
           }
         }
         paintLeagueScheduleStrip(data.games || [], data.upcoming || []);
+        paintLeaguePulse(data.league_pulse || {});
 
         paintSegPicks();
         syncPlayerHoverCards();
+  }
+
+  function paintLeaguePulse(pulse) {
+    var el = document.getElementById('home-league-pulse');
+    if (!el) return;
+    if (!pulse || (!pulse.spotlight_game && !pulse.hot_team && !pulse.cold_team && !pulse.player_on_fire && !(pulse.milestone_watch || []).length && !pulse.trade_market_activity && !pulse.draft_pick_value_leader)) {
+      el.innerHTML = '<p class="empty-state">No live storylines yet.</p>';
+      return;
+    }
+    var h = '<div class="home-league-pulse__grid">';
+    if (pulse.spotlight_game) {
+      h += '<div class="home-league-pulse__tile"><span class="home-league-pulse__k">Spotlight</span>' + rowGameSpotlight(pulse.spotlight_game, { includeBoxscore: false }) + '</div>';
+    }
+    if (pulse.hot_team) {
+      h += '<div class="home-league-pulse__tile"><span class="home-league-pulse__k">🔥 Hot</span><a href="' + withRoot('/team/' + escapeAttr(pulse.hot_team.team_slug || '')) + '">' + escape(pulse.hot_team.team || pulse.hot_team.team_name || '') + '</a></div>';
+    }
+    if (pulse.cold_team) {
+      h += '<div class="home-league-pulse__tile"><span class="home-league-pulse__k">❄ Cold</span><a href="' + withRoot('/team/' + escapeAttr(pulse.cold_team.team_slug || '')) + '">' + escape(pulse.cold_team.team || pulse.cold_team.team_name || '') + '</a></div>';
+    }
+    if (pulse.player_on_fire) {
+      h += '<div class="home-league-pulse__tile"><span class="home-league-pulse__k">On fire</span><a href="' + withRoot('/player/' + pulse.player_on_fire.player_id) + '">' + escape(pulse.player_on_fire.player || '') + '</a></div>';
+    }
+    (pulse.milestone_watch || []).slice(0, 3).forEach(function (m) {
+      h += '<div class="home-league-pulse__tile home-league-pulse__tile--mile"><span class="home-league-pulse__k">Milestone</span><a href="' + withRoot('/player/' + m.player_id) + '">' + escape(m.player || '') + '</a><span class="muted">' + escape(m.label || '') + ' · ' + m.remaining + ' away</span></div>';
+    });
+    if (pulse.trade_market_activity) {
+      var tma = pulse.trade_market_activity;
+      h += '<div class="home-league-pulse__tile"><span class="home-league-pulse__k">Trade Market</span><span>' + (tma.selling_count || 0) + ' selling · ' + (tma.buying_teams || 0) + ' buying</span></div>';
+    }
+    if (pulse.draft_pick_value_leader && pulse.draft_pick_value_leader.teams && pulse.draft_pick_value_leader.teams.length) {
+      var dpl = pulse.draft_pick_value_leader;
+      h += '<div class="home-league-pulse__tile"><span class="home-league-pulse__k">Draft stock</span><span>' + escape((dpl.teams[0].team_abbr || dpl.teams[0].team_name || '')) + ' · ' + escape(String(dpl.value || '')) + ' value</span></div>';
+    }
+    h += '</div>';
+    el.innerHTML = h;
   }
 
   function loadSummary() {

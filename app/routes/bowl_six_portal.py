@@ -392,12 +392,24 @@ def bowl_six_leaders():
     season_rows = _enrich_gm_leader_rows(
         slug, gm_season_standings(db.session, slug), points_key="season_points"
     )
+    ownership_by_player: dict[int, float] = {}
+    if in_progress_slate:
+        from app.services.bowl_six import most_picked_for_slate
+
+        for row in most_picked_for_slate(db.session, in_progress_slate, limit=200):
+            ownership_by_player[int(row.player_id)] = float(getattr(row, "_pick_pct", 0) or 0)
+        for row in in_progress_rows:
+            for item in row.get("lineup_details") or []:
+                pl = item.get("player")
+                if pl is not None:
+                    item["ownership_pct"] = ownership_by_player.get(int(pl.id))
     return render_template(
         "bowl_six/leaders.html",
         rows=season_rows,
         in_progress_slate=in_progress_slate,
         in_progress_rows=in_progress_rows,
         week_progress=week_progress,
+        ownership_by_player=ownership_by_player,
         season_ap_prizes=SEASON_AP_PRIZES,
         season_participation_ap=SEASON_PARTICIPATION_AP,
     )

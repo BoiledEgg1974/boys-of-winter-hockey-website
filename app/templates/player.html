@@ -120,6 +120,26 @@
           {% endfor %}
         </div>
         {% endif %}
+        {% if player_season_trend_rows and player_season_trend_rows|length > 1 %}
+        <div class="player-career-arc" aria-label="Career arc sparkline">
+          <span class="player-career-arc__label muted">Career arc</span>
+          <svg class="player-career-arc__svg" viewBox="0 0 120 28" role="img" aria-hidden="true">
+            {% set arc_rows = player_season_trend_rows[-8:] %}
+            {% set arc_max = namespace(v=1) %}
+            {% for r in arc_rows %}
+              {% if not player_season_trends_goalie_mode %}
+                {% if r.pts is not none and r.pts > arc_max.v %}{% set arc_max.v = r.pts %}{% endif %}
+              {% else %}
+                {% if r.gk_w is not none and r.gk_w > arc_max.v %}{% set arc_max.v = r.gk_w %}{% endif %}
+              {% endif %}
+            {% endfor %}
+            {% set arc_n = arc_rows|length %}
+            {% if arc_n > 1 %}
+            <polyline class="player-career-arc__line" fill="none" stroke="currentColor" stroke-width="2" points="{% for r in arc_rows %}{% set idx = loop.index0 %}{% set val = (r.pts if not player_season_trends_goalie_mode else r.gk_w) or 0 %}{% set x = (idx * (118 / (arc_n - 1)))|round(1) %}{% set y = (26 - (val / arc_max.v * 22))|round(1) %}{{ x }},{{ y }}{% if not loop.last %} {% endif %}{% endfor %}"></polyline>
+            {% endif %}
+          </svg>
+        </div>
+        {% endif %}
         {% if player_boost_tier in ('gold', 'silver') and not _hero_strip %}
         {{ player_boost_badge_strip(player_boost_tier) }}
         {% endif %}

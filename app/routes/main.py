@@ -662,11 +662,36 @@ def standings():
     baseline_pos = select_positional_rank_baseline_map(league_slug, positional_ranking_rows)
     apply_positional_rank_trends(positional_ranking_rows, baseline_pos)
 
+    logo_sy = int(season.start_year) if season and getattr(season, "start_year", None) is not None else None
+    standings_ctx: dict[int, dict] = {}
+    power_ranking_rows: list[dict] = []
+    if season:
+        from app.services.standings_enrichment import (
+            build_standings_power_rankings,
+            build_standings_row_context,
+        )
+
+        standings_ctx = build_standings_row_context(
+            db.session,
+            season_id=int(season.id),
+            standings_rows=rows,
+            league_slug=league_slug,
+            logo_season_year=logo_sy,
+        )
+        power_ranking_rows = build_standings_power_rankings(
+            db.session,
+            season_id=int(season.id),
+            league_slug=league_slug,
+            logo_season_year=logo_sy,
+        )
+
     return render_template(
         "standings.html",
         season=season,
         canonical_season=canonical_season,
         standings=rows,
+        standings_ctx=standings_ctx,
+        power_ranking_rows=power_ranking_rows,
         team_stat_rows_rs=team_stat_rows_rs,
         view=view,
         conferences=conferences,
@@ -1925,6 +1950,18 @@ def history():
     attach_coach_award_displays(awards, db.session, raw_dir)
     _attach_history_award_season_teams(awards)
     award_panels = _build_award_panels(awards)
+    award_race_rows: list[dict[str, object]] = []
+    counts: dict[tuple[int, str], int] = {}
+    for a in awards:
+        if a.player_id and a.award_name:
+            key = (int(a.player_id), str(a.award_name))
+            counts[key] = counts.get(key, 0) + 1
+    for (pid, name), cnt in sorted(counts.items(), key=lambda x: (-x[1], x[0][1]))[:12]:
+        pl = db.session.get(Player, int(pid))
+        if pl:
+            award_race_rows.append(
+                {"player": pl, "award_name": name, "count": int(cnt)}
+            )
     seasons_on_file = import_folder_season_labels(
         Path(str(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)))
     )
@@ -1935,6 +1972,7 @@ def history():
     return render_template(
         "history.html",
         award_panels=award_panels,
+        award_race_rows=award_race_rows,
         seasons_on_file=seasons_on_file,
         champion_banners=champion_banners,
         all_star_bundle=all_star_bundle,
@@ -1998,6 +2036,21 @@ def all_time_records():
             if g_order in ("asc", "desc")
             else default_goalie_sort_order(g_sort_used)
         )
+    from app.services.milestones import build_milestone_sections
+
+    skater_sections, goalie_sections = build_milestone_sections(db.session, split=split)  # type: ignore[arg-type]
+    record_chase_rows: list[dict[str, object]] = []
+    for sec in skater_sections[:2]:
+        for row in (sec.rows or [])[:3]:
+            record_chase_rows.append(
+                {
+                    "player": row.player,
+                    "title": sec.title,
+                    "current": int(row.current_value),
+                    "next": int(row.next_milestone),
+                    "remaining": int(row.remaining),
+                }
+            )
     return render_template(
         "records.html",
         show_goalies=show_goalies,
@@ -2013,6 +2066,7 @@ def all_time_records():
         g_order=g_order_used,
         skater_rows=skater_rows,
         goalie_rows=goalie_rows,
+        record_chase_rows=record_chase_rows[:6],
     )
 
 
@@ -2094,11 +2148,35 @@ def milestones():
     if split not in ("rs", "po"):
         split = "rs"
     skater_sections, goalie_sections = build_milestone_sections(db.session, split=split)
+    record_chase_rows: list[dict[str, object]] = []
+    for sec in skater_sections[:3]:
+        for row in (sec.rows or [])[:2]:
+            record_chase_rows.append(
+                {
+                    "player": row.player,
+                    "title": sec.title,
+                    "current": int(row.current_value),
+                    "next": int(row.next_milestone),
+                    "remaining": int(row.remaining),
+                }
+            )
+    for sec in goalie_sections[:2]:
+        for row in (sec.rows or [])[:1]:
+            record_chase_rows.append(
+                {
+                    "player": row.player,
+                    "title": sec.title,
+                    "current": int(row.current_value),
+                    "next": int(row.next_milestone),
+                    "remaining": int(row.remaining),
+                }
+            )
     return render_template(
         "milestones.html",
         split=split,
         skater_sections=skater_sections,
         goalie_sections=goalie_sections,
+        record_chase_rows=record_chase_rows[:8],
     )
 
 
@@ -3479,6 +3557,18 @@ def _build_team_depth_draft_pick_rows(team: Team, league_slug: str) -> list[dict
             original_team = teams_by_id.get(int(row.original_team_id))
         if original_team is None:
             original_team = teams_by_fhm.get(int(row.original_team_fhm_id))
+        from app.services.draft_pick_values import perri_pick_value_for_asset
+
+        pick_value = round(
+            float(
+                perri_pick_value_for_asset(
+                    round_no=int(row.round),
+                    overall_pick=None,
+                    order_known=False,
+                )
+            ),
+            1,
+        )
         out.append(
             {
                 "year": int(row.draft_year),
@@ -3489,6 +3579,7 @@ def _build_team_depth_draft_pick_rows(team: Team, league_slug: str) -> list[dict
                     if original_team is not None
                     else f"Team {int(row.original_team_fhm_id)}"
                 ),
+                "pick_value": pick_value,
             }
         )
     grouped: dict[int, list[dict[str, object]]] = {}
@@ -4344,6 +4435,17 @@ def team_page(slug: str):
     from app.services.team_honors import team_honors_page_bundle
 
     honors_bundle = team_honors_page_bundle(db.session, int(team.id))
+    from app.services.team_dashboard import build_team_dashboard_strip
+
+    team_dashboard_strip = build_team_dashboard_strip(
+        db.session,
+        team=team,
+        season=season,
+        standing=standing,
+        league_slug=league_slug,
+    )
+    if division_rank is not None:
+        team_dashboard_strip["division_rank"] = division_rank
     tmpl_kwargs: dict[str, object] = {
         "team": team,
         "arena_name": arena_name,
@@ -4408,6 +4510,7 @@ def team_page(slug: str):
         "news_viewer_can_react": news_viewer_can_react,
         "news_category_label": news_category_label,
         "team_award_badges": team_history_award_badges(db.session, team),
+        "team_dashboard_strip": team_dashboard_strip,
         **honors_bundle,
     }
     depth_ova_ids: set[int] = set()

@@ -90,6 +90,22 @@
 <div class="history-page">
   <h1 class="page-title">All-Time History</h1>
 
+  {% if award_race_rows is defined and award_race_rows %}
+  <section class="card award-race-panel" aria-labelledby="award-race-h">
+    <h2 id="award-race-h">Award Leaders</h2>
+    <p class="muted">Most career award wins in league history</p>
+    <ol class="award-race-panel__list">
+      {% for row in award_race_rows[:10] %}
+      <li class="award-race-panel__item">
+        <a href="{{ url_for('main.player_page', player_id=row.player.id) }}">{{ row.player.full_name }}</a>
+        <span class="award-race-panel__award muted">{{ row.award_name }}</span>
+        <span class="award-race-panel__count">{{ row.count }}×</span>
+      </li>
+      {% endfor %}
+    </ol>
+  </section>
+  {% endif %}
+
   <div class="card history-champions-panel">
     <h2>Champions</h2>
     {% if champion_banners %}

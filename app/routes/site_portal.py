@@ -737,30 +737,26 @@ def _enqueue_discord_event(
         pass
 
 
-def _enqueue_trade_proposal_news_discord(
-    *,
-    proposal_id: int,
-    article_id: int | None,
-    team: Team | None,
-) -> None:
-    if not article_id:
-        return
-    slug = _league_slug()
-    trade_article = db.session.get(NewsArticle, int(article_id))
-    if trade_article is None:
-        return
-    _enqueue_discord_event(
-        "admin_news_published",
-        news_article_discord_payload(
-            trade_article,
-            category=str(trade_article.category or ""),
-            proposal_id=int(proposal_id),
-            url=build_news_article_public_url(slug, int(trade_article.id)),
-            **team_fields_for_discord(team),
-        ),
-        source_type="trade_proposal_news",
-        source_id=int(proposal_id),
-    )
+def _discord_mention_for_user(user: User | None) -> str:
+    if user is None or getattr(user, "revoked_at", None) is not None:
+        return ""
+    discord_id = str(getattr(user, "discord_user_id", "") or "").strip()
+    if len(discord_id) < 17 or len(discord_id) > 20 or not discord_id.isdigit():
+        return ""
+    return f"<@{discord_id}>"
+
+
+def _trade_gm_mentions(proposal: GmTradeProposal) -> str:
+    mentions: list[str] = []
+    seen: set[str] = set()
+    for user_id in (getattr(proposal, "from_user_id", None), getattr(proposal, "to_user_id", None)):
+        if user_id is None:
+            continue
+        mention = _discord_mention_for_user(db.session.get(User, int(user_id)))
+        if mention and mention not in seen:
+            mentions.append(mention)
+            seen.add(mention)
+    return " ".join(mentions)
 
 
 def _enqueue_confirmed_trade_discord(
@@ -787,6 +783,9 @@ def _enqueue_confirmed_trade_discord(
     )
     payload["body"] = format_trade_discord_body(db.session, proposal, from_team, to_team)
     payload["body_preview"] = str(payload["body"])[:280]
+    gm_mentions = _trade_gm_mentions(proposal)
+    if gm_mentions:
+        payload["gm_mentions"] = gm_mentions
     _enqueue_discord_event(
         "confirmed_trade",
         payload,
@@ -3010,11 +3009,6 @@ def admin_trade_proposal_detail(pid: int):
                 proposal=prop,
                 commissioner_user_id=int(prop.commissioner_user_id or current_user.id),
             )
-            _enqueue_trade_proposal_news_discord(
-                proposal_id=int(prop.id),
-                article_id=from_article_id,
-                team=from_team,
-            )
             _enqueue_confirmed_trade_discord(
                 proposal=prop,
                 proposal_id=int(prop.id),
@@ -3061,11 +3055,6 @@ def admin_trade_proposal_detail(pid: int):
                 left_out=left_out,
                 right_out=right_out,
             )
-            _enqueue_trade_proposal_news_discord(
-                proposal_id=int(prop.id),
-                article_id=from_article_id,
-                team=from_team,
-            )
             _enqueue_confirmed_trade_discord(
                 proposal=prop,
                 proposal_id=int(prop.id),
@@ -3111,7 +3100,7 @@ def admin_trade_proposal_detail(pid: int):
                     )
                 )
             db.session.commit()
-            msg = "Trade approved and published as league news for both teams."
+            msg = "Trade approved and published on the site for both teams."
             if moved_draft_picks:
                 msg += f" Draft ownership updated for {len(moved_draft_picks)} pick(s)."
             flash(msg, "ok")

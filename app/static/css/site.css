@@ -13088,6 +13088,18 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
 .player-development__mover-list strong {
   color: color-mix(in srgb, var(--pp-accent) 72%, #f8fafc);
 }
+.player-development__mover-delta--up {
+  color: #4ade80;
+}
+.player-development__mover-delta--down {
+  color: #fb7185;
+}
+[data-theme="light"] .player-development__mover-delta--up {
+  color: #15803d;
+}
+[data-theme="light"] .player-development__mover-delta--down {
+  color: #be123c;
+}
 .player-development__notice,
 .player-development__note,
 .player-development__empty,

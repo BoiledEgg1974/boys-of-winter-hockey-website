@@ -74,7 +74,7 @@
               {% if tab.summary.risers %}
               <ul class="player-development__mover-list">
                 {% for item in tab.summary.risers %}
-                <li><span>{{ item.label }}</span><strong>+{{ item.delta }}</strong></li>
+                <li><span>{{ item.label }}</span><strong class="player-development__mover-delta player-development__mover-delta--up">+{{ item.delta }}</strong></li>
                 {% endfor %}
               </ul>
               {% else %}
@@ -86,7 +86,7 @@
               {% if tab.summary.fallers %}
               <ul class="player-development__mover-list">
                 {% for item in tab.summary.fallers %}
-                <li><span>{{ item.label }}</span><strong>{{ item.delta }}</strong></li>
+                <li><span>{{ item.label }}</span><strong class="player-development__mover-delta player-development__mover-delta--down">{{ item.delta }}</strong></li>
                 {% endfor %}
               </ul>
               {% else %}

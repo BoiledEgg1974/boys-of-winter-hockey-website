@@ -41,6 +41,16 @@ class TradeMarketAllLeaguesTest(unittest.TestCase):
         self.assertIn("confirmed_trade", DEFAULT_EVENT_KEYS)
         self.assertEqual(DEFAULT_EVENT_CHANNEL_KEY.get("confirmed_trade"), "confirm-trade")
 
+    def test_trade_approval_only_queues_confirmed_trade_for_discord(self) -> None:
+        text = (
+            Path(__file__).resolve().parents[1] / "app" / "routes" / "site_portal.py"
+        ).read_text(encoding="utf-8")
+
+        self.assertNotIn("_enqueue_trade_proposal_news_discord", text)
+        self.assertIn('"confirmed_trade"', text)
+        self.assertIn('payload["gm_mentions"]', text)
+        self.assertIn("Trade approved and published on the site for both teams.", text)
+
     def test_confirmed_trade_discord_formatter_is_text_post(self) -> None:
         msg = format_discord_message(
             {
@@ -61,6 +71,24 @@ class TradeMarketAllLeaguesTest(unittest.TestCase):
         self.assertIn("[OAK](https://www.bowlhockey.com/bowl-historical/team/oakland-seals)", content)
         self.assertIn("Oakland sends a pick", content)
         self.assertNotIn("embeds", msg)
+
+    def test_confirmed_trade_discord_formatter_mentions_both_gms(self) -> None:
+        msg = format_discord_message(
+            {
+                "league_slug": "bowl-cap",
+                "event_key": "confirmed_trade",
+                "payload": {
+                    "title": "Trade: Toronto Maple Leafs ↔ Montreal Canadiens",
+                    "body": "Toronto sends a pick.\n\nMontreal sends a player.",
+                    "team_abbrev": "TOR",
+                    "gm_mentions": "<@111111111111111111> <@222222222222222222>",
+                },
+            }
+        )
+
+        content = msg.get("content", "")
+        self.assertIn("<@111111111111111111> <@222222222222222222>", content)
+        self.assertIn("Trade: Toronto Maple Leafs", content)
 
     def test_trade_market_json_posts_include_csrf_header(self) -> None:
         """Flask-WTF CSRFProtect requires X-CSRFToken on JSON POST (body alone is not enough)."""

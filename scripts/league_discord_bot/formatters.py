@@ -111,8 +111,25 @@ def _team_gm_mention_line(payload: dict[str, Any]) -> str:
     return mention if mention.startswith("<@") and mention.endswith(">") else ""
 
 
+def _gm_mentions_line(payload: dict[str, Any]) -> str:
+    mentions = str(payload.get("gm_mentions") or "").strip()
+    if not mentions:
+        return ""
+    parts = mentions.split()
+    if not parts:
+        return ""
+    valid = [p for p in parts if p.startswith("<@") and p.endswith(">")]
+    return " ".join(valid) if valid else ""
+
+
 def _append_team_gm_mention(lines: list[str], payload: dict[str, Any]) -> None:
     mention = _team_gm_mention_line(payload)
+    if mention and mention not in lines:
+        lines.append(mention)
+
+
+def _append_gm_mentions(lines: list[str], payload: dict[str, Any]) -> None:
+    mention = _gm_mentions_line(payload) or _team_gm_mention_line(payload)
     if mention and mention not in lines:
         lines.append(mention)
 
@@ -147,6 +164,9 @@ def _text_only_header_lines(
         team_line = format_team_label(league_slug, payload)
         if team_line:
             lines.append(team_line)
+        if event_key == "confirmed_trade":
+            _append_gm_mentions(lines, payload)
+        elif team_line:
             _append_team_gm_mention(lines, payload)
         lines.append(f"**{title}**")
     elif event_key == "announcement_posted":

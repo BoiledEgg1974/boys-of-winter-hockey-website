@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import unittest
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -104,6 +105,20 @@ class BuildPanelTests(unittest.TestCase):
         self.assertEqual(len(out["tabs"]), 5)
         self.assertEqual(out["tabs"][0]["id"], "summary")
         self.assertEqual(out["tabs"][1]["id"], "offense")
+
+
+class PlayerDevelopmentTemplateTests(unittest.TestCase):
+    def test_summary_mover_deltas_have_up_down_color_classes(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        template = (root / "app" / "templates" / "_player_development_panel.html").read_text(
+            encoding="utf-8"
+        )
+        css = (root / "app" / "static" / "css" / "site.css").read_text(encoding="utf-8")
+
+        self.assertIn("player-development__mover-delta--up", template)
+        self.assertIn("player-development__mover-delta--down", template)
+        self.assertIn(".player-development__mover-delta--up", css)
+        self.assertIn(".player-development__mover-delta--down", css)
 
 
 if __name__ == "__main__":

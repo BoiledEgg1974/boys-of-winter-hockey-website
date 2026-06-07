@@ -30,6 +30,14 @@ class StandingsConferenceSeedingTest(unittest.TestCase):
         for kind in ("win", "undefeated", "winless", "losing"):
             self.assertIn(f".standings-badge--streak-{kind}", css)
 
+    def test_standings_conf_div_column_strips_division_suffix(self) -> None:
+        path = Path(__file__).resolve().parents[1] / "app" / "templates" / "standings.html"
+        text = path.read_text(encoding="utf-8")
+
+        self.assertIn("div_label = (st.division_label or st.division or '—')", text)
+        self.assertIn("replace(' Division', '')", text)
+        self.assertIn("{{ conf_label }} / {{ div_label }}", text)
+
 
 if __name__ == "__main__":
     unittest.main()

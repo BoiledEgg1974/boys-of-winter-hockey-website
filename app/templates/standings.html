@@ -128,10 +128,12 @@
         {% set ctx = standings_ctx.get(st.team_id, {}) if standings_ctx is defined else {} %}
         {% set row_cls = '' %}
         {% if config.LEAGUE_SLUG == 'bowl-cap' and view == 'conference' and sel_conference and loop.index == 9 %}{% set row_cls = 'standings-cutline' %}{% endif %}
+        {% set conf_label = st.conference_label or '—' %}
+        {% set div_label = (st.division_label or st.division or '—')|replace(' Division', '')|replace(' division', '') %}
         <tr class="{{ row_cls }} standings-row--enter{% if ctx.get('trend_dir') == 'up' %} standings-row--up{% elif ctx.get('trend_dir') == 'down' %} standings-row--down{% endif %}">
           <td data-sort-value="{{ loop.index0 }}">{{ loop.index }}</td>
           <td data-sort-value="{{ (st.team.full_display_name() or st.team.slug)|lower }}">{{ team_lockup_full_name(st.team, season=season) }}</td>
-          {% if view != 'overall' %}<td data-sort-value="{{ ((st.conference_label or '') ~ ' ' ~ (st.division_label or st.division or ''))|lower }}">{{ st.conference_label or '—' }} / {{ st.division_label or st.division or '—' }}</td>{% endif %}
+          {% if view != 'overall' %}<td data-sort-value="{{ (conf_label ~ ' ' ~ div_label)|lower }}">{{ conf_label }} / {{ div_label }}</td>{% endif %}
           <td class="standings-col--form" data-sort-value="{{ ctx.get('last10_wins', 0) }}">{{ ctx.get('last10') or '—' }}</td>
           <td class="standings-col--streak" data-sort-value="{{ ctx.get('streak_n', 0) }}">
             {% set streak_label = ctx.get('streak_label') %}

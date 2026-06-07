@@ -1913,7 +1913,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1911;-1;Matt;Agarn;;1947-9-18;New York;NY;The United States;;;0
 1912;-1;Paul;Maurice;;1967-1-30;Sault Ste. Marie;ON;Canada;;;0
 1913;-1;Glen;Hanlon;;1957-2-20;Carman;MB;Canada;;;0
-1914;-1;Jarmo;Kekäläinen;;1966-7-3;Tampere;PIR;Finland;;;0
+1914;26;Jarmo;Kekäläinen;;1966-7-3;Tampere;PIR;Finland;;;0
 1915;24;Michel;Goulet;;1960-4-21;Ange-Gardien;QC;Canada;;;0
 1916;-1;Perry;Pearn;;1951-6-6;Strathmore;AB;Canada;;;0
 1917;-1;Mike;Foligno;;1959-1-29;Sudbury;ON;Canada;;;0
@@ -2237,7 +2237,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 2235;-1;Scott;Howson;;1960-4-9;Toronto;ON;Canada;;;0
 2236;-1;Al;MacAdam;;1952-3-16;Souris;PE;Canada;;;0
 2237;-1;Warren;Rychel;;1967-5-12;Tecumseh;ON;Canada;;;0
-2238;-1;Kari;Takko;;1962-6-23;Uusikaupunki;SOU;Finland;;;0
+2238;9;Kari;Takko;;1962-6-23;Uusikaupunki;SOU;Finland;;;0
 2239;-1;Greg;Gilbert;;1962-1-22;Mississauga;ON;Canada;;;0
 2240;-1;Curt;Fraser;;1958-1-12;Creston;OH;The United States;;;0
 2241;-1;Guy;Carbonneau;;1960-3-18;Shawinigan;QC;Canada;;;0

@@ -133,7 +133,15 @@
           <td data-sort-value="{{ (st.team.full_display_name() or st.team.slug)|lower }}">{{ team_lockup_full_name(st.team, season=season) }}</td>
           {% if view != 'overall' %}<td data-sort-value="{{ ((st.conference_label or '') ~ ' ' ~ (st.division_label or st.division or ''))|lower }}">{{ st.conference_label or '—' }} / {{ st.division_label or st.division or '—' }}</td>{% endif %}
           <td class="standings-col--form" data-sort-value="{{ ctx.get('last10_wins', 0) }}">{{ ctx.get('last10') or '—' }}</td>
-          <td class="standings-col--streak" data-sort-value="{{ ctx.get('streak_n', 0) }}">{% if ctx.get('streak_label') %}<span class="standings-badge standings-badge--streak">{{ ctx.get('streak_n') }} {{ ctx.get('streak_label') }}</span>{% else %}—{% endif %}</td>
+          <td class="standings-col--streak" data-sort-value="{{ ctx.get('streak_n', 0) }}">
+            {% set streak_label = ctx.get('streak_label') %}
+            {% if streak_label %}
+              {% set streak_key = streak_label|lower|replace(' streak', '') %}
+              <span class="standings-badge standings-badge--streak standings-badge--streak-{{ streak_key }}">{{ ctx.get('streak_n') }} {{ streak_label }}</span>
+            {% else %}
+              —
+            {% endif %}
+          </td>
           <td class="standings-col--odds" data-sort-value="{{ '%.4f'|format(ctx.get('playoff_pct')) if ctx.get('playoff_pct') is not none else '' }}">{% if ctx.get('playoff_pct') is not none %}{{ '%.1f'|format(ctx.get('playoff_pct') * 100) }}%{% else %}—{% endif %}</td>
           <td data-sort-value="{{ st.standing_gp_display() }}">{{ st.standing_gp_display() }}</td><td data-sort-value="{{ st.w }}">{{ st.w }}</td><td data-sort-value="{{ st.l }}">{{ st.l }}</td><td data-sort-value="{{ st.ties }}">{{ st.ties }}</td><td data-sort-value="{{ st.otl }}">{{ st.otl }}</td>
           <td data-sort-value="{{ st.shootout_wins }}">{{ st.shootout_wins }}</td><td data-sort-value="{{ st.shootout_losses }}">{{ st.shootout_losses }}</td><td data-sort-value="{{ st.pts }}">{{ st.pts }}</td>

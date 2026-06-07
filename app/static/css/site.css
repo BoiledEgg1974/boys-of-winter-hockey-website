@@ -18963,10 +18963,57 @@ button.bowl-six-submissions__toggle:hover {
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.02em;
+  border: 1px solid transparent;
 }
 .standings-badge--streak {
-  background: rgb(250 204 21 / 0.16);
-  color: #fde68a;
+  background: rgb(71 85 105 / 0.55);
+  border-color: rgb(148 163 184 / 0.45);
+  color: #f8fafc;
+}
+.standings-badge--streak-win {
+  background: #166534;
+  border-color: #22c55e;
+  color: #f0fdf4;
+}
+.standings-badge--streak-undefeated {
+  background: #1d4ed8;
+  border-color: #60a5fa;
+  color: #eff6ff;
+}
+.standings-badge--streak-winless {
+  background: #facc15;
+  border-color: #fef08a;
+  color: #422006;
+}
+.standings-badge--streak-losing {
+  background: #991b1b;
+  border-color: #f87171;
+  color: #fee2e2;
+}
+[data-theme="light"] .standings-badge--streak {
+  background: #e2e8f0;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+[data-theme="light"] .standings-badge--streak-win {
+  background: #dcfce7;
+  border-color: #16a34a;
+  color: #14532d;
+}
+[data-theme="light"] .standings-badge--streak-undefeated {
+  background: #dbeafe;
+  border-color: #2563eb;
+  color: #1e3a8a;
+}
+[data-theme="light"] .standings-badge--streak-winless {
+  background: #fef3c7;
+  border-color: #d97706;
+  color: #78350f;
+}
+[data-theme="light"] .standings-badge--streak-losing {
+  background: #fee2e2;
+  border-color: #dc2626;
+  color: #7f1d1d;
 }
 @media (max-width: 900px) {
   .standings-col--odds,

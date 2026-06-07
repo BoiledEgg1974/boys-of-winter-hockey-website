@@ -21,6 +21,15 @@ class StandingsConferenceSeedingTest(unittest.TestCase):
         self.assertIn("conference_playoff_seeding", text)
         self.assertIn("division winners rank 1–3", text)
 
+    def test_standings_streak_badges_use_semantic_color_classes(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        template = (root / "app" / "templates" / "standings.html").read_text(encoding="utf-8")
+        css = (root / "app" / "static" / "css" / "site.css").read_text(encoding="utf-8")
+
+        self.assertIn("standings-badge--streak-{{ streak_key }}", template)
+        for kind in ("win", "undefeated", "winless", "losing"):
+            self.assertIn(f".standings-badge--streak-{kind}", css)
+
 
 if __name__ == "__main__":
     unittest.main()

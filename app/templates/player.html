@@ -14,8 +14,16 @@
   <div class="player-profile__meters">
     {% for row in rows %}
     {% set v = row.value %}
+    {% set pos_abbr = {
+      'Goalie': 'G',
+      'Left Defense': 'LD',
+      'Right Defense': 'RD',
+      'Left Wing': 'LW',
+      'Center': 'C',
+      'Right Wing': 'RW'
+    }.get(row.label, row.label) %}
     <div class="player-profile__meter-row">
-      <span class="player-profile__meter-label">{{ row.label }}{% if row.is_primary %}<span class="player-profile__pos-ratings-star" aria-hidden="true"> *</span>{% endif %}</span>
+      <span class="player-profile__meter-label" title="{{ row.label }}"><span class="visually-hidden">{{ row.label }}</span><span aria-hidden="true">{{ pos_abbr }}</span>{% if row.is_primary %}<span class="player-profile__pos-ratings-star" aria-hidden="true"> *</span>{% endif %}</span>
       <span class="player-profile__meter-val">{% if v is not none %}{{ v|round(0)|int }}{% else %}—{% endif %}</span>
       <div class="player-profile__meter-track" role="presentation">
         <div class="player-profile__meter-fill" style="{% if v is not none %}{{ v|rating_meter_fill_style }}{% else %}width:0%;background:transparent{% endif %}"></div>
@@ -23,7 +31,7 @@
     </div>
     {% endfor %}
     <div class="player-profile__meter-row player-profile__meter-row--pos-shoots">
-      <span class="player-profile__meter-label">Shoots</span>
+      <span class="player-profile__meter-label" title="Shoots"><span class="visually-hidden">Shoots</span><span aria-hidden="true">SHT</span></span>
       <span class="player-profile__meter-val">{% set sc = (player.shoots_catches or '')|string|trim %}{% if not sc %}—{% else %}{% set sl = sc|lower %}{% if sl[0] == 'l' %}Left{% elif sl[0] == 'r' %}Right{% else %}{{ sc }}{% endif %}{% endif %}</span>
       <div class="player-profile__meter-track player-profile__meter-track--pos-shoots" role="presentation"></div>
     </div>
@@ -317,7 +325,7 @@
   <div class="player-profile__skater-ratings-five">
     <div class="player-profile__skater-overview-row">
       <div class="player-profile__goalie-cat-bar player-profile__goalie-cat-bar--panel player-profile__skater-cat-bar player-profile__skater-cat-bar--beside-overview" aria-label="Skater category averages from player ratings CSV">
-        {% for label, key in [('Off','off'), ('Def','def'), ('Phy','phy'), ('Men','men')] %}
+        {% for label, key in [('Offense','off'), ('Defense','def'), ('Physical','phy'), ('Mental','men')] %}
         {% set avg = rating_avgs_skater[key] %}
         <span class="player-profile__goalie-cat-pair">
           <span class="player-profile__goalie-cat-label">{{ label }}</span>
@@ -329,17 +337,55 @@
         {{ position_ratings_meter_card(player, position_ratings_rows, heading_suffix='skater-overview') }}
       </div>
       <section class="player-profile__card player-profile__card--meter-panel player-profile__skater-panel player-profile__skater-panel--overview">
-        <h2 class="player-profile__card-title player-profile__card-title--meter">Overview</h2>
-        <div class="player-profile__meters">
-          {% for label, key in [('Skating','skating'), ('Shooting','shooting'), ('Playmaking','playmaking'), ('Defending','defending'), ('Physicality','physicality'), ('Conditioning','conditioning'), ('Character','character'), ('Hockey sense','hockey_sense')] %}
-          {% set v = rr_val(key) %}
-          <div class="player-profile__meter-row">
-            <span class="player-profile__meter-label">{{ label }}</span>
-            <span class="player-profile__meter-val">{% if rr_ok(v) %}{{ v }}{% else %}—{% endif %}</span>
-            <div class="player-profile__meter-track" role="presentation">
-              <div class="player-profile__meter-fill" style="{% if rr_ok(v) %}{{ v|rating_meter_fill_style }}{% else %}width:0%;background:transparent{% endif %}"></div>
-            </div>
-          </div>
+        <h2 class="player-profile__card-title player-profile__card-title--meter">Radar Chart</h2>
+        {% set radar_attrs = [
+          {'label':'Skating', 'key':'skating', 'x':120, 'y':34, 'lx':120, 'ly':16, 'anchor':'middle'},
+          {'label':'Shooting', 'key':'shooting', 'x':181, 'y':59, 'lx':202, 'ly':52, 'anchor':'start'},
+          {'label':'Playmaking', 'key':'playmaking', 'x':206, 'y':120, 'lx':222, 'ly':124, 'anchor':'start'},
+          {'label':'Hockey Sense', 'key':'hockey_sense', 'x':181, 'y':181, 'lx':200, 'ly':199, 'anchor':'start'},
+          {'label':'Defending', 'key':'defending', 'x':120, 'y':206, 'lx':120, 'ly':226, 'anchor':'middle'},
+          {'label':'Physicality', 'key':'physicality', 'x':59, 'y':181, 'lx':40, 'ly':199, 'anchor':'end'},
+          {'label':'Conditioning', 'key':'conditioning', 'x':34, 'y':120, 'lx':18, 'ly':124, 'anchor':'end'},
+          {'label':'Character', 'key':'character', 'x':59, 'y':59, 'lx':38, 'ly':52, 'anchor':'end'}
+        ] %}
+        {% set rings = [
+          {'class':'player-profile__radar-ring player-profile__radar-ring--outer', 'points':'120,34 181,59 206,120 181,181 120,206 59,181 34,120 59,59'},
+          {'class':'player-profile__radar-ring player-profile__radar-ring--high', 'points':'120,55.5 165.75,74.25 184.5,120 165.75,165.75 120,184.5 74.25,165.75 55.5,120 74.25,74.25'},
+          {'class':'player-profile__radar-ring player-profile__radar-ring--mid', 'points':'120,77 150.5,89.5 163,120 150.5,150.5 120,163 89.5,150.5 77,120 89.5,89.5'},
+          {'class':'player-profile__radar-ring player-profile__radar-ring--low', 'points':'120,94.2 138.3,101.7 145.8,120 138.3,138.3 120,145.8 101.7,138.3 94.2,120 101.7,101.7'},
+          {'class':'player-profile__radar-ring player-profile__radar-ring--base', 'points':'120,107.1 129.15,110.85 132.9,120 129.15,129.15 120,132.9 110.85,129.15 107.1,120 110.85,110.85'}
+        ] %}
+        {% set ns = namespace(points='', summary=[]) %}
+        {% for attr in radar_attrs %}
+          {% set raw = rr_val(attr.key) %}
+          {% set rating = raw|float if rr_ok(raw) else 0 %}
+          {% set ratio = [rating / 20, 1]|min %}
+          {% set px = 120 + ((attr.x - 120) * ratio) %}
+          {% set py = 120 + ((attr.y - 120) * ratio) %}
+          {% set ns.points = ns.points ~ (' ' if ns.points else '') ~ ('%.2f,%.2f'|format(px, py)) %}
+          {% set ns.summary = ns.summary + [attr.label ~ ' ' ~ (raw|string if rr_ok(raw) else 'not rated')] %}
+        {% endfor %}
+        <div class="player-profile__radar" role="img" aria-label="Overview radar chart: {{ ns.summary|join(', ') }}">
+          <svg class="player-profile__radar-svg" viewBox="0 0 240 240" aria-hidden="true" focusable="false">
+            {% for ring in rings %}
+            <polygon class="{{ ring.class }}" points="{{ ring.points }}"></polygon>
+            {% endfor %}
+            {% for attr in radar_attrs %}
+            <line class="player-profile__radar-axis" x1="120" y1="120" x2="{{ attr.x }}" y2="{{ attr.y }}"></line>
+            {% endfor %}
+            <polygon class="player-profile__radar-player" points="{{ ns.points }}"></polygon>
+            {% for attr in radar_attrs %}
+            <text class="player-profile__radar-label" x="{{ attr.lx }}" y="{{ attr.ly }}" text-anchor="{{ attr.anchor }}">{{ attr.label }}</text>
+            {% endfor %}
+          </svg>
+        </div>
+        <div class="player-profile__radar-values" aria-label="Overview rating values">
+          {% for attr in radar_attrs %}
+          {% set v = rr_val(attr.key) %}
+          <span class="player-profile__radar-value">
+            <span class="player-profile__radar-value-label">{{ attr.label }}</span>
+            <span class="player-profile__radar-value-num" style="{% if rr_ok(v) %}{{ v|attr_rating_style }}{% endif %}">{% if rr_ok(v) %}{{ v }}{% else %}—{% endif %}</span>
+          </span>
           {% endfor %}
         </div>
       </section>

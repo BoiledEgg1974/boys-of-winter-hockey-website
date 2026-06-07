@@ -11695,14 +11695,24 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
 }
 .player-profile__skater-overview-row {
   display: grid;
-  grid-template-columns: minmax(148px, 200px) minmax(0, 1fr) minmax(0, 1.1fr);
+  grid-template-columns: minmax(190px, 240px) minmax(0, 1fr);
   gap: var(--pp-panel-gap);
   align-items: stretch;
 }
+.player-profile__skater-cat-bar--beside-overview {
+  grid-column: 1;
+  grid-row: 1;
+}
 .player-profile__skater-overview-pos {
+  grid-column: 1;
+  grid-row: 2;
   min-width: 0;
   display: flex;
   flex-direction: column;
+}
+.player-profile__skater-panel--overview {
+  grid-column: 2;
+  grid-row: 1 / span 2;
 }
 .player-profile__skater-overview-pos .player-profile__position-ratings-card {
   flex: 1;
@@ -11742,6 +11752,138 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
   gap: 0.65rem;
   width: 100%;
 }
+.player-profile__skater-panel--overview {
+  overflow: hidden;
+}
+.player-profile__skater-panel--overview .player-profile__card-title--meter {
+  color: #cbd5e1;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 1px rgb(0 0 0 / 0.65);
+}
+.player-profile__radar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: -0.15rem auto 0.45rem;
+  min-height: 17rem;
+  background:
+    radial-gradient(circle at 50% 48%, rgb(15 23 42 / 0.28), transparent 54%),
+    linear-gradient(180deg, rgb(15 23 42 / 0.24), transparent);
+  border-radius: 18px;
+}
+.player-profile__radar-svg {
+  display: block;
+  width: min(100%, 29rem);
+  height: auto;
+  min-height: 16.5rem;
+  overflow: visible;
+}
+.player-profile__radar-ring {
+  stroke: rgb(15 23 42 / 0.32);
+  stroke-width: 0.7;
+  stroke-linejoin: round;
+}
+.player-profile__radar-ring--outer {
+  fill: #159bd4;
+}
+.player-profile__radar-ring--high {
+  fill: #20c733;
+}
+.player-profile__radar-ring--mid {
+  fill: #f4e82d;
+}
+.player-profile__radar-ring--low {
+  fill: #ff9c12;
+}
+.player-profile__radar-ring--base {
+  fill: #f52613;
+}
+.player-profile__radar-axis {
+  stroke: rgb(15 23 42 / 0.36);
+  stroke-width: 0.8;
+}
+.player-profile__radar-player {
+  fill: rgb(255 255 255 / 0.18);
+  stroke: #f8fafc;
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 2px 3px rgb(0 0 0 / 0.5));
+}
+.player-profile__radar-label {
+  fill: #f8fafc;
+  stroke: rgb(15 23 42 / 0.72);
+  stroke-width: 2.4px;
+  paint-order: stroke fill;
+  font-size: 0.64rem;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+}
+.player-profile__radar-values {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+.player-profile__radar-value {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.35rem 0.45rem;
+  border-radius: 10px;
+  background: rgb(15 23 42 / 0.45);
+  border: 1px solid rgb(148 163 184 / 0.14);
+}
+.player-profile__radar-value-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #cbd5e1;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+.player-profile__radar-value-num {
+  min-width: 2.15rem;
+  padding: 0.16rem 0.35rem;
+  border-radius: 7px;
+  text-align: center;
+  font-size: 0.76rem;
+  font-weight: 900;
+  border-width: 1px;
+  border-style: solid;
+  font-variant-numeric: tabular-nums;
+}
+[data-theme="light"] .player-profile__skater-panel--overview .player-profile__card-title--meter {
+  color: #475569;
+  text-shadow: none;
+}
+[data-theme="light"] .player-profile__radar {
+  background:
+    radial-gradient(circle at 50% 48%, rgb(226 232 240 / 0.48), transparent 54%),
+    linear-gradient(180deg, rgb(241 245 249 / 0.68), transparent);
+}
+[data-theme="light"] .player-profile__radar-label {
+  fill: #0f172a;
+  stroke: rgb(248 250 252 / 0.9);
+}
+[data-theme="light"] .player-profile__radar-axis,
+[data-theme="light"] .player-profile__radar-ring {
+  stroke: rgb(15 23 42 / 0.22);
+}
+[data-theme="light"] .player-profile__radar-player {
+  fill: rgb(15 23 42 / 0.16);
+  stroke: #0f172a;
+  filter: drop-shadow(0 1px 2px rgb(15 23 42 / 0.25));
+}
+[data-theme="light"] .player-profile__radar-value {
+  background: rgb(248 250 252 / 0.86);
+  border-color: rgb(15 23 42 / 0.12);
+}
+[data-theme="light"] .player-profile__radar-value-label {
+  color: #334155;
+}
 @media (max-width: 800px) {
   .player-profile__skater-overview-row {
     grid-template-columns: 1fr;
@@ -11754,6 +11896,17 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
   }
   .player-profile__skater-cat-bar--beside-overview .player-profile__goalie-cat-pair {
     width: auto;
+  }
+  .player-profile__radar {
+    min-height: 14.5rem;
+  }
+  .player-profile__radar-values {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 480px) {
+  .player-profile__radar-values {
+    grid-template-columns: 1fr;
   }
 }
 .player-profile__skater-ratings-five .player-profile__card-title--meter {

@@ -800,42 +800,67 @@ def _backfill_active_slate_final_markers_from_legacy_window(
     )
 
 
-def _record_current_calendar_final_markers_for_active_slate(
+def _marker_observed_at_for_slate(slate: BowlSixSlate, now: datetime | None = None) -> datetime:
+    """Clamp a marker timestamp into the slate's real-time scoring window."""
+    now = now or utcnow_naive()
+    window_start, window_end = slate_real_scoring_window_utc(slate)
+    if now < window_start:
+        return window_start
+    if now >= window_end:
+        return window_end - timedelta(seconds=1)
+    return now
+
+
+def _sync_slate_week_final_markers(
     session: Session,
     league_session: Session,
     slate: BowlSixSlate,
 ) -> int:
-    """Catch up finals first seen after real-time tracking was deployed."""
+    """Backfill missing real-time markers for finals in the active slate scoring week.
+
+    CSV re-imports often leave games ``final`` without a status transition, so
+    ``import_games`` never records markers. This runs on every auto-update (including
+    post-import) so BOWL Six scoring and Discord leaders can refresh immediately.
+    """
     if slate.status not in ("locked", "open"):
-        return 0
-    now = utcnow_naive()
-    window_start, window_end = slate_real_scoring_window_utc(slate)
-    if now < window_start or now >= window_end:
         return 0
     season = get_current_season()
     if season is None:
         return 0
-    anchor = league_calendar_anchor_date(league_session, int(season.id))
-    cal_start, cal_end = _week_bounds_for_date(anchor, BOWL_SIX_REAL_WEEK_START_DOW)
+    week_start = slate.scoring_week_start or slate.week_start
+    week_end = slate.scoring_week_end or slate.week_end
+    if not week_start or not week_end:
+        return 0
     rows = list(
         league_session.scalars(
             select(Game).where(
                 Game.season_id == int(season.id),
                 Game.game_date.isnot(None),
-                Game.game_date >= cal_start,
-                Game.game_date <= cal_end,
+                Game.game_date >= week_start,
+                Game.game_date <= week_end,
                 Game.status == "final",
             )
-        )
+        ).all()
     )
     game_ids = [int(g.id) for g in rows if _is_regular_season_game(g.game_type)]
+    if not game_ids:
+        return 0
     return record_bowl_six_game_finals(
         session,
         league_session,
         league_slug=str(slate.league_slug or ""),
         game_ids=game_ids,
-        observed_at=now,
+        observed_at=_marker_observed_at_for_slate(slate),
     )
+
+
+def _record_current_calendar_final_markers_for_active_slate(
+    session: Session,
+    league_session: Session,
+    slate: BowlSixSlate,
+) -> int:
+    """Catch up finals for the active slate after imports (see ``_sync_slate_week_final_markers``)."""
+    return _sync_slate_week_final_markers(session, league_session, slate)
 
 
 def rs_game_ids_for_slate(league_session: Session, slate: BowlSixSlate) -> list[int]:
@@ -1037,15 +1062,16 @@ def _auto_update_single_slate(
         session.flush()
     sync_slate_lock_status(session, slate)
     if slate.status == "open":
+        n = 0
         if rs_game_ids_for_slate(league_session, slate):
             refresh_player_week_stats(session, slate, league_session)
             n = refresh_slate_lineup_scores(session, league_session, slate)
-            _enqueue_bowl_six_discord_leaders_safe(session, league_session, slate)
-            if n:
-                return (
-                    f"Week {slate.week_start}: updated {n} lineup(s) "
-                    "from completed games (lineups still open)."
-                )
+        _enqueue_bowl_six_discord_leaders_safe(session, league_session, slate)
+        if n:
+            return (
+                f"Week {slate.week_start}: updated {n} lineup(s) "
+                "from completed games (lineups still open)."
+            )
         return None
     if slate.status == "locked":
         n = refresh_slate_lineup_scores(session, league_session, slate)

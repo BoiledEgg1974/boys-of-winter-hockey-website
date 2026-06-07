@@ -447,6 +447,122 @@ class BowlSixScoringTest(unittest.TestCase):
         event_keys = [call.kwargs["event_key"] for call in enqueue.call_args_list]
         self.assertEqual(event_keys, ["bowl_six_rosters_unlocked"])
 
+    def test_sync_slate_week_final_markers_backfills_without_status_transition(self):
+        from datetime import datetime as dt
+
+        from app.models import Game
+        from app.services.bowl_six import _sync_slate_week_final_markers
+        from app.site_models import BowlSixSlate
+
+        slate = BowlSixSlate(
+            id=55,
+            league_slug="bowl-historical",
+            week_start=date(1969, 3, 10),
+            week_end=date(1969, 3, 16),
+            scoring_week_start=date(1969, 3, 10),
+            scoring_week_end=date(1969, 3, 16),
+            status="open",
+            lock_at=dt(2099, 1, 1),
+        )
+        season = MagicMock(id=1)
+        game = Game(
+            id=901,
+            season_id=1,
+            home_team_id=1,
+            away_team_id=2,
+            game_date=date(1969, 3, 12),
+            status="final",
+        )
+        site_session = MagicMock()
+        league_session = MagicMock()
+        league_session.scalars.return_value.unique.return_value.all.return_value = [game]
+        league_session.scalars.return_value.all.return_value = [game]
+        observed = dt(2026, 3, 12, 1, 0)
+        with unittest.mock.patch(
+            "app.services.bowl_six.get_current_season", return_value=season
+        ), unittest.mock.patch(
+            "app.services.bowl_six.record_bowl_six_game_finals", return_value=1
+        ) as record_markers, unittest.mock.patch(
+            "app.services.bowl_six._marker_observed_at_for_slate",
+            return_value=observed,
+        ):
+            n = _sync_slate_week_final_markers(site_session, league_session, slate)
+        self.assertEqual(n, 1)
+        record_markers.assert_called_once_with(
+            site_session,
+            league_session,
+            league_slug="bowl-historical",
+            game_ids=[901],
+            observed_at=observed,
+        )
+
+    def test_open_slate_auto_update_enqueues_discord_after_marker_sync(self):
+        slate = BowlSixSlate(
+            id=56,
+            league_slug="bowl-historical",
+            week_start=date(1969, 3, 10),
+            week_end=date(1969, 3, 16),
+            status="open",
+            lock_at=__import__("datetime").datetime(2099, 1, 1),
+        )
+        site_session = MagicMock()
+        league_session = MagicMock()
+        with unittest.mock.patch(
+            "app.services.bowl_six._backfill_active_slate_final_markers_from_legacy_window",
+            return_value=0,
+        ), unittest.mock.patch(
+            "app.services.bowl_six._record_current_calendar_final_markers_for_active_slate",
+            return_value=1,
+        ), unittest.mock.patch(
+            "app.services.bowl_six.sync_slate_week_to_league_calendar", return_value=False
+        ), unittest.mock.patch(
+            "app.services.bowl_six.sync_slate_lock_status"
+        ), unittest.mock.patch(
+            "app.services.bowl_six.rs_game_ids_for_slate", return_value=[901]
+        ), unittest.mock.patch(
+            "app.services.bowl_six.refresh_player_week_stats"
+        ), unittest.mock.patch(
+            "app.services.bowl_six.refresh_slate_lineup_scores", return_value=2
+        ), unittest.mock.patch(
+            "app.services.bowl_six._enqueue_bowl_six_discord_leaders_safe"
+        ) as enqueue:
+            from app.services.bowl_six import _auto_update_single_slate
+
+            note = _auto_update_single_slate(site_session, league_session, slate)
+        enqueue.assert_called_once_with(site_session, league_session, slate)
+        self.assertIn("updated 2 lineup", note or "")
+
+    def test_open_slate_auto_update_enqueues_discord_even_without_final_games(self):
+        slate = BowlSixSlate(
+            id=57,
+            league_slug="bowl-historical",
+            week_start=date(1969, 3, 10),
+            week_end=date(1969, 3, 16),
+            status="open",
+            lock_at=__import__("datetime").datetime(2099, 1, 1),
+        )
+        site_session = MagicMock()
+        league_session = MagicMock()
+        with unittest.mock.patch(
+            "app.services.bowl_six._backfill_active_slate_final_markers_from_legacy_window",
+            return_value=0,
+        ), unittest.mock.patch(
+            "app.services.bowl_six._record_current_calendar_final_markers_for_active_slate",
+            return_value=0,
+        ), unittest.mock.patch(
+            "app.services.bowl_six.sync_slate_week_to_league_calendar", return_value=False
+        ), unittest.mock.patch(
+            "app.services.bowl_six.sync_slate_lock_status"
+        ), unittest.mock.patch(
+            "app.services.bowl_six.rs_game_ids_for_slate", return_value=[]
+        ), unittest.mock.patch(
+            "app.services.bowl_six._enqueue_bowl_six_discord_leaders_safe"
+        ) as enqueue:
+            from app.services.bowl_six import _auto_update_single_slate
+
+            _auto_update_single_slate(site_session, league_session, slate)
+        enqueue.assert_called_once_with(site_session, league_session, slate)
+
 
 if __name__ == "__main__":
     unittest.main()

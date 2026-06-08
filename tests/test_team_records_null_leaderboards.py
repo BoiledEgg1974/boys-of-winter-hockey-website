@@ -4,7 +4,7 @@ from __future__ import annotations
 import unittest
 from types import SimpleNamespace
 
-from app.services.team_records import _leaderboard_rows
+from app.services.team_records import _is_hidden_season_summary, _leaderboard_rows, _runner_up_override_team_fhm_id
 
 
 class TeamRecordsNullLeaderboardTest(unittest.TestCase):
@@ -38,6 +38,16 @@ class TeamRecordsNullLeaderboardTest(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["team_name"], "Zero Team")
         self.assertEqual(rows[0]["value"], "0")
+
+    def test_historical_1668_summary_is_hidden_only_for_historical_site(self) -> None:
+        self.assertTrue(_is_hidden_season_summary("1668-69", "bowl-historical"))
+        self.assertFalse(_is_hidden_season_summary("1668-69", "bowl-cap"))
+        self.assertFalse(_is_hidden_season_summary("1917-18", "bowl-historical"))
+
+    def test_historical_runner_up_overrides_for_known_missing_finals(self) -> None:
+        self.assertEqual(_runner_up_override_team_fhm_id("1936-37", "bowl-historical"), "10")
+        self.assertEqual(_runner_up_override_team_fhm_id("1939-40", "bowl-historical"), "3")
+        self.assertIsNone(_runner_up_override_team_fhm_id("1939-40", "bowl-cap"))
 
 
 if __name__ == "__main__":

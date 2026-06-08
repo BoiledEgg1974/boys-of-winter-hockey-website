@@ -2149,10 +2149,11 @@ def team_records_index():
     identity_view = request.args.get("identity_view", "era") or "era"
     if identity_view not in ("era", "franchise"):
         identity_view = "era"
-    season_cards = list_season_summaries(db.session)
+    league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    season_cards = list_season_summaries(db.session, league_slug=league_slug)
     leaderboard_sections = build_team_record_leaderboards(
         db.session,
-        league_slug=str(current_app.config.get("LEAGUE_SLUG") or ""),
+        league_slug=league_slug,
     )
     return render_template(
         "team_records.html",

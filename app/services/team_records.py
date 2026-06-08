@@ -39,6 +39,15 @@ _MIN_GP_TEAM_SEASON_LEADERBOARD = 30
 
 CHAMPION_RESULT = "BOWL CUP CHAMPION"
 RUNNER_UP_RESULT = "Lost Cup Finals"
+_HIDDEN_SEASON_SUMMARY_LABELS_BY_LEAGUE = {
+    "bowl-historical": {"1668-69"},
+}
+_RUNNER_UP_TEAM_FHM_BY_LEAGUE_AND_SEASON = {
+    "bowl-historical": {
+        "1936-37": "10",  # New York Rangers
+        "1939-40": "3",  # Toronto Maple Leafs
+    },
+}
 
 
 # --------------------------- helpers --------------------------- #
@@ -74,6 +83,31 @@ def _label_start_year(label: str | None) -> int | None:
         return None
     m = re.search(r"(\d{4})", str(label))
     return int(m.group(1)) if m else None
+
+
+def _is_hidden_season_summary(year_label: str | None, league_slug: str | None) -> bool:
+    slug = (league_slug or "").strip().lower()
+    hidden = _HIDDEN_SEASON_SUMMARY_LABELS_BY_LEAGUE.get(slug, set())
+    return (year_label or "").strip() in hidden
+
+
+def _runner_up_override_team_fhm_id(year_label: str | None, league_slug: str | None) -> str | None:
+    slug = (league_slug or "").strip().lower()
+    overrides = _RUNNER_UP_TEAM_FHM_BY_LEAGUE_AND_SEASON.get(slug, {})
+    return overrides.get((year_label or "").strip())
+
+
+def _runner_up_for_year(
+    recs: list[TeamSeasonRecord],
+    year_label: str,
+    *,
+    league_slug: str | None,
+) -> TeamSeasonRecord | None:
+    runner = next((r for r in recs if (r.result or "") == RUNNER_UP_RESULT), None)
+    override_fhm = _runner_up_override_team_fhm_id(year_label, league_slug)
+    if override_fhm:
+        return next((r for r in recs if str(r.team_fhm_id_csv or "").strip() == override_fhm), runner)
+    return runner
 
 
 def team_display_name(rec: TeamSeasonRecord) -> str:
@@ -235,16 +269,18 @@ def _season_top_goalie_for_year(
     }
 
 
-def list_season_summaries(session: Session) -> list[SeasonSummaryCard]:
+def list_season_summaries(session: Session, *, league_slug: str | None = None) -> list[SeasonSummaryCard]:
     by_year: dict[str, list[TeamSeasonRecord]] = {}
     for r in _load_all_records(session):
+        if _is_hidden_season_summary(r.season_year_label, league_slug):
+            continue
         by_year.setdefault(r.season_year_label, []).append(r)
     cards: list[SeasonSummaryCard] = []
     for yl, recs in by_year.items():
         recs_sorted = sorted(recs, key=standings_sort_key)
         sy = next((r.start_year for r in recs if r.start_year is not None), _label_start_year(yl))
         champ = next((r for r in recs if (r.result or "") == CHAMPION_RESULT), None)
-        runner = next((r for r in recs if (r.result or "") == RUNNER_UP_RESULT), None)
+        runner = _runner_up_for_year(recs, yl, league_slug=league_slug)
         pts_leader = recs_sorted[0] if recs_sorted else None
         cards.append(
             SeasonSummaryCard(

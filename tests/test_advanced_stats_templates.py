@@ -62,6 +62,16 @@ class AdvancedStatsTemplatesTest(unittest.TestCase):
         self.assertIn("Process Profile", partial)
         self.assertIn("Zone Starts", partial)
         self.assertIn("Shot Quality Mix", partial)
+        self.assertIn("Corsi For percentage", partial)
+        self.assertIn("Fenwick For percentage", partial)
+        self.assertIn("Penalty minutes", partial)
+        self.assertIn("Goals Saved Above Average", partial)
+        self.assertIn("Save percentage", partial)
+        sq_partial = (
+            Path(__file__).resolve().parents[1] / "app" / "templates" / "_sq_profile_bars.html"
+        ).read_text(encoding="utf-8")
+        self.assertIn("Shot quality bucket 0", sq_partial)
+        self.assertIn("Shot quality bucket 4", sq_partial)
 
     def test_game_flow_partial(self) -> None:
         partial = (Path(__file__).resolve().parents[1] / "app" / "templates" / "_game_flow_card.html").read_text(

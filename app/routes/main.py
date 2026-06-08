@@ -3090,6 +3090,14 @@ def _build_team_lines_views(
         for p in extra_players:
             if p.fhm_player_id is not None:
                 players_by_fhm[str(p.fhm_player_id)] = p
+    # team_lines.csv can lag roster moves; never surface those slots on this team's pages.
+    stale_line_player_ids: set[int] = set()
+    for fhm_pid in line_pids:
+        pl = players_by_fhm.get(fhm_pid)
+        if pl is None or pl.current_team_id is None:
+            continue
+        if int(pl.current_team_id) != int(team.id):
+            stale_line_player_ids.add(int(pl.id))
     org_players_by_id: dict[int, Player] = {p.id: p for p in roster}
     contract_rows = _contract_rows_by_playerid(raw_import_dir)
     season_start_year = int(season.start_year) if season and season.start_year is not None else None
@@ -3140,7 +3148,7 @@ def _build_team_lines_views(
 
     def lp(key: str) -> Player | None:
         pl = _line_player(lines_row, key, players_by_fhm)
-        if not pl or pl.id not in allowed_org_ids:
+        if not pl or pl.id not in allowed_org_ids or pl.id in stale_line_player_ids:
             return None
         return pl
 
@@ -3148,7 +3156,11 @@ def _build_team_lines_views(
         pl = lp(key)
         return pl.full_name if pl else None
 
-    lines_name_to_id = {p.full_name: p.id for p in players_by_fhm.values() if p.id in allowed_org_ids}
+    lines_name_to_id = {
+        p.full_name: p.id
+        for p in players_by_fhm.values()
+        if p.id in allowed_org_ids and p.id not in stale_line_player_ids
+    }
     def _rating_num(pl: Player, key: str) -> float:
         rr = get_player_ratings_row(pl.fhm_player_id)
         if not rr:
@@ -3177,6 +3189,8 @@ def _build_team_lines_views(
 
     by_pos: dict[str, list[Player]] = {"LW": [], "C": [], "RW": [], "D": [], "G": []}
     for p in org_players_by_id.values():
+        if int(p.id) in stale_line_player_ids:
+            continue
         b = _bucket_for_player(p)
         if b in by_pos:
             by_pos[b].append(p)

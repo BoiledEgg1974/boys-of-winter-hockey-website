@@ -259,6 +259,7 @@ class DraftPickOwnershipAdminTests(unittest.TestCase):
         self.assertIn("player_ids_from_player_rights_csv_for_team", text)
         self.assertIn("is_main = pl.current_team_id == team.id", text)
         self.assertNotIn("is_main = (fhm_pid in main_line_player_ids)", text)
+        self.assertIn("stale_line_player_ids", text)
         minor_idx = text.index('roster_status = "minor"')
         rights_idx = text.index('roster_status = "rights"')
         self.assertLess(minor_idx, rights_idx)

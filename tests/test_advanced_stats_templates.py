@@ -11,6 +11,10 @@ class AdvancedStatsTemplatesTest(unittest.TestCase):
         template = (root / "app" / "templates" / "advanced_stats.html").read_text(encoding="utf-8")
         css = (root / "app" / "static" / "css" / "site.css").read_text(encoding="utf-8")
         for marker in (
+            "advanced-stats-team-chart",
+            "Team Analytics Map",
+            "advanced-stats-team-chart-data",
+            "data-team-chart-season",
             "advanced-stats-tabset",
             "advanced-stats-tabset--six",
             "panel--luck",
@@ -36,6 +40,9 @@ class AdvancedStatsTemplatesTest(unittest.TestCase):
         ):
             self.assertIn(marker, template)
         self.assertIn(".process-stats__sq-profile", css)
+        self.assertIn(".advanced-stats-team-chart", css)
+        self.assertIn(".advanced-stats-team-chart__point", css)
+        self.assertIn(".advanced-stats-team-chart-tooltip", css)
         self.assertIn(".advanced-stats-tabset", css)
         self.assertIn(".advanced-stats-tabset--six", css)
         self.assertIn(".advanced-stats-lines__filters", css)
@@ -47,12 +54,14 @@ class AdvancedStatsTemplatesTest(unittest.TestCase):
         js = (root / "app" / "static" / "js" / "site.js").read_text(encoding="utf-8")
         self.assertIn("initPaginatedTable", js)
         self.assertIn("Page 1 of ", js)
+        self.assertIn("initAdvancedStatsTeamChart", js)
         self.assertIn("initAdvancedStatsDivisionTooltips", js)
 
     def test_advanced_stats_route_includes_lines_tab(self) -> None:
         main = (Path(__file__).resolve().parents[1] / "app" / "routes" / "main.py").read_text(encoding="utf-8")
         self.assertIn('"lines", "label": "Lines"', main)
         self.assertIn("build_line_stats_rows", main)
+        self.assertIn("build_team_analytics_chart_archive", main)
         self.assertIn('active_tab = "lines"', main)
 
     def test_player_process_profile_partial(self) -> None:
@@ -60,13 +69,35 @@ class AdvancedStatsTemplatesTest(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn("Process Profile", partial)
+        self.assertIn("not expected goals or shot maps", partial)
+        self.assertIn("Season Process", partial)
+        self.assertIn("Shot Share Detail", partial)
+        self.assertIn("Game Event Profile", partial)
         self.assertIn("Zone Starts", partial)
         self.assertIn("Shot Quality Mix", partial)
+        self.assertIn("Imported FHM shot-quality buckets", partial)
+        self.assertIn("PTS/60", partial)
+        self.assertIn("GF/60", partial)
+        self.assertIn("GA/60", partial)
+        self.assertIn("PP PTS/60", partial)
+        self.assertIn("CF% rel", partial)
+        self.assertIn("High-danger share (SQ3+SQ4)", partial)
         self.assertIn("Corsi For percentage", partial)
         self.assertIn("Fenwick For percentage", partial)
         self.assertIn("Penalty minutes", partial)
         self.assertIn("Goals Saved Above Average", partial)
         self.assertIn("Save percentage", partial)
+        self.assertIn("GAA/60", partial)
+        self.assertIn("Season Volume", partial)
+        self.assertIn("Game Log Profile", partial)
+        self.assertIn("not expected goals against or save maps", partial)
+        advanced = (Path(__file__).resolve().parents[1] / "app" / "templates" / "advanced_stats.html").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("advanced-stats-tabset__panel--goalies", advanced)
+        self.assertIn("Win-loss-overtime loss record", advanced)
+        self.assertIn("Shutouts from the FHM goalie stat export", advanced)
+        self.assertIn("Average imported FHM game rating", advanced)
         sq_partial = (
             Path(__file__).resolve().parents[1] / "app" / "templates" / "_sq_profile_bars.html"
         ).read_text(encoding="utf-8")

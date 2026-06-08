@@ -730,7 +730,10 @@ def team_reports_page():
 @main_bp.get("/advanced-stats")
 def advanced_stats_page():
     """Process-over-results analytics (CF/FF, PDO, GSAA, shot quality proxies)."""
-    from app.services.advanced_stats import build_advanced_stats_hub_payload
+    from app.services.advanced_stats import (
+        build_advanced_stats_hub_payload,
+        build_team_analytics_chart_archive,
+    )
     from app.services.line_stats import (
         LINE_TYPE_ALL,
         build_line_stats_rows,
@@ -751,6 +754,11 @@ def advanced_stats_page():
     min_combined_gp = max(0, request.args.get("min_gp", type=int) or 0)
     min_combined_toi_minutes = max(0, request.args.get("min_toi", type=int) or 0)
     hub = build_advanced_stats_hub_payload(db.session, int(season.id), segment=segment)
+    chart_archive = build_team_analytics_chart_archive(
+        db.session,
+        default_season_id=int(season.id),
+        default_segment=segment,
+    )
     line_rows = build_line_stats_rows(
         db.session,
         int(season.id),
@@ -771,6 +779,7 @@ def advanced_stats_page():
     return render_template(
         "advanced_stats.html",
         hub=hub,
+        chart_archive=chart_archive,
         tabs=tabs,
         segment=segment,
         season=season,

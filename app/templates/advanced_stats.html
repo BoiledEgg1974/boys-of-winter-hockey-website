@@ -9,6 +9,57 @@
   <h1 class="page-title">Advanced Stats</h1>
   <p class="muted advanced-stats-page__intro">Process-over-results analytics from imported FHM data. These are not expected-goals (xG) models.</p>
 
+  <section class="card advanced-stats-team-chart" id="advanced-stats-team-chart" aria-labelledby="advanced-stats-team-chart-heading">
+    <div class="advanced-stats-team-chart__head">
+      <div>
+        <h2 id="advanced-stats-team-chart-heading" class="advanced-stats-team-chart__title">Team Analytics Map</h2>
+        <p class="muted advanced-stats-team-chart__intro">Interactive team process map from imported FHM season and game summaries. SQ buckets are shot-quality proxies, not expected goals.</p>
+      </div>
+      <div class="advanced-stats-team-chart__controls" data-team-chart-controls>
+        <label class="advanced-stats-team-chart__control">
+          <span class="advanced-stats-team-chart__control-label">Season</span>
+          <select data-team-chart-season aria-label="Chart season"></select>
+        </label>
+        <label class="advanced-stats-team-chart__control">
+          <span class="advanced-stats-team-chart__control-label">Segment</span>
+          <select data-team-chart-segment aria-label="Chart stat segment"></select>
+        </label>
+        <label class="advanced-stats-team-chart__control">
+          <span class="advanced-stats-team-chart__control-label">X Axis</span>
+          <select data-team-chart-x aria-label="Chart X axis metric"></select>
+        </label>
+        <label class="advanced-stats-team-chart__control">
+          <span class="advanced-stats-team-chart__control-label">Y Axis</span>
+          <select data-team-chart-y aria-label="Chart Y axis metric"></select>
+        </label>
+        <label class="advanced-stats-team-chart__control">
+          <span class="advanced-stats-team-chart__control-label">Scale</span>
+          <select data-team-chart-norm aria-label="Chart normalization">
+            <option value="raw">Season totals / rates</option>
+            <option value="per_game">Per game</option>
+          </select>
+        </label>
+      </div>
+    </div>
+    <div class="advanced-stats-team-chart__body">
+      <div class="advanced-stats-team-chart__plot-wrap">
+        <div class="advanced-stats-team-chart__plot" data-team-chart-plot role="img" aria-label="Team analytics scatter map">
+          <span class="advanced-stats-team-chart__quad advanced-stats-team-chart__quad--tl" data-team-chart-quad="tl">Bad</span>
+          <span class="advanced-stats-team-chart__quad advanced-stats-team-chart__quad--tr" data-team-chart-quad="tr">Fun</span>
+          <span class="advanced-stats-team-chart__quad advanced-stats-team-chart__quad--bl" data-team-chart-quad="bl">Boring</span>
+          <span class="advanced-stats-team-chart__quad advanced-stats-team-chart__quad--br" data-team-chart-quad="br">Good</span>
+          <span class="advanced-stats-team-chart__midline advanced-stats-team-chart__midline--x" data-team-chart-midline-x></span>
+          <span class="advanced-stats-team-chart__midline advanced-stats-team-chart__midline--y" data-team-chart-midline-y></span>
+          <span class="advanced-stats-team-chart__axis-label advanced-stats-team-chart__axis-label--x" data-team-chart-axis-x></span>
+          <span class="advanced-stats-team-chart__axis-label advanced-stats-team-chart__axis-label--y" data-team-chart-axis-y></span>
+          <div class="advanced-stats-team-chart__points" data-team-chart-points></div>
+        </div>
+      </div>
+    </div>
+    <p class="muted advanced-stats-team-chart__empty" data-team-chart-empty hidden>No team analytics available for this season and segment yet. Re-import league CSVs to populate the chart archive.</p>
+    <script type="application/json" id="advanced-stats-team-chart-data">{{ chart_archive | tojson }}</script>
+  </section>
+
   <div class="card advanced-stats-card">
     <div class="advanced-stats-tabset advanced-stats-tabset--six">
       {% for tab in tabs %}
@@ -67,10 +118,16 @@
                 <th data-sort-type="str">{{ stat_tip('Goalie', 'Goalie name. Click through for the full player profile.') }}</th>
                 <th data-sort-type="str">{{ stat_tip('Team', 'Current imported team for this stat row.') }}</th>
                 <th data-sort-type="num">{{ stat_tip('GP', 'Games played in the selected stat segment.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('GS', 'Games started from the FHM goalie stat export.') }}</th>
+                <th data-sort-type="str">{{ stat_tip('Record', 'Win-loss-overtime loss record from the FHM goalie stat export.') }}</th>
                 <th data-sort-type="num">{{ stat_tip('GSAA', 'Goals Saved Above Average. Uses imported GSAA when present; otherwise estimated from league-average save percentage, shots against, and goals against.') }}</th>
                 <th data-sort-type="num">{{ stat_tip('SV%', 'Save percentage: saves divided by shots against.') }}</th>
                 <th data-sort-type="num">{{ stat_tip('SA', 'Shots against faced by the goalie.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('GA', 'Goals allowed.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('SV', 'Saves made.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('SO', 'Shutouts from the FHM goalie stat export.') }}</th>
                 <th data-sort-type="num">{{ stat_tip('GAA', 'Goals against average from the FHM goalie stat export.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('Rating', 'Average imported FHM game rating for the goalie.') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -79,13 +136,19 @@
                 <td><a href="{{ url_for('main.player_page', player_id=row.player_id) }}">{{ row.player_name }}</a></td>
                 <td>{% if row.team %}{{ team_logo_img_plain(row.team) }} <a href="{{ url_for('main.team_page', slug=row.team.slug) }}">{{ row.team.abbreviation or row.team.name }}</a>{% else %}—{% endif %}</td>
                 <td>{{ row.gp }}</td>
+                <td>{{ row.games_started if row.games_started is not none else '—' }}</td>
+                <td>{{ row.record or '—' }}</td>
                 <td data-sort-value="{% if row.gsaa is not none %}{{ '%.6f'|format(row.gsaa) }}{% endif %}">{% if row.gsaa is not none %}{{ '%.2f'|format(row.gsaa) }}{% if row.gsaa_estimated %}<span class="advanced-stats-source" title="Estimated from league-average save percentage because this FHM export does not include native GSAA">est.</span>{% endif %}{% else %}—{% endif %}</td>
                 <td>{% if row.sv_pct is not none %}{{ '%.3f'|format(row.sv_pct) }}{% else %}—{% endif %}</td>
-                <td>{{ row.sa or '—' }}</td>
+                <td>{{ row.sa if row.sa is not none else '—' }}</td>
+                <td>{{ row.ga if row.ga is not none else '—' }}</td>
+                <td>{{ row.saves if row.saves is not none else '—' }}</td>
+                <td>{{ row.so if row.so is not none else '—' }}</td>
                 <td>{% if row.gaa is not none %}{{ '%.2f'|format(row.gaa) }}{% else %}—{% endif %}</td>
+                <td>{% if row.game_rating is not none %}{{ '%.2f'|format(row.game_rating) }}{% else %}—{% endif %}</td>
               </tr>
               {% else %}
-              <tr><td colspan="7" class="muted">No goalie advanced stats available.</td></tr>
+              <tr><td colspan="13" class="muted">No goalie advanced stats available.</td></tr>
               {% endfor %}
             </tbody>
           </table>

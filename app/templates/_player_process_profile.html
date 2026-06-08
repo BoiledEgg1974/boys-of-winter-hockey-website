@@ -5,7 +5,7 @@
 <details class="player-profile__card player-profile__panel player-profile__panel--process-stats" open>
   <summary class="player-profile__panel-summary">
     <span class="player-profile__panel-title">Process Profile</span>
-    <span class="player-profile__panel-meta muted">Shot share, deployment, and quality proxies</span>
+    <span class="player-profile__panel-meta muted">{% if player_process_stats.kind == 'goalie' %}Imported FHM goaltending rates and recent form — not expected goals against or save maps{% else %}Shot share, deployment, and quality proxies — not expected goals or shot maps{% endif %}</span>
   </summary>
   <div class="process-stats">
     {% if player_process_stats.kind == 'skater' %}
@@ -15,10 +15,43 @@
         <dl class="process-stats__kv">
           <div><dt>{{ process_tip('CF%', 'Corsi For percentage: all shot attempts for divided by shot attempts for plus against while the player is on ice.') }}</dt><dd>{% if player_process_stats.season.cf_pct is not none %}{{ '%.1f'|format(player_process_stats.season.cf_pct) }}{% else %}—{% endif %}</dd></div>
           <div><dt>{{ process_tip('FF%', 'Fenwick For percentage: unblocked shot attempts for divided by unblocked attempts for plus against.') }}</dt><dd>{% if player_process_stats.season.ff_pct is not none %}{{ '%.1f'|format(player_process_stats.season.ff_pct) }}{% else %}—{% endif %}</dd></div>
-          <div><dt>{{ process_tip('SF/60', 'Shots for per 60 minutes of all-situations ice time.') }}</dt><dd>{% if player_process_stats.season.sf_per_60 is not none %}{{ '%.2f'|format(player_process_stats.season.sf_per_60) }}{% else %}—{% endif %}</dd></div>
+          <div><dt>{{ process_tip('SF/60', 'Shots for per 60 minutes of all-situations ice time.') }}</dt><dd>{% if player_process_stats.season.sf_per_60 is not none %}{{ '%.2f'|format(player_process_stats.season.sf_per_60) }}{% if player_process_stats.season.sf_per_60_source == 'last_10' %}<span class="advanced-stats-source" title="Derived from the player&apos;s last 10 imported game logs">L10</span>{% endif %}{% else %}—{% endif %}</dd></div>
+          <div><dt>{{ process_tip('SA/60', 'Shots against per 60 minutes while the player is on ice.') }}</dt><dd>{% if player_process_stats.season.sa_per_60 is not none %}{{ '%.2f'|format(player_process_stats.season.sa_per_60) }}{% else %}—{% endif %}</dd></div>
+          <div><dt>{{ process_tip('PTS/60', 'Total points per 60 minutes of all-situations ice time.') }}</dt><dd>{% if player_process_stats.season.pts_per_60 is not none %}{{ '%.2f'|format(player_process_stats.season.pts_per_60) }}{% else %}—{% endif %}</dd></div>
+          <div><dt>{{ process_tip('GF/60', 'Goals for per 60 minutes while the player is on ice.') }}</dt><dd>{% if player_process_stats.season.gf_per_60 is not none %}{{ '%.2f'|format(player_process_stats.season.gf_per_60) }}{% else %}—{% endif %}</dd></div>
+          <div><dt>{{ process_tip('GA/60', 'Goals against per 60 minutes while the player is on ice.') }}</dt><dd>{% if player_process_stats.season.ga_per_60 is not none %}{{ '%.2f'|format(player_process_stats.season.ga_per_60) }}{% else %}—{% endif %}</dd></div>
+          <div><dt>{{ process_tip('PP PTS/60', 'Power-play points per 60 minutes of power-play ice time.') }}</dt><dd>{% if player_process_stats.season.pp_pts_per_60 is not none %}{{ '%.2f'|format(player_process_stats.season.pp_pts_per_60) }}{% else %}—{% endif %}</dd></div>
+          <div><dt>{{ process_tip('SH PTS/60', 'Short-handed points per 60 minutes of short-handed ice time.') }}</dt><dd>{% if player_process_stats.season.sh_pts_per_60 is not none %}{{ '%.2f'|format(player_process_stats.season.sh_pts_per_60) }}{% else %}—{% endif %}</dd></div>
           <div><dt>{{ process_tip('PDO', 'Shooting percentage plus save percentage, scaled around 100. Often used as a luck or sustainability flag.') }}</dt><dd>{% if player_process_stats.season.pdo is not none %}{{ '%.1f'|format(player_process_stats.season.pdo) }}{% if player_process_stats.season.pdo_band %} <span class="process-stats__band process-stats__band--{{ player_process_stats.season.pdo_band }}">{{ player_process_stats.season.pdo_band }}</span>{% endif %}{% else %}—{% endif %}</dd></div>
         </dl>
       </div>
+      {% if player_process_stats.shot_share %}
+      <div class="process-stats__card">
+        <h3 class="process-stats__h">Shot Share Detail</h3>
+        <dl class="process-stats__kv">
+          <div><dt>{{ process_tip('CF', 'Corsi For: all shot attempts for while the player is on ice.') }}</dt><dd>{{ player_process_stats.shot_share.cf if player_process_stats.shot_share.cf is not none else '—' }}</dd></div>
+          <div><dt>{{ process_tip('CA', 'Corsi Against: all shot attempts against while the player is on ice.') }}</dt><dd>{{ player_process_stats.shot_share.ca if player_process_stats.shot_share.ca is not none else '—' }}</dd></div>
+          <div><dt>{{ process_tip('FF', 'Fenwick For: unblocked shot attempts for.') }}</dt><dd>{{ player_process_stats.shot_share.ff if player_process_stats.shot_share.ff is not none else '—' }}</dd></div>
+          <div><dt>{{ process_tip('FA', 'Fenwick Against: unblocked shot attempts against.') }}</dt><dd>{{ player_process_stats.shot_share.fa if player_process_stats.shot_share.fa is not none else '—' }}</dd></div>
+          <div><dt>{{ process_tip('CF% rel', 'Corsi For percentage relative to team/league context from the FHM export.') }}</dt><dd>{% if player_process_stats.shot_share.cf_pct_rel is not none %}{{ '%.1f'|format(player_process_stats.shot_share.cf_pct_rel) }}{% else %}—{% endif %}</dd></div>
+          <div><dt>{{ process_tip('FF% rel', 'Fenwick For percentage relative to team/league context from the FHM export.') }}</dt><dd>{% if player_process_stats.shot_share.ff_pct_rel is not none %}{{ '%.1f'|format(player_process_stats.shot_share.ff_pct_rel) }}{% else %}—{% endif %}</dd></div>
+        </dl>
+      </div>
+      {% endif %}
+      {% if player_process_stats.game_events %}
+      <div class="process-stats__card">
+        <h3 class="process-stats__h">Game Event Profile</h3>
+        <dl class="process-stats__kv">
+          <div><dt>{{ process_tip('SOG', 'Shots on goal from imported game summaries.') }}</dt><dd>{{ player_process_stats.game_events.sog if player_process_stats.game_events.sog is not none else '—' }}</dd></div>
+          <div><dt>{{ process_tip('Missed', 'Missed shots from imported game summaries.') }}</dt><dd>{{ player_process_stats.game_events.missed_shots if player_process_stats.game_events.missed_shots is not none else '—' }}</dd></div>
+          <div><dt>{{ process_tip('Blocked', 'Blocked shots from imported game summaries.') }}</dt><dd>{{ player_process_stats.game_events.blocked_shots if player_process_stats.game_events.blocked_shots is not none else '—' }}</dd></div>
+          <div><dt>{{ process_tip('Hits', 'Hits from imported game summaries.') }}</dt><dd>{{ player_process_stats.game_events.hits if player_process_stats.game_events.hits is not none else '—' }}</dd></div>
+          <div><dt>{{ process_tip('TK', 'Takeaways from imported game summaries.') }}</dt><dd>{{ player_process_stats.game_events.takeaways if player_process_stats.game_events.takeaways is not none else '—' }}</dd></div>
+          <div><dt>{{ process_tip('GV', 'Giveaways from imported game summaries.') }}</dt><dd>{{ player_process_stats.game_events.giveaways if player_process_stats.game_events.giveaways is not none else '—' }}</dd></div>
+          <div><dt>{{ process_tip('FO%', 'Faceoff win percentage from imported game summaries.') }}</dt><dd>{% if player_process_stats.game_events.fo_pct is not none %}{{ '%.1f'|format(player_process_stats.game_events.fo_pct) }}{% else %}—{% endif %}</dd></div>
+        </dl>
+      </div>
+      {% endif %}
       {% if player_process_stats.zone_starts %}
       <div class="process-stats__card">
         <h3 class="process-stats__h">Zone Starts</h3>
@@ -33,6 +66,7 @@
       {% if player_process_stats.sq and player_process_stats.sq.total %}
       <div class="process-stats__card process-stats__card--sq">
         <h3 class="process-stats__h">Shot Quality Mix</h3>
+        <p class="muted process-stats__sq-intro">Imported FHM shot-quality buckets (SQ0–SQ4), not expected goals.</p>
         {% include "_sq_profile_bars.html" with context %}
         {% if player_process_stats.sq.high_danger_share is not none %}
         <p class="process-stats__sq-note">High-danger share (SQ3+SQ4): <strong>{{ '%.1f'|format(player_process_stats.sq.high_danger_share) }}%</strong></p>
@@ -45,8 +79,16 @@
       </div>
       <div class="process-stats__card">
         <h3 class="process-stats__h">Recent Form</h3>
-        <p class="muted">Last 10 {{ process_tip('GP', 'Games played in this recent window.') }}: {{ player_process_stats.rolling.last_10.goals or 0 }} {{ process_tip('G', 'Goals scored.') }}, {{ player_process_stats.rolling.last_10.shots or 0 }} {{ process_tip('SOG', 'Shots on goal.') }}</p>
-        <p class="muted">Last 20 {{ process_tip('GP', 'Games played in this recent window.') }}: {{ player_process_stats.rolling.last_20.goals or 0 }} {{ process_tip('G', 'Goals scored.') }}, {{ player_process_stats.rolling.last_20.shots or 0 }} {{ process_tip('SOG', 'Shots on goal.') }}</p>
+        {% if player_process_stats.rolling.last_10 %}
+        <p class="muted">Last 10 {{ process_tip('GP', 'Games played in this recent window.') }}: {{ player_process_stats.rolling.last_10.goals or 0 }} {{ process_tip('G', 'Goals scored.') }}, {{ player_process_stats.rolling.last_10.assists or 0 }} {{ process_tip('A', 'Assists.') }}, {{ player_process_stats.rolling.last_10.points or 0 }} {{ process_tip('PTS', 'Points scored.') }}, {{ player_process_stats.rolling.last_10.shots or 0 }} {{ process_tip('SOG', 'Shots on goal.') }}{% if player_process_stats.rolling.last_10.sf_per_60 is not none %}, {{ '%.2f'|format(player_process_stats.rolling.last_10.sf_per_60) }} {{ process_tip('SF/60', 'Shots for per 60 in this window.') }}{% endif %}{% if player_process_stats.rolling.last_10.high_danger_share is not none %}, {{ '%.1f'|format(player_process_stats.rolling.last_10.high_danger_share) }}% {{ process_tip('HD%', 'High-danger shot share (SQ3+SQ4) in this window.') }}{% endif %}</p>
+        {% else %}
+        <p class="muted">Last 10 {{ process_tip('GP', 'Games played in this recent window.') }}: —</p>
+        {% endif %}
+        {% if player_process_stats.rolling.last_20 %}
+        <p class="muted">Last 20 {{ process_tip('GP', 'Games played in this recent window.') }}: {{ player_process_stats.rolling.last_20.goals or 0 }} {{ process_tip('G', 'Goals scored.') }}, {{ player_process_stats.rolling.last_20.assists or 0 }} {{ process_tip('A', 'Assists.') }}, {{ player_process_stats.rolling.last_20.points or 0 }} {{ process_tip('PTS', 'Points scored.') }}, {{ player_process_stats.rolling.last_20.shots or 0 }} {{ process_tip('SOG', 'Shots on goal.') }}{% if player_process_stats.rolling.last_20.sf_per_60 is not none %}, {{ '%.2f'|format(player_process_stats.rolling.last_20.sf_per_60) }} {{ process_tip('SF/60', 'Shots for per 60 in this window.') }}{% endif %}{% if player_process_stats.rolling.last_20.high_danger_share is not none %}, {{ '%.1f'|format(player_process_stats.rolling.last_20.high_danger_share) }}% {{ process_tip('HD%', 'High-danger shot share (SQ3+SQ4) in this window.') }}{% endif %}</p>
+        {% else %}
+        <p class="muted">Last 20 {{ process_tip('GP', 'Games played in this recent window.') }}: —</p>
+        {% endif %}
       </div>
     </div>
     {% else %}
@@ -54,19 +96,46 @@
       <div class="process-stats__card">
         <h3 class="process-stats__h">Season Goaltending</h3>
         <dl class="process-stats__kv">
-          <div><dt>{{ process_tip('GSAA', 'Goals Saved Above Average: goals prevented compared with a league-average goalie facing the same shots against.') }}</dt><dd>{% if player_process_stats.season.gsaa is not none %}{{ '%.2f'|format(player_process_stats.season.gsaa) }}{% else %}—{% endif %}</dd></div>
+          <div><dt>{{ process_tip('GP', 'Games played in the selected stat segment.') }}</dt><dd>{{ player_process_stats.season.gp or '—' }}</dd></div>
+          <div><dt>{{ process_tip('GS', 'Games started from the FHM goalie stat export.') }}</dt><dd>{{ player_process_stats.season.games_started if player_process_stats.season.games_started is not none else '—' }}</dd></div>
+          <div><dt>{{ process_tip('Record', 'Win-loss-overtime loss record from the FHM goalie stat export.') }}</dt><dd>{{ player_process_stats.season.record or '—' }}</dd></div>
+          <div><dt>{{ process_tip('MIN', 'Minutes played from the FHM goalie stat export.') }}</dt><dd>{{ player_process_stats.season.minutes_played if player_process_stats.season.minutes_played is not none else '—' }}</dd></div>
+          <div><dt>{{ process_tip('GSAA', 'Goals Saved Above Average: goals prevented compared with a league-average goalie facing the same shots against.') }}</dt><dd>{% if player_process_stats.season.gsaa is not none %}{{ '%.2f'|format(player_process_stats.season.gsaa) }}{% if player_process_stats.season.gsaa_estimated %}<span class="advanced-stats-source" title="Estimated from league-average save percentage because this FHM export does not include native GSAA">est.</span>{% endif %}{% else %}—{% endif %}</dd></div>
           <div><dt>{{ process_tip('SV%', 'Save percentage: saves divided by shots against.') }}</dt><dd>{% if player_process_stats.season.sv_pct is not none %}{{ '%.3f'|format(player_process_stats.season.sv_pct) }}{% else %}—{% endif %}</dd></div>
-          <div><dt>{{ process_tip('SA', 'Shots against faced by the goalie.') }}</dt><dd>{{ player_process_stats.season.sa or '—' }}</dd></div>
-          <div><dt>{{ process_tip('GAA', 'Goals against average: goals allowed per 60 minutes, displayed in hockey’s standard per-game format.') }}</dt><dd>{% if player_process_stats.season.gaa is not none %}{{ '%.2f'|format(player_process_stats.season.gaa) }}{% else %}—{% endif %}</dd></div>
+          <div><dt>{{ process_tip('GAA', 'Goals against average from the FHM goalie stat export.') }}</dt><dd>{% if player_process_stats.season.gaa is not none %}{{ '%.2f'|format(player_process_stats.season.gaa) }}{% else %}—{% endif %}</dd></div>
+          <div><dt>{{ process_tip('Rating', 'Average imported FHM game rating for the goalie.') }}</dt><dd>{% if player_process_stats.season.game_rating is not none %}{{ '%.2f'|format(player_process_stats.season.game_rating) }}{% if player_process_stats.season.game_rating_source == 'game_logs' %}<span class="advanced-stats-source" title="Derived from imported goalie game logs">logs</span>{% endif %}{% else %}—{% endif %}</dd></div>
         </dl>
       </div>
       <div class="process-stats__card">
+        <h3 class="process-stats__h">Season Volume</h3>
+        <dl class="process-stats__kv">
+          <div><dt>{{ process_tip('SA', 'Shots against faced by the goalie.') }}</dt><dd>{{ player_process_stats.season.sa if player_process_stats.season.sa is not none else '—' }}</dd></div>
+          <div><dt>{{ process_tip('GA', 'Goals allowed.') }}</dt><dd>{{ player_process_stats.season.ga if player_process_stats.season.ga is not none else '—' }}</dd></div>
+          <div><dt>{{ process_tip('SV', 'Saves made.') }}</dt><dd>{{ player_process_stats.season.saves if player_process_stats.season.saves is not none else '—' }}</dd></div>
+          <div><dt>{{ process_tip('SO', 'Shutouts from the FHM goalie stat export.') }}</dt><dd>{{ player_process_stats.season.so if player_process_stats.season.so is not none else '—' }}</dd></div>
+        </dl>
+      </div>
+      {% if player_process_stats.game_log and player_process_stats.game_log.gp %}
+      <div class="process-stats__card">
+        <h3 class="process-stats__h">Game Log Profile</h3>
+        <dl class="process-stats__kv">
+          <div><dt>{{ process_tip('GP', 'Imported final games with goalie box score lines this season.') }}</dt><dd>{{ player_process_stats.game_log.gp }}</dd></div>
+          <div><dt>{{ process_tip('SO', 'Shutouts from imported goalie game logs.') }}</dt><dd>{{ player_process_stats.game_log.shutouts if player_process_stats.game_log.shutouts is not none else '—' }}</dd></div>
+          <div><dt>{{ process_tip('Rating', 'Average imported FHM game rating across goalie game logs.') }}</dt><dd>{% if player_process_stats.game_log.avg_game_rating is not none %}{{ '%.2f'|format(player_process_stats.game_log.avg_game_rating) }}{% else %}—{% endif %}</dd></div>
+        </dl>
+      </div>
+      {% endif %}
+      <div class="process-stats__card">
         <h3 class="process-stats__h">Recent Form</h3>
         {% if player_process_stats.rolling.last_10 %}
-        <p class="muted">Last 10: {{ player_process_stats.rolling.last_10.gp }} {{ process_tip('GP', 'Games played in this recent window.') }}, {{ player_process_stats.rolling.last_10.sa }} {{ process_tip('SA', 'Shots against faced by the goalie.') }}, {% if player_process_stats.rolling.last_10.sv_pct is not none %}{{ '%.3f'|format(player_process_stats.rolling.last_10.sv_pct) }} {{ process_tip('SV%', 'Save percentage: saves divided by shots against.') }}{% else %}—{% endif %}</p>
+        <p class="muted">Last 10: {{ player_process_stats.rolling.last_10.gp }} {{ process_tip('GP', 'Games played in this recent window.') }}, {{ player_process_stats.rolling.last_10.saves or 0 }} {{ process_tip('SV', 'Saves made.') }}, {{ player_process_stats.rolling.last_10.sa }} {{ process_tip('SA', 'Shots against faced by the goalie.') }}, {{ player_process_stats.rolling.last_10.ga }} {{ process_tip('GA', 'Goals allowed.') }}{% if player_process_stats.rolling.last_10.sv_pct is not none %}, {{ '%.3f'|format(player_process_stats.rolling.last_10.sv_pct) }} {{ process_tip('SV%', 'Save percentage: saves divided by shots against.') }}{% endif %}{% if player_process_stats.rolling.last_10.gaa is not none %}, {{ '%.2f'|format(player_process_stats.rolling.last_10.gaa) }} {{ process_tip('GAA/60', 'Goals against per 60 minutes in this window.') }}{% endif %}{% if player_process_stats.rolling.last_10.shutouts is not none %}, {{ player_process_stats.rolling.last_10.shutouts }} {{ process_tip('SO', 'Shutouts in this window.') }}{% endif %}{% if player_process_stats.rolling.last_10.avg_game_rating is not none %}, {{ '%.2f'|format(player_process_stats.rolling.last_10.avg_game_rating) }} {{ process_tip('Rating', 'Average imported FHM game rating in this window.') }}{% endif %}</p>
+        {% else %}
+        <p class="muted">Last 10 {{ process_tip('GP', 'Games played in this recent window.') }}: —</p>
         {% endif %}
         {% if player_process_stats.rolling.last_20 %}
-        <p class="muted">Last 20: {{ player_process_stats.rolling.last_20.gp }} {{ process_tip('GP', 'Games played in this recent window.') }}, {{ player_process_stats.rolling.last_20.sa }} {{ process_tip('SA', 'Shots against faced by the goalie.') }}, {% if player_process_stats.rolling.last_20.sv_pct is not none %}{{ '%.3f'|format(player_process_stats.rolling.last_20.sv_pct) }} {{ process_tip('SV%', 'Save percentage: saves divided by shots against.') }}{% else %}—{% endif %}</p>
+        <p class="muted">Last 20: {{ player_process_stats.rolling.last_20.gp }} {{ process_tip('GP', 'Games played in this recent window.') }}, {{ player_process_stats.rolling.last_20.saves or 0 }} {{ process_tip('SV', 'Saves made.') }}, {{ player_process_stats.rolling.last_20.sa }} {{ process_tip('SA', 'Shots against faced by the goalie.') }}, {{ player_process_stats.rolling.last_20.ga }} {{ process_tip('GA', 'Goals allowed.') }}{% if player_process_stats.rolling.last_20.sv_pct is not none %}, {{ '%.3f'|format(player_process_stats.rolling.last_20.sv_pct) }} {{ process_tip('SV%', 'Save percentage: saves divided by shots against.') }}{% endif %}{% if player_process_stats.rolling.last_20.gaa is not none %}, {{ '%.2f'|format(player_process_stats.rolling.last_20.gaa) }} {{ process_tip('GAA/60', 'Goals against per 60 minutes in this window.') }}{% endif %}{% if player_process_stats.rolling.last_20.shutouts is not none %}, {{ player_process_stats.rolling.last_20.shutouts }} {{ process_tip('SO', 'Shutouts in this window.') }}{% endif %}{% if player_process_stats.rolling.last_20.avg_game_rating is not none %}, {{ '%.2f'|format(player_process_stats.rolling.last_20.avg_game_rating) }} {{ process_tip('Rating', 'Average imported FHM game rating in this window.') }}{% endif %}</p>
+        {% else %}
+        <p class="muted">Last 20 {{ process_tip('GP', 'Games played in this recent window.') }}: —</p>
         {% endif %}
       </div>
     </div>

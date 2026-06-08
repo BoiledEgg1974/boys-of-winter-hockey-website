@@ -1874,6 +1874,328 @@
     renderPage();
   }
 
+  function initAdvancedStatsTeamChart() {
+    var root = document.getElementById("advanced-stats-team-chart");
+    var dataEl = document.getElementById("advanced-stats-team-chart-data");
+    if (!root || !dataEl) return;
+    var archive;
+    try {
+      archive = JSON.parse(dataEl.textContent || "{}");
+    } catch (_e) {
+      return;
+    }
+    var metrics = archive.metrics || [];
+    var segments = archive.segments || [];
+    var seasons = archive.seasons || [];
+    var datasets = archive.datasets || {};
+    if (!metrics.length || !seasons.length) {
+      var empty = root.querySelector("[data-team-chart-empty]");
+      if (empty) empty.hidden = false;
+      return;
+    }
+
+    var seasonSel = root.querySelector("[data-team-chart-season]");
+    var segmentSel = root.querySelector("[data-team-chart-segment]");
+    var xSel = root.querySelector("[data-team-chart-x]");
+    var ySel = root.querySelector("[data-team-chart-y]");
+    var normSel = root.querySelector("[data-team-chart-norm]");
+    var plot = root.querySelector("[data-team-chart-plot]");
+    var pointsWrap = root.querySelector("[data-team-chart-points]");
+    var axisX = root.querySelector("[data-team-chart-axis-x]");
+    var axisY = root.querySelector("[data-team-chart-axis-y]");
+    var midX = root.querySelector("[data-team-chart-midline-x]");
+    var midY = root.querySelector("[data-team-chart-midline-y]");
+    var empty = root.querySelector("[data-team-chart-empty]");
+    if (!seasonSel || !segmentSel || !xSel || !ySel || !normSel || !plot || !pointsWrap) return;
+
+    var tip = document.createElement("div");
+    tip.className = "advanced-stats-team-chart-tooltip";
+    tip.setAttribute("role", "tooltip");
+    tip.hidden = true;
+    document.body.appendChild(tip);
+
+    var metricByKey = {};
+    metrics.forEach(function (m) {
+      metricByKey[m.key] = m;
+    });
+
+    function fillSelect(sel, options, selected) {
+      sel.innerHTML = "";
+      options.forEach(function (opt) {
+        var o = document.createElement("option");
+        o.value = opt.value;
+        o.textContent = opt.label;
+        if (String(opt.value) === String(selected)) o.selected = true;
+        sel.appendChild(o);
+      });
+    }
+
+    fillSelect(
+      seasonSel,
+      seasons.map(function (s) {
+        return { value: s.id, label: s.label };
+      }),
+      archive.default_season_id
+    );
+    fillSelect(
+      segmentSel,
+      segments.map(function (s) {
+        return { value: s.key, label: s.label };
+      }),
+      archive.default_segment || "rs"
+    );
+    fillSelect(
+      xSel,
+      metrics.map(function (m) {
+        return { value: m.key, label: m.label };
+      }),
+      archive.default_x || metrics[0].key
+    );
+    fillSelect(
+      ySel,
+      metrics.map(function (m) {
+        return { value: m.key, label: m.label };
+      }),
+      archive.default_y || (metrics[1] ? metrics[1].key : metrics[0].key)
+    );
+    normSel.value = archive.default_norm || "per_game";
+
+    function metricValue(team, key, norm) {
+      var meta = metricByKey[key];
+      if (!meta) return null;
+      var raw = team.metrics ? team.metrics[key] : null;
+      if (raw == null || raw === "") return null;
+      var num = Number(raw);
+      if (!isFinite(num)) return null;
+      if (norm === "per_game" && meta.per_game) {
+        var gp = team.metrics && team.metrics.gp ? Number(team.metrics.gp) : 0;
+        if (!gp) return null;
+        return num / gp;
+      }
+      return num;
+    }
+
+    function metricLabel(key, norm) {
+      var meta = metricByKey[key];
+      if (!meta) return key;
+      if (norm === "per_game" && meta.per_game) return meta.label + " Per Game";
+      return meta.label;
+    }
+
+    function formatMetric(key, value) {
+      var meta = metricByKey[key] || { decimals: 2 };
+      var dec = meta.decimals != null ? meta.decimals : 2;
+      return Number(value).toFixed(dec);
+    }
+
+    function datasetKey() {
+      return String(seasonSel.value) + "|" + String(segmentSel.value);
+    }
+
+    function currentTeams() {
+      var ds = datasets[datasetKey()];
+      return ds && ds.teams ? ds.teams : [];
+    }
+
+    function updateQuadrants(xMeta, yMeta) {
+      var xHigh = (xMeta && xMeta.better) === "high";
+      var yHigh = (yMeta && yMeta.better) === "high";
+      var labels = {
+        tl: "Bad",
+        tr: "Fun",
+        bl: "Boring",
+        br: "Good",
+      };
+      if (xHigh && !yHigh) {
+        labels = { tl: "Bad", tr: "Fun", bl: "Boring", br: "Good" };
+      } else if (xHigh && yHigh) {
+        labels = { tl: "Low/Low", tr: "High/High", bl: "Low/Low", br: "Strong" };
+      } else if (!xHigh && !yHigh) {
+        labels = { tl: "Strong", tr: "Mixed", bl: "Mixed", br: "Weak" };
+      }
+      root.querySelectorAll("[data-team-chart-quad]").forEach(function (el) {
+        var pos = el.getAttribute("data-team-chart-quad");
+        if (pos && labels[pos]) el.textContent = labels[pos];
+      });
+    }
+
+    function renderChart() {
+      var teams = currentTeams();
+      var xKey = xSel.value;
+      var yKey = ySel.value;
+      var norm = normSel.value;
+      var xMeta = metricByKey[xKey];
+      var yMeta = metricByKey[yKey];
+      if (!teams.length) {
+        pointsWrap.innerHTML = "";
+        if (empty) empty.hidden = false;
+        return;
+      }
+      if (empty) empty.hidden = true;
+
+      var plotted = [];
+      teams.forEach(function (team) {
+        var xv = metricValue(team, xKey, norm);
+        var yv = metricValue(team, yKey, norm);
+        if (xv == null || yv == null) return;
+        plotted.push({ team: team, x: xv, y: yv });
+      });
+      if (!plotted.length) {
+        pointsWrap.innerHTML = "";
+        if (empty) empty.hidden = false;
+        return;
+      }
+
+      var xs = plotted.map(function (p) {
+        return p.x;
+      });
+      var ys = plotted.map(function (p) {
+        return p.y;
+      });
+      var minX = Math.min.apply(null, xs);
+      var maxX = Math.max.apply(null, xs);
+      var minY = Math.min.apply(null, ys);
+      var maxY = Math.max.apply(null, ys);
+      if (minX === maxX) {
+        minX -= 1;
+        maxX += 1;
+      }
+      if (minY === maxY) {
+        minY -= 1;
+        maxY += 1;
+      }
+      var padX = (maxX - minX) * 0.08;
+      var padY = (maxY - minY) * 0.08;
+      minX -= padX;
+      maxX += padX;
+      minY -= padY;
+      maxY += padY;
+
+      var avgX = xs.reduce(function (a, b) {
+        return a + b;
+      }, 0) / xs.length;
+      var avgY = ys.reduce(function (a, b) {
+        return a + b;
+      }, 0) / ys.length;
+      var xMidPct = ((avgX - minX) / (maxX - minX)) * 100;
+      var yMidPct = 100 - ((avgY - minY) / (maxY - minY)) * 100;
+      if (midX) midX.style.left = xMidPct + "%";
+      if (midY) midY.style.top = yMidPct + "%";
+      if (axisX) axisX.textContent = metricLabel(xKey, norm);
+      if (axisY) axisY.textContent = metricLabel(yKey, norm);
+      updateQuadrants(xMeta, yMeta);
+
+      var existing = {};
+      Array.from(pointsWrap.querySelectorAll("[data-team-chart-point]")).forEach(function (el) {
+        existing[el.getAttribute("data-team-id")] = el;
+      });
+
+      plotted.forEach(function (p) {
+        var left = ((p.x - minX) / (maxX - minX)) * 100;
+        var top = 100 - ((p.y - minY) / (maxY - minY)) * 100;
+        var id = String(p.team.team_id);
+        var el = existing[id];
+        if (!el) {
+          el = document.createElement("a");
+          el.className = "advanced-stats-team-chart__point";
+          el.setAttribute("data-team-chart-point", "1");
+          el.setAttribute("data-team-id", id);
+          if (p.team.slug) el.href = withRoot("/team/" + p.team.slug);
+          var img = document.createElement("img");
+          img.className = "advanced-stats-team-chart__logo";
+          img.alt = "";
+          el.appendChild(img);
+          pointsWrap.appendChild(el);
+        }
+        var logo = el.querySelector("img");
+        if (logo && p.team.logo_url) logo.src = p.team.logo_url;
+        el.style.setProperty("--point-left", left + "%");
+        el.style.setProperty("--point-top", top + "%");
+        if (p.team.primary_color) el.style.setProperty("--point-color", p.team.primary_color);
+        el.setAttribute("data-x-label", metricLabel(xKey, norm));
+        el.setAttribute("data-y-label", metricLabel(yKey, norm));
+        el.setAttribute("data-x-value", formatMetric(xKey, p.x));
+        el.setAttribute("data-y-value", formatMetric(yKey, p.y));
+        el.setAttribute("data-team-name", p.team.name || p.team.abbr || "Team");
+        el.setAttribute("aria-label", (p.team.name || p.team.abbr || "Team") + ": " + metricLabel(xKey, norm) + " " + formatMetric(xKey, p.x) + ", " + metricLabel(yKey, norm) + " " + formatMetric(yKey, p.y));
+        delete existing[id];
+      });
+      Object.keys(existing).forEach(function (id) {
+        if (existing[id] && existing[id].parentNode) existing[id].parentNode.removeChild(existing[id]);
+      });
+    }
+
+    function tipHtml(el) {
+      var logo = el.querySelector("img");
+      var logoSrc = logo ? logo.getAttribute("src") : "";
+      return (
+        '<div class="advanced-stats-team-chart-tooltip__inner">' +
+        (logoSrc ? '<img class="advanced-stats-team-chart-tooltip__logo" src="' + escapeAttr(logoSrc) + '" alt="">' : "") +
+        '<div class="advanced-stats-team-chart-tooltip__body">' +
+        "<strong>" +
+        escapeHtml(el.getAttribute("data-team-name") || "Team") +
+        "</strong>" +
+        '<span class="advanced-stats-team-chart-tooltip__metric">' +
+        escapeHtml(el.getAttribute("data-x-label") || "") +
+        ": <strong>" +
+        escapeHtml(el.getAttribute("data-x-value") || "") +
+        "</strong></span>" +
+        '<span class="advanced-stats-team-chart-tooltip__metric">' +
+        escapeHtml(el.getAttribute("data-y-label") || "") +
+        ": <strong>" +
+        escapeHtml(el.getAttribute("data-y-value") || "") +
+        "</strong></span>" +
+        "</div></div>"
+      );
+    }
+
+    function moveTip(e) {
+      tip.style.left = e.clientX + 14 + "px";
+      tip.style.top = e.clientY + 14 + "px";
+    }
+
+    pointsWrap.addEventListener("mouseover", function (e) {
+      var point = e.target.closest("[data-team-chart-point]");
+      if (!point || !pointsWrap.contains(point)) return;
+      tip.innerHTML = tipHtml(point);
+      tip.hidden = false;
+      point.classList.add("is-active");
+      moveTip(e);
+    });
+    pointsWrap.addEventListener("mousemove", function (e) {
+      if (!tip.hidden) moveTip(e);
+    });
+    pointsWrap.addEventListener("mouseout", function (e) {
+      var point = e.target.closest("[data-team-chart-point]");
+      if (!point) return;
+      var rel = e.relatedTarget;
+      if (rel && point.contains(rel)) return;
+      tip.hidden = true;
+      point.classList.remove("is-active");
+    });
+    pointsWrap.addEventListener("focusin", function (e) {
+      var point = e.target.closest("[data-team-chart-point]");
+      if (!point) return;
+      tip.innerHTML = tipHtml(point);
+      tip.hidden = false;
+      point.classList.add("is-active");
+      var rect = point.getBoundingClientRect();
+      tip.style.left = rect.right + 10 + "px";
+      tip.style.top = rect.top + "px";
+    });
+    pointsWrap.addEventListener("focusout", function (e) {
+      var point = e.target.closest("[data-team-chart-point]");
+      if (!point) return;
+      tip.hidden = true;
+      point.classList.remove("is-active");
+    });
+
+    [seasonSel, segmentSel, xSel, ySel, normSel].forEach(function (sel) {
+      sel.addEventListener("change", renderChart);
+    });
+    renderChart();
+  }
+
   function initAdvancedStatsDivisionTooltips() {
     var targets = document.querySelectorAll("[data-division-chart-team]");
     if (!targets.length) return;
@@ -1940,6 +2262,7 @@
   document.addEventListener("DOMContentLoaded", function () {
     document.querySelectorAll("table.data-sortable").forEach(initSortableTable);
     document.querySelectorAll("table[data-page-size]").forEach(initPaginatedTable);
+    initAdvancedStatsTeamChart();
     initAdvancedStatsDivisionTooltips();
     document.querySelectorAll("table[data-team-depth-prospects-page-size]").forEach(function (table) {
       var tbody = table.tBodies && table.tBodies[0];

@@ -17,6 +17,7 @@ from app.models import (
     PlayerGoalieStat,
     PlayerSkaterStat,
     ScoringEvent,
+    Season,
     Team,
     TeamSeasonAggregate,
     TeamStanding,
@@ -167,6 +168,17 @@ def _recent_game_ids_for_player(
     return out
 
 
+def _fo_pct(wins: int | None, losses: int | None = None, *, total: int | None = None) -> float | None:
+    if total is not None and total > 0:
+        return round(100.0 * int(wins or 0) / total, 1)
+    w = int(wins or 0)
+    l = int(losses or 0)
+    denom = w + l
+    if denom <= 0:
+        return None
+    return round(100.0 * w / denom, 1)
+
+
 def _aggregate_game_skater_lines(session: Session, player_id: int, game_ids: list[int]) -> dict[str, Any]:
     if not game_ids:
         return {}
@@ -183,15 +195,128 @@ def _aggregate_game_skater_lines(session: Session, player_id: int, game_ids: lis
     dz = sum(int(l.dz_starts or 0) for l in lines)
     sq_counts = {k: sum(int(getattr(l, k) or 0) for l in lines) for k in SQ_KEYS}
     goals = sum(int(l.goals or 0) for l in lines)
+    assists = sum(int(l.assists or 0) for l in lines)
     shots = sum(int(l.shots or 0) for l in lines)
     toi_seconds = sum(int(l.toi_seconds or 0) for l in lines)
+    sq = sq_profile_from_counts(sq_counts)
+    points = goals + assists
     return {
         "gp": len(game_ids),
         "goals": goals,
+        "assists": assists,
+        "points": points,
         "shots": shots,
         "sf_per_60": round(shots / (toi_seconds / 3600.0), 2) if toi_seconds > 0 else None,
         "zone_starts": zone_start_pcts(oz, nz, dz),
-        "sq": sq_profile_from_counts(sq_counts),
+        "sq": sq,
+        "high_danger_share": sq.get("high_danger_share"),
+    }
+
+
+def _skater_game_event_profile(game_lines: list[GameSkaterStat]) -> dict[str, Any]:
+    if not game_lines:
+        return {}
+    sog = sum(int(l.shots or 0) for l in game_lines)
+    missed = sum(int(l.missed_shots or 0) for l in game_lines)
+    blocked = sum(int(l.blocked_shots or 0) for l in game_lines)
+    hits = sum(int(l.hits or 0) for l in game_lines)
+    takeaways = sum(int(l.takeaways or 0) for l in game_lines)
+    giveaways = sum(int(l.giveaways or 0) for l in game_lines)
+    fow = sum(int(l.faceoffs_won or 0) for l in game_lines)
+    fol = sum(int(l.faceoffs_lost or 0) for l in game_lines)
+    return {
+        "sog": sog,
+        "missed_shots": missed,
+        "blocked_shots": blocked,
+        "hits": hits,
+        "takeaways": takeaways,
+        "giveaways": giveaways,
+        "fo_pct": _fo_pct(fow, fol),
+    }
+
+
+def _goalie_saves(st: PlayerGoalieStat | GameGoalieStat) -> int | None:
+    sa = int(getattr(st, "sa", None) or getattr(st, "shots_against", None) or 0)
+    ga = int(getattr(st, "ga", None) or getattr(st, "goals_allowed", None) or 0)
+    explicit = getattr(st, "saves", None)
+    if explicit is not None and int(explicit) > 0:
+        return int(explicit)
+    if sa > 0:
+        return max(0, sa - ga)
+    return None
+
+
+def _goalie_record_label(st: PlayerGoalieStat) -> str | None:
+    w = int(st.wins or 0)
+    l = int(st.losses or 0)
+    otl = int(st.otl or 0)
+    if w + l + otl <= 0:
+        return None
+    return f"{w}-{l}-{otl}"
+
+
+def _goalie_season_process_snapshot(st: PlayerGoalieStat, league_sv_pct: float | None) -> dict[str, Any]:
+    gsaa = _estimated_goalie_gsaa(st, league_sv_pct)
+    return {
+        "gp": st.gp,
+        "games_started": st.games_started,
+        "minutes_played": st.minutes_played,
+        "record": _goalie_record_label(st),
+        "wins": st.wins,
+        "losses": st.losses,
+        "otl": st.otl,
+        "sa": st.sa,
+        "ga": st.ga,
+        "saves": _goalie_saves(st),
+        "so": st.so,
+        "sv_pct": st.sv_pct,
+        "gaa": st.gaa,
+        "game_rating": st.game_rating,
+        "gsaa": gsaa,
+        "gsaa_estimated": st.gsaa is None and gsaa is not None,
+    }
+
+
+def _goalie_game_log_profile(game_lines: list[GameGoalieStat]) -> dict[str, Any]:
+    if not game_lines:
+        return {}
+    ratings = [float(l.game_rating) for l in game_lines if l.game_rating is not None]
+    toi_seconds = sum(int(l.toi_seconds or 0) for l in game_lines)
+    shutouts = sum(1 for l in game_lines if int(l.goals_allowed or 0) == 0 and int(l.shots_against or 0) > 0)
+    return {
+        "gp": len(game_lines),
+        "avg_game_rating": round(sum(ratings) / len(ratings), 2) if ratings else None,
+        "toi_seconds": toi_seconds if toi_seconds > 0 else None,
+        "shutouts": shutouts,
+    }
+
+
+def _skater_season_process_snapshot(st: PlayerSkaterStat) -> dict[str, Any]:
+    return {
+        "gp": st.gp,
+        "cf_pct": st.cf_pct if st.cf_pct is not None else _pct_from_pair(st.cf, st.ca),
+        "ff_pct": st.ff_pct if st.ff_pct is not None else _pct_from_pair(st.ff, st.fa),
+        "cf": st.cf,
+        "ca": st.ca,
+        "ff": st.ff,
+        "fa": st.fa,
+        "cf_pct_rel": st.cf_pct_rel,
+        "ff_pct_rel": st.ff_pct_rel,
+        "sf_per_60": st.sf_per_60,
+        "sa_per_60": st.sa_per_60,
+        "gf_per_60": st.gf_per_60,
+        "ga_per_60": st.ga_per_60,
+        "pts_per_60": _player_pts_per_60(st),
+        "pp_pts_per_60": _player_pp_pts_per_60(st),
+        "sh_pts_per_60": _player_sh_pts_per_60(st),
+        "pdo": st.pdo,
+        "pdo_band": pdo_band(st.pdo),
+        "sog": st.shots,
+        "blocked_shots": st.blocked_shots,
+        "hits": st.hits,
+        "takeaways": st.takeaways,
+        "giveaways": st.giveaways,
+        "fo_pct": _fo_pct(st.faceoff_wins, total=st.faceoffs),
     }
 
 
@@ -271,18 +396,13 @@ def build_goalie_leaderboard_rows(
         pl = st.player
         if pl is None:
             continue
-        gsaa = _estimated_goalie_gsaa(st, league_sv_pct)
+        season = _goalie_season_process_snapshot(st, league_sv_pct)
         out.append(
             {
                 "player_id": int(pl.id),
                 "player_name": pl.full_name,
                 "team": st.team,
-                "gp": st.gp,
-                "gsaa": gsaa,
-                "gsaa_estimated": st.gsaa is None and gsaa is not None,
-                "sv_pct": st.sv_pct,
-                "sa": st.sa,
-                "gaa": st.gaa,
+                **season,
             }
         )
     return out
@@ -350,6 +470,155 @@ def build_team_process_rows(
             }
         )
     return out
+
+
+TEAM_CHART_METRICS: list[dict[str, Any]] = [
+    {"key": "gf", "label": "Goals For", "per_game": True, "decimals": 2, "better": "high"},
+    {"key": "ga", "label": "Goals Against", "per_game": True, "decimals": 2, "better": "low"},
+    {"key": "goal_diff", "label": "Goal Differential", "per_game": True, "decimals": 2, "better": "high"},
+    {"key": "shots_for", "label": "Shots For", "per_game": True, "decimals": 2, "better": "high"},
+    {"key": "shots_against", "label": "Shots Against", "per_game": True, "decimals": 2, "better": "low"},
+    {"key": "shot_diff", "label": "Shot Differential", "per_game": True, "decimals": 2, "better": "high"},
+    {"key": "pp_pct", "label": "Power Play %", "per_game": False, "decimals": 1, "better": "high"},
+    {"key": "pk_pct", "label": "Penalty Kill %", "per_game": False, "decimals": 1, "better": "high"},
+    {"key": "sq_high_danger", "label": "High-Danger SQ %", "per_game": False, "decimals": 1, "better": "high"},
+    {"key": "pts", "label": "Standings Points", "per_game": True, "decimals": 2, "better": "high"},
+    {"key": "point_pct", "label": "Points %", "per_game": False, "decimals": 1, "better": "high"},
+    {"key": "points_above_ppg", "label": "Points Above PPG", "per_game": False, "decimals": 1, "better": "high"},
+]
+
+TEAM_CHART_SEGMENTS: list[dict[str, str]] = [
+    {"key": "rs", "label": "Regular Season"},
+    {"key": "ps", "label": "Playoffs"},
+    {"key": "po", "label": "Preseason"},
+]
+
+
+def _team_chart_metric_values(row: dict[str, Any]) -> dict[str, float | int | None]:
+    gp = int(row.get("gp") or 0)
+    gf = row.get("gf")
+    ga = row.get("ga")
+    goal_diff = (int(gf) - int(ga)) if gf is not None and ga is not None else None
+    pts = row.get("pts")
+    point_pct = round(100.0 * int(pts) / (gp * 2), 1) if pts is not None and gp > 0 else None
+    points_above_ppg = (int(pts) - gp) if pts is not None and gp > 0 else None
+    return {
+        "gp": gp if gp > 0 else None,
+        "gf": gf,
+        "ga": ga,
+        "goal_diff": goal_diff,
+        "shots_for": row.get("shots_for"),
+        "shots_against": row.get("shots_against"),
+        "shot_diff": row.get("shot_diff"),
+        "pp_pct": row.get("pp_pct"),
+        "pk_pct": row.get("pk_pct"),
+        "sq_high_danger": row.get("sq_high_danger"),
+        "pts": pts,
+        "point_pct": point_pct,
+        "points_above_ppg": points_above_ppg,
+    }
+
+
+def _seasons_with_team_chart_data(session: Session) -> list[Season]:
+    agg_ids = {
+        int(x)
+        for x in session.scalars(select(TeamSeasonAggregate.season_id).distinct()).all()
+        if x is not None
+    }
+    stand_ids = {
+        int(x) for x in session.scalars(select(TeamStanding.season_id).distinct()).all() if x is not None
+    }
+    season_ids = agg_ids | stand_ids
+    if not season_ids:
+        return []
+    return list(
+        session.scalars(
+            select(Season)
+            .where(Season.id.in_(season_ids))
+            .order_by(Season.start_year.desc().nulls_last(), Season.id.desc())
+        ).all()
+    )
+
+
+def build_team_analytics_chart_archive(
+    session: Session,
+    *,
+    default_season_id: int | None = None,
+    default_segment: str = "rs",
+) -> dict[str, Any]:
+    from app.services.season_team_logo_bundle import get_season_team_logo_bundle
+    from app.services.seasons import season_display_label
+
+    logo_bundle = get_season_team_logo_bundle()
+    seasons = _seasons_with_team_chart_data(session)
+    standings_by_season: dict[int, dict[int, TeamStanding]] = {}
+    for st in session.scalars(select(TeamStanding)).all():
+        standings_by_season.setdefault(int(st.season_id), {})[int(st.team_id)] = st
+
+    datasets: dict[str, dict[str, Any]] = {}
+    season_options: list[dict[str, Any]] = []
+    for season in seasons:
+        season_key = int(season.id)
+        season_has_data = False
+        for segment in ("rs", "ps", "po"):
+            team_rows = build_team_process_rows(session, season_key, segment=segment)
+            if not team_rows:
+                continue
+            standings = standings_by_season.get(season_key, {})
+            payload_rows: list[dict[str, Any]] = []
+            for row in team_rows:
+                tm = row.get("team")
+                if tm is None:
+                    continue
+                st = standings.get(int(row["team_id"]))
+                enriched = {
+                    **row,
+                    "pts": int(st.pts) if st and st.pts is not None else None,
+                    "gp": int(st.gp or 0) if st else row.get("gp"),
+                }
+                metrics = _team_chart_metric_values(enriched)
+                if not any(v is not None for k, v in metrics.items() if k != "gp"):
+                    continue
+                sy = season.start_year
+                payload_rows.append(
+                    {
+                        "team_id": int(row["team_id"]),
+                        "name": tm.full_display_name(),
+                        "abbr": (tm.abbreviation or tm.name or "").strip(),
+                        "slug": tm.slug,
+                        "logo_url": logo_bundle.team_logo_url_for_season_context(tm, sy),
+                        "primary_color": tm.primary_color,
+                        "metrics": metrics,
+                    }
+                )
+            if payload_rows:
+                datasets[f"{season_key}|{segment}"] = {"teams": payload_rows}
+                season_has_data = True
+        if season_has_data:
+            season_options.append(
+                {
+                    "id": season_key,
+                    "label": season_display_label(season),
+                    "start_year": season.start_year,
+                }
+            )
+
+    if default_season_id is None and season_options:
+        default_season_id = int(season_options[0]["id"])
+    if default_segment not in {s["key"] for s in TEAM_CHART_SEGMENTS}:
+        default_segment = "rs"
+
+    return {
+        "metrics": TEAM_CHART_METRICS,
+        "segments": TEAM_CHART_SEGMENTS,
+        "seasons": season_options,
+        "default_season_id": default_season_id,
+        "default_segment": default_segment,
+        "default_x": "gf",
+        "default_y": "ga",
+        "default_norm": "per_game",
+        "datasets": datasets,
+    }
 
 
 def _game_points_for_team(game: Game, team_id: int) -> int:
@@ -656,17 +925,36 @@ def build_player_process_profile(
         ).first()
         if not st:
             return None
+        league_sv = _league_goalie_sv_pct(
+            list(
+                session.scalars(
+                    select(PlayerGoalieStat).where(
+                        PlayerGoalieStat.season_id == season_id,
+                        PlayerGoalieStat.stat_segment == segment,
+                    )
+                ).all()
+            )
+        )
+        game_lines = session.scalars(
+            select(GameGoalieStat)
+            .join(Game, Game.id == GameGoalieStat.game_id)
+            .where(
+                GameGoalieStat.player_id == player.id,
+                Game.season_id == season_id,
+                Game.status == "final",
+            )
+        ).all()
+        season = _goalie_season_process_snapshot(st, league_sv)
+        game_log = _goalie_game_log_profile(game_lines)
+        if season.get("game_rating") is None and game_log.get("avg_game_rating") is not None:
+            season["game_rating"] = game_log["avg_game_rating"]
+            season["game_rating_source"] = "game_logs"
         recent_10 = _recent_goalie_window(session, player.id, 10)
         recent_20 = _recent_goalie_window(session, player.id, 20)
         return {
             "kind": "goalie",
-            "season": {
-                "gp": st.gp,
-                "gsaa": st.gsaa,
-                "sv_pct": st.sv_pct,
-                "sa": st.sa,
-                "gaa": st.gaa,
-            },
+            "season": season,
+            "game_log": game_log,
             "rolling": {"last_10": recent_10, "last_20": recent_20},
         }
 
@@ -702,23 +990,35 @@ def build_player_process_profile(
         .join(Game, Game.id == PenaltyEvent.game_id)
         .where(Game.season_id == season_id, PenaltyEvent.player_id == player.id)
     )
+    season = _skater_season_process_snapshot(st)
+    game_events = _skater_game_event_profile(game_lines)
+    if game_events.get("missed_shots") is not None and int(game_events.get("missed_shots") or 0) > 0:
+        season["missed_shots"] = game_events["missed_shots"]
+    rolling_10 = _aggregate_game_skater_lines(
+        session, player.id, _recent_game_ids_for_player(session, player.id, window=10)
+    )
+    rolling_20 = _aggregate_game_skater_lines(
+        session, player.id, _recent_game_ids_for_player(session, player.id, window=20)
+    )
+    if season.get("sf_per_60") is None and rolling_10.get("sf_per_60") is not None:
+        season["sf_per_60"] = rolling_10["sf_per_60"]
+        season["sf_per_60_source"] = "last_10"
     return {
         "kind": "skater",
-        "season": {
-            "gp": st.gp,
-            "cf_pct": st.cf_pct,
-            "ff_pct": st.ff_pct,
-            "sf_per_60": st.sf_per_60,
-            "pdo": st.pdo,
-            "pdo_band": pdo_band(st.pdo),
+        "season": season,
+        "shot_share": {
+            "cf": season.get("cf"),
+            "ca": season.get("ca"),
+            "ff": season.get("ff"),
+            "fa": season.get("fa"),
+            "cf_pct_rel": season.get("cf_pct_rel"),
+            "ff_pct_rel": season.get("ff_pct_rel"),
         },
+        "game_events": game_events,
         "zone_starts": zone_start_pcts(oz, nz, dz),
         "sq": sq_profile_from_counts(sq_counts),
         "discipline": {"penalties": int(penalties or 0), "pim": int(pim or 0)},
-        "rolling": {
-            "last_10": _aggregate_game_skater_lines(session, player.id, _recent_game_ids_for_player(session, player.id, window=10)),
-            "last_20": _aggregate_game_skater_lines(session, player.id, _recent_game_ids_for_player(session, player.id, window=20)),
-        },
+        "rolling": {"last_10": rolling_10, "last_20": rolling_20},
     }
 
 
@@ -734,8 +1034,23 @@ def _recent_goalie_window(session: Session, player_id: int, window: int) -> dict
         return {}
     sa = sum(int(l.shots_against or 0) for l in lines)
     ga = sum(int(l.goals_allowed or 0) for l in lines)
+    saves = sum(int(l.saves or 0) for l in lines)
+    toi_seconds = sum(int(l.toi_seconds or 0) for l in lines)
+    ratings = [float(l.game_rating) for l in lines if l.game_rating is not None]
     sv = (sa - ga) / sa if sa > 0 else None
-    return {"gp": len(lines), "sa": sa, "ga": ga, "sv_pct": round(sv, 3) if sv is not None else None}
+    gaa = round(ga / (toi_seconds / 3600.0), 2) if toi_seconds > 0 else None
+    return {
+        "gp": len(lines),
+        "sa": sa,
+        "ga": ga,
+        "saves": saves if saves > 0 else (max(0, sa - ga) if sa > 0 else 0),
+        "sv_pct": round(sv, 3) if sv is not None else None,
+        "gaa": gaa,
+        "avg_game_rating": round(sum(ratings) / len(ratings), 2) if ratings else None,
+        "shutouts": sum(
+            1 for l in lines if int(l.goals_allowed or 0) == 0 and int(l.shots_against or 0) > 0
+        ),
+    }
 
 
 def build_process_momentum_payload(

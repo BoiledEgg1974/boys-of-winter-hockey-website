@@ -455,7 +455,108 @@
   </div>
   {% elif ratings_row and player_is_goalie %}
   <div class="player-profile__goalie-ratings-layout">
-    {{ position_ratings_meter_card(player, position_ratings_rows, heading_suffix='goalie') }}
+    <div class="player-profile__goalie-overview-row">
+      <div class="player-profile__goalie-overview-pos">
+        {{ position_ratings_meter_card(player, position_ratings_rows, heading_suffix='goalie') }}
+      </div>
+      <div class="player-profile__goalie-cat-bar player-profile__goalie-cat-bar--panel player-profile__goalie-cat-bar--goalie-overview" aria-label="Goalie category averages from player ratings CSV">
+        <span class="player-profile__goalie-cat-pair">
+          <span class="player-profile__goalie-cat-label player-profile__goalie-cat-label--acronym">GOA</span>
+          <span class="player-profile__goalie-cat-num player-profile__goalie-cat-pill" style="{% if rating_avgs_goalie.goa is not none %}{{ rating_avgs_goalie.goa|attr_rating_style }}{% endif %}">{% if rating_avgs_goalie.goa is not none %}{{ rating_avgs_goalie.goa|round(0)|int }}{% else %}—{% endif %}</span>
+        </span>
+        <span class="player-profile__goalie-cat-pair">
+          <span class="player-profile__goalie-cat-label player-profile__goalie-cat-label--acronym">MEN</span>
+          <span class="player-profile__goalie-cat-num player-profile__goalie-cat-pill" style="{% if rating_avgs_goalie.men is not none %}{{ rating_avgs_goalie.men|attr_rating_style }}{% endif %}">{% if rating_avgs_goalie.men is not none %}{{ rating_avgs_goalie.men|round(0)|int }}{% else %}—{% endif %}</span>
+        </span>
+      </div>
+      <section class="player-profile__card player-profile__card--meter-panel player-profile__goalie-radar-card">
+      <h2 class="player-profile__card-title player-profile__card-title--meter">Radar Chart</h2>
+      {% set goalie_radar_attrs = [
+        {'label':'High Shot', 'combo_keys':['blocker','glove'], 'x':120, 'y':34, 'lx':120, 'ly':16, 'anchor':'middle'},
+        {'label':'Positioning', 'key':'g_positioning', 'x':181, 'y':59, 'lx':202, 'ly':52, 'anchor':'start'},
+        {'label':'Puckhandling', 'key':'g_puckhandling', 'x':206, 'y':120, 'lx':222, 'ly':124, 'anchor':'start'},
+        {'label':'Rebound', 'key':'rebound', 'x':181, 'y':181, 'lx':200, 'ly':199, 'anchor':'start'},
+        {'label':'Low Shot', 'key':'low_shots', 'x':120, 'y':206, 'lx':120, 'ly':226, 'anchor':'middle'},
+        {'label':'Mobility', 'key':'g_skating', 'x':59, 'y':181, 'lx':40, 'ly':199, 'anchor':'end'},
+        {'label':'Conditioning', 'key':'goalie_stamina', 'x':34, 'y':120, 'lx':18, 'ly':124, 'anchor':'end'},
+        {'label':'Character', 'key':'character', 'x':59, 'y':59, 'lx':38, 'ly':52, 'anchor':'end'}
+      ] %}
+      {% set rings = [
+        {'class':'player-profile__radar-ring player-profile__radar-ring--outer', 'points':'120,34 181,59 206,120 181,181 120,206 59,181 34,120 59,59'},
+        {'class':'player-profile__radar-ring player-profile__radar-ring--high', 'points':'120,55.5 165.75,74.25 184.5,120 165.75,165.75 120,184.5 74.25,165.75 55.5,120 74.25,74.25'},
+        {'class':'player-profile__radar-ring player-profile__radar-ring--mid', 'points':'120,77 150.5,89.5 163,120 150.5,150.5 120,163 89.5,150.5 77,120 89.5,89.5'},
+        {'class':'player-profile__radar-ring player-profile__radar-ring--low', 'points':'120,94.2 138.3,101.7 145.8,120 138.3,138.3 120,145.8 101.7,138.3 94.2,120 101.7,101.7'},
+        {'class':'player-profile__radar-ring player-profile__radar-ring--base', 'points':'120,107.1 129.15,110.85 132.9,120 129.15,129.15 120,132.9 110.85,129.15 107.1,120 110.85,110.85'}
+      ] %}
+      {% set ns = namespace(points='', summary=[]) %}
+      {% for attr in goalie_radar_attrs %}
+        {% set val = namespace(rating=0, display=none) %}
+        {% if attr.combo_keys is defined %}
+          {% set combo = namespace(vals=[]) %}
+          {% for key in attr.combo_keys %}
+            {% set raw = rr_val(key) %}
+            {% if rr_ok(raw) %}{% set combo.vals = combo.vals + [raw|float] %}{% endif %}
+          {% endfor %}
+          {% if combo.vals %}
+            {% set val.rating = combo.vals|max %}
+            {% set val.display = val.rating|round(0)|int %}
+          {% endif %}
+        {% else %}
+          {% set raw = rr_val(attr.key) %}
+          {% if rr_ok(raw) %}
+            {% set val.rating = raw|float %}
+            {% set val.display = raw %}
+          {% endif %}
+        {% endif %}
+        {% set ratio = [val.rating / 20, 1]|min %}
+        {% set px = 120 + ((attr.x - 120) * ratio) %}
+        {% set py = 120 + ((attr.y - 120) * ratio) %}
+        {% set ns.points = ns.points ~ (' ' if ns.points else '') ~ ('%.2f,%.2f'|format(px, py)) %}
+        {% set ns.summary = ns.summary + [attr.label ~ ' ' ~ (val.display|string if val.display is not none else 'not rated')] %}
+      {% endfor %}
+      <div class="player-profile__radar" role="img" aria-label="Goalie radar chart: {{ ns.summary|join(', ') }}">
+        <svg class="player-profile__radar-svg" viewBox="0 0 240 240" aria-hidden="true" focusable="false">
+          {% for ring in rings %}
+          <polygon class="{{ ring.class }}" points="{{ ring.points }}"></polygon>
+          {% endfor %}
+          {% for attr in goalie_radar_attrs %}
+          <line class="player-profile__radar-axis" x1="120" y1="120" x2="{{ attr.x }}" y2="{{ attr.y }}"></line>
+          {% endfor %}
+          <polygon class="player-profile__radar-player" points="{{ ns.points }}"></polygon>
+          {% for attr in goalie_radar_attrs %}
+          <text class="player-profile__radar-label" x="{{ attr.lx }}" y="{{ attr.ly }}" text-anchor="{{ attr.anchor }}">{{ attr.label }}</text>
+          {% endfor %}
+        </svg>
+      </div>
+      <div class="player-profile__radar-values" aria-label="Goalie radar rating values">
+        {% for attr in goalie_radar_attrs %}
+        {% set val = namespace(display=none, style_v=none) %}
+        {% if attr.combo_keys is defined %}
+          {% set combo = namespace(vals=[]) %}
+          {% for key in attr.combo_keys %}
+            {% set raw = rr_val(key) %}
+            {% if rr_ok(raw) %}{% set combo.vals = combo.vals + [raw|float] %}{% endif %}
+          {% endfor %}
+          {% if combo.vals %}
+            {% set val.display = combo.vals|max|round(0)|int %}
+            {% set val.style_v = val.display %}
+          {% endif %}
+        {% else %}
+          {% set raw = rr_val(attr.key) %}
+          {% if rr_ok(raw) %}
+            {% set val.display = raw %}
+            {% set val.style_v = raw %}
+          {% endif %}
+        {% endif %}
+        <span class="player-profile__radar-value">
+          <span class="player-profile__radar-value-label">{{ attr.label }}</span>
+          <span class="player-profile__radar-value-num" style="{% if val.style_v is not none %}{{ val.style_v|attr_rating_style }}{% endif %}">{% if val.display is not none %}{{ val.display }}{% else %}—{% endif %}</span>
+        </span>
+        {% endfor %}
+      </div>
+    </section>
+    </div>
+    <div class="player-profile__goalie-ratings-grid">
     <section class="player-profile__card player-profile__card--meter-panel player-profile__goalie-ratings-goalie">
       <h2 class="player-profile__card-title player-profile__card-title--meter">Goalie Ratings</h2>
       <div class="player-profile__meters">
@@ -471,32 +572,21 @@
         {% endfor %}
       </div>
     </section>
-    <div class="player-profile__goalie-right-col">
-      <section class="player-profile__card player-profile__card--meter-panel player-profile__goalie-ratings-mental">
-        <h2 class="player-profile__card-title player-profile__card-title--meter">Mental Ratings</h2>
-        <div class="player-profile__meters">
-          {% for label, key in [('Aggression','aggression'), ('Mental Toughness','mental_toughness'), ('Determination','determination'), ('Team Player','teamplayer'), ('Leadership','leadership'), ('Stamina','goalie_stamina'), ('Professionalism','professionalism')] %}
-          {% set v = rr_val(key) %}
-          <div class="player-profile__meter-row">
-            <span class="player-profile__meter-label">{{ label }}</span>
-            <span class="player-profile__meter-val">{% if rr_ok(v) %}{{ v }}{% else %}—{% endif %}</span>
-            <div class="player-profile__meter-track" role="presentation">
-              <div class="player-profile__meter-fill" style="{% if rr_ok(v) %}{{ v|rating_meter_fill_style }}{% else %}width:0%;background:transparent{% endif %}"></div>
-            </div>
+    <section class="player-profile__card player-profile__card--meter-panel player-profile__goalie-ratings-mental">
+      <h2 class="player-profile__card-title player-profile__card-title--meter">Mental Ratings</h2>
+      <div class="player-profile__meters">
+        {% for label, key in [('Aggression','aggression'), ('Mental Toughness','mental_toughness'), ('Determination','determination'), ('Team Player','teamplayer'), ('Leadership','leadership'), ('Stamina','goalie_stamina'), ('Professionalism','professionalism')] %}
+        {% set v = rr_val(key) %}
+        <div class="player-profile__meter-row">
+          <span class="player-profile__meter-label">{{ label }}</span>
+          <span class="player-profile__meter-val">{% if rr_ok(v) %}{{ v }}{% else %}—{% endif %}</span>
+          <div class="player-profile__meter-track" role="presentation">
+            <div class="player-profile__meter-fill" style="{% if rr_ok(v) %}{{ v|rating_meter_fill_style }}{% else %}width:0%;background:transparent{% endif %}"></div>
           </div>
-          {% endfor %}
         </div>
-      </section>
-      <div class="player-profile__goalie-cat-bar player-profile__goalie-cat-bar--panel" aria-label="Goalie category averages from player ratings CSV">
-        <span class="player-profile__goalie-cat-pair">
-          <span class="player-profile__goalie-cat-label player-profile__goalie-cat-label--acronym">GOA</span>
-          <span class="player-profile__goalie-cat-num player-profile__goalie-cat-pill" style="{% if rating_avgs_goalie.goa is not none %}{{ rating_avgs_goalie.goa|attr_rating_style }}{% endif %}">{% if rating_avgs_goalie.goa is not none %}{{ rating_avgs_goalie.goa|round(0)|int }}{% else %}—{% endif %}</span>
-        </span>
-        <span class="player-profile__goalie-cat-pair">
-          <span class="player-profile__goalie-cat-label player-profile__goalie-cat-label--acronym">MEN</span>
-          <span class="player-profile__goalie-cat-num player-profile__goalie-cat-pill" style="{% if rating_avgs_goalie.men is not none %}{{ rating_avgs_goalie.men|attr_rating_style }}{% endif %}">{% if rating_avgs_goalie.men is not none %}{{ rating_avgs_goalie.men|round(0)|int }}{% else %}—{% endif %}</span>
-        </span>
+        {% endfor %}
       </div>
+    </section>
     </div>
   </div>
   {% endif %}

@@ -11657,23 +11657,94 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
   line-height: 1.2;
 }
 .player-profile__goalie-ratings-layout {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-  margin-bottom: var(--pp-panel-gap);
-  align-items: start;
-}
-.player-profile__goalie-right-col {
   display: flex;
   flex-direction: column;
   gap: var(--pp-panel-gap);
-  min-width: 0;
+  margin-bottom: var(--pp-panel-gap);
 }
-.player-profile__goalie-ratings-goalie {
+.player-profile__goalie-overview-row {
+  display: grid;
+  grid-template-columns: minmax(190px, 240px) minmax(0, 1fr);
+  gap: var(--pp-panel-gap);
+  align-items: stretch;
+}
+.player-profile__goalie-overview-pos {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.player-profile__goalie-overview-pos .player-profile__position-ratings-card--goalie {
+  grid-column: auto;
+  flex: 1;
+  min-height: 0;
+}
+.player-profile__goalie-cat-bar--goalie-overview {
+  grid-column: 1;
+  grid-row: 2;
+  margin: 0;
+  width: 100%;
+  box-sizing: border-box;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  justify-content: center;
+  align-self: stretch;
+  gap: 0.75rem;
+  padding: 1rem 1.1rem;
+  min-height: 0;
+}
+.player-profile__goalie-cat-bar--goalie-overview .player-profile__goalie-cat-pair {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+}
+.player-profile__goalie-radar-card {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  min-width: 0;
+  overflow: hidden;
+}
+.player-profile__goalie-radar-card .player-profile__card-title--meter {
+  color: #cbd5e1;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 1px rgb(0 0 0 / 0.65);
+}
+.player-profile__goalie-ratings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--pp-panel-gap);
+  align-items: start;
+}
+.player-profile__goalie-ratings-goalie,
+.player-profile__goalie-ratings-mental {
   min-width: 0;
 }
 @media (max-width: 800px) {
-  .player-profile__goalie-ratings-layout {
+  .player-profile__goalie-overview-row {
+    grid-template-columns: 1fr;
+  }
+  .player-profile__goalie-overview-pos,
+  .player-profile__goalie-cat-bar--goalie-overview,
+  .player-profile__goalie-radar-card {
+    grid-column: auto;
+    grid-row: auto;
+  }
+  .player-profile__goalie-cat-bar--goalie-overview {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.75rem 1.5rem;
+  }
+  .player-profile__goalie-cat-bar--goalie-overview .player-profile__goalie-cat-pair {
+    width: auto;
+  }
+  .player-profile__goalie-ratings-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -11710,7 +11781,7 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
   display: flex;
   flex-direction: column;
 }
-.player-profile__skater-panel--overview {
+.player-profile__skater-overview-row .player-profile__skater-panel--overview {
   grid-column: 2;
   grid-row: 1 / span 2;
 }
@@ -11855,7 +11926,8 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
   border-style: solid;
   font-variant-numeric: tabular-nums;
 }
-[data-theme="light"] .player-profile__skater-panel--overview .player-profile__card-title--meter {
+[data-theme="light"] .player-profile__skater-panel--overview .player-profile__card-title--meter,
+[data-theme="light"] .player-profile__goalie-radar-card .player-profile__card-title--meter {
   color: #475569;
   text-shadow: none;
 }

@@ -63,6 +63,31 @@ class PlayerProfileRadarTest(unittest.TestCase):
         self.assertIn("('Physical','phy')", template)
         self.assertIn("('Mental','men')", template)
 
+    def test_goalie_overview_uses_goalie_radar_chart(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        template = (root / "app" / "templates" / "player.html").read_text(encoding="utf-8")
+        css = (root / "app" / "static" / "css" / "site.css").read_text(encoding="utf-8")
+
+        self.assertIn("goalie_radar_attrs", template)
+        self.assertIn("Goalie radar chart", template)
+        self.assertIn("player-profile__goalie-radar-card", template)
+        for label in (
+            "High Shot",
+            "Positioning",
+            "Puckhandling",
+            "Rebound",
+            "Low Shot",
+            "Mobility",
+            "Conditioning",
+            "Character",
+        ):
+            self.assertIn(label, template)
+        for key in ("g_positioning", "g_puckhandling", "rebound", "low_shots", "g_skating", "goalie_stamina"):
+            self.assertIn(key, template)
+        self.assertIn(".player-profile__goalie-radar-card", css)
+        self.assertIn(".player-profile__goalie-overview-row", css)
+        self.assertIn(".player-profile__goalie-ratings-grid", css)
+
 
 if __name__ == "__main__":
     unittest.main()

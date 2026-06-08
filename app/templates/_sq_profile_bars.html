@@ -1,0 +1,13 @@
+{% set sq = sq_profile if sq_profile is defined else (player_process_stats.sq if player_process_stats is defined else none) %}
+{% if sq and sq.total %}
+<div class="process-stats__sq-profile" aria-label="Shot quality distribution">
+  {% for label in ['SQ0','SQ1','SQ2','SQ3','SQ4'] %}
+  {% set share = sq.shares.get(label) %}
+  <div class="process-stats__sq-row">
+    <span class="process-stats__sq-label">{{ label }}</span>
+    <div class="process-stats__sq-track"><span class="process-stats__sq-fill process-stats__sq-fill--{{ label|lower }}" style="width:{{ share or 0 }}%"></span></div>
+    <span class="process-stats__sq-val">{% if share is not none %}{{ '%.0f'|format(share) }}%{% else %}—{% endif %}</span>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}

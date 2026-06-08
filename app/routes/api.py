@@ -59,6 +59,7 @@ from app.services.homepage_leaders import build_homepage_leaders_payload
 from app.services.homepage_ticker import build_homepage_ticker_items
 from app.services.postseason_odds import build_postseason_odds_payload
 from app.services.playoff_bracket import playoff_bracket_cache_fingerprint, playoff_bracket_payload
+from app.services.advanced_stats import build_advanced_stats_hub_json, build_process_momentum_payload
 from app.services.game_preview import game_preview_payload
 from app.services.player_contract_csv import contract_years_remaining_major
 from app.services.player_overall_score import _parse_rating_cell, build_overall_cell_map_from_players
@@ -1127,6 +1128,71 @@ def game_preview(game_id: int):
     )
 
 
+@api_bp.get("/advanced-stats")
+def advanced_stats_api():
+    """JSON hub payload for advanced process stats."""
+    from app.services.cached_api_responses import jsonify_cached
+    from app.services.league_json_cache import DEFAULT_FRESH_TTL_SECONDS
+    from app.services.seasons import season_with_imported_data_fallback
+
+    season = season_with_imported_data_fallback(db.session, get_current_season())
+    segment = (request.args.get("segment") or "rs").strip().lower()
+    if segment not in ("rs", "ps", "po"):
+        segment = "rs"
+    sid = int(season.id)
+
+    team_id = request.args.get("team_id", type=int)
+    line_type = (request.args.get("line_type") or "all").strip().lower()
+    if line_type not in ("all", "forward", "defense"):
+        line_type = "all"
+    min_combined_gp = max(0, request.args.get("min_gp", type=int) or 0)
+    min_combined_toi_minutes = max(0, request.args.get("min_toi", type=int) or 0)
+
+    def _build() -> dict:
+        return build_advanced_stats_hub_json(
+            db.session,
+            sid,
+            segment=segment,
+            team_id=team_id,
+            line_type=line_type,
+            min_combined_gp=min_combined_gp,
+            min_combined_toi_seconds=min_combined_toi_minutes * 60,
+        )
+
+    return jsonify_cached(
+        "advanced_stats_hub",
+        ("lines-v1", sid, segment, team_id, line_type, min_combined_gp, min_combined_toi_minutes),
+        DEFAULT_FRESH_TTL_SECONDS.get("homepage_leaders", 120.0),
+        _build,
+        cache_control=120,
+    )
+
+
+@api_bp.get("/game/<int:game_id>/flow")
+def game_flow_api(game_id: int):
+    from app.services.advanced_stats import build_game_flow_card
+    from app.services.cached_api_responses import jsonify_cached
+
+    game = db.session.get(Game, game_id)
+    if not game:
+        return jsonify({"error": "not found"}), 404
+
+    def _build() -> dict:
+        g = db.session.get(Game, int(game_id))
+        if not g:
+            return {"error": "not found"}
+        payload = build_game_flow_card(db.session, g)
+        return payload or {"error": "unavailable"}
+
+    return jsonify_cached(
+        "game_flow",
+        (int(game_id),),
+        3600.0,
+        _build,
+        cache_control=300,
+    )
+
+
 @api_bp.get("/playoff-bracket")
 def playoff_bracket():
     """JSON for standings page playoff bracket (single-league, no conferences)."""
@@ -1295,7 +1361,7 @@ def homepage_leaders():
 
     return jsonify_cached(
         "homepage_leaders",
-        (segment, canonical_id, season_id),
+        ("career-fallback-v1", segment, canonical_id, season_id),
         DEFAULT_FRESH_TTL_SECONDS["homepage_leaders"],
         _build,
         cache_control=60,
@@ -1470,6 +1536,7 @@ def _build_homepage_summary_payload(
     trending_players = build_trending_players(
         db.session, season.id, segment, league_cal, logo_season_year=logo_sy
     )
+    process_momentum = build_process_momentum_payload(db.session, season.id, segment=segment)
     trending_teams = build_trending_teams(db.session, season.id, league_cal, logo_season_year=logo_sy)
     team_momentum_streaks = build_team_momentum_streaks(db.session, season.id, logo_season_year=logo_sy)
     team_momentum = {"trending": trending_teams, "streaks": team_momentum_streaks}
@@ -1785,6 +1852,7 @@ def _build_homepage_summary_payload(
         "stars_last_14d": stars_bundle.get("stars_last_14d", []),
         "stars_last_30d": stars_bundle.get("stars_last_30d", []),
         "trending_players": trending_players,
+        "process_momentum": process_momentum,
         "team_momentum": team_momentum,
         "active_streaks": active_streaks,
         "power_rankings": power_rankings,

@@ -1785,6 +1785,7 @@
       rows.forEach(function (tr) {
         tbody.appendChild(tr);
       });
+      table.dispatchEvent(new CustomEvent("table:sorted"));
 
       if (renumberFirst) {
         renumberFirstColumn();
@@ -1817,8 +1818,163 @@
 
   window.initSortableTable = initSortableTable;
 
+  function initPaginatedTable(table) {
+    if (table.getAttribute("data-page-bound") === "1") return;
+    var tbody = table.tBodies && table.tBodies[0];
+    if (!tbody) return;
+    var pageSize = parseInt(table.getAttribute("data-page-size") || "50", 10);
+    if (!pageSize || pageSize < 1) return;
+    var page = 0;
+    var pager = document.createElement("div");
+    pager.className = "table-pager";
+    pager.innerHTML =
+      '<button type="button" class="table-pager__btn" data-page-prev>Prev</button>' +
+      '<span class="table-pager__status" data-page-status>Page 1 of 1</span>' +
+      '<button type="button" class="table-pager__btn" data-page-next>Next</button>';
+    var prev = pager.querySelector("[data-page-prev]");
+    var next = pager.querySelector("[data-page-next]");
+    var status = pager.querySelector("[data-page-status]");
+    var wrap = table.closest(".table-wrap");
+    if (wrap && wrap.parentNode) {
+      wrap.parentNode.insertBefore(pager, wrap.nextSibling);
+    } else if (table.parentNode) {
+      table.parentNode.insertBefore(pager, table.nextSibling);
+    }
+    function rows() {
+      return Array.from(tbody.rows).filter(function (row) {
+        return !row.classList.contains("table-pager-empty-row");
+      });
+    }
+    function renderPage() {
+      var currentRows = rows();
+      var totalPages = Math.max(1, Math.ceil(currentRows.length / pageSize));
+      if (page >= totalPages) page = totalPages - 1;
+      if (page < 0) page = 0;
+      currentRows.forEach(function (row, idx) {
+        row.hidden = idx < page * pageSize || idx >= (page + 1) * pageSize;
+      });
+      pager.hidden = currentRows.length <= pageSize;
+      status.textContent = "Page " + (page + 1) + " of " + totalPages;
+      prev.disabled = page === 0;
+      next.disabled = page >= totalPages - 1;
+    }
+    prev.addEventListener("click", function () {
+      page = Math.max(0, page - 1);
+      renderPage();
+    });
+    next.addEventListener("click", function () {
+      page = page + 1;
+      renderPage();
+    });
+    table.addEventListener("table:sorted", function () {
+      page = 0;
+      renderPage();
+    });
+    table.setAttribute("data-page-bound", "1");
+    renderPage();
+  }
+
+  function initAdvancedStatsDivisionTooltips() {
+    var targets = document.querySelectorAll("[data-division-chart-team]");
+    if (!targets.length) return;
+    var tip = document.createElement("div");
+    tip.className = "advanced-stats-division-tooltip";
+    tip.setAttribute("role", "tooltip");
+    tip.hidden = true;
+    document.body.appendChild(tip);
+
+    function htmlFor(el) {
+      var logo = el.getAttribute("data-division-chart-logo") || "";
+      var team = el.getAttribute("data-division-chart-team") || "";
+      var abbr = el.getAttribute("data-division-chart-abbr") || "";
+      var val = el.getAttribute("data-division-chart-value") || "";
+      var gp = el.getAttribute("data-division-chart-gp") || "";
+      return (
+        '<div class="advanced-stats-division-tooltip__inner">' +
+        (logo
+          ? '<img class="advanced-stats-division-tooltip__logo" src="' + escapeAttr(logo) + '" alt="">'
+          : "") +
+        '<div><strong>' +
+        escapeHtml(abbr || team) +
+        "</strong>" +
+        (team && team !== abbr
+          ? '<span class="advanced-stats-division-tooltip__name">' + escapeHtml(team) + "</span>"
+          : "") +
+        '<span class="advanced-stats-division-tooltip__value">' +
+        escapeHtml(val) +
+        " above PPG" +
+        (gp ? " through " + escapeHtml(gp) + " GP" : "") +
+        "</span></div></div>"
+      );
+    }
+
+    function moveTip(e) {
+      var x = e.clientX + 14;
+      var y = e.clientY + 14;
+      tip.style.left = x + "px";
+      tip.style.top = y + "px";
+    }
+
+    targets.forEach(function (el) {
+      el.addEventListener("mouseenter", function (e) {
+        tip.innerHTML = htmlFor(el);
+        tip.hidden = false;
+        el.classList.add("is-hovered");
+        moveTip(e);
+      });
+      el.addEventListener("mousemove", moveTip);
+      el.addEventListener("mouseleave", function () {
+        tip.hidden = true;
+        el.classList.remove("is-hovered");
+      });
+      el.addEventListener("focus", function () {
+        tip.innerHTML = htmlFor(el);
+        tip.hidden = false;
+      });
+      el.addEventListener("blur", function () {
+        tip.hidden = true;
+      });
+    });
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
     document.querySelectorAll("table.data-sortable").forEach(initSortableTable);
+    document.querySelectorAll("table[data-page-size]").forEach(initPaginatedTable);
+    initAdvancedStatsDivisionTooltips();
+    document.querySelectorAll("table[data-team-depth-prospects-page-size]").forEach(function (table) {
+      var tbody = table.tBodies && table.tBodies[0];
+      if (!tbody) return;
+      var rows = Array.from(tbody.rows);
+      var pageSize = parseInt(table.getAttribute("data-team-depth-prospects-page-size") || "10", 10);
+      if (!pageSize || pageSize < 1 || rows.length <= pageSize) return;
+      var card = table.closest(".team-depth-extra-card--prospects");
+      if (!card) return;
+      var pager = card.querySelector("[data-team-depth-prospects-pager]");
+      var prev = card.querySelector("[data-team-depth-prospects-prev]");
+      var next = card.querySelector("[data-team-depth-prospects-next]");
+      var status = card.querySelector("[data-team-depth-prospects-status]");
+      if (!pager || !prev || !next || !status) return;
+      var page = 0;
+      var totalPages = Math.ceil(rows.length / pageSize);
+      function renderProspectPage() {
+        rows.forEach(function (row, idx) {
+          row.hidden = idx < page * pageSize || idx >= (page + 1) * pageSize;
+        });
+        status.textContent = "Page " + (page + 1) + " of " + totalPages;
+        prev.disabled = page === 0;
+        next.disabled = page >= totalPages - 1;
+      }
+      prev.addEventListener("click", function () {
+        page = Math.max(0, page - 1);
+        renderProspectPage();
+      });
+      next.addEventListener("click", function () {
+        page = Math.min(totalPages - 1, page + 1);
+        renderProspectPage();
+      });
+      pager.hidden = false;
+      renderProspectPage();
+    });
   });
 
   function boxscorePlayerLink(id, name) {

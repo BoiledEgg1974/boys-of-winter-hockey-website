@@ -1,9 +1,9 @@
 """Tests for import SQLite commit retry helper."""
 from __future__ import annotations
 
+import unittest
 from unittest.mock import MagicMock
 
-import pytest
 from sqlalchemy.exc import OperationalError
 
 from scripts.import_pipeline.sqlite_session import commit_with_sqlite_retry
@@ -28,5 +28,5 @@ def test_commit_with_sqlite_retry_retries_locked():
 def test_commit_with_sqlite_retry_raises_non_lock_errors():
     session = MagicMock()
     session.commit.side_effect = OperationalError("stmt", {}, Exception("no such table"))
-    with pytest.raises(OperationalError):
+    with unittest.TestCase().assertRaises(OperationalError):
         commit_with_sqlite_retry(session, attempts=2, base_delay=0)

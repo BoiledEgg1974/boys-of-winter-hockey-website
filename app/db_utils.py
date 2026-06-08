@@ -414,6 +414,97 @@ def ensure_player_goalie_stats_gsaa_sqlite(engine: Engine) -> None:
         conn.commit()
 
 
+def _ensure_sqlite_columns(engine: Engine, table: str, columns: dict[str, str]) -> None:
+    """Add missing columns on SQLite league DBs."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name=:t"),
+            {"t": table},
+        ).fetchone()
+        if not exists:
+            return
+        existing = {row[1] for row in conn.execute(text(f"PRAGMA table_info({table})"))}
+        for name, col_type in columns.items():
+            if name in existing:
+                continue
+            conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {col_type}"))
+        conn.commit()
+
+
+def ensure_advanced_stats_columns_sqlite(engine: Engine) -> None:
+    """Add advanced process-stats columns when missing (SQLite)."""
+    _ensure_sqlite_columns(
+        engine,
+        "player_skater_stats",
+        {
+            "cf": "INTEGER",
+            "ca": "INTEGER",
+            "cf_pct": "REAL",
+            "cf_pct_rel": "REAL",
+            "ff": "INTEGER",
+            "fa": "INTEGER",
+            "ff_pct": "REAL",
+            "ff_pct_rel": "REAL",
+            "gf_per_60": "REAL",
+            "ga_per_60": "REAL",
+            "sf_per_60": "REAL",
+            "sa_per_60": "REAL",
+        },
+    )
+    _ensure_sqlite_columns(
+        engine,
+        "game_skater_stats",
+        {
+            "oz_starts": "INTEGER",
+            "nz_starts": "INTEGER",
+            "dz_starts": "INTEGER",
+            "sq0": "INTEGER",
+            "sq1": "INTEGER",
+            "sq2": "INTEGER",
+            "sq3": "INTEGER",
+            "sq4": "INTEGER",
+            "team_shots_off": "INTEGER",
+            "team_shots_against_off": "INTEGER",
+            "team_goals_off": "INTEGER",
+            "team_goal_against_off": "INTEGER",
+        },
+    )
+    _ensure_sqlite_columns(
+        engine,
+        "games",
+        {
+            "sq0_home": "INTEGER",
+            "sq1_home": "INTEGER",
+            "sq2_home": "INTEGER",
+            "sq3_home": "INTEGER",
+            "sq4_home": "INTEGER",
+            "sq0_away": "INTEGER",
+            "sq1_away": "INTEGER",
+            "sq2_away": "INTEGER",
+            "sq3_away": "INTEGER",
+            "sq4_away": "INTEGER",
+            "sog_home_p1": "INTEGER",
+            "sog_home_p2": "INTEGER",
+            "sog_home_p3": "INTEGER",
+            "sog_home_ot": "INTEGER",
+            "sog_away_p1": "INTEGER",
+            "sog_away_p2": "INTEGER",
+            "sog_away_p3": "INTEGER",
+            "sog_away_ot": "INTEGER",
+            "score_home_p1": "INTEGER",
+            "score_home_p2": "INTEGER",
+            "score_home_p3": "INTEGER",
+            "score_home_ot": "INTEGER",
+            "score_away_p1": "INTEGER",
+            "score_away_p2": "INTEGER",
+            "score_away_p3": "INTEGER",
+            "score_away_ot": "INTEGER",
+        },
+    )
+
+
 def ensure_fts5(engine: Engine) -> None:
     """Create the player search virtual table if missing."""
     with engine.connect() as conn:

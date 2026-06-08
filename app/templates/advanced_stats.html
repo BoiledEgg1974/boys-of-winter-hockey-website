@@ -1,0 +1,348 @@
+{% extends "base.html" %}
+{% from "macros/team.html" import team_logo_img_plain with context %}
+{% block title %}Advanced Stats — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+{% macro stat_tip(label, meaning) -%}
+<abbr class="advanced-stats-glossary" title="{{ meaning }}">{{ label }}</abbr>
+{%- endmacro %}
+<div class="page advanced-stats-page" style="max-width:76rem;margin:0 auto;">
+  <h1 class="page-title">Advanced Stats</h1>
+  <p class="muted advanced-stats-page__intro">Process-over-results analytics from imported FHM data. These are not expected-goals (xG) models.</p>
+
+  <div class="card advanced-stats-card">
+    <div class="advanced-stats-tabset advanced-stats-tabset--six">
+      {% for tab in tabs %}
+      <input class="advanced-stats-tabset__radio" type="radio" name="advanced-stats-tab" id="adv-tab-{{ tab.key }}"{% if active_tab == tab.key or (active_tab is not defined and loop.first) %} checked{% endif %}>
+      {% endfor %}
+      <div class="advanced-stats-tabset__labels" role="tablist" aria-label="Advanced stats categories">
+        {% for tab in tabs %}
+        <label class="advanced-stats-tabset__label" for="adv-tab-{{ tab.key }}" role="tab">{{ tab.label }}</label>
+        {% endfor %}
+      </div>
+
+      <div class="advanced-stats-tabset__panel advanced-stats-tabset__panel--skaters">
+        <div class="table-wrap">
+          <table class="data data-sortable advanced-stats-table" data-sort-renumber="0" data-page-size="50">
+            <thead>
+              <tr>
+                <th data-sort-type="str">{{ stat_tip('Player', 'Skater name. Click through for the full player profile.') }}</th>
+                <th data-sort-type="str">{{ stat_tip('Team', 'Current imported team for this stat row.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('GP', 'Games played in the selected stat segment.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('CF%', 'Corsi For percentage: all shot attempts for divided by shot attempts for plus against while the player is on ice.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('FF%', 'Fenwick For percentage: unblocked shot attempts for divided by unblocked attempts for plus against.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('SF/60', 'Shots for per 60 minutes. Uses season export data when available, otherwise last-10 game shots and TOI.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('PDO', 'Shooting percentage plus save percentage, scaled around 100. Often used as a luck/sustainability flag.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('PTS/60', 'Total points per 60 minutes of all-situations ice time.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('PP Pts/60', 'Power-play points per 60 minutes of power-play ice time.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('SH Pts/60', 'Short-handed points per 60 minutes of short-handed ice time.') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in hub.skaters %}
+              <tr>
+                <td><a href="{{ url_for('main.player_page', player_id=row.player_id) }}">{{ row.player_name }}</a></td>
+                <td>{% if row.team %}{{ team_logo_img_plain(row.team) }} <a href="{{ url_for('main.team_page', slug=row.team.slug) }}">{{ row.team.abbreviation or row.team.name }}</a>{% else %}—{% endif %}</td>
+                <td>{{ row.gp }}</td>
+                <td>{% if row.cf_pct is not none %}{{ '%.1f'|format(row.cf_pct) }}{% else %}—{% endif %}</td>
+                <td>{% if row.ff_pct is not none %}{{ '%.1f'|format(row.ff_pct) }}{% else %}—{% endif %}</td>
+                <td>{% if row.sf_per_60 is not none %}{{ '%.2f'|format(row.sf_per_60) }}{% if row.sf_per_60_source == 'last_10' %}<span class="advanced-stats-source" title="Derived from the player's last 10 imported game logs">L10</span>{% endif %}{% else %}—{% endif %}</td>
+                <td>{% if row.pdo is not none %}{{ '%.1f'|format(row.pdo) }}{% else %}—{% endif %}</td>
+                <td>{% if row.pts_per_60 is not none %}{{ '%.2f'|format(row.pts_per_60) }}{% else %}—{% endif %}</td>
+                <td>{% if row.pp_pts_per_60 is not none %}{{ '%.2f'|format(row.pp_pts_per_60) }}{% else %}—{% endif %}</td>
+                <td>{% if row.sh_pts_per_60 is not none %}{{ '%.2f'|format(row.sh_pts_per_60) }}{% else %}—{% endif %}</td>
+              </tr>
+              {% else %}
+              <tr><td colspan="10" class="muted">No skater process stats yet. Re-import league CSVs to populate advanced columns.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="advanced-stats-tabset__panel advanced-stats-tabset__panel--goalies">
+        <div class="table-wrap">
+          <table class="data data-sortable advanced-stats-table" data-sort-renumber="0" data-page-size="50">
+            <thead>
+              <tr>
+                <th data-sort-type="str">{{ stat_tip('Goalie', 'Goalie name. Click through for the full player profile.') }}</th>
+                <th data-sort-type="str">{{ stat_tip('Team', 'Current imported team for this stat row.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('GP', 'Games played in the selected stat segment.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('GSAA', 'Goals Saved Above Average. Uses imported GSAA when present; otherwise estimated from league-average save percentage, shots against, and goals against.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('SV%', 'Save percentage: saves divided by shots against.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('SA', 'Shots against faced by the goalie.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('GAA', 'Goals against average from the FHM goalie stat export.') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in hub.goalies %}
+              <tr>
+                <td><a href="{{ url_for('main.player_page', player_id=row.player_id) }}">{{ row.player_name }}</a></td>
+                <td>{% if row.team %}{{ team_logo_img_plain(row.team) }} <a href="{{ url_for('main.team_page', slug=row.team.slug) }}">{{ row.team.abbreviation or row.team.name }}</a>{% else %}—{% endif %}</td>
+                <td>{{ row.gp }}</td>
+                <td data-sort-value="{% if row.gsaa is not none %}{{ '%.6f'|format(row.gsaa) }}{% endif %}">{% if row.gsaa is not none %}{{ '%.2f'|format(row.gsaa) }}{% if row.gsaa_estimated %}<span class="advanced-stats-source" title="Estimated from league-average save percentage because this FHM export does not include native GSAA">est.</span>{% endif %}{% else %}—{% endif %}</td>
+                <td>{% if row.sv_pct is not none %}{{ '%.3f'|format(row.sv_pct) }}{% else %}—{% endif %}</td>
+                <td>{{ row.sa or '—' }}</td>
+                <td>{% if row.gaa is not none %}{{ '%.2f'|format(row.gaa) }}{% else %}—{% endif %}</td>
+              </tr>
+              {% else %}
+              <tr><td colspan="7" class="muted">No goalie advanced stats available.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="advanced-stats-tabset__panel advanced-stats-tabset__panel--teams">
+        {% if hub.points_above_ppg %}
+        <section class="advanced-stats-division-charts" aria-labelledby="points-above-ppg-heading">
+          <h2 id="points-above-ppg-heading">Points Above Point Per Game</h2>
+          <p class="muted advanced-stats-page__note">Division race lines show standings points minus games played after each final regular-season game.</p>
+          {% for group in hub.points_above_ppg %}
+          {% set ns = namespace(max_gp=1, min_value=0, max_value=0) %}
+          {% for row in group.teams %}
+            {% if row.max_gp and row.max_gp > ns.max_gp %}{% set ns.max_gp = row.max_gp %}{% endif %}
+            {% for point in row.points %}
+              {% if point.value < ns.min_value %}{% set ns.min_value = point.value %}{% endif %}
+              {% if point.value > ns.max_value %}{% set ns.max_value = point.value %}{% endif %}
+            {% endfor %}
+          {% endfor %}
+          {% if ns.max_value == ns.min_value %}{% set ns.max_value = ns.min_value + 1 %}{% endif %}
+          <article class="advanced-stats-division-chart">
+            <h3>{{ group.division }}</h3>
+            <svg class="advanced-stats-division-chart__svg" viewBox="0 0 760 260" role="img" aria-label="{{ group.division }} points above point per game">
+              <line x1="44" y1="216" x2="738" y2="216" class="advanced-stats-division-chart__axis"></line>
+              <line x1="44" y1="18" x2="44" y2="216" class="advanced-stats-division-chart__axis"></line>
+              <line x1="44" y1="{{ 18 + ((ns.max_value - 0) / (ns.max_value - ns.min_value) * 198) }}" x2="738" y2="{{ 18 + ((ns.max_value - 0) / (ns.max_value - ns.min_value) * 198) }}" class="advanced-stats-division-chart__zero"></line>
+              <text x="44" y="244" class="advanced-stats-division-chart__label">0 GP</text>
+              <text x="738" y="244" text-anchor="end" class="advanced-stats-division-chart__label">{{ ns.max_gp }} GP</text>
+              <text x="8" y="22" class="advanced-stats-division-chart__label">{{ '%+.0f'|format(ns.max_value) }}</text>
+              <text x="8" y="216" class="advanced-stats-division-chart__label">{{ '%+.0f'|format(ns.min_value) }}</text>
+              {% for row in group.teams %}
+              {% set color = row.team.primary_color or row.team.secondary_color or '#60a5fa' %}
+              {% set team_label = row.team.full_display_name() %}
+              <polyline class="advanced-stats-division-chart__line"
+                style="--line-color: {{ color }};"
+                data-division-chart-team="{{ team_label }}"
+                data-division-chart-abbr="{{ row.team.abbreviation or row.team.name }}"
+                data-division-chart-logo="{{ team_logo_url_for_season_context(row.team, season.start_year) }}"
+                data-division-chart-value="{{ '%+.0f'|format(row.final_value) }}"
+                data-division-chart-gp="{{ row.max_gp }}"
+                points="{% for point in row.points %}{{ 44 + ((point.gp / ns.max_gp) * 694) }},{{ 18 + (((ns.max_value - point.value) / (ns.max_value - ns.min_value)) * 198) }} {% endfor %}">
+                <title>{{ team_label }} — {{ '%+.0f'|format(row.final_value) }} through {{ row.max_gp }} GP</title>
+              </polyline>
+              {% if row.points %}
+              {% set last = row.points[-1] %}
+              <circle class="advanced-stats-division-chart__dot"
+                style="--line-color: {{ color }};"
+                data-division-chart-team="{{ team_label }}"
+                data-division-chart-abbr="{{ row.team.abbreviation or row.team.name }}"
+                data-division-chart-logo="{{ team_logo_url_for_season_context(row.team, season.start_year) }}"
+                data-division-chart-value="{{ '%+.0f'|format(row.final_value) }}"
+                data-division-chart-gp="{{ row.max_gp }}"
+                cx="{{ 44 + ((last.gp / ns.max_gp) * 694) }}"
+                cy="{{ 18 + (((ns.max_value - last.value) / (ns.max_value - ns.min_value)) * 198) }}"
+                r="3">
+                <title>{{ team_label }} — {{ '%+.0f'|format(row.final_value) }} through {{ row.max_gp }} GP</title>
+              </circle>
+              {% endif %}
+              {% endfor %}
+            </svg>
+            <div class="advanced-stats-division-chart__legend" aria-label="{{ group.division }} teams">
+              {% for row in group.teams %}
+              <span class="advanced-stats-division-chart__legend-item">
+                {{ team_logo_img_plain(row.team) }}
+                <span>{{ row.team.abbreviation or row.team.name }}</span>
+                <strong>{{ '%+.0f'|format(row.final_value) }}</strong>
+              </span>
+              {% endfor %}
+            </div>
+          </article>
+          {% endfor %}
+        </section>
+        {% endif %}
+        <div class="table-wrap">
+          <table class="data data-sortable advanced-stats-table" data-sort-renumber="0" data-page-size="50">
+            <thead>
+              <tr>
+                <th data-sort-type="str">{{ stat_tip('Team', 'Team for this stat row.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('Shot Diff', 'Shots for minus shots against from the team stat export.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('PP%', 'Power-play goals divided by power-play opportunities.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('PK%', 'Penalty-kill percentage: one minus power-play goals against divided by short-handed chances.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('High-Danger SQ%', 'Share of imported shot-quality attempts in SQ3 and SQ4 buckets. Not an xG model.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('GF', 'Goals for from standings/team records.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('GA', 'Goals against from standings/team records.') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in hub.teams %}
+              <tr>
+                <td><a href="{{ url_for('main.team_page', slug=row.team.slug) }}">{{ team_logo_img_plain(row.team) }} {{ row.team.full_display_name() }}</a></td>
+                <td>{% if row.shot_diff is not none %}{{ row.shot_diff }}{% else %}—{% endif %}</td>
+                <td>{% if row.pp_pct is not none %}{{ '%.1f'|format(row.pp_pct) }}{% else %}—{% endif %}</td>
+                <td>{% if row.pk_pct is not none %}{{ '%.1f'|format(row.pk_pct) }}{% else %}—{% endif %}</td>
+                <td>{% if row.sq_high_danger is not none %}{{ '%.1f'|format(row.sq_high_danger) }}%{% else %}—{% endif %}</td>
+                <td>{{ row.gf if row.gf is not none else '—' }}</td>
+                <td>{{ row.ga if row.ga is not none else '—' }}</td>
+              </tr>
+              {% else %}
+              <tr><td colspan="7" class="muted">No team process stats available.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="advanced-stats-tabset__panel advanced-stats-tabset__panel--luck">
+        <p class="muted advanced-stats-page__note">PDO and goals-vs-shots proxy highlight players running hot or cold. Not an xG model.</p>
+        <div class="table-wrap">
+          <table class="data data-sortable advanced-stats-table" data-sort-renumber="0" data-page-size="50">
+            <thead>
+              <tr>
+                <th data-sort-type="str">{{ stat_tip('Player', 'Skater name. Click through for the full player profile.') }}</th>
+                <th data-sort-type="str">{{ stat_tip('Team', 'Current imported team for this stat row.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('PDO', 'Shooting percentage plus save percentage, scaled around 100. Often regresses toward neutral over time.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('Band', 'Quick PDO context sorted by heat factor: hot above 101, neutral between 99 and 101, cold below 99.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('G', 'Goals scored in the selected stat segment.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('SOG', 'Shots on goal in the selected stat segment.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('G vs Shots Proxy', 'Goals above or below a simple 9% shooting baseline. This is a proxy, not expected goals.') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in hub.luck %}
+              <tr>
+                <td><a href="{{ url_for('main.player_page', player_id=row.player_id) }}">{{ row.player_name }}</a></td>
+                <td>{% if row.team %}{{ team_logo_img_plain(row.team) }} <a href="{{ url_for('main.team_page', slug=row.team.slug) }}">{{ row.team.abbreviation or row.team.name }}</a>{% else %}—{% endif %}</td>
+                <td>{{ '%.1f'|format(row.pdo) }}</td>
+                <td data-sort-value="{% if row.pdo_band == 'hot' %}1{% elif row.pdo_band == 'neutral' %}0{% elif row.pdo_band == 'cold' %}-1{% endif %}">{% if row.pdo_band %}<span class="advanced-stats-band advanced-stats-band--{{ row.pdo_band }}">{{ row.pdo_band }}</span>{% else %}—{% endif %}</td>
+                <td>{{ row.goals }}</td>
+                <td>{{ row.shots }}</td>
+                <td>{% if row.goals_vs_shots_proxy is not none %}{{ '%+.1f'|format(row.goals_vs_shots_proxy) }}{% else %}—{% endif %}</td>
+              </tr>
+              {% else %}
+              <tr><td colspan="7" class="muted">No luck/sustainability rows available.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="advanced-stats-tabset__panel advanced-stats-tabset__panel--discipline">
+        <div class="table-wrap">
+          <table class="data data-sortable advanced-stats-table" data-sort-renumber="0" data-page-size="50">
+            <thead>
+              <tr>
+                <th data-sort-type="str">{{ stat_tip('Player', 'Player charged with penalties in imported game logs.') }}</th>
+                <th data-sort-type="str">{{ stat_tip('Team', 'Team from the season stat row, or the team tied to the player penalty/game-log events.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('GP', 'Games played from the season skater stat row, or distinct imported game logs when season GP is unavailable.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('Penalties', 'Count of individual penalty events from boxscore_period_penalties_summary.csv. Blank if only game-summary PIM is available.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('PIM', 'Penalty minutes. Uses penalty-event logs when available, otherwise falls back to game skater PIM.') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in hub.discipline %}
+              <tr>
+                <td><a href="{{ url_for('main.player_page', player_id=row.player_id) }}">{{ row.player_name }}</a></td>
+                <td>{% if row.team %}{{ team_logo_img_plain(row.team) }} <a href="{{ url_for('main.team_page', slug=row.team.slug) }}">{{ row.team.abbreviation or row.team.name }}</a>{% else %}—{% endif %}</td>
+                <td data-sort-value="{% if row.gp is not none %}{{ row.gp }}{% endif %}">{{ row.gp if row.gp is not none else '—' }}</td>
+                <td data-sort-value="{% if row.penalties is not none %}{{ row.penalties }}{% endif %}">{{ row.penalties if row.penalties is not none else '—' }}</td>
+                <td data-sort-value="{{ row.pim }}">{{ row.pim }}{% if row.source == 'game_pim' %}<span class="advanced-stats-source" title="Penalty-event CSV not loaded; using game skater PIM totals">PIM</span>{% endif %}</td>
+              </tr>
+              {% else %}
+              <tr><td colspan="5" class="muted">No penalty log data yet. Re-import to load boxscore_period_penalties_summary.csv.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="advanced-stats-tabset__panel advanced-stats-tabset__panel--lines">
+        <p class="muted advanced-stats-lines__intro">Current FHM line combinations from imported <code>team_lines.csv</code>. CF%, FF%, and per-60 rates are aggregated from each player&apos;s season process stats — not true shift-level line results or expected goals.</p>
+        <form class="advanced-stats-lines__filters" method="get" action="{{ url_for('main.advanced_stats_page') }}">
+          <input type="hidden" name="tab" value="lines">
+          <label class="advanced-stats-lines__filter">
+            <span>Segment</span>
+            <select name="segment">
+              {% for seg in line_filters.segments %}
+              <option value="{{ seg.key }}"{% if segment == seg.key %} selected{% endif %}>{{ seg.label }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="advanced-stats-lines__filter">
+            <span>Team</span>
+            <select name="team_id">
+              <option value=""{% if line_team_id is none %} selected{% endif %}>All teams</option>
+              {% for team in line_filters.teams %}
+              <option value="{{ team.id }}"{% if line_team_id == team.id %} selected{% endif %}>{{ team.name }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="advanced-stats-lines__filter">
+            <span>Line type</span>
+            <select name="line_type">
+              {% for lt in line_filters.line_types %}
+              <option value="{{ lt.key }}"{% if line_type == lt.key %} selected{% endif %}>{{ lt.label }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="advanced-stats-lines__filter">
+            <span>Min combined GP</span>
+            <input type="number" name="min_gp" min="0" step="1" value="{{ line_min_gp }}">
+          </label>
+          <label class="advanced-stats-lines__filter">
+            <span>Min combined TOI (min)</span>
+            <input type="number" name="min_toi" min="0" step="1" value="{{ line_min_toi }}">
+          </label>
+          <button type="submit" class="btn btn--sm">Apply filters</button>
+        </form>
+        <div class="table-wrap">
+          <table class="data data-sortable advanced-stats-table advanced-stats-lines-table" data-sort-renumber="0" data-page-size="50">
+            <thead>
+              <tr>
+                <th data-sort-type="str">{{ stat_tip('Team', 'Team from the current imported FHM line combination.') }}</th>
+                <th data-sort-type="str">{{ stat_tip('Line Type', 'Even-strength forward line (LW/C/RW) or defensive pair (LD/RD).') }}</th>
+                <th data-sort-type="str">{{ stat_tip('Unit', 'FHM depth unit label such as ES L1 through ES L4.') }}</th>
+                <th data-sort-type="str">{{ stat_tip('Players', 'Current FHM assignments for this line unit.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('Comb. GP', 'Sum of games played for assigned skaters in the selected segment.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('Avg CF%', 'Average Corsi For % from assigned skaters. Player-level aggregate, not true line-only CF%.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('Avg FF%', 'Average Fenwick For % from assigned skaters. Player-level aggregate, not true line-only FF%.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('Avg SF/60', 'Average shots for per 60 from assigned skaters.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('Avg PTS/60', 'Average points per 60 from assigned skaters.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('Avg PDO', 'Average PDO from assigned skaters.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('Avg GF/60', 'Average goals for per 60 from assigned skaters.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('Avg GA/60', 'Average goals against per 60 from assigned skaters.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('Shot Share Proxy', 'Average player-level SF/(SF+SA) share. A rough process indicator, not shot maps or xG.') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in line_rows %}
+              <tr>
+                <td>{% if row.team %}{{ team_logo_img_plain(row.team) }} <a href="{{ url_for('main.team_page', slug=row.team.slug) }}">{{ row.team.abbreviation or row.team.name }}</a>{% else %}—{% endif %}</td>
+                <td>{{ row.line_type }}</td>
+                <td>{{ row.unit }}</td>
+                <td>
+                  {% for player in row.players %}
+                  <a href="{{ url_for('main.player_page', player_id=player.player_id) }}">{{ player.player_name }}</a>{% if not loop.last %} · {% endif %}
+                  {% endfor %}
+                  {% if row.missing_stats %}<span class="advanced-stats-source" title="One or more skaters lack process stats for this segment">partial</span>{% endif %}
+                </td>
+                <td data-sort-value="{{ row.combined_gp }}">{{ row.combined_gp }}</td>
+                <td data-sort-value="{% if row.avg_cf_pct is not none %}{{ row.avg_cf_pct }}{% endif %}">{% if row.avg_cf_pct is not none %}{{ '%.1f'|format(row.avg_cf_pct) }}{% else %}—{% endif %}</td>
+                <td data-sort-value="{% if row.avg_ff_pct is not none %}{{ row.avg_ff_pct }}{% endif %}">{% if row.avg_ff_pct is not none %}{{ '%.1f'|format(row.avg_ff_pct) }}{% else %}—{% endif %}</td>
+                <td data-sort-value="{% if row.avg_sf_per_60 is not none %}{{ row.avg_sf_per_60 }}{% endif %}">{% if row.avg_sf_per_60 is not none %}{{ '%.2f'|format(row.avg_sf_per_60) }}{% else %}—{% endif %}</td>
+                <td data-sort-value="{% if row.avg_pts_per_60 is not none %}{{ row.avg_pts_per_60 }}{% endif %}">{% if row.avg_pts_per_60 is not none %}{{ '%.2f'|format(row.avg_pts_per_60) }}{% else %}—{% endif %}</td>
+                <td data-sort-value="{% if row.avg_pdo is not none %}{{ row.avg_pdo }}{% endif %}">{% if row.avg_pdo is not none %}{{ '%.1f'|format(row.avg_pdo) }}{% else %}—{% endif %}</td>
+                <td data-sort-value="{% if row.avg_gf_per_60 is not none %}{{ row.avg_gf_per_60 }}{% endif %}">{% if row.avg_gf_per_60 is not none %}{{ '%.2f'|format(row.avg_gf_per_60) }}{% else %}—{% endif %}</td>
+                <td data-sort-value="{% if row.avg_ga_per_60 is not none %}{{ row.avg_ga_per_60 }}{% endif %}">{% if row.avg_ga_per_60 is not none %}{{ '%.2f'|format(row.avg_ga_per_60) }}{% else %}—{% endif %}</td>
+                <td data-sort-value="{% if row.shot_share_proxy is not none %}{{ row.shot_share_proxy }}{% endif %}">{% if row.shot_share_proxy is not none %}{{ '%.1f'|format(row.shot_share_proxy) }}{% else %}—{% endif %}</td>
+              </tr>
+              {% else %}
+              <tr><td colspan="13" class="muted">No line combinations match these filters. Re-import to load team_lines.csv and season skater process stats.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

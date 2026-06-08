@@ -1,0 +1,39 @@
+{% if game_flow %}
+<section class="card game-flow-card" aria-labelledby="game-flow-h">
+  <h2 id="game-flow-h" class="game-flow-card__title">Game Flow</h2>
+  <div class="game-flow-card__grid">
+    <div>
+      <h3 class="game-flow-card__h">Scoring by Period</h3>
+      <table class="data game-flow-card__table">
+        <thead><tr><th>Team</th><th>P1</th><th>P2</th><th>P3</th><th>OT</th></tr></thead>
+        <tbody>
+          <tr><td>{{ game.home_team.abbreviation or game.home_team.name }}</td>{% for v in game_flow.period_scores.home %}<td>{{ v if v is not none else '—' }}</td>{% endfor %}</tr>
+          <tr><td>{{ game.away_team.abbreviation or game.away_team.name }}</td>{% for v in game_flow.period_scores.away %}<td>{{ v if v is not none else '—' }}</td>{% endfor %}</tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <h3 class="game-flow-card__h">Shots by Period</h3>
+      <table class="data game-flow-card__table">
+        <thead><tr><th>Team</th><th>P1</th><th>P2</th><th>P3</th><th>OT</th></tr></thead>
+        <tbody>
+          <tr><td>{{ game.home_team.abbreviation or game.home_team.name }}</td>{% for v in game_flow.sog_by_period.home %}<td>{{ v if v is not none else '—' }}</td>{% endfor %}</tr>
+          <tr><td>{{ game.away_team.abbreviation or game.away_team.name }}</td>{% for v in game_flow.sog_by_period.away %}<td>{{ v if v is not none else '—' }}</td>{% endfor %}</tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <h3 class="game-flow-card__h">Power Play</h3>
+      <p>Home: {{ game_flow.pp.home.goals or 0 }}/{{ game_flow.pp.home.opps or 0 }} · Away: {{ game_flow.pp.away.goals or 0 }}/{{ game_flow.pp.away.opps or 0 }}</p>
+    </div>
+    <div>
+      <h3 class="game-flow-card__h">Shot Quality (Home)</h3>
+      {% set sq_profile = game_flow.sq_home %}{% include "_sq_profile_bars.html" %}
+    </div>
+    <div>
+      <h3 class="game-flow-card__h">Shot Quality (Away)</h3>
+      {% set sq_profile = game_flow.sq_away %}{% include "_sq_profile_bars.html" %}
+    </div>
+  </div>
+</section>
+{% endif %}

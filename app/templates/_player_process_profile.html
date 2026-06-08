@@ -1,0 +1,73 @@
+{% if player_process_stats %}
+<details class="player-profile__card player-profile__panel player-profile__panel--process-stats" open>
+  <summary class="player-profile__panel-summary">
+    <span class="player-profile__panel-title">Process Profile</span>
+    <span class="player-profile__panel-meta muted">Shot share, deployment, and quality proxies</span>
+  </summary>
+  <div class="process-stats">
+    {% if player_process_stats.kind == 'skater' %}
+    <div class="process-stats__grid">
+      <div class="process-stats__card">
+        <h3 class="process-stats__h">Season Process</h3>
+        <dl class="process-stats__kv">
+          <div><dt>CF%</dt><dd>{% if player_process_stats.season.cf_pct is not none %}{{ '%.1f'|format(player_process_stats.season.cf_pct) }}{% else %}—{% endif %}</dd></div>
+          <div><dt>FF%</dt><dd>{% if player_process_stats.season.ff_pct is not none %}{{ '%.1f'|format(player_process_stats.season.ff_pct) }}{% else %}—{% endif %}</dd></div>
+          <div><dt>SF/60</dt><dd>{% if player_process_stats.season.sf_per_60 is not none %}{{ '%.2f'|format(player_process_stats.season.sf_per_60) }}{% else %}—{% endif %}</dd></div>
+          <div><dt>PDO</dt><dd>{% if player_process_stats.season.pdo is not none %}{{ '%.1f'|format(player_process_stats.season.pdo) }}{% if player_process_stats.season.pdo_band %} <span class="process-stats__band process-stats__band--{{ player_process_stats.season.pdo_band }}">{{ player_process_stats.season.pdo_band }}</span>{% endif %}{% else %}—{% endif %}</dd></div>
+        </dl>
+      </div>
+      {% if player_process_stats.zone_starts %}
+      <div class="process-stats__card">
+        <h3 class="process-stats__h">Zone Starts</h3>
+        <div class="process-stats__zone-bar" role="img" aria-label="Offensive {{ player_process_stats.zone_starts.oz or 0 }}%, neutral {{ player_process_stats.zone_starts.nz or 0 }}%, defensive {{ player_process_stats.zone_starts.dz or 0 }}%">
+          <span class="process-stats__zone-seg process-stats__zone-seg--oz" style="width:{{ player_process_stats.zone_starts.oz or 0 }}%"></span>
+          <span class="process-stats__zone-seg process-stats__zone-seg--nz" style="width:{{ player_process_stats.zone_starts.nz or 0 }}%"></span>
+          <span class="process-stats__zone-seg process-stats__zone-seg--dz" style="width:{{ player_process_stats.zone_starts.dz or 0 }}%"></span>
+        </div>
+        <p class="muted process-stats__zone-legend">OZ {{ player_process_stats.zone_starts.oz or '—' }}% · NZ {{ player_process_stats.zone_starts.nz or '—' }}% · DZ {{ player_process_stats.zone_starts.dz or '—' }}%</p>
+      </div>
+      {% endif %}
+      {% if player_process_stats.sq and player_process_stats.sq.total %}
+      <div class="process-stats__card process-stats__card--sq">
+        <h3 class="process-stats__h">Shot Quality Mix</h3>
+        {% include "_sq_profile_bars.html" with context %}
+        {% if player_process_stats.sq.high_danger_share is not none %}
+        <p class="process-stats__sq-note">High-danger share (SQ3+SQ4): <strong>{{ '%.1f'|format(player_process_stats.sq.high_danger_share) }}%</strong></p>
+        {% endif %}
+      </div>
+      {% endif %}
+      <div class="process-stats__card">
+        <h3 class="process-stats__h">Discipline</h3>
+        <p>{{ player_process_stats.discipline.penalties }} penalties · {{ player_process_stats.discipline.pim }} PIM</p>
+      </div>
+      <div class="process-stats__card">
+        <h3 class="process-stats__h">Recent Form</h3>
+        <p class="muted">Last 10 GP: {{ player_process_stats.rolling.last_10.goals or 0 }} G, {{ player_process_stats.rolling.last_10.shots or 0 }} SOG</p>
+        <p class="muted">Last 20 GP: {{ player_process_stats.rolling.last_20.goals or 0 }} G, {{ player_process_stats.rolling.last_20.shots or 0 }} SOG</p>
+      </div>
+    </div>
+    {% else %}
+    <div class="process-stats__grid">
+      <div class="process-stats__card">
+        <h3 class="process-stats__h">Season Goaltending</h3>
+        <dl class="process-stats__kv">
+          <div><dt>GSAA</dt><dd>{% if player_process_stats.season.gsaa is not none %}{{ '%.2f'|format(player_process_stats.season.gsaa) }}{% else %}—{% endif %}</dd></div>
+          <div><dt>SV%</dt><dd>{% if player_process_stats.season.sv_pct is not none %}{{ '%.3f'|format(player_process_stats.season.sv_pct) }}{% else %}—{% endif %}</dd></div>
+          <div><dt>SA</dt><dd>{{ player_process_stats.season.sa or '—' }}</dd></div>
+          <div><dt>GAA</dt><dd>{% if player_process_stats.season.gaa is not none %}{{ '%.2f'|format(player_process_stats.season.gaa) }}{% else %}—{% endif %}</dd></div>
+        </dl>
+      </div>
+      <div class="process-stats__card">
+        <h3 class="process-stats__h">Recent Form</h3>
+        {% if player_process_stats.rolling.last_10 %}
+        <p class="muted">Last 10: {{ player_process_stats.rolling.last_10.gp }} GP, {{ player_process_stats.rolling.last_10.sa }} SA, {% if player_process_stats.rolling.last_10.sv_pct is not none %}{{ '%.3f'|format(player_process_stats.rolling.last_10.sv_pct) }} SV%{% else %}—{% endif %}</p>
+        {% endif %}
+        {% if player_process_stats.rolling.last_20 %}
+        <p class="muted">Last 20: {{ player_process_stats.rolling.last_20.gp }} GP, {{ player_process_stats.rolling.last_20.sa }} SA, {% if player_process_stats.rolling.last_20.sv_pct is not none %}{{ '%.3f'|format(player_process_stats.rolling.last_20.sv_pct) }} SV%{% else %}—{% endif %}</p>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</details>
+{% endif %}

@@ -548,7 +548,7 @@
     <h2>Prospects</h2>
     {% if team_depth_prospects %}
     <div class="table-wrap">
-      <table class="data team-depth-prospects-table">
+      <table class="data team-depth-prospects-table" data-team-depth-prospects-page-size="10">
         <thead>
           <tr>
             <th>Player Name</th>
@@ -600,8 +600,13 @@
         </tbody>
       </table>
     </div>
+    <div class="team-depth-prospects-pager" data-team-depth-prospects-pager hidden>
+      <button type="button" class="team-depth-prospects-pager__btn" data-team-depth-prospects-prev>Prev</button>
+      <span class="team-depth-prospects-pager__status" data-team-depth-prospects-status>Page 1 of 1</span>
+      <button type="button" class="team-depth-prospects-pager__btn" data-team-depth-prospects-next>Next</button>
+    </div>
     {% else %}
-    <p class="empty-state">No age-22-or-younger prospects found for this organization.</p>
+    <p class="empty-state">No age-22-or-younger prospects with 2.0+ potential found for this organization.</p>
     {% endif %}
   </section>
   <section class="card team-depth-extra-card team-depth-extra-card--draft-picks">
@@ -612,33 +617,27 @@
       {% set logo_year = year_block.year - 1 %}
       <article class="team-depth-draft-year-card">
         <h3>{{ year_block.year }}</h3>
-        <div class="table-wrap">
-          <table class="data team-depth-draft-picks-table">
-            <thead>
-              <tr>
-                <th class="team-depth-draft-picks-table__round">Round</th>
-                <th>Team</th>
-                <th title="Perri draft pick value">Value</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for pick in year_block.picks %}
-              <tr>
-                <td class="team-depth-draft-picks-table__round">{{ pick.round }}</td>
-                <td class="team-depth-draft-picks-table__team">
-                  {% if pick.original_team %}
-                  <span class="team-depth-pick-logo-wrap" title="{{ pick.original_team_label }}">
-                    <img class="team-depth-pick-logo" src="{{ team_logo_url_for_season_context(pick.original_team, logo_year) }}" alt="{{ pick.original_team_label }} logo" loading="lazy" decoding="async">
-                  </span>
-                  {% else %}
-                  {{ pick.original_team_label }}
-                  {% endif %}
-                </td>
-                <td class="team-depth-draft-picks-table__value">{% if pick.pick_value is not none %}{{ pick.pick_value }}{% else %}—{% endif %}</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+        <div class="team-depth-draft-picks-compact" role="table" aria-label="{{ year_block.year }} draft picks">
+          <div class="team-depth-draft-picks-compact__head" role="row">
+            <span role="columnheader">Rnd</span>
+            <span role="columnheader">Team</span>
+            <span role="columnheader" title="Perri draft pick value">Val</span>
+          </div>
+          {% for pick in year_block.picks %}
+          <div class="team-depth-draft-picks-compact__row" role="row">
+            <span class="team-depth-draft-picks-compact__round" role="cell">{{ pick.round }}</span>
+            <span class="team-depth-draft-picks-compact__team" role="cell">
+              {% if pick.original_team %}
+              <span class="team-depth-pick-logo-wrap" title="{{ pick.original_team_label }}">
+                <img class="team-depth-pick-logo" src="{{ team_logo_url_for_season_context(pick.original_team, logo_year) }}" alt="{{ pick.original_team_label }} logo" loading="lazy" decoding="async">
+              </span>
+              {% else %}
+              {{ pick.original_team_label }}
+              {% endif %}
+            </span>
+            <span class="team-depth-draft-picks-compact__value" role="cell">{% if pick.pick_value is not none %}{{ pick.pick_value }}{% else %}—{% endif %}</span>
+          </div>
+          {% endfor %}
         </div>
       </article>
       {% endfor %}

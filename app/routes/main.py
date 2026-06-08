@@ -727,6 +727,63 @@ def team_reports_page():
     )
 
 
+@main_bp.get("/advanced-stats")
+def advanced_stats_page():
+    """Process-over-results analytics (CF/FF, PDO, GSAA, shot quality proxies)."""
+    from app.services.advanced_stats import build_advanced_stats_hub_payload
+    from app.services.line_stats import (
+        LINE_TYPE_ALL,
+        build_line_stats_rows,
+        line_stats_filter_options,
+    )
+
+    season = season_with_imported_data_fallback(db.session, get_current_season())
+    segment = (request.args.get("segment") or "rs").strip().lower()
+    if segment not in ("rs", "ps", "po"):
+        segment = "rs"
+    active_tab = (request.args.get("tab") or "").strip().lower()
+    if active_tab not in ("skaters", "goalies", "teams", "luck", "discipline", "lines"):
+        active_tab = "lines" if any(k in request.args for k in ("team_id", "line_type", "min_gp", "min_toi")) else "skaters"
+    line_type = (request.args.get("line_type") or LINE_TYPE_ALL).strip().lower()
+    if line_type not in ("all", "forward", "defense"):
+        line_type = LINE_TYPE_ALL
+    team_id = request.args.get("team_id", type=int)
+    min_combined_gp = max(0, request.args.get("min_gp", type=int) or 0)
+    min_combined_toi_minutes = max(0, request.args.get("min_toi", type=int) or 0)
+    hub = build_advanced_stats_hub_payload(db.session, int(season.id), segment=segment)
+    line_rows = build_line_stats_rows(
+        db.session,
+        int(season.id),
+        segment=segment,
+        team_id=team_id,
+        line_type=line_type,
+        min_combined_gp=min_combined_gp,
+        min_combined_toi_seconds=min_combined_toi_minutes * 60,
+    )
+    tabs = (
+        {"key": "skaters", "label": "Skaters"},
+        {"key": "goalies", "label": "Goalies"},
+        {"key": "teams", "label": "Teams"},
+        {"key": "luck", "label": "Luck / Sustainability"},
+        {"key": "discipline", "label": "Discipline"},
+        {"key": "lines", "label": "Lines"},
+    )
+    return render_template(
+        "advanced_stats.html",
+        hub=hub,
+        tabs=tabs,
+        segment=segment,
+        season=season,
+        line_rows=line_rows,
+        line_filters=line_stats_filter_options(db.session),
+        line_type=line_type,
+        line_team_id=team_id,
+        line_min_gp=min_combined_gp,
+        line_min_toi=min_combined_toi_minutes,
+        active_tab=active_tab,
+    )
+
+
 @main_bp.get("/game-records")
 def game_records_page():
     """Single-game league records (regular season / playoffs, all players / rookies)."""
@@ -3533,7 +3590,10 @@ def _build_team_depth_prospect_rows(team: Team, season: Season | None) -> list[d
         age = _player_age_years(pl.birth_date, age_ref)
         if age is None or age > 22:
             continue
-        rows.append({"player": pl, "age": age, "potential": _prospect_float(pl.overall_potential)})
+        potential = _prospect_float(pl.overall_potential)
+        if potential is None or potential < 2.0:
+            continue
+        rows.append({"player": pl, "age": age, "potential": potential})
 
     rows.sort(
         key=lambda row: (
@@ -4700,6 +4760,19 @@ def player_page(player_id: int):
         retired=bool(player.retired),
         league_slug=str(current_app.config.get("LEAGUE_SLUG") or ""),
     )
+    from app.services.advanced_stats import build_player_process_profile
+
+    _proc_season = season or get_current_season()
+    player_process_stats = (
+        build_player_process_profile(
+            db.session,
+            player,
+            int(_proc_season.id),
+            is_goalie=is_goalie,
+        )
+        if _proc_season
+        else None
+    )
     return render_template(
         "player.html",
         player=player,
@@ -4741,6 +4814,7 @@ def player_page(player_id: int):
         player_season_trends_goalie_mode=player_season_trends_goalie_mode,
         player_analytics=player_analytics,
         player_development=player_development,
+        player_process_stats=player_process_stats,
         can_manage_player_boost=has_admin_role(
             current_user, ADMIN_ROLE_SUPER, ADMIN_ROLE_LEAGUE, ADMIN_ROLE_STATS
         ),
@@ -4782,7 +4856,10 @@ def game_page(game_id: int):
     ).first()
     if not game:
         abort(404)
-    return render_template("game.html", game=game)
+    from app.services.advanced_stats import build_game_flow_card
+
+    game_flow = build_game_flow_card(db.session, game) if (game.status or "").lower() == "final" else None
+    return render_template("game.html", game=game, game_flow=game_flow)
 
 
 @main_bp.get("/search")

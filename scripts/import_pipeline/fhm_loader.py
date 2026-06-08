@@ -20,6 +20,7 @@ from app.models import (
     PlayerGoalieStat,
     PlayerGoalieCareerLine,
     PlayerSkaterCareerLine,
+    PenaltyEvent,
     PlayerSkaterStat,
     ScoringEvent,
     Season,
@@ -599,6 +600,25 @@ def import_games(
             g.fhm_star1_player_id = to_int(cell_val(r, "star_1"))
             g.fhm_star2_player_id = to_int(cell_val(r, "star_2"))
             g.fhm_star3_player_id = to_int(cell_val(r, "star_3"))
+            for side in ("home", "away"):
+                for i in range(5):
+                    setattr(g, f"sq{i}_{side}", to_int(cell_val(r, f"sq{i}_{side}")))
+            g.sog_home_p1 = to_int(cell_val(r, "sog_home_p1"))
+            g.sog_home_p2 = to_int(cell_val(r, "sog_home_p2"))
+            g.sog_home_p3 = to_int(cell_val(r, "sog_home_p3"))
+            g.sog_home_ot = to_int(cell_val(r, "sog_home_ot"))
+            g.sog_away_p1 = to_int(cell_val(r, "sog_away_p1"))
+            g.sog_away_p2 = to_int(cell_val(r, "sog_away_p2"))
+            g.sog_away_p3 = to_int(cell_val(r, "sog_away_p3"))
+            g.sog_away_ot = to_int(cell_val(r, "sog_away_ot"))
+            g.score_home_p1 = to_int(cell_val(r, "score_home_p1"))
+            g.score_home_p2 = to_int(cell_val(r, "score_home_p2"))
+            g.score_home_p3 = to_int(cell_val(r, "score_home_p3"))
+            g.score_home_ot = to_int(cell_val(r, "score_home_ot"))
+            g.score_away_p1 = to_int(cell_val(r, "score_away_p1"))
+            g.score_away_p2 = to_int(cell_val(r, "score_away_p2"))
+            g.score_away_p3 = to_int(cell_val(r, "score_away_p3"))
+            g.score_away_ot = to_int(cell_val(r, "score_away_ot"))
             gt = cell_val(r, "type")
             if gt:
                 g.game_type = gt
@@ -614,6 +634,7 @@ def _clear_game_details() -> None:
     db.session.execute(delete(GameSkaterStat))
     db.session.execute(delete(GameGoalieStat))
     db.session.execute(delete(ScoringEvent))
+    db.session.execute(delete(PenaltyEvent))
     commit_with_sqlite_retry(db.session)
 
 
@@ -752,6 +773,15 @@ def import_boxscore_skaters(raw_dir: Path, games_fhm: dict[str, int], players_fh
         gs.faceoffs_lost = to_int(cell_val(r, "fol"))
         toi = to_int(cell_val(r, "tot"))
         gs.toi_seconds = toi
+        gs.oz_starts = to_int(cell_val(r, "oz_starts"))
+        gs.nz_starts = to_int(cell_val(r, "nz_starts"))
+        gs.dz_starts = to_int(cell_val(r, "dz_starts"))
+        for i in range(5):
+            setattr(gs, f"sq{i}", to_int(cell_val(r, f"sq{i}")))
+        gs.team_shots_off = to_int(cell_val(r, "team_shots_off"))
+        gs.team_shots_against_off = to_int(cell_val(r, "team_shots_against_off"))
+        gs.team_goals_off = to_int(cell_val(r, "team_goals_off"))
+        gs.team_goal_against_off = to_int(cell_val(r, "team_goal_against_off"))
         n += 1
         batch += 1
         if batch >= 500:
@@ -904,8 +934,57 @@ def import_skater_segment(
         row_db.game_rating_off = to_float(cell_val(r, "game_rating_off"))
         row_db.game_rating_def = to_float(cell_val(r, "game_rating_def"))
         row_db.pdo = to_float(cell_val(r, "pdo"))
+        row_db.cf = to_int(cell_val(r, "cf"))
+        row_db.ca = to_int(cell_val(r, "ca"))
+        row_db.cf_pct = to_float(cell_val(r, "cf_pct"))
+        row_db.cf_pct_rel = to_float(cell_val(r, "cf_pct_rel"))
+        row_db.ff = to_int(cell_val(r, "ff"))
+        row_db.fa = to_int(cell_val(r, "fa"))
+        row_db.ff_pct = to_float(cell_val(r, "ff_pct"))
+        row_db.ff_pct_rel = to_float(cell_val(r, "ff_pct_rel"))
+        row_db.gf_per_60 = to_float(cell_val(r, "gf_60"))
+        row_db.ga_per_60 = to_float(cell_val(r, "ga_60"))
+        row_db.sf_per_60 = to_float(cell_val(r, "sf_60"))
+        row_db.sa_per_60 = to_float(cell_val(r, "sa_60"))
         n += 1
         if n % 400 == 0:
+            commit_with_sqlite_retry(db.session)
+    commit_with_sqlite_retry(db.session)
+    return n
+
+
+def import_boxscore_penalties(
+    raw_dir: Path,
+    games_fhm: dict[str, int],
+    players_fhm: dict[int, int],
+    teams_fhm: dict[int, int],
+) -> int:
+    path = raw_dir / "boxscore_period_penalties_summary.csv"
+    if not path.exists():
+        return 0
+    df = read_csv_normalized(path)
+    n = 0
+    for _, row in df.iterrows():
+        r = row.to_dict()
+        gid = cell_val(r, "game_id", "gameid")
+        if not gid or gid not in games_fhm:
+            continue
+        per = fhm_scoring_period_to_int(cell_val(r, "period"), 1)
+        tsec = to_int(cell_val(r, "time"))
+        pid = to_int(cell_val(r, "player", "playerid"))
+        tid = to_int(cell_val(r, "teamid"))
+        ev = PenaltyEvent(
+            game_id=games_fhm[gid],
+            period=per,
+            time_elapsed=_fmt_clock_seconds(tsec),
+            player_id=players_fhm.get(pid) if pid else None,
+            team_id=teams_fhm.get(tid) if tid is not None else None,
+            minutes=to_int(cell_val(r, "minutes")),
+            infraction=cell_val(r, "penalty"),
+        )
+        db.session.add(ev)
+        n += 1
+        if n % 500 == 0:
             commit_with_sqlite_retry(db.session)
     commit_with_sqlite_retry(db.session)
     return n
@@ -1271,6 +1350,7 @@ def run_fhm_import(raw_dir: Path, app, league_filter: int = 0) -> dict[str, int]
     counts["box_skaters"] = import_boxscore_skaters(raw_dir, games_fhm, players_fhm, teams_fhm)
     counts["box_goalies"] = import_boxscore_goalies(raw_dir, games_fhm, players_fhm, teams_fhm)
     counts["scoring_events"] = import_period_scoring(raw_dir, games_fhm, players_fhm, teams_fhm)
+    counts["penalty_events"] = import_boxscore_penalties(raw_dir, games_fhm, players_fhm, teams_fhm)
 
     # One reused ``Season`` row per FHM mount: ``import_skater_segment`` only overwrites rows
     # present in each CSV. After a rolled year, ``ensure_season``'s start/end years may not

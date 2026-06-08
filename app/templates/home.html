@@ -162,6 +162,13 @@
         <h3 id="streak-h" class="home-dashboard__mini-h">Active Streaks</h3>
         <div id="home-streaks" class="home-dashboard__slot"></div>
       </section>
+      <section id="dash-process-momentum" class="card home-dashboard__card" aria-labelledby="process-momentum-h" data-module-key="process_momentum">
+        <h2 id="process-momentum-h" class="home-dashboard__h">Process Momentum</h2>
+        <p class="muted home-dashboard__sub">Recent shot volume and GSAA leaders (not xG)</p>
+        <div id="home-process-momentum" class="home-dashboard__slot">
+          <p class="empty-state loading-with-puck">Loading…</p>
+        </div>
+      </section>
       <section id="dash-team-momentum" class="card home-dashboard__card" aria-labelledby="team-momentum-h" data-module-key="team_momentum">
         <h2 id="team-momentum-h" class="home-dashboard__h">Team Momentum</h2>
         <h3 class="home-dashboard__mini-h">Trending Teams</h3>
@@ -580,6 +587,38 @@
           '</td><td>' +
           (r.streak != null ? r.streak : 0) +
           '</td></tr>';
+      });
+    }
+    h += '</tbody></table></div></div>';
+    return h;
+  }
+
+  function rowProcessMomentum(pm) {
+    pm = pm || {};
+    var sk = pm.skaters || [];
+    var gk = pm.goalies || [];
+    var h = '<div class="home-process-momentum">';
+    h += '<div class="home-process-momentum__block"><h3 class="home-trend-h">Hot Shots (Last 10 GP)</h3>';
+    h += '<table class="data home-momentum-table"><thead><tr><th>Player</th><th>G</th><th>SOG</th></tr></thead><tbody>';
+    if (!sk.length) {
+      h += '<tr><td colspan="3" class="muted">—</td></tr>';
+    } else {
+      sk.forEach(function (r) {
+        h += '<tr><td><a href="' + withRoot('/player/' + r.player_id) + '">' + escape(r.player_name || '—') + '</a></td>';
+        h += '<td>' + (r.recent_goals != null ? r.recent_goals : '—') + '</td>';
+        h += '<td>' + (r.recent_shots != null ? r.recent_shots : '—') + '</td></tr>';
+      });
+    }
+    h += '</tbody></table></div>';
+    h += '<div class="home-process-momentum__block"><h3 class="home-trend-h">GSAA Leaders</h3>';
+    h += '<table class="data home-momentum-table"><thead><tr><th>Goalie</th><th>GSAA</th><th>SV%</th></tr></thead><tbody>';
+    if (!gk.length) {
+      h += '<tr><td colspan="3" class="muted">—</td></tr>';
+    } else {
+      gk.forEach(function (r) {
+        h += '<tr><td><a href="' + withRoot('/player/' + r.player_id) + '">' + escape(r.player_name || '—') + '</a></td>';
+        h += '<td>' + (r.gsaa != null ? Number(r.gsaa).toFixed(2) : '—') + '</td>';
+        h += '<td>' + (r.sv_pct != null ? Number(r.sv_pct).toFixed(3) : '—') + '</td></tr>';
       });
     }
     h += '</tbody></table></div></div>';
@@ -1907,6 +1946,8 @@
         document.getElementById('home-stars-30').innerHTML = rowStarsMini(data.stars_last_30d);
         document.getElementById('home-trending').innerHTML = rowTrending(data.trending_players);
         document.getElementById('home-streaks').innerHTML = rowStreaks(data.active_streaks);
+        var pmEl = document.getElementById('home-process-momentum');
+        if (pmEl) pmEl.innerHTML = rowProcessMomentum(data.process_momentum || {});
         var tmEl = document.getElementById('home-team-trending');
         var tsEl = document.getElementById('home-team-streaks');
         var tmData = data.team_momentum || {};

@@ -9,6 +9,7 @@ import os
 
 from flask import current_app, has_app_context
 from sqlalchemy import delete, or_, select, text, update
+from sqlalchemy.exc import OperationalError
 
 from app.site_models import (
     DiscordBotHeartbeat,
@@ -1495,11 +1496,25 @@ def prune_obsolete_discord_bot_heartbeats(
 ) -> int:
     """Remove legacy per-league bot rows (e.g. bowl-historical-bot) after unified worker rollout."""
     canonical = canonical_discord_bot_name()
-    stmt = delete(DiscordBotHeartbeat).where(DiscordBotHeartbeat.bot_name != canonical)
+    exists_stmt = select(DiscordBotHeartbeat.id).where(
+        DiscordBotHeartbeat.bot_name != canonical
+    )
     if league_slug:
-        stmt = stmt.where(DiscordBotHeartbeat.league_slug == str(league_slug).strip())
-    result = session.execute(stmt)
-    session.commit()
+        exists_stmt = exists_stmt.where(
+            DiscordBotHeartbeat.league_slug == str(league_slug).strip()
+        )
+    if session.scalar(exists_stmt.limit(1)) is None:
+        return 0
+
+    from app.sqlite_retry import write_with_sqlite_retry
+
+    def _delete_obsolete():
+        stmt = delete(DiscordBotHeartbeat).where(DiscordBotHeartbeat.bot_name != canonical)
+        if league_slug:
+            stmt = stmt.where(DiscordBotHeartbeat.league_slug == str(league_slug).strip())
+        return session.execute(stmt)
+
+    result = write_with_sqlite_retry(session, _delete_obsolete)
     return int(result.rowcount or 0)
 
 
@@ -1512,34 +1527,40 @@ def upsert_bot_heartbeat(
     guild_id: str,
     extra: dict | None = None,
 ) -> DiscordBotHeartbeat:
-    row = session.scalar(
-        select(DiscordBotHeartbeat)
-        .where(
-            DiscordBotHeartbeat.league_slug == league_slug,
-            DiscordBotHeartbeat.bot_name == str(bot_name or ""),
-        )
-        .limit(1)
-    )
-    if row is None:
-        row = DiscordBotHeartbeat(
-            league_slug=league_slug,
-            bot_name=str(bot_name or "")[:120],
-            bot_version=str(bot_version or "")[:64],
-            guild_id=str(guild_id or "")[:64],
-            last_seen_at=datetime.utcnow(),
-            extra_json=json.dumps(extra or {}),
-        )
-        session.add(row)
-    else:
-        row.bot_version = str(bot_version or "")[:64]
-        row.guild_id = str(guild_id or "")[:64]
-        row.last_seen_at = datetime.utcnow()
-        row.extra_json = json.dumps(extra or {})
-    from app.sqlite_retry import commit_with_sqlite_retry
+    from app.sqlite_retry import write_with_sqlite_retry
 
-    commit_with_sqlite_retry(session)
+    def _upsert() -> DiscordBotHeartbeat:
+        row = session.scalar(
+            select(DiscordBotHeartbeat)
+            .where(
+                DiscordBotHeartbeat.league_slug == league_slug,
+                DiscordBotHeartbeat.bot_name == str(bot_name or ""),
+            )
+            .limit(1)
+        )
+        if row is None:
+            row = DiscordBotHeartbeat(
+                league_slug=league_slug,
+                bot_name=str(bot_name or "")[:120],
+                bot_version=str(bot_version or "")[:64],
+                guild_id=str(guild_id or "")[:64],
+                last_seen_at=datetime.utcnow(),
+                extra_json=json.dumps(extra or {}),
+            )
+            session.add(row)
+        else:
+            row.bot_version = str(bot_version or "")[:64]
+            row.guild_id = str(guild_id or "")[:64]
+            row.last_seen_at = datetime.utcnow()
+            row.extra_json = json.dumps(extra or {})
+        return row
+
+    row = write_with_sqlite_retry(session, _upsert)
     if str(bot_name or "").strip() == canonical_discord_bot_name():
-        prune_obsolete_discord_bot_heartbeats(session, league_slug=league_slug)
+        try:
+            prune_obsolete_discord_bot_heartbeats(session, league_slug=league_slug)
+        except OperationalError:
+            session.rollback()
     return row
 
 

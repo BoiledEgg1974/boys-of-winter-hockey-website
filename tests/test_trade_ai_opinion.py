@@ -3,8 +3,14 @@ from __future__ import annotations
 
 import unittest
 from datetime import date, datetime
+from types import SimpleNamespace
+from unittest.mock import patch
 
-from app.services.trade_ai_opinion import build_logged_trade_prompt_block
+from app.services.trade_ai_opinion import (
+    _guard_hypothetical_trade_consistency,
+    build_logged_trade_prompt_block,
+    build_trade_prompt_block,
+)
 from app.services.trade_log import TradeLogRow
 
 
@@ -41,6 +47,51 @@ class TradeAiOpinionPromptTests(unittest.TestCase):
             "Do not describe an asset as acquired by the same team whose 'sends' block lists it.",
             prompt,
         )
+
+    def test_hypothetical_prompt_includes_authoritative_received_direction(self) -> None:
+        session = SimpleNamespace()
+        coyotes = SimpleNamespace(full_display_name=lambda: "Phoenix Coyotes")
+        thrashers = SimpleNamespace(full_display_name=lambda: "Atlanta Thrashers")
+
+        prompt = build_trade_prompt_block(
+            session,
+            coyotes,
+            thrashers,
+            ["mpleft:1:abc123"],
+            ["mpright:2:def456"],
+            "",
+        )
+
+        self.assertIn("Directional interpretation (authoritative):", prompt)
+        self.assertIn("Phoenix Coyotes received from Atlanta Thrashers: Draft pick (round 2)", prompt)
+        self.assertIn("Atlanta Thrashers received from Phoenix Coyotes: Draft pick (round 1)", prompt)
+        self.assertIn("The verdict headline must match this direction", prompt)
+
+    def test_contradictory_short_end_headline_is_flipped(self) -> None:
+        session = SimpleNamespace()
+        coyotes = SimpleNamespace(full_display_name=lambda: "Phoenix Coyotes")
+        thrashers = SimpleNamespace(full_display_name=lambda: "Atlanta Thrashers")
+        payload = {
+            "verdict": "Thrashers Get the Short End of the Stick!",
+            "opinion": "Voros and the defense duo have the potential to contribute more than Podkonicky alone.",
+            "suggestions": [],
+        }
+
+        with patch(
+            "app.services.trade_ai_opinion._asset_labels",
+            side_effect=[["Aaron Voros", "Brett Angel", "Jakub Grof"], ["Andrej Podkonicky"]],
+        ):
+            out = _guard_hypothetical_trade_consistency(
+                session,
+                payload,
+                from_team=coyotes,
+                to_team=thrashers,
+                left=["player:1", "player:2", "player:3"],
+                right=["player:4"],
+            )
+
+        self.assertEqual(out["verdict"], "Phoenix Coyotes get the short end of the stick")
+        self.assertTrue(out["consistency_guard"])
 
 
 if __name__ == "__main__":

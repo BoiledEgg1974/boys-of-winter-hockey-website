@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import re
 import time
+import unicodedata
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -112,6 +113,7 @@ def build_trade_prompt_block(
     ctx = (recent_trades_context or "").strip()
     if ctx:
         out += "\n\n" + ctx
+    out += "\n\n" + _hypothetical_trade_direction_block(session, from_team, to_team, left, right)
     return out
 
 
@@ -192,11 +194,144 @@ def _team_label(team: Team | None, fallback: str) -> str:
         return fallback
 
 
+def _norm_text(text: str | None) -> str:
+    raw = unicodedata.normalize("NFKD", str(text or ""))
+    asciiish = "".join(ch for ch in raw if not unicodedata.combining(ch))
+    return re.sub(r"\s+", " ", asciiish.lower()).strip()
+
+
 def _asset_label(session: Session, key: str) -> str:
     try:
         return describe_drag_key(session, key)
     except Exception:
         return str(key)
+
+
+def _asset_labels(session: Session, keys: list[str]) -> list[str]:
+    return [_asset_label(session, k) for k in keys]
+
+
+def _hypothetical_trade_direction_block(
+    session: Session,
+    from_team: Team | None,
+    to_team: Team | None,
+    left: list[str],
+    right: list[str],
+) -> str:
+    from_name = _team_label(from_team, "Team A")
+    to_name = _team_label(to_team, "Team B")
+    left_assets = "; ".join(_asset_labels(session, left)) or "(nothing)"
+    right_assets = "; ".join(_asset_labels(session, right)) or "(nothing)"
+    return "\n".join(
+        [
+            "Directional interpretation (authoritative):",
+            f"- {from_name} traded away: {left_assets}",
+            f"- {to_name} traded away: {right_assets}",
+            f"- {from_name} received from {to_name}: {right_assets}",
+            f"- {to_name} received from {from_name}: {left_assets}",
+            "The verdict headline must match this direction. If you say one received the stronger package, do not headline that same team as fleeced, robbed, or getting the short end.",
+        ]
+    )
+
+
+def _opinion_says_first_package_beats_second(
+    opinion: str,
+    first_labels: list[str],
+    second_labels: list[str],
+) -> bool:
+    text = _norm_text(opinion)
+    if not text:
+        return False
+    phrases = (
+        "contribute more than",
+        "more value than",
+        "more upside than",
+        "better package than",
+        "stronger package than",
+        "outweigh",
+        "outweighs",
+        "worth more than",
+    )
+    phrase_positions = [text.find(p) for p in phrases if text.find(p) >= 0]
+    if not phrase_positions:
+        return False
+    pos = min(phrase_positions)
+    before = text[:pos]
+    after = text[pos:]
+
+    def _mentions(labels: list[str], haystack: str) -> bool:
+        for label in labels:
+            normalized = _norm_text(label)
+            # Player names may lose accents or be shortened by the model; matching any
+            # distinctive name part is enough for a contradiction sanity check.
+            parts = [p for p in re.split(r"[^a-z0-9]+", normalized) if len(p) >= 4]
+            if normalized and normalized in haystack:
+                return True
+            if any(part in haystack for part in parts):
+                return True
+        return False
+
+    return _mentions(first_labels, before) and _mentions(second_labels, after)
+
+
+def _negative_verdict_target(verdict: str, team_names: dict[str, str]) -> str | None:
+    text = _norm_text(verdict)
+    if not text:
+        return None
+    negative_markers = (
+        "short end",
+        "fleec",
+        "robbed",
+        "hosed",
+        "shaft",
+        "lost this",
+        "lose this",
+        "takes the hit",
+        "overpaid",
+    )
+    if not any(marker in text for marker in negative_markers):
+        return None
+    for key, name in team_names.items():
+        normalized = _norm_text(name)
+        parts = [p for p in re.split(r"[^a-z0-9]+", normalized) if len(p) >= 4]
+        if normalized and normalized in text:
+            return key
+        if any(part in text for part in parts):
+            return key
+    return None
+
+
+def _guard_hypothetical_trade_consistency(
+    session: Session,
+    payload: dict[str, Any],
+    *,
+    from_team: Team | None,
+    to_team: Team | None,
+    left: list[str],
+    right: list[str],
+) -> dict[str, Any]:
+    if payload.get("error"):
+        return payload
+    verdict = str(payload.get("verdict") or "")
+    opinion = str(payload.get("opinion") or "")
+    from_name = _team_label(from_team, "Team A")
+    to_name = _team_label(to_team, "Team B")
+    target = _negative_verdict_target(verdict, {"from": from_name, "to": to_name})
+    if not target:
+        return payload
+
+    left_labels = _asset_labels(session, left)
+    right_labels = _asset_labels(session, right)
+    # Left assets are received by the to-team; right assets are received by the from-team.
+    if target == "to" and _opinion_says_first_package_beats_second(opinion, left_labels, right_labels):
+        payload = dict(payload)
+        payload["verdict"] = f"{from_name} get the short end of the stick"
+        payload["consistency_guard"] = True
+    elif target == "from" and _opinion_says_first_package_beats_second(opinion, right_labels, left_labels):
+        payload = dict(payload)
+        payload["verdict"] = f"{to_name} get the short end of the stick"
+        payload["consistency_guard"] = True
+    return payload
 
 
 def _local_hypothetical_trade_opinion(
@@ -430,11 +565,19 @@ def fetch_trade_ai_opinion(
         right=right,
         notes=notes,
     )
-    return _openai_trade_json_response(
+    out = _openai_trade_json_response(
         user_id=user_id,
         system=system,
         user_msg=user_msg,
         fallback=fallback,
+    )
+    return _guard_hypothetical_trade_consistency(
+        session,
+        out,
+        from_team=from_team,
+        to_team=to_team,
+        left=left,
+        right=right,
     )
 
 

@@ -66,6 +66,9 @@
     </div>
   </form>
 
+  {% if manual_total %}
+  <p class="muted">Showing {{ manual_row_views|length }} of {{ manual_total }} manual entries{% if manual_pages > 1 %} — page {{ manual_page }} of {{ manual_pages }}{% endif %}.</p>
+  {% endif %}
   <div class="table-wrap">
     <table class="data">
       <thead>
@@ -78,15 +81,12 @@
         </tr>
       </thead>
       <tbody>
-        {% for e in manual_rows %}
-        {% set ta = teams_by_id.get(e.team_a_id) %}
-        {% set tb = teams_by_id.get(e.team_b_id) %}
-        {% set parts = manual_trade_summary_parts(e.summary) %}
-        {% set labels = manual_trade_summary_labels(e.summary) %}
-        {% set team_a_view = manual_trade_team_view(e, ta, labels[0]) %}
-        {% set team_b_view = manual_trade_team_view(e, tb, labels[1]) %}
+        {% for row in manual_row_views %}
+        {% set e = row.entry %}
+        {% set team_a_view = row.team_a %}
+        {% set team_b_view = row.team_b %}
         <tr>
-          <td>{{ e.trade_date.strftime('%Y-%m-%d') if e.trade_date else '—' }}</td>
+          <td>{{ row.trade_date }}</td>
           <td>
             <span class="manual-trade-log__matchup">
               <span class="team-name-lockup">
@@ -100,8 +100,8 @@
               </span>
             </span>
           </td>
-          <td class="manual-trade-log__assets">{{ parts[0] | linkify_news_body }}</td>
-          <td class="manual-trade-log__assets">{{ parts[1] | linkify_news_body }}</td>
+          <td class="manual-trade-log__assets">{{ row.team_a_sent }}</td>
+          <td class="manual-trade-log__assets">{{ row.team_b_sent }}</td>
           <td>
             <a href="{{ url_for('site_admin.admin_trade_log_edit', entry_id=e.id) }}">Edit</a>
             <form method="post" action="{{ url_for('site_admin.admin_trade_log_delete', entry_id=e.id) }}" style="display:inline;margin-left:0.5rem;" onsubmit="return confirm('Delete this manual trade entry?');">
@@ -116,6 +116,17 @@
       </tbody>
     </table>
   </div>
+  {% if manual_pages > 1 %}
+  <nav class="manual-trade-log__pager" aria-label="Manual trade log pages">
+    {% if manual_page > 1 %}
+    <a class="admin-news-body-btn" href="{{ url_for('site_admin.admin_trade_log', page=manual_page - 1) }}">Previous</a>
+    {% endif %}
+    <span class="muted">Page {{ manual_page }} of {{ manual_pages }}</span>
+    {% if manual_page < manual_pages %}
+    <a class="admin-news-body-btn" href="{{ url_for('site_admin.admin_trade_log', page=manual_page + 1) }}">Next</a>
+    {% endif %}
+  </nav>
+  {% endif %}
 </div>
 <script>
 (function () {

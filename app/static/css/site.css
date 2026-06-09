@@ -736,6 +736,12 @@ a:hover {
   white-space: pre-wrap;
   max-width: 20rem;
 }
+.manual-trade-log__pager {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+}
 .manual-trade-log__team-select {
   display: inline-flex;
   align-items: center;

@@ -1979,9 +1979,10 @@ def _manual_trade_identity_from_label(label: str, team: Team | None) -> Franchis
     )
 
 
-def _manual_trade_team_view(_entry: TradeLogEntry, team: Team | None, label: str) -> dict[str, str]:
+def _manual_trade_team_view(_entry: TradeLogEntry, team: Team | None, label: str, logo_bundle=None) -> dict[str, str]:
     display = (label or "").strip() or (team.full_display_name() if team else "Team")
-    logo_bundle = get_season_team_logo_bundle()
+    if logo_bundle is None:
+        logo_bundle = get_season_team_logo_bundle()
     logo_url = ""
     ident = _manual_trade_identity_from_label(display, team)
     if ident is not None and ident.logo_file:
@@ -2015,6 +2016,40 @@ def _manual_trade_selected_value(
                 if normalized in opt_names:
                     return str(opt.get("value") or "")
     return f"team:{team_id}"
+
+
+def _manual_trade_admin_row_views(rows: list[TradeLogEntry], teams_by_id: dict[int, Team]) -> list[dict]:
+    """Precompute display fields so the admin listing stays cheap to render."""
+    logo_bundle = get_season_team_logo_bundle()
+    team_view_cache: dict[tuple[int, str], dict[str, str]] = {}
+    out: list[dict] = []
+    for ent in rows:
+        ta = teams_by_id.get(int(ent.team_a_id))
+        tb = teams_by_id.get(int(ent.team_b_id))
+        parts = _manual_trade_summary_parts(ent.summary)
+        labels = _manual_trade_summary_labels(ent.summary)
+
+        def cached_view(team: Team | None, label: str) -> dict[str, str]:
+            team_id = int(team.id) if team is not None else 0
+            key = (team_id, (label or "").strip())
+            hit = team_view_cache.get(key)
+            if hit is not None:
+                return hit
+            hit = _manual_trade_team_view(ent, team, label, logo_bundle)
+            team_view_cache[key] = hit
+            return hit
+
+        out.append(
+            {
+                "entry": ent,
+                "trade_date": ent.trade_date.strftime("%Y-%m-%d") if ent.trade_date else "—",
+                "team_a": cached_view(ta, labels[0]),
+                "team_b": cached_view(tb, labels[1]),
+                "team_a_sent": parts[0],
+                "team_b_sent": parts[1],
+            }
+        )
+    return out
 
 
 @site_admin_bp.route("/trade-log", methods=["GET", "POST"])
@@ -2059,25 +2094,39 @@ def admin_trade_log():
                 return redirect(url_for("site_admin.admin_trade_log"))
         return redirect(url_for("site_admin.admin_trade_log"))
 
+    per_page = 50
+    try:
+        page = max(1, int(request.args.get("page") or 1))
+    except (TypeError, ValueError):
+        page = 1
+    manual_total = int(
+        db.session.scalar(
+            select(func.count(TradeLogEntry.id)).where(TradeLogEntry.source == "manual")
+        )
+        or 0
+    )
+    manual_pages = max(1, (manual_total + per_page - 1) // per_page)
+    page = min(page, manual_pages)
     manual_rows = list(
         db.session.scalars(
             select(TradeLogEntry)
             .where(TradeLogEntry.source == "manual")
             .order_by(TradeLogEntry.trade_date.desc().nulls_last(), TradeLogEntry.id.desc())
-            .limit(200)
+            .offset((page - 1) * per_page)
+            .limit(per_page)
         ).all()
     )
     teams_by_id = {int(t.id): t for t in teams}
+    manual_row_views = _manual_trade_admin_row_views(manual_rows, teams_by_id)
     return render_template(
         "admin_trade_log.html",
-        manual_rows=manual_rows,
+        manual_row_views=manual_row_views,
+        manual_page=page,
+        manual_pages=manual_pages,
+        manual_total=manual_total,
         teams=teams,
         defunct_team_options=defunct_team_options,
         active_team_options=active_team_options,
-        teams_by_id=teams_by_id,
-        manual_trade_summary_parts=_manual_trade_summary_parts,
-        manual_trade_summary_labels=_manual_trade_summary_labels,
-        manual_trade_team_view=_manual_trade_team_view,
     )
 
 

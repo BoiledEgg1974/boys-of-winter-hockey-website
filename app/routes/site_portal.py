@@ -819,6 +819,16 @@ def _season_rollover_defaults() -> dict[str, object]:
     }
 
 
+@site_gm_bp.get("/help-tips")
+@login_required
+def gm_help_tips_page():
+    """FHM help and tips for active GMs and league admins."""
+    if not _membership() and not _is_site_admin():
+        flash("Help/Tips is available to active GMs and league admins.", "err")
+        return redirect(url_for("main.home"))
+    return render_template("gm_help_tips.html")
+
+
 @site_gm_bp.get("/action-points")
 def action_points_page():
     slug = _league_slug()

@@ -1,0 +1,305 @@
+{% extends "base.html" %}
+{% block title %}FHM Help &amp; Tips — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="gm-help-tips">
+  <header class="card gm-help-tips__hero">
+    <h1 class="page-title gm-help-tips__title">Franchise Hockey Manager Help &amp; Tips</h1>
+    <p class="gm-help-tips__league muted">{{ config.LEAGUE_DISPLAY_NAME }} · practical in-game guidance for GMs</p>
+    <p class="gm-help-tips__intro">This guide consolidates core FHM screens and workflows so you can manage rosters, lines, tactics, development, chemistry, and finances with more confidence. Use it alongside your league site tools (trades, AP, staff, and operations).</p>
+    <section class="gm-help-tips__quickstart" aria-labelledby="gm-help-quickstart-h">
+      <h2 id="gm-help-quickstart-h" class="gm-help-tips__quickstart-title">Quick-start checklist</h2>
+      <ol class="gm-help-tips__checklist">
+        <li>Review your <a href="#help-roster">roster</a> and dress the right players for the next game.</li>
+        <li>Confirm your <a href="#help-schedule">schedule</a> and upcoming opponents.</li>
+        <li>Set <a href="#help-lines">lines</a> and <a href="#help-tactics">tactics</a> (or use assistant tools carefully).</li>
+        <li>Assign <a href="#help-training">training</a> programs early in preseason.</li>
+        <li>Monitor <a href="#help-chemistry">team harmony</a> and <a href="#help-finances">finances</a> monthly.</li>
+      </ol>
+      <h3 class="gm-help-tips__quickstart-subtitle">Multiplayer Checklist</h3>
+      <ol class="gm-help-tips__checklist">
+        <li>Login your team and import from the league's server.</li>
+        <li>Make changes to your team (roster, lineups, injuries, tactics, finances, etc.).</li>
+        <li>Save your game locally.</li>
+        <li>Export to the league server.</li>
+      </ol>
+    </section>
+  </header>
+
+  <div class="gm-help-tips__layout">
+    <nav class="card gm-help-tips__toc" aria-label="Help topics">
+      <h2 class="gm-help-tips__toc-title">On this page</h2>
+      <p class="gm-help-tips__toc-group-label">Getting organized</p>
+      <ul class="gm-help-tips__toc-list">
+        <li><a href="#help-roster">Roster</a></li>
+        <li><a href="#help-lineups">Lineups</a></li>
+        <li><a href="#help-schedule">Schedule</a></li>
+      </ul>
+      <p class="gm-help-tips__toc-group-label">Game setup</p>
+      <ul class="gm-help-tips__toc-list">
+        <li><a href="#help-lines">Lines</a></li>
+        <li><a href="#help-tactics">Tactics</a></li>
+      </ul>
+      <p class="gm-help-tips__toc-group-label">Development</p>
+      <ul class="gm-help-tips__toc-list">
+        <li><a href="#help-training">Training</a></li>
+        <li><a href="#help-chemistry">Team harmony</a></li>
+      </ul>
+      <p class="gm-help-tips__toc-group-label">Organization</p>
+      <ul class="gm-help-tips__toc-list">
+        <li><a href="#help-finances">Finances</a></li>
+      </ul>
+    </nav>
+
+    <div class="gm-help-tips__sections">
+      <section id="help-roster" class="card gm-help-tips__section" aria-labelledby="help-roster-h">
+        <h2 id="help-roster-h" class="gm-help-tips__section-title">Roster</h2>
+        <p>The <strong>Roster</strong> screen is your overview of every player on a team. Use it when you need general information about your roster or any opponent.</p>
+        <p>The Roster Overview has up to eight tabs (not all may be active depending on league rules):</p>
+        <ul class="gm-help-tips__pill-list">
+          <li><span class="gm-help-tips__pill">Active Roster</span> Players available for games and line/tactic editing.</li>
+          <li><span class="gm-help-tips__pill">Stats</span> Current-season statistics shortcut.</li>
+          <li><span class="gm-help-tips__pill">Contracts</span> All signed players, regardless of current club.</li>
+          <li><span class="gm-help-tips__pill">Protected List</span> Owned rights, signed or unsigned.</li>
+          <li><span class="gm-help-tips__pill">Injury List</span> Injured reserve.</li>
+          <li><span class="gm-help-tips__pill">Waivers</span> Players currently on waivers.</li>
+          <li><span class="gm-help-tips__pill">Trading Block</span> Publicly listed trade candidates.</li>
+          <li><span class="gm-help-tips__pill">Reserve List</span> Storage when no farm team exists (common in historical/fictional modes).</li>
+        </ul>
+        <p>Most columns sort by clicking the header. Click a player for his profile, or right-click for context actions. Use FHM <em>Views</em> and <em>Filters</em> to narrow the list.</p>
+
+        <h3 class="gm-help-tips__subsection-title">Right-click options</h3>
+        <p>Commands vary by tab—for example, dress/scratch on Active Roster, or abandon rights on Protected List.</p>
+
+        <h3 class="gm-help-tips__subsection-title">Name abbreviations</h3>
+        <div class="table-wrap">
+          <table class="data gm-help-tips__table">
+            <thead><tr><th scope="col">Code</th><th scope="col">Meaning</th></tr></thead>
+            <tbody>
+              <tr><td>(C)</td><td>Team captain</td></tr>
+              <tr><td>(A)</td><td>Alternate captain</td></tr>
+              <tr><td>(E)</td><td>Exceptional junior (CHL age exemption)</td></tr>
+              <tr><td>(TB)</td><td>On the trading block</td></tr>
+              <tr><td>(P)</td><td>Prospect under league prospect rules</td></tr>
+              <tr><td>(F)</td><td>Foreign player under league restrictions</td></tr>
+              <tr><td>(OA)</td><td>Overage player under league age limits</td></tr>
+              <tr><td>(UT)</td><td>Untouchable—AI teams will not offer trades</td></tr>
+              <tr><td>(NI)</td><td>Not interested—AI will not include in trade offers</td></tr>
+              <tr><td>(H#)</td><td>Goalie heat rating (0 cold → 5 very hot)</td></tr>
+              <tr><td>(*)</td><td>Rookie in this league</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="gm-help-tips__subsection-title">Status column (ST.)</h3>
+        <div class="table-wrap">
+          <table class="data gm-help-tips__table">
+            <thead><tr><th scope="col">Badge</th><th scope="col">Meaning</th></tr></thead>
+            <tbody>
+              <tr><td><img class="gm-help-tips__status-img" src="{{ url_for('static', filename='img/help/player_status_injured.png') }}" alt="Red cross"></td><td>Injured (out)</td></tr>
+              <tr><td><img class="gm-help-tips__status-img" src="{{ url_for('static', filename='img/help/player_status_lightly_injured.png') }}" alt="Yellow cross"></td><td>Injured (day-to-day)</td></tr>
+              <tr><td><img class="gm-help-tips__status-img gm-help-tips__status-img--wide" src="{{ url_for('static', filename='img/help/status_vac.png') }}" alt="VAC"></td><td>On vacation—not actively training</td></tr>
+              <tr><td><span class="gm-help-tips__status gm-help-tips__status--unf">UNF</span></td><td>Unfit after vacation—working back into shape</td></tr>
+              <tr><td><img class="gm-help-tips__status-img gm-help-tips__status-img--wide" src="{{ url_for('static', filename='img/help/status_int.png') }}" alt="INT"></td><td>With national team—unavailable for lineup</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <aside class="gm-help-tips__callout gm-help-tips__callout--warn">
+          <strong>Action menu warning:</strong> AI assistant options can dress players, set lines/tactics, or reorganize your entire organization without confirmation. They will not trade for you, but use <em>Setup Entire Organization</em> carefully.
+        </aside>
+      </section>
+
+      <section id="help-lineups" class="card gm-help-tips__section" aria-labelledby="help-lineups-h">
+        <h2 id="help-lineups-h" class="gm-help-tips__section-title">Lineups</h2>
+        <p>Open <strong>Lineups</strong> from the team menu to plan dressed lists and priority slots for even-strength and special teams (plus goalies, extra attackers, and shootouts).</p>
+        <p>If lists are empty, the game behaves normally. Use <strong>Clear Lineups</strong> on the Action menu to deactivate the feature. For lineups to apply, set <strong>Setting Lineups and Tactics</strong> in Manager Settings to your assistant—you are overriding the assistant’s default logic.</p>
+        <p>When the Even Strength tab has entries, the AI clears line data before each game and:</p>
+        <ul>
+          <li>Fills dressed list and line slots by listed priority.</li>
+          <li>Builds units in C/LW/RW/LD/RD order using priority lists.</li>
+          <li>Dresses and locks each placed player to that spot.</li>
+          <li>Fills remaining open spots with standard AI lineup logic.</li>
+        </ul>
+        <p><strong>Tip:</strong> Adding even one player to Even Strength activates Lineups for that spot while AI handles the rest—useful for partial control without full manual line building.</p>
+        <div class="gm-help-tips__tip-grid">
+          <article class="gm-help-tips__tip-card">
+            <h3 class="gm-help-tips__tip-card-title">Create Lines from Lineups</h3>
+            <p>On the Lines screen—preview what the AI will do without playing a game.</p>
+          </article>
+          <article class="gm-help-tips__tip-card">
+            <h3 class="gm-help-tips__tip-card-title">AI Set Lineups</h3>
+            <p>Fills lists by crude talent sort. Shuffle afterward; don’t use the raw order as-is.</p>
+          </article>
+          <article class="gm-help-tips__tip-card">
+            <h3 class="gm-help-tips__tip-card-title">Clear Lineups</h3>
+            <p>Removes all entries and disables lineup override behavior.</p>
+          </article>
+        </div>
+        <p class="muted">Unit-level tactics remain in place regardless of which players Lineups assigns to a line.</p>
+      </section>
+
+      <section id="help-schedule" class="card gm-help-tips__section" aria-labelledby="help-schedule-h">
+        <h2 id="help-schedule-h" class="gm-help-tips__section-title">Schedule</h2>
+        <p>The <strong>Schedule</strong> screen lists every game for the season—played and upcoming. Playoff games appear when matchups are set.</p>
+        <ul>
+          <li>Click a final score to open the boxscore.</li>
+          <li>Click a team name to jump to that roster.</li>
+          <li>Use <strong>Change View</strong> to switch between calendar and list layouts.</li>
+        </ul>
+      </section>
+
+      <section id="help-lines" class="card gm-help-tips__section" aria-labelledby="help-lines-h">
+        <h2 id="help-lines-h" class="gm-help-tips__section-title">Lines</h2>
+        <p>On the <strong>Lines</strong> screen you set combinations used in games. In GM-only mode your head coach controls lines and you cannot edit them.</p>
+        <p>The <strong>Dressed List</strong> (left) shows who is in the game lineup. Right-click to scratch or dress players. Happiness, fitness, season rating, and ability are shown; use the dropdown for detail.</p>
+        <p>Drag players into line slots on the right, or check a player on the dressed list then click his destination. Lock a player to a line with the checkbox beside his name—AI line setup respects locks, but <em>AI Setup Organization</em> will break them.</p>
+        <p>Four tabs cover 5-on-5, power play, penalty kill, and 4-on-4/3-on-3 units.</p>
+        <p>The <strong>Goalie Starts</strong> tab defines how the AI picks starters. Enable <em>Use goalie start settings</em> to override default selection; lock settings to stop the AI from changing them later.</p>
+      </section>
+
+      <section id="help-tactics" class="card gm-help-tips__section" aria-labelledby="help-tactics-h">
+        <h2 id="help-tactics-h" class="gm-help-tips__section-title">Tactics</h2>
+        <p><strong>Tactics</strong> has three tabs—<strong>Global</strong>, <strong>Unit</strong>, and <strong>Player</strong>—so you can coach top-down or micromanage individuals.</p>
+        <ul>
+          <li><strong>Global</strong> — team-wide settings and preferences.</li>
+          <li><strong>Unit</strong> — override global settings per 5-man unit; star ratings show relative strength.</li>
+          <li><strong>Player</strong> — individual tactical tendencies and roles (settings stay at unit/global level).</li>
+        </ul>
+
+        <h3 class="gm-help-tips__subsection-title">Global preferences</h3>
+        <ul class="gm-help-tips__def-list">
+          <li><strong>Pull Goalie (down 1 / down 2)</strong> — seconds remaining before pulling for an extra attacker.</li>
+          <li><strong>Goalie Switch</strong> — how quickly the AI pulls a struggling starter.</li>
+          <li><strong>Offensive / Defensive Zone Faceoff Priority</strong> — which lines get priority by zone.</li>
+          <li><strong>Line Matching</strong> — preferred opponent line matchups (easier at home with last change).</li>
+        </ul>
+
+        <h3 class="gm-help-tips__subsection-title">Tactical settings (by situation)</h3>
+        <div class="gm-help-tips__tip-grid">
+          <article class="gm-help-tips__tip-card">
+            <h4 class="gm-help-tips__tip-card-title">Offensive even strength</h4>
+            <p>Breakout, neutral zone offence, attacking zone offence.</p>
+          </article>
+          <article class="gm-help-tips__tip-card">
+            <h4 class="gm-help-tips__tip-card-title">Defensive even strength</h4>
+            <p>Forechecking, neutral zone coverage, defensive zone coverage.</p>
+          </article>
+          <article class="gm-help-tips__tip-card">
+            <h4 class="gm-help-tips__tip-card-title">Power play</h4>
+            <p>Breakout, attacking zone offence, defensive approach when possession is lost.</p>
+          </article>
+          <article class="gm-help-tips__tip-card">
+            <h4 class="gm-help-tips__tip-card-title">Penalty killing</h4>
+            <p>Forechecking, neutral zone coverage, approach after winning the puck.</p>
+          </article>
+        </div>
+        <p>Coaches have preferred tactics—they use and execute those settings more effectively.</p>
+        <p><strong>Player Fits</strong> below each setting lists who suits the selected tendency well or poorly.</p>
+
+        <h3 class="gm-help-tips__subsection-title">Tactical tendencies</h3>
+        <div class="table-wrap">
+          <table class="data gm-help-tips__table">
+            <thead><tr><th scope="col">Tendency</th><th scope="col">Effect</th></tr></thead>
+            <tbody>
+              <tr><td>Attacking</td><td>Intense = more chances, weaker defence; Mild = the reverse.</td></tr>
+              <tr><td>Aggressiveness</td><td>Intense = more hits/penalties/fights; Mild = safer physically.</td></tr>
+              <tr><td>Backchecking</td><td>Often = better defensive recovery; Rare = more offensive floating.</td></tr>
+              <tr><td>Pressure</td><td>Intense = close on puck carrier; Mild = positional containment.</td></tr>
+              <tr><td>Hitting</td><td>Often = run at opponents; Rare = angle and limit options.</td></tr>
+              <tr><td>Tempo</td><td>High = fast/risky transitions; Low = slower, controlled pace.</td></tr>
+              <tr><td>Passing / Shooting</td><td>Often vs Rare controls pass-first vs shoot-first habits.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="help-training" class="card gm-help-tips__section" aria-labelledby="help-training-h">
+        <h2 id="help-training-h" class="gm-help-tips__section-title">Training</h2>
+        <p><strong>Training Programs</strong> (preseason) and <strong>Targeted Training</strong> (in-season skill focus) guide player development.</p>
+
+        <h3 class="gm-help-tips__subsection-title">Program types</h3>
+        <ul class="gm-help-tips__def-list">
+          <li><strong>Skill-specific</strong> — one skill; slowest but most precise.</li>
+          <li><strong>Skill group</strong> — three related skills; medium speed.</li>
+          <li><strong>Skill category</strong> — broad category; faster than group training.</li>
+          <li><strong>General</strong> — fastest, no control over which skill improves.</li>
+        </ul>
+
+        <h3 class="gm-help-tips__subsection-title">Skill groups</h3>
+        <div class="table-wrap">
+          <table class="data gm-help-tips__table">
+            <thead><tr><th scope="col">Group</th><th scope="col">Skills</th></tr></thead>
+            <tbody>
+              <tr><td>Shooting</td><td>Shooting Accuracy, Shooting Range, Getting Open</td></tr>
+              <tr><td>Playmaking</td><td>Passing, Offensive Read, Team Player</td></tr>
+              <tr><td>Defensive Tactics</td><td>Defensive Read, Positioning, Shot Blocking</td></tr>
+              <tr><td>Checking</td><td>Hitting, Checking, Stickchecking</td></tr>
+              <tr><td>Puck Control</td><td>Puckhandling, Balance, Faceoffs</td></tr>
+              <tr><td>Skating</td><td>Acceleration, Agility, Speed</td></tr>
+              <tr><td>Physical</td><td>Aggression, Fighting, Bravery</td></tr>
+              <tr><td>Goaltending Tactics</td><td>Positioning, Rebound, Recovery</td></tr>
+              <tr><td>Goaltending Technique</td><td>Blocker, Glove, Low Shots</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="gm-help-tips__subsection-title">Progress &amp; timing</h3>
+        <p>Assign programs between July 7 and the last preseason day—later starts are less effective and riskier. Non-general slots are limited (often 5–10, up to ~14 with strong coaches). Players can only switch programs while on General Training.</p>
+        <p>Progress runs 0→100 from games, development camp, preseason days, and slow off-season gains. Hitting 100 before preseason ends grants an immediate +1 and ends the program. If incomplete at preseason end, improvement chance equals progress%; failure can rarely reduce a targeted attribute.</p>
+
+        <h3 class="gm-help-tips__subsection-title">Targeted training</h3>
+        <p>Pick a specific skill (or General) per category column. Targeting slows development slightly—more so above 15—and heavily favors that skill on improvement rolls. Attributes already at 20+ cannot be targeted.</p>
+      </section>
+
+      <section id="help-chemistry" class="card gm-help-tips__section" aria-labelledby="help-chemistry-h">
+        <h2 id="help-chemistry-h" class="gm-help-tips__section-title">Team harmony</h2>
+        <p><strong>Team Harmony</strong> tracks personalities, conflicts, cliques, and happiness.</p>
+        <p>High-controversy players generate more <strong>Incidents</strong>, especially when the GM has low discipline. Incidents create <strong>Conflicts</strong> that lower harmony and happiness.</p>
+        <p><strong>Cliques</strong> form as teammates take sides, escalating future incidents. Conflicts and cliques fade over time (faster with good Likability and Professionalism) or end when you trade, transfer, or release involved players—farm assignments only slightly mitigate conflict.</p>
+        <aside class="gm-help-tips__callout">
+          <strong>GM tip:</strong> Address locker-room problems before they compound. One disruptive veteran can drag down multiple lines worth of morale.
+        </aside>
+      </section>
+
+      <section id="help-finances" class="card gm-help-tips__section" aria-labelledby="help-finances-h">
+        <h2 id="help-finances-h" class="gm-help-tips__section-title">Finances</h2>
+
+        <h3 class="gm-help-tips__subsection-title">Annual finances (July 1)</h3>
+        <p>Adjust long-term settings once per year on July 1 (frozen after advancing a day):</p>
+        <ul class="gm-help-tips__def-list">
+          <li><strong>Ticket prices</strong> — affects revenue, attendance, and fan loyalty.</li>
+          <li><strong>Arena improvements</strong> — one-time spend for seating or premium conversions.</li>
+          <li><strong>New arena</strong> — major capital project (player-initiated only).</li>
+          <li><strong>Wage budget</strong> — player payroll cap; also drives staff budget.</li>
+          <li><strong>Transfer budget</strong> — cash purchase limit in applicable leagues.</li>
+          <li><strong>Player development / youth system</strong> — development bonus and junior attraction.</li>
+          <li><strong>Strategic marketing</strong> — fan loyalty investment.</li>
+          <li><strong>Owner profit-taking</strong> — owner may skim surplus based on patience rating.</li>
+        </ul>
+        <p>Enable Assistant in Team Control Settings for AI finance management (AI will not build a new arena).</p>
+
+        <h3 class="gm-help-tips__subsection-title">Monthly finances</h3>
+        <p>Calculated on the first of each month. Revenue streams include game revenue (season tickets and luxury boxes announced seven days before the regular season), broadcast shares, sponsorship/merchandising, owner contributions, and transfer income. Expenses include fixed costs and payroll.</p>
+
+        <h3 class="gm-help-tips__subsection-title">Monthly operations budget</h3>
+        <p>Editable on the first of each month (settings carry forward unless changed):</p>
+        <div class="gm-help-tips__tip-grid">
+          <article class="gm-help-tips__tip-card">
+            <h4 class="gm-help-tips__tip-card-title">Scouting support</h4>
+            <p>Funds travel and operations; adds up to +5 scouting strength beyond staff ratings.</p>
+          </article>
+          <article class="gm-help-tips__tip-card">
+            <h4 class="gm-help-tips__tip-card-title">Team morale</h4>
+            <p>Road-trip and facility quality—happiness bonus/penalty for active and IR players.</p>
+          </article>
+          <article class="gm-help-tips__tip-card">
+            <h4 class="gm-help-tips__tip-card-title">Promotions &amp; arena ops</h4>
+            <p>Marketing and in-game experience spending to boost home attendance.</p>
+          </article>
+        </div>
+        <p class="muted">Payroll and starting funds are informational—change them by altering roster or staff, not by editing the finance screen directly.</p>
+      </section>
+    </div>
+  </div>
+</div>
+{% endblock %}

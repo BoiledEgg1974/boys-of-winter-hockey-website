@@ -15,7 +15,7 @@ from app.services.trade_log import TradeLogRow
 
 
 class TradeAiOpinionPromptTests(unittest.TestCase):
-    def test_manual_sends_blocks_are_rewritten_as_trade_directions(self) -> None:
+    def test_manual_sends_blocks_are_rewritten_as_visible_card_acquisitions(self) -> None:
         row = TradeLogRow(
             sort_at=datetime(2026, 5, 12),
             trade_date=date(2026, 5, 12),
@@ -38,15 +38,44 @@ class TradeAiOpinionPromptTests(unittest.TestCase):
 
         prompt = build_logged_trade_prompt_block(row)
 
-        self.assertIn("Boston Bruins traded away: Bobby Hull; Harry Howell", prompt)
+        self.assertIn("Visible trade card interpretation (authoritative):", prompt)
         self.assertIn(
-            "Montreal Canadiens received from Boston Bruins: Bobby Hull; Harry Howell",
+            "Montreal Canadiens acquired: Bobby Hull; Harry Howell",
             prompt,
         )
         self.assertIn(
-            "Do not describe an asset as acquired by the same team whose 'sends' block lists it.",
+            "Boston Bruins acquired: Ron Schock; 1970 1st Round (MTL)",
             prompt,
         )
+        self.assertNotIn("Summary / details:", prompt)
+
+    def test_logged_trade_tool_sends_to_blocks_match_visible_card_direction(self) -> None:
+        row = TradeLogRow(
+            sort_at=datetime(2026, 6, 8),
+            trade_date=date(2026, 6, 8),
+            team_a=None,
+            team_b=None,
+            title="Trade: Buffalo Sabres ↔ New York Rangers",
+            body=(
+                "New York Rangers sends to Buffalo Sabres:\n"
+                "  • D Radek Martinek\n"
+                "  • D Steve Duchesne\n\n"
+                "Buffalo Sabres sends to New York Rangers:\n"
+                "  • LW Jaroslav Bednar\n"
+                "  • 2001 BUF 3rd Round pick\n\n"
+                "Approved by the league office."
+            ),
+            source="site",
+            team_a_label="Buffalo Sabres",
+            team_b_label="New York Rangers",
+            article_id=536,
+        )
+
+        prompt = build_logged_trade_prompt_block(row)
+
+        self.assertIn("Buffalo Sabres acquired: D Radek Martinek; D Steve Duchesne", prompt)
+        self.assertIn("New York Rangers acquired: LW Jaroslav Bednar; 2001 BUF 3rd Round pick", prompt)
+        self.assertNotIn("Summary / details:", prompt)
 
     def test_hypothetical_prompt_includes_authoritative_received_direction(self) -> None:
         session = SimpleNamespace()

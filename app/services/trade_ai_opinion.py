@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from app.models import Player, Team
 from app.services.player_overall_score import compute_player_overall_100, player_is_goalie_for_overall
 from app.services.player_ratings_csv import get_player_ratings_row
-from app.services.trade_log import TradeLogRow, format_recent_trades_for_prompt, trade_log_source_label
+from app.services.trade_log import TradeLogRow, format_recent_trades_for_prompt, trade_log_card_view, trade_log_source_label
 from app.services.trade_tool import describe_drag_key, format_ledger_summary
 
 _LAST_CALL_BY_USER: dict[int, float] = {}
@@ -134,49 +134,31 @@ def build_logged_trade_prompt_block(row: TradeLogRow) -> str:
         f"Headline: {row.title}",
     ]
     body = (row.body or "").strip()
-    direction = _logged_trade_direction_block(body)
+    direction = _logged_trade_direction_block(row)
     if direction:
         lines.extend(["", direction])
-    if body:
+    if body and not direction:
         lines.extend(["", "Summary / details:", body[:4000]])
     return "\n".join(lines)
 
 
-def _logged_trade_direction_block(body: str) -> str:
-    """Turn manual ``Team sends:`` summaries into unambiguous traded-away/received lines."""
-    blocks = [b.strip() for b in (body or "").strip().split("\n\n", 1)]
-    if len(blocks) != 2:
+def _logged_trade_direction_block(row: TradeLogRow) -> str:
+    """Use the same acquired-side interpretation as the visible trade-log card."""
+    view = trade_log_card_view(row)
+    team_a = view.team_a.team_label
+    team_b = view.team_b.team_label
+    acquired_by_a = list(view.team_a.acquired)
+    acquired_by_b = list(view.team_b.acquired)
+    if not acquired_by_a and not acquired_by_b:
         return ""
-
-    def _parse_sends_block(block: str) -> tuple[str, list[str]] | None:
-        lines = [ln.strip() for ln in block.splitlines() if ln.strip()]
-        if len(lines) < 2:
-            return None
-        heading = lines[0]
-        if not heading.lower().endswith(" sends:"):
-            return None
-        team = heading[: -len(" sends:")].strip()
-        assets = lines[1:]
-        if not team or not assets:
-            return None
-        return team, assets
-
-    left = _parse_sends_block(blocks[0])
-    right = _parse_sends_block(blocks[1])
-    if not left or not right:
-        return ""
-    team_a, sent_by_a = left
-    team_b, sent_by_b = right
-    fmt_a = "; ".join(sent_by_a)
-    fmt_b = "; ".join(sent_by_b)
+    fmt_a = "; ".join(acquired_by_a) or "future considerations"
+    fmt_b = "; ".join(acquired_by_b) or "future considerations"
     return "\n".join(
         [
-            "Directional interpretation (authoritative):",
-            f"- {team_a} traded away: {fmt_a}",
-            f"- {team_b} traded away: {fmt_b}",
-            f"- {team_a} received from {team_b}: {fmt_b}",
-            f"- {team_b} received from {team_a}: {fmt_a}",
-            "Do not describe an asset as acquired by the same team whose 'sends' block lists it.",
+            "Visible trade card interpretation (authoritative):",
+            f"- {team_a} acquired: {fmt_a}",
+            f"- {team_b} acquired: {fmt_b}",
+            f"- Do not reverse these sides. If the public card shows an asset under {team_a}, treat it as acquired by {team_a}.",
         ]
     )
 

@@ -3671,6 +3671,333 @@
     renderChart();
   }
 
+  function initStandingsTrendCharts() {
+    var root = document.getElementById("standings-trends");
+    var dataEl = document.getElementById("standings-trends-data");
+    if (!root || !dataEl) return;
+    var payload;
+    try {
+      payload = JSON.parse(dataEl.textContent || "{}");
+    } catch (_e) {
+      return;
+    }
+    var teams = payload.teams || [];
+    if (!teams.length) return;
+
+    var leagueLogoUrl = root.getAttribute("data-league-logo-url") || "";
+    var chartWrap = root.querySelector("[data-standings-trend-chart-wrap]");
+    var chartSvg = root.querySelector("[data-standings-trend-chart]");
+    var tip = root.querySelector("[data-standings-trend-tooltip]");
+    if (!chartWrap || !chartSvg || !tip) return;
+
+    var reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var maxGp = Number(payload.max_gp || payload.rs_game_cap || 82);
+    if (!maxGp || maxGp < 1) maxGp = 82;
+    maxGp = Math.min(maxGp, Number(payload.rs_game_cap || 82));
+
+    function hideTip() {
+      tip.hidden = true;
+      tip.innerHTML = "";
+      chartSvg.querySelectorAll(".standings-trends__point.is-active").forEach(function (el) {
+        el.classList.remove("is-active");
+      });
+    }
+
+    function showTip(team, point, clientX, clientY) {
+      var line2 = point.result_line2
+        ? '<span class="standings-trends__tooltip-line">' + escapeHtml(point.result_line2) + "</span>"
+        : "";
+      tip.innerHTML =
+        '<span class="standings-trends__tooltip-line standings-trends__tooltip-line--result">' +
+        escapeHtml(point.result_line1 || "") +
+        "</span>" +
+        line2 +
+        '<span class="standings-trends__tooltip-line">' +
+        escapeHtml(String(point.points_total)) +
+        " Points After</span>" +
+        '<span class="standings-trends__tooltip-line">' +
+        escapeHtml(String(point.gp)) +
+        " Games</span>";
+      tip.hidden = false;
+      var wrapRect = chartWrap.getBoundingClientRect();
+      var lx = clientX - wrapRect.left + chartWrap.scrollLeft + 12;
+      var ly = clientY - wrapRect.top + chartWrap.scrollTop + 12;
+      lx = Math.max(8, Math.min(lx, chartWrap.scrollWidth - tip.offsetWidth - 8));
+      ly = Math.max(8, Math.min(ly, chartWrap.scrollHeight - tip.offsetHeight - 8));
+      tip.style.left = lx + "px";
+      tip.style.top = ly + "px";
+    }
+
+    function renderChart() {
+      chartSvg.innerHTML = "";
+      hideTip();
+
+      var plotted = [];
+      teams.forEach(function (team) {
+        var series = (team.points || []).filter(function (pt) {
+          return pt.gp <= maxGp && pt.value != null && isFinite(Number(pt.value));
+        });
+        if (!series.length) return;
+        plotted.push({
+          team: team,
+          series: series,
+          color: team.color || "#60a5fa",
+          finalValue: Number(series[series.length - 1].value),
+        });
+      });
+      if (!plotted.length) return;
+
+      var allValues = [];
+      plotted.forEach(function (p) {
+        p.series.forEach(function (pt) {
+          allValues.push(Number(pt.value));
+        });
+      });
+      var minY = Math.min.apply(null, allValues);
+      var maxY = Math.max.apply(null, allValues);
+      if (minY === maxY) {
+        minY -= 1;
+        maxY += 1;
+      }
+      var padY = (maxY - minY) * 0.08;
+      minY -= padY;
+      maxY += padY;
+
+      var width = 900;
+      var height = 320;
+      var pad = { top: 20, right: 28, bottom: 54, left: 56 };
+      var plotW = width - pad.left - pad.right;
+      var plotH = height - pad.top - pad.bottom;
+
+      chartSvg.setAttribute("viewBox", "0 0 " + width + " " + height);
+      chartSvg.setAttribute("width", "100%");
+      chartSvg.setAttribute("height", String(height));
+
+      var ns = "http://www.w3.org/2000/svg";
+      function svgEl(name, attrs) {
+        var el = document.createElementNS(ns, name);
+        Object.keys(attrs || {}).forEach(function (key) {
+          el.setAttribute(key, attrs[key]);
+        });
+        return el;
+      }
+
+      if (leagueLogoUrl) {
+        chartSvg.appendChild(
+          svgEl("image", {
+            href: leagueLogoUrl,
+            x: String(pad.left + plotW / 2 - 105),
+            y: String(pad.top + plotH / 2 - 105),
+            width: "210",
+            height: "210",
+            class: "standings-trends__watermark",
+            preserveAspectRatio: "xMidYMid meet",
+            "aria-hidden": "true",
+          })
+        );
+      }
+
+      var grid = svgEl("g", { class: "standings-trends__grid" });
+      for (var g = 0; g <= 4; g++) {
+        var gy = pad.top + (plotH * g) / 4;
+        grid.appendChild(
+          svgEl("line", {
+            x1: String(pad.left),
+            y1: String(gy),
+            x2: String(width - pad.right),
+            y2: String(gy),
+            class: "standings-trends__grid-line",
+          })
+        );
+        var tickVal = maxY - ((maxY - minY) * g) / 4;
+        var tick = svgEl("text", {
+          x: String(pad.left - 8),
+          y: String(gy + 4),
+          class: "standings-trends__axis-tick",
+          "text-anchor": "end",
+        });
+        tick.textContent = (tickVal > 0 ? "+" : "") + Math.round(tickVal);
+        grid.appendChild(tick);
+      }
+      chartSvg.appendChild(grid);
+
+      var zeroY = pad.top + plotH - ((0 - minY) / (maxY - minY)) * plotH;
+      if (zeroY >= pad.top && zeroY <= pad.top + plotH) {
+        chartSvg.appendChild(
+          svgEl("line", {
+            x1: String(pad.left),
+            y1: String(zeroY),
+            x2: String(width - pad.right),
+            y2: String(zeroY),
+            class: "standings-trends__zero-line",
+          })
+        );
+      }
+
+      var xTicks = Math.min(maxGp, 17);
+      var xStep = Math.max(1, Math.ceil(maxGp / xTicks));
+      for (var gx = 0; gx <= maxGp; gx += xStep) {
+        var gxPos = pad.left + (gx / Math.max(1, maxGp)) * plotW;
+        var xTick = svgEl("text", {
+          x: String(gxPos),
+          y: String(height - pad.bottom + 22),
+          class: "standings-trends__axis-tick standings-trends__axis-tick--x",
+          "text-anchor": "middle",
+        });
+        xTick.textContent = String(gx);
+        chartSvg.appendChild(xTick);
+      }
+
+      var axisY = svgEl("text", {
+        x: "12",
+        y: String(pad.top + plotH / 2),
+        class: "standings-trends__axis-title",
+        transform: "rotate(-90 12 " + String(pad.top + plotH / 2) + ")",
+        "text-anchor": "middle",
+      });
+      axisY.textContent = payload.y_axis_label || "Points Above Group Average";
+      chartSvg.appendChild(axisY);
+
+      var axisX = svgEl("text", {
+        x: String(pad.left + plotW / 2),
+        y: String(height - 8),
+        class: "standings-trends__axis-title standings-trends__axis-title--x",
+        "text-anchor": "middle",
+      });
+      axisX.textContent = payload.x_axis_label || "Games Played";
+      chartSvg.appendChild(axisX);
+
+      function xForGp(gp) {
+        if (maxGp <= 0) return pad.left + plotW / 2;
+        return pad.left + (Number(gp) / maxGp) * plotW;
+      }
+      function yForValue(value) {
+        return pad.top + plotH - ((Number(value) - minY) / (maxY - minY)) * plotH;
+      }
+
+      var hoverItems = [];
+      plotted.forEach(function (plot) {
+        var pathD = plot.series
+          .map(function (pt, idx) {
+            var cmd = idx === 0 ? "M" : "L";
+            return cmd + xForGp(pt.gp) + " " + yForValue(pt.value);
+          })
+          .join(" ");
+        chartSvg.appendChild(
+          svgEl("path", {
+            d: pathD,
+            class: "standings-trends__line" + (reducedMotion ? "" : " standings-trends__line--animate"),
+            fill: "none",
+            stroke: plot.color,
+            "data-team-id": String(plot.team.team_id),
+          })
+        );
+
+        plot.series.forEach(function (pt, idx) {
+          var isLatest = idx === plot.series.length - 1;
+          var cx = xForGp(pt.gp);
+          var cy = yForValue(pt.value);
+          if (isLatest && plot.team.logo_url) {
+            var logoSize = 18;
+            chartSvg.appendChild(
+              svgEl("image", {
+                href: plot.team.logo_url,
+                x: String(cx - logoSize / 2),
+                y: String(cy - logoSize / 2),
+                width: String(logoSize),
+                height: String(logoSize),
+                class: "standings-trends__latest-logo",
+                preserveAspectRatio: "xMidYMid meet",
+                "aria-hidden": "true",
+              })
+            );
+          }
+          var circle = svgEl("circle", {
+            cx: String(cx),
+            cy: String(cy),
+            r: isLatest && plot.team.logo_url ? "10" : "2.2",
+            class: "standings-trends__point" + (isLatest ? " standings-trends__point--latest" : ""),
+            fill: isLatest && plot.team.logo_url ? "transparent" : plot.color,
+            stroke: isLatest ? "#0f172a" : plot.color,
+            "stroke-width": isLatest ? "1" : "0.5",
+            tabindex: "0",
+            role: "button",
+            "aria-label": (plot.team.abbr || plot.team.name || "Team") + " game " + pt.gp,
+            "data-team-id": String(plot.team.team_id),
+          });
+          circle._trendTeam = plot.team;
+          circle._trendPoint = pt;
+          circle._trendX = cx;
+          circle._trendY = cy;
+          hoverItems.push({ team: plot.team, point: pt, el: circle, x: cx, y: cy });
+          chartSvg.appendChild(circle);
+        });
+      });
+
+      function activatePoint(circle, clientX, clientY) {
+        hideTip();
+        circle.classList.add("is-active");
+        showTip(circle._trendTeam, circle._trendPoint, clientX, clientY);
+      }
+
+      function svgPointFromEvent(e) {
+        if (!chartSvg.createSVGPoint) return null;
+        var matrix = chartSvg.getScreenCTM && chartSvg.getScreenCTM();
+        if (!matrix) return null;
+        var pt = chartSvg.createSVGPoint();
+        pt.x = e.clientX;
+        pt.y = e.clientY;
+        return pt.matrixTransform(matrix.inverse());
+      }
+
+      function activateNearestPoint(e) {
+        var pt = svgPointFromEvent(e);
+        if (!pt || pt.x < pad.left || pt.x > width - pad.right || pt.y < pad.top || pt.y > height - pad.bottom) {
+          hideTip();
+          return;
+        }
+        var nearest = null;
+        var best = Infinity;
+        hoverItems.forEach(function (item) {
+          var dx = item.x - pt.x;
+          var dy = item.y - pt.y;
+          var score = dx * dx + dy * dy;
+          if (score < best) {
+            best = score;
+            nearest = item;
+          }
+        });
+        if (!nearest || best > 900) {
+          hideTip();
+          return;
+        }
+        hideTip();
+        nearest.el.classList.add("is-active");
+        showTip(nearest.team, nearest.point, e.clientX, e.clientY);
+      }
+
+      chartSvg.onpointermove = activateNearestPoint;
+      chartSvg.onpointerleave = hideTip;
+
+      chartSvg.querySelectorAll(".standings-trends__point").forEach(function (circle) {
+        circle.addEventListener("pointerenter", function (e) {
+          activatePoint(circle, e.clientX, e.clientY);
+        });
+        circle.addEventListener("pointermove", function (e) {
+          if (!tip.hidden) showTip(circle._trendTeam, circle._trendPoint, e.clientX, e.clientY);
+        });
+        circle.addEventListener("pointerleave", hideTip);
+        circle.addEventListener("focus", function () {
+          var rect = circle.getBoundingClientRect();
+          activatePoint(circle, rect.left + rect.width / 2, rect.top);
+        });
+        circle.addEventListener("blur", hideTip);
+      });
+    }
+
+    renderChart();
+  }
+
   function initAdvancedStatsDivisionTooltips() {
     var targets = document.querySelectorAll("[data-division-chart-team]");
     if (!targets.length) return;
@@ -3741,6 +4068,7 @@
     initTeamPlayerAnalyticsCharts();
     initTeamPlayerTrendCharts();
     initTeamStatsTrendCharts();
+    initStandingsTrendCharts();
     initAdvancedStatsDivisionTooltips();
     document.querySelectorAll("table[data-team-depth-prospects-page-size]").forEach(function (table) {
       var tbody = table.tBodies && table.tBodies[0];

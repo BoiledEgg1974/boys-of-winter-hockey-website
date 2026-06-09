@@ -164,6 +164,20 @@
   {% endif %}
 </div>
 
+{% if standings_trend_chart and standings_trend_chart.teams %}
+<section class="card standings-trends" id="standings-trends" data-league-logo-url="{{ league_logo_url() }}" aria-labelledby="standings-trends-h">
+  <h2 id="standings-trends-h" class="standings-trends__title">{{ standings_trend_chart.title }}</h2>
+  <p class="muted standings-trends__intro">Regular-season standings points relative to the group average at each games-played mark.</p>
+  <div class="standings-trends__body">
+    <div class="standings-trends__chart-wrap" data-standings-trend-chart-wrap>
+      <svg class="standings-trends__chart" data-standings-trend-chart role="img" aria-label="{{ standings_trend_chart.title }} standings trend"></svg>
+      <div class="standings-trends__tooltip" data-standings-trend-tooltip hidden></div>
+    </div>
+  </div>
+  <script type="application/json" id="standings-trends-data">{{ standings_trend_chart | tojson }}</script>
+</section>
+{% endif %}
+
 {{ team_stats_panel("TEAM STATISTICS (REGULAR SEASON)", team_stat_rows_rs) }}
 {% if season and not team_stat_rows_rs %}
 <div class="card">

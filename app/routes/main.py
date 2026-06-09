@@ -685,6 +685,19 @@ def standings():
             logo_season_year=logo_sy,
         )
 
+    from app.services.standings import build_standings_trend_chart
+
+    standings_trend_chart = build_standings_trend_chart(
+        db.session,
+        int(season.id) if season else None,
+        rows,
+        view=view,
+        sel_conference=selected_conf,
+        sel_division=div if view == "division" and div in division_names else None,
+        logo_season_year=logo_sy,
+        league_display_name=str(current_app.config.get("LEAGUE_DISPLAY_NAME") or "League"),
+    )
+
     return render_template(
         "standings.html",
         season=season,
@@ -693,6 +706,7 @@ def standings():
         standings_ctx=standings_ctx,
         power_ranking_rows=power_ranking_rows,
         team_stat_rows_rs=team_stat_rows_rs,
+        standings_trend_chart=standings_trend_chart,
         view=view,
         conferences=conferences,
         conference_names=conf_names,

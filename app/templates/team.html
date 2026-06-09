@@ -419,6 +419,53 @@
   {% endif %}
 </div>
 </div>
+{% if team_stats_trends and team_stats_trends.seasons %}
+<section class="card team-stats-trends" id="team-stats-trends" aria-labelledby="team-stats-trends-heading" data-team-logo-url="{{ team_logo_url_for_season_context(team, era_season) }}" style="--team-stats-trend-line: {{ ph }}; --team-stats-trend-accent: {{ sh }};">
+  <div class="team-stats-trends__head">
+    <div>
+      <h2 id="team-stats-trends-heading" class="team-stats-trends__title">Team Stats Trend Lines</h2>
+      <p class="muted team-stats-trends__intro">Team game-summary trends from imported FHM data. SQ buckets are shot-quality proxies, not expected goals.</p>
+    </div>
+    <div class="team-stats-trends__controls" data-team-stats-trend-controls>
+      <label class="team-stats-trends__control">
+        <span class="team-stats-trends__control-label">Season</span>
+        <select data-team-stats-trend-season aria-label="Team stats trend season"></select>
+      </label>
+      <label class="team-stats-trends__control">
+        <span class="team-stats-trends__control-label">Segment</span>
+        <select data-team-stats-trend-segment aria-label="Team stats trend segment"></select>
+      </label>
+      <label class="team-stats-trends__control">
+        <span class="team-stats-trends__control-label">Situation</span>
+        <select data-team-stats-trend-situation aria-label="Team stats trend situation"></select>
+      </label>
+      <label class="team-stats-trends__control">
+        <span class="team-stats-trends__control-label">Basis</span>
+        <select data-team-stats-trend-basis aria-label="Team stats trend basis">
+          <option value="totals">Totals</option>
+          <option value="per_game">Per Game</option>
+        </select>
+      </label>
+      <label class="team-stats-trends__control">
+        <span class="team-stats-trends__control-label">Trend</span>
+        <select data-team-stats-trend-mode aria-label="Team stats trend mode"></select>
+      </label>
+      <label class="team-stats-trends__control team-stats-trends__control--metric">
+        <span class="team-stats-trends__control-label">Metric</span>
+        <select data-team-stats-trend-metric aria-label="Team stats trend metric"></select>
+      </label>
+    </div>
+  </div>
+  <div class="team-stats-trends__body">
+    <div class="team-stats-trends__chart-wrap" data-team-stats-trend-chart-wrap>
+      <svg class="team-stats-trends__chart" data-team-stats-trend-chart role="img" aria-label="Team stats cumulative trend chart"></svg>
+    </div>
+    <div class="team-stats-trends__tooltip" data-team-stats-trend-tooltip role="tooltip" hidden></div>
+  </div>
+  <p class="muted team-stats-trends__empty" data-team-stats-trend-empty hidden>No team game-summary trends available for this season and segment yet.</p>
+  <script type="application/json" id="team-stats-trends-data">{{ team_stats_trends | tojson }}</script>
+</section>
+{% endif %}
 <div class="team-management-tabs" id="team-management-tabs">
   <a class="team-management-tabs__btn{% if active_panel == 'roster' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='roster') }}">Roster</a>
   <a class="team-management-tabs__btn{% if active_panel == 'depth' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='depth') }}">Depth Chart</a>
@@ -805,5 +852,110 @@
     {% endfor %}
   </ul>
 </div>
+{% endif %}
+{% if team_player_analytics and team_player_analytics.seasons %}
+<section class="card team-player-analytics" id="team-player-analytics" aria-labelledby="team-player-analytics-heading">
+  <div class="team-player-analytics__head">
+    <div>
+      <h2 id="team-player-analytics-heading" class="team-player-analytics__title">Player Analytics Map</h2>
+      <p class="muted team-player-analytics__intro">Team player process map from imported FHM season stats and game summaries. SQ buckets are shot-quality proxies, not expected goals.</p>
+    </div>
+    <div class="team-player-analytics__controls" data-team-player-chart-controls>
+      <label class="team-player-analytics__control">
+        <span class="team-player-analytics__control-label">Season</span>
+        <select data-team-player-chart-season aria-label="Player chart season"></select>
+      </label>
+      <label class="team-player-analytics__control">
+        <span class="team-player-analytics__control-label">Segment</span>
+        <select data-team-player-chart-segment aria-label="Player chart stat segment"></select>
+      </label>
+      <label class="team-player-analytics__control">
+        <span class="team-player-analytics__control-label">Players</span>
+        <select data-team-player-chart-kind aria-label="Player chart mode">
+          <option value="skater">Skaters</option>
+          <option value="goalie">Goalies</option>
+        </select>
+      </label>
+      <label class="team-player-analytics__control">
+        <span class="team-player-analytics__control-label">X Axis</span>
+        <select data-team-player-chart-x aria-label="Player chart X axis metric"></select>
+      </label>
+      <label class="team-player-analytics__control">
+        <span class="team-player-analytics__control-label">Y Axis</span>
+        <select data-team-player-chart-y aria-label="Player chart Y axis metric"></select>
+      </label>
+      <label class="team-player-analytics__control">
+        <span class="team-player-analytics__control-label">Scale</span>
+        <select data-team-player-chart-norm aria-label="Player chart normalization">
+          <option value="raw">Season totals / rates</option>
+          <option value="per_game">Per game</option>
+          <option value="per_60">Per 60</option>
+        </select>
+      </label>
+    </div>
+  </div>
+  <div class="team-player-analytics__body">
+    <div class="team-player-analytics__plot-wrap">
+      <div class="team-player-analytics__plot" data-team-player-chart-plot role="img" aria-label="Team player analytics scatter map">
+        <img class="team-player-analytics__watermark" src="{{ team_logo_url_for_season_context(team, era_season) }}" alt="" aria-hidden="true" loading="lazy" decoding="async">
+        <span class="team-player-analytics__quad team-player-analytics__quad--tl" data-team-player-chart-quad="tl">Finishing Lucky</span>
+        <span class="team-player-analytics__quad team-player-analytics__quad--tr" data-team-player-chart-quad="tr">Sniper</span>
+        <span class="team-player-analytics__quad team-player-analytics__quad--bl" data-team-player-chart-quad="bl">Bad</span>
+        <span class="team-player-analytics__quad team-player-analytics__quad--br" data-team-player-chart-quad="br">Unlucky</span>
+        <span class="team-player-analytics__midline team-player-analytics__midline--x" data-team-player-chart-midline-x></span>
+        <span class="team-player-analytics__midline team-player-analytics__midline--y" data-team-player-chart-midline-y></span>
+        <span class="team-player-analytics__axis-label team-player-analytics__axis-label--x" data-team-player-chart-axis-x></span>
+        <span class="team-player-analytics__axis-label team-player-analytics__axis-label--y" data-team-player-chart-axis-y></span>
+        <div class="team-player-analytics__points" data-team-player-chart-points></div>
+      </div>
+    </div>
+  </div>
+  <p class="muted team-player-analytics__empty" data-team-player-chart-empty hidden>No player analytics available for this season and segment yet.</p>
+  <script type="application/json" id="team-player-analytics-data" data-static-base="{{ url_for('static', filename='') }}">{{ team_player_analytics | tojson }}</script>
+</section>
+{% endif %}
+{% if team_player_trends and team_player_trends.seasons %}
+<section class="card team-player-trends" id="team-player-trends" aria-labelledby="team-player-trends-heading" data-team-logo-url="{{ team_logo_url_for_season_context(team, era_season) }}">
+  <div class="team-player-trends__head">
+    <div>
+      <h2 id="team-player-trends-heading" class="team-player-trends__title">Player Trend Lines</h2>
+      <p class="muted team-player-trends__intro">Cumulative player trends from imported FHM game summaries. SQ buckets are shot-quality proxies, not expected goals.</p>
+    </div>
+    <div class="team-player-trends__controls" data-team-player-trend-controls>
+      <label class="team-player-trends__control">
+        <span class="team-player-trends__control-label">Season</span>
+        <select data-team-player-trend-season aria-label="Player trend season"></select>
+      </label>
+      <label class="team-player-trends__control">
+        <span class="team-player-trends__control-label">Segment</span>
+        <select data-team-player-trend-segment aria-label="Player trend stat segment"></select>
+      </label>
+      <label class="team-player-trends__control">
+        <span class="team-player-trends__control-label">Players</span>
+        <select data-team-player-trend-kind aria-label="Player trend mode">
+          <option value="skater">Skaters</option>
+          <option value="goalie">Goalies</option>
+        </select>
+      </label>
+      <label class="team-player-trends__control">
+        <span class="team-player-trends__control-label">Metric</span>
+        <select data-team-player-trend-metric aria-label="Player trend metric"></select>
+      </label>
+      <label class="team-player-trends__control">
+        <span class="team-player-trends__control-label">Filter</span>
+        <select data-team-player-trend-position aria-label="Player trend position filter"></select>
+      </label>
+    </div>
+  </div>
+  <div class="team-player-trends__body">
+    <div class="team-player-trends__chart-wrap" data-team-player-trend-chart-wrap>
+      <svg class="team-player-trends__chart" data-team-player-trend-chart role="img" aria-label="Team player cumulative trend chart"></svg>
+      <div class="team-player-trends__labels" data-team-player-trend-labels></div>
+    </div>
+    <div class="team-player-trends__tooltip" data-team-player-trend-tooltip role="tooltip" hidden></div>
+  </div>
+  <p class="muted team-player-trends__empty" data-team-player-trend-empty hidden>No game-summary trends available for this season and segment yet.</p>
+  <script type="application/json" id="team-player-trends-data" data-static-base="{{ url_for('static', filename='') }}">{{ team_player_trends | tojson }}</script>
+</section>
 {% endif %}
 {% endblock %}

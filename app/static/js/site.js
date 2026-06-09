@@ -2196,6 +2196,1481 @@
     renderChart();
   }
 
+  function initTeamPlayerAnalyticsCharts() {
+    var root = document.getElementById("team-player-analytics");
+    var dataEl = document.getElementById("team-player-analytics-data");
+    if (!root || !dataEl) return;
+    var archive;
+    try {
+      archive = JSON.parse(dataEl.textContent || "{}");
+    } catch (_e) {
+      return;
+    }
+    var staticBase = dataEl.getAttribute("data-static-base") || "";
+    var segments = archive.segments || [];
+    var seasons = archive.seasons || [];
+    var datasets = archive.datasets || {};
+    if (!seasons.length) {
+      var emptyOnly = root.querySelector("[data-team-player-chart-empty]");
+      if (emptyOnly) emptyOnly.hidden = false;
+      return;
+    }
+
+    var seasonSel = root.querySelector("[data-team-player-chart-season]");
+    var segmentSel = root.querySelector("[data-team-player-chart-segment]");
+    var kindSel = root.querySelector("[data-team-player-chart-kind]");
+    var xSel = root.querySelector("[data-team-player-chart-x]");
+    var ySel = root.querySelector("[data-team-player-chart-y]");
+    var normSel = root.querySelector("[data-team-player-chart-norm]");
+    var pointsWrap = root.querySelector("[data-team-player-chart-points]");
+    var axisX = root.querySelector("[data-team-player-chart-axis-x]");
+    var axisY = root.querySelector("[data-team-player-chart-axis-y]");
+    var midX = root.querySelector("[data-team-player-chart-midline-x]");
+    var midY = root.querySelector("[data-team-player-chart-midline-y]");
+    var empty = root.querySelector("[data-team-player-chart-empty]");
+    if (!seasonSel || !segmentSel || !kindSel || !xSel || !ySel || !normSel || !pointsWrap) return;
+
+    var tip = document.createElement("div");
+    tip.className = "team-player-analytics-tooltip";
+    tip.setAttribute("role", "tooltip");
+    tip.hidden = true;
+    document.body.appendChild(tip);
+
+    function fillSelect(sel, options, selected) {
+      sel.innerHTML = "";
+      options.forEach(function (opt) {
+        var o = document.createElement("option");
+        o.value = opt.value;
+        o.textContent = opt.label;
+        if (String(opt.value) === String(selected)) o.selected = true;
+        sel.appendChild(o);
+      });
+    }
+
+    fillSelect(
+      seasonSel,
+      seasons.map(function (s) {
+        return { value: s.id, label: s.label };
+      }),
+      archive.default_season_id
+    );
+    fillSelect(
+      segmentSel,
+      segments.map(function (s) {
+        return { value: s.key, label: s.label };
+      }),
+      archive.default_segment || "rs"
+    );
+    kindSel.value = archive.default_kind || "skater";
+    normSel.value = archive.default_norm || "per_game";
+
+    function metricsForKind(kind) {
+      return kind === "goalie" ? archive.goalie_metrics || [] : archive.skater_metrics || [];
+    }
+
+    function metricByKey(kind) {
+      var map = {};
+      metricsForKind(kind).forEach(function (m) {
+        map[m.key] = m;
+      });
+      return map;
+    }
+
+    function refreshMetricSelects() {
+      var kind = kindSel.value;
+      var defs = metricsForKind(kind);
+      var xDefault = kind === "goalie" ? archive.default_x_goalie : archive.default_x_skater;
+      var yDefault = kind === "goalie" ? archive.default_y_goalie : archive.default_y_skater;
+      var opts = defs.map(function (m) {
+        return { value: m.key, label: m.label };
+      });
+      fillSelect(xSel, opts, xDefault || (defs[0] ? defs[0].key : ""));
+      fillSelect(ySel, opts, yDefault || (defs[1] ? defs[1].key : defs[0] ? defs[0].key : ""));
+    }
+    refreshMetricSelects();
+
+    function datasetKey() {
+      return String(seasonSel.value) + "|" + String(segmentSel.value) + "|" + String(kindSel.value);
+    }
+
+    function currentPlayers() {
+      var ds = datasets[datasetKey()];
+      return ds && ds.players ? ds.players : [];
+    }
+
+    function metricValue(player, key, norm, meta) {
+      var m = player.metrics || {};
+      var raw = m[key];
+      if (raw == null || raw === "") {
+        if (norm === "per_60" && m[key + "_per_60"] != null) return Number(m[key + "_per_60"]);
+        return null;
+      }
+      var num = Number(raw);
+      if (!isFinite(num)) return null;
+      if (norm === "per_60") {
+        if (m[key + "_per_60"] != null) return Number(m[key + "_per_60"]);
+        if (!meta.per_60) return num;
+        return null;
+      }
+      if (norm === "per_game" && meta.per_game) {
+        var gp = m.gp ? Number(m.gp) : 0;
+        if (!gp) return null;
+        return num / gp;
+      }
+      return num;
+    }
+
+    function metricLabel(key, norm, meta) {
+      if (norm === "per_game" && meta.per_game) return meta.label + " Per Game";
+      if (norm === "per_60" && (meta.per_60 || meta.per_game)) return meta.label + " Per 60";
+      return meta.label;
+    }
+
+    function formatMetric(key, value, meta) {
+      var dec = meta.decimals != null ? meta.decimals : 2;
+      return Number(value).toFixed(dec);
+    }
+
+    function playerInitials(name) {
+      var parts = String(name || "").trim().split(/\s+/);
+      if (!parts.length) return "?";
+      if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+
+    function updateQuadrants(xMeta, yMeta) {
+      var xHigh = (xMeta && xMeta.better) === "high";
+      var yHigh = (yMeta && yMeta.better) === "high";
+      var labels = { tl: "Low/Low", tr: "High/High", bl: "Low/Low", br: "Strong" };
+      if (xHigh && !yHigh) labels = { tl: "Finishing Lucky", tr: "Sniper", bl: "Bad", br: "Unlucky" };
+      else if (xHigh && yHigh) labels = { tl: "Low/Low", tr: "High/High", bl: "Low/Low", br: "Strong" };
+      else if (!xHigh && !yHigh) labels = { tl: "Strong", tr: "Mixed", bl: "Mixed", br: "Weak" };
+      root.querySelectorAll("[data-team-player-chart-quad]").forEach(function (el) {
+        var pos = el.getAttribute("data-team-player-chart-quad");
+        if (pos && labels[pos]) el.textContent = labels[pos];
+      });
+    }
+
+    function renderChart() {
+      var players = currentPlayers();
+      var kind = kindSel.value;
+      var defs = metricByKey(kind);
+      var xKey = xSel.value;
+      var yKey = ySel.value;
+      var norm = normSel.value;
+      var xMeta = defs[xKey] || { decimals: 2 };
+      var yMeta = defs[yKey] || { decimals: 2 };
+      if (!players.length) {
+        pointsWrap.innerHTML = "";
+        if (empty) empty.hidden = false;
+        return;
+      }
+      if (empty) empty.hidden = true;
+
+      var plotted = [];
+      players.forEach(function (player) {
+        var xv = metricValue(player, xKey, norm, xMeta);
+        var yv = metricValue(player, yKey, norm, yMeta);
+        if (xv == null || yv == null) return;
+        plotted.push({ player: player, x: xv, y: yv });
+      });
+      if (!plotted.length) {
+        pointsWrap.innerHTML = "";
+        if (empty) empty.hidden = false;
+        return;
+      }
+
+      var xs = plotted.map(function (p) {
+        return p.x;
+      });
+      var ys = plotted.map(function (p) {
+        return p.y;
+      });
+      var minX = Math.min.apply(null, xs);
+      var maxX = Math.max.apply(null, xs);
+      var minY = Math.min.apply(null, ys);
+      var maxY = Math.max.apply(null, ys);
+      if (minX === maxX) {
+        minX -= 1;
+        maxX += 1;
+      }
+      if (minY === maxY) {
+        minY -= 1;
+        maxY += 1;
+      }
+      var padX = (maxX - minX) * 0.1;
+      var padY = (maxY - minY) * 0.1;
+      minX -= padX;
+      maxX += padX;
+      minY -= padY;
+      maxY += padY;
+
+      var avgX = xs.reduce(function (a, b) {
+        return a + b;
+      }, 0) / xs.length;
+      var avgY = ys.reduce(function (a, b) {
+        return a + b;
+      }, 0) / ys.length;
+      if (midX) midX.style.left = ((avgX - minX) / (maxX - minX)) * 100 + "%";
+      if (midY) midY.style.top = 100 - ((avgY - minY) / (maxY - minY)) * 100 + "%";
+      if (axisX) axisX.textContent = metricLabel(xKey, norm, xMeta);
+      if (axisY) axisY.textContent = metricLabel(yKey, norm, yMeta);
+      updateQuadrants(xMeta, yMeta);
+
+      var existing = {};
+      Array.from(pointsWrap.querySelectorAll("[data-team-player-chart-point]")).forEach(function (el) {
+        existing[el.getAttribute("data-player-id")] = el;
+      });
+
+      plotted.forEach(function (p) {
+        var left = ((p.x - minX) / (maxX - minX)) * 100;
+        var top = 100 - ((p.y - minY) / (maxY - minY)) * 100;
+        var id = String(p.player.player_id);
+        var el = existing[id];
+        if (!el) {
+          el = document.createElement("a");
+          el.className = "team-player-analytics__point";
+          el.setAttribute("data-team-player-chart-point", "1");
+          el.setAttribute("data-player-id", id);
+          el.href = withRoot("/player/" + id);
+          var marker = document.createElement("span");
+          marker.className = "team-player-analytics__marker";
+          var img = document.createElement("img");
+          img.className = "team-player-analytics__headshot";
+          img.alt = "";
+          var initials = document.createElement("span");
+          initials.className = "team-player-analytics__initials";
+          marker.appendChild(img);
+          marker.appendChild(initials);
+          el.appendChild(marker);
+          pointsWrap.appendChild(el);
+        }
+        var imgEl = el.querySelector(".team-player-analytics__headshot");
+        var initEl = el.querySelector(".team-player-analytics__initials");
+        if (p.player.headshot_rel && imgEl) {
+          imgEl.src = staticBase + p.player.headshot_rel;
+          imgEl.hidden = false;
+          if (initEl) initEl.hidden = true;
+        } else {
+          if (imgEl) imgEl.hidden = true;
+          if (initEl) {
+            initEl.textContent = playerInitials(p.player.name);
+            initEl.hidden = false;
+          }
+        }
+        el.style.setProperty("--point-left", left + "%");
+        el.style.setProperty("--point-top", top + "%");
+        el.setAttribute("data-player-name", p.player.name || "Player");
+        el.setAttribute("data-player-position", p.player.position || "");
+        el.setAttribute("data-x-label", metricLabel(xKey, norm, xMeta));
+        el.setAttribute("data-y-label", metricLabel(yKey, norm, yMeta));
+        el.setAttribute("data-x-value", formatMetric(xKey, p.x, xMeta));
+        el.setAttribute("data-y-value", formatMetric(yKey, p.y, yMeta));
+        el.setAttribute("data-gp", p.player.metrics && p.player.metrics.gp != null ? String(p.player.metrics.gp) : "");
+        if (kind === "goalie") {
+          el.setAttribute("data-extra-1", "GSAA: " + (p.player.metrics.gsaa != null ? Number(p.player.metrics.gsaa).toFixed(2) : "—"));
+          el.setAttribute("data-extra-2", "SV%: " + (p.player.metrics.sv_pct != null ? Number(p.player.metrics.sv_pct).toFixed(3) : "—"));
+        } else {
+          el.setAttribute("data-extra-1", "CF%: " + (p.player.metrics.cf_pct != null ? Number(p.player.metrics.cf_pct).toFixed(1) : "—"));
+          el.setAttribute("data-extra-2", "PTS/60: " + (p.player.metrics.pts_per_60 != null ? Number(p.player.metrics.pts_per_60).toFixed(2) : "—"));
+        }
+        delete existing[id];
+      });
+      Object.keys(existing).forEach(function (id) {
+        if (existing[id] && existing[id].parentNode) existing[id].parentNode.removeChild(existing[id]);
+      });
+    }
+
+    function tipHtml(el) {
+      var img = el.querySelector(".team-player-analytics__headshot");
+      var logoSrc = img && !img.hidden ? img.getAttribute("src") : "";
+      return (
+        '<div class="team-player-analytics-tooltip__inner">' +
+        (logoSrc ? '<img class="team-player-analytics-tooltip__headshot" src="' + escapeAttr(logoSrc) + '" alt="">' : "") +
+        '<div class="team-player-analytics-tooltip__body">' +
+        "<strong>" +
+        escapeHtml(el.getAttribute("data-player-name") || "Player") +
+        "</strong>" +
+        (el.getAttribute("data-player-position")
+          ? '<span class="team-player-analytics-tooltip__pos">' + escapeHtml(el.getAttribute("data-player-position")) + "</span>"
+          : "") +
+        '<span class="team-player-analytics-tooltip__metric">' +
+        escapeHtml(el.getAttribute("data-x-label") || "") +
+        ": <strong>" +
+        escapeHtml(el.getAttribute("data-x-value") || "") +
+        "</strong></span>" +
+        '<span class="team-player-analytics-tooltip__metric">' +
+        escapeHtml(el.getAttribute("data-y-label") || "") +
+        ": <strong>" +
+        escapeHtml(el.getAttribute("data-y-value") || "") +
+        "</strong></span>" +
+        (el.getAttribute("data-gp")
+          ? '<span class="team-player-analytics-tooltip__metric">GP: <strong>' + escapeHtml(el.getAttribute("data-gp")) + "</strong></span>"
+          : "") +
+        (el.getAttribute("data-extra-1")
+          ? '<span class="team-player-analytics-tooltip__metric">' + escapeHtml(el.getAttribute("data-extra-1")) + "</span>"
+          : "") +
+        (el.getAttribute("data-extra-2")
+          ? '<span class="team-player-analytics-tooltip__metric">' + escapeHtml(el.getAttribute("data-extra-2")) + "</span>"
+          : "") +
+        "</div></div>"
+      );
+    }
+
+    function moveTip(e) {
+      tip.style.left = e.clientX + 14 + "px";
+      tip.style.top = e.clientY + 14 + "px";
+    }
+
+    pointsWrap.addEventListener("mouseover", function (e) {
+      var point = e.target.closest("[data-team-player-chart-point]");
+      if (!point || !pointsWrap.contains(point)) return;
+      tip.innerHTML = tipHtml(point);
+      tip.hidden = false;
+      point.classList.add("is-active");
+      moveTip(e);
+    });
+    pointsWrap.addEventListener("mousemove", function (e) {
+      if (!tip.hidden) moveTip(e);
+    });
+    pointsWrap.addEventListener("mouseout", function (e) {
+      var point = e.target.closest("[data-team-player-chart-point]");
+      if (!point) return;
+      var rel = e.relatedTarget;
+      if (rel && point.contains(rel)) return;
+      tip.hidden = true;
+      point.classList.remove("is-active");
+    });
+    pointsWrap.addEventListener("focusin", function (e) {
+      var point = e.target.closest("[data-team-player-chart-point]");
+      if (!point) return;
+      tip.innerHTML = tipHtml(point);
+      tip.hidden = false;
+      point.classList.add("is-active");
+      var rect = point.getBoundingClientRect();
+      tip.style.left = rect.right + 10 + "px";
+      tip.style.top = rect.top + "px";
+    });
+    pointsWrap.addEventListener("focusout", function (e) {
+      var point = e.target.closest("[data-team-player-chart-point]");
+      if (!point) return;
+      tip.hidden = true;
+      point.classList.remove("is-active");
+    });
+
+    kindSel.addEventListener("change", function () {
+      refreshMetricSelects();
+      renderChart();
+    });
+    [seasonSel, segmentSel, xSel, ySel, normSel].forEach(function (sel) {
+      sel.addEventListener("change", renderChart);
+    });
+    renderChart();
+  }
+
+  function initTeamPlayerTrendCharts() {
+    var root = document.getElementById("team-player-trends");
+    var dataEl = document.getElementById("team-player-trends-data");
+    if (!root || !dataEl) return;
+    var archive;
+    try {
+      archive = JSON.parse(dataEl.textContent || "{}");
+    } catch (_e) {
+      return;
+    }
+    var staticBase = dataEl.getAttribute("data-static-base") || "";
+    var seasons = archive.seasons || [];
+    var segments = archive.segments || [];
+    var datasets = archive.datasets || {};
+    var positionFilters = archive.position_filters || [];
+    var teamLogoUrl = root.getAttribute("data-team-logo-url") || "";
+    if (!seasons.length) {
+      var emptyOnly = root.querySelector("[data-team-player-trend-empty]");
+      if (emptyOnly) emptyOnly.hidden = false;
+      return;
+    }
+
+    var seasonSel = root.querySelector("[data-team-player-trend-season]");
+    var segmentSel = root.querySelector("[data-team-player-trend-segment]");
+    var kindSel = root.querySelector("[data-team-player-trend-kind]");
+    var metricSel = root.querySelector("[data-team-player-trend-metric]");
+    var positionSel = root.querySelector("[data-team-player-trend-position]");
+    var chartWrap = root.querySelector("[data-team-player-trend-chart-wrap]");
+    var chartSvg = root.querySelector("[data-team-player-trend-chart]");
+    var labelsWrap = root.querySelector("[data-team-player-trend-labels]");
+    var tip = root.querySelector("[data-team-player-trend-tooltip]");
+    var empty = root.querySelector("[data-team-player-trend-empty]");
+    if (!seasonSel || !segmentSel || !kindSel || !metricSel || !positionSel || !chartWrap || !chartSvg || !labelsWrap || !tip) {
+      return;
+    }
+
+    var reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    function fillSelect(sel, options, selected) {
+      sel.innerHTML = "";
+      options.forEach(function (opt) {
+        var o = document.createElement("option");
+        o.value = opt.value;
+        o.textContent = opt.label;
+        if (String(opt.value) === String(selected)) o.selected = true;
+        sel.appendChild(o);
+      });
+    }
+
+    fillSelect(
+      seasonSel,
+      seasons.map(function (s) {
+        return { value: s.id, label: s.label };
+      }),
+      archive.default_season_id
+    );
+    fillSelect(
+      segmentSel,
+      segments.map(function (s) {
+        return { value: s.key, label: s.label };
+      }),
+      archive.default_segment || "rs"
+    );
+    kindSel.value = archive.default_kind || "skater";
+    fillSelect(
+      positionSel,
+      positionFilters.map(function (f) {
+        return { value: f.key, label: f.label };
+      }),
+      archive.default_position_filter || "all"
+    );
+
+    function metricsForKind(kind) {
+      return kind === "goalie" ? archive.goalie_metrics || [] : archive.skater_metrics || [];
+    }
+
+    function metricByKey(kind) {
+      var map = {};
+      metricsForKind(kind).forEach(function (m) {
+        map[m.key] = m;
+      });
+      return map;
+    }
+
+    function refreshMetricSelect() {
+      var kind = kindSel.value;
+      var defs = metricsForKind(kind);
+      var defaultKey = kind === "goalie" ? archive.default_metric_goalie : archive.default_metric_skater;
+      fillSelect(
+        metricSel,
+        defs.map(function (m) {
+          return { value: m.key, label: m.label };
+        }),
+        defaultKey || (defs[0] ? defs[0].key : "")
+      );
+    }
+    refreshMetricSelect();
+
+    function datasetKey() {
+      return String(seasonSel.value) + "|" + String(segmentSel.value) + "|" + String(kindSel.value);
+    }
+
+    function currentDataset() {
+      return datasets[datasetKey()] || null;
+    }
+
+    function isForwardPosition(pos) {
+      var p = String(pos || "")
+        .trim()
+        .toUpperCase();
+      if (!p) return false;
+      if (p === "C" || p === "LW" || p === "RW" || p === "W" || p === "F" || p === "LF" || p === "RF" || p === "LC" || p === "RC") {
+        return true;
+      }
+      return p.charAt(0) === "F";
+    }
+
+    function isDefensePosition(pos) {
+      var p = String(pos || "")
+        .trim()
+        .toUpperCase();
+      if (!p) return false;
+      if (p === "D" || p === "LD" || p === "RD" || p === "DF") return true;
+      return p.charAt(0) === "D";
+    }
+
+    function isGoaliePosition(pos) {
+      var p = String(pos || "")
+        .trim()
+        .toUpperCase();
+      return p === "G" || p === "GK";
+    }
+
+    function passesPositionFilter(player, filter, kind) {
+      if (filter === "all") return true;
+      var pos = player.position || "";
+      if (filter === "forwards") return isForwardPosition(pos);
+      if (filter === "defense") return isDefensePosition(pos);
+      if (filter === "goalies") return isGoaliePosition(pos) || kind === "goalie";
+      return true;
+    }
+
+    function cumulativeMetricValue(series, index, metric) {
+      var mode = metric.mode || "sum";
+      var i;
+      if (mode === "sum") {
+        var total = 0;
+        for (i = 0; i <= index; i++) {
+          var v = series[i].counts[metric.key];
+          if (v != null) total += Number(v);
+        }
+        return total;
+      }
+      if (mode === "ratio") {
+        var num = 0;
+        var den = 0;
+        for (i = 0; i <= index; i++) {
+          var c = series[i].counts || {};
+          if (c[metric.num] != null) num += Number(c[metric.num]);
+          if (c[metric.den] != null) den += Number(c[metric.den]);
+        }
+        if (!den) return null;
+        return (num / den) * (metric.scale != null ? metric.scale : 1);
+      }
+      if (mode === "avg") {
+        var sum = 0;
+        var n = 0;
+        for (i = 0; i <= index; i++) {
+          var av = series[i].counts[metric.key];
+          if (av != null && isFinite(Number(av))) {
+            sum += Number(av);
+            n++;
+          }
+        }
+        return n ? sum / n : null;
+      }
+      if (mode === "gaa") {
+        var ga = 0;
+        var toi = 0;
+        for (i = 0; i <= index; i++) {
+          var gc = series[i].counts || {};
+          ga += Number(gc.ga || 0);
+          toi += Number(gc.toi_seconds || 0);
+        }
+        return toi > 0 ? (ga * 3600) / toi : null;
+      }
+      return null;
+    }
+
+    function buildCumulativeSeries(player, metric) {
+      var out = [];
+      var series = player.series || [];
+      for (var i = 0; i < series.length; i++) {
+        out.push({
+          date: series[i].date,
+          game_number: series[i].game_number,
+          value: cumulativeMetricValue(series, i, metric),
+        });
+      }
+      return out;
+    }
+
+    function trendLineColor(playerId) {
+      var hue = (Number(playerId) * 47) % 360;
+      return "hsl(" + hue + ", 68%, 58%)";
+    }
+
+    function playerInitials(name) {
+      var parts = String(name || "").trim().split(/\s+/);
+      if (!parts.length) return "?";
+      if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+
+    function formatMetricValue(value, metric) {
+      if (value == null || !isFinite(Number(value))) return "—";
+      var dec = metric.decimals != null ? metric.decimals : 2;
+      return Number(value).toFixed(dec);
+    }
+
+    function hideTip() {
+      tip.hidden = true;
+      tip.textContent = "";
+      chartSvg.querySelectorAll(".team-player-trends__point.is-active").forEach(function (el) {
+        el.classList.remove("is-active");
+      });
+    }
+
+    function showTip(player, point, metric, clientX, clientY) {
+      var dateLabel = point.date || "Unknown date";
+      tip.innerHTML =
+        "<strong>" +
+        escapeHtml(player.name || "Player") +
+        "</strong>" +
+        (player.position ? '<span class="team-player-trends__tooltip-pos">' + escapeHtml(player.position) + "</span>" : "") +
+        '<span class="team-player-trends__tooltip-line">Game ' +
+        escapeHtml(String(point.display_game_number || point.game_number)) +
+        " · " +
+        escapeHtml(dateLabel) +
+        "</span>" +
+        '<span class="team-player-trends__tooltip-line">' +
+        escapeHtml(metric.label) +
+        ": <strong>" +
+        escapeHtml(formatMetricValue(point.value, metric)) +
+        "</strong></span>";
+      tip.hidden = false;
+      var wrapRect = chartWrap.getBoundingClientRect();
+      var lx = clientX - wrapRect.left + chartWrap.scrollLeft + 12;
+      var ly = clientY - wrapRect.top + chartWrap.scrollTop + 12;
+      lx = Math.max(8, Math.min(lx, chartWrap.scrollWidth - tip.offsetWidth - 8));
+      ly = Math.max(8, Math.min(ly, chartWrap.scrollHeight - tip.offsetHeight - 8));
+      tip.style.left = lx + "px";
+      tip.style.top = ly + "px";
+    }
+
+    function renderChart() {
+      var ds = currentDataset();
+      var kind = kindSel.value;
+      var metricKey = metricSel.value;
+      var defs = metricByKey(kind);
+      var metric = defs[metricKey] || { label: metricKey, decimals: 2, mode: "sum" };
+      var filter = positionSel.value;
+      labelsWrap.innerHTML = "";
+      chartSvg.innerHTML = "";
+      hideTip();
+
+      if (!ds || !ds.players || !ds.players.length) {
+        if (empty) empty.hidden = false;
+        return;
+      }
+
+      var players = ds.players.filter(function (player) {
+        return passesPositionFilter(player, filter, kind) && player.series && player.series.length;
+      });
+      if (!players.length) {
+        if (empty) empty.hidden = false;
+        return;
+      }
+      if (empty) empty.hidden = true;
+
+      var rawPlotted = [];
+      var actualMaxGame = 1;
+      players.forEach(function (player) {
+        var series = buildCumulativeSeries(player, metric);
+        var valid = series.filter(function (pt) {
+          return pt.value != null && isFinite(Number(pt.value));
+        });
+        if (!valid.length) return;
+        valid.forEach(function (pt) {
+          if (pt.game_number > actualMaxGame) actualMaxGame = pt.game_number;
+        });
+        rawPlotted.push({
+          player: player,
+          series: valid,
+          color: trendLineColor(player.player_id),
+        });
+      });
+
+      var isRegularSeason = String(segmentSel.value) === "rs";
+      var datasetGameCount = Number(ds.game_count || actualMaxGame || 1);
+      var maxGame = isRegularSeason ? Math.min(datasetGameCount, 82) : datasetGameCount;
+      var plotted = [];
+      rawPlotted.forEach(function (plot) {
+        var valid = plot.series.filter(function (pt) {
+          return pt.game_number <= maxGame;
+        });
+        if (!valid.length) return;
+        plotted.push({
+          player: plot.player,
+          series: valid,
+          color: plot.color,
+          finalValue: Number(valid[valid.length - 1].value),
+        });
+      });
+
+      if (!plotted.length) {
+        if (empty) empty.hidden = false;
+        return;
+      }
+
+      var allValues = [];
+      plotted.forEach(function (p) {
+        p.series.forEach(function (pt) {
+          allValues.push(Number(pt.value));
+        });
+      });
+      var minY = Math.min.apply(null, allValues);
+      var maxY = Math.max.apply(null, allValues);
+      if (minY === maxY) {
+        minY -= 1;
+        maxY += 1;
+      }
+      var padY = (maxY - minY) * 0.08;
+      minY -= padY;
+      maxY += padY;
+
+      var width = 900;
+      var height = 300;
+      var pad = { top: 18, right: 20, bottom: 52, left: 54 };
+      var plotW = width - pad.left - pad.right;
+      var plotH = height - pad.top - pad.bottom;
+
+      chartSvg.setAttribute("viewBox", "0 0 " + width + " " + height);
+      chartSvg.setAttribute("width", "100%");
+      chartSvg.setAttribute("height", String(height));
+      chartSvg.style.minWidth = "";
+
+      var ns = "http://www.w3.org/2000/svg";
+      function svgEl(name, attrs) {
+        var el = document.createElementNS(ns, name);
+        Object.keys(attrs || {}).forEach(function (key) {
+          el.setAttribute(key, attrs[key]);
+        });
+        return el;
+      }
+
+      if (teamLogoUrl) {
+        chartSvg.appendChild(
+          svgEl("image", {
+            href: teamLogoUrl,
+            x: String(pad.left + plotW / 2 - 105),
+            y: String(pad.top + plotH / 2 - 105),
+            width: "210",
+            height: "210",
+            class: "team-player-trends__watermark",
+            preserveAspectRatio: "xMidYMid meet",
+            "aria-hidden": "true",
+          })
+        );
+      }
+
+      var grid = svgEl("g", { class: "team-player-trends__grid" });
+      for (var g = 0; g <= 4; g++) {
+        var gy = pad.top + (plotH * g) / 4;
+        grid.appendChild(
+          svgEl("line", {
+            x1: String(pad.left),
+            y1: String(gy),
+            x2: String(width - pad.right),
+            y2: String(gy),
+            class: "team-player-trends__grid-line",
+          })
+        );
+        var tickVal = maxY - ((maxY - minY) * g) / 4;
+        var tick = svgEl("text", {
+          x: String(pad.left - 8),
+          y: String(gy + 4),
+          class: "team-player-trends__axis-tick",
+          "text-anchor": "end",
+        });
+        tick.textContent = formatMetricValue(tickVal, metric);
+        grid.appendChild(tick);
+      }
+      chartSvg.appendChild(grid);
+
+      var xTicks = Math.min(maxGame, 12);
+      var xStep = Math.max(1, Math.ceil(maxGame / xTicks));
+      for (var gx = 1; gx <= maxGame; gx += xStep) {
+        var gxPos = pad.left + ((gx - 1) / Math.max(1, maxGame - 1)) * plotW;
+        var xTick = svgEl("text", {
+          x: String(gxPos),
+          y: String(height - pad.bottom + 22),
+          class: "team-player-trends__axis-tick team-player-trends__axis-tick--x",
+          "text-anchor": "middle",
+        });
+        xTick.textContent = String(gx);
+        chartSvg.appendChild(xTick);
+      }
+
+      var axisY = svgEl("text", {
+        x: "12",
+        y: String(pad.top + plotH / 2),
+        class: "team-player-trends__axis-title",
+        transform: "rotate(-90 12 " + String(pad.top + plotH / 2) + ")",
+        "text-anchor": "middle",
+      });
+      axisY.textContent = "Cumulative " + metric.label;
+      chartSvg.appendChild(axisY);
+
+      var axisX = svgEl("text", {
+        x: String(pad.left + plotW / 2),
+        y: String(height - 8),
+        class: "team-player-trends__axis-title team-player-trends__axis-title--x",
+        "text-anchor": "middle",
+      });
+      axisX.textContent = "Team Game Number";
+      chartSvg.appendChild(axisX);
+
+      function xForGame(gameNumber) {
+        if (maxGame <= 1) return pad.left + plotW / 2;
+        return pad.left + ((displayGameNumber(gameNumber) - 1) / (maxGame - 1)) * plotW;
+      }
+      function displayGameNumber(gameNumber) {
+        var displayGame = Number(gameNumber || 1);
+        if (!isRegularSeason) return displayGame;
+        return Math.max(1, Math.min(displayGame, 82));
+      }
+      function yForValue(value) {
+        return pad.top + plotH - ((Number(value) - minY) / (maxY - minY)) * plotH;
+      }
+
+      var hoverItems = [];
+      plotted.forEach(function (plot) {
+        var pathD = plot.series
+          .map(function (pt, idx) {
+            var cmd = idx === 0 ? "M" : "L";
+            return cmd + xForGame(pt.game_number) + " " + yForValue(pt.value);
+          })
+          .join(" ");
+        var path = svgEl("path", {
+          d: pathD,
+          class: "team-player-trends__line" + (reducedMotion ? "" : " team-player-trends__line--animate"),
+          fill: "none",
+          stroke: plot.color,
+          "data-player-id": String(plot.player.player_id),
+        });
+        chartSvg.appendChild(path);
+
+        plot.series.forEach(function (pt) {
+          pt.display_game_number = displayGameNumber(pt.game_number);
+          var circle = svgEl("circle", {
+            cx: String(xForGame(pt.game_number)),
+            cy: String(yForValue(pt.value)),
+            r: "2.4",
+            class: "team-player-trends__point",
+            fill: plot.color,
+            stroke: "#0f172a",
+            "stroke-width": "0.75",
+            tabindex: "0",
+            role: "button",
+            "aria-label": (plot.player.name || "Player") + " game " + pt.display_game_number,
+            "data-player-id": String(plot.player.player_id),
+            "data-game-number": String(pt.display_game_number),
+          });
+          circle._trendPlayer = plot.player;
+          circle._trendPoint = pt;
+          circle._trendX = xForGame(pt.game_number);
+          circle._trendY = yForValue(pt.value);
+          hoverItems.push({ player: plot.player, point: pt, el: circle, x: circle._trendX, y: circle._trendY });
+          chartSvg.appendChild(circle);
+        });
+      });
+
+      plotted
+        .slice()
+        .sort(function (a, b) {
+          return b.finalValue - a.finalValue || String(a.player.name || "").localeCompare(String(b.player.name || ""));
+        })
+        .forEach(function (plot) {
+        var last = plot.series[plot.series.length - 1];
+        var chip = document.createElement("a");
+        chip.className = "team-player-trends__label";
+        chip.href = withRoot("/player/" + plot.player.player_id);
+        chip.style.setProperty("--trend-color", plot.color);
+        if (plot.player.headshot_rel) {
+          var img = document.createElement("img");
+          img.className = "team-player-trends__label-headshot";
+          img.src = staticBase + plot.player.headshot_rel;
+          img.alt = "";
+          chip.appendChild(img);
+        } else {
+          var initials = document.createElement("span");
+          initials.className = "team-player-trends__label-initials";
+          initials.textContent = playerInitials(plot.player.name);
+          chip.appendChild(initials);
+        }
+        var name = document.createElement("span");
+        name.className = "team-player-trends__label-name";
+        name.textContent = plot.player.name || "Player";
+        chip.appendChild(name);
+        var stat = document.createElement("span");
+        stat.className = "team-player-trends__label-value";
+        stat.textContent = formatMetricValue(last.value, metric);
+        chip.appendChild(stat);
+        labelsWrap.appendChild(chip);
+      });
+
+      function activatePoint(circle, clientX, clientY) {
+        hideTip();
+        circle.classList.add("is-active");
+        showTip(circle._trendPlayer, circle._trendPoint, metric, clientX, clientY);
+      }
+
+      function svgPointFromEvent(e) {
+        if (!chartSvg.createSVGPoint) return null;
+        var matrix = chartSvg.getScreenCTM && chartSvg.getScreenCTM();
+        if (!matrix) return null;
+        var pt = chartSvg.createSVGPoint();
+        pt.x = e.clientX;
+        pt.y = e.clientY;
+        return pt.matrixTransform(matrix.inverse());
+      }
+
+      function activateNearestPoint(e) {
+        var pt = svgPointFromEvent(e);
+        if (!pt || pt.x < pad.left || pt.x > width - pad.right || pt.y < pad.top || pt.y > height - pad.bottom) {
+          hideTip();
+          return;
+        }
+        var nearest = null;
+        var best = Infinity;
+        hoverItems.forEach(function (item) {
+          var dx = item.x - pt.x;
+          var dy = item.y - pt.y;
+          var score = dx * dx + dy * dy * 0.65;
+          if (score < best) {
+            best = score;
+            nearest = item;
+          }
+        });
+        if (!nearest) {
+          hideTip();
+          return;
+        }
+        hideTip();
+        nearest.el.classList.add("is-active");
+        showTip(nearest.player, nearest.point, metric, e.clientX, e.clientY);
+      }
+
+      chartSvg.onpointermove = activateNearestPoint;
+      chartSvg.onpointerleave = hideTip;
+
+      chartSvg.querySelectorAll(".team-player-trends__point").forEach(function (circle) {
+        circle.addEventListener("pointerenter", function (e) {
+          activatePoint(circle, e.clientX, e.clientY);
+        });
+        circle.addEventListener("pointermove", function (e) {
+          if (!tip.hidden) showTip(circle._trendPlayer, circle._trendPoint, metric, e.clientX, e.clientY);
+        });
+        circle.addEventListener("pointerleave", hideTip);
+        circle.addEventListener("focus", function () {
+          var rect = circle.getBoundingClientRect();
+          activatePoint(circle, rect.left + rect.width / 2, rect.top);
+        });
+        circle.addEventListener("blur", hideTip);
+      });
+    }
+
+    kindSel.addEventListener("change", function () {
+      refreshMetricSelect();
+      renderChart();
+    });
+    [seasonSel, segmentSel, metricSel, positionSel].forEach(function (sel) {
+      sel.addEventListener("change", renderChart);
+    });
+    renderChart();
+  }
+
+  function initTeamStatsTrendCharts() {
+    var root = document.getElementById("team-stats-trends");
+    var dataEl = document.getElementById("team-stats-trends-data");
+    if (!root || !dataEl) return;
+    var archive;
+    try {
+      archive = JSON.parse(dataEl.textContent || "{}");
+    } catch (_e) {
+      return;
+    }
+    var teamLogoUrl = root.getAttribute("data-team-logo-url") || "";
+    var seasons = archive.seasons || [];
+    if (!seasons.length) {
+      var emptyOnly = root.querySelector("[data-team-stats-trend-empty]");
+      if (emptyOnly) emptyOnly.hidden = false;
+      return;
+    }
+
+    var seasonSel = root.querySelector("[data-team-stats-trend-season]");
+    var segmentSel = root.querySelector("[data-team-stats-trend-segment]");
+    var situationSel = root.querySelector("[data-team-stats-trend-situation]");
+    var basisSel = root.querySelector("[data-team-stats-trend-basis]");
+    var modeSel = root.querySelector("[data-team-stats-trend-mode]");
+    var metricSel = root.querySelector("[data-team-stats-trend-metric]");
+    var chartWrap = root.querySelector("[data-team-stats-trend-chart-wrap]");
+    var chartSvg = root.querySelector("[data-team-stats-trend-chart]");
+    var tip = root.querySelector("[data-team-stats-trend-tooltip]");
+    var empty = root.querySelector("[data-team-stats-trend-empty]");
+    if (!seasonSel || !segmentSel || !situationSel || !basisSel || !modeSel || !metricSel || !chartWrap || !chartSvg || !tip) {
+      return;
+    }
+
+    var reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var rsCap = Number(archive.rs_game_cap || 82);
+
+    function fillSelect(sel, options, selected) {
+      sel.innerHTML = "";
+      options.forEach(function (opt) {
+        var o = document.createElement("option");
+        o.value = opt.value;
+        o.textContent = opt.label;
+        if (String(opt.value) === String(selected)) o.selected = true;
+        sel.appendChild(o);
+      });
+    }
+
+    fillSelect(
+      seasonSel,
+      seasons.map(function (s) {
+        return { value: s.id, label: s.label };
+      }),
+      archive.default_season_id
+    );
+    fillSelect(
+      segmentSel,
+      (archive.segments || []).map(function (s) {
+        return { value: s.key, label: s.label };
+      }),
+      archive.default_segment || "rs"
+    );
+    fillSelect(
+      situationSel,
+      (archive.situations || []).map(function (s) {
+        return { value: s.key, label: s.label };
+      }),
+      archive.default_situation || "all"
+    );
+    basisSel.value = archive.default_basis || "totals";
+    fillSelect(
+      modeSel,
+      (archive.trend_modes || []).map(function (m) {
+        return { value: m.key, label: m.label };
+      }),
+      archive.default_trend_mode || "cumulative"
+    );
+
+    function metricHasData(ds, metric) {
+      if (!ds || !ds.series || !ds.series.length) return true;
+      if ((metric.mode || "sum") === "ratio") {
+        return ds.series.some(function (pt) {
+          var counts = pt.counts || {};
+          var den = counts[metric.den];
+          return den != null && isFinite(Number(den)) && Number(den) > 0;
+        });
+      }
+      return ds.series.some(function (pt) {
+        var counts = pt.counts || {};
+        return counts[metric.key] != null && isFinite(Number(counts[metric.key]));
+      });
+    }
+
+    function metricsForSituation(situation) {
+      var ds = currentDataset();
+      return (archive.metrics || []).filter(function (m) {
+        return (!m.situations || m.situations.indexOf(situation) >= 0) && metricHasData(ds, m);
+      });
+    }
+
+    function refreshMetricSelect() {
+      var situation = situationSel.value;
+      var defs = metricsForSituation(situation);
+      var selected = metricSel.value;
+      var keepSelected = defs.some(function (m) {
+        return String(m.key) === String(selected);
+      });
+      fillSelect(
+        metricSel,
+        defs.map(function (m) {
+          return { value: m.key, label: m.label };
+        }),
+        keepSelected ? selected : archive.default_metric || (defs[0] ? defs[0].key : "")
+      );
+    }
+    refreshMetricSelect();
+
+    function datasetKey() {
+      return String(seasonSel.value) + "|" + String(segmentSel.value) + "|" + String(situationSel.value);
+    }
+
+    function currentDataset() {
+      return (archive.datasets || {})[datasetKey()] || null;
+    }
+
+    function metricByKey() {
+      var map = {};
+      (archive.metrics || []).forEach(function (m) {
+        map[m.key] = m;
+      });
+      return map;
+    }
+
+    function metricValueFromCounts(counts, metric, cumulativeIndex, series, perGameBasis) {
+      var mode = metric.mode || "sum";
+      var i;
+      if (mode === "sum") {
+        if (cumulativeIndex == null) {
+          var rawValue = counts[metric.key];
+          if (rawValue == null) return null;
+          var raw = Number(rawValue || 0);
+          return perGameBasis ? raw : raw;
+        }
+        var total = 0;
+        var hasValue = false;
+        for (i = 0; i <= cumulativeIndex; i++) {
+          var v = series[i].counts[metric.key];
+          if (v == null) continue;
+          hasValue = true;
+          total += Number(v || 0);
+        }
+        if (!hasValue) return null;
+        if (perGameBasis) return total / (cumulativeIndex + 1);
+        return total;
+      }
+      if (mode === "ratio") {
+        var num = 0;
+        var den = 0;
+        var end = cumulativeIndex == null ? 0 : cumulativeIndex;
+        var start = cumulativeIndex == null ? 0 : 0;
+        if (cumulativeIndex == null) {
+          num = Number(counts[metric.num] || 0);
+          den = Number(counts[metric.den] || 0);
+        } else {
+          for (i = 0; i <= cumulativeIndex; i++) {
+            num += Number(series[i].counts[metric.num] || 0);
+            den += Number(series[i].counts[metric.den] || 0);
+          }
+          if (perGameBasis && metric.key !== "goal_for_pct" && metric.key !== "shot_share" && metric.key !== "pp_pct" && metric.key !== "pk_pct" && metric.key !== "hd_share") {
+            return num / (cumulativeIndex + 1);
+          }
+        }
+        if (!den) return null;
+        return (num / den) * (metric.scale != null ? metric.scale : 1);
+      }
+      return null;
+    }
+
+    function gameLevelValues(series, metric, basis) {
+      var perGameBasis = basis === "per_game";
+      return series.map(function (pt, idx) {
+        return metricValueFromCounts(pt.counts, metric, null, series.slice(0, idx + 1), perGameBasis);
+      });
+    }
+
+    function buildPlottedSeries(series, metric, trendMode, basis) {
+      var perGameBasis = basis === "per_game";
+      var gameVals = gameLevelValues(series, metric, basis);
+      var out = [];
+      for (var i = 0; i < series.length; i++) {
+        var value = null;
+        if (trendMode === "game") {
+          value = gameVals[i];
+        } else if (trendMode === "cumulative") {
+          value = metricValueFromCounts(series[i].counts, metric, i, series, perGameBasis);
+        } else if (trendMode === "ma5" || trendMode === "ma10") {
+          var window = trendMode === "ma5" ? 5 : 10;
+          var start = Math.max(0, i - window + 1);
+          var slice = gameVals.slice(start, i + 1).filter(function (v) {
+            return v != null && isFinite(Number(v));
+          });
+          value = slice.length ? slice.reduce(function (a, b) { return a + Number(b); }, 0) / slice.length : null;
+        }
+        if (value == null || !isFinite(Number(value))) continue;
+        out.push({
+          date: series[i].date,
+          game_number: series[i].game_number,
+          value: Number(value),
+        });
+      }
+      return out;
+    }
+
+    function formatMetricValue(value, metric) {
+      if (value == null || !isFinite(Number(value))) return "—";
+      var dec = metric.decimals != null ? metric.decimals : 2;
+      return Number(value).toFixed(dec);
+    }
+
+    function hideTip() {
+      tip.hidden = true;
+      tip.textContent = "";
+      chartSvg.querySelectorAll(".team-stats-trends__point.is-active").forEach(function (el) {
+        el.classList.remove("is-active");
+      });
+    }
+
+    function showTip(point, metric, clientX, clientY) {
+      tip.innerHTML =
+        "<strong>" +
+        escapeHtml(archive.team_name || "Team") +
+        "</strong>" +
+        '<span class="team-stats-trends__tooltip-line">Game ' +
+        escapeHtml(String(point.game_number)) +
+        (point.date ? " · " + escapeHtml(point.date) : "") +
+        "</span>" +
+        '<span class="team-stats-trends__tooltip-line">' +
+        escapeHtml(metric.label) +
+        ": <strong>" +
+        escapeHtml(formatMetricValue(point.value, metric)) +
+        "</strong></span>";
+      tip.hidden = false;
+      var wrapRect = chartWrap.getBoundingClientRect();
+      var lx = clientX - wrapRect.left + chartWrap.scrollLeft + 12;
+      var ly = clientY - wrapRect.top + chartWrap.scrollTop + 12;
+      lx = Math.max(8, Math.min(lx, chartWrap.scrollWidth - tip.offsetWidth - 8));
+      ly = Math.max(8, Math.min(ly, chartWrap.scrollHeight - tip.offsetHeight - 8));
+      tip.style.left = lx + "px";
+      tip.style.top = ly + "px";
+    }
+
+    function renderChart() {
+      var ds = currentDataset();
+      var defs = metricByKey();
+      var metric = defs[metricSel.value] || { label: metricSel.value, decimals: 2, mode: "sum" };
+      var trendMode = modeSel.value;
+      chartSvg.innerHTML = "";
+      hideTip();
+
+      if (!ds || !ds.series || !ds.series.length) {
+        if (empty) empty.hidden = false;
+        return;
+      }
+      if (empty) empty.hidden = true;
+
+      var plotted = buildPlottedSeries(ds.series, metric, trendMode, basisSel.value);
+      if (!plotted.length) {
+        if (empty) empty.hidden = false;
+        return;
+      }
+
+      var isRegularSeason = String(segmentSel.value) === "rs";
+      var maxGame = isRegularSeason ? Math.min(Number(ds.game_count || plotted[plotted.length - 1].game_number), rsCap) : Number(ds.game_count || plotted[plotted.length - 1].game_number);
+      if (isRegularSeason) {
+        plotted = plotted.filter(function (pt) {
+          return Number(pt.game_number || 0) <= maxGame;
+        });
+      }
+      if (!plotted.length) {
+        if (empty) empty.hidden = false;
+        return;
+      }
+      var values = plotted.map(function (p) { return p.value; });
+      var minY = Math.min.apply(null, values);
+      var maxY = Math.max.apply(null, values);
+      if (metric.zero_line) {
+        minY = Math.min(minY, 0);
+        maxY = Math.max(maxY, 0);
+      }
+      if (minY === maxY) {
+        minY -= 1;
+        maxY += 1;
+      }
+      var padY = (maxY - minY) * 0.08;
+      minY -= padY;
+      maxY += padY;
+
+      var width = 900;
+      var height = 300;
+      var pad = { top: 18, right: 20, bottom: 52, left: 54 };
+      var plotW = width - pad.left - pad.right;
+      var plotH = height - pad.top - pad.bottom;
+
+      chartSvg.setAttribute("viewBox", "0 0 " + width + " " + height);
+      chartSvg.setAttribute("width", "100%");
+      chartSvg.setAttribute("height", String(height));
+
+      var ns = "http://www.w3.org/2000/svg";
+      function svgEl(name, attrs) {
+        var el = document.createElementNS(ns, name);
+        Object.keys(attrs || {}).forEach(function (key) {
+          el.setAttribute(key, attrs[key]);
+        });
+        return el;
+      }
+
+      if (teamLogoUrl) {
+        chartSvg.appendChild(
+          svgEl("image", {
+            href: teamLogoUrl,
+            x: String(pad.left + plotW / 2 - 105),
+            y: String(pad.top + plotH / 2 - 105),
+            width: "210",
+            height: "210",
+            class: "team-stats-trends__watermark",
+            preserveAspectRatio: "xMidYMid meet",
+            "aria-hidden": "true",
+          })
+        );
+      }
+
+      function xForGame(gameNumber) {
+        if (maxGame <= 1) return pad.left + plotW / 2;
+        var gn = Math.min(Number(gameNumber || 1), maxGame);
+        return pad.left + ((gn - 1) / (maxGame - 1)) * plotW;
+      }
+      function yForValue(value) {
+        return pad.top + plotH - ((Number(value) - minY) / (maxY - minY)) * plotH;
+      }
+
+      var grid = svgEl("g", { class: "team-stats-trends__grid" });
+      for (var g = 0; g <= 4; g++) {
+        var gy = pad.top + (plotH * g) / 4;
+        grid.appendChild(
+          svgEl("line", {
+            x1: String(pad.left),
+            y1: String(gy),
+            x2: String(width - pad.right),
+            y2: String(gy),
+            class: "team-stats-trends__grid-line",
+          })
+        );
+      }
+      chartSvg.appendChild(grid);
+
+      if (metric.zero_line && minY < 0 && maxY > 0) {
+        var zeroY = yForValue(0);
+        chartSvg.appendChild(
+          svgEl("line", {
+            x1: String(pad.left),
+            y1: String(zeroY),
+            x2: String(width - pad.right),
+            y2: String(zeroY),
+            class: "team-stats-trends__zero-line",
+          })
+        );
+      }
+
+      var xTicks = Math.min(maxGame, 12);
+      var xStep = Math.max(1, Math.ceil(maxGame / xTicks));
+      for (var gx = 1; gx <= maxGame; gx += xStep) {
+        var gxPos = xForGame(gx);
+        var xTick = svgEl("text", {
+          x: String(gxPos),
+          y: String(height - pad.bottom + 22),
+          class: "team-stats-trends__axis-tick team-stats-trends__axis-tick--x",
+          "text-anchor": "middle",
+        });
+        xTick.textContent = String(gx);
+        chartSvg.appendChild(xTick);
+      }
+
+      var axisY = svgEl("text", {
+        x: "12",
+        y: String(pad.top + plotH / 2),
+        class: "team-stats-trends__axis-title",
+        transform: "rotate(-90 12 " + String(pad.top + plotH / 2) + ")",
+        "text-anchor": "middle",
+      });
+      axisY.textContent = metric.label;
+      chartSvg.appendChild(axisY);
+
+      var axisX = svgEl("text", {
+        x: String(pad.left + plotW / 2),
+        y: String(height - 8),
+        class: "team-stats-trends__axis-title team-stats-trends__axis-title--x",
+        "text-anchor": "middle",
+      });
+      axisX.textContent = "Team Game Number";
+      chartSvg.appendChild(axisX);
+
+      var pathD = plotted
+        .map(function (pt, idx) {
+          var cmd = idx === 0 ? "M" : "L";
+          return cmd + xForGame(pt.game_number) + " " + yForValue(pt.value);
+        })
+        .join(" ");
+      chartSvg.appendChild(
+        svgEl("path", {
+          d: pathD,
+          class: "team-stats-trends__line" + (reducedMotion ? "" : " team-stats-trends__line--animate"),
+          fill: "none",
+          stroke: "var(--team-stats-trend-line, #f97316)",
+        })
+      );
+
+      var hoverItems = [];
+      plotted.forEach(function (pt, idx) {
+        var isLatest = idx === plotted.length - 1;
+        if (isLatest && teamLogoUrl) {
+          var logoSize = 24;
+          chartSvg.appendChild(
+            svgEl("image", {
+              href: teamLogoUrl,
+              x: String(xForGame(pt.game_number) - logoSize / 2),
+              y: String(yForValue(pt.value) - logoSize / 2),
+              width: String(logoSize),
+              height: String(logoSize),
+              class: "team-stats-trends__latest-logo",
+              preserveAspectRatio: "xMidYMid meet",
+              "aria-hidden": "true",
+            })
+          );
+        }
+        var circle = svgEl("circle", {
+          cx: String(xForGame(pt.game_number)),
+          cy: String(yForValue(pt.value)),
+          r: isLatest && teamLogoUrl ? "10" : "2.8",
+          class: "team-stats-trends__point" + (isLatest ? " team-stats-trends__point--latest" : ""),
+          fill: isLatest && teamLogoUrl ? "transparent" : "var(--team-stats-trend-line, #f97316)",
+          stroke: isLatest ? "var(--team-stats-trend-accent, #0f172a)" : "#0f172a",
+          "stroke-width": isLatest ? "1.4" : "0.75",
+          tabindex: "0",
+          role: "button",
+        });
+        circle._trendPoint = pt;
+        circle._trendX = xForGame(pt.game_number);
+        circle._trendY = yForValue(pt.value);
+        hoverItems.push(circle);
+        chartSvg.appendChild(circle);
+      });
+
+      function svgPointFromEvent(e) {
+        if (!chartSvg.createSVGPoint) return null;
+        var matrix = chartSvg.getScreenCTM && chartSvg.getScreenCTM();
+        if (!matrix) return null;
+        var pt = chartSvg.createSVGPoint();
+        pt.x = e.clientX;
+        pt.y = e.clientY;
+        return pt.matrixTransform(matrix.inverse());
+      }
+
+      function activateNearestPoint(e) {
+        var pt = svgPointFromEvent(e);
+        if (!pt || pt.x < pad.left || pt.x > width - pad.right || pt.y < pad.top || pt.y > height - pad.bottom) {
+          hideTip();
+          return;
+        }
+        var nearest = null;
+        var best = Infinity;
+        hoverItems.forEach(function (item) {
+          var dx = item._trendX - pt.x;
+          var dy = item._trendY - pt.y;
+          var score = dx * dx + dy * dy;
+          if (score < best) {
+            best = score;
+            nearest = item;
+          }
+        });
+        if (!nearest) {
+          hideTip();
+          return;
+        }
+        hideTip();
+        nearest.classList.add("is-active");
+        showTip(nearest._trendPoint, metric, e.clientX, e.clientY);
+      }
+
+      chartSvg.onpointermove = activateNearestPoint;
+      chartSvg.onpointerleave = hideTip;
+      hoverItems.forEach(function (circle) {
+        circle.addEventListener("focus", function () {
+          var rect = circle.getBoundingClientRect();
+          circle.classList.add("is-active");
+          showTip(circle._trendPoint, metric, rect.left + rect.width / 2, rect.top);
+        });
+        circle.addEventListener("blur", hideTip);
+      });
+    }
+
+    function refreshAndRenderChart() {
+      refreshMetricSelect();
+      renderChart();
+    }
+
+    situationSel.addEventListener("change", function () {
+      refreshAndRenderChart();
+    });
+    [seasonSel, segmentSel].forEach(function (sel) {
+      sel.addEventListener("change", refreshAndRenderChart);
+    });
+    [basisSel, modeSel, metricSel].forEach(function (sel) {
+      sel.addEventListener("change", renderChart);
+    });
+    renderChart();
+  }
+
   function initAdvancedStatsDivisionTooltips() {
     var targets = document.querySelectorAll("[data-division-chart-team]");
     if (!targets.length) return;
@@ -2263,6 +3738,9 @@
     document.querySelectorAll("table.data-sortable").forEach(initSortableTable);
     document.querySelectorAll("table[data-page-size]").forEach(initPaginatedTable);
     initAdvancedStatsTeamChart();
+    initTeamPlayerAnalyticsCharts();
+    initTeamPlayerTrendCharts();
+    initTeamStatsTrendCharts();
     initAdvancedStatsDivisionTooltips();
     document.querySelectorAll("table[data-team-depth-prospects-page-size]").forEach(function (table) {
       var tbody = table.tBodies && table.tBodies[0];

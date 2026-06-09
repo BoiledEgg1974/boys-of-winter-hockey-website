@@ -16,8 +16,19 @@ from app.services.advanced_stats import (
     _skater_game_event_profile,
     _skater_season_process_snapshot,
     _team_chart_metric_values,
+    _team_player_trend_game_meta,
+    _team_stats_regular_game_limit,
     build_player_process_profile,
     build_team_analytics_chart_archive,
+    build_team_player_analytics_archive,
+    build_team_player_trends_archive,
+    build_team_stats_trends_archive,
+    _strength_situation_bucket,
+    _team_stats_all_situation_counts,
+    _team_stats_situation_goal_counts,
+    _goalie_trend_game_counts,
+    _skater_player_chart_metrics,
+    _skater_trend_game_counts,
     pdo_band,
     sq_profile_from_counts,
     zone_start_pcts,
@@ -25,6 +36,112 @@ from app.services.advanced_stats import (
 
 
 class AdvancedStatsServiceTest(unittest.TestCase):
+    def test_team_stats_regular_game_limit_uses_official_gp_and_caps_82(self) -> None:
+        self.assertEqual(_team_stats_regular_game_limit(SimpleNamespace(gp=51), 82), 51)
+        self.assertEqual(_team_stats_regular_game_limit(SimpleNamespace(gp=90), 90), 82)
+        self.assertEqual(_team_stats_regular_game_limit(None, 60), 60)
+
+    def test_strength_situation_bucket(self) -> None:
+        self.assertEqual(_strength_situation_bucket("5 on 5"), "ev")
+        self.assertEqual(_strength_situation_bucket("PP"), "pp")
+        self.assertEqual(_strength_situation_bucket("SH"), "pk")
+
+    def test_team_stats_all_situation_counts(self) -> None:
+        game = SimpleNamespace(
+            home_team_id=1,
+            away_team_id=2,
+            home_score=3,
+            away_score=1,
+            home_shots=30,
+            away_shots=25,
+            pp_goals_home=1,
+            pp_opp_home=4,
+            pp_goals_away=0,
+            pp_opp_away=2,
+            pim_home=8,
+            pim_away=6,
+            hits_home=12,
+            hits_away=10,
+            sq3_home=2,
+            sq4_home=1,
+            sq3_away=1,
+            sq4_away=0,
+            went_to_overtime=False,
+            went_to_shootout=False,
+        )
+        out = _team_stats_all_situation_counts(game, 1)
+        self.assertEqual(out["gf"], 3)
+        self.assertEqual(out["ga"], 1)
+        self.assertEqual(out["goal_diff"], 2)
+        self.assertEqual(out["hd_for"], 3)
+
+    def test_team_stats_all_situation_counts_preserves_missing_optional_data(self) -> None:
+        game = SimpleNamespace(
+            home_team_id=1,
+            away_team_id=2,
+            home_score=2,
+            away_score=1,
+            home_shots=None,
+            away_shots=None,
+            pp_goals_home=None,
+            pp_opp_home=None,
+            pp_goals_away=None,
+            pp_opp_away=None,
+            pim_home=None,
+            pim_away=None,
+            hits_home=None,
+            hits_away=None,
+            sq3_home=None,
+            sq4_home=None,
+            sq3_away=None,
+            sq4_away=None,
+            went_to_overtime=False,
+            went_to_shootout=False,
+        )
+        out = _team_stats_all_situation_counts(game, 1)
+        self.assertEqual(out["goal_diff"], 1)
+        self.assertIsNone(out["shot_diff"])
+        self.assertIsNone(out["pp_opp"])
+        self.assertIsNone(out["hits_diff"])
+        self.assertIsNone(out["hd_for"])
+
+    def test_team_stats_situation_goal_counts(self) -> None:
+        game = SimpleNamespace(home_team_id=5, away_team_id=6)
+        events = [
+            SimpleNamespace(scorer_player_id=1, scoring_team_id=5, strength="5 on 5"),
+            SimpleNamespace(scorer_player_id=2, scoring_team_id=6, strength="PP"),
+        ]
+        out = _team_stats_situation_goal_counts(game, 5, "ev", events)
+        self.assertEqual(out["gf"], 1)
+        self.assertEqual(out["ga"], 0)
+
+    def test_build_team_stats_trends_archive_sparse(self) -> None:
+        session = MagicMock()
+        team = SimpleNamespace(id=3, full_display_name=lambda: "Test Team")
+
+        def scalars_side_effect(_stmt):
+            mock = MagicMock()
+            mock.all.return_value = []
+            return mock
+
+        session.scalars.side_effect = scalars_side_effect
+        out = build_team_stats_trends_archive(session, team, default_season_id=1, default_segment="rs")
+        self.assertEqual(out["seasons"], [])
+        self.assertEqual(out["default_situation"], "all")
+        self.assertEqual(out["rs_game_cap"], 82)
+        self.assertEqual(out["datasets"], {})
+
+    def test_team_player_trend_game_meta_reindexes_line_games(self) -> None:
+        games = [
+            SimpleNamespace(id=10, game_date=None),
+            SimpleNamespace(id=20, game_date=None),
+            SimpleNamespace(id=30, game_date=None),
+        ]
+        out = _team_player_trend_game_meta(games, {20, 30})
+        self.assertNotIn(10, out)
+        self.assertEqual(out[20]["game_number"], 1)
+        self.assertEqual(out[30]["game_number"], 2)
+
     def test_zone_start_pcts(self) -> None:
         out = zone_start_pcts(40, 20, 40)
         self.assertEqual(out["oz"], 40.0)
@@ -281,6 +398,125 @@ class AdvancedStatsServiceTest(unittest.TestCase):
         self.assertEqual(out["goal_diff"], 10)
         self.assertEqual(out["point_pct"], 130.0)
         self.assertEqual(out["points_above_ppg"], 32)
+
+    def test_skater_player_chart_metrics_shape(self) -> None:
+        st = SimpleNamespace(
+            player_id=9,
+            gp=20,
+            goals=15,
+            assists=20,
+            points=35,
+            shots=120,
+            toi_seconds=72000,
+            cf_pct=52.0,
+            ff_pct=51.0,
+            cf=100,
+            ca=90,
+            ff=80,
+            fa=75,
+            cf_pct_rel=None,
+            ff_pct_rel=None,
+            sf_per_60=8.0,
+            sa_per_60=7.5,
+            gf_per_60=3.0,
+            ga_per_60=2.8,
+            ppto_seconds=1800,
+            ppg=2,
+            pp_assists=3,
+            shto_seconds=600,
+            shg=0,
+            sh_assists=1,
+            pdo=100.5,
+            blocked_shots=10,
+            hits=20,
+            takeaways=5,
+            giveaways=4,
+            faceoff_wins=100,
+            faceoffs=200,
+        )
+        session = MagicMock()
+        session.scalars.return_value.all.return_value = [
+            SimpleNamespace(sq0=1, sq1=1, sq2=1, sq3=2, sq4=1)
+        ]
+        out = _skater_player_chart_metrics(session, st, season_id=1)
+        self.assertEqual(out["points"], 35)
+        self.assertEqual(out["pts_per_60"], 1.75)
+        self.assertEqual(out["high_danger_share"], 50.0)
+
+    def test_skater_trend_game_counts(self) -> None:
+        line = SimpleNamespace(
+            goals=2,
+            assists=1,
+            shots=5,
+            pim=4,
+            hits=3,
+            blocked_shots=1,
+            missed_shots=2,
+            takeaways=1,
+            giveaways=0,
+            sq0=1,
+            sq1=1,
+            sq2=1,
+            sq3=2,
+            sq4=1,
+            team_shots_off=12,
+            team_shots_against_off=8,
+        )
+        out = _skater_trend_game_counts(line)
+        self.assertEqual(out["points"], 3)
+        self.assertEqual(out["high_danger_attempts"], 3)
+        self.assertEqual(out["sq_total"], 6)
+        self.assertEqual(out["team_shots_total"], 20)
+
+    def test_goalie_trend_game_counts(self) -> None:
+        line = SimpleNamespace(
+            saves=28,
+            shots_against=30,
+            goals_allowed=2,
+            toi_seconds=3600,
+            game_rating=7.5,
+        )
+        out = _goalie_trend_game_counts(line)
+        self.assertEqual(out["saves"], 28)
+        self.assertEqual(out["sa"], 30)
+        self.assertEqual(out["ga"], 2)
+        self.assertEqual(out["game_rating"], 7.5)
+
+    def test_build_team_player_trends_archive_sparse(self) -> None:
+        session = MagicMock()
+        team = SimpleNamespace(id=3, full_display_name=lambda: "Test Team")
+
+        def scalars_side_effect(_stmt):
+            mock = MagicMock()
+            mock.all.return_value = []
+            return mock
+
+        session.scalars.side_effect = scalars_side_effect
+        out = build_team_player_trends_archive(session, team, default_season_id=1, default_segment="rs")
+        self.assertEqual(out["seasons"], [])
+        self.assertEqual(out["default_kind"], "skater")
+        self.assertEqual(out["default_metric_skater"], "goals")
+        self.assertEqual(out["datasets"], {})
+
+    @patch("app.services.season_team_logo_bundle.get_season_team_logo_bundle")
+    def test_build_team_player_analytics_archive_sparse(self, logo_bundle_mock: MagicMock) -> None:
+        logo_bundle_mock.return_value.team_logo_url_for_season_context.return_value = ""
+        session = MagicMock()
+        team = SimpleNamespace(id=3, full_display_name=lambda: "Test Team")
+
+        def scalars_side_effect(_stmt):
+            mock = MagicMock()
+            stmt = str(_stmt)
+            if "distinct" in stmt:
+                mock.all.return_value = []
+            else:
+                mock.all.return_value = []
+            return mock
+
+        session.scalars.side_effect = scalars_side_effect
+        out = build_team_player_analytics_archive(session, team, default_season_id=1, default_segment="rs")
+        self.assertEqual(out["seasons"], [])
+        self.assertEqual(out["default_kind"], "skater")
 
     @patch("app.services.season_team_logo_bundle.get_season_team_logo_bundle")
     def test_build_team_analytics_chart_archive_sparse(self, logo_bundle_mock: MagicMock) -> None:

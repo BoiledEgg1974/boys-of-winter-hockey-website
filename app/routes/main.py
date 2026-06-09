@@ -4519,6 +4519,32 @@ def team_page(slug: str):
     from app.services.team_honors import team_honors_page_bundle
 
     honors_bundle = team_honors_page_bundle(db.session, int(team.id))
+    from app.services.advanced_stats import (
+        build_team_player_analytics_archive,
+        build_team_player_trends_archive,
+        build_team_stats_trends_archive,
+    )
+
+    team_player_analytics = build_team_player_analytics_archive(
+        db.session,
+        team,
+        default_season_id=int(season.id) if season else None,
+        default_segment="rs",
+        static_folder=current_app.static_folder,
+    )
+    team_player_trends = build_team_player_trends_archive(
+        db.session,
+        team,
+        default_season_id=int(season.id) if season else None,
+        default_segment="rs",
+        static_folder=current_app.static_folder,
+    )
+    team_stats_trends = build_team_stats_trends_archive(
+        db.session,
+        team,
+        default_season_id=int(season.id) if season else None,
+        default_segment="rs",
+    )
     tmpl_kwargs: dict[str, object] = {
         "team": team,
         "arena_name": arena_name,
@@ -4583,6 +4609,9 @@ def team_page(slug: str):
         "news_viewer_can_react": news_viewer_can_react,
         "news_category_label": news_category_label,
         "team_award_badges": team_history_award_badges(db.session, team),
+        "team_player_analytics": team_player_analytics,
+        "team_player_trends": team_player_trends,
+        "team_stats_trends": team_stats_trends,
         **honors_bundle,
     }
     depth_ova_ids: set[int] = set()

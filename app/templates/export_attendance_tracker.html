@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Attendance Tracker — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="export-attendance-tracker">
+  <header class="export-attendance-tracker__header">
+    <p class="export-attendance-tracker__eyebrow muted">{{ config.LEAGUE_DISPLAY_NAME }} · GM / Admin</p>
+    <h1 class="export-attendance-tracker__title">Attendance Tracker</h1>
+    <p class="export-attendance-tracker__lead muted">
+      Rolling {{ tracker.window_days }}-day export calendar (newest dates first). Green cells mean the admin registered an export for that date; red means no export was recorded. Gaps longer than {{ tracker.gap_threshold_days }} days are highlighted.
+    </p>
+  </header>
+
+  <section class="card export-attendance-tracker__panel" aria-labelledby="export-attendance-tracker-h">
+    <h2 id="export-attendance-tracker-h" class="export-attendance-tracker__panel-title">Export activity</h2>
+    <div class="export-attendance-tracker__scroll" tabindex="0" role="region" aria-label="45-day export attendance grid">
+      <table class="export-attendance-tracker__grid">
+        <thead>
+          <tr>
+            <th scope="col" class="export-attendance-tracker__sticky export-attendance-tracker__team-col">Team</th>
+            <th scope="col" class="export-attendance-tracker__sticky export-attendance-tracker__gm-col">GM</th>
+            <th scope="col" class="export-attendance-tracker__sticky export-attendance-tracker__stat-col export-attendance-tracker__exp-col" title="Exports in window">Exp.</th>
+            <th scope="col" class="export-attendance-tracker__sticky export-attendance-tracker__stat-col export-attendance-tracker__gap-col" title="Days since last export">Gap</th>
+            {% for label in tracker.date_labels %}
+            <th scope="col" class="export-attendance-tracker__date-col">{{ label }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in tracker.rows %}
+          <tr class="export-attendance-tracker__row{% if row.gap_warning %} export-attendance-tracker__row--warning{% endif %}">
+            <th scope="row" class="export-attendance-tracker__sticky export-attendance-tracker__team-col">
+              <span class="export-attendance-tracker__team">
+                {% if row.logo_url %}
+                <img class="export-attendance-tracker__logo" src="{{ row.logo_url }}" alt="" loading="lazy" decoding="async">
+                {% endif %}
+                <span>{{ row.team_name }}</span>
+              </span>
+            </th>
+            <td class="export-attendance-tracker__sticky export-attendance-tracker__gm-col">{{ row.gm_name }}</td>
+            <td class="export-attendance-tracker__sticky export-attendance-tracker__stat-col export-attendance-tracker__exp-col">{{ row.total_exports }}</td>
+            <td class="export-attendance-tracker__sticky export-attendance-tracker__stat-col export-attendance-tracker__gap-col{% if row.gap_warning %} export-attendance-tracker__gap--warning{% endif %}">
+              {% if row.current_gap_days is not none %}{{ row.current_gap_days }}{% else %}—{% endif %}
+            </td>
+            {% for cell in row.cells %}
+            <td class="export-attendance-tracker__cell{% if cell.exported %} export-attendance-tracker__cell--yes{% else %} export-attendance-tracker__cell--no{% endif %}" title="{{ row.team_name }} — {{ cell.label }} — {% if cell.exported %}Exported{% else %}Not exported{% endif %}">
+              <span class="export-attendance-tracker__cell-label" aria-hidden="true">{% if cell.exported %}✓{% else %}·{% endif %}</span>
+              <span class="visually-hidden">{{ row.team_name }} {{ cell.label }} {% if cell.exported %}exported{% else %}not exported{% endif %}</span>
+            </td>
+            {% endfor %}
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="{{ 4 + tracker.date_labels|length }}" class="muted">No active GM memberships found for this league.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+{% endblock %}

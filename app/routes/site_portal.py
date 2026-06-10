@@ -171,6 +171,12 @@ from app.services.ap_service import (
     publish_news_and_maybe_award_ap,
     team_ap_balance,
 )
+from app.services.export_attendance import (
+    build_attendance_tracker_payload,
+    maybe_send_export_gap_warning,
+    parse_export_date,
+    register_export_attendance,
+)
 from app.services.draft_pick_ownership import (
     build_draft_pick_ownership_year_grid,
     complete_stale_draft_pick_ownership_panels,
@@ -817,6 +823,26 @@ def _season_rollover_defaults() -> dict[str, object]:
         "next_end": next_end,
         "next_label": next_label,
     }
+
+
+@site_gm_bp.get("/attendance-tracker")
+@login_required
+def export_attendance_tracker():
+    """Rolling 45-day GM export attendance grid for active GMs and league admins."""
+    slug = _league_slug()
+    if not _membership() and not _is_site_admin():
+        flash("Attendance Tracker is available to active GMs and league admins.", "err")
+        return redirect(url_for("main.home"))
+    tracker = build_attendance_tracker_payload(
+        db.session,
+        slug,
+        logo_resolver=team_logo_url_for_team,
+    )
+    return render_template(
+        "export_attendance_tracker.html",
+        tracker=tracker,
+        membership=_membership(),
+    )
 
 
 @site_gm_bp.get("/help-tips")
@@ -7094,19 +7120,24 @@ def admin_ap_export_multileague():
     require_admin_role(ADMIN_ROLE_STATS, ADMIN_ROLE_LEAGUE)
     cur_slug = _league_slug()
     dry_run = request.form.get("dry_run") == "1"
+    export_date = parse_export_date(request.form.get("export_date"))
     raw = request.form.getlist("team_slug")
     team_slugs = list(dict.fromkeys(s.strip() for s in raw if s and s.strip()))
     if not team_slugs:
         flash("Select at least one team.", "err")
         return redirect(url_for("site_admin.admin_ap_ledger"))
     label = league_display_name(cur_slug)
+    ap_allowed = True
+    ap_block_message = ""
     if not dry_run:
         pe = evaluate_points_economy_mutations_allowed(db.session, cur_slug)
         if not pe.allowed:
-            flash(pe.message, "err")
-            return redirect(url_for("site_admin.admin_ap_ledger"))
+            ap_allowed = False
+            ap_block_message = pe.message
     note = f"EXPORT: +1 AP ({label})"
-    added = 0
+    ap_added = 0
+    attendance_added = 0
+    warnings_sent = 0
     matched_slugs: list[str] = []
     for team_slug in team_slugs:
         tid = team_id_for_slug_in_league(
@@ -7119,32 +7150,65 @@ def admin_ap_export_multileague():
             continue
         matched_slugs.append(team_slug)
         if dry_run:
-            added += 1
+            ap_added += 1
             continue
-        add_ledger_entry(
+        ledger_row = None
+        if ap_allowed:
+            ledger_row = add_ledger_entry(
+                league_slug=cur_slug,
+                team_id=tid,
+                delta=1,
+                reason_code="manual",
+                meta={
+                    "note": note,
+                    "team_slug": team_slug,
+                    "export_date": export_date.isoformat(),
+                },
+                created_by_user_id=current_user.id,
+                source_ref=f"manual_export:{cur_slug}:{tid}:{export_date.isoformat()}",
+            )
+            if ledger_row is not None:
+                ap_added += 1
+        attendance_row, created_new = register_export_attendance(
+            db.session,
             league_slug=cur_slug,
-            team_id=tid,
-            delta=1,
-            reason_code="manual",
-            meta={"note": note, "team_slug": team_slug},
-            created_by_user_id=current_user.id,
+            team_id=int(tid),
+            export_date=export_date,
+            checked_by_user_id=int(current_user.id),
+            ap_ledger_entry_id=int(ledger_row.id) if ledger_row is not None else None,
         )
-        added += 1
+        if created_new:
+            attendance_added += 1
+        if maybe_send_export_gap_warning(
+            db.session,
+            attendance_row=attendance_row,
+            league_slug=cur_slug,
+            admin_user_id=int(current_user.id),
+        ):
+            warnings_sent += 1
     if dry_run:
         sample = ", ".join(matched_slugs[:8]) if matched_slugs else "none"
         if len(matched_slugs) > 8:
             sample += ", …"
         flash(
-            f"[DRY RUN] EXPORT would add {added} ledger row(s) (+1 AP) in {label}. Teams: {sample}",
+            f"[DRY RUN] EXPORT would add {ap_added} ledger row(s) (+1 AP) and register "
+            f"{ap_added} attendance row(s) for {export_date.isoformat()} in {label}. "
+            f"Teams: {sample}",
             "ok",
         )
         return redirect(url_for("site_admin.admin_ap_ledger"))
     db.session.commit()
-    if added:
-        flash(
-            f"EXPORT: added {added} ledger row(s) (+1 AP per team in {label} only).",
-            "ok",
-        )
+    if matched_slugs:
+        parts = [
+            f"EXPORT {export_date.isoformat()}: registered attendance for {len(matched_slugs)} team(s) in {label}."
+        ]
+        if ap_allowed:
+            parts.append(f"Added {ap_added} AP ledger row(s).")
+        else:
+            parts.append(f"AP not awarded ({ap_block_message})")
+        if warnings_sent:
+            parts.append(f"Sent {warnings_sent} export-gap warning(s).")
+        flash(" ".join(parts), "ok" if attendance_added or ap_added or matched_slugs else "err")
     else:
         flash(
             f"No matching teams in this league ({label}) for the selection.",
@@ -7395,6 +7459,7 @@ def admin_ap_ledger():
         "admin_ap_ledger.html",
         teams=teams,
         team_rows=team_rows,
+        today_iso=date.utcnow().date().isoformat(),
     )
 
 

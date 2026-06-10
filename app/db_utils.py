@@ -2305,6 +2305,58 @@ def ensure_game_record_baselines_sqlite(engine: Engine) -> None:
         conn.commit()
 
 
+def ensure_gm_export_attendance_sqlite(engine: Engine) -> None:
+    """Create GM export attendance tracker table on the site DB."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text(
+                "SELECT 1 FROM sqlite_master "
+                "WHERE type='table' AND name='gm_export_attendance'"
+            )
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE gm_export_attendance (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    league_slug VARCHAR(64) NOT NULL,
+                    team_id INTEGER NOT NULL,
+                    export_date DATE NOT NULL,
+                    checked_by_user_id INTEGER,
+                    created_at DATETIME NOT NULL,
+                    ap_ledger_entry_id INTEGER,
+                    previous_export_date DATE,
+                    gap_days INTEGER,
+                    gap_warning_sent_at DATETIME
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE UNIQUE INDEX uq_gm_export_attendance_team_date "
+                "ON gm_export_attendance (league_slug, team_id, export_date)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_gm_export_attendance_league_date "
+                "ON gm_export_attendance (league_slug, export_date)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_gm_export_attendance_team "
+                "ON gm_export_attendance (league_slug, team_id)"
+            )
+        )
+        conn.commit()
+
+
 def ensure_gm_rule_strikes_sqlite(engine: Engine) -> None:
     """Create cap strike-tracking table on the site DB."""
     if engine.dialect.name != "sqlite":

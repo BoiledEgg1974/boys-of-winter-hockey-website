@@ -142,8 +142,13 @@
     <h2 class="ap-export-dialog__title" id="ap-export-dialog-title">EXPORT — award +1 AP</h2>
     <p class="muted ap-export-dialog__lead">
       Check each team that should receive <strong>+1 Action Point</strong> in
-      <strong>{{ config.LEAGUE_DISPLAY_NAME }}</strong> only.
+      <strong>{{ config.LEAGUE_DISPLAY_NAME }}</strong> only. Attendance is always
+      recorded for checked teams on the export date below.
     </p>
+    <label class="ap-export-dialog__date-label" for="ap-export-date">
+      Export date
+      <input type="date" id="ap-export-date" name="export_date" value="{{ today_iso }}" required>
+    </label>
     <ul class="ap-export-team-list">
       {% for t in teams %}
       <li class="ap-export-team-list__item">

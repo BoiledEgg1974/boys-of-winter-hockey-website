@@ -209,6 +209,29 @@ class ApLedgerEntry(db.Model):
     source_ref: Mapped[str | None] = mapped_column(String(191), nullable=True)
 
 
+class GmExportAttendance(db.Model):
+    """Authoritative GM export check-in for attendance tracking (separate from AP ledger)."""
+
+    __tablename__ = "gm_export_attendance"
+    __bind_key__ = "site"
+    __table_args__ = (
+        UniqueConstraint("league_slug", "team_id", "export_date", name="uq_gm_export_attendance_team_date"),
+        Index("ix_gm_export_attendance_league_date", "league_slug", "export_date"),
+        Index("ix_gm_export_attendance_team", "league_slug", "team_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False)
+    team_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    export_date: Mapped[date] = mapped_column(Date, nullable=False)
+    checked_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    ap_ledger_entry_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    previous_export_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    gap_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    gap_warning_sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
 class ApRedemptionRequest(db.Model):
     __tablename__ = "ap_redemption_requests"
     __bind_key__ = "site"

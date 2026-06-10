@@ -290,7 +290,7 @@ def maybe_credit_daily_export_for_team(
     """
     if raw_import_dir_mtime is None:
         return False
-    day_key = date.utcnow().isoformat()
+    day_key = datetime.utcnow().date().isoformat()
     source_ref = f"daily_export:{league_slug}:{team_id}:{day_key}"
     row = add_ledger_entry(
         league_slug=league_slug,

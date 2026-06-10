@@ -7459,7 +7459,7 @@ def admin_ap_ledger():
         "admin_ap_ledger.html",
         teams=teams,
         team_rows=team_rows,
-        today_iso=date.utcnow().date().isoformat(),
+        today_iso=datetime.utcnow().date().isoformat(),
     )
 
 

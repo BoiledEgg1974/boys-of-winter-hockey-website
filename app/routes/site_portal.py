@@ -37,6 +37,7 @@ from app.models import (
     Prospect,
     Season,
     Team,
+    TeamStanding,
     TeamRetiredNumber,
     TeamSeasonRecord,
     TeamVictoryBanner,

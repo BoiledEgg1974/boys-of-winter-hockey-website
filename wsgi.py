@@ -11,20 +11,37 @@ Local dev: ``python run.py`` serves this application.
 """
 from __future__ import annotations
 
+import threading
+
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
 
 from app import create_app
 from app.config import league_slugs, make_league_config
 from hub import create_hub_app
 
+_init_locks: dict[str, threading.Lock] = {}
+_init_locks_guard = threading.Lock()
+
+
+def _init_lock_for(slug: str) -> threading.Lock:
+    with _init_locks_guard:
+        lock = _init_locks.get(slug)
+        if lock is None:
+            lock = threading.Lock()
+            _init_locks[slug] = lock
+        return lock
+
 
 def _lazy_league_wsgi(slug: str):
     """Load each league Flask app on first request (avoids 3× heavy init per worker at import)."""
     loaded: list = []
+    init_lock = _init_lock_for(slug)
 
     def application(environ, start_response):
         if not loaded:
-            loaded.append(create_app(make_league_config(slug)).wsgi_app)
+            with init_lock:
+                if not loaded:
+                    loaded.append(create_app(make_league_config(slug)).wsgi_app)
         return loaded[0](environ, start_response)
 
     return application

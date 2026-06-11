@@ -1,8 +1,11 @@
 """SQLite FTS5 helpers and post-migration setup."""
 from __future__ import annotations
 
+import time
+
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
+from sqlalchemy.exc import OperationalError
 
 
 def migrate_team_season_aggregates_sqlite(engine: Engine) -> None:
@@ -548,19 +551,30 @@ def rebuild_player_fts(engine: Engine) -> None:
 
 def repair_fhm_team_city_from_name(engine: Engine) -> None:
     """Set ``teams.city`` to match ``teams.name`` for FHM imports (city was wrongly ``name.split()[0]``)."""
-    with engine.connect() as conn:
-        conn.execute(
-            text(
-                """
-                UPDATE teams
-                SET city = name
-                WHERE fhm_team_id IS NOT NULL
-                  AND name IS NOT NULL
-                  AND TRIM(name) != ''
-                """
-            )
-        )
-        conn.commit()
+    if engine.dialect.name != "sqlite":
+        return
+    stmt = text(
+        """
+        UPDATE teams
+        SET city = name
+        WHERE fhm_team_id IS NOT NULL
+          AND name IS NOT NULL
+          AND TRIM(name) != ''
+          AND (city IS NULL OR TRIM(city) = '' OR city != name)
+        """
+    )
+    attempts = 5
+    delay_s = 0.15
+    for attempt in range(attempts):
+        try:
+            with engine.connect() as conn:
+                conn.execute(stmt)
+                conn.commit()
+            return
+        except OperationalError as exc:
+            if "database is locked" not in str(exc).lower() or attempt >= attempts - 1:
+                raise
+            time.sleep(delay_s * (attempt + 1))
 
 
 def ensure_homepage_module_settings_sqlite(engine: Engine) -> None:

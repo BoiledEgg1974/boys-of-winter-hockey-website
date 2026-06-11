@@ -1474,16 +1474,39 @@ def gm_season_standings(
     season_start: date | None = None,
     season_end: date | None = None,
 ) -> list[dict[str, Any]]:
-    """Cumulative BOWL Six points across scored slates in the current real season."""
+    """Cumulative BOWL Six points across scored slates for current active GM teams.
+
+    Historical lineup rows are keyed to the submitting user, but leaderboard display should
+    follow the current GM/team assignment. When a team changes GMs, carry that team's
+    BOWL Six season points forward to the current active membership instead of showing a
+    deleted or inactive user account.
+    """
     if season_start is None or season_end is None:
         default_start, default_end = bowl_six_real_season_bounds()
         season_start = season_start or default_start
         season_end = season_end or default_end
-    rows = session.execute(
+
+    active_memberships = list(
+        session.scalars(
+            select(GmLeagueMembership)
+            .where(
+                GmLeagueMembership.league_slug == league_slug,
+                GmLeagueMembership.status == "active",
+            )
+            .order_by(GmLeagueMembership.team_id, GmLeagueMembership.id)
+        ).all()
+    )
+    active_by_team: dict[int, GmLeagueMembership] = {}
+    for mem in active_memberships:
+        active_by_team.setdefault(int(mem.team_id), mem)
+    if not active_by_team:
+        return []
+
+    scored_rows = session.execute(
         select(
             BowlSixLineup.user_id,
-            func.sum(BowlSixLineupScore.total_points),
-            func.count(BowlSixLineupScore.id),
+            BowlSixSlate.id,
+            BowlSixLineupScore.total_points,
         )
         .join(BowlSixSlate, BowlSixSlate.id == BowlSixLineup.slate_id)
         .join(BowlSixLineupScore, BowlSixLineupScore.lineup_id == BowlSixLineup.id)
@@ -1493,17 +1516,66 @@ def gm_season_standings(
             BowlSixSlate.week_start >= season_start,
             BowlSixSlate.week_start <= season_end,
         )
-        .group_by(BowlSixLineup.user_id)
-        .order_by(func.sum(BowlSixLineupScore.total_points).desc())
     ).all()
+
+    scored_user_ids = {int(uid) for uid, _, _ in scored_rows if uid is not None}
+    membership_by_user: dict[int, GmLeagueMembership] = {
+        int(mem.user_id): mem for mem in active_memberships
+    }
+    if scored_user_ids:
+        historical_memberships = list(
+            session.scalars(
+                select(GmLeagueMembership)
+                .where(
+                    GmLeagueMembership.league_slug == league_slug,
+                    GmLeagueMembership.user_id.in_(scored_user_ids),
+                )
+                .order_by(GmLeagueMembership.user_id, GmLeagueMembership.id.desc())
+            ).all()
+        )
+        historical_memberships.sort(
+            key=lambda mem: (
+                int(mem.user_id),
+                0 if str(mem.status or "") == "active" else 1,
+                -int(mem.id or 0),
+            )
+        )
+        for mem in historical_memberships:
+            membership_by_user.setdefault(int(mem.user_id), mem)
+
+    points_by_team: dict[int, float] = {}
+    scored_slates_by_team: dict[int, set[int]] = {}
+    for uid, slate_id, total in scored_rows:
+        mem = membership_by_user.get(int(uid))
+        if mem is None:
+            continue
+        team_id = int(mem.team_id)
+        if team_id not in active_by_team:
+            continue
+        points_by_team[team_id] = points_by_team.get(team_id, 0.0) + float(total or 0)
+        scored_slates_by_team.setdefault(team_id, set()).add(int(slate_id))
+
+    standings: list[dict[str, Any]] = []
+    for team_id, mem in active_by_team.items():
+        standings.append(
+            {
+                "user_id": int(mem.user_id),
+                "team_id": team_id,
+                "season_points": float(points_by_team.get(team_id, 0.0)),
+                "weeks_played": len(scored_slates_by_team.get(team_id, set())),
+            }
+        )
+    standings.sort(key=lambda r: (-float(r["season_points"]), -int(r["weeks_played"]), int(r["team_id"])))
+
     result: list[dict[str, Any]] = []
-    for rank, (uid, total, weeks) in enumerate(rows, start=1):
+    for rank, row in enumerate(standings, start=1):
         result.append(
             {
                 "rank": rank,
-                "user_id": int(uid),
-                "season_points": float(total or 0),
-                "weeks_played": int(weeks or 0),
+                "user_id": int(row["user_id"]),
+                "team_id": int(row["team_id"]),
+                "season_points": float(row["season_points"]),
+                "weeks_played": int(row["weeks_played"]),
                 "season_ap_award": season_ap_prize_for_rank(rank),
             }
         )

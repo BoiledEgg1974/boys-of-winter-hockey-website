@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import unittest
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from app.services.bowl_six_scoring import (
@@ -18,6 +19,7 @@ from app.services.bowl_six import (
     ensure_bowl_six_slate_prize_ledgers,
     ensure_current_slate_after_finalization,
     get_or_create_current_slate,
+    gm_season_standings,
     lock_at_display_eastern,
     lock_at_iso_z,
     maybe_enqueue_bowl_six_roster_reminders,
@@ -135,6 +137,40 @@ class BowlSixScoringTest(unittest.TestCase):
             bowl_six_real_season_bounds(date(2026, 7, 1)),
             (date(2026, 7, 1), date(2027, 6, 30)),
         )
+
+    def test_gm_season_standings_uses_current_active_gms_by_team(self):
+        class _Result:
+            def __init__(self, rows):
+                self._rows = rows
+
+            def all(self):
+                return self._rows
+
+        active_current = SimpleNamespace(id=10, user_id=99, team_id=12, status="active")
+        active_other = SimpleNamespace(id=11, user_id=100, team_id=22, status="active")
+        inactive_prior = SimpleNamespace(id=9, user_id=28, team_id=12, status="inactive")
+        session = MagicMock()
+        session.scalars.side_effect = [
+            _Result([active_current, active_other]),
+            _Result([inactive_prior]),
+        ]
+        session.execute.return_value = _Result([(28, 1, 7.5)])
+
+        rows = gm_season_standings(
+            session,
+            "bowl-cap",
+            season_start=date(2026, 1, 1),
+            season_end=date(2026, 12, 31),
+        )
+
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0]["user_id"], 99)
+        self.assertEqual(rows[0]["team_id"], 12)
+        self.assertEqual(rows[0]["season_points"], 7.5)
+        self.assertEqual(rows[0]["weeks_played"], 1)
+        self.assertNotIn(28, {row["user_id"] for row in rows})
+        self.assertEqual(rows[1]["user_id"], 100)
+        self.assertEqual(rows[1]["season_points"], 0.0)
 
     def test_default_bowl_six_lock_normalizes_legacy_8pm_et(self):
         session = MagicMock()

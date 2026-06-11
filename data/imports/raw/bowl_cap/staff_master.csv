@@ -2198,7 +2198,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 2196;-1;Paul;Vincent;;1964-1-1;Columbus;OH;The United States;;;0
 2197;17;Viktor;Tyumenev;;1957-6-1;Moscow;MOS;Russia;;;0
 2198;228;Parry;Shockey;;1964-1-1;Buckingham;QC;Canada;;;0
-2199;-1;Boris;Yemelyanov;;1964-1-1;Lobnya;MOS;Russia;;;0
+2199;9;Boris;Yemelyanov;;1964-1-1;Lobnya;MOS;Russia;;;0
 2200;-1;Evzen;Slansky;;1964-1-1;Kladno;STR;Czech Republic;;;0
 2201;25;Paul;Coady;;1964-1-1;Overland Park;KS;The United States;;;0
 2202;10;James;Dolan;;1955-5-11;Mastic;NY;The United States;;;0
@@ -2278,7 +2278,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 2276;217;Vaclav;Slansky;;1949-1-1;Kladno;STR;Czech Republic;;;0
 2277;-1;Daniel;Hedin;;1965-1-1;Stockholm;STO;Sweden;;;0
 2278;-1;Joseph;Horrigan;;1965-1-1;San Juan;TX;The United States;;;0
-2279;-1;Dennis;Schueller;;1965-1-1;Mahnomen;MN;The United States;;;0
+2279;9;Dennis;Schueller;;1965-1-1;Mahnomen;MN;The United States;;;0
 2280;-1;Bill;Dandy;;1965-1-1;North Battleford;SK;Canada;;;0
 2281;-1;Mario;Marois;;1957-12-15;Winnipeg;MB;Canada;;;0
 2282;-1;Jerry;Sodomlak;;1965-1-1;Oakbank;MB;Canada;;;0

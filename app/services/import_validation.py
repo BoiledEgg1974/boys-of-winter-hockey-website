@@ -10,21 +10,33 @@ from sqlalchemy import select
 from app.models import Team
 
 
-def _read_csv_rows(path: Path) -> list[dict[str, str]]:
+def _csv_delimiter_for(path: Path) -> str:
+    try:
+        sample = path.read_text(encoding="utf-8-sig", errors="ignore")[:2048]
+    except OSError:
+        return ","
+    return ";" if sample.count(";") >= sample.count(",") else ","
+
+
+def _read_csv_dict_rows(path: Path, *, delimiter: str) -> list[dict[str, str]]:
     if not path.is_file():
         return []
-    with path.open("r", encoding="utf-8-sig", newline="") as fh:
-        return list(csv.DictReader(fh))
+    for encoding in ("utf-8-sig", "cp1252", "latin-1"):
+        try:
+            with path.open("r", encoding=encoding, newline="") as fh:
+                return list(csv.DictReader(fh, delimiter=delimiter))
+        except UnicodeDecodeError:
+            continue
+    with path.open("r", encoding="utf-8-sig", errors="replace", newline="") as fh:
+        return list(csv.DictReader(fh, delimiter=delimiter))
+
+
+def _read_csv_rows(path: Path) -> list[dict[str, str]]:
+    return _read_csv_dict_rows(path, delimiter=",")
 
 
 def _read_csv_rows_autodelim(path: Path) -> list[dict[str, str]]:
-    if not path.is_file():
-        return []
-    with path.open("r", encoding="utf-8-sig", newline="") as fh:
-        sample = fh.read(2048)
-        fh.seek(0)
-        delim = ";" if sample.count(";") >= sample.count(",") else ","
-        return list(csv.DictReader(fh, delimiter=delim))
+    return _read_csv_dict_rows(path, delimiter=_csv_delimiter_for(path))
 
 
 def collect_team_identity_history_logo_issues(*, raw_dir: Path, static_root: Path) -> list[str]:

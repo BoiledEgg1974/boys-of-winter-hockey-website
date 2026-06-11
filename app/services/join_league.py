@@ -4,8 +4,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from flask import current_app
+from sqlalchemy import select
 
 from app.mail_util import send_site_email
+from app.models import Team
 
 JOIN_AVAILABLE_TEAMS_FILENAME = "join_league_available_teams.txt"
 WAITLIST_OPTION = "Waitlist"
@@ -56,6 +58,41 @@ def join_league_team_options() -> list[str]:
         if league_slug == "bowl-fantasy":
             options = ["Tokyo Katanas"]
     return [WAITLIST_OPTION, *dedupe_team_options(options)]
+
+
+def _team_option_keys(team: Team) -> set[str]:
+    keys = {
+        normalize_team_option(getattr(team, "slug", "")).casefold(),
+        normalize_team_option(getattr(team, "name", "")).casefold(),
+        normalize_team_option(team.full_display_name()).casefold(),
+    }
+    return {k for k in keys if k}
+
+
+def join_league_available_team_banner_rows(session) -> list[dict[str, object]]:
+    """Open Join League teams mapped to current Team rows for public logo banners."""
+    options = [opt for opt in join_league_team_options() if opt.casefold() != WAITLIST_OPTION.casefold()]
+    if not options:
+        return []
+
+    teams = list(session.scalars(select(Team).order_by(Team.name)).all())
+    team_by_key: dict[str, Team] = {}
+    for team in teams:
+        for key in _team_option_keys(team):
+            team_by_key.setdefault(key, team)
+
+    rows: list[dict[str, object]] = []
+    for option in options:
+        label = normalize_team_option(option)
+        team = team_by_key.get(label.casefold())
+        rows.append(
+            {
+                "label": team.full_display_name() if team else label,
+                "slug": str(getattr(team, "slug", "") or label).strip(),
+                "team": team,
+            }
+        )
+    return rows
 
 
 def save_join_team_options(open_team_names: list[str]) -> None:

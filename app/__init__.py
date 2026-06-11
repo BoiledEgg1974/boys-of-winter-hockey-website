@@ -65,7 +65,7 @@ from app.db_utils import (
     rebuild_player_fts,
     repair_fhm_team_city_from_name,
 )
-from app.models import Player, db
+from app.models import Player, Team, db
 from app.sqlite_pragmas import install_sqlite_connect_pragmas
 
 csrf = CSRFProtect()
@@ -527,6 +527,15 @@ def create_app(config_class: type = Config) -> Flask:
             except Exception:
                 ann = None
 
+        join_league_available_team_rows = []
+        if slug_layout:
+            try:
+                from app.services.join_league import join_league_available_team_banner_rows
+
+                join_league_available_team_rows = join_league_available_team_banner_rows(db.session)
+            except Exception:
+                join_league_available_team_rows = []
+
         admin_compact_layout = bool(
             has_request_context() and str(getattr(request, "path", "") or "").startswith("/admin")
         )
@@ -562,6 +571,7 @@ def create_app(config_class: type = Config) -> Flask:
             gm_membership=gm_membership,
             gm_messages_unread=gm_messages_unread,
             active_site_announcement=ann,
+            join_league_available_team_rows=join_league_available_team_rows,
             admin_compact_layout=admin_compact_layout,
             site_has_admin=has_admin_role(current_user)
             if getattr(current_user, "is_authenticated", False)

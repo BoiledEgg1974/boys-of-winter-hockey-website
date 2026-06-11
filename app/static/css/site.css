@@ -878,6 +878,87 @@ main {
   background: #3f0f0f;
   color: #fecaca;
 }
+.join-availability-banner {
+  max-width: min(1200px, calc(100% - 2rem));
+  margin: 0.75rem auto 0.35rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid rgb(34 197 94 / 0.45);
+  border-radius: 12px;
+  background:
+    linear-gradient(135deg, rgb(22 101 52 / 0.32), rgb(15 23 42 / 0.36)),
+    rgb(15 23 42 / 0.24);
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.03), 0 10px 24px rgb(0 0 0 / 0.24);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.55rem 0.75rem;
+  text-align: center;
+}
+.join-availability-banner__label,
+.join-availability-banner__cta {
+  font-family: "Bebas Neue", system-ui, sans-serif;
+  letter-spacing: 0.045em;
+  font-size: clamp(1.05rem, 2vw, 1.35rem);
+}
+.join-availability-banner__label {
+  color: #dcfce7;
+}
+.join-availability-banner__teams {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.join-availability-banner__team {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.85rem;
+  min-height: 2.85rem;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.08);
+  border: 1px solid rgb(255 255 255 / 0.14);
+}
+.join-availability-banner__logo {
+  width: 2.45rem;
+  height: 2.45rem;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgb(0 0 0 / 0.45));
+}
+.join-availability-banner__team--text {
+  min-height: 0;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  color: #f8fafc;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+.join-availability-banner__cta {
+  color: #86efac;
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+}
+.join-availability-banner__cta:hover,
+.join-availability-banner__cta:focus-visible {
+  color: #bbf7d0;
+  outline: none;
+}
+@media (max-width: 620px) {
+  .join-availability-banner {
+    margin-inline: 0.65rem;
+    padding: 0.65rem;
+  }
+  .join-availability-banner__team {
+    min-width: 2.4rem;
+    min-height: 2.4rem;
+  }
+  .join-availability-banner__logo {
+    width: 2.05rem;
+    height: 2.05rem;
+  }
+}
 .site-footer a {
   font-weight: 500;
 }

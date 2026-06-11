@@ -148,6 +148,24 @@
       <span class="site-announcement__body">{{ active_site_announcement.body }}</span>
     </section>
     {% endif %}
+    {% if join_league_available_team_rows and not (request.endpoint and request.endpoint.startswith('site_admin.')) %}
+    <section class="join-availability-banner" aria-label="Teams currently available">
+      <span class="join-availability-banner__label">TEAM(S) CURRENTLY AVAILABLE:</span>
+      <span class="join-availability-banner__teams">
+        {% for row in join_league_available_team_rows %}
+        {% if row.team %}
+        <span class="join-availability-banner__team" title="{{ row.label }}">
+          <img class="join-availability-banner__logo" src="{{ team_logo_url(row.team) }}" alt="{{ row.label }} logo" width="42" height="42" loading="lazy" decoding="async">
+          <span class="visually-hidden">{{ row.label }}</span>
+        </span>
+        {% else %}
+        <span class="join-availability-banner__team join-availability-banner__team--text">{{ row.label }}</span>
+        {% endif %}
+        {% endfor %}
+      </span>
+      <a class="join-availability-banner__cta" href="{{ url_for('main.join_league') }}">CLICK ON JOIN LEAGUE TODAY!</a>
+    </section>
+    {% endif %}
     {% block content %}{% endblock %}
     {% if request.endpoint and request.endpoint.startswith('site_admin.') %}
     {% include 'includes/admin_apply_refresh.html' %}

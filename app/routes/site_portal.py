@@ -7168,14 +7168,18 @@ def admin_ap_export_multileague():
                 source_ref=f"manual_export:{cur_slug}:{tid}:{export_date.isoformat()}",
             )
             if ledger_row is not None:
+                db.session.flush()
                 ap_added += 1
+        ap_ledger_entry_id = None
+        if ledger_row is not None and ledger_row.id is not None:
+            ap_ledger_entry_id = int(ledger_row.id)
         attendance_row, created_new = register_export_attendance(
             db.session,
             league_slug=cur_slug,
             team_id=int(tid),
             export_date=export_date,
             checked_by_user_id=int(current_user.id),
-            ap_ledger_entry_id=int(ledger_row.id) if ledger_row is not None else None,
+            ap_ledger_entry_id=ap_ledger_entry_id,
         )
         if created_new:
             attendance_added += 1

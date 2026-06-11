@@ -180,6 +180,8 @@ class ExportAttendanceTemplateTest(unittest.TestCase):
         self.assertIn("maybe_send_export_gap_warning", portal)
         self.assertIn("parse_export_date", portal)
         self.assertIn("source_ref=f\"manual_export:", portal)
+        self.assertIn("ap_ledger_entry_id=ap_ledger_entry_id", portal)
+        self.assertIn("ledger_row.id is not None", portal)
         self.assertIn("site_gm.export_attendance_tracker", base)
         self.assertIn("Attendance Tracker", base)
         self.assertIn('name="export_date"', ledger)

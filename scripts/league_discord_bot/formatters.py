@@ -3,7 +3,12 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from scripts.league_discord_bot.team_maps import format_team_label, team_emoji_prefix
+from scripts.league_discord_bot.team_maps import (
+    emoji_for_abbrev,
+    entry_for_fhm_team_id,
+    format_team_label,
+    team_emoji_prefix,
+)
 
 DISCORD_SITE_MORE_FOOTER = (
     "For more news, stats and more, go to https://www.bowlhockey.com"
@@ -32,6 +37,7 @@ ALWAYS_TEXT_ONLY_DISCORD_EVENT_KEYS = frozenset(
         "expansion_draft_pick_made",
         "bowl_six_rosters_unlocked",
         "bowl_six_lock_warning",
+        "playoff_predictions",
     }
 )
 
@@ -253,6 +259,8 @@ def _text_only_header_lines(
         if team_line:
             lines.append(team_line)
             _append_team_gm_mention(lines, payload)
+    elif event_key == "playoff_predictions":
+        lines.append(f"**{title}**")
     elif event_key == "trade_request":
         prefix = team_emoji_prefix(league_slug, payload)
         lines.append(
@@ -290,11 +298,57 @@ def _text_only_header_lines(
     return lines
 
 
+def _playoff_team_prefix(league_slug: str, team: dict[str, Any]) -> str:
+    entry = entry_for_fhm_team_id(league_slug, team.get("fhm_team_id"))
+    if entry and entry[1]:
+        return f"{entry[1]} "
+    emoji = emoji_for_abbrev(league_slug, str(team.get("abbrev") or ""))
+    return f"{emoji} " if emoji else ""
+
+
+def _format_playoff_predictions_body(league_slug: str, payload: dict[str, Any]) -> str:
+    series = payload.get("series") or []
+    if not isinstance(series, list) or not series:
+        return str(payload.get("body") or "").strip()
+    blocks: list[str] = []
+    for idx, row in enumerate(series, start=1):
+        if not isinstance(row, dict):
+            continue
+        ta = row.get("team_a") or {}
+        tb = row.get("team_b") or {}
+        round_label = str(row.get("round_label") or "Series").strip()
+        ab_a = str(ta.get("abbrev") or ta.get("name") or "A").strip()
+        ab_b = str(tb.get("abbrev") or tb.get("name") or "B").strip()
+        score = str(row.get("series_score") or "").strip()
+        header = f"**{round_label} · Series {idx}**"
+        if score and score not in {"0-0", "0–0"}:
+            header += f" ({score})"
+        matchup = (
+            f"{_playoff_team_prefix(league_slug, ta)}**{ab_a}** vs. "
+            f"{_playoff_team_prefix(league_slug, tb)}**{ab_b}**"
+        )
+        lines = [
+            header,
+            matchup,
+            str(row.get("team_a_stats") or "").strip(),
+            str(row.get("team_b_stats") or "").strip(),
+            f"Prediction: {str(row.get('prediction_line') or '—').strip()}",
+            f"Regular-season H2H: {str(row.get('h2h_line') or '—').strip()}",
+        ]
+        blocks.append("\n".join(ln for ln in lines if ln))
+    note = str(payload.get("prediction_method_note") or "").strip()
+    if note:
+        blocks.append(f"_{note}_")
+    return "\n\n".join(blocks)
+
+
 def _text_only_body_text(
     league_slug: str,
     event_key: str,
     payload: dict[str, Any],
 ) -> str:
+    if event_key == "playoff_predictions":
+        return _format_playoff_predictions_body(league_slug, payload)
     body = _body_text(payload, full=True)
     if event_key == "trade_request":
         note = str(payload.get("admin_note") or "").strip()

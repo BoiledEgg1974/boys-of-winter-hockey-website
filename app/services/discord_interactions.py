@@ -194,6 +194,11 @@ COMMAND_DEFINITIONS: list[dict[str, Any]] = [
     },
     {"name": "champions", "description": "Show recent league champions."},
     {
+        "name": "predict",
+        "description": "Post playoff series predictions to the playoff-predictions channel (admin).",
+        "default_member_permissions": "8",
+    },
+    {
         "name": "records",
         "description": "Show team record info.",
         "options": [
@@ -256,6 +261,43 @@ def _site_user_for_discord(payload: dict[str, Any]) -> User | None:
 
 def _command_channel_id(payload: dict[str, Any]) -> str:
     return str(payload.get("channel_id") or "").strip()
+
+
+def _is_discord_admin(payload: dict[str, Any]) -> bool:
+    member = payload.get("member") or {}
+    raw = member.get("permissions")
+    if raw is None:
+        return False
+    try:
+        perms = int(raw)
+    except (TypeError, ValueError):
+        return False
+    return bool(perms & 0x8)
+
+
+def _playoff_predictions_route_ready(league_slug: str) -> str | None:
+    row = db.session.scalar(
+        select(DiscordChannelRoute)
+        .where(
+            DiscordChannelRoute.league_slug == league_slug,
+            DiscordChannelRoute.event_key == "playoff_predictions",
+        )
+        .limit(1)
+    )
+    if row is None:
+        return (
+            "An admin needs to add the Discord route `playoff_predictions` "
+            "on Admin -> Discord Integration."
+        )
+    if not bool(row.is_enabled):
+        return "The `playoff_predictions` Discord route is disabled for this league."
+    configured = str(row.discord_channel_id or "").strip()
+    if not configured:
+        return (
+            "Set the channel ID for `playoff_predictions` "
+            "on Admin -> Discord Integration."
+        )
+    return None
 
 
 def _channel_check(league_slug: str, event_key: str, payload: dict[str, Any]) -> str | None:
@@ -865,6 +907,41 @@ def _handle_champions_command() -> dict[str, Any]:
     return _ephemeral("\n".join(lines))
 
 
+def _handle_predict_command(payload: dict[str, Any], league_slug: str) -> dict[str, Any]:
+    if not _is_discord_admin(payload):
+        return _ephemeral("This command is for server administrators only.")
+    err = _playoff_predictions_route_ready(league_slug)
+    if err:
+        return _ephemeral(err)
+    from app.services.discord_events import enqueue_discord_event
+    from app.services.playoff_discord_predictions import build_playoff_predictions_discord_payload
+
+    result = build_playoff_predictions_discord_payload(db.session, league_slug=league_slug)
+    if result.get("error"):
+        return _ephemeral(str(result["error"]))
+    disc_payload = result["payload"]
+    user = _site_user_for_discord(payload)
+    row = enqueue_discord_event(
+        db.session,
+        league_slug=league_slug,
+        event_key="playoff_predictions",
+        payload=disc_payload,
+        created_by_user_id=int(user.id) if user else None,
+        source_type="playoff_predictions_post",
+        source_id=str(disc_payload.get("source_id") or ""),
+    )
+    if row is None:
+        db.session.rollback()
+        return _ephemeral(
+            "Could not queue the playoff predictions post. Check Discord Integration settings."
+        )
+    db.session.commit()
+    count = int(disc_payload.get("series_count") or 0)
+    return _ephemeral(
+        f"Queued playoff predictions for {count} series to the configured playoff-predictions channel."
+    )
+
+
 def _handle_records_command(payload: dict[str, Any], season: Season) -> dict[str, Any]:
     team, err = _team_from_option_or_membership(payload, str(current_app.config.get("LEAGUE_SLUG") or ""))
     if err:
@@ -929,6 +1006,8 @@ def handle_slash_interaction(
         return _handle_history_command(payload, slug)
     if command == "champions":
         return _handle_champions_command()
+    if command == "predict":
+        return _handle_predict_command(payload, slug)
 
     season = _current_dashboard_season()
     if season is None:

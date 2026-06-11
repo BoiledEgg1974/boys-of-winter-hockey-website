@@ -50,6 +50,7 @@ OPS_TEXT_ONLY_DISCORD_EVENT_KEYS = frozenset(
         "bowl_six_leaders_update",
         "bowl_six_rosters_unlocked",
         "bowl_six_lock_warning",
+        "playoff_predictions",
     }
 )
 
@@ -82,6 +83,7 @@ DEFAULT_EVENT_KEYS = {
     "bowl_six_lock_warning",
     "trade_market_selling_posted",
     "trade_market_buying_posted",
+    "playoff_predictions",
 }
 
 DEFAULT_EVENT_CHANNEL_KEY = {
@@ -105,6 +107,7 @@ DEFAULT_EVENT_CHANNEL_KEY = {
     "bowl_six_lock_warning": "bowl-six",
     "trade_market_selling_posted": "trade-selling",
     "trade_market_buying_posted": "trade-buying",
+    "playoff_predictions": "playoff-predictions",
 }
 
 DEFAULT_EVENT_LABELS = {
@@ -128,6 +131,7 @@ DEFAULT_EVENT_LABELS = {
     "bowl_six_lock_warning": "BOWL Six 30-minute lock warning",
     "trade_market_selling_posted": "Trade Market — selling update",
     "trade_market_buying_posted": "Trade Market — buying interests",
+    "playoff_predictions": "Playoff predictions (/predict)",
 }
 
 MAX_DELIVERY_ATTEMPTS = 3

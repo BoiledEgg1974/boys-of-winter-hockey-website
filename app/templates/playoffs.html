@@ -149,7 +149,14 @@
     {% if trophy_url %}
     <div class="bracket-final-banner bracket-final-banner--mirror">
       {% if bowl %}
+      {% if config.LEAGUE_SLUG == 'bowl-cap' %}
+      <p class="bracket-bowl-title bracket-bowl-title--cap">
+        <span>BOWL</span>
+        <span>Championship</span>
+      </p>
+      {% else %}
       <p class="bracket-bowl-title">BOWL Championship</p>
+      {% endif %}
       {% endif %}
       <img class="bracket-trophy-img bracket-trophy-img--mirror" src="{{ trophy_url }}" width="160" height="200" alt="">
     </div>
@@ -171,10 +178,6 @@
 {% block content %}
 <div class="page playoffs-page">
   <h1 class="page-title">Playoff Bracket</h1>
-  <p class="muted">
-    {% if season %}{{ season.label }} · {% endif %}
-    Built from imported playoff games in this league database.
-  </p>
 
   {% if bracket.empty %}
     <div class="card">

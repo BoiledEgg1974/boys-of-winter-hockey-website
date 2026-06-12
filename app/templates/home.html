@@ -122,6 +122,12 @@
           <p class="empty-state loading-with-puck">Loading…</p>
         </div>
       </section>
+      {% if current_league_slug == 'bowl-cap' %}
+      <section id="home-identity-panel-card" class="card home-dashboard__card" hidden data-module-key="identity_panel" aria-labelledby="identity-panel-h">
+        <h2 id="identity-panel-h" class="home-dashboard__h"></h2>
+        <div id="home-identity-panel" class="table-wrap"></div>
+      </section>
+      {% endif %}
     </aside>
 
     <div class="home-dash-col home-dash-col--center">
@@ -195,10 +201,12 @@
         <h2 id="power-h" class="home-dashboard__h">Power Rankings</h2>
         <div id="home-power" class="home-dashboard__slot"></div>
       </section>
+      {% if current_league_slug != 'bowl-cap' %}
       <section id="home-identity-panel-card" class="card home-dashboard__card" hidden data-module-key="identity_panel" aria-labelledby="identity-panel-h">
         <h2 id="identity-panel-h" class="home-dashboard__h"></h2>
         <div id="home-identity-panel" class="table-wrap"></div>
       </section>
+      {% endif %}
       <section class="card home-dashboard__card" aria-labelledby="champ-h" data-module-key="champions">
         <h2 id="champ-h" class="home-dashboard__h">Champions</h2>
         <div id="home-champions" class="home-champions" aria-live="polite"></div>
@@ -474,6 +482,20 @@
     }
     return escape(r.team || '—');
   }
+  function processMomentumPlayerCell(r) {
+    return momentumPlayerCell({
+      player_id: r.player_id,
+      player: r.player || r.player_name,
+      player_photo_url: r.player_photo_url
+    });
+  }
+  function processMomentumTeamCell(r) {
+    return momentumTeamCell({
+      team: r.team,
+      team_slug: r.team_slug,
+      team_logo_url: r.team_logo_url
+    });
+  }
   function rowTrending(tp) {
     tp = tp || {};
     var hot = tp.hot || [];
@@ -599,24 +621,26 @@
     var gk = pm.goalies || [];
     var h = '<div class="home-process-momentum">';
     h += '<div class="home-process-momentum__block"><h3 class="home-trend-h">Hot Shots (Last 10 GP)</h3>';
-    h += '<table class="data home-momentum-table"><thead><tr><th>Player</th><th>G</th><th>SOG</th></tr></thead><tbody>';
+    h += '<table class="data home-momentum-table home-process-momentum__table"><thead><tr><th>Player</th><th>Team</th><th>G</th><th>SOG</th></tr></thead><tbody>';
     if (!sk.length) {
-      h += '<tr><td colspan="3" class="muted">—</td></tr>';
+      h += '<tr><td colspan="4" class="muted">—</td></tr>';
     } else {
       sk.forEach(function (r) {
-        h += '<tr><td><a href="' + withRoot('/player/' + r.player_id) + '">' + escape(r.player_name || '—') + '</a></td>';
+        h += '<tr><td>' + processMomentumPlayerCell(r) + '</td>';
+        h += '<td class="home-momentum-td-tm">' + processMomentumTeamCell(r) + '</td>';
         h += '<td>' + (r.recent_goals != null ? r.recent_goals : '—') + '</td>';
         h += '<td>' + (r.recent_shots != null ? r.recent_shots : '—') + '</td></tr>';
       });
     }
     h += '</tbody></table></div>';
     h += '<div class="home-process-momentum__block"><h3 class="home-trend-h">GSAA Leaders</h3>';
-    h += '<table class="data home-momentum-table"><thead><tr><th>Goalie</th><th>GSAA</th><th>SV%</th></tr></thead><tbody>';
+    h += '<table class="data home-momentum-table home-process-momentum__table"><thead><tr><th>Goalie</th><th>Team</th><th>GSAA</th><th>SV%</th></tr></thead><tbody>';
     if (!gk.length) {
-      h += '<tr><td colspan="3" class="muted">—</td></tr>';
+      h += '<tr><td colspan="4" class="muted">—</td></tr>';
     } else {
       gk.forEach(function (r) {
-        h += '<tr><td><a href="' + withRoot('/player/' + r.player_id) + '">' + escape(r.player_name || '—') + '</a></td>';
+        h += '<tr><td>' + processMomentumPlayerCell(r) + '</td>';
+        h += '<td class="home-momentum-td-tm">' + processMomentumTeamCell(r) + '</td>';
         h += '<td>' + (r.gsaa != null ? Number(r.gsaa).toFixed(2) : '—') + '</td>';
         h += '<td>' + (r.sv_pct != null ? Number(r.sv_pct).toFixed(3) : '—') + '</td></tr>';
       });
@@ -1892,7 +1916,7 @@
 
   function summaryStorageKey() {
     var root = document.documentElement.getAttribute('data-application-root') || '';
-    return 'bwlHomeSummary:v1:' + root + ':' + seg;
+    return 'bwlHomeSummary:v2:' + root + ':' + seg;
   }
 
   function readStoredSummary() {

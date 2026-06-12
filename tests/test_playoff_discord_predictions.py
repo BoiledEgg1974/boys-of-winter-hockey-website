@@ -10,10 +10,11 @@ from app.services.playoff_discord_predictions import collect_bracket_series
 from scripts.league_discord_bot.formatters import format_discord_messages
 
 
-def _admin_payload(*, permissions: str = "8") -> dict:
+def _admin_payload(*, permissions: str = "8", channel_id: str = "123456789012345678") -> dict:
     return {
         "type": 2,
         "data": {"name": "predict"},
+        "channel_id": channel_id,
         "member": {"permissions": permissions, "user": {"id": "999"}},
     }
 
@@ -41,10 +42,10 @@ class PlayoffDiscordPredictionsTest(unittest.TestCase):
         )
         self.assertIn("administrators only", resp["data"]["content"])
 
-    def test_predict_requires_route_configuration(self) -> None:
-        with patch.object(discord_interactions, "_playoff_predictions_route_ready", return_value="missing route"):
+    def test_predict_requires_playoff_predictions_channel(self) -> None:
+        with patch.object(discord_interactions, "_channel_check", return_value="Use this command in the configured `playoff-predictions` channel."):
             resp = discord_interactions._handle_predict_command(_admin_payload(), "bowl-cap")
-        self.assertIn("missing route", resp["data"]["content"])
+        self.assertIn("configured `playoff-predictions` channel", resp["data"]["content"])
 
     def test_predict_queues_outbound_event(self) -> None:
         payload = {
@@ -55,7 +56,7 @@ class PlayoffDiscordPredictionsTest(unittest.TestCase):
         }
         queued = MagicMock()
         with (
-            patch.object(discord_interactions, "_playoff_predictions_route_ready", return_value=None),
+            patch.object(discord_interactions, "_channel_check", return_value=None),
             patch.object(discord_interactions, "_site_user_for_discord", return_value=None),
             patch(
                 "app.services.playoff_discord_predictions.build_playoff_predictions_discord_payload",

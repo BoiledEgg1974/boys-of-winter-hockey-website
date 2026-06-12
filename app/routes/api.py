@@ -1536,7 +1536,13 @@ def _build_homepage_summary_payload(
     trending_players = build_trending_players(
         db.session, season.id, segment, league_cal, logo_season_year=logo_sy
     )
-    process_momentum = build_process_momentum_payload(db.session, season.id, segment=segment)
+    process_momentum = build_process_momentum_payload(
+        db.session,
+        season.id,
+        segment=segment,
+        logo_season_year=logo_sy,
+        player_photo_url=_player_photo_url,
+    )
     trending_teams = build_trending_teams(db.session, season.id, league_cal, logo_season_year=logo_sy)
     team_momentum_streaks = build_team_momentum_streaks(db.session, season.id, logo_season_year=logo_sy)
     team_momentum = {"trending": trending_teams, "streaks": team_momentum_streaks}

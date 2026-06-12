@@ -184,10 +184,13 @@ def _aggregate_game_skater_lines(session: Session, player_id: int, game_ids: lis
     if not game_ids:
         return {}
     lines = session.scalars(
-        select(GameSkaterStat).where(
+        select(GameSkaterStat)
+        .join(Game, Game.id == GameSkaterStat.game_id)
+        .where(
             GameSkaterStat.player_id == player_id,
             GameSkaterStat.game_id.in_(game_ids),
         )
+        .order_by(Game.game_date.desc().nulls_last(), Game.id.desc())
     ).all()
     if not lines:
         return {}
@@ -199,10 +202,12 @@ def _aggregate_game_skater_lines(session: Session, player_id: int, game_ids: lis
     assists = sum(int(l.assists or 0) for l in lines)
     shots = sum(int(l.shots or 0) for l in lines)
     toi_seconds = sum(int(l.toi_seconds or 0) for l in lines)
+    latest_team_id = next((int(l.team_id) for l in lines if l.team_id), None)
     sq = sq_profile_from_counts(sq_counts)
     points = goals + assists
     return {
         "gp": len(game_ids),
+        "team_id": latest_team_id,
         "goals": goals,
         "assists": assists,
         "points": points,
@@ -2068,7 +2073,36 @@ def build_process_momentum_payload(
     *,
     segment: str = "rs",
     limit: int = 5,
+    logo_season_year: int | None = None,
+    player_photo_url: Any | None = None,
 ) -> dict[str, Any]:
+    from app.services.season_team_logo_bundle import dashboard_team_logo_url
+
+    def _player_photo(pl: Player) -> str:
+        return str(player_photo_url(pl) if callable(player_photo_url) else "")
+
+    def _team_fields(team_id: int | None, pl: Player) -> dict[str, str]:
+        tm = session.get(Team, team_id) if team_id else None
+        if tm is None and pl.current_team_id:
+            tm = session.get(Team, int(pl.current_team_id))
+        if tm is None:
+            return {"team": "", "team_slug": "", "team_logo_url": ""}
+        return {
+            "team": str(tm.abbreviation or ""),
+            "team_slug": str(tm.slug or ""),
+            "team_logo_url": dashboard_team_logo_url(tm, logo_season_year),
+        }
+
+    def _recent_goalie_team_id(player_id: int) -> int | None:
+        team_id = session.scalar(
+            select(GameGoalieStat.team_id)
+            .join(Game, Game.id == GameGoalieStat.game_id)
+            .where(GameGoalieStat.player_id == player_id, Game.status == "final")
+            .order_by(Game.game_date.desc().nulls_last(), Game.id.desc())
+            .limit(1)
+        )
+        return int(team_id) if team_id else None
+
     min_skater_gp = _adaptive_min_gp(session, PlayerSkaterStat, season_id, segment, MIN_SKATER_GP)
     skaters = session.scalars(
         select(PlayerSkaterStat)
@@ -2096,6 +2130,8 @@ def build_process_momentum_payload(
             {
                 "player_id": int(pl.id),
                 "player_name": pl.full_name,
+                "player_photo_url": _player_photo(pl),
+                **_team_fields(recent.get("team_id") or st.team_id, pl),
                 "season_cf_pct": st.cf_pct,
                 "recent_goals": recent.get("goals"),
                 "recent_shots": recent.get("shots"),
@@ -2114,16 +2150,22 @@ def build_process_momentum_payload(
         )
     ).all()
     league_sv_pct = _league_goalie_sv_pct(goalies)
-    goalie_rows = [
-        {
-            "player_id": int(st.player.id),
-            "player_name": st.player.full_name,
-            "gsaa": _estimated_goalie_gsaa(st, league_sv_pct),
-            "sv_pct": st.sv_pct,
-        }
-        for st in goalies
-        if st.player is not None and _estimated_goalie_gsaa(st, league_sv_pct) is not None
-    ]
+    goalie_rows = []
+    for st in goalies:
+        pl = st.player
+        gsaa = _estimated_goalie_gsaa(st, league_sv_pct)
+        if pl is None or gsaa is None:
+            continue
+        goalie_rows.append(
+            {
+                "player_id": int(pl.id),
+                "player_name": pl.full_name,
+                "player_photo_url": _player_photo(pl),
+                **_team_fields(st.team_id or _recent_goalie_team_id(int(pl.id)), pl),
+                "gsaa": gsaa,
+                "sv_pct": st.sv_pct,
+            }
+        )
     goalie_rows.sort(key=lambda r: float(r["gsaa"] or 0), reverse=True)
     return {
         "skaters": skater_movers[:limit],

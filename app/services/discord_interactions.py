@@ -910,7 +910,7 @@ def _handle_champions_command() -> dict[str, Any]:
 def _handle_predict_command(payload: dict[str, Any], league_slug: str) -> dict[str, Any]:
     if not _is_discord_admin(payload):
         return _ephemeral("This command is for server administrators only.")
-    err = _playoff_predictions_route_ready(league_slug)
+    err = _channel_check(league_slug, "playoff_predictions", payload)
     if err:
         return _ephemeral(err)
     from app.services.discord_events import enqueue_discord_event

@@ -17,7 +17,7 @@ DEFAULT_LEAGUE_RULES: tuple[dict[str, str], ...] = (
     {"rule_key": "playoff_roster_lock", "rule_value": "true"},
     # Projected standings-page bracket while the current season is still pre-playoff.
     # Use "default" for each league's house format:
-    # - Cap/Fantasy: conference_division_winners_top3
+    # - Cap/Relegation: conference_division_winners_top3
     # - Historical: division_1v3_2v4
     # Other supported values: conference_points, division_1v4_2v3.
     {"rule_key": "playoff_projection_first_round_format", "rule_value": "default"},
@@ -53,7 +53,7 @@ def ensure_league_rules(session, league_slug: str, updated_by_user_id: int | Non
         changed = True
     # BOWL Six uses real-time Monday 7:59 PM ET locks. Older installs seeded
     # 00:00 or the previous 20:00 default; move those legacy defaults forward
-    # on every league so Historical, Fantasy, and Cap stay consistent.
+    # on every league so Historical, Relegation, and Cap stay consistent.
     lock_row = by_key.get("bowl_six_lock_time_et")
     if lock_row is not None and str(lock_row.rule_value or "").strip() in {"", "00:00", "20:00"}:
         lock_row.rule_value = "19:59"

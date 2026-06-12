@@ -70,7 +70,8 @@
 {% endif %}
 {%- endmacro %}
 {% block content %}
-<h1 class="page-title">Standings</h1>
+<h1 class="page-title">Standings{% if relegation_enabled and relegation_scope != 'combined' %} — {{ relegation_config.upper_label if relegation_scope == 'upper' else relegation_config.lower_label }}{% endif %}</h1>
+{% include 'includes/relegation_scope_tabs.html' %}
 {% if season %}
 <p class="muted">Season: <strong>{{ season|season_display }}</strong></p>
 {% endif %}
@@ -132,7 +133,7 @@
         {% set div_label = (st.division_label or st.division or '—')|replace(' Division', '')|replace(' division', '') %}
         <tr class="{{ row_cls }} standings-row--enter{% if ctx.get('trend_dir') == 'up' %} standings-row--up{% elif ctx.get('trend_dir') == 'down' %} standings-row--down{% endif %}">
           <td data-sort-value="{{ loop.index0 }}">{{ loop.index }}</td>
-          <td data-sort-value="{{ (st.team.full_display_name() or st.team.slug)|lower }}">{{ team_lockup_full_name(st.team, season=season) }}</td>
+          <td data-sort-value="{{ (st.team.full_display_name() or st.team.slug)|lower }}">{{ team_lockup_full_name(st.team, season=season) }}{% if relegation_enabled and relegation_scope == 'combined' and st.relegation_tier %} <span class="standings-badge standings-badge--tier standings-badge--tier-{{ st.relegation_tier }}" title="{{ relegation_config.upper_label if st.relegation_tier == 'upper' else relegation_config.lower_label }}">{{ 'U' if st.relegation_tier == 'upper' else 'L' }}</span>{% endif %}</td>
           {% if view != 'overall' %}<td data-sort-value="{{ (conf_label ~ ' ' ~ div_label)|lower }}">{{ conf_label }} / {{ div_label }}</td>{% endif %}
           <td class="standings-col--form" data-sort-value="{{ ctx.get('last10_wins', 0) }}">{{ ctx.get('last10') or '—' }}</td>
           <td class="standings-col--streak" data-sort-value="{{ ctx.get('streak_n', 0) }}">

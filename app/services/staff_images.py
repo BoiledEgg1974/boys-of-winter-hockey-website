@@ -7,7 +7,7 @@ from flask import current_app, url_for
 
 
 def staff_images_rel_dir(league_slug: str) -> str:
-    """Fantasy uses its own folder; Cap and Historical share ``bowl_cap``."""
+    """Relegation uses its existing folder; Cap and Historical share ``bowl_cap``."""
     if str(league_slug or "") == "bowl-fantasy":
         return "staff/bowl_fantasy"
     return "staff/bowl_cap"

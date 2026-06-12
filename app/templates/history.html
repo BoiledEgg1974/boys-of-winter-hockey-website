@@ -88,7 +88,8 @@
 {% block content %}
 {# Champion images: static/{{ config.HISTORY_CHAMPIONS_REL_DIR }}/banner1.png, … (transparent background). #}
 <div class="history-page">
-  <h1 class="page-title">All-Time History</h1>
+  <h1 class="page-title">{% if relegation_scope_heading %}{{ relegation_scope_heading }} History{% else %}All-Time History{% endif %}</h1>
+  {% include 'includes/relegation_scope_tabs.html' %}
 
   {% if award_race_rows is defined and award_race_rows %}
   <section class="card award-race-panel" aria-labelledby="award-race-h">

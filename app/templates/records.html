@@ -59,9 +59,10 @@
     <p class="link-more"><a href="{{ url_for('main.milestones', split=split) }}">Full milestones page</a></p>
   </section>
   {% endif %}
+  {% include 'includes/relegation_scope_tabs.html' %}
   <div class="records-toolbar card">
     <div class="records-toolbar__left">
-      <h1 class="records-toolbar__title">ALL-TIME RECORDS</h1>
+      <h1 class="records-toolbar__title">ALL-TIME RECORDS{% if relegation_enabled and relegation_scope != 'combined' %} — {{ relegation_config.upper_label if relegation_scope == 'upper' else relegation_config.lower_label }}{% endif %}</h1>
       <div class="records-toolbar__btns">
         <a href="{{ rec_url('rs', show_goalies, sort, g_sort, sk_order, g_order) }}" class="stats-pill {{ 'is-active' if split == 'rs' else '' }}">Regular Season</a>
         <a href="{{ rec_url('po', show_goalies, sort, g_sort, sk_order, g_order) }}" class="stats-pill {{ 'is-active' if split == 'po' else '' }}">Playoffs</a>

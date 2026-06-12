@@ -63,7 +63,7 @@ class DraftEligibilityParams:
 
 
 def default_eligibility_for_league(league_slug: str) -> DraftEligibilityParams:
-    """Defaults per plan: Cap/Fantasy vs Historical."""
+    """Defaults per plan: Cap/Relegation vs Historical."""
     if league_slug in ("bowl-cap", "bowl-fantasy"):
         return DraftEligibilityParams(
             timeline_year=0,

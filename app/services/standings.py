@@ -27,7 +27,7 @@ def _conference_id_map(rows: list[TeamStanding]) -> dict[str, int]:
     return {
         "east": ids[0],
         "west": ids[-1],
-        # Classic NHL naming aliases used by Fantasy data.
+        # Classic NHL naming aliases used by Relegation data.
         "wales": ids[0],
         "campbell": ids[-1],
     }

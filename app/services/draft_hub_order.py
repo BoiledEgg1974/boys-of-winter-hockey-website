@@ -75,7 +75,7 @@ def resolve_prior_season_for_draft(
 
   Tries, in order:
   1. ``start_year == draft_year - 1`` (completed prior season, e.g. 1968-69 for a 1969 draft)
-  2. ``start_year == draft_year`` (active season pool, e.g. Fantasy/Cap when timeline uses start year)
+  2. ``start_year == draft_year`` (active season pool, e.g. Relegation/Cap when timeline uses start year)
   3. ``end_year == draft_year``
 
   When multiple season rows share a year, picks the one with the most main-league standings rows.

@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% from "macros/team.html" import team_lockup_full_name with context %}
+{% block title %}Promotion / Relegation — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<h1 class="page-title">Promotion &amp; Relegation</h1>
+{% if relegation_under_construction %}
+<section class="card relegation-uc-panel">
+  <p class="relegation-uc-panel__headline">UNDER CONSTRUCTION</p>
+  <p class="muted">
+    The Upper and Lower league split will activate after the season-reset FHM import exposes separate league tiers in the CSVs.
+    Until then, use the combined standings, schedule, playoffs, and records across the full player pool.
+  </p>
+  <ul class="relegation-uc-panel__links">
+    <li><a href="{{ url_for('main.standings') }}">Combined standings</a></li>
+    <li><a href="{{ url_for('main.schedule') }}">Schedule</a></li>
+    <li><a href="{{ url_for('main.all_time_records') }}">Combined all-time records</a></li>
+  </ul>
+</section>
+{% else %}
+{% include 'includes/relegation_scope_tabs.html' %}
+{% if season %}
+<p class="muted">Season: <strong>{{ season|season_display }}</strong></p>
+{% endif %}
+
+<section class="card relegation-rules">
+  <h2>How movement works</h2>
+  <ul>
+    <li><strong>Relegation:</strong> Last place in the {{ tier_config.upper_label }} drops to the {{ tier_config.lower_label }} after playoffs.</li>
+    <li><strong>Promotion:</strong> {{ tier_config.lower_label }} playoff champion moves up to the {{ tier_config.upper_label }}.</li>
+    <li><strong>Combined stats:</strong> Player pool, draft, and all-time records stay league-wide.</li>
+  </ul>
+</section>
+
+<div class="relegation-grid">
+  <section class="card relegation-card relegation-card--upper">
+    <h2>{{ tier_config.upper_label }}</h2>
+    <p class="muted">Relegation danger — last place</p>
+    {% set danger = movement_watch.relegation_danger %}
+    {% if danger and danger.team %}
+    <div class="relegation-team-spotlight relegation-team-spotlight--danger">
+      {{ team_lockup_full_name(danger.team, season=season) }}
+      <p class="relegation-team-spotlight__meta">
+        {{ danger.points }} pts · rank {{ danger.rank }}
+        {% if danger.gap_to_safety is not none %} · {{ danger.gap_to_safety }} pt{% if danger.gap_to_safety != 1 %}s{% endif %} from safety{% endif %}
+        {% if danger.remaining_games %} · {{ danger.remaining_games }} GP left{% endif %}
+      </p>
+    </div>
+    {% else %}
+    <p class="empty-state">No upper-league standings yet.</p>
+    {% endif %}
+    {% if movement_watch.upper_standings_top %}
+    <h3 class="relegation-mini-h">Top of table</h3>
+    <ol class="relegation-mini-list">
+      {% for row in movement_watch.upper_standings_top %}
+      <li>{{ team_lockup_full_name(row.team, season=season) }} — {{ row.points }} pts</li>
+      {% endfor %}
+    </ol>
+    {% endif %}
+    <a class="link-more" href="{{ url_for('main.standings', scope='upper') }}">Upper standings</a>
+  </section>
+
+  <section class="card relegation-card relegation-card--lower">
+    <h2>{{ tier_config.lower_label }}</h2>
+    <p class="muted">Promotion watch</p>
+    {% set promo = movement_watch.promotion_watch %}
+    {% if promo and promo.team %}
+    <div class="relegation-team-spotlight relegation-team-spotlight--promo">
+      {{ team_lockup_full_name(promo.team, season=season) }}
+      <p class="relegation-team-spotlight__meta">
+        {{ promo.points }} pts · {{ promo.note }}
+      </p>
+    </div>
+    {% else %}
+    <p class="empty-state">No lower-league standings yet.</p>
+    {% endif %}
+    {% if movement_watch.lower_standings_top %}
+    <h3 class="relegation-mini-h">Top of table</h3>
+    <ol class="relegation-mini-list">
+      {% for row in movement_watch.lower_standings_top %}
+      <li>{{ team_lockup_full_name(row.team, season=season) }} — {{ row.points }} pts</li>
+      {% endfor %}
+    </ol>
+    {% endif %}
+    <a class="link-more" href="{{ url_for('main.standings', scope='lower') }}">Lower standings</a>
+  </section>
+</div>
+{% endif %}
+{% endblock %}

@@ -269,10 +269,17 @@ def _season_top_goalie_for_year(
     }
 
 
-def list_season_summaries(session: Session, *, league_slug: str | None = None) -> list[SeasonSummaryCard]:
+def list_season_summaries(
+    session: Session,
+    *,
+    league_slug: str | None = None,
+    team_ids: frozenset[int] | None = None,
+) -> list[SeasonSummaryCard]:
     by_year: dict[str, list[TeamSeasonRecord]] = {}
     for r in _load_all_records(session):
         if _is_hidden_season_summary(r.season_year_label, league_slug):
+            continue
+        if team_ids is not None and (r.team_id is None or int(r.team_id) not in team_ids):
             continue
         by_year.setdefault(r.season_year_label, []).append(r)
     cards: list[SeasonSummaryCard] = []
@@ -860,9 +867,12 @@ def build_team_record_leaderboards(
     session: Session,
     *,
     league_slug: str | None = None,
+    team_ids: frozenset[int] | None = None,
 ) -> list[LeaderboardSection]:
     """The 30+ Most/Fewest panels listed in the original request."""
     records = _load_all_records(session)
+    if team_ids is not None:
+        records = [r for r in records if r.team_id is not None and int(r.team_id) in team_ids]
     use_min_gp = _leaderboard_min_gp_enabled_for_slug(_leaderboard_resolve_league_slug(league_slug))
 
     sections: list[LeaderboardSection] = []

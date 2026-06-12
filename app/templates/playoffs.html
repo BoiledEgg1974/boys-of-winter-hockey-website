@@ -177,7 +177,8 @@
 
 {% block content %}
 <div class="page playoffs-page">
-  <h1 class="page-title">Playoff Bracket</h1>
+  <h1 class="page-title">Playoff Bracket{% if relegation_enabled and relegation_scope != 'combined' %} — {{ relegation_config.upper_label if relegation_scope == 'upper' else relegation_config.lower_label }}{% endif %}</h1>
+  {% include 'includes/relegation_scope_tabs.html' %}
 
   {% if bracket.empty %}
     <div class="card">
@@ -211,7 +212,7 @@
             {{ mirror_stack('Division Finals (BO7)', cfR) }}
             {{ mirror_stack('Division Semi-Finals (BO7)', sfR) }}
           {% else %}
-            {# Cap / Fantasy mirror: QF -> SF -> Conf Finals -> Trophy -> Final #}
+            {# Cap / Relegation mirror: QF -> SF -> Conf Finals -> Trophy -> Final #}
             {% set qfL = r1[0:4] %}
             {% set qfR = r1[4:8] %}
             {% set sfL = r2[0:2] %}

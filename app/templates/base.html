@@ -29,6 +29,20 @@
       <nav id="main-nav" class="main-nav" aria-label="Primary">
         <section class="main-nav__section main-nav__section--public" aria-labelledby="main-nav-public-label">
           <span class="main-nav__section-label" id="main-nav-public-label">Public</span>
+          {% if current_league_slug == 'bowl-fantasy' %}
+          <div class="main-nav__row main-nav__row--relegation">
+            <a href="{{ url_for('main.home') }}">Overview</a>
+            {% if relegation_under_construction %}
+            <a href="{{ url_for('main.relegation_page') }}">Upper</a>
+            <a href="{{ url_for('main.relegation_page') }}">Lower</a>
+            {% else %}
+            <a href="{{ url_for('main.standings', scope='upper') }}">Upper</a>
+            <a href="{{ url_for('main.standings', scope='lower') }}">Lower</a>
+            {% endif %}
+            <a href="{{ url_for('main.relegation_page') }}">Promotion/Relegation</a>
+            <a href="{{ url_for('main.all_time_records') }}">Combined Records</a>
+          </div>
+          {% endif %}
           <div class="main-nav__row">
             <a href="{{ url_for('main.standings') }}">Standings</a>
             <a href="{{ url_for('main.playoffs_page') }}">Playoffs</a>
@@ -140,6 +154,12 @@
   </header>
 
   <main id="main-content">
+    {% if relegation_under_construction %}
+    <section class="relegation-uc-banner" role="status" aria-live="polite">
+      <strong class="relegation-uc-banner__title">Upper / Lower leagues — under construction</strong>
+      <span class="relegation-uc-banner__body">Separate Upper and Lower standings, schedules, and promotion/relegation tracking will go live after the season-reset FHM import. Combined league stats and records stay available now.</span>
+    </section>
+    {% endif %}
     {% if active_site_announcement and active_site_announcement.body %}
     <section class="site-announcement site-announcement--{{ active_site_announcement.level }}" role="status" aria-live="polite">
       {% if active_site_announcement.title %}

@@ -2,7 +2,8 @@
 {% from "macros/team.html" import team_logo_only with context %}
 {% block title %}Schedule — Boys of Winter Hockey League{% endblock %}
 {% block content %}
-<h1 class="page-title">Schedule</h1>
+<h1 class="page-title">Schedule{% if relegation_enabled and relegation_scope != 'combined' %} — {{ relegation_config.upper_label if relegation_scope == 'upper' else relegation_config.lower_label }}{% endif %}</h1>
+{% include 'includes/relegation_scope_tabs.html' %}
 {% if season %}<p class="muted">Season: <strong>{{ season|season_display }}</strong></p>{% endif %}
 {% if canonical_season and season and canonical_season.id != season.id %}
 <p class="muted">League year <strong>{{ canonical_season|season_display }}</strong> — games listed are from <strong>{{ season|season_display }}</strong> until that year is imported.</p>

@@ -20,7 +20,7 @@ class LeagueEntry:
 # Single registry for hub splash, header switcher, and DispatcherMiddleware mounts.
 LEAGUES: tuple[LeagueEntry, ...] = (
     LeagueEntry("bowl-historical", "BOWL-Historical", "bowl_historical"),
-    LeagueEntry("bowl-fantasy", "BOWL-Fantasy", "bowl_fantasy"),
+    LeagueEntry("bowl-fantasy", "BOWL-Relegation", "bowl_fantasy"),
     LeagueEntry("bowl-cap", "BOWL-Cap", "bowl_cap"),
 )
 
@@ -44,6 +44,18 @@ def league_display_name(slug: str) -> str:
 def league_raw_import_dir(slug: str) -> str:
     e = league_by_slug(slug)
     return e.raw_import_dir if e else slug
+
+
+def relegation_split_active(league_slug: str) -> bool:
+    """Upper/Lower league split is live once FHM imports expose tier league IDs.
+
+    Off by default until season-reset CSVs are imported. Set ``RELEGATION_SPLIT_ACTIVE=1``
+    in the environment when the split is ready.
+    """
+    if league_slug != "bowl-fantasy":
+        return False
+    raw = os.environ.get("RELEGATION_SPLIT_ACTIVE", "0").strip().lower()
+    return raw in ("1", "true", "yes", "on")
 
 
 def undrafted_prospects_max_age(league_slug: str) -> int:
@@ -261,7 +273,7 @@ class Config:
 
 
 def league_group_for_slug(slug: str) -> str:
-    """Redemption catalog group: Fantasy vs Cap+Historical."""
+    """Redemption catalog group: Relegation vs Cap+Historical."""
     return "fantasy" if slug == "bowl-fantasy" else "cap_historical"
 
 
@@ -293,6 +305,7 @@ def make_league_config(slug: str) -> type:
         HISTORY_CHAMPIONS_REL_DIR = champions_rel
         HISTORY_CHAMPIONS_DIR = BASE_DIR / "app" / "static" / champions_rel
         PLAYER_HEADSHOTS_REL_DIR = headshots_rel
+        RELEGATION_SPLIT_ACTIVE = relegation_split_active(slug)
         PLAYER_HEADSHOTS_DIR = BASE_DIR / "app" / "static" / headshots_rel
         _ROOKIE = rookie_homepage_thresholds(slug)
         ROOKIE_RS_SKATER_MIN_GP_ABS = int(_ROOKIE["rs_skater_min_gp_abs"])

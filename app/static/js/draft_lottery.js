@@ -1,5 +1,5 @@
 /**
- * BOWL-Fantasy admin draft lottery — two draws max, Matter.js physics.
+ * BOWL-Relegation admin draft lottery - two draws max, Matter.js physics.
  * Finish slot s (1=17th..8=24th) spawns 8*s balls (17th→8, 24th→64). Reorder: winner up to +5
  * cumulative vs start; leapfrogged teams +1 drop each event, max +2 drops vs start.
  *

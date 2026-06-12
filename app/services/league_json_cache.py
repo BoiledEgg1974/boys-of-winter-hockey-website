@@ -1,4 +1,4 @@
-"""File-backed JSON cache shared across uWSGI workers (Historical, Cap, Fantasy).
+"""File-backed JSON cache shared across uWSGI workers (Historical, Cap, Relegation).
 
 Uses *stale-while-revalidate*: serve the last good payload immediately (even past
 the fresh TTL), then refresh in a background thread so users are not blocked on

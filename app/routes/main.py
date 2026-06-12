@@ -174,6 +174,62 @@ from app.services.trade_log import trade_log_rows as build_trade_log_rows
 main_bp = Blueprint("main", __name__)
 
 
+def _relegation_template_context(endpoint: str, **route_args: object) -> dict[str, object]:
+    """Scope tabs and labels for bowl-fantasy public pages."""
+    from app.services.relegation import (
+        get_tier_config,
+        is_relegation_league,
+        normalize_relegation_scope,
+        relegation_features_enabled,
+        relegation_under_construction,
+        scope_explanation,
+    )
+
+    league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    if not is_relegation_league(league_slug):
+        return {
+            "relegation_enabled": False,
+            "relegation_scope": "combined",
+            "relegation_under_construction": False,
+        }
+
+    if not relegation_features_enabled(league_slug):
+        return {
+            "relegation_enabled": False,
+            "relegation_scope": "combined",
+            "relegation_under_construction": relegation_under_construction(league_slug),
+        }
+
+    scope = normalize_relegation_scope(request.args.get("scope"))
+    raw_dir = Path(str(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)))
+    config = get_tier_config(db.session, raw_import_dir=raw_dir)
+    preserved: dict[str, object] = {}
+    for key, val in route_args.items():
+        if val is not None and val != "":
+            preserved[key] = val
+    for key, val in request.args.items():
+        if key != "scope" and key not in preserved:
+            preserved[key] = val
+
+    def relegation_scope_url(new_scope: str) -> str:
+        q = dict(preserved)
+        if new_scope == "combined":
+            q.pop("scope", None)
+        else:
+            q["scope"] = new_scope
+        return url_for(endpoint, **q)
+
+    return {
+        "relegation_enabled": True,
+        "relegation_scope": scope,
+        "relegation_config": config,
+        "relegation_scope_explanation": scope_explanation(scope, config),
+        "relegation_scope_url": relegation_scope_url,
+        "relegation_scope_endpoint": endpoint,
+        "relegation_under_construction": False,
+    }
+
+
 def _require_join_field(form: dict[str, str], key: str, label: str, errors: list[str]) -> str:
     v = (form.get(key) or "").strip()
     if not v:
@@ -552,7 +608,7 @@ def standings():
     division_names: list[str] = list(divisions or [])
     selected_conf: str | None = None
     if view == "conference":
-        # Enable conference view for Fantasy/Cap (and any league with conference data).
+        # Enable conference view for Relegation/Cap (and any league with conference data).
         # If no conference is selected, show all rows in conference-grouped context.
         selected_conf = conf if (not conf_names or conf in conf_names) else None
         rows = standings_for_season(season, conference=selected_conf)
@@ -568,7 +624,7 @@ def standings():
     team_stat_rows_rs = team_aggregate_rows(season, rows, "rs")
 
     # Some league exports leave TeamStanding.conference empty but populate team.fhm_conference_id.
-    # Add a display fallback so CONF / DIV shows conference names for Fantasy/Cap.
+    # Add a display fallback so CONF / DIV shows conference names for Relegation/Cap.
     conf_ids = sorted(
         {
             int(st.team.fhm_conference_id)
@@ -625,6 +681,23 @@ def standings():
         selected_div = div if div in division_names else None
         if selected_div:
             rows = [st for st in rows if (getattr(st, "division_label", "") or "").strip() == selected_div]
+
+    relegation_ctx = _relegation_template_context("main.standings", view=view, conference=conf, division=div)
+    from app.services.relegation import filter_standings_by_scope
+
+    if relegation_ctx.get("relegation_enabled") and relegation_ctx.get("relegation_config"):
+        from app.services.relegation import team_tier
+
+        cfg = relegation_ctx["relegation_config"]
+        rows = filter_standings_by_scope(
+            rows,
+            relegation_ctx["relegation_scope"],  # type: ignore[arg-type]
+            cfg,  # type: ignore[arg-type]
+        )
+        if relegation_ctx.get("relegation_scope") == "combined":
+            for st in rows:
+                tier = team_tier(st.team, cfg)  # type: ignore[arg-type]
+                setattr(st, "relegation_tier", tier)
 
     league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
     conference_playoff_seeding = (
@@ -721,6 +794,7 @@ def standings():
         playoff_mirror_rounds=playoff_mirror_rounds,
         positional_ranking_rows=positional_ranking_rows,
         positional_rank_snapshot_at=positional_rank_snapshot_at,
+        **relegation_ctx,
     )
 
 
@@ -1003,6 +1077,15 @@ def playoffs_page():
     playoff_bowl_championship = "1" if league_slug == "bowl-historical" else ""
     playoff_mirror_rounds = "historical" if league_slug == "bowl-historical" else ""
     payload = playoff_bracket_payload(season.id if season else None)
+    relegation_ctx = _relegation_template_context("main.playoffs_page")
+    if relegation_ctx.get("relegation_enabled") and relegation_ctx.get("relegation_config"):
+        from app.services.relegation import filter_playoff_bracket_by_scope
+
+        payload = filter_playoff_bracket_by_scope(
+            payload,
+            relegation_ctx["relegation_scope"],  # type: ignore[arg-type]
+            relegation_ctx["relegation_config"],  # type: ignore[arg-type]
+        )
     return render_template(
         "playoffs.html",
         season=season,
@@ -1012,6 +1095,7 @@ def playoffs_page():
         playoff_trophy_url=playoff_trophy_url,
         playoff_bowl_championship=playoff_bowl_championship,
         playoff_mirror_rounds=playoff_mirror_rounds,
+        **relegation_ctx,
     )
 
 
@@ -1432,6 +1516,9 @@ def schedule():
         team_obj = db.session.scalars(
             select(Team).where(Team.slug == team_filter).limit(1)
         ).first()
+    relegation_ctx = _relegation_template_context(
+        "main.schedule", tab=tab, team=team_filter, game_type=game_type or None
+    )
     if not canonical_season:
         return render_template(
             "schedule.html",
@@ -1443,6 +1530,7 @@ def schedule():
             team_obj=team_obj,
             game_type=game_type,
             game_types=[],
+            **relegation_ctx,
         )
     q = select(Game).options(
         joinedload(Game.home_team),
@@ -1456,7 +1544,22 @@ def schedule():
         q = q.where(Game.status != "final").order_by(Game.game_date.asc().nulls_last(), Game.id.asc())
     else:
         q = q.where(Game.status == "final").order_by(Game.game_date.desc().nulls_last(), Game.id.desc())
-    games = db.session.scalars(q.limit(120)).all()
+    games = db.session.scalars(q.limit(200)).all()
+    if relegation_ctx.get("relegation_enabled") and relegation_ctx.get("relegation_config"):
+        from app.services.relegation import filter_games_by_scope, filter_teams_by_scope
+
+        games = filter_games_by_scope(
+            games,
+            relegation_ctx["relegation_scope"],  # type: ignore[arg-type]
+            relegation_ctx["relegation_config"],  # type: ignore[arg-type]
+        )[:120]
+        teams = filter_teams_by_scope(
+            teams,
+            relegation_ctx["relegation_scope"],  # type: ignore[arg-type]
+            relegation_ctx["relegation_config"],  # type: ignore[arg-type]
+        )
+    else:
+        games = games[:120]
     gt_rows = db.session.scalars(
         select(Game.game_type)
         .where(Game.season_id == season.id, Game.game_type.isnot(None))
@@ -1474,6 +1577,7 @@ def schedule():
         team_obj=team_obj,
         game_type=game_type,
         game_types=game_types,
+        **relegation_ctx,
     )
 
 
@@ -2049,6 +2153,26 @@ def history():
     all_star_bundle = build_history_all_stars_bundle(
         db.session, request.args.get("all_star_season")
     )
+    relegation_ctx = _relegation_template_context(
+        "main.history", all_star_season=request.args.get("all_star_season")
+    )
+    if relegation_ctx.get("relegation_enabled") and relegation_ctx.get("relegation_config"):
+        from app.services.relegation import filter_history_awards_by_scope
+
+        awards = filter_history_awards_by_scope(
+            awards,
+            relegation_ctx["relegation_scope"],  # type: ignore[arg-type]
+            relegation_ctx["relegation_config"],  # type: ignore[arg-type]
+        )
+        award_panels = _build_award_panels(awards)
+    scope_heading = None
+    if relegation_ctx.get("relegation_enabled") and relegation_ctx.get("relegation_config"):
+        from app.services.relegation import scope_heading as relegation_scope_heading
+
+        scope_heading = relegation_scope_heading(
+            relegation_ctx["relegation_scope"],  # type: ignore[arg-type]
+            relegation_ctx["relegation_config"],  # type: ignore[arg-type]
+        )
     return render_template(
         "history.html",
         award_panels=award_panels,
@@ -2058,6 +2182,48 @@ def history():
         all_star_bundle=all_star_bundle,
         all_star_logo_start_year_for_row=all_star_logo_start_year_for_row,
         history_award_logo_start_year_for_row=_history_award_start_year,
+        relegation_scope_heading=scope_heading,
+        **relegation_ctx,
+    )
+
+
+@main_bp.get("/relegation")
+def relegation_page():
+    """Promotion / relegation stakes for BOWL-Relegation."""
+    from app.services.relegation import (
+        build_movement_watch,
+        get_tier_config,
+        is_relegation_league,
+        relegation_under_construction,
+    )
+
+    league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    if not is_relegation_league(league_slug):
+        return redirect(url_for("main.home"))
+
+    canonical_season = get_current_season()
+    season = (
+        season_with_imported_data_fallback(db.session, canonical_season)
+        if canonical_season
+        else None
+    )
+    relegation_ctx = _relegation_template_context("main.relegation_page")
+    under_construction = relegation_under_construction(league_slug)
+    movement: dict[str, object] = {}
+    config = None
+    if not under_construction:
+        raw_dir = Path(str(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)))
+        config = get_tier_config(db.session, raw_import_dir=raw_dir)
+        movement = build_movement_watch(
+            db.session, int(season.id) if season else None, config
+        )
+    return render_template(
+        "relegation.html",
+        season=season,
+        canonical_season=canonical_season,
+        movement_watch=movement,
+        tier_config=config,
+        **relegation_ctx,
     )
 
 
@@ -2088,9 +2254,36 @@ def all_time_records():
     order = request.args.get("order")
     g_sort = request.args.get("g_sort", "wins")
     g_order = request.args.get("g_order")
+    relegation_ctx = _relegation_template_context(
+        "main.all_time_records",
+        split=split,
+        roster=roster,
+        goalies=(1 if show_goalies else None),
+        sort=sort,
+        order=order,
+        g_sort=g_sort,
+        g_order=g_order,
+        expanded=(1 if expanded else None),
+    )
+    scope_rec_kwargs: dict[str, object] = {}
+    if relegation_ctx.get("relegation_enabled") and relegation_ctx.get("relegation_config"):
+        from app.services.relegation import scope_league_ids_for_records, team_fhm_ids_for_scope
+
+        scope_rec_kwargs = {
+            "league_ids": scope_league_ids_for_records(
+                db.session,
+                relegation_ctx["relegation_scope"],  # type: ignore[arg-type]
+                relegation_ctx["relegation_config"],  # type: ignore[arg-type]
+            ),
+            "team_fhm_ids": team_fhm_ids_for_scope(
+                db.session,
+                relegation_ctx["relegation_scope"],  # type: ignore[arg-type]
+                relegation_ctx["relegation_config"],  # type: ignore[arg-type]
+            ),
+        }
     if show_goalies:
         goalie_rows_all, g_sort_used, g_order_used = fetch_goalie_all_time(
-            db.session, split, g_sort, g_order or "", roster
+            db.session, split, g_sort, g_order or "", roster, **scope_rec_kwargs
         )
         total_goalies = len(goalie_rows_all)
         goalie_rows = goalie_rows_all if expanded else goalie_rows_all[:records_page_limit]
@@ -2104,7 +2297,7 @@ def all_time_records():
         )
     else:
         skater_rows_all, sort_used, sk_order_used = fetch_skater_all_time(
-            db.session, split, sort, order or "", roster
+            db.session, split, sort, order or "", roster, **scope_rec_kwargs
         )
         total_skaters = len(skater_rows_all)
         skater_rows = skater_rows_all if expanded else skater_rows_all[:records_page_limit]
@@ -2147,18 +2340,31 @@ def all_time_records():
         skater_rows=skater_rows,
         goalie_rows=goalie_rows,
         record_chase_rows=record_chase_rows[:6],
+        **relegation_ctx,
     )
 
 
 @main_bp.get("/season-records")
 def league_season_records():
     from app.services.league_season_records import build_league_season_records_bundle
+    from app.services.relegation import team_fhm_ids_for_scope
 
-    season_records_rs_sections, season_records_po_sections = build_league_season_records_bundle(db.session)
+    relegation_ctx = _relegation_template_context("main.league_season_records")
+    team_fhm_ids = None
+    if relegation_ctx.get("relegation_enabled") and relegation_ctx.get("relegation_config"):
+        team_fhm_ids = team_fhm_ids_for_scope(
+            db.session,
+            relegation_ctx["relegation_scope"],  # type: ignore[arg-type]
+            relegation_ctx["relegation_config"],  # type: ignore[arg-type]
+        )
+    season_records_rs_sections, season_records_po_sections = build_league_season_records_bundle(
+        db.session, team_fhm_ids=team_fhm_ids
+    )
     return render_template(
         "season_records.html",
         season_records_rs_sections=season_records_rs_sections,
         season_records_po_sections=season_records_po_sections,
+        **relegation_ctx,
     )
 
 
@@ -2173,16 +2379,32 @@ def team_records_index():
     if identity_view not in ("era", "franchise"):
         identity_view = "era"
     league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
-    season_cards = list_season_summaries(db.session, league_slug=league_slug)
+    relegation_ctx = _relegation_template_context(
+        "main.team_records_index", identity_view=identity_view
+    )
+    scoped_team_ids = None
+    if relegation_ctx.get("relegation_enabled") and relegation_ctx.get("relegation_config"):
+        from app.services.relegation import team_ids_for_scope
+
+        scoped_team_ids = team_ids_for_scope(
+            db.session,
+            relegation_ctx["relegation_scope"],  # type: ignore[arg-type]
+            relegation_ctx["relegation_config"],  # type: ignore[arg-type]
+        )
+    season_cards = list_season_summaries(
+        db.session, league_slug=league_slug, team_ids=scoped_team_ids
+    )
     leaderboard_sections = build_team_record_leaderboards(
         db.session,
         league_slug=league_slug,
+        team_ids=scoped_team_ids,
     )
     return render_template(
         "team_records.html",
         season_cards=season_cards,
         leaderboard_sections=leaderboard_sections,
         identity_view=identity_view,
+        **relegation_ctx,
     )
 
 

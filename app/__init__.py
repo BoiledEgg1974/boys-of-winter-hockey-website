@@ -551,8 +551,11 @@ def create_app(config_class: type = Config) -> Flask:
             except Exception:
                 header_team_logo_season = None
 
+        from app.services.relegation import relegation_under_construction
+
         return dict(
             nav_teams=teams,
+            relegation_under_construction=relegation_under_construction(slug_layout),
             header_team_logo_season=header_team_logo_season,
             team_logo_url=team_logo_url,
             season_team_logo_url=season_team_logo_url,

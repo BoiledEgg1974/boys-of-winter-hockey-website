@@ -67,7 +67,7 @@ def gm_display_name(user: User | None) -> str:
 def resolve_staff_season(session: Session) -> tuple[Season | None, int | None, str]:
     """Current season for staff budgets/salaries on this league mount only.
 
-    Each site (Historical / Cap / Fantasy) has its own SQLite DB and ``Season`` rows, so
+    Each site (Historical / Cap / Relegation) has its own SQLite DB and ``Season`` rows, so
     ``get_current_season()`` resolves that league's timeline independently.
     """
     season = get_current_season()

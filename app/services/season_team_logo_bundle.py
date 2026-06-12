@@ -1,4 +1,4 @@
-"""Build era-aware team logo/name resolvers (Historical / Cap / Fantasy) for templates and JSON APIs."""
+"""Build era-aware team logo/name resolvers (Historical / Cap / Relegation) for templates and JSON APIs."""
 from __future__ import annotations
 
 import csv

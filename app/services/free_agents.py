@@ -380,7 +380,7 @@ def fetch_free_agent_players(
       ``Prospect`` of such a team — matches who can appear on a franchise depth chart without being
       on the big club's active roster.
     * **Undrafted pool:** excludes same set as Undrafted Prospects for this league (age cap + no NHL/BOWL pick).
-    * **Drafted juniors (Fantasy/Cap):** excludes players with an NHL/BOWL draft pick through a league-specific
+    * **Drafted juniors (Relegation/Cap):** excludes players with an NHL/BOWL draft pick through a league-specific
       age ceiling when exports omit prospect/contract rows for rights-holders in other leagues.
     """
     if role not in FA_ROLES:

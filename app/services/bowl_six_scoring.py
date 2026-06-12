@@ -1,4 +1,4 @@
-"""Fantasy point calculation for BOWL Six from per-game box scores."""
+"""BOWL Six point calculation from per-game box scores."""
 from __future__ import annotations
 
 import json

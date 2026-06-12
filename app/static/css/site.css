@@ -39,25 +39,162 @@
   --shadow: 0 1px 3px rgb(0 0 0 / 0.35);
 }
 
-/* Per-league palette: Fantasy blue, Cap red, Historical green (aligned with league logos). */
+/* Per-league palette: Relegation blue, Cap red, Historical green (aligned with league logos). */
 html[data-league="fantasy"] {
-  --accent: #0369a1;
-  --accent-hover: #0284c7;
-  --accent-gradient-end: #0ea5e9;
-  --header-bg: #0c1624;
+  --accent: #005da6;
+  --accent-hover: #0077c8;
+  --accent-gradient-end: #38bdf8;
+  --header-bg: #071a33;
   --bg: #f0f7fc;
-  --row-alt: #e8f3fa;
+  --row-alt: #e5f1fb;
+  --relegation-upper: #005da6;
+  --relegation-lower: #1d4ed8;
+  --relegation-danger: #b91c1c;
+  --relegation-promo: #0284c7;
 }
 html[data-league="fantasy"][data-theme="dark"] {
   --accent: #38bdf8;
   --accent-hover: #7dd3fc;
-  --accent-gradient-end: #22d3ee;
-  --header-bg: #020617;
-  --bg: #0b1220;
+  --accent-gradient-end: #0ea5e9;
+  --header-bg: #020f22;
+  --bg: #061426;
   /* Reset striping/card tokens: light `html[data-league="fantasy"]` --row-alt beats `[data-theme="dark"]` on specificity. */
-  --surface: #111b2a;
-  --border: #1e293b;
-  --row-alt: #0c1626;
+  --surface: #0d1f35;
+  --border: #19324f;
+  --row-alt: #0a1a2d;
+  --relegation-upper: #38bdf8;
+  --relegation-lower: #60a5fa;
+  --relegation-danger: #f87171;
+  --relegation-promo: #7dd3fc;
+}
+.main-nav__row--relegation a {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.relegation-scope-tabs {
+  margin: 0.5rem 0 1rem;
+}
+.relegation-scope-note {
+  margin: -0.35rem 0 1rem;
+  font-size: 0.92rem;
+}
+.relegation-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  margin-top: 1rem;
+}
+.relegation-card--upper {
+  border-top: 3px solid var(--relegation-upper, var(--accent));
+}
+.relegation-card--lower {
+  border-top: 3px solid var(--relegation-lower, #1d4ed8);
+}
+.relegation-team-spotlight {
+  margin: 0.75rem 0;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  background: rgb(148 163 184 / 0.08);
+}
+.relegation-team-spotlight--danger {
+  border-left: 4px solid var(--relegation-danger, #b91c1c);
+}
+.relegation-team-spotlight--promo {
+  border-left: 4px solid var(--relegation-promo, #0284c7);
+}
+.relegation-team-spotlight__meta {
+  margin: 0.35rem 0 0;
+  font-size: 0.9rem;
+  color: var(--muted, #64748b);
+}
+.relegation-mini-h {
+  margin: 1rem 0 0.35rem;
+  font-size: 0.95rem;
+}
+.relegation-mini-list {
+  margin: 0 0 0.75rem;
+  padding-left: 1.25rem;
+}
+.home-relegation-overview {
+  margin-bottom: 1rem;
+}
+.home-relegation-overview__grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+}
+.home-relegation-card {
+  padding: 0.85rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border, #cbd5e1);
+  background: var(--surface, #fff);
+}
+.home-relegation-card--upper {
+  border-top: 3px solid var(--relegation-upper, var(--accent));
+}
+.home-relegation-card--lower {
+  border-top: 3px solid var(--relegation-lower, #1d4ed8);
+}
+.home-relegation-card--watch {
+  border-top: 3px solid var(--accent);
+}
+.home-relegation-card h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+}
+.home-relegation-card p {
+  margin: 0;
+  font-size: 0.88rem;
+}
+.standings-badge--tier {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  margin-left: 0.25rem;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  vertical-align: middle;
+}
+.standings-badge--tier-upper {
+  background: rgb(0 93 166 / 0.15);
+  color: var(--relegation-upper, var(--accent));
+}
+.standings-badge--tier-lower {
+  background: rgb(29 78 216 / 0.15);
+  color: var(--relegation-lower, #1d4ed8);
+}
+.relegation-uc-banner {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(90deg, rgb(0 93 166 / 0.14), rgb(56 189 248 / 0.1));
+  border-bottom: 1px solid var(--border, #cbd5e1);
+  text-align: center;
+}
+.relegation-uc-banner__title {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.95rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.relegation-uc-banner__body {
+  display: block;
+  font-size: 0.88rem;
+  color: var(--muted, #64748b);
+}
+.relegation-uc-panel__headline {
+  margin: 0 0 0.75rem;
+  font-size: 1.35rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-align: center;
+}
+.relegation-uc-panel__links {
+  margin: 1rem 0 0;
+  padding-left: 1.25rem;
 }
 html[data-league="cap"] {
   --accent: #b91c1c;
@@ -1233,7 +1370,7 @@ table.data tbody tr.standings-cutline td {
   }
 }
 
-/* Cap / Fantasy: symmetric bracket (QF → SF → center trophy + final). */
+/* Cap / Relegation: symmetric bracket (QF -> SF -> center trophy + final). */
 .bracket-visual--mirror {
   display: flex;
   flex-direction: row;
@@ -10660,7 +10797,7 @@ table.data.positional-rankings-table .positional-rankings__team-logo.prospects-r
   background: transparent;
   box-shadow: none;
 }
-/* Dark: transparent logo hit on all sites; rim + lift keeps crests legible (matches Fantasy treatment). */
+/* Dark: transparent logo hit on all sites; rim + lift keeps crests legible (matches Relegation treatment). */
 html:not([data-theme="light"]) table.data.positional-rankings-table .positional-rankings__team-logo.prospects-rankings-table__team-logo-hit {
   background: transparent;
   box-shadow: none;
@@ -17576,7 +17713,7 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   font-variant-numeric: normal;
 }
 
-/* —— Admin Draft Lottery (BOWL-Fantasy only) —— */
+/* -- Admin Draft Lottery (BOWL-Relegation only) -- */
 .draft-lottery-page {
   max-width: 1200px;
   margin: 0 auto 2rem;
@@ -18127,7 +18264,7 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   color: #0f766e;
 }
 
-/* —— Admin Boost Lottery (Fantasy / Cap / Historical) —— */
+/* -- Admin Boost Lottery (Relegation / Cap / Historical) -- */
 .boost-lottery-page[data-boost-theme="fantasy"] {
   --boost-accent: #22d3ee;
   --boost-accent-soft: rgba(34, 211, 238, 0.35);

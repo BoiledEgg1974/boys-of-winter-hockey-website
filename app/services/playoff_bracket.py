@@ -1,4 +1,4 @@
-"""Build playoff bracket payload for Historical, Fantasy, and Cap.
+"""Build playoff bracket payload for Historical, Relegation, and Cap.
 
 When a postseason has not started (or only partly imported), opening-round slots are
 filled from current regular-season standings with series-win predictions. Scheduled and

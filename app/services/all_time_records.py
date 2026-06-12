@@ -154,8 +154,11 @@ def fetch_skater_all_time(
     sort: str,
     order: SortOrder,
     roster: RosterFilter = "all",
+    *,
+    league_ids: tuple[int, ...] | None = None,
+    team_fhm_ids: frozenset[str] | None = None,
 ) -> tuple[list[SkaterAllTimeRow], str, SortOrder]:
-    league_ids = bowl_nhl_league_ids(session)
+    ids = league_ids if league_ids is not None else bowl_nhl_league_ids(session)
     line = PlayerSkaterCareerLine
     src = skater_sources(split)
     rank_pref = _career_source_rank_for_split(line, split)
@@ -196,8 +199,11 @@ def fetch_skater_all_time(
             .label("rn"),
         )
         .where(line.career_source.in_(src))
-        .where(line.league_fhm_id.in_(league_ids))
-    ).subquery()
+        .where(line.league_fhm_id.in_(ids))
+    )
+    if team_fhm_ids:
+        lined = lined.where(line.team_fhm_id.in_(team_fhm_ids))
+    lined = lined.subquery()
     sq = (
         select(
             lined.c.player_id.label("pid"),
@@ -363,9 +369,12 @@ def fetch_goalie_all_time(
     sort: str,
     order: SortOrder,
     roster: RosterFilter = "all",
+    *,
+    league_ids: tuple[int, ...] | None = None,
+    team_fhm_ids: frozenset[str] | None = None,
 ) -> tuple[list[GoalieAllTimeRow], str, SortOrder]:
     """Totals from goalie career lines (active + retired) in BOWL/NHL leagues only."""
-    league_ids = bowl_nhl_league_ids(session)
+    ids = league_ids if league_ids is not None else bowl_nhl_league_ids(session)
     line = PlayerGoalieCareerLine
     src = goalie_sources(split)
     rank_pref = _career_source_rank_for_split(line, split)
@@ -397,8 +406,11 @@ def fetch_goalie_all_time(
             .label("rn"),
         )
         .where(line.career_source.in_(src))
-        .where(line.league_fhm_id.in_(league_ids))
-    ).subquery()
+        .where(line.league_fhm_id.in_(ids))
+    )
+    if team_fhm_ids:
+        lined = lined.where(line.team_fhm_id.in_(team_fhm_ids))
+    lined = lined.subquery()
     sq = (
         select(
             lined.c.player_id.label("pid"),

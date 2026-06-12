@@ -66,7 +66,8 @@
 
 {% block content %}
 <div class="card team-records-page">
-  <h1 class="page-title">Team Records</h1>
+  <h1 class="page-title">Team Records{% if relegation_enabled and relegation_scope != 'combined' %} — {{ relegation_config.upper_label if relegation_scope == 'upper' else relegation_config.lower_label }}{% endif %}</h1>
+  {% include 'includes/relegation_scope_tabs.html' %}
   <p class="muted">Historical team-by-season standings, results, leaders, and awards.</p>
   <p class="muted">
     View mode:

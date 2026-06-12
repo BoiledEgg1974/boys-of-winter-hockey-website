@@ -1471,6 +1471,7 @@ def _build_homepage_summary_payload(
             "league": league_info,
             "segment": segment,
         }
+        empty_body["relegation_overview"] = None
         empty_body["ticker_items"] = build_homepage_ticker_items(empty_body)
         return empty_body
     season = dashboard_season or season_with_imported_data_fallback(
@@ -1843,6 +1844,32 @@ def _build_homepage_summary_payload(
             }
         )
 
+    relegation_overview = None
+    if league_slug == "bowl-fantasy":
+        from app.services.relegation import (
+            build_relegation_overview_payload,
+            get_tier_config,
+            relegation_under_construction,
+        )
+
+        if relegation_under_construction(league_slug):
+            relegation_overview = {
+                "under_construction": True,
+                "message": (
+                    "Upper and Lower leagues go live after the season-reset FHM import. "
+                    "Combined stats and records are available now."
+                ),
+            }
+        else:
+            raw_dir = Path(str(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)))
+            tier_cfg = get_tier_config(db.session, raw_import_dir=raw_dir)
+            relegation_overview = build_relegation_overview_payload(
+                db.session,
+                int(season.id),
+                tier_cfg,
+                logo_url_fn=lambda t: dashboard_team_logo_url(t, logo_sy),
+            )
+
     summary_body: dict[str, object] = {
         "league_calendar_date": league_cal.isoformat(),
         "league_season_label": season_display_label(canonical_season),
@@ -1874,6 +1901,7 @@ def _build_homepage_summary_payload(
         "postseason_odds": None,
         "league": league_info,
         "segment": segment,
+        "relegation_overview": relegation_overview,
     }
     summary_body["ticker_items"] = build_homepage_ticker_items(summary_body)
     return summary_body

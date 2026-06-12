@@ -1,0 +1,8 @@
+{% if relegation_enabled %}
+<div class="tabs relegation-scope-tabs" role="tablist" aria-label="League scope">
+  <a href="{{ relegation_scope_url('combined') }}" class="{{ 'is-active' if relegation_scope == 'combined' else '' }}" role="tab" aria-selected="{{ 'true' if relegation_scope == 'combined' else 'false' }}">Combined</a>
+  <a href="{{ relegation_scope_url('upper') }}" class="{{ 'is-active' if relegation_scope == 'upper' else '' }}" role="tab" aria-selected="{{ 'true' if relegation_scope == 'upper' else 'false' }}">{{ relegation_config.upper_label }}</a>
+  <a href="{{ relegation_scope_url('lower') }}" class="{{ 'is-active' if relegation_scope == 'lower' else '' }}" role="tab" aria-selected="{{ 'true' if relegation_scope == 'lower' else 'false' }}">{{ relegation_config.lower_label }}</a>
+</div>
+<p class="muted relegation-scope-note">{{ relegation_scope_explanation }}</p>
+{% endif %}

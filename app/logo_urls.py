@@ -5,7 +5,7 @@ from pathlib import Path
 
 from flask import current_app, url_for
 
-# BOWL-Fantasy: roster slug → logo filename under ``logos/teams/bowl_fantasy/``.
+# BOWL-Relegation: roster slug -> logo filename under ``logos/teams/bowl_fantasy/``.
 # Keep in sync with ``data/imports/raw/bowl_fantasy/team_identity_history.csv``.
 FANTASY_ROSTER_LOGO_FILES: dict[str, str] = {
     "bgk-t22": "bangkok_roosters.png",

@@ -2232,7 +2232,7 @@ def _normalize_hex_color(raw: str | None) -> str | None:
 
 
 def _draft_lottery_team_rows() -> list[dict[str, object]]:
-    """Serialize teams for the admin draft lottery UI (BOWL-Fantasy only)."""
+    """Serialize teams for the admin draft lottery UI (BOWL-Relegation only)."""
     teams = db.session.scalars(select(Team).order_by(Team.name)).all()
     rows: list[dict[str, object]] = []
     for t in teams:
@@ -2326,7 +2326,7 @@ def _boost_lottery_theme(league_slug: str) -> str:
 @site_gm_bp.route("/draft-lottery", methods=["GET"])
 @login_required
 def draft_lottery():
-    """Weighted 8-slot draft lottery sim (BOWL-Fantasy site admins only)."""
+    """Weighted 8-slot draft lottery sim (BOWL-Relegation site admins only)."""
     slug = _league_slug()
     if slug != "bowl-fantasy":
         abort(404)
@@ -2340,7 +2340,7 @@ def draft_lottery():
 @site_gm_bp.route("/boost-lottery", methods=["GET", "POST"])
 @login_required
 def boost_lottery():
-    """Draft boost ticket lottery (Fantasy / Cap / Historical site admins)."""
+    """Draft boost ticket lottery (Relegation / Cap / Historical site admins)."""
     slug = _league_slug()
     if slug not in ("bowl-fantasy", "bowl-cap", "bowl-historical"):
         abort(404)

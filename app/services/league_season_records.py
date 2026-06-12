@@ -176,7 +176,12 @@ def _load_teams_for_fhm_ids(session: Session, fhm_ids: set[int]) -> dict[int, Te
     return out
 
 
-def _load_skater_rows_merged(session: Session, segment: str) -> list[tuple[Any, Player, Team | None, str]]:
+def _load_skater_rows_merged(
+    session: Session,
+    segment: str,
+    *,
+    team_fhm_ids: frozenset[str] | None = None,
+) -> list[tuple[Any, Player, Team | None, str]]:
     out: list[tuple[Any, Player, Team | None, str]] = []
     career_keys: set[tuple[int, int, tuple[int | None, int | None]]] = set()
 
@@ -202,6 +207,8 @@ def _load_skater_rows_merged(session: Session, segment: str) -> list[tuple[Any, 
 
     players_seen: dict[int, Player] = {}
     for (pid, sy, tk), ln in best.items():
+        if team_fhm_ids is not None and (not ln.team_fhm_id or str(ln.team_fhm_id) not in team_fhm_ids):
+            continue
         career_keys.add((pid, sy, tk))
         pl = players_seen.get(pid)
         if pl is None:
@@ -213,6 +220,8 @@ def _load_skater_rows_merged(session: Session, segment: str) -> list[tuple[Any, 
         tm = teams_by_id.get(int(ln.team_id)) if ln.team_id is not None else None
         if tm is None and ln.team_fhm_id is not None:
             tm = teams_by_fhm.get(int(ln.team_fhm_id))
+        if team_fhm_ids is not None and tm is not None and tm.fhm_team_id and str(tm.fhm_team_id) not in team_fhm_ids:
+            continue
         out.append((_skater_namespace_from_career(ln), pl, tm, _career_row_season_display(session, sy)))
 
     players_with_career = {pid for pid, _, _ in career_keys}
@@ -229,11 +238,18 @@ def _load_skater_rows_merged(session: Session, segment: str) -> list[tuple[Any, 
         tk = _team_key(st.team_id, int(str(tm.fhm_team_id).strip()) if tm.fhm_team_id and str(tm.fhm_team_id).strip().isdigit() else None)
         if any((int(st.player_id), yr, tk) in career_keys for yr in years):
             continue
+        if team_fhm_ids is not None and tm is not None and tm.fhm_team_id and str(tm.fhm_team_id) not in team_fhm_ids:
+            continue
         out.append((st, pl, tm, _season_label(sn)))
     return out
 
 
-def _load_goalie_rows_merged(session: Session, segment: str) -> list[tuple[Any, Player, Team | None, str]]:
+def _load_goalie_rows_merged(
+    session: Session,
+    segment: str,
+    *,
+    team_fhm_ids: frozenset[str] | None = None,
+) -> list[tuple[Any, Player, Team | None, str]]:
     out: list[tuple[Any, Player, Team | None, str]] = []
     career_keys: set[tuple[int, int, tuple[int | None, int | None]]] = set()
 
@@ -259,6 +275,8 @@ def _load_goalie_rows_merged(session: Session, segment: str) -> list[tuple[Any, 
 
     players_seen: dict[int, Player] = {}
     for (pid, sy, tk), ln in best.items():
+        if team_fhm_ids is not None and (not ln.team_fhm_id or str(ln.team_fhm_id) not in team_fhm_ids):
+            continue
         career_keys.add((pid, sy, tk))
         pl = players_seen.get(pid)
         if pl is None:
@@ -270,6 +288,8 @@ def _load_goalie_rows_merged(session: Session, segment: str) -> list[tuple[Any, 
         tm = teams_by_id.get(int(ln.team_id)) if ln.team_id is not None else None
         if tm is None and ln.team_fhm_id is not None:
             tm = teams_by_fhm.get(int(ln.team_fhm_id))
+        if team_fhm_ids is not None and tm is not None and tm.fhm_team_id and str(tm.fhm_team_id) not in team_fhm_ids:
+            continue
         out.append((_goalie_namespace_from_career(ln), pl, tm, _career_row_season_display(session, sy)))
 
     players_with_career = {pid for pid, _, _ in career_keys}
@@ -285,6 +305,8 @@ def _load_goalie_rows_merged(session: Session, segment: str) -> list[tuple[Any, 
         years = _season_overlap_years(sn) or set()
         tk = _team_key(st.team_id, int(str(tm.fhm_team_id).strip()) if tm.fhm_team_id and str(tm.fhm_team_id).strip().isdigit() else None)
         if any((int(st.player_id), yr, tk) in career_keys for yr in years):
+            continue
+        if team_fhm_ids is not None and tm is not None and tm.fhm_team_id and str(tm.fhm_team_id) not in team_fhm_ids:
             continue
         out.append((st, pl, tm, _season_label(sn)))
     return out
@@ -377,12 +399,24 @@ def _build_goalie_sections(rows: list[tuple[Any, Player, Team | None, str]], seg
     ]
 
 
-def build_league_season_record_sections(session: Session, segment: str) -> list[LeagueSeasonRecordSection]:
-    sk = _load_skater_rows_merged(session, segment)
-    gk = _load_goalie_rows_merged(session, segment)
+def build_league_season_record_sections(
+    session: Session,
+    segment: str,
+    *,
+    team_fhm_ids: frozenset[str] | None = None,
+) -> list[LeagueSeasonRecordSection]:
+    sk = _load_skater_rows_merged(session, segment, team_fhm_ids=team_fhm_ids)
+    gk = _load_goalie_rows_merged(session, segment, team_fhm_ids=team_fhm_ids)
     return _build_skater_sections(sk) + _build_goalie_sections(gk, segment)
 
 
-def build_league_season_records_bundle(session: Session) -> tuple[list[LeagueSeasonRecordSection], list[LeagueSeasonRecordSection]]:
-    return (build_league_season_record_sections(session, "rs"), build_league_season_record_sections(session, "po"))
+def build_league_season_records_bundle(
+    session: Session,
+    *,
+    team_fhm_ids: frozenset[str] | None = None,
+) -> tuple[list[LeagueSeasonRecordSection], list[LeagueSeasonRecordSection]]:
+    return (
+        build_league_season_record_sections(session, "rs", team_fhm_ids=team_fhm_ids),
+        build_league_season_record_sections(session, "po", team_fhm_ids=team_fhm_ids),
+    )
 

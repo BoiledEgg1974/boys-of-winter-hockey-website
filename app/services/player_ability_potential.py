@@ -20,7 +20,7 @@ def ability_potential_from_ratings_row(ratings_row: dict | None) -> tuple[float 
 def backfill_missing_ability_potential_from_ratings(session: object) -> int:
     """Fill NULL player ABI/POT from the active league's player_ratings.csv.
 
-    Older imports used plain ``float()`` and dropped Fantasy-style grades like
+    Older imports used plain ``float()`` and dropped Relegation-style grades like
     ``2.5Bc``. Backfilling the database restores every surface that reads the
     model columns directly.
     """

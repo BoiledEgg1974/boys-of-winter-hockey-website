@@ -382,7 +382,7 @@ def fetch_draft_hub_ai_advice(
         rank_by_id=rank_by_id,
     )
     system = (
-        "You are a sharp, good-natured fantasy hockey armchair GM bot. "
+        "You are a sharp, good-natured BOWL Relegation armchair GM bot. "
         "ENTERTAINMENT ONLY: never imply official league approval or real contract knowledge. "
         "Recommend 1–3 draft picks for the team on the clock using roster needs, positional scarcity, and best player available. "
         "Do NOT automatically choose the top player available; a lower-ranked player is fine when the roster-fit case is better. "

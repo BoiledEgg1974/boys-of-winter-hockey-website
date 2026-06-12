@@ -201,13 +201,13 @@ def seed_ap_catalog_if_empty() -> None:
                 )
             )
         fantasy_rows = [
-            (0, "Change a Rival", "Fantasy league — adjust rival.", 5),
+            (0, "Change a Rival", "Relegation league — adjust rival.", 5),
             (1, "Change Goal Horn", "Customize goal horn.", 10),
             (2, "Change Jersey / Logo", "Visual identity update.", 10),
             (3, "Supplemental Staff", "+1 Supplemental Staff Hiring above the free signing per sim", 15),
             (4, "Financial Boost", "Stackable", 15),
             (5, "Development / Market Package", "League-approved attribute or market tweak.", 30),
-            (6, "Major Customization", "Premium fantasy perk — confirm with commissioner.", 55),
+            (6, "Major Customization", "Premium Relegation perk — confirm with commissioner.", 55),
         ]
         for order, title, desc, cost in fantasy_rows:
             db.session.add(
@@ -229,7 +229,7 @@ def _normalize_catalog_title(title: str) -> str:
     return " ".join(str(title or "").strip().lower().split())
 
 
-# (sort_order, title, description, cost_ap) — added when missing from fantasy catalog.
+# (sort_order, title, description, cost_ap) — added when missing from Relegation catalog.
 _FANTASY_CATALOG_DEFAULTS: tuple[tuple[int, str, str, int], ...] = (
     (0, "Change a Rival", "Designate a league rival team.", 5),
     (1, "Retire a Number", "Retire a jersey number for your franchise.", 5),
@@ -251,7 +251,7 @@ _FANTASY_CATALOG_DEFAULTS: tuple[tuple[int, str, str, int], ...] = (
 
 
 def _reconcile_fantasy_ap_catalog() -> None:
-    """Ensure fantasy redemption catalog includes standard perks (by title)."""
+    """Ensure Relegation redemption catalog includes standard perks (by title)."""
     existing = list(
         db.session.scalars(
             select(ApRedemptionCatalog).where(ApRedemptionCatalog.league_group == "fantasy")
@@ -259,6 +259,15 @@ def _reconcile_fantasy_ap_catalog() -> None:
     )
     by_title = {_normalize_catalog_title(r.title): r for r in existing}
     changed = False
+    legacy_descriptions = {
+        "change a rival": "Relegation league — adjust rival.",
+        "major customization": "Premium Relegation perk — confirm with commissioner.",
+    }
+    for key, desc in legacy_descriptions.items():
+        row = by_title.get(key)
+        if row is not None and row.description != desc:
+            row.description = desc
+            changed = True
     for order, title, desc, cost in _FANTASY_CATALOG_DEFAULTS:
         key = _normalize_catalog_title(title)
         row = by_title.get(key)

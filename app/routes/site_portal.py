@@ -172,6 +172,7 @@ from app.services.ap_service import (
     publish_news_and_maybe_award_ap,
     team_ap_balance,
 )
+from app.sqlite_retry import write_with_sqlite_retry
 from app.services.export_attendance import (
     build_attendance_tracker_payload,
     maybe_send_export_gap_warning,
@@ -2950,32 +2951,42 @@ def gm_notification_open(nid: int):
     if not _can_use_gm_messaging():
         flash("No active GM membership for this league.", "err")
         return redirect(url_for("main.home"))
-    n = db.session.get(GmInAppNotification, nid)
-    if not n or n.user_id != current_user.id or n.league_slug != slug:
-        abort(404)
-    n.read_at = datetime.utcnow()
-    db.session.commit()
-    if n.kind == "news_approved" and n.article_id:
-        return redirect(url_for("main.league_headlines", article=n.article_id) + f"#a{n.article_id}")
-    if n.kind == "admin_league_article" and n.article_id:
-        return redirect(url_for("main.league_headlines", article=n.article_id) + f"#a{n.article_id}")
-    if n.kind == "news_denied":
+
+    def _mark_notification_read() -> dict[str, object]:
+        row = db.session.get(GmInAppNotification, nid)
+        if not row or row.user_id != current_user.id or row.league_slug != slug:
+            abort(404)
+        if row.read_at is None:
+            row.read_at = datetime.utcnow()
+        return {
+            "kind": str(row.kind or ""),
+            "article_id": int(row.article_id) if row.article_id else None,
+        }
+
+    n = write_with_sqlite_retry(db.session, _mark_notification_read)
+    kind = str(n.get("kind") or "")
+    article_id = n.get("article_id")
+    if kind == "news_approved" and article_id:
+        return redirect(url_for("main.league_headlines", article=article_id) + f"#a{article_id}")
+    if kind == "admin_league_article" and article_id:
+        return redirect(url_for("main.league_headlines", article=article_id) + f"#a{article_id}")
+    if kind == "news_denied":
         return redirect(url_for("site_gm.league_news"))
-    if n.kind == "redemption_approved":
+    if kind == "redemption_approved":
         return redirect(url_for("site_gm.action_points_page"))
-    if n.kind == "redemption_denied":
+    if kind == "redemption_denied":
         return redirect(url_for("site_gm.action_points_page"))
-    if n.kind == "admin_review_news" and n.article_id:
-        return redirect(url_for("site_admin.admin_news_preview", aid=int(n.article_id)))
-    if n.kind == "admin_review_ap" and n.article_id:
-        return redirect(url_for("site_admin.ap_request_one", rid=int(n.article_id)))
-    if n.kind == "admin_review_staff" and n.article_id:
-        return redirect(url_for("site_admin.admin_staff_request_one", rid=int(n.article_id)))
-    if n.kind in ("staff_hire_approved", "staff_fire_approved", "staff_change_denied"):
+    if kind == "admin_review_news" and article_id:
+        return redirect(url_for("site_admin.admin_news_preview", aid=int(article_id)))
+    if kind == "admin_review_ap" and article_id:
+        return redirect(url_for("site_admin.ap_request_one", rid=int(article_id)))
+    if kind == "admin_review_staff" and article_id:
+        return redirect(url_for("site_admin.admin_staff_request_one", rid=int(article_id)))
+    if kind in ("staff_hire_approved", "staff_fire_approved", "staff_change_denied"):
         return redirect(url_for("site_gm.staff_salaries_page"))
-    if n.kind == "admin_review_rfa" and n.article_id:
-        return redirect(url_for("site_admin.admin_rfa_offer_one", rid=int(n.article_id)))
-    if n.kind in (
+    if kind == "admin_review_rfa" and article_id:
+        return redirect(url_for("site_admin.admin_rfa_offer_one", rid=int(article_id)))
+    if kind in (
         "rfa_player_rejected",
         "rfa_awaiting_equalization",
         "rfa_original_matched",
@@ -2983,12 +2994,12 @@ def gm_notification_open(nid: int):
         "rfa_offer_completed",
     ):
         return redirect(url_for("site_gm.rfa_offers_page"))
-    if n.kind == "rfa_awaiting_match" and n.article_id:
-        return redirect(url_for("site_gm.rfa_offer_respond", rid=int(n.article_id)))
-    if n.kind in ("trade_partner_review", "trade_outcome_proposer", "trade_outcome_partner") and n.article_id:
-        return redirect(url_for("site_gm.trade_proposal_detail", pid=int(n.article_id)))
-    if n.kind == "trade_commish_review" and n.article_id:
-        return redirect(url_for("site_admin.admin_trade_proposal_detail", pid=int(n.article_id)))
+    if kind == "rfa_awaiting_match" and article_id:
+        return redirect(url_for("site_gm.rfa_offer_respond", rid=int(article_id)))
+    if kind in ("trade_partner_review", "trade_outcome_proposer", "trade_outcome_partner") and article_id:
+        return redirect(url_for("site_gm.trade_proposal_detail", pid=int(article_id)))
+    if kind == "trade_commish_review" and article_id:
+        return redirect(url_for("site_admin.admin_trade_proposal_detail", pid=int(article_id)))
     return redirect(url_for("site_gm.gm_messages_inbox"))
 
 

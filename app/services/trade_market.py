@@ -10,7 +10,11 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.models import Game, Player, PlayerContract, Team
-from app.services.discord_events import build_league_public_url, enqueue_discord_event
+from app.services.discord_events import (
+    DISCORD_SNOWFLAKE_PATTERN,
+    build_league_public_url,
+    enqueue_discord_event,
+)
 from app.services.draft_pick_ownership import (
     describe_draft_pick_row,
     draft_pick_asset_dicts,
@@ -22,7 +26,13 @@ from app.services.draft_pick_values import perri_pick_value_for_asset
 from app.services.gm_messaging import gm_discord_name
 from app.services.seasons import get_current_season, season_age_reference_date
 from app.services.trade_tool import enrich_trade_player_row, trade_assets_for_team
-from app.site_models import MemberWatchlistItem, TradeMarketBuyingNeed, TradeMarketListing, User
+from app.site_models import (
+    GmLeagueMembership,
+    MemberWatchlistItem,
+    TradeMarketBuyingNeed,
+    TradeMarketListing,
+    User,
+)
 
 TRADE_MARKET_SELLING_EVENT = "trade_market_selling_posted"
 TRADE_MARKET_BUYING_EVENT = "trade_market_buying_posted"
@@ -746,6 +756,28 @@ def _content_hash(body: str) -> str:
     return hashlib.sha256(body.encode("utf-8")).hexdigest()[:32]
 
 
+def _trade_market_team_gm_mention(session: Session, *, league_slug: str, team_id: int) -> str:
+    """Mention the GM for the listing's internal team id, not a stale FHM id."""
+    user = session.scalar(
+        select(User)
+        .join(GmLeagueMembership, GmLeagueMembership.user_id == User.id)
+        .where(
+            GmLeagueMembership.league_slug == str(league_slug or "").strip(),
+            GmLeagueMembership.team_id == int(team_id),
+            GmLeagueMembership.status == "active",
+            User.revoked_at.is_(None),
+        )
+        .order_by(GmLeagueMembership.approved_at.desc().nulls_last(), GmLeagueMembership.id.desc())
+        .limit(1)
+    )
+    if user is None:
+        return ""
+    discord_id = str(getattr(user, "discord_user_id", "") or "").strip()
+    if not DISCORD_SNOWFLAKE_PATTERN.match(discord_id):
+        return ""
+    return f"<@{discord_id}>"
+
+
 def _row_identity(row, *attrs: str) -> str:
     return ":".join(str(getattr(row, attr, "") or "").strip() for attr in attrs)
 
@@ -838,6 +870,11 @@ def maybe_enqueue_selling_discord(
         "team_id": int(team_id),
         **(team_fields or {}),
     }
+    mention = _trade_market_team_gm_mention(
+        site_session, league_slug=league_slug, team_id=int(team_id)
+    )
+    if mention:
+        payload["team_gm_mention"] = mention
     enqueue_discord_event(
         site_session,
         league_slug=league_slug,
@@ -877,6 +914,11 @@ def maybe_enqueue_buying_discord(
         "team_id": int(team_id),
         **(team_fields or {}),
     }
+    mention = _trade_market_team_gm_mention(
+        site_session, league_slug=league_slug, team_id=int(team_id)
+    )
+    if mention:
+        payload["team_gm_mention"] = mention
     enqueue_discord_event(
         site_session,
         league_slug=league_slug,

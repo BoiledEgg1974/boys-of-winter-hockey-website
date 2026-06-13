@@ -3,10 +3,13 @@ from __future__ import annotations
 
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 from app import create_app
 from app.config import LEAGUES, make_league_config
 from app.services.discord_events import DEFAULT_EVENT_CHANNEL_KEY, DEFAULT_EVENT_KEYS
+from app.services.trade_market import _trade_market_team_gm_mention
 from scripts.league_discord_bot.formatters import format_discord_message
 
 
@@ -127,6 +130,18 @@ class TradeMarketAllLeaguesTest(unittest.TestCase):
             "trade-market-delete-buying",
         ):
             self.assertIn(selector, text)
+
+    def test_trade_market_mentions_listing_team_gm_by_internal_team_id(self) -> None:
+        session = MagicMock()
+        session.scalar.return_value = SimpleNamespace(discord_user_id="123456789012345678")
+
+        mention = _trade_market_team_gm_mention(
+            session,
+            league_slug="bowl-cap",
+            team_id=28,
+        )
+
+        self.assertEqual(mention, "<@123456789012345678>")
 
     def test_trade_market_template_has_chat_controls(self) -> None:
         path = (

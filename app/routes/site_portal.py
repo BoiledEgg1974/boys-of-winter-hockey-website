@@ -7615,7 +7615,6 @@ def admin_ap_approve(rid: int):
             news_article_discord_payload(
                 art,
                 request_id=int(req.id),
-                team_id=int(req.team_id),
                 total_cost=int(req.total_cost),
                 redemption_label=red_label,
                 gm_name=gm_discord_name(gm_user),

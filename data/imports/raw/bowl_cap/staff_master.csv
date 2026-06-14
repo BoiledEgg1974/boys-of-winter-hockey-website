@@ -133,7 +133,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 131;12;Les;Jackson;;1952-12-21;Manning;AB;Canada;;;0
 132;20;Marshall;Johnston;;1941-6-6;Prince Albert;SK;Canada;;;0
 133;26;Paulin;Bordeleau;;1953-1-29;Rouyn-Noranda;QC;France;Canada;;0
-134;215;Brian;Sutter;;1956-10-7;Viking;AB;Canada;;;0
+134;-1;Brian;Sutter;;1956-10-7;Viking;AB;Canada;;;0
 135;0;Ken;Morrow;;1956-10-17;Flint;MI;The United States;;;0
 136;8;Bill;Wirtz;;1929-10-5;Detroit;MI;The United States;;;0
 137;-1;Bob;Pulford;;1936-3-31;Simcoe;ON;Canada;;;0
@@ -1911,7 +1911,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1909;-1;Arthur;Sanborn;;1944-11-29;Lafayette;OH;The United States;;;0
 1910;-1;Wes;Witt;;1944-8-8;Kennett;MO;The United States;;;0
 1911;-1;Matt;Agarn;;1947-9-18;New York;NY;The United States;;;0
-1912;-1;Paul;Maurice;;1967-1-30;Sault Ste. Marie;ON;Canada;;;0
+1912;215;Paul;Maurice;;1967-1-30;Sault Ste. Marie;ON;Canada;;;0
 1913;-1;Glen;Hanlon;;1957-2-20;Carman;MB;Canada;;;0
 1914;26;Jarmo;Kekäläinen;;1966-7-3;Tampere;PIR;Finland;;;0
 1915;24;Michel;Goulet;;1960-4-21;Ange-Gardien;QC;Canada;;;0

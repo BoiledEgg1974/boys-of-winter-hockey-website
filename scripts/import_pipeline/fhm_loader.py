@@ -39,7 +39,7 @@ from scripts.import_pipeline.encoding_utils import (
     to_float,
     to_int,
 )
-from scripts.import_pipeline.sqlite_session import commit_with_sqlite_retry
+from scripts.import_pipeline.sqlite_session import commit_with_sqlite_retry, write_with_sqlite_retry
 
 log = logging.getLogger("bowl.fhm")
 
@@ -560,13 +560,15 @@ def import_games(
         try:
             from app.services.bowl_six import record_bowl_six_game_finals
 
-            record_bowl_six_game_finals(
-                db.session,
-                db.session,
-                league_slug=str(app.config.get("LEAGUE_SLUG") or ""),
-                game_ids=newly_final_game_ids,
-            )
-            commit_with_sqlite_retry(db.session)
+            def _record_bowl_six_finals() -> int:
+                return record_bowl_six_game_finals(
+                    db.session,
+                    db.session,
+                    league_slug=str(app.config.get("LEAGUE_SLUG") or ""),
+                    game_ids=newly_final_game_ids,
+                )
+
+            write_with_sqlite_retry(db.session, _record_bowl_six_finals)
         except Exception:
             db.session.rollback()
             log.exception("BOWL Six game-final tracking failed (non-fatal)")

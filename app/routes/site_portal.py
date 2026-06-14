@@ -7147,62 +7147,20 @@ def admin_ap_export_multileague():
             ap_allowed = False
             ap_block_message = pe.message
     note = f"EXPORT: +1 AP ({label})"
-    ap_added = 0
-    attendance_added = 0
-    warnings_sent = 0
-    matched_slugs: list[str] = []
-    for team_slug in team_slugs:
-        tid = team_id_for_slug_in_league(
-            cur_slug,
-            team_slug,
-            orm_session=db.session,
-            orm_league_slug=cur_slug,
-        )
-        if tid is None:
-            continue
-        matched_slugs.append(team_slug)
-        if dry_run:
-            ap_added += 1
-            continue
-        ledger_row = None
-        if ap_allowed:
-            ledger_row = add_ledger_entry(
-                league_slug=cur_slug,
-                team_id=tid,
-                delta=1,
-                reason_code="manual",
-                meta={
-                    "note": note,
-                    "team_slug": team_slug,
-                    "export_date": export_date.isoformat(),
-                },
-                created_by_user_id=current_user.id,
-                source_ref=f"manual_export:{cur_slug}:{tid}:{export_date.isoformat()}",
-            )
-            if ledger_row is not None:
-                db.session.flush()
-                ap_added += 1
-        ap_ledger_entry_id = None
-        if ledger_row is not None and ledger_row.id is not None:
-            ap_ledger_entry_id = int(ledger_row.id)
-        attendance_row, created_new = register_export_attendance(
-            db.session,
-            league_slug=cur_slug,
-            team_id=int(tid),
-            export_date=export_date,
-            checked_by_user_id=int(current_user.id),
-            ap_ledger_entry_id=ap_ledger_entry_id,
-        )
-        if created_new:
-            attendance_added += 1
-        if maybe_send_export_gap_warning(
-            db.session,
-            attendance_row=attendance_row,
-            league_slug=cur_slug,
-            admin_user_id=int(current_user.id),
-        ):
-            warnings_sent += 1
     if dry_run:
+        matched_slugs: list[str] = []
+        ap_added = 0
+        for team_slug in team_slugs:
+            tid = team_id_for_slug_in_league(
+                cur_slug,
+                team_slug,
+                orm_session=db.session,
+                orm_league_slug=cur_slug,
+            )
+            if tid is None:
+                continue
+            matched_slugs.append(team_slug)
+            ap_added += 1
         sample = ", ".join(matched_slugs[:8]) if matched_slugs else "none"
         if len(matched_slugs) > 8:
             sample += ", …"
@@ -7213,7 +7171,77 @@ def admin_ap_export_multileague():
             "ok",
         )
         return redirect(url_for("site_admin.admin_ap_ledger"))
-    db.session.commit()
+
+    def _apply_export_multileague() -> dict[str, object]:
+        ap_added = 0
+        attendance_added = 0
+        warnings_sent = 0
+        matched_slugs: list[str] = []
+        pending: list[tuple[int, str, object | None]] = []
+        for team_slug in team_slugs:
+            tid = team_id_for_slug_in_league(
+                cur_slug,
+                team_slug,
+                orm_session=db.session,
+                orm_league_slug=cur_slug,
+            )
+            if tid is None:
+                continue
+            matched_slugs.append(team_slug)
+            ledger_row = None
+            if ap_allowed:
+                ledger_row = add_ledger_entry(
+                    league_slug=cur_slug,
+                    team_id=tid,
+                    delta=1,
+                    reason_code="manual",
+                    meta={
+                        "note": note,
+                        "team_slug": team_slug,
+                        "export_date": export_date.isoformat(),
+                    },
+                    created_by_user_id=current_user.id,
+                    source_ref=f"manual_export:{cur_slug}:{tid}:{export_date.isoformat()}",
+                )
+            pending.append((int(tid), team_slug, ledger_row))
+        db.session.flush()
+        for tid, _team_slug, ledger_row in pending:
+            if ledger_row is not None:
+                ap_added += 1
+            ap_ledger_entry_id = None
+            if ledger_row is not None and getattr(ledger_row, "id", None) is not None:
+                ap_ledger_entry_id = int(ledger_row.id)
+            attendance_row, created_new = register_export_attendance(
+                db.session,
+                league_slug=cur_slug,
+                team_id=int(tid),
+                export_date=export_date,
+                checked_by_user_id=int(current_user.id),
+                ap_ledger_entry_id=ap_ledger_entry_id,
+                flush=False,
+            )
+            if created_new:
+                attendance_added += 1
+            if maybe_send_export_gap_warning(
+                db.session,
+                attendance_row=attendance_row,
+                league_slug=cur_slug,
+                admin_user_id=int(current_user.id),
+            ):
+                warnings_sent += 1
+        db.session.flush()
+        return {
+            "ap_added": ap_added,
+            "attendance_added": attendance_added,
+            "warnings_sent": warnings_sent,
+            "matched_slugs": matched_slugs,
+        }
+
+    result = write_with_sqlite_retry(db.session, _apply_export_multileague)
+    ap_added = int(result.get("ap_added") or 0)
+    attendance_added = int(result.get("attendance_added") or 0)
+    warnings_sent = int(result.get("warnings_sent") or 0)
+    matched_slugs = list(result.get("matched_slugs") or [])
     if matched_slugs:
         parts = [
             f"EXPORT {export_date.isoformat()}: registered attendance for {len(matched_slugs)} team(s) in {label}."

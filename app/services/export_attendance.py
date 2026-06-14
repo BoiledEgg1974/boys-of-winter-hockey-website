@@ -99,6 +99,7 @@ def register_export_attendance(
     export_date: date,
     checked_by_user_id: int | None,
     ap_ledger_entry_id: int | None = None,
+    flush: bool = True,
 ) -> tuple[GmExportAttendance, bool]:
     """
     Insert attendance for team/date if missing (idempotent).
@@ -134,7 +135,8 @@ def register_export_attendance(
         gap_days=gap_days,
     )
     session.add(row)
-    session.flush()
+    if flush:
+        session.flush()
     return row, True
 
 

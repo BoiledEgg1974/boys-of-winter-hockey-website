@@ -14,6 +14,20 @@ if str(ROOT) not in sys.path:
 from app.services.discord_interactions import COMMAND_DEFINITIONS
 
 
+def _parse_guild_ids(*values: str) -> list[str]:
+    """Parse one or more env-style Discord guild id lists."""
+    out: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        for piece in str(value or "").replace(";", ",").split(","):
+            guild_id = piece.strip()
+            if not guild_id or guild_id in seen:
+                continue
+            out.append(guild_id)
+            seen.add(guild_id)
+    return out
+
+
 def _resolve_application_id(token: str, configured_id: str) -> str:
     app_id = str(configured_id or "").strip()
     if app_id:
@@ -51,7 +65,10 @@ def main() -> None:
     load_dotenv(ROOT / ".env")
     token = os.environ.get("DISCORD_BOT_TOKEN", "").strip()
     application_id = os.environ.get("DISCORD_APPLICATION_ID", "").strip()
-    guild_id = os.environ.get("DISCORD_GUILD_ID", "").strip()
+    guild_ids = _parse_guild_ids(
+        os.environ.get("DISCORD_GUILD_IDS", ""),
+        os.environ.get("DISCORD_GUILD_ID", ""),
+    )
     if not token:
         raise RuntimeError(
             "DISCORD_BOT_TOKEN is required. Set it in boys-of-winter-hockey-website/.env "
@@ -60,13 +77,14 @@ def main() -> None:
     application_id = _resolve_application_id(token, application_id)
     base = f"https://discord.com/api/v10/applications/{application_id}"
 
-    if guild_id:
-        _register_commands(
-            token=token,
-            application_id=application_id,
-            url=f"{base}/guilds/{guild_id}/commands",
-            scope=f"guild {guild_id}",
-        )
+    if guild_ids:
+        for guild_id in guild_ids:
+            _register_commands(
+                token=token,
+                application_id=application_id,
+                url=f"{base}/guilds/{guild_id}/commands",
+                scope=f"guild {guild_id}",
+            )
         return
 
     # One bot, three servers: register global commands; the hub interactions URL routes by guild id.

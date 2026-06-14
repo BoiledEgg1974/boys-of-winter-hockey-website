@@ -172,7 +172,7 @@ from app.services.ap_service import (
     publish_news_and_maybe_award_ap,
     team_ap_balance,
 )
-from app.sqlite_retry import write_with_sqlite_retry
+from app.sqlite_retry import commit_with_sqlite_retry, write_with_sqlite_retry
 from app.services.export_attendance import (
     build_attendance_tracker_payload,
     maybe_send_export_gap_warning,
@@ -6908,6 +6908,7 @@ def admin_news_compose():
                 form_category=cat,
             )
         upload = request.files.get("image")
+        image_payload: tuple[str, bytes] | None = None
         if upload and upload.filename:
             from app.services.news_article_media import ext_from_upload_filename
 
@@ -6922,25 +6923,10 @@ def admin_news_compose():
                     form_team_id=raw_tid,
                     form_category=cat,
                 )
-        art = NewsArticle(
-            league_slug=slug,
-            team_id=team_id,
-            title=title[:300],
-            body=body,
-            category=cat,
-            author_user_id=current_user.id,
-            status="published",
-            published_at=datetime.utcnow(),
-            ap_awarded=False,
-        )
-        db.session.add(art)
-        db.session.flush()
-        if upload and upload.filename:
-            from app.services.news_article_media import save_news_article_image
+            from app.services.news_article_media import _MAX_BYTES
 
-            rel = save_news_article_image(upload, league_slug=slug, article_id=art.id)
-            if not rel:
-                db.session.rollback()
+            image_data = upload.read(_MAX_BYTES + 1)
+            if len(image_data) > _MAX_BYTES:
                 flash("Image could not be saved (max 2.5 MB).", "err")
                 return render_template(
                     "admin_news_compose.html",
@@ -6951,8 +6937,55 @@ def admin_news_compose():
                     form_team_id=raw_tid,
                     form_category=cat,
                 )
-            art.image_rel_path = rel
-        db.session.commit()
+            image_payload = (upload.filename, image_data)
+
+        def _publish_admin_news_article() -> NewsArticle:
+            art = NewsArticle(
+                league_slug=slug,
+                team_id=team_id,
+                title=title[:300],
+                body=body,
+                category=cat,
+                author_user_id=current_user.id,
+                status="published",
+                published_at=datetime.utcnow(),
+                ap_awarded=False,
+            )
+            db.session.add(art)
+            db.session.flush()
+            if image_payload is not None:
+                from io import BytesIO
+
+                from werkzeug.datastructures import FileStorage
+
+                from app.services.news_article_media import save_news_article_image
+
+                filename, data = image_payload
+                rel = save_news_article_image(
+                    FileStorage(stream=BytesIO(data), filename=filename),
+                    league_slug=slug,
+                    article_id=art.id,
+                )
+                if not rel:
+                    raise ValueError("image_save_failed")
+                art.image_rel_path = rel
+            return art
+
+        try:
+            art = write_with_sqlite_retry(db.session, _publish_admin_news_article)
+        except ValueError as exc:
+            if str(exc) == "image_save_failed":
+                flash("Image could not be saved (max 2.5 MB).", "err")
+                return render_template(
+                    "admin_news_compose.html",
+                    teams=teams,
+                    category_choices=NEWS_CATEGORY_CHOICES_ADMIN,
+                    form_title=title,
+                    form_body=body,
+                    form_team_id=raw_tid,
+                    form_category=cat,
+                )
+            raise
         _enqueue_discord_event(
             "admin_news_published",
             news_article_discord_payload(
@@ -6967,7 +7000,7 @@ def admin_news_compose():
             source_type="news_article",
             source_id=int(art.id),
         )
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
         if cat == NEWS_CATEGORY_ADMIN_SUBMISSION:
             notify_all_gms_admin_article(slug, art)
             flash(

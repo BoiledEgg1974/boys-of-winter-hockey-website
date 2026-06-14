@@ -1263,53 +1263,57 @@ def trade_tool_submit():
         flash(err, "err")
         return redirect(return_url)
     payload_obj = {"from_left_to_right": left_out, "from_right_to_left": right_out}
-    prop = GmTradeProposal(
-        league_slug=slug,
-        from_user_id=int(current_user.id),
-        from_team_id=int(left_team_id),
-        to_user_id=int(peer_mem.user_id) if peer_mem else int(current_user.id),
-        to_team_id=int(partner_team_id),
-        status=STATUS_PENDING_PARTNER if peer_mem else STATUS_PENDING_COMMISSIONER,
-        ledger_json=json.dumps(payload_obj),
-        notes=notes[:8000],
-    )
-    db.session.add(prop)
-    db.session.flush()
-    from_team = db.session.get(Team, int(left_team_id))
-    to_team = db.session.get(Team, int(partner_team_id))
-    summary = format_ledger_summary(
-        db.session, from_team, to_team, left_out, right_out, league_slug=slug
-    )
-    review_path = url_for("site_gm.trade_proposal_detail", pid=int(prop.id))
-    if peer_mem:
-        msg_body = (
-            f"You have a new trade proposal from {gm_display_name(current_user)} "
-            f"({from_team.full_display_name() if from_team else 'your partner'}).\n\n"
-            f"{summary}\n\n"
-            f"Open to approve or decline:\n{review_path}"
-        )
-        create_gm_message(
+    partner_user_id = int(peer_mem.user_id) if peer_mem else int(current_user.id)
+
+    def _persist_trade_submission() -> None:
+        prop = GmTradeProposal(
             league_slug=slug,
             from_user_id=int(current_user.id),
-            to_user_id=int(peer_mem.user_id),
-            body=msg_body[:_GM_MESSAGE_MAX_LEN],
-            event_key="trade_partner_review",
+            from_team_id=int(left_team_id),
+            to_user_id=partner_user_id,
+            to_team_id=int(partner_team_id),
+            status=STATUS_PENDING_PARTNER if peer_mem else STATUS_PENDING_COMMISSIONER,
+            ledger_json=json.dumps(payload_obj),
+            notes=notes[:8000],
         )
-        notify_trade_proposal_partner(
-            slug,
-            partner_user_id=int(peer_mem.user_id),
-            proposal_id=int(prop.id),
-            summary_preview=summary,
+        db.session.add(prop)
+        db.session.flush()
+        from_team = db.session.get(Team, int(left_team_id))
+        to_team = db.session.get(Team, int(partner_team_id))
+        summary = format_ledger_summary(
+            db.session, from_team, to_team, left_out, right_out, league_slug=slug
         )
-    else:
-        comm_ids = league_commissioner_user_ids(slug)
-        notify_trade_proposal_commissioners(
-            slug,
-            commissioner_user_ids=comm_ids,
-            proposal_id=int(prop.id),
-            summary_preview=summary,
-        )
-    db.session.commit()
+        review_path = url_for("site_gm.trade_proposal_detail", pid=int(prop.id))
+        if peer_mem:
+            msg_body = (
+                f"You have a new trade proposal from {gm_display_name(current_user)} "
+                f"({from_team.full_display_name() if from_team else 'your partner'}).\n\n"
+                f"{summary}\n\n"
+                f"Open to approve or decline:\n{review_path}"
+            )
+            create_gm_message(
+                league_slug=slug,
+                from_user_id=int(current_user.id),
+                to_user_id=partner_user_id,
+                body=msg_body[:_GM_MESSAGE_MAX_LEN],
+                event_key="trade_partner_review",
+            )
+            notify_trade_proposal_partner(
+                slug,
+                partner_user_id=partner_user_id,
+                proposal_id=int(prop.id),
+                summary_preview=summary,
+            )
+        else:
+            comm_ids = league_commissioner_user_ids(db.session)
+            notify_trade_proposal_commissioners(
+                slug,
+                commissioner_user_ids=comm_ids,
+                proposal_id=int(prop.id),
+                summary_preview=summary,
+            )
+
+    write_with_sqlite_retry(db.session, _persist_trade_submission)
     flash("Trade submitted. Your partner was messaged and notified in GM Messages.", "ok")
     return redirect(return_url)
 
@@ -2819,27 +2823,30 @@ def trade_proposal_partner_respond(pid: int):
         db.session, from_team, to_team, left_out, right_out, league_slug=slug
     )
     if action == "decline":
-        prop.status = STATUS_PARTNER_DECLINED
-        prop.partner_acted_at = datetime.utcnow()
         decline_msg = (
             f"Your trade proposal to {to_team.full_display_name() if to_team else 'partner'} "
             f"was declined by {gm_display_name(current_user)}.\n\n{summary}"
         )
-        create_gm_message(
-            league_slug=slug,
-            from_user_id=int(current_user.id),
-            to_user_id=int(prop.from_user_id),
-            body=decline_msg[:_GM_MESSAGE_MAX_LEN],
-            event_key="trade_outcome_proposer",
-        )
-        notify_trade_outcome_proposer(
-            slug,
-            proposer_user_id=int(prop.from_user_id),
-            proposal_id=int(prop.id),
-            title="Trade proposal declined",
-            body="Your partner declined the trade.",
-        )
-        db.session.commit()
+
+        def _decline_trade() -> None:
+            prop.status = STATUS_PARTNER_DECLINED
+            prop.partner_acted_at = datetime.utcnow()
+            create_gm_message(
+                league_slug=slug,
+                from_user_id=int(current_user.id),
+                to_user_id=int(prop.from_user_id),
+                body=decline_msg[:_GM_MESSAGE_MAX_LEN],
+                event_key="trade_outcome_proposer",
+            )
+            notify_trade_outcome_proposer(
+                slug,
+                proposer_user_id=int(prop.from_user_id),
+                proposal_id=int(prop.id),
+                title="Trade proposal declined",
+                body="Your partner declined the trade.",
+            )
+
+        write_with_sqlite_retry(db.session, _decline_trade)
         flash("You declined the trade. The proposing GM was notified.", "ok")
         return redirect(url_for("site_gm.trade_tool"))
     if action != "approve":
@@ -2849,39 +2856,42 @@ def trade_proposal_partner_respond(pid: int):
     if not comm_ids:
         flash("No commissioner accounts are configured; contact the league office.", "err")
         return redirect(url_for("site_gm.trade_proposal_detail", pid=pid))
-    prop.status = STATUS_PENDING_COMMISSIONER
-    prop.partner_acted_at = datetime.utcnow()
     admin_path = url_for("site_admin.admin_trade_proposal_detail", pid=int(prop.id))
-    for cid in comm_ids:
-        create_gm_message(
-            league_slug=slug,
-            from_user_id=int(current_user.id),
-            to_user_id=int(cid),
-            body=(
-                f"Trade proposal approved by both GMs; commissioner review needed.\n\n{summary}\n\n"
-                f"Admin: {admin_path}"
-            )[:_GM_MESSAGE_MAX_LEN],
-            event_key="trade_commish_review",
-        )
-    notify_trade_proposal_commissioners(
-        slug,
-        commissioner_user_ids=comm_ids,
-        proposal_id=int(prop.id),
-        summary_preview=summary,
-    )
     approve_peer_msg = (
         f"{gm_display_name(current_user)} approved your trade proposal "
         f"({from_team.full_display_name() if from_team else ''} / {to_team.full_display_name() if to_team else ''}). "
         f"It is now with the league office for final approval.\n\n{summary}"
     )
-    create_gm_message(
-        league_slug=slug,
-        from_user_id=int(current_user.id),
-        to_user_id=int(prop.from_user_id),
-        body=approve_peer_msg[:_GM_MESSAGE_MAX_LEN],
-        event_key="trade_outcome_proposer",
-    )
-    db.session.commit()
+
+    def _approve_trade() -> None:
+        prop.status = STATUS_PENDING_COMMISSIONER
+        prop.partner_acted_at = datetime.utcnow()
+        for cid in comm_ids:
+            create_gm_message(
+                league_slug=slug,
+                from_user_id=int(current_user.id),
+                to_user_id=int(cid),
+                body=(
+                    f"Trade proposal approved by both GMs; commissioner review needed.\n\n{summary}\n\n"
+                    f"Admin: {admin_path}"
+                )[:_GM_MESSAGE_MAX_LEN],
+                event_key="trade_commish_review",
+            )
+        notify_trade_proposal_commissioners(
+            slug,
+            commissioner_user_ids=comm_ids,
+            proposal_id=int(prop.id),
+            summary_preview=summary,
+        )
+        create_gm_message(
+            league_slug=slug,
+            from_user_id=int(current_user.id),
+            to_user_id=int(prop.from_user_id),
+            body=approve_peer_msg[:_GM_MESSAGE_MAX_LEN],
+            event_key="trade_outcome_proposer",
+        )
+
+    write_with_sqlite_retry(db.session, _approve_trade)
     flash("You approved the trade. The commissioner was notified.", "ok")
     return redirect(url_for("site_gm.trade_tool"))
 

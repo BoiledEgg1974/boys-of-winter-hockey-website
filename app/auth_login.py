@@ -8,6 +8,7 @@ from flask import redirect, request
 from flask_login import LoginManager, current_user
 
 from app.league_db import db
+from app.sqlite_retry import commit_with_sqlite_retry
 from app.site_models import User
 
 ADMIN_ROLE_SUPER = "super_admin"
@@ -54,7 +55,7 @@ def ensure_commissioner_admin_flags(user) -> bool:
         changed = True
     if changed:
         try:
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
         except Exception:
             db.session.rollback()
             return False

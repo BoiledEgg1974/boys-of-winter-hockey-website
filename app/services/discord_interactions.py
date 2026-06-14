@@ -8,6 +8,7 @@ from flask import current_app
 from sqlalchemy import func, or_, select
 
 from app.league_db import db
+from app.sqlite_retry import commit_with_sqlite_retry
 from app.models import (
     Game,
     HallOfFameMember,
@@ -558,7 +559,7 @@ def _handle_draft_pick_command(payload: dict[str, Any], league_slug: str) -> dic
     if pick_err:
         db.session.rollback()
         return _ephemeral(pick_err)
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     pos = player_positions_display_label(player) or "-"
     return _ephemeral(
         f"Draft pick recorded: **{player.full_name}** ({pos}) for {draft.name or 'Draft Hub'}. "
@@ -935,7 +936,7 @@ def _handle_predict_command(payload: dict[str, Any], league_slug: str) -> dict[s
         return _ephemeral(
             "Could not queue the playoff predictions post. Check Discord Integration settings."
         )
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     count = int(disc_payload.get("series_count") or 0)
     return _ephemeral(
         f"Queued playoff predictions for {count} series to the configured playoff-predictions channel."

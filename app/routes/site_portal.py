@@ -53,6 +53,7 @@ from app.services.gm_messaging import (
     inbox_threads,
     list_other_active_gms,
     mark_thread_read,
+    send_gm_message,
     thread_messages,
 )
 from app.services.gm_notifications import (
@@ -1005,7 +1006,7 @@ def action_points_redeem():
         )
     except Exception as exc:
         current_app.logger.warning("Admin notify (AP redemption): %s", exc)
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     flash("Request submitted for administrator approval.", "ok")
     return redirect(url_for("site_gm.action_points_page"))
 
@@ -1054,7 +1055,7 @@ def league_news():
                     flash("Image could not be saved (max 2.5 MB).", "err")
                     return redirect(url_for("site_gm.league_news"))
                 art.image_rel_path = rel
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
             try:
                 from app.services.admin_review_notify import notify_news_pending_review
 
@@ -1065,7 +1066,7 @@ def league_news():
                     author_email=str(current_user.email or ""),
                     title=str(art.title or ""),
                 )
-                db.session.commit()
+                commit_with_sqlite_retry(db.session)
             except Exception as exc:
                 current_app.logger.warning("Admin notify (news pending): %s", exc)
                 db.session.rollback()
@@ -1178,7 +1179,7 @@ def trade_tool_assets():
         league_slug=slug,
     )
     if completed_panels:
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
     left = trade_assets_for_team(
         db.session, int(left_team_id), raw_dir=raw_dir, league_slug=slug
     )
@@ -1344,7 +1345,7 @@ def trade_market_page():
         raw_dir=_trade_tool_raw_dir(),
     )
     if cleaned:
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
     selling_rows = sort_selling_rows(
         active_selling_rows(db.session, db.session, league_slug=slug),
         sort_key=sort_key,
@@ -1490,7 +1491,7 @@ def trade_market_assets():
         league_slug=slug,
     )
     if completed_panels:
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
     assets = selectable_selling_assets(
         db.session,
         db.session,
@@ -1560,7 +1561,7 @@ def trade_market_selling_save():
             team_fields=tf,
             previous_hash=prev_hash,
         )
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return jsonify({"ok": True, "count": len(rows)})
 
 
@@ -1617,7 +1618,7 @@ def trade_market_buying_save():
             team_fields=tf,
             previous_hash=prev_hash,
         )
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return jsonify({"ok": True, "count": len(needs)})
 
 
@@ -1662,7 +1663,7 @@ def trade_market_chat_start():
         body=msg_body[:_GM_MESSAGE_MAX_LEN],
         event_key="trade_market_chat",
     )
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return jsonify(
         {
             "ok": True,
@@ -2121,7 +2122,7 @@ def admin_trade_log():
                     external_id=None,
                 )
                 db.session.add(ent)
-                db.session.commit()
+                commit_with_sqlite_retry(db.session)
                 flash("Manual trade log entry added.", "ok")
                 return redirect(url_for("site_admin.admin_trade_log"))
         return redirect(url_for("site_admin.admin_trade_log"))
@@ -2193,7 +2194,7 @@ def admin_trade_log_edit(entry_id: int):
             ent.team_a_id = team_a_id
             ent.team_b_id = team_b_id
             ent.summary = summary[:8000]
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
             flash("Trade log entry updated.", "ok")
             return redirect(url_for("site_admin.admin_trade_log"))
     return render_template(
@@ -2216,7 +2217,7 @@ def admin_trade_log_delete(entry_id: int):
     if not ent or (ent.source or "").strip().lower() != "manual":
         abort(404)
     db.session.delete(ent)
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     flash("Manual trade log entry deleted.", "ok")
     return redirect(url_for("site_admin.admin_trade_log"))
 
@@ -2320,7 +2321,7 @@ def _save_boost_lottery_team_rows(league_slug: str, user_id: int) -> int:
             row.updated_by_user_id = user_id
             row.updated_at = now
             changed += 1
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return changed
 
 
@@ -2454,7 +2455,7 @@ def staff_salaries_page():
                 )
             except Exception as exc:
                 current_app.logger.warning("Admin notify (staff change): %s", exc)
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
         flash(result.message, "ok" if result.ok else "err")
         return redirect(url_for("site_gm.staff_salaries_page"))
     gm_team = None
@@ -2469,7 +2470,7 @@ def staff_salaries_page():
             base=base,
         )
         if ctx.get("roster_synced"):
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
     ctx.setdefault("my_roster", [])
     ctx.setdefault("recent_requests", [])
     ctx["membership"] = mem
@@ -2557,7 +2558,7 @@ def rfa_offers_page():
             )
         except Exception as exc:
             current_app.logger.warning("Admin notify (RFA offer): %s", exc)
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
         flash(f"Offer sheet submitted for {candidate.player.full_name} — pending admin review.", "ok")
         return redirect(url_for("site_gm.rfa_offers_page"))
     candidates = list_rfa_candidates(db.session, league_slug=slug)
@@ -2696,7 +2697,7 @@ def rfa_offer_respond(rid: int):
                 detail_json=json.dumps({"request_id": int(req.id), "player_id": int(req.player_id)}),
             )
         )
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
         notify_rfa_original_team_decision(slug, req, player=player, offering_team=offering_team)
         flash(
             "You matched the offer — player stays with your club."
@@ -2962,20 +2963,32 @@ def gm_notification_open(nid: int):
         flash("No active GM membership for this league.", "err")
         return redirect(url_for("main.home"))
 
-    def _mark_notification_read() -> dict[str, object]:
-        row = db.session.get(GmInAppNotification, nid)
-        if not row or row.user_id != current_user.id or row.league_slug != slug:
-            abort(404)
-        if row.read_at is None:
-            row.read_at = datetime.utcnow()
-        return {
-            "kind": str(row.kind or ""),
-            "article_id": int(row.article_id) if row.article_id else None,
-        }
+    row = db.session.get(GmInAppNotification, nid)
+    if not row or row.user_id != current_user.id or row.league_slug != slug:
+        abort(404)
+    kind = str(row.kind or "")
+    article_id = int(row.article_id) if row.article_id else None
 
-    n = write_with_sqlite_retry(db.session, _mark_notification_read)
-    kind = str(n.get("kind") or "")
-    article_id = n.get("article_id")
+    if row.read_at is None:
+        read_at = datetime.utcnow()
+        notification_id = int(row.id)
+        user_id = int(current_user.id)
+
+        def _mark_notification_read() -> None:
+            from sqlalchemy import update
+
+            db.session.execute(
+                update(GmInAppNotification)
+                .where(
+                    GmInAppNotification.id == notification_id,
+                    GmInAppNotification.user_id == user_id,
+                    GmInAppNotification.league_slug == slug,
+                    GmInAppNotification.read_at.is_(None),
+                )
+                .values(read_at=read_at)
+            )
+
+        write_with_sqlite_retry(db.session, _mark_notification_read)
     if kind == "news_approved" and article_id:
         return redirect(url_for("main.league_headlines", article=article_id) + f"#a{article_id}")
     if kind == "admin_league_article" and article_id:
@@ -3040,19 +3053,17 @@ def gm_messages_thread(peer_user_id: int):
         elif len(body) > _GM_MESSAGE_MAX_LEN:
             flash(f"Message is too long (max {_GM_MESSAGE_MAX_LEN} characters).", "err")
         else:
-            create_gm_message(
+            send_gm_message(
                 league_slug=slug,
                 from_user_id=int(current_user.id),
                 to_user_id=peer_user_id,
                 body=body[:_GM_MESSAGE_MAX_LEN],
                 event_key="gm_direct_message",
             )
-            db.session.commit()
             flash("Sent.", "ok")
         return redirect(url_for("site_gm.gm_messages_thread", peer_user_id=peer_user_id))
 
     mark_thread_read(slug, current_user.id, peer_user_id)
-    db.session.commit()
     messages = thread_messages(slug, current_user.id, peer_user_id)
     return render_template(
         "gm_messages_thread.html",
@@ -3124,7 +3135,7 @@ def admin_trade_proposal_detail(pid: int):
                 to_team=to_team,
                 team=from_team,
             )
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
             flash("Trade news verified and Discord confirmation was queued if missing.", "ok")
             return redirect(url_for("site_admin.admin_trade_proposal_detail", pid=pid))
         if prop.status != STATUS_PENDING_COMMISSIONER:
@@ -3206,7 +3217,7 @@ def admin_trade_proposal_detail(pid: int):
                         ),
                     )
                 )
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
             msg = "Trade approved and published on the site for both teams."
             if moved_draft_picks:
                 msg += f" Draft ownership updated for {len(moved_draft_picks)} pick(s)."
@@ -3236,7 +3247,7 @@ def admin_trade_proposal_detail(pid: int):
                 title="Trade denied by commissioner",
                 body=deny_body,
             )
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
             flash("Trade proposal denied; both GMs were notified.", "ok")
             return redirect(url_for("site_admin.admin_trade_proposals_list"))
         flash("Unknown action.", "err")
@@ -3294,11 +3305,11 @@ def admin_draft_pick_ownership():
                     display_order=9999,
                 )
                 db.session.add(panel)
-                db.session.commit()
+                commit_with_sqlite_retry(db.session)
             else:
                 panel.round_count = rounds
                 panel.status = "active"
-                db.session.commit()
+                commit_with_sqlite_retry(db.session)
             ensure_draft_pick_ownership_panels(
                 db.session,
                 db.session,
@@ -3437,7 +3448,7 @@ def admin_game_records():
                         detail_json=json.dumps({"baseline_id": baseline_id}),
                     )
                 )
-                db.session.commit()
+                commit_with_sqlite_retry(db.session)
                 flash("Deleted game record baseline.", "ok")
             else:
                 flash("Baseline not found.", "err")
@@ -3512,7 +3523,7 @@ def admin_game_records():
                     ),
                 )
             )
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
             flash("Saved game record baseline.", "ok")
             return redirect(url_for("site_admin.admin_game_records"))
 
@@ -3561,7 +3572,7 @@ def admin_hall_of_fame():
             mid = int(request.form.get("member_id") or 0)
             if delete_hof_member(db.session, mid):
                 _audit("admin_hall_of_fame_delete", {"member_id": mid})
-                db.session.commit()
+                commit_with_sqlite_retry(db.session)
                 flash("Hall of Fame inductee removed.", "ok")
             else:
                 db.session.rollback()
@@ -3601,7 +3612,7 @@ def admin_hall_of_fame():
                 "inducted_year": int(row.inducted_year),
             },
         )
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
         flash("Hall of Fame inductee saved.", "ok")
         return redirect(url_for("site_admin.admin_hall_of_fame"))
 
@@ -3644,7 +3655,7 @@ def admin_history_team_seasons():
                         detail_json=json.dumps({"record_id": rid}),
                     )
                 )
-                db.session.commit()
+                commit_with_sqlite_retry(db.session)
                 flash("Deleted team season record.", "ok")
             else:
                 flash("Record not found.", "err")
@@ -3682,7 +3693,7 @@ def admin_history_team_seasons():
                 )
             )
             try:
-                db.session.commit()
+                commit_with_sqlite_retry(db.session)
             except Exception:
                 db.session.rollback()
                 flash("Could not save — duplicate season/team row may already exist.", "err")
@@ -3738,7 +3749,7 @@ def admin_history_awards():
                         detail_json=json.dumps({"award_id": aid}),
                     )
                 )
-                db.session.commit()
+                commit_with_sqlite_retry(db.session)
                 flash("Deleted award row.", "ok")
             else:
                 flash("Award not found.", "err")
@@ -3777,7 +3788,7 @@ def admin_history_awards():
                     ),
                 )
             )
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
             flash("Saved award winner.", "ok")
             return redirect(
                 url_for(
@@ -3853,7 +3864,7 @@ def admin_history_all_stars():
                         detail_json=json.dumps({"row_id": rid}),
                     )
                 )
-                db.session.commit()
+                commit_with_sqlite_retry(db.session)
                 flash("Deleted all-star slot.", "ok")
             else:
                 flash("Row not found.", "err")
@@ -3922,7 +3933,7 @@ def admin_history_all_stars():
                         ),
                     )
                 )
-                db.session.commit()
+                commit_with_sqlite_retry(db.session)
                 flash(f"Saved {saved} all-star slot(s).", "ok")
             return redirect(
                 url_for(
@@ -3965,7 +3976,7 @@ def admin_history_all_stars():
                     detail_json=json.dumps({"row_id": int(row.id or 0), "season_label": season_label}),
                 )
             )
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
             flash("Saved all-star slot.", "ok")
             return redirect(
                 url_for(
@@ -4041,7 +4052,7 @@ def admin_rule_strikes():
                 ),
             )
         )
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
         flash(
             f"Saved strike tracker for cycle {cycle_year} ({created} active strike row(s)).",
             "ok",
@@ -4090,7 +4101,7 @@ def admin_franchise_identities():
                     ),
                 )
             )
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
             flash(
                 f"Seeded franchise identities: {result.created} created, "
                 f"{result.updated} updated, {result.skipped} skipped.",
@@ -4102,7 +4113,7 @@ def admin_franchise_identities():
             row = db.session.get(FranchiseTeamIdentity, rid) if rid else None
             if row:
                 db.session.delete(row)
-                db.session.commit()
+                commit_with_sqlite_retry(db.session)
                 flash("Franchise identity deleted.", "ok")
             return redirect(url_for("site_admin.admin_franchise_identities"))
 
@@ -4157,7 +4168,7 @@ def admin_franchise_identities():
                 ),
             )
         )
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
         flash("Franchise identity saved.", "ok")
         return redirect(url_for("site_admin.admin_franchise_identities"))
 
@@ -4226,7 +4237,7 @@ def admin_team_honors():
                     ),
                 )
             )
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
             flash("Team honors settings saved.", "ok")
             return redirect(url_for("site_admin.admin_team_honors", team_id=team.id))
 
@@ -4243,7 +4254,7 @@ def admin_team_honors():
                         detail_json=json.dumps({"team_id": int(team.id), "retired_id": rid}),
                     )
                 )
-                db.session.commit()
+                commit_with_sqlite_retry(db.session)
                 flash("Retired number removed.", "ok")
             return redirect(url_for("site_admin.admin_team_honors", team_id=team.id))
 
@@ -4260,7 +4271,7 @@ def admin_team_honors():
                         detail_json=json.dumps({"team_id": int(team.id), "banner_id": bid}),
                     )
                 )
-                db.session.commit()
+                commit_with_sqlite_retry(db.session)
                 flash("Victory banner removed.", "ok")
             return redirect(url_for("site_admin.admin_team_honors", team_id=team.id))
 
@@ -4320,7 +4331,7 @@ def admin_team_honors():
                 )
             )
             try:
-                db.session.commit()
+                commit_with_sqlite_retry(db.session)
             except Exception:
                 db.session.rollback()
                 flash("That jersey number is already retired for this team.", "err")
@@ -4374,7 +4385,7 @@ def admin_team_honors():
                 )
             )
             try:
-                db.session.commit()
+                commit_with_sqlite_retry(db.session)
             except Exception:
                 db.session.rollback()
                 flash("That victory number already exists for this team.", "err")
@@ -4391,7 +4402,7 @@ def admin_team_honors():
     edit_banner = None
     if team:
         honors_meta = ensure_team_honors_meta(db.session, int(team.id))
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
         retired_rows = list(
             db.session.scalars(
                 select(TeamRetiredNumber)
@@ -4505,7 +4516,7 @@ def admin_join_league():
                 detail_json=json.dumps({"open_teams": selected, "kept_custom_options": keep_stale}),
             )
         )
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
         flash("Join League availability updated.", "ok")
         return redirect(url_for("site_admin.admin_join_league"))
 
@@ -4583,7 +4594,7 @@ def admin_roles():
                 detail_json=json.dumps({"before": before, "after": after}),
             )
         )
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
         flash("Admin role updated.", "ok")
         return redirect(url_for("site_admin.admin_roles"))
     users = db.session.scalars(select(User).order_by(User.email.asc())).all()
@@ -4660,7 +4671,7 @@ def admin_rules():
                 detail_json=json.dumps({"before": before, "after": after}),
             )
         )
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
         flash("League rules updated.", "ok")
         return redirect(url_for("site_admin.admin_rules"))
     rows = get_league_rules(db.session, slug)
@@ -4689,7 +4700,7 @@ def admin_control_center():
 
     try:
         auto_update_bowl_six_slates(db.session, db.session, slug)
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
     except Exception:
         db.session.rollback()
     bowl_six_on = bowl_six_enabled(db.session, slug)
@@ -4709,7 +4720,7 @@ def admin_control_center():
 
         sync_slate_lock_status(db.session, bowl_six_current)
         try:
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
         except Exception:
             db.session.rollback()
         db.session.refresh(bowl_six_current)
@@ -4792,7 +4803,7 @@ def admin_control_center_dry_run():
             detail_json=json.dumps({"operation": op, "ok": bool(result.get("ok"))}),
         )
     )
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     if not result.get("ok"):
         flash("Unknown dry-run operation.", "err")
         return redirect(url_for("site_admin.admin_control_center"))
@@ -4821,7 +4832,7 @@ def admin_control_center_execute_refresh():
             detail_json=json.dumps({"reason": "refresh_team_aggregates", "path": backup.get("path", "")}),
         )
     )
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     flash(f"Pre-run backup created: {backup.get('path')}", "ok")
     script = repo_root / "scripts" / "refresh_team_aggregates.py"
     started = datetime.utcnow()
@@ -4867,7 +4878,7 @@ def admin_control_center_execute_refresh():
             ),
         )
     )
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     raw_dir = Path(str(current_app.config.get("RAW_IMPORT_DIR") or ""))
     snap = build_control_center_snapshot(db.session, raw_dir)
     if result["ok"]:
@@ -4910,7 +4921,7 @@ def admin_control_center_execute_import():
             detail_json=json.dumps({"reason": "import_data", "path": backup.get("path", "")}),
         )
     )
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     flash(f"Pre-run backup created: {backup.get('path')}", "ok")
     script = repo_root / "scripts" / "import_data.py"
     started = datetime.utcnow()
@@ -4956,7 +4967,7 @@ def admin_control_center_execute_import():
             ),
         )
     )
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     raw_dir = Path(str(current_app.config.get("RAW_IMPORT_DIR") or ""))
     snap = build_control_center_snapshot(db.session, raw_dir)
     if result["ok"]:
@@ -5022,7 +5033,7 @@ def admin_control_center_restore_backup():
                 "requested_by_user_id": int(current_user.id),
             },
         )
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     if restored.get("ok"):
         flash(
             f"Backup restored from {backup_name}. Re-open the Control Center to verify counts; "
@@ -5053,7 +5064,7 @@ def admin_control_center_season_rollover_preview():
             ),
         )
     )
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     flash("[DRY RUN] Season rollover preview prepared. No changes saved.", "ok")
     return redirect(
         url_for(
@@ -5105,7 +5116,7 @@ def admin_control_center_season_rollover_execute():
             detail_json=json.dumps({"reason": "season_rollover", "path": backup.get("path", "")}),
         )
     )
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
 
     current = db.session.scalar(select(Season).where(Season.is_current.is_(True)).limit(1))
     if current is None:
@@ -5150,7 +5161,7 @@ def admin_control_center_season_rollover_execute():
             ),
         )
     )
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     flash(f"Season rollover complete. Current season is now {target.label}.", "ok")
     return redirect(url_for("site_admin.admin_control_center"))
 
@@ -5213,7 +5224,7 @@ def admin_control_center_schedule_freeze_toggle():
             detail_json=json.dumps({"schedule_frozen": bool(freeze)}),
         )
     )
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     flash(
         "Schedule is now frozen (league scheduling changes should be blocked by consuming flows)."
         if freeze
@@ -5245,7 +5256,7 @@ def admin_control_center_create_backup():
             ),
         )
     )
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     if result.get("ok"):
         flash(f"Backup created: {result.get('name')}", "ok")
     else:
@@ -5429,7 +5440,7 @@ def admin_operations_queue_set_status(rid: int):
             after=after,
             note=f"Requested status change to {new_status}",
         )
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     if result.get("blocked"):
         if result.get("blocked_by_schedule_freeze"):
             flash("Request not changed: schedule is frozen by league rule.", "err")
@@ -5559,7 +5570,7 @@ def admin_operations_queue_bulk_status():
             ),
         )
     )
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     if processed:
         flash(
             f"Bulk update complete: processed={processed}, blocked={blocked}, "
@@ -5738,7 +5749,7 @@ def admin_story_automation():
                 ),
             )
         )
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
         flash("Story publish schedule created.", "ok")
         return redirect(url_for("site_admin.admin_story_automation"))
     rows = list_story_schedules(db.session, league_slug=slug, limit=120)
@@ -5786,7 +5797,7 @@ def admin_story_automation_dry_run_dispatch(sid: int):
             detail_json=json.dumps({"schedule_id": int(row.id), "ok": bool(result.get("ok"))}),
         )
     )
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     flash("Dry-run dispatch executed (preview only).", "ok" if result.get("ok") else "err")
     return redirect(url_for("site_admin.admin_story_automation"))
 
@@ -5812,7 +5823,7 @@ def admin_story_automation_cancel(sid: int):
             detail_json=json.dumps({"schedule_id": int(row.id)}),
         )
     )
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     flash("Schedule cancelled.", "ok")
     return redirect(url_for("site_admin.admin_story_automation"))
 
@@ -5878,7 +5889,7 @@ def admin_story_automation_live_dispatch(sid: int):
             source_type="story_schedule",
             source_id=int(row.id),
         )
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     flash(
         result.get("message") or ("Dispatch complete." if result.get("ok") else "Dispatch failed."),
         "ok" if result.get("ok") else "err",
@@ -5919,7 +5930,7 @@ def admin_story_automation_retry_live_dispatch(sid: int):
             detail_json=json.dumps({"schedule_id": int(row.id), "ok": bool(result.get("ok"))}),
         )
     )
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     flash(
         result.get("message") or ("Retry complete." if result.get("ok") else "Retry failed."),
         "ok" if result.get("ok") else "err",
@@ -6098,7 +6109,7 @@ def admin_awards_tracker():
                     ),
                 )
             )
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
             flash("Awards voting cycle created.", "ok")
             return redirect(url_for("site_admin.admin_awards_tracker", cycle_id=row.id))
         if action == "set_status":
@@ -6122,7 +6133,7 @@ def admin_awards_tracker():
                     detail_json=json.dumps({"cycle_id": int(row.id), "status": status}),
                 )
             )
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
             flash("Cycle status updated.", "ok")
             return redirect(url_for("site_admin.admin_awards_tracker", cycle_id=cycle_id))
     cycles = list_cycles(db.session, league_slug=slug, limit=80)
@@ -6220,7 +6231,7 @@ def admin_member_digests():
                     ),
                 )
             )
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
             flash("Watchlist item added.", "ok")
             return redirect(url_for("site_admin.admin_member_digests"))
     digest = build_member_watchlist_digest(db.session, league_slug=slug)
@@ -6343,7 +6354,7 @@ def admin_undo_center_apply(undo_id: int):
             ),
         )
     )
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     flash("Undo applied successfully.", "ok")
     return redirect(url_for("site_admin.admin_undo_center"))
 
@@ -6378,7 +6389,7 @@ def admin_discord_integration():
                     detail_json=json.dumps({"rows": saved}),
                 )
             )
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
             flash("Discord route settings updated.", "ok")
             return redirect(url_for("site_admin.admin_discord_integration"))
         if action == "save_bot_config":
@@ -6408,7 +6419,7 @@ def admin_discord_integration():
                     ),
                 )
             )
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
             flash("Discord bot connection settings saved.", "ok")
             return redirect(url_for("site_admin.admin_discord_integration"))
         if action == "add_route":
@@ -6472,7 +6483,7 @@ def admin_discord_integration():
                     ),
                 )
             )
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
             if created is None:
                 flash("Test event skipped: route is disabled or unavailable for that event key.", "err")
             else:
@@ -6494,7 +6505,7 @@ def admin_discord_integration():
                     detail_json=json.dumps({"replayed": int(replayed)}),
                 )
             )
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
             flash(f"Replayed {replayed} dead-letter event(s).", "ok")
             return redirect(url_for("site_admin.admin_discord_integration"))
     status = (request.args.get("status") or "").strip().lower()
@@ -6581,7 +6592,7 @@ def admin_discord_event_requeue(eid: int):
             detail_json=json.dumps({"event_id": int(row.id), "event_key": str(row.event_key or "")}),
         )
     )
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     flash("Event requeued.", "ok")
     return redirect(url_for("site_admin.admin_discord_integration"))
 
@@ -6603,7 +6614,7 @@ def admin_discord_event_cancel(eid: int):
             detail_json=json.dumps({"event_id": int(row.id), "event_key": str(row.event_key or "")}),
         )
     )
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     flash("Event cancelled.", "ok")
     return redirect(url_for("site_admin.admin_discord_integration"))
 
@@ -6627,7 +6638,7 @@ def admin_discord_dm_requeue(eid: int):
             detail_json=json.dumps({"event_id": int(row.id), "event_key": str(row.event_key or "")}),
         )
     )
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     flash("DM event requeued.", "ok")
     return redirect(url_for("site_admin.admin_discord_integration"))
 
@@ -6649,7 +6660,7 @@ def admin_discord_dm_cancel(eid: int):
             detail_json=json.dumps({"event_id": int(row.id), "event_key": str(row.event_key or "")}),
         )
     )
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     flash("DM event cancelled.", "ok")
     return redirect(url_for("site_admin.admin_discord_integration"))
 
@@ -6704,7 +6715,7 @@ def admin_announcements():
             source_type="announcement",
             source_id=int(ann.id),
         )
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
         flash("Announcement posted.", "ok")
         return redirect(url_for("site_admin.admin_announcements"))
     rows = db.session.scalars(
@@ -6746,7 +6757,7 @@ def admin_announcement_toggle(aid: int):
             ),
         )
     )
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     flash("Announcement status updated.", "ok")
     return redirect(url_for("site_admin.admin_announcements"))
 
@@ -6778,7 +6789,7 @@ def admin_import_validation():
                 ),
             )
         )
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
         flash("Import validation report generated.", "ok")
     return render_template("admin_import_validation.html", report=report)
 
@@ -6841,7 +6852,7 @@ def admin_homepage_modules():
                 detail_json=json.dumps({"rows": saved}),
             )
         )
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
         flash("Homepage module settings updated.", "ok")
         return redirect(url_for("site_admin.admin_homepage_modules"))
     settings = get_homepage_module_settings(db.session, slug)
@@ -7134,7 +7145,7 @@ def admin_news_publish(aid: int):
         source_type="news_article",
         source_id=int(art.id),
     )
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     notify_news_approved(slug, art)
     flash(
         "Approved. It appears on the home page under Around the League. The author was notified in GM Messages.",
@@ -7162,7 +7173,7 @@ def admin_news_reject(aid: int):
         )
         return redirect(url_for("site_admin.admin_news_queue"))
     art.status = "rejected"
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     notify_news_denied(slug, art)
     flash("Denied. The author was notified in GM Messages (no email).", "ok")
     return redirect(url_for("site_admin.admin_news_queue"))
@@ -7506,7 +7517,7 @@ def admin_staff_budgets():
             else:
                 row.budget_amount = amount
                 row.updated_by_user_id = int(current_user.id)
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
         flash("Staff salary budgets saved.", "ok")
         return redirect(url_for("site_admin.admin_staff_budgets"))
 
@@ -7706,7 +7717,7 @@ def admin_ap_approve(rid: int):
         )
         db.session.add(art)
         db.session.flush()
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
         _enqueue_discord_event(
             "ap_redemption_posted",
             news_article_discord_payload(
@@ -7721,7 +7732,7 @@ def admin_ap_approve(rid: int):
             source_type="ap_redemption",
             source_id=int(req.id),
         )
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
         notify_redemption_approved(slug, req)
         flash("Approved, AP deducted, GM notified in-app, and transaction posted to Around the League.", "ok")
     else:
@@ -7742,7 +7753,7 @@ def admin_ap_deny(rid: int):
         return redirect(url_for("site_admin.admin_ap_requests"))
     req.status = "denied"
     req.processed_at = datetime.utcnow()
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     notify_redemption_denied(slug, req)
     flash("Request denied and GM notified in-app.", "ok")
     return redirect(url_for("site_admin.admin_ap_requests"))
@@ -7809,7 +7820,7 @@ def admin_staff_approve(rid: int):
         abort(404)
     result = approve_staff_request(db.session, req, admin_user_id=int(current_user.id))
     if not result.ok:
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
         if req.status == "denied":
             notify_staff_change_denied(slug, req)
         flash(result.message, "err")
@@ -7846,7 +7857,7 @@ def admin_staff_approve(rid: int):
             ),
         )
     )
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     action = "hired" if req.request_type == "hire" else "fired"
     _enqueue_discord_event(
         "staff_transaction_posted",
@@ -7859,7 +7870,7 @@ def admin_staff_approve(rid: int):
         source_type="staff_change_request",
         source_id=int(req.id),
     )
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     if req.request_type == "hire":
         notify_staff_hire_approved(slug, req)
     else:
@@ -7886,7 +7897,7 @@ def admin_staff_deny(rid: int):
             detail_json=json.dumps({"request_id": int(req.id), "admin_note": note}),
         )
     )
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     notify_staff_change_denied(slug, req)
     flash("Request denied and GM notified in-app.", "ok")
     return redirect(url_for("site_admin.admin_staff_requests"))
@@ -7974,7 +7985,7 @@ def admin_rfa_set_happiness(rid: int):
         flash("Choose a happiness level.", "err")
         return redirect(url_for("site_admin.admin_rfa_offer_one", rid=rid))
     req.happiness = happiness
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     flash(f"Happiness set to {happiness_label(happiness)}.", "ok")
     return redirect(url_for("site_admin.admin_rfa_offer_one", rid=rid))
 
@@ -7998,19 +8009,19 @@ def admin_rfa_player_decision(rid: int):
     req.processed_at = datetime.utcnow()
     if not accepted:
         req.status = "player_rejected"
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
         notify_rfa_player_rejected(slug, req, player=player)
         flash(f"Player rejected the offer (roll {roll:.1f}). Offering GM notified.", "ok")
         return redirect(url_for("site_admin.admin_rfa_offers"))
     if req.rfa_category == "group_i":
         req.status = "awaiting_equalization"
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
         notify_rfa_awaiting_equalization(slug, req, player=player)
         flash("Player accepted — both GMs notified to submit equalization trade.", "ok")
         return redirect(url_for("site_admin.admin_rfa_offers"))
     if req.rfa_category == "group_ii":
         req.status = "awaiting_original_match"
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
         notify_rfa_awaiting_match(slug, req, player=player)
         flash("Player accepted — original team GM notified for match/reject.", "ok")
         return redirect(url_for("site_admin.admin_rfa_offers"))
@@ -8019,7 +8030,7 @@ def admin_rfa_player_decision(rid: int):
         req.group_iii_allows_match = bool(allows_match)
         if allows_match:
             req.status = "awaiting_original_match"
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
             notify_rfa_awaiting_match(slug, req, player=player)
             flash(
                 f"Player accepted and allows matching (roll {match_roll:.1f}). Original team notified.",
@@ -8027,7 +8038,7 @@ def admin_rfa_player_decision(rid: int):
             )
         else:
             req.status = "awaiting_equalization"
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
             notify_rfa_awaiting_equalization(slug, req, player=player)
             flash(
                 f"Player accepted but blocked matching (roll {match_roll:.1f}). Equalization required.",
@@ -8035,7 +8046,7 @@ def admin_rfa_player_decision(rid: int):
             )
         return redirect(url_for("site_admin.admin_rfa_offers"))
     req.status = "awaiting_original_match"
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     notify_rfa_awaiting_match(slug, req, player=player)
     flash("Player accepted — original team GM notified for match/reject (no compensation).", "ok")
     return redirect(url_for("site_admin.admin_rfa_offers"))
@@ -8054,7 +8065,7 @@ def admin_rfa_complete(rid: int):
     req.status = "completed"
     req.processed_by_user_id = int(current_user.id)
     req.processed_at = datetime.utcnow()
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     player = db.session.get(Player, int(req.player_id))
     notify_rfa_offer_outcome(slug, req, player=player, title="RFA offer completed", body=note or "Commissioner marked complete.")
     flash("Offer marked completed.", "ok")
@@ -8086,7 +8097,7 @@ def admin_catalog():
                     is_active=True,
                 )
             )
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
         return redirect(url_for("site_admin.admin_catalog"))
     rows = db.session.scalars(
         select(ApRedemptionCatalog)
@@ -8116,7 +8127,7 @@ def admin_catalog_toggle(cid: int):
             after=after,
             note=f"Catalog #{row.id} active toggle",
         )
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
     return redirect(url_for("site_admin.admin_catalog"))
 
 
@@ -8170,7 +8181,7 @@ def admin_contract_edit():
             db.session.add(c)
         else:
             c.average_salary = salary
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
         flash("Contract salary updated.", "ok")
         return redirect(url_for("site_admin.admin_contract_edit"))
     return render_template("admin_contract.html", league_slug=slug)
@@ -8265,7 +8276,7 @@ def admin_draft_hub():
                 ),
             )
         )
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
         _purge_draft_soundbite_dir(slug, int(draft_id_raw))
         flash(f"Deleted draft “{deleted_name}”.", "ok")
         return redirect(url_for("site_admin.admin_draft_hub"))
@@ -8304,7 +8315,7 @@ def admin_draft_hub():
             draft=row,
         )
         if gen_err:
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
             flash(f"Draft created. {gen_err}", "err")
         else:
             db.session.add(
@@ -8322,7 +8333,7 @@ def admin_draft_hub():
                     ),
                 )
             )
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
             label = str(summary.get("standings_season_label") or "prior season")
             msg = f"Draft created with {created} slots from {label} standings (worst → best)."
             if int(summary.get("traded_count") or 0):
@@ -8390,12 +8401,12 @@ def admin_draft_hub_edit(draft_id: int):
             row.scheduled_start_at = _parse_scheduled_start(request.form.get("scheduled_start_at") or "")
             row.gm_picks_enabled = request.form.get("gm_picks_enabled") == "1"
             row.discord_on_deck_enabled = request.form.get("discord_on_deck_enabled") == "1"
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
             flash("Settings saved.", "ok")
         elif act == "save_controls" and row.status in ("setup", "live"):
             row.gm_picks_enabled = request.form.get("gm_picks_enabled") == "1"
             row.discord_on_deck_enabled = request.form.get("discord_on_deck_enabled") == "1"
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
             flash("Draft controls updated.", "ok")
         elif act == "go_live" and row.status == "setup":
             from app.services.draft_hub_state import go_live
@@ -8413,7 +8424,7 @@ def admin_draft_hub_edit(draft_id: int):
                     )
                 )
                 flash("Draft is now live.", "ok")
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
         elif act == "undo_pick" and row.status == "live":
             from app.services.draft_hub_state import undo_last_pick
 
@@ -8430,7 +8441,7 @@ def admin_draft_hub_edit(draft_id: int):
                     )
                 )
                 flash("Last pick removed.", "ok")
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
         elif act == "pause_timer" and row.status == "live":
             from app.services.draft_hub_state import pause_draft_timer
 
@@ -8447,7 +8458,7 @@ def admin_draft_hub_edit(draft_id: int):
                     )
                 )
                 flash("Draft clock paused.", "ok")
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
         elif act == "resume_timer" and row.status == "live":
             from app.services.draft_hub_state import resume_draft_timer
 
@@ -8464,7 +8475,7 @@ def admin_draft_hub_edit(draft_id: int):
                     )
                 )
                 flash("Draft clock resumed.", "ok")
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
         elif act == "end_draft_early" and row.status == "live":
             from app.services.draft_hub_state import end_draft_early
 
@@ -8481,7 +8492,7 @@ def admin_draft_hub_edit(draft_id: int):
                     )
                 )
                 flash("Draft ended and marked complete.", "ok")
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
         elif act == "admin_pick" and row.status == "live":
             from app.services.draft_hub_state import resolve_admin_pick
 
@@ -8502,7 +8513,7 @@ def admin_draft_hub_edit(draft_id: int):
                         )
                     )
                     flash("Pick recorded.", "ok")
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
         elif act == "save_boosts":
             gold_raw = (request.form.get("gold_picks") or "").strip()
             silver_raw = (request.form.get("silver_picks") or "").strip()
@@ -8561,7 +8572,7 @@ def admin_draft_hub_edit(draft_id: int):
                         ),
                     )
                 )
-                db.session.commit()
+                commit_with_sqlite_retry(db.session)
                 msg = (
                     f"Boost picks saved — Gold: {applied_gold}, Silver: {applied_silver}."
                 )
@@ -8615,7 +8626,7 @@ def admin_draft_hub_edit(draft_id: int):
                         ),
                     )
                 )
-                db.session.commit()
+                commit_with_sqlite_retry(db.session)
                 label = str(summary.get("standings_season_label") or "prior season")
                 msg = (
                     f"Generated {created} slots from {label} standings "
@@ -8676,7 +8687,7 @@ def admin_draft_hub_edit(draft_id: int):
                     )
                 )
                 created += 1
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
             msg = f"Draft order saved from round builder ({created} slots)."
             if traded_count:
                 msg += f" {traded_count} pick(s) tagged as received from a prior trade."
@@ -8725,7 +8736,7 @@ def admin_draft_hub_edit(draft_id: int):
                         detail_json=json.dumps({"draft_id": row.id, "changed": changed}),
                     )
                 )
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
             msg = f"Pick ownership saved ({changed} team change(s), {penalty_changed} penalty flag change(s))."
             if skipped:
                 msg += f" {skipped} completed pick(s) were left unchanged."
@@ -8754,7 +8765,7 @@ def admin_draft_hub_edit(draft_id: int):
                         notes=notes[:500] if notes else None,
                     )
                 )
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
             flash("Draft order saved.", "ok")
         elif act == "upload_sound" and request.files.get("sound_file"):
             f = request.files["sound_file"]
@@ -8785,7 +8796,7 @@ def admin_draft_hub_edit(draft_id: int):
                             )
                         )
                         flash("Soundbite added.", "ok")
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
         return redirect(url_for("site_admin.admin_draft_hub_edit", draft_id=draft_id))
 
     teams = list(db.session.scalars(select(Team).order_by(Team.name)).all())
@@ -8969,7 +8980,7 @@ def admin_expansion_draft_hub():
                 ),
             )
         )
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
         flash(f"Deleted expansion draft “{name}”.", "ok")
         return redirect(url_for("site_admin.admin_expansion_draft_hub"))
     if request.method == "POST" and request.form.get("action") == "new":
@@ -8985,7 +8996,7 @@ def admin_expansion_draft_hub():
             empty_queue_timer_seconds=max(5, int(request.form.get("empty_queue_timer_seconds") or 120)),
         )
         db.session.add(row)
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
         flash("Expansion draft created.", "ok")
         return redirect(url_for("site_admin.admin_expansion_draft_hub_edit", draft_id=row.id))
     rows = list(
@@ -9093,7 +9104,7 @@ def admin_expansion_draft_hub_edit(draft_id: int):
                         exempt.add(int(tm.id))
                 set_exempt_team_ids(row, exempt)
                 flash("Settings saved.", "ok")
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
         elif act == "regenerate_slots" and row.status == "setup":
             err = regenerate_slots(db.session, row)
             if err:
@@ -9108,7 +9119,7 @@ def admin_expansion_draft_hub_edit(draft_id: int):
                     )
                 )
                 flash("Slots regenerated (goalie phase, then skater phase).", "ok")
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
         elif act == "save_eligible" and row.status == "setup":
             exempt = exempt_team_ids(row)
             pids: set[int] = set()
@@ -9128,7 +9139,7 @@ def admin_expansion_draft_hub_edit(draft_id: int):
                     detail_json=json.dumps({"draft_id": row.id, "count": len(pids)}),
                 )
             )
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
             flash(f"Eligible pool updated ({len(pids)} players).", "ok")
         elif act == "go_live" and row.status == "setup":
             err = go_live(db.session, row, int(current_user.id))
@@ -9144,7 +9155,7 @@ def admin_expansion_draft_hub_edit(draft_id: int):
                     )
                 )
                 flash("Expansion draft is now live.", "ok")
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
         elif act == "undo_pick" and row.status == "live":
             err = undo_last_pick(db.session, row)
             if err:
@@ -9159,21 +9170,21 @@ def admin_expansion_draft_hub_edit(draft_id: int):
                     )
                 )
                 flash("Last pick removed.", "ok")
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
         elif act == "pause_timer" and row.status == "live":
             err = pause_timer(db.session, row)
             if err:
                 flash(err, "err")
             else:
                 flash("Timer paused.", "ok")
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
         elif act == "resume_timer" and row.status == "live":
             err = resume_timer(db.session, row)
             if err:
                 flash(err, "err")
             else:
                 flash("Timer resumed.", "ok")
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
         elif act == "end_draft_early" and row.status == "live":
             err = end_expansion_draft_early(db.session, row, int(current_user.id))
             if err:
@@ -9188,7 +9199,7 @@ def admin_expansion_draft_hub_edit(draft_id: int):
                     )
                 )
                 flash("Expansion draft ended and marked complete.", "ok")
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
         elif act == "admin_pick" and row.status == "live":
             pid_raw = (request.form.get("player_id") or "").strip()
             if not pid_raw.isdigit():
@@ -9207,7 +9218,7 @@ def admin_expansion_draft_hub_edit(draft_id: int):
                         )
                     )
                     flash("Pick recorded.", "ok")
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
         return redirect(url_for("site_admin.admin_expansion_draft_hub_edit", draft_id=draft_id))
 
     teams = list(db.session.scalars(select(Team).order_by(Team.name)).all())

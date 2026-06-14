@@ -10,6 +10,9 @@ from sqlalchemy.orm import Session
 
 _T = TypeVar("_T")
 
+_DEFAULT_ATTEMPTS = 16
+_DEFAULT_BASE_DELAY = 0.3
+
 
 def _is_sqlite_locked(exc: BaseException) -> bool:
     msg = str(exc).lower()
@@ -19,11 +22,19 @@ def _is_sqlite_locked(exc: BaseException) -> bool:
     return orig is not None and "locked" in str(orig).lower()
 
 
+def _reset_session_after_lock(session: Session) -> None:
+    session.rollback()
+    try:
+        session.expire_all()
+    except Exception:
+        pass
+
+
 def commit_with_sqlite_retry(
     session: Session,
     *,
-    attempts: int = 8,
-    base_delay: float = 0.15,
+    attempts: int = _DEFAULT_ATTEMPTS,
+    base_delay: float = _DEFAULT_BASE_DELAY,
 ) -> None:
     """Commit, retrying on SQLite lock errors."""
     last: OperationalError | None = None
@@ -35,7 +46,7 @@ def commit_with_sqlite_retry(
             if not _is_sqlite_locked(exc):
                 raise
             last = exc
-            session.rollback()
+            _reset_session_after_lock(session)
             if i >= attempts - 1:
                 raise
             time.sleep(base_delay * (i + 1))
@@ -47,8 +58,8 @@ def write_with_sqlite_retry(
     session: Session,
     write: Callable[[], _T],
     *,
-    attempts: int = 8,
-    base_delay: float = 0.15,
+    attempts: int = _DEFAULT_ATTEMPTS,
+    base_delay: float = _DEFAULT_BASE_DELAY,
 ) -> _T:
     """Run a write callable and commit, retrying on SQLite lock errors."""
     last: OperationalError | None = None
@@ -61,7 +72,7 @@ def write_with_sqlite_retry(
             if not _is_sqlite_locked(exc):
                 raise
             last = exc
-            session.rollback()
+            _reset_session_after_lock(session)
             if i >= attempts - 1:
                 raise
             time.sleep(base_delay * (i + 1))

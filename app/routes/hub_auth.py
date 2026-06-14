@@ -12,6 +12,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from app.auth_login import has_admin_role
 from app.config import LEAGUES
 from app.league_db import db
+from app.sqlite_retry import commit_with_sqlite_retry
 from app.site_models import GmLeagueMembership, PasswordResetToken, SiteBannedIdentity, User
 
 hub_auth_bp = Blueprint("hub_auth", __name__)
@@ -108,7 +109,7 @@ def register_post():
                 terms_version="v1",
             )
         )
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     try:
         from app.services.admin_review_notify import notify_membership_registration_pending
 
@@ -338,7 +339,7 @@ def account_request_membership_add():
     _notify_membership_change_pending(
         action="add", user=current_user, membership=membership, team_snap=snap
     )
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     flash("Franchise add request sent to admins for approval.", "ok")
     return redirect(url_for("hub_auth.account"))
 
@@ -360,7 +361,7 @@ def account_request_membership_remove(mid: int):
     _notify_membership_change_pending(
         action="remove", user=current_user, membership=membership, team_snap=snap
     )
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     flash("Franchise removal request sent to admins for approval.", "ok")
     return redirect(url_for("hub_auth.account"))
 
@@ -407,7 +408,7 @@ def admin_remove_membership_confirm(mid: int):
     u = db.session.get(User, m.user_id)
     if u is None:
         db.session.delete(m)
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
         flash("Removed orphan membership row.", "ok")
         return redirect(url_for("hub_auth.admin_memberships"))
     snap = team_snapshot_for_membership(m.league_slug, m.team_id)
@@ -429,7 +430,7 @@ def admin_remove_membership_only(mid: int):
     m = db.session.get(GmLeagueMembership, mid)
     if m:
         db.session.delete(m)
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
         flash("Membership removed from the dashboard (user account unchanged).", "ok")
     return redirect(url_for("hub_auth.admin_memberships"))
 
@@ -447,7 +448,7 @@ def admin_ban_membership(mid: int):
     u = db.session.get(User, m.user_id)
     if u is None:
         db.session.delete(m)
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
         flash("Removed orphan membership row.", "ok")
         return redirect(url_for("hub_auth.admin_memberships"))
     if u.id == current_user.id:
@@ -476,7 +477,7 @@ def admin_ban_membership(mid: int):
     db.session.delete(m)
     u.revoked_at = datetime.utcnow()
     u.is_admin = False
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     flash("User archived to the ban list, this membership removed, and site login revoked.", "ok")
     return redirect(url_for("hub_auth.admin_memberships"))
 
@@ -507,7 +508,7 @@ def admin_banned_lift(bid: int):
     u = db.session.scalar(select(User).where(func.lower(User.email) == email_norm).limit(1))
     if u is not None:
         u.revoked_at = None
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     flash("Ban record removed; if a matching user exists, site login is allowed again.", "ok")
     return redirect(url_for("hub_auth.admin_banned_list"))
 
@@ -528,7 +529,7 @@ def admin_approve_membership(mid: int):
         if m.status == "remove_pending":
             db.session.delete(m)
             flash("Membership removal approved.", "ok")
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
             return redirect(url_for("hub_auth.admin_memberships"))
         else:
             m.status = "active"
@@ -536,7 +537,7 @@ def admin_approve_membership(mid: int):
             fhm = fhm_team_id_for_league_team(m.league_slug, int(m.team_id))
             if fhm:
                 m.fhm_team_id = fhm
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
     return redirect(url_for("hub_auth.admin_memberships"))
 
 
@@ -555,7 +556,7 @@ def admin_deny_membership(mid: int):
         elif m.status == "remove_pending":
             m.status = "active"
             flash("Membership removal request denied; membership remains active.", "ok")
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
     return redirect(url_for("hub_auth.admin_memberships"))
 
 
@@ -570,7 +571,7 @@ def admin_revoke_membership(mid: int):
     m = db.session.get(GmLeagueMembership, mid)
     if m:
         m.status = "revoked"
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
     return redirect(url_for("hub_auth.admin_memberships"))
 
 
@@ -584,7 +585,7 @@ def admin_set_user_admin(uid: int):
     u = db.session.get(User, uid)
     if u and u.id != current_user.id:
         u.is_admin = request.form.get("is_admin") == "1"
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
     return redirect(url_for("hub_auth.admin_memberships"))
 
 
@@ -605,7 +606,7 @@ def admin_update_user_profile(uid: int):
         return redirect(url_for("hub_auth.admin_memberships"))
     u.discord_user_id = discord_user_id[:32] or None
     u.discord_dm_enabled = request.form.get("discord_dm_enabled") == "1"
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     flash("GM profile updated.", "ok")
     return redirect(url_for("hub_auth.admin_memberships"))
 
@@ -656,7 +657,7 @@ def admin_delete_user_profile(uid: int):
     u.is_admin = False
     u.admin_role = None
     u.revoked_at = datetime.utcnow()
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     flash(
         f"Deleted/released {original_email or 'user'}: removed {membership_count} membership row(s) "
         "and freed the original email for a new registration.",

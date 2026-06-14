@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 
 from app.auth_login import active_membership_for_league, league_hub_staff
 from app.league_db import db
+from app.sqlite_retry import commit_with_sqlite_retry
 from app.models import Player, Team
 from app.services.draft_hub_ai_advisor import fetch_draft_hub_ai_advice
 from app.services.draft_hub_eligibility import age_as_of
@@ -759,7 +760,7 @@ def draft_hub_pick():
             flash_err = record_pick(db.session, draft, int(pid_raw), int(current_user.id), "gm")
     if flash_err:
         flash(flash_err, "err")
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return redirect(url_for("draft_hub.draft_hub_page"))
 
 
@@ -781,7 +782,7 @@ def draft_hub_pause_timer():
             flash(err, "err")
         else:
             flash("Draft countdown paused.", "ok")
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return redirect(url_for("draft_hub.draft_hub_page"))
 
 
@@ -803,7 +804,7 @@ def draft_hub_resume_timer():
             flash(err, "err")
         else:
             flash("Draft countdown resumed.", "ok")
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return redirect(url_for("draft_hub.draft_hub_page"))
 
 
@@ -828,7 +829,7 @@ def draft_hub_auto_complete():
         db.session.rollback()
         flash(f"Auto-complete stopped after {picks_made} pick(s): {err}", "err")
     else:
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
         msg = f"Auto-complete made {picks_made} pick(s)."
         if draft.status == "completed":
             msg += " Draft is complete."
@@ -874,7 +875,7 @@ def draft_hub_queue_add():
         db.session.add(
             LeagueDraftQueueItem(league_draft_id=draft.id, user_id=int(current_user.id), player_id=pid, sort_order=nxt)
         )
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return redirect(url_for("draft_hub.draft_hub_page"))
 
 
@@ -891,7 +892,7 @@ def draft_hub_queue_remove():
         row = db.session.get(LeagueDraftQueueItem, int(qid))
         if row and row.league_draft_id == draft.id and row.user_id == current_user.id:
             db.session.delete(row)
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return redirect(url_for("draft_hub.draft_hub_page"))
 
 
@@ -915,7 +916,7 @@ def draft_hub_end_draft_early():
             flash(err, "err")
         else:
             flash("Draft ended and marked complete.", "ok")
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return redirect(url_for("draft_hub.draft_hub_page"))
 
 
@@ -949,7 +950,7 @@ def draft_hub_admin_swap_slots():
     if err:
         db.session.rollback()
         return jsonify({"ok": False, "error": err}), 400
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     db.session.refresh(draft)
     return jsonify({"ok": True, "error": None})
 
@@ -975,7 +976,7 @@ def draft_hub_admin_undo_pick():
     if err:
         db.session.rollback()
         return jsonify({"ok": False, "error": err}), 400
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     db.session.refresh(draft)
     return jsonify({"ok": True, "error": None})
 
@@ -1010,7 +1011,7 @@ def draft_hub_admin_reassign_pick():
     if err:
         db.session.rollback()
         return jsonify({"ok": False, "error": err}), 400
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     db.session.refresh(draft)
     return jsonify({"ok": True, "error": None})
 

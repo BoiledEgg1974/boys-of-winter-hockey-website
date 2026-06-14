@@ -10,6 +10,7 @@ from sqlalchemy import delete, select
 from werkzeug.security import generate_password_hash
 
 from app.league_db import db
+from app.sqlite_retry import commit_with_sqlite_retry
 from app.mail_util import send_site_email
 from app.site_models import PasswordResetToken, User
 
@@ -43,7 +44,7 @@ def issue_password_reset_token(user: User) -> str:
         expires_at=now + timedelta(minutes=_ttl_minutes()),
     )
     db.session.add(token)
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return raw_token
 
 
@@ -112,5 +113,5 @@ def consume_reset_token_and_update_password(*, raw_token: str, new_password: str
             PasswordResetToken.used_at.is_(None),
         )
     )
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return True

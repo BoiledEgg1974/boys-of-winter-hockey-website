@@ -196,6 +196,9 @@ class TradeToolSubmitTest(unittest.TestCase):
         self.assertIn("def _persist_trade_submission", text)
         self.assertIn("write_with_sqlite_retry(db.session, _persist_trade_submission)", text)
         self.assertIn("write_with_sqlite_retry(db.session, _approve_trade)", text)
+        self.assertIn("update(GmInAppNotification)", text)
+        self.assertIn("write_with_sqlite_retry(db.session, _mark_notification_read)", text)
+        self.assertIn("send_gm_message(", text)
 
 
 if __name__ == "__main__":

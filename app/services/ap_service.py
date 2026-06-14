@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 
 from app.config import league_group_for_slug
 from app.league_db import db
+from app.sqlite_retry import commit_with_sqlite_retry
 from app.models import Team
 from app.site_models import ApLedgerEntry, ApRedemptionCatalog, ApRedemptionRequest, NewsArticle, User
 
@@ -170,7 +171,7 @@ def _reconcile_ap_catalog_defaults() -> None:
                 row.description = txt
                 changed = True
     if changed:
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
 
 
 def seed_ap_catalog_if_empty() -> None:
@@ -220,7 +221,7 @@ def seed_ap_catalog_if_empty() -> None:
                     is_active=True,
                 )
             )
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
     _reconcile_ap_catalog_defaults()
     _reconcile_fantasy_ap_catalog()
 
@@ -284,7 +285,7 @@ def _reconcile_fantasy_ap_catalog() -> None:
             )
             changed = True
     if changed:
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
 
 
 def maybe_credit_daily_export_for_team(
@@ -311,7 +312,7 @@ def maybe_credit_daily_export_for_team(
     )
     if row is None:
         return False
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return True
 
 
@@ -330,7 +331,7 @@ def approve_redemption_request(req: ApRedemptionRequest, admin_user_id: int) -> 
     )
     req.status = "approved"
     req.processed_at = datetime.utcnow()
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return True
 
 
@@ -349,7 +350,7 @@ def publish_news_and_maybe_award_ap(article: NewsArticle, *, points: int) -> Non
             source_ref=f"news_ap:{article.id}",
         )
         article.ap_awarded = True
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
 
 
 def new_redemption_token() -> str:

@@ -9,6 +9,7 @@ from sqlalchemy import select
 
 from app.auth_login import active_membership_for_league, league_hub_staff
 from app.league_db import commit_or_release_after_tick, db
+from app.sqlite_retry import commit_with_sqlite_retry
 from app.logo_urls import team_logo_url_for_team
 from app.models import Player, Team
 from app.services.draft_hub_eligibility import ELIGIBLE_HUB_BOARD_WINDOW, age_as_of
@@ -506,7 +507,7 @@ def expansion_draft_pick():
             flash_err = record_pick(db.session, draft, int(pid_raw), int(current_user.id), "gm")
     if flash_err:
         flash(flash_err, "err")
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return redirect(url_for("expansion_draft_hub.expansion_draft_hub_page"))
 
 
@@ -530,7 +531,7 @@ def expansion_draft_pause_timer():
             flash(err, "err")
         else:
             flash("Countdown paused.", "ok")
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return redirect(url_for("expansion_draft_hub.expansion_draft_hub_page"))
 
 
@@ -554,7 +555,7 @@ def expansion_draft_resume_timer():
             flash(err, "err")
         else:
             flash("Countdown resumed.", "ok")
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return redirect(url_for("expansion_draft_hub.expansion_draft_hub_page"))
 
 
@@ -580,5 +581,5 @@ def expansion_draft_end_draft_early():
             flash(err, "err")
         else:
             flash("Expansion draft ended and marked complete.", "ok")
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     return redirect(url_for("expansion_draft_hub.expansion_draft_hub_page"))

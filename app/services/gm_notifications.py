@@ -4,8 +4,13 @@ from __future__ import annotations
 from sqlalchemy import func, select
 
 from app.league_db import db
+from app.sqlite_retry import commit_with_sqlite_retry
 from app.services.staff_catalog import staff_role_label
 from app.site_models import ApRedemptionRequest, GmInAppNotification, GmLeagueMembership, NewsArticle, RfaOfferRequest, StaffChangeRequest
+
+
+def _commit_notifications() -> None:
+    commit_with_sqlite_retry(db.session)
 
 
 def _add_notification(notification: GmInAppNotification) -> GmInAppNotification:
@@ -86,7 +91,7 @@ def notify_all_gms_admin_article(league_slug: str, art: NewsArticle) -> None:
                 article_id=art.id,
             )
         )
-    db.session.commit()
+    _commit_notifications()
 
 
 def notify_news_approved(league_slug: str, art: NewsArticle) -> None:
@@ -100,7 +105,7 @@ def notify_news_approved(league_slug: str, art: NewsArticle) -> None:
             article_id=art.id,
         )
     )
-    db.session.commit()
+    _commit_notifications()
 
 
 def notify_news_denied(league_slug: str, art: NewsArticle) -> None:
@@ -114,7 +119,7 @@ def notify_news_denied(league_slug: str, art: NewsArticle) -> None:
             article_id=None,
         )
     )
-    db.session.commit()
+    _commit_notifications()
 
 
 def notify_redemption_approved(league_slug: str, req: ApRedemptionRequest) -> None:
@@ -128,7 +133,7 @@ def notify_redemption_approved(league_slug: str, req: ApRedemptionRequest) -> No
             article_id=None,
         )
     )
-    db.session.commit()
+    _commit_notifications()
 
 
 def notify_redemption_denied(league_slug: str, req: ApRedemptionRequest) -> None:
@@ -142,7 +147,7 @@ def notify_redemption_denied(league_slug: str, req: ApRedemptionRequest) -> None
             article_id=None,
         )
     )
-    db.session.commit()
+    _commit_notifications()
 
 
 def notify_trade_proposal_partner(
@@ -232,7 +237,7 @@ def notify_staff_hire_approved(league_slug: str, req: StaffChangeRequest) -> Non
             article_id=req.id,
         )
     )
-    db.session.commit()
+    _commit_notifications()
 
 
 def notify_staff_fire_approved(league_slug: str, req: StaffChangeRequest) -> None:
@@ -247,7 +252,7 @@ def notify_staff_fire_approved(league_slug: str, req: StaffChangeRequest) -> Non
             article_id=req.id,
         )
     )
-    db.session.commit()
+    _commit_notifications()
 
 
 def notify_staff_change_denied(league_slug: str, req: StaffChangeRequest) -> None:
@@ -266,7 +271,7 @@ def notify_staff_change_denied(league_slug: str, req: StaffChangeRequest) -> Non
             article_id=req.id,
         )
     )
-    db.session.commit()
+    _commit_notifications()
 
 
 def _rfa_player_name(player) -> str:
@@ -295,7 +300,7 @@ def notify_rfa_player_rejected(league_slug: str, req: RfaOfferRequest, *, player
             article_id=int(req.id),
         )
     )
-    db.session.commit()
+    _commit_notifications()
 
 
 def notify_rfa_awaiting_equalization(league_slug: str, req: RfaOfferRequest, *, player=None) -> None:
@@ -333,7 +338,7 @@ def notify_rfa_awaiting_equalization(league_slug: str, req: RfaOfferRequest, *, 
                 article_id=int(req.id),
             )
         )
-    db.session.commit()
+    _commit_notifications()
 
 
 def notify_rfa_awaiting_match(league_slug: str, req: RfaOfferRequest, *, player=None) -> None:
@@ -345,7 +350,7 @@ def notify_rfa_awaiting_match(league_slug: str, req: RfaOfferRequest, *, player=
         ).limit(1)
     )
     if not rights_mem:
-        db.session.commit()
+        _commit_notifications()
         return
     comp_note = ""
     if req.rfa_category == "group_ii" and req.compensation_label:
@@ -374,7 +379,7 @@ def notify_rfa_awaiting_match(league_slug: str, req: RfaOfferRequest, *, player=
             article_id=int(req.id),
         )
     )
-    db.session.commit()
+    _commit_notifications()
 
 
 def notify_rfa_original_team_decision(
@@ -401,7 +406,7 @@ def notify_rfa_original_team_decision(
             article_id=int(req.id),
         )
     )
-    db.session.commit()
+    _commit_notifications()
 
 
 def notify_rfa_offer_outcome(
@@ -417,4 +422,4 @@ def notify_rfa_offer_outcome(
             article_id=int(req.id),
         )
     )
-    db.session.commit()
+    _commit_notifications()

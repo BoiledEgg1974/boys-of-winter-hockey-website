@@ -35,6 +35,7 @@ from app.models import (
     TeamStanding,
     db,
 )
+from app.sqlite_retry import commit_with_sqlite_retry
 from app.services.all_time_records import bowl_nhl_league_ids, skaters_only_position_clause
 from app.services.division_labels import load_division_display_maps
 from app.services.homepage_dashboard import (
@@ -1925,7 +1926,7 @@ def _refresh_bowl_six_discord_triggers(slug: str) -> None:
 
         auto_update_bowl_six_slates(db.session, db.session, slug)
         maybe_enqueue_bowl_six_roster_reminders(db.session, slug)
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
     except Exception:
         db.session.rollback()
         current_app.logger.exception("BOWL Six Discord trigger refresh failed for %s", slug)
@@ -1948,7 +1949,7 @@ def bowl_six_leaders_payload():
         if not bowl_six_enabled(db.session, slug):
             return jsonify({"ok": False, "message": "BOWL Six is disabled"}), 404
         auto_update_bowl_six_slates(db.session, db.session, slug)
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
         slate = get_or_create_current_slate(db.session, slug)
         if slate is None or str(slate.status or "") == "skipped":
             return jsonify({"ok": False, "message": "No active BOWL Six slate"}), 404

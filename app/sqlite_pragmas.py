@@ -22,7 +22,7 @@ def install_sqlite_connect_pragmas() -> None:
         try:
             cur.execute("PRAGMA journal_mode=WAL")
             cur.execute("PRAGMA synchronous=NORMAL")
-            cur.execute("PRAGMA busy_timeout=60000")
+            cur.execute("PRAGMA busy_timeout=90000")
         finally:
             cur.close()
 

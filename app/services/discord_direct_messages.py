@@ -198,28 +198,36 @@ def mark_direct_message_sent(
     discord_channel_id: str = "",
     discord_message_id: str = "",
 ) -> bool:
-    row = session.get(DiscordDirectMessageEvent, int(event_id))
-    if row is None:
-        return False
-    row.status = "sent"
-    row.sent_at = _now()
-    row.last_error = ""
-    row.discord_channel_id = str(discord_channel_id or "")[:32]
-    row.discord_message_id = str(discord_message_id or "")[:32]
-    session.commit()
-    return True
+    from app.sqlite_retry import write_with_sqlite_retry
+
+    def _mark() -> bool:
+        row = session.get(DiscordDirectMessageEvent, int(event_id))
+        if row is None:
+            return False
+        row.status = "sent"
+        row.sent_at = _now()
+        row.last_error = ""
+        row.discord_channel_id = str(discord_channel_id or "")[:32]
+        row.discord_message_id = str(discord_message_id or "")[:32]
+        return True
+
+    return bool(write_with_sqlite_retry(session, _mark))
 
 
 def mark_direct_message_failed(session, event_id: int, error: str) -> bool:
-    row = session.get(DiscordDirectMessageEvent, int(event_id))
-    if row is None:
-        return False
-    row.attempts = int(row.attempts or 0) + 1
-    row.last_error = str(error or "delivery failed")[:2000]
-    if row.attempts >= MAX_DELIVERY_ATTEMPTS:
-        row.status = "failed"
-    else:
-        row.status = "pending"
-        row.next_attempt_at = _now() + timedelta(minutes=min(30, 2 ** row.attempts))
-    session.commit()
-    return True
+    from app.sqlite_retry import write_with_sqlite_retry
+
+    def _mark() -> bool:
+        row = session.get(DiscordDirectMessageEvent, int(event_id))
+        if row is None:
+            return False
+        row.attempts = int(row.attempts or 0) + 1
+        row.last_error = str(error or "delivery failed")[:2000]
+        if row.attempts >= MAX_DELIVERY_ATTEMPTS:
+            row.status = "failed"
+        else:
+            row.status = "pending"
+            row.next_attempt_at = _now() + timedelta(minutes=min(30, 2 ** row.attempts))
+        return True
+
+    return bool(write_with_sqlite_retry(session, _mark))

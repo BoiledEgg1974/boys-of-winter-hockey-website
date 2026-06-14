@@ -18,6 +18,7 @@ from app.auth_login import (
     require_admin_role,
 )
 from app.league_db import db
+from app.sqlite_retry import commit_with_sqlite_retry
 from app.models import Player, PlayerGoalieStat, PlayerSkaterStat, Team
 from app.services.player_headshot import resolve_player_headshot_static_filename
 from app.services.player_overall_score import build_overall_cell_map_from_players
@@ -235,7 +236,7 @@ def bowl_six_hub():
     slug = _league_slug()
     try:
         auto_update_bowl_six_slates(db.session, db.session, slug)
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
     except Exception:
         db.session.rollback()
         current_app.logger.exception("BOWL Six auto-update failed for %s", slug)
@@ -328,7 +329,7 @@ def bowl_six_lineup():
             captain_player_id=captain,
         )
         if result.ok:
-            db.session.commit()
+            commit_with_sqlite_retry(db.session)
             flash("Lineup saved successfully.", "ok")
         else:
             db.session.rollback()
@@ -372,7 +373,7 @@ def bowl_six_leaders():
     slug = _league_slug()
     try:
         auto_update_bowl_six_slates(db.session, db.session, slug)
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
     except Exception:
         db.session.rollback()
         current_app.logger.exception("BOWL Six leaders auto-update failed for %s", slug)
@@ -604,7 +605,7 @@ def admin_bowl_six_score():
     n = score_slate(db.session, db.session, slate)
     _enqueue_bowl_six_discord_after_admin_score(slate, force=True)
     _audit("bowl_six_score", {"slate_id": sid, "lineups_scored": n})
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     flash(f"BOWL Six slate scored ({n} lineups).", "ok")
     return redirect(url_for("site_admin.admin_control_center"))
 
@@ -625,7 +626,7 @@ def admin_bowl_six_rescore():
     n = score_slate(db.session, db.session, slate, notify=False)
     _enqueue_bowl_six_discord_after_admin_score(slate, force=True)
     _audit("bowl_six_rescore", {"slate_id": sid, "lineups_scored": n})
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     flash(f"BOWL Six slate re-scored ({n} lineups).", "ok")
     return redirect(url_for("site_admin.admin_control_center"))
 
@@ -641,7 +642,7 @@ def admin_bowl_six_ensure_past_week_prizes():
         if slate is not None:
             _enqueue_bowl_six_discord_after_admin_score(slate, force=True)
     _audit("bowl_six_ensure_past_week_prizes", result)
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     flash(str(result.get("message") or "BOWL Six past-week prizes checked."), "ok" if result.get("ok") else "err")
     return redirect(url_for("site_admin.admin_control_center"))
 
@@ -663,9 +664,9 @@ def admin_bowl_six_unlock():
         flash("Cannot unlock a scored slate.", "err")
         return redirect(url_for("site_admin.admin_control_center"))
     slate.status = "open"
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     _audit("bowl_six_unlock", {"slate_id": sid})
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     flash("Slate unlocked for edits.", "ok")
     return redirect(url_for("site_admin.admin_control_center"))
 
@@ -702,7 +703,7 @@ def admin_bowl_six_reset_lineups():
     ).delete(synchronize_session=False)
     slate.scoring_version = int(slate.scoring_version or 0) + 1
     _audit("bowl_six_reset_lineups", {"slate_id": sid, "lineups_removed": len(lineups)})
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     flash(f"Reset BOWL Six lineups for this week ({len(lineups)} removed).", "ok")
     return redirect(url_for("site_admin.admin_control_center"))
 
@@ -727,12 +728,12 @@ def admin_bowl_six_extend_lock():
         flash(msg, "err")
         return redirect(url_for("site_admin.admin_control_center"))
     try:
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
         _audit(
             "bowl_six_extend_lock",
             {"slate_id": sid, "lock_at": msg},
         )
-        db.session.commit()
+        commit_with_sqlite_retry(db.session)
     except Exception:
         db.session.rollback()
         current_app.logger.exception("BOWL Six extend lock commit failed")
@@ -754,9 +755,9 @@ def admin_bowl_six_skip_week():
         return redirect(url_for("site_admin.admin_control_center"))
     slate.status = "skipped"
     slate.skip_reason = (request.form.get("skip_reason") or "").strip()[:500]
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     _audit("bowl_six_skip", {"slate_id": sid})
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     flash("Slate marked as skipped (bye week).", "ok")
     return redirect(url_for("site_admin.admin_control_center"))
 
@@ -793,6 +794,6 @@ def admin_bowl_six_advance_week():
         label=f"Week of {ws.isoformat()}",
     )
     db.session.add(slate)
-    db.session.commit()
+    commit_with_sqlite_retry(db.session)
     flash("Created next weekly slate.", "ok")
     return redirect(url_for("site_admin.admin_control_center"))

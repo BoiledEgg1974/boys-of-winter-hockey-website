@@ -8,6 +8,7 @@ from typing import Any
 from sqlalchemy import and_, func, or_, select, update
 
 from app.league_db import db
+from app.sqlite_retry import write_with_sqlite_retry
 from app.site_models import GmLeagueMessage, GmLeagueMembership, User
 
 
@@ -148,16 +149,43 @@ def thread_messages(league_slug: str, user_id: int, peer_id: int) -> list[GmLeag
 
 
 def mark_thread_read(league_slug: str, recipient_id: int, peer_id: int) -> None:
-    db.session.execute(
-        update(GmLeagueMessage)
-        .where(
-            GmLeagueMessage.league_slug == league_slug,
-            GmLeagueMessage.from_user_id == peer_id,
-            GmLeagueMessage.to_user_id == recipient_id,
-            GmLeagueMessage.read_at.is_(None),
+    read_at = datetime.utcnow()
+
+    def _mark() -> None:
+        db.session.execute(
+            update(GmLeagueMessage)
+            .where(
+                GmLeagueMessage.league_slug == league_slug,
+                GmLeagueMessage.from_user_id == peer_id,
+                GmLeagueMessage.to_user_id == recipient_id,
+                GmLeagueMessage.read_at.is_(None),
+            )
+            .values(read_at=read_at)
         )
-        .values(read_at=datetime.utcnow())
-    )
+
+    write_with_sqlite_retry(db.session, _mark)
+
+
+def send_gm_message(
+    *,
+    league_slug: str,
+    from_user_id: int,
+    to_user_id: int,
+    body: str,
+    event_key: str = "gm_direct_message",
+) -> GmLeagueMessage:
+    """Persist a GM message and commit with SQLite lock retries."""
+
+    def _send() -> GmLeagueMessage:
+        return create_gm_message(
+            league_slug=league_slug,
+            from_user_id=from_user_id,
+            to_user_id=to_user_id,
+            body=body,
+            event_key=event_key,
+        )
+
+    return write_with_sqlite_retry(db.session, _send)
 
 
 def list_other_active_gms(league_slug: str, exclude_user_id: int) -> list[tuple[GmLeagueMembership, User]]:

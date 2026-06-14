@@ -7322,6 +7322,11 @@ def admin_ap_batch_adjust():
         return redirect(url_for("site_admin.admin_ap_ledger"))
     teams = list(db.session.scalars(select(Team)).all())
     allowed_slugs = {t.slug for t in teams}
+    team_id_by_slug = {
+        str(t.slug or "").strip().casefold(): int(t.id)
+        for t in teams
+        if str(t.slug or "").strip()
+    }
     label = _BATCH_AP_REASONS[reason]
 
     if reason == "batch_predictions":
@@ -7336,27 +7341,13 @@ def admin_ap_batch_adjust():
         for team_slug in picked:
             if team_slug not in allowed_slugs:
                 continue
-            tid = team_id_for_slug_in_league(
-                cur_slug,
-                team_slug,
-                orm_session=db.session,
-                orm_league_slug=cur_slug,
-            )
+            tid = team_id_by_slug.get(team_slug.casefold())
             if tid is None:
                 continue
             preview.append((team_slug, 1))
             if dry_run:
                 entries += 1
                 continue
-            add_ledger_entry(
-                league_slug=cur_slug,
-                team_id=tid,
-                delta=1,
-                reason_code=reason,
-                meta={"batch": label, "team_slug": team_slug},
-                created_by_user_id=current_user.id,
-            )
-            entries += 1
         if dry_run:
             show = ", ".join([f"{s}: +1" for s, _d in preview[:8]]) if preview else "none"
             if len(preview) > 8:
@@ -7366,7 +7357,27 @@ def admin_ap_batch_adjust():
                 "ok",
             )
             return redirect(url_for("site_admin.admin_ap_ledger"))
-        db.session.commit()
+
+        def _apply_predictions_batch() -> int:
+            count = 0
+            for team_slug in picked:
+                if team_slug not in allowed_slugs:
+                    continue
+                tid = team_id_by_slug.get(team_slug.casefold())
+                if tid is None:
+                    continue
+                add_ledger_entry(
+                    league_slug=cur_slug,
+                    team_id=tid,
+                    delta=1,
+                    reason_code=reason,
+                    meta={"batch": label, "team_slug": team_slug},
+                    created_by_user_id=current_user.id,
+                )
+                count += 1
+            return count
+
+        entries = write_with_sqlite_retry(db.session, _apply_predictions_batch)
         if entries:
             flash(
                 f"PREDICTIONS: added {entries} ledger row(s) (+1 AP per checked team in {league_name} only).",
@@ -7379,6 +7390,7 @@ def admin_ap_batch_adjust():
     prefix = "d_"
     entries = 0
     preview_rows: list[tuple[str, int]] = []
+    pending_rows: list[tuple[str, int, int]] = []
     for key, raw in request.form.items():
         if not key.startswith(prefix):
             continue
@@ -7399,27 +7411,13 @@ def admin_ap_batch_adjust():
             delta = -abs(val)
         else:
             delta = val
-        tid = team_id_for_slug_in_league(
-            cur_slug,
-            team_slug,
-            orm_session=db.session,
-            orm_league_slug=cur_slug,
-        )
+        tid = team_id_by_slug.get(team_slug.casefold())
         if tid is None:
             continue
         preview_rows.append((team_slug, int(delta)))
+        pending_rows.append((team_slug, int(tid), int(delta)))
         if dry_run:
             entries += 1
-            continue
-        add_ledger_entry(
-            league_slug=cur_slug,
-            team_id=tid,
-            delta=delta,
-            reason_code=reason,
-            meta={"batch": label, "team_slug": team_slug},
-            created_by_user_id=current_user.id,
-        )
-        entries += 1
     if dry_run:
         show = ", ".join([f"{s}: {d:+d}" for s, d in preview_rows[:8]]) if preview_rows else "none"
         if len(preview_rows) > 8:
@@ -7432,7 +7430,22 @@ def admin_ap_batch_adjust():
         else:
             flash(f"[DRY RUN] {label}: no non-zero adjustments detected.", "err")
         return redirect(url_for("site_admin.admin_ap_ledger"))
-    db.session.commit()
+
+    def _apply_batch_adjustments() -> int:
+        count = 0
+        for team_slug, tid, delta in pending_rows:
+            add_ledger_entry(
+                league_slug=cur_slug,
+                team_id=tid,
+                delta=delta,
+                reason_code=reason,
+                meta={"batch": label, "team_slug": team_slug},
+                created_by_user_id=current_user.id,
+            )
+            count += 1
+        return count
+
+    entries = write_with_sqlite_retry(db.session, _apply_batch_adjustments)
     if entries:
         flash(
             f"{label}: wrote {entries} ledger row(s) in {league_name} only "
@@ -7518,15 +7531,17 @@ def admin_ap_ledger():
             if not pe.allowed:
                 flash(pe.message, "err")
                 return redirect(url_for("site_admin.admin_ap_ledger"))
-            add_ledger_entry(
-                league_slug=slug,
-                team_id=tid,
-                delta=delta,
-                reason_code="manual",
-                meta={"note": note},
-                created_by_user_id=current_user.id,
-            )
-            db.session.commit()
+            def _add_manual_ledger_row() -> None:
+                add_ledger_entry(
+                    league_slug=slug,
+                    team_id=tid,
+                    delta=delta,
+                    reason_code="manual",
+                    meta={"note": note},
+                    created_by_user_id=current_user.id,
+                )
+
+            write_with_sqlite_retry(db.session, _add_manual_ledger_row)
             flash("Ledger entry added.", "ok")
         return redirect(url_for("site_admin.admin_ap_ledger"))
     teams = list(db.session.scalars(select(Team).order_by(Team.name)).all())

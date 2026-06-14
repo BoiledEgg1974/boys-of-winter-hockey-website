@@ -23,7 +23,36 @@ _EMAIL_A = "trade-test-a@example.invalid"
 _EMAIL_B = "trade-test-b@example.invalid"
 
 
-def _cleanup_test_users() -> None:
+def _suspend_active_team_memberships(slug: str, team_ids: list[int]) -> list[tuple[int, str]]:
+    """Temporarily deactivate real GMs on test teams so partner lookup is deterministic."""
+    if not team_ids:
+        return []
+    rows = list(
+        db.session.scalars(
+            select(GmLeagueMembership).where(
+                GmLeagueMembership.league_slug == slug,
+                GmLeagueMembership.team_id.in_([int(tid) for tid in team_ids]),
+                GmLeagueMembership.status == "active",
+            )
+        ).all()
+    )
+    saved: list[tuple[int, str]] = []
+    for row in rows:
+        saved.append((int(row.id), str(row.status or "active")))
+        row.status = "inactive"
+    if saved:
+        db.session.flush()
+    return saved
+
+
+def _restore_membership_statuses(saved: list[tuple[int, str]]) -> None:
+    for membership_id, status in saved:
+        row = db.session.get(GmLeagueMembership, int(membership_id))
+        if row is not None:
+            row.status = status
+
+
+def _cleanup_test_users(restored_memberships: list[tuple[int, str]] | None = None) -> None:
     for email in (_EMAIL_A, _EMAIL_B):
         user = db.session.scalar(select(User).where(User.email == email))
         if not user:
@@ -42,6 +71,8 @@ def _cleanup_test_users() -> None:
         )
         db.session.execute(delete(GmLeagueMembership).where(GmLeagueMembership.user_id == uid))
         db.session.delete(user)
+    if restored_memberships:
+        _restore_membership_statuses(restored_memberships)
     db.session.commit()
 
 
@@ -57,12 +88,16 @@ def _login(client, user_id: int) -> None:
 
 
 class TradeToolSubmitTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self._restored_memberships: list[tuple[int, str]] = []
+
     def tearDown(self) -> None:
         app = getattr(self, "app", None)
         if app is None:
             return
         with app.app_context():
-            _cleanup_test_users()
+            _cleanup_test_users(self._restored_memberships)
+            self._restored_memberships = []
             db.session.remove()
 
     def _setup_users_for_league(self, slug: str) -> tuple[User, User, Team, Team, Player]:
@@ -78,6 +113,9 @@ class TradeToolSubmitTest(unittest.TestCase):
         self.assertIsNotNone(player, f"{slug}: need a roster player on team {team_a.id}")
 
         _cleanup_test_users()
+        self._restored_memberships.extend(
+            _suspend_active_team_memberships(slug, [int(team_a.id), int(team_b.id)])
+        )
         user_a = User(email=_EMAIL_A, password_hash="x", discord_name="GM A")
         user_b = User(email=_EMAIL_B, password_hash="x", discord_name="GM B")
         db.session.add_all([user_a, user_b])

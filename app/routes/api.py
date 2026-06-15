@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from collections import defaultdict
 from datetime import date, timedelta
 
@@ -89,6 +90,7 @@ from app.services.discord_events import (
 )
 
 api_bp = Blueprint("api", __name__)
+_BOWL_SIX_DISCORD_REFRESH_LAST: dict[str, float] = {}
 
 _FTS_SAFE = re.compile(r"[^\w\s.-]", re.UNICODE)
 
@@ -1918,18 +1920,30 @@ def _discord_secret_ok() -> bool:
 
 def _refresh_bowl_six_discord_triggers(slug: str) -> None:
     """Let regular bot polling queue BOWL Six updates without a page visit."""
+    key = str(slug or "").strip()
+    if not key:
+        return
+    now = time.monotonic()
+    interval = float(
+        current_app.config.get("BOWL_SIX_DISCORD_REFRESH_INTERVAL_SECONDS", 60) or 60
+    )
+    last = _BOWL_SIX_DISCORD_REFRESH_LAST.get(key, 0.0)
+    if interval > 0 and now - last < interval:
+        return
+    _BOWL_SIX_DISCORD_REFRESH_LAST[key] = now
     try:
         from app.services.bowl_six import (
             auto_update_bowl_six_slates,
             maybe_enqueue_bowl_six_roster_reminders,
         )
 
-        auto_update_bowl_six_slates(db.session, db.session, slug)
-        maybe_enqueue_bowl_six_roster_reminders(db.session, slug)
+        auto_update_bowl_six_slates(db.session, db.session, key)
+        maybe_enqueue_bowl_six_roster_reminders(db.session, key)
         commit_with_sqlite_retry(db.session)
     except Exception:
         db.session.rollback()
-        current_app.logger.exception("BOWL Six Discord trigger refresh failed for %s", slug)
+        _BOWL_SIX_DISCORD_REFRESH_LAST.pop(key, None)
+        current_app.logger.exception("BOWL Six Discord trigger refresh failed for %s", key)
 
 
 @api_bp.get("/bowl-six/leaders")

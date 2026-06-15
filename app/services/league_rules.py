@@ -5,6 +5,7 @@ from datetime import datetime
 
 from sqlalchemy import select
 
+from app.sqlite_retry import commit_with_sqlite_retry
 from app.site_models import LeagueRuleSetting
 
 DEFAULT_LEAGUE_RULES: tuple[dict[str, str], ...] = (
@@ -62,7 +63,7 @@ def ensure_league_rules(session, league_slug: str, updated_by_user_id: int | Non
             lock_row.updated_by_user_id = updated_by_user_id
         changed = True
     if changed:
-        session.commit()
+        commit_with_sqlite_retry(session)
 
 
 def get_league_rules(session, league_slug: str) -> list[LeagueRuleSetting]:

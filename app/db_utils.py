@@ -2076,6 +2076,35 @@ def ensure_bowl_six_slates_discord_columns_sqlite(engine: Engine) -> None:
                     "ADD COLUMN discord_leaders_payload_hash VARCHAR(64)"
                 )
             )
+        conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_bowl_six_slate_auto_update "
+                "ON bowl_six_slates (league_slug, status, week_end)"
+            )
+        )
+        lineups_exists = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='bowl_six_lineups'")
+        ).fetchone()
+        if lineups_exists:
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_bowl_six_lineup_slate_submitted "
+                    "ON bowl_six_lineups (slate_id, submitted_at)"
+                )
+            )
+        player_stats_exists = conn.execute(
+            text(
+                "SELECT 1 FROM sqlite_master "
+                "WHERE type='table' AND name='bowl_six_player_week_stats'"
+            )
+        ).fetchone()
+        if player_stats_exists:
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_bowl_six_player_week_slate_pts "
+                    "ON bowl_six_player_week_stats (slate_id, fantasy_points)"
+                )
+            )
         conn.commit()
 
 

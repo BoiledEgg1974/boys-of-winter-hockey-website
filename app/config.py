@@ -186,8 +186,9 @@ _ENV_LEAGUE_SLUG = os.environ.get("LEAGUE_SLUG", "bowl-fantasy")
 class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-bow-league-key-change-me")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    # SQLite: longer busy wait + thread-safe pool use (see ``sqlite_pragmas`` for WAL).
-    _SQLITE_BUSY_SECONDS = float(os.environ.get("SQLITE_BUSY_TIMEOUT_SECONDS", "90"))
+    # SQLite: keep the DB busy wait below PythonAnywhere's worker harakiri window.
+    # Longer waits make lock contention look like a site hang; retries handle backoff.
+    _SQLITE_BUSY_SECONDS = float(os.environ.get("SQLITE_BUSY_TIMEOUT_SECONDS", "12"))
     SQLALCHEMY_ENGINE_OPTIONS = {
         "connect_args": {
             "timeout": _SQLITE_BUSY_SECONDS,
@@ -220,6 +221,9 @@ class Config:
     # Off by default in production: warming 3 leagues per worker competes for SQLite and blocks reloads.
     _CACHE_WARM_RAW = os.environ.get("LEAGUE_JSON_CACHE_WARM_ON_STARTUP", "0").strip().lower()
     LEAGUE_JSON_CACHE_WARM_ON_STARTUP = _CACHE_WARM_RAW in ("1", "true", "yes", "on")
+    BOWL_SIX_DISCORD_REFRESH_INTERVAL_SECONDS = float(
+        os.environ.get("BOWL_SIX_DISCORD_REFRESH_INTERVAL_SECONDS", "60") or 60
+    )
     HOMEPAGE_POSTSEASON_MC_SIMS = int(os.environ.get("HOMEPAGE_POSTSEASON_MC_SIMS", "600") or 600)
     JOIN_LEAGUE_RECIPIENT = os.environ.get("JOIN_LEAGUE_RECIPIENT", "keenovdecimanus@gmail.com")
     # Optional comma-separated extra inboxes for admin review alerts (news, AP, memberships).

@@ -1128,6 +1128,7 @@ class BowlSixSlate(db.Model):
     __bind_key__ = "site"
     __table_args__ = (
         Index("ix_bowl_six_slate_league_week", "league_slug", "week_start"),
+        Index("ix_bowl_six_slate_auto_update", "league_slug", "status", "week_end"),
         UniqueConstraint("league_slug", "week_start", name="uq_bowl_six_slate_league_week"),
     )
 
@@ -1155,7 +1156,10 @@ class BowlSixSlate(db.Model):
 class BowlSixLineup(db.Model):
     __tablename__ = "bowl_six_lineups"
     __bind_key__ = "site"
-    __table_args__ = (UniqueConstraint("slate_id", "user_id", name="uq_bowl_six_lineup_slate_user"),)
+    __table_args__ = (
+        UniqueConstraint("slate_id", "user_id", name="uq_bowl_six_lineup_slate_user"),
+        Index("ix_bowl_six_lineup_slate_submitted", "slate_id", "submitted_at"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     slate_id: Mapped[int] = mapped_column(ForeignKey("bowl_six_slates.id"), nullable=False)

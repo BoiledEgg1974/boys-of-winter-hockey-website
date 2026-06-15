@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.auth_login import active_membership_for_league
+from app.sqlite_retry import commit_with_sqlite_retry
 from app.site_models import NewsArticle, NewsArticleComment, NewsArticleVote, User
 
 
@@ -141,7 +142,7 @@ def set_article_vote(
                 created_at=datetime.utcnow(),
             )
         )
-    session.commit()
+    commit_with_sqlite_retry(session)
     thumbs_up = int(
         session.scalar(
             select(func.count(NewsArticleVote.id)).where(
@@ -198,7 +199,7 @@ def add_article_comment(
         created_at=datetime.utcnow(),
     )
     session.add(c)
-    session.commit()
+    commit_with_sqlite_retry(session)
     session.refresh(c)
     u = session.get(User, int(user_id))
     from app.services.gm_messaging import gm_display_name

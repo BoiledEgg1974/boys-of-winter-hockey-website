@@ -4,6 +4,7 @@ from datetime import datetime
 
 from sqlalchemy import select
 
+from app.sqlite_retry import commit_with_sqlite_retry
 from app.site_models import HomepageModuleSetting
 
 ALLOWED_HOMEPAGE_MODULE_KEYS = (
@@ -82,7 +83,7 @@ def ensure_homepage_module_settings(session, league_slug: str, updated_by_user_i
         )
         changed = True
     if changed:
-        session.commit()
+        commit_with_sqlite_retry(session)
 
 
 def get_homepage_module_settings(session, league_slug: str) -> list[HomepageModuleSetting]:
@@ -147,7 +148,7 @@ def save_homepage_module_settings(
         row.sort_order = sort_order
         row.updated_by_user_id = updated_by_user_id
         row.updated_at = now
-    session.commit()
+    commit_with_sqlite_retry(session)
     out_rows = get_homepage_module_settings(session, league_slug)
     return [
         {

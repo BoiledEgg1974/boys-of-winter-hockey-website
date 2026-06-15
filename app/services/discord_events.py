@@ -569,15 +569,21 @@ def _payload_fhm_team_id(payload: dict) -> str:
 
 
 def _team_gm_mention_for_payload(session, *, league_slug: str, payload: dict) -> str:
-    fhm_team_id = _payload_fhm_team_id(payload)
     team_id = _payload_team_id(payload)
+    if team_id is not None:
+        mention = _discord_user_mention_for_team(
+            session, league_slug=league_slug, team_id=team_id
+        )
+        if mention:
+            return mention
+    fhm_team_id = _payload_fhm_team_id(payload)
     if fhm_team_id:
         return _discord_user_mention_for_fhm_team(
             session,
             league_slug=league_slug,
             fhm_team_id=fhm_team_id,
         )
-    return _discord_user_mention_for_team(session, league_slug=league_slug, team_id=team_id)
+    return ""
 
 
 def _ensure_team_gm_mention_for_payload(session, *, league_slug: str, payload: dict) -> dict:
@@ -617,13 +623,13 @@ def enrich_discord_payload_for_bot(
         merged = {**enriched, **out}
         merged["body"] = enriched["body"]
         merged["has_image"] = enriched["has_image"]
-        mention = str(merged.get("team_gm_mention") or "").strip()
-        if not mention:
-            merged = _ensure_team_gm_mention_for_payload(
-                session,
-                league_slug=league_slug,
-                payload=merged,
-            )
+        merged.pop("team_gm_mention", None)
+        merged.pop("gm_mentions", None)
+        merged = _ensure_team_gm_mention_for_payload(
+            session,
+            league_slug=league_slug,
+            payload=merged,
+        )
         if len(str(out.get("body_preview") or "")) < len(enriched["body_preview"]):
             merged["body_preview"] = enriched["body_preview"]
         return merged

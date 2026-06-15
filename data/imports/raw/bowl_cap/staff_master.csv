@@ -125,7 +125,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 123;9;Christer;Rockström;;1957-2-3;Stockholm;STO;Sweden;;;0
 124;12;Don;Cahoon;;1949-4-13;Lynn;IN;The United States;;;0
 125;-1;David;Smith;;1950-1-1;Callaway;FL;The United States;;;0
-126;-1;Craig;Button;;1963-1-3;Rochester;AB;Canada;;;0
+126;9;Craig;Button;;1963-1-3;Rochester;AB;Canada;;;0
 127;-1;John;Van Boxmeer;;1952-11-20;Petrolia;ON;Canada;;;0
 128;18;Butch;Goring;;1949-10-22;Winnipeg;MB;Canada;;;0
 129;216;Bobby;Clarke;;1949-8-13;Flin Flon;MB;Canada;;;0

@@ -66,7 +66,7 @@ from app.db_utils import (
     repair_fhm_team_city_from_name,
 )
 from app.models import Player, Team, db
-from app.sqlite_bootstrap_lock import sqlite_bootstrap_lock
+from app.sqlite_bootstrap import bootstrap_league_sqlite, bootstrap_site_sqlite
 from app.sqlite_pragmas import install_sqlite_connect_pragmas
 
 csrf = CSRFProtect()
@@ -123,88 +123,8 @@ def create_app(config_class: type = Config) -> Flask:
         )
 
     with app.app_context():
-        with sqlite_bootstrap_lock(str(db_uri)):
-            db.create_all()
-            migrate_team_season_aggregates_sqlite(db.engine)
-            repair_fhm_team_city_from_name(db.engine)
-            ensure_players_jersey_number_sqlite(db.engine)
-            ensure_players_boost_tier_sqlite(db.engine)
-            ensure_player_overall_baseline_sqlite(db.engine)
-            ensure_player_rating_snapshots_sqlite(db.engine)
-            ensure_team_season_aggregate_extra_columns(db.engine)
-            ensure_homepage_performance_indexes_sqlite(db.engine)
-            ensure_skater_career_line_career_source_sqlite(db.engine)
-            ensure_skater_career_line_extra_stats_sqlite(db.engine)
-            ensure_skater_career_line_game_rating_sqlite(db.engine)
-            ensure_player_goalie_stats_gsaa_sqlite(db.engine)
-            ensure_advanced_stats_columns_sqlite(db.engine)
-            ensure_game_record_baselines_sqlite(db.engine)
-            ensure_history_awards_staff_fhm_id_sqlite(db.engine)
-            ensure_history_records_admin_metadata_sqlite(db.engine)
-            ensure_history_all_stars_sqlite(db.engine)
-            ensure_franchise_team_identities_sqlite(db.engine)
-            ensure_team_honors_meta_sqlite(db.engine)
-            ensure_team_retired_numbers_sqlite(db.engine)
-            ensure_team_victory_banners_sqlite(db.engine)
-            try:
-                from sqlalchemy import func, select
-
-                from app.models import FranchiseTeamIdentity
-                from app.services.franchise_identities import seed_franchise_identities_from_csv
-
-                identity_count = db.session.scalar(select(func.count()).select_from(FranchiseTeamIdentity)) or 0
-                identity_csv = Path(app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)) / "team_identity_history.csv"
-                if int(identity_count) == 0 and identity_csv.is_file():
-                    seed_franchise_identities_from_csv(db.session, identity_csv)
-                    db.session.commit()
-            except Exception:
-                db.session.rollback()
-            ensure_fts5(db.engine)
-            try:
-                site_engine = db.engines.get("site")
-            except Exception:
-                site_engine = None
-            if site_engine is not None:
-                with sqlite_bootstrap_lock(str(site_uri)):
-                    ensure_homepage_module_settings_sqlite(site_engine)
-                    ensure_site_announcements_sqlite(site_engine)
-                    ensure_site_users_admin_role_sqlite(site_engine)
-                    ensure_password_reset_tokens_sqlite(site_engine)
-                    ensure_site_banned_identities_sqlite(site_engine)
-                    ensure_league_rule_settings_sqlite(site_engine)
-                    ensure_gm_approval_requests_sqlite(site_engine)
-                    ensure_staff_change_requests_sqlite(site_engine)
-                    ensure_rfa_offer_requests_sqlite(site_engine)
-                    ensure_team_staff_roster_entries_sqlite(site_engine)
-                    ensure_gm_trade_proposals_sqlite(site_engine)
-                    ensure_trade_market_sqlite(site_engine)
-                    ensure_story_publish_schedules_sqlite(site_engine)
-                    ensure_story_publish_schedule_extra_columns_sqlite(site_engine)
-                    ensure_awards_voting_sqlite(site_engine)
-                    ensure_member_watchlists_sqlite(site_engine)
-                    ensure_news_engagement_sqlite(site_engine)
-                    ensure_admin_undo_actions_sqlite(site_engine)
-                    ensure_bowl_six_slates_discord_columns_sqlite(site_engine)
-                    ensure_bowl_six_game_finals_sqlite(site_engine)
-                    ensure_discord_outbound_sqlite(site_engine)
-                    try:
-                        from sqlalchemy.orm import Session
-
-                        from app.services.discord_events import bootstrap_discord_integration_all_leagues
-
-                        with Session(site_engine) as site_session:
-                            bootstrap_discord_integration_all_leagues(site_session)
-                    except Exception as exc:
-                        app.logger.warning("Discord integration bootstrap skipped: %s", exc)
-                    ensure_prospect_system_rank_snapshots_sqlite(site_engine)
-                    ensure_positional_rank_snapshots_sqlite(site_engine)
-                    ensure_power_rank_snapshots_sqlite(site_engine)
-                    ensure_prospect_league_rank_snapshots_sqlite(site_engine)
-                    ensure_league_draft_slot_boost_tier_sqlite(site_engine)
-                    ensure_boost_lottery_team_results_sqlite(site_engine)
-                    ensure_gm_export_attendance_sqlite(site_engine)
-                    ensure_gm_rule_strikes_sqlite(site_engine)
-                    ensure_league_expansion_draft_columns_sqlite(site_engine)
+        bootstrap_league_sqlite(app)
+        bootstrap_site_sqlite(app)
         # FTS may be empty until import or seed; seed script calls rebuild
         try:
             from app.services.ratings_position_cache import backfill_null_positions_from_ratings
@@ -265,7 +185,7 @@ def create_app(config_class: type = Config) -> Flask:
     app.register_blueprint(site_gm_bp)
     app.register_blueprint(site_admin_bp)
 
-    if app.config.get("LEAGUE_JSON_CACHE_WARM_ON_STARTUP", True):
+    if app.config.get("LEAGUE_JSON_CACHE_WARM_ON_STARTUP", False):
         from app.services.homepage_summary_cache import warm_homepage_summary_cache
 
         warm_homepage_summary_cache(app)

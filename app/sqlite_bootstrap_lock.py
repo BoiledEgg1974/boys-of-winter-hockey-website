@@ -30,7 +30,7 @@ def _sqlite_db_path(db_uri: str) -> Path | None:
 
 
 @contextmanager
-def sqlite_bootstrap_lock(db_uri: str, *, timeout_s: float = 120.0):
+def sqlite_bootstrap_lock(db_uri: str, *, timeout_s: float = 300.0):
     """Hold an exclusive lock while running league SQLite bootstrap."""
     path = _sqlite_db_path(db_uri)
     if path is None:

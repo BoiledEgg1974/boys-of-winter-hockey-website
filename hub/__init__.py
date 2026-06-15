@@ -10,9 +10,9 @@ from flask_login import current_user
 from flask_wtf.csrf import CSRFProtect
 
 from app.auth_login import login_manager
-from app.config import BASE_DIR, Config, LEAGUES, league_slugs, resolve_site_sqlite_path
+from app.config import BASE_DIR, Config, LEAGUES, league_slugs, resolve_site_sqlite_path, site_bind_engine_config
 from app.league_db import db
-from app.sqlite_bootstrap import bootstrap_site_sqlite
+from app.sqlite_bootstrap import bootstrap_site_database
 
 csrf = CSRFProtect()
 def _default_league_slug() -> str:
@@ -60,7 +60,7 @@ def create_hub_app() -> Flask:
     hub_app.config.from_mapping(
         SECRET_KEY=os.environ.get("SECRET_KEY", Config.SECRET_KEY),
         SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
-        SQLALCHEMY_BINDS={"site": site_uri},
+        SQLALCHEMY_BINDS={"site": site_bind_engine_config(site_uri)},
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         SITE_SQLALCHEMY_DATABASE_URI=site_uri,
         JOIN_LEAGUE_RECIPIENT=Config.JOIN_LEAGUE_RECIPIENT,
@@ -97,7 +97,7 @@ def create_hub_app() -> Flask:
     importlib.import_module("app.site_models")
 
     with hub_app.app_context():
-        bootstrap_site_sqlite(hub_app)
+        bootstrap_site_database(hub_app)
         try:
             from app.services.bootstrap_site import ensure_commish_admin
 

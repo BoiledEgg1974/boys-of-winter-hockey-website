@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import logging
+import threading
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from app.config import is_sqlite_database_uri
 from app.sqlite_bootstrap_lock import sqlite_bootstrap_lock
 
 if TYPE_CHECKING:
@@ -15,6 +17,8 @@ if TYPE_CHECKING:
 SQLITE_BOOTSTRAP_VERSION = 1
 
 _completed_in_process: set[str] = set()
+_server_site_bootstrapped = False
+_server_site_bootstrap_lock = threading.Lock()
 _log = logging.getLogger(__name__)
 
 
@@ -155,8 +159,7 @@ def bootstrap_league_sqlite(app: Flask) -> None:
     run_sqlite_bootstrap_once(db_uri, _bootstrap, label=f"league {slug}")
 
 
-def bootstrap_site_sqlite(app: Flask) -> None:
-    """Shared site DB bootstrap (runs once per worker / after deploy version bump)."""
+def _bootstrap_site_schema_and_seed(app: Flask) -> None:
     from app.db_utils import (
         ensure_admin_undo_actions_sqlite,
         ensure_awards_voting_sqlite,
@@ -192,57 +195,78 @@ def bootstrap_site_sqlite(app: Flask) -> None:
     from app.models import db
     from app.services.ap_service import seed_ap_catalog_if_empty
 
+    db.create_all()
+    try:
+        site_engine = db.engines.get("site")
+    except Exception:
+        site_engine = None
+    if site_engine is None:
+        return
+    ensure_homepage_module_settings_sqlite(site_engine)
+    ensure_site_announcements_sqlite(site_engine)
+    ensure_site_users_admin_role_sqlite(site_engine)
+    ensure_password_reset_tokens_sqlite(site_engine)
+    ensure_site_banned_identities_sqlite(site_engine)
+    ensure_league_rule_settings_sqlite(site_engine)
+    ensure_gm_approval_requests_sqlite(site_engine)
+    ensure_staff_change_requests_sqlite(site_engine)
+    ensure_rfa_offer_requests_sqlite(site_engine)
+    ensure_team_staff_roster_entries_sqlite(site_engine)
+    ensure_gm_trade_proposals_sqlite(site_engine)
+    ensure_trade_market_sqlite(site_engine)
+    ensure_story_publish_schedules_sqlite(site_engine)
+    ensure_story_publish_schedule_extra_columns_sqlite(site_engine)
+    ensure_awards_voting_sqlite(site_engine)
+    ensure_member_watchlists_sqlite(site_engine)
+    ensure_news_engagement_sqlite(site_engine)
+    ensure_admin_undo_actions_sqlite(site_engine)
+    ensure_bowl_six_slates_discord_columns_sqlite(site_engine)
+    ensure_bowl_six_game_finals_sqlite(site_engine)
+    ensure_discord_outbound_sqlite(site_engine)
+    try:
+        from sqlalchemy.orm import Session
+
+        from app.services.discord_events import bootstrap_discord_integration_all_leagues
+
+        with Session(site_engine) as site_session:
+            bootstrap_discord_integration_all_leagues(site_session)
+    except Exception as exc:
+        app.logger.warning("Discord integration bootstrap skipped: %s", exc)
+    ensure_prospect_system_rank_snapshots_sqlite(site_engine)
+    ensure_positional_rank_snapshots_sqlite(site_engine)
+    ensure_power_rank_snapshots_sqlite(site_engine)
+    ensure_prospect_league_rank_snapshots_sqlite(site_engine)
+    ensure_league_draft_slot_boost_tier_sqlite(site_engine)
+    ensure_boost_lottery_team_results_sqlite(site_engine)
+    ensure_gm_export_attendance_sqlite(site_engine)
+    ensure_gm_rule_strikes_sqlite(site_engine)
+    ensure_league_expansion_draft_columns_sqlite(site_engine)
+    seed_ap_catalog_if_empty()
+
+
+def bootstrap_site_database(app: Flask) -> None:
+    """Shared site DB bootstrap (SQLite file lock or one-time per worker on MySQL)."""
     site_uri = str(app.config.get("SITE_SQLALCHEMY_DATABASE_URI") or "").strip()
-    if not site_uri.startswith("sqlite:///"):
+    if not site_uri:
         return
 
-    def _bootstrap() -> None:
-        db.create_all()
-        try:
-            site_engine = db.engines.get("site")
-        except Exception:
-            site_engine = None
-        if site_engine is None:
+    if is_sqlite_database_uri(site_uri):
+        run_sqlite_bootstrap_once(
+            site_uri,
+            lambda: _bootstrap_site_schema_and_seed(app),
+            label="site membership",
+        )
+        return
+
+    global _server_site_bootstrapped
+    with _server_site_bootstrap_lock:
+        if _server_site_bootstrapped:
             return
-        ensure_homepage_module_settings_sqlite(site_engine)
-        ensure_site_announcements_sqlite(site_engine)
-        ensure_site_users_admin_role_sqlite(site_engine)
-        ensure_password_reset_tokens_sqlite(site_engine)
-        ensure_site_banned_identities_sqlite(site_engine)
-        ensure_league_rule_settings_sqlite(site_engine)
-        ensure_gm_approval_requests_sqlite(site_engine)
-        ensure_staff_change_requests_sqlite(site_engine)
-        ensure_rfa_offer_requests_sqlite(site_engine)
-        ensure_team_staff_roster_entries_sqlite(site_engine)
-        ensure_gm_trade_proposals_sqlite(site_engine)
-        ensure_trade_market_sqlite(site_engine)
-        ensure_story_publish_schedules_sqlite(site_engine)
-        ensure_story_publish_schedule_extra_columns_sqlite(site_engine)
-        ensure_awards_voting_sqlite(site_engine)
-        ensure_member_watchlists_sqlite(site_engine)
-        ensure_news_engagement_sqlite(site_engine)
-        ensure_admin_undo_actions_sqlite(site_engine)
-        ensure_bowl_six_slates_discord_columns_sqlite(site_engine)
-        ensure_bowl_six_game_finals_sqlite(site_engine)
-        ensure_discord_outbound_sqlite(site_engine)
-        try:
-            from sqlalchemy.orm import Session
+        _bootstrap_site_schema_and_seed(app)
+        _server_site_bootstrapped = True
+        _log.info("Site database bootstrap complete for server DB")
 
-            from app.services.discord_events import bootstrap_discord_integration_all_leagues
 
-            with Session(site_engine) as site_session:
-                bootstrap_discord_integration_all_leagues(site_session)
-        except Exception as exc:
-            app.logger.warning("Discord integration bootstrap skipped: %s", exc)
-        ensure_prospect_system_rank_snapshots_sqlite(site_engine)
-        ensure_positional_rank_snapshots_sqlite(site_engine)
-        ensure_power_rank_snapshots_sqlite(site_engine)
-        ensure_prospect_league_rank_snapshots_sqlite(site_engine)
-        ensure_league_draft_slot_boost_tier_sqlite(site_engine)
-        ensure_boost_lottery_team_results_sqlite(site_engine)
-        ensure_gm_export_attendance_sqlite(site_engine)
-        ensure_gm_rule_strikes_sqlite(site_engine)
-        ensure_league_expansion_draft_columns_sqlite(site_engine)
-        seed_ap_catalog_if_empty()
-
-    run_sqlite_bootstrap_once(site_uri, _bootstrap, label="site membership")
+def bootstrap_site_sqlite(app: Flask) -> None:
+    """Backward-compatible alias."""
+    bootstrap_site_database(app)

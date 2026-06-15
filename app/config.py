@@ -147,6 +147,22 @@ def resolve_site_sqlite_path() -> Path:
     return (inst / "site_membership.db").resolve()
 
 
+def site_bind_engine_config(site_uri: str) -> str | dict[str, object]:
+    """Flask-SQLAlchemy bind config for the shared site database."""
+    uri = str(site_uri or "").strip()
+    if uri.startswith("mysql"):
+        return {
+            "url": uri,
+            "pool_pre_ping": True,
+            "pool_recycle": 280,
+        }
+    return uri
+
+
+def is_sqlite_database_uri(db_uri: str) -> bool:
+    return str(db_uri or "").strip().startswith("sqlite:///")
+
+
 def resolve_league_sqlite_path(slug: str) -> Path:
     """Pick SQLite file for this league.
 

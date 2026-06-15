@@ -8,7 +8,7 @@ from flask_login import current_user
 from flask_wtf.csrf import CSRFProtect
 
 from app.auth_login import login_manager
-from app.config import LEAGUES, Config
+from app.config import LEAGUES, Config, site_bind_engine_config
 from app.db_utils import (
     ensure_fts5,
     ensure_history_all_stars_sqlite,
@@ -66,7 +66,7 @@ from app.db_utils import (
     repair_fhm_team_city_from_name,
 )
 from app.models import Player, Team, db
-from app.sqlite_bootstrap import bootstrap_league_sqlite, bootstrap_site_sqlite
+from app.sqlite_bootstrap import bootstrap_league_sqlite, bootstrap_site_database
 from app.sqlite_pragmas import install_sqlite_connect_pragmas
 
 csrf = CSRFProtect()
@@ -93,7 +93,7 @@ def create_app(config_class: type = Config) -> Flask:
     site_uri = app.config.get("SITE_SQLALCHEMY_DATABASE_URI")
     if site_uri:
         binds = dict(app.config.get("SQLALCHEMY_BINDS") or {})
-        binds["site"] = site_uri
+        binds["site"] = site_bind_engine_config(str(site_uri))
         app.config["SQLALCHEMY_BINDS"] = binds
 
     instance_path = Path(app.instance_path)
@@ -124,7 +124,7 @@ def create_app(config_class: type = Config) -> Flask:
 
     with app.app_context():
         bootstrap_league_sqlite(app)
-        bootstrap_site_sqlite(app)
+        bootstrap_site_database(app)
         # FTS may be empty until import or seed; seed script calls rebuild
         try:
             from app.services.ratings_position_cache import backfill_null_positions_from_ratings

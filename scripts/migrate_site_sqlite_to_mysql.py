@@ -49,7 +49,10 @@ def _table_row_count(engine: Engine, table_name: str) -> int:
 
 
 def _mysql_has_rows(engine: Engine, tables: list[Table]) -> bool:
+    existing = set(inspect(engine).get_table_names())
     for table in tables:
+        if table.name not in existing:
+            continue
         if _table_row_count(engine, table.name) > 0:
             return True
     return False
@@ -127,6 +130,11 @@ def main() -> None:
     dest_engine = create_engine(site_url, pool_pre_ping=True)
     print(f"Destination: {site_url.split('@', 1)[-1]}")
 
+    import app.site_models  # noqa: F401
+    from app.league_db import db
+
+    db.metadatas["site"].create_all(bind=dest_engine)
+
     if _mysql_has_rows(dest_engine, tables) and not args.force:
         print(
             "Destination MySQL already has site rows. Re-run with --force to overwrite, "
@@ -135,35 +143,23 @@ def main() -> None:
         )
         sys.exit(1)
 
-    from hub import create_hub_app
-
-    hub = create_hub_app()
-    with hub.app_context():
-        from app.league_db import db
-
-        db.create_all()
-        site_engine = db.engines.get("site")
-        if site_engine is None:
-            print("Site engine missing after create_all()", file=sys.stderr)
-            sys.exit(1)
-
-        if args.force:
-            with site_engine.begin() as conn:
-                if site_engine.dialect.name == "mysql":
-                    conn.execute(text("SET FOREIGN_KEY_CHECKS=0"))
-                for table in reversed(tables):
-                    conn.execute(text(f"DELETE FROM `{table.name}`"))
-                if site_engine.dialect.name == "mysql":
-                    conn.execute(text("SET FOREIGN_KEY_CHECKS=1"))
-
-        total = 0
-        with site_engine.begin() as conn:
-            if site_engine.dialect.name == "mysql":
+    if args.force:
+        with dest_engine.begin() as conn:
+            if dest_engine.dialect.name == "mysql":
                 conn.execute(text("SET FOREIGN_KEY_CHECKS=0"))
-            for table in tables:
-                total += _copy_table(source_engine, conn, table)
-            if site_engine.dialect.name == "mysql":
+            for table in reversed(tables):
+                conn.execute(text(f"DELETE FROM `{table.name}`"))
+            if dest_engine.dialect.name == "mysql":
                 conn.execute(text("SET FOREIGN_KEY_CHECKS=1"))
+
+    total = 0
+    with dest_engine.begin() as conn:
+        if dest_engine.dialect.name == "mysql":
+            conn.execute(text("SET FOREIGN_KEY_CHECKS=0"))
+        for table in tables:
+            total += _copy_table(source_engine, conn, table)
+        if dest_engine.dialect.name == "mysql":
+            conn.execute(text("SET FOREIGN_KEY_CHECKS=1"))
 
     print(f"Migration complete. Copied {total} rows.")
     print("Next: reload the PythonAnywhere web app and bot with SITE_DATABASE_URL set.")

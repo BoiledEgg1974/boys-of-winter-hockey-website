@@ -1007,11 +1007,14 @@ def auto_update_bowl_six_slates(
     session: Session, league_session: Session, league_slug: str
 ) -> list[str]:
     """Refresh locked/scored slates after imports or page loads. Returns log lines."""
+    from app.sqlite_retry import write_with_sqlite_retry
+
     if not bowl_six_enabled(session, league_slug):
         return []
     lookback = date.today() - timedelta(days=21)
-    slates = list(
-        session.scalars(
+    slate_ids = [
+        int(s.id)
+        for s in session.scalars(
             select(BowlSixSlate)
             .where(
                 BowlSixSlate.league_slug == league_slug,
@@ -1020,15 +1023,26 @@ def auto_update_bowl_six_slates(
             )
             .order_by(BowlSixSlate.week_start.desc())
         ).all()
-    )
+    ]
     notes: list[str] = []
-    for slate in slates:
+    for slate_id in slate_ids:
         try:
-            note = _auto_update_single_slate(session, league_session, slate)
+
+            def _update_slate(sid: int = slate_id) -> str | None:
+                row = session.get(BowlSixSlate, sid)
+                if row is None:
+                    return None
+                return _auto_update_single_slate(session, league_session, row)
+
+            note = write_with_sqlite_retry(session, _update_slate)
             if note:
                 notes.append(note)
         except Exception:
-            _log.exception("BOWL Six auto-update failed for slate %s", slate.id)
+            try:
+                session.rollback()
+            except Exception:
+                pass
+            _log.exception("BOWL Six auto-update failed for slate %s", slate_id)
     return notes
 
 

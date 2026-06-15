@@ -599,6 +599,33 @@ class BowlSixScoringTest(unittest.TestCase):
             _auto_update_single_slate(site_session, league_session, slate)
         enqueue.assert_called_once_with(site_session, league_session, slate)
 
+    def test_auto_update_bowl_six_slates_retries_and_rolls_back_failed_slate(self):
+        from sqlalchemy.exc import OperationalError
+
+        from app.services.bowl_six import auto_update_bowl_six_slates
+
+        session = MagicMock()
+        session.scalars.return_value.all.return_value = [
+            BowlSixSlate(
+                id=8,
+                league_slug="bowl-historical",
+                week_start=date(1969, 3, 10),
+                week_end=date(1969, 3, 16),
+                status="locked",
+            )
+        ]
+        locked = OperationalError("stmt", {}, Exception("database is locked"))
+
+        with unittest.mock.patch(
+            "app.services.bowl_six.bowl_six_enabled", return_value=True
+        ), unittest.mock.patch(
+            "app.sqlite_retry.write_with_sqlite_retry", side_effect=locked
+        ):
+            notes = auto_update_bowl_six_slates(session, session, "bowl-historical")
+
+        session.rollback.assert_called_once()
+        self.assertEqual(notes, [])
+
 
 if __name__ == "__main__":
     unittest.main()

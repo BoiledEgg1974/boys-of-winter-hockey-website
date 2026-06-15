@@ -970,7 +970,9 @@ def get_league_bot_config(session, league_slug: str) -> DiscordLeagueBotConfig:
         updated_at=datetime.utcnow(),
     )
     session.add(row)
-    session.commit()
+    from app.sqlite_retry import commit_with_sqlite_retry
+
+    commit_with_sqlite_retry(session)
     return row
 
 
@@ -1361,7 +1363,9 @@ def fetch_pending_events_for_bot(session, *, league_slug: str, limit: int = 20) 
         if len(out) >= max(1, min(100, int(limit))):
             break
     if changed:
-        session.commit()
+        from app.sqlite_retry import commit_with_sqlite_retry
+
+        commit_with_sqlite_retry(session)
     return out
 
 
@@ -1468,7 +1472,9 @@ def mark_event_sent(session, event_id: int, *, discord_message_id: str = "") -> 
     row.last_error = ""
     row.next_attempt_at = None
     row.sent_at = datetime.utcnow()
-    session.commit()
+    from app.sqlite_retry import commit_with_sqlite_retry
+
+    commit_with_sqlite_retry(session)
     return True
 
 
@@ -1485,7 +1491,9 @@ def mark_event_failed(session, event_id: int, error: str) -> bool:
         delay_minutes = max(1, min(15, (2 ** max(0, int(row.attempts) - 1)) + (int(row.attempts) - 1)))
         row.status = "pending"
         row.next_attempt_at = datetime.utcnow() + timedelta(minutes=delay_minutes)
-    session.commit()
+    from app.sqlite_retry import commit_with_sqlite_retry
+
+    commit_with_sqlite_retry(session)
     return True
 
 

@@ -13,9 +13,27 @@ from app.routes.api import (
 
 
 class BowlSixDiscordRefreshTests(unittest.TestCase):
-    def test_discord_pending_refresh_is_throttled_per_league(self) -> None:
+    def test_discord_poll_skips_auto_update_by_default(self) -> None:
         app = Flask(__name__)
         app.config["BOWL_SIX_DISCORD_REFRESH_INTERVAL_SECONDS"] = 60
+        _BOWL_SIX_DISCORD_REFRESH_LAST.clear()
+
+        with app.app_context(), patch(
+            "app.services.bowl_six.auto_update_bowl_six_slates"
+        ) as auto_update, patch(
+            "app.services.bowl_six.maybe_enqueue_bowl_six_roster_reminders"
+        ) as reminders, patch(
+            "app.routes.api.commit_with_sqlite_retry"
+        ):
+            _refresh_bowl_six_discord_triggers("bowl-cap")
+
+        auto_update.assert_not_called()
+        reminders.assert_called_once()
+
+    def test_discord_poll_auto_update_when_enabled(self) -> None:
+        app = Flask(__name__)
+        app.config["BOWL_SIX_DISCORD_REFRESH_INTERVAL_SECONDS"] = 60
+        app.config["BOWL_SIX_DISCORD_POLL_AUTO_UPDATE"] = True
         _BOWL_SIX_DISCORD_REFRESH_LAST.clear()
 
         with app.app_context(), patch(
@@ -30,7 +48,3 @@ class BowlSixDiscordRefreshTests(unittest.TestCase):
 
         auto_update.assert_called_once()
         reminders.assert_called_once()
-
-
-if __name__ == "__main__":
-    unittest.main()

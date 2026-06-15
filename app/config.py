@@ -224,6 +224,16 @@ class Config:
     BOWL_SIX_DISCORD_REFRESH_INTERVAL_SECONDS = float(
         os.environ.get("BOWL_SIX_DISCORD_REFRESH_INTERVAL_SECONDS", "60") or 60
     )
+    # Off by default: full slate scoring on every bot poll competes with web traffic.
+    _BOWL_SIX_DISCORD_POLL_AUTO_UPDATE_RAW = os.environ.get(
+        "BOWL_SIX_DISCORD_POLL_AUTO_UPDATE", "0"
+    ).strip().lower()
+    BOWL_SIX_DISCORD_POLL_AUTO_UPDATE = _BOWL_SIX_DISCORD_POLL_AUTO_UPDATE_RAW in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
     HOMEPAGE_POSTSEASON_MC_SIMS = int(os.environ.get("HOMEPAGE_POSTSEASON_MC_SIMS", "600") or 600)
     JOIN_LEAGUE_RECIPIENT = os.environ.get("JOIN_LEAGUE_RECIPIENT", "keenovdecimanus@gmail.com")
     # Optional comma-separated extra inboxes for admin review alerts (news, AP, memberships).

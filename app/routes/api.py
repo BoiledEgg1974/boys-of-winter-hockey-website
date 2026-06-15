@@ -1937,7 +1937,8 @@ def _refresh_bowl_six_discord_triggers(slug: str) -> None:
             maybe_enqueue_bowl_six_roster_reminders,
         )
 
-        auto_update_bowl_six_slates(db.session, db.session, key)
+        if current_app.config.get("BOWL_SIX_DISCORD_POLL_AUTO_UPDATE"):
+            auto_update_bowl_six_slates(db.session, db.session, key)
         maybe_enqueue_bowl_six_roster_reminders(db.session, key)
         commit_with_sqlite_retry(db.session)
     except Exception:

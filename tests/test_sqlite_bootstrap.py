@@ -56,6 +56,20 @@ class SqliteBootstrapOnceTests(unittest.TestCase):
             self.assertTrue(marker.is_file())
             self.assertEqual(marker.read_text(encoding="utf-8").strip(), str(SQLITE_BOOTSTRAP_VERSION))
 
+    def test_lock_timeout_skips_without_raising(self) -> None:
+        calls: list[int] = []
+
+        def bootstrap() -> None:
+            calls.append(1)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "league.db"
+            db_uri = f"sqlite:///{db_path.as_posix()}"
+            with patch("app.sqlite_bootstrap.sqlite_bootstrap_lock", side_effect=TimeoutError):
+                run_sqlite_bootstrap_once(db_uri, bootstrap, label="test")
+
+        self.assertEqual(calls, [])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -49,7 +49,7 @@ def run_sqlite_bootstrap_once(
     db_uri: str,
     bootstrap: Callable[[], None],
     *,
-    timeout_s: float = 300.0,
+    timeout_s: float = 5.0,
     label: str = "",
 ) -> None:
     """Run bootstrap under a cross-process lock, skipping when already complete."""
@@ -61,17 +61,24 @@ def run_sqlite_bootstrap_once(
     if db_key in _completed_in_process:
         return
 
-    with sqlite_bootstrap_lock(db_uri, timeout_s=timeout_s):
-        if db_key in _completed_in_process:
-            return
-        if _marker_matches(db_key):
+    try:
+        with sqlite_bootstrap_lock(db_uri, timeout_s=timeout_s):
+            if db_key in _completed_in_process:
+                return
+            if _marker_matches(db_key):
+                _completed_in_process.add(db_key)
+                return
+            bootstrap()
+            _write_marker(db_key)
             _completed_in_process.add(db_key)
-            return
-        bootstrap()
-        _write_marker(db_key)
+            if label:
+                _log.info("SQLite bootstrap complete for %s", label)
+    except TimeoutError:
         _completed_in_process.add(db_key)
-        if label:
-            _log.info("SQLite bootstrap complete for %s", label)
+        _log.warning(
+            "SQLite bootstrap skipped for %s because another worker holds the lock",
+            label or db_key,
+        )
 
 
 def bootstrap_league_sqlite(app: Flask) -> None:

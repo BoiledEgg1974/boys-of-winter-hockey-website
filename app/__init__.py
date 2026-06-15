@@ -90,19 +90,6 @@ def create_app(config_class: type = Config) -> Flask:
             session.permanent = True
             session.modified = True
 
-    @app.before_request
-    def _maybe_purge_old_published_news():
-        from flask import request
-
-        if request.endpoint == "static":
-            return
-        slug = str(app.config.get("LEAGUE_SLUG") or "").strip()
-        if not slug:
-            return
-        from app.services.news_retention import maybe_purge_old_published_news
-
-        maybe_purge_old_published_news(db.session, league_slug=slug)
-
     site_uri = app.config.get("SITE_SQLALCHEMY_DATABASE_URI")
     if site_uri:
         binds = dict(app.config.get("SQLALCHEMY_BINDS") or {})
@@ -178,46 +165,46 @@ def create_app(config_class: type = Config) -> Flask:
             except Exception:
                 site_engine = None
             if site_engine is not None:
-                ensure_homepage_module_settings_sqlite(site_engine)
-                ensure_site_announcements_sqlite(site_engine)
-                ensure_site_users_admin_role_sqlite(site_engine)
-                ensure_password_reset_tokens_sqlite(site_engine)
-                ensure_site_banned_identities_sqlite(site_engine)
-                ensure_league_rule_settings_sqlite(site_engine)
-                ensure_gm_approval_requests_sqlite(site_engine)
-                ensure_staff_change_requests_sqlite(site_engine)
-                ensure_rfa_offer_requests_sqlite(site_engine)
-                ensure_team_staff_roster_entries_sqlite(site_engine)
-                ensure_gm_trade_proposals_sqlite(site_engine)
-                ensure_trade_market_sqlite(site_engine)
-                ensure_story_publish_schedules_sqlite(site_engine)
-                ensure_story_publish_schedule_extra_columns_sqlite(site_engine)
-                ensure_awards_voting_sqlite(site_engine)
-                ensure_member_watchlists_sqlite(site_engine)
-                ensure_mobile_push_devices_sqlite(site_engine)
-                ensure_news_engagement_sqlite(site_engine)
-                ensure_admin_undo_actions_sqlite(site_engine)
-                ensure_bowl_six_slates_discord_columns_sqlite(site_engine)
-                ensure_bowl_six_game_finals_sqlite(site_engine)
-                ensure_discord_outbound_sqlite(site_engine)
-                try:
-                    from sqlalchemy.orm import Session
+                with sqlite_bootstrap_lock(str(site_uri)):
+                    ensure_homepage_module_settings_sqlite(site_engine)
+                    ensure_site_announcements_sqlite(site_engine)
+                    ensure_site_users_admin_role_sqlite(site_engine)
+                    ensure_password_reset_tokens_sqlite(site_engine)
+                    ensure_site_banned_identities_sqlite(site_engine)
+                    ensure_league_rule_settings_sqlite(site_engine)
+                    ensure_gm_approval_requests_sqlite(site_engine)
+                    ensure_staff_change_requests_sqlite(site_engine)
+                    ensure_rfa_offer_requests_sqlite(site_engine)
+                    ensure_team_staff_roster_entries_sqlite(site_engine)
+                    ensure_gm_trade_proposals_sqlite(site_engine)
+                    ensure_trade_market_sqlite(site_engine)
+                    ensure_story_publish_schedules_sqlite(site_engine)
+                    ensure_story_publish_schedule_extra_columns_sqlite(site_engine)
+                    ensure_awards_voting_sqlite(site_engine)
+                    ensure_member_watchlists_sqlite(site_engine)
+                    ensure_news_engagement_sqlite(site_engine)
+                    ensure_admin_undo_actions_sqlite(site_engine)
+                    ensure_bowl_six_slates_discord_columns_sqlite(site_engine)
+                    ensure_bowl_six_game_finals_sqlite(site_engine)
+                    ensure_discord_outbound_sqlite(site_engine)
+                    try:
+                        from sqlalchemy.orm import Session
 
-                    from app.services.discord_events import bootstrap_discord_integration_all_leagues
+                        from app.services.discord_events import bootstrap_discord_integration_all_leagues
 
-                    with Session(site_engine) as site_session:
-                        bootstrap_discord_integration_all_leagues(site_session)
-                except Exception as exc:
-                    app.logger.warning("Discord integration bootstrap skipped: %s", exc)
-                ensure_prospect_system_rank_snapshots_sqlite(site_engine)
-                ensure_positional_rank_snapshots_sqlite(site_engine)
-                ensure_power_rank_snapshots_sqlite(site_engine)
-                ensure_prospect_league_rank_snapshots_sqlite(site_engine)
-                ensure_league_draft_slot_boost_tier_sqlite(site_engine)
-                ensure_boost_lottery_team_results_sqlite(site_engine)
-                ensure_gm_export_attendance_sqlite(site_engine)
-                ensure_gm_rule_strikes_sqlite(site_engine)
-                ensure_league_expansion_draft_columns_sqlite(site_engine)
+                        with Session(site_engine) as site_session:
+                            bootstrap_discord_integration_all_leagues(site_session)
+                    except Exception as exc:
+                        app.logger.warning("Discord integration bootstrap skipped: %s", exc)
+                    ensure_prospect_system_rank_snapshots_sqlite(site_engine)
+                    ensure_positional_rank_snapshots_sqlite(site_engine)
+                    ensure_power_rank_snapshots_sqlite(site_engine)
+                    ensure_prospect_league_rank_snapshots_sqlite(site_engine)
+                    ensure_league_draft_slot_boost_tier_sqlite(site_engine)
+                    ensure_boost_lottery_team_results_sqlite(site_engine)
+                    ensure_gm_export_attendance_sqlite(site_engine)
+                    ensure_gm_rule_strikes_sqlite(site_engine)
+                    ensure_league_expansion_draft_columns_sqlite(site_engine)
         # FTS may be empty until import or seed; seed script calls rebuild
         try:
             from app.services.ratings_position_cache import backfill_null_positions_from_ratings

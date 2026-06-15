@@ -12,6 +12,7 @@ from flask_wtf.csrf import CSRFProtect
 from app.auth_login import login_manager
 from app.config import BASE_DIR, Config, LEAGUES, league_slugs, resolve_site_sqlite_path
 from app.league_db import db
+from app.sqlite_bootstrap_lock import sqlite_bootstrap_lock
 
 csrf = CSRFProtect()
 def _default_league_slug() -> str:
@@ -96,22 +97,23 @@ def create_hub_app() -> Flask:
     importlib.import_module("app.site_models")
 
     with hub_app.app_context():
-        db.create_all()
-        try:
-            site_engine = db.engines.get("site")
-        except Exception:
-            site_engine = None
-        if site_engine is not None:
-            from app.db_utils import (
-                ensure_site_banned_identities_sqlite,
-                ensure_site_users_admin_role_sqlite,
-            )
+        with sqlite_bootstrap_lock(site_uri):
+            db.create_all()
+            try:
+                site_engine = db.engines.get("site")
+            except Exception:
+                site_engine = None
+            if site_engine is not None:
+                from app.db_utils import (
+                    ensure_site_banned_identities_sqlite,
+                    ensure_site_users_admin_role_sqlite,
+                )
 
-            ensure_site_users_admin_role_sqlite(site_engine)
-            ensure_site_banned_identities_sqlite(site_engine)
-        from app.services.ap_service import seed_ap_catalog_if_empty
+                ensure_site_users_admin_role_sqlite(site_engine)
+                ensure_site_banned_identities_sqlite(site_engine)
+            from app.services.ap_service import seed_ap_catalog_if_empty
 
-        seed_ap_catalog_if_empty()
+            seed_ap_catalog_if_empty()
 
         try:
             from app.services.bootstrap_site import ensure_commish_admin

@@ -30,18 +30,17 @@ def _reset_session_after_lock(session: Session) -> None:
         pass
 
 
-def commit_with_sqlite_retry(
+def _retry_sqlite_operation(
     session: Session,
+    operation: Callable[[], _T],
     *,
-    attempts: int = _DEFAULT_ATTEMPTS,
-    base_delay: float = _DEFAULT_BASE_DELAY,
-) -> None:
-    """Commit, retrying on SQLite lock errors."""
+    attempts: int,
+    base_delay: float,
+) -> _T:
     last: OperationalError | None = None
     for i in range(attempts):
         try:
-            session.commit()
-            return
+            return operation()
         except OperationalError as exc:
             if not _is_sqlite_locked(exc):
                 raise
@@ -52,6 +51,27 @@ def commit_with_sqlite_retry(
             time.sleep(base_delay * (i + 1))
     if last is not None:
         raise last
+    raise RuntimeError("SQLite retry exhausted without result")
+
+
+def commit_with_sqlite_retry(
+    session: Session,
+    *,
+    attempts: int = _DEFAULT_ATTEMPTS,
+    base_delay: float = _DEFAULT_BASE_DELAY,
+) -> None:
+    """Commit, retrying on SQLite lock errors."""
+    _retry_sqlite_operation(session, session.commit, attempts=attempts, base_delay=base_delay)
+
+
+def flush_with_sqlite_retry(
+    session: Session,
+    *,
+    attempts: int = _DEFAULT_ATTEMPTS,
+    base_delay: float = _DEFAULT_BASE_DELAY,
+) -> None:
+    """Flush pending ORM state, retrying on SQLite lock errors."""
+    _retry_sqlite_operation(session, session.flush, attempts=attempts, base_delay=base_delay)
 
 
 def write_with_sqlite_retry(
@@ -62,20 +82,12 @@ def write_with_sqlite_retry(
     base_delay: float = _DEFAULT_BASE_DELAY,
 ) -> _T:
     """Run a write callable and commit, retrying on SQLite lock errors."""
-    last: OperationalError | None = None
-    for i in range(attempts):
-        try:
-            result = write()
-            session.commit()
-            return result
-        except OperationalError as exc:
-            if not _is_sqlite_locked(exc):
-                raise
-            last = exc
-            _reset_session_after_lock(session)
-            if i >= attempts - 1:
-                raise
-            time.sleep(base_delay * (i + 1))
-    if last is not None:
-        raise last
-    raise RuntimeError("write_with_sqlite_retry exhausted without result")
+
+    def _write_and_commit() -> _T:
+        result = write()
+        session.commit()
+        return result
+
+    return _retry_sqlite_operation(
+        session, _write_and_commit, attempts=attempts, base_delay=base_delay
+    )

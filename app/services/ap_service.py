@@ -10,7 +10,7 @@ from sqlalchemy import func, select
 
 from app.config import league_group_for_slug
 from app.league_db import db
-from app.sqlite_retry import commit_with_sqlite_retry
+from app.sqlite_retry import commit_with_sqlite_retry, write_with_sqlite_retry
 from app.models import Team
 from app.site_models import ApLedgerEntry, ApRedemptionCatalog, ApRedemptionRequest, NewsArticle, User
 
@@ -87,12 +87,13 @@ def parse_redemption_line_labels(lines_json: str) -> list[str]:
 
 def team_ap_balance(league_slug: str, team_id: int) -> int:
     """Sum of ledger deltas for this team."""
-    total = db.session.scalar(
-        select(func.coalesce(func.sum(ApLedgerEntry.delta), 0)).where(
-            ApLedgerEntry.league_slug == league_slug,
-            ApLedgerEntry.team_id == team_id,
+    with db.session.no_autoflush:
+        total = db.session.scalar(
+            select(func.coalesce(func.sum(ApLedgerEntry.delta), 0)).where(
+                ApLedgerEntry.league_slug == league_slug,
+                ApLedgerEntry.team_id == team_id,
+            )
         )
-    )
     return int(total or 0)
 
 
@@ -108,9 +109,10 @@ def add_ledger_entry(
 ) -> ApLedgerEntry | None:
     """Insert ledger row. If source_ref is set and already exists, returns None (idempotent)."""
     if source_ref:
-        existing = db.session.scalar(
-            select(ApLedgerEntry.id).where(ApLedgerEntry.source_ref == source_ref).limit(1)
-        )
+        with db.session.no_autoflush:
+            existing = db.session.scalar(
+                select(ApLedgerEntry.id).where(ApLedgerEntry.source_ref == source_ref).limit(1)
+            )
         if existing is not None:
             return None
     row = ApLedgerEntry(
@@ -318,39 +320,55 @@ def maybe_credit_daily_export_for_team(
 
 def approve_redemption_request(req: ApRedemptionRequest, admin_user_id: int) -> bool:
     """Deduct AP if still affordable; mark approved. Returns False if balance insufficient."""
-    bal = team_ap_balance(req.league_slug, req.team_id)
-    if bal < req.total_cost:
-        return False
-    add_ledger_entry(
-        league_slug=req.league_slug,
-        team_id=req.team_id,
-        delta=-int(req.total_cost),
-        reason_code="redemption",
-        meta={"request_id": req.id, "lines": json.loads(req.lines_json or "[]")},
-        created_by_user_id=admin_user_id,
-    )
-    req.status = "approved"
-    req.processed_at = datetime.utcnow()
-    commit_with_sqlite_retry(db.session)
-    return True
+    req_id = int(req.id)
+    admin_id = int(admin_user_id)
+
+    def _approve() -> bool:
+        row = db.session.get(ApRedemptionRequest, req_id)
+        if row is None or row.status != "pending":
+            return False
+        bal = team_ap_balance(row.league_slug, int(row.team_id))
+        if bal < int(row.total_cost):
+            return False
+        add_ledger_entry(
+            league_slug=row.league_slug,
+            team_id=int(row.team_id),
+            delta=-int(row.total_cost),
+            reason_code="redemption",
+            meta={"request_id": row.id, "lines": json.loads(row.lines_json or "[]")},
+            created_by_user_id=admin_id,
+        )
+        row.status = "approved"
+        row.processed_at = datetime.utcnow()
+        return True
+
+    return bool(write_with_sqlite_retry(db.session, _approve))
 
 
 def publish_news_and_maybe_award_ap(article: NewsArticle, *, points: int) -> None:
     """Set published, insert AP ledger once if configured points > 0."""
-    article.status = "published"
-    article.published_at = datetime.utcnow()
-    if points > 0 and article.team_id is not None and not article.ap_awarded:
-        add_ledger_entry(
-            league_slug=article.league_slug,
-            team_id=int(article.team_id),
-            delta=points,
-            reason_code="news_article",
-            meta={"article_id": article.id},
-            created_by_user_id=article.author_user_id,
-            source_ref=f"news_ap:{article.id}",
-        )
-        article.ap_awarded = True
-    commit_with_sqlite_retry(db.session)
+    article_id = int(article.id)
+    award_points = int(points)
+
+    def _publish() -> None:
+        art = db.session.get(NewsArticle, article_id)
+        if art is None:
+            return
+        art.status = "published"
+        art.published_at = datetime.utcnow()
+        if award_points > 0 and art.team_id is not None and not art.ap_awarded:
+            add_ledger_entry(
+                league_slug=art.league_slug,
+                team_id=int(art.team_id),
+                delta=award_points,
+                reason_code="news_article",
+                meta={"article_id": art.id},
+                created_by_user_id=art.author_user_id,
+                source_ref=f"news_ap:{art.id}",
+            )
+            art.ap_awarded = True
+
+    write_with_sqlite_retry(db.session, _publish)
 
 
 def new_redemption_token() -> str:

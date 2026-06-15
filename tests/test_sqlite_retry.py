@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 from sqlalchemy.exc import OperationalError
 
-from app.sqlite_retry import commit_with_sqlite_retry, write_with_sqlite_retry
+from app.sqlite_retry import commit_with_sqlite_retry, flush_with_sqlite_retry, write_with_sqlite_retry
 
 
 class SqliteRetryTests(unittest.TestCase):
@@ -31,6 +31,30 @@ class SqliteRetryTests(unittest.TestCase):
 
         self.assertEqual(result, 9)
         self.assertEqual(write.call_count, 2)
+        session.expire_all.assert_called_once()
+
+
+    def test_write_retries_locked_during_write(self) -> None:
+        session = MagicMock()
+        locked = OperationalError("stmt", {}, Exception("database is locked"))
+        write = MagicMock(side_effect=[locked, 9])
+        session.commit.return_value = None
+
+        result = write_with_sqlite_retry(session, write, attempts=3, base_delay=0)
+
+        self.assertEqual(result, 9)
+        self.assertEqual(write.call_count, 2)
+        session.expire_all.assert_called_once()
+
+    def test_flush_retries_locked(self) -> None:
+        session = MagicMock()
+        locked = OperationalError("stmt", {}, Exception("database is locked"))
+        session.flush.side_effect = [locked, None]
+
+        flush_with_sqlite_retry(session, attempts=3, base_delay=0)
+
+        self.assertEqual(session.flush.call_count, 2)
+        session.rollback.assert_called_once()
         session.expire_all.assert_called_once()
 
 

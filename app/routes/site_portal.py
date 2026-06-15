@@ -173,7 +173,7 @@ from app.services.ap_service import (
     publish_news_and_maybe_award_ap,
     team_ap_balance,
 )
-from app.sqlite_retry import commit_with_sqlite_retry, write_with_sqlite_retry
+from app.sqlite_retry import commit_with_sqlite_retry, flush_with_sqlite_retry, write_with_sqlite_retry
 from app.services.export_attendance import (
     build_attendance_tracker_payload,
     maybe_send_export_gap_warning,
@@ -7130,6 +7130,7 @@ def admin_news_publish(aid: int):
         return redirect(url_for("site_admin.admin_news_queue"))
     pts = int(current_app.config.get("NEWS_ARTICLE_AP_POINTS", 3))
     publish_news_and_maybe_award_ap(art, points=pts)
+    db.session.refresh(art)
     team = db.session.get(Team, art.team_id) if art.team_id else None
     _enqueue_discord_event(
         "gm_news_published",
@@ -7716,7 +7717,7 @@ def admin_ap_approve(rid: int):
             published_at=datetime.utcnow(),
         )
         db.session.add(art)
-        db.session.flush()
+        flush_with_sqlite_retry(db.session)
         commit_with_sqlite_retry(db.session)
         _enqueue_discord_event(
             "ap_redemption_posted",

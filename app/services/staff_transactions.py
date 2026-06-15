@@ -278,15 +278,16 @@ def submit_fire_request(
 
 
 def _deny_other_pending_hires(session: Session, *, league_slug: str, staff_fhm_id: str, except_id: int) -> int:
-    rows = session.scalars(
-        select(StaffChangeRequest).where(
-            StaffChangeRequest.league_slug == league_slug,
-            StaffChangeRequest.staff_fhm_id == staff_fhm_id,
-            StaffChangeRequest.request_type == "hire",
-            StaffChangeRequest.status == "pending",
-            StaffChangeRequest.id != int(except_id),
-        )
-    ).all()
+    with session.no_autoflush:
+        rows = session.scalars(
+            select(StaffChangeRequest).where(
+                StaffChangeRequest.league_slug == league_slug,
+                StaffChangeRequest.staff_fhm_id == staff_fhm_id,
+                StaffChangeRequest.request_type == "hire",
+                StaffChangeRequest.status == "pending",
+                StaffChangeRequest.id != int(except_id),
+            )
+        ).all()
     now = datetime.utcnow()
     for row in rows:
         row.status = "denied"

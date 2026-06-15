@@ -147,9 +147,27 @@ def resolve_site_sqlite_path() -> Path:
     return (inst / "site_membership.db").resolve()
 
 
+def normalize_site_database_url(db_uri: str) -> str:
+    """Fix PythonAnywhere MySQL URLs where ``%24`` must become ``$`` in the DB name."""
+    uri = str(db_uri or "").strip()
+    if not uri.startswith("mysql"):
+        return uri
+    from urllib.parse import unquote
+
+    from sqlalchemy.engine import make_url
+
+    parsed = make_url(uri)
+    if not parsed.database:
+        return uri
+    database = unquote(parsed.database)
+    if database == parsed.database:
+        return uri
+    return parsed.set(database=database).render_as_string(hide_password=False)
+
+
 def site_bind_engine_config(site_uri: str) -> str | dict[str, object]:
     """Flask-SQLAlchemy bind config for the shared site database."""
-    uri = str(site_uri or "").strip()
+    uri = normalize_site_database_url(str(site_uri or "").strip())
     if uri.startswith("mysql"):
         return {
             "url": uri,
@@ -262,9 +280,11 @@ class Config:
     MAIL_SMTP_USE_TLS = os.environ.get("MAIL_SMTP_USE_TLS", "1").lower() not in {"0", "false", "no", "off"}
     MAIL_SMTP_USE_SSL = os.environ.get("MAIL_SMTP_USE_SSL", "0").lower() in {"1", "true", "yes", "on"}
     PASSWORD_RESET_TOKEN_TTL_MINUTES = int(os.environ.get("PASSWORD_RESET_TOKEN_TTL_MINUTES", "60"))
-    SITE_SQLALCHEMY_DATABASE_URI = os.environ.get(
-        "SITE_DATABASE_URL",
-        f"sqlite:///{resolve_site_sqlite_path()}",
+    SITE_SQLALCHEMY_DATABASE_URI = normalize_site_database_url(
+        os.environ.get(
+            "SITE_DATABASE_URL",
+            f"sqlite:///{resolve_site_sqlite_path()}",
+        )
     )
     # GM news → AP when article is published (set later via env or admin UI constant)
     NEWS_ARTICLE_AP_POINTS = int(os.environ.get("NEWS_ARTICLE_AP_POINTS", "3"))

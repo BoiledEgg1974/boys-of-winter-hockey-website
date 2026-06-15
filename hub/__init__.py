@@ -10,7 +10,7 @@ from flask_login import current_user
 from flask_wtf.csrf import CSRFProtect
 
 from app.auth_login import login_manager
-from app.config import BASE_DIR, Config, LEAGUES, league_slugs, resolve_site_sqlite_path, site_bind_engine_config
+from app.config import BASE_DIR, Config, LEAGUES, league_slugs, normalize_site_database_url, resolve_site_sqlite_path, site_bind_engine_config
 from app.league_db import db
 from app.sqlite_bootstrap import bootstrap_site_database
 
@@ -54,8 +54,9 @@ def create_hub_app() -> Flask:
         static_folder=str(BASE_DIR / "app" / "static"),
         static_url_path="/static",
     )
-    site_uri = str(hub_app.config.get("SITE_SQLALCHEMY_DATABASE_URI", "")).strip() or os.environ.get(
-        "SITE_DATABASE_URL", f"sqlite:///{resolve_site_sqlite_path()}"
+    site_uri = normalize_site_database_url(
+        str(hub_app.config.get("SITE_SQLALCHEMY_DATABASE_URI", "")).strip()
+        or os.environ.get("SITE_DATABASE_URL", f"sqlite:///{resolve_site_sqlite_path()}")
     )
     hub_app.config.from_mapping(
         SECRET_KEY=os.environ.get("SECRET_KEY", Config.SECRET_KEY),

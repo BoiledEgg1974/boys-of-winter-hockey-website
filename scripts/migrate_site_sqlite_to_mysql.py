@@ -26,6 +26,8 @@ if str(ROOT) not in sys.path:
 
 load_dotenv(ROOT / ".env")
 
+from app.config import normalize_site_database_url
+
 DEFAULT_SQLITE = ROOT / "instance" / "site_membership.db"
 BATCH_SIZE = 500
 
@@ -92,7 +94,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    site_url = str(os.environ.get("SITE_DATABASE_URL") or "").strip()
+    site_url = normalize_site_database_url(str(os.environ.get("SITE_DATABASE_URL") or "").strip())
     sqlite_path = args.sqlite_path.resolve()
     if not sqlite_path.is_file():
         print(f"SQLite source not found: {sqlite_path}", file=sys.stderr)

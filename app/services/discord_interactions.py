@@ -951,11 +951,30 @@ def _handle_records_command(payload: dict[str, Any], season: Season) -> dict[str
         st = db.session.scalar(select(TeamStanding).where(TeamStanding.season_id == season.id, TeamStanding.team_id == int(team.id)).limit(1))
         if st is None:
             return _ephemeral(f"No current standings record found for {_team_label(team)}.")
-        return _ephemeral(f"{team.full_display_name()}: {st.w}-{st.l}-{st.otl}, {st.pts} pts, GF/GA {st.gf}/{st.ga}, streak {st.streak or '-'}.")
+        return _ephemeral(
+            f"{team.full_display_name()}: {_discord_standings_record(st)}, "
+            f"{int(st.pts or 0)} pts, GF/GA {int(st.gf or 0)}/{int(st.ga or 0)}, "
+            f"streak {st.streak or '-'}."
+        )
     rec = db.session.scalar(select(TeamSeasonRecord).where(TeamSeasonRecord.pts.isnot(None)).order_by(TeamSeasonRecord.pts.desc()).limit(1))
     if rec is None:
         return _ephemeral("No team record data found.")
-    return _ephemeral(f"Top season record: {rec.team_name_override or 'Team'} {rec.season_year_label}: {rec.w}-{rec.l}-{rec.t_otl}, {rec.pts} pts.")
+    return _ephemeral(
+        f"Top season record: {rec.team_name_override or 'Team'} {rec.season_year_label}: "
+        f"{int(rec.gp or 0)} GP, {int(rec.w or 0)} W, {int(rec.l or 0)} L, "
+        f"{int(rec.t_otl or 0)} T, {int(rec.pts or 0)} pts."
+    )
+
+
+def _discord_standings_record(st: TeamStanding) -> str:
+    """Discord standings should mirror imported GP/W/L/T columns, not OTL labels."""
+    gp = int(st.gp or 0)
+    if gp <= 0:
+        gp = int(st.standing_gp_display() or 0)
+    return (
+        f"{gp} GP, {int(st.w or 0)} W, {int(st.l or 0)} L, "
+        f"{int(st.ties or 0)} T"
+    )
 
 
 def handle_slash_interaction(
@@ -1037,7 +1056,10 @@ def handle_slash_interaction(
             return _ephemeral("No standings data is available yet.")
         lines = ["Top standings:"]
         for i, (st, tm) in enumerate(rows, start=1):
-            lines.append(f"{i}. {tm.abbreviation or tm.name}: {st.pts} pts ({st.w}-{st.l}-{st.otl})")
+            lines.append(
+                f"{i}. {tm.abbreviation or tm.name}: {int(st.pts or 0)} pts "
+                f"({_discord_standings_record(st)})"
+            )
         return _ephemeral("\n".join(lines))
 
     if command == "nextgame":
@@ -1070,6 +1092,9 @@ def handle_slash_interaction(
         )
         if st is None:
             return _ephemeral(f"{team.name} ({team.abbreviation}) has no standings row yet.")
-        return _ephemeral(f"{team.name} ({team.abbreviation}): {st.pts} pts, {st.w}-{st.l}-{st.otl}.")
+        return _ephemeral(
+            f"{team.name} ({team.abbreviation}): {int(st.pts or 0)} pts, "
+            f"{_discord_standings_record(st)}."
+        )
 
     return _ephemeral("Unknown BOWL command.")

@@ -218,7 +218,7 @@ def standing_row_json(
         "name": tm.full_display_name(),
         "abbr": tm.abbreviation,
         "logo_url": dashboard_team_logo_url(tm, logo_season_year),
-        "gp": st.standing_gp_display(),
+        "gp": int(st.gp or 0) or int(st.standing_gp_display() or 0),
         "w": st.w,
         "l": st.l,
         "ties": int(st.ties or 0),

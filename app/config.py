@@ -2,9 +2,12 @@ import os
 import sqlite3
 from datetime import timedelta
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 
 from dotenv import load_dotenv
+from sqlalchemy import create_engine
+from sqlalchemy.engine import Engine
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
@@ -165,15 +168,33 @@ def normalize_site_database_url(db_uri: str) -> str:
     return parsed.set(database=database).render_as_string(hide_password=False)
 
 
-def site_bind_engine_config(site_uri: str) -> str | dict[str, object]:
+def _mysql_site_pool_options() -> dict[str, object]:
+    """Conservative pool limits for shared hosting (e.g. PythonAnywhere max_user_connections)."""
+    return {
+        "pool_pre_ping": True,
+        "pool_recycle": 280,
+        "pool_size": int(os.environ.get("SITE_MYSQL_POOL_SIZE", "3")),
+        "max_overflow": int(os.environ.get("SITE_MYSQL_MAX_OVERFLOW", "5")),
+        "pool_timeout": int(os.environ.get("SITE_MYSQL_POOL_TIMEOUT", "30")),
+    }
+
+
+@lru_cache(maxsize=1)
+def shared_site_mysql_engine(site_uri: str) -> Engine:
+    """One connection pool per process for the shared site MySQL database.
+
+    ``wsgi.py`` mounts a hub app plus lazy league apps; Discord slash handling
+    also creates league apps in-process. Without sharing, each Flask app opens
+    its own pool and can exceed ``max_user_connections`` on the host.
+    """
+    return create_engine(site_uri, **_mysql_site_pool_options())
+
+
+def site_bind_engine_config(site_uri: str) -> str | Engine:
     """Flask-SQLAlchemy bind config for the shared site database."""
     uri = normalize_site_database_url(str(site_uri or "").strip())
     if uri.startswith("mysql"):
-        return {
-            "url": uri,
-            "pool_pre_ping": True,
-            "pool_recycle": 280,
-        }
+        return shared_site_mysql_engine(uri)
     return uri
 
 

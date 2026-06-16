@@ -15,7 +15,7 @@ StaffId;Executive;Manager;Coach;Scout;Trainer;Off Pref;Phy Pref;Line Matching;Go
 13;10;10;15;20;1;Defensive;Balanced;Aggressive;Balanced;Balanced;Balanced;Balanced;11;14;8;9;19;6;8;14;16;17;7;12;15;15;1;;13;12
 14;1;10;15;20;1;Standard;Non-physical;Balanced;Balanced;Prefers Prospects;Balanced;Balanced;4;4;4;4;4;4;4;2;4;2;2;2;4;4;0;;14;14
 15;1;5;20;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;6;6;6;6;6;6;6;1;6;1;1;1;6;6;0;;13;12
-16;10;15;20;20;1;Standard;Balanced;Aggressive;Balanced;Balanced;Balanced;Balanced;11;11;11;11;11;11;11;8;11;8;8;8;11;11;0;;14;14
+16;10;15;19;20;1;Standard;Balanced;Aggressive;Balanced;Balanced;Balanced;Balanced;11;11;11;11;11;11;11;8;11;8;8;8;11;11;0;;14;14
 17;10;15;15;20;1;Defensive;Balanced;Balanced;Conservative;Balanced;Balanced;Balanced;20;11;9;13;17;9;9;18;13;7;18;7;9;15;0;;16;17
 18;1;15;20;15;1;Standard;Balanced;Balanced;Balanced;Prefers Veterans;Balanced;Loyal;13;20;20;9;13;16;16;12;13;12;12;12;6;20;0;;13;12
 19;1;15;20;15;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;5;10;10;16;12;12;10;13;18;17;9;8;5;12;0;;14;13
@@ -2207,7 +2207,7 @@ StaffId;Executive;Manager;Coach;Scout;Trainer;Off Pref;Phy Pref;Line Matching;Go
 2205;1;10;20;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;4;4;4;4;4;4;4;2;4;2;2;2;4;4;0;;13;12
 2206;1;10;10;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;2;2;2;2;2;2;2;2;2;2;2;2;2;2;0;;14;14
 2207;1;10;10;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;2;2;2;2;2;2;2;2;2;2;2;2;2;2;0;;14;14
-2208;0;20;17;0;0;Very Defensive;Very Physical;Balanced;Balanced;Balanced;Balanced;Balanced;7;7;7;7;7;7;7;7;7;7;7;7;7;7;0;;0;0
+2208;0;20;16;0;0;Very Defensive;Very Physical;Balanced;Balanced;Balanced;Balanced;Balanced;7;7;7;7;7;7;7;7;7;7;7;7;7;7;0;;0;0
 2209;20;15;5;5;1;Offensive;Balanced;Passive;Conservative;Prefers Veterans;Balanced;Ruthless;5;1;11;1;8;1;15;7;7;0;4;8;9;8;0;;9;3
 2210;5;10;20;15;1;Defensive;Physical;Passive;Conservative;Balanced;Balanced;Very Ruthless;5;16;16;3;7;16;16;3;12;8;8;12;12;4;0;;15;9
 2211;5;10;20;15;1;Defensive;Physical;Balanced;Balanced;Balanced;Balanced;Balanced;11;10;15;11;3;7;13;8;7;9;8;11;8;10;0;;5;11

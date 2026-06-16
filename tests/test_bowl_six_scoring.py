@@ -31,6 +31,7 @@ from app.services.bowl_six import (
     slate_week_rs_games_complete,
     sync_bowl_six_slate_ap_awards,
     sync_slate_week_to_league_calendar,
+    unlock_slate_for_edits,
     utc_naive_from_eastern,
     validate_lineup_picks,
 )
@@ -208,6 +209,22 @@ class BowlSixScoringTest(unittest.TestCase):
             self.assertEqual(start, __import__("datetime").datetime(2026, 5, 19, 0, 0))
             self.assertEqual(end, __import__("datetime").datetime(2026, 5, 25, 4, 0))
 
+    def test_custom_scoring_dates_start_at_midnight_et(self):
+        slate = BowlSixSlate(
+            league_slug="bowl-cap",
+            week_start=date(2026, 6, 15),
+            week_end=date(2026, 6, 21),
+            scoring_week_start=date(2026, 6, 16),
+            scoring_week_end=date(2026, 6, 20),
+            lock_at=__import__("datetime").datetime(2026, 6, 15, 23, 59),
+            status="locked",
+        )
+
+        start, end = slate_real_scoring_window_utc(slate)
+
+        self.assertEqual(start, __import__("datetime").datetime(2026, 6, 16, 4, 0))
+        self.assertEqual(end, __import__("datetime").datetime(2026, 6, 21, 4, 0))
+
     def test_eastern_utc_round_trip(self):
         dt = __import__("datetime").datetime(2026, 5, 20, 0, 30)
         et = eastern_naive_from_utc_naive(dt)
@@ -382,6 +399,39 @@ class BowlSixScoringTest(unittest.TestCase):
         ui = slate_lock_ui(slate)
         self.assertFalse(ui["show_countdown"])
         self.assertEqual(ui["banner_label"], "Lineups locked")
+
+    def test_unlock_slate_for_edits_extends_past_lock(self):
+        now = datetime(2026, 6, 16, 10, 0)
+        slate = BowlSixSlate(
+            league_slug="bowl-cap",
+            week_start=date(2026, 6, 15),
+            week_end=date(2026, 6, 21),
+            status="locked",
+            lock_at=datetime(2026, 6, 15, 23, 59),
+        )
+
+        extended = unlock_slate_for_edits(slate, now=now)
+
+        self.assertTrue(extended)
+        self.assertEqual(slate.status, "open")
+        self.assertEqual(slate.lock_at, datetime(2026, 6, 16, 12, 0))
+
+    def test_unlock_slate_for_edits_keeps_future_lock(self):
+        now = datetime(2026, 6, 16, 10, 0)
+        future = datetime(2026, 6, 16, 18, 0)
+        slate = BowlSixSlate(
+            league_slug="bowl-cap",
+            week_start=date(2026, 6, 15),
+            week_end=date(2026, 6, 21),
+            status="locked",
+            lock_at=future,
+        )
+
+        extended = unlock_slate_for_edits(slate, now=now)
+
+        self.assertFalse(extended)
+        self.assertEqual(slate.status, "open")
+        self.assertEqual(slate.lock_at, future)
 
     def test_bowl_six_ap_awards_are_versioned_for_rescore_reaward(self):
         slate = BowlSixSlate(

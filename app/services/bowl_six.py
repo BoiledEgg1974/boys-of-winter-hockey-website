@@ -309,10 +309,13 @@ def lock_time_is_future(slate: BowlSixSlate) -> bool:
 
 def slate_real_scoring_window_utc(slate: BowlSixSlate) -> tuple[datetime, datetime]:
     """Inclusive start, exclusive end for real-time BOWL Six scoring."""
-    # Rosters unlock Monday 12:00 AM ET and lock Monday 7:59 PM ET; BOWL Six
-    # scoring begins immediately after the lock for every league site.
-    start_et = datetime.combine(slate.week_start, time(20, 0))
-    end_et = datetime.combine(slate.week_end + timedelta(days=1), time(0, 0))
+    # Normal slates begin immediately after the Monday 7:59 PM ET lock. A
+    # per-slate scoring date override starts at midnight on its first date.
+    scoring_start = slate.scoring_week_start or slate.week_start
+    scoring_end = slate.scoring_week_end or slate.week_end
+    start_time = time(20, 0) if scoring_start == slate.week_start else time(0, 0)
+    start_et = datetime.combine(scoring_start, start_time)
+    end_et = datetime.combine(scoring_end + timedelta(days=1), time(0, 0))
     return utc_naive_from_eastern(start_et), utc_naive_from_eastern(end_et)
 
 
@@ -375,6 +378,21 @@ def sync_slate_lock_status(session: Session, slate: BowlSixSlate) -> None:
         return
     if slate.status == "open" and now >= slate.lock_at:
         slate.status = "locked"
+
+
+def unlock_slate_for_edits(
+    slate: BowlSixSlate,
+    *,
+    minimum_open_for: timedelta = timedelta(hours=2),
+    now: datetime | None = None,
+) -> bool:
+    """Reopen a slate and make sure its lock deadline still permits edits."""
+    slate.status = "open"
+    current = now or utcnow_naive()
+    if slate.lock_at is None or current >= slate.lock_at:
+        slate.lock_at = current + minimum_open_for
+        return True
+    return False
 
 
 def _gm_role_mention_for_league(session: Session, league_slug: str) -> str:
@@ -755,6 +773,51 @@ def rs_games_in_slate_week(league_session: Session, slate: BowlSixSlate) -> list
         for g in rows
         if (g.status or "").lower() == "final" and _is_regular_season_game(g.game_type)
     ]
+
+
+def reset_slate_scoring_state(
+    session: Session,
+    league_session: Session,
+    slate: BowlSixSlate,
+) -> dict[str, int]:
+    """Clear stored BOWL Six scores and game markers without deleting submitted lineups."""
+    lineup_ids = select(BowlSixLineup.id).where(BowlSixLineup.slate_id == int(slate.id))
+    score_result = session.execute(
+        delete(BowlSixLineupScore).where(BowlSixLineupScore.lineup_id.in_(lineup_ids))
+    )
+    player_stat_result = session.execute(
+        delete(BowlSixPlayerWeekStat).where(BowlSixPlayerWeekStat.slate_id == int(slate.id))
+    )
+
+    marker_removed = 0
+    season = get_current_season()
+    if season is not None:
+        games = list(
+            league_session.scalars(
+                select(Game).where(
+                    Game.season_id == int(season.id),
+                    Game.game_date.isnot(None),
+                    Game.game_date >= slate.week_start,
+                    Game.game_date <= slate.week_end,
+                )
+            ).all()
+        )
+        game_ids = [int(g.id) for g in games if _is_regular_season_game(g.game_type)]
+        if game_ids:
+            marker_result = session.execute(
+                delete(BowlSixGameFinal).where(
+                    BowlSixGameFinal.league_slug == str(slate.league_slug or ""),
+                    BowlSixGameFinal.game_id.in_(game_ids),
+                )
+            )
+            marker_removed = int(marker_result.rowcount or 0)
+
+    session.flush()
+    return {
+        "lineup_scores": int(score_result.rowcount or 0),
+        "player_week_stats": int(player_stat_result.rowcount or 0),
+        "game_markers": marker_removed,
+    }
 
 
 def _backfill_active_slate_final_markers_from_legacy_window(

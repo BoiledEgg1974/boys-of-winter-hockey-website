@@ -43,6 +43,7 @@ from app.services.bowl_six import (
     save_lineup,
     score_slate,
     season_ap_prize_for_rank,
+    unlock_slate_for_edits,
     slate_lock_ui,
     slate_rankings,
     bowl_six_lineup_snapshot_slots,
@@ -663,11 +664,14 @@ def admin_bowl_six_unlock():
     if slate.status == "scored":
         flash("Cannot unlock a scored slate.", "err")
         return redirect(url_for("site_admin.admin_control_center"))
-    slate.status = "open"
+    extended_lock = unlock_slate_for_edits(slate)
+    _audit("bowl_six_unlock", {"slate_id": sid, "extended_lock": extended_lock})
     commit_with_sqlite_retry(db.session)
-    _audit("bowl_six_unlock", {"slate_id": sid})
-    commit_with_sqlite_retry(db.session)
-    flash("Slate unlocked for edits.", "ok")
+    flash(
+        "Slate unlocked for edits."
+        + (" The lock time was moved forward so GMs can save lineups now." if extended_lock else ""),
+        "ok",
+    )
     return redirect(url_for("site_admin.admin_control_center"))
 
 

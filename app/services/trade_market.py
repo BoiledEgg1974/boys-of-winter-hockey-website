@@ -767,7 +767,7 @@ def _trade_market_team_gm_mention(session: Session, *, league_slug: str, team_id
             GmLeagueMembership.status == "active",
             User.revoked_at.is_(None),
         )
-        .order_by(GmLeagueMembership.approved_at.desc().nulls_last(), GmLeagueMembership.id.desc())
+        .order_by(GmLeagueMembership.approved_at.desc(), GmLeagueMembership.id.desc())
         .limit(1)
     )
     if user is None:

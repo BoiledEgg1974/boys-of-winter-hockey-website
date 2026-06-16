@@ -1047,7 +1047,7 @@ def build_around_the_league(
             NewsArticle.status == "published",
             published_news_age_filter(NewsArticle),
         )
-        .order_by(NewsArticle.published_at.desc().nulls_last(), NewsArticle.id.desc())
+        .order_by(NewsArticle.published_at.desc(), NewsArticle.id.desc())
         .limit(HOMEPAGE_AROUND_COUNT)
     ).all()
     viewer_can = viewer_can_react_on_news(viewer, slug) if slug else False

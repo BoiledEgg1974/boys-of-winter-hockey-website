@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import os
 
-from sqlalchemy import func, or_, select, text
+from sqlalchemy import func, inspect, or_, select, text
 from werkzeug.security import generate_password_hash
 
 from app.auth_login import (
@@ -25,8 +25,7 @@ def ensure_news_articles_category_column(app) -> None:
     """Add ``category`` to ``news_articles`` when upgrading an existing site DB."""
     engine = db.get_engine(app, bind="site")
     with engine.begin() as conn:
-        rows = conn.execute(text("PRAGMA table_info(news_articles)")).fetchall()
-        colnames = {row[1] for row in rows}
+        colnames = {col["name"] for col in inspect(conn).get_columns("news_articles")}
         if "category" not in colnames:
             conn.execute(
                 text(
@@ -40,24 +39,21 @@ def ensure_news_articles_image_rel_path_column(app) -> None:
     """Add ``image_rel_path`` for optional headline images."""
     engine = db.get_engine(app, bind="site")
     with engine.begin() as conn:
-        rows = conn.execute(text("PRAGMA table_info(news_articles)")).fetchall()
-        colnames = {row[1] for row in rows}
+        colnames = {col["name"] for col in inspect(conn).get_columns("news_articles")}
         if "image_rel_path" not in colnames:
             conn.execute(text("ALTER TABLE news_articles ADD COLUMN image_rel_path VARCHAR(384)"))
 
 
 def ensure_site_users_username_column(app) -> None:
-    """Add ``username`` to ``site_users`` when upgrading an existing SQLite file."""
+    """Add ``username`` to ``site_users`` when upgrading an existing site DB."""
     engine = db.get_engine(app, bind="site")
     with engine.begin() as conn:
-        rows = conn.execute(text("PRAGMA table_info(site_users)")).fetchall()
-        colnames = {row[1] for row in rows}
+        inspector = inspect(conn)
+        colnames = {col["name"] for col in inspector.get_columns("site_users")}
         if "username" not in colnames:
             conn.execute(text("ALTER TABLE site_users ADD COLUMN username VARCHAR(64)"))
-        idx_rows = conn.execute(
-            text("SELECT name FROM sqlite_master WHERE type='index' AND name='ix_site_users_username'")
-        ).fetchall()
-        if not idx_rows:
+        index_names = {idx["name"] for idx in inspector.get_indexes("site_users")}
+        if "ix_site_users_username" not in index_names:
             conn.execute(text("CREATE UNIQUE INDEX ix_site_users_username ON site_users(username)"))
 
 
@@ -65,16 +61,12 @@ def ensure_gm_league_memberships_fhm_team_id_column(app) -> None:
     """Add ``fhm_team_id`` + index on ``gm_league_memberships`` for franchise-stable routing."""
     engine = db.get_engine(app, bind="site")
     with engine.begin() as conn:
-        rows = conn.execute(text("PRAGMA table_info(gm_league_memberships)")).fetchall()
-        colnames = {row[1] for row in rows}
+        inspector = inspect(conn)
+        colnames = {col["name"] for col in inspector.get_columns("gm_league_memberships")}
         if "fhm_team_id" not in colnames:
             conn.execute(text("ALTER TABLE gm_league_memberships ADD COLUMN fhm_team_id VARCHAR(64)"))
-        idx_rows = conn.execute(
-            text(
-                "SELECT name FROM sqlite_master WHERE type='index' AND name='ix_gm_league_fhm_team'"
-            )
-        ).fetchall()
-        if not idx_rows:
+        index_names = {idx["name"] for idx in inspector.get_indexes("gm_league_memberships")}
+        if "ix_gm_league_fhm_team" not in index_names:
             conn.execute(
                 text(
                     "CREATE INDEX ix_gm_league_fhm_team ON gm_league_memberships(league_slug, fhm_team_id)"

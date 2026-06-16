@@ -327,7 +327,7 @@ def trade_log_rows(
                 NewsArticle.status == "published",
                 NewsArticle.category == "transactions",
             )
-            .order_by(NewsArticle.published_at.desc().nulls_last(), NewsArticle.id.desc())
+            .order_by(NewsArticle.published_at.desc(), NewsArticle.id.desc())
             .limit(500)
         ).all()
         for a in _dedupe_site_transaction_articles(list(articles)):

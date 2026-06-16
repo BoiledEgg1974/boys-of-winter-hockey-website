@@ -434,7 +434,7 @@ def league_headlines():
     rows = db.session.scalars(
         select(NewsArticle)
         .where(*filters)
-        .order_by(NewsArticle.published_at.desc().nulls_last(), NewsArticle.id.desc())
+        .order_by(NewsArticle.published_at.desc(), NewsArticle.id.desc())
         .offset(offset)
         .limit(per_page)
     ).all()
@@ -4220,7 +4220,7 @@ def _team_page_news_rows(team_id: int) -> list[dict[str, object]]:
             NewsArticle.team_id == team_id,
             published_news_age_filter(NewsArticle),
         )
-        .order_by(NewsArticle.published_at.desc().nulls_last(), NewsArticle.id.desc())
+        .order_by(NewsArticle.published_at.desc(), NewsArticle.id.desc())
         .limit(5)
     ).all()
     if not rows:

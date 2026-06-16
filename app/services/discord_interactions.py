@@ -850,7 +850,7 @@ def _handle_news_command(payload: dict[str, Any], league_slug: str) -> dict[str,
         db.session.scalars(
             select(NewsArticle)
             .where(NewsArticle.league_slug == league_slug, NewsArticle.status == "published")
-            .order_by(NewsArticle.published_at.desc().nulls_last(), NewsArticle.created_at.desc())
+            .order_by(NewsArticle.published_at.desc(), NewsArticle.created_at.desc())
             .limit(count)
         ).all()
     )

@@ -33,7 +33,7 @@ def headlines_page_for_article_id(
     ids = session.scalars(
         select(NewsArticle.id)
         .where(*filters)
-        .order_by(NewsArticle.published_at.desc().nulls_last(), NewsArticle.id.desc())
+        .order_by(NewsArticle.published_at.desc(), NewsArticle.id.desc())
     ).all()
     try:
         idx = ids.index(int(article_id))

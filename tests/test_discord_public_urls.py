@@ -81,6 +81,13 @@ class DiscordPublicUrlTest(unittest.TestCase):
 
     def test_news_payload_enrichment_adds_team_gm_mention(self):
         session = MagicMock()
+        detroit = SimpleNamespace(
+            id=7,
+            fhm_team_id="9",
+            abbreviation="DET",
+            name="Detroit",
+            slug="detroit-red-wings",
+        )
         session.get.return_value = SimpleNamespace(
             id=42,
             league_slug="bowl-cap",
@@ -89,9 +96,19 @@ class DiscordPublicUrlTest(unittest.TestCase):
             body="Full story.",
             image_rel_path=None,
         )
-        with patch(
-            "app.services.discord_events._discord_user_mention_for_team",
-            return_value="<@123456789012345678>",
+        with (
+            patch(
+                "app.services.discord_events._resolve_league_team_for_news",
+                return_value=detroit,
+            ),
+            patch(
+                "app.services.discord_events.team_fields_for_discord",
+                return_value={"team_id": 7, "fhm_team_id": 9, "team_abbrev": "DET"},
+            ),
+            patch(
+                "app.services.discord_events._discord_user_mention_for_team",
+                return_value="<@123456789012345678>",
+            ),
         ):
             out = enrich_discord_payload_for_bot(
                 session,
@@ -139,13 +156,23 @@ class DiscordPublicUrlTest(unittest.TestCase):
 
     def test_generic_payload_enrichment_adds_team_gm_mention(self):
         session = MagicMock()
-        session.scalar.return_value = SimpleNamespace(discord_user_id="123456789012345678")
+        team = SimpleNamespace(id=7, fhm_team_id="9", abbreviation="TOR")
 
-        out = _ensure_team_gm_mention_for_payload(
-            session,
-            league_slug="bowl-cap",
-            payload={"team_id": 7, "title": "Trade update"},
-        )
+        with (
+            patch(
+                "app.services.discord_events._pick_team_for_discord_mention",
+                return_value=team,
+            ),
+            patch(
+                "app.services.discord_events._discord_user_mention_for_team",
+                return_value="<@123456789012345678>",
+            ),
+        ):
+            out = _ensure_team_gm_mention_for_payload(
+                session,
+                league_slug="bowl-cap",
+                payload={"team_id": 7, "title": "Trade update"},
+            )
 
         self.assertEqual(out["team_gm_mention"], "<@123456789012345678>")
 
@@ -163,7 +190,18 @@ class DiscordPublicUrlTest(unittest.TestCase):
 
     def test_team_gm_mention_prefers_fhm_team_id_over_mismatched_team_id(self):
         session = MagicMock()
+        atlanta = SimpleNamespace(id=28, fhm_team_id="227", abbreviation="ATL")
+        detroit = SimpleNamespace(id=5, fhm_team_id="9", abbreviation="DET")
+
         with (
+            patch(
+                "app.services.discord_events._resolve_league_team_for_news",
+                return_value=atlanta,
+            ),
+            patch(
+                "app.services.discord_events._league_team_by_fhm",
+                return_value=detroit,
+            ),
             patch(
                 "app.services.discord_events._discord_user_mention_for_fhm_team",
                 return_value="<@111111111111111111>",
@@ -185,7 +223,18 @@ class DiscordPublicUrlTest(unittest.TestCase):
 
     def test_team_gm_mention_does_not_fallback_to_team_id_when_fhm_missing(self):
         session = MagicMock()
+        atlanta = SimpleNamespace(id=28, fhm_team_id="227", abbreviation="ATL")
+        detroit = SimpleNamespace(id=5, fhm_team_id="9", abbreviation="DET")
+
         with (
+            patch(
+                "app.services.discord_events._resolve_league_team_for_news",
+                return_value=atlanta,
+            ),
+            patch(
+                "app.services.discord_events._league_team_by_fhm",
+                return_value=detroit,
+            ),
             patch(
                 "app.services.discord_events._discord_user_mention_for_fhm_team",
                 return_value="",
@@ -205,23 +254,38 @@ class DiscordPublicUrlTest(unittest.TestCase):
         by_fhm.assert_called_once()
         by_team.assert_not_called()
 
-    def test_news_payload_enrichment_uses_queued_fhm_team_for_gm_mention(self):
+    def test_news_payload_enrichment_uses_article_team_for_gm_mention(self):
         session = MagicMock()
+        detroit = SimpleNamespace(
+            id=5,
+            fhm_team_id="9",
+            abbreviation="DET",
+            name="Detroit",
+            slug="detroit-red-wings",
+        )
         session.get.return_value = SimpleNamespace(
             id=42,
             league_slug="bowl-cap",
-            team_id=28,
+            team_id=5,
             title="Big Game for Peter Roed",
             body="Full story.",
             image_rel_path=None,
         )
         with (
             patch(
-                "app.services.discord_events._discord_user_mention_for_fhm_team",
-                return_value="<@111111111111111111>",
+                "app.services.discord_events._resolve_league_team_for_news",
+                return_value=detroit,
+            ),
+            patch(
+                "app.services.discord_events.team_fields_for_discord",
+                return_value={"team_id": 5, "fhm_team_id": 9, "team_abbrev": "DET"},
             ),
             patch(
                 "app.services.discord_events._discord_user_mention_for_team",
+                return_value="<@111111111111111111>",
+            ) as by_team,
+            patch(
+                "app.services.discord_events._discord_user_mention_for_fhm_team",
                 return_value="<@222222222222222222>",
             ),
         ):
@@ -229,12 +293,13 @@ class DiscordPublicUrlTest(unittest.TestCase):
                 session,
                 league_slug="bowl-cap",
                 event_key="admin_news_published",
-                payload={"article_id": 42, "fhm_team_id": 9, "team_abbrev": "DET"},
+                payload={"article_id": 42, "team_id": 28, "fhm_team_id": 227, "team_abbrev": "ATL"},
             )
 
-        self.assertEqual(out["team_id"], 28)
+        self.assertEqual(out["team_id"], 5)
         self.assertEqual(out["fhm_team_id"], 9)
         self.assertEqual(out["team_gm_mention"], "<@111111111111111111>")
+        by_team.assert_called_once_with(session, league_slug="bowl-cap", team_id=5)
 
 
 if __name__ == "__main__":

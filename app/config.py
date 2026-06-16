@@ -190,12 +190,36 @@ def shared_site_mysql_engine(site_uri: str) -> Engine:
     return create_engine(site_uri, **_mysql_site_pool_options())
 
 
-def site_bind_engine_config(site_uri: str) -> str | Engine:
+def site_bind_engine_config(site_uri: str) -> str | dict[str, object]:
     """Flask-SQLAlchemy bind config for the shared site database."""
     uri = normalize_site_database_url(str(site_uri or "").strip())
     if uri.startswith("mysql"):
-        return shared_site_mysql_engine(uri)
+        return {"url": uri, **_mysql_site_pool_options()}
     return uri
+
+
+def install_shared_site_mysql_engine(db, app) -> None:
+    """Point every Flask app's ``site`` bind at one shared MySQL pool.
+
+    Flask-SQLAlchemy only accepts URL strings or option dicts in
+    ``SQLALCHEMY_BINDS``, so we create the shared engine after ``init_app``.
+    """
+    site_uri = normalize_site_database_url(
+        str(app.config.get("SITE_SQLALCHEMY_DATABASE_URI") or "").strip()
+    )
+    if not site_uri.startswith("mysql"):
+        return
+
+    engines = db._app_engines.get(app)
+    if not engines or "site" not in engines:
+        return
+
+    shared = shared_site_mysql_engine(site_uri)
+    old = engines.get("site")
+    if old is not shared:
+        if old is not None:
+            old.dispose()
+        engines["site"] = shared
 
 
 def is_sqlite_database_uri(db_uri: str) -> bool:

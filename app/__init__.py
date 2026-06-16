@@ -8,7 +8,7 @@ from flask_login import current_user
 from flask_wtf.csrf import CSRFProtect
 
 from app.auth_login import login_manager
-from app.config import LEAGUES, Config, site_bind_engine_config
+from app.config import LEAGUES, Config, install_shared_site_mysql_engine, site_bind_engine_config
 from app.db_utils import (
     ensure_fts5,
     ensure_history_all_stars_sqlite,
@@ -108,6 +108,7 @@ def create_app(config_class: type = Config) -> Flask:
         Path(sub).mkdir(parents=True, exist_ok=True)
 
     db.init_app(app)
+    install_shared_site_mysql_engine(db, app)
     install_sqlite_connect_pragmas()
     csrf.init_app(app)
     login_manager.init_app(app)

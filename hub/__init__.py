@@ -10,7 +10,7 @@ from flask_login import current_user
 from flask_wtf.csrf import CSRFProtect
 
 from app.auth_login import login_manager
-from app.config import BASE_DIR, Config, LEAGUES, league_slugs, normalize_site_database_url, resolve_site_sqlite_path, site_bind_engine_config
+from app.config import BASE_DIR, Config, LEAGUES, install_shared_site_mysql_engine, league_slugs, normalize_site_database_url, resolve_site_sqlite_path, site_bind_engine_config
 from app.league_db import db
 from app.sqlite_bootstrap import bootstrap_site_database
 
@@ -92,6 +92,7 @@ def create_hub_app() -> Flask:
             session.modified = True
 
     db.init_app(hub_app)
+    install_shared_site_mysql_engine(db, hub_app)
     csrf.init_app(hub_app)
     login_manager.init_app(hub_app)
 

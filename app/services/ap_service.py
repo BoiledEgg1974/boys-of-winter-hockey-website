@@ -351,15 +351,21 @@ def publish_news_and_maybe_award_ap(article: NewsArticle, *, points: int) -> Non
     award_points = int(points)
 
     def _publish() -> None:
+        from app.services.discord_events import resolve_news_article_team
+
         art = db.session.get(NewsArticle, article_id)
         if art is None:
             return
         art.status = "published"
         art.published_at = datetime.utcnow()
-        if award_points > 0 and art.team_id is not None and not art.ap_awarded:
+        team = resolve_news_article_team(db.session, art)
+        award_team_id = int(team.id) if team is not None else art.team_id
+        if team is not None and art.team_id != int(team.id):
+            art.team_id = int(team.id)
+        if award_points > 0 and award_team_id is not None and not art.ap_awarded:
             add_ledger_entry(
                 league_slug=art.league_slug,
-                team_id=int(art.team_id),
+                team_id=int(award_team_id),
                 delta=award_points,
                 reason_code="news_article",
                 meta={"article_id": art.id},

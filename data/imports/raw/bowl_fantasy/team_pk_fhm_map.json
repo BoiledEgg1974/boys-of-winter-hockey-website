@@ -1,0 +1,380 @@
+{
+  "league_slug": "bowl-fantasy",
+  "description": "Site teams.id (PK) vs FHM franchise TeamId. Use PK for articles/memberships; use fhm_team_id for Discord emoji maps.",
+  "teams": [
+    {
+      "team_pk": 1,
+      "abbreviation": "WIC",
+      "name": "Wichita",
+      "fhm_team_id": "0",
+      "slug": "wic-t0",
+      "master_display_name": "Wichita Thunder"
+    },
+    {
+      "team_pk": 2,
+      "abbreviation": "TOR",
+      "name": "Toronto",
+      "fhm_team_id": "3",
+      "slug": "tor-t3",
+      "master_display_name": "Toronto Maple Leafs"
+    },
+    {
+      "team_pk": 3,
+      "abbreviation": "HAM",
+      "name": "Hamilton",
+      "fhm_team_id": "5",
+      "slug": "ham-t5",
+      "master_display_name": "Hamilton Steel"
+    },
+    {
+      "team_pk": 4,
+      "abbreviation": "CHI",
+      "name": "Chicago",
+      "fhm_team_id": "8",
+      "slug": "chi-t8",
+      "master_display_name": "Chicago Black Hawks"
+    },
+    {
+      "team_pk": 5,
+      "abbreviation": "HAL",
+      "name": "Halifax",
+      "fhm_team_id": "9",
+      "slug": "hal-t9",
+      "master_display_name": "Halifax Privateers"
+    },
+    {
+      "team_pk": 6,
+      "abbreviation": "MON",
+      "name": "Moncton",
+      "fhm_team_id": "10",
+      "slug": "mon-t10",
+      "master_display_name": "Moncton Wildcats"
+    },
+    {
+      "team_pk": 7,
+      "abbreviation": "KUN",
+      "name": "Kunlun",
+      "fhm_team_id": "11",
+      "slug": "kun-t11",
+      "master_display_name": "Kunlun Red Star"
+    },
+    {
+      "team_pk": 8,
+      "abbreviation": "HEL",
+      "name": "Helsinki",
+      "fhm_team_id": "12",
+      "slug": "hel-t12",
+      "master_display_name": "Helsinki Jokerit"
+    },
+    {
+      "team_pk": 9,
+      "abbreviation": "LON",
+      "name": "London",
+      "fhm_team_id": "14",
+      "slug": "lon-t14",
+      "master_display_name": "London Black Knights"
+    },
+    {
+      "team_pk": 10,
+      "abbreviation": "PIT",
+      "name": "Pittsburgh",
+      "fhm_team_id": "15",
+      "slug": "pit-t15",
+      "master_display_name": "Pittsburgh Penguins"
+    },
+    {
+      "team_pk": 11,
+      "abbreviation": "VIC",
+      "name": "Victoria",
+      "fhm_team_id": "16",
+      "slug": "vic-t16",
+      "master_display_name": "Victoria Royals"
+    },
+    {
+      "team_pk": 12,
+      "abbreviation": "TOK",
+      "name": "Tokyo",
+      "fhm_team_id": "17",
+      "slug": "tok-t17",
+      "master_display_name": "Tokyo Katanas"
+    },
+    {
+      "team_pk": 13,
+      "abbreviation": "SIX",
+      "name": "Toronto",
+      "fhm_team_id": "18",
+      "slug": "six-t18",
+      "master_display_name": "Toronto Six"
+    },
+    {
+      "team_pk": 14,
+      "abbreviation": "KEN",
+      "name": "Kenya",
+      "fhm_team_id": "19",
+      "slug": "ken-t19",
+      "master_display_name": "Kenya Pride"
+    },
+    {
+      "team_pk": 15,
+      "abbreviation": "MTL",
+      "name": "Montreal",
+      "fhm_team_id": "20",
+      "slug": "mtl-t20",
+      "master_display_name": "Montreal Canadiens"
+    },
+    {
+      "team_pk": 16,
+      "abbreviation": "FLA",
+      "name": "Florida",
+      "fhm_team_id": "21",
+      "slug": "fla-t21",
+      "master_display_name": "Florida Party Animals"
+    },
+    {
+      "team_pk": 17,
+      "abbreviation": "BGK",
+      "name": "Bangkok",
+      "fhm_team_id": "22",
+      "slug": "bgk-t22",
+      "master_display_name": "Bangkok Roosters"
+    },
+    {
+      "team_pk": 18,
+      "abbreviation": "EDM",
+      "name": "Edmonton",
+      "fhm_team_id": "23",
+      "slug": "edm-t23",
+      "master_display_name": "Edmonton Oilers"
+    },
+    {
+      "team_pk": 19,
+      "abbreviation": "TRL",
+      "name": "Trois-Rivi\u00e8res",
+      "fhm_team_id": "24",
+      "slug": "trl-t24",
+      "master_display_name": "Trois-Rivi\u00e8res Lions"
+    },
+    {
+      "team_pk": 20,
+      "abbreviation": "CAN",
+      "name": "Canmore",
+      "fhm_team_id": "25",
+      "slug": "can-t25",
+      "master_display_name": "Canmore Eagles"
+    },
+    {
+      "team_pk": 21,
+      "abbreviation": "FW",
+      "name": "Fort Wayne",
+      "fhm_team_id": "26",
+      "slug": "fw-t26",
+      "master_display_name": "Fort Wayne Komets"
+    },
+    {
+      "team_pk": 22,
+      "abbreviation": "IND",
+      "name": "Indianapolis",
+      "fhm_team_id": "278",
+      "slug": "ind-t278",
+      "master_display_name": "Indianapolis Racers"
+    },
+    {
+      "team_pk": 23,
+      "abbreviation": "ME",
+      "name": "Maine",
+      "fhm_team_id": "279",
+      "slug": "me-t279",
+      "master_display_name": "Maine Mariners"
+    },
+    {
+      "team_pk": 24,
+      "abbreviation": "VCR",
+      "name": "Vancouver",
+      "fhm_team_id": "280",
+      "slug": "vcr-t280",
+      "master_display_name": "Vancouver Giants"
+    }
+  ],
+  "pk_fhm_collision_warnings": [
+    {
+      "team_pk": 3,
+      "abbreviation": "HAM",
+      "name": "Hamilton",
+      "fhm_team_id": "5",
+      "other_pk": 2,
+      "other_abbrev": "TOR",
+      "other_name": "Toronto",
+      "other_fhm_team_id": "3"
+    },
+    {
+      "team_pk": 5,
+      "abbreviation": "HAL",
+      "name": "Halifax",
+      "fhm_team_id": "9",
+      "other_pk": 3,
+      "other_abbrev": "HAM",
+      "other_name": "Hamilton",
+      "other_fhm_team_id": "5"
+    },
+    {
+      "team_pk": 8,
+      "abbreviation": "HEL",
+      "name": "Helsinki",
+      "fhm_team_id": "12",
+      "other_pk": 4,
+      "other_abbrev": "CHI",
+      "other_name": "Chicago",
+      "other_fhm_team_id": "8"
+    },
+    {
+      "team_pk": 9,
+      "abbreviation": "LON",
+      "name": "London",
+      "fhm_team_id": "14",
+      "other_pk": 5,
+      "other_abbrev": "HAL",
+      "other_name": "Halifax",
+      "other_fhm_team_id": "9"
+    },
+    {
+      "team_pk": 10,
+      "abbreviation": "PIT",
+      "name": "Pittsburgh",
+      "fhm_team_id": "15",
+      "other_pk": 6,
+      "other_abbrev": "MON",
+      "other_name": "Moncton",
+      "other_fhm_team_id": "10"
+    },
+    {
+      "team_pk": 11,
+      "abbreviation": "VIC",
+      "name": "Victoria",
+      "fhm_team_id": "16",
+      "other_pk": 7,
+      "other_abbrev": "KUN",
+      "other_name": "Kunlun",
+      "other_fhm_team_id": "11"
+    },
+    {
+      "team_pk": 12,
+      "abbreviation": "TOK",
+      "name": "Tokyo",
+      "fhm_team_id": "17",
+      "other_pk": 8,
+      "other_abbrev": "HEL",
+      "other_name": "Helsinki",
+      "other_fhm_team_id": "12"
+    },
+    {
+      "team_pk": 14,
+      "abbreviation": "KEN",
+      "name": "Kenya",
+      "fhm_team_id": "19",
+      "other_pk": 9,
+      "other_abbrev": "LON",
+      "other_name": "London",
+      "other_fhm_team_id": "14"
+    },
+    {
+      "team_pk": 15,
+      "abbreviation": "MTL",
+      "name": "Montreal",
+      "fhm_team_id": "20",
+      "other_pk": 10,
+      "other_abbrev": "PIT",
+      "other_name": "Pittsburgh",
+      "other_fhm_team_id": "15"
+    },
+    {
+      "team_pk": 16,
+      "abbreviation": "FLA",
+      "name": "Florida",
+      "fhm_team_id": "21",
+      "other_pk": 11,
+      "other_abbrev": "VIC",
+      "other_name": "Victoria",
+      "other_fhm_team_id": "16"
+    },
+    {
+      "team_pk": 17,
+      "abbreviation": "BGK",
+      "name": "Bangkok",
+      "fhm_team_id": "22",
+      "other_pk": 12,
+      "other_abbrev": "TOK",
+      "other_name": "Tokyo",
+      "other_fhm_team_id": "17"
+    },
+    {
+      "team_pk": 18,
+      "abbreviation": "EDM",
+      "name": "Edmonton",
+      "fhm_team_id": "23",
+      "other_pk": 13,
+      "other_abbrev": "SIX",
+      "other_name": "Toronto",
+      "other_fhm_team_id": "18"
+    },
+    {
+      "team_pk": 19,
+      "abbreviation": "TRL",
+      "name": "Trois-Rivi\u00e8res",
+      "fhm_team_id": "24",
+      "other_pk": 14,
+      "other_abbrev": "KEN",
+      "other_name": "Kenya",
+      "other_fhm_team_id": "19"
+    },
+    {
+      "team_pk": 20,
+      "abbreviation": "CAN",
+      "name": "Canmore",
+      "fhm_team_id": "25",
+      "other_pk": 15,
+      "other_abbrev": "MTL",
+      "other_name": "Montreal",
+      "other_fhm_team_id": "20"
+    },
+    {
+      "team_pk": 21,
+      "abbreviation": "FW",
+      "name": "Fort Wayne",
+      "fhm_team_id": "26",
+      "other_pk": 16,
+      "other_abbrev": "FLA",
+      "other_name": "Florida",
+      "other_fhm_team_id": "21"
+    },
+    {
+      "team_pk": 22,
+      "abbreviation": "IND",
+      "name": "Indianapolis",
+      "fhm_team_id": "278",
+      "other_pk": 17,
+      "other_abbrev": "BGK",
+      "other_name": "Bangkok",
+      "other_fhm_team_id": "22"
+    },
+    {
+      "team_pk": 23,
+      "abbreviation": "ME",
+      "name": "Maine",
+      "fhm_team_id": "279",
+      "other_pk": 18,
+      "other_abbrev": "EDM",
+      "other_name": "Edmonton",
+      "other_fhm_team_id": "23"
+    },
+    {
+      "team_pk": 24,
+      "abbreviation": "VCR",
+      "name": "Vancouver",
+      "fhm_team_id": "280",
+      "other_pk": 19,
+      "other_abbrev": "TRL",
+      "other_name": "Trois-Rivi\u00e8res",
+      "other_fhm_team_id": "24"
+    }
+  ]
+}

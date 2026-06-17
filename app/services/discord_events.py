@@ -600,20 +600,53 @@ def _resolve_league_team_for_news(session, team_id: int | None):
         return None
     from app.models import Team
 
-    by_fhm = session.scalar(select(Team).where(Team.fhm_team_id == str(tid)).limit(1))
-    if by_fhm is not None and _team_row_id(by_fhm) is None:
-        by_fhm = None
     by_id = session.get(Team, tid)
     if by_id is not None and _team_row_id(by_id) is None:
         by_id = None
+    by_fhm = session.scalar(select(Team).where(Team.fhm_team_id == str(tid)).limit(1))
+    if by_fhm is not None and _team_row_id(by_fhm) is None:
+        by_fhm = None
     id_a = _team_row_id(by_id)
-    id_b = _team_row_id(by_fhm)
-    if by_id is not None and by_fhm is not None and id_a is not None and id_b is not None and id_a != id_b:
-        # Prefer FHM franchise match when ids collide (e.g. Detroit FHM 9 vs Flyers id 9).
-        return by_fhm
-    if by_id is not None:
+    # Stored team_id values are league PKs (e.g. Buffalo id 12). Do not remap to a
+    # different franchise whose FHM export id happens to equal that PK (e.g. Dallas fhm 12).
+    if by_id is not None and id_a is not None and id_a == tid:
         return by_id
-    return by_fhm
+    if by_fhm is not None:
+        return by_fhm
+    return by_id
+
+
+def resolve_news_article_team(session, article: NewsArticle):
+    """Resolve the franchise for a news article (author GM membership, then team_id)."""
+    from app.models import Team
+    from app.site_models import GmLeagueMembership
+
+    league_slug = str(getattr(article, "league_slug", "") or "").strip()
+    author_id = getattr(article, "author_user_id", None)
+    if author_id is not None:
+        try:
+            uid = int(author_id)
+        except (TypeError, ValueError):
+            uid = None
+        if uid is not None and league_slug:
+            mem = session.scalar(
+                select(GmLeagueMembership)
+                .where(
+                    GmLeagueMembership.league_slug == league_slug,
+                    GmLeagueMembership.user_id == uid,
+                    GmLeagueMembership.status == "active",
+                )
+                .order_by(
+                    GmLeagueMembership.approved_at.desc(),
+                    GmLeagueMembership.id.desc(),
+                )
+                .limit(1)
+            )
+            if mem is not None:
+                team = session.get(Team, int(mem.team_id))
+                if team is not None:
+                    return team
+    return _resolve_league_team_for_news(session, getattr(article, "team_id", None))
 
 
 def _pick_team_for_discord_mention(session, payload: dict):
@@ -746,7 +779,7 @@ def enrich_discord_payload_for_bot(
         merged = {**out, **enriched}
         merged["body"] = enriched["body"]
         merged["has_image"] = enriched["has_image"]
-        team = _resolve_league_team_for_news(session, art.team_id)
+        team = resolve_news_article_team(session, art)
         if team is not None:
             merged.update(team_fields_for_discord(team))
         merged.pop("team_gm_mention", None)

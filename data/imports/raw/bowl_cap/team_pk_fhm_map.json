@@ -1,0 +1,432 @@
+{
+  "league_slug": "bowl-cap",
+  "description": "Site teams.id (PK) vs FHM franchise TeamId. Use PK for articles/memberships; use fhm_team_id for Discord emoji maps.",
+  "teams": [
+    {
+      "team_pk": 1,
+      "abbreviation": "MTL",
+      "name": "Montreal",
+      "fhm_team_id": "0",
+      "slug": "mtl-t0",
+      "master_display_name": "Montreal Canadiens"
+    },
+    {
+      "team_pk": 2,
+      "abbreviation": "TOR",
+      "name": "Toronto",
+      "fhm_team_id": "3",
+      "slug": "tor-t3",
+      "master_display_name": "Toronto Maple Leafs"
+    },
+    {
+      "team_pk": 3,
+      "abbreviation": "BOS",
+      "name": "Boston",
+      "fhm_team_id": "5",
+      "slug": "bos-t5",
+      "master_display_name": "Boston Bruins"
+    },
+    {
+      "team_pk": 4,
+      "abbreviation": "CHI",
+      "name": "Chicago",
+      "fhm_team_id": "8",
+      "slug": "chi-t8",
+      "master_display_name": "Chicago Blackhawks"
+    },
+    {
+      "team_pk": 5,
+      "abbreviation": "DET",
+      "name": "Detroit",
+      "fhm_team_id": "9",
+      "slug": "det-t9",
+      "master_display_name": "Detroit Red Wings"
+    },
+    {
+      "team_pk": 6,
+      "abbreviation": "NYR",
+      "name": "New York",
+      "fhm_team_id": "10",
+      "slug": "nyr-t10",
+      "master_display_name": "New York Rangers"
+    },
+    {
+      "team_pk": 7,
+      "abbreviation": "LAK",
+      "name": "Los Angeles",
+      "fhm_team_id": "11",
+      "slug": "lak-t11",
+      "master_display_name": "Los Angeles Kings"
+    },
+    {
+      "team_pk": 8,
+      "abbreviation": "DAL",
+      "name": "Dallas",
+      "fhm_team_id": "12",
+      "slug": "dal-t12",
+      "master_display_name": "Dallas Stars"
+    },
+    {
+      "team_pk": 9,
+      "abbreviation": "PHI",
+      "name": "Philadelphia",
+      "fhm_team_id": "14",
+      "slug": "phi-t14",
+      "master_display_name": "Philadelphia Flyers"
+    },
+    {
+      "team_pk": 10,
+      "abbreviation": "PIT",
+      "name": "Pittsburgh",
+      "fhm_team_id": "15",
+      "slug": "pit-t15",
+      "master_display_name": "Pittsburgh Penguins"
+    },
+    {
+      "team_pk": 11,
+      "abbreviation": "STL",
+      "name": "St. Louis",
+      "fhm_team_id": "16",
+      "slug": "stl-t16",
+      "master_display_name": "St. Louis Blues"
+    },
+    {
+      "team_pk": 12,
+      "abbreviation": "BUF",
+      "name": "Buffalo",
+      "fhm_team_id": "17",
+      "slug": "buf-t17",
+      "master_display_name": "Buffalo Sabres"
+    },
+    {
+      "team_pk": 13,
+      "abbreviation": "VAN",
+      "name": "Vancouver",
+      "fhm_team_id": "18",
+      "slug": "van-t18",
+      "master_display_name": "Vancouver Canucks"
+    },
+    {
+      "team_pk": 14,
+      "abbreviation": "CGY",
+      "name": "Calgary",
+      "fhm_team_id": "19",
+      "slug": "cgy-t19",
+      "master_display_name": "Calgary Flames"
+    },
+    {
+      "team_pk": 15,
+      "abbreviation": "NYI",
+      "name": "New York",
+      "fhm_team_id": "20",
+      "slug": "nyi-t20",
+      "master_display_name": "New York Islanders"
+    },
+    {
+      "team_pk": 16,
+      "abbreviation": "NJD",
+      "name": "New Jersey",
+      "fhm_team_id": "21",
+      "slug": "njd-t21",
+      "master_display_name": "New Jersey Devils"
+    },
+    {
+      "team_pk": 17,
+      "abbreviation": "WAS",
+      "name": "Washington",
+      "fhm_team_id": "22",
+      "slug": "was-t22",
+      "master_display_name": "Washington Capitals"
+    },
+    {
+      "team_pk": 18,
+      "abbreviation": "EDM",
+      "name": "Edmonton",
+      "fhm_team_id": "23",
+      "slug": "edm-t23",
+      "master_display_name": "Edmonton Oilers"
+    },
+    {
+      "team_pk": 19,
+      "abbreviation": "CAR",
+      "name": "Carolina",
+      "fhm_team_id": "24",
+      "slug": "car-t24",
+      "master_display_name": "Carolina Hurricanes"
+    },
+    {
+      "team_pk": 20,
+      "abbreviation": "COL",
+      "name": "Colorado",
+      "fhm_team_id": "25",
+      "slug": "col-t25",
+      "master_display_name": "Colorado Avalanche"
+    },
+    {
+      "team_pk": 21,
+      "abbreviation": "PHX",
+      "name": "Phoenix",
+      "fhm_team_id": "26",
+      "slug": "phx-t26",
+      "master_display_name": "Phoenix Coyotes"
+    },
+    {
+      "team_pk": 22,
+      "abbreviation": "SJS",
+      "name": "San Jose",
+      "fhm_team_id": "214",
+      "slug": "sjs-t214",
+      "master_display_name": "San Jose Sharks"
+    },
+    {
+      "team_pk": 23,
+      "abbreviation": "OTT",
+      "name": "Ottawa",
+      "fhm_team_id": "216",
+      "slug": "ott-t216",
+      "master_display_name": "Ottawa Senators"
+    },
+    {
+      "team_pk": 24,
+      "abbreviation": "TBL",
+      "name": "Tampa Bay",
+      "fhm_team_id": "217",
+      "slug": "tbl-t217",
+      "master_display_name": "Tampa Bay Lightning"
+    },
+    {
+      "team_pk": 25,
+      "abbreviation": "ANA",
+      "name": "Anaheim",
+      "fhm_team_id": "220",
+      "slug": "ana-t220",
+      "master_display_name": "Anaheim Mighty Ducks"
+    },
+    {
+      "team_pk": 26,
+      "abbreviation": "FLA",
+      "name": "Florida",
+      "fhm_team_id": "221",
+      "slug": "fla-t221",
+      "master_display_name": "Florida Panthers"
+    },
+    {
+      "team_pk": 27,
+      "abbreviation": "NAS",
+      "name": "Nashville",
+      "fhm_team_id": "224",
+      "slug": "nas-t224",
+      "master_display_name": "Nashville Predators"
+    },
+    {
+      "team_pk": 28,
+      "abbreviation": "ATL",
+      "name": "Atlanta",
+      "fhm_team_id": "227",
+      "slug": "atl-t227",
+      "master_display_name": "Atlanta Thrashers"
+    }
+  ],
+  "pk_fhm_collision_warnings": [
+    {
+      "team_pk": 3,
+      "abbreviation": "BOS",
+      "name": "Boston",
+      "fhm_team_id": "5",
+      "other_pk": 2,
+      "other_abbrev": "TOR",
+      "other_name": "Toronto",
+      "other_fhm_team_id": "3"
+    },
+    {
+      "team_pk": 5,
+      "abbreviation": "DET",
+      "name": "Detroit",
+      "fhm_team_id": "9",
+      "other_pk": 3,
+      "other_abbrev": "BOS",
+      "other_name": "Boston",
+      "other_fhm_team_id": "5"
+    },
+    {
+      "team_pk": 8,
+      "abbreviation": "DAL",
+      "name": "Dallas",
+      "fhm_team_id": "12",
+      "other_pk": 4,
+      "other_abbrev": "CHI",
+      "other_name": "Chicago",
+      "other_fhm_team_id": "8"
+    },
+    {
+      "team_pk": 9,
+      "abbreviation": "PHI",
+      "name": "Philadelphia",
+      "fhm_team_id": "14",
+      "other_pk": 5,
+      "other_abbrev": "DET",
+      "other_name": "Detroit",
+      "other_fhm_team_id": "9"
+    },
+    {
+      "team_pk": 10,
+      "abbreviation": "PIT",
+      "name": "Pittsburgh",
+      "fhm_team_id": "15",
+      "other_pk": 6,
+      "other_abbrev": "NYR",
+      "other_name": "New York",
+      "other_fhm_team_id": "10"
+    },
+    {
+      "team_pk": 11,
+      "abbreviation": "STL",
+      "name": "St. Louis",
+      "fhm_team_id": "16",
+      "other_pk": 7,
+      "other_abbrev": "LAK",
+      "other_name": "Los Angeles",
+      "other_fhm_team_id": "11"
+    },
+    {
+      "team_pk": 12,
+      "abbreviation": "BUF",
+      "name": "Buffalo",
+      "fhm_team_id": "17",
+      "other_pk": 8,
+      "other_abbrev": "DAL",
+      "other_name": "Dallas",
+      "other_fhm_team_id": "12"
+    },
+    {
+      "team_pk": 14,
+      "abbreviation": "CGY",
+      "name": "Calgary",
+      "fhm_team_id": "19",
+      "other_pk": 9,
+      "other_abbrev": "PHI",
+      "other_name": "Philadelphia",
+      "other_fhm_team_id": "14"
+    },
+    {
+      "team_pk": 15,
+      "abbreviation": "NYI",
+      "name": "New York",
+      "fhm_team_id": "20",
+      "other_pk": 10,
+      "other_abbrev": "PIT",
+      "other_name": "Pittsburgh",
+      "other_fhm_team_id": "15"
+    },
+    {
+      "team_pk": 16,
+      "abbreviation": "NJD",
+      "name": "New Jersey",
+      "fhm_team_id": "21",
+      "other_pk": 11,
+      "other_abbrev": "STL",
+      "other_name": "St. Louis",
+      "other_fhm_team_id": "16"
+    },
+    {
+      "team_pk": 17,
+      "abbreviation": "WAS",
+      "name": "Washington",
+      "fhm_team_id": "22",
+      "other_pk": 12,
+      "other_abbrev": "BUF",
+      "other_name": "Buffalo",
+      "other_fhm_team_id": "17"
+    },
+    {
+      "team_pk": 18,
+      "abbreviation": "EDM",
+      "name": "Edmonton",
+      "fhm_team_id": "23",
+      "other_pk": 13,
+      "other_abbrev": "VAN",
+      "other_name": "Vancouver",
+      "other_fhm_team_id": "18"
+    },
+    {
+      "team_pk": 19,
+      "abbreviation": "CAR",
+      "name": "Carolina",
+      "fhm_team_id": "24",
+      "other_pk": 14,
+      "other_abbrev": "CGY",
+      "other_name": "Calgary",
+      "other_fhm_team_id": "19"
+    },
+    {
+      "team_pk": 20,
+      "abbreviation": "COL",
+      "name": "Colorado",
+      "fhm_team_id": "25",
+      "other_pk": 15,
+      "other_abbrev": "NYI",
+      "other_name": "New York",
+      "other_fhm_team_id": "20"
+    },
+    {
+      "team_pk": 21,
+      "abbreviation": "PHX",
+      "name": "Phoenix",
+      "fhm_team_id": "26",
+      "other_pk": 16,
+      "other_abbrev": "NJD",
+      "other_name": "New Jersey",
+      "other_fhm_team_id": "21"
+    },
+    {
+      "team_pk": 22,
+      "abbreviation": "SJS",
+      "name": "San Jose",
+      "fhm_team_id": "214",
+      "other_pk": 17,
+      "other_abbrev": "WAS",
+      "other_name": "Washington",
+      "other_fhm_team_id": "22"
+    },
+    {
+      "team_pk": 23,
+      "abbreviation": "OTT",
+      "name": "Ottawa",
+      "fhm_team_id": "216",
+      "other_pk": 18,
+      "other_abbrev": "EDM",
+      "other_name": "Edmonton",
+      "other_fhm_team_id": "23"
+    },
+    {
+      "team_pk": 24,
+      "abbreviation": "TBL",
+      "name": "Tampa Bay",
+      "fhm_team_id": "217",
+      "other_pk": 19,
+      "other_abbrev": "CAR",
+      "other_name": "Carolina",
+      "other_fhm_team_id": "24"
+    },
+    {
+      "team_pk": 25,
+      "abbreviation": "ANA",
+      "name": "Anaheim",
+      "fhm_team_id": "220",
+      "other_pk": 20,
+      "other_abbrev": "COL",
+      "other_name": "Colorado",
+      "other_fhm_team_id": "25"
+    },
+    {
+      "team_pk": 26,
+      "abbreviation": "FLA",
+      "name": "Florida",
+      "fhm_team_id": "221",
+      "other_pk": 21,
+      "other_abbrev": "PHX",
+      "other_name": "Phoenix",
+      "other_fhm_team_id": "26"
+    }
+  ]
+}

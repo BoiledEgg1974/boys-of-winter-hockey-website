@@ -1,0 +1,154 @@
+{
+  "league_slug": "bowl-historical",
+  "description": "Site teams.id (PK) vs FHM franchise TeamId. Use PK for articles/memberships; use fhm_team_id for Discord emoji maps.",
+  "teams": [
+    {
+      "team_pk": 1,
+      "abbreviation": "MTL",
+      "name": "Montreal",
+      "fhm_team_id": "0",
+      "slug": "mtl-t0",
+      "master_display_name": "Montreal Canadiens"
+    },
+    {
+      "team_pk": 2,
+      "abbreviation": "TOR",
+      "name": "Toronto",
+      "fhm_team_id": "3",
+      "slug": "tor-t3",
+      "master_display_name": "Toronto Maple Leafs"
+    },
+    {
+      "team_pk": 3,
+      "abbreviation": "BOS",
+      "name": "Boston",
+      "fhm_team_id": "5",
+      "slug": "bos-t5",
+      "master_display_name": "Boston Bruins"
+    },
+    {
+      "team_pk": 4,
+      "abbreviation": "CHI",
+      "name": "Chicago",
+      "fhm_team_id": "8",
+      "slug": "chi-t8",
+      "master_display_name": "Chicago Black Hawks"
+    },
+    {
+      "team_pk": 5,
+      "abbreviation": "DET",
+      "name": "Detroit",
+      "fhm_team_id": "9",
+      "slug": "det-t9",
+      "master_display_name": "Detroit Red Wings"
+    },
+    {
+      "team_pk": 6,
+      "abbreviation": "NYR",
+      "name": "New York",
+      "fhm_team_id": "10",
+      "slug": "nyr-t10",
+      "master_display_name": "New York Rangers"
+    },
+    {
+      "team_pk": 7,
+      "abbreviation": "LAK",
+      "name": "Los Angeles",
+      "fhm_team_id": "118",
+      "slug": "lak-t118",
+      "master_display_name": "Los Angeles Kings"
+    },
+    {
+      "team_pk": 8,
+      "abbreviation": "MIN",
+      "name": "Minnesota",
+      "fhm_team_id": "119",
+      "slug": "min-t119",
+      "master_display_name": "Minnesota North Stars"
+    },
+    {
+      "team_pk": 9,
+      "abbreviation": "OAK",
+      "name": "Oakland",
+      "fhm_team_id": "120",
+      "slug": "oak-t120",
+      "master_display_name": "Oakland Seals"
+    },
+    {
+      "team_pk": 10,
+      "abbreviation": "PHI",
+      "name": "Philadelphia",
+      "fhm_team_id": "121",
+      "slug": "phi-t121",
+      "master_display_name": "Philadelphia Flyers"
+    },
+    {
+      "team_pk": 11,
+      "abbreviation": "PIT",
+      "name": "Pittsburgh",
+      "fhm_team_id": "122",
+      "slug": "pit-t122",
+      "master_display_name": "Pittsburgh Penguins"
+    },
+    {
+      "team_pk": 12,
+      "abbreviation": "STL",
+      "name": "St. Louis",
+      "fhm_team_id": "123",
+      "slug": "stl-t123",
+      "master_display_name": "St. Louis Blues"
+    }
+  ],
+  "pk_fhm_collision_warnings": [
+    {
+      "team_pk": 3,
+      "abbreviation": "BOS",
+      "name": "Boston",
+      "fhm_team_id": "5",
+      "other_pk": 2,
+      "other_abbrev": "TOR",
+      "other_name": "Toronto",
+      "other_fhm_team_id": "3"
+    },
+    {
+      "team_pk": 5,
+      "abbreviation": "DET",
+      "name": "Detroit",
+      "fhm_team_id": "9",
+      "other_pk": 3,
+      "other_abbrev": "BOS",
+      "other_name": "Boston",
+      "other_fhm_team_id": "5"
+    },
+    {
+      "team_pk": 8,
+      "abbreviation": "MIN",
+      "name": "Minnesota",
+      "fhm_team_id": "119",
+      "other_pk": 4,
+      "other_abbrev": "CHI",
+      "other_name": "Chicago",
+      "other_fhm_team_id": "8"
+    },
+    {
+      "team_pk": 9,
+      "abbreviation": "OAK",
+      "name": "Oakland",
+      "fhm_team_id": "120",
+      "other_pk": 5,
+      "other_abbrev": "DET",
+      "other_name": "Detroit",
+      "other_fhm_team_id": "9"
+    },
+    {
+      "team_pk": 10,
+      "abbreviation": "PHI",
+      "name": "Philadelphia",
+      "fhm_team_id": "121",
+      "other_pk": 6,
+      "other_abbrev": "NYR",
+      "other_name": "New York",
+      "other_fhm_team_id": "10"
+    }
+  ]
+}

@@ -145,6 +145,7 @@ from app.services.discord_events import (
     list_heartbeats,
     list_discord_routes,
     news_article_discord_payload,
+    resolve_news_article_team,
     staff_transaction_discord_payload,
     trade_request_discord_payload,
     prune_obsolete_discord_bot_heartbeats,
@@ -7131,7 +7132,7 @@ def admin_news_publish(aid: int):
     pts = int(current_app.config.get("NEWS_ARTICLE_AP_POINTS", 3))
     publish_news_and_maybe_award_ap(art, points=pts)
     db.session.refresh(art)
-    team = db.session.get(Team, art.team_id) if art.team_id else None
+    team = resolve_news_article_team(db.session, art)
     _enqueue_discord_event(
         "gm_news_published",
         news_article_discord_payload(

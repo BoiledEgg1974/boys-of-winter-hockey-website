@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Cap Hit Penalties — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card staff-budgets-admin" style="max-width:56rem;margin:0 auto;">
+  <h1 class="page-title">Cap Hit Penalties</h1>
+  <p class="muted">
+    <strong>{{ config.LEAGUE_DISPLAY_NAME }}</strong>
+    {% if season_label %}· <strong>{{ season_label }}</strong> season{% else %}· current season{% endif %}
+    — FHM does not export cap hit penalties in CSV imports. Enter the <strong>CAP HIT PENALTIES</strong> column from the in-game Finances screen here; the GM <a href="{{ url_for('site_gm.finances_page') }}">Finances</a> page adds them to each team’s total cap hit.
+  </p>
+  <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
+  {% with messages = get_flashed_messages() %}
+  {% if messages %}<ul>{% for m in messages %}<li>{{ m }}</li>{% endfor %}</ul>{% endif %}
+  {% endwith %}
+
+  <form method="post" class="staff-budgets-admin__form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="staff-budgets-admin__table-wrap">
+      <table class="data staff-budgets-admin__table">
+        <thead>
+          <tr>
+            <th scope="col">Team</th>
+            <th scope="col">GM</th>
+            <th scope="col">ID</th>
+            <th scope="col" class="staff-budgets-admin__th-budget">Cap hit penalty</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in team_rows %}
+          {% set t = row.team %}
+          <tr>
+            <td class="staff-budgets-admin__team">
+              <span class="staff-budgets-admin__team-inner">
+                {% if team_logo_url(t) %}
+                <img class="staff-budgets-admin__logo" src="{{ team_logo_url(t) }}" alt="" width="28" height="28" loading="lazy" decoding="async">
+                {% endif %}
+                <span class="visually-hidden">{{ t.full_display_name() }}</span>
+              </span>
+            </td>
+            <td>{{ row.gm_label }}</td>
+            <td class="staff-budgets-admin__id">{{ row.team_id_label }}</td>
+            <td class="staff-budgets-admin__budget">
+              <label class="visually-hidden" for="penalty-{{ t.id }}">Cap hit penalty for {{ t.full_display_name() }}</label>
+              <input
+                type="text"
+                inputmode="numeric"
+                name="penalty_{{ t.id }}"
+                id="penalty-{{ t.id }}"
+                class="staff-budgets-admin__input"
+                value="{% if row.penalty_amount %}{{ row.penalty_amount }}{% endif %}"
+                placeholder="0"
+                autocomplete="off"
+              >
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <button type="submit" class="join-league-btn" style="margin-top:1rem;border:none;">Save penalties</button>
+  </form>
+</div>
+{% endblock %}

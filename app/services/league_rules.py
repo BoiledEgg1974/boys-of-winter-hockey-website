@@ -15,6 +15,7 @@ DEFAULT_LEAGUE_RULES: tuple[dict[str, str], ...] = (
     {"rule_key": "trade_deadline_utc", "rule_value": ""},
     {"rule_key": "salary_cap_enabled", "rule_value": "false"},
     {"rule_key": "salary_cap_amount", "rule_value": ""},
+    {"rule_key": "salary_cap_floor", "rule_value": ""},
     {"rule_key": "playoff_roster_lock", "rule_value": "true"},
     # Projected standings-page bracket while the current season is still pre-playoff.
     # Use "default" for each league's house format:

@@ -946,6 +946,13 @@ def ensure_team_staff_roster_entries_sqlite(engine: Engine) -> None:
         conn.commit()
 
 
+def ensure_team_cap_penalties_sqlite(engine: Engine) -> None:
+    """Create ``team_cap_penalties`` on the site DB when missing."""
+    from app.site_models import TeamCapPenalty
+
+    TeamCapPenalty.__table__.create(bind=engine, checkfirst=True)
+
+
 def ensure_gm_trade_proposals_sqlite(engine: Engine) -> None:
     """Create GM trade proposals table on site DB when missing."""
     if engine.dialect.name != "sqlite":

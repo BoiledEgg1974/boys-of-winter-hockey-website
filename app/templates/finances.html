@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+{% from "macros/team.html" import team_lockup_full_name with context %}
+{% block title %}Finances — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="finances-page">
+  <h1 class="page-title">Finances</h1>
+  <p class="muted finances-page__league">{{ config.LEAGUE_DISPLAY_NAME }}{% if season_label %} · {{ season_label }}{% endif %}</p>
+
+  <section class="finances-banner card" aria-label="Salary cap limits">
+    <div class="finances-banner__inner">
+      <h2 class="finances-banner__season">{% if season_label %}{{ season_label }} Cap{% else %}Current season{% endif %}</h2>
+      {% if cap_ceiling is not none or cap_floor is not none %}
+      <div class="finances-banner__limits">
+        {% if cap_ceiling is not none %}
+        <div class="finances-banner__limit">
+          <span class="finances-banner__label">Ceiling</span>
+          <span class="finances-banner__value">${{ '{:,}'.format(cap_ceiling) }}</span>
+        </div>
+        {% endif %}
+        {% if cap_floor is not none %}
+        <div class="finances-banner__limit">
+          <span class="finances-banner__label">Floor</span>
+          <span class="finances-banner__value">${{ '{:,}'.format(cap_floor) }}</span>
+        </div>
+        {% endif %}
+      </div>
+      {% else %}
+      <p class="muted finances-banner__unset">Commissioner has not configured cap limits. Set <code>salary_cap_amount</code> and <code>salary_cap_floor</code> in Admin → League Rules.</p>
+      {% endif %}
+      <p class="finances-banner__note">Injury salary buffers are not applied to an individual team's Salary Cap.</p>
+    </div>
+  </section>
+
+  <div class="finances-tabs" role="tablist" aria-label="Finances views">
+    <button type="button" class="finances-tabs__btn finances-tabs__btn--active" role="tab" aria-selected="true" aria-controls="finances-panel-players" id="finances-tab-players" data-finances-tab="players">Player Finances</button>
+    <button type="button" class="finances-tabs__btn" role="tab" aria-selected="false" aria-controls="finances-panel-staff" id="finances-tab-staff" data-finances-tab="staff">Staff Finances</button>
+  </div>
+
+  <section class="finances-panel finances-panel--active card" id="finances-panel-players" role="tabpanel" aria-labelledby="finances-tab-players">
+    <div class="table-wrap finances-table-wrap">
+      <table class="data finances-table" id="finances-player-table">
+        <thead>
+          <tr>
+            <th scope="col" data-sort="text">Team</th>
+            <th scope="col" data-sort="num" data-sort-default="desc">{% if season_label %}{{ season_label }}{% else %}Current{% endif %} Cap</th>
+            <th scope="col" data-sort="num">Cap Penalties</th>
+            <th scope="col" data-sort="num">Contracts</th>
+            <th scope="col" data-sort="num">Forwards</th>
+            <th scope="col" data-sort="num">Defense</th>
+            <th scope="col" data-sort="num">Goalies</th>
+            <th scope="col" data-sort="num">% of Ceiling</th>
+            <th scope="col" data-sort="num" class="finances-table__cap-space">Cap Space</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in teams %}
+          {% set team = row.team %}
+          <tr class="finances-row{% if row.over_ceiling %} finances-row--over{% elif row.under_floor %} finances-row--under{% endif %}">
+            <td data-sort-value="{{ team.full_display_name()|lower }}">
+              <a href="{{ url_for('main.team_page', slug=team.slug, panel='salary') }}" class="finances-team-link">
+                {{ team_lockup_full_name(team, season=season) }}
+              </a>
+            </td>
+            <td data-sort-value="{{ row.roster_cap }}">${{ '{:,}'.format(row.roster_cap) }}</td>
+            <td data-sort-value="{{ row.cap_penalty }}">
+              {% if row.cap_penalty %}${{ '{:,}'.format(row.cap_penalty) }}{% else %}<span class="muted">—</span>{% endif %}
+            </td>
+            <td data-sort-value="{{ row.contract_count }}">{{ row.contract_count }}</td>
+            <td data-sort-value="{{ row.fwd_pct_ceiling or 0 }}">
+              <div class="finances-pos-cell">
+                <span class="finances-pos-amount">${{ '%.2f'|format(row.fwd_total / 1000000.0) }}M</span>
+                {% if row.fwd_pct_ceiling is not none %}
+                <div class="finances-pos-bar finances-pos-bar--fwd" role="presentation">
+                  <span class="finances-pos-bar__fill" style="width: {{ [row.fwd_pct_ceiling, 100]|min }}%;"></span>
+                  <span class="finances-pos-bar__label">{{ '%.1f'|format(row.fwd_pct_ceiling) }}%</span>
+                </div>
+                {% else %}
+                <span class="muted">—</span>
+                {% endif %}
+              </div>
+            </td>
+            <td data-sort-value="{{ row.def_pct_ceiling or 0 }}">
+              <div class="finances-pos-cell">
+                <span class="finances-pos-amount">${{ '%.2f'|format(row.def_total / 1000000.0) }}M</span>
+                {% if row.def_pct_ceiling is not none %}
+                <div class="finances-pos-bar finances-pos-bar--def" role="presentation">
+                  <span class="finances-pos-bar__fill" style="width: {{ [row.def_pct_ceiling, 100]|min }}%;"></span>
+                  <span class="finances-pos-bar__label">{{ '%.1f'|format(row.def_pct_ceiling) }}%</span>
+                </div>
+                {% else %}
+                <span class="muted">—</span>
+                {% endif %}
+              </div>
+            </td>
+            <td data-sort-value="{{ row.gk_pct_ceiling or 0 }}">
+              <div class="finances-pos-cell">
+                <span class="finances-pos-amount">${{ '%.2f'|format(row.gk_total / 1000000.0) }}M</span>
+                {% if row.gk_pct_ceiling is not none %}
+                <div class="finances-pos-bar finances-pos-bar--gk" role="presentation">
+                  <span class="finances-pos-bar__fill" style="width: {{ [row.gk_pct_ceiling, 100]|min }}%;"></span>
+                  <span class="finances-pos-bar__label">{{ '%.1f'|format(row.gk_pct_ceiling) }}%</span>
+                </div>
+                {% else %}
+                <span class="muted">—</span>
+                {% endif %}
+              </div>
+            </td>
+            <td data-sort-value="{{ row.pct_of_ceiling or 0 }}">
+              {% if row.pct_of_ceiling is not none %}
+              <div class="finances-pos-bar finances-pos-bar--total" role="presentation">
+                <span class="finances-pos-bar__fill" style="width: {{ [row.pct_of_ceiling, 100]|min }}%;"></span>
+                <span class="finances-pos-bar__label">{{ '%.1f'|format(row.pct_of_ceiling) }}%</span>
+              </div>
+              {% else %}
+              <span class="muted">—</span>
+              {% endif %}
+            </td>
+            <td class="finances-table__cap-space" data-sort-value="{{ row.cap_space if row.cap_space is not none else 0 }}">
+              {% if row.cap_space is not none %}
+              {% set cap_space_tier = 'over' if row.cap_space < 0 else ('low' if row.cap_space < 2000000 else ('mid' if row.cap_space < 6000000 else 'high')) %}
+              <div class="finances-cap-cell finances-cap-cell--center">
+                <span class="finances-cap-space finances-cap-space--{{ cap_space_tier }}">${{ '{:,}'.format(row.cap_space) }}</span>
+                {% if row.over_ceiling %}<span class="finances-badge finances-badge--over">Over cap</span>{% elif row.under_floor %}<span class="finances-badge finances-badge--under">Under floor</span>{% endif %}
+              </div>
+              {% else %}
+              <span class="muted">—</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="9" class="muted">No team payroll data available.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="finances-panel card" id="finances-panel-staff" role="tabpanel" aria-labelledby="finances-tab-staff" hidden>
+    {% if not staff_budgets_configured %}
+    <p class="muted finances-staff-empty">Staff budgets are not configured for this season. The commissioner must enter team staff budgets in <a href="{{ url_for('site_admin.admin_staff_budgets') }}">Admin → Staff Budgets</a>.</p>
+    {% else %}
+    <div class="table-wrap finances-table-wrap">
+      <table class="data finances-table" id="finances-staff-table">
+        <thead>
+          <tr>
+            <th scope="col">Team</th>
+            <th scope="col">GM</th>
+            <th scope="col">Staff Budget</th>
+            <th scope="col">Est. Staff Payroll</th>
+            <th scope="col">Budget Remaining</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in staff_rows %}
+          <tr>
+            <td>{{ team_lockup_full_name(row.team, season=season) }}</td>
+            <td>{{ row.gm_label }}</td>
+            <td>${{ '{:,}'.format(row.budget_amount) }}</td>
+            <td>${{ '{:,}'.format(row.estimated_payroll) }}</td>
+            <td class="{% if row.budget_remaining < 0 %}finances-cap-space--over{% endif %}">${{ '{:,}'.format(row.budget_remaining) }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="muted">No staff budget rows.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  var tabBtns = document.querySelectorAll("[data-finances-tab]");
+  var panels = {
+    players: document.getElementById("finances-panel-players"),
+    staff: document.getElementById("finances-panel-staff"),
+  };
+  tabBtns.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var key = btn.getAttribute("data-finances-tab");
+      tabBtns.forEach(function (b) {
+        var active = b === btn;
+        b.classList.toggle("finances-tabs__btn--active", active);
+        b.setAttribute("aria-selected", active ? "true" : "false");
+      });
+      Object.keys(panels).forEach(function (k) {
+        var panel = panels[k];
+        if (!panel) return;
+        var show = k === key;
+        panel.classList.toggle("finances-panel--active", show);
+        panel.hidden = !show;
+      });
+    });
+  });
+
+  var table = document.getElementById("finances-player-table");
+  if (!table) return;
+  var thead = table.tHead;
+  if (!thead) return;
+  var tbody = table.tBodies[0];
+  var sortState = { col: null, dir: "asc" };
+
+  function sortRows(th) {
+    var colIdx = Array.prototype.indexOf.call(th.parentNode.children, th);
+    var type = th.getAttribute("data-sort") || "text";
+    var defaultDir = th.getAttribute("data-sort-default") || "asc";
+    var dir = sortState.col === colIdx ? (sortState.dir === "asc" ? "desc" : "asc") : defaultDir;
+    sortState = { col: colIdx, dir: dir };
+    var rows = Array.prototype.slice.call(tbody.rows);
+    rows.sort(function (a, b) {
+      var av = (a.cells[colIdx] && a.cells[colIdx].getAttribute("data-sort-value")) || "";
+      var bv = (b.cells[colIdx] && b.cells[colIdx].getAttribute("data-sort-value")) || "";
+      if (type === "num") {
+        var an = parseFloat(av) || 0;
+        var bn = parseFloat(bv) || 0;
+        return dir === "asc" ? an - bn : bn - an;
+      }
+      av = String(av).toLowerCase();
+      bv = String(bv).toLowerCase();
+      if (av < bv) return dir === "asc" ? -1 : 1;
+      if (av > bv) return dir === "asc" ? 1 : -1;
+      return 0;
+    });
+    rows.forEach(function (row) { tbody.appendChild(row); });
+    Array.prototype.forEach.call(thead.rows[0].cells, function (cell) {
+      cell.classList.remove("finances-th--sorted-asc", "finances-th--sorted-desc");
+    });
+    th.classList.add(dir === "asc" ? "finances-th--sorted-asc" : "finances-th--sorted-desc");
+  }
+
+  Array.prototype.forEach.call(thead.rows[0].cells, function (th) {
+    if (!th.getAttribute("data-sort")) return;
+    th.style.cursor = "pointer";
+    th.addEventListener("click", function () { sortRows(th); });
+    if (th.getAttribute("data-sort-default")) sortRows(th);
+  });
+})();
+</script>
+{% endblock %}

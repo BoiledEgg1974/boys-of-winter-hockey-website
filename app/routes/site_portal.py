@@ -265,6 +265,7 @@ from app.site_models import (
     StaffChangeRequest,
     RfaOfferRequest,
     TeamStaffBudget,
+    TeamCapPenalty,
     User,
 )
 from app.services.staff_salaries import (
@@ -272,6 +273,10 @@ from app.services.staff_salaries import (
     main_league_teams,
     staff_portal_context_for_gm,
     staff_salary_context,
+)
+from app.services.league_finances import (
+    build_league_finances_context,
+    cap_penalty_admin_context,
 )
 from app.services.rfa_offers import (
     CATEGORY_LABELS,
@@ -2479,6 +2484,23 @@ def staff_salaries_page():
     ctx["can_submit_requests"] = mem is not None
     ctx["staff_placeholder_url"] = staff_placeholder_url()
     return render_template("staff_salaries.html", **ctx)
+
+
+@site_gm_bp.get("/finances")
+@login_required
+def finances_page():
+    """League-wide player and staff finances (GMs and admins)."""
+    slug = _league_slug()
+    if not _membership() and not _is_site_admin():
+        flash("Finances is available to active GMs and league admins.", "err")
+        return redirect(url_for("main.home"))
+    ctx = build_league_finances_context(
+        db.session,
+        league_slug=slug,
+        raw_import_dir=Path(current_app.config["RAW_IMPORT_DIR"]),
+    )
+    ctx["membership"] = _membership()
+    return render_template("finances.html", **ctx)
 
 
 @site_gm_bp.route("/rfa-offers", methods=["GET", "POST"])
@@ -7525,6 +7547,53 @@ def admin_staff_budgets():
 
     ctx = staff_salary_context(db.session, league_slug=slug)
     return render_template("admin_staff_budgets.html", **ctx)
+
+
+@site_admin_bp.route("/cap-penalties", methods=["GET", "POST"])
+@login_required
+def admin_cap_penalties():
+    """Enter manual FHM-style cap hit penalties per team for the current season."""
+    require_admin_role(ADMIN_ROLE_STATS, ADMIN_ROLE_LEAGUE)
+    slug = _league_slug()
+    start_year = current_season_start_year(db.session)
+    if start_year is None:
+        flash("No current season is configured for this league.", "err")
+        return redirect(url_for("site_admin.admin_home"))
+
+    if request.method == "POST":
+        teams = main_league_teams(db.session)
+        for t in teams:
+            tid = int(t.id)
+            raw = (request.form.get(f"penalty_{tid}") or "").strip().replace(",", "").replace("$", "")
+            try:
+                amount = max(0, int(raw)) if raw else 0
+            except ValueError:
+                amount = 0
+            row = db.session.scalar(
+                select(TeamCapPenalty).where(
+                    TeamCapPenalty.league_slug == slug,
+                    TeamCapPenalty.season_start_year == int(start_year),
+                    TeamCapPenalty.team_id == tid,
+                ).limit(1)
+            )
+            if row is None:
+                row = TeamCapPenalty(
+                    league_slug=slug,
+                    season_start_year=int(start_year),
+                    team_id=tid,
+                    penalty_amount=amount,
+                    updated_by_user_id=int(current_user.id),
+                )
+                db.session.add(row)
+            else:
+                row.penalty_amount = amount
+                row.updated_by_user_id = int(current_user.id)
+        commit_with_sqlite_retry(db.session)
+        flash("Cap hit penalties saved.", "ok")
+        return redirect(url_for("site_admin.admin_cap_penalties"))
+
+    ctx = cap_penalty_admin_context(db.session, league_slug=slug)
+    return render_template("admin_cap_penalties.html", **ctx)
 
 
 @site_admin_bp.route("/ap-ledger", methods=["GET", "POST"])

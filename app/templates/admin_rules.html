@@ -9,6 +9,8 @@
     <strong><code>trade_tool_draft_rounds</code></strong> (default 8) caps the highest round number GMs can add as manual draft-pick chips on the Trade Tool (1–32).
     <strong><code>playoff_projection_first_round_format</code></strong> controls the standings-page projected playoff bracket before the official playoff bracket begins.
     Use <code>default</code>, <code>conference_division_winners_top3</code>, <code>conference_points</code>, <code>division_1v3_2v4</code>, or <code>division_1v4_2v3</code>.
+    <strong>Salary cap:</strong> set <code>salary_cap_enabled</code> to <code>true</code> to show ceiling/floor on the GM Finances page and highlight over-cap / under-floor teams.
+    <code>salary_cap_amount</code> is the cap <strong>ceiling</strong> (integer dollars). <code>salary_cap_floor</code> is the minimum payroll floor.
   </p>
   <form method="post">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

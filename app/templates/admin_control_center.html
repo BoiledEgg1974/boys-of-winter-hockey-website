@@ -234,6 +234,15 @@
         </li>
         {% endif %}
         <li class="bowl-six-admin-fix">
+          <strong>Discord leaders stuck?</strong>
+          <form method="post" action="{{ url_for('site_admin.admin_bowl_six_fresh_discord_leaders') }}" class="bowl-six-admin-fix__form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="slate_id" value="{{ bowl_six_current.id }}">
+            <button type="submit" class="admin-news-body-btn">Post fresh leaders message</button>
+          </form>
+          <span class="muted">Posts a new embed instead of editing the previous leaders message.</span>
+        </li>
+        <li class="bowl-six-admin-fix">
           <strong>Ensure past week’s prizes</strong>
           <form method="post" action="{{ url_for('site_admin.admin_bowl_six_ensure_past_week_prizes') }}" class="bowl-six-admin-fix__form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

@@ -281,9 +281,23 @@ class LeagueDiscordBot:
             if i > 0 and delay > 0:
                 time.sleep(delay)
             if i == 0 and edit_message_id:
-                delivered_message_id = self.patch_discord(
-                    discord_client, channel_id, edit_message_id, body
-                )
+                try:
+                    delivered_message_id = self.patch_discord(
+                        discord_client, channel_id, edit_message_id, body
+                    )
+                except RuntimeError as exc:
+                    err = str(exc)
+                    if "404" not in err and "Unknown Message" not in err:
+                        raise
+                    log.warning(
+                        "Discord edit failed for message %s in channel %s; posting new message (%s)",
+                        edit_message_id,
+                        channel_id,
+                        err,
+                    )
+                    delivered_message_id = self.post_discord(
+                        discord_client, channel_id, body
+                    )
             else:
                 delivered_message_id = self.post_discord(
                     discord_client, channel_id, body

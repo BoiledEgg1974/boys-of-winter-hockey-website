@@ -1935,10 +1935,13 @@ def _refresh_bowl_six_discord_triggers(slug: str) -> None:
         from app.services.bowl_six import (
             auto_update_bowl_six_slates,
             maybe_enqueue_bowl_six_roster_reminders,
+            refresh_bowl_six_leaders_for_discord_poll,
         )
 
         if current_app.config.get("BOWL_SIX_DISCORD_POLL_AUTO_UPDATE"):
             auto_update_bowl_six_slates(db.session, db.session, key)
+        else:
+            refresh_bowl_six_leaders_for_discord_poll(db.session, db.session, key)
         maybe_enqueue_bowl_six_roster_reminders(db.session, key)
         commit_with_sqlite_retry(db.session)
     except Exception:

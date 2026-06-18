@@ -5,7 +5,10 @@ import unittest
 from datetime import date, datetime, timedelta
 from unittest.mock import patch
 
-from app.services.bowl_six_discord import build_bowl_six_leaders_discord_payload
+from app.services.bowl_six_discord import (
+    build_bowl_six_leaders_discord_payload,
+    enqueue_fresh_bowl_six_leaders_discord,
+)
 from app.services.discord_events import bowl_six_leaders_idempotency_key
 from app.site_models import BowlSixSlate
 
@@ -96,6 +99,37 @@ class BowlSixDiscordPayloadTest(unittest.TestCase):
             bowl_six_leaders_idempotency_key(league_slug="bowl-cap", slate_id=3),
             "bowl-six-leaders:bowl-cap:3",
         )
+
+    def test_enqueue_fresh_clears_edit_target_and_forces_queue(self):
+        slate = BowlSixSlate(
+            id=12,
+            league_slug="bowl-historical",
+            week_start=date(2026, 6, 15),
+            week_end=date(2026, 6, 21),
+            status="locked",
+            discord_leaders_message_id="1515929250367148186",
+            discord_leaders_payload_hash="deadbeef",
+        )
+        session = unittest.mock.MagicMock()
+        league_session = unittest.mock.MagicMock()
+        with patch(
+            "app.services.bowl_six_discord.maybe_enqueue_bowl_six_leaders_discord",
+            return_value=True,
+        ) as enqueue, patch(
+            "app.services.bowl_six.refresh_slate_lineup_scores"
+        ) as refresh_lineups, patch(
+            "app.services.bowl_six.refresh_player_week_stats"
+        ) as refresh_players:
+            queued = enqueue_fresh_bowl_six_leaders_discord(session, league_session, slate)
+
+        self.assertTrue(queued)
+        self.assertIsNone(slate.discord_leaders_message_id)
+        self.assertIsNone(slate.discord_leaders_payload_hash)
+        session.flush.assert_called_once()
+        refresh_lineups.assert_called_once()
+        refresh_players.assert_called_once()
+        enqueue.assert_called_once()
+        self.assertTrue(enqueue.call_args.kwargs["force"])
 
 
 if __name__ == "__main__":

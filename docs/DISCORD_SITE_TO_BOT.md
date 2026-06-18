@@ -37,7 +37,7 @@ Ack: `POST /api/discord/events/<id>/ack` — marks sent and records `source_type
 
 Payloads include `source_type` and `source_id` for idempotency where applicable.
 
-**BOWL Six leaders:** Queued when slate scores/stats change (hub load, import, control center). Configure the route on each league’s **Admin → Discord integration**. The bot **PATCH**es when `payload.edit_message_id` is set; ack may include `discord_message_id`.
+**BOWL Six leaders:** Queued when slate scores/stats change (hub load, import, control center, and **bot poll** every ~60s via a lightweight leaders refresh). Configure the route on each league’s **Admin → Discord integration**. The bot **PATCH**es the same embed when `payload.edit_message_id` is set (no new message at the bottom of the channel). Set `BOWL_SIX_DISCORD_POLL_AUTO_UPDATE=1` only if you also want full slate finalization on every poll.
 
 **Historical example (Discord server guild `1218341313208914002`):** set that guild ID under Bot connection on `bowl-historical`; map channel snowflakes roughly as: `announcement_posted` → `#announcements`, `ap_redemption_posted` → `#ap-repemptions` (or `#ap-redemptions`), `gm_news_published` → `#team-news`, `admin_news_published` → `#league-news`, `draft_hub_pick_made` → `#draft-discussion`, `expansion_draft_pick_made` → `#expansion-draft-discussion`.
 

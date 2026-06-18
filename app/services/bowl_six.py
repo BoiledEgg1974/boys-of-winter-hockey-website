@@ -1126,6 +1126,34 @@ def _enqueue_bowl_six_discord_leaders_safe(
         _log.exception("BOWL Six Discord leaders enqueue failed for slate %s", slate.id)
 
 
+def refresh_bowl_six_leaders_for_discord_poll(
+    session: Session, league_session: Session, league_slug: str
+) -> bool:
+    """Lightweight bot-poll refresh: rescore current slate stats and queue leaders Discord.
+
+    Unlike ``auto_update_bowl_six_slates``, this does not finalize slates or walk the
+  21-day lookback window. Roster unlock reminders already run on every poll; leaders need
+    the same cadence so the live embed updates after imports without a site visit.
+    """
+    if not bowl_six_enabled(session, league_slug):
+        return False
+    slate = get_or_create_current_slate(session, league_slug, league_session=league_session)
+    if slate is None or str(slate.status or "") in ("skipped",):
+        return False
+    status = str(slate.status or "")
+    if status == "open":
+        if rs_game_ids_for_slate(league_session, slate):
+            refresh_player_week_stats(session, slate, league_session)
+            refresh_slate_lineup_scores(session, league_session, slate)
+    elif status in ("locked", "scored"):
+        refresh_slate_lineup_scores(session, league_session, slate)
+        refresh_player_week_stats(session, slate, league_session)
+    else:
+        return False
+    _enqueue_bowl_six_discord_leaders_safe(session, league_session, slate)
+    return True
+
+
 def _auto_update_single_slate(
     session: Session, league_session: Session, slate: BowlSixSlate
 ) -> str | None:

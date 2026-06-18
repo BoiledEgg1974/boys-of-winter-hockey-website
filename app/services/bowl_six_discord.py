@@ -215,6 +215,42 @@ def maybe_enqueue_bowl_six_leaders_discord(
     return row is not None
 
 
+def enqueue_fresh_bowl_six_leaders_discord(
+    session: Session,
+    league_session: Session,
+    slate: BowlSixSlate,
+) -> bool:
+    """Queue a new leaders Discord post (clears stored edit target first)."""
+    if str(slate.status or "") == "skipped":
+        return False
+    slate.discord_leaders_message_id = None
+    slate.discord_leaders_payload_hash = None
+    session.flush()
+    status = str(slate.status or "")
+    if status == "open":
+        from app.services.bowl_six import rs_game_ids_for_slate
+
+        if rs_game_ids_for_slate(league_session, slate):
+            from app.services.bowl_six import (
+                refresh_player_week_stats,
+                refresh_slate_lineup_scores,
+            )
+
+            refresh_player_week_stats(session, slate, league_session)
+            refresh_slate_lineup_scores(session, league_session, slate)
+    elif status in ("locked", "scored"):
+        from app.services.bowl_six import (
+            refresh_player_week_stats,
+            refresh_slate_lineup_scores,
+        )
+
+        refresh_slate_lineup_scores(session, league_session, slate)
+        refresh_player_week_stats(session, slate, league_session)
+    return maybe_enqueue_bowl_six_leaders_discord(
+        session, league_session, slate, force=True
+    )
+
+
 def record_bowl_six_leaders_discord_ack(
     session: Session,
     *,

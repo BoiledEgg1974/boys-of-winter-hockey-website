@@ -632,6 +632,35 @@ def admin_bowl_six_rescore():
     return redirect(url_for("site_admin.admin_control_center"))
 
 
+@site_admin_bp.post("/control-center/bowl-six/fresh-discord-leaders")
+@login_required
+def admin_bowl_six_fresh_discord_leaders():
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    slug = _league_slug()
+    sid = int(request.form.get("slate_id") or "0")
+    slate = db.session.get(BowlSixSlate, sid)
+    if not slate or slate.league_slug != slug:
+        flash("Invalid slate.", "err")
+        return redirect(url_for("site_admin.admin_control_center"))
+    from app.services.bowl_six_discord import enqueue_fresh_bowl_six_leaders_discord
+
+    queued = enqueue_fresh_bowl_six_leaders_discord(db.session, db.session, slate)
+    _audit(
+        "bowl_six_fresh_discord_leaders",
+        {"slate_id": sid, "queued": bool(queued)},
+    )
+    commit_with_sqlite_retry(db.session)
+    if queued:
+        flash("Queued a fresh BOWL Six leaders Discord post.", "ok")
+    else:
+        flash(
+            "Could not queue a fresh leaders post. Check Discord Integration "
+            "(bowl_six_leaders_update route enabled with channel ID).",
+            "err",
+        )
+    return redirect(url_for("site_admin.admin_control_center"))
+
+
 @site_admin_bp.post("/control-center/bowl-six/ensure-past-week-prizes")
 @login_required
 def admin_bowl_six_ensure_past_week_prizes():

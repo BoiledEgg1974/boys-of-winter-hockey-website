@@ -128,9 +128,8 @@
 {% if team_honors_show_section %}
 <section class="team-honors" aria-label="Franchise honors">
   {% set retired_count = team_honors_retired_rows|length if team_honors_retired_rows else 0 %}
-  {% set banner_count = team_honors_banner_rows|selectattr('banner_image_rel_path')|list|length if team_honors_banner_rows else 0 %}
-  {% set compact_honors_grid = team_honors_show_retired_panel and team_honors_show_banner_panel and retired_count > 0 and banner_count > 0 and retired_count <= 4 and banner_count <= 3 %}
-  <div class="team-honors__grid{% if compact_honors_grid %} team-honors__grid--split{% endif %}">
+  {% set banner_count = team_honors_banner_count if team_honors_banner_count is defined else (team_honors_banner_rows|selectattr('banner_image_rel_path')|list|length if team_honors_banner_rows else 0) %}
+  <div class="team-honors__grid{% if team_honors_panels_split %} team-honors__grid--split{% endif %}">
     {% if team_honors_show_retired_panel %}
     <div class="card team-honors__panel team-honors__panel--retired">
       <h2 class="team-honors__title">RETIRED NUMBERS</h2>
@@ -160,7 +159,7 @@
     {% if team_honors_show_banner_panel %}
     <div class="card team-honors__panel team-honors__panel--banners">
       <h2 class="team-honors__title">Championship Banners</h2>
-      <ul class="team-honors__banner-list" role="list">
+      <ul class="team-honors__banner-list" role="list" style="--team-honors-banner-fixed-height: {% if team_honors_panels_split and banner_count >= 4 %}8.5rem{% else %}10rem{% endif %}; --team-honors-gap: {% if team_honors_panels_split and banner_count >= 4 %}clamp(0.2rem, 0.8vw, 0.75rem){% else %}clamp(0.35rem, 1.4vw, 1.5rem){% endif %};">
         {% for row in team_honors_banner_rows %}
         {% if row.banner_image_rel_path %}
         <li class="team-honors__banner-item" role="listitem">

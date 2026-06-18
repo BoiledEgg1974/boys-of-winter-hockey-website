@@ -56,20 +56,38 @@ def active_victory_banners_for_team(session: Session, team_id: int) -> list[Team
     return rows
 
 
+def honors_panels_should_stack(*, retired_count: int, banner_count: int) -> bool:
+    """Stack honors panels vertically when a row cannot keep original item sizing."""
+    if retired_count > 8:
+        return True
+    if banner_count > 6:
+        return True
+    return False
+
+
 def team_honors_page_bundle(session: Session, team_id: int) -> dict[str, object]:
     """Display bundle for team.html honors section."""
     meta = get_team_honors_meta(session, team_id)
     retired_enabled = bool(meta and meta.retired_section_enabled)
     retired_rows = active_retired_numbers_for_team(session, team_id)
     banner_rows = active_victory_banners_for_team(session, team_id)
+    banner_count = sum(1 for row in banner_rows if row.banner_image_rel_path)
     show_retired_panel = retired_enabled or bool(retired_rows)
     show_banner_panel = bool(banner_rows)
     show_honors_section = show_retired_panel or show_banner_panel
+    stack_panels = honors_panels_should_stack(
+        retired_count=len(retired_rows),
+        banner_count=banner_count,
+    )
+    split_panels = show_retired_panel and show_banner_panel and not stack_panels
     return {
         "team_honors_show_section": show_honors_section,
         "team_honors_show_retired_panel": show_retired_panel,
         "team_honors_show_banner_panel": show_banner_panel,
+        "team_honors_panels_split": split_panels,
+        "team_honors_panels_stack": stack_panels,
         "team_honors_retired_enabled": retired_enabled,
         "team_honors_retired_rows": retired_rows,
         "team_honors_banner_rows": banner_rows,
+        "team_honors_banner_count": banner_count,
     }

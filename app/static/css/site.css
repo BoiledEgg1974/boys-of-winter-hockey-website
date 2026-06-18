@@ -1896,6 +1896,8 @@ html[data-league="cap"] .bracket-bowl-title--cap span:first-child {
 }
 .boxscore-table-wrap {
   margin-bottom: 0.35rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .boxscore-table {
   width: 100%;
@@ -2527,7 +2529,8 @@ html[data-league="cap"] .bracket-bowl-title--cap span:first-child {
 }
 
 #home-special-teams.table-wrap {
-  overflow-x: visible;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .home-special-teams-table {
   table-layout: fixed;
@@ -3648,6 +3651,11 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
   grid-template-columns: 1fr 1fr;
   gap: 0.75rem;
 }
+@media (max-width: 800px) {
+  .home-power-split {
+    grid-template-columns: 1fr;
+  }
+}
 .home-power-block {
   min-width: 0;
 }
@@ -3845,6 +3853,9 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
   .team-honors__grid--split {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
+}
+.team-honors__grid--split .team-honors__banner-item {
+  max-width: min(12rem, 100%);
 }
 .team-honors__panel {
   display: flex;
@@ -17103,7 +17114,8 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   vertical-align: middle;
 }
 .team-records-leaderboards .table-wrap {
-  overflow-x: visible;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .team-records-leaderboards__th-rank,
 .team-records-leaderboards__td-rank {
@@ -21498,5 +21510,109 @@ button.bowl-six-submissions__toggle:hover {
   }
   .gm-help-tips__toc {
     position: static;
+  }
+}
+
+/* Global phone / tablet layout (all public + GM pages) */
+@media (max-width: 1100px) {
+  body.site-touch-layout {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+  body.site-touch-layout .site-header .main-nav {
+    max-height: min(70vh, 28rem);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  body.site-touch-layout .nav-toggle {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
+  body.site-touch-layout #main-content {
+    padding-left: max(0.65rem, env(safe-area-inset-left));
+    padding-right: max(0.65rem, env(safe-area-inset-right));
+    padding-bottom: max(2rem, env(safe-area-inset-bottom));
+  }
+  body.site-touch-layout #main-content table.data,
+  body.site-touch-layout #main-content .table-wrap > table,
+  body.site-touch-layout #main-content .stats-table-scroll > table {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  body.site-touch-layout #main-content table.data thead,
+  body.site-touch-layout #main-content table.data tbody,
+  body.site-touch-layout #main-content table.data tr,
+  body.site-touch-layout #main-content .table-wrap > table thead,
+  body.site-touch-layout #main-content .table-wrap > table tbody,
+  body.site-touch-layout #main-content .table-wrap > table tr {
+    width: max-content;
+    min-width: 100%;
+  }
+  body.site-touch-layout .admin-ops-lane table.data,
+  body.site-touch-layout .draft-pick-admin-grid {
+    min-width: 0;
+  }
+  body.site-touch-layout #main-content button:not(.nav-toggle):not(.theme-toggle),
+  body.site-touch-layout #main-content .btn,
+  body.site-touch-layout #main-content a.btn {
+    min-height: 2.75rem;
+  }
+  body.site-touch-layout #main-content select,
+  body.site-touch-layout #main-content input[type="text"],
+  body.site-touch-layout #main-content input[type="number"],
+  body.site-touch-layout #main-content input[type="search"],
+  body.site-touch-layout #main-content input[type="email"],
+  body.site-touch-layout #main-content input[type="password"],
+  body.site-touch-layout #main-content textarea {
+    min-height: 2.75rem;
+    font-size: 1rem;
+  }
+  body.site-touch-layout .team-schedule-carousel__btn {
+    flex: 0 0 2.75rem;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
+  body.site-touch-layout .team-schedule-carousel__track {
+    scroll-snap-type: x proximity;
+  }
+  body.site-touch-layout .team-schedule-card {
+    scroll-snap-align: start;
+  }
+  body.site-touch-layout .trade-tool-chip {
+    cursor: pointer;
+  }
+}
+
+.player-hover-card__close,
+.team-hover-preview-card__close {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.4rem;
+  z-index: 2;
+  border: none;
+  border-radius: 999px;
+  width: 2rem;
+  height: 2rem;
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+  color: #e2e8f0;
+  background: rgb(15 23 42 / 0.85);
+}
+.hover-preview-card--dock {
+  position: fixed;
+  left: 0;
+  top: 0;
+  max-height: min(82vh, 640px);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+@media (hover: hover) and (pointer: fine) {
+  .player-hover-card__close,
+  .team-hover-preview-card__close {
+    display: none;
   }
 }

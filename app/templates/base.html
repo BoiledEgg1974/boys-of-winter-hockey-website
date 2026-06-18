@@ -2,14 +2,14 @@
 <html lang="en" data-application-root="{{ request.script_root or '' }}"{% if current_league_slug in ('bowl-fantasy', 'bowl-cap', 'bowl-historical') %} data-league="{% if current_league_slug == 'bowl-fantasy' %}fantasy{% elif current_league_slug == 'bowl-cap' %}cap{% else %}historical{% endif %}"{% endif %}>
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>{% block title %}{{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
 </head>
-<body{% if admin_compact_layout %} class="admin-compact-layout"{% endif %}>
+<body class="site-touch-layout{% if admin_compact_layout %} admin-compact-layout{% endif %}">
   <header class="site-header" role="banner">
     <div class="header-row1">
       <div class="league-brand">

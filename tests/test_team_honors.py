@@ -4,7 +4,7 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
-from app.services.team_honors import team_honors_page_bundle
+from app.services.team_honors import honors_panels_should_stack, team_honors_page_bundle
 from app.services.team_honors_media import retired_jersey_filename, victory_banner_filename
 
 
@@ -45,9 +45,10 @@ class TeamHonorsTemplateTest(unittest.TestCase):
         self.assertIn("--team-honors-jersey-width", template)
         self.assertIn("--team-honors-number-size", template)
         self.assertIn("--team-honors-name-size", template)
-        self.assertIn("compact_honors_grid", template)
+        self.assertIn("team_honors_panels_split", template)
         self.assertIn("team-honors__grid--split", template)
-        self.assertIn("team_honors_banner_rows|selectattr('banner_image_rel_path')|list|length", template)
+        self.assertIn("team_honors_banner_count", template)
+        self.assertNotIn("compact_honors_grid", template)
         self.assertNotIn("--team-honors-banner-height", template)
         self.assertIn("flex-wrap: nowrap;", css)
         self.assertNotIn("  .team-honors__grid {\n    grid-template-columns", css)
@@ -88,6 +89,18 @@ class TeamHonorsBundleTest(unittest.TestCase):
         self.assertFalse(bundle["team_honors_show_section"])
         self.assertFalse(bundle["team_honors_show_retired_panel"])
         self.assertFalse(bundle["team_honors_show_banner_panel"])
+
+
+class HonorsPanelsLayoutTest(unittest.TestCase):
+    def test_split_for_typical_retired_and_banner_counts(self) -> None:
+        self.assertFalse(honors_panels_should_stack(retired_count=1, banner_count=4))
+        self.assertFalse(honors_panels_should_stack(retired_count=4, banner_count=3))
+        self.assertFalse(honors_panels_should_stack(retired_count=8, banner_count=6))
+
+    def test_stack_when_row_exceeds_original_format_limits(self) -> None:
+        self.assertTrue(honors_panels_should_stack(retired_count=9, banner_count=1))
+        self.assertTrue(honors_panels_should_stack(retired_count=1, banner_count=7))
+        self.assertTrue(honors_panels_should_stack(retired_count=10, banner_count=8))
 
 
 if __name__ == "__main__":

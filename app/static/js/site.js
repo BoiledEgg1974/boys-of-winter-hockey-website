@@ -15,6 +15,22 @@
       .replace(/</g, "&lt;");
   }
 
+  function isTouchLikeDevice() {
+    return window.matchMedia("(hover: none), (pointer: coarse)").matches;
+  }
+
+  function dockHoverCard(card) {
+    if (!card) return;
+    card.classList.add("hover-preview-card--dock");
+    var pad = 12;
+    var cardW = card.offsetWidth || 320;
+    var cardH = card.offsetHeight || 240;
+    var left = window.scrollX + Math.max(pad, (document.documentElement.clientWidth - cardW) / 2);
+    var top = window.scrollY + Math.max(pad, (window.innerHeight - cardH) / 2);
+    card.style.left = Math.round(left) + "px";
+    card.style.top = Math.round(top) + "px";
+  }
+
   function playerIdFromHref(href) {
     if (!href) return null;
     try {
@@ -771,7 +787,7 @@
 
     function hideCard() {
       card.hidden = true;
-      card.classList.remove("is-visible");
+      card.classList.remove("is-visible", "hover-preview-card--dock");
       activeAnchor = null;
     }
 
@@ -783,6 +799,11 @@
 
     function moveCardNear(anchor) {
       if (!anchor) return;
+      if (isTouchLikeDevice()) {
+        dockHoverCard(card);
+        return;
+      }
+      card.classList.remove("hover-preview-card--dock");
       var rect = anchor.getBoundingClientRect();
       var pad = 12;
       var cardRect = card.getBoundingClientRect();
@@ -934,6 +955,9 @@
       card.classList.toggle("player-hover-card--boosted", !!boostBadgeHtml);
       var copyBar =
         '<div class="player-hover-card__toolbar">' +
+        (isTouchLikeDevice()
+          ? '<button type="button" class="player-hover-card__close js-close-hover-card" aria-label="Close preview">×</button>'
+          : "") +
         '<button type="button" class="player-hover-card__copy js-copy-player-card" data-player-id="' +
         escapeAttr(String(playerIdForCard)) +
         '" title="Copies the player card image to the clipboard for Discord.">Copy card</button></div>';
@@ -1000,6 +1024,12 @@
       clearTimeout(hideTimer);
     });
     card.addEventListener("mouseleave", scheduleHide);
+    card.addEventListener("click", function (e) {
+      if (e.target.closest(".js-close-hover-card")) {
+        e.preventDefault();
+        hideCard();
+      }
+    });
 
     function bindPlayerHoverAnchors() {
       document.querySelectorAll('a[href*="/player/"]').forEach(function (a) {
@@ -1007,14 +1037,34 @@
         var playerId = playerIdFromHref(a.getAttribute("href"));
         if (!playerId) return;
         a.setAttribute("data-player-hover-bound", "1");
-        a.addEventListener("mouseenter", function () { showFor(a, playerId); });
-        a.addEventListener("mouseleave", scheduleHide);
+        if (isTouchLikeDevice()) {
+          a.addEventListener("click", function (e) {
+            if (e.target.closest(".player-hover-card")) return;
+            var open = !card.hidden && activeAnchor === a;
+            if (!open) {
+              e.preventDefault();
+              showFor(a, playerId);
+            }
+          });
+        } else {
+          a.addEventListener("mouseenter", function () { showFor(a, playerId); });
+          a.addEventListener("mouseleave", scheduleHide);
+        }
         a.addEventListener("focusin", function () { showFor(a, playerId); });
         a.addEventListener("focusout", scheduleHide);
       });
     }
 
     bindPlayerHoverAnchors();
+
+    if (isTouchLikeDevice()) {
+      document.addEventListener("click", function (e) {
+        if (card.hidden) return;
+        if (card.contains(e.target)) return;
+        if (activeAnchor && (activeAnchor === e.target || activeAnchor.contains(e.target))) return;
+        hideCard();
+      });
+    }
 
     window.addEventListener("scroll", function () {
       if (!card.hidden && activeAnchor) moveCardNear(activeAnchor);
@@ -1039,6 +1089,7 @@
 
     function hideCard() {
       card.hidden = true;
+      card.classList.remove("hover-preview-card--dock");
       activeAnchor = null;
     }
 
@@ -1050,6 +1101,11 @@
 
     function moveCardNear(anchor) {
       if (!anchor) return;
+      if (isTouchLikeDevice()) {
+        dockHoverCard(card);
+        return;
+      }
+      card.classList.remove("hover-preview-card--dock");
       var rect = anchor.getBoundingClientRect();
       var pad = 12;
       var cardRect = card.getBoundingClientRect();
@@ -1190,6 +1246,9 @@
       var footer = footInner ? '<div class="team-hover-preview-card__footer">' + footInner + "</div>" : "";
 
       card.innerHTML =
+        (isTouchLikeDevice()
+          ? '<button type="button" class="team-hover-preview-card__close js-close-hover-card" aria-label="Close preview">×</button>'
+          : "") +
         '<div class="team-hover-preview-card__shell">' +
         '<div class="team-hover-preview-card__head">' +
         '<div class="team-hover-preview-card__head-main">' +
@@ -1249,6 +1308,12 @@
       clearTimeout(hideTimer);
     });
     card.addEventListener("mouseleave", scheduleHide);
+    card.addEventListener("click", function (e) {
+      if (e.target.closest(".js-close-hover-card")) {
+        e.preventDefault();
+        hideCard();
+      }
+    });
 
     function bindTeamHoverAnchors() {
       document.querySelectorAll('a[href*="/team/"]').forEach(function (a) {
@@ -1256,10 +1321,21 @@
         var slug = teamSlugFromHref(a.getAttribute("href"));
         if (!slug) return;
         a.setAttribute("data-team-hover-bound", "1");
-        a.addEventListener("mouseenter", function () {
-          showFor(a, slug);
-        });
-        a.addEventListener("mouseleave", scheduleHide);
+        if (isTouchLikeDevice()) {
+          a.addEventListener("click", function (e) {
+            if (e.target.closest(".team-hover-preview-card")) return;
+            var open = !card.hidden && activeAnchor === a;
+            if (!open) {
+              e.preventDefault();
+              showFor(a, slug);
+            }
+          });
+        } else {
+          a.addEventListener("mouseenter", function () {
+            showFor(a, slug);
+          });
+          a.addEventListener("mouseleave", scheduleHide);
+        }
         a.addEventListener("focusin", function () {
           showFor(a, slug);
         });
@@ -1268,6 +1344,15 @@
     }
 
     bindTeamHoverAnchors();
+
+    if (isTouchLikeDevice()) {
+      document.addEventListener("click", function (e) {
+        if (card.hidden) return;
+        if (card.contains(e.target)) return;
+        if (activeAnchor && (activeAnchor === e.target || activeAnchor.contains(e.target))) return;
+        hideCard();
+      });
+    }
 
     window.addEventListener(
       "scroll",
@@ -1634,6 +1719,9 @@
 
       searchInput.addEventListener("blur", function () {
         setTimeout(closeAc, 200);
+      });
+      ac.addEventListener("mousedown", function (e) {
+        e.preventDefault();
       });
 
       searchInput.addEventListener("input", function () {

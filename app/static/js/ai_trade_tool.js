@@ -248,6 +248,40 @@
       (cached.right.draft_picks && cached.right.draft_picks.length);
     if (manualBox) manualBox.style.display = useOwnership ? "none" : "";
     bindTradeHovers();
+    wireTradeChipTap();
+  }
+
+  function wireTradeChipTap() {
+    if (!window.matchMedia("(hover: none), (pointer: coarse)").matches) return;
+    root.querySelectorAll(".trade-tool-chip[data-drag-key]").forEach(function (chip) {
+      if (chip.getAttribute("data-trade-tap-bound") === "1") return;
+      chip.setAttribute("data-trade-tap-bound", "1");
+      chip.addEventListener("click", function (e) {
+        if (e.target.closest("a")) return;
+        var k = chip.getAttribute("data-drag-key");
+        if (!k) return;
+        var zone = chip.closest("[id^='zone-']");
+        if (zone) {
+          e.preventDefault();
+          ledger.from_left_to_right = ledger.from_left_to_right.filter(function (x) {
+            return x !== k;
+          });
+          ledger.from_right_to_left = ledger.from_right_to_left.filter(function (x) {
+            return x !== k;
+          });
+          renderSidebars();
+          renderZones();
+          return;
+        }
+        var side = chip.getAttribute("data-side") || "";
+        if (side === "left" || side.indexOf("mpleft") === 0 || isKeyFromLeft(k)) {
+          applyDrop("from_left_to_right", k);
+        } else {
+          applyDrop("from_right_to_left", k);
+        }
+        e.preventDefault();
+      });
+    });
   }
 
   function findPlayerItem(key) {
@@ -290,6 +324,7 @@
     prunePoolsAfterZoneRender();
     syncLedgerField();
     bindTradeHovers();
+    wireTradeChipTap();
   }
 
   function prunePoolsAfterZoneRender() {

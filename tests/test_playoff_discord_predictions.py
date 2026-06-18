@@ -88,6 +88,53 @@ class PlayoffDiscordPredictionsTest(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0][0], "First round")
 
+    def test_formatter_emits_one_message_per_matchup(self) -> None:
+        series_row = {
+            "round_label": "First round",
+            "team_a": {"abbrev": "MTL", "fhm_team_id": 0},
+            "team_b": {"abbrev": "TOR", "fhm_team_id": 3},
+            "team_a_stats": "MTL: GF/G 3.2 (2nd), GA/G 2.5 (5th), PP% 22.1% (3rd), PK% 81.2% (4th)",
+            "team_b_stats": "TOR: GF/G 3.0 (4th), GA/G 2.7 (6th), PP% 20.0% (8th), PK% 79.0% (9th)",
+            "prediction_line": "MTL 58.3% to win series",
+            "h2h_line": "MTL 3-2-1 vs TOR · 18-15 goals",
+            "series_score": "0-0",
+        }
+        parts = format_discord_messages(
+            {
+                "league_slug": "bowl-cap",
+                "event_key": "playoff_predictions",
+                "payload": {
+                    "title": "Playoff predictions — 2025-26",
+                    "prediction_method_note": "Based on regular-season stats.",
+                    "series": [
+                        series_row,
+                        {
+                            **series_row,
+                            "team_a": {"abbrev": "BOS", "fhm_team_id": 1},
+                            "team_b": {"abbrev": "NYR", "fhm_team_id": 2},
+                            "prediction_line": "BOS 52.0% to win series",
+                            "h2h_line": "BOS 2-3-0 vs NYR · 14-16 goals",
+                        },
+                    ],
+                },
+            },
+            max_parts=4,
+        )
+        self.assertEqual(len(parts), 2)
+        self.assertNotIn("embeds", parts[0])
+        self.assertNotIn("embeds", parts[1])
+        self.assertIn("Playoff predictions", parts[0]["content"])
+        self.assertNotIn("Playoff predictions", parts[1]["content"])
+        self.assertIn("MTL", parts[0]["content"])
+        self.assertIn("TOR", parts[0]["content"])
+        self.assertNotIn("BOS", parts[0]["content"])
+        self.assertIn("BOS", parts[1]["content"])
+        self.assertIn("NYR", parts[1]["content"])
+        self.assertIn("Prediction: MTL 58.3% to win series", parts[0]["content"])
+        self.assertIn("Prediction: BOS 52.0% to win series", parts[1]["content"])
+        self.assertIn("Based on regular-season stats.", parts[1]["content"])
+        self.assertIn("bowlhockey.com", parts[1]["content"])
+
     def test_formatter_emits_text_only_playoff_predictions(self) -> None:
         parts = format_discord_messages(
             {
@@ -111,9 +158,9 @@ class PlayoffDiscordPredictionsTest(unittest.TestCase):
             },
             max_parts=4,
         )
-        self.assertGreaterEqual(len(parts), 1)
+        self.assertEqual(len(parts), 1)
         self.assertNotIn("embeds", parts[0])
-        content = "\n".join(p.get("content", "") for p in parts)
+        content = parts[0].get("content", "")
         self.assertIn("Playoff predictions", content)
         self.assertIn("MTL", content)
         self.assertIn("TOR", content)

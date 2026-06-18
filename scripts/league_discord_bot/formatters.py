@@ -306,6 +306,36 @@ def _playoff_team_prefix(league_slug: str, team: dict[str, Any]) -> str:
     return f"{emoji} " if emoji else ""
 
 
+def _format_playoff_matchup_block(
+    league_slug: str,
+    row: dict[str, Any],
+    *,
+    series_index: int,
+) -> str:
+    ta = row.get("team_a") or {}
+    tb = row.get("team_b") or {}
+    round_label = str(row.get("round_label") or "Series").strip()
+    ab_a = str(ta.get("abbrev") or ta.get("name") or "A").strip()
+    ab_b = str(tb.get("abbrev") or tb.get("name") or "B").strip()
+    score = str(row.get("series_score") or "").strip()
+    header = f"**{round_label} · Series {series_index}**"
+    if score and score not in {"0-0", "0–0"}:
+        header += f" ({score})"
+    matchup = (
+        f"{_playoff_team_prefix(league_slug, ta)}**{ab_a}** vs. "
+        f"{_playoff_team_prefix(league_slug, tb)}**{ab_b}**"
+    )
+    lines = [
+        header,
+        matchup,
+        str(row.get("team_a_stats") or "").strip(),
+        str(row.get("team_b_stats") or "").strip(),
+        f"Prediction: {str(row.get('prediction_line') or '—').strip()}",
+        f"Regular-season H2H: {str(row.get('h2h_line') or '—').strip()}",
+    ]
+    return "\n".join(ln for ln in lines if ln)
+
+
 def _format_playoff_predictions_body(league_slug: str, payload: dict[str, Any]) -> str:
     series = payload.get("series") or []
     if not isinstance(series, list) or not series:
@@ -314,32 +344,49 @@ def _format_playoff_predictions_body(league_slug: str, payload: dict[str, Any]) 
     for idx, row in enumerate(series, start=1):
         if not isinstance(row, dict):
             continue
-        ta = row.get("team_a") or {}
-        tb = row.get("team_b") or {}
-        round_label = str(row.get("round_label") or "Series").strip()
-        ab_a = str(ta.get("abbrev") or ta.get("name") or "A").strip()
-        ab_b = str(tb.get("abbrev") or tb.get("name") or "B").strip()
-        score = str(row.get("series_score") or "").strip()
-        header = f"**{round_label} · Series {idx}**"
-        if score and score not in {"0-0", "0–0"}:
-            header += f" ({score})"
-        matchup = (
-            f"{_playoff_team_prefix(league_slug, ta)}**{ab_a}** vs. "
-            f"{_playoff_team_prefix(league_slug, tb)}**{ab_b}**"
-        )
-        lines = [
-            header,
-            matchup,
-            str(row.get("team_a_stats") or "").strip(),
-            str(row.get("team_b_stats") or "").strip(),
-            f"Prediction: {str(row.get('prediction_line') or '—').strip()}",
-            f"Regular-season H2H: {str(row.get('h2h_line') or '—').strip()}",
-        ]
-        blocks.append("\n".join(ln for ln in lines if ln))
+        blocks.append(_format_playoff_matchup_block(league_slug, row, series_index=idx))
     note = str(payload.get("prediction_method_note") or "").strip()
     if note:
         blocks.append(f"_{note}_")
     return "\n\n".join(blocks)
+
+
+def _format_playoff_predictions_messages(
+    league_slug: str,
+    payload: dict[str, Any],
+    *,
+    title: str,
+    max_parts: int,
+) -> list[dict[str, Any]]:
+    """One Discord message per playoff matchup so users can react to each series."""
+    series = payload.get("series") or []
+    if not isinstance(series, list) or not series:
+        body = str(payload.get("body") or "").strip()
+        return _build_full_text_messages([f"**{title}**"], body, max_parts=max(1, int(max_parts)))
+
+    rows = [(idx, row) for idx, row in enumerate(series, start=1) if isinstance(row, dict)]
+    if not rows:
+        return [{"content": f"**{title}**"}]
+
+    note = str(payload.get("prediction_method_note") or "").strip()
+    messages: list[dict[str, Any]] = []
+    for i, (idx, row) in enumerate(rows):
+        block = _format_playoff_matchup_block(league_slug, row, series_index=idx)
+        is_first = i == 0
+        is_last = i == len(rows) - 1
+        prefix_lines = [f"**{title}**"] if is_first else []
+        body = block
+        if is_last and note:
+            body = f"{block}\n\n_{note}_"
+        if is_last:
+            messages.extend(
+                _build_full_text_messages(prefix_lines, body, max_parts=max(1, int(max_parts)))
+            )
+        else:
+            prefix = "\n".join(prefix_lines)
+            content = f"{prefix}\n\n{body}".strip() if prefix else body
+            messages.append({"content": content[:DISCORD_MAX_CONTENT_LEN]})
+    return messages
 
 
 def _text_only_body_text(
@@ -545,6 +592,14 @@ def format_discord_messages(event: dict[str, Any], *, max_parts: int = 2) -> lis
         payload.get("body_preview") or payload.get("message") or payload.get("body") or ""
     )
     url = _discord_embed_url(str(payload.get("url") or ""))
+
+    if event_key == "playoff_predictions":
+        return _format_playoff_predictions_messages(
+            league_slug,
+            payload,
+            title=title,
+            max_parts=max(1, int(max_parts)),
+        )
 
     if event_key == "bowl_six_leaders_update":
         body_full = _body_text(payload, full=True) or body_short

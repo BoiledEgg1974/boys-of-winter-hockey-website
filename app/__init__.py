@@ -137,7 +137,7 @@ def create_app(config_class: type = Config) -> Flask:
                 ensure_team_cap_penalties_sqlite(site_engine)
                 ensure_team_staff_budget_current_salary_sqlite(site_engine)
         except Exception as exc:
-            app.logger.warning("team_cap_penalties table ensure skipped: %s", exc)
+            app.logger.warning("site DB schema ensure skipped: %s", exc)
         # FTS may be empty until import or seed; seed script calls rebuild
         try:
             from app.services.ratings_position_cache import backfill_null_positions_from_ratings

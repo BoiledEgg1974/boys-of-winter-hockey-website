@@ -38,6 +38,7 @@ ALWAYS_TEXT_ONLY_DISCORD_EVENT_KEYS = frozenset(
         "bowl_six_rosters_unlocked",
         "bowl_six_lock_warning",
         "playoff_predictions",
+        "playoff_bracket_update",
     }
 )
 
@@ -261,6 +262,8 @@ def _text_only_header_lines(
             _append_team_gm_mention(lines, payload)
     elif event_key == "playoff_predictions":
         lines.append(f"**{title}**")
+    elif event_key == "playoff_bracket_update":
+        lines.append(f"**{title}**")
     elif event_key == "trade_request":
         prefix = team_emoji_prefix(league_slug, payload)
         lines.append(
@@ -389,6 +392,83 @@ def _format_playoff_predictions_messages(
     return messages
 
 
+def _format_playoff_bracket_series_block(
+    league_slug: str,
+    row: dict[str, Any],
+    *,
+    series_index: int,
+) -> str:
+    ta = row.get("team_a") or {}
+    tb = row.get("team_b") or {}
+    round_label = str(row.get("round_label") or "Series").strip()
+    ab_a = str(ta.get("abbrev") or ta.get("name") or "A").strip()
+    ab_b = str(tb.get("abbrev") or tb.get("name") or "B").strip()
+    score = str(row.get("series_score") or "").strip()
+    header = f"**{round_label} · Series {series_index}**"
+    if score and score not in {"0-0", "0–0"}:
+        header += f" ({score})"
+    matchup = (
+        f"{_playoff_team_prefix(league_slug, ta)}**{ab_a}** vs. "
+        f"{_playoff_team_prefix(league_slug, tb)}**{ab_b}**"
+    )
+    lines = [header, matchup]
+    status = str(row.get("status_line") or "").strip()
+    if status:
+        lines.append(status)
+    return "\n".join(ln for ln in lines if ln)
+
+
+def format_playoff_bracket_deliveries(event: dict[str, Any]) -> list[dict[str, Any]]:
+    """One Discord delivery per bracket series, with edit targets for live updates."""
+    league_slug = str(event.get("league_slug") or "")
+    payload = event.get("payload") or {}
+    title = str(payload.get("title") or "Playoff bracket")
+    series = payload.get("series") or []
+    if not isinstance(series, list) or not series:
+        return [{"content": f"**{title}**", "pair_key": "", "edit_message_id": ""}]
+
+    note = str(payload.get("projection_note") or "").strip()
+    url = _discord_embed_url(str(payload.get("url") or ""))
+    deliveries: list[dict[str, Any]] = []
+    rows = [row for row in series if isinstance(row, dict)]
+    for i, row in enumerate(rows):
+        idx = int(row.get("series_index") or i + 1)
+        block = _format_playoff_bracket_series_block(league_slug, row, series_index=idx)
+        is_first = i == 0
+        is_last = i == len(rows) - 1
+        prefix_lines = [f"**{title}**"] if is_first else []
+        body = block
+        if is_last:
+            if note:
+                body = f"{block}\n\n_{note}_"
+            if url:
+                body = f"{body}\n{url}".strip()
+        prefix = "\n".join(prefix_lines)
+        content = f"{prefix}\n\n{body}".strip() if prefix else body
+        deliveries.append(
+            {
+                "content": content[:DISCORD_MAX_CONTENT_LEN],
+                "pair_key": str(row.get("pair_key") or "").strip(),
+                "edit_message_id": str(row.get("edit_message_id") or "").strip(),
+            }
+        )
+    return deliveries
+
+
+def _format_playoff_bracket_messages(
+    league_slug: str,
+    payload: dict[str, Any],
+    *,
+    title: str,
+    max_parts: int,
+) -> list[dict[str, Any]]:
+    event = {"league_slug": league_slug, "payload": payload}
+    return [
+        {k: v for k, v in item.items() if k in {"content", "embeds"}}
+        for item in format_playoff_bracket_deliveries(event)
+    ]
+
+
 def _text_only_body_text(
     league_slug: str,
     event_key: str,
@@ -396,6 +476,19 @@ def _text_only_body_text(
 ) -> str:
     if event_key == "playoff_predictions":
         return _format_playoff_predictions_body(league_slug, payload)
+    if event_key == "playoff_bracket_update":
+        blocks: list[str] = []
+        for idx, row in enumerate(payload.get("series") or [], start=1):
+            if isinstance(row, dict):
+                blocks.append(
+                    _format_playoff_bracket_series_block(
+                        league_slug, row, series_index=int(row.get("series_index") or idx)
+                    )
+                )
+        note = str(payload.get("projection_note") or "").strip()
+        if note:
+            blocks.append(f"_{note}_")
+        return "\n\n".join(blocks)
     body = _body_text(payload, full=True)
     if event_key == "trade_request":
         note = str(payload.get("admin_note") or "").strip()
@@ -595,6 +688,14 @@ def format_discord_messages(event: dict[str, Any], *, max_parts: int = 2) -> lis
 
     if event_key == "playoff_predictions":
         return _format_playoff_predictions_messages(
+            league_slug,
+            payload,
+            title=title,
+            max_parts=max(1, int(max_parts)),
+        )
+
+    if event_key == "playoff_bracket_update":
+        return _format_playoff_bracket_messages(
             league_slug,
             payload,
             title=title,

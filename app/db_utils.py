@@ -972,6 +972,28 @@ def ensure_team_staff_budget_current_salary_sqlite(engine: Engine) -> None:
         )
 
 
+def ensure_discord_playoff_bracket_sqlite(engine: Engine) -> None:
+    """Playoff bracket Discord series posts + bot-config fingerprint column (SQLite or MySQL)."""
+    from app.site_models import DiscordPlayoffBracketSeriesPost
+
+    DiscordPlayoffBracketSeriesPost.__table__.create(bind=engine, checkfirst=True)
+    from sqlalchemy import inspect
+
+    insp = inspect(engine)
+    if not insp.has_table("discord_league_bot_config"):
+        return
+    colnames = {col["name"] for col in insp.get_columns("discord_league_bot_config")}
+    if "playoff_bracket_fingerprint" in colnames:
+        return
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "ALTER TABLE discord_league_bot_config "
+                "ADD COLUMN playoff_bracket_fingerprint VARCHAR(128) NOT NULL DEFAULT ''"
+            )
+        )
+
+
 def ensure_gm_trade_proposals_sqlite(engine: Engine) -> None:
     """Create GM trade proposals table on site DB when missing."""
     if engine.dialect.name != "sqlite":

@@ -51,12 +51,16 @@ OPS_TEXT_ONLY_DISCORD_EVENT_KEYS = frozenset(
         "bowl_six_rosters_unlocked",
         "bowl_six_lock_warning",
         "playoff_predictions",
+        "playoff_bracket_update",
     }
 )
 
 BOWL_SIX_LEADERS_EVENT_KEY = "bowl_six_leaders_update"
+PLAYOFF_BRACKET_UPDATE_EVENT_KEY = "playoff_bracket_update"
 
-REPEATABLE_DISCORD_EVENT_KEYS = frozenset({BOWL_SIX_LEADERS_EVENT_KEY})
+REPEATABLE_DISCORD_EVENT_KEYS = frozenset(
+    {BOWL_SIX_LEADERS_EVENT_KEY, PLAYOFF_BRACKET_UPDATE_EVENT_KEY}
+)
 
 EVENT_KEY_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 DISCORD_SNOWFLAKE_PATTERN = re.compile(r"^\d{17,20}$")
@@ -84,6 +88,7 @@ DEFAULT_EVENT_KEYS = {
     "trade_market_selling_posted",
     "trade_market_buying_posted",
     "playoff_predictions",
+    "playoff_bracket_update",
 }
 
 DEFAULT_EVENT_CHANNEL_KEY = {
@@ -108,6 +113,7 @@ DEFAULT_EVENT_CHANNEL_KEY = {
     "trade_market_selling_posted": "trade-selling",
     "trade_market_buying_posted": "trade-buying",
     "playoff_predictions": "playoff-predictions",
+    "playoff_bracket_update": "playoff-bracket",
 }
 
 DEFAULT_EVENT_LABELS = {
@@ -132,6 +138,7 @@ DEFAULT_EVENT_LABELS = {
     "trade_market_selling_posted": "Trade Market — selling update",
     "trade_market_buying_posted": "Trade Market — buying interests",
     "playoff_predictions": "Playoff predictions (/predict)",
+    "playoff_bracket_update": "Playoff bracket (live series posts)",
 }
 
 MAX_DELIVERY_ATTEMPTS = 3
@@ -978,6 +985,10 @@ def bowl_six_leaders_idempotency_key(*, league_slug: str, slate_id: int | None =
     return f"bowl-six-leaders:{str(league_slug or '').strip()}"
 
 
+def playoff_bracket_idempotency_key(*, league_slug: str, season_id: int) -> str:
+    return f"playoff-bracket:{str(league_slug or '').strip()}:{int(season_id)}"
+
+
 def _event_idempotency_key(*, league_slug: str, event_key: str, channel_key: str, payload: dict) -> str:
     material = json.dumps(
         {
@@ -1408,6 +1419,21 @@ def enqueue_discord_event(
     return row
 
 
+def is_discord_event_route_active(
+    session, *, league_slug: str, event_key: str
+) -> bool:
+    """True when outbound delivery would be attempted for this event key."""
+    key = str(event_key or "").strip()
+    if not is_valid_event_key(key):
+        return False
+    ensure_discord_routes(session, league_slug)
+    route = _route_map(session, league_slug).get(key)
+    if route is None or not bool(route.is_enabled):
+        return False
+    bot_cfg = get_league_bot_config(session, league_slug)
+    return bool(bot_cfg.is_enabled)
+
+
 def enqueue_repeatable_discord_event(
     session,
     *,
@@ -1415,22 +1441,31 @@ def enqueue_repeatable_discord_event(
     event_key: str,
     payload: dict,
     created_by_user_id: int | None,
-    slate_id: int,
+    idempotency_key: str | None = None,
+    slate_id: int | None = None,
+    season_id: int | None = None,
 ) -> DiscordOutboundEvent | None:
     """Queue a live-updating Discord post (replaces pending; allows repeat delivery)."""
     key = str(event_key or "").strip()
     if key not in REPEATABLE_DISCORD_EVENT_KEYS or not is_valid_event_key(key):
         return None
-    ensure_discord_routes(session, league_slug)
-    route = _route_map(session, league_slug).get(key)
-    if route is None or not bool(route.is_enabled):
+    if not is_discord_event_route_active(session, league_slug=league_slug, event_key=key):
         return None
-    bot_cfg = get_league_bot_config(session, league_slug)
-    if not bool(bot_cfg.is_enabled):
+    route = _route_map(session, league_slug).get(key)
+    if route is None:
         return None
     payload_clean = dict(payload or {})
     channel_key = str(route.channel_key or DEFAULT_EVENT_CHANNEL_KEY.get(key, ""))
-    idem_key = bowl_six_leaders_idempotency_key(league_slug=league_slug, slate_id=int(slate_id))
+    if idempotency_key:
+        idem_key = str(idempotency_key).strip()
+    elif key == BOWL_SIX_LEADERS_EVENT_KEY and slate_id is not None:
+        idem_key = bowl_six_leaders_idempotency_key(league_slug=league_slug, slate_id=int(slate_id))
+    elif key == PLAYOFF_BRACKET_UPDATE_EVENT_KEY and season_id is not None:
+        idem_key = playoff_bracket_idempotency_key(
+            league_slug=league_slug, season_id=int(season_id)
+        )
+    else:
+        return None
     pending = session.scalar(
         select(DiscordOutboundEvent)
         .where(
@@ -1608,7 +1643,13 @@ def serialize_pending_events_for_bot(
     return out
 
 
-def mark_event_sent(session, event_id: int, *, discord_message_id: str = "") -> bool:
+def mark_event_sent(
+    session,
+    event_id: int,
+    *,
+    discord_message_id: str = "",
+    series_deliveries: list[dict] | None = None,
+) -> bool:
     row = session.get(DiscordOutboundEvent, int(event_id))
     if row is None or str(row.status) in {"cancelled", "sent"}:
         return False
@@ -1617,7 +1658,16 @@ def mark_event_sent(session, event_id: int, *, discord_message_id: str = "") -> 
     sid = str(payload.get("source_id") or "").strip()
     ek = str(row.event_key or "")
     mid = str(discord_message_id or "").strip()
-    if mid:
+    if ek == PLAYOFF_BRACKET_UPDATE_EVENT_KEY and series_deliveries:
+        from app.services.playoff_discord_bracket import record_playoff_bracket_discord_ack
+
+        record_playoff_bracket_discord_ack(
+            session,
+            event_key=ek,
+            payload=payload,
+            series_deliveries=series_deliveries,
+        )
+    elif mid:
         from app.services.bowl_six_discord import record_bowl_six_leaders_discord_ack
 
         record_bowl_six_leaders_discord_ack(

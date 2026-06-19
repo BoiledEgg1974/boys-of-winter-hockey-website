@@ -634,6 +634,31 @@ class DiscordLeagueBotConfig(db.Model):
     )
     updated_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    playoff_bracket_fingerprint: Mapped[str] = mapped_column(
+        String(128), default="", nullable=False
+    )
+
+
+class DiscordPlayoffBracketSeriesPost(db.Model):
+    __tablename__ = "discord_playoff_bracket_series_posts"
+    __bind_key__ = "site"
+    __table_args__ = (
+        UniqueConstraint(
+            "league_slug",
+            "season_id",
+            "pair_key",
+            name="uq_discord_playoff_bracket_series",
+        ),
+        Index("ix_discord_playoff_bracket_league_season", "league_slug", "season_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    season_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    pair_key: Mapped[str] = mapped_column(String(32), nullable=False)
+    discord_message_id: Mapped[str] = mapped_column(String(32), default="", nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), default="", nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
 
 class DiscordDeliveredSource(db.Model):

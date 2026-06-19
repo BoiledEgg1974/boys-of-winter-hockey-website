@@ -10,6 +10,7 @@ from scripts.league_discord_bot.config import BotSettings
 from scripts.league_discord_bot.formatters import (
     format_direct_message,
     format_discord_messages,
+    format_playoff_bracket_deliveries,
     sanitize_discord_message_body,
 )
 
@@ -181,12 +182,15 @@ class LeagueDiscordBot:
         event_id: int,
         *,
         discord_message_id: str = "",
+        series_deliveries: list[dict[str, Any]] | None = None,
     ) -> None:
         url = self._site_url(league_slug, f"/api/discord/events/{event_id}/ack")
-        body: dict[str, str] = {}
+        body: dict[str, Any] = {}
         mid = str(discord_message_id or "").strip()
         if mid:
             body["discord_message_id"] = mid
+        if series_deliveries:
+            body["series_deliveries"] = series_deliveries
         resp = client.post(url, headers=self._headers, json=body or None)
         resp.raise_for_status()
 
@@ -272,6 +276,11 @@ class LeagueDiscordBot:
         channel_id = str(event.get("discord_channel_id") or "").strip()
         if not channel_id:
             raise RuntimeError(f"Event {event_id} missing discord_channel_id in route config")
+        if str(event.get("event_key") or "") == "playoff_bracket_update":
+            self._deliver_playoff_bracket_update(
+                site_client, discord_client, league_slug, event_id, channel_id, event
+            )
+            return
         payload = event.get("payload") or {}
         edit_message_id = str(payload.get("edit_message_id") or "").strip()
         bodies = format_discord_messages(event, max_parts=self.settings.max_message_parts)
@@ -307,6 +316,58 @@ class LeagueDiscordBot:
             league_slug,
             event_id,
             discord_message_id=delivered_message_id,
+        )
+
+    def _deliver_playoff_bracket_update(
+        self,
+        site_client: httpx.Client,
+        discord_client: httpx.Client,
+        league_slug: str,
+        event_id: int,
+        channel_id: str,
+        event: dict[str, Any],
+    ) -> None:
+        delay = float(self.settings.delivery_delay_seconds)
+        deliveries = format_playoff_bracket_deliveries(event)
+        series_results: list[dict[str, str]] = []
+        last_message_id = ""
+        for i, item in enumerate(deliveries):
+            if i > 0 and delay > 0:
+                time.sleep(delay)
+            pair_key = str(item.get("pair_key") or "").strip()
+            edit_message_id = str(item.get("edit_message_id") or "").strip()
+            body = sanitize_discord_message_body(
+                {k: v for k, v in item.items() if k in {"content", "embeds"}}
+            )
+            message_id = ""
+            if edit_message_id:
+                try:
+                    message_id = self.patch_discord(
+                        discord_client, channel_id, edit_message_id, body
+                    )
+                except RuntimeError as exc:
+                    err = str(exc)
+                    if "404" not in err and "Unknown Message" not in err:
+                        raise
+                    log.warning(
+                        "Playoff bracket edit failed for message %s; posting new (%s)",
+                        edit_message_id,
+                        err,
+                    )
+                    message_id = self.post_discord(discord_client, channel_id, body)
+            else:
+                message_id = self.post_discord(discord_client, channel_id, body)
+            last_message_id = message_id
+            if pair_key and message_id:
+                series_results.append(
+                    {"pair_key": pair_key, "discord_message_id": message_id}
+                )
+        self.ack(
+            site_client,
+            league_slug,
+            event_id,
+            discord_message_id=last_message_id,
+            series_deliveries=series_results,
         )
 
     def deliver_dm(

@@ -21,6 +21,8 @@ class BowlSixDiscordRefreshTests(unittest.TestCase):
         with app.app_context(), patch(
             "app.services.bowl_six.refresh_bowl_six_leaders_for_discord_poll"
         ) as leaders_refresh, patch(
+            "app.services.playoff_discord_bracket.maybe_enqueue_playoff_bracket_discord"
+        ) as bracket_refresh, patch(
             "app.services.bowl_six.maybe_enqueue_bowl_six_roster_reminders"
         ) as reminders, patch(
             "app.routes.api.commit_with_sqlite_retry"
@@ -29,6 +31,7 @@ class BowlSixDiscordRefreshTests(unittest.TestCase):
             _refresh_bowl_six_discord_triggers("bowl-cap")
 
         leaders_refresh.assert_called_once()
+        bracket_refresh.assert_called_once()
         reminders.assert_called_once()
 
     def test_discord_poll_same_path_for_all_league_slugs(self) -> None:
@@ -39,6 +42,8 @@ class BowlSixDiscordRefreshTests(unittest.TestCase):
         with app.app_context(), patch(
             "app.services.bowl_six.refresh_bowl_six_leaders_for_discord_poll"
         ) as leaders_refresh, patch(
+            "app.services.playoff_discord_bracket.maybe_enqueue_playoff_bracket_discord"
+        ), patch(
             "app.services.bowl_six.maybe_enqueue_bowl_six_roster_reminders"
         ), patch(
             "app.routes.api.commit_with_sqlite_retry"

@@ -111,6 +111,13 @@ def refresh_after_import(engine, app=None) -> None:
                     slug = str(app.config.get("LEAGUE_SLUG") or "").strip()
                     if slug:
                         auto_update_bowl_six_slates(db.session, db.session, slug)
+                        from app.services.playoff_discord_bracket import (
+                            maybe_enqueue_playoff_bracket_discord,
+                        )
+
+                        maybe_enqueue_playoff_bracket_discord(
+                            db.session, db.session, slug
+                        )
                         db.session.commit()
                     from app.services.homepage_summary_cache import invalidate_homepage_summary_cache
                     from app.services.league_json_cache import invalidate_league_json_cache

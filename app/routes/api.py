@@ -1919,7 +1919,7 @@ def _discord_secret_ok() -> bool:
 
 
 def _refresh_bowl_six_discord_triggers(slug: str) -> None:
-    """Let regular bot polling queue BOWL Six updates without a page visit."""
+    """Let regular bot polling queue BOWL Six and playoff bracket updates without a page visit."""
     key = str(slug or "").strip()
     if not key:
         return
@@ -1938,6 +1938,9 @@ def _refresh_bowl_six_discord_triggers(slug: str) -> None:
         )
 
         refresh_bowl_six_leaders_for_discord_poll(db.session, db.session, key)
+        from app.services.playoff_discord_bracket import maybe_enqueue_playoff_bracket_discord
+
+        maybe_enqueue_playoff_bracket_discord(db.session, db.session, key)
         maybe_enqueue_bowl_six_roster_reminders(db.session, key)
         commit_with_sqlite_retry(db.session)
     except Exception:
@@ -2015,8 +2018,17 @@ def discord_events_ack(event_id: int):
         return jsonify({"ok": False, "message": "Unauthorized"}), 401
     data = request.get_json(silent=True) or {}
     discord_message_id = str(data.get("discord_message_id") or "").strip()
+    raw_deliveries = data.get("series_deliveries")
+    series_deliveries = (
+        [d for d in raw_deliveries if isinstance(d, dict)]
+        if isinstance(raw_deliveries, list)
+        else None
+    )
     ok = mark_event_sent(
-        db.session, event_id, discord_message_id=discord_message_id
+        db.session,
+        event_id,
+        discord_message_id=discord_message_id,
+        series_deliveries=series_deliveries,
     )
     return jsonify({"ok": bool(ok)})
 

@@ -251,6 +251,15 @@ def staff_portal_context_for_gm(
     ctx["recent_requests"] = recent_requests_for_team(
         session, league_slug=league_slug, team_id=team_id, limit=8
     )
+    from app.services.league_finances import staff_finances_for_team
+
+    ctx["gm_staff_finances"] = staff_finances_for_team(
+        session,
+        league_slug=league_slug,
+        team_id=int(team_id),
+        season_start_year=int(start_year),
+        defaults=ctx.get("defaults"),
+    )
     return ctx
 
 

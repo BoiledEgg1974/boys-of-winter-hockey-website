@@ -256,6 +256,46 @@ def notify_staff_change_pending(
     )
 
 
+def notify_staff_fire_payroll_adjustment(
+    *,
+    league_slug: str,
+    league_display_name: str,
+    request_id: int,
+    team_name: str,
+    staff_name: str,
+    role_label: str,
+    suggested_reduction: int,
+) -> None:
+    """Remind commissioners to update manual staff payroll after an approved fire."""
+    try:
+        budgets_url = _abs_url_for("site_admin.admin_staff_budgets")
+    except Exception:
+        budgets_url = "(admin → Staff Budgets)"
+    subject = f"[{league_display_name}] Adjust staff payroll after fire #{request_id}"
+    body = (
+        f"A staff fire was approved. Update the team's staff payroll in Admin → Staff Budgets.\n\n"
+        f"League: {league_display_name} ({league_slug})\n"
+        f"Request id: {request_id}\n"
+        f"Team: {team_name}\n"
+        f"Staff fired: {staff_name}\n"
+        f"Role: {role_label}\n"
+        f"Suggested payroll reduction (default salary): ${int(suggested_reduction):,}\n\n"
+        f"Staff Budgets:\n{budgets_url}\n"
+    )
+    try_send_admin_review_email(subject=subject, body=body)
+    queue_site_admin_in_app_notifications(
+        league_slug=league_slug,
+        kind="admin_staff_payroll_adjust",
+        title=f"Adjust staff payroll after fire (#{request_id})",
+        body=(
+            f"{team_name} · fired {staff_name} ({role_label})\n"
+            f"Suggested reduction: ${int(suggested_reduction):,}\n"
+            f"{budgets_url}"
+        ),
+        article_id=request_id,
+    )
+
+
 def notify_rfa_offer_pending(
     *,
     league_slug: str,

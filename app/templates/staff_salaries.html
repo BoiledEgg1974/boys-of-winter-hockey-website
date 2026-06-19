@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "macros/staff_browse.html" import staff_browse_attr_td, staff_browse_overall_td, staff_browse_role_rating_td %}
+{% from "macros/team.html" import team_lockup_full_name with context %}
 {% block title %}Staff Salaries — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/staff_salaries.js') }}" defer></script>
@@ -9,9 +10,6 @@
   <div class="card staff-salaries-page__card">
     <h1 class="page-title staff-salaries-page__banner">Staff — {% if season_label %}{{ season_label }}{% else %}Current season{% endif %}</h1>
     <p class="muted staff-salaries-page__league">{{ config.LEAGUE_DISPLAY_NAME }} · budgets and roster are specific to this league site.</p>
-    {% if gm_team %}
-    <p class="staff-salaries-page__team-line"><strong>{{ gm_team.full_display_name() }}</strong></p>
-    {% endif %}
 
     {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
@@ -22,6 +20,48 @@
     </ul>
     {% endif %}
     {% endwith %}
+
+    {% if gm_team and gm_staff_finances is defined and gm_staff_finances %}
+    {% set fin = gm_staff_finances %}
+    {% set payroll_pct = (fin.staff_payroll / fin.budget_amount * 100) if fin.budget_amount > 0 else 0 %}
+    <section class="staff-salaries-budget-panel card" aria-labelledby="staff-budget-heading">
+      <div class="staff-salaries-budget-panel__header">
+        <h2 id="staff-budget-heading" class="staff-salaries-budget-panel__title">Staff finances</h2>
+        <div class="staff-salaries-budget-panel__team">
+          {{ team_lockup_full_name(gm_team, season=season) }}
+        </div>
+      </div>
+      {% if fin.budget_amount > 0 %}
+      <div class="staff-salaries-budget-panel__stats">
+        <div class="staff-salaries-budget-panel__stat">
+          <span class="staff-salaries-budget-panel__label">Staff Budget</span>
+          <span class="staff-salaries-budget-panel__value">${{ '{:,}'.format(fin.budget_amount) }}</span>
+        </div>
+        <div class="staff-salaries-budget-panel__stat">
+          <span class="staff-salaries-budget-panel__label">Staff Payroll</span>
+          <span class="staff-salaries-budget-panel__value">
+            ${{ '{:,}'.format(fin.staff_payroll) }}{% if not fin.staff_payroll_is_manual %}<span class="muted staff-salaries-budget-panel__est"> (est.)</span>{% endif %}
+          </span>
+        </div>
+        <div class="staff-salaries-budget-panel__stat staff-salaries-budget-panel__stat--remaining{% if fin.budget_remaining < 0 %} staff-salaries-budget-panel__stat--over{% endif %}">
+          <span class="staff-salaries-budget-panel__label">Budget Remaining</span>
+          <span class="staff-salaries-budget-panel__value staff-salaries-budget-panel__value--remaining">${{ '{:,}'.format(fin.budget_remaining) }}</span>
+        </div>
+      </div>
+      <div class="staff-salaries-budget-panel__bar-wrap" role="presentation">
+        <div class="finances-pos-bar finances-pos-bar--total staff-salaries-budget-panel__bar">
+          <span class="finances-pos-bar__fill" style="width: {{ [payroll_pct, 100]|min }}%;"></span>
+          <span class="finances-pos-bar__label">{{ '%.1f'|format(payroll_pct) }}% of budget</span>
+        </div>
+      </div>
+      {% if fin.pending_hire_payroll > 0 %}
+      <p class="muted staff-salaries-budget-panel__pending">Pending hire requests reserve ${{ '{:,}'.format(fin.pending_hire_payroll) }} · ${{ '{:,}'.format(fin.available_for_hire) }} available for new hires</p>
+      {% endif %}
+      {% else %}
+      <p class="muted staff-salaries-budget-panel__empty">Staff budgets are not configured for this season. The commissioner must enter team staff budgets in Admin → Staff Budgets.</p>
+      {% endif %}
+    </section>
+    {% endif %}
 
     <section class="staff-salaries-section" aria-labelledby="staff-defaults-heading">
       <h2 id="staff-defaults-heading" class="staff-salaries-section__title">Default salaries</h2>
@@ -58,7 +98,18 @@
         Daily hires today: <strong>{{ hire_limit.used }}</strong> / {{ hire_limit.limit }}
         <span class="staff-salaries-limit__window">({{ hire_limit.window_label }})</span>
       </p>
-      <form method="post" class="staff-salaries-form" id="staff-hire-form" action="{{ url_for('site_gm.staff_salaries_page') }}">
+      <form method="post" class="staff-salaries-form" id="staff-hire-form" action="{{ url_for('site_gm.staff_salaries_page') }}"
+        {% if gm_staff_finances is defined and gm_staff_finances and defaults %}
+        data-budget="{{ gm_staff_finances.budget_amount }}"
+        data-payroll="{{ gm_staff_finances.staff_payroll }}"
+        data-remaining="{{ gm_staff_finances.budget_remaining }}"
+        data-pending-payroll="{{ gm_staff_finances.pending_hire_payroll }}"
+        data-salary-head-coach="{{ defaults.head_coach }}"
+        data-salary-assistant-coach="{{ defaults.assistant_coaches }}"
+        data-salary-scout="{{ defaults.scouts }}"
+        data-salary-trainer="{{ defaults.trainer }}"
+        data-insufficient-msg="You do not have enough funds to hire this individual for this position."
+        {% endif %}>
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="action" value="hire">
         <input type="hidden" name="staff_fhm_id" id="staff-hire-staff-id" value="">

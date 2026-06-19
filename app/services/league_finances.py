@@ -20,7 +20,11 @@ from app.services.staff_salaries import (
     staff_budget_data_for_season,
 )
 from app.services.staff_transactions import active_roster_for_team
-from app.site_models import GmLeagueMembership, TeamCapPenalty, User
+from app.site_models import GmLeagueMembership, StaffChangeRequest, TeamCapPenalty, User
+
+STAFF_HIRE_INSUFFICIENT_FUNDS_MSG = (
+    "You do not have enough funds to hire this individual for this position."
+)
 
 SalaryGroup = Literal["forwards", "defense", "goalies"]
 
@@ -354,7 +358,7 @@ def cap_penalty_admin_context(session: Session, *, league_slug: str) -> dict[str
     }
 
 
-def _role_estimated_salary(role: str, defaults: StaffDefaultSalaries | None) -> int:
+def default_salary_for_role(role: str, defaults: StaffDefaultSalaries | None) -> int:
     if defaults is None:
         return 0
     role_s = str(role or "").strip()
@@ -367,6 +371,110 @@ def _role_estimated_salary(role: str, defaults: StaffDefaultSalaries | None) -> 
     if role_s == "trainer":
         return int(defaults.trainer)
     return 0
+
+
+def estimated_roster_payroll(roster, defaults: StaffDefaultSalaries | None) -> int:
+    return sum(default_salary_for_role(str(entry.role), defaults) for entry in roster)
+
+
+def effective_staff_payroll(
+    *,
+    current_salary_amount: int,
+    roster,
+    defaults: StaffDefaultSalaries | None,
+) -> tuple[int, bool]:
+    """Return (payroll, is_manual). Manual amount wins when > 0."""
+    current = int(current_salary_amount or 0)
+    if current > 0:
+        return current, True
+    return int(estimated_roster_payroll(roster, defaults)), False
+
+
+def pending_hire_payroll(
+    session: Session,
+    *,
+    league_slug: str,
+    team_id: int,
+    defaults: StaffDefaultSalaries | None,
+) -> int:
+    """Sum default role salaries for this team's pending hire requests."""
+    if defaults is None:
+        return 0
+    rows = session.scalars(
+        select(StaffChangeRequest.role).where(
+            StaffChangeRequest.league_slug == league_slug,
+            StaffChangeRequest.team_id == int(team_id),
+            StaffChangeRequest.request_type == "hire",
+            StaffChangeRequest.status == "pending",
+        )
+    ).all()
+    return sum(default_salary_for_role(str(role), defaults) for role in rows)
+
+
+def staff_finances_for_team(
+    session: Session,
+    *,
+    league_slug: str,
+    team_id: int,
+    season_start_year: int,
+    defaults: StaffDefaultSalaries | None | object = ...,
+) -> dict[str, object]:
+    """Per-team staff budget rollup (same rules as Finances → Staff Finances)."""
+    budget_data = staff_budget_data_for_season(
+        session,
+        league_slug=league_slug,
+        season_start_year=int(season_start_year),
+    )
+    team_budget = budget_data.get(int(team_id), {})
+    budget_amount = int(team_budget.get("budget_amount", 0))
+    current_salary = int(team_budget.get("current_salary_amount", 0))
+
+    if defaults is ...:
+        teams = main_league_teams(session)
+        total_budget = sum(int(data["budget_amount"]) for data in budget_data.values())
+        defaults = compute_staff_default_salaries(total_budget, len(teams))
+
+    roster = active_roster_for_team(
+        session,
+        league_slug=league_slug,
+        team_id=int(team_id),
+        season_start_year=int(season_start_year),
+    )
+    estimated_payroll = int(estimated_roster_payroll(roster, defaults))
+    staff_payroll, staff_payroll_is_manual = effective_staff_payroll(
+        current_salary_amount=current_salary,
+        roster=roster,
+        defaults=defaults,
+    )
+    pending_payroll = pending_hire_payroll(
+        session,
+        league_slug=league_slug,
+        team_id=int(team_id),
+        defaults=defaults,
+    )
+    budget_remaining = int(budget_amount - staff_payroll)
+    available_for_hire = int(budget_remaining - pending_payroll)
+
+    return {
+        "budget_amount": budget_amount,
+        "current_salary_amount": current_salary,
+        "staff_payroll": int(staff_payroll),
+        "staff_payroll_is_manual": staff_payroll_is_manual,
+        "estimated_payroll": estimated_payroll,
+        "budget_remaining": budget_remaining,
+        "pending_hire_payroll": int(pending_payroll),
+        "available_for_hire": available_for_hire,
+        "defaults": defaults,
+    }
+
+
+def can_afford_staff_hire(finances: dict[str, object], role: str) -> bool:
+    defaults = finances.get("defaults")
+    role_cost = default_salary_for_role(str(role or "").strip(), defaults)
+    if role_cost <= 0:
+        return True
+    available = int(finances.get("available_for_hire", 0))
+    return available >= role_cost
 
 
 def build_staff_finances_rows(
@@ -386,7 +494,6 @@ def build_staff_finances_rows(
         season_start_year=int(season_start_year),
     )
     budget_by_team = {tid: int(data["budget_amount"]) for tid, data in budget_data.items()}
-    salary_by_team = {tid: int(data["current_salary_amount"]) for tid, data in budget_data.items()}
     has_budgets = bool(budget_by_team)
     total_budget = sum(int(v) for v in budget_by_team.values())
     defaults = compute_staff_default_salaries(total_budget, len(teams))
@@ -408,29 +515,24 @@ def build_staff_finances_rows(
     rows: list[dict[str, object]] = []
     for team in teams:
         tid = int(team.id)
-        budget_amount = int(budget_by_team.get(tid, 0))
-        current_salary = int(salary_by_team.get(tid, 0))
-        roster = active_roster_for_team(
+        fin = staff_finances_for_team(
             session,
             league_slug=league_slug,
             team_id=tid,
             season_start_year=int(season_start_year),
+            defaults=defaults,
         )
-        estimated_payroll = sum(
-            _role_estimated_salary(str(entry.role), defaults) for entry in roster
-        )
-        staff_payroll = current_salary if current_salary > 0 else int(estimated_payroll)
         mem = mem_by_team.get(tid)
         user = users_by_id.get(int(mem.user_id)) if mem else None
         rows.append(
             {
                 "team": team,
                 "gm_label": gm_display_name(user),
-                "budget_amount": budget_amount,
-                "staff_payroll": int(staff_payroll),
-                "staff_payroll_is_manual": current_salary > 0,
-                "estimated_payroll": int(estimated_payroll),
-                "budget_remaining": int(budget_amount - staff_payroll),
+                "budget_amount": int(fin["budget_amount"]),
+                "staff_payroll": int(fin["staff_payroll"]),
+                "staff_payroll_is_manual": bool(fin["staff_payroll_is_manual"]),
+                "estimated_payroll": int(fin["estimated_payroll"]),
+                "budget_remaining": int(fin["budget_remaining"]),
             }
         )
 

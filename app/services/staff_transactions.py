@@ -16,7 +16,7 @@ from app.services.staff_catalog import (
     staff_role_label,
 )
 from app.services.staff_hire_limits import hire_limit_status
-from app.site_models import StaffChangeRequest, TeamStaffRosterEntry
+from app.site_models import StaffChangeRequest, TeamStaffBudget, TeamStaffRosterEntry
 
 
 @dataclass(frozen=True)
@@ -216,6 +216,20 @@ def submit_hire_request(
     )
     if pending_hire:
         return StaffRequestResult(False, "A pending hire request already exists for this staff member.")
+    from app.services.league_finances import (
+        STAFF_HIRE_INSUFFICIENT_FUNDS_MSG,
+        can_afford_staff_hire,
+        staff_finances_for_team,
+    )
+
+    finances = staff_finances_for_team(
+        session,
+        league_slug=league_slug,
+        team_id=int(team_id),
+        season_start_year=int(season_start_year),
+    )
+    if not can_afford_staff_hire(finances, role_s):
+        return StaffRequestResult(False, STAFF_HIRE_INSUFFICIENT_FUNDS_MSG)
     req = StaffChangeRequest(
         league_slug=league_slug,
         season_start_year=int(season_start_year),
@@ -296,6 +310,94 @@ def _deny_other_pending_hires(session: Session, *, league_slug: str, staff_fhm_i
     return len(rows)
 
 
+def _league_staff_defaults(
+    session: Session, *, league_slug: str, season_start_year: int
+):
+    from app.services.staff_salaries import (
+        compute_staff_default_salaries,
+        main_league_teams,
+        staff_budget_data_for_season,
+    )
+
+    teams = main_league_teams(session)
+    budget_data = staff_budget_data_for_season(
+        session,
+        league_slug=league_slug,
+        season_start_year=int(season_start_year),
+    )
+    total_budget = sum(int(data["budget_amount"]) for data in budget_data.values())
+    return compute_staff_default_salaries(total_budget, len(teams))
+
+
+def _get_or_create_team_staff_budget(
+    session: Session,
+    *,
+    league_slug: str,
+    season_start_year: int,
+    team_id: int,
+) -> TeamStaffBudget:
+    row = session.scalar(
+        select(TeamStaffBudget).where(
+            TeamStaffBudget.league_slug == league_slug,
+            TeamStaffBudget.season_start_year == int(season_start_year),
+            TeamStaffBudget.team_id == int(team_id),
+        ).limit(1)
+    )
+    if row is not None:
+        return row
+    row = TeamStaffBudget(
+        league_slug=league_slug,
+        season_start_year=int(season_start_year),
+        team_id=int(team_id),
+        budget_amount=0,
+        current_salary_amount=0,
+    )
+    session.add(row)
+    session.flush()
+    return row
+
+
+def _projected_payroll_after_hire(
+    *,
+    current_salary_amount: int,
+    roster_before: list[TeamStaffRosterEntry],
+    role: str,
+    defaults,
+) -> int:
+    from app.services.league_finances import default_salary_for_role, estimated_roster_payroll
+
+    role_cost = default_salary_for_role(role, defaults)
+    current = int(current_salary_amount or 0)
+    if current > 0:
+        return current + role_cost
+    return int(estimated_roster_payroll(roster_before, defaults)) + role_cost
+
+
+def _apply_hire_payroll_increment(
+    session: Session,
+    *,
+    league_slug: str,
+    season_start_year: int,
+    team_id: int,
+    role: str,
+    roster_before: list[TeamStaffRosterEntry],
+    defaults,
+) -> None:
+    row = _get_or_create_team_staff_budget(
+        session,
+        league_slug=league_slug,
+        season_start_year=int(season_start_year),
+        team_id=int(team_id),
+    )
+    projected = _projected_payroll_after_hire(
+        current_salary_amount=int(row.current_salary_amount or 0),
+        roster_before=roster_before,
+        role=role,
+        defaults=defaults,
+    )
+    row.current_salary_amount = int(projected)
+
+
 def approve_staff_request(
     session: Session,
     req: StaffChangeRequest,
@@ -314,6 +416,36 @@ def approve_staff_request(
             req.admin_note = "Denied: staff member already employed in this league."
             return StaffRequestResult(False, req.admin_note)
         role_s = str(req.role or "head_coach")
+        defaults = _league_staff_defaults(
+            session,
+            league_slug=slug,
+            season_start_year=int(req.season_start_year),
+        )
+        roster_before = active_roster_for_team(
+            session,
+            league_slug=slug,
+            team_id=int(req.team_id),
+            season_start_year=int(req.season_start_year),
+        )
+        budget_row = _get_or_create_team_staff_budget(
+            session,
+            league_slug=slug,
+            season_start_year=int(req.season_start_year),
+            team_id=int(req.team_id),
+        )
+        budget_amount = int(budget_row.budget_amount or 0)
+        projected_payroll = _projected_payroll_after_hire(
+            current_salary_amount=int(budget_row.current_salary_amount or 0),
+            roster_before=roster_before,
+            role=role_s,
+            defaults=defaults,
+        )
+        if budget_amount > 0 and projected_payroll > budget_amount:
+            req.status = "denied"
+            req.processed_at = now
+            req.processed_by_user_id = admin_user_id
+            req.admin_note = "Denied: team staff budget would be exceeded."
+            return StaffRequestResult(False, req.admin_note)
         session.add(
             TeamStaffRosterEntry(
                 league_slug=slug,
@@ -325,6 +457,15 @@ def approve_staff_request(
                 hire_request_id=int(req.id),
                 hired_at=now,
             )
+        )
+        _apply_hire_payroll_increment(
+            session,
+            league_slug=slug,
+            season_start_year=int(req.season_start_year),
+            team_id=int(req.team_id),
+            role=role_s,
+            roster_before=roster_before,
+            defaults=defaults,
         )
         req.status = "approved"
         req.processed_at = now

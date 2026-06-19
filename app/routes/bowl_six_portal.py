@@ -218,8 +218,11 @@ def _audit(admin_action: str, detail: dict) -> None:
 def _enqueue_bowl_six_discord_after_admin_score(slate: BowlSixSlate, *, force: bool = True) -> None:
     """Queue or refresh the leaders Discord post after manual score/rescore."""
     try:
+        from app.services.bowl_six import is_current_bowl_six_week
         from app.services.bowl_six_discord import maybe_enqueue_bowl_six_leaders_discord
 
+        if not is_current_bowl_six_week(slate):
+            return
         maybe_enqueue_bowl_six_leaders_discord(
             db.session, db.session, slate, force=force
         )

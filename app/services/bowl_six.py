@@ -97,6 +97,14 @@ def _real_bowl_six_week_bounds(now_utc: datetime | None = None) -> tuple[date, d
     return _week_bounds_for_date(today_et, BOWL_SIX_REAL_WEEK_START_DOW)
 
 
+def is_current_bowl_six_week(
+    slate: BowlSixSlate, now_utc: datetime | None = None
+) -> bool:
+    """True when ``slate`` is the real-world competition week (Eastern Monday–Sunday)."""
+    week_start, _week_end = _real_bowl_six_week_bounds(now_utc)
+    return slate.week_start == week_start
+
+
 def bowl_six_real_season_bounds(today: date | None = None) -> tuple[date, date]:
     """Real-world BOWL Six season window (July 1 through June 30)."""
     if today is None:
@@ -564,6 +572,7 @@ def get_or_create_current_slate(
         )
         session.add(slate)
         session.flush()
+    _inherit_bowl_six_discord_leaders_message(session, league_slug, slate)
     if slate.week_start == week_start and slate.week_end == week_end:
         legacy_midnight_lock = utc_naive_from_eastern(datetime.combine(week_start, time(0, 0)))
         legacy_8pm_lock = utc_naive_from_eastern(datetime.combine(week_start, time(20, 0)))
@@ -1109,6 +1118,27 @@ def auto_update_bowl_six_slates(
     return notes
 
 
+def _inherit_bowl_six_discord_leaders_message(
+    session: Session, league_slug: str, slate: BowlSixSlate
+) -> None:
+    """Carry the live Discord edit target forward when a new week slate opens."""
+    if str(getattr(slate, "discord_leaders_message_id", None) or "").strip():
+        return
+    prior_mid = session.scalar(
+        select(BowlSixSlate.discord_leaders_message_id)
+        .where(
+            BowlSixSlate.league_slug == league_slug,
+            BowlSixSlate.discord_leaders_message_id.is_not(None),
+            BowlSixSlate.discord_leaders_message_id != "",
+        )
+        .order_by(BowlSixSlate.week_start.desc())
+        .limit(1)
+    )
+    mid = str(prior_mid or "").strip()
+    if mid:
+        slate.discord_leaders_message_id = mid[:32]
+
+
 def _enqueue_bowl_six_discord_leaders_safe(
     session: Session,
     league_session: Session,
@@ -1116,6 +1146,8 @@ def _enqueue_bowl_six_discord_leaders_safe(
     *,
     force: bool = False,
 ) -> None:
+    if not is_current_bowl_six_week(slate):
+        return
     try:
         from app.services.bowl_six_discord import maybe_enqueue_bowl_six_leaders_discord
 
@@ -1129,14 +1161,14 @@ def _enqueue_bowl_six_discord_leaders_safe(
 def refresh_bowl_six_leaders_for_discord_poll(
     session: Session, league_session: Session, league_slug: str
 ) -> bool:
-    """Lightweight bot-poll refresh: rescore current slate stats and queue leaders Discord.
+    """Bot-poll refresh: advance/finalize recent slates, then queue current-week leaders.
 
-    Unlike ``auto_update_bowl_six_slates``, this does not finalize slates or walk the
-  21-day lookback window. Roster unlock reminders already run on every poll; leaders need
-    the same cadence so the live embed updates after imports without a site visit.
+    Walks the same 21-day lookback as page loads so weeks roll forward without a visit,
+    but only the real-world current slate may update the live Discord leaders post.
     """
     if not bowl_six_enabled(session, league_slug):
         return False
+    auto_update_bowl_six_slates(session, league_session, league_slug)
     slate = get_or_create_current_slate(session, league_slug, league_session=league_session)
     if slate is None or str(slate.status or "") in ("skipped",):
         return False

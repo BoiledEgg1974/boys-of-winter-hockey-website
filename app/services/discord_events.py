@@ -972,8 +972,10 @@ def _source_idempotency_key(
     return hashlib.sha256(material).hexdigest()[:64]
 
 
-def bowl_six_leaders_idempotency_key(*, league_slug: str, slate_id: int) -> str:
-    return f"bowl-six-leaders:{str(league_slug or '').strip()}:{int(slate_id)}"
+def bowl_six_leaders_idempotency_key(*, league_slug: str, slate_id: int | None = None) -> str:
+    """One live leaders post per league; ``slate_id`` is ignored (kept for callers)."""
+    _ = slate_id
+    return f"bowl-six-leaders:{str(league_slug or '').strip()}"
 
 
 def _event_idempotency_key(*, league_slug: str, event_key: str, channel_key: str, payload: dict) -> str:

@@ -11,7 +11,9 @@ from sqlalchemy.orm import Session
 from app.models import Player, Team
 from app.services.bowl_six import (
     AP_PRIZES,
+    _real_bowl_six_week_bounds,
     gm_season_standings,
+    is_current_bowl_six_week,
     season_ap_prize_for_rank,
     slate_rankings,
     slate_rankings_in_progress,
@@ -35,16 +37,35 @@ def _fmt_short_date(d: date, *, with_year: bool = False) -> str:
 
 
 def _slate_week_label(slate: BowlSixSlate) -> str:
-    label = str(slate.label or "").strip()
-    if label:
-        return label
     ws = slate.week_start
     we = slate.week_end
     if ws and we and ws != we:
         return f"{_fmt_short_date(ws)} – {_fmt_short_date(we, with_year=True)}"
     if ws:
         return _fmt_short_date(ws, with_year=True)
-    return "This week"
+    label = str(slate.label or "").strip()
+    return label or "This week"
+
+
+def resolve_bowl_six_leaders_discord_message_id(
+    session: Session, league_slug: str, slate: BowlSixSlate
+) -> str | None:
+    """Discord message id to edit for this league's live leaders post."""
+    mid = str(getattr(slate, "discord_leaders_message_id", None) or "").strip()
+    if mid:
+        return mid
+    prior_mid = session.scalar(
+        select(BowlSixSlate.discord_leaders_message_id)
+        .where(
+            BowlSixSlate.league_slug == league_slug,
+            BowlSixSlate.discord_leaders_message_id.is_not(None),
+            BowlSixSlate.discord_leaders_message_id != "",
+        )
+        .order_by(BowlSixSlate.week_start.desc())
+        .limit(1)
+    )
+    mid = str(prior_mid or "").strip()
+    return mid or None
 
 
 def _player_line_name(player: Player | None, player_id: int) -> str:
@@ -166,7 +187,7 @@ def build_bowl_six_leaders_discord_payload(
     body = "\n".join(body_lines).strip()
     content_hash = hashlib.sha256(body.encode("utf-8")).hexdigest()[:32]
     hub_url = build_league_public_url(league_slug, "/bowl-six") or f"/{league_slug}/bowl-six"
-    edit_id = str(getattr(slate, "discord_leaders_message_id", None) or "").strip() or None
+    edit_id = resolve_bowl_six_leaders_discord_message_id(session, league_slug, slate)
 
     return {
         "title": f"BOWL Six leaders — {week_label}",
@@ -196,6 +217,8 @@ def maybe_enqueue_bowl_six_leaders_discord(
 ) -> bool:
     """Queue or refresh Discord leader post when content changed."""
     if str(slate.status or "") == "skipped":
+        return False
+    if not is_current_bowl_six_week(slate):
         return False
     payload = build_bowl_six_leaders_discord_payload(session, league_session, slate)
     content_hash = str(payload.get("content_hash") or "")
@@ -274,3 +297,16 @@ def record_bowl_six_leaders_discord_ack(
     content_hash = str(payload.get("content_hash") or "").strip()
     if content_hash:
         slate.discord_leaders_payload_hash = content_hash[:64]
+    week_start, _week_end = _real_bowl_six_week_bounds()
+    current = session.scalar(
+        select(BowlSixSlate)
+        .where(
+            BowlSixSlate.league_slug == slate.league_slug,
+            BowlSixSlate.week_start == week_start,
+        )
+        .limit(1)
+    )
+    if current is not None and int(current.id) != int(slate.id):
+        current.discord_leaders_message_id = mid[:32]
+        if content_hash:
+            current.discord_leaders_payload_hash = content_hash[:64]

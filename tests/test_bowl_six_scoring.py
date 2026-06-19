@@ -610,6 +610,9 @@ class BowlSixScoringTest(unittest.TestCase):
         ), unittest.mock.patch(
             "app.services.bowl_six.refresh_slate_lineup_scores", return_value=2
         ), unittest.mock.patch(
+            "app.services.bowl_six.is_current_bowl_six_week",
+            return_value=True,
+        ), unittest.mock.patch(
             "app.services.bowl_six._enqueue_bowl_six_discord_leaders_safe"
         ) as enqueue:
             from app.services.bowl_six import _auto_update_single_slate
@@ -617,6 +620,27 @@ class BowlSixScoringTest(unittest.TestCase):
             note = _auto_update_single_slate(site_session, league_session, slate)
         enqueue.assert_called_once_with(site_session, league_session, slate)
         self.assertIn("updated 2 lineup", note or "")
+
+    def test_discord_enqueue_skipped_for_non_current_week(self):
+        slate = BowlSixSlate(
+            id=58,
+            league_slug="bowl-historical",
+            week_start=date(2026, 5, 25),
+            week_end=date(2026, 5, 31),
+            status="scored",
+        )
+        site_session = MagicMock()
+        league_session = MagicMock()
+        with unittest.mock.patch(
+            "app.services.bowl_six.is_current_bowl_six_week",
+            return_value=False,
+        ), unittest.mock.patch(
+            "app.services.bowl_six_discord.maybe_enqueue_bowl_six_leaders_discord"
+        ) as enqueue:
+            from app.services.bowl_six import _enqueue_bowl_six_discord_leaders_safe
+
+            _enqueue_bowl_six_discord_leaders_safe(site_session, league_session, slate)
+        enqueue.assert_not_called()
 
     def test_open_slate_auto_update_enqueues_discord_even_without_final_games(self):
         slate = BowlSixSlate(
@@ -641,6 +665,9 @@ class BowlSixScoringTest(unittest.TestCase):
             "app.services.bowl_six.sync_slate_lock_status"
         ), unittest.mock.patch(
             "app.services.bowl_six.rs_game_ids_for_slate", return_value=[]
+        ), unittest.mock.patch(
+            "app.services.bowl_six.is_current_bowl_six_week",
+            return_value=True,
         ), unittest.mock.patch(
             "app.services.bowl_six._enqueue_bowl_six_discord_leaders_safe"
         ) as enqueue:

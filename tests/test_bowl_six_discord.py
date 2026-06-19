@@ -94,11 +94,44 @@ class BowlSixDiscordPayloadTest(unittest.TestCase):
         self.assertIn("season AP 30", payload["body"])
         self.assertIn("season AP 2", payload["body"])
 
-    def test_idempotency_key_per_league_slate(self):
+    def test_idempotency_key_per_league(self):
         self.assertEqual(
             bowl_six_leaders_idempotency_key(league_slug="bowl-cap", slate_id=3),
-            "bowl-six-leaders:bowl-cap:3",
+            "bowl-six-leaders:bowl-cap",
         )
+
+    def test_week_label_uses_date_range_not_stale_label(self):
+        slate = BowlSixSlate(
+            id=9,
+            league_slug="bowl-cap",
+            week_start=date(2026, 6, 15),
+            week_end=date(2026, 6, 21),
+            status="locked",
+            label="Week of 2026-05-25",
+        )
+        with patch(
+            "app.services.bowl_six_discord.top_players_for_slate",
+            return_value=[],
+        ), patch(
+            "app.services.bowl_six_discord.slate_rankings_in_progress",
+            return_value=[],
+        ), patch(
+            "app.services.bowl_six_discord.gm_season_standings",
+            return_value=[],
+        ), patch(
+            "app.services.bowl_six_discord.build_league_public_url",
+            return_value="https://www.bowlhockey.com/bowl-cap/bowl-six",
+        ), patch(
+            "app.services.bowl_six_discord.resolve_bowl_six_leaders_discord_message_id",
+            return_value=None,
+        ):
+            payload = build_bowl_six_leaders_discord_payload(
+                unittest.mock.MagicMock(),
+                unittest.mock.MagicMock(),
+                slate,
+            )
+        self.assertEqual(payload["week_label"], "Jun 15 – Jun 21, 2026")
+        self.assertIn("Jun 15 – Jun 21, 2026", payload["title"])
 
     def test_enqueue_fresh_clears_edit_target_and_forces_queue(self):
         slate = BowlSixSlate(
@@ -116,6 +149,9 @@ class BowlSixDiscordPayloadTest(unittest.TestCase):
             "app.services.bowl_six_discord.maybe_enqueue_bowl_six_leaders_discord",
             return_value=True,
         ) as enqueue, patch(
+            "app.services.bowl_six.is_current_bowl_six_week",
+            return_value=True,
+        ), patch(
             "app.services.bowl_six.refresh_slate_lineup_scores"
         ) as refresh_lineups, patch(
             "app.services.bowl_six.refresh_player_week_stats"

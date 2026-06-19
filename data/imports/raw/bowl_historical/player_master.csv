@@ -737,7 +737,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 5437;22;3;Moe;L'Abbe;;70;170;1947-8-12;Murdochville;QC;Canada;;;0;Left;0
 4962;5;5;Fred;Stanfield;Fritz;70;184;1944-5-4;Toronto;ON;Canada;;;0;Left;0
 6122;89;89;Sam;Gellard;;72;185;1950-3-15;Princes Town;PRI;Canada;Trinidad & Tobago;;0;Left;0
-5438;119;119;Brian;Lavender;;72;174;1947-4-20;Elk Point;AB;Canada;;;0;Left;0
+5438;126;119;Brian;Lavender;;72;174;1947-4-20;Elk Point;AB;Canada;;;0;Left;0
 5667;59;59;Inge;Hammarstrom;;72;180;1948-1-20;Sundsvall;V‰S;Sweden;;;0;Left;0
 6123;84;84;Dave;Gilmour;;69;165;1950-11-14;Kingston;ON;Canada;;;0;Left;0
 5255;90;90;Robbie;Irons;;68;150;1946-11-19;Toronto;ON;Canada;;;0;Left;0
@@ -3365,7 +3365,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 6061;85;85;Dennis;Romanesky;;69;181;1949-6-17;Desbiens;QC;Canada;;;0;Left;0
 6062;84;84;Billy;Yeo;;72;183;1949-6-28;Sudbury;ON;Canada;;;0;Left;0
 6063;84;84;Dennis;Henderson;;70;174;1949-11-27;London;ON;Canada;;;0;Left;0
-6064;126;119;Laurie;Yaworski;;68;174;1949-6-29;Morinville;AB;Canada;;;0;Right;1
+6064;119;119;Laurie;Yaworski;;68;174;1949-6-29;Morinville;AB;Canada;;;0;Right;1
 6065;83;83;Wayne;Morusyk;;73;174;1949-10-10;Fort Macleod;AB;Canada;;;0;Left;0
 6066;85;85;Daniel;Makey;;73;194;1949-2-25;Gander;NL;Canada;;;0;Left;0
 6067;84;84;Bob;Malcolm;;73;185;1949-6-24;Toronto;ON;Canada;;;0;Left;0

@@ -133,7 +133,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 4472;123;123;Dave;Dryden;Sod;74;186;1941-9-5;Hamilton;ON;Canada;;;0;Right;0
 3129;90;90;Bob;Armstrong;Satch;73;190;1931-4-7;Toronto;ON;Canada;;;0;Right;0
 4721;121;121;Bob;Berry;Crease;72;185;1943-11-29;Murdochville;QC;Canada;;;0;Left;0
-5402;22;3;Nick;Beverley;Slick Nick;74;185;1947-4-21;Toronto;ON;Canada;;;0;Right;0
+5402;3;3;Nick;Beverley;Slick Nick;74;185;1947-4-21;Toronto;ON;Canada;;;0;Right;1
 5850;83;83;Murray;Anderson;;70;175;1949-8-28;Virden;MB;Canada;;;0;Left;0
 3951;90;90;Gerry;Brisson;;69;155;1937-9-3;Winnipeg;MB;Canada;;;0;Left;0
 4350;122;122;Murray;Hall;;72;175;1940-11-24;Kirkland Lake;ON;Canada;;;0;Right;0
@@ -625,7 +625,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 5430;90;90;Bill;Hughes;;73;185;1947-11-7;Kirkland Lake;ON;Canada;;;0;Left;0
 4501;119;119;Guy;Trottier;The Mouse;68;165;1941-4-1;Longueuil;QC;Canada;;;0;Right;0
 5879;5;5;Andre;Dupont;Moose;73;201;1949-7-27;Ville-Marie;QC;Canada;;;0;Left;1
-5085;126;119;Hank;Monteith;;70;170;1945-10-2;Stratford;ON;Canada;;;0;Left;0
+5085;119;119;Hank;Monteith;;70;170;1945-10-2;Stratford;ON;Canada;;;0;Left;0
 5250;90;90;Bill;Heindl;;70;175;1946-5-13;Sorel-Tracy;QC;Canada;;;0;Left;0
 4502;121;121;Bob;Woytowich;Augie;72;185;1941-8-18;Oakbank;MB;Canada;;;0;Right;0
 5431;90;90;Lee;Inglis;;72;190;1947-8-31;Richmond;BC;Canada;;;0;Left;0
@@ -1589,7 +1589,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 5935;89;89;Wally;Olds;;74;203;1949-8-17;Belle Plaine;KS;The United States;;;0;Right;0
 5704;119;119;Gene;Peacosh;;71;180;1948-9-28;Nesbitt;MB;Canada;;;0;Left;0
 5936;124;123;Rusty;Patenaude;;69;175;1949-10-17;Surrey;BC;Canada;;;0;Right;1
-5705;24;5;Gerry;Pinder;Mouse;68;165;1948-9-15;Swift Current;SK;Canada;;;0;Right;0
+5705;5;5;Gerry;Pinder;Mouse;68;165;1948-9-15;Swift Current;SK;Canada;;;0;Right;1
 4990;90;90;Michihiro;Sato;;66;150;1943-11-18;Kagoshima;KAG;Japan;;;0;Left;0
 5290;128;121;Bob;Sicinski;;71;175;1946-11-13;Toronto;ON;Canada;;;0;Left;0
 5130;90;90;Doug;Woog;;67;170;1944-1-28;Winnebago;MN;The United States;;;0;Left;0
@@ -2928,7 +2928,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 5303;124;123;Rick;Pagnutti;Pags;73;185;1946-11-14;Sudbury;ON;Canada;;;0;Right;0
 5304;124;123;Ken;Hicks;;67;167;1946-7-18;Notre-Dame-de-Lourdes;MB;Canada;;;0;Right;0
 5305;90;90;Wayne;Cheeseman;;73;210;1946-7-30;Whitby;ON;Canada;;;0;Left;0
-5306;119;119;Bob;Tombari;;71;185;1946-8-2;Sault Ste. Marie;ON;Canada;;;0;Left;0
+5306;126;119;Bob;Tombari;;71;185;1946-8-2;Sault Ste. Marie;ON;Canada;;;0;Left;0
 5307;90;90;Elgin;McCann;;68;175;1946-7-2;Vernon;BC;Canada;;;0;Right;0
 5308;90;90;Ron;Barkwell;;70;175;1946-12-14;North Battleford;SK;Canada;;;0;Right;0
 5309;90;90;Bob;Smith;;71;175;1946-12-1;Sault Ste. Marie;ON;Canada;;;0;Right;0

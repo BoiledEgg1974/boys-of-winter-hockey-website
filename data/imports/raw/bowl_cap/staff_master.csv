@@ -695,7 +695,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 693;-1;Marshall;Churches;;1939-12-17;Redlands;CA;The United States;;;0
 694;56;Wendell;Ince;;1939-1-27;Jackson;OH;The United States;;;0
 695;5;Daniel;Sprayberry;;1939-7-25;Colorado Springs;CO;The United States;;;0
-696;5;Ross;Tamblyn;;1939-9-16;Hialeah;FL;The United States;;;0
+696;-1;Ross;Tamblyn;;1939-9-16;Hialeah;FL;The United States;;;0
 697;56;Steven;McClements;;1944-9-4;Brooklyn;NY;The United States;;;0
 698;56;Hal;Fletcher;;1943-4-17;Englewood;NJ;The United States;;;0
 699;57;Tim;Morgan;;1945-1-8;Oklahoma City;OK;The United States;;;0

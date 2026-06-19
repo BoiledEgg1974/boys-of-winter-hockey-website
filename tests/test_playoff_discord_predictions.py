@@ -135,6 +135,23 @@ class PlayoffDiscordPredictionsTest(unittest.TestCase):
         self.assertIn("Based on regular-season stats.", parts[1]["content"])
         self.assertIn("bowlhockey.com", parts[1]["content"])
 
+    def test_build_playoff_predictions_payload_without_request_context(self) -> None:
+        from app import create_app
+        from app.config import make_league_config
+        from app.league_db import db
+        from app.services.playoff_discord_predictions import build_playoff_predictions_discord_payload
+
+        app = create_app(make_league_config("bowl-cap"))
+        with app.app_context():
+            result = build_playoff_predictions_discord_payload(
+                db.session,
+                league_slug="bowl-cap",
+            )
+        if result.get("error"):
+            self.skipTest(result["error"])
+        self.assertIn("payload", result)
+        self.assertGreater(int(result["payload"].get("series_count") or 0), 0)
+
     def test_formatter_emits_text_only_playoff_predictions(self) -> None:
         parts = format_discord_messages(
             {

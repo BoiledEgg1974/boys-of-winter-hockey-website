@@ -595,10 +595,18 @@ def _reorder_mirror_round3_for_slots(
     ]
 
 
-def _team_json(t: Team | None, *, logo_year: int | None = None) -> dict | None:
+def _team_json(
+    t: Team | None, *, logo_year: int | None = None, include_team_logos: bool = True
+) -> dict | None:
     if not t:
         return None
-    logo_url = dashboard_team_logo_url(t, logo_year) if logo_year is not None else team_logo_url_for_team(t)
+    logo_url = ""
+    if include_team_logos:
+        logo_url = (
+            dashboard_team_logo_url(t, logo_year)
+            if logo_year is not None
+            else team_logo_url_for_team(t)
+        )
     return {
         "id": t.id,
         "slug": t.slug,
@@ -617,6 +625,7 @@ def _series_json(
     rs_map: dict[int, dict[str, float]] | None = None,
     h2h: dict[tuple[int, int], tuple[int, int, int]] | None = None,
     logo_year: int | None = None,
+    include_team_logos: bool = True,
 ) -> dict:
     ta = teams.get(sa.team_a_id)
     tb = teams.get(sa.team_b_id)
@@ -638,12 +647,12 @@ def _series_json(
             teams=teams,
         )
     return {
-        "team_a": _team_json(ta, logo_year=logo_year),
-        "team_b": _team_json(tb, logo_year=logo_year),
+        "team_a": _team_json(ta, logo_year=logo_year, include_team_logos=include_team_logos),
+        "team_b": _team_json(tb, logo_year=logo_year, include_team_logos=include_team_logos),
         "wins_a": sa.wins_a,
         "wins_b": sa.wins_b,
         "games_played": sa.games_played,
-        "winner": _team_json(w, logo_year=logo_year),
+        "winner": _team_json(w, logo_year=logo_year, include_team_logos=include_team_logos),
         "series_complete": (sa.wins_a >= 4 or sa.wins_b >= 4),
         "first_game_date": sa.first_date.isoformat() if sa.first_date else None,
         "last_game_date": sa.last_date.isoformat() if sa.last_date else None,
@@ -710,7 +719,7 @@ def playoff_bracket_cache_fingerprint(season_id: int | None) -> str:
     return f"{_BRACKET_CACHE_VERSION}-{len(parts)}-{digest}"
 
 
-def playoff_bracket_payload(season_id: int | None) -> dict:
+def playoff_bracket_payload(season_id: int | None, *, include_team_logos: bool = True) -> dict:
     """Return JSON-serializable bracket data for a season."""
     if season_id is None:
         return {
@@ -746,7 +755,7 @@ def playoff_bracket_payload(season_id: int | None) -> dict:
         )
         if any(s1_slots) or any(s2_slots) or any(s3_slots):
             def _slot_json(s: SeriesAgg | None) -> dict | None:
-                return _series_json(s, teams, rs_map=rs_map, h2h=h2h, logo_year=logo_year) if s else None
+                return _series_json(s, teams, rs_map=rs_map, h2h=h2h, logo_year=logo_year, include_team_logos=include_team_logos) if s else None
 
             first_round = [_slot_json(s) for s in s1_slots]
             second_round = [_slot_json(s) for s in s2_slots]
@@ -985,29 +994,29 @@ def playoff_bracket_payload(season_id: int | None) -> dict:
             return []
         n = len(sl)
         if n <= 2:
-            return [{"label": "Playoff series", "series": [_series_json(x, teams, rs_map=rs_map, h2h=h2h, logo_year=logo_year) for x in sl]}]
+            return [{"label": "Playoff series", "series": [_series_json(x, teams, rs_map=rs_map, h2h=h2h, logo_year=logo_year, include_team_logos=include_team_logos) for x in sl]}]
         third = (n + 2) // 3
         chunks = [sl[:third], sl[third : 2 * third], sl[2 * third :]]
         labels = ("Round 1", "Round 2", "Semifinals")
         out = []
         for lab, chunk in zip(labels, chunks):
             if chunk:
-                out.append({"label": lab, "series": [_series_json(x, teams, rs_map=rs_map, h2h=h2h, logo_year=logo_year) for x in chunk]})
+                out.append({"label": lab, "series": [_series_json(x, teams, rs_map=rs_map, h2h=h2h, logo_year=logo_year, include_team_logos=include_team_logos) for x in chunk]})
         return out
 
     def _slot_json(s: SeriesAgg | None) -> dict | None:
-        return _series_json(s, teams, rs_map=rs_map, h2h=h2h, logo_year=logo_year) if s else None
+        return _series_json(s, teams, rs_map=rs_map, h2h=h2h, logo_year=logo_year, include_team_logos=include_team_logos) if s else None
 
     # Legacy "rounds" grid for older clients.
     rounds = (
         [
             {
                 "label": "First round",
-                "series": [_series_json(x, teams, rs_map=rs_map, h2h=h2h, logo_year=logo_year) for x in quarterfinals],
+                "series": [_series_json(x, teams, rs_map=rs_map, h2h=h2h, logo_year=logo_year, include_team_logos=include_team_logos) for x in quarterfinals],
             },
             {
                 "label": "Second round",
-                "series": [_series_json(x, teams, rs_map=rs_map, h2h=h2h, logo_year=logo_year) for x in semifinals],
+                "series": [_series_json(x, teams, rs_map=rs_map, h2h=h2h, logo_year=logo_year, include_team_logos=include_team_logos) for x in semifinals],
             },
         ]
         if quarterfinals or semifinals
@@ -1018,7 +1027,7 @@ def playoff_bracket_payload(season_id: int | None) -> dict:
             {
                 "label": "Conference finals",
                 "series": [
-                    _series_json(x, teams, rs_map=rs_map, h2h=h2h, logo_year=logo_year)
+                    _series_json(x, teams, rs_map=rs_map, h2h=h2h, logo_year=logo_year, include_team_logos=include_team_logos)
                     for x in r3_ordered
                     if x is not None
                 ],
@@ -1026,7 +1035,7 @@ def playoff_bracket_payload(season_id: int | None) -> dict:
         )
 
     champ_j = (
-        _series_json(championship_series, teams, rs_map=rs_map, h2h=h2h, logo_year=logo_year)
+        _series_json(championship_series, teams, rs_map=rs_map, h2h=h2h, logo_year=logo_year, include_team_logos=include_team_logos)
         if championship_series
         else None
     )
@@ -1040,8 +1049,8 @@ def playoff_bracket_payload(season_id: int | None) -> dict:
         "first_round": [_slot_json(s) for s in s1_slots],
         "second_round": [_slot_json(s) for s in s2_slots],
         "conference_finals": [_slot_json(s) for s in s3_slots],
-        "quarterfinals": [_series_json(x, teams, rs_map=rs_map, h2h=h2h, logo_year=logo_year) for x in quarterfinals],
-        "semifinals": [_series_json(x, teams, rs_map=rs_map, h2h=h2h, logo_year=logo_year) for x in semifinals],
+        "quarterfinals": [_series_json(x, teams, rs_map=rs_map, h2h=h2h, logo_year=logo_year, include_team_logos=include_team_logos) for x in quarterfinals],
+        "semifinals": [_series_json(x, teams, rs_map=rs_map, h2h=h2h, logo_year=logo_year, include_team_logos=include_team_logos) for x in semifinals],
         "rounds": rounds,
         "series_total": n,
     }

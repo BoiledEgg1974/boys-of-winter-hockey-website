@@ -228,7 +228,7 @@ def build_playoff_predictions_discord_payload(session, *, league_slug: str) -> d
     season = season_with_imported_data_fallback(session, canonical) if canonical else None
     if season is None:
         return {"error": "No imported season data is available yet."}
-    bracket = playoff_bracket_payload(int(season.id))
+    bracket = playoff_bracket_payload(int(season.id), include_team_logos=False)
     if bracket.get("empty"):
         return {"error": str(bracket.get("message") or "No playoff bracket is available yet.")}
     series_rows = collect_bracket_series(bracket)

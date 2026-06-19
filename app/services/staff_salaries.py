@@ -93,13 +93,33 @@ def main_league_teams(session: Session) -> list[Team]:
 def budgets_for_season(
     session: Session, *, league_slug: str, season_start_year: int
 ) -> dict[int, int]:
+    return {
+        tid: int(data["budget_amount"])
+        for tid, data in staff_budget_data_for_season(
+            session,
+            league_slug=league_slug,
+            season_start_year=int(season_start_year),
+        ).items()
+    }
+
+
+def staff_budget_data_for_season(
+    session: Session, *, league_slug: str, season_start_year: int
+) -> dict[int, dict[str, int]]:
+    """Per-team staff budget and manual current salary keyed by league ``teams.id``."""
     rows = session.scalars(
         select(TeamStaffBudget).where(
             TeamStaffBudget.league_slug == league_slug,
             TeamStaffBudget.season_start_year == int(season_start_year),
         )
     ).all()
-    return {int(r.team_id): int(r.budget_amount) for r in rows}
+    return {
+        int(r.team_id): {
+            "budget_amount": int(r.budget_amount),
+            "current_salary_amount": int(r.current_salary_amount or 0),
+        }
+        for r in rows
+    }
 
 
 def compute_staff_default_salaries(total_budget: int, team_count: int) -> StaffDefaultSalaries | None:
@@ -120,12 +140,15 @@ def staff_salary_context(session: Session, *, league_slug: str) -> dict:
     season, start_year, season_label = resolve_staff_season(session)
     teams = main_league_teams(session)
     budget_by_team: dict[int, int] = {}
+    salary_by_team: dict[int, int] = {}
     if start_year is not None:
-        budget_by_team = budgets_for_season(
+        for tid, data in staff_budget_data_for_season(
             session,
             league_slug=str(league_slug).strip(),
             season_start_year=int(start_year),
-        )
+        ).items():
+            budget_by_team[int(tid)] = int(data["budget_amount"])
+            salary_by_team[int(tid)] = int(data["current_salary_amount"])
 
     active_mems = session.scalars(
         select(GmLeagueMembership).where(
@@ -156,6 +179,7 @@ def staff_salary_context(session: Session, *, league_slug: str) -> dict:
                 "gm_label": gm_display_name(u),
                 "team_id_label": str(fhm).strip() if fhm is not None and str(fhm).strip() else str(tid),
                 "budget_amount": amount,
+                "current_salary_amount": int(salary_by_team.get(tid, 0)),
             }
         )
 

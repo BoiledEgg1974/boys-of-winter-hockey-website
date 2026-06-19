@@ -14,10 +14,10 @@ from app.services.league_rules import rule_bool, rule_int
 from app.services.seasons import get_current_season, season_display_label
 from app.services.staff_salaries import (
     StaffDefaultSalaries,
-    budgets_for_season,
     compute_staff_default_salaries,
     gm_display_name,
     main_league_teams,
+    staff_budget_data_for_season,
 )
 from app.services.staff_transactions import active_roster_for_team
 from app.site_models import GmLeagueMembership, TeamCapPenalty, User
@@ -380,11 +380,13 @@ def build_staff_finances_rows(
     if season_start_year is None:
         return [], False
 
-    budget_by_team = budgets_for_season(
+    budget_data = staff_budget_data_for_season(
         session,
         league_slug=league_slug,
         season_start_year=int(season_start_year),
     )
+    budget_by_team = {tid: int(data["budget_amount"]) for tid, data in budget_data.items()}
+    salary_by_team = {tid: int(data["current_salary_amount"]) for tid, data in budget_data.items()}
     has_budgets = bool(budget_by_team)
     total_budget = sum(int(v) for v in budget_by_team.values())
     defaults = compute_staff_default_salaries(total_budget, len(teams))
@@ -407,6 +409,7 @@ def build_staff_finances_rows(
     for team in teams:
         tid = int(team.id)
         budget_amount = int(budget_by_team.get(tid, 0))
+        current_salary = int(salary_by_team.get(tid, 0))
         roster = active_roster_for_team(
             session,
             league_slug=league_slug,
@@ -416,6 +419,7 @@ def build_staff_finances_rows(
         estimated_payroll = sum(
             _role_estimated_salary(str(entry.role), defaults) for entry in roster
         )
+        staff_payroll = current_salary if current_salary > 0 else int(estimated_payroll)
         mem = mem_by_team.get(tid)
         user = users_by_id.get(int(mem.user_id)) if mem else None
         rows.append(
@@ -423,8 +427,10 @@ def build_staff_finances_rows(
                 "team": team,
                 "gm_label": gm_display_name(user),
                 "budget_amount": budget_amount,
+                "staff_payroll": int(staff_payroll),
+                "staff_payroll_is_manual": current_salary > 0,
                 "estimated_payroll": int(estimated_payroll),
-                "budget_remaining": int(budget_amount - estimated_payroll),
+                "budget_remaining": int(budget_amount - staff_payroll),
             }
         )
 

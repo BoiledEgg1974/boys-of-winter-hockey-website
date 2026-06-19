@@ -953,6 +953,27 @@ def ensure_team_cap_penalties_sqlite(engine: Engine) -> None:
     TeamCapPenalty.__table__.create(bind=engine, checkfirst=True)
 
 
+def ensure_team_staff_budget_current_salary_sqlite(engine: Engine) -> None:
+    """Add ``current_salary_amount`` to ``team_staff_budgets`` when upgrading."""
+    if engine.dialect.name != "sqlite":
+        return
+    from sqlalchemy import inspect
+
+    insp = inspect(engine)
+    if not insp.has_table("team_staff_budgets"):
+        return
+    with engine.connect() as conn:
+        colnames = {col["name"] for col in inspect(conn).get_columns("team_staff_budgets")}
+        if "current_salary_amount" not in colnames:
+            conn.execute(
+                text(
+                    "ALTER TABLE team_staff_budgets "
+                    "ADD COLUMN current_salary_amount INTEGER NOT NULL DEFAULT 0"
+                )
+            )
+            conn.commit()
+
+
 def ensure_gm_trade_proposals_sqlite(engine: Engine) -> None:
     """Create GM trade proposals table on site DB when missing."""
     if engine.dialect.name != "sqlite":

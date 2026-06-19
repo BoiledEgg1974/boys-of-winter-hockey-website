@@ -6,7 +6,8 @@
   <p class="muted">
     <strong>{{ config.LEAGUE_DISPLAY_NAME }}</strong>
     {% if season_label %}· <strong>{{ season_label }}</strong> season{% else %}· current season{% endif %}
-    — budgets are stored per league and season; other league sites use their own timeline.
+    — budgets and current staff payroll are stored per league and season; other league sites use their own timeline.
+    Enter the in-game staff budget and total staff salary (FHM does not export payroll in CSV).
     <a href="{{ url_for('site_gm.staff_salaries_page') }}">Staff Salaries</a> shows the calculated defaults for this site only.
   </p>
   <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
@@ -24,6 +25,7 @@
             <th scope="col">GM</th>
             <th scope="col">ID</th>
             <th scope="col" class="staff-budgets-admin__th-budget">Budget</th>
+            <th scope="col" class="staff-budgets-admin__th-budget">Current staff salary</th>
           </tr>
         </thead>
         <tbody>
@@ -53,12 +55,25 @@
                 autocomplete="off"
               >
             </td>
+            <td class="staff-budgets-admin__budget">
+              <label class="visually-hidden" for="current-salary-{{ t.id }}">Current staff salary for {{ t.full_display_name() }}</label>
+              <input
+                type="text"
+                inputmode="numeric"
+                name="current_salary_{{ t.id }}"
+                id="current-salary-{{ t.id }}"
+                class="staff-budgets-admin__input"
+                value="{% if row.current_salary_amount %}{{ row.current_salary_amount }}{% endif %}"
+                placeholder="0"
+                autocomplete="off"
+              >
+            </td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
-    <button type="submit" class="join-league-btn" style="margin-top:1rem;border:none;">Save budgets</button>
+    <button type="submit" class="join-league-btn" style="margin-top:1rem;border:none;">Save budgets &amp; payroll</button>
   </form>
 
   {% if defaults %}

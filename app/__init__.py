@@ -129,9 +129,13 @@ def create_app(config_class: type = Config) -> Flask:
         try:
             site_engine = db.engines.get("site")
             if site_engine is not None:
-                from app.db_utils import ensure_team_cap_penalties_sqlite
+                from app.db_utils import (
+                    ensure_team_cap_penalties_sqlite,
+                    ensure_team_staff_budget_current_salary_sqlite,
+                )
 
                 ensure_team_cap_penalties_sqlite(site_engine)
+                ensure_team_staff_budget_current_salary_sqlite(site_engine)
         except Exception as exc:
             app.logger.warning("team_cap_penalties table ensure skipped: %s", exc)
         # FTS may be empty until import or seed; seed script calls rebuild

@@ -146,7 +146,7 @@
             <th scope="col">Team</th>
             <th scope="col">GM</th>
             <th scope="col">Staff Budget</th>
-            <th scope="col">Est. Staff Payroll</th>
+            <th scope="col">Staff Payroll</th>
             <th scope="col">Budget Remaining</th>
           </tr>
         </thead>
@@ -156,7 +156,10 @@
             <td>{{ team_lockup_full_name(row.team, season=season) }}</td>
             <td>{{ row.gm_label }}</td>
             <td>${{ '{:,}'.format(row.budget_amount) }}</td>
-            <td>${{ '{:,}'.format(row.estimated_payroll) }}</td>
+            <td>
+              ${{ '{:,}'.format(row.staff_payroll) }}
+              {% if not row.staff_payroll_is_manual %}<span class="muted finances-staff-est"> (est.)</span>{% endif %}
+            </td>
             <td class="{% if row.budget_remaining < 0 %}finances-cap-space--over{% endif %}">${{ '{:,}'.format(row.budget_remaining) }}</td>
           </tr>
           {% else %}

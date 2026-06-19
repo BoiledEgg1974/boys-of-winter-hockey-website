@@ -21827,6 +21827,9 @@ button.bowl-six-submissions__toggle:hover {
   margin: 0;
   padding: 0.5rem 0;
 }
+.finances-staff-est {
+  font-size: 0.82rem;
+}
 [data-theme="light"] .finances-banner {
   background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
   border-color: #cbd5e1;

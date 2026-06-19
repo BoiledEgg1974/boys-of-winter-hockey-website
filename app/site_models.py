@@ -1108,6 +1108,7 @@ class TeamStaffBudget(db.Model):
     season_start_year: Mapped[int] = mapped_column(Integer, nullable=False)
     team_id: Mapped[int] = mapped_column(Integer, nullable=False)
     budget_amount: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    current_salary_amount: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
     )

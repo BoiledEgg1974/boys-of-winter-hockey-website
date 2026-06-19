@@ -7517,11 +7517,16 @@ def admin_staff_budgets():
         teams = main_league_teams(db.session)
         for t in teams:
             tid = int(t.id)
-            raw = (request.form.get(f"budget_{tid}") or "").strip().replace(",", "").replace("$", "")
+            raw_budget = (request.form.get(f"budget_{tid}") or "").strip().replace(",", "").replace("$", "")
+            raw_salary = (request.form.get(f"current_salary_{tid}") or "").strip().replace(",", "").replace("$", "")
             try:
-                amount = max(0, int(raw)) if raw else 0
+                budget_amount = max(0, int(raw_budget)) if raw_budget else 0
             except ValueError:
-                amount = 0
+                budget_amount = 0
+            try:
+                current_salary_amount = max(0, int(raw_salary)) if raw_salary else 0
+            except ValueError:
+                current_salary_amount = 0
             row = db.session.scalar(
                 select(TeamStaffBudget).where(
                     TeamStaffBudget.league_slug == slug,
@@ -7534,15 +7539,17 @@ def admin_staff_budgets():
                     league_slug=slug,
                     season_start_year=int(start_year),
                     team_id=tid,
-                    budget_amount=amount,
+                    budget_amount=budget_amount,
+                    current_salary_amount=current_salary_amount,
                     updated_by_user_id=int(current_user.id),
                 )
                 db.session.add(row)
             else:
-                row.budget_amount = amount
+                row.budget_amount = budget_amount
+                row.current_salary_amount = current_salary_amount
                 row.updated_by_user_id = int(current_user.id)
         commit_with_sqlite_retry(db.session)
-        flash("Staff salary budgets saved.", "ok")
+        flash("Staff salary budgets and payroll saved.", "ok")
         return redirect(url_for("site_admin.admin_staff_budgets"))
 
     ctx = staff_salary_context(db.session, league_slug=slug)

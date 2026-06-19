@@ -190,6 +190,7 @@ def _bootstrap_site_schema_and_seed(app: Flask) -> None:
         ensure_story_publish_schedule_extra_columns_sqlite,
         ensure_story_publish_schedules_sqlite,
         ensure_team_cap_penalties_sqlite,
+        ensure_team_staff_budget_current_salary_sqlite,
         ensure_team_staff_roster_entries_sqlite,
         ensure_trade_market_sqlite,
     )
@@ -213,6 +214,7 @@ def _bootstrap_site_schema_and_seed(app: Flask) -> None:
     ensure_staff_change_requests_sqlite(site_engine)
     ensure_rfa_offer_requests_sqlite(site_engine)
     ensure_team_cap_penalties_sqlite(site_engine)
+    ensure_team_staff_budget_current_salary_sqlite(site_engine)
     ensure_team_staff_roster_entries_sqlite(site_engine)
     ensure_gm_trade_proposals_sqlite(site_engine)
     ensure_trade_market_sqlite(site_engine)

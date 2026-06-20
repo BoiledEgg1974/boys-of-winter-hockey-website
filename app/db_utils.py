@@ -2086,51 +2086,38 @@ def ensure_discord_outbound_sqlite(engine: Engine) -> None:
 
 
 def ensure_bowl_six_slates_discord_columns_sqlite(engine: Engine) -> None:
-    """Add post-launch BOWL Six slate columns on site DB."""
+    """Add post-launch BOWL Six slate columns on site DB (SQLite or MySQL)."""
+    from sqlalchemy import inspect
+
+    insp = inspect(engine)
+    if not insp.has_table("bowl_six_slates"):
+        return
+    cols = {str(col["name"]) for col in insp.get_columns("bowl_six_slates")}
+    alters: list[str] = []
+    if "scoring_week_start" not in cols:
+        alters.append("ALTER TABLE bowl_six_slates ADD COLUMN scoring_week_start DATE")
+    if "scoring_week_end" not in cols:
+        alters.append("ALTER TABLE bowl_six_slates ADD COLUMN scoring_week_end DATE")
+    if "discord_leaders_message_id" not in cols:
+        alters.append(
+            "ALTER TABLE bowl_six_slates ADD COLUMN discord_leaders_message_id VARCHAR(32)"
+        )
+    if "discord_leaders_channel_id" not in cols:
+        alters.append(
+            "ALTER TABLE bowl_six_slates ADD COLUMN discord_leaders_channel_id VARCHAR(32)"
+        )
+    if "discord_leaders_payload_hash" not in cols:
+        alters.append(
+            "ALTER TABLE bowl_six_slates ADD COLUMN discord_leaders_payload_hash VARCHAR(64)"
+        )
+    if alters:
+        with engine.begin() as conn:
+            for sql in alters:
+                conn.execute(text(sql))
+
     if engine.dialect.name != "sqlite":
         return
     with engine.connect() as conn:
-        exists = conn.execute(
-            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='bowl_six_slates'")
-        ).fetchone()
-        if not exists:
-            return
-        cols = {str(c[1]) for c in conn.execute(text("PRAGMA table_info(bowl_six_slates)")).fetchall()}
-        if "scoring_week_start" not in cols:
-            conn.execute(
-                text(
-                    "ALTER TABLE bowl_six_slates "
-                    "ADD COLUMN scoring_week_start DATE"
-                )
-            )
-        if "scoring_week_end" not in cols:
-            conn.execute(
-                text(
-                    "ALTER TABLE bowl_six_slates "
-                    "ADD COLUMN scoring_week_end DATE"
-                )
-            )
-        if "discord_leaders_message_id" not in cols:
-            conn.execute(
-                text(
-                    "ALTER TABLE bowl_six_slates "
-                    "ADD COLUMN discord_leaders_message_id VARCHAR(32)"
-                )
-            )
-        if "discord_leaders_channel_id" not in cols:
-            conn.execute(
-                text(
-                    "ALTER TABLE bowl_six_slates "
-                    "ADD COLUMN discord_leaders_channel_id VARCHAR(32)"
-                )
-            )
-        if "discord_leaders_payload_hash" not in cols:
-            conn.execute(
-                text(
-                    "ALTER TABLE bowl_six_slates "
-                    "ADD COLUMN discord_leaders_payload_hash VARCHAR(64)"
-                )
-            )
         conn.execute(
             text(
                 "CREATE INDEX IF NOT EXISTS ix_bowl_six_slate_auto_update "

@@ -25,6 +25,7 @@ from app.services.trade_log import (
     format_recent_trades_for_prompt,
     resolve_trade_log_row,
     trade_log_card_view,
+    trade_log_era_start_year,
     trade_log_rows,
     trade_log_source_label,
 )
@@ -226,6 +227,7 @@ class TradeLogIntegrationTest(unittest.TestCase):
     def test_trade_tool_news_title_is_included(self) -> None:
         league_session = MagicMock()
         league_session.scalars.return_value.all.return_value = []
+        league_session.scalar.return_value = MagicMock(start_year=1999, is_current=True)
         site_session = MagicMock()
         article = MagicMock(
             id=124,
@@ -241,6 +243,82 @@ class TradeLogIntegrationTest(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0].source, "site")
         self.assertEqual(rows[0].article_id, 124)
+        self.assertEqual(rows[0].era_start_year, 1999)
+
+
+class TradeLogEraYearTests(unittest.TestCase):
+    def test_site_trade_uses_league_season_not_publish_date(self) -> None:
+        session = MagicMock()
+        session.scalar.return_value = MagicMock(start_year=1999, is_current=True)
+        era = trade_log_era_start_year(
+            session,
+            source="site",
+            trade_date=date(2026, 6, 11),
+            body="2000 OTT 3rd Round pick",
+        )
+        self.assertEqual(era, 1999)
+
+    def test_manual_trade_prefers_body_year_within_trade_date(self) -> None:
+        session = MagicMock()
+        session.scalar.return_value = MagicMock(start_year=2026, is_current=True)
+        era = trade_log_era_start_year(
+            session,
+            source="manual",
+            trade_date=date(2000, 6, 8),
+            body="Includes a 2000 BUF 3rd Round pick",
+        )
+        self.assertEqual(era, 2000)
+
+
+class TradeLogLogoTests(unittest.TestCase):
+    def test_site_trade_logo_uses_era_not_publish_year(self) -> None:
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        from app.routes.main import _trade_log_team_logo_url_for_label
+
+        app = create_app(make_league_config("bowl-historical"))
+        team = SimpleNamespace(
+            id=1,
+            slug="ott-t1",
+            name="Ottawa",
+            city="Ottawa",
+            nickname="Senators",
+            abbreviation="OTT",
+            fhm_team_id="34",
+        )
+        row = TradeLogRow(
+            sort_at=datetime(2026, 6, 11),
+            trade_date=date(2026, 6, 11),
+            team_a=team,
+            team_b=None,
+            title="Trade: Ottawa Senators ↔ New York Rangers",
+            body="2000 OTT 3rd Round pick",
+            source="site",
+            team_a_label="Ottawa Senators",
+            team_b_label="New York Rangers",
+            era_start_year=1999,
+        )
+        captured: dict[str, int] = {}
+
+        class _Bundle:
+            def season_team_logo_url(self, proxy):
+                captured["year"] = int(proxy.season_year)
+                return f"/era/{proxy.season_year}.png"
+
+            def team_logo_url_for_season_context(self, team_obj, year):
+                captured["context_year"] = int(year)
+                return f"/context/{year}.png"
+
+            def team_logo_url_present_franchise(self, team_obj):
+                return "/present.png"
+
+        with app.app_context():
+            with app.test_request_context(path="/trade-log", base_url="http://127.0.0.1/bowl-historical/"):
+                with patch("app.routes.main._trade_log_identity_from_label", return_value=None):
+                    url = _trade_log_team_logo_url_for_label(row, team, "Ottawa Senators", _Bundle())
+        self.assertEqual(captured.get("year"), 1999)
+        self.assertIn("1999", url)
 
 
 class TradeLogRoutesTest(unittest.TestCase):

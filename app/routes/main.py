@@ -906,26 +906,34 @@ def _trade_log_label_name_and_year(label: str) -> tuple[str, int | None]:
     return label_s, None
 
 
-def _trade_log_manual_era_year(row) -> int | None:
-    if str(getattr(row, "source", "") or "").strip().lower() != "manual":
-        return None
-    cutoff = int(row.trade_date.year) if getattr(row, "trade_date", None) else 2100
-    years = [
-        int(m.group(1))
-        for m in re.finditer(r"(?<!\d)((?:19|20|21)\d{2})(?!\d)", str(getattr(row, "body", "") or ""))
-    ]
-    viable = [y for y in years if 1900 <= y <= cutoff]
-    return min(viable) if viable else None
-
-
-def _trade_log_current_league_year() -> int | None:
-    season = db.session.scalar(
-        select(Season)
-        .where(Season.start_year.is_not(None))
-        .order_by(Season.is_current.desc(), Season.start_year.desc(), Season.id.desc())
-        .limit(1)
-    )
-    return int(season.start_year) if season and season.start_year is not None else None
+def _trade_log_team_logo_url_for_label(row, team, label: str, logo_bundle) -> str:
+    if team is None:
+        return ""
+    display_name, label_year = _trade_log_label_name_and_year(label)
+    inferred_year = label_year or getattr(row, "era_start_year", None)
+    ident = _trade_log_identity_from_label(team, label, inferred_year)
+    if ident is not None:
+        if ident.logo_file:
+            hit = identity_logo_url(ident.logo_file)
+            if hit:
+                return hit
+        display_name = (ident.display_name or display_name).strip()
+        inferred_year = int(ident.start_year)
+    logo_year = inferred_year
+    if logo_year is None and str(getattr(row, "source", "") or "").strip().lower() != "site":
+        logo_year = int(row.trade_date.year) if getattr(row, "trade_date", None) else None
+    if logo_year is not None:
+        proxy = SimpleNamespace(
+            team=team,
+            start_year=int(logo_year),
+            season_year=int(logo_year),
+            team_name_override=display_name,
+            team_fhm_id_csv=str(getattr(team, "fhm_team_id", "") or "").strip() or None,
+        )
+        return logo_bundle.season_team_logo_url(proxy) or logo_bundle.team_logo_url_for_season_context(
+            team, int(logo_year)
+        )
+    return logo_bundle.team_logo_url_present_franchise(team)
 
 
 def _trade_log_identity_from_label(team, label: str, era_year: int | None):
@@ -974,36 +982,6 @@ def _trade_log_identity_from_label(team, label: str, era_year: int | None):
             FranchiseTeamIdentity.id.desc(),
         ).limit(1)
     )
-
-
-def _trade_log_team_logo_url_for_label(row, team, label: str, logo_bundle) -> str:
-    if team is None:
-        return ""
-    display_name, label_year = _trade_log_label_name_and_year(label)
-    inferred_year = label_year or _trade_log_manual_era_year(row)
-    if inferred_year is None and str(getattr(row, "source", "") or "").strip().lower() == "manual":
-        inferred_year = _trade_log_current_league_year()
-    ident = _trade_log_identity_from_label(team, label, inferred_year)
-    if ident is not None:
-        if ident.logo_file:
-            hit = identity_logo_url(ident.logo_file)
-            if hit:
-                return hit
-        display_name = (ident.display_name or display_name).strip()
-        inferred_year = int(ident.start_year)
-    logo_year = inferred_year or (int(row.trade_date.year) if row.trade_date else None)
-    if logo_year is not None:
-        proxy = SimpleNamespace(
-            team=team,
-            start_year=int(logo_year),
-            season_year=int(logo_year),
-            team_name_override=display_name,
-            team_fhm_id_csv=str(getattr(team, "fhm_team_id", "") or "").strip() or None,
-        )
-        return logo_bundle.season_team_logo_url(proxy) or logo_bundle.team_logo_url_for_season_context(
-            team, int(logo_year)
-        )
-    return logo_bundle.team_logo_url_present_franchise(team)
 
 
 @main_bp.get("/trade-log")

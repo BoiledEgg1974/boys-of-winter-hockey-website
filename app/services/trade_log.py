@@ -8,17 +8,63 @@ from datetime import date, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Team, TradeLogEntry
+from app.models import Season, Team, TradeLogEntry
 from app.site_models import NewsArticle
 from app.services.franchise_identities import team_identity_for_season
 
 _TRADE_TITLE_RE = re.compile(r"^Trade:\s*(.+?)\s*↔\s*(.+?)\s*$", re.IGNORECASE)
+_ERA_YEAR_IN_TEXT_RE = re.compile(r"(?<!\d)((?:19|20|21)\d{2})(?!\d)")
+
+
+def current_league_season_start_year(session: Session) -> int | None:
+    season = session.scalar(
+        select(Season)
+        .where(Season.start_year.is_not(None))
+        .order_by(Season.is_current.desc(), Season.start_year.desc(), Season.id.desc())
+        .limit(1)
+    )
+    return int(season.start_year) if season and season.start_year is not None else None
+
+
+def trade_log_era_start_year(
+    session: Session,
+    *,
+    source: str,
+    trade_date: date | None,
+    body: str = "",
+) -> int | None:
+    """Sim season year for era-correct franchise names and logos (not real-world publish dates)."""
+    src = (source or "").strip().lower()
+    league_year = current_league_season_start_year(session)
+
+    if src == "manual":
+        cutoff = int(trade_date.year) if trade_date is not None else None
+        years = [int(m.group(1)) for m in _ERA_YEAR_IN_TEXT_RE.finditer(body or "")]
+        if cutoff is not None:
+            viable = [y for y in years if 1900 <= y <= cutoff]
+        else:
+            viable = [y for y in years if 1900 <= y <= 2100]
+        if viable:
+            return min(viable)
+        if trade_date is not None:
+            return int(trade_date.year)
+        return league_year
+
+    if src == "site":
+        return league_year
+
+    if trade_date is not None:
+        yr = int(trade_date.year)
+        if league_year is not None and yr > league_year + 1:
+            return league_year
+        return yr
+    return league_year
 
 
 def _trade_team_labels(
-    session: Session, team_a: Team | None, team_b: Team | None, trade_d: date | None
+    session: Session, team_a: Team | None, team_b: Team | None, era_year: int | None
 ) -> tuple[str, str]:
-    sy = int(trade_d.year) if trade_d is not None else None
+    sy = int(era_year) if era_year is not None else None
     ia = team_identity_for_season(session, team_a, sy) if sy is not None else None
     ib = team_identity_for_season(session, team_b, sy) if sy is not None else None
     la = ia.display_name if ia else (team_a.full_display_name() if team_a else "—")
@@ -39,6 +85,7 @@ class TradeLogRow:
     source: str
     team_a_label: str | None = None
     team_b_label: str | None = None
+    era_start_year: int | None = None
     article_id: int | None = None
     entry_id: int | None = None
     log_key: str = ""
@@ -182,7 +229,11 @@ def resolve_trade_log_row(
         tb = league_session.get(Team, ent.team_b_id)
         sort_at = datetime.combine(ent.trade_date, datetime.min.time()) if ent.trade_date else datetime.min
         trade_d = ent.trade_date
-        label_a, label_b = _trade_team_labels(league_session, ta, tb, trade_d)
+        src = (ent.source or "manual").strip().lower() or "manual"
+        era_y = trade_log_era_start_year(
+            league_session, source=src, trade_date=trade_d, body=(ent.summary or "").strip()
+        )
+        label_a, label_b = _trade_team_labels(league_session, ta, tb, era_y)
         title = f"Trade: {label_a if ta else ent.team_a_id} ↔ {label_b if tb else ent.team_b_id}"
         return TradeLogRow(
             sort_at=sort_at,
@@ -194,6 +245,7 @@ def resolve_trade_log_row(
             source=src,
             team_a_label=label_a,
             team_b_label=label_b,
+            era_start_year=era_y,
             entry_id=int(ent.id),
             log_key=trade_log_row_key(source=src, entry_id=int(ent.id)),
         )
@@ -208,17 +260,20 @@ def resolve_trade_log_row(
         ta, tb = _teams_from_trade_title(league_session, art.title)
         sort_at = art.published_at or art.created_at or datetime.min
         trade_d = sort_at.date() if isinstance(sort_at, datetime) else None
-        label_a, label_b = _trade_team_labels(league_session, ta, tb, trade_d)
+        body = (art.body or "").strip()
+        era_y = trade_log_era_start_year(league_session, source="site", trade_date=trade_d, body=body)
+        label_a, label_b = _trade_team_labels(league_session, ta, tb, era_y)
         return TradeLogRow(
             sort_at=sort_at if isinstance(sort_at, datetime) else datetime.min,
             trade_date=trade_d,
             team_a=ta,
             team_b=tb,
             title=art.title,
-            body=(art.body or "").strip(),
+            body=body,
             source="site",
             team_a_label=label_a,
             team_b_label=label_b,
+            era_start_year=era_y,
             article_id=int(art.id),
             log_key=trade_log_row_key(source="site", article_id=int(art.id)),
         )
@@ -300,19 +355,22 @@ def trade_log_rows(
         tb = league_session.get(Team, ent.team_b_id)
         sort_at = datetime.combine(ent.trade_date, datetime.min.time()) if ent.trade_date else datetime.min
         trade_d = ent.trade_date
-        label_a, label_b = _trade_team_labels(league_session, ta, tb, trade_d)
-        title = f"Trade: {label_a if ta else ent.team_a_id} ↔ {label_b if tb else ent.team_b_id}"
         src = (ent.source or "csv").strip().lower() or "csv"
+        body = (ent.summary or "").strip()
+        era_y = trade_log_era_start_year(league_session, source=src, trade_date=trade_d, body=body)
+        label_a, label_b = _trade_team_labels(league_session, ta, tb, era_y)
+        title = f"Trade: {label_a if ta else ent.team_a_id} ↔ {label_b if tb else ent.team_b_id}"
         row = TradeLogRow(
             sort_at=sort_at,
             trade_date=trade_d,
             team_a=ta,
             team_b=tb,
             title=title,
-            body=(ent.summary or "").strip(),
+            body=body,
             source=src,
             team_a_label=label_a,
             team_b_label=label_b,
+            era_start_year=era_y,
             entry_id=int(ent.id),
             log_key=trade_log_row_key(source=src, entry_id=int(ent.id)),
         )
@@ -334,17 +392,20 @@ def trade_log_rows(
             ta, tb = _teams_from_trade_title(league_session, a.title)
             sort_at = a.published_at or a.created_at or datetime.min
             trade_d = sort_at.date() if isinstance(sort_at, datetime) else None
-            label_a, label_b = _trade_team_labels(league_session, ta, tb, trade_d)
+            body = (a.body or "").strip()
+            era_y = trade_log_era_start_year(league_session, source="site", trade_date=trade_d, body=body)
+            label_a, label_b = _trade_team_labels(league_session, ta, tb, era_y)
             row = TradeLogRow(
                 sort_at=sort_at if isinstance(sort_at, datetime) else datetime.min,
                 trade_date=trade_d,
                 team_a=ta,
                 team_b=tb,
                 title=a.title,
-                body=(a.body or "").strip(),
+                body=body,
                 source="site",
                 team_a_label=label_a,
                 team_b_label=label_b,
+                era_start_year=era_y,
                 article_id=int(a.id),
                 log_key=trade_log_row_key(source="site", article_id=int(a.id)),
             )

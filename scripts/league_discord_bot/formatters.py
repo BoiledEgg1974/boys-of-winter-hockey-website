@@ -422,6 +422,8 @@ def format_playoff_bracket_deliveries(event: dict[str, Any]) -> list[dict[str, A
     """One Discord delivery per bracket series, with edit targets for live updates."""
     league_slug = str(event.get("league_slug") or "")
     payload = event.get("payload") or {}
+    if str(payload.get("projection_note") or "").strip():
+        return []
     title = str(payload.get("title") or "Playoff bracket")
     series = payload.get("series") or []
     if not isinstance(series, list) or not series:
@@ -712,7 +714,10 @@ def format_discord_messages(event: dict[str, Any], *, max_parts: int = 2) -> lis
             embed["url"] = url
         embed = {k: v for k, v in embed.items() if v}
         if embed.get("description") or embed.get("url"):
-            return _split_message_bodies({"embeds": [embed]}, max_parts=max(1, int(max_parts)))
+            return _split_message_bodies(
+                {"content": f"**{title}**", "embeds": [embed]},
+                max_parts=max(1, int(max_parts)),
+            )
         return [{"content": f"**{title}**"}]
 
     if event_key in ("trade_market_selling_posted", "trade_market_buying_posted"):

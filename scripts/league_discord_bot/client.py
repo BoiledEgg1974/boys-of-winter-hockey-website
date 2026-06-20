@@ -94,6 +94,34 @@ class LeagueDiscordBot:
         )
         return discord_client.patch(url, headers=self._discord_headers, json=body)
 
+    def _get_discord_message_once(
+        self, discord_client: httpx.Client, channel_id: str, message_id: str
+    ) -> httpx.Response:
+        url = (
+            f"https://discord.com/api/v10/channels/{channel_id}/messages/{message_id}"
+        )
+        return discord_client.get(url, headers=self._discord_headers)
+
+    def discord_message_exists(
+        self, discord_client: httpx.Client, channel_id: str, message_id: str
+    ) -> bool:
+        mid = str(message_id or "").strip()
+        cid = str(channel_id or "").strip()
+        if not mid or not cid:
+            return False
+        try:
+            resp = self._discord_request_with_retry(
+                discord_client,
+                lambda: self._get_discord_message_once(discord_client, cid, mid),
+                channel_id=cid,
+            )
+        except RuntimeError as exc:
+            err = str(exc)
+            if "404" in err or "Unknown Message" in err or "10008" in err:
+                return False
+            raise
+        return resp.status_code == 200
+
     def _discord_request_with_retry(
         self,
         discord_client: httpx.Client,
@@ -182,6 +210,7 @@ class LeagueDiscordBot:
         event_id: int,
         *,
         discord_message_id: str = "",
+        discord_channel_id: str = "",
         series_deliveries: list[dict[str, Any]] | None = None,
     ) -> None:
         url = self._site_url(league_slug, f"/api/discord/events/{event_id}/ack")
@@ -189,10 +218,19 @@ class LeagueDiscordBot:
         mid = str(discord_message_id or "").strip()
         if mid:
             body["discord_message_id"] = mid
+        cid = str(discord_channel_id or "").strip()
+        if cid:
+            body["discord_channel_id"] = cid
         if series_deliveries:
             body["series_deliveries"] = series_deliveries
         resp = client.post(url, headers=self._headers, json=body or None)
         resp.raise_for_status()
+        try:
+            data = resp.json() or {}
+        except Exception:
+            data = {}
+        if data.get("ok") is False:
+            raise RuntimeError(str(data.get("message") or "ack rejected by site"))
 
     def fail(self, client: httpx.Client, league_slug: str, event_id: int, error: str) -> None:
         url = self._site_url(league_slug, f"/api/discord/events/{event_id}/fail")
@@ -283,6 +321,8 @@ class LeagueDiscordBot:
             return
         payload = event.get("payload") or {}
         edit_message_id = str(payload.get("edit_message_id") or "").strip()
+        if payload.get("post_new_message"):
+            edit_message_id = ""
         bodies = format_discord_messages(event, max_parts=self.settings.max_message_parts)
         delay = float(self.settings.delivery_delay_seconds)
         delivered_message_id = ""
@@ -290,32 +330,49 @@ class LeagueDiscordBot:
             if i > 0 and delay > 0:
                 time.sleep(delay)
             if i == 0 and edit_message_id:
-                try:
-                    delivered_message_id = self.patch_discord(
-                        discord_client, channel_id, edit_message_id, body
-                    )
-                except RuntimeError as exc:
-                    err = str(exc)
-                    if "404" not in err and "Unknown Message" not in err:
-                        raise
+                if not self.discord_message_exists(
+                    discord_client, channel_id, edit_message_id
+                ):
                     log.warning(
-                        "Discord edit failed for message %s in channel %s; posting new message (%s)",
+                        "Discord edit target %s not found in channel %s; posting new message",
                         edit_message_id,
                         channel_id,
-                        err,
                     )
                     delivered_message_id = self.post_discord(
                         discord_client, channel_id, body
                     )
+                else:
+                    try:
+                        delivered_message_id = self.patch_discord(
+                            discord_client, channel_id, edit_message_id, body
+                        )
+                    except RuntimeError as exc:
+                        err = str(exc)
+                        if "404" not in err and "Unknown Message" not in err:
+                            raise
+                        log.warning(
+                            "Discord edit failed for message %s in channel %s; posting new message (%s)",
+                            edit_message_id,
+                            channel_id,
+                            err,
+                        )
+                        delivered_message_id = self.post_discord(
+                            discord_client, channel_id, body
+                        )
             else:
                 delivered_message_id = self.post_discord(
                     discord_client, channel_id, body
                 )
+        if not delivered_message_id:
+            raise RuntimeError(
+                f"Event {event_id} produced no Discord message id after delivery"
+            )
         self.ack(
             site_client,
             league_slug,
             event_id,
             discord_message_id=delivered_message_id,
+            discord_channel_id=channel_id,
         )
 
     def _deliver_playoff_bracket_update(
@@ -367,6 +424,7 @@ class LeagueDiscordBot:
             league_slug,
             event_id,
             discord_message_id=last_message_id,
+            discord_channel_id=channel_id,
             series_deliveries=series_results,
         )
 

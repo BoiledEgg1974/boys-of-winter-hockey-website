@@ -27,6 +27,21 @@ class DiscordEventAckRetryTests(unittest.TestCase):
         self.assertTrue(ok)
         commit_retry.assert_called_once_with(session)
 
+    def test_mark_bowl_six_sent_requires_message_id(self) -> None:
+        session = MagicMock()
+        row = MagicMock()
+        row.status = "pending"
+        row.event_key = "bowl_six_leaders_update"
+        row.league_slug = "bowl-historical"
+        row.id = 8
+        session.get.return_value = row
+
+        with patch("app.services.discord_events._parse_payload", return_value={"slate_id": 1}):
+            ok = mark_event_sent(session, 8, discord_message_id="")
+
+        self.assertFalse(ok)
+        self.assertEqual(row.status, "pending")
+
     def test_mark_event_failed_uses_sqlite_retry_commit(self) -> None:
         session = MagicMock()
         row = MagicMock()

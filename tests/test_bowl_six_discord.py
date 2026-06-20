@@ -133,6 +133,52 @@ class BowlSixDiscordPayloadTest(unittest.TestCase):
         self.assertEqual(payload["week_label"], "Jun 15 – Jun 21, 2026")
         self.assertIn("Jun 15 – Jun 21, 2026", payload["title"])
 
+    def test_resolve_edit_target_skips_stale_channel(self) -> None:
+        from app.services.bowl_six_discord import resolve_bowl_six_leaders_discord_message_id
+
+        slate = BowlSixSlate(
+            id=20,
+            league_slug="bowl-historical",
+            week_start=date(2026, 6, 15),
+            week_end=date(2026, 6, 21),
+            status="locked",
+            discord_leaders_message_id="111222333444555666",
+            discord_leaders_channel_id="999888777666555444",
+        )
+        session = unittest.mock.MagicMock()
+        with unittest.mock.patch(
+            "app.services.bowl_six_discord._current_bowl_six_leaders_channel_id",
+            return_value="111111111111111111",
+        ):
+            self.assertIsNone(
+                resolve_bowl_six_leaders_discord_message_id(
+                    session, "bowl-historical", slate
+                )
+            )
+
+    def test_resolve_edit_target_requires_stored_channel(self) -> None:
+        from app.services.bowl_six_discord import resolve_bowl_six_leaders_discord_message_id
+
+        slate = BowlSixSlate(
+            id=21,
+            league_slug="bowl-historical",
+            week_start=date(2026, 6, 15),
+            week_end=date(2026, 6, 21),
+            status="locked",
+            discord_leaders_message_id="1513566264436719767",
+            discord_leaders_channel_id=None,
+        )
+        session = unittest.mock.MagicMock()
+        with unittest.mock.patch(
+            "app.services.bowl_six_discord._current_bowl_six_leaders_channel_id",
+            return_value="111111111111111111",
+        ):
+            self.assertIsNone(
+                resolve_bowl_six_leaders_discord_message_id(
+                    session, "bowl-historical", slate
+                )
+            )
+
     def test_enqueue_fresh_clears_edit_target_and_forces_queue(self):
         slate = BowlSixSlate(
             id=12,
@@ -143,8 +189,18 @@ class BowlSixDiscordPayloadTest(unittest.TestCase):
             discord_leaders_message_id="1515929250367148186",
             discord_leaders_payload_hash="deadbeef",
         )
+        prior = BowlSixSlate(
+            id=11,
+            league_slug="bowl-historical",
+            week_start=date(2026, 6, 8),
+            week_end=date(2026, 6, 14),
+            status="scored",
+            discord_leaders_message_id="1513566264436719767",
+            discord_leaders_channel_id="999888777666555444",
+        )
         session = unittest.mock.MagicMock()
         league_session = unittest.mock.MagicMock()
+        session.scalars.return_value.all.return_value = [slate, prior]
         with patch(
             "app.services.bowl_six_discord.maybe_enqueue_bowl_six_leaders_discord",
             return_value=True,
@@ -160,12 +216,45 @@ class BowlSixDiscordPayloadTest(unittest.TestCase):
 
         self.assertTrue(queued)
         self.assertIsNone(slate.discord_leaders_message_id)
-        self.assertIsNone(slate.discord_leaders_payload_hash)
+        self.assertIsNone(prior.discord_leaders_message_id)
+        self.assertIsNone(prior.discord_leaders_channel_id)
         session.flush.assert_called_once()
         refresh_lineups.assert_called_once()
         refresh_players.assert_called_once()
         enqueue.assert_called_once()
         self.assertTrue(enqueue.call_args.kwargs["force"])
+        self.assertTrue(enqueue.call_args.kwargs["force_new_post"])
+
+    def test_fresh_payload_omits_edit_message_id(self) -> None:
+        slate = BowlSixSlate(
+            id=12,
+            league_slug="bowl-historical",
+            week_start=date(2026, 6, 15),
+            week_end=date(2026, 6, 21),
+            status="locked",
+        )
+        with patch(
+            "app.services.bowl_six_discord.top_players_for_slate",
+            return_value=[],
+        ), patch(
+            "app.services.bowl_six_discord.slate_rankings_in_progress",
+            return_value=[],
+        ), patch(
+            "app.services.bowl_six_discord.gm_season_standings",
+            return_value=[],
+        ), patch(
+            "app.services.bowl_six_discord.resolve_bowl_six_leaders_discord_message_id",
+            return_value="1513566264436719767",
+        ) as resolve_edit:
+            payload = build_bowl_six_leaders_discord_payload(
+                unittest.mock.MagicMock(),
+                unittest.mock.MagicMock(),
+                slate,
+                post_new_message=True,
+            )
+        resolve_edit.assert_not_called()
+        self.assertNotIn("edit_message_id", payload)
+        self.assertTrue(payload.get("post_new_message"))
 
 
 if __name__ == "__main__":

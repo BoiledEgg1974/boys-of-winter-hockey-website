@@ -1431,7 +1431,10 @@ def is_discord_event_route_active(
     if route is None or not bool(route.is_enabled):
         return False
     bot_cfg = get_league_bot_config(session, league_slug)
-    return bool(bot_cfg.is_enabled)
+    if not bool(bot_cfg.is_enabled):
+        return False
+    cid = str(getattr(route, "discord_channel_id", None) or "").strip()
+    return bool(cid)
 
 
 def enqueue_repeatable_discord_event(
@@ -1648,6 +1651,7 @@ def mark_event_sent(
     event_id: int,
     *,
     discord_message_id: str = "",
+    discord_channel_id: str = "",
     series_deliveries: list[dict] | None = None,
 ) -> bool:
     row = session.get(DiscordOutboundEvent, int(event_id))
@@ -1658,6 +1662,9 @@ def mark_event_sent(
     sid = str(payload.get("source_id") or "").strip()
     ek = str(row.event_key or "")
     mid = str(discord_message_id or "").strip()
+    channel_id = str(discord_channel_id or "").strip()
+    if ek == BOWL_SIX_LEADERS_EVENT_KEY and not mid:
+        return False
     if ek == PLAYOFF_BRACKET_UPDATE_EVENT_KEY and series_deliveries:
         from app.services.playoff_discord_bracket import record_playoff_bracket_discord_ack
 
@@ -1671,7 +1678,11 @@ def mark_event_sent(
         from app.services.bowl_six_discord import record_bowl_six_leaders_discord_ack
 
         record_bowl_six_leaders_discord_ack(
-            session, event_key=ek, payload=payload, discord_message_id=mid
+            session,
+            event_key=ek,
+            payload=payload,
+            discord_message_id=mid,
+            discord_channel_id=channel_id,
         )
     if ek not in REPEATABLE_DISCORD_EVENT_KEYS and st and sid:
         record_delivered_source(

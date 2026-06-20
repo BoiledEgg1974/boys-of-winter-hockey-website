@@ -657,8 +657,8 @@ def admin_bowl_six_fresh_discord_leaders():
         flash("Queued a fresh BOWL Six leaders Discord post.", "ok")
     else:
         flash(
-            "Could not queue a fresh leaders post. Check Discord Integration "
-            "(bowl_six_leaders_update route enabled with channel ID).",
+            "Could not queue a fresh leaders post. On Discord Integration, enable "
+            "bowl_six_leaders_update and set the #bowl-six-leaders channel ID (numeric snowflake).",
             "err",
         )
     return redirect(url_for("site_admin.admin_control_center"))

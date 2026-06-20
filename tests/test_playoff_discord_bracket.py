@@ -53,6 +53,46 @@ class PlayoffDiscordBracketTest(unittest.TestCase):
         self.assertIn("pair_key", first)
         self.assertIn("status_line", first)
 
+    def test_build_payload_skips_projection_only_bracket(self) -> None:
+        season = MagicMock()
+        season.id = 42
+        season.label = "1967-68"
+        with patch(
+            "app.services.playoff_discord_bracket.get_current_season",
+            return_value=season,
+        ), patch(
+            "app.services.playoff_discord_bracket.season_with_imported_data_fallback",
+            return_value=season,
+        ), patch(
+            "app.services.playoff_discord_bracket.playoff_bracket_payload",
+            return_value={
+                "empty": False,
+                "projection_only": True,
+                "message": "Projected from current regular-season standings.",
+                "second_round": [{"team_a": {"id": 1}, "team_b": {"id": 2}}],
+            },
+        ):
+            result = build_playoff_bracket_discord_payload(
+                MagicMock(), MagicMock(), league_slug="bowl-historical"
+            )
+        self.assertEqual(result["error"], "Playoffs have not started yet.")
+
+    def test_enqueue_skips_when_bracket_is_projection_only(self) -> None:
+        with patch(
+            "app.services.playoff_discord_bracket.is_discord_event_route_active",
+            return_value=True,
+        ), patch(
+            "app.services.playoff_discord_bracket.build_playoff_bracket_discord_payload",
+            return_value={"error": "Playoffs have not started yet."},
+        ), patch(
+            "app.services.playoff_discord_bracket.enqueue_repeatable_discord_event"
+        ) as enqueue:
+            queued = maybe_enqueue_playoff_bracket_discord(
+                MagicMock(), MagicMock(), "bowl-historical"
+            )
+        self.assertFalse(queued)
+        enqueue.assert_not_called()
+
     def test_enqueue_skips_when_route_not_configured(self) -> None:
         with patch(
             "app.services.playoff_discord_bracket.is_discord_event_route_active",
@@ -157,6 +197,29 @@ class PlayoffDiscordBracketTest(unittest.TestCase):
         self.assertNotIn("Playoff bracket", deliveries[1]["content"])
         self.assertEqual(deliveries[0]["pair_key"], "1-2")
         self.assertIn("MTL", deliveries[0]["content"])
+
+    def test_formatter_skips_projection_only_payload(self) -> None:
+        deliveries = format_playoff_bracket_deliveries(
+            {
+                "league_slug": "bowl-historical",
+                "payload": {
+                    "title": "Playoff bracket — 1967-68",
+                    "projection_note": "Projected from current regular-season standings.",
+                    "series": [
+                        {
+                            "pair_key": "1-2",
+                            "round_label": "Second round",
+                            "series_index": 1,
+                            "team_a": {"abbrev": "MTL"},
+                            "team_b": {"abbrev": "NYR"},
+                            "series_score": "0-0",
+                            "status_line": "Series: **0-0** · tied",
+                        },
+                    ],
+                },
+            }
+        )
+        self.assertEqual(deliveries, [])
 
     def test_deliver_playoff_bracket_patches_each_series(self) -> None:
         bot = LeagueDiscordBot(

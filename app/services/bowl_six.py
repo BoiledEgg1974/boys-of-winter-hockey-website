@@ -1122,10 +1122,16 @@ def _inherit_bowl_six_discord_leaders_message(
     session: Session, league_slug: str, slate: BowlSixSlate
 ) -> None:
     """Carry the live Discord edit target forward when a new week slate opens."""
+    from app.services.bowl_six_discord import (
+        _current_bowl_six_leaders_channel_id,
+        _message_id_for_channel,
+    )
+
     if str(getattr(slate, "discord_leaders_message_id", None) or "").strip():
         return
-    prior_mid = session.scalar(
-        select(BowlSixSlate.discord_leaders_message_id)
+    current_channel = _current_bowl_six_leaders_channel_id(session, league_slug)
+    prior_row = session.scalar(
+        select(BowlSixSlate)
         .where(
             BowlSixSlate.league_slug == league_slug,
             BowlSixSlate.discord_leaders_message_id.is_not(None),
@@ -1134,9 +1140,19 @@ def _inherit_bowl_six_discord_leaders_message(
         .order_by(BowlSixSlate.week_start.desc())
         .limit(1)
     )
-    mid = str(prior_mid or "").strip()
+    if prior_row is None:
+        return
+    mid = _message_id_for_channel(
+        getattr(prior_row, "discord_leaders_message_id", None),
+        getattr(prior_row, "discord_leaders_channel_id", None),
+        current_channel,
+    )
     if mid:
         slate.discord_leaders_message_id = mid[:32]
+        stored_channel = str(getattr(prior_row, "discord_leaders_channel_id", None) or "").strip()
+        slate.discord_leaders_channel_id = (
+            stored_channel[:32] if stored_channel else current_channel[:32] or None
+        )
 
 
 def _enqueue_bowl_six_discord_leaders_safe(

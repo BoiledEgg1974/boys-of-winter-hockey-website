@@ -337,7 +337,7 @@ class DiscordMessageSplitTest(unittest.TestCase):
             max_parts=2,
         )
         self.assertEqual(len(parts), 1)
-        self.assertNotIn("content", parts[0])
+        self.assertEqual(parts[0]["content"], "**BOWL Six leaders — Week of 1969-03-10**")
         self.assertIn("embeds", parts[0])
         self.assertEqual(
             parts[0]["embeds"][0]["url"],
@@ -470,7 +470,7 @@ class DiscordMessageSplitTest(unittest.TestCase):
             max_parts=2,
         )
         self.assertEqual(len(parts), 1)
-        self.assertNotIn("content", parts[0])
+        self.assertEqual(parts[0]["content"], "**BOWL Six leaders — Week of 1969-03-10**")
         self.assertEqual(parts[0]["embeds"][0]["description"], body)
         self.assertEqual(
             parts[0]["embeds"][0]["url"],

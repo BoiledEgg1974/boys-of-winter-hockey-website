@@ -2018,6 +2018,7 @@ def discord_events_ack(event_id: int):
         return jsonify({"ok": False, "message": "Unauthorized"}), 401
     data = request.get_json(silent=True) or {}
     discord_message_id = str(data.get("discord_message_id") or "").strip()
+    discord_channel_id = str(data.get("discord_channel_id") or "").strip()
     raw_deliveries = data.get("series_deliveries")
     series_deliveries = (
         [d for d in raw_deliveries if isinstance(d, dict)]
@@ -2028,6 +2029,7 @@ def discord_events_ack(event_id: int):
         db.session,
         event_id,
         discord_message_id=discord_message_id,
+        discord_channel_id=discord_channel_id,
         series_deliveries=series_deliveries,
     )
     return jsonify({"ok": bool(ok)})

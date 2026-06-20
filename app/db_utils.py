@@ -2117,6 +2117,13 @@ def ensure_bowl_six_slates_discord_columns_sqlite(engine: Engine) -> None:
                     "ADD COLUMN discord_leaders_message_id VARCHAR(32)"
                 )
             )
+        if "discord_leaders_channel_id" not in cols:
+            conn.execute(
+                text(
+                    "ALTER TABLE bowl_six_slates "
+                    "ADD COLUMN discord_leaders_channel_id VARCHAR(32)"
+                )
+            )
         if "discord_leaders_payload_hash" not in cols:
             conn.execute(
                 text(

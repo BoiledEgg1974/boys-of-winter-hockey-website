@@ -109,6 +109,8 @@ def build_playoff_bracket_discord_payload(
         return {"error": "No imported season data is available yet."}
 
     bracket = playoff_bracket_payload(int(season.id), include_team_logos=False)
+    if bracket.get("projection_only"):
+        return {"error": "Playoffs have not started yet."}
     if bracket.get("empty"):
         return {"error": str(bracket.get("message") or "No playoff bracket is available yet.")}
 

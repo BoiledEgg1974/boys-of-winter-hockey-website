@@ -6,7 +6,7 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.models import Season, Team
@@ -96,11 +96,30 @@ def _load_series_posts(
     return {str(r.pair_key): r for r in rows}
 
 
+def _clear_playoff_bracket_discord_series_posts(
+    session: Session,
+    league_slug: str,
+    *,
+    season_id: int | None = None,
+) -> None:
+    """Drop stored edit targets so the next delivery posts fresh series messages."""
+    slug = str(league_slug or "").strip()
+    if not slug:
+        return
+    stmt = delete(DiscordPlayoffBracketSeriesPost).where(
+        DiscordPlayoffBracketSeriesPost.league_slug == slug
+    )
+    if season_id is not None:
+        stmt = stmt.where(DiscordPlayoffBracketSeriesPost.season_id == int(season_id))
+    session.execute(stmt)
+
+
 def build_playoff_bracket_discord_payload(
     session: Session,
     league_session: Session,
     *,
     league_slug: str,
+    post_new_messages: bool = False,
 ) -> dict[str, Any]:
     """Build structured payload for ``playoff_bracket_update``."""
     canonical = get_current_season()
@@ -163,7 +182,11 @@ def build_playoff_bracket_discord_payload(
         block = _series_block_text(row_data)
         content_hash = hashlib.sha256(block.encode("utf-8")).hexdigest()[:32]
         stored_row = stored.get(pair_key)
-        edit_id = str(getattr(stored_row, "discord_message_id", None) or "").strip() or None
+        edit_id = (
+            None
+            if post_new_messages
+            else str(getattr(stored_row, "discord_message_id", None) or "").strip() or None
+        )
         formatted_series.append(
             {
                 **row_data,
@@ -175,21 +198,22 @@ def build_playoff_bracket_discord_payload(
     fingerprint = playoff_bracket_cache_fingerprint(int(season.id))
     hub_url = build_league_public_url(league_slug, "/playoffs") or f"/{league_slug}/playoffs"
     note = str(bracket.get("message") or "").strip()
-    return {
-        "payload": {
-            "title": f"Playoff bracket — {season.label}",
-            "league_slug": league_slug,
-            "season_id": int(season.id),
-            "season_label": season.label,
-            "bracket_fingerprint": fingerprint,
-            "series": formatted_series,
-            "series_count": len(formatted_series),
-            "projection_note": note if bracket.get("projection_only") else "",
-            "url": hub_url,
-            "source_type": "playoff_bracket_update",
-            "source_id": fingerprint,
-        }
+    payload: dict[str, Any] = {
+        "title": f"Playoff bracket — {season.label}",
+        "league_slug": league_slug,
+        "season_id": int(season.id),
+        "season_label": season.label,
+        "bracket_fingerprint": fingerprint,
+        "series": formatted_series,
+        "series_count": len(formatted_series),
+        "projection_note": note if bracket.get("projection_only") else "",
+        "url": hub_url,
+        "source_type": "playoff_bracket_update",
+        "source_id": fingerprint,
     }
+    if post_new_messages:
+        payload["post_new_messages"] = True
+    return {"payload": payload}
 
 
 def maybe_enqueue_playoff_bracket_discord(
@@ -198,6 +222,7 @@ def maybe_enqueue_playoff_bracket_discord(
     league_slug: str,
     *,
     force: bool = False,
+    force_new_post: bool = False,
 ) -> bool:
     """Queue live bracket Discord posts when playoff data changed."""
     slug = str(league_slug or "").strip()
@@ -209,7 +234,10 @@ def maybe_enqueue_playoff_bracket_discord(
         return False
 
     result = build_playoff_bracket_discord_payload(
-        session, league_session, league_slug=slug
+        session,
+        league_session,
+        league_slug=slug,
+        post_new_messages=force_new_post,
     )
     if result.get("error"):
         return False
@@ -230,6 +258,25 @@ def maybe_enqueue_playoff_bracket_discord(
         season_id=int(disc_payload.get("season_id") or 0),
     )
     return row is not None
+
+
+def enqueue_fresh_playoff_bracket_discord(
+    session: Session,
+    league_session: Session,
+    league_slug: str,
+) -> bool:
+    """Queue new playoff bracket series messages (clears stored edit targets first)."""
+    slug = str(league_slug or "").strip()
+    if not slug:
+        return False
+    canonical = get_current_season()
+    season = season_with_imported_data_fallback(league_session, canonical) if canonical else None
+    season_id = int(season.id) if season and season.id is not None else None
+    _clear_playoff_bracket_discord_series_posts(session, slug, season_id=season_id)
+    session.flush()
+    return maybe_enqueue_playoff_bracket_discord(
+        session, league_session, slug, force=True, force_new_post=True
+    )
 
 
 def record_playoff_bracket_discord_ack(

@@ -6533,6 +6533,28 @@ def admin_discord_integration():
             commit_with_sqlite_retry(db.session)
             flash(f"Replayed {replayed} dead-letter event(s).", "ok")
             return redirect(url_for("site_admin.admin_discord_integration"))
+        if action == "fresh_playoff_bracket":
+            from app.services.playoff_discord_bracket import enqueue_fresh_playoff_bracket_discord
+
+            queued = enqueue_fresh_playoff_bracket_discord(db.session, db.session, slug)
+            db.session.add(
+                AdminAuditLog(
+                    admin_user_id=int(current_user.id),
+                    league_slug=slug,
+                    action="discord_fresh_playoff_bracket",
+                    detail_json=json.dumps({"queued": bool(queued)}),
+                )
+            )
+            commit_with_sqlite_retry(db.session)
+            if queued:
+                flash("Queued fresh playoff bracket Discord posts.", "ok")
+            else:
+                flash(
+                    "Could not queue playoff bracket posts. Enable playoff_bracket_update, "
+                    "set the #playoff-bracket channel ID, and ensure playoffs have started.",
+                    "err",
+                )
+            return redirect(url_for("site_admin.admin_discord_integration"))
     status = (request.args.get("status") or "").strip().lower()
     event_key_filter = (request.args.get("event_key") or "").strip()
     routes = list_discord_routes(db.session, slug)

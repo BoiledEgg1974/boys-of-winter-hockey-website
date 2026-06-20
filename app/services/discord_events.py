@@ -1665,7 +1665,9 @@ def mark_event_sent(
     channel_id = str(discord_channel_id or "").strip()
     if ek == BOWL_SIX_LEADERS_EVENT_KEY and not mid:
         return False
-    if ek == PLAYOFF_BRACKET_UPDATE_EVENT_KEY and series_deliveries:
+    if ek == PLAYOFF_BRACKET_UPDATE_EVENT_KEY:
+        if not series_deliveries:
+            return False
         from app.services.playoff_discord_bracket import record_playoff_bracket_discord_ack
 
         record_playoff_bracket_discord_ack(

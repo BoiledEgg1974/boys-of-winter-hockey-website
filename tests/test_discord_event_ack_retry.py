@@ -42,6 +42,24 @@ class DiscordEventAckRetryTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertEqual(row.status, "pending")
 
+    def test_mark_playoff_bracket_sent_requires_series_deliveries(self) -> None:
+        session = MagicMock()
+        row = MagicMock()
+        row.status = "pending"
+        row.event_key = "playoff_bracket_update"
+        row.league_slug = "bowl-historical"
+        row.id = 9
+        session.get.return_value = row
+
+        with patch(
+            "app.services.discord_events._parse_payload",
+            return_value={"league_slug": "bowl-historical", "season_id": 1},
+        ):
+            ok = mark_event_sent(session, 9, series_deliveries=[])
+
+        self.assertFalse(ok)
+        self.assertEqual(row.status, "pending")
+
     def test_mark_event_failed_uses_sqlite_retry_commit(self) -> None:
         session = MagicMock()
         row = MagicMock()

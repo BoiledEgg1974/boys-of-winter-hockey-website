@@ -140,6 +140,12 @@
   <h3 style="margin:0.3rem 0 0.35rem;">Outbound Queue</h3>
   <form method="post" style="display:flex;gap:0.6rem;align-items:end;flex-wrap:wrap;margin:0 0 0.55rem;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="fresh_playoff_bracket">
+    <button type="submit" class="admin-news-body-btn">Post fresh playoff bracket</button>
+    <span class="muted">Posts new series messages instead of editing stored ones. Requires playoffs to have started.</span>
+  </form>
+  <form method="post" style="display:flex;gap:0.6rem;align-items:end;flex-wrap:wrap;margin:0 0 0.55rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="replay_failed">
     <button type="submit" class="admin-news-body-btn">Replay all dead-letter events</button>
     <span class="muted">Failed events auto-retry with backoff; this requeues permanently failed events.</span>

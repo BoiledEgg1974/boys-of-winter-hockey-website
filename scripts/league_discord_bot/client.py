@@ -385,7 +385,14 @@ class LeagueDiscordBot:
         event: dict[str, Any],
     ) -> None:
         delay = float(self.settings.delivery_delay_seconds)
+        payload = event.get("payload") or {}
+        post_new_messages = bool(payload.get("post_new_messages"))
         deliveries = format_playoff_bracket_deliveries(event)
+        if not deliveries:
+            raise RuntimeError(
+                f"Event {event_id} has no playoff bracket content to deliver "
+                "(projection-only or empty series list)"
+            )
         series_results: list[dict[str, str]] = []
         last_message_id = ""
         for i, item in enumerate(deliveries):
@@ -393,25 +400,37 @@ class LeagueDiscordBot:
                 time.sleep(delay)
             pair_key = str(item.get("pair_key") or "").strip()
             edit_message_id = str(item.get("edit_message_id") or "").strip()
+            if post_new_messages:
+                edit_message_id = ""
             body = sanitize_discord_message_body(
                 {k: v for k, v in item.items() if k in {"content", "embeds"}}
             )
             message_id = ""
             if edit_message_id:
-                try:
-                    message_id = self.patch_discord(
-                        discord_client, channel_id, edit_message_id, body
-                    )
-                except RuntimeError as exc:
-                    err = str(exc)
-                    if "404" not in err and "Unknown Message" not in err:
-                        raise
+                if not self.discord_message_exists(
+                    discord_client, channel_id, edit_message_id
+                ):
                     log.warning(
-                        "Playoff bracket edit failed for message %s; posting new (%s)",
+                        "Playoff bracket edit target %s not found in channel %s; posting new message",
                         edit_message_id,
-                        err,
+                        channel_id,
                     )
                     message_id = self.post_discord(discord_client, channel_id, body)
+                else:
+                    try:
+                        message_id = self.patch_discord(
+                            discord_client, channel_id, edit_message_id, body
+                        )
+                    except RuntimeError as exc:
+                        err = str(exc)
+                        if "404" not in err and "Unknown Message" not in err:
+                            raise
+                        log.warning(
+                            "Playoff bracket edit failed for message %s; posting new (%s)",
+                            edit_message_id,
+                            err,
+                        )
+                        message_id = self.post_discord(discord_client, channel_id, body)
             else:
                 message_id = self.post_discord(discord_client, channel_id, body)
             last_message_id = message_id
@@ -419,6 +438,10 @@ class LeagueDiscordBot:
                 series_results.append(
                     {"pair_key": pair_key, "discord_message_id": message_id}
                 )
+        if not series_results:
+            raise RuntimeError(
+                f"Event {event_id} produced no playoff bracket Discord posts"
+            )
         self.ack(
             site_client,
             league_slug,

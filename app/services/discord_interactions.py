@@ -196,8 +196,16 @@ COMMAND_DEFINITIONS: list[dict[str, Any]] = [
     {"name": "champions", "description": "Show recent league champions."},
     {
         "name": "predict",
-        "description": "Post playoff series predictions to the playoff-predictions channel (admin).",
+        "description": "Post playoff series predictions for a round (admin).",
         "default_member_permissions": "8",
+        "options": [
+            {
+                "name": "round",
+                "description": "Round: first, second, conference, championship, or all",
+                "type": 3,
+                "required": False,
+            }
+        ],
     },
     {
         "name": "records",
@@ -915,9 +923,37 @@ def _handle_predict_command(payload: dict[str, Any], league_slug: str) -> dict[s
     if err:
         return _ephemeral(err)
     from app.services.discord_events import enqueue_discord_event
-    from app.services.playoff_discord_predictions import build_playoff_predictions_discord_payload
+    from app.services.playoff_discord_predictions import (
+        build_playoff_predictions_discord_payload,
+        format_predict_round_help,
+        list_prediction_rounds,
+        normalize_predict_round_filter,
+    )
+    from app.services.playoff_bracket import playoff_bracket_payload
+    from app.services.seasons import get_current_season, season_with_imported_data_fallback
 
-    result = build_playoff_predictions_discord_payload(db.session, league_slug=league_slug)
+    round_raw = _command_option(payload, "round")
+    if not round_raw:
+        season = season_with_imported_data_fallback(db.session, get_current_season())
+        if season is None:
+            return _ephemeral("No imported season data is available yet.")
+        bracket = playoff_bracket_payload(int(season.id), include_team_logos=False)
+        if bracket.get("empty"):
+            return _ephemeral(str(bracket.get("message") or "No playoff bracket is available yet."))
+        return _ephemeral(format_predict_round_help(list_prediction_rounds(bracket)))
+
+    normalized = normalize_predict_round_filter(round_raw)
+    if normalized is None:
+        return _ephemeral(
+            "I could not match that round. Try `first`, `second`, `conference`, `championship`, or `all`."
+        )
+    round_filter = None if normalized == "__all__" else normalized
+
+    result = build_playoff_predictions_discord_payload(
+        db.session,
+        league_slug=league_slug,
+        round_filter=round_filter,
+    )
     if result.get("error"):
         return _ephemeral(str(result["error"]))
     disc_payload = result["payload"]
@@ -938,8 +974,9 @@ def _handle_predict_command(payload: dict[str, Any], league_slug: str) -> dict[s
         )
     commit_with_sqlite_retry(db.session)
     count = int(disc_payload.get("series_count") or 0)
+    round_note = f" for **{round_filter}**" if round_filter else ""
     return _ephemeral(
-        f"Queued playoff predictions for {count} series to the configured playoff-predictions channel."
+        f"Queued playoff predictions for {count} series{round_note} to the configured playoff-predictions channel."
     )
 
 

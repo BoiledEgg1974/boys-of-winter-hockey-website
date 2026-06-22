@@ -211,6 +211,139 @@ def collect_bracket_series(bracket: dict[str, Any]) -> list[tuple[str, dict[str,
     return out
 
 
+_PLAYOFF_ROUND_LABELS: tuple[str, ...] = (
+    "First round",
+    "Second round",
+    "Conference finals",
+    "Championship",
+)
+
+_ROUND_FILTER_ALIASES: dict[str, tuple[str, ...]] = {
+    "First round": (
+        "first",
+        "1",
+        "1st",
+        "opening",
+        "round 1",
+        "r1",
+        "first round",
+        "division quarterfinals",
+        "quarterfinal",
+        "quarterfinals",
+    ),
+    "Second round": (
+        "second",
+        "2",
+        "2nd",
+        "round 2",
+        "r2",
+        "second round",
+        "semifinal",
+        "semifinals",
+        "division semifinals",
+        "semis",
+    ),
+    "Conference finals": (
+        "conference",
+        "conference finals",
+        "conference final",
+        "conf finals",
+        "conf final",
+        "cf",
+        "final four",
+    ),
+    "Championship": (
+        "championship",
+        "final",
+        "finals",
+        "cup",
+        "stanley cup",
+        "bowl",
+    ),
+}
+
+
+def normalize_predict_round_filter(raw: str | None) -> str | None:
+    """Map free-text round input to a canonical bracket round label."""
+    key = " ".join(str(raw or "").strip().lower().split())
+    if not key:
+        return None
+    if key in {"all", "every", "every round", "all rounds", "open", "remaining"}:
+        return "__all__"
+    for label in _PLAYOFF_ROUND_LABELS:
+        if key == label.lower():
+            return label
+    for label, aliases in _ROUND_FILTER_ALIASES.items():
+        if key in aliases:
+            return label
+    for label in _PLAYOFF_ROUND_LABELS:
+        short = label.lower()
+        if key in short or short.startswith(key):
+            return label
+    for label, aliases in _ROUND_FILTER_ALIASES.items():
+        for alias in aliases:
+            if key.startswith(alias) or alias.startswith(key):
+                return label
+    return None
+
+
+def series_needs_prediction(series: dict[str, Any]) -> bool:
+    """True when a bracket series still needs a prediction post."""
+    if bool(series.get("series_complete")):
+        return False
+    if bool(series.get("preview_only")):
+        return False
+    ta = series.get("team_a") or {}
+    tb = series.get("team_b") or {}
+    return bool(ta.get("id") and tb.get("id"))
+
+
+def open_prediction_series(
+    bracket: dict[str, Any],
+    *,
+    round_filter: str | None = None,
+) -> list[tuple[str, dict[str, Any]]]:
+    """Bracket series that still need predictions, optionally limited to one round."""
+    out: list[tuple[str, dict[str, Any]]] = []
+    for label, series in collect_bracket_series(bracket):
+        if not series_needs_prediction(series):
+            continue
+        if round_filter is not None and label != round_filter:
+            continue
+        out.append((label, series))
+    return out
+
+
+def list_prediction_rounds(bracket: dict[str, Any]) -> list[dict[str, Any]]:
+    """Summarize each round that still has open series."""
+    counts: dict[str, int] = {}
+    for label, series in collect_bracket_series(bracket):
+        if series_needs_prediction(series):
+            counts[label] = counts.get(label, 0) + 1
+    return [
+        {"label": label, "series_count": counts[label]}
+        for label in _PLAYOFF_ROUND_LABELS
+        if label in counts
+    ]
+
+
+def format_predict_round_help(rounds: list[dict[str, Any]]) -> str:
+    if not rounds:
+        return (
+            "No playoff series need predictions right now. "
+            "Completed and projected-only matchups are skipped."
+        )
+    lines = ["Rounds needing predictions:"]
+    for row in rounds:
+        label = str(row.get("label") or "").strip()
+        count = int(row.get("series_count") or 0)
+        hint = _ROUND_FILTER_ALIASES.get(label, (label.lower(),))[0]
+        lines.append(f"• **{label}** — {count} series · `/predict round:{hint}`")
+    lines.append("")
+    lines.append("Use `/predict round:all` to queue every open series.")
+    return "\n".join(lines)
+
+
 def _team_meta(team_json: dict[str, Any] | None, team_row: Team | None) -> dict[str, Any]:
     if not team_json:
         return {}
@@ -223,7 +356,12 @@ def _team_meta(team_json: dict[str, Any] | None, team_row: Team | None) -> dict[
     }
 
 
-def build_playoff_predictions_discord_payload(session, *, league_slug: str) -> dict[str, Any]:
+def build_playoff_predictions_discord_payload(
+    session,
+    *,
+    league_slug: str,
+    round_filter: str | None = None,
+) -> dict[str, Any]:
     canonical = get_current_season()
     season = season_with_imported_data_fallback(session, canonical) if canonical else None
     if season is None:
@@ -231,9 +369,18 @@ def build_playoff_predictions_discord_payload(session, *, league_slug: str) -> d
     bracket = playoff_bracket_payload(int(season.id), include_team_logos=False)
     if bracket.get("empty"):
         return {"error": str(bracket.get("message") or "No playoff bracket is available yet.")}
-    series_rows = collect_bracket_series(bracket)
+    series_rows = open_prediction_series(bracket, round_filter=round_filter)
     if not series_rows:
-        return {"error": "No playoff series found to post."}
+        if round_filter:
+            open_rounds = list_prediction_rounds(bracket)
+            if open_rounds:
+                return {
+                    "error": (
+                        f"No open series found for **{round_filter}**. "
+                        f"{format_predict_round_help(open_rounds)}"
+                    )
+                }
+        return {"error": "No playoff series need predictions right now."}
 
     gf_rank_map, ga_rank_map = _gf_ga_rank_maps(session, int(season.id))
     pp_rank_map, pk_rank_map = _pp_pk_ranks_for_rs(session, int(season.id))
@@ -327,11 +474,15 @@ def build_playoff_predictions_discord_payload(session, *, league_slug: str) -> d
         )
 
     source_id = f"{int(season.id)}-{int(time.time())}"
+    title = f"Playoff predictions — {season.label}"
+    if round_filter:
+        title = f"{title} · {round_filter}"
     return {
         "payload": {
-            "title": f"Playoff predictions — {season.label}",
+            "title": title,
             "season_id": int(season.id),
             "season_label": season.label,
+            "round_filter": round_filter or "",
             "series": formatted_series,
             "series_count": len(formatted_series),
             "prediction_method_note": PREDICTION_METHOD_NOTE,

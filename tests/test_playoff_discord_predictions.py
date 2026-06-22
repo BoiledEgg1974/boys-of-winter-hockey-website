@@ -6,7 +6,14 @@ from unittest.mock import MagicMock, patch
 
 from app.services import discord_interactions
 from app.services.discord_events import DEFAULT_EVENT_CHANNEL_KEY, DEFAULT_EVENT_KEYS, DEFAULT_EVENT_LABELS
-from app.services.playoff_discord_predictions import collect_bracket_series
+from app.services.playoff_discord_predictions import (
+    collect_bracket_series,
+    format_predict_round_help,
+    list_prediction_rounds,
+    normalize_predict_round_filter,
+    open_prediction_series,
+    series_needs_prediction,
+)
 from scripts.league_discord_bot.formatters import format_discord_messages
 
 
@@ -25,6 +32,10 @@ class PlayoffDiscordPredictionsTest(unittest.TestCase):
         self.assertIn("predict", names)
         predict_cmd = next(cmd for cmd in discord_interactions.COMMAND_DEFINITIONS if cmd["name"] == "predict")
         self.assertEqual(predict_cmd.get("default_member_permissions"), "8")
+        round_opt = next(
+            opt for opt in (predict_cmd.get("options") or []) if opt.get("name") == "round"
+        )
+        self.assertFalse(round_opt.get("required"))
 
     def test_playoff_predictions_route_defaults(self) -> None:
         self.assertIn("playoff_predictions", DEFAULT_EVENT_KEYS)
@@ -49,27 +60,113 @@ class PlayoffDiscordPredictionsTest(unittest.TestCase):
 
     def test_predict_queues_outbound_event(self) -> None:
         payload = {
-            "title": "Playoff predictions — 2025-26",
-            "series": [{"round_label": "First round"}],
+            "title": "Playoff predictions — 2025-26 · Second round",
+            "series": [{"round_label": "Second round"}],
             "series_count": 1,
             "source_id": "season-1",
         }
         queued = MagicMock()
+        admin_payload = {
+            **_admin_payload(),
+            "data": {"name": "predict", "options": [{"name": "round", "value": "second"}]},
+        }
         with (
             patch.object(discord_interactions, "_channel_check", return_value=None),
             patch.object(discord_interactions, "_site_user_for_discord", return_value=None),
             patch(
                 "app.services.playoff_discord_predictions.build_playoff_predictions_discord_payload",
                 return_value={"payload": payload},
-            ),
+            ) as build_payload,
             patch("app.services.discord_events.enqueue_discord_event", return_value=queued) as enqueue,
             patch.object(discord_interactions.db.session, "commit") as commit,
             patch.object(discord_interactions.db.session, "rollback"),
         ):
-            resp = discord_interactions._handle_predict_command(_admin_payload(), "bowl-cap")
+            resp = discord_interactions._handle_predict_command(admin_payload, "bowl-cap")
+        build_payload.assert_called_once_with(
+            discord_interactions.db.session,
+            league_slug="bowl-cap",
+            round_filter="Second round",
+        )
         self.assertIn("Queued playoff predictions", resp["data"]["content"])
+        self.assertIn("Second round", resp["data"]["content"])
         enqueue.assert_called_once()
         commit.assert_called_once()
+
+    def test_predict_without_round_lists_open_rounds(self) -> None:
+        with (
+            patch.object(discord_interactions, "_channel_check", return_value=None),
+            patch(
+                "app.services.seasons.get_current_season",
+                return_value=MagicMock(id=1),
+            ),
+            patch(
+                "app.services.seasons.season_with_imported_data_fallback",
+                return_value=MagicMock(id=1, label="2025-26"),
+            ),
+            patch(
+                "app.services.playoff_bracket.playoff_bracket_payload",
+                return_value={
+                    "first_round": [
+                        {
+                            "team_a": {"id": 1},
+                            "team_b": {"id": 2},
+                            "series_complete": True,
+                            "wins_a": 4,
+                            "wins_b": 1,
+                        }
+                    ],
+                    "second_round": [
+                        {
+                            "team_a": {"id": 3},
+                            "team_b": {"id": 4},
+                            "series_complete": False,
+                            "wins_a": 0,
+                            "wins_b": 0,
+                        }
+                    ],
+                },
+            ),
+        ):
+            resp = discord_interactions._handle_predict_command(_admin_payload(), "bowl-cap")
+        self.assertIn("Rounds needing predictions", resp["data"]["content"])
+        self.assertIn("Second round", resp["data"]["content"])
+        self.assertNotIn("Queued playoff predictions", resp["data"]["content"])
+
+    def test_normalize_predict_round_filter_aliases(self) -> None:
+        self.assertEqual(normalize_predict_round_filter("2nd"), "Second round")
+        self.assertEqual(normalize_predict_round_filter("conference"), "Conference finals")
+        self.assertEqual(normalize_predict_round_filter("all"), "__all__")
+        self.assertIsNone(normalize_predict_round_filter("bogus"))
+
+    def test_open_prediction_series_skips_complete_first_round(self) -> None:
+        bracket = {
+            "first_round": [
+                {
+                    "team_a": {"id": 1},
+                    "team_b": {"id": 2},
+                    "series_complete": True,
+                    "wins_a": 4,
+                    "wins_b": 2,
+                }
+            ],
+            "second_round": [
+                {
+                    "team_a": {"id": 3},
+                    "team_b": {"id": 4},
+                    "series_complete": False,
+                    "wins_a": 1,
+                    "wins_b": 1,
+                }
+            ],
+        }
+        rows = open_prediction_series(bracket, round_filter="Second round")
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][0], "Second round")
+        self.assertFalse(series_needs_prediction(bracket["first_round"][0]))
+        self.assertTrue(series_needs_prediction(bracket["second_round"][0]))
+        rounds = list_prediction_rounds(bracket)
+        self.assertEqual([r["label"] for r in rounds], ["Second round"])
+        self.assertIn("Second round", format_predict_round_help(rounds))
 
     def test_collect_bracket_series_dedupes_pairs(self) -> None:
         series = {

@@ -623,6 +623,81 @@ def _resolve_league_team_for_news(session, team_id: int | None):
     return by_id
 
 
+def _payload_team_display_name(payload: dict) -> str:
+    return str(payload.get("team_name") or "").strip()
+
+
+def _team_row_matches_display_name(team, display_name: str) -> bool:
+    if team is None:
+        return False
+    target = str(display_name or "").strip()
+    if not target:
+        return False
+    target_l = target.lower()
+    name_fn = getattr(team, "full_display_name", None)
+    if callable(name_fn):
+        full = str(name_fn() or "").strip()
+        if full and full.lower() == target_l:
+            return True
+    name = str(getattr(team, "name", "") or "").strip()
+    nick = str(getattr(team, "nickname", "") or "").strip()
+    joined = " ".join(part for part in (name, nick) if part).strip()
+    if joined and (joined.lower() in target_l or target_l in joined.lower()):
+        return True
+    return False
+
+
+def _resolve_team_for_discord_payload(session, payload: dict):
+    """One franchise row for Discord team labels and GM mentions."""
+    team_id = _payload_team_id(payload)
+    fhm_team_id = _payload_fhm_team_id(payload)
+    team_by_id = _resolve_league_team_for_news(session, team_id) if team_id is not None else None
+    team_by_fhm = _league_team_by_fhm(session, fhm_team_id) if fhm_team_id else None
+
+    if team_by_id is None:
+        return team_by_fhm
+    if team_by_fhm is None:
+        return team_by_id
+
+    id_a = _team_row_id(team_by_id)
+    id_b = _team_row_id(team_by_fhm)
+    if id_a is not None and id_b is not None and id_a == id_b:
+        return team_by_id
+
+    abbrev = str(payload.get("team_abbrev") or "").strip().upper()
+    if abbrev:
+        id_abbr = str(getattr(team_by_id, "abbreviation", "") or "").strip().upper()
+        fhm_abbr = str(getattr(team_by_fhm, "abbreviation", "") or "").strip().upper()
+        if abbrev == fhm_abbr:
+            return team_by_fhm
+        if abbrev == id_abbr:
+            return team_by_id
+
+    display_name = _payload_team_display_name(payload)
+    if display_name:
+        fhm_matches = _team_row_matches_display_name(team_by_fhm, display_name)
+        id_matches = _team_row_matches_display_name(team_by_id, display_name)
+        if fhm_matches and not id_matches:
+            return team_by_fhm
+        if id_matches and not fhm_matches:
+            return team_by_id
+
+    if fhm_team_id:
+        actual_fhm = str(getattr(team_by_id, "fhm_team_id", "") or "").strip()
+        if actual_fhm and actual_fhm != str(fhm_team_id):
+            return team_by_fhm
+
+    if team_id is not None and str(team_id) == str(fhm_team_id or ""):
+        actual_fhm = str(getattr(team_by_id, "fhm_team_id", "") or "").strip()
+        if actual_fhm and actual_fhm != str(fhm_team_id):
+            return team_by_id
+
+    if team_id is not None and id_a == team_id:
+        return team_by_id
+
+    return team_by_fhm
+
+
 def resolve_news_article_team(session, article: NewsArticle):
     """Resolve the franchise for a news article (author GM membership, then team_id)."""
     from app.models import Team
@@ -657,31 +732,7 @@ def resolve_news_article_team(session, article: NewsArticle):
 
 
 def _pick_team_for_discord_mention(session, payload: dict):
-    team_id = _payload_team_id(payload)
-    fhm_team_id = _payload_fhm_team_id(payload)
-    team_by_id = _resolve_league_team_for_news(session, team_id) if team_id is not None else None
-    team_by_fhm = _league_team_by_fhm(session, fhm_team_id) if fhm_team_id else None
-    id_a = _team_row_id(team_by_id)
-    id_b = _team_row_id(team_by_fhm)
-    if (
-        team_by_id is not None
-        and team_by_fhm is not None
-        and id_a is not None
-        and id_b is not None
-        and id_a != id_b
-    ):
-        abbrev = str(payload.get("team_abbrev") or "").strip().upper()
-        if abbrev:
-            id_abbr = str(getattr(team_by_id, "abbreviation", "") or "").strip().upper()
-            fhm_abbr = str(getattr(team_by_fhm, "abbreviation", "") or "").strip().upper()
-            if abbrev == fhm_abbr and abbrev != id_abbr:
-                return team_by_fhm
-            if abbrev == id_abbr and abbrev != fhm_abbr:
-                return team_by_id
-        return team_by_id
-    if team_by_id is not None:
-        return team_by_id
-    return team_by_fhm
+    return _resolve_team_for_discord_payload(session, payload)
 
 
 def _team_gm_mention_for_team_row(
@@ -708,54 +759,23 @@ def _team_gm_mention_for_team_row(
 
 
 def _team_gm_mention_for_payload(session, *, league_slug: str, payload: dict) -> str:
-    team_id = _payload_team_id(payload)
-    fhm_team_id = _payload_fhm_team_id(payload)
-    team_by_id = _resolve_league_team_for_news(session, team_id) if team_id is not None else None
-    team_by_fhm = _league_team_by_fhm(session, fhm_team_id) if fhm_team_id else None
-    id_a = _team_row_id(team_by_id)
-    id_b = _team_row_id(team_by_fhm)
-    mismatched = (
-        team_by_id is not None
-        and team_by_fhm is not None
-        and id_a is not None
-        and id_b is not None
-        and id_a != id_b
+    team = _resolve_team_for_discord_payload(session, payload)
+    return _team_gm_mention_for_team_row(
+        session, league_slug=league_slug, team=team
     )
-    preferred = _pick_team_for_discord_mention(session, payload)
-
-    if mismatched and preferred is team_by_fhm and fhm_team_id:
-        mention = _discord_user_mention_for_fhm_team(
-            session,
-            league_slug=league_slug,
-            fhm_team_id=fhm_team_id,
-        )
-        if mention:
-            return mention
-        return ""
-
-    if preferred is not None:
-        mention = _team_gm_mention_for_team_row(
-            session, league_slug=league_slug, team=preferred
-        )
-        if mention:
-            return mention
-
-    if fhm_team_id:
-        return _discord_user_mention_for_fhm_team(
-            session,
-            league_slug=league_slug,
-            fhm_team_id=fhm_team_id,
-        )
-    return ""
 
 
 def _ensure_team_gm_mention_for_payload(session, *, league_slug: str, payload: dict) -> dict:
     out = dict(payload or {})
-    if str(out.get("team_gm_mention") or "").strip():
-        return out
     if str(out.get("gm_mentions") or "").strip():
         return out
-    mention = _team_gm_mention_for_payload(session, league_slug=league_slug, payload=out)
+    team = _resolve_team_for_discord_payload(session, out)
+    if team is not None:
+        out.update(team_fields_for_discord(team))
+    out.pop("team_gm_mention", None)
+    mention = _team_gm_mention_for_team_row(
+        session, league_slug=league_slug, team=team
+    )
     if mention:
         out["team_gm_mention"] = mention
     return out
@@ -821,10 +841,21 @@ def enrich_discord_payload_for_bot(
         row = session.get(GmApprovalRequest, request_id)
         if row is None or str(row.league_slug or "") != str(league_slug or ""):
             return out
+        from app.models import Team
+
+        team = session.get(Team, int(row.team_id))
         enriched = trade_request_discord_payload(row, team_fields={})
         merged = {**enriched, **out}
         merged["body"] = enriched["body"]
         merged["has_image"] = False
+        if team is not None:
+            merged.update(team_fields_for_discord(team))
+        merged.pop("team_gm_mention", None)
+        mention = _team_gm_mention_for_team_row(
+            session, league_slug=league_slug, team=team
+        )
+        if mention:
+            merged["team_gm_mention"] = mention
         if str(out.get("admin_note") or "").strip():
             note = str(out["admin_note"]).strip()
             if note not in merged["body"]:
@@ -848,6 +879,9 @@ def enrich_discord_payload_for_bot(
                 from app.services.gm_messaging import gm_discord_name
 
                 gm_name = gm_discord_name(user)
+        from app.models import Team
+
+        team = session.get(Team, int(req.team_id))
         enriched = staff_transaction_discord_payload(
             req,
             role_label=str(out.get("role_label") or ""),
@@ -857,10 +891,14 @@ def enrich_discord_payload_for_bot(
         merged = {**enriched, **out}
         merged["body"] = enriched["body"]
         merged["has_image"] = False
-        if not str(merged.get("team_gm_mention") or "").strip():
-            mention = _discord_user_mention_for_user_id(session, getattr(req, "user_id", None))
-            if mention:
-                merged["team_gm_mention"] = mention
+        if team is not None:
+            merged.update(team_fields_for_discord(team))
+        merged.pop("team_gm_mention", None)
+        mention = _team_gm_mention_for_team_row(
+            session, league_slug=league_slug, team=team
+        )
+        if mention:
+            merged["team_gm_mention"] = mention
         return merged
     if ek == "draft_hub_pick_made":
         pick_id = out.get("pick_id") or out.get("source_id")

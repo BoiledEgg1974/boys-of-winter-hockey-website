@@ -9,19 +9,53 @@ from app.site_models import NewsArticle
 from app.services.discord_events import (
     enrich_discord_payload_for_bot,
     _resolve_league_team_for_news,
+    _resolve_team_for_discord_payload,
     _team_gm_mention_for_payload,
     resolve_news_article_team,
 )
 
 
 class DiscordEventMentionTests(unittest.TestCase):
+    def test_resolve_team_for_discord_payload_prefers_fhm_when_team_id_is_stale(self) -> None:
+        session = MagicMock()
+        atlanta = SimpleNamespace(id=28, fhm_team_id="227", abbreviation="ATL")
+        detroit = SimpleNamespace(
+            id=5,
+            fhm_team_id="9",
+            abbreviation="DET",
+            name="Detroit",
+            nickname="Red Wings",
+            full_display_name=lambda: "Detroit Red Wings",
+        )
+
+        with (
+            patch(
+                "app.services.discord_events._resolve_league_team_for_news",
+                return_value=atlanta,
+            ),
+            patch(
+                "app.services.discord_events._league_team_by_fhm",
+                return_value=detroit,
+            ),
+        ):
+            team = _resolve_team_for_discord_payload(
+                session,
+                {
+                    "team_id": 28,
+                    "fhm_team_id": 9,
+                    "team_name": "Detroit Red Wings",
+                },
+            )
+
+        self.assertIs(team, detroit)
+
     def test_news_payload_prefers_internal_team_id_over_fhm_team_id(self) -> None:
         session = MagicMock()
         detroit = SimpleNamespace(id=5, fhm_team_id="9", abbreviation="DET")
 
         with (
             patch(
-                "app.services.discord_events._pick_team_for_discord_mention",
+                "app.services.discord_events._resolve_team_for_discord_payload",
                 return_value=detroit,
             ),
             patch(
@@ -49,7 +83,7 @@ class DiscordEventMentionTests(unittest.TestCase):
 
         with (
             patch(
-                "app.services.discord_events._pick_team_for_discord_mention",
+                "app.services.discord_events._resolve_team_for_discord_payload",
                 return_value=detroit,
             ),
             patch(
@@ -71,7 +105,7 @@ class DiscordEventMentionTests(unittest.TestCase):
 
         with (
             patch(
-                "app.services.discord_events._pick_team_for_discord_mention",
+                "app.services.discord_events._resolve_team_for_discord_payload",
                 return_value=None,
             ),
             patch(
@@ -85,10 +119,8 @@ class DiscordEventMentionTests(unittest.TestCase):
                 payload={"team_id": 28, "fhm_team_id": 224},
             )
 
-        self.assertEqual(mention, "<@222222222222222222>")
-        by_fhm.assert_called_once_with(
-            session, league_slug="bowl-cap", fhm_team_id="224"
-        )
+        self.assertEqual(mention, "")
+        by_fhm.assert_not_called()
 
     def test_gm_news_delivery_recomputes_stale_queued_mentions(self) -> None:
         session = MagicMock()

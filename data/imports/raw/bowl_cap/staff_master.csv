@@ -39,7 +39,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 37;-1;Pierre;McGuire;;1961-8-8;Englewood;NJ;Canada;The United States;;0
 38;-1;Dave;King;;1947-12-22;North Battleford;SK;Canada;;;0
 39;-1;Gene;Ubriaco;;1937-12-26;Sault Ste. Marie;ON;Canada;;;0
-40;9;Dave;Lewis;;1953-7-3;Kindersley;SK;Canada;;;0
+40;-1;Dave;Lewis;;1953-7-3;Kindersley;SK;Canada;;;0
 41;12;Mike;Keenan;Iron Mike;1949-10-21;Bowmanville;ON;Canada;;;0
 42;12;Jim;Nill;;1958-4-11;Hanna;AB;Canada;;;0
 43;215;Jacques;Caron;;1939-4-21;Rouyn-Noranda;QC;Canada;;;0
@@ -1692,7 +1692,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1690;-1;Matthew;Parsons;;1947-9-26;Warren;MI;The United States;;;0
 1691;-1;Matt;Kaiser;;1947-2-14;Delta;BC;Canada;;;0
 1692;216;Ash;Gladstone;;1943-9-4;Nipigon;ON;Canada;;;0
-1693;-1;Reggie;Borrelli;;1944-9-22;London;ON;Canada;;;0
+1693;9;Reggie;Borrelli;;1944-9-22;London;ON;Canada;;;0
 1694;-1;Marvin;Robison;;1940-2-28;Saskatoon;SK;Canada;;;0
 1695;10;Ryan;Bloy;;1940-12-7;Galloway Township;NJ;The United States;;;0
 1696;-1;Rick;Vaughn;;1946-8-28;Grimsby;ON;Canada;;;0

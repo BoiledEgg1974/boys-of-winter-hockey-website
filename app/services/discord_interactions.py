@@ -201,9 +201,16 @@ COMMAND_DEFINITIONS: list[dict[str, Any]] = [
         "options": [
             {
                 "name": "round",
-                "description": "Round: first, second, conference, championship, or all",
+                "description": "Round to post (omit when only one round is open)",
                 "type": 3,
                 "required": False,
+                "choices": [
+                    {"name": "First round", "value": "first"},
+                    {"name": "Second round", "value": "second"},
+                    {"name": "Conference finals", "value": "conference"},
+                    {"name": "Championship", "value": "championship"},
+                    {"name": "All open rounds", "value": "all"},
+                ],
             }
         ],
     },
@@ -932,27 +939,42 @@ def _handle_predict_command(payload: dict[str, Any], league_slug: str) -> dict[s
     from app.services.playoff_bracket import playoff_bracket_payload
     from app.services.seasons import get_current_season, season_with_imported_data_fallback
 
-    round_raw = _command_option(payload, "round")
-    if not round_raw:
-        season = season_with_imported_data_fallback(db.session, get_current_season())
-        if season is None:
-            return _ephemeral("No imported season data is available yet.")
-        bracket = playoff_bracket_payload(int(season.id), include_team_logos=False)
-        if bracket.get("empty"):
-            return _ephemeral(str(bracket.get("message") or "No playoff bracket is available yet."))
-        return _ephemeral(format_predict_round_help(list_prediction_rounds(bracket)))
+    season = season_with_imported_data_fallback(db.session, get_current_season())
+    if season is None:
+        return _ephemeral("No imported season data is available yet.")
+    bracket = playoff_bracket_payload(int(season.id), include_team_logos=False)
+    if bracket.get("empty"):
+        return _ephemeral(str(bracket.get("message") or "No playoff bracket is available yet."))
 
-    normalized = normalize_predict_round_filter(round_raw)
-    if normalized is None:
-        return _ephemeral(
-            "I could not match that round. Try `first`, `second`, `conference`, `championship`, or `all`."
-        )
-    round_filter = None if normalized == "__all__" else normalized
+    round_raw = _command_option(payload, "round")
+    round_filter: str | None = "__pending__"
+    if not round_raw:
+        open_rounds = list_prediction_rounds(bracket)
+        if not open_rounds:
+            return _ephemeral(
+                "No playoff series need predictions right now. "
+                "Completed and projected-only matchups are skipped."
+            )
+        if len(open_rounds) == 1:
+            round_filter = str(open_rounds[0].get("label") or "").strip() or None
+        else:
+            return _ephemeral(format_predict_round_help(open_rounds))
+
+    if round_filter == "__pending__":
+        normalized = normalize_predict_round_filter(round_raw)
+        if normalized is None:
+            return _ephemeral(
+                "I could not match that round. Pick **round** from the command menu: "
+                "`first`, `second`, `conference`, `championship`, or `all`."
+            )
+        round_filter = None if normalized == "__all__" else normalized
 
     result = build_playoff_predictions_discord_payload(
         db.session,
         league_slug=league_slug,
         round_filter=round_filter,
+        bracket=bracket,
+        season=season,
     )
     if result.get("error"):
         return _ephemeral(str(result["error"]))

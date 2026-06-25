@@ -333,14 +333,20 @@ def format_predict_round_help(rounds: list[dict[str, Any]]) -> str:
             "No playoff series need predictions right now. "
             "Completed and projected-only matchups are skipped."
         )
-    lines = ["Rounds needing predictions:"]
+    lines = [
+        "Multiple rounds still need predictions. Choose **round** on `/predict`:",
+    ]
     for row in rounds:
         label = str(row.get("label") or "").strip()
         count = int(row.get("series_count") or 0)
         hint = _ROUND_FILTER_ALIASES.get(label, (label.lower(),))[0]
-        lines.append(f"• **{label}** — {count} series · `/predict round:{hint}`")
+        lines.append(f"• **{label}** — {count} series → round: `{hint}`")
     lines.append("")
-    lines.append("Use `/predict round:all` to queue every open series.")
+    lines.append("Or pick **All open rounds** to queue every series above.")
+    lines.append(
+        "If you do not see a **round** field on `/predict`, re-register slash commands: "
+        "`python -m scripts.league_discord_bot.register_slash_commands`"
+    )
     return "\n".join(lines)
 
 
@@ -361,12 +367,16 @@ def build_playoff_predictions_discord_payload(
     *,
     league_slug: str,
     round_filter: str | None = None,
+    bracket: dict[str, Any] | None = None,
+    season: Season | None = None,
 ) -> dict[str, Any]:
-    canonical = get_current_season()
-    season = season_with_imported_data_fallback(session, canonical) if canonical else None
+    if season is None:
+        canonical = get_current_season()
+        season = season_with_imported_data_fallback(session, canonical) if canonical else None
     if season is None:
         return {"error": "No imported season data is available yet."}
-    bracket = playoff_bracket_payload(int(season.id), include_team_logos=False)
+    if bracket is None:
+        bracket = playoff_bracket_payload(int(season.id), include_team_logos=False)
     if bracket.get("empty"):
         return {"error": str(bracket.get("message") or "No playoff bracket is available yet.")}
     series_rows = open_prediction_series(bracket, round_filter=round_filter)

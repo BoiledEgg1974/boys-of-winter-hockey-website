@@ -5122,4 +5122,208 @@
         if (sub) sub.disabled = false;
       });
   });
+
+  (function initProspectProjectionPopovers() {
+    var cells = document.querySelectorAll(".prospect-proj-cell[data-prospect-proj]");
+    if (!cells.length) return;
+
+    var tip = document.createElement("div");
+    tip.className = "prospect-proj-popover";
+    tip.setAttribute("role", "tooltip");
+    tip.hidden = true;
+    document.body.appendChild(tip);
+
+    var activeCell = null;
+    var hideTimer = null;
+
+    function formatPct(pct) {
+      if (pct == null) return "—";
+      if (pct >= 99) return ">99%";
+      return String(pct) + "%";
+    }
+
+    function chartSvgMarkup(chart) {
+      if (!chart || !chart.has_data) return "";
+      var parts = [];
+      parts.push(
+        '<svg class="prospect-proj-popover__chart" viewBox="0 0 ' +
+          chart.width +
+          " " +
+          chart.height +
+          '" width="100%" height="' +
+          chart.height +
+          '" aria-hidden="true">'
+      );
+      (chart.grid_lines || []).forEach(function (line) {
+        parts.push(
+          '<line class="prospect-proj-popover__chart-grid" x1="' +
+            line.x1 +
+            '" x2="' +
+            line.x2 +
+            '" y1="' +
+            line.y +
+            '" y2="' +
+            line.y +
+            '"></line>'
+        );
+      });
+      (chart.y_labels || []).forEach(function (lbl) {
+        parts.push(
+          '<text class="prospect-proj-popover__chart-y-label" x="' +
+            lbl.x +
+            '" y="' +
+            lbl.y +
+            '">' +
+            escapeHtml(lbl.text) +
+            "</text>"
+        );
+      });
+      (chart.paths || []).forEach(function (p) {
+        parts.push(
+          '<path class="prospect-proj-popover__chart-line" d="' +
+            escapeHtml(p.d) +
+            '" fill="none" stroke-width="2" vector-effect="non-scaling-stroke"></path>'
+        );
+        (p.dots || []).forEach(function (dot) {
+          parts.push(
+            '<circle fill="#f8fafc" stroke="#0f172a" stroke-width="1" cx="' +
+              dot.cx +
+              '" cy="' +
+              dot.cy +
+              '" r="2.5"></circle>'
+          );
+        });
+      });
+      (chart.x_labels || []).forEach(function (lbl) {
+        parts.push(
+          '<text class="prospect-proj-popover__chart-label" x="' +
+            lbl.x +
+            '" y="' +
+            lbl.y +
+            '" text-anchor="middle">' +
+            escapeHtml(lbl.text) +
+            "</text>"
+        );
+      });
+      parts.push("</svg>");
+      return parts.join("");
+    }
+
+    function renderPopover(data) {
+      var metaBits = [];
+      if (data.nationality) metaBits.push(["Nation", data.nationality]);
+      if (data.age != null) metaBits.push(["Age", String(data.age)]);
+      if (data.height) metaBits.push(["Height", data.height]);
+      if (data.weight != null) metaBits.push(["Weight", String(data.weight)]);
+      var metaHtml = metaBits
+        .map(function (pair) {
+          return "<div><dt>" + escapeHtml(pair[0]) + '</dt><dd>' + escapeHtml(pair[1]) + "</dd></div>";
+        })
+        .join("");
+
+      tip.innerHTML =
+        '<div class="prospect-proj-popover__inner">' +
+        '<div class="prospect-proj-popover__head">' +
+        '<span class="prospect-proj-popover__name">' +
+        escapeHtml(data.name || "Prospect") +
+        "</span>" +
+        (data.position
+          ? '<span class="prospect-proj-popover__pos">' + escapeHtml(data.position) + "</span>"
+          : "") +
+        "</div>" +
+        '<dl class="prospect-proj-popover__meta">' +
+        metaHtml +
+        "</dl>" +
+        '<div class="prospect-proj-popover__scores">' +
+        '<div class="prospect-proj-popover__score-box prospect-proj-popover__score-box--star">' +
+        '<div class="prospect-proj-popover__score-label">Star%</div>' +
+        '<div class="prospect-proj-popover__score-value">' +
+        escapeHtml(formatPct(data.star_pct)) +
+        "</div></div>" +
+        '<div class="prospect-proj-popover__score-box prospect-proj-popover__score-box--bowl">' +
+        '<div class="prospect-proj-popover__score-label">BOWL%</div>' +
+        '<div class="prospect-proj-popover__score-value">' +
+        escapeHtml(formatPct(data.bowl_pct)) +
+        "</div></div>" +
+        "</div>" +
+        '<div class="prospect-proj-popover__chart-wrap">' +
+        '<div class="prospect-proj-popover__chart-title">BOWL Equivalency Timeline</div>' +
+        chartSvgMarkup(data.chart) +
+        "</div>" +
+        '<div class="prospect-proj-popover__defs">' +
+        "<p><strong>Star:</strong> top 20% WAR/82 GP among F or top 15% among D.</p>" +
+        "<p><strong>BOWL%:</strong> projected 200+ BOWL games.</p>" +
+        "<p><strong>BOWLe (DY-1e / DYe):</strong> projected BOWL impact on a 0–30 scale (NHLe-style), " +
+        "from ABI, POT, OVR, and overview ratings. DY-1e = one year before draft eligibility; " +
+        "DYe = at draft year with a potential uptick. Benchmarks: ~8 depth, ~15 everyday NHLer, " +
+        "~22 strong starter, ~28+ elite.</p>" +
+        '<p>Inspired by <a href="https://hockeystats.com/methodology/nhle" target="_blank" rel="noopener noreferrer">HockeyStats NHLe</a>.</p>' +
+        "</div></div>";
+    }
+
+    function positionTip(el) {
+      var rect = el.getBoundingClientRect();
+      var tipRect = tip.getBoundingClientRect();
+      var left = rect.left + rect.width / 2 - tipRect.width / 2;
+      var top = rect.bottom + 8;
+      left = Math.max(8, Math.min(left, window.innerWidth - tipRect.width - 8));
+      if (top + tipRect.height > window.innerHeight - 8) {
+        top = rect.top - tipRect.height - 8;
+      }
+      tip.style.left = left + "px";
+      tip.style.top = top + "px";
+    }
+
+    function showTip(el) {
+      if (hideTimer) {
+        clearTimeout(hideTimer);
+        hideTimer = null;
+      }
+      var raw = el.getAttribute("data-prospect-proj");
+      if (!raw) return;
+      var data;
+      try {
+        data = JSON.parse(raw);
+      } catch (_e) {
+        return;
+      }
+      activeCell = el;
+      renderPopover(data);
+      tip.hidden = false;
+      positionTip(el);
+    }
+
+    function hideTip() {
+      hideTimer = setTimeout(function () {
+        tip.hidden = true;
+        activeCell = null;
+      }, 120);
+    }
+
+    cells.forEach(function (cell) {
+      cell.addEventListener("mouseenter", function () {
+        showTip(cell);
+      });
+      cell.addEventListener("mouseleave", hideTip);
+      cell.addEventListener("focus", function () {
+        showTip(cell);
+      });
+      cell.addEventListener("blur", hideTip);
+    });
+
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") {
+        tip.hidden = true;
+        activeCell = null;
+      }
+    });
+
+    window.addEventListener(
+      "scroll",
+      function () {
+        if (!tip.hidden && activeCell) positionTip(activeCell);
+      },
+      true
+    );
+  })();
 })();

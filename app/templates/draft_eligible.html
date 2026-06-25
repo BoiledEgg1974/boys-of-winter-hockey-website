@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "macros/player_overall.html" import overall_cell %}
+{% from "macros/prospect_projection.html" import prospect_projection_headers_row, prospect_projection_cells, prospect_projection_footnote_block %}
 {% block title %}Draft Eligible — Boys of Winter Hockey League{% endblock %}
 {% macro attr_pill(val) -%}
 {% if val is none or val == '' %}—{% else %}
@@ -133,6 +134,7 @@
             {{ de_sort_th('abi', 'ABI.', 'Ability') }}
             {{ de_sort_th('pot', 'POT.', 'Potential') }}
             {{ de_sort_th('ova', 'OVR', 'Composite 1-100 overall') }}
+            {{ prospect_projection_headers_row(de_sort_th, prospect_projection_headers) }}
             {% for full, abbr, key in prospect_overview_headers %}
             {{ de_sort_th(key, abbr, full) }}
             {% endfor %}
@@ -162,6 +164,7 @@
             <td {% if prospect_sort == 'abi' %}class="stats-td-sorted"{% endif %}>{{ abi_pot_pill(row.abi) }}</td>
             <td {% if prospect_sort == 'pot' %}class="stats-td-sorted"{% endif %}>{{ abi_pot_pill(row.pot) }}</td>
             {{ overall_cell((player_overall_by_id or {}).get(pl.id), prospect_sort == 'ova') }}
+            {{ prospect_projection_cells(row, prospect_sort) }}
             {% for _full, _abbr, key in prospect_overview_headers %}
             <td {% if prospect_sort == key %}class="stats-td-sorted"{% endif %}>{{ attr_pill(row.attrs.get(key)) }}</td>
             {% endfor %}
@@ -179,6 +182,7 @@
       {% endif %}
     </p>
     {% endif %}
+    {{ prospect_projection_footnote_block() }}
     {% else %}
     <p class="empty-state">No draft-eligible players found{% if q or position %} for this filter{% endif %}.</p>
     {% endif %}

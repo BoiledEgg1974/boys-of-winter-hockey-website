@@ -1,0 +1,52 @@
+{% macro prospect_projection_sort_th(sort_macro, sk, label, tip='') -%}
+{{ sort_macro(sk, label, tip) }}
+{%- endmacro %}
+
+{% macro prospect_projection_headers_row(sort_macro, projection_headers) -%}
+{% for sk, abbr, tip in projection_headers %}
+{{ sort_macro(sk, abbr, tip) }}
+{% endfor %}
+{%- endmacro %}
+
+{% macro prospect_projection_cells(row, prospect_sort) -%}
+{% set proj = row.projection if row.projection is defined else none %}
+{% set popover = proj.popover if proj and proj.popover is defined else none %}
+<td class="prospect-proj-col{% if prospect_sort == 'star' %} stats-td-sorted{% endif %}">
+  <span class="prospect-proj-cell"
+        tabindex="0"
+        {% if popover %}data-prospect-proj="{{ popover | tojson }}"{% endif %}
+        title="{% if popover %}Hover for BOWL projection detail{% else %}Projection unavailable{% endif %}">
+    <span class="prospect-proj-pill prospect-proj-pill--pct">{{ proj.star_display if proj else '—' }}</span>
+  </span>
+</td>
+<td class="prospect-proj-col{% if prospect_sort == 'bowl' %} stats-td-sorted{% endif %}">
+  <span class="prospect-proj-cell"
+        tabindex="0"
+        {% if popover %}data-prospect-proj="{{ popover | tojson }}"{% endif %}
+        title="{% if popover %}Hover for BOWL projection detail{% else %}Projection unavailable{% endif %}">
+    <span class="prospect-proj-pill prospect-proj-pill--pct">{{ proj.bowl_display if proj else '—' }}</span>
+  </span>
+</td>
+<td class="prospect-proj-col{% if prospect_sort == 'bowle_dy_m1' %} stats-td-sorted{% endif %}">
+  <span class="prospect-proj-cell"
+        tabindex="0"
+        {% if popover %}data-prospect-proj="{{ popover | tojson }}"{% endif %}
+        title="{% if popover %}Hover for BOWLe timeline (0–30 scale: ~8 depth, ~15 average, ~22 starter, ~28+ elite){% else %}Projection unavailable{% endif %}">
+    <span class="prospect-proj-pill prospect-proj-pill--bowle">{{ proj.bowle_dy_m1_display if proj else '—' }}</span>
+  </span>
+</td>
+<td class="prospect-proj-col{% if prospect_sort == 'bowle_dy' %} stats-td-sorted{% endif %}">
+  <span class="prospect-proj-cell"
+        tabindex="0"
+        {% if popover %}data-prospect-proj="{{ popover | tojson }}"{% endif %}
+        title="{% if popover %}Hover for BOWLe timeline (0–30 scale: ~8 depth, ~15 average, ~22 starter, ~28+ elite){% else %}Projection unavailable{% endif %}">
+    <span class="prospect-proj-pill prospect-proj-pill--bowle">{{ proj.bowle_dy_display if proj else '—' }}</span>
+  </span>
+</td>
+{%- endmacro %}
+
+{% macro prospect_projection_footnote_block() -%}
+{% if prospect_projection_footnote is defined and prospect_projection_footnote %}
+<p class="muted prospects-rankings-page__foot prospects-projection-footnote">{{ prospect_projection_footnote }}</p>
+{% endif %}
+{%- endmacro %}

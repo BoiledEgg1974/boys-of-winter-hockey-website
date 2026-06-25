@@ -88,6 +88,14 @@ from app.services.player_ratings_csv import (
     player_positions_display_label,
     position_ratings_display_list,
 )
+from app.services.prospect_projection import (
+    PROSPECT_OVERVIEW_HEADERS,
+    PROSPECT_PROJECTION_FOOTNOTE,
+    PROSPECT_PROJECTION_HEADERS,
+    PROSPECT_PROJECTION_SORT_KEYS,
+    build_prospect_projection,
+    projection_sort_value,
+)
 from app.services.prospect_system_rankings import (
     apply_prospect_league_pot_trends,
     apply_system_rank_trends,
@@ -2493,6 +2501,74 @@ def _player_abi_pot_value(pl: Player, ratings_row: dict | None, key: str) -> flo
     return fhm_abi_pot_float(ratings_row.get(key) if ratings_row else None)
 
 
+def _build_prospect_item_dict(
+    pl: Player,
+    overview_headers: tuple[tuple[str, str, str], ...],
+    age: float | None,
+    *,
+    league_slug: str,
+    season: Season | None,
+    eligibility_params: DraftEligibilityParams | None = None,
+) -> dict:
+    rr = get_player_ratings_row(pl.fhm_player_id)
+    abi = _player_abi_pot_value(pl, rr, "ability")
+    pot = _player_abi_pot_value(pl, rr, "potential")
+    attrs: dict[str, float | None] = {}
+    attrs_display: dict[str, object | None] = {}
+    if rr:
+        for _full, _abbr, key in overview_headers:
+            raw_cell = rr.get(key)
+            attrs_display[key] = raw_cell
+            attrs[key] = _prospect_float(raw_cell)
+    projection = build_prospect_projection(
+        pl,
+        abi=abi,
+        pot=pot,
+        ratings_row=rr,
+        age=age,
+        league_slug=league_slug,
+        season=season,
+        eligibility_params=eligibility_params,
+    )
+    return {
+        "pl": pl,
+        "attrs": attrs,
+        "attrs_display": attrs_display,
+        "age": age,
+        "rr": rr,
+        "abi": abi,
+        "pot": pot,
+        "projection": projection,
+    }
+
+
+def _prospect_num_sort_key(it: dict, sort_col: str, *, rev: bool, include_age: bool = False) -> tuple:
+    pl = it["pl"]
+    if include_age and sort_col == "age":
+        v: float | None = it.get("age")
+    elif sort_col == "abi":
+        v = it.get("abi")
+    elif sort_col == "pot":
+        v = it.get("pot")
+    elif sort_col == "ova":
+        ov = compute_player_overall_100(
+            it.get("abi"),
+            it.get("pot"),
+            it.get("rr"),
+            is_goalie=player_is_goalie_for_overall(pl),
+        )
+        v = float(ov) if ov is not None else None
+    elif sort_col in PROSPECT_PROJECTION_SORT_KEYS:
+        v = projection_sort_value(it.get("projection"), sort_col)
+    else:
+        raw = it["attrs"].get(sort_col)
+        v = _prospect_float(raw) if raw is not None else None
+    if v is None:
+        sentinel = float("-inf") if rev else float("inf")
+        return (sentinel, pl.full_name or "", pl.id)
+    return (v, pl.full_name or "", pl.id)
+
+
 @main_bp.get("/prospects")
 def prospects():
     team_slug = request.args.get("team")
@@ -2504,20 +2580,15 @@ def prospects():
     season = get_current_season()
     age_ref = season_age_reference_date(season)
 
-    # (full name for header tooltip, column abbreviation, ratings CSV key)
-    overview_headers = (
-        ("Skating", "SKT", "skating"),
-        ("Shooting", "SHT", "shooting"),
-        ("Playmaking", "PLM", "playmaking"),
-        ("Defending", "DEF", "defending"),
-        ("Physicality", "PHY", "physicality"),
-        ("Conditioning", "CON", "conditioning"),
-        ("Character", "CHR", "character"),
-        ("Hockey sense", "HSN", "hockey_sense"),
-    )
+    overview_headers = PROSPECT_OVERVIEW_HEADERS
     attr_sort_keys = frozenset(h[2] for h in overview_headers)
-    valid_sorts = frozenset({"player", "abi", "pot", "ova", *attr_sort_keys})
-    sort_default_desc = frozenset({"abi", "pot", "ova", *attr_sort_keys})
+    league_slug_cfg = str(current_app.config.get("LEAGUE_SLUG") or "")
+    valid_sorts = frozenset(
+        {"player", "abi", "pot", "ova", *PROSPECT_PROJECTION_SORT_KEYS, *attr_sort_keys}
+    )
+    sort_default_desc = frozenset(
+        {"abi", "pot", "ova", *PROSPECT_PROJECTION_SORT_KEYS, *attr_sort_keys}
+    )
 
     sort_col = request.args.get("sort") or "pot"
     order = request.args.get("order") or "desc"
@@ -2556,26 +2627,14 @@ def prospects():
 
     items: list[dict] = []
     for pl in young:
-        rr = get_player_ratings_row(pl.fhm_player_id)
-        abi = _player_abi_pot_value(pl, rr, "ability")
-        pot = _player_abi_pot_value(pl, rr, "potential")
-        attrs: dict[str, float | None] = {}
-        attrs_display: dict[str, object | None] = {}
-        if rr:
-            for _full, _abbr, key in overview_headers:
-                raw_cell = rr.get(key)
-                attrs_display[key] = raw_cell
-                attrs[key] = _prospect_float(raw_cell)
         items.append(
-            {
-                "pl": pl,
-                "attrs": attrs,
-                "attrs_display": attrs_display,
-                "age": _player_age_years(pl.birth_date, age_ref),
-                "rr": rr,
-                "abi": abi,
-                "pot": pot,
-            }
+            _build_prospect_item_dict(
+                pl,
+                overview_headers,
+                _player_age_years(pl.birth_date, age_ref),
+                league_slug=league_slug_cfg,
+                season=season,
+            )
         )
 
     rev = order == "desc"
@@ -2589,26 +2648,7 @@ def prospects():
     else:
 
         def num_key(it: dict) -> tuple:
-            pl = it["pl"]
-            if sort_col == "abi":
-                v = it.get("abi")
-            elif sort_col == "pot":
-                v = it.get("pot")
-            elif sort_col == "ova":
-                ov = compute_player_overall_100(
-                    it.get("abi"),
-                    it.get("pot"),
-                    it.get("rr"),
-                    is_goalie=player_is_goalie_for_overall(pl),
-                )
-                v = float(ov) if ov is not None else None
-            else:
-                raw = it["attrs"].get(sort_col)
-                v = _prospect_float(raw) if raw is not None else None
-            if v is None:
-                sentinel = float("-inf") if rev else float("inf")
-                return (sentinel, pl.full_name or "", pl.id)
-            return (v, pl.full_name or "", pl.id)
+            return _prospect_num_sort_key(it, sort_col, rev=rev)
 
         items.sort(key=num_key, reverse=rev)
 
@@ -2624,6 +2664,7 @@ def prospects():
                 "attrs": it["attrs_display"],
                 "abi": it["abi"],
                 "pot": it["pot"],
+                "projection": it["projection"],
             }
         )
 
@@ -2648,7 +2689,6 @@ def prospects():
         team_by_id=team_by_id,
         effective_team=_effective_team,
     )
-    league_slug_cfg = str(current_app.config.get("LEAGUE_SLUG") or "")
     _, system_rank_snapshot_at = load_latest_system_rank_snapshot(league_slug_cfg)
     baseline_sys = select_system_rank_baseline_map(league_slug_cfg, system_rankings_rows)
     apply_system_rank_trends(system_rankings_rows, baseline_sys)
@@ -2678,6 +2718,8 @@ def prospects():
         prospect_order=order,
         prospect_sort_desc_defaults=sort_default_desc,
         player_overall_by_id=player_overall_by_id,
+        prospect_projection_headers=PROSPECT_PROJECTION_HEADERS,
+        prospect_projection_footnote=PROSPECT_PROJECTION_FOOTNOTE,
         system_rankings_rows=system_rankings_rows,
         system_rank_snapshot_at=system_rank_snapshot_at,
         prospect_league_snapshot_at=prospect_league_snapshot_at,
@@ -2698,19 +2740,14 @@ def undrafted_prospects():
     undrafted_max_age = undrafted_prospects_max_age(league_slug)
     ud_age_options = undrafted_prospects_age_filter_options(league_slug)
 
-    overview_headers = (
-        ("Skating", "SKT", "skating"),
-        ("Shooting", "SHT", "shooting"),
-        ("Playmaking", "PLM", "playmaking"),
-        ("Defending", "DEF", "defending"),
-        ("Physicality", "PHY", "physicality"),
-        ("Conditioning", "CON", "conditioning"),
-        ("Character", "CHR", "character"),
-        ("Hockey sense", "HSN", "hockey_sense"),
-    )
+    overview_headers = PROSPECT_OVERVIEW_HEADERS
     attr_sort_keys = frozenset(h[2] for h in overview_headers)
-    valid_sorts = frozenset({"rank", "player", "abi", "pot", "ova", *attr_sort_keys})
-    sort_default_desc = frozenset({"rank", "abi", "pot", "ova", *attr_sort_keys})
+    valid_sorts = frozenset(
+        {"rank", "player", "abi", "pot", "ova", *PROSPECT_PROJECTION_SORT_KEYS, *attr_sort_keys}
+    )
+    sort_default_desc = frozenset(
+        {"rank", "abi", "pot", "ova", *PROSPECT_PROJECTION_SORT_KEYS, *attr_sort_keys}
+    )
 
     sort_col = request.args.get("sort") or "pot"
     order = request.args.get("order") or "desc"
@@ -2755,27 +2792,16 @@ def undrafted_prospects():
         pool.append(p)
 
     items: list[dict] = []
+    season = get_current_season()
     for pl in pool:
-        rr = get_player_ratings_row(pl.fhm_player_id)
-        abi = _player_abi_pot_value(pl, rr, "ability")
-        pot = _player_abi_pot_value(pl, rr, "potential")
-        attrs: dict[str, float | None] = {}
-        attrs_display: dict[str, object | None] = {}
-        if rr:
-            for _full, _abbr, key in overview_headers:
-                raw_cell = rr.get(key)
-                attrs_display[key] = raw_cell
-                attrs[key] = _prospect_float(raw_cell)
         items.append(
-            {
-                "pl": pl,
-                "attrs": attrs,
-                "attrs_display": attrs_display,
-                "age": _player_age_years(pl.birth_date, age_ref),
-                "rr": rr,
-                "abi": abi,
-                "pot": pot,
-            }
+            _build_prospect_item_dict(
+                pl,
+                overview_headers,
+                _player_age_years(pl.birth_date, age_ref),
+                league_slug=league_slug,
+                season=season,
+            )
         )
 
     rev = order == "desc"
@@ -2800,26 +2826,7 @@ def undrafted_prospects():
     else:
 
         def num_key(it: dict) -> tuple:
-            pl = it["pl"]
-            if sort_col == "abi":
-                v = it.get("abi")
-            elif sort_col == "pot":
-                v = it.get("pot")
-            elif sort_col == "ova":
-                ov = compute_player_overall_100(
-                    it.get("abi"),
-                    it.get("pot"),
-                    it.get("rr"),
-                    is_goalie=player_is_goalie_for_overall(pl),
-                )
-                v = float(ov) if ov is not None else None
-            else:
-                raw = it["attrs"].get(sort_col)
-                v = _prospect_float(raw) if raw is not None else None
-            if v is None:
-                sentinel = float("-inf") if rev else float("inf")
-                return (sentinel, pl.full_name or "", pl.id)
-            return (v, pl.full_name or "", pl.id)
+            return _prospect_num_sort_key(it, sort_col, rev=rev)
 
         items.sort(key=num_key, reverse=rev)
 
@@ -2834,6 +2841,7 @@ def undrafted_prospects():
                 "attrs": it["attrs_display"],
                 "abi": it["abi"],
                 "pot": it["pot"],
+                "projection": it["projection"],
             }
         )
 
@@ -2862,6 +2870,8 @@ def undrafted_prospects():
         undrafted_age_options=ud_age_options,
         undrafted_max_age=undrafted_max_age,
         player_overall_by_id=player_overall_by_id,
+        prospect_projection_headers=PROSPECT_PROJECTION_HEADERS,
+        prospect_projection_footnote=PROSPECT_PROJECTION_FOOTNOTE,
     )
 
 
@@ -2912,19 +2922,14 @@ def draft_eligible():
             f"than {params.max_age_years} by December 31, {params.timeline_year}."
         )
 
-    overview_headers = (
-        ("Skating", "SKT", "skating"),
-        ("Shooting", "SHT", "shooting"),
-        ("Playmaking", "PLM", "playmaking"),
-        ("Defending", "DEF", "defending"),
-        ("Physicality", "PHY", "physicality"),
-        ("Conditioning", "CON", "conditioning"),
-        ("Character", "CHR", "character"),
-        ("Hockey sense", "HSN", "hockey_sense"),
-    )
+    overview_headers = PROSPECT_OVERVIEW_HEADERS
     attr_sort_keys = frozenset(h[2] for h in overview_headers)
-    valid_sorts = frozenset({"rank", "player", "age", "abi", "pot", "ova", *attr_sort_keys})
-    sort_default_desc = frozenset({"rank", "abi", "pot", "ova", *attr_sort_keys})
+    valid_sorts = frozenset(
+        {"rank", "player", "age", "abi", "pot", "ova", *PROSPECT_PROJECTION_SORT_KEYS, *attr_sort_keys}
+    )
+    sort_default_desc = frozenset(
+        {"rank", "abi", "pot", "ova", *PROSPECT_PROJECTION_SORT_KEYS, *attr_sort_keys}
+    )
     sort_col = request.args.get("sort") or "rank"
     order = request.args.get("order") or ("asc" if sort_col == "rank" else "desc")
     if sort_col not in valid_sorts:
@@ -2942,26 +2947,15 @@ def draft_eligible():
     age_ref = season_age_reference_date(season)
     items: list[dict] = []
     for pl in players:
-        rr = get_player_ratings_row(pl.fhm_player_id)
-        abi = _player_abi_pot_value(pl, rr, "ability")
-        pot = _player_abi_pot_value(pl, rr, "potential")
-        attrs: dict[str, float | None] = {}
-        attrs_display: dict[str, object | None] = {}
-        if rr:
-            for _full, _abbr, key in overview_headers:
-                raw_cell = rr.get(key)
-                attrs_display[key] = raw_cell
-                attrs[key] = _prospect_float(raw_cell)
         items.append(
-            {
-                "pl": pl,
-                "attrs": attrs,
-                "attrs_display": attrs_display,
-                "age": age_as_of(pl.birth_date, age_ref),
-                "rr": rr,
-                "abi": abi,
-                "pot": pot,
-            }
+            _build_prospect_item_dict(
+                pl,
+                overview_headers,
+                age_as_of(pl.birth_date, age_ref),
+                league_slug=league_slug,
+                season=season,
+                eligibility_params=params,
+            )
         )
 
     rev = order == "desc"
@@ -2974,27 +2968,7 @@ def draft_eligible():
     else:
 
         def num_key(it: dict) -> tuple:
-            pl = it["pl"]
-            if sort_col == "age":
-                v = it["age"]
-            elif sort_col == "abi":
-                v = it.get("abi")
-            elif sort_col == "pot":
-                v = it.get("pot")
-            elif sort_col == "ova":
-                ov = compute_player_overall_100(
-                    it.get("abi"),
-                    it.get("pot"),
-                    it.get("rr"),
-                    is_goalie=player_is_goalie_for_overall(pl),
-                )
-                v = float(ov) if ov is not None else None
-            else:
-                v = it["attrs"].get(sort_col)
-            if v is None:
-                sentinel = float("-inf") if rev else float("inf")
-                return (sentinel, pl.full_name or "", pl.id)
-            return (v, pl.full_name or "", pl.id)
+            return _prospect_num_sort_key(it, sort_col, rev=rev, include_age=True)
 
         items.sort(key=num_key, reverse=rev)
 
@@ -3006,6 +2980,7 @@ def draft_eligible():
             "attrs": it["attrs_display"],
             "abi": it["abi"],
             "pot": it["pot"],
+            "projection": it["projection"],
         }
         for i, it in enumerate(items, start=1)
     ]
@@ -3038,6 +3013,8 @@ def draft_eligible():
         prospect_order=order,
         prospect_sort_desc_defaults=sort_default_desc,
         player_overall_by_id=player_overall_by_id,
+        prospect_projection_headers=PROSPECT_PROJECTION_HEADERS,
+        prospect_projection_footnote=PROSPECT_PROJECTION_FOOTNOTE,
         eligibility_params=params,
         eligibility_params_source=params_source,
         eligibility_summary=eligibility_summary,

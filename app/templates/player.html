@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "macros/player_overall.html" import overall_cell %}
+{% from "macros/player_analytics_card.html" import player_analytics_card as render_player_analytics_card %}
 {% from "macros/team.html" import team_logo_only, team_logo_img_plain with context %}
 {% block title %}{{ player.full_name }} — Boys of Winter Hockey League{% endblock %}
 {% macro fmt_toi(sec) -%}
@@ -336,6 +337,7 @@
       <div class="player-profile__skater-overview-pos">
         {{ position_ratings_meter_card(player, position_ratings_rows, heading_suffix='skater-overview') }}
       </div>
+      <div class="player-profile__skater-overview-charts">
       <section class="player-profile__card player-profile__card--meter-panel player-profile__skater-panel player-profile__skater-panel--overview">
         <h2 class="player-profile__card-title player-profile__card-title--meter">Radar Chart</h2>
         {% set radar_attrs = [
@@ -366,7 +368,7 @@
           {% set ns.summary = ns.summary + [attr.label ~ ' ' ~ (raw|string if rr_ok(raw) else 'not rated')] %}
         {% endfor %}
         <div class="player-profile__radar" role="img" aria-label="Overview radar chart: {{ ns.summary|join(', ') }}">
-          <svg class="player-profile__radar-svg" viewBox="0 0 240 240" aria-hidden="true" focusable="false">
+          <svg class="player-profile__radar-svg" viewBox="-48 -48 336 336" aria-hidden="true" focusable="false">
             {% for ring in rings %}
             <polygon class="{{ ring.class }}" points="{{ ring.points }}"></polygon>
             {% endfor %}
@@ -389,6 +391,8 @@
           {% endfor %}
         </div>
       </section>
+      {{ render_player_analytics_card(player_analytics_card) }}
+      </div>
     </div>
     <div class="player-profile__skater-ratings-five__grid">
       <section class="player-profile__card player-profile__card--meter-panel player-profile__skater-panel">
@@ -469,6 +473,7 @@
           <span class="player-profile__goalie-cat-num player-profile__goalie-cat-pill" style="{% if rating_avgs_goalie.men is not none %}{{ rating_avgs_goalie.men|attr_rating_style }}{% endif %}">{% if rating_avgs_goalie.men is not none %}{{ rating_avgs_goalie.men|round(0)|int }}{% else %}—{% endif %}</span>
         </span>
       </div>
+      <div class="player-profile__goalie-overview-charts">
       <section class="player-profile__card player-profile__card--meter-panel player-profile__goalie-radar-card">
       <h2 class="player-profile__card-title player-profile__card-title--meter">Radar Chart</h2>
       {% set goalie_radar_attrs = [
@@ -515,7 +520,7 @@
         {% set ns.summary = ns.summary + [attr.label ~ ' ' ~ (val.display|string if val.display is not none else 'not rated')] %}
       {% endfor %}
       <div class="player-profile__radar" role="img" aria-label="Goalie radar chart: {{ ns.summary|join(', ') }}">
-        <svg class="player-profile__radar-svg" viewBox="0 0 240 240" aria-hidden="true" focusable="false">
+        <svg class="player-profile__radar-svg" viewBox="-48 -48 336 336" aria-hidden="true" focusable="false">
           {% for ring in rings %}
           <polygon class="{{ ring.class }}" points="{{ ring.points }}"></polygon>
           {% endfor %}
@@ -555,6 +560,8 @@
         {% endfor %}
       </div>
     </section>
+    {{ render_player_analytics_card(player_analytics_card) }}
+    </div>
     </div>
     <div class="player-profile__goalie-ratings-grid">
     <section class="player-profile__card player-profile__card--meter-panel player-profile__goalie-ratings-goalie">
@@ -588,6 +595,10 @@
       </div>
     </section>
     </div>
+  </div>
+  {% elif not ratings_row %}
+  <div class="player-profile__analytics-card-standalone">
+    {{ render_player_analytics_card(player_analytics_card) }}
   </div>
   {% endif %}
 

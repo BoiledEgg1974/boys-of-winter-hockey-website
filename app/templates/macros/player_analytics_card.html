@@ -1,0 +1,343 @@
+{% macro player_analytics_card(card) %}
+
+{% if card and card.enabled %}
+
+<section class="player-analytics-card{% if card.is_goalie %} player-analytics-card--goalie{% endif %}" aria-label="BOWL analytics percentile card">
+
+  {% set h = card.headline %}
+
+  <header class="player-analytics-card__header">
+
+    <div class="player-analytics-card__brand">
+
+      {% if h.team_logo_url %}
+
+      <img class="player-analytics-card__team-logo" src="{{ h.team_logo_url }}" alt="">
+
+      {% endif %}
+
+      <div class="player-analytics-card__title-block" style="--pac-team-primary: {{ h.team_primary_color }}; --pac-team-secondary: {{ h.team_secondary_color }};">
+
+        <h2 class="player-analytics-card__name">{{ h.name }}</h2>
+
+        <div class="player-analytics-card__name-bar" aria-hidden="true"></div>
+
+      </div>
+
+    </div>
+
+    <div class="player-analytics-card__hero{% if not h.photo_url %} player-analytics-card__hero--no-photo{% endif %}">
+
+      {% if h.photo_url %}
+
+      <div class="player-analytics-card__photo-wrap">
+
+        <img class="player-analytics-card__photo" src="{{ h.photo_url }}" alt="">
+
+      </div>
+
+      {% endif %}
+
+      <div class="player-analytics-card__war-wrap" aria-label="Projected WAR percentile">
+
+        <span class="player-analytics-card__war-label">Proj. WAR %</span>
+
+        <div class="player-analytics-card__war-box">
+
+          <strong class="player-analytics-card__war-value">{% if h.proj_war_pct is not none %}{{ h.proj_war_pct }}%{% else %}—{% endif %}</strong>
+
+        </div>
+
+      </div>
+
+      <dl class="player-analytics-card__meta">
+
+        {% if card.is_goalie %}
+
+        <div class="player-analytics-card__meta-item"><dt>Age</dt><dd>{% if h.age is not none %}{{ h.age }}{% else %}—{% endif %}</dd></div>
+
+        <div class="player-analytics-card__meta-item"><dt>GP%</dt><dd>{% if h.gp_pct is not none %}{{ h.gp_pct }}%{% else %}—{% endif %}</dd></div>
+
+        <div class="player-analytics-card__meta-item"><dt>Role</dt><dd>{{ h.toi_role }}</dd></div>
+
+        <div class="player-analytics-card__meta-item"><dt>Cap</dt><dd>{{ h.cap_label }}</dd></div>
+
+        {% else %}
+
+        <div class="player-analytics-card__meta-item"><dt>Pos</dt><dd>{{ h.position }}</dd></div>
+
+        <div class="player-analytics-card__meta-item"><dt>Age</dt><dd>{% if h.age is not none %}{{ h.age }}{% else %}—{% endif %}</dd></div>
+
+        <div class="player-analytics-card__meta-item"><dt>TOI</dt><dd>{{ h.toi_role }}</dd></div>
+
+        <div class="player-analytics-card__meta-item"><dt>Year</dt><dd>{% if h.season_year %}{{ h.season_year }}{% else %}—{% endif %}</dd></div>
+
+        {% endif %}
+
+      </dl>
+
+    </div>
+
+  </header>
+
+
+
+  <div class="player-analytics-card__body{% if card.is_goalie %} player-analytics-card__body--goalie{% endif %}">
+
+    <div class="player-analytics-card__body-main">
+
+      <div class="player-analytics-card__grid{% if card.is_goalie %} player-analytics-card__grid--goalie{% endif %}" role="list" aria-label="Percentile metrics">
+
+        {% for cell in card.grid %}
+
+        <div class="player-analytics-card__cell player-analytics-card__cell--{{ cell.tier }}" role="listitem">
+
+          <span class="player-analytics-card__cell-label">{{ cell.label }}</span>
+
+          <strong class="player-analytics-card__cell-value">{{ cell.display }}</strong>
+
+        </div>
+
+        {% endfor %}
+
+      </div>
+
+    </div>
+
+
+
+    {% if card.charts %}
+
+    <div class="player-analytics-card__charts">
+
+      {% set war = card.charts.war %}
+
+      {% set comp = card.charts.components %}
+
+      {% if war.has_data %}
+
+      <div class="player-analytics-card__chart-wrap">
+
+        <div class="player-analytics-card__chart-title player-analytics-card__chart-title--trend">Projected WAR Percentile Rank</div>
+
+        <svg class="player-analytics-card__chart"
+
+             viewBox="0 0 {{ war.width }} {{ war.height }}"
+
+             width="100%"
+
+             height="{{ war.height }}"
+
+             role="img"
+
+             aria-label="Projected WAR percentile trend">
+
+          {% for line in war.grid_lines %}
+
+          <line class="player-analytics-card__chart-grid"
+
+                x1="{{ line.x1 }}" x2="{{ line.x2 }}" y1="{{ line.y }}" y2="{{ line.y }}"></line>
+
+          {% endfor %}
+
+          {% for lbl in war.y_labels %}
+
+          <text class="player-analytics-card__chart-y-label" x="{{ lbl.x }}" y="{{ lbl.y }}">{{ lbl.text }}</text>
+
+          {% endfor %}
+
+          {% for p in war.paths %}
+
+          <path class="player-analytics-card__chart-line {{ p.class }}"
+
+                d="{{ p.d }}"
+
+                fill="none"
+
+                stroke-width="2"
+
+                vector-effect="non-scaling-stroke"></path>
+
+          {% for dot in p.dots %}
+
+          {% if dot.highlight %}
+
+          <polygon class="player-analytics-card__chart-highlight"
+
+                   points="{{ dot.cx }},{{ dot.cy - 5 }} {{ dot.cx + 5 }},{{ dot.cy }} {{ dot.cx }},{{ dot.cy + 5 }} {{ dot.cx - 5 }},{{ dot.cy }}"></polygon>
+
+          {% endif %}
+
+          <circle class="player-analytics-card__chart-dot {{ dot.class }}"
+
+                  cx="{{ dot.cx }}" cy="{{ dot.cy }}" r="2.5"></circle>
+
+          {% endfor %}
+
+          {% endfor %}
+
+          {% for lbl in war.x_labels %}
+
+          <text class="player-analytics-card__chart-label"
+
+                x="{{ lbl.x }}" y="{{ lbl.y }}"
+
+                text-anchor="middle"
+
+                transform="rotate(-18 {{ lbl.x }} {{ lbl.y }})">{{ lbl.text }}</text>
+
+          {% endfor %}
+
+        </svg>
+
+      </div>
+
+      {% endif %}
+
+
+
+      {% if comp.has_data %}
+
+      <div class="player-analytics-card__chart-wrap">
+
+        {% if card.is_goalie %}
+
+        <div class="player-analytics-card__chart-title player-analytics-card__chart-title--trend">
+
+          <span class="player-analytics-card__chart-title-off">Save %</span>
+
+          <span> vs </span>
+
+          <span class="player-analytics-card__chart-title-fin">League Avg</span>
+
+        </div>
+
+        {% else %}
+
+        <div class="player-analytics-card__chart-title player-analytics-card__chart-title--trend">
+
+          <span class="player-analytics-card__chart-title-off">Projected Offence</span>
+
+          <span> vs </span>
+
+          <span class="player-analytics-card__chart-title-def">Defence</span>
+
+          <span> vs </span>
+
+          <span class="player-analytics-card__chart-title-fin">Finishing</span>
+
+        </div>
+
+        {% endif %}
+
+        <svg class="player-analytics-card__chart"
+
+             viewBox="0 0 {{ comp.width }} {{ comp.height }}"
+
+             width="100%"
+
+             height="{{ comp.height }}"
+
+             role="img"
+
+             aria-label="{% if card.is_goalie %}Save percentage vs league average{% else %}Projected offence defence and finishing percentile trends{% endif %}">
+
+          {% for line in comp.grid_lines %}
+
+          <line class="player-analytics-card__chart-grid"
+
+                x1="{{ line.x1 }}" x2="{{ line.x2 }}" y1="{{ line.y }}" y2="{{ line.y }}"></line>
+
+          {% endfor %}
+
+          {% for lbl in comp.y_labels %}
+
+          <text class="player-analytics-card__chart-y-label" x="{{ lbl.x }}" y="{{ lbl.y }}">{{ lbl.text }}</text>
+
+          {% endfor %}
+
+          {% for p in comp.paths %}
+
+          <path class="player-analytics-card__chart-line {{ p.class }}"
+
+                d="{{ p.d }}"
+
+                fill="none"
+
+                stroke-width="2"
+
+                {% if p.stroke_dasharray %}stroke-dasharray="{{ p.stroke_dasharray }}"{% endif %}
+
+                vector-effect="non-scaling-stroke"></path>
+
+          {% for dot in p.dots %}
+
+          {% if dot.highlight %}
+
+          <polygon class="player-analytics-card__chart-highlight"
+
+                   points="{{ dot.cx }},{{ dot.cy - 5 }} {{ dot.cx + 5 }},{{ dot.cy }} {{ dot.cx }},{{ dot.cy + 5 }} {{ dot.cx - 5 }},{{ dot.cy }}"></polygon>
+
+          {% endif %}
+
+          <circle class="player-analytics-card__chart-dot {{ dot.class }}"
+
+                  cx="{{ dot.cx }}" cy="{{ dot.cy }}" r="2.5"></circle>
+
+          {% endfor %}
+
+          {% endfor %}
+
+          {% for lbl in comp.x_labels %}
+
+          <text class="player-analytics-card__chart-label"
+
+                x="{{ lbl.x }}" y="{{ lbl.y }}"
+
+                text-anchor="middle"
+
+                transform="rotate(-18 {{ lbl.x }} {{ lbl.y }})">{{ lbl.text }}</text>
+
+          {% endfor %}
+
+        </svg>
+
+      </div>
+
+      {% endif %}
+
+      {% if not war.has_data and not comp.has_data %}
+
+      <div class="player-analytics-card__charts-empty" role="note">
+
+        {% if card.is_goalie %}
+
+        Trend charts appear here with two or more seasons of qualified goalie stats: Proj. WAR percentile rank and Save % vs league average.
+
+        {% else %}
+
+        Trend charts appear here with two or more seasons of qualified skater stats.
+
+        {% endif %}
+
+      </div>
+
+      {% endif %}
+
+    </div>
+
+    {% endif %}
+
+  </div>
+
+
+
+  <footer class="player-analytics-card__footnote">{{ card.footnote }}</footer>
+
+</section>
+
+{% endif %}
+
+{% endmacro %}
+
+

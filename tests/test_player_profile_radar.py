@@ -13,10 +13,14 @@ class PlayerProfileRadarTest(unittest.TestCase):
 
         self.assertIn("Radar Chart", template)
         self.assertIn("player-profile__radar-svg", template)
+        self.assertIn('viewBox="-48 -48 336 336"', template)
         self.assertIn("player-profile__radar-player", template)
         self.assertIn("player-profile__radar-values", template)
         for key in ("skating", "shooting", "playmaking", "hockey_sense"):
             self.assertIn(f"'key':'{key}'", template)
+        self.assertIn(".player-profile__radar-value-label", css)
+        label_block = css[css.find(".player-profile__radar-value-label"):css.find(".player-profile__radar-value-num")]
+        self.assertNotIn("text-overflow: ellipsis", label_block)
         for class_name in (
             ".player-profile__radar-ring--outer",
             ".player-profile__radar-ring--high",
@@ -86,6 +90,7 @@ class PlayerProfileRadarTest(unittest.TestCase):
             self.assertIn(key, template)
         self.assertIn(".player-profile__goalie-radar-card", css)
         self.assertIn(".player-profile__goalie-overview-row", css)
+        self.assertIn("grid-template-columns: minmax(148px, 168px) minmax(0, 1fr)", css)
         self.assertIn(".player-profile__goalie-ratings-grid", css)
 
 

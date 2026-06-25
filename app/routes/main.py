@@ -5026,6 +5026,34 @@ def player_page(player_id: int):
         if _proc_season
         else None
     )
+    from app.logo_urls import team_logo_url_for_team
+    from app.services.player_headshot import resolve_player_headshot_static_filename
+    from app.services.player_percentiles import build_player_analytics_card
+
+    _card_team = accent_team or current_team
+    _static_root = Path(current_app.root_path) / (current_app.static_folder or "static")
+    _headshot_rel = resolve_player_headshot_static_filename(
+        _static_root,
+        player,
+        current_app.config.get("PLAYER_HEADSHOTS_REL_DIR", "players"),
+    )
+    _photo_url = url_for("static", filename=_headshot_rel) if _headshot_rel else None
+    player_analytics_card = build_player_analytics_card(
+        db.session,
+        player,
+        season,
+        is_goalie=is_goalie,
+        ratings_row=ratings_row,
+        contract=contract,
+        player_age=player_age,
+        role_title=player_analytics.get("role_title") if player_analytics.get("enabled") else None,
+        team=_card_team,
+        years_left=contract_years_left if not player.retired else None,
+        photo_url=_photo_url,
+        team_logo_url=team_logo_url_for_team(_card_team) if _card_team else None,
+        raw_dir=raw_dir,
+        retired=bool(player.retired),
+    )
     return render_template(
         "player.html",
         player=player,
@@ -5068,6 +5096,7 @@ def player_page(player_id: int):
         player_analytics=player_analytics,
         player_development=player_development,
         player_process_stats=player_process_stats,
+        player_analytics_card=player_analytics_card,
         can_manage_player_boost=has_admin_role(
             current_user, ADMIN_ROLE_SUPER, ADMIN_ROLE_LEAGUE, ADMIN_ROLE_STATS
         ),

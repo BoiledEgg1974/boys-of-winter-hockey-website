@@ -45,6 +45,29 @@ SQLite allows only one writer at a time. On PythonAnywhere (or any host where th
 3. Run **one league at a time** (`bowl-cap`, then `bowl-historical`, etc.)—each uses a different database file, but step 1 still matters per league.
 4. Optionally raise `SQLITE_BUSY_TIMEOUT_SECONDS` (default 30) in the environment if imports are slow.
 
+### `database disk image is malformed`
+
+This means a league SQLite file (`instance/bowl-cap.db`, etc.) was corrupted—often from importing while web workers still had the DB open, or from copying the file while WAL sidecars (`.db-wal` / `.db-shm`) were active.
+
+1. **Reload the web app** on PythonAnywhere (Web → Reload).
+2. **Pause the Discord bot** if it is running.
+3. From the project root on the server:
+
+```bash
+python scripts/repair_league_sqlite.py --check
+python scripts/repair_league_sqlite.py --repair
+```
+
+To target one league: `--league bowl-cap`. The script backs up the bad file as `*.corrupt-<timestamp>.bak` before rebuilding.
+
+If integrity passes but post-import logs still mention `player_rating_snapshots`, you can drop only that derived table:
+
+```bash
+python scripts/repair_league_sqlite.py --reset-snapshots --league bowl-cap
+```
+
+Then re-run the import for that league. Player development trend charts rebuild from the next import onward; older snapshot history may be lost after a full `--repair`.
+
 **BOWL Six** scoring runs automatically after each import (and when commissioners or GMs open the Control Center or BOWL Six hub): locked slates pick up points from completed RS games; when every RS game in the week is final, the slate finalizes (AP + GM notifications). If box scores change after a week is already scored, use **Re-score slate** in Control Center (type `RESCORE` to confirm).
 
 ## Copy from FHM saved-game folders (Windows)

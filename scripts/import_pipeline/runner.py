@@ -1205,6 +1205,22 @@ def run_import(raw_dir: Path | None = None) -> None:
             "SQLite import: pause or reload the league web app on PythonAnywhere if you see "
             "'database is locked' (live workers hold read transactions during long writes)."
         )
+        from app.config import resolve_league_sqlite_path
+        from app.db_utils import sqlite_integrity_message, sqlite_wal_checkpoint
+
+        db_path = resolve_league_sqlite_path(slug)
+        sqlite_wal_checkpoint(db_path)
+        integrity = sqlite_integrity_message(db_path)
+        if integrity.lower() != "ok":
+            log.error(
+                "SQLite integrity_check failed for %s: %s. "
+                "Reload the web app (and pause the Discord bot), then run: "
+                "python scripts/repair_league_sqlite.py --repair --league %s",
+                db_path,
+                integrity,
+                slug,
+            )
+            return
     if not raw.is_dir():
         log.error("Raw import directory does not exist: %s", raw)
         return

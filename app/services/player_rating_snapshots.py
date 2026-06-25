@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from sqlalchemy import select
+from sqlalchemy.exc import DatabaseError
 from sqlalchemy.orm import Session
 
 from app.models import Player, PlayerRatingSnapshot, db
@@ -132,6 +133,23 @@ def record_player_rating_snapshots_for_league(session: Session, league_slug: str
     slug = (league_slug or "").strip()
     if not slug:
         return 0
+    try:
+        return _record_player_rating_snapshots_for_league_impl(session, slug)
+    except DatabaseError as exc:
+        if "malformed" not in str(exc).lower():
+            raise
+        _log.warning(
+            "player_rating_snapshots table corrupt for %s; resetting derived table and retrying once",
+            slug,
+        )
+        from app.db_utils import reset_player_rating_snapshots_sqlite
+
+        session.rollback()
+        reset_player_rating_snapshots_sqlite(session.get_bind())
+        return _record_player_rating_snapshots_for_league_impl(session, slug)
+
+
+def _record_player_rating_snapshots_for_league_impl(session: Session, slug: str) -> int:
     players = session.scalars(
         select(Player).where(Player.fhm_player_id.isnot(None), Player.fhm_player_id != "")
     ).all()

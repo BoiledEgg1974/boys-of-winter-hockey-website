@@ -1,7 +1,12 @@
 """SQLite FTS5 helpers and post-migration setup."""
 from __future__ import annotations
 
+import shutil
+import sqlite3
+import subprocess
 import time
+from datetime import datetime, timezone
+from pathlib import Path
 
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
@@ -215,6 +220,146 @@ def ensure_player_overall_baseline_sqlite(engine: Engine) -> None:
             )
         )
         conn.commit()
+
+
+def sqlite_wal_checkpoint(path: Path) -> None:
+    """Merge WAL sidecar files into the main database (best-effort)."""
+    db_path = Path(path).resolve()
+    if not db_path.is_file():
+        return
+    conn = sqlite3.connect(str(db_path), timeout=30.0)
+    try:
+        conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def sqlite_integrity_message(path: Path) -> str:
+    """Return ``ok`` or the first integrity-check failure line."""
+    db_path = Path(path).resolve()
+    if not db_path.is_file():
+        return "missing"
+    try:
+        conn = sqlite3.connect(f"file:{db_path.as_posix()}?mode=ro", uri=True, timeout=30.0)
+    except sqlite3.Error:
+        conn = sqlite3.connect(str(db_path), timeout=30.0)
+    try:
+        row = conn.execute("PRAGMA integrity_check").fetchone()
+        msg = str(row[0] if row else "").strip()
+        return msg or "unknown"
+    except sqlite3.DatabaseError as exc:
+        return str(exc)
+    finally:
+        conn.close()
+
+
+def sqlite_is_healthy(path: Path) -> bool:
+    return sqlite_integrity_message(path).lower() == "ok"
+
+
+def reset_player_rating_snapshots_sqlite(engine: Engine) -> None:
+    """Drop and recreate player_rating_snapshots (derived trend data; safe to rebuild)."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        conn.execute(text("DROP TABLE IF EXISTS player_rating_snapshots"))
+        conn.commit()
+    ensure_player_rating_snapshots_sqlite(engine)
+
+
+def _sqlite_backup(path: Path) -> Path:
+    db_path = Path(path).resolve()
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    backup = db_path.with_name(f"{db_path.name}.corrupt-{stamp}.bak")
+    shutil.copy2(db_path, backup)
+    for suffix in ("-wal", "-shm"):
+        sidecar = Path(str(db_path) + suffix)
+        if sidecar.is_file():
+            shutil.copy2(sidecar, Path(str(backup) + suffix))
+    return backup
+
+
+def _sqlite_recover_via_cli(src: Path, dst: Path) -> None:
+    recover = subprocess.run(
+        ["sqlite3", str(src), ".recover"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if recover.returncode != 0:
+        raise RuntimeError(
+            f"sqlite3 .recover failed ({recover.returncode}): "
+            f"{(recover.stderr or recover.stdout or '').strip()}"
+        )
+    sql = recover.stdout.strip()
+    if not sql:
+        raise RuntimeError("sqlite3 .recover produced no SQL")
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    if dst.is_file():
+        dst.unlink()
+    load = subprocess.run(
+        ["sqlite3", str(dst)],
+        input=sql,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if load.returncode != 0:
+        raise RuntimeError(
+            f"sqlite3 load of recovered SQL failed ({load.returncode}): "
+            f"{(load.stderr or load.stdout or '').strip()}"
+        )
+
+
+def _sqlite_recover_via_dump(src: Path, dst: Path) -> None:
+    src_conn = sqlite3.connect(str(src), timeout=30.0)
+    dst_conn = sqlite3.connect(str(dst), timeout=30.0)
+    try:
+        for line in src_conn.iterdump():
+            dst_conn.execute(line)
+        dst_conn.commit()
+    finally:
+        src_conn.close()
+        dst_conn.close()
+
+
+def recover_sqlite_database(path: Path) -> Path:
+    """Backup a corrupt DB, rebuild into a temp file, verify, and replace the original."""
+    db_path = Path(path).resolve()
+    if not db_path.is_file():
+        raise FileNotFoundError(db_path)
+    sqlite_wal_checkpoint(db_path)
+    backup = _sqlite_backup(db_path)
+    rebuilt = db_path.with_suffix(db_path.suffix + ".rebuilt")
+    if rebuilt.is_file():
+        rebuilt.unlink()
+    errors: list[str] = []
+    try:
+        _sqlite_recover_via_dump(db_path, rebuilt)
+    except sqlite3.DatabaseError as exc:
+        errors.append(f"iterdump: {exc}")
+        if rebuilt.is_file():
+            rebuilt.unlink()
+        try:
+            _sqlite_recover_via_cli(db_path, rebuilt)
+        except (RuntimeError, OSError) as exc2:
+            errors.append(f"recover: {exc2}")
+            raise RuntimeError(
+                f"Could not rebuild {db_path.name}; backup at {backup.name}. "
+                + "; ".join(errors)
+            ) from exc2
+    if not sqlite_is_healthy(rebuilt):
+        raise RuntimeError(
+            f"Rebuilt {rebuilt.name} still fails integrity_check; backup at {backup.name}"
+        )
+    db_path.unlink(missing_ok=True)
+    rebuilt.replace(db_path)
+    for suffix in ("-wal", "-shm"):
+        sidecar = Path(str(db_path) + suffix)
+        if sidecar.is_file():
+            sidecar.unlink()
+    return backup
 
 
 def ensure_player_rating_snapshots_sqlite(engine: Engine) -> None:

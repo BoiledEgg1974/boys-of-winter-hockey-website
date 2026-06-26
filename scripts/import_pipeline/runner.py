@@ -18,7 +18,7 @@ if str(ROOT) not in sys.path:
 from sqlalchemy import delete, or_, select  # noqa: E402
 
 from app import create_app  # noqa: E402
-from app.config import Config, league_by_slug, make_league_config  # noqa: E402
+from app.config import Config, league_by_slug, make_league_config, resolve_league_sqlite_path  # noqa: E402
 from app.models import (  # noqa: E402
     Draft,
     DraftPick,
@@ -1177,7 +1177,7 @@ STEPS = [
 ]
 
 
-def run_import(raw_dir: Path | None = None) -> None:
+def run_import(raw_dir: Path | None = None, *, repair_sqlite: bool = False) -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     slug = (os.environ.get("LEAGUE_SLUG") or "").strip()
     if not slug:
@@ -1185,9 +1185,39 @@ def run_import(raw_dir: Path | None = None) -> None:
             "LEAGUE_SLUG is not set. Run: python scripts/import_data.py bowl-cap "
             "(or set LEAGUE_SLUG before calling run_import)."
         )
-        return
+        return 1
+
+    auto_repair = repair_sqlite or os.environ.get(
+        "SQLITE_AUTO_REPAIR_ON_IMPORT", ""
+    ).strip().lower() in ("1", "true", "yes")
+    config_cls = make_league_config(slug) if league_by_slug(slug) else Config
+    db_uri = str(getattr(config_cls, "SQLALCHEMY_DATABASE_URI", None) or "")
+    if db_uri.startswith("sqlite:///"):
+        log.info(
+            "SQLite import: pause or reload the league web app on PythonAnywhere if you see "
+            "'database is locked' (live workers hold read transactions during long writes)."
+        )
+        from app.db_utils import prepare_sqlite_database
+
+        db_path = resolve_league_sqlite_path(slug)
+        healthy, integrity = prepare_sqlite_database(db_path, auto_repair=auto_repair)
+        if not healthy:
+            log.error(
+                "SQLite integrity_check failed for %s: %s. "
+                "Reload the web app (and pause the Discord bot), then run: "
+                "python scripts/repair_league_sqlite.py --repair --league %s"
+                "%s",
+                db_path,
+                integrity,
+                slug,
+                " (or re-run import with --repair-sqlite)" if not auto_repair else "",
+            )
+            return 1
+        if integrity != "ok":
+            log.info("SQLite database repaired before import: %s", integrity)
+
     if league_by_slug(slug):
-        app = create_app(make_league_config(slug))
+        app = create_app(config_cls)
         log.info("Import using league slug %r (DB + static paths match mounted app).", slug)
     else:
         log.warning("LEAGUE_SLUG %r is not in LEAGUES registry; using default Config.", slug)
@@ -1200,30 +1230,9 @@ def run_import(raw_dir: Path | None = None) -> None:
         db_uri,
         raw.resolve(),
     )
-    if db_uri.startswith("sqlite:///"):
-        log.info(
-            "SQLite import: pause or reload the league web app on PythonAnywhere if you see "
-            "'database is locked' (live workers hold read transactions during long writes)."
-        )
-        from app.config import resolve_league_sqlite_path
-        from app.db_utils import sqlite_integrity_message, sqlite_wal_checkpoint
-
-        db_path = resolve_league_sqlite_path(slug)
-        sqlite_wal_checkpoint(db_path)
-        integrity = sqlite_integrity_message(db_path)
-        if integrity.lower() != "ok":
-            log.error(
-                "SQLite integrity_check failed for %s: %s. "
-                "Reload the web app (and pause the Discord bot), then run: "
-                "python scripts/repair_league_sqlite.py --repair --league %s",
-                db_path,
-                integrity,
-                slug,
-            )
-            return
     if not raw.is_dir():
         log.error("Raw import directory does not exist: %s", raw)
-        return
+        return 1
     _sync_team_logos_from_raw(raw, app)
     with app.app_context():
         snapshot_overall_baselines_before_import(app)
@@ -1285,7 +1294,7 @@ def run_import(raw_dir: Path | None = None) -> None:
             refresh_after_import(db.engine, app)
             _run_post_import_safeguards()
             log.info("FHM import finished. Counts: %s", counts if ilog.status == "success" else {})
-            return
+            return 0 if ilog.status == "success" else 1
 
         total = 0
         for name, fn in STEPS:
@@ -1308,9 +1317,10 @@ def run_import(raw_dir: Path | None = None) -> None:
         refresh_after_import(db.engine, app)
         _run_post_import_safeguards()
         log.info("Import finished. Total row operations (approx): %s", total)
+    return 0
 
 
 if __name__ == "__main__":
     if len(sys.argv) >= 2 and (os.environ.get("LEAGUE_SLUG") or "").strip() == "":
         os.environ["LEAGUE_SLUG"] = sys.argv[1].strip()
-    run_import()
+    raise SystemExit(run_import())

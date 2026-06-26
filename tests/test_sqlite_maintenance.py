@@ -8,6 +8,7 @@ from pathlib import Path
 from sqlalchemy import create_engine, text
 
 from app.db_utils import (
+    prepare_sqlite_database,
     reset_player_rating_snapshots_sqlite,
     sqlite_integrity_message,
     sqlite_is_healthy,
@@ -48,6 +49,30 @@ class SqliteMaintenanceTest(unittest.TestCase):
         self.assertIn("ability", cols)
         self.assertIn("overall_score", cols)
 
+    def test_prepare_sqlite_database_ok_without_repair(self) -> None:
+        db_path = Path(self._fresh_db())
+        healthy, msg = prepare_sqlite_database(db_path, auto_repair=False)
+        self.assertTrue(healthy)
+        self.assertEqual(msg, "ok")
+
+    def test_prepare_sqlite_database_reports_unhealthy_without_repair(self) -> None:
+        db_path = Path(self._fresh_db())
+        with sqlite3.connect(str(db_path)) as conn:
+            conn.execute("CREATE TABLE corrupt_probe (id INTEGER PRIMARY KEY, v TEXT)")
+            conn.executemany(
+                "INSERT INTO corrupt_probe (v) VALUES (?)",
+                [(f"row-{i}",) for i in range(200)],
+            )
+            conn.commit()
+        size = db_path.stat().st_size
+        with db_path.open("r+b") as fh:
+            fh.seek(max(0, size - 4096))
+            fh.write(b"\x00" * 512)
+        self.assertFalse(sqlite_is_healthy(db_path))
+        healthy, msg = prepare_sqlite_database(db_path, auto_repair=False)
+        self.assertFalse(healthy)
+        self.assertNotEqual(msg.lower(), "ok")
+
     def _fresh_db(self) -> str:
         import tempfile
 
@@ -59,7 +84,16 @@ class SqliteMaintenanceTest(unittest.TestCase):
         conn.execute("CREATE TABLE teams (id INTEGER PRIMARY KEY)")
         conn.commit()
         conn.close()
-        self.addCleanup(lambda: Path(name).unlink(missing_ok=True))
+        db_path = Path(name)
+
+        def _cleanup() -> None:
+            for path in (db_path, Path(f"{name}-wal"), Path(f"{name}-shm")):
+                try:
+                    path.unlink(missing_ok=True)
+                except OSError:
+                    pass
+
+        self.addCleanup(_cleanup)
         return name
 
 

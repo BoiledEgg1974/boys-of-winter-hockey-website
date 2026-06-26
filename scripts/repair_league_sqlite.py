@@ -27,6 +27,7 @@ from app.config import (  # noqa: E402
     resolve_site_sqlite_path,
 )
 from app.db_utils import (  # noqa: E402
+    prepare_sqlite_database,
     recover_sqlite_database,
     reset_player_rating_snapshots_sqlite,
     sqlite_integrity_message,
@@ -110,9 +111,7 @@ def main() -> int:
     for label, path in paths:
         print(f"\n=== {label} ===")
         print(f"  path: {path}")
-        sqlite_wal_checkpoint(path)
-        msg = sqlite_integrity_message(path)
-        healthy = msg.lower() == "ok"
+        healthy, msg = prepare_sqlite_database(path, auto_repair=False)
         print(f"  integrity_check: {msg}")
         if healthy and not args.repair and not args.reset_snapshots:
             continue
@@ -122,8 +121,9 @@ def main() -> int:
             print("  resetting player_rating_snapshots …")
             _reset_snapshots(path)
             msg = sqlite_integrity_message(path)
+            healthy = msg.lower() == "ok"
             print(f"  integrity_check after snapshot reset: {msg}")
-            if msg.lower() != "ok":
+            if not healthy:
                 exit_code = 1
         if args.repair and not healthy:
             print("  repairing database (backup + rebuild) …")

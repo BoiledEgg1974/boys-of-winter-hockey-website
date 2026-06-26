@@ -21,7 +21,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from app import create_app
-from app.config import make_league_config
+from app.config import make_league_config, resolve_league_sqlite_path
+from app.db_utils import prepare_sqlite_database
 from scripts.import_pipeline.runner import (
     _history_awards_csv_path,
     import_history_all_stars,
@@ -57,6 +58,29 @@ def main() -> None:
     slug = (os.environ.get("LEAGUE_SLUG") or "").strip()
     if not slug:
         ap.error("missing league: pass bowl-cap / bowl-fantasy / bowl-historical or set LEAGUE_SLUG.")
+    auto_repair = os.environ.get("SQLITE_AUTO_REPAIR_ON_IMPORT", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+    db_path = resolve_league_sqlite_path(slug)
+    healthy, integrity = prepare_sqlite_database(db_path, auto_repair=auto_repair)
+    if not healthy:
+        print(
+            f"ERROR: SQLite integrity_check failed for {db_path}: {integrity}",
+            file=sys.stderr,
+        )
+        print(
+            "Reload the web app (and pause the Discord bot), then run:",
+            file=sys.stderr,
+        )
+        print(
+            f"  python scripts/repair_league_sqlite.py --repair --league {slug}",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+    if integrity != "ok":
+        print(f"SQLite database repaired before history reimport: {integrity}")
     app = create_app(make_league_config(slug))
     with app.app_context():
         raw = Path(str(app.config["RAW_IMPORT_DIR"]))

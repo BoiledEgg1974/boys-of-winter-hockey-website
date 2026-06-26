@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import sqlite3
 
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
@@ -23,7 +24,11 @@ def install_sqlite_connect_pragmas() -> None:
             return
         cur = dbapi_conn.cursor()
         try:
-            cur.execute("PRAGMA journal_mode=WAL")
+            try:
+                cur.execute("PRAGMA journal_mode=WAL")
+            except sqlite3.OperationalError:
+                # Corrupt or read-only DB — avoid failing every connection open.
+                pass
             cur.execute("PRAGMA synchronous=NORMAL")
             cur.execute(f"PRAGMA busy_timeout={_BUSY_TIMEOUT_MS}")
         finally:

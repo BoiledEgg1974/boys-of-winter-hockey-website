@@ -362,6 +362,25 @@ def recover_sqlite_database(path: Path) -> Path:
     return backup
 
 
+def prepare_sqlite_database(path: Path, *, auto_repair: bool = False) -> tuple[bool, str]:
+    """Checkpoint WAL, verify integrity, and optionally rebuild a corrupt database."""
+    db_path = Path(path).resolve()
+    sqlite_wal_checkpoint(db_path)
+    msg = sqlite_integrity_message(db_path)
+    if msg.lower() == "ok":
+        return True, msg
+    if not auto_repair or not db_path.is_file():
+        return False, msg
+    try:
+        backup = recover_sqlite_database(db_path)
+        msg = sqlite_integrity_message(db_path)
+        if msg.lower() == "ok":
+            return True, f"repaired (backup {backup.name})"
+        return False, msg
+    except Exception as exc:
+        return False, str(exc)
+
+
 def ensure_player_rating_snapshots_sqlite(engine: Engine) -> None:
     """Create player_rating_snapshots for development panel trend lines (SQLite)."""
     if engine.dialect.name != "sqlite":

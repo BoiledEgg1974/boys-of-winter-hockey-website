@@ -45,9 +45,9 @@ SQLite allows only one writer at a time. On PythonAnywhere (or any host where th
 3. Run **one league at a time** (`bowl-cap`, then `bowl-historical`, etc.)—each uses a different database file, but step 1 still matters per league.
 4. Optionally raise `SQLITE_BUSY_TIMEOUT_SECONDS` (default 30) in the environment if imports are slow.
 
-### `database disk image is malformed`
+### `database disk image is malformed` / `Page N is never used`
 
-This means a league SQLite file (`instance/bowl-cap.db`, etc.) was corrupted—often from importing while web workers still had the DB open, or from copying the file while WAL sidecars (`.db-wal` / `.db-shm`) were active.
+This means a league SQLite file (`instance/bowl-cap.db`, etc.) was corrupted—often from importing while web workers still had the DB open, from copying the file while WAL sidecars (`.db-wal` / `.db-shm`) were active, or from an interrupted import. The `Page … is never used` lines are SQLite freelist damage; treat them the same as a malformed image.
 
 1. **Reload the web app** on PythonAnywhere (Web → Reload).
 2. **Pause the Discord bot** if it is running.
@@ -55,10 +55,16 @@ This means a league SQLite file (`instance/bowl-cap.db`, etc.) was corrupted—o
 
 ```bash
 python scripts/repair_league_sqlite.py --check
-python scripts/repair_league_sqlite.py --repair
+python scripts/repair_league_sqlite.py --repair --league bowl-cap
 ```
 
-To target one league: `--league bowl-cap`. The script backs up the bad file as `*.corrupt-<timestamp>.bak` before rebuilding.
+Or re-run import with automatic repair (backs up first):
+
+```bash
+python scripts/import_data.py bowl-cap --repair-sqlite
+```
+
+To target all leagues: `python scripts/repair_league_sqlite.py --repair`. The script backs up the bad file as `*.corrupt-<timestamp>.bak` before rebuilding.
 
 If integrity passes but post-import logs still mention `player_rating_snapshots`, you can drop only that derived table:
 

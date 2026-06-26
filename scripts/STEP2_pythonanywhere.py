@@ -503,7 +503,7 @@ def build_import_and_reload_script(
         parts.append(f"{py} -m pip install --upgrade -r {req}")
     for slug in slugs:
         parts.append(f"export LEAGUE_SLUG={shlex.quote(slug)}")
-        parts.append(f"{py} {imp}")
+        parts.append(f"{py} {imp} {shlex.quote(slug)} --repair-sqlite")
         parts.append(
             f"if test -f {shlex.quote(sheet_rel)}; then {py} {shlex.quote(sheet_rel)} {shlex.quote(slug)}; "
             f"else echo {shlex.quote('WARN: missing ' + sheet_rel + ' — git pull on server or upgrade repo')}; fi"

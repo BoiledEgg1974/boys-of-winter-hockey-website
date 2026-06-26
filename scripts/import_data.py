@@ -24,7 +24,7 @@ if str(ROOT) not in sys.path:
 from scripts.import_pipeline.runner import run_import  # noqa: E402
 
 
-def _parse_args() -> None:
+def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument(
         "league_positional",
@@ -40,6 +40,14 @@ def _parse_args() -> None:
         default="",
         help="Same as positional LEAGUE (optional alternative)",
     )
+    p.add_argument(
+        "--repair-sqlite",
+        action="store_true",
+        help=(
+            "Rebuild the league SQLite file when integrity_check fails before import "
+            "(backs up first). Also enabled when SQLITE_AUTO_REPAIR_ON_IMPORT=1."
+        ),
+    )
     args = p.parse_args()
     chosen = (args.league_flag or args.league_positional or "").strip()
     if chosen:
@@ -49,8 +57,9 @@ def _parse_args() -> None:
             "missing league: pass bowl-cap / bowl-fantasy / bowl-historical, "
             "or set LEAGUE_SLUG before running (see scripts/import_cap.cmd)."
         )
+    return args
 
 
 if __name__ == "__main__":
-    _parse_args()
-    run_import()
+    args = _parse_args()
+    raise SystemExit(run_import(repair_sqlite=args.repair_sqlite))

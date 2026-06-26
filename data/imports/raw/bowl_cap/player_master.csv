@@ -5445,7 +5445,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 13120;223;221;Jason;Wiemer;;73;225;1976-4-14;Logan Lake;BC;Canada;;;0;Left;0
 13121;19;19;Clarke;Wilm;;72;202;1976-10-24;Redvers;SK;Canada;;;0;Left;0
 13122;26;26;Jamie;Wright;;72;198;1976-5-13;Kitchener;ON;Canada;;;0;Left;0
-13123;57;16;Richard;Zednik;;72;200;1976-1-6;Banska Bystrica;BAN;Czech Republic;;;0;Left;0
+13123;16;16;Richard;Zednik;;72;200;1976-1-6;Banska Bystrica;BAN;Czech Republic;;;0;Left;1
 13124;71;20;Dwayne;Zinger;;76;220;1976-7-5;Irma;AB;Canada;;;0;Left;0
 13125;14;14;Mike;Martin;;74;205;1976-10-27;Stratford;ON;Canada;;;0;Right;0
 13126;186;186;Calvin;Elfring;;72;185;1976-4-23;Manning;AB;Canada;;;0;Left;0
@@ -7148,7 +7148,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 15078;16;16;Michael;Ryder;;72;201;1980-3-31;Stephenville;NL;Canada;;;0;Right;1
 15079;75;24;Philippe;Sauvé;;72;188;1980-2-27;Chittenango;NY;The United States;Canada;;0;Left;1
 15080;54;3;Rastislav;Stana;;74;198;1980-1-10;Kosice;KOS;Slovakia;;;0;Left;1
-15081;57;16;Patrik;Stefan;;74;200;1980-9-16;Pribram;STR;Czech Republic;;;0;Left;0
+15081;16;16;Patrik;Stefan;;74;200;1980-9-16;Pribram;STR;Czech Republic;;;0;Left;1
 15082;179;179;Garret;Stroshein;;79;245;1980-4-4;Elk Point;AB;Canada;;;0;Right;0
 15083;158;158;Petr;Svoboda;;75;200;1980-6-20;Jihlava;VYS;Czech Republic;;;0;Right;0
 15084;185;185;David;Tanabe;;73;212;1980-7-19;Oak Park Heights;MN;The United States;;;0;Right;0

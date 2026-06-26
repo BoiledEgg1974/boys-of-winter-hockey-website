@@ -364,6 +364,26 @@ def create_app(config_class: type = Config) -> Flask:
             return Markup("")
         return linkify_news_body(db.session, str(body))
 
+    @app.template_filter("team_stat_rate")
+    def team_stat_rate_filter(value: object, gp: object, rate: str = "raw") -> float | int | None:
+        from app.services.team_statistics import format_rate_value
+
+        if value is None:
+            return None
+        gp_i = int(gp) if gp is not None else None
+        try:
+            num = float(value)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            return None
+        out = format_rate_value("gf", num, gp=gp_i, rate=rate or "raw")
+        if out is None:
+            return None
+        if rate == "raw":
+            if abs(num - round(num)) < 1e-9:
+                return int(round(num))
+            return num
+        return out
+
     @app.context_processor
     def inject_layout():
         from app.services.draft_history import draft_pick_current_team_view

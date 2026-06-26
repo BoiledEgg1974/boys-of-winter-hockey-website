@@ -159,7 +159,6 @@ from app.services.standings import (
     conferences_for_season,
     divisions_for_season,
     standings_for_season,
-    team_aggregate_rows,
 )
 from app.services.postseason_odds import build_team_page_mc_bundle
 from app.services.draft_hub_eligibility import (
@@ -629,8 +628,6 @@ def standings():
             conference=None,
             division=None,
         )
-    team_stat_rows_rs = team_aggregate_rows(season, rows, "rs")
-
     # Some league exports leave TeamStanding.conference empty but populate team.fhm_conference_id.
     # Add a display fallback so CONF / DIV shows conference names for Relegation/Cap.
     conf_ids = sorted(
@@ -786,7 +783,6 @@ def standings():
         standings=rows,
         standings_ctx=standings_ctx,
         power_ranking_rows=power_ranking_rows,
-        team_stat_rows_rs=team_stat_rows_rs,
         standings_trend_chart=standings_trend_chart,
         view=view,
         conferences=conferences,
@@ -820,6 +816,131 @@ def team_reports_page():
         categories=team_report_categories(),
         report_rows=build_team_report_rows(db.session),
         format_team_report_display=format_team_report_display,
+    )
+
+
+@main_bp.get("/team-statistics")
+def team_statistics_page():
+    """League-wide team statistics dashboard with interactive charts and filters."""
+    from app.services.team_statistics import (
+        TABLE_COLUMNS,
+        build_team_statistics_chart_archive,
+        build_team_statistics_page_payload,
+    )
+
+    canonical_season = get_current_season()
+    season = (
+        season_with_imported_data_fallback(db.session, canonical_season)
+        if canonical_season
+        else None
+    )
+    if not season:
+        relegation_ctx = _relegation_template_context("main.team_statistics_page")
+        return render_template(
+            "team_statistics.html",
+            season=None,
+            canonical_season=canonical_season,
+            page_payload={"table_rows": [], "card_rows": [], "columns": TABLE_COLUMNS},
+            chart_archive={"metrics": [], "seasons": [], "datasets": {}},
+            view="analytics",
+            segment="rs",
+            strength="all",
+            rate="raw",
+            colnames="abbr",
+            text_size="normal",
+            selected_team_slugs=[],
+            selected_columns=[c["key"] for c in TABLE_COLUMNS],
+            visible_columns=TABLE_COLUMNS,
+            **relegation_ctx,
+        )
+
+    season_id_arg = request.args.get("season_id", type=int)
+    if season_id_arg:
+        picked = db.session.get(Season, season_id_arg)
+        if picked:
+            season = picked
+
+    segment = (request.args.get("segment") or "rs").strip().lower()
+    if segment not in ("rs", "ps", "po"):
+        segment = "rs"
+    strength = (request.args.get("strength") or "all").strip().lower()
+    if strength not in ("all", "ev", "pp", "pk", "other"):
+        strength = "all"
+    rate = (request.args.get("rate") or "raw").strip().lower()
+    if rate not in ("raw", "per_game", "per_60", "per_82"):
+        rate = "raw"
+    view = (request.args.get("view") or "analytics").strip().lower()
+    if view not in ("analytics", "standings"):
+        view = "analytics"
+    colnames = (request.args.get("colnames") or "abbr").strip().lower()
+    if colnames not in ("abbr", "full"):
+        colnames = "abbr"
+    text_size = (request.args.get("text") or "normal").strip().lower()
+    if text_size not in ("normal", "xl"):
+        text_size = "normal"
+
+    teams_raw = request.args.get("teams") or ""
+    selected_team_slugs = request.args.getlist("teams")
+    if not selected_team_slugs and teams_raw:
+        selected_team_slugs = [s.strip() for s in teams_raw.split(",") if s.strip()]
+
+    columns_list = request.args.getlist("columns")
+    default_column_keys = [c["key"] for c in TABLE_COLUMNS if c["key"] != "team"]
+    selected_columns = columns_list if columns_list else default_column_keys
+    visible_columns = [
+        c for c in TABLE_COLUMNS if c["key"] == "team" or c["key"] in selected_columns
+    ]
+
+    relegation_ctx = _relegation_template_context("main.team_statistics_page")
+    standings_rows = standings_for_season(season)
+    if relegation_ctx.get("relegation_enabled") and relegation_ctx.get("relegation_config"):
+        from app.services.relegation import filter_standings_by_scope, team_tier
+
+        cfg = relegation_ctx["relegation_config"]
+        standings_rows = filter_standings_by_scope(
+            standings_rows,
+            relegation_ctx["relegation_scope"],  # type: ignore[arg-type]
+            cfg,  # type: ignore[arg-type]
+        )
+        if relegation_ctx.get("relegation_scope") == "combined":
+            for st in standings_rows:
+                tier = team_tier(st.team, cfg)  # type: ignore[arg-type]
+                setattr(st, "relegation_tier", tier)
+
+    page_payload = build_team_statistics_page_payload(
+        db.session,
+        season=season,
+        segment=segment,
+        strength=strength,
+        rate=rate,
+        team_slugs=selected_team_slugs or None,
+        standings_rows=standings_rows,
+    )
+    from app.services.seasons import season_display_label
+
+    chart_archive = build_team_statistics_chart_archive(
+        db.session,
+        default_season_id=int(season.id),
+        default_segment=segment,
+        season_label=season_display_label(season),
+    )
+
+    return render_template(
+        "team_statistics.html",
+        season=season,
+        canonical_season=canonical_season,
+        page_payload=page_payload,
+        chart_archive=chart_archive,
+        view=view,
+        segment=segment,
+        strength=strength,
+        rate=rate,
+        colnames=colnames,
+        text_size=text_size,
+        selected_team_slugs=selected_team_slugs,
+        selected_columns=selected_columns,
+        visible_columns=visible_columns,
+        **relegation_ctx,
     )
 
 

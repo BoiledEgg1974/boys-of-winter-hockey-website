@@ -1,0 +1,103 @@
+{% from "macros/team.html" import team_lockup_full_name with context %}
+{% macro team_stats_table(rows, columns, colnames, rate, strength) -%}
+{% if rows %}
+<div class="table-wrap team-statistics-table-wrap">
+  <table class="data data-sortable team-statistics-table" data-sort-renumber="1">
+    <thead>
+      <tr>
+        <th data-sort-type="num" scope="col">#</th>
+        {% for col in columns %}
+        {% if col.key != 'team' %}
+        <th data-sort-type="{{ col.sort }}" scope="col" data-col-key="{{ col.key }}" title="{{ col.label }}">
+          {% if colnames == 'full' %}{{ col.label }}{% else %}{{ col.abbr }}{% endif %}
+        </th>
+        {% else %}
+        <th data-sort-type="str" scope="col" data-col-key="team">Team</th>
+        {% endif %}
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr class="team-statistics-table__row"
+          data-team-slug="{{ row.slug }}"
+          data-team-name="{{ row.team.full_display_name() }}"
+          data-team-logo="{{ row.logo_url }}">
+        <td data-sort-value="{{ loop.index0 }}">{{ loop.index }}</td>
+        {% for col in columns %}
+        {% set key = col.key %}
+        {% if key == 'team' %}
+        <td data-sort-value="{{ (row.team.full_display_name() or row.team.slug)|lower }}">{{ team_lockup_full_name(row.team, season=season) }}</td>
+        {% elif key == 'gf' %}
+        {% set v = row.gf|team_stat_rate(row.gp, rate) %}
+        <td data-sort-value="{{ '%.6f'|format(v) if v is not none else '' }}">{{ '%.0f'|format(v) if v is not none and rate == 'raw' else ('%.2f'|format(v) if v is not none else '—') }}</td>
+        {% elif key == 'ga' %}
+        {% set v = row.ga|team_stat_rate(row.gp, rate) %}
+        <td data-sort-value="{{ '%.6f'|format(v) if v is not none else '' }}">{{ '%.0f'|format(v) if v is not none and rate == 'raw' else ('%.2f'|format(v) if v is not none else '—') }}</td>
+        {% elif key == 'diff' %}
+        {% set v = row.diff|team_stat_rate(row.gp, rate) %}
+        <td data-sort-value="{{ '%.6f'|format(v) if v is not none else '' }}">{{ '%+.0f'|format(v) if v is not none and rate == 'raw' else ('%+.2f'|format(v) if v is not none else '—') }}</td>
+        {% elif key == 'sf' %}
+        {% set v = row.sf|team_stat_rate(row.gp, rate) %}
+        <td data-sort-value="{{ '%.6f'|format(v) if v is not none else '' }}">{{ '%.0f'|format(v) if v is not none and rate == 'raw' else ('%.2f'|format(v) if v is not none else '—') }}</td>
+        {% elif key == 'sa' %}
+        {% set v = row.sa|team_stat_rate(row.gp, rate) %}
+        <td data-sort-value="{{ '%.6f'|format(v) if v is not none else '' }}">{{ '%.0f'|format(v) if v is not none and rate == 'raw' else ('%.2f'|format(v) if v is not none else '—') }}</td>
+        {% elif key == 'fo_pct' %}
+        <td data-sort-value="{{ '%.4f'|format(row.fo_pct) if row.fo_pct is not none else '' }}">{{ '%.1f'|format(row.fo_pct) if row.fo_pct is not none else '—' }}</td>
+        {% elif key == 'bs' %}
+        {% set v = row.bs|team_stat_rate(row.gp, rate) %}
+        <td data-sort-value="{{ v if v is not none else '' }}">{{ '%.0f'|format(v) if v is not none and rate == 'raw' else ('%.2f'|format(v) if v is not none else '—') }}</td>
+        {% elif key == 'hit' %}
+        {% set v = row.hit|team_stat_rate(row.gp, rate) %}
+        <td data-sort-value="{{ v if v is not none else '' }}">{{ '%.0f'|format(v) if v is not none and rate == 'raw' else ('%.2f'|format(v) if v is not none else '—') }}</td>
+        {% elif key == 'tka' %}
+        {% set v = row.tka|team_stat_rate(row.gp, rate) %}
+        <td data-sort-value="{{ v if v is not none else '' }}">{{ '%.0f'|format(v) if v is not none and rate == 'raw' else ('%.2f'|format(v) if v is not none else '—') }}</td>
+        {% elif key == 'gva' %}
+        {% set v = row.gva|team_stat_rate(row.gp, rate) %}
+        <td data-sort-value="{{ v if v is not none else '' }}">{{ '%.0f'|format(v) if v is not none and rate == 'raw' else ('%.2f'|format(v) if v is not none else '—') }}</td>
+        {% elif key == 'pp_ch' %}
+        {% set v = row.pp_ch|team_stat_rate(row.gp, rate) %}
+        <td data-sort-value="{{ v if v is not none else '' }}">{{ '%.0f'|format(v) if v is not none and rate == 'raw' else ('%.2f'|format(v) if v is not none else '—') }}</td>
+        {% elif key == 'ppg' %}
+        {% set v = row.ppg|team_stat_rate(row.gp, rate) %}
+        <td data-sort-value="{{ v if v is not none else '' }}">{{ '%.0f'|format(v) if v is not none and rate == 'raw' else ('%.2f'|format(v) if v is not none else '—') }}</td>
+        {% elif key == 'pp_pct' %}
+        <td data-sort-value="{{ '%.6f'|format(row.pp_pct) if row.pp_pct is not none else '' }}">{% if row.pp_pct is not none %}{{ '%.1f'|format(row.pp_pct) }}%{% else %}—{% endif %}</td>
+        {% elif key == 'pk_ga' %}
+        {% set v = row.pk_ga|team_stat_rate(row.gp, rate) %}
+        <td data-sort-value="{{ v if v is not none else '' }}">{{ '%.0f'|format(v) if v is not none and rate == 'raw' else ('%.2f'|format(v) if v is not none else '—') }}</td>
+        {% elif key == 'sh_ch' %}
+        {% set v = row.sh_ch|team_stat_rate(row.gp, rate) %}
+        <td data-sort-value="{{ v if v is not none else '' }}">{{ '%.0f'|format(v) if v is not none and rate == 'raw' else ('%.2f'|format(v) if v is not none else '—') }}</td>
+        {% elif key == 'pk_pct' %}
+        <td data-sort-value="{{ '%.6f'|format(row.pk_pct) if row.pk_pct is not none else '' }}">{% if row.pk_pct is not none %}{{ '%.1f'|format(row.pk_pct) }}%{% else %}—{% endif %}</td>
+        {% elif key == 'shg' %}
+        {% set v = row.shg|team_stat_rate(row.gp, rate) %}
+        <td data-sort-value="{{ v if v is not none else '' }}">{{ '%.0f'|format(v) if v is not none and rate == 'raw' else ('%.2f'|format(v) if v is not none else '—') }}</td>
+        {% elif key == 'pim_g' %}
+        <td data-sort-value="{{ '%.6f'|format(row.pim_g) if row.pim_g is not none else '' }}">{{ '%.2f'|format(row.pim_g) if row.pim_g is not none else '—' }}</td>
+        {% elif key == 'att_h' %}
+        <td data-sort-value="{{ '%.4f'|format(row.att_h) if row.att_h is not none else '' }}">{% if row.att_h is not none %}{{ '%.1f'|format(row.att_h) }}{% else %}—{% endif %}</td>
+        {% elif key == 'cap_pct' %}
+        <td data-sort-value="{{ '%.4f'|format(row.cap_pct) if row.cap_pct is not none else '' }}">{% if row.cap_pct is not none %}{{ '%.1f'|format(row.cap_pct) }}%{% else %}—{% endif %}</td>
+        {% elif key == 'cf_pct' %}
+        <td data-sort-value="{{ '%.4f'|format(row.cf_pct) if row.cf_pct is not none else '' }}">{{ '%.1f'|format(row.cf_pct) if row.cf_pct is not none else '—' }}</td>
+        {% elif key == 'ff_pct' %}
+        <td data-sort-value="{{ '%.4f'|format(row.ff_pct) if row.ff_pct is not none else '' }}">{{ '%.1f'|format(row.ff_pct) if row.ff_pct is not none else '—' }}</td>
+        {% elif key == 'gf_per_60' %}
+        <td data-sort-value="{{ '%.4f'|format(row.gf_per_60) if row.gf_per_60 is not none else '' }}">{{ '%.2f'|format(row.gf_per_60) if row.gf_per_60 is not none else '—' }}</td>
+        {% elif key == 'ga_per_60' %}
+        <td data-sort-value="{{ '%.4f'|format(row.ga_per_60) if row.ga_per_60 is not none else '' }}">{{ '%.2f'|format(row.ga_per_60) if row.ga_per_60 is not none else '—' }}</td>
+        {% elif key == 'sq_hd' %}
+        <td data-sort-value="{{ '%.4f'|format(row.sq_hd) if row.sq_hd is not none else '' }}">{% if row.sq_hd is not none %}{{ '%.1f'|format(row.sq_hd) }}%{% else %}—{% endif %}</td>
+        {% endif %}
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{%- endmacro %}

@@ -3,72 +3,6 @@
 {% from "macros/star_row.html" import star_row %}
 {% from "macros/rankings_change.html" import rankings_change_cell %}
 {% block title %}Standings — Boys of Winter Hockey League{% endblock %}
-{% macro team_stats_panel(title, rows) -%}
-{% if rows %}
-<div class="card">
-  <h2>{{ title }}</h2>
-  <div class="table-wrap">
-    <table class="data data-sortable" data-sort-renumber="1">
-      <thead>
-        <tr>
-          <th data-sort-type="num" scope="col">#</th>
-          <th data-sort-type="str" scope="col">Team</th>
-          <th data-sort-type="num" title="Shots for" scope="col">SF</th>
-          <th data-sort-type="num" title="Shots against" scope="col">SA</th>
-          <th data-sort-type="num" title="Faceoff %" scope="col">FO%</th>
-          <th data-sort-type="num" title="Blocked shots" scope="col">BS</th>
-          <th data-sort-type="num" title="Hits" scope="col">HIT</th>
-          <th data-sort-type="num" title="Takeaways" scope="col">TKA</th>
-          <th data-sort-type="num" title="Giveaways" scope="col">GVA</th>
-          <th data-sort-type="num" title="Power-play chances" scope="col">PP Ch</th>
-          <th data-sort-type="num" title="Power-play goals" scope="col">PPG</th>
-          <th data-sort-type="num" title="Power-play % (PPG ÷ PP Ch)" scope="col">PP%</th>
-          <th data-sort-type="num" title="Power-play goals against (PK)" scope="col">PK GA</th>
-          <th data-sort-type="num" title="Shorthanded chances (FHM: SH Ch)" scope="col">SH CH</th>
-          <th data-sort-type="num" title="Penalty kill success %: 100 − (PK GA ÷ SH CH) × 100" scope="col">PK%</th>
-          <th data-sort-type="num" title="Shorthanded goals" scope="col">SHG</th>
-          <th data-sort-type="num" title="PIM per game" scope="col">PIM/G</th>
-          <th data-sort-type="num" title="Average home attendance per game (total home att ÷ home games)" scope="col">Average ATT H</th>
-          <th data-sort-type="num" title="Average of (100 × game attendance ÷ arena capacity) over home games; arena capacity = highest single-game home attendance this season" scope="col">CAP %</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for team, agg, home_gp, cap_pct in rows %}
-        {% set pp_pct = (100.0 * agg.pp_goals / agg.pp_chances) if agg and agg.pp_chances and agg.pp_chances > 0 and agg.pp_goals is not none else none %}
-        {% set pk_pct = (100.0 - (100.0 * agg.pk_goals_against / agg.sh_chances)) if agg and agg.sh_chances and agg.sh_chances > 0 and agg.pk_goals_against is not none else none %}
-        {% set avg_att_h = (agg.attendance_home / home_gp) if agg and agg.attendance_home is not none and home_gp and home_gp > 0 else none %}
-        <tr{% if config.LEAGUE_SLUG == 'bowl-cap' and view == 'conference' and sel_conference and loop.index == 9 %} class="standings-cutline"{% endif %}>
-          <td data-sort-value="{{ loop.index0 }}">{{ loop.index }}</td>
-          <td data-sort-value="{{ (team.full_display_name() or team.slug)|lower }}">{{ team_lockup_full_name(team, season=season) }}</td>
-          {% if agg %}
-          <td data-sort-value="{{ agg.shots_for if agg.shots_for is not none else '' }}">{{ agg.shots_for if agg.shots_for is not none else '—' }}</td>
-          <td data-sort-value="{{ agg.shots_against if agg.shots_against is not none else '' }}">{{ agg.shots_against if agg.shots_against is not none else '—' }}</td>
-          <td data-sort-value="{{ '%.4f'|format(agg.faceoff_pct) if agg.faceoff_pct is not none else '' }}">{{ '%.1f'|format(agg.faceoff_pct) if agg.faceoff_pct is not none else '—' }}</td>
-          <td data-sort-value="{{ agg.blocked_shots if agg.blocked_shots is not none else '' }}">{{ agg.blocked_shots if agg.blocked_shots is not none else '—' }}</td>
-          <td data-sort-value="{{ agg.hits if agg.hits is not none else '' }}">{{ agg.hits if agg.hits is not none else '—' }}</td>
-          <td data-sort-value="{{ agg.takeaways if agg.takeaways is not none else '' }}">{{ agg.takeaways if agg.takeaways is not none else '—' }}</td>
-          <td data-sort-value="{{ agg.giveaways if agg.giveaways is not none else '' }}">{{ agg.giveaways if agg.giveaways is not none else '—' }}</td>
-          <td data-sort-value="{{ agg.pp_chances if agg.pp_chances is not none else '' }}">{{ agg.pp_chances if agg.pp_chances is not none else '—' }}</td>
-          <td data-sort-value="{{ agg.pp_goals if agg.pp_goals is not none else '' }}">{{ agg.pp_goals if agg.pp_goals is not none else '—' }}</td>
-          <td data-sort-value="{{ '%.6f'|format(pp_pct) if pp_pct is not none else '' }}">{% if pp_pct is not none %}{{ '%.1f'|format(pp_pct) }}%{% else %}—{% endif %}</td>
-          <td data-sort-value="{{ agg.pk_goals_against if agg.pk_goals_against is not none else '' }}">{{ agg.pk_goals_against if agg.pk_goals_against is not none else '—' }}</td>
-          <td data-sort-value="{{ agg.sh_chances if agg.sh_chances is not none else '' }}">{{ agg.sh_chances if agg.sh_chances is not none else '—' }}</td>
-          <td data-sort-value="{{ '%.6f'|format(pk_pct) if pk_pct is not none else '' }}">{% if pk_pct is not none %}{{ '%.1f'|format(pk_pct) }}%{% else %}—{% endif %}</td>
-          <td data-sort-value="{{ agg.sh_goals if agg.sh_goals is not none else '' }}">{{ agg.sh_goals if agg.sh_goals is not none else '—' }}</td>
-          <td data-sort-value="{{ '%.6f'|format(agg.pim_per_game) if agg.pim_per_game is not none else '' }}">{{ '%.2f'|format(agg.pim_per_game) if agg.pim_per_game is not none else '—' }}</td>
-          <td data-sort-value="{{ '%.4f'|format(avg_att_h) if avg_att_h is not none else '' }}">{% if avg_att_h is not none %}{{ '%.1f'|format(avg_att_h) }}{% else %}—{% endif %}</td>
-          <td data-sort-value="{{ '%.4f'|format(cap_pct) if cap_pct is not none else '' }}">{% if cap_pct is not none %}{{ '%.1f'|format(cap_pct) }}%{% else %}—{% endif %}</td>
-          {% else %}
-          <td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td><td data-sort-value="">—</td>
-          {% endif %}
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
-{% endif %}
-{%- endmacro %}
 {% block content %}
 <h1 class="page-title">Standings{% if relegation_enabled and relegation_scope != 'combined' %} — {{ relegation_config.upper_label if relegation_scope == 'upper' else relegation_config.lower_label }}{% endif %}</h1>
 {% include 'includes/relegation_scope_tabs.html' %}
@@ -76,7 +10,7 @@
 <p class="muted">Season: <strong>{{ season|season_display }}</strong></p>
 {% endif %}
 {% if canonical_season and season and canonical_season.id != season.id %}
-<p class="muted">League year <strong>{{ canonical_season|season_display }}</strong> — standings and team stats below are from <strong>{{ season|season_display }}</strong> until that year is imported.</p>
+<p class="muted">League year <strong>{{ canonical_season|season_display }}</strong> — standings below are from <strong>{{ season|season_display }}</strong> until that year is imported. Team statistics live on the <a href="{{ url_for('main.team_statistics_page') }}">Team Statistics</a> page.</p>
 {% endif %}
 <div class="standings-toolbar">
   <div class="tabs">
@@ -179,13 +113,7 @@
 </section>
 {% endif %}
 
-{{ team_stats_panel("TEAM STATISTICS (REGULAR SEASON)", team_stat_rows_rs) }}
-{% if season and not team_stat_rows_rs %}
-<div class="card">
-  <h2>Team statistics</h2>
-  <p class="empty-state">No team season totals in the database yet. Include <code>team_stats.csv</code> in your FHM export and run the import pipeline.</p>
-</div>
-{% endif %}
+<p class="muted standings-team-stats-link">Team season totals (shots, special teams, attendance, and more) are on the <a href="{{ url_for('main.team_statistics_page') }}">Team Statistics</a> page.</p>
 
 {% if positional_ranking_rows is defined and positional_ranking_rows %}
 <section class="card positional-rankings" aria-labelledby="positional-rankings-h">

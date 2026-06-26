@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% from "macros/team.html" import team_logo_img_plain with context %}
+{% from "macros/team_statistics.html" import team_stats_table with context %}
+{% block title %}Team Statistics — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="page team-statistics-page{% if text_size == 'xl' %} team-statistics-page--xl{% endif %}" id="team-statistics-page">
+  <h1 class="page-title">Team Statistics</h1>
+  {% if season %}
+  <p class="muted">Season: <strong>{{ season|season_display }}</strong></p>
+  {% endif %}
+  {% if canonical_season and season and canonical_season.id != season.id %}
+  <p class="muted">League year <strong>{{ canonical_season|season_display }}</strong> — team statistics below are from <strong>{{ season|season_display }}</strong> until that year is imported.</p>
+  {% endif %}
+
+  {% include 'includes/relegation_scope_tabs.html' %}
+
+  {% if view == 'analytics' %}
+  <section class="card team-statistics-chart advanced-stats-team-chart" id="team-statistics-chart" aria-labelledby="team-statistics-chart-heading">
+    <div class="advanced-stats-team-chart__head">
+      <div>
+        <h2 id="team-statistics-chart-heading" class="advanced-stats-team-chart__title">Team Analytics Map</h2>
+        <p class="muted advanced-stats-team-chart__intro">Interactive team process map from imported FHM data. SQ buckets are shot-quality proxies, not expected goals.</p>
+      </div>
+      <div class="advanced-stats-team-chart__controls" data-team-chart-controls>
+        <label class="advanced-stats-team-chart__control">
+          <span class="advanced-stats-team-chart__control-label">Season</span>
+          <select data-team-chart-season aria-label="Chart season"></select>
+        </label>
+        <label class="advanced-stats-team-chart__control">
+          <span class="advanced-stats-team-chart__control-label">Segment</span>
+          <select data-team-chart-segment aria-label="Chart stat segment"></select>
+        </label>
+        <label class="advanced-stats-team-chart__control">
+          <span class="advanced-stats-team-chart__control-label">X Axis</span>
+          <select data-team-chart-x aria-label="Chart X axis metric"></select>
+        </label>
+        <label class="advanced-stats-team-chart__control">
+          <span class="advanced-stats-team-chart__control-label">Y Axis</span>
+          <select data-team-chart-y aria-label="Chart Y axis metric"></select>
+        </label>
+        <label class="advanced-stats-team-chart__control">
+          <span class="advanced-stats-team-chart__control-label">Scale</span>
+          <select data-team-chart-norm aria-label="Chart normalization">
+            <option value="raw">Season totals / rates</option>
+            <option value="per_game">Per game</option>
+            <option value="per_60">Per 60</option>
+          </select>
+        </label>
+      </div>
+    </div>
+    <div class="advanced-stats-team-chart__body">
+      <div class="advanced-stats-team-chart__plot-wrap">
+        <div class="advanced-stats-team-chart__plot" data-team-chart-plot role="img" aria-label="Team analytics scatter map">
+          <span class="advanced-stats-team-chart__quad advanced-stats-team-chart__quad--tl" data-team-chart-quad="tl">− Off / + Def</span>
+          <span class="advanced-stats-team-chart__quad advanced-stats-team-chart__quad--tr" data-team-chart-quad="tr">+ Off / + Def</span>
+          <span class="advanced-stats-team-chart__quad advanced-stats-team-chart__quad--bl" data-team-chart-quad="bl">− Off / − Def</span>
+          <span class="advanced-stats-team-chart__quad advanced-stats-team-chart__quad--br" data-team-chart-quad="br">+ Off / − Def</span>
+          <span class="advanced-stats-team-chart__midline advanced-stats-team-chart__midline--x" data-team-chart-midline-x></span>
+          <span class="advanced-stats-team-chart__midline advanced-stats-team-chart__midline--y" data-team-chart-midline-y></span>
+          <span class="advanced-stats-team-chart__axis-label advanced-stats-team-chart__axis-label--x" data-team-chart-axis-x></span>
+          <span class="advanced-stats-team-chart__axis-label advanced-stats-team-chart__axis-label--y" data-team-chart-axis-y></span>
+          <div class="advanced-stats-team-chart__points" data-team-chart-points></div>
+        </div>
+      </div>
+    </div>
+    <p class="muted advanced-stats-team-chart__empty" data-team-chart-empty hidden>No team analytics available for this season and segment yet.</p>
+    <script type="application/json" id="team-statistics-chart-data">{{ chart_archive | tojson }}</script>
+  </section>
+
+  {% if page_payload.card_rows %}
+  <section class="card team-statistics-cards" aria-labelledby="team-statistics-cards-heading">
+    <h2 id="team-statistics-cards-heading">Team Rankings</h2>
+    <div class="team-statistics-cards__grid">
+      {% for card in page_payload.card_rows %}
+      <a class="team-statistics-card" href="{{ url_for('main.team_page', slug=card.slug) }}">
+        <div class="team-statistics-card__head">
+          {% if card.logo_url %}<img class="team-statistics-card__logo" src="{{ card.logo_url }}" alt="" width="40" height="40">{% endif %}
+          <strong class="team-statistics-card__name">{{ card.name }}</strong>
+        </div>
+        <dl class="team-statistics-card__ranks">
+          {% for metric in page_payload.card_metrics %}
+          <div>
+            <dt>{{ metric.label }}</dt>
+            <dd>
+              {% if card.ranks.get(metric.key) %}
+              #{{ card.ranks.get(metric.key) }}
+              <span class="team-statistics-card__rank-of muted">out of {{ page_payload.team_count }}</span>
+              {% else %}—{% endif %}
+            </dd>
+          </div>
+          {% endfor %}
+        </dl>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+  {% endif %}
+
+  <form class="card team-statistics-filters" id="team-statistics-filters" method="get" action="{{ url_for('main.team_statistics_page') }}">
+  {% if relegation_enabled and relegation_scope != 'combined' %}
+  <input type="hidden" name="scope" value="{{ relegation_scope }}">
+  {% endif %}
+    <div class="team-statistics-filters__toolbar">
+      <div class="team-statistics-filters__primary">
+        <div class="team-statistics-filters__group">
+          <span class="team-statistics-filters__label">Stats</span>
+          <div class="tabs team-statistics-filters__tabs">
+            <label class="team-statistics-filters__tab"><input type="radio" name="view" value="analytics"{% if view == 'analytics' %} checked{% endif %}> Analytics</label>
+            <label class="team-statistics-filters__tab"><input type="radio" name="view" value="standings"{% if view == 'standings' %} checked{% endif %}> Standings</label>
+          </div>
+        </div>
+        <div class="team-statistics-filters__group">
+          <span class="team-statistics-filters__label">Game Type</span>
+          <div class="tabs team-statistics-filters__tabs">
+            <label class="team-statistics-filters__tab"><input type="radio" name="segment" value="rs"{% if segment == 'rs' %} checked{% endif %}> Regular Season</label>
+            <label class="team-statistics-filters__tab"><input type="radio" name="segment" value="ps"{% if segment == 'ps' %} checked{% endif %}> Playoffs</label>
+            <label class="team-statistics-filters__tab"><input type="radio" name="segment" value="po"{% if segment == 'po' %} checked{% endif %}> Preseason</label>
+          </div>
+        </div>
+      </div>
+      <div class="team-statistics-filters__actions">
+        <button type="button" class="btn btn--ghost" data-team-stats-clear>Clear</button>
+        <button type="submit" class="btn">Apply</button>
+      </div>
+    </div>
+
+    <div class="team-statistics-filters__body">
+      <div class="team-statistics-filters__row team-statistics-filters__row--core">
+        <label class="team-statistics-filters__field">
+          <span class="team-statistics-filters__field-label">Season</span>
+          <select name="season_id" aria-label="Season">
+            {% for s in page_payload.seasons %}
+            <option value="{{ s.id }}"{% if season and s.id == season.id %} selected{% endif %}>{{ s.label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="team-statistics-filters__field">
+          <span class="team-statistics-filters__field-label">Game Strength</span>
+          <select name="strength" aria-label="Game strength">
+            {% for opt in page_payload.strength_options %}
+            <option value="{{ opt.key }}"{% if strength == opt.key %} selected{% endif %}>{{ opt.label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="team-statistics-filters__field">
+          <span class="team-statistics-filters__field-label">Rate Mode</span>
+          <select name="rate" aria-label="Rate mode">
+            <option value="raw"{% if rate == 'raw' %} selected{% endif %}>Raw</option>
+            <option value="per_60"{% if rate == 'per_60' %} selected{% endif %}>/60</option>
+            <option value="per_82"{% if rate == 'per_82' %} selected{% endif %}>/82</option>
+            <option value="per_game"{% if rate == 'per_game' %} selected{% endif %}>Per Game</option>
+          </select>
+        </label>
+        <label class="team-statistics-filters__field">
+          <span class="team-statistics-filters__field-label">Column Names</span>
+          <select name="colnames" aria-label="Column names">
+            <option value="abbr"{% if colnames == 'abbr' %} selected{% endif %}>Abbreviated</option>
+            <option value="full"{% if colnames == 'full' %} selected{% endif %}>Full</option>
+          </select>
+        </label>
+        <label class="team-statistics-filters__field">
+          <span class="team-statistics-filters__field-label">Text Size</span>
+          <select name="text" aria-label="Text size">
+            <option value="normal"{% if text_size == 'normal' %} selected{% endif %}>Normal</option>
+            <option value="xl"{% if text_size == 'xl' %} selected{% endif %}>XL</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="team-statistics-filters__split">
+        <label class="team-statistics-filters__field team-statistics-filters__field--teams">
+          <span class="team-statistics-filters__field-label">Teams <span class="team-statistics-filters__hint">Ctrl+click to filter</span></span>
+          <select name="teams" multiple size="6" aria-label="Filter teams">
+            {% for t in page_payload.team_options %}
+            <option value="{{ t.slug }}"{% if t.slug in selected_team_slugs %} selected{% endif %}>{{ t.name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+
+        <fieldset class="team-statistics-filters__columns">
+          <legend class="team-statistics-filters__field-label">Columns</legend>
+          <div class="team-statistics-filters__column-grid">
+            {% for col in page_payload.columns %}
+            {% if col.key != 'team' %}
+            <label class="team-statistics-filters__column-chip"><input type="checkbox" name="columns" value="{{ col.key }}"{% if col.key in selected_columns %} checked{% endif %}> {{ col.abbr }}</label>
+            {% endif %}
+            {% endfor %}
+          </div>
+        </fieldset>
+      </div>
+    </div>
+  </form>
+
+  {% if page_payload.situation_note %}
+  <p class="muted team-statistics-page__note">{{ page_payload.situation_note }}</p>
+  {% endif %}
+  {% if rate != 'raw' %}
+  <p class="muted team-statistics-page__note">Viewing rate stats: values {{ 'per 60 minutes (approx. from GP)' if rate == 'per_60' else ('per 82 games' if rate == 'per_82' else 'per game') }}.</p>
+  {% endif %}
+
+  <section class="card team-statistics-table-card" aria-labelledby="team-statistics-table-heading">
+    <h2 id="team-statistics-table-heading">{% if view == 'standings' %}Standings-Style Team Stats{% else %}Team Season Totals{% endif %}</h2>
+    {{ team_stats_table(page_payload.table_rows, visible_columns, colnames, rate, strength) }}
+    {% if season and not page_payload.table_rows %}
+    <p class="empty-state">No team season totals in the database yet. Include <code>team_stats.csv</code> in your FHM export and run the import pipeline.</p>
+    {% endif %}
+  </section>
+  <div class="team-statistics-row-tooltip" id="team-statistics-row-tooltip" role="tooltip" hidden></div>
+</div>
+{% endblock %}

@@ -1963,8 +1963,26 @@
   }
 
   function initAdvancedStatsTeamChart() {
-    var root = document.getElementById("advanced-stats-team-chart");
-    var dataEl = document.getElementById("advanced-stats-team-chart-data");
+    initTeamAnalyticsChart({
+      rootId: "advanced-stats-team-chart",
+      dataId: "advanced-stats-team-chart-data",
+      invertXForLowBetter: false,
+      enhancedTooltip: false,
+    });
+  }
+
+  function initTeamStatisticsChart() {
+    initTeamAnalyticsChart({
+      rootId: "team-statistics-chart",
+      dataId: "team-statistics-chart-data",
+      invertXForLowBetter: true,
+      enhancedTooltip: true,
+    });
+  }
+
+  function initTeamAnalyticsChart(config) {
+    var root = document.getElementById(config.rootId);
+    var dataEl = document.getElementById(config.dataId);
     if (!root || !dataEl) return;
     var archive;
     try {
@@ -1977,8 +1995,8 @@
     var seasons = archive.seasons || [];
     var datasets = archive.datasets || {};
     if (!metrics.length || !seasons.length) {
-      var empty = root.querySelector("[data-team-chart-empty]");
-      if (empty) empty.hidden = false;
+      var emptyEarly = root.querySelector("[data-team-chart-empty]");
+      if (emptyEarly) emptyEarly.hidden = false;
       return;
     }
 
@@ -2047,6 +2065,12 @@
       archive.default_y || (metrics[1] ? metrics[1].key : metrics[0].key)
     );
     normSel.value = archive.default_norm || "per_game";
+    if (config.enhancedTooltip && normSel.querySelector('option[value="per_60"]') == null) {
+      var per60 = document.createElement("option");
+      per60.value = "per_60";
+      per60.textContent = "Per 60";
+      normSel.appendChild(per60);
+    }
 
     function metricValue(team, key, norm) {
       var meta = metricByKey[key];
@@ -2055,10 +2079,14 @@
       if (raw == null || raw === "") return null;
       var num = Number(raw);
       if (!isFinite(num)) return null;
+      var gp = team.metrics && team.metrics.gp ? Number(team.metrics.gp) : 0;
       if (norm === "per_game" && meta.per_game) {
-        var gp = team.metrics && team.metrics.gp ? Number(team.metrics.gp) : 0;
         if (!gp) return null;
         return num / gp;
+      }
+      if (norm === "per_60") {
+        if (gp) return (num / gp) * 60;
+        return num;
       }
       return num;
     }
@@ -2067,6 +2095,7 @@
       var meta = metricByKey[key];
       if (!meta) return key;
       if (norm === "per_game" && meta.per_game) return meta.label + " Per Game";
+      if (norm === "per_60") return meta.label + " Per 60";
       return meta.label;
     }
 
@@ -2114,6 +2143,7 @@
       var norm = normSel.value;
       var xMeta = metricByKey[xKey];
       var yMeta = metricByKey[yKey];
+      var invertX = config.invertXForLowBetter && xMeta && xMeta.better === "low";
       if (!teams.length) {
         pointsWrap.innerHTML = "";
         if (empty) empty.hidden = false;
@@ -2165,7 +2195,9 @@
       var avgY = ys.reduce(function (a, b) {
         return a + b;
       }, 0) / ys.length;
-      var xMidPct = ((avgX - minX) / (maxX - minX)) * 100;
+      var xMidPct = invertX
+        ? 100 - ((avgX - minX) / (maxX - minX)) * 100
+        : ((avgX - minX) / (maxX - minX)) * 100;
       var yMidPct = 100 - ((avgY - minY) / (maxY - minY)) * 100;
       if (midX) midX.style.left = xMidPct + "%";
       if (midY) midY.style.top = yMidPct + "%";
@@ -2179,7 +2211,8 @@
       });
 
       plotted.forEach(function (p) {
-        var left = ((p.x - minX) / (maxX - minX)) * 100;
+        var xPos = ((p.x - minX) / (maxX - minX)) * 100;
+        var left = invertX ? 100 - xPos : xPos;
         var top = 100 - ((p.y - minY) / (maxY - minY)) * 100;
         var id = String(p.team.team_id);
         var el = existing[id];
@@ -2205,7 +2238,20 @@
         el.setAttribute("data-x-value", formatMetric(xKey, p.x));
         el.setAttribute("data-y-value", formatMetric(yKey, p.y));
         el.setAttribute("data-team-name", p.team.name || p.team.abbr || "Team");
-        el.setAttribute("aria-label", (p.team.name || p.team.abbr || "Team") + ": " + metricLabel(xKey, norm) + " " + formatMetric(xKey, p.x) + ", " + metricLabel(yKey, norm) + " " + formatMetric(yKey, p.y));
+        el.setAttribute("data-team-abbr", p.team.abbr || p.team.name || "Team");
+        el.setAttribute("data-season-label", p.team.season_label || archive.season_label || "");
+        el.setAttribute(
+          "aria-label",
+          (p.team.name || p.team.abbr || "Team") +
+            ": " +
+            metricLabel(xKey, norm) +
+            " " +
+            formatMetric(xKey, p.x) +
+            ", " +
+            metricLabel(yKey, norm) +
+            " " +
+            formatMetric(yKey, p.y)
+        );
         delete existing[id];
       });
       Object.keys(existing).forEach(function (id) {
@@ -2216,13 +2262,21 @@
     function tipHtml(el) {
       var logo = el.querySelector("img");
       var logoSrc = logo ? logo.getAttribute("src") : "";
+      var seasonLine = "";
+      if (config.enhancedTooltip) {
+        var sl = el.getAttribute("data-season-label") || "";
+        if (sl) {
+          seasonLine = '<span class="advanced-stats-team-chart-tooltip__metric">Season: <strong>' + escapeHtml(sl) + "</strong></span>";
+        }
+      }
       return (
         '<div class="advanced-stats-team-chart-tooltip__inner">' +
         (logoSrc ? '<img class="advanced-stats-team-chart-tooltip__logo" src="' + escapeAttr(logoSrc) + '" alt="">' : "") +
         '<div class="advanced-stats-team-chart-tooltip__body">' +
         "<strong>" +
-        escapeHtml(el.getAttribute("data-team-name") || "Team") +
+        escapeHtml(el.getAttribute("data-team-abbr") || el.getAttribute("data-team-name") || "Team") +
         "</strong>" +
+        seasonLine +
         '<span class="advanced-stats-team-chart-tooltip__metric">' +
         escapeHtml(el.getAttribute("data-x-label") || "") +
         ": <strong>" +
@@ -2282,6 +2336,50 @@
       sel.addEventListener("change", renderChart);
     });
     renderChart();
+  }
+
+  function initTeamStatisticsFilters() {
+    var form = document.getElementById("team-statistics-filters");
+    if (!form) return;
+    var clearBtn = form.querySelector("[data-team-stats-clear]");
+    if (clearBtn) {
+      clearBtn.addEventListener("click", function () {
+        var base = form.getAttribute("action") || window.location.pathname;
+        window.location.href = base;
+      });
+    }
+  }
+
+  function initTeamStatisticsRowTooltips() {
+    var table = document.querySelector(".team-statistics-table");
+    var tip = document.getElementById("team-statistics-row-tooltip");
+    if (!table || !tip) return;
+    table.addEventListener("mouseover", function (e) {
+      var row = e.target.closest(".team-statistics-table__row");
+      if (!row || !table.contains(row)) return;
+      var name = row.getAttribute("data-team-name") || "Team";
+      var logo = row.getAttribute("data-team-logo") || "";
+      tip.innerHTML =
+        (logo ? '<img src="' + escapeAttr(logo) + '" alt="" class="team-statistics-row-tooltip__logo">' : "") +
+        "<strong>" +
+        escapeHtml(name) +
+        "</strong>";
+      tip.hidden = false;
+      tip.style.left = e.clientX + 12 + "px";
+      tip.style.top = e.clientY + 12 + "px";
+    });
+    table.addEventListener("mousemove", function (e) {
+      if (tip.hidden) return;
+      tip.style.left = e.clientX + 12 + "px";
+      tip.style.top = e.clientY + 12 + "px";
+    });
+    table.addEventListener("mouseout", function (e) {
+      var row = e.target.closest(".team-statistics-table__row");
+      if (!row) return;
+      var rel = e.relatedTarget;
+      if (rel && row.contains(rel)) return;
+      tip.hidden = true;
+    });
   }
 
   function initTeamPlayerAnalyticsCharts() {
@@ -4153,6 +4251,9 @@
     document.querySelectorAll("table.data-sortable").forEach(initSortableTable);
     document.querySelectorAll("table[data-page-size]").forEach(initPaginatedTable);
     initAdvancedStatsTeamChart();
+    initTeamStatisticsChart();
+    initTeamStatisticsFilters();
+    initTeamStatisticsRowTooltips();
     initTeamPlayerAnalyticsCharts();
     initTeamPlayerTrendCharts();
     initTeamStatsTrendCharts();

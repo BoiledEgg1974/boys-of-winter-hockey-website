@@ -10985,15 +10985,31 @@ html:not([data-theme="light"]) .positional-rankings__team-name:hover {
   margin: 0;
   padding: 0.65rem 1rem 0.25rem;
 }
+.prospects-rankings-page .table-wrap {
+  overflow-x: auto;
+  overflow-y: clip;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
 table.data.prospects-rankings-table {
   font-size: 0.82rem;
+  border-collapse: separate;
+  border-spacing: 0;
 }
-/* Keep prospect headers pinned below the sticky site header. */
+/* Keep prospect headers pinned below the sticky site header while scrolling. */
 table.data.prospects-rankings-table thead th {
   position: sticky;
-  top: 0;
-  z-index: 3;
+  top: var(--scroll-padding-top);
+  z-index: 25;
   background: var(--surface);
+  box-shadow: 0 1px 0 var(--border), 0 4px 10px -6px rgb(0 0 0 / 0.35);
+}
+html:not([data-theme="light"]) table.data.prospects-rankings-table thead th {
+  background: rgb(15 23 42 / 0.98);
+}
+[data-theme="light"] table.data.prospects-rankings-table thead th {
+  background: var(--surface);
+  box-shadow: 0 1px 0 var(--border), 0 4px 10px -6px rgb(15 23 42 / 0.08);
 }
 table.data.prospects-rankings-table th,
 table.data.prospects-rankings-table td {
@@ -11087,7 +11103,7 @@ table.data.prospects-rankings-table--league .prospects-rankings-table__team-logo
   border-radius: 4px;
 }
 .prospects-rankings-table thead th:has(> .stats-th-link.is-sorted) {
-  background: rgb(30 41 59 / 0.95);
+  background: rgb(30 41 59 / 0.98);
 }
 [data-theme="light"] .prospects-rankings-table thead th:has(> .stats-th-link.is-sorted) {
   background: var(--row-alt);

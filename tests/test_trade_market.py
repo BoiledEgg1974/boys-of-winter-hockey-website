@@ -21,6 +21,7 @@ from app.services.trade_market import (
     replace_selling_listings,
     selling_discord_update_should_enqueue,
     sort_selling_rows,
+    _format_player_discord_stats,
     _validate_owned_asset,
     _listing_expired_by_ingame_days,
 )
@@ -28,6 +29,21 @@ from app.services.trade_tool import validate_ledger
 
 
 class TradeMarketServiceTest(unittest.TestCase):
+    def test_format_player_discord_stats_includes_position_age_abi_pot(self) -> None:
+        stats = _format_player_discord_stats(
+            {
+                "positions": "LW · RW",
+                "age": 24,
+                "abi": 72.0,
+                "pot": 78.4,
+            }
+        )
+        self.assertEqual(stats, "LW · RW · Age 24 · ABI 72 · POT 78")
+
+    def test_format_player_discord_stats_omits_missing_fields(self) -> None:
+        self.assertEqual(_format_player_discord_stats({"positions": "G"}), "G")
+        self.assertEqual(_format_player_discord_stats({}), "")
+
     def test_sort_selling_by_ovr_desc(self) -> None:
         rows = [
             {"asset_label": "Low", "ovr": 70},

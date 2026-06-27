@@ -24,6 +24,7 @@ from app.services.draft_pick_ownership import (
 )
 from app.services.draft_pick_values import perri_pick_value_for_asset
 from app.services.gm_messaging import gm_discord_name
+from app.services.player_ratings_csv import player_positions_display_label
 from app.services.seasons import get_current_season, season_age_reference_date
 from app.services.trade_tool import enrich_trade_player_row, trade_assets_for_team
 from app.site_models import (
@@ -82,6 +83,24 @@ def _player_age_years(birth_date: date | None, ref_date: date | None) -> int | N
     if (rd.month, rd.day) < (birth_date.month, birth_date.day):
         years -= 1
     return years
+
+
+def _format_player_discord_stats(enriched: dict[str, Any]) -> str:
+    """Compact position / age / ABI / POT line for Discord selling posts."""
+    parts: list[str] = []
+    pos = str(enriched.get("positions") or "").strip()
+    if pos:
+        parts.append(pos)
+    age = enriched.get("age")
+    if age is not None:
+        parts.append(f"Age {int(age)}")
+    abi = enriched.get("abi")
+    if abi is not None:
+        parts.append(f"ABI {int(round(float(abi)))}")
+    pot = enriched.get("pot")
+    if pot is not None:
+        parts.append(f"POT {int(round(float(pot)))}")
+    return " · ".join(parts)
 
 
 def latest_trade_market_game_date(league_session: Session) -> date | None:
@@ -603,7 +622,9 @@ def enrich_listing_row(
             enrich_trade_player_row(league_session, pl, tmp)
             out["asset_label"] = pl.full_name or out["asset_label"]
             out["player_id"] = int(pl.id)
-            out["positions"] = tmp.get("positions") or (pl.position or "")
+            out["positions"] = (
+                tmp.get("positions") or player_positions_display_label(pl)
+            )
             out["ovr"] = tmp.get("ovr")
             out["abi"] = float(pl.overall_ability) if pl.overall_ability is not None else None
             out["pot"] = float(pl.overall_potential) if pl.overall_potential is not None else None
@@ -836,6 +857,9 @@ def selling_discord_body(
             player_url = build_league_public_url(league_slug, f"/player/{int(player_id)}")
             if player_url:
                 asset_label = f"[{asset_label}]({player_url})"
+            stats = _format_player_discord_stats(enriched)
+            if stats:
+                asset_label = f"{asset_label} — {stats}"
         lines.append(
             f"• {asset_label} — ask {ask} · wants {wants}"
         )

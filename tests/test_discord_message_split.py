@@ -392,7 +392,7 @@ class DiscordMessageSplitTest(unittest.TestCase):
                 "event_key": "trade_market_selling_posted",
                 "payload": {
                     "title": "Trade Market — selling update",
-                    "body": "Now selling:\n• [Player X](https://www.bowlhockey.com/bowl-cap/player/99) — ask $2M · wants Prospects",
+                    "body": "Now selling:\n• [Player X](https://www.bowlhockey.com/bowl-cap/player/99) — LW · Age 24 · ABI 72 · POT 78 — ask $2M · wants Prospects",
                     "url": "https://www.bowlhockey.com/bowl-cap/trade-market",
                     "team_abbrev": "TOR",
                     "team_name": "Toronto Towers",

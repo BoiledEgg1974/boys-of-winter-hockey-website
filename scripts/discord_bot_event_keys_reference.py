@@ -4,7 +4,8 @@
 # Delivery uses discord_channel_id from admin (not channel name mapping).
 #
 # Default channel keys (paste Discord snowflake IDs in admin):
-#   team-news, league-news, ap-redemptions, draft-discussion, expansion-draft-discussion,
+#   team-news, league-news, ap-redemptions, draft-discussion, draft-pick, draft-list,
+#   expansion-draft, expansion-draft-pick,
 #   league-announcements, transactions, standings, goals-assists-points,
 #   power-rankings, prospect-rankings, positional-rankings, calder-trophy,
 #   staff-ops-alerts

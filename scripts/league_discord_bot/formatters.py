@@ -35,6 +35,8 @@ ALWAYS_TEXT_ONLY_DISCORD_EVENT_KEYS = frozenset(
         "draft_hub_on_deck",
         "draft_hub_completed",
         "expansion_draft_pick_made",
+        "expansion_draft_on_clock",
+        "expansion_draft_completed",
         "bowl_six_rosters_unlocked",
         "bowl_six_lock_warning",
         "playoff_predictions",
@@ -214,6 +216,31 @@ def _text_only_header_lines(
         lines.append(f"On deck: {prefix}{team_name}".strip())
         lines.append(f"Round {rnd}, Selection {sel}")
         lines.append(f"{mentions}, get ready!")
+    elif event_key == "expansion_draft_on_clock":
+        prefix = team_emoji_prefix(league_slug, payload)
+        team_name = str(payload.get("team_name") or "").strip()
+        rnd = payload.get("round")
+        phase = str(payload.get("phase") or "").strip()
+        ov = payload.get("overall_pick")
+        lines.append(f"On the clock: {prefix}{team_name}".strip())
+        _append_team_gm_mention(lines, payload)
+        phase_bit = f" · {phase} phase" if phase else ""
+        lines.append(f"Round {rnd}{phase_bit} · Overall #{ov}")
+        lines.append("**Commissioner: record the pick with /expansionpick when ready.**")
+    elif event_key == "expansion_draft_completed":
+        dname = str(payload.get("draft_name") or "Expansion draft")
+        pick_count = payload.get("pick_count")
+        ended_early = bool(payload.get("ended_early"))
+        suffix = " ended early" if ended_early else " complete"
+        lines.append(f"**{dname}{suffix}**")
+        if pick_count is not None:
+            lines.append(f"{pick_count} pick(s) recorded.")
+        recap = payload.get("recap_lines") or []
+        if isinstance(recap, list) and recap:
+            lines.append("")
+            lines.append("Highlights:")
+            for row in recap[:8]:
+                lines.append(f"· {row}")
     elif event_key == "draft_hub_completed":
         dname = str(payload.get("draft_name") or "Draft Hub")
         pick_count = payload.get("pick_count")
@@ -500,7 +527,7 @@ def _text_only_body_text(
         src = str(payload.get("pick_source") or "").strip()
         if src and src not in body:
             body = f"{body} · `{src}`" if body else f"Source: `{src}`"
-    if event_key in ("draft_hub_on_clock", "draft_hub_on_deck"):
+    if event_key in ("draft_hub_on_clock", "draft_hub_on_deck", "expansion_draft_on_clock"):
         url = str(payload.get("url") or "").strip()
         if url and url not in body:
             body = f"{body}\n{url}".strip() if body else url

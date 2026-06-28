@@ -47,6 +47,8 @@ OPS_TEXT_ONLY_DISCORD_EVENT_KEYS = frozenset(
         "draft_hub_on_deck",
         "draft_hub_completed",
         "expansion_draft_pick_made",
+        "expansion_draft_on_clock",
+        "expansion_draft_completed",
         "bowl_six_leaders_update",
         "bowl_six_rosters_unlocked",
         "bowl_six_lock_warning",
@@ -81,6 +83,10 @@ DEFAULT_EVENT_KEYS = {
     "draft_hub_command_pick",
     "draft_hub_command_list",
     "expansion_draft_pick_made",
+    "expansion_draft_on_clock",
+    "expansion_draft_completed",
+    "expansion_draft_command_pick",
+    "expansion_draft_command_list",
     "staff_transaction_posted",
     "bowl_six_leaders_update",
     "bowl_six_rosters_unlocked",
@@ -105,7 +111,11 @@ DEFAULT_EVENT_CHANNEL_KEY = {
     "draft_hub_completed": "draft-discussion",
     "draft_hub_command_pick": "draft-pick",
     "draft_hub_command_list": "draft-list",
-    "expansion_draft_pick_made": "expansion-draft-discussion",
+    "expansion_draft_pick_made": "expansion-draft",
+    "expansion_draft_on_clock": "expansion-draft",
+    "expansion_draft_completed": "expansion-draft",
+    "expansion_draft_command_pick": "expansion-draft-pick",
+    "expansion_draft_command_list": "expansion-draft",
     "staff_transaction_posted": "staff-hirings-firings",
     "bowl_six_leaders_update": "bowl-six-leaders",
     "bowl_six_rosters_unlocked": "bowl-six",
@@ -131,6 +141,10 @@ DEFAULT_EVENT_LABELS = {
     "draft_hub_command_pick": "Draft Hub /draft command channel",
     "draft_hub_command_list": "Draft Hub /list command channel",
     "expansion_draft_pick_made": "Expansion draft pick (live)",
+    "expansion_draft_on_clock": "Expansion draft on-clock ping",
+    "expansion_draft_completed": "Expansion draft completion recap",
+    "expansion_draft_command_pick": "Expansion draft /expansionpick command channel",
+    "expansion_draft_command_list": "Expansion draft /expansionlist command channel",
     "staff_transaction_posted": "Staff hire / fire approved",
     "bowl_six_leaders_update": "BOWL Six live leaders (post + edit)",
     "bowl_six_rosters_unlocked": "BOWL Six rosters unlocked",
@@ -140,6 +154,16 @@ DEFAULT_EVENT_LABELS = {
     "playoff_predictions": "Playoff predictions (/predict)",
     "playoff_bracket_update": "Playoff bracket (live series posts)",
 }
+
+EXPANSION_DRAFT_DISCORD_EVENT_KEYS = frozenset(
+    {
+        "expansion_draft_pick_made",
+        "expansion_draft_on_clock",
+        "expansion_draft_completed",
+        "expansion_draft_command_list",
+        "expansion_draft_command_pick",
+    }
+)
 
 MAX_DELIVERY_ATTEMPTS = 3
 
@@ -1104,6 +1128,63 @@ def bootstrap_discord_integration_all_leagues(session) -> None:
     session.commit()
 
 
+def _expansion_discord_channel_id_for_routes(rows: list[DiscordChannelRoute], *, pick_channel: bool) -> str:
+    for row in rows:
+        cid = str(row.discord_channel_id or "").strip()
+        if not cid:
+            continue
+        ck = str(row.channel_key or "").strip()
+        ek = str(row.event_key or "").strip()
+        if pick_channel:
+            if ck == "expansion-draft-pick" or ek == "expansion_draft_command_pick":
+                return cid
+        elif ck in ("expansion-draft", "expansion-draft-discussion") or ek in (
+            "expansion_draft_pick_made",
+            "expansion_draft_on_clock",
+            "expansion_draft_completed",
+            "expansion_draft_command_list",
+        ):
+            return cid
+    return ""
+
+
+def _normalize_expansion_draft_discord_routes(session, league_slug: str) -> bool:
+    """Align expansion draft routes to current channel keys and backfill Discord IDs per league."""
+    rows = list(
+        session.scalars(
+            select(DiscordChannelRoute).where(DiscordChannelRoute.league_slug == league_slug)
+        ).all()
+    )
+    if not rows:
+        return False
+    by_key = {str(r.event_key or ""): r for r in rows}
+    main_channel_id = _expansion_discord_channel_id_for_routes(rows, pick_channel=False)
+    pick_channel_id = _expansion_discord_channel_id_for_routes(rows, pick_channel=True)
+    changed = False
+    now = datetime.utcnow()
+    for key in EXPANSION_DRAFT_DISCORD_EVENT_KEYS:
+        row = by_key.get(key)
+        if row is None:
+            continue
+        expected_ck = DEFAULT_EVENT_CHANNEL_KEY.get(key, "")
+        if expected_ck and str(row.channel_key or "").strip() != expected_ck:
+            row.channel_key = expected_ck
+            row.updated_at = now
+            changed = True
+        default_label = DEFAULT_EVENT_LABELS.get(key, "")
+        if default_label and not str(row.label or "").strip():
+            row.label = default_label
+            row.updated_at = now
+            changed = True
+        if not str(row.discord_channel_id or "").strip():
+            fill = pick_channel_id if expected_ck == "expansion-draft-pick" else main_channel_id
+            if fill:
+                row.discord_channel_id = fill[:32]
+                row.updated_at = now
+                changed = True
+    return changed
+
+
 def ensure_discord_routes(session, league_slug: str, updated_by_user_id: int | None = None) -> None:
     _migrate_ops_request_to_trade_request(session)
     by_key = _route_map(session, league_slug)
@@ -1150,6 +1231,8 @@ def ensure_discord_routes(session, league_slug: str, updated_by_user_id: int | N
     ):
         confirmed_route.discord_channel_id = str(trade_route.discord_channel_id or "").strip()[:32]
         confirmed_route.updated_at = now
+        changed = True
+    if _normalize_expansion_draft_discord_routes(session, league_slug):
         changed = True
     if changed:
         from app.sqlite_retry import commit_with_sqlite_retry

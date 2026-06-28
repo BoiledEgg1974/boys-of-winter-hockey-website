@@ -90,6 +90,26 @@ COMMAND_DEFINITIONS: list[dict[str, Any]] = [
         "description": "Show the top 20 remaining Draft Hub eligible players.",
     },
     {
+        "name": "expansionstatus",
+        "description": "Show the live Expansion Draft clock and recent picks.",
+    },
+    {
+        "name": "expansionpick",
+        "description": "Record an Expansion Draft pick (commissioner only).",
+        "options": [
+            {
+                "name": "player",
+                "description": "Player name or site player id",
+                "type": 3,
+                "required": True,
+            }
+        ],
+    },
+    {
+        "name": "expansionlist",
+        "description": "Show the top 20 remaining Expansion Draft eligible players.",
+    },
+    {
         "name": "player",
         "description": "Show a quick player lookup.",
         "options": [
@@ -582,6 +602,92 @@ def _handle_draft_pick_command(payload: dict[str, Any], league_slug: str) -> dic
     )
 
 
+def _expansion_eligible_remaining_players(league_slug: str) -> tuple[Any | None, list[Player], str | None]:
+    from app.services.expansion_draft_state import (
+        eligible_players_for_board,
+        featured_expansion_draft,
+        slots_ordered,
+    )
+
+    draft = featured_expansion_draft(db.session, league_slug)
+    if draft is None or draft.status != "live":
+        return draft, [], None
+    phase_filter = None
+    exp_team_id = None
+    phase_label = None
+    slots = slots_ordered(db.session, draft.id)
+    if draft.current_slot_index < len(slots):
+        cs = slots[draft.current_slot_index]
+        if not cs.forfeited:
+            phase_filter = str(cs.phase or "")
+            exp_team_id = int(cs.team_id)
+            ph = str(cs.phase or "").strip()
+            if ph:
+                phase_label = ph[0].upper() + ph[1:] if len(ph) > 1 else ph.upper()
+    players = eligible_players_for_board(
+        db.session,
+        draft,
+        phase=phase_filter,
+        expansion_team_id=exp_team_id,
+    )
+    return draft, players, phase_label
+
+
+def _handle_expansion_list_command(payload: dict[str, Any], league_slug: str) -> dict[str, Any]:
+    err = _channel_check(league_slug, "expansion_draft_command_list", payload)
+    if err:
+        return _ephemeral(err)
+    draft, players, phase_label = _expansion_eligible_remaining_players(league_slug)
+    if draft is None or getattr(draft, "status", None) != "live":
+        return _ephemeral("No live Expansion Draft for this league right now.")
+    if not players:
+        return _ephemeral("No remaining eligible players found for the live expansion draft.")
+    phase_bit = f" ({phase_label} phase)" if phase_label else ""
+    lines = [f"**{draft.name or 'Expansion draft'}**{phase_bit} — top 20 remaining eligible players:"]
+    for idx, p in enumerate(players[:20], start=1):
+        pos = player_positions_display_label(p) or "-"
+        lines.append(
+            f"{idx}. {p.full_name} ({pos}) · POT {_fmt_rating(p.overall_potential)} "
+            f"· ABI {_fmt_rating(p.overall_ability)} · id `{p.id}`"
+        )
+    return _ephemeral("\n".join(lines))
+
+
+def _handle_expansion_pick_command(payload: dict[str, Any], league_slug: str) -> dict[str, Any]:
+    err = _channel_check(league_slug, "expansion_draft_command_pick", payload)
+    if err:
+        return _ephemeral(err)
+    user = _site_user_for_discord(payload)
+    if user is None:
+        return _ephemeral(
+            "I could not match your Discord account to a BOWL user yet. "
+            "Ask an admin to add your Discord User ID."
+        )
+    from app.auth_login import league_hub_staff
+
+    if not league_hub_staff(user):
+        return _ephemeral("Only league staff can record expansion draft picks.")
+    draft, players, _phase_label = _expansion_eligible_remaining_players(league_slug)
+    if draft is None or getattr(draft, "status", None) != "live":
+        return _ephemeral("No live Expansion Draft for this league right now.")
+    player, resolve_err = _resolve_draft_player(_command_option(payload, "player"), players)
+    if resolve_err:
+        return _ephemeral(resolve_err)
+    assert player is not None
+    from app.services.expansion_draft_state import resolve_admin_pick
+
+    pick_err = resolve_admin_pick(db.session, draft, int(player.id), int(user.id))
+    if pick_err:
+        db.session.rollback()
+        return _ephemeral(pick_err)
+    commit_with_sqlite_retry(db.session)
+    pos = player_positions_display_label(player) or "-"
+    return _ephemeral(
+        f"Expansion pick recorded: **{player.full_name}** ({pos}) for {draft.name or 'Expansion draft'}. "
+        "The Expansion Draft Hub page and Discord pick post will update."
+    )
+
+
 def _handle_player_command(payload: dict[str, Any], league_slug: str, season: Season) -> dict[str, Any]:
     player, err = _resolve_player_any(_command_option(payload, "query"))
     if err:
@@ -1053,10 +1159,18 @@ def handle_slash_interaction(
         from app.services.draft_hub_discord import build_draft_status_message
 
         return _ephemeral(build_draft_status_message(db.session, slug))
+    if command == "expansionstatus":
+        from app.services.expansion_draft_discord import build_expansion_status_message
+
+        return _ephemeral(build_expansion_status_message(db.session, slug))
     if command == "draft":
         return _handle_draft_pick_command(payload, slug)
+    if command == "expansionpick":
+        return _handle_expansion_pick_command(payload, slug)
     if command == "list":
         return _handle_draft_list_command(payload, slug)
+    if command == "expansionlist":
+        return _handle_expansion_list_command(payload, slug)
     if command == "inbox":
         user = _site_user_for_discord(payload)
         if user is None:

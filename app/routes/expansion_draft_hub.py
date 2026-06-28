@@ -1,4 +1,4 @@
-"""Expansion Draft Hub — admin + GM only."""
+"""Expansion Draft Hub — GMs view the board; commissioners record picks."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -20,13 +20,12 @@ from app.services.expansion_draft_state import (
     expansion_franchise_ids_sorted,
     expansion_process_tick,
     featured_expansion_draft,
-    gm_user_ids_for_team,
     hydrate_players_for_ordered_ids,
     pause_timer,
     player_is_defense,
     player_is_forward,
     player_is_goalie,
-    record_pick,
+    GM_SELF_PICK_DISABLED_MSG,
     resolve_admin_pick,
     resume_timer,
     slots_ordered,
@@ -300,19 +299,7 @@ def expansion_draft_api_state():
         sec = (ddl - now).total_seconds()
         deadline_ms = max(0, int(sec * 1000)) if sec > 0 else 0
 
-    mem = _membership()
-    exp_set = set(exp_order)
-    can_pick = bool(
-        mem
-        and draft.status == "live"
-        and not draft.awaiting_admin_resolution
-        and not getattr(draft, "expansion_pick_cooldown_active", False)
-        and current_slot
-        and mem.team_id == current_slot["team_id"]
-        and int(mem.team_id) in exp_set
-        and current_user.is_authenticated
-        and int(current_user.id) in gm_user_ids_for_team(db.session, slug, current_slot["team_id"])
-    )
+    can_pick = False
     can_admin_pick = bool(
         current_user.is_authenticated
         and league_hub_staff(current_user)
@@ -382,6 +369,7 @@ def expansion_draft_api_state():
                 "can_admin_control": can_admin_control,
                 "can_admin_end_early": can_admin_end_early,
                 "wishlist_pick": None,
+                "gm_picks_enabled": False,
             },
         }
     )
@@ -504,7 +492,7 @@ def expansion_draft_pick():
         elif league_hub_staff(current_user):
             flash_err = resolve_admin_pick(db.session, draft, int(pid_raw), int(current_user.id))
         else:
-            flash_err = record_pick(db.session, draft, int(pid_raw), int(current_user.id), "gm")
+            flash_err = GM_SELF_PICK_DISABLED_MSG
     if flash_err:
         flash(flash_err, "err")
     commit_with_sqlite_retry(db.session)

@@ -4,7 +4,8 @@
 <div class="draft-hub-page draft-hub-page--expansion" id="draft-hub-page-root">
   <h1 class="page-title">Expansion Draft Hub</h1>
   <p class="muted" style="margin:0 0 1rem;">
-    For league GMs and admins. Prospect draft: <a href="{{ url_for('draft_hub.draft_hub_page') }}">Draft Hub</a>
+    For league GMs and admins. The commissioner records every pick on this board (same as the entry Draft Hub).
+    Prospect draft: <a href="{{ url_for('draft_hub.draft_hub_page') }}">Draft Hub</a>
     · <a href="{{ url_for('main.draft') }}">FHM Draft History</a>
   </p>
 
@@ -319,6 +320,12 @@
     // === Body row: Eligible Prospects | Draft Order | Draft History ===
     html += '<section class="draft-hub-col draft-hub-col--players card">';
     html += '<h2 class="draft-hub-col__title">Eligible Players</h2>';
+    if (x.status === 'live') {
+      var eligBlurb = x.can_admin_pick
+        ? 'Click Draft next to a player to record the selection for the expansion club on the clock.'
+        : 'Browse the eligible pool. The commissioner records picks from this board during the live draft.';
+      html += '<p class="muted small" style="margin:0 0 0.5rem;line-height:1.35;">' + esc(eligBlurb) + '</p>';
+    }
     html += '<p class="muted loading-with-puck" id="dh-eligible-meta">Loading…</p>';
     html += '<div class="draft-hub-filters">';
     html += '<input type="search" id="dh-search" class="draft-hub-search" placeholder="Search players…" autocomplete="off">';
@@ -674,8 +681,8 @@
         meta.textContent = metaParts.join(' · ');
       }
       var rows = d.players || [];
-      // GMs cannot draft while awaiting_admin; league staff still can (POST uses admin pick path).
-      var mayDraftFromEligible = (x.can_pick && !x.awaiting_admin) || x.can_admin_pick;
+      // Commissioner-only picks (same as entry Draft Hub with GM self-picks off).
+      var mayDraftFromEligible = x.can_admin_pick;
       var html = '';
       rows.forEach(function (p) {
         var detailTitle = playerDetailsTitle(p);

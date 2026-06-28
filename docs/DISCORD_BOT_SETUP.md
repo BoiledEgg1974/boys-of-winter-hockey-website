@@ -27,14 +27,20 @@ In each league’s admin page (`/<league-slug>/admin/discord-integration`):
 | Trades / ops | `trade_request` | `transactions` |
 | Announcements | `announcement_posted` | `league-announcements` |
 | Draft Hub — each live pick | `draft_hub_pick_made` | `draft-discussion` |
-| Expansion draft — each live pick | `expansion_draft_pick_made` | `expansion-draft-discussion` |
+| Draft Hub — on clock / on deck / complete | `draft_hub_on_clock`, `draft_hub_on_deck`, `draft_hub_completed` | `draft-discussion` |
+| Draft Hub — `/draft` | `draft_hub_command_pick` | `draft-pick` |
+| Draft Hub — `/list` | `draft_hub_command_list` | `draft-list` |
+| Expansion draft — each live pick | `expansion_draft_pick_made` | `expansion-draft` |
+| Expansion draft — on clock / complete | `expansion_draft_on_clock`, `expansion_draft_completed` | `expansion-draft` |
+| Expansion draft — `/expansionlist` | `expansion_draft_command_list` | `expansion-draft` |
+| Expansion draft — `/expansionpick` | `expansion_draft_command_pick` | `expansion-draft-pick` |
 | Legacy (optional) | `news_published` | `league-news` |
 
 **Optional:** paste the same Discord channel ID onto multiple routes if you want combined feeds into one `#channel`.
 
 Removing a **default** route (seeded event keys like `calder_trophy_posted`) hides it until you use **Add route** again with that event key—the site remembers removals per league so they are not auto-recreated on refresh.
 
-**Historical example guild `1218341313208914002`:** on **bowl-historical → Discord integration**, set Bot connection guild to that ID, then paste channel IDs: `#announcements` → `announcement_posted`; `#team-news` → `gm_news_published`; `#league-news` → `admin_news_published`; AP channel → `ap_redemption_posted`; `#draft-discussion` → `draft_hub_pick_made`; `#expansion-draft-discussion` → `expansion_draft_pick_made`.
+**Historical example guild `1218341313208914002`:** on **bowl-historical → Discord integration**, set Bot connection guild to that ID, then paste channel IDs: `#announcements` → `announcement_posted`; `#team-news` → `gm_news_published`; `#league-news` → `admin_news_published`; AP channel → `ap_redemption_posted`; `#draft-discussion` → draft hub live feeds; `#expansion-draft` → expansion live feeds + `/expansionlist`; `#expansion-draft-pick` → `/expansionpick`.
 
 ## 3. Website environment
 

@@ -4,7 +4,8 @@
 <div class="card" style="max-width:48rem;margin:0 auto;">
   <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
   <h1 class="page-title">Expansion Draft Hub</h1>
-  <p class="muted">GMs and admins use the <a href="{{ url_for('expansion_draft_hub.expansion_draft_hub_page') }}">Expansion Draft Hub</a> during the live event.</p>
+  <p class="muted">GMs follow the live board on the <a href="{{ url_for('expansion_draft_hub.expansion_draft_hub_page') }}">Expansion Draft Hub</a>; the commissioner records every pick there (same as the entry Draft Hub).</p>
+  <p class="muted small" style="margin:0 0 1rem;">Discord: map <code>#expansion-draft</code> to pick/on-clock/completed/list routes and <code>#expansion-draft-pick</code> to <code>expansion_draft_command_pick</code> on <a href="{{ url_for('site_admin.admin_discord_integration') }}">Discord integration</a>. Use <code>/expansionlist</code> and <code>/expansionpick</code> in those channels; <code>/expansionstatus</code> works anywhere.</p>
 
   <h2>New expansion draft</h2>
   <form method="post" class="card" style="padding:1rem;margin-bottom:1.5rem;">

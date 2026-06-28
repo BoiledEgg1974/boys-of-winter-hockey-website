@@ -30,7 +30,12 @@ Ack: `POST /api/discord/events/<id>/ack` — marks sent and records `source_type
 | `trade_request` | `transactions` | Ops queue status change (non-blocked) |
 | `announcement_posted` | `league-announcements` | Commissioner announcement create |
 | `draft_hub_pick_made` | `draft-discussion` | Every recorded pick on **live Draft Hub** (GM / admin / auto-queue) |
-| `expansion_draft_pick_made` | `expansion-draft-discussion` | Every recorded pick on **live Expansion Draft Hub** |
+| `draft_hub_on_clock` | `draft-discussion` | On-clock ping when a new pick timer starts (rounds 1–2) |
+| `draft_hub_on_deck` | `draft-discussion` | On-deck alert (when enabled on the draft) |
+| `draft_hub_completed` | `draft-discussion` | Draft completion recap |
+| `expansion_draft_pick_made` | `expansion-draft` | Every recorded pick on **live Expansion Draft Hub** |
+| `expansion_draft_on_clock` | `expansion-draft` | On-clock ping when a new expansion pick timer starts |
+| `expansion_draft_completed` | `expansion-draft` | Expansion draft completion recap |
 | `story_published` | `league-news` | Story automation live dispatch |
 | `control_center_restore` | `staff-ops-alerts` | Control Center backup restore succeeds |
 | `bowl_six_leaders_update` | `bowl-six-leaders` | BOWL Six top performers + GM week/season leaders (first post, then **edit** same message) |
@@ -44,7 +49,9 @@ Payloads include `source_type` and `source_id` for idempotency where applicable.
 
 **Playoff predictions (`/predict`):** Admin-only slash command in `#playoff-predictions`. When only one round still needs predictions, bare `/predict` queues it automatically. With multiple open rounds, the command lists them and asks you to pick **round** from the menu (`first`, `second`, `conference`, `championship`, or `all`). Re-register slash commands after deploy so Discord sends the `round` option: `python -m scripts.league_discord_bot.register_slash_commands`.
 
-**Historical example (Discord server guild `1218341313208914002`):** set that guild ID under Bot connection on `bowl-historical`; map channel snowflakes roughly as: `announcement_posted` → `#announcements`, `ap_redemption_posted` → `#ap-repemptions` (or `#ap-redemptions`), `gm_news_published` → `#team-news`, `admin_news_published` → `#league-news`, `draft_hub_pick_made` → `#draft-discussion`, `expansion_draft_pick_made` → `#expansion-draft-discussion`.
+**Expansion Draft slash commands:** Map `expansion_draft_command_list` → `#expansion-draft` for `/expansionlist`; map `expansion_draft_command_pick` → `#expansion-draft-pick` for `/expansionpick`. `/expansionstatus` works in any channel (like `/draftstatus`). Re-register slash commands after deploy: `python -m scripts.league_discord_bot.register_slash_commands`.
+
+**Historical example (Discord server guild `1218341313208914002`):** set that guild ID under Bot connection on `bowl-historical`; map channel snowflakes roughly as: `announcement_posted` → `#announcements`, `ap_redemption_posted` → `#ap-repemptions` (or `#ap-redemptions`), `gm_news_published` → `#team-news`, `admin_news_published` → `#league-news`, `draft_hub_pick_made` / `draft_hub_on_clock` / `draft_hub_completed` → `#draft-discussion`, `expansion_draft_pick_made` / `expansion_draft_on_clock` / `expansion_draft_completed` / `expansion_draft_command_list` → `#expansion-draft`, `expansion_draft_command_pick` → `#expansion-draft-pick`.
 
 ## Smoke tests
 

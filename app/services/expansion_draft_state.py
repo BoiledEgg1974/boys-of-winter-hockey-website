@@ -31,6 +31,9 @@ _FORWARD_TOKENS = frozenset({"LW", "C", "RW"})
 _DEFENSE_TOKENS = frozenset({"LD", "RD"})
 _EXPANSION_BOARD_MIN_AGE = 21
 _EXPANSION_INTER_PICK_COOLDOWN_SEC = 5
+GM_SELF_PICK_DISABLED_MSG = (
+    "GM self-picks are disabled for expansion drafts; the commissioner will make selections."
+)
 
 
 def player_is_unrestricted_free_agent(pl: Player) -> bool:
@@ -324,6 +327,8 @@ def _finalize_if_done(session: Session, draft: LeagueExpansionDraft, slots: list
     )
     if len(picks) < len(needed):
         return
+    if str(draft.status or "") == "completed":
+        return
     draft.status = "completed"
     draft.pick_started_at = None
     draft.pick_deadline_at = None
@@ -331,32 +336,20 @@ def _finalize_if_done(session: Session, draft: LeagueExpansionDraft, slots: list
     draft.timer_paused_remaining_seconds = None
     draft.awaiting_admin_resolution = False
     draft.completed_summary_json = json.dumps(_simple_completion_summary(session, draft, ended_early=False))
+    try:
+        from app.services.expansion_draft_discord import enqueue_expansion_draft_completed
+
+        enqueue_expansion_draft_completed(session, draft)
+    except Exception:
+        pass
 
 
-def _enqueue_on_clock_dms(
+def _enqueue_on_clock_channel_alert(
     session: Session, draft: LeagueExpansionDraft, slot: LeagueExpansionDraftSlot
 ) -> None:
-    uids = gm_user_ids_for_team(session, draft.league_slug, int(slot.team_id))
-    if not uids:
-        return
-    tm = session.get(Team, int(slot.team_id))
-    team_label = tm.full_display_name() if tm else f"Team #{slot.team_id}"
-    deadline = draft.pick_deadline_at.strftime("%Y-%m-%d %H:%M UTC") if draft.pick_deadline_at else "soon"
-    from app.services.discord_direct_messages import enqueue_direct_message
-    from app.services.discord_events import build_league_public_url
+    from app.services.expansion_draft_discord import enqueue_expansion_draft_discord_alerts
 
-    for uid in uids:
-        enqueue_direct_message(
-            session,
-            league_slug=draft.league_slug,
-            recipient_user_id=int(uid),
-            event_key="expansion_draft_on_clock",
-            title=f"{draft.name}: {team_label} is on the clock",
-            body=f"Expansion pick #{slot.overall_pick} ({slot.phase}, round {slot.round}) is ready. Deadline: {deadline}.",
-            source_type="expansion_draft_on_clock",
-            source_id=f"{int(draft.id)}:{int(slot.overall_pick)}",
-            url=build_league_public_url(draft.league_slug, f"/expansion-draft-hub/{int(draft.id)}"),
-        )
+    enqueue_expansion_draft_discord_alerts(session, draft, slot)
 
 
 def _simple_completion_summary(
@@ -397,6 +390,12 @@ def end_expansion_draft_early(
     draft.expansion_pick_cooldown_active = False
     draft.completed_summary_json = json.dumps(_simple_completion_summary(session, draft, ended_early=True))
     invalidate_expansion_eligible_cache(draft.id)
+    try:
+        from app.services.expansion_draft_discord import enqueue_expansion_draft_completed
+
+        enqueue_expansion_draft_completed(session, draft, ended_early=True)
+    except Exception:
+        pass
     return None
 
 
@@ -438,7 +437,7 @@ def sync_current_slot_and_clock(session: Session, draft: LeagueExpansionDraft) -
             draft.pick_deadline_at = now + timedelta(seconds=int(draft.timer_seconds))
             draft.deadline_extended_for_slot = False
             try:
-                _enqueue_on_clock_dms(session, draft, slot)
+                _enqueue_on_clock_channel_alert(session, draft, slot)
             except Exception:
                 pass
         draft.awaiting_admin_resolution = False
@@ -867,17 +866,7 @@ def record_pick(
     if err:
         return err
     if source == "gm":
-        if user_id is None:
-            return "Not authenticated."
-        mids = gm_user_ids_for_team(session, draft.league_slug, slot.team_id)
-        if int(user_id) not in mids:
-            return "You are not the GM on the clock for this team."
-        ddl = draft.pick_deadline_at
-        if ddl is not None and utcnow_naive() > ddl:
-            return "Pick timer has expired; ask the commissioner."
-        order = set(expansion_franchise_ids_sorted(draft))
-        if order and int(slot.team_id) not in order:
-            return "This team is not an expansion franchise in this draft."
+        return GM_SELF_PICK_DISABLED_MSG
 
     from_tid = _rights_holder_team_id_for_losses(session, pl)
     pk = LeagueExpansionDraftPick(

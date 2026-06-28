@@ -4,7 +4,8 @@
 <div class="card" style="max-width:56rem;margin:0 auto;">
   <p><a href="{{ url_for('site_admin.admin_expansion_draft_hub') }}">← Expansion Draft admin</a></p>
   <h1 class="page-title">Edit: {{ draft.name }}</h1>
-  <p class="muted">Status: <strong>{{ draft.status }}</strong> · <a href="{{ url_for('expansion_draft_hub.expansion_draft_hub_page') }}">Open hub</a></p>
+  <p class="muted">Status: <strong>{{ draft.status }}</strong> · <a href="{{ url_for('expansion_draft_hub.expansion_draft_hub_page') }}">Open hub</a> (commissioner records picks on the hub during live drafts)</p>
+  <p class="muted small" style="margin:0 0 1rem;">Live picks post to <code>#expansion-draft</code>; commissioner records via hub or <code>/expansionpick</code> in <code>#expansion-draft-pick</code> (see <a href="{{ url_for('site_admin.admin_discord_integration') }}">Discord integration</a>).</p>
 
   {% with msgs = get_flashed_messages(with_categories=true) %}
   {% if msgs %}

@@ -1710,11 +1710,11 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1708;0;Jeff;Walsh;;1949-9-11;Marathon;ON;Canada;;;0
 1709;-1;Cecil;Reece;;1940-4-11;Dalton;GA;The United States;;;0
 1710;-1;Claude;Farley;;1940-2-1;Saguenay;QC;Canada;;;0
-1711;-1;Marvin;Lane;;1940-5-8;Montreal;QC;Canada;;;0
+1711;26;Marvin;Lane;;1940-5-8;Montreal;QC;Canada;;;0
 1712;-1;Travis;Walsh;;1946-6-16;Edmonton;AB;Canada;;;0
 1713;-1;Gordon;Ward;;1940-3-12;Seaside;CA;The United States;;;0
 1714;10;Ron;Burdett;;1940-6-3;Bloomington;IN;The United States;;;0
-1715;26;Keven;Dubé;;1940-8-6;Lethbridge;AB;Canada;;;0
+1715;-1;Keven;Dubé;;1940-8-6;Lethbridge;AB;Canada;;;0
 1716;-1;Brayden;O'Neill;;1940-8-22;Arizona City;AZ;The United States;;;0
 1717;-1;Luis;Quintanilla;;1940-3-28;Val-d'Or;QC;Canada;;;0
 1718;-1;Dave;Stephens;;1940-11-28;Chilliwack;BC;Canada;;;0

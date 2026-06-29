@@ -10633,6 +10633,7 @@ table.data.prospects-rankings-table--free-agents .stats-player-cell__pos--eligib
   max-width: 1400px;
   margin: 0 auto;
   padding: 0 1rem 2rem;
+  --prospects-sticky-head-offset: 6.5rem;
 }
 .prospects-system-rankings {
   margin-bottom: 1.25rem;
@@ -10961,6 +10962,24 @@ html:not([data-theme="light"]) .positional-rankings__team-name:hover {
   gap: 1rem 1.25rem;
   align-items: flex-end;
 }
+.prospects-rankings-page__sticky-head {
+  position: sticky;
+  top: var(--scroll-padding-top);
+  z-index: 30;
+  background: var(--bg);
+  padding-bottom: 0.35rem;
+  margin-bottom: 0.75rem;
+  box-shadow: 0 6px 14px -6px rgb(0 0 0 / 0.45);
+}
+[data-theme="light"] .prospects-rankings-page__sticky-head {
+  box-shadow: 0 4px 12px -4px rgb(15 23 42 / 0.12);
+}
+.prospects-rankings-page__sticky-head .subnav {
+  margin: 0 0 0.65rem;
+}
+.prospects-rankings-page__sticky-head .prospects-rankings-page__filters {
+  margin-bottom: 0;
+}
 .prospects-rankings-page__filters .prospects-rankings-page__field {
   display: flex;
   flex-direction: column;
@@ -10985,21 +11004,32 @@ html:not([data-theme="light"]) .positional-rankings__team-name:hover {
   margin: 0;
   padding: 0.65rem 1rem 0.25rem;
 }
-.prospects-rankings-page .table-wrap {
-  overflow-x: auto;
-  overflow-y: clip;
-  max-width: 100%;
+.prospects-rankings-table-card {
+  position: sticky;
+  top: calc(var(--scroll-padding-top) + var(--prospects-sticky-head-offset));
+  z-index: 20;
+  padding-bottom: 0.75rem;
+}
+.prospects-rankings-table-card__scroll {
+  max-height: calc(
+    100dvh - var(--scroll-padding-top) - var(--prospects-sticky-head-offset) - 2.25rem
+  );
+  overflow: auto;
   -webkit-overflow-scrolling: touch;
+  margin: 0 -0.25rem;
+  padding: 0 0.25rem;
 }
 table.data.prospects-rankings-table {
   font-size: 0.82rem;
   border-collapse: separate;
   border-spacing: 0;
+  width: max-content;
+  min-width: 100%;
 }
-/* Keep prospect headers pinned below the sticky site header while scrolling. */
+/* Sticky column labels within the rankings scroll panel (filters stick above via __sticky-head). */
 table.data.prospects-rankings-table thead th {
   position: sticky;
-  top: var(--scroll-padding-top);
+  top: 0;
   z-index: 25;
   background: var(--surface);
   box-shadow: 0 1px 0 var(--border), 0 4px 10px -6px rgb(0 0 0 / 0.35);
@@ -22327,6 +22357,13 @@ button.bowl-six-submissions__toggle:hover {
   body.site-touch-layout #main-content .table-wrap > table thead,
   body.site-touch-layout #main-content .table-wrap > table tbody,
   body.site-touch-layout #main-content .table-wrap > table tr {
+    width: max-content;
+    min-width: 100%;
+  }
+  /* Keep table layout + sticky thead inside the prospects scroll panel. */
+  body.site-touch-layout #main-content .prospects-rankings-table-card__scroll > table.data.prospects-rankings-table {
+    display: table;
+    overflow: visible;
     width: max-content;
     min-width: 100%;
   }

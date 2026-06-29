@@ -45,16 +45,38 @@
     {% endfor %}
   </ul>
   {% endif %}
-  <nav class="subnav" aria-label="Draft eligible sections" style="margin:0 0 1rem;">
-    <a href="{{ url_for('main.draft_eligible', tab='eligible') }}" class="{% if active_tab == 'eligible' %}is-active{% endif %}">Draft Eligible</a>
-    <a href="{{ url_for('main.draft_eligible', tab='mock') }}" class="{% if active_tab == 'mock' %}is-active{% endif %}">Mock Draft</a>
-  </nav>
+  <div class="prospects-rankings-page__sticky-head">
+    <nav class="subnav" aria-label="Draft eligible sections">
+      <a href="{{ url_for('main.draft_eligible', tab='eligible') }}" class="{% if active_tab == 'eligible' %}is-active{% endif %}">Draft Eligible</a>
+      <a href="{{ url_for('main.draft_eligible', tab='mock') }}" class="{% if active_tab == 'mock' %}is-active{% endif %}">Mock Draft</a>
+    </nav>
+    {% if active_tab != 'mock' %}
+    <form method="get" class="card prospects-rankings-page__filters">
+      <input type="hidden" name="tab" value="eligible">
+      <input type="hidden" name="sort" value="{{ prospect_sort }}">
+      <input type="hidden" name="order" value="{{ prospect_order }}">
+      {% if prospect_expanded %}<input type="hidden" name="expanded" value="1">{% endif %}
+      <label class="prospects-rankings-page__field">Search
+        <input type="search" name="q" value="{{ q or '' }}" placeholder="Player name">
+      </label>
+      <label class="prospects-rankings-page__field">Position
+        <select name="position" onchange="this.form.submit()">
+          <option value="">All</option>
+          {% for p in ['C','LW','RW','D','G'] %}
+          <option value="{{ p }}" {{ 'selected' if position == p else '' }}>{{ p }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <button type="submit">Apply</button>
+    </form>
+    {% endif %}
+  </div>
   {% if active_tab == 'mock' %}
-  <div class="card">
+  <div class="card prospects-rankings-table-card">
     <h2 style="margin-top:0;">Mock Draft</h2>
     <p class="muted">Three-round entertainment mock based on current standings, admin draft-pick ownership, and broad organizational needs from current rosters.</p>
     {% if mock_draft_rows %}
-    <div class="table-wrap">
+    <div class="prospects-rankings-table-card__scroll">
       <table class="data prospects-rankings-table">
         <thead>
           <tr>
@@ -104,27 +126,9 @@
     {% endif %}
   </div>
   {% else %}
-  <form method="get" class="card prospects-rankings-page__filters">
-    <input type="hidden" name="tab" value="eligible">
-    <input type="hidden" name="sort" value="{{ prospect_sort }}">
-    <input type="hidden" name="order" value="{{ prospect_order }}">
-    {% if prospect_expanded %}<input type="hidden" name="expanded" value="1">{% endif %}
-    <label class="prospects-rankings-page__field">Search
-      <input type="search" name="q" value="{{ q or '' }}" placeholder="Player name">
-    </label>
-    <label class="prospects-rankings-page__field">Position
-      <select name="position" onchange="this.form.submit()">
-        <option value="">All</option>
-        {% for p in ['C','LW','RW','D','G'] %}
-        <option value="{{ p }}" {{ 'selected' if position == p else '' }}>{{ p }}</option>
-        {% endfor %}
-      </select>
-    </label>
-    <button type="submit">Apply</button>
-  </form>
-  <div class="card">
+  <div class="card prospects-rankings-table-card">
     {% if prospect_rows %}
-    <div class="table-wrap">
+    <div class="prospects-rankings-table-card__scroll">
       <table class="data prospects-rankings-table">
         <thead>
           <tr>

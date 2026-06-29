@@ -5427,4 +5427,19 @@
       true
     );
   })();
+
+  function syncProspectsRankingsStickyLayout() {
+    document.querySelectorAll(".prospects-rankings-page").forEach(function (page) {
+      var head = page.querySelector(".prospects-rankings-page__sticky-head");
+      var offset = head ? Math.ceil(head.getBoundingClientRect().height) : 0;
+      page.style.setProperty("--prospects-sticky-head-offset", offset + "px");
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", syncProspectsRankingsStickyLayout);
+  } else {
+    syncProspectsRankingsStickyLayout();
+  }
+  window.addEventListener("resize", syncProspectsRankingsStickyLayout);
 })();

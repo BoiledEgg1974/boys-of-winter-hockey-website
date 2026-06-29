@@ -28,6 +28,7 @@
 {% block content %}
 <div class="prospects-rankings-page">
   <h1 class="page-title">Undrafted Prospects</h1>
+  <div class="prospects-rankings-page__sticky-head">
   <form method="get" class="card prospects-rankings-page__filters">
     <input type="hidden" name="sort" value="{{ prospect_sort }}">
     <input type="hidden" name="order" value="{{ prospect_order }}">
@@ -49,9 +50,10 @@
       </select>
     </label>
   </form>
-  <div class="card">
+  </div>
+  <div class="card prospects-rankings-table-card">
     {% if prospect_rows %}
-    <div class="table-wrap">
+    <div class="prospects-rankings-table-card__scroll">
       <table class="data prospects-rankings-table prospects-rankings-table--undrafted">
         <thead>
           <tr>

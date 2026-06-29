@@ -753,7 +753,7 @@ def save_lineup(
 
 def rs_games_in_slate_week(league_session: Session, slate: BowlSixSlate) -> list[Game]:
     """Regular-season games first observed final during the slate's real-time scoring window."""
-    season = get_current_season()
+    season = get_current_season(league_session)
     if season is None:
         return []
     window_start, window_end = slate_real_scoring_window_utc(slate)
@@ -799,7 +799,7 @@ def reset_slate_scoring_state(
     )
 
     marker_removed = 0
-    season = get_current_season()
+    season = get_current_season(league_session)
     if season is not None:
         games = list(
             league_session.scalars(
@@ -848,7 +848,7 @@ def _backfill_active_slate_final_markers_from_legacy_window(
         return 0
     if (slate.scoring_week_start, slate.scoring_week_end) == (slate.week_start, slate.week_end):
         return 0
-    season = get_current_season()
+    season = get_current_season(league_session)
     if season is None:
         return 0
     rows = list(
@@ -896,7 +896,7 @@ def _sync_slate_week_final_markers(
     """
     if slate.status not in ("locked", "open"):
         return 0
-    season = get_current_season()
+    season = get_current_season(league_session)
     if season is None:
         return 0
     week_start = slate.scoring_week_start or slate.week_start
@@ -950,7 +950,7 @@ def slate_week_rs_games_complete(league_session: Session, slate: BowlSixSlate) -
 
 
 def refresh_player_week_stats(session: Session, slate: BowlSixSlate, league_session: Session) -> None:
-    season = get_current_season()
+    season = get_current_season(league_session)
     if season is None:
         return
     game_ids = rs_game_ids_for_slate(league_session, slate)
@@ -992,7 +992,7 @@ def refresh_slate_lineup_scores(
     """Recalculate submitted lineup totals from final RS games in the week."""
     if slate.status == "skipped":
         return 0
-    season = get_current_season()
+    season = get_current_season(league_session)
     if season is None:
         return 0
     game_ids = rs_game_ids_for_slate(league_session, slate)
@@ -1573,7 +1573,7 @@ def bowl_six_lineup_snapshot_slots(
     if len(pick_by_slot) < 6:
         return None
     captain_id = int(lineup.captain_player_id) if lineup.captain_player_id else None
-    age_ref = season_age_reference_date(get_current_season())
+    age_ref = season_age_reference_date(get_current_season(league_session))
     slots: list[dict[str, Any]] = []
     for slot_key, label in BOWL_SIX_SNAPSHOT_DISPLAY:
         pid = pick_by_slot.get(slot_key)

@@ -26,7 +26,7 @@ def install_sqlite_connect_pragmas() -> None:
         try:
             try:
                 cur.execute("PRAGMA journal_mode=WAL")
-            except sqlite3.OperationalError:
+            except (sqlite3.OperationalError, sqlite3.DatabaseError):
                 # Corrupt or read-only DB — avoid failing every connection open.
                 pass
             cur.execute("PRAGMA synchronous=NORMAL")

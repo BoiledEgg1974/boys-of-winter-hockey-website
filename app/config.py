@@ -115,6 +115,20 @@ _LEGACY_LEAGUE_DB_FILES: dict[str, str] = {
 }
 
 
+_SQLITE_HEADER = b"SQLite format 3\x00"
+
+
+def _sqlite_has_valid_header(path: Path) -> bool:
+    """True when the file begins with the standard SQLite magic header."""
+    try:
+        if not path.is_file() or path.stat().st_size < 100:
+            return False
+        with open(path, "rb") as header:
+            return header.read(16) == _SQLITE_HEADER
+    except OSError:
+        return False
+
+
 def _sqlite_has_league_content(path: Path) -> bool:
     """True if the DB has at least one row in teams, players, or games (real import vs empty schema)."""
     try:
@@ -241,8 +255,10 @@ def resolve_league_sqlite_path(slug: str) -> Path:
 
     prim_exists = primary.is_file()
     leg_exists = legacy.is_file() if legacy else False
-    prim_populated = prim_exists and _sqlite_has_league_content(primary)
-    leg_populated = leg_exists and legacy is not None and _sqlite_has_league_content(legacy)
+    prim_valid = prim_exists and _sqlite_has_valid_header(primary)
+    leg_valid = leg_exists and legacy is not None and _sqlite_has_valid_header(legacy)
+    prim_populated = prim_valid and _sqlite_has_league_content(primary)
+    leg_populated = leg_valid and legacy is not None and _sqlite_has_league_content(legacy)
 
     if prim_populated:
         return primary
@@ -250,10 +266,18 @@ def resolve_league_sqlite_path(slug: str) -> Path:
         return legacy
     # Empty bowl-*.db from db.create_all() must not win over an on-disk legacy file.
     if leg_exists and not prim_populated:
+        if leg_valid:
+            return legacy
+    # Corrupt primary (e.g. "file is not a database") — prefer a valid legacy copy.
+    if prim_exists and not prim_valid and leg_valid and legacy is not None:
+        return legacy
+    if prim_valid:
+        return primary
+    if leg_valid and legacy is not None:
         return legacy
     if prim_exists:
         return primary
-    if leg_exists:
+    if leg_exists and legacy is not None:
         return legacy
     return primary
 

@@ -37,8 +37,14 @@ def _marker_path(db_key: str) -> Path:
 
 def _marker_matches(db_key: str) -> bool:
     marker = _marker_path(db_key)
+    db_path = Path(db_key)
     try:
-        return marker.read_text(encoding="utf-8").strip() == str(SQLITE_BOOTSTRAP_VERSION)
+        if marker.read_text(encoding="utf-8").strip() != str(SQLITE_BOOTSTRAP_VERSION):
+            return False
+        # DB restored from backup is usually older than the marker — re-run bootstrap/migrations.
+        if db_path.is_file() and marker.stat().st_mtime > db_path.stat().st_mtime + 1:
+            return False
+        return True
     except OSError:
         return False
 
@@ -85,11 +91,8 @@ def run_sqlite_bootstrap_once(
         )
 
 
-def bootstrap_league_sqlite(app: Flask) -> None:
-    """League DB schema/migrations only (never holds the site DB lock)."""
-    from sqlalchemy import func, select
-
-    from app.config import Config
+def apply_league_sqlite_migrations(app: Flask) -> None:
+    """Idempotent league schema patches (safe after backup restore)."""
     from app.db_utils import (
         ensure_advanced_stats_columns_sqlite,
         ensure_franchise_team_identities_sqlite,
@@ -114,6 +117,37 @@ def bootstrap_league_sqlite(app: Flask) -> None:
         migrate_team_season_aggregates_sqlite,
         repair_fhm_team_city_from_name,
     )
+    from app.models import db
+
+    migrate_team_season_aggregates_sqlite(db.engine)
+    repair_fhm_team_city_from_name(db.engine)
+    ensure_players_jersey_number_sqlite(db.engine)
+    ensure_players_boost_tier_sqlite(db.engine)
+    ensure_player_overall_baseline_sqlite(db.engine)
+    ensure_player_rating_snapshots_sqlite(db.engine)
+    ensure_team_season_aggregate_extra_columns(db.engine)
+    ensure_homepage_performance_indexes_sqlite(db.engine)
+    ensure_skater_career_line_career_source_sqlite(db.engine)
+    ensure_skater_career_line_extra_stats_sqlite(db.engine)
+    ensure_skater_career_line_game_rating_sqlite(db.engine)
+    ensure_player_goalie_stats_gsaa_sqlite(db.engine)
+    ensure_advanced_stats_columns_sqlite(db.engine)
+    ensure_game_record_baselines_sqlite(db.engine)
+    ensure_history_awards_staff_fhm_id_sqlite(db.engine)
+    ensure_history_records_admin_metadata_sqlite(db.engine)
+    ensure_history_all_stars_sqlite(db.engine)
+    ensure_franchise_team_identities_sqlite(db.engine)
+    ensure_team_honors_meta_sqlite(db.engine)
+    ensure_team_retired_numbers_sqlite(db.engine)
+    ensure_team_victory_banners_sqlite(db.engine)
+    ensure_fts5(db.engine)
+
+
+def bootstrap_league_sqlite(app: Flask) -> None:
+    """League DB schema/migrations only (never holds the site DB lock)."""
+    from sqlalchemy import func, select
+
+    from app.config import Config
     from app.models import FranchiseTeamIdentity, db
     from app.services.franchise_identities import seed_franchise_identities_from_csv
 
@@ -122,30 +156,23 @@ def bootstrap_league_sqlite(app: Flask) -> None:
         return
 
     slug = str(app.config.get("LEAGUE_SLUG") or "?")
+    db_path = Path(db_uri.replace("sqlite:///", "", 1))
+    if db_path.is_file():
+        from app.db_utils import prepare_sqlite_database
+
+        healthy, health_msg = prepare_sqlite_database(db_path, auto_repair=True)
+        if not healthy:
+            app.logger.error(
+                "League %s SQLite unhealthy at %s (%s). "
+                "Run: python scripts/repair_league_sqlite.py --repair --league %s",
+                slug,
+                db_path,
+                health_msg,
+                slug,
+            )
 
     def _bootstrap() -> None:
         db.create_all()
-        migrate_team_season_aggregates_sqlite(db.engine)
-        repair_fhm_team_city_from_name(db.engine)
-        ensure_players_jersey_number_sqlite(db.engine)
-        ensure_players_boost_tier_sqlite(db.engine)
-        ensure_player_overall_baseline_sqlite(db.engine)
-        ensure_player_rating_snapshots_sqlite(db.engine)
-        ensure_team_season_aggregate_extra_columns(db.engine)
-        ensure_homepage_performance_indexes_sqlite(db.engine)
-        ensure_skater_career_line_career_source_sqlite(db.engine)
-        ensure_skater_career_line_extra_stats_sqlite(db.engine)
-        ensure_skater_career_line_game_rating_sqlite(db.engine)
-        ensure_player_goalie_stats_gsaa_sqlite(db.engine)
-        ensure_advanced_stats_columns_sqlite(db.engine)
-        ensure_game_record_baselines_sqlite(db.engine)
-        ensure_history_awards_staff_fhm_id_sqlite(db.engine)
-        ensure_history_records_admin_metadata_sqlite(db.engine)
-        ensure_history_all_stars_sqlite(db.engine)
-        ensure_franchise_team_identities_sqlite(db.engine)
-        ensure_team_honors_meta_sqlite(db.engine)
-        ensure_team_retired_numbers_sqlite(db.engine)
-        ensure_team_victory_banners_sqlite(db.engine)
         try:
             identity_count = db.session.scalar(select(func.count()).select_from(FranchiseTeamIdentity)) or 0
             identity_csv = Path(app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)) / "team_identity_history.csv"
@@ -154,9 +181,12 @@ def bootstrap_league_sqlite(app: Flask) -> None:
                 db.session.commit()
         except Exception:
             db.session.rollback()
-        ensure_fts5(db.engine)
 
     run_sqlite_bootstrap_once(db_uri, _bootstrap, label=f"league {slug}")
+    try:
+        apply_league_sqlite_migrations(app)
+    except Exception as exc:
+        app.logger.warning("League SQLite migrations skipped for %s: %s", slug, exc)
 
 
 def _bootstrap_site_schema_and_seed(app: Flask) -> None:
@@ -197,7 +227,7 @@ def _bootstrap_site_schema_and_seed(app: Flask) -> None:
     from app.models import db
     from app.services.ap_service import seed_ap_catalog_if_empty
 
-    db.create_all()
+    db.create_all(bind_key="site")
     try:
         site_engine = db.engines.get("site")
     except Exception:
@@ -255,6 +285,18 @@ def bootstrap_site_database(app: Flask) -> None:
         return
 
     if is_sqlite_database_uri(site_uri):
+        site_path = Path(site_uri.replace("sqlite:///", "", 1))
+        if site_path.is_file():
+            from app.db_utils import prepare_sqlite_database
+
+            healthy, health_msg = prepare_sqlite_database(site_path, auto_repair=True)
+            if not healthy:
+                app.logger.error(
+                    "Site SQLite unhealthy at %s (%s). "
+                    "Run: python scripts/repair_league_sqlite.py --repair --league site",
+                    site_path,
+                    health_msg,
+                )
         run_sqlite_bootstrap_once(
             site_uri,
             lambda: _bootstrap_site_schema_and_seed(app),

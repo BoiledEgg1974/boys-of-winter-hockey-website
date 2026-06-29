@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date
 
 from sqlalchemy import func, select
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
 from app.models import Game, PlayerGoalieStat, PlayerSkaterStat, Season, TeamStanding, db
@@ -43,9 +44,17 @@ def season_age_reference_date(season: Season | None) -> date:
     return date.today()
 
 
-def _season_id_with_latest_game_date() -> int | None:
+def _league_session(session: Session | None) -> Session:
+    return session if session is not None else db.session
+
+
+def _league_engine(session: Session | None) -> Engine:
+    return session.get_bind() if session is not None else db.engine
+
+
+def _season_id_with_latest_game_date(session: Session) -> int | None:
     """Season that contains the globally latest ``Game.game_date`` (when dates exist)."""
-    gsid = db.session.scalar(
+    gsid = session.scalar(
         select(Game.season_id)
         .where(Game.game_date.isnot(None))
         .group_by(Game.season_id)
@@ -55,21 +64,21 @@ def _season_id_with_latest_game_date() -> int | None:
     return int(gsid) if gsid is not None else None
 
 
-def _season_highest_start_year() -> Season | None:
+def _season_highest_start_year(session: Session) -> Season | None:
     """Newest league year by ``Season.start_year`` (then ``id``).
 
     Used before the latest-game fallback so a newly added season (e.g. 1968–69) wins over
     the previous year that still owns the most recent playoff ``game_date`` (e.g. June 1968
     finals on the 1967–68 row) when no ``is_current`` flag is set yet.
     """
-    return db.session.scalars(
+    return session.scalars(
         select(Season)
         .order_by(Season.start_year.desc().nulls_last(), Season.id.desc())
         .limit(1)
     ).first()
 
 
-def _season_state_fingerprint() -> str:
+def _season_state_fingerprint(session: Session | None = None) -> str:
     """Invalidate season cache when the league SQLite file changes (or team stats in :memory: tests)."""
     from flask import current_app, has_request_context
 
@@ -78,7 +87,7 @@ def _season_state_fingerprint() -> str:
         league_engine_sqlite_fingerprint,
     )
 
-    fp = league_engine_sqlite_fingerprint(db.engine)
+    fp = league_engine_sqlite_fingerprint(_league_engine(session))
     if fp is not None:
         return fp
     slug = ""
@@ -90,8 +99,9 @@ def _season_state_fingerprint() -> str:
     return f"{slug}:{_nav_teams_db_fallback_fingerprint()}"
 
 
-def _resolve_current_season() -> Season | None:
-    fhm_current = db.session.scalars(
+def _resolve_current_season(session: Session | None = None) -> Season | None:
+    sess = _league_session(session)
+    fhm_current = sess.scalars(
         select(Season)
         .where(
             Season.is_current.is_(True),
@@ -104,7 +114,7 @@ def _resolve_current_season() -> Season | None:
     if fhm_current:
         return fhm_current
 
-    flagged = db.session.scalars(
+    flagged = sess.scalars(
         select(Season)
         .where(Season.is_current.is_(True))
         .order_by(Season.start_year.desc().nulls_last(), Season.id.desc())
@@ -113,33 +123,36 @@ def _resolve_current_season() -> Season | None:
     if flagged:
         return flagged
 
-    by_year = _season_highest_start_year()
+    by_year = _season_highest_start_year(sess)
     if by_year is not None:
         return by_year
 
-    sid_latest = _season_id_with_latest_game_date()
+    sid_latest = _season_id_with_latest_game_date(sess)
 
     if sid_latest is not None:
-        s = db.session.get(Season, int(sid_latest))
+        s = sess.get(Season, int(sid_latest))
         if s is not None:
             return s
 
-    sid = db.session.scalar(
+    sid = sess.scalar(
         select(TeamStanding.season_id, func.count(TeamStanding.id).label("n"))
         .group_by(TeamStanding.season_id)
         .order_by(func.count(TeamStanding.id).desc(), TeamStanding.season_id.desc())
         .limit(1)
     )
     if sid is not None:
-        s = db.session.get(Season, int(sid))
+        s = sess.get(Season, int(sid))
         if s is not None:
             return s
 
-    return db.session.scalar(select(Season).order_by(Season.id.desc()).limit(1))
+    return sess.scalar(select(Season).order_by(Season.id.desc()).limit(1))
 
 
-def get_current_season() -> Season | None:
+def get_current_season(session: Session | None = None) -> Season | None:
     """Return the active season for standings, stats, schedule, etc.
+
+    Pass an explicit ``session`` when resolving season inside services that already
+    hold the league ``Session`` (e.g. BOWL Six scoring with site + league binds).
 
     Order of resolution:
     1. FHM mount row: ``is_current`` and ``fhm_season_id`` like ``fhm-league%`` (must win
@@ -158,8 +171,9 @@ def get_current_season() -> Season | None:
     """
     from flask import g, has_request_context
 
-    lane = str(db.engine.url)
-    fp0 = _season_state_fingerprint()
+    sess = _league_session(session)
+    lane = str(sess.get_bind().url)
+    fp0 = _season_state_fingerprint(session)
 
     if has_request_context():
         hit = getattr(g, "_get_current_season_cached", None)
@@ -172,15 +186,15 @@ def get_current_season() -> Season | None:
         if sid is None:
             season: Season | None = None
         else:
-            season = db.session.get(Season, sid)
+            season = sess.get(Season, sid)
             if season is None:
-                season = _resolve_current_season()
+                season = _resolve_current_season(session)
                 _PROCESS_CURRENT_SEASON[lane] = (fp0, season.id if season else None)
         if has_request_context():
             g._get_current_season_cached = (fp0, lane, season)
         return season
 
-    season = _resolve_current_season()
+    season = _resolve_current_season(session)
     _PROCESS_CURRENT_SEASON[lane] = (fp0, season.id if season else None)
     if has_request_context():
         g._get_current_season_cached = (fp0, lane, season)

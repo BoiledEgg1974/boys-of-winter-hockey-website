@@ -227,10 +227,15 @@ def sqlite_wal_checkpoint(path: Path) -> None:
     db_path = Path(path).resolve()
     if not db_path.is_file():
         return
-    conn = sqlite3.connect(str(db_path), timeout=30.0)
+    try:
+        conn = sqlite3.connect(str(db_path), timeout=30.0)
+    except sqlite3.Error:
+        return
     try:
         conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
         conn.commit()
+    except sqlite3.Error:
+        pass
     finally:
         conn.close()
 

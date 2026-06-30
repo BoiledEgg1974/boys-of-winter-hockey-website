@@ -3751,7 +3751,7 @@ def admin_history_awards():
     """Legacy URL — Season Awards admin consolidated at ``admin_awards``."""
     season = (request.args.get("season") or request.form.get("season_filter") or "").strip()
     edit = request.args.get("edit", type=int)
-    return redirect(url_for("site_admin.admin_awards", season=season or None, edit_award=edit or None))
+    return redirect(url_for("site_admin.admin_awards_tracker", season=season or None, edit_award=edit or None))
 
 
 @site_admin_bp.route("/history-records/all-stars", methods=["GET", "POST"])
@@ -3759,7 +3759,7 @@ def admin_history_awards():
 def admin_history_all_stars():
     """Legacy URL — Season Awards admin consolidated at ``admin_awards``."""
     season = (request.args.get("season") or request.form.get("season_filter") or "").strip()
-    return redirect(url_for("site_admin.admin_awards", season=season or None))
+    return redirect(url_for("site_admin.admin_awards_tracker", season=season or None))
 
 
 @site_admin_bp.route("/rule-strikes", methods=["GET", "POST"])
@@ -5834,10 +5834,9 @@ def admin_franchise_hub_detail(team_id: int):
     )
 
 
-@site_admin_bp.route("/awards", methods=["GET", "POST"])
 @site_admin_bp.route("/awards-tracker", methods=["GET", "POST"])
 @login_required
-def admin_awards():
+def admin_awards_tracker():
     """Assign season trophy winners and First/Second Team All-Stars (replaces voting-tracker scaffold)."""
     require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER, ADMIN_ROLE_CONTENT)
     from app.services.admin_history_records import (
@@ -5874,7 +5873,7 @@ def admin_awards():
                 flash("Deleted award row.", "ok")
             else:
                 flash("Award not found.", "err")
-            return redirect(url_for("site_admin.admin_awards", season=season_filter or None))
+            return redirect(url_for("site_admin.admin_awards_tracker", season=season_filter or None))
 
         if action == "save_award":
             aid = request.form.get("award_id", type=int)
@@ -5894,7 +5893,7 @@ def admin_awards():
                 )
             except ValueError as exc:
                 flash(str(exc), "err")
-                return redirect(url_for("site_admin.admin_awards", season=season_label or None))
+                return redirect(url_for("site_admin.admin_awards_tracker", season=season_label or None))
             db.session.add(
                 AdminAuditLog(
                     admin_user_id=int(current_user.id),
@@ -5911,13 +5910,13 @@ def admin_awards():
             )
             commit_with_sqlite_retry(db.session)
             flash("Saved award winner.", "ok")
-            return redirect(url_for("site_admin.admin_awards", season=season_label or None))
+            return redirect(url_for("site_admin.admin_awards_tracker", season=season_label or None))
 
         if action == "save_all_stars":
             season_label = (request.form.get("season_label") or season_filter or "").strip()
             if not season_label:
                 flash("Season label is required.", "err")
-                return redirect(url_for("site_admin.admin_awards"))
+                return redirect(url_for("site_admin.admin_awards_tracker"))
             total_saved = 0
             errors: list[str] = []
             for team_rank in (1, 2):
@@ -5946,7 +5945,7 @@ def admin_awards():
                 )
                 commit_with_sqlite_retry(db.session)
                 flash(f"Saved {total_saved} all-star slot(s).", "ok")
-            return redirect(url_for("site_admin.admin_awards", season=season_label))
+            return redirect(url_for("site_admin.admin_awards_tracker", season=season_label))
 
     canonical = get_current_season()
     season = season_with_imported_data_fallback(db.session, canonical) if canonical else None
@@ -5995,6 +5994,14 @@ def admin_awards():
         players=players,
         teams=teams,
     )
+
+
+site_admin_bp.add_url_rule(
+    "/awards",
+    endpoint="admin_awards",
+    view_func=admin_awards_tracker,
+    methods=["GET", "POST"],
+)
 
 
 @site_admin_bp.route("/media-kit", methods=["GET", "POST"])

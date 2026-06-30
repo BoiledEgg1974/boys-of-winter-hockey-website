@@ -7,12 +7,12 @@
   <p class="muted">
     Edit team season standings directly in the database.
     For trophy winners and All-Star teams, use
-    <a href="{{ url_for('site_admin.admin_awards') }}">Season Awards</a>.
+    <a href="{{ url_for('site_admin.admin_awards_tracker') }}">Season Awards</a>.
     Changes appear on Team Records and League History immediately. Admin rows are kept when CSV imports run.
   </p>
   <ul>
     <li><a href="{{ url_for('site_admin.admin_history_team_seasons') }}">Team season records</a> — standings, outcomes, overrides</li>
-    <li><a href="{{ url_for('site_admin.admin_awards') }}">Season Awards</a> — trophy winners &amp; First/Second Team All-Stars</li>
+    <li><a href="{{ url_for('site_admin.admin_awards_tracker') }}">Season Awards</a> — trophy winners &amp; First/Second Team All-Stars</li>
     <li><a href="{{ url_for('main.team_records_index') }}">View Team Records (public)</a></li>
     <li><a href="{{ url_for('main.history') }}">View League History (public)</a></li>
   </ul>

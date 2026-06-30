@@ -34,7 +34,7 @@
     </label>
     <button type="submit" class="button">Load season</button>
     {% if default_season and not season_filter %}
-    <a href="{{ url_for('site_admin.admin_awards', season=default_season) }}">Use current season ({{ default_season }})</a>
+    <a href="{{ url_for('site_admin.admin_awards_tracker', season=default_season) }}">Use current season ({{ default_season }})</a>
     {% endif %}
   </form>
 
@@ -83,7 +83,7 @@
       </div>
       <button type="submit" class="button" style="margin-top:0.65rem;">{% if edit_award %}Update{% else %}Add{% endif %} award winner</button>
       {% if edit_award %}
-      <a href="{{ url_for('site_admin.admin_awards', season=season_filter) }}">Cancel edit</a>
+      <a href="{{ url_for('site_admin.admin_awards_tracker', season=season_filter) }}">Cancel edit</a>
       {% endif %}
     </form>
 
@@ -110,7 +110,7 @@
             <td class="muted" style="max-width:12rem;overflow:hidden;text-overflow:ellipsis;">{{ row.notes or '—' }}</td>
             <td>{{ row.source or 'csv' }}</td>
             <td>
-              <a href="{{ url_for('site_admin.admin_awards', season=season_filter, edit_award=row.id) }}">Edit</a>
+              <a href="{{ url_for('site_admin.admin_awards_tracker', season=season_filter, edit_award=row.id) }}">Edit</a>
               <form method="post" style="display:inline;" onsubmit="return confirm('Delete this award?');">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="action" value="delete_award">

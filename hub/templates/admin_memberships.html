@@ -18,6 +18,49 @@
       {% endfor %}
     {% endif %}
   {% endwith %}
+
+  <section style="margin:1rem 0 1.25rem;padding:1rem;border:1px solid rgb(148 163 184 / 0.35);border-radius:8px;">
+    <h2 style="margin:0 0 0.45rem;font-size:1.05rem;">Assign / change franchise</h2>
+    <p style="color:#94a3b8;margin:0 0 0.75rem;font-size:0.9rem;">
+      Commissioner assignment: immediately sets the membership to <strong>active</strong> on any league site
+      (Historical, Relegation, Cap). Use this when a GM changes teams or joins without a pending request.
+    </p>
+    <form method="post" action="{{ url_for('hub_auth.admin_assign_membership') }}" id="admin-assign-form" style="display:grid;gap:0.65rem;max-width:36rem;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label style="display:grid;gap:0.25rem;">GM user
+        <select name="user_id" id="admin-assign-user" required style="padding:0.35rem;">
+          <option value="">— Select user —</option>
+          {% for u in users %}
+          <option value="{{ u.id }}">{{ u.email }}{% if u.discord_name %} · {{ u.discord_name }}{% endif %}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label style="display:grid;gap:0.25rem;">League
+        <select name="league_slug" id="admin-assign-league" required style="padding:0.35rem;">
+          <option value="">— Select league —</option>
+          {% for league in leagues %}
+          <option value="{{ league.slug }}">{{ league.display_name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label style="display:grid;gap:0.25rem;">Franchise
+        <select name="team_id" id="admin-assign-team" required style="padding:0.35rem;">
+          <option value="">— Select team —</option>
+          {% for league in leagues %}
+            {% for team in team_options.get(league.slug, []) %}
+            <option value="{{ team.id }}" data-league="{{ league.slug }}">{{ team.name }}{% if team.abbr %} ({{ team.abbr }}){% endif %}{% if team.fhm_team_id %} · FHM {{ team.fhm_team_id }}{% endif %}</option>
+            {% endfor %}
+          {% endfor %}
+        </select>
+      </label>
+      <label style="display:flex;gap:0.45rem;align-items:flex-start;font-size:0.9rem;">
+        <input type="checkbox" name="replace_existing" value="1" id="admin-assign-replace">
+        <span>Replace existing GM on this team (removes the other user&apos;s active membership for that franchise)</span>
+      </label>
+      <button type="submit" style="justify-self:start;padding:0.45rem 0.9rem;">Assign franchise</button>
+    </form>
+  </section>
+
   <h2 style="margin:1rem 0 0.45rem;">Site Users / DM Profiles</h2>
   <p style="color:#94a3b8;margin:0 0 0.7rem;">
     Add a Discord User ID here for admins or GMs who should receive private bot DMs. This list includes site admins even when they do not have a league membership row below.
@@ -111,6 +154,21 @@
               <button type="submit">Deny</button>
             </form>
             {% endif %}
+            <form method="post" action="{{ url_for('hub_auth.admin_assign_membership') }}" class="js-admin-reassign-form" style="display:inline-flex;gap:0.25rem;align-items:center;flex-wrap:wrap;margin-top:0.25rem;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="user_id" value="{{ u.id }}">
+              <input type="hidden" name="league_slug" value="{{ m.league_slug }}">
+              <select name="team_id" class="js-admin-reassign-team" data-league="{{ m.league_slug }}" style="max-width:11rem;padding:0.2rem 0.3rem;font-size:0.8rem;">
+                {% for team in team_options.get(m.league_slug, []) %}
+                <option value="{{ team.id }}" {% if team.id == m.team_id %}selected{% endif %}>{{ team.abbr or team.name }}</option>
+                {% endfor %}
+              </select>
+              <label style="display:flex;gap:0.2rem;align-items:center;font-size:0.75rem;white-space:nowrap;">
+                <input type="checkbox" name="replace_existing" value="1">
+                Replace GM
+              </label>
+              <button type="submit" style="font-size:0.8rem;">Change team</button>
+            </form>
             <a href="{{ url_for('hub_auth.admin_remove_membership_confirm', mid=m.id) }}" style="display:inline-block;background:rgb(248 113 113 / 0.24);border:1px solid rgb(248 113 113 / 0.55);color:#fecaca;border-radius:6px;padding:0.24rem 0.5rem;font-weight:700;text-decoration:none;font-size:0.85rem;">REMOVE</a>
             <form method="post" action="{{ url_for('hub_auth.admin_set_user_admin', uid=u.id) }}" style="display:inline;">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -129,5 +187,30 @@
       </tbody>
     </table>
   </div>
+  <script>
+  (function () {
+    var leagueSel = document.getElementById("admin-assign-league");
+    var teamSel = document.getElementById("admin-assign-team");
+    if (!leagueSel || !teamSel) return;
+    var allTeamOpts = Array.prototype.slice.call(teamSel.querySelectorAll("option[data-league]"));
+    function syncAssignTeams() {
+      var slug = leagueSel.value;
+      var keep = teamSel.value;
+      teamSel.innerHTML = "";
+      var blank = document.createElement("option");
+      blank.value = "";
+      blank.textContent = "— Select team —";
+      teamSel.appendChild(blank);
+      allTeamOpts.forEach(function (opt) {
+        if (!slug || opt.getAttribute("data-league") === slug) {
+          teamSel.appendChild(opt.cloneNode(true));
+        }
+      });
+      if (keep) teamSel.value = keep;
+    }
+    leagueSel.addEventListener("change", syncAssignTeams);
+    syncAssignTeams();
+  })();
+  </script>
 </body>
 </html>

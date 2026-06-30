@@ -373,7 +373,7 @@ def admin_memberships():
         from flask import abort
 
         abort(403)
-    from app.services.register_team_options import team_snapshot_for_membership
+    from app.services.register_team_options import all_league_team_options, team_snapshot_for_membership
 
     rows = db.session.execute(
         select(GmLeagueMembership, User)
@@ -389,7 +389,44 @@ def admin_memberships():
         .where(User.revoked_at.is_(None))
         .order_by(User.is_admin.desc(), User.email.asc())
     ).all()
-    return render_template("admin_memberships.html", rows=enriched, users=users)
+    return render_template(
+        "admin_memberships.html",
+        rows=enriched,
+        users=users,
+        leagues=LEAGUES,
+        team_options=all_league_team_options(),
+    )
+
+
+@hub_auth_bp.post("/admin/memberships/assign")
+@login_required
+def admin_assign_membership():
+    if not has_admin_role(current_user):
+        from flask import abort
+
+        abort(403)
+    from app.services.gm_membership_admin import admin_assign_gm_franchise
+
+    user_raw = (request.form.get("user_id") or "").strip()
+    league_slug = (request.form.get("league_slug") or "").strip()
+    team_raw = (request.form.get("team_id") or "").strip()
+    replace_existing = request.form.get("replace_existing") == "1"
+    if not user_raw.isdigit() or not team_raw.isdigit():
+        flash("Choose a valid user and team.", "error")
+        return redirect(url_for("hub_auth.admin_memberships"))
+    ok, message = admin_assign_gm_franchise(
+        db.session,
+        user_id=int(user_raw),
+        league_slug=league_slug,
+        team_id=int(team_raw),
+        replace_existing=replace_existing,
+    )
+    if ok:
+        commit_with_sqlite_retry(db.session)
+        flash(message, "ok")
+    else:
+        flash(message, "error")
+    return redirect(url_for("hub_auth.admin_memberships"))
 
 
 @hub_auth_bp.get("/admin/memberships/<int:mid>/remove")

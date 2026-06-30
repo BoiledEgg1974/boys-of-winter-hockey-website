@@ -43,6 +43,20 @@ class HubMembershipProfilesTest(unittest.TestCase):
         self.assertIn(".where(User.revoked_at.is_(None))", text)
         self.assertIn("deleted-user-", text)
 
+    def test_membership_dashboard_has_admin_assign_franchise(self) -> None:
+        hub_auth = Path(__file__).resolve().parents[1] / "app" / "routes" / "hub_auth.py"
+        self.assertIn('"/admin/memberships/assign"', hub_auth.read_text(encoding="utf-8"))
+        template = (
+            Path(__file__).resolve().parents[1]
+            / "hub"
+            / "templates"
+            / "admin_memberships.html"
+        )
+        text = template.read_text(encoding="utf-8")
+        self.assertIn("Assign / change franchise", text)
+        self.assertIn("admin_assign_membership", text)
+        self.assertIn("Change team", text)
+
 
 if __name__ == "__main__":
     unittest.main()

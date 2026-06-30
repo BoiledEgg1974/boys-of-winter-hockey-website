@@ -1177,6 +1177,45 @@ STEPS = [
 ]
 
 
+def _start_import_log(file_name: str) -> tuple[int, datetime]:
+    started_at = datetime.utcnow()
+    ilog = ImportLog(file_name=file_name, started_at=started_at, status="started")
+    db.session.add(ilog)
+    commit_with_sqlite_retry(db.session)
+    return int(ilog.id), started_at
+
+
+def _finalize_import_log(
+    log_id: int,
+    file_name: str,
+    started_at: datetime,
+    *,
+    status: str,
+    message: str | None = None,
+    rows_processed: int = 0,
+) -> None:
+    """Persist import status; survives session.rollback() from failed import steps."""
+    db.session.rollback()
+    row = db.session.get(ImportLog, log_id)
+    if row is None:
+        log.warning("ImportLog id=%s missing after import; writing a new row", log_id)
+        row = ImportLog(
+            file_name=file_name,
+            started_at=started_at,
+            status=status,
+            rows_processed=rows_processed,
+            message=message,
+            finished_at=datetime.utcnow(),
+        )
+        db.session.add(row)
+    else:
+        row.status = status
+        row.rows_processed = rows_processed
+        row.message = message
+        row.finished_at = datetime.utcnow()
+    commit_with_sqlite_retry(db.session)
+
+
 def run_import(raw_dir: Path | None = None, *, repair_sqlite: bool = False) -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     slug = (os.environ.get("LEAGUE_SLUG") or "").strip()
@@ -1240,14 +1279,11 @@ def run_import(raw_dir: Path | None = None, *, repair_sqlite: bool = False) -> i
 
         if is_fhm_export_dir(raw):
             log.info("Detected FHM export layout (team_data.csv, semicolon CSVs).")
-            ilog = ImportLog(
-                file_name="fhm_export_bundle",
-                started_at=datetime.utcnow(),
-                status="started",
-            )
-            db.session.add(ilog)
-            commit_with_sqlite_retry(db.session)
+            log_id, started_at = _start_import_log("fhm_export_bundle")
             counts: dict = {}
+            status = "error"
+            message = ""
+            total = 0
             try:
                 counts = run_fhm_import(raw, app, league_filter=0)
                 overlay = raw / "team_standings.csv"
@@ -1281,39 +1317,46 @@ def run_import(raw_dir: Path | None = None, *, repair_sqlite: bool = False) -> i
                     log.info("Applying hall_of_fame.csv after FHM import.")
                     counts["hall_of_fame"] = import_hall_of_fame(raw, app)
                 total = sum(counts.values())
-                ilog.rows_processed = total
-                ilog.status = "success"
-                ilog.message = str(counts)
+                status = "success"
+                message = str(counts)
             except Exception as e:
                 log.exception("FHM import failed")
-                db.session.rollback()
-                ilog.status = "error"
-                ilog.message = str(e)
-            ilog.finished_at = datetime.utcnow()
-            commit_with_sqlite_retry(db.session)
+                message = str(e)
+            _finalize_import_log(
+                log_id,
+                "fhm_export_bundle",
+                started_at,
+                status=status,
+                message=message,
+                rows_processed=total,
+            )
             refresh_after_import(db.engine, app)
             _run_post_import_safeguards()
-            log.info("FHM import finished. Counts: %s", counts if ilog.status == "success" else {})
-            return 0 if ilog.status == "success" else 1
+            log.info("FHM import finished. Counts: %s", counts if status == "success" else {})
+            return 0 if status == "success" else 1
 
         total = 0
         for name, fn in STEPS:
-            ilog = ImportLog(file_name=f"{name}.csv", started_at=datetime.utcnow(), status="started")
-            db.session.add(ilog)
-            commit_with_sqlite_retry(db.session)
+            log_id, started_at = _start_import_log(f"{name}.csv")
+            status = "error"
+            message = ""
+            count = 0
             try:
                 count = fn(raw, app)
                 total += count
-                ilog.rows_processed = count
-                ilog.status = "success"
-                ilog.message = f"{count} rows"
+                status = "success"
+                message = f"{count} rows"
             except Exception as e:
                 log.exception("Import step %s failed", name)
-                db.session.rollback()
-                ilog.status = "error"
-                ilog.message = str(e)
-            ilog.finished_at = datetime.utcnow()
-            commit_with_sqlite_retry(db.session)
+                message = str(e)
+            _finalize_import_log(
+                log_id,
+                f"{name}.csv",
+                started_at,
+                status=status,
+                message=message,
+                rows_processed=count,
+            )
         refresh_after_import(db.engine, app)
         _run_post_import_safeguards()
         log.info("Import finished. Total row operations (approx): %s", total)

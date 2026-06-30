@@ -444,6 +444,92 @@ def delete_all_star_row(session: Session, row_id: int) -> bool:
     return True
 
 
+def season_label_choices_for_admin(session: Session) -> list[str]:
+    """Distinct season labels for the awards admin season picker."""
+    labels: set[str] = set()
+    for raw in session.scalars(select(HistoryAllStar.season_label).distinct()).all():
+        s = (raw or "").strip()
+        if s:
+            labels.add(s)
+    for raw in session.scalars(select(TeamSeasonRecord.season_year_label).distinct()).all():
+        s = (raw or "").strip()
+        if s:
+            labels.add(s)
+    for award in session.scalars(select(HistoryAward)).all():
+        sheet = sheet_season_from_notes(award.notes)
+        if sheet:
+            labels.add(sheet)
+        elif award.season and (award.season.label or "").strip():
+            labels.add((award.season.label or "").strip())
+    for season in session.scalars(select(Season)).all():
+        if season.start_year is not None:
+            y = int(season.start_year)
+            labels.add(f"{y}-{(y + 1) % 100:02d}")
+        elif (season.label or "").strip():
+            labels.add((season.label or "").strip())
+    return sorted(labels, reverse=True)
+
+
+def all_stars_by_slot_for_season(
+    session: Session,
+    season_label: str,
+    team_rank: int,
+) -> dict[int, HistoryAllStar]:
+    rows = list_all_stars_admin(session, season_filter=season_label.strip())
+    return {
+        int(r.slot): r
+        for r in rows
+        if int(r.team_rank) == int(team_rank)
+    }
+
+
+def save_all_star_batch(
+    session: Session,
+    form,
+    *,
+    season_label: str,
+    league_slug: str,
+    team_rank: int,
+    user_id: int,
+) -> tuple[int, list[str]]:
+    """Upsert filled all-star slots from admin form fields ``player_id_N``, etc."""
+    saved = 0
+    errors: list[str] = []
+    for slot_num, default_pos in ALL_STAR_SLOT_DEFAULTS:
+        pos = (form.get(f"position_{team_rank}_{slot_num}") or default_pos).strip()
+        pid_raw = (form.get(f"player_id_{team_rank}_{slot_num}") or "").strip()
+        tid_raw = (form.get(f"team_id_{team_rank}_{slot_num}") or "").strip()
+        notes_slot = (form.get(f"notes_{team_rank}_{slot_num}") or "").strip() or None
+        if not pid_raw and not tid_raw and not notes_slot:
+            continue
+        try:
+            player_id = int(pid_raw) if pid_raw else None
+        except ValueError:
+            player_id = None
+        try:
+            team_id = int(tid_raw) if tid_raw else None
+        except ValueError:
+            team_id = None
+        try:
+            upsert_all_star_slot(
+                session,
+                row_id=None,
+                season_label=season_label,
+                league_slug=league_slug,
+                team_rank=team_rank,
+                slot=slot_num,
+                position=pos,
+                player_id=player_id,
+                team_id=team_id,
+                notes=notes_slot,
+                user_id=user_id,
+            )
+            saved += 1
+        except ValueError as exc:
+            errors.append(str(exc))
+    return saved, errors
+
+
 def delete_non_admin_history_awards(session: Session) -> int:
     """Remove CSV-sourced awards before a full CSV re-import."""
     result = session.execute(

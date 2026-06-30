@@ -155,10 +155,9 @@ from app.services.discord_events import (
     update_league_bot_config,
 )
 from app.services.prediction_center import build_prediction_snapshot
-from app.services.awards_tracker import create_voting_cycle, list_cycles, tally_cycle_ballots
 from app.services.media_kit import build_media_kit_snapshot
 from app.services.member_digest import build_member_watchlist_digest
-from app.services.seasons import get_current_season, season_age_reference_date, season_with_imported_data_fallback
+from app.services.seasons import get_current_season, season_age_reference_date, season_display_label, season_with_imported_data_fallback
 from app.services.season_team_logo_bundle import dashboard_team_logo_url
 from app.services.cap_strike_penalties import (
     STRIKE_TO_ROUND,
@@ -3749,287 +3748,18 @@ def admin_history_team_seasons():
 @site_admin_bp.route("/history-records/awards", methods=["GET", "POST"])
 @login_required
 def admin_history_awards():
-    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
-    from app.services.admin_history_records import (
-        delete_history_award,
-        list_history_awards_admin,
-        upsert_history_award,
-    )
-
-    slug = _league_slug()
-    players, teams = _admin_history_player_team_choices()
-    season_filter = (request.args.get("season") or request.form.get("season_filter") or "").strip()
-    edit_id = request.args.get("edit", type=int)
-
-    if request.method == "POST":
-        action = (request.form.get("action") or "").strip()
-        if action == "delete":
-            aid = request.form.get("award_id", type=int)
-            if aid and delete_history_award(db.session, aid):
-                db.session.add(
-                    AdminAuditLog(
-                        admin_user_id=int(current_user.id),
-                        league_slug=slug,
-                        action="history_award_delete",
-                        detail_json=json.dumps({"award_id": aid}),
-                    )
-                )
-                commit_with_sqlite_retry(db.session)
-                flash("Deleted award row.", "ok")
-            else:
-                flash("Award not found.", "err")
-            return redirect(url_for("site_admin.admin_history_awards", season=season_filter or None))
-
-        if action in ("save", "create"):
-            aid = request.form.get("award_id", type=int)
-            season_label = (request.form.get("season_label") or "").strip()
-            try:
-                row = upsert_history_award(
-                    db.session,
-                    award_id=aid,
-                    season_label=season_label,
-                    league_slug=slug,
-                    award_name=(request.form.get("award_name") or "").strip(),
-                    player_id=request.form.get("player_id", type=int),
-                    team_id=request.form.get("team_id", type=int),
-                    staff_fhm_id=(request.form.get("staff_fhm_id") or "").strip() or None,
-                    notes=(request.form.get("notes") or "").strip() or None,
-                    user_id=int(current_user.id),
-                )
-            except ValueError as exc:
-                flash(str(exc), "err")
-                return redirect(url_for("site_admin.admin_history_awards", season=season_filter or None))
-            db.session.add(
-                AdminAuditLog(
-                    admin_user_id=int(current_user.id),
-                    league_slug=slug,
-                    action="history_award_save",
-                    detail_json=json.dumps(
-                        {
-                            "award_id": int(row.id or 0),
-                            "award_name": row.award_name,
-                            "season_label": season_label,
-                        }
-                    ),
-                )
-            )
-            commit_with_sqlite_retry(db.session)
-            flash("Saved award winner.", "ok")
-            return redirect(
-                url_for(
-                    "site_admin.admin_history_awards",
-                    season=season_label or season_filter or None,
-                )
-            )
-
-    from app.services.admin_history_records import award_name_choices_from_names, sheet_season_from_notes
-
-    rows = list_history_awards_admin(db.session, season_filter=season_filter or None)
-    edit_row = db.session.get(HistoryAward, edit_id) if edit_id else None
-    edit_season_label = season_filter
-    if edit_row:
-        edit_season_label = sheet_season_from_notes(edit_row.notes) or season_filter
-    award_names = list(
-        db.session.scalars(
-            select(HistoryAward.award_name)
-            .where(HistoryAward.award_name.is_not(None), HistoryAward.award_name != "")
-            .distinct()
-            .order_by(HistoryAward.award_name.asc())
-        ).all()
-    )
-    if edit_row and edit_row.award_name:
-        award_names.append(edit_row.award_name)
-    award_choices = award_name_choices_from_names(award_names)
-    edit_award_name = ""
-    if edit_row and edit_row.award_name:
-        edit_choices = award_name_choices_from_names([edit_row.award_name])
-        edit_award_name = edit_choices[0] if edit_choices else ""
-    return render_template(
-        "admin_history_awards.html",
-        league_slug=slug,
-        rows=rows,
-        teams=teams,
-        players=players,
-        season_filter=season_filter,
-        edit_row=edit_row,
-        edit_season_label=edit_season_label,
-        edit_award_name=edit_award_name,
-        award_choices=award_choices,
-    )
+    """Legacy URL — Season Awards admin consolidated at ``admin_awards``."""
+    season = (request.args.get("season") or request.form.get("season_filter") or "").strip()
+    edit = request.args.get("edit", type=int)
+    return redirect(url_for("site_admin.admin_awards", season=season or None, edit_award=edit or None))
 
 
 @site_admin_bp.route("/history-records/all-stars", methods=["GET", "POST"])
 @login_required
 def admin_history_all_stars():
-    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
-    from app.services.admin_history_records import (
-        ALL_STAR_SLOT_DEFAULTS,
-        delete_all_star_row,
-        list_all_stars_admin,
-        sheet_season_from_notes,
-        upsert_all_star_slot,
-    )
-
-    slug = _league_slug()
-    players, teams = _admin_history_player_team_choices()
-    season_filter = (request.args.get("season") or request.form.get("season_filter") or "").strip()
-    team_rank_filter = request.args.get("team_rank", type=int) or request.form.get("team_rank", type=int)
-    edit_id = request.args.get("edit", type=int)
-
-    if request.method == "POST":
-        action = (request.form.get("action") or "").strip()
-        if action == "delete":
-            rid = request.form.get("row_id", type=int)
-            if rid and delete_all_star_row(db.session, rid):
-                db.session.add(
-                    AdminAuditLog(
-                        admin_user_id=int(current_user.id),
-                        league_slug=slug,
-                        action="history_all_star_delete",
-                        detail_json=json.dumps({"row_id": rid}),
-                    )
-                )
-                commit_with_sqlite_retry(db.session)
-                flash("Deleted all-star slot.", "ok")
-            else:
-                flash("Row not found.", "err")
-            return redirect(
-                url_for(
-                    "site_admin.admin_history_all_stars",
-                    season=season_filter or None,
-                    team_rank=team_rank_filter or None,
-                )
-            )
-
-        if action in ("save", "create"):
-            season_label = (request.form.get("season_label") or "").strip()
-            try:
-                team_rank = int((request.form.get("team_rank") or "1").strip())
-            except ValueError:
-                team_rank = 1
-            saved = 0
-            errors: list[str] = []
-            for slot_num, default_pos in ALL_STAR_SLOT_DEFAULTS:
-                pos = (request.form.get(f"position_{slot_num}") or default_pos).strip()
-                pid_raw = (request.form.get(f"player_id_{slot_num}") or "").strip()
-                tid_raw = (request.form.get(f"team_id_{slot_num}") or "").strip()
-                notes_slot = (request.form.get(f"notes_{slot_num}") or "").strip() or None
-                if not pid_raw and not tid_raw and not notes_slot:
-                    continue
-                try:
-                    player_id = int(pid_raw) if pid_raw else None
-                except ValueError:
-                    player_id = None
-                try:
-                    team_id = int(tid_raw) if tid_raw else None
-                except ValueError:
-                    team_id = None
-                try:
-                    upsert_all_star_slot(
-                        db.session,
-                        row_id=None,
-                        season_label=season_label,
-                        league_slug=slug,
-                        team_rank=team_rank,
-                        slot=slot_num,
-                        position=pos,
-                        player_id=player_id,
-                        team_id=team_id,
-                        notes=notes_slot,
-                        user_id=int(current_user.id),
-                    )
-                    saved += 1
-                except ValueError as exc:
-                    errors.append(str(exc))
-            if errors and not saved:
-                flash(errors[0], "err")
-            elif saved:
-                db.session.add(
-                    AdminAuditLog(
-                        admin_user_id=int(current_user.id),
-                        league_slug=slug,
-                        action="history_all_star_save",
-                        detail_json=json.dumps(
-                            {
-                                "season_label": season_label,
-                                "team_rank": team_rank,
-                                "slots_saved": saved,
-                            }
-                        ),
-                    )
-                )
-                commit_with_sqlite_retry(db.session)
-                flash(f"Saved {saved} all-star slot(s).", "ok")
-            return redirect(
-                url_for(
-                    "site_admin.admin_history_all_stars",
-                    season=season_label or season_filter or None,
-                    team_rank=team_rank,
-                )
-            )
-
-        if action == "save_one":
-            season_label = (request.form.get("season_label") or "").strip()
-            try:
-                team_rank = int((request.form.get("team_rank") or "1").strip())
-                slot_num = int((request.form.get("slot") or "1").strip())
-            except ValueError:
-                flash("Invalid team rank or slot.", "err")
-                return redirect(url_for("site_admin.admin_history_all_stars"))
-            try:
-                row = upsert_all_star_slot(
-                    db.session,
-                    row_id=request.form.get("row_id", type=int),
-                    season_label=season_label,
-                    league_slug=slug,
-                    team_rank=team_rank,
-                    slot=slot_num,
-                    position=(request.form.get("position") or "?").strip(),
-                    player_id=request.form.get("player_id", type=int),
-                    team_id=request.form.get("team_id", type=int),
-                    notes=(request.form.get("notes") or "").strip() or None,
-                    user_id=int(current_user.id),
-                )
-            except ValueError as exc:
-                flash(str(exc), "err")
-                return redirect(url_for("site_admin.admin_history_all_stars"))
-            db.session.add(
-                AdminAuditLog(
-                    admin_user_id=int(current_user.id),
-                    league_slug=slug,
-                    action="history_all_star_save",
-                    detail_json=json.dumps({"row_id": int(row.id or 0), "season_label": season_label}),
-                )
-            )
-            commit_with_sqlite_retry(db.session)
-            flash("Saved all-star slot.", "ok")
-            return redirect(
-                url_for(
-                    "site_admin.admin_history_all_stars",
-                    season=season_label or season_filter or None,
-                    team_rank=team_rank,
-                )
-            )
-
-    rows = list_all_stars_admin(db.session, season_filter=season_filter or None)
-    if team_rank_filter in (1, 2):
-        rows = [r for r in rows if int(r.team_rank) == int(team_rank_filter)]
-    edit_row = db.session.get(HistoryAllStar, edit_id) if edit_id else None
-    edit_season = season_filter
-    if edit_row:
-        edit_season = edit_row.season_label or sheet_season_from_notes(edit_row.notes) or edit_season
-    return render_template(
-        "admin_history_all_stars.html",
-        league_slug=slug,
-        rows=rows,
-        teams=teams,
-        players=players,
-        season_filter=season_filter,
-        team_rank_filter=team_rank_filter,
-        edit_row=edit_row,
-        edit_season=edit_season,
-        slot_defaults=ALL_STAR_SLOT_DEFAULTS,
-    )
+    """Legacy URL — Season Awards admin consolidated at ``admin_awards``."""
+    season = (request.args.get("season") or request.form.get("season_filter") or "").strip()
+    return redirect(url_for("site_admin.admin_awards", season=season or None))
 
 
 @site_admin_bp.route("/rule-strikes", methods=["GET", "POST"])
@@ -6104,76 +5834,166 @@ def admin_franchise_hub_detail(team_id: int):
     )
 
 
+@site_admin_bp.route("/awards", methods=["GET", "POST"])
 @site_admin_bp.route("/awards-tracker", methods=["GET", "POST"])
 @login_required
-def admin_awards_tracker():
+def admin_awards():
+    """Assign season trophy winners and First/Second Team All-Stars (replaces voting-tracker scaffold)."""
     require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER, ADMIN_ROLE_CONTENT)
+    from app.services.admin_history_records import (
+        ALL_STAR_SLOT_DEFAULTS,
+        all_stars_by_slot_for_season,
+        award_name_choices_from_names,
+        delete_history_award,
+        list_history_awards_admin,
+        save_all_star_batch,
+        season_label_choices_for_admin,
+        sheet_season_from_notes,
+        upsert_history_award,
+    )
+
     slug = _league_slug()
+    players, teams = _admin_history_player_team_choices()
+    season_filter = (request.args.get("season") or request.form.get("season_filter") or "").strip()
+    edit_award_id = request.args.get("edit_award", type=int)
+
     if request.method == "POST":
-        action = (request.form.get("action") or "").strip().lower()
-        if action == "create_cycle":
-            season_label = (request.form.get("season_label") or "").strip()
-            title = (request.form.get("title") or "").strip()
-            if not season_label or not title:
-                flash("Create cycle blocked: season label and title are required.", "err")
-                return redirect(url_for("site_admin.admin_awards_tracker"))
-            row = create_voting_cycle(
-                db.session,
-                league_slug=slug,
-                season_label=season_label,
-                title=title,
-                created_by_user_id=int(current_user.id),
-            )
+        action = (request.form.get("action") or "").strip()
+        if action == "delete_award":
+            aid = request.form.get("award_id", type=int)
+            if aid and delete_history_award(db.session, aid):
+                db.session.add(
+                    AdminAuditLog(
+                        admin_user_id=int(current_user.id),
+                        league_slug=slug,
+                        action="history_award_delete",
+                        detail_json=json.dumps({"award_id": aid}),
+                    )
+                )
+                commit_with_sqlite_retry(db.session)
+                flash("Deleted award row.", "ok")
+            else:
+                flash("Award not found.", "err")
+            return redirect(url_for("site_admin.admin_awards", season=season_filter or None))
+
+        if action == "save_award":
+            aid = request.form.get("award_id", type=int)
+            season_label = season_filter or (request.form.get("season_label") or "").strip()
+            try:
+                row = upsert_history_award(
+                    db.session,
+                    award_id=aid,
+                    season_label=season_label,
+                    league_slug=slug,
+                    award_name=(request.form.get("award_name") or "").strip(),
+                    player_id=request.form.get("player_id", type=int),
+                    team_id=request.form.get("team_id", type=int),
+                    staff_fhm_id=(request.form.get("staff_fhm_id") or "").strip() or None,
+                    notes=(request.form.get("notes") or "").strip() or None,
+                    user_id=int(current_user.id),
+                )
+            except ValueError as exc:
+                flash(str(exc), "err")
+                return redirect(url_for("site_admin.admin_awards", season=season_label or None))
             db.session.add(
                 AdminAuditLog(
                     admin_user_id=int(current_user.id),
                     league_slug=slug,
-                    action="awards_cycle_create",
+                    action="history_award_save",
                     detail_json=json.dumps(
-                        {"cycle_id": int(row.id), "season_label": season_label, "title": title}
+                        {
+                            "award_id": int(row.id or 0),
+                            "award_name": row.award_name,
+                            "season_label": season_label,
+                        }
                     ),
                 )
             )
             commit_with_sqlite_retry(db.session)
-            flash("Awards voting cycle created.", "ok")
-            return redirect(url_for("site_admin.admin_awards_tracker", cycle_id=row.id))
-        if action == "set_status":
-            try:
-                cycle_id = int(request.form.get("cycle_id") or "0")
-            except ValueError:
-                cycle_id = 0
-            status = (request.form.get("status") or "").strip().lower()
-            if status not in {"open", "closed", "archived"} or cycle_id <= 0:
-                flash("Update blocked: invalid cycle/status.", "err")
-                return redirect(url_for("site_admin.admin_awards_tracker"))
-            row = db.session.get(AwardsVotingCycle, cycle_id)
-            if not row or row.league_slug != slug:
-                abort(404)
-            row.status = status
-            db.session.add(
-                AdminAuditLog(
-                    admin_user_id=int(current_user.id),
+            flash("Saved award winner.", "ok")
+            return redirect(url_for("site_admin.admin_awards", season=season_label or None))
+
+        if action == "save_all_stars":
+            season_label = (request.form.get("season_label") or season_filter or "").strip()
+            if not season_label:
+                flash("Season label is required.", "err")
+                return redirect(url_for("site_admin.admin_awards"))
+            total_saved = 0
+            errors: list[str] = []
+            for team_rank in (1, 2):
+                saved, errs = save_all_star_batch(
+                    db.session,
+                    request.form,
+                    season_label=season_label,
                     league_slug=slug,
-                    action="awards_cycle_status",
-                    detail_json=json.dumps({"cycle_id": int(row.id), "status": status}),
+                    team_rank=team_rank,
+                    user_id=int(current_user.id),
                 )
-            )
-            commit_with_sqlite_retry(db.session)
-            flash("Cycle status updated.", "ok")
-            return redirect(url_for("site_admin.admin_awards_tracker", cycle_id=cycle_id))
-    cycles = list_cycles(db.session, league_slug=slug, limit=80)
-    selected_cycle_id = (request.args.get("cycle_id") or "").strip()
-    try:
-        selected_cycle_id_int = int(selected_cycle_id) if selected_cycle_id else 0
-    except ValueError:
-        selected_cycle_id_int = 0
-    selected_cycle = next((c for c in cycles if int(c.id) == selected_cycle_id_int), None)
-    tally_rows = tally_cycle_ballots(db.session, league_slug=slug, cycle_id=selected_cycle_id_int) if selected_cycle else []
+                total_saved += saved
+                errors.extend(errs)
+            if errors and not total_saved:
+                flash(errors[0], "err")
+            elif total_saved:
+                db.session.add(
+                    AdminAuditLog(
+                        admin_user_id=int(current_user.id),
+                        league_slug=slug,
+                        action="history_all_star_save",
+                        detail_json=json.dumps(
+                            {"season_label": season_label, "slots_saved": total_saved}
+                        ),
+                    )
+                )
+                commit_with_sqlite_retry(db.session)
+                flash(f"Saved {total_saved} all-star slot(s).", "ok")
+            return redirect(url_for("site_admin.admin_awards", season=season_label))
+
+    canonical = get_current_season()
+    season = season_with_imported_data_fallback(db.session, canonical) if canonical else None
+    default_season = season_display_label(season) if season else ""
+    season_choices = season_label_choices_for_admin(db.session)
+    if default_season and default_season not in season_choices:
+        season_choices.insert(0, default_season)
+
+    award_rows = list_history_awards_admin(db.session, season_filter=season_filter or None) if season_filter else []
+    edit_award = db.session.get(HistoryAward, edit_award_id) if edit_award_id else None
+    award_names = list(
+        db.session.scalars(
+            select(HistoryAward.award_name)
+            .where(HistoryAward.award_name.is_not(None), HistoryAward.award_name != "")
+            .distinct()
+            .order_by(HistoryAward.award_name.asc())
+        ).all()
+    )
+    if edit_award and edit_award.award_name:
+        award_names.append(edit_award.award_name)
+    award_choices = award_name_choices_from_names(award_names)
+    edit_award_name = ""
+    if edit_award and edit_award.award_name:
+        edit_choices = award_name_choices_from_names([edit_award.award_name])
+        edit_award_name = edit_choices[0] if edit_choices else ""
+
+    all_star_first: dict[int, HistoryAllStar] = {}
+    all_star_second: dict[int, HistoryAllStar] = {}
+    if season_filter:
+        all_star_first = all_stars_by_slot_for_season(db.session, season_filter, 1)
+        all_star_second = all_stars_by_slot_for_season(db.session, season_filter, 2)
+
     return render_template(
-        "admin_awards_tracker.html",
-        cycles=cycles,
-        selected_cycle=selected_cycle,
-        tally_rows=tally_rows,
+        "admin_awards.html",
+        league_slug=slug,
+        season_filter=season_filter,
+        default_season=default_season,
+        season_choices=season_choices,
+        award_rows=award_rows,
+        award_choices=award_choices,
+        edit_award=edit_award,
+        edit_award_name=edit_award_name,
+        all_star_first=all_star_first,
+        all_star_second=all_star_second,
+        slot_defaults=ALL_STAR_SLOT_DEFAULTS,
+        players=players,
+        teams=teams,
     )
 
 

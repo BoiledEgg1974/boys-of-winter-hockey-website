@@ -26,6 +26,20 @@ class HistoryRecordsAdminTemplateTest(unittest.TestCase):
         self.assertIn('name="team_id"', text)
         self.assertIn('action" value="delete"', text)
 
+    def test_admin_home_links_season_awards(self) -> None:
+        path = Path(__file__).resolve().parents[1] / "app" / "templates" / "admin_site_home.html"
+        text = path.read_text(encoding="utf-8")
+        self.assertIn("admin_awards", text)
+        self.assertIn("Season Awards", text)
+
+    def test_unified_awards_template_has_all_star_slots(self) -> None:
+        path = Path(__file__).resolve().parents[1] / "app" / "templates" / "admin_awards.html"
+        text = path.read_text(encoding="utf-8")
+        self.assertIn("First Team", text)
+        self.assertIn("Second Team", text)
+        self.assertIn('name="award_name"', text)
+        self.assertIn("player_id_{{ team_rank }}_{{ slot_num }}", text)
+
     def test_awards_template_has_player_dropdown(self) -> None:
         path = Path(__file__).resolve().parents[1] / "app" / "templates" / "admin_history_awards.html"
         text = path.read_text(encoding="utf-8")

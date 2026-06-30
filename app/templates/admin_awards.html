@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% block title %}Season Awards — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:76rem;margin:0 auto;">
+  <p>
+    <a href="{{ url_for('site_admin.admin_home') }}">← Admin</a>
+    · <a href="{{ url_for('main.history') }}">Public League History</a>
+  </p>
+  <h1 class="page-title">Season Awards</h1>
+  <p class="muted" style="margin:0 0 0.85rem;">
+    Assign trophy winners and First/Second Team All-Stars by season. Changes appear on
+    <strong>League History</strong> and <strong>player pages</strong> immediately.
+    Rows you save here are marked <em>admin</em> and are kept when CSV imports run.
+  </p>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <ul class="flash-list">
+    {% for category, message in messages %}
+    <li class="flash flash--{{ category }}">{{ message }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% endwith %}
+
+  <form method="get" class="history-admin-filter" style="margin:0.75rem 0;display:flex;gap:0.75rem;flex-wrap:wrap;align-items:end;">
+    <label>Season
+      <input type="text" name="season" list="admin-season-labels" value="{{ season_filter }}" placeholder="1998-99" required>
+      <datalist id="admin-season-labels">
+        {% for lab in season_choices %}
+        <option value="{{ lab }}"></option>
+        {% endfor %}
+      </datalist>
+    </label>
+    <button type="submit" class="button">Load season</button>
+    {% if default_season and not season_filter %}
+    <a href="{{ url_for('site_admin.admin_awards', season=default_season) }}">Use current season ({{ default_season }})</a>
+    {% endif %}
+  </form>
+
+  {% if not season_filter %}
+  <p class="muted">Choose a season label above (e.g. <code>1998-99</code>) to edit awards and all-star teams.</p>
+  {% else %}
+
+  <section class="card" style="margin:1.25rem 0;padding:0.85rem;">
+    <h2 style="margin:0 0 0.55rem;font-size:1.05rem;">Trophy winners — {{ season_filter }}</h2>
+    <form method="post" class="history-admin-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="save_award">
+      <input type="hidden" name="season_filter" value="{{ season_filter }}">
+      {% if edit_award %}<input type="hidden" name="award_id" value="{{ edit_award.id }}">{% endif %}
+      <div class="history-admin-form__grid">
+        <label>Award name
+          <select name="award_name" required>
+            <option value="">Select award</option>
+            {% for award_name in award_choices %}
+            <option value="{{ award_name }}" {% if edit_award and edit_award_name == award_name %}selected{% endif %}>{{ award_name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Player
+          <select name="player_id">
+            <option value="">—</option>
+            {% for pl in players %}
+            <option value="{{ pl.id }}" {% if edit_award and edit_award.player_id == pl.id %}selected{% endif %}>{{ pl.full_name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Team (team trophies)
+          <select name="team_id">
+            <option value="">—</option>
+            {% for tm in teams %}
+            <option value="{{ tm.id }}" {% if edit_award and edit_award.team_id == tm.id %}selected{% endif %}>{{ tm.full_display_name() }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Staff FHM id (coach/GM awards)
+          <input type="text" name="staff_fhm_id" value="{{ edit_award.staff_fhm_id if edit_award else '' }}">
+        </label>
+        <label class="history-admin-form__notes">Notes
+          <input type="text" name="notes" value="{{ edit_award.notes if edit_award else '' }}" placeholder="no_winner=1; extra metadata">
+        </label>
+      </div>
+      <button type="submit" class="button" style="margin-top:0.65rem;">{% if edit_award %}Update{% else %}Add{% endif %} award winner</button>
+      {% if edit_award %}
+      <a href="{{ url_for('site_admin.admin_awards', season=season_filter) }}">Cancel edit</a>
+      {% endif %}
+    </form>
+
+    <div class="table-wrap" style="margin-top:0.85rem;">
+      <table class="data history-admin-table">
+        <thead>
+          <tr>
+            <th>Award</th>
+            <th>Player</th>
+            <th>Team</th>
+            <th>Staff</th>
+            <th>Notes</th>
+            <th>Src</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in award_rows %}
+          <tr>
+            <td>{{ row.award_name }}</td>
+            <td>{% if row.player %}<a href="{{ url_for('main.player_page', player_id=row.player.id) }}">{{ row.player.full_name }}</a>{% else %}—{% endif %}</td>
+            <td>{% if row.team %}{{ row.team.abbreviation }}{% else %}—{% endif %}</td>
+            <td>{{ row.staff_fhm_id or '—' }}</td>
+            <td class="muted" style="max-width:12rem;overflow:hidden;text-overflow:ellipsis;">{{ row.notes or '—' }}</td>
+            <td>{{ row.source or 'csv' }}</td>
+            <td>
+              <a href="{{ url_for('site_admin.admin_awards', season=season_filter, edit_award=row.id) }}">Edit</a>
+              <form method="post" style="display:inline;" onsubmit="return confirm('Delete this award?');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="delete_award">
+                <input type="hidden" name="season_filter" value="{{ season_filter }}">
+                <input type="hidden" name="award_id" value="{{ row.id }}">
+                <button type="submit" class="link-button">Delete</button>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7" class="muted">No awards for {{ season_filter }} yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="save_all_stars">
+    <input type="hidden" name="season_filter" value="{{ season_filter }}">
+    <input type="hidden" name="season_label" value="{{ season_filter }}">
+
+    <div style="display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(20rem,1fr));">
+      {% for team_rank, team_label in ((1, 'First Team'), (2, 'Second Team')) %}
+      <section class="card" style="margin:0;padding:0.85rem;">
+        <h2 style="margin:0 0 0.55rem;font-size:1.05rem;">{{ team_label }} All-Stars</h2>
+        <div class="table-wrap">
+          <table class="data">
+            <thead>
+              <tr><th>Slot</th><th>Pos</th><th>Player</th><th>Team</th><th>Notes</th></tr>
+            </thead>
+            <tbody>
+              {% for slot_num, default_pos in slot_defaults %}
+              {% set existing = (all_star_first.get(slot_num) if team_rank == 1 else all_star_second.get(slot_num)) %}
+              <tr>
+                <td>{{ slot_num }}</td>
+                <td><input type="text" name="position_{{ team_rank }}_{{ slot_num }}" value="{{ existing.position if existing else default_pos }}" style="width:3.5rem;"></td>
+                <td>
+                  <select name="player_id_{{ team_rank }}_{{ slot_num }}">
+                    <option value="">—</option>
+                    {% for pl in players %}
+                    <option value="{{ pl.id }}" {% if existing and existing.player_id == pl.id %}selected{% endif %}>{{ pl.full_name }}</option>
+                    {% endfor %}
+                  </select>
+                </td>
+                <td>
+                  <select name="team_id_{{ team_rank }}_{{ slot_num }}">
+                    <option value="">—</option>
+                    {% for tm in teams %}
+                    <option value="{{ tm.id }}" {% if existing and existing.team_id == tm.id %}selected{% endif %}>{{ tm.abbreviation }}</option>
+                    {% endfor %}
+                  </select>
+                </td>
+                <td><input type="text" name="notes_{{ team_rank }}_{{ slot_num }}" value="{{ existing.notes if existing and existing.notes and not existing.notes.startswith('sheet_season=') else '' }}" placeholder="unresolved name"></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      {% endfor %}
+    </div>
+
+    <button type="submit" class="button" style="margin-top:0.85rem;">Save First &amp; Second Team All-Stars</button>
+  </form>
+
+  {% endif %}
+</div>
+{% endblock %}

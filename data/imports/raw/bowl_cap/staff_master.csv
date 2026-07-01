@@ -515,7 +515,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 513;18;Tim;Taylor;;1942-3-26;Sequim;WA;The United States;;;0
 514;19;Pentti;Matikainen;;1950-10-5;Helsinki;UUS;Finland;;;0
 515;-1;Doug;Woog;;1944-1-28;Shrewsbury;MA;The United States;;;0
-516;-1;Kari;Mäkinen;;1945-8-30;Kuusankoski;KYM;Finland;;;0
+516;21;Kari;Mäkinen;;1945-8-30;Kuusankoski;KYM;Finland;;;0
 517;-1;Reino;Ruotsalainen;;1941-4-11;Vantaa;UUS;Finland;;;0
 518;24;Tommy;Sandlin;;1944-3-31;Västerås;VäS;Sweden;;;0
 519;26;Anders;Parmström;;1942-2-16;Växjö;KRO;Sweden;;;0
@@ -1604,7 +1604,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1602;18;Todd;Springer;;1939-4-29;Carstairs;AB;Canada;;;0
 1603;-1;Richard;Commish;;1957-4-11;Winnipeg;MB;Canada;;;0
 1604;-1;Unlemployed;GM;;1961-4-11;;;Canada;;;0
-1605;5;GM;Bruins;;1961-4-11;;;The United States;;;0
+1605;5;GM;Bruins;;1961-4-11;Lake Placid;NY;The United States;;;0
 1606;17;GM;Sabres;;1961-4-11;;;Canada;;;0
 1607;19;GM;Flames;;1961-4-11;;;Canada;;;0
 1608;8;GM;Blackhawks;;1961-4-11;;;Canada;;;0
@@ -2170,7 +2170,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 2168;21;Gary;Harker;;1964-1-1;Experiment;GA;The United States;;;0
 2169;-1;Rick;Knickle;;1960-2-26;Abbotsford;BC;Canada;;;0
 2170;-1;Steve;Ludzik;;1961-4-3;Toronto;ON;Canada;;;0
-2171;-1;Vojtech;Kucera;;1965-10-15;Prague;PRA;Czech Republic;;;0
+2171;21;Vojtech;Kucera;;1965-10-15;Prague;PRA;Czech Republic;;;0
 2172;21;Bob;Janecyk;;1957-5-18;Clarendon Hills;IL;The United States;;;0
 2173;-1;Greg;Royce;;1965-1-22;Inverness;NS;Canada;;;0
 2174;-1;Garth;Joy;;1968-8-3;Kirkland Lake;ON;Canada;;;0
@@ -2255,7 +2255,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 2253;-1;Kurt;Kleinendorst;;1960-12-31;Highland Park;MI;The United States;;;0
 2254;-1;Doug;Gibson;;1953-9-28;Peterborough;ON;Canada;;;0
 2255;-1;Dan;MacKinnon;;1965-1-1;Hamilton;ON;Canada;;;0
-2256;-1;Frantisek;Musil;;1964-12-17;Rokycany;PLZ;Czech Republic;;;0
+2256;21;Frantisek;Musil;;1964-12-17;Rokycany;PLZ;Czech Republic;;;0
 2257;-1;Brian;MacLellan;;1958-10-27;Guelph;ON;Canada;;;0
 2258;-1;Tim;Lenardon;;1962-5-11;Ucluelet;BC;Canada;;;0
 2259;-1;Harkie;Singh;;1978-9-15;Toronto;ON;Canada;;;0

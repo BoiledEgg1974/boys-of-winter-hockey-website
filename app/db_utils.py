@@ -697,9 +697,16 @@ def ensure_fts5(engine: Engine) -> None:
 
 
 def rebuild_player_fts(engine: Engine) -> None:
-    """Rebuild FTS index from players + current team."""
+    """Rebuild FTS index from players + current team.
+
+    Drop and recreate the virtual table instead of ``DELETE`` so a corrupted FTS
+    segment does not fail the whole import (derived index; safe to replace).
+    """
     with engine.connect() as conn:
-        conn.execute(text("DELETE FROM player_fts;"))
+        conn.execute(text("DROP TABLE IF EXISTS player_fts;"))
+        conn.commit()
+    ensure_fts5(engine)
+    with engine.connect() as conn:
         conn.execute(
             text(
                 """

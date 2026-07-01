@@ -237,7 +237,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 4730;121;121;Terry;Crisp;;70;180;1943-5-28;Parry Sound;ON;Canada;;;0;Left;0
 3427;90;90;Ed;Chadwick;Chad;71;184;1933-5-8;Fergus;ON;Canada;;;0;Left;0
 3956;90;90;Jean;Gauthier;;73;190;1937-4-29;Montreal;QC;Canada;;;0;Right;0
-5646;90;90;Ken;Brown;;71;175;1948-12-19;Thunder Bay;ON;Canada;;;0;Left;1
+5646;126;119;Ken;Brown;;71;175;1948-12-19;Thunder Bay;ON;Canada;;;0;Left;1
 3552;90;90;Lionel;Heinrich;;70;180;1934-4-20;Churchbridge;SK;Canada;;;0;Left;0
 3428;90;90;Brian;Cullen;;70;160;1933-11-11;Ottawa;ON;Canada;;;0;Left;0
 3131;3;3;Jean;Beliveau;Le Gros Bill;75;205;1931-8-31;Trois-Rivières;QC;Canada;;;0;Left;0
@@ -488,7 +488,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 6343;84;84;Rick;Cunningham;;71;180;1951-3-3;Toronto;ON;Austria;Canada;;0;Right;0
 4611;90;90;Roger;Lafreniere;;72;190;1942-7-24;Murdochville;QC;Canada;;;0;Left;0
 5247;27;9;Lucien;Grenier;;70;163;1946-11-3;Maniwaki;QC;Canada;;;0;Left;0
-5420;125;118;Andre;Gaudette;;67;159;1947-12-16;Sorel-Tracy;QC;Canada;;;0;Left;0
+5420;118;118;Andre;Gaudette;;67;159;1947-12-16;Sorel-Tracy;QC;Canada;;;0;Left;1
 5867;89;89;Jean-Yves;Cartier;;69;180;1949-6-18;Murdochville;QC;Canada;;;0;Left;0
 4066;90;90;Gerry;Odrowski;Snowy;70;185;1938-10-4;Powassan;ON;Canada;;;0;Left;0
 4612;90;90;Ralph;MacSweyn;;71;190;1942-9-8;Hawkesbury;ON;Canada;;;0;Right;0
@@ -2327,7 +2327,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 3787;59;59;Kevin;Norberg;;71;169;1933-4-6;Stockholm;STO;Sweden;;;0;Right;0
 6941;83;83;Brian;Molvik;;73;185;1953-8-16;Rimbey;AB;Canada;;;0;Left;1
 6942;85;85;Richard;Latulippe;;71;185;1953-7-14;Longueuil;QC;Canada;;;0;Not Set;1
-5722;90;90;Tom;Serviss;;70;185;1948-5-25;North Battleford;SK;Canada;;;0;Right;1
+5722;126;119;Tom;Serviss;;70;185;1948-5-25;North Battleford;SK;Canada;;;0;Right;1
 3791;65;65;Marco;Antonietti;;72;177;1930-2-7;Locarno;TI;Switzerland;;;0;Left;0
 6704;84;84;Wayne;Elder;;71;196;1952-8-3;Napanee;ON;Canada;;;0;Left;0
 3793;65;65;Étienne;Fontana;;69;206;1933-3-10;Geneva;GE;Switzerland;;;0;Right;0

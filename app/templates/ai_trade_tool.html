@@ -5,7 +5,7 @@
   <header class="trade-tool-page__header">
     <h1 class="trade-tool-page__title">AI Trade Tool</h1>
     <p class="trade-tool-page__sub muted">For <strong>entertainment only</strong>. This scenario is <strong>not</strong> submitted for league approval and does not message your trade partner or commissioners.</p>
-    <p class="ai-trade-tool-official muted" style="margin-top:0.35rem;font-size:0.88rem;">Official trades → <a href="{{ url_for('site_gm.trade_tool') }}">Trade Tool</a></p>
+    <p class="ai-trade-tool-official muted" style="margin-top:0.35rem;font-size:0.88rem;">{% if site_can_process_trades %}Official trades → <a href="{{ url_for('site_gm.trade_tool') }}">Trade Tool</a>{% else %}Official trades are entered and published by the league office.{% endif %}</p>
   </header>
 
   <div class="ai-trade-tool-body">

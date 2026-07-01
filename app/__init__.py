@@ -452,7 +452,12 @@ def create_app(config_class: type = Config) -> Flask:
         from flask import has_request_context, request
         from flask_login import current_user
 
-        from app.auth_login import active_membership_for_league, has_admin_role
+        from app.auth_login import (
+            ADMIN_ROLE_LEAGUE,
+            ADMIN_ROLE_SUPER,
+            active_membership_for_league,
+            has_admin_role,
+        )
         from app.services.gm_notifications import gm_inbox_badge_unread
         from app.services.site_announcements import active_announcement
 
@@ -523,6 +528,11 @@ def create_app(config_class: type = Config) -> Flask:
             join_league_available_team_rows=join_league_available_team_rows,
             admin_compact_layout=admin_compact_layout,
             site_has_admin=has_admin_role(current_user)
+            if getattr(current_user, "is_authenticated", False)
+            else False,
+            site_can_process_trades=has_admin_role(
+                current_user, ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER
+            )
             if getattr(current_user, "is_authenticated", False)
             else False,
         )

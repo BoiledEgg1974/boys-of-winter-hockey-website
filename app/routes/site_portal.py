@@ -73,8 +73,6 @@ from app.services.gm_notifications import (
     notify_rfa_player_rejected,
     notify_trade_outcome_partner,
     notify_trade_outcome_proposer,
-    notify_trade_proposal_commissioners,
-    notify_trade_proposal_partner,
 )
 from app.services.staff_catalog import (
     build_staff_profile_view,
@@ -188,7 +186,6 @@ from app.services.draft_pick_ownership import (
     ensure_draft_pick_ownership_panels,
     reset_calendar_seeded_panels_if_needed,
     save_draft_pick_ownership_year_grid,
-    transfer_approved_trade_draft_pick_rows,
 )
 from app.services.discord_events import team_fields_for_discord
 from app.services.trade_ai_opinion import (
@@ -217,15 +214,14 @@ from app.services.trade_market import (
 )
 from app.services.trade_tool import (
     STATUS_COMMISSIONER_DECLINED,
-    STATUS_PARTNER_DECLINED,
     STATUS_PENDING_COMMISSIONER,
-    STATUS_PENDING_PARTNER,
     STATUS_PUBLISHED,
     format_trade_discord_body,
     format_ledger_summary,
-    league_commissioner_user_ids,
+    gm_user_id_for_team,
     parse_ledger_payload,
     publish_trade_news_articles,
+    publish_trade_proposal,
     trade_assets_for_team,
     trade_tool_draft_round_cap,
     validate_ledger,
@@ -566,9 +562,27 @@ def _is_site_admin() -> bool:
     return has_admin_role(current_user)
 
 
+def _can_use_official_trade_tool() -> bool:
+    """League/super admins only — official Trade Tool entry and publish."""
+    if not current_user.is_authenticated:
+        return False
+    return has_admin_role(current_user, ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+
+
 def _trade_page_allowed(mem=None) -> bool:
-    """Trade pages are visible to active GMs and site admins."""
+    """AI Trade Tool and related read-only pages: active GMs and site admins."""
     return mem is not None or _is_site_admin()
+
+
+def _can_load_trade_assets(mem) -> bool:
+    """Trade asset JSON for official tool (admin + team) or AI hypothetical tool (GM + ?ai=1)."""
+    ai = (request.args.get("ai") or "").strip().lower()
+    ai_mode = ai in ("1", "true", "yes")
+    if _can_use_official_trade_tool():
+        return _admin_trade_team_id() is not None
+    if mem is None:
+        return False
+    return ai_mode
 
 
 def _can_use_gm_messaging() -> bool:
@@ -658,12 +672,17 @@ def _trade_team_options(*, exclude_team_id: int | None = None) -> list[dict[str,
 
 
 def _admin_trade_team_id() -> int | None:
-    if not _is_site_admin():
+    if not _can_use_official_trade_tool():
         return None
     tid = request.args.get("admin_team_id", type=int) or request.form.get(
         "admin_team_id", type=int
     )
     return int(tid) if tid and tid > 0 else None
+
+
+def _trade_user_id_for_team(slug: str, team_id: int, *, fallback_user_id: int) -> int:
+    uid = gm_user_id_for_team(db.session, slug, int(team_id))
+    return int(uid) if uid is not None else int(fallback_user_id)
 
 
 def _franchise_identity_team_options() -> list[Team]:
@@ -1103,30 +1122,20 @@ def operations_request_redirect():
 @login_required
 def trade_tool():
     slug = _league_slug()
-    mem = _membership()
-    if not _trade_page_allowed(mem):
-        flash("No active GM membership for this league.", "err")
+    if not _can_use_official_trade_tool():
+        flash("The Trade Tool is available to league administrators only.", "err")
         return redirect(url_for("main.home"))
-    admin_team_id = _admin_trade_team_id() if mem is None else None
-    my_team_id = int(mem.team_id) if mem else admin_team_id
+    admin_team_id = _admin_trade_team_id()
+    my_team_id = admin_team_id
     my_team = db.session.get(Team, int(my_team_id)) if my_team_id else None
-    if mem is None and _is_site_admin():
-        partner_options = _trade_team_options(exclude_team_id=my_team_id)
-        admin_team_options = _trade_team_options()
-    else:
-        partner_options = _trade_partner_options(
-            slug,
-            exclude_user_id=int(current_user.id),
-            exclude_team_id=my_team_id,
-        )
-        admin_team_options = []
+    partner_options = _trade_team_options(exclude_team_id=my_team_id)
+    admin_team_options = _trade_team_options()
     recent = list(
         db.session.scalars(
             select(GmTradeProposal)
             .where(
                 GmTradeProposal.league_slug == slug,
-                (GmTradeProposal.from_user_id == int(current_user.id))
-                | (GmTradeProposal.to_user_id == int(current_user.id)),
+                GmTradeProposal.status == STATUS_PUBLISHED,
             )
             .order_by(GmTradeProposal.created_at.desc())
             .limit(20)
@@ -1137,13 +1146,12 @@ def trade_tool():
     player_page_url_template = url_for("main.player_page", player_id=_TRADE_PLAYER_URL_PLACEHOLDER_ID)
     return render_template(
         "trade_tool.html",
-        membership=mem,
+        membership=None,
         my_team=my_team,
         my_team_logo_url=my_team_logo_url,
         partner_options=partner_options,
         admin_team_options=admin_team_options,
         admin_team_id=admin_team_id,
-        admin_read_only=mem is None and _is_site_admin(),
         recent_proposals=recent,
         gm_display_name=gm_display_name,
         draft_round_cap=draft_round_cap,
@@ -1156,15 +1164,25 @@ def trade_tool():
 def trade_tool_assets():
     slug = _league_slug()
     mem = _membership()
-    admin_team_id = _admin_trade_team_id() if mem is None else None
-    if not mem and not (_is_site_admin() and admin_team_id):
+    admin_team_id = _admin_trade_team_id()
+    if not _can_load_trade_assets(mem):
         abort(404)
-    left_team_id = int(mem.team_id) if mem else int(admin_team_id)
+    if _can_use_official_trade_tool():
+        if not admin_team_id:
+            return jsonify({"error": "admin_team_id required"}), 400
+        left_team_id = int(admin_team_id)
+    else:
+        left_team_id = int(mem.team_id)
     raw_tid = request.args.get("partner_team_id", type=int)
     if not raw_tid or raw_tid <= 0:
         return jsonify({"error": "partner_team_id required"}), 400
+    ai_mode = (request.args.get("ai") or "").strip().lower() in ("1", "true", "yes")
     peer = None
-    if mem is not None:
+    if _can_use_official_trade_tool() or ai_mode:
+        if int(raw_tid) == int(left_team_id) or db.session.get(Team, int(raw_tid)) is None:
+            return jsonify({"error": "Invalid trading partner team."}), 400
+        peer = _gm_membership_for_team(slug, int(raw_tid))
+    else:
         peer = db.session.scalar(
             select(GmLeagueMembership).where(
                 GmLeagueMembership.league_slug == slug,
@@ -1175,8 +1193,6 @@ def trade_tool_assets():
         )
         if not peer:
             return jsonify({"error": "Invalid trading partner team."}), 400
-    elif int(raw_tid) == int(left_team_id) or db.session.get(Team, int(raw_tid)) is None:
-        return jsonify({"error": "Invalid trading partner team."}), 400
     raw_dir = _trade_tool_raw_dir()
     completed_panels = complete_stale_draft_pick_ownership_panels(
         db.session,
@@ -1221,38 +1237,22 @@ def trade_tool_assets():
 @login_required
 def trade_tool_submit():
     slug = _league_slug()
-    mem = _membership()
-    admin_team_id = _admin_trade_team_id() if mem is None else None
-    if not mem and not (_is_site_admin() and admin_team_id):
-        flash("No active GM membership for this league.", "err")
+    if not _can_use_official_trade_tool():
+        flash("The Trade Tool is available to league administrators only.", "err")
         return redirect(url_for("main.home"))
-    left_team_id = int(mem.team_id) if mem else int(admin_team_id)
-    return_url = (
-        url_for("site_gm.trade_tool", admin_team_id=left_team_id)
-        if mem is None
-        else url_for("site_gm.trade_tool")
-    )
+    admin_team_id = _admin_trade_team_id()
+    if not admin_team_id:
+        flash("Choose the left-side team before publishing.", "err")
+        return redirect(url_for("site_gm.trade_tool"))
+    left_team_id = int(admin_team_id)
+    return_url = url_for("site_gm.trade_tool", admin_team_id=left_team_id)
     partner_team_id = request.form.get("partner_team_id", type=int)
     ledger_raw = (request.form.get("ledger_json") or "").strip()
     notes = (request.form.get("notes") or "").strip()
     if not partner_team_id or partner_team_id <= 0:
         flash("Choose a trading partner team.", "err")
         return redirect(return_url)
-    peer_mem = db.session.scalar(
-        select(GmLeagueMembership).where(
-            GmLeagueMembership.league_slug == slug,
-            GmLeagueMembership.team_id == int(partner_team_id),
-            GmLeagueMembership.status == "active",
-            GmLeagueMembership.team_id != int(left_team_id),
-        )
-    )
-    if mem is not None and not peer_mem:
-        flash("That team is not an active GM partner in this league.", "err")
-        return redirect(return_url)
-    if mem is None and (
-        int(partner_team_id) == int(left_team_id)
-        or db.session.get(Team, int(partner_team_id)) is None
-    ):
+    if int(partner_team_id) == int(left_team_id) or db.session.get(Team, int(partner_team_id)) is None:
         flash("Choose a valid trading partner team.", "err")
         return redirect(return_url)
     left_out, right_out = parse_ledger_payload(ledger_raw)
@@ -1269,58 +1269,65 @@ def trade_tool_submit():
         flash(err, "err")
         return redirect(return_url)
     payload_obj = {"from_left_to_right": left_out, "from_right_to_left": right_out}
-    partner_user_id = int(peer_mem.user_id) if peer_mem else int(current_user.id)
+    admin_uid = int(current_user.id)
+    from_uid = _trade_user_id_for_team(slug, left_team_id, fallback_user_id=admin_uid)
+    to_uid = _trade_user_id_for_team(slug, int(partner_team_id), fallback_user_id=admin_uid)
+    raw_dir = _trade_tool_raw_dir()
+    published_article_id: int | None = None
+    moved_count = 0
+    proposal_id: int | None = None
 
-    def _persist_trade_submission() -> None:
+    def _persist_and_publish_trade() -> None:
+        nonlocal published_article_id, moved_count, proposal_id
         prop = GmTradeProposal(
             league_slug=slug,
-            from_user_id=int(current_user.id),
+            from_user_id=from_uid,
             from_team_id=int(left_team_id),
-            to_user_id=partner_user_id,
+            to_user_id=to_uid,
             to_team_id=int(partner_team_id),
-            status=STATUS_PENDING_PARTNER if peer_mem else STATUS_PENDING_COMMISSIONER,
+            status=STATUS_PENDING_COMMISSIONER,
             ledger_json=json.dumps(payload_obj),
             notes=notes[:8000],
         )
         db.session.add(prop)
         db.session.flush()
-        from_team = db.session.get(Team, int(left_team_id))
-        to_team = db.session.get(Team, int(partner_team_id))
-        summary = format_ledger_summary(
-            db.session, from_team, to_team, left_out, right_out, league_slug=slug
+        proposal_id = int(prop.id)
+        published_article_id, moved_rows, pub_err = publish_trade_proposal(
+            db.session,
+            db.session,
+            league_slug=slug,
+            proposal=prop,
+            commissioner_user_id=admin_uid,
+            raw_dir=raw_dir,
+            notify_gms=True,
         )
-        review_path = url_for("site_gm.trade_proposal_detail", pid=int(prop.id))
-        if peer_mem:
-            msg_body = (
-                f"You have a new trade proposal from {gm_display_name(current_user)} "
-                f"({from_team.full_display_name() if from_team else 'your partner'}).\n\n"
-                f"{summary}\n\n"
-                f"Open to approve or decline:\n{review_path}"
-            )
-            create_gm_message(
-                league_slug=slug,
-                from_user_id=int(current_user.id),
-                to_user_id=partner_user_id,
-                body=msg_body[:_GM_MESSAGE_MAX_LEN],
-                event_key="trade_partner_review",
-            )
-            notify_trade_proposal_partner(
-                slug,
-                partner_user_id=partner_user_id,
-                proposal_id=int(prop.id),
-                summary_preview=summary,
-            )
-        else:
-            comm_ids = league_commissioner_user_ids(db.session)
-            notify_trade_proposal_commissioners(
-                slug,
-                commissioner_user_ids=comm_ids,
-                proposal_id=int(prop.id),
-                summary_preview=summary,
-            )
+        if pub_err:
+            raise ValueError(pub_err)
+        moved_count = len(moved_rows)
 
-    write_with_sqlite_retry(db.session, _persist_trade_submission)
-    flash("Trade submitted. Your partner was messaged and notified in GM Messages.", "ok")
+    try:
+        write_with_sqlite_retry(db.session, _persist_and_publish_trade)
+    except ValueError as exc:
+        flash(str(exc), "err")
+        return redirect(return_url)
+    from_team = db.session.get(Team, int(left_team_id))
+    to_team = db.session.get(Team, int(partner_team_id))
+    if published_article_id and proposal_id:
+        prop = db.session.get(GmTradeProposal, int(proposal_id))
+        if prop:
+            _enqueue_confirmed_trade_discord(
+                proposal=prop,
+                proposal_id=int(proposal_id),
+                article_id=int(published_article_id),
+                from_team=from_team,
+                to_team=to_team,
+                team=from_team,
+            )
+            commit_with_sqlite_retry(db.session)
+    msg = "Trade published on the site for both teams."
+    if moved_count:
+        msg += f" Draft ownership updated for {moved_count} pick(s)."
+    flash(msg, "ok")
     return redirect(return_url)
 
 
@@ -2784,139 +2791,15 @@ def staff_hire_limit_api():
 @site_gm_bp.get("/operations/trade-proposal/<int:pid>")
 @login_required
 def trade_proposal_detail(pid: int):
-    slug = _league_slug()
-    mem = _membership()
-    if not mem:
-        flash("No active GM membership for this league.", "err")
-        return redirect(url_for("main.home"))
-    prop = db.session.get(GmTradeProposal, pid)
-    if not prop or prop.league_slug != slug:
-        abort(404)
-    uid = int(current_user.id)
-    is_partner = prop.to_user_id == uid
-    is_proposer = prop.from_user_id == uid
-    if not is_partner and not is_proposer:
-        abort(403)
-    from_team = db.session.get(Team, int(prop.from_team_id))
-    to_team = db.session.get(Team, int(prop.to_team_id))
-    left_out, right_out = parse_ledger_payload(prop.ledger_json)
-    summary = format_ledger_summary(
-        db.session, from_team, to_team, left_out, right_out, league_slug=slug
-    )
-    can_partner_act = is_partner and prop.status == STATUS_PENDING_PARTNER
-    proposer_u = db.session.get(User, int(prop.from_user_id))
-    partner_u = db.session.get(User, int(prop.to_user_id))
-    return render_template(
-        "trade_proposal_detail.html",
-        proposal=prop,
-        membership=mem,
-        summary=summary,
-        from_team=from_team,
-        to_team=to_team,
-        is_partner=is_partner,
-        is_proposer=is_proposer,
-        can_partner_act=can_partner_act,
-        proposer_display=gm_display_name(proposer_u),
-        partner_display=gm_display_name(partner_u),
-        gm_display_name=gm_display_name,
-    )
+    flash("Official trades are entered and published by the league office.", "err")
+    return redirect(url_for("main.trade_log_page"))
 
 
 @site_gm_bp.post("/operations/trade-proposal/<int:pid>/respond")
 @login_required
 def trade_proposal_partner_respond(pid: int):
-    slug = _league_slug()
-    mem = _membership()
-    if not mem:
-        flash("No active GM membership for this league.", "err")
-        return redirect(url_for("main.home"))
-    prop = db.session.get(GmTradeProposal, pid)
-    if not prop or prop.league_slug != slug:
-        abort(404)
-    if prop.to_user_id != int(current_user.id):
-        abort(403)
-    if prop.status != STATUS_PENDING_PARTNER:
-        flash("This proposal is no longer awaiting your response.", "err")
-        return redirect(url_for("site_gm.trade_proposal_detail", pid=pid))
-    action = (request.form.get("action") or "").strip().lower()
-    from_team = db.session.get(Team, int(prop.from_team_id))
-    to_team = db.session.get(Team, int(prop.to_team_id))
-    left_out, right_out = parse_ledger_payload(prop.ledger_json)
-    summary = format_ledger_summary(
-        db.session, from_team, to_team, left_out, right_out, league_slug=slug
-    )
-    if action == "decline":
-        decline_msg = (
-            f"Your trade proposal to {to_team.full_display_name() if to_team else 'partner'} "
-            f"was declined by {gm_display_name(current_user)}.\n\n{summary}"
-        )
-
-        def _decline_trade() -> None:
-            prop.status = STATUS_PARTNER_DECLINED
-            prop.partner_acted_at = datetime.utcnow()
-            create_gm_message(
-                league_slug=slug,
-                from_user_id=int(current_user.id),
-                to_user_id=int(prop.from_user_id),
-                body=decline_msg[:_GM_MESSAGE_MAX_LEN],
-                event_key="trade_outcome_proposer",
-            )
-            notify_trade_outcome_proposer(
-                slug,
-                proposer_user_id=int(prop.from_user_id),
-                proposal_id=int(prop.id),
-                title="Trade proposal declined",
-                body="Your partner declined the trade.",
-            )
-
-        write_with_sqlite_retry(db.session, _decline_trade)
-        flash("You declined the trade. The proposing GM was notified.", "ok")
-        return redirect(url_for("site_gm.trade_tool"))
-    if action != "approve":
-        flash("Invalid action.", "err")
-        return redirect(url_for("site_gm.trade_proposal_detail", pid=pid))
-    comm_ids = league_commissioner_user_ids(db.session)
-    if not comm_ids:
-        flash("No commissioner accounts are configured; contact the league office.", "err")
-        return redirect(url_for("site_gm.trade_proposal_detail", pid=pid))
-    admin_path = url_for("site_admin.admin_trade_proposal_detail", pid=int(prop.id))
-    approve_peer_msg = (
-        f"{gm_display_name(current_user)} approved your trade proposal "
-        f"({from_team.full_display_name() if from_team else ''} / {to_team.full_display_name() if to_team else ''}). "
-        f"It is now with the league office for final approval.\n\n{summary}"
-    )
-
-    def _approve_trade() -> None:
-        prop.status = STATUS_PENDING_COMMISSIONER
-        prop.partner_acted_at = datetime.utcnow()
-        for cid in comm_ids:
-            create_gm_message(
-                league_slug=slug,
-                from_user_id=int(current_user.id),
-                to_user_id=int(cid),
-                body=(
-                    f"Trade proposal approved by both GMs; commissioner review needed.\n\n{summary}\n\n"
-                    f"Admin: {admin_path}"
-                )[:_GM_MESSAGE_MAX_LEN],
-                event_key="trade_commish_review",
-            )
-        notify_trade_proposal_commissioners(
-            slug,
-            commissioner_user_ids=comm_ids,
-            proposal_id=int(prop.id),
-            summary_preview=summary,
-        )
-        create_gm_message(
-            league_slug=slug,
-            from_user_id=int(current_user.id),
-            to_user_id=int(prop.from_user_id),
-            body=approve_peer_msg[:_GM_MESSAGE_MAX_LEN],
-            event_key="trade_outcome_proposer",
-        )
-
-    write_with_sqlite_retry(db.session, _approve_trade)
-    flash("You approved the trade. The commissioner was notified.", "ok")
-    return redirect(url_for("site_gm.trade_tool"))
+    flash("Official trades are entered and published by the league office.", "err")
+    return redirect(url_for("main.trade_log_page"))
 
 
 @site_gm_bp.get("/gm-messages")
@@ -3166,37 +3049,22 @@ def admin_trade_proposal_detail(pid: int):
             flash("This proposal is not awaiting commissioner action.", "err")
             return redirect(url_for("site_admin.admin_trade_proposal_detail", pid=pid))
         if action == "approve":
-            err = validate_ledger(
+            from_article_id, moved_draft_picks, err = publish_trade_proposal(
                 db.session,
-                int(prop.from_team_id),
-                int(prop.to_team_id),
-                left_out,
-                right_out,
-                raw_dir=_trade_tool_raw_dir(),
-                league_slug=slug,
-            )
-            if err:
-                flash(
-                    f"Ledger no longer validates against current rosters ({err}). "
-                    "Update CSVs or ask GMs to resubmit before approving.",
-                    "err",
-                )
-                return redirect(url_for("site_admin.admin_trade_proposal_detail", pid=pid))
-            from_article_id, _to_article_id = publish_trade_news_articles(
                 db.session,
                 league_slug=slug,
                 proposal=prop,
                 commissioner_user_id=int(current_user.id),
+                raw_dir=_trade_tool_raw_dir(),
+                notify_gms=True,
             )
-            moved_draft_picks = transfer_approved_trade_draft_pick_rows(
-                db.session,
-                db.session,
-                league_slug=slug,
-                from_team_id=int(prop.from_team_id),
-                to_team_id=int(prop.to_team_id),
-                left_out=left_out,
-                right_out=right_out,
-            )
+            if err:
+                flash(
+                    f"Ledger no longer validates against current rosters ({err}). "
+                    "Update CSVs before approving.",
+                    "err",
+                )
+                return redirect(url_for("site_admin.admin_trade_proposal_detail", pid=pid))
             _enqueue_confirmed_trade_discord(
                 proposal=prop,
                 proposal_id=int(prop.id),
@@ -3205,42 +3073,6 @@ def admin_trade_proposal_detail(pid: int):
                 to_team=to_team,
                 team=from_team,
             )
-            prop.status = STATUS_PUBLISHED
-            prop.commissioner_user_id = int(current_user.id)
-            prop.commissioner_acted_at = datetime.utcnow()
-            prop.commissioner_note = ""
-            ok_body = (
-                "The league office approved your trade. Transaction posts appear under "
-                "Around the League and on both team pages (roster updates follow imports)."
-            )
-            notify_trade_outcome_proposer(
-                slug,
-                proposer_user_id=int(prop.from_user_id),
-                proposal_id=int(prop.id),
-                title="Trade approved by commissioner",
-                body=ok_body,
-            )
-            notify_trade_outcome_partner(
-                slug,
-                partner_user_id=int(prop.to_user_id),
-                proposal_id=int(prop.id),
-                title="Trade approved by commissioner",
-                body=ok_body,
-            )
-            if moved_draft_picks:
-                db.session.add(
-                    AdminAuditLog(
-                        admin_user_id=int(current_user.id),
-                        league_slug=slug,
-                        action="trade_proposal_draft_pick_transfer",
-                        detail_json=json.dumps(
-                            {
-                                "proposal_id": int(prop.id),
-                                "moved_rows": moved_draft_picks,
-                            }
-                        ),
-                    )
-                )
             commit_with_sqlite_retry(db.session)
             msg = "Trade approved and published on the site for both teams."
             if moved_draft_picks:

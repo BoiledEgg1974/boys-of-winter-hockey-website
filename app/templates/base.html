@@ -104,7 +104,6 @@
             <a class="header-tools__link" href="{{ url_for('site_gm.gm_help_tips_page') }}">Help/Tips</a>
             <a class="header-tools__link" href="{{ url_for('site_gm.export_attendance_tracker') }}">Attendance Tracker</a>
             <a class="header-tools__link" href="{{ url_for('site_gm.action_points_page') }}">AP</a>
-            <a class="header-tools__link" href="{{ url_for('site_gm.trade_tool') }}">Trade Tool</a>
             <a class="header-tools__link" href="{{ url_for('site_gm.trade_market_page') }}">Trade Market</a>
             <a class="header-tools__link" href="{{ url_for('site_gm.ai_trade_tool') }}">AI Trade Tool</a>
             <a class="header-tools__link" href="{{ url_for('site_gm.finances_page') }}">Finances</a>
@@ -115,6 +114,9 @@
             <a class="header-tools__link" href="{{ url_for('site_gm.boost_lottery_tracker') }}">Boost Lottery Tracker</a>
             {% endif %}
             {% if site_has_admin %}
+            {% if site_can_process_trades %}
+            <a class="header-tools__link header-tools__link--admin" href="{{ url_for('site_gm.trade_tool') }}">Trade Tool</a>
+            {% endif %}
             {% if current_league_slug == 'bowl-fantasy' %}
             <a class="header-tools__link" href="{{ url_for('site_gm.draft_lottery') }}">Draft Lottery</a>
             {% endif %}

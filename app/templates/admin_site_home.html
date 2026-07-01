@@ -29,7 +29,10 @@
     <li><a href="{{ url_for('site_gm.boost_lottery') }}">Boost lottery</a> — rounds 2–3 triple tickets, 4–8 single; gold/silver draw (admins only)</li>
     {% endif %}
     <li><a href="{{ url_for('site_admin.admin_operations_queue') }}">GM operations queue</a></li>
-    <li><a href="{{ url_for('site_admin.admin_trade_proposals_list') }}">Trade proposals (ledger workflow)</a></li>
+    {% if site_can_process_trades %}
+    <li><a href="{{ url_for('site_gm.trade_tool') }}">Trade Tool</a> — enter and publish official trades</li>
+    {% endif %}
+    <li><a href="{{ url_for('site_admin.admin_trade_proposals_list') }}">Trade proposals (history &amp; repair)</a></li>
     <li><a href="{{ url_for('site_admin.admin_draft_pick_ownership') }}">Draft pick ownership panels</a></li>
     <li><a href="{{ url_for('site_admin.admin_game_records') }}">Game records (baseline seeding)</a></li>
     <li><a href="{{ url_for('site_admin.admin_history_records_home') }}">Historical records editor</a> — team seasons, awards, all-stars</li>

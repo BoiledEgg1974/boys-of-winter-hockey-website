@@ -3,8 +3,8 @@
 {% block content %}
 <div class="trade-tool-page card">
   <header class="trade-tool-page__header">
-    <h1 class="trade-tool-page__title">Trade Negotiation Portal</h1>
-    <p class="trade-tool-page__sub muted">Build a trade on the BOWL trade ledger. Your team is on the left; choose a partner on the right. Nothing moves in the database until imports reflect it.</p>
+    <h1 class="trade-tool-page__title">League office — Trade Tool</h1>
+    <p class="trade-tool-page__sub muted">Enter and publish an official trade between any two teams. Player rosters update on the next data import; draft pick ownership updates immediately when applicable.</p>
   </header>
 
   <div class="trade-tool-layout" id="trade-tool-root"
@@ -21,8 +21,8 @@
         <img class="trade-tool-logo" src="{{ my_team_logo_url }}" alt="">
         {% endif %}
         <div>
-          <div class="trade-tool-teamname">{{ my_team.full_display_name() if my_team else ('Choose a team' if admin_read_only else 'Your team') }}</div>
-          <div class="trade-tool-gm muted">{{ 'Admin Acting As Team' if admin_read_only else gm_display_name(current_user) }}</div>
+          <div class="trade-tool-teamname">{{ my_team.full_display_name() if my_team else 'Select Team A' }}</div>
+          <div class="trade-tool-gm muted">Team A</div>
         </div>
       </div>
       <div class="trade-tool-assets-scroll">
@@ -36,13 +36,12 @@
 
       <form method="post" action="{{ url_for('site_gm.trade_tool_submit') }}" id="trade-tool-form" class="trade-tool-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        {% if admin_read_only and admin_team_id %}
+        {% if admin_team_id %}
         <input type="hidden" name="admin_team_id" value="{{ admin_team_id }}">
         {% endif %}
         <input type="hidden" name="ledger_json" id="ledger-json-field" value="{}">
-        {% if admin_read_only %}
         <div class="trade-tool-admin-view">
-          <label class="trade-tool-partner-label">Admin View As Team
+          <label class="trade-tool-partner-label">Team A (left column)
             <select id="admin-team-select">
               <option value="">— Select Team —</option>
               {% for p in admin_team_options %}
@@ -50,10 +49,9 @@
               {% endfor %}
             </select>
           </label>
-          <p class="muted">Admin mode can submit on behalf of the selected team when a GM is unavailable.</p>
+          <p class="muted">Choose the team on the left side of the ledger, then pick Team B below.</p>
         </div>
-        {% endif %}
-        <label class="trade-tool-partner-label">Trading Partner
+        <label class="trade-tool-partner-label">Team B (right column)
           <select name="partner_team_id" id="partner-team-select" required>
             <option value="">— Select Team —</option>
             {% for p in partner_options %}
@@ -110,7 +108,7 @@
         </label>
         <div class="trade-tool-actions">
           <button type="button" class="trade-tool-clear" id="btn-clear-table">Clear Table</button>
-          <button type="submit" class="trade-tool-submit">Submit Trade</button>
+          <button type="submit" class="trade-tool-submit">Publish trade</button>
         </div>
       </form>
     </div>
@@ -134,7 +132,7 @@
 
   {% if recent_proposals %}
   <section class="trade-tool-recent">
-    <h2 class="trade-tool-recent__title">Your Recent Proposals</h2>
+    <h2 class="trade-tool-recent__title">Recently published trades</h2>
     <table class="trade-tool-table">
       <thead>
         <tr>
@@ -148,7 +146,7 @@
         <tr>
           <td>{{ r.created_at.strftime('%Y-%m-%d %H:%M') if r.created_at else '—' }}</td>
           <td>{{ r.status|replace('_', ' ') }}</td>
-          <td><a href="{{ url_for('site_gm.trade_proposal_detail', pid=r.id) }}">View</a></td>
+          <td><a href="{{ url_for('site_admin.admin_trade_proposal_detail', pid=r.id) }}">View</a></td>
         </tr>
         {% endfor %}
       </tbody>

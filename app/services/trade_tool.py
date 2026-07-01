@@ -24,7 +24,9 @@ from app.services.draft_pick_ownership import (
     draft_pick_owned_by_team,
     parse_draft_pick_drag_key,
 )
-from app.site_models import GmTradeProposal, NewsArticle, User
+from app.services.draft_pick_ownership import transfer_approved_trade_draft_pick_rows
+from app.services.gm_notifications import notify_trade_outcome_partner, notify_trade_outcome_proposer
+from app.site_models import AdminAuditLog, GmLeagueMembership, GmTradeProposal, NewsArticle, User
 
 MAX_ASSETS_PER_SIDE = 5
 
@@ -606,3 +608,106 @@ def publish_trade_news_articles(
     a2 = _article_for_team(int(proposal.to_team_id))
     session.flush()
     return int(a1.id), int(a2.id)
+
+
+def gm_user_id_for_team(session: Session, league_slug: str, team_id: int) -> int | None:
+    """Active GM user id for a team, if any."""
+    mem = session.scalar(
+        select(GmLeagueMembership).where(
+            GmLeagueMembership.league_slug == league_slug,
+            GmLeagueMembership.team_id == int(team_id),
+            GmLeagueMembership.status == "active",
+        ).limit(1)
+    )
+    return int(mem.user_id) if mem else None
+
+
+_TRADE_PUBLISHED_GM_BODY = (
+    "The league office published your trade. Transaction posts appear under "
+    "Around the League and on both team pages (roster updates follow imports)."
+)
+
+
+def publish_trade_proposal(
+    session: Session,
+    league_session: Session,
+    *,
+    league_slug: str,
+    proposal: GmTradeProposal,
+    commissioner_user_id: int,
+    raw_dir: Path | None,
+    notify_gms: bool = True,
+) -> tuple[int | None, list[dict], str | None]:
+    """Validate ledger, publish news, transfer draft picks, mark proposal published.
+
+    League ``players.current_team_id`` is never mutated here — roster changes come from
+    FHM CSV imports. Site ``trade_market_draft_pick_ownership`` rows referenced as
+    ``dpick:<id>`` in the ledger are reassigned to the receiving team immediately.
+
+    Returns ``(from_article_id, moved_draft_pick_rows, validation_error)``.
+    """
+    left_out, right_out = parse_ledger_payload(proposal.ledger_json)
+    err = validate_ledger(
+        session,
+        int(proposal.from_team_id),
+        int(proposal.to_team_id),
+        left_out,
+        right_out,
+        raw_dir=raw_dir,
+        league_slug=league_slug,
+    )
+    if err:
+        return None, [], err
+
+    from_article_id, _to_article_id = publish_trade_news_articles(
+        session,
+        league_slug=league_slug,
+        proposal=proposal,
+        commissioner_user_id=int(commissioner_user_id),
+    )
+    moved_draft_picks = transfer_approved_trade_draft_pick_rows(
+        session,
+        league_session,
+        league_slug=league_slug,
+        from_team_id=int(proposal.from_team_id),
+        to_team_id=int(proposal.to_team_id),
+        left_out=left_out,
+        right_out=right_out,
+    )
+    proposal.status = STATUS_PUBLISHED
+    proposal.commissioner_user_id = int(commissioner_user_id)
+    proposal.commissioner_acted_at = datetime.utcnow()
+    proposal.commissioner_note = ""
+
+    if notify_gms:
+        notify_trade_outcome_proposer(
+            league_slug,
+            proposer_user_id=int(proposal.from_user_id),
+            proposal_id=int(proposal.id),
+            title="Trade published by league office",
+            body=_TRADE_PUBLISHED_GM_BODY,
+        )
+        notify_trade_outcome_partner(
+            league_slug,
+            partner_user_id=int(proposal.to_user_id),
+            proposal_id=int(proposal.id),
+            title="Trade published by league office",
+            body=_TRADE_PUBLISHED_GM_BODY,
+        )
+
+    if moved_draft_picks:
+        session.add(
+            AdminAuditLog(
+                admin_user_id=int(commissioner_user_id),
+                league_slug=league_slug,
+                action="trade_proposal_draft_pick_transfer",
+                detail_json=json.dumps(
+                    {
+                        "proposal_id": int(proposal.id),
+                        "moved_rows": moved_draft_picks,
+                    }
+                ),
+            )
+        )
+
+    return from_article_id, moved_draft_picks, None

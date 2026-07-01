@@ -723,36 +723,39 @@ def _resolve_team_for_discord_payload(session, payload: dict):
 
 
 def resolve_news_article_team(session, article: NewsArticle):
-    """Resolve the franchise for a news article (author GM membership, then team_id)."""
+    """Resolve the franchise for a news article (article team_id, then author GM membership)."""
     from app.models import Team
     from app.site_models import GmLeagueMembership
 
+    team = _resolve_league_team_for_news(session, getattr(article, "team_id", None))
+    if team is not None:
+        return team
+
     league_slug = str(getattr(article, "league_slug", "") or "").strip()
     author_id = getattr(article, "author_user_id", None)
-    if author_id is not None:
-        try:
-            uid = int(author_id)
-        except (TypeError, ValueError):
-            uid = None
-        if uid is not None and league_slug:
-            mem = session.scalar(
-                select(GmLeagueMembership)
-                .where(
-                    GmLeagueMembership.league_slug == league_slug,
-                    GmLeagueMembership.user_id == uid,
-                    GmLeagueMembership.status == "active",
-                )
-                .order_by(
-                    GmLeagueMembership.approved_at.desc(),
-                    GmLeagueMembership.id.desc(),
-                )
-                .limit(1)
-            )
-            if mem is not None:
-                team = session.get(Team, int(mem.team_id))
-                if team is not None:
-                    return team
-    return _resolve_league_team_for_news(session, getattr(article, "team_id", None))
+    if author_id is None or not league_slug:
+        return None
+    try:
+        uid = int(author_id)
+    except (TypeError, ValueError):
+        return None
+
+    mem = session.scalar(
+        select(GmLeagueMembership)
+        .where(
+            GmLeagueMembership.league_slug == league_slug,
+            GmLeagueMembership.user_id == uid,
+            GmLeagueMembership.status == "active",
+        )
+        .order_by(
+            GmLeagueMembership.approved_at.desc(),
+            GmLeagueMembership.id.desc(),
+        )
+        .limit(1)
+    )
+    if mem is None:
+        return None
+    return session.get(Team, int(mem.team_id))
 
 
 def _pick_team_for_discord_mention(session, payload: dict):

@@ -195,14 +195,45 @@ class DiscordEventMentionTests(unittest.TestCase):
 
         self.assertIs(team, buffalo)
 
-    def test_resolve_news_article_team_uses_author_gm_membership(self) -> None:
+    def test_resolve_news_article_team_prefers_article_team_id(self) -> None:
+        from app.models import Team
+
+        session = MagicMock()
+        detroit = SimpleNamespace(id=5, fhm_team_id="9", abbreviation="DET")
+        atlanta = SimpleNamespace(id=28, fhm_team_id="227", abbreviation="ATL")
+        article = SimpleNamespace(
+            league_slug="bowl-cap",
+            team_id=5,
+            author_user_id=42,
+        )
+
+        def _get(model, pk):
+            if model is Team and pk == 5:
+                return detroit
+            if model is Team and pk == 28:
+                return atlanta
+            return None
+
+        session.get.side_effect = _get
+
+        with patch(
+            "app.services.discord_events._resolve_league_team_for_news",
+            return_value=detroit,
+        ) as by_team_id:
+            team = resolve_news_article_team(session, article)
+
+        self.assertIs(team, detroit)
+        by_team_id.assert_called_once_with(session, 5)
+        session.scalar.assert_not_called()
+
+    def test_resolve_news_article_team_falls_back_to_author_gm_membership(self) -> None:
         from app.models import Team
 
         session = MagicMock()
         buffalo = SimpleNamespace(id=12, fhm_team_id="17", abbreviation="BUF")
         article = SimpleNamespace(
             league_slug="bowl-cap",
-            team_id=12,
+            team_id=None,
             author_user_id=42,
         )
         mem = SimpleNamespace(team_id=12)
@@ -216,12 +247,75 @@ class DiscordEventMentionTests(unittest.TestCase):
 
         session.get.side_effect = _get
 
-        team = resolve_news_article_team(session, article)
+        with patch(
+            "app.services.discord_events._resolve_league_team_for_news",
+            return_value=None,
+        ):
+            team = resolve_news_article_team(session, article)
 
         self.assertIs(team, buffalo)
         session.scalar.assert_called_once()
         args = session.scalar.call_args[0][0]
         self.assertTrue(hasattr(args, "whereclause"))
+
+    def test_admin_news_enrichment_tags_article_team_not_author(self) -> None:
+        from app.models import Team
+
+        session = MagicMock()
+        detroit = SimpleNamespace(
+            id=5,
+            fhm_team_id="9",
+            abbreviation="DET",
+            name="Detroit",
+            slug="detroit-red-wings",
+            full_display_name=lambda: "Detroit Red Wings",
+        )
+        article = SimpleNamespace(
+            id=800,
+            league_slug="bowl-cap",
+            team_id=5,
+            author_user_id=42,
+            title="Detroit Makes It Official with D Liles",
+            body="Detroit story.",
+            image_rel_path="",
+        )
+        mem = SimpleNamespace(team_id=28)
+
+        def _get(model, pk):
+            if model is NewsArticle and pk == 800:
+                return article
+            if model is Team and pk == 5:
+                return detroit
+            return None
+
+        session.get.side_effect = _get
+        session.scalar.return_value = mem
+
+        with (
+            patch(
+                "app.services.discord_events._resolve_league_team_for_news",
+                return_value=detroit,
+            ),
+            patch(
+                "app.services.discord_events.team_fields_for_discord",
+                return_value={"team_id": 5, "fhm_team_id": 9, "team_abbrev": "DET"},
+            ),
+            patch(
+                "app.services.discord_events._discord_user_mention_for_team",
+                return_value="<@detroit-gm>",
+            ) as by_team,
+        ):
+            payload = enrich_discord_payload_for_bot(
+                session,
+                league_slug="bowl-cap",
+                event_key="admin_news_published",
+                payload={"article_id": 800},
+            )
+
+        by_team.assert_called_once_with(session, league_slug="bowl-cap", team_id=5)
+        self.assertEqual(payload["team_id"], 5)
+        self.assertEqual(payload["team_abbrev"], "DET")
+        self.assertEqual(payload["team_gm_mention"], "<@detroit-gm>")
 
     def test_gm_news_enrichment_buffalo_not_dallas_on_pk_fhm_collision(self) -> None:
         from app.models import Team

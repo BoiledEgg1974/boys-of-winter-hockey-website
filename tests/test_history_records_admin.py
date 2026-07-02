@@ -6,10 +6,13 @@ from pathlib import Path
 
 from app.services.admin_history_records import (
     ALL_STAR_SLOT_DEFAULTS,
+    apply_gm_winner_to_award_notes,
     award_name_choices_from_names,
     award_matches_season_label,
+    gm_user_id_from_award_notes,
     merge_sheet_season_notes,
     sheet_season_from_notes,
+    staff_award_winner_admin_label,
 )
 
 
@@ -38,6 +41,7 @@ class HistoryRecordsAdminTemplateTest(unittest.TestCase):
         self.assertIn("First Team", text)
         self.assertIn("Second Team", text)
         self.assertIn('name="award_name"', text)
+        self.assertIn('name="gm_user_id"', text)
         self.assertIn("player_id_{{ team_rank }}_{{ slot_num }}", text)
 
     def test_awards_template_has_player_dropdown(self) -> None:
@@ -79,6 +83,51 @@ class HistoryRecordsServiceTest(unittest.TestCase):
             ["WILLIAM JENNINGS TROPHY", " WILLIAM   JENNINGS TROPHY ", "Hart Memorial Trophy"]
         )
         self.assertEqual(choices, ["Hart Memorial Trophy", "WILLIAM JENNINGS TROPHY"])
+
+    def test_apply_gm_winner_jim_gregory_notes(self) -> None:
+        out = apply_gm_winner_to_award_notes(
+            "JIM GREGORY TROPHY",
+            "sheet_season=1999-00",
+            gm_username="Mark1",
+            gm_display="Mark1",
+            gm_user_id=42,
+        )
+        self.assertIn("unresolved_team=Mark1", out)
+        self.assertIn("gm_user_id=42", out)
+        self.assertIn("display_name=Mark1", out)
+        self.assertIn("sheet_season=1999-00", out)
+        self.assertNotIn("unresolved_player=", out)
+
+    def test_apply_gm_winner_jack_adams_notes(self) -> None:
+        out = apply_gm_winner_to_award_notes(
+            "JACK ADAMS TROPHY",
+            None,
+            gm_username="Mark1",
+            gm_display="Mark1",
+            gm_user_id=7,
+        )
+        self.assertIn("unresolved_player=Mark1", out)
+        self.assertNotIn("unresolved_team=", out)
+
+    def test_gm_user_id_from_notes_round_trip(self) -> None:
+        notes = apply_gm_winner_to_award_notes(
+            "JIM GREGORY TROPHY",
+            None,
+            gm_username="Skyvendrake",
+            gm_display="Sky",
+            gm_user_id=99,
+        )
+        self.assertEqual(gm_user_id_from_award_notes(notes), 99)
+
+    def test_staff_award_winner_admin_label_from_notes(self) -> None:
+        from app.models import HistoryAward
+
+        award = HistoryAward(
+            award_name="JIM GREGORY TROPHY",
+            staff_fhm_id="Mark1",
+            notes="sheet_season=1999-00; unresolved_team=Mark1",
+        )
+        self.assertEqual(staff_award_winner_admin_label(award), "Mark1")
 
 
 class HistoryRecordsImportSafetyTest(unittest.TestCase):

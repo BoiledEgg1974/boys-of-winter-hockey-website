@@ -9,6 +9,14 @@ from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.models import HistoryAllStar, HistoryAward, Player, Season, Team, TeamSeasonRecord
+from app.services.history_coach_awards import (
+    _parse_display_name,
+    _parse_unresolved_player,
+    _parse_unresolved_team,
+    is_jack_adams_award,
+    is_jim_gregory_award,
+    is_staff_history_award,
+)
 
 HISTORY_SOURCE_ADMIN = "admin"
 HISTORY_SOURCE_CSV = "csv"
@@ -51,6 +59,91 @@ def sheet_season_from_notes(notes: str | None) -> str | None:
             if _SHEET_SEASON_RE.match(tok):
                 return tok
     return None
+
+
+def _merge_notes_tag(notes: str | None, key: str, value: str) -> str:
+    """Set or replace a semicolon-separated ``key=value`` tag (case-insensitive key)."""
+    key_l = key.lower()
+    pieces: list[str] = []
+    for part in (notes or "").split(";"):
+        p = part.strip()
+        if not p or p.split("=", 1)[0].strip().lower() == key_l:
+            continue
+        pieces.append(p)
+    pieces.append(f"{key}={value}")
+    return "; ".join(pieces)
+
+
+def _remove_notes_tag(notes: str | None, key: str) -> str:
+    key_l = key.lower()
+    pieces: list[str] = []
+    for part in (notes or "").split(";"):
+        p = part.strip()
+        if not p or p.split("=", 1)[0].strip().lower() == key_l:
+            continue
+        pieces.append(p)
+    return "; ".join(pieces)
+
+
+def gm_user_id_from_award_notes(notes: str | None) -> int | None:
+    for part in (notes or "").split(";"):
+        p = part.strip()
+        if p.lower().startswith("gm_user_id="):
+            try:
+                return int(p.split("=", 1)[1].strip())
+            except ValueError:
+                return None
+    return None
+
+
+def gm_history_username(user: Any) -> str:
+    """League username for ``unresolved_team`` / ``unresolved_player`` tags (matches CSV imports)."""
+    for attr in ("username", "discord_name"):
+        v = (getattr(user, attr, None) or "").strip()
+        if v:
+            return v
+    email = (getattr(user, "email", None) or "").strip()
+    return email or "—"
+
+
+def apply_gm_winner_to_award_notes(
+    award_name: str,
+    notes: str | None,
+    *,
+    gm_username: str,
+    gm_display: str,
+    gm_user_id: int,
+) -> str:
+    """Stamp GM winner metadata into award notes for League History display."""
+    out = _merge_notes_tag(notes, "gm_user_id", str(gm_user_id))
+    out = _merge_notes_tag(out, "display_name", gm_display)
+    if is_jim_gregory_award(award_name):
+        out = _merge_notes_tag(out, "unresolved_team", gm_username)
+        out = _remove_notes_tag(out, "unresolved_player")
+    elif is_jack_adams_award(award_name):
+        out = _merge_notes_tag(out, "unresolved_player", gm_username)
+        out = _remove_notes_tag(out, "unresolved_team")
+    elif is_staff_history_award(award_name):
+        out = _merge_notes_tag(out, "unresolved_team", gm_username)
+    return out
+
+
+def staff_award_winner_admin_label(award: HistoryAward) -> str:
+    """Short winner label for the Season Awards admin table."""
+    if is_staff_history_award(award.award_name):
+        if is_jim_gregory_award(award.award_name):
+            label = _parse_unresolved_team(award.notes) or _parse_display_name(award.notes)
+        elif is_jack_adams_award(award.award_name):
+            label = _parse_unresolved_player(award.notes) or _parse_display_name(award.notes)
+        else:
+            label = _parse_display_name(award.notes) or _parse_unresolved_team(award.notes)
+        if label:
+            return label
+    if (award.staff_fhm_id or "").strip():
+        return (award.staff_fhm_id or "").strip()
+    if award.player and (award.player.full_name or "").strip():
+        return award.player.full_name.strip()
+    return "—"
 
 
 def merge_sheet_season_notes(notes: str | None, season_label: str) -> str:

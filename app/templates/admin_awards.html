@@ -74,8 +74,16 @@
             {% endfor %}
           </select>
         </label>
-        <label>Staff FHM id (coach/GM awards)
-          <input type="text" name="staff_fhm_id" value="{{ edit_award.staff_fhm_id if edit_award else '' }}">
+        <label>League GM (Jim Gregory / Jack Adams)
+          <select name="gm_user_id">
+            <option value="">—</option>
+            {% for gm in gm_winner_choices %}
+            <option value="{{ gm.user_id }}" {% if edit_gm_user_id and edit_gm_user_id == gm.user_id %}selected{% endif %}>{{ gm.label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Staff FHM id (FHM coach lookup)
+          <input type="text" name="staff_fhm_id" value="{{ edit_award.staff_fhm_id if edit_award else '' }}" placeholder="optional — use GM dropdown above for league GMs">
         </label>
         <label class="history-admin-form__notes">Notes
           <input type="text" name="notes" value="{{ edit_award.notes if edit_award else '' }}" placeholder="no_winner=1; extra metadata">
@@ -94,7 +102,7 @@
             <th>Award</th>
             <th>Player</th>
             <th>Team</th>
-            <th>Staff</th>
+            <th>Winner (staff/GM)</th>
             <th>Notes</th>
             <th>Src</th>
             <th></th>
@@ -106,7 +114,7 @@
             <td>{{ row.award_name }}</td>
             <td>{% if row.player %}<a href="{{ url_for('main.player_page', player_id=row.player.id) }}">{{ row.player.full_name }}</a>{% else %}—{% endif %}</td>
             <td>{% if row.team %}{{ row.team.abbreviation }}{% else %}—{% endif %}</td>
-            <td>{{ row.staff_fhm_id or '—' }}</td>
+            <td>{{ staff_award_winner_admin_label(row) }}</td>
             <td class="muted" style="max-width:12rem;overflow:hidden;text-overflow:ellipsis;">{{ row.notes or '—' }}</td>
             <td>{{ row.source or 'csv' }}</td>
             <td>

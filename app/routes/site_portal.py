@@ -5674,12 +5674,16 @@ def admin_awards_tracker():
     from app.services.admin_history_records import (
         ALL_STAR_SLOT_DEFAULTS,
         all_stars_by_slot_for_season,
+        apply_gm_winner_to_award_notes,
         award_name_choices_from_names,
         delete_history_award,
+        gm_history_username,
+        gm_user_id_from_award_notes,
         list_history_awards_admin,
         save_all_star_batch,
         season_label_choices_for_admin,
         sheet_season_from_notes,
+        staff_award_winner_admin_label,
         upsert_history_award,
     )
 
@@ -5710,17 +5714,47 @@ def admin_awards_tracker():
         if action == "save_award":
             aid = request.form.get("award_id", type=int)
             season_label = season_filter or (request.form.get("season_label") or "").strip()
+            award_name = (request.form.get("award_name") or "").strip()
+            team_id = request.form.get("team_id", type=int)
+            staff_fhm_id = (request.form.get("staff_fhm_id") or "").strip() or None
+            notes = (request.form.get("notes") or "").strip() or None
+            gm_user_id = request.form.get("gm_user_id", type=int)
+            if gm_user_id:
+                gm_user = db.session.get(User, gm_user_id)
+                if gm_user is None:
+                    flash("Selected GM not found.", "err")
+                    return redirect(url_for("site_admin.admin_awards_tracker", season=season_label or None))
+                mem = db.session.scalar(
+                    select(GmLeagueMembership).where(
+                        GmLeagueMembership.league_slug == slug,
+                        GmLeagueMembership.user_id == int(gm_user_id),
+                        GmLeagueMembership.status == "active",
+                    ).limit(1)
+                )
+                if mem is None:
+                    flash("Selected user is not an active GM in this league.", "err")
+                    return redirect(url_for("site_admin.admin_awards_tracker", season=season_label or None))
+                if not team_id:
+                    team_id = int(mem.team_id)
+                notes = apply_gm_winner_to_award_notes(
+                    award_name,
+                    notes,
+                    gm_username=gm_history_username(gm_user),
+                    gm_display=gm_display_name(gm_user),
+                    gm_user_id=int(gm_user_id),
+                )
+                staff_fhm_id = None
             try:
                 row = upsert_history_award(
                     db.session,
                     award_id=aid,
                     season_label=season_label,
                     league_slug=slug,
-                    award_name=(request.form.get("award_name") or "").strip(),
+                    award_name=award_name,
                     player_id=request.form.get("player_id", type=int),
-                    team_id=request.form.get("team_id", type=int),
-                    staff_fhm_id=(request.form.get("staff_fhm_id") or "").strip() or None,
-                    notes=(request.form.get("notes") or "").strip() or None,
+                    team_id=team_id,
+                    staff_fhm_id=staff_fhm_id,
+                    notes=notes,
                     user_id=int(current_user.id),
                 )
             except ValueError as exc:
@@ -5810,6 +5844,24 @@ def admin_awards_tracker():
         all_star_first = all_stars_by_slot_for_season(db.session, season_filter, 1)
         all_star_second = all_stars_by_slot_for_season(db.session, season_filter, 2)
 
+    gm_winner_choices: list[dict[str, object]] = []
+    teams_by_id = {int(t.id): t for t in teams}
+    for mem, gm_user in _active_trade_memberships(slug):
+        if mem.team_id is None:
+            continue
+        tid = int(mem.team_id)
+        tm = teams_by_id.get(tid)
+        gm_winner_choices.append(
+            {
+                "user_id": int(gm_user.id),
+                "team_id": tid,
+                "label": f"{gm_display_name(gm_user)} — {tm.abbreviation if tm else tid}",
+            }
+        )
+    gm_winner_choices.sort(key=lambda r: str(r.get("label") or "").lower())
+
+    edit_gm_user_id = gm_user_id_from_award_notes(edit_award.notes) if edit_award else None
+
     return render_template(
         "admin_awards.html",
         league_slug=slug,
@@ -5820,11 +5872,14 @@ def admin_awards_tracker():
         award_choices=award_choices,
         edit_award=edit_award,
         edit_award_name=edit_award_name,
+        edit_gm_user_id=edit_gm_user_id,
         all_star_first=all_star_first,
         all_star_second=all_star_second,
         slot_defaults=ALL_STAR_SLOT_DEFAULTS,
         players=players,
         teams=teams,
+        gm_winner_choices=gm_winner_choices,
+        staff_award_winner_admin_label=staff_award_winner_admin_label,
     )
 
 

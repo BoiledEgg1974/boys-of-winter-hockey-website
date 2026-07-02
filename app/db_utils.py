@@ -10,7 +10,7 @@ from pathlib import Path
 
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import DatabaseError, OperationalError
 
 
 def migrate_team_season_aggregates_sqlite(engine: Engine) -> None:
@@ -677,6 +677,28 @@ def ensure_advanced_stats_columns_sqlite(engine: Engine) -> None:
     )
 
 
+def _drop_sqlite_fts5_table(conn, table_name: str) -> None:
+    """Drop an FTS5 virtual table, scrubbing sqlite_master if the vtable is corrupt."""
+    try:
+        conn.execute(text(f"DROP TABLE IF EXISTS {table_name}"))
+        conn.commit()
+        return
+    except DatabaseError as exc:
+        msg = str(exc).lower()
+        if "vtable constructor failed" not in msg and "malformed" not in msg:
+            raise
+    conn.execute(text("PRAGMA writable_schema=ON"))
+    try:
+        conn.execute(
+            text("DELETE FROM sqlite_master WHERE name = :tbl OR tbl_name = :tbl"),
+            {"tbl": table_name},
+        )
+        conn.commit()
+    finally:
+        conn.execute(text("PRAGMA writable_schema=OFF"))
+        conn.commit()
+
+
 def ensure_fts5(engine: Engine) -> None:
     """Create the player search virtual table if missing."""
     with engine.connect() as conn:
@@ -703,8 +725,7 @@ def rebuild_player_fts(engine: Engine) -> None:
     segment does not fail the whole import (derived index; safe to replace).
     """
     with engine.connect() as conn:
-        conn.execute(text("DROP TABLE IF EXISTS player_fts;"))
-        conn.commit()
+        _drop_sqlite_fts5_table(conn, "player_fts")
     ensure_fts5(engine)
     with engine.connect() as conn:
         conn.execute(

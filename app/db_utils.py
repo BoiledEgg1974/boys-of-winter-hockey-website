@@ -677,6 +677,57 @@ def ensure_advanced_stats_columns_sqlite(engine: Engine) -> None:
     )
 
 
+_FTS5_SHADOW_SUFFIXES = ("_data", "_idx", "_docsize", "_config", "_content")
+
+
+def _fts5_shadow_table_names(table_name: str) -> tuple[str, ...]:
+    return tuple(f"{table_name}{suffix}" for suffix in _FTS5_SHADOW_SUFFIXES)
+
+
+def _drop_sqlite_table_if_exists(conn, table_name: str) -> None:
+    try:
+        conn.execute(text(f"DROP TABLE IF EXISTS {table_name}"))
+    except DatabaseError:
+        pass
+
+
+def _purge_sqlite_fts5_from_schema(conn, table_name: str) -> None:
+    """Remove FTS5 vtable and shadow entries from sqlite_master."""
+    conn.execute(text("PRAGMA writable_schema=ON"))
+    try:
+        conn.execute(
+            text("DELETE FROM sqlite_master WHERE name = :tbl OR tbl_name = :tbl"),
+            {"tbl": table_name},
+        )
+        for shadow in _fts5_shadow_table_names(table_name):
+            conn.execute(
+                text("DELETE FROM sqlite_master WHERE name = :shadow"),
+                {"shadow": shadow},
+            )
+        conn.commit()
+    finally:
+        conn.execute(text("PRAGMA writable_schema=OFF"))
+        conn.commit()
+
+
+def _drop_sqlite_fts5_shadow_tables(conn, table_name: str) -> None:
+    for shadow in _fts5_shadow_table_names(table_name):
+        _drop_sqlite_table_if_exists(conn, shadow)
+    conn.commit()
+
+
+def _cleanup_sqlite_fts5_orphans(conn, table_name: str) -> None:
+    """Drop leftover FTS5 shadow tables when the virtual table entry is missing."""
+    exists = conn.execute(
+        text("SELECT 1 FROM sqlite_master WHERE type='table' AND name = :tbl"),
+        {"tbl": table_name},
+    ).fetchone()
+    if exists:
+        return
+    _purge_sqlite_fts5_from_schema(conn, table_name)
+    _drop_sqlite_fts5_shadow_tables(conn, table_name)
+
+
 def _drop_sqlite_fts5_table(conn, table_name: str) -> None:
     """Drop an FTS5 virtual table, scrubbing sqlite_master if the vtable is corrupt."""
     try:
@@ -687,21 +738,14 @@ def _drop_sqlite_fts5_table(conn, table_name: str) -> None:
         msg = str(exc).lower()
         if "vtable constructor failed" not in msg and "malformed" not in msg:
             raise
-    conn.execute(text("PRAGMA writable_schema=ON"))
-    try:
-        conn.execute(
-            text("DELETE FROM sqlite_master WHERE name = :tbl OR tbl_name = :tbl"),
-            {"tbl": table_name},
-        )
-        conn.commit()
-    finally:
-        conn.execute(text("PRAGMA writable_schema=OFF"))
-        conn.commit()
+    _purge_sqlite_fts5_from_schema(conn, table_name)
+    _drop_sqlite_fts5_shadow_tables(conn, table_name)
 
 
 def ensure_fts5(engine: Engine) -> None:
     """Create the player search virtual table if missing."""
     with engine.connect() as conn:
+        _cleanup_sqlite_fts5_orphans(conn, "player_fts")
         conn.execute(
             text(
                 """

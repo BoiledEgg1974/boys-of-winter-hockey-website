@@ -8,6 +8,7 @@ from pathlib import Path
 from sqlalchemy import create_engine, text
 
 from app.db_utils import (
+    ensure_fts5,
     prepare_sqlite_database,
     rebuild_player_fts,
     reset_player_rating_snapshots_sqlite,
@@ -82,6 +83,40 @@ class SqliteMaintenanceTest(unittest.TestCase):
             count = conn.execute(text("SELECT COUNT(*) FROM player_fts")).scalar()
         engine.dispose()
         self.assertEqual(count, 1)
+
+    def test_ensure_fts5_cleans_orphan_shadow_tables(self) -> None:
+        db_path = Path(self._fresh_db())
+        engine = create_engine(f"sqlite:///{db_path.as_posix()}")
+        with engine.connect() as conn:
+            conn.execute(
+                text(
+                    "CREATE VIRTUAL TABLE player_fts USING fts5("
+                    "full_name, position, team_abbrev, player_id UNINDEXED)"
+                )
+            )
+            conn.commit()
+        with sqlite3.connect(str(db_path)) as conn:
+            conn.execute("PRAGMA writable_schema=ON")
+            conn.execute("DELETE FROM sqlite_master WHERE name='player_fts'")
+            conn.execute("PRAGMA writable_schema=OFF")
+            conn.commit()
+            row = conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='player_fts_data'"
+            ).fetchone()
+            self.assertIsNotNone(row)
+        engine.dispose()
+        ensure_fts5(engine)
+        with engine.connect() as conn:
+            vtable = conn.execute(
+                text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='player_fts'")
+            ).fetchone()
+            count = conn.execute(
+                text("SELECT COUNT(*) FROM sqlite_master WHERE name LIKE :pat"),
+                {"pat": "player_fts%"},
+            ).scalar()
+        engine.dispose()
+        self.assertIsNotNone(vtable)
+        self.assertGreaterEqual(count, 5)
 
     def test_prepare_sqlite_database_reports_unhealthy_without_repair(self) -> None:
         db_path = Path(self._fresh_db())

@@ -161,7 +161,7 @@ class DiscordPublicUrlTest(unittest.TestCase):
 
         with (
             patch(
-                "app.services.discord_events._resolve_team_for_discord_payload",
+                "app.services.discord_events._resolve_team_for_news_discord",
                 return_value=team,
             ),
             patch(
@@ -199,7 +199,7 @@ class DiscordPublicUrlTest(unittest.TestCase):
 
         with (
             patch(
-                "app.services.discord_events._resolve_team_for_discord_payload",
+                "app.services.discord_events._resolve_team_for_news_discord",
                 return_value=detroit,
             ),
             patch(

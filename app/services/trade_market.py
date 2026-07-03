@@ -778,25 +778,16 @@ def _content_hash(body: str) -> str:
 
 
 def _trade_market_team_gm_mention(session: Session, *, league_slug: str, team_id: int) -> str:
-    """Mention the GM for the listing's internal team id, not a stale FHM id."""
-    user = session.scalar(
-        select(User)
-        .join(GmLeagueMembership, GmLeagueMembership.user_id == User.id)
-        .where(
-            GmLeagueMembership.league_slug == str(league_slug or "").strip(),
-            GmLeagueMembership.team_id == int(team_id),
-            GmLeagueMembership.status == "active",
-            User.revoked_at.is_(None),
-        )
-        .order_by(GmLeagueMembership.approved_at.desc(), GmLeagueMembership.id.desc())
-        .limit(1)
+    """Mention the GM for the listing franchise (FHM id first, then league PK)."""
+    from app.models import Team
+    from app.services.discord_events import _discord_user_mention_for_franchise
+
+    team = session.get(Team, int(team_id))
+    if team is None:
+        return ""
+    return _discord_user_mention_for_franchise(
+        session, league_slug=league_slug, team=team
     )
-    if user is None:
-        return ""
-    discord_id = str(getattr(user, "discord_user_id", "") or "").strip()
-    if not DISCORD_SNOWFLAKE_PATTERN.match(discord_id):
-        return ""
-    return f"<@{discord_id}>"
 
 
 def _row_identity(row, *attrs: str) -> str:

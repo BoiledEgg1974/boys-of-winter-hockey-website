@@ -524,6 +524,10 @@ def news_article_discord_payload(article: NewsArticle, **extra: object) -> dict:
     return out
 
 
+def _team_row_fhm_id(team) -> str:
+    return str(getattr(team, "fhm_team_id", "") or "").strip()
+
+
 def _discord_user_mention_for_team(session, *, league_slug: str, team_id: int | None) -> str:
     if team_id is None:
         return ""
@@ -547,19 +551,28 @@ def _discord_user_mention_for_team(session, *, league_slug: str, team_id: int | 
     return f"<@{discord_id}>"
 
 
-def _discord_user_mention_for_fhm_team(session, *, league_slug: str, fhm_team_id: object) -> str:
+def _discord_user_mention_for_fhm_team(
+    session,
+    *,
+    league_slug: str,
+    fhm_team_id: object,
+    team_id: int | None = None,
+) -> str:
     fhm = str(fhm_team_id or "").strip()
     if not fhm:
         return ""
+    clauses = [
+        GmLeagueMembership.league_slug == str(league_slug or "").strip(),
+        GmLeagueMembership.fhm_team_id == fhm,
+        GmLeagueMembership.status == "active",
+        User.revoked_at.is_(None),
+    ]
+    if team_id is not None:
+        clauses.append(GmLeagueMembership.team_id == int(team_id))
     user = session.scalar(
         select(User)
         .join(GmLeagueMembership, GmLeagueMembership.user_id == User.id)
-        .where(
-            GmLeagueMembership.league_slug == str(league_slug or "").strip(),
-            GmLeagueMembership.fhm_team_id == fhm,
-            GmLeagueMembership.status == "active",
-            User.revoked_at.is_(None),
-        )
+        .where(*clauses)
         .order_by(GmLeagueMembership.approved_at.desc(), GmLeagueMembership.id.desc())
         .limit(1)
     )
@@ -569,6 +582,32 @@ def _discord_user_mention_for_fhm_team(session, *, league_slug: str, fhm_team_id
     if not DISCORD_SNOWFLAKE_PATTERN.match(discord_id):
         return ""
     return f"<@{discord_id}>"
+
+
+def _discord_user_mention_for_franchise(
+    session,
+    *,
+    league_slug: str,
+    team,
+) -> str:
+    """Mention the active GM for a franchise (FHM team id first, then league PK)."""
+    if team is None:
+        return ""
+    fhm = _team_row_fhm_id(team)
+    if fhm:
+        mention = _discord_user_mention_for_fhm_team(
+            session,
+            league_slug=league_slug,
+            fhm_team_id=fhm,
+        )
+        if mention:
+            return mention
+    tid = _team_row_id(team)
+    if tid is not None:
+        return _discord_user_mention_for_team(
+            session, league_slug=league_slug, team_id=tid
+        )
+    return ""
 
 
 def _discord_user_mention_for_user_id(session, user_id: object) -> str:
@@ -719,7 +758,11 @@ def _resolve_team_for_discord_payload(session, payload: dict):
     if team_id is not None and id_a == team_id:
         return team_by_id
 
-    return team_by_fhm
+    # FHM franchise id is the canonical export / Discord / membership key.
+    if fhm_team_id:
+        return team_by_fhm
+
+    return team_by_id
 
 
 def resolve_news_article_team(session, article: NewsArticle):
@@ -727,9 +770,13 @@ def resolve_news_article_team(session, article: NewsArticle):
     from app.models import Team
     from app.site_models import GmLeagueMembership
 
-    team = _resolve_league_team_for_news(session, getattr(article, "team_id", None))
-    if team is not None:
-        return team
+    raw_team_id = getattr(article, "team_id", None)
+    if raw_team_id is not None:
+        team = _resolve_league_team_for_news(session, raw_team_id)
+        if team is not None:
+            return team
+        # Article was explicitly tagged to a franchise; do not substitute the author.
+        return None
 
     league_slug = str(getattr(article, "league_slug", "") or "").strip()
     author_id = getattr(article, "author_user_id", None)
@@ -762,27 +809,32 @@ def _pick_team_for_discord_mention(session, payload: dict):
     return _resolve_team_for_discord_payload(session, payload)
 
 
+def _resolve_team_for_news_discord(session, *, league_slug: str, payload: dict):
+    """One franchise row for news Discord payloads (article team wins over stale queue fields)."""
+    aid = payload.get("article_id")
+    if aid is not None:
+        try:
+            article_id = int(aid)
+        except (TypeError, ValueError):
+            article_id = None
+        if article_id:
+            art = session.get(NewsArticle, article_id)
+            if art is not None and str(art.league_slug or "").strip() == str(league_slug or "").strip():
+                team = resolve_news_article_team(session, art)
+                if team is not None:
+                    return team
+    return _resolve_team_for_discord_payload(session, payload)
+
+
 def _team_gm_mention_for_team_row(
     session,
     *,
     league_slug: str,
     team,
 ) -> str:
-    if team is None:
-        return ""
-    mention = _discord_user_mention_for_team(
-        session, league_slug=league_slug, team_id=int(team.id)
+    return _discord_user_mention_for_franchise(
+        session, league_slug=league_slug, team=team
     )
-    if mention:
-        return mention
-    fhm = getattr(team, "fhm_team_id", None)
-    if fhm is not None and str(fhm).strip():
-        return _discord_user_mention_for_fhm_team(
-            session,
-            league_slug=league_slug,
-            fhm_team_id=fhm,
-        )
-    return ""
 
 
 def _team_gm_mention_for_payload(session, *, league_slug: str, payload: dict) -> str:
@@ -792,11 +844,15 @@ def _team_gm_mention_for_payload(session, *, league_slug: str, payload: dict) ->
     )
 
 
-def _ensure_team_gm_mention_for_payload(session, *, league_slug: str, payload: dict) -> dict:
+def _sync_team_discord_fields(
+    session,
+    *,
+    league_slug: str,
+    payload: dict,
+    team,
+) -> dict:
+    """Keep team label fields and GM mention aligned to the same franchise row."""
     out = dict(payload or {})
-    if str(out.get("gm_mentions") or "").strip():
-        return out
-    team = _resolve_team_for_discord_payload(session, out)
     if team is not None:
         out.update(team_fields_for_discord(team))
     out.pop("team_gm_mention", None)
@@ -806,6 +862,18 @@ def _ensure_team_gm_mention_for_payload(session, *, league_slug: str, payload: d
     if mention:
         out["team_gm_mention"] = mention
     return out
+
+
+def _ensure_team_gm_mention_for_payload(session, *, league_slug: str, payload: dict) -> dict:
+    out = dict(payload or {})
+    if str(out.get("gm_mentions") or "").strip():
+        return out
+    team = _resolve_team_for_news_discord(
+        session, league_slug=league_slug, payload=out
+    )
+    return _sync_team_discord_fields(
+        session, league_slug=league_slug, payload=out, team=team
+    )
 
 
 def enrich_discord_payload_for_bot(
@@ -833,20 +901,13 @@ def enrich_discord_payload_for_bot(
         merged = {**out, **enriched}
         merged["body"] = enriched["body"]
         merged["has_image"] = enriched["has_image"]
-        team = resolve_news_article_team(session, art)
-        if team is not None:
-            merged.update(team_fields_for_discord(team))
-        merged.pop("team_gm_mention", None)
         merged.pop("gm_mentions", None)
-        mention = _team_gm_mention_for_team_row(
-            session, league_slug=league_slug, team=team
-        ) or _team_gm_mention_for_payload(
-            session,
-            league_slug=league_slug,
-            payload=merged,
+        team = _resolve_team_for_news_discord(
+            session, league_slug=league_slug, payload=merged
         )
-        if mention:
-            merged["team_gm_mention"] = mention
+        merged = _sync_team_discord_fields(
+            session, league_slug=league_slug, payload=merged, team=team
+        )
         if len(str(out.get("body_preview") or "")) < len(enriched["body_preview"]):
             merged["body_preview"] = enriched["body_preview"]
         return merged

@@ -5453,11 +5453,13 @@ def admin_story_automation_live_dispatch(sid: int):
     if result.get("ok"):
         story_art = db.session.get(NewsArticle, int(row.article_id))
         if story_art and story_art.league_slug == slug:
+            story_team = resolve_news_article_team(db.session, story_art)
             story_payload = news_article_discord_payload(
                 story_art,
                 schedule_id=int(row.id),
                 channel=str(row.channel or ""),
                 url=build_news_article_public_url(slug, story_art.id),
+                **team_fields_for_discord(story_team),
             )
         else:
             story_payload = {

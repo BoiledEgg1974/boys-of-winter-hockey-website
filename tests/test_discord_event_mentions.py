@@ -10,6 +10,7 @@ from app.services.discord_events import (
     enrich_discord_payload_for_bot,
     _resolve_league_team_for_news,
     _resolve_team_for_discord_payload,
+    _resolve_team_for_news_discord,
     _team_gm_mention_for_payload,
     resolve_news_article_team,
 )
@@ -377,6 +378,118 @@ class DiscordEventMentionTests(unittest.TestCase):
         self.assertEqual(payload["team_id"], 12)
         self.assertEqual(payload["team_abbrev"], "BUF")
         self.assertEqual(payload["team_gm_mention"], "<@buffalo-gm>")
+
+    def test_ensure_mention_uses_article_team_not_stale_payload_team_id(self) -> None:
+        from app.models import Team
+
+        session = MagicMock()
+        detroit = SimpleNamespace(
+            id=5,
+            fhm_team_id="9",
+            abbreviation="DET",
+            name="Detroit",
+            slug="detroit-red-wings",
+            full_display_name=lambda: "Detroit Red Wings",
+        )
+        article = SimpleNamespace(
+            id=900,
+            league_slug="bowl-cap",
+            team_id=5,
+            author_user_id=42,
+            title="Hockey Career Over for Detroit's Doug Brown",
+            body="Detroit story.",
+            image_rel_path="",
+        )
+        mem = SimpleNamespace(team_id=28)
+
+        def _get(model, pk):
+            if model is NewsArticle and pk == 900:
+                return article
+            if model is Team and pk == 5:
+                return detroit
+            return None
+
+        session.get.side_effect = _get
+        session.scalar.return_value = mem
+
+        with (
+            patch(
+                "app.services.discord_events._resolve_league_team_for_news",
+                return_value=detroit,
+            ),
+            patch(
+                "app.services.discord_events.team_fields_for_discord",
+                return_value={"team_id": 5, "fhm_team_id": 9, "team_abbrev": "DET"},
+            ),
+            patch(
+                "app.services.discord_events._discord_user_mention_for_team",
+                return_value="<@detroit-gm>",
+            ) as by_team,
+        ):
+            from app.services.discord_events import _ensure_team_gm_mention_for_payload
+
+            payload = _ensure_team_gm_mention_for_payload(
+                session,
+                league_slug="bowl-cap",
+                payload={
+                    "article_id": 900,
+                    "team_id": 28,
+                    "fhm_team_id": 227,
+                    "team_abbrev": "ATL",
+                    "team_gm_mention": "<@atl-gm>",
+                },
+            )
+
+        by_team.assert_called_once_with(session, league_slug="bowl-cap", team_id=5)
+        self.assertEqual(payload["team_id"], 5)
+        self.assertEqual(payload["fhm_team_id"], 9)
+        self.assertEqual(payload["team_abbrev"], "DET")
+        self.assertEqual(payload["team_gm_mention"], "<@detroit-gm>")
+
+    def test_resolve_news_article_team_does_not_fallback_when_team_id_set(self) -> None:
+        session = MagicMock()
+        article = SimpleNamespace(
+            league_slug="bowl-cap",
+            team_id=5,
+            author_user_id=42,
+        )
+        mem = SimpleNamespace(team_id=28)
+        session.scalar.return_value = mem
+
+        with patch(
+            "app.services.discord_events._resolve_league_team_for_news",
+            return_value=None,
+        ):
+            team = resolve_news_article_team(session, article)
+
+        self.assertIsNone(team)
+        session.scalar.assert_not_called()
+
+    def test_franchise_mention_prefers_fhm_membership_over_stale_team_pk(self) -> None:
+        session = MagicMock()
+        detroit = SimpleNamespace(id=5, fhm_team_id="9", abbreviation="DET")
+
+        with (
+            patch(
+                "app.services.discord_events._discord_user_mention_for_fhm_team",
+                return_value="<@detroit-gm>",
+            ) as by_fhm,
+            patch(
+                "app.services.discord_events._discord_user_mention_for_team",
+                return_value="<@wrong-gm>",
+            ) as by_team,
+        ):
+            from app.services.discord_events import _discord_user_mention_for_franchise
+
+            mention = _discord_user_mention_for_franchise(
+                session, league_slug="bowl-cap", team=detroit
+            )
+
+        self.assertEqual(mention, "<@detroit-gm>")
+        by_fhm.assert_called_once_with(
+            session, league_slug="bowl-cap", fhm_team_id="9"
+        )
+        by_team.assert_not_called()
 
 
 if __name__ == "__main__":

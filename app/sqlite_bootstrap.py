@@ -200,6 +200,7 @@ def _bootstrap_site_schema_and_seed(app: Flask) -> None:
         ensure_gm_approval_requests_sqlite,
         ensure_gm_export_attendance_sqlite,
         ensure_gm_rule_strikes_sqlite,
+        ensure_sim_cycle_state_sqlite,
         ensure_gm_trade_proposals_sqlite,
         ensure_homepage_module_settings_sqlite,
         ensure_league_draft_slot_boost_tier_sqlite,

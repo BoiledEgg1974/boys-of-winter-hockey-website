@@ -79,7 +79,12 @@ def _fix_evaluate_columns(d: dict[str, str], row: list[str], header: list[str]) 
 
 
 def _read_staff_ratings_by_id(path: Path) -> dict[str, dict[str, str]]:
-    """Parse ``staff_ratings.csv`` with csv (handles ``;;`` and 31 fields vs 30 headers). Last row per StaffId wins."""
+    """Parse ``staff_ratings.csv`` with csv (handles ``;;`` and 31 fields vs 30 headers).
+
+    FHM exports often append a second block of rows at the end of the file with duplicate
+    ``StaffId`` values and stale ratings. Keep the **first** row per id so browse/profile
+    match the in-game staff screen.
+    """
     raw = path.read_bytes()
     result = from_path(str(path)).best()
     encoding = result.encoding if result else "utf-8"
@@ -104,8 +109,11 @@ def _read_staff_ratings_by_id(path: Path) -> dict[str, dict[str, str]]:
         d = dict(zip(header, row[:n_h]))
         _fix_evaluate_columns(d, row, header)
         sid = cell_val(d, "staffid")
-        if sid:
-            out[str(sid).strip()] = d
+        if not sid:
+            continue
+        sid_s = str(sid).strip()
+        if sid_s not in out:
+            out[sid_s] = d
     return out
 
 

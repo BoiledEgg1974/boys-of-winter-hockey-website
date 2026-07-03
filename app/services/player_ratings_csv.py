@@ -53,8 +53,11 @@ def get_player_ratings_row(fhm_player_id: str | None) -> dict | None:
         for _, row in df.iterrows():
             r = row.to_dict()
             pid = cell_val(r, "playerid")
-            if pid:
-                by_id[str(pid).strip()] = r
+            if not pid:
+                continue
+            pid_s = str(pid).strip()
+            if pid_s not in by_id:
+                by_id[pid_s] = r
         _cache_entries[path_key] = (mtime, by_id)
         ent = _cache_entries[path_key]
     return ent[1].get(str(fhm_player_id).strip())

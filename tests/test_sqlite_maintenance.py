@@ -151,14 +151,17 @@ CREATE TABLE player_skater_career_lines (
     season_year INTEGER NOT NULL,
     team_fhm_id INTEGER NOT NULL,
     league_fhm_id INTEGER NOT NULL,
-    career_source TEXT NOT NULL
+    career_source VARCHAR(24) NOT NULL
 );
 INSERT INTO player_skater_career_lines VALUES(1, 1, 2000, 5, 1, 'rs');
 INSERT INTO player_skater_career_lines VALUES(2, 2, 2001, NULL, 1, 'rs');
+INSERT INTO player_skater_career_lines VALUES(3, 3, 2002, 5, 1, NULL);
 """
+        relaxed = _relax_recovery_sql_for_load(sql)
+        self.assertNotIn("NOT NULL", relaxed.split("INSERT", 1)[0])
         db_path = Path(self._fresh_db())
         with sqlite3.connect(str(db_path)) as conn:
-            conn.executescript(_relax_recovery_sql_for_load(sql))
+            conn.executescript(relaxed)
             _purge_invalid_recovered_career_lines(conn)
             count = conn.execute("SELECT COUNT(*) FROM player_skater_career_lines").fetchone()[0]
         self.assertEqual(count, 1)

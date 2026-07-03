@@ -279,22 +279,20 @@ _CAREER_LINE_TABLES = frozenset({
     "player_goalie_career_lines",
 })
 
-_RECOVERY_NULLABLE_COLS = ("team_fhm_id", "league_fhm_id")
+_CAREER_LINE_REQUIRED_COLS = (
+    "player_id",
+    "season_year",
+    "team_fhm_id",
+    "league_fhm_id",
+    "career_source",
+)
 
 
 def _relax_career_line_create_sql(create_sql: str) -> str:
-    """Drop NOT NULL on FHM id columns so corrupt recovered rows can load."""
+    """Drop all NOT NULL on career-line tables so corrupt recovered rows can load."""
     if not any(table in create_sql for table in _CAREER_LINE_TABLES):
         return create_sql
-    relaxed = create_sql
-    for col in _RECOVERY_NULLABLE_COLS:
-        relaxed = re.sub(
-            rf"(\b{col}\s+\w+)\s+NOT NULL\b",
-            r"\1",
-            relaxed,
-            flags=re.IGNORECASE,
-        )
-    return relaxed
+    return re.sub(r"\s+NOT NULL\b", "", create_sql, flags=re.IGNORECASE)
 
 
 def _relax_recovery_sql_for_load(sql: str) -> str:
@@ -313,6 +311,7 @@ def _relax_recovery_sql_for_load(sql: str) -> str:
 
 def _purge_invalid_recovered_career_lines(conn: sqlite3.Connection) -> None:
     """Remove career lines sqlite3 ``.recover`` could not reconstruct fully."""
+    null_checks = " OR ".join(f"{col} IS NULL" for col in _CAREER_LINE_REQUIRED_COLS)
     for table in sorted(_CAREER_LINE_TABLES):
         exists = conn.execute(
             "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
@@ -321,7 +320,7 @@ def _purge_invalid_recovered_career_lines(conn: sqlite3.Connection) -> None:
         if not exists:
             continue
         conn.execute(
-            f"DELETE FROM {table} WHERE team_fhm_id IS NULL OR league_fhm_id IS NULL"
+            f"DELETE FROM {table} WHERE {null_checks} OR TRIM(COALESCE(career_source, '')) = ''"
         )
     conn.commit()
 

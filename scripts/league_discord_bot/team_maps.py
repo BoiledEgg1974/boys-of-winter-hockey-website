@@ -12,15 +12,15 @@ TeamEntry = Tuple[str, str]
 
 # League logo custom emotes (one per BOWL mount). Leave blank until configured on your server.
 LEAGUE_LOGO_EMOJIS: Dict[str, str] = {
-    "historical": "",
-    "fantasy": "",
-    "cap": "",
+    "historical": "<:BOWLH:1231984450733211698>",
+    "fantasy": "<:BOWL:1221309791465635851>",
+    "cap": "<:BOWL:1333588086092992564>",
 }
 
 # Custom export status emotes. Leave blank to use Unicode checkmark/cross in the embed.
 EXPORT_STATUS_EMOJIS: Dict[str, str] = {
-    "success": "",
-    "fail": "",
+    "success": "<:YES:1522716684060983437>",
+    "fail": "<:NO:1522716685516279890>",
 }
 
 _CUSTOM_EMOJI_MENTION_RE = re.compile(r"<a?:([A-Za-z0-9_]+):(\d+)>")

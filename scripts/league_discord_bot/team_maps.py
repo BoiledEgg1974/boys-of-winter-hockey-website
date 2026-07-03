@@ -10,17 +10,17 @@ from typing import Dict, Tuple
 
 TeamEntry = Tuple[str, str]
 
-# League logo custom emotes (one per BOWL mount). Replace snowflakes with your server emotes.
+# League logo custom emotes (one per BOWL mount). Leave blank until configured on your server.
 LEAGUE_LOGO_EMOJIS: Dict[str, str] = {
-    "historical": "<:BOWL_HIST:1358674505853046814>",
-    "fantasy": "<:BOWL_REL:1236501118864068731>",
-    "cap": "<:BOWL_CAP:1333588537664213113>",
+    "historical": "",
+    "fantasy": "",
+    "cap": "",
 }
 
-# Custom export status emotes. Replace with your success/fail emotes when ready.
+# Custom export status emotes. Leave blank to use Unicode checkmark/cross in the embed.
 EXPORT_STATUS_EMOJIS: Dict[str, str] = {
-    "success": "<:export_ok:1358674505853046814>",
-    "fail": "<:export_fail:1358674505853046814>",
+    "success": "",
+    "fail": "",
 }
 
 _CUSTOM_EMOJI_MENTION_RE = re.compile(r"<a?:([A-Za-z0-9_]+):(\d+)>")
@@ -153,14 +153,46 @@ def team_emoji_prefix(league_slug: str, payload: dict) -> str:
     return ""
 
 
+def _emote_snowflake(mention: str) -> str | None:
+    m = _CUSTOM_EMOJI_MENTION_RE.fullmatch(str(mention or "").strip())
+    if not m:
+        return None
+    return str(m.group(2))
+
+
+def _team_emote_snowflakes(league_slug: str) -> set[str]:
+    out: set[str] = set()
+    for _tid, (_abbr, emoji) in teams_for_league_slug(league_slug).items():
+        snowflake = _emote_snowflake(emoji)
+        if snowflake:
+            out.add(snowflake)
+    return out
+
+
+def _safe_custom_emote(mention: str, *, league_slug: str) -> str:
+    """Return custom emote only when it does not collide with a team logo on this league."""
+    text = str(mention or "").strip()
+    if not text:
+        return ""
+    snowflake = _emote_snowflake(text)
+    if snowflake and snowflake in _team_emote_snowflakes(league_slug):
+        return ""
+    return text
+
+
 def league_logo_emoji(league_slug: str) -> str:
     key = _league_key(league_slug)
-    return str(LEAGUE_LOGO_EMOJIS.get(key) or "").strip()
+    return _safe_custom_emote(str(LEAGUE_LOGO_EMOJIS.get(key) or ""), league_slug=league_slug)
 
 
-def export_status_emoji(*, success: bool) -> str:
+def export_status_emoji(*, success: bool, league_slug: str = "") -> str:
     key = "success" if success else "fail"
-    return str(EXPORT_STATUS_EMOJIS.get(key) or "").strip()
+    raw = str(EXPORT_STATUS_EMOJIS.get(key) or "").strip()
+    if not raw:
+        return ""
+    if league_slug:
+        return _safe_custom_emote(raw, league_slug=league_slug)
+    return raw
 
 
 def fhm_team_id_for_abbrev(league_slug: str, abbrev: str) -> int | None:

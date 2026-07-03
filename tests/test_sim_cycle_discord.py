@@ -270,6 +270,17 @@ class SimCycleAutomationTests(unittest.TestCase):
 
 
 class SimCycleFormatterTests(unittest.TestCase):
+    def test_fail_emote_does_not_collide_with_cap_mtl(self) -> None:
+        from scripts.league_discord_bot.team_maps import export_status_emoji
+
+        # Placeholder IDs that match MTL must not render as a team logo.
+        with patch.dict(
+            "scripts.league_discord_bot.team_maps.EXPORT_STATUS_EMOJIS",
+            {"success": "<:export_ok:1333588537664213113>", "fail": "<:export_fail:1333588537664213113>"},
+        ):
+            self.assertEqual(export_status_emoji(success=False, league_slug="bowl-cap"), "")
+            self.assertEqual(export_status_emoji(success=True, league_slug="bowl-cap"), "")
+
     def test_formatter_builds_division_lines_and_footer(self) -> None:
         event = {
             "league_slug": "bowl-cap",

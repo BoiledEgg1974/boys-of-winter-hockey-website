@@ -685,8 +685,8 @@ def _sim_cycle_embed(league_slug: str, payload: dict[str, Any], *, title: str) -
     if logo:
         title_text = f"{logo} {title_text}".strip()
 
-    success_em = export_status_emoji(success=True) or "✅"
-    fail_em = export_status_emoji(success=False) or "❌"
+    success_em = export_status_emoji(success=True, league_slug=league_slug) or "✅"
+    fail_em = export_status_emoji(success=False, league_slug=league_slug) or "❌"
 
     lines: list[str] = []
     for div in payload.get("divisions") or []:

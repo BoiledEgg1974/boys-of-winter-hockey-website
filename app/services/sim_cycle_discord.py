@@ -90,14 +90,30 @@ def _active_teams_for_league(
     return out
 
 
-def _fhm_team_id_for_team(team: Team, membership: GmLeagueMembership) -> int | None:
-    raw = membership.fhm_team_id if membership.fhm_team_id is not None else team.fhm_team_id
-    if raw is None or str(raw).strip() == "":
-        return None
-    try:
-        return int(str(raw).strip())
-    except (TypeError, ValueError):
-        return None
+def _fhm_team_id_for_team(
+    team: Team, membership: GmLeagueMembership, *, league_slug: str
+) -> int | None:
+    """Resolve FHM franchise TeamId (not site teams.id)."""
+    from scripts.league_discord_bot.team_maps import teams_for_league_slug
+
+    roster = teams_for_league_slug(league_slug)
+    for raw in (team.fhm_team_id, membership.fhm_team_id):
+        if raw is None or str(raw).strip() == "":
+            continue
+        try:
+            tid = int(str(raw).strip())
+        except (TypeError, ValueError):
+            continue
+        if tid in roster:
+            return tid
+    return None
+
+
+def _abbrev_for_fhm_id(league_slug: str, fhm_team_id: int) -> str:
+    from scripts.league_discord_bot.team_maps import teams_for_league_slug
+
+    entry = teams_for_league_slug(league_slug).get(int(fhm_team_id))
+    return str(entry[0] or "").strip().upper() if entry else ""
 
 
 def build_division_export_groups(
@@ -110,7 +126,7 @@ def build_division_export_groups(
     groups: dict[str, dict[str, list[int]]] = {}
 
     for team, mem in _active_teams_for_league(site_session, league_session, league_slug):
-        fhm_id = _fhm_team_id_for_team(team, mem)
+        fhm_id = _fhm_team_id_for_team(team, mem, league_slug=league_slug)
         if fhm_id is None:
             continue
         div_label = team_division_display_label(
@@ -129,8 +145,14 @@ def build_division_export_groups(
         divisions.append(
             {
                 "name": name,
-                "exported": sorted(bucket["exported"]),
-                "pending": sorted(bucket["pending"]),
+                "exported": sorted(
+                    bucket["exported"],
+                    key=lambda tid: _abbrev_for_fhm_id(league_slug, int(tid)),
+                ),
+                "pending": sorted(
+                    bucket["pending"],
+                    key=lambda tid: _abbrev_for_fhm_id(league_slug, int(tid)),
+                ),
             }
         )
     return divisions
@@ -172,7 +194,7 @@ def _closed_exported_fhm_team_ids(
         mem = memberships.get(tid)
         if team is None or mem is None:
             continue
-        fhm_id = _fhm_team_id_for_team(team, mem)
+        fhm_id = _fhm_team_id_for_team(team, mem, league_slug=league_slug)
         if fhm_id is not None:
             exported.add(int(fhm_id))
     return exported

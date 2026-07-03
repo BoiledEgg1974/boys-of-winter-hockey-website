@@ -235,6 +235,26 @@ COMMAND_DEFINITIONS: list[dict[str, Any]] = [
         ],
     },
     {
+        "name": "simcycle",
+        "description": "Manually start or restart the sim export cycle board (admin).",
+        "default_member_permissions": "8",
+        "options": [
+            {
+                "name": "start",
+                "description": "Post a new live sim cycle embed and begin tracking exports.",
+                "type": 1,
+                "options": [
+                    {
+                        "name": "date",
+                        "description": "Export date (YYYY-MM-DD); defaults to today",
+                        "type": 3,
+                        "required": False,
+                    }
+                ],
+            }
+        ],
+    },
+    {
         "name": "records",
         "description": "Show team record info.",
         "options": [
@@ -275,6 +295,24 @@ def _command_option(payload: dict[str, Any], name: str) -> str:
     for opt in data.get("options") or []:
         if str(opt.get("name") or "") == name:
             return str(opt.get("value") or "").strip()
+    return ""
+
+
+def _subcommand_name(payload: dict[str, Any]) -> str:
+    data = payload.get("data") or {}
+    for opt in data.get("options") or []:
+        if int(opt.get("type") or 0) == 1:
+            return str(opt.get("name") or "").strip().lower()
+    return ""
+
+
+def _subcommand_option(payload: dict[str, Any], name: str) -> str:
+    data = payload.get("data") or {}
+    for opt in data.get("options") or []:
+        if int(opt.get("type") or 0) == 1:
+            for nested in opt.get("options") or []:
+                if str(nested.get("name") or "") == name:
+                    return str(nested.get("value") or "").strip()
     return ""
 
 
@@ -1108,6 +1146,47 @@ def _handle_predict_command(payload: dict[str, Any], league_slug: str) -> dict[s
     )
 
 
+def _handle_simcycle_command(payload: dict[str, Any], league_slug: str) -> dict[str, Any]:
+    if not _is_discord_admin(payload):
+        return _ephemeral("This command is for server administrators only.")
+    sub = _subcommand_name(payload)
+    if sub != "start":
+        return _ephemeral("Use `/simcycle start` to begin a live export cycle.")
+    err = _channel_check(league_slug, "sim_cycle_update", payload)
+    if err:
+        return _ephemeral(err)
+    from app.services.export_attendance import parse_export_date
+    from app.services.sim_cycle_discord import get_or_create_sim_cycle_state, start_sim_cycle
+    from app.sqlite_retry import commit_with_sqlite_retry
+
+    existing = get_or_create_sim_cycle_state(db.session, league_slug)
+    if str(existing.phase or "") == "live":
+        return _ephemeral(
+            "A live sim cycle is already running. Finish it with admin EXPORT on the website; "
+            "the next live cycle will start automatically."
+        )
+    date_raw = _subcommand_option(payload, "date")
+    export_date = parse_export_date(date_raw or None)
+    user = _site_user_for_discord(payload)
+    _state, queued = start_sim_cycle(
+        db.session,
+        db.session,
+        league_slug,
+        export_date=export_date,
+        created_by_user_id=int(user.id) if user else None,
+    )
+    if not queued:
+        db.session.rollback()
+        return _ephemeral(
+            "Could not queue the sim cycle post. Check Discord Integration settings for `sim_cycle_update`."
+        )
+    commit_with_sqlite_retry(db.session)
+    return _ephemeral(
+        f"Started live sim cycle for **{export_date.isoformat()}**. "
+        "The #sim-log board runs year-round (including offseason) whenever the route is enabled."
+    )
+
+
 def _handle_records_command(payload: dict[str, Any], season: Season) -> dict[str, Any]:
     team, err = _team_from_option_or_membership(payload, str(current_app.config.get("LEAGUE_SLUG") or ""))
     if err:
@@ -1201,6 +1280,8 @@ def handle_slash_interaction(
         return _handle_champions_command()
     if command == "predict":
         return _handle_predict_command(payload, slug)
+    if command == "simcycle":
+        return _handle_simcycle_command(payload, slug)
 
     season = _current_dashboard_season()
     if season is None:

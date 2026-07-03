@@ -54,14 +54,17 @@ OPS_TEXT_ONLY_DISCORD_EVENT_KEYS = frozenset(
         "bowl_six_lock_warning",
         "playoff_predictions",
         "playoff_bracket_update",
+        "sim_cycle_update",
     }
 )
 
 BOWL_SIX_LEADERS_EVENT_KEY = "bowl_six_leaders_update"
 PLAYOFF_BRACKET_UPDATE_EVENT_KEY = "playoff_bracket_update"
+SIM_CYCLE_UPDATE_EVENT_KEY = "sim_cycle_update"
+GM_EXPORT_TRACKER_POLL_EVENT_KEY = "gm_export_tracker_poll"
 
 REPEATABLE_DISCORD_EVENT_KEYS = frozenset(
-    {BOWL_SIX_LEADERS_EVENT_KEY, PLAYOFF_BRACKET_UPDATE_EVENT_KEY}
+    {BOWL_SIX_LEADERS_EVENT_KEY, PLAYOFF_BRACKET_UPDATE_EVENT_KEY, SIM_CYCLE_UPDATE_EVENT_KEY}
 )
 
 EVENT_KEY_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
@@ -95,6 +98,8 @@ DEFAULT_EVENT_KEYS = {
     "trade_market_buying_posted",
     "playoff_predictions",
     "playoff_bracket_update",
+    "sim_cycle_update",
+    "gm_export_tracker_poll",
 }
 
 DEFAULT_EVENT_CHANNEL_KEY = {
@@ -124,6 +129,8 @@ DEFAULT_EVENT_CHANNEL_KEY = {
     "trade_market_buying_posted": "trade-buying",
     "playoff_predictions": "playoff-predictions",
     "playoff_bracket_update": "playoff-bracket",
+    "sim_cycle_update": "sim-log",
+    "gm_export_tracker_poll": "gm-export-tracker",
 }
 
 DEFAULT_EVENT_LABELS = {
@@ -153,6 +160,8 @@ DEFAULT_EVENT_LABELS = {
     "trade_market_buying_posted": "Trade Market — buying interests",
     "playoff_predictions": "Playoff predictions (/predict)",
     "playoff_bracket_update": "Playoff bracket (live series posts)",
+    "sim_cycle_update": "Sim cycle export board (post + edit in #sim-log)",
+    "gm_export_tracker_poll": "GM export tracker (read-only poll source)",
 }
 
 EXPANSION_DRAFT_DISCORD_EVENT_KEYS = frozenset(
@@ -1115,6 +1124,10 @@ def playoff_bracket_idempotency_key(*, league_slug: str, season_id: int) -> str:
     return f"playoff-bracket:{str(league_slug or '').strip()}:{int(season_id)}"
 
 
+def sim_cycle_idempotency_key(*, league_slug: str) -> str:
+    return f"sim-cycle:{str(league_slug or '').strip()}"
+
+
 def _event_idempotency_key(*, league_slug: str, event_key: str, channel_key: str, payload: dict) -> str:
     material = json.dumps(
         {
@@ -1652,6 +1665,8 @@ def enqueue_repeatable_discord_event(
         idem_key = playoff_bracket_idempotency_key(
             league_slug=league_slug, season_id=int(season_id)
         )
+    elif key == SIM_CYCLE_UPDATE_EVENT_KEY:
+        idem_key = sim_cycle_idempotency_key(league_slug=league_slug)
     else:
         return None
     pending = session.scalar(
@@ -1850,6 +1865,8 @@ def mark_event_sent(
     channel_id = str(discord_channel_id or "").strip()
     if ek == BOWL_SIX_LEADERS_EVENT_KEY and not mid:
         return False
+    if ek == SIM_CYCLE_UPDATE_EVENT_KEY and not mid and not payload.get("post_new_message"):
+        return False
     if ek == PLAYOFF_BRACKET_UPDATE_EVENT_KEY:
         if not series_deliveries:
             return False
@@ -1860,6 +1877,17 @@ def mark_event_sent(
             event_key=ek,
             payload=payload,
             series_deliveries=series_deliveries,
+        )
+    elif ek == SIM_CYCLE_UPDATE_EVENT_KEY and mid:
+        from app.services.sim_cycle_discord import record_sim_cycle_discord_ack
+
+        record_sim_cycle_discord_ack(
+            session,
+            event_key=ek,
+            payload=payload,
+            discord_message_id=mid,
+            discord_channel_id=channel_id,
+            league_session=session,
         )
     elif mid:
         from app.services.bowl_six_discord import record_bowl_six_leaders_discord_ack

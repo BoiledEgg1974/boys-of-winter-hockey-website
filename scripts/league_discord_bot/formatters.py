@@ -6,7 +6,9 @@ from typing import Any
 from scripts.league_discord_bot.team_maps import (
     emoji_for_abbrev,
     entry_for_fhm_team_id,
+    export_status_emoji,
     format_team_label,
+    league_logo_emoji,
     team_emoji_prefix,
 )
 
@@ -312,6 +314,8 @@ def _text_only_header_lines(
         status = str(payload.get("slate_status") or "").strip()
         if status:
             lines.append(f"Slate: **{status}**")
+    elif event_key == "sim_cycle_update":
+        lines.append(f"**{title}**")
     elif event_key in ("bowl_six_rosters_unlocked", "bowl_six_lock_warning"):
         lines.append(f"**{title}**")
         lock_display = str(payload.get("lock_display") or "").strip()
@@ -665,6 +669,81 @@ def _news_embed(league_slug: str, payload: dict[str, Any], *, title: str, body: 
     return {k: v for k, v in embed.items() if v}
 
 
+def _team_emote_for_fhm_id(league_slug: str, fhm_team_id: int) -> str:
+    entry = entry_for_fhm_team_id(league_slug, fhm_team_id)
+    if entry:
+        return str(entry[1] or "").strip()
+    return ""
+
+
+def _sim_cycle_embed(league_slug: str, payload: dict[str, Any], *, title: str) -> dict[str, Any]:
+    from datetime import datetime
+
+    phase = str(payload.get("phase") or "idle").strip().lower()
+    logo = league_logo_emoji(league_slug)
+    title_text = title[:256]
+    if logo:
+        title_text = f"{logo} {title_text}".strip()
+
+    success_em = export_status_emoji(success=True) or "✅"
+    fail_em = export_status_emoji(success=False) or "❌"
+
+    lines: list[str] = []
+    for div in payload.get("divisions") or []:
+        if not isinstance(div, dict):
+            continue
+        name = str(div.get("name") or "League").strip() or "League"
+        exported_bits = [
+            em
+            for tid in div.get("exported") or []
+            if (em := _team_emote_for_fhm_id(league_slug, int(tid)))
+        ]
+        pending_bits = [
+            em
+            for tid in div.get("pending") or []
+            if (em := _team_emote_for_fhm_id(league_slug, int(tid)))
+        ]
+        exported_part = " ".join(exported_bits)
+        pending_part = " ".join(pending_bits)
+        line = f"**{name}:**"
+        if exported_part:
+            line += f" {success_em} {exported_part}"
+        if pending_part:
+            line += f" {fail_em} {pending_part}"
+        lines.append(line.strip())
+
+    description = "\n".join(lines)[:DISCORD_MAX_EMBED_DESC_LEN] if lines else None
+
+    exported_count = int(payload.get("exported_count") or 0)
+    total_teams = int(payload.get("total_teams") or 0)
+    status_word = "In progress" if phase == "live" else "Closed"
+    last_raw = str(payload.get("last_updated_at") or "").strip()
+    last_label = ""
+    if last_raw:
+        try:
+            dt = datetime.fromisoformat(last_raw.replace("Z", "+00:00"))
+            last_label = dt.strftime("%b %d %H:%M")
+        except ValueError:
+            last_label = last_raw[:16]
+    footer_text = f"{status_word} — {exported_count}/{total_teams} exported"
+    if last_label:
+        footer_text += f" · last update {last_label}"
+
+    color = payload.get("embed_color")
+    try:
+        embed_color = int(color) if color is not None else 0xF1C40F
+    except (TypeError, ValueError):
+        embed_color = 0xF1C40F
+
+    embed: dict[str, Any] = {
+        "title": title_text,
+        "description": description,
+        "color": embed_color,
+        "footer": {"text": footer_text[:2048]},
+    }
+    return {k: v for k, v in embed.items() if v}
+
+
 def _split_message_bodies(msg: dict[str, Any], *, max_parts: int) -> list[dict[str, Any]]:
     """Split one Discord payload into up to *max_parts* messages under API limits."""
     content = str(msg.get("content") or "")
@@ -745,6 +824,12 @@ def format_discord_messages(event: dict[str, Any], *, max_parts: int = 2) -> lis
                 {"content": f"**{title}**", "embeds": [embed]},
                 max_parts=max(1, int(max_parts)),
             )
+        return [{"content": f"**{title}**"}]
+
+    if event_key == "sim_cycle_update":
+        embed = _sim_cycle_embed(league_slug, payload, title=title)
+        if embed.get("description") or embed.get("title"):
+            return _split_message_bodies({"embeds": [embed]}, max_parts=max(1, int(max_parts)))
         return [{"content": f"**{title}**"}]
 
     if event_key in ("trade_market_selling_posted", "trade_market_buying_posted"):

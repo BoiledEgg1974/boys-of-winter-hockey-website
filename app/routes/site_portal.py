@@ -7076,6 +7076,20 @@ def admin_ap_export_multileague():
             f"No matching teams in this league ({label}) for the selection.",
             "err",
         )
+    if matched_slugs:
+        try:
+            from app.services.sim_cycle_discord import handle_sim_cycle_after_admin_export
+            from app.sqlite_retry import commit_with_sqlite_retry
+
+            handle_sim_cycle_after_admin_export(
+                db.session, db.session, cur_slug, export_date
+            )
+            commit_with_sqlite_retry(db.session)
+        except Exception:
+            db.session.rollback()
+            current_app.logger.exception(
+                "sim cycle close enqueue failed after export for %s", cur_slug
+            )
     return redirect(url_for("site_admin.admin_ap_ledger"))
 
 

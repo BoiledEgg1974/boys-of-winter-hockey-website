@@ -5,9 +5,25 @@ Synced with BOWL-STATS-BOT team_maps.py — FHM team IDs, not site ``teams.id``.
 
 from __future__ import annotations
 
+import re
 from typing import Dict, Tuple
 
 TeamEntry = Tuple[str, str]
+
+# League logo custom emotes (one per BOWL mount). Replace snowflakes with your server emotes.
+LEAGUE_LOGO_EMOJIS: Dict[str, str] = {
+    "historical": "<:BOWL_HIST:1358674505853046814>",
+    "fantasy": "<:BOWL_REL:1236501118864068731>",
+    "cap": "<:BOWL_CAP:1333588537664213113>",
+}
+
+# Custom export status emotes. Replace with your success/fail emotes when ready.
+EXPORT_STATUS_EMOJIS: Dict[str, str] = {
+    "success": "<:export_ok:1358674505853046814>",
+    "fail": "<:export_fail:1358674505853046814>",
+}
+
+_CUSTOM_EMOJI_MENTION_RE = re.compile(r"<a?:([A-Za-z0-9_]+):(\d+)>")
 
 HISTORICAL_TEAMS: Dict[int, TeamEntry] = {
     0: ("MTL", "<:MTL:1358674505853046814>"),
@@ -135,6 +151,59 @@ def team_emoji_prefix(league_slug: str, payload: dict) -> str:
         emoji = emoji_for_abbrev(league_slug, abbrev)
         return f"{emoji} " if emoji else ""
     return ""
+
+
+def league_logo_emoji(league_slug: str) -> str:
+    key = _league_key(league_slug)
+    return str(LEAGUE_LOGO_EMOJIS.get(key) or "").strip()
+
+
+def export_status_emoji(*, success: bool) -> str:
+    key = "success" if success else "fail"
+    return str(EXPORT_STATUS_EMOJIS.get(key) or "").strip()
+
+
+def fhm_team_id_for_abbrev(league_slug: str, abbrev: str) -> int | None:
+    abbr = str(abbrev or "").strip().upper()
+    if not abbr:
+        return None
+    for tid, (team_abbr, _emoji) in teams_for_league_slug(league_slug).items():
+        if team_abbr == abbr:
+            return int(tid)
+    return None
+
+
+def fhm_team_id_for_custom_emoji_mention(league_slug: str, mention: str) -> int | None:
+    text = str(mention or "").strip()
+    if not text:
+        return None
+    m = _CUSTOM_EMOJI_MENTION_RE.fullmatch(text)
+    if not m:
+        return None
+    _name, snowflake = m.group(1), m.group(2)
+    for tid, (_abbr, emoji) in teams_for_league_slug(league_slug).items():
+        em = _CUSTOM_EMOJI_MENTION_RE.fullmatch(str(emoji or "").strip())
+        if em and em.group(2) == snowflake:
+            return int(tid)
+    return None
+
+
+def fhm_team_id_from_message_token(league_slug: str, token: str) -> int | None:
+    text = str(token or "").strip()
+    if not text:
+        return None
+    if text.startswith("<"):
+        tid = fhm_team_id_for_custom_emoji_mention(league_slug, text)
+        if tid is not None:
+            return tid
+    if text.isdigit():
+        try:
+            tid = int(text)
+        except ValueError:
+            return None
+        if tid in teams_for_league_slug(league_slug):
+            return tid
+    return fhm_team_id_for_abbrev(league_slug, text)
 
 
 def format_team_label(league_slug: str, payload: dict, *, fallback_name: str = "") -> str:

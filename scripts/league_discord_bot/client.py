@@ -475,6 +475,62 @@ class LeagueDiscordBot:
             discord_message_id=message_id,
         )
 
+    def refresh_sim_cycle_tracker(
+        self, site_client: httpx.Client, discord_client: httpx.Client, league_slug: str
+    ) -> None:
+        """Poll #gm-export-tracker during live sim cycles and POST parsed exports to the site."""
+        slug = str(league_slug or "").strip()
+        if not slug:
+            return
+        try:
+            cfg_resp = site_client.get(
+                self._site_url(slug, "/api/discord/sim-cycle/tracker-config"),
+                params={"league_slug": slug},
+                headers=self._headers,
+                timeout=self.settings.site_timeout_seconds,
+            )
+            cfg_resp.raise_for_status()
+            cfg = cfg_resp.json() or {}
+        except Exception:
+            log.exception("sim cycle tracker config fetch failed for %s", slug)
+            return
+        if not cfg.get("ok"):
+            return
+        if str(cfg.get("phase") or "") != "live":
+            return
+        channel_id = str(cfg.get("tracker_channel_id") or "").strip()
+        if not channel_id:
+            return
+        params: dict[str, str] = {"limit": "100"}
+        after_id = str(cfg.get("tracker_last_message_id") or "").strip()
+        if after_id:
+            params["after"] = after_id
+        try:
+            msg_resp = discord_client.get(
+                f"https://discord.com/api/v10/channels/{channel_id}/messages",
+                headers=self._discord_headers,
+                params=params,
+                timeout=30.0,
+            )
+            msg_resp.raise_for_status()
+            messages = list(msg_resp.json() or [])
+        except Exception:
+            log.exception("sim cycle tracker Discord fetch failed for %s", slug)
+            return
+        if not messages:
+            return
+        try:
+            ingest_resp = site_client.post(
+                self._site_url(slug, "/api/discord/sim-cycle/ingest-tracker"),
+                params={"league_slug": slug},
+                headers={**self._headers, "Content-Type": "application/json"},
+                json={"messages": messages},
+                timeout=self.settings.site_timeout_seconds,
+            )
+            ingest_resp.raise_for_status()
+        except Exception:
+            log.exception("sim cycle tracker ingest failed for %s", slug)
+
     def run_cycle(self, site_client: httpx.Client, discord_client: httpx.Client) -> str | None:
         last_error: str | None = None
         delay = float(self.settings.delivery_delay_seconds)
@@ -520,6 +576,10 @@ class LeagueDiscordBot:
                     )
                 except Exception:
                     log.exception("heartbeat failed for %s", slug)
+                try:
+                    self.refresh_sim_cycle_tracker(site_client, discord_client, slug)
+                except Exception:
+                    log.exception("sim cycle tracker refresh failed for %s", slug)
             except Exception as exc:
                 last_error = str(exc)
                 log.exception("poll cycle failed for %s", slug)

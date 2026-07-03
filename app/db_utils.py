@@ -2871,6 +2871,49 @@ def ensure_gm_export_attendance_sqlite(engine: Engine) -> None:
         conn.commit()
 
 
+def ensure_sim_cycle_state_sqlite(engine: Engine) -> None:
+    """Create sim cycle tracker state table on the site DB."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text(
+                "SELECT 1 FROM sqlite_master "
+                "WHERE type='table' AND name='sim_cycle_state'"
+            )
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE sim_cycle_state (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    league_slug VARCHAR(64) NOT NULL,
+                    phase VARCHAR(16) NOT NULL DEFAULT 'idle',
+                    export_date DATE,
+                    cycle_started_at DATETIME,
+                    updated_at DATETIME NOT NULL,
+                    discord_message_id VARCHAR(32),
+                    discord_channel_id VARCHAR(32),
+                    discord_payload_hash VARCHAR(64),
+                    tracker_last_message_id VARCHAR(32),
+                    tracker_bot_user_id VARCHAR(32),
+                    live_exported_fhm_team_ids_json TEXT NOT NULL DEFAULT '[]',
+                    finalize_on_ack BOOLEAN NOT NULL DEFAULT 0
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE UNIQUE INDEX uq_sim_cycle_state_league "
+                "ON sim_cycle_state (league_slug)"
+            )
+        )
+        conn.commit()
+
+
 def ensure_gm_rule_strikes_sqlite(engine: Engine) -> None:
     """Create cap strike-tracking table on the site DB."""
     if engine.dialect.name != "sqlite":

@@ -661,6 +661,28 @@ class DiscordPlayoffBracketSeriesPost(db.Model):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
 
+class SimCycleState(db.Model):
+    """Per-league sim export cycle for live #sim-log embed + #gm-export-tracker polling."""
+
+    __tablename__ = "sim_cycle_state"
+    __bind_key__ = "site"
+    __table_args__ = (UniqueConstraint("league_slug", name="uq_sim_cycle_state_league"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    phase: Mapped[str] = mapped_column(String(16), default="idle", nullable=False)
+    export_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    cycle_started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    discord_message_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    discord_channel_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    discord_payload_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    tracker_last_message_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    tracker_bot_user_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    live_exported_fhm_team_ids_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
+    finalize_on_ack: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+
 class DiscordDeliveredSource(db.Model):
     __tablename__ = "discord_delivered_sources"
     __bind_key__ = "site"

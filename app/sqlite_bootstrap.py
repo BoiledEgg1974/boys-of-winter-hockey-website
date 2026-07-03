@@ -273,6 +273,7 @@ def _bootstrap_site_schema_and_seed(app: Flask) -> None:
     ensure_league_draft_slot_boost_tier_sqlite(site_engine)
     ensure_boost_lottery_team_results_sqlite(site_engine)
     ensure_gm_export_attendance_sqlite(site_engine)
+    ensure_sim_cycle_state_sqlite(site_engine)
     ensure_gm_rule_strikes_sqlite(site_engine)
     ensure_league_expansion_draft_columns_sqlite(site_engine)
     seed_ap_catalog_if_empty()

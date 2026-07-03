@@ -91,7 +91,11 @@ def recompute_standings_from_games(season_id: int) -> None:
 
 def refresh_after_import(engine, app=None) -> None:
     """Rebuild player search index after data changes; optional app for site-DB snapshot hooks."""
-    rebuild_player_fts(engine)
+    auto_repair_db = engine.dialect.name == "sqlite"
+    if app is not None:
+        db_uri = str(app.config.get("SQLALCHEMY_DATABASE_URI") or "")
+        auto_repair_db = db_uri.startswith("sqlite:///") and db_uri != "sqlite:///:memory:"
+    rebuild_player_fts(engine, auto_repair_db=auto_repair_db)
     if app is not None:
         try:
             from app.services.positional_rankings import record_positional_rank_snapshot_after_import

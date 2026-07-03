@@ -1,6 +1,7 @@
 """SQLite integrity and player_rating_snapshots repair helpers."""
 from __future__ import annotations
 
+import os
 import sqlite3
 import unittest
 from pathlib import Path
@@ -8,6 +9,8 @@ from pathlib import Path
 from sqlalchemy import create_engine, text
 
 from app.db_utils import (
+    _purge_invalid_recovered_career_lines,
+    _relax_recovery_sql_for_load,
     ensure_fts5,
     prepare_sqlite_database,
     rebuild_player_fts,
@@ -135,6 +138,30 @@ class SqliteMaintenanceTest(unittest.TestCase):
         healthy, msg = prepare_sqlite_database(db_path, auto_repair=False)
         self.assertFalse(healthy)
         self.assertNotEqual(msg.lower(), "ok")
+
+    def test_relax_recovery_sql_ignores_other_tables(self) -> None:
+        sql = "CREATE TABLE teams (fhm_team_id INTEGER NOT NULL);"
+        self.assertEqual(_relax_recovery_sql_for_load(sql), sql)
+
+    def test_relax_recovery_sql_drops_null_career_line_rows(self) -> None:
+        sql = """
+CREATE TABLE player_skater_career_lines (
+    id INTEGER PRIMARY KEY,
+    player_id INTEGER NOT NULL,
+    season_year INTEGER NOT NULL,
+    team_fhm_id INTEGER NOT NULL,
+    league_fhm_id INTEGER NOT NULL,
+    career_source TEXT NOT NULL
+);
+INSERT INTO player_skater_career_lines VALUES(1, 1, 2000, 5, 1, 'rs');
+INSERT INTO player_skater_career_lines VALUES(2, 2, 2001, NULL, 1, 'rs');
+"""
+        db_path = Path(self._fresh_db())
+        with sqlite3.connect(str(db_path)) as conn:
+            conn.executescript(_relax_recovery_sql_for_load(sql))
+            _purge_invalid_recovered_career_lines(conn)
+            count = conn.execute("SELECT COUNT(*) FROM player_skater_career_lines").fetchone()[0]
+        self.assertEqual(count, 1)
 
     def _fresh_db(self) -> str:
         import tempfile

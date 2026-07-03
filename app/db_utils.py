@@ -1,6 +1,7 @@
 """SQLite FTS5 helpers and post-migration setup."""
 from __future__ import annotations
 
+import re
 import shutil
 import sqlite3
 import subprocess
@@ -273,6 +274,58 @@ def reset_player_rating_snapshots_sqlite(engine: Engine) -> None:
     ensure_player_rating_snapshots_sqlite(engine)
 
 
+_CAREER_LINE_TABLES = frozenset({
+    "player_skater_career_lines",
+    "player_goalie_career_lines",
+})
+
+_RECOVERY_NULLABLE_COLS = ("team_fhm_id", "league_fhm_id")
+
+
+def _relax_career_line_create_sql(create_sql: str) -> str:
+    """Drop NOT NULL on FHM id columns so corrupt recovered rows can load."""
+    if not any(table in create_sql for table in _CAREER_LINE_TABLES):
+        return create_sql
+    relaxed = create_sql
+    for col in _RECOVERY_NULLABLE_COLS:
+        relaxed = re.sub(
+            rf"(\b{col}\s+\w+)\s+NOT NULL\b",
+            r"\1",
+            relaxed,
+            flags=re.IGNORECASE,
+        )
+    return relaxed
+
+
+def _relax_recovery_sql_for_load(sql: str) -> str:
+    """Relax career-line CREATE statements in sqlite3 ``.recover`` output."""
+
+    def _repl(match: re.Match[str]) -> str:
+        return _relax_career_line_create_sql(match.group(0))
+
+    return re.sub(
+        r"CREATE TABLE(?: IF NOT EXISTS)?[^;]+;",
+        _repl,
+        sql,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+
+
+def _purge_invalid_recovered_career_lines(conn: sqlite3.Connection) -> None:
+    """Remove career lines sqlite3 ``.recover`` could not reconstruct fully."""
+    for table in sorted(_CAREER_LINE_TABLES):
+        exists = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+            (table,),
+        ).fetchone()
+        if not exists:
+            continue
+        conn.execute(
+            f"DELETE FROM {table} WHERE team_fhm_id IS NULL OR league_fhm_id IS NULL"
+        )
+    conn.commit()
+
+
 def _sqlite_backup(path: Path) -> Path:
     db_path = Path(path).resolve()
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -297,7 +350,7 @@ def _sqlite_recover_via_cli(src: Path, dst: Path) -> None:
             f"sqlite3 .recover failed ({recover.returncode}): "
             f"{(recover.stderr or recover.stdout or '').strip()}"
         )
-    sql = recover.stdout.strip()
+    sql = _relax_recovery_sql_for_load(recover.stdout.strip())
     if not sql:
         raise RuntimeError("sqlite3 .recover produced no SQL")
     dst.parent.mkdir(parents=True, exist_ok=True)
@@ -315,6 +368,8 @@ def _sqlite_recover_via_cli(src: Path, dst: Path) -> None:
             f"sqlite3 load of recovered SQL failed ({load.returncode}): "
             f"{(load.stderr or load.stdout or '').strip()}"
         )
+    with sqlite3.connect(str(dst), timeout=30.0) as conn:
+        _purge_invalid_recovered_career_lines(conn)
 
 
 def _sqlite_recover_via_dump(src: Path, dst: Path) -> None:
@@ -322,8 +377,17 @@ def _sqlite_recover_via_dump(src: Path, dst: Path) -> None:
     dst_conn = sqlite3.connect(str(dst), timeout=30.0)
     try:
         for line in src_conn.iterdump():
-            dst_conn.execute(line)
+            stmt = _relax_career_line_create_sql(line) if line.startswith("CREATE") else line
+            try:
+                dst_conn.execute(stmt)
+            except sqlite3.IntegrityError as exc:
+                if "NOT NULL constraint failed" not in str(exc):
+                    raise
+                table = stmt.split("INTO ", 1)[-1].split(None, 1)[0] if "INSERT INTO" in stmt else ""
+                if table not in _CAREER_LINE_TABLES:
+                    raise
         dst_conn.commit()
+        _purge_invalid_recovered_career_lines(dst_conn)
     finally:
         src_conn.close()
         dst_conn.close()
@@ -732,8 +796,6 @@ def _drop_sqlite_fts5_table(conn, table_name: str) -> None:
     """Drop an FTS5 virtual table, scrubbing sqlite_master if the vtable is corrupt."""
     try:
         conn.execute(text(f"DROP TABLE IF EXISTS {table_name}"))
-        conn.commit()
-        return
     except DatabaseError as exc:
         msg = str(exc).lower()
         if "vtable constructor failed" not in msg and "malformed" not in msg:
@@ -742,52 +804,128 @@ def _drop_sqlite_fts5_table(conn, table_name: str) -> None:
     _drop_sqlite_fts5_shadow_tables(conn, table_name)
 
 
+_PLAYER_FTS_DDL = """
+CREATE VIRTUAL TABLE player_fts USING fts5(
+    full_name,
+    position,
+    team_abbrev,
+    player_id UNINDEXED,
+    tokenize = "unicode61 remove_diacritics 2"
+);
+"""
+
+_PLAYER_FTS_INSERT = """
+INSERT INTO player_fts (rowid, full_name, position, team_abbrev, player_id)
+SELECT
+    p.id,
+    p.full_name,
+    COALESCE(p.position, ''),
+    COALESCE(t.abbreviation, ''),
+    p.id
+FROM players p
+LEFT JOIN teams t ON t.id = p.current_team_id;
+"""
+
+
+def _sqlite_path_from_engine(engine: Engine) -> Path | None:
+    if engine.dialect.name != "sqlite":
+        return None
+    database = engine.url.database
+    if not database or database == ":memory:":
+        return None
+    return Path(database)
+
+
+def _is_sqlite_corruption_error(exc: BaseException) -> bool:
+    msg = str(exc).lower()
+    return any(
+        needle in msg
+        for needle in (
+            "vtable constructor failed",
+            "malformed",
+            "database disk image is malformed",
+            "out of order",
+        )
+    )
+
+
+def _create_player_fts5_table(conn) -> None:
+    try:
+        conn.execute(text(_PLAYER_FTS_DDL))
+    except DatabaseError as exc:
+        if "already exists" not in str(exc).lower():
+            raise
+        _purge_sqlite_fts5_from_schema(conn, "player_fts")
+        _drop_sqlite_fts5_shadow_tables(conn, "player_fts")
+        conn.execute(text(_PLAYER_FTS_DDL))
+
+
+def _populate_player_fts(conn) -> None:
+    conn.execute(text(_PLAYER_FTS_INSERT))
+
+
+def _player_fts_exists(conn) -> bool:
+    return (
+        conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE name LIKE 'player_fts%' LIMIT 1")
+        ).fetchone()
+        is not None
+    )
+
+
+def _force_remove_player_fts(conn) -> None:
+    """Drop player_fts and shadow tables, retrying schema scrub when the file is corrupt."""
+    for _ in range(3):
+        _drop_sqlite_fts5_table(conn, "player_fts")
+        if not _player_fts_exists(conn):
+            return
+    raise DatabaseError("Could not remove corrupt player_fts table", None, None)
+
+
+def _rebuild_player_fts_once(engine: Engine) -> None:
+    with engine.connect() as conn:
+        _force_remove_player_fts(conn)
+        _create_player_fts5_table(conn)
+        _populate_player_fts(conn)
+        conn.commit()
+
+
 def ensure_fts5(engine: Engine) -> None:
     """Create the player search virtual table if missing."""
     with engine.connect() as conn:
         _cleanup_sqlite_fts5_orphans(conn, "player_fts")
-        conn.execute(
-            text(
-                """
-                CREATE VIRTUAL TABLE IF NOT EXISTS player_fts USING fts5(
-                    full_name,
-                    position,
-                    team_abbrev,
-                    player_id UNINDEXED,
-                    tokenize = "unicode61 remove_diacritics 2"
-                );
-                """
-            )
-        )
+        exists = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='player_fts'")
+        ).fetchone()
+        if not exists:
+            _create_player_fts5_table(conn)
         conn.commit()
 
 
-def rebuild_player_fts(engine: Engine) -> None:
+def rebuild_player_fts(engine: Engine, *, auto_repair_db: bool = False) -> None:
     """Rebuild FTS index from players + current team.
 
     Drop and recreate the virtual table instead of ``DELETE`` so a corrupted FTS
     segment does not fail the whole import (derived index; safe to replace).
+
+    When ``auto_repair_db`` is true and SQLite reports btree/vtable corruption,
+    rebuild the database file via dump/recover and retry once.
     """
-    with engine.connect() as conn:
-        _drop_sqlite_fts5_table(conn, "player_fts")
-    ensure_fts5(engine)
-    with engine.connect() as conn:
-        conn.execute(
-            text(
-                """
-                INSERT INTO player_fts (rowid, full_name, position, team_abbrev, player_id)
-                SELECT
-                    p.id,
-                    p.full_name,
-                    COALESCE(p.position, ''),
-                    COALESCE(t.abbreviation, ''),
-                    p.id
-                FROM players p
-                LEFT JOIN teams t ON t.id = p.current_team_id;
-                """
-            )
+    try:
+        _rebuild_player_fts_once(engine)
+    except DatabaseError as exc:
+        msg = str(exc).lower()
+        corruption = _is_sqlite_corruption_error(exc) or (
+            "already exists" in msg and "player_fts" in msg
         )
-        conn.commit()
+        if not auto_repair_db or not corruption:
+            raise
+        db_path = _sqlite_path_from_engine(engine)
+        if db_path is None or not db_path.is_file():
+            raise
+        engine.dispose()
+        recover_sqlite_database(db_path)
+        _rebuild_player_fts_once(engine)
 
 
 def repair_fhm_team_city_from_name(engine: Engine) -> None:

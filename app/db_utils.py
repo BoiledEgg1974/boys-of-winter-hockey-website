@@ -325,6 +325,79 @@ def _purge_invalid_recovered_career_lines(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def _dedupe_recovered_career_lines(conn: sqlite3.Connection) -> None:
+    """Keep one row per career-line identity when recovery emitted overlapping fragments."""
+    key_cols = ", ".join(_CAREER_LINE_REQUIRED_COLS)
+    for table in sorted(_CAREER_LINE_TABLES):
+        exists = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+            (table,),
+        ).fetchone()
+        if not exists:
+            continue
+        conn.execute(
+            f"""
+            DELETE FROM {table}
+            WHERE id NOT IN (
+                SELECT MIN(id)
+                FROM {table}
+                GROUP BY {key_cols}
+            )
+            """
+        )
+    conn.commit()
+
+
+def _split_sql_script(sql: str) -> list[str]:
+    """Split a sqlite3 ``.recover`` script into individual statements."""
+    statements: list[str] = []
+    buf: list[str] = []
+    for line in sql.splitlines(keepends=True):
+        buf.append(line)
+        if line.rstrip().endswith(";"):
+            stmt = "".join(buf).strip()
+            if stmt:
+                statements.append(stmt)
+            buf = []
+    remnant = "".join(buf).strip()
+    if remnant:
+        statements.append(remnant)
+    return statements
+
+
+def _recovery_insert_table(stmt: str) -> str | None:
+    upper = stmt.lstrip().upper()
+    if not upper.startswith("INSERT"):
+        return None
+    body = stmt.split("INTO", 1)[-1].strip()
+    return body.split(None, 1)[0].strip().strip('"').strip("`").strip("[")
+
+
+def _sqlite_execute_recovery_statement(conn: sqlite3.Connection, stmt: str) -> None:
+    """Execute one recovered statement, skipping INSERT rows the corrupt file could not rebuild."""
+    if _recovery_insert_table(stmt) is None:
+        conn.execute(stmt)
+        return
+    try:
+        conn.execute(stmt)
+    except (sqlite3.IntegrityError, sqlite3.DatabaseError):
+        return
+
+
+def _sqlite_load_recovery_sql(dst: Path, sql: str) -> None:
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    if dst.is_file():
+        dst.unlink()
+    with sqlite3.connect(str(dst), timeout=30.0) as conn:
+        for stmt in _split_sql_script(sql):
+            if stmt.startswith("CREATE"):
+                stmt = _relax_career_line_create_sql(stmt)
+            _sqlite_execute_recovery_statement(conn, stmt)
+        conn.commit()
+        _purge_invalid_recovered_career_lines(conn)
+        _dedupe_recovered_career_lines(conn)
+
+
 def _sqlite_backup(path: Path) -> Path:
     db_path = Path(path).resolve()
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -352,23 +425,7 @@ def _sqlite_recover_via_cli(src: Path, dst: Path) -> None:
     sql = _relax_recovery_sql_for_load(recover.stdout.strip())
     if not sql:
         raise RuntimeError("sqlite3 .recover produced no SQL")
-    dst.parent.mkdir(parents=True, exist_ok=True)
-    if dst.is_file():
-        dst.unlink()
-    load = subprocess.run(
-        ["sqlite3", str(dst)],
-        input=sql,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if load.returncode != 0:
-        raise RuntimeError(
-            f"sqlite3 load of recovered SQL failed ({load.returncode}): "
-            f"{(load.stderr or load.stdout or '').strip()}"
-        )
-    with sqlite3.connect(str(dst), timeout=30.0) as conn:
-        _purge_invalid_recovered_career_lines(conn)
+    _sqlite_load_recovery_sql(dst, sql)
 
 
 def _sqlite_recover_via_dump(src: Path, dst: Path) -> None:
@@ -377,16 +434,10 @@ def _sqlite_recover_via_dump(src: Path, dst: Path) -> None:
     try:
         for line in src_conn.iterdump():
             stmt = _relax_career_line_create_sql(line) if line.startswith("CREATE") else line
-            try:
-                dst_conn.execute(stmt)
-            except sqlite3.IntegrityError as exc:
-                if "NOT NULL constraint failed" not in str(exc):
-                    raise
-                table = stmt.split("INTO ", 1)[-1].split(None, 1)[0] if "INSERT INTO" in stmt else ""
-                if table not in _CAREER_LINE_TABLES:
-                    raise
+            _sqlite_execute_recovery_statement(dst_conn, stmt)
         dst_conn.commit()
         _purge_invalid_recovered_career_lines(dst_conn)
+        _dedupe_recovered_career_lines(dst_conn)
     finally:
         src_conn.close()
         dst_conn.close()

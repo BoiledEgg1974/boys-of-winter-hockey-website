@@ -11,6 +11,7 @@ from sqlalchemy import create_engine, text
 from app.db_utils import (
     _purge_invalid_recovered_career_lines,
     _relax_recovery_sql_for_load,
+    _sqlite_load_recovery_sql,
     ensure_fts5,
     prepare_sqlite_database,
     rebuild_player_fts,
@@ -165,6 +166,28 @@ INSERT INTO player_skater_career_lines VALUES(3, 3, 2002, 5, 1, NULL);
             _purge_invalid_recovered_career_lines(conn)
             count = conn.execute("SELECT COUNT(*) FROM player_skater_career_lines").fetchone()[0]
         self.assertEqual(count, 1)
+
+    def test_recovery_skips_duplicate_career_line_ids(self) -> None:
+        sql = """
+CREATE TABLE player_skater_career_lines (
+    id INTEGER PRIMARY KEY,
+    player_id INTEGER,
+    season_year INTEGER,
+    team_fhm_id INTEGER,
+    league_fhm_id INTEGER,
+    career_source VARCHAR(24)
+);
+INSERT INTO player_skater_career_lines VALUES(1, 1, 2000, 5, 1, 'rs');
+INSERT INTO player_skater_career_lines VALUES(1, 2, 2001, 6, 1, 'po');
+INSERT INTO player_skater_career_lines VALUES(2, 2, 2001, 6, 1, 'po');
+"""
+        db_path = Path(self._fresh_db())
+        _sqlite_load_recovery_sql(db_path, sql)
+        with sqlite3.connect(str(db_path)) as conn:
+            rows = conn.execute(
+                "SELECT id, player_id FROM player_skater_career_lines ORDER BY id"
+            ).fetchall()
+        self.assertEqual(rows, [(1, 1), (2, 2)])
 
     def _fresh_db(self) -> str:
         import tempfile

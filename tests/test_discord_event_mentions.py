@@ -50,7 +50,7 @@ class DiscordEventMentionTests(unittest.TestCase):
 
         self.assertIs(team, detroit)
 
-    def test_news_payload_prefers_internal_team_id_over_fhm_team_id(self) -> None:
+    def test_news_payload_mention_uses_fhm_franchise_id_from_resolved_team(self) -> None:
         session = MagicMock()
         detroit = SimpleNamespace(id=5, fhm_team_id="9", abbreviation="DET")
 
@@ -74,9 +74,9 @@ class DiscordEventMentionTests(unittest.TestCase):
                 payload={"team_id": 5, "fhm_team_id": 227, "team_abbrev": "DET"},
             )
 
-        self.assertEqual(mention, "<@111111111111111111>")
-        by_team.assert_called_once_with(session, league_slug="bowl-cap", team_id=5)
-        by_fhm.assert_not_called()
+        self.assertEqual(mention, "<@222222222222222222>")
+        by_fhm.assert_called_once_with(session, league_slug="bowl-cap", fhm_team_id="9")
+        by_team.assert_not_called()
 
     def test_news_payload_prefers_fhm_match_when_internal_id_collides(self) -> None:
         session = MagicMock()
@@ -88,9 +88,9 @@ class DiscordEventMentionTests(unittest.TestCase):
                 return_value=detroit,
             ),
             patch(
-                "app.services.discord_events._discord_user_mention_for_team",
+                "app.services.discord_events._discord_user_mention_for_fhm_team",
                 return_value="<@111111111111111111>",
-            ) as by_team,
+            ) as by_fhm,
         ):
             mention = _team_gm_mention_for_payload(
                 session,
@@ -99,7 +99,7 @@ class DiscordEventMentionTests(unittest.TestCase):
             )
 
         self.assertEqual(mention, "<@111111111111111111>")
-        by_team.assert_called_once_with(session, league_slug="bowl-cap", team_id=5)
+        by_fhm.assert_called_once_with(session, league_slug="bowl-cap", fhm_team_id="9")
 
     def test_news_payload_falls_back_to_fhm_team_id_without_team_match(self) -> None:
         session = MagicMock()

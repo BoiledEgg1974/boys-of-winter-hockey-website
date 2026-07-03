@@ -365,13 +365,14 @@ def start_sim_cycle(
     *,
     export_date: date | None = None,
     created_by_user_id: int | None = None,
+    cycle_started_at: datetime | None = None,
 ) -> tuple[SimCycleState, bool]:
     slug = str(league_slug or "").strip()
     exp = export_date or datetime.utcnow().date()
     state = get_or_create_sim_cycle_state(site_session, slug)
     state.phase = "live"
     state.export_date = exp
-    state.cycle_started_at = datetime.utcnow()
+    state.cycle_started_at = cycle_started_at or datetime.utcnow()
     state.discord_message_id = None
     state.discord_channel_id = None
     state.discord_payload_hash = None
@@ -408,6 +409,10 @@ def close_sim_cycle_from_admin_export(
         return False
     if state.export_date is not None and state.export_date != export_date:
         state.export_date = export_date
+    # Anchor the next live cycle to admin EXPORT time (survives close → ack → restart).
+    state.cycle_started_at = datetime.utcnow()
+    state.live_exported_fhm_team_ids_json = "[]"
+    state.tracker_last_message_id = None
     state.phase = "closed"
     state.updated_at = datetime.utcnow()
     site_session.flush()
@@ -514,8 +519,14 @@ def ingest_tracker_messages(
     league_session: Session,
     league_slug: str,
     messages: list[dict[str, Any]],
+    *,
+    initial_sync: bool = False,
 ) -> bool:
-    from app.services.sim_cycle_tracker_parser import parse_export_fhm_team_ids_from_messages
+    from app.services.sim_cycle_tracker_parser import (
+        newest_message_id,
+        parse_export_fhm_team_ids_from_messages,
+        tracker_watermark_before_cycle,
+    )
 
     slug = str(league_slug or "").strip()
     state = site_session.scalar(
@@ -532,6 +543,15 @@ def ingest_tracker_messages(
     if bot_id:
         allowed = {bot_id}
 
+    changed = False
+    if initial_sync and not str(state.tracker_last_message_id or "").strip():
+        watermark = tracker_watermark_before_cycle(
+            messages, cycle_started_at=state.cycle_started_at
+        )
+        if watermark:
+            state.tracker_last_message_id = watermark[:32]
+            changed = True
+
     parsed_ids, latest_mid = parse_export_fhm_team_ids_from_messages(
         slug,
         messages,
@@ -539,16 +559,20 @@ def ingest_tracker_messages(
         allowed_author_ids=allowed,
         require_bot_author=True,
     )
-    if latest_mid:
+    cursor = newest_message_id(messages) or latest_mid
+    if cursor:
         prev = str(state.tracker_last_message_id or "").strip()
-        if not prev or int(latest_mid) > int(prev):
-            state.tracker_last_message_id = latest_mid[:32]
+        if not prev or int(cursor) > int(prev):
+            state.tracker_last_message_id = cursor[:32]
+            changed = True
 
     current = _load_live_exported_fhm_ids(state)
     merged = current | parsed_ids
-    if merged == current:
+    if merged != current:
+        _store_live_exported_fhm_ids(state, merged)
+        changed = True
+    if not changed:
         return False
-    _store_live_exported_fhm_ids(state, merged)
     state.updated_at = datetime.utcnow()
     site_session.flush()
     return maybe_enqueue_sim_cycle_discord(site_session, league_session, state)
@@ -588,12 +612,15 @@ def restart_sim_cycle_after_close_ack(
 ) -> tuple[SimCycleState, bool]:
     """After closed PATCH delivery: clear prior cycle and POST a fresh live embed."""
     slug = str(league_slug or "").strip()
+    state = get_or_create_sim_cycle_state(site_session, slug)
+    cycle_anchor = state.cycle_started_at
     reset_sim_cycle_state(site_session, slug)
     return start_sim_cycle(
         site_session,
         league_session,
         slug,
         export_date=datetime.utcnow().date(),
+        cycle_started_at=cycle_anchor,
     )
 
 

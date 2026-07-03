@@ -15,7 +15,11 @@ from app.services.sim_cycle_discord import (
     record_sim_cycle_discord_ack,
     restart_sim_cycle_after_close_ack,
 )
-from app.services.sim_cycle_tracker_parser import parse_export_fhm_team_ids_from_messages
+from app.services.sim_cycle_tracker_parser import (
+    message_indicates_export,
+    parse_export_fhm_team_ids_from_messages,
+    tracker_watermark_before_cycle,
+)
 from scripts.league_discord_bot.formatters import format_discord_messages
 from scripts.league_discord_bot.team_maps import CAP_TEAMS
 
@@ -64,6 +68,64 @@ class SimCycleTrackerParserTests(unittest.TestCase):
         ]
         ids, _latest = parse_export_fhm_team_ids_from_messages("bowl-cap", messages)
         self.assertEqual(ids, set())
+
+    def test_ignores_bot_messages_without_export_keyword(self) -> None:
+        _tid, (_abbr, emoji) = next(iter(CAP_TEAMS.items()))
+        messages = [
+            {
+                "id": "1002",
+                "timestamp": datetime.utcnow().isoformat(),
+                "content": f"Roster update {emoji} {_abbr}",
+                "author": {"id": "111", "bot": True},
+            }
+        ]
+        ids, _latest = parse_export_fhm_team_ids_from_messages("bowl-cap", messages)
+        self.assertEqual(ids, set())
+
+    def test_ignores_exports_before_cycle_anchor(self) -> None:
+        anchor = datetime(2026, 7, 3, 18, 0, 0)
+        messages = [
+            {
+                "id": "1003",
+                "timestamp": "2026-07-03T14:00:00+00:00",
+                "content": "DET has exported!",
+                "author": {"id": "111", "bot": True},
+            },
+            {
+                "id": "1004",
+                "timestamp": "2026-07-03T19:00:00+00:00",
+                "content": "TOR has exported!",
+                "author": {"id": "111", "bot": True},
+            },
+        ]
+        ids, _latest = parse_export_fhm_team_ids_from_messages(
+            "bowl-historical",
+            messages,
+            cycle_started_at=anchor,
+        )
+        self.assertEqual(ids, {3})
+
+    def test_watermark_before_cycle_anchor(self) -> None:
+        anchor = datetime(2026, 7, 3, 18, 0, 0)
+        messages = [
+            {
+                "id": "100",
+                "timestamp": "2026-07-03T19:00:00+00:00",
+                "content": "TOR has exported!",
+                "author": {"id": "111", "bot": True},
+            },
+            {
+                "id": "90",
+                "timestamp": "2026-07-03T17:00:00+00:00",
+                "content": "MTL has exported!",
+                "author": {"id": "111", "bot": True},
+            },
+        ]
+        self.assertEqual(
+            tracker_watermark_before_cycle(messages, cycle_started_at=anchor),
+            "90",
+        )
+        self.assertTrue(message_indicates_export(messages[0]))
 
 
 class SimCycleDiscordPayloadTests(unittest.TestCase):
@@ -177,6 +239,13 @@ class SimCycleDiscordPayloadTests(unittest.TestCase):
     def test_restart_after_close_starts_fresh_live_cycle(self) -> None:
         site_session = MagicMock()
         league_session = MagicMock()
+        anchor = datetime(2026, 7, 3, 17, 30, 0)
+        state = SimpleNamespace(
+            league_slug="bowl-cap",
+            phase="closed",
+            cycle_started_at=anchor,
+        )
+        site_session.scalar.return_value = state
         with patch(
             "app.services.sim_cycle_discord.reset_sim_cycle_state"
         ) as reset_mock, patch(
@@ -188,7 +257,13 @@ class SimCycleDiscordPayloadTests(unittest.TestCase):
                 site_session, league_session, "bowl-cap"
             )
         reset_mock.assert_called_once_with(site_session, "bowl-cap")
-        start_mock.assert_called_once()
+        start_mock.assert_called_once_with(
+            site_session,
+            league_session,
+            "bowl-cap",
+            export_date=datetime.utcnow().date(),
+            cycle_started_at=anchor,
+        )
         self.assertTrue(queued)
         self.assertEqual(state.phase, "live")
 

@@ -1970,11 +1970,14 @@ def discord_sim_cycle_ingest_tracker():
         return jsonify({"ok": False, "message": "league_slug is required"}), 400
     data = request.get_json(silent=True) or {}
     messages = list(data.get("messages") or [])
+    initial_sync = bool(data.get("initial_sync"))
     from app.services.sim_cycle_discord import ingest_tracker_messages
     from app.sqlite_retry import commit_with_sqlite_retry
 
     try:
-        changed = ingest_tracker_messages(db.session, db.session, slug, messages)
+        changed = ingest_tracker_messages(
+            db.session, db.session, slug, messages, initial_sync=initial_sync
+        )
         commit_with_sqlite_retry(db.session)
         return jsonify({"ok": True, "changed": bool(changed)})
     except Exception:

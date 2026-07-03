@@ -503,6 +503,7 @@ class LeagueDiscordBot:
             return
         params: dict[str, str] = {"limit": "100"}
         after_id = str(cfg.get("tracker_last_message_id") or "").strip()
+        initial_sync = not after_id
         if after_id:
             params["after"] = after_id
         try:
@@ -524,7 +525,7 @@ class LeagueDiscordBot:
                 self._site_url(slug, "/api/discord/sim-cycle/ingest-tracker"),
                 params={"league_slug": slug},
                 headers={**self._headers, "Content-Type": "application/json"},
-                json={"messages": messages},
+                json={"messages": messages, "initial_sync": initial_sync},
                 timeout=self.settings.site_timeout_seconds,
             )
             ingest_resp.raise_for_status()

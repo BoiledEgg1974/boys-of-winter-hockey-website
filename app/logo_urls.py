@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from flask import current_app, url_for
+from flask import current_app, has_app_context, url_for
 
 # BOWL-Relegation: roster slug -> logo filename under ``logos/teams/bowl_fantasy/``.
 # Keep in sync with ``data/imports/raw/bowl_fantasy/team_identity_history.csv``.
@@ -100,6 +100,23 @@ def team_has_dedicated_league_logo(team) -> bool:
 
 def team_logo_url_for_team(team) -> str:
     """Return URL for a Team model's logo, or placeholder if missing."""
+    if team is not None and has_app_context():
+        league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+        if league_slug in ("bowl-historical", "bowl-cap", "bowl-fantasy") and not team_has_dedicated_league_logo(
+            team
+        ):
+            try:
+                from app.league_db import db
+                from app.services.season_team_logo_bundle import get_season_team_logo_bundle
+                from app.services.seasons import get_current_season
+
+                season = get_current_season(db.session)
+                sy = int(season.start_year) if season is not None and season.start_year is not None else None
+                if sy is not None:
+                    return get_season_team_logo_bundle().team_logo_url_for_season_context(team, sy)
+            except Exception:
+                pass
+
     static_root = Path(current_app.static_folder or "")
     league_rel = current_app.config.get("TEAM_LOGOS_REL_DIR", "logos/teams")
     league_rel = str(league_rel).strip("/\\") or "logos/teams"

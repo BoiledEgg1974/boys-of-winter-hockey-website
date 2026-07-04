@@ -110,5 +110,63 @@ class TeamRecordsLogoTests(unittest.TestCase):
         self.assertIn("detroit_falcons.png", logo_url)
 
 
+    def test_cap_expansion_teams_resolve_2000_01_logos(self) -> None:
+        app = create_app(make_league_config("bowl-cap"))
+        teams = [
+            (
+                "229",
+                "CBS",
+                "Columbus",
+                "Blue Jackets",
+                "columbus_blue_jackets_2000-2006.png",
+            ),
+            (
+                "230",
+                "MIN",
+                "Minnesota",
+                "Wild",
+                "minnesota_wild_2000-2012.png",
+            ),
+        ]
+        with app.app_context():
+            with app.test_request_context(path="/", base_url="http://127.0.0.1/bowl-cap/"):
+                bundle = get_season_team_logo_bundle(app)
+                for fhm, abbr, city, nick, logo_file in teams:
+                    team = SimpleNamespace(
+                        id=int(fhm),
+                        slug=f"{abbr.lower()}-t{fhm}",
+                        name=city,
+                        city=city,
+                        nickname=nick,
+                        abbreviation=abbr,
+                        fhm_team_id=fhm,
+                    )
+                    team.full_display_name = lambda c=city, n=nick: f"{c} {n}"
+                    logo_url = bundle.team_logo_url_for_season_context(team, 2000)
+                    self.assertIsNotNone(logo_url)
+                    self.assertIn(logo_file, logo_url)
+                    self.assertNotIn("placeholder", logo_url)
+
+    def test_cap_expansion_teams_team_logo_url_for_team_uses_era_art(self) -> None:
+        from app.logo_urls import team_logo_url_for_team
+
+        app = create_app(make_league_config("bowl-cap"))
+        team = SimpleNamespace(
+            id=229,
+            slug="cbs-t229",
+            name="Columbus",
+            city="Columbus",
+            nickname="Blue Jackets",
+            abbreviation="CBS",
+            fhm_team_id="229",
+        )
+        team.full_display_name = lambda: "Columbus Blue Jackets"
+        with app.app_context():
+            with app.test_request_context(path="/", base_url="http://127.0.0.1/bowl-cap/"):
+                logo_url = team_logo_url_for_team(team)
+        self.assertIn("columbus_blue_jackets_2000-2006.png", logo_url)
+        self.assertNotIn("placeholder", logo_url)
+
+
 if __name__ == "__main__":
     unittest.main()

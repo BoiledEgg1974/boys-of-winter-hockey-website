@@ -126,3 +126,7 @@ team_fhm_id,start_year,end_year,team_name,logo_file
 3,2016,2018,Toronto Maple Leafs,logos/teams/bowl_historical/toronto_maple_leafs_2016-2018.png
 3,2019,2100,Toronto Maple Leafs,logos/teams/bowl_historical/toronto_maple_leafs_2016-2018.png
 227,1989,2100,Atlanta Thrashers,logos/teams/bowl_cap/ATL-t227.png
+229,2000,2006,Columbus Blue Jackets,logos/teams/bowl_historical/columbus_blue_jackets_2000-2006.png
+229,2007,2100,Columbus Blue Jackets,logos/teams/bowl_historical/columbus_blue_jackets_2007-2018.png
+230,2000,2012,Minnesota Wild,logos/teams/bowl_historical/minnesota_wild_2000-2012.png
+230,2013,2100,Minnesota Wild,logos/teams/bowl_historical/minnesota_wild_2013-2018.png

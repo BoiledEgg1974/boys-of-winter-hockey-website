@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.config import league_raw_import_dir
 from app.models import Team
 from app.services.division_labels import load_division_display_maps, team_division_display_label
+from app.services.staff_salaries import main_league_teams
 from app.services.discord_events import (
     GM_EXPORT_TRACKER_POLL_EVENT_KEY,
     SIM_CYCLE_UPDATE_EVENT_KEY,
@@ -63,9 +64,7 @@ def _division_maps_for_league(league_slug: str) -> tuple[dict[tuple[int, int], s
     return load_division_display_maps(div_csv)
 
 
-def _active_teams_for_league(
-    site_session: Session, league_session: Session, league_slug: str
-) -> list[tuple[Team, GmLeagueMembership]]:
+def _memberships_by_team_id(site_session: Session, league_slug: str) -> dict[int, GmLeagueMembership]:
     memberships = list(
         site_session.scalars(
             select(GmLeagueMembership).where(
@@ -74,30 +73,26 @@ def _active_teams_for_league(
             )
         ).all()
     )
-    if not memberships:
-        return []
-    team_ids = sorted({int(m.team_id) for m in memberships})
-    teams_by_id = {
-        int(t.id): t
-        for t in league_session.scalars(select(Team).where(Team.id.in_(team_ids))).all()
-    }
-    out: list[tuple[Team, GmLeagueMembership]] = []
-    for mem in memberships:
-        team = teams_by_id.get(int(mem.team_id))
-        if team is None:
-            continue
-        out.append((team, mem))
-    return out
+    return {int(m.team_id): m for m in memberships}
+
+
+def _sim_cycle_teams_for_league(league_session: Session) -> list[Team]:
+    """All main-league clubs for the sim board (not limited to active GM memberships)."""
+    return main_league_teams(league_session)
 
 
 def _fhm_team_id_for_team(
-    team: Team, membership: GmLeagueMembership, *, league_slug: str
+    team: Team,
+    membership: GmLeagueMembership | None,
+    *,
+    league_slug: str,
 ) -> int | None:
     """Resolve FHM franchise TeamId (not site teams.id)."""
     from scripts.league_discord_bot.team_maps import teams_for_league_slug
 
     roster = teams_for_league_slug(league_slug)
-    for raw in (team.fhm_team_id, membership.fhm_team_id):
+    membership_fhm = membership.fhm_team_id if membership is not None else None
+    for raw in (team.fhm_team_id, membership_fhm):
         if raw is None or str(raw).strip() == "":
             continue
         try:
@@ -123,9 +118,11 @@ def build_division_export_groups(
     exported_fhm_team_ids: set[int],
 ) -> list[dict[str, Any]]:
     div_by_pair, div_by_id = _division_maps_for_league(league_slug)
+    memberships_by_team_id = _memberships_by_team_id(site_session, league_slug)
     groups: dict[str, dict[str, list[int]]] = {}
 
-    for team, mem in _active_teams_for_league(site_session, league_session, league_slug):
+    for team in _sim_cycle_teams_for_league(league_session):
+        mem = memberships_by_team_id.get(int(team.id))
         fhm_id = _fhm_team_id_for_team(team, mem, league_slug=league_slug)
         if fhm_id is None:
             continue
@@ -179,21 +176,13 @@ def _closed_exported_fhm_team_ids(
         int(t.id): t
         for t in league_session.scalars(select(Team).where(Team.id.in_(team_ids))).all()
     }
-    memberships = {
-        int(m.team_id): m
-        for m in site_session.scalars(
-            select(GmLeagueMembership).where(
-                GmLeagueMembership.league_slug == league_slug,
-                GmLeagueMembership.team_id.in_(team_ids),
-            )
-        ).all()
-    }
+    memberships = _memberships_by_team_id(site_session, league_slug)
     exported: set[int] = set()
     for tid in team_ids:
         team = teams.get(tid)
-        mem = memberships.get(tid)
-        if team is None or mem is None:
+        if team is None:
             continue
+        mem = memberships.get(tid)
         fhm_id = _fhm_team_id_for_team(team, mem, league_slug=league_slug)
         if fhm_id is not None:
             exported.add(int(fhm_id))

@@ -148,11 +148,16 @@ class SimCycleDiscordPayloadTests(unittest.TestCase):
         site_session.scalars.return_value.all.return_value = [mem1, mem2]
         team1 = self._mock_team(tid=1, fhm_id=17, div_id=0, conf_id=0)
         team2 = self._mock_team(tid=2, fhm_id=3, div_id=1, conf_id=0)
-        league_session.scalars.return_value.all.return_value = [team1, team2]
+        team3 = self._mock_team(tid=3, fhm_id=18, div_id=2, conf_id=1)
+        team3.abbreviation = "VAN"
+        team3.fhm_league_id = 0
 
         with patch(
             "app.services.sim_cycle_discord._division_maps_for_league",
-            return_value=({(0, 0): "Northeast Division", (0, 1): "Atlantic Division"}, {}),
+            return_value=({(0, 0): "Northeast Division", (0, 1): "Atlantic Division", (1, 2): "Northwest Division"}, {}),
+        ), patch(
+            "app.services.sim_cycle_discord.main_league_teams",
+            return_value=[team1, team2, team3],
         ):
             groups = build_division_export_groups(
                 site_session, league_session, "bowl-cap", {17}
@@ -161,6 +166,29 @@ class SimCycleDiscordPayloadTests(unittest.TestCase):
         self.assertIn("Northeast Division", by_name)
         self.assertEqual(by_name["Northeast Division"]["exported"], [17])
         self.assertEqual(by_name["Atlantic Division"]["pending"], [3])
+        self.assertEqual(by_name["Northwest Division"]["pending"], [18])
+
+    def test_build_division_export_groups_includes_teams_without_gm_membership(self) -> None:
+        site_session = MagicMock()
+        league_session = MagicMock()
+        site_session.scalars.return_value.all.return_value = []
+        van = self._mock_team(tid=13, fhm_id=18, div_id=2, conf_id=1)
+        van.abbreviation = "VAN"
+        van.fhm_league_id = 0
+
+        with patch(
+            "app.services.sim_cycle_discord._division_maps_for_league",
+            return_value=({(1, 2): "Northwest Division"}, {}),
+        ), patch(
+            "app.services.sim_cycle_discord.main_league_teams",
+            return_value=[van],
+        ):
+            groups = build_division_export_groups(
+                site_session, league_session, "bowl-cap", set()
+            )
+        self.assertEqual(len(groups), 1)
+        self.assertEqual(groups[0]["name"], "Northwest Division")
+        self.assertEqual(groups[0]["pending"], [18])
 
     def test_payload_includes_edit_message_id_when_stored(self) -> None:
         state = SimpleNamespace(

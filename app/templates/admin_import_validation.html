@@ -15,7 +15,7 @@
   <div class="table-wrap">
     <table class="data">
       <tbody>
-        <tr><th>Generated (UTC)</th><td>{{ report.generated_at }}</td></tr>
+        <tr><th>Generated (ET)</th><td>{{ report.generated_at|eastern_time('%Y-%m-%d %H:%M:%S') or '—' }}</td></tr>
         <tr><th>Raw folder</th><td><code>{{ report.raw_dir }}</code></td></tr>
         <tr><th>Team logos folder</th><td><code>{{ report.team_logos_dir }}</code></td></tr>
         {% if report.static_root %}<tr><th>Static root</th><td><code>{{ report.static_root }}</code></td></tr>{% endif %}

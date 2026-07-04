@@ -14,7 +14,7 @@
         <tr>
           <th>Team</th>
           <th>GM</th>
-          <th>Last Activity (UTC)</th>
+          <th>Last Activity (ET)</th>
           <th>Inactivity Days</th>
           <th>Health</th>
           <th>Pending Requests</th>
@@ -25,7 +25,7 @@
         <tr>
           <td>{{ r.team.full_display_name() if r.team else '—' }}</td>
           <td>{{ (r.user.discord_name or r.user.username or r.user.email) if r.user else '—' }}</td>
-          <td>{{ r.last_activity_at.strftime('%Y-%m-%d %H:%M:%S') if r.last_activity_at else '—' }}</td>
+          <td>{{ r.last_activity_at|eastern_time('%Y-%m-%d %H:%M:%S') or '—' }}</td>
           <td>{{ r.inactivity_days if r.inactivity_days is not none else '—' }}</td>
           <td>{{ r.health }}</td>
           <td>{{ r.pending_requests }}</td>

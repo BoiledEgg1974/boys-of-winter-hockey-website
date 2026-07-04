@@ -12,7 +12,7 @@
     {% if team %}{{ team.full_display_name() }}{% endif %}
     {% if team and author %} · {% endif %}
     {% if author %}{{ author.discord_name or author.username or author.email }}{% endif %}
-    {% if team or author %} · {% endif %}Submitted {{ article.created_at.strftime('%Y-%m-%d %H:%M') if article.created_at else '' }}
+    {% if team or author %} · {% endif %}Submitted {{ article.created_at|eastern_time }}
   </p>
   {% if article.status == 'published' %}
   <p><span class="admin-news-status admin-news-status--approved">APPROVED</span></p>

@@ -117,8 +117,8 @@
     </span>
     <div style="margin-top:0.45rem;">
       <div><strong>Command:</strong> <code>{{ execute_result.command }}</code></div>
-      <div><strong>Started:</strong> {{ execute_result.started_at }} UTC</div>
-      <div><strong>Finished:</strong> {{ execute_result.finished_at }} UTC</div>
+      <div><strong>Started:</strong> {{ execute_result.started_at|eastern_time('%Y-%m-%d %H:%M:%S') or '—' }}</div>
+      <div><strong>Finished:</strong> {{ execute_result.finished_at|eastern_time('%Y-%m-%d %H:%M:%S') or '—' }}</div>
       <div style="margin-top:0.35rem;"><strong>Output:</strong></div>
       <pre style="white-space:pre-wrap;background:#0b1220;padding:0.55rem;border-radius:6px;border:1px solid #334155;max-height:280px;overflow:auto;">{{ execute_result.output }}</pre>
     </div>
@@ -279,7 +279,7 @@
       <select name="backup_name" required style="min-width:20rem;">
         <option value="">Select backup file…</option>
         {% for b in backup_rows %}
-        <option value="{{ b.name }}">{{ b.mtime_utc }} — {{ b.name }}</option>
+        <option value="{{ b.name }}">{{ b.mtime_utc|eastern_time('%Y-%m-%d %H:%M:%S') }} — {{ b.name }}</option>
         {% endfor %}
       </select>
     </label>
@@ -291,7 +291,7 @@
     <span class="site-announcement__body">Review this backup before guarded restore.</span>
     <div style="margin-top:0.35rem;">
       <div><strong>File:</strong> <code>{{ restore_preview.name }}</code></div>
-      <div><strong>Created (UTC):</strong> {{ restore_preview.mtime_utc }}</div>
+      <div><strong>Created (ET):</strong> {{ restore_preview.mtime_utc|eastern_time('%Y-%m-%d %H:%M:%S') or '—' }}</div>
       <div><strong>Size (bytes):</strong> {{ restore_preview.size_bytes }}</div>
       <div><strong>Path:</strong> <code>{{ restore_preview.path }}</code></div>
     </div>
@@ -303,7 +303,7 @@
       <select name="backup_name" required style="min-width:20rem;">
         <option value="">Select backup file…</option>
         {% for b in backup_rows %}
-        <option value="{{ b.name }}">{{ b.mtime_utc }} — {{ b.name }}</option>
+        <option value="{{ b.name }}">{{ b.mtime_utc|eastern_time('%Y-%m-%d %H:%M:%S') }} — {{ b.name }}</option>
         {% endfor %}
       </select>
     </label>
@@ -317,7 +317,7 @@
     <table class="data">
       <thead>
         <tr>
-          <th>Created (UTC)</th>
+          <th>Created (ET)</th>
           <th>File</th>
           <th>Size</th>
           <th>Path</th>
@@ -326,7 +326,7 @@
       <tbody>
         {% for b in backup_rows %}
         <tr>
-          <td>{{ b.mtime_utc }}</td>
+          <td>{{ b.mtime_utc|eastern_time('%Y-%m-%d %H:%M:%S') or '—' }}</td>
           <td><code>{{ b.name }}</code></td>
           <td>{{ b.size_bytes }}</td>
           <td><code>{{ b.path }}</code></td>
@@ -379,8 +379,8 @@
         <tr><th>File</th><td>{{ snapshot.latest_import.file_name or '—' }}</td></tr>
         <tr><th>Status</th><td>{{ snapshot.latest_import.status or '—' }}</td></tr>
         <tr><th>Rows processed</th><td>{{ snapshot.latest_import.rows_processed }}</td></tr>
-        <tr><th>Started (UTC)</th><td>{{ snapshot.latest_import.started_at or '—' }}</td></tr>
-        <tr><th>Finished (UTC)</th><td>{{ snapshot.latest_import.finished_at or '—' }}</td></tr>
+        <tr><th>Started (ET)</th><td>{{ snapshot.latest_import.started_at|eastern_time('%Y-%m-%d %H:%M:%S') or '—' }}</td></tr>
+        <tr><th>Finished (ET)</th><td>{{ snapshot.latest_import.finished_at|eastern_time('%Y-%m-%d %H:%M:%S') or '—' }}</td></tr>
         <tr><th>Message</th><td>{{ snapshot.latest_import.message or '—' }}</td></tr>
       </tbody>
     </table>
@@ -392,7 +392,7 @@
       <tbody>
         <tr><th>Path</th><td><code>{{ snapshot.raw_folder.path }}</code></td></tr>
         <tr><th>CSV files</th><td>{{ snapshot.raw_folder.csv_total }}</td></tr>
-        <tr><th>Newest CSV mtime (UTC)</th><td>{{ snapshot.raw_folder.newest_csv_mtime or '—' }}</td></tr>
+        <tr><th>Newest CSV mtime (ET)</th><td>{{ snapshot.raw_folder.newest_csv_mtime|eastern_time('%Y-%m-%d %H:%M:%S') or '—' }}</td></tr>
         <tr>
           <th>Sample files</th>
           <td>{% if snapshot.raw_folder.sample_files %}<code>{{ snapshot.raw_folder.sample_files|join(', ') }}</code>{% else %}—{% endif %}</td>

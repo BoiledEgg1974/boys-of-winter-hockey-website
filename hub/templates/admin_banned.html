@@ -40,7 +40,7 @@
           <td>{{ r.discord_name or '—' }}</td>
           <td><code>{{ r.league_slug or '—' }}</code></td>
           <td style="max-width:16rem;white-space:pre-wrap;font-size:0.85rem;">{{ r.note or '—' }}</td>
-          <td style="font-size:0.85rem;">{{ r.created_at.strftime('%Y-%m-%d %H:%M') if r.created_at else '—' }} UTC</td>
+          <td style="font-size:0.85rem;">{{ r.created_at|eastern_time or '—' }}</td>
           <td>
             <form method="post" action="{{ url_for('hub_auth.admin_banned_lift', bid=r.id) }}" style="display:inline;">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

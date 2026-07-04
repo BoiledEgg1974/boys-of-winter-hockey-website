@@ -21,7 +21,7 @@
     <p class="admin-ap-detail__totals">
       <strong>{{ req.total_cost }} AP</strong> requested · Team balance: <strong>{{ balance }} AP</strong>
       {% if req.created_at %}
-      · Submitted {{ req.created_at.strftime('%Y-%m-%d %H:%M') }} UTC
+      · Submitted {{ req.created_at|eastern_time }}
       {% endif %}
     </p>
   </div>

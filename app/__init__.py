@@ -364,6 +364,10 @@ def create_app(config_class: type = Config) -> Flask:
             return Markup("")
         return linkify_news_body(db.session, str(body))
 
+    from app.datetime_display import register_eastern_time_template_filter
+
+    register_eastern_time_template_filter(app)
+
     @app.template_filter("team_stat_rate")
     def team_stat_rate_filter(value: object, gp: object, rate: str = "raw") -> float | int | None:
         from app.services.team_statistics import format_rate_value

@@ -23,7 +23,7 @@
       <tbody>
         <tr><th>Membership status</th><td>{{ membership.status if membership else '—' }}</td></tr>
         <tr><th>GM user</th><td>{{ (gm_user.discord_name or gm_user.username or gm_user.email) if gm_user else '—' }}</td></tr>
-        <tr><th>Approved at (UTC)</th><td>{{ membership.approved_at.strftime('%Y-%m-%d %H:%M:%S') if membership and membership.approved_at else '—' }}</td></tr>
+        <tr><th>Approved at (ET)</th><td>{{ membership.approved_at|eastern_time('%Y-%m-%d %H:%M:%S') or '—' }}</td></tr>
       </tbody>
     </table>
   </div>
@@ -43,12 +43,12 @@
   <div class="table-wrap" style="margin:0 0 0.8rem;">
     <table class="data">
       <thead>
-        <tr><th>When (UTC)</th><th>Type</th><th>Title</th><th>Status</th></tr>
+        <tr><th>When (ET)</th><th>Type</th><th>Title</th><th>Status</th></tr>
       </thead>
       <tbody>
         {% for r in pending_ops %}
         <tr>
-          <td>{{ r.created_at.strftime('%Y-%m-%d %H:%M:%S') if r.created_at else '—' }}</td>
+          <td>{{ r.created_at|eastern_time('%Y-%m-%d %H:%M:%S') or '—' }}</td>
           <td>{{ r.request_type }}</td>
           <td>{{ r.title }}</td>
           <td>{{ r.status }}</td>
@@ -64,12 +64,12 @@
   <div class="table-wrap">
     <table class="data">
       <thead>
-        <tr><th>When (UTC)</th><th>Status</th><th>Title</th></tr>
+        <tr><th>When (ET)</th><th>Status</th><th>Title</th></tr>
       </thead>
       <tbody>
         {% for a in recent_news %}
         <tr>
-          <td>{{ a.created_at.strftime('%Y-%m-%d %H:%M:%S') if a.created_at else '—' }}</td>
+          <td>{{ a.created_at|eastern_time('%Y-%m-%d %H:%M:%S') or '—' }}</td>
           <td>{{ a.status }}</td>
           <td>{{ a.title }}</td>
         </tr>

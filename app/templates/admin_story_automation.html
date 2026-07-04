@@ -48,7 +48,7 @@
       <thead>
         <tr>
           <th>ID</th>
-          <th>When (UTC)</th>
+          <th>When (ET)</th>
           <th>Channel</th>
           <th>Article</th>
           <th>Status</th>
@@ -64,12 +64,12 @@
         {% set a = article_by_id.get(r.article_id) %}
         <tr>
           <td>{{ r.id }}</td>
-          <td>{{ r.scheduled_for_utc.strftime('%Y-%m-%d %H:%M:%S') if r.scheduled_for_utc else '—' }}</td>
+          <td>{{ r.scheduled_for_utc|eastern_time('%Y-%m-%d %H:%M:%S') or '—' }}</td>
           <td>{{ r.channel }}{% if r.channel == 'discord' and not discord_webhook_configured %} <span class="warn" title="Configure DISCORD_STORY_WEBHOOK_URL">⚠</span>{% endif %}</td>
           <td>{% if a %}#{{ a.id }} · {{ a.title }}{% else %}article_id={{ r.article_id }}{% endif %}</td>
           <td><strong>{{ r.status }}</strong></td>
           <td>{{ 'dry-run' if r.dry_run_only else 'live-ready' }}</td>
-          <td>{{ r.attempt_count or 0 }}{% if r.last_attempt_at %}<br><span class="muted" style="font-size:0.75rem;">{{ r.last_attempt_at.strftime('%Y-%m-%d %H:%M') }}</span>{% endif %}</td>
+          <td>{{ r.attempt_count or 0 }}{% if r.last_attempt_at %}<br><span class="muted" style="font-size:0.75rem;">{{ r.last_attempt_at|eastern_time }}</span>{% endif %}</td>
           <td style="max-width:12rem;word-break:break-word;font-size:0.8rem;">{{ r.last_error or '—' }}</td>
           <td style="max-width:14rem;"><code style="white-space:pre-wrap;font-size:0.72rem;">{{ r.last_result_json or '{}' }}</code></td>
           <td style="white-space:normal;">

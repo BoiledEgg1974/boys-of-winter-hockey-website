@@ -10,7 +10,7 @@
     <li>Role: {{ role_label }}</li>
     <li>GM: {{ user.email if user else req.user_id }}</li>
     <li>Staff id: {{ req.staff_fhm_id }}</li>
-    <li>Submitted: {{ req.created_at.strftime('%Y-%m-%d %H:%M UTC') if req.created_at else '—' }}</li>
+    <li>Submitted: {{ req.created_at|eastern_time or '—' }}</li>
   </ul>
   <p><a href="{{ url_for('site_gm.staff_profile_page', staff_fhm_id=req.staff_fhm_id) }}" target="_blank" rel="noopener">View staff profile</a></p>
   <form method="post" action="{{ url_for('site_admin.admin_staff_approve', rid=req.id) }}" style="display:inline;">

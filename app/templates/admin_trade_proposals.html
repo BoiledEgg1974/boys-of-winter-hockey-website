@@ -21,7 +21,7 @@
       {% for r in rows %}
       <tr>
         <td>{{ r.id }}</td>
-        <td>{{ r.created_at.strftime('%Y-%m-%d %H:%M') if r.created_at else '—' }}</td>
+        <td>{{ r.created_at|eastern_time or '—' }}</td>
         <td>{{ r.status }}</td>
         <td>
           {% set ta = teams_by_id.get(r.from_team_id) %}

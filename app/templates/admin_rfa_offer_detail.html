@@ -26,7 +26,7 @@
     {% if req.special_clauses %}
     <li>Clauses: {{ req.special_clauses }}</li>
     {% endif %}
-    <li>Submitted: {{ req.created_at.strftime('%Y-%m-%d %H:%M UTC') if req.created_at else '—' }}</li>
+    <li>Submitted: {{ req.created_at|eastern_time or '—' }}</li>
     {% if req.happiness %}
     <li>Happiness: {{ happiness_label(req.happiness) }}</li>
     {% endif %}

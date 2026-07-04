@@ -61,7 +61,7 @@
       <thead>
         <tr class="{% if queue_view == 'lane' %}admin-ops-lane__row{% endif %}">
           {% if queue_view == 'lane' %}<th>Pick</th>{% endif %}
-          <th>When (UTC)</th>
+          <th>When (ET)</th>
           <th>Team</th>
           <th>GM</th>
           <th>Type</th>
@@ -80,7 +80,7 @@
           {% if queue_view == 'lane' %}
           <td><input type="checkbox" class="lane-select-one" name="request_ids" value="{{ r.id }}" form="lane-bulk-form"{% if r.id in (sticky_selected_ids or []) %} checked{% endif %}></td>
           {% endif %}
-          <td>{{ r.created_at.strftime('%Y-%m-%d %H:%M:%S') if r.created_at else '—' }}</td>
+          <td>{{ r.created_at|eastern_time('%Y-%m-%d %H:%M:%S') or '—' }}</td>
           <td>{{ t.full_display_name() if t else ('team_id=' ~ r.team_id) }}</td>
           <td>{{ (u.discord_name or u.username or u.email) if u else ('user_id=' ~ r.user_id) }}</td>
           <td>{{ r.request_type }}</td>

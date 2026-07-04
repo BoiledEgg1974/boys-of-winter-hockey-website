@@ -30,7 +30,7 @@
   {% if snapshot %}
     {% if snapshot.ok %}
     {% if snapshot.generated_at_utc %}
-    <p class="muted" style="margin:0 0 0.5rem;font-size:0.85rem;">Generated UTC: {{ snapshot.generated_at_utc }}</p>
+    <p class="muted" style="margin:0 0 0.5rem;font-size:0.85rem;">Generated: {{ snapshot.generated_at_utc|eastern_time('%Y-%m-%d %H:%M:%S') }}</p>
     {% endif %}
     <h3 style="margin:0.3rem 0 0.35rem;">Summary</h3>
     <div class="table-wrap" style="margin:0 0 0.8rem;">

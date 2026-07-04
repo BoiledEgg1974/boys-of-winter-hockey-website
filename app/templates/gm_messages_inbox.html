@@ -28,7 +28,7 @@
       <a class="gm-msg-notif-list__link" href="{{ url_for('site_gm.gm_notification_open', nid=n.id) }}">
         <span class="gm-msg-notif-list__title">{{ n.title }}</span>
         <span class="gm-msg-notif-list__body muted">{{ n.body }}</span>
-        <span class="gm-msg-notif-list__when muted">{{ n.created_at.strftime('%Y-%m-%d %H:%M') if n.created_at else '' }}</span>
+        <span class="gm-msg-notif-list__when muted">{{ n.created_at|eastern_time }}</span>
       </a>
     </li>
     {% endfor %}

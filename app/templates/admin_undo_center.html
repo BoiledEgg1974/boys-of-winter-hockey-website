@@ -9,7 +9,7 @@
     <table class="data">
       <thead>
         <tr>
-          <th>When (UTC)</th>
+          <th>When (ET)</th>
           <th>Action</th>
           <th>Entity</th>
           <th>Before</th>
@@ -21,7 +21,7 @@
       <tbody>
         {% for r in rows %}
         <tr>
-          <td>{{ r.created_at.strftime('%Y-%m-%d %H:%M:%S') if r.created_at else '—' }}</td>
+          <td>{{ r.created_at|eastern_time('%Y-%m-%d %H:%M:%S') or '—' }}</td>
           <td>{{ r.action_key }}</td>
           <td>{{ r.entity_type }} #{{ r.entity_id }}</td>
           <td><code style="white-space:pre-wrap;">{{ r.before_json }}</code></td>

@@ -25,7 +25,7 @@
     <table class="data">
       <thead>
         <tr>
-          <th>When (UTC)</th>
+          <th>When (ET)</th>
           <th>Actor</th>
           <th>Action</th>
           <th>Detail JSON</th>
@@ -35,7 +35,7 @@
         {% for r in rows %}
         {% set actor = actors_by_id.get(r.admin_user_id) %}
         <tr>
-          <td>{{ r.created_at.strftime('%Y-%m-%d %H:%M:%S') if r.created_at else '—' }}</td>
+          <td>{{ r.created_at|eastern_time('%Y-%m-%d %H:%M:%S') or '—' }}</td>
           <td>
             {% if actor %}
               {{ actor.email }} <span class="muted">(id {{ r.admin_user_id }})</span>

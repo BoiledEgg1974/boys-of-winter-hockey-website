@@ -60,14 +60,14 @@
   </div>
   <div class="table-wrap" style="margin:0 0 0.9rem;">
     <table class="data">
-      <thead><tr><th>Bot</th><th>Heartbeat</th><th>Last Seen (UTC)</th><th>Version</th><th>Guild ID</th></tr></thead>
+      <thead><tr><th>Bot</th><th>Heartbeat</th><th>Last Seen (ET)</th><th>Version</th><th>Guild ID</th></tr></thead>
       <tbody>
         {% for hb in heartbeat_rows %}
         <tr>
           <td>{{ hb.bot_name }}</td>
           <td>{% if hb.is_fresh %}<span style="color:#0a7d28;font-weight:700;">Green</span>{% else %}<span style="color:#b42318;font-weight:700;">Red</span>{% endif %}</td>
           <td>
-            {{ hb.last_seen_at.strftime('%Y-%m-%d %H:%M:%S') if hb.last_seen_at else '—' }}
+            {{ hb.last_seen_at|eastern_time('%Y-%m-%d %H:%M:%S') or '—' }}
             {% if hb.age_minutes is not none %}
               <span class="muted">({{ hb.age_minutes }} min ago)</span>
             {% endif %}
@@ -191,12 +191,12 @@
   <div class="table-wrap">
     <table class="data">
       <thead>
-        <tr><th>When (UTC)</th><th>Event</th><th>Channel</th><th>Status</th><th>Attempts</th><th>Last Error</th><th>Payload</th><th>Actions</th></tr>
+        <tr><th>When (ET)</th><th>Event</th><th>Channel</th><th>Status</th><th>Attempts</th><th>Last Error</th><th>Payload</th><th>Actions</th></tr>
       </thead>
       <tbody>
         {% for e in events %}
         <tr>
-          <td>{{ e.created_at.strftime('%Y-%m-%d %H:%M:%S') if e.created_at else '—' }}</td>
+          <td>{{ e.created_at|eastern_time('%Y-%m-%d %H:%M:%S') or '—' }}</td>
           <td><code>{{ e.event_key }}</code></td>
           <td><code>{{ e.channel_key }}</code></td>
           <td>{{ e.status }}</td>
@@ -204,7 +204,7 @@
           <td style="max-width:14rem;word-break:break-word;">
             {{ e.last_error or '—' }}
             {% if e.next_attempt_at and e.status == 'pending' %}
-              <div class="muted">next retry: {{ e.next_attempt_at.strftime('%Y-%m-%d %H:%M:%S') }}</div>
+              <div class="muted">next retry: {{ e.next_attempt_at|eastern_time('%Y-%m-%d %H:%M:%S') }}</div>
             {% endif %}
           </td>
           <td><code style="white-space:pre-wrap;">{{ e.payload_json or '{}' }}</code></td>
@@ -236,12 +236,12 @@
   <div class="table-wrap">
     <table class="data">
       <thead>
-        <tr><th>When (UTC)</th><th>Recipient</th><th>Event</th><th>Status</th><th>Attempts</th><th>Last Error</th><th>Payload</th><th>Actions</th></tr>
+        <tr><th>When (ET)</th><th>Recipient</th><th>Event</th><th>Status</th><th>Attempts</th><th>Last Error</th><th>Payload</th><th>Actions</th></tr>
       </thead>
       <tbody>
         {% for e in dm_events %}
         <tr>
-          <td>{{ e.created_at.strftime('%Y-%m-%d %H:%M:%S') if e.created_at else '—' }}</td>
+          <td>{{ e.created_at|eastern_time('%Y-%m-%d %H:%M:%S') or '—' }}</td>
           <td>{{ e.recipient_user_id }}<br><code>{{ e.discord_user_id }}</code></td>
           <td><code>{{ e.event_key }}</code></td>
           <td>{{ e.status }}</td>
@@ -249,7 +249,7 @@
           <td style="max-width:14rem;word-break:break-word;">
             {{ e.last_error or '—' }}
             {% if e.next_attempt_at and e.status == 'pending' %}
-              <div class="muted">next retry: {{ e.next_attempt_at.strftime('%Y-%m-%d %H:%M:%S') }}</div>
+              <div class="muted">next retry: {{ e.next_attempt_at|eastern_time('%Y-%m-%d %H:%M:%S') }}</div>
             {% endif %}
           </td>
           <td><code style="white-space:pre-wrap;">{{ e.payload_json or '{}' }}</code></td>
@@ -278,12 +278,12 @@
   <div class="table-wrap">
     <table class="data">
       <thead>
-        <tr><th>When (UTC)</th><th>Event</th><th>Attempts</th><th>Last Error</th><th>Action</th></tr>
+        <tr><th>When (ET)</th><th>Event</th><th>Attempts</th><th>Last Error</th><th>Action</th></tr>
       </thead>
       <tbody>
         {% for e in dead_letters %}
         <tr>
-          <td>{{ e.created_at.strftime('%Y-%m-%d %H:%M:%S') if e.created_at else '—' }}</td>
+          <td>{{ e.created_at|eastern_time('%Y-%m-%d %H:%M:%S') or '—' }}</td>
           <td><code>{{ e.event_key }}</code></td>
           <td>{{ e.attempts or 0 }}</td>
           <td style="max-width:18rem;word-break:break-word;">{{ e.last_error or '—' }}</td>

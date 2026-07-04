@@ -5,7 +5,7 @@
   <h1 class="page-title">Analytics & Alerting Dashboard</h1>
   <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
   <p class="muted" style="margin:0 0 0.8rem;">
-    Read-only health dashboard. Generated at {{ snapshot.generated_at_utc }} UTC for season {{ snapshot.current_season_label }}.
+    Read-only health dashboard. Generated at {{ snapshot.generated_at_utc|eastern_time('%Y-%m-%d %H:%M:%S') }} for season {{ snapshot.current_season_label }}.
     <a href="{{ url_for('site_admin.admin_audit_log') }}">Audit log</a> for high-impact admin actions.
   </p>
 

@@ -20,7 +20,7 @@
         {% else %}
         {{ gm_display_name(peer) }}{% if peer_team %} · {{ peer_team.full_display_name() }}{% endif %}
         {% endif %}
-        · {{ m.created_at.strftime('%Y-%m-%d %H:%M') if m.created_at else '' }}
+        · {{ m.created_at|eastern_time }}
       </div>
       <div class="gm-msg-bubble__body" style="white-space:pre-wrap;">{{ m.body }}</div>
     </div>

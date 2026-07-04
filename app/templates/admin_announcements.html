@@ -42,7 +42,7 @@
       <tbody>
         {% for r in rows %}
         <tr>
-          <td>{{ r.created_at.strftime('%Y-%m-%d %H:%M') if r.created_at else '—' }}</td>
+          <td>{{ r.created_at|eastern_time or '—' }}</td>
           <td>{{ r.level }}</td>
           <td>{{ r.title or '—' }}</td>
           <td>{{ r.body }}</td>

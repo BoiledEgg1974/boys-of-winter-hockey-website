@@ -111,6 +111,10 @@ def create_hub_app() -> Flask:
 
     hub_app.register_blueprint(hub_auth_bp)
 
+    from app.datetime_display import register_eastern_time_template_filter
+
+    register_eastern_time_template_filter(hub_app)
+
     @hub_app.post("/api/discord/interactions")
     @csrf.exempt
     def hub_discord_interactions():

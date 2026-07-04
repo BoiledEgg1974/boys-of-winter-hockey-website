@@ -6,7 +6,7 @@
   <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
   <p class="muted" style="margin:0 0 0.35rem;">Admin-managed watchlist entries + read-only digest. No outbound notification sending yet.</p>
   <p class="muted" style="margin:0 0 0.8rem;font-size:0.85rem;">
-    {% if digest.generated_at_utc %}Generated {{ digest.generated_at_utc }} UTC.{% endif %}
+    {% if digest.generated_at_utc %}Generated {{ digest.generated_at_utc|eastern_time('%Y-%m-%d %H:%M:%S') }}.{% endif %}
     {% if digest.note %}{{ digest.note }}{% endif %}
   </p>
 

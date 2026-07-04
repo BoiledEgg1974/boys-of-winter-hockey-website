@@ -727,7 +727,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 4630;61;61;Anatoli;Firsov;;69;154;1941-2-1;Moscow;MOS;Russia;;;0;Right;0
 4505;59;59;Leif;Andersson;;69;172;1940-3-3;Stockholm;STO;Sweden;;;0;Left;0
 4631;59;59;Hans;Dahllöf;Länsman;68;154;1941-1-25;Gävle;GäV;Sweden;;;0;Left;0
-4961;125;118;Bob;Sneddon;;74;194;1944-5-31;Murdochville;QC;Canada;;;0;Right;0
+4961;118;118;Bob;Sneddon;;74;194;1944-5-31;Murdochville;QC;Canada;;;0;Right;0
 4761;118;118;Gary;Sabourin;Gaye;71;181;1943-12-4;Parry Sound;ON;Canada;;;0;Right;0
 4632;59;59;Lennart;Johansson;;74;198;1941-6-7;Motala;ÖST;Sweden;;;0;Left;0
 5091;90;90;Roger;Pelletier;;71;195;1945-6-22;Murdochville;QC;Canada;;;0;Right;0
@@ -3247,7 +3247,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 5829;90;90;Bill;McEwan;;73;181;1948-11-14;Thunder Bay;ON;Canada;;;0;Left;1
 5830;90;90;Dan;McPherson;;72;194;1948-6-13;Borden;SK;Canada;;;0;Left;1
 5831;90;90;Rod;Bloomfield;;66;161;1948-1-5;Bracebridge;ON;Canada;;;0;Left;1
-5832;27;9;Ray;Schultz;;72;194;1948-8-26;Craven;SK;Canada;;;0;Left;0
+5832;9;9;Ray;Schultz;;72;194;1948-8-26;Craven;SK;Canada;;;0;Left;1
 5833;90;90;Marc;Davis;;73;212;1948-10-22;Toronto;ON;Canada;;;0;Left;1
 5834;90;90;Milt;Hohol;;72;174;1948-6-12;Elk Point;AB;Canada;;;0;Right;1
 5835;90;90;John;Healey;;73;194;1948-6-12;Pickering;ON;Canada;;;0;Left;1

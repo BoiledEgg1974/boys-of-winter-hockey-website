@@ -757,7 +757,7 @@ StaffId;Executive;Manager;Coach;Scout;Trainer;Off Pref;Phy Pref;Line Matching;Go
 755;5;10;20;15;1;Offensive;Balanced;Very Passive;Balanced;Balanced;Balanced;Balanced;13;9;16;10;12;17;19;5;16;0;7;17;7;4;0;;13;7
 756;5;10;20;15;1;Offensive;Balanced;Balanced;Balanced;Balanced;Conservative;Very Loyal;3;7;11;5;7;17;19;4;5;3;8;7;6;8;0;;8;10
 757;5;10;20;15;1;Offensive;Balanced;Balanced;Conservative;Balanced;Balanced;Ruthless;12;16;7;3;13;8;7;4;13;11;1;5;20;7;0;;10;2
-758;10;20;15;16;1;Standard;Physical;Balanced;Balanced;Balanced;Balanced;Balanced;7;7;7;7;7;7;7;7;7;9;7;15;7;7;0;;14;13
+758;10;20;15;15;1;Standard;Physical;Balanced;Balanced;Balanced;Balanced;Balanced;7;7;7;7;7;7;7;7;7;9;7;15;7;7;0;;14;13
 759;10;15;15;20;1;Standard;Balanced;Passive;Balanced;Balanced;Balanced;Balanced;5;13;7;6;8;6;7;7;6;7;7;7;5;8;0;;15;14
 760;20;20;10;15;1;Defensive;Balanced;Passive;Conservative;Balanced;Balanced;Ruthless;5;10;4;5;4;9;2;2;3;11;2;10;4;1;0;;2;14
 761;20;20;10;15;1;Offensive;Balanced;Balanced;Balanced;Balanced;Balanced;Loyal;7;3;3;12;1;13;12;7;8;6;8;5;17;2;0;;10;2

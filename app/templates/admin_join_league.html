@@ -3,10 +3,11 @@
 {% block content %}
 <div class="card admin-join-league">
   <h1 class="page-title">Join League Availability</h1>
-  <p class="muted">
-    Choose which GM positions appear in the public <a href="{{ url_for('main.join_league') }}">Join Our League</a>
-    team selector. <strong>Waitlist</strong> is always available.
-  </p>
+    <p class="muted">
+      Choose which GM positions appear in the public <a href="{{ url_for('main.join_league') }}">Join Our League</a>
+      team selector for <strong>{{ config.LEAGUE_DISPLAY_NAME }}</strong> only.
+      <strong>Waitlist</strong> is always available.
+    </p>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
   {% if messages %}

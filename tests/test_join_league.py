@@ -41,6 +41,23 @@ class JoinLeagueAvailabilityTests(unittest.TestCase):
                 save_join_team_options(["Quebec Nordiques", "Waitlist", "Quebec Nordiques"])
                 self.assertEqual(join_league_team_options(), [WAITLIST_OPTION, "Quebec Nordiques"])
 
+    def test_join_availability_is_per_league_not_site_wide(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            app = Flask(__name__, instance_path=tmp)
+            with app.app_context():
+                app.config["LEAGUE_SLUG"] = "bowl-cap"
+                save_join_team_options(["Los Angeles Kings"])
+                app.config["LEAGUE_SLUG"] = "bowl-fantasy"
+                self.assertEqual(join_league_team_options(), [WAITLIST_OPTION, "Tokyo Katanas"])
+                save_join_team_options(["Tokyo Katanas", "Montreal Canadiens"])
+                app.config["LEAGUE_SLUG"] = "bowl-cap"
+                self.assertEqual(join_league_team_options(), [WAITLIST_OPTION, "Los Angeles Kings"])
+                app.config["LEAGUE_SLUG"] = "bowl-fantasy"
+                self.assertEqual(
+                    join_league_team_options(),
+                    [WAITLIST_OPTION, "Tokyo Katanas", "Montreal Canadiens"],
+                )
+
     def test_available_team_banner_rows_map_saved_names_to_current_teams(self) -> None:
         class _Rows:
             def __init__(self, rows):

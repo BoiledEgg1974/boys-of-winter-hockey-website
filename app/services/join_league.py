@@ -9,12 +9,37 @@ from sqlalchemy import select
 from app.mail_util import send_site_email
 from app.models import Team
 
-JOIN_AVAILABLE_TEAMS_FILENAME = "join_league_available_teams.txt"
+JOIN_AVAILABLE_TEAMS_DIR = "join_league"
+JOIN_AVAILABLE_TEAMS_FILENAME = "available_teams.txt"
+LEGACY_JOIN_AVAILABLE_TEAMS_FILENAME = "join_league_available_teams.txt"
 WAITLIST_OPTION = "Waitlist"
 
 
+def _join_league_slug() -> str:
+    return str(current_app.config.get("LEAGUE_SLUG") or "").strip().lower() or "default"
+
+
 def join_available_teams_path() -> Path:
-    return Path(current_app.instance_path) / JOIN_AVAILABLE_TEAMS_FILENAME
+    slug = _join_league_slug()
+    return Path(current_app.instance_path) / JOIN_AVAILABLE_TEAMS_DIR / slug / JOIN_AVAILABLE_TEAMS_FILENAME
+
+
+def _legacy_join_available_teams_path() -> Path:
+    return Path(current_app.instance_path) / LEGACY_JOIN_AVAILABLE_TEAMS_FILENAME
+
+
+def _migrate_legacy_join_teams_file_if_needed(target: Path) -> None:
+    """Copy the old site-wide file into this league's path once (per-league settings)."""
+    if target.is_file():
+        return
+    legacy = _legacy_join_available_teams_path()
+    if not legacy.is_file():
+        return
+    target.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        target.write_text(legacy.read_text(encoding="utf-8"), encoding="utf-8")
+    except OSError:
+        return
 
 
 def normalize_team_option(name: str | None) -> str:
@@ -39,6 +64,7 @@ def dedupe_team_options(names: list[str]) -> list[str]:
 def configured_join_team_options() -> tuple[list[str], bool]:
     """Return configured open teams and whether the admin file exists."""
     teams_file = join_available_teams_path()
+    _migrate_legacy_join_teams_file_if_needed(teams_file)
     if not teams_file.is_file():
         return [], False
     try:
@@ -54,8 +80,7 @@ def join_league_team_options() -> list[str]:
     """Public Join Our League select options; Waitlist is always available."""
     options, has_admin_file = configured_join_team_options()
     if not has_admin_file:
-        league_slug = str(current_app.config.get("LEAGUE_SLUG") or "").strip().lower()
-        if league_slug == "bowl-fantasy":
+        if _join_league_slug() == "bowl-fantasy":
             options = ["Tokyo Katanas"]
     return [WAITLIST_OPTION, *dedupe_team_options(options)]
 

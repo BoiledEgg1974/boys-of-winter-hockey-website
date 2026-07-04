@@ -141,7 +141,7 @@ class SimCycleFormatterTests(unittest.TestCase):
             self.assertEqual(export_status_emoji(success=False, league_slug="bowl-cap"), "")
             self.assertEqual(export_status_emoji(success=True, league_slug="bowl-cap"), "")
 
-    def test_formatter_builds_division_lines_and_footer(self) -> None:
+    def test_formatter_builds_export_rows_and_footer(self) -> None:
         event = {
             "league_slug": "bowl-cap",
             "event_key": "sim_cycle_update",
@@ -157,16 +157,18 @@ class SimCycleFormatterTests(unittest.TestCase):
                 ],
                 "exported_count": 1,
                 "total_teams": 2,
-                "last_updated_at": "2026-07-03T00:01:00",
+                "last_updated_at": "2026-07-03T04:01:00+00:00",
                 "embed_color": 0xB91C1C,
             },
         }
         bodies = format_discord_messages(event, max_parts=1)
         self.assertEqual(len(bodies), 1)
         embed = bodies[0]["embeds"][0]
-        self.assertIn("Atlantic", embed["description"])
+        description = embed["description"]
+        self.assertNotIn("Atlantic", description)
         self.assertIn("Closed", embed["footer"]["text"])
         self.assertIn("1/2 exported", embed["footer"]["text"])
+        self.assertIn("Jul 03 00:01", embed["footer"]["text"])
 
     def test_build_division_export_groups_structure(self) -> None:
         site_session = MagicMock()

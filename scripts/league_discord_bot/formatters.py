@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import math
+from datetime import datetime, timezone
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from scripts.league_discord_bot.team_maps import (
     emoji_for_abbrev,
@@ -16,6 +18,8 @@ from scripts.league_discord_bot.team_maps import (
 DISCORD_SITE_MORE_FOOTER = (
     "For more news, stats and more, go to https://www.bowlhockey.com"
 )
+
+ET = ZoneInfo("America/New_York")
 
 ARTICLE_TEXT_DISCORD_EVENT_KEYS = frozenset(
     {
@@ -677,9 +681,21 @@ def _team_emote_for_fhm_id(league_slug: str, fhm_team_id: int) -> str:
     return ""
 
 
-def _sim_cycle_embed(league_slug: str, payload: dict[str, Any], *, title: str) -> dict[str, Any]:
-    from datetime import datetime
+def _sim_cycle_footer_timestamp(last_raw: str, *, phase: str) -> str:
+    if not last_raw:
+        return ""
+    try:
+        dt = datetime.fromisoformat(last_raw.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        if phase == "closed":
+            dt = dt.astimezone(ET)
+        return dt.strftime("%b %d %H:%M")
+    except ValueError:
+        return last_raw[:16]
 
+
+def _sim_cycle_embed(league_slug: str, payload: dict[str, Any], *, title: str) -> dict[str, Any]:
     phase = str(payload.get("phase") or "idle").strip().lower()
     logo = league_logo_emoji(league_slug)
     title_text = title[:256]
@@ -689,43 +705,33 @@ def _sim_cycle_embed(league_slug: str, payload: dict[str, Any], *, title: str) -
     success_em = export_status_emoji(success=True, league_slug=league_slug) or "✅"
     fail_em = export_status_emoji(success=False, league_slug=league_slug) or "❌"
 
-    lines: list[str] = []
+    exported_bits: list[str] = []
+    pending_bits: list[str] = []
     for div in payload.get("divisions") or []:
         if not isinstance(div, dict):
             continue
-        name = str(div.get("name") or "League").strip() or "League"
-        exported_bits = [
-            em
-            for tid in div.get("exported") or []
-            if (em := _team_emote_for_fhm_id(league_slug, int(tid)))
-        ]
-        pending_bits = [
-            em
-            for tid in div.get("pending") or []
-            if (em := _team_emote_for_fhm_id(league_slug, int(tid)))
-        ]
-        exported_part = " ".join(exported_bits)
-        pending_part = " ".join(pending_bits)
-        line = f"**{name}:**"
-        if exported_part:
-            line += f" {success_em} {exported_part}"
-        if pending_part:
-            line += f" {fail_em} {pending_part}"
-        lines.append(line.strip())
+        for tid in div.get("exported") or []:
+            if em := _team_emote_for_fhm_id(league_slug, int(tid)):
+                exported_bits.append(em)
+        for tid in div.get("pending") or []:
+            if em := _team_emote_for_fhm_id(league_slug, int(tid)):
+                pending_bits.append(em)
+
+    lines: list[str] = []
+    if exported_bits:
+        lines.append(f"{success_em} {' '.join(exported_bits)}")
+    if pending_bits:
+        lines.append(f"{fail_em} {' '.join(pending_bits)}")
 
     description = "\n".join(lines)[:DISCORD_MAX_EMBED_DESC_LEN] if lines else None
 
     exported_count = int(payload.get("exported_count") or 0)
     total_teams = int(payload.get("total_teams") or 0)
     status_word = "In progress" if phase == "live" else "Closed"
-    last_raw = str(payload.get("last_updated_at") or "").strip()
-    last_label = ""
-    if last_raw:
-        try:
-            dt = datetime.fromisoformat(last_raw.replace("Z", "+00:00"))
-            last_label = dt.strftime("%b %d %H:%M")
-        except ValueError:
-            last_label = last_raw[:16]
+    last_label = _sim_cycle_footer_timestamp(
+        str(payload.get("last_updated_at") or "").strip(),
+        phase=phase,
+    )
     footer_text = f"{status_word} — {exported_count}/{total_teams} exported"
     if last_label:
         footer_text += f" · last update {last_label}"

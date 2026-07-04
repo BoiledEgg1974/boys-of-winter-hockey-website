@@ -4,6 +4,15 @@ from __future__ import annotations
 import csv
 from pathlib import Path
 
+BOWL_CAP_DIVISION_ORDER: tuple[str, ...] = (
+    "Northeast",
+    "Atlantic",
+    "Southeast",
+    "Northwest",
+    "Central",
+    "Pacific",
+)
+
 
 def load_division_display_maps(div_csv: Path) -> tuple[dict[tuple[int, int], str], dict[int, str]]:
     """Parse divisions.csv like the standings page: only rows with League Id blank or 0."""
@@ -70,3 +79,31 @@ def division_group_key_for_standing(
     if div_name_by_pair or div_name_by_id:
         return (team_division_display_label(st, team, div_name_by_pair, div_name_by_id) or "").strip() or "League"
     return (st.division or "").strip() or "League"
+
+
+def normalize_division_name(name: str) -> str:
+    """Strip optional `` Division`` suffix for comparisons and sorting."""
+    s = (name or "").strip()
+    for suffix in (" Division", " division"):
+        if s.endswith(suffix):
+            return s[: -len(suffix)].strip()
+    return s
+
+
+def division_group_sort_key(name: str, *, league_slug: str | None = None) -> tuple:
+    """Sort key for division blocks; BOWL-Cap uses a fixed homepage/standings order."""
+    raw = (name or "").strip()
+    if raw == "League":
+        return (2, 99, "")
+    norm = normalize_division_name(raw)
+    if league_slug == "bowl-cap":
+        try:
+            idx = BOWL_CAP_DIVISION_ORDER.index(norm)
+            return (0, idx, norm.lower())
+        except ValueError:
+            return (1, 99, norm.lower())
+    return (0 if raw != "League" else 2, norm.lower())
+
+
+def sort_division_group_names(names: list[str], *, league_slug: str | None = None) -> list[str]:
+    return sorted(names, key=lambda n: division_group_sort_key(n, league_slug=league_slug))

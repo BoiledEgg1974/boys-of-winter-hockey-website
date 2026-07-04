@@ -1509,6 +1509,7 @@ def _build_homepage_summary_payload(
         div_name_by_pair=div_pair,
         div_name_by_id=div_by_id,
         logo_season_year=logo_sy,
+        league_slug=league_slug,
     )
     tm_map = {
         tid: t

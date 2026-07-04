@@ -14,7 +14,11 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import joinedload
 
 from app.services.season_team_logo_bundle import dashboard_team_logo_url
-from app.services.division_labels import division_group_key_for_standing, team_division_display_label
+from app.services.division_labels import (
+    division_group_key_for_standing,
+    sort_division_group_names,
+    team_division_display_label,
+)
 from app.models import (
     Game,
     GameGoalieStat,
@@ -235,6 +239,7 @@ def build_standings_by_division(
     div_name_by_pair: dict[tuple[int, int], str] | None = None,
     div_name_by_id: dict[int, str] | None = None,
     logo_season_year: int | None = None,
+    league_slug: str | None = None,
 ) -> list[dict[str, Any]]:
     pair = div_name_by_pair or {}
     idm = div_name_by_id or {}
@@ -252,7 +257,7 @@ def build_standings_by_division(
         key = division_group_key_for_standing(st, tm, pair, idm)
         by_div[key].append((st, tm))
     out: list[dict[str, Any]] = []
-    for div_name in sorted(by_div.keys(), key=lambda x: (x == "League", x)):
+    for div_name in sort_division_group_names(list(by_div.keys()), league_slug=league_slug):
         group = by_div[div_name]
         group.sort(key=lambda x: (-x[0].pts, -x[0].w, x[1].name or ""))
         teams_out = []

@@ -34,7 +34,11 @@ In each league’s admin page (`/<league-slug>/admin/discord-integration`):
 | Expansion draft — on clock / complete | `expansion_draft_on_clock`, `expansion_draft_completed` | `expansion-draft` |
 | Expansion draft — `/expansionlist` | `expansion_draft_command_list` | `expansion-draft` |
 | Expansion draft — `/expansionpick` | `expansion_draft_command_pick` | `expansion-draft-pick` |
+| Sim cycle board (live + closed) | `sim_cycle_update` | `sim-log` |
+| GM export tracker (live counts source) | `gm_export_tracker_poll` | `gm-export-tracker` |
 | Legacy (optional) | `news_published` | `league-news` |
+
+**Sim log:** Live `#sim-log` counts come **only** from export-bot posts in `#gm-export-tracker` (not the website). Map **`gm_export_tracker_poll`** to that channel on **each** league server. Map **`sim_cycle_update`** to `#sim-log` for the embed the bot posts/edits. After admin **EXPORT**, the closed board uses website GM export attendance; a new live cycle then tracks the next sim from `#gm-export-tracker` again. Both routes need channel IDs before the live board auto-starts.
 
 **Optional:** paste the same Discord channel ID onto multiple routes if you want combined feeds into one `#channel`.
 

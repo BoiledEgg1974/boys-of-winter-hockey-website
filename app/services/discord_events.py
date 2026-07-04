@@ -1783,6 +1783,41 @@ def fetch_pending_events_for_bot(
     return out
 
 
+def resolve_discord_channel_id(
+    session,
+    *,
+    league_slug: str,
+    event_key: str = "",
+    channel_key: str = "",
+) -> str:
+    """Resolve a Discord channel snowflake from an event route or channel_key fallback."""
+    slug = str(league_slug or "").strip()
+    ek = str(event_key or "").strip()
+    ck = str(channel_key or "").strip()
+    if not slug or (not ek and not ck):
+        return ""
+    ensure_discord_routes(session, slug)
+    bot_cfg = get_league_bot_config(session, slug)
+    if not bool(bot_cfg.is_enabled):
+        return ""
+    routes = _route_map(session, slug)
+    if ek:
+        row = routes.get(ek)
+        if row is not None and bool(row.is_enabled):
+            cid = str(row.discord_channel_id or "").strip()
+            if cid:
+                return cid
+    if ck:
+        for row in routes.values():
+            if not bool(row.is_enabled):
+                continue
+            if str(row.channel_key or "").strip() == ck:
+                cid = str(row.discord_channel_id or "").strip()
+                if cid:
+                    return cid
+    return ""
+
+
 def bot_event_delivery_fields(session, *, league_slug: str, event_key: str) -> dict[str, str]:
     routes = _route_map(session, league_slug)
     cfg = get_league_bot_config(session, league_slug)

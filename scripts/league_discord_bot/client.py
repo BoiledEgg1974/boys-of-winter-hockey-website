@@ -505,10 +505,16 @@ class LeagueDiscordBot:
             return False
         if not cfg.get("ok"):
             return False
-        if str(cfg.get("phase") or "") != "live":
+        phase = str(cfg.get("phase") or "")
+        if phase != "live":
             return False
         channel_id = str(cfg.get("tracker_channel_id") or "").strip()
         if not channel_id:
+            log.warning(
+                "%s sim cycle is live but #gm-export-tracker is not configured "
+                "(set gm_export_tracker_poll channel ID on Discord integration)",
+                slug,
+            )
             return False
         after_id = str(cfg.get("tracker_last_message_id") or "").strip()
         initial_sync = not after_id

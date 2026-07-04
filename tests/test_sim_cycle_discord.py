@@ -356,19 +356,38 @@ class SimCycleAutomationTests(unittest.TestCase):
         self.assertEqual(action, "started")
         start_mock.assert_called_once()
 
-    def test_sim_log_route_ready_without_tracker(self) -> None:
+    def test_sim_cycle_routes_ready_requires_tracker(self) -> None:
         site_session = MagicMock()
         with patch(
-            "app.services.discord_events.is_discord_event_route_active",
-            side_effect=lambda _s, *, league_slug, event_key: event_key == "sim_cycle_update",
+            "app.services.sim_cycle_discord.sim_log_route_ready",
+            side_effect=lambda _s, slug: slug == "bowl-cap",
+        ), patch(
+            "app.services.sim_cycle_discord.sim_cycle_tracker_route_ready",
+            return_value=False,
         ):
-            from app.services.sim_cycle_discord import (
-                sim_cycle_routes_ready,
-                sim_cycle_tracker_route_ready,
-            )
+            from app.services.sim_cycle_discord import sim_cycle_routes_ready
+
+            self.assertFalse(sim_cycle_routes_ready(site_session, "bowl-cap"))
+        with patch(
+            "app.services.sim_cycle_discord.sim_log_route_ready",
+            return_value=True,
+        ), patch(
+            "app.services.sim_cycle_discord.sim_cycle_tracker_route_ready",
+            return_value=True,
+        ):
+            from app.services.sim_cycle_discord import sim_cycle_routes_ready
 
             self.assertTrue(sim_cycle_routes_ready(site_session, "bowl-cap"))
-            self.assertFalse(sim_cycle_tracker_route_ready(site_session, "bowl-cap"))
+
+    def test_tracker_route_ready_uses_channel_id(self) -> None:
+        site_session = MagicMock()
+        with patch(
+            "app.services.sim_cycle_discord._tracker_channel_id",
+            return_value="123456789012345678",
+        ):
+            from app.services.sim_cycle_discord import sim_cycle_tracker_route_ready
+
+            self.assertTrue(sim_cycle_tracker_route_ready(site_session, "bowl-cap"))
 
     def test_maybe_auto_start_skips_when_not_idle(self) -> None:
         site_session = MagicMock()

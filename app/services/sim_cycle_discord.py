@@ -199,12 +199,15 @@ def _current_sim_log_channel_id(session: Session, league_slug: str) -> str:
 
 
 def _tracker_channel_id(session: Session, league_slug: str) -> str:
-    delivery = bot_event_delivery_fields(
+    """#gm-export-tracker snowflake — live sim-log counts come from this channel only."""
+    from app.services.discord_events import resolve_discord_channel_id
+
+    return resolve_discord_channel_id(
         session,
         league_slug=league_slug,
         event_key=GM_EXPORT_TRACKER_POLL_EVENT_KEY,
+        channel_key="gm-export-tracker",
     )
-    return str(delivery.get("discord_channel_id") or "").strip()
 
 
 def _message_id_for_channel(
@@ -437,24 +440,20 @@ def sim_log_route_ready(site_session: Session, league_slug: str) -> bool:
 
 
 def sim_cycle_tracker_route_ready(site_session: Session, league_slug: str) -> bool:
-    from app.services.discord_events import (
-        GM_EXPORT_TRACKER_POLL_EVENT_KEY,
-        is_discord_event_route_active,
-    )
-
     slug = str(league_slug or "").strip()
     if not slug:
         return False
-    return bool(
-        is_discord_event_route_active(
-            site_session, league_slug=slug, event_key=GM_EXPORT_TRACKER_POLL_EVENT_KEY
-        )
-    )
+    return bool(_tracker_channel_id(site_session, slug))
 
 
 def sim_cycle_routes_ready(site_session: Session, league_slug: str) -> bool:
-    """Sim-log output route; tracker is optional (live board runs without it)."""
-    return sim_log_route_ready(site_session, league_slug)
+    """#sim-log output plus #gm-export-tracker poll (live board is Discord-only)."""
+    slug = str(league_slug or "").strip()
+    if not slug:
+        return False
+    return sim_log_route_ready(site_session, slug) and sim_cycle_tracker_route_ready(
+        site_session, slug
+    )
 
 
 def maybe_auto_start_sim_cycle(
@@ -577,10 +576,12 @@ def sim_cycle_tracker_config(site_session: Session, league_slug: str) -> dict[st
         select(SimCycleState).where(SimCycleState.league_slug == slug).limit(1)
     )
     phase = str(getattr(state, "phase", None) or "idle")
+    tracker_channel_id = _tracker_channel_id(site_session, slug)
     return {
         "ok": True,
         "phase": phase,
-        "tracker_channel_id": _tracker_channel_id(site_session, slug),
+        "tracker_channel_id": tracker_channel_id,
+        "tracker_ready": bool(tracker_channel_id),
         "tracker_last_message_id": str(getattr(state, "tracker_last_message_id", None) or ""),
         "cycle_started_at": (
             state.cycle_started_at.isoformat() if state and state.cycle_started_at else ""

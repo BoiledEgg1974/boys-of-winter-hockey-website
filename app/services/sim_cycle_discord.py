@@ -236,7 +236,12 @@ def resolve_sim_cycle_discord_message_id(session: Session, league_slug: str) -> 
 
 
 def _payload_content_hash(payload: dict[str, Any]) -> str:
-    blob = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    stable = {
+        k: v
+        for k, v in payload.items()
+        if k not in {"last_updated_at", "content_hash"}
+    }
+    blob = json.dumps(stable, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:64]
 
 
@@ -511,6 +516,12 @@ def ingest_tracker_messages(
     *,
     initial_sync: bool = False,
 ) -> bool:
+    """
+    Re-scan recent #gm-export-tracker posts and refresh the live export board.
+
+    Uses the full message window each poll (not incremental merge) so exports are
+    not lost when an earlier parse pass missed a post.
+    """
     from app.services.sim_cycle_tracker_parser import (
         newest_message_id,
         parse_export_fhm_team_ids_from_messages,
@@ -532,36 +543,29 @@ def ingest_tracker_messages(
     if bot_id:
         allowed = {bot_id}
 
-    changed = False
     if initial_sync and not str(state.tracker_last_message_id or "").strip():
         watermark = tracker_watermark_before_cycle(
             messages, cycle_started_at=state.cycle_started_at
         )
         if watermark:
             state.tracker_last_message_id = watermark[:32]
-            changed = True
 
-    parsed_ids, latest_mid = parse_export_fhm_team_ids_from_messages(
+    parsed_ids, _latest_mid = parse_export_fhm_team_ids_from_messages(
         slug,
         messages,
         cycle_started_at=state.cycle_started_at,
         allowed_author_ids=allowed,
         require_bot_author=True,
     )
-    cursor = newest_message_id(messages) or latest_mid
+    cursor = newest_message_id(messages)
     if cursor:
-        prev = str(state.tracker_last_message_id or "").strip()
-        if not prev or int(cursor) > int(prev):
-            state.tracker_last_message_id = cursor[:32]
-            changed = True
+        state.tracker_last_message_id = cursor[:32]
 
     current = _load_live_exported_fhm_ids(state)
     merged = current | parsed_ids
-    if merged != current:
-        _store_live_exported_fhm_ids(state, merged)
-        changed = True
-    if not changed:
+    if merged == current:
         return False
+    _store_live_exported_fhm_ids(state, merged)
     state.updated_at = datetime.utcnow()
     site_session.flush()
     return maybe_enqueue_sim_cycle_discord(site_session, league_session, state)

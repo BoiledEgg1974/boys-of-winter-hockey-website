@@ -13,7 +13,10 @@ from scripts.league_discord_bot.team_maps import (
 )
 
 _ABBREV_TOKEN_RE = re.compile(r"\b[A-Z]{2,4}\b")
-_EXPORT_NOTIFY_RE = re.compile(r"\b(?:has\s+)?export(?:ed|ing|s)?\b", re.IGNORECASE)
+_EXPORT_NOTIFY_RE = re.compile(
+    r"\b(?:has\s+)?export(?:ed|ing|s)?\b|\bexport\s+complete\b|\b(?:ftp|upload)\s+(?:complete|success)",
+    re.IGNORECASE,
+)
 
 
 def _parse_discord_timestamp(raw: object) -> datetime | None:

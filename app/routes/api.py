@@ -1979,7 +1979,7 @@ def discord_sim_cycle_ingest_tracker():
             db.session, db.session, slug, messages, initial_sync=initial_sync
         )
         commit_with_sqlite_retry(db.session)
-        return jsonify({"ok": True, "changed": bool(changed)})
+        return jsonify({"ok": True, "changed": bool(changed), "sim_cycle_queued": bool(changed)})
     except Exception:
         db.session.rollback()
         current_app.logger.exception("sim cycle tracker ingest failed for %s", slug)
@@ -2026,6 +2026,7 @@ def discord_events_pending():
         limit = int(request.args.get("limit") or "20")
     except ValueError:
         limit = 20
+    event_key = str(request.args.get("event_key") or "").strip()
     from app.services.discord_events import (
         fetch_pending_events_for_bot,
         get_league_bot_config,
@@ -2043,7 +2044,9 @@ def discord_events_pending():
         db.session.rollback()
         current_app.logger.exception("sim cycle auto-start failed for %s", slug)
 
-    rows = fetch_pending_events_for_bot(db.session, league_slug=slug, limit=limit)
+    rows = fetch_pending_events_for_bot(
+        db.session, league_slug=slug, limit=limit, event_key=event_key
+    )
     bot_cfg = get_league_bot_config(db.session, slug)
     out = serialize_pending_events_for_bot(
         db.session, league_slug=slug, rows=rows

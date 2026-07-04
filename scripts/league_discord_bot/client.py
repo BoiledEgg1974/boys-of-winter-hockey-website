@@ -37,14 +37,23 @@ class LeagueDiscordBot:
         return f"{base}{rel}"
 
     def poll_pending(
-        self, client: httpx.Client, league_slug: str, *, site_timeout: float | None = None
+        self,
+        client: httpx.Client,
+        league_slug: str,
+        *,
+        site_timeout: float | None = None,
+        event_key: str = "",
+        limit: int = 20,
     ) -> tuple[list[dict[str, Any]], str]:
         url = self._site_url(league_slug, "/api/discord/events/pending")
         timeout = site_timeout if site_timeout is not None else self.settings.site_timeout_seconds
+        params: dict[str, str | int] = {"league_slug": league_slug, "limit": int(limit)}
+        if str(event_key or "").strip():
+            params["event_key"] = str(event_key).strip()
         try:
             resp = client.get(
                 url,
-                params={"league_slug": league_slug, "limit": 20},
+                params=params,
                 headers=self._headers,
                 timeout=timeout,
             )
@@ -56,7 +65,7 @@ class LeagueDiscordBot:
             )
             resp = client.get(
                 url,
-                params={"league_slug": league_slug, "limit": 20},
+                params=params,
                 headers=self._headers,
                 timeout=timeout,
             )
@@ -477,11 +486,11 @@ class LeagueDiscordBot:
 
     def refresh_sim_cycle_tracker(
         self, site_client: httpx.Client, discord_client: httpx.Client, league_slug: str
-    ) -> None:
+    ) -> bool:
         """Poll #gm-export-tracker during live sim cycles and POST parsed exports to the site."""
         slug = str(league_slug or "").strip()
         if not slug:
-            return
+            return False
         try:
             cfg_resp = site_client.get(
                 self._site_url(slug, "/api/discord/sim-cycle/tracker-config"),
@@ -493,19 +502,17 @@ class LeagueDiscordBot:
             cfg = cfg_resp.json() or {}
         except Exception:
             log.exception("sim cycle tracker config fetch failed for %s", slug)
-            return
+            return False
         if not cfg.get("ok"):
-            return
+            return False
         if str(cfg.get("phase") or "") != "live":
-            return
+            return False
         channel_id = str(cfg.get("tracker_channel_id") or "").strip()
         if not channel_id:
-            return
-        params: dict[str, str] = {"limit": "100"}
+            return False
         after_id = str(cfg.get("tracker_last_message_id") or "").strip()
         initial_sync = not after_id
-        if after_id:
-            params["after"] = after_id
+        params: dict[str, str] = {"limit": "100"}
         try:
             msg_resp = discord_client.get(
                 f"https://discord.com/api/v10/channels/{channel_id}/messages",
@@ -517,9 +524,9 @@ class LeagueDiscordBot:
             messages = list(msg_resp.json() or [])
         except Exception:
             log.exception("sim cycle tracker Discord fetch failed for %s", slug)
-            return
+            return False
         if not messages:
-            return
+            return False
         try:
             ingest_resp = site_client.post(
                 self._site_url(slug, "/api/discord/sim-cycle/ingest-tracker"),
@@ -529,8 +536,47 @@ class LeagueDiscordBot:
                 timeout=self.settings.site_timeout_seconds,
             )
             ingest_resp.raise_for_status()
+            data = ingest_resp.json() or {}
+            return bool(data.get("sim_cycle_queued") or data.get("changed"))
         except Exception:
             log.exception("sim cycle tracker ingest failed for %s", slug)
+            return False
+
+    def deliver_pending_sim_cycle_updates(
+        self, site_client: httpx.Client, discord_client: httpx.Client, league_slug: str
+    ) -> None:
+        """Push pending #sim-log board edits immediately after tracker ingest."""
+        slug = str(league_slug or "").strip()
+        if not slug:
+            return
+        try:
+            events, _guild_id = self.poll_pending(
+                site_client,
+                slug,
+                event_key="sim_cycle_update",
+                limit=1,
+            )
+        except Exception:
+            log.exception("sim cycle pending fetch failed for %s", slug)
+            return
+        delay = float(self.settings.delivery_delay_seconds)
+        for idx, ev in enumerate(events):
+            if idx > 0 and delay > 0:
+                time.sleep(delay)
+            try:
+                self.deliver_one(site_client, discord_client, slug, ev)
+                log.info("delivered sim cycle update for %s (event %s)", slug, ev.get("id"))
+            except Exception as exc:
+                log.warning(
+                    "sim cycle delivery failed for %s event %s: %s",
+                    slug,
+                    ev.get("id"),
+                    exc,
+                )
+                try:
+                    self.fail(site_client, slug, int(ev["id"]), str(exc))
+                except Exception:
+                    log.exception("fail report failed for sim cycle event %s", ev.get("id"))
 
     def run_cycle(self, site_client: httpx.Client, discord_client: httpx.Client) -> str | None:
         last_error: str | None = None
@@ -577,20 +623,27 @@ class LeagueDiscordBot:
                     )
                 except Exception:
                     log.exception("heartbeat failed for %s", slug)
-                try:
-                    self.refresh_sim_cycle_tracker(site_client, discord_client, slug)
-                except Exception:
-                    log.exception("sim cycle tracker refresh failed for %s", slug)
             except Exception as exc:
                 last_error = str(exc)
                 log.exception("poll cycle failed for %s", slug)
         return last_error
 
+    def run_tracker_cycle(self, site_client: httpx.Client, discord_client: httpx.Client) -> None:
+        """Fast poll of #gm-export-tracker for every configured league."""
+        for slug in sorted(self.settings.league_base_urls):
+            try:
+                if self.refresh_sim_cycle_tracker(site_client, discord_client, slug):
+                    self.deliver_pending_sim_cycle_updates(site_client, discord_client, slug)
+            except Exception:
+                log.exception("sim cycle tracker refresh failed for %s", slug)
+
     def run_forever(self) -> None:
         logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
         log.info(
-            "Starting league_discord_bot for leagues: %s (delay=%.1fs, max_parts=%s, site_timeout=%.0fs)",
+            "Starting league_discord_bot for leagues: %s (poll=%.1fs, tracker_poll=%.1fs, delay=%.1fs, max_parts=%s, site_timeout=%.0fs)",
             ", ".join(sorted(self.settings.league_base_urls)),
+            self.settings.poll_seconds,
+            self.settings.tracker_poll_seconds,
             self.settings.delivery_delay_seconds,
             self.settings.max_message_parts,
             self.settings.site_timeout_seconds,
@@ -605,6 +658,20 @@ class LeagueDiscordBot:
         with httpx.Client(timeout=site_timeout) as site_client, httpx.Client(
             timeout=discord_timeout
         ) as discord_client:
+            next_tracker = 0.0
+            next_full = 0.0
+            tracker_interval = max(2.0, float(self.settings.tracker_poll_seconds))
+            full_interval = max(tracker_interval, float(self.settings.poll_seconds))
             while True:
-                self.run_cycle(site_client, discord_client)
-                time.sleep(max(2.0, float(self.settings.poll_seconds)))
+                now = time.monotonic()
+                if now >= next_tracker:
+                    self.run_tracker_cycle(site_client, discord_client)
+                    next_tracker = now + tracker_interval
+                if now >= next_full:
+                    self.run_cycle(site_client, discord_client)
+                    next_full = now + full_interval
+                sleep_for = min(
+                    max(0.25, next_tracker - time.monotonic()),
+                    max(0.25, next_full - time.monotonic()),
+                )
+                time.sleep(sleep_for)

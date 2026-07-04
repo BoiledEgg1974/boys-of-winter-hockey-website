@@ -1730,19 +1730,23 @@ def _parse_payload(row: DiscordOutboundEvent) -> dict:
         return {}
 
 
-def fetch_pending_events_for_bot(session, *, league_slug: str, limit: int = 20) -> list[DiscordOutboundEvent]:
+def fetch_pending_events_for_bot(
+    session, *, league_slug: str, limit: int = 20, event_key: str = ""
+) -> list[DiscordOutboundEvent]:
     now = datetime.utcnow()
+    q = select(DiscordOutboundEvent).where(
+        DiscordOutboundEvent.league_slug == league_slug,
+        DiscordOutboundEvent.status == "pending",
+        or_(DiscordOutboundEvent.next_attempt_at.is_(None), DiscordOutboundEvent.next_attempt_at <= now),
+    )
+    ek_filter = str(event_key or "").strip()
+    if ek_filter:
+        q = q.where(DiscordOutboundEvent.event_key == ek_filter)
     rows = session.scalars(
-        select(DiscordOutboundEvent)
-        .where(
-            DiscordOutboundEvent.league_slug == league_slug,
-            DiscordOutboundEvent.status == "pending",
-            or_(DiscordOutboundEvent.next_attempt_at.is_(None), DiscordOutboundEvent.next_attempt_at <= now),
-        )
-        .order_by(DiscordOutboundEvent.created_at.asc(), DiscordOutboundEvent.id.asc())
+        q.order_by(DiscordOutboundEvent.created_at.asc(), DiscordOutboundEvent.id.asc())
         .limit(max(1, min(100, int(limit) * 2)))
     ).all()
-    out: list[DiscordOutboundEvent] = []
+    eligible: list[DiscordOutboundEvent] = []
     changed = False
     for row in rows:
         payload = _parse_payload(row)
@@ -1762,9 +1766,16 @@ def fetch_pending_events_for_bot(session, *, league_slug: str, limit: int = 20) 
             row.sent_at = datetime.utcnow()
             changed = True
             continue
-        out.append(row)
-        if len(out) >= max(1, min(100, int(limit))):
-            break
+        eligible.append(row)
+    if not ek_filter:
+        eligible.sort(
+            key=lambda row: (
+                0 if str(row.event_key or "") == SIM_CYCLE_UPDATE_EVENT_KEY else 1,
+                row.created_at or datetime.min,
+                int(row.id or 0),
+            )
+        )
+    out = eligible[: max(1, min(100, int(limit)))]
     if changed:
         from app.sqlite_retry import commit_with_sqlite_retry
 

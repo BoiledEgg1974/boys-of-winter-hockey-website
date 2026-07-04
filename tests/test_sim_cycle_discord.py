@@ -105,6 +105,19 @@ class SimCycleTrackerParserTests(unittest.TestCase):
         )
         self.assertEqual(ids, {3})
 
+    def test_parses_export_complete_phrase(self) -> None:
+        messages = [
+            {
+                "id": "1005",
+                "timestamp": datetime.utcnow().isoformat(),
+                "content": "Export complete BUF",
+                "author": {"id": "111", "bot": True},
+            }
+        ]
+        ids, _latest = parse_export_fhm_team_ids_from_messages("bowl-cap", messages)
+        buf_id = next(tid for tid, (abbr, _em) in CAP_TEAMS.items() if abbr == "BUF")
+        self.assertIn(buf_id, ids)
+
     def test_watermark_before_cycle_anchor(self) -> None:
         anchor = datetime(2026, 7, 3, 18, 0, 0)
         messages = [

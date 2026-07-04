@@ -7705,41 +7705,10 @@ def admin_staff_approve(rid: int):
     commit_with_sqlite_retry(db.session)
     if req.request_type == "hire":
         notify_staff_hire_approved(slug, req)
-        flash("Approved, roster updated, GM notified, and transaction posted.", "ok")
+        flash("Approved, roster updated, staff payroll adjusted, GM notified, and transaction posted.", "ok")
     else:
         notify_staff_fire_approved(slug, req)
-        from app.services.admin_review_notify import notify_staff_fire_payroll_adjustment
-        from app.services.league_finances import default_salary_for_role
-        from app.services.staff_salaries import compute_staff_default_salaries, staff_budget_data_for_season
-        from app.services.staff_salaries import main_league_teams
-
-        budget_data = staff_budget_data_for_season(
-            db.session,
-            league_slug=slug,
-            season_start_year=int(req.season_start_year),
-        )
-        teams = main_league_teams(db.session)
-        total_budget = sum(int(data["budget_amount"]) for data in budget_data.values())
-        defaults = compute_staff_default_salaries(total_budget, len(teams))
-        suggested = default_salary_for_role(str(req.role or ""), defaults)
-        team_label = team.full_display_name() if team else f"Team {req.team_id}"
-        try:
-            notify_staff_fire_payroll_adjustment(
-                league_slug=slug,
-                league_display_name=league_display_name(slug),
-                request_id=int(req.id),
-                team_name=team_label,
-                staff_name=str(req.staff_name),
-                role_label=staff_role_label(req.role),
-                suggested_reduction=int(suggested),
-            )
-            commit_with_sqlite_retry(db.session)
-        except Exception as exc:
-            current_app.logger.warning("Admin notify (staff payroll adjust): %s", exc)
-        flash(
-            "Fire approved. Update the team's staff payroll in Admin → Staff Budgets if expenses changed in-game.",
-            "ok",
-        )
+        flash("Approved, roster updated, staff payroll adjusted, GM notified, and transaction posted.", "ok")
     return redirect(url_for("site_admin.admin_staff_requests"))
 
 

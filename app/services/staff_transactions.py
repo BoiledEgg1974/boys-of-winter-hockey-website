@@ -398,6 +398,51 @@ def _apply_hire_payroll_increment(
     row.current_salary_amount = int(projected)
 
 
+def _projected_payroll_after_fire(
+    *,
+    current_salary_amount: int,
+    fired_role: str,
+    defaults,
+) -> int:
+    from app.services.league_finances import default_salary_for_role
+
+    role_cost = default_salary_for_role(fired_role, defaults)
+    current = int(current_salary_amount or 0)
+    if current > 0:
+        return max(0, current - role_cost)
+    return 0
+
+
+def _apply_fire_payroll_decrement(
+    session: Session,
+    *,
+    league_slug: str,
+    season_start_year: int,
+    team_id: int,
+    fired_role: str,
+    defaults,
+) -> None:
+    row = session.scalar(
+        select(TeamStaffBudget).where(
+            TeamStaffBudget.league_slug == league_slug,
+            TeamStaffBudget.season_start_year == int(season_start_year),
+            TeamStaffBudget.team_id == int(team_id),
+        ).limit(1)
+    )
+    if row is None:
+        return
+    current = int(row.current_salary_amount or 0)
+    if current <= 0:
+        return
+    row.current_salary_amount = int(
+        _projected_payroll_after_fire(
+            current_salary_amount=current,
+            fired_role=fired_role,
+            defaults=defaults,
+        )
+    )
+
+
 def approve_staff_request(
     session: Session,
     req: StaffChangeRequest,
@@ -489,7 +534,20 @@ def approve_staff_request(
             req.processed_by_user_id = admin_user_id
             req.admin_note = "Denied: staff member is not on this team's active roster."
             return StaffRequestResult(False, req.admin_note)
+        defaults = _league_staff_defaults(
+            session,
+            league_slug=slug,
+            season_start_year=int(req.season_start_year),
+        )
         entry.fired_at = now
+        _apply_fire_payroll_decrement(
+            session,
+            league_slug=slug,
+            season_start_year=int(req.season_start_year),
+            team_id=int(req.team_id),
+            fired_role=str(entry.role or req.role or ""),
+            defaults=defaults,
+        )
         req.status = "approved"
         req.processed_at = now
         req.processed_by_user_id = admin_user_id

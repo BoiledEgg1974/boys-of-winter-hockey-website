@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from app.services.sim_cycle_discord import (
-    build_division_export_groups,
+    build_export_team_lists,
     build_sim_cycle_discord_payload,
     handle_sim_cycle_after_admin_export,
     publish_closed_sim_cycle_from_admin_export,
@@ -33,8 +33,8 @@ class SimCycleClosedBoardTests(unittest.TestCase):
             "app.services.sim_cycle_discord._closed_exported_fhm_team_ids",
             return_value={17},
         ), patch(
-            "app.services.sim_cycle_discord.build_division_export_groups",
-            return_value=[{"name": "Atlantic", "exported": [17], "pending": [3]}],
+            "app.services.sim_cycle_discord.build_export_team_lists",
+            return_value={"exported": [17], "pending": [3]},
         ):
             payload = build_sim_cycle_discord_payload(
                 site_session, league_session, state
@@ -148,13 +148,8 @@ class SimCycleFormatterTests(unittest.TestCase):
             "payload": {
                 "title": "Current Sim Cycle (closed)",
                 "phase": "closed",
-                "divisions": [
-                    {
-                        "name": "Atlantic",
-                        "exported": [17],
-                        "pending": [3],
-                    }
-                ],
+                "exported": [17],
+                "pending": [3],
                 "exported_count": 1,
                 "total_teams": 2,
                 "last_updated_at": "2026-07-03T04:01:00+00:00",
@@ -170,7 +165,59 @@ class SimCycleFormatterTests(unittest.TestCase):
         self.assertIn("1/2 exported", embed["footer"]["text"])
         self.assertIn("Jul 03 00:01", embed["footer"]["text"])
 
-    def test_build_division_export_groups_structure(self) -> None:
+    def test_formatter_two_export_rows_no_division_labels(self) -> None:
+        from scripts.league_discord_bot.team_maps import export_status_emoji
+
+        event = {
+            "league_slug": "bowl-cap",
+            "event_key": "sim_cycle_update",
+            "payload": {
+                "title": "Current Sim Cycle (closed)",
+                "phase": "closed",
+                "exported": [17, 3],
+                "pending": [5, 8],
+                "exported_count": 2,
+                "total_teams": 4,
+                "last_updated_at": "2026-07-03T04:01:00+00:00",
+                "embed_color": 0xB91C1C,
+            },
+        }
+        bodies = format_discord_messages(event, max_parts=1)
+        description = bodies[0]["embeds"][0]["description"]
+        lines = description.split("\n")
+        success_em = export_status_emoji(success=True, league_slug="bowl-cap") or "✅"
+        fail_em = export_status_emoji(success=False, league_slug="bowl-cap") or "❌"
+        self.assertEqual(len(lines), 2)
+        self.assertTrue(lines[0].startswith(success_em))
+        self.assertTrue(lines[1].startswith(fail_em))
+        self.assertNotIn("Atlantic", description)
+        self.assertNotIn("Metropolitan", description)
+
+    def test_formatter_accepts_legacy_divisions_payload(self) -> None:
+        from scripts.league_discord_bot.team_maps import export_status_emoji
+
+        event = {
+            "league_slug": "bowl-cap",
+            "event_key": "sim_cycle_update",
+            "payload": {
+                "title": "Current Sim Cycle (closed)",
+                "phase": "closed",
+                "divisions": [
+                    {"name": "Atlantic", "exported": [17], "pending": [3]},
+                ],
+                "exported_count": 1,
+                "total_teams": 2,
+            },
+        }
+        bodies = format_discord_messages(event, max_parts=1)
+        description = bodies[0]["embeds"][0]["description"]
+        success_em = export_status_emoji(success=True, league_slug="bowl-cap") or "✅"
+        fail_em = export_status_emoji(success=False, league_slug="bowl-cap") or "❌"
+        self.assertNotIn("Atlantic", description)
+        self.assertIn(success_em, description)
+        self.assertIn(fail_em, description)
+
+    def test_build_export_team_lists_structure(self) -> None:
         site_session = MagicMock()
         league_session = MagicMock()
         team = SimpleNamespace(id=1, fhm_team_id=17, division="")
@@ -183,22 +230,15 @@ class SimCycleFormatterTests(unittest.TestCase):
         ), patch(
             "app.services.sim_cycle_discord._fhm_team_id_for_team",
             return_value=17,
-        ), patch(
-            "app.services.sim_cycle_discord._division_maps_for_league",
-            return_value=({}, {}),
-        ), patch(
-            "app.services.sim_cycle_discord.team_division_display_label",
-            return_value="Atlantic",
         ):
-            groups = build_division_export_groups(
+            lists = build_export_team_lists(
                 site_session,
                 league_session,
                 "bowl-cap",
                 {17},
             )
-        self.assertEqual(len(groups), 1)
-        self.assertEqual(groups[0]["name"], "Atlantic")
-        self.assertEqual(groups[0]["exported"], [17])
+        self.assertEqual(lists["exported"], [17])
+        self.assertEqual(lists["pending"], [])
 
 
 if __name__ == "__main__":

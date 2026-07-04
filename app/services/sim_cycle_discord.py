@@ -4,16 +4,12 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import date, datetime
-from pathlib import Path
-from types import SimpleNamespace
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.config import league_raw_import_dir
 from app.models import Team
-from app.services.division_labels import load_division_display_maps, team_division_display_label
 from app.services.staff_salaries import main_league_teams
 from app.services.discord_events import (
     SIM_CYCLE_UPDATE_EVENT_KEY,
@@ -34,12 +30,6 @@ def get_or_create_sim_cycle_state(session: Session, league_slug: str) -> SimCycl
     session.add(row)
     session.flush()
     return row
-
-
-def _division_maps_for_league(league_slug: str) -> tuple[dict[tuple[int, int], str], dict[int, str]]:
-    raw_name = league_raw_import_dir(league_slug)
-    div_csv = Path("data/imports/raw") / raw_name / "divisions.csv"
-    return load_division_display_maps(div_csv)
 
 
 def _memberships_by_team_id(site_session: Session, league_slug: str) -> dict[int, GmLeagueMembership]:
@@ -89,48 +79,32 @@ def _abbrev_for_fhm_id(league_slug: str, fhm_team_id: int) -> str:
     return str(entry[0] or "").strip().upper() if entry else ""
 
 
-def build_division_export_groups(
+def build_export_team_lists(
     site_session: Session,
     league_session: Session,
     league_slug: str,
     exported_fhm_team_ids: set[int],
-) -> list[dict[str, Any]]:
-    div_by_pair, div_by_id = _division_maps_for_league(league_slug)
+) -> dict[str, list[int]]:
+    """Exported vs pending FHM team ids for the sim-log board (league-wide, sorted by abbrev)."""
     memberships_by_team_id = _memberships_by_team_id(site_session, league_slug)
-    groups: dict[str, dict[str, list[int]]] = {}
+    exported: list[int] = []
+    pending: list[int] = []
 
     for team in _sim_cycle_teams_for_league(league_session):
         mem = memberships_by_team_id.get(int(team.id))
         fhm_id = _fhm_team_id_for_team(team, mem, league_slug=league_slug)
         if fhm_id is None:
             continue
-        div_label = team_division_display_label(
-            SimpleNamespace(division=""), team, div_by_pair, div_by_id
-        )
-        div_name = (div_label or "League").strip() or "League"
-        bucket = groups.setdefault(div_name, {"exported": [], "pending": []})
         if int(fhm_id) in exported_fhm_team_ids:
-            bucket["exported"].append(int(fhm_id))
+            exported.append(int(fhm_id))
         else:
-            bucket["pending"].append(int(fhm_id))
+            pending.append(int(fhm_id))
 
-    divisions: list[dict[str, Any]] = []
-    for name in sorted(groups.keys(), key=lambda s: s.lower()):
-        bucket = groups[name]
-        divisions.append(
-            {
-                "name": name,
-                "exported": sorted(
-                    bucket["exported"],
-                    key=lambda tid: _abbrev_for_fhm_id(league_slug, int(tid)),
-                ),
-                "pending": sorted(
-                    bucket["pending"],
-                    key=lambda tid: _abbrev_for_fhm_id(league_slug, int(tid)),
-                ),
-            }
-        )
-    return divisions
+    sort_key = lambda tid: _abbrev_for_fhm_id(league_slug, int(tid))
+    return {
+        "exported": sorted(exported, key=sort_key),
+        "pending": sorted(pending, key=sort_key),
+    }
 
 
 def _closed_exported_fhm_team_ids(
@@ -232,17 +206,20 @@ def build_sim_cycle_discord_payload(
             site_session, league_session, league_slug, export_date
         )
 
-    divisions = build_division_export_groups(
+    team_lists = build_export_team_lists(
         site_session, league_session, league_slug, exported_ids
     )
-    total_teams = sum(len(d["exported"]) + len(d["pending"]) for d in divisions)
+    exported_list = team_lists["exported"]
+    pending_list = team_lists["pending"]
+    total_teams = len(exported_list) + len(pending_list)
     exported_count = len(exported_ids)
 
     payload: dict[str, Any] = {
         "title": "Current Sim Cycle (closed)",
         "phase": "closed",
         "export_date": export_date.isoformat() if export_date else "",
-        "divisions": divisions,
+        "exported": exported_list,
+        "pending": pending_list,
         "exported_fhm_team_ids": sorted(exported_ids),
         "total_teams": total_teams,
         "exported_count": exported_count,

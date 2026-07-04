@@ -695,6 +695,27 @@ def _sim_cycle_footer_timestamp(last_raw: str, *, phase: str) -> str:
         return last_raw[:16]
 
 
+def _sim_cycle_team_fhm_ids(payload: dict[str, Any]) -> tuple[list[int], list[int]]:
+    """Exported and pending FHM team ids from payload (flat lists or legacy divisions)."""
+    exported_raw = payload.get("exported")
+    pending_raw = payload.get("pending")
+    if isinstance(exported_raw, list) or isinstance(pending_raw, list):
+        exported = [int(tid) for tid in (exported_raw or [])]
+        pending = [int(tid) for tid in (pending_raw or [])]
+        return exported, pending
+
+    exported: list[int] = []
+    pending: list[int] = []
+    for div in payload.get("divisions") or []:
+        if not isinstance(div, dict):
+            continue
+        for tid in div.get("exported") or []:
+            exported.append(int(tid))
+        for tid in div.get("pending") or []:
+            pending.append(int(tid))
+    return exported, pending
+
+
 def _sim_cycle_embed(league_slug: str, payload: dict[str, Any], *, title: str) -> dict[str, Any]:
     phase = str(payload.get("phase") or "idle").strip().lower()
     logo = league_logo_emoji(league_slug)
@@ -707,15 +728,13 @@ def _sim_cycle_embed(league_slug: str, payload: dict[str, Any], *, title: str) -
 
     exported_bits: list[str] = []
     pending_bits: list[str] = []
-    for div in payload.get("divisions") or []:
-        if not isinstance(div, dict):
-            continue
-        for tid in div.get("exported") or []:
-            if em := _team_emote_for_fhm_id(league_slug, int(tid)):
-                exported_bits.append(em)
-        for tid in div.get("pending") or []:
-            if em := _team_emote_for_fhm_id(league_slug, int(tid)):
-                pending_bits.append(em)
+    exported_ids, pending_ids = _sim_cycle_team_fhm_ids(payload)
+    for tid in exported_ids:
+        if em := _team_emote_for_fhm_id(league_slug, int(tid)):
+            exported_bits.append(em)
+    for tid in pending_ids:
+        if em := _team_emote_for_fhm_id(league_slug, int(tid)):
+            pending_bits.append(em)
 
     lines: list[str] = []
     if exported_bits:

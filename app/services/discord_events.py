@@ -61,7 +61,6 @@ OPS_TEXT_ONLY_DISCORD_EVENT_KEYS = frozenset(
 BOWL_SIX_LEADERS_EVENT_KEY = "bowl_six_leaders_update"
 PLAYOFF_BRACKET_UPDATE_EVENT_KEY = "playoff_bracket_update"
 SIM_CYCLE_UPDATE_EVENT_KEY = "sim_cycle_update"
-GM_EXPORT_TRACKER_POLL_EVENT_KEY = "gm_export_tracker_poll"
 
 REPEATABLE_DISCORD_EVENT_KEYS = frozenset(
     {BOWL_SIX_LEADERS_EVENT_KEY, PLAYOFF_BRACKET_UPDATE_EVENT_KEY, SIM_CYCLE_UPDATE_EVENT_KEY}
@@ -99,7 +98,6 @@ DEFAULT_EVENT_KEYS = {
     "playoff_predictions",
     "playoff_bracket_update",
     "sim_cycle_update",
-    "gm_export_tracker_poll",
 }
 
 DEFAULT_EVENT_CHANNEL_KEY = {
@@ -130,7 +128,6 @@ DEFAULT_EVENT_CHANNEL_KEY = {
     "playoff_predictions": "playoff-predictions",
     "playoff_bracket_update": "playoff-bracket",
     "sim_cycle_update": "sim-log",
-    "gm_export_tracker_poll": "gm-export-tracker",
 }
 
 DEFAULT_EVENT_LABELS = {
@@ -160,8 +157,7 @@ DEFAULT_EVENT_LABELS = {
     "trade_market_buying_posted": "Trade Market — buying interests",
     "playoff_predictions": "Playoff predictions (/predict)",
     "playoff_bracket_update": "Playoff bracket (live series posts)",
-    "sim_cycle_update": "Sim cycle export board (post + edit in #sim-log)",
-    "gm_export_tracker_poll": "GM export tracker (read-only poll source)",
+    "sim_cycle_update": "Sim cycle export board (closed recap in #sim-log)",
 }
 
 EXPANSION_DRAFT_DISCORD_EVENT_KEYS = frozenset(

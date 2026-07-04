@@ -1949,43 +1949,6 @@ def _refresh_bowl_six_discord_triggers(slug: str) -> None:
         current_app.logger.exception("BOWL Six Discord trigger refresh failed for %s", key)
 
 
-@api_bp.get("/discord/sim-cycle/tracker-config")
-def discord_sim_cycle_tracker_config():
-    if not _discord_secret_ok():
-        return jsonify({"ok": False, "message": "Unauthorized"}), 401
-    slug = str(request.args.get("league_slug") or current_app.config.get("LEAGUE_SLUG") or "").strip()
-    if not slug:
-        return jsonify({"ok": False, "message": "league_slug is required"}), 400
-    from app.services.sim_cycle_discord import sim_cycle_tracker_config
-
-    return jsonify(sim_cycle_tracker_config(db.session, slug))
-
-
-@api_bp.post("/discord/sim-cycle/ingest-tracker")
-def discord_sim_cycle_ingest_tracker():
-    if not _discord_secret_ok():
-        return jsonify({"ok": False, "message": "Unauthorized"}), 401
-    slug = str(request.args.get("league_slug") or current_app.config.get("LEAGUE_SLUG") or "").strip()
-    if not slug:
-        return jsonify({"ok": False, "message": "league_slug is required"}), 400
-    data = request.get_json(silent=True) or {}
-    messages = list(data.get("messages") or [])
-    initial_sync = bool(data.get("initial_sync"))
-    from app.services.sim_cycle_discord import ingest_tracker_messages
-    from app.sqlite_retry import commit_with_sqlite_retry
-
-    try:
-        changed = ingest_tracker_messages(
-            db.session, db.session, slug, messages, initial_sync=initial_sync
-        )
-        commit_with_sqlite_retry(db.session)
-        return jsonify({"ok": True, "changed": bool(changed), "sim_cycle_queued": bool(changed)})
-    except Exception:
-        db.session.rollback()
-        current_app.logger.exception("sim cycle tracker ingest failed for %s", slug)
-        return jsonify({"ok": False, "message": "ingest failed"}), 500
-
-
 @api_bp.get("/bowl-six/leaders")
 def bowl_six_leaders_payload():
     """Public BOWL Six leaderboard payload for the stats bot."""
@@ -2034,15 +1997,6 @@ def discord_events_pending():
     )
 
     _refresh_bowl_six_discord_triggers(slug)
-
-    try:
-        from app.services.sim_cycle_discord import maybe_auto_start_sim_cycle
-
-        if maybe_auto_start_sim_cycle(db.session, db.session, slug):
-            commit_with_sqlite_retry(db.session)
-    except Exception:
-        db.session.rollback()
-        current_app.logger.exception("sim cycle auto-start failed for %s", slug)
 
     rows = fetch_pending_events_for_bot(
         db.session, league_slug=slug, limit=limit, event_key=event_key

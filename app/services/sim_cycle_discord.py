@@ -22,8 +22,6 @@ from app.services.discord_events import (
 )
 from app.site_models import GmExportAttendance, GmLeagueMembership, SimCycleState
 
-_SIM_CYCLE_EMBED_COLOR = 0xF1C40F
-
 
 def get_or_create_sim_cycle_state(session: Session, league_slug: str) -> SimCycleState:
     slug = str(league_slug or "").strip()
@@ -226,6 +224,7 @@ def build_sim_cycle_discord_payload(
     league_slug = str(state.league_slug or "")
     export_date = state.export_date
     now = datetime.utcnow()
+    from scripts.league_discord_bot.team_maps import sim_cycle_embed_color
 
     exported_ids: set[int] = set()
     if export_date is not None:
@@ -248,7 +247,7 @@ def build_sim_cycle_discord_payload(
         "total_teams": total_teams,
         "exported_count": exported_count,
         "last_updated_at": now.isoformat(),
-        "embed_color": _SIM_CYCLE_EMBED_COLOR,
+        "embed_color": sim_cycle_embed_color(league_slug),
         "source_type": "sim_cycle_state",
         "source_id": league_slug,
         "content_hash": "",

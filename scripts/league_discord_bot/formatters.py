@@ -9,6 +9,7 @@ from scripts.league_discord_bot.team_maps import (
     export_status_emoji,
     format_team_label,
     league_logo_emoji,
+    sim_cycle_embed_color,
     team_emoji_prefix,
 )
 
@@ -731,9 +732,9 @@ def _sim_cycle_embed(league_slug: str, payload: dict[str, Any], *, title: str) -
 
     color = payload.get("embed_color")
     try:
-        embed_color = int(color) if color is not None else 0xF1C40F
+        embed_color = int(color) if color is not None else sim_cycle_embed_color(league_slug)
     except (TypeError, ValueError):
-        embed_color = 0xF1C40F
+        embed_color = sim_cycle_embed_color(league_slug)
 
     embed: dict[str, Any] = {
         "title": title_text,

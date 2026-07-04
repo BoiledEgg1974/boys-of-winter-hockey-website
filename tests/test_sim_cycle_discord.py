@@ -42,6 +42,7 @@ class SimCycleClosedBoardTests(unittest.TestCase):
         self.assertEqual(payload["phase"], "closed")
         self.assertIn("closed", payload["title"].lower())
         self.assertNotIn("finalize_on_ack", payload)
+        self.assertEqual(payload["embed_color"], 0xB91C1C)
 
     def test_publish_closed_queues_when_route_ready(self) -> None:
         site_session = MagicMock()
@@ -120,6 +121,15 @@ class SimCycleClosedBoardTests(unittest.TestCase):
             self.assertTrue(sim_log_route_ready(site_session, "bowl-cap"))
 
 
+class SimCycleEmbedColorTests(unittest.TestCase):
+    def test_league_embed_colors(self) -> None:
+        from scripts.league_discord_bot.team_maps import sim_cycle_embed_color
+
+        self.assertEqual(sim_cycle_embed_color("bowl-historical"), 0x166534)
+        self.assertEqual(sim_cycle_embed_color("bowl-cap"), 0xB91C1C)
+        self.assertEqual(sim_cycle_embed_color("bowl-fantasy"), 0x005DA6)
+
+
 class SimCycleFormatterTests(unittest.TestCase):
     def test_fail_emote_does_not_collide_with_cap_mtl(self) -> None:
         from scripts.league_discord_bot.team_maps import export_status_emoji
@@ -148,7 +158,7 @@ class SimCycleFormatterTests(unittest.TestCase):
                 "exported_count": 1,
                 "total_teams": 2,
                 "last_updated_at": "2026-07-03T00:01:00",
-                "embed_color": 0xF1C40F,
+                "embed_color": 0xB91C1C,
             },
         }
         bodies = format_discord_messages(event, max_parts=1)

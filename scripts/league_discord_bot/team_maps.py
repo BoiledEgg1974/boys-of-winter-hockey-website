@@ -110,6 +110,18 @@ def _league_key(league_slug: str) -> str:
     return "fantasy"
 
 
+# Discord embed sidebar colors for closed sim-cycle boards (aligned with site.css league accents).
+SIM_CYCLE_EMBED_COLORS: Dict[str, int] = {
+    "historical": 0x166534,  # green
+    "cap": 0xB91C1C,  # red
+    "fantasy": 0x005DA6,  # blue (relegation)
+}
+
+
+def sim_cycle_embed_color(league_slug: str) -> int:
+    return SIM_CYCLE_EMBED_COLORS.get(_league_key(league_slug), 0x166534)
+
+
 def teams_for_league_slug(league_slug: str) -> Dict[int, TeamEntry]:
     key = _league_key(league_slug)
     if key == "historical":

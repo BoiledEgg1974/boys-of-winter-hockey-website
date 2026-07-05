@@ -1219,12 +1219,14 @@ def import_contracts(raw_dir: Path, players_fhm: dict[int, int]) -> int:
     if not path.exists():
         return 0
     df = read_csv_normalized(path)
+    csv_fhm_ids: set[int] = set()
     n = 0
     for _, row in df.iterrows():
         r = row.to_dict()
         pid = to_int(cell_val(r, "playerid"))
         if pid is None or pid not in players_fhm:
             continue
+        csv_fhm_ids.add(int(pid))
         pc = db.session.scalars(
             select(PlayerContract).where(PlayerContract.player_id == players_fhm[pid]).limit(1)
         ).first()
@@ -1238,6 +1240,14 @@ def import_contracts(raw_dir: Path, players_fhm: dict[int, int]) -> int:
         pc.is_elc = (cell_val(r, "elc") or "").lower() == "yes"
         pc.is_ufa = to_bool(cell_val(r, "ufa"))
         n += 1
+    if csv_fhm_ids:
+        for pc in db.session.scalars(
+            select(PlayerContract).join(Player, Player.id == PlayerContract.player_id)
+        ).all():
+            pl = pc.player
+            fhm_id = to_int(str(pl.fhm_player_id).strip()) if pl and pl.fhm_player_id else None
+            if fhm_id is not None and int(fhm_id) not in csv_fhm_ids:
+                db.session.delete(pc)
     commit_with_sqlite_retry(db.session)
     return n
 

@@ -4,10 +4,33 @@ from __future__ import annotations
 from pathlib import Path
 
 from app.config import Config
-from scripts.import_pipeline.encoding_utils import cell_val, read_csv_normalized
+from scripts.import_pipeline.encoding_utils import cell_val, read_csv_normalized, to_bool
 
 # Per-file cache so multi-league apps (different RAW_IMPORT_DIR) each see correct rows.
 _row_maps: dict[str, tuple[float, dict[str, dict]]] = {}
+
+
+def contract_export_row(
+    fhm_player_id: str | None,
+    raw_import_dir: Path | None = None,
+) -> dict | None:
+    """Normalized ``player_contract.csv`` row for an FHM player id, or ``None`` if absent."""
+    if not fhm_player_id or not str(fhm_player_id).strip():
+        return None
+    base = raw_import_dir if raw_import_dir is not None else Path(Config.RAW_IMPORT_DIR)
+    path = base / "player_contract.csv"
+    return _contract_row_map(path).get(str(fhm_player_id).strip())
+
+
+def contract_export_is_ufa(
+    fhm_player_id: str | None,
+    raw_import_dir: Path | None = None,
+) -> bool | None:
+    """UFA flag from the current export row; ``None`` when the player is not in the file."""
+    row = contract_export_row(fhm_player_id, raw_import_dir)
+    if row is None:
+        return None
+    return bool(to_bool(cell_val(row, "ufa")))
 
 
 def _contract_row_map(path: Path) -> dict[str, dict]:

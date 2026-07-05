@@ -61,9 +61,6 @@ class SimCycleClosedBoardTests(unittest.TestCase):
             "app.services.sim_cycle_discord.get_or_create_sim_cycle_state",
             return_value=state,
         ), patch(
-            "app.services.sim_cycle_discord.resolve_sim_cycle_discord_message_id",
-            return_value=None,
-        ), patch(
             "app.services.sim_cycle_discord.maybe_enqueue_sim_cycle_discord",
             return_value=True,
         ) as enqueue_mock:
@@ -77,6 +74,7 @@ class SimCycleClosedBoardTests(unittest.TestCase):
         self.assertEqual(state.phase, "closed")
         self.assertEqual(state.export_date, date(2026, 7, 3))
         enqueue_mock.assert_called_once()
+        self.assertTrue(enqueue_mock.call_args.kwargs.get("post_new_message"))
 
     def test_handle_export_returns_closed(self) -> None:
         with patch(

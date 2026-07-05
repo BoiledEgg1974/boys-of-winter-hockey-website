@@ -307,13 +307,12 @@ def publish_closed_sim_cycle_from_admin_export(
     state.finalize_on_ack = False
     state.updated_at = datetime.utcnow()
     site_session.flush()
-    post_new = not resolve_sim_cycle_discord_message_id(site_session, slug)
     return maybe_enqueue_sim_cycle_discord(
         site_session,
         league_session,
         state,
         force=True,
-        post_new_message=post_new,
+        post_new_message=True,
     )
 
 

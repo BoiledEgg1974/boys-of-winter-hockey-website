@@ -13,11 +13,25 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import Config
-from app.models import DraftPick, Player, PlayerContract, Prospect, Team
+from app.models import (
+    DraftPick,
+    Player,
+    PlayerContract,
+    PlayerGoalieCareerLine,
+    PlayerSkaterCareerLine,
+    Prospect,
+    Team,
+)
 from app.services.draft_hub_eligibility import age_as_of
 from app.services.draft_pick_ownership import describe_draft_pick_row, owned_draft_picks_for_team
 from app.services.free_agents import player_ids_from_player_rights_csv_for_team
-from app.services.player_contract_csv import _contract_row_map, _contract_year_salary_int, contract_years_remaining_major
+from app.services.player_contract_csv import (
+    _contract_row_map,
+    _contract_year_salary_int,
+    contract_export_is_ufa,
+    contract_export_row,
+    contract_years_remaining_major,
+)
 from app.services.player_overall_score import build_overall_cell_map_from_players
 from app.services.player_ratings_csv import fhm_abi_pot_float, get_player_ratings_row, player_positions_display_label
 from app.services.seasons import get_current_season, season_age_reference_date
@@ -238,20 +252,37 @@ def _scaled_tiers(league_slug: str, session: Session) -> list[tuple[int, int, st
     return out
 
 
+def _pro_seasons_before_from_db(session: Session, player: Player, season_start_year: int) -> int:
+    """Distinct seasons with GP from imported career lines before *season_start_year*."""
+    years: set[int] = set()
+    for model in (PlayerSkaterCareerLine, PlayerGoalieCareerLine):
+        rows = session.scalars(
+            select(model.season_year)
+            .where(
+                model.player_id == player.id,
+                model.season_year < int(season_start_year),
+                model.gp > 0,
+            )
+            .distinct()
+        ).all()
+        years.update(int(y) for y in rows if y is not None)
+    return len(years)
+
+
 def _pro_seasons_before(session: Session, player: Player, season_start_year: int, raw_dir: Path) -> int:
     fhm = str(player.fhm_player_id or "").strip()
-    if not fhm:
-        return 0
-    row = _contract_row_map(raw_dir / "player_contract.csv").get(fhm)
-    if not row:
-        return 0
     count = 0
-    for y in range(1970, int(season_start_year)):
-        major = _contract_year_salary_int(row, "major", y)
-        minor = _contract_year_salary_int(row, "minor", y)
-        if (major is not None and major >= 0) or (minor is not None and minor >= 0):
-            count += 1
-    return count
+    if fhm:
+        row = _contract_row_map(raw_dir / "player_contract.csv").get(fhm)
+        if row:
+            for y in range(1970, int(season_start_year)):
+                major = _contract_year_salary_int(row, "major", y)
+                minor = _contract_year_salary_int(row, "minor", y)
+                if (major is not None and major >= 0) or (minor is not None and minor >= 0):
+                    count += 1
+    if count > 0:
+        return count
+    return _pro_seasons_before_from_db(session, player, season_start_year)
 
 
 def _is_european(player: Player) -> bool:
@@ -265,7 +296,13 @@ def _is_european(player: Player) -> bool:
     return nat not in NA_NATIONALITIES and len(nat) >= 3
 
 
-def _unsigned_european_draft_years(session: Session, player: Player, season_start_year: int) -> int | None:
+def _unsigned_european_draft_years(
+    session: Session,
+    player: Player,
+    season_start_year: int,
+    *,
+    raw_dir: Path | None = None,
+) -> int | None:
     if not _is_european(player):
         return None
     picks = list(
@@ -280,14 +317,18 @@ def _unsigned_european_draft_years(session: Session, player: Player, season_star
     draft_year = picks[0].draft_year
     if draft_year is None:
         return None
-    raw_dir = _raw_import_dir()
+    base = raw_dir or _raw_import_dir()
     fhm = str(player.fhm_player_id or "").strip()
-    row = _contract_row_map(raw_dir / "player_contract.csv").get(fhm) if fhm else None
+    row = contract_export_row(fhm, base) if fhm else None
+    if row is not None and contract_export_is_ufa(fhm, base):
+        return None
     if row:
         for y in range(int(draft_year), int(season_start_year) + 1):
             major = _contract_year_salary_int(row, "major", y)
             if major is not None and major >= 0:
                 return None
+    if _pro_seasons_before(session, player, season_start_year, base) > 0:
+        return None
     years_since = int(season_start_year) - int(draft_year)
     return years_since if years_since >= 2 else None
 
@@ -299,13 +340,15 @@ def derive_rfa_category(
     season_start_year: int,
     age: int | None,
 ) -> tuple[str, str]:
-    unsigned_years = _unsigned_european_draft_years(session, player, season_start_year)
+    raw_dir = _raw_import_dir()
+    unsigned_years = _unsigned_european_draft_years(
+        session, player, season_start_year, raw_dir=raw_dir
+    )
     if unsigned_years is not None:
         return (
             "group_iv",
             f"European prospect unsigned {unsigned_years} seasons after draft year.",
         )
-    raw_dir = _raw_import_dir()
     pro_seasons = _pro_seasons_before(session, player, season_start_year, raw_dir)
     if age is not None and age < 25 and pro_seasons < 5:
         return (
@@ -411,15 +454,18 @@ def is_rfa_eligible(
     season_start_year: int | None,
     raw_dir: Path | None = None,
 ) -> bool:
-    if bool(contract.is_ufa):
-        return False
+    """True when the current FHM export still lists the player as a restricted free agent."""
     if season_start_year is None:
         return False
-    yrs = contract_years_remaining_major(
-        player.fhm_player_id,
-        season_start_year,
-        raw_dir or _raw_import_dir(),
-    )
+    base = raw_dir or _raw_import_dir()
+    fhm = str(player.fhm_player_id or "").strip()
+    export_ufa = contract_export_is_ufa(fhm, base) if fhm else None
+    if export_ufa is None:
+        # Game dropped the contract row — stale DB rows must not stay offer-sheet eligible.
+        return False
+    if export_ufa or bool(contract.is_ufa):
+        return False
+    yrs = contract_years_remaining_major(fhm, season_start_year, base)
     return yrs is None or int(yrs) <= 0
 
 

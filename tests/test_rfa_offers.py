@@ -2,8 +2,11 @@
 from __future__ import annotations
 
 import json
+import tempfile
 import unittest
 from datetime import date
+from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from app.services.rfa_offers import (
@@ -12,21 +15,26 @@ from app.services.rfa_offers import (
     accept_odds_percent,
     compensation_panel_dict,
     derive_rfa_category,
+    is_rfa_eligible,
     minimum_offer_amount,
     roll_player_accepts,
     validate_offer_submission,
     _scaled_tiers,
+    _unsigned_european_draft_years,
     CompensationPreview,
 )
+from app.services.player_contract_csv import contract_export_is_ufa
 
 
 class RfaCategoryTest(unittest.TestCase):
     def test_group_i_under_25_few_pro_seasons(self):
         player = MagicMock(birth_date=date(2002, 1, 1), nationality="CAN", fhm_player_id="1")
         session = MagicMock()
-        with patch("app.services.rfa_offers._unsigned_european_draft_years", return_value=None), patch(
+        with patch("app.services.rfa_offers._raw_import_dir", return_value=MagicMock()), patch(
+            "app.services.rfa_offers._unsigned_european_draft_years", return_value=None
+        ), patch(
             "app.services.rfa_offers._pro_seasons_before", return_value=3
-        ), patch("app.services.rfa_offers._raw_import_dir", return_value=MagicMock()):
+        ):
             cat, expl = derive_rfa_category(session, player, season_start_year=2026, age=24)
         self.assertEqual(cat, "group_i")
         self.assertIn("24", expl)
@@ -34,19 +42,111 @@ class RfaCategoryTest(unittest.TestCase):
     def test_group_ii_age_27(self):
         player = MagicMock(birth_date=date(1999, 1, 1), nationality="USA", fhm_player_id="2")
         session = MagicMock()
-        with patch("app.services.rfa_offers._unsigned_european_draft_years", return_value=None), patch(
+        with patch("app.services.rfa_offers._raw_import_dir", return_value=MagicMock()), patch(
+            "app.services.rfa_offers._unsigned_european_draft_years", return_value=None
+        ), patch(
             "app.services.rfa_offers._pro_seasons_before", return_value=8
-        ), patch("app.services.rfa_offers._raw_import_dir", return_value=MagicMock()):
+        ):
             cat, _ = derive_rfa_category(session, player, season_start_year=2026, age=27)
         self.assertEqual(cat, "group_ii")
 
     def test_group_iv_european_unsigned(self):
-        player = MagicMock(birth_date=date(2003, 1, 1), nationality="SWE", fhm_player_id="3")
+        player = MagicMock(birth_date=date(2003, 1, 1), nationality="SWE", fhm_player_id="3", id=3)
         session = MagicMock()
-        with patch("app.services.rfa_offers._unsigned_european_draft_years", return_value=3):
+        with patch("app.services.rfa_offers._raw_import_dir", return_value=MagicMock()), patch(
+            "app.services.rfa_offers._unsigned_european_draft_years", return_value=3
+        ):
             cat, expl = derive_rfa_category(session, player, season_start_year=2026, age=23)
         self.assertEqual(cat, "group_iv")
         self.assertIn("European", expl)
+
+
+class RfaEligibilityExportSyncTest(unittest.TestCase):
+    def _write_contract_csv(self, rows: list[str]) -> Path:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        path = Path(tmp.name) / "player_contract.csv"
+        path.write_text(
+            "PlayerId;Team;NTC;NMC;ELC;UFA;Scholarship;Average Salary;Major 2025;Major 2026\n"
+            + "\n".join(rows)
+            + "\n",
+            encoding="utf-8",
+        )
+        return Path(tmp.name)
+
+    def test_is_rfa_eligible_false_when_export_row_missing(self) -> None:
+        raw = self._write_contract_csv(["999;17;No;No;No;No;-;500000;-1;-1"])
+        player = SimpleNamespace(fhm_player_id="14299")
+        contract = SimpleNamespace(is_ufa=False)
+        self.assertIsNone(contract_export_is_ufa("14299", raw))
+        self.assertFalse(
+            is_rfa_eligible(
+                MagicMock(),
+                player,
+                contract,
+                season_start_year=2026,
+                raw_dir=raw,
+            )
+        )
+
+    def test_is_rfa_eligible_false_when_export_marks_ufa(self) -> None:
+        raw = self._write_contract_csv(["14299;17;No;No;No;Yes;-;500000;-1;-1"])
+        player = SimpleNamespace(fhm_player_id="14299")
+        contract = SimpleNamespace(is_ufa=False)
+        self.assertTrue(contract_export_is_ufa("14299", raw))
+        self.assertFalse(
+            is_rfa_eligible(
+                MagicMock(),
+                player,
+                contract,
+                season_start_year=2026,
+                raw_dir=raw,
+            )
+        )
+
+    def test_is_rfa_eligible_true_when_export_rfa_and_expired(self) -> None:
+        raw = self._write_contract_csv(["14299;17;No;No;No;No;-;500000;-1;-1"])
+        player = SimpleNamespace(fhm_player_id="14299")
+        contract = SimpleNamespace(is_ufa=False)
+        self.assertFalse(contract_export_is_ufa("14299", raw))
+        self.assertTrue(
+            is_rfa_eligible(
+                MagicMock(),
+                player,
+                contract,
+                season_start_year=2026,
+                raw_dir=raw,
+            )
+        )
+
+    def test_group_iv_skipped_when_player_has_pro_seasons(self) -> None:
+        player = MagicMock(
+            birth_date=date(1977, 6, 12),
+            nationality="Germany",
+            fhm_player_id="14299",
+            id=6534,
+        )
+        draft_pick = SimpleNamespace(draft_year=1995)
+        session = MagicMock()
+        session.scalars.return_value.all.return_value = [draft_pick]
+        raw = Path("/tmp/unused")
+        with patch("app.services.rfa_offers._is_european", return_value=True), patch(
+            "app.services.rfa_offers.contract_export_row", return_value=None
+        ), patch(
+            "app.services.rfa_offers._pro_seasons_before", return_value=6
+        ):
+            self.assertIsNone(
+                _unsigned_european_draft_years(
+                    session, player, 2026, raw_dir=raw
+                )
+            )
+        with patch("app.services.rfa_offers._raw_import_dir", return_value=MagicMock()), patch(
+            "app.services.rfa_offers._unsigned_european_draft_years", return_value=None
+        ), patch(
+            "app.services.rfa_offers._pro_seasons_before", return_value=6
+        ):
+            cat, _ = derive_rfa_category(session, player, season_start_year=2026, age=49)
+        self.assertEqual(cat, "group_iii")
 
 
 class RfaMinimumOfferTest(unittest.TestCase):

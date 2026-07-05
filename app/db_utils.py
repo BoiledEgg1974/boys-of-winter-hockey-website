@@ -2999,6 +2999,13 @@ def ensure_league_expansion_draft_columns_sqlite(engine: Engine) -> None:
                     "ADD COLUMN phase_order_format VARCHAR(16) NOT NULL DEFAULT 'straight'"
                 )
             )
+        if "serpentine_continuous" not in cols:
+            conn.execute(
+                text(
+                    "ALTER TABLE league_expansion_drafts "
+                    "ADD COLUMN serpentine_continuous BOOLEAN NOT NULL DEFAULT 0"
+                )
+            )
         conn.commit()
 
 

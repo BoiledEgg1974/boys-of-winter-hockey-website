@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import unittest
+from unittest import mock
 
 from app.services.expansion_draft_state import (
     EXPANSION_ORDER_SERPENTINE,
     EXPANSION_ORDER_STRAIGHT,
     phase_pick_order,
+    regenerate_slots,
     round_team_order,
 )
 
@@ -33,6 +35,74 @@ class ExpansionDraftOrderFormatTest(unittest.TestCase):
         order = [5, 12]
         self.assertEqual(round_team_order(order, 1, EXPANSION_ORDER_SERPENTINE), [5, 12])
         self.assertEqual(round_team_order(order, 2, EXPANSION_ORDER_SERPENTINE), [12, 5])
+
+    def test_regenerate_slots_serpentine_resets_between_phases(self) -> None:
+        draft = mock.MagicMock(
+            id=1,
+            status="setup",
+            goalie_rounds=2,
+            skater_rounds=1,
+            goalie_phase_first_team_id=5,
+            skater_phase_first_team_id=12,
+            phase_order_format=EXPANSION_ORDER_SERPENTINE,
+            serpentine_continuous=False,
+            expansion_team_order_json="[5, 12]",
+        )
+        session = mock.MagicMock()
+        added: list = []
+
+        def capture_add(obj: object) -> None:
+            added.append(obj)
+
+        session.add.side_effect = capture_add
+        err = regenerate_slots(session, draft)
+        self.assertIsNone(err)
+        teams = [(s.phase, s.round, s.team_id) for s in added]
+        self.assertEqual(
+            teams,
+            [
+                ("goalie", 1, 5),
+                ("goalie", 1, 12),
+                ("goalie", 2, 12),
+                ("goalie", 2, 5),
+                ("skater", 1, 12),
+                ("skater", 1, 5),
+            ],
+        )
+
+    def test_regenerate_slots_serpentine_continuous_into_skater(self) -> None:
+        draft = mock.MagicMock(
+            id=1,
+            status="setup",
+            goalie_rounds=2,
+            skater_rounds=1,
+            goalie_phase_first_team_id=5,
+            skater_phase_first_team_id=12,
+            phase_order_format=EXPANSION_ORDER_SERPENTINE,
+            serpentine_continuous=True,
+            expansion_team_order_json="[5, 12]",
+        )
+        session = mock.MagicMock()
+        added: list = []
+
+        def capture_add(obj: object) -> None:
+            added.append(obj)
+
+        session.add.side_effect = capture_add
+        err = regenerate_slots(session, draft)
+        self.assertIsNone(err)
+        teams = [(s.phase, s.round, s.team_id) for s in added]
+        self.assertEqual(
+            teams,
+            [
+                ("goalie", 1, 5),
+                ("goalie", 1, 12),
+                ("goalie", 2, 12),
+                ("goalie", 2, 5),
+                ("skater", 1, 5),
+                ("skater", 1, 12),
+            ],
+        )
 
 
 if __name__ == "__main__":

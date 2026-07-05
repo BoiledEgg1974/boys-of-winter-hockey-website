@@ -8858,6 +8858,7 @@ def admin_expansion_draft_hub_edit(draft_id: int):
         exempt_team_ids,
         expansion_franchise_ids_sorted,
         EXPANSION_ORDER_FORMAT_VALUES,
+        EXPANSION_ORDER_SERPENTINE,
         EXPANSION_ORDER_STRAIGHT,
         go_live,
         player_is_unrestricted_free_agent,
@@ -8924,6 +8925,10 @@ def admin_expansion_draft_hub_edit(draft_id: int):
                 fmt_raw = (request.form.get("phase_order_format") or EXPANSION_ORDER_STRAIGHT).strip().lower()
                 row.phase_order_format = (
                     fmt_raw if fmt_raw in EXPANSION_ORDER_FORMAT_VALUES else EXPANSION_ORDER_STRAIGHT
+                )
+                row.serpentine_continuous = (
+                    request.form.get("serpentine_continuous") == "1"
+                    and row.phase_order_format == EXPANSION_ORDER_SERPENTINE
                 )
                 row.scheduled_start_at = _parse_scheduled_start(request.form.get("scheduled_start_at") or "")
                 set_expansion_team_order(row, exp_list)

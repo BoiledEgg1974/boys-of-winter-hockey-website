@@ -64,6 +64,10 @@
           <input type="radio" name="phase_order_format" value="serpentine"{% if draft.phase_order_format == 'serpentine' %} checked{% endif %}{% if expansion_franchise_ids|length <= 1 %} disabled{% endif %}>
           Serpentine — order reverses each round (e.g. A, B, then B, A…)
         </label>
+        <label id="expSerpContinuousWrap" class="small" style="display:block;margin-top:0.5rem;{% if draft.phase_order_format != 'serpentine' %}opacity:0.55;{% endif %}">
+          <input type="checkbox" name="serpentine_continuous" id="expSerpContinuous" value="1"{% if draft.serpentine_continuous %} checked{% endif %}{% if expansion_franchise_ids|length <= 1 or draft.phase_order_format != 'serpentine' %} disabled{% endif %}>
+          Continue serpentine into skater phase (FHM style). When unchecked, the snake resets at the first skater round and <strong>Skater phase — picks first</strong> applies.
+        </label>
       </fieldset>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(14rem,1fr));gap:0.75rem;">
         <label>Goalie phase — picks first<br>
@@ -246,7 +250,27 @@
   var needEl = document.getElementById("expDialogNeedCount");
   var summaryEl = document.getElementById("expFranchiseSummary");
   var fieldset = document.getElementById("expPhaseOrderFieldset");
+  var serpContinuousWrap = document.getElementById("expSerpContinuousWrap");
+  var serpContinuousCb = document.getElementById("expSerpContinuous");
+  var skaterFirstSel = document.getElementById("selSkaterFirst");
   var cbs = function () { return document.querySelectorAll(".exp-franchise-cb"); };
+
+  function isSerpentineSelected() {
+    var picked = document.querySelector('input[name="phase_order_format"]:checked');
+    return !!(picked && picked.value === "serpentine");
+  }
+
+  function syncSerpentineOptions() {
+    var multi = expansionCheckedCount() > 1;
+    var serp = isSerpentineSelected();
+    if (serpContinuousWrap) serpContinuousWrap.style.opacity = serp ? "1" : "0.55";
+    if (serpContinuousCb) serpContinuousCb.disabled = !multi || !serp;
+    if (skaterFirstSel) {
+      var continuous = !!(serpContinuousCb && serpContinuousCb.checked && serp);
+      skaterFirstSel.disabled = continuous;
+      skaterFirstSel.style.opacity = continuous ? "0.55" : "1";
+    }
+  }
 
   function expansionCheckedCount() {
     var n = 0;
@@ -274,7 +298,13 @@
     document.querySelectorAll('input[name="phase_order_format"]').forEach(function (rb) {
       rb.disabled = !multi;
     });
+    syncSerpentineOptions();
   }
+
+  document.querySelectorAll('input[name="phase_order_format"]').forEach(function (rb) {
+    rb.addEventListener("change", syncSerpentineOptions);
+  });
+  if (serpContinuousCb) serpContinuousCb.addEventListener("change", syncSerpentineOptions);
 
   if (openBtn && dlg && typeof dlg.showModal === "function") {
     openBtn.addEventListener("click", function () {

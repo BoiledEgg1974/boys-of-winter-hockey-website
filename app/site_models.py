@@ -943,6 +943,7 @@ class LeagueExpansionDraft(db.Model):
     goalie_phase_first_team_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     skater_phase_first_team_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     phase_order_format: Mapped[str] = mapped_column(String(16), default="straight", nullable=False)
+    serpentine_continuous: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     expansion_team_order_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
     exempt_team_ids_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
     timer_seconds: Mapped[int] = mapped_column(Integer, default=120, nullable=False)

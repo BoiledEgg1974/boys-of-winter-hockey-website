@@ -132,6 +132,10 @@ def expansion_order_format(draft: LeagueExpansionDraft) -> str:
     return fmt if fmt in EXPANSION_ORDER_FORMAT_VALUES else EXPANSION_ORDER_STRAIGHT
 
 
+def serpentine_continuous_across_phases(draft: LeagueExpansionDraft) -> bool:
+    return bool(getattr(draft, "serpentine_continuous", False))
+
+
 def round_team_order(base_order: list[int], round_num: int, order_format: str) -> list[int]:
     """Team order for one round within a phase (straight repeats; serpentine reverses even rounds)."""
     if not base_order:
@@ -287,14 +291,18 @@ def regenerate_slots(session: Session, draft: LeagueExpansionDraft) -> str | Non
     order_goalie = phase_pick_order(franchises, g_first)
     order_skater = phase_pick_order(franchises, s_first)
     order_fmt = expansion_order_format(draft)
+    continuous_serp = order_fmt == EXPANSION_ORDER_SERPENTINE and serpentine_continuous_across_phases(draft)
     session.execute(
         delete(LeagueExpansionDraftSlot).where(
             LeagueExpansionDraftSlot.league_expansion_draft_id == draft.id
         )
     )
     overall = 0
+    global_round = 0
     for r in range(1, gr + 1):
-        for tid in round_team_order(order_goalie, r, order_fmt):
+        global_round += 1
+        serp_round = global_round if continuous_serp else r
+        for tid in round_team_order(order_goalie, serp_round, order_fmt):
             overall += 1
             session.add(
                 LeagueExpansionDraftSlot(
@@ -306,7 +314,14 @@ def regenerate_slots(session: Session, draft: LeagueExpansionDraft) -> str | Non
                 )
             )
     for r in range(1, sr + 1):
-        for tid in round_team_order(order_skater, r, order_fmt):
+        global_round += 1
+        if continuous_serp:
+            serp_round = global_round
+            base_order = order_goalie
+        else:
+            serp_round = r
+            base_order = order_skater
+        for tid in round_team_order(base_order, serp_round, order_fmt):
             overall += 1
             session.add(
                 LeagueExpansionDraftSlot(

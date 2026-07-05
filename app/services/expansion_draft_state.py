@@ -48,6 +48,18 @@ def player_is_unrestricted_free_agent(pl: Player) -> bool:
     return bool(getattr(c, "is_ufa", False))
 
 
+def player_excluded_from_expansion_pool(session: Session, pl: Player) -> bool:
+    """True when this player should not appear in expansion draft eligibility.
+
+    FHM often marks expansion-exposed skaters as UFA while they remain on a club's
+    unprotected list (still tied to the org via roster or contract). Only exclude
+    UFAs with no BOWL organizational link — same as having no org at all.
+    """
+    if not player_is_unrestricted_free_agent(pl):
+        return False
+    return organization_main_team(session, pl) is None
+
+
 def ufa_contract_player_ids(session: Session, player_ids: set[int]) -> set[int]:
     if not player_ids:
         return set()
@@ -698,7 +710,7 @@ def _compute_eligible_player_ids_ordered(
     for pl in players:
         if int(pl.id) in picked:
             continue
-        if player_is_unrestricted_free_agent(pl):
+        if player_excluded_from_expansion_pool(session, pl):
             continue
         loss_tid = _rights_holder_team_id_from_maps(pl, prospect_by, team_by_id, team_by_fhm_id)
         if loss_tid is not None and int(loss_tid) in blocked_teams:
@@ -809,8 +821,8 @@ def validate_pick(
     )
     if not elig:
         return "Player is not in the eligible pool."
-    if player_is_unrestricted_free_agent(pl):
-        return "Unrestricted free agents cannot be selected in the expansion draft."
+    if player_excluded_from_expansion_pool(session, pl):
+        return "This player is not eligible for the expansion draft."
     if not _expansion_board_age_ok(pl):
         return "Player is under 21 (league age) and cannot be selected in the expansion draft."
     if int(pl.id) in picked_player_ids(session, draft.id):
@@ -962,7 +974,12 @@ def undo_last_pick(session: Session, draft: LeagueExpansionDraft) -> str | None:
 def replace_eligible_players(session: Session, draft: LeagueExpansionDraft, player_ids: set[int]) -> None:
     """Replace the saved eligible-player pool for a draft in setup (admin UI)."""
     pids = {int(p) for p in player_ids}
-    pids -= ufa_contract_player_ids(session, pids)
+    if pids:
+        keep: set[int] = set()
+        for pl in session.scalars(select(Player).where(Player.id.in_(pids))).all():
+            if not player_excluded_from_expansion_pool(session, pl):
+                keep.add(int(pl.id))
+        pids = keep
     session.execute(
         delete(LeagueExpansionDraftEligiblePlayer).where(
             LeagueExpansionDraftEligiblePlayer.league_expansion_draft_id == draft.id

@@ -8861,13 +8861,12 @@ def admin_expansion_draft_hub_edit(draft_id: int):
         EXPANSION_ORDER_SERPENTINE,
         EXPANSION_ORDER_STRAIGHT,
         go_live,
-        player_is_unrestricted_free_agent,
+        player_excluded_from_expansion_pool,
         regenerate_slots,
         replace_eligible_players,
         resolve_admin_pick,
         set_exempt_team_ids,
         set_expansion_team_order,
-        ufa_contract_player_ids,
         undo_last_pick,
     )
     from app.services.roster_team import (
@@ -9069,7 +9068,6 @@ def admin_expansion_draft_hub_edit(draft_id: int):
             )
         ).all()
     }
-    elig_ids -= ufa_contract_player_ids(db.session, set(elig_ids))
     from app.services.draft_hub_eligibility import age_as_of
     from app.services.free_agents import player_ids_from_player_rights_csv_for_team
     from app.services.seasons import get_current_season, season_age_reference_date
@@ -9106,7 +9104,7 @@ def admin_expansion_draft_hub_edit(draft_id: int):
     for pl in players_all:
         if not _expansion_pool_age_ok(pl):
             continue
-        if player_is_unrestricted_free_agent(pl):
+        if player_excluded_from_expansion_pool(db.session, pl):
             continue
         pr = prospect_by_pid.get(int(pl.id))
         org = organization_main_team(db.session, pl, prospect=pr)
@@ -9152,7 +9150,7 @@ def admin_expansion_draft_hub_edit(draft_id: int):
                 continue
             if not _expansion_pool_age_ok(pl):
                 continue
-            if player_is_unrestricted_free_agent(pl):
+            if player_excluded_from_expansion_pool(db.session, pl):
                 continue
             expansion_org_players.setdefault(tid, {"main": [], "minors": [], "rights": []})
             expansion_org_players[tid]["rights"].append(pl)

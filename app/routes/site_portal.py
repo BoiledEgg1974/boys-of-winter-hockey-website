@@ -8903,11 +8903,23 @@ def admin_expansion_draft_hub_edit(draft_id: int):
             s_first_raw = (request.form.get("skater_phase_first_team_id") or "").strip()
             g_first: int | None = int(g_first_raw) if g_first_raw.isdigit() else None
             s_first: int | None = int(s_first_raw) if s_first_raw.isdigit() else None
+            fmt_raw = (request.form.get("phase_order_format") or EXPANSION_ORDER_STRAIGHT).strip().lower()
+            order_fmt = fmt_raw if fmt_raw in EXPANSION_ORDER_FORMAT_VALUES else EXPANSION_ORDER_STRAIGHT
+            serp_cont = (
+                request.form.get("serpentine_continuous") == "1"
+                and order_fmt == EXPANSION_ORDER_SERPENTINE
+            )
             if not err_msg and len(exp_list) > 1:
                 if g_first is None or g_first not in exp_list:
-                    err_msg = "Choose which expansion franchise picks first in the goalie phase."
-                elif s_first is None or s_first not in exp_list:
-                    err_msg = "Choose which expansion franchise picks first in the skater phase."
+                    err_msg = (
+                        "Choose which expansion franchise picks first in the goalie phase "
+                        "(must be one of the selected expansion clubs)."
+                    )
+                elif not serp_cont and (s_first is None or s_first not in exp_list):
+                    err_msg = (
+                        "Choose which expansion franchise picks first in the skater phase "
+                        "(must be one of the selected expansion clubs)."
+                    )
             if not err_msg and len(exp_list) <= 1:
                 g_first = exp_list[0] if len(exp_list) == 1 else None
                 s_first = exp_list[0] if len(exp_list) == 1 else None
@@ -8922,18 +8934,12 @@ def admin_expansion_draft_hub_edit(draft_id: int):
                     0, int(request.form.get("max_players_lost_per_team") or 1)
                 )
                 row.expansion_team_count = exp_count
-                fmt_raw = (request.form.get("phase_order_format") or EXPANSION_ORDER_STRAIGHT).strip().lower()
-                row.phase_order_format = (
-                    fmt_raw if fmt_raw in EXPANSION_ORDER_FORMAT_VALUES else EXPANSION_ORDER_STRAIGHT
-                )
-                row.serpentine_continuous = (
-                    request.form.get("serpentine_continuous") == "1"
-                    and row.phase_order_format == EXPANSION_ORDER_SERPENTINE
-                )
+                row.phase_order_format = order_fmt
+                row.serpentine_continuous = serp_cont
                 row.scheduled_start_at = _parse_scheduled_start(request.form.get("scheduled_start_at") or "")
                 set_expansion_team_order(row, exp_list)
                 row.goalie_phase_first_team_id = g_first
-                row.skater_phase_first_team_id = s_first
+                row.skater_phase_first_team_id = s_first if not serp_cont else g_first
                 exempt: set[int] = set()
                 for tm in db.session.scalars(
                     select(Team)

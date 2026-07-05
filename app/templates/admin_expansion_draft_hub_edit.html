@@ -51,9 +51,9 @@
       {% endfor %}
     </div>
 
-    <fieldset id="expPhaseOrderFieldset" class="exp-phase-order" style="margin:1rem 0;padding:0.75rem;border:1px solid rgb(255 255 255 / 0.12);border-radius:6px;">
+    <fieldset id="expPhaseOrderFieldset" class="exp-phase-order{% if expansion_franchise_ids|length <= 1 %} exp-phase-order--inactive{% endif %}" style="margin:1rem 0;padding:0.75rem;border:1px solid rgb(255 255 255 / 0.12);border-radius:6px;">
       <legend style="padding:0 0.35rem;">Expansion phase pick order</legend>
-      <p class="muted small" style="margin:0 0 0.75rem;">When there are multiple expansion franchises, choose who is on the clock first for the goalie phase and who leads the skater phase.</p>
+      <p class="muted small" style="margin:0 0 0.75rem;">When there are multiple expansion franchises, choose who is on the clock first for the goalie phase and who leads the skater phase. Pick-order fields apply only to the expansion clubs chosen above.</p>
       <fieldset style="margin:0 0 0.75rem;padding:0.65rem 0.75rem;border:1px solid rgb(255 255 255 / 0.1);border-radius:6px;">
         <legend style="padding:0 0.35rem;font-size:0.9rem;">Multi-team order within each phase</legend>
         <label style="display:block;margin-bottom:0.35rem;">
@@ -74,7 +74,9 @@
           <select name="goalie_phase_first_team_id" id="selGoalieFirst" style="width:100%;max-width:20rem;">
             <option value="">—</option>
             {% for t in main_teams %}
+              {% if expansion_franchise_ids|length <= 1 or t.id in expansion_franchise_ids %}
               <option value="{{ t.id }}"{% if draft.goalie_phase_first_team_id == t.id %} selected{% endif %}>{{ t.full_display_name() }}</option>
+              {% endif %}
             {% endfor %}
           </select>
         </label>
@@ -82,12 +84,16 @@
           <select name="skater_phase_first_team_id" id="selSkaterFirst" style="width:100%;max-width:20rem;">
             <option value="">—</option>
             {% for t in main_teams %}
+              {% if expansion_franchise_ids|length <= 1 or t.id in expansion_franchise_ids %}
               <option value="{{ t.id }}"{% if draft.skater_phase_first_team_id == t.id %} selected{% endif %}>{{ t.full_display_name() }}</option>
+              {% endif %}
             {% endfor %}
           </select>
         </label>
       </div>
     </fieldset>
+
+    <div id="expFranchiseMirror" aria-hidden="true" style="display:none;"></div>
 
     <dialog id="expFranchiseDialog" style="max-width:36rem;width:calc(100% - 2rem);border:1px solid rgb(255 255 255 / 0.15);border-radius:8px;padding:0;background:var(--card-bg, #1a1d24);color:inherit;">
       <div style="padding:1rem 1rem 0.5rem;">
@@ -97,7 +103,7 @@
       <div style="padding:0.5rem 1rem;max-height:min(50vh,18rem);overflow:auto;display:flex;flex-wrap:wrap;gap:0.35rem 1rem;">
         {% for t in main_teams %}
           <label class="small" style="white-space:nowrap;">
-            <input type="checkbox" name="expansion_franchise" value="{{ t.id }}" class="exp-franchise-cb"{% if t.id in expansion_franchise_ids %} checked{% endif %}>
+            <input type="checkbox" value="{{ t.id }}" class="exp-franchise-cb" data-team-label="{{ t.full_display_name()|e }}"{% if t.id in expansion_franchise_ids %} checked{% endif %}>
             {{ t.abbreviation or t.name }}
           </label>
         {% endfor %}
@@ -253,6 +259,9 @@
   var serpContinuousWrap = document.getElementById("expSerpContinuousWrap");
   var serpContinuousCb = document.getElementById("expSerpContinuous");
   var skaterFirstSel = document.getElementById("selSkaterFirst");
+  var goalieFirstSel = document.getElementById("selGoalieFirst");
+  var franchiseMirror = document.getElementById("expFranchiseMirror");
+  var settingsForm = document.getElementById("expSettingsForm");
   var cbs = function () { return document.querySelectorAll(".exp-franchise-cb"); };
 
   function isSerpentineSelected() {
@@ -260,9 +269,52 @@
     return !!(picked && picked.value === "serpentine");
   }
 
+  function selectedFranchises() {
+    var out = [];
+    cbs().forEach(function (cb) {
+      if (!cb.checked) return;
+      out.push({
+        id: cb.value,
+        label: cb.getAttribute("data-team-label") || cb.parentElement.textContent.trim()
+      });
+    });
+    return out;
+  }
+
+  function syncFranchiseMirror() {
+    if (!franchiseMirror) return;
+    franchiseMirror.innerHTML = "";
+    selectedFranchises().forEach(function (fr) {
+      var inp = document.createElement("input");
+      inp.type = "hidden";
+      inp.name = "expansion_franchise";
+      inp.value = fr.id;
+      franchiseMirror.appendChild(inp);
+    });
+  }
+
+  function syncPhaseFirstDropdowns() {
+    var franchises = selectedFranchises();
+    [goalieFirstSel, skaterFirstSel].forEach(function (sel) {
+      if (!sel) return;
+      var cur = sel.value;
+      sel.innerHTML = '<option value="">—</option>';
+      franchises.forEach(function (fr) {
+        var opt = document.createElement("option");
+        opt.value = fr.id;
+        opt.textContent = fr.label;
+        sel.appendChild(opt);
+      });
+      if (cur && franchises.some(function (fr) { return fr.id === cur; })) {
+        sel.value = cur;
+      }
+    });
+  }
+
   function syncSerpentineOptions() {
     var multi = expansionCheckedCount() > 1;
     var serp = isSerpentineSelected();
+    if (!serp && serpContinuousCb) serpContinuousCb.checked = false;
     if (serpContinuousWrap) serpContinuousWrap.style.opacity = serp ? "1" : "0.55";
     if (serpContinuousCb) serpContinuousCb.disabled = !multi || !serp;
     if (skaterFirstSel) {
@@ -293,11 +345,13 @@
   function syncPhaseFieldset() {
     if (!fieldset) return;
     var multi = expansionCheckedCount() > 1;
-    fieldset.disabled = !multi;
+    fieldset.classList.toggle("exp-phase-order--inactive", !multi);
     fieldset.style.opacity = multi ? "1" : "0.55";
     document.querySelectorAll('input[name="phase_order_format"]').forEach(function (rb) {
       rb.disabled = !multi;
     });
+    syncPhaseFirstDropdowns();
+    syncFranchiseMirror();
     syncSerpentineOptions();
   }
 
@@ -312,7 +366,7 @@
       dlg.showModal();
     });
   }
-  if (doneBtn && dlg) doneBtn.addEventListener("click", function () { dlg.close(); });
+  if (doneBtn && dlg) doneBtn.addEventListener("click", function () { dlg.close(); syncPhaseFieldset(); });
   if (cancelBtn && dlg) cancelBtn.addEventListener("click", function () { dlg.close(); });
 
   if (countInput) countInput.addEventListener("input", syncDialogNeedCount);
@@ -322,6 +376,11 @@
       syncPhaseFieldset();
     });
   });
+  if (settingsForm) {
+    settingsForm.addEventListener("submit", function () {
+      syncFranchiseMirror();
+    });
+  }
   syncSummary();
   syncPhaseFieldset();
 

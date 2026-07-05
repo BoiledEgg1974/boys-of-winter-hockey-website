@@ -21,15 +21,12 @@ from app.services.expansion_draft_state import (
     expansion_process_tick,
     featured_expansion_draft,
     hydrate_players_for_ordered_ids,
-    pause_timer,
     player_is_defense,
     player_is_forward,
     player_is_goalie,
     GM_SELF_PICK_DISABLED_MSG,
     resolve_admin_pick,
-    resume_timer,
     slots_ordered,
-    utcnow_naive,
 )
 from app.services.player_headshot import resolve_player_headshot_static_filename
 from app.services.player_ratings_csv import get_player_ratings_row, player_positions_display_label
@@ -287,24 +284,13 @@ def expansion_draft_api_state():
         )
     )
 
-    now = utcnow_naive()
     deadline_ms = None
-    if (
-        draft.pick_deadline_at
-        and draft.status == "live"
-        and not draft.awaiting_admin_resolution
-        and not getattr(draft, "timer_paused", False)
-    ):
-        ddl = draft.pick_deadline_at
-        sec = (ddl - now).total_seconds()
-        deadline_ms = max(0, int(sec * 1000)) if sec > 0 else 0
 
     can_pick = False
     can_admin_pick = bool(
         current_user.is_authenticated
         and league_hub_staff(current_user)
         and draft.status == "live"
-        and not getattr(draft, "expansion_pick_cooldown_active", False)
         and current_slot
     )
     can_admin_control = bool(
@@ -495,54 +481,6 @@ def expansion_draft_pick():
             flash_err = GM_SELF_PICK_DISABLED_MSG
     if flash_err:
         flash(flash_err, "err")
-    commit_with_sqlite_retry(db.session)
-    return redirect(url_for("expansion_draft_hub.expansion_draft_hub_page"))
-
-
-@expansion_draft_hub_bp.post("/pause-timer")
-@login_required
-def expansion_draft_pause_timer():
-    from flask_wtf.csrf import validate_csrf
-
-    if not _expansion_hub_allowed():
-        abort(403)
-    validate_csrf(request.form.get("csrf_token"))
-    if not league_hub_staff(current_user):
-        abort(403)
-    slug = _league_slug()
-    draft = featured_expansion_draft(db.session, slug)
-    if not draft:
-        flash("No expansion draft is configured.", "err")
-    else:
-        err = pause_timer(db.session, draft)
-        if err:
-            flash(err, "err")
-        else:
-            flash("Countdown paused.", "ok")
-    commit_with_sqlite_retry(db.session)
-    return redirect(url_for("expansion_draft_hub.expansion_draft_hub_page"))
-
-
-@expansion_draft_hub_bp.post("/resume-timer")
-@login_required
-def expansion_draft_resume_timer():
-    from flask_wtf.csrf import validate_csrf
-
-    if not _expansion_hub_allowed():
-        abort(403)
-    validate_csrf(request.form.get("csrf_token"))
-    if not league_hub_staff(current_user):
-        abort(403)
-    slug = _league_slug()
-    draft = featured_expansion_draft(db.session, slug)
-    if not draft:
-        flash("No expansion draft is configured.", "err")
-    else:
-        err = resume_timer(db.session, draft)
-        if err:
-            flash(err, "err")
-        else:
-            flash("Countdown resumed.", "ok")
     commit_with_sqlite_retry(db.session)
     return redirect(url_for("expansion_draft_hub.expansion_draft_hub_page"))
 

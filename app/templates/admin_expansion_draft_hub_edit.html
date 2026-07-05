@@ -28,8 +28,6 @@
       <label>Skater rounds<br><input type="number" name="skater_rounds" value="{{ draft.skater_rounds }}" min="0"></label>
       <label>How many expansion teams?<br><input type="number" name="expansion_team_count" value="{{ draft.expansion_team_count }}" min="1"></label>
       <label>Max players lost / BOWL team<br><input type="number" name="max_players_lost_per_team" value="{{ draft.max_players_lost_per_team }}" min="0"></label>
-      <label>Timer (s)<br><input type="number" name="timer_seconds" value="{{ draft.timer_seconds }}" min="5"></label>
-      <label>Empty timer (s)<br><input type="number" name="empty_queue_timer_seconds" value="{{ draft.empty_queue_timer_seconds }}" min="5"></label>
     </div>
     <label style="display:block;margin-top:0.75rem;">Scheduled start (display, optional)<br>
       <input type="datetime-local" name="scheduled_start_at" value="{{ sched_value }}" style="max-width:20rem;">
@@ -55,7 +53,18 @@
 
     <fieldset id="expPhaseOrderFieldset" class="exp-phase-order" style="margin:1rem 0;padding:0.75rem;border:1px solid rgb(255 255 255 / 0.12);border-radius:6px;">
       <legend style="padding:0 0.35rem;">Expansion phase pick order</legend>
-      <p class="muted small" style="margin:0 0 0.75rem;">When there are multiple expansion franchises, choose who is on the clock first for the goalie phase and who leads the skater phase (order rotates each round within that phase).</p>
+      <p class="muted small" style="margin:0 0 0.75rem;">When there are multiple expansion franchises, choose who is on the clock first for the goalie phase and who leads the skater phase.</p>
+      <fieldset style="margin:0 0 0.75rem;padding:0.65rem 0.75rem;border:1px solid rgb(255 255 255 / 0.1);border-radius:6px;">
+        <legend style="padding:0 0.35rem;font-size:0.9rem;">Multi-team order within each phase</legend>
+        <label style="display:block;margin-bottom:0.35rem;">
+          <input type="radio" name="phase_order_format" value="straight"{% if (draft.phase_order_format or 'straight') == 'straight' %} checked{% endif %}{% if expansion_franchise_ids|length <= 1 %} disabled{% endif %}>
+          Straight — same order every round (e.g. A, B, A, B…)
+        </label>
+        <label style="display:block;">
+          <input type="radio" name="phase_order_format" value="serpentine"{% if draft.phase_order_format == 'serpentine' %} checked{% endif %}{% if expansion_franchise_ids|length <= 1 %} disabled{% endif %}>
+          Serpentine — order reverses each round (e.g. A, B, then B, A…)
+        </label>
+      </fieldset>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(14rem,1fr));gap:0.75rem;">
         <label>Goalie phase — picks first<br>
           <select name="goalie_phase_first_team_id" id="selGoalieFirst" style="width:100%;max-width:20rem;">
@@ -99,7 +108,7 @@
   </form>
 
   <h2>Generate slots</h2>
-  <p class="muted">Creates picks: all goalie rounds first (in team order), then all skater rounds. Re-run after changing rounds or expansion phase order.</p>
+  <p class="muted">Creates picks: all goalie rounds first (in team order), then all skater rounds. Re-run after changing rounds, order format, or expansion phase order.</p>
   <form method="post" class="card" style="padding:1rem;margin-bottom:1rem;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="regenerate_slots">
@@ -197,16 +206,6 @@
       <input type="hidden" name="action" value="undo_pick">
       <button type="submit" class="button secondary">Undo last pick</button>
     </form>
-    <form method="post" style="margin:0;">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="hidden" name="action" value="pause_timer">
-      <button type="submit" class="button secondary">Pause timer</button>
-    </form>
-    <form method="post" style="margin:0;">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="hidden" name="action" value="resume_timer">
-      <button type="submit" class="button secondary">Resume timer</button>
-    </form>
     <form method="post" style="margin:0;"
           onsubmit="return confirm('End this expansion draft now and mark it complete? Remaining slots stay unpicked. This cannot be undone from the admin screen.');">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -272,6 +271,9 @@
     var multi = expansionCheckedCount() > 1;
     fieldset.disabled = !multi;
     fieldset.style.opacity = multi ? "1" : "0.55";
+    document.querySelectorAll('input[name="phase_order_format"]').forEach(function (rb) {
+      rb.disabled = !multi;
+    });
   }
 
   if (openBtn && dlg && typeof dlg.showModal === "function") {

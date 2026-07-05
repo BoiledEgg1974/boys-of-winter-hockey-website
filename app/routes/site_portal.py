@@ -8829,8 +8829,6 @@ def admin_expansion_draft_hub():
             skater_rounds=max(0, int(request.form.get("skater_rounds") or 1)),
             max_players_lost_per_team=max(0, int(request.form.get("max_players_lost_per_team") or 1)),
             expansion_team_count=max(1, int(request.form.get("expansion_team_count") or 1)),
-            timer_seconds=max(5, int(request.form.get("timer_seconds") or 120)),
-            empty_queue_timer_seconds=max(5, int(request.form.get("empty_queue_timer_seconds") or 120)),
         )
         db.session.add(row)
         commit_with_sqlite_retry(db.session)
@@ -8859,12 +8857,12 @@ def admin_expansion_draft_hub_edit(draft_id: int):
         end_expansion_draft_early,
         exempt_team_ids,
         expansion_franchise_ids_sorted,
+        EXPANSION_ORDER_FORMAT_VALUES,
+        EXPANSION_ORDER_STRAIGHT,
         go_live,
-        pause_timer,
         player_is_unrestricted_free_agent,
         regenerate_slots,
         replace_eligible_players,
-        resume_timer,
         resolve_admin_pick,
         set_exempt_team_ids,
         set_expansion_team_order,
@@ -8923,9 +8921,9 @@ def admin_expansion_draft_hub_edit(draft_id: int):
                     0, int(request.form.get("max_players_lost_per_team") or 1)
                 )
                 row.expansion_team_count = exp_count
-                row.timer_seconds = max(5, int(request.form.get("timer_seconds") or row.timer_seconds))
-                row.empty_queue_timer_seconds = max(
-                    5, int(request.form.get("empty_queue_timer_seconds") or row.empty_queue_timer_seconds)
+                fmt_raw = (request.form.get("phase_order_format") or EXPANSION_ORDER_STRAIGHT).strip().lower()
+                row.phase_order_format = (
+                    fmt_raw if fmt_raw in EXPANSION_ORDER_FORMAT_VALUES else EXPANSION_ORDER_STRAIGHT
                 )
                 row.scheduled_start_at = _parse_scheduled_start(request.form.get("scheduled_start_at") or "")
                 set_expansion_team_order(row, exp_list)
@@ -9007,20 +9005,6 @@ def admin_expansion_draft_hub_edit(draft_id: int):
                     )
                 )
                 flash("Last pick removed.", "ok")
-            commit_with_sqlite_retry(db.session)
-        elif act == "pause_timer" and row.status == "live":
-            err = pause_timer(db.session, row)
-            if err:
-                flash(err, "err")
-            else:
-                flash("Timer paused.", "ok")
-            commit_with_sqlite_retry(db.session)
-        elif act == "resume_timer" and row.status == "live":
-            err = resume_timer(db.session, row)
-            if err:
-                flash(err, "err")
-            else:
-                flash("Timer resumed.", "ok")
             commit_with_sqlite_retry(db.session)
         elif act == "end_draft_early" and row.status == "live":
             err = end_expansion_draft_early(db.session, row, int(current_user.id))

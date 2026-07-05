@@ -286,12 +286,8 @@
     if (bannerTier) {
       html += '<p class="draft-hub-boost-banner-flag draft-hub-boost-banner-flag--' + esc(bannerTier) + '">' + esc(bannerTier).toUpperCase() + ' BOOST PICK</p>';
     }
-    if (x.status === 'live' && x.on_clock_team && x.timer_paused && !x.awaiting_admin) {
+    if (x.status === 'live' && x.on_clock_team) {
       html += '<p class="draft-hub-banner__status">' + esc(x.on_clock_team).toUpperCase() + ' ARE ON THE CLOCK</p>';
-    } else if (x.status === 'live' && x.on_clock_team && !x.awaiting_admin) {
-      html += '<p class="draft-hub-banner__status">' + esc(x.on_clock_team).toUpperCase() + ' ARE ON THE CLOCK</p>';
-    } else if (x.status === 'live' && x.awaiting_admin) {
-      html += '<p class="draft-hub-banner__status">COMMISSIONER ACTION NEEDED</p>';
     } else if (x.status === 'setup') {
       html += '<p class="draft-hub-banner__status">DRAFT NOT STARTED</p>';
       if (x.scheduled_start_at) {

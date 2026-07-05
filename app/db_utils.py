@@ -2992,6 +2992,13 @@ def ensure_league_expansion_draft_columns_sqlite(engine: Engine) -> None:
                     "ADD COLUMN expansion_pick_cooldown_active BOOLEAN NOT NULL DEFAULT 0"
                 )
             )
+        if "phase_order_format" not in cols:
+            conn.execute(
+                text(
+                    "ALTER TABLE league_expansion_drafts "
+                    "ADD COLUMN phase_order_format VARCHAR(16) NOT NULL DEFAULT 'straight'"
+                )
+            )
         conn.commit()
 
 

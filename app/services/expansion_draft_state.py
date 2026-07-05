@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta
+from datetime import datetime
 from threading import Lock
 from time import monotonic
 from typing import Any
@@ -30,10 +30,14 @@ from app.site_models import (
 _FORWARD_TOKENS = frozenset({"LW", "C", "RW"})
 _DEFENSE_TOKENS = frozenset({"LD", "RD"})
 _EXPANSION_BOARD_MIN_AGE = 21
-_EXPANSION_INTER_PICK_COOLDOWN_SEC = 5
-GM_SELF_PICK_DISABLED_MSG = (
+_GM_SELF_PICK_DISABLED_MSG = (
     "GM self-picks are disabled for expansion drafts; the commissioner will make selections."
 )
+GM_SELF_PICK_DISABLED_MSG = _GM_SELF_PICK_DISABLED_MSG
+
+EXPANSION_ORDER_STRAIGHT = "straight"
+EXPANSION_ORDER_SERPENTINE = "serpentine"
+EXPANSION_ORDER_FORMAT_VALUES = frozenset({EXPANSION_ORDER_STRAIGHT, EXPANSION_ORDER_SERPENTINE})
 
 
 def player_is_unrestricted_free_agent(pl: Player) -> bool:
@@ -121,6 +125,20 @@ def phase_pick_order(franchise_ids: list[int], first_team_id: int | None) -> lis
         first = ids[0]
     i = ids.index(first)
     return ids[i:] + ids[:i]
+
+
+def expansion_order_format(draft: LeagueExpansionDraft) -> str:
+    fmt = str(getattr(draft, "phase_order_format", None) or EXPANSION_ORDER_STRAIGHT).strip().lower()
+    return fmt if fmt in EXPANSION_ORDER_FORMAT_VALUES else EXPANSION_ORDER_STRAIGHT
+
+
+def round_team_order(base_order: list[int], round_num: int, order_format: str) -> list[int]:
+    """Team order for one round within a phase (straight repeats; serpentine reverses even rounds)."""
+    if not base_order:
+        return []
+    if order_format == EXPANSION_ORDER_SERPENTINE and int(round_num) % 2 == 0:
+        return list(reversed(base_order))
+    return list(base_order)
 
 
 def _pos_tokens_for_player(pl: Player, tok_cache: dict[int, set[str]] | None = None) -> set[str]:
@@ -268,6 +286,7 @@ def regenerate_slots(session: Session, draft: LeagueExpansionDraft) -> str | Non
     s_first = getattr(draft, "skater_phase_first_team_id", None)
     order_goalie = phase_pick_order(franchises, g_first)
     order_skater = phase_pick_order(franchises, s_first)
+    order_fmt = expansion_order_format(draft)
     session.execute(
         delete(LeagueExpansionDraftSlot).where(
             LeagueExpansionDraftSlot.league_expansion_draft_id == draft.id
@@ -275,7 +294,7 @@ def regenerate_slots(session: Session, draft: LeagueExpansionDraft) -> str | Non
     )
     overall = 0
     for r in range(1, gr + 1):
-        for tid in order_goalie:
+        for tid in round_team_order(order_goalie, r, order_fmt):
             overall += 1
             session.add(
                 LeagueExpansionDraftSlot(
@@ -287,7 +306,7 @@ def regenerate_slots(session: Session, draft: LeagueExpansionDraft) -> str | Non
                 )
             )
     for r in range(1, sr + 1):
-        for tid in order_skater:
+        for tid in round_team_order(order_skater, r, order_fmt):
             overall += 1
             session.add(
                 LeagueExpansionDraftSlot(
@@ -400,6 +419,11 @@ def end_expansion_draft_early(
 
 
 def sync_current_slot_and_clock(session: Session, draft: LeagueExpansionDraft) -> None:
+    """Move index past forfeited / already-picked slots; start the active pick when needed.
+
+    Expansion drafts are untimed: a live pick stays on the board until the commissioner
+    records a selection on the hub or via Discord.
+    """
     slots = slots_ordered(session, draft.id)
     if not slots:
         draft.status = "completed"
@@ -424,23 +448,18 @@ def sync_current_slot_and_clock(session: Session, draft: LeagueExpansionDraft) -
         if _pick_row_for_overall(session, draft.id, slot.overall_pick):
             draft.current_slot_index += 1
             continue
-        now = utcnow_naive()
-        if getattr(draft, "expansion_pick_cooldown_active", False):
-            ddl_cd = draft.pick_deadline_at
-            if ddl_cd is not None and now < ddl_cd:
-                draft.awaiting_admin_resolution = False
-                return
-            draft.expansion_pick_cooldown_active = False
-
-        if draft.pick_deadline_at is None or draft.awaiting_admin_resolution:
-            draft.pick_started_at = now
-            draft.pick_deadline_at = now + timedelta(seconds=int(draft.timer_seconds))
-            draft.deadline_extended_for_slot = False
+        first_start_for_slot = draft.pick_started_at is None
+        if first_start_for_slot:
+            draft.pick_started_at = utcnow_naive()
+        draft.pick_deadline_at = None
+        draft.deadline_extended_for_slot = False
+        draft.awaiting_admin_resolution = False
+        draft.expansion_pick_cooldown_active = False
+        if first_start_for_slot:
             try:
                 _enqueue_on_clock_channel_alert(session, draft, slot)
             except Exception:
                 pass
-        draft.awaiting_admin_resolution = False
         return
 
     _finalize_if_done(session, draft, slots)
@@ -496,85 +515,49 @@ def go_live(session: Session, draft: LeagueExpansionDraft, admin_user_id: int) -
 
 
 def pause_timer(session: Session, draft: LeagueExpansionDraft) -> str | None:
+    """Legacy no-op: expansion drafts are untimed."""
+    del session
     if draft.status != "live":
         return "Draft is not live."
-    if draft.awaiting_admin_resolution:
-        return "Current pick already needs commissioner action."
-    if getattr(draft, "timer_paused", False):
-        return None
-    slots = slots_ordered(session, draft.id)
-    if draft.current_slot_index >= len(slots):
-        return "No active pick slot."
-    now = utcnow_naive()
-    ddl = draft.pick_deadline_at
-    remaining = int(max(1, round((ddl - now).total_seconds()))) if ddl else int(draft.timer_seconds)
-    draft.timer_paused = True
-    draft.timer_paused_remaining_seconds = remaining
     draft.pick_deadline_at = None
+    draft.timer_paused = False
+    draft.timer_paused_remaining_seconds = None
     return None
 
 
 def resume_timer(session: Session, draft: LeagueExpansionDraft) -> str | None:
+    """Legacy no-op: expansion drafts are untimed."""
     if draft.status != "live":
         return "Draft is not live."
-    slots = slots_ordered(session, draft.id)
-    if draft.current_slot_index >= len(slots):
-        return "No active pick slot."
-    if not getattr(draft, "timer_paused", False) and not draft.awaiting_admin_resolution:
-        return None
-    remaining = int(draft.timer_paused_remaining_seconds or draft.timer_seconds or 120)
-    remaining = max(1, remaining)
-    now = utcnow_naive()
     draft.awaiting_admin_resolution = False
     draft.timer_paused = False
     draft.timer_paused_remaining_seconds = None
-    draft.pick_started_at = now
-    draft.pick_deadline_at = now + timedelta(seconds=remaining)
+    draft.pick_deadline_at = None
+    sync_current_slot_and_clock(session, draft)
     return None
 
 
 def expansion_process_tick(session: Session, draft: LeagueExpansionDraft) -> None:
-    if draft.status != "live" or draft.awaiting_admin_resolution or getattr(draft, "timer_paused", False):
+    if draft.status != "live":
         return
-    if getattr(draft, "expansion_pick_cooldown_active", False):
-        ddl_cd = draft.pick_deadline_at
-        if ddl_cd is None:
-            draft.expansion_pick_cooldown_active = False
-            sync_current_slot_and_clock(session, draft)
-            return
-        if utcnow_naive() <= ddl_cd:
-            return
+    if draft.awaiting_admin_resolution or getattr(draft, "timer_paused", False):
+        draft.awaiting_admin_resolution = False
+        draft.timer_paused = False
+        draft.timer_paused_remaining_seconds = None
+        draft.pick_deadline_at = None
         draft.expansion_pick_cooldown_active = False
-        now = utcnow_naive()
-        draft.pick_started_at = now
-        draft.pick_deadline_at = now + timedelta(seconds=int(draft.timer_seconds))
-        draft.deadline_extended_for_slot = False
+        if draft.pick_started_at is None:
+            sync_current_slot_and_clock(session, draft)
         return
-
-    ddl = draft.pick_deadline_at
-    if ddl is None:
-        sync_current_slot_and_clock(session, draft)
+    if draft.pick_deadline_at is None:
+        if draft.pick_started_at is None:
+            sync_current_slot_and_clock(session, draft)
         return
-    if utcnow_naive() <= ddl:
-        return
-
-    slots = slots_ordered(session, draft.id)
-    if draft.current_slot_index >= len(slots):
-        _finalize_if_done(session, draft, slots)
-        return
-    slot = slots[draft.current_slot_index]
-    if slot.forfeited:
-        sync_current_slot_and_clock(session, draft)
-        return
-
-    if not draft.deadline_extended_for_slot:
-        base = draft.pick_deadline_at or utcnow_naive()
-        draft.pick_deadline_at = base + timedelta(seconds=int(draft.empty_queue_timer_seconds))
-        draft.deadline_extended_for_slot = True
-        return
-
-    draft.awaiting_admin_resolution = True
+    # Clear any legacy deadline left by an older deployment without expiring the pick.
     draft.pick_deadline_at = None
+    draft.expansion_pick_cooldown_active = False
+    if draft.pick_started_at is None:
+        sync_current_slot_and_clock(session, draft)
 
 
 def _team_at_max_losses(losses_by_team: dict[int, int], team_id: int | None, max_loss: int) -> bool:
@@ -846,11 +829,9 @@ def record_pick(
 ) -> str | None:
     if draft.status != "live":
         return "Draft is not live."
-    # GMs wait out the short inter-pick cooldown; commissioner (admin) can always record.
-    if getattr(draft, "expansion_pick_cooldown_active", False) and source != "admin":
-        return "Brief pause between picks — try again in a few seconds."
     if draft.awaiting_admin_resolution and source != "admin":
-        return "Waiting for commissioner to resolve this pick."
+        draft.awaiting_admin_resolution = False
+        draft.pick_deadline_at = None
     slots = slots_ordered(session, draft.id)
     if draft.current_slot_index >= len(slots):
         return "No active pick slot."
@@ -913,17 +894,11 @@ def record_pick(
     draft.awaiting_admin_resolution = False
     draft.timer_paused = False
     draft.timer_paused_remaining_seconds = None
-    slots_after = slots_ordered(session, draft.id)
-    if draft.current_slot_index < len(slots_after):
-        now = utcnow_naive()
-        draft.expansion_pick_cooldown_active = True
-        draft.pick_started_at = now
-        draft.pick_deadline_at = now + timedelta(seconds=_EXPANSION_INTER_PICK_COOLDOWN_SEC)
-    else:
-        draft.expansion_pick_cooldown_active = False
-        draft.pick_deadline_at = None
-        draft.pick_started_at = None
+    draft.expansion_pick_cooldown_active = False
+    draft.pick_started_at = None
+    draft.pick_deadline_at = None
     sync_current_slot_and_clock(session, draft)
+    slots_after = slots_ordered(session, draft.id)
     _finalize_if_done(session, draft, slots_after)
     invalidate_expansion_eligible_cache(draft.id)
     return None

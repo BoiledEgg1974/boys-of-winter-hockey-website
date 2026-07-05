@@ -2959,17 +2959,50 @@ def ensure_gm_rule_strikes_sqlite(engine: Engine) -> None:
         conn.commit()
 
 
-def ensure_league_expansion_draft_columns_sqlite(engine: Engine) -> None:
-    """Add expansion draft commissioner fields when missing (site DB, SQLite)."""
-    if engine.dialect.name != "sqlite":
-        return
-    with engine.connect() as conn:
-        exists = conn.execute(
-            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='league_expansion_drafts'")
+def _bind_db_table_exists(conn, table: str, dialect: str) -> bool:
+    if dialect == "sqlite":
+        row = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name=:t"),
+            {"t": table},
         ).fetchone()
-        if not exists:
+        return row is not None
+    if dialect in ("mysql", "mariadb"):
+        row = conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.tables "
+                "WHERE table_schema = DATABASE() AND table_name = :t LIMIT 1"
+            ),
+            {"t": table},
+        ).fetchone()
+        return row is not None
+    return False
+
+
+def _bind_db_column_names(conn, table: str, dialect: str) -> set[str]:
+    if dialect == "sqlite":
+        return {row[1] for row in conn.execute(text(f"PRAGMA table_info({table})"))}
+    if dialect in ("mysql", "mariadb"):
+        rows = conn.execute(
+            text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema = DATABASE() AND table_name = :t"
+            ),
+            {"t": table},
+        ).all()
+        return {str(row[0]) for row in rows}
+    return set()
+
+
+def ensure_league_expansion_draft_columns_sqlite(engine: Engine) -> None:
+    """Add expansion draft commissioner fields when missing (site DB, SQLite or MySQL)."""
+    dialect = engine.dialect.name
+    if dialect not in ("sqlite", "mysql", "mariadb"):
+        return
+    table = "league_expansion_drafts"
+    with engine.connect() as conn:
+        if not _bind_db_table_exists(conn, table, dialect):
             return
-        cols = {row[1] for row in conn.execute(text("PRAGMA table_info(league_expansion_drafts)"))}
+        cols = _bind_db_column_names(conn, table, dialect)
         if "expansion_team_count" not in cols:
             conn.execute(
                 text(

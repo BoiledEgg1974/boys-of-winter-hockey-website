@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from flask import Flask
 
 # Bump when ensure_* migrations in bootstrap_league_sqlite or bootstrap_site_sqlite change.
-SQLITE_BOOTSTRAP_VERSION = 1
+SQLITE_BOOTSTRAP_VERSION = 2
 
 _completed_in_process: set[str] = set()
 _server_site_bootstrapped = False

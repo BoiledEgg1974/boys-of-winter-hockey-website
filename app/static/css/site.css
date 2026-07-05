@@ -15882,6 +15882,10 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
     min-height: 0;
     max-height: none;
   }
+  .draft-hub-page--expansion .draft-hub-col--order .draft-hub-order {
+    min-height: clamp(32rem, 42vh, 48rem);
+    overflow-y: auto;
+  }
   .draft-hub-col--history {
     grid-row: 3;
     grid-column: 4;
@@ -15973,6 +15977,65 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
 }
 .draft-hub-roster-tracker__sub {
   margin: 0 0 0.5rem;
+}
+.draft-hub-roster-tracker__team-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0 0 0.65rem;
+}
+.draft-hub-roster-tracker__team-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid rgb(255 255 255 / 0.14);
+  border-radius: 6px;
+  background: rgb(255 255 255 / 0.04);
+  color: inherit;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  min-width: 0;
+  max-width: 100%;
+}
+.draft-hub-roster-tracker__team-btn:hover {
+  background: rgb(255 255 255 / 0.08);
+}
+.draft-hub-roster-tracker__team-btn.is-active {
+  border-color: rgb(255 255 255 / 0.35);
+  background: rgb(255 255 255 / 0.12);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08);
+}
+.draft-hub-roster-tracker__team-btn-logo {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+.draft-hub-roster-tracker__team-btn-logo--ph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  background: rgb(255 255 255 / 0.08);
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+.draft-hub-roster-tracker__team-btn-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+[data-theme="light"] .draft-hub-roster-tracker__team-btn {
+  border-color: rgb(0 0 0 / 0.12);
+  background: rgb(0 0 0 / 0.03);
+}
+[data-theme="light"] .draft-hub-roster-tracker__team-btn.is-active {
+  border-color: rgb(0 0 0 / 0.28);
+  background: rgb(0 0 0 / 0.06);
 }
 .draft-hub-roster-tracker__brand {
   display: flex;
@@ -16157,6 +16220,33 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
 .draft-hub-page .draft-hub-player {
   grid-template-columns: minmax(0, 1fr) auto;
 }
+.draft-hub-page--expansion .draft-hub-player {
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: center;
+}
+.draft-hub-player__team {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.draft-hub-player__team-logo {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+.draft-hub-player__team-logo--ph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  background: var(--surface-2, rgba(255, 255, 255, 0.08));
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--muted);
+}
 .draft-hub-eligible-pager {
   display: flex;
   align-items: center;
@@ -16272,6 +16362,9 @@ a.draft-hub-player__name:hover {
 @media (max-width: 720px) {
   .draft-hub-player {
     grid-template-columns: 44px minmax(0, 1fr);
+  }
+  .draft-hub-page--expansion .draft-hub-player {
+    grid-template-columns: 32px minmax(0, 1fr);
   }
   .draft-hub-player__photo {
     width: 40px;

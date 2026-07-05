@@ -1,8 +1,6 @@
 """Expansion Draft Hub — GMs view the board; commissioners record picks."""
 from __future__ import annotations
 
-from pathlib import Path
-
 from flask import Blueprint, abort, current_app, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 from sqlalchemy import select
@@ -12,7 +10,7 @@ from app.league_db import commit_or_release_after_tick, db
 from app.sqlite_retry import commit_with_sqlite_retry
 from app.logo_urls import team_logo_url_for_team
 from app.models import Player, Team
-from app.services.draft_hub_eligibility import ELIGIBLE_HUB_BOARD_WINDOW, age_as_of
+from app.services.draft_hub_eligibility import age_as_of
 from app.services.seasons import get_current_season, season_age_reference_date
 from app.services.expansion_draft_state import (
     eligible_player_ids_for_board,
@@ -28,11 +26,13 @@ from app.services.expansion_draft_state import (
     resolve_admin_pick,
     slots_ordered,
 )
-from app.services.player_headshot import resolve_player_headshot_static_filename
 from app.services.player_ratings_csv import get_player_ratings_row, player_positions_display_label
+from app.services.roster_team import organization_main_team
 from app.site_models import LeagueExpansionDraftPick
 
 expansion_draft_hub_bp = Blueprint("expansion_draft_hub", __name__, url_prefix="/expansion-draft-hub")
+
+EXPANSION_ELIGIBLE_PAGE_SIZE = 50
 
 _VALID_POS_FILTERS: frozenset[str] = frozenset({"LW", "C", "RW", "LD", "RD", "G", "F", "D"})
 _FORWARD_TOKENS: frozenset[str] = frozenset({"LW", "C", "RW"})
@@ -74,18 +74,6 @@ def _expansion_hub_allowed() -> bool:
     if league_hub_staff(current_user):
         return True
     return _membership() is not None
-
-
-def _player_photo_url(player: Player | None) -> str:
-    if not player:
-        return ""
-    static_root = Path(current_app.root_path) / (current_app.static_folder or "static")
-    rel = resolve_player_headshot_static_filename(
-        static_root,
-        player,
-        str(current_app.config.get("PLAYER_HEADSHOTS_REL_DIR") or "players"),
-    )
-    return url_for("static", filename=rel) if rel else ""
 
 
 @expansion_draft_hub_bp.get("")
@@ -311,6 +299,18 @@ def expansion_draft_api_state():
     elif exp_order:
         rt_tid = int(exp_order[0])
     rt_tm = team_by_id.get(rt_tid) if rt_tid is not None else None
+    expansion_franchises: list[dict] = []
+    for fid in exp_order:
+        f_tm = team_by_id.get(int(fid))
+        if f_tm is None:
+            continue
+        expansion_franchises.append(
+            {
+                "team_id": int(fid),
+                "team_name": f_tm.full_display_name(),
+                "team_logo_url": logo_by_team_id.get(int(fid)),
+            }
+        )
     roster_tracker = {
         "team_id": rt_tid,
         "team_name": rt_tm.full_display_name() if rt_tm else "",
@@ -321,6 +321,7 @@ def expansion_draft_api_state():
             else "Slots for the first expansion club in rotation (on-clock club when the draft is live)."
         ),
         "expansion_franchise_ids": [int(x) for x in exp_order],
+        "expansion_franchises": expansion_franchises,
     }
 
     return jsonify(
@@ -374,7 +375,10 @@ def expansion_draft_eligible_page():
     if pos_filter and pos_filter not in _VALID_POS_FILTERS:
         pos_filter = ""
     offset = max(0, request.args.get("offset", type=int) or 0)
-    limit = min(ELIGIBLE_HUB_BOARD_WINDOW, max(1, request.args.get("limit", type=int) or 40))
+    limit = min(
+        EXPANSION_ELIGIBLE_PAGE_SIZE,
+        max(1, request.args.get("limit", type=int) or EXPANSION_ELIGIBLE_PAGE_SIZE),
+    )
 
     phase_filter = None
     exp_team_id = None
@@ -393,7 +397,6 @@ def expansion_draft_eligible_page():
         expansion_team_id=exp_team_id,
     )
 
-    using_board_window = not q and not pos_filter
     if q or pos_filter:
         eligible = hydrate_players_for_ordered_ids(db.session, ordered_ids)
         if q:
@@ -409,16 +412,17 @@ def expansion_draft_eligible_page():
             eligible = filtered
         total = len(eligible)
         slice_players = eligible[offset : offset + limit]
-        display_window_capped = False
     else:
         total = len(ordered_ids)
-        window_ids = ordered_ids[:ELIGIBLE_HUB_BOARD_WINDOW]
-        display_window_capped = len(ordered_ids) > len(window_ids)
-        slice_ids = window_ids[offset : offset + limit]
+        slice_ids = ordered_ids[offset : offset + limit]
         slice_players = hydrate_players_for_ordered_ids(db.session, slice_ids)
         pos_labels = {}
 
     as_of = season_age_reference_date(get_current_season())
+    logo_by_team_id: dict[int, str] = {
+        int(t.id): team_logo_url_for_team(t)
+        for t in db.session.scalars(select(Team)).all()
+    }
 
     def age_years(bd):
         return age_as_of(bd, as_of)
@@ -427,11 +431,21 @@ def expansion_draft_eligible_page():
     for pl in slice_players:
         rr = get_player_ratings_row(pl.fhm_player_id)
         label = pos_labels.get(int(pl.id)) or player_positions_display_label(pl)
+        org = organization_main_team(db.session, pl)
+        org_tid = int(org.id) if org is not None else None
+        if org is not None:
+            team_label = org.full_display_name()
+        elif pl.current_team is not None:
+            team_label = pl.current_team.full_display_name()
+            org_tid = int(pl.current_team.id)
+        else:
+            team_label = ""
         out.append(
             {
                 "id": pl.id,
                 "name": pl.full_name,
-                "team": pl.current_team.full_display_name() if pl.current_team else "",
+                "team": team_label,
+                "team_logo_url": logo_by_team_id.get(org_tid) if org_tid is not None else None,
                 "pos": label,
                 "age": age_years(pl.birth_date),
                 "pot": pl.overall_potential,
@@ -442,7 +456,6 @@ def expansion_draft_eligible_page():
                 "svp": rr.get("svp") if rr else None,
                 "height_in": pl.height_inches,
                 "weight_lb": pl.weight_lbs,
-                "photo_url": _player_photo_url(pl),
             }
         )
     return jsonify(
@@ -452,8 +465,7 @@ def expansion_draft_eligible_page():
             "total": total,
             "offset": offset,
             "limit": limit,
-            "display_window": ELIGIBLE_HUB_BOARD_WINDOW if using_board_window else None,
-            "display_window_capped": display_window_capped,
+            "page_size": EXPANSION_ELIGIBLE_PAGE_SIZE,
         }
     )
 

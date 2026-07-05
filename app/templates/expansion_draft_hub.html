@@ -116,18 +116,62 @@
     setDhTickerDuration(pickCount, true);
   }
 
+  var lastDraftPayload = null;
+  var rosterTrackerTeamId = null;
+  var EXPANSION_ROSTER_GOALIE_SLOTS = 3;
+
+  function resolveRosterTrackerTeamId(x) {
+    var rt = x.roster_tracker || {};
+    var franchises = rt.expansion_franchises || [];
+    var ids = franchises.map(function (f) { return Number(f.team_id); });
+    if (!ids.length && rt.expansion_franchise_ids) {
+      ids = rt.expansion_franchise_ids.map(function (id) { return Number(id); });
+    }
+    if (rosterTrackerTeamId != null && ids.indexOf(Number(rosterTrackerTeamId)) >= 0) {
+      return Number(rosterTrackerTeamId);
+    }
+    if (x.on_clock_team_id != null && ids.indexOf(Number(x.on_clock_team_id)) >= 0) {
+      return Number(x.on_clock_team_id);
+    }
+    if (rt.team_id != null && rt.team_id !== '') {
+      return Number(rt.team_id);
+    }
+    return ids.length ? ids[0] : null;
+  }
+
+  function rosterFranchiseInfo(x, teamId) {
+    var rt = x.roster_tracker || {};
+    var franchises = rt.expansion_franchises || [];
+    var tid = Number(teamId);
+    for (var i = 0; i < franchises.length; i += 1) {
+      if (Number(franchises[i].team_id) === tid) {
+        return franchises[i];
+      }
+    }
+    if (Number(rt.team_id) === tid) {
+      return {
+        team_id: rt.team_id,
+        team_name: rt.team_name || '',
+        team_logo_url: rt.team_logo_url || ''
+      };
+    }
+    return null;
+  }
+
   function buildRosterTrackerHtml(x) {
     var rt = x.roster_tracker || {};
-    var tid = rt.team_id;
+    var tid = resolveRosterTrackerTeamId(x);
     if (tid == null || tid === '') {
       return '<aside class="draft-hub-roster-tracker card" aria-label="Expansion roster slots"><p class="muted small" style="margin:0">Roster tracker appears once expansion franchises are configured.</p></aside>';
     }
+    rosterTrackerTeamId = tid;
+    var teamInfo = rosterFranchiseInfo(x, tid) || {};
     var picks = (x.ticker_picks || []).filter(function (p) { return Number(p.team_id) === Number(tid); });
     picks.sort(function (a, b) { return Number(a.overall) - Number(b.overall); });
     var g = [], ld = [], rd = [], lw = [], c = [], rw = [];
     picks.forEach(function (p) {
       var b = String(p.roster_slot || p.roster_bucket || 'LW').toUpperCase();
-      if (b === 'G' && g.length < 5) g.push(p);
+      if (b === 'G' && g.length < EXPANSION_ROSTER_GOALIE_SLOTS) g.push(p);
       else if (b === 'LD' && ld.length < 6) ld.push(p);
       else if (b === 'RD' && rd.length < 6) rd.push(p);
       else if (b === 'LW' && lw.length < 7) lw.push(p);
@@ -169,7 +213,7 @@
       }
       return rows;
     }
-    var goalieLabels = ['G #1', 'G #2', 'G #3', 'G #4', 'G #5'];
+    var goalieLabels = ['G #1', 'G #2', 'G #3'];
     var ldLabels = [];
     for (var li = 1; li <= 6; li++) ldLabels.push('LD #' + li);
     var rdLabels = [];
@@ -181,17 +225,43 @@
     var rwLabels = [];
     for (var rj = 1; rj <= 7; rj++) rwLabels.push('RW #' + rj);
     var brand = '';
-    if (rt.team_logo_url) {
-      brand = '<div class="draft-hub-roster-tracker__brand"><img src="' + esc(rt.team_logo_url) + '" alt="' + esc(rt.team_name || 'Expansion team') + ' logo" width="56" height="56" loading="lazy" decoding="async"></div>';
+    var logoUrl = teamInfo.team_logo_url || rt.team_logo_url || '';
+    var teamName = teamInfo.team_name || rt.team_name || 'Expansion team';
+    if (logoUrl) {
+      brand = '<div class="draft-hub-roster-tracker__brand"><img src="' + esc(logoUrl) + '" alt="' + esc(teamName) + ' logo" width="56" height="56" loading="lazy" decoding="async"></div>';
     } else {
-      brand = '<div class="draft-hub-roster-tracker__brand draft-hub-roster-tracker__brand--ph" aria-hidden="true">' + esc((rt.team_name || '?').substring(0, 3).toUpperCase()) + '</div>';
+      brand = '<div class="draft-hub-roster-tracker__brand draft-hub-roster-tracker__brand--ph" aria-hidden="true">' + esc((teamName || '?').substring(0, 3).toUpperCase()) + '</div>';
     }
-    var sub = rt.subtitle ? '<p class="draft-hub-roster-tracker__sub muted small">' + esc(rt.subtitle) + '</p>' : '';
+    var franchises = rt.expansion_franchises || [];
+    var onClockId = x.on_clock_team_id != null ? Number(x.on_clock_team_id) : null;
+    var sub = '';
+    if (Number(tid) === onClockId && x.status === 'live') {
+      sub = '<p class="draft-hub-roster-tracker__sub muted small">Slots for the expansion club currently on the clock.</p>';
+    } else if (franchises.length >= 2) {
+      sub = '<p class="draft-hub-roster-tracker__sub muted small">Viewing roster build for ' + esc(teamName) + '.</p>';
+    } else if (rt.subtitle) {
+      sub = '<p class="draft-hub-roster-tracker__sub muted small">' + esc(rt.subtitle) + '</p>';
+    }
     var h = '<aside class="draft-hub-roster-tracker card" aria-label="Expansion roster build">';
     h += '<div class="draft-hub-roster-tracker__top">';
     h += '<h2 class="draft-hub-roster-tracker__title">Roster build</h2>';
     h += brand;
     h += '</div>';
+    if (franchises.length >= 2) {
+      h += '<div class="draft-hub-roster-tracker__team-toggle" role="tablist" aria-label="Expansion franchise roster">';
+      franchises.forEach(function (f) {
+        var fid = Number(f.team_id);
+        var active = fid === Number(tid);
+        var cls = 'draft-hub-roster-tracker__team-btn' + (active ? ' is-active' : '');
+        var logo = f.team_logo_url
+          ? '<img class="draft-hub-roster-tracker__team-btn-logo" src="' + esc(f.team_logo_url) + '" alt="" width="28" height="28" loading="lazy" decoding="async">'
+          : '<span class="draft-hub-roster-tracker__team-btn-logo draft-hub-roster-tracker__team-btn-logo--ph" aria-hidden="true">' + esc((f.team_name || '?').substring(0, 2).toUpperCase()) + '</span>';
+        h += '<button type="button" class="' + cls + '" role="tab" aria-selected="' + (active ? 'true' : 'false') + '" data-team-id="' + esc(String(fid)) + '" title="' + esc(f.team_name || '') + '">';
+        h += logo + '<span class="draft-hub-roster-tracker__team-btn-label">' + esc(f.team_name || '') + '</span>';
+        h += '</button>';
+      });
+      h += '</div>';
+    }
     h += sub;
     h += '<div class="table-wrap draft-hub-roster-tracker__wrap"><table class="data draft-hub-roster-tracker__table">';
     h += '<thead><tr><th class="draft-hub-roster-tracker__th-slot">Slot</th><th>Position &amp; Name</th><th>Old Team</th></tr></thead>';
@@ -211,6 +281,24 @@
     return h;
   }
 
+  function bindRosterTrackerToggle(x) {
+    var toggle = document.querySelector('.draft-hub-roster-tracker__team-toggle');
+    if (!toggle) return;
+    if (toggle._bound) return;
+    toggle._bound = true;
+    toggle.addEventListener('click', function (ev) {
+      var btn = ev.target && ev.target.closest ? ev.target.closest('[data-team-id]') : null;
+      if (!btn || btn.disabled) return;
+      var nextId = Number(btn.getAttribute('data-team-id'));
+      if (!Number.isFinite(nextId) || nextId === rosterTrackerTeamId) return;
+      rosterTrackerTeamId = nextId;
+      var aside = document.querySelector('.draft-hub-roster-tracker');
+      if (!aside || !lastDraftPayload || !lastDraftPayload.draft) return;
+      aside.outerHTML = buildRosterTrackerHtml(lastDraftPayload.draft);
+      bindRosterTrackerToggle(lastDraftPayload.draft);
+    });
+  }
+
   function renderState(d) {
     var pageEl = document.getElementById('draft-hub-page-root');
     if (!d || !d.draft) {
@@ -221,6 +309,7 @@
       return;
     }
     if (pageEl) pageEl.classList.add('draft-hub-page--ticker');
+    lastDraftPayload = d;
     var x = d.draft;
     var html = '';
     html += '<div class="draft-hub-grid">';
@@ -322,7 +411,7 @@
         : 'Browse the eligible pool. The commissioner records picks from this board during the live draft.';
       html += '<p class="muted small" style="margin:0 0 0.5rem;line-height:1.35;">' + esc(eligBlurb) + '</p>';
     }
-    html += '<p class="muted loading-with-puck" id="dh-eligible-meta">Loading…</p>';
+    html += '<p class="muted" id="dh-eligible-meta">Loading…</p>';
     html += '<div class="draft-hub-filters">';
     html += '<input type="search" id="dh-search" class="draft-hub-search" placeholder="Search players…" autocomplete="off">';
     html += '<label class="draft-hub-pos-filter">';
@@ -346,6 +435,7 @@
     html += '</select></label>';
     html += '</div>';
     html += '<div id="dh-eligible-list" class="draft-hub-player-list"></div>';
+    html += '<div id="dh-eligible-pager" class="draft-hub-eligible-pager" aria-label="Eligible player pages"></div>';
     html += '</section>';
 
     html += '<section class="draft-hub-col draft-hub-col--order card">';
@@ -492,7 +582,7 @@
         freshList.parentNode.replaceChild(preservedEligibleList, freshList);
       }
     }
-    sizeDraftOrder(x.picks_per_round);
+    sizeDraftOrder(x.picks_per_round, true);
     restorePanelScrolls();
 
     if (preservedTicker && preservedTicker.getAttribute('data-ticker-key') === tickerText) {
@@ -502,11 +592,14 @@
     }
 
     loadEligible(x);
+    bindRosterTrackerToggle(x);
   }
 
   var searchQ = '';
   var posQ = '';
   var historyRound = 'all';
+  var eligibleOffset = 0;
+  var eligiblePageSize = 50;
   var savedEligibleScroll = 0;
   var resetEligibleScroll = false;
   var savedPanelScrolls = {};
@@ -598,9 +691,14 @@
     }
   }
 
-  function sizeDraftOrder(picksPerRound) {
+  function sizeDraftOrder(picksPerRound, isExpansion) {
     var order = document.querySelector('.draft-hub-order');
     if (!order) return;
+    if (isExpansion) {
+      order.style.maxHeight = 'none';
+      order.style.minHeight = '';
+      return;
+    }
     var n = Math.max(1, Number(picksPerRound) || 27);
     var first = order.querySelector('.draft-hub-order__item');
     if (!first) {
@@ -664,15 +762,23 @@
     var meta = document.getElementById('dh-eligible-meta');
     var list = document.getElementById('dh-eligible-list');
     if (!list) return;
-    var url = eligibleUrl + '?limit=40';
+    var url = eligibleUrl + '?limit=' + encodeURIComponent(String(eligiblePageSize)) + '&offset=' + encodeURIComponent(String(eligibleOffset));
     if (searchQ) url += '&q=' + encodeURIComponent(searchQ);
     if (posQ) url += '&pos=' + encodeURIComponent(posQ);
     fetch(url, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
       if (!d.ok) return;
+      var total = Number(d.total || 0);
+      if (total > 0 && eligibleOffset >= total) {
+        eligibleOffset = Math.max(0, Math.floor((total - 1) / eligiblePageSize) * eligiblePageSize);
+        loadEligible(x);
+        return;
+      }
       if (meta) {
-        var metaParts = [String(d.total != null ? d.total : 0) + ' available'];
-        if (d.display_window_capped && d.display_window) {
-          metaParts.push('showing top ' + d.display_window + ' on the board');
+        var pageStart = total > 0 ? eligibleOffset + 1 : 0;
+        var pageEnd = Math.min(eligibleOffset + eligiblePageSize, total);
+        var metaParts = [String(total) + ' available'];
+        if (total > 0) {
+          metaParts.push('showing ' + pageStart + '-' + pageEnd);
         }
         meta.textContent = metaParts.join(' · ');
       }
@@ -682,13 +788,13 @@
       var html = '';
       rows.forEach(function (p) {
         var detailTitle = playerDetailsTitle(p);
-        var photo = p.photo_url
-          ? '<img src="' + esc(p.photo_url) + '" alt="' + esc(p.name || '') + ' photo" loading="lazy">'
-          : '<span class="draft-hub-player__photo-ph" aria-hidden="true"></span>';
+        var teamLogo = p.team_logo_url
+          ? '<img class="draft-hub-player__team-logo" src="' + esc(p.team_logo_url) + '" alt="" width="32" height="32" loading="lazy" decoding="async" title="' + esc(p.team || '') + '">'
+          : '<span class="draft-hub-player__team-logo draft-hub-player__team-logo--ph" aria-hidden="true" title="' + esc(p.team || '') + '">' + esc((p.team || '?').substring(0, 2).toUpperCase()) + '</span>';
         var cardHref = esc(playerHref(p.id));
         var cardName = esc(p.name || '');
         html += '<div class="draft-hub-player" title="' + esc(detailTitle) + '">';
-        html += '<a class="draft-hub-player__photo dh-player-card-link" href="' + cardHref + '" target="_blank" rel="noopener noreferrer" data-player-name="' + cardName + '" title="Open player card in a new window">' + photo + '</a>';
+        html += '<div class="draft-hub-player__team" aria-label="' + esc(p.team || 'Team') + '">' + teamLogo + '</div>';
         html += '<div class="draft-hub-player__main">';
         html += '<div class="draft-hub-player__line draft-hub-player__line--top">';
         html += '<strong><a href="' + cardHref + '" class="draft-hub-player__name dh-player-card-link" target="_blank" rel="noopener noreferrer" data-player-name="' + cardName + '" title="Open player card in a new window">' + esc(p.name) + '</a></strong> ';
@@ -717,6 +823,7 @@
         html += '</div></div>';
       });
       list.innerHTML = html || '<p class="muted">No matching players.</p>';
+      renderEligiblePager(total);
       restoreEligibleScroll();
       list.querySelectorAll('.dh-player-card-link').forEach(function (a) {
         if (a._cardBound) return;
@@ -728,6 +835,24 @@
         });
       });
     }).catch(function () {});
+  }
+
+  function renderEligiblePager(total) {
+    var pager = document.getElementById('dh-eligible-pager');
+    if (!pager) return;
+    total = Number(total || 0);
+    if (total <= eligiblePageSize) {
+      pager.innerHTML = '';
+      return;
+    }
+    var currentPage = Math.floor(eligibleOffset / eligiblePageSize) + 1;
+    var totalPages = Math.max(1, Math.ceil(total / eligiblePageSize));
+    var prevDisabled = eligibleOffset <= 0 ? ' disabled' : '';
+    var nextDisabled = eligibleOffset + eligiblePageSize >= total ? ' disabled' : '';
+    pager.innerHTML =
+      '<button type="button" class="button secondary dh-eligible-page-prev"' + prevDisabled + '>Previous 50</button>' +
+      '<span class="draft-hub-eligible-pager__status">Page ' + esc(String(currentPage)) + ' of ' + esc(String(totalPages)) + '</span>' +
+      '<button type="button" class="button secondary dh-eligible-page-next"' + nextDisabled + '>Next 50</button>';
   }
 
   function refetchAndReloadEligible(opts) {
@@ -751,6 +876,7 @@
       var t;
       s.addEventListener('input', function () {
         searchQ = s.value.trim();
+        eligibleOffset = 0;
         clearTimeout(t);
         t = setTimeout(function () { refetchAndReloadEligible({ resetScroll: true }); }, 250);
       });
@@ -760,6 +886,23 @@
       posSel._bound = true;
       posSel.addEventListener('change', function () {
         posQ = posSel.value || '';
+        eligibleOffset = 0;
+        refetchAndReloadEligible({ resetScroll: true });
+      });
+    }
+    var pager = document.getElementById('dh-eligible-pager');
+    if (pager && !pager._bound) {
+      pager._bound = true;
+      pager.addEventListener('click', function (ev) {
+        var btn = ev.target && ev.target.closest ? ev.target.closest('button') : null;
+        if (!btn || btn.disabled) return;
+        if (btn.classList.contains('dh-eligible-page-prev')) {
+          eligibleOffset = Math.max(0, eligibleOffset - eligiblePageSize);
+        } else if (btn.classList.contains('dh-eligible-page-next')) {
+          eligibleOffset += eligiblePageSize;
+        } else {
+          return;
+        }
         refetchAndReloadEligible({ resetScroll: true });
       });
     }
@@ -794,12 +937,9 @@
   }
 
   function poll() {
-    var ae = document.activeElement;
-    if (ae && (ae.id === 'dh-search' || ae.id === 'dh-pos-filter' || ae.id === 'dh-history-round')) return;
     forceRefresh();
   }
   poll();
-  setInterval(poll, 2800);
 })();
 </script>
 {% endblock %}

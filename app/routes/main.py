@@ -150,6 +150,7 @@ from app.services.team_staff_csv import (
     STAFF_TRAINER_COLUMNS,
     get_staff_sections_for_team,
 )
+from app.services.depth_chart_sort import depth_chart_player_sort_key
 from app.services.division_labels import load_division_display_maps
 from app.services.playoff_seeding import (
     league_uses_conference_division_winner_seeding,
@@ -3595,25 +3596,14 @@ def _build_team_lines_views(
             "pid": pl.id,
         }
 
-    def _depth_score(pl: Player, bucket: str) -> tuple[float, float, float, str]:
-        if bucket == "G":
-            primary = _rating_num(pl, "g")
-        elif bucket == "D":
-            primary = max(_rating_num(pl, "ld"), _rating_num(pl, "rd"))
-        elif bucket == "LW":
-            primary = _rating_num(pl, "lw")
-        elif bucket == "C":
-            primary = _rating_num(pl, "c")
-        else:
-            primary = _rating_num(pl, "rw")
-        abi = float(pl.overall_ability) if pl.overall_ability is not None else -1.0
-        pot = float(pl.overall_potential) if pl.overall_potential is not None else -1.0
-        return (primary, abi, pot, pl.full_name.lower())
-
     def _merge_depth(players: list[Player], bucket: str) -> list[dict[str, object]]:
         out: list[dict[str, object]] = []
         seen: set[int] = set()
-        ordered = sorted(players, key=lambda p: _depth_score(p, bucket), reverse=True)
+        ordered = sorted(
+            players,
+            key=lambda p: depth_chart_player_sort_key(p, bucket=bucket),
+            reverse=True,
+        )
         for pl in ordered:
             if not pl or pl.id in seen:
                 continue

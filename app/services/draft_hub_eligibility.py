@@ -16,9 +16,15 @@ from app.services.free_agents import bowl_org_rights_player_ids_for_league
 ELIGIBLE_HUB_BOARD_WINDOW = 40
 DRAFT_POOL_AGE_RULES = "age_rules"
 DRAFT_POOL_BORN_BEFORE = "born_before"
+DRAFT_POOL_BIRTH_WINDOW = "birth_window"
 DRAFT_POOL_DRAFT_ELIGIBLE_PAGE = "draft_eligible_page"
 DRAFT_POOL_SOURCE_VALUES = frozenset(
-    {DRAFT_POOL_AGE_RULES, DRAFT_POOL_BORN_BEFORE, DRAFT_POOL_DRAFT_ELIGIBLE_PAGE}
+    {
+        DRAFT_POOL_AGE_RULES,
+        DRAFT_POOL_BORN_BEFORE,
+        DRAFT_POOL_BIRTH_WINDOW,
+        DRAFT_POOL_DRAFT_ELIGIBLE_PAGE,
+    }
 )
 HISTORICAL_AMATEUR_BIRTH_START = date(1949, 12, 28)
 HISTORICAL_AMATEUR_BIRTH_END = date(1950, 12, 31)
@@ -60,6 +66,9 @@ class DraftEligibilityParams:
     max_anchor_day: int
     pool_source: str = DRAFT_POOL_AGE_RULES
     born_before_date: date | None = None
+    birth_window_start: date | None = None
+    birth_window_end: date | None = None
+    exclude_eastern_bloc: bool = False
 
 
 def default_eligibility_for_league(league_slug: str) -> DraftEligibilityParams:
@@ -111,15 +120,32 @@ def draft_eligible_timeline_year_for_league(
     return int(fallback_year)
 
 
-def draft_eligible_page_params_for_league(league_slug: str, timeline_year: int) -> DraftEligibilityParams:
+def draft_eligible_page_params_for_league(
+    league_slug: str,
+    timeline_year: int,
+    *,
+    site_session=None,
+) -> DraftEligibilityParams:
     """Eligibility rule set used by the public Draft Eligible page for a timeline year."""
+    if site_session is not None:
+        from app.services.draft_eligible_settings import (
+            config_to_eligibility_params,
+            load_draft_eligible_page_config,
+        )
+
+        config = load_draft_eligible_page_config(site_session, league_slug)
+        return config_to_eligibility_params(config, timeline_year=int(timeline_year))
+
     if league_slug == "bowl-historical":
         return DraftEligibilityParams(
             **{
                 **default_eligibility_for_league(league_slug).__dict__,
                 "timeline_year": int(timeline_year),
-                "pool_source": DRAFT_POOL_DRAFT_ELIGIBLE_PAGE,
+                "pool_source": DRAFT_POOL_BIRTH_WINDOW,
                 "born_before_date": None,
+                "birth_window_start": HISTORICAL_AMATEUR_BIRTH_START,
+                "birth_window_end": HISTORICAL_AMATEUR_BIRTH_END,
+                "exclude_eastern_bloc": True,
             }
         )
     return DraftEligibilityParams(
@@ -132,10 +158,19 @@ def draft_eligible_page_params_for_league(league_slug: str, timeline_year: int) 
     )
 
 
-def effective_eligibility_params(league_slug: str, params: DraftEligibilityParams) -> DraftEligibilityParams:
+def effective_eligibility_params(
+    league_slug: str,
+    params: DraftEligibilityParams,
+    *,
+    site_session=None,
+) -> DraftEligibilityParams:
     """Resolve indirect pool sources into concrete rules for filtering and display."""
     if params.pool_source == DRAFT_POOL_DRAFT_ELIGIBLE_PAGE:
-        return draft_eligible_page_params_for_league(league_slug, params.timeline_year)
+        return draft_eligible_page_params_for_league(
+            league_slug,
+            params.timeline_year,
+            site_session=site_session,
+        )
     return params
 
 
@@ -164,16 +199,30 @@ def player_passes_born_before_rule(birth: date | None, cutoff: date | None) -> b
     return birth < cutoff
 
 
-def player_passes_historical_amateur_rules(player: Player) -> bool:
-    """Historical draft page uses a birth-date window and excludes Iron Curtain players."""
-    if (
-        player.birth_date is None
-        or player.birth_date < HISTORICAL_AMATEUR_BIRTH_START
-        or player.birth_date > HISTORICAL_AMATEUR_BIRTH_END
-    ):
+def player_passes_birth_window_rule(
+    birth: date | None,
+    start: date | None,
+    end: date | None,
+) -> bool:
+    if birth is None or start is None or end is None:
         return False
+    return start <= birth <= end
+
+
+def player_passes_eastern_bloc_exclusion(player: Player) -> bool:
     nationality = (getattr(player, "nationality", None) or "").strip().lower()
     return nationality not in HISTORICAL_EASTERN_BLOC_NATIONALITIES
+
+
+def player_passes_historical_amateur_rules(player: Player) -> bool:
+    """Historical draft page uses a birth-date window and excludes Iron Curtain players."""
+    if not player_passes_birth_window_rule(
+        player.birth_date,
+        HISTORICAL_AMATEUR_BIRTH_START,
+        HISTORICAL_AMATEUR_BIRTH_END,
+    ):
+        return False
+    return player_passes_eastern_bloc_exclusion(player)
 
 
 def undrafted_nhl_bowl_player_subquery():
@@ -186,8 +235,14 @@ def undrafted_nhl_bowl_player_subquery():
     )
 
 
-def eligible_player_ids(session: Session, league_slug: str, params: DraftEligibilityParams) -> list[int]:
-    params = effective_eligibility_params(league_slug, params)
+def eligible_player_ids(
+    session: Session,
+    league_slug: str,
+    params: DraftEligibilityParams,
+    *,
+    site_session=None,
+) -> list[int]:
+    params = effective_eligibility_params(league_slug, params, site_session=site_session)
     drafted_subq = undrafted_nhl_bowl_player_subquery()
     rights_ids = bowl_org_rights_player_ids_for_league(session, league_slug)
     q_where = [
@@ -200,23 +255,33 @@ def eligible_player_ids(session: Session, league_slug: str, params: DraftEligibi
     players = session.scalars(select(Player).where(*q_where)).unique().all()
     out: list[int] = []
     for p in players:
-        if league_slug == "bowl-historical" and params.pool_source == DRAFT_POOL_DRAFT_ELIGIBLE_PAGE:
-            passes_pool = True
+        if params.pool_source == DRAFT_POOL_BIRTH_WINDOW:
+            passes_pool = player_passes_birth_window_rule(
+                p.birth_date,
+                params.birth_window_start,
+                params.birth_window_end,
+            )
         elif params.pool_source == DRAFT_POOL_BORN_BEFORE:
             passes_pool = player_passes_born_before_rule(p.birth_date, params.born_before_date)
         else:
             passes_pool = player_passes_age_rules(p.birth_date, params)
         if not passes_pool:
             continue
-        if league_slug == "bowl-historical" and not player_passes_historical_amateur_rules(p):
+        if params.exclude_eastern_bloc and not player_passes_eastern_bloc_exclusion(p):
             continue
         out.append(int(p.id))
     return out
 
 
-def eligible_players_ordered(session: Session, league_slug: str, params: DraftEligibilityParams) -> list[Player]:
+def eligible_players_ordered(
+    session: Session,
+    league_slug: str,
+    params: DraftEligibilityParams,
+    *,
+    site_session=None,
+) -> list[Player]:
     """Players sorted for board rank (potential desc, ability desc, name)."""
-    ids = eligible_player_ids(session, league_slug, params)
+    ids = eligible_player_ids(session, league_slug, params, site_session=site_session)
     if not ids:
         return []
     players = list(session.scalars(select(Player).where(Player.id.in_(ids))).unique().all())

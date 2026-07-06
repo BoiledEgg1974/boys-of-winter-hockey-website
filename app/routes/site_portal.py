@@ -8185,6 +8185,127 @@ def admin_draft_hub():
     return render_template("admin_draft_hub.html", league_slug=slug, drafts=rows)
 
 
+@site_admin_bp.route("/draft-eligible-settings", methods=["GET", "POST"])
+@login_required
+def admin_draft_eligible_settings():
+    require_admin_role(ADMIN_ROLE_CONTENT, ADMIN_ROLE_LEAGUE)
+    slug = _league_slug()
+    from app.services.draft_eligible_settings import (
+        DRAFT_ELIGIBLE_POOL_MODE_AGE_RULES,
+        DRAFT_ELIGIBLE_POOL_MODE_BIRTH_WINDOW,
+        DraftEligiblePageConfig,
+        default_draft_eligible_page_config,
+        format_draft_eligible_summary,
+        load_draft_eligible_page_config,
+        save_draft_eligible_page_config,
+    )
+    from app.services.draft_hub_eligibility import draft_eligible_timeline_year_for_league
+    from app.services.draft_hub_eligibility_cache import invalidate_eligible_pool_cache
+    from app.services.seasons import get_current_season
+
+    season = get_current_season()
+    timeline_year = draft_eligible_timeline_year_for_league(
+        slug,
+        int(season.start_year) if season and season.start_year else None,
+        int(season.end_year) if season and season.end_year else None,
+        datetime.utcnow().year,
+    )
+    defaults = default_draft_eligible_page_config(slug)
+    if request.method == "POST":
+        pool_mode = (request.form.get("pool_mode") or defaults.pool_mode).strip()
+        if pool_mode not in {
+            DRAFT_ELIGIBLE_POOL_MODE_BIRTH_WINDOW,
+            DRAFT_ELIGIBLE_POOL_MODE_AGE_RULES,
+        }:
+            pool_mode = defaults.pool_mode
+        birth_start = _parse_draft_born_before_date(request.form.get("birth_start") or "")
+        birth_end = _parse_draft_born_before_date(request.form.get("birth_end") or "")
+        if birth_start is None:
+            birth_start = defaults.birth_start
+        if birth_end is None:
+            birth_end = defaults.birth_end
+        if birth_end < birth_start:
+            flash("Birth end date must be on or after the birth start date.", "err")
+            return redirect(url_for("site_admin.admin_draft_eligible_settings"))
+        min_anchor_month, min_anchor_day = _parse_draft_deadline_date(
+            request.form.get("min_deadline_date") or "",
+            defaults.min_anchor_month,
+            defaults.min_anchor_day,
+        )
+        max_anchor_month, max_anchor_day = _parse_draft_deadline_date(
+            request.form.get("max_deadline_date") or "",
+            defaults.max_anchor_month,
+            defaults.max_anchor_day,
+        )
+        config = DraftEligiblePageConfig(
+            pool_mode=pool_mode,
+            birth_start=birth_start,
+            birth_end=birth_end,
+            exclude_eastern_bloc=request.form.get("exclude_eastern_bloc") == "1",
+            min_age_years=int(request.form.get("min_age_years") or defaults.min_age_years),
+            min_anchor_month=min_anchor_month,
+            min_anchor_day=min_anchor_day,
+            max_age_years=int(request.form.get("max_age_years") or defaults.max_age_years),
+            max_anchor_month=max_anchor_month,
+            max_anchor_day=max_anchor_day,
+        )
+        save_draft_eligible_page_config(
+            db.session,
+            slug,
+            config,
+            updated_by_user_id=int(current_user.id),
+        )
+        invalidate_eligible_pool_cache(league_slug=slug)
+        db.session.add(
+            AdminAuditLog(
+                admin_user_id=int(current_user.id),
+                league_slug=slug,
+                action="draft_eligible_settings_update",
+                detail_json=json.dumps(
+                    {
+                        "pool_mode": config.pool_mode,
+                        "birth_start": config.birth_start.isoformat(),
+                        "birth_end": config.birth_end.isoformat(),
+                        "exclude_eastern_bloc": config.exclude_eastern_bloc,
+                    }
+                ),
+            )
+        )
+        commit_with_sqlite_retry(db.session)
+        flash("Draft Eligible settings saved.", "ok")
+        return redirect(url_for("site_admin.admin_draft_eligible_settings"))
+
+    config = load_draft_eligible_page_config(db.session, slug)
+    year_min_date = f"{timeline_year}-01-01"
+    year_max_date = f"{timeline_year}-12-31"
+    min_deadline_value = date(timeline_year, config.min_anchor_month, config.min_anchor_day).isoformat()
+    max_deadline_value = date(timeline_year, config.max_anchor_month, config.max_anchor_day).isoformat()
+    preview_summary = format_draft_eligible_summary(
+        config,
+        league_slug=slug,
+        timeline_year=timeline_year,
+    )
+    age_options = list(range(15, 31))
+    return render_template(
+        "admin_draft_eligible_settings.html",
+        league_slug=slug,
+        config=config,
+        defaults=defaults,
+        timeline_year=timeline_year,
+        birth_start_value=config.birth_start.isoformat(),
+        birth_end_value=config.birth_end.isoformat(),
+        min_deadline_value=min_deadline_value,
+        max_deadline_value=max_deadline_value,
+        year_min_date=year_min_date,
+        year_max_date=year_max_date,
+        preview_summary=preview_summary,
+        age_options=age_options,
+        pool_mode_birth_window=DRAFT_ELIGIBLE_POOL_MODE_BIRTH_WINDOW,
+        pool_mode_age_rules=DRAFT_ELIGIBLE_POOL_MODE_AGE_RULES,
+        public_draft_eligible_url=url_for("main.draft_eligible"),
+    )
+
+
 @site_admin_bp.route("/draft-hub/<int:draft_id>", methods=["GET", "POST"])
 @login_required
 def admin_draft_hub_edit(draft_id: int):

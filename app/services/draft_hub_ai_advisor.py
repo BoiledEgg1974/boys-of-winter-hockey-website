@@ -313,7 +313,9 @@ def fetch_draft_hub_ai_advice(
 
     params = draft_eligibility_params(draft)
     picked = picked_player_ids(session, draft.id)
-    eligible_all = eligible_players_for_board(session, league_slug, params, picked)
+    eligible_all = eligible_players_for_board(
+        session, league_slug, params, picked, site_session=session
+    )
     rank_by_id = {p.id: i + 1 for i, p in enumerate(eligible_all)}
     eligible_top = eligible_all[:14]
 

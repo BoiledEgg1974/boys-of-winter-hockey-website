@@ -532,7 +532,9 @@ def _eligible_remaining_players(league_slug: str) -> tuple[Any | None, list[Play
         return draft, []
     picked = picked_player_ids(db.session, int(draft.id))
     params = draft_eligibility_params(draft)
-    return draft, eligible_players_for_board(db.session, league_slug, params, picked)
+    return draft, eligible_players_for_board(
+        db.session, league_slug, params, picked, site_session=db.session
+    )
 
 
 def _player_search_text(player: Player) -> str:
@@ -821,8 +823,10 @@ def _handle_drafteligible_command(payload: dict[str, Any], league_slug: str) -> 
         int(season.end_year) if season and season.end_year else None,
         datetime.utcnow().year,
     )
-    params = draft_eligible_page_params_for_league(league_slug, timeline)
-    players = eligible_players_ordered(db.session, league_slug, params)
+    params = draft_eligible_page_params_for_league(league_slug, timeline, site_session=db.session)
+    players = eligible_players_ordered(
+        db.session, league_slug, params, site_session=db.session
+    )
     pos = _command_option(payload, "position")
     q = _command_option(payload, "query").casefold()
     if pos:

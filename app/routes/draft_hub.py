@@ -402,7 +402,7 @@ def draft_hub_api_state():
 
     params = draft_eligibility_params(draft)
     picked = picked_player_ids(db.session, draft.id)
-    eligible_count = eligible_count_for_draft(db.session, slug, params, picked)
+    eligible_count = eligible_count_for_draft(db.session, slug, params, picked, site_session=db.session)
 
     now = utcnow_naive()
     deadline_ms = None
@@ -687,7 +687,7 @@ def draft_hub_eligible_page():
     )
     params = draft_eligibility_params(draft)
     picked = picked_player_ids(db.session, draft.id)
-    eligible = eligible_players_for_board(db.session, slug, params, picked)
+    eligible = eligible_players_for_board(db.session, slug, params, picked, site_session=db.session)
     if q:
         eligible = [p for p in eligible if q in (p.full_name or "").lower()]
     pos_labels: dict[int, str] = {}

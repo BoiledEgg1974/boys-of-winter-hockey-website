@@ -15,11 +15,12 @@ from app.models import Player
 from app.services.draft_hub_eligibility import (
     DraftEligibilityParams,
     board_ranks_map,
+    effective_eligibility_params,
     eligible_players_ordered,
 )
 
 _CACHE_TTL_SECONDS = 120.0
-_CACHE_VERSION = 4
+_CACHE_VERSION = 5
 _lock = Lock()
 _pool_cache: dict[tuple, tuple[float, list[int], dict[str, int]]] = {}
 
@@ -39,6 +40,17 @@ def _params_key(params: DraftEligibilityParams) -> tuple:
             if getattr(params, "born_before_date", None) is not None
             else ""
         ),
+        (
+            params.birth_window_start.isoformat()
+            if getattr(params, "birth_window_start", None) is not None
+            else ""
+        ),
+        (
+            params.birth_window_end.isoformat()
+            if getattr(params, "birth_window_end", None) is not None
+            else ""
+        ),
+        "1" if getattr(params, "exclude_eastern_bloc", False) else "0",
     )
 
 
@@ -115,9 +127,12 @@ def eligible_pool_snapshot(
     session: Session,
     league_slug: str,
     params: DraftEligibilityParams,
+    *,
+    site_session=None,
 ) -> tuple[list[int], dict[str, int]]:
     """Ordered eligible player ids (full pool) and board rank map; cached per league + rules."""
-    key = _cache_key(league_slug, params)
+    resolved = effective_eligibility_params(league_slug, params, site_session=site_session)
+    key = _cache_key(league_slug, resolved)
     now = time.monotonic()
     with _lock:
         hit = _pool_cache.get(key)
@@ -131,7 +146,12 @@ def eligible_pool_snapshot(
             _pool_cache[key] = (now, ids, ranks)
         return ids, ranks
 
-    players = eligible_players_ordered(session, league_slug, params)
+    players = eligible_players_ordered(
+        session,
+        league_slug,
+        params,
+        site_session=site_session,
+    )
     ids = [int(p.id) for p in players]
     ranks = board_ranks_map(players)
     _write_file_cache(key, ids, ranks)
@@ -145,8 +165,10 @@ def eligible_count_for_draft(
     league_slug: str,
     params: DraftEligibilityParams,
     picked_ids: set[int],
+    *,
+    site_session=None,
 ) -> int:
-    ids, _ = eligible_pool_snapshot(session, league_slug, params)
+    ids, _ = eligible_pool_snapshot(session, league_slug, params, site_session=site_session)
     if not picked_ids:
         return len(ids)
     return sum(1 for pid in ids if pid not in picked_ids)
@@ -157,8 +179,10 @@ def eligible_id_set_for_draft(
     league_slug: str,
     params: DraftEligibilityParams,
     picked_ids: set[int],
+    *,
+    site_session=None,
 ) -> set[int]:
-    ids, _ = eligible_pool_snapshot(session, league_slug, params)
+    ids, _ = eligible_pool_snapshot(session, league_slug, params, site_session=site_session)
     if not picked_ids:
         return set(ids)
     return {pid for pid in ids if pid not in picked_ids}
@@ -169,9 +193,11 @@ def eligible_players_for_board(
     league_slug: str,
     params: DraftEligibilityParams,
     picked_ids: set[int],
+    *,
+    site_session=None,
 ) -> list[Player]:
     """Load Player rows for cached id order, excluding picks in this draft."""
-    ids, _ = eligible_pool_snapshot(session, league_slug, params)
+    ids, _ = eligible_pool_snapshot(session, league_slug, params, site_session=site_session)
     if picked_ids:
         ids = [pid for pid in ids if pid not in picked_ids]
     if not ids:

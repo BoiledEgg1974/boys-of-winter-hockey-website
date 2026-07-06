@@ -6,7 +6,12 @@ from dataclasses import replace
 from datetime import date
 from unittest.mock import MagicMock, patch
 
+from app.services.draft_eligible_settings import (
+    config_to_eligibility_params,
+    default_draft_eligible_page_config,
+)
 from app.services.draft_hub_eligibility import (
+    DRAFT_POOL_BIRTH_WINDOW,
     DRAFT_POOL_BORN_BEFORE,
     DRAFT_POOL_DRAFT_ELIGIBLE_PAGE,
     age_as_of,
@@ -124,7 +129,7 @@ class DraftHubEligibilityTest(unittest.TestCase):
         expected = draft_eligible_page_params_for_league("bowl-historical", 1968)
 
         self.assertEqual(effective, expected)
-        self.assertEqual(effective.pool_source, DRAFT_POOL_DRAFT_ELIGIBLE_PAGE)
+        self.assertEqual(effective.pool_source, DRAFT_POOL_BIRTH_WINDOW)
 
     def test_historical_amateur_rules_use_birth_window_and_exclude_iron_curtain(self) -> None:
         before_window = MagicMock(birth_date=date(1949, 12, 27), nationality="Canada")
@@ -142,7 +147,10 @@ class DraftHubEligibilityTest(unittest.TestCase):
         self.assertFalse(player_passes_historical_amateur_rules(czech_in_window))
 
     def test_historical_eligible_pool_applies_amateur_country_rules(self) -> None:
-        params = replace(default_eligibility_for_league("bowl-historical"), timeline_year=1970)
+        params = config_to_eligibility_params(
+            default_draft_eligible_page_config("bowl-historical"),
+            timeline_year=1970,
+        )
         session = MagicMock()
         allowed = MagicMock(
             id=1,

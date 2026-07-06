@@ -27,6 +27,11 @@
 {% block content %}
 <div class="prospects-rankings-page">
   <h1 class="page-title">Draft Eligible</h1>
+  {% if site_can_process_trades %}
+  <p class="muted" style="margin:0 0 0.35rem;">
+    Commissioners: <a href="{{ url_for('site_admin.admin_draft_eligible_settings') }}">edit birth-date eligibility rules</a>.
+  </p>
+  {% endif %}
   {% if eligibility_summary %}
   <p class="muted">{{ eligibility_summary }}</p>
   {% else %}

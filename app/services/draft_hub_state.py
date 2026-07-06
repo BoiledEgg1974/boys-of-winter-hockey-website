@@ -347,7 +347,9 @@ def go_live(session: Session, draft: LeagueDraft, admin_user_id: int) -> str | N
     if not slots:
         return "Add draft order slots before going live."
     params = draft_eligibility_params(draft)
-    players = eligible_players_for_board(session, draft.league_slug, params, set())
+    players = eligible_players_for_board(
+        session, draft.league_slug, params, set(), site_session=session
+    )
     if not players:
         return "No eligible players for this draft (check age rules and pool)."
     draft.board_ranks_json = json.dumps(board_ranks_map(players))
@@ -697,7 +699,7 @@ def auto_complete_draft(
         picked_ids = picked_player_ids(session, draft.id)
         params = draft_eligibility_params(draft)
         eligible_remaining = eligible_players_for_board(
-            session, draft.league_slug, params, picked_ids
+            session, draft.league_slug, params, picked_ids, site_session=session
         )
         if not eligible_remaining:
             _finalize_draft_if_done(session, draft, slots)

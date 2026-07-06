@@ -162,6 +162,10 @@ from app.services.standings import (
     standings_for_season,
 )
 from app.services.postseason_odds import build_team_page_mc_bundle
+from app.services.draft_eligible_settings import (
+    format_draft_eligible_summary,
+    load_draft_eligible_page_config,
+)
 from app.services.draft_hub_eligibility import (
     DraftEligibilityParams,
     age_as_of,
@@ -3007,7 +3011,11 @@ def _draft_eligible_params_for_page(
         int(season.end_year) if season and season.end_year else None,
         date.today().year,
     )
-    page_params = draft_eligible_page_params_for_league(league_slug, timeline_year)
+    page_params = draft_eligible_page_params_for_league(
+        league_slug,
+        timeline_year,
+        site_session=db.session,
+    )
     if league_slug == "bowl-historical":
         return page_params, "Historical amateur pool"
     if league_slug == "bowl-cap":
@@ -3028,21 +3036,15 @@ def draft_eligible():
     league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
     season = get_current_season()
     params, params_source = _draft_eligible_params_for_page(league_slug, season)
+    page_config = load_draft_eligible_page_config(db.session, league_slug)
     draft = featured_draft(db.session, league_slug)
     picked: set[int] = picked_player_ids(db.session, draft.id) if draft else set()
-    eligibility_summary = None
+    eligibility_summary = format_draft_eligible_summary(
+        page_config,
+        league_slug=league_slug,
+        timeline_year=int(params.timeline_year),
+    )
     eligibility_notes = []
-    if league_slug == "bowl-historical":
-        eligibility_summary = (
-            "Historical amateur pool shows players born from December 28, 1949 through "
-            "December 31, 1950, excluding Iron Curtain nationalities."
-        )
-    elif league_slug == "bowl-cap":
-        eligibility_summary = (
-            f"Cap draft eligible pool for the {params.timeline_year} in-game draft: players must be "
-            f"at least {params.min_age_years} by September 15, {params.timeline_year}, and not older "
-            f"than {params.max_age_years} by December 31, {params.timeline_year}."
-        )
 
     overview_headers = PROSPECT_OVERVIEW_HEADERS
     attr_sort_keys = frozenset(h[2] for h in overview_headers)
@@ -3059,7 +3061,16 @@ def draft_eligible():
     if order not in ("asc", "desc"):
         order = "asc" if sort_col == "rank" else "desc"
 
-    eligible_pool = [p for p in eligible_players_ordered(db.session, league_slug, params) if int(p.id) not in picked]
+    eligible_pool = [
+        p
+        for p in eligible_players_ordered(
+            db.session,
+            league_slug,
+            params,
+            site_session=db.session,
+        )
+        if int(p.id) not in picked
+    ]
     players = eligible_pool
     if q:
         players = [p for p in players if q in (p.full_name or "").lower()]

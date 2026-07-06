@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Draft Eligible Settings — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:52rem;margin:0 auto;">
+  <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a> · <a href="{{ public_draft_eligible_url }}">View Draft Eligible page</a></p>
+  <h1 class="page-title">Draft Eligible settings</h1>
+  <p class="muted" style="margin:0 0 1rem;">
+    Configure who appears on the public <a href="{{ public_draft_eligible_url }}">Draft Eligible</a> list for
+    <strong>{{ config.LEAGUE_DISPLAY_NAME }}</strong>. Draft Hub drafts that import from the Draft Eligible page use these rules too.
+  </p>
+  <p class="muted" style="margin:0 0 1rem;"><strong>Current summary:</strong> {{ preview_summary }}</p>
+
+  <form method="post" class="card" style="padding:1rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <h2 style="margin-top:0;">Eligibility mode</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(14rem,1fr));gap:0.75rem;margin-bottom:1rem;">
+      <label class="card" style="padding:0.75rem;">
+        <input type="radio" name="pool_mode" value="{{ pool_mode_birth_window }}"{% if config.pool_mode == pool_mode_birth_window %} checked{% endif %}>
+        Birth date window (inclusive)
+      </label>
+      <label class="card" style="padding:0.75rem;">
+        <input type="radio" name="pool_mode" value="{{ pool_mode_age_rules }}"{% if config.pool_mode == pool_mode_age_rules %} checked{% endif %}>
+        Age rules (timeline year {{ timeline_year }})
+      </label>
+    </div>
+
+    <section class="card" style="padding:1rem;margin-bottom:1rem;">
+      <h3 style="margin-top:0;">Birth date window</h3>
+      <p class="muted" style="margin:0 0 0.75rem;">Players qualify when their date of birth falls within this range (inclusive).</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(14rem,1fr));gap:1rem;">
+        <label>Born on or after<br>
+          <input type="date" name="birth_start" value="{{ birth_start_value }}" style="max-width:14rem;">
+        </label>
+        <label>Born on or before<br>
+          <input type="date" name="birth_end" value="{{ birth_end_value }}" style="max-width:14rem;">
+        </label>
+      </div>
+      <label style="display:block;margin-top:0.75rem;">
+        <input type="checkbox" name="exclude_eastern_bloc" value="1"{% if config.exclude_eastern_bloc %} checked{% endif %}>
+        Exclude Iron Curtain / Eastern Bloc nationalities
+      </label>
+    </section>
+
+    <section class="card" style="padding:1rem;">
+      <h3 style="margin-top:0;">Age rules</h3>
+      <p class="muted" style="margin:0 0 0.75rem;">
+        Used when <strong>Age rules</strong> mode is selected. Deadlines use timeline year <strong>{{ timeline_year }}</strong>.
+      </p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(18rem,1fr));gap:1rem;">
+        <div class="card" style="padding:0.75rem;">
+          <h4 style="margin:0 0 0.5rem;">Minimum age</h4>
+          <label>Must turn at least this age<br>
+            <select name="min_age_years" style="width:100%;max-width:10rem;">
+              {% for age in age_options %}
+              <option value="{{ age }}"{% if config.min_age_years == age %} selected{% endif %}>{{ age }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label style="display:block;margin-top:0.75rem;">By this deadline<br>
+            <input type="date" name="min_deadline_date" value="{{ min_deadline_value }}" min="{{ year_min_date }}" max="{{ year_max_date }}" style="max-width:14rem;">
+          </label>
+        </div>
+        <div class="card" style="padding:0.75rem;">
+          <h4 style="margin:0 0 0.5rem;">Maximum age</h4>
+          <label>Must be no older than this age<br>
+            <select name="max_age_years" style="width:100%;max-width:10rem;">
+              {% for age in age_options %}
+              <option value="{{ age }}"{% if config.max_age_years == age %} selected{% endif %}>{{ age }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label style="display:block;margin-top:0.75rem;">As of this deadline<br>
+            <input type="date" name="max_deadline_date" value="{{ max_deadline_value }}" min="{{ year_min_date }}" max="{{ year_max_date }}" style="max-width:14rem;">
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <p style="margin-top:1rem;">
+      <button type="submit" class="join-league-btn">Save Draft Eligible settings</button>
+    </p>
+  </form>
+</div>
+{% endblock %}

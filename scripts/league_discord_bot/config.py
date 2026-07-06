@@ -17,6 +17,7 @@ class BotSettings:
     token: str
     shared_secret: str
     poll_seconds: float
+    tracker_poll_seconds: float
     delivery_delay_seconds: float
     max_message_parts: int
     site_timeout_seconds: float
@@ -62,6 +63,7 @@ def load_settings() -> BotSettings:
         token=token,
         shared_secret=secret,
         poll_seconds=float(os.environ.get("DISCORD_BOT_POLL_SECONDS", "8")),
+        tracker_poll_seconds=float(os.environ.get("DISCORD_BOT_TRACKER_POLL_SECONDS", "4")),
         delivery_delay_seconds=max(0.0, float(delay_raw)),
         max_message_parts=max(1, min(4, int(parts_raw))),
         site_timeout_seconds=max(30.0, float(site_timeout_raw)),

@@ -129,6 +129,27 @@ def _sqlite_has_valid_header(path: Path) -> bool:
         return False
 
 
+def _sqlite_file_is_readable(path: Path) -> bool:
+    """True when SQLite can open the file and read sqlite_master (not a WAL/shm stray)."""
+    if not _sqlite_has_valid_header(path):
+        return False
+    try:
+        ro_uri = path.resolve().as_uri() + "?mode=ro"
+        conn = sqlite3.connect(ro_uri, uri=True)
+    except sqlite3.Error:
+        try:
+            conn = sqlite3.connect(str(path))
+        except sqlite3.Error:
+            return False
+    try:
+        conn.execute("SELECT 1 FROM sqlite_master LIMIT 1").fetchone()
+        return True
+    except sqlite3.Error:
+        return False
+    finally:
+        conn.close()
+
+
 def _sqlite_has_league_content(path: Path) -> bool:
     """True if the DB has at least one row in teams, players, or games (real import vs empty schema)."""
     try:
@@ -255,8 +276,8 @@ def resolve_league_sqlite_path(slug: str) -> Path:
 
     prim_exists = primary.is_file()
     leg_exists = legacy.is_file() if legacy else False
-    prim_valid = prim_exists and _sqlite_has_valid_header(primary)
-    leg_valid = leg_exists and legacy is not None and _sqlite_has_valid_header(legacy)
+    prim_valid = prim_exists and _sqlite_file_is_readable(primary)
+    leg_valid = leg_exists and legacy is not None and _sqlite_file_is_readable(legacy)
     prim_populated = prim_valid and _sqlite_has_league_content(primary)
     leg_populated = leg_valid and legacy is not None and _sqlite_has_league_content(legacy)
 
@@ -268,7 +289,7 @@ def resolve_league_sqlite_path(slug: str) -> Path:
     if leg_exists and not prim_populated:
         if leg_valid:
             return legacy
-    # Corrupt primary (e.g. "file is not a database") — prefer a valid legacy copy.
+    # Corrupt primary (e.g. "file is not a database") — prefer a readable legacy copy.
     if prim_exists and not prim_valid and leg_valid and legacy is not None:
         return legacy
     if prim_valid:

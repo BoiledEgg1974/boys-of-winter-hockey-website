@@ -6290,9 +6290,10 @@ def admin_discord_integration():
     dm_dead_letters = [e for e in dm_events if e.status == "failed"][:50]
     prune_obsolete_discord_bot_heartbeats(db.session, league_slug=slug)
     heartbeats = list_heartbeats(db.session, league_slug=slug, limit=10)
-    from app.services.sim_cycle_discord import sim_log_route_ready
+    from app.services.sim_cycle_discord import sim_cycle_tracker_route_ready, sim_log_route_ready
 
     sim_log_ready = sim_log_route_ready(db.session, slug)
+    sim_tracker_ready = sim_cycle_tracker_route_ready(db.session, slug)
     expected_bot_name = canonical_discord_bot_name()
     secret_set = bool(str(current_app.config.get("DISCORD_EVENTS_SHARED_SECRET") or "").strip())
     now = datetime.utcnow()
@@ -6336,6 +6337,7 @@ def admin_discord_integration():
         heartbeat_rows=heartbeat_rows,
         expected_bot_name=expected_bot_name,
         sim_log_ready=sim_log_ready,
+        sim_tracker_ready=sim_tracker_ready,
         site_public_base_url=str(current_app.config.get("SITE_PUBLIC_BASE_URL") or "").strip().rstrip("/"),
     )
 

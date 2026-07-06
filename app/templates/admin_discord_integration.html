@@ -30,7 +30,7 @@
     <code>#draft-pick</code> (<code>/draft</code>) · <code>#draft-list</code> (<code>/list</code>).
     <strong>Expansion draft channels:</strong> <code>#expansion-draft</code> (picks, on-clock, complete, <code>/expansionlist</code>) ·
     <code>#expansion-draft-pick</code> (<code>/expansionpick</code>).
-    <strong>Sim log:</strong> map <code>sim_cycle_update</code> → <code>#sim-log</code> (closed export recap after admin EXPORT in the AP ledger).
+    <strong>Sim log:</strong> map <code>sim_cycle_update</code> → <code>#sim-log</code> and <code>gm_export_tracker_poll</code> → <code>#gm-export-tracker</code> (live board polls export posts from the tracker channel).
   </p>
   <p class="muted" style="margin:0 0 0.8rem;">
     Use <strong>Apply</strong> at the bottom of the page to reload health and queue tables.
@@ -60,6 +60,11 @@
           <td>Sim log — #sim-log output</td>
           <td>{% if sim_log_ready %}<span style="color:#0a7d28;font-weight:700;">Green</span>{% else %}<span style="color:#b42318;font-weight:700;">Red</span>{% endif %}</td>
           <td>{% if sim_log_ready %}<code>sim_cycle_update</code> route has a channel ID{% else %}Set <code>sim_cycle_update</code> → <code>#sim-log</code> channel snowflake{% endif %}</td>
+        </tr>
+        <tr>
+          <td>Sim log — #gm-export-tracker poll</td>
+          <td>{% if sim_tracker_ready %}<span style="color:#0a7d28;font-weight:700;">Green</span>{% else %}<span style="color:#b42318;font-weight:700;">Red</span>{% endif %}</td>
+          <td>{% if sim_tracker_ready %}<code>gm_export_tracker_poll</code> route has a channel ID{% else %}Set <code>gm_export_tracker_poll</code> → <code>#gm-export-tracker</code> channel snowflake{% endif %}</td>
         </tr>
       </tbody>
     </table>

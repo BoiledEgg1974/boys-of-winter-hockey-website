@@ -2049,6 +2049,54 @@ def discord_events_fail(event_id: int):
     return jsonify({"ok": bool(ok)})
 
 
+@api_bp.get("/discord/sim-cycle/tracker-config")
+def discord_sim_cycle_tracker_config():
+    if not _discord_secret_ok():
+        return jsonify({"ok": False, "message": "Unauthorized"}), 401
+    slug = str(request.args.get("league_slug") or current_app.config.get("LEAGUE_SLUG") or "").strip()
+    if not slug:
+        return jsonify({"ok": False, "message": "league_slug is required"}), 400
+    from app.services.sim_cycle_discord import (
+        recover_stalled_live_sim_cycle,
+        sim_cycle_tracker_config,
+    )
+    from app.sqlite_retry import commit_with_sqlite_retry
+
+    try:
+        recover_stalled_live_sim_cycle(db.session, db.session, slug)
+        commit_with_sqlite_retry(db.session)
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception("sim cycle live recovery failed for %s", slug)
+
+    return jsonify(sim_cycle_tracker_config(db.session, slug))
+
+
+@api_bp.post("/discord/sim-cycle/ingest-tracker")
+def discord_sim_cycle_ingest_tracker():
+    if not _discord_secret_ok():
+        return jsonify({"ok": False, "message": "Unauthorized"}), 401
+    slug = str(request.args.get("league_slug") or current_app.config.get("LEAGUE_SLUG") or "").strip()
+    if not slug:
+        return jsonify({"ok": False, "message": "league_slug is required"}), 400
+    data = request.get_json(silent=True) or {}
+    messages = list(data.get("messages") or [])
+    initial_sync = bool(data.get("initial_sync"))
+    from app.services.sim_cycle_discord import ingest_tracker_messages
+    from app.sqlite_retry import commit_with_sqlite_retry
+
+    try:
+        changed = ingest_tracker_messages(
+            db.session, db.session, slug, messages, initial_sync=initial_sync
+        )
+        commit_with_sqlite_retry(db.session)
+        return jsonify({"ok": True, "changed": bool(changed), "sim_cycle_queued": bool(changed)})
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception("sim cycle tracker ingest failed for %s", slug)
+        return jsonify({"ok": False, "message": "ingest failed"}), 500
+
+
 @api_bp.get("/discord/dms/pending")
 def discord_dms_pending():
     if not _discord_secret_ok():

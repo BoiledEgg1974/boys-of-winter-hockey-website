@@ -2341,7 +2341,7 @@ StaffId;Executive;Manager;Coach;Scout;Trainer;Off Pref;Phy Pref;Line Matching;Go
 2339;1;1;5;1;20;Defensive;Balanced;Aggressive;Aggressive;Loves Veterans;Very Conservative;Balanced;0;0;0;0;0;0;0;2;0;0;9;0;0;0;16;;0;0
 2340;1;1;5;1;20;Offensive;Physical;Balanced;Aggressive;Balanced;Balanced;Ruthless;0;0;0;0;0;0;0;9;0;0;8;0;0;0;16;;0;0
 2341;1;1;5;1;20;Offensive;Very Physical;Balanced;Very Conservative;Balanced;Innovative;Very Loyal;0;0;0;0;0;0;0;8;0;0;3;0;0;0;17;;0;0
-2342;1;1;5;1;20;Standard;Physical;Balanced;Balanced;Prefers Veterans;Innovative;Loyal;0;0;0;0;0;0;0;3;0;0;4;0;0;0;20;;0;0
+2342;1;1;5;1;20;Standard;Physical;Balanced;Balanced;Prefers Veterans;Innovative;Loyal;1;1;1;1;1;1;1;3;1;1;4;1;1;1;20;;1;1
 2343;0;20;20;0;0;Very Defensive;Very Physical;Balanced;Balanced;Balanced;Balanced;Balanced;7;7;7;7;7;7;7;7;7;7;7;7;7;7;0;;0;0
 2344;0;20;20;0;0;Very Defensive;Very Physical;Balanced;Balanced;Balanced;Balanced;Balanced;7;7;7;7;7;7;7;7;7;7;7;7;7;7;0;;0;0
 0;5;10;20;20;1;Standard;Balanced;Passive;Balanced;Balanced;Balanced;Balanced;1;2;3;1;2;2;2;1;1;1;1;1;1;2;0;;13;12

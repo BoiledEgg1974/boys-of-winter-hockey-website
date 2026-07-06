@@ -513,32 +513,59 @@ def expansion_draft_pick():
     return redirect(url_for("expansion_draft_hub.expansion_draft_hub_page"))
 
 
+def _expansion_undo_pick_wants_json() -> bool:
+    ct = (request.content_type or "").split(";")[0].strip().lower()
+    return request.is_json or ct == "application/json"
+
+
 @expansion_draft_hub_bp.post("/admin/undo-pick")
 @login_required
 def expansion_draft_admin_undo_pick():
-    """JSON: remove the most recent pick (commissioner correction)."""
+    """Remove the most recent pick (commissioner correction). JSON or form POST."""
     from flask_wtf.csrf import validate_csrf
 
+    wants_json = _expansion_undo_pick_wants_json()
+    hub_url = url_for("expansion_draft_hub.expansion_draft_hub_page")
+
     if not _expansion_hub_allowed():
-        return jsonify({"ok": False, "error": "Forbidden."}), 403
+        if wants_json:
+            return jsonify({"ok": False, "error": "Forbidden."}), 403
+        abort(403)
     if not league_hub_staff(current_user):
-        return jsonify({"ok": False, "error": "Forbidden."}), 403
-    data = request.get_json(silent=True) or {}
+        if wants_json:
+            return jsonify({"ok": False, "error": "Forbidden."}), 403
+        abort(403)
     try:
-        validate_csrf(data.get("csrf_token"))
+        if wants_json:
+            data = request.get_json(silent=True) or {}
+            validate_csrf(data.get("csrf_token"))
+        else:
+            validate_csrf(request.form.get("csrf_token"))
     except Exception:  # noqa: BLE001
-        return jsonify({"ok": False, "error": "Invalid CSRF token."}), 400
+        if wants_json:
+            return jsonify({"ok": False, "error": "Invalid CSRF token."}), 400
+        flash("Invalid CSRF token.", "err")
+        return redirect(hub_url)
     slug = _league_slug()
     draft = featured_expansion_draft(db.session, slug)
     if not draft or draft.status != "live":
-        return jsonify({"ok": False, "error": "No live expansion draft."}), 400
+        if wants_json:
+            return jsonify({"ok": False, "error": "No live expansion draft."}), 400
+        flash("No live expansion draft.", "err")
+        return redirect(hub_url)
     err = undo_last_pick(db.session, draft)
     if err:
         db.session.rollback()
-        return jsonify({"ok": False, "error": err}), 400
+        if wants_json:
+            return jsonify({"ok": False, "error": err}), 400
+        flash(err, "err")
+        return redirect(hub_url)
     commit_with_sqlite_retry(db.session)
-    db.session.refresh(draft)
-    return jsonify({"ok": True, "error": None})
+    if wants_json:
+        db.session.refresh(draft)
+        return jsonify({"ok": True, "error": None})
+    flash("Last pick removed.", "ok")
+    return redirect(hub_url)
 
 
 @expansion_draft_hub_bp.post("/end-draft-early")

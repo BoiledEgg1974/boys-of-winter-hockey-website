@@ -56,38 +56,6 @@
     return playerPageTpl.replace(/988776655/g, String(pid));
   }
 
-  function dhPostJson(url, payload) {
-    var headers = { 'Content-Type': 'application/json', Accept: 'application/json' };
-    if (csrf) headers['X-CSRFToken'] = csrf;
-    return fetch(url, {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: headers,
-      body: JSON.stringify(payload || {})
-    });
-  }
-
-  function submitDhUndoPick() {
-    if (!undoPickUrl) return;
-    if (!window.confirm('Remove the most recent pick from this expansion draft? The player returns to the eligible pool and that team goes back on the clock.')) return;
-    dhPostJson(undoPickUrl, { csrf_token: csrf })
-      .then(function (r) {
-        return r.json().catch(function () {
-          return {};
-        });
-      })
-      .then(function (data) {
-        if (data && data.ok) {
-          forceRefresh();
-          return;
-        }
-        window.alert((data && data.error) ? data.error : 'Could not undo pick.');
-      })
-      .catch(function () {
-        window.alert('Network error.');
-      });
-  }
-
   var lastDhTickerKey = '';
 
   function buildDhTickerText(tp, status) {
@@ -426,8 +394,11 @@
       var phLabel = ph === 'goalie' ? 'Goalie round' : (ph === 'skater' ? 'Skater round' : '');
       html += '<p class="draft-hub-meta">' + esc(phLabel) + (phLabel ? ' · ' : '') + 'Round ' + esc(String(x.current_slot.round)) + ' · Overall ' + esc(String(x.current_slot.overall)) + '</p>';
     }
-    if (x.can_admin_undo_pick && x.status === 'live') {
-      html += '<button type="button" class="button secondary small" id="dh-undo-pick">Undo last pick</button>';
+    if (x.can_admin_undo_pick && x.status === 'live' && undoPickUrl) {
+      html += '<form method="post" action="' + esc(undoPickUrl) + '" class="draft-hub-admin-timer-form dh-undo-pick-form" '
+        + 'onsubmit="return confirm(&quot;Remove the most recent pick from this expansion draft? The player returns to the eligible pool and that team goes back on the clock.&quot;);">';
+      html += '<input type="hidden" name="csrf_token" value="' + esc(csrf) + '">';
+      html += '<button type="submit" class="button secondary small">Undo last pick</button></form>';
     }
     if (x.can_admin_end_early && x.status === 'live' && endDraftUrl) {
       html += '<form method="post" action="' + esc(endDraftUrl) + '" class="draft-hub-admin-timer-form dh-end-draft-form" '
@@ -907,18 +878,6 @@
   }
 
   function bindControls() {
-    var pageRoot = document.getElementById('draft-hub-page-root');
-    if (pageRoot && !pageRoot._dhAdminActionsBound) {
-      pageRoot._dhAdminActionsBound = true;
-      pageRoot.addEventListener('click', function (e) {
-        var t = e.target;
-        if (!t || !t.closest) return;
-        var btn = t.closest('#dh-undo-pick');
-        if (!btn) return;
-        e.preventDefault();
-        submitDhUndoPick();
-      });
-    }
     var s = document.getElementById('dh-search');
     if (s && !s._bound) {
       s._bound = true;

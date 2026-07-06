@@ -148,8 +148,7 @@ class DraftHubEligibilityTest(unittest.TestCase):
 
     def test_historical_eligible_pool_applies_amateur_country_rules(self) -> None:
         params = config_to_eligibility_params(
-            default_draft_eligible_page_config("bowl-historical"),
-            timeline_year=1970,
+            default_draft_eligible_page_config("bowl-historical", timeline_year=1970),
         )
         session = MagicMock()
         allowed = MagicMock(

@@ -133,8 +133,12 @@ def draft_eligible_page_params_for_league(
             load_draft_eligible_page_config,
         )
 
-        config = load_draft_eligible_page_config(site_session, league_slug)
-        return config_to_eligibility_params(config, timeline_year=int(timeline_year))
+        config = load_draft_eligible_page_config(
+            site_session,
+            league_slug,
+            season_timeline_year=int(timeline_year),
+        )
+        return config_to_eligibility_params(config)
 
     if league_slug == "bowl-historical":
         return DraftEligibilityParams(

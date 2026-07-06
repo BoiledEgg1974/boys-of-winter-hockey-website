@@ -3035,14 +3035,23 @@ def draft_eligible():
     page_limit = 100
     league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
     season = get_current_season()
+    season_timeline_year = draft_eligible_timeline_year_for_league(
+        league_slug,
+        int(season.start_year) if season and season.start_year else None,
+        int(season.end_year) if season and season.end_year else None,
+        date.today().year,
+    )
     params, params_source = _draft_eligible_params_for_page(league_slug, season)
-    page_config = load_draft_eligible_page_config(db.session, league_slug)
+    page_config = load_draft_eligible_page_config(
+        db.session,
+        league_slug,
+        season_timeline_year=season_timeline_year,
+    )
     draft = featured_draft(db.session, league_slug)
     picked: set[int] = picked_player_ids(db.session, draft.id) if draft else set()
     eligibility_summary = format_draft_eligible_summary(
         page_config,
         league_slug=league_slug,
-        timeline_year=int(params.timeline_year),
     )
     eligibility_notes = []
 

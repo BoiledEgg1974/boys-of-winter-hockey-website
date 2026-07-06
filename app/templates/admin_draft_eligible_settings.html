@@ -12,6 +12,18 @@
 
   <form method="post" class="card" style="padding:1rem;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <section class="card" style="padding:1rem;margin-bottom:1rem;">
+      <h2 style="margin-top:0;">Draft timeline year</h2>
+      <p class="muted" style="margin:0 0 0.75rem;">
+        In-game draft year used for age-rule deadlines and the public page summary.
+        Season default is <strong>{{ season_timeline_year }}</strong> — set this to the entry draft year
+        (for example <strong>2000</strong> before the 2000 draft takes place).
+      </p>
+      <label>Draft year<br>
+        <input type="number" name="timeline_year" value="{{ timeline_year }}" min="1900" max="2100" step="1" style="max-width:8rem;">
+      </label>
+    </section>
+
     <h2 style="margin-top:0;">Eligibility mode</h2>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(14rem,1fr));gap:0.75rem;margin-bottom:1rem;">
       <label class="card" style="padding:0.75rem;">
@@ -20,7 +32,7 @@
       </label>
       <label class="card" style="padding:0.75rem;">
         <input type="radio" name="pool_mode" value="{{ pool_mode_age_rules }}"{% if config.pool_mode == pool_mode_age_rules %} checked{% endif %}>
-        Age rules (timeline year {{ timeline_year }})
+        Age rules (uses draft year above)
       </label>
     </div>
 
@@ -44,7 +56,8 @@
     <section class="card" style="padding:1rem;">
       <h3 style="margin-top:0;">Age rules</h3>
       <p class="muted" style="margin:0 0 0.75rem;">
-        Used when <strong>Age rules</strong> mode is selected. Deadlines use timeline year <strong>{{ timeline_year }}</strong>.
+        Used when <strong>Age rules</strong> mode is selected. Deadline dates use the draft year
+        <strong>{{ timeline_year }}</strong> (month/day only; change the draft year above if needed).
       </p>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(18rem,1fr));gap:1rem;">
         <div class="card" style="padding:0.75rem;">
@@ -57,7 +70,7 @@
             </select>
           </label>
           <label style="display:block;margin-top:0.75rem;">By this deadline<br>
-            <input type="date" name="min_deadline_date" value="{{ min_deadline_value }}" min="{{ year_min_date }}" max="{{ year_max_date }}" style="max-width:14rem;">
+            <input type="date" name="min_deadline_date" value="{{ min_deadline_value }}" style="max-width:14rem;">
           </label>
         </div>
         <div class="card" style="padding:0.75rem;">
@@ -70,7 +83,7 @@
             </select>
           </label>
           <label style="display:block;margin-top:0.75rem;">As of this deadline<br>
-            <input type="date" name="max_deadline_date" value="{{ max_deadline_value }}" min="{{ year_min_date }}" max="{{ year_max_date }}" style="max-width:14rem;">
+            <input type="date" name="max_deadline_date" value="{{ max_deadline_value }}" style="max-width:14rem;">
           </label>
         </div>
       </div>

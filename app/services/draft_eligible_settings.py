@@ -32,9 +32,11 @@ _RULE_MIN_ANCHOR_DAY = "draft_eligible_min_anchor_day"
 _RULE_MAX_AGE = "draft_eligible_max_age_years"
 _RULE_MAX_ANCHOR_MONTH = "draft_eligible_max_anchor_month"
 _RULE_MAX_ANCHOR_DAY = "draft_eligible_max_anchor_day"
+_RULE_TIMELINE_YEAR = "draft_eligible_timeline_year"
 
 _DRAFT_ELIGIBLE_RULE_DEFAULTS: tuple[dict[str, str], ...] = (
     {"rule_key": _RULE_POOL_MODE, "rule_value": ""},
+    {"rule_key": _RULE_TIMELINE_YEAR, "rule_value": ""},
     {"rule_key": _RULE_BIRTH_START, "rule_value": ""},
     {"rule_key": _RULE_BIRTH_END, "rule_value": ""},
     {"rule_key": _RULE_EXCLUDE_EASTERN_BLOC, "rule_value": ""},
@@ -49,6 +51,7 @@ _DRAFT_ELIGIBLE_RULE_DEFAULTS: tuple[dict[str, str], ...] = (
 
 @dataclass(frozen=True)
 class DraftEligiblePageConfig:
+    timeline_year: int
     pool_mode: str
     birth_start: date
     birth_end: date
@@ -67,10 +70,16 @@ def _default_pool_mode(league_slug: str) -> str:
     return DRAFT_ELIGIBLE_POOL_MODE_AGE_RULES
 
 
-def default_draft_eligible_page_config(league_slug: str) -> DraftEligiblePageConfig:
+def default_draft_eligible_page_config(
+    league_slug: str,
+    *,
+    timeline_year: int | None = None,
+) -> DraftEligiblePageConfig:
     ddef = default_eligibility_for_league(league_slug)
+    ty = int(timeline_year) if timeline_year is not None else date.today().year
     if league_slug == "bowl-historical":
         return DraftEligiblePageConfig(
+            timeline_year=ty,
             pool_mode=DRAFT_ELIGIBLE_POOL_MODE_BIRTH_WINDOW,
             birth_start=HISTORICAL_AMATEUR_BIRTH_START,
             birth_end=HISTORICAL_AMATEUR_BIRTH_END,
@@ -83,6 +92,7 @@ def default_draft_eligible_page_config(league_slug: str) -> DraftEligiblePageCon
             max_anchor_day=ddef.max_anchor_day,
         )
     return DraftEligiblePageConfig(
+        timeline_year=ty,
         pool_mode=DRAFT_ELIGIBLE_POOL_MODE_AGE_RULES,
         birth_start=HISTORICAL_AMATEUR_BIRTH_START,
         birth_end=HISTORICAL_AMATEUR_BIRTH_END,
@@ -149,15 +159,24 @@ def _parse_int(raw: str, fallback: int) -> int:
         return fallback
 
 
-def load_draft_eligible_page_config(session, league_slug: str) -> DraftEligiblePageConfig:
+def load_draft_eligible_page_config(
+    session,
+    league_slug: str,
+    *,
+    season_timeline_year: int | None = None,
+) -> DraftEligiblePageConfig:
     ensure_draft_eligible_rule_rows(session, league_slug)
-    defaults = default_draft_eligible_page_config(league_slug)
+    fallback_ty = int(season_timeline_year) if season_timeline_year is not None else date.today().year
+    defaults = default_draft_eligible_page_config(league_slug, timeline_year=fallback_ty)
+    stored_ty = get_rule_value(session, league_slug, _RULE_TIMELINE_YEAR, "").strip()
+    timeline_year = _parse_int(stored_ty, defaults.timeline_year) if stored_ty else defaults.timeline_year
     mode_raw = get_rule_value(session, league_slug, _RULE_POOL_MODE, "")
     pool_mode = mode_raw.strip() if mode_raw.strip() in {
         DRAFT_ELIGIBLE_POOL_MODE_BIRTH_WINDOW,
         DRAFT_ELIGIBLE_POOL_MODE_AGE_RULES,
     } else defaults.pool_mode
     return DraftEligiblePageConfig(
+        timeline_year=int(timeline_year),
         pool_mode=pool_mode,
         birth_start=_parse_date(
             get_rule_value(session, league_slug, _RULE_BIRTH_START, ""),
@@ -242,6 +261,13 @@ def save_draft_eligible_page_config(
     _set_rule_value(
         session,
         league_slug,
+        _RULE_TIMELINE_YEAR,
+        str(int(config.timeline_year)),
+        updated_by_user_id=updated_by_user_id,
+    )
+    _set_rule_value(
+        session,
+        league_slug,
         _RULE_POOL_MODE,
         config.pool_mode,
         updated_by_user_id=updated_by_user_id,
@@ -315,14 +341,15 @@ def save_draft_eligible_page_config(
 def config_to_eligibility_params(
     config: DraftEligiblePageConfig,
     *,
-    timeline_year: int,
+    timeline_year: int | None = None,
 ) -> DraftEligibilityParams:
     if config.pool_mode == DRAFT_ELIGIBLE_POOL_MODE_BIRTH_WINDOW:
         pool_source = DRAFT_POOL_BIRTH_WINDOW
     else:
         pool_source = DRAFT_POOL_AGE_RULES
+    ty = int(config.timeline_year) if timeline_year is None else int(timeline_year)
     return DraftEligibilityParams(
-        timeline_year=int(timeline_year),
+        timeline_year=ty,
         min_age_years=int(config.min_age_years),
         min_anchor_month=int(config.min_anchor_month),
         min_anchor_day=int(config.min_anchor_day),
@@ -345,8 +372,9 @@ def format_draft_eligible_summary(
     config: DraftEligiblePageConfig,
     *,
     league_slug: str,
-    timeline_year: int,
+    timeline_year: int | None = None,
 ) -> str:
+    ty = int(config.timeline_year) if timeline_year is None else int(timeline_year)
     if config.pool_mode == DRAFT_ELIGIBLE_POOL_MODE_BIRTH_WINDOW:
         start = _fmt_long_date(config.birth_start).replace("  ", " ")
         end = _fmt_long_date(config.birth_end).replace("  ", " ")
@@ -358,14 +386,14 @@ def format_draft_eligible_summary(
             return f"{base}, excluding Iron Curtain nationalities."
         return f"{base}."
     if league_slug == "bowl-cap":
-        prefix = f"Cap draft eligible pool for the {timeline_year} in-game draft"
+        prefix = f"Cap draft eligible pool for the {ty} in-game draft"
     elif league_slug == "bowl-fantasy":
-        prefix = f"Relegation draft eligible pool for the {timeline_year} in-game draft"
+        prefix = f"Relegation draft eligible pool for the {ty} in-game draft"
     else:
-        prefix = f"Draft eligible pool for the {timeline_year} in-game draft"
+        prefix = f"Draft eligible pool for the {ty} in-game draft"
     return (
         f"{prefix}: players must be at least {config.min_age_years} by "
-        f"{config.min_anchor_month:02d}/{config.min_anchor_day:02d}, {timeline_year}, and not older "
+        f"{config.min_anchor_month:02d}/{config.min_anchor_day:02d}, {ty}, and not older "
         f"than {config.max_age_years} by {config.max_anchor_month:02d}/{config.max_anchor_day:02d}, "
-        f"{timeline_year}."
+        f"{ty}."
     )

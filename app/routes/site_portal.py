@@ -8204,14 +8204,18 @@ def admin_draft_eligible_settings():
     from app.services.seasons import get_current_season
 
     season = get_current_season()
-    timeline_year = draft_eligible_timeline_year_for_league(
+    season_timeline_year = draft_eligible_timeline_year_for_league(
         slug,
         int(season.start_year) if season and season.start_year else None,
         int(season.end_year) if season and season.end_year else None,
         datetime.utcnow().year,
     )
-    defaults = default_draft_eligible_page_config(slug)
+    defaults = default_draft_eligible_page_config(slug, timeline_year=season_timeline_year)
     if request.method == "POST":
+        timeline_year = int(request.form.get("timeline_year") or season_timeline_year)
+        if timeline_year < 1900 or timeline_year > 2100:
+            flash("Timeline year must be between 1900 and 2100.", "err")
+            return redirect(url_for("site_admin.admin_draft_eligible_settings"))
         pool_mode = (request.form.get("pool_mode") or defaults.pool_mode).strip()
         if pool_mode not in {
             DRAFT_ELIGIBLE_POOL_MODE_BIRTH_WINDOW,
@@ -8238,6 +8242,7 @@ def admin_draft_eligible_settings():
             defaults.max_anchor_day,
         )
         config = DraftEligiblePageConfig(
+            timeline_year=timeline_year,
             pool_mode=pool_mode,
             birth_start=birth_start,
             birth_end=birth_end,
@@ -8263,6 +8268,7 @@ def admin_draft_eligible_settings():
                 action="draft_eligible_settings_update",
                 detail_json=json.dumps(
                     {
+                        "timeline_year": config.timeline_year,
                         "pool_mode": config.pool_mode,
                         "birth_start": config.birth_start.isoformat(),
                         "birth_end": config.birth_end.isoformat(),
@@ -8275,15 +8281,17 @@ def admin_draft_eligible_settings():
         flash("Draft Eligible settings saved.", "ok")
         return redirect(url_for("site_admin.admin_draft_eligible_settings"))
 
-    config = load_draft_eligible_page_config(db.session, slug)
-    year_min_date = f"{timeline_year}-01-01"
-    year_max_date = f"{timeline_year}-12-31"
+    config = load_draft_eligible_page_config(
+        db.session,
+        slug,
+        season_timeline_year=season_timeline_year,
+    )
+    timeline_year = int(config.timeline_year)
     min_deadline_value = date(timeline_year, config.min_anchor_month, config.min_anchor_day).isoformat()
     max_deadline_value = date(timeline_year, config.max_anchor_month, config.max_anchor_day).isoformat()
     preview_summary = format_draft_eligible_summary(
         config,
         league_slug=slug,
-        timeline_year=timeline_year,
     )
     age_options = list(range(15, 31))
     return render_template(
@@ -8292,12 +8300,11 @@ def admin_draft_eligible_settings():
         config=config,
         defaults=defaults,
         timeline_year=timeline_year,
+        season_timeline_year=season_timeline_year,
         birth_start_value=config.birth_start.isoformat(),
         birth_end_value=config.birth_end.isoformat(),
         min_deadline_value=min_deadline_value,
         max_deadline_value=max_deadline_value,
-        year_min_date=year_min_date,
-        year_max_date=year_max_date,
         preview_summary=preview_summary,
         age_options=age_options,
         pool_mode_birth_window=DRAFT_ELIGIBLE_POOL_MODE_BIRTH_WINDOW,

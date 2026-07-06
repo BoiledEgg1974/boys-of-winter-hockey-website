@@ -29,6 +29,7 @@ class DraftEligibleSettingsTests(unittest.TestCase):
 
     def test_config_maps_to_eligibility_params(self) -> None:
         config = DraftEligiblePageConfig(
+            timeline_year=1970,
             pool_mode=DRAFT_ELIGIBLE_POOL_MODE_BIRTH_WINDOW,
             birth_start=date(1951, 1, 1),
             birth_end=date(1951, 12, 31),
@@ -40,7 +41,8 @@ class DraftEligibleSettingsTests(unittest.TestCase):
             max_anchor_month=12,
             max_anchor_day=31,
         )
-        params = config_to_eligibility_params(config, timeline_year=1970)
+        params = config_to_eligibility_params(config)
+        self.assertEqual(params.timeline_year, 1970)
         self.assertEqual(params.pool_source, DRAFT_POOL_BIRTH_WINDOW)
         self.assertEqual(params.birth_window_start, date(1951, 1, 1))
         self.assertEqual(params.birth_window_end, date(1951, 12, 31))
@@ -50,7 +52,6 @@ class DraftEligibleSettingsTests(unittest.TestCase):
         text = format_draft_eligible_summary(
             config,
             league_slug="bowl-historical",
-            timeline_year=1970,
         )
         self.assertIn("December 28, 1949", text)
         self.assertIn("December 31, 1950", text)
@@ -73,6 +74,7 @@ class DraftEligibleSettingsTests(unittest.TestCase):
             "app.services.draft_eligible_settings.ensure_draft_eligible_rule_rows",
         ):
             config = DraftEligiblePageConfig(
+                timeline_year=1970,
                 pool_mode=DRAFT_ELIGIBLE_POOL_MODE_BIRTH_WINDOW,
                 birth_start=date(1952, 3, 1),
                 birth_end=date(1952, 8, 31),
@@ -89,8 +91,30 @@ class DraftEligibleSettingsTests(unittest.TestCase):
         self.assertEqual(stored[("bowl-historical", "draft_eligible_birth_end")], "1952-08-31")
         self.assertEqual(stored[("bowl-historical", "draft_eligible_exclude_eastern_bloc")], "false")
 
+        self.assertEqual(stored[("bowl-historical", "draft_eligible_timeline_year")], "1970")
+
+    def test_age_rules_summary_uses_config_timeline_year(self) -> None:
+        config = DraftEligiblePageConfig(
+            timeline_year=2000,
+            pool_mode="age_rules",
+            birth_start=date(1949, 12, 28),
+            birth_end=date(1950, 12, 31),
+            exclude_eastern_bloc=False,
+            min_age_years=18,
+            min_anchor_month=9,
+            min_anchor_day=15,
+            max_age_years=20,
+            max_anchor_month=12,
+            max_anchor_day=31,
+        )
+        text = format_draft_eligible_summary(config, league_slug="bowl-cap")
+        self.assertIn("2000 in-game draft", text)
+        self.assertIn("09/15, 2000", text)
+        self.assertIn("12/31, 2000", text)
+
     def test_custom_birth_window_filters_pool(self) -> None:
         config = DraftEligiblePageConfig(
+            timeline_year=1970,
             pool_mode=DRAFT_ELIGIBLE_POOL_MODE_BIRTH_WINDOW,
             birth_start=date(1950, 1, 1),
             birth_end=date(1950, 12, 31),

@@ -45,6 +45,13 @@ class ExpansionDraftAdminOnlyTest(unittest.TestCase):
 
         self.assertEqual(msg, expansion_draft_state.GM_SELF_PICK_DISABLED_MSG)
 
+    def test_undo_last_pick_requires_existing_pick(self) -> None:
+        session = MagicMock()
+        draft = MagicMock(id=1, status="live")
+        session.scalars.return_value.all.return_value = []
+        err = expansion_draft_state.undo_last_pick(session, draft)
+        self.assertEqual(err, "No picks to undo.")
+
 
 if __name__ == "__main__":
     unittest.main()

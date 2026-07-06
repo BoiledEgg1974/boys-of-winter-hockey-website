@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from flask import Blueprint, abort, current_app, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.auth_login import active_membership_for_league, league_hub_staff
 from app.league_db import commit_or_release_after_tick, db
@@ -25,6 +25,7 @@ from app.services.expansion_draft_state import (
     GM_SELF_PICK_DISABLED_MSG,
     resolve_admin_pick,
     slots_ordered,
+    undo_last_pick,
 )
 from app.services.player_ratings_csv import get_player_ratings_row, player_positions_display_label
 from app.services.roster_team import organization_main_team
@@ -292,6 +293,20 @@ def expansion_draft_api_state():
         and league_hub_staff(current_user)
         and draft.status == "live"
     )
+    n_picks = int(
+        db.session.scalar(
+            select(func.count())
+            .select_from(LeagueExpansionDraftPick)
+            .where(LeagueExpansionDraftPick.league_expansion_draft_id == draft.id)
+        )
+        or 0
+    )
+    can_admin_undo_pick = bool(
+        current_user.is_authenticated
+        and league_hub_staff(current_user)
+        and draft.status == "live"
+        and n_picks > 0
+    )
 
     rt_tid: int | None = None
     if draft.status == "live" and current_slot and current_slot.get("team_id") is not None:
@@ -355,6 +370,7 @@ def expansion_draft_api_state():
                 "can_admin_pick": can_admin_pick,
                 "can_admin_control": can_admin_control,
                 "can_admin_end_early": can_admin_end_early,
+                "can_admin_undo_pick": can_admin_undo_pick,
                 "wishlist_pick": None,
                 "gm_picks_enabled": False,
             },
@@ -495,6 +511,34 @@ def expansion_draft_pick():
         flash(flash_err, "err")
     commit_with_sqlite_retry(db.session)
     return redirect(url_for("expansion_draft_hub.expansion_draft_hub_page"))
+
+
+@expansion_draft_hub_bp.post("/admin/undo-pick")
+@login_required
+def expansion_draft_admin_undo_pick():
+    """JSON: remove the most recent pick (commissioner correction)."""
+    from flask_wtf.csrf import validate_csrf
+
+    if not _expansion_hub_allowed():
+        return jsonify({"ok": False, "error": "Forbidden."}), 403
+    if not league_hub_staff(current_user):
+        return jsonify({"ok": False, "error": "Forbidden."}), 403
+    data = request.get_json(silent=True) or {}
+    try:
+        validate_csrf(data.get("csrf_token"))
+    except Exception:  # noqa: BLE001
+        return jsonify({"ok": False, "error": "Invalid CSRF token."}), 400
+    slug = _league_slug()
+    draft = featured_expansion_draft(db.session, slug)
+    if not draft or draft.status != "live":
+        return jsonify({"ok": False, "error": "No live expansion draft."}), 400
+    err = undo_last_pick(db.session, draft)
+    if err:
+        db.session.rollback()
+        return jsonify({"ok": False, "error": err}), 400
+    commit_with_sqlite_retry(db.session)
+    db.session.refresh(draft)
+    return jsonify({"ok": True, "error": None})
 
 
 @expansion_draft_hub_bp.post("/end-draft-early")

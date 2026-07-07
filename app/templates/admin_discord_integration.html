@@ -30,7 +30,7 @@
     <code>#draft-pick</code> (<code>/draft</code>) · <code>#draft-list</code> (<code>/list</code>).
     <strong>Expansion draft channels:</strong> <code>#expansion-draft</code> (picks, on-clock, complete, <code>/expansionlist</code>) ·
     <code>#expansion-draft-pick</code> (<code>/expansionpick</code>).
-    <strong>Sim log:</strong> map <code>sim_cycle_update</code> → <code>#sim-log</code> and <code>gm_export_tracker_poll</code> → <code>#gm-export-tracker</code> (live board polls export posts from the tracker channel).
+    <strong>Sim log:</strong> map <code>sim_cycle_update</code> → <code>#sim-log</code> (news-bot posts <strong>closed</strong> recaps only) and <code>gm_export_tracker_poll</code> → <code>#gm-export-tracker</code> (poll FTP bot export posts for live tracking).
   </p>
   <p class="muted" style="margin:0 0 0.8rem;">
     Use <strong>Apply</strong> at the bottom of the page to reload health and queue tables.
@@ -155,6 +155,16 @@
   </form>
 
   <h3 style="margin:0.3rem 0 0.35rem;">Outbound Queue</h3>
+  <form method="post" style="display:flex;gap:0.6rem;align-items:end;flex-wrap:wrap;margin:0 0 0.55rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="force_start_live_sim_cycle">
+    <button type="submit" class="admin-news-body-btn"{% if sim_cycle_phase != 'closed' %} disabled{% endif %}>Start live sim cycle</button>
+    <span class="muted">
+      Current sim cycle phase: <strong>{{ sim_cycle_phase }}</strong>.
+      Starts internal live tracking when stuck in <code>closed</code> after a closed recap was delivered.
+      Live <code>#sim-log</code> posts come from the FTP bot, not news-bot.
+    </span>
+  </form>
   <form method="post" style="display:flex;gap:0.6rem;align-items:end;flex-wrap:wrap;margin:0 0 0.55rem;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="fresh_playoff_bracket">

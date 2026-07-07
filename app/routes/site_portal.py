@@ -6291,6 +6291,21 @@ def admin_discord_integration():
                     "err",
                 )
             return redirect(url_for("site_admin.admin_discord_integration"))
+        if action == "force_start_live_sim_cycle":
+            from app.services.sim_cycle_discord import force_start_live_sim_cycle
+
+            ok, message = force_start_live_sim_cycle(db.session, db.session, slug)
+            db.session.add(
+                AdminAuditLog(
+                    admin_user_id=int(current_user.id),
+                    league_slug=slug,
+                    action="discord_force_start_live_sim_cycle",
+                    detail_json=json.dumps({"queued": bool(ok)}),
+                )
+            )
+            commit_with_sqlite_retry(db.session)
+            flash(message, "ok" if ok else "err")
+            return redirect(url_for("site_admin.admin_discord_integration"))
     status = (request.args.get("status") or "").strip().lower()
     event_key_filter = (request.args.get("event_key") or "").strip()
     routes = list_discord_routes(db.session, slug)
@@ -6311,9 +6326,14 @@ def admin_discord_integration():
     prune_obsolete_discord_bot_heartbeats(db.session, league_slug=slug)
     heartbeats = list_heartbeats(db.session, league_slug=slug, limit=10)
     from app.services.sim_cycle_discord import sim_cycle_tracker_route_ready, sim_log_route_ready
+    from app.site_models import SimCycleState
 
     sim_log_ready = sim_log_route_ready(db.session, slug)
     sim_tracker_ready = sim_cycle_tracker_route_ready(db.session, slug)
+    sim_cycle_state = db.session.scalar(
+        select(SimCycleState).where(SimCycleState.league_slug == slug).limit(1)
+    )
+    sim_cycle_phase = str(getattr(sim_cycle_state, "phase", None) or "idle")
     expected_bot_name = canonical_discord_bot_name()
     secret_set = bool(str(current_app.config.get("DISCORD_EVENTS_SHARED_SECRET") or "").strip())
     now = datetime.utcnow()
@@ -6358,6 +6378,7 @@ def admin_discord_integration():
         expected_bot_name=expected_bot_name,
         sim_log_ready=sim_log_ready,
         sim_tracker_ready=sim_tracker_ready,
+        sim_cycle_phase=sim_cycle_phase,
         site_public_base_url=str(current_app.config.get("SITE_PUBLIC_BASE_URL") or "").strip().rstrip("/"),
     )
 

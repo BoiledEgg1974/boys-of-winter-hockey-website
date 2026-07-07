@@ -422,7 +422,30 @@ class DraftPickOwnershipYear(db.Model):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     league_slug: Mapped[str] = mapped_column(String(64), nullable=False)
     draft_year: Mapped[int] = mapped_column(Integer, nullable=False)
-    round_count: Mapped[int] = mapped_column(Integer, default=10, nullable=False)
+    round_count: Mapped[int] = mapped_column(Integer, default=9, nullable=False)
+    status: Mapped[str] = mapped_column(String(24), default="active", nullable=False)
+    display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+
+class LeagueSalaryCapYear(db.Model):
+    """Per-season salary cap ceiling/floor panels for RFA and finances workflows."""
+
+    __tablename__ = "league_salary_cap_years"
+    __bind_key__ = "site"
+    __table_args__ = (
+        UniqueConstraint("league_slug", "season_start_year", name="uq_salary_cap_league_season"),
+        Index("ix_salary_cap_league_status_order", "league_slug", "status", "display_order"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False)
+    season_start_year: Mapped[int] = mapped_column(Integer, nullable=False)
+    cap_ceiling: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    cap_floor: Mapped[int | None] = mapped_column(Integer, nullable=True)
     status: Mapped[str] = mapped_column(String(24), default="active", nullable=False)
     display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)

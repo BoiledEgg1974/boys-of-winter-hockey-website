@@ -1,10 +1,12 @@
 """SQLite FTS5 helpers and post-migration setup."""
 from __future__ import annotations
 
+import os
 import re
 import shutil
 import sqlite3
 import subprocess
+import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -374,20 +376,37 @@ def _recovery_insert_table(stmt: str) -> str | None:
 
 
 def _sqlite_execute_recovery_statement(conn: sqlite3.Connection, stmt: str) -> None:
-    """Execute one recovered statement, skipping INSERT rows the corrupt file could not rebuild."""
+    """Execute one recovered statement, skipping rows/statements the corrupt file could not rebuild."""
+    upper = stmt.lstrip().upper()
+    if upper.startswith("CREATE"):
+        try:
+            conn.execute(stmt)
+        except sqlite3.OperationalError as exc:
+            if "already exists" not in str(exc).lower():
+                raise
+        return
     if _recovery_insert_table(stmt) is None:
         conn.execute(stmt)
         return
     try:
         conn.execute(stmt)
-    except (sqlite3.IntegrityError, sqlite3.DatabaseError):
+    except (sqlite3.IntegrityError, sqlite3.DatabaseError, sqlite3.OperationalError):
         return
+
+
+def _sqlite_remove_wal_sidecars(db_path: Path) -> None:
+    """Remove WAL/SHM sidecars so recovery writes to a clean main file."""
+    for suffix in ("-wal", "-shm"):
+        sidecar = Path(str(db_path) + suffix)
+        if sidecar.is_file():
+            sidecar.unlink()
 
 
 def _sqlite_load_recovery_sql(dst: Path, sql: str) -> None:
     dst.parent.mkdir(parents=True, exist_ok=True)
     if dst.is_file():
         dst.unlink()
+    _sqlite_remove_wal_sidecars(dst)
     with sqlite3.connect(str(dst), timeout=30.0) as conn:
         for stmt in _split_sql_script(sql):
             if stmt.startswith("CREATE"):
@@ -450,9 +469,14 @@ def recover_sqlite_database(path: Path) -> Path:
         raise FileNotFoundError(db_path)
     sqlite_wal_checkpoint(db_path)
     backup = _sqlite_backup(db_path)
-    rebuilt = db_path.with_suffix(db_path.suffix + ".rebuilt")
-    if rebuilt.is_file():
-        rebuilt.unlink()
+    _sqlite_remove_wal_sidecars(db_path)
+    fd, rebuilt_name = tempfile.mkstemp(
+        suffix=db_path.suffix,
+        prefix=f"{db_path.stem}.rebuilt-",
+        dir=str(db_path.parent),
+    )
+    os.close(fd)
+    rebuilt = Path(rebuilt_name)
     errors: list[str] = []
     try:
         _sqlite_recover_via_dump(db_path, rebuilt)
@@ -462,22 +486,22 @@ def recover_sqlite_database(path: Path) -> Path:
             rebuilt.unlink()
         try:
             _sqlite_recover_via_cli(db_path, rebuilt)
-        except (RuntimeError, OSError) as exc2:
+        except (RuntimeError, OSError, sqlite3.OperationalError) as exc2:
             errors.append(f"recover: {exc2}")
+            if rebuilt.is_file():
+                rebuilt.unlink(missing_ok=True)
             raise RuntimeError(
                 f"Could not rebuild {db_path.name}; backup at {backup.name}. "
                 + "; ".join(errors)
             ) from exc2
     if not sqlite_is_healthy(rebuilt):
+        rebuilt.unlink(missing_ok=True)
         raise RuntimeError(
             f"Rebuilt {rebuilt.name} still fails integrity_check; backup at {backup.name}"
         )
     db_path.unlink(missing_ok=True)
+    _sqlite_remove_wal_sidecars(db_path)
     rebuilt.replace(db_path)
-    for suffix in ("-wal", "-shm"):
-        sidecar = Path(str(db_path) + suffix)
-        if sidecar.is_file():
-            sidecar.unlink()
     return backup
 
 
@@ -1596,7 +1620,7 @@ def ensure_trade_market_sqlite(engine: Engine) -> None:
                         id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
                         league_slug VARCHAR(64) NOT NULL,
                         draft_year INTEGER NOT NULL,
-                        round_count INTEGER NOT NULL DEFAULT 10,
+                        round_count INTEGER NOT NULL DEFAULT 9,
                         status VARCHAR(24) NOT NULL DEFAULT 'active',
                         display_order INTEGER NOT NULL DEFAULT 0,
                         created_at DATETIME NOT NULL,
@@ -1617,6 +1641,47 @@ def ensure_trade_market_sqlite(engine: Engine) -> None:
                     "ON draft_pick_ownership_years (league_slug, status, display_order)"
                 )
             )
+        conn.commit()
+
+
+def ensure_league_salary_cap_years_sqlite(engine: Engine) -> None:
+    """Create per-season salary cap schedule table on site DB when missing."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        if conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='league_salary_cap_years'")
+        ).fetchone():
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE league_salary_cap_years (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    league_slug VARCHAR(64) NOT NULL,
+                    season_start_year INTEGER NOT NULL,
+                    cap_ceiling INTEGER,
+                    cap_floor INTEGER,
+                    status VARCHAR(24) NOT NULL DEFAULT 'active',
+                    display_order INTEGER NOT NULL DEFAULT 0,
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE UNIQUE INDEX uq_salary_cap_league_season "
+                "ON league_salary_cap_years (league_slug, season_start_year)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_salary_cap_league_status_order "
+                "ON league_salary_cap_years (league_slug, status, display_order)"
+            )
+        )
         conn.commit()
 
 

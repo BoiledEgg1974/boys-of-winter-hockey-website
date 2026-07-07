@@ -14,6 +14,32 @@
   {% endif %}
   {% endwith %}
 
+  {% if cap_panels_view %}
+  <section class="rfa-cap-schedule" style="margin:1.25rem 0;">
+    <h2>Salary cap schedule</h2>
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr>
+            <th>Season</th>
+            <th>Cap ceiling</th>
+            <th>Cap floor</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in cap_panels_view %}
+          <tr>
+            <td>{{ row.season_label }}</td>
+            <td>{% if row.cap_ceiling %}${{ "{:,}".format(row.cap_ceiling) }}{% else %}<span class="muted">—</span>{% endif %}</td>
+            <td>{% if row.cap_floor %}${{ "{:,}".format(row.cap_floor) }}{% else %}<span class="muted">—</span>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% endif %}
+
   {% if match_queue %}
   <section style="margin:1.5rem 0;">
     <h2>Match / reject required</h2>
@@ -123,15 +149,45 @@
     </div>
   </section>
 
-  {% if tier_rows %}
-  <details style="margin-top:1.5rem;">
-    <summary>Compensation tiers (Group II — scaled to current league salaries)</summary>
-    <ul>
-      {% for t in tier_rows %}
-      <li>${{ "{:,}".format(t.lo) }}–${{ "{:,}".format(t.hi) }}: {{ t.label }}</li>
-      {% endfor %}
-    </ul>
-  </details>
+  {% if comp_reference_rows %}
+  <section class="rfa-comp-reference" style="margin-top:1.5rem;"
+    data-cap-ceiling="{{ current_cap_ceiling or '' }}"
+    data-tiers="{{ comp_reference_rows|tojson }}">
+    <h2>Group II compensation calculator</h2>
+    {% if current_cap_ceiling %}
+    <p class="muted">Based on current cap ceiling (${{ "{:,}".format(current_cap_ceiling) }}). Enter a salary to see your tier.</p>
+    {% else %}
+    <p class="muted flash-warn">Current season cap ceiling is not set yet — percentage tiers still apply once the commissioner configures the cap.</p>
+    {% endif %}
+    <label style="display:block;margin:0.75rem 0;">Explore offer salary ($)
+      <input type="number" id="rfa-comp-explore-salary" min="0" step="1000" placeholder="e.g. 5000000" style="width:12rem;">
+    </label>
+    <p id="rfa-comp-explore-summary" class="muted small" hidden></p>
+    <div class="table-wrap">
+      <table class="data" id="rfa-comp-reference-table">
+        <thead>
+          <tr>
+            <th>% of cap</th>
+            <th>Salary range</th>
+            <th>Compensation</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in comp_reference_rows %}
+          <tr data-tier-key="{{ t.tier_key }}" data-pct-lo="{{ t.pct_lo }}" data-pct-hi="{{ t.pct_hi or '' }}">
+            <td>{{ t.pct_label }}</td>
+            <td class="rfa-comp-dollar-cell">
+              {% if t.lo_dollars is not none and t.hi_dollars is not none %}
+                {% if t.pct_lo <= 0 %}&lt; ${{ "{:,}".format(t.hi_dollars + 1) }}{% elif t.pct_hi is none %}&gt; ${{ "{:,}".format(t.lo_dollars) }}{% else %}${{ "{:,}".format(t.lo_dollars) }} – ${{ "{:,}".format(t.hi_dollars) }}{% endif %}
+              {% else %}—{% endif %}
+            </td>
+            <td>{{ t.label }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
   {% endif %}
 </div>
 
@@ -156,6 +212,7 @@
         <input type="number" name="offer_salary" id="rfa-offer-salary" min="1" step="1000" required>
       </label>
       <p class="muted small">Minimum: <span id="rfa-min-offer">—</span></p>
+      <p class="muted small" id="rfa-pct-of-cap" hidden></p>
       <label>Years
         <input type="number" name="offer_years" id="rfa-offer-years" min="1" max="15" value="1" required>
       </label>
@@ -207,6 +264,7 @@
     var warn = document.getElementById('rfa-comp-warning');
     var submit = document.getElementById('rfa-submit-btn');
     var picks = document.getElementById('rfa-comp-picks');
+    var pctLine = document.getElementById('rfa-pct-of-cap');
     if (!pid || !sal) return;
     fetch(previewUrl + '?player_id=' + encodeURIComponent(pid) + '&offer_salary=' + encodeURIComponent(sal))
       .then(function (r) { return r.json(); })
@@ -215,6 +273,12 @@
         document.getElementById('rfa-comp-tier').textContent = data.applies
           ? (data.label + ' (' + data.draft_year + ' draft)')
           : 'No draft pick compensation for this category.';
+        if (data.offer_pct_of_cap != null && data.cap_ceiling) {
+          pctLine.hidden = false;
+          pctLine.textContent = Number(data.offer_pct_of_cap).toFixed(2) + '% of cap ceiling (' + fmt(data.cap_ceiling) + ')';
+        } else {
+          pctLine.hidden = true;
+        }
         picks.innerHTML = '';
         (data.picks_available || []).forEach(function (p) {
           var li = document.createElement('li'); li.textContent = '✓ ' + p; picks.appendChild(li);
@@ -224,12 +288,15 @@
         });
         if (data.submit_disabled) {
           warn.hidden = false;
-          warn.textContent = 'You lack required following-year picks — submit disabled.';
+          warn.textContent = data.cap_missing
+            ? 'Current season cap ceiling is not configured — submit disabled for Group II.'
+            : 'You lack required following-year picks — submit disabled.';
           submit.disabled = true;
         } else {
           warn.hidden = true;
           submit.disabled = false;
         }
+        highlightExploreRow(data.tier_key);
       })
       .catch(function () {});
   }
@@ -239,6 +306,94 @@
   document.getElementById('rfa-offer-close').addEventListener('click', closeModal);
   document.getElementById('rfa-offer-backdrop').addEventListener('click', closeModal);
   document.getElementById('rfa-offer-salary').addEventListener('input', refreshComp);
+
+  var refSection = document.querySelector('.rfa-comp-reference');
+  var exploreInput = document.getElementById('rfa-comp-explore-salary');
+  var exploreSummary = document.getElementById('rfa-comp-explore-summary');
+  function tierForSalary(salary, cap) {
+    if (!cap || cap <= 0 || !salary) return null;
+    var pct = Number(salary) / Number(cap) * 100;
+    var tiers = [];
+    try { tiers = JSON.parse(refSection.getAttribute('data-tiers') || '[]'); } catch (e) { return null; }
+    for (var i = 0; i < tiers.length; i++) {
+      var t = tiers[i];
+      var lo = Number(t.pct_lo);
+      var hi = t.pct_hi == null ? null : Number(t.pct_hi);
+      if (hi == null) { if (pct >= lo) return t; }
+      else if (pct >= lo && pct < hi) return t;
+    }
+    return tiers[0] || null;
+  }
+  function highlightExploreRow(tierKey) {
+    document.querySelectorAll('#rfa-comp-reference-table tbody tr').forEach(function (tr) {
+      tr.style.outline = (tierKey && tr.getAttribute('data-tier-key') === tierKey) ? '2px solid var(--accent, #60a5fa)' : '';
+      tr.style.background = (tierKey && tr.getAttribute('data-tier-key') === tierKey) ? 'rgb(96 165 250 / 0.12)' : '';
+    });
+  }
+  function updateExplore() {
+    if (!refSection || !exploreInput) return;
+    var cap = parseInt(refSection.getAttribute('data-cap-ceiling') || '0', 10);
+    var sal = parseInt(exploreInput.value || '0', 10);
+    if (!sal) {
+      exploreSummary.hidden = true;
+      highlightExploreRow(null);
+      return;
+    }
+    var tier = tierForSalary(sal, cap);
+    if (!tier) {
+      exploreSummary.hidden = true;
+      highlightExploreRow(null);
+      return;
+    }
+    var pct = cap > 0 ? (sal / cap * 100).toFixed(2) : '—';
+    exploreSummary.hidden = false;
+    exploreSummary.textContent = fmt(sal) + ' = ' + pct + '% of cap → ' + tier.label;
+    highlightExploreRow(tier.tier_key);
+  }
+  if (exploreInput) exploreInput.addEventListener('input', updateExplore);
+})();
+</script>
+{% endif %}
+{% if not can_submit and comp_reference_rows %}
+<script>
+(function () {
+  var refSection = document.querySelector('.rfa-comp-reference');
+  var exploreInput = document.getElementById('rfa-comp-explore-salary');
+  var exploreSummary = document.getElementById('rfa-comp-explore-summary');
+  function fmt(n) { return '$' + Number(n).toLocaleString(); }
+  function tierForSalary(salary, cap) {
+    if (!cap || cap <= 0 || !salary) return null;
+    var pct = Number(salary) / Number(cap) * 100;
+    var tiers = [];
+    try { tiers = JSON.parse(refSection.getAttribute('data-tiers') || '[]'); } catch (e) { return null; }
+    for (var i = 0; i < tiers.length; i++) {
+      var t = tiers[i];
+      var lo = Number(t.pct_lo);
+      var hi = t.pct_hi == null ? null : Number(t.pct_hi);
+      if (hi == null) { if (pct >= lo) return t; }
+      else if (pct >= lo && pct < hi) return t;
+    }
+    return tiers[0] || null;
+  }
+  function highlightExploreRow(tierKey) {
+    document.querySelectorAll('#rfa-comp-reference-table tbody tr').forEach(function (tr) {
+      tr.style.outline = (tierKey && tr.getAttribute('data-tier-key') === tierKey) ? '2px solid var(--accent, #60a5fa)' : '';
+      tr.style.background = (tierKey && tr.getAttribute('data-tier-key') === tierKey) ? 'rgb(96 165 250 / 0.12)' : '';
+    });
+  }
+  function updateExplore() {
+    if (!refSection || !exploreInput) return;
+    var cap = parseInt(refSection.getAttribute('data-cap-ceiling') || '0', 10);
+    var sal = parseInt(exploreInput.value || '0', 10);
+    if (!sal) { exploreSummary.hidden = true; highlightExploreRow(null); return; }
+    var tier = tierForSalary(sal, cap);
+    if (!tier) { exploreSummary.hidden = true; highlightExploreRow(null); return; }
+    var pct = cap > 0 ? (sal / cap * 100).toFixed(2) : '—';
+    exploreSummary.hidden = false;
+    exploreSummary.textContent = fmt(sal) + ' = ' + pct + '% of cap → ' + tier.label;
+    highlightExploreRow(tier.tier_key);
+  }
+  if (exploreInput) exploreInput.addEventListener('input', updateExplore);
 })();
 </script>
 {% endif %}

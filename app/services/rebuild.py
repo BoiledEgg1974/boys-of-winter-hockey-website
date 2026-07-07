@@ -95,7 +95,22 @@ def refresh_after_import(engine, app=None) -> None:
     if app is not None:
         db_uri = str(app.config.get("SQLALCHEMY_DATABASE_URI") or "")
         auto_repair_db = db_uri.startswith("sqlite:///") and db_uri != "sqlite:///:memory:"
-    rebuild_player_fts(engine, auto_repair_db=auto_repair_db)
+    try:
+        rebuild_player_fts(engine, auto_repair_db=auto_repair_db)
+    except Exception:
+        slug = ""
+        if app is not None:
+            slug = str(app.config.get("LEAGUE_SLUG") or "").strip()
+        repair_hint = (
+            f"python scripts/repair_league_sqlite.py --repair --league {slug}"
+            if slug
+            else "python scripts/repair_league_sqlite.py --repair"
+        )
+        _log.exception(
+            "player FTS rebuild failed after import (import data is committed). "
+            "Reload the web app, pause the Discord bot, then run: %s",
+            repair_hint,
+        )
     if app is not None:
         try:
             from app.services.positional_rankings import record_positional_rank_snapshot_after_import

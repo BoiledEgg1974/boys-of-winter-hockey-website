@@ -58,6 +58,63 @@ class PlayoffDiscordPredictionsTest(unittest.TestCase):
             resp = discord_interactions._handle_predict_command(_admin_payload(), "bowl-cap")
         self.assertIn("configured `playoff-predictions` channel", resp["data"]["content"])
 
+    def test_predict_uses_canonical_season_not_dashboard_fallback(self) -> None:
+        canonical = MagicMock(id=2, label="1968-69")
+        stale = MagicMock(id=1, label="1967-68")
+        bracket = {
+            "first_round": [
+                {
+                    "team_a": {"id": 1, "abbreviation": "PHI"},
+                    "team_b": {"id": 2, "abbreviation": "OAK"},
+                    "series_complete": False,
+                    "wins_a": 0,
+                    "wins_b": 0,
+                }
+            ],
+        }
+        with (
+            patch.object(discord_interactions, "_channel_check", return_value=None),
+            patch.object(discord_interactions, "_site_user_for_discord", return_value=None),
+            patch(
+                "app.services.seasons.get_current_season",
+                return_value=canonical,
+            ) as get_current,
+            patch(
+                "app.services.seasons.season_with_imported_data_fallback",
+                return_value=stale,
+            ) as fallback,
+            patch(
+                "app.services.playoff_bracket.playoff_bracket_payload",
+                return_value=bracket,
+            ) as bracket_payload,
+            patch(
+                "app.services.playoff_discord_predictions.build_playoff_predictions_discord_payload",
+                return_value={
+                    "payload": {
+                        "title": "Playoff predictions — 1968-69 · First round",
+                        "series_count": 1,
+                        "source_id": "season-2",
+                    }
+                },
+            ) as build_payload,
+            patch("app.services.discord_events.enqueue_discord_event", return_value=MagicMock()),
+            patch.object(discord_interactions.db.session, "commit"),
+            patch.object(discord_interactions.db.session, "rollback"),
+        ):
+            resp = discord_interactions._handle_predict_command(_admin_payload(), "bowl-historical")
+        get_current.assert_called()
+        fallback.assert_not_called()
+        bracket_payload.assert_called_once_with(2, include_team_logos=False)
+        build_payload.assert_called_once_with(
+            discord_interactions.db.session,
+            league_slug="bowl-historical",
+            round_filter="First round",
+            bracket=bracket,
+            season=canonical,
+        )
+        self.assertIn("Queued playoff predictions", resp["data"]["content"])
+        self.assertIn("First round", resp["data"]["content"])
+
     def test_predict_queues_outbound_event(self) -> None:
         payload = {
             "title": "Playoff predictions — 2025-26 · Second round",
@@ -77,10 +134,6 @@ class PlayoffDiscordPredictionsTest(unittest.TestCase):
             patch.object(discord_interactions, "_site_user_for_discord", return_value=None),
             patch(
                 "app.services.seasons.get_current_season",
-                return_value=MagicMock(id=1),
-            ),
-            patch(
-                "app.services.seasons.season_with_imported_data_fallback",
                 return_value=season,
             ),
             patch(
@@ -128,10 +181,6 @@ class PlayoffDiscordPredictionsTest(unittest.TestCase):
             patch.object(discord_interactions, "_site_user_for_discord", return_value=None),
             patch(
                 "app.services.seasons.get_current_season",
-                return_value=MagicMock(id=1),
-            ),
-            patch(
-                "app.services.seasons.season_with_imported_data_fallback",
                 return_value=season,
             ),
             patch(
@@ -162,10 +211,6 @@ class PlayoffDiscordPredictionsTest(unittest.TestCase):
             patch.object(discord_interactions, "_channel_check", return_value=None),
             patch(
                 "app.services.seasons.get_current_season",
-                return_value=MagicMock(id=1),
-            ),
-            patch(
-                "app.services.seasons.season_with_imported_data_fallback",
                 return_value=MagicMock(id=1, label="2025-26"),
             ),
             patch(

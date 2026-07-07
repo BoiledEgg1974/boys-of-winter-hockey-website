@@ -493,7 +493,7 @@ def ensure_draft_pick_ownership_panels(
     *,
     league_slug: str,
     active_count: int = 3,
-    default_round_count: int = 10,
+    default_round_count: int = 9,
 ) -> list[DraftPickOwnershipYear]:
     """Guarantee the league has the configured number of active future-year panels."""
     slug = str(league_slug or "").strip()
@@ -574,7 +574,7 @@ def mark_completed_draft_year_and_roll_forward(
     league_slug: str,
     draft_year: int,
     active_count: int = 3,
-    default_round_count: int = 10,
+    default_round_count: int = 9,
 ) -> list[DraftPickOwnershipYear]:
     """Mark a draft-year panel completed, then top back up to the active panel target."""
     slug = str(league_slug or "").strip()
@@ -783,7 +783,7 @@ def sync_draft_pick_ownership_rollover_for_completed_drafts(
     *,
     league_slug: str,
     active_count: int = 3,
-    default_round_count: int = 10,
+    default_round_count: int = 9,
 ) -> list[DraftPickOwnershipYear]:
     """Mark any completed draft years as completed panels, then top up active panel count."""
     slug = str(league_slug or "").strip()

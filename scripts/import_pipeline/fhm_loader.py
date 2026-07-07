@@ -1338,6 +1338,17 @@ def run_fhm_import(raw_dir: Path, app, league_filter: int = 0) -> dict[str, int]
             season.start_year,
             season.end_year,
         )
+        try:
+            from flask import current_app
+
+            from app.models import db
+            from app.services.salary_cap_schedule import sync_salary_cap_schedule_rollover
+
+            slug = str(current_app.config.get("LEAGUE_SLUG", "")).strip()
+            if slug:
+                sync_salary_cap_schedule_rollover(db.session, db.session, league_slug=slug)
+        except Exception as exc:
+            log.warning("Salary cap schedule rollover after FHM import: %s", exc)
     teams_fhm = import_fhm_teams(raw_dir, league_filter, div_map)
     counts["teams"] = len(teams_fhm)
     players_fhm = import_players(raw_dir, teams_fhm)

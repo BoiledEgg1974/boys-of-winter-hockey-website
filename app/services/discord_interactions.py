@@ -1065,11 +1065,11 @@ def _handle_predict_command(payload: dict[str, Any], league_slug: str) -> dict[s
         normalize_predict_round_filter,
     )
     from app.services.playoff_bracket import playoff_bracket_payload
-    from app.services.seasons import get_current_season, season_with_imported_data_fallback
+    from app.services.seasons import get_current_season
 
-    season = season_with_imported_data_fallback(db.session, get_current_season())
+    season = get_current_season(db.session)
     if season is None:
-        return _ephemeral("No imported season data is available yet.")
+        return _ephemeral("No season is configured yet.")
     bracket = playoff_bracket_payload(int(season.id), include_team_logos=False)
     if bracket.get("empty"):
         return _ephemeral(str(bracket.get("message") or "No playoff bracket is available yet."))

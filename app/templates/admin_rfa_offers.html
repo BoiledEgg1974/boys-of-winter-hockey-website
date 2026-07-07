@@ -7,6 +7,66 @@
   {% with messages = get_flashed_messages() %}
   {% if messages %}<ul>{% for m in messages %}<li>{{ m }}</li>{% endfor %}</ul>{% endif %}
   {% endwith %}
+
+  <section style="margin:1.5rem 0;">
+    <h2>Salary cap schedule</h2>
+    <p class="muted">Set ceiling and floor for the current season and two future seasons. Values roll forward automatically each July 1.</p>
+    {% for row in cap_panels_view %}
+    {% set panel = row.panel %}
+    <div class="card" style="padding:0.8rem;margin-bottom:0.75rem;">
+      <h3 style="margin:0 0 0.6rem;">{{ row.season_label }} Salary Cap</h3>
+      <form method="post" style="display:flex;flex-wrap:wrap;gap:0.75rem;align-items:end;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="save_cap_panel">
+        <input type="hidden" name="panel_id" value="{{ panel.id }}">
+        <label>Cap ceiling ($)
+          <input type="number" name="cap_ceiling" value="{{ panel.cap_ceiling or '' }}" min="0" step="1000" style="width:9rem;">
+        </label>
+        <label>Cap floor ($)
+          <input type="number" name="cap_floor" value="{{ panel.cap_floor or '' }}" min="0" step="1000" style="width:9rem;">
+        </label>
+        <button type="submit" class="button">Save {{ row.season_label }}</button>
+      </form>
+    </div>
+    {% endfor %}
+  </section>
+
+  {% if comp_reference_rows %}
+  <section style="margin:1.5rem 0;">
+    <h2>Group II compensation reference</h2>
+    {% if current_cap_ceiling %}
+    <p class="muted">Dollar ranges at current ceiling (${{ "{:,}".format(current_cap_ceiling) }}).</p>
+    {% else %}
+    <p class="muted flash-warn">Set the current season cap ceiling to show dollar ranges.</p>
+    {% endif %}
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr>
+            <th>% of cap</th>
+            <th>Salary range</th>
+            <th>Compensation</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in comp_reference_rows %}
+          <tr>
+            <td>{{ t.pct_label }}</td>
+            <td>
+              {% if t.lo_dollars is not none and t.hi_dollars is not none %}
+                {% if t.pct_lo <= 0 %}&lt; ${{ "{:,}".format(t.hi_dollars + 1) }}{% elif t.pct_hi is none %}&gt; ${{ "{:,}".format(t.lo_dollars) }}{% else %}${{ "{:,}".format(t.lo_dollars) }} – ${{ "{:,}".format(t.hi_dollars) }}{% endif %}
+              {% else %}—{% endif %}
+            </td>
+            <td>{{ t.label }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% endif %}
+
+  <h2>Active offer queue</h2>
   <div class="table-wrap">
     <table class="data">
       <thead>

@@ -13,13 +13,15 @@ from app.services.rfa_offers import (
     CATEGORY_LABELS,
     MIN_OFFER_MULTIPLIER,
     accept_odds_percent,
+    compensation_for_offer,
     compensation_panel_dict,
+    compensation_reference_rows,
     derive_rfa_category,
     is_rfa_eligible,
     minimum_offer_amount,
     roll_player_accepts,
     validate_offer_submission,
-    _scaled_tiers,
+    _tier_for_pct,
     _unsigned_european_draft_years,
     CompensationPreview,
 )
@@ -160,12 +162,35 @@ class RfaMinimumOfferTest(unittest.TestCase):
 
 
 class RfaCompensationTest(unittest.TestCase):
-    def test_scaled_tiers_use_league_template(self):
+    def test_percent_tier_boundaries(self):
+        self.assertEqual(_tier_for_pct(1.6)[0], "none")
+        self.assertEqual(_tier_for_pct(1.7)[0], "3rd")
+        self.assertEqual(_tier_for_pct(2.6)[0], "2nd")
+        self.assertEqual(_tier_for_pct(13.0)[0], "three_1st_two_2nd")
+
+    def test_compensation_reference_rows_at_cap(self):
+        rows = compensation_reference_rows(80_000_000)
+        self.assertEqual(len(rows), 7)
+        self.assertEqual(rows[0]["tier_key"], "none")
+        self.assertIsNotNone(rows[1]["lo_dollars"])
+
+    def test_group_ii_compensation_uses_percent_of_cap(self):
         session = MagicMock()
-        with patch("app.services.rfa_offers.league_salary_pool", return_value=12_000_000):
-            tiers = _scaled_tiers("bowl-fantasy", session)
-        self.assertEqual(len(tiers), 7)
-        self.assertEqual(tiers[0][2], "none")
+        with (
+            patch("app.services.rfa_offers._season_start_year", return_value=2000),
+            patch("app.services.rfa_offers.cap_for_season", return_value=(80_000_000, 60_000_000)),
+            patch("app.services.rfa_offers.owned_draft_picks_for_team", return_value=[]),
+        ):
+            comp = compensation_for_offer(
+                session,
+                session,
+                league_slug="bowl-fantasy",
+                offering_team_id=1,
+                offer_salary=1_360_000,
+                category="group_ii",
+            )
+        self.assertEqual(comp.tier_key, "3rd")
+        self.assertAlmostEqual(comp.offer_pct_of_cap or 0, 1.7, places=1)
 
     def test_group_ii_compensation_panel_applies(self):
         comp = CompensationPreview(
@@ -184,21 +209,50 @@ class RfaCompensationTest(unittest.TestCase):
         self.assertTrue(panel["valid"])
 
     def test_non_group_ii_no_compensation_in_service(self):
-        from app.services.rfa_offers import compensation_for_offer
-
         session = MagicMock()
-        with patch("app.services.rfa_offers._scaled_tiers", return_value=[(0, 999_999, "3rd", "3rd Round Selection")]), patch(
-            "app.services.rfa_offers._season_start_year", return_value=2026
+        with patch("app.services.rfa_offers._season_start_year", return_value=2026), patch(
+            "app.services.rfa_offers.cap_for_season", return_value=(80_000_000, 60_000_000)
         ), patch("app.services.rfa_offers.owned_draft_picks_for_team", return_value=[]):
             comp = compensation_for_offer(
                 session,
                 session,
                 league_slug="bowl-fantasy",
                 offering_team_id=1,
-                offer_salary=500_000,
+                offer_salary=5_000_000,
                 category="group_i",
             )
         self.assertEqual(comp.tier_key, "none")
+
+    def test_validate_group_ii_blocks_missing_cap(self):
+        candidate = MagicMock()
+        candidate.minimum_offer = 100_000
+        candidate.player.id = 10
+        candidate.category = "group_ii"
+        comp = CompensationPreview(
+            tier_key="none",
+            label="No Compensation",
+            scaled_min=0,
+            scaled_max=0,
+            pick_requirements=[],
+            draft_year=2027,
+            picks_available=[],
+            picks_missing=[],
+            valid=False,
+            cap_missing=True,
+        )
+        with patch("app.services.rfa_offers.list_rfa_candidates", return_value=[candidate]), patch(
+            "app.services.rfa_offers.compensation_for_offer", return_value=comp
+        ):
+            _, _, err = validate_offer_submission(
+                MagicMock(),
+                MagicMock(),
+                league_slug="bowl-historical",
+                offering_team_id=2,
+                player_id=10,
+                offer_salary=500_000,
+                offer_years=2,
+            )
+        self.assertIn("cap ceiling", err or "")
 
 
 class RfaOddsTest(unittest.TestCase):
@@ -272,7 +326,17 @@ class RfaTemplateRouteTest(unittest.TestCase):
         self.assertIn("rfa-offer-modal", text)
         self.assertIn("rfa_compensation_preview", text)
         self.assertIn("submit_disabled", text)
+        self.assertIn("rfa-comp-reference", text)
+        self.assertIn("cap_panels_view", text)
         self.assertIn("Own RFA", text)
+
+    def test_admin_template_has_cap_panels_and_season_labels(self):
+        from pathlib import Path
+
+        text = Path("app/templates/admin_rfa_offers.html").read_text(encoding="utf-8")
+        self.assertIn("Salary cap schedule", text)
+        self.assertIn("season_label", text)
+        self.assertIn("save_cap_panel", text)
 
     def test_gm_page_lists_all_candidates_not_filtered_by_own_team(self):
         from pathlib import Path

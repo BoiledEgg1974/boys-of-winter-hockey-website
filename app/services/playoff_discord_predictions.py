@@ -14,7 +14,7 @@ from app.services.playoff_series_prediction import (
     _is_regular_season_game,
     load_rs_head_to_head,
 )
-from app.services.seasons import get_current_season, season_with_imported_data_fallback
+from app.services.seasons import get_current_season
 
 
 def _ordinal(n: int) -> str:
@@ -371,10 +371,11 @@ def build_playoff_predictions_discord_payload(
     season: Season | None = None,
 ) -> dict[str, Any]:
     if season is None:
-        canonical = get_current_season()
-        season = season_with_imported_data_fallback(session, canonical) if canonical else None
+        # Playoff posts must follow canonical is_current season, not the dashboard
+        # fallback that can still point at the prior year during a fresh postseason.
+        season = get_current_season(session)
     if season is None:
-        return {"error": "No imported season data is available yet."}
+        return {"error": "No season is configured yet."}
     if bracket is None:
         bracket = playoff_bracket_payload(int(season.id), include_team_logos=False)
     if bracket.get("empty"):

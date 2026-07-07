@@ -62,9 +62,6 @@ class PlayoffDiscordBracketTest(unittest.TestCase):
             "app.services.playoff_discord_bracket.get_current_season",
             return_value=season,
         ), patch(
-            "app.services.playoff_discord_bracket.season_with_imported_data_fallback",
-            return_value=season,
-        ), patch(
             "app.services.playoff_discord_bracket.playoff_bracket_payload",
             return_value={
                 "empty": False,
@@ -333,9 +330,6 @@ class PlayoffDiscordBracketTest(unittest.TestCase):
             "app.services.playoff_discord_bracket.get_current_season",
             return_value=season,
         ), patch(
-            "app.services.playoff_discord_bracket.season_with_imported_data_fallback",
-            return_value=season,
-        ), patch(
             "app.services.playoff_discord_bracket._clear_playoff_bracket_discord_series_posts"
         ) as clear_posts, patch(
             "app.services.playoff_discord_bracket.maybe_enqueue_playoff_bracket_discord",
@@ -355,9 +349,6 @@ class PlayoffDiscordBracketTest(unittest.TestCase):
         stored.discord_message_id = "999"
         with patch(
             "app.services.playoff_discord_bracket.get_current_season",
-            return_value=season,
-        ), patch(
-            "app.services.playoff_discord_bracket.season_with_imported_data_fallback",
             return_value=season,
         ), patch(
             "app.services.playoff_discord_bracket.playoff_bracket_payload",

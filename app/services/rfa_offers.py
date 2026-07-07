@@ -24,6 +24,7 @@ from app.models import (
 )
 from app.services.draft_hub_eligibility import age_as_of
 from app.services.draft_pick_ownership import describe_draft_pick_row, owned_draft_picks_for_team
+from app.services.salary_cap_schedule import cap_for_season
 from app.services.free_agents import player_ids_from_player_rights_csv_for_team
 from app.services.player_contract_csv import (
     _contract_row_map,
@@ -89,36 +90,16 @@ GROUP_III_ACCEPT_ODDS = {
 }
 GROUP_III_ALLOW_MATCH_ODDS = GROUP_III_ACCEPT_ODDS
 
-# Dollar tier templates from league PDF (scaled dynamically).
-LEAGUE_TIER_TEMPLATES: dict[str, list[tuple[int, int, str, str]]] = {
-    "bowl-fantasy": [
-        (0, 99_999, "none", "No Compensation"),
-        (100_000, 249_999, "3rd", "3rd Round Selection"),
-        (250_000, 374_999, "2nd", "2nd Round Selection"),
-        (375_000, 449_999, "1st_3rd", "1st & 3rd Round Selections"),
-        (450_000, 574_999, "1st_2nd_3rd", "1st, 2nd & 3rd Round Selections"),
-        (575_000, 699_999, "two_1st_2nd_3rd", "Two 1sts, 2nd & 3rd Round Selections"),
-        (700_000, 9_999_999_999, "three_1st", "Three 1st Round Selections"),
-    ],
-    "bowl-historical": [
-        (0, 97_999, "none", "No Compensation"),
-        (98_000, 244_999, "3rd", "3rd Round Selection"),
-        (245_000, 367_499, "2nd", "2nd Round Selection"),
-        (367_500, 440_999, "1st_3rd", "1st & 3rd Round Selections"),
-        (441_000, 563_499, "1st_2nd_3rd", "1st, 2nd & 3rd Round Selections"),
-        (563_500, 685_999, "two_1st_2nd_3rd", "Two 1sts, 2nd & 3rd Round Selections"),
-        (686_000, 9_999_999_999, "three_1st", "Three 1st Round Selections"),
-    ],
-    "bowl-cap": [
-        (0, 312_572, "none", "No Compensation"),
-        (312_573, 625_212, "3rd", "3rd Round Selection"),
-        (625_213, 937_785, "2nd", "2nd Round Selection"),
-        (937_786, 1_250_357, "1st_3rd", "1st & 3rd Round Selections"),
-        (1_250_358, 1_562_930, "1st_2nd_3rd", "1st, 2nd & 3rd Round Selections"),
-        (1_562_931, 1_875_502, "two_1st_2nd_3rd", "Two 1sts, 2nd & 3rd Round Selections"),
-        (1_875_503, 9_999_999_999, "three_1st", "Three 1st Round Selections"),
-    ],
-}
+# Universal % of cap compensation tiers (Group II).
+CAP_PERCENT_TIERS: list[tuple[float, float | None, str, str]] = [
+    (0.0, 1.7, "none", "No Compensation"),
+    (1.7, 2.6, "3rd", "1 Third Round Pick"),
+    (2.6, 5.2, "2nd", "1 Second Round Pick"),
+    (5.2, 7.8, "1st_3rd", "1 First Round Pick, 1 Third Round Pick"),
+    (7.8, 10.4, "1st_2nd_3rd", "1 First Round Pick, 1 Second Round Pick, 1 Third Round Pick"),
+    (10.4, 13.0, "two_1st_2nd_3rd", "2 First Round Picks, 1 Second Round Pick, 1 Third Round Pick"),
+    (13.0, None, "three_1st_two_2nd", "3 First Round Picks, 2 Second Round Picks"),
+]
 
 COMP_PICK_REQUIREMENTS: dict[str, list[dict[str, int]]] = {
     "none": [],
@@ -127,7 +108,7 @@ COMP_PICK_REQUIREMENTS: dict[str, list[dict[str, int]]] = {
     "1st_3rd": [{"round": 1, "count": 1}, {"round": 3, "count": 1}],
     "1st_2nd_3rd": [{"round": 1, "count": 1}, {"round": 2, "count": 1}, {"round": 3, "count": 1}],
     "two_1st_2nd_3rd": [{"round": 1, "count": 2}, {"round": 2, "count": 1}, {"round": 3, "count": 1}],
-    "three_1st": [{"round": 1, "count": 3}],
+    "three_1st_two_2nd": [{"round": 1, "count": 3}, {"round": 2, "count": 2}],
 }
 
 EUROPEAN_NATIONALITIES = frozenset(
@@ -204,6 +185,9 @@ class CompensationPreview:
     picks_available: list[str]
     picks_missing: list[str]
     valid: bool
+    cap_ceiling: int | None = None
+    offer_pct_of_cap: float | None = None
+    cap_missing: bool = False
 
 
 def _raw_import_dir() -> Path:
@@ -227,29 +211,52 @@ def league_salary_pool(session: Session) -> int:
     return max(total, 1)
 
 
-def _baseline_salary_pool(league_slug: str) -> int:
-    """Reference salary pool used to scale compensation tiers (approx. PDF era)."""
-    defaults = {
-        "bowl-fantasy": 12_000_000,
-        "bowl-historical": 90_000_000,
-        "bowl-cap": 55_000_000,
-    }
-    return defaults.get(str(league_slug or "").strip(), 50_000_000)
+def _tier_for_pct(pct: float) -> tuple[str, str, float, float | None]:
+    for lo, hi, key, label in CAP_PERCENT_TIERS:
+        if hi is None:
+            if pct >= lo:
+                return key, label, lo, hi
+        elif pct >= lo and pct < hi:
+            return key, label, lo, hi
+    return "none", "No Compensation", 0.0, 1.7
 
 
-def _salary_scale(league_slug: str, session: Session) -> float:
-    current = float(league_salary_pool(session))
-    baseline = float(_baseline_salary_pool(league_slug))
-    return max(0.25, min(4.0, current / baseline))
+def _dollar_band_for_tier(
+    cap_ceiling: int,
+    lo_pct: float,
+    hi_pct: float | None,
+) -> tuple[int, int]:
+    lo_dollars = 0 if lo_pct <= 0 else max(1, int(round(cap_ceiling * lo_pct / 100.0)))
+    if hi_pct is None:
+        return lo_dollars, cap_ceiling
+    hi_dollars = max(lo_dollars, int(round(cap_ceiling * hi_pct / 100.0)) - 1)
+    return lo_dollars, hi_dollars
 
 
-def _scaled_tiers(league_slug: str, session: Session) -> list[tuple[int, int, str, str]]:
-    scale = _salary_scale(league_slug, session)
-    template = LEAGUE_TIER_TEMPLATES.get(league_slug, LEAGUE_TIER_TEMPLATES["bowl-cap"])
-    out: list[tuple[int, int, str, str]] = []
-    for lo, hi, key, label in template:
-        out.append((int(lo * scale), int(hi * scale), key, label))
-    return out
+def compensation_reference_rows(cap_ceiling: int | None) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for lo, hi, key, label in CAP_PERCENT_TIERS:
+        pct_label = (
+            f"< {hi:g}%"
+            if lo <= 0 and hi is not None
+            else (f"> {lo:g}%" if hi is None else f"{lo:g}% – {hi:g}%")
+        )
+        lo_d = hi_d = None
+        if cap_ceiling and cap_ceiling > 0:
+            lo_d, hi_d = _dollar_band_for_tier(int(cap_ceiling), lo, hi)
+        rows.append(
+            {
+                "tier_key": key,
+                "label": label,
+                "pct_lo": lo,
+                "pct_hi": hi,
+                "pct_label": pct_label,
+                "lo_dollars": lo_d,
+                "hi_dollars": hi_d,
+                "pick_requirements": COMP_PICK_REQUIREMENTS.get(key, []),
+            }
+        )
+    return rows
 
 
 def _pro_seasons_before_from_db(session: Session, player: Player, season_start_year: int) -> int:
@@ -480,18 +487,29 @@ def compensation_for_offer(
 ) -> CompensationPreview:
     sy = _season_start_year(session)
     draft_year = int(sy) + 1 if sy is not None else date.today().year + 1
-    tiers = _scaled_tiers(league_slug, session)
+    cap_ceiling: int | None = None
+    cap_missing = False
+    if sy is not None:
+        cap_ceiling, _ = cap_for_season(site_session, league_slug, int(sy))
+    if cap_ceiling is None or int(cap_ceiling) <= 0:
+        cap_missing = True
+        cap_ceiling = None
+
     tier_key = "none"
     label = "No Compensation"
     scaled_lo = 0
     scaled_hi = 0
-    for lo, hi, key, lbl in tiers:
-        if int(offer_salary) >= lo and int(offer_salary) <= hi:
-            tier_key, label, scaled_lo, scaled_hi = key, lbl, lo, hi
-            break
+    offer_pct: float | None = None
+
+    if cap_ceiling and int(cap_ceiling) > 0:
+        offer_pct = float(offer_salary) / float(cap_ceiling) * 100.0
+        tier_key, label, lo_pct, hi_pct = _tier_for_pct(offer_pct)
+        scaled_lo, scaled_hi = _dollar_band_for_tier(int(cap_ceiling), lo_pct, hi_pct)
+
     if category in ("group_i", "group_iii", "group_iv"):
         tier_key = "none"
         label = "No Compensation"
+
     requirements = COMP_PICK_REQUIREMENTS.get(tier_key, [])
     owned = owned_draft_picks_for_team(
         site_session, league_slug=league_slug, team_id=int(offering_team_id)
@@ -509,7 +527,7 @@ def compensation_for_offer(
             picks_available.append(describe_draft_pick_row(p, original_team=orig, owner_team=owner))
         if len(have) < need:
             picks_missing.append(f"{need - len(have)}× {draft_year} {rnd}{'st' if rnd==1 else 'nd' if rnd==2 else 'rd' if rnd==3 else 'th'} round")
-    valid = len(picks_missing) == 0
+    valid = len(picks_missing) == 0 and not cap_missing
     return CompensationPreview(
         tier_key=tier_key,
         label=label,
@@ -520,6 +538,9 @@ def compensation_for_offer(
         picks_available=picks_available,
         picks_missing=picks_missing,
         valid=valid,
+        cap_ceiling=cap_ceiling,
+        offer_pct_of_cap=offer_pct,
+        cap_missing=cap_missing,
     )
 
 
@@ -678,8 +699,11 @@ def validate_offer_submission(
         offer_salary=int(offer_salary),
         category=candidate.category,
     )
-    if candidate.category == "group_ii" and not comp.valid:
-        return None, comp, "You do not own the required following-year draft picks for this offer."
+    if candidate.category == "group_ii":
+        if comp.cap_missing:
+            return None, comp, "Current season salary cap ceiling is not set — ask your commissioner to configure it on Admin RFA."
+        if not comp.valid:
+            return None, comp, "You do not own the required following-year draft picks for this offer."
     return candidate, comp, None
 
 
@@ -733,6 +757,9 @@ def compensation_panel_dict(comp: CompensationPreview, *, category: str) -> dict
         "picks_missing": comp.picks_missing,
         "valid": comp.valid,
         "applies": category == "group_ii",
+        "cap_ceiling": comp.cap_ceiling,
+        "offer_pct_of_cap": comp.offer_pct_of_cap,
+        "cap_missing": comp.cap_missing,
     }
 
 

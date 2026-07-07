@@ -234,6 +234,7 @@ def _bootstrap_site_schema_and_seed(app: Flask) -> None:
         ensure_league_draft_slot_boost_tier_sqlite,
         ensure_league_expansion_draft_columns_sqlite,
         ensure_league_rule_settings_sqlite,
+        ensure_league_salary_cap_years_sqlite,
         ensure_member_watchlists_sqlite,
         ensure_news_engagement_sqlite,
         ensure_password_reset_tokens_sqlite,
@@ -277,6 +278,7 @@ def _bootstrap_site_schema_and_seed(app: Flask) -> None:
     ensure_team_staff_roster_entries_sqlite(site_engine)
     ensure_gm_trade_proposals_sqlite(site_engine)
     ensure_trade_market_sqlite(site_engine)
+    ensure_league_salary_cap_years_sqlite(site_engine)
     ensure_story_publish_schedules_sqlite(site_engine)
     ensure_story_publish_schedule_extra_columns_sqlite(site_engine)
     ensure_awards_voting_sqlite(site_engine)

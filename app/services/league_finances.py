@@ -564,6 +564,18 @@ def build_league_finances_context(
     floor_raw = rule_int(session, league_slug, "salary_cap_floor", default=0)
     cap_ceiling = int(ceiling_raw) if ceiling_raw > 0 else None
     cap_floor = int(floor_raw) if floor_raw > 0 else None
+    if season_start_year is not None:
+        from app.services.salary_cap_schedule import cap_for_season
+
+        sched_ceiling, sched_floor = cap_for_season(
+            session,
+            league_slug,
+            int(season_start_year),
+        )
+        if sched_ceiling is not None:
+            cap_ceiling = sched_ceiling
+        if sched_floor is not None:
+            cap_floor = sched_floor
 
     base_dir = _resolve_raw_import_dir(raw_import_dir)
     contract_rows = merged_contract_rows(base_dir)

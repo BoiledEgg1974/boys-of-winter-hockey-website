@@ -26,7 +26,7 @@ from app.services.playoff_discord_predictions import (
     _team_meta,
     collect_bracket_series,
 )
-from app.services.seasons import get_current_season, season_with_imported_data_fallback
+from app.services.seasons import get_current_season
 from app.site_models import DiscordPlayoffBracketSeriesPost
 
 _log = logging.getLogger(__name__)
@@ -122,10 +122,9 @@ def build_playoff_bracket_discord_payload(
     post_new_messages: bool = False,
 ) -> dict[str, Any]:
     """Build structured payload for ``playoff_bracket_update``."""
-    canonical = get_current_season()
-    season = season_with_imported_data_fallback(league_session, canonical) if canonical else None
+    season = get_current_season(league_session)
     if season is None:
-        return {"error": "No imported season data is available yet."}
+        return {"error": "No season is configured yet."}
 
     bracket = playoff_bracket_payload(int(season.id), include_team_logos=False)
     if bracket.get("projection_only"):
@@ -269,8 +268,7 @@ def enqueue_fresh_playoff_bracket_discord(
     slug = str(league_slug or "").strip()
     if not slug:
         return False
-    canonical = get_current_season()
-    season = season_with_imported_data_fallback(league_session, canonical) if canonical else None
+    season = get_current_season(league_session)
     season_id = int(season.id) if season and season.id is not None else None
     _clear_playoff_bracket_discord_series_posts(session, slug, season_id=season_id)
     session.flush()

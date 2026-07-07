@@ -273,12 +273,19 @@ from app.services.league_finances import (
     build_league_finances_context,
     cap_penalty_admin_context,
 )
+from app.services.salary_cap_schedule import (
+    build_cap_panels_view,
+    cap_for_season,
+    save_salary_cap_panel,
+    sync_salary_cap_schedule_rollover,
+)
 from app.services.rfa_offers import (
     CATEGORY_LABELS,
     CATEGORY_TOOLTIPS,
     HAPPINESS_LEVELS,
     compensation_for_offer,
     compensation_panel_dict,
+    compensation_reference_rows,
     create_rfa_offer_request,
     happiness_label,
     list_rfa_candidates,
@@ -286,7 +293,6 @@ from app.services.rfa_offers import (
     roll_player_accepts,
     status_label,
     validate_offer_submission,
-    _scaled_tiers,
 )
 
 site_gm_bp = Blueprint("site_gm", __name__)
@@ -2591,12 +2597,20 @@ def rfa_offers_page():
         flash(f"Offer sheet submitted for {candidate.player.full_name} — pending admin review.", "ok")
         return redirect(url_for("site_gm.rfa_offers_page"))
     candidates = list_rfa_candidates(db.session, league_slug=slug)
-    tier_rows = []
-    if mem:
-        tier_rows = [
-            {"lo": lo, "hi": hi, "key": key, "label": lbl}
-            for lo, hi, key, lbl in _scaled_tiers(slug, db.session)
-        ]
+    cap_panels_view = build_cap_panels_view(
+        db.session,
+        db.session,
+        league_slug=slug,
+        active_count=3,
+    )
+    season = get_current_season()
+    season_start_year = int(season.start_year) if season and season.start_year is not None else None
+    current_cap_ceiling = None
+    if season_start_year is not None:
+        current_cap_ceiling, _ = cap_for_season(db.session, slug, season_start_year)
+    comp_reference_rows = compensation_reference_rows(
+        int(current_cap_ceiling) if current_cap_ceiling else None
+    )
     my_offers: list[RfaOfferRequest] = []
     match_queue: list[RfaOfferRequest] = []
     if mem:
@@ -2644,7 +2658,9 @@ def rfa_offers_page():
         candidates=candidates,
         category_labels=CATEGORY_LABELS,
         category_tooltips=CATEGORY_TOOLTIPS,
-        tier_rows=tier_rows,
+        cap_panels_view=cap_panels_view,
+        comp_reference_rows=comp_reference_rows,
+        current_cap_ceiling=current_cap_ceiling,
         my_offers=my_offers,
         match_queue=match_queue,
         players_by_id=players_by_id,
@@ -2686,7 +2702,9 @@ def rfa_compensation_preview():
     )
     panel = compensation_panel_dict(comp, category=candidate.category)
     panel["minimum_offer"] = int(candidate.minimum_offer)
-    panel["submit_disabled"] = candidate.category == "group_ii" and not comp.valid
+    panel["submit_disabled"] = (
+        candidate.category == "group_ii" and (not comp.valid or comp.cap_missing)
+    )
     return jsonify(panel)
 
 
@@ -3142,7 +3160,7 @@ def admin_draft_pick_ownership():
         action = (request.form.get("action") or "").strip().lower()
         if action == "add_year":
             year = int(request.form.get("draft_year") or 0)
-            rounds = max(1, min(15, int(request.form.get("round_count") or 10)))
+            rounds = max(1, min(15, int(request.form.get("round_count") or 9)))
             if year <= 0:
                 flash("Enter a valid draft year.", "err")
                 return redirect(url_for("site_admin.admin_draft_pick_ownership"))
@@ -3181,7 +3199,7 @@ def admin_draft_pick_ownership():
             if panel is None or panel.league_slug != slug:
                 flash("Draft panel not found.", "err")
                 return redirect(url_for("site_admin.admin_draft_pick_ownership"))
-            rounds = max(1, min(15, int(request.form.get("round_count") or panel.round_count or 10)))
+            rounds = max(1, min(15, int(request.form.get("round_count") or panel.round_count or 9)))
             owner_by_key: dict[tuple[int, int], int] = {}
             team_ids = {int(t.id) for t in draft_pick_teams_for_grid(db.session)}
             for key, value in request.form.items():
@@ -3216,7 +3234,7 @@ def admin_draft_pick_ownership():
         db.session,
         league_slug=slug,
         active_count=3,
-        default_round_count=10,
+        default_round_count=9,
     )
     panels = [p for p in panels if str(p.status or "active") != "completed"]
     teams = draft_pick_teams_for_grid(db.session)
@@ -4749,6 +4767,10 @@ def admin_control_center_season_rollover_execute():
         )
     )
     commit_with_sqlite_retry(db.session)
+    try:
+        sync_salary_cap_schedule_rollover(db.session, db.session, league_slug=slug)
+    except Exception as exc:
+        current_app.logger.warning("Salary cap schedule rollover after season change: %s", exc)
     flash(f"Season rollover complete. Current season is now {target.label}.", "ok")
     return redirect(url_for("site_admin.admin_control_center"))
 
@@ -7742,11 +7764,55 @@ def admin_staff_deny(rid: int):
     return redirect(url_for("site_admin.admin_staff_requests"))
 
 
-@site_admin_bp.get("/rfa-offers")
+@site_admin_bp.route("/rfa-offers", methods=["GET", "POST"])
 @login_required
 def admin_rfa_offers():
     require_admin_role(ADMIN_ROLE_STATS, ADMIN_ROLE_LEAGUE)
     slug = _league_slug()
+    if request.method == "POST":
+        action = (request.form.get("action") or "").strip().lower()
+        if action == "save_cap_panel":
+            try:
+                panel_id = int(request.form.get("panel_id") or "0")
+                raw_ceiling = (request.form.get("cap_ceiling") or "").strip().replace(",", "").replace("$", "")
+                raw_floor = (request.form.get("cap_floor") or "").strip().replace(",", "").replace("$", "")
+                cap_ceiling = int(raw_ceiling) if raw_ceiling else None
+                cap_floor = int(raw_floor) if raw_floor else None
+            except ValueError:
+                flash("Cap ceiling and floor must be valid dollar amounts.", "err")
+                return redirect(url_for("site_admin.admin_rfa_offers"))
+            saved = save_salary_cap_panel(
+                db.session,
+                league_slug=slug,
+                panel_id=panel_id,
+                cap_ceiling=cap_ceiling,
+                cap_floor=cap_floor,
+            )
+            if saved is None:
+                flash("Cap panel not found.", "err")
+            else:
+                from app.services.salary_cap_schedule import season_label_from_start_year
+
+                label = season_label_from_start_year(int(saved.season_start_year))
+                flash(f"Saved {label} salary cap schedule.", "ok")
+            return redirect(url_for("site_admin.admin_rfa_offers"))
+        flash("Unknown action.", "err")
+        return redirect(url_for("site_admin.admin_rfa_offers"))
+
+    cap_panels_view = build_cap_panels_view(
+        db.session,
+        db.session,
+        league_slug=slug,
+        active_count=3,
+    )
+    season = get_current_season()
+    season_start_year = int(season.start_year) if season and season.start_year is not None else None
+    current_cap_ceiling = None
+    if season_start_year is not None:
+        current_cap_ceiling, _ = cap_for_season(db.session, slug, season_start_year)
+    comp_reference_rows = compensation_reference_rows(
+        int(current_cap_ceiling) if current_cap_ceiling else None
+    )
     rows = db.session.scalars(
         select(RfaOfferRequest)
         .where(
@@ -7781,7 +7847,14 @@ def admin_rfa_offers():
         }
         for r in rows
     ]
-    return render_template("admin_rfa_offers.html", queue_rows=queue_rows, status_label=status_label)
+    return render_template(
+        "admin_rfa_offers.html",
+        queue_rows=queue_rows,
+        status_label=status_label,
+        cap_panels_view=cap_panels_view,
+        comp_reference_rows=comp_reference_rows,
+        current_cap_ceiling=current_cap_ceiling,
+    )
 
 
 @site_admin_bp.get("/rfa-offers/<int:rid>")

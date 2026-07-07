@@ -20,10 +20,10 @@
         <input type="hidden" name="action" value="save_cap_panel">
         <input type="hidden" name="panel_id" value="{{ panel.id }}">
         <label>Cap ceiling ($)
-          <input type="number" name="cap_ceiling" value="{{ panel.cap_ceiling or '' }}" min="0" step="1000" style="width:9rem;">
+          <input type="number" name="cap_ceiling" value="{{ panel.cap_ceiling or '' }}" min="0" step="1" style="width:9rem;">
         </label>
         <label>Cap floor ($)
-          <input type="number" name="cap_floor" value="{{ panel.cap_floor or '' }}" min="0" step="1000" style="width:9rem;">
+          <input type="number" name="cap_floor" value="{{ panel.cap_floor or '' }}" min="0" step="1" style="width:9rem;">
         </label>
         <button type="submit" class="button">Save {{ row.season_label }}</button>
       </form>

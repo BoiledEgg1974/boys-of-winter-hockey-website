@@ -270,6 +270,40 @@ class SimCycleDiscordPayloadTests(unittest.TestCase):
         self.assertTrue(enqueue_mock.call_args.kwargs.get("post_new_message"))
         self.assertTrue(enqueue_mock.call_args.kwargs.get("finalize_on_ack"))
 
+    def test_publish_closed_requeues_when_already_closed(self) -> None:
+        site_session = MagicMock()
+        league_session = MagicMock()
+        state = SimpleNamespace(
+            league_slug="bowl-cap",
+            phase="closed",
+            export_date=date(2026, 7, 1),
+            finalize_on_ack=False,
+            discord_payload_hash="old-hash",
+            updated_at=None,
+            cycle_started_at=datetime(2026, 7, 1, 12, 0, 0),
+        )
+        with patch(
+            "app.services.sim_cycle_discord.sim_log_route_ready",
+            return_value=True,
+        ), patch(
+            "app.services.sim_cycle_discord.get_or_create_sim_cycle_state",
+            return_value=state,
+        ), patch(
+            "app.services.sim_cycle_discord.maybe_enqueue_sim_cycle_discord",
+            return_value=True,
+        ) as enqueue_mock:
+            ok = publish_closed_sim_cycle_from_admin_export(
+                site_session,
+                league_session,
+                "bowl-cap",
+                date(2026, 7, 6),
+            )
+        self.assertTrue(ok)
+        self.assertEqual(state.phase, "closed")
+        self.assertEqual(state.export_date, date(2026, 7, 6))
+        self.assertTrue(state.finalize_on_ack)
+        enqueue_mock.assert_called_once()
+
     def test_handle_export_returns_closed(self) -> None:
         with patch(
             "app.services.sim_cycle_discord.publish_closed_sim_cycle_from_admin_export",

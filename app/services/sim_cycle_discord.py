@@ -427,8 +427,6 @@ def publish_closed_sim_cycle_from_admin_export(
     if not slug or not sim_log_route_ready(site_session, slug):
         return False
     state = get_or_create_sim_cycle_state(site_session, slug)
-    if str(state.phase or "") == "closed":
-        return False
     state.phase = "closed"
     state.export_date = export_date
     state.cycle_started_at = datetime.utcnow()

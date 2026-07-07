@@ -22,6 +22,8 @@ def main() -> int:
     if not slug:
         print("snapshot_ovr_baseline: set LEAGUE_SLUG (e.g. bowl-fantasy).", file=sys.stderr)
         return 1
+    from sqlalchemy import inspect
+
     from app import create_app
     from app.config import make_league_config
     from app.models import db
@@ -29,6 +31,12 @@ def main() -> int:
 
     app = create_app(make_league_config(slug))
     with app.app_context():
+        if not inspect(db.session.get_bind()).has_table("players"):
+            print(
+                f"snapshot_ovr_baseline ({slug}): skipped (no players table — fresh or empty DB).",
+                file=sys.stderr,
+            )
+            return 0
         n = refresh_all_player_overall_baselines(db.session)
     print(f"snapshot_ovr_baseline ({slug}): stored baseline OVR for {n} players.")
     return 0

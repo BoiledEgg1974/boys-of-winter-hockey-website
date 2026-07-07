@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 import logging
+import sqlite3
 import threading
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from app.config import is_sqlite_database_uri
+from app.config import _sqlite_file_is_readable, is_sqlite_database_uri
 from app.sqlite_bootstrap_lock import sqlite_bootstrap_lock
 
 if TYPE_CHECKING:
@@ -35,6 +36,30 @@ def _marker_path(db_key: str) -> Path:
     return Path(db_key + ".bootstrap.version")
 
 
+def _sqlite_has_user_tables(db_key: str) -> bool:
+    """True when the DB file contains at least one application table."""
+    db_path = Path(db_key)
+    if not db_path.is_file() or not _sqlite_file_is_readable(db_path):
+        return False
+    try:
+        ro_uri = db_path.resolve().as_uri() + "?mode=ro"
+        conn = sqlite3.connect(ro_uri, uri=True)
+    except sqlite3.Error:
+        try:
+            conn = sqlite3.connect(str(db_path))
+        except sqlite3.Error:
+            return False
+    try:
+        row = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' LIMIT 1"
+        ).fetchone()
+        return row is not None
+    except sqlite3.Error:
+        return False
+    finally:
+        conn.close()
+
+
 def _marker_matches(db_key: str) -> bool:
     marker = _marker_path(db_key)
     db_path = Path(db_key)
@@ -43,6 +68,9 @@ def _marker_matches(db_key: str) -> bool:
             return False
         # DB restored from backup is usually older than the marker — re-run bootstrap/migrations.
         if db_path.is_file() and marker.stat().st_mtime > db_path.stat().st_mtime + 1:
+            return False
+        # Marker left behind after a wiped/empty file must not skip create_all().
+        if not _sqlite_has_user_tables(db_key):
             return False
         return True
     except OSError:

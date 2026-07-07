@@ -313,17 +313,90 @@ class DraftHubTrackerTest(unittest.TestCase):
         self.assertEqual(payload["status_label"], "Upcoming")
         self.assertEqual(payload["first_pick"]["team_id"], 1)
 
+    def test_stale_live_draft_still_drives_tracker(self) -> None:
+        site = MagicMock()
+        league = MagicMock()
+        stale_live = MagicMock(id=8, timeline_year=2000, status="live", scheduled_start_at=None)
+        panel = MagicMock(draft_year=2001, round_count=7, status="active", display_order=1)
+        t1 = MagicMock(
+            id=1,
+            slug="columbus-blue-jackets",
+            abbreviation="CBS",
+            full_display_name=lambda: "Columbus Blue Jackets",
+            primary_color="#002654",
+        )
+        slot1 = MagicMock(
+            forfeited=False,
+            team_id=1,
+            original_team_id=1,
+            round=1,
+            overall_pick=1,
+        )
+        site.scalars.return_value.all.side_effect = [
+            [slot1],
+            [],
+        ]
+
+        with (
+            unittest.mock.patch(
+                "app.services.draft_hub_tracker.in_game_draft_ownership_cutoff_year",
+                return_value=2001,
+            ),
+            unittest.mock.patch(
+                "app.services.draft_hub_tracker._active_ownership_panel",
+                return_value=panel,
+            ),
+            unittest.mock.patch(
+                "app.services.draft_hub_tracker._round1_position_by_team_id",
+                return_value={1: 1},
+            ),
+            unittest.mock.patch(
+                "app.services.draft_hub_tracker._latest_game_date",
+                return_value=None,
+            ),
+        ):
+            payload = build_draft_hub_tracker(
+                site,
+                league,
+                league_slug="bowl-historical",
+                featured_draft=stale_live,
+                team_by_id={1: t1},
+                team_logo_url=lambda _tm, _d: "/logo.png",
+                team_page_url=lambda tm: f"/team/{tm.slug}",
+                draft_hub_url=lambda: "/draft-hub",
+                draft_archive_url=lambda: "/draft-hub/archive",
+                draft_archive_one_url=lambda _id: "/draft-hub/archive/1",
+            )
+
+        self.assertEqual(payload["draft_year"], 2000)
+        self.assertEqual(payload["status_label"], "Live now")
+        self.assertEqual(payload["first_pick"]["team_id"], 1)
+
+    def test_hub_active_draft_always_returns_live(self) -> None:
+        from app.services.draft_hub_state import hub_active_draft
+
+        session = MagicMock()
+        live = MagicMock(status="live", timeline_year=2000)
+        session.scalar.return_value = live
+        self.assertIs(hub_active_draft(session, "bowl-historical", min_draft_year=2001), live)
+
+    def test_hub_active_draft_hides_stale_setup(self) -> None:
+        from app.services.draft_hub_state import hub_active_draft
+
+        session = MagicMock()
+        setup = MagicMock(status="setup", timeline_year=2000)
+        session.scalar.side_effect = [None, setup]
+        self.assertIsNone(hub_active_draft(session, "bowl-historical", min_draft_year=2001))
+
     def test_draft_hub_route_exposes_tracker_payload(self) -> None:
         path = Path(__file__).resolve().parents[1] / "app" / "routes" / "draft_hub.py"
         text = path.read_text(encoding="utf-8")
         self.assertIn("build_draft_hub_tracker", text)
         self.assertIn('"tracker": tracker', text)
-        self.assertIn("_public_draft_room(featured, min_draft_year=min_draft_year)", text)
-        self.assertIn("min_draft_year=min_draft_year", text)
+        self.assertIn("_hub_draft()", text)
+        self.assertIn("hub_active_draft", text)
         self.assertIn("in_game_draft_ownership_cutoff_year", text)
-        self.assertIn("featured = featured_draft(db.session, slug)", text)
-        self.assertIn("tracker = _tracker_payload(featured, team_by_id)", text)
-        self.assertIn('{"setup", "live"}', text)
+        self.assertIn("tracker = _tracker_payload(draft, team_by_id)", text)
 
     def test_draft_hub_template_has_tracker_sections(self) -> None:
         path = Path(__file__).resolve().parents[1] / "app" / "templates" / "draft_hub.html"

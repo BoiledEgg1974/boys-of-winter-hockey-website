@@ -86,6 +86,47 @@ def featured_draft(session: Session, league_slug: str) -> LeagueDraft | None:
     )
 
 
+def hub_active_draft(
+    session: Session,
+    league_slug: str,
+    *,
+    min_draft_year: int | None = None,
+) -> LeagueDraft | None:
+    """Public Draft Hub session: live room if any, else a current-year setup draft.
+
+    Only one league-run draft is live at a time. A live room always loads on the hub
+    regardless of timeline year (e.g. finishing the 2000 draft after the calendar rolls
+    to 2001). Stale setup drafts are skipped so the ownership tracker can show the
+    next draft year until a commissioner opens a new room.
+    """
+    slug = str(league_slug or "").strip()
+    if not slug:
+        return None
+    live = session.scalar(
+        select(LeagueDraft)
+        .where(LeagueDraft.league_slug == slug, LeagueDraft.status == "live")
+        .order_by(LeagueDraft.id.desc())
+        .limit(1)
+    )
+    if live is not None:
+        return live
+    setup = session.scalar(
+        select(LeagueDraft)
+        .where(LeagueDraft.league_slug == slug, LeagueDraft.status == "setup")
+        .order_by(LeagueDraft.id.desc())
+        .limit(1)
+    )
+    if setup is None:
+        return None
+    if min_draft_year is not None:
+        try:
+            if int(setup.timeline_year) < int(min_draft_year):
+                return None
+        except (TypeError, ValueError):
+            return None
+    return setup
+
+
 def gm_user_ids_for_team(session: Session, league_slug: str, team_id: int) -> list[int]:
     rows = session.scalars(
         select(GmLeagueMembership.user_id)

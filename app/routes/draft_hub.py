@@ -27,8 +27,8 @@ from app.services.draft_hub_state import (
     compute_winners_losers,
     draft_eligibility_params,
     end_draft_early,
-    featured_draft,
     gm_user_ids_for_team,
+    hub_active_draft,
     pause_draft_timer,
     picked_player_ids,
     record_pick,
@@ -100,25 +100,16 @@ def _tracker_payload(draft: LeagueDraft | None, team_by_id: dict[int, Team]) -> 
     )
 
 
-def _public_draft_room(draft: LeagueDraft | None, *, min_draft_year: int | None = None) -> LeagueDraft | None:
-    """Only setup/live drafts render on the main Draft Hub page; completed drafts live in Archive."""
-    if draft is None:
-        return None
-    if str(draft.status or "").strip().lower() not in {"setup", "live"}:
-        return None
-    try:
-        if min_draft_year is not None and int(draft.timeline_year) < int(min_draft_year):
-            return None
-    except (TypeError, ValueError):
-        if min_draft_year is not None:
-            return None
-    return draft
+def _hub_draft() -> LeagueDraft | None:
+    slug = _league_slug()
+    min_draft_year = in_game_draft_ownership_cutoff_year(db.session, league_slug=slug)
+    return hub_active_draft(db.session, slug, min_draft_year=min_draft_year)
 
 
 @draft_hub_bp.get("")
 def draft_hub_page():
     slug = _league_slug()
-    draft = featured_draft(db.session, slug)
+    draft = _hub_draft()
     teams = list(db.session.scalars(select(Team).order_by(Team.name)).all())
     team_by_id = {t.id: t for t in teams}
     draft_hub_teams_json = [{"id": int(t.id), "name": t.full_display_name()} for t in teams]
@@ -233,11 +224,9 @@ def draft_hub_archive_one(draft_id: int):
 @draft_hub_bp.get("/api/state")
 def draft_hub_api_state():
     slug = _league_slug()
-    min_draft_year = in_game_draft_ownership_cutoff_year(db.session, league_slug=slug)
-    featured = featured_draft(db.session, slug)
-    draft = _public_draft_room(featured, min_draft_year=min_draft_year)
+    draft = _hub_draft()
     team_by_id = {t.id: t for t in db.session.scalars(select(Team)).all()}
-    tracker = _tracker_payload(featured, team_by_id)
+    tracker = _tracker_payload(draft, team_by_id)
     if not draft:
         return jsonify({"ok": True, "draft": None, "tracker": tracker})
 
@@ -578,8 +567,7 @@ def draft_hub_api_ai_advice():
     """JSON for the Draft Hub AI panel (entertainment only)."""
     slug = _league_slug()
     q_draft_id = request.args.get("draft_id", type=int)
-    featured = featured_draft(db.session, slug)
-    draft = featured
+    draft = _hub_draft()
     if q_draft_id:
         row = db.session.get(LeagueDraft, q_draft_id)
         if row and row.league_slug == slug:
@@ -673,7 +661,7 @@ def _player_matches_pos_filter(label: str, pos_filter: str) -> bool:
 @draft_hub_bp.get("/api/eligible-page")
 def draft_hub_eligible_page():
     slug = _league_slug()
-    draft = featured_draft(db.session, slug)
+    draft = _hub_draft()
     if not draft:
         return jsonify({"ok": True, "players": []})
     q = (request.args.get("q") or "").strip().lower()
@@ -746,7 +734,7 @@ def draft_hub_pick():
 
     slug = _league_slug()
     validate_csrf(request.form.get("csrf_token"))
-    draft = featured_draft(db.session, slug)
+    draft = _hub_draft()
     flash_err: str | None = None
     if not draft or draft.status != "live":
         flash_err = "No live draft."
@@ -773,7 +761,7 @@ def draft_hub_pause_timer():
     if not league_hub_staff(current_user):
         abort(403)
     slug = _league_slug()
-    draft = featured_draft(db.session, slug)
+    draft = _hub_draft()
     if not draft:
         flash("No draft is configured.", "err")
     else:
@@ -795,7 +783,7 @@ def draft_hub_resume_timer():
     if not league_hub_staff(current_user):
         abort(403)
     slug = _league_slug()
-    draft = featured_draft(db.session, slug)
+    draft = _hub_draft()
     if not draft:
         flash("No draft is configured.", "err")
     else:
@@ -817,7 +805,7 @@ def draft_hub_auto_complete():
     if not league_hub_staff(current_user):
         abort(403)
     slug = _league_slug()
-    draft = featured_draft(db.session, slug)
+    draft = _hub_draft()
     if not draft:
         flash("No draft is configured.", "err")
         return redirect(url_for("draft_hub.draft_hub_page"))
@@ -844,7 +832,7 @@ def draft_hub_queue_add():
 
     slug = _league_slug()
     validate_csrf(request.form.get("csrf_token"))
-    draft = featured_draft(db.session, slug)
+    draft = _hub_draft()
     pid_raw = (request.form.get("player_id") or "").strip()
     if not draft or not pid_raw.isdigit():
         from flask import flash
@@ -886,7 +874,7 @@ def draft_hub_queue_remove():
 
     validate_csrf(request.form.get("csrf_token"))
     slug = _league_slug()
-    draft = featured_draft(db.session, slug)
+    draft = _hub_draft()
     qid = (request.form.get("queue_id") or "").strip()
     if draft and qid.isdigit():
         row = db.session.get(LeagueDraftQueueItem, int(qid))
@@ -905,7 +893,7 @@ def draft_hub_end_draft_early():
     if not league_hub_staff(current_user):
         abort(403)
     slug = _league_slug()
-    draft = featured_draft(db.session, slug)
+    draft = _hub_draft()
     if not draft:
         flash("No draft is configured.", "err")
     elif draft.status != "live":
@@ -934,7 +922,7 @@ def draft_hub_admin_swap_slots():
     except Exception:  # noqa: BLE001
         return jsonify({"ok": False, "error": "Invalid CSRF token."}), 400
     slug = _league_slug()
-    draft = featured_draft(db.session, slug)
+    draft = _hub_draft()
     if not draft or draft.status != "live":
         return jsonify({"ok": False, "error": "No live draft."}), 400
     oa = data.get("overall_a")
@@ -969,7 +957,7 @@ def draft_hub_admin_undo_pick():
     except Exception:  # noqa: BLE001
         return jsonify({"ok": False, "error": "Invalid CSRF token."}), 400
     slug = _league_slug()
-    draft = featured_draft(db.session, slug)
+    draft = _hub_draft()
     if not draft or draft.status != "live":
         return jsonify({"ok": False, "error": "No live draft."}), 400
     err = undo_last_pick(db.session, draft)
@@ -995,7 +983,7 @@ def draft_hub_admin_reassign_pick():
     except Exception:  # noqa: BLE001
         return jsonify({"ok": False, "error": "Invalid CSRF token."}), 400
     slug = _league_slug()
-    draft = featured_draft(db.session, slug)
+    draft = _hub_draft()
     if not draft or draft.status != "live":
         return jsonify({"ok": False, "error": "No live draft."}), 400
     ov = data.get("overall_pick", data.get("overall"))

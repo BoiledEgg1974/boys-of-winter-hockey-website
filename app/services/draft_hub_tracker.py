@@ -118,15 +118,17 @@ def _featured_draft_is_current_for_tracker(
 ) -> bool:
     if featured_draft is None:
         return False
+    status = str(featured_draft.status or "").strip().lower()
+    if status == "completed":
+        return False
+    if status == "live":
+        return True
     try:
         if min_draft_year is not None and int(featured_draft.timeline_year) < int(min_draft_year):
             return False
     except (TypeError, ValueError):
         if min_draft_year is not None:
             return False
-    status = str(featured_draft.status or "").strip().lower()
-    if status == "completed":
-        return False
     return True
 
 
@@ -347,11 +349,7 @@ def build_draft_hub_tracker(
         for d in drafts_all
         if str(d.status or "") == "setup" and _draft_is_at_or_after_year(d, min_draft_year)
     ]
-    live_drafts = [
-        d
-        for d in drafts_all
-        if str(d.status or "") == "live" and _draft_is_at_or_after_year(d, min_draft_year)
-    ]
+    live_drafts = [d for d in drafts_all if str(d.status or "") == "live"]
     hub_links: list[dict[str, Any]] = []
     if live_drafts:
         d = live_drafts[0]

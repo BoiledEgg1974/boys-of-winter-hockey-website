@@ -15,7 +15,7 @@
     <li>Offer: ${{ "{:,}".format(req.offer_salary) }} × {{ req.offer_years }} years</li>
     <li>Category: {{ category_labels.get(req.rfa_category, req.rfa_category) }}</li>
     <li>Player happiness: {{ happiness_label(req.happiness) }}</li>
-    {% if req.rfa_category == 'group_ii' and req.compensation_label %}
+    {% if req.compensation_label and req.compensation_label != 'No Compensation' %}
     <li>Compensation if you decline: {{ req.compensation_label }}</li>
     {% endif %}
   </ul>

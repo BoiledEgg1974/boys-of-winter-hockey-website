@@ -2702,9 +2702,7 @@ def rfa_compensation_preview():
     )
     panel = compensation_panel_dict(comp, category=candidate.category)
     panel["minimum_offer"] = int(candidate.minimum_offer)
-    panel["submit_disabled"] = (
-        candidate.category == "group_ii" and (not comp.valid or comp.cap_missing)
-    )
+    panel["submit_disabled"] = not comp.valid or comp.cap_missing
     return jsonify(panel)
 
 

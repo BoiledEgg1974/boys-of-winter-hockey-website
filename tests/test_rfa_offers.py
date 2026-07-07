@@ -208,26 +208,43 @@ class RfaCompensationTest(unittest.TestCase):
         self.assertTrue(panel["applies"])
         self.assertTrue(panel["valid"])
 
-    def test_non_group_ii_no_compensation_in_service(self):
+    def test_group_i_compensation_uses_percent_of_cap(self):
         session = MagicMock()
-        with patch("app.services.rfa_offers._season_start_year", return_value=2026), patch(
-            "app.services.rfa_offers.cap_for_season", return_value=(80_000_000, 60_000_000)
-        ), patch("app.services.rfa_offers.owned_draft_picks_for_team", return_value=[]):
+        with (
+            patch("app.services.rfa_offers._season_start_year", return_value=2000),
+            patch("app.services.rfa_offers.cap_for_season", return_value=(80_000_000, 60_000_000)),
+            patch("app.services.rfa_offers.owned_draft_picks_for_team", return_value=[]),
+        ):
             comp = compensation_for_offer(
                 session,
                 session,
                 league_slug="bowl-fantasy",
                 offering_team_id=1,
-                offer_salary=5_000_000,
+                offer_salary=3_000_000,
                 category="group_i",
             )
-        self.assertEqual(comp.tier_key, "none")
+        self.assertEqual(comp.tier_key, "2nd")
 
-    def test_validate_group_ii_blocks_missing_cap(self):
+    def test_group_iii_compensation_panel_applies_by_salary_tier(self):
+        comp = CompensationPreview(
+            tier_key="3rd",
+            label="1 Third Round Pick",
+            scaled_min=1_360_000,
+            scaled_max=2_079_999,
+            pick_requirements=[{"round": 3, "count": 1}],
+            draft_year=2027,
+            picks_available=["2027 3rd (BOS)"],
+            picks_missing=[],
+            valid=True,
+        )
+        panel = compensation_panel_dict(comp, category="group_iii")
+        self.assertTrue(panel["applies"])
+
+    def test_validate_blocks_missing_cap_for_any_group(self):
         candidate = MagicMock()
         candidate.minimum_offer = 100_000
         candidate.player.id = 10
-        candidate.category = "group_ii"
+        candidate.category = "group_iv"
         comp = CompensationPreview(
             tier_key="none",
             label="No Compensation",
@@ -286,11 +303,11 @@ class RfaValidationTest(unittest.TestCase):
             )
         self.assertIn("at least", err or "")
 
-    def test_validate_group_ii_requires_picks(self):
+    def test_validate_requires_picks_for_any_group(self):
         candidate = MagicMock()
         candidate.minimum_offer = 100_000
         candidate.player.id = 10
-        candidate.category = "group_ii"
+        candidate.category = "group_i"
         comp = CompensationPreview(
             tier_key="1st",
             label="1st",

@@ -153,7 +153,7 @@
   <section class="rfa-comp-reference" style="margin-top:1.5rem;"
     data-cap-ceiling="{{ current_cap_ceiling or '' }}"
     data-tiers="{{ comp_reference_rows|tojson }}">
-    <h2>Group II compensation calculator</h2>
+    <h2>Offer sheet compensation calculator</h2>
     {% if current_cap_ceiling %}
     <p class="muted">Based on current cap ceiling (${{ "{:,}".format(current_cap_ceiling) }}). Enter a salary to see your tier.</p>
     {% else %}
@@ -272,7 +272,7 @@
         if (data.error) return;
         document.getElementById('rfa-comp-tier').textContent = data.applies
           ? (data.label + ' (' + data.draft_year + ' draft)')
-          : 'No draft pick compensation for this category.';
+          : 'No draft pick compensation at this salary.';
         if (data.offer_pct_of_cap != null && data.cap_ceiling) {
           pctLine.hidden = false;
           pctLine.textContent = Number(data.offer_pct_of_cap).toFixed(2) + '% of cap ceiling (' + fmt(data.cap_ceiling) + ')';
@@ -289,7 +289,7 @@
         if (data.submit_disabled) {
           warn.hidden = false;
           warn.textContent = data.cap_missing
-            ? 'Current season cap ceiling is not configured — submit disabled for Group II.'
+            ? 'Current season cap ceiling is not configured — submit disabled.'
             : 'You lack required following-year picks — submit disabled.';
           submit.disabled = true;
         } else {

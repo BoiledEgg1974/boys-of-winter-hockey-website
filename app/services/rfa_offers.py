@@ -56,10 +56,10 @@ CATEGORY_LABELS = {
 }
 
 CATEGORY_TOOLTIPS = {
-    "group_i": "Under 25 with fewer than 5 pro seasons. Original team cannot match; equalization trade within 24 hours.",
-    "group_ii": "Ages 25–30. Original team may match within 24 hours; predefined draft pick compensation if they decline.",
-    "group_iii": "Age 31+. Player may allow or block matching; no compensation if match is declined when allowed.",
-    "group_iv": "European draft pick unsigned 2+ years. Original team may match; no compensation if they decline.",
+    "group_i": "Under 25 with fewer than 5 pro seasons. Original team cannot match; equalization trade within 24 hours. Draft pick compensation may apply by offer salary tier.",
+    "group_ii": "Ages 25–30. Original team may match within 24 hours; draft pick compensation applies by offer salary tier if they decline.",
+    "group_iii": "Age 31+. Player may allow or block matching. Draft pick compensation may apply by offer salary tier when owed.",
+    "group_iv": "European draft pick unsigned 2+ years. Original team may match; draft pick compensation may apply by offer salary tier if they decline.",
 }
 
 MIN_OFFER_MULTIPLIER = {
@@ -90,7 +90,7 @@ GROUP_III_ACCEPT_ODDS = {
 }
 GROUP_III_ALLOW_MATCH_ODDS = GROUP_III_ACCEPT_ODDS
 
-# Universal % of cap compensation tiers (Group II).
+# Universal % of cap compensation tiers (all RFA groups).
 CAP_PERCENT_TIERS: list[tuple[float, float | None, str, str]] = [
     (0.0, 1.7, "none", "No Compensation"),
     (1.7, 2.6, "3rd", "1 Third Round Pick"),
@@ -506,10 +506,6 @@ def compensation_for_offer(
         tier_key, label, lo_pct, hi_pct = _tier_for_pct(offer_pct)
         scaled_lo, scaled_hi = _dollar_band_for_tier(int(cap_ceiling), lo_pct, hi_pct)
 
-    if category in ("group_i", "group_iii", "group_iv"):
-        tier_key = "none"
-        label = "No Compensation"
-
     requirements = COMP_PICK_REQUIREMENTS.get(tier_key, [])
     owned = owned_draft_picks_for_team(
         site_session, league_slug=league_slug, team_id=int(offering_team_id)
@@ -699,11 +695,10 @@ def validate_offer_submission(
         offer_salary=int(offer_salary),
         category=candidate.category,
     )
-    if candidate.category == "group_ii":
-        if comp.cap_missing:
-            return None, comp, "Current season salary cap ceiling is not set — ask your commissioner to configure it on Admin RFA."
-        if not comp.valid:
-            return None, comp, "You do not own the required following-year draft picks for this offer."
+    if comp.cap_missing:
+        return None, comp, "Current season salary cap ceiling is not set — ask your commissioner to configure it on Admin RFA."
+    if comp.pick_requirements and not comp.valid:
+        return None, comp, "You do not own the required following-year draft picks for this offer."
     return candidate, comp, None
 
 
@@ -756,7 +751,7 @@ def compensation_panel_dict(comp: CompensationPreview, *, category: str) -> dict
         "picks_available": comp.picks_available,
         "picks_missing": comp.picks_missing,
         "valid": comp.valid,
-        "applies": category == "group_ii",
+        "applies": comp.tier_key != "none",
         "cap_ceiling": comp.cap_ceiling,
         "offer_pct_of_cap": comp.offer_pct_of_cap,
         "cap_missing": comp.cap_missing,

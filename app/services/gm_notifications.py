@@ -353,7 +353,7 @@ def notify_rfa_awaiting_match(league_slug: str, req: RfaOfferRequest, *, player=
         _commit_notifications()
         return
     comp_note = ""
-    if req.rfa_category == "group_ii" and req.compensation_label:
+    if req.compensation_label and req.compensation_label != "No Compensation":
         comp_note = f" Compensation if you decline: {req.compensation_label}."
     body = (
         f"{_rfa_player_name(player)} accepted an offer sheet from another team."
@@ -393,7 +393,7 @@ def notify_rfa_original_team_decision(
     else:
         title = f"RFA not matched — proceed (#{req.id})"
         body = f"The original team declined to match {_rfa_player_name(player)}."
-        if req.rfa_category == "group_ii" and req.compensation_label and req.compensation_label != "No Compensation":
+        if req.compensation_label and req.compensation_label != "No Compensation":
             body += f" They owe you {req.compensation_label}."
         body += f" Coordinate roster moves with {team_name} and admins."
     _add_notification(

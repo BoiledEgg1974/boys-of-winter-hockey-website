@@ -1341,7 +1341,6 @@ def run_fhm_import(raw_dir: Path, app, league_filter: int = 0) -> dict[str, int]
         try:
             from flask import current_app
 
-            from app.models import db
             from app.services.salary_cap_schedule import sync_salary_cap_schedule_rollover
 
             slug = str(current_app.config.get("LEAGUE_SLUG", "")).strip()

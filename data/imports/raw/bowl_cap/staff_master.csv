@@ -179,7 +179,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 177;-1;Joe;Micheletti;;1954-10-24;International Falls;MN;The United States;;;0
 178;216;Tim;Higgins;;1958-2-7;Ottawa;ON;Canada;;;0
 179;218;Frank;St. Marseille;;1939-12-14;Surrey;BC;Canada;;;0
-180;5;Al;MacNeil;;1935-9-27;Sydney;NS;Canada;;;0
+180;-1;Al;MacNeil;;1935-9-27;Sydney;NS;Canada;;;0
 181;217;Matti;Väisänen;;1945-12-1;Iisalmi;NSA;Finland;;;0
 182;5;Svenåke;Svensson;;1950-2-27;Kiruna;NOR;Sweden;;;0
 183;-1;Drew;Remenda;;1962-4-13;Saskatoon;SK;Canada;;;0
@@ -303,7 +303,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 301;-1;Don;MacAdam;;1950-8-14;Lively;ON;Canada;;;0
 302;20;Peter;Dineen;;1960-11-19;Kingston;ON;Canada;;;0
 303;221;Ron;Low;;1950-6-21;Birtle;MB;Canada;;;0
-304;5;Jimmy;Roberts;;1940-4-9;Toronto;ON;Canada;;;0
+304;-1;Jimmy;Roberts;;1940-4-9;Toronto;ON;Canada;;;0
 305;-1;Bob;McCammon;;1941-4-14;Kenora;ON;Canada;;;0
 306;-1;Guy;Lapointe;;1948-3-18;Montreal;QC;Canada;;;0
 307;19;Craig;Channell;;1962-4-24;Vancouver;BC;Canada;;;0
@@ -1746,7 +1746,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1744;-1;Danny;Gare;;1954-5-14;Oliver;BC;Canada;;;0
 1745;-1;Steve;Kasper;;1961-9-28;Murdochville;QC;Canada;;;0
 1746;-1;Trevor;Timmins;;1968-1-5;Almonte;ON;Canada;;;0
-1747;-1;Tim;Murray;;1963-10-31;Sherbrooke;QC;Canada;;;0
+1747;229;Tim;Murray;;1963-10-31;Sherbrooke;QC;Canada;;;0
 1748;3;Lewis;Mongelluzzo;;1959-12-4;Piermont;NY;The United States;;;0
 1749;-1;Dick;Todd;;1958-1-1;Surrey;BC;Canada;;;0
 1750;-1;Shawn;Simpson;;1968-8-10;Winnipeg;MB;Canada;;;0
@@ -1795,11 +1795,11 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1793;217;Joel;Quenneville;;1958-9-15;Windsor;ON;Canada;;;0
 1794;23;Marc;Crawford;Crow;1961-2-13;Belleville;ON;Canada;;;0
 1795;225;Chuck;Fletcher;;1967-4-29;Murdochville;QC;Canada;;;0
-1796;-1;Jim;Benning;;1963-4-29;Elk Point;AB;Canada;;;0
+1796;229;Jim;Benning;;1963-4-29;Elk Point;AB;Canada;;;0
 1797;216;Anders;Steen;;1955-4-28;Nyköping;SöD;Sweden;;;0
 1798;-1;Ron;Kennedy;;1953-5-7;Pilot Butte;SK;Canada;;;0
 1799;-1;Keith;Acton;;1958-4-15;Toronto;ON;Canada;;;0
-1800;-1;Ted;Nolan;;1958-4-7;Sault Ste. Marie;ON;Canada;;;0
+1800;221;Ted;Nolan;;1958-4-7;Sault Ste. Marie;ON;Canada;;;0
 1801;216;Chris;Lamoriello;;1959-1-1;Versailles;KY;The United States;;;0
 1802;-1;George;Burnett;;1962-3-25;Port Perry;ON;Canada;;;0
 1803;232;Tim;Army;;1963-4-26;Versailles;KY;The United States;;;0
@@ -1923,7 +1923,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1921;-1;Tim;Hunter;;1960-9-10;Camrose;AB;Canada;;;0
 1922;-1;Roland;Melanson;;1960-6-28;Perth-Andover;NB;Canada;;;0
 1923;221;Joe;Cirella;;1963-6-9;Hamilton;ON;Canada;;;0
-1924;-1;Michael;Santos;;1962-1-1;Lincoln Park;MI;The United States;;;0
+1924;229;Michael;Santos;;1962-1-1;Lincoln Park;MI;The United States;;;0
 1925;73;Troy;Ward;;1962-6-4;Tell City;IN;The United States;;;0
 1926;-1;Gordie;Roberts;;1957-10-2;Elk Rapids;MI;The United States;;;0
 1927;11;Mike;Antonovich;;1951-10-18;Bonner Springs;KS;The United States;;;0
@@ -2272,7 +2272,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 2270;188;Asen;Simov;;1955-9-16;Pernik;PER;Bulgaria;;;0
 2271;190;Ren;Zhizheng;;1950-6-26;Helsingborg;SKå;China;;;0
 2272;191;Gim;U-jin;;1950-4-15;Gyeongju;GYE;South Korea;;;0
-2273;-1;Thomas;Steen;;1960-6-8;Grums;VäR;Sweden;;;0
+2273;12;Thomas;Steen;;1960-6-8;Grums;VäR;Sweden;;;0
 2274;-1;Pertti;Hasanen;;1954-7-31;Turku;SOU;Finland;;;0
 2275;-1;Wendell;Young;;1963-8-1;Inverness;NS;Canada;;;0
 2276;-1;Randy;Edmonds;;1963-4-17;North Bay;ON;Canada;;;0

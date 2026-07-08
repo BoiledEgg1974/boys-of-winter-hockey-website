@@ -17,6 +17,7 @@
           <th scope="col">Staff</th>
           <th scope="col">Role</th>
           <th scope="col">GM</th>
+          <th scope="col">Submitted</th>
           <th scope="col">Approve / Deny</th>
         </tr>
       </thead>
@@ -36,6 +37,7 @@
           </td>
           <td>{{ row.role_label }}</td>
           <td>{{ row.user.email if row.user else req.user_id }}</td>
+          <td>{{ req.created_at|eastern_time or '—' }}</td>
           <td>
             <div class="admin-ap-queue__actions">
               <form method="post" action="{{ url_for('site_admin.admin_staff_approve', rid=req.id) }}">
@@ -50,7 +52,7 @@
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="6" class="muted">No pending requests.</td></tr>
+        <tr><td colspan="7" class="muted">No pending requests.</td></tr>
         {% endfor %}
       </tbody>
     </table>

@@ -14,7 +14,7 @@ from app.services.playoff_series_prediction import (
     _is_regular_season_game,
     load_rs_head_to_head,
 )
-from app.services.seasons import get_current_season
+from app.services.seasons import get_current_season, season_display_label
 
 
 def _ordinal(n: int) -> str:
@@ -217,6 +217,42 @@ _PLAYOFF_ROUND_LABELS: tuple[str, ...] = (
     "Conference finals",
     "Championship",
 )
+
+# Canonical bracket round labels -> league-specific headings used on the site.
+# ``collect_bracket_series`` keeps returning the canonical labels (used for round
+# filtering); Discord posts translate them here so they read the same as the
+# on-site bracket. Mirror leagues that render the opening round in ``second_round``
+# slots (e.g. bowl-historical) would otherwise show "Second round" for round one.
+_ROUND_DISPLAY_LABELS_BY_LEAGUE: dict[str, dict[str, str]] = {
+    "bowl-historical": {
+        "First round": "Division Semi-Finals",
+        "Second round": "Division Semi-Finals",
+        "Conference finals": "Division Finals",
+        "Championship": "Championship",
+    },
+    "bowl-cap": {
+        "First round": "Quarterfinals",
+        "Second round": "Semifinals",
+        "Conference finals": "Conference finals",
+        "Championship": "Final",
+    },
+    "bowl-fantasy": {
+        "First round": "Quarterfinals",
+        "Second round": "Semifinals",
+        "Conference finals": "Conference finals",
+        "Championship": "Final",
+    },
+}
+
+
+def display_round_label(round_label: str | None, league_slug: str | None) -> str:
+    """Map a canonical bracket round label to the league's on-site heading."""
+    label = str(round_label or "").strip()
+    slug = str(league_slug or "").strip().lower()
+    mapping = _ROUND_DISPLAY_LABELS_BY_LEAGUE.get(slug)
+    if not mapping:
+        return label
+    return mapping.get(label, label)
 
 _ROUND_FILTER_ALIASES: dict[str, tuple[str, ...]] = {
     "First round": (
@@ -473,7 +509,7 @@ def build_playoff_predictions_discord_payload(
 
         formatted_series.append(
             {
-                "round_label": round_label,
+                "round_label": display_round_label(round_label, league_slug),
                 "team_a": ta_meta,
                 "team_b": tb_meta,
                 "team_a_stats": stats_for(ta_id, ta_meta.get("abbrev") or "A"),
@@ -485,14 +521,15 @@ def build_playoff_predictions_discord_payload(
         )
 
     source_id = f"{int(season.id)}-{int(time.time())}"
-    title = f"Playoff predictions — {season.label}"
+    season_label = season_display_label(season)
+    title = f"Playoff predictions — {season_label}"
     if round_filter:
-        title = f"{title} · {round_filter}"
+        title = f"{title} · {display_round_label(round_filter, league_slug)}"
     return {
         "payload": {
             "title": title,
             "season_id": int(season.id),
-            "season_label": season.label,
+            "season_label": season_label,
             "round_filter": round_filter or "",
             "series": formatted_series,
             "series_count": len(formatted_series),

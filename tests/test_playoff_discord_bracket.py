@@ -54,6 +54,63 @@ class PlayoffDiscordBracketTest(unittest.TestCase):
         self.assertIn("pair_key", first)
         self.assertIn("status_line", first)
 
+    def test_build_payload_uses_site_round_and_season_labels(self) -> None:
+        """Historical opening round lives in second_round slots; label it like the site."""
+        season = MagicMock()
+        season.id = 7
+        season.label = "1967-68"  # stale stored label
+        season.start_year = 1969
+        season.end_year = 1970
+        with patch(
+            "app.services.playoff_discord_bracket.get_current_season",
+            return_value=season,
+        ), patch(
+            "app.services.playoff_discord_bracket.playoff_bracket_payload",
+            return_value={
+                "empty": False,
+                "projection_only": False,
+                "second_round": [
+                    {
+                        "team_a": {"id": 10, "abbrev": "PHI"},
+                        "team_b": {"id": 9, "abbrev": "OAK"},
+                        "wins_a": 0,
+                        "wins_b": 2,
+                    }
+                ],
+            },
+        ), patch(
+            "app.services.playoff_discord_bracket.collect_bracket_series",
+            return_value=[
+                (
+                    "Second round",
+                    {
+                        "team_a": {"id": 10, "abbrev": "PHI"},
+                        "team_b": {"id": 9, "abbrev": "OAK"},
+                        "wins_a": 0,
+                        "wins_b": 2,
+                    },
+                )
+            ],
+        ), patch(
+            "app.services.playoff_discord_bracket._load_series_posts",
+            return_value={},
+        ), patch(
+            "app.services.playoff_discord_bracket.playoff_bracket_cache_fingerprint",
+            return_value="fp",
+        ), patch(
+            "app.services.playoff_discord_bracket.build_league_public_url",
+            return_value="/playoffs",
+        ):
+            result = build_playoff_bracket_discord_payload(
+                MagicMock(),
+                MagicMock(),
+                league_slug="bowl-historical",
+            )
+        payload = result["payload"]
+        self.assertEqual(payload["title"], "Playoff bracket — 1969-70")
+        self.assertEqual(payload["season_label"], "1969-70")
+        self.assertEqual(payload["series"][0]["round_label"], "Division Semi-Finals")
+
     def test_build_payload_skips_projection_only_bracket(self) -> None:
         season = MagicMock()
         season.id = 42
@@ -225,6 +282,7 @@ class PlayoffDiscordBracketTest(unittest.TestCase):
                 token="token",
                 shared_secret="secret",
                 poll_seconds=8.0,
+                tracker_poll_seconds=4.0,
                 delivery_delay_seconds=0.0,
                 max_message_parts=2,
                 site_timeout_seconds=90.0,
@@ -289,6 +347,7 @@ class PlayoffDiscordBracketTest(unittest.TestCase):
                 token="token",
                 shared_secret="secret",
                 poll_seconds=8.0,
+                tracker_poll_seconds=4.0,
                 delivery_delay_seconds=0.0,
                 max_message_parts=2,
                 site_timeout_seconds=90.0,
@@ -345,6 +404,8 @@ class PlayoffDiscordBracketTest(unittest.TestCase):
         season = MagicMock()
         season.id = 42
         season.label = "1999-2000"
+        season.start_year = 1999
+        season.end_year = 2000
         stored = MagicMock()
         stored.discord_message_id = "999"
         with patch(

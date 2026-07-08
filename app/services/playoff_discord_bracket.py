@@ -25,8 +25,9 @@ from app.services.playoff_discord_predictions import (
     _series_pair_key,
     _team_meta,
     collect_bracket_series,
+    display_round_label,
 )
-from app.services.seasons import get_current_season
+from app.services.seasons import get_current_season, season_display_label
 from app.site_models import DiscordPlayoffBracketSeriesPost
 
 _log = logging.getLogger(__name__)
@@ -170,7 +171,7 @@ def build_playoff_bracket_discord_payload(
         wb = int(series.get("wins_b") or 0)
         row_data = {
             "pair_key": pair_key,
-            "round_label": round_label,
+            "round_label": display_round_label(round_label, league_slug),
             "series_index": idx,
             "team_a": ta_meta,
             "team_b": tb_meta,
@@ -197,11 +198,12 @@ def build_playoff_bracket_discord_payload(
     fingerprint = playoff_bracket_cache_fingerprint(int(season.id))
     hub_url = build_league_public_url(league_slug, "/playoffs") or f"/{league_slug}/playoffs"
     note = str(bracket.get("message") or "").strip()
+    season_label = season_display_label(season)
     payload: dict[str, Any] = {
-        "title": f"Playoff bracket — {season.label}",
+        "title": f"Playoff bracket — {season_label}",
         "league_slug": league_slug,
         "season_id": int(season.id),
-        "season_label": season.label,
+        "season_label": season_label,
         "bracket_fingerprint": fingerprint,
         "series": formatted_series,
         "series_count": len(formatted_series),

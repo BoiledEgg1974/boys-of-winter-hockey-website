@@ -8,7 +8,7 @@
     {% if season_label %}· <strong>{{ season_label }}</strong> season{% else %}· current season{% endif %}
     — budgets and current staff payroll are stored per league and season; other league sites use their own timeline.
     Enter the in-game staff budget and total staff salary (FHM does not export payroll in CSV).
-    <a href="{{ url_for('site_gm.staff_salaries_page') }}">Staff Salaries</a> shows the calculated defaults for this site only.
+    <a href="{{ url_for('site_gm.staff_salaries_page') }}">Staff Hire/Fire</a> shows the calculated defaults for this site only.
   </p>
   <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
   {% with messages = get_flashed_messages() %}

@@ -2409,7 +2409,7 @@ def staff_salaries_page():
     mem = _membership()
     is_admin = bool(getattr(current_user, "is_admin", False))
     if not mem and not is_admin:
-        flash("Staff Salaries is available to active GMs and league admins.", "err")
+        flash("Staff Hire/Fire is available to active GMs and league admins.", "err")
         return redirect(url_for("main.home"))
     base = staff_salary_context(db.session, league_slug=slug)
     if request.method == "POST":

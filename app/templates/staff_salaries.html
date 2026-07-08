@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 {% from "macros/staff_browse.html" import staff_browse_attr_td, staff_browse_overall_td, staff_browse_role_rating_td %}
 {% from "macros/team.html" import team_lockup_full_name with context %}
-{% block title %}Staff Salaries — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block title %}Staff Hire/Fire — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/staff_salaries.js') }}" defer></script>
 {% endblock %}
 {% block content %}
 <div class="staff-salaries-page">
   <div class="card staff-salaries-page__card">
-    <h1 class="page-title staff-salaries-page__banner">Staff — {% if season_label %}{{ season_label }}{% else %}Current season{% endif %}</h1>
+    <h1 class="page-title staff-salaries-page__banner">Staff Hire/Fire</h1>
     <p class="muted staff-salaries-page__league">{{ config.LEAGUE_DISPLAY_NAME }} · budgets and roster are specific to this league site.</p>
 
     {% with messages = get_flashed_messages(with_categories=true) %}

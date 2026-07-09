@@ -13,6 +13,8 @@ from app.services.bowl_six_scoring import (
 from datetime import date, datetime
 
 from app.services.bowl_six import (
+    award_bowl_six_season_prizes,
+    bowl_six_season_bounds_for_week,
     default_lock_at,
     bowl_six_real_season_bounds,
     eastern_naive_from_utc_naive,
@@ -24,6 +26,7 @@ from app.services.bowl_six import (
     lock_at_iso_z,
     maybe_enqueue_bowl_six_roster_reminders,
     parse_lock_at_eastern_form,
+    season_ap_award_at,
     slate_award_at,
     slate_real_scoring_window_utc,
     season_ap_prize_for_rank,
@@ -138,6 +141,65 @@ class BowlSixScoringTest(unittest.TestCase):
             bowl_six_real_season_bounds(date(2026, 7, 1)),
             (date(2026, 7, 1), date(2027, 6, 30)),
         )
+
+    def test_bowl_six_season_bounds_for_week(self):
+        self.assertEqual(
+            bowl_six_season_bounds_for_week(date(2026, 3, 10)),
+            (date(2025, 7, 1), date(2026, 6, 30)),
+        )
+        self.assertEqual(
+            bowl_six_season_bounds_for_week(date(2026, 8, 1)),
+            (date(2026, 7, 1), date(2027, 6, 30)),
+        )
+
+    def test_season_ap_award_at_is_july_first_midnight_et(self):
+        self.assertEqual(
+            season_ap_award_at(date(2026, 6, 30)),
+            datetime(2026, 7, 1, 4, 0),
+        )
+
+    def test_award_bowl_six_season_prizes_writes_ledger_rows(self):
+        season_start = date(2025, 7, 1)
+        season_end = date(2026, 6, 30)
+        session = MagicMock()
+        session.scalar.return_value = None
+        standings = [
+            {"rank": 1, "team_id": 10, "season_points": 100.0, "weeks_played": 5},
+            {"rank": 2, "team_id": 20, "season_points": 80.0, "weeks_played": 5},
+        ]
+        with unittest.mock.patch(
+            "app.services.bowl_six.season_ap_award_time_reached", return_value=True
+        ), unittest.mock.patch(
+            "app.services.bowl_six.gm_season_standings", return_value=standings
+        ), unittest.mock.patch(
+            "app.services.bowl_six.add_ledger_entry", return_value=object()
+        ) as add_entry:
+            created = award_bowl_six_season_prizes(
+                session, "bowl-cap", season_start, season_end
+            )
+        self.assertEqual(created, 2)
+        self.assertEqual(add_entry.call_args_list[0].kwargs["delta"], 30)
+        self.assertEqual(add_entry.call_args_list[1].kwargs["delta"], 20)
+        self.assertEqual(
+            add_entry.call_args_list[0].kwargs["reason_code"], "bowl_six_season_prize"
+        )
+
+    def test_award_bowl_six_season_prizes_skips_existing_rows(self):
+        season_start = date(2025, 7, 1)
+        season_end = date(2026, 6, 30)
+        session = MagicMock()
+        session.scalar.return_value = 99
+        standings = [{"rank": 1, "team_id": 10, "season_points": 100.0, "weeks_played": 5}]
+        with unittest.mock.patch(
+            "app.services.bowl_six.season_ap_award_time_reached", return_value=True
+        ), unittest.mock.patch(
+            "app.services.bowl_six.gm_season_standings", return_value=standings
+        ), unittest.mock.patch("app.services.bowl_six.add_ledger_entry") as add_entry:
+            created = award_bowl_six_season_prizes(
+                session, "bowl-cap", season_start, season_end
+            )
+        self.assertEqual(created, 0)
+        add_entry.assert_not_called()
 
     def test_gm_season_standings_uses_current_active_gms_by_team(self):
         class _Result:
@@ -697,6 +759,8 @@ class BowlSixScoringTest(unittest.TestCase):
             "app.services.bowl_six.bowl_six_enabled", return_value=True
         ), unittest.mock.patch(
             "app.sqlite_retry.write_with_sqlite_retry", side_effect=locked
+        ), unittest.mock.patch(
+            "app.services.bowl_six.maybe_award_completed_bowl_six_seasons", return_value=0
         ):
             notes = auto_update_bowl_six_slates(session, session, "bowl-historical")
 

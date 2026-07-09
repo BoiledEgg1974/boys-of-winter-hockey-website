@@ -38,6 +38,8 @@ from app.services.bowl_six import (
     lineup_is_editable,
     most_picked_for_slate,
     auto_update_bowl_six_slates,
+    backfill_bowl_six_season_prizes,
+    backfill_bowl_six_weekly_prizes,
     ensure_past_week_bowl_six_prizes,
     extend_slate_lock_at,
     save_lineup,
@@ -677,6 +679,34 @@ def admin_bowl_six_ensure_past_week_prizes():
     _audit("bowl_six_ensure_past_week_prizes", result)
     commit_with_sqlite_retry(db.session)
     flash(str(result.get("message") or "BOWL Six past-week prizes checked."), "ok" if result.get("ok") else "err")
+    return redirect(url_for("site_admin.admin_control_center"))
+
+
+@site_admin_bp.post("/control-center/bowl-six/backfill-weekly-prizes")
+@login_required
+def admin_bowl_six_backfill_weekly_prizes():
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    if (request.form.get("confirm_phrase") or "").strip().upper() != "BACKFILL":
+        flash("Type BACKFILL to confirm weekly AP backfill.", "err")
+        return redirect(url_for("site_admin.admin_control_center"))
+    result = backfill_bowl_six_weekly_prizes(db.session, db.session, _league_slug())
+    _audit("bowl_six_backfill_weekly_prizes", result)
+    commit_with_sqlite_retry(db.session)
+    flash(str(result.get("message") or "Weekly BOWL Six AP backfill finished."), "ok" if result.get("ok") else "err")
+    return redirect(url_for("site_admin.admin_control_center"))
+
+
+@site_admin_bp.post("/control-center/bowl-six/backfill-season-prizes")
+@login_required
+def admin_bowl_six_backfill_season_prizes():
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    if (request.form.get("confirm_phrase") or "").strip().upper() != "BACKFILL":
+        flash("Type BACKFILL to confirm season AP backfill.", "err")
+        return redirect(url_for("site_admin.admin_control_center"))
+    result = backfill_bowl_six_season_prizes(db.session, _league_slug())
+    _audit("bowl_six_backfill_season_prizes", result)
+    commit_with_sqlite_retry(db.session)
+    flash(str(result.get("message") or "Season BOWL Six AP backfill finished."), "ok" if result.get("ok") else "err")
     return redirect(url_for("site_admin.admin_control_center"))
 
 

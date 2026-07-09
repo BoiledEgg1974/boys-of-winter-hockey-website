@@ -647,4 +647,19 @@ def create_app(config_class: type = Config) -> Flask:
         n = refresh_all_player_overall_baselines(db.session)
         print(f"bowl-overall-baseline-refresh: stored baseline OVR for {n} players.")
 
+    @app.cli.command("bowl-six-backfill-prizes")
+    def bowl_six_backfill_prizes_cmd() -> None:
+        """Finalize/repair weekly BOWL Six AP and credit ended seasons (current league mount)."""
+        from app.services.bowl_six import (
+            backfill_bowl_six_season_prizes,
+            backfill_bowl_six_weekly_prizes,
+        )
+
+        slug = str(app.config.get("LEAGUE_SLUG") or "")
+        weekly = backfill_bowl_six_weekly_prizes(db.session, db.session, slug)
+        season = backfill_bowl_six_season_prizes(db.session, slug)
+        db.session.commit()
+        print(f"bowl-six-backfill-prizes ({slug}) weekly: {weekly}")
+        print(f"bowl-six-backfill-prizes ({slug}) season: {season}")
+
     return app

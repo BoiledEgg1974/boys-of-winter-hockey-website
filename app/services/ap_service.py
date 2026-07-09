@@ -400,6 +400,7 @@ _REASON_LABELS: dict[str, str] = {
     "redemption": "Redemption",
     "bowl_six_slate_prize": "BOWL Six prize",
     "bowl_six_slate_prize_reversal": "BOWL Six prize reversal",
+    "bowl_six_season_prize": "BOWL Six season prize",
 }
 
 

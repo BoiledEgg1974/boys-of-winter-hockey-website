@@ -72,12 +72,224 @@ def bowl_six_enabled(session: Session, league_slug: str) -> bool:
 
 
 def season_ap_prize_for_rank(rank: int) -> int:
-    """Projected season-end BOWL Six AP prize for a standings rank."""
+    """Season-end BOWL Six AP prize for a standings rank."""
     try:
         r = int(rank)
     except (TypeError, ValueError):
         return 0
     return SEASON_AP_PRIZES.get(r, SEASON_PARTICIPATION_AP if r > 0 else 0)
+
+
+def bowl_six_season_bounds_for_week(week_start: date) -> tuple[date, date]:
+    """Real-world BOWL Six season window containing ``week_start``."""
+    start_year = int(week_start.year) if int(week_start.month) >= 7 else int(week_start.year) - 1
+    return date(start_year, 7, 1), date(start_year + 1, 6, 30)
+
+
+def season_ap_award_at(season_end: date) -> datetime:
+    """Naive UTC instant for season AP payout: July 1 12:00 AM ET after ``season_end``."""
+    award_day = season_end + timedelta(days=1)
+    return utc_naive_from_eastern(datetime.combine(award_day, time(0, 0)))
+
+
+def season_ap_award_time_reached(season_end: date) -> bool:
+    return utcnow_naive() >= season_ap_award_at(season_end)
+
+
+def list_bowl_six_seasons_with_scored_slates(
+    session: Session, league_slug: str
+) -> list[tuple[date, date]]:
+    """Distinct July–June BOWL Six seasons that have at least one scored slate."""
+    rows = session.execute(
+        select(BowlSixSlate.week_start)
+        .where(
+            BowlSixSlate.league_slug == str(league_slug or ""),
+            BowlSixSlate.status == "scored",
+        )
+        .distinct()
+        .order_by(BowlSixSlate.week_start)
+    ).all()
+    seasons: dict[tuple[date, date], None] = {}
+    for row in rows:
+        week_start = row[0] if isinstance(row, tuple) else row
+        if not isinstance(week_start, date):
+            continue
+        bounds = bowl_six_season_bounds_for_week(week_start)
+        seasons[bounds] = None
+    return sorted(seasons.keys())
+
+
+def _season_ap_award_source_ref(
+    league_slug: str, season_start: date, team_id: int
+) -> str:
+    return (
+        f"bowl_six:season:{str(league_slug or '').strip()}:"
+        f"{season_start.isoformat()}:team:{int(team_id)}:award"
+    )
+
+
+def _season_ap_award_exists(
+    session: Session,
+    league_slug: str,
+    season_start: date,
+    team_id: int,
+) -> bool:
+    source_ref = _season_ap_award_source_ref(league_slug, season_start, team_id)
+    row_id = session.scalar(
+        select(ApLedgerEntry.id)
+        .where(ApLedgerEntry.source_ref == source_ref)
+        .limit(1)
+    )
+    return row_id is not None
+
+
+def award_bowl_six_season_prizes(
+    session: Session,
+    league_slug: str,
+    season_start: date,
+    season_end: date,
+) -> int:
+    """Idempotently credit season-end BOWL Six AP for final standings in a season window."""
+    slug = str(league_slug or "").strip()
+    if not slug:
+        return 0
+    if not season_ap_award_time_reached(season_end):
+        return 0
+    standings = gm_season_standings(
+        session,
+        slug,
+        season_start=season_start,
+        season_end=season_end,
+    )
+    created = 0
+    for row in standings:
+        team_id = int(row["team_id"])
+        rank = int(row.get("rank") or 0)
+        prize = season_ap_prize_for_rank(rank)
+        if prize <= 0:
+            continue
+        if _season_ap_award_exists(session, slug, season_start, team_id):
+            continue
+        added = add_ledger_entry(
+            league_slug=slug,
+            team_id=team_id,
+            delta=prize,
+            reason_code="bowl_six_season_prize",
+            meta={
+                "season_start": season_start.isoformat(),
+                "season_end": season_end.isoformat(),
+                "rank": rank,
+                "season_points": float(row.get("season_points") or 0),
+                "weeks_played": int(row.get("weeks_played") or 0),
+            },
+            source_ref=_season_ap_award_source_ref(slug, season_start, team_id),
+        )
+        if added is not None:
+            created += 1
+    return created
+
+
+def maybe_award_completed_bowl_six_seasons(session: Session, league_slug: str) -> int:
+    """Award ended BOWL Six seasons that have scored slates but no payout yet."""
+    if not bowl_six_enabled(session, league_slug):
+        return 0
+    created = 0
+    for season_start, season_end in list_bowl_six_seasons_with_scored_slates(
+        session, league_slug
+    ):
+        created += award_bowl_six_season_prizes(
+            session, league_slug, season_start, season_end
+        )
+    return created
+
+
+def backfill_bowl_six_season_prizes(
+    session: Session,
+    league_slug: str,
+    *,
+    include_current_season: bool = False,
+) -> dict[str, Any]:
+    """Credit missing season-end AP for every completed BOWL Six season in this league."""
+    slug = str(league_slug or "").strip()
+    if not bowl_six_enabled(session, slug):
+        return {
+            "ok": True,
+            "message": "BOWL Six is disabled for this league.",
+            "seasons_processed": 0,
+            "ledgers_created": 0,
+        }
+    current_start, current_end = bowl_six_real_season_bounds()
+    created = 0
+    seasons_processed = 0
+    for season_start, season_end in list_bowl_six_seasons_with_scored_slates(
+        session, slug
+    ):
+        if not include_current_season and (
+            season_start == current_start and season_end == current_end
+        ):
+            continue
+        if not season_ap_award_time_reached(season_end):
+            continue
+        seasons_processed += 1
+        created += award_bowl_six_season_prizes(session, slug, season_start, season_end)
+    return {
+        "ok": True,
+        "message": (
+            f"Season AP backfill complete: {created} ledger row(s) across "
+            f"{seasons_processed} season(s) with new payouts."
+        ),
+        "seasons_processed": seasons_processed,
+        "ledgers_created": created,
+    }
+
+
+def backfill_bowl_six_weekly_prizes(
+    session: Session,
+    league_session: Session,
+    league_slug: str,
+) -> dict[str, Any]:
+    """Finalize overdue weeks and repair missing weekly BOWL Six AP prize ledger rows."""
+    slug = str(league_slug or "").strip()
+    if not bowl_six_enabled(session, slug):
+        return {
+            "ok": True,
+            "message": "BOWL Six is disabled for this league.",
+            "slates_finalized": 0,
+            "slates_processed": 0,
+            "ledgers_created": 0,
+        }
+    slates = list(
+        session.scalars(
+            select(BowlSixSlate)
+            .where(
+                BowlSixSlate.league_slug == slug,
+                BowlSixSlate.status.in_(["locked", "scored"]),
+            )
+            .order_by(BowlSixSlate.week_start)
+        ).all()
+    )
+    finalized = 0
+    processed = 0
+    ledgers_created = 0
+    for slate in slates:
+        if slate.status == "locked" and slate_award_time_reached(slate):
+            score_slate(session, league_session, slate, notify=False)
+            finalized += 1
+        if slate.status != "scored":
+            continue
+        sync_bowl_six_slate_ap_awards(session, slate)
+        ledgers_created += ensure_bowl_six_slate_prize_ledgers(session, slate)
+        processed += 1
+    return {
+        "ok": True,
+        "message": (
+            f"Weekly AP backfill complete: finalized {finalized} slate(s), "
+            f"verified {processed} scored slate(s), repaired {ledgers_created} ledger row(s)."
+        ),
+        "slates_finalized": finalized,
+        "slates_processed": processed,
+        "ledgers_created": ledgers_created,
+    }
 
 
 def _week_bounds_for_date(d: date, week_start_dow: int) -> tuple[date, date]:
@@ -1115,6 +1327,12 @@ def auto_update_bowl_six_slates(
             except Exception:
                 pass
             _log.exception("BOWL Six auto-update failed for slate %s", slate_id)
+    try:
+        n_season = maybe_award_completed_bowl_six_seasons(session, league_slug)
+        if n_season:
+            notes.append(f"Season AP: awarded {n_season} ledger row(s) for ended season(s).")
+    except Exception:
+        _log.exception("BOWL Six season AP award failed for %s", league_slug)
     return notes
 
 

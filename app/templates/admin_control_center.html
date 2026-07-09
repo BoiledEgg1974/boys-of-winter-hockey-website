@@ -251,6 +251,28 @@
           <span class="muted">Finalizes last week if needed and repairs missing AP prize ledger rows.</span>
         </li>
         <li class="bowl-six-admin-fix">
+          <strong>Backfill all weekly AP</strong>
+          <form method="post" action="{{ url_for('site_admin.admin_bowl_six_backfill_weekly_prizes') }}" class="bowl-six-admin-fix__form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label>Type <strong>BACKFILL</strong>
+              <input type="text" name="confirm_phrase" placeholder="BACKFILL" autocomplete="off">
+            </label>
+            <button type="submit" class="admin-news-body-btn">Backfill weekly prizes</button>
+          </form>
+          <span class="muted">Finalizes overdue weeks and repairs missing weekly prize ledger rows for every scored slate.</span>
+        </li>
+        <li class="bowl-six-admin-fix">
+          <strong>Backfill season AP</strong>
+          <form method="post" action="{{ url_for('site_admin.admin_bowl_six_backfill_season_prizes') }}" class="bowl-six-admin-fix__form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label>Type <strong>BACKFILL</strong>
+              <input type="text" name="confirm_phrase" placeholder="BACKFILL" autocomplete="off">
+            </label>
+            <button type="submit" class="admin-news-body-btn">Backfill season prizes</button>
+          </form>
+          <span class="muted">Credits ended BOWL Six seasons (July–June) that are missing season-end AP ledger rows.</span>
+        </li>
+        <li class="bowl-six-admin-fix">
           <strong>Open next week early</strong>
           <form method="post" action="{{ url_for('site_admin.admin_bowl_six_advance_week') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

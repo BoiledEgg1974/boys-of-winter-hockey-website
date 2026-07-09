@@ -6,35 +6,55 @@
   <h1 class="page-title">Hall of Fame inductees</h1>
   <p class="muted">Add a player name and induction year. The Hall of Fame page, player page HoF badge, and player hover card all use this database table.</p>
 
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  {% for category, message in messages %}
+  <p class="join-league-status join-league-status--{{ 'ok' if category == 'ok' else 'err' }}">{{ message }}</p>
+  {% endfor %}
+  {% endif %}
+  {% endwith %}
+
   <section class="card" style="padding:1rem;margin:1rem 0;">
     <h2 style="margin-top:0;">{% if edit_row %}Edit inductee{% else %}Add inductee{% endif %}</h2>
+    {% set draft = form_values if form_values is defined and form_values else {} %}
+    {% set player_value = draft.player_name if draft.player_name is defined else (edit_row.player.full_name if edit_row and edit_row.player else '') %}
+    {% set player_id_value = draft.player_id if draft.player_id is defined else '' %}
+    {% set kind_value = draft.member_kind if draft.member_kind is defined else (edit_row.member_kind if edit_row else 'skater') %}
+    {% set year_value = draft.inducted_year if draft.inducted_year is defined else (edit_row.inducted_year if edit_row else '') %}
     <form method="post" style="display:grid;grid-template-columns:2fr 9rem 10rem auto;gap:0.75rem;align-items:end;">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="action" value="save">
+      <input type="hidden" name="player_id" id="hof-player-id" value="{{ player_id_value }}">
       {% if edit_row %}<input type="hidden" name="member_id" value="{{ edit_row.id }}">{% endif %}
-      <label>Player name or ID<br>
-        <input list="hof-player-names" name="player_name" value="{{ edit_row.player.full_name if edit_row and edit_row.player else '' }}" required style="width:100%;">
+      <label class="hof-player-picker" style="position:relative;">Player name or ID<br>
+        <input
+          type="text"
+          id="hof-player-input"
+          name="player_name"
+          value="{{ player_value }}"
+          required
+          autocomplete="off"
+          aria-autocomplete="list"
+          aria-controls="hof-player-autocomplete"
+          style="width:100%;"
+        >
+        <div id="hof-player-autocomplete" class="autocomplete-panel" role="listbox" aria-label="Player suggestions"></div>
       </label>
       <label>Category<br>
         <select name="member_kind" required style="width:100%;">
-          {% set selected_kind = edit_row.member_kind if edit_row else 'skater' %}
-          <option value="skater"{% if selected_kind == 'skater' %} selected{% endif %}>Skater</option>
-          <option value="goalie"{% if selected_kind == 'goalie' %} selected{% endif %}>Goalie</option>
+          <option value="skater"{% if kind_value == 'skater' %} selected{% endif %}>Skater</option>
+          <option value="goalie"{% if kind_value == 'goalie' %} selected{% endif %}>Goalie</option>
         </select>
       </label>
       <label>Inducted year<br>
-        <input type="number" name="inducted_year" min="1900" max="2200" value="{{ edit_row.inducted_year if edit_row else '' }}" required style="width:100%;">
+        <input type="number" name="inducted_year" min="1900" max="2200" value="{{ year_value }}" required style="width:100%;">
       </label>
       <button type="submit" class="button">{% if edit_row %}Save changes{% else %}Add inductee{% endif %}</button>
     </form>
     {% if edit_row %}
     <p style="margin:0.75rem 0 0;"><a href="{{ url_for('site_admin.admin_hall_of_fame') }}">Cancel edit</a></p>
     {% endif %}
-    <datalist id="hof-player-names">
-      {% for name in player_name_choices %}
-      <option value="{{ name }}">
-      {% endfor %}
-    </datalist>
+    <p class="muted" style="margin:0.75rem 0 0;font-size:0.85rem;">Type at least two characters to search all players, or enter a numeric player id.</p>
   </section>
 
   <h2>Current inductees</h2>
@@ -80,4 +100,87 @@
     </table>
   </div>
 </div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  var input = document.getElementById("hof-player-input");
+  var panel = document.getElementById("hof-player-autocomplete");
+  var playerIdInput = document.getElementById("hof-player-id");
+  if (!input || !panel) return;
+
+  var searchUrl = {{ url_for('api.search_players')|tojson }};
+  var timer = null;
+
+  function escapeHtml(s) {
+    var d = document.createElement("div");
+    d.textContent = s == null ? "" : String(s);
+    return d.innerHTML;
+  }
+
+  function closePanel() {
+    panel.classList.remove("is-open");
+    panel.innerHTML = "";
+  }
+
+  function clearSelectedPlayerId() {
+    if (playerIdInput) playerIdInput.value = "";
+  }
+
+  function pickPlayer(player) {
+    input.value = player.full_name;
+    if (playerIdInput) playerIdInput.value = String(player.id);
+    closePanel();
+    input.focus();
+  }
+
+  function renderResults(results) {
+    panel.innerHTML = "";
+    if (!results || !results.length) {
+      closePanel();
+      return;
+    }
+    results.forEach(function (p) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.setAttribute("role", "option");
+      var teamLabel = (p.team_abbr || p.team || "FA").trim();
+      btn.innerHTML =
+        "<strong>" + escapeHtml(p.full_name) + "</strong><br>" +
+        '<span class="meta">#' + escapeHtml(String(p.id)) + " · " +
+        escapeHtml(p.position || "—") + " · " + escapeHtml(teamLabel) + "</span>";
+      btn.addEventListener("click", function () {
+        pickPlayer(p);
+      });
+      panel.appendChild(btn);
+    });
+    panel.classList.add("is-open");
+  }
+
+  input.addEventListener("blur", function () {
+    setTimeout(closePanel, 200);
+  });
+  panel.addEventListener("mousedown", function (e) {
+    e.preventDefault();
+  });
+
+  input.addEventListener("input", function () {
+    clearSelectedPlayerId();
+    clearTimeout(timer);
+    var q = input.value.trim();
+    if (q.length < 2 || /^\d+$/.test(q)) {
+      closePanel();
+      return;
+    }
+    timer = setTimeout(function () {
+      fetch(searchUrl + "?q=" + encodeURIComponent(q))
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          renderResults(data.results || []);
+        })
+        .catch(closePanel);
+    }, 200);
+  });
+})();
+</script>
 {% endblock %}

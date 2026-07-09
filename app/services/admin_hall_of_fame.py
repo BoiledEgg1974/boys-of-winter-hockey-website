@@ -1,6 +1,7 @@
 """Admin CRUD for Hall of Fame inductees."""
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -12,6 +13,7 @@ from app.models import HallOfFameMember, Player
 HOF_SOURCE_ADMIN = "admin"
 HOF_SOURCE_CSV = "csv"
 HOF_MEMBER_KINDS = ("skater", "goalie")
+_TRAILING_PLAYER_ID = re.compile(r"^(.*?)(?:\s+#(\d+))?\s*$")
 
 
 @dataclass(frozen=True)
@@ -25,15 +27,50 @@ def normalize_hof_member_kind(raw: str) -> str | None:
     return kind if kind in HOF_MEMBER_KINDS else None
 
 
-def resolve_player_for_hof(session: Session, name_or_id: str) -> PlayerResolveResult:
-    raw = (name_or_id or "").strip()
+def normalize_hof_player_query(raw: str) -> tuple[str, int | None]:
+    """Strip decorative ids (``Glenn Resch #10952``) while preserving numeric ids."""
+    text = (raw or "").strip()
+    if not text:
+        return "", None
+    if text.isdigit():
+        return text, int(text)
+    match = _TRAILING_PLAYER_ID.match(text)
+    if not match:
+        return text, None
+    name = (match.group(1) or "").strip()
+    trailing_id = match.group(2)
+    if trailing_id:
+        return name or text, int(trailing_id)
+    return text, None
+
+
+def resolve_player_for_hof(
+    session: Session,
+    name_or_id: str,
+    *,
+    player_id: int | None = None,
+) -> PlayerResolveResult:
+    if player_id is not None:
+        player = session.get(Player, int(player_id))
+        if player is None:
+            return PlayerResolveResult(None, f"No player found for id {player_id}.")
+        return PlayerResolveResult(player)
+
+    raw, trailing_id = normalize_hof_player_query(name_or_id)
+    if trailing_id is not None and not raw:
+        player = session.get(Player, trailing_id)
+        if player is None:
+            return PlayerResolveResult(None, f"No player found for id {trailing_id}.")
+        return PlayerResolveResult(player)
+
     if not raw:
         return PlayerResolveResult(None, "Enter a player name.")
     if raw.isdigit():
-        player = session.get(Player, int(raw))
+        pid = int(raw)
+        player = session.get(Player, pid)
         if player is None:
             player = session.scalar(
-                select(Player).where(Player.fhm_player_id == int(raw)).limit(1)
+                select(Player).where(Player.fhm_player_id == str(pid)).limit(1)
             )
         if player is None:
             return PlayerResolveResult(None, f"No player found for id {raw}.")
@@ -53,19 +90,25 @@ def resolve_player_for_hof(session: Session, name_or_id: str) -> PlayerResolveRe
         names = ", ".join(f"{p.full_name} (id {p.id})" for p in exact[:5])
         return PlayerResolveResult(None, f"Multiple exact players found: {names}. Use the player id.")
 
-    matches = list(
-        session.scalars(
-            select(Player)
-            .where(Player.full_name.ilike(f"%{raw}%"))
-            .order_by(Player.full_name.asc(), Player.id.asc())
-            .limit(6)
-        ).all()
-    )
-    if len(matches) == 1:
-        return PlayerResolveResult(matches[0])
-    if matches:
-        names = ", ".join(f"{p.full_name} (id {p.id})" for p in matches[:5])
-        return PlayerResolveResult(None, f"Multiple player matches found: {names}. Use the exact name or player id.")
+    words = [part for part in re.split(r"\s+", raw) if part]
+    if words:
+        word_query = select(Player)
+        for word in words:
+            word_query = word_query.where(Player.full_name.ilike(f"%{word}%"))
+        word_matches = list(
+            session.scalars(
+                word_query.order_by(Player.full_name.asc(), Player.id.asc()).limit(6)
+            ).all()
+        )
+        if len(word_matches) == 1:
+            return PlayerResolveResult(word_matches[0])
+        if word_matches:
+            names = ", ".join(f"{p.full_name} (id {p.id})" for p in word_matches[:5])
+            return PlayerResolveResult(
+                None,
+                f"Multiple player matches found: {names}. Pick a suggestion or enter the player id.",
+            )
+
     return PlayerResolveResult(None, f"No player found for '{raw}'.")
 
 
@@ -83,27 +126,17 @@ def list_hof_admin(session: Session) -> list[HallOfFameMember]:
     )
 
 
-def player_name_choices(session: Session, *, limit: int = 5000) -> list[str]:
-    return list(
-        session.scalars(
-            select(Player.full_name)
-            .where(Player.full_name.is_not(None), Player.full_name != "")
-            .order_by(Player.full_name.asc())
-            .limit(limit)
-        ).all()
-    )
-
-
 def upsert_hof_member(
     session: Session,
     *,
     member_id: int | None,
     player_name: str,
+    player_id: int | None = None,
     member_kind: str,
     inducted_year: int,
     user_id: int | None,
 ) -> tuple[HallOfFameMember | None, str | None]:
-    resolved = resolve_player_for_hof(session, player_name)
+    resolved = resolve_player_for_hof(session, player_name, player_id=player_id)
     if resolved.error:
         return None, resolved.error
     assert resolved.player is not None

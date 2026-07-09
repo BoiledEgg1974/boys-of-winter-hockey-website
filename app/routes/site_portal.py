@@ -3433,9 +3433,16 @@ def admin_hall_of_fame():
     from app.services.admin_hall_of_fame import (
         delete_hof_member,
         list_hof_admin,
-        player_name_choices,
         upsert_hof_member,
     )
+
+    def _render(*, edit_row=None, form_values=None):
+        return render_template(
+            "admin_hall_of_fame.html",
+            rows=list_hof_admin(db.session),
+            edit_row=edit_row,
+            form_values=form_values or {},
+        )
 
     edit_id = request.args.get("edit", type=int)
     if request.method == "POST":
@@ -3453,15 +3460,24 @@ def admin_hall_of_fame():
 
         member_id = int(request.form.get("member_id") or 0) or None
         player_name = (request.form.get("player_name") or "").strip()
+        selected_player_id = int(request.form.get("player_id") or 0) or None
         member_kind = (request.form.get("member_kind") or "").strip()
+        inducted_year_raw = (request.form.get("inducted_year") or "").strip()
         try:
-            inducted_year = int(request.form.get("inducted_year") or "0")
+            inducted_year = int(inducted_year_raw or "0")
         except ValueError:
             inducted_year = 0
+        form_values = {
+            "player_name": player_name,
+            "player_id": selected_player_id or "",
+            "member_kind": member_kind or "skater",
+            "inducted_year": inducted_year_raw,
+        }
         row, err = upsert_hof_member(
             db.session,
             member_id=member_id,
             player_name=player_name,
+            player_id=selected_player_id,
             member_kind=member_kind,
             inducted_year=inducted_year,
             user_id=int(current_user.id),
@@ -3469,11 +3485,9 @@ def admin_hall_of_fame():
         if err:
             db.session.rollback()
             flash(err, "err")
-            return redirect(
-                url_for("site_admin.admin_hall_of_fame", edit=member_id)
-                if member_id
-                else url_for("site_admin.admin_hall_of_fame")
-            )
+            edit_row = db.session.get(HallOfFameMember, member_id) if member_id else None
+            return _render(edit_row=edit_row, form_values=form_values)
+
         assert row is not None
         _audit(
             "admin_hall_of_fame_save",
@@ -3484,18 +3498,18 @@ def admin_hall_of_fame():
                 "inducted_year": int(row.inducted_year),
             },
         )
-        commit_with_sqlite_retry(db.session)
+        try:
+            commit_with_sqlite_retry(db.session)
+        except Exception:
+            db.session.rollback()
+            flash("Could not save Hall of Fame inductee. Please try again.", "err")
+            edit_row = db.session.get(HallOfFameMember, member_id) if member_id else None
+            return _render(edit_row=edit_row, form_values=form_values)
         flash("Hall of Fame inductee saved.", "ok")
         return redirect(url_for("site_admin.admin_hall_of_fame"))
 
-    rows = list_hof_admin(db.session)
     edit_row = db.session.get(HallOfFameMember, edit_id) if edit_id else None
-    return render_template(
-        "admin_hall_of_fame.html",
-        rows=rows,
-        edit_row=edit_row,
-        player_name_choices=player_name_choices(db.session),
-    )
+    return _render(edit_row=edit_row)
 
 
 @site_admin_bp.route("/history-records/team-seasons", methods=["GET", "POST"])

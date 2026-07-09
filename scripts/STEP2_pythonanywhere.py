@@ -406,6 +406,55 @@ def iter_subtree_files(local_root: Path, rel_subdir: str) -> list[Path]:
     return sorted(out)
 
 
+_DEPLOY_MANIFEST_VERSION = 1
+_UPLOAD_PROGRESS_EVERY = 500
+
+
+def _tree_manifest_path(local_root: Path, rel_subdir: str) -> Path:
+    safe = rel_subdir.replace("/", "_").replace("\\", "_").strip("_") or "root"
+    return local_root / "instance" / f".deploy_manifest_{safe}.json"
+
+
+def _local_file_signature(st: os.stat_result) -> dict[str, float | int]:
+    return {"mtime": float(st.st_mtime), "size": int(st.st_size)}
+
+
+def _load_tree_manifest(path: Path, rel_subdir: str) -> dict[str, dict[str, float | int]]:
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if data.get("version") != _DEPLOY_MANIFEST_VERSION or data.get("tree") != rel_subdir:
+        return {}
+    files = data.get("files")
+    return dict(files) if isinstance(files, dict) else {}
+
+
+def _save_tree_manifest(
+    path: Path, rel_subdir: str, files: dict[str, dict[str, float | int]]
+) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {"version": _DEPLOY_MANIFEST_VERSION, "tree": rel_subdir, "files": files}
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+
+def seed_tree_manifest(local_root: Path, rel_subdir: str) -> int:
+    """Record local mtime/size for every file under rel_subdir (server assumed in sync)."""
+    files: dict[str, dict[str, float | int]] = {}
+    for local_path in iter_subtree_files(local_root, rel_subdir):
+        rel_posix = local_path.relative_to(local_root).as_posix()
+        files[rel_posix] = _local_file_signature(local_path.stat())
+    manifest_path = _tree_manifest_path(local_root, rel_subdir)
+    _save_tree_manifest(manifest_path, rel_subdir, files)
+    print(
+        f"Seeded deploy manifest for {len(files)} file(s): "
+        f"{manifest_path.relative_to(local_root).as_posix()}"
+    )
+    return len(files)
+
+
 def upload_tree(
     sftp,
     local_root: Path,
@@ -416,25 +465,75 @@ def upload_tree(
     force: bool,
     skew_seconds: float,
 ) -> tuple[int, int]:
+    """Upload files under rel_subdir that changed since the last successful deploy.
+
+    A local manifest (``instance/.deploy_manifest_<tree>.json``) stores mtime+size for
+    files already on the server. Unchanged files skip without an SFTP round trip. Files
+    missing from the manifest still use remote mtime once, then are recorded for next time.
+  """
     uploaded = 0
     skipped = 0
-    for local_path in iter_subtree_files(local_root, rel_subdir):
+    manifest_path = _tree_manifest_path(local_root, rel_subdir)
+    manifest: dict[str, dict[str, float | int]] = (
+        {} if force else _load_tree_manifest(manifest_path, rel_subdir)
+    )
+    manifest_had_entries = bool(manifest)
+    manifest_dirty = False
+    local_files = iter_subtree_files(local_root, rel_subdir)
+    if manifest_had_entries:
+        print(
+            f"  {rel_subdir}: using deploy manifest "
+            f"({len(manifest)} known file(s); only changes are checked remotely)"
+        )
+    elif not force and not dry_run:
+        print(
+            f"  {rel_subdir}: no deploy manifest yet — first pass may take a while "
+            f"({len(local_files)} file(s); building manifest as we go)"
+        )
+
+    for idx, local_path in enumerate(local_files, 1):
         rel = local_path.relative_to(local_root)
-        remote_file = f"{remote_base}/{rel.as_posix()}"
-        local_mtime = local_path.stat().st_mtime
-        rmt = None if force else remote_mtime(sftp, remote_file)
-        if rmt is not None and local_mtime <= rmt + skew_seconds:
+        rel_posix = rel.as_posix()
+        remote_file = f"{remote_base}/{rel_posix}"
+        sig = _local_file_signature(local_path.stat())
+        local_mtime = float(sig["mtime"])
+
+        if not force and manifest.get(rel_posix) == sig:
             skipped += 1
+            if idx % _UPLOAD_PROGRESS_EVERY == 0:
+                print(
+                    f"  {rel_subdir}: {idx}/{len(local_files)} "
+                    f"({uploaded} upload, {skipped} skip)"
+                )
             continue
+
+        if not force:
+            rmt = remote_mtime(sftp, remote_file)
+            if rmt is not None and local_mtime <= rmt + skew_seconds:
+                skipped += 1
+                manifest[rel_posix] = sig
+                manifest_dirty = True
+                if idx % _UPLOAD_PROGRESS_EVERY == 0:
+                    print(
+                        f"  {rel_subdir}: {idx}/{len(local_files)} "
+                        f"({uploaded} upload, {skipped} skip)"
+                    )
+                continue
         if dry_run:
-            print(f"would upload {rel.as_posix()}")
+            print(f"would upload {rel_posix}")
             uploaded += 1
             continue
         remote_parent = str(PurePosixPath(remote_file).parent)
         ensure_remote_dir(sftp, remote_parent)
         sftp.put(str(local_path), remote_file)
-        print(f"upload {rel.as_posix()}")
+        print(f"upload {rel_posix}")
         uploaded += 1
+        manifest[rel_posix] = sig
+        manifest_dirty = True
+
+    if manifest_dirty and not dry_run:
+        _save_tree_manifest(manifest_path, rel_subdir, manifest)
+
     return uploaded, skipped
 
 
@@ -787,6 +886,8 @@ def cmd_deploy(ns: argparse.Namespace) -> int:
     slugs = league_slugs()
     if not slugs:
         raise SystemExit("league_slugs() returned no leagues.")
+    if getattr(ns, "seed_static_manifest", False):
+        seed_tree_manifest(local_root, "app/static")
     csv_roots = resolve_csv_sources_for_deploy(local_root, ns)
     for entry in LEAGUES:
         if not iter_files_under_dir(csv_roots[entry.raw_import_dir]):
@@ -914,6 +1015,9 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
     slugs = league_slugs()
     if not slugs:
         raise SystemExit("league_slugs() returned no leagues.")
+
+    if getattr(ns, "seed_static_manifest", False):
+        seed_tree_manifest(local_root, "app/static")
 
     print("--- deploy-db (local SQLite upload) ---")
     print(f"host: {ns.host}")
@@ -1125,6 +1229,14 @@ def main() -> int:
     p_deploy.add_argument("--force", action="store_true")
     p_deploy.add_argument("--skew-seconds", type=float, default=2.0)
     p_deploy.add_argument(
+        "--seed-static-manifest",
+        action="store_true",
+        help=(
+            "Before upload, record local app/static mtime+size as already deployed "
+            "(one-time bootstrap when the server already matches your PC)."
+        ),
+    )
+    p_deploy.add_argument(
         "--sync-ap-catalog-local",
         action="store_true",
         help=(
@@ -1158,6 +1270,14 @@ def main() -> int:
     p_deploy_db.add_argument("--dry-run", action="store_true")
     p_deploy_db.add_argument("--force", action="store_true", help="Always upload app/static files.")
     p_deploy_db.add_argument("--skew-seconds", type=float, default=2.0)
+    p_deploy_db.add_argument(
+        "--seed-static-manifest",
+        action="store_true",
+        help=(
+            "Before upload, record local app/static mtime+size as already deployed "
+            "(one-time bootstrap when the server already matches your PC)."
+        ),
+    )
     p_deploy_db.add_argument(
         "--sync-ap-catalog-local",
         action="store_true",

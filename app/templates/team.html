@@ -243,7 +243,9 @@
     <section class="card team-ap-summary" aria-labelledby="team-ap-h">
       <h2 id="team-ap-h" class="team-mc-band__title">Action Points</h2>
       <p class="team-ap-summary__bal"><span class="team-ap-summary__num">{{ team_ap_balance }}</span></p>
+      {% if gm_membership or site_has_admin %}
       <p class="muted"><a href="{{ url_for('site_gm.action_points_page') }}">League AP page</a></p>
+      {% endif %}
     </section>
     <section class="card team-mc-band" aria-labelledby="tmc-proj-h">
       <h2 id="tmc-proj-h" class="team-mc-band__title">Season projection ({{ _mc.n_sims }}-sim Monte Carlo)</h2>
@@ -301,7 +303,9 @@
     <section class="card team-ap-summary" aria-labelledby="team-ap-h-solo">
       <h2 id="team-ap-h-solo" class="team-mc-band__title">Action Points</h2>
       <p class="team-ap-summary__bal"><span class="team-ap-summary__num">{{ team_ap_balance }}</span></p>
+      {% if gm_membership or site_has_admin %}
       <p class="muted"><a href="{{ url_for('site_gm.action_points_page') }}">League AP page</a></p>
+      {% endif %}
     </section>
   </div>
   {{ team_news_panel(team, team_page_news, news_category_label, news_viewer_can_react, era_season) }}

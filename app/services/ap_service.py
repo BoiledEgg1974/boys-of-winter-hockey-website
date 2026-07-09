@@ -4,9 +4,10 @@ from __future__ import annotations
 import json
 import secrets
 from datetime import date, datetime
+from math import ceil
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, select
 
 from app.config import league_group_for_slug
 from app.league_db import db
@@ -379,3 +380,185 @@ def publish_news_and_maybe_award_ap(article: NewsArticle, *, points: int) -> Non
 
 def new_redemption_token() -> str:
     return secrets.token_urlsafe(32)
+
+
+LEDGER_KIND_EARNED = "earned"
+LEDGER_KIND_PENALIZED = "penalized"
+LEDGER_KIND_REDEEMED = "redeemed"
+LEDGER_PER_PAGE = 50
+LEDGER_KINDS = frozenset({LEDGER_KIND_EARNED, LEDGER_KIND_PENALIZED, LEDGER_KIND_REDEEMED})
+
+_REASON_LABELS: dict[str, str] = {
+    "manual": "Manual adjustment",
+    "batch_all_star": "All-Star",
+    "batch_skills": "Skills competition",
+    "batch_award": "Award",
+    "batch_predictions": "Playoff prediction",
+    "batch_penalties": "Penalty",
+    "daily_export": "Daily export",
+    "news_article": "News article",
+    "redemption": "Redemption",
+    "bowl_six_slate_prize": "BOWL Six prize",
+    "bowl_six_slate_prize_reversal": "BOWL Six prize reversal",
+}
+
+
+def ledger_entry_kind(delta: int, reason_code: str) -> str:
+    if reason_code == "redemption":
+        return LEDGER_KIND_REDEEMED
+    if delta > 0:
+        return LEDGER_KIND_EARNED
+    return LEDGER_KIND_PENALIZED
+
+
+def ledger_kind_sql_filter(kind: str | None):
+    """SQLAlchemy clause for earned / penalized / redeemed filters."""
+    if kind == LEDGER_KIND_EARNED:
+        return ApLedgerEntry.delta > 0
+    if kind == LEDGER_KIND_REDEEMED:
+        return ApLedgerEntry.reason_code == "redemption"
+    if kind == LEDGER_KIND_PENALIZED:
+        return and_(ApLedgerEntry.delta < 0, ApLedgerEntry.reason_code != "redemption")
+    return None
+
+
+def parse_ledger_list_params(
+    raw,
+    *,
+    locked_team_id: int | None = None,
+) -> tuple[int, int | None, str | None]:
+    """Parse ledger_page, ledger_team, and ledger_kind from query args."""
+    try:
+        page = max(1, int((raw.get("ledger_page") if raw else None) or 1))
+    except (TypeError, ValueError):
+        page = 1
+    kind = str((raw.get("ledger_kind") if raw else None) or "").strip().lower()
+    if kind not in LEDGER_KINDS:
+        kind = None
+    if locked_team_id is not None:
+        return page, int(locked_team_id), kind
+    team_id: int | None = None
+    raw_tid = str((raw.get("ledger_team") if raw else None) or "").strip()
+    if raw_tid.isdigit():
+        team_id = int(raw_tid)
+    return page, team_id, kind
+
+
+def _shape_ledger_rows(entries: list[ApLedgerEntry]) -> list[dict[str, Any]]:
+    from app.site_models import meta_dict
+
+    team_ids = {int(e.team_id) for e in entries}
+    teams_by_id: dict[int, Team] = {}
+    if team_ids:
+        teams_by_id = {
+            t.id: t for t in db.session.scalars(select(Team).where(Team.id.in_(team_ids))).all()
+        }
+    rows: list[dict[str, Any]] = []
+    for entry in entries:
+        meta = meta_dict(entry)
+        delta = int(entry.delta)
+        reason_code = str(entry.reason_code or "")
+        rows.append(
+            {
+                "entry": entry,
+                "team": teams_by_id.get(int(entry.team_id)),
+                "delta": delta,
+                "kind": ledger_entry_kind(delta, reason_code),
+                "description": ledger_entry_description(reason_code, meta),
+                "reason_code": reason_code,
+            }
+        )
+    return rows
+
+
+def league_ledger_page(
+    league_slug: str,
+    *,
+    page: int = 1,
+    per_page: int = LEDGER_PER_PAGE,
+    team_id: int | None = None,
+    kind: str | None = None,
+) -> dict[str, Any]:
+    """Paginated ledger rows for a league, shaped for AP page templates."""
+    page = max(1, int(page or 1))
+    per_page = max(1, int(per_page or LEDGER_PER_PAGE))
+    clauses = [ApLedgerEntry.league_slug == league_slug]
+    if team_id is not None:
+        clauses.append(ApLedgerEntry.team_id == int(team_id))
+    kind_clause = ledger_kind_sql_filter(kind)
+    if kind_clause is not None:
+        clauses.append(kind_clause)
+    where = and_(*clauses)
+    total_count = int(
+        db.session.scalar(select(func.count()).select_from(ApLedgerEntry).where(where)) or 0
+    )
+    total_pages = max(1, ceil(total_count / per_page)) if total_count else 1
+    if page > total_pages:
+        page = total_pages
+    offset = (page - 1) * per_page
+    entries = list(
+        db.session.scalars(
+            select(ApLedgerEntry)
+            .where(where)
+            .order_by(ApLedgerEntry.created_at.desc(), ApLedgerEntry.id.desc())
+            .offset(offset)
+            .limit(per_page)
+        ).all()
+    )
+    return {
+        "rows": _shape_ledger_rows(entries),
+        "page": page,
+        "total_pages": total_pages,
+        "total_count": total_count,
+        "per_page": per_page,
+        "team_id": team_id,
+        "kind": kind,
+    }
+
+
+def league_ledger_display_rows(
+    league_slug: str,
+    *,
+    limit: int = 200,
+) -> list[dict[str, Any]]:
+    """Recent ledger rows (unpaginated) — prefer league_ledger_page for UI."""
+    result = league_ledger_page(league_slug, page=1, per_page=max(1, int(limit)))
+    return result["rows"]
+
+
+def ledger_entry_description(reason_code: str, meta: dict[str, Any]) -> str:
+    note = str(meta.get("note") or "").strip()
+    if note:
+        return note
+    batch = str(meta.get("batch") or "").strip()
+    if batch:
+        return batch
+    label = _REASON_LABELS.get(reason_code, reason_code.replace("_", " ").title())
+    if reason_code == "news_article" and meta.get("article_id"):
+        return f"{label} #{meta['article_id']}"
+    if reason_code == "redemption":
+        lines = meta.get("lines")
+        if isinstance(lines, list) and lines:
+            from app.services.ap_redemption_forms import line_item_display_title
+
+            parts: list[str] = []
+            for it in lines:
+                if not isinstance(it, dict):
+                    continue
+                title = str(it.get("title") or "").strip()
+                if not title:
+                    continue
+                details = it.get("details")
+                parts.append(
+                    line_item_display_title(
+                        title, details if isinstance(details, dict) else None
+                    )
+                )
+            if parts:
+                return "; ".join(parts)
+        if meta.get("request_id"):
+            return f"Redemption request #{meta['request_id']}"
+    if reason_code == "daily_export" and meta.get("day"):
+        return f"Export on {meta['day']}"
+    return label
+

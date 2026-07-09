@@ -5802,6 +5802,99 @@ table.data.ap-teams-table td:nth-child(2) {
   gap: 0.45rem;
   flex: 1 1 14rem;
 }
+
+.ap-ledger-history {
+  margin-top: 1.75rem;
+}
+.ap-ledger-history__title {
+  font-size: 1.05rem;
+  margin-bottom: 0.35rem;
+}
+.ap-ledger-history__lead {
+  font-size: 0.9rem;
+  margin: 0 0 0.75rem;
+}
+.ap-ledger-history__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.6rem 0.85rem;
+  margin: 0 0 0.65rem;
+}
+.ap-ledger-history__filter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.88rem;
+}
+.ap-ledger-history__filter select {
+  min-width: 10rem;
+}
+.ap-ledger-history__apply,
+.ap-ledger-history__reset {
+  margin-bottom: 0.05rem;
+}
+.ap-ledger-history__summary {
+  font-size: 0.88rem;
+  margin: 0 0 0.55rem;
+}
+.ap-ledger-history__pagination {
+  margin-top: 0.85rem;
+}
+.ap-ledger-history__table th.ap-ledger-history__delta,
+.ap-ledger-history__table td.ap-ledger-history__delta {
+  text-align: right;
+  white-space: nowrap;
+  width: 4.5rem;
+}
+.ap-ledger-history__when {
+  white-space: nowrap;
+  font-size: 0.88rem;
+}
+.ap-ledger-history__team a {
+  font-weight: 600;
+}
+.ap-ledger-history__detail {
+  font-size: 0.92rem;
+}
+.ap-ledger-kind {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+.ap-ledger-kind--earned {
+  color: #86efac;
+  background: rgb(34 197 94 / 0.14);
+  border-color: rgb(34 197 94 / 0.35);
+}
+.ap-ledger-kind--penalized {
+  color: #fca5a5;
+  background: rgb(239 68 68 / 0.14);
+  border-color: rgb(239 68 68 / 0.35);
+}
+.ap-ledger-kind--redeemed {
+  color: #fcd34d;
+  background: rgb(245 158 11 / 0.14);
+  border-color: rgb(245 158 11 / 0.35);
+}
+.ap-ledger-delta {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.ap-ledger-delta--plus {
+  color: #86efac;
+}
+.ap-ledger-delta--minus {
+  color: #fca5a5;
+}
+.ap-ledger-delta--zero {
+  color: var(--muted);
+}
 .ap-export-open-btn {
   font-size: 0.72rem;
   font-weight: 800;

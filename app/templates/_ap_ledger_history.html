@@ -1,0 +1,95 @@
+<section class="ap-ledger-history" aria-labelledby="ap-ledger-history-h">
+  <h2 id="ap-ledger-history-h" class="page-title ap-ledger-history__title">AP Ledger</h2>
+  <p class="muted ap-ledger-history__lead">Earned, penalized, and redeemed Action Points for this league.</p>
+
+  <form class="ap-ledger-history__filters" method="get" action="{{ ledger_form_action }}">
+    <label class="ap-ledger-history__filter">
+      Team
+      <select name="ledger_team">
+        <option value="">All teams</option>
+        {% for t in ledger_teams %}
+        <option value="{{ t.id }}"{% if ledger_team_id == t.id %} selected{% endif %}>{{ t.full_display_name() }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="ap-ledger-history__filter">
+      Type
+      <select name="ledger_kind">
+        <option value="">All types</option>
+        <option value="earned"{% if ledger_kind == 'earned' %} selected{% endif %}>Earned</option>
+        <option value="penalized"{% if ledger_kind == 'penalized' %} selected{% endif %}>Penalized</option>
+        <option value="redeemed"{% if ledger_kind == 'redeemed' %} selected{% endif %}>Redeemed</option>
+      </select>
+    </label>
+    <button type="submit" class="admin-news-body-btn ap-ledger-history__apply">Apply</button>
+    {% if ledger_team_id or ledger_kind %}
+    <a class="admin-news-body-btn ap-ledger-history__reset" href="{{ ledger_reset_url }}">Reset</a>
+    {% endif %}
+  </form>
+
+  <p class="muted ap-ledger-history__summary">
+    {{ ledger_total_count }} entr{{ 'y' if ledger_total_count == 1 else 'ies' }}
+    {% if ledger_total_pages > 1 %}
+    · page {{ ledger_page }} of {{ ledger_total_pages }}
+    {% endif %}
+  </p>
+
+  <div class="table-wrap">
+    <table class="data ap-ledger-history__table">
+      <thead>
+        <tr>
+          <th scope="col">When (ET)</th>
+          <th scope="col">Team</th>
+          <th scope="col">Type</th>
+          <th scope="col" class="ap-ledger-history__delta">AP</th>
+          <th scope="col">Details</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in ledger_rows %}
+        {% set entry = row.entry %}
+        {% set team = row.team %}
+        <tr>
+          <td class="ap-ledger-history__when">{{ entry.created_at|eastern_time('%Y-%m-%d %H:%M') or '—' }}</td>
+          <td class="ap-ledger-history__team">
+            {% if team %}
+            <a href="{{ url_for('main.team_page', slug=team.slug) }}">{{ team.full_display_name() }}</a>
+            {% else %}
+            <span class="muted">Team {{ entry.team_id }}</span>
+            {% endif %}
+          </td>
+          <td>
+            <span class="ap-ledger-kind ap-ledger-kind--{{ row.kind }}">
+              {% if row.kind == 'earned' %}Earned{% elif row.kind == 'redeemed' %}Redeemed{% else %}Penalized{% endif %}
+            </span>
+          </td>
+          <td class="ap-ledger-history__delta">
+            <span class="ap-ledger-delta ap-ledger-delta--{% if row.delta > 0 %}plus{% elif row.delta < 0 %}minus{% else %}zero{% endif %}">
+              {% if row.delta > 0 %}+{% endif %}{{ row.delta }}
+            </span>
+          </td>
+          <td class="ap-ledger-history__detail">{{ row.description }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="muted">No ledger entries match these filters.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if ledger_total_pages > 1 %}
+  <nav class="headlines-pagination ap-ledger-history__pagination" aria-label="AP ledger pages">
+    {% if ledger_prev_url %}
+    <a class="headlines-pagination__link" href="{{ ledger_prev_url }}">← Newer</a>
+    {% else %}
+    <span class="headlines-pagination__link headlines-pagination__link--disabled" aria-hidden="true">← Newer</span>
+    {% endif %}
+    <span class="headlines-pagination__status muted">Page {{ ledger_page }} / {{ ledger_total_pages }}</span>
+    {% if ledger_next_url %}
+    <a class="headlines-pagination__link" href="{{ ledger_next_url }}">Older →</a>
+    {% else %}
+    <span class="headlines-pagination__link headlines-pagination__link--disabled" aria-hidden="true">Older →</span>
+    {% endif %}
+  </nav>
+  {% endif %}
+</section>

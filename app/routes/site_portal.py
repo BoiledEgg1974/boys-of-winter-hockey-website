@@ -167,6 +167,8 @@ from app.services.ap_service import (
     active_redemption_items,
     add_ledger_entry,
     approve_redemption_request,
+    league_ledger_page,
+    parse_ledger_list_params,
     new_redemption_token,
     publish_news_and_maybe_award_ap,
     team_ap_balance,
@@ -568,6 +570,49 @@ def _is_site_admin() -> bool:
     return has_admin_role(current_user)
 
 
+def _ap_ledger_template_context(
+    slug: str,
+    *,
+    teams: list[Team],
+    form_endpoint: str,
+) -> dict:
+    """Ledger filters, rows, and pagination URLs for AP page templates."""
+    page, team_id, kind = parse_ledger_list_params(request.args)
+    ledger = league_ledger_page(slug, page=page, team_id=team_id, kind=kind)
+
+    def _ledger_page_url(target_page: int) -> str | None:
+        if target_page < 1 or target_page > int(ledger["total_pages"]):
+            return None
+        params: dict[str, int | str] = {}
+        if target_page > 1:
+            params["ledger_page"] = target_page
+        if team_id is not None:
+            params["ledger_team"] = int(team_id)
+        if kind:
+            params["ledger_kind"] = kind
+        return url_for(form_endpoint, **params)
+
+    return {
+        "ledger_rows": ledger["rows"],
+        "ledger_page": ledger["page"],
+        "ledger_total_pages": ledger["total_pages"],
+        "ledger_total_count": ledger["total_count"],
+        "ledger_per_page": ledger["per_page"],
+        "ledger_team_id": team_id,
+        "ledger_kind": kind or "",
+        "ledger_teams": teams,
+        "ledger_form_action": url_for(form_endpoint),
+        "ledger_reset_url": url_for(form_endpoint),
+        "ledger_prev_url": _ledger_page_url(int(ledger["page"]) - 1),
+        "ledger_next_url": _ledger_page_url(int(ledger["page"]) + 1),
+    }
+
+
+def _can_view_action_points_page(mem=None) -> bool:
+    """Action Points page: active GMs and league admins only."""
+    return mem is not None or _is_site_admin()
+
+
 def _can_use_official_trade_tool() -> bool:
     """League/super admins only — official Trade Tool entry and publish."""
     if not current_user.is_authenticated:
@@ -889,14 +934,18 @@ def gm_help_tips_page():
 
 
 @site_gm_bp.get("/action-points")
+@login_required
 def action_points_page():
     slug = _league_slug()
+    mem = _membership()
+    if not _can_view_action_points_page(mem):
+        flash("Action Points are available to active GMs and league admins.", "err")
+        return redirect(url_for("main.home"))
     teams = db.session.scalars(select(Team).order_by(Team.name)).all()
     rows = []
     for t in teams:
         rows.append({"team": t, "balance": team_ap_balance(slug, t.id)})
     rows.sort(key=lambda r: (-r["balance"], r["team"].name or ""))
-    mem = _membership() if current_user.is_authenticated else None
     catalog = active_redemption_items(slug) if mem else []
     bal = team_ap_balance(slug, mem.team_id) if mem else None
     from app.services.ap_redemption_forms import (
@@ -929,6 +978,11 @@ def action_points_page():
         catalog_rows=catalog_rows,
         team_options=team_options,
         balance=bal,
+        **_ap_ledger_template_context(
+            slug,
+            teams=list(teams),
+            form_endpoint="site_gm.action_points_page",
+        ),
     )
 
 
@@ -7466,6 +7520,11 @@ def admin_ap_ledger():
         teams=teams,
         team_rows=team_rows,
         today_iso=datetime.utcnow().date().isoformat(),
+        **_ap_ledger_template_context(
+            slug,
+            teams=teams,
+            form_endpoint="site_admin.admin_ap_ledger",
+        ),
     )
 
 

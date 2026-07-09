@@ -8,7 +8,7 @@
   <ul class="muted">{% for cat, msg in messages %}<li>{{ msg }}</li>{% endfor %}</ul>
   {% endif %}
   {% endwith %}
-  <p class="muted">League-wide balances. GMs with an approved membership can submit redemptions for admin approval.</p>
+  <p class="muted">League-wide balances and ledger. GMs with an approved membership can submit redemptions for admin approval.</p>
   <section class="ap-rules" aria-labelledby="ap-rules-h">
     <h2 id="ap-rules-h">How GMs Earn / Lose AP</h2>
     <div class="ap-rules__groups">
@@ -172,8 +172,8 @@
 
     <p><button type="submit" class="join-league-btn ap-redeem-submit" style="border:none;cursor:pointer;">Submit redemption request</button></p>
   </form>
-  {% else %}
-  <p class="muted"><a href="/login">Log in</a> on the hub and ensure your membership is approved for this league.</p>
+  {% elif site_has_admin %}
+  <p class="muted">League admin view — redemption requests are submitted by active GMs.</p>
   {% endif %}
   <h2>All Teams</h2>
   {% set n = rows|length %}
@@ -228,6 +228,8 @@
       </div>
     </div>
   </div>
+
+  {% include '_ap_ledger_history.html' %}
 </div>
 {% endblock %}
 {% block scripts %}

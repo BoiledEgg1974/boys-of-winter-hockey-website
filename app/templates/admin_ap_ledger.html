@@ -68,6 +68,8 @@
     {% endif %}
   </div>
 
+  {% include '_ap_ledger_history.html' %}
+
   <h2 class="page-title" style="font-size:1.05rem;margin-top:1.75rem;">Add / Remove AP</h2>
   <form method="post">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

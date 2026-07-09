@@ -26,6 +26,8 @@ _SQLITE_HEADER = b"SQLite format 3\x00"
 
 
 def _connect_ro(db_path: Path) -> sqlite3.Connection:
+    if not _sqlite_file_is_readable(db_path):
+        raise sqlite3.DatabaseError(f"file is not a database: {db_path}")
     return sqlite3.connect(f"file:{db_path.resolve()}?mode=ro", uri=True, timeout=30.0)
 
 
@@ -356,6 +358,42 @@ def merge_trade_log_sqlite(
         tmp_path.unlink(missing_ok=True)
 
 
+def _count_trade_rows(db_path: Path) -> int | None:
+    """Return manual/csv trade count, or None when the file is not a readable SQLite DB."""
+    if not _sqlite_file_is_readable(db_path):
+        return None
+    try:
+        conn = _connect_ro(db_path)
+    except sqlite3.Error:
+        return None
+    try:
+        if not conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='trade_log_entries' LIMIT 1"
+        ).fetchone():
+            return 0
+        return int(
+            conn.execute(
+                "SELECT COUNT(*) FROM trade_log_entries WHERE source IN ('manual','csv')"
+            ).fetchone()[0]
+        )
+    except sqlite3.Error:
+        return None
+    finally:
+        conn.close()
+
+
+def _append_candidate(paths: list[Path], seen: set[str], path: Path) -> None:
+    if not path.is_file():
+        return
+    key = str(path.resolve())
+    if key in seen:
+        return
+    if not _sqlite_file_is_readable(path):
+        return
+    seen.add(key)
+    paths.append(path)
+
+
 def _resolve_db_path(slug: str | None, db_path: Path | None) -> Path:
     if db_path is not None:
         return db_path.resolve()
@@ -376,33 +414,18 @@ def _candidate_restore_paths(inst: Path, slug: str) -> list[Path]:
     for name in names:
         if not name:
             continue
-        p = inst / name
-        key = str(p.resolve())
-        if key in seen or not p.is_file():
-            continue
-        seen.add(key)
-        out.append(p)
+        _append_candidate(out, seen, inst / name)
     for pattern in (f"{slug}.db.test-bak*", f"{_LEGACY_LEAGUE_DB_FILES.get(slug, '')}.test-bak*"):
         for p in sorted(inst.glob(pattern), key=lambda x: x.stat().st_mtime, reverse=True):
-            key = str(p.resolve())
-            if key in seen or not p.is_file():
+            if p.name.endswith(("-shm", "-wal")):
                 continue
-            seen.add(key)
-            out.append(p)
+            _append_candidate(out, seen, p)
     backup_dir = inst / "league_backups" / slug
     if backup_dir.is_dir():
         for p in sorted(backup_dir.glob("*.db"), key=lambda x: x.stat().st_mtime, reverse=True):
-            key = str(p.resolve())
-            if key in seen:
-                continue
-            seen.add(key)
-            out.append(p)
+            _append_candidate(out, seen, p)
     for p in sorted(inst.glob("*.corrupt-*.bak"), key=lambda x: x.stat().st_mtime, reverse=True):
-        key = str(p.resolve())
-        if key in seen or not p.is_file():
-            continue
-        seen.add(key)
-        out.append(p)
+        _append_candidate(out, seen, p)
     return out
 
 
@@ -419,27 +442,32 @@ def restore_from_candidates(slug: str, *, dry_run: bool = False) -> dict[str, ob
     }
     if dry_run:
         for src in candidates:
-            n = 0
-            try:
-                conn = _connect_ro(src)
-                try:
-                    if conn.execute(
-                        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='trade_log_entries' LIMIT 1"
-                    ).fetchone():
-                        n = int(
-                            conn.execute(
-                                "SELECT COUNT(*) FROM trade_log_entries WHERE source IN ('manual','csv')"
-                            ).fetchone()[0]
-                        )
-                finally:
-                    conn.close()
-            except sqlite3.Error:
-                n = 0
-            report["merged"].append({"source": str(src), "rows": n})
+            n = _count_trade_rows(src)
+            if n is None:
+                report["merged"].append({"source": str(src), "rows": None, "error": "not a readable SQLite database"})
+            else:
+                report["merged"].append({"source": str(src), "rows": n})
         return report
 
     for src in candidates:
-        ins, skip_ex, skip_un = merge_trade_log_sqlite(target, src, sources=_PUBLIC_SOURCES)
+        if _count_trade_rows(src) is None:
+            report["merged"].append(
+                {"source": str(src), "inserted": 0, "skipped_existing": 0, "skipped_unresolved": 0, "error": "not a readable SQLite database"}
+            )
+            continue
+        try:
+            ins, skip_ex, skip_un = merge_trade_log_sqlite(target, src, sources=_PUBLIC_SOURCES)
+        except (sqlite3.Error, OSError, ValueError) as exc:
+            report["merged"].append(
+                {
+                    "source": str(src),
+                    "inserted": 0,
+                    "skipped_existing": 0,
+                    "skipped_unresolved": 0,
+                    "error": str(exc),
+                }
+            )
+            continue
         if ins or skip_ex or skip_un:
             report["merged"].append(
                 {

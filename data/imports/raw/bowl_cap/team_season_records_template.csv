@@ -77,7 +77,7 @@
 1929-30,0,Montreal Maroons,,,,Canadian,,44,23,16,5,51,141,114,27,Lost Semi-Finals,14.89,null,5,null,null,0,null,null,null,null,null
 1929-30,0,,,,,Canadian,,44,21,14,9,51,142,114,28,BOWL CUP CHAMPION,13.55,null,1,null,null,0,null,null,null,null,null
 1929-30,216,Ottawa Senators,,,,Canadian,,44,21,15,8,50,138,118,20,Lost First Round,12.68,null,8,null,null,0,null,null,null,null,null
-1929-30,3,,,,,Canadian,,44,17,21,6,40,16,124,-8,Missed Playoffs,13.8,null,9,null,null,0,null,null,null,null,null
+1929-30,3,,,,,Canadian,,44,17,21,6,40,116,124,-8,Missed Playoffs,13.8,null,9,null,null,0,null,null,null,null,null
 1929-30,,New York Americans,,,,Canadian,,44,14,25,5,33,113,161,-48,Missed Playoffs,8.73,null,2,null,null,0,null,null,null,null,null
 1930-31,5,,,,,American,,44,28,10,6,62,143,90,53,Lost Semi-Finals,10.45,null,1,null,null,0,null,null,null,null,null
 1930-31,8,,,,,American,,44,24,17,3,51,108,78,30,Lost Cup Finals,9.25,null,3,null,null,1,null,null,null,null,null
@@ -206,7 +206,7 @@
 1946-47,9,,,,,,,60,22,27,11,55,190,193,-3,Lost Semi-Finals,8.9,39,26,null,1,5,null,null,null,null,null
 1946-47,10,,,,,,,60,22,32,6,50,167,186,-19,Missed Playoffs,7,30,27,null,2,0,null,null,null,null,null
 1946-47,8,,,,,,,60,19,37,4,42,193,274,-81,Missed Playoffs,7.8,41,36,null,2,3,null,null,null,null,null
-1947-48,3,,,,,,,60,32,15,13,77,182,143,39,BOWL CUP CHAMPION,126,45,29,null,4,6,null,null,null,null,null
+1947-48,3,,,,,,,60,32,15,13,77,182,143,39,BOWL CUP CHAMPION,13.08,45,29,null,4,6,null,null,null,null,null
 1947-48,9,,,,,,,60,30,18,12,72,187,148,39,Lost Cup Finals,9.9,28,23,null,7,2,null,null,null,null,null
 1947-48,5,,,,,,,60,23,24,13,59,167,168,-1,Lost Semi-Finals,8.6,20,35,null,3,0,null,null,null,null,null
 1947-48,10,,,,,,,60,21,26,13,55,176,201,-25,Lost Semi-Finals,8,28,18,null,1,5,null,null,null,null,null
@@ -332,7 +332,7 @@
 1967-68,8,,,,,East,,74,32,26,16,80,212,222,-10,Lost Semi-Finals,8.1,37,37,234,9,6,218,15.81,83.03,2218,2299
 1967-68,3,,,,,East,,74,33,31,10,76,209,176,33,Missed Playoffs,8.5,33,28,231,6,6,230,14.29,87.83,2437,2576
 1967-68,9,,,,,East,,74,27,35,12,66,245,257,-12,Missed Playoffs,10.2,43,53,224,4,5,270,19.2,80.37,2456,2245
-1967-68,14,,,,,West,,74,31,32,11,73,173,179,-6,Lost Quarterfinals,93.2,33,49,290,7,2,290,12.27,83.1,1883,2456
+1967-68,14,,,,,West,,74,31,32,11,73,173,179,-6,Lost Quarterfinals,13.23,33,49,290,7,2,290,12.27,83.1,1883,2456
 1967-68,11,,,,,West,,74,31,33,10,72,200,224,-24,Lost Quarterfinals,10.9,33,54,274,5,3,274,13.69,80.29,2285,2087
 1967-68,16,,,,,West,,74,27,31,16,70,177,191,-14,Lost Cup Finals,10.7,38,39,245,10,7,245,17.04,84.08,2223,2145
 1967-68,12,,,,,West,,74,27,32,15,69,191,226,-35,Lost Semi-Finals,9.7,55,29,216,1,8,216,21.07,86.57,2115,2297
@@ -476,7 +476,7 @@
 1976-77,8,,,Clarence Campbell,,Smythe,,80,26,43,11,63,240,298,-58,Lost Preliminary Round,13.6,59,62,267,3,9,282,22.1,78.01,2260,2792
 1976-77,18,,,Clarence Campbell,,Smythe,,80,25,42,13,63,235,294,-59,Missed Playoffs,13.2,50,58,263,7,7,258,19.01,77.52,2216,2480
 1976-77,21,,,Clarence Campbell,,Smythe,,80,20,46,14,54,226,307,-81,Missed Playoffs,12.1,44,61,274,9,7,247,16.06,75.3,2284,2818
-1977-78,5,,,Prince of Wales,,Adams,,80,51,18,11,113,333,218,115,Lost Cup Finals,15.4,49,53,242,7,2,53,20.25,82.09,2425,1799
+1977-78,5,,,Prince of Wales,,Adams,,80,51,18,11,113,333,218,115,Lost Cup Finals,15.4,49,53,242,7,2,296,20.25,82.09,2425,1799
 1977-78,17,,,Prince of Wales,,Adams,,80,44,19,17,105,288,215,73,Lost Quarterfinals,9.9,52,31,234,7,3,218,22.22,85.78,2479,2229
 1977-78,3,,,Prince of Wales,,Adams,,80,41,29,10,92,271,237,34,Lost Semi-Finals,15.7,57,54,261,5,7,295,21.84,81.69,2374,2430
 1977-78,,Cleveland Barons,,Prince of Wales,,Adams,,80,22,45,13,57,230,325,-95,Missed Playoffs,12.5,41,61,275,3,8,235,14.91,74.04,2139,2624
@@ -491,7 +491,7 @@
 1977-78,10,,,Clarence Campbell,,Patrick,,80,30,37,13,73,279,280,-1,Lost Preliminary Round,13.1,78,48,279,10,6,244,27.96,80.33,2251,2510
 1977-78,8,,,Clarence Campbell,,Smythe,,80,31,29,19,83,230,220,10,Lost Semi-Finals,16.2,43,46,205,4,3,295,20.98,84.41,2337,2468
 1977-78,21,,,Clarence Campbell,,Smythe,,80,19,40,21,59,257,305,-45,Lost Preliminary Round,10.1,63,53,279,5,7,237,22.58,77.64,2403,2531
-1977-78,18,,,Clarence Campbell,,Smythe,,80,20,43,17,57,239,320,-81,Missed Playoffs,11.9,60,65,269,3,7,230,22.3,71.74,20.52,2462
+1977-78,18,,,Clarence Campbell,,Smythe,,80,20,43,17,57,239,320,-81,Missed Playoffs,11.9,60,65,269,3,7,230,22.3,71.74,2052,2462
 1977-78,16,,,Clarence Campbell,,Smythe,,80,20,47,13,53,195,304,-109,Missed Playoffs,10.5,44,52,264,2,3,194,16.67,73.2,2227,2380
 1977-78,12,,,Clarence Campbell,,Smythe,,80,18,53,9,45,218,325,-107,Missed Playoffs,13.5,49,61,328,3,11,218,14.94,72.02,2305,2520
 1978-79,5,,,Prince of Wales,,Adams,,80,43,23,14,100,316,270,46,Lost Semi-Finals,15,59,72,249,6,9,285,23.69,74.74,2245,1982
@@ -500,13 +500,13 @@
 1978-79,12,,,Prince of Wales,,Adams,,80,28,40,12,68,257,289,-32,Missed Playoffs,13.5,63,48,289,4,9,232,21.8,79.31,2448,2284
 1978-79,0,,,Prince of Wales,,Norris,,80,52,17,11,115,337,204,133,BOWL CUP CHAMPION,10,68,35,240,7,7,213,28.33,83.57,2568,2033
 1978-79,15,,,Prince of Wales,,Norris,,80,36,31,13,85,281,279,2,Lost Quarterfinals,12.8,56,57,261,7,4,250,21.46,77.2,2585,2470
-1978-79,11,,,Prince of Wales,,Norris,,80,34,34,12,80,292,286,6,Lost Preliminary Round,14,55,318,6,8,245,245,23.9,77.55,2420,2355
+1978-79,11,,,Prince of Wales,,Norris,,80,34,34,12,80,292,286,6,Lost Preliminary Round,14,76,55,318,6,8,245,23.9,77.6,2420,2355
 1978-79,22,,,Prince of Wales,,Norris,,80,24,41,15,63,273,338,-65,Missed Playoffs,16,57,83,302,5,12,279,18.87,70.25,2278,2528
 1978-79,9,,,Prince of Wales,,Norris,,80,23,41,16,62,252,295,-43,Missed Playoffs,16.7,78,63,327,10,9,279,23.85,77.42,2271,2261
 1978-79,20,,,Clarence Campbell,,Patrick,,80,51,15,14,116,358,214,144,Lost Semi-Finals,13.3,81,57,260,7,4,287,31.15,80.14,2301,2309
 1978-79,14,,,Clarence Campbell,,Patrick,,80,40,25,15,95,281,248,33,Lost Quarterfinals,19.1,59,73,232,16,2,344,25.43,78.78,2538,2046
 1978-79,10,,,Clarence Campbell,,Patrick,,80,40,29,11,91,316,292,24,Lost Cup Finals,15,74,78,306,9,12,311,24.18,74.92,2471,2220
-1978-79,19,,,Clarence Campbell,,Patrick,,80,41,31,8,90,327,280,47,Lost Preliminary Round,14.5,54,56,226,6,5,290,23.89,0.69,2262,2355
+1978-79,19,,,Clarence Campbell,,Patrick,,80,41,31,8,90,327,280,47,Lost Preliminary Round,14.5,54,56,226,6,5,290,23.89,80.69,2262,2355
 1978-79,8,,,Clarence Campbell,,Smythe,,80,29,36,15,73,244,277,-33,Lost Quarterfinals,15.5,41,70,247,8,4,297,16.6,76.43,2247,2735
 1978-79,18,,,Clarence Campbell,,Smythe,,80,25,42,13,63,217,291,-74,Lost Preliminary Round,14,56,48,295,1,9,248,18.98,80.65,2168,2465
 1978-79,16,,,Clarence Campbell,,Smythe,,80,18,50,12,48,249,348,-99,Missed Playoffs,13.1,48,63,281,3,8,244,17.08,74.18,2131,2530
@@ -870,7 +870,7 @@
 1995-96,24,,,Eastern,,Northeast,,82,19,52,11,49,167,286,-119,Missed Playoffs,16.98,24,42,347,18,10,355,6.9,88.2,1439,2686
 1995-96,20,,,Eastern,,Atlantic,,82,52,22,8,112,274,174,100,Lost Conference Semi-Finals,19.44,74,49,447,11,7,415,16.6,88.2,2452,2006
 1995-96,10,,,Eastern,,Atlantic,,82,48,26,8,104,291,224,67,BOWL CUP CHAMPION,18.4,55,58,366,12,7,450,15,87.1,2612,2246
-1995-96,21,,,Eastern,,Atlantic,,82,37,40,5,79,281,267,14,Lost Conference Quarter-Finals,21.88,58,83,459,3,13,811,12.6,83.8,2558,2475
+1995-96,21,,,Eastern,,Atlantic,,82,37,40,5,79,281,267,14,Lost Conference Quarter-Finals,21.88,58,83,459,3,13,511,12.6,83.8,2558,2475
 1995-96,14,,,Eastern,,Atlantic,,82,32,42,8,72,219,264,-45,Missed Playoffs,20.51,51,52,419,6,12,428,12.2,87.9,2173,2151
 1995-96,22,,,Eastern,,Atlantic,,82,27,51,4,58,202,280,-78,Missed Playoffs,20.26,55,49,396,4,5,369,13.9,86.7,1990,2357
 1995-96,15,,,Eastern,,Atlantic,,82,23,54,5,51,191,297,-106,Missed Playoffs,18.83,49,62,389,5,15,367,12.6,83.1,1851,2519
@@ -967,7 +967,7 @@
 1998-99,19,,,Western,,Northwest,,82,36,40,6,78,216,215,1,Lost Conference Quarter-Finals,17.77,48,47,360,7,2,392,13.3,88,2166,2249
 1998-99,23,,,Western,,Northwest,,82,33,44,9,75,235,233,2,Lost Conference Quarter-Finals,17.32,62,48,417,15,7,422,14.9,88.6,2610,2336
 1999-00,0,,,Eastern,,Northeast,,82,52,19,9,113,329,171,158,Lost Conference Finals,15.56,66,,,15,,,,,2681,1970
-1999-00,3,,,Eastern,,Northeast,,82,43,31,7,93,266,206,60,Lost Conference Semi-Finals,16.0,52,,,11,,,,,2350,2087
+1999-00,3,,,Eastern,,Northeast,,82,43,31,7,93,266,206,60,Lost Conference Semi-Finals,16,52,,,11,,,,,2350,2087
 1999-00,5,,,Eastern,,Northeast,,82,20,54,8,48,179,283,-104,Missed Playoffs,16.27,30,,,11,,,,,1973,2653
 1999-00,8,,,Western,,Central,,82,40,37,4,84,206,200,6,Lost Conference Quarter-Finals,16.49,33,,,7,,,,,2117,2239
 1999-00,9,,,Western,,Central,,82,16,55,11,43,125,240,-115,Missed Playoffs,10.7,28,,,0,,,,,1429,2519

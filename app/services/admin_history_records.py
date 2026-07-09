@@ -20,6 +20,7 @@ from app.services.history_coach_awards import (
 
 HISTORY_SOURCE_ADMIN = "admin"
 HISTORY_SOURCE_CSV = "csv"
+HISTORY_SOURCE_IMPORT = "import"
 
 _SHEET_SEASON_RE = re.compile(r"^(\d{4})-(\d{2})$")
 _HISTORY_SHEET_PLACEHOLDER_FHM = "__bowl_hist_all_stars_sheet__"
@@ -649,11 +650,12 @@ def delete_non_admin_all_stars(session: Session) -> int:
 
 
 def delete_non_admin_team_season_records(session: Session) -> int:
+    """Remove CSV-sourced rows before a template re-import (admin + import rows kept)."""
     result = session.execute(
         delete(TeamSeasonRecord).where(
             or_(
                 TeamSeasonRecord.source.is_(None),
-                TeamSeasonRecord.source != HISTORY_SOURCE_ADMIN,
+                TeamSeasonRecord.source == HISTORY_SOURCE_CSV,
             )
         )
     )

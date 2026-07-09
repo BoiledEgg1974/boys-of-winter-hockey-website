@@ -1345,6 +1345,12 @@ def run_import(raw_dir: Path | None = None, *, repair_sqlite: bool = False) -> i
 
                     log.info("Applying team_season_records_template.csv after FHM import.")
                     counts["team_season_records"] = import_team_season_records(raw, app)
+                from app.services.team_season_record_sync import sync_team_season_records_from_import
+
+                synced = sync_team_season_records_from_import(db.session, raw_dir=raw)
+                if synced:
+                    counts["team_season_records_sync"] = synced
+                commit_with_sqlite_retry(db.session)
                 hof = raw / "hall_of_fame.csv"
                 if hof.is_file():
                     log.info("Applying hall_of_fame.csv after FHM import.")
@@ -1390,6 +1396,12 @@ def run_import(raw_dir: Path | None = None, *, repair_sqlite: bool = False) -> i
                 message=message,
                 rows_processed=count,
             )
+        from app.services.team_season_record_sync import sync_team_season_records_from_import
+
+        synced = sync_team_season_records_from_import(db.session, raw_dir=raw)
+        if synced:
+            total += synced
+        commit_with_sqlite_retry(db.session)
         refresh_after_import(db.engine, app)
         _run_post_import_safeguards()
         log.info("Import finished. Total row operations (approx): %s", total)

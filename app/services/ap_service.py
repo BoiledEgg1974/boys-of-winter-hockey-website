@@ -561,5 +561,12 @@ def ledger_entry_description(reason_code: str, meta: dict[str, Any]) -> str:
             return f"Redemption request #{meta['request_id']}"
     if reason_code == "daily_export" and meta.get("day"):
         return f"Export on {meta['day']}"
+    if reason_code == "bowl_six_season_prize":
+        season_start = str(meta.get("season_start") or "").strip()
+        rank = meta.get("rank")
+        if season_start and rank:
+            return f"BOWL Six season prize ({season_start}, rank {rank})"
+        if season_start:
+            return f"BOWL Six season prize ({season_start})"
     return label
 

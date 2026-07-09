@@ -14,6 +14,7 @@ from datetime import date, datetime
 
 from app.services.bowl_six import (
     award_bowl_six_season_prizes,
+    list_bowl_six_seasons_with_scored_slates,
     bowl_six_season_bounds_for_week,
     default_lock_at,
     bowl_six_real_season_bounds,
@@ -158,6 +159,18 @@ class BowlSixScoringTest(unittest.TestCase):
         self.assertEqual(
             season_ap_award_at(date(2026, 6, 30)),
             datetime(2026, 7, 1, 4, 0),
+        )
+
+    def test_list_bowl_six_seasons_coerces_string_week_start(self):
+        session = MagicMock()
+        session.execute.return_value.all.return_value = [
+            ("2026-06-08",),
+            ("2025-11-03",),
+        ]
+        seasons = list_bowl_six_seasons_with_scored_slates(session, "bowl-cap")
+        self.assertEqual(
+            seasons,
+            [(date(2025, 7, 1), date(2026, 6, 30))],
         )
 
     def test_award_bowl_six_season_prizes_writes_ledger_rows(self):

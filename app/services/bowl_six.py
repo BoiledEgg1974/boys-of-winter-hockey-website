@@ -96,6 +96,51 @@ def season_ap_award_time_reached(season_end: date) -> bool:
     return utcnow_naive() >= season_ap_award_at(season_end)
 
 
+def _coerce_sql_date(value: object) -> date | None:
+    """Normalize DB date/datetime/string values to ``date``."""
+    if value is None:
+        return None
+    if isinstance(value, date) and not isinstance(value, datetime):
+        return value
+    if isinstance(value, datetime):
+        return value.date()
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        return date.fromisoformat(text[:10])
+    except ValueError:
+        return None
+
+
+def previous_ended_bowl_six_season_bounds(
+    today: date | None = None,
+) -> tuple[date, date]:
+    """July–June season immediately before the current in-progress BOWL Six year."""
+    current_start, _current_end = bowl_six_real_season_bounds(today)
+    return date(current_start.year - 1, 7, 1), date(current_start.year, 6, 30)
+
+
+def bowl_six_season_has_scored_slates(
+    session: Session,
+    league_slug: str,
+    season_start: date,
+    season_end: date,
+) -> bool:
+    slug = str(league_slug or "").strip()
+    count = session.scalar(
+        select(func.count())
+        .select_from(BowlSixSlate)
+        .where(
+            BowlSixSlate.league_slug == slug,
+            BowlSixSlate.status == "scored",
+            BowlSixSlate.week_start >= season_start,
+            BowlSixSlate.week_start <= season_end,
+        )
+    )
+    return int(count or 0) > 0
+
+
 def list_bowl_six_seasons_with_scored_slates(
     session: Session, league_slug: str
 ) -> list[tuple[date, date]]:
@@ -112,11 +157,26 @@ def list_bowl_six_seasons_with_scored_slates(
     seasons: dict[tuple[date, date], None] = {}
     for row in rows:
         week_start = row[0] if isinstance(row, tuple) else row
-        if not isinstance(week_start, date):
+        week_start = _coerce_sql_date(week_start)
+        if week_start is None:
             continue
         bounds = bowl_six_season_bounds_for_week(week_start)
         seasons[bounds] = None
     return sorted(seasons.keys())
+
+
+def list_bowl_six_seasons_eligible_for_payout(
+    session: Session, league_slug: str
+) -> list[tuple[date, date]]:
+    """Ended BOWL Six seasons that should be checked for season-end AP payout."""
+    slug = str(league_slug or "").strip()
+    seasons: set[tuple[date, date]] = set(
+        list_bowl_six_seasons_with_scored_slates(session, slug)
+    )
+    prev_start, prev_end = previous_ended_bowl_six_season_bounds()
+    if bowl_six_season_has_scored_slates(session, slug, prev_start, prev_end):
+        seasons.add((prev_start, prev_end))
+    return sorted(seasons)
 
 
 def _season_ap_award_source_ref(
@@ -194,7 +254,7 @@ def maybe_award_completed_bowl_six_seasons(session: Session, league_slug: str) -
     if not bowl_six_enabled(session, league_slug):
         return 0
     created = 0
-    for season_start, season_end in list_bowl_six_seasons_with_scored_slates(
+    for season_start, season_end in list_bowl_six_seasons_eligible_for_payout(
         session, league_slug
     ):
         created += award_bowl_six_season_prizes(
@@ -223,7 +283,7 @@ def backfill_bowl_six_season_prizes(
     created = 0
     seasons_processed = 0
     considered: list[str] = []
-    for season_start, season_end in list_bowl_six_seasons_with_scored_slates(
+    for season_start, season_end in list_bowl_six_seasons_eligible_for_payout(
         session, slug
     ):
         label = f"{season_start.isoformat()}..{season_end.isoformat()}"

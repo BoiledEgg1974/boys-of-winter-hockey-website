@@ -185,6 +185,39 @@ def _record_display_quality(rec: TeamSeasonRecord) -> int:
     return score
 
 
+def _record_has_display_identity(rec: TeamSeasonRecord) -> bool:
+    if (rec.team_name_override or "").strip():
+        return True
+    return rec.team_id is not None
+
+
+def _drop_import_shadow_rows(records: list[TeamSeasonRecord]) -> list[TeamSeasonRecord]:
+    """Drop import-sync rows shadowed by an identified CSV row for the same season stat line."""
+    csv_identity_keys: set[tuple[str, int | None, int | None]] = set()
+    for rec in records:
+        src = (rec.source or HISTORY_SOURCE_CSV).strip().lower()
+        if src not in (HISTORY_SOURCE_CSV, HISTORY_SOURCE_ADMIN):
+            continue
+        if not _record_has_display_identity(rec):
+            continue
+        if rec.gf is None:
+            continue
+        csv_identity_keys.add((rec.season_year_label, rec.gf, rec.pts))
+
+    if not csv_identity_keys:
+        return records
+
+    kept: list[TeamSeasonRecord] = []
+    for rec in records:
+        src = (rec.source or HISTORY_SOURCE_CSV).strip().lower()
+        if src == HISTORY_SOURCE_IMPORT and rec.gf is not None:
+            key = (rec.season_year_label, rec.gf, rec.pts)
+            if key in csv_identity_keys and not _record_has_display_identity(rec):
+                continue
+        kept.append(rec)
+    return kept
+
+
 def _dedupe_team_season_records(records: Iterable[TeamSeasonRecord]) -> list[TeamSeasonRecord]:
     """Drop duplicate stat lines, keeping CSV/admin rows over import-sync copies."""
     best_by_key: dict[tuple[str, int | None, int | None, int | None, int | None, int | None], TeamSeasonRecord] = {}
@@ -197,7 +230,8 @@ def _dedupe_team_season_records(records: Iterable[TeamSeasonRecord]) -> list[Tea
         cur = best_by_key.get(key)
         if cur is None or _record_display_quality(rec) > _record_display_quality(cur):
             best_by_key[key] = rec
-    return list(best_by_key.values()) + passthrough
+    merged = list(best_by_key.values()) + passthrough
+    return _drop_import_shadow_rows(merged)
 
 
 def _load_all_records(session: Session) -> list[TeamSeasonRecord]:

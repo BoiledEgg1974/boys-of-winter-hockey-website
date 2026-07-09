@@ -167,6 +167,27 @@ class TeamRecordsLogoTests(unittest.TestCase):
         self.assertIn("columbus_blue_jackets_2000-2006.png", logo_url)
         self.assertNotIn("placeholder", logo_url)
 
+    def test_cap_new_york_americans_1928_29_leaderboard_row_resolves_logo(self) -> None:
+        app = create_app(make_league_config("bowl-cap"))
+        record = SimpleNamespace(
+            team=None,
+            team_name_override="New York Americans",
+            season_year_label="1928-29",
+            start_year=1928,
+            season_year=1928,
+            team_fhm_id_csv="4",
+            team_fhm_id="4",
+            logo_file_override=None,
+        )
+        with app.app_context():
+            with app.test_request_context(path="/team-records", base_url="http://127.0.0.1/bowl-cap/"):
+                bundle = get_season_team_logo_bundle(app)
+                logo_url = bundle.season_team_logo_url(record)
+                name = bundle.season_team_name(record)
+        self.assertEqual(name, "New York Americans")
+        self.assertIsNotNone(logo_url)
+        self.assertIn("new_york_americans_1925-1934.png", logo_url)
+
     def test_cap_chicago_blackhawks_era_logos_use_black_hawks_art(self) -> None:
         app = create_app(make_league_config("bowl-cap"))
         team = SimpleNamespace(

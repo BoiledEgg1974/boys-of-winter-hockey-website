@@ -421,6 +421,16 @@ def build_season_team_logo_bundle(app: Flask) -> SeasonTeamLogoBundle:
             historical_team_logo_override_by_id_year[("4", 1925)] = f"{hist_logo_root}/new_york_americans.png"
             historical_team_name_override_by_id_year[("4", 1926)] = "New York Americans"
             historical_team_logo_override_by_id_year[("4", 1926)] = f"{hist_logo_root}/new_york_americans.png"
+            for yy in range(1927, 1941):
+                historical_team_name_override_by_id_year[("4", yy)] = "New York Americans"
+                historical_team_logo_override_by_id_year[("4", yy)] = (
+                    f"{hist_logo_root}/new_york_americans_1925-1934.png"
+                )
+            for yy in (1941, 1942):
+                historical_team_name_override_by_id_year[("4", yy)] = "Brooklyn Americans"
+                historical_team_logo_override_by_id_year[("4", yy)] = (
+                    f"{hist_logo_root}/new_york_americans_1940.png"
+                )
             for yy in range(1967, 1970):
                 historical_team_name_override_by_id_year[("13", yy)] = "Oakland Seals"
                 historical_team_logo_override_by_id_year[("13", yy)] = f"{hist_logo_root}/oak-t120.png"

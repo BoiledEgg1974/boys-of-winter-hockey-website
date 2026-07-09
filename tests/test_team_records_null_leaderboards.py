@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 from app.services.team_records import (
     _dedupe_team_season_records,
+    _drop_import_shadow_rows,
     _is_hidden_season_summary,
     _leaderboard_rows,
     _runner_up_override_team_fhm_id,
@@ -89,6 +90,36 @@ class TeamRecordsNullLeaderboardTest(unittest.TestCase):
         self.assertEqual(len(out), 1)
         self.assertEqual(out[0].source, "csv")
         self.assertEqual(out[0].team_name_override, "Philadelphia Quakers")
+
+    def test_import_shadow_row_dropped_when_csv_identity_matches_season_gf_pts(self) -> None:
+        csv_row = SimpleNamespace(
+            season_year_label="1928-29",
+            pts=50,
+            w=19,
+            l=13,
+            gf=53,
+            ga=53,
+            source="csv",
+            team_name_override="New York Americans",
+            team_id=None,
+            team_fhm_id_csv="4",
+        )
+        import_row = SimpleNamespace(
+            season_year_label="1928-29",
+            pts=50,
+            w=19,
+            l=12,
+            gf=53,
+            ga=50,
+            source="import",
+            team_name_override=None,
+            team_id=None,
+            team_fhm_id_csv="4",
+        )
+        out = _drop_import_shadow_rows([csv_row, import_row])
+        self.assertEqual(len(out), 1)
+        self.assertEqual(out[0].source, "csv")
+        self.assertEqual(out[0].team_name_override, "New York Americans")
 
 
 if __name__ == "__main__":

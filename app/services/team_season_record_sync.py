@@ -22,7 +22,10 @@ from app.models import (
     Team,
     TeamSeasonRecord,
 )
-from app.services.admin_history_records import HISTORY_SOURCE_CSV, HISTORY_SOURCE_IMPORT
+from app.services.admin_history_records import (
+    HISTORY_SOURCE_CSV,
+    HISTORY_SOURCE_IMPORT,
+)
 from app.services.all_time_records import bowl_nhl_league_ids
 from app.services.seasons import get_current_season
 
@@ -235,6 +238,31 @@ def _protected_keys(session: Session) -> set[tuple[str, int | None, str | None]]
     return keys
 
 
+def _csv_covered_year_labels(session: Session) -> set[str]:
+    """Season labels that already have authoritative CSV team-season rows."""
+    out: set[str] = set()
+    for rec in session.scalars(select(TeamSeasonRecord)).all():
+        src = (rec.source or HISTORY_SOURCE_CSV).strip().lower()
+        if src == HISTORY_SOURCE_CSV:
+            out.add(rec.season_year_label)
+    return out
+
+
+def _purge_import_rows_for_csv_seasons(session: Session) -> int:
+    """Remove import-sync duplicates when CSV already covers that season."""
+    csv_seasons = _csv_covered_year_labels(session)
+    if not csv_seasons:
+        return 0
+    removed = 0
+    for rec in list(session.scalars(select(TeamSeasonRecord)).all()):
+        if (rec.source or "").strip().lower() != HISTORY_SOURCE_IMPORT:
+            continue
+        if rec.season_year_label in csv_seasons:
+            session.delete(rec)
+            removed += 1
+    return removed
+
+
 def _upsert_import_row(session: Session, *, year_label: str, start_year: int, agg: _TeamAgg) -> bool:
     conf, div = _conf_div_names(agg.conf_id, agg.div_id)
     pim_g = round(agg.pim / agg.gp, 2) if agg.gp > 0 and agg.pim > 0 else None
@@ -291,6 +319,13 @@ def sync_team_season_records_from_import(
     league_ids = bowl_nhl_league_ids(session) or (0,)
     team_meta = _load_team_meta_from_csv(raw_dir)
     protected = _protected_keys(session)
+    csv_seasons = _csv_covered_year_labels(session)
+    purged = _purge_import_rows_for_csv_seasons(session)
+    if purged:
+        log.info(
+            "Removed %s import-sourced team_season_records row(s) superseded by CSV data.",
+            purged,
+        )
     current = get_current_season(session)
     current_start = int(current.start_year) if current and current.start_year is not None else None
 
@@ -299,6 +334,8 @@ def sync_team_season_records_from_import(
     written = 0
     for season_year in years:
         year_label = _year_label(season_year)
+        if year_label in csv_seasons:
+            continue
         is_current = current_start is not None and int(season_year) == int(current_start)
         if is_current:
             continue

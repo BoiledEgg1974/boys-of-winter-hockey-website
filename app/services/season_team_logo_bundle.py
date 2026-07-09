@@ -106,6 +106,20 @@ def build_season_team_logo_bundle(app: Flask) -> SeasonTeamLogoBundle:
             .split()
         )
 
+    _TEAM_LOGO_NAME_ALIASES: dict[str, str] = {
+        "chicago blackhawks": "chicago black hawks",
+    }
+
+    def _expand_logo_name_candidates(names: list[str]) -> list[str]:
+        out: list[str] = []
+        seen: set[str] = set()
+        for nm in names:
+            for candidate in (nm, _TEAM_LOGO_NAME_ALIASES.get(nm or "")):
+                if candidate and candidate not in seen:
+                    seen.add(candidate)
+                    out.append(candidate)
+        return out
+
     static_root = Path(app.root_path) / (app.static_folder or "static")
 
     def _url_for_logo_rel(rel: str | None) -> str | None:
@@ -238,7 +252,7 @@ def build_season_team_logo_bundle(app: Flask) -> SeasonTeamLogoBundle:
             if nm and nm not in seen:
                 seen.add(nm)
                 dedup.append(nm)
-        return dedup
+        return _expand_logo_name_candidates(dedup)
 
     if str(app.config.get("LEAGUE_SLUG") or "") in league_slugs():
         team_logos_rel = str(app.config.get("TEAM_LOGOS_REL_DIR") or "logos/teams").replace("\\", "/").strip("/")

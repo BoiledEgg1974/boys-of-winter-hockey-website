@@ -167,6 +167,42 @@ class TeamRecordsLogoTests(unittest.TestCase):
         self.assertIn("columbus_blue_jackets_2000-2006.png", logo_url)
         self.assertNotIn("placeholder", logo_url)
 
+    def test_cap_chicago_blackhawks_era_logos_use_black_hawks_art(self) -> None:
+        app = create_app(make_league_config("bowl-cap"))
+        team = SimpleNamespace(
+            id=4,
+            slug="chi-t8",
+            name="Chicago",
+            city="Chicago",
+            nickname="Blackhawks",
+            abbreviation="CHI",
+            fhm_team_id="8",
+        )
+        team.full_display_name = lambda: "Chicago Blackhawks"
+        cases = {
+            1927: "chicago_black_hawks_1926-1940.png",
+            1973: "chicago_black_hawks_1959-1988.png",
+            1988: "chicago_black_hawks_1959-1988.png",
+            1990: "chicago_blackhawks_1989-1995.png",
+        }
+        with app.app_context():
+            with app.test_request_context(path="/team-records", base_url="http://127.0.0.1/bowl-cap/"):
+                bundle = get_season_team_logo_bundle(app)
+                for year, logo_file in cases.items():
+                    record = SimpleNamespace(
+                        team=team,
+                        team_name_override=None,
+                        season_year_label=f"{year}-{str(year + 1)[-2:]}",
+                        start_year=year,
+                        season_year=year,
+                        team_fhm_id_csv="8",
+                        team_fhm_id="8",
+                        logo_file_override=None,
+                    )
+                    logo_url = bundle.season_team_logo_url(record)
+                    self.assertIsNotNone(logo_url, msg=f"missing logo for {year}")
+                    self.assertIn(logo_file, logo_url, msg=f"wrong logo for {year}")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -562,13 +562,20 @@ def build_post_db_upload_script(
     venv_bin: str,
     slugs: list[str],
     wsgi_file: str | None,
+    *,
+    staged_db_rels: tuple[str, ...] = (),
 ) -> str:
-    """SSH script: drop WAL sidecars, integrity-check league DBs, reload WSGI."""
+    """SSH script: atomically promote staged DBs, drop WAL sidecars, integrity-check, reload WSGI."""
     rp = shlex.quote(remote_project.rstrip("/"))
     act = shlex.quote(f"{venv_bin.rstrip('/')}/activate")
     py = shlex.quote(f"{venv_bin.rstrip('/')}/python")
     repair = shlex.quote(f"{remote_project.rstrip('/')}/scripts/repair_league_sqlite.py")
     parts = ["set -euo pipefail", f"cd {rp}", f". {act}"]
+    for remote_rel in staged_db_rels:
+        final = shlex.quote(f"{remote_project.rstrip('/')}/{remote_rel}")
+        staging = shlex.quote(f"{remote_project.rstrip('/')}/{remote_rel}.deploy-upload")
+        parts.append(f"rm -f {final}-wal {final}-shm")
+        parts.append(f"mv {staging} {final}")
     for slug in slugs:
         parts.append(
             f"{py} -c {shlex.quote(_remote_remove_wal_sidecars_code(slug))}"
@@ -592,7 +599,7 @@ def _remote_remove_wal_sidecars_code(slug: str) -> str:
 
 def league_db_upload_targets(local_root: Path, slugs: list[str]) -> list[tuple[str, Path, str]]:
     """Return (slug, local_db_path, remote_rel_path) for each league database to upload."""
-    from app.config import resolve_league_sqlite_path
+    from app.config import _LEGACY_LEAGUE_DB_FILES, resolve_league_sqlite_path
 
     out: list[tuple[str, Path, str]] = []
     seen_remote: set[str] = set()
@@ -601,10 +608,17 @@ def league_db_upload_targets(local_root: Path, slugs: list[str]) -> list[tuple[s
         if not db_path.is_file():
             raise SystemExit(f"Missing local league database for {slug}: {db_path}")
         remote_rel = f"instance/{db_path.name}"
-        if remote_rel in seen_remote:
-            continue
-        seen_remote.add(remote_rel)
-        out.append((slug, db_path, remote_rel))
+        if remote_rel not in seen_remote:
+            seen_remote.add(remote_rel)
+            out.append((slug, db_path, remote_rel))
+        # Production prefers ``instance/<slug>.db`` when populated; local imports may still
+        # target the legacy filename (e.g. league3.db). Mirror the upload so both paths match.
+        legacy_name = _LEGACY_LEAGUE_DB_FILES.get(slug)
+        if legacy_name and db_path.name == legacy_name:
+            primary_rel = f"instance/{slug}.db"
+            if primary_rel not in seen_remote:
+                seen_remote.add(primary_rel)
+                out.append((slug, db_path, primary_rel))
     return out
 
 
@@ -927,7 +941,10 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
 
     baseline_dir = local_root / "instance" / ".deploy_ovr_baselines"
     capture_script = build_capture_live_ovr_baselines_script(remote_base, ns.venv_bin, slugs)
-    post_upload_script = build_post_db_upload_script(remote_base, ns.venv_bin, slugs, wsgi)
+    staged_db_rels = tuple(remote_rel for _slug, _db_path, remote_rel in db_targets)
+    post_upload_script = build_post_db_upload_script(
+        remote_base, ns.venv_bin, slugs, wsgi, staged_db_rels=staged_db_rels
+    )
 
     if ns.dry_run:
         print("--- would upload helper scripts ---")
@@ -994,15 +1011,16 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
             )
             sqlite_wal_checkpoint(resolve_league_db_path(slug, db_targets))
 
-        print("--- upload league databases ---")
+        print("--- upload league databases (staged) ---")
         for slug, db_path, remote_rel in db_targets:
             remote_file = f"{remote_base}/{remote_rel}"
+            remote_staging = f"{remote_file}.deploy-upload"
             sqlite_wal_checkpoint(db_path)
             remote_parent = str(PurePosixPath(remote_file).parent)
             ensure_remote_dir(sftp, remote_parent)
-            sftp.put(str(db_path), remote_file)
+            sftp.put(str(db_path), remote_staging)
             uploaded += 1
-            print(f"upload {remote_rel}")
+            print(f"upload {remote_rel} (staging)")
 
         if not ns.skip_static:
             print("--- app/static ---")

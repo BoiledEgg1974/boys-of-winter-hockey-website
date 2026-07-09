@@ -28,6 +28,11 @@ from app.models import (
     Team,
     TeamSeasonRecord,
 )
+from app.services.admin_history_records import (
+    HISTORY_SOURCE_ADMIN,
+    HISTORY_SOURCE_CSV,
+    HISTORY_SOURCE_IMPORT,
+)
 from app.services.all_time_records import bowl_nhl_league_ids
 from app.services.division_labels import load_division_display_maps
 from scripts.import_pipeline.encoding_utils import cell_val, read_csv_normalized
@@ -111,9 +116,12 @@ def _runner_up_for_year(
 
 
 def team_display_name(rec: TeamSeasonRecord) -> str:
+    ovr = (rec.team_name_override or "").strip()
+    if ovr:
+        return ovr
     if rec.team is not None:
         return rec.team.full_display_name()
-    return (rec.team_name_override or "—").strip()
+    return "—"
 
 
 def team_season_logo_static_rel(rec: TeamSeasonRecord) -> str | None:
@@ -146,8 +154,55 @@ def _load_records_for_year(session: Session, year_label: str) -> list[TeamSeason
     return sorted(rows, key=standings_sort_key)
 
 
+def _record_stat_key(rec: TeamSeasonRecord) -> tuple[str, int | None, int | None, int | None, int | None, int | None]:
+    """Stable key for duplicate team-season rows (import sync vs CSV)."""
+    return (
+        rec.season_year_label,
+        rec.pts,
+        rec.w,
+        rec.l,
+        rec.gf,
+        rec.ga,
+    )
+
+
+def _record_display_quality(rec: TeamSeasonRecord) -> int:
+    """Higher score wins when two rows share the same stat line."""
+    src = (rec.source or HISTORY_SOURCE_CSV).strip().lower()
+    score = 0
+    if src in (HISTORY_SOURCE_CSV, HISTORY_SOURCE_ADMIN):
+        score += 100
+    elif src == HISTORY_SOURCE_IMPORT:
+        score += 0
+    else:
+        score += 50
+    if (rec.team_name_override or "").strip():
+        score += 50
+    if rec.team_id is not None:
+        score += 25
+    if (rec.team_fhm_id_csv or "").strip():
+        score += 10
+    return score
+
+
+def _dedupe_team_season_records(records: Iterable[TeamSeasonRecord]) -> list[TeamSeasonRecord]:
+    """Drop duplicate stat lines, keeping CSV/admin rows over import-sync copies."""
+    best_by_key: dict[tuple[str, int | None, int | None, int | None, int | None, int | None], TeamSeasonRecord] = {}
+    passthrough: list[TeamSeasonRecord] = []
+    for rec in records:
+        if rec.pts is None and rec.w is None and rec.l is None:
+            passthrough.append(rec)
+            continue
+        key = _record_stat_key(rec)
+        cur = best_by_key.get(key)
+        if cur is None or _record_display_quality(rec) > _record_display_quality(cur):
+            best_by_key[key] = rec
+    return list(best_by_key.values()) + passthrough
+
+
 def _load_all_records(session: Session) -> list[TeamSeasonRecord]:
-    return list(session.scalars(select(TeamSeasonRecord)).all())
+    rows = list(session.scalars(select(TeamSeasonRecord)).all())
+    return _dedupe_team_season_records(rows)
 
 
 def all_year_labels_desc(session: Session) -> list[str]:

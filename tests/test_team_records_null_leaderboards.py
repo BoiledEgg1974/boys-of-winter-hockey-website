@@ -4,7 +4,13 @@ from __future__ import annotations
 import unittest
 from types import SimpleNamespace
 
-from app.services.team_records import _is_hidden_season_summary, _leaderboard_rows, _runner_up_override_team_fhm_id
+from app.services.team_records import (
+    _dedupe_team_season_records,
+    _is_hidden_season_summary,
+    _leaderboard_rows,
+    _runner_up_override_team_fhm_id,
+    team_display_name,
+)
 
 
 class TeamRecordsNullLeaderboardTest(unittest.TestCase):
@@ -48,6 +54,41 @@ class TeamRecordsNullLeaderboardTest(unittest.TestCase):
         self.assertEqual(_runner_up_override_team_fhm_id("1936-37", "bowl-historical"), "10")
         self.assertEqual(_runner_up_override_team_fhm_id("1939-40", "bowl-historical"), "3")
         self.assertIsNone(_runner_up_override_team_fhm_id("1939-40", "bowl-cap"))
+
+    def test_team_display_name_prefers_override_over_linked_team(self) -> None:
+        team = SimpleNamespace(full_display_name=lambda: "Philadelphia Flyers")
+        rec = SimpleNamespace(team=team, team_name_override="Philadelphia Quakers")
+        self.assertEqual(team_display_name(rec), "Philadelphia Quakers")
+
+    def test_dedupe_prefers_csv_row_over_import_duplicate(self) -> None:
+        csv_row = SimpleNamespace(
+            season_year_label="1930-31",
+            pts=12,
+            w=4,
+            l=36,
+            gf=76,
+            ga=184,
+            source="csv",
+            team_name_override="Philadelphia Quakers",
+            team_id=10,
+            team_fhm_id_csv="121",
+        )
+        import_row = SimpleNamespace(
+            season_year_label="1930-31",
+            pts=12,
+            w=4,
+            l=36,
+            gf=76,
+            ga=184,
+            source="import",
+            team_name_override=None,
+            team_id=None,
+            team_fhm_id_csv="7",
+        )
+        out = _dedupe_team_season_records([import_row, csv_row])
+        self.assertEqual(len(out), 1)
+        self.assertEqual(out[0].source, "csv")
+        self.assertEqual(out[0].team_name_override, "Philadelphia Quakers")
 
 
 if __name__ == "__main__":

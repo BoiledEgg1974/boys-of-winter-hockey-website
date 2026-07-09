@@ -2,8 +2,14 @@
 from __future__ import annotations
 
 import unittest
+from types import SimpleNamespace
 
-from app.services.team_season_record_sync import _TeamAgg, _year_label
+from app.services.team_season_record_sync import (
+    _TeamAgg,
+    _csv_covered_year_labels,
+    _purge_import_rows_for_csv_seasons,
+    _year_label,
+)
 
 
 class TeamSeasonRecordSyncTests(unittest.TestCase):
@@ -24,6 +30,40 @@ class TeamSeasonRecordSyncTests(unittest.TestCase):
         self.assertEqual(agg.gp, 82)
         self.assertEqual(agg.pts, 107)
         self.assertEqual(agg.goal_diff, 50)
+
+    def test_csv_covered_labels_and_purge(self) -> None:
+        class _FakeSession:
+            def scalars(self, _q):
+                return self
+
+            def all(self):
+                return [
+                    SimpleNamespace(
+                        season_year_label="1930-31",
+                        source="csv",
+                    ),
+                    SimpleNamespace(
+                        season_year_label="1930-31",
+                        source="import",
+                    ),
+                    SimpleNamespace(
+                        season_year_label="1999-00",
+                        source="import",
+                    ),
+                ]
+
+            def delete(self, rec) -> None:
+                self.deleted.append(rec)
+
+            deleted: list[object]
+
+        session = _FakeSession()
+        session.deleted = []
+        self.assertEqual(_csv_covered_year_labels(session), {"1930-31"})
+        removed = _purge_import_rows_for_csv_seasons(session)
+        self.assertEqual(removed, 1)
+        self.assertEqual(len(session.deleted), 1)
+        self.assertEqual(session.deleted[0].season_year_label, "1930-31")
 
 
 if __name__ == "__main__":

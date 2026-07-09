@@ -1,9 +1,20 @@
 team_fhm_id,start_year,end_year,team_name,logo_file
+2,1917,1934,Ottawa Senators,logos/teams/bowl_historical/ott-ottawa-senators.png
+8,1926,1940,Chicago Black Hawks,logos/teams/bowl_historical/chicago_black_hawks_1926-1940.png
+8,1941,1956,Chicago Black Hawks,logos/teams/bowl_historical/chicago_black_hawks_1941-1956.png
+8,1957,1958,Chicago Black Hawks,logos/teams/bowl_historical/chicago_black_hawks_1957-1958.png
+8,1959,1988,Chicago Black Hawks,logos/teams/bowl_historical/chicago_black_hawks_1959-1988.png
+8,1989,1995,Chicago Blackhawks,logos/teams/bowl_historical/chicago_blackhawks_1989-1995.png
+8,1996,1998,Chicago Blackhawks,logos/teams/bowl_historical/chicago_blackhawks_1996-1998.png
+8,1999,2100,Chicago Blackhawks,logos/teams/bowl_historical/chicago_blackhawks_1999-2018.png
 4,1919,1919,Quebec Bulldogs,logos/teams/bowl_historical/quebec_bulldogs.png
 4,1920,1924,Hamilton Tigers,logos/teams/bowl_historical/hamilton_tigers.png
 4,1925,1926,New York Americans,logos/teams/bowl_historical/new_york_americans.png
+6,1924,1938,Montreal Maroons,logos/teams/bowl_historical/montreal_maroons_1924.png
 6,1934,1934,St-Louis Eagles,logos/teams/bowl_historical/st__louis_eagles.png
 7,1925,1929,Pittsburgh Pirates,logos/teams/bowl_historical/pit-t7.png
+7,1930,1931,Philadelphia Quakers,logos/teams/bowl_historical/philadelphia_quakers.png
+121,1930,1931,Philadelphia Quakers,logos/teams/bowl_historical/philadelphia_quakers.png
 12,1967,1985,Minnesota North Stars,logos/teams/bowl_historical/minnesota_north_stars_1967-1985.png
 12,1986,1990,Minnesota North Stars,logos/teams/bowl_historical/minnesota_north_stars_1985-1990.png
 12,1991,1991,Minnesota North Stars,logos/teams/bowl_historical/minnesota_north_stars_1991-1992.png
@@ -45,6 +56,7 @@ team_fhm_id,start_year,end_year,team_name,logo_file
 13,1970,1973,California Golden Seals,logos/teams/bowl_historical/california_golden_seals_1970-1973.png
 13,1974,1975,California Golden Seals,logos/teams/bowl_historical/california_golden_seals_1974-1975.png
 13,1976,1977,Cleveland Barons,logos/teams/bowl_historical/cleveland_barons_1976-1977.png
+122,1925,1930,Pittsburgh Pirates,logos/teams/bowl_historical/pit-t7.png
 122,1967,1967,Pittsburgh Penguins,logos/teams/bowl_historical/pittsburgh_penguins_1967-1967.png
 122,1968,1971,Pittsburgh Penguins,logos/teams/bowl_historical/pittsburgh_penguins_1968-1971.png
 122,1972,1991,Pittsburgh Penguins,logos/teams/bowl_historical/pittsburgh_penguins_1972-1991.png

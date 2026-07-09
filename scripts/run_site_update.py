@@ -34,8 +34,9 @@ Workflows
     (e.g. ``--dry-run``, ``--remote-pip``). Use when CSVs are already in the repo.
 
 ``bowl``
-    Runs ``BOWL-Site-Update.py`` (extra Historical awards pass + deploy). All following
-    arguments are passed through unchanged.
+    Runs ``BOWL-Site-Update.py`` (extra Historical awards pass + ``deploy-db`` SQLite upload).
+    Pass ``--remote-import`` to use server-side CSV imports instead. All following arguments
+    are passed through unchanged.
 
 -h, --help
     Show this text.

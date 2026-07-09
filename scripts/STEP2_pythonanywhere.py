@@ -10,6 +10,10 @@ For the usual CSV + import + reload sequence from your machine, prefer
            league on the server, then ``reimport_history_sheet_data.py`` (awards + all-stars),
            touch WSGI to reload. Use this for CSVs, images, CSS/JS.
 
+  deploy-db — Upload locally built league SQLite files (+ app/static). Snapshots live OVR on the
+              server first, merges those baselines into the local DBs, then uploads so depth-chart
+              arrows stay accurate. Skips server-side import_data.py.
+
   sync   — Upload the whole project tree (newer files only), same rules as before; does NOT
            run imports. Use this for code/template changes without a data refresh.
 
@@ -526,6 +530,84 @@ def build_snapshot_ovr_baselines_script(remote_project: str, venv_bin: str, slug
     return "; ".join(parts)
 
 
+def _deploy_ovr_baseline_json_name(slug: str) -> str:
+    return f".deploy_ovr_baselines_{slug}.json"
+
+
+def build_capture_live_ovr_baselines_script(
+    remote_project: str,
+    venv_bin: str,
+    slugs: list[str],
+) -> str:
+    """SSH script: snapshot live OVR, then export baselines JSON keyed by fhm_player_id."""
+    rp = shlex.quote(remote_project.rstrip("/"))
+    act = shlex.quote(f"{venv_bin.rstrip('/')}/activate")
+    py = shlex.quote(f"{venv_bin.rstrip('/')}/python")
+    snap = shlex.quote(f"{remote_project.rstrip('/')}/scripts/snapshot_ovr_baseline.py")
+    transfer = shlex.quote(f"{remote_project.rstrip('/')}/scripts/ovr_baseline_transfer.py")
+    parts = ["set -euo pipefail", f"cd {rp}", f". {act}"]
+    for slug in slugs:
+        out_name = _deploy_ovr_baseline_json_name(slug)
+        parts.append(f"export LEAGUE_SLUG={shlex.quote(slug)}")
+        parts.append(f"{py} {snap}")
+        parts.append(
+            f"{py} {transfer} export --slug {shlex.quote(slug)} "
+            f"--out {shlex.quote(f'instance/{out_name}')}"
+        )
+    return "; ".join(parts)
+
+
+def build_post_db_upload_script(
+    remote_project: str,
+    venv_bin: str,
+    slugs: list[str],
+    wsgi_file: str | None,
+) -> str:
+    """SSH script: drop WAL sidecars, integrity-check league DBs, reload WSGI."""
+    rp = shlex.quote(remote_project.rstrip("/"))
+    act = shlex.quote(f"{venv_bin.rstrip('/')}/activate")
+    py = shlex.quote(f"{venv_bin.rstrip('/')}/python")
+    repair = shlex.quote(f"{remote_project.rstrip('/')}/scripts/repair_league_sqlite.py")
+    parts = ["set -euo pipefail", f"cd {rp}", f". {act}"]
+    for slug in slugs:
+        parts.append(
+            f"{py} -c {shlex.quote(_remote_remove_wal_sidecars_code(slug))}"
+        )
+        parts.append(f"{py} {repair} --check --league {shlex.quote(slug)}")
+    if wsgi_file:
+        parts.append(f"touch {shlex.quote(wsgi_file)}")
+    return "; ".join(parts)
+
+
+def _remote_remove_wal_sidecars_code(slug: str) -> str:
+    return (
+        "from pathlib import Path; "
+        "from app.config import resolve_league_sqlite_path; "
+        f"p = resolve_league_sqlite_path({slug!r}); "
+        "Path(str(p) + '-wal').unlink(missing_ok=True); "
+        "Path(str(p) + '-shm').unlink(missing_ok=True); "
+        "print('removed WAL sidecars for', p.name)"
+    )
+
+
+def league_db_upload_targets(local_root: Path, slugs: list[str]) -> list[tuple[str, Path, str]]:
+    """Return (slug, local_db_path, remote_rel_path) for each league database to upload."""
+    from app.config import resolve_league_sqlite_path
+
+    out: list[tuple[str, Path, str]] = []
+    seen_remote: set[str] = set()
+    for slug in slugs:
+        db_path = resolve_league_sqlite_path(slug).resolve()
+        if not db_path.is_file():
+            raise SystemExit(f"Missing local league database for {slug}: {db_path}")
+        remote_rel = f"instance/{db_path.name}"
+        if remote_rel in seen_remote:
+            continue
+        seen_remote.add(remote_rel)
+        out.append((slug, db_path, remote_rel))
+    return out
+
+
 def build_full_remote_rebuild_prep_script(
     remote_project: str,
     venv_bin: str,
@@ -808,6 +890,163 @@ def cmd_deploy(ns: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_deploy_db(ns: argparse.Namespace) -> int:
+    """Upload locally built league SQLite files; preserve live OVR baselines for trend arrows."""
+    from app.config import league_slugs
+    from app.db_utils import sqlite_integrity_message, sqlite_wal_checkpoint
+
+    local_root = ns.local_root.resolve()
+    remote_base = ns.remote_path.rstrip("/")
+    slugs = league_slugs()
+    if not slugs:
+        raise SystemExit("league_slugs() returned no leagues.")
+
+    print("--- deploy-db (local SQLite upload) ---")
+    print(f"host: {ns.host}")
+    print(f"user: {ns.user}")
+    print(f"remote project: {remote_base}")
+    print(f"remote venv bin: {ns.venv_bin}")
+    wsgi = None if ns.skip_reload else ns.wsgi_file
+    print(f"wsgi file: {wsgi or '(skip reload)'}")
+
+    try:
+        db_targets = league_db_upload_targets(local_root, slugs)
+    except SystemExit as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+
+    print("--- local database preflight ---")
+    for slug, db_path, remote_rel in db_targets:
+        sqlite_wal_checkpoint(db_path)
+        msg = sqlite_integrity_message(db_path)
+        if msg.lower() != "ok":
+            print(f"ERROR: {db_path} integrity check failed: {msg}", file=sys.stderr)
+            return 1
+        size_mb = db_path.stat().st_size / (1024 * 1024)
+        print(f"  {slug}: {db_path.name} ({size_mb:.1f} MB) -> {remote_rel}")
+
+    baseline_dir = local_root / "instance" / ".deploy_ovr_baselines"
+    capture_script = build_capture_live_ovr_baselines_script(remote_base, ns.venv_bin, slugs)
+    post_upload_script = build_post_db_upload_script(remote_base, ns.venv_bin, slugs, wsgi)
+
+    if ns.dry_run:
+        print("--- would upload helper scripts ---")
+        print("would upload scripts/ovr_baseline_transfer.py")
+        print("--- would capture live OVR baselines on server ---")
+        print(capture_script.replace("; ", "\n"))
+        print("--- would download live baseline JSON ---")
+        for slug in slugs:
+            print(f"would download instance/{_deploy_ovr_baseline_json_name(slug)}")
+        print("--- would merge live baselines into local DBs ---")
+        for slug in slugs:
+            print(
+                f"would run: {sys.executable} scripts/ovr_baseline_transfer.py import "
+                f"--slug {slug} --in instance/.deploy_ovr_baselines/{_deploy_ovr_baseline_json_name(slug)}"
+            )
+        print("--- would upload league databases ---")
+        for _slug, db_path, remote_rel in db_targets:
+            print(f"would upload {remote_rel} ({db_path.name})")
+        if not ns.skip_static:
+            print("--- would upload app/static (newer files only) ---")
+        print("--- would run on server after upload ---")
+        print(post_upload_script.replace("; ", "\n"))
+        return 0
+
+    client = None
+    uploaded = 0
+    try:
+        client, sftp = connect_sftp(ns.host, ns.user, ns.key)
+        su, ss = upload_named_repo_files(
+            sftp,
+            local_root,
+            (
+                "scripts/ovr_baseline_transfer.py",
+                "scripts/snapshot_ovr_baseline.py",
+                "scripts/repair_league_sqlite.py",
+            ),
+            remote_base,
+            dry_run=False,
+            force=True,
+            skew_seconds=ns.skew_seconds,
+        )
+        uploaded += su
+        print(f"Helper scripts uploaded ({su} files, {ss} skipped).")
+
+        print("--- capture live OVR baselines on server ---")
+        run_remote_bash(client, capture_script)
+
+        baseline_dir.mkdir(parents=True, exist_ok=True)
+        print("--- download live baseline JSON ---")
+        for slug in slugs:
+            remote_json = f"{remote_base}/instance/{_deploy_ovr_baseline_json_name(slug)}"
+            local_json = baseline_dir / _deploy_ovr_baseline_json_name(slug)
+            sftp.get(remote_json, str(local_json))
+            print(f"download {remote_json} -> {local_json.relative_to(local_root).as_posix()}")
+
+        print("--- merge live baselines into local databases ---")
+        transfer = local_root / "scripts" / "ovr_baseline_transfer.py"
+        for slug in slugs:
+            local_json = baseline_dir / _deploy_ovr_baseline_json_name(slug)
+            subprocess.run(
+                [sys.executable, str(transfer), "import", "--slug", slug, "--in", str(local_json)],
+                cwd=str(local_root),
+                check=True,
+            )
+            sqlite_wal_checkpoint(resolve_league_db_path(slug, db_targets))
+
+        print("--- upload league databases ---")
+        for slug, db_path, remote_rel in db_targets:
+            remote_file = f"{remote_base}/{remote_rel}"
+            sqlite_wal_checkpoint(db_path)
+            remote_parent = str(PurePosixPath(remote_file).parent)
+            ensure_remote_dir(sftp, remote_parent)
+            sftp.put(str(db_path), remote_file)
+            uploaded += 1
+            print(f"upload {remote_rel}")
+
+        if not ns.skip_static:
+            print("--- app/static ---")
+            u, s = upload_tree(
+                sftp,
+                local_root,
+                "app/static",
+                remote_base,
+                dry_run=False,
+                force=ns.force,
+                skew_seconds=ns.skew_seconds,
+            )
+            uploaded += u
+            print(f"Static upload: {u} uploaded, {s} skipped.")
+
+        print("--- remote post-upload checks + reload ---")
+        run_remote_bash(client, post_upload_script)
+
+        if ns.sync_ap_catalog_local:
+            sync_local_ap_catalog_from_remote(
+                client,
+                sftp,
+                local_root=local_root,
+                remote_project=remote_base,
+                venv_bin=ns.venv_bin,
+                dry_run=False,
+            )
+    finally:
+        if client is not None:
+            client.close()
+
+    print(f"deploy-db complete. Uploaded {uploaded} file(s).")
+    return 0
+
+
+def resolve_league_db_path(slug: str, db_targets: list[tuple[str, Path, str]]) -> Path:
+    for s, path, _rel in db_targets:
+        if s == slug:
+            return path
+    from app.config import resolve_league_sqlite_path
+
+    return resolve_league_sqlite_path(slug)
+
+
 def main() -> int:
     # IDLE "Run module" / F5 only passes the script path — default to deploy.
     if len(sys.argv) == 1:
@@ -822,7 +1061,10 @@ def main() -> int:
     default_wsgi = os.environ.get("PA_WSGI_FILE", f"/var/www/{default_user}_wsgi.py")
 
     parser = argparse.ArgumentParser(
-        description="Push to PythonAnywhere: use 'deploy' for CSVs/static+imports, 'sync' for full code tree."
+        description=(
+            "Push to PythonAnywhere: use 'deploy-db' for local SQLite upload, "
+            "'deploy' for CSVs/static+imports, 'sync' for full code tree."
+        )
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -881,6 +1123,32 @@ def main() -> int:
         ),
     )
     p_deploy.set_defaults(func=cmd_deploy)
+
+    p_deploy_db = sub.add_parser(
+        "deploy-db",
+        help="Upload locally built league SQLite files (+ optional static); preserve live OVR arrows.",
+    )
+    add_connection_args(p_deploy_db, default_remote, default_user)
+    p_deploy_db.add_argument(
+        "--venv-bin",
+        default=default_venv_bin,
+        help="Remote venv bin (contains activate and python)",
+    )
+    p_deploy_db.add_argument("--wsgi-file", default=default_wsgi)
+    p_deploy_db.add_argument("--skip-static", action="store_true", help="Upload databases only.")
+    p_deploy_db.add_argument("--skip-reload", action="store_true")
+    p_deploy_db.add_argument("--dry-run", action="store_true")
+    p_deploy_db.add_argument("--force", action="store_true", help="Always upload app/static files.")
+    p_deploy_db.add_argument("--skew-seconds", type=float, default=2.0)
+    p_deploy_db.add_argument(
+        "--sync-ap-catalog-local",
+        action="store_true",
+        help=(
+            "After deploy, export live ap_redemption_catalog, download JSON to repo root, "
+            "import into local DB, then verify."
+        ),
+    )
+    p_deploy_db.set_defaults(func=cmd_deploy_db)
 
     args = parser.parse_args()
     return int(args.func(args))

@@ -33,6 +33,8 @@ instance/*.bootstrap.lock
 instance/*.bootstrap.version
 instance/draft_hub_eligible_cache/
 instance/league_json_cache/
+instance/.deploy_ovr_baselines/
+instance/.deploy_ovr_baselines_*.json
 *.log
 
 # Cursor IDE: ignore everything in .cursor except shared agent rules

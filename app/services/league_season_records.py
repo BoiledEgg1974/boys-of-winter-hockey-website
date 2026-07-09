@@ -211,7 +211,9 @@ def _load_skater_rows_merged(
 
     players_seen: dict[int, Player] = {}
     for (pid, sy, tk), ln in best.items():
-        if team_fhm_ids is not None and (not ln.team_fhm_id or str(ln.team_fhm_id) not in team_fhm_ids):
+        if team_fhm_ids is not None and (
+            ln.team_fhm_id is None or str(ln.team_fhm_id) not in team_fhm_ids
+        ):
             continue
         career_keys.add((pid, sy, tk))
         pl = players_seen.get(pid)
@@ -224,7 +226,12 @@ def _load_skater_rows_merged(
         tm = teams_by_id.get(int(ln.team_id)) if ln.team_id is not None else None
         if tm is None and ln.team_fhm_id is not None:
             tm = teams_by_fhm.get(int(ln.team_fhm_id))
-        if team_fhm_ids is not None and tm is not None and tm.fhm_team_id and str(tm.fhm_team_id) not in team_fhm_ids:
+        if (
+            team_fhm_ids is not None
+            and tm is not None
+            and tm.fhm_team_id is not None
+            and str(tm.fhm_team_id) not in team_fhm_ids
+        ):
             continue
         from app.services.record_stat_adjustments import LINE_SKATER, apply_career_line_overrides
 
@@ -291,7 +298,9 @@ def _load_goalie_rows_merged(
 
     players_seen: dict[int, Player] = {}
     for (pid, sy, tk), ln in best.items():
-        if team_fhm_ids is not None and (not ln.team_fhm_id or str(ln.team_fhm_id) not in team_fhm_ids):
+        if team_fhm_ids is not None and (
+            ln.team_fhm_id is None or str(ln.team_fhm_id) not in team_fhm_ids
+        ):
             continue
         career_keys.add((pid, sy, tk))
         pl = players_seen.get(pid)
@@ -304,7 +313,12 @@ def _load_goalie_rows_merged(
         tm = teams_by_id.get(int(ln.team_id)) if ln.team_id is not None else None
         if tm is None and ln.team_fhm_id is not None:
             tm = teams_by_fhm.get(int(ln.team_fhm_id))
-        if team_fhm_ids is not None and tm is not None and tm.fhm_team_id and str(tm.fhm_team_id) not in team_fhm_ids:
+        if (
+            team_fhm_ids is not None
+            and tm is not None
+            and tm.fhm_team_id is not None
+            and str(tm.fhm_team_id) not in team_fhm_ids
+        ):
             continue
         from app.services.record_stat_adjustments import LINE_GOALIE, apply_career_line_overrides
 

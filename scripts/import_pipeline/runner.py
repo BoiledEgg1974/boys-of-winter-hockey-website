@@ -1095,7 +1095,7 @@ def import_history_all_stars(raw_dir: Path, app) -> int:
 
 
 def import_trade_log(raw_dir: Path, app) -> int:
-    """Import ``trades.csv`` (replace-all).
+    """Import ``trades.csv`` (replace-all for CSV rows only; manual entries are preserved).
 
     Columns (normalized headers):
     - ``trade_date`` / ``date``: trade date (ISO or FHM date string).
@@ -1108,7 +1108,7 @@ def import_trade_log(raw_dir: Path, app) -> int:
     if not path.is_file():
         return 0
     df = read_csv_normalized(path)
-    db.session.execute(delete(TradeLogEntry))
+    db.session.execute(delete(TradeLogEntry).where(TradeLogEntry.source == "csv"))
     commit_with_sqlite_retry(db.session)
     n = 0
     for _, row in df.iterrows():

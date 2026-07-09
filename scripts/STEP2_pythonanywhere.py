@@ -633,25 +633,35 @@ def _deploy_ovr_baseline_json_name(slug: str) -> str:
     return f".deploy_ovr_baselines_{slug}.json"
 
 
+def _deploy_trade_log_json_name(slug: str) -> str:
+    return f".deploy_trade_log_{slug}.json"
+
+
 def build_capture_live_ovr_baselines_script(
     remote_project: str,
     venv_bin: str,
     slugs: list[str],
 ) -> str:
-    """SSH script: snapshot live OVR, then export baselines JSON keyed by fhm_player_id."""
+    """SSH script: snapshot live OVR and manual trade log rows before DB upload."""
     rp = shlex.quote(remote_project.rstrip("/"))
     act = shlex.quote(f"{venv_bin.rstrip('/')}/activate")
     py = shlex.quote(f"{venv_bin.rstrip('/')}/python")
     snap = shlex.quote(f"{remote_project.rstrip('/')}/scripts/snapshot_ovr_baseline.py")
     transfer = shlex.quote(f"{remote_project.rstrip('/')}/scripts/ovr_baseline_transfer.py")
+    trade_transfer = shlex.quote(f"{remote_project.rstrip('/')}/scripts/trade_log_transfer.py")
     parts = ["set -euo pipefail", f"cd {rp}", f". {act}"]
     for slug in slugs:
-        out_name = _deploy_ovr_baseline_json_name(slug)
+        ovr_out = _deploy_ovr_baseline_json_name(slug)
+        trade_out = _deploy_trade_log_json_name(slug)
         parts.append(f"export LEAGUE_SLUG={shlex.quote(slug)}")
         parts.append(f"{py} {snap}")
         parts.append(
             f"{py} {transfer} export --slug {shlex.quote(slug)} "
-            f"--out {shlex.quote(f'instance/{out_name}')}"
+            f"--out {shlex.quote(f'instance/{ovr_out}')}"
+        )
+        parts.append(
+            f"{py} {trade_transfer} export --slug {shlex.quote(slug)} "
+            f"--out {shlex.quote(f'instance/{trade_out}')}"
         )
     return "; ".join(parts)
 
@@ -1044,6 +1054,7 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
         print(f"  {slug}: {db_path.name} ({size_mb:.1f} MB) -> {remote_rel}")
 
     baseline_dir = local_root / "instance" / ".deploy_ovr_baselines"
+    trade_log_dir = local_root / "instance" / ".deploy_trade_logs"
     capture_script = build_capture_live_ovr_baselines_script(remote_base, ns.venv_bin, slugs)
     staged_db_rels = tuple(remote_rel for _slug, _db_path, remote_rel in db_targets)
     post_upload_script = build_post_db_upload_script(
@@ -1058,11 +1069,20 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
         print("--- would download live baseline JSON ---")
         for slug in slugs:
             print(f"would download instance/{_deploy_ovr_baseline_json_name(slug)}")
+        print("--- would download live trade log JSON ---")
+        for slug in slugs:
+            print(f"would download instance/{_deploy_trade_log_json_name(slug)}")
         print("--- would merge live baselines into local DBs ---")
         for slug in slugs:
             print(
                 f"would run: {sys.executable} scripts/ovr_baseline_transfer.py import "
                 f"--slug {slug} --in instance/.deploy_ovr_baselines/{_deploy_ovr_baseline_json_name(slug)}"
+            )
+        print("--- would merge live trade logs into local DBs ---")
+        for slug in slugs:
+            print(
+                f"would run: {sys.executable} scripts/trade_log_transfer.py import "
+                f"--slug {slug} --in instance/.deploy_trade_logs/{_deploy_trade_log_json_name(slug)}"
             )
         print("--- would upload league databases ---")
         for _slug, db_path, remote_rel in db_targets:
@@ -1083,6 +1103,7 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
             (
                 "scripts/ovr_baseline_transfer.py",
                 "scripts/snapshot_ovr_baseline.py",
+                "scripts/trade_log_transfer.py",
                 "scripts/repair_league_sqlite.py",
             ),
             remote_base,
@@ -1097,10 +1118,18 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
         run_remote_bash(client, capture_script)
 
         baseline_dir.mkdir(parents=True, exist_ok=True)
+        trade_log_dir.mkdir(parents=True, exist_ok=True)
         print("--- download live baseline JSON ---")
         for slug in slugs:
             remote_json = f"{remote_base}/instance/{_deploy_ovr_baseline_json_name(slug)}"
             local_json = baseline_dir / _deploy_ovr_baseline_json_name(slug)
+            sftp.get(remote_json, str(local_json))
+            print(f"download {remote_json} -> {local_json.relative_to(local_root).as_posix()}")
+
+        print("--- download live trade log JSON ---")
+        for slug in slugs:
+            remote_json = f"{remote_base}/instance/{_deploy_trade_log_json_name(slug)}"
+            local_json = trade_log_dir / _deploy_trade_log_json_name(slug)
             sftp.get(remote_json, str(local_json))
             print(f"download {remote_json} -> {local_json.relative_to(local_root).as_posix()}")
 
@@ -1110,6 +1139,17 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
             local_json = baseline_dir / _deploy_ovr_baseline_json_name(slug)
             subprocess.run(
                 [sys.executable, str(transfer), "import", "--slug", slug, "--in", str(local_json)],
+                cwd=str(local_root),
+                check=True,
+            )
+            sqlite_wal_checkpoint(resolve_league_db_path(slug, db_targets))
+
+        print("--- merge live trade logs into local databases ---")
+        trade_transfer = local_root / "scripts" / "trade_log_transfer.py"
+        for slug in slugs:
+            local_json = trade_log_dir / _deploy_trade_log_json_name(slug)
+            subprocess.run(
+                [sys.executable, str(trade_transfer), "import", "--slug", slug, "--in", str(local_json)],
                 cwd=str(local_root),
                 check=True,
             )

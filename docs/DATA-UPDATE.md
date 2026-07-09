@@ -136,6 +136,18 @@ python scripts/repair_league_sqlite.py --check --league bowl-historical
 
 Reload the web app. CSVs on the server are optional after this (the site reads SQLite). Re-upload CSVs only when you need to refresh data again.
 
+**Manual trade log entries** (admin-entered history) live only in the league SQLite file. They are **not** rebuilt by FHM import. If you delete `instance/bowl-historical.db` locally and upload it with `deploy-db`, you will overwrite live manual trades unless you preserve them first.
+
+- `deploy-db` now exports live trade rows from the server and merges them into your local DB before upload (same pattern as OVR baselines).
+- To recover missing trades from an older copy on disk, run:
+
+```powershell
+python scripts/trade_log_transfer.py restore-candidates --slug bowl-historical --dry-run
+python scripts/trade_log_transfer.py restore-candidates --slug bowl-historical
+```
+
+On PythonAnywhere, also check `instance/league2.db` (legacy BOWL-Historical filename) and `instance/league_backups/bowl-historical/` for backups that may still contain `trade_log_entries`.
+
 **BOWL Six** scoring runs automatically after each import (and when commissioners or GMs open the Control Center or BOWL Six hub): locked slates pick up points from completed RS games; when every RS game in the week is final, the slate finalizes (AP + GM notifications). If box scores change after a week is already scored, use **Re-score slate** in Control Center (type `RESCORE` to confirm).
 
 ## Copy from FHM saved-game folders (Windows)

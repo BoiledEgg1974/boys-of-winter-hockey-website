@@ -1,6 +1,6 @@
 <section class="card" aria-labelledby="team-trades-h">
   <h2 id="team-trades-h" class="team-mc-band__title">Trade history</h2>
-  <p class="muted">Trades involving {{ team.full_display_name() }} from the Trade Tool and admin-added manual history.</p>
+  <p class="muted">Trades involving {{ team.full_display_name() }} from the Trade Tool, CSV imports, and admin-added manual history.</p>
   {% if team_trade_log_rows %}
   <div class="team-trade-log-list">
     {% for row in team_trade_log_rows %}

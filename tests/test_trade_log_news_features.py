@@ -61,6 +61,39 @@ class ManualTradeLogSummaryTest(unittest.TestCase):
 
 
 class TradeLogPromptTest(unittest.TestCase):
+    def test_trade_log_card_renders_receives_headings(self) -> None:
+        row = TradeLogRow(
+            sort_at=datetime(2026, 6, 2),
+            trade_date=date(2026, 6, 2),
+            team_a=None,
+            team_b=None,
+            title="Trade: Oakland Seals ↔ Boston Bruins",
+            body=(
+                "Oakland Seals sends:\n"
+                "G Gary Simmons\n\n"
+                "Boston Bruins sends:\n"
+                "D Pierre Bouchard"
+            ),
+            source="manual",
+            team_a_label="Oakland Seals",
+            team_b_label="Boston Bruins",
+            entry_id=468,
+            log_key="manual:468",
+        )
+        app = create_app(make_league_config("bowl-historical"))
+        with app.test_request_context("/trade-log"):
+            from flask import render_template_string
+
+            html = render_template_string(
+                "{% include '_trade_log_card.html' %}",
+                row=row,
+                trade_log_card_view=trade_log_card_view,
+                trade_log_source_label=trade_log_source_label,
+            )
+        self.assertIn("Oakland Seals Receives:", html)
+        self.assertIn("Boston Bruins Receives:", html)
+        self.assertNotIn("Oakland Seals Trade:", html)
+
     def test_card_view_turns_sends_blocks_into_acquired_columns(self) -> None:
         row = TradeLogRow(
             sort_at=datetime(2025, 11, 29, 10, 8, 35),
@@ -182,7 +215,7 @@ class TradeLogIntegrationTest(unittest.TestCase):
                 db.session.delete(db.session.get(TradeLogEntry, eid))
                 db.session.commit()
 
-    def test_csv_entries_are_not_public_trade_log_rows(self) -> None:
+    def test_csv_entries_appear_in_trade_log_rows(self) -> None:
         app = create_app(make_league_config("bowl-historical"))
         with app.app_context():
             teams = list(db.session.scalars(select(Team).limit(2)).all())
@@ -192,9 +225,9 @@ class TradeLogIntegrationTest(unittest.TestCase):
                 trade_date=date(1999, 2, 1),
                 team_a_id=int(teams[0].id),
                 team_b_id=int(teams[1].id),
-                summary="Test CSV trade should be hidden",
+                summary="Test CSV trade should be visible",
                 source="csv",
-                external_id="unit-test-hidden-csv",
+                external_id="unit-test-visible-csv",
             )
             db.session.add(ent)
             db.session.commit()
@@ -202,7 +235,15 @@ class TradeLogIntegrationTest(unittest.TestCase):
             try:
                 slug = str(app.config.get("LEAGUE_SLUG") or "")
                 rows = trade_log_rows(db.session, db.session, league_slug=slug, limit=500)
-                self.assertFalse([r for r in rows if r.entry_id == eid])
+                match = [r for r in rows if r.entry_id == eid and r.source == "csv"]
+                self.assertTrue(match)
+                self.assertIn("Test CSV trade should be visible", match[0].body)
+                resolved = resolve_trade_log_row(
+                    db.session, db.session, league_slug=slug, source="csv", row_id=eid
+                )
+                self.assertIsNotNone(resolved)
+                assert resolved is not None
+                self.assertEqual(resolved.entry_id, eid)
             finally:
                 db.session.delete(db.session.get(TradeLogEntry, eid))
                 db.session.commit()

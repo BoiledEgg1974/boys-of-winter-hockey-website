@@ -221,7 +221,7 @@ def resolve_trade_log_row(
     """Resolve a trade-log row by ``source`` + id (``entry_id`` or ``article_id``)."""
     src = (source or "").strip().lower()
     rid = int(row_id)
-    if src == "manual":
+    if src == "manual" or src == "csv":
         ent = league_session.get(TradeLogEntry, rid)
         if not ent or (ent.source or "").strip().lower() != src:
             return None
@@ -347,7 +347,7 @@ def trade_log_rows(
     rows: list[TradeLogRow] = []
 
     for ent in league_session.scalars(
-        select(TradeLogEntry).where(TradeLogEntry.source == "manual").order_by(
+        select(TradeLogEntry).where(TradeLogEntry.source.in_(("manual", "csv"))).order_by(
             TradeLogEntry.trade_date.desc().nulls_last(), TradeLogEntry.id.desc()
         )
     ).all():

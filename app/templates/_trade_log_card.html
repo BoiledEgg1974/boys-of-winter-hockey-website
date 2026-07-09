@@ -21,7 +21,7 @@
     <section class="trade-log-modern-card__side">
       <h2 class="trade-log-modern-card__team-heading">
         {% if logo_a %}<img class="trade-log-modern-card__logo" src="{{ logo_a }}" alt="">{% endif %}
-        <span>{{ view.team_a.team_label }} Trade:</span>
+        <span>{{ view.team_a.team_label }} Receives:</span>
       </h2>
       {% if view.team_a.acquired %}
       <ul class="trade-log-modern-card__assets">
@@ -37,7 +37,7 @@
     <section class="trade-log-modern-card__side">
       <h2 class="trade-log-modern-card__team-heading">
         {% if logo_b %}<img class="trade-log-modern-card__logo" src="{{ logo_b }}" alt="">{% endif %}
-        <span>{{ view.team_b.team_label }} Trade:</span>
+        <span>{{ view.team_b.team_label }} Receives:</span>
       </h2>
       {% if view.team_b.acquired %}
       <ul class="trade-log-modern-card__assets">

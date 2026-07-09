@@ -89,6 +89,14 @@ def _year_label(start_year: int) -> str:
     return f"{start_year}-{(start_year + 1) % 100:02d}"
 
 
+def _team_fhm_str(team_fhm_id: object | None) -> str | None:
+    """Normalize FHM team id for grouping; preserves ``0`` (Montreal Canadiens)."""
+    if team_fhm_id is None:
+        return None
+    s = str(team_fhm_id).strip()
+    return s or None
+
+
 def _conf_div_names(conf_id: int | None, div_id: int | None) -> tuple[str | None, str | None]:
     if conf_id is None:
         return None, None
@@ -174,8 +182,8 @@ def _aggregate_career_year(
             PlayerGoalieCareerLine.career_source.in_(_CAREER_RS),
         )
     ).all():
-        fhm = str(ln.team_fhm_id or "").strip()
-        if not fhm:
+        fhm = _team_fhm_str(ln.team_fhm_id)
+        if fhm is None:
             continue
         t = ensure(fhm)
         t.w += int(ln.wins or 0)
@@ -191,8 +199,8 @@ def _aggregate_career_year(
             PlayerSkaterCareerLine.career_source.in_(_CAREER_RS),
         )
     ).all():
-        fhm = str(ln.team_fhm_id or "").strip()
-        if not fhm:
+        fhm = _team_fhm_str(ln.team_fhm_id)
+        if fhm is None:
             continue
         t = ensure(fhm)
         t.gf += int(ln.goals or 0)
@@ -208,8 +216,8 @@ def _aggregate_career_year(
             PlayerSkaterCareerLine.career_source.in_(_CAREER_PO),
         )
     ).all():
-        fhm = str(ln.team_fhm_id or "").strip()
-        if not fhm:
+        fhm = _team_fhm_str(ln.team_fhm_id)
+        if fhm is None:
             continue
         t = ensure(fhm)
         t.max_po_gp = max(t.max_po_gp, int(ln.gp or 0))

@@ -8,6 +8,7 @@ from app.services.team_season_record_sync import (
     _TeamAgg,
     _csv_covered_year_labels,
     _purge_import_rows_for_csv_seasons,
+    _team_fhm_str,
     _year_label,
 )
 
@@ -30,6 +31,12 @@ class TeamSeasonRecordSyncTests(unittest.TestCase):
         self.assertEqual(agg.gp, 82)
         self.assertEqual(agg.pts, 107)
         self.assertEqual(agg.goal_diff, 50)
+
+    def test_team_fhm_str_preserves_zero(self) -> None:
+        self.assertEqual(_team_fhm_str(0), "0")
+        self.assertEqual(_team_fhm_str("0"), "0")
+        self.assertIsNone(_team_fhm_str(None))
+        self.assertIsNone(_team_fhm_str(""))
 
     def test_csv_covered_labels_and_purge(self) -> None:
         class _FakeSession:

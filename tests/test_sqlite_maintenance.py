@@ -61,6 +61,13 @@ class SqliteMaintenanceTest(unittest.TestCase):
         self.assertTrue(healthy)
         self.assertEqual(msg, "ok")
 
+    def test_prepare_sqlite_database_ok_when_file_missing(self) -> None:
+        db_path = Path(self._fresh_db())
+        db_path.unlink()
+        healthy, msg = prepare_sqlite_database(db_path, auto_repair=False)
+        self.assertTrue(healthy)
+        self.assertEqual(msg, "missing")
+
     def test_rebuild_player_fts_recovers_corrupt_vtable(self) -> None:
         db_path = Path(self._fresh_db())
         engine = create_engine(f"sqlite:///{db_path.as_posix()}")

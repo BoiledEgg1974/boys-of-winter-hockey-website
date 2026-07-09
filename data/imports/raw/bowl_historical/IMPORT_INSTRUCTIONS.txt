@@ -16,6 +16,8 @@ If this folder contains **team_data.csv**, the importer uses FHM layout automati
       player_skater_retired_career_stats_rs.csv / _ps.csv / _po.csv — retired skater
       player_goalie_career_stats_rs.csv / _ps.csv / _po.csv — active goalie career
       player_goalie_retired_career_stats_rs.csv / _ps.csv / _po.csv — retired goalie
+  - Retired career CSVs may include duplicate rows for the same player/season/team/league;
+    the importer dedupes them automatically (last row wins).
 
   - Player page **Game Log** tables use only **boxscore_skater_summary.csv** and **boxscore_goalie_summary.csv**. Career CSVs do not contain per-game lines. If a player shows career totals but an empty game log, FHM did not export that player’s per-game rows—re-export from FHM if a fuller box score dump is available.
 
@@ -30,8 +32,12 @@ After major schema updates, reset the database for that league then re-import wi
   set LEAGUE_SLUG=bowl-historical
   python scripts\reset_db.py
   python scripts\import_data.py
+  python scripts\reimport_history_sheet_data.py bowl-historical
 
-(PowerShell: $env:LEAGUE_SLUG='bowl-historical' before each command.)
+(PowerShell: $env:LEAGUE_SLUG='bowl-historical' before import commands.)
+
+import_data.py runs post-import safeguards (statistics + career-line checks). If it exits
+with an error, fix the log and re-run before uploading instance\bowl-historical.db.
 
 Windows shortcuts (set LEAGUE_SLUG for you): **scripts\import_historical.cmd**, **import_fantasy.cmd**, **import_cap.cmd**. To run all three in order and stop on failure: **scripts\import_all.cmd**.
 

@@ -82,20 +82,29 @@ def _sync_team_logos_from_raw(raw_dir: Path, app) -> int:
     return 0
 
 
+_POST_IMPORT_SAFEGUARD_MODULES: tuple[str, ...] = (
+    "tests.test_depth_chart_org_guard",
+    "tests.test_import_fhm_safeguards",
+)
+
+
 def _run_post_import_safeguards() -> None:
     """Run regression checks that protect UI data integrity after imports."""
-    mod_name = "tests.test_depth_chart_org_guard"
-    if importlib.util.find_spec(mod_name) is None:
-        log.warning(
-            "Skipping post-import safeguard %s (module not found). "
-            "Deploy the `tests/` package with your app if you want this check on the server.",
-            mod_name,
-        )
-        return
-    suite = unittest.defaultTestLoader.loadTestsFromName(mod_name)
-    result = unittest.TextTestRunner(verbosity=1).run(suite)
-    if not result.wasSuccessful():
-        raise RuntimeError(f"Post-import safeguard failed: {mod_name}")
+    failures: list[str] = []
+    for mod_name in _POST_IMPORT_SAFEGUARD_MODULES:
+        if importlib.util.find_spec(mod_name) is None:
+            log.warning(
+                "Skipping post-import safeguard %s (module not found). "
+                "Deploy the `tests/` package with your app if you want this check on the server.",
+                mod_name,
+            )
+            continue
+        suite = unittest.defaultTestLoader.loadTestsFromName(mod_name)
+        result = unittest.TextTestRunner(verbosity=1).run(suite)
+        if not result.wasSuccessful():
+            failures.append(mod_name)
+    if failures:
+        raise RuntimeError(f"Post-import safeguard(s) failed: {', '.join(failures)}")
 
 
 def _slug(name: str, abbrev: str) -> str:
@@ -1252,7 +1261,9 @@ def run_import(raw_dir: Path | None = None, *, repair_sqlite: bool = False) -> i
                 " (or re-run import with --repair-sqlite)" if not auto_repair else "",
             )
             return 1
-        if integrity != "ok":
+        if integrity == "missing":
+            log.info("SQLite database does not exist yet; import will create %s", db_path)
+        elif integrity != "ok":
             log.info("SQLite database repaired before import: %s", integrity)
 
     if league_by_slug(slug):
@@ -1274,6 +1285,10 @@ def run_import(raw_dir: Path | None = None, *, repair_sqlite: bool = False) -> i
         return 1
     _sync_team_logos_from_raw(raw, app)
     with app.app_context():
+        if db_uri.startswith("sqlite:///"):
+            from app.sqlite_import import configure_sqlite_for_bulk_import
+
+            configure_sqlite_for_bulk_import(db.engine, db_path=resolve_league_sqlite_path(slug))
         snapshot_overall_baselines_before_import(app)
         from scripts.import_pipeline.fhm_loader import is_fhm_export_dir, run_fhm_import
 

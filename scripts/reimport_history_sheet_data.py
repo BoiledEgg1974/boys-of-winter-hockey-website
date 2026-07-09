@@ -25,6 +25,7 @@ from app.config import make_league_config, resolve_league_sqlite_path
 from app.db_utils import prepare_sqlite_database
 from scripts.import_pipeline.runner import (
     _history_awards_csv_path,
+    _run_post_import_safeguards,
     import_history_all_stars,
     import_history_awards,
 )
@@ -93,6 +94,7 @@ def main() -> None:
             f"reimport_history_sheet_data {slug}: "
             f"history_awards={n_aw} row(s); history_all_stars={n_as} row(s)."
         )
+        _run_post_import_safeguards()
 
 
 if __name__ == "__main__":

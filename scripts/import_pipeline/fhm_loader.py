@@ -952,7 +952,26 @@ def import_skater_segment(
         if n % 400 == 0:
             commit_with_sqlite_retry(db.session)
     commit_with_sqlite_retry(db.session)
+    if n == 0:
+        _warn_zero_season_segment_import(path, fname, len(df))
     return n
+
+
+def _warn_zero_season_segment_import(path: Path, fname: str, csv_rows: int) -> None:
+    if not path.is_file():
+        return
+    if csv_rows == 0:
+        log.warning(
+            "%s is present but has no data rows — /statistics will be empty for this split "
+            "until you re-export player season stats from FHM.",
+            fname,
+        )
+    else:
+        log.warning(
+            "%s has %d CSV rows but 0 rows imported (check player/team id mappings).",
+            fname,
+            csv_rows,
+        )
 
 
 def import_boxscore_penalties(
@@ -1048,7 +1067,28 @@ def import_goalie_segment(
         )
         n += 1
     commit_with_sqlite_retry(db.session)
+    if n == 0:
+        _warn_zero_season_segment_import(path, fname, len(df))
     return n
+
+
+def _career_line_key(
+    player_id: int,
+    season_year: int,
+    team_fhm_id: int,
+    league_fhm_id: int,
+    career_source: str,
+) -> tuple[int, int, int, int, str]:
+    return (player_id, season_year, team_fhm_id, league_fhm_id, career_source)
+
+
+def _flush_career_lines(lines: list, batch_size: int = 500) -> None:
+    with db.session.no_autoflush:
+        for i, line in enumerate(lines):
+            db.session.add(line)
+            if (i + 1) % batch_size == 0:
+                commit_with_sqlite_retry(db.session)
+    commit_with_sqlite_retry(db.session)
 
 
 def _goalie_career_minutes(raw) -> int | None:
@@ -1065,36 +1105,6 @@ def _goalie_career_minutes(raw) -> int | None:
     return v // 100
 
 
-def _career_line_key(
-    player_id: int,
-    season_year: int,
-    team_fhm_id: int,
-    league_fhm_id: int,
-    career_source: str,
-) -> tuple[int, int, int, int, str]:
-    return (player_id, season_year, team_fhm_id, league_fhm_id, career_source)
-
-
-def _skater_career_index(career_source: str) -> dict[tuple[int, int, int, int, str], PlayerSkaterCareerLine]:
-    rows = db.session.scalars(
-        select(PlayerSkaterCareerLine).where(PlayerSkaterCareerLine.career_source == career_source)
-    ).all()
-    return {
-        _career_line_key(r.player_id, r.season_year, r.team_fhm_id, r.league_fhm_id, r.career_source): r
-        for r in rows
-    }
-
-
-def _goalie_career_index(career_source: str) -> dict[tuple[int, int, int, int, str], PlayerGoalieCareerLine]:
-    rows = db.session.scalars(
-        select(PlayerGoalieCareerLine).where(PlayerGoalieCareerLine.career_source == career_source)
-    ).all()
-    return {
-        _career_line_key(r.player_id, r.season_year, r.team_fhm_id, r.league_fhm_id, r.career_source): r
-        for r in rows
-    }
-
-
 def import_career_skater_file(
     raw_dir: Path,
     filename: str,
@@ -1105,57 +1115,62 @@ def import_career_skater_file(
     path = raw_dir / filename
     if not path.exists():
         return 0
-    df = read_csv_normalized(path)
-    index = _skater_career_index(career_source)
-    n = 0
-    with db.session.no_autoflush:
-        for _, row in df.iterrows():
-            r = row.to_dict()
-            pid = to_int(cell_val(r, "playerid"))
-            year = to_int(cell_val(r, "year"))
-            tm_fhm = to_int(cell_val(r, "team_id", "teamid"))
-            lid = to_int(cell_val(r, "league_id", "leagueid"))
-            if pid is None or year is None or tm_fhm is None or lid is None:
-                continue
-            if pid not in players_fhm:
-                continue
-            player_id = players_fhm[pid]
-            key = _career_line_key(player_id, year, tm_fhm, lid, career_source)
-            cl = index.get(key)
-            if not cl:
-                cl = PlayerSkaterCareerLine(
-                    player_id=player_id,
-                    season_year=year,
-                    team_fhm_id=tm_fhm,
-                    league_fhm_id=lid,
-                    career_source=career_source,
-                )
-                db.session.add(cl)
-                index[key] = cl
-            cl.team_id = teams_fhm.get(tm_fhm)
-            cl.gp = to_int(cell_val(r, "gp"), 0) or 0
-            cl.goals = to_int(cell_val(r, "g"), 0) or 0
-            cl.assists = to_int(cell_val(r, "a"), 0) or 0
-            cl.pim = to_int(cell_val(r, "pim"), 0) or 0
-            cl.plus_minus = to_int(cell_val(r, "+_", "+__", "plus_minus", "pm"))
-            cl.pp_goals = to_int(cell_val(r, "pp_g"))
-            cl.pp_assists = to_int(cell_val(r, "pp_a"))
-            cl.sh_goals = to_int(cell_val(r, "sh_g"))
-            cl.sh_assists = to_int(cell_val(r, "sh_a"))
-            cl.gwg = to_int(cell_val(r, "gwg"))
-            cl.shots = to_int(cell_val(r, "sog"))
-            cl.hits = to_int(cell_val(r, "hit"))
-            cl.gva = to_int(cell_val(r, "gva"))
-            cl.tka = to_int(cell_val(r, "tka"))
-            cl.sb = to_int(cell_val(r, "sb"))
-            cl.fights = to_int(cell_val(r, "fights"))
-            cl.fights_won = to_int(cell_val(r, "fights_won"))
-            cl.game_rating = to_float(cell_val(r, "gr", "game_rating"))
-            n += 1
-            if n % 500 == 0:
-                commit_with_sqlite_retry(db.session)
+    db.session.execute(
+        delete(PlayerSkaterCareerLine).where(PlayerSkaterCareerLine.career_source == career_source)
+    )
     commit_with_sqlite_retry(db.session)
-    return n
+    df = read_csv_normalized(path)
+    pending: dict[tuple[int, int, int, int, str], PlayerSkaterCareerLine] = {}
+    dupes = 0
+    for _, row in df.iterrows():
+        r = row.to_dict()
+        pid = to_int(cell_val(r, "playerid"))
+        year = to_int(cell_val(r, "year"))
+        tm_fhm = to_int(cell_val(r, "team_id", "teamid"))
+        lid = to_int(cell_val(r, "league_id", "leagueid"))
+        if pid is None or year is None or tm_fhm is None or lid is None:
+            continue
+        if pid not in players_fhm:
+            continue
+        player_id = players_fhm[pid]
+        key = _career_line_key(player_id, year, tm_fhm, lid, career_source)
+        if key in pending:
+            dupes += 1
+        pending[key] = PlayerSkaterCareerLine(
+            player_id=player_id,
+            season_year=year,
+            team_fhm_id=tm_fhm,
+            league_fhm_id=lid,
+            career_source=career_source,
+            team_id=teams_fhm.get(tm_fhm),
+            gp=to_int(cell_val(r, "gp"), 0) or 0,
+            goals=to_int(cell_val(r, "g"), 0) or 0,
+            assists=to_int(cell_val(r, "a"), 0) or 0,
+            pim=to_int(cell_val(r, "pim"), 0) or 0,
+            plus_minus=to_int(cell_val(r, "+_", "+__", "plus_minus", "pm")),
+            pp_goals=to_int(cell_val(r, "pp_g")),
+            pp_assists=to_int(cell_val(r, "pp_a")),
+            sh_goals=to_int(cell_val(r, "sh_g")),
+            sh_assists=to_int(cell_val(r, "sh_a")),
+            gwg=to_int(cell_val(r, "gwg")),
+            shots=to_int(cell_val(r, "sog")),
+            hits=to_int(cell_val(r, "hit")),
+            gva=to_int(cell_val(r, "gva")),
+            tka=to_int(cell_val(r, "tka")),
+            sb=to_int(cell_val(r, "sb")),
+            fights=to_int(cell_val(r, "fights")),
+            fights_won=to_int(cell_val(r, "fights_won")),
+            game_rating=to_float(cell_val(r, "gr", "game_rating")),
+        )
+    if dupes:
+        log.warning(
+            "Deduped %d duplicate skater career lines in %s (kept last row per player/season/team/league).",
+            dupes,
+            filename,
+        )
+    lines = list(pending.values())
+    _flush_career_lines(lines)
+    return len(lines)
 
 
 def import_career_goalie_file(
@@ -1168,50 +1183,55 @@ def import_career_goalie_file(
     path = raw_dir / filename
     if not path.exists():
         return 0
-    df = read_csv_normalized(path)
-    index = _goalie_career_index(career_source)
-    n = 0
-    with db.session.no_autoflush:
-        for _, row in df.iterrows():
-            r = row.to_dict()
-            pid = to_int(cell_val(r, "playerid"))
-            year = to_int(cell_val(r, "year"))
-            tm_fhm = to_int(cell_val(r, "team_id", "teamid"))
-            lid = to_int(cell_val(r, "league_id", "leagueid"))
-            if pid is None or year is None or tm_fhm is None or lid is None:
-                continue
-            if pid not in players_fhm:
-                continue
-            player_id = players_fhm[pid]
-            key = _career_line_key(player_id, year, tm_fhm, lid, career_source)
-            gl = index.get(key)
-            if not gl:
-                gl = PlayerGoalieCareerLine(
-                    player_id=player_id,
-                    season_year=year,
-                    team_fhm_id=tm_fhm,
-                    league_fhm_id=lid,
-                    career_source=career_source,
-                )
-                db.session.add(gl)
-                index[key] = gl
-            gl.team_id = teams_fhm.get(tm_fhm)
-            gl.gp = to_int(cell_val(r, "gp"), 0) or 0
-            gl.games_started = to_int(cell_val(r, "gs"))
-            gl.minutes_played = _goalie_career_minutes(cell_val(r, "min"))
-            gl.wins = to_int(cell_val(r, "w"), 0) or 0
-            gl.losses = to_int(cell_val(r, "l"), 0) or 0
-            gl.ties_otl = to_int(cell_val(r, "t_ol", "tol", "otl"))
-            gl.empty_net_goals = to_int(cell_val(r, "eng"))
-            gl.shutouts = to_int(cell_val(r, "so"), 0) or 0
-            gl.goals_against = to_int(cell_val(r, "ga"), 0) or 0
-            gl.shots_against = to_int(cell_val(r, "sa"), 0) or 0
-            gl.game_rating = to_float(cell_val(r, "gr"))
-            n += 1
-            if n % 500 == 0:
-                commit_with_sqlite_retry(db.session)
+    db.session.execute(
+        delete(PlayerGoalieCareerLine).where(PlayerGoalieCareerLine.career_source == career_source)
+    )
     commit_with_sqlite_retry(db.session)
-    return n
+    df = read_csv_normalized(path)
+    pending: dict[tuple[int, int, int, int, str], PlayerGoalieCareerLine] = {}
+    dupes = 0
+    for _, row in df.iterrows():
+        r = row.to_dict()
+        pid = to_int(cell_val(r, "playerid"))
+        year = to_int(cell_val(r, "year"))
+        tm_fhm = to_int(cell_val(r, "team_id", "teamid"))
+        lid = to_int(cell_val(r, "league_id", "leagueid"))
+        if pid is None or year is None or tm_fhm is None or lid is None:
+            continue
+        if pid not in players_fhm:
+            continue
+        player_id = players_fhm[pid]
+        key = _career_line_key(player_id, year, tm_fhm, lid, career_source)
+        if key in pending:
+            dupes += 1
+        pending[key] = PlayerGoalieCareerLine(
+            player_id=player_id,
+            season_year=year,
+            team_fhm_id=tm_fhm,
+            league_fhm_id=lid,
+            career_source=career_source,
+            team_id=teams_fhm.get(tm_fhm),
+            gp=to_int(cell_val(r, "gp"), 0) or 0,
+            games_started=to_int(cell_val(r, "gs")),
+            minutes_played=_goalie_career_minutes(cell_val(r, "min")),
+            wins=to_int(cell_val(r, "w"), 0) or 0,
+            losses=to_int(cell_val(r, "l"), 0) or 0,
+            ties_otl=to_int(cell_val(r, "t_ol", "tol", "otl")),
+            empty_net_goals=to_int(cell_val(r, "eng")),
+            shutouts=to_int(cell_val(r, "so"), 0) or 0,
+            goals_against=to_int(cell_val(r, "ga"), 0) or 0,
+            shots_against=to_int(cell_val(r, "sa"), 0) or 0,
+            game_rating=to_float(cell_val(r, "gr")),
+        )
+    if dupes:
+        log.warning(
+            "Deduped %d duplicate goalie career lines in %s (kept last row per player/season/team/league).",
+            dupes,
+            filename,
+        )
+    lines = list(pending.values())
+    _flush_career_lines(lines)
+    return len(lines)
 
 
 def import_contracts(raw_dir: Path, players_fhm: dict[int, int]) -> int:

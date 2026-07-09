@@ -508,6 +508,9 @@ def recover_sqlite_database(path: Path) -> Path:
 def prepare_sqlite_database(path: Path, *, auto_repair: bool = False) -> tuple[bool, str]:
     """Checkpoint WAL, verify integrity, and optionally rebuild a corrupt database."""
     db_path = Path(path).resolve()
+    if not db_path.is_file():
+        # Fresh install / after reset_db — import will create schema via create_app().
+        return True, "missing"
     sqlite_wal_checkpoint(db_path)
     msg = sqlite_integrity_message(db_path)
     if msg.lower() == "ok":

@@ -36,6 +36,39 @@ League **URL slugs** (used in `LEAGUE_SLUG` and in URLs): `bowl-historical`, `bo
 
 The import rebuilds the player search index (FTS) and related pieces automatically.
 
+**Recommended per-league sequence** (all three leagues):
+
+```bash
+export LEAGUE_SLUG=bowl-fantasy   # or bowl-historical, bowl-cap
+python scripts/import_data.py
+python scripts/reimport_history_sheet_data.py bowl-fantasy
+```
+
+PowerShell: `$env:LEAGUE_SLUG='bowl-fantasy'` (swap slug per league).
+
+`import_data.py` loads the FHM bundle (season stats, career lines, standings, games, etc.). `reimport_history_sheet_data.py` reapplies League History award/all-star CSV overlays only; it does not touch player stats.
+
+After each step, **post-import safeguards** run automatically (see below). If import exits non-zero or safeguards fail, **do not upload** the SQLite file to production—fix the error and re-run.
+
+**League-specific notes:**
+
+| League | DB file | Career duplicate dedupe | Common stats issue |
+|--------|---------|-------------------------|-------------------|
+| bowl-historical | `bowl-historical.db` | Yes (retired career CSVs) | Import must complete without disk I/O errors |
+| bowl-fantasy | `bow.db` | Yes (active + retired career CSVs) | Same as historical |
+| bowl-cap | `league3.db` | Yes | `player_skater_stats_*.csv` must have **data rows** — header-only exports leave `/statistics` empty and safeguards will fail |
+
+### Post-import safeguards (automatic)
+
+At the end of `import_data.py` and `reimport_history_sheet_data.py`, the pipeline runs regression tests from `tests/`:
+
+- **Depth chart** — cross-team line players must not leak onto another team’s depth panel.
+- **FHM stats** — if the current season has games, `player_skater_stats` RS rows must exist and `/statistics` must not be empty; career-line tables must have no duplicate identity keys.
+
+FHM career CSVs sometimes contain duplicate `(player, season, team, league)` rows. The importer **dedupes these in memory** (last row wins) before insert, so `UNIQUE constraint failed: player_skater_career_lines` should not recur. Duplicate keys are logged as warnings during import.
+
+If safeguards fail on PythonAnywhere, ensure the `tests/` package is deployed with the app (same as local).
+
 ### `database is locked` during import
 
 SQLite allows only one writer at a time. On PythonAnywhere (or any host where the site stays up), **live web workers and the Discord bot** can hold read locks on the same `instance/<league>.db` while `import_data.py` runs. The importer retries commits automatically, but if the error persists:
@@ -73,6 +106,35 @@ python scripts/repair_league_sqlite.py --reset-snapshots --league bowl-cap
 ```
 
 Then re-run the import for that league. Player development trend charts rebuild from the next import onward; older snapshot history may be lost after a full `--repair`.
+
+### `disk I/O error` during import (PythonAnywhere)
+
+Repeated `sqlite3.OperationalError: disk I/O error` on commit — especially for **bowl-historical** — usually means the account is **out of disk space** or the import needs more temporary space than the host allows. Failed runs also leave corrupt DB files, WAL sidecars, and backups that consume quota.
+
+1. Check space: `df -h ~` and `du -sh instance/* instance/league_backups/*`.
+2. Free space: remove `instance/*.corrupt-*.bak`, old `instance/league_backups/<league>/` files, and stray `*.db-wal` / `*.db-shm` next to a broken DB.
+3. Reload the web app and pause the Discord bot before importing again.
+
+**Reliable workaround — build the DB on your PC, upload the file:**
+
+On your PC (project root):
+
+```powershell
+$env:LEAGUE_SLUG = 'bowl-historical'
+Remove-Item instance\bowl-historical.db* -ErrorAction SilentlyContinue
+python scripts\import_data.py bowl-historical
+python scripts\reimport_history_sheet_data.py bowl-historical
+python scripts\repair_league_sqlite.py --check --league bowl-historical
+```
+
+Upload `instance\bowl-historical.db` to PythonAnywhere (`instance/bowl-historical.db`), then on the server:
+
+```bash
+rm -f instance/bowl-historical.db-wal instance/bowl-historical.db-shm
+python scripts/repair_league_sqlite.py --check --league bowl-historical
+```
+
+Reload the web app. CSVs on the server are optional after this (the site reads SQLite). Re-upload CSVs only when you need to refresh data again.
 
 **BOWL Six** scoring runs automatically after each import (and when commissioners or GMs open the Control Center or BOWL Six hub): locked slates pick up points from completed RS games; when every RS game in the week is final, the slate finalizes (AP + GM notifications). If box scores change after a week is already scored, use **Re-score slate** in Control Center (type `RESCORE` to confirm).
 

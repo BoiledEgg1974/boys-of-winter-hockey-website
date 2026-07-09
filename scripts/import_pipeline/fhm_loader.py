@@ -6,13 +6,14 @@ import re
 from datetime import date
 from pathlib import Path
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 
 from app.models import (
     Draft,
     DraftPick,
     Game,
     GameGoalieStat,
+    GameRecordBaseline,
     GameSkaterStat,
     LeagueMeta,
     Player,
@@ -484,6 +485,50 @@ def import_team_season_stats(
     return n
 
 
+def _delete_games_cascade(game_ids: list[int]) -> None:
+    if not game_ids:
+        return
+    db.session.execute(
+        update(GameRecordBaseline)
+        .where(GameRecordBaseline.game_id.in_(game_ids))
+        .values(game_id=None)
+    )
+    for model in (GameSkaterStat, GameGoalieStat, ScoringEvent, PenaltyEvent):
+        db.session.execute(delete(model).where(model.game_id.in_(game_ids)))
+    db.session.execute(delete(Game).where(Game.id.in_(game_ids)))
+
+
+def _prune_stale_fhm_schedule_games(
+    season: Season,
+    league_filter: int,
+    active_fhm_game_ids: set[str],
+) -> int:
+    """Drop main-league games no longer listed in the current ``schedules.csv`` export."""
+    stale = db.session.scalars(
+        select(Game).where(
+            Game.season_id == int(season.id),
+            Game.fhm_league_id == league_filter,
+            Game.fhm_game_id.is_not(None),
+        )
+    ).all()
+    stale_ids: list[int] = []
+    for g in stale:
+        fid = str(g.fhm_game_id or "").strip()
+        if fid and fid not in active_fhm_game_ids:
+            stale_ids.append(int(g.id))
+    if not stale_ids:
+        return 0
+    _delete_games_cascade(stale_ids)
+    log.info(
+        "Pruned %s stale schedule game(s) for season_id=%s league_id=%s "
+        "(not in current schedules.csv).",
+        len(stale_ids),
+        season.id,
+        league_filter,
+    )
+    return len(stale_ids)
+
+
 def import_games(
     raw_dir: Path,
     season: Season,
@@ -555,6 +600,8 @@ def import_games(
         g.game_type = cell_val(r, "type")
         g.fhm_league_id = league_filter
         fhm_to_gid[gid] = g.id
+    commit_with_sqlite_retry(db.session)
+    _prune_stale_fhm_schedule_games(season, league_filter, set(fhm_to_gid.keys()))
     commit_with_sqlite_retry(db.session)
     if app is not None and newly_final_game_ids:
         try:

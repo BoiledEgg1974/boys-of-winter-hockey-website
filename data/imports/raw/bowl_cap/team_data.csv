@@ -94,7 +94,7 @@ TeamId;LeagueId;Name;Nickname;Abbr;Parent Team 1;Parent Team 2;Parent Team 3;Par
 225;3;Milwaukee;Admirals;MIL;224;-1;-1;-1;-1;-1;-1;-1;#001a72;#862633;#fefef4;-1;1
 227;0;Atlanta;Thrashers;ATL;-1;-1;-1;-1;-1;-1;-1;-1;#041e42;#862633;#ffa300;0;2
 228;3;Orlando;Solar Bears;ORL;227;-1;-1;-1;-1;-1;-1;-1;#5c068c;#00778b;#fefef4;-1;1
-229;0;Columbus;Blue Jackets;CBS;-1;-1;-1;-1;-1;-1;-1;-1;#041e42;#c8102e;#fefef4;1;0
+229;0;Columbus;Blue Jackets;CBJ;-1;-1;-1;-1;-1;-1;-1;-1;#041e42;#c8102e;#fefef4;1;0
 230;0;Minnesota;Wild;MIN;-1;-1;-1;-1;-1;-1;-1;-1;#154734;#a6192e;#ddcba4;1;2
 231;3;Independent;Team;Ind;-1;-1;-1;-1;-1;-1;-1;-1;#041e42;#c8102e;#fefef4;-1;0
 232;3;Cleveland;Lumberjacks;CLE;230;-1;-1;-1;-1;-1;-1;-1;#000000;#000000;#fefef4;-1;0

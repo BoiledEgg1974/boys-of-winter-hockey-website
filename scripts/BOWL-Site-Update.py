@@ -5,10 +5,10 @@ You can run the same flow via ``python scripts/run_site_update.py bowl`` so it s
 ``to-live`` / ``local`` / ``deploy`` in one entry point.
 
 Default flow:
-1) Run STEP1 (snapshot OVR baselines, copy saved-game CSVs, local imports, optional git push) with PA deploy skipped.
+1) Run STEP1 (snapshot OVR baselines, copy saved-game CSVs, local imports) with PA deploy and git push skipped.
 2) Align historical awards IDs to player_master (STEP3).
 3) Snapshot bowl-historical OVR baselines, then re-import that league locally (aligned awards).
-4) Commit/push any STEP3-generated file changes (if present).
+4) Commit and push to GitHub once all local imports finish (CSVs, static assets, alignment files).
 5) Run STEP2 deploy to PythonAnywhere (remote OVR snapshot, then CSV upload, import helper script,
    ``import_data.py`` + ``reimport_history_sheet_data.py`` per league, reload).
 
@@ -59,18 +59,19 @@ def _git_changes_present() -> bool:
     return bool(res.stdout.strip())
 
 
-def _commit_and_push_step3_changes() -> None:
+def _commit_and_push_local_changes() -> None:
+    """Commit tracked import/alignment changes after every local import step has finished."""
     subprocess.run(["git", "add", "-A"], cwd=REPO_ROOT, check=True)
     if not _git_changes_present():
-        print("No additional STEP3 changes to commit.")
+        print("No git changes to commit after local imports (SQLite DB files are gitignored).")
         return
     msg = (
-        "Align historical awards IDs to player master.\n\n"
-        f"Automated BOWL-Site-Update run at {datetime.now().isoformat(timespec='seconds')}."
+        "Update league CSV imports and local alignment files\n\n"
+        f"Automated BOWL-Site-Update local run at {datetime.now().isoformat(timespec='seconds')}."
     )
     subprocess.run(["git", "commit", "-m", msg], cwd=REPO_ROOT, check=True)
     subprocess.run(["git", "push"], cwd=REPO_ROOT, check=True)
-    print("Pushed STEP3 alignment changes.")
+    print("Git push complete.")
 
 
 def main() -> int:
@@ -82,7 +83,11 @@ def main() -> int:
         help="regular (default) or fullremoterebuild recovery mode on PythonAnywhere.",
     )
     ap.add_argument("--allow-stale", action="store_true", help="Pass through to STEP1 stale-source override.")
-    ap.add_argument("--no-push", action="store_true", help="Skip all git commit/push actions.")
+    ap.add_argument(
+        "--no-push",
+        action="store_true",
+        help="Skip git commit/push after local imports (default: commit and push once imports finish).",
+    )
     ap.add_argument("--no-deploy", action="store_true", help="Skip PythonAnywhere deploy step.")
     ap.add_argument(
         "--remote-pip",
@@ -102,14 +107,10 @@ def main() -> int:
 
     print("BOWL-Site-Update starting...")
 
-    # 1) STEP1: copy CSVs + local imports + optional git push, but skip its PA deploy.
-    step1_cmd = [sys.executable, str(STEP1), "--no-pa-deploy"]
+    # 1) STEP1: copy CSVs + local imports; defer git push until after the historical re-import below.
+    step1_cmd = [sys.executable, str(STEP1), "--no-pa-deploy", "--no-push"]
     if args.allow_stale:
         step1_cmd.append("--allow-stale")
-    if args.no_push:
-        step1_cmd.append("--no-push")
-    else:
-        step1_cmd.append("--yes-push")
     _run(step1_cmd)
 
     # 2) STEP3: align historical awards IDs.
@@ -132,11 +133,15 @@ def main() -> int:
     if HISTORY_SHEET_EXTRAS.is_file():
         _run([sys.executable, str(HISTORY_SHEET_EXTRAS), "bowl-historical"], env=env)
 
-    # 4) Commit + push any new STEP3-alignment changes if enabled.
+    # 4) Commit + push once all local imports are done (before PythonAnywhere deploy).
     if not args.no_push:
-        _commit_and_push_step3_changes()
+        try:
+            _commit_and_push_local_changes()
+        except subprocess.CalledProcessError as exc:
+            print(f"Git commit/push failed: {exc}", file=sys.stderr)
+            return int(exc.returncode or 1)
     else:
-        print("Skipping STEP3 git push (--no-push).")
+        print("Skipping git commit/push (--no-push).")
 
     # 5) Deploy from repo CSV folders to PythonAnywhere.
     if not args.no_deploy:

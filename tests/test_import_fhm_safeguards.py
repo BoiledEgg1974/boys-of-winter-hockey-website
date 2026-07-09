@@ -40,10 +40,15 @@ class ImportFhmSafeguardsTests(unittest.TestCase):
             if season is None:
                 self.skipTest(f"{slug}: no current season row")
             game_count = db.session.scalar(
-                select(func.count()).select_from(Game).where(Game.season_id == season.id)
+                select(func.count())
+                .select_from(Game)
+                .where(
+                    Game.season_id == season.id,
+                    Game.status == "final",
+                )
             ) or 0
             if game_count == 0:
-                self.skipTest(f"{slug}: no games for current season")
+                self.skipTest(f"{slug}: no final games for current season")
             rs_stats = db.session.scalar(
                 select(func.count())
                 .select_from(PlayerSkaterStat)
@@ -60,7 +65,7 @@ class ImportFhmSafeguardsTests(unittest.TestCase):
             self.assertGreater(
                 rs_stats,
                 0,
-                f"{slug}: season has {game_count} games but 0 RS skater stats — "
+                f"{slug}: season has {game_count} final games but 0 RS skater stats — "
                 f"/statistics will be empty{hint}",
             )
 

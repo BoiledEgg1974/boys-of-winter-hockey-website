@@ -90,7 +90,18 @@ _POST_IMPORT_SAFEGUARD_MODULES: tuple[str, ...] = (
 
 def _run_post_import_safeguards() -> None:
     """Run regression checks that protect UI data integrity after imports."""
+    try:
+        from flask import has_app_context, current_app
+
+        from app.sqlite_bootstrap import apply_site_sqlite_migrations
+
+        if has_app_context():
+            apply_site_sqlite_migrations(current_app._get_current_object())
+    except Exception as exc:
+        log.warning("Pre-safeguard site SQLite migration skipped: %s", exc)
+
     failures: list[str] = []
+    details: list[str] = []
     for mod_name in _POST_IMPORT_SAFEGUARD_MODULES:
         if importlib.util.find_spec(mod_name) is None:
             log.warning(
@@ -103,8 +114,15 @@ def _run_post_import_safeguards() -> None:
         result = unittest.TextTestRunner(verbosity=1).run(suite)
         if not result.wasSuccessful():
             failures.append(mod_name)
+            for test, trace in result.failures + result.errors:
+                msg = f"{test}:\n{trace}"
+                details.append(msg)
+                log.error("Safeguard failure in %s — %s", mod_name, msg)
     if failures:
-        raise RuntimeError(f"Post-import safeguard(s) failed: {', '.join(failures)}")
+        summary = f"Post-import safeguard(s) failed: {', '.join(failures)}"
+        if details:
+            raise RuntimeError(f"{summary}\n\n" + "\n\n".join(details))
+        raise RuntimeError(summary)
 
 
 def _slug(name: str, abbrev: str) -> str:

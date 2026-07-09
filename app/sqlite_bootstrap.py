@@ -217,7 +217,8 @@ def bootstrap_league_sqlite(app: Flask) -> None:
         app.logger.warning("League SQLite migrations skipped for %s: %s", slug, exc)
 
 
-def _bootstrap_site_schema_and_seed(app: Flask) -> None:
+def apply_site_sqlite_migrations(app: Flask) -> None:
+    """Idempotent site schema patches (safe when bootstrap marker skipped an older DB)."""
     from app.db_utils import (
         ensure_admin_undo_actions_sqlite,
         ensure_awards_voting_sqlite,
@@ -288,15 +289,6 @@ def _bootstrap_site_schema_and_seed(app: Flask) -> None:
     ensure_bowl_six_slates_discord_columns_sqlite(site_engine)
     ensure_bowl_six_game_finals_sqlite(site_engine)
     ensure_discord_outbound_sqlite(site_engine)
-    try:
-        from sqlalchemy.orm import Session
-
-        from app.services.discord_events import bootstrap_discord_integration_all_leagues
-
-        with Session(site_engine) as site_session:
-            bootstrap_discord_integration_all_leagues(site_session)
-    except Exception as exc:
-        app.logger.warning("Discord integration bootstrap skipped: %s", exc)
     ensure_prospect_system_rank_snapshots_sqlite(site_engine)
     ensure_positional_rank_snapshots_sqlite(site_engine)
     ensure_power_rank_snapshots_sqlite(site_engine)
@@ -307,7 +299,31 @@ def _bootstrap_site_schema_and_seed(app: Flask) -> None:
     ensure_sim_cycle_state_sqlite(site_engine)
     ensure_gm_rule_strikes_sqlite(site_engine)
     ensure_league_expansion_draft_columns_sqlite(site_engine)
-    seed_ap_catalog_if_empty()
+    try:
+        seed_ap_catalog_if_empty()
+    except Exception as exc:
+        app.logger.warning("AP catalog seed skipped: %s", exc)
+
+
+def _bootstrap_site_schema_and_seed(app: Flask) -> None:
+    apply_site_sqlite_migrations(app)
+    from app.models import db
+
+    try:
+        site_engine = db.engines.get("site")
+    except Exception:
+        site_engine = None
+    if site_engine is None:
+        return
+    try:
+        from sqlalchemy.orm import Session
+
+        from app.services.discord_events import bootstrap_discord_integration_all_leagues
+
+        with Session(site_engine) as site_session:
+            bootstrap_discord_integration_all_leagues(site_session)
+    except Exception as exc:
+        app.logger.warning("Discord integration bootstrap skipped: %s", exc)
 
 
 def bootstrap_site_database(app: Flask) -> None:
@@ -334,6 +350,10 @@ def bootstrap_site_database(app: Flask) -> None:
             lambda: _bootstrap_site_schema_and_seed(app),
             label="site membership",
         )
+        try:
+            apply_site_sqlite_migrations(app)
+        except Exception as exc:
+            app.logger.warning("Site SQLite migrations skipped: %s", exc)
         return
 
     global _server_site_bootstrapped

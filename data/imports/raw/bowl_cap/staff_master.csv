@@ -1943,7 +1943,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1941;-1;Bill;Terry;;1961-7-13;Toronto;ON;Canada;;;0
 1942;-1;Bill;O'Flaherty;;1962-1-1;Quebec City;QC;Canada;;;0
 1943;214;Brad;Davis;;1962-1-1;Saskatoon;SK;Canada;;;0
-1944;-1;Dave;Semenko;;1957-7-12;Oakbank;MB;Canada;;;0
+1944;229;Dave;Semenko;;1957-7-12;Oakbank;MB;Canada;;;0
 1945;-1;Stieg;Theander;;1962-1-1;Narragansett Pier;RI;The United States;;;0
 1946;23;Dale;Engel;;1962-1-1;Aurora;ON;Canada;;;0
 1947;-1;Curtis;Bell;;1962-1-1;La Cañada Flintridge;CA;The United States;;;0
@@ -1951,11 +1951,11 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1949;216;Owen;Parks;;1946-3-22;Saskatoon;SK;Canada;;;0
 1950;21;Stefan;Lunner;;1962-5-30;Uppsala;UPP;Sweden;;;0
 1951;-1;Charlie;Huddy;;1959-6-2;Oshawa;ON;Canada;;;0
-1952;-1;Steve;Tambellini;;1958-5-14;Ucluelet;BC;Canada;;;0
+1952;229;Steve;Tambellini;;1958-5-14;Ucluelet;BC;Canada;;;0
 1953;-1;Bob;Hartley;;1960-9-9;Hawkesbury;ON;Canada;;;0
 1954;-1;Jim;Corsi;;1954-6-19;Murdochville;QC;Italy;Canada;;0
 1955;-1;Rob;Cookson;;1961-1-25;Leduc;AB;Canada;;;0
-1956;-1;Dave;Nonis;;1966-5-25;Coquitlam;BC;Canada;;;0
+1956;229;Dave;Nonis;;1966-5-25;Coquitlam;BC;Canada;;;0
 1957;25;Lucien;Deblois;;1957-6-21;Kingsey Falls;QC;Canada;;;0
 1958;17;Tom;Kurvers;;1962-10-14;Oak Park Heights;MN;The United States;;;0
 1959;-1;Don;Edwards;;1955-9-28;Hamilton;ON;Canada;;;0
@@ -2290,7 +2290,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 2288;-1;Tim;Bothwell;;1955-5-6;Vernon;BC;Canada;;;0
 2289;-1;Keith;Gretzky;;1967-2-16;Brantford;ON;Canada;;;0
 2290;-1;Vincent;Riendeau;;1966-4-20;Saint-Jérôme;QC;Canada;;;0
-2291;-1;Adam;Creighton;;1965-6-2;Burlington;ON;Canada;;;0
+2291;5;Adam;Creighton;;1965-6-2;Burlington;ON;Canada;;;0
 2292;-1;Glen;Cochrane;;1958-1-29;Kent;BC;Canada;;;0
 2293;-1;Jim;Hughes;;1966-10-26;Highland;NY;The United States;;;0
 2294;-1;Mark;Lamb;;1964-8-3;Balcarres;SK;Canada;;;0
@@ -2318,7 +2318,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 2316;221;Alan;Cohen;;1954-10-5;Elfers;FL;The United States;;;0
 2317;-1;John;McNamara;;1966-1-1;Burlington;ON;Canada;;;0
 2318;-1;Mike;Barnett;;1950-10-9;Pincher Creek;AB;Canada;;;0
-2319;-1;Rich;Brown;;1966-1-1;Saskatoon;SK;Canada;;;0
+2319;5;Rich;Brown;;1966-1-1;Saskatoon;SK;Canada;;;0
 2320;-1;Peter;Stephan;;1966-1-1;Langley;BC;Canada;;;0
 2321;-1;Denny;Scanlon;;1978-2-17;Granby;MO;The United States;;;0
 2322;-1;Lucas;Bergman;;1974-8-20;Södertälje;STO;Sweden;;;0

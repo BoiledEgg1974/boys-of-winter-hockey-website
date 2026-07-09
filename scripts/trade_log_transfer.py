@@ -17,6 +17,12 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 _PUBLIC_SOURCES = ("manual", "csv")
+_LEGACY_LEAGUE_DB_FILES: dict[str, str] = {
+    "bowl-historical": "league2.db",
+    "bowl-fantasy": "bow.db",
+    "bowl-cap": "league3.db",
+}
+_SQLITE_HEADER = b"SQLite format 3\x00"
 
 
 def _connect_ro(db_path: Path) -> sqlite3.Connection:
@@ -25,6 +31,90 @@ def _connect_ro(db_path: Path) -> sqlite3.Connection:
 
 def _connect_rw(db_path: Path) -> sqlite3.Connection:
     return sqlite3.connect(str(db_path.resolve()), timeout=30.0)
+
+
+def _sqlite_file_is_readable(path: Path) -> bool:
+    try:
+        if not path.is_file() or path.stat().st_size < 100:
+            return False
+        with open(path, "rb") as header:
+            if header.read(16) != _SQLITE_HEADER:
+                return False
+    except OSError:
+        return False
+    try:
+        conn = sqlite3.connect(f"file:{path.resolve()}?mode=ro", uri=True, timeout=30.0)
+    except sqlite3.Error:
+        try:
+            conn = sqlite3.connect(str(path), timeout=30.0)
+        except sqlite3.Error:
+            return False
+    try:
+        conn.execute("SELECT 1 FROM sqlite_master LIMIT 1").fetchone()
+        return True
+    except sqlite3.Error:
+        return False
+    finally:
+        conn.close()
+
+
+def _sqlite_has_league_content(path: Path) -> bool:
+    try:
+        conn = sqlite3.connect(f"file:{path.resolve()}?mode=ro", uri=True, timeout=30.0)
+    except sqlite3.Error:
+        try:
+            conn = sqlite3.connect(str(path), timeout=30.0)
+        except sqlite3.Error:
+            return False
+    try:
+        for table in ("teams", "players", "games", "seasons"):
+            if not conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name=? LIMIT 1",
+                (table,),
+            ).fetchone():
+                continue
+            n = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+            if n and int(n) > 0:
+                return True
+        return False
+    except sqlite3.Error:
+        return False
+    finally:
+        conn.close()
+
+
+def resolve_league_sqlite_path(slug: str) -> Path:
+    """Standalone copy of app.config.resolve_league_sqlite_path (no Flask imports)."""
+    inst = ROOT / "instance"
+    inst.mkdir(parents=True, exist_ok=True)
+    primary = inst / f"{slug}.db"
+    legacy_name = _LEGACY_LEAGUE_DB_FILES.get(slug)
+    legacy = inst / legacy_name if legacy_name else None
+
+    prim_exists = primary.is_file()
+    leg_exists = legacy.is_file() if legacy else False
+    prim_valid = prim_exists and _sqlite_file_is_readable(primary)
+    leg_valid = leg_exists and legacy is not None and _sqlite_file_is_readable(legacy)
+    prim_populated = prim_valid and _sqlite_has_league_content(primary)
+    leg_populated = leg_valid and legacy is not None and _sqlite_has_league_content(legacy)
+
+    if prim_populated:
+        return primary
+    if leg_populated:
+        return legacy
+    if leg_exists and not prim_populated and leg_valid:
+        return legacy
+    if prim_exists and not prim_valid and leg_valid and legacy is not None:
+        return legacy
+    if prim_valid:
+        return primary
+    if leg_valid and legacy is not None:
+        return legacy
+    if prim_exists:
+        return primary
+    if leg_exists and legacy is not None:
+        return legacy
+    return primary
 
 
 def _team_lookup(conn: sqlite3.Connection) -> tuple[dict[str, int], dict[str, int]]:
@@ -271,14 +361,10 @@ def _resolve_db_path(slug: str | None, db_path: Path | None) -> Path:
         return db_path.resolve()
     if not slug:
         raise SystemExit("Provide --slug or --db-path.")
-    from app.config import resolve_league_sqlite_path
-
     return resolve_league_sqlite_path(slug).resolve()
 
 
 def _candidate_restore_paths(inst: Path, slug: str) -> list[Path]:
-    from app.config import _LEGACY_LEAGUE_DB_FILES
-
     names = [
         f"{slug}.db",
         _LEGACY_LEAGUE_DB_FILES.get(slug, ""),
@@ -322,8 +408,6 @@ def _candidate_restore_paths(inst: Path, slug: str) -> list[Path]:
 
 def restore_from_candidates(slug: str, *, dry_run: bool = False) -> dict[str, object]:
     """Merge manual/csv trades from backup/legacy DB files into the active league DB."""
-    from app.config import resolve_league_sqlite_path
-
     target = resolve_league_sqlite_path(slug).resolve()
     inst = target.parent
     candidates = [p for p in _candidate_restore_paths(inst, slug) if p.resolve() != target.resolve()]

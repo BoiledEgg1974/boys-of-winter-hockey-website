@@ -29,8 +29,10 @@ from app.services.bowl_six import (
     SEASON_AP_PRIZES,
     SEASON_PARTICIPATION_AP,
     SLOT_LABELS,
+    _bowl_six_membership_maps,
     blocked_player_ids_from_prior_slate,
     bowl_six_enabled,
+    bowl_six_prize_team_for_lineup_user,
     get_lineup,
     get_or_create_current_slate,
     gm_season_standings,
@@ -124,10 +126,20 @@ def _player_headshot_url(player: Player) -> str | None:
 
 def _enrich_gm_leader_rows(slug: str, rows: list[dict], *, points_key: str) -> list[dict]:
     enriched: list[dict] = []
+    user_ids = {int(r["user_id"]) for r in rows if r.get("user_id") is not None}
+    active_by_team, membership_by_user = _bowl_six_membership_maps(
+        db.session, slug, user_ids=user_ids or None
+    )
     for idx, r in enumerate(rows, start=1):
         user = db.session.get(User, int(r["user_id"]))
-        mem = active_membership_for_league(user, slug) if user else None
-        team = db.session.get(Team, int(mem.team_id)) if mem else None
+        resolved = bowl_six_prize_team_for_lineup_user(
+            active_by_team, membership_by_user, int(r["user_id"])
+        )
+        if resolved is not None:
+            team = db.session.get(Team, int(resolved[0]))
+        else:
+            mem = active_membership_for_league(user, slug) if user else None
+            team = db.session.get(Team, int(mem.team_id)) if mem else None
         enriched.append(
             {
                 **r,

@@ -26,6 +26,8 @@ from app.services.bowl_six import (
     lock_at_iso_z,
     maybe_enqueue_bowl_six_roster_reminders,
     parse_lock_at_eastern_form,
+    bowl_six_prize_team_for_lineup_user,
+    repair_bowl_six_weekly_prize_net_balances,
     season_ap_award_at,
     slate_award_at,
     slate_real_scoring_window_utc,
@@ -200,6 +202,64 @@ class BowlSixScoringTest(unittest.TestCase):
             )
         self.assertEqual(created, 0)
         add_entry.assert_not_called()
+
+    def test_net_repair_restores_weekly_prize_after_wrongful_reversal(self):
+        slate = BowlSixSlate(
+            id=42,
+            league_slug="bowl-cap",
+            week_start=date(2026, 6, 8),
+            week_end=date(2026, 6, 14),
+            status="scored",
+            scoring_version=4,
+            ap_place1_team_id=10,
+        )
+        session = MagicMock()
+        with unittest.mock.patch(
+            "app.services.bowl_six.slate_weekly_podium_teams",
+            return_value={1: (10, 5)},
+        ), unittest.mock.patch(
+            "app.services.bowl_six.net_bowl_six_weekly_prize_ap", return_value=0
+        ), unittest.mock.patch(
+            "app.services.bowl_six.add_ledger_entry", return_value=object()
+        ) as add_entry:
+            created = repair_bowl_six_weekly_prize_net_balances(session, slate)
+        self.assertEqual(created, 1)
+        self.assertEqual(add_entry.call_args.kwargs["delta"], 10)
+        self.assertTrue(add_entry.call_args.kwargs["meta"]["net_repair"])
+        self.assertEqual(slate.ap_place1_team_id, 10)
+
+    def test_net_repair_skips_when_prize_already_paid(self):
+        slate = BowlSixSlate(
+            id=42,
+            league_slug="bowl-cap",
+            week_start=date(2026, 6, 8),
+            week_end=date(2026, 6, 14),
+            status="scored",
+            scoring_version=4,
+        )
+        session = MagicMock()
+        with unittest.mock.patch(
+            "app.services.bowl_six.slate_weekly_podium_teams",
+            return_value={1: (10, 5)},
+        ), unittest.mock.patch(
+            "app.services.bowl_six.net_bowl_six_weekly_prize_ap", return_value=10
+        ), unittest.mock.patch("app.services.bowl_six.add_ledger_entry") as add_entry:
+            created = repair_bowl_six_weekly_prize_net_balances(session, slate)
+        self.assertEqual(created, 0)
+        add_entry.assert_not_called()
+
+    def test_bowl_six_prize_team_follows_franchise_not_submitters_current_team(self):
+        active_by_team = {
+            12: SimpleNamespace(user_id=99, team_id=12, status="active"),
+            22: SimpleNamespace(user_id=100, team_id=22, status="active"),
+        }
+        membership_by_user = {
+            28: SimpleNamespace(user_id=28, team_id=12, status="inactive"),
+        }
+        resolved = bowl_six_prize_team_for_lineup_user(
+            active_by_team, membership_by_user, 28
+        )
+        self.assertEqual(resolved, (12, 99))
 
     def test_gm_season_standings_uses_current_active_gms_by_team(self):
         class _Result:
@@ -507,11 +567,9 @@ class BowlSixScoringTest(unittest.TestCase):
             ap_place1_team_id=20,
         )
         session = MagicMock()
-        mem = MagicMock(team_id=10)
-        session.scalar.return_value = mem
         with unittest.mock.patch(
-            "app.services.bowl_six.slate_rankings",
-            return_value=[{"user_id": 1, "total_points": 100.0}],
+            "app.services.bowl_six.slate_weekly_podium_teams",
+            return_value={1: (10, 1)},
         ), unittest.mock.patch("app.services.bowl_six.add_ledger_entry") as add_entry:
             sync_bowl_six_slate_ap_awards(session, slate)
         source_refs = [call.kwargs["source_ref"] for call in add_entry.call_args_list]
@@ -532,19 +590,19 @@ class BowlSixScoringTest(unittest.TestCase):
         )
         with unittest.mock.patch("app.services.bowl_six.sync_bowl_six_slate_ap_awards"), \
             unittest.mock.patch(
-                "app.services.bowl_six.slate_rankings",
-                return_value=[{"user_id": 1, "total_points": 100.0}],
+                "app.services.bowl_six.slate_weekly_podium_teams",
+                return_value={1: (10, 1)},
             ), \
             unittest.mock.patch(
-                "app.services.bowl_six._bowl_six_award_ledger_exists",
-                return_value=False,
+                "app.services.bowl_six.net_bowl_six_weekly_prize_ap",
+                return_value=0,
             ), \
             unittest.mock.patch("app.services.bowl_six.add_ledger_entry", return_value=object()) as add_entry:
             created = ensure_bowl_six_slate_prize_ledgers(MagicMock(), slate)
         self.assertEqual(created, 1)
         self.assertEqual(add_entry.call_args.kwargs["team_id"], 10)
         self.assertEqual(add_entry.call_args.kwargs["delta"], 10)
-        self.assertTrue(add_entry.call_args.kwargs["meta"]["repair"])
+        self.assertTrue(add_entry.call_args.kwargs["meta"]["net_repair"])
 
     def test_bowl_six_roster_reminders_queue_unlock_and_warning(self):
         slate = BowlSixSlate(

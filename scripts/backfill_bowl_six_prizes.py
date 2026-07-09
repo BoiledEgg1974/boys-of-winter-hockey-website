@@ -28,6 +28,8 @@ def _run_for_slug(slug: str) -> None:
         db.session.commit()
         print(f"[{slug}] weekly: {weekly.get('message')}")
         print(f"[{slug}] season: {season.get('message')}")
+        if season.get("seasons_considered"):
+            print(f"[{slug}] season detail: {', '.join(season['seasons_considered'])}")
 
 
 def main(argv: list[str] | None = None) -> int:

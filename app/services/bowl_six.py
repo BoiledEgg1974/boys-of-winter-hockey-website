@@ -217,29 +217,37 @@ def backfill_bowl_six_season_prizes(
             "message": "BOWL Six is disabled for this league.",
             "seasons_processed": 0,
             "ledgers_created": 0,
+            "seasons_considered": [],
         }
     current_start, current_end = bowl_six_real_season_bounds()
     created = 0
     seasons_processed = 0
+    considered: list[str] = []
     for season_start, season_end in list_bowl_six_seasons_with_scored_slates(
         session, slug
     ):
+        label = f"{season_start.isoformat()}..{season_end.isoformat()}"
         if not include_current_season and (
             season_start == current_start and season_end == current_end
         ):
+            considered.append(f"{label}:skipped(in_progress)")
             continue
         if not season_ap_award_time_reached(season_end):
+            considered.append(f"{label}:skipped(not_ready)")
             continue
         seasons_processed += 1
-        created += award_bowl_six_season_prizes(session, slug, season_start, season_end)
+        n = award_bowl_six_season_prizes(session, slug, season_start, season_end)
+        created += n
+        considered.append(f"{label}:+{n}")
     return {
         "ok": True,
         "message": (
             f"Season AP backfill complete: {created} ledger row(s) across "
-            f"{seasons_processed} season(s) with new payouts."
+            f"{seasons_processed} ended season(s)."
         ),
         "seasons_processed": seasons_processed,
         "ledgers_created": created,
+        "seasons_considered": considered,
     }
 
 
@@ -277,8 +285,7 @@ def backfill_bowl_six_weekly_prizes(
             finalized += 1
         if slate.status != "scored":
             continue
-        sync_bowl_six_slate_ap_awards(session, slate)
-        ledgers_created += ensure_bowl_six_slate_prize_ledgers(session, slate)
+        ledgers_created += repair_bowl_six_weekly_prize_net_balances(session, slate)
         processed += 1
     return {
         "ok": True,
@@ -1472,24 +1479,91 @@ def _auto_update_single_slate(
     return None
 
 
+def _bowl_six_membership_maps(
+    session: Session,
+    league_slug: str,
+    *,
+    user_ids: set[int] | None = None,
+) -> tuple[dict[int, GmLeagueMembership], dict[int, GmLeagueMembership]]:
+    """Active team map and lineup-user membership lookup (includes historical rows)."""
+    slug = str(league_slug or "").strip()
+    active_memberships = list(
+        session.scalars(
+            select(GmLeagueMembership).where(
+                GmLeagueMembership.league_slug == slug,
+                GmLeagueMembership.status == "active",
+            )
+        ).all()
+    )
+    active_by_team: dict[int, GmLeagueMembership] = {}
+    for mem in active_memberships:
+        active_by_team.setdefault(int(mem.team_id), mem)
+    membership_by_user: dict[int, GmLeagueMembership] = {
+        int(mem.user_id): mem for mem in active_memberships
+    }
+    if user_ids:
+        historical_memberships = list(
+            session.scalars(
+                select(GmLeagueMembership)
+                .where(
+                    GmLeagueMembership.league_slug == slug,
+                    GmLeagueMembership.user_id.in_(user_ids),
+                )
+                .order_by(GmLeagueMembership.user_id, GmLeagueMembership.id.desc())
+            ).all()
+        )
+        historical_memberships.sort(
+            key=lambda mem: (
+                int(mem.user_id),
+                0 if str(mem.status or "") == "active" else 1,
+                -int(mem.id or 0),
+            )
+        )
+        for mem in historical_memberships:
+            membership_by_user.setdefault(int(mem.user_id), mem)
+    return active_by_team, membership_by_user
+
+
+def bowl_six_prize_team_for_lineup_user(
+    active_by_team: dict[int, GmLeagueMembership],
+    membership_by_user: dict[int, GmLeagueMembership],
+    user_id: int,
+) -> tuple[int, int] | None:
+    """Map a lineup submitter to the franchise team that should receive weekly AP."""
+    mem = membership_by_user.get(int(user_id))
+    if mem is None:
+        return None
+    team_id = int(mem.team_id)
+    current = active_by_team.get(team_id)
+    if current is None:
+        return None
+    return team_id, int(current.user_id)
+
+
+def slate_weekly_podium_teams(
+    session: Session, slate: BowlSixSlate
+) -> dict[int, tuple[int, int]]:
+    """Weekly podium place -> (franchise team_id, current active GM user_id)."""
+    ranked = slate_rankings(session, slate)
+    user_ids = {int(row["user_id"]) for row in ranked[:3]}
+    active_by_team, membership_by_user = _bowl_six_membership_maps(
+        session, str(slate.league_slug or ""), user_ids=user_ids
+    )
+    desired: dict[int, tuple[int, int]] = {}
+    for place, row in enumerate(ranked[:3], start=1):
+        resolved = bowl_six_prize_team_for_lineup_user(
+            active_by_team, membership_by_user, int(row["user_id"])
+        )
+        if resolved is not None:
+            desired[place] = resolved
+    return desired
+
+
 def sync_bowl_six_slate_ap_awards(session: Session, slate: BowlSixSlate) -> None:
     """Award top-3 GM teams AP; reverse prior payouts when podium changes on re-score."""
     if slate.status != "scored":
         return
-    ranked = slate_rankings(session, slate)
-    desired: dict[int, tuple[int, int]] = {}
-    for place, row in enumerate(ranked[:3], start=1):
-        uid = int(row["user_id"])
-        mem = session.scalar(
-            select(GmLeagueMembership).where(
-                GmLeagueMembership.league_slug == slate.league_slug,
-                GmLeagueMembership.user_id == uid,
-                GmLeagueMembership.status == "active",
-            ).limit(1)
-        )
-        if mem is None:
-            continue
-        desired[place] = (int(mem.team_id), int(row["user_id"]))
+    desired = slate_weekly_podium_teams(session, slate)
     prev = {
         1: slate.ap_place1_team_id,
         2: slate.ap_place2_team_id,
@@ -1554,40 +1628,85 @@ def _bowl_six_award_ledger_exists(
     return row_id is not None
 
 
+def net_bowl_six_weekly_prize_ap(
+    session: Session,
+    league_slug: str,
+    slate_id: int,
+    place: int,
+    team_id: int,
+) -> int:
+    """Net weekly BOWL Six AP for one team on one slate podium place (awards + reversals)."""
+    prefix = f"bowl_six:slate:{int(slate_id)}:place:{int(place)}:"
+    total = session.scalar(
+        select(func.coalesce(func.sum(ApLedgerEntry.delta), 0)).where(
+            ApLedgerEntry.league_slug == str(league_slug or ""),
+            ApLedgerEntry.team_id == int(team_id),
+            ApLedgerEntry.reason_code.in_(
+                ("bowl_six_slate_prize", "bowl_six_slate_prize_reversal")
+            ),
+            ApLedgerEntry.source_ref.like(f"{prefix}%"),
+        )
+    )
+    return int(total or 0)
+
+
+def repair_bowl_six_weekly_prize_net_balances(
+    session: Session, slate: BowlSixSlate
+) -> int:
+    """Top up weekly AP when a rightful winner's net payout is below the prize (e.g. wrongful reversal)."""
+    if slate.status != "scored":
+        return 0
+    podium = slate_weekly_podium_teams(session, slate)
+    created = 0
+    version = int(slate.scoring_version or 1)
+    for place, (team_id, user_id) in podium.items():
+        prize = AP_PRIZES.get(place, 0)
+        if prize <= 0:
+            continue
+        net = net_bowl_six_weekly_prize_ap(
+            session,
+            str(slate.league_slug or ""),
+            int(slate.id),
+            place,
+            team_id,
+        )
+        if net >= prize:
+            setattr(slate, f"ap_place{place}_team_id", team_id)
+            continue
+        deficit = int(prize) - int(net)
+        added = add_ledger_entry(
+            league_slug=str(slate.league_slug or ""),
+            team_id=team_id,
+            delta=deficit,
+            reason_code="bowl_six_slate_prize",
+            meta={
+                "slate_id": int(slate.id),
+                "place": place,
+                "user_id": int(user_id),
+                "scoring_version": version,
+                "net_repair": True,
+                "prior_net": net,
+                "target_prize": prize,
+            },
+            source_ref=(
+                f"bowl_six:slate:{int(slate.id)}:place:{place}:award:net_repair:{version}"
+            ),
+        )
+        if added is not None:
+            created += 1
+        setattr(slate, f"ap_place{place}_team_id", team_id)
+    slate.ap_place1_team_id = podium[1][0] if 1 in podium else None
+    slate.ap_place2_team_id = podium[2][0] if 2 in podium else None
+    slate.ap_place3_team_id = podium[3][0] if 3 in podium else None
+    return created
+
+
 def ensure_bowl_six_slate_prize_ledgers(session: Session, slate: BowlSixSlate) -> int:
     """Repair missing AP prize ledger rows for an already-scored slate."""
     if slate.status != "scored":
         return 0
     sync_bowl_six_slate_ap_awards(session, slate)
-    ranked = slate_rankings(session, slate)
-    created = 0
-    version = int(slate.scoring_version or 1)
-    for place, row in enumerate(ranked[:3], start=1):
-        prize = AP_PRIZES.get(place, 0)
-        if prize <= 0:
-            continue
-        team_id = getattr(slate, f"ap_place{place}_team_id", None)
-        if not team_id:
-            continue
-        if _bowl_six_award_ledger_exists(session, slate, place=place, team_id=int(team_id)):
-            continue
-        added = add_ledger_entry(
-            league_slug=str(slate.league_slug or ""),
-            team_id=int(team_id),
-            delta=prize,
-            reason_code="bowl_six_slate_prize",
-            meta={
-                "slate_id": int(slate.id),
-                "place": place,
-                "user_id": int(row["user_id"]),
-                "scoring_version": version,
-                "repair": True,
-            },
-            source_ref=f"bowl_six:slate:{int(slate.id)}:place:{place}:award:repair:{version}",
-        )
-        if added is not None:
-            created += 1
-    return created
+    return repair_bowl_six_weekly_prize_net_balances(session, slate)
 
 
 def ensure_past_week_bowl_six_prizes(

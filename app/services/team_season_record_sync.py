@@ -27,7 +27,6 @@ from app.services.admin_history_records import (
     HISTORY_SOURCE_IMPORT,
 )
 from app.services.all_time_records import bowl_nhl_league_ids
-from app.services.seasons import get_current_season
 
 log = logging.getLogger(__name__)
 
@@ -263,6 +262,92 @@ def _purge_import_rows_for_csv_seasons(session: Session) -> int:
     return removed
 
 
+_SUPPLEMENT_FIELDS: tuple[tuple[str, str], ...] = (
+    ("shots_for", "sog"),
+    ("shots_against", "sa"),
+)
+
+
+def _record_fhm_id(session: Session, rec: TeamSeasonRecord) -> str | None:
+    fhm = (rec.team_fhm_id_csv or "").strip()
+    if fhm:
+        return fhm
+    if rec.team_id is not None:
+        team = session.get(Team, int(rec.team_id))
+        if team is not None and (team.fhm_team_id or "").strip():
+            return str(team.fhm_team_id).strip()
+    return None
+
+
+def _supplement_csv_rows_from_import(
+    session: Session,
+    *,
+    league_ids: tuple[int, ...],
+    team_meta: dict[str, tuple[int | None, int | None]],
+) -> int:
+    """Fill missing shot totals on CSV/admin rows from career aggregates (Cap-style columns)."""
+    from app.services.team_records import _is_null_sentinel
+
+    needs_year: set[int] = set()
+    csv_rows: list[TeamSeasonRecord] = []
+    for rec in session.scalars(select(TeamSeasonRecord)).all():
+        src = (rec.source or HISTORY_SOURCE_CSV).strip().lower()
+        if src not in (HISTORY_SOURCE_CSV, "admin"):
+            continue
+        missing = any(
+            getattr(rec, attr, None) is None and not _is_null_sentinel(rec, attr)
+            for attr, _ in _SUPPLEMENT_FIELDS
+        )
+        if not missing:
+            continue
+        sy = rec.start_year
+        if sy is None:
+            try:
+                sy = int(str(rec.season_year_label).split("-", 1)[0])
+            except (TypeError, ValueError):
+                sy = None
+        if sy is None:
+            continue
+        needs_year.add(int(sy))
+        csv_rows.append(rec)
+
+    if not csv_rows:
+        return 0
+
+    agg_by_year: dict[int, dict[str, _TeamAgg]] = {}
+    for season_year in sorted(needs_year):
+        agg_by_year[season_year] = _aggregate_career_year(
+            session,
+            season_year=season_year,
+            league_ids=league_ids,
+            team_meta=team_meta,
+        )
+
+    written = 0
+    for rec in csv_rows:
+        sy = rec.start_year
+        if sy is None:
+            try:
+                sy = int(str(rec.season_year_label).split("-", 1)[0])
+            except (TypeError, ValueError):
+                continue
+        aggs = agg_by_year.get(int(sy)) or {}
+        fhm = _record_fhm_id(session, rec)
+        if not fhm:
+            continue
+        agg = aggs.get(fhm)
+        if agg is None:
+            continue
+        for attr, agg_attr in _SUPPLEMENT_FIELDS:
+            if getattr(rec, attr, None) is not None or _is_null_sentinel(rec, attr):
+                continue
+            val = getattr(agg, agg_attr, 0) or 0
+            if val:
+                setattr(rec, attr, int(val))
+                written += 1
+    return written
+
+
 def _upsert_import_row(session: Session, *, year_label: str, start_year: int, agg: _TeamAgg) -> bool:
     conf, div = _conf_div_names(agg.conf_id, agg.div_id)
     pim_g = round(agg.pim / agg.gp, 2) if agg.gp > 0 and agg.pim > 0 else None
@@ -312,9 +397,13 @@ def sync_team_season_records_from_import(
     session: Session,
     raw_dir: Path | None = None,
 ) -> int:
-    """Upsert import-sourced team season rows from completed-season career data.
+    """Upsert import-sourced team season rows from career data and backfill CSV gaps.
 
-    Returns the number of rows written.
+    CSV rows remain authoritative for seasons present in ``team_season_records_template.csv``.
+    Career imports add new in-progress seasons (e.g. 1969-70 on BOWL-Historical) and fill shot
+    columns missing from older Historical CSVs (BOWL-Cap already ships those columns).
+
+    Returns the number of rows written or supplemented.
     """
     league_ids = bowl_nhl_league_ids(session) or (0,)
     team_meta = _load_team_meta_from_csv(raw_dir)
@@ -326,8 +415,6 @@ def sync_team_season_records_from_import(
             "Removed %s import-sourced team_season_records row(s) superseded by CSV data.",
             purged,
         )
-    current = get_current_season(session)
-    current_start = int(current.start_year) if current and current.start_year is not None else None
 
     years = sorted(_career_season_years(session, league_ids))
 
@@ -335,9 +422,6 @@ def sync_team_season_records_from_import(
     for season_year in years:
         year_label = _year_label(season_year)
         if year_label in csv_seasons:
-            continue
-        is_current = current_start is not None and int(season_year) == int(current_start)
-        if is_current:
             continue
 
         aggs = _aggregate_career_year(
@@ -357,6 +441,18 @@ def sync_team_season_records_from_import(
             if _upsert_import_row(session, year_label=year_label, start_year=season_year, agg=agg):
                 written += 1
 
+    supplemented = _supplement_csv_rows_from_import(
+        session,
+        league_ids=league_ids,
+        team_meta=team_meta,
+    )
+    if supplemented:
+        log.info(
+            "Supplemented %s CSV team_season_records cell(s) with career shot totals.",
+            supplemented,
+        )
+
+    total = written + supplemented
     if written:
         log.info("Synced %s import-sourced team_season_records row(s) from career/standings.", written)
-    return written
+    return total

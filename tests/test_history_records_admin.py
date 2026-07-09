@@ -17,16 +17,22 @@ from app.services.admin_history_records import (
 
 
 class HistoryRecordsAdminTemplateTest(unittest.TestCase):
+    def test_admin_home_links_records_editor(self) -> None:
+        path = Path(__file__).resolve().parents[1] / "app" / "templates" / "admin_site_home.html"
+        text = path.read_text(encoding="utf-8")
+        self.assertIn("admin_records_home", text)
+        self.assertIn("Records editor", text)
+
     def test_admin_home_links_history_records(self) -> None:
         path = Path(__file__).resolve().parents[1] / "app" / "templates" / "admin_site_home.html"
         text = path.read_text(encoding="utf-8")
-        self.assertIn("admin_history_records_home", text)
-        self.assertIn("Historical records editor", text)
+        self.assertIn("admin_records_home", text)
 
     def test_team_seasons_template_has_dropdowns(self) -> None:
         path = Path(__file__).resolve().parents[1] / "app" / "templates" / "admin_history_team_seasons.html"
         text = path.read_text(encoding="utf-8")
         self.assertIn('name="team_id"', text)
+        self.assertIn('name="shots_for"', text)
         self.assertIn('action" value="delete"', text)
 
     def test_admin_home_links_season_awards(self) -> None:

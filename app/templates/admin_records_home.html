@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Admin — Records Editor{% endblock %}
+{% block content %}
+<div class="card" style="max-width:44rem;margin:0 auto;">
+  <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
+  <h1 class="page-title">Records editor</h1>
+  <p class="muted">
+    Fix erroneous entries on public records pages for {{ config.LEAGUE_DISPLAY_NAME }}.
+    Leaderboards recalculate immediately from the database — no redeploy required.
+    Admin edits are preserved across CSV/FHM imports.
+  </p>
+  <ul>
+    <li>
+      <a href="{{ url_for('site_admin.admin_history_team_seasons') }}">Team season records</a>
+      — Team Records leaderboards (PTS, GF, shots, etc.)
+    </li>
+    <li>
+      <a href="{{ url_for('site_admin.admin_record_career_adjustments') }}">Career-line adjustments</a>
+      — exclude or correct a player season line on Season Records, All-Time Records, and season detail top-10s
+    </li>
+    <li>
+      <a href="{{ url_for('site_admin.admin_game_records') }}">Game record baselines</a>
+      — single-game marks on Game Records
+    </li>
+    <li>
+      <a href="{{ url_for('site_admin.admin_awards_tracker') }}">Season Awards</a>
+      — trophy winners &amp; All-Star teams (League History)
+    </li>
+  </ul>
+  <p class="muted" style="margin-top:1rem;">Public pages:</p>
+  <ul>
+    <li><a href="{{ url_for('main.team_records_index') }}">Team Records</a></li>
+    <li><a href="{{ url_for('main.league_season_records') }}">Season Records</a></li>
+    <li><a href="{{ url_for('main.all_time_records') }}">All-Time Records</a></li>
+    <li><a href="{{ url_for('main.game_records_page') }}">Game Records</a></li>
+  </ul>
+</div>
+{% endblock %}

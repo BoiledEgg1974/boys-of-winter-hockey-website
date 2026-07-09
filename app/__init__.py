@@ -18,6 +18,7 @@ from app.db_utils import (
     ensure_homepage_performance_indexes_sqlite,
     ensure_players_boost_tier_sqlite,
     ensure_game_record_baselines_sqlite,
+    ensure_record_stat_adjustments_sqlite,
     ensure_gm_export_attendance_sqlite,
     ensure_gm_rule_strikes_sqlite,
     ensure_players_jersey_number_sqlite,
@@ -557,6 +558,7 @@ def create_app(config_class: type = Config) -> Flask:
         ensure_player_goalie_stats_gsaa_sqlite(db.engine)
         ensure_advanced_stats_columns_sqlite(db.engine)
         ensure_game_record_baselines_sqlite(db.engine)
+        ensure_record_stat_adjustments_sqlite(db.engine)
         ensure_history_awards_staff_fhm_id_sqlite(db.engine)
         ensure_history_records_admin_metadata_sqlite(db.engine)
         ensure_history_all_stars_sqlite(db.engine)

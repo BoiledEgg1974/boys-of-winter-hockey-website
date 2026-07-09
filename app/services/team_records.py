@@ -115,12 +115,25 @@ def _runner_up_for_year(
     return runner
 
 
-def team_display_name(rec: TeamSeasonRecord) -> str:
+def team_display_name(rec: TeamSeasonRecord, *, session: Session | None = None) -> str:
     ovr = (rec.team_name_override or "").strip()
     if ovr:
         return ovr
     if rec.team is not None:
         return rec.team.full_display_name()
+    if session is not None:
+        from app.services.franchise_identities import identity_for_record
+
+        ident = identity_for_record(session, rec)
+        if ident and (ident.display_name or "").strip():
+            return ident.display_name.strip()
+        fhm = (rec.team_fhm_id_csv or "").strip()
+        if fhm:
+            team = session.scalars(
+                select(Team).where(Team.fhm_team_id == fhm).limit(1)
+            ).first()
+            if team is not None:
+                return team.full_display_name()
     return "—"
 
 
@@ -194,26 +207,37 @@ def _record_has_display_identity(rec: TeamSeasonRecord) -> bool:
 def _drop_import_shadow_rows(records: list[TeamSeasonRecord]) -> list[TeamSeasonRecord]:
     """Drop import-sync rows shadowed by an identified CSV row for the same season stat line."""
     csv_identity_keys: set[tuple[str, int | None, int | None]] = set()
+    csv_fhm_keys: set[tuple[str, str]] = set()
+    csv_override_keys: set[tuple[str, str]] = set()
     for rec in records:
         src = (rec.source or HISTORY_SOURCE_CSV).strip().lower()
         if src not in (HISTORY_SOURCE_CSV, HISTORY_SOURCE_ADMIN):
             continue
         if not _record_has_display_identity(rec):
             continue
-        if rec.gf is None:
-            continue
-        csv_identity_keys.add((rec.season_year_label, rec.gf, rec.pts))
+        if rec.gf is not None:
+            csv_identity_keys.add((rec.season_year_label, rec.gf, rec.pts))
+        fhm = (rec.team_fhm_id_csv or "").strip()
+        if fhm:
+            csv_fhm_keys.add((rec.season_year_label, fhm))
+        ovr = (rec.team_name_override or "").strip().lower()
+        if ovr:
+            csv_override_keys.add((rec.season_year_label, ovr))
 
-    if not csv_identity_keys:
+    if not csv_identity_keys and not csv_fhm_keys and not csv_override_keys:
         return records
 
     kept: list[TeamSeasonRecord] = []
     for rec in records:
         src = (rec.source or HISTORY_SOURCE_CSV).strip().lower()
-        if src == HISTORY_SOURCE_IMPORT and rec.gf is not None:
-            key = (rec.season_year_label, rec.gf, rec.pts)
-            if key in csv_identity_keys and not _record_has_display_identity(rec):
+        if src == HISTORY_SOURCE_IMPORT and not _record_has_display_identity(rec):
+            fhm = (rec.team_fhm_id_csv or "").strip()
+            if fhm and (rec.season_year_label, fhm) in csv_fhm_keys:
                 continue
+            if rec.gf is not None:
+                key = (rec.season_year_label, rec.gf, rec.pts)
+                if key in csv_identity_keys:
+                    continue
         kept.append(rec)
     return kept
 
@@ -624,6 +648,14 @@ def _load_skater_rows_for_year(
             PlayerSkaterCareerLine.career_source.in_(("rs", "retired_rs")),
         )
     ).all():
+        from app.services.record_stat_adjustments import (
+            LINE_SKATER,
+            apply_career_line_overrides,
+            is_career_line_excluded,
+        )
+
+        if is_career_line_excluded(session, ln, line_kind=LINE_SKATER):
+            continue
         pid = int(ln.player_id)
         tm = _team_from_career_line(ln)
         cur = best_ln_by_pid.get(pid)
@@ -644,7 +676,15 @@ def _load_skater_rows_for_year(
         pl = session.get(Player, ln.player_id)
         if pl is None:
             continue
-        out.append((_skater_namespace_from_career(ln), pl, tm))
+        from app.services.record_stat_adjustments import LINE_SKATER, apply_career_line_overrides
+
+        st_row = apply_career_line_overrides(
+            ln,
+            _skater_namespace_from_career(ln),
+            session=session,
+            line_kind=LINE_SKATER,
+        )
+        out.append((st_row, pl, tm))
 
     season = session.scalars(select(Season).where(Season.start_year == int(start_year))).first()
     if season is not None:
@@ -689,6 +729,10 @@ def _load_goalie_rows_for_year(
             PlayerGoalieCareerLine.career_source.in_(("rs", "retired_rs")),
         )
     ).all():
+        from app.services.record_stat_adjustments import LINE_GOALIE, is_career_line_excluded
+
+        if is_career_line_excluded(session, ln, line_kind=LINE_GOALIE):
+            continue
         pid = int(ln.player_id)
         tm = _team_from_career_line(ln)
         cur = best_ln_by_pid.get(pid)
@@ -709,7 +753,15 @@ def _load_goalie_rows_for_year(
         pl = session.get(Player, ln.player_id)
         if pl is None:
             continue
-        out.append((_goalie_namespace_from_career(ln), pl, tm))
+        from app.services.record_stat_adjustments import LINE_GOALIE, apply_career_line_overrides
+
+        st_row = apply_career_line_overrides(
+            ln,
+            _goalie_namespace_from_career(ln),
+            session=session,
+            line_kind=LINE_GOALIE,
+        )
+        out.append((st_row, pl, tm))
     season = session.scalars(select(Season).where(Season.start_year == int(start_year))).first()
     if season is not None:
         for st, pl, tm in session.execute(
@@ -900,6 +952,18 @@ def _leaderboard_gp_qualifies(r: TeamSeasonRecord) -> bool:
         return False
 
 
+def _leaderboard_identity_slot(rec: TeamSeasonRecord, *, session: Session | None) -> str:
+    name = team_display_name(rec, session=session).strip().lower()
+    if name and name != "—":
+        return name
+    fhm = (rec.team_fhm_id_csv or "").strip()
+    if fhm:
+        return f"fhm:{fhm}"
+    if rec.team_id is not None:
+        return f"team:{rec.team_id}"
+    return f"row:{id(rec)}"
+
+
 def _leaderboard_rows(
     records: Iterable[TeamSeasonRecord],
     *,
@@ -908,6 +972,7 @@ def _leaderboard_rows(
     fmt: Callable[[Any], str] = _FORMAT_INT,
     extra_filter: Callable[[TeamSeasonRecord], bool] | None = None,
     use_min_gp: bool = False,
+    session: Session | None = None,
 ) -> list[dict[str, Any]]:
     scored: list[tuple[float, str, TeamSeasonRecord, Any]] = []
     for r in records:
@@ -926,20 +991,47 @@ def _leaderboard_rows(
             continue
         if fv != fv:
             continue
-        tname = team_display_name(r).lower()
+        tname = team_display_name(r, session=session).lower()
         scored.append((fv, tname, r, v))
     if maximize:
         scored.sort(key=lambda t: (-t[0], t[1], t[2].season_year_label))
     else:
         scored.sort(key=lambda t: (t[0], t[1], t[2].season_year_label))
+
+    # Drop duplicate franchise slots (CSV row + import shadow) for the same season/stat.
+    best_by_slot: dict[tuple[str, float, str], TeamSeasonRecord] = {}
+    slot_order: list[tuple[str, float, str]] = []
+    for fv, _, r, _ in scored:
+        slot = (r.season_year_label, fv, _leaderboard_identity_slot(r, session=session))
+        if slot not in best_by_slot:
+            slot_order.append(slot)
+            best_by_slot[slot] = r
+            continue
+        cur = best_by_slot[slot]
+        if _record_display_quality(r) > _record_display_quality(cur):
+            best_by_slot[slot] = r
+
+    deduped: list[tuple[float, TeamSeasonRecord, Any]] = []
+    for slot in slot_order:
+        r = best_by_slot[slot]
+        raw = getattr(r, attr, None)
+        if raw is None:
+            continue
+        deduped.append((float(raw), r, raw))
+
+    if maximize:
+        deduped.sort(key=lambda t: (-t[0], team_display_name(t[1], session=session).lower(), t[1].season_year_label))
+    else:
+        deduped.sort(key=lambda t: (t[0], team_display_name(t[1], session=session).lower(), t[1].season_year_label))
+
     out: list[dict[str, Any]] = []
-    for i, (_, _, r, raw) in enumerate(scored[:TOP_N], start=1):
+    for i, (_, r, raw) in enumerate(deduped[:TOP_N], start=1):
         out.append(
             {
                 "rank": i,
                 "record": r,
                 "team": r.team,
-                "team_name": team_display_name(r),
+                "team_name": team_display_name(r, session=session),
                 "team_logo_override_rel": team_season_logo_static_rel(r),
                 "year_label": r.season_year_label,
                 "value": fmt(raw),
@@ -983,6 +1075,7 @@ def build_team_record_leaderboards(
             fmt=fmt,
             extra_filter=extra_filter,
             use_min_gp=use_min_gp,
+            session=session,
         )
         if rows:
             sections.append(LeaderboardSection(title=title, rows=rows))

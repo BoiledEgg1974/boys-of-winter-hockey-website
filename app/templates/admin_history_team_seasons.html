@@ -3,7 +3,7 @@
 {% block content %}
 <div class="card" style="max-width:72rem;margin:0 auto;">
   <p>
-    <a href="{{ url_for('site_admin.admin_history_records_home') }}">← Historical records</a>
+    <a href="{{ url_for('site_admin.admin_records_home') }}">← Records editor</a>
     · <a href="{{ url_for('main.team_records_index') }}">Public Team Records</a>
   </p>
   <h1 class="page-title">Team season records</h1>
@@ -62,6 +62,13 @@
         <label>Conference override <input type="text" name="conference_override" value="{{ edit_row.conference_override if edit_row else '' }}"></label>
         <label>Division override <input type="text" name="division_override" value="{{ edit_row.division_override if edit_row else '' }}"></label>
         <label>Logo file override <input type="text" name="logo_file_override" value="{{ edit_row.logo_file_override if edit_row else '' }}"></label>
+        <label>Shots for <input type="number" name="shots_for" value="{{ edit_row.shots_for if edit_row and edit_row.shots_for is not none else '' }}"></label>
+        <label>Shots against <input type="number" name="shots_against" value="{{ edit_row.shots_against if edit_row and edit_row.shots_against is not none else '' }}"></label>
+        <label>PPG <input type="number" name="ppg" value="{{ edit_row.ppg if edit_row and edit_row.ppg is not none else '' }}"></label>
+        <label>PPG against <input type="number" name="ppg_against" value="{{ edit_row.ppg_against if edit_row and edit_row.ppg_against is not none else '' }}"></label>
+        <label>PP% <input type="number" step="any" name="pp_pct" value="{{ edit_row.pp_pct if edit_row and edit_row.pp_pct is not none else '' }}"></label>
+        <label>PK% <input type="number" step="any" name="pk_pct" value="{{ edit_row.pk_pct if edit_row and edit_row.pk_pct is not none else '' }}"></label>
+        <label>PIM/G <input type="number" step="any" name="pim_per_game" value="{{ edit_row.pim_per_game if edit_row and edit_row.pim_per_game is not none else '' }}"></label>
       </div>
       <button type="submit" class="button" style="margin-top:0.65rem;">Save row</button>
       {% if edit_row %}<a href="{{ url_for('site_admin.admin_history_team_seasons', season=season_filter or none) }}" style="margin-left:0.5rem;">Cancel edit</a>{% endif %}

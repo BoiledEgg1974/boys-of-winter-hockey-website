@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Season Records — Boys of Winter Hockey League{% endblock %}
 {% block content %}
+{% include 'includes/admin_records_edit_bar.html' %}
 <div class="card">
   <h1 class="page-title">Season Records{% if relegation_enabled and relegation_scope != 'combined' %} — {{ relegation_config.upper_label if relegation_scope == 'upper' else relegation_config.lower_label }}{% endif %}</h1>
   {% include 'includes/relegation_scope_tabs.html' %}

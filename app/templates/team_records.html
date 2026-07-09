@@ -65,6 +65,7 @@
 }.get(config.LEAGUE_SLUG, 'img/bowl-fantasy-playoff-trophy.png') %}
 
 {% block content %}
+{% include 'includes/admin_records_edit_bar.html' %}
 <div class="card team-records-page">
   <h1 class="page-title">Team Records{% if relegation_enabled and relegation_scope != 'combined' %} — {{ relegation_config.upper_label if relegation_scope == 'upper' else relegation_config.lower_label }}{% endif %}</h1>
   {% include 'includes/relegation_scope_tabs.html' %}
@@ -108,13 +109,13 @@
                 {% if row.team %}
                 <a class="team-records-leaderboards__team-link" href="{{ url_for('main.team_page', slug=row.team.slug) }}">{{ season_team_name(row.record) or row.team.full_display_name() }}</a>
                 {% else %}
-                <span class="team-records-leaderboards__team-link team-records-leaderboards__team-link--noteam">{{ row.team_name }}</span>
+                <span class="team-records-leaderboards__team-link team-records-leaderboards__team-link--noteam">{{ season_team_name(row.record) or row.team_name }}</span>
                 {% endif %}
               </td>
               <td class="team-records-leaderboards__td-season">
                 <a href="{{ url_for('main.team_records_season', year_label=row.year_label, identity_view=identity_view) }}">{{ row.year_label }}</a>
               </td>
-              <td class="team-records-leaderboards__td-value">{{ row.value }}</td>
+              <td class="team-records-leaderboards__td-value">{{ row.value }}{% if site_has_admin %} <a class="muted" href="{{ url_for('site_admin.admin_history_team_seasons', edit=row.record.id, season=row.year_label) }}" title="Edit team season row">✎</a>{% endif %}</td>
             </tr>
             {% endfor %}
           </tbody>

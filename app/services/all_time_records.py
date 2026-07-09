@@ -162,6 +162,10 @@ def fetch_skater_all_time(
     line = PlayerSkaterCareerLine
     src = skater_sources(split)
     rank_pref = _career_source_rank_for_split(line, split)
+    from app.services.record_stat_adjustments import excluded_career_tuples_for_sql
+    from sqlalchemy import not_, tuple_
+
+    excluded = excluded_career_tuples_for_sql(session)
     # One row per (player, season, team, league): *rs* vs *retired_rs* (and PO analog) both exist in DB.
     lined = (
         select(
@@ -201,6 +205,14 @@ def fetch_skater_all_time(
         .where(line.career_source.in_(src))
         .where(line.league_fhm_id.in_(ids))
     )
+    if excluded:
+        lined = lined.where(
+            not_(
+                tuple_(line.player_id, line.season_year, line.team_fhm_id).in_(
+                    list(excluded)
+                )
+            )
+        )
     if team_fhm_ids:
         lined = lined.where(line.team_fhm_id.in_(team_fhm_ids))
     lined = lined.subquery()
@@ -378,6 +390,10 @@ def fetch_goalie_all_time(
     line = PlayerGoalieCareerLine
     src = goalie_sources(split)
     rank_pref = _career_source_rank_for_split(line, split)
+    from app.services.record_stat_adjustments import excluded_career_tuples_for_sql
+    from sqlalchemy import not_, tuple_
+
+    excluded = excluded_career_tuples_for_sql(session)
     lined = (
         select(
             line.player_id,
@@ -408,6 +424,14 @@ def fetch_goalie_all_time(
         .where(line.career_source.in_(src))
         .where(line.league_fhm_id.in_(ids))
     )
+    if excluded:
+        lined = lined.where(
+            not_(
+                tuple_(line.player_id, line.season_year, line.team_fhm_id).in_(
+                    list(excluded)
+                )
+            )
+        )
     if team_fhm_ids:
         lined = lined.where(line.team_fhm_id.in_(team_fhm_ids))
     lined = lined.subquery()

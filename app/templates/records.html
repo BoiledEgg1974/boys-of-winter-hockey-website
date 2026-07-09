@@ -43,6 +43,7 @@
 {%- endif -%}
 {% endmacro %}
 {% block content %}
+{% include 'includes/admin_records_edit_bar.html' %}
 <div class="records-page">
   {% if record_chase_rows is defined and record_chase_rows %}
   <section class="card record-chase-panel" aria-labelledby="record-chase-h">

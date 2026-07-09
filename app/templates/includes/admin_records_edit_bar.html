@@ -1,0 +1,9 @@
+{% if site_has_admin %}
+<div class="admin-records-edit-bar card" style="margin:0.75rem 0;padding:0.55rem 0.85rem;display:flex;flex-wrap:wrap;gap:0.65rem;align-items:center;">
+  <span class="muted" style="font-size:0.85rem;">Admin:</span>
+  <a href="{{ url_for('site_admin.admin_records_home') }}">Records editor</a>
+  <a href="{{ url_for('site_admin.admin_history_team_seasons') }}">Team seasons</a>
+  <a href="{{ url_for('site_admin.admin_record_career_adjustments') }}">Career-line fixes</a>
+  <a href="{{ url_for('site_admin.admin_game_records') }}">Game records</a>
+</div>
+{% endif %}

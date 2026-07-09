@@ -921,6 +921,28 @@ class GameRecordBaseline(db.Model):
     game: Mapped["Game | None"] = relationship()
 
 
+class RecordStatAdjustment(db.Model):
+    """Exclude or override a career/team row used when building records leaderboards."""
+
+    __tablename__ = "record_stat_adjustments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    adj_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    line_kind: Mapped[str] = mapped_column(String(24), nullable=False, default="skater_career")
+    player_id: Mapped[int | None] = mapped_column(ForeignKey("players.id"), nullable=True)
+    season_year: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    team_fhm_id: Mapped[str | None] = mapped_column(String(64))
+    career_source: Mapped[str | None] = mapped_column(String(24))
+    overrides_json: Mapped[str | None] = mapped_column(Text)
+    notes: Mapped[str | None] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+    updated_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    player: Mapped["Player | None"] = relationship()
+
+
 Index("ix_games_season_status", Game.season_id, Game.status)
 Index("ix_player_skater_points", PlayerSkaterStat.season_id, PlayerSkaterStat.stat_segment, PlayerSkaterStat.points)
 Index("ix_player_goalie_wins", PlayerGoalieStat.season_id, PlayerGoalieStat.stat_segment, PlayerGoalieStat.wins)

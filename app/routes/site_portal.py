@@ -3473,11 +3473,18 @@ def _admin_history_player_team_choices():
     return players, teams
 
 
+@site_admin_bp.route("/records")
+@login_required
+def admin_records_home():
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    return render_template("admin_records_home.html", league_slug=_league_slug())
+
+
 @site_admin_bp.route("/history-records")
 @login_required
 def admin_history_records_home():
     require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
-    return render_template("admin_history_records_home.html", league_slug=_league_slug())
+    return render_template("admin_records_home.html", league_slug=_league_slug())
 
 
 @site_admin_bp.route("/hall-of-fame", methods=["GET", "POST"])
@@ -3564,6 +3571,95 @@ def admin_hall_of_fame():
 
     edit_row = db.session.get(HallOfFameMember, edit_id) if edit_id else None
     return _render(edit_row=edit_row)
+
+
+@site_admin_bp.route("/records/career-adjustments", methods=["GET", "POST"])
+@login_required
+def admin_record_career_adjustments():
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    from app.models import RecordStatAdjustment
+    from app.services.record_stat_adjustments import (
+        clear_adjustment_cache,
+        delete_adjustment,
+        list_adjustments,
+        parse_career_adjustment_form,
+        upsert_career_adjustment,
+    )
+
+    slug = _league_slug()
+    players, _teams = _admin_history_player_team_choices()
+    edit_id = request.args.get("edit", type=int)
+
+    if request.method == "POST":
+        action = (request.form.get("action") or "").strip()
+        if action == "delete":
+            aid = request.form.get("adjustment_id", type=int)
+            if aid and delete_adjustment(db.session, aid):
+                clear_adjustment_cache()
+                db.session.add(
+                    AdminAuditLog(
+                        admin_user_id=int(current_user.id),
+                        league_slug=slug,
+                        action="record_career_adjustment_delete",
+                        detail_json=json.dumps({"adjustment_id": aid}),
+                    )
+                )
+                commit_with_sqlite_retry(db.session)
+                flash("Deleted career-line adjustment.", "ok")
+            else:
+                flash("Adjustment not found.", "err")
+            return redirect(url_for("site_admin.admin_record_career_adjustments"))
+
+        if action in ("save", "create"):
+            fields = parse_career_adjustment_form(request.form)
+            aid = request.form.get("adjustment_id", type=int)
+            try:
+                if fields["player_id"] is None or fields["season_year"] is None:
+                    raise ValueError("Player and season year are required.")
+                row = upsert_career_adjustment(
+                    db.session,
+                    adjustment_id=aid,
+                    adj_type=str(fields["adj_type"]),
+                    line_kind=str(fields["line_kind"]),
+                    player_id=int(fields["player_id"]),
+                    season_year=int(fields["season_year"]),
+                    team_fhm_id=fields["team_fhm_id"],
+                    career_source=fields["career_source"],
+                    overrides=fields["overrides"],
+                    notes=fields["notes"],
+                    user_id=int(current_user.id),
+                )
+            except ValueError as exc:
+                flash(str(exc), "err")
+                return redirect(url_for("site_admin.admin_record_career_adjustments"))
+            clear_adjustment_cache()
+            db.session.add(
+                AdminAuditLog(
+                    admin_user_id=int(current_user.id),
+                    league_slug=slug,
+                    action="record_career_adjustment_save",
+                    detail_json=json.dumps(
+                        {
+                            "adjustment_id": int(row.id or 0),
+                            "player_id": row.player_id,
+                            "season_year": row.season_year,
+                            "adj_type": row.adj_type,
+                        }
+                    ),
+                )
+            )
+            commit_with_sqlite_retry(db.session)
+            flash("Saved career-line adjustment. Records pages will recalculate on refresh.", "ok")
+            return redirect(url_for("site_admin.admin_record_career_adjustments"))
+
+    rows = list_adjustments(db.session)
+    edit_row = db.session.get(RecordStatAdjustment, edit_id) if edit_id else None
+    return render_template(
+        "admin_record_career_adjustments.html",
+        rows=rows,
+        players=players,
+        edit_row=edit_row,
+    )
 
 
 @site_admin_bp.route("/history-records/team-seasons", methods=["GET", "POST"])

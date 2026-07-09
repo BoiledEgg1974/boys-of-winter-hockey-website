@@ -193,7 +193,11 @@ def _load_skater_rows_merged(
         )
     ).all()
     best: dict[tuple[int, int, tuple[int | None, int | None]], PlayerSkaterCareerLine] = {}
+    from app.services.record_stat_adjustments import LINE_SKATER, is_career_line_excluded
+
     for ln in lines:
+        if is_career_line_excluded(session, ln, line_kind=LINE_SKATER):
+            continue
         tk = _team_key(ln.team_id, ln.team_fhm_id)
         k = (int(ln.player_id), int(ln.season_year), tk)
         cur = best.get(k)
@@ -222,7 +226,15 @@ def _load_skater_rows_merged(
             tm = teams_by_fhm.get(int(ln.team_fhm_id))
         if team_fhm_ids is not None and tm is not None and tm.fhm_team_id and str(tm.fhm_team_id) not in team_fhm_ids:
             continue
-        out.append((_skater_namespace_from_career(ln), pl, tm, _career_row_season_display(session, sy)))
+        from app.services.record_stat_adjustments import LINE_SKATER, apply_career_line_overrides
+
+        st_row = apply_career_line_overrides(
+            ln,
+            _skater_namespace_from_career(ln),
+            session=session,
+            line_kind=LINE_SKATER,
+        )
+        out.append((st_row, pl, tm, _career_row_season_display(session, sy)))
 
     players_with_career = {pid for pid, _, _ in career_keys}
     for st, pl, sn, tm in session.execute(
@@ -261,7 +273,11 @@ def _load_goalie_rows_merged(
         )
     ).all()
     best: dict[tuple[int, int, tuple[int | None, int | None]], PlayerGoalieCareerLine] = {}
+    from app.services.record_stat_adjustments import LINE_GOALIE, is_career_line_excluded
+
     for ln in lines:
+        if is_career_line_excluded(session, ln, line_kind=LINE_GOALIE):
+            continue
         tk = _team_key(ln.team_id, ln.team_fhm_id)
         k = (int(ln.player_id), int(ln.season_year), tk)
         cur = best.get(k)
@@ -290,7 +306,15 @@ def _load_goalie_rows_merged(
             tm = teams_by_fhm.get(int(ln.team_fhm_id))
         if team_fhm_ids is not None and tm is not None and tm.fhm_team_id and str(tm.fhm_team_id) not in team_fhm_ids:
             continue
-        out.append((_goalie_namespace_from_career(ln), pl, tm, _career_row_season_display(session, sy)))
+        from app.services.record_stat_adjustments import LINE_GOALIE, apply_career_line_overrides
+
+        st_row = apply_career_line_overrides(
+            ln,
+            _goalie_namespace_from_career(ln),
+            session=session,
+            line_kind=LINE_GOALIE,
+        )
+        out.append((st_row, pl, tm, _career_row_season_display(session, sy)))
 
     players_with_career = {pid for pid, _, _ in career_keys}
     for st, pl, sn, tm in session.execute(

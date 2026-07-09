@@ -126,6 +126,7 @@ def apply_league_sqlite_migrations(app: Flask) -> None:
         ensure_franchise_team_identities_sqlite,
         ensure_fts5,
         ensure_game_record_baselines_sqlite,
+        ensure_record_stat_adjustments_sqlite,
         ensure_history_all_stars_sqlite,
         ensure_history_awards_staff_fhm_id_sqlite,
         ensure_history_records_admin_metadata_sqlite,
@@ -161,6 +162,7 @@ def apply_league_sqlite_migrations(app: Flask) -> None:
     ensure_player_goalie_stats_gsaa_sqlite(db.engine)
     ensure_advanced_stats_columns_sqlite(db.engine)
     ensure_game_record_baselines_sqlite(db.engine)
+    ensure_record_stat_adjustments_sqlite(db.engine)
     ensure_history_awards_staff_fhm_id_sqlite(db.engine)
     ensure_history_records_admin_metadata_sqlite(db.engine)
     ensure_history_all_stars_sqlite(db.engine)

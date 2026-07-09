@@ -121,6 +121,35 @@ class TeamRecordsNullLeaderboardTest(unittest.TestCase):
         self.assertEqual(out[0].source, "csv")
         self.assertEqual(out[0].team_name_override, "New York Americans")
 
+    def test_import_shadow_row_dropped_when_csv_has_same_fhm_id(self) -> None:
+        csv_row = SimpleNamespace(
+            season_year_label="1925-26",
+            pts=39,
+            w=19,
+            l=16,
+            gf=82,
+            ga=70,
+            source="csv",
+            team_name_override="Pittsburgh Pirates",
+            team_id=11,
+            team_fhm_id_csv="122",
+        )
+        import_row = SimpleNamespace(
+            season_year_label="1925-26",
+            pts=40,
+            w=20,
+            l=15,
+            gf=85,
+            ga=72,
+            source="import",
+            team_name_override=None,
+            team_id=None,
+            team_fhm_id_csv="122",
+        )
+        out = _drop_import_shadow_rows([csv_row, import_row])
+        self.assertEqual(len(out), 1)
+        self.assertEqual(out[0].source, "csv")
+
 
 if __name__ == "__main__":
     unittest.main()

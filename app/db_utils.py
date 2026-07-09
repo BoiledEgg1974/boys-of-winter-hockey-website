@@ -2836,6 +2836,47 @@ def ensure_boost_lottery_team_results_sqlite(engine: Engine) -> None:
         conn.commit()
 
 
+def ensure_record_stat_adjustments_sqlite(engine: Engine) -> None:
+    """Admin exclude/override rows for records leaderboard recalculation."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='record_stat_adjustments'"
+            )
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE record_stat_adjustments (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    adj_type VARCHAR(16) NOT NULL,
+                    line_kind VARCHAR(24) NOT NULL DEFAULT 'skater_career',
+                    player_id INTEGER,
+                    season_year INTEGER,
+                    team_fhm_id VARCHAR(64),
+                    career_source VARCHAR(24),
+                    overrides_json TEXT,
+                    notes TEXT,
+                    updated_at DATETIME NOT NULL,
+                    updated_by_user_id INTEGER,
+                    FOREIGN KEY(player_id) REFERENCES players (id)
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_record_stat_adj_player_season "
+                "ON record_stat_adjustments (player_id, season_year)"
+            )
+        )
+        conn.commit()
+
+
 def ensure_game_record_baselines_sqlite(engine: Engine) -> None:
     """Create admin-seeded single-game record baselines table (league DB)."""
     if engine.dialect.name != "sqlite":

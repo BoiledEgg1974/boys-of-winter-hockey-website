@@ -175,11 +175,8 @@ def apply_league_sqlite_migrations(app: Flask) -> None:
 
 def bootstrap_league_sqlite(app: Flask) -> None:
     """League DB schema/migrations only (never holds the site DB lock)."""
-    from sqlalchemy import func, select
-
     from app.config import Config
-    from app.models import FranchiseTeamIdentity, db
-    from app.services.franchise_identities import seed_franchise_identities_from_csv
+    from app.models import db
 
     db_uri = str(app.config.get("SQLALCHEMY_DATABASE_URI") or "")
     if not db_uri.startswith("sqlite:///"):
@@ -204,10 +201,10 @@ def bootstrap_league_sqlite(app: Flask) -> None:
     def _bootstrap() -> None:
         db.create_all()
         try:
-            identity_count = db.session.scalar(select(func.count()).select_from(FranchiseTeamIdentity)) or 0
+            from app.services.franchise_identities import sync_franchise_identities_from_csv_if_needed
+
             identity_csv = Path(app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)) / "team_identity_history.csv"
-            if int(identity_count) == 0 and identity_csv.is_file():
-                seed_franchise_identities_from_csv(db.session, identity_csv)
+            if sync_franchise_identities_from_csv_if_needed(db.session, identity_csv) is not None:
                 db.session.commit()
         except Exception:
             db.session.rollback()

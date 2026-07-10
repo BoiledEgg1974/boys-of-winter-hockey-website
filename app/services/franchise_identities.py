@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from flask import current_app, has_request_context, request, url_for
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models import FranchiseTeamIdentity, Team
@@ -59,6 +59,40 @@ def _seed_end_year(raw: str | None) -> int | None:
     return None if value >= 2100 else value
 
 
+def norm_fhm_team_id(raw: object) -> str | None:
+    """Normalize FHM team ids; preserves ``0`` (Montreal Canadiens)."""
+    if raw is None:
+        return None
+    s = str(raw).strip()
+    return s if s != "" else None
+
+
+def _csv_identity_row_count(csv_path: Path) -> int:
+    if not csv_path.is_file():
+        return 0
+    with csv_path.open("r", encoding="utf-8-sig", newline="") as fh:
+        return sum(1 for _ in csv.DictReader(fh))
+
+
+def franchise_identities_need_csv_seed(session: Session, csv_path: Path) -> bool:
+    """True when the league DB is empty or the CSV has rows not yet upserted."""
+    if not csv_path.is_file():
+        return False
+    db_count = int(session.scalar(select(func.count()).select_from(FranchiseTeamIdentity)) or 0)
+    if db_count == 0:
+        return True
+    return _csv_identity_row_count(csv_path) > db_count
+
+
+def sync_franchise_identities_from_csv_if_needed(
+    session: Session, csv_path: Path
+) -> FranchiseIdentitySeedResult | None:
+    """Upsert franchise identity rows when the CSV has grown or the table is empty."""
+    if not franchise_identities_need_csv_seed(session, csv_path):
+        return None
+    return seed_franchise_identities_from_csv(session, csv_path)
+
+
 def seed_franchise_identities_from_csv(session: Session, csv_path: Path) -> FranchiseIdentitySeedResult:
     """Upsert editable identity rows from the legacy team_identity_history.csv file."""
     path = Path(csv_path)
@@ -66,21 +100,21 @@ def seed_franchise_identities_from_csv(session: Session, csv_path: Path) -> Fran
         return FranchiseIdentitySeedResult(skipped=1)
 
     created = updated = skipped = 0
-    teams_by_fhm = {
-        str(t.fhm_team_id).strip(): t
-        for t in session.scalars(select(Team).where(Team.fhm_team_id.is_not(None))).all()
-        if str(t.fhm_team_id or "").strip()
-    }
+    teams_by_fhm: dict[str, Team] = {}
+    for t in session.scalars(select(Team).where(Team.fhm_team_id.is_not(None))).all():
+        fhm = norm_fhm_team_id(t.fhm_team_id)
+        if fhm is not None:
+            teams_by_fhm[fhm] = t
     with path.open("r", encoding="utf-8-sig", newline="") as fh:
         for row in csv.DictReader(fh):
-            fhm = str(row.get("team_fhm_id") or "").strip()
+            fhm = norm_fhm_team_id(row.get("team_fhm_id"))
             name = " ".join(str(row.get("team_name") or "").strip().split())
             try:
                 start_year = int(str(row.get("start_year") or "").strip())
             except (TypeError, ValueError):
                 skipped += 1
                 continue
-            if not fhm or not name:
+            if fhm is None or not name:
                 skipped += 1
                 continue
             end_year = _seed_end_year(row.get("end_year"))

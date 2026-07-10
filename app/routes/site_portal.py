@@ -89,7 +89,11 @@ from app.services.staff_transactions import (
     sync_team_roster_from_fhm,
     transaction_headline,
 )
-from app.services.franchise_identities import identity_logo_url
+from app.services.franchise_identities import (
+    identity_logo_url,
+    norm_fhm_team_id,
+    sync_franchise_identities_from_csv_if_needed,
+)
 from app.services.season_team_logo_bundle import get_season_team_logo_bundle
 from app.services.news_categories import (
     NEWS_CATEGORY_ADMIN_SUBMISSION,
@@ -1909,8 +1913,15 @@ def _admin_trade_log_team_options() -> list[Team]:
 
 
 def _admin_trade_log_team_option_groups() -> tuple[list[dict[str, str]], list[dict[str, str]], list[Team]]:
+    csv_path = Path(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)) / "team_identity_history.csv"
+    if sync_franchise_identities_from_csv_if_needed(db.session, csv_path) is not None:
+        commit_with_sqlite_retry(db.session)
     teams = _admin_trade_log_team_options()
-    teams_by_fhm = {str(t.fhm_team_id or "").strip(): t for t in teams if str(t.fhm_team_id or "").strip()}
+    teams_by_fhm: dict[str, Team] = {}
+    for t in teams:
+        fhm = norm_fhm_team_id(t.fhm_team_id)
+        if fhm is not None:
+            teams_by_fhm[fhm] = t
     logo_bundle = get_season_team_logo_bundle()
 
     def _identity_option_logo(ident: FranchiseTeamIdentity, team: Team) -> str:
@@ -1932,7 +1943,8 @@ def _admin_trade_log_team_option_groups() -> tuple[list[dict[str, str]], list[di
         )
     ).all()
     for ident in rows:
-        team = ident.team or teams_by_fhm.get(str(ident.team_fhm_id or "").strip())
+        fhm = norm_fhm_team_id(ident.team_fhm_id)
+        team = ident.team or (teams_by_fhm.get(fhm) if fhm is not None else None)
         if team is None:
             continue
         years = f"{ident.start_year}-{ident.end_year}" if ident.end_year else str(ident.start_year)

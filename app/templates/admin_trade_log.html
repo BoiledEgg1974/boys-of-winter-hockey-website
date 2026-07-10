@@ -4,7 +4,14 @@
 <div class="card" style="max-width:58rem;margin:0 auto;">
   <h1 class="page-title">Manual trade log</h1>
   <p class="muted">Add historical trades from before the Trade Tool workflow. These appear on the public <a href="{{ url_for('main.trade_log_page') }}">Trade Log</a> with source <strong>Manual</strong>.</p>
-  <p class="muted">Player, team, and staff names are linked automatically when they match site records. Use full player names for the most reliable links.</p>
+  <p class="muted">Player, team, and staff names are linked automatically when they match site records. Search for players by name, or type picks and other conditions in the separate field.</p>
+  {% if defunct_team_options %}
+    {% if current_league_slug == 'bowl-historical' %}
+  <p class="muted">For Original Six and other franchises, choose an era under <strong>Historical / era-specific logos</strong> so the correct mark appears on the trade log.</p>
+    {% else %}
+  <p class="muted">Choose an era under <strong>Historical / era-specific logos</strong> when a franchise used a different name or mark.</p>
+    {% endif %}
+  {% endif %}
   <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
 
   <form method="post" style="margin:0 0 1.25rem;">
@@ -19,7 +26,7 @@
         <select name="team_a_id" required data-logo-preview="manual-team-a-logo">
           <option value="">— Select —</option>
           {% if defunct_team_options %}
-          <optgroup label="Defunct / historical teams">
+          <optgroup label="Historical / era-specific logos">
             {% for opt in defunct_team_options %}
             <option value="{{ opt.value }}" data-logo-url="{{ opt.logo_url }}">{{ opt.label }}</option>
             {% endfor %}
@@ -39,7 +46,7 @@
         <select name="team_b_id" required data-logo-preview="manual-team-b-logo">
           <option value="">— Select —</option>
           {% if defunct_team_options %}
-          <optgroup label="Defunct / historical teams">
+          <optgroup label="Historical / era-specific logos">
             {% for opt in defunct_team_options %}
             <option value="{{ opt.value }}" data-logo-url="{{ opt.logo_url }}">{{ opt.label }}</option>
             {% endfor %}
@@ -54,12 +61,14 @@
         <span class="manual-trade-log__logo-preview" aria-hidden="true"><img id="manual-team-b-logo" alt=""></span>
         </span>
       </label>
-      <label>Leaving Team A
-        <textarea name="team_a_outgoing" rows="4" maxlength="4000" required placeholder="Players/picks leaving Team A…"></textarea>
-      </label>
-      <label>Leaving Team B
-        <textarea name="team_b_outgoing" rows="4" maxlength="4000" required placeholder="Players/picks leaving Team B…"></textarea>
-      </label>
+      {% set legend = "Leaving Team A" %}
+      {% set side = "team_a" %}
+      {% set asset_rows = [{"player": "", "other": ""}] %}
+      {% include "_manual_trade_log_assets.html" with context %}
+      {% set legend = "Leaving Team B" %}
+      {% set side = "team_b" %}
+      {% set asset_rows = [{"player": "", "other": ""}] %}
+      {% include "_manual_trade_log_assets.html" with context %}
       <div>
         <button type="submit" class="join-league-btn">Add entry</button>
       </div>
@@ -128,20 +137,8 @@
   </nav>
   {% endif %}
 </div>
-<script>
-(function () {
-  function updateLogo(select) {
-    var img = document.getElementById(select.getAttribute('data-logo-preview') || '');
-    if (!img) return;
-    var opt = select.options[select.selectedIndex];
-    var url = opt ? opt.getAttribute('data-logo-url') : '';
-    img.src = url || '';
-    img.style.display = url ? '' : 'none';
-  }
-  document.querySelectorAll('select[data-logo-preview]').forEach(function (select) {
-    select.addEventListener('change', function () { updateLogo(select); });
-    updateLogo(select);
-  });
-})();
-</script>
+{% endblock %}
+{% block scripts %}
+<script>window.MANUAL_TRADE_LOG_PLAYER_SEARCH_URL = {{ player_search_url|tojson }};</script>
+<script src="{{ url_for('static', filename='js/admin_trade_log.js') }}"></script>
 {% endblock %}

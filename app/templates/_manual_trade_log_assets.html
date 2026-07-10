@@ -1,0 +1,38 @@
+{# Reusable asset rows for manual trade log create/edit forms. #}
+<fieldset class="manual-trade-log__assets-fieldset">
+  <legend>{{ legend }}</legend>
+  <div class="manual-trade-log__asset-list" data-asset-side="{{ side }}">
+    {% for row in asset_rows %}
+    <div class="manual-trade-log__asset-row">
+      <label class="manual-trade-log__asset-label">
+        <span class="manual-trade-log__asset-label-text">Player</span>
+        <span class="manual-trade-log__asset-input-wrap">
+          <input
+            type="text"
+            name="{{ side }}_player[]"
+            value="{{ row.player }}"
+            autocomplete="off"
+            aria-autocomplete="list"
+            placeholder="Search player name…"
+            class="manual-trade-log__player-input"
+          >
+          <div class="autocomplete-panel manual-trade-log__player-suggestions" role="listbox" aria-label="Player suggestions"></div>
+        </span>
+      </label>
+      <label class="manual-trade-log__asset-label">
+        <span class="manual-trade-log__asset-label-text">Picks / other</span>
+        <input
+          type="text"
+          name="{{ side }}_other[]"
+          value="{{ row.other }}"
+          placeholder="Draft picks, cash, conditions…"
+          class="manual-trade-log__other-input"
+        >
+      </label>
+      <button type="button" class="admin-news-body-btn manual-trade-log__remove-row" aria-label="Remove asset row">Remove</button>
+    </div>
+    {% endfor %}
+  </div>
+  <button type="button" class="admin-news-body-btn manual-trade-log__add-row" data-asset-side="{{ side }}">+ Add asset</button>
+  <p class="muted manual-trade-log__asset-hint">Type at least two characters to search players. Each row can include a player, picks/other assets, or both.</p>
+</fieldset>

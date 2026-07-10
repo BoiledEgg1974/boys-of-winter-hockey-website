@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Edit Trade Log Entry — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
 {% block content %}
-<div class="card" style="max-width:40rem;margin:0 auto;">
+<div class="card" style="max-width:58rem;margin:0 auto;">
   <h1 class="page-title">Edit manual trade</h1>
   <p><a href="{{ url_for('site_admin.admin_trade_log') }}">← Manual trade log</a></p>
-  <p class="muted">Use full player names when possible; the public Trade Log and admin list link matching players automatically.</p>
+  <p class="muted">Search for players by name, or type picks and other conditions in the separate field. Player names link automatically on the public trade log.</p>
   <form method="post">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div style="display:grid;gap:0.55rem;">
@@ -15,7 +15,7 @@
         <span class="manual-trade-log__team-select">
         <select name="team_a_id" required data-logo-preview="manual-team-a-logo">
           {% if defunct_team_options %}
-          <optgroup label="Defunct / historical teams">
+          <optgroup label="Historical / era-specific logos">
             {% for opt in defunct_team_options %}
             <option value="{{ opt.value }}" data-logo-url="{{ opt.logo_url }}" {% if opt.value == selected_team_a_value %}selected{% endif %}>{{ opt.label }}</option>
             {% endfor %}
@@ -34,7 +34,7 @@
         <span class="manual-trade-log__team-select">
         <select name="team_b_id" required data-logo-preview="manual-team-b-logo">
           {% if defunct_team_options %}
-          <optgroup label="Defunct / historical teams">
+          <optgroup label="Historical / era-specific logos">
             {% for opt in defunct_team_options %}
             <option value="{{ opt.value }}" data-logo-url="{{ opt.logo_url }}" {% if opt.value == selected_team_b_value %}selected{% endif %}>{{ opt.label }}</option>
             {% endfor %}
@@ -49,32 +49,22 @@
         <span class="manual-trade-log__logo-preview" aria-hidden="true"><img id="manual-team-b-logo" alt=""></span>
         </span>
       </label>
-      <label>Leaving Team A
-        <textarea name="team_a_outgoing" rows="5" maxlength="4000" required placeholder="Players/picks leaving Team A…">{{ summary_parts[0] }}</textarea>
-      </label>
-      <label>Leaving Team B
-        <textarea name="team_b_outgoing" rows="5" maxlength="4000" required placeholder="Players/picks leaving Team B…">{{ summary_parts[1] }}</textarea>
-      </label>
+      {% set legend = "Leaving Team A" %}
+      {% set side = "team_a" %}
+      {% set asset_rows = team_a_asset_rows %}
+      {% include "_manual_trade_log_assets.html" with context %}
+      {% set legend = "Leaving Team B" %}
+      {% set side = "team_b" %}
+      {% set asset_rows = team_b_asset_rows %}
+      {% include "_manual_trade_log_assets.html" with context %}
       <div>
         <button type="submit" class="join-league-btn">Save</button>
       </div>
     </div>
   </form>
 </div>
-<script>
-(function () {
-  function updateLogo(select) {
-    var img = document.getElementById(select.getAttribute('data-logo-preview') || '');
-    if (!img) return;
-    var opt = select.options[select.selectedIndex];
-    var url = opt ? opt.getAttribute('data-logo-url') : '';
-    img.src = url || '';
-    img.style.display = url ? '' : 'none';
-  }
-  document.querySelectorAll('select[data-logo-preview]').forEach(function (select) {
-    select.addEventListener('change', function () { updateLogo(select); });
-    updateLogo(select);
-  });
-})();
-</script>
+{% endblock %}
+{% block scripts %}
+<script>window.MANUAL_TRADE_LOG_PLAYER_SEARCH_URL = {{ player_search_url|tojson }};</script>
+<script src="{{ url_for('static', filename='js/admin_trade_log.js') }}"></script>
 {% endblock %}

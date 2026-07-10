@@ -1,5 +1,36 @@
 team_fhm_id,start_year,end_year,team_name,logo_file
 2,1917,1934,Ottawa Senators,logos/teams/bowl_historical/ott-ottawa-senators.png
+0,1917,1918,Montreal Canadiens,logos/teams/bowl_historical/montreal_canadiens_1917-1918.png
+0,1919,1920,Montreal Canadiens,logos/teams/bowl_historical/montreal_canadiens_1919-1920.png
+0,1921,1921,Montreal Canadiens,logos/teams/bowl_historical/montreal_canadiens_1921-1921.png
+0,1922,1924,Montreal Canadiens,logos/teams/bowl_historical/montreal_canadiens_1922-1924.png
+0,1925,1931,Montreal Canadiens,logos/teams/bowl_historical/montreal_canadiens_1925-1931.png
+0,1932,1946,Montreal Canadiens,logos/teams/bowl_historical/montreal_canadiens_1932-1946.png
+0,1947,1955,Montreal Canadiens,logos/teams/bowl_historical/montreal_canadiens_1947-1955.png
+0,1956,1998,Montreal Canadiens,logos/teams/bowl_historical/montreal_canadiens_1956-1998.png
+0,1999,2100,Montreal Canadiens,logos/teams/bowl_historical/montreal_canadiens_1999-2018.png
+5,1924,1925,Boston Bruins,logos/teams/bowl_historical/boston_bruins_1924-1925.png
+5,1926,1931,Boston Bruins,logos/teams/bowl_historical/boston_bruins_1926-1931.png
+5,1932,1933,Boston Bruins,logos/teams/bowl_historical/boston_bruins_1932-1933.png
+5,1934,1947,Boston Bruins,logos/teams/bowl_historical/boston_bruins_1933-1947.png
+5,1948,1948,Boston Bruins,logos/teams/bowl_historical/boston_bruins_1948-1948.png
+5,1949,1968,Boston Bruins,logos/teams/bowl_historical/boston_bruins_1949-1968.png
+5,1969,1995,Boston Bruins,logos/teams/bowl_historical/boston_bruins_1969-1995.png
+5,1995,2006,Boston Bruins,logos/teams/bowl_historical/boston_bruins_1995-2006.png
+5,2007,2100,Boston Bruins,logos/teams/bowl_historical/boston_bruins_2007-2018.png
+9,1926,1929,Detroit Cougars,logos/teams/bowl_historical/detroit_cougars_1926-1929.png
+9,1930,1932,Detroit Falcons,logos/teams/bowl_historical/detroit_falcons.png
+9,1932,1947,Detroit Red Wings,logos/teams/bowl_historical/detroit_red_wings_1932-1947.png
+9,1948,1949,Detroit Red Wings,logos/teams/bowl_historical/detroit_red_wings_1948-1949.png
+9,1950,2100,Detroit Red Wings,logos/teams/bowl_historical/detroit_red_wings_1950-2024.png
+10,1926,1934,New York Rangers,logos/teams/bowl_historical/new_york_rangers_1926-1934.png
+10,1935,1946,New York Rangers,logos/teams/bowl_historical/new_york_rangers_1935-1946.png
+10,1947,1951,New York Rangers,logos/teams/bowl_historical/new_york_rangers_1947-1951.png
+10,1952,1966,New York Rangers,logos/teams/bowl_historical/new_york_rangers_1952-1966.png
+10,1967,1970,New York Rangers,logos/teams/bowl_historical/new_york_rangers_1967-1970.png
+10,1971,1977,New York Rangers,logos/teams/bowl_historical/new_york_rangers_1971-1977.png
+10,1978,1998,New York Rangers,logos/teams/bowl_historical/new_york_rangers_1978-1998.png
+10,1999,2100,New York Rangers,logos/teams/bowl_historical/new_york_rangers_1999-2018.png
 8,1926,1940,Chicago Black Hawks,logos/teams/bowl_historical/chicago_black_hawks_1926-1940.png
 8,1941,1956,Chicago Black Hawks,logos/teams/bowl_historical/chicago_black_hawks_1941-1956.png
 8,1957,1958,Chicago Black Hawks,logos/teams/bowl_historical/chicago_black_hawks_1957-1958.png
@@ -132,6 +163,8 @@ team_fhm_id,start_year,end_year,team_name,logo_file
 23,2011,2016,Edmonton Oilers,logos/teams/bowl_historical/edmonton_oilers_2011-2016.png
 23,2017,2018,Edmonton Oilers,logos/teams/bowl_historical/edmonton_oilers_2017-2018.png
 23,2019,2100,Edmonton Oilers,logos/teams/bowl_historical/edmonton_oilers_2017-2018.png
+3,1919,1921,Toronto St. Pats,logos/teams/bowl_historical/toronto_st_pats_1919-1921.png
+3,1922,1925,Toronto St. Pats,logos/teams/bowl_historical/toronto_st_pats_1922-1926.png
 3,1926,1937,Toronto Maple Leafs,logos/teams/bowl_historical/toronto_maple_leafs_1926-1937.png
 3,1938,1962,Toronto Maple Leafs,logos/teams/bowl_historical/toronto_maple_leafs_1938-1962.png
 3,1963,1966,Toronto Maple Leafs,logos/teams/bowl_historical/toronto_maple_leafs_1963-1966.png

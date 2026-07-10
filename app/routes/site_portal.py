@@ -2031,6 +2031,30 @@ def _manual_trade_summary_parts(summary: str | None) -> tuple[str, str]:
     return a_block[1], b_block[1]
 
 
+def _manual_trade_asset_rows(outgoing: str | None) -> list[dict[str, str]]:
+    """Split stored outgoing assets into editable rows for the admin form."""
+    lines = [ln.strip() for ln in (outgoing or "").splitlines() if ln.strip()]
+    if not lines:
+        return [{"player": "", "other": ""}]
+    return [{"player": ln, "other": ""} for ln in lines]
+
+
+def _manual_trade_outgoing_from_form(form, prefix: str) -> str:
+    """Combine per-row player and other asset fields into one outgoing block."""
+    players = form.getlist(f"{prefix}_player[]")
+    others = form.getlist(f"{prefix}_other[]")
+    count = max(len(players), len(others))
+    lines: list[str] = []
+    for i in range(count):
+        player = (players[i] if i < len(players) else "").strip()
+        other = (others[i] if i < len(others) else "").strip()
+        if player:
+            lines.append(player)
+        if other:
+            lines.append(other)
+    return "\n".join(lines)
+
+
 def _manual_trade_summary_labels(summary: str | None) -> tuple[str, str]:
     a_block, b_block = _manual_trade_summary_blocks(summary)
     return a_block[0], b_block[0]
@@ -2171,8 +2195,8 @@ def admin_trade_log():
             team_b_choice = _resolve_admin_trade_log_team_choice(request.form.get("team_b_id"))
             team_a_id = team_a_choice[0] if team_a_choice else 0
             team_b_id = team_b_choice[0] if team_b_choice else 0
-            team_a_outgoing = (request.form.get("team_a_outgoing") or "").strip()
-            team_b_outgoing = (request.form.get("team_b_outgoing") or "").strip()
+            team_a_outgoing = _manual_trade_outgoing_from_form(request.form, "team_a")
+            team_b_outgoing = _manual_trade_outgoing_from_form(request.form, "team_b")
             trade_d = _parse_trade_log_date(request.form.get("trade_date"))
             if not team_a_id or not team_b_id or team_a_id == team_b_id:
                 flash("Choose two different teams.", "err")
@@ -2232,6 +2256,7 @@ def admin_trade_log():
         teams=teams,
         defunct_team_options=defunct_team_options,
         active_team_options=active_team_options,
+        player_search_url=url_for("api.search_players"),
     )
 
 
@@ -2248,8 +2273,8 @@ def admin_trade_log_edit(entry_id: int):
         team_b_choice = _resolve_admin_trade_log_team_choice(request.form.get("team_b_id"))
         team_a_id = team_a_choice[0] if team_a_choice else 0
         team_b_id = team_b_choice[0] if team_b_choice else 0
-        team_a_outgoing = (request.form.get("team_a_outgoing") or "").strip()
-        team_b_outgoing = (request.form.get("team_b_outgoing") or "").strip()
+        team_a_outgoing = _manual_trade_outgoing_from_form(request.form, "team_a")
+        team_b_outgoing = _manual_trade_outgoing_from_form(request.form, "team_b")
         trade_d = _parse_trade_log_date(request.form.get("trade_date"))
         if not team_a_id or not team_b_id or team_a_id == team_b_id:
             flash("Choose two different teams.", "err")
@@ -2269,15 +2294,19 @@ def admin_trade_log_edit(entry_id: int):
             commit_with_sqlite_retry(db.session)
             flash("Trade log entry updated.", "ok")
             return redirect(url_for("site_admin.admin_trade_log"))
+    summary_parts = _manual_trade_summary_parts(ent.summary)
     return render_template(
         "admin_trade_log_edit.html",
         entry=ent,
         teams=teams,
         defunct_team_options=defunct_team_options,
         active_team_options=active_team_options,
-        summary_parts=_manual_trade_summary_parts(ent.summary),
+        summary_parts=summary_parts,
+        team_a_asset_rows=_manual_trade_asset_rows(summary_parts[0]),
+        team_b_asset_rows=_manual_trade_asset_rows(summary_parts[1]),
         selected_team_a_value=_manual_trade_selected_value(ent, "a", defunct_team_options),
         selected_team_b_value=_manual_trade_selected_value(ent, "b", defunct_team_options),
+        player_search_url=url_for("api.search_players"),
     )
 
 

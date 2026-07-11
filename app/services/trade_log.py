@@ -15,6 +15,8 @@ from app.services.franchise_identities import team_identity_for_season
 _TRADE_TITLE_RE = re.compile(r"^Trade:\s*(.+?)\s*↔\s*(.+?)\s*$", re.IGNORECASE)
 _ERA_YEAR_IN_TEXT_RE = re.compile(r"(?<!\d)((?:19|20|21)\d{2})(?!\d)")
 
+TRADE_LOG_PER_PAGE = 10
+
 
 def current_league_season_start_year(session: Session) -> int | None:
     season = session.scalar(

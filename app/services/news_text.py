@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.site_models import NewsArticle
 
-HEADLINES_PER_PAGE = 20
+HEADLINES_PER_PAGE = 10
 HEADLINES_COMMENTS_PER_ARTICLE = 15
 HOMEPAGE_AROUND_COUNT = 5
 HOMEPAGE_BODY_EXCERPT_LEN = 420

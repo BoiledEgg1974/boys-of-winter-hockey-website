@@ -24,6 +24,13 @@
 
   {% endif %}
 
+  {% if trade_log_total > 0 %}
+  <p class="muted headlines-page-meta">
+    Showing page {{ trade_log_page }} of {{ trade_log_total_pages }}
+    ({{ trade_log_total }} trade{{ 's' if trade_log_total != 1 else '' }}).
+  </p>
+  {% endif %}
+
   {% for row in trade_rows %}
 
   {% include "_trade_log_card.html" %}
@@ -41,7 +48,15 @@
     {% else %}
     <span class="headlines-pagination__link headlines-pagination__link--disabled" aria-hidden="true">← Newer</span>
     {% endif %}
-    <span class="headlines-pagination__status muted">Page {{ trade_log_page }} / {{ trade_log_total_pages }}</span>
+    <div class="headlines-pagination__nums" role="group" aria-label="Page numbers">
+      {% for p in range(1, trade_log_total_pages + 1) %}
+      {% if p == trade_log_page %}
+      <span class="headlines-pagination__num headlines-pagination__num--current" aria-current="page">{{ p }}</span>
+      {% else %}
+      <a class="headlines-pagination__num" href="{{ url_for('main.trade_log_page', page=p) }}">{{ p }}</a>
+      {% endif %}
+      {% endfor %}
+    </div>
     {% if trade_log_page < trade_log_total_pages %}
     <a class="headlines-pagination__link" href="{{ url_for('main.trade_log_page', page=trade_log_page + 1) }}">Older →</a>
     {% else %}

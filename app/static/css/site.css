@@ -5026,6 +5026,28 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
 .headlines-pagination__status {
   font-size: 0.88rem;
 }
+.headlines-pagination__nums {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+.headlines-pagination__num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75rem;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: 4px;
+}
+.headlines-pagination__num--current {
+  opacity: 0.65;
+  pointer-events: none;
+}
 .home-news-list__more {
   margin: 0.35rem 0 0.5rem;
   font-size: 0.88rem;

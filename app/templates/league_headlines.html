@@ -49,7 +49,15 @@
     {% else %}
     <span class="headlines-pagination__link headlines-pagination__link--disabled" aria-hidden="true">← Newer</span>
     {% endif %}
-    <span class="headlines-pagination__status muted">Page {{ headlines_page }} / {{ headlines_total_pages }}</span>
+    <div class="headlines-pagination__nums" role="group" aria-label="Page numbers">
+      {% for p in range(1, headlines_total_pages + 1) %}
+      {% if p == headlines_page %}
+      <span class="headlines-pagination__num headlines-pagination__num--current" aria-current="page">{{ p }}</span>
+      {% else %}
+      <a class="headlines-pagination__num" href="{{ url_for('main.league_headlines', page=p) }}">{{ p }}</a>
+      {% endif %}
+      {% endfor %}
+    </div>
     {% if headlines_page < headlines_total_pages %}
     <a class="headlines-pagination__link" href="{{ url_for('main.league_headlines', page=headlines_page + 1) }}">Older →</a>
     {% else %}

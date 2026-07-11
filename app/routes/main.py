@@ -1125,14 +1125,14 @@ def trade_log_page():
 
     from app.auth_login import active_membership_for_league, has_admin_role
     from app.services.season_team_logo_bundle import get_season_team_logo_bundle
-    from app.services.trade_log import trade_log_card_view, trade_log_source_label
+    from app.services.trade_log import TRADE_LOG_PER_PAGE, trade_log_card_view, trade_log_source_label
 
     slug = str(current_app.config.get("LEAGUE_SLUG") or "")
     try:
         page = max(1, int(request.args.get("page", 1) or 1))
     except (TypeError, ValueError):
         page = 1
-    per_page = 10
+    per_page = TRADE_LOG_PER_PAGE
     all_rows = build_trade_log_rows(db.session, db.session, league_slug=slug, limit=500)
     total = len(all_rows)
     total_pages = max(1, ceil(total / per_page)) if total else 1

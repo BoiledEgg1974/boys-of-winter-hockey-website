@@ -637,6 +637,17 @@ def create_app(config_class: type = Config) -> Flask:
         n = backfill_skater_plus_minus()
         print(f"backfill_skater_plus_minus: applied {n} CSV rows")
 
+    @app.cli.command("bowl-game-record-baselines-sync")
+    def bowl_game_record_baselines_sync_cmd() -> None:
+        """Persist game-log leaders into baseline rows for this league mount (survives season resets)."""
+        from app.services.game_records import sync_game_record_baselines
+        from app.sqlite_retry import commit_with_sqlite_retry
+
+        slug = str(app.config.get("LEAGUE_SLUG") or "")
+        promoted = sync_game_record_baselines(db.session)
+        commit_with_sqlite_retry(db.session)
+        print(f"bowl-game-record-baselines-sync ({slug}): promoted {promoted} baseline(s)")
+
     @app.cli.command("bowl-overall-baseline-refresh")
     def bowl_overall_baseline_refresh_cmd() -> None:
         """Save each player's current 1-100 OVR as the trend baseline (clears ↑/↓ until ratings move again).

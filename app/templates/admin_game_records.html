@@ -5,7 +5,10 @@
   <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a> · <a href="{{ url_for('main.game_records_page') }}">View public page</a></p>
   <h1 class="page-title">Game Records — Baselines</h1>
   <p class="muted">
-    Seed starting single-game records here. Imported boxscores automatically replace a baseline when a player posts a better mark.
+    Stored baselines are permanent for {{ config.LEAGUE_DISPLAY_NAME }}: they survive season resets and
+    FHM boxscore reimports. The public Game Records page only changes when imported game logs post a
+    strictly better single-game mark. Enter each record once here — the same workflow applies on
+    BOWL-Historical, BOWL-Relegation, and BOWL-Cap.
   </p>
 
   {% with messages = get_flashed_messages(with_categories=true) %}

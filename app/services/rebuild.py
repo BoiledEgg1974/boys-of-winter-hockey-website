@@ -151,5 +151,16 @@ def refresh_after_import(engine, app=None) -> None:
                     )
 
                     record_player_rating_snapshots_after_import(app)
+                    from app.services.game_records import sync_game_record_baselines
+                    from app.sqlite_retry import commit_with_sqlite_retry
+
+                    promoted = sync_game_record_baselines(db.session)
+                    if promoted:
+                        commit_with_sqlite_retry(db.session)
+                        _log.info(
+                            "Promoted %s game record baseline(s) after import for %s.",
+                            promoted,
+                            slug or "league",
+                        )
         except Exception:
             _log.exception("post-import hooks failed (non-fatal)")

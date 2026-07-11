@@ -3385,6 +3385,7 @@ def admin_game_records():
     require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
     slug = _league_slug()
     from app.services.game_records import (
+        MANUAL_BASELINE_NOTE,
         baseline_team_choices_for_admin,
         delete_baseline,
         list_baselines,
@@ -3458,6 +3459,7 @@ def admin_game_records():
                     flash("Invalid game date.", "err")
                     return redirect(url_for("site_admin.admin_game_records"))
 
+            notes_raw = (request.form.get("notes") or "").strip()
             row = upsert_baseline(
                 db.session,
                 metric_key=metric_key,
@@ -3471,7 +3473,7 @@ def admin_game_records():
                 game_id=_opt_int("game_id"),
                 game_date=game_date_val,
                 season_label=(request.form.get("season_label") or "").strip() or None,
-                notes=(request.form.get("notes") or "").strip() or None,
+                notes=notes_raw or MANUAL_BASELINE_NOTE,
             )
             db.session.add(
                 AdminAuditLog(

@@ -25,6 +25,10 @@ from app.services.rookie_eligibility import player_was_rookie_in_season, rookie_
 from app.services.seasons import season_display_label
 
 
+MANUAL_BASELINE_NOTE = "admin-manual"
+_NOTES_OMIT = object()
+
+
 @dataclass(frozen=True)
 class GameRecordMetric:
     key: str
@@ -494,6 +498,21 @@ def _merge_holders(
     return baseline
 
 
+def _computed_game_record(
+    session: Session,
+    metric: GameRecordMetric,
+    segment: str,
+    scope: str,
+) -> GameRecordHolder | None:
+    if metric.source == "scoring_pp":
+        return _best_from_scoring(session, metric, segment, scope, pp=True)
+    if metric.source == "scoring_sh":
+        return _best_from_scoring(session, metric, segment, scope, pp=False)
+    if metric.player_kind == "goalie":
+        return _best_from_goalie_query(session, metric, segment, scope)
+    return _best_from_skater_query(session, metric, segment, scope)
+
+
 def resolve_game_record(
     session: Session,
     metric: GameRecordMetric,
@@ -501,15 +520,7 @@ def resolve_game_record(
     scope: str,
 ) -> GameRecordHolder | None:
     baseline = _baseline_row(session, metric, segment, scope)
-    computed: GameRecordHolder | None = None
-    if metric.source == "scoring_pp":
-        computed = _best_from_scoring(session, metric, segment, scope, pp=True)
-    elif metric.source == "scoring_sh":
-        computed = _best_from_scoring(session, metric, segment, scope, pp=False)
-    elif metric.player_kind == "goalie":
-        computed = _best_from_goalie_query(session, metric, segment, scope)
-    else:
-        computed = _best_from_skater_query(session, metric, segment, scope)
+    computed = _computed_game_record(session, metric, segment, scope)
     merged = _merge_holders(baseline, computed, metric)
     if merged is None:
         return GameRecordHolder(
@@ -525,6 +536,105 @@ def resolve_game_record(
             source="empty",
         )
     return merged
+
+
+def _should_promote_baseline(
+    existing: GameRecordHolder | None,
+    game_log: GameRecordHolder,
+    metric: GameRecordMetric,
+) -> bool:
+    """True when a game-log mark strictly beats the stored baseline."""
+    if game_log.value is None or game_log.player is None:
+        return False
+    if existing is None or existing.value is None:
+        return True
+    return _is_better(game_log.value, existing.value, higher_is_better=metric.higher_is_better)
+
+
+def _baseline_db_row(
+    session: Session,
+    metric: GameRecordMetric,
+    segment: str,
+    scope: str,
+) -> GameRecordBaseline | None:
+    return session.scalars(
+        select(GameRecordBaseline).where(
+            GameRecordBaseline.metric_key == metric.key,
+            GameRecordBaseline.segment == segment,
+            GameRecordBaseline.scope == scope,
+            GameRecordBaseline.player_kind == metric.player_kind,
+        ).limit(1)
+    ).first()
+
+
+def _promote_holder_to_baseline(
+    session: Session,
+    holder: GameRecordHolder,
+    segment: str,
+    scope: str,
+    *,
+    notes: str | None | object = _NOTES_OMIT,
+) -> GameRecordBaseline:
+    team_id = int(holder.team.id) if holder.team is not None else None
+    opponent_team_id = int(holder.opponent_team.id) if holder.opponent_team is not None else None
+    return upsert_baseline(
+        session,
+        metric_key=holder.metric.key,
+        segment=segment,
+        scope=scope,
+        player_kind=holder.metric.player_kind,
+        value=float(holder.value),
+        player_id=int(holder.player.id) if holder.player is not None else None,
+        team_id=team_id,
+        opponent_team_id=opponent_team_id,
+        game_id=int(holder.game_id) if holder.game_id is not None else None,
+        game_date=holder.game_date,
+        season_label=holder.season_label,
+        notes=notes,
+    )
+
+
+def sync_game_record_baselines(session: Session) -> int:
+    """Persist game-log leaders into baseline rows when they strictly beat stored marks.
+
+    Stored baselines (including admin manual entries) are never downgraded. Season-reset
+    FHM imports wipe and reload boxscores; existing baselines keep records on the board
+    until a new game in the log posts a better single-game mark.
+    """
+    promoted = 0
+    for player_kind in ("skater", "goalie"):
+        for segment in ("rs", "po"):
+            for scope in ("all", "rookie"):
+                for metric in game_record_metrics(player_kind=player_kind):
+                    baseline = _baseline_row(session, metric, segment, scope)
+                    game_log = _computed_game_record(session, metric, segment, scope)
+                    if game_log is None:
+                        continue
+                    if not _should_promote_baseline(baseline, game_log, metric):
+                        continue
+                    existing_row = _baseline_db_row(session, metric, segment, scope)
+                    promote_notes: str | None | object = _NOTES_OMIT
+                    if (
+                        existing_row is not None
+                        and baseline is not None
+                        and baseline.value is not None
+                        and _is_better(
+                            game_log.value,
+                            baseline.value,
+                            higher_is_better=metric.higher_is_better,
+                        )
+                    ):
+                        promote_notes = None
+                    _promote_holder_to_baseline(
+                        session,
+                        game_log,
+                        segment,
+                        scope,
+                        notes=promote_notes,
+                    )
+                    session.flush()
+                    promoted += 1
+    return promoted
 
 
 def build_game_records_page(
@@ -640,7 +750,7 @@ def upsert_baseline(
     game_id: int | None = None,
     game_date: date | None = None,
     season_label: str | None = None,
-    notes: str | None = None,
+    notes: str | None | object = _NOTES_OMIT,
 ) -> GameRecordBaseline:
     row = session.scalars(
         select(GameRecordBaseline).where(
@@ -666,7 +776,8 @@ def upsert_baseline(
     row.game_id = game_id
     row.game_date = game_date
     row.season_label = season_label
-    row.notes = notes
+    if notes is not _NOTES_OMIT:
+        row.notes = notes  # type: ignore[assignment]
     return row
 
 

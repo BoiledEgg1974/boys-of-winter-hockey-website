@@ -4,17 +4,18 @@ from __future__ import annotations
 import unittest
 from datetime import date
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from sqlalchemy import select
 
 from app import create_app
 from app.config import make_league_config
 from app.league_db import db
-from app.models import GameRecordBaseline, Player, Team
+from app.models import GameRecordBaseline, GameSkaterStat, Player, Team
 from app.services.game_records import (
     GameRecordHolder,
     GameRecordMetric,
+    MANUAL_BASELINE_NOTE,
     _merge_holders,
     baseline_team_choices_for_admin,
     build_game_records_page,
@@ -22,6 +23,7 @@ from app.services.game_records import (
     game_record_season_year,
     game_record_metrics,
     resolve_game_record,
+    sync_game_record_baselines,
     upsert_baseline,
 )
 from app.services.rookie_eligibility import (
@@ -302,6 +304,119 @@ class GameRecordsBaselineIntegrationTest(unittest.TestCase):
             self.assertGreaterEqual(holder.value or 0, 99.0)
             db.session.query(GameRecordBaseline).delete()
             db.session.commit()
+
+
+class GameRecordsBaselineSyncTest(unittest.TestCase):
+    def test_sync_promotes_boxscore_leaders_and_never_downgrades(self) -> None:
+        app = create_app(make_league_config("bowl-historical"))
+        with app.app_context():
+            if db.session.query(GameSkaterStat).count() == 0:
+                self.skipTest("no boxscore rows in test db (re-import FHM boxscores to exercise sync)")
+            db.session.query(GameRecordBaseline).delete()
+            db.session.commit()
+
+            promoted = sync_game_record_baselines(db.session)
+            self.assertGreater(promoted, 0, "expected historical boxscores to seed baselines")
+            db.session.commit()
+
+            goals_row = db.session.scalar(
+                select(GameRecordBaseline).where(
+                    GameRecordBaseline.metric_key == "goals",
+                    GameRecordBaseline.segment == "rs",
+                    GameRecordBaseline.scope == "all",
+                    GameRecordBaseline.player_kind == "skater",
+                )
+            )
+            self.assertIsNotNone(goals_row)
+            self.assertIsNotNone(goals_row.player_id)
+            self.assertGreater(goals_row.value, 0)
+
+            promoted_again = sync_game_record_baselines(db.session)
+            self.assertEqual(promoted_again, 0, "second sync should not rewrite unchanged baselines")
+
+            upsert_baseline(
+                db.session,
+                metric_key="goals",
+                segment="rs",
+                scope="all",
+                player_kind="skater",
+                value=1.0,
+                player_id=int(goals_row.player_id),
+            )
+            db.session.commit()
+
+            metric = GameRecordMetric("goals", "Goals", "skater")
+            holder = resolve_game_record(db.session, metric, "rs", "all")
+            self.assertIsNotNone(holder)
+            self.assertGreater(holder.value or 0, 1.0)
+
+            sync_game_record_baselines(db.session)
+            db.session.commit()
+            refreshed = db.session.scalar(
+                select(GameRecordBaseline).where(
+                    GameRecordBaseline.metric_key == "goals",
+                    GameRecordBaseline.segment == "rs",
+                    GameRecordBaseline.scope == "all",
+                    GameRecordBaseline.player_kind == "skater",
+                )
+            )
+            self.assertIsNotNone(refreshed)
+            self.assertGreater(refreshed.value, 1.0)
+
+            db.session.query(GameRecordBaseline).delete()
+            db.session.commit()
+
+
+class GameRecordsSeasonResetTest(unittest.TestCase):
+    def test_manual_baselines_survive_boxscore_wipe_for_all_leagues(self) -> None:
+        for slug in ("bowl-historical", "bowl-fantasy", "bowl-cap"):
+            with self.subTest(league=slug):
+                app = create_app(make_league_config(slug))
+                with app.app_context():
+                    db.session.query(GameRecordBaseline).delete()
+                    player = db.session.scalar(select(Player).limit(1))
+                    if player is None:
+                        self.skipTest(f"no players in {slug} test db")
+                    upsert_baseline(
+                        db.session,
+                        metric_key="goals",
+                        segment="rs",
+                        scope="all",
+                        player_kind="skater",
+                        value=99.0,
+                        player_id=int(player.id),
+                        notes=MANUAL_BASELINE_NOTE,
+                    )
+                    db.session.commit()
+
+                    metric = GameRecordMetric("goals", "Goals", "skater")
+                    with patch("app.services.game_records._computed_game_record", return_value=None):
+                        holder = resolve_game_record(db.session, metric, "rs", "all")
+                        self.assertIsNotNone(holder)
+                        self.assertEqual(holder.value, 99.0)
+                        self.assertEqual(holder.player.id, int(player.id))
+
+                        promoted = sync_game_record_baselines(db.session)
+                        self.assertEqual(
+                            promoted,
+                            0,
+                            f"sync must not change manual baselines without a game log ({slug})",
+                        )
+
+                    row = db.session.scalar(
+                        select(GameRecordBaseline).where(
+                            GameRecordBaseline.metric_key == "goals",
+                            GameRecordBaseline.segment == "rs",
+                            GameRecordBaseline.scope == "all",
+                            GameRecordBaseline.player_kind == "skater",
+                        )
+                    )
+                    self.assertIsNotNone(row)
+                    self.assertEqual(row.value, 99.0)
+                    self.assertEqual(row.notes, MANUAL_BASELINE_NOTE)
+
+                    db.session.query(GameRecordBaseline).delete()
+                    db.session.commit()
 
 
 if __name__ == "__main__":

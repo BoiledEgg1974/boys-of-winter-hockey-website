@@ -1435,11 +1435,26 @@ def run_fhm_import(raw_dir: Path, app, league_filter: int = 0) -> dict[str, int]
     games_fhm = import_games(raw_dir, season, teams_fhm, league_filter, app=app)
     counts["games"] = len(games_fhm)
 
+    from app.services.game_records import sync_game_record_baselines
+
+    promoted_before = sync_game_record_baselines(db.session)
+    if promoted_before:
+        log.info(
+            "Promoted %s game record baseline(s) before boxscore reimport.",
+            promoted_before,
+        )
     _clear_game_details()
     counts["box_skaters"] = import_boxscore_skaters(raw_dir, games_fhm, players_fhm, teams_fhm)
     counts["box_goalies"] = import_boxscore_goalies(raw_dir, games_fhm, players_fhm, teams_fhm)
     counts["scoring_events"] = import_period_scoring(raw_dir, games_fhm, players_fhm, teams_fhm)
     counts["penalty_events"] = import_boxscore_penalties(raw_dir, games_fhm, players_fhm, teams_fhm)
+    promoted_after = sync_game_record_baselines(db.session)
+    if promoted_after:
+        log.info(
+            "Promoted %s game record baseline(s) after boxscore reimport.",
+            promoted_after,
+        )
+    counts["game_record_baselines_promoted"] = promoted_before + promoted_after
 
     # One reused ``Season`` row per FHM mount: ``import_skater_segment`` only overwrites rows
     # present in each CSV. After a rolled year, ``ensure_season``'s start/end years may not

@@ -444,7 +444,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 442;-1;Dave;McDowall;;1956-1-1;Toronto;ON;Canada;;;0
 443;-1;Jim;Ramsay;;1965-1-17;Toronto;ON;Canada;;;0
 444;-1;Billy;Smith;;1950-12-12;Perth;ON;Canada;;;0
-445;-1;Brian;Conacher;;1941-8-31;Toronto;ON;Canada;;;0
+445;9;Brian;Conacher;;1941-8-31;Toronto;ON;Canada;;;0
 446;-1;Bob;Leduc;;1944-5-23;Sudbury;ON;Canada;;;0
 447;223;John;McKenzie;;1937-12-12;High River;AB;Canada;;;0
 448;-1;Duane;Rupp;;1938-3-29;Selwyn;ON;Canada;;;0
@@ -526,7 +526,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 524;229;John;McConnell;;1923-5-10;New Cumberland;WV;The United States;;;0
 525;217;Gord;Giesbrecht;;1940-1-1;Pickering;ON;Canada;;;0
 526;3;Tim;Eichler;;1939-6-1;Springfield;MO;The United States;;;0
-527;-1;Samuli;Koivisto;;1939-9-2;Lohja;UUS;Finland;;;0
+527;9;Samuli;Koivisto;;1939-9-2;Lohja;UUS;Finland;;;0
 528;19;Nicolò;Cameli;;1941-12-19;Milan;LOM;Italy;;;0
 529;5;Allain;Brouwer;;1949-8-15;Moncton;NB;Canada;;;0
 530;5;Carl;Hynes;;1941-5-20;Quinte West;ON;Canada;;;0
@@ -2342,7 +2342,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 2340;-1;William;Harrell;;1950-5-22;Victoria;BC;Canada;;;0
 2341;-1;Stewart;Kuhn;;1959-2-8;Richmond;ON;Canada;;;0
 2342;0;Brad;Brown;;1950-6-21;Burnaby;BC;Canada;;;0
-2343;229;Joey;Unknown;;1957-4-11;Portland;ME;The United States;;;0
+2343;229;Joey;Foster;;1957-4-11;Portland;ME;The United States;;;0
 2344;230;GM;Wild;;1957-4-11;;;Canada;;;0
 0;-1;Charlie;Conacher;The Big Bomber;1909-12-10;Toronto;ON;Canada;;;1
 1;-1;Conn;Smythe;;1895-2-1;Toronto;ON;Canada;;;1

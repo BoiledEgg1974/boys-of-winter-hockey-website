@@ -11,6 +11,7 @@ from app import create_app
 from app.config import make_league_config
 from app.league_db import db
 from app.models import Game, PlayerSkaterStat
+from app.services.playoff_bracket import _is_regular_season_game_type
 from app.services.seasons import get_current_season
 
 
@@ -39,16 +40,20 @@ class ImportFhmSafeguardsTests(unittest.TestCase):
             season = get_current_season()
             if season is None:
                 self.skipTest(f"{slug}: no current season row")
-            game_count = db.session.scalar(
-                select(func.count())
-                .select_from(Game)
-                .where(
+            final_game_types = db.session.scalars(
+                select(Game.game_type).where(
                     Game.season_id == season.id,
                     Game.status == "final",
                 )
-            ) or 0
+            ).all()
+            game_count = sum(
+                1 for gt in final_game_types if _is_regular_season_game_type(gt)
+            )
             if game_count == 0:
-                self.skipTest(f"{slug}: no final games for current season")
+                self.skipTest(
+                    f"{slug}: no final regular-season games for current season "
+                    f"({len(final_game_types)} final non-RS games ignored)"
+                )
             rs_stats = db.session.scalar(
                 select(func.count())
                 .select_from(PlayerSkaterStat)
@@ -65,7 +70,7 @@ class ImportFhmSafeguardsTests(unittest.TestCase):
             self.assertGreater(
                 rs_stats,
                 0,
-                f"{slug}: season has {game_count} final games but 0 RS skater stats — "
+                f"{slug}: season has {game_count} final regular-season games but 0 RS skater stats — "
                 f"/statistics will be empty{hint}",
             )
 

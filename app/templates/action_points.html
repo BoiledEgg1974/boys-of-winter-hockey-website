@@ -245,8 +245,11 @@
       var cb = form.querySelector('.ap-redeem-check[data-catalog-id="' + id + '"]');
       var show = cb && cb.checked;
       panel.hidden = !show;
-      panel.querySelectorAll('[data-required="1"]').forEach(function (el) {
-        el.required = show;
+      panel.querySelectorAll('input, select, textarea').forEach(function (el) {
+        el.disabled = !show;
+        if (el.getAttribute('data-required') === '1') {
+          el.required = show;
+        }
       });
     });
   }

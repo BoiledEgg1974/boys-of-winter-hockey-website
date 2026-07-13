@@ -7952,6 +7952,11 @@ def admin_ap_deny(rid: int):
     if req.status != "pending":
         flash(f"Request #{req.id} has already been {req.status}.", "warn")
         return redirect(url_for("site_admin.admin_ap_requests"))
+    note = (request.form.get("admin_note") or "").strip()
+    if not note:
+        flash("A deny reason is required.", "err")
+        return redirect(url_for("site_admin.ap_request_one", rid=req.id))
+    req.admin_note = note[:4000]
     req.status = "denied"
     req.processed_at = datetime.utcnow()
     commit_with_sqlite_retry(db.session)

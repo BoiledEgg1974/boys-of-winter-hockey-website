@@ -56,8 +56,19 @@
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="admin-ap-queue__btn admin-ap-queue__btn--approve" title="Approve">✓</button>
               </form>
-              <form method="post" action="{{ url_for('site_admin.admin_ap_deny', rid=req.id) }}">
+              <form method="post" action="{{ url_for('site_admin.admin_ap_deny', rid=req.id) }}" class="admin-ap-queue__deny-form">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <label class="visually-hidden" for="admin-ap-deny-note-{{ req.id }}">Deny reason</label>
+                <input
+                  id="admin-ap-deny-note-{{ req.id }}"
+                  type="text"
+                  name="admin_note"
+                  required
+                  maxlength="4000"
+                  placeholder="Deny reason (required)"
+                  class="admin-ap-queue__deny-note"
+                  title="Deny reason (required — sent to GM)"
+                >
                 <button type="submit" class="admin-ap-queue__btn admin-ap-queue__btn--deny" title="Deny">✕</button>
               </form>
             </div>

@@ -137,13 +137,17 @@ def notify_redemption_approved(league_slug: str, req: ApRedemptionRequest) -> No
 
 
 def notify_redemption_denied(league_slug: str, req: ApRedemptionRequest) -> None:
+    note = (req.admin_note or "").strip()
+    body = "Denied. No AP was deducted; you can submit another request when ready."
+    if note:
+        body += f" Reason: {note}"
     _add_notification(
         GmInAppNotification(
             league_slug=league_slug,
             user_id=req.user_id,
             kind="redemption_denied",
             title=f"AP redemption denied (#{req.id})",
-            body="Denied. No AP was deducted; you can submit another request when ready.",
+            body=body[:4000],
             article_id=None,
         )
     )

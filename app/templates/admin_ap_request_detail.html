@@ -42,15 +42,21 @@
   <pre class="admin-ap-detail__raw">{{ req.lines_json }}</pre>
   {% endif %}
 
+  {% if req.status == 'pending' %}
   <div class="admin-ap-detail__actions">
     <form method="post" action="{{ url_for('site_admin.admin_ap_approve', rid=req.id) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button type="submit" class="join-league-btn" style="border:none;cursor:pointer;">Approve</button>
     </form>
-    <form method="post" action="{{ url_for('site_admin.admin_ap_deny', rid=req.id) }}">
+    <form method="post" action="{{ url_for('site_admin.admin_ap_deny', rid=req.id) }}" class="admin-ap-detail__deny-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label class="muted admin-ap-detail__deny-label" for="admin-ap-deny-note">Deny reason (required — sent to GM)</label>
+      <textarea id="admin-ap-deny-note" name="admin_note" rows="2" maxlength="4000" required class="admin-ap-detail__deny-note"></textarea>
       <button type="submit" class="admin-ap-detail__deny">Deny</button>
     </form>
   </div>
+  {% elif req.status == 'denied' and (req.admin_note or '')|trim %}
+  <p class="muted admin-ap-detail__deny-recorded">Deny reason: {{ req.admin_note }}</p>
+  {% endif %}
 </div>
 {% endblock %}

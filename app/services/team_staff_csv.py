@@ -141,6 +141,8 @@ def bucket_for_staff_role(role: str | None) -> str | None:
         return "scouts"
     if r == "trainer":
         return "trainers"
+    if r == "team_owner":
+        return "owners"
     return None
 
 
@@ -168,16 +170,22 @@ def rebucket_staff_sections_by_roles(
     coaches: list[dict],
     scouts: list[dict],
     trainers: list[dict],
+    owners: list[dict] | None = None,
     *,
     role_by_staff_id: dict[str, str] | None = None,
-) -> tuple[list[dict], list[dict], list[dict]]:
-    """Place staff into Coaches/Scouts/Trainers using admin/hire contract role when set.
+) -> tuple[list[dict], list[dict], list[dict], list[dict]]:
+    """Place staff into Coaches/Scouts/Trainers/Owners using contract role when set.
 
     Aptitude bucketing is only a default for staff who do not yet have a portal role.
     """
     roles = role_by_staff_id or {}
-    out: dict[str, list[dict]] = {"coaches": [], "scouts": [], "trainers": []}
-    for row in (*coaches, *scouts, *trainers):
+    out: dict[str, list[dict]] = {
+        "coaches": [],
+        "scouts": [],
+        "trainers": [],
+        "owners": [],
+    }
+    for row in (*(coaches or ()), *(scouts or ()), *(trainers or ()), *(owners or ())):
         sid = str(row.get("staff_fhm_id") or "").strip()
         csv_bucket = str(row.get("primary_bucket") or "coaches")
         if csv_bucket not in out:
@@ -195,9 +203,9 @@ def rebucket_staff_sections_by_roles(
         ln = parts[-1] if parts else name
         return (ln.lower(), fn.lower())
 
-    for bname in ("coaches", "scouts", "trainers"):
+    for bname in ("coaches", "scouts", "trainers", "owners"):
         out[bname].sort(key=_sort_key)
-    return out["coaches"], out["scouts"], out["trainers"]
+    return out["coaches"], out["scouts"], out["trainers"], out["owners"]
 
 
 def _load_bundle() -> dict[str, dict[str, list[dict[str, object]]]]:

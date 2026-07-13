@@ -384,6 +384,8 @@ def admin_hire_staff(
     from app.services.league_finances import default_salary_for_role
 
     salary = int(annual_salary) if annual_salary is not None else int(default_salary_for_role(role_s, defaults))
+    if role_s == "team_owner":
+        salary = 0
     if salary < 0:
         return StaffActionResult(False, "Contract salary cannot be negative.")
     err = _validate_hire_budget(
@@ -513,6 +515,8 @@ def admin_save_staff_contract(
     if prof is None:
         return StaffActionResult(False, "Staff member not found in league catalog.")
     salary = max(0, int(annual_salary or 0))
+    if role_s == "team_owner":
+        salary = 0
     years = max(1, min(10, int(contract_years or 1)))
     start_year = int(contract_start_season_year or season_start_year)
     entry = session.scalar(

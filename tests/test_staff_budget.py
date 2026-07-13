@@ -62,6 +62,7 @@ class StaffBudgetHelpersTest(unittest.TestCase):
         self.assertEqual(default_salary_for_role("assistant_coach", d), 303_514)
         self.assertEqual(default_salary_for_role("scout", d), 60_703)
         self.assertEqual(default_salary_for_role("trainer", d), 121_406)
+        self.assertEqual(default_salary_for_role("team_owner", d), 0)
 
     def test_contract_end_season_year(self) -> None:
         row = _entry(contract_start_season_year=1968, contract_years=3)

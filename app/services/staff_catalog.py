@@ -22,14 +22,27 @@ from app.services.team_staff_csv import (
 )
 from scripts.import_pipeline.encoding_utils import cell_val, read_csv_normalized, to_int
 
-STAFF_ROLES: tuple[str, ...] = ("head_coach", "assistant_coach", "scout", "trainer")
-BROWSE_FILTERS: tuple[str, ...] = STAFF_ROLES
+STAFF_ROLES: tuple[str, ...] = (
+    "head_coach",
+    "assistant_coach",
+    "scout",
+    "trainer",
+    "team_owner",
+)
+# Hire browse filters exclude team_owner (not an FHM aptitude role).
+BROWSE_FILTERS: tuple[str, ...] = (
+    "head_coach",
+    "assistant_coach",
+    "scout",
+    "trainer",
+)
 
 _ROLE_LABELS: dict[str, str] = {
     "head_coach": "Head Coach",
     "assistant_coach": "Assistant Coach",
     "scout": "Scout",
     "trainer": "Trainer",
+    "team_owner": "Team Owner",
 }
 
 _MIN_RATING = 16.0

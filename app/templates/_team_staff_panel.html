@@ -11,6 +11,7 @@
     ('Coaches', staff_coaches, staff_coach_columns, 'coaches'),
     ('Scouts', staff_scouts, staff_scout_columns, 'scouts'),
     ('Trainers', staff_trainers, staff_trainer_columns, 'trainers'),
+    ('Team Owners', staff_owners, (), 'owners'),
   ] %}
   <div class="card team-staff-section">
     <h2 class="team-staff-section__title">{{ section_title }}</h2>
@@ -39,7 +40,7 @@
           {% for row in section_rows %}
           {% set sid = row.staff_fhm_id %}
           {% set contract = row.contract if row.contract is defined else none %}
-          {% set inferred_role = 'head_coach' if bucket == 'coaches' else ('scout' if bucket == 'scouts' else 'trainer') %}
+          {% set inferred_role = 'head_coach' if bucket == 'coaches' else ('scout' if bucket == 'scouts' else ('trainer' if bucket == 'trainers' else 'team_owner')) %}
           {% set form_role = contract.role if contract and contract.role else inferred_role %}
           <tr>
             <td data-sort-value="{{ row.full_name|lower }}"><strong class="team-staff-name">{{ row.full_name }}</strong></td>
@@ -52,7 +53,7 @@
             </td>
             {% if not staff_is_admin %}
             <td data-sort-value="{{ row.annual_salary if row.annual_salary is defined else 0 }}">
-              {% if row.annual_salary is defined and row.annual_salary %}${{ '{:,}'.format(row.annual_salary) }}{% else %}—{% endif %}
+              {% if row.annual_salary is defined %}${{ '{:,}'.format(row.annual_salary) }}{% else %}—{% endif %}
             </td>
             <td data-sort-value="{{ row.contract_years if row.contract_years is defined else 0 }}">
               {% if row.contract_years is defined and row.contract_years %}{{ row.contract_years }}{% else %}—{% endif %}
@@ -68,13 +69,13 @@
                 <input type="hidden" name="staff_fhm_id" value="{{ sid }}">
                 <div class="team-staff-contract-form__fields">
                   <label class="visually-hidden" for="role-{{ sid }}">Position</label>
-                  <select name="role" id="role-{{ sid }}" class="team-staff-contract-form__input team-staff-contract-form__input--role" required title="Staff position">
+                  <select name="role" id="role-{{ sid }}" class="team-staff-contract-form__input team-staff-contract-form__input--role" required title="Staff position" data-staff-role-select>
                     {% for r in staff_roles %}
                     <option value="{{ r }}"{% if form_role == r %} selected{% endif %}>{{ staff_role_labels[r] }}</option>
                     {% endfor %}
                   </select>
                   <label class="visually-hidden" for="salary-{{ sid }}">Salary</label>
-                  <input type="text" inputmode="numeric" name="annual_salary" id="salary-{{ sid }}" class="team-staff-contract-form__input" placeholder="Salary" value="{% if contract and contract.annual_salary %}{{ contract.annual_salary }}{% endif %}">
+                  <input type="text" inputmode="numeric" name="annual_salary" id="salary-{{ sid }}" class="team-staff-contract-form__input" placeholder="Salary" value="{% if form_role == 'team_owner' %}0{% elif contract and contract.annual_salary is not none %}{{ contract.annual_salary }}{% endif %}"{% if form_role == 'team_owner' %} data-owner-salary-locked="1"{% endif %}>
                   <label class="visually-hidden" for="years-{{ sid }}">Years</label>
                   <input type="number" name="contract_years" id="years-{{ sid }}" class="team-staff-contract-form__input team-staff-contract-form__input--years" min="1" max="10" placeholder="Yrs" value="{% if contract and contract.contract_years %}{{ contract.contract_years }}{% else %}1{% endif %}">
                   <button type="submit" class="staff-salaries-btn staff-salaries-btn--small">Save</button>
@@ -107,3 +108,26 @@
   </div>
   {% endfor %}
 </div>
+{% if staff_is_admin %}
+<script>
+(function () {
+  function applyOwnerSalary(select) {
+    var form = select.closest("form");
+    if (!form) return;
+    var salary = form.querySelector('input[name="annual_salary"]');
+    if (!salary) return;
+    if (select.value === "team_owner") {
+      salary.value = "0";
+      salary.setAttribute("data-owner-salary-locked", "1");
+    } else if (salary.getAttribute("data-owner-salary-locked") === "1") {
+      salary.removeAttribute("data-owner-salary-locked");
+    }
+  }
+  document.querySelectorAll("[data-staff-role-select]").forEach(function (select) {
+    select.addEventListener("change", function () {
+      applyOwnerSalary(select);
+    });
+  });
+})();
+</script>
+{% endif %}

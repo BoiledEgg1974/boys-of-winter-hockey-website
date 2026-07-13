@@ -42,22 +42,75 @@ def contract_active(entry: TeamStaffRosterEntry, season_start_year: int) -> bool
     return int(season_start_year) <= end
 
 
-def _active_roster_entry(
+def _entry_claims_staff(entry: TeamStaffRosterEntry, season_start_year: int) -> bool:
+    """True when a roster row should block hiring/contracting elsewhere."""
+    if not contract_active(entry, int(season_start_year)):
+        return False
+    return int(entry.annual_salary or 0) > 0 or int(entry.contract_start_season_year or 0) > 0
+
+
+def _open_roster_entries_for_staff(
     session: Session, *, league_slug: str, staff_fhm_id: str
-) -> TeamStaffRosterEntry | None:
-    return session.scalar(
-        select(TeamStaffRosterEntry)
-        .where(
-            TeamStaffRosterEntry.league_slug == league_slug,
-            TeamStaffRosterEntry.staff_fhm_id == staff_fhm_id,
-            TeamStaffRosterEntry.fired_at.is_(None),
-            TeamStaffRosterEntry.retired_at.is_(None),
-        )
-        .limit(1)
+) -> list[TeamStaffRosterEntry]:
+    return list(
+        session.scalars(
+            select(TeamStaffRosterEntry).where(
+                TeamStaffRosterEntry.league_slug == league_slug,
+                TeamStaffRosterEntry.staff_fhm_id == staff_fhm_id,
+                TeamStaffRosterEntry.fired_at.is_(None),
+                TeamStaffRosterEntry.retired_at.is_(None),
+            )
+        ).all()
     )
 
 
-def staff_unavailable_ids(session: Session, *, league_slug: str) -> set[str]:
+def _active_roster_entry(
+    session: Session,
+    *,
+    league_slug: str,
+    staff_fhm_id: str,
+    season_start_year: int | None = None,
+) -> TeamStaffRosterEntry | None:
+    """Return a real active contract claim for this staff, if any.
+
+    Empty placeholder rows (no salary / no contract start) and expired terms do
+    not count — those ghosts used to block Staff-tab salary saves forever.
+    """
+    rows = _open_roster_entries_for_staff(
+        session, league_slug=league_slug, staff_fhm_id=staff_fhm_id
+    )
+    if season_start_year is None:
+        return rows[0] if rows else None
+    for row in rows:
+        if _entry_claims_staff(row, int(season_start_year)):
+            return row
+    return None
+
+
+def _release_roster_entries(
+    session: Session,
+    entries: list[TeamStaffRosterEntry],
+    *,
+    except_team_id: int | None = None,
+) -> int:
+    """Mark roster rows fired so they no longer block other teams."""
+    now = datetime.utcnow()
+    released = 0
+    for row in entries:
+        if except_team_id is not None and int(row.team_id) == int(except_team_id):
+            continue
+        if row.fired_at is not None:
+            continue
+        row.fired_at = now
+        released += 1
+    if released:
+        session.flush()
+    return released
+
+
+def staff_unavailable_ids(
+    session: Session, *, league_slug: str, season_start_year: int | None = None
+) -> set[str]:
     """Staff with an active league contract."""
     out: set[str] = set()
     for row in session.scalars(
@@ -67,6 +120,10 @@ def staff_unavailable_ids(session: Session, *, league_slug: str) -> set[str]:
             TeamStaffRosterEntry.retired_at.is_(None),
         )
     ).all():
+        if season_start_year is not None:
+            if _entry_claims_staff(row, int(season_start_year)):
+                out.add(str(row.staff_fhm_id).strip())
+            continue
         if int(row.annual_salary or 0) > 0 or int(row.contract_start_season_year or 0) > 0:
             out.add(str(row.staff_fhm_id).strip())
     return out
@@ -154,12 +211,15 @@ def expire_stale_staff_contracts(
     league_slug: str,
     season_start_year: int,
 ) -> int:
-    """Mark expired contracts as fired so they drop from payroll and public lists."""
+    """Mark expired contracts as fired so they drop from payroll and public lists.
+
+    Scans all open rows for the league (not only the current season_start_year
+    snapshot) so prior-season leftovers cannot keep blocking Staff-tab saves.
+    """
     now = datetime.utcnow()
     rows = session.scalars(
         select(TeamStaffRosterEntry).where(
             TeamStaffRosterEntry.league_slug == league_slug,
-            TeamStaffRosterEntry.season_start_year == int(season_start_year),
             TeamStaffRosterEntry.fired_at.is_(None),
             TeamStaffRosterEntry.retired_at.is_(None),
         )
@@ -309,7 +369,12 @@ def admin_hire_staff(
         return StaffActionResult(
             False, "That staff member is already under contract in Franchise Hockey Manager."
         )
-    if _active_roster_entry(session, league_slug=league_slug, staff_fhm_id=sid):
+    if _active_roster_entry(
+        session,
+        league_slug=league_slug,
+        staff_fhm_id=sid,
+        season_start_year=int(season_start_year),
+    ):
         return StaffActionResult(False, "That staff member already has an active league contract.")
     defaults = _league_staff_defaults(
         session,
@@ -463,10 +528,30 @@ def admin_save_staff_contract(
         .limit(1)
     )
     now = datetime.utcnow()
+    open_rows = _open_roster_entries_for_staff(
+        session, league_slug=league_slug, staff_fhm_id=sid
+    )
     if entry is None:
-        other = _active_roster_entry(session, league_slug=league_slug, staff_fhm_id=sid)
-        if other is not None and int(other.team_id) != int(team_id):
+        other = next(
+            (
+                row
+                for row in open_rows
+                if int(row.team_id) != int(team_id)
+                and _entry_claims_staff(row, int(season_start_year))
+            ),
+            None,
+        )
+        staff_fhm_tid = str(prof.get("fhm_team_id") or "").strip()
+        this_fhm_tid = str(fhm_team_id or "").strip()
+        # Staff tab lists current FHM assignments. If they belong here now, any
+        # prior portal contract on another club is an invisible orphan — release it.
+        belongs_here = bool(this_fhm_tid and staff_fhm_tid == this_fhm_tid)
+        if other is not None and not belongs_here:
             return StaffActionResult(False, "That staff member is contracted to another team.")
+        if open_rows:
+            _release_roster_entries(
+                session, open_rows, except_team_id=int(team_id)
+            )
         profiles = list_staff_profiles_for_fhm_team(fhm_team_id) if fhm_team_id else []
         inferred = _infer_staff_role_for_team(profiles, prof) if profiles else role_s
         entry = TeamStaffRosterEntry(
@@ -484,6 +569,10 @@ def admin_save_staff_contract(
         )
         session.add(entry)
     else:
+        if open_rows:
+            _release_roster_entries(
+                session, open_rows, except_team_id=int(team_id)
+            )
         entry.role = role_s
         entry.annual_salary = salary
         entry.contract_years = years

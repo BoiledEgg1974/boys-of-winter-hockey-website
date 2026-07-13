@@ -367,7 +367,9 @@ def search_staff():
                 break
         return jsonify({"results": results})
 
-    unavailable = staff_unavailable_ids(db.session, league_slug=slug)
+    unavailable = staff_unavailable_ids(
+        db.session, league_slug=slug, season_start_year=int(start_year)
+    )
     unavailable |= staff_ids_assigned_to_any_fhm_team()
     q_lower = q.casefold()
 

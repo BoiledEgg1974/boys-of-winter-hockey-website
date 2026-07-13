@@ -16,10 +16,14 @@ from app.services.league_finances import (
 )
 from app.services.staff_salaries import StaffDefaultSalaries, compute_staff_default_salaries
 from app.services.staff_transactions import (
+    _active_roster_entry,
+    _entry_claims_staff,
     admin_fire_staff,
     admin_hire_staff,
+    admin_save_staff_contract,
     contract_active,
     contract_end_season_year,
+    expire_stale_staff_contracts,
 )
 from app.site_models import TeamStaffRosterEntry
 
@@ -202,6 +206,187 @@ class AdminStaffActionsTest(unittest.TestCase):
         self.assertEqual(session.add.call_count, 1)
         severance = session.add.call_args[0][0]
         self.assertEqual(severance.penalty_amount, 100_000)
+
+
+class AdminSaveStaffContractOrphansTest(unittest.TestCase):
+    def test_empty_placeholder_does_not_claim_staff(self) -> None:
+        ghost = _entry(
+            team_id=9,
+            annual_salary=0,
+            contract_start_season_year=0,
+            contract_years=1,
+        )
+        self.assertFalse(_entry_claims_staff(ghost, 1968))
+        self.assertFalse(contract_active(ghost, 1968))
+
+    def test_active_roster_entry_ignores_empty_placeholders(self) -> None:
+        ghost = _entry(
+            team_id=9,
+            staff_fhm_id="77",
+            annual_salary=0,
+            contract_start_season_year=0,
+            contract_years=1,
+        )
+        session = MagicMock()
+        session.scalars.return_value.all.return_value = [ghost]
+        self.assertIsNone(
+            _active_roster_entry(
+                session,
+                league_slug="bowl-cap",
+                staff_fhm_id="77",
+                season_start_year=1968,
+            )
+        )
+
+    def test_expire_stale_clears_prior_season_rows(self) -> None:
+        stale = _entry(
+            season_start_year=1967,
+            contract_start_season_year=1967,
+            contract_years=1,
+            annual_salary=50_000,
+        )
+        session = MagicMock()
+        session.scalars.return_value.all.return_value = [stale]
+        expired = expire_stale_staff_contracts(
+            session, league_slug="bowl-cap", season_start_year=1968
+        )
+        self.assertEqual(expired, 1)
+        self.assertIsNotNone(stale.fired_at)
+
+    @patch("app.services.league_finances.severance_payroll", return_value=0)
+    @patch("app.services.staff_transactions.active_roster_for_team", return_value=[])
+    @patch("app.services.staff_transactions._get_or_create_team_staff_budget")
+    @patch("app.services.staff_transactions.list_staff_profiles_for_fhm_team", return_value=[])
+    @patch("app.services.staff_transactions.get_staff_profile")
+    def test_save_releases_orphan_contract_when_staff_moved_in_fhm(
+        self,
+        mock_profile: MagicMock,
+        _mock_profiles: MagicMock,
+        mock_budget: MagicMock,
+        _mock_roster: MagicMock,
+        _mock_severance: MagicMock,
+    ) -> None:
+        orphan = _entry(
+            team_id=9,
+            staff_fhm_id="77",
+            staff_name="Charlie Burns",
+            annual_salary=80_000,
+            contract_start_season_year=1968,
+            contract_years=2,
+        )
+        session = MagicMock()
+        # First scalar: no entry on Anaheim (team 1); open-rows via scalars().all()
+        session.scalar.return_value = None
+        session.scalars.return_value.all.return_value = [orphan]
+        mock_profile.return_value = {
+            "staff_fhm_id": "77",
+            "full_name": "Charlie Burns",
+            "fhm_team_id": "24",
+        }
+        mock_budget.return_value = SimpleNamespace(budget_amount=0)
+
+        result = admin_save_staff_contract(
+            session,
+            league_slug="bowl-cap",
+            season_start_year=1968,
+            team_id=1,
+            staff_fhm_id="77",
+            role="scout",
+            annual_salary=90_000,
+            contract_years=1,
+            fhm_team_id="24",
+        )
+
+        self.assertTrue(result.ok)
+        self.assertIsNotNone(orphan.fired_at)
+        session.add.assert_called_once()
+        added = session.add.call_args[0][0]
+        self.assertEqual(added.team_id, 1)
+        self.assertEqual(added.annual_salary, 90_000)
+
+    @patch("app.services.staff_transactions.get_staff_profile")
+    def test_save_still_blocks_true_cross_team_contract(
+        self,
+        mock_profile: MagicMock,
+    ) -> None:
+        other = _entry(
+            team_id=9,
+            staff_fhm_id="77",
+            annual_salary=80_000,
+            contract_start_season_year=1968,
+            contract_years=2,
+        )
+        session = MagicMock()
+        session.scalar.return_value = None
+        session.scalars.return_value.all.return_value = [other]
+        mock_profile.return_value = {
+            "staff_fhm_id": "77",
+            "full_name": "Charlie Burns",
+            "fhm_team_id": "99",
+        }
+
+        result = admin_save_staff_contract(
+            session,
+            league_slug="bowl-cap",
+            season_start_year=1968,
+            team_id=1,
+            staff_fhm_id="77",
+            role="scout",
+            annual_salary=90_000,
+            contract_years=1,
+            fhm_team_id="24",
+        )
+
+        self.assertFalse(result.ok)
+        self.assertIn("another team", result.message)
+        self.assertIsNone(other.fired_at)
+        session.add.assert_not_called()
+
+    @patch("app.services.league_finances.severance_payroll", return_value=0)
+    @patch("app.services.staff_transactions.active_roster_for_team", return_value=[])
+    @patch("app.services.staff_transactions._get_or_create_team_staff_budget")
+    @patch("app.services.staff_transactions.list_staff_profiles_for_fhm_team", return_value=[])
+    @patch("app.services.staff_transactions.get_staff_profile")
+    def test_save_ignores_empty_ghost_on_other_team(
+        self,
+        mock_profile: MagicMock,
+        _mock_profiles: MagicMock,
+        mock_budget: MagicMock,
+        _mock_roster: MagicMock,
+        _mock_severance: MagicMock,
+    ) -> None:
+        ghost = _entry(
+            team_id=9,
+            staff_fhm_id="77",
+            annual_salary=0,
+            contract_start_season_year=0,
+            contract_years=1,
+        )
+        session = MagicMock()
+        session.scalar.return_value = None
+        session.scalars.return_value.all.return_value = [ghost]
+        mock_profile.return_value = {
+            "staff_fhm_id": "77",
+            "full_name": "Charlie Burns",
+            "fhm_team_id": "24",
+        }
+        mock_budget.return_value = SimpleNamespace(budget_amount=0)
+
+        result = admin_save_staff_contract(
+            session,
+            league_slug="bowl-cap",
+            season_start_year=1968,
+            team_id=1,
+            staff_fhm_id="77",
+            role="scout",
+            annual_salary=50_000,
+            contract_years=1,
+            fhm_team_id="24",
+        )
+
+        self.assertTrue(result.ok)
+        self.assertIsNotNone(ghost.fired_at)
+        session.add.assert_called_once()
 
 
 if __name__ == "__main__":

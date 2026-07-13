@@ -186,7 +186,11 @@ def staff_salary_context(session: Session, *, league_slug: str) -> dict:
         )
 
     defaults = compute_staff_default_salaries(total_budget, len(teams))
-    unavailable = staff_unavailable_ids(session, league_slug=league_slug)
+    unavailable = staff_unavailable_ids(
+        session,
+        league_slug=league_slug,
+        season_start_year=int(start_year) if start_year is not None else None,
+    )
     unavailable |= staff_ids_assigned_to_any_fhm_team()
     browse_by_filter: dict[str, list[dict]] = {}
     for fk in BROWSE_FILTERS:

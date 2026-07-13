@@ -132,11 +132,23 @@ def _float_attr(rr: dict | None, key: str) -> float | None:
         return None
 
 
-def _staff_role_bucket(rr: dict | None) -> str:
-    """Primary staff role from FHM Coach / Scout / Trainer (game's hired-role proxy).
+def bucket_for_staff_role(role: str | None) -> str | None:
+    """Map portal hire/contract role to team Staff tab section."""
+    r = str(role or "").strip().lower()
+    if r in ("head_coach", "assistant_coach"):
+        return "coaches"
+    if r == "scout":
+        return "scouts"
+    if r == "trainer":
+        return "trainers"
+    return None
 
-    Whoever has the highest aptitude in those three is treated as that role. When two tie for the
-    maximum, order is coaches → scouts → trainers (typical bench vs scouting vs medical split).
+
+def _staff_role_bucket(rr: dict | None) -> str:
+    """Default staff section from FHM Coach / Scout / Trainer aptitudes.
+
+    Used only when no portal contract role is set. Highest aptitude wins; ties prefer
+    coaches → scouts → trainers. Admins assign the real position on the team Staff tab.
     """
     if not rr:
         return "coaches"
@@ -150,6 +162,42 @@ def _staff_role_bucket(rr: dict | None) -> str:
         if val == best:
             return bucket
     return "coaches"
+
+
+def rebucket_staff_sections_by_roles(
+    coaches: list[dict],
+    scouts: list[dict],
+    trainers: list[dict],
+    *,
+    role_by_staff_id: dict[str, str] | None = None,
+) -> tuple[list[dict], list[dict], list[dict]]:
+    """Place staff into Coaches/Scouts/Trainers using admin/hire contract role when set.
+
+    Aptitude bucketing is only a default for staff who do not yet have a portal role.
+    """
+    roles = role_by_staff_id or {}
+    out: dict[str, list[dict]] = {"coaches": [], "scouts": [], "trainers": []}
+    for row in (*coaches, *scouts, *trainers):
+        sid = str(row.get("staff_fhm_id") or "").strip()
+        csv_bucket = str(row.get("primary_bucket") or "coaches")
+        if csv_bucket not in out:
+            csv_bucket = "coaches"
+        role_bucket = bucket_for_staff_role(roles.get(sid)) if sid else None
+        bucket = role_bucket or csv_bucket
+        entry = dict(row)
+        entry["primary_bucket"] = bucket
+        out[bucket].append(entry)
+
+    def _sort_key(e: dict) -> tuple[str, str]:
+        name = str(e.get("full_name") or "")
+        parts = name.split(" ", 1)
+        fn = parts[0] if parts else ""
+        ln = parts[-1] if parts else name
+        return (ln.lower(), fn.lower())
+
+    for bname in ("coaches", "scouts", "trainers"):
+        out[bname].sort(key=_sort_key)
+    return out["coaches"], out["scouts"], out["trainers"]
 
 
 def _load_bundle() -> dict[str, dict[str, list[dict[str, object]]]]:

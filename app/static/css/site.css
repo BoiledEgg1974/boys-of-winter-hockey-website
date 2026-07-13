@@ -10437,7 +10437,7 @@ table.data.staff-salaries-table--browse td.staff-salaries-browse-hire {
   font-size: 1.05rem;
 }
 .team-staff-contract-cell {
-  min-width: 12rem;
+  min-width: 14.5rem;
   vertical-align: top;
 }
 .team-staff-contract-form__fields {
@@ -10453,6 +10453,10 @@ table.data.staff-salaries-table--browse td.staff-salaries-browse-hire {
 }
 .team-staff-contract-form__input--years {
   width: 3.5rem;
+}
+.team-staff-contract-form__input--role {
+  width: 8.25rem;
+  max-width: 100%;
 }
 .team-staff-contract-form__meta {
   font-size: 0.78rem;

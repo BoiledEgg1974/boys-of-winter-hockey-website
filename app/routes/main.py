@@ -150,6 +150,7 @@ from app.services.team_staff_csv import (
     STAFF_TRAINER_COLUMNS,
     get_staff_sections_for_team,
 )
+from app.services.staff_catalog import STAFF_ROLES, staff_role_label
 from app.services.depth_chart_sort import depth_chart_player_sort_key
 from app.services.division_labels import load_division_display_maps
 from app.services.playoff_seeding import (
@@ -4865,6 +4866,8 @@ def team_page(slug: str):
                 season_start_year=int(staff_season_start_year),
             )
 
+        from app.services.team_staff_csv import rebucket_staff_sections_by_roles
+
         def _enrich_staff_rows(rows: list[dict]) -> list[dict]:
             out: list[dict] = []
             for row in rows:
@@ -4892,6 +4895,19 @@ def team_page(slug: str):
         staff_coaches_public = _enrich_staff_rows(staff_coaches)
         staff_scouts_public = _enrich_staff_rows(staff_scouts)
         staff_trainers_public = _enrich_staff_rows(staff_trainers)
+        role_by_staff_id = {
+            sid: str(getattr(contract, "role", "") or "")
+            for sid, contract in staff_contracts_by_id.items()
+            if contract is not None
+        }
+        staff_coaches_public, staff_scouts_public, staff_trainers_public = (
+            rebucket_staff_sections_by_roles(
+                staff_coaches_public,
+                staff_scouts_public,
+                staff_trainers_public,
+                role_by_staff_id=role_by_staff_id,
+            )
+        )
 
     franchise_history_sections: list[dict[str, object]] = []
     if panel == "franchise":
@@ -5166,6 +5182,10 @@ def team_page(slug: str):
         "staff_trainers": staff_trainers_public,
         "staff_season_start_year": staff_season_start_year,
         "staff_is_admin": staff_is_admin,
+        "staff_roles": STAFF_ROLES if panel == "staff" else (),
+        "staff_role_labels": (
+            {r: staff_role_label(r) for r in STAFF_ROLES} if panel == "staff" else {}
+        ),
         "staff_coach_columns": STAFF_COACH_COLUMNS,
         "staff_scout_columns": STAFF_SCOUT_COLUMNS,
         "staff_trainer_columns": STAFF_TRAINER_COLUMNS,

@@ -40,6 +40,7 @@
           {% set sid = row.staff_fhm_id %}
           {% set contract = row.contract if row.contract is defined else none %}
           {% set inferred_role = 'head_coach' if bucket == 'coaches' else ('scout' if bucket == 'scouts' else 'trainer') %}
+          {% set form_role = contract.role if contract and contract.role else inferred_role %}
           <tr>
             <td data-sort-value="{{ row.full_name|lower }}"><strong class="team-staff-name">{{ row.full_name }}</strong></td>
             <td class="team-staff-nat-cell" data-sort-value="{{ row.nationality|lower }}">
@@ -65,8 +66,13 @@
               <form method="post" action="{{ url_for('site_admin.admin_team_staff_contract', team_slug=team.slug) }}" class="team-staff-contract-form">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="staff_fhm_id" value="{{ sid }}">
-                <input type="hidden" name="role" value="{{ contract.role if contract else inferred_role }}">
                 <div class="team-staff-contract-form__fields">
+                  <label class="visually-hidden" for="role-{{ sid }}">Position</label>
+                  <select name="role" id="role-{{ sid }}" class="team-staff-contract-form__input team-staff-contract-form__input--role" required title="Staff position">
+                    {% for r in staff_roles %}
+                    <option value="{{ r }}"{% if form_role == r %} selected{% endif %}>{{ staff_role_labels[r] }}</option>
+                    {% endfor %}
+                  </select>
                   <label class="visually-hidden" for="salary-{{ sid }}">Salary</label>
                   <input type="text" inputmode="numeric" name="annual_salary" id="salary-{{ sid }}" class="team-staff-contract-form__input" placeholder="Salary" value="{% if contract and contract.annual_salary %}{{ contract.annual_salary }}{% endif %}">
                   <label class="visually-hidden" for="years-{{ sid }}">Years</label>
@@ -78,7 +84,7 @@
                 {% elif contract %}
                 <p class="muted team-staff-contract-form__meta">No active contract — not on public staff list</p>
                 {% else %}
-                <p class="muted team-staff-contract-form__meta">Add contract to include on public staff list</p>
+                <p class="muted team-staff-contract-form__meta">Set position + contract to include on public staff list</p>
                 {% endif %}
               </form>
               {% if contract and row.contract_active is defined and row.contract_active %}

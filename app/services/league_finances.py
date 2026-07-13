@@ -364,6 +364,8 @@ def default_salary_for_role(role: str, defaults: StaffDefaultSalaries | None) ->
     role_s = str(role or "").strip()
     if role_s == "team_owner":
         return 0
+    if role_s == "general_manager":
+        return 0
     if role_s == "head_coach":
         return int(defaults.head_coach)
     if role_s == "assistant_coach":

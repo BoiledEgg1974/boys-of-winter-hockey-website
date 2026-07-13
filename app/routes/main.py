@@ -4839,6 +4839,7 @@ def team_page(slug: str):
     staff_scouts_public = staff_scouts
     staff_trainers_public = staff_trainers
     staff_owners_public: list[dict] = []
+    staff_managers_public: list[dict] = []
     if panel == "staff":
         from app.auth_login import has_admin_role, ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER
         from app.services.staff_salaries import current_season_start_year
@@ -4905,6 +4906,7 @@ def team_page(slug: str):
             staff_coaches_public,
             staff_scouts_public,
             staff_trainers_public,
+            staff_managers_public,
             staff_owners_public,
         ) = rebucket_staff_sections_by_roles(
             staff_coaches_public,
@@ -5184,6 +5186,7 @@ def team_page(slug: str):
         "staff_coaches": staff_coaches_public,
         "staff_scouts": staff_scouts_public,
         "staff_trainers": staff_trainers_public,
+        "staff_managers": staff_managers_public,
         "staff_owners": staff_owners_public,
         "staff_season_start_year": staff_season_start_year,
         "staff_is_admin": staff_is_admin,

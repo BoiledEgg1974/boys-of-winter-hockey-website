@@ -11,6 +11,7 @@
     ('Coaches', staff_coaches, staff_coach_columns, 'coaches'),
     ('Scouts', staff_scouts, staff_scout_columns, 'scouts'),
     ('Trainers', staff_trainers, staff_trainer_columns, 'trainers'),
+    ('General Managers', staff_managers, (), 'managers'),
     ('Team Owners', staff_owners, (), 'owners'),
   ] %}
   <div class="card team-staff-section">
@@ -40,7 +41,17 @@
           {% for row in section_rows %}
           {% set sid = row.staff_fhm_id %}
           {% set contract = row.contract if row.contract is defined else none %}
-          {% set inferred_role = 'head_coach' if bucket == 'coaches' else ('scout' if bucket == 'scouts' else ('trainer' if bucket == 'trainers' else 'team_owner')) %}
+          {% if bucket == 'coaches' %}
+            {% set inferred_role = 'head_coach' %}
+          {% elif bucket == 'scouts' %}
+            {% set inferred_role = 'scout' %}
+          {% elif bucket == 'trainers' %}
+            {% set inferred_role = 'trainer' %}
+          {% elif bucket == 'managers' %}
+            {% set inferred_role = 'general_manager' %}
+          {% else %}
+            {% set inferred_role = 'team_owner' %}
+          {% endif %}
           {% set form_role = contract.role if contract and contract.role else inferred_role %}
           <tr>
             <td data-sort-value="{{ row.full_name|lower }}"><strong class="team-staff-name">{{ row.full_name }}</strong></td>

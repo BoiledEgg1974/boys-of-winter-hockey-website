@@ -27,9 +27,10 @@ STAFF_ROLES: tuple[str, ...] = (
     "assistant_coach",
     "scout",
     "trainer",
+    "general_manager",
     "team_owner",
 )
-# Hire browse filters exclude team_owner (not an FHM aptitude role).
+# Hire browse filters exclude portal-only roles (not FHM aptitude browse lanes).
 BROWSE_FILTERS: tuple[str, ...] = (
     "head_coach",
     "assistant_coach",
@@ -42,6 +43,7 @@ _ROLE_LABELS: dict[str, str] = {
     "assistant_coach": "Assistant Coach",
     "scout": "Scout",
     "trainer": "Trainer",
+    "general_manager": "General Manager",
     "team_owner": "Team Owner",
 }
 

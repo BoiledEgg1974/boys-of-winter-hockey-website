@@ -11,6 +11,7 @@ from sqlalchemy.exc import DatabaseError
 from sqlalchemy.orm import Session
 
 from app.models import Player, PlayerRatingSnapshot, db
+from app.services.org_development_timeline import league_timeline_anchor_date, timeline_from_date
 from app.services.player_overall_score import compute_player_overall_100, player_is_goalie_for_overall
 from app.services.player_rating_avgs import (
     DEF_KEYS,
@@ -18,6 +19,7 @@ from app.services.player_rating_avgs import (
     MENTAL_KEYS_GOALIE,
     MENTAL_KEYS_SKATER,
     OFF_KEYS,
+    OVERVIEW_KEYS,
     PHYS_KEYS,
     _float_cell,
 )
@@ -47,6 +49,7 @@ SKATER_SNAPSHOT_KEYS: tuple[str, ...] = tuple(
         + DEF_KEYS
         + MENTAL_KEYS_SKATER
         + PHYS_KEYS
+        + OVERVIEW_KEYS
     )
 )
 GOALIE_SNAPSHOT_KEYS: tuple[str, ...] = tuple(
@@ -56,6 +59,7 @@ GOALIE_SNAPSHOT_KEYS: tuple[str, ...] = tuple(
         + GOALIE_PUCK_KEYS
         + GOALIE_KEYS_GOA
         + MENTAL_KEYS_GOALIE
+        + OVERVIEW_KEYS
     )
 )
 
@@ -80,12 +84,14 @@ def _snapshot_payload(
     ratings_row: dict[str, Any],
     *,
     league_slug: str,
+    timeline_anchor=None,
 ) -> PlayerRatingSnapshot:
     is_g = player_is_goalie_for_overall(player)
     ratings = extract_ratings_dict(ratings_row, is_goalie=is_g)
     abi = fhm_abi_pot_float(ratings_row.get("ability"))
     pot = fhm_abi_pot_float(ratings_row.get("potential"))
     ovr = compute_player_overall_100(abi, pot, ratings_row, is_goalie=is_g)
+    tl = timeline_from_date(timeline_anchor) if timeline_anchor is not None else {}
     return PlayerRatingSnapshot(
         player_id=int(player.id),
         league_slug=league_slug,
@@ -94,6 +100,9 @@ def _snapshot_payload(
         ability=abi,
         potential=pot,
         overall_score=ovr,
+        timeline_season_start_year=int(tl["timeline_season_start_year"]) if tl else None,
+        timeline_calendar_year=int(tl["timeline_calendar_year"]) if tl else None,
+        timeline_calendar_month=int(tl["timeline_calendar_month"]) if tl else None,
     )
 
 
@@ -150,6 +159,9 @@ def record_player_rating_snapshots_for_league(session: Session, league_slug: str
 
 
 def _record_player_rating_snapshots_for_league_impl(session: Session, slug: str) -> int:
+    from app.services.seasons import get_current_season
+
+    anchor = league_timeline_anchor_date(session, get_current_season())
     players = session.scalars(
         select(Player).where(Player.fhm_player_id.isnot(None), Player.fhm_player_id != "")
     ).all()
@@ -161,7 +173,7 @@ def _record_player_rating_snapshots_for_league_impl(session: Session, slug: str)
         latest = _latest_snapshot(session, int(player.id))
         if latest is not None and _snapshot_matches_row(latest, row, player):
             continue
-        session.add(_snapshot_payload(player, row, league_slug=slug))
+        session.add(_snapshot_payload(player, row, league_slug=slug, timeline_anchor=anchor))
         added += 1
     if added:
         session.commit()
@@ -185,7 +197,12 @@ def seed_player_rating_snapshot_if_needed(
     slug = (league_slug or "").strip()
     if not slug:
         return None
-    snap = _snapshot_payload(player, ratings_row, league_slug=slug)
+    snap = _snapshot_payload(
+        player,
+        ratings_row,
+        league_slug=slug,
+        timeline_anchor=league_timeline_anchor_date(session, None),
+    )
     session.add(snap)
     try:
         session.commit()
@@ -221,5 +238,8 @@ def record_player_rating_snapshots_after_import(app) -> None:
             return
         with app.app_context():
             record_player_rating_snapshots_for_league(db.session, slug)
+            from app.services.org_development import persist_org_development_reports_for_league
+
+            persist_org_development_reports_for_league(db.session, slug)
     except Exception:
         _log.exception("player rating snapshot capture failed (non-fatal)")

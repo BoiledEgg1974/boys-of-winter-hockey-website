@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from flask import Flask
 
 # Bump when ensure_* migrations in bootstrap_league_sqlite or bootstrap_site_sqlite change.
-SQLITE_BOOTSTRAP_VERSION = 2
+SQLITE_BOOTSTRAP_VERSION = 3
 
 _completed_in_process: set[str] = set()
 _server_site_bootstrapped = False
@@ -134,6 +134,8 @@ def apply_league_sqlite_migrations(app: Flask) -> None:
         ensure_player_goalie_stats_gsaa_sqlite,
         ensure_player_overall_baseline_sqlite,
         ensure_player_rating_snapshots_sqlite,
+        ensure_player_rating_snapshot_timeline_columns_sqlite,
+        ensure_org_development_report_archives_sqlite,
         ensure_players_boost_tier_sqlite,
         ensure_players_jersey_number_sqlite,
         ensure_skater_career_line_career_source_sqlite,
@@ -154,6 +156,8 @@ def apply_league_sqlite_migrations(app: Flask) -> None:
     ensure_players_boost_tier_sqlite(db.engine)
     ensure_player_overall_baseline_sqlite(db.engine)
     ensure_player_rating_snapshots_sqlite(db.engine)
+    ensure_player_rating_snapshot_timeline_columns_sqlite(db.engine)
+    ensure_org_development_report_archives_sqlite(db.engine)
     ensure_team_season_aggregate_extra_columns(db.engine)
     ensure_homepage_performance_indexes_sqlite(db.engine)
     ensure_skater_career_line_career_source_sqlite(db.engine)
@@ -251,7 +255,9 @@ def apply_site_sqlite_migrations(app: Flask) -> None:
         ensure_story_publish_schedules_sqlite,
         ensure_team_cap_penalties_sqlite,
         ensure_team_staff_budget_current_salary_sqlite,
+        ensure_team_staff_roster_contract_columns_sqlite,
         ensure_team_staff_roster_entries_sqlite,
+        ensure_staff_severance_entries_sqlite,
         ensure_trade_market_sqlite,
     )
     from app.models import db
@@ -276,6 +282,15 @@ def apply_site_sqlite_migrations(app: Flask) -> None:
     ensure_team_cap_penalties_sqlite(site_engine)
     ensure_team_staff_budget_current_salary_sqlite(site_engine)
     ensure_team_staff_roster_entries_sqlite(site_engine)
+    ensure_team_staff_roster_contract_columns_sqlite(site_engine)
+    ensure_staff_severance_entries_sqlite(site_engine)
+    from app.services.staff_transactions import backfill_staff_contract_fields
+
+    try:
+        with db.session.begin():
+            backfill_staff_contract_fields(db.session)
+    except Exception:
+        pass
     ensure_gm_trade_proposals_sqlite(site_engine)
     ensure_trade_market_sqlite(site_engine)
     ensure_league_salary_cap_years_sqlite(site_engine)

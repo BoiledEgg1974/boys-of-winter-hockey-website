@@ -158,7 +158,6 @@
             <td>${{ '{:,}'.format(row.budget_amount) }}</td>
             <td>
               ${{ '{:,}'.format(row.staff_payroll) }}
-              {% if not row.staff_payroll_is_manual %}<span class="muted finances-staff-est"> (est.)</span>{% endif %}
             </td>
             <td class="{% if row.budget_remaining < 0 %}finances-cap-space--over{% endif %}">${{ '{:,}'.format(row.budget_remaining) }}</td>
           </tr>

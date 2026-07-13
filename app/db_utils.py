@@ -565,6 +565,77 @@ def ensure_player_rating_snapshots_sqlite(engine: Engine) -> None:
         conn.commit()
 
 
+def ensure_player_rating_snapshot_timeline_columns_sqlite(engine: Engine) -> None:
+    """Add in-game timeline columns to player_rating_snapshots when missing."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='player_rating_snapshots'"
+            )
+        ).fetchone()
+        if not exists:
+            return
+        cols = {row[1] for row in conn.execute(text("PRAGMA table_info(player_rating_snapshots)"))}
+        for col in (
+            "timeline_season_start_year",
+            "timeline_calendar_year",
+            "timeline_calendar_month",
+        ):
+            if col in cols:
+                continue
+            conn.execute(text(f"ALTER TABLE player_rating_snapshots ADD COLUMN {col} INTEGER"))
+        conn.commit()
+
+
+def ensure_org_development_report_archives_sqlite(engine: Engine) -> None:
+    """Create org_development_report_archives for persisted monthly team reports."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='org_development_report_archives'"
+            )
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE org_development_report_archives (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    team_id INTEGER NOT NULL,
+                    league_slug VARCHAR(64) NOT NULL,
+                    timeline_key VARCHAR(16) NOT NULL,
+                    timeline_season_start_year INTEGER NOT NULL,
+                    timeline_calendar_year INTEGER NOT NULL,
+                    timeline_calendar_month INTEGER NOT NULL,
+                    label VARCHAR(160) NOT NULL,
+                    report_json TEXT NOT NULL,
+                    archived_at DATETIME NOT NULL,
+                    FOREIGN KEY(team_id) REFERENCES teams (id),
+                    UNIQUE (team_id, timeline_key)
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_org_dev_report_team_sort "
+                "ON org_development_report_archives (team_id, timeline_season_start_year, timeline_calendar_year, timeline_calendar_month)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_org_dev_report_league_team "
+                "ON org_development_report_archives (league_slug, team_id)"
+            )
+        )
+        conn.commit()
+
+
 def ensure_skater_career_line_career_source_sqlite(engine: Engine) -> None:
     """Add career_source to player_skater_career_lines when missing (pre-unique-key schema)."""
     if engine.dialect.name != "sqlite":
@@ -1426,6 +1497,42 @@ def ensure_team_staff_budget_current_salary_sqlite(engine: Engine) -> None:
                 "ADD COLUMN current_salary_amount INTEGER NOT NULL DEFAULT 0"
             )
         )
+
+
+def ensure_team_staff_roster_contract_columns_sqlite(engine: Engine) -> None:
+    """Add contract columns to ``team_staff_roster_entries`` when upgrading."""
+    from sqlalchemy import inspect
+
+    insp = inspect(engine)
+    if not insp.has_table("team_staff_roster_entries"):
+        return
+    colnames = {col["name"] for col in insp.get_columns("team_staff_roster_entries")}
+    additions: list[tuple[str, str]] = []
+    if "retired_at" not in colnames:
+        additions.append(("retired_at", "DATETIME"))
+    if "annual_salary" not in colnames:
+        additions.append(("annual_salary", "INTEGER NOT NULL DEFAULT 0"))
+    if "contract_years" not in colnames:
+        additions.append(("contract_years", "INTEGER NOT NULL DEFAULT 1"))
+    if "contract_start_season_year" not in colnames:
+        additions.append(("contract_start_season_year", "INTEGER NOT NULL DEFAULT 0"))
+    if not additions:
+        return
+    with engine.begin() as conn:
+        for col_name, col_type in additions:
+            conn.execute(
+                text(
+                    f"ALTER TABLE team_staff_roster_entries "
+                    f"ADD COLUMN {col_name} {col_type}"
+                )
+            )
+
+
+def ensure_staff_severance_entries_sqlite(engine: Engine) -> None:
+    """Create ``staff_severance_entries`` on the site DB when missing."""
+    from app.site_models import StaffSeveranceEntry
+
+    StaffSeveranceEntry.__table__.create(bind=engine, checkfirst=True)
 
 
 def ensure_discord_playoff_bracket_sqlite(engine: Engine) -> None:

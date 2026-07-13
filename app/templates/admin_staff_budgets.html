@@ -6,9 +6,8 @@
   <p class="muted">
     <strong>{{ config.LEAGUE_DISPLAY_NAME }}</strong>
     {% if season_label %}· <strong>{{ season_label }}</strong> season{% else %}· current season{% endif %}
-    — budgets and current staff payroll are stored per league and season; other league sites use their own timeline.
-    Enter the in-game staff budget and total staff salary (FHM does not export payroll in CSV).
-    <a href="{{ url_for('site_gm.staff_salaries_page') }}">Staff Hire/Fire</a> shows the calculated defaults for this site only.
+    — enter per-team staff budgets for this league site. Staff payroll is calculated automatically from
+    <a href="{{ url_for('site_gm.staff_salaries_page') }}">Staff Hire/Fire</a> contracts and fire penalties.
   </p>
   <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
   {% with messages = get_flashed_messages() %}
@@ -25,7 +24,7 @@
             <th scope="col">GM</th>
             <th scope="col">ID</th>
             <th scope="col" class="staff-budgets-admin__th-budget">Budget</th>
-            <th scope="col" class="staff-budgets-admin__th-budget">Current staff salary</th>
+            <th scope="col" class="staff-budgets-admin__th-budget">Staff payroll</th>
           </tr>
         </thead>
         <tbody>
@@ -55,30 +54,20 @@
                 autocomplete="off"
               >
             </td>
-            <td class="staff-budgets-admin__budget">
-              <label class="visually-hidden" for="current-salary-{{ t.id }}">Current staff salary for {{ t.full_display_name() }}</label>
-              <input
-                type="text"
-                inputmode="numeric"
-                name="current_salary_{{ t.id }}"
-                id="current-salary-{{ t.id }}"
-                class="staff-budgets-admin__input"
-                value="{% if row.current_salary_amount %}{{ row.current_salary_amount }}{% endif %}"
-                placeholder="0"
-                autocomplete="off"
-              >
+            <td class="staff-budgets-admin__budget staff-budgets-admin__payroll-readonly">
+              ${{ '{:,}'.format(row.staff_payroll) }}
             </td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
-    <button type="submit" class="join-league-btn" style="margin-top:1rem;border:none;">Save budgets &amp; payroll</button>
+    <button type="submit" class="join-league-btn" style="margin-top:1rem;border:none;">Save budgets</button>
   </form>
 
   {% if defaults %}
   <section class="staff-budgets-admin__preview" aria-labelledby="staff-preview-title">
-    <h2 id="staff-preview-title" class="page-title" style="font-size:1.05rem;margin-top:2rem;">Preview — GM Staff Default Salaries</h2>
+    <h2 id="staff-preview-title" class="page-title" style="font-size:1.05rem;margin-top:2rem;">Default salaries (current season)</h2>
     <div class="staff-salaries-table-wrap">
       <table class="staff-salaries-table">
         <thead>

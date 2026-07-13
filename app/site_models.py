@@ -1158,6 +1158,31 @@ class TeamStaffRosterEntry(db.Model):
     )
     hired_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     fired_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    retired_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    annual_salary: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    contract_years: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    contract_start_season_year: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
+class StaffSeveranceEntry(db.Model):
+    """Fire penalty amounts counted against staff payroll for a team/season (site DB)."""
+
+    __tablename__ = "staff_severance_entries"
+    __bind_key__ = "site"
+    __table_args__ = (
+        Index("ix_staff_severance_league_team", "league_slug", "team_id"),
+        Index("ix_staff_severance_league_season", "league_slug", "season_start_year"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False)
+    season_start_year: Mapped[int] = mapped_column(Integer, nullable=False)
+    team_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    staff_fhm_id: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    staff_name: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    penalty_amount: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class TeamStaffBudget(db.Model):

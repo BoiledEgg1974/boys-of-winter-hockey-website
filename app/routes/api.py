@@ -304,6 +304,95 @@ def _build_search_players_payload(q: str) -> dict[str, object]:
     return {"results": out}
 
 
+@api_bp.get("/search/staff")
+def search_staff():
+    """Staff autocomplete for admin hire/fire tool."""
+    from app.auth_login import has_admin_role, ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER
+    from app.services.staff_catalog import (
+        _load_catalog,
+        staff_ids_assigned_to_any_fhm_team,
+        staff_role_label,
+    )
+    from app.services.staff_images import staff_image_url, staff_placeholder_url
+    from app.services.staff_transactions import active_roster_for_team, contract_active, staff_unavailable_ids
+    from app.services.staff_salaries import current_season_start_year
+
+    if not current_user.is_authenticated or not has_admin_role(
+        current_user, ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER
+    ):
+        return jsonify({"error": "Forbidden"}), 403
+
+    q = request.args.get("q", "").strip()
+    mode = (request.args.get("mode") or "hire").strip().lower()
+    team_id = request.args.get("team_id", type=int) or 0
+    if len(q) < 2:
+        return jsonify({"results": []})
+
+    slug = str(current_app.config.get("LEAGUE_SLUG") or "").strip()
+    start_year = current_season_start_year(db.session)
+    if start_year is None:
+        return jsonify({"results": []})
+
+    placeholder = staff_placeholder_url()
+    results: list[dict[str, object]] = []
+
+    if mode == "fire":
+        if team_id <= 0:
+            return jsonify({"results": []})
+        roster = active_roster_for_team(
+            db.session,
+            league_slug=slug,
+            team_id=int(team_id),
+            season_start_year=int(start_year),
+        )
+        q_lower = q.casefold()
+        for entry in roster:
+            if not contract_active(entry, int(start_year)):
+                continue
+            name = str(entry.staff_name or "")
+            if q_lower not in name.casefold():
+                continue
+            results.append(
+                {
+                    "staff_fhm_id": str(entry.staff_fhm_id),
+                    "full_name": name,
+                    "role": str(entry.role or ""),
+                    "role_label": staff_role_label(entry.role),
+                    "annual_salary": int(entry.annual_salary or 0),
+                    "image_url": staff_image_url(slug, entry.staff_fhm_id) or placeholder,
+                    "nationality": "",
+                }
+            )
+            if len(results) >= 20:
+                break
+        return jsonify({"results": results})
+
+    unavailable = staff_unavailable_ids(db.session, league_slug=slug)
+    unavailable |= staff_ids_assigned_to_any_fhm_team()
+    q_lower = q.casefold()
+
+    for sid, entry in _load_catalog().items():
+        if sid in unavailable:
+            continue
+        name = str(entry.get("full_name") or "")
+        if q_lower not in name.casefold():
+            continue
+        results.append(
+            {
+                "staff_fhm_id": sid,
+                "full_name": name,
+                "role": "",
+                "role_label": "",
+                "annual_salary": 0,
+                "image_url": staff_image_url(slug, sid) or placeholder,
+                "nationality": str(entry.get("nationality") or ""),
+            }
+        )
+        if len(results) >= 20:
+            break
+    return jsonify({"results": results})
+
+
 def _hockey_year_label_from_start_year(y: int) -> str:
     return f"{y}-{(y + 1) % 100:02d}"
 

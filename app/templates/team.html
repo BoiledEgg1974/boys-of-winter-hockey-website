@@ -477,6 +477,8 @@
   <a class="team-management-tabs__btn{% if active_panel == 'salary' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='salary') }}">Salary</a>
   <a class="team-management-tabs__btn{% if active_panel == 'statistics' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='statistics') }}">Statistics</a>
   <a class="team-management-tabs__btn{% if active_panel == 'staff' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='staff') }}">Staff</a>
+  <a class="team-management-tabs__btn{% if active_panel == 'org_development' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='org_development') }}">Org Development</a>
+  <a class="team-management-tabs__btn{% if active_panel == 'prospects' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='prospects') }}">Prospects</a>
   <a class="team-management-tabs__btn{% if active_panel == 'season_records' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='season_records') }}">Season Records</a>
   <a class="team-management-tabs__btn{% if active_panel == 'team_history' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='team_history') }}">Season History</a>
   <a class="team-management-tabs__btn{% if active_panel == 'alumni' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='alumni') }}">Alumni</a>
@@ -840,12 +842,16 @@
 {% include "_team_trades_panel.html" %}
 {% elif active_panel == 'staff' %}
 {% include "_team_staff_panel.html" %}
+{% elif active_panel == 'org_development' %}
+{% include "_team_org_development_panel.html" %}
+{% elif active_panel == 'prospects' %}
+{% include "_team_prospects_panel.html" %}
 {% elif active_panel == 'franchise' %}
 <div class="card franchise-history-card">
 {% include "_team_franchise_leaders.html" %}
 </div>
 {% endif %}
-{% if prospects_list and active_panel != 'depth' %}
+{% if prospects_list and active_panel not in ('depth', 'prospects', 'org_development') %}
 <div class="card">
   <h2>Prospects</h2>
   <ul>

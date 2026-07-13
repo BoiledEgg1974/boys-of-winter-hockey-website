@@ -198,9 +198,11 @@ def _load_bundle() -> dict[str, dict[str, list[dict[str, object]]]]:
         for k in _all_staff_attr_keys():
             attrs[k] = _float_attr(rr, k)
         entry: dict[str, object] = {
+            "staff_fhm_id": str(sid).strip(),
             "full_name": full,
             "nationality": nat,
             "attrs": attrs,
+            "primary_bucket": bucket,
             "_sort": ((ln or full).lower(), (fn or "").lower()),
         }
         team_entry = by_team.setdefault(

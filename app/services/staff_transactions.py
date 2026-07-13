@@ -1,4 +1,4 @@
-"""Staff hire/fire requests: submit, approve, deny, roster updates."""
+"""Staff hire/fire: admin league office actions and roster contract management."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -15,15 +15,31 @@ from app.services.staff_catalog import (
     list_staff_profiles_for_fhm_team,
     staff_role_label,
 )
-from app.services.staff_hire_limits import hire_limit_status
-from app.site_models import StaffChangeRequest, TeamStaffBudget, TeamStaffRosterEntry
+from app.site_models import StaffChangeRequest, StaffSeveranceEntry, TeamStaffBudget, TeamStaffRosterEntry
 
 
 @dataclass(frozen=True)
-class StaffRequestResult:
+class StaffActionResult:
     ok: bool
     message: str
-    request: StaffChangeRequest | None = None
+    entry: TeamStaffRosterEntry | None = None
+
+
+def contract_end_season_year(entry: TeamStaffRosterEntry) -> int:
+    start = int(entry.contract_start_season_year or 0)
+    years = int(entry.contract_years or 1)
+    if start <= 0:
+        return 0
+    return start + max(1, years) - 1
+
+
+def contract_active(entry: TeamStaffRosterEntry, season_start_year: int) -> bool:
+    if entry.fired_at is not None or entry.retired_at is not None:
+        return False
+    end = contract_end_season_year(entry)
+    if end <= 0:
+        return int(entry.annual_salary or 0) > 0
+    return int(season_start_year) <= end
 
 
 def _active_roster_entry(
@@ -35,29 +51,24 @@ def _active_roster_entry(
             TeamStaffRosterEntry.league_slug == league_slug,
             TeamStaffRosterEntry.staff_fhm_id == staff_fhm_id,
             TeamStaffRosterEntry.fired_at.is_(None),
+            TeamStaffRosterEntry.retired_at.is_(None),
         )
         .limit(1)
     )
 
 
 def staff_unavailable_ids(session: Session, *, league_slug: str) -> set[str]:
-    """Staff already on a roster or with a pending hire in this league."""
+    """Staff with an active league contract."""
     out: set[str] = set()
     for row in session.scalars(
-        select(TeamStaffRosterEntry.staff_fhm_id).where(
+        select(TeamStaffRosterEntry).where(
             TeamStaffRosterEntry.league_slug == league_slug,
             TeamStaffRosterEntry.fired_at.is_(None),
+            TeamStaffRosterEntry.retired_at.is_(None),
         )
     ).all():
-        out.add(str(row).strip())
-    for row in session.scalars(
-        select(StaffChangeRequest.staff_fhm_id).where(
-            StaffChangeRequest.league_slug == league_slug,
-            StaffChangeRequest.request_type == "hire",
-            StaffChangeRequest.status == "pending",
-        )
-    ).all():
-        out.add(str(row).strip())
+        if int(row.annual_salary or 0) > 0 or int(row.contract_start_season_year or 0) > 0:
+            out.add(str(row.staff_fhm_id).strip())
     return out
 
 
@@ -89,63 +100,14 @@ def sync_team_roster_from_fhm(
     season_start_year: int,
     fhm_team_id: str | int | None,
 ) -> int:
-    """Ensure site roster rows exist for staff assigned to this team in FHM CSVs."""
-    profiles = list_staff_profiles_for_fhm_team(fhm_team_id)
-    if not profiles:
-        return 0
-    active = active_roster_for_team(
-        session,
-        league_slug=league_slug,
-        team_id=int(team_id),
-        season_start_year=int(season_start_year),
-    )
-    on_team = {str(e.staff_fhm_id).strip() for e in active}
-    added = 0
-    now = datetime.utcnow()
-    for prof in profiles:
-        sid = str(prof.get("staff_fhm_id") or "").strip()
-        if not sid or sid in on_team:
-            continue
-        other = _active_roster_entry(session, league_slug=league_slug, staff_fhm_id=sid)
-        if other is not None and int(other.team_id) != int(team_id):
-            continue
-        session.add(
-            TeamStaffRosterEntry(
-                league_slug=league_slug,
-                season_start_year=int(season_start_year),
-                team_id=int(team_id),
-                staff_fhm_id=sid,
-                staff_name=str(prof.get("full_name") or "—"),
-                role=_infer_staff_role_for_team(profiles, prof),
-                hire_request_id=None,
-                hired_at=now,
-            )
-        )
-        on_team.add(sid)
-        added += 1
-    if added:
-        session.flush()
-    return added
-
-
-def pending_fire_staff_ids(
-    session: Session, *, league_slug: str, team_id: int
-) -> set[str]:
-    rows = session.scalars(
-        select(StaffChangeRequest.staff_fhm_id).where(
-            StaffChangeRequest.league_slug == league_slug,
-            StaffChangeRequest.team_id == int(team_id),
-            StaffChangeRequest.request_type == "fire",
-            StaffChangeRequest.status == "pending",
-        )
-    ).all()
-    return {str(r).strip() for r in rows if str(r).strip()}
+    """No-op: portal contracts are created via admin hire or team Staff tab."""
+    return 0
 
 
 def active_roster_for_team(
     session: Session, *, league_slug: str, team_id: int, season_start_year: int
 ) -> list[TeamStaffRosterEntry]:
-    return list(
+    rows = list(
         session.scalars(
             select(TeamStaffRosterEntry)
             .where(
@@ -153,161 +115,100 @@ def active_roster_for_team(
                 TeamStaffRosterEntry.team_id == int(team_id),
                 TeamStaffRosterEntry.season_start_year == int(season_start_year),
                 TeamStaffRosterEntry.fired_at.is_(None),
+                TeamStaffRosterEntry.retired_at.is_(None),
             )
             .order_by(TeamStaffRosterEntry.role.asc(), TeamStaffRosterEntry.staff_name.asc())
         ).all()
     )
+    return [r for r in rows if contract_active(r, int(season_start_year))]
 
 
-def recent_requests_for_team(
-    session: Session, *, league_slug: str, team_id: int, limit: int = 8
-) -> list[StaffChangeRequest]:
-    return list(
-        session.scalars(
-            select(StaffChangeRequest)
-            .where(
-                StaffChangeRequest.league_slug == league_slug,
-                StaffChangeRequest.team_id == int(team_id),
-            )
-            .order_by(StaffChangeRequest.created_at.desc(), StaffChangeRequest.id.desc())
-            .limit(limit)
-        ).all()
-    )
-
-
-def submit_hire_request(
+def staff_contracts_for_team(
     session: Session,
     *,
     league_slug: str,
-    season_start_year: int,
     team_id: int,
-    user_id: int,
-    staff_fhm_id: str,
-    role: str,
-) -> StaffRequestResult:
-    role_s = str(role or "").strip()
-    if role_s not in STAFF_ROLES:
-        return StaffRequestResult(False, "Invalid staff role.")
-    sid = str(staff_fhm_id or "").strip()
-    prof = get_staff_profile(sid)
-    if prof is None:
-        return StaffRequestResult(False, "Staff member not found in league catalog.")
-    if is_staff_assigned_to_any_fhm_team(prof):
-        return StaffRequestResult(
-            False, "That staff member is already under contract in Franchise Hockey Manager."
-        )
-    lim = hire_limit_status(session, league_slug=league_slug, team_id=team_id)
-    if lim.limit_reached:
-        return StaffRequestResult(
-            False,
-            f"Daily hire limit reached ({lim.used}/{lim.limit} for {lim.window_label}).",
-        )
-    if _active_roster_entry(session, league_slug=league_slug, staff_fhm_id=sid):
-        return StaffRequestResult(False, "That staff member is already employed in this league.")
-    pending_hire = session.scalar(
-        select(StaffChangeRequest)
-        .where(
-            StaffChangeRequest.league_slug == league_slug,
-            StaffChangeRequest.staff_fhm_id == sid,
-            StaffChangeRequest.request_type == "hire",
-            StaffChangeRequest.status == "pending",
-        )
-        .limit(1)
-    )
-    if pending_hire:
-        return StaffRequestResult(False, "A pending hire request already exists for this staff member.")
-    from app.services.league_finances import (
-        STAFF_HIRE_INSUFFICIENT_FUNDS_MSG,
-        can_afford_staff_hire,
-        staff_finances_for_team,
-    )
-
-    finances = staff_finances_for_team(
-        session,
-        league_slug=league_slug,
-        team_id=int(team_id),
-        season_start_year=int(season_start_year),
-    )
-    if not can_afford_staff_hire(finances, role_s):
-        return StaffRequestResult(False, STAFF_HIRE_INSUFFICIENT_FUNDS_MSG)
-    req = StaffChangeRequest(
-        league_slug=league_slug,
-        season_start_year=int(season_start_year),
-        team_id=int(team_id),
-        user_id=int(user_id),
-        request_type="hire",
-        role=role_s,
-        staff_fhm_id=sid,
-        staff_name=str(prof.get("full_name") or "—"),
-        status="pending",
-    )
-    session.add(req)
-    session.flush()
-    return StaffRequestResult(True, "Hire request submitted for admin approval.", request=req)
-
-
-def submit_fire_request(
-    session: Session,
-    *,
-    league_slug: str,
     season_start_year: int,
-    team_id: int,
-    user_id: int,
-    roster_entry_id: int,
-) -> StaffRequestResult:
-    entry = session.get(TeamStaffRosterEntry, int(roster_entry_id))
-    if (
-        entry is None
-        or entry.league_slug != league_slug
-        or int(entry.team_id) != int(team_id)
-        or entry.fired_at is not None
-    ):
-        return StaffRequestResult(False, "Staff member not on your active roster.")
-    pending = session.scalar(
-        select(StaffChangeRequest)
-        .where(
-            StaffChangeRequest.league_slug == league_slug,
-            StaffChangeRequest.staff_fhm_id == entry.staff_fhm_id,
-            StaffChangeRequest.request_type == "fire",
-            StaffChangeRequest.status == "pending",
+) -> dict[str, TeamStaffRosterEntry]:
+    """Active and draft contracts keyed by staff_fhm_id."""
+    rows = session.scalars(
+        select(TeamStaffRosterEntry).where(
+            TeamStaffRosterEntry.league_slug == league_slug,
+            TeamStaffRosterEntry.team_id == int(team_id),
+            TeamStaffRosterEntry.season_start_year == int(season_start_year),
+            TeamStaffRosterEntry.fired_at.is_(None),
+            TeamStaffRosterEntry.retired_at.is_(None),
         )
-        .limit(1)
-    )
-    if pending:
-        return StaffRequestResult(False, "A pending fire request already exists for this staff member.")
-    req = StaffChangeRequest(
-        league_slug=league_slug,
-        season_start_year=int(season_start_year),
-        team_id=int(team_id),
-        user_id=int(user_id),
-        request_type="fire",
-        role=entry.role,
-        staff_fhm_id=entry.staff_fhm_id,
-        staff_name=entry.staff_name,
-        status="pending",
-    )
-    session.add(req)
-    session.flush()
-    return StaffRequestResult(True, "Fire request submitted for admin approval.", request=req)
-
-
-def _deny_other_pending_hires(session: Session, *, league_slug: str, staff_fhm_id: str, except_id: int) -> int:
-    with session.no_autoflush:
-        rows = session.scalars(
-            select(StaffChangeRequest).where(
-                StaffChangeRequest.league_slug == league_slug,
-                StaffChangeRequest.staff_fhm_id == staff_fhm_id,
-                StaffChangeRequest.request_type == "hire",
-                StaffChangeRequest.status == "pending",
-                StaffChangeRequest.id != int(except_id),
-            )
-        ).all()
-    now = datetime.utcnow()
+    ).all()
+    out: dict[str, TeamStaffRosterEntry] = {}
     for row in rows:
-        row.status = "denied"
-        row.processed_at = now
-        row.admin_note = "Auto-denied: another team hire was approved for this staff member."
-    return len(rows)
+        sid = str(row.staff_fhm_id).strip()
+        if sid:
+            out[sid] = row
+    return out
+
+
+def expire_stale_staff_contracts(
+    session: Session,
+    *,
+    league_slug: str,
+    season_start_year: int,
+) -> int:
+    """Mark expired contracts as fired so they drop from payroll and public lists."""
+    now = datetime.utcnow()
+    rows = session.scalars(
+        select(TeamStaffRosterEntry).where(
+            TeamStaffRosterEntry.league_slug == league_slug,
+            TeamStaffRosterEntry.season_start_year == int(season_start_year),
+            TeamStaffRosterEntry.fired_at.is_(None),
+            TeamStaffRosterEntry.retired_at.is_(None),
+        )
+    ).all()
+    expired = 0
+    for row in rows:
+        if not contract_active(row, int(season_start_year)):
+            row.fired_at = now
+            expired += 1
+    if expired:
+        session.flush()
+    return expired
+
+
+def backfill_staff_contract_fields(session: Session) -> int:
+    """One-time backfill for roster rows missing contract data."""
+    from app.services.league_finances import default_salary_for_role
+
+    updated = 0
+    rows = session.scalars(select(TeamStaffRosterEntry)).all()
+    leagues_seasons: dict[tuple[str, int], object] = {}
+    for row in rows:
+        if row.fired_at is not None or row.retired_at is not None:
+            continue
+        needs = (
+            int(row.annual_salary or 0) <= 0
+            or int(row.contract_start_season_year or 0) <= 0
+            or int(row.contract_years or 0) <= 0
+        )
+        if not needs:
+            continue
+        key = (str(row.league_slug), int(row.season_start_year))
+        if key not in leagues_seasons:
+            leagues_seasons[key] = _league_staff_defaults(
+                session,
+                league_slug=key[0],
+                season_start_year=key[1],
+            )
+        defaults = leagues_seasons[key]
+        if int(row.annual_salary or 0) <= 0:
+            row.annual_salary = int(default_salary_for_role(str(row.role), defaults))
+        if int(row.contract_years or 0) <= 0:
+            row.contract_years = 1
+        if int(row.contract_start_season_year or 0) <= 0:
+            row.contract_start_season_year = int(row.season_start_year)
+        updated += 1
+    if updated:
+        session.flush()
+    return updated
 
 
 def _league_staff_defaults(
@@ -357,218 +258,286 @@ def _get_or_create_team_staff_budget(
     return row
 
 
-def _projected_payroll_after_hire(
-    *,
-    current_salary_amount: int,
-    roster_before: list[TeamStaffRosterEntry],
-    role: str,
-    defaults,
-) -> int:
-    from app.services.league_finances import default_salary_for_role, estimated_roster_payroll
-
-    role_cost = default_salary_for_role(role, defaults)
-    current = int(current_salary_amount or 0)
-    if current > 0:
-        return current + role_cost
-    return int(estimated_roster_payroll(roster_before, defaults)) + role_cost
-
-
-def _apply_hire_payroll_increment(
+def _validate_hire_budget(
     session: Session,
     *,
     league_slug: str,
     season_start_year: int,
     team_id: int,
     role: str,
-    roster_before: list[TeamStaffRosterEntry],
-    defaults,
-) -> None:
-    row = _get_or_create_team_staff_budget(
+    annual_salary: int,
+) -> str | None:
+    from app.services.league_finances import STAFF_HIRE_INSUFFICIENT_FUNDS_MSG, can_afford_staff_hire, staff_finances_for_team
+
+    finances = staff_finances_for_team(
+        session,
+        league_slug=league_slug,
+        team_id=int(team_id),
+        season_start_year=int(season_start_year),
+    )
+    available = int(finances.get("available_for_hire", 0))
+    if int(annual_salary) > available:
+        return STAFF_HIRE_INSUFFICIENT_FUNDS_MSG
+    budget_amount = int(finances.get("budget_amount", 0))
+    staff_payroll = int(finances.get("staff_payroll", 0))
+    if budget_amount > 0 and staff_payroll + int(annual_salary) > budget_amount:
+        return STAFF_HIRE_INSUFFICIENT_FUNDS_MSG
+    return None
+
+
+def admin_hire_staff(
+    session: Session,
+    *,
+    league_slug: str,
+    season_start_year: int,
+    team_id: int,
+    admin_user_id: int,
+    staff_fhm_id: str,
+    role: str,
+    contract_years: int,
+    annual_salary: int | None = None,
+) -> StaffActionResult:
+    role_s = str(role or "").strip()
+    if role_s not in STAFF_ROLES:
+        return StaffActionResult(False, "Invalid staff role.")
+    years = max(1, min(10, int(contract_years or 1)))
+    sid = str(staff_fhm_id or "").strip()
+    prof = get_staff_profile(sid)
+    if prof is None:
+        return StaffActionResult(False, "Staff member not found in league catalog.")
+    if is_staff_assigned_to_any_fhm_team(prof):
+        return StaffActionResult(
+            False, "That staff member is already under contract in Franchise Hockey Manager."
+        )
+    if _active_roster_entry(session, league_slug=league_slug, staff_fhm_id=sid):
+        return StaffActionResult(False, "That staff member already has an active league contract.")
+    defaults = _league_staff_defaults(
+        session,
+        league_slug=league_slug,
+        season_start_year=int(season_start_year),
+    )
+    from app.services.league_finances import default_salary_for_role
+
+    salary = int(annual_salary) if annual_salary is not None else int(default_salary_for_role(role_s, defaults))
+    if salary < 0:
+        return StaffActionResult(False, "Contract salary cannot be negative.")
+    err = _validate_hire_budget(
         session,
         league_slug=league_slug,
         season_start_year=int(season_start_year),
         team_id=int(team_id),
+        role=role_s,
+        annual_salary=salary,
     )
-    projected = _projected_payroll_after_hire(
-        current_salary_amount=int(row.current_salary_amount or 0),
-        roster_before=roster_before,
-        role=role,
-        defaults=defaults,
+    if err:
+        return StaffActionResult(False, err)
+    now = datetime.utcnow()
+    entry = TeamStaffRosterEntry(
+        league_slug=league_slug,
+        season_start_year=int(season_start_year),
+        team_id=int(team_id),
+        staff_fhm_id=sid,
+        staff_name=str(prof.get("full_name") or "—"),
+        role=role_s,
+        hire_request_id=None,
+        hired_at=now,
+        annual_salary=salary,
+        contract_years=years,
+        contract_start_season_year=int(season_start_year),
     )
-    row.current_salary_amount = int(projected)
+    session.add(entry)
+    session.flush()
+    return StaffActionResult(True, f"Hired {entry.staff_name} ({staff_role_label(role_s)}).", entry=entry)
 
 
-def _projected_payroll_after_fire(
-    *,
-    current_salary_amount: int,
-    fired_role: str,
-    defaults,
-) -> int:
-    from app.services.league_finances import default_salary_for_role
-
-    role_cost = default_salary_for_role(fired_role, defaults)
-    current = int(current_salary_amount or 0)
-    if current > 0:
-        return max(0, current - role_cost)
-    return 0
-
-
-def _apply_fire_payroll_decrement(
+def admin_fire_staff(
     session: Session,
     *,
     league_slug: str,
     season_start_year: int,
     team_id: int,
-    fired_role: str,
-    defaults,
-) -> None:
-    row = session.scalar(
-        select(TeamStaffBudget).where(
-            TeamStaffBudget.league_slug == league_slug,
-            TeamStaffBudget.season_start_year == int(season_start_year),
-            TeamStaffBudget.team_id == int(team_id),
-        ).limit(1)
-    )
-    if row is None:
-        return
-    current = int(row.current_salary_amount or 0)
-    if current <= 0:
-        return
-    row.current_salary_amount = int(
-        _projected_payroll_after_fire(
-            current_salary_amount=current,
-            fired_role=fired_role,
-            defaults=defaults,
-        )
-    )
-
-
-def approve_staff_request(
-    session: Session,
-    req: StaffChangeRequest,
-    *,
     admin_user_id: int,
-) -> StaffRequestResult:
-    if req.status != "pending":
-        return StaffRequestResult(False, "Request is not pending.")
-    now = datetime.utcnow()
-    slug = req.league_slug
-    if req.request_type == "hire":
-        if _active_roster_entry(session, league_slug=slug, staff_fhm_id=req.staff_fhm_id):
-            req.status = "denied"
-            req.processed_at = now
-            req.processed_by_user_id = admin_user_id
-            req.admin_note = "Denied: staff member already employed in this league."
-            return StaffRequestResult(False, req.admin_note)
-        role_s = str(req.role or "head_coach")
-        defaults = _league_staff_defaults(
-            session,
-            league_slug=slug,
-            season_start_year=int(req.season_start_year),
+    staff_fhm_id: str,
+    penalty_amount: int = 0,
+) -> StaffActionResult:
+    sid = str(staff_fhm_id or "").strip()
+    entry = session.scalar(
+        select(TeamStaffRosterEntry)
+        .where(
+            TeamStaffRosterEntry.league_slug == league_slug,
+            TeamStaffRosterEntry.team_id == int(team_id),
+            TeamStaffRosterEntry.season_start_year == int(season_start_year),
+            TeamStaffRosterEntry.staff_fhm_id == sid,
+            TeamStaffRosterEntry.fired_at.is_(None),
+            TeamStaffRosterEntry.retired_at.is_(None),
         )
-        roster_before = active_roster_for_team(
+        .limit(1)
+    )
+    if entry is None or not contract_active(entry, int(season_start_year)):
+        return StaffActionResult(False, "Staff member not on this team's active roster.")
+    now = datetime.utcnow()
+    entry.fired_at = now
+    penalty = max(0, int(penalty_amount or 0))
+    if penalty > 0:
+        session.add(
+            StaffSeveranceEntry(
+                league_slug=league_slug,
+                season_start_year=int(season_start_year),
+                team_id=int(team_id),
+                staff_fhm_id=sid,
+                staff_name=str(entry.staff_name or ""),
+                penalty_amount=penalty,
+                created_by_user_id=int(admin_user_id),
+            )
+        )
+    session.flush()
+    return StaffActionResult(
+        True,
+        f"Fired {entry.staff_name}." + (f" Penalty ${penalty:,} recorded." if penalty else ""),
+        entry=entry,
+    )
+
+
+def admin_retire_staff(
+    session: Session,
+    *,
+    league_slug: str,
+    season_start_year: int,
+    team_id: int,
+    staff_fhm_id: str,
+) -> StaffActionResult:
+    sid = str(staff_fhm_id or "").strip()
+    entry = session.scalar(
+        select(TeamStaffRosterEntry)
+        .where(
+            TeamStaffRosterEntry.league_slug == league_slug,
+            TeamStaffRosterEntry.team_id == int(team_id),
+            TeamStaffRosterEntry.season_start_year == int(season_start_year),
+            TeamStaffRosterEntry.staff_fhm_id == sid,
+            TeamStaffRosterEntry.fired_at.is_(None),
+            TeamStaffRosterEntry.retired_at.is_(None),
+        )
+        .limit(1)
+    )
+    if entry is None:
+        return StaffActionResult(False, "Staff member not found on this team's roster.")
+    now = datetime.utcnow()
+    entry.retired_at = now
+    session.flush()
+    return StaffActionResult(True, f"Retired {entry.staff_name}.", entry=entry)
+
+
+def admin_save_staff_contract(
+    session: Session,
+    *,
+    league_slug: str,
+    season_start_year: int,
+    team_id: int,
+    staff_fhm_id: str,
+    role: str,
+    annual_salary: int,
+    contract_years: int,
+    contract_start_season_year: int | None = None,
+    fhm_team_id: str | int | None = None,
+) -> StaffActionResult:
+    role_s = str(role or "").strip()
+    if role_s not in STAFF_ROLES:
+        return StaffActionResult(False, "Invalid staff role.")
+    sid = str(staff_fhm_id or "").strip()
+    prof = get_staff_profile(sid)
+    if prof is None:
+        return StaffActionResult(False, "Staff member not found in league catalog.")
+    salary = max(0, int(annual_salary or 0))
+    years = max(1, min(10, int(contract_years or 1)))
+    start_year = int(contract_start_season_year or season_start_year)
+    entry = session.scalar(
+        select(TeamStaffRosterEntry)
+        .where(
+            TeamStaffRosterEntry.league_slug == league_slug,
+            TeamStaffRosterEntry.team_id == int(team_id),
+            TeamStaffRosterEntry.season_start_year == int(season_start_year),
+            TeamStaffRosterEntry.staff_fhm_id == sid,
+            TeamStaffRosterEntry.fired_at.is_(None),
+            TeamStaffRosterEntry.retired_at.is_(None),
+        )
+        .limit(1)
+    )
+    now = datetime.utcnow()
+    if entry is None:
+        other = _active_roster_entry(session, league_slug=league_slug, staff_fhm_id=sid)
+        if other is not None and int(other.team_id) != int(team_id):
+            return StaffActionResult(False, "That staff member is contracted to another team.")
+        profiles = list_staff_profiles_for_fhm_team(fhm_team_id) if fhm_team_id else []
+        inferred = _infer_staff_role_for_team(profiles, prof) if profiles else role_s
+        entry = TeamStaffRosterEntry(
+            league_slug=league_slug,
+            season_start_year=int(season_start_year),
+            team_id=int(team_id),
+            staff_fhm_id=sid,
+            staff_name=str(prof.get("full_name") or "—"),
+            role=role_s if role_s else inferred,
+            hire_request_id=None,
+            hired_at=now,
+            annual_salary=salary,
+            contract_years=years,
+            contract_start_season_year=start_year,
+        )
+        session.add(entry)
+    else:
+        entry.role = role_s
+        entry.annual_salary = salary
+        entry.contract_years = years
+        entry.contract_start_season_year = start_year
+    if salary > 0:
+        roster = active_roster_for_team(
             session,
-            league_slug=slug,
-            team_id=int(req.team_id),
-            season_start_year=int(req.season_start_year),
+            league_slug=league_slug,
+            team_id=int(team_id),
+            season_start_year=int(season_start_year),
+        )
+        from app.services.league_finances import contract_roster_payroll, severance_payroll
+
+        existing_salary = 0
+        if entry.id is not None:
+            for r in roster:
+                if str(r.staff_fhm_id).strip() == sid:
+                    existing_salary = int(r.annual_salary or 0)
+                    break
+        projected = (
+            contract_roster_payroll(roster, int(season_start_year))
+            - existing_salary
+            + salary
+            + severance_payroll(
+                session,
+                league_slug=league_slug,
+                team_id=int(team_id),
+                season_start_year=int(season_start_year),
+            )
         )
         budget_row = _get_or_create_team_staff_budget(
             session,
-            league_slug=slug,
-            season_start_year=int(req.season_start_year),
-            team_id=int(req.team_id),
+            league_slug=league_slug,
+            season_start_year=int(season_start_year),
+            team_id=int(team_id),
         )
-        budget_amount = int(budget_row.budget_amount or 0)
-        projected_payroll = _projected_payroll_after_hire(
-            current_salary_amount=int(budget_row.current_salary_amount or 0),
-            roster_before=roster_before,
-            role=role_s,
-            defaults=defaults,
-        )
-        if budget_amount > 0 and projected_payroll > budget_amount:
-            req.status = "denied"
-            req.processed_at = now
-            req.processed_by_user_id = admin_user_id
-            req.admin_note = "Denied: team staff budget would be exceeded."
-            return StaffRequestResult(False, req.admin_note)
-        session.add(
-            TeamStaffRosterEntry(
-                league_slug=slug,
-                season_start_year=int(req.season_start_year),
-                team_id=int(req.team_id),
-                staff_fhm_id=req.staff_fhm_id,
-                staff_name=req.staff_name,
-                role=role_s,
-                hire_request_id=int(req.id),
-                hired_at=now,
-            )
-        )
-        _apply_hire_payroll_increment(
-            session,
-            league_slug=slug,
-            season_start_year=int(req.season_start_year),
-            team_id=int(req.team_id),
-            role=role_s,
-            roster_before=roster_before,
-            defaults=defaults,
-        )
-        req.status = "approved"
-        req.processed_at = now
-        req.processed_by_user_id = admin_user_id
-        _deny_other_pending_hires(session, league_slug=slug, staff_fhm_id=req.staff_fhm_id, except_id=req.id)
-        return StaffRequestResult(True, "Hire approved.", request=req)
-    if req.request_type == "fire":
-        entry = session.scalar(
-            select(TeamStaffRosterEntry)
-            .where(
-                TeamStaffRosterEntry.league_slug == slug,
-                TeamStaffRosterEntry.team_id == int(req.team_id),
-                TeamStaffRosterEntry.staff_fhm_id == req.staff_fhm_id,
-                TeamStaffRosterEntry.fired_at.is_(None),
-            )
-            .limit(1)
-        )
-        if entry is None:
-            req.status = "denied"
-            req.processed_at = now
-            req.processed_by_user_id = admin_user_id
-            req.admin_note = "Denied: staff member is not on this team's active roster."
-            return StaffRequestResult(False, req.admin_note)
-        defaults = _league_staff_defaults(
-            session,
-            league_slug=slug,
-            season_start_year=int(req.season_start_year),
-        )
-        entry.fired_at = now
-        _apply_fire_payroll_decrement(
-            session,
-            league_slug=slug,
-            season_start_year=int(req.season_start_year),
-            team_id=int(req.team_id),
-            fired_role=str(entry.role or req.role or ""),
-            defaults=defaults,
-        )
-        req.status = "approved"
-        req.processed_at = now
-        req.processed_by_user_id = admin_user_id
-        return StaffRequestResult(True, "Fire approved.", request=req)
-    return StaffRequestResult(False, "Unknown request type.")
+        if int(budget_row.budget_amount or 0) > 0 and projected > int(budget_row.budget_amount):
+            return StaffActionResult(False, "Team staff budget would be exceeded.")
+    session.flush()
+    return StaffActionResult(True, f"Contract saved for {entry.staff_name}.", entry=entry)
 
 
-def deny_staff_request(
-    session: Session,
-    req: StaffChangeRequest,
-    *,
-    admin_user_id: int,
-    admin_note: str = "",
-) -> StaffRequestResult:
-    if req.status != "pending":
-        return StaffRequestResult(False, "Request is not pending.")
-    req.status = "denied"
-    req.processed_at = datetime.utcnow()
-    req.processed_by_user_id = admin_user_id
-    req.admin_note = (admin_note or "").strip()
-    return StaffRequestResult(True, "Request denied.", request=req)
+def transaction_headline_for_entry(entry: TeamStaffRosterEntry, team: Team | None, *, action: str) -> str:
+    team_label = team.full_display_name() if team else f"Team {entry.team_id}"
+    role_l = staff_role_label(entry.role)
+    if action == "hire":
+        return f"Staff hired — {entry.staff_name} ({role_l}) — {team_label}"
+    if action == "retire":
+        return f"Staff retired — {entry.staff_name} ({role_l}) — {team_label}"
+    return f"Staff fired — {entry.staff_name} ({role_l}) — {team_label}"
+
+
+# Legacy aliases kept for historical request rows / tests
+StaffRequestResult = StaffActionResult
 
 
 def transaction_headline(req: StaffChangeRequest, team: Team | None) -> str:

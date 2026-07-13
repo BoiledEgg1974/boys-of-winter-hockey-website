@@ -845,8 +845,32 @@ class PlayerRatingSnapshot(db.Model):
     ability: Mapped[float | None] = mapped_column(Float)
     potential: Mapped[float | None] = mapped_column(Float)
     overall_score: Mapped[int | None] = mapped_column(Integer)
+    timeline_season_start_year: Mapped[int | None] = mapped_column(Integer)
+    timeline_calendar_year: Mapped[int | None] = mapped_column(Integer)
+    timeline_calendar_month: Mapped[int | None] = mapped_column(Integer)
 
     player: Mapped["Player"] = relationship()
+
+
+class OrgDevelopmentReportArchive(db.Model):
+    """Persisted monthly org development report (survives snapshot trimming)."""
+
+    __tablename__ = "org_development_report_archives"
+    __table_args__ = (
+        UniqueConstraint("team_id", "timeline_key", name="uq_org_dev_report_team_timeline"),
+        Index("ix_org_dev_report_team_sort", "team_id", "timeline_season_start_year", "timeline_calendar_year", "timeline_calendar_month"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    team_id: Mapped[int] = mapped_column(Integer, ForeignKey("teams.id"), nullable=False, index=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    timeline_key: Mapped[str] = mapped_column(String(16), nullable=False)
+    timeline_season_start_year: Mapped[int] = mapped_column(Integer, nullable=False)
+    timeline_calendar_year: Mapped[int] = mapped_column(Integer, nullable=False)
+    timeline_calendar_month: Mapped[int] = mapped_column(Integer, nullable=False)
+    label: Mapped[str] = mapped_column(String(160), nullable=False)
+    report_json: Mapped[str] = mapped_column(Text, nullable=False)
+    archived_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
 
 class TradeLogEntry(db.Model):

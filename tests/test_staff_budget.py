@@ -1,25 +1,27 @@
-"""Staff budget panel helpers, hire budget gate, and payroll on approval."""
+"""Staff budget helpers, contract payroll, and admin hire/fire."""
 from __future__ import annotations
 
 import unittest
+from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from app.services.league_finances import (
     STAFF_HIRE_INSUFFICIENT_FUNDS_MSG,
     can_afford_staff_hire,
+    contract_roster_payroll,
     default_salary_for_role,
     effective_staff_payroll,
-    estimated_roster_payroll,
+    severance_payroll,
 )
 from app.services.staff_salaries import StaffDefaultSalaries, compute_staff_default_salaries
 from app.services.staff_transactions import (
-    _projected_payroll_after_fire,
-    _projected_payroll_after_hire,
-    approve_staff_request,
-    submit_hire_request,
+    admin_fire_staff,
+    admin_hire_staff,
+    contract_active,
+    contract_end_season_year,
 )
-from app.site_models import StaffChangeRequest, TeamStaffBudget
+from app.site_models import TeamStaffRosterEntry
 
 
 def _defaults() -> StaffDefaultSalaries:
@@ -31,6 +33,24 @@ def _defaults() -> StaffDefaultSalaries:
     )
 
 
+def _entry(**kwargs) -> TeamStaffRosterEntry:
+    row = TeamStaffRosterEntry(
+        league_slug="bowl-historical",
+        season_start_year=1968,
+        team_id=1,
+        staff_fhm_id="55",
+        staff_name="Test Staff",
+        role="scout",
+        annual_salary=60_703,
+        contract_years=2,
+        contract_start_season_year=1968,
+        hired_at=datetime.utcnow(),
+    )
+    for k, v in kwargs.items():
+        setattr(row, k, v)
+    return row
+
+
 class StaffBudgetHelpersTest(unittest.TestCase):
     def test_default_salary_for_role(self) -> None:
         d = _defaults()
@@ -39,71 +59,58 @@ class StaffBudgetHelpersTest(unittest.TestCase):
         self.assertEqual(default_salary_for_role("scout", d), 60_703)
         self.assertEqual(default_salary_for_role("trainer", d), 121_406)
 
-    def test_effective_staff_payroll_manual_wins(self) -> None:
-        roster = [SimpleNamespace(role="head_coach")]
-        payroll, manual = effective_staff_payroll(
-            current_salary_amount=500_000,
-            roster=roster,
-            defaults=_defaults(),
-        )
-        self.assertEqual(payroll, 500_000)
-        self.assertTrue(manual)
+    def test_contract_end_season_year(self) -> None:
+        row = _entry(contract_start_season_year=1968, contract_years=3)
+        self.assertEqual(contract_end_season_year(row), 1970)
 
-    def test_effective_staff_payroll_estimated_when_manual_zero(self) -> None:
+    def test_contract_active_and_expired(self) -> None:
+        row = _entry(contract_start_season_year=1968, contract_years=2)
+        self.assertTrue(contract_active(row, 1968))
+        self.assertTrue(contract_active(row, 1969))
+        self.assertFalse(contract_active(row, 1970))
+
+    def test_contract_roster_payroll_sums_salaries(self) -> None:
         roster = [
-            SimpleNamespace(role="head_coach"),
-            SimpleNamespace(role="scout"),
+            _entry(annual_salary=100),
+            _entry(staff_fhm_id="56", annual_salary=200, contract_start_season_year=1968, contract_years=1),
         ]
-        payroll, manual = effective_staff_payroll(
-            current_salary_amount=0,
-            roster=roster,
-            defaults=_defaults(),
-        )
-        self.assertEqual(payroll, 424_919 + 60_703)
-        self.assertFalse(manual)
+        self.assertEqual(contract_roster_payroll(roster, 1968), 300)
 
-    def test_can_afford_staff_hire_with_pending(self) -> None:
+    def test_effective_staff_payroll_includes_severance(self) -> None:
+        session = MagicMock()
+        session.scalars.return_value.all.return_value = [50_000, 25_000]
+        roster = [_entry(annual_salary=60_703)]
+        payroll, contract_pay, severance = effective_staff_payroll(
+            roster=roster,
+            season_start_year=1968,
+            session=session,
+            league_slug="bowl-historical",
+            team_id=1,
+        )
+        self.assertEqual(contract_pay, 60_703)
+        self.assertEqual(severance, 75_000)
+        self.assertEqual(payroll, 135_703)
+
+    def test_severance_payroll(self) -> None:
+        session = MagicMock()
+        session.scalars.return_value.all.return_value = [10_000, 5_000]
+        self.assertEqual(
+            severance_payroll(
+                session,
+                league_slug="bowl-historical",
+                team_id=1,
+                season_start_year=1968,
+            ),
+            15_000,
+        )
+
+    def test_can_afford_staff_hire(self) -> None:
         fin = {
             "defaults": _defaults(),
             "available_for_hire": 100_000,
         }
         self.assertFalse(can_afford_staff_hire(fin, "head_coach"))
         self.assertTrue(can_afford_staff_hire(fin, "scout"))
-
-    def test_projected_payroll_after_hire_bootstraps_estimate(self) -> None:
-        roster = [SimpleNamespace(role="scout")]
-        projected = _projected_payroll_after_hire(
-            current_salary_amount=0,
-            roster_before=roster,
-            role="trainer",
-            defaults=_defaults(),
-        )
-        self.assertEqual(projected, 60_703 + 121_406)
-
-    def test_projected_payroll_after_hire_increments_manual(self) -> None:
-        projected = _projected_payroll_after_hire(
-            current_salary_amount=1_000_000,
-            roster_before=[],
-            role="scout",
-            defaults=_defaults(),
-        )
-        self.assertEqual(projected, 1_000_000 + 60_703)
-
-    def test_projected_payroll_after_fire_decrements_manual(self) -> None:
-        projected = _projected_payroll_after_fire(
-            current_salary_amount=1_000_000,
-            fired_role="scout",
-            defaults=_defaults(),
-        )
-        self.assertEqual(projected, 1_000_000 - 60_703)
-
-    def test_projected_payroll_after_fire_leaves_estimated_mode(self) -> None:
-        projected = _projected_payroll_after_fire(
-            current_salary_amount=0,
-            fired_role="scout",
-            defaults=_defaults(),
-        )
-        self.assertEqual(projected, 0)
 
     def test_compute_staff_default_salaries_formula(self) -> None:
         d = compute_staff_default_salaries(100_000_000, 10)
@@ -114,207 +121,87 @@ class StaffBudgetHelpersTest(unittest.TestCase):
         self.assertEqual(d.trainer, round(base * 2))
 
 
-class SubmitHireBudgetGateTest(unittest.TestCase):
-    @patch("app.services.league_finances.staff_finances_for_team")
+class AdminStaffActionsTest(unittest.TestCase):
+    @patch("app.services.staff_transactions._validate_hire_budget", return_value=None)
+    @patch("app.services.staff_transactions._league_staff_defaults", return_value=_defaults())
     @patch("app.services.staff_transactions._active_roster_entry", return_value=None)
-    @patch("app.services.staff_transactions.hire_limit_status")
     @patch("app.services.staff_transactions.get_staff_profile")
-    def test_submit_hire_blocks_insufficient_budget(
+    def test_admin_hire_staff_creates_contract(
         self,
         mock_profile: MagicMock,
-        mock_limit: MagicMock,
         _mock_active: MagicMock,
-        mock_finances: MagicMock,
+        _mock_defaults: MagicMock,
+        _mock_budget: MagicMock,
     ) -> None:
         session = MagicMock()
-        session.scalar.return_value = None
-        mock_limit.return_value = MagicMock(limit_reached=False)
         mock_profile.return_value = {"staff_fhm_id": "99", "full_name": "Coach", "fhm_team_id": ""}
-        mock_finances.return_value = {
-            "defaults": _defaults(),
-            "available_for_hire": 0,
-        }
 
-        result = submit_hire_request(
+        result = admin_hire_staff(
             session,
             league_slug="bowl-historical",
             season_start_year=1968,
             team_id=1,
-            user_id=2,
+            admin_user_id=2,
             staff_fhm_id="99",
             role="head_coach",
+            contract_years=3,
+        )
+
+        self.assertTrue(result.ok)
+        session.add.assert_called_once()
+        added = session.add.call_args[0][0]
+        self.assertEqual(added.annual_salary, 424_919)
+        self.assertEqual(added.contract_years, 3)
+
+    @patch("app.services.staff_transactions._validate_hire_budget")
+    @patch("app.services.staff_transactions._league_staff_defaults", return_value=_defaults())
+    @patch("app.services.staff_transactions._active_roster_entry", return_value=None)
+    @patch("app.services.staff_transactions.get_staff_profile")
+    def test_admin_hire_blocks_insufficient_budget(
+        self,
+        mock_profile: MagicMock,
+        _mock_active: MagicMock,
+        _mock_defaults: MagicMock,
+        mock_budget: MagicMock,
+    ) -> None:
+        session = MagicMock()
+        mock_profile.return_value = {"staff_fhm_id": "99", "full_name": "Coach", "fhm_team_id": ""}
+        mock_budget.return_value = STAFF_HIRE_INSUFFICIENT_FUNDS_MSG
+
+        result = admin_hire_staff(
+            session,
+            league_slug="bowl-historical",
+            season_start_year=1968,
+            team_id=1,
+            admin_user_id=2,
+            staff_fhm_id="99",
+            role="head_coach",
+            contract_years=1,
         )
 
         self.assertFalse(result.ok)
-        self.assertEqual(result.message, STAFF_HIRE_INSUFFICIENT_FUNDS_MSG)
         session.add.assert_not_called()
 
-
-class ApproveStaffPayrollTest(unittest.TestCase):
-    @patch("app.services.staff_transactions._apply_hire_payroll_increment")
-    @patch("app.services.staff_transactions._get_or_create_team_staff_budget")
-    @patch("app.services.staff_transactions._league_staff_defaults", return_value=_defaults())
-    @patch("app.services.staff_transactions.active_roster_for_team", return_value=[])
-    @patch("app.services.staff_transactions._active_roster_entry", return_value=None)
-    def test_approve_hire_increments_payroll(
-        self,
-        _mock_active: MagicMock,
-        _mock_roster: MagicMock,
-        _mock_defaults: MagicMock,
-        mock_budget_row: MagicMock,
-        mock_apply: MagicMock,
-    ) -> None:
+    def test_admin_fire_staff_adds_severance(self) -> None:
         session = MagicMock()
-        budget = TeamStaffBudget(
+        entry = _entry()
+        session.scalar.return_value = entry
+
+        result = admin_fire_staff(
+            session,
             league_slug="bowl-historical",
             season_start_year=1968,
             team_id=1,
-            budget_amount=5_000_000,
-            current_salary_amount=0,
-        )
-        mock_budget_row.return_value = budget
-        req = StaffChangeRequest(
-            league_slug="bowl-historical",
-            season_start_year=1968,
-            team_id=1,
-            user_id=2,
-            request_type="hire",
-            role="scout",
+            admin_user_id=2,
             staff_fhm_id="55",
-            staff_name="Scout Name",
-            status="pending",
+            penalty_amount=100_000,
         )
-        req.id = 7
-
-        result = approve_staff_request(session, req, admin_user_id=9)
-
-        self.assertTrue(result.ok)
-        mock_apply.assert_called_once()
-        session.add.assert_called()
-
-    @patch("app.services.staff_transactions._get_or_create_team_staff_budget")
-    @patch("app.services.staff_transactions._league_staff_defaults", return_value=_defaults())
-    @patch("app.services.staff_transactions.active_roster_for_team", return_value=[])
-    @patch("app.services.staff_transactions._active_roster_entry", return_value=None)
-    def test_approve_hire_denied_when_over_budget(
-        self,
-        _mock_active: MagicMock,
-        _mock_roster: MagicMock,
-        _mock_defaults: MagicMock,
-        mock_budget_row: MagicMock,
-    ) -> None:
-        session = MagicMock()
-        budget = TeamStaffBudget(
-            league_slug="bowl-historical",
-            season_start_year=1968,
-            team_id=1,
-            budget_amount=50_000,
-            current_salary_amount=0,
-        )
-        mock_budget_row.return_value = budget
-        req = StaffChangeRequest(
-            league_slug="bowl-historical",
-            season_start_year=1968,
-            team_id=1,
-            user_id=2,
-            request_type="hire",
-            role="head_coach",
-            staff_fhm_id="55",
-            staff_name="Coach Name",
-            status="pending",
-        )
-
-        result = approve_staff_request(session, req, admin_user_id=9)
-
-        self.assertFalse(result.ok)
-        self.assertEqual(req.status, "denied")
-
-    def test_approve_fire_decrements_manual_payroll(self) -> None:
-        session = MagicMock()
-        entry = SimpleNamespace(fired_at=None, role="scout")
-        budget = TeamStaffBudget(
-            league_slug="bowl-historical",
-            season_start_year=1968,
-            team_id=1,
-            budget_amount=5_000_000,
-            current_salary_amount=1_000_000,
-        )
-        session.scalar.side_effect = [entry, budget]
-        req = StaffChangeRequest(
-            league_slug="bowl-historical",
-            season_start_year=1968,
-            team_id=1,
-            user_id=2,
-            request_type="fire",
-            role="scout",
-            staff_fhm_id="55",
-            staff_name="Scout Name",
-            status="pending",
-        )
-
-        with patch(
-            "app.services.staff_transactions._league_staff_defaults",
-            return_value=_defaults(),
-        ):
-            result = approve_staff_request(session, req, admin_user_id=9)
-
-        self.assertTrue(result.ok)
-        self.assertEqual(budget.current_salary_amount, 1_000_000 - 60_703)
-        self.assertIsNotNone(entry.fired_at)
-
-    def test_approve_fire_skips_budget_when_payroll_not_manual(self) -> None:
-        session = MagicMock()
-        entry = SimpleNamespace(fired_at=None, role="scout")
-        session.scalar.side_effect = [entry, None]
-        req = StaffChangeRequest(
-            league_slug="bowl-historical",
-            season_start_year=1968,
-            team_id=1,
-            user_id=2,
-            request_type="fire",
-            role="scout",
-            staff_fhm_id="55",
-            staff_name="Scout Name",
-            status="pending",
-        )
-
-        with patch(
-            "app.services.staff_transactions._league_staff_defaults",
-            return_value=_defaults(),
-        ):
-            result = approve_staff_request(session, req, admin_user_id=9)
 
         self.assertTrue(result.ok)
         self.assertIsNotNone(entry.fired_at)
-
-
-class FirePayrollNotifyTest(unittest.TestCase):
-    @patch("app.services.admin_review_notify.queue_site_admin_in_app_notifications")
-    @patch("app.services.admin_review_notify.try_send_admin_review_email")
-    @patch("app.services.admin_review_notify._abs_url_for", return_value="/admin/staff-budgets")
-    def test_notify_staff_fire_payroll_adjustment(
-        self,
-        _mock_url: MagicMock,
-        mock_email: MagicMock,
-        mock_queue: MagicMock,
-    ) -> None:
-        from app.services.admin_review_notify import notify_staff_fire_payroll_adjustment
-
-        notify_staff_fire_payroll_adjustment(
-            league_slug="bowl-historical",
-            league_display_name="BOWL-Historical",
-            request_id=42,
-            team_name="Detroit Red Wings",
-            staff_name="Pat Burns",
-            role_label="Head Coach",
-            suggested_reduction=424_919,
-        )
-
-        mock_email.assert_called_once()
-        mock_queue.assert_called_once()
-        kwargs = mock_queue.call_args.kwargs
-        self.assertEqual(kwargs["kind"], "admin_staff_payroll_adjust")
-        self.assertIn("424,919", kwargs["body"])
+        self.assertEqual(session.add.call_count, 1)
+        severance = session.add.call_args[0][0]
+        self.assertEqual(severance.penalty_amount, 100_000)
 
 
 if __name__ == "__main__":

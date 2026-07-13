@@ -1,0 +1,88 @@
+{% from "macros/player_overall.html" import overall_cell %}
+{% from "macros/prospect_projection.html" import prospect_projection_headers_row, prospect_projection_cells, prospect_projection_footnote_block %}
+{% macro abi_pot_pill(val) -%}
+{% if val is none %}—{% else %}
+<span class="stats-badge stats-badge--rating stats-badge--overall" style="{{ val|rating_pill_style }}">{{ '%.1f'|format(val|float) }}</span>
+{% endif %}
+{%- endmacro %}
+{% macro team_prospect_sort_th(sk, label, tip='') -%}
+{% set ord = ('asc' if team_prospect_order == 'desc' else 'desc') if sk == team_prospect_sort else ('desc' if sk in team_prospect_sort_desc_defaults else 'asc') %}
+{% set href = url_for('main.team_page', slug=team.slug, panel='prospects', sort=sk, order=ord, position=team_prospect_position or none) %}
+<th scope="col"{% if tip %} title="{{ tip|e }}"{% endif %}>
+  <a href="{{ href }}"
+     class="stats-th-link{% if sk == team_prospect_sort %} is-sorted {{ 'is-sorted-asc' if team_prospect_order == 'asc' else 'is-sorted-desc' }}{% endif %}">{{ label }}</a>
+</th>
+{%- endmacro %}
+
+<div class="card team-prospects-panel">
+  <h2 class="team-prospects-panel__title">Prospects</h2>
+  <p class="muted team-prospects-panel__intro">Players aged 22 or younger in this organization’s pipeline.</p>
+  <nav class="team-prospects-pos" aria-label="Filter by position">
+    {% set positions = [('', 'All'), ('C', 'C'), ('LW', 'LW'), ('RW', 'RW'), ('D', 'D'), ('G', 'G')] %}
+    {% for val, label in positions %}
+    <a class="team-prospects-pos__btn{% if (team_prospect_position or '') == val %} is-active{% endif %}"
+       href="{{ url_for('main.team_page', slug=team.slug, panel='prospects', position=val or none, sort=team_prospect_sort, order=team_prospect_order) }}">{{ label }}</a>
+    {% endfor %}
+  </nav>
+  {% if team_prospect_rows %}
+  <div class="table-wrap">
+    <table class="data prospects-rankings-table team-prospects-table">
+      <thead>
+        <tr>
+          {{ team_prospect_sort_th('player', 'PLAYER', 'Player') }}
+          {{ team_prospect_sort_th('age', 'AGE', 'Age') }}
+          {{ team_prospect_sort_th('abi', 'ABI.', 'Ability') }}
+          {{ team_prospect_sort_th('pot', 'POT.', 'Potential') }}
+          {{ team_prospect_sort_th('ova', 'OVR', 'Composite 1-100 overall') }}
+          {{ prospect_projection_headers_row(team_prospect_sort_th, team_prospect_projection_headers) }}
+          {{ team_prospect_sort_th('draft', 'Draft Details', 'Draft team, year, and overall pick') }}
+          {{ team_prospect_sort_th('dev_rate', '1YR Dev %', 'Overall percent change over the last year of imports: (OVR now − OVR then) ÷ OVR then') }}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in team_prospect_rows %}
+        {% set pl = row.player %}
+        {% set dd = row.draft_details or {} %}
+        {% set rate = row.develop_rate_fmt or {} %}
+        <tr>
+          <td {% if team_prospect_sort == 'player' %}class="stats-td-sorted"{% endif %}>
+            <span class="stats-player-cell">
+              <a class="stats-player-cell__photo" href="{{ url_for('main.player_page', player_id=pl.id) }}">
+                {% if player_headshot_url(pl) %}
+                <img src="{{ player_headshot_url(pl) }}" alt="">
+                {% else %}
+                <span class="stats-player-cell__photo-ph" aria-hidden="true"></span>
+                {% endif %}
+              </a>
+              <span class="stats-player-cell__text">
+                <a class="stats-player-cell__name" href="{{ url_for('main.player_page', player_id=pl.id) }}">{{ pl.full_name }}</a>
+                <span class="stats-player-cell__pos">{{ pl | player_positions_display }}</span>
+              </span>
+            </span>
+          </td>
+          <td {% if team_prospect_sort == 'age' %}class="stats-td-sorted"{% endif %}>{{ row.age if row.age is not none else '—' }}</td>
+          <td {% if team_prospect_sort == 'abi' %}class="stats-td-sorted"{% endif %}>{{ abi_pot_pill(row.abi) }}</td>
+          <td {% if team_prospect_sort == 'pot' %}class="stats-td-sorted"{% endif %}>{{ abi_pot_pill(row.pot) }}</td>
+          {{ overall_cell((player_overall_by_id or {}).get(pl.id), team_prospect_sort == 'ova') }}
+          {{ prospect_projection_cells(row, team_prospect_sort) }}
+          <td class="team-prospects-table__draft{% if team_prospect_sort == 'draft' %} stats-td-sorted{% endif %}">
+            <span class="team-prospects-draft">
+              <span class="team-prospects-draft__team">{{ dd.team_line or 'Undrafted' }}</span>
+              {% if dd.pick_line %}
+              <span class="team-prospects-draft__pick">{{ dd.pick_line }}</span>
+              {% endif %}
+            </span>
+          </td>
+          <td class="team-prospects-table__rate{% if team_prospect_sort == 'dev_rate' %} stats-td-sorted{% endif %}">
+            <span class="team-prospects-rate team-prospects-rate--{{ rate.kind or 'none' }}">{{ rate.display or '—' }}</span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {{ prospect_projection_footnote_block() }}
+  {% else %}
+  <p class="empty-state">No players aged 22 or younger in this pipeline{% if team_prospect_position %} for {{ team_prospect_position }}{% endif %}.</p>
+  {% endif %}
+</div>

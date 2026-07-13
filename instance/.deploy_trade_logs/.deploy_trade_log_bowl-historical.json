@@ -1,19 +1,6 @@
 [
   {
-    "id": 31,
-    "trade_date": "2026-04-03",
-    "team_a_id": 12,
-    "team_b_id": 5,
-    "team_a_fhm": "123",
-    "team_b_fhm": "9",
-    "team_a_abbr": "STL",
-    "team_b_abbr": "DET",
-    "summary": "St. Louis Blues (1967-1977) sends:\n1968 1st Round (STL)\n\nDetroit Red Wings sends:\nLou Angotti",
-    "external_id": null,
-    "source": "manual"
-  },
-  {
-    "id": 30,
+    "id": 2,
     "trade_date": "2026-04-03",
     "team_a_id": 1,
     "team_b_id": 5,
@@ -26,7 +13,20 @@
     "source": "manual"
   },
   {
-    "id": 29,
+    "id": 1,
+    "trade_date": "2026-04-03",
+    "team_a_id": 12,
+    "team_b_id": 5,
+    "team_a_fhm": "123",
+    "team_b_fhm": "9",
+    "team_a_abbr": "STL",
+    "team_b_abbr": "DET",
+    "summary": "St. Louis Blues (1967-1977) sends:\n1968 1st Round (STL)\n\nDetroit Red Wings sends:\nLou Angotti",
+    "external_id": null,
+    "source": "manual"
+  },
+  {
+    "id": 3,
     "trade_date": "2026-03-20",
     "team_a_id": 8,
     "team_b_id": 7,
@@ -39,20 +39,7 @@
     "source": "manual"
   },
   {
-    "id": 28,
-    "trade_date": "2026-03-19",
-    "team_a_id": 7,
-    "team_b_id": 4,
-    "team_a_fhm": "118",
-    "team_b_fhm": "8",
-    "team_a_abbr": "LAK",
-    "team_b_abbr": "CHI",
-    "summary": "Los Angeles Kings (1967-1974) sends:\nDenis DeJordy\n\nChicago Black Hawks (1959-1988) sends:\nMarv Edwards\n1968 2nd Round (CHI)",
-    "external_id": null,
-    "source": "manual"
-  },
-  {
-    "id": 27,
+    "id": 5,
     "trade_date": "2026-03-19",
     "team_a_id": 5,
     "team_b_id": 7,
@@ -65,7 +52,20 @@
     "source": "manual"
   },
   {
-    "id": 26,
+    "id": 4,
+    "trade_date": "2026-03-19",
+    "team_a_id": 7,
+    "team_b_id": 4,
+    "team_a_fhm": "118",
+    "team_b_fhm": "8",
+    "team_a_abbr": "LAK",
+    "team_b_abbr": "CHI",
+    "summary": "Los Angeles Kings (1967-1974) sends:\nDenis DeJordy\n\nChicago Black Hawks (1959-1988) sends:\nMarv Edwards\n1968 2nd Round (CHI)",
+    "external_id": null,
+    "source": "manual"
+  },
+  {
+    "id": 6,
     "trade_date": "2026-03-18",
     "team_a_id": 2,
     "team_b_id": 12,
@@ -78,7 +78,7 @@
     "source": "manual"
   },
   {
-    "id": 25,
+    "id": 7,
     "trade_date": "2026-03-09",
     "team_a_id": 11,
     "team_b_id": 10,
@@ -91,7 +91,7 @@
     "source": "manual"
   },
   {
-    "id": 24,
+    "id": 8,
     "trade_date": "2026-03-08",
     "team_a_id": 11,
     "team_b_id": 8,
@@ -104,7 +104,7 @@
     "source": "manual"
   },
   {
-    "id": 23,
+    "id": 9,
     "trade_date": "2026-02-19",
     "team_a_id": 3,
     "team_b_id": 1,
@@ -117,20 +117,7 @@
     "source": "manual"
   },
   {
-    "id": 22,
-    "trade_date": "2026-02-18",
-    "team_a_id": 1,
-    "team_b_id": 5,
-    "team_a_fhm": "0",
-    "team_b_fhm": "9",
-    "team_a_abbr": "MTL",
-    "team_b_abbr": "DET",
-    "summary": "Montreal Canadiens sends:\nNorm Ullman\nWayne Connelly\n1967 1st Round (BOS)\n\nDetroit Red Wings sends:\nTed Irvine\nReal Lemieux\n2968 2nd Round (DET)",
-    "external_id": null,
-    "source": "manual"
-  },
-  {
-    "id": 21,
+    "id": 11,
     "trade_date": "2026-02-18",
     "team_a_id": 2,
     "team_b_id": 1,
@@ -143,7 +130,20 @@
     "source": "manual"
   },
   {
-    "id": 20,
+    "id": 10,
+    "trade_date": "2026-02-18",
+    "team_a_id": 1,
+    "team_b_id": 5,
+    "team_a_fhm": "0",
+    "team_b_fhm": "9",
+    "team_a_abbr": "MTL",
+    "team_b_abbr": "DET",
+    "summary": "Montreal Canadiens sends:\nNorm Ullman\nWayne Connelly\n1967 1st Round (BOS)\n\nDetroit Red Wings sends:\nTed Irvine\nReal Lemieux\n2968 2nd Round (DET)",
+    "external_id": null,
+    "source": "manual"
+  },
+  {
+    "id": 12,
     "trade_date": "2026-01-02",
     "team_a_id": 1,
     "team_b_id": 3,
@@ -156,7 +156,7 @@
     "source": "manual"
   },
   {
-    "id": 19,
+    "id": 13,
     "trade_date": "2026-01-01",
     "team_a_id": 1,
     "team_b_id": 4,
@@ -169,7 +169,7 @@
     "source": "manual"
   },
   {
-    "id": 18,
+    "id": 14,
     "trade_date": "2025-12-18",
     "team_a_id": 3,
     "team_b_id": 1,
@@ -182,7 +182,7 @@
     "source": "manual"
   },
   {
-    "id": 17,
+    "id": 15,
     "trade_date": "2025-12-16",
     "team_a_id": 2,
     "team_b_id": 4,
@@ -208,7 +208,7 @@
     "source": "manual"
   },
   {
-    "id": 15,
+    "id": 17,
     "trade_date": "2025-11-30",
     "team_a_id": 3,
     "team_b_id": 1,
@@ -221,7 +221,7 @@
     "source": "manual"
   },
   {
-    "id": 14,
+    "id": 18,
     "trade_date": "2025-07-04",
     "team_a_id": 2,
     "team_b_id": 3,
@@ -234,7 +234,7 @@
     "source": "manual"
   },
   {
-    "id": 13,
+    "id": 19,
     "trade_date": "2025-07-03",
     "team_a_id": 2,
     "team_b_id": 4,
@@ -247,7 +247,7 @@
     "source": "manual"
   },
   {
-    "id": 12,
+    "id": 20,
     "trade_date": "2025-06-14",
     "team_a_id": 1,
     "team_b_id": 3,
@@ -260,7 +260,7 @@
     "source": "manual"
   },
   {
-    "id": 11,
+    "id": 21,
     "trade_date": "2025-04-12",
     "team_a_id": 6,
     "team_b_id": 3,
@@ -273,7 +273,7 @@
     "source": "manual"
   },
   {
-    "id": 8,
+    "id": 22,
     "trade_date": "2025-01-13",
     "team_a_id": 5,
     "team_b_id": 3,
@@ -286,20 +286,7 @@
     "source": "manual"
   },
   {
-    "id": 7,
-    "trade_date": "2024-10-16",
-    "team_a_id": 6,
-    "team_b_id": 1,
-    "team_a_fhm": "10",
-    "team_b_fhm": "0",
-    "team_a_abbr": "NYR",
-    "team_b_abbr": "MTL",
-    "summary": "New York Rangers (1947-1951) sends:\n1949 2nd Round (NYR)\n1950 2nd Round (NYR)\n\nMontreal Canadiens (1932-1946) sends:\nSid Abel",
-    "external_id": null,
-    "source": "manual"
-  },
-  {
-    "id": 6,
+    "id": 24,
     "trade_date": "2024-10-16",
     "team_a_id": 4,
     "team_b_id": 1,
@@ -312,7 +299,20 @@
     "source": "manual"
   },
   {
-    "id": 5,
+    "id": 23,
+    "trade_date": "2024-10-16",
+    "team_a_id": 6,
+    "team_b_id": 1,
+    "team_a_fhm": "10",
+    "team_b_fhm": "0",
+    "team_a_abbr": "NYR",
+    "team_b_abbr": "MTL",
+    "summary": "New York Rangers (1947-1951) sends:\n1949 2nd Round (NYR)\n1950 2nd Round (NYR)\n\nMontreal Canadiens (1932-1946) sends:\nSid Abel",
+    "external_id": null,
+    "source": "manual"
+  },
+  {
+    "id": 25,
     "trade_date": "2024-09-18",
     "team_a_id": 5,
     "team_b_id": 1,
@@ -325,7 +325,7 @@
     "source": "manual"
   },
   {
-    "id": 4,
+    "id": 26,
     "trade_date": "2024-07-30",
     "team_a_id": 3,
     "team_b_id": 4,
@@ -338,7 +338,7 @@
     "source": "manual"
   },
   {
-    "id": 3,
+    "id": 27,
     "trade_date": "2024-05-19",
     "team_a_id": 3,
     "team_b_id": 4,
@@ -351,7 +351,7 @@
     "source": "manual"
   },
   {
-    "id": 2,
+    "id": 28,
     "trade_date": "2024-05-07",
     "team_a_id": 2,
     "team_b_id": 4,
@@ -364,7 +364,7 @@
     "source": "manual"
   },
   {
-    "id": 1,
+    "id": 29,
     "trade_date": "2024-04-29",
     "team_a_id": 5,
     "team_b_id": 4,
@@ -377,7 +377,7 @@
     "source": "manual"
   },
   {
-    "id": 10,
+    "id": 30,
     "trade_date": "2024-04-11",
     "team_a_id": 1,
     "team_b_id": 3,

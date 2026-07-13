@@ -32,6 +32,7 @@
     <li><a href="{{ url_for('site_admin.admin_operations_queue') }}">GM operations queue</a></li>
     {% if site_can_process_trades %}
     <li><a href="{{ url_for('site_gm.trade_tool') }}">Trade Tool</a> — enter and publish official trades</li>
+    <li><a href="{{ url_for('site_gm.staff_salaries_page') }}">Staff Hire/Fire</a> — league office staff contracts</li>
     {% endif %}
     <li><a href="{{ url_for('site_admin.admin_trade_proposals_list') }}">Trade proposals (history &amp; repair)</a></li>
     <li><a href="{{ url_for('site_admin.admin_draft_pick_ownership') }}">Draft pick ownership panels</a></li>
@@ -55,11 +56,10 @@
     <li><a href="{{ url_for('site_admin.admin_roles') }}">Admin roles</a></li>
     {% endif %}
     <li><a href="{{ url_for('site_admin.admin_audit_log') }}">Audit log</a></li>
-    <li><a href="{{ url_for('site_admin.admin_staff_budgets') }}">Staff salary budgets</a> — per-team budgets for GM Staff Hire/Fire page</li>
+    <li><a href="{{ url_for('site_admin.admin_staff_budgets') }}">Staff salary budgets</a> — per-team budgets (payroll from contracts)</li>
     <li><a href="{{ url_for('site_admin.admin_cap_penalties') }}">Cap hit penalties</a> — manual FHM cap penalty amounts for GM Finances page</li>
     <li><a href="{{ url_for('site_admin.admin_ap_ledger') }}">Manual AP ledger</a></li>
     <li><a href="{{ url_for('site_admin.admin_ap_requests') }}">AP redemption requests</a></li>
-    <li><a href="{{ url_for('site_admin.admin_staff_requests') }}">Staff hire / fire requests</a></li>
     <li><a href="{{ url_for('site_admin.admin_rfa_offers') }}">RFA offer sheets</a></li>
     <li><a href="{{ url_for('site_admin.admin_catalog') }}">Redemption catalog</a></li>
     <li><a href="{{ url_for('site_gm.bowl_six_hub') }}">BOWL Six</a> — weekly pick game (auto-scores after import); overrides in <a href="{{ url_for('site_admin.admin_control_center') }}">Control Center</a></li>

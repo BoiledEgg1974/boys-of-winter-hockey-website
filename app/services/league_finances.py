@@ -19,8 +19,8 @@ from app.services.staff_salaries import (
     main_league_teams,
     staff_budget_data_for_season,
 )
-from app.services.staff_transactions import active_roster_for_team
-from app.site_models import GmLeagueMembership, StaffChangeRequest, TeamCapPenalty, User
+from app.services.staff_transactions import active_roster_for_team, contract_active
+from app.site_models import GmLeagueMembership, StaffSeveranceEntry, TeamCapPenalty, User
 
 STAFF_HIRE_INSUFFICIENT_FUNDS_MSG = (
     "You do not have enough funds to hire this individual for this position."
@@ -377,38 +377,50 @@ def estimated_roster_payroll(roster, defaults: StaffDefaultSalaries | None) -> i
     return sum(default_salary_for_role(str(entry.role), defaults) for entry in roster)
 
 
-def effective_staff_payroll(
-    *,
-    current_salary_amount: int,
-    roster,
-    defaults: StaffDefaultSalaries | None,
-) -> tuple[int, bool]:
-    """Return (payroll, is_manual). Manual amount wins when > 0."""
-    current = int(current_salary_amount or 0)
-    if current > 0:
-        return current, True
-    return int(estimated_roster_payroll(roster, defaults)), False
+def contract_roster_payroll(roster, season_start_year: int) -> int:
+    """Sum annual contract salaries for active, non-expired roster entries."""
+    total = 0
+    for entry in roster:
+        if contract_active(entry, int(season_start_year)):
+            total += int(entry.annual_salary or 0)
+    return total
 
 
-def pending_hire_payroll(
+def severance_payroll(
     session: Session,
     *,
     league_slug: str,
     team_id: int,
-    defaults: StaffDefaultSalaries | None,
+    season_start_year: int,
 ) -> int:
-    """Sum default role salaries for this team's pending hire requests."""
-    if defaults is None:
-        return 0
+    """Sum fire penalty amounts for this team/season."""
     rows = session.scalars(
-        select(StaffChangeRequest.role).where(
-            StaffChangeRequest.league_slug == league_slug,
-            StaffChangeRequest.team_id == int(team_id),
-            StaffChangeRequest.request_type == "hire",
-            StaffChangeRequest.status == "pending",
+        select(StaffSeveranceEntry.penalty_amount).where(
+            StaffSeveranceEntry.league_slug == league_slug,
+            StaffSeveranceEntry.team_id == int(team_id),
+            StaffSeveranceEntry.season_start_year == int(season_start_year),
         )
     ).all()
-    return sum(default_salary_for_role(str(role), defaults) for role in rows)
+    return sum(int(r or 0) for r in rows)
+
+
+def effective_staff_payroll(
+    *,
+    roster,
+    season_start_year: int,
+    session: Session,
+    league_slug: str,
+    team_id: int,
+) -> tuple[int, int, int]:
+    """Return (payroll, contract_payroll, severance_payroll)."""
+    contract_pay = contract_roster_payroll(roster, int(season_start_year))
+    severance = severance_payroll(
+        session,
+        league_slug=league_slug,
+        team_id=int(team_id),
+        season_start_year=int(season_start_year),
+    )
+    return int(contract_pay + severance), int(contract_pay), int(severance)
 
 
 def staff_finances_for_team(
@@ -427,7 +439,6 @@ def staff_finances_for_team(
     )
     team_budget = budget_data.get(int(team_id), {})
     budget_amount = int(team_budget.get("budget_amount", 0))
-    current_salary = int(team_budget.get("current_salary_amount", 0))
 
     if defaults is ...:
         teams = main_league_teams(session)
@@ -440,29 +451,26 @@ def staff_finances_for_team(
         team_id=int(team_id),
         season_start_year=int(season_start_year),
     )
-    estimated_payroll = int(estimated_roster_payroll(roster, defaults))
-    staff_payroll, staff_payroll_is_manual = effective_staff_payroll(
-        current_salary_amount=current_salary,
+    staff_payroll, contract_payroll, severance_total = effective_staff_payroll(
         roster=roster,
-        defaults=defaults,
-    )
-    pending_payroll = pending_hire_payroll(
-        session,
+        season_start_year=int(season_start_year),
+        session=session,
         league_slug=league_slug,
         team_id=int(team_id),
-        defaults=defaults,
     )
+    estimated_payroll = int(estimated_roster_payroll(roster, defaults))
     budget_remaining = int(budget_amount - staff_payroll)
-    available_for_hire = int(budget_remaining - pending_payroll)
+    available_for_hire = int(budget_remaining)
 
     return {
         "budget_amount": budget_amount,
-        "current_salary_amount": current_salary,
         "staff_payroll": int(staff_payroll),
-        "staff_payroll_is_manual": staff_payroll_is_manual,
+        "contract_payroll": int(contract_payroll),
+        "severance_payroll": int(severance_total),
+        "staff_payroll_is_manual": False,
         "estimated_payroll": estimated_payroll,
         "budget_remaining": budget_remaining,
-        "pending_hire_payroll": int(pending_payroll),
+        "pending_hire_payroll": 0,
         "available_for_hire": available_for_hire,
         "defaults": defaults,
     }
@@ -475,6 +483,13 @@ def can_afford_staff_hire(finances: dict[str, object], role: str) -> bool:
         return True
     available = int(finances.get("available_for_hire", 0))
     return available >= role_cost
+
+
+def can_afford_staff_salary(finances: dict[str, object], salary: int) -> bool:
+    if int(salary or 0) <= 0:
+        return True
+    available = int(finances.get("available_for_hire", 0))
+    return available >= int(salary)
 
 
 def build_staff_finances_rows(
@@ -530,7 +545,9 @@ def build_staff_finances_rows(
                 "gm_label": gm_display_name(user),
                 "budget_amount": int(fin["budget_amount"]),
                 "staff_payroll": int(fin["staff_payroll"]),
-                "staff_payroll_is_manual": bool(fin["staff_payroll_is_manual"]),
+                "contract_payroll": int(fin.get("contract_payroll", fin["staff_payroll"])),
+                "severance_payroll": int(fin.get("severance_payroll", 0)),
+                "staff_payroll_is_manual": False,
                 "estimated_payroll": int(fin["estimated_payroll"]),
                 "budget_remaining": int(fin["budget_remaining"]),
             }

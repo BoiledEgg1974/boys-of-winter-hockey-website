@@ -3936,6 +3936,153 @@ def _build_team_depth_prospect_rows(team: Team, season: Season | None) -> list[d
     return rows
 
 
+def _build_team_prospects_panel(
+    team: Team,
+    season: Season | None,
+    *,
+    league_slug: str,
+) -> tuple[list[dict[str, object]], str, str, str, frozenset[str]]:
+    """Prospects tab rows: Draft Eligible columns minus SKT–HSN, plus draft details + 1YR rate."""
+    from app.services.team_prospects import (
+        draft_details_by_player_id,
+        develop_rates_by_player_id,
+        format_develop_rate,
+    )
+
+    session = db.session
+    league_ids = bowl_nhl_league_ids(session)
+    age_ref = season_age_reference_date(season or get_current_season())
+    pos = (request.args.get("position") or "").strip().upper()
+    if pos and pos not in {"C", "LW", "RW", "D", "G"}:
+        pos = ""
+
+    sort_default_desc = frozenset(
+        {"abi", "pot", "ova", "dev_rate", *PROSPECT_PROJECTION_SORT_KEYS}
+    )
+    valid_sorts = frozenset(
+        {"player", "age", "abi", "pot", "ova", "dev_rate", "draft", *PROSPECT_PROJECTION_SORT_KEYS}
+    )
+    sort_col = request.args.get("sort") or "pot"
+    order = request.args.get("order") or "desc"
+    if sort_col not in valid_sorts:
+        sort_col = "pot"
+    if order not in ("asc", "desc"):
+        order = "desc"
+
+    players = session.scalars(
+        select(Player)
+        .options(joinedload(Player.current_team))
+        .where(Player.retired.is_(False), Player.birth_date.isnot(None))
+    ).unique().all()
+    resolved_team_by_player_id = resolve_prospect_team_fallbacks(session, players, season)
+
+    def effective_team(pl: Player) -> Team | None:
+        return pl.current_team or resolved_team_by_player_id.get(pl.id)
+
+    young: list[Player] = []
+    for pl in players:
+        eff_team = effective_team(pl)
+        if not eff_team or int(eff_team.id) != int(team.id):
+            continue
+        if eff_team.fhm_league_id not in league_ids and pl.current_team_id != team.id:
+            continue
+        age = _player_age_years(pl.birth_date, age_ref)
+        if age is None or age > 22:
+            continue
+        if not _prospect_pos_matches(pl.position, pos or None):
+            continue
+        young.append(pl)
+
+    items: list[dict] = []
+    for pl in young:
+        items.append(
+            _build_prospect_item_dict(
+                pl,
+                (),  # no overview attr columns on this tab
+                _player_age_years(pl.birth_date, age_ref),
+                league_slug=league_slug,
+                season=season,
+            )
+        )
+
+    player_ids = [int(it["pl"].id) for it in items]
+    draft_map = draft_details_by_player_id(session, player_ids)
+    rate_map = develop_rates_by_player_id(session, player_ids)
+
+    for it in items:
+        pid = int(it["pl"].id)
+        it["draft_details"] = draft_map.get(pid) or {
+            "team_line": "Undrafted",
+            "pick_line": None,
+        }
+        delta, pct = rate_map.get(pid) or (None, None)
+        it["develop_rate_delta"] = delta
+        it["develop_rate_pct"] = pct
+        it["develop_rate"] = pct if pct is not None else delta
+        it["develop_rate_fmt"] = format_develop_rate(delta, pct)
+
+    rev = order == "desc"
+    if sort_col == "player":
+
+        def str_key(it: dict) -> tuple:
+            pl = it["pl"]
+            return ((pl.full_name or "").lower(), pl.id)
+
+        items.sort(key=str_key, reverse=rev)
+    elif sort_col == "draft":
+
+        def draft_key(it: dict) -> tuple:
+            dd = it.get("draft_details") or {}
+            return (
+                (dd.get("team_line") or "").lower(),
+                (dd.get("pick_line") or "").lower(),
+                (it["pl"].full_name or "").lower(),
+                it["pl"].id,
+            )
+
+        items.sort(key=draft_key, reverse=rev)
+    elif sort_col == "dev_rate":
+
+        def rate_key(it: dict) -> tuple:
+            v = it.get("develop_rate")
+            if v is None:
+                sentinel = float("-inf") if rev else float("inf")
+                return (sentinel, (it["pl"].full_name or "").lower(), it["pl"].id)
+            return (float(v), (it["pl"].full_name or "").lower(), it["pl"].id)
+
+        items.sort(key=rate_key, reverse=rev)
+    elif sort_col == "age":
+
+        def age_key(it: dict) -> tuple:
+            return _prospect_num_sort_key(it, "age", rev=rev, include_age=True)
+
+        items.sort(key=age_key, reverse=rev)
+    else:
+
+        def num_key(it: dict) -> tuple:
+            return _prospect_num_sort_key(it, sort_col, rev=rev)
+
+        items.sort(key=num_key, reverse=rev)
+
+    rows_out: list[dict[str, object]] = []
+    for i, it in enumerate(items, start=1):
+        pl = it["pl"]
+        rows_out.append(
+            {
+                "rank": i,
+                "player": pl,
+                "age": it["age"],
+                "abi": it["abi"],
+                "pot": it["pot"],
+                "projection": it["projection"],
+                "draft_details": it["draft_details"],
+                "develop_rate": it["develop_rate"],
+                "develop_rate_fmt": it["develop_rate_fmt"],
+            }
+        )
+    return rows_out, sort_col, order, pos, sort_default_desc
+
+
 def _build_team_depth_draft_pick_rows(team: Team, league_slug: str) -> list[dict[str, object]]:
     rows = owned_draft_picks_for_team(
         db.session,
@@ -4641,6 +4788,8 @@ def team_page(slug: str):
         "franchise",
         "season_records",
         "team_history",
+        "org_development",
+        "prospects",
     }
     if panel not in allowed_team_panels:
         panel = "roster"
@@ -4682,6 +4831,67 @@ def team_page(slug: str):
         )
 
     staff_coaches, staff_scouts, staff_trainers = get_staff_sections_for_team(team.fhm_team_id)
+    staff_season_start_year = None
+    staff_contracts_by_id: dict[str, object] = {}
+    staff_is_admin = False
+    staff_coaches_public = staff_coaches
+    staff_scouts_public = staff_scouts
+    staff_trainers_public = staff_trainers
+    if panel == "staff":
+        from app.auth_login import has_admin_role, ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER
+        from app.services.staff_salaries import current_season_start_year
+        from app.services.staff_transactions import (
+            contract_active,
+            expire_stale_staff_contracts,
+            staff_contracts_for_team,
+        )
+
+        slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+        staff_season_start_year = current_season_start_year(db.session)
+        staff_is_admin = (
+            current_user.is_authenticated
+            and has_admin_role(current_user, ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+        )
+        if staff_season_start_year is not None:
+            expire_stale_staff_contracts(
+                db.session,
+                league_slug=slug,
+                season_start_year=int(staff_season_start_year),
+            )
+            staff_contracts_by_id = staff_contracts_for_team(
+                db.session,
+                league_slug=slug,
+                team_id=int(team.id),
+                season_start_year=int(staff_season_start_year),
+            )
+
+        def _enrich_staff_rows(rows: list[dict]) -> list[dict]:
+            out: list[dict] = []
+            for row in rows:
+                sid = str(row.get("staff_fhm_id") or "").strip()
+                contract = staff_contracts_by_id.get(sid)
+                active = (
+                    contract is not None
+                    and staff_season_start_year is not None
+                    and contract_active(contract, int(staff_season_start_year))
+                )
+                if not staff_is_admin and not active:
+                    continue
+                enriched = dict(row)
+                enriched["contract"] = contract
+                enriched["contract_active"] = active
+                if contract is not None:
+                    enriched["annual_salary"] = int(contract.annual_salary or 0)
+                    enriched["contract_years"] = int(contract.contract_years or 0)
+                    enriched["contract_start_season_year"] = int(
+                        contract.contract_start_season_year or 0
+                    )
+                out.append(enriched)
+            return out
+
+        staff_coaches_public = _enrich_staff_rows(staff_coaches)
+        staff_scouts_public = _enrich_staff_rows(staff_scouts)
+        staff_trainers_public = _enrich_staff_rows(staff_trainers)
 
     franchise_history_sections: list[dict[str, object]] = []
     if panel == "franchise":
@@ -4736,6 +4946,40 @@ def team_page(slug: str):
     if panel == "depth":
         team_depth_prospects = _build_team_depth_prospect_rows(team, canonical_season or season)
         team_depth_draft_picks = _build_team_depth_draft_pick_rows(team, league_slug)
+    org_development_bundle: dict[str, object] = {
+        "reports": [],
+        "has_history": False,
+        "empty_reason": None,
+    }
+    if panel == "org_development":
+        from app.services.org_development import build_org_development_reports
+
+        org_development_bundle = build_org_development_reports(
+            db.session,
+            team,
+            season=canonical_season or season,
+            age_ref=age_ref,
+            player_age_fn=_player_age_years,
+            league_slug=league_slug,
+        )
+    team_prospect_rows: list[dict[str, object]] = []
+    team_prospect_sort = "pot"
+    team_prospect_order = "desc"
+    team_prospect_position = ""
+    team_prospect_sort_desc_defaults: frozenset[str] = frozenset()
+    team_prospect_projection_headers = PROSPECT_PROJECTION_HEADERS
+    if panel == "prospects":
+        (
+            team_prospect_rows,
+            team_prospect_sort,
+            team_prospect_order,
+            team_prospect_position,
+            team_prospect_sort_desc_defaults,
+        ) = _build_team_prospects_panel(
+            team,
+            canonical_season or season,
+            league_slug=league_slug,
+        )
     team_leader_rows: list[dict[str, object]] = []
     team_agg = None
     team_agg_po = None
@@ -4903,6 +5147,13 @@ def team_page(slug: str):
         "depth_chart": depth_chart,
         "team_depth_prospects": team_depth_prospects,
         "team_depth_draft_picks": team_depth_draft_picks,
+        "org_development_bundle": org_development_bundle,
+        "team_prospect_rows": team_prospect_rows,
+        "team_prospect_sort": team_prospect_sort,
+        "team_prospect_order": team_prospect_order,
+        "team_prospect_position": team_prospect_position,
+        "team_prospect_sort_desc_defaults": team_prospect_sort_desc_defaults,
+        "team_prospect_projection_headers": team_prospect_projection_headers,
         "lines_sections": lines_sections,
         "lines_name_to_id": lines_name_to_id,
         "salary_rows": salary_rows,
@@ -4910,9 +5161,11 @@ def team_page(slug: str):
         "salary_years": salary_years,
         "team_ratings_goalies": team_ratings_goalies,
         "team_ratings_skaters": team_ratings_skaters,
-        "staff_coaches": staff_coaches,
-        "staff_scouts": staff_scouts,
-        "staff_trainers": staff_trainers,
+        "staff_coaches": staff_coaches_public,
+        "staff_scouts": staff_scouts_public,
+        "staff_trainers": staff_trainers_public,
+        "staff_season_start_year": staff_season_start_year,
+        "staff_is_admin": staff_is_admin,
         "staff_coach_columns": STAFF_COACH_COLUMNS,
         "staff_scout_columns": STAFF_SCOUT_COLUMNS,
         "staff_trainer_columns": STAFF_TRAINER_COLUMNS,
@@ -4942,13 +5195,20 @@ def team_page(slug: str):
             _pid = _row.get("pid")
             if _pid is not None:
                 depth_ova_ids.add(int(_pid))
-    ova_player_ids = {p.id for p in roster} | depth_ova_ids
+    prospect_ova_ids = {
+        int(row["player"].id)
+        for row in team_prospect_rows
+        if row.get("player") is not None
+    }
+    ova_player_ids = {p.id for p in roster} | depth_ova_ids | prospect_ova_ids
     ova_players = (
         list(db.session.scalars(select(Player).where(Player.id.in_(ova_player_ids))).all())
         if ova_player_ids
         else []
     )
     tmpl_kwargs["player_overall_by_id"] = build_overall_cell_map_from_players(db.session, ova_players)
+    if panel == "prospects":
+        tmpl_kwargs["prospect_projection_footnote"] = PROSPECT_PROJECTION_FOOTNOTE
     if panel == "statistics":
         stat_vars = _build_statistics_view_vars(locked_team_id=team.id, locked_team_slug=team.slug)
         stat_ov = stat_vars.pop("player_overall_by_id", None) or {}

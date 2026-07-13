@@ -10366,6 +10366,70 @@ table.data.staff-salaries-table--browse td.staff-salaries-browse-hire {
   text-align: center;
   white-space: nowrap;
 }
+.staff-salaries-search-row {
+  position: relative;
+}
+.staff-salaries-ac {
+  position: absolute;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  margin-top: 0.2rem;
+  background: var(--card);
+  border: 1px solid rgb(148 163 184 / 0.35);
+  border-radius: 6px;
+  max-height: 14rem;
+  overflow-y: auto;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+}
+.staff-salaries-ac__item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.45rem 0.65rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.staff-salaries-ac__item:hover,
+.staff-salaries-ac__item:focus {
+  background: var(--row-alt);
+}
+.staff-salaries-salary-preview {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+.team-staff-contract-cell {
+  min-width: 12rem;
+  vertical-align: top;
+}
+.team-staff-contract-form__fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  margin-bottom: 0.35rem;
+}
+.team-staff-contract-form__input {
+  width: 5.5rem;
+  font-size: 0.82rem;
+}
+.team-staff-contract-form__input--years {
+  width: 3.5rem;
+}
+.team-staff-contract-form__meta {
+  font-size: 0.78rem;
+  margin: 0.15rem 0 0.35rem;
+}
+.team-staff-retire-form {
+  margin-top: 0.25rem;
+}
+.staff-budgets-admin__payroll-readonly {
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
 .staff-profile-page {
   max-width: 52rem;
   margin: 0 auto;
@@ -22998,3 +23062,261 @@ button.bowl-six-submissions__toggle:hover {
 .team-statistics-row-tooltip__logo { width: 1.75rem; height: 1.75rem; object-fit: contain; }
 .standings-team-stats-link { margin: 0.75rem 0 1rem; }
 #team-statistics-chart .advanced-stats-team-chart__point.is-active { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #60a5fa) 55%, transparent), 0 0 18px color-mix(in srgb, var(--accent, #60a5fa) 45%, transparent); }
+
+/* —— Team Org Development —— */
+.org-dev-panel__title {
+  margin-top: 0;
+}
+.org-dev-reports {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+.org-dev-report {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgb(15 23 42 / 0.55);
+  overflow: hidden;
+}
+.org-dev-report__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  cursor: pointer;
+  font-weight: 700;
+  color: #e2e8f0;
+  list-style: none;
+}
+.org-dev-report__summary::-webkit-details-marker {
+  display: none;
+}
+.org-dev-report__chevron {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-right: 2px solid #94a3b8;
+  border-bottom: 2px solid #94a3b8;
+  transform: rotate(45deg);
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+.org-dev-report[open] > .org-dev-report__summary {
+  border-bottom: 1px solid var(--border);
+}
+.org-dev-report[open] .org-dev-report__chevron {
+  transform: rotate(225deg);
+  margin-top: 0.25rem;
+}
+.org-dev-report__body {
+  padding: 1rem;
+}
+.org-dev-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+@media (max-width: 900px) {
+  .org-dev-columns {
+    grid-template-columns: 1fr;
+  }
+}
+.org-dev-col__heading {
+  margin: 0 0 0.75rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.org-dev-col__heading--progression {
+  color: #4ade80;
+}
+.org-dev-col__heading--regression {
+  color: #f87171;
+}
+.org-dev-col__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+.org-dev-col__empty {
+  margin: 0;
+  font-size: 0.9rem;
+}
+.org-dev-card {
+  border-radius: 10px;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid rgb(148 163 184 / 0.18);
+  background: rgb(30 41 59 / 0.55);
+}
+.org-dev-card--progression {
+  border-color: rgb(74 222 128 / 0.28);
+  box-shadow: inset 0 0 0 1px rgb(74 222 128 / 0.08);
+}
+.org-dev-card--regression {
+  border-color: rgb(248 113 113 / 0.28);
+  box-shadow: inset 0 0 0 1px rgb(248 113 113 / 0.08);
+}
+.org-dev-card__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  margin-bottom: 0.55rem;
+}
+.org-dev-card__photo {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: rgb(15 23 42 / 0.8);
+}
+.org-dev-card__photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.org-dev-card__photo-ph {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(145deg, #334155, #1e293b);
+}
+.org-dev-card__identity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.55rem;
+  min-width: 0;
+}
+.org-dev-card__name {
+  color: #7dd3fc;
+  font-weight: 700;
+  text-decoration: none;
+}
+.org-dev-card__name:hover {
+  text-decoration: underline;
+}
+.org-dev-card__age {
+  color: #cbd5e1;
+  font-size: 0.88rem;
+}
+.org-dev-card__badges {
+  display: inline-flex;
+  gap: 0.3rem;
+  align-items: center;
+}
+.org-dev-card__badge {
+  min-width: 1.7rem;
+  justify-content: center;
+}
+.org-dev-card__block {
+  margin-top: 0.35rem;
+}
+.org-dev-card__block-label {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 0.15rem;
+}
+.org-dev-card__block-label--progression {
+  color: #4ade80;
+}
+.org-dev-card__block-label--regression {
+  color: #f87171;
+}
+.org-dev-card__block-label--attrs.org-dev-card__block-label--progression {
+  color: #86efac;
+}
+.org-dev-card__block-label--attrs.org-dev-card__block-label--regression {
+  color: #fca5a5;
+}
+.org-dev-card__movers {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  color: #e2e8f0;
+}
+.org-dev-card__movers--progression {
+  color: #bbf7d0;
+}
+.org-dev-card__movers--regression {
+  color: #fecaca;
+}
+.org-dev-card__movers--attrs.org-dev-card__movers--progression {
+  color: #dcfce7;
+}
+.org-dev-card__movers--attrs.org-dev-card__movers--regression {
+  color: #fee2e2;
+}
+
+/* —— Team Prospects tab —— */
+.team-prospects-panel__title {
+  margin-top: 0;
+  margin-bottom: 0.35rem;
+}
+.team-prospects-panel__intro {
+  margin: 0 0 0.85rem;
+}
+.team-prospects-pos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0 0 1rem;
+}
+.team-prospects-pos__btn {
+  display: inline-block;
+  padding: 0.38rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgb(15 23 42 / 0.55);
+  color: #cbd5e1;
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+}
+.team-prospects-pos__btn:hover {
+  text-decoration: none;
+  border-color: rgb(from var(--accent) r g b / 0.55);
+  color: #e2e8f0;
+}
+.team-prospects-pos__btn.is-active {
+  background: rgb(30 41 59 / 0.95);
+  color: #e2e8f0;
+  border-color: rgb(from var(--accent) r g b / 0.75);
+}
+.team-prospects-draft {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  line-height: 1.25;
+}
+.team-prospects-draft__team {
+  color: #e2e8f0;
+  font-weight: 600;
+}
+.team-prospects-draft__pick {
+  color: #94a3b8;
+  font-size: 0.84rem;
+}
+.team-prospects-table__rate {
+  text-align: right;
+  white-space: nowrap;
+}
+.team-prospects-rate {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.team-prospects-rate--up {
+  color: #4ade80;
+}
+.team-prospects-rate--down {
+  color: #f87171;
+}
+.team-prospects-rate--flat,
+.team-prospects-rate--none {
+  color: #94a3b8;
+}

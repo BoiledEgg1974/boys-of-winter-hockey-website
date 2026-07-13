@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% from "macros/staff_browse.html" import staff_browse_attr_td, staff_browse_overall_td, staff_browse_role_rating_td %}
 {% from "macros/team.html" import team_lockup_full_name with context %}
 {% block title %}Staff Hire/Fire — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
 {% block scripts %}
@@ -8,8 +7,12 @@
 {% block content %}
 <div class="staff-salaries-page">
   <div class="card staff-salaries-page__card">
-    <h1 class="page-title staff-salaries-page__banner">Staff Hire/Fire</h1>
-    <p class="muted staff-salaries-page__league">{{ config.LEAGUE_DISPLAY_NAME }} · budgets and roster are specific to this league site.</p>
+    <header class="staff-salaries-page__header">
+      <h1 class="page-title staff-salaries-page__banner">League office — Staff Hire/Fire</h1>
+      <p class="muted staff-salaries-page__league">
+        {{ config.LEAGUE_DISPLAY_NAME }} · hire and fire staff for any franchise. Contracts update Staff Finances automatically.
+      </p>
+    </header>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
@@ -21,14 +24,27 @@
     {% endif %}
     {% endwith %}
 
-    {% if gm_team and gm_staff_finances is defined and gm_staff_finances %}
+    <section class="staff-salaries-section" aria-labelledby="staff-team-heading">
+      <h2 id="staff-team-heading" class="staff-salaries-section__title">Team</h2>
+      <label class="staff-salaries-form__row" for="admin-team-select">
+        Franchise
+        <select id="admin-team-select" class="staff-salaries-form__select">
+          <option value="">— Select team —</option>
+          {% for p in admin_team_options %}
+          <option value="{{ p.team_id }}" {% if admin_team_id and p.team_id == admin_team_id %}selected{% endif %}>{{ p.team_name }} ({{ p.gm_name }})</option>
+          {% endfor %}
+        </select>
+      </label>
+    </section>
+
+    {% if admin_team and gm_staff_finances is defined and gm_staff_finances %}
     {% set fin = gm_staff_finances %}
     {% set payroll_pct = (fin.staff_payroll / fin.budget_amount * 100) if fin.budget_amount > 0 else 0 %}
     <section class="staff-salaries-budget-panel card" aria-labelledby="staff-budget-heading">
       <div class="staff-salaries-budget-panel__header">
         <h2 id="staff-budget-heading" class="staff-salaries-budget-panel__title">Staff finances</h2>
         <div class="staff-salaries-budget-panel__team">
-          {{ team_lockup_full_name(gm_team, season=season) }}
+          {{ team_lockup_full_name(admin_team, season=season) }}
         </div>
       </div>
       {% if fin.budget_amount > 0 %}
@@ -39,10 +55,14 @@
         </div>
         <div class="staff-salaries-budget-panel__stat">
           <span class="staff-salaries-budget-panel__label">Staff Payroll</span>
-          <span class="staff-salaries-budget-panel__value">
-            ${{ '{:,}'.format(fin.staff_payroll) }}{% if not fin.staff_payroll_is_manual %}<span class="muted staff-salaries-budget-panel__est"> (est.)</span>{% endif %}
-          </span>
+          <span class="staff-salaries-budget-panel__value">${{ '{:,}'.format(fin.staff_payroll) }}</span>
         </div>
+        {% if fin.severance_payroll > 0 %}
+        <div class="staff-salaries-budget-panel__stat">
+          <span class="staff-salaries-budget-panel__label">Severance</span>
+          <span class="staff-salaries-budget-panel__value">${{ '{:,}'.format(fin.severance_payroll) }}</span>
+        </div>
+        {% endif %}
         <div class="staff-salaries-budget-panel__stat staff-salaries-budget-panel__stat--remaining{% if fin.budget_remaining < 0 %} staff-salaries-budget-panel__stat--over{% endif %}">
           <span class="staff-salaries-budget-panel__label">Budget Remaining</span>
           <span class="staff-salaries-budget-panel__value staff-salaries-budget-panel__value--remaining">${{ '{:,}'.format(fin.budget_remaining) }}</span>
@@ -54,13 +74,15 @@
           <span class="finances-pos-bar__label">{{ '%.1f'|format(payroll_pct) }}% of budget</span>
         </div>
       </div>
-      {% if fin.pending_hire_payroll > 0 %}
-      <p class="muted staff-salaries-budget-panel__pending">Pending hire requests reserve ${{ '{:,}'.format(fin.pending_hire_payroll) }} · ${{ '{:,}'.format(fin.available_for_hire) }} available for new hires</p>
-      {% endif %}
+      <p class="muted staff-salaries-budget-panel__pending">${{ '{:,}'.format(fin.available_for_hire) }} available for new hires</p>
       {% else %}
-      <p class="muted staff-salaries-budget-panel__empty">Staff budgets are not configured for this season. The commissioner must enter team staff budgets in Admin → Staff Budgets.</p>
+      <p class="muted staff-salaries-budget-panel__empty">Staff budgets are not configured for this season. Enter team budgets in <a href="{{ url_for('site_admin.admin_staff_budgets') }}">Admin → Staff Budgets</a>.</p>
       {% endif %}
     </section>
+    {% elif admin_team_id %}
+    <p class="muted">Select a team with configured budgets to see staff finances.</p>
+    {% else %}
+    <p class="muted">Choose a team above to hire or fire staff.</p>
     {% endif %}
 
     <section class="staff-salaries-section" aria-labelledby="staff-defaults-heading">
@@ -87,32 +109,39 @@
         </table>
       </div>
       {% else %}
-      <p class="muted">Staff default salaries are not available yet. The commissioner must enter team staff budgets for this season.</p>
+      <p class="muted">Staff default salaries are not available yet. Enter team staff budgets for this season.</p>
       {% endif %}
     </section>
 
-    {% if can_submit_requests and hire_limit %}
+    {% if admin_team_id and season_start_year %}
     <section class="staff-salaries-section" aria-labelledby="staff-hire-heading">
-      <h2 id="staff-hire-heading" class="staff-salaries-section__title">Hire request</h2>
-      <p class="staff-salaries-limit muted" id="staff-hire-limit-status" data-limit="{{ hire_limit.limit }}" data-used="{{ hire_limit.used }}" data-remaining="{{ hire_limit.remaining }}">
-        Daily hires today: <strong>{{ hire_limit.used }}</strong> / {{ hire_limit.limit }}
-        <span class="staff-salaries-limit__window">({{ hire_limit.window_label }})</span>
-      </p>
-      <form method="post" class="staff-salaries-form" id="staff-hire-form" action="{{ url_for('site_gm.staff_salaries_page') }}"
-        {% if gm_staff_finances is defined and gm_staff_finances and defaults %}
+      <h2 id="staff-hire-heading" class="staff-salaries-section__title">Hire staff</h2>
+      <form method="post" class="staff-salaries-form" id="staff-hire-form" action="{{ url_for('site_gm.staff_salaries_page', admin_team_id=admin_team_id) }}"
+        {% if gm_staff_finances and defaults %}
         data-budget="{{ gm_staff_finances.budget_amount }}"
-        data-payroll="{{ gm_staff_finances.staff_payroll }}"
-        data-remaining="{{ gm_staff_finances.budget_remaining }}"
-        data-pending-payroll="{{ gm_staff_finances.pending_hire_payroll }}"
+        data-remaining="{{ gm_staff_finances.available_for_hire }}"
         data-salary-head-coach="{{ defaults.head_coach }}"
         data-salary-assistant-coach="{{ defaults.assistant_coaches }}"
         data-salary-scout="{{ defaults.scouts }}"
         data-salary-trainer="{{ defaults.trainer }}"
-        data-insufficient-msg="You do not have enough funds to hire this individual for this position."
-        {% endif %}>
+        data-insufficient-msg="Team does not have enough staff budget for this hire."
+        {% endif %}
+        data-search-url="{{ staff_search_url }}"
+        data-search-mode="hire"
+        data-team-id="{{ admin_team_id }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="action" value="hire">
+        <input type="hidden" name="admin_team_id" value="{{ admin_team_id }}">
         <input type="hidden" name="staff_fhm_id" id="staff-hire-staff-id" value="">
+        <div class="staff-salaries-form__row staff-salaries-search-row">
+          <label for="staff-hire-search">Search staff</label>
+          <input type="text" id="staff-hire-search" class="staff-salaries-search" autocomplete="off" placeholder="Type at least 2 characters…">
+          <div id="staff-hire-ac" class="staff-salaries-ac" hidden></div>
+        </div>
+        <div class="staff-salaries-form__row">
+          <label for="staff-hire-name-display">Selected</label>
+          <input type="text" id="staff-hire-name-display" readonly placeholder="Choose from search" class="staff-salaries-form__staff-display">
+        </div>
         <div class="staff-salaries-form__row">
           <label for="staff-hire-role">Role</label>
           <select name="role" id="staff-hire-role" required>
@@ -122,165 +151,49 @@
           </select>
         </div>
         <div class="staff-salaries-form__row">
-          <label for="staff-hire-name-display">Staff</label>
-          <input type="text" id="staff-hire-name-display" readonly placeholder="Choose from browse below" class="staff-salaries-form__staff-display">
+          <label for="staff-hire-years">Contract years</label>
+          <input type="number" name="contract_years" id="staff-hire-years" min="1" max="10" value="1" required>
         </div>
-        <button type="submit" class="staff-salaries-btn" {% if hire_limit.limit_reached %}disabled{% endif %}>Submit hire request</button>
+        <div class="staff-salaries-form__row">
+          <label>Contract salary (default)</label>
+          <output id="staff-hire-salary-preview" class="staff-salaries-salary-preview">—</output>
+        </div>
+        <button type="submit" class="staff-salaries-btn" id="staff-hire-submit">Hire staff</button>
       </form>
     </section>
 
     <section class="staff-salaries-section" aria-labelledby="staff-fire-heading">
-      <h2 id="staff-fire-heading" class="staff-salaries-section__title">Fire request</h2>
-      {% if my_roster %}
-      <div class="staff-salaries-table-wrap" role="region" aria-label="Current staff — submit fire request">
-        <table class="staff-salaries-table staff-salaries-table--fire">
-          <thead>
-            <tr>
-              <th scope="col" class="staff-salaries-fire-th">Fire</th>
-              <th scope="col">Name</th>
-              <th scope="col">Role</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for row in my_roster %}
-            {% set e = row.entry %}
-            <tr>
-              <td class="staff-salaries-fire-cell">
-                <form method="post" class="staff-salaries-fire-form" action="{{ url_for('site_gm.staff_salaries_page') }}">
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                  <input type="hidden" name="action" value="fire">
-                  <input type="hidden" name="roster_entry_id" value="{{ e.id }}">
-                  <button type="submit" class="staff-salaries-btn staff-salaries-btn--danger staff-salaries-btn--small"{% if row.pending_fire %} disabled title="Fire request already pending"{% endif %}>Fire</button>
-                </form>
-              </td>
-              <td>
-                <a href="{{ url_for('site_gm.staff_profile_page', staff_fhm_id=e.staff_fhm_id) }}" target="_blank" rel="noopener">{{ e.staff_name }}</a>
-              </td>
-              <td>{{ row.role_label }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      <p class="muted staff-salaries-fire-hint">Each Fire button submits a request for admin approval.</p>
-      {% else %}
-      <p class="muted">No active staff on your roster yet.</p>
-      {% endif %}
-    </section>
-    {% elif not can_submit_requests %}
-    <p class="muted staff-salaries-section">Hire and fire requests are available to active GMs with a team assignment.</p>
-    {% endif %}
-
-    {% if recent_requests and can_submit_requests %}
-    <section class="staff-salaries-section" aria-labelledby="staff-recent-heading">
-      <h2 id="staff-recent-heading" class="staff-salaries-section__title">Recent requests</h2>
-      <ul class="staff-salaries-recent">
-        {% for req in recent_requests %}
-        <li>
-          <span class="staff-salaries-recent__action">{{ req.request_type|title }}</span>
-          {{ req.staff_name }}
-          <span class="staff-salaries-recent__status staff-salaries-recent__status--{{ req.status }}">{{ req.status }}</span>
-          <time class="muted">{{ req.created_at.strftime('%Y-%m-%d %H:%M') if req.created_at else '' }}</time>
-        </li>
-        {% endfor %}
-      </ul>
-    </section>
-    {% endif %}
-
-    {% if my_roster %}
-    <section class="staff-salaries-section" aria-labelledby="staff-roster-heading">
-      <h2 id="staff-roster-heading" class="staff-salaries-section__title">My staff</h2>
-      <div class="staff-salaries-table-wrap">
-        <table class="staff-salaries-table staff-salaries-table--roster">
-          <thead>
-            <tr>
-              <th scope="col">Photo</th>
-              <th scope="col">Name</th>
-              <th scope="col">Role</th>
-              <th scope="col">Hired</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for row in my_roster %}
-            {% set e = row.entry %}
-            <tr>
-              <td><img class="staff-salaries-thumb" src="{{ row.image_url or staff_placeholder_url }}" alt="" width="40" height="40" loading="lazy" data-fallback="{{ staff_placeholder_url }}" onerror="if(this.dataset.fallback){this.onerror=null;this.src=this.dataset.fallback;}"></td>
-              <td><a href="{{ url_for('site_gm.staff_profile_page', staff_fhm_id=e.staff_fhm_id) }}" target="_blank" rel="noopener">{{ e.staff_name }}</a></td>
-              <td>{{ row.role_label }}</td>
-              <td>{{ e.hired_at.strftime('%Y-%m-%d') if e.hired_at else '—' }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </section>
-    {% endif %}
-
-    <section class="staff-salaries-section staff-salaries-section--browse" aria-labelledby="staff-browse-heading">
-      <h2 id="staff-browse-heading" class="staff-salaries-section__title">Browse staff</h2>
-      <div class="staff-salaries-browse-tabs" role="tablist">
-        {% for fk in browse_filters %}
-        <button type="button" class="staff-salaries-browse-tab{% if loop.first %} is-active{% endif %}" role="tab" aria-selected="{{ 'true' if loop.first else 'false' }}" data-browse-tab="{{ fk }}">{{ staff_role_labels[fk] }}</button>
-        {% endfor %}
-      </div>
-      {% for fk in browse_filters %}
-      {% set browse_cols = browse_columns_by_filter.get(fk, []) %}
-      {% set browse_colspan = 6 + (browse_cols|length) %}
-      <div class="staff-salaries-browse-panel{% if loop.first %} is-active{% endif %}" role="tabpanel" data-browse-panel="{{ fk }}"{% if not loop.first %} hidden{% endif %}>
-        <div class="staff-salaries-browse-scroll">
-          <table class="data data-sortable staff-salaries-table staff-salaries-table--browse team-staff-table">
-            <thead class="staff-salaries-browse-thead">
-                <tr>
-                  <th scope="col" class="staff-salaries-browse-th staff-salaries-browse-th--hire">Hire</th>
-                  <th scope="col" class="staff-salaries-browse-th staff-salaries-browse-th--photo">Photo</th>
-                  <th data-sort-type="str" scope="col" class="staff-salaries-browse-th staff-salaries-browse-th--name">Name</th>
-                  <th data-sort-type="str" scope="col" class="staff-salaries-browse-th staff-salaries-browse-th--nat">NAT</th>
-                  <th data-sort-type="num" scope="col" class="staff-salaries-browse-th staff-salaries-browse-th--ovr" title="Overall 1–100 for this role">OVR</th>
-                  <th data-sort-type="num" scope="col" class="staff-salaries-browse-th staff-salaries-browse-th--role-rating team-staff-th--split" title="{{ browse_role_rating_labels[fk] }} rating (16+ to appear here)">{{ browse_role_rating_labels[fk] }}</th>
-                  {% for key, ln in browse_cols %}
-                  <th data-sort-type="num" scope="col" class="staff-salaries-browse-th staff-salaries-browse-th--attr team-staff-th--split" title="{% if ln[1] %}{{ ln[0] }} {{ ln[1] }}{% else %}{{ ln[0] }}{% endif %}">
-                    <span class="team-staff-th__ln1">{{ ln[0] }}</span>{% if ln[1] %}<br><span class="team-staff-th__ln2">{{ ln[1] }}</span>{% endif %}
-                  </th>
-                  {% endfor %}
-                </tr>
-              </thead>
-              <tbody>
-                {% for ent in browse_by_filter.get(fk, []) %}
-                <tr data-staff-id="{{ ent.staff_fhm_id }}" data-staff-name="{{ ent.full_name }}">
-                  <td class="staff-salaries-browse-hire">
-                    {% if can_submit_requests %}
-                    <button type="button" class="staff-salaries-btn staff-salaries-btn--small staff-hire-pick" data-staff-id="{{ ent.staff_fhm_id }}" data-staff-name="{{ ent.full_name }}" data-browse-role="{{ fk }}">Hire</button>
-                    {% endif %}
-                  </td>
-                  <td class="staff-salaries-browse-photo">
-                    <img class="staff-salaries-thumb" src="{{ ent.image_url or staff_placeholder_url }}" alt="" width="32" height="32" loading="lazy" decoding="async" data-fallback="{{ staff_placeholder_url }}" onerror="if(this.dataset.fallback){this.onerror=null;this.src=this.dataset.fallback;}">
-                  </td>
-                  <td data-sort-value="{{ ent.full_name|lower }}" class="staff-salaries-browse-name-cell">
-                    <a class="team-staff-name staff-salaries-browse-name" href="{{ url_for('site_gm.staff_profile_page', staff_fhm_id=ent.staff_fhm_id) }}" target="_blank" rel="noopener">{{ ent.full_name }}</a>
-                  </td>
-                  <td class="team-staff-nat-cell staff-salaries-browse-nat" data-sort-value="{{ ent.nationality|lower }}">
-                    {% if ent.nationality and ent.nationality != '—' and ent.nationality|nationality_flag_url %}
-                    <img class="team-staff-flag" src="{{ ent.nationality|nationality_flag_url }}" width="20" height="14" alt="{{ ent.nationality }}" title="{{ ent.nationality }}" loading="lazy" decoding="async">
-                    {% else %}
-                    <span class="muted">—</span>
-                    {% endif %}
-                  </td>
-                  {{ staff_browse_overall_td(ent.role_overall) }}
-                  {{ staff_browse_role_rating_td(ent.browse_rating) }}
-                  {% for key, _ in browse_cols %}
-                  {{ staff_browse_attr_td(ent.attrs, key) }}
-                  {% endfor %}
-                </tr>
-                {% else %}
-                <tr><td colspan="{{ browse_colspan }}" class="muted">No eligible staff for this role ({{ browse_role_rating_labels[fk] }} rating 16+).</td></tr>
-                {% endfor %}
-              </tbody>
-            </table>
+      <h2 id="staff-fire-heading" class="staff-salaries-section__title">Fire staff</h2>
+      <form method="post" class="staff-salaries-form" id="staff-fire-form" action="{{ url_for('site_gm.staff_salaries_page', admin_team_id=admin_team_id) }}"
+        data-search-url="{{ staff_search_url }}"
+        data-search-mode="fire"
+        data-team-id="{{ admin_team_id }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="fire">
+        <input type="hidden" name="admin_team_id" value="{{ admin_team_id }}">
+        <input type="hidden" name="staff_fhm_id" id="staff-fire-staff-id" value="">
+        <div class="staff-salaries-form__row staff-salaries-search-row">
+          <label for="staff-fire-search">Search roster</label>
+          <input type="text" id="staff-fire-search" class="staff-salaries-search" autocomplete="off" placeholder="Type at least 2 characters…">
+          <div id="staff-fire-ac" class="staff-salaries-ac" hidden></div>
         </div>
-        <p class="muted staff-salaries-browse-hint">Role rating 16+ required. Coaches share one pool; scouts and trainers must match that specialty.</p>
-      </div>
-      {% endfor %}
+        <div class="staff-salaries-form__row">
+          <label for="staff-fire-name-display">Selected</label>
+          <input type="text" id="staff-fire-name-display" readonly placeholder="Choose from search" class="staff-salaries-form__staff-display">
+        </div>
+        <div class="staff-salaries-form__row">
+          <label for="staff-fire-salary-display">Current contract</label>
+          <input type="text" id="staff-fire-salary-display" readonly class="staff-salaries-form__staff-display" placeholder="—">
+        </div>
+        <div class="staff-salaries-form__row">
+          <label for="staff-fire-penalty">Contract penalty</label>
+          <input type="text" inputmode="numeric" name="penalty_amount" id="staff-fire-penalty" placeholder="0" autocomplete="off">
+          <p class="muted staff-salaries-fire-hint">Penalty is added to staff payroll; contract salary is removed automatically.</p>
+        </div>
+        <button type="submit" class="staff-salaries-btn staff-salaries-btn--danger" id="staff-fire-submit">Fire staff</button>
+      </form>
     </section>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

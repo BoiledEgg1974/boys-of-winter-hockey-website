@@ -1,0 +1,101 @@
+{# Org Development — monthly progression / regression reports #}
+{% macro org_dev_badge_ovr(val) -%}
+{% if val is none %}—{% else %}
+<span class="stats-badge stats-badge--overall org-dev-card__badge">{{ val|int }}</span>
+{% endif %}
+{%- endmacro %}
+{% macro org_dev_badge_abi_pot(val) -%}
+{% if val is none %}—{% else %}
+<span class="stats-badge stats-badge--rating stats-badge--overall org-dev-card__badge" style="{{ val|rating_pill_style }}">{{ '%.1f'|format(val|float) }}</span>
+{% endif %}
+{%- endmacro %}
+{% macro org_dev_player_card(entry, side) -%}
+{% set pl = entry.player %}
+<article class="org-dev-card org-dev-card--{{ side }}">
+  <div class="org-dev-card__head">
+    <a class="org-dev-card__photo" href="{{ url_for('main.player_page', player_id=pl.id) }}">
+      {% if player_headshot_url(pl) %}
+      <img src="{{ player_headshot_url(pl) }}" alt="">
+      {% else %}
+      <span class="org-dev-card__photo-ph" aria-hidden="true"></span>
+      {% endif %}
+    </a>
+    <div class="org-dev-card__identity">
+      <a class="org-dev-card__name" href="{{ url_for('main.player_page', player_id=pl.id) }}">{{ entry.position }} {{ pl.full_name }}</a>
+      <span class="org-dev-card__age">Age: {{ entry.age if entry.age is not none else '—' }}</span>
+      <span class="org-dev-card__badges" aria-label="Overall, ability, potential">
+        {{ org_dev_badge_ovr(entry.overall) }}
+        {{ org_dev_badge_abi_pot(entry.ability) }}
+        {{ org_dev_badge_abi_pot(entry.potential) }}
+      </span>
+    </div>
+  </div>
+  {% if entry.categories %}
+  <div class="org-dev-card__block">
+    <span class="org-dev-card__block-label org-dev-card__block-label--{{ side }}">Categories</span>
+    <p class="org-dev-card__movers org-dev-card__movers--{{ side }}">
+      {% for m in entry.categories %}{{ m.display }} {{ m.label }}{% if not loop.last %} {% endif %}{% endfor %}
+    </p>
+  </div>
+  {% endif %}
+  {% if entry.attributes %}
+  <div class="org-dev-card__block">
+    <span class="org-dev-card__block-label org-dev-card__block-label--attrs org-dev-card__block-label--{{ side }}">Attributes</span>
+    <p class="org-dev-card__movers org-dev-card__movers--attrs org-dev-card__movers--{{ side }}">
+      {% for m in entry.attributes %}{{ m.display }} {{ m.label }}{% if not loop.last %} {% endif %}{% endfor %}
+    </p>
+  </div>
+  {% endif %}
+</article>
+{%- endmacro %}
+
+<div class="card org-dev-panel">
+  <h2 class="org-dev-panel__title">Org Development</h2>
+  {% set bundle = org_development_bundle or {} %}
+  {% set reports = bundle.reports or [] %}
+  {% if bundle.archive_limit %}
+  <p class="muted org-dev-panel__intro">Showing up to {{ bundle.archive_limit }} archived in-game monthly reports (newest first).</p>
+  {% endif %}
+  {% if reports %}
+  <div class="org-dev-reports" role="list">
+    {% for report in reports %}
+    <details class="org-dev-report"{% if loop.first %} open{% endif %} role="listitem">
+      <summary class="org-dev-report__summary">
+        <span>{{ report.label }}</span>
+        <span class="org-dev-report__chevron" aria-hidden="true"></span>
+      </summary>
+      <div class="org-dev-report__body">
+        <div class="org-dev-columns">
+          <section class="org-dev-col org-dev-col--progression" aria-labelledby="org-dev-prog-{{ report.month_key }}">
+            <h3 id="org-dev-prog-{{ report.month_key }}" class="org-dev-col__heading org-dev-col__heading--progression">Progression</h3>
+            {% if report.progression %}
+            <div class="org-dev-col__list">
+              {% for entry in report.progression %}
+              {{ org_dev_player_card(entry, 'progression') }}
+              {% endfor %}
+            </div>
+            {% else %}
+            <p class="org-dev-col__empty muted">No players progressed this month.</p>
+            {% endif %}
+          </section>
+          <section class="org-dev-col org-dev-col--regression" aria-labelledby="org-dev-reg-{{ report.month_key }}">
+            <h3 id="org-dev-reg-{{ report.month_key }}" class="org-dev-col__heading org-dev-col__heading--regression">Regression</h3>
+            {% if report.regression %}
+            <div class="org-dev-col__list">
+              {% for entry in report.regression %}
+              {{ org_dev_player_card(entry, 'regression') }}
+              {% endfor %}
+            </div>
+            {% else %}
+            <p class="org-dev-col__empty muted">No players regressed this month.</p>
+            {% endif %}
+          </section>
+        </div>
+      </div>
+    </details>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="empty-state">{{ bundle.empty_reason or 'No development reports available yet.' }}</p>
+  {% endif %}
+</div>

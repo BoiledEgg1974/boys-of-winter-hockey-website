@@ -21,6 +21,9 @@ from app.services.staff_catalog import (
     staff_role_label,
     trainer_columns,
 )
+from app.services.staff_images import staff_placeholder_url
+from app.services.staff_transactions import staff_unavailable_ids
+from app.site_models import GmLeagueMembership, TeamStaffBudget, User
 
 BROWSE_COLUMNS_BY_FILTER: dict[str, tuple[tuple[str, tuple[str, str]], ...]] = {
     "head_coach": coach_columns(),
@@ -28,16 +31,6 @@ BROWSE_COLUMNS_BY_FILTER: dict[str, tuple[tuple[str, tuple[str, str]], ...]] = {
     "scout": scout_columns(),
     "trainer": trainer_columns(),
 }
-from app.services.staff_hire_limits import hire_limit_status
-from app.services.staff_images import staff_image_url, staff_placeholder_url
-from app.services.staff_transactions import (
-    active_roster_for_team,
-    pending_fire_staff_ids,
-    recent_requests_for_team,
-    staff_unavailable_ids,
-    sync_team_roster_from_fhm,
-)
-from app.site_models import GmLeagueMembership, TeamStaffBudget, User
 
 if TYPE_CHECKING:
     pass
@@ -140,7 +133,6 @@ def staff_salary_context(session: Session, *, league_slug: str) -> dict:
     season, start_year, season_label = resolve_staff_season(session)
     teams = main_league_teams(session)
     budget_by_team: dict[int, int] = {}
-    salary_by_team: dict[int, int] = {}
     if start_year is not None:
         for tid, data in staff_budget_data_for_season(
             session,
@@ -148,7 +140,6 @@ def staff_salary_context(session: Session, *, league_slug: str) -> dict:
             season_start_year=int(start_year),
         ).items():
             budget_by_team[int(tid)] = int(data["budget_amount"])
-            salary_by_team[int(tid)] = int(data["current_salary_amount"])
 
     active_mems = session.scalars(
         select(GmLeagueMembership).where(
@@ -166,6 +157,8 @@ def staff_salary_context(session: Session, *, league_slug: str) -> dict:
 
     team_rows: list[dict] = []
     total_budget = 0
+    from app.services.league_finances import staff_finances_for_team
+
     for t in teams:
         tid = int(t.id)
         amount = int(budget_by_team.get(tid, 0))
@@ -173,13 +166,22 @@ def staff_salary_context(session: Session, *, league_slug: str) -> dict:
         m = mem_by_team.get(tid)
         u = users_by_id.get(int(m.user_id)) if m else None
         fhm = getattr(t, "fhm_team_id", None)
+        staff_payroll = 0
+        if start_year is not None:
+            fin = staff_finances_for_team(
+                session,
+                league_slug=str(league_slug).strip(),
+                team_id=tid,
+                season_start_year=int(start_year),
+            )
+            staff_payroll = int(fin.get("staff_payroll", 0))
         team_rows.append(
             {
                 "team": t,
                 "gm_label": gm_display_name(u),
                 "team_id_label": str(fhm).strip() if fhm is not None and str(fhm).strip() else str(tid),
                 "budget_amount": amount,
-                "current_salary_amount": int(salary_by_team.get(tid, 0)),
+                "staff_payroll": staff_payroll,
             }
         )
 
@@ -209,62 +211,10 @@ def staff_salary_context(session: Session, *, league_slug: str) -> dict:
     }
 
 
-def staff_portal_context_for_gm(
-    session: Session,
-    *,
-    league_slug: str,
-    team_id: int,
-    fhm_team_id: str | int | None = None,
-    base: dict | None = None,
-) -> dict:
-    """Extend staff salary page context with hire/fire portal data for one GM team."""
-    ctx = dict(base or staff_salary_context(session, league_slug=league_slug))
-    start_year = ctx.get("season_start_year")
-    if start_year is None:
-        ctx["hire_limit"] = None
-        ctx["my_roster"] = []
-        ctx["recent_requests"] = []
-        return ctx
-    ctx["roster_synced"] = sync_team_roster_from_fhm(
-        session,
-        league_slug=league_slug,
-        team_id=int(team_id),
-        season_start_year=int(start_year),
-        fhm_team_id=fhm_team_id,
-    )
-    ctx["hire_limit"] = hire_limit_status(session, league_slug=league_slug, team_id=team_id)
-    roster_entries = active_roster_for_team(
-        session, league_slug=league_slug, team_id=team_id, season_start_year=int(start_year)
-    )
-    pending_fire = pending_fire_staff_ids(
-        session, league_slug=league_slug, team_id=int(team_id)
-    )
-    ctx["my_roster"] = [
-        {
-            "entry": e,
-            "role_label": staff_role_label(e.role),
-            "image_url": staff_image_url(league_slug, e.staff_fhm_id),
-            "pending_fire": str(e.staff_fhm_id).strip() in pending_fire,
-        }
-        for e in roster_entries
-    ]
-    ctx["recent_requests"] = recent_requests_for_team(
-        session, league_slug=league_slug, team_id=team_id, limit=8
-    )
-    from app.services.league_finances import staff_finances_for_team
-
-    ctx["gm_staff_finances"] = staff_finances_for_team(
-        session,
-        league_slug=league_slug,
-        team_id=int(team_id),
-        season_start_year=int(start_year),
-        defaults=ctx.get("defaults"),
-    )
-    return ctx
-
-
 def _enrich_browse_entries(league_slug: str, browse_by_filter: dict[str, list[dict]]) -> None:
     """Ensure browse rows have image URLs (with placeholder fallback)."""
+    from app.services.staff_images import staff_image_url
+
     placeholder = staff_placeholder_url()
     for rows in browse_by_filter.values():
         for ent in rows:

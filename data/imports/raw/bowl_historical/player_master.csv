@@ -247,7 +247,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 3860;90;90;Ed;Diachuk;;73;185;1936-8-16;Vegreville;AB;Canada;;;0;Left;0
 3316;90;90;Jimmy;Bartlett;Rocky;69;165;1932-5-27;Montreal;QC;Canada;;;0;Left;0
 5057;123;123;Darryl;Edestrand;;71;181;1945-11-6;Strathroy;ON;Canada;;;0;Left;0
-3861;128;121;Kent;Douglas;;70;180;1936-2-6;Cobalt;ON;Canada;;;0;Left;0
+3861;121;121;Kent;Douglas;;70;180;1936-2-6;Cobalt;ON;Canada;;;0;Left;0
 4601;3;3;Phil;Esposito;Espo;73;205;1942-2-20;Sault Ste. Marie;ON;Canada;;;0;Left;0
 3553;90;90;Chuck;Holmes;;72;185;1934-9-21;Edmonton;AB;Canada;;;0;Right;0
 5647;89;89;Ron;Busniuk;;71;181;1948-8-13;Thunder Bay;ON;Canada;;;0;Right;0
@@ -295,7 +295,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 6102;84;84;Ron;Climie;;71;185;1950-3-5;Hamilton;ON;Canada;;;0;Left;0
 4358;125;118;Al;LeBrun;;72;185;1940-12-1;Timmins;ON;Canada;;;0;Right;0
 6103;84;84;Gary;Coalter;;70;185;1950-7-8;Toronto;ON;Canada;;;0;Right;0
-5649;126;119;Rey;Comeau;;68;190;1948-10-25;Murdochville;QC;Canada;;;0;Left;1
+5649;119;119;Rey;Comeau;;68;190;1948-10-25;Murdochville;QC;Canada;;;0;Left;1
 4734;119;119;Gary;Dornhoefer;;73;190;1943-2-2;Kitchener;ON;Canada;;;0;Right;0
 5407;90;90;Tom;Cottringer;;68;160;1947-12-28;Niagara Falls;ON;Canada;;;0;Left;0
 5858;83;83;Jack;Borotsik;;70;180;1949-11-26;Carman;MB;Canada;;;0;Left;0

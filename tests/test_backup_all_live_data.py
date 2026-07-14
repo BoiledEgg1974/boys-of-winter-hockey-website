@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import tempfile
 import unittest
@@ -322,6 +323,42 @@ class BackupAllLiveDataTests(unittest.TestCase):
             self.assertTrue(
                 (out_dir / "admin_files" / "join_league" / "bowl-cap" / "available_teams.txt").is_file()
             )
+
+    def test_prune_old_backups_keeps_newest_three(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "full_backups"
+            root.mkdir()
+            created: list[Path] = []
+            for idx, name in enumerate(["a", "b", "c", "d", "e"]):
+                folder = root / name
+                folder.mkdir()
+                (folder / "backup_manifest.json").write_text("{}\n", encoding="utf-8")
+                # Distinct mtimes so newest ordering is stable.
+                stamp = 1_700_000_000 + idx
+                os.utime(folder, (stamp, stamp))
+                created.append(folder)
+            (root / "not-a-backup").mkdir()
+            (root / "not-a-backup" / "readme.txt").write_text("x\n", encoding="utf-8")
+
+            result = backup.prune_old_backups(root, keep=3)
+
+            self.assertTrue(result["ok"])
+            self.assertEqual(len(result["retained"]), 3)
+            self.assertEqual(len(result["removed"]), 2)
+            self.assertTrue((root / "e").is_dir())
+            self.assertTrue((root / "d").is_dir())
+            self.assertTrue((root / "c").is_dir())
+            self.assertFalse((root / "b").exists())
+            self.assertFalse((root / "a").exists())
+            self.assertTrue((root / "not-a-backup").is_dir())
+
+    def test_retention_root_for_default_full_backups(self) -> None:
+        root = backup.DEFAULT_BACKUP_ROOT
+        self.assertEqual(
+            backup.retention_root_for(root / "20260714T120000Z"),
+            root.resolve(),
+        )
+        self.assertIsNone(backup.retention_root_for(Path("/tmp/custom-backup")))
 
 
 if __name__ == "__main__":

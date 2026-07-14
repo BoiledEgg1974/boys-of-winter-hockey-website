@@ -6,6 +6,9 @@ attendance, GM accounts, news, Discord queues, BOWL Six, boost records, admin
 settings). Also copies file-based Join League open-team lists and writes
 readable JSON dumps for key categories (unless ``--no-json``).
 
+By default, when the new backup is written under ``instance/full_backups/``, older
+backup folders there are pruned so at most 3 versions remain.
+
 Run on the live server after reloading the web app (and pausing the Discord bot) so
 SQLite files are not locked.
 
@@ -13,6 +16,8 @@ Examples::
 
     python scripts/backup_all_live_data.py
     python scripts/backup_all_live_data.py --out instance/full_backups/manual-before-import
+    python scripts/backup_all_live_data.py --keep 3
+    python scripts/backup_all_live_data.py --no-prune
     python scripts/backup_all_live_data.py --no-json
     python scripts/backup_all_live_data.py --verify
 """
@@ -47,6 +52,7 @@ from app.config import (  # noqa: E402
 from app.db_utils import sqlite_integrity_message, sqlite_wal_checkpoint  # noqa: E402
 
 DEFAULT_BACKUP_ROOT = BASE_DIR / "instance" / "full_backups"
+DEFAULT_KEEP_BACKUPS = 3
 _INSTANCE_DIR = BASE_DIR / "instance"
 _SQLITE_SIDECAR_SUFFIXES = ("-wal", "-shm")
 
@@ -620,6 +626,63 @@ def export_site_json_supplements(out_dir: Path, site_result: dict) -> dict:
         engine.dispose()
 
 
+def list_backup_versions(backup_root: Path) -> list[Path]:
+    """Return completed backup folders under ``backup_root`` (newest first)."""
+    backup_root = backup_root.resolve()
+    if not backup_root.is_dir():
+        return []
+
+    candidates: list[Path] = []
+    for child in backup_root.iterdir():
+        if not child.is_dir():
+            continue
+        if (child / "backup_manifest.json").is_file():
+            candidates.append(child)
+
+    candidates.sort(key=lambda path: (path.stat().st_mtime_ns, path.name), reverse=True)
+    return candidates
+
+
+def prune_old_backups(backup_root: Path, *, keep: int = DEFAULT_KEEP_BACKUPS) -> dict:
+    """Delete older completed backups under ``backup_root``, keeping the newest ``keep``.
+
+    Only removes immediate child directories that contain ``backup_manifest.json``.
+    """
+    if keep < 1:
+        raise ValueError("keep must be >= 1")
+
+    backup_root = backup_root.resolve()
+    versions = list_backup_versions(backup_root)
+    retained = versions[:keep]
+    removed: list[dict] = []
+    errors: list[dict] = []
+
+    for old in versions[keep:]:
+        try:
+            shutil.rmtree(old)
+            removed.append({"ok": True, "path": str(old)})
+        except OSError as exc:
+            errors.append({"ok": False, "path": str(old), "message": str(exc)})
+
+    return {
+        "ok": not errors,
+        "backup_root": str(backup_root),
+        "keep": keep,
+        "retained": [str(path) for path in retained],
+        "removed": removed,
+        "errors": errors,
+    }
+
+
+def retention_root_for(out_dir: Path, *, default_root: Path | None = None) -> Path | None:
+    """Return the folder whose backup children should be pruned, if any."""
+    root = (default_root or DEFAULT_BACKUP_ROOT).resolve()
+    out_dir = out_dir.resolve()
+    if out_dir.parent == root:
+        return root
+    return None
+
+
 def run_backup(
     out_dir: Path,
     *,
@@ -642,6 +705,7 @@ def run_backup(
             "Site backup includes AP ledger, attendance, GM accounts, news, Discord, BOWL Six, boost records, and admin settings.",
             "coverage lists row counts for those categories; json/ holds readable dumps when JSON is enabled.",
             "admin_files/ includes Join League open-team lists from instance/join_league/.",
+            f"By default at most {DEFAULT_KEEP_BACKUPS} completed backups are kept under instance/full_backups/.",
         ],
     }
 
@@ -702,6 +766,20 @@ def parse_args() -> argparse.Namespace:
             "site table exports for SQLite)."
         ),
     )
+    parser.add_argument(
+        "--keep",
+        type=int,
+        default=DEFAULT_KEEP_BACKUPS,
+        help=(
+            f"Keep this many newest completed backups under instance/full_backups/ "
+            f"(default: {DEFAULT_KEEP_BACKUPS}). Ignored with --no-prune."
+        ),
+    )
+    parser.add_argument(
+        "--no-prune",
+        action="store_true",
+        help="Do not delete older backups under instance/full_backups/.",
+    )
     return parser.parse_args()
 
 
@@ -735,6 +813,10 @@ def main() -> int:
     out_dir = args.out
     if out_dir is None:
         out_dir = DEFAULT_BACKUP_ROOT / _utc_timestamp()
+
+    if args.keep < 1:
+        print("--keep must be >= 1", file=sys.stderr)
+        return 2
 
     manifest = run_backup(
         out_dir,
@@ -799,6 +881,26 @@ def main() -> int:
             f"  json site: boost={site_json.get('boost_records_rows', 0)}, "
             f"admin={site_json.get('admin_settings_rows', 0)}"
         )
+
+    retention_root = None if args.no_prune else retention_root_for(Path(manifest["backup_dir"]))
+    if retention_root is not None:
+        retention = prune_old_backups(retention_root, keep=args.keep)
+        manifest["retention"] = retention
+        try:
+            Path(manifest["manifest_path"]).write_text(
+                json.dumps({k: v for k, v in manifest.items() if k != "manifest_path"}, indent=2)
+                + "\n",
+                encoding="utf-8",
+            )
+        except OSError:
+            pass
+        removed_n = len(retention.get("removed") or [])
+        retained_n = len(retention.get("retained") or [])
+        print(f"  retention: kept {retained_n}, removed {removed_n} (limit {args.keep})")
+        for err in retention.get("errors") or []:
+            print(f"  retention FAILED — {err.get('path')}: {err.get('message')}", file=sys.stderr)
+    elif args.no_prune:
+        print("  retention: skipped (--no-prune)")
 
     if not manifest.get("ok"):
         print("Backup completed with errors.", file=sys.stderr)

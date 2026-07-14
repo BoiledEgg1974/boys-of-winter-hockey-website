@@ -491,6 +491,46 @@ class DiscordEventMentionTests(unittest.TestCase):
         )
         by_team.assert_not_called()
 
+    def test_enrich_league_wide_news_uses_gm_role_not_author_team(self) -> None:
+        session = MagicMock()
+        article = NewsArticle(
+            id=901,
+            league_slug="bowl-historical",
+            team_id=None,
+            title="League note",
+            body="Hello all GMs.",
+            image_rel_path="",
+            author_user_id=42,
+        )
+        session.get.return_value = article
+
+        with (
+            patch(
+                "app.services.discord_events.gm_role_mention_for_league",
+                return_value="<@&999888777666555444>",
+            ) as role_fn,
+            patch(
+                "app.services.discord_events._resolve_team_for_news_discord",
+            ) as resolve_team,
+            patch(
+                "app.services.discord_events._sync_team_discord_fields",
+            ) as sync_fields,
+        ):
+            payload = enrich_discord_payload_for_bot(
+                session,
+                league_slug="bowl-historical",
+                event_key="admin_news_published",
+                payload={"article_id": 901, "team_id": 5, "fhm_team_id": 9},
+            )
+
+        role_fn.assert_called_once_with(session, "bowl-historical")
+        resolve_team.assert_not_called()
+        sync_fields.assert_not_called()
+        self.assertTrue(payload.get("league_wide"))
+        self.assertEqual(payload["team_gm_mention"], "<@&999888777666555444>")
+        self.assertNotIn("team_id", payload)
+        self.assertNotIn("fhm_team_id", payload)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -4,7 +4,7 @@
 <div class="card" style="max-width:44rem;margin:0 auto;">
   <h1 class="page-title">Post league article</h1>
   <p><a href="{{ url_for('site_admin.admin_news_queue') }}">← News Moderation</a> · <a href="{{ url_for('site_admin.admin_home') }}">Admin</a></p>
-  <p class="muted">Publishes immediately to <strong>Around the League</strong> under the team you choose. No AP is awarded (unlike GM submissions approved from the queue). Choose a <strong>category</strong> for every post. <strong>Admin submission</strong> also sends an in-app notification to <em>every active GM</em> in this league (GM Messages).</p>
+  <p class="muted">Publishes immediately to <strong>Around the League</strong> under the team you choose, or <strong>League</strong> for a league-wide post (Discord @GM role). No AP is awarded (unlike GM submissions approved from the queue). Choose a <strong>category</strong> for every post. <strong>Admin submission</strong> also sends an in-app notification to <em>every active GM</em> in this league (GM Messages).</p>
   {% with messages = get_flashed_messages(with_categories=true) %}
   {% if messages %}
   <ul class="flash-msgs">{% for cat, msg in messages %}<li class="flash-msgs__{{ cat }}">{{ msg }}</li>{% endfor %}</ul>
@@ -15,6 +15,7 @@
     <label class="block-label">Team (story is tagged to this franchise)<br>
       <select name="team_id" required style="width:100%;max-width:28rem;margin-top:0.35rem;padding:0.35rem;">
         <option value="" {% if not form_team_id %}selected{% endif %} disabled>— Select team —</option>
+        <option value="league" {% if form_team_id is defined and form_team_id == 'league' %}selected{% endif %}>League</option>
         {% for t in teams %}
         <option value="{{ t.id }}" {% if form_team_id is defined and form_team_id|string == t.id|string %}selected{% endif %}>{{ t.full_display_name() }}</option>
         {% endfor %}

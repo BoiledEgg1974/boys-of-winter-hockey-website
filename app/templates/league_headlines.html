@@ -25,6 +25,8 @@
         {{ gm_display_name(author) }}
         {% if a.team_id and teams_by_id.get(a.team_id) %}
         · {{ teams_by_id[a.team_id].full_display_name() }}
+        {% elif not a.team_id %}
+        · League
         {% endif %}
         {% if a.published_at %}
         · {{ a.published_at.strftime('%Y-%m-%d %H:%M') }}

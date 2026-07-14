@@ -1115,7 +1115,11 @@ def build_around_the_league(
             "id": a.id,
             "title": a.title,
             "category_label": news_category_label(getattr(a, "category", None)),
-            "team_name": tm.full_display_name() if tm else None,
+            "team_name": (
+                tm.full_display_name()
+                if tm
+                else ("League" if not a.team_id else None)
+            ),
             "team_slug": tm.slug if tm else None,
             "team_logo_url": dashboard_team_logo_url(tm, logo_season_year) if tm else "",
             "gm_label": _gm_label(au),

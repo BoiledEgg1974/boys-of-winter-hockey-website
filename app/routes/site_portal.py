@@ -140,6 +140,7 @@ from app.services.discord_events import (
     delete_discord_route,
     enqueue_discord_event,
     get_league_bot_config,
+    gm_role_mention_for_league,
     canonical_discord_bot_name,
     list_heartbeats,
     list_discord_routes,
@@ -6972,30 +6973,34 @@ def admin_news_compose():
                 form_team_id=raw_tid,
                 form_category=(request.form.get("category") or "").strip(),
             )
-        if not raw_tid.isdigit():
-            flash("Select a team this article is about.", "err")
-            return render_template(
-                "admin_news_compose.html",
-                teams=teams,
-                category_choices=NEWS_CATEGORY_CHOICES_ADMIN,
-                form_title=title,
-                form_body=body,
-                form_team_id=raw_tid,
-                form_category=cat,
-            )
-        team_id = int(raw_tid)
-        team = db.session.get(Team, team_id)
-        if not team:
-            flash("Invalid team.", "err")
-            return render_template(
-                "admin_news_compose.html",
-                teams=teams,
-                category_choices=NEWS_CATEGORY_CHOICES_ADMIN,
-                form_title=title,
-                form_body=body,
-                form_team_id=raw_tid,
-                form_category=cat,
-            )
+        league_wide = raw_tid.lower() == "league"
+        team = None
+        team_id: int | None = None
+        if not league_wide:
+            if not raw_tid.isdigit():
+                flash("Select a team this article is about, or League.", "err")
+                return render_template(
+                    "admin_news_compose.html",
+                    teams=teams,
+                    category_choices=NEWS_CATEGORY_CHOICES_ADMIN,
+                    form_title=title,
+                    form_body=body,
+                    form_team_id=raw_tid,
+                    form_category=cat,
+                )
+            team_id = int(raw_tid)
+            team = db.session.get(Team, team_id)
+            if not team:
+                flash("Invalid team.", "err")
+                return render_template(
+                    "admin_news_compose.html",
+                    teams=teams,
+                    category_choices=NEWS_CATEGORY_CHOICES_ADMIN,
+                    form_title=title,
+                    form_body=body,
+                    form_team_id=raw_tid,
+                    form_category=cat,
+                )
         upload = request.files.get("image")
         image_payload: tuple[str, bytes] | None = None
         if upload and upload.filename:
@@ -7075,6 +7080,18 @@ def admin_news_compose():
                     form_category=cat,
                 )
             raise
+        if league_wide:
+            discord_team_fields: dict = {
+                "league_wide": True,
+                "team_name": str(
+                    current_app.config.get("LEAGUE_DISPLAY_NAME") or "League"
+                ),
+            }
+            role_mention = gm_role_mention_for_league(db.session, slug)
+            if role_mention.startswith("<@"):
+                discord_team_fields["team_gm_mention"] = role_mention
+        else:
+            discord_team_fields = team_fields_for_discord(team)
         _enqueue_discord_event(
             "admin_news_published",
             news_article_discord_payload(
@@ -7084,7 +7101,7 @@ def admin_news_compose():
                 published_at_utc=art.published_at.isoformat(timespec="seconds")
                 if art.published_at
                 else "",
-                **team_fields_for_discord(team),
+                **discord_team_fields,
             ),
             source_type="news_article",
             source_id=int(art.id),

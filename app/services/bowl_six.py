@@ -683,14 +683,9 @@ def unlock_slate_for_edits(
 
 
 def _gm_role_mention_for_league(session: Session, league_slug: str) -> str:
-    try:
-        from app.services.discord_events import get_league_bot_config
+    from app.services.discord_events import gm_role_mention_for_league
 
-        cfg = get_league_bot_config(session, league_slug)
-        rid = str(getattr(cfg, "gm_role_id", "") or "").strip()
-    except Exception:
-        rid = ""
-    return f"<@&{rid}>" if rid else "@GM"
+    return gm_role_mention_for_league(session, league_slug)
 
 
 def _bowl_six_reminder_payload(

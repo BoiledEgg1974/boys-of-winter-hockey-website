@@ -911,12 +911,38 @@ def enrich_discord_payload_for_bot(
         merged["body"] = enriched["body"]
         merged["has_image"] = enriched["has_image"]
         merged.pop("gm_mentions", None)
-        team = _resolve_team_for_news_discord(
-            session, league_slug=league_slug, payload=merged
-        )
-        merged = _sync_team_discord_fields(
-            session, league_slug=league_slug, payload=merged, team=team
-        )
+        # Explicit null team_id = league-wide admin post (do not inherit author franchise).
+        if getattr(art, "team_id", None) is None:
+            merged["league_wide"] = True
+            for stale_key in (
+                "team_id",
+                "fhm_team_id",
+                "team_abbrev",
+                "team_url",
+                "team_logo_url",
+            ):
+                merged.pop(stale_key, None)
+            if not str(merged.get("team_name") or "").strip():
+                try:
+                    from flask import current_app
+
+                    merged["team_name"] = str(
+                        current_app.config.get("LEAGUE_DISPLAY_NAME") or "League"
+                    )
+                except Exception:
+                    merged["team_name"] = "League"
+            role = gm_role_mention_for_league(session, league_slug)
+            if role.startswith("<@"):
+                merged["team_gm_mention"] = role
+            else:
+                merged.pop("team_gm_mention", None)
+        else:
+            team = _resolve_team_for_news_discord(
+                session, league_slug=league_slug, payload=merged
+            )
+            merged = _sync_team_discord_fields(
+                session, league_slug=league_slug, payload=merged, team=team
+            )
         if len(str(out.get("body_preview") or "")) < len(enriched["body_preview"]):
             merged["body_preview"] = enriched["body_preview"]
         return merged
@@ -1348,6 +1374,16 @@ def get_league_bot_config(session, league_slug: str) -> DiscordLeagueBotConfig:
 
     commit_with_sqlite_retry(session)
     return row
+
+
+def gm_role_mention_for_league(session, league_slug: str) -> str:
+    """Discord role mention for this league's configured @GM role (`<@&id>`)."""
+    try:
+        cfg = get_league_bot_config(session, league_slug)
+        rid = str(getattr(cfg, "gm_role_id", "") or "").strip()
+    except Exception:
+        rid = ""
+    return f"<@&{rid}>" if rid else "@GM"
 
 
 def _ensure_discord_bot_config_columns(session) -> None:

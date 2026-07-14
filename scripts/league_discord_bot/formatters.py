@@ -182,7 +182,7 @@ def _text_only_header_lines(
             lines.append(team_line)
         if event_key == "confirmed_trade":
             _append_gm_mentions(lines, payload)
-        elif team_line:
+        elif team_line or payload.get("league_wide"):
             _append_team_gm_mention(lines, payload)
         lines.append(f"**{title}**")
     elif event_key == "announcement_posted":
@@ -894,6 +894,7 @@ def format_discord_messages(event: dict[str, Any], *, max_parts: int = 2) -> lis
         team_line = format_team_label(league_slug, payload)
         if team_line:
             lines.append(team_line)
+        if team_line or payload.get("league_wide"):
             _append_team_gm_mention(lines, payload)
         lines.append(f"**{title}**")
         if body_short:

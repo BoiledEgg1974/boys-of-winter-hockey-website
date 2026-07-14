@@ -252,6 +252,12 @@ def fhm_team_id_from_message_token(league_slug: str, token: str) -> int | None:
 
 def format_team_label(league_slug: str, payload: dict, *, fallback_name: str = "") -> str:
     """Emoji prefix + display name (abbrev from map when available)."""
+    if payload.get("league_wide"):
+        logo = league_logo_emoji(league_slug)
+        prefix = f"{logo} " if logo else ""
+        name = str(fallback_name or payload.get("team_name") or "League").strip()
+        return f"{prefix}**{name}**".strip() if name else prefix.strip()
+
     prefix = team_emoji_prefix(league_slug, payload)
     entry = entry_for_fhm_team_id(league_slug, payload.get("fhm_team_id"))
     name = str(fallback_name or payload.get("team_name") or "").strip()

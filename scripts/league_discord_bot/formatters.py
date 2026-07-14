@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import re
 from datetime import datetime, timezone
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -14,6 +15,9 @@ from scripts.league_discord_bot.team_maps import (
     sim_cycle_embed_color,
     team_emoji_prefix,
 )
+
+_ROLE_MENTION_RE = re.compile(r"<@&(\d{17,20})>")
+_USER_MENTION_RE = re.compile(r"<@!?(\d{17,20})>")
 
 DISCORD_SITE_MORE_FOOTER = (
     "For more news, stats and more, go to https://www.bowlhockey.com"
@@ -60,6 +64,16 @@ def _discord_embed_url(url: str) -> str:
     return ""
 
 
+def _allowed_mentions_from_content(content: str) -> dict[str, Any] | None:
+    """Explicitly allow role/user pings present in message content."""
+    text = str(content or "")
+    roles = list(dict.fromkeys(_ROLE_MENTION_RE.findall(text)))
+    users = list(dict.fromkeys(_USER_MENTION_RE.findall(text)))
+    if not roles and not users:
+        return None
+    return {"parse": [], "roles": roles, "users": users}
+
+
 def sanitize_discord_message_body(body: dict[str, Any]) -> dict[str, Any]:
     """Last-line cleanup before Discord REST POST (strips invalid embed URLs)."""
     out: dict[str, Any] = {}
@@ -78,6 +92,9 @@ def sanitize_discord_message_body(body: dict[str, Any]) -> dict[str, Any]:
             clean_embeds.append(e)
     if clean_embeds:
         out["embeds"] = clean_embeds
+    mentions = _allowed_mentions_from_content(content)
+    if mentions:
+        out["allowed_mentions"] = mentions
     return out or {"content": str(body.get("content") or "Notification")}
 
 

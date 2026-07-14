@@ -7,6 +7,7 @@ from scripts.league_discord_bot.formatters import (
     DISCORD_SITE_MORE_FOOTER,
     _split_message_bodies,
     format_discord_messages,
+    sanitize_discord_message_body,
 )
 
 
@@ -337,11 +338,40 @@ class DiscordMessageSplitTest(unittest.TestCase):
             max_parts=2,
         )
         self.assertEqual(len(parts), 1)
-        self.assertEqual(parts[0]["content"], "**BOWL Six leaders — Week of 1969-03-10**")
+        self.assertNotIn("content", parts[0])
         self.assertIn("embeds", parts[0])
         self.assertEqual(
             parts[0]["embeds"][0]["url"],
             "https://www.bowlhockey.com/bowl-historical/league-headlines#a1",
+        )
+
+    def test_league_wide_admin_news_includes_logo_and_gm_role(self):
+        parts = format_discord_messages(
+            {
+                "league_slug": "bowl-cap",
+                "event_key": "admin_news_published",
+                "payload": {
+                    "title": "BOWL-Cap Season Preview",
+                    "body": "Hello GMs.",
+                    "league_wide": True,
+                    "team_name": "BOWL-Cap",
+                    "team_gm_mention": "<@&1333522260140752907>",
+                },
+            },
+            max_parts=2,
+        )
+        content = parts[0].get("content", "")
+        self.assertIn("<:BOWL:1333588086092992564>", content)
+        self.assertIn("**BOWL-Cap**", content)
+        self.assertIn("<@&1333522260140752907>", content)
+        sanitized = sanitize_discord_message_body(parts[0])
+        self.assertEqual(
+            sanitized.get("allowed_mentions"),
+            {
+                "parse": [],
+                "roles": ["1333522260140752907"],
+                "users": [],
+            },
         )
 
     def test_news_with_image_puts_team_gm_mention_in_content(self):

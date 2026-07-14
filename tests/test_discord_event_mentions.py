@@ -531,6 +531,36 @@ class DiscordEventMentionTests(unittest.TestCase):
         self.assertNotIn("team_id", payload)
         self.assertNotIn("fhm_team_id", payload)
 
+    def test_ensure_mention_preserves_league_wide_gm_role(self) -> None:
+        session = MagicMock()
+        with (
+            patch(
+                "app.services.discord_events.gm_role_mention_for_league",
+                return_value="<@&1333522260140752907>",
+            ) as role_fn,
+            patch(
+                "app.services.discord_events._resolve_team_for_news_discord",
+            ) as resolve_team,
+        ):
+            from app.services.discord_events import _ensure_team_gm_mention_for_payload
+
+            payload = _ensure_team_gm_mention_for_payload(
+                session,
+                league_slug="bowl-cap",
+                payload={
+                    "article_id": 901,
+                    "league_wide": True,
+                    "team_name": "BOWL-Cap",
+                    "team_gm_mention": "<@&1333522260140752907>",
+                },
+            )
+
+        role_fn.assert_called_once_with(session, "bowl-cap")
+        resolve_team.assert_not_called()
+        self.assertTrue(payload.get("league_wide"))
+        self.assertEqual(payload["team_name"], "BOWL-Cap")
+        self.assertEqual(payload["team_gm_mention"], "<@&1333522260140752907>")
+
 
 if __name__ == "__main__":
     unittest.main()

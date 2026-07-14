@@ -192,9 +192,17 @@ def _safe_custom_emote(mention: str, *, league_slug: str) -> str:
     return text
 
 
-def league_logo_emoji(league_slug: str) -> str:
+def league_logo_emoji(league_slug: str, *, prefer_league_brand: bool = False) -> str:
+    """Return the league brand custom emote.
+
+    When *prefer_league_brand* is True (league-wide news), always use the configured
+    league logo even if its snowflake overlaps a team logo entry.
+    """
     key = _league_key(league_slug)
-    return _safe_custom_emote(str(LEAGUE_LOGO_EMOJIS.get(key) or ""), league_slug=league_slug)
+    raw = str(LEAGUE_LOGO_EMOJIS.get(key) or "").strip()
+    if prefer_league_brand:
+        return raw
+    return _safe_custom_emote(raw, league_slug=league_slug)
 
 
 def export_status_emoji(*, success: bool, league_slug: str = "") -> str:
@@ -253,7 +261,7 @@ def fhm_team_id_from_message_token(league_slug: str, token: str) -> int | None:
 def format_team_label(league_slug: str, payload: dict, *, fallback_name: str = "") -> str:
     """Emoji prefix + display name (abbrev from map when available)."""
     if payload.get("league_wide"):
-        logo = league_logo_emoji(league_slug)
+        logo = league_logo_emoji(league_slug, prefer_league_brand=True)
         prefix = f"{logo} " if logo else ""
         name = str(fallback_name or payload.get("team_name") or "League").strip()
         return f"{prefix}**{name}**".strip() if name else prefix.strip()

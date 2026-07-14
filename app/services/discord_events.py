@@ -853,6 +853,40 @@ def _team_gm_mention_for_payload(session, *, league_slug: str, payload: dict) ->
     )
 
 
+def _apply_league_wide_discord_fields(
+    session,
+    *,
+    league_slug: str,
+    payload: dict,
+) -> dict:
+    """League-tagged admin news: league label + configured @GM role mention."""
+    out = dict(payload or {})
+    out["league_wide"] = True
+    for stale_key in (
+        "team_id",
+        "fhm_team_id",
+        "team_abbrev",
+        "team_url",
+        "team_logo_url",
+    ):
+        out.pop(stale_key, None)
+    if not str(out.get("team_name") or "").strip():
+        try:
+            from flask import current_app
+
+            out["team_name"] = str(
+                current_app.config.get("LEAGUE_DISPLAY_NAME") or "League"
+            )
+        except Exception:
+            out["team_name"] = "League"
+    role = gm_role_mention_for_league(session, league_slug)
+    if role.startswith("<@"):
+        out["team_gm_mention"] = role
+    else:
+        out.pop("team_gm_mention", None)
+    return out
+
+
 def _sync_team_discord_fields(
     session,
     *,
@@ -862,6 +896,10 @@ def _sync_team_discord_fields(
 ) -> dict:
     """Keep team label fields and GM mention aligned to the same franchise row."""
     out = dict(payload or {})
+    if out.get("league_wide") and team is None:
+        return _apply_league_wide_discord_fields(
+            session, league_slug=league_slug, payload=out
+        )
     if team is not None:
         out.update(team_fields_for_discord(team))
     out.pop("team_gm_mention", None)
@@ -877,6 +915,10 @@ def _ensure_team_gm_mention_for_payload(session, *, league_slug: str, payload: d
     out = dict(payload or {})
     if str(out.get("gm_mentions") or "").strip():
         return out
+    if out.get("league_wide"):
+        return _apply_league_wide_discord_fields(
+            session, league_slug=league_slug, payload=out
+        )
     team = _resolve_team_for_news_discord(
         session, league_slug=league_slug, payload=out
     )
@@ -913,29 +955,9 @@ def enrich_discord_payload_for_bot(
         merged.pop("gm_mentions", None)
         # Explicit null team_id = league-wide admin post (do not inherit author franchise).
         if getattr(art, "team_id", None) is None:
-            merged["league_wide"] = True
-            for stale_key in (
-                "team_id",
-                "fhm_team_id",
-                "team_abbrev",
-                "team_url",
-                "team_logo_url",
-            ):
-                merged.pop(stale_key, None)
-            if not str(merged.get("team_name") or "").strip():
-                try:
-                    from flask import current_app
-
-                    merged["team_name"] = str(
-                        current_app.config.get("LEAGUE_DISPLAY_NAME") or "League"
-                    )
-                except Exception:
-                    merged["team_name"] = "League"
-            role = gm_role_mention_for_league(session, league_slug)
-            if role.startswith("<@"):
-                merged["team_gm_mention"] = role
-            else:
-                merged.pop("team_gm_mention", None)
+            merged = _apply_league_wide_discord_fields(
+                session, league_slug=league_slug, payload=merged
+            )
         else:
             team = _resolve_team_for_news_discord(
                 session, league_slug=league_slug, payload=merged

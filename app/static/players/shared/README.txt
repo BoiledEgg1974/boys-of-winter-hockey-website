@@ -1,9 +1,10 @@
-﻿Player images for BOWL-Historical and BOWL-Cap
-==============================================
+﻿Player images for all BOWL leagues
+==================================
 
 This folder is used by:
 - BOWL-Historical (slug: bowl-historical)
 - BOWL-Cap (slug: bowl-cap)
+- BOWL-Relegation (slug: bowl-fantasy)
 
 Upload naming format (recommended):
   firstname_lastname_day_month_year.png

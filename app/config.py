@@ -425,7 +425,8 @@ def make_league_config(slug: str) -> type:
     db_path = resolve_league_sqlite_path(slug)
     raw_path = BASE_DIR / "data" / "imports" / "raw" / entry.raw_import_dir
 
-    headshots_rel = "players/fantasy" if slug == "bowl-fantasy" else "players/shared"
+    # All leagues share one headshot pool (Historical / Cap / Relegation).
+    headshots_rel = "players/shared"
     team_logos_rel = f"logos/teams/{entry.raw_import_dir}"
     league_logo_rel = f"logos/{entry.raw_import_dir}"
     champions_rel = f"img/history/champions/{entry.raw_import_dir}"

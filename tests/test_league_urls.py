@@ -13,7 +13,7 @@ class LeagueUrlsTests(unittest.TestCase):
         app = create_app(make_league_config("bowl-fantasy"))
         body = {
             "logo_url": "/static/logos/teams/bowl_fantasy/tor-t3.png",
-            "nested": [{"player_photo_url": "/static/players/fantasy/x.png"}],
+            "nested": [{"player_photo_url": "/static/players/shared/x.png"}],
         }
         out = prefix_league_static_urls(body, app=app)
         self.assertEqual(
@@ -22,7 +22,7 @@ class LeagueUrlsTests(unittest.TestCase):
         )
         self.assertEqual(
             out["nested"][0]["player_photo_url"],
-            "/bowl-fantasy/static/players/fantasy/x.png",
+            "/bowl-fantasy/static/players/shared/x.png",
         )
 
     def test_prefix_league_static_urls_idempotent(self) -> None:

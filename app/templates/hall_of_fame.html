@@ -52,9 +52,11 @@
                 <a class="hof-plaque__name" href="{{ url_for('main.player_page', player_id=p.player.id) }}">{{ p.player.full_name }}</a>
                 <div class="hof-plaque__team-line">
                   {% if p.primary_team %}
-                  <a class="hof-plaque__team-hit" href="{{ url_for('main.team_page', slug=p.primary_team.slug) }}" title="{{ p.primary_team.full_display_name() }}">
+                  {% set hof_team_rec = {'team': p.primary_team, 'season_year': p.primary_team_logo_season_year} %}
+                  {% set hof_team_name = season_team_name(hof_team_rec) or p.primary_team.full_display_name() %}
+                  <a class="hof-plaque__team-hit" href="{{ url_for('main.team_page', slug=p.primary_team.slug) }}" title="{{ hof_team_name }}">
                     {{ plaque_team_logo(p.primary_team, p.primary_team_logo_season_year) }}
-                    <span class="hof-plaque__team-name">{{ p.primary_team.full_display_name() }}</span>
+                    <span class="hof-plaque__team-name">{{ hof_team_name }}</span>
                   </a>
                   {% else %}
                   <span class="muted">—</span>
@@ -115,9 +117,11 @@
                 <a class="hof-plaque__name" href="{{ url_for('main.player_page', player_id=p.player.id) }}">{{ p.player.full_name }}</a>
                 <div class="hof-plaque__team-line">
                   {% if p.primary_team %}
-                  <a class="hof-plaque__team-hit" href="{{ url_for('main.team_page', slug=p.primary_team.slug) }}" title="{{ p.primary_team.full_display_name() }}">
+                  {% set hof_team_rec = {'team': p.primary_team, 'season_year': p.primary_team_logo_season_year} %}
+                  {% set hof_team_name = season_team_name(hof_team_rec) or p.primary_team.full_display_name() %}
+                  <a class="hof-plaque__team-hit" href="{{ url_for('main.team_page', slug=p.primary_team.slug) }}" title="{{ hof_team_name }}">
                     {{ plaque_team_logo(p.primary_team, p.primary_team_logo_season_year) }}
-                    <span class="hof-plaque__team-name">{{ p.primary_team.full_display_name() }}</span>
+                    <span class="hof-plaque__team-name">{{ hof_team_name }}</span>
                   </a>
                   {% else %}
                   <span class="muted">—</span>

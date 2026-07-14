@@ -15,6 +15,14 @@ from app.services.admin_hall_of_fame import (
 
 
 class HallOfFameAdminTest(unittest.TestCase):
+    def test_hof_plaque_uses_era_correct_team_name(self) -> None:
+        path = Path(__file__).resolve().parents[1] / "app" / "templates" / "hall_of_fame.html"
+        text = path.read_text(encoding="utf-8")
+
+        self.assertIn("season_team_name(hof_team_rec)", text)
+        self.assertIn("primary_team_logo_season_year", text)
+        self.assertNotIn("{{ p.primary_team.full_display_name() }}", text)
+
     def test_admin_form_can_choose_skater_or_goalie(self) -> None:
         path = Path(__file__).resolve().parents[1] / "app" / "templates" / "admin_hall_of_fame.html"
         text = path.read_text(encoding="utf-8")

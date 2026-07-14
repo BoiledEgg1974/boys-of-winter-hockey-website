@@ -11346,14 +11346,73 @@ table.data.prospects-rankings-table--league td:nth-child(4) .stats-player-cell {
   white-space: nowrap;
   font-size: 0.8rem;
 }
-/* Undrafted: no TEAM column — PLAYER is column 2 */
+/* Undrafted / Draft Eligible: no TEAM column — PLAYER is column 2, NAT is 3 */
 table.data.prospects-rankings-table--undrafted th:nth-child(2),
-table.data.prospects-rankings-table--undrafted td:nth-child(2) {
+table.data.prospects-rankings-table--undrafted td:nth-child(2),
+table.data.prospects-rankings-table--draft-pool th:nth-child(2),
+table.data.prospects-rankings-table--draft-pool td:nth-child(2) {
   text-align: left;
 }
-table.data.prospects-rankings-table--undrafted td:nth-child(2) .stats-player-cell {
+table.data.prospects-rankings-table--undrafted td:nth-child(2) .stats-player-cell,
+table.data.prospects-rankings-table--draft-pool td:nth-child(2) .stats-player-cell {
   justify-content: flex-start;
   width: 100%;
+}
+/* Fit NAT without horizontal scroll on desktop: fill panel width and tighten columns */
+table.data.prospects-rankings-table--draft-pool {
+  width: 100%;
+}
+@media (min-width: 1101px) {
+  .prospects-rankings-table-card__scroll:has(> table.prospects-rankings-table--draft-pool) {
+    overflow-x: hidden;
+  }
+}
+table.data.prospects-rankings-table--draft-pool th,
+table.data.prospects-rankings-table--draft-pool td {
+  padding-left: 0.28rem;
+  padding-right: 0.28rem;
+}
+table.data.prospects-rankings-table--draft-pool .stats-player-cell {
+  min-width: 0;
+  max-width: 11.5rem;
+}
+table.data.prospects-rankings-table--draft-pool .stats-player-cell__name {
+  display: block;
+  max-width: 9.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+table.data.prospects-rankings-table--draft-pool .prospect-proj-col {
+  width: 3rem;
+  min-width: 2.65rem;
+  padding-left: 0.12rem;
+  padding-right: 0.12rem;
+}
+table.data.prospects-rankings-table--draft-pool thead th.prospect-proj-col-header {
+  padding-left: 0.15rem;
+  padding-right: 0.15rem;
+  font-size: 0.64rem;
+}
+table.data.prospects-rankings-table--draft-pool .prospects-rankings__attr-pill {
+  min-width: 1.45rem;
+  padding: 0.15rem 0.28rem;
+  font-size: 0.74rem;
+}
+.prospects-rankings-table__nat {
+  width: 2.1rem;
+  min-width: 2.1rem;
+  max-width: 2.25rem;
+  padding-left: 0.12rem !important;
+  padding-right: 0.12rem !important;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.prospects-rankings-table__flag {
+  display: inline-block;
+  vertical-align: middle;
+  border-radius: 2px;
+  border: 1px solid rgb(148 163 184 / 0.35);
 }
 .prospects-rankings-table__team-cell {
   text-align: center;
@@ -22800,6 +22859,10 @@ button.bowl-six-submissions__toggle:hover {
     overflow: visible;
     width: max-content;
     min-width: 100%;
+  }
+  body.site-touch-layout #main-content .prospects-rankings-table-card__scroll > table.data.prospects-rankings-table--draft-pool {
+    width: 100%;
+    min-width: 0;
   }
   body.site-touch-layout .admin-ops-lane table.data,
   body.site-touch-layout .draft-pick-admin-grid {

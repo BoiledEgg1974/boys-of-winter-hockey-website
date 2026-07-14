@@ -134,11 +134,12 @@
   <div class="card prospects-rankings-table-card">
     {% if prospect_rows %}
     <div class="prospects-rankings-table-card__scroll">
-      <table class="data prospects-rankings-table">
+      <table class="data prospects-rankings-table prospects-rankings-table--draft-pool">
         <thead>
           <tr>
             {{ de_sort_th('rank', '#', 'Eligibility board rank') }}
             {{ de_sort_th('player', 'PLAYER', 'Player') }}
+            <th scope="col" class="prospects-rankings-table__nat" title="Nationality">NAT</th>
             {{ de_sort_th('age', 'AGE', 'Age as of July 1 of the current season (matches player page)') }}
             {{ de_sort_th('abi', 'ABI.', 'Ability') }}
             {{ de_sort_th('pot', 'POT.', 'Potential') }}
@@ -168,6 +169,11 @@
                   <span class="stats-player-cell__pos">{{ pl | player_positions_display }}</span>
                 </span>
               </span>
+            </td>
+            <td class="prospects-rankings-table__nat">
+              {% if pl.nationality and (pl.nationality|nationality_flag_url) %}
+              <img class="prospects-rankings-table__flag" src="{{ pl.nationality|nationality_flag_url }}" width="18" height="13" alt="{{ pl.nationality }}" title="{{ pl.nationality }}" loading="lazy" decoding="async">
+              {% else %}—{% endif %}
             </td>
             <td {% if prospect_sort == 'age' %}class="stats-td-sorted"{% endif %}>{{ row.age if row.age is not none else '—' }}</td>
             <td {% if prospect_sort == 'abi' %}class="stats-td-sorted"{% endif %}>{{ abi_pot_pill(row.abi) }}</td>

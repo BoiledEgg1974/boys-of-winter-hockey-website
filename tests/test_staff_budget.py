@@ -16,11 +16,13 @@ from app.services.league_finances import (
 )
 from app.services.staff_salaries import StaffDefaultSalaries, compute_staff_default_salaries
 from app.services.staff_transactions import (
+    MANUAL_SEVERANCE_STAFF_ID,
     _active_roster_entry,
     _entry_claims_staff,
     admin_fire_staff,
     admin_hire_staff,
     admin_save_staff_contract,
+    admin_set_team_staff_penalty_total,
     contract_active,
     contract_end_season_year,
     expire_stale_staff_contracts,
@@ -208,6 +210,67 @@ class AdminStaffActionsTest(unittest.TestCase):
         self.assertEqual(session.add.call_count, 1)
         severance = session.add.call_args[0][0]
         self.assertEqual(severance.penalty_amount, 100_000)
+
+
+class AdminSetTeamStaffPenaltyTotalTest(unittest.TestCase):
+    def test_noop_when_total_unchanged(self) -> None:
+        session = MagicMock()
+        existing = SimpleNamespace(staff_fhm_id="55", penalty_amount=50_000)
+        session.scalars.return_value.all.return_value = [existing]
+
+        total = admin_set_team_staff_penalty_total(
+            session,
+            league_slug="bowl-cap",
+            season_start_year=2000,
+            team_id=1,
+            penalty_amount=50_000,
+            admin_user_id=9,
+        )
+
+        self.assertEqual(total, 50_000)
+        session.add.assert_not_called()
+        session.delete.assert_not_called()
+
+    def test_adds_manual_top_up_above_fire_total(self) -> None:
+        session = MagicMock()
+        fire_row = SimpleNamespace(staff_fhm_id="55", penalty_amount=50_000)
+        session.scalars.return_value.all.return_value = [fire_row]
+
+        total = admin_set_team_staff_penalty_total(
+            session,
+            league_slug="bowl-cap",
+            season_start_year=2000,
+            team_id=1,
+            penalty_amount=80_000,
+            admin_user_id=9,
+        )
+
+        self.assertEqual(total, 80_000)
+        session.delete.assert_not_called()
+        session.add.assert_called_once()
+        added = session.add.call_args[0][0]
+        self.assertEqual(added.staff_fhm_id, MANUAL_SEVERANCE_STAFF_ID)
+        self.assertEqual(added.penalty_amount, 30_000)
+
+    def test_reducing_below_fire_total_consolidates(self) -> None:
+        session = MagicMock()
+        fire_row = SimpleNamespace(staff_fhm_id="55", penalty_amount=50_000)
+        session.scalars.return_value.all.return_value = [fire_row]
+
+        total = admin_set_team_staff_penalty_total(
+            session,
+            league_slug="bowl-cap",
+            season_start_year=2000,
+            team_id=1,
+            penalty_amount=20_000,
+            admin_user_id=9,
+        )
+
+        self.assertEqual(total, 20_000)
+        session.delete.assert_called_once_with(fire_row)
+        added = session.add.call_args[0][0]
+        self.assertEqual(added.staff_fhm_id, MANUAL_SEVERANCE_STAFF_ID)
+        self.assertEqual(added.penalty_amount, 20_000)
 
 
 class AdminSaveStaffContractOrphansTest(unittest.TestCase):

@@ -465,6 +465,78 @@ def admin_fire_staff(
     )
 
 
+MANUAL_SEVERANCE_STAFF_ID = "__manual__"
+MANUAL_SEVERANCE_STAFF_NAME = "Manual salary penalty"
+
+
+def admin_set_team_staff_penalty_total(
+    session: Session,
+    *,
+    league_slug: str,
+    season_start_year: int,
+    team_id: int,
+    penalty_amount: int,
+    admin_user_id: int,
+) -> int:
+    """Set total staff salary penalties for a team/season.
+
+    Fire-linked severance rows are kept when the new total is at or above their
+    sum; any extra is stored as a single manual adjustment. Reducing below the
+    fire-linked total replaces those rows with one consolidated entry.
+    """
+    desired = max(0, int(penalty_amount or 0))
+    existing = list(
+        session.scalars(
+            select(StaffSeveranceEntry).where(
+                StaffSeveranceEntry.league_slug == league_slug,
+                StaffSeveranceEntry.team_id == int(team_id),
+                StaffSeveranceEntry.season_start_year == int(season_start_year),
+            )
+        ).all()
+    )
+    manuals = [e for e in existing if str(e.staff_fhm_id or "") == MANUAL_SEVERANCE_STAFF_ID]
+    fire_rows = [e for e in existing if str(e.staff_fhm_id or "") != MANUAL_SEVERANCE_STAFF_ID]
+    fire_total = sum(int(e.penalty_amount or 0) for e in fire_rows)
+    current = fire_total + sum(int(e.penalty_amount or 0) for e in manuals)
+    if current == desired:
+        return desired
+
+    for row in manuals:
+        session.delete(row)
+
+    if desired > fire_total:
+        extra = desired - fire_total
+        session.add(
+            StaffSeveranceEntry(
+                league_slug=league_slug,
+                season_start_year=int(season_start_year),
+                team_id=int(team_id),
+                staff_fhm_id=MANUAL_SEVERANCE_STAFF_ID,
+                staff_name=MANUAL_SEVERANCE_STAFF_NAME,
+                penalty_amount=extra,
+                created_by_user_id=int(admin_user_id),
+            )
+        )
+    elif desired < fire_total:
+        for row in fire_rows:
+            session.delete(row)
+        if desired > 0:
+            session.add(
+                StaffSeveranceEntry(
+                    league_slug=league_slug,
+                    season_start_year=int(season_start_year),
+                    team_id=int(team_id),
+                    staff_fhm_id=MANUAL_SEVERANCE_STAFF_ID,
+                    staff_name=MANUAL_SEVERANCE_STAFF_NAME,
+                    penalty_amount=desired,
+                    created_by_user_id=int(admin_user_id),
+                )
+            )
+    # desired == fire_total: manuals already removed; fire rows remain
+    session.flush()
+    return desired
+
+
 def admin_retire_staff(
     session: Session,
     *,

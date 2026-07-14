@@ -100,10 +100,20 @@
                 {% endif %}
               </form>
               {% if contract and row.contract_active is defined and row.contract_active %}
+              <form method="post" action="{{ url_for('site_admin.admin_team_staff_fire', team_slug=team.slug) }}" class="team-staff-fire-form" onsubmit="return confirm('Fire {{ row.full_name }}? Contract salary is removed; any penalty is added to staff payroll.');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="staff_fhm_id" value="{{ sid }}">
+                <div class="team-staff-fire-form__fields">
+                  <label class="visually-hidden" for="fire-penalty-{{ sid }}">Contract penalty</label>
+                  <input type="text" inputmode="numeric" name="penalty_amount" id="fire-penalty-{{ sid }}" class="team-staff-contract-form__input" placeholder="Penalty" value="{% if contract.annual_salary %}{{ contract.annual_salary }}{% endif %}" title="Salary penalty (added to staff payroll)" autocomplete="off">
+                  <button type="submit" class="staff-salaries-btn staff-salaries-btn--small staff-salaries-btn--danger">Fire</button>
+                </div>
+                <p class="muted team-staff-contract-form__meta">Penalty is added to staff payroll</p>
+              </form>
               <form method="post" action="{{ url_for('site_admin.admin_team_staff_retire', team_slug=team.slug) }}" class="team-staff-retire-form" onsubmit="return confirm('Retire {{ row.full_name }}? This removes their contract from staff payroll.');">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="staff_fhm_id" value="{{ sid }}">
-                <button type="submit" class="staff-salaries-btn staff-salaries-btn--small staff-salaries-btn--danger">Retire</button>
+                <button type="submit" class="staff-salaries-btn staff-salaries-btn--small">Retire</button>
               </form>
               {% endif %}
             </td>

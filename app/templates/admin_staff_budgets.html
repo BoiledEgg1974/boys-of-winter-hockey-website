@@ -1,13 +1,14 @@
 {% extends "base.html" %}
 {% block title %}Staff Salary Budgets — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
 {% block content %}
-<div class="card staff-budgets-admin" style="max-width:56rem;margin:0 auto;">
+<div class="card staff-budgets-admin" style="max-width:68rem;margin:0 auto;">
   <h1 class="page-title">Staff Salary Budgets</h1>
   <p class="muted">
     <strong>{{ config.LEAGUE_DISPLAY_NAME }}</strong>
     {% if season_label %}· <strong>{{ season_label }}</strong> season{% else %}· current season{% endif %}
     — enter per-team staff budgets for this league site. Staff payroll is calculated automatically from
-    <a href="{{ url_for('site_gm.staff_salaries_page') }}">Staff Hire/Fire</a> contracts and fire penalties.
+    <a href="{{ url_for('site_gm.staff_salaries_page') }}">Staff Hire/Fire</a> contracts plus salary penalties
+    (from firings or entered here).
   </p>
   <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
   {% with messages = get_flashed_messages() %}
@@ -24,6 +25,7 @@
             <th scope="col">GM</th>
             <th scope="col">ID</th>
             <th scope="col" class="staff-budgets-admin__th-budget">Budget</th>
+            <th scope="col" class="staff-budgets-admin__th-budget">Salary penalties</th>
             <th scope="col" class="staff-budgets-admin__th-budget">Staff payroll</th>
           </tr>
         </thead>
@@ -54,6 +56,20 @@
                 autocomplete="off"
               >
             </td>
+            <td class="staff-budgets-admin__budget">
+              <label class="visually-hidden" for="penalty-{{ t.id }}">Salary penalties for {{ t.full_display_name() }}</label>
+              <input
+                type="text"
+                inputmode="numeric"
+                name="penalty_{{ t.id }}"
+                id="penalty-{{ t.id }}"
+                class="staff-budgets-admin__input"
+                value="{% if row.severance_payroll %}{{ row.severance_payroll }}{% endif %}"
+                placeholder="0"
+                autocomplete="off"
+                title="Applied fire penalties plus any manual amount; counts toward staff payroll"
+              >
+            </td>
             <td class="staff-budgets-admin__budget staff-budgets-admin__payroll-readonly">
               ${{ '{:,}'.format(row.staff_payroll) }}
             </td>
@@ -62,7 +78,7 @@
         </tbody>
       </table>
     </div>
-    <button type="submit" class="join-league-btn" style="margin-top:1rem;border:none;">Save budgets</button>
+    <button type="submit" class="join-league-btn" style="margin-top:1rem;border:none;">Save budgets &amp; penalties</button>
   </form>
 
   {% if defaults %}

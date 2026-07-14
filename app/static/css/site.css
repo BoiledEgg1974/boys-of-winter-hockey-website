@@ -10462,6 +10462,15 @@ table.data.staff-salaries-table--browse td.staff-salaries-browse-hire {
   font-size: 0.78rem;
   margin: 0.15rem 0 0.35rem;
 }
+.team-staff-fire-form {
+  margin-top: 0.35rem;
+}
+.team-staff-fire-form__fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
 .team-staff-retire-form {
   margin-top: 0.25rem;
 }

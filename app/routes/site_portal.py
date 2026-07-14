@@ -82,6 +82,7 @@ from app.services.staff_transactions import (
     admin_hire_staff,
     admin_retire_staff,
     admin_save_staff_contract,
+    admin_set_team_staff_penalty_total,
     expire_stale_staff_contracts,
     transaction_headline_for_entry,
 )
@@ -7600,8 +7601,24 @@ def admin_staff_budgets():
             else:
                 row.budget_amount = budget_amount
                 row.updated_by_user_id = int(current_user.id)
+
+            raw_penalty = (
+                request.form.get(f"penalty_{tid}") or ""
+            ).strip().replace(",", "").replace("$", "")
+            try:
+                penalty_amount = max(0, int(raw_penalty)) if raw_penalty else 0
+            except ValueError:
+                penalty_amount = 0
+            admin_set_team_staff_penalty_total(
+                db.session,
+                league_slug=slug,
+                season_start_year=int(start_year),
+                team_id=tid,
+                penalty_amount=penalty_amount,
+                admin_user_id=int(current_user.id),
+            )
         commit_with_sqlite_retry(db.session)
-        flash("Staff salary budgets saved.", "ok")
+        flash("Staff salary budgets and penalties saved.", "ok")
         return redirect(url_for("site_admin.admin_staff_budgets"))
 
     ctx = staff_salary_context(db.session, league_slug=slug)
@@ -7668,6 +7685,45 @@ def admin_team_staff_retire(team_slug: str):
     if result.ok and result.entry:
         _publish_admin_staff_transaction(
             slug=slug, team=team, entry=result.entry, action="retire"
+        )
+    commit_with_sqlite_retry(db.session)
+    flash(result.message, "ok" if result.ok else "err")
+    return redirect(url_for("main.team_page", slug=team_slug, panel="staff"))
+
+
+@site_admin_bp.post("/team-staff/<team_slug>/fire")
+@login_required
+def admin_team_staff_fire(team_slug: str):
+    """Fire staff from team Staff tab, with optional salary penalty."""
+    require_admin_role(ADMIN_ROLE_STATS, ADMIN_ROLE_LEAGUE)
+    slug = _league_slug()
+    team = db.session.scalar(select(Team).where(Team.slug == team_slug).limit(1))
+    if not team:
+        abort(404)
+    start_year = current_season_start_year(db.session)
+    if start_year is None:
+        flash("No current season configured.", "err")
+        return redirect(url_for("main.team_page", slug=team_slug, panel="staff"))
+    try:
+        penalty_amount = int(
+            str(request.form.get("penalty_amount") or "0")
+            .replace(",", "")
+            .replace("$", "")
+        )
+    except ValueError:
+        penalty_amount = 0
+    result = admin_fire_staff(
+        db.session,
+        league_slug=slug,
+        season_start_year=int(start_year),
+        team_id=int(team.id),
+        admin_user_id=int(current_user.id),
+        staff_fhm_id=(request.form.get("staff_fhm_id") or "").strip(),
+        penalty_amount=penalty_amount,
+    )
+    if result.ok and result.entry:
+        _publish_admin_staff_transaction(
+            slug=slug, team=team, entry=result.entry, action="fire"
         )
     commit_with_sqlite_retry(db.session)
     flash(result.message, "ok" if result.ok else "err")

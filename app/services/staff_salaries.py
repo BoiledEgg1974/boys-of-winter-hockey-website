@@ -167,6 +167,7 @@ def staff_salary_context(session: Session, *, league_slug: str) -> dict:
         u = users_by_id.get(int(m.user_id)) if m else None
         fhm = getattr(t, "fhm_team_id", None)
         staff_payroll = 0
+        severance_payroll = 0
         if start_year is not None:
             fin = staff_finances_for_team(
                 session,
@@ -175,6 +176,7 @@ def staff_salary_context(session: Session, *, league_slug: str) -> dict:
                 season_start_year=int(start_year),
             )
             staff_payroll = int(fin.get("staff_payroll", 0))
+            severance_payroll = int(fin.get("severance_payroll", 0))
         team_rows.append(
             {
                 "team": t,
@@ -182,6 +184,7 @@ def staff_salary_context(session: Session, *, league_slug: str) -> dict:
                 "team_id_label": str(fhm).strip() if fhm is not None and str(fhm).strip() else str(tid),
                 "budget_amount": amount,
                 "staff_payroll": staff_payroll,
+                "severance_payroll": severance_payroll,
             }
         )
 

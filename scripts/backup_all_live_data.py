@@ -1,7 +1,10 @@
 """Create a dated backup of league SQLite files and shared site data.
 
-Backs up per-league data (Hall of Fame, Game Records baselines, FHM stats, trades)
-and site-wide data (AP ledger, attendance, GM accounts, news, Discord queues, BOWL Six).
+Backs up per-league databases (awards history, records, Hall of Fame, archived
+season stats/standings, FHM stats, trades) and site-wide data (AP ledger,
+attendance, GM accounts, news, Discord queues, BOWL Six, boost records, admin
+settings). Also copies file-based Join League open-team lists and writes
+readable JSON dumps for key categories (unless ``--no-json``).
 
 Run on the live server after reloading the web app (and pausing the Discord bot) so
 SQLite files are not locked.
@@ -44,7 +47,60 @@ from app.config import (  # noqa: E402
 from app.db_utils import sqlite_integrity_message, sqlite_wal_checkpoint  # noqa: E402
 
 DEFAULT_BACKUP_ROOT = BASE_DIR / "instance" / "full_backups"
+_INSTANCE_DIR = BASE_DIR / "instance"
 _SQLITE_SIDECAR_SUFFIXES = ("-wal", "-shm")
+
+LEAGUE_COVERAGE_CATEGORIES: dict[str, tuple[str, ...]] = {
+    "awards": ("history_awards", "history_champions", "history_all_stars"),
+    "records": ("game_record_baselines", "team_season_records", "record_stat_adjustments"),
+    "hall_of_fame": ("hall_of_fame_members",),
+    "archived_seasons": (
+        "seasons",
+        "team_standings",
+        "player_skater_stats",
+        "player_goalie_stats",
+        "games",
+    ),
+}
+
+SITE_COVERAGE_CATEGORIES: dict[str, tuple[str, ...]] = {
+    "boost_records": ("boost_lottery_team_results",),
+    "admin_live_data": (
+        "league_rule_settings",
+        "league_salary_cap_years",
+        "homepage_module_settings",
+        "site_announcements",
+        "discord_league_bot_config",
+        "discord_channel_routes",
+        "sim_cycle_state",
+        "ap_redemption_catalog",
+        "league_drafts",
+        "bowl_six_slates",
+        "draft_pick_ownership_years",
+        "trade_market_draft_pick_ownership",
+    ),
+}
+
+ADMIN_SETTINGS_TABLES: tuple[str, ...] = (
+    "league_rule_settings",
+    "league_salary_cap_years",
+    "homepage_module_settings",
+    "site_announcements",
+    "discord_league_bot_config",
+    "discord_channel_routes",
+    "sim_cycle_state",
+)
+
+LEAGUE_AWARDS_TABLES: tuple[str, ...] = (
+    "history_awards",
+    "history_champions",
+    "history_all_stars",
+)
+LEAGUE_RECORDS_TABLES: tuple[str, ...] = (
+    "game_record_baselines",
+    "team_season_records",
+    "record_stat_adjustments",
+)
 
 
 def _utc_timestamp() -> str:
@@ -69,6 +125,89 @@ def _site_tables() -> list[str]:
     from app.league_db import db
 
     return [table.name for table in db.metadatas["site"].sorted_tables]
+
+
+def _serialize_row(row: dict) -> dict:
+    clean: dict = {}
+    for key, value in row.items():
+        if hasattr(value, "isoformat"):
+            clean[key] = value.isoformat()
+        else:
+            clean[key] = value
+    return clean
+
+
+def _sqlite_table_names(conn: sqlite3.Connection) -> set[str]:
+    rows = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+    ).fetchall()
+    return {str(row[0]) for row in rows}
+
+
+def _sqlite_table_row_count(conn: sqlite3.Connection, table_name: str, existing: set[str]) -> dict:
+    if table_name not in existing:
+        return {"table": table_name, "rows": 0, "missing": True}
+    count = conn.execute(f'SELECT COUNT(*) FROM "{table_name}"').fetchone()[0]
+    return {"table": table_name, "rows": int(count)}
+
+
+def _category_inventory_from_sqlite(
+    db_path: Path,
+    categories: dict[str, tuple[str, ...]],
+) -> dict:
+    if not db_path.is_file():
+        return {"ok": False, "message": "database missing", "categories": {}}
+
+    conn = sqlite3.connect(str(db_path), timeout=30.0)
+    try:
+        existing = _sqlite_table_names(conn)
+        out_categories: dict[str, dict] = {}
+        for category, tables in categories.items():
+            table_rows = [_sqlite_table_row_count(conn, name, existing) for name in tables]
+            out_categories[category] = {
+                "tables": table_rows,
+                "total_rows": sum(int(row["rows"]) for row in table_rows),
+            }
+        return {"ok": True, "source": str(db_path), "categories": out_categories}
+    except sqlite3.Error as exc:
+        return {"ok": False, "source": str(db_path), "message": str(exc), "categories": {}}
+    finally:
+        conn.close()
+
+
+def _engine_table_row_counts(engine: Engine, tables: tuple[str, ...]) -> list[dict]:
+    existing = set(inspect(engine).get_table_names())
+    summaries: list[dict] = []
+    with engine.connect() as conn:
+        for table_name in tables:
+            if table_name not in existing:
+                summaries.append({"table": table_name, "rows": 0, "missing": True})
+                continue
+            count = conn.execute(text(f"SELECT COUNT(*) FROM `{table_name}`")).scalar()
+            summaries.append({"table": table_name, "rows": int(count or 0)})
+    return summaries
+
+
+def _fetch_table_rows_sqlite(conn: sqlite3.Connection, table_name: str, existing: set[str]) -> list[dict]:
+    if table_name not in existing:
+        return []
+    cursor = conn.execute(f'SELECT * FROM "{table_name}"')
+    columns = [col[0] for col in cursor.description]
+    return [_serialize_row(dict(zip(columns, row))) for row in cursor.fetchall()]
+
+
+def _fetch_table_rows_engine(engine: Engine, table_name: str, existing: set[str]) -> list[dict]:
+    if table_name not in existing:
+        return []
+    with engine.connect() as conn:
+        result = conn.execute(text(f"SELECT * FROM `{table_name}`"))
+        columns = list(result.keys())
+        return [_serialize_row(dict(zip(columns, row))) for row in result.fetchall()]
+
+
+def _write_json(path: Path, payload: object) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, default=str) + "\n", encoding="utf-8")
 
 
 def copy_sqlite_database(
@@ -131,23 +270,9 @@ def export_site_tables_json(engine: Engine, dest_dir: Path) -> list[dict]:
             summaries.append({"table": table_name, "rows": 0, "path": str(out_path), "missing": True})
             continue
 
-        with engine.connect() as conn:
-            result = conn.execute(text(f"SELECT * FROM `{table_name}`"))
-            columns = list(result.keys())
-            rows = [dict(zip(columns, row)) for row in result.fetchall()]
-
-        serializable: list[dict] = []
-        for row in rows:
-            clean: dict = {}
-            for key, value in row.items():
-                if hasattr(value, "isoformat"):
-                    clean[key] = value.isoformat()
-                else:
-                    clean[key] = value
-            serializable.append(clean)
-
-        out_path.write_text(json.dumps(serializable, indent=2, default=str) + "\n", encoding="utf-8")
-        summaries.append({"table": table_name, "rows": len(serializable), "path": str(out_path)})
+        rows = _fetch_table_rows_engine(engine, table_name, existing)
+        out_path.write_text(json.dumps(rows, indent=2, default=str) + "\n", encoding="utf-8")
+        summaries.append({"table": table_name, "rows": len(rows), "path": str(out_path)})
 
     return summaries
 
@@ -237,8 +362,181 @@ def backup_site_database(
     return result
 
 
-def export_league_json_supplements(out_dir: Path) -> list[dict]:
-    """Export trade logs and OVR baselines per league as JSON."""
+def backup_admin_files(out_dir: Path, *, instance_dir: Path | None = None) -> dict:
+    """Copy Join League open-team lists and related admin files from instance/."""
+    inst = (instance_dir or _INSTANCE_DIR).resolve()
+    admin_dir = out_dir / "admin_files"
+    admin_dir.mkdir(parents=True, exist_ok=True)
+    copied: list[dict] = []
+    missing: list[str] = []
+
+    join_src = inst / "join_league"
+    join_dest = admin_dir / "join_league"
+    if join_src.is_dir():
+        if join_dest.exists():
+            shutil.rmtree(join_dest)
+        shutil.copytree(join_src, join_dest)
+        file_count = sum(1 for path in join_dest.rglob("*") if path.is_file())
+        copied.append(
+            {
+                "ok": True,
+                "source": str(join_src),
+                "dest": str(join_dest),
+                "file_count": file_count,
+            }
+        )
+    else:
+        missing.append(str(join_src))
+
+    legacy_name = "join_league_available_teams.txt"
+    legacy_src = inst / legacy_name
+    if legacy_src.is_file():
+        legacy_dest = admin_dir / legacy_name
+        shutil.copy2(legacy_src, legacy_dest)
+        copied.append(
+            {
+                "ok": True,
+                "source": str(legacy_src),
+                "dest": str(legacy_dest),
+                "file_count": 1,
+            }
+        )
+    else:
+        missing.append(str(legacy_src))
+
+    return {
+        "ok": True,
+        "dest": str(admin_dir),
+        "copied": copied,
+        "missing": missing,
+    }
+
+
+def build_coverage_inventory(
+    league_results: list[dict],
+    site_result: dict,
+) -> dict:
+    """Row-count inventory for awards, records, HoF, boosts, admin data, seasons."""
+    leagues: list[dict] = []
+    for row in league_results:
+        slug = row.get("slug", "?")
+        db_path = Path(str(row.get("dest") or "")) if row.get("ok") else Path()
+        if not row.get("ok") or not db_path.is_file():
+            leagues.append(
+                {
+                    "slug": slug,
+                    "ok": False,
+                    "message": row.get("message") or "league database not backed up",
+                    "categories": {},
+                }
+            )
+            continue
+        inventory = _category_inventory_from_sqlite(db_path, LEAGUE_COVERAGE_CATEGORIES)
+        inventory["slug"] = slug
+        leagues.append(inventory)
+
+    site_coverage: dict = {"ok": False, "categories": {}}
+    if site_result.get("ok"):
+        if site_result.get("backend") == "mysql":
+            site_url = normalize_site_database_url(str(os.environ.get("SITE_DATABASE_URL") or "").strip())
+            engine = create_engine(site_url)
+            try:
+                categories: dict[str, dict] = {}
+                for category, tables in SITE_COVERAGE_CATEGORIES.items():
+                    table_rows = _engine_table_row_counts(engine, tables)
+                    categories[category] = {
+                        "tables": table_rows,
+                        "total_rows": sum(int(row["rows"]) for row in table_rows),
+                    }
+                site_coverage = {
+                    "ok": True,
+                    "backend": "mysql",
+                    "categories": categories,
+                }
+            except Exception as exc:  # noqa: BLE001 — surface in manifest
+                site_coverage = {"ok": False, "backend": "mysql", "message": str(exc), "categories": {}}
+            finally:
+                engine.dispose()
+        else:
+            dest = Path(str(site_result.get("dest") or ""))
+            site_coverage = _category_inventory_from_sqlite(dest, SITE_COVERAGE_CATEGORIES)
+            site_coverage["backend"] = "sqlite"
+    else:
+        site_coverage = {
+            "ok": False,
+            "message": site_result.get("message") or "site database not backed up",
+            "categories": {},
+        }
+
+    return {"leagues": leagues, "site": site_coverage}
+
+
+def export_league_history_json(db_path: Path, dest_dir: Path) -> dict:
+    """Write awards/HoF/records/seasons_index JSON for one league database."""
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    if not db_path.is_file():
+        return {"ok": False, "message": "league database missing"}
+
+    conn = sqlite3.connect(str(db_path), timeout=30.0)
+    try:
+        existing = _sqlite_table_names(conn)
+        awards = {name: _fetch_table_rows_sqlite(conn, name, existing) for name in LEAGUE_AWARDS_TABLES}
+        hof = _fetch_table_rows_sqlite(conn, "hall_of_fame_members", existing)
+        records = {name: _fetch_table_rows_sqlite(conn, name, existing) for name in LEAGUE_RECORDS_TABLES}
+        seasons = _fetch_table_rows_sqlite(conn, "seasons", existing)
+
+        awards_path = dest_dir / "awards.json"
+        hof_path = dest_dir / "hall_of_fame.json"
+        records_path = dest_dir / "records.json"
+        seasons_path = dest_dir / "seasons_index.json"
+        _write_json(awards_path, awards)
+        _write_json(hof_path, hof)
+        _write_json(records_path, records)
+        _write_json(seasons_path, seasons)
+
+        return {
+            "ok": True,
+            "awards_rows": sum(len(rows) for rows in awards.values()),
+            "awards_path": str(awards_path),
+            "hall_of_fame_rows": len(hof),
+            "hall_of_fame_path": str(hof_path),
+            "records_rows": sum(len(rows) for rows in records.values()),
+            "records_path": str(records_path),
+            "seasons_index_rows": len(seasons),
+            "seasons_index_path": str(seasons_path),
+        }
+    except sqlite3.Error as exc:
+        return {"ok": False, "message": str(exc)}
+    finally:
+        conn.close()
+
+
+def export_site_focused_json(engine: Engine, dest_dir: Path) -> dict:
+    """Write boost_records.json and admin_settings.json."""
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    existing = set(inspect(engine).get_table_names())
+
+    boost_rows = _fetch_table_rows_engine(engine, "boost_lottery_team_results", existing)
+    admin_payload = {
+        name: _fetch_table_rows_engine(engine, name, existing) for name in ADMIN_SETTINGS_TABLES
+    }
+
+    boost_path = dest_dir / "boost_records.json"
+    admin_path = dest_dir / "admin_settings.json"
+    _write_json(boost_path, boost_rows)
+    _write_json(admin_path, admin_payload)
+
+    return {
+        "ok": True,
+        "boost_records_rows": len(boost_rows),
+        "boost_records_path": str(boost_path),
+        "admin_settings_rows": sum(len(rows) for rows in admin_payload.values()),
+        "admin_settings_path": str(admin_path),
+    }
+
+
+def export_league_json_supplements(out_dir: Path, league_results: list[dict] | None = None) -> list[dict]:
+    """Export trade logs, OVR baselines, and history-focused JSON per league."""
     from scripts.ovr_baseline_transfer import export_ovr_baselines_json
     from scripts.trade_log_transfer import export_trade_log_json
 
@@ -246,10 +544,17 @@ def export_league_json_supplements(out_dir: Path) -> list[dict]:
     json_dir.mkdir(parents=True, exist_ok=True)
     results: list[dict] = []
 
+    dest_by_slug = {
+        str(row.get("slug")): Path(str(row["dest"]))
+        for row in (league_results or [])
+        if row.get("ok") and row.get("dest")
+    }
+
     for slug in league_slugs():
-        db_path = resolve_league_sqlite_path(slug)
+        db_path = dest_by_slug.get(slug) or resolve_league_sqlite_path(slug)
         trade_out = json_dir / f"{slug}_trade_log.json"
         ovr_out = json_dir / f"{slug}_ovr_baselines.json"
+        history_dir = json_dir / slug
         slug_result: dict = {"slug": slug, "source": str(db_path)}
 
         if not db_path.is_file():
@@ -258,27 +563,61 @@ def export_league_json_supplements(out_dir: Path) -> list[dict]:
             results.append(slug_result)
             continue
 
+        trade_count = 0
+        ovr_count = 0
+        errors: list[str] = []
         try:
             trade_count = export_trade_log_json(db_path, trade_out)
+        except (OSError, json.JSONDecodeError, sqlite3.Error) as exc:
+            errors.append(f"trade_log: {exc}")
+        try:
             ovr_count = export_ovr_baselines_json(db_path, ovr_out)
         except (OSError, json.JSONDecodeError, sqlite3.Error) as exc:
-            slug_result["ok"] = False
-            slug_result["message"] = str(exc)
-            results.append(slug_result)
-            continue
+            errors.append(f"ovr: {exc}")
+
+        history = export_league_history_json(db_path, history_dir)
+        if not history.get("ok"):
+            errors.append(history.get("message") or "history JSON export failed")
 
         slug_result.update(
             {
-                "ok": True,
+                "ok": bool(history.get("ok", False)),
                 "trade_log_rows": trade_count,
                 "trade_log_path": str(trade_out),
                 "ovr_baseline_rows": ovr_count,
                 "ovr_baselines_path": str(ovr_out),
+                "history": history,
             }
         )
+        if errors:
+            slug_result["message"] = "; ".join(errors)
         results.append(slug_result)
 
     return results
+
+
+def export_site_json_supplements(out_dir: Path, site_result: dict) -> dict:
+    """Export focused site JSON (boosts + admin settings)."""
+    dest_dir = out_dir / "json" / "site"
+    if not site_result.get("ok"):
+        return {"ok": False, "message": site_result.get("message") or "site database not backed up"}
+
+    if site_result.get("backend") == "mysql":
+        site_url = normalize_site_database_url(str(os.environ.get("SITE_DATABASE_URL") or "").strip())
+        engine = create_engine(site_url)
+        try:
+            return export_site_focused_json(engine, dest_dir)
+        finally:
+            engine.dispose()
+
+    dest = Path(str(site_result.get("dest") or ""))
+    if not dest.is_file():
+        return {"ok": False, "message": "site SQLite backup missing"}
+    engine = create_engine(f"sqlite:///{dest.as_posix()}")
+    try:
+        return export_site_focused_json(engine, dest_dir)
+    finally:
+        engine.dispose()
 
 
 def run_backup(
@@ -287,6 +626,7 @@ def run_backup(
     checkpoint: bool = True,
     verify: bool = False,
     include_json: bool = True,
+    instance_dir: Path | None = None,
 ) -> dict:
     out_dir = out_dir.resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -298,8 +638,10 @@ def run_backup(
         "verified_integrity": verify,
         "notes": [
             "Reload the web app and pause the Discord bot before backing up on a live server.",
-            "League .db files include Hall of Fame, Game Record baselines, and FHM stats.",
-            "Site backup includes AP ledger, attendance, GM accounts, news, and BOWL Six.",
+            "League .db files include awards history, records, Hall of Fame, and archived season stats/standings.",
+            "Site backup includes AP ledger, attendance, GM accounts, news, Discord, BOWL Six, boost records, and admin settings.",
+            "coverage lists row counts for those categories; json/ holds readable dumps when JSON is enabled.",
+            "admin_files/ includes Join League open-team lists from instance/join_league/.",
         ],
     }
 
@@ -310,8 +652,12 @@ def run_backup(
         verify=verify,
         include_json=include_json,
     )
+    manifest["admin_files"] = backup_admin_files(out_dir, instance_dir=instance_dir)
+    manifest["coverage"] = build_coverage_inventory(manifest["leagues"], manifest["site"])
+
     if include_json:
-        manifest["league_json"] = export_league_json_supplements(out_dir)
+        manifest["league_json"] = export_league_json_supplements(out_dir, manifest["leagues"])
+        manifest["site_json"] = export_site_json_supplements(out_dir, manifest["site"])
 
     league_failures = [
         row
@@ -351,9 +697,37 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--no-json",
         action="store_true",
-        help="Skip JSON supplements (trade logs, OVR baselines, site table exports for SQLite).",
+        help=(
+            "Skip JSON supplements (trade logs, OVR baselines, awards/HoF/records dumps, "
+            "site table exports for SQLite)."
+        ),
     )
     return parser.parse_args()
+
+
+def _print_coverage(coverage: dict) -> None:
+    for league in coverage.get("leagues") or []:
+        slug = league.get("slug", "?")
+        if not league.get("ok"):
+            print(f"  coverage {slug}: skipped ({league.get('message', 'unavailable')})")
+            continue
+        cats = league.get("categories") or {}
+        parts = [
+            f"{name}={int((info or {}).get('total_rows') or 0)}"
+            for name, info in cats.items()
+        ]
+        print(f"  coverage {slug}: " + ", ".join(parts))
+
+    site = coverage.get("site") or {}
+    if not site.get("ok"):
+        print(f"  coverage site: skipped ({site.get('message', 'unavailable')})")
+        return
+    cats = site.get("categories") or {}
+    parts = [
+        f"{name}={int((info or {}).get('total_rows') or 0)}"
+        for name, info in cats.items()
+    ]
+    print("  coverage site: " + ", ".join(parts))
 
 
 def main() -> int:
@@ -395,13 +769,36 @@ def main() -> int:
     else:
         print(f"  site: FAILED — {site.get('message', 'unknown error')}")
 
+    admin_files = manifest.get("admin_files") or {}
+    copied = admin_files.get("copied") or []
+    if copied:
+        total_files = sum(int(row.get("file_count") or 0) for row in copied)
+        print(f"  admin_files: OK ({total_files} file(s))")
+    else:
+        print("  admin_files: none found (join_league optional)")
+
+    if manifest.get("coverage"):
+        _print_coverage(manifest["coverage"])
+
     if manifest.get("league_json"):
         for row in manifest["league_json"]:
             if row.get("ok"):
+                history = row.get("history") or {}
                 print(
                     f"  json {row['slug']}: trade_log={row.get('trade_log_rows', 0)}, "
-                    f"ovr={row.get('ovr_baseline_rows', 0)}"
+                    f"ovr={row.get('ovr_baseline_rows', 0)}, "
+                    f"awards={history.get('awards_rows', 0)}, "
+                    f"hof={history.get('hall_of_fame_rows', 0)}, "
+                    f"records={history.get('records_rows', 0)}, "
+                    f"seasons={history.get('seasons_index_rows', 0)}"
                 )
+
+    site_json = manifest.get("site_json") or {}
+    if site_json.get("ok"):
+        print(
+            f"  json site: boost={site_json.get('boost_records_rows', 0)}, "
+            f"admin={site_json.get('admin_settings_rows', 0)}"
+        )
 
     if not manifest.get("ok"):
         print("Backup completed with errors.", file=sys.stderr)

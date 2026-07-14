@@ -13,6 +13,7 @@ from app.models import OrgDevelopmentReportArchive, Player, PlayerRatingSnapshot
 from app.services.all_time_records import bowl_nhl_league_ids
 from app.services.org_development_timeline import (
     ORG_DEV_ARCHIVE_MONTH_LIMIT,
+    backfill_null_snapshot_timelines,
     development_report_title,
     league_timeline_anchor_date,
     timeline_from_snapshot,
@@ -511,12 +512,46 @@ def persist_team_org_development_reports(
     return upserted
 
 
+def _purge_stale_org_development_archives(session: Session, *, league_slug: str) -> int:
+    """Remove archives whose months no longer match stamped snapshot timelines."""
+    slug = (league_slug or "").strip()
+    if not slug:
+        return 0
+    valid_keys = {
+        f"{int(cy):04d}-{int(cm):02d}"
+        for cy, cm in session.execute(
+            select(
+                PlayerRatingSnapshot.timeline_calendar_year,
+                PlayerRatingSnapshot.timeline_calendar_month,
+            ).where(PlayerRatingSnapshot.timeline_calendar_year.isnot(None))
+        ).all()
+        if cy is not None and cm is not None
+    }
+    rows = list(
+        session.scalars(
+            select(OrgDevelopmentReportArchive).where(OrgDevelopmentReportArchive.league_slug == slug)
+        ).all()
+    )
+    deleted = 0
+    for row in rows:
+        if str(row.timeline_key) not in valid_keys:
+            session.delete(row)
+            deleted += 1
+    if deleted:
+        session.flush()
+    return deleted
+
+
 def persist_org_development_reports_for_league(session: Session, league_slug: str) -> int:
     from app.services.seasons import get_current_season, season_age_reference_date
 
     slug = (league_slug or "").strip()
     if not slug:
         return 0
+    backfilled = backfill_null_snapshot_timelines(session)
+    purged = _purge_stale_org_development_archives(session, league_slug=slug)
+    if backfilled or purged:
+        session.commit()
     league_ids = bowl_nhl_league_ids(session)
     teams = session.scalars(
         select(Team).where(Team.fhm_league_id.in_(league_ids)).order_by(Team.name)
@@ -596,6 +631,10 @@ def build_org_development_reports(
 
     slug = (league_slug or "").strip()
     if slug:
+        backfilled = backfill_null_snapshot_timelines(session)
+        purged = _purge_stale_org_development_archives(session, league_slug=slug)
+        if backfilled or purged:
+            session.commit()
         persist_team_org_development_reports(
             session,
             team,

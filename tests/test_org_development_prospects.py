@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import unittest
-from datetime import date
+from datetime import date, datetime
 from types import SimpleNamespace
 
 from app.services.org_development import classify_player_month_diff, format_signed_delta
@@ -10,7 +10,10 @@ from app.services.org_development_timeline import (
     ORG_DEV_ARCHIVE_MONTH_LIMIT,
     development_report_title,
     hockey_season_start_year,
+    map_import_months_onto_game_timeline,
+    shift_calendar_month,
     timeline_from_date,
+    timeline_from_snapshot,
     timeline_sort_key,
 )
 from app.services.team_prospects import (
@@ -67,6 +70,48 @@ class OrgDevelopmentTimelineTest(unittest.TestCase):
 
     def test_archive_limit_constant(self) -> None:
         self.assertEqual(ORG_DEV_ARCHIVE_MONTH_LIMIT, 36)
+
+    def test_timeline_from_snapshot_prefers_sim_anchor_over_wall_clock(self) -> None:
+        snap = SimpleNamespace(
+            timeline_season_start_year=None,
+            timeline_calendar_year=None,
+            timeline_calendar_month=None,
+            snapshot_at=datetime(2026, 6, 15, 12, 0, 0),
+        )
+        tl = timeline_from_snapshot(snap, fallback_anchor=date(2001, 4, 6))
+        self.assertEqual(tl["timeline_calendar_year"], 2001)
+        self.assertEqual(tl["timeline_calendar_month"], 4)
+        title = development_report_title(
+            calendar_year=int(tl["timeline_calendar_year"]),
+            calendar_month=int(tl["timeline_calendar_month"]),
+            season_start_year=int(tl["timeline_season_start_year"]),
+        )
+        self.assertIn("April 2001", title)
+        self.assertIn("2000-01", title)
+        self.assertNotIn("2026", title)
+
+    def test_timeline_from_snapshot_uses_stored_columns(self) -> None:
+        snap = SimpleNamespace(
+            timeline_season_start_year=2000,
+            timeline_calendar_year=2000,
+            timeline_calendar_month=9,
+            snapshot_at=datetime(2026, 7, 1),
+        )
+        tl = timeline_from_snapshot(snap, fallback_anchor=date(2001, 4, 6))
+        self.assertEqual(tl["timeline_key"], "2000-09")
+
+    def test_map_import_months_onto_game_timeline(self) -> None:
+        mapping = map_import_months_onto_game_timeline(
+            [(2026, 5), (2026, 6), (2026, 7)],
+            anchor=date(2000, 9, 29),
+        )
+        self.assertEqual(mapping[(2026, 7)]["timeline_key"], "2000-09")
+        self.assertEqual(mapping[(2026, 6)]["timeline_key"], "2000-08")
+        self.assertEqual(mapping[(2026, 5)]["timeline_key"], "2000-07")
+
+    def test_shift_calendar_month(self) -> None:
+        self.assertEqual(shift_calendar_month(2000, 9, -1), (2000, 8))
+        self.assertEqual(shift_calendar_month(2000, 1, -1), (1999, 12))
 
 
 class TeamProspectsHelpersTest(unittest.TestCase):

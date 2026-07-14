@@ -1572,7 +1572,58 @@
     });
   }
 
+  function initPageLoadBarNavigation() {
+    var api = window.__bowlPageLoad;
+    if (!api || typeof api.start !== "function") return;
+
+    function shouldHandleLink(a) {
+      if (!a || !a.href) return false;
+      if (a.target && a.target !== "_self") return false;
+      if (a.hasAttribute("download")) return false;
+      var href = a.getAttribute("href");
+      if (!href || href.charAt(0) === "#") return false;
+      if (href.indexOf("javascript:") === 0) return false;
+      try {
+        var url = new URL(a.href, window.location.href);
+        if (url.origin !== window.location.origin) return false;
+        if (
+          url.pathname === window.location.pathname &&
+          url.search === window.location.search &&
+          url.hash
+        ) {
+          return false;
+        }
+      } catch (err) {
+        return false;
+      }
+      return true;
+    }
+
+    document.addEventListener(
+      "click",
+      function (ev) {
+        var a = ev.target.closest("a");
+        if (!shouldHandleLink(a)) return;
+        if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey || ev.button !== 0) return;
+        api.start();
+      },
+      true
+    );
+
+    document.addEventListener(
+      "submit",
+      function (ev) {
+        var form = ev.target;
+        if (!form || form.tagName !== "FORM") return;
+        if (form.target && form.target !== "_self") return;
+        api.start();
+      },
+      true
+    );
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
+    initPageLoadBarNavigation();
     applyTheme(getPreferredTheme());
     initPlayerShareCardClipboardHint();
     initPlayerSeasonTrendCharts();
@@ -1638,6 +1689,9 @@
         // Always open the selected league's homepage. Carrying over paths like /team/bos-t5
         // breaks when that slug or route does not exist in the other league DB.
         // Domain-root path: withRoot would prefix current SCRIPT_NAME (e.g. /bowl-fantasy/bowl-historical/).
+        if (window.__bowlPageLoad && typeof window.__bowlPageLoad.start === "function") {
+          window.__bowlPageLoad.start();
+        }
         window.location.href = "/" + slug + "/";
       });
     }

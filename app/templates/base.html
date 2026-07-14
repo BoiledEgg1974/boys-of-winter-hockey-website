@@ -10,6 +10,65 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
 </head>
 <body class="site-touch-layout{% if admin_compact_layout %} admin-compact-layout{% endif %}">
+  <div id="page-load-bar" class="page-load-bar is-active" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Loading page" aria-live="polite">
+    <div class="page-load-bar__track">
+      <div class="page-load-bar__fill"></div>
+    </div>
+    <span class="page-load-bar__pct" aria-hidden="true">0%</span>
+  </div>
+  <script>
+  (function () {
+    "use strict";
+    var bar = document.getElementById("page-load-bar");
+    if (!bar) return;
+    var fill = bar.querySelector(".page-load-bar__fill");
+    var pctEl = bar.querySelector(".page-load-bar__pct");
+    var value = 0;
+    var timer = null;
+    var completeTimer = null;
+
+    function setProgress(n) {
+      value = Math.max(0, Math.min(100, Math.round(n)));
+      fill.style.width = value + "%";
+      pctEl.textContent = value + "%";
+      bar.setAttribute("aria-valuenow", String(value));
+    }
+
+    function tick() {
+      if (value >= 90) return;
+      var inc = value < 30 ? 8 : value < 60 ? 4 : value < 80 ? 2 : 0.5;
+      setProgress(value + inc);
+    }
+
+    function start() {
+      bar.classList.add("is-active");
+      clearInterval(timer);
+      clearTimeout(completeTimer);
+      setProgress(value > 0 && value < 100 ? value : 0);
+      timer = setInterval(tick, 200);
+    }
+
+    function complete() {
+      clearInterval(timer);
+      setProgress(100);
+      completeTimer = setTimeout(function () {
+        bar.classList.remove("is-active");
+        setProgress(0);
+      }, 350);
+    }
+
+    start();
+    document.addEventListener("DOMContentLoaded", function () {
+      if (value < 50) setProgress(50);
+    });
+    window.addEventListener("load", complete);
+    window.addEventListener("pageshow", function (ev) {
+      if (ev.persisted) complete();
+    });
+
+    window.__bowlPageLoad = { start: start, complete: complete };
+  })();
+  </script>
   <header class="site-header" role="banner">
     <div class="header-row1">
       <div class="league-brand">

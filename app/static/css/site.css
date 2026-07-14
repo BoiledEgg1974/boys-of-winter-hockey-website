@@ -20860,6 +20860,60 @@ button.bowl-six-submissions__toggle:hover {
   font-size: 0.86rem;
 }
 
+/* Global page-load progress bar (all league sites) */
+.page-load-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 13000;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.35rem 0.85rem;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  background: rgb(15 23 42 / 0.94);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 12px rgb(0 0 0 / 0.28);
+  transition: opacity 0.25s ease, visibility 0.25s ease;
+}
+.page-load-bar.is-active {
+  opacity: 1;
+  visibility: visible;
+}
+.page-load-bar__track {
+  flex: 1;
+  height: 4px;
+  background: rgb(226 232 240 / 0.18);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.page-load-bar__fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-gradient-end));
+  box-shadow: 0 0 10px rgb(56 189 248 / 0.45);
+  transition: width 0.2s ease;
+}
+.page-load-bar__pct {
+  flex: 0 0 auto;
+  min-width: 2.85rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #f8fafc;
+  text-align: right;
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-load-bar,
+  .page-load-bar__fill {
+    transition: none;
+  }
+}
+
 /* Shared loading cue: spinning hockey puck */
 .loading-with-puck,
 .playoff-bracket-dialog__loading,

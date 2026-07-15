@@ -100,21 +100,22 @@
                 {% endif %}
               </form>
               {% if contract and row.contract_active is defined and row.contract_active %}
-              <form method="post" action="{{ url_for('site_admin.admin_team_staff_fire', team_slug=team.slug) }}" class="team-staff-fire-form" onsubmit="return confirm('Fire {{ row.full_name }}? Contract salary is removed; any penalty is added to staff payroll.');">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input type="hidden" name="staff_fhm_id" value="{{ sid }}">
-                <div class="team-staff-fire-form__fields">
-                  <label class="visually-hidden" for="fire-penalty-{{ sid }}">Contract penalty</label>
-                  <input type="text" inputmode="numeric" name="penalty_amount" id="fire-penalty-{{ sid }}" class="team-staff-contract-form__input" placeholder="Penalty" value="{% if contract.annual_salary %}{{ contract.annual_salary }}{% endif %}" title="Salary penalty (added to staff payroll)" autocomplete="off">
-                  <button type="submit" class="staff-salaries-btn staff-salaries-btn--small staff-salaries-btn--danger">Fire</button>
-                </div>
-                <p class="muted team-staff-contract-form__meta">Penalty is added to staff payroll</p>
-              </form>
-              <form method="post" action="{{ url_for('site_admin.admin_team_staff_retire', team_slug=team.slug) }}" class="team-staff-retire-form" onsubmit="return confirm('Retire {{ row.full_name }}? This removes their contract from staff payroll.');">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input type="hidden" name="staff_fhm_id" value="{{ sid }}">
-                <button type="submit" class="staff-salaries-btn staff-salaries-btn--small">Retire</button>
-              </form>
+              <div class="team-staff-contract-actions">
+                <button
+                  type="button"
+                  class="staff-salaries-btn staff-salaries-btn--small staff-salaries-btn--danger"
+                  data-staff-fire-open
+                  data-staff-id="{{ sid }}"
+                  data-staff-name="{{ row.full_name }}"
+                  data-default-penalty="{% if contract.annual_salary %}{{ contract.annual_salary }}{% else %}0{% endif %}"
+                  data-fire-action="{{ url_for('site_admin.admin_team_staff_fire', team_slug=team.slug) }}"
+                >Fire</button>
+                <form method="post" action="{{ url_for('site_admin.admin_team_staff_retire', team_slug=team.slug) }}" class="team-staff-retire-form" onsubmit="return confirm('Retire {{ row.full_name }}? This removes their contract from staff payroll.');">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="staff_fhm_id" value="{{ sid }}">
+                  <button type="submit" class="staff-salaries-btn staff-salaries-btn--small">Retire</button>
+                </form>
+              </div>
               {% endif %}
             </td>
             {% endif %}
@@ -130,6 +131,24 @@
   {% endfor %}
 </div>
 {% if staff_is_admin %}
+<dialog class="team-staff-fire-dialog" id="team-staff-fire-dialog" aria-labelledby="team-staff-fire-dialog-title">
+  <form class="team-staff-fire-dialog__form" method="post" id="team-staff-fire-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="staff_fhm_id" id="team-staff-fire-staff-id" value="">
+    <h2 class="team-staff-fire-dialog__title" id="team-staff-fire-dialog-title">Fire staff</h2>
+    <p class="muted team-staff-fire-dialog__lead" id="team-staff-fire-dialog-lead">
+      Enter the contract penalty to add to this team's staff finances for the season. Their salary is removed from payroll.
+    </p>
+    <label class="team-staff-fire-dialog__label" for="team-staff-fire-penalty">
+      Contract penalty
+      <input type="text" inputmode="numeric" name="penalty_amount" id="team-staff-fire-penalty" class="team-staff-fire-dialog__input" placeholder="0" autocomplete="off">
+    </label>
+    <div class="team-staff-fire-dialog__actions">
+      <button type="button" class="staff-salaries-btn staff-salaries-btn--small" id="team-staff-fire-cancel">Cancel</button>
+      <button type="submit" class="staff-salaries-btn staff-salaries-btn--small staff-salaries-btn--danger" id="team-staff-fire-confirm">Confirm fire</button>
+    </div>
+  </form>
+</dialog>
 <script>
 (function () {
   function applyOwnerSalary(select) {
@@ -149,6 +168,49 @@
       applyOwnerSalary(select);
     });
   });
+
+  var dialog = document.getElementById("team-staff-fire-dialog");
+  var fireForm = document.getElementById("team-staff-fire-form");
+  var staffIdInput = document.getElementById("team-staff-fire-staff-id");
+  var penaltyInput = document.getElementById("team-staff-fire-penalty");
+  var titleEl = document.getElementById("team-staff-fire-dialog-title");
+  var leadEl = document.getElementById("team-staff-fire-dialog-lead");
+  var cancelBtn = document.getElementById("team-staff-fire-cancel");
+
+  function openFireDialog(btn) {
+    if (!dialog || !fireForm || !staffIdInput || !penaltyInput) return;
+    var name = btn.getAttribute("data-staff-name") || "this staff member";
+    var action = btn.getAttribute("data-fire-action") || "";
+    var sid = btn.getAttribute("data-staff-id") || "";
+    var penalty = btn.getAttribute("data-default-penalty") || "0";
+    fireForm.setAttribute("action", action);
+    staffIdInput.value = sid;
+    penaltyInput.value = penalty === "0" ? "" : penalty;
+    if (titleEl) titleEl.textContent = "Fire " + name + "?";
+    if (leadEl) {
+      leadEl.textContent =
+        "Enter the contract penalty to add to this team's staff finances for the season. " +
+        name + "'s salary is removed from payroll.";
+    }
+    if (typeof dialog.showModal === "function") {
+      dialog.showModal();
+      penaltyInput.focus();
+      penaltyInput.select && penaltyInput.select();
+    } else {
+      alert("Your browser does not support dialog windows. Please use a current browser.");
+    }
+  }
+
+  document.querySelectorAll("[data-staff-fire-open]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      openFireDialog(btn);
+    });
+  });
+  if (cancelBtn && dialog) {
+    cancelBtn.addEventListener("click", function () {
+      dialog.close();
+    });
+  }
 })();
 </script>
 {% endif %}

@@ -10462,17 +10462,62 @@ table.data.staff-salaries-table--browse td.staff-salaries-browse-hire {
   font-size: 0.78rem;
   margin: 0.15rem 0 0.35rem;
 }
-.team-staff-fire-form {
-  margin-top: 0.35rem;
-}
-.team-staff-fire-form__fields {
+.team-staff-contract-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
   align-items: center;
+  margin-top: 0.35rem;
 }
 .team-staff-retire-form {
-  margin-top: 0.25rem;
+  margin: 0;
+}
+.team-staff-fire-dialog {
+  max-width: 26rem;
+  width: calc(100% - 2rem);
+  border: 1px solid var(--border, rgb(255 255 255 / 0.15));
+  border-radius: 8px;
+  padding: 0;
+  background: var(--card-bg, #1a1d24);
+  color: inherit;
+  box-shadow: 0 18px 40px rgb(0 0 0 / 0.45);
+}
+.team-staff-fire-dialog::backdrop {
+  background: rgb(0 0 0 / 0.55);
+}
+.team-staff-fire-dialog__form {
+  padding: 1rem 1.15rem 1.1rem;
+}
+.team-staff-fire-dialog__title {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+}
+.team-staff-fire-dialog__lead {
+  margin: 0 0 0.85rem;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+.team-staff-fire-dialog__label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.88rem;
+  margin-bottom: 1rem;
+}
+.team-staff-fire-dialog__input {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 0.95rem;
+  padding: 0.4rem 0.55rem;
+}
+.team-staff-fire-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+[data-theme="light"] .team-staff-fire-dialog {
+  background: var(--surface, #fff);
+  box-shadow: 0 18px 40px rgb(15 23 42 / 0.18);
 }
 .staff-budgets-admin__payroll-readonly {
   font-variant-numeric: tabular-nums;

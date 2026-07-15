@@ -3,9 +3,10 @@
 Backs up per-league databases (awards history, records, Hall of Fame, archived
 season stats/standings, FHM stats, trades, team honors rows) and site-wide data
 (AP ledger, attendance, GM accounts, news, Discord queues, BOWL Six, boost
-records, admin settings). Also copies file-based Join League open-team lists,
-team-page honors panel images (retired jerseys / victory banners), and writes
-readable JSON dumps for key categories (unless ``--no-json``).
+records, admin settings, staff contracts/budgets/firings/severance). Also copies
+file-based Join League open-team lists, team-page honors panel images (retired
+jerseys / victory banners), and writes readable JSON dumps for key categories
+(unless ``--no-json``).
 
 By default, when the new backup is written under ``instance/full_backups/``, older
 backup folders there are pruned so at most 3 versions remain.
@@ -73,6 +74,13 @@ LEAGUE_COVERAGE_CATEGORIES: dict[str, tuple[str, ...]] = {
     ),
 }
 
+SITE_STAFF_LIVE_TABLES: tuple[str, ...] = (
+    "team_staff_roster_entries",
+    "staff_severance_entries",
+    "team_staff_budgets",
+    "staff_change_requests",
+)
+
 SITE_COVERAGE_CATEGORIES: dict[str, tuple[str, ...]] = {
     "boost_records": ("boost_lottery_team_results",),
     "admin_live_data": (
@@ -89,6 +97,7 @@ SITE_COVERAGE_CATEGORIES: dict[str, tuple[str, ...]] = {
         "draft_pick_ownership_years",
         "trade_market_draft_pick_ownership",
     ),
+    "staff_live_data": SITE_STAFF_LIVE_TABLES,
 }
 
 ADMIN_SETTINGS_TABLES: tuple[str, ...] = (
@@ -556,7 +565,7 @@ def export_league_history_json(db_path: Path, dest_dir: Path) -> dict:
 
 
 def export_site_focused_json(engine: Engine, dest_dir: Path) -> dict:
-    """Write boost_records.json and admin_settings.json."""
+    """Write boost_records.json, admin_settings.json, and staff_live_data.json."""
     dest_dir.mkdir(parents=True, exist_ok=True)
     existing = set(inspect(engine).get_table_names())
 
@@ -564,11 +573,16 @@ def export_site_focused_json(engine: Engine, dest_dir: Path) -> dict:
     admin_payload = {
         name: _fetch_table_rows_engine(engine, name, existing) for name in ADMIN_SETTINGS_TABLES
     }
+    staff_payload = {
+        name: _fetch_table_rows_engine(engine, name, existing) for name in SITE_STAFF_LIVE_TABLES
+    }
 
     boost_path = dest_dir / "boost_records.json"
     admin_path = dest_dir / "admin_settings.json"
+    staff_path = dest_dir / "staff_live_data.json"
     _write_json(boost_path, boost_rows)
     _write_json(admin_path, admin_payload)
+    _write_json(staff_path, staff_payload)
 
     return {
         "ok": True,
@@ -576,6 +590,8 @@ def export_site_focused_json(engine: Engine, dest_dir: Path) -> dict:
         "boost_records_path": str(boost_path),
         "admin_settings_rows": sum(len(rows) for rows in admin_payload.values()),
         "admin_settings_path": str(admin_path),
+        "staff_live_data_rows": sum(len(rows) for rows in staff_payload.values()),
+        "staff_live_data_path": str(staff_path),
     }
 
 
@@ -641,7 +657,7 @@ def export_league_json_supplements(out_dir: Path, league_results: list[dict] | N
 
 
 def export_site_json_supplements(out_dir: Path, site_result: dict) -> dict:
-    """Export focused site JSON (boosts + admin settings)."""
+    """Export focused site JSON (boosts, admin settings, staff live data)."""
     dest_dir = out_dir / "json" / "site"
     if not site_result.get("ok"):
         return {"ok": False, "message": site_result.get("message") or "site database not backed up"}

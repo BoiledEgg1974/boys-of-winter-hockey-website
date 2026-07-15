@@ -142,6 +142,49 @@ def _create_site_db(path: Path) -> None:
                 league_slug TEXT NOT NULL,
                 status TEXT
             );
+            CREATE TABLE team_staff_roster_entries (
+                id INTEGER PRIMARY KEY,
+                league_slug TEXT NOT NULL,
+                season_start_year INTEGER NOT NULL,
+                team_id INTEGER NOT NULL,
+                staff_fhm_id TEXT NOT NULL,
+                staff_name TEXT NOT NULL DEFAULT '',
+                role TEXT NOT NULL,
+                annual_salary INTEGER NOT NULL DEFAULT 0,
+                contract_years INTEGER NOT NULL DEFAULT 1,
+                contract_start_season_year INTEGER NOT NULL DEFAULT 0,
+                hired_at TEXT,
+                fired_at TEXT,
+                retired_at TEXT
+            );
+            CREATE TABLE staff_severance_entries (
+                id INTEGER PRIMARY KEY,
+                league_slug TEXT NOT NULL,
+                season_start_year INTEGER NOT NULL,
+                team_id INTEGER NOT NULL,
+                staff_fhm_id TEXT NOT NULL DEFAULT '',
+                staff_name TEXT NOT NULL DEFAULT '',
+                penalty_amount INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE TABLE team_staff_budgets (
+                id INTEGER PRIMARY KEY,
+                league_slug TEXT NOT NULL,
+                season_start_year INTEGER NOT NULL,
+                team_id INTEGER NOT NULL,
+                budget_amount INTEGER NOT NULL DEFAULT 0,
+                current_salary_amount INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE TABLE staff_change_requests (
+                id INTEGER PRIMARY KEY,
+                league_slug TEXT NOT NULL,
+                season_start_year INTEGER NOT NULL,
+                team_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                request_type TEXT NOT NULL,
+                staff_fhm_id TEXT NOT NULL,
+                staff_name TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL DEFAULT 'pending'
+            );
             INSERT INTO ap_redemption_catalog
             (id, league_group, sort_order, title, description, cost_ap, is_active)
             VALUES (1, 'bowl', 1, 'Test item', 'desc', 5, 1);
@@ -151,6 +194,17 @@ def _create_site_db(path: Path) -> None:
             INSERT INTO league_rule_settings
             (id, league_slug, rule_key, rule_value)
             VALUES (1, 'bowl-cap', 'draft_eligible_min_age_years', '18');
+            INSERT INTO team_staff_roster_entries
+            (id, league_slug, season_start_year, team_id, staff_fhm_id, staff_name, role,
+             annual_salary, contract_years, contract_start_season_year, fired_at)
+            VALUES (1, 'bowl-cap', 2025, 10, '99', 'Test Coach', 'head_coach',
+                    100000, 2, 2025, NULL);
+            INSERT INTO staff_severance_entries
+            (id, league_slug, season_start_year, team_id, staff_fhm_id, staff_name, penalty_amount)
+            VALUES (1, 'bowl-cap', 2025, 10, '88', 'Fired Coach', 50000);
+            INSERT INTO team_staff_budgets
+            (id, league_slug, season_start_year, team_id, budget_amount, current_salary_amount)
+            VALUES (1, 'bowl-cap', 2025, 10, 500000, 100000);
             """
         )
         conn.commit()
@@ -212,16 +266,23 @@ class BackupAllLiveDataTests(unittest.TestCase):
             site_json = out_dir / "json" / "site"
             boost_path = site_json / "boost_records.json"
             admin_path = site_json / "admin_settings.json"
+            staff_path = site_json / "staff_live_data.json"
             self.assertTrue(boost_path.is_file())
             self.assertTrue(admin_path.is_file())
+            self.assertTrue(staff_path.is_file())
             boost_rows = json.loads(boost_path.read_text(encoding="utf-8"))
             self.assertEqual(len(boost_rows), 1)
             admin = json.loads(admin_path.read_text(encoding="utf-8"))
             self.assertEqual(admin["league_rule_settings"][0]["rule_key"], "draft_eligible_min_age_years")
+            staff = json.loads(staff_path.read_text(encoding="utf-8"))
+            self.assertEqual(staff["team_staff_roster_entries"][0]["staff_name"], "Test Coach")
+            self.assertEqual(staff["staff_severance_entries"][0]["penalty_amount"], 50000)
+            self.assertEqual(staff["team_staff_budgets"][0]["budget_amount"], 500000)
 
             coverage_site = manifest["coverage"]["site"]
             self.assertTrue(coverage_site["ok"])
             self.assertEqual(coverage_site["categories"]["boost_records"]["total_rows"], 1)
+            self.assertEqual(coverage_site["categories"]["staff_live_data"]["total_rows"], 3)
 
     def test_run_backup_inventory_history_json_and_join_league(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

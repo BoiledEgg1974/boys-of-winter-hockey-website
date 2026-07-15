@@ -12,7 +12,9 @@ For the usual CSV + import + reload sequence from your machine, prefer
 
   deploy-db — Upload locally built league SQLite files (+ app/static). Snapshots live OVR on the
               server first, merges those baselines into the local DBs, then uploads so depth-chart
-              arrows stay accurate. Skips server-side import_data.py.
+              arrows stay accurate. Also merges live trade logs, game-record baselines, and
+              league editorial data (HoF, awards admin rows, team honors, franchise identities,
+              career adjustments, etc.). Skips server-side import_data.py.
 
   sync   — Upload the whole project tree (newer files only), same rules as before; does NOT
            run imports. Use this for code/template changes without a data refresh.
@@ -637,22 +639,38 @@ def _deploy_trade_log_json_name(slug: str) -> str:
     return f".deploy_trade_log_{slug}.json"
 
 
+def _deploy_game_record_baselines_json_name(slug: str) -> str:
+    return f".deploy_game_record_baselines_{slug}.json"
+
+
+def _deploy_league_editorial_json_name(slug: str) -> str:
+    return f".deploy_league_editorial_{slug}.json"
+
+
 def build_capture_live_ovr_baselines_script(
     remote_project: str,
     venv_bin: str,
     slugs: list[str],
 ) -> str:
-    """SSH script: snapshot live OVR and manual trade log rows before DB upload."""
+    """SSH script: snapshot live OVR, trade logs, game records, and editorial data before DB upload."""
     rp = shlex.quote(remote_project.rstrip("/"))
     act = shlex.quote(f"{venv_bin.rstrip('/')}/activate")
     py = shlex.quote(f"{venv_bin.rstrip('/')}/python")
     snap = shlex.quote(f"{remote_project.rstrip('/')}/scripts/snapshot_ovr_baseline.py")
     transfer = shlex.quote(f"{remote_project.rstrip('/')}/scripts/ovr_baseline_transfer.py")
     trade_transfer = shlex.quote(f"{remote_project.rstrip('/')}/scripts/trade_log_transfer.py")
+    game_rec_transfer = shlex.quote(
+        f"{remote_project.rstrip('/')}/scripts/game_record_baseline_transfer.py"
+    )
+    editorial_transfer = shlex.quote(
+        f"{remote_project.rstrip('/')}/scripts/league_editorial_transfer.py"
+    )
     parts = ["set -euo pipefail", f"cd {rp}", f". {act}"]
     for slug in slugs:
         ovr_out = _deploy_ovr_baseline_json_name(slug)
         trade_out = _deploy_trade_log_json_name(slug)
+        game_rec_out = _deploy_game_record_baselines_json_name(slug)
+        editorial_out = _deploy_league_editorial_json_name(slug)
         parts.append(f"export LEAGUE_SLUG={shlex.quote(slug)}")
         parts.append(f"{py} {snap}")
         parts.append(
@@ -662,6 +680,14 @@ def build_capture_live_ovr_baselines_script(
         parts.append(
             f"{py} {trade_transfer} export --slug {shlex.quote(slug)} "
             f"--out {shlex.quote(f'instance/{trade_out}')}"
+        )
+        parts.append(
+            f"{py} {game_rec_transfer} export --slug {shlex.quote(slug)} "
+            f"--out {shlex.quote(f'instance/{game_rec_out}')}"
+        )
+        parts.append(
+            f"{py} {editorial_transfer} export --slug {shlex.quote(slug)} "
+            f"--out {shlex.quote(f'instance/{editorial_out}')}"
         )
     return "; ".join(parts)
 
@@ -1016,7 +1042,7 @@ def cmd_deploy(ns: argparse.Namespace) -> int:
 
 
 def cmd_deploy_db(ns: argparse.Namespace) -> int:
-    """Upload locally built league SQLite files; preserve live OVR baselines for trend arrows."""
+    """Upload locally built league SQLite; preserve live OVR, trades, game records, and editorial data."""
     from app.config import league_slugs
     from app.db_utils import sqlite_integrity_message, sqlite_wal_checkpoint
 
@@ -1055,6 +1081,8 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
 
     baseline_dir = local_root / "instance" / ".deploy_ovr_baselines"
     trade_log_dir = local_root / "instance" / ".deploy_trade_logs"
+    game_rec_dir = local_root / "instance" / ".deploy_game_record_baselines"
+    editorial_dir = local_root / "instance" / ".deploy_league_editorial"
     capture_script = build_capture_live_ovr_baselines_script(remote_base, ns.venv_bin, slugs)
     staged_db_rels = tuple(remote_rel for _slug, _db_path, remote_rel in db_targets)
     post_upload_script = build_post_db_upload_script(
@@ -1064,7 +1092,9 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
     if ns.dry_run:
         print("--- would upload helper scripts ---")
         print("would upload scripts/ovr_baseline_transfer.py")
-        print("--- would capture live OVR baselines on server ---")
+        print("would upload scripts/game_record_baseline_transfer.py")
+        print("would upload scripts/league_editorial_transfer.py")
+        print("--- would capture live OVR / trade log / game-record / editorial on server ---")
         print(capture_script.replace("; ", "\n"))
         print("--- would download live baseline JSON ---")
         for slug in slugs:
@@ -1072,6 +1102,12 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
         print("--- would download live trade log JSON ---")
         for slug in slugs:
             print(f"would download instance/{_deploy_trade_log_json_name(slug)}")
+        print("--- would download live game-record baseline JSON ---")
+        for slug in slugs:
+            print(f"would download instance/{_deploy_game_record_baselines_json_name(slug)}")
+        print("--- would download live league editorial JSON ---")
+        for slug in slugs:
+            print(f"would download instance/{_deploy_league_editorial_json_name(slug)}")
         print("--- would merge live baselines into local DBs ---")
         for slug in slugs:
             print(
@@ -1083,6 +1119,20 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
             print(
                 f"would run: {sys.executable} scripts/trade_log_transfer.py import "
                 f"--slug {slug} --in instance/.deploy_trade_logs/{_deploy_trade_log_json_name(slug)}"
+            )
+        print("--- would merge live game-record baselines into local DBs ---")
+        for slug in slugs:
+            print(
+                f"would run: {sys.executable} scripts/game_record_baseline_transfer.py import "
+                f"--slug {slug} --in instance/.deploy_game_record_baselines/"
+                f"{_deploy_game_record_baselines_json_name(slug)}"
+            )
+        print("--- would merge live league editorial into local DBs ---")
+        for slug in slugs:
+            print(
+                f"would run: {sys.executable} scripts/league_editorial_transfer.py import "
+                f"--slug {slug} --in instance/.deploy_league_editorial/"
+                f"{_deploy_league_editorial_json_name(slug)}"
             )
         print("--- would upload league databases ---")
         for _slug, db_path, remote_rel in db_targets:
@@ -1104,6 +1154,8 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
                 "scripts/ovr_baseline_transfer.py",
                 "scripts/snapshot_ovr_baseline.py",
                 "scripts/trade_log_transfer.py",
+                "scripts/game_record_baseline_transfer.py",
+                "scripts/league_editorial_transfer.py",
                 "scripts/repair_league_sqlite.py",
             ),
             remote_base,
@@ -1114,11 +1166,13 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
         uploaded += su
         print(f"Helper scripts uploaded ({su} files, {ss} skipped).")
 
-        print("--- capture live OVR baselines on server ---")
+        print("--- capture live OVR / trade log / game-record / editorial on server ---")
         run_remote_bash(client, capture_script)
 
         baseline_dir.mkdir(parents=True, exist_ok=True)
         trade_log_dir.mkdir(parents=True, exist_ok=True)
+        game_rec_dir.mkdir(parents=True, exist_ok=True)
+        editorial_dir.mkdir(parents=True, exist_ok=True)
         print("--- download live baseline JSON ---")
         for slug in slugs:
             remote_json = f"{remote_base}/instance/{_deploy_ovr_baseline_json_name(slug)}"
@@ -1130,6 +1184,20 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
         for slug in slugs:
             remote_json = f"{remote_base}/instance/{_deploy_trade_log_json_name(slug)}"
             local_json = trade_log_dir / _deploy_trade_log_json_name(slug)
+            sftp.get(remote_json, str(local_json))
+            print(f"download {remote_json} -> {local_json.relative_to(local_root).as_posix()}")
+
+        print("--- download live game-record baseline JSON ---")
+        for slug in slugs:
+            remote_json = f"{remote_base}/instance/{_deploy_game_record_baselines_json_name(slug)}"
+            local_json = game_rec_dir / _deploy_game_record_baselines_json_name(slug)
+            sftp.get(remote_json, str(local_json))
+            print(f"download {remote_json} -> {local_json.relative_to(local_root).as_posix()}")
+
+        print("--- download live league editorial JSON ---")
+        for slug in slugs:
+            remote_json = f"{remote_base}/instance/{_deploy_league_editorial_json_name(slug)}"
+            local_json = editorial_dir / _deploy_league_editorial_json_name(slug)
             sftp.get(remote_json, str(local_json))
             print(f"download {remote_json} -> {local_json.relative_to(local_root).as_posix()}")
 
@@ -1150,6 +1218,44 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
             local_json = trade_log_dir / _deploy_trade_log_json_name(slug)
             subprocess.run(
                 [sys.executable, str(trade_transfer), "import", "--slug", slug, "--in", str(local_json)],
+                cwd=str(local_root),
+                check=True,
+            )
+            sqlite_wal_checkpoint(resolve_league_db_path(slug, db_targets))
+
+        print("--- merge live game-record baselines into local databases ---")
+        game_rec_transfer = local_root / "scripts" / "game_record_baseline_transfer.py"
+        for slug in slugs:
+            local_json = game_rec_dir / _deploy_game_record_baselines_json_name(slug)
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(game_rec_transfer),
+                    "import",
+                    "--slug",
+                    slug,
+                    "--in",
+                    str(local_json),
+                ],
+                cwd=str(local_root),
+                check=True,
+            )
+            sqlite_wal_checkpoint(resolve_league_db_path(slug, db_targets))
+
+        print("--- merge live league editorial into local databases ---")
+        editorial_transfer = local_root / "scripts" / "league_editorial_transfer.py"
+        for slug in slugs:
+            local_json = editorial_dir / _deploy_league_editorial_json_name(slug)
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(editorial_transfer),
+                    "import",
+                    "--slug",
+                    slug,
+                    "--in",
+                    str(local_json),
+                ],
                 cwd=str(local_root),
                 check=True,
             )
@@ -1296,7 +1402,7 @@ def main() -> int:
 
     p_deploy_db = sub.add_parser(
         "deploy-db",
-        help="Upload locally built league SQLite files (+ optional static); preserve live OVR arrows.",
+        help="Upload locally built league SQLite files (+ optional static); preserve live OVR, trade logs, game records, and editorial data.",
     )
     add_connection_args(p_deploy_db, default_remote, default_user)
     p_deploy_db.add_argument(

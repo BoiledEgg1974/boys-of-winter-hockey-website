@@ -35,6 +35,9 @@ instance/draft_hub_eligible_cache/
 instance/league_json_cache/
 instance/.deploy_ovr_baselines/
 instance/.deploy_ovr_baselines_*.json
+instance/.deploy_trade_logs/
+instance/.deploy_game_record_baselines/
+instance/.deploy_league_editorial/
 instance/.deploy_manifest_*.json
 *.log
 

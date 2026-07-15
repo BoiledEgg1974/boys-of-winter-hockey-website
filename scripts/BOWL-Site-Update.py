@@ -9,8 +9,9 @@ Default flow:
 2) Align historical awards IDs to player_master (STEP3).
 3) Snapshot bowl-historical OVR baselines, then re-import that league locally (aligned awards).
 4) Commit and push to GitHub once all local imports finish (CSVs, static assets, alignment files).
-5) Run STEP2 ``deploy-db``: snapshot live OVR on PythonAnywhere, merge those baselines into the
-   local SQLite files, upload league databases (+ ``app/static``), integrity-check, reload.
+5) Run STEP2 ``deploy-db``: snapshot live OVR, trade logs, game-record baselines, and
+   league editorial data on PythonAnywhere, merge them into the local SQLite files,
+   upload league databases (+ ``app/static``), integrity-check, reload.
 
 Use ``--remote-import`` to use the older CSV + server-side ``import_data.py`` deploy instead.
 

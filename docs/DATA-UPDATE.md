@@ -148,6 +148,26 @@ python scripts/trade_log_transfer.py restore-candidates --slug bowl-historical
 
 On PythonAnywhere, also check `instance/league2.db` (legacy BOWL-Historical filename) and `instance/league_backups/bowl-historical/` for backups that may still contain `trade_log_entries`.
 
+**Game record baselines** (admin single-game records under Admin → Game records) also live only in the league SQLite file. Season imports never downgrade existing baselines, but uploading a local DB that is missing those rows *would* wipe them on the server.
+
+- `deploy-db` now exports live `game_record_baselines` and merges them into your local DB before upload (same pattern as OVR / trade logs): strictly better local marks still win; equal or weaker local marks keep the live/admin holder.
+- Applies to all leagues (`bowl-historical`, `bowl-fantasy`, `bowl-cap`), including Cap’s `league3.db`.
+
+**Other league editorial / live history** (also in the league SQLite, not the site DB) is preserved the same way via `scripts/league_editorial_transfer.py`:
+
+- Career `record_stat_adjustments`
+- Team honors (retired numbers, victory banners, section toggles)
+- Hall of Fame (prefer live `admin` rows)
+- Admin history awards / all-stars / team season records (`admin` + `import`)
+- Franchise team identities
+- History champions
+- Org development report archives and player rating snapshot history
+- Player profile `boost_tier` markers (gold / silver / hof)
+
+Together with OVR baselines, trade logs, and game-record baselines, these cover live-unique league data for all three leagues on `deploy-db`.
+
+FHM/sim tables (games logs, season stats, ratings, standings, etc.) **are** replaced from your local import — that is intentional. Site DB data (staff, cap penalties, drafts, Bowl Six, news, AP, draft-hub boosts, etc.) is **not** part of `league3.db` / league SQLite uploads and is unaffected by `deploy-db`.
+
 **BOWL Six** scoring runs automatically after each import (and when commissioners or GMs open the Control Center or BOWL Six hub): locked slates pick up points from completed RS games; when every RS game in the week is final, the slate finalizes (AP + GM notifications). If box scores change after a week is already scored, use **Re-score slate** in Control Center (type `RESCORE` to confirm).
 
 ## Copy from FHM saved-game folders (Windows)

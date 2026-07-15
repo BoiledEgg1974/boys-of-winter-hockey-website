@@ -96,30 +96,85 @@ class LeagueFinancesUnitTest(unittest.TestCase):
             self.assertEqual(nhl_total, 4_000_000)
             self.assertEqual(farm_total, 500_000)
 
-    def test_active_nhl_roster_player_ids_prefers_lines_when_complete(self) -> None:
-        player_team_ids = {"1": "3", "2": "3", "3": "3"}
-        line_ids = {"1", "2"}
+    def test_active_nhl_roster_keeps_full_pool_when_within_roster_max(self) -> None:
+        # Normal 23-man: 20 lined + 3 scratches — count all assigned, not lines-only.
+        player_team_ids = {str(i): "3" for i in range(1, 24)}
+        line_ids = {str(i) for i in range(1, 21)}
         self.assertEqual(
-            active_nhl_roster_player_ids("3", player_team_ids, line_ids),
-            {"1", "2"},
+            active_nhl_roster_player_ids("3", player_team_ids, line_ids, roster_max=23),
+            set(player_team_ids),
         )
 
-    def test_active_nhl_roster_player_ids_falls_back_when_lines_lag(self) -> None:
-        player_team_ids = {"1": "16", "2": "16", "3": "16", "4": "16"}
-        line_ids = {"1"}
+    def test_active_nhl_roster_excludes_farm_team_ids(self) -> None:
+        player_team_ids = {"1": "9", "2": "60", "3": "9"}
+        line_ids = {"1", "3"}
         self.assertEqual(
-            active_nhl_roster_player_ids("16", player_team_ids, line_ids),
-            {"1", "2", "3", "4"},
+            active_nhl_roster_player_ids("9", player_team_ids, line_ids, roster_max=23),
+            {"1", "3"},
         )
 
-    def test_active_nhl_roster_player_ids_excludes_zero_gp_scratches_when_lines_lag(self) -> None:
-        player_team_ids = {"1": "16", "2": "16", "3": "16", "4": "16"}
-        line_ids = {"1"}
-        player_gp = {"1": 10, "2": 0, "3": 5, "4": 8}
-        self.assertEqual(
-            active_nhl_roster_player_ids("16", player_team_ids, line_ids, player_gp=player_gp),
-            {"1", "3", "4"},
+    def test_active_nhl_roster_caps_bloated_pool_preferring_ufa_scratches(self) -> None:
+        # CBJ-shaped: org dump on NHL TeamId; lines + UFA scratches fill roster max.
+        line_ids = {str(i) for i in range(1, 21)}
+        player_team_ids = {str(i): "229" for i in range(1, 50)}
+        contract_rows = {
+            "21": {"ufa": "Yes"},
+            "22": {"ufa": "Yes"},
+            "23": {"ufa": "Yes"},
+            "24": {"ufa": "No"},
+            "25": {"ufa": "No"},
+        }
+        ability_by_pid = {str(i): 1.0 for i in range(21, 50)}
+        ability_by_pid["24"] = 2.5  # higher ability non-UFA must not displace UFA scratches
+        cap_hit_by_pid = {
+            "21": 281_400,
+            "22": 4_300_000,
+            "23": 281_400,
+            "24": 850_000,
+            "25": 975_000,
+        }
+        active = active_nhl_roster_player_ids(
+            "229",
+            player_team_ids,
+            line_ids,
+            roster_max=23,
+            contract_rows=contract_rows,
+            ability_by_pid=ability_by_pid,
+            cap_hit_by_pid=cap_hit_by_pid,
         )
+        self.assertEqual(len(active), 23)
+        self.assertTrue(line_ids.issubset(active))
+        self.assertEqual(active - line_ids, {"21", "22", "23"})
+
+    def test_cbj_shaped_roster_cap_matches_fhm_salary(self) -> None:
+        line_ids = {str(i) for i in range(1, 21)}
+        player_team_ids = {str(i): "229" for i in range(1, 50)}
+        salaries = {str(i): 1_000_000 for i in range(1, 21)}
+        salaries.update({"21": 281_400, "22": 4_300_000, "23": 281_400})
+        for i in range(24, 50):
+            salaries[str(i)] = 500_000
+        contract_rows = {
+            pid: {
+                "ufa": "Yes" if pid in {"21", "22", "23"} else "No",
+                "major_2000": str(salaries[pid]),
+                "average_salary": str(salaries[pid]),
+            }
+            for pid in player_team_ids
+        }
+        active = active_nhl_roster_player_ids(
+            "229",
+            player_team_ids,
+            line_ids,
+            roster_max=23,
+            contract_rows=contract_rows,
+            cap_hit_by_pid=salaries,
+        )
+        total = sum(
+            player_cap_hit(contract_rows.get(pid), contract_rows.get(pid), 2000) or 0
+            for pid in active
+        )
+        self.assertEqual(len(active), 23)
+        self.assertEqual(total, 20_000_000 + 281_400 + 4_300_000 + 281_400)
 
     def test_team_line_player_ids_reads_numeric_slots(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -130,10 +185,11 @@ class LeagueFinancesUnitTest(unittest.TestCase):
             )
             self.assertEqual(team_line_player_ids(root, "3"), {"42", "99"})
 
-    def test_uses_lines_only_roster_when_lines_within_two_of_nhl_count(self) -> None:
-        player_team_ids = {"1": "3", "2": "3", "3": "3"}
+    def test_uses_lines_only_roster_when_few_scratches(self) -> None:
+        active = {"1", "2", "3"}
         line_ids = {"1", "2"}
-        self.assertTrue(uses_lines_only_roster("3", player_team_ids, line_ids))
+        self.assertTrue(uses_lines_only_roster(active, line_ids))
+        self.assertFalse(uses_lines_only_roster({"1", "2", "3", "4", "5"}, line_ids))
 
     def test_floor_bump_applies_to_lines_only_roster_below_floor(self) -> None:
         lines_cap = 36_690_800

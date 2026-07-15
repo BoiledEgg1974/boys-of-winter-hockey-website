@@ -156,42 +156,89 @@ def player_rs_gp_map(raw_import_dir: Path) -> dict[str, int]:
     return out
 
 
+def _is_contract_ufa(row: dict[str, str] | None) -> bool:
+    if not row:
+        return False
+    return (row.get("ufa") or "").strip().lower() == "yes"
+
+
+def _scratch_rank_key(
+    pid: str,
+    *,
+    contract_rows: dict[str, dict[str, str]] | None,
+    ability_by_pid: dict[str, float] | None,
+    cap_hit_by_pid: dict[str, int] | None,
+) -> tuple[int, float, int, int]:
+    """Lower sorts first: UFA scratches, then higher ability / cap hit, then FHM id."""
+    ufa_rank = 0 if _is_contract_ufa((contract_rows or {}).get(pid)) else 1
+    ability = -float((ability_by_pid or {}).get(pid) or 0.0)
+    hit = -int((cap_hit_by_pid or {}).get(pid) or 0)
+    try:
+        pid_sort = int(pid)
+    except (TypeError, ValueError):
+        pid_sort = 0
+    return (ufa_rank, ability, hit, pid_sort)
+
+
 def active_nhl_roster_player_ids(
     nhl_fhm_id: str,
     player_team_ids: dict[str, str],
     line_player_ids: set[str],
     *,
-    player_gp: dict[str, int] | None = None,
+    roster_max: int = 23,
+    contract_rows: dict[str, dict[str, str]] | None = None,
+    ability_by_pid: dict[str, float] | None = None,
+    cap_hit_by_pid: dict[str, int] | None = None,
 ) -> set[str]:
-    """NHL roster ids that match the FHM finances CAP HIT column.
+    """Main-club NHL roster ids counted toward Finances Cap / Contracts.
 
-    ``team_lines.csv`` is complete for most clubs (within two of the NHL assignment
-    count). When it is, use line assignments only so scratched extras are excluded.
-    When lines lag, count line players plus scratched players who have played (GP > 0).
-    Players with GP = 0 in the RS stats export are treated as non-roster for cap.
+    Pool = ``player_master`` assignments to this NHL ``TeamId`` (farm TeamIds excluded).
+    When the pool fits under ``roster_max`` (default 23), count the whole pool.
+    When the org dump exceeds the roster max, keep ``team_lines`` players and fill
+    remaining slots from scratches ranked UFA → ability → cap hit → id.
     """
+    max_n = int(roster_max) if int(roster_max) > 0 else 23
     nhl_ids = {pid for pid, team_id in player_team_ids.items() if team_id == nhl_fhm_id}
-    in_lines = {pid for pid in nhl_ids if pid in line_player_ids}
-    if len(in_lines) >= len(nhl_ids) - 2:
-        return in_lines
-    if not player_gp:
+    if len(nhl_ids) <= max_n:
         return nhl_ids
-    scratch = nhl_ids - in_lines
-    active_scratch = {
-        pid for pid in scratch if player_gp.get(pid) is None or int(player_gp.get(pid, 0)) > 0
-    }
-    return in_lines | active_scratch
+
+    in_lines = {pid for pid in nhl_ids if pid in line_player_ids}
+    if len(in_lines) >= max_n:
+        # Prefer lined players when lines somehow exceed the roster max.
+        ranked_lines = sorted(
+            in_lines,
+            key=lambda pid: _scratch_rank_key(
+                pid,
+                contract_rows=contract_rows,
+                ability_by_pid=ability_by_pid,
+                cap_hit_by_pid=cap_hit_by_pid,
+            ),
+        )
+        return set(ranked_lines[:max_n])
+
+    slots = max_n - len(in_lines)
+    scratches = nhl_ids - in_lines
+    ranked = sorted(
+        scratches,
+        key=lambda pid: _scratch_rank_key(
+            pid,
+            contract_rows=contract_rows,
+            ability_by_pid=ability_by_pid,
+            cap_hit_by_pid=cap_hit_by_pid,
+        ),
+    )
+    return in_lines | set(ranked[:slots])
 
 
 def uses_lines_only_roster(
-    nhl_fhm_id: str,
-    player_team_ids: dict[str, str],
+    active_roster_ids: set[str],
     line_player_ids: set[str],
 ) -> bool:
-    """True when FHM ``team_lines`` assignments are complete enough to drive cap hit."""
-    nhl_ids = {pid for pid, team_id in player_team_ids.items() if team_id == nhl_fhm_id}
-    in_lines = {pid for pid in nhl_ids if pid in line_player_ids}
-    return len(in_lines) >= len(nhl_ids) - 2
+    """True when nearly all counted main-club players are in ``team_lines`` (few scratches)."""
+    if not active_roster_ids:
+        return False
+    in_lines = {pid for pid in active_roster_ids if pid in line_player_ids}
+    return len(in_lines) >= len(active_roster_ids) - 2
 
 
 def player_cap_hit(
@@ -583,6 +630,8 @@ def build_league_finances_context(
     cap_enabled = rule_bool(session, league_slug, "salary_cap_enabled", default=False)
     ceiling_raw = rule_int(session, league_slug, "salary_cap_amount", default=0)
     floor_raw = rule_int(session, league_slug, "salary_cap_floor", default=0)
+    roster_max_raw = rule_int(session, league_slug, "roster_max_size", default=23)
+    roster_max = int(roster_max_raw) if int(roster_max_raw) > 0 else 23
     cap_ceiling = int(ceiling_raw) if ceiling_raw > 0 else None
     cap_floor = int(floor_raw) if floor_raw > 0 else None
     if season_start_year is not None:
@@ -602,7 +651,6 @@ def build_league_finances_context(
     contract_rows = merged_contract_rows(base_dir)
     base_contract_rows = _contract_rows_from_csv(base_dir / "player_contract.csv")
     player_team_ids = player_master_fhm_team_ids(base_dir)
-    player_gp = player_rs_gp_map(base_dir)
     line_ids_by_team = {
         str(team.fhm_team_id).strip(): team_line_player_ids(base_dir, str(team.fhm_team_id).strip())
         for team in main_league_teams(session)
@@ -610,6 +658,21 @@ def build_league_finances_context(
     }
 
     teams = main_league_teams(session)
+    main_fhm_team_ids = {
+        str(t.fhm_team_id).strip() for t in teams if t.fhm_team_id is not None
+    }
+    ability_by_pid: dict[str, float] = {}
+    fhm_ids_for_ability = [
+        pid for pid, tid in player_team_ids.items() if tid in main_fhm_team_ids
+    ]
+    if fhm_ids_for_ability:
+        for pl in session.scalars(
+            select(Player).where(Player.fhm_player_id.in_(fhm_ids_for_ability))
+        ).all():
+            pid = str(pl.fhm_player_id or "").strip()
+            if pid and pl.overall_ability is not None:
+                ability_by_pid[pid] = float(pl.overall_ability)
+
     team_rows: list[dict[str, object]] = []
     penalties_by_team: dict[int, int] = {}
     if season_start_year is not None:
@@ -633,13 +696,29 @@ def build_league_finances_context(
 
         nhl_fhm_id = str(team.fhm_team_id).strip()
         line_ids = line_ids_by_team.get(nhl_fhm_id, set())
+        nhl_pool = {pid for pid, tid in player_team_ids.items() if tid == nhl_fhm_id}
+        cur_year = int(season_start_year) if season_start_year is not None else None
+        cap_hit_by_pid: dict[str, int] = {}
+        if cur_year is not None:
+            for pid in nhl_pool:
+                hit = player_cap_hit(
+                    contract_rows.get(pid),
+                    base_contract_rows.get(pid),
+                    cur_year,
+                )
+                if hit is not None:
+                    cap_hit_by_pid[pid] = int(hit)
+
         active_roster_ids = active_nhl_roster_player_ids(
             nhl_fhm_id,
             player_team_ids,
             line_ids,
-            player_gp=player_gp,
+            roster_max=roster_max,
+            contract_rows=contract_rows,
+            ability_by_pid=ability_by_pid,
+            cap_hit_by_pid=cap_hit_by_pid,
         )
-        lines_only_roster = uses_lines_only_roster(nhl_fhm_id, player_team_ids, line_ids)
+        lines_only_roster = uses_lines_only_roster(active_roster_ids, line_ids)
 
         contracts = session.scalars(
             select(PlayerContract)
@@ -657,10 +736,10 @@ def build_league_finances_context(
         roster_cap = 0
         next_year_cap = 0
         contract_count = 0
+        fallback_ids: set[str] = set()
 
         if season_start_year is not None:
-            cur_year = int(season_start_year)
-            nxt_year = cur_year + 1
+            nxt_year = cur_year + 1 if cur_year is not None else None
             for contract in contracts:
                 player = contract.player
                 if player is None:
@@ -669,12 +748,20 @@ def build_league_finances_context(
                 crow = contract_rows.get(pid)
                 base_row = base_contract_rows.get(pid)
                 roster_team_id = player_team_ids.get(pid)
-                on_nhl_roster = pid in active_roster_ids or (
-                    roster_team_id is None and player.current_team_id == team.id
-                )
+                on_nhl_roster = pid in active_roster_ids
+                if (
+                    not on_nhl_roster
+                    and roster_team_id is None
+                    and player.current_team_id == team.id
+                    and pid
+                    and len(active_roster_ids) + len(fallback_ids) < roster_max
+                ):
+                    # Missing from player_master: allow only while under roster max.
+                    on_nhl_roster = True
+                    fallback_ids.add(pid)
 
                 if on_nhl_roster:
-                    cur_salary = player_cap_hit(crow, base_row, cur_year, contract=contract)
+                    cur_salary = player_cap_hit(crow, base_row, int(cur_year), contract=contract)
                     if cur_salary is None:
                         continue
                     contract_count += 1
@@ -687,9 +774,10 @@ def build_league_finances_context(
                     else:
                         gk_total += int(cur_salary)
 
-                    nxt_salary = contract_year_salary(crow, nxt_year)
-                    if nxt_salary is not None:
-                        next_year_cap += int(nxt_salary)
+                    if nxt_year is not None:
+                        nxt_salary = contract_year_salary(crow, nxt_year)
+                        if nxt_salary is not None:
+                            next_year_cap += int(nxt_salary)
 
         if lines_only_roster and cap_floor is not None and cap_floor > 0:
             roster_cap = max(int(roster_cap), int(cap_floor))

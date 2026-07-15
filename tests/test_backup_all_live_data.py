@@ -237,6 +237,14 @@ class BackupAllLiveDataTests(unittest.TestCase):
             legacy = root / "join_league_available_teams.txt"
             legacy.write_text("Legacy Team\n", encoding="utf-8")
 
+            honors_src = root / "team_honors"
+            banner = honors_src / "banners" / "bowl-cap" / "T1-Banner1.png"
+            jersey = honors_src / "retired_numbers" / "bowl-cap" / "T1-Jersey9.png"
+            banner.parent.mkdir(parents=True)
+            jersey.parent.mkdir(parents=True)
+            banner.write_bytes(b"banner")
+            jersey.write_bytes(b"jersey")
+
             out_dir = root / "backup"
 
             def _fake_league_backup(out: Path, *, checkpoint: bool = True, verify: bool = False) -> list[dict]:
@@ -250,9 +258,11 @@ class BackupAllLiveDataTests(unittest.TestCase):
                 backup,
                 "backup_league_databases",
                 side_effect=_fake_league_backup,
-            ), patch.object(backup, "league_slugs", return_value=["bowl-cap"]), patch.dict(
-                "os.environ", {}, clear=True
-            ):
+            ), patch.object(backup, "league_slugs", return_value=["bowl-cap"]), patch.object(
+                backup,
+                "_TEAM_HONORS_STATIC_DIR",
+                honors_src,
+            ), patch.dict("os.environ", {}, clear=True):
                 manifest = backup.run_backup(
                     out_dir,
                     checkpoint=False,
@@ -281,6 +291,23 @@ class BackupAllLiveDataTests(unittest.TestCase):
             self.assertEqual(copied_join.read_text(encoding="utf-8"), "Alpha Team\n")
             self.assertTrue(copied_legacy.is_file())
             self.assertEqual(len(manifest["admin_files"]["copied"]), 2)
+
+            honors = manifest["team_honors_media"]
+            self.assertTrue(honors["ok"])
+            self.assertEqual(honors["image_count"], 2)
+            self.assertTrue(
+                (out_dir / "static" / "team_honors" / "banners" / "bowl-cap" / "T1-Banner1.png").is_file()
+            )
+            self.assertTrue(
+                (
+                    out_dir
+                    / "static"
+                    / "team_honors"
+                    / "retired_numbers"
+                    / "bowl-cap"
+                    / "T1-Jersey9.png"
+                ).is_file()
+            )
 
     def test_run_backup_no_json_still_inventory_and_admin_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -1,9 +1,10 @@
 """Create a dated backup of league SQLite files and shared site data.
 
 Backs up per-league databases (awards history, records, Hall of Fame, archived
-season stats/standings, FHM stats, trades) and site-wide data (AP ledger,
-attendance, GM accounts, news, Discord queues, BOWL Six, boost records, admin
-settings). Also copies file-based Join League open-team lists and writes
+season stats/standings, FHM stats, trades, team honors rows) and site-wide data
+(AP ledger, attendance, GM accounts, news, Discord queues, BOWL Six, boost
+records, admin settings). Also copies file-based Join League open-team lists,
+team-page honors panel images (retired jerseys / victory banners), and writes
 readable JSON dumps for key categories (unless ``--no-json``).
 
 By default, when the new backup is written under ``instance/full_backups/``, older
@@ -54,12 +55,15 @@ from app.db_utils import sqlite_integrity_message, sqlite_wal_checkpoint  # noqa
 DEFAULT_BACKUP_ROOT = BASE_DIR / "instance" / "full_backups"
 DEFAULT_KEEP_BACKUPS = 3
 _INSTANCE_DIR = BASE_DIR / "instance"
+_TEAM_HONORS_STATIC_DIR = BASE_DIR / "app" / "static" / "team_honors"
 _SQLITE_SIDECAR_SUFFIXES = ("-wal", "-shm")
+_TEAM_HONORS_IMAGE_EXTS = frozenset({".png", ".jpg", ".jpeg", ".webp", ".gif"})
 
 LEAGUE_COVERAGE_CATEGORIES: dict[str, tuple[str, ...]] = {
     "awards": ("history_awards", "history_champions", "history_all_stars"),
     "records": ("game_record_baselines", "team_season_records", "record_stat_adjustments"),
     "hall_of_fame": ("hall_of_fame_members",),
+    "team_honors": ("team_honors_meta", "team_retired_numbers", "team_victory_banners"),
     "archived_seasons": (
         "seasons",
         "team_standings",
@@ -418,6 +422,40 @@ def backup_admin_files(out_dir: Path, *, instance_dir: Path | None = None) -> di
     }
 
 
+def backup_team_honors_media(
+    out_dir: Path,
+    *,
+    source_dir: Path | None = None,
+) -> dict:
+    """Copy team-page honors panel images (retired jerseys / victory banners)."""
+    src = (source_dir or _TEAM_HONORS_STATIC_DIR).resolve()
+    dest = (out_dir / "static" / "team_honors").resolve()
+    if not src.is_dir():
+        return {
+            "ok": True,
+            "source": str(src),
+            "dest": str(dest),
+            "file_count": 0,
+            "image_count": 0,
+            "missing": True,
+            "message": f"Team honors media folder not found: {src}",
+        }
+
+    if dest.exists():
+        shutil.rmtree(dest)
+    shutil.copytree(src, dest)
+    files = [path for path in dest.rglob("*") if path.is_file()]
+    image_count = sum(1 for path in files if path.suffix.lower() in _TEAM_HONORS_IMAGE_EXTS)
+    return {
+        "ok": True,
+        "source": str(src),
+        "dest": str(dest),
+        "file_count": len(files),
+        "image_count": image_count,
+        "missing": False,
+    }
+
+
 def build_coverage_inventory(
     league_results: list[dict],
     site_result: dict,
@@ -705,6 +743,7 @@ def run_backup(
             "Site backup includes AP ledger, attendance, GM accounts, news, Discord, BOWL Six, boost records, and admin settings.",
             "coverage lists row counts for those categories; json/ holds readable dumps when JSON is enabled.",
             "admin_files/ includes Join League open-team lists from instance/join_league/.",
+            "static/team_honors/ includes retired jersey and victory banner panel images for all leagues.",
             f"By default at most {DEFAULT_KEEP_BACKUPS} completed backups are kept under instance/full_backups/.",
         ],
     }
@@ -717,6 +756,7 @@ def run_backup(
         include_json=include_json,
     )
     manifest["admin_files"] = backup_admin_files(out_dir, instance_dir=instance_dir)
+    manifest["team_honors_media"] = backup_team_honors_media(out_dir)
     manifest["coverage"] = build_coverage_inventory(manifest["leagues"], manifest["site"])
 
     if include_json:
@@ -858,6 +898,18 @@ def main() -> int:
         print(f"  admin_files: OK ({total_files} file(s))")
     else:
         print("  admin_files: none found (join_league optional)")
+
+    honors = manifest.get("team_honors_media") or {}
+    if honors.get("missing"):
+        print("  team_honors_media: none found (optional)")
+    elif honors.get("ok"):
+        print(
+            f"  team_honors_media: OK "
+            f"({int(honors.get('image_count') or 0)} image(s), "
+            f"{int(honors.get('file_count') or 0)} file(s))"
+        )
+    else:
+        print(f"  team_honors_media: FAILED — {honors.get('message', 'unknown error')}")
 
     if manifest.get("coverage"):
         _print_coverage(manifest["coverage"])

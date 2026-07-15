@@ -852,6 +852,52 @@ class PlayerRatingSnapshot(db.Model):
     player: Mapped["Player"] = relationship()
 
 
+class PlayerAnalyticsSnapshot(db.Model):
+    """Point-in-time player analytics (WAR %, process metrics) across FHM imports."""
+
+    __tablename__ = "player_analytics_snapshots"
+    __table_args__ = (
+        Index("ix_player_analytics_snap_player_at", "player_id", "snapshot_at"),
+        Index("ix_player_analytics_snap_year_seg", "season_year", "stat_segment"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    player_id: Mapped[int] = mapped_column(Integer, ForeignKey("players.id"), nullable=False, index=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    season_year: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    stat_segment: Mapped[str] = mapped_column(String(8), nullable=False, default="rs")
+    is_goalie: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_rollover: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    snapshot_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    war_pct: Mapped[int | None] = mapped_column(Integer)
+    gp: Mapped[int | None] = mapped_column(Integer)
+    metrics_json: Mapped[str] = mapped_column(Text, nullable=False)
+    percentiles_json: Mapped[str | None] = mapped_column(Text)
+
+    player: Mapped["Player"] = relationship()
+
+
+class TeamAnalyticsSnapshot(db.Model):
+    """Point-in-time team process metrics across FHM imports / season years."""
+
+    __tablename__ = "team_analytics_snapshots"
+    __table_args__ = (
+        Index("ix_team_analytics_snap_team_at", "team_id", "snapshot_at"),
+        Index("ix_team_analytics_snap_year_seg", "season_year", "stat_segment"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    team_id: Mapped[int] = mapped_column(Integer, ForeignKey("teams.id"), nullable=False, index=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    season_year: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    stat_segment: Mapped[str] = mapped_column(String(8), nullable=False, default="rs")
+    is_rollover: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    snapshot_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    metrics_json: Mapped[str] = mapped_column(Text, nullable=False)
+
+    team: Mapped["Team"] = relationship()
+
+
 class OrgDevelopmentReportArchive(db.Model):
     """Persisted monthly org development report (survives snapshot trimming)."""
 

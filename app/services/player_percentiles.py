@@ -214,7 +214,7 @@ def chart_svg(
     ymax: float = 100.0,
 ) -> dict[str, Any]:
     n = len(labels)
-    if n < 2:
+    if n < 1:
         return {
             "has_data": False,
             "width": width or 240,
@@ -232,6 +232,8 @@ def chart_svg(
     span = ymax - ymin or 1.0
 
     def x_at(i: int) -> float:
+        if n == 1:
+            return pad_l + inner_w / 2.0
         return pad_l + (i * inner_w / (n - 1))
 
     def y_at(v: float) -> float:
@@ -250,9 +252,11 @@ def chart_svg(
             if v is None:
                 continue
             pts.append((i, x_at(i), y_at(float(v))))
-        if len(pts) < 2:
+        if not pts:
             continue
-        d = "M " + " L ".join(f"{x:.1f},{y:.1f}" for _i, x, y in pts)
+        d = None
+        if len(pts) >= 2:
+            d = "M " + " L ".join(f"{x:.1f},{y:.1f}" for _i, x, y in pts)
         dots: list[dict[str, Any]] = []
         for j, (_i, x, y) in enumerate(pts):
             dots.append(
@@ -260,7 +264,7 @@ def chart_svg(
                     "cx": round(x, 1),
                     "cy": round(y, 1),
                     "class": s.get("class") or "player-analytics-card__chart-line",
-                    "highlight": j == 0,
+                    "highlight": j == 0 or j == len(pts) - 1,
                 }
             )
         paths.append(
@@ -1086,38 +1090,66 @@ def build_player_analytics_card(
     def_series: list[int | None] = []
     fin_series: list[int | None] = []
 
-    for tr_season in trend_seasons:
-        tr_pool = _build_skater_pool(
-            session, int(tr_season.id), segment=segment, position_group=pos_group, raw_dir=raw_dir
-        )
-        if len(tr_pool) < _MIN_PERCENTILE_POOL:
-            continue
-        tr_pools = _metric_pools(tr_pool)
-        tr_st = session.scalars(
-            select(PlayerSkaterStat)
-            .options(joinedload(PlayerSkaterStat.player), joinedload(PlayerSkaterStat.team))
-            .where(
-                PlayerSkaterStat.player_id == player.id,
-                PlayerSkaterStat.season_id == tr_season.id,
-                PlayerSkaterStat.stat_segment == segment,
-            ).limit(1)
-        ).first()
-        if not tr_st:
-            continue
-        tr_row = _skater_metric_row(
-            session, tr_st, season_id=int(tr_season.id), segment=segment, raw_dir=raw_dir
-        )
-        war_labels.append(_season_short_label(tr_season))
-        war_series.append(_war_pct_from_metrics(tr_row.metrics, tr_pools))
-        off_series.append(
-            percentile_int(tr_row.metrics.get("game_rating_off"), tr_pools.get("game_rating_off") or [])
-        )
-        def_series.append(
-            percentile_int(tr_row.metrics.get("game_rating_def"), tr_pools.get("game_rating_def") or [])
-        )
-        fin_series.append(
-            percentile_int(tr_row.metrics.get("finishing"), tr_pools.get("finishing") or [])
-        )
+    from app.services.analytics_snapshots import (
+        load_player_analytics_snapshots,
+        player_snapshot_trend_series,
+    )
+
+    snaps = load_player_analytics_snapshots(
+        session, int(player.id), segment=segment, is_goalie=False
+    )
+    if snaps:
+        trend = player_snapshot_trend_series(snaps, is_goalie=False)
+        war_labels = list(trend["labels"])
+        war_series = list(trend["war"])
+        off_series = list(trend["off"])
+        def_series = list(trend["def"])
+        fin_series = list(trend["fin"])
+    else:
+        for tr_season in trend_seasons:
+            tr_pool = _build_skater_pool(
+                session, int(tr_season.id), segment=segment, position_group=pos_group, raw_dir=raw_dir
+            )
+            if len(tr_pool) < _MIN_PERCENTILE_POOL:
+                continue
+            tr_pools = _metric_pools(tr_pool)
+            tr_st = session.scalars(
+                select(PlayerSkaterStat)
+                .options(joinedload(PlayerSkaterStat.player), joinedload(PlayerSkaterStat.team))
+                .where(
+                    PlayerSkaterStat.player_id == player.id,
+                    PlayerSkaterStat.season_id == tr_season.id,
+                    PlayerSkaterStat.stat_segment == segment,
+                ).limit(1)
+            ).first()
+            if not tr_st:
+                continue
+            tr_row = _skater_metric_row(
+                session, tr_st, season_id=int(tr_season.id), segment=segment, raw_dir=raw_dir
+            )
+            war_labels.append(_season_short_label(tr_season))
+            war_series.append(_war_pct_from_metrics(tr_row.metrics, tr_pools))
+            off_series.append(
+                percentile_int(tr_row.metrics.get("game_rating_off"), tr_pools.get("game_rating_off") or [])
+            )
+            def_series.append(
+                percentile_int(tr_row.metrics.get("game_rating_def"), tr_pools.get("game_rating_def") or [])
+            )
+            fin_series.append(
+                percentile_int(tr_row.metrics.get("finishing"), tr_pools.get("finishing") or [])
+            )
+        if not war_labels and war_pct is not None:
+            war_labels = [_season_short_label(stat_season)]
+            war_series = [war_pct]
+            off_series = [
+                percentile_int(player_row.metrics.get("game_rating_off"), pools.get("game_rating_off") or [])
+            ]
+            def_series = [
+                percentile_int(player_row.metrics.get("game_rating_def"), pools.get("game_rating_def") or [])
+            ]
+            fin_series = [
+                percentile_int(player_row.metrics.get("finishing"), pools.get("finishing") or [])
+            ]
 
     war_chart = chart_svg(
         war_labels,
@@ -1286,56 +1318,77 @@ def _build_goalie_analytics_card(
     sv_series: list[float | None] = []
     league_sv_series: list[float | None] = []
 
-    for tr_season in trend_seasons:
-        tr_min_gp = _adaptive_min_gp(
-            session, PlayerGoalieStat, int(tr_season.id), segment, MIN_GOALIE_GP
-        )
-        tr_pool = _build_goalie_pool(
-            session,
-            int(tr_season.id),
-            segment=segment,
-            min_gp=tr_min_gp,
-            ratings_by_player=dict(ratings_by_player),
-        )
-        if len(tr_pool) < _MIN_PERCENTILE_POOL:
-            continue
-        tr_pools = _goalie_metric_pools(tr_pool)
-        tr_st = session.scalars(
-            select(PlayerGoalieStat).where(
-                PlayerGoalieStat.player_id == player.id,
-                PlayerGoalieStat.season_id == tr_season.id,
-                PlayerGoalieStat.stat_segment == segment,
-            ).limit(1)
-        ).first()
-        if not tr_st:
-            continue
-        tr_league_sv = _league_goalie_sv_pct(
-            session.scalars(
+    from app.services.analytics_snapshots import (
+        load_player_analytics_snapshots,
+        player_snapshot_trend_series,
+    )
+
+    snaps = load_player_analytics_snapshots(
+        session, int(player.id), segment=segment, is_goalie=True
+    )
+    if snaps:
+        trend = player_snapshot_trend_series(snaps, is_goalie=True)
+        war_labels = list(trend["labels"])
+        war_series = list(trend["war"])
+        sv_series = list(trend["sv"])
+        league_sv_series = list(trend["league_sv"])
+    else:
+        for tr_season in trend_seasons:
+            tr_min_gp = _adaptive_min_gp(
+                session, PlayerGoalieStat, int(tr_season.id), segment, MIN_GOALIE_GP
+            )
+            tr_pool = _build_goalie_pool(
+                session,
+                int(tr_season.id),
+                segment=segment,
+                min_gp=tr_min_gp,
+                ratings_by_player=dict(ratings_by_player),
+            )
+            if len(tr_pool) < _MIN_PERCENTILE_POOL:
+                continue
+            tr_pools = _goalie_metric_pools(tr_pool)
+            tr_st = session.scalars(
                 select(PlayerGoalieStat).where(
+                    PlayerGoalieStat.player_id == player.id,
                     PlayerGoalieStat.season_id == tr_season.id,
                     PlayerGoalieStat.stat_segment == segment,
-                    PlayerGoalieStat.gp >= tr_min_gp,
-                )
-            ).all()
-        )
-        tr_gr_median, tr_gr_p75, tr_gr_p25 = _season_game_gr_thresholds(session, int(tr_season.id))
-        tr_row = _goalie_metric_row(
-            session,
-            tr_st,
-            season_id=int(tr_season.id),
-            league_sv_pct=tr_league_sv,
-            gr_median=tr_gr_median,
-            gr_p75=tr_gr_p75,
-            gr_p25=tr_gr_p25,
-            ratings_row=ratings_by_player.get(int(player.id)),
-        )
-        war_labels.append(_season_short_label(tr_season))
-        war_series.append(_goalie_war_pct_from_metrics(tr_row.metrics, tr_pools))
-        sv = _goalie_season_sv_pct(tr_st)
-        sv_series.append(round(sv * 100.0, 1) if sv is not None else None)
-        league_sv_series.append(
-            round(tr_league_sv * 100.0, 1) if tr_league_sv is not None else None
-        )
+                ).limit(1)
+            ).first()
+            if not tr_st:
+                continue
+            tr_league_sv = _league_goalie_sv_pct(
+                session.scalars(
+                    select(PlayerGoalieStat).where(
+                        PlayerGoalieStat.season_id == tr_season.id,
+                        PlayerGoalieStat.stat_segment == segment,
+                        PlayerGoalieStat.gp >= tr_min_gp,
+                    )
+                ).all()
+            )
+            tr_gr_median, tr_gr_p75, tr_gr_p25 = _season_game_gr_thresholds(session, int(tr_season.id))
+            tr_row = _goalie_metric_row(
+                session,
+                tr_st,
+                season_id=int(tr_season.id),
+                league_sv_pct=tr_league_sv,
+                gr_median=tr_gr_median,
+                gr_p75=tr_gr_p75,
+                gr_p25=tr_gr_p25,
+                ratings_row=ratings_by_player.get(int(player.id)),
+            )
+            war_labels.append(_season_short_label(tr_season))
+            war_series.append(_goalie_war_pct_from_metrics(tr_row.metrics, tr_pools))
+            sv = _goalie_season_sv_pct(tr_st)
+            sv_series.append(round(sv * 100.0, 1) if sv is not None else None)
+            league_sv_series.append(
+                round(tr_league_sv * 100.0, 1) if tr_league_sv is not None else None
+            )
+        if not war_labels and war_pct is not None:
+            war_labels = [_season_short_label(stat_season)]
+            war_series = [war_pct]
+            sv = _goalie_season_sv_pct(st)
+            sv_series = [round(sv * 100.0, 1) if sv is not None else None]
+            league_sv_series = [round(league_sv_pct * 100.0, 1) if league_sv_pct is not None else None]
 
     war_chart = chart_svg(
         war_labels,

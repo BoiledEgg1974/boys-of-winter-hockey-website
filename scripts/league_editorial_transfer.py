@@ -12,6 +12,8 @@ replaces the live file. Tables covered:
 - history_champions
 - org_development_report_archives
 - player_rating_snapshots
+- player_analytics_snapshots
+- team_analytics_snapshots
 - players.boost_tier (gold/silver/hof markers)
 
 OVR baselines, trade logs, and game_record_baselines use their own transfer scripts.
@@ -434,6 +436,58 @@ def _export_rating_snapshots(conn: sqlite3.Connection, pf: dict[int, str]) -> li
     return out
 
 
+def _export_player_analytics_snapshots(conn: sqlite3.Connection, pf: dict[int, str]) -> list[dict]:
+    if not _has_table(conn, "player_analytics_snapshots"):
+        return []
+    names = [r[1] for r in conn.execute("PRAGMA table_info(player_analytics_snapshots)")]
+    out: list[dict] = []
+    for row in conn.execute("SELECT * FROM player_analytics_snapshots"):
+        d = dict(zip(names, row))
+        fhm = pf.get(int(d["player_id"])) if d.get("player_id") is not None else None
+        if not fhm:
+            continue
+        out.append(
+            {
+                "player_fhm_id": fhm,
+                "league_slug": d.get("league_slug"),
+                "season_year": d.get("season_year"),
+                "stat_segment": d.get("stat_segment"),
+                "is_goalie": d.get("is_goalie"),
+                "is_rollover": d.get("is_rollover"),
+                "snapshot_at": str(d.get("snapshot_at") or ""),
+                "war_pct": d.get("war_pct"),
+                "gp": d.get("gp"),
+                "metrics_json": d.get("metrics_json"),
+                "percentiles_json": d.get("percentiles_json"),
+            }
+        )
+    return out
+
+
+def _export_team_analytics_snapshots(conn: sqlite3.Connection, tf: dict[int, str]) -> list[dict]:
+    if not _has_table(conn, "team_analytics_snapshots"):
+        return []
+    names = [r[1] for r in conn.execute("PRAGMA table_info(team_analytics_snapshots)")]
+    out: list[dict] = []
+    for row in conn.execute("SELECT * FROM team_analytics_snapshots"):
+        d = dict(zip(names, row))
+        fhm = tf.get(int(d["team_id"])) if d.get("team_id") is not None else None
+        if not fhm:
+            continue
+        out.append(
+            {
+                "team_fhm_id": fhm,
+                "league_slug": d.get("league_slug"),
+                "season_year": d.get("season_year"),
+                "stat_segment": d.get("stat_segment"),
+                "is_rollover": d.get("is_rollover"),
+                "snapshot_at": str(d.get("snapshot_at") or ""),
+                "metrics_json": d.get("metrics_json"),
+            }
+        )
+    return out
+
+
 def export_league_editorial_json(db_path: Path, out_path: Path) -> dict[str, int]:
     """Write a multi-table JSON bundle. Returns counts per section."""
     conn = _connect(db_path, readonly=True)
@@ -456,6 +510,8 @@ def export_league_editorial_json(db_path: Path, out_path: Path) -> dict[str, int
             "history_champions": _export_history_champions(conn, tf, label_by_id),
             "org_development_report_archives": _export_org_archives(conn, tf),
             "player_rating_snapshots": _export_rating_snapshots(conn, pf),
+            "player_analytics_snapshots": _export_player_analytics_snapshots(conn, pf),
+            "team_analytics_snapshots": _export_team_analytics_snapshots(conn, tf),
             "player_boost_tiers": _export_player_boost_tiers(conn),
         }
     finally:
@@ -602,6 +658,30 @@ def _ensure_editorial_tables(conn: sqlite3.Connection) -> None:
             timeline_season_start_year INTEGER,
             timeline_calendar_year INTEGER,
             timeline_calendar_month INTEGER
+        );
+        CREATE TABLE IF NOT EXISTS player_analytics_snapshots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            player_id INTEGER NOT NULL,
+            league_slug VARCHAR(64) NOT NULL,
+            season_year INTEGER NOT NULL,
+            stat_segment VARCHAR(8) NOT NULL,
+            is_goalie BOOLEAN NOT NULL,
+            is_rollover BOOLEAN NOT NULL,
+            snapshot_at DATETIME NOT NULL,
+            war_pct INTEGER,
+            gp INTEGER,
+            metrics_json TEXT NOT NULL,
+            percentiles_json TEXT
+        );
+        CREATE TABLE IF NOT EXISTS team_analytics_snapshots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            team_id INTEGER NOT NULL,
+            league_slug VARCHAR(64) NOT NULL,
+            season_year INTEGER NOT NULL,
+            stat_segment VARCHAR(8) NOT NULL,
+            is_rollover BOOLEAN NOT NULL,
+            snapshot_at DATETIME NOT NULL,
+            metrics_json TEXT NOT NULL
         );
         """
     )
@@ -1262,6 +1342,95 @@ def _import_rating_snapshots(
     return n
 
 
+def _import_player_analytics_snapshots(
+    conn: sqlite3.Connection, rows: list[dict], pib: dict[str, int]
+) -> int:
+    n = 0
+    for item in rows:
+        pid = pib.get(str(item.get("player_fhm_id") or "").strip())
+        snap = item.get("snapshot_at")
+        if pid is None or not snap:
+            continue
+        exists = conn.execute(
+            """
+            SELECT 1 FROM player_analytics_snapshots
+            WHERE player_id=? AND snapshot_at=? AND stat_segment=? AND is_goalie=?
+            LIMIT 1
+            """,
+            (
+                pid,
+                snap,
+                item.get("stat_segment") or "rs",
+                1 if item.get("is_goalie") else 0,
+            ),
+        ).fetchone()
+        if exists:
+            continue
+        conn.execute(
+            """
+            INSERT INTO player_analytics_snapshots (
+                player_id, league_slug, season_year, stat_segment, is_goalie, is_rollover,
+                snapshot_at, war_pct, gp, metrics_json, percentiles_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                pid,
+                item.get("league_slug") or "",
+                int(item.get("season_year") or 0),
+                item.get("stat_segment") or "rs",
+                1 if item.get("is_goalie") else 0,
+                1 if item.get("is_rollover") else 0,
+                snap,
+                item.get("war_pct"),
+                item.get("gp"),
+                item.get("metrics_json") or "{}",
+                item.get("percentiles_json"),
+            ),
+        )
+        n += 1
+    return n
+
+
+def _import_team_analytics_snapshots(
+    conn: sqlite3.Connection, rows: list[dict], tib: dict[str, int]
+) -> int:
+    n = 0
+    for item in rows:
+        tid = tib.get(str(item.get("team_fhm_id") or "").strip())
+        snap = item.get("snapshot_at")
+        if tid is None or not snap:
+            continue
+        exists = conn.execute(
+            """
+            SELECT 1 FROM team_analytics_snapshots
+            WHERE team_id=? AND snapshot_at=? AND stat_segment=?
+            LIMIT 1
+            """,
+            (tid, snap, item.get("stat_segment") or "rs"),
+        ).fetchone()
+        if exists:
+            continue
+        conn.execute(
+            """
+            INSERT INTO team_analytics_snapshots (
+                team_id, league_slug, season_year, stat_segment, is_rollover,
+                snapshot_at, metrics_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                tid,
+                item.get("league_slug") or "",
+                int(item.get("season_year") or 0),
+                item.get("stat_segment") or "rs",
+                1 if item.get("is_rollover") else 0,
+                snap,
+                item.get("metrics_json") or "{}",
+            ),
+        )
+        n += 1
+    return n
+
+
 def import_league_editorial_json(db_path: Path, in_path: Path) -> dict[str, int]:
     """Merge live editorial JSON into local league DB. Returns write counts."""
     raw = json.loads(in_path.read_text(encoding="utf-8"))
@@ -1321,6 +1490,12 @@ def import_league_editorial_json(db_path: Path, in_path: Path) -> dict[str, int]
         )
         counts["player_rating_snapshots"] = _import_rating_snapshots(
             conn, list(raw.get("player_rating_snapshots") or []), pib
+        )
+        counts["player_analytics_snapshots"] = _import_player_analytics_snapshots(
+            conn, list(raw.get("player_analytics_snapshots") or []), pib
+        )
+        counts["team_analytics_snapshots"] = _import_team_analytics_snapshots(
+            conn, list(raw.get("team_analytics_snapshots") or []), tib
         )
         counts["player_boost_tiers"] = _import_player_boost_tiers(
             conn, list(raw.get("player_boost_tiers") or []), pib

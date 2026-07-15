@@ -148,6 +148,8 @@
 
           {% for p in war.paths %}
 
+          {% if p.d %}
+
           <path class="player-analytics-card__chart-line {{ p.class }}"
 
                 d="{{ p.d }}"
@@ -156,7 +158,11 @@
 
                 stroke-width="2"
 
+                {% if p.stroke_dasharray %}stroke-dasharray="{{ p.stroke_dasharray }}"{% endif %}
+
                 vector-effect="non-scaling-stroke"></path>
+
+          {% endif %}
 
           {% for dot in p.dots %}
 
@@ -258,6 +264,8 @@
 
           {% for p in comp.paths %}
 
+          {% if p.d %}
+
           <path class="player-analytics-card__chart-line {{ p.class }}"
 
                 d="{{ p.d }}"
@@ -269,6 +277,8 @@
                 {% if p.stroke_dasharray %}stroke-dasharray="{{ p.stroke_dasharray }}"{% endif %}
 
                 vector-effect="non-scaling-stroke"></path>
+
+          {% endif %}
 
           {% for dot in p.dots %}
 

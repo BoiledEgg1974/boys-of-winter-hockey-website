@@ -180,13 +180,16 @@ def import_league_meta(raw_dir: Path, league_filter: int) -> int:
     return n
 
 
-def ensure_season(raw_dir: Path, league_filter: int) -> tuple[Season, bool]:
+def ensure_season(raw_dir: Path, league_filter: int) -> tuple[Season, bool, int | None]:
     """Upsert the single FHM mount season row and return whether ``start_year``/``end_year`` changed.
 
     Schedule dates are mapped to a **July–June** league start year so January games attach to
     the correct Boys-of-Winter season. The same ``Season`` row is reused (``fhm_season_id``);
     ``run_fhm_import`` always clears season-scoped skater/goalie aggregates before reloading
     CSV segments so rolled years cannot keep stale totals.
+
+    Returns ``(season, league_year_changed, previous_start_year)``. Previous start year is set
+    when an existing season row's years change (used to archive analytics before wipe).
     """
     path = raw_dir / "schedules.csv"
     league_start_years: list[int] = []
@@ -230,14 +233,16 @@ def ensure_season(raw_dir: Path, league_filter: int) -> tuple[Season, bool]:
         db.session.add(s)
         db.session.flush()
         league_year_changed = True
+        previous_start_year = None
     else:
         league_year_changed = (prev_y0 != y0) or (prev_y1 != y1)
+        previous_start_year = int(prev_y0) if league_year_changed and prev_y0 is not None else None
         s.label = label
         s.start_year = y0
         s.end_year = y1
         s.is_current = True
     commit_with_sqlite_retry(db.session)
-    return s, league_year_changed
+    return s, league_year_changed, previous_start_year
 
 
 def import_fhm_teams(raw_dir: Path, league_filter: int, div_map: dict) -> dict[int, int]:
@@ -1397,7 +1402,7 @@ def run_fhm_import(raw_dir: Path, app, league_filter: int = 0) -> dict[str, int]
     counts: dict[str, int] = {}
     div_map = load_division_names(raw_dir)
     counts["league_meta"] = import_league_meta(raw_dir, league_filter)
-    season, league_year_changed = ensure_season(raw_dir, league_filter)
+    season, league_year_changed, previous_start_year = ensure_season(raw_dir, league_filter)
     if league_year_changed:
         log.info(
             "FHM schedule span changed (season_id=%s start_year=%s end_year=%s).",
@@ -1415,6 +1420,24 @@ def run_fhm_import(raw_dir: Path, app, league_filter: int = 0) -> dict[str, int]
                 sync_salary_cap_schedule_rollover(db.session, db.session, league_slug=slug)
         except Exception as exc:
             log.warning("Salary cap schedule rollover after FHM import: %s", exc)
+        # Preserve analytics for the completed league year before season stats are wiped.
+        if previous_start_year is not None:
+            try:
+                from flask import current_app
+
+                from app.services.analytics_snapshots import archive_analytics_before_fhm_wipe
+
+                slug = str(current_app.config.get("LEAGUE_SLUG", "")).strip()
+                if slug:
+                    archive_analytics_before_fhm_wipe(
+                        db.session,
+                        slug,
+                        raw_dir=raw_dir,
+                        season=season,
+                        season_year=int(previous_start_year),
+                    )
+            except Exception as exc:
+                log.warning("Analytics rollover archive before FHM wipe: %s", exc)
     teams_fhm = import_fhm_teams(raw_dir, league_filter, div_map)
     counts["teams"] = len(teams_fhm)
     players_fhm = import_players(raw_dir, teams_fhm)

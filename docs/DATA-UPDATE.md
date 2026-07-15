@@ -161,7 +161,7 @@ On PythonAnywhere, also check `instance/league2.db` (legacy BOWL-Historical file
 - Admin history awards / all-stars / team season records (`admin` + `import`)
 - Franchise team identities
 - History champions
-- Org development report archives and player rating snapshot history
+- Org development report archives, player rating snapshot history, and player/team analytics snapshot history
 - Player profile `boost_tier` markers (gold / silver / hof)
 
 Together with OVR baselines, trade logs, and game-record baselines, these cover live-unique league data for all three leagues on `deploy-db`.

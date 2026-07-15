@@ -25,6 +25,8 @@ from app.db_utils import (
     ensure_player_overall_baseline_sqlite,
     ensure_player_rating_snapshots_sqlite,
     ensure_player_rating_snapshot_timeline_columns_sqlite,
+    ensure_player_analytics_snapshots_sqlite,
+    ensure_team_analytics_snapshots_sqlite,
     ensure_org_development_report_archives_sqlite,
     ensure_homepage_module_settings_sqlite,
     ensure_league_draft_slot_boost_tier_sqlite,
@@ -554,6 +556,8 @@ def create_app(config_class: type = Config) -> Flask:
         ensure_player_overall_baseline_sqlite(db.engine)
         ensure_player_rating_snapshots_sqlite(db.engine)
         ensure_player_rating_snapshot_timeline_columns_sqlite(db.engine)
+        ensure_player_analytics_snapshots_sqlite(db.engine)
+        ensure_team_analytics_snapshots_sqlite(db.engine)
         ensure_org_development_report_archives_sqlite(db.engine)
         ensure_team_season_aggregate_extra_columns(db.engine)
         ensure_skater_career_line_career_source_sqlite(db.engine)

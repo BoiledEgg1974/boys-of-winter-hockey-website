@@ -1,6 +1,7 @@
 """Process-over-results analytics from imported FHM stats (not xG)."""
 from __future__ import annotations
 
+import json
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -552,6 +553,10 @@ def build_team_analytics_chart_archive(
     default_season_id: int | None = None,
     default_segment: str = "rs",
 ) -> dict[str, Any]:
+    from app.services.analytics_snapshots import (
+        latest_team_rollover_rows,
+        load_team_rollover_years,
+    )
     from app.services.season_team_logo_bundle import get_season_team_logo_bundle
     from app.services.seasons import season_display_label
 
@@ -563,8 +568,11 @@ def build_team_analytics_chart_archive(
 
     datasets: dict[str, dict[str, Any]] = {}
     season_options: list[dict[str, Any]] = []
+    live_years: set[int] = set()
     for season in seasons:
         season_key = int(season.id)
+        if season.start_year is not None:
+            live_years.add(int(season.start_year))
         season_has_data = False
         for segment in ("rs", "ps", "po"):
             team_rows = build_team_process_rows(session, season_key, segment=segment)
@@ -609,8 +617,62 @@ def build_team_analytics_chart_archive(
                 }
             )
 
+    # Past league years archived on season rollover (persist after live season row is reused).
+    for year in load_team_rollover_years(session):
+        if year in live_years:
+            continue
+        snap_id = f"y:{year}"
+        year_has = False
+        for segment in ("rs", "ps", "po"):
+            snaps = latest_team_rollover_rows(session, season_year=year, segment=segment)
+            if not snaps:
+                continue
+            payload_rows = []
+            for snap in snaps:
+                tm = snap.team
+                if tm is None:
+                    continue
+                try:
+                    metrics = json.loads(snap.metrics_json or "{}")
+                except json.JSONDecodeError:
+                    metrics = {}
+                if not isinstance(metrics, dict):
+                    metrics = {}
+                if not any(v is not None for k, v in metrics.items() if k != "gp"):
+                    continue
+                payload_rows.append(
+                    {
+                        "team_id": int(snap.team_id),
+                        "name": tm.full_display_name(),
+                        "abbr": (tm.abbreviation or tm.name or "").strip(),
+                        "slug": tm.slug,
+                        "logo_url": logo_bundle.team_logo_url_for_season_context(tm, year),
+                        "primary_color": tm.primary_color,
+                        "metrics": metrics,
+                    }
+                )
+            if payload_rows:
+                datasets[f"{snap_id}|{segment}"] = {"teams": payload_rows}
+                year_has = True
+        if year_has:
+            season_options.append(
+                {
+                    "id": snap_id,
+                    "label": f"{year}–{str(year + 1)[-2:]} Season (archived)",
+                    "start_year": year,
+                }
+            )
+
+    season_options.sort(
+        key=lambda s: (
+            int(s["start_year"]) if s.get("start_year") is not None else -1,
+            str(s["id"]),
+        ),
+        reverse=True,
+    )
+
     if default_season_id is None and season_options:
-        default_season_id = int(season_options[0]["id"])
+        default_season_id = season_options[0]["id"]
     if default_segment not in {s["key"] for s in TEAM_CHART_SEGMENTS}:
         default_segment = "rs"
 

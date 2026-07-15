@@ -151,6 +151,11 @@ def refresh_after_import(engine, app=None) -> None:
                     )
 
                     record_player_rating_snapshots_after_import(app)
+                    from app.services.analytics_snapshots import (
+                        record_analytics_snapshots_after_import,
+                    )
+
+                    record_analytics_snapshots_after_import(app)
                     from app.services.game_records import sync_game_record_baselines
                     from app.sqlite_retry import commit_with_sqlite_retry
 

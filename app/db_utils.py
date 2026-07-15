@@ -565,6 +565,98 @@ def ensure_player_rating_snapshots_sqlite(engine: Engine) -> None:
         conn.commit()
 
 
+def ensure_player_analytics_snapshots_sqlite(engine: Engine) -> None:
+    """Create player_analytics_snapshots for WAR/process progression charts (SQLite)."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='player_analytics_snapshots'"
+            )
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE player_analytics_snapshots (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    player_id INTEGER NOT NULL,
+                    league_slug VARCHAR(64) NOT NULL,
+                    season_year INTEGER NOT NULL,
+                    stat_segment VARCHAR(8) NOT NULL,
+                    is_goalie BOOLEAN NOT NULL,
+                    is_rollover BOOLEAN NOT NULL,
+                    snapshot_at DATETIME NOT NULL,
+                    war_pct INTEGER,
+                    gp INTEGER,
+                    metrics_json TEXT NOT NULL,
+                    percentiles_json TEXT,
+                    FOREIGN KEY(player_id) REFERENCES players (id)
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_player_analytics_snap_player_at "
+                "ON player_analytics_snapshots (player_id, snapshot_at)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_player_analytics_snap_year_seg "
+                "ON player_analytics_snapshots (season_year, stat_segment)"
+            )
+        )
+        conn.commit()
+
+
+def ensure_team_analytics_snapshots_sqlite(engine: Engine) -> None:
+    """Create team_analytics_snapshots for team process history (SQLite)."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='team_analytics_snapshots'"
+            )
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE team_analytics_snapshots (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    team_id INTEGER NOT NULL,
+                    league_slug VARCHAR(64) NOT NULL,
+                    season_year INTEGER NOT NULL,
+                    stat_segment VARCHAR(8) NOT NULL,
+                    is_rollover BOOLEAN NOT NULL,
+                    snapshot_at DATETIME NOT NULL,
+                    metrics_json TEXT NOT NULL,
+                    FOREIGN KEY(team_id) REFERENCES teams (id)
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_team_analytics_snap_team_at "
+                "ON team_analytics_snapshots (team_id, snapshot_at)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_team_analytics_snap_year_seg "
+                "ON team_analytics_snapshots (season_year, stat_segment)"
+            )
+        )
+        conn.commit()
+
+
 def ensure_player_rating_snapshot_timeline_columns_sqlite(engine: Engine) -> None:
     """Add in-game timeline columns to player_rating_snapshots when missing."""
     if engine.dialect.name != "sqlite":

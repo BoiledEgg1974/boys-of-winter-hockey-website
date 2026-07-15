@@ -1,0 +1,50 @@
+{
+  "created_at_utc": "2026-07-14T09:07:31+00:00",
+  "backup_dir": "C:\\Users\\keeno\\Projects\\Boys-Of-Winter-League\\instance\\full_backups\\20260714T090731Z",
+  "checkpoint_before_copy": true,
+  "verified_integrity": false,
+  "notes": [
+    "Reload the web app and pause the Discord bot before backing up on a live server.",
+    "League .db files include Hall of Fame, Game Record baselines, and FHM stats.",
+    "Site backup includes AP ledger, attendance, GM accounts, news, and BOWL Six."
+  ],
+  "leagues": [
+    {
+      "ok": true,
+      "source": "C:\\Users\\keeno\\Projects\\Boys-Of-Winter-League\\instance\\bowl-historical.db",
+      "dest": "C:\\Users\\keeno\\Projects\\Boys-Of-Winter-League\\instance\\full_backups\\20260714T090731Z\\league\\bowl-historical.db",
+      "size_bytes": 24240128,
+      "sidecars": [],
+      "integrity": "skipped",
+      "slug": "bowl-historical"
+    },
+    {
+      "ok": true,
+      "source": "C:\\Users\\keeno\\Projects\\Boys-Of-Winter-League\\instance\\bow.db",
+      "dest": "C:\\Users\\keeno\\Projects\\Boys-Of-Winter-League\\instance\\full_backups\\20260714T090731Z\\league\\bowl-fantasy.db",
+      "size_bytes": 21196800,
+      "sidecars": [],
+      "integrity": "skipped",
+      "slug": "bowl-fantasy"
+    },
+    {
+      "ok": true,
+      "source": "C:\\Users\\keeno\\Projects\\Boys-Of-Winter-League\\instance\\league3.db",
+      "dest": "C:\\Users\\keeno\\Projects\\Boys-Of-Winter-League\\instance\\full_backups\\20260714T090731Z\\league\\bowl-cap.db",
+      "size_bytes": 78983168,
+      "sidecars": [],
+      "integrity": "skipped",
+      "slug": "bowl-cap"
+    }
+  ],
+  "site": {
+    "ok": true,
+    "backend": "sqlite",
+    "source": "C:\\Users\\keeno\\Projects\\Boys-Of-Winter-League\\instance\\site_membership.db",
+    "dest": "C:\\Users\\keeno\\Projects\\Boys-Of-Winter-League\\instance\\full_backups\\20260714T090731Z\\site\\site_membership.db",
+    "size_bytes": 4218880,
+    "sidecars": [],
+    "integrity": "skipped"
+  },
+  "ok": true
+}

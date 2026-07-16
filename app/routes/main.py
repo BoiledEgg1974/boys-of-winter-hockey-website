@@ -1068,7 +1068,7 @@ def _trade_log_team_logo_url_for_label(row, team, label: str, logo_bundle) -> st
         return logo_bundle.season_team_logo_url(proxy) or logo_bundle.team_logo_url_for_season_context(
             team, int(logo_year)
         )
-    return logo_bundle.team_logo_url_present_franchise(team)
+    return logo_bundle.team_logo_url_for_season_context(team, None)
 
 
 def _trade_log_identity_from_label(team, label: str, era_year: int | None):

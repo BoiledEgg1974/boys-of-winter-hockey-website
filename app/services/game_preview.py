@@ -11,6 +11,7 @@ from sqlalchemy.orm import joinedload
 
 from app.logo_urls import team_logo_url_for_team
 from app.models import Game, GameSkaterStat, Player, PlayerGoalieStat, Team, TeamSeasonAggregate, TeamStanding, db
+from app.services.season_team_logo_bundle import dashboard_team_logo_url
 from app.services.player_headshot import resolve_player_headshot_static_filename
 from app.services.playoff_series_prediction import (
     _is_regular_season_game,
@@ -469,7 +470,7 @@ def _team_card(session, season_id: int, team: Team, anchor: Game, opp: Team) -> 
             "name": team.name,
             "abbreviation": team.abbreviation,
             "slug": team.slug,
-            "logo_url": team_logo_url_for_team(team),
+            "logo_url": dashboard_team_logo_url(team, season.start_year if season else None),
             "display_name": team.full_display_name(),
             "primary_color": _normalize_hex_color(team.primary_color),
             "secondary_color": _normalize_hex_color(team.secondary_color),

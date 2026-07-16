@@ -993,9 +993,12 @@ def build_player_analytics_card(
         prefer_season_id=prefer_season_id,
     )
     card_team = (st.team if st and st.team else None) or team
-    from app.logo_urls import team_logo_url_for_team
+    from app.services.season_team_logo_bundle import dashboard_team_logo_url
 
-    resolved_logo = team_logo_url or (team_logo_url_for_team(card_team) if card_team else None)
+    logo_year = int(stat_season.start_year) if stat_season and stat_season.start_year is not None else None
+    resolved_logo = team_logo_url or (
+        dashboard_team_logo_url(card_team, logo_year) if card_team else None
+    )
     headline = _headline_dict(
         player,
         photo_url=photo_url,
@@ -1208,10 +1211,13 @@ def _build_goalie_analytics_card(
         segment=segment,
         prefer_season_id=prefer_season_id,
     )
-    from app.logo_urls import team_logo_url_for_team
-
     card_team = (st.team if st and st.team else None) or team
-    resolved_logo = team_logo_url or (team_logo_url_for_team(card_team) if card_team else None)
+    from app.services.season_team_logo_bundle import dashboard_team_logo_url
+
+    logo_year = int(stat_season.start_year) if stat_season and stat_season.start_year is not None else None
+    resolved_logo = team_logo_url or (
+        dashboard_team_logo_url(card_team, logo_year) if card_team else None
+    )
     headline = _headline_dict(
         player,
         photo_url=photo_url,

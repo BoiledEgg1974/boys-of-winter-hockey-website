@@ -208,12 +208,13 @@ def _star_entry(game: Game, fhm_pid: int | None) -> dict | None:
         ).first()
     tid = sk.team_id if sk else (gk.team_id if gk else None)
     tm = db.session.get(Team, tid) if tid else None
+    logo_year = int(game.season.start_year) if getattr(game, "season", None) and game.season.start_year is not None else None
     return {
         "name": p.full_name,
         "player_id": p.id,
         "team_abbr": tm.abbreviation if tm else "",
         "team_slug": tm.slug if tm else "",
-        "team_logo_url": team_logo_url_for_team(tm) if tm else "",
+        "team_logo_url": dashboard_team_logo_url(tm, logo_year) if tm else "",
     }
 
 
@@ -1042,6 +1043,7 @@ def _build_game_boxscore_payload(game_id: int) -> dict[str, object]:
         return {"error": "not found"}
     home = db.session.get(Team, game.home_team_id)
     away = db.session.get(Team, game.away_team_id)
+    logo_year = int(game.season.start_year) if getattr(game, "season", None) and game.season.start_year is not None else None
     away_id = game.away_team_id
     home_id = game.home_team_id
 
@@ -1077,7 +1079,7 @@ def _build_game_boxscore_payload(game_id: int) -> dict[str, object]:
                 "strength": ev.strength,
                 "team_abbr": st_team.abbreviation if st_team else "",
                 "team_slug": st_team.slug if st_team else "",
-                "team_logo_url": team_logo_url_for_team(st_team) if st_team else "",
+                "team_logo_url": dashboard_team_logo_url(st_team, logo_year) if st_team else "",
             }
         )
 
@@ -1107,7 +1109,7 @@ def _build_game_boxscore_payload(game_id: int) -> dict[str, object]:
                 "player": pl.full_name,
                 "team_abbr": tm.abbreviation if tm else "",
                 "team_slug": tm.slug if tm else "",
-                "team_logo_url": team_logo_url_for_team(tm) if tm else "",
+                "team_logo_url": dashboard_team_logo_url(tm, logo_year) if tm else "",
                 "g": row.goals,
                 "a": row.assists,
                 "s": row.shots,
@@ -1136,7 +1138,7 @@ def _build_game_boxscore_payload(game_id: int) -> dict[str, object]:
                 "player": pl.full_name,
                 "team_abbr": tm.abbreviation if tm else "",
                 "team_slug": tm.slug if tm else "",
-                "team_logo_url": team_logo_url_for_team(tm) if tm else "",
+                "team_logo_url": dashboard_team_logo_url(tm, logo_year) if tm else "",
                 "saves": sv,
                 "sa": sa,
                 "ga": row.goals_allowed,
@@ -1183,7 +1185,7 @@ def _build_game_boxscore_payload(game_id: int) -> dict[str, object]:
             "name": home.name if home else "",
             "score": game.home_score,
             "shots": home_shots,
-            "logo_url": team_logo_url_for_team(home) if home else "",
+            "logo_url": dashboard_team_logo_url(home, logo_year) if home else "",
         },
         "away": {
             "abbr": away.abbreviation if away else "",
@@ -1191,7 +1193,7 @@ def _build_game_boxscore_payload(game_id: int) -> dict[str, object]:
             "name": away.name if away else "",
             "score": game.away_score,
             "shots": away_shots,
-            "logo_url": team_logo_url_for_team(away) if away else "",
+            "logo_url": dashboard_team_logo_url(away, logo_year) if away else "",
         },
         "goals": goals,
         "skaters": skaters[:50],

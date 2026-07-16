@@ -144,7 +144,7 @@ def league_calendar_anchor_date(session, season_id: int) -> date:
     """League 'today' for rolling windows: latest **completed** game date in the season.
 
     Sim seasons use in-world game dates (not the real-world clock). Falls back to any
-    scheduled game's max date if nothing is final yet, then real-world today if the season
+    scheduled game's min date if nothing is final yet, then real-world today if the season
     has no dated games.
     """
     anchor = session.scalar(
@@ -157,7 +157,7 @@ def league_calendar_anchor_date(session, season_id: int) -> date:
     if anchor:
         return anchor
     anchor2 = session.scalar(
-        select(func.max(Game.game_date)).where(
+        select(func.min(Game.game_date)).where(
             Game.season_id == season_id,
             Game.game_date.is_not(None),
         )

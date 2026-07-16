@@ -2021,7 +2021,7 @@ def _admin_trade_log_team_option_groups() -> tuple[list[dict[str, str]], list[di
             "label": t.full_display_name(),
             "display_name": t.full_display_name(),
             "team_id": str(int(t.id)),
-            "logo_url": logo_bundle.team_logo_url_present_franchise(t),
+            "logo_url": team_logo_url_for_team(t),
         }
         for t in teams
     ]
@@ -2188,7 +2188,7 @@ def _manual_trade_team_view(_entry: TradeLogEntry, team: Team | None, label: str
     if not logo_url and ident is not None and team is not None:
         logo_url = logo_bundle.team_logo_url_for_season_context(team, int(ident.start_year))
     if not logo_url and team is not None:
-        logo_url = logo_bundle.team_logo_url_present_franchise(team)
+        logo_url = team_logo_url_for_team(team)
     return {"label": display, "logo_url": logo_url}
 
 

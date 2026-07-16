@@ -4,7 +4,7 @@
 <div class="card" style="max-width:95vw;margin:0 auto;">
   <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
   <h1 class="page-title">Draft Pick Ownership</h1>
-  <p class="muted">Manage future pick ownership for <strong>{{ league_slug }}</strong>. Each panel stores one draft year and custom round count.</p>
+  <p class="muted">Manage pick ownership for <strong>{{ league_slug }}</strong>. Each panel stores one draft year and custom round count. Completed (archived) years stay listed so you can review or restore them with <strong>Add year panel</strong>.</p>
 
   <div style="display:flex;flex-wrap:wrap;gap:0.75rem;align-items:end;margin-bottom:1rem;">
     <form method="post" class="card" style="padding:0.7rem;">

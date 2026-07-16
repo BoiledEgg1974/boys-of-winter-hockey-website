@@ -113,6 +113,25 @@ class DraftPickOwnershipAdminTests(unittest.TestCase):
         self.assertEqual(stale.status, "completed")
         self.assertEqual(current.status, "active")
 
+    def test_stale_complete_skips_explicitly_restored_years(self) -> None:
+        site_session = MagicMock()
+        restored = MagicMock(status="active", draft_year=1970)
+        site_session.scalars.return_value.all.return_value = [restored]
+
+        with unittest.mock.patch(
+            "app.services.draft_pick_ownership.in_game_draft_ownership_cutoff_year",
+            return_value=1971,
+        ):
+            changed = complete_stale_draft_pick_ownership_panels(
+                site_session,
+                MagicMock(),
+                league_slug="bowl-historical",
+                exclude_years={1970},
+            )
+
+        self.assertEqual(changed, 0)
+        self.assertEqual(restored.status, "active")
+
     def test_default_year_does_not_lag_behind_current_in_game_season(self) -> None:
         site_session = MagicMock()
         site_session.scalar.return_value = 1999

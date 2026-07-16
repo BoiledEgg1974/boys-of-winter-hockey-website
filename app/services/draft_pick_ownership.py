@@ -361,8 +361,12 @@ def complete_stale_draft_pick_ownership_panels(
     league_session: Session,
     *,
     league_slug: str,
+    exclude_years: set[int] | None = None,
 ) -> int:
-    """Mark panels from prior in-game draft years completed after the July 1 season rollover."""
+    """Mark panels from prior in-game draft years completed after the July 1 season rollover.
+
+    ``exclude_years`` keeps explicitly reactivated past-year panels active (admin restore).
+    """
     slug = str(league_slug or "").strip()
     if not slug:
         return 0
@@ -373,6 +377,7 @@ def complete_stale_draft_pick_ownership_panels(
     )
     if cutoff_year is None:
         return 0
+    keep_years = {int(y) for y in (exclude_years or set())}
     panels = list(
         site_session.scalars(
             select(DraftPickOwnershipYear).where(
@@ -382,9 +387,13 @@ def complete_stale_draft_pick_ownership_panels(
             )
         ).all()
     )
+    changed = 0
     for panel in panels:
+        if int(panel.draft_year) in keep_years:
+            continue
         panel.status = "completed"
-    return len(panels)
+        changed += 1
+    return changed
 
 
 def reactivate_current_draft_pick_ownership_panel_if_needed(
@@ -526,6 +535,7 @@ def ensure_draft_pick_ownership_panels(
     league_slug: str,
     active_count: int = 3,
     default_round_count: int = 9,
+    exclude_years: set[int] | None = None,
 ) -> list[DraftPickOwnershipYear]:
     """Guarantee the league has the configured number of active future-year panels."""
     slug = str(league_slug or "").strip()
@@ -533,10 +543,12 @@ def ensure_draft_pick_ownership_panels(
         return []
     target_active = max(1, int(active_count))
     rounds = max(1, min(15, int(default_round_count)))
+    keep_years = {int(y) for y in (exclude_years or set())}
     complete_stale_draft_pick_ownership_panels(
         site_session,
         league_session,
         league_slug=slug,
+        exclude_years=keep_years,
     )
     reactivate_current_draft_pick_ownership_panel_if_needed(
         site_session,
@@ -592,14 +604,27 @@ def ensure_draft_pick_ownership_panels(
             )
         )
     active = [p for p in panels if str(p.status or "active") != "completed"]
-    if len(active) > target_active:
-        active_sorted = sorted(active, key=lambda p: (int(p.draft_year), int(p.display_order or 0), int(p.id or 0)))
-        keep_ids = {int(p.id) for p in active_sorted[:target_active] if p.id is not None}
-        for panel in active_sorted[target_active:]:
+    protected = [p for p in active if int(p.draft_year) in keep_years]
+    window = [p for p in active if int(p.draft_year) not in keep_years]
+    if len(window) > target_active:
+        window_sorted = sorted(
+            window,
+            key=lambda p: (int(p.draft_year), int(p.display_order or 0), int(p.id or 0)),
+        )
+        keep_ids = {int(p.id) for p in window_sorted[:target_active] if p.id is not None}
+        for panel in window_sorted[target_active:]:
             panel.status = "completed"
-        active = [p for p in active if p.id is None or int(p.id) in keep_ids]
+        window = [p for p in window_sorted if p.id is None or int(p.id) in keep_ids]
     teams = draft_pick_teams_for_grid(league_session)
-    while len(active) < target_active:
+    for panel in protected:
+        _ensure_year_rows(
+            site_session,
+            league_slug=slug,
+            draft_year=int(panel.draft_year),
+            round_count=max(1, int(panel.round_count or rounds)),
+            teams=teams,
+        )
+    while len(window) < target_active:
         next_year = _next_panel_year(site_session, league_slug=slug, fallback_start=seed_start)
         panel = DraftPickOwnershipYear(
             league_slug=slug,
@@ -617,7 +642,7 @@ def ensure_draft_pick_ownership_panels(
             round_count=int(panel.round_count),
             teams=teams,
         )
-        active.append(panel)
+        window.append(panel)
         panels.append(panel)
         seed_start = int(next_year) + 1
     _reorder_year_panels(site_session, league_slug=slug)

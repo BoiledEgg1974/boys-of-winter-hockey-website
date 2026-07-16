@@ -205,7 +205,12 @@ def pick_ownership_lookup(
     league_slug: str,
     draft_year: int,
 ) -> dict[tuple[int, int], int]:
-    """Map (round, original_team_fhm_id) -> owner_team_id for one draft year."""
+    """Map (round, original_team_fhm_id) -> owner_team_id for one draft year.
+
+    Uses the ownership grid for that draft year even when the year panel is
+    marked completed (archived), so Draft Hub order generation still applies
+    traded picks for past draft years.
+    """
     slug = str(league_slug or "").strip()
     if not slug:
         return {}
@@ -216,7 +221,6 @@ def pick_ownership_lookup(
             and_(
                 DraftPickOwnershipYear.league_slug == TradeMarketDraftPickOwnership.league_slug,
                 DraftPickOwnershipYear.draft_year == TradeMarketDraftPickOwnership.draft_year,
-                DraftPickOwnershipYear.status != "completed",
             ),
         )
         .where(

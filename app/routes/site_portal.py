@@ -3335,6 +3335,7 @@ def admin_draft_pick_ownership():
                 league_slug=slug,
                 active_count=3,
                 default_round_count=rounds,
+                exclude_years={int(year)},
             )
             flash(f"Draft panel for {year} is ready.", "ok")
             return redirect(url_for("site_admin.admin_draft_pick_ownership"))
@@ -3381,7 +3382,7 @@ def admin_draft_pick_ownership():
         active_count=3,
         default_round_count=9,
     )
-    panels = [p for p in panels if str(p.status or "active") != "completed"]
+    # Keep completed (archived) panels visible so prior draft years can be reviewed/restored.
     teams = draft_pick_teams_for_grid(db.session)
     team_choices = [
         {

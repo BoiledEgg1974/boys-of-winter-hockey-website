@@ -26,6 +26,8 @@
        data-eligible-url="{{ url_for('expansion_draft_hub.expansion_draft_eligible_page') }}"
        data-end-draft-url="{{ url_for('expansion_draft_hub.expansion_draft_end_draft_early') }}"
        data-undo-pick-url="{{ url_for('expansion_draft_hub.expansion_draft_admin_undo_pick') }}"
+       data-protect-url="{{ url_for('expansion_draft_hub.expansion_draft_admin_protect') }}"
+       data-undo-protect-url="{{ url_for('expansion_draft_hub.expansion_draft_admin_undo_protect') }}"
        data-player-page-tpl="{{ url_for('main.player_page', player_id=988776655) }}">
   </div>
 
@@ -43,6 +45,8 @@
   var eligibleUrl = root.getAttribute('data-eligible-url');
   var endDraftUrl = root.getAttribute('data-end-draft-url') || '';
   var undoPickUrl = root.getAttribute('data-undo-pick-url') || '';
+  var protectUrl = root.getAttribute('data-protect-url') || '';
+  var undoProtectUrl = root.getAttribute('data-undo-protect-url') || '';
   var playerPageTpl = root.getAttribute('data-player-page-tpl') || '';
   var pickUrl = root.getAttribute('data-pick-url');
 
@@ -400,6 +404,12 @@
       html += '<input type="hidden" name="csrf_token" value="' + esc(csrf) + '">';
       html += '<button type="submit" class="button secondary small">Undo last pick</button></form>';
     }
+    if (x.can_admin_undo_protect && x.status === 'live' && undoProtectUrl) {
+      html += '<form method="post" action="' + esc(undoProtectUrl) + '" class="draft-hub-admin-timer-form dh-undo-protect-form" '
+        + 'onsubmit="return confirm(&quot;Undo the most recent mid-draft protect? That player returns to the eligible pool.&quot;);">';
+      html += '<input type="hidden" name="csrf_token" value="' + esc(csrf) + '">';
+      html += '<button type="submit" class="button secondary small">Undo last protect</button></form>';
+    }
     if (x.can_admin_end_early && x.status === 'live' && endDraftUrl) {
       html += '<form method="post" action="' + esc(endDraftUrl) + '" class="draft-hub-admin-timer-form dh-end-draft-form" '
         + 'onsubmit="return confirm(&quot;End this expansion draft now and mark it complete? Remaining slots stay unpicked. This cannot be undone from the hub.&quot;);">';
@@ -415,7 +425,7 @@
     html += '<h2 class="draft-hub-col__title">Eligible Players</h2>';
     if (x.status === 'live') {
       var eligBlurb = x.can_admin_pick
-        ? 'Click Draft next to a player to record the selection for the expansion club on the clock.'
+        ? 'Click Draft to record a selection, or Protect to remove a player from the eligible pool when a team expands its protection list.'
         : 'Browse the eligible pool. The commissioner records picks from this board during the live draft.';
       html += '<p class="muted small" style="margin:0 0 0.5rem;line-height:1.35;">' + esc(eligBlurb) + '</p>';
     }
@@ -827,6 +837,13 @@
           html += '<button type="submit" class="button secondary">Draft</button></form>';
         } else {
           html += '<button type="button" class="button secondary" disabled>Draft</button>';
+        }
+        if (x.can_admin_protect && x.status === 'live' && protectUrl) {
+          html += '<form method="post" action="' + esc(protectUrl) + '" style="display:inline;" '
+            + 'onsubmit="return confirm(&quot;Remove this player from the eligible pool (protect)?&quot;);">';
+          html += '<input type="hidden" name="csrf_token" value="' + esc(csrf) + '">';
+          html += '<input type="hidden" name="player_id" value="' + esc(String(p.id)) + '">';
+          html += '<button type="submit" class="button secondary">Protect</button></form>';
         }
         html += '</div></div>';
       });

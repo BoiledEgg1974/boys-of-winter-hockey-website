@@ -19,12 +19,15 @@ from app.services.expansion_draft_state import (
     expansion_process_tick,
     featured_expansion_draft,
     hydrate_players_for_ordered_ids,
+    mid_draft_protect_stack_nonempty,
     player_is_defense,
     player_is_forward,
     player_is_goalie,
+    protect_eligible_player,
     GM_SELF_PICK_DISABLED_MSG,
     resolve_admin_pick,
     slots_ordered,
+    undo_last_mid_draft_protect,
     undo_last_pick,
 )
 from app.services.player_ratings_csv import get_player_ratings_row, player_positions_display_label
@@ -307,6 +310,14 @@ def expansion_draft_api_state():
         and draft.status == "live"
         and n_picks > 0
     )
+    can_admin_protect = bool(
+        current_user.is_authenticated
+        and league_hub_staff(current_user)
+        and draft.status == "live"
+    )
+    can_admin_undo_protect = bool(
+        can_admin_protect and mid_draft_protect_stack_nonempty(draft)
+    )
 
     rt_tid: int | None = None
     if draft.status == "live" and current_slot and current_slot.get("team_id") is not None:
@@ -371,6 +382,8 @@ def expansion_draft_api_state():
                 "can_admin_control": can_admin_control,
                 "can_admin_end_early": can_admin_end_early,
                 "can_admin_undo_pick": can_admin_undo_pick,
+                "can_admin_protect": can_admin_protect,
+                "can_admin_undo_protect": can_admin_undo_protect,
                 "wishlist_pick": None,
                 "gm_picks_enabled": False,
             },
@@ -592,3 +605,100 @@ def expansion_draft_end_draft_early():
             flash("Expansion draft ended and marked complete.", "ok")
     commit_with_sqlite_retry(db.session)
     return redirect(url_for("expansion_draft_hub.expansion_draft_hub_page"))
+
+
+@expansion_draft_hub_bp.post("/admin/protect")
+@login_required
+def expansion_draft_admin_protect():
+    """Remove a player from the live eligible pool (mid-draft protect)."""
+    from flask_wtf.csrf import validate_csrf
+
+    wants_json = _expansion_undo_pick_wants_json()
+    hub_url = url_for("expansion_draft_hub.expansion_draft_hub_page")
+
+    if not _expansion_hub_allowed() or not league_hub_staff(current_user):
+        if wants_json:
+            return jsonify({"ok": False, "error": "Forbidden."}), 403
+        abort(403)
+    try:
+        if wants_json:
+            data = request.get_json(silent=True) or {}
+            validate_csrf(data.get("csrf_token"))
+            pid_raw = str(data.get("player_id") or "").strip()
+        else:
+            validate_csrf(request.form.get("csrf_token"))
+            pid_raw = (request.form.get("player_id") or "").strip()
+    except Exception:  # noqa: BLE001
+        if wants_json:
+            return jsonify({"ok": False, "error": "Invalid CSRF token."}), 400
+        flash("Invalid CSRF token.", "err")
+        return redirect(hub_url)
+    slug = _league_slug()
+    draft = featured_expansion_draft(db.session, slug)
+    if not draft or draft.status != "live":
+        if wants_json:
+            return jsonify({"ok": False, "error": "No live expansion draft."}), 400
+        flash("No live expansion draft.", "err")
+        return redirect(hub_url)
+    if not pid_raw.isdigit():
+        if wants_json:
+            return jsonify({"ok": False, "error": "Invalid player."}), 400
+        flash("Invalid player.", "err")
+        return redirect(hub_url)
+    err = protect_eligible_player(db.session, draft, int(pid_raw))
+    if err:
+        db.session.rollback()
+        if wants_json:
+            return jsonify({"ok": False, "error": err}), 400
+        flash(err, "err")
+        return redirect(hub_url)
+    commit_with_sqlite_retry(db.session)
+    if wants_json:
+        return jsonify({"ok": True, "error": None})
+    flash("Player protected and removed from the eligible pool.", "ok")
+    return redirect(hub_url)
+
+
+@expansion_draft_hub_bp.post("/admin/undo-protect")
+@login_required
+def expansion_draft_admin_undo_protect():
+    """Restore the most recently mid-draft-protected player to the eligible pool."""
+    from flask_wtf.csrf import validate_csrf
+
+    wants_json = _expansion_undo_pick_wants_json()
+    hub_url = url_for("expansion_draft_hub.expansion_draft_hub_page")
+
+    if not _expansion_hub_allowed() or not league_hub_staff(current_user):
+        if wants_json:
+            return jsonify({"ok": False, "error": "Forbidden."}), 403
+        abort(403)
+    try:
+        if wants_json:
+            data = request.get_json(silent=True) or {}
+            validate_csrf(data.get("csrf_token"))
+        else:
+            validate_csrf(request.form.get("csrf_token"))
+    except Exception:  # noqa: BLE001
+        if wants_json:
+            return jsonify({"ok": False, "error": "Invalid CSRF token."}), 400
+        flash("Invalid CSRF token.", "err")
+        return redirect(hub_url)
+    slug = _league_slug()
+    draft = featured_expansion_draft(db.session, slug)
+    if not draft or draft.status != "live":
+        if wants_json:
+            return jsonify({"ok": False, "error": "No live expansion draft."}), 400
+        flash("No live expansion draft.", "err")
+        return redirect(hub_url)
+    err = undo_last_mid_draft_protect(db.session, draft)
+    if err:
+        db.session.rollback()
+        if wants_json:
+            return jsonify({"ok": False, "error": err}), 400
+        flash(err, "err")
+        return redirect(hub_url)
+    commit_with_sqlite_retry(db.session)
+    if wants_json:
+        return jsonify({"ok": True, "error": None})
+    flash("Last protect undone; player returned to the eligible pool.", "ok")
+    return redirect(hub_url)

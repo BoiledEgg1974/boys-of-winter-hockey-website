@@ -993,3 +993,75 @@ def replace_eligible_players(session: Session, draft: LeagueExpansionDraft, play
             )
         )
     invalidate_expansion_eligible_cache(draft.id)
+
+
+def _mid_draft_protect_stack(draft: LeagueExpansionDraft) -> list[int]:
+    raw = getattr(draft, "mid_draft_protect_stack_json", None) or "[]"
+    try:
+        data = json.loads(raw)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return []
+    if not isinstance(data, list):
+        return []
+    out: list[int] = []
+    for item in data:
+        try:
+            out.append(int(item))
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+def _set_mid_draft_protect_stack(draft: LeagueExpansionDraft, stack: list[int]) -> None:
+    draft.mid_draft_protect_stack_json = json.dumps([int(x) for x in stack])
+
+
+def mid_draft_protect_stack_nonempty(draft: LeagueExpansionDraft) -> bool:
+    return bool(_mid_draft_protect_stack(draft))
+
+
+def protect_eligible_player(session: Session, draft: LeagueExpansionDraft, player_id: int) -> str | None:
+    """Remove a player from the live eligible pool (mid-draft protect)."""
+    if draft.status != "live":
+        return "Can only protect players during a live draft."
+    pid = int(player_id)
+    row = session.scalar(
+        select(LeagueExpansionDraftEligiblePlayer).where(
+            LeagueExpansionDraftEligiblePlayer.league_expansion_draft_id == draft.id,
+            LeagueExpansionDraftEligiblePlayer.player_id == pid,
+        )
+    )
+    if row is None:
+        return "Player is not in the eligible pool."
+    session.delete(row)
+    stack = _mid_draft_protect_stack(draft)
+    stack.append(pid)
+    _set_mid_draft_protect_stack(draft, stack)
+    invalidate_expansion_eligible_cache(draft.id)
+    return None
+
+
+def undo_last_mid_draft_protect(session: Session, draft: LeagueExpansionDraft) -> str | None:
+    """Restore the most recently mid-draft-protected player to the eligible pool."""
+    if draft.status != "live":
+        return "Can only undo protect during a live draft."
+    stack = _mid_draft_protect_stack(draft)
+    if not stack:
+        return "No mid-draft protects to undo."
+    pid = int(stack.pop())
+    existing = session.scalar(
+        select(LeagueExpansionDraftEligiblePlayer).where(
+            LeagueExpansionDraftEligiblePlayer.league_expansion_draft_id == draft.id,
+            LeagueExpansionDraftEligiblePlayer.player_id == pid,
+        )
+    )
+    if existing is None:
+        session.add(
+            LeagueExpansionDraftEligiblePlayer(
+                league_expansion_draft_id=draft.id,
+                player_id=pid,
+            )
+        )
+    _set_mid_draft_protect_stack(draft, stack)
+    invalidate_expansion_eligible_cache(draft.id)
+    return None

@@ -980,6 +980,7 @@ class LeagueExpansionDraft(db.Model):
     expansion_pick_cooldown_active: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     awaiting_admin_resolution: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     board_ranks_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    mid_draft_protect_stack_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
     completed_summary_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(

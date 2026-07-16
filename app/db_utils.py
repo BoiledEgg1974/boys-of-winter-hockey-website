@@ -3347,6 +3347,13 @@ def ensure_league_expansion_draft_columns_sqlite(engine: Engine) -> None:
                     "ADD COLUMN serpentine_continuous BOOLEAN NOT NULL DEFAULT 0"
                 )
             )
+        if "mid_draft_protect_stack_json" not in cols:
+            conn.execute(
+                text(
+                    "ALTER TABLE league_expansion_drafts "
+                    "ADD COLUMN mid_draft_protect_stack_json TEXT NOT NULL DEFAULT '[]'"
+                )
+            )
         conn.commit()
 
 

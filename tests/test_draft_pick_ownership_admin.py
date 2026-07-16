@@ -140,6 +140,23 @@ class DraftPickOwnershipAdminTests(unittest.TestCase):
 
         self.assertEqual(cutoff, 2000)
 
+    def test_cutoff_prefers_active_league_draft_timeline_year_when_present(self) -> None:
+        # If the site DB knows the active draft hub timeline year, we should treat that
+        # as the authoritative current draft-year for ownership panel activation.
+        site_session = MagicMock()
+        site_session.scalar.return_value = 1970
+
+        league_session = MagicMock()
+        league_session.scalar = MagicMock()
+
+        cutoff = in_game_draft_ownership_cutoff_year(
+            league_session,
+            league_slug="bowl-historical",
+            site_session=site_session,
+        )
+        self.assertEqual(cutoff, 1970)
+        league_session.scalar.assert_not_called()
+
     def test_historical_cutoff_uses_draft_eligible_timeline_year(self) -> None:
         season = MagicMock(start_year=1969, end_year=1970)
         league_session = MagicMock()

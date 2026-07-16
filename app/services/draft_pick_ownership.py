@@ -265,7 +265,11 @@ def default_draft_pick_ownership_start_year(
 ) -> int:
     """Initial panel year from in-game state, never from the real calendar unless no data exists."""
     slug = str(league_slug or "").strip()
-    cutoff_year = in_game_draft_ownership_cutoff_year(league_session, league_slug=slug)
+    cutoff_year = in_game_draft_ownership_cutoff_year(
+        league_session,
+        league_slug=slug,
+        site_session=site_session,
+    )
     if slug:
         draft_year = site_session.scalar(
             select(LeagueDraft.timeline_year)
@@ -314,8 +318,28 @@ def in_game_draft_ownership_cutoff_year(
     league_session: Session,
     *,
     league_slug: str = "",
+    site_session: Session | None = None,
 ) -> int | None:
     """Draft ownership panels before the current in-game draft year are no longer active."""
+    # Prefer in-game truth (live draft hub timeline year) when available.
+    # Some historical leagues have season start/end year conventions that do not
+    # match the actual entry draft year.
+    if site_session is not None:
+        slug = str(league_slug or "").strip()
+        if slug:
+            draft_year = site_session.scalar(
+                select(LeagueDraft.timeline_year)
+                .where(
+                    LeagueDraft.league_slug == slug,
+                    LeagueDraft.status != "completed",
+                    LeagueDraft.timeline_year.isnot(None),
+                )
+                .order_by(LeagueDraft.timeline_year.asc(), LeagueDraft.id.asc())
+                .limit(1)
+            )
+            if draft_year is not None:
+                return int(draft_year)
+
     season = league_session.scalar(
         select(Season)
         .where(Season.is_current.is_(True))
@@ -342,7 +366,11 @@ def complete_stale_draft_pick_ownership_panels(
     slug = str(league_slug or "").strip()
     if not slug:
         return 0
-    cutoff_year = in_game_draft_ownership_cutoff_year(league_session, league_slug=slug)
+    cutoff_year = in_game_draft_ownership_cutoff_year(
+        league_session,
+        league_slug=slug,
+        site_session=site_session,
+    )
     if cutoff_year is None:
         return 0
     panels = list(
@@ -369,7 +397,11 @@ def reactivate_current_draft_pick_ownership_panel_if_needed(
     slug = str(league_slug or "").strip()
     if not slug:
         return False
-    current_year = in_game_draft_ownership_cutoff_year(league_session, league_slug=slug)
+    current_year = in_game_draft_ownership_cutoff_year(
+        league_session,
+        league_slug=slug,
+        site_session=site_session,
+    )
     if current_year is None:
         return False
     panel = site_session.scalar(
@@ -511,6 +543,32 @@ def ensure_draft_pick_ownership_panels(
         league_session,
         league_slug=slug,
     )
+    # If the current in-game draft year panel is missing entirely (e.g. created under
+    # an incorrect season-based mapping earlier), create it so the admin page can
+    # show or restore traded ownership.
+    current_year = in_game_draft_ownership_cutoff_year(
+        league_session,
+        league_slug=slug,
+        site_session=site_session,
+    )
+    if current_year is not None:
+        existing_panel = site_session.scalar(
+            select(DraftPickOwnershipYear).where(
+                DraftPickOwnershipYear.league_slug == slug,
+                DraftPickOwnershipYear.draft_year == int(current_year),
+            ).limit(1)
+        )
+        if existing_panel is None:
+            site_session.add(
+                DraftPickOwnershipYear(
+                    league_slug=slug,
+                    draft_year=int(current_year),
+                    round_count=rounds,
+                    status="active",
+                    display_order=9999,
+                )
+            )
+            site_session.flush()
     panels = list_draft_pick_ownership_year_panels(site_session, league_slug=slug)
     if panels:
         seed_start = max(int(p.draft_year) for p in panels) + 1

@@ -16,6 +16,10 @@ from sqlalchemy import select
 from app.models import Game, Team, TeamStanding
 from app.services.playoff_bracket import is_playoff_game_type
 
+# FHM conferences.csv: 0 = Wales (East), 1 = Campbell (West).
+_FHM_WALES_CONF_ID = 0
+_FHM_CAMPBELL_CONF_ID = 1
+
 
 def _is_regular_season_game(game_type: str | None) -> bool:
     if game_type is None or not str(game_type).strip():
@@ -66,8 +70,24 @@ class _SimTeam:
     ga: int
 
 
-def _rating(st: _SimTeam) -> float:
-    gp = max(int(st.gp or 0), 1)
+def _conference_key_for_standing(st: TeamStanding, tm: Team) -> str:
+    """Conference bucket for playoff sim; mirrors bracket projection fallbacks."""
+    label = (st.conference or "").strip()
+    if label:
+        return label
+    cid = tm.fhm_conference_id if tm is not None else None
+    if cid is not None:
+        return f"conf:{int(cid)}"
+    return "League"
+
+
+def _effective_gp(st: _SimTeam, sim_gp: dict[int, int] | None = None) -> int:
+    extra = int((sim_gp or {}).get(st.team_id, 0) or 0)
+    return max(int(st.gp or 0) + extra, 1)
+
+
+def _rating(st: _SimTeam, sim_gp: dict[int, int] | None = None) -> float:
+    gp = _effective_gp(st, sim_gp)
     pace = float(st.pts) / gp
     gd = (float(st.gf) - float(st.ga)) / gp
     return pace * 55.0 + gd * 1.8
@@ -82,16 +102,26 @@ def _logistic_stable(x: float) -> float:
     return z / (1.0 + z)
 
 
-def _p_home_win(h: _SimTeam, a: _SimTeam, rng: random.Random) -> float:
-    rh = _rating(h)
-    ra = _rating(a)
+def _p_home_win(
+    h: _SimTeam,
+    a: _SimTeam,
+    rng: random.Random,
+    sim_gp: dict[int, int] | None = None,
+) -> float:
+    rh = _rating(h, sim_gp)
+    ra = _rating(a, sim_gp)
     diff = rh - ra + 0.42
     p = _logistic_stable(diff * 0.11)
     return min(0.92, max(0.08, p))
 
 
-def _play_series(a: _SimTeam, b: _SimTeam, rng: random.Random) -> int:
-    ra, rb = _rating(a), _rating(b)
+def _play_series(
+    a: _SimTeam,
+    b: _SimTeam,
+    rng: random.Random,
+    sim_gp: dict[int, int] | None = None,
+) -> int:
+    ra, rb = _rating(a, sim_gp), _rating(b, sim_gp)
     p_a = _logistic_stable((ra - rb) * 0.12)
     p_a = min(0.88, max(0.12, p_a))
     return a.team_id if rng.random() < _series_win_probability(p_a) else b.team_id
@@ -173,12 +203,15 @@ def _simulate_rs_game(
     w: dict[int, int],
     gf: dict[int, int],
     ga: dict[int, int],
+    sim_gp: dict[int, int],
     rng: random.Random,
 ) -> None:
     h, a = home, away
-    p = _p_home_win(h, a, rng)
+    p = _p_home_win(h, a, rng, sim_gp)
     otl = rng.random() < 0.235
     hid, aid = h.team_id, a.team_id
+    sim_gp[hid] = sim_gp.get(hid, 0) + 1
+    sim_gp[aid] = sim_gp.get(aid, 0) + 1
     if otl:
         if rng.random() < p:
             pts[hid] = pts.get(hid, 0) + 2
@@ -261,6 +294,7 @@ def _single_monte_draw(
     w = {t.team_id: t.w for t in base_rows}
     gf = {t.team_id: t.gf for t in base_rows}
     ga = {t.team_id: t.ga for t in base_rows}
+    sim_gp: dict[int, int] = {}
     for hid, aid in remaining:
         bh, ba = base_by_id.get(hid), base_by_id.get(aid)
         if not bh or not ba:
@@ -273,8 +307,8 @@ def _single_monte_draw(
             pts[hid],
             w[hid],
             bh.sow,
-            bh.gf,
-            bh.ga,
+            gf[hid],
+            ga[hid],
         )
         a = _SimTeam(
             ba.team_id,
@@ -284,17 +318,17 @@ def _single_monte_draw(
             pts[aid],
             w[aid],
             ba.sow,
-            ba.gf,
-            ba.ga,
+            gf[aid],
+            ga[aid],
         )
-        _simulate_rs_game(h, a, pts, w, gf, ga, rng)
+        _simulate_rs_game(h, a, pts, w, gf, ga, sim_gp, rng)
 
     sim_teams = [
         _SimTeam(
             team_id=t.team_id,
             conference=t.conference,
             division=t.division,
-            gp=t.gp,
+            gp=_effective_gp(t, sim_gp),
             pts=pts[t.team_id],
             w=w[t.team_id],
             sow=t.sow,
@@ -377,7 +411,7 @@ def _load_monte_carlo_context(
         tm = teams_by_id.get(st.team_id)
         if not tm:
             continue
-        conf = (st.conference or "").strip() or "League"
+        conf = _conference_key_for_standing(st, tm)
         div = (st.division or "").strip() or "League"
         gp = int(st.standing_gp_display() or 0)
         base_rows.append(
@@ -405,9 +439,15 @@ def _load_monte_carlo_context(
         )
     ).all()
     remaining: list[tuple[int, int]] = []
+    seen_matchups: set[tuple[int, int]] = set()
     for g in games:
-        if _is_regular_season_game(g.game_type):
-            remaining.append((int(g.home_team_id), int(g.away_team_id)))
+        if not _is_regular_season_game(g.game_type):
+            continue
+        pair = (int(g.home_team_id), int(g.away_team_id))
+        if pair in seen_matchups:
+            continue
+        seen_matchups.add(pair)
+        remaining.append(pair)
 
     team_ids = [t.team_id for t in base_rows]
     base_by_id = {t.team_id: t for t in base_rows}

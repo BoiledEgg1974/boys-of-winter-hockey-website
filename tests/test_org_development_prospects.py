@@ -5,7 +5,11 @@ import unittest
 from datetime import date, datetime
 from types import SimpleNamespace
 
-from app.services.org_development import classify_player_month_diff, format_signed_delta
+from app.services.org_development import (
+    _sort_player_cards,
+    classify_player_month_diff,
+    format_signed_delta,
+)
 from app.services.org_development_timeline import (
     ORG_DEV_ARCHIVE_MONTH_LIMIT,
     development_report_title,
@@ -44,6 +48,19 @@ class OrgDevelopmentClassifyTest(unittest.TestCase):
     def test_format_signed_delta(self) -> None:
         self.assertEqual(format_signed_delta(1.0), "+1")
         self.assertEqual(format_signed_delta(-1.0), "-1")
+
+    def test_sort_player_cards_by_highest_potential(self) -> None:
+        rows = [
+            {"player": SimpleNamespace(full_name="Low Pot"), "potential": 0.5},
+            {"player": SimpleNamespace(full_name="High Pot"), "potential": 1.5},
+            {"player": SimpleNamespace(full_name="Missing"), "potential": None},
+            {"player": SimpleNamespace(full_name="Mid Pot"), "potential": 1.0},
+        ]
+        _sort_player_cards(rows)
+        self.assertEqual(
+            [r["player"].full_name for r in rows],
+            ["High Pot", "Mid Pot", "Low Pot", "Missing"],
+        )
 
 
 class OrgDevelopmentTimelineTest(unittest.TestCase):

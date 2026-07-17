@@ -316,12 +316,15 @@ def _hydrate_report_entries(
 
 
 def _sort_player_cards(rows: list[dict[str, Any]]) -> None:
-    rows.sort(
-        key=lambda r: (
-            -len(r.get("attributes") or []),
-            (getattr(r.get("player"), "full_name", None) or "").lower(),
-        )
-    )
+    """Highest potential first; missing potential last; name as tiebreaker."""
+
+    def _potential_key(r: dict[str, Any]) -> tuple[int, float, str]:
+        pot = r.get("potential")
+        if pot is None:
+            return (1, 0.0, (getattr(r.get("player"), "full_name", None) or "").lower())
+        return (0, -float(pot), (getattr(r.get("player"), "full_name", None) or "").lower())
+
+    rows.sort(key=_potential_key)
 
 
 def _archive_sort_key(row: object) -> tuple[int, int]:
@@ -593,6 +596,10 @@ def _load_archived_reports(session: Session, team_id: int) -> list[dict[str, Any
             payload = json.loads(row.report_json or "{}")
         except json.JSONDecodeError:
             continue
+        progression = _hydrate_report_entries(session, payload.get("progression") or [])
+        regression = _hydrate_report_entries(session, payload.get("regression") or [])
+        _sort_player_cards(progression)
+        _sort_player_cards(regression)
         out.append(
             {
                 "timeline_key": row.timeline_key,
@@ -603,8 +610,8 @@ def _load_archived_reports(session: Session, team_id: int) -> list[dict[str, Any
                 "month": int(row.timeline_calendar_month),
                 "month_key": row.timeline_key,
                 "label": row.label,
-                "progression": _hydrate_report_entries(session, payload.get("progression") or []),
-                "regression": _hydrate_report_entries(session, payload.get("regression") or []),
+                "progression": progression,
+                "regression": regression,
                 "archived": True,
             }
         )

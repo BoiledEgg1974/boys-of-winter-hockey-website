@@ -1,7 +1,7 @@
 {# Org Development — monthly progression / regression reports #}
 {% macro org_dev_badge_ovr(val) -%}
 {% if val is none %}—{% else %}
-<span class="stats-badge stats-badge--overall org-dev-card__badge">{{ val|int }}</span>
+<span class="stats-ova__score org-dev-card__badge" title="Composite OVR (1–100)">{{ val|int }}</span>
 {% endif %}
 {%- endmacro %}
 {% macro org_dev_badge_abi_pot(val) -%}

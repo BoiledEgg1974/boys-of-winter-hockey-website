@@ -23420,6 +23420,12 @@ button.bowl-six-submissions__toggle:hover {
   min-width: 1.7rem;
   justify-content: center;
 }
+.org-dev-card__badges .stats-ova__score {
+  font-size: 0.82rem;
+  padding: 0.08rem 0.32rem;
+  min-width: 1.7rem;
+  border-width: 1.5px;
+}
 .org-dev-card__block {
   margin-top: 0.35rem;
 }

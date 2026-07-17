@@ -9377,6 +9377,8 @@ def admin_expansion_draft_hub_edit(draft_id: int):
         resolve_admin_pick,
         set_exempt_team_ids,
         set_expansion_team_order,
+        skip_current_slot,
+        undo_last_admin_skip,
         undo_last_pick,
     )
     from app.services.roster_team import (
@@ -9475,7 +9477,7 @@ def admin_expansion_draft_hub_edit(draft_id: int):
                 )
                 flash("Slots regenerated (goalie phase, then skater phase).", "ok")
             commit_with_sqlite_retry(db.session)
-        elif act == "save_eligible" and row.status == "setup":
+        elif act == "save_eligible" and row.status in ("setup", "live"):
             exempt = exempt_team_ids(row)
             pids: set[int] = set()
             for pid_s in request.form.getlist("elig"):
@@ -9491,7 +9493,7 @@ def admin_expansion_draft_hub_edit(draft_id: int):
                     admin_user_id=int(current_user.id),
                     league_slug=slug,
                     action="expansion_draft_save_eligible",
-                    detail_json=json.dumps({"draft_id": row.id, "count": len(pids)}),
+                    detail_json=json.dumps({"draft_id": row.id, "count": len(pids), "status": row.status}),
                 )
             )
             commit_with_sqlite_retry(db.session)
@@ -9525,6 +9527,36 @@ def admin_expansion_draft_hub_edit(draft_id: int):
                     )
                 )
                 flash("Last pick removed.", "ok")
+            commit_with_sqlite_retry(db.session)
+        elif act == "skip_pick" and row.status == "live":
+            err = skip_current_slot(db.session, row, int(current_user.id))
+            if err:
+                flash(err, "err")
+            else:
+                db.session.add(
+                    AdminAuditLog(
+                        admin_user_id=int(current_user.id),
+                        league_slug=slug,
+                        action="expansion_draft_skip_pick",
+                        detail_json=json.dumps({"draft_id": row.id}),
+                    )
+                )
+                flash("Current pick skipped.", "ok")
+            commit_with_sqlite_retry(db.session)
+        elif act == "undo_skip" and row.status == "live":
+            err = undo_last_admin_skip(db.session, row)
+            if err:
+                flash(err, "err")
+            else:
+                db.session.add(
+                    AdminAuditLog(
+                        admin_user_id=int(current_user.id),
+                        league_slug=slug,
+                        action="expansion_draft_undo_skip",
+                        detail_json=json.dumps({"draft_id": row.id}),
+                    )
+                )
+                flash("Last skip undone; that team is back on the clock.", "ok")
             commit_with_sqlite_retry(db.session)
         elif act == "end_draft_early" and row.status == "live":
             err = end_expansion_draft_early(db.session, row, int(current_user.id))

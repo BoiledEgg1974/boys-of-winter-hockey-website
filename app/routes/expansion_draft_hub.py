@@ -8,11 +8,12 @@ from sqlalchemy import func, select
 from app.auth_login import active_membership_for_league, league_hub_staff
 from app.league_db import commit_or_release_after_tick, db
 from app.sqlite_retry import commit_with_sqlite_retry
-from app.logo_urls import team_logo_url_for_team
 from app.models import Player, Team
 from app.services.draft_hub_eligibility import age_as_of
 from app.services.seasons import get_current_season, season_age_reference_date
+from app.services.season_team_logo_bundle import get_season_team_logo_bundle
 from app.services.expansion_draft_state import (
+    admin_skip_stack_nonempty,
     eligible_player_ids_for_board,
     end_expansion_draft_early,
     expansion_franchise_ids_sorted,
@@ -26,7 +27,9 @@ from app.services.expansion_draft_state import (
     protect_eligible_player,
     GM_SELF_PICK_DISABLED_MSG,
     resolve_admin_pick,
+    skip_current_slot,
     slots_ordered,
+    undo_last_admin_skip,
     undo_last_mid_draft_protect,
     undo_last_pick,
 )
@@ -80,6 +83,26 @@ def _expansion_hub_allowed() -> bool:
     return _membership() is not None
 
 
+def _logo_context_year() -> int | None:
+    """Season start year for era-correct team logos on the expansion hub."""
+    season = get_current_season(db.session)
+    if season is None or season.start_year is None:
+        return None
+    try:
+        return int(season.start_year)
+    except (TypeError, ValueError):
+        return None
+
+
+def _team_logo_url(team: Team | None) -> str | None:
+    if team is None:
+        return None
+    return get_season_team_logo_bundle(current_app).team_logo_url_for_season_context(
+        team,
+        _logo_context_year(),
+    )
+
+
 @expansion_draft_hub_bp.get("")
 def expansion_draft_hub_page():
     if not _expansion_hub_allowed():
@@ -113,7 +136,7 @@ def expansion_draft_api_state():
     slots = slots_ordered(db.session, draft.id)
     team_by_id = {t.id: t for t in db.session.scalars(select(Team)).all()}
     logo_by_team_id: dict[int, str] = {
-        int(tid): team_logo_url_for_team(tm) for tid, tm in team_by_id.items()
+        int(tid): url for tid, tm in team_by_id.items() if (url := _team_logo_url(tm))
     }
 
     def _roster_slot(pl: Player | None, phase: str) -> str:
@@ -318,6 +341,13 @@ def expansion_draft_api_state():
     can_admin_undo_protect = bool(
         can_admin_protect and mid_draft_protect_stack_nonempty(draft)
     )
+    can_admin_skip = bool(can_admin_pick)
+    can_admin_undo_skip = bool(
+        current_user.is_authenticated
+        and league_hub_staff(current_user)
+        and draft.status == "live"
+        and admin_skip_stack_nonempty(db.session, draft)
+    )
 
     rt_tid: int | None = None
     if draft.status == "live" and current_slot and current_slot.get("team_id") is not None:
@@ -384,6 +414,8 @@ def expansion_draft_api_state():
                 "can_admin_undo_pick": can_admin_undo_pick,
                 "can_admin_protect": can_admin_protect,
                 "can_admin_undo_protect": can_admin_undo_protect,
+                "can_admin_skip": can_admin_skip,
+                "can_admin_undo_skip": can_admin_undo_skip,
                 "wishlist_pick": None,
                 "gm_picks_enabled": False,
             },
@@ -449,8 +481,9 @@ def expansion_draft_eligible_page():
 
     as_of = season_age_reference_date(get_current_season())
     logo_by_team_id: dict[int, str] = {
-        int(t.id): team_logo_url_for_team(t)
+        int(t.id): url
         for t in db.session.scalars(select(Team)).all()
+        if (url := _team_logo_url(t))
     }
 
     def age_years(bd):
@@ -578,6 +611,96 @@ def expansion_draft_admin_undo_pick():
         db.session.refresh(draft)
         return jsonify({"ok": True, "error": None})
     flash("Last pick removed.", "ok")
+    return redirect(hub_url)
+
+
+@expansion_draft_hub_bp.post("/admin/skip-pick")
+@login_required
+def expansion_draft_admin_skip_pick():
+    """Skip (forfeit) the current live slot without selecting a player. JSON or form POST."""
+    from flask_wtf.csrf import validate_csrf
+
+    wants_json = _expansion_undo_pick_wants_json()
+    hub_url = url_for("expansion_draft_hub.expansion_draft_hub_page")
+
+    if not _expansion_hub_allowed() or not league_hub_staff(current_user):
+        if wants_json:
+            return jsonify({"ok": False, "error": "Forbidden."}), 403
+        abort(403)
+    try:
+        if wants_json:
+            data = request.get_json(silent=True) or {}
+            validate_csrf(data.get("csrf_token"))
+        else:
+            validate_csrf(request.form.get("csrf_token"))
+    except Exception:  # noqa: BLE001
+        if wants_json:
+            return jsonify({"ok": False, "error": "Invalid CSRF token."}), 400
+        flash("Invalid CSRF token.", "err")
+        return redirect(hub_url)
+    slug = _league_slug()
+    draft = featured_expansion_draft(db.session, slug)
+    if not draft or draft.status != "live":
+        if wants_json:
+            return jsonify({"ok": False, "error": "No live expansion draft."}), 400
+        flash("No live expansion draft.", "err")
+        return redirect(hub_url)
+    err = skip_current_slot(db.session, draft, int(current_user.id))
+    if err:
+        db.session.rollback()
+        if wants_json:
+            return jsonify({"ok": False, "error": err}), 400
+        flash(err, "err")
+        return redirect(hub_url)
+    commit_with_sqlite_retry(db.session)
+    if wants_json:
+        return jsonify({"ok": True, "error": None})
+    flash("Current pick skipped. You can add missing players to the eligible pool, then undo the skip if needed.", "ok")
+    return redirect(hub_url)
+
+
+@expansion_draft_hub_bp.post("/admin/undo-skip")
+@login_required
+def expansion_draft_admin_undo_skip():
+    """Undo the most recent admin skip and return that team to the clock."""
+    from flask_wtf.csrf import validate_csrf
+
+    wants_json = _expansion_undo_pick_wants_json()
+    hub_url = url_for("expansion_draft_hub.expansion_draft_hub_page")
+
+    if not _expansion_hub_allowed() or not league_hub_staff(current_user):
+        if wants_json:
+            return jsonify({"ok": False, "error": "Forbidden."}), 403
+        abort(403)
+    try:
+        if wants_json:
+            data = request.get_json(silent=True) or {}
+            validate_csrf(data.get("csrf_token"))
+        else:
+            validate_csrf(request.form.get("csrf_token"))
+    except Exception:  # noqa: BLE001
+        if wants_json:
+            return jsonify({"ok": False, "error": "Invalid CSRF token."}), 400
+        flash("Invalid CSRF token.", "err")
+        return redirect(hub_url)
+    slug = _league_slug()
+    draft = featured_expansion_draft(db.session, slug)
+    if not draft or draft.status != "live":
+        if wants_json:
+            return jsonify({"ok": False, "error": "No live expansion draft."}), 400
+        flash("No live expansion draft.", "err")
+        return redirect(hub_url)
+    err = undo_last_admin_skip(db.session, draft)
+    if err:
+        db.session.rollback()
+        if wants_json:
+            return jsonify({"ok": False, "error": err}), 400
+        flash(err, "err")
+        return redirect(hub_url)
+    commit_with_sqlite_retry(db.session)
+    if wants_json:
+        return jsonify({"ok": True, "error": None})
+    flash("Last skip undone; that team is back on the clock.", "ok")
     return redirect(hub_url)
 
 

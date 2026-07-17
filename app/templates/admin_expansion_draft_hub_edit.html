@@ -127,9 +127,11 @@
   {% if slots %}
   <p class="muted small">{{ slots|length }} slot(s) on file.</p>
   {% endif %}
+  {% endif %}
 
+  {% if draft.status in ('setup', 'live') %}
   <h2>Eligible players (unprotected pool)</h2>
-  <p class="muted">Check every player who should appear on the Expansion Draft Hub board (age <strong>21+</strong> as of the league timeline — same reference date as player ages on the site, usually July&nbsp;1 of the current season). Players who are unrestricted free agents <em>and</em> no longer tied to any BOWL club are omitted. FHM often marks expansion-exposed skaters as UFA while they remain on a club’s unprotected list — those players appear here. Each club lists: <strong>BOWL roster</strong> (assigned to the big club), <strong>minors / affiliates</strong> (under contract but not on the BOWL roster), and <strong>org / export rights</strong> (from <code>player_rights.csv</code> in this league’s raw import folder, plus prospect-only rows when there is no contract line). Save before going live.</p>
+  <p class="muted">Check every player who should appear on the Expansion Draft Hub board (age <strong>21+</strong> as of the league timeline — same reference date as player ages on the site, usually July&nbsp;1 of the current season). Players who are unrestricted free agents <em>and</em> no longer tied to any BOWL club are omitted. FHM often marks expansion-exposed skaters as UFA while they remain on a club’s unprotected list — those players appear here. Each club lists: <strong>BOWL roster</strong> (assigned to the big club), <strong>minors / affiliates</strong> (under contract but not on the BOWL roster), and <strong>org / export rights</strong> (from <code>player_rights.csv</code> in this league’s raw import folder, plus prospect-only rows when there is no contract line).{% if draft.status == 'setup' %} Save before going live.{% else %} During a live draft you can add missing players here (for example after using <strong>Skip pick</strong> on the hub), then return to the hub to draft them.{% endif %}</p>
   <form method="post" class="card" style="padding:1rem;margin-bottom:1rem;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="save_eligible">
@@ -186,7 +188,9 @@
     {% endfor %}
     <button type="submit" class="button" style="margin-top:0.75rem;">Save eligible pool</button>
   </form>
+  {% endif %}
 
+  {% if draft.status == 'setup' %}
   <h2>Go live</h2>
   {% set n_saved_elig = eligible_ids|length %}
   {% set n_slots = slots|length %}
@@ -215,6 +219,18 @@
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="action" value="undo_pick">
       <button type="submit" class="button secondary">Undo last pick</button>
+    </form>
+    <form method="post" style="margin:0;"
+          onsubmit="return confirm('Skip the current pick without selecting a player? Use this if the eligible list is incomplete.');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="skip_pick">
+      <button type="submit" class="button secondary">Skip pick</button>
+    </form>
+    <form method="post" style="margin:0;"
+          onsubmit="return confirm('Undo the most recent skipped pick? That expansion team goes back on the clock.');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="undo_skip">
+      <button type="submit" class="button secondary">Undo last skip</button>
     </form>
     <form method="post" style="margin:0;"
           onsubmit="return confirm('End this expansion draft now and mark it complete? Remaining slots stay unpicked. This cannot be undone from the admin screen.');">

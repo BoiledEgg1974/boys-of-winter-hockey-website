@@ -43,9 +43,11 @@ Examples:
 
   anaheim_ducks_2013-present.png     -> Anaheim Ducks logo from 2013-14 onward
   montreal_maroons_1924.png          -> Maroons logo for season start 1924 only
-  pit-t122.png  -> Penguins mark tied to FHM team id (also used for 1968-71 in team_identity_history.csv)
 
 Prefer ``team_identity_history.csv`` in ``data/imports/raw/<league>/`` when you need to tie a
-logo to **FHM team_id** or an exact display name; use timeline filenames for quick name+year assets.
+logo to **FHM team_id** or an exact display name (e.g. Pittsburgh Penguins ``122``); use
+timeline filenames for quick name+year assets. Avoid a dedicated ``*-t{id}.png`` override
+unless it matches the current timeline — a wrong dedicated file blocks era resolution in
+``team_logo_url_for_team``.
 
 Supported extensions: .png, .webp, .jpg, .jpeg, .svg (same as above).

@@ -942,6 +942,101 @@ def resolve_admin_pick(
     return record_pick(session, draft, player_id, admin_user_id, "admin")
 
 
+ADMIN_SKIP_NOTE = "admin_skip"
+
+
+def admin_skip_stack_nonempty(session: Session, draft: LeagueExpansionDraft) -> bool:
+    """True when at least one slot was skipped by an admin (undoable)."""
+    return any(
+        bool(s.forfeited) and (s.notes or "") == ADMIN_SKIP_NOTE
+        for s in slots_ordered(session, draft.id)
+    )
+
+
+def skip_current_slot(
+    session: Session,
+    draft: LeagueExpansionDraft,
+    admin_user_id: int,
+) -> str | None:
+    """Forfeit the current live slot so the draft can advance without a player pick.
+
+    Used when the eligible pool is incomplete and the commissioner needs to move on
+    (or fix the pool) before selecting. Skips are undoable via ``undo_last_admin_skip``.
+    """
+    del admin_user_id
+    if draft.status != "live":
+        return "Draft is not live."
+    slots = slots_ordered(session, draft.id)
+    if draft.current_slot_index >= len(slots):
+        return "No active pick slot."
+    slot = slots[draft.current_slot_index]
+    if slot.forfeited:
+        return "Current slot is already skipped or forfeited."
+    if _pick_row_for_overall(session, draft.id, slot.overall_pick):
+        return "Pick already recorded for this slot."
+    slot.forfeited = True
+    slot.notes = ADMIN_SKIP_NOTE
+    draft.current_slot_index += 1
+    draft.deadline_extended_for_slot = False
+    draft.awaiting_admin_resolution = False
+    draft.timer_paused = False
+    draft.timer_paused_remaining_seconds = None
+    draft.expansion_pick_cooldown_active = False
+    draft.pick_started_at = None
+    draft.pick_deadline_at = None
+    sync_current_slot_and_clock(session, draft)
+    slots_after = slots_ordered(session, draft.id)
+    _finalize_if_done(session, draft, slots_after)
+    invalidate_expansion_eligible_cache(draft.id)
+    return None
+
+
+def undo_last_admin_skip(session: Session, draft: LeagueExpansionDraft) -> str | None:
+    """Clear the most recent admin skip and put that team back on the clock."""
+    if draft.status != "live":
+        return "Can only undo during a live draft."
+    slots = slots_ordered(session, draft.id)
+    skipped = [
+        (i, s)
+        for i, s in enumerate(slots)
+        if bool(s.forfeited) and (s.notes or "") == ADMIN_SKIP_NOTE
+    ]
+    if not skipped:
+        return "No skipped picks to undo."
+    idx, slot = max(skipped, key=lambda pair: int(pair[1].overall_pick))
+    later_pick = session.scalar(
+        select(LeagueExpansionDraftPick.id)
+        .where(
+            LeagueExpansionDraftPick.league_expansion_draft_id == draft.id,
+            LeagueExpansionDraftPick.overall_pick > int(slot.overall_pick),
+        )
+        .limit(1)
+    )
+    if later_pick is not None:
+        return "Cannot undo skip: picks were recorded after it. Undo those picks first."
+    later_skip = any(
+        int(s.overall_pick) > int(slot.overall_pick)
+        and bool(s.forfeited)
+        and (s.notes or "") == ADMIN_SKIP_NOTE
+        for s in slots
+    )
+    if later_skip:
+        return "Cannot undo skip: another skip happened after it."
+    slot.forfeited = False
+    slot.notes = None
+    draft.current_slot_index = idx
+    draft.awaiting_admin_resolution = False
+    draft.deadline_extended_for_slot = False
+    draft.expansion_pick_cooldown_active = False
+    draft.timer_paused = False
+    draft.timer_paused_remaining_seconds = None
+    draft.pick_started_at = None
+    draft.pick_deadline_at = None
+    sync_current_slot_and_clock(session, draft)
+    invalidate_expansion_eligible_cache(draft.id)
+    return None
+
+
 def undo_last_pick(session: Session, draft: LeagueExpansionDraft) -> str | None:
     if draft.status != "live":
         return "Can only undo during a live draft."

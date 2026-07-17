@@ -53,6 +53,55 @@ class ExpansionDraftAdminOnlyTest(unittest.TestCase):
 
         self.assertEqual(msg, expansion_draft_state.GM_SELF_PICK_DISABLED_MSG)
 
+    def test_skip_current_slot_forfeits_and_advances(self) -> None:
+        session = MagicMock()
+        draft = MagicMock(
+            id=1,
+            status="live",
+            current_slot_index=0,
+            awaiting_admin_resolution=False,
+        )
+        slot = MagicMock(
+            overall_pick=1,
+            team_id=10,
+            round=1,
+            phase="goalie",
+            forfeited=False,
+            notes=None,
+        )
+        with (
+            patch.object(expansion_draft_state, "slots_ordered", side_effect=[[slot], [slot]]),
+            patch.object(expansion_draft_state, "_pick_row_for_overall", return_value=None),
+            patch.object(expansion_draft_state, "sync_current_slot_and_clock"),
+            patch.object(expansion_draft_state, "_finalize_if_done"),
+            patch.object(expansion_draft_state, "invalidate_expansion_eligible_cache"),
+        ):
+            err = expansion_draft_state.skip_current_slot(session, draft, admin_user_id=99)
+        self.assertIsNone(err)
+        self.assertTrue(slot.forfeited)
+        self.assertEqual(slot.notes, expansion_draft_state.ADMIN_SKIP_NOTE)
+        self.assertEqual(draft.current_slot_index, 1)
+
+    def test_undo_last_admin_skip_restores_slot(self) -> None:
+        session = MagicMock()
+        draft = MagicMock(id=1, status="live", current_slot_index=1)
+        slot = MagicMock(
+            overall_pick=1,
+            forfeited=True,
+            notes=expansion_draft_state.ADMIN_SKIP_NOTE,
+        )
+        session.scalar.return_value = None
+        with (
+            patch.object(expansion_draft_state, "slots_ordered", return_value=[slot]),
+            patch.object(expansion_draft_state, "sync_current_slot_and_clock"),
+            patch.object(expansion_draft_state, "invalidate_expansion_eligible_cache"),
+        ):
+            err = expansion_draft_state.undo_last_admin_skip(session, draft)
+        self.assertIsNone(err)
+        self.assertFalse(slot.forfeited)
+        self.assertIsNone(slot.notes)
+        self.assertEqual(draft.current_slot_index, 0)
+
     def test_undo_last_pick_requires_existing_pick(self) -> None:
         session = MagicMock()
         draft = MagicMock(id=1, status="live")
@@ -86,6 +135,33 @@ class ExpansionDraftAdminOnlyTest(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertIn(b"Last pick removed.", resp.data)
         undo_mock.assert_called_once()
+
+    def test_skip_pick_form_post_redirects_with_flash(self) -> None:
+        app = create_app(make_league_config("bowl-cap"))
+        draft = MagicMock(id=7, status="live")
+        with (
+            patch("app.routes.expansion_draft_hub.featured_expansion_draft", return_value=draft),
+            patch("app.routes.expansion_draft_hub.skip_current_slot", return_value=None) as skip_mock,
+            patch("app.routes.expansion_draft_hub.league_hub_staff", return_value=True),
+            patch("app.routes.expansion_draft_hub._expansion_hub_allowed", return_value=True),
+            patch("app.routes.expansion_draft_hub.commit_with_sqlite_retry"),
+        ):
+            with app.test_client() as client:
+                with client.session_transaction() as sess:
+                    sess["_user_id"] = "1"
+                    sess["_fresh"] = True
+                page = client.get("/expansion-draft-hub")
+                self.assertEqual(page.status_code, 200)
+                token = _csrf_token(page.get_data(as_text=True))
+                self.assertTrue(token)
+                resp = client.post(
+                    "/expansion-draft-hub/admin/skip-pick",
+                    data={"csrf_token": token},
+                    follow_redirects=True,
+                )
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn(b"Current pick skipped", resp.data)
+        skip_mock.assert_called_once()
 
 
 if __name__ == "__main__":

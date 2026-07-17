@@ -3348,12 +3348,34 @@ def ensure_league_expansion_draft_columns_sqlite(engine: Engine) -> None:
                 )
             )
         if "mid_draft_protect_stack_json" not in cols:
-            conn.execute(
-                text(
-                    "ALTER TABLE league_expansion_drafts "
-                    "ADD COLUMN mid_draft_protect_stack_json TEXT NOT NULL DEFAULT '[]'"
+            if dialect == "sqlite":
+                conn.execute(
+                    text(
+                        "ALTER TABLE league_expansion_drafts "
+                        "ADD COLUMN mid_draft_protect_stack_json TEXT NOT NULL DEFAULT '[]'"
+                    )
                 )
-            )
+            else:
+                # MySQL/MariaDB: TEXT/BLOB/JSON columns cannot have a DEFAULT.
+                conn.execute(
+                    text(
+                        "ALTER TABLE league_expansion_drafts "
+                        "ADD COLUMN mid_draft_protect_stack_json TEXT NULL"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "UPDATE league_expansion_drafts "
+                        "SET mid_draft_protect_stack_json = '[]' "
+                        "WHERE mid_draft_protect_stack_json IS NULL"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE league_expansion_drafts "
+                        "MODIFY COLUMN mid_draft_protect_stack_json TEXT NOT NULL"
+                    )
+                )
         conn.commit()
 
 

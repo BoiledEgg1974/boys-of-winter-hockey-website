@@ -300,14 +300,19 @@ def default_draft_pick_ownership_start_year(
 
 
 def _ownership_current_draft_year_for_season(season: Season, *, league_slug: str) -> int | None:
-    """Match ownership panels to the same timeline year as the Draft Eligible page."""
+    """Resolve the draft year represented by the current season's ownership panel."""
     if season.start_year is None and season.end_year is None:
         return None
+    slug = str(league_slug or "").strip()
+    # Historical and cap ownership labels follow the season they supply: the
+    # 1970 draft belongs to 1970-71, so the panel uses the season start year.
+    if slug in {"bowl-historical", "bowl-cap"} and season.start_year is not None:
+        return int(season.start_year)
     fallback = season.end_year or season.start_year
     if fallback is None:
         return None
     return draft_eligible_timeline_year_for_league(
-        str(league_slug or "").strip(),
+        slug,
         season.start_year,
         season.end_year,
         int(fallback),
@@ -389,7 +394,10 @@ def complete_stale_draft_pick_ownership_panels(
     )
     changed = 0
     for panel in panels:
-        if int(panel.draft_year) in keep_years:
+        if (
+            int(panel.draft_year) in keep_years
+            or getattr(panel, "manual_status_override", False) is True
+        ):
             continue
         panel.status = "completed"
         changed += 1
@@ -419,7 +427,11 @@ def reactivate_current_draft_pick_ownership_panel_if_needed(
             DraftPickOwnershipYear.draft_year == int(current_year),
         ).limit(1)
     )
-    if panel is None or str(panel.status or "active") != "completed":
+    if (
+        panel is None
+        or str(panel.status or "active") != "completed"
+        or getattr(panel, "manual_status_override", False) is True
+    ):
         return False
     panel.status = "active"
     return True
@@ -582,6 +594,12 @@ def ensure_draft_pick_ownership_panels(
             )
             site_session.flush()
     panels = list_draft_pick_ownership_year_panels(site_session, league_slug=slug)
+    keep_years.update(
+        int(panel.draft_year)
+        for panel in panels
+        if str(panel.status or "active") != "completed"
+        and getattr(panel, "manual_status_override", False) is True
+    )
     if panels:
         seed_start = max(int(p.draft_year) for p in panels) + 1
     else:

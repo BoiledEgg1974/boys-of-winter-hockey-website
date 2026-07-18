@@ -1824,6 +1824,7 @@ def ensure_trade_market_sqlite(engine: Engine) -> None:
                         draft_year INTEGER NOT NULL,
                         round_count INTEGER NOT NULL DEFAULT 9,
                         status VARCHAR(24) NOT NULL DEFAULT 'active',
+                        manual_status_override BOOLEAN NOT NULL DEFAULT 0,
                         display_order INTEGER NOT NULL DEFAULT 0,
                         created_at DATETIME NOT NULL,
                         updated_at DATETIME NOT NULL
@@ -1843,6 +1844,18 @@ def ensure_trade_market_sqlite(engine: Engine) -> None:
                     "ON draft_pick_ownership_years (league_slug, status, display_order)"
                 )
             )
+        else:
+            draft_year_columns = {
+                str(row[1])
+                for row in conn.execute(text("PRAGMA table_info(draft_pick_ownership_years)")).fetchall()
+            }
+            if "manual_status_override" not in draft_year_columns:
+                conn.execute(
+                    text(
+                        "ALTER TABLE draft_pick_ownership_years "
+                        "ADD COLUMN manual_status_override BOOLEAN NOT NULL DEFAULT 0"
+                    )
+                )
         conn.commit()
 
 

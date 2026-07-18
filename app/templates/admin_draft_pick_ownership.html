@@ -4,7 +4,7 @@
 <div class="card" style="max-width:95vw;margin:0 auto;">
   <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
   <h1 class="page-title">Draft Pick Ownership</h1>
-  <p class="muted">Manage pick ownership for <strong>{{ league_slug }}</strong>. Each panel stores one draft year and custom round count. Completed (archived) years stay listed so you can review or restore them with <strong>Add year panel</strong>.</p>
+  <p class="muted">Manage pick ownership for <strong>{{ league_slug }}</strong>. Each panel stores one draft year and custom round count. Completed (archived) years stay listed and can be changed back to Active.</p>
 
   <div style="display:flex;flex-wrap:wrap;gap:0.75rem;align-items:end;margin-bottom:1rem;">
     <form method="post" class="card" style="padding:0.7rem;">
@@ -23,7 +23,21 @@
   {% for row in panels_view %}
   {% set panel = row.panel %}
   <section class="card" style="padding:0.8rem;margin-bottom:1rem;">
-    <h2 style="margin:0 0 0.65rem;">{{ panel.draft_year }} Draft Ownership <span class="muted">({{ panel.status }})</span></h2>
+    <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:0.65rem;margin-bottom:0.65rem;">
+      <h2 style="margin:0;">{{ panel.draft_year }} Draft Ownership <span class="muted">({{ panel.status|title }})</span></h2>
+      <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="set_status">
+        <input type="hidden" name="panel_id" value="{{ panel.id }}">
+        {% if panel.status == "completed" %}
+        <input type="hidden" name="status" value="active">
+        <button type="submit" class="button">Mark Active</button>
+        {% else %}
+        <input type="hidden" name="status" value="completed">
+        <button type="submit" class="button">Mark Completed</button>
+        {% endif %}
+      </form>
+    </div>
     <form method="post">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="action" value="save_year">

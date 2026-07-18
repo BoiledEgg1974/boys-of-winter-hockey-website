@@ -424,6 +424,7 @@ class DraftPickOwnershipYear(db.Model):
     draft_year: Mapped[int] = mapped_column(Integer, nullable=False)
     round_count: Mapped[int] = mapped_column(Integer, default=9, nullable=False)
     status: Mapped[str] = mapped_column(String(24), default="active", nullable=False)
+    manual_status_override: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(

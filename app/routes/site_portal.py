@@ -3328,6 +3328,7 @@ def admin_draft_pick_ownership():
             else:
                 panel.round_count = rounds
                 panel.status = "active"
+                panel.manual_status_override = True
                 commit_with_sqlite_retry(db.session)
             ensure_draft_pick_ownership_panels(
                 db.session,
@@ -3338,6 +3339,21 @@ def admin_draft_pick_ownership():
                 exclude_years={int(year)},
             )
             flash(f"Draft panel for {year} is ready.", "ok")
+            return redirect(url_for("site_admin.admin_draft_pick_ownership"))
+        if action == "set_status":
+            panel_id = int(request.form.get("panel_id") or 0)
+            panel = db.session.get(DraftPickOwnershipYear, panel_id)
+            if panel is None or panel.league_slug != slug:
+                flash("Draft panel not found.", "err")
+                return redirect(url_for("site_admin.admin_draft_pick_ownership"))
+            status = (request.form.get("status") or "").strip().lower()
+            if status not in {"active", "completed"}:
+                flash("Choose a valid draft panel status.", "err")
+                return redirect(url_for("site_admin.admin_draft_pick_ownership"))
+            panel.status = status
+            panel.manual_status_override = True
+            commit_with_sqlite_retry(db.session)
+            flash(f"{panel.draft_year} Draft Ownership is now {status.title()}.", "ok")
             return redirect(url_for("site_admin.admin_draft_pick_ownership"))
         if action == "save_year":
             panel_id = int(request.form.get("panel_id") or 0)
@@ -3402,7 +3418,7 @@ def admin_draft_pick_ownership():
     max_year = 0
     for panel in panels:
         max_year = max(max_year, int(panel.draft_year))
-        logo_year = int(panel.draft_year) - 1
+        logo_year = int(panel.draft_year)
         grid_rows = build_draft_pick_ownership_year_grid(
             db.session,
             db.session,

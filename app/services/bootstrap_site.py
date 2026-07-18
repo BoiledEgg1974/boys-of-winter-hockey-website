@@ -74,6 +74,25 @@ def ensure_gm_league_memberships_fhm_team_id_column(app) -> None:
             )
 
 
+def ensure_draft_pick_ownership_manual_status_override_column(app) -> None:
+    """Persist admin-selected draft panel statuses across automatic rollovers."""
+    engine = db.get_engine(app, bind="site")
+    with engine.begin() as conn:
+        inspector = inspect(conn)
+        if "draft_pick_ownership_years" not in inspector.get_table_names():
+            return
+        colnames = {
+            col["name"] for col in inspector.get_columns("draft_pick_ownership_years")
+        }
+        if "manual_status_override" not in colnames:
+            conn.execute(
+                text(
+                    "ALTER TABLE draft_pick_ownership_years "
+                    "ADD COLUMN manual_status_override BOOLEAN NOT NULL DEFAULT 0"
+                )
+            )
+
+
 def backfill_gm_membership_fhm_team_ids(app) -> None:
     """Copy ``teams.fhm_team_id`` from each league DB into site membership rows (NULL/blank only)."""
     from app.services.register_team_options import fhm_team_id_for_league_team
@@ -99,6 +118,7 @@ def ensure_commish_admin(app) -> None:
     ensure_news_articles_category_column(app)
     ensure_news_articles_image_rel_path_column(app)
     ensure_gm_league_memberships_fhm_team_id_column(app)
+    ensure_draft_pick_ownership_manual_status_override_column(app)
     try:
         backfill_gm_membership_fhm_team_ids(app)
     except Exception as exc:

@@ -132,6 +132,28 @@ class DraftPickOwnershipAdminTests(unittest.TestCase):
         self.assertEqual(changed, 0)
         self.assertEqual(restored.status, "active")
 
+    def test_stale_complete_preserves_manual_active_status(self) -> None:
+        site_session = MagicMock()
+        restored = MagicMock(
+            status="active",
+            draft_year=1970,
+            manual_status_override=True,
+        )
+        site_session.scalars.return_value.all.return_value = [restored]
+
+        with unittest.mock.patch(
+            "app.services.draft_pick_ownership.in_game_draft_ownership_cutoff_year",
+            return_value=1971,
+        ):
+            changed = complete_stale_draft_pick_ownership_panels(
+                site_session,
+                MagicMock(),
+                league_slug="bowl-historical",
+            )
+
+        self.assertEqual(changed, 0)
+        self.assertEqual(restored.status, "active")
+
     def test_default_year_does_not_lag_behind_current_in_game_season(self) -> None:
         site_session = MagicMock()
         site_session.scalar.return_value = 1999
@@ -176,8 +198,8 @@ class DraftPickOwnershipAdminTests(unittest.TestCase):
         self.assertEqual(cutoff, 1970)
         league_session.scalar.assert_not_called()
 
-    def test_historical_cutoff_uses_draft_eligible_timeline_year(self) -> None:
-        season = MagicMock(start_year=1969, end_year=1970)
+    def test_historical_cutoff_uses_current_season_start_year(self) -> None:
+        season = MagicMock(start_year=1970, end_year=1971)
         league_session = MagicMock()
         league_session.scalar.return_value = season
         with unittest.mock.patch(
@@ -190,6 +212,21 @@ class DraftPickOwnershipAdminTests(unittest.TestCase):
             )
 
         self.assertEqual(cutoff, 1970)
+
+    def test_cap_cutoff_uses_current_season_start_year(self) -> None:
+        season = MagicMock(start_year=2001, end_year=2002)
+        league_session = MagicMock()
+        league_session.scalar.return_value = season
+        with unittest.mock.patch(
+            "app.services.draft_pick_ownership.season_with_imported_data_fallback",
+            return_value=None,
+        ):
+            cutoff = in_game_draft_ownership_cutoff_year(
+                league_session,
+                league_slug="bowl-cap",
+            )
+
+        self.assertEqual(cutoff, 2001)
 
     def test_current_draft_year_panel_reactivates_after_rule_change(self) -> None:
         site_session = MagicMock()
@@ -207,6 +244,23 @@ class DraftPickOwnershipAdminTests(unittest.TestCase):
 
         self.assertTrue(changed)
         self.assertEqual(panel.status, "active")
+
+    def test_manual_completed_status_is_not_auto_reactivated(self) -> None:
+        site_session = MagicMock()
+        panel = MagicMock(status="completed", manual_status_override=True)
+        site_session.scalar.return_value = panel
+        with unittest.mock.patch(
+            "app.services.draft_pick_ownership.in_game_draft_ownership_cutoff_year",
+            return_value=1970,
+        ):
+            changed = reactivate_current_draft_pick_ownership_panel_if_needed(
+                site_session,
+                MagicMock(),
+                league_slug="bowl-historical",
+            )
+
+        self.assertFalse(changed)
+        self.assertEqual(panel.status, "completed")
 
     def test_ensure_panels_trims_extra_active_future_years(self) -> None:
         panels = [
@@ -252,12 +306,16 @@ class DraftPickOwnershipAdminTests(unittest.TestCase):
         )
         text = path.read_text(encoding="utf-8")
         self.assertIn("name=\"owner_{{ team_row.team_fhm_id }}_{{ cell.round }}\"", text)
+        self.assertIn('name="action" value="set_status"', text)
+        self.assertIn("Mark Active", text)
+        self.assertIn("Mark Completed", text)
         self.assertIn("Draft Pick Ownership", text)
 
     def test_admin_route_uses_era_aware_logos_for_all_leagues(self) -> None:
         path = Path(__file__).resolve().parents[1] / "app" / "routes" / "site_portal.py"
         text = path.read_text(encoding="utf-8")
-        self.assertIn("logo_year = int(panel.draft_year) - 1", text)
+        self.assertIn("logo_year = int(panel.draft_year)", text)
+        self.assertNotIn("logo_year = int(panel.draft_year) - 1", text)
         self.assertIn("team_logo_url_for_season_context(team, int(logo_year))", text)
         self.assertNotIn('if slug == "bowl-fantasy":\n            return logo_bundle.team_logo_url_present_franchise(team)', text)
 

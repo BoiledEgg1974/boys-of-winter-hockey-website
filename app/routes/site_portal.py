@@ -3355,6 +3355,30 @@ def admin_draft_pick_ownership():
             commit_with_sqlite_retry(db.session)
             flash(f"{panel.draft_year} Draft Ownership is now {status.title()}.", "ok")
             return redirect(url_for("site_admin.admin_draft_pick_ownership"))
+        if action == "reactivate_year":
+            year = int(request.form.get("draft_year") or 0)
+            panel = db.session.scalar(
+                select(DraftPickOwnershipYear).where(
+                    DraftPickOwnershipYear.league_slug == slug,
+                    DraftPickOwnershipYear.draft_year == year,
+                ).limit(1)
+            )
+            if panel is None:
+                flash("Draft panel not found.", "err")
+                return redirect(url_for("site_admin.admin_draft_pick_ownership"))
+            panel.status = "active"
+            panel.manual_status_override = True
+            commit_with_sqlite_retry(db.session)
+            ensure_draft_pick_ownership_panels(
+                db.session,
+                db.session,
+                league_slug=slug,
+                active_count=3,
+                default_round_count=max(1, int(panel.round_count or 9)),
+                exclude_years={int(year)},
+            )
+            flash(f"{year} Draft Ownership is now Active.", "ok")
+            return redirect(url_for("site_admin.admin_draft_pick_ownership"))
         if action == "save_year":
             panel_id = int(request.form.get("panel_id") or 0)
             panel = db.session.get(DraftPickOwnershipYear, panel_id)
@@ -3398,7 +3422,18 @@ def admin_draft_pick_ownership():
         active_count=3,
         default_round_count=9,
     )
-    # Keep completed (archived) panels visible so prior draft years can be reviewed/restored.
+    active_panels = [
+        panel
+        for panel in panels
+        if str(panel.status or "active") != "completed"
+    ]
+    completed_years = sorted(
+        {
+            int(panel.draft_year)
+            for panel in panels
+            if str(panel.status or "active") == "completed"
+        }
+    )
     teams = draft_pick_teams_for_grid(db.session)
     team_choices = [
         {
@@ -3416,7 +3451,7 @@ def admin_draft_pick_ownership():
 
     panels_view: list[dict[str, object]] = []
     max_year = 0
-    for panel in panels:
+    for panel in active_panels:
         max_year = max(max_year, int(panel.draft_year))
         logo_year = int(panel.draft_year)
         grid_rows = build_draft_pick_ownership_year_grid(
@@ -3438,11 +3473,14 @@ def admin_draft_pick_ownership():
                 "team_logo_urls": team_logo_urls,
             }
         )
+    if max_year <= 0 and completed_years:
+        max_year = max(completed_years)
     next_year = (max_year + 1) if max_year > 0 else datetime.utcnow().year
     return render_template(
         "admin_draft_pick_ownership.html",
         league_slug=slug,
         panels_view=panels_view,
+        completed_years=completed_years,
         team_choices=team_choices,
         next_year=next_year,
     )

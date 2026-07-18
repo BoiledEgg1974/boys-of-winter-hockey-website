@@ -4,7 +4,7 @@
 <div class="card" style="max-width:95vw;margin:0 auto;">
   <p><a href="{{ url_for('site_admin.admin_home') }}">← Admin</a></p>
   <h1 class="page-title">Draft Pick Ownership</h1>
-  <p class="muted">Manage pick ownership for <strong>{{ league_slug }}</strong>. Each panel stores one draft year and custom round count. Completed (archived) years stay listed and can be changed back to Active.</p>
+  <p class="muted">Manage pick ownership for <strong>{{ league_slug }}</strong>. Active panels appear earliest to latest. Completed years are hidden and can be restored below.</p>
 
   <div style="display:flex;flex-wrap:wrap;gap:0.75rem;align-items:end;margin-bottom:1rem;">
     <form method="post" class="card" style="padding:0.7rem;">
@@ -14,10 +14,24 @@
       <label style="margin-left:0.5rem;">Rounds <input type="number" name="round_count" value="9" min="1" max="15" style="width:5rem;"></label>
       <button type="submit" class="button" style="margin-left:0.5rem;">Add year panel</button>
     </form>
+    {% if completed_years %}
+    <form method="post" class="card" style="padding:0.7rem;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="reactivate_year">
+      <label>Reactivate year
+        <select name="draft_year" style="margin-left:0.35rem;">
+          {% for year in completed_years %}
+          <option value="{{ year }}">{{ year }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <button type="submit" class="button" style="margin-left:0.5rem;">Reactivate year</button>
+    </form>
+    {% endif %}
   </div>
 
   {% if not panels_view %}
-  <p class="muted">No draft ownership panels yet.</p>
+  <p class="muted">No active draft ownership panels yet.{% if completed_years %} Use <strong>Reactivate year</strong> to restore a completed panel.{% endif %}</p>
   {% endif %}
 
   {% for row in panels_view %}
@@ -29,13 +43,8 @@
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="action" value="set_status">
         <input type="hidden" name="panel_id" value="{{ panel.id }}">
-        {% if panel.status == "completed" %}
-        <input type="hidden" name="status" value="active">
-        <button type="submit" class="button">Mark Active</button>
-        {% else %}
         <input type="hidden" name="status" value="completed">
         <button type="submit" class="button">Mark Completed</button>
-        {% endif %}
       </form>
     </div>
     <form method="post">

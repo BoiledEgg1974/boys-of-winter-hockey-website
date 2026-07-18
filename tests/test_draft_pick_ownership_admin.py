@@ -80,6 +80,10 @@ class DraftPickOwnershipAdminTests(unittest.TestCase):
                 return_value=0,
             ),
             unittest.mock.patch(
+                "app.services.draft_pick_ownership.reactivate_current_draft_pick_ownership_panel_if_needed",
+                return_value=False,
+            ),
+            unittest.mock.patch(
                 "app.services.draft_pick_ownership.ensure_draft_pick_ownership_panels",
                 return_value=["ok"],
             ) as ensure_panels,
@@ -230,8 +234,8 @@ class DraftPickOwnershipAdminTests(unittest.TestCase):
 
     def test_current_draft_year_panel_reactivates_after_rule_change(self) -> None:
         site_session = MagicMock()
-        panel = MagicMock(status="completed")
-        site_session.scalar.return_value = panel
+        panel = MagicMock(status="completed", draft_year=1970, manual_status_override=False)
+        site_session.scalars.return_value.all.return_value = [panel]
         with unittest.mock.patch(
             "app.services.draft_pick_ownership.in_game_draft_ownership_cutoff_year",
             return_value=1970,
@@ -247,8 +251,8 @@ class DraftPickOwnershipAdminTests(unittest.TestCase):
 
     def test_manual_completed_status_is_not_auto_reactivated(self) -> None:
         site_session = MagicMock()
-        panel = MagicMock(status="completed", manual_status_override=True)
-        site_session.scalar.return_value = panel
+        panel = MagicMock(status="completed", draft_year=1970, manual_status_override=True)
+        site_session.scalars.return_value.all.return_value = [panel]
         with unittest.mock.patch(
             "app.services.draft_pick_ownership.in_game_draft_ownership_cutoff_year",
             return_value=1970,
@@ -262,12 +266,29 @@ class DraftPickOwnershipAdminTests(unittest.TestCase):
         self.assertFalse(changed)
         self.assertEqual(panel.status, "completed")
 
-    def test_ensure_panels_trims_extra_active_future_years(self) -> None:
+    def test_future_completed_panel_reactivates_without_manual_override(self) -> None:
+        site_session = MagicMock()
+        future = MagicMock(status="completed", draft_year=1973, manual_status_override=False)
+        site_session.scalars.return_value.all.return_value = [future]
+        with unittest.mock.patch(
+            "app.services.draft_pick_ownership.in_game_draft_ownership_cutoff_year",
+            return_value=1970,
+        ):
+            changed = reactivate_current_draft_pick_ownership_panel_if_needed(
+                site_session,
+                MagicMock(),
+                league_slug="bowl-historical",
+            )
+
+        self.assertTrue(changed)
+        self.assertEqual(future.status, "active")
+
+    def test_ensure_panels_keeps_extra_active_future_years(self) -> None:
         panels = [
-            MagicMock(id=1, draft_year=1969, display_order=1, status="active"),
-            MagicMock(id=2, draft_year=1970, display_order=2, status="active"),
-            MagicMock(id=3, draft_year=1971, display_order=3, status="active"),
-            MagicMock(id=4, draft_year=1972, display_order=4, status="active"),
+            MagicMock(id=1, draft_year=1970, display_order=1, status="active", round_count=9),
+            MagicMock(id=2, draft_year=1971, display_order=2, status="active", round_count=9),
+            MagicMock(id=3, draft_year=1972, display_order=3, status="active", round_count=9),
+            MagicMock(id=4, draft_year=1973, display_order=4, status="active", round_count=9),
         ]
         site_session = MagicMock()
         with (
@@ -280,12 +301,23 @@ class DraftPickOwnershipAdminTests(unittest.TestCase):
                 return_value=False,
             ),
             unittest.mock.patch(
+                "app.services.draft_pick_ownership.in_game_draft_ownership_cutoff_year",
+                return_value=1970,
+            ),
+            unittest.mock.patch(
                 "app.services.draft_pick_ownership.list_draft_pick_ownership_year_panels",
-                side_effect=[panels, panels, panels],
+                side_effect=[panels, panels],
             ),
             unittest.mock.patch(
                 "app.services.draft_pick_ownership.draft_pick_teams_for_grid",
                 return_value=[],
+            ),
+            unittest.mock.patch(
+                "app.services.draft_pick_ownership._ensure_year_rows",
+                return_value=0,
+            ),
+            unittest.mock.patch(
+                "app.services.draft_pick_ownership._reorder_year_panels",
             ),
         ):
             ensure_draft_pick_ownership_panels(
@@ -295,7 +327,7 @@ class DraftPickOwnershipAdminTests(unittest.TestCase):
                 active_count=3,
             )
 
-        self.assertEqual(panels[3].status, "completed")
+        self.assertEqual(panels[3].status, "active")
 
     def test_admin_template_includes_owner_dropdown_grid(self) -> None:
         path = (
@@ -307,8 +339,11 @@ class DraftPickOwnershipAdminTests(unittest.TestCase):
         text = path.read_text(encoding="utf-8")
         self.assertIn("name=\"owner_{{ team_row.team_fhm_id }}_{{ cell.round }}\"", text)
         self.assertIn('name="action" value="set_status"', text)
-        self.assertIn("Mark Active", text)
+        self.assertIn('name="action" value="reactivate_year"', text)
+        self.assertIn("Reactivate year", text)
         self.assertIn("Mark Completed", text)
+        self.assertNotIn("Mark Active", text)
+        self.assertIn("completed_years", text)
         self.assertIn("Draft Pick Ownership", text)
 
     def test_admin_route_uses_era_aware_logos_for_all_leagues(self) -> None:

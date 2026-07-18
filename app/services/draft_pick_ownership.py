@@ -234,15 +234,13 @@ def list_draft_pick_ownership_year_panels(
             select(DraftPickOwnershipYear)
             .where(DraftPickOwnershipYear.league_slug == slug)
             .order_by(
-                DraftPickOwnershipYear.display_order.asc(),
                 DraftPickOwnershipYear.draft_year.asc(),
+                DraftPickOwnershipYear.display_order.asc(),
                 DraftPickOwnershipYear.id.asc(),
             )
         ).all()
     )
-    active = [r for r in rows if str(r.status or "active") != "completed"]
-    completed = [r for r in rows if str(r.status or "active") == "completed"]
-    return [*active, *completed]
+    return rows
 
 
 def _next_panel_year(site_session: Session, *, league_slug: str, fallback_start: int) -> int:
@@ -304,9 +302,9 @@ def _ownership_current_draft_year_for_season(season: Season, *, league_slug: str
     if season.start_year is None and season.end_year is None:
         return None
     slug = str(league_slug or "").strip()
-    # Historical and cap ownership labels follow the season they supply: the
-    # 1970 draft belongs to 1970-71, so the panel uses the season start year.
-    if slug in {"bowl-historical", "bowl-cap"} and season.start_year is not None:
+    # Ownership labels follow the season they supply across leagues: the 1970
+    # draft belongs to 1970-71, so the panel uses the season start year.
+    if slug in {"bowl-historical", "bowl-cap", "bowl-fantasy"} and season.start_year is not None:
         return int(season.start_year)
     fallback = season.end_year or season.start_year
     if fallback is None:
@@ -410,7 +408,7 @@ def reactivate_current_draft_pick_ownership_panel_if_needed(
     *,
     league_slug: str,
 ) -> bool:
-    """Undo stale completion when a league's current draft year rule changes."""
+    """Undo stale completion for the current draft year and any future panels."""
     slug = str(league_slug or "").strip()
     if not slug:
         return False
@@ -421,20 +419,22 @@ def reactivate_current_draft_pick_ownership_panel_if_needed(
     )
     if current_year is None:
         return False
-    panel = site_session.scalar(
-        select(DraftPickOwnershipYear).where(
-            DraftPickOwnershipYear.league_slug == slug,
-            DraftPickOwnershipYear.draft_year == int(current_year),
-        ).limit(1)
+    panels = list(
+        site_session.scalars(
+            select(DraftPickOwnershipYear).where(
+                DraftPickOwnershipYear.league_slug == slug,
+                DraftPickOwnershipYear.draft_year >= int(current_year),
+                DraftPickOwnershipYear.status == "completed",
+            )
+        ).all()
     )
-    if (
-        panel is None
-        or str(panel.status or "active") != "completed"
-        or getattr(panel, "manual_status_override", False) is True
-    ):
-        return False
-    panel.status = "active"
-    return True
+    changed = False
+    for panel in panels:
+        if getattr(panel, "manual_status_override", False) is True:
+            continue
+        panel.status = "active"
+        changed = True
+    return changed
 
 
 def reset_calendar_seeded_panels_if_needed(
@@ -624,15 +624,7 @@ def ensure_draft_pick_ownership_panels(
     active = [p for p in panels if str(p.status or "active") != "completed"]
     protected = [p for p in active if int(p.draft_year) in keep_years]
     window = [p for p in active if int(p.draft_year) not in keep_years]
-    if len(window) > target_active:
-        window_sorted = sorted(
-            window,
-            key=lambda p: (int(p.draft_year), int(p.display_order or 0), int(p.id or 0)),
-        )
-        keep_ids = {int(p.id) for p in window_sorted[:target_active] if p.id is not None}
-        for panel in window_sorted[target_active:]:
-            panel.status = "completed"
-        window = [p for p in window_sorted if p.id is None or int(p.id) in keep_ids]
+    # Keep future years active; do not trim excess panels to "completed".
     teams = draft_pick_teams_for_grid(league_session)
     for panel in protected:
         _ensure_year_rows(

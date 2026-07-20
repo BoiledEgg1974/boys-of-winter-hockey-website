@@ -207,7 +207,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 205;75;Ned;Lavington;;1914-2-19;Westminster;CO;The United States;;;0
 206;19;Tommy;Cantrell;;1910-7-14;Fort Worth;TX;The United States;;;0
 207;130;Mark;Long;;1911-3-31;Everman;TX;The United States;;;0
-208;131;Floyd;Newton;;1906-11-15;Los Angeles;CA;The United States;;;0
+208;-1;Floyd;Newton;;1906-11-15;Los Angeles;CA;The United States;;;0
 209;28;Andrew;Martin;;1912-8-4;Sun Lakes;AZ;The United States;;;0
 210;27;John;Nations;;1907-8-13;;;The United States;;;0
 211;79;Daniel;Rohde;;1913-10-16;Stockholm;STO;Germany;;;0
@@ -526,7 +526,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 524;-1;Gabriel;Gray;;1915-10-10;East Lansing;MI;The United States;;;0
 525;-1;Jordan;Filippelli;;1911-5-22;Toronto;ON;Canada;;;0
 526;-1;Elliot;Tsui;;1914-4-25;Lévis;QC;Canada;;;0
-527;-1;Lucas;Bédard;;1911-10-28;Hoover;AL;The United States;;;0
+527;131;Lucas;Bédard;;1911-10-28;Hoover;AL;The United States;;;0
 528;19;Paul;Riley;;1911-10-2;Ajax;ON;Canada;;;0
 529;9;Kade;Giebel;;1911-10-4;Quebec City;QC;Canada;;;0
 530;59;Matthew;Johnson;;1920-8-9;Windsor;ON;Canada;;;0
@@ -589,11 +589,11 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 587;-1;Garrett;O'Farrell;;1921-4-5;Pico Rivera;CA;The United States;;;0
 588;-1;Kelsey;Kudla;;1912-2-6;Richmond;BC;Canada;;;0
 589;-1;Frank;O'Neil;;1913-3-19;Orangeville;ON;Canada;;;0
-590;-1;Caiden;Blair;;1921-7-2;Toronto;ON;Canada;;;0
+590;9;Caiden;Blair;;1921-7-2;Toronto;ON;Canada;;;0
 591;118;Randy;Jordan;;1912-10-6;Buffalo;NY;The United States;;;0
 592;-1;David;Sanford;;1913-1-8;Winnipeg;MB;Canada;;;0
 593;-1;Anantdev;Sekhon;;1912-9-11;Newmarket;ON;Canada;;;0
-594;-1;Aaron;McHendrie;;1912-11-30;Lebel-sur-Quévillon;QC;Canada;;;0
+594;130;Aaron;McHendrie;;1912-11-30;Lebel-sur-Quévillon;QC;Canada;;;0
 595;-1;Gary;Wrayford;;1912-11-25;Laredo;TX;The United States;;;0
 596;-1;Bernard;Cheung;;1912-7-25;Belleville;ON;Canada;;;0
 597;-1;Bryce;Gamble;;1912-12-25;Oshawa;ON;Canada;;;0
@@ -642,7 +642,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 640;58;Ben;O'Sullivan;;1912-1-22;Toronto;ON;Canada;;;0
 641;62;Bob;Stewart;;1912-3-2;Calgary;AB;Canada;;;0
 642;59;Tony;Atkins;;1912-7-13;Vancouver;BC;Canada;;;0
-643;-1;Alex;Holenski;;1912-1-21;New York;NY;The United States;;;0
+643;9;Alex;Holenski;;1912-1-21;New York;NY;The United States;;;0
 644;80;Nils;Timmer;;1913-6-24;Papendrecht;ZUI;The Netherlands;;;0
 645;89;Robert;Tucker;;1913-7-11;Batavia;NY;The United States;;;0
 646;26;Tim;Wynn;;1913-10-1;Mount Pleasant;SC;The United States;;;0
@@ -1148,7 +1148,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1146;121;Clare;Rothermel;;1934-1-1;Saskatoon;SK;Canada;;;0
 1147;-1;Jason;Herbert;;1920-3-10;Surrey;BC;Canada;;;0
 1148;-1;Jack;Pryde;;1918-2-23;Toronto;ON;Canada;;;0
-1149;-1;Mark;O'Halahan;;1918-3-24;Pleasant Run;OH;The United States;;;0
+1149;122;Mark;O'Halahan;;1918-3-24;Pleasant Run;OH;The United States;;;0
 1150;-1;Jeff;Newsome;;1918-3-2;Prince Rupert;BC;Canada;;;0
 1151;-1;Pete;Birt;;1918-8-19;Waukegan;IL;The United States;;;0
 1152;-1;Steven;Bowen;;1918-12-20;Hamilton;ON;Canada;;;0
@@ -1171,7 +1171,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1169;-1;Kenny;Sinclair;;1918-6-3;Philadelphia;PA;The United States;;;0
 1170;-1;Boyd;Willard;;1918-8-22;Sainte-Thérèse;QC;Canada;;;0
 1171;86;Geoff;Gregory;;1926-12-12;Ancaster;ON;Canada;;;0
-1172;-1;Yisrael;Schneior;;1918-12-7;Markham;ON;Canada;;;0
+1172;9;Yisrael;Schneior;;1918-12-7;Markham;ON;Canada;;;0
 1173;81;Martin;Schaal;;1918-2-12;Sackville;NS;Canada;;;0
 1174;28;Ellis;Coleman;;1918-7-17;Kingsville;ON;Canada;;;0
 1175;70;Nicolò;Panza;;1927-5-29;Vancouver;BC;Canada;;;0
@@ -1332,8 +1332,8 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1330;-1;Glen;Moran;;1920-11-15;Oakville;ON;Canada;;;0
 1331;-1;Dan;Arndt;;1929-7-22;Laurel;MS;The United States;;;0
 1332;-1;Kel;Tucker;;1920-2-16;Brooklyn;NY;The United States;;;0
-1333;-1;Ty;Lambert;;1920-12-23;Longueuil;QC;Canada;;;0
-1334;-1;Brad;Wolff;;1924-4-16;Ladysmith;BC;Canada;;;0
+1333;131;Ty;Lambert;;1920-12-23;Longueuil;QC;Canada;;;0
+1334;130;Brad;Wolff;;1924-4-16;Ladysmith;BC;Canada;;;0
 1335;-1;Cedric;Scott;;1920-6-2;Stevens Point;WI;The United States;;;0
 1336;-1;Greg;Wallace;;1920-11-18;Pagedale;MO;The United States;;;0
 1337;-1;Maxwell;Brousseau;;1920-12-25;Moose Jaw;SK;Canada;;;0
@@ -1349,7 +1349,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1347;-1;Ed;Hibbeler;;1920-4-11;Ottawa;ON;Canada;;;0
 1348;-1;Terrence;Mitchell;;1923-9-22;Chatham-Kent;ON;Canada;;;0
 1349;-1;Jamal;Peters;;1920-5-3;Columbus;OH;The United States;;;0
-1350;-1;Jim;Donovan;;1920-1-10;North Attleborough;MA;The United States;;;0
+1350;131;Jim;Donovan;;1920-1-10;North Attleborough;MA;The United States;;;0
 1351;130;GM;Sabres;;1940-6-28;Toronto;ON;Canada;;;0
 1352;131;GM;Canucks;;1940-6-28;Victoria;BC;Canada;;;0
 0;-1;Conn;Smythe;;1895-2-1;Toronto;ON;Canada;;;1

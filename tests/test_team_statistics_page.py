@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import unittest
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 
 class TeamStatisticsPageTest(unittest.TestCase):
@@ -56,6 +57,36 @@ class TeamStatisticsPageTest(unittest.TestCase):
         self.assertEqual(format_rate_value("gf", 82, gp=41, rate="per_82"), 164.0)
         self.assertIsNotNone(build_team_statistics_page_payload)
         self.assertIsNotNone(build_team_statistics_chart_archive)
+
+    @patch("app.services.team_statistics.build_team_analytics_chart_archive")
+    def test_build_team_statistics_chart_archive_skips_rollover_keys(
+        self, archive_mock: MagicMock
+    ) -> None:
+        from app.services.team_statistics import build_team_statistics_chart_archive
+
+        archive_mock.return_value = {
+            "metrics": [],
+            "datasets": {
+                "1|rs": {
+                    "teams": [
+                        {"team_id": 10, "metrics": {"gf": 100}},
+                    ],
+                },
+                "y:1969|rs": {
+                    "teams": [
+                        {"team_id": 20, "metrics": {"gf": 80}},
+                    ],
+                },
+            },
+        }
+        session = MagicMock()
+        session.scalars.return_value.all.return_value = []
+
+        out = build_team_statistics_chart_archive(session, default_season_id=1, default_segment="rs")
+
+        self.assertIn("y:1969|rs", out["datasets"])
+        self.assertEqual(out["datasets"]["y:1969|rs"]["teams"][0]["metrics"], {"gf": 80})
+        self.assertIn("cf_pct", out["datasets"]["1|rs"]["teams"][0]["metrics"])
 
 
 if __name__ == "__main__":

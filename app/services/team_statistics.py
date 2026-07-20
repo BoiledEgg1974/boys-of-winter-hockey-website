@@ -332,7 +332,14 @@ def build_team_statistics_chart_archive(
         parts = ds_key.split("|")
         if len(parts) < 2:
             continue
-        season_id = int(parts[0])
+        season_key = parts[0]
+        if season_key.startswith("y:"):
+            # Archived rollover snapshot — metrics already loaded from snapshot JSON.
+            continue
+        try:
+            season_id = int(season_key)
+        except ValueError:
+            continue
         segment = parts[1]
         for team_row in ds.get("teams", []):
             tid = int(team_row["team_id"])

@@ -1,14 +1,78 @@
-"""Per-league team_id -> (abbrev, custom emoji mention string).
+"""Per-league FHM team_id -> (abbrev, custom emoji mention string).
 
 Synced with BOWL-STATS-BOT team_maps.py — FHM team IDs, not site ``teams.id``.
+
+Maintenance
+-----------
+Edit only the ``team(...)`` rows in each ``_*_SPECS`` map below. Lookups by
+FHM id, abbrev, historical alias (e.g. OAK→CAL), and Discord snowflake are
+built automatically — no other files need emote ID updates.
 """
 
 from __future__ import annotations
 
 import re
-from typing import Dict, Tuple
+from typing import Dict, Mapping, NamedTuple, Tuple
 
 TeamEntry = Tuple[str, str]
+
+
+class TeamSpec(NamedTuple):
+    """One Discord team logo mapping.
+
+    *abbrev* is the primary label shown in posts (usually matches the custom
+    emoji name). *emoji_id* is the Discord snowflake only — leave blank if the
+    server does not have an emote yet. *aliases* are alternate abbrevs (site or
+    historical names) that resolve to the same FHM id / emote. *emoji_name*
+    overrides the ``<:Name:id>`` name when it differs from *abbrev* (e.g. WAS→WSH).
+    """
+
+    abbrev: str
+    emoji_id: str = ""
+    aliases: Tuple[str, ...] = ()
+    emoji_name: str | None = None
+
+
+def team(
+    abbrev: str,
+    emoji_id: str | int = "",
+    *aliases: str,
+    emoji_name: str | None = None,
+) -> TeamSpec:
+    """Declare a team emote row for a league map."""
+    abbr = str(abbrev or "").strip().upper()
+    eid = str(emoji_id or "").strip()
+    alias_tuple = tuple(str(a).strip().upper() for a in aliases if str(a).strip())
+    name = str(emoji_name).strip().upper() if emoji_name else None
+    return TeamSpec(abbrev=abbr, emoji_id=eid, aliases=alias_tuple, emoji_name=name)
+
+
+def _mention_for(spec: TeamSpec) -> str:
+    if not spec.emoji_id:
+        return ""
+    name = spec.emoji_name or spec.abbrev
+    return f"<:{name}:{spec.emoji_id}>"
+
+
+def _compile_team_map(
+    specs: Mapping[int, TeamSpec],
+) -> tuple[Dict[int, TeamEntry], Dict[str, int]]:
+    teams: Dict[int, TeamEntry] = {}
+    abbrev_to_fhm: Dict[str, int] = {}
+    for tid, spec in specs.items():
+        teams[int(tid)] = (spec.abbrev, _mention_for(spec))
+        labels = (spec.abbrev, *spec.aliases)
+        for label in labels:
+            if not label:
+                continue
+            existing = abbrev_to_fhm.get(label)
+            if existing is not None and existing != int(tid):
+                raise ValueError(
+                    f"Duplicate team abbrev {label!r} for FHM ids {existing} and {tid}"
+                )
+            abbrev_to_fhm[label] = int(tid)
+    return teams, abbrev_to_fhm
+
 
 # League logo custom emotes (one per BOWL mount). Leave blank until configured on your server.
 LEAGUE_LOGO_EMOJIS: Dict[str, str] = {
@@ -25,82 +89,89 @@ EXPORT_STATUS_EMOJIS: Dict[str, str] = {
 
 _CUSTOM_EMOJI_MENTION_RE = re.compile(r"<a?:([A-Za-z0-9_]+):(\d+)>")
 
-HISTORICAL_TEAMS: Dict[int, TeamEntry] = {
-    0: ("MTL", "<:MTL:1358674505853046814>"),
-    3: ("TOR", "<:TOR:1527136626579476610>"),
-    5: ("BOS", "<:BOS:1296221296371306536>"),
-    8: ("CHI", "<:CHI:1391961982235705436>"),
-    9: ("DET", "<:DET:1290119897803915296>"),
-    10: ("NYR", "<:NYR:1479530385737257124>"),
-    118: ("LAK", "<:LAK:1469123020680597668>"),
-    119: ("MIN", "<:MIN:1469123055761489941>"),
-    120: ("CAL", "<:CAL:1527136600721719487>"),
-    121: ("PHI", "<:PHI:1469123032009146589>"),
-    122: ("PIT", "<:PIT:1495575341354455111>"),
-    123: ("STL", "<:STL:1469123043769974915>"),
-    130: ("BUF", "<:BUF:1523803268244049930>"),
-    131: ("VAN", "<:VAN:1523803266784301056>")
+# --- Edit team rows here (abbrev, Discord emoji snowflake, optional aliases) ---
+
+_HISTORICAL_SPECS: Dict[int, TeamSpec] = {
+    0: team("MTL", "1358674505853046814"),
+    3: team("TOR", "1527136626579476610"),
+    5: team("BOS", "1296221296371306536"),
+    8: team("CHI", "1391961982235705436"),
+    9: team("DET", "1290119897803915296"),
+    10: team("NYR", "1479530385737257124"),
+    118: team("LAK", "1469123020680597668"),
+    119: team("MIN", "1469123055761489941"),
+    # FHM/Discord use CAL (California); site roster still uses OAK (Oakland).
+    120: team("CAL", "1527136600721719487", "OAK"),
+    121: team("PHI", "1469123032009146589"),
+    122: team("PIT", "1495575341354455111"),
+    123: team("STL", "1469123043769974915"),
+    130: team("BUF", "1523803268244049930"),
+    131: team("VAN", "1523803266784301056"),
 }
 
-FANTASY_TEAMS: Dict[int, TeamEntry] = {
-    0: ("WIC", "<:WIC:1236501118864068731>"),
-    3: ("TOR", "<:TOR:1252375053144686633>"),
-    5: ("HAM", "<:HAM:1453221895775453327>"),
-    8: ("CHI", "<:CHI:1207501451966816306>"),
-    9: ("HAL", "<:HAL:1341868533881241631>"),
-    10: ("MON", "<:MON:1373118140996915255>"),
-    11: ("KUN", "<:KUN:1463263903902334976>"),
-    12: ("HEL", "<:HEL:1503501660490563656>"),
-    14: ("LON", "<:LON:1458639710170644510>"),
-    15: ("PIT", "<:PIT:1388761974443081868>"),
-    16: ("VIC", "<:VIC:1420938447958311013>"),
-    17: ("TOK", "<:TOK:1388762046220210246>"),
-    18: ("SIX", "<:SIX:1373118421478281297>"),
-    19: ("KEN", "<:KEN:1383317330339041290>"),
-    20: ("MTL", "<:MTL:1405351657314979951>"),
-    21: ("FLA", "<:FLA:1472096060842180649>"),
-    22: ("BGK", "<:BGK:1373117910989668453>"),
-    23: ("EDM", "<:EDM:1207502268354662410>"),
-    24: ("TRL", "<:TRL:1277415927889264681>"),
-    25: ("CAN", "<:CAN:1486766929254285383>"),
-    26: ("FW", "<:FW:1490064700170571776>"),
-    278: ("IND", "<:IND:1250473797685870602>"),
-    279: ("ME", "<:ME:1472096110389493965>"),
-    280: ("VCR", "<:VCR:1472096172859461697>"),
+_FANTASY_SPECS: Dict[int, TeamSpec] = {
+    0: team("WIC", "1236501118864068731"),
+    3: team("TOR", "1252375053144686633"),
+    5: team("HAM", "1453221895775453327"),
+    8: team("CHI", "1207501451966816306"),
+    9: team("HAL", "1341868533881241631"),
+    10: team("MON", "1373118140996915255"),
+    11: team("KUN", "1463263903902334976"),
+    12: team("HEL", "1503501660490563656"),
+    14: team("LON", "1458639710170644510"),
+    15: team("PIT", "1388761974443081868"),
+    16: team("VIC", "1420938447958311013"),
+    17: team("TOK", "1388762046220210246"),
+    18: team("SIX", "1373118421478281297"),
+    19: team("KEN", "1383317330339041290"),
+    20: team("MTL", "1405351657314979951"),
+    21: team("FLA", "1472096060842180649"),
+    22: team("BGK", "1373117910989668453"),
+    23: team("EDM", "1207502268354662410"),
+    24: team("TRL", "1277415927889264681"),
+    25: team("CAN", "1486766929254285383"),
+    26: team("FW", "1490064700170571776"),
+    278: team("IND", "1250473797685870602"),
+    279: team("ME", "1472096110389493965"),
+    280: team("VCR", "1472096172859461697"),
 }
 
-CAP_TEAMS: Dict[int, TeamEntry] = {
-    0: ("MTL", "<:MTL:1333588537664213113>"),
-    3: ("TOR", "<:TOR:1333588859958591579>"),
-    5: ("BOS", "<:BOS:1429889226425634916>"),
-    8: ("CHI", "<:CHI:1333588196826812506>"),
-    9: ("DET", "<:DET:1333588258680078397>"),
-    10: ("NYR", "<:NYR:1522040487597314329>"),
-    11: ("LAK", "<:LAK:1485466999764156529>"),
-    12: ("DAL", "<:DAL:1398788096346161203>"),
-    14: ("PHI", "<:PHI:1333588627946471474>"),
-    15: ("PIT", "<:PIT:1383318357176221696>"),
-    16: ("STL", "<:STL:1485467024984379523>"),
-    17: ("BUF", "<:BUF:1449556416963809330>"),
-    18: ("VAN", "<:VAN:1468084057333170300>"),
-    19: ("CGY", "<:CGY:1429889471754539142>"),
-    20: ("NYI", "<:NYI:1468083975972196435>"),
-    21: ("NJD", "<:NJD:1383318334254092318>"),
-    22: ("WAS", "<:WSH:1429890537913188352>"),
-    23: ("EDM", "<:EDM:1449591412264796242>"),
-    24: ("CAR", "<:CAR:1468084009962573898>"),
-    25: ("COL", "<:COL:1429889654601158747>"),
-    26: ("PHX", "<:PHX:1449556427747364864>"),
-    214: ("SJS", "<:SJS:1360231209678016562>"),
-    216: ("OTT", "<:OTT:1377784222483484682>"),
-    217: ("TBL", "<:TBL:1377784481615708160>"),
-    220: ("ANA", "<:ANA:1398787454424842322>"),
-    221: ("FLA", "<:FLA:1398787440684171518>"),
-    224: ("NAS", "<:NSH:1470179048859767068>"),
-    227: ("ATL", "<:ATL:1486767286772695171>"),
-    229: ("CBJ", "<:CBJ:1521962010865303592>"),
-    230: ("MIN", "<:MIN:1521962022227546172>"),
+_CAP_SPECS: Dict[int, TeamSpec] = {
+    0: team("MTL", "1333588537664213113"),
+    3: team("TOR", "1333588859958591579"),
+    5: team("BOS", "1429889226425634916"),
+    8: team("CHI", "1333588196826812506"),
+    9: team("DET", "1333588258680078397"),
+    10: team("NYR", "1522040487597314329"),
+    11: team("LAK", "1485466999764156529"),
+    12: team("DAL", "1398788096346161203"),
+    14: team("PHI", "1333588627946471474"),
+    15: team("PIT", "1383318357176221696"),
+    16: team("STL", "1485467024984379523"),
+    17: team("BUF", "1449556416963809330"),
+    18: team("VAN", "1468084057333170300"),
+    19: team("CGY", "1429889471754539142"),
+    20: team("NYI", "1468083975972196435"),
+    21: team("NJD", "1383318334254092318"),
+    22: team("WAS", "1429890537913188352", emoji_name="WSH"),
+    23: team("EDM", "1449591412264796242"),
+    24: team("CAR", "1468084009962573898"),
+    25: team("COL", "1429889654601158747"),
+    26: team("PHX", "1449556427747364864"),
+    214: team("SJS", "1360231209678016562"),
+    216: team("OTT", "1377784222483484682"),
+    217: team("TBL", "1377784481615708160"),
+    220: team("ANA", "1398787454424842322"),
+    221: team("FLA", "1398787440684171518"),
+    224: team("NAS", "1470179048859767068", emoji_name="NSH"),
+    227: team("ATL", "1486767286772695171"),
+    229: team("CBJ", "1521962010865303592"),
+    230: team("MIN", "1521962022227546172"),
 }
+
+HISTORICAL_TEAMS, _HISTORICAL_ABBREV_INDEX = _compile_team_map(_HISTORICAL_SPECS)
+FANTASY_TEAMS, _FANTASY_ABBREV_INDEX = _compile_team_map(_FANTASY_SPECS)
+CAP_TEAMS, _CAP_ABBREV_INDEX = _compile_team_map(_CAP_SPECS)
 
 
 def _league_key(league_slug: str) -> str:
@@ -133,15 +204,25 @@ def teams_for_league_slug(league_slug: str) -> Dict[int, TeamEntry]:
     return FANTASY_TEAMS
 
 
+def _abbrev_index_for_league(league_slug: str) -> Dict[str, int]:
+    key = _league_key(league_slug)
+    if key == "historical":
+        return _HISTORICAL_ABBREV_INDEX
+    if key == "cap":
+        return _CAP_ABBREV_INDEX
+    return _FANTASY_ABBREV_INDEX
+
+
 def emoji_for_abbrev(league_slug: str, abbrev: str) -> str:
-    """First matching emoji for abbrev (league rosters are unique in practice)."""
+    """Emoji for abbrev or alias (league rosters are unique in practice)."""
     abbr = str(abbrev or "").strip().upper()
     if not abbr:
         return ""
-    for _tid, (team_abbr, emoji) in teams_for_league_slug(league_slug).items():
-        if team_abbr == abbr:
-            return emoji
-    return ""
+    tid = _abbrev_index_for_league(league_slug).get(abbr)
+    if tid is None:
+        return ""
+    entry = teams_for_league_slug(league_slug).get(tid)
+    return entry[1] if entry else ""
 
 
 def entry_for_fhm_team_id(league_slug: str, fhm_team_id: int | str | None) -> TeamEntry | None:
@@ -221,10 +302,7 @@ def fhm_team_id_for_abbrev(league_slug: str, abbrev: str) -> int | None:
     abbr = str(abbrev or "").strip().upper()
     if not abbr:
         return None
-    for tid, (team_abbr, _emoji) in teams_for_league_slug(league_slug).items():
-        if team_abbr == abbr:
-            return int(tid)
-    return None
+    return _abbrev_index_for_league(league_slug).get(abbr)
 
 
 def fhm_team_id_for_custom_emoji_mention(league_slug: str, mention: str) -> int | None:

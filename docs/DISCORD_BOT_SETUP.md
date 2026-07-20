@@ -113,6 +113,8 @@ On HTTP 429 the worker waits for Discord’s `retry_after` and retries once.
 
 The delivery bot uses `scripts/league_discord_bot/team_maps.py` (same FHM team IDs and custom emoji mentions as BOWL-STATS-BOT). Enqueue payloads include `fhm_team_id` from each league’s `teams.fhm_team_id` so news, AP, and trade posts show the correct server emojis.
 
+**Updating emotes:** edit only the `team("ABBR", "snowflake", …)` rows inside `_HISTORICAL_SPECS` / `_FANTASY_SPECS` / `_CAP_SPECS` in that file. Lookups by FHM id, abbrev, alias (e.g. site `OAK` → Discord `CAL`), and emoji snowflake rebuild automatically — do not hardcode emote IDs elsewhere. Pass extra positional abbrevs as aliases; use `emoji_name="…"` when the Discord custom emoji name differs from the display abbrev (e.g. WAS → WSH).
+
 ## 7. Verify
 
 1. Admin → Discord integration → **Queue test event** for a route with a channel ID.

@@ -4835,6 +4835,7 @@ def team_page(slug: str):
     staff_season_start_year = None
     staff_contracts_by_id: dict[str, object] = {}
     staff_is_admin = False
+    team_staff_finances = None
     staff_coaches_public = staff_coaches
     staff_scouts_public = staff_scouts
     staff_trainers_public = staff_trainers
@@ -4862,6 +4863,14 @@ def team_page(slug: str):
                 season_start_year=int(staff_season_start_year),
             )
             staff_contracts_by_id = staff_contracts_for_team(
+                db.session,
+                league_slug=slug,
+                team_id=int(team.id),
+                season_start_year=int(staff_season_start_year),
+            )
+            from app.services.league_finances import staff_finances_for_team
+
+            team_staff_finances = staff_finances_for_team(
                 db.session,
                 league_slug=slug,
                 team_id=int(team.id),
@@ -5190,6 +5199,7 @@ def team_page(slug: str):
         "staff_owners": staff_owners_public,
         "staff_season_start_year": staff_season_start_year,
         "staff_is_admin": staff_is_admin,
+        "team_staff_finances": team_staff_finances,
         "staff_roles": STAFF_ROLES if panel == "staff" else (),
         "staff_role_labels": (
             {r: staff_role_label(r) for r in STAFF_ROLES} if panel == "staff" else {}

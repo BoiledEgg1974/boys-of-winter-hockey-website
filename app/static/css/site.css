@@ -7531,6 +7531,12 @@ table.data.league-season-records__table .league-season-records__td-value {
 }
 
 /* Team page — Staff (FHM staff_master + staff_ratings) */
+.team-staff-finances {
+  margin-bottom: 1rem;
+}
+.team-staff-finances .staff-salaries-budget-panel {
+  margin-top: 0;
+}
 .team-staff-stack {
   display: flex;
   flex-direction: column;

@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% from "macros/team.html" import team_lockup_full_name with context %}
 {% block title %}Staff Hire/Fire — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/staff_salaries.js') }}" defer></script>
@@ -38,47 +37,9 @@
     </section>
 
     {% if admin_team and gm_staff_finances is defined and gm_staff_finances %}
-    {% set fin = gm_staff_finances %}
-    {% set payroll_pct = (fin.staff_payroll / fin.budget_amount * 100) if fin.budget_amount > 0 else 0 %}
-    <section class="staff-salaries-budget-panel card" aria-labelledby="staff-budget-heading">
-      <div class="staff-salaries-budget-panel__header">
-        <h2 id="staff-budget-heading" class="staff-salaries-budget-panel__title">Staff finances</h2>
-        <div class="staff-salaries-budget-panel__team">
-          {{ team_lockup_full_name(admin_team, season=season) }}
-        </div>
-      </div>
-      {% if fin.budget_amount > 0 %}
-      <div class="staff-salaries-budget-panel__stats">
-        <div class="staff-salaries-budget-panel__stat">
-          <span class="staff-salaries-budget-panel__label">Staff Budget</span>
-          <span class="staff-salaries-budget-panel__value">${{ '{:,}'.format(fin.budget_amount) }}</span>
-        </div>
-        <div class="staff-salaries-budget-panel__stat">
-          <span class="staff-salaries-budget-panel__label">Staff Payroll</span>
-          <span class="staff-salaries-budget-panel__value">${{ '{:,}'.format(fin.staff_payroll) }}</span>
-        </div>
-        {% if fin.severance_payroll > 0 %}
-        <div class="staff-salaries-budget-panel__stat">
-          <span class="staff-salaries-budget-panel__label">Severance</span>
-          <span class="staff-salaries-budget-panel__value">${{ '{:,}'.format(fin.severance_payroll) }}</span>
-        </div>
-        {% endif %}
-        <div class="staff-salaries-budget-panel__stat staff-salaries-budget-panel__stat--remaining{% if fin.budget_remaining < 0 %} staff-salaries-budget-panel__stat--over{% endif %}">
-          <span class="staff-salaries-budget-panel__label">Budget Remaining</span>
-          <span class="staff-salaries-budget-panel__value staff-salaries-budget-panel__value--remaining">${{ '{:,}'.format(fin.budget_remaining) }}</span>
-        </div>
-      </div>
-      <div class="staff-salaries-budget-panel__bar-wrap" role="presentation">
-        <div class="finances-pos-bar finances-pos-bar--total staff-salaries-budget-panel__bar">
-          <span class="finances-pos-bar__fill" style="width: {{ [payroll_pct, 100]|min }}%;"></span>
-          <span class="finances-pos-bar__label">{{ '%.1f'|format(payroll_pct) }}% of budget</span>
-        </div>
-      </div>
-      <p class="muted staff-salaries-budget-panel__pending">${{ '{:,}'.format(fin.available_for_hire) }} available for new hires</p>
-      {% else %}
-      <p class="muted staff-salaries-budget-panel__empty">Staff budgets are not configured for this season. Enter team budgets in <a href="{{ url_for('site_admin.admin_staff_budgets') }}">Admin → Staff Budgets</a>.</p>
-      {% endif %}
-    </section>
+    {% with fin=gm_staff_finances, finance_team=admin_team, show_budget_admin_link=true, staff_finances_heading_id='staff-budget-heading' %}
+    {% include "_staff_finances_panel.html" %}
+    {% endwith %}
     {% elif admin_team_id %}
     <p class="muted">Select a team with configured budgets to see staff finances.</p>
     {% else %}

@@ -6,6 +6,13 @@
 <td data-sort-value="">—</td>
 {%- endif -%}
 {%- endmacro %}
+{% if team_staff_finances is defined and team_staff_finances %}
+<div class="team-staff-finances">
+  {% with fin=team_staff_finances, finance_team=team, show_budget_admin_link=staff_is_admin, staff_finances_heading_id='team-staff-budget-heading' %}
+  {% include "_staff_finances_panel.html" %}
+  {% endwith %}
+</div>
+{% endif %}
 <div class="team-staff-stack">
   {% for section_title, section_rows, columns, bucket in [
     ('Coaches', staff_coaches, staff_coach_columns, 'coaches'),

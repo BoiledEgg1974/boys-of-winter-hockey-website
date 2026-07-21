@@ -642,7 +642,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 640;58;Ben;O'Sullivan;;1912-1-22;Toronto;ON;Canada;;;0
 641;62;Bob;Stewart;;1912-3-2;Calgary;AB;Canada;;;0
 642;59;Tony;Atkins;;1912-7-13;Vancouver;BC;Canada;;;0
-643;9;Alex;Holenski;;1912-1-21;New York;NY;The United States;;;0
+643;-1;Alex;Holenski;;1912-1-21;New York;NY;The United States;;;0
 644;80;Nils;Timmer;;1913-6-24;Papendrecht;ZUI;The Netherlands;;;0
 645;89;Robert;Tucker;;1913-7-11;Batavia;NY;The United States;;;0
 646;26;Tim;Wynn;;1913-10-1;Mount Pleasant;SC;The United States;;;0
@@ -1250,7 +1250,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1248;131;Pascal;Baillargeon;;1920-2-20;Saint-Jérôme;QC;Canada;;;0
 1249;131;Shawn;Donahue;;1921-2-28;Saskatoon;SK;Canada;;;0
 1250;131;Paul;Gardner;;1928-6-7;Toronto;ON;Canada;;;0
-1251;131;Nathan;Morrisonn;;1920-2-28;Sault Ste. Marie;ON;Canada;;;0
+1251;-1;Nathan;Morrisonn;;1920-2-28;Sault Ste. Marie;ON;Canada;;;0
 1252;132;Otis;Ladd;;1925-3-6;Trotwood;OH;The United States;;;0
 1253;132;Eric;Joyner;;1920-7-1;;;The United States;;;0
 1254;132;Mike;Blackburn;;1920-1-13;La Cañada Flintridge;CA;The United States;;;0
@@ -1306,7 +1306,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1304;-1;Kenneth;Sherrill;;1920-12-7;Pickering;ON;Canada;;;0
 1305;-1;Mike;Rowntree;;1920-7-7;Calgary;AB;Canada;;;0
 1306;-1;Diego;Marin;;1920-12-6;Hamilton;ON;Canada;;;0
-1307;-1;Pete;Clements;;1920-3-27;Beverly Hills;TX;The United States;;;0
+1307;10;Pete;Clements;;1920-3-27;Beverly Hills;TX;The United States;;;0
 1308;-1;Clayton;Pierce;;1920-9-11;Hamilton;ON;Canada;;;0
 1309;-1;Cam;Abels;;1920-3-22;Edmonton;AB;Canada;;;0
 1310;-1;Jean-Marc;Alain;;1920-10-29;Simcoe;ON;Canada;;;0

@@ -4453,7 +4453,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 12078;186;186;Billy;Tibbetts;;74;215;1974-10-14;Canton;MA;The United States;;;0;Right;0
 12079;216;216;Mattias;Timander;;74;236;1974-4-16;Sollefteå;VäS;Sweden;;;0;Left;0
 12080;229;229;Jeff;Toms;;77;212;1974-6-4;Watrous;SK;Canada;;;0;Left;0
-12081;223;221;Patrick;Traverse;;76;212;1974-3-14;Murdochville;QC;Canada;;;0;Left;0
+12081;221;221;Patrick;Traverse;;76;212;1974-3-14;Murdochville;QC;Canada;;;0;Left;0
 12082;218;216;Dan;Trebil;;76;218;1974-4-10;Cannon Falls;MN;The United States;;;0;Right;0
 12083;154;154;Stefan;Ustorf;;72;195;1974-1-3;Kaufbeuren;BAV;Germany;;;0;Left;0
 12084;221;221;Todd;Warriner;;73;201;1974-1-3;Blenheim;ON;Canada;;;0;Left;0
@@ -6734,7 +6734,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 14579;3;3;Pat;Kavanagh;;76;218;1979-3-14;Ottawa;ON;Canada;;;0;Right;1
 14580;51;0;Jay;Leach;;76;220;1979-9-2;Terryville;NY;The United States;;;0;Left;1
 14581;62;11;Pat;Leahy;;75;203;1979-6-9;Erving;MA;The United States;;;0;Right;0
-14582;20;20;Brad;Leeb;;71;187;1979-8-27;Rocky View County;AB;Canada;;;0;Left;1
+14582;71;20;Brad;Leeb;;71;187;1979-8-27;Rocky View County;AB;Canada;;;0;Left;1
 14583;157;157;Roman;Lyashenko;;72;189;1979-5-2;Murmansk;MUR;Russia;;;0;Right;0
 14584;186;186;Jeff;MacMillan;;75;210;1979-3-30;Durham;ON;Canada;;;0;Left;1
 14585;216;216;Adam;Mair;;74;208;1979-2-15;Hamilton;ON;Canada;;;0;Right;1
@@ -7166,7 +7166,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 15096;179;179;Ossi;Väänänen;American Ozzy;75;213;1980-8-18;Vantaa;UUS;Finland;;;0;Left;0
 15097;180;180;Jonas;Frögren;;74;220;1980-8-28;Ludvika;DAL;Sweden;;;0;Left;0
 15098;75;24;Christian;Berglund;;71;195;1980-3-12;Uppsala;UPP;Sweden;;;0;Left;1
-15099;57;16;Manny;Malhotra;;74;215;1980-5-18;Mississauga;ON;Canada;;;0;Left;0
+15099;16;16;Manny;Malhotra;;74;215;1980-5-18;Mississauga;ON;Canada;;;0;Left;1
 15100;56;5;Jason;LaBarbera;;75;232;1980-1-18;Coquitlam;BC;Canada;;;0;Left;1
 15101;63;12;Bryan;Allen;;77;223;1980-8-21;Kingston;ON;Canada;;;0;Left;0
 15102;75;24;Douglas;Murray;;75;245;1980-3-12;Stockholm;STO;Sweden;;;0;Left;0

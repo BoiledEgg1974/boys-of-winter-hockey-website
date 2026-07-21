@@ -1,5 +1,18 @@
 [
   {
+    "id": 31,
+    "trade_date": "2026-07-19",
+    "team_a_id": 5,
+    "team_b_id": 12,
+    "team_a_fhm": "9",
+    "team_b_fhm": "123",
+    "team_a_abbr": "DET",
+    "team_b_abbr": "STL",
+    "summary": "Detroit Red Wings sends:\nErrol Thompson\nJean Pronovost\nJean Potvin\n\nSt. Louis Blues (1967-1977) sends:\nRick MacLeish",
+    "external_id": null,
+    "source": "manual"
+  },
+  {
     "id": 2,
     "trade_date": "2026-04-03",
     "team_a_id": 1,

@@ -14,6 +14,7 @@ def _bot() -> LeagueDiscordBot:
             token="token",
             shared_secret="secret",
             poll_seconds=8.0,
+            tracker_poll_seconds=4.0,
             delivery_delay_seconds=0.0,
             max_message_parts=2,
             site_timeout_seconds=90.0,

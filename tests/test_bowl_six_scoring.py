@@ -453,10 +453,17 @@ class BowlSixScoringTest(unittest.TestCase):
                     raise AssertionError("current slate lookup must not reuse an older open slate")
                 return None
 
+            def scalars(self, _stmt):
+                return SimpleNamespace(all=lambda: [])
+
             def add(self, obj):
-                self.added = obj
+                if isinstance(obj, BowlSixSlate):
+                    self.added = obj
 
             def flush(self):
+                pass
+
+            def commit(self):
                 pass
 
         site_session = FakeSession()
@@ -495,10 +502,17 @@ class BowlSixScoringTest(unittest.TestCase):
             def scalar(self, _stmt):
                 return None
 
+            def scalars(self, _stmt):
+                return SimpleNamespace(all=lambda: [])
+
             def add(self, obj):
-                self.added = obj
+                if isinstance(obj, BowlSixSlate):
+                    self.added = obj
 
             def flush(self):
+                pass
+
+            def commit(self):
                 pass
 
         site_session = FakeSession()
@@ -694,11 +708,14 @@ class BowlSixScoringTest(unittest.TestCase):
         )
         site_session = MagicMock()
         league_session = MagicMock()
-        league_session.scalars.return_value.unique.return_value.all.return_value = [game]
-        league_session.scalars.return_value.all.return_value = [game]
+        league_session.execute.return_value.all.return_value = [
+            (game.id, game.game_type)
+        ]
         observed = dt(2026, 3, 12, 1, 0)
         with unittest.mock.patch(
             "app.services.bowl_six.get_current_season", return_value=season
+        ), unittest.mock.patch(
+            "app.services.bowl_six.is_current_bowl_six_week", return_value=True
         ), unittest.mock.patch(
             "app.services.bowl_six.record_bowl_six_game_finals", return_value=1
         ) as record_markers, unittest.mock.patch(
@@ -711,7 +728,7 @@ class BowlSixScoringTest(unittest.TestCase):
             site_session,
             league_session,
             league_slug="bowl-historical",
-            game_ids=[901],
+            game_ids={901},
             observed_at=observed,
         )
 
@@ -753,6 +770,48 @@ class BowlSixScoringTest(unittest.TestCase):
             note = _auto_update_single_slate(site_session, league_session, slate)
         enqueue.assert_called_once_with(site_session, league_session, slate)
         self.assertIn("updated 2 lineup", note or "")
+
+    def test_auto_update_posts_export_leaders_only_when_new_finals_observed(self):
+        from app.services.bowl_six import _auto_update_single_slate
+
+        def run(new_finals: int) -> unittest.mock.MagicMock:
+            slate = BowlSixSlate(
+                id=60,
+                league_slug="bowl-historical",
+                week_start=date(1969, 3, 10),
+                week_end=date(1969, 3, 16),
+                status="open",
+                lock_at=__import__("datetime").datetime(2099, 1, 1),
+            )
+            with unittest.mock.patch(
+                "app.services.bowl_six._backfill_active_slate_final_markers_from_legacy_window",
+                return_value=0,
+            ), unittest.mock.patch(
+                "app.services.bowl_six._record_current_calendar_final_markers_for_active_slate",
+                return_value=new_finals,
+            ), unittest.mock.patch(
+                "app.services.bowl_six.sync_slate_week_to_league_calendar",
+                return_value=False,
+            ), unittest.mock.patch(
+                "app.services.bowl_six.sync_slate_lock_status"
+            ), unittest.mock.patch(
+                "app.services.bowl_six.rs_game_ids_for_slate", return_value=[901]
+            ), unittest.mock.patch(
+                "app.services.bowl_six.refresh_player_week_stats"
+            ), unittest.mock.patch(
+                "app.services.bowl_six.refresh_slate_lineup_scores", return_value=1
+            ), unittest.mock.patch(
+                "app.services.bowl_six.is_current_bowl_six_week", return_value=True
+            ), unittest.mock.patch(
+                "app.services.bowl_six._enqueue_bowl_six_discord_leaders_safe"
+            ), unittest.mock.patch(
+                "app.services.bowl_six._enqueue_bowl_six_export_leaders_safe"
+            ) as export_post:
+                _auto_update_single_slate(MagicMock(), MagicMock(), slate)
+            return export_post
+
+        self.assertEqual(run(new_finals=3).call_count, 1)
+        run(new_finals=0).assert_not_called()
 
     def test_discord_enqueue_skipped_for_non_current_week(self):
         slate = BowlSixSlate(

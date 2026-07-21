@@ -50,6 +50,7 @@ OPS_TEXT_ONLY_DISCORD_EVENT_KEYS = frozenset(
         "expansion_draft_on_clock",
         "expansion_draft_completed",
         "bowl_six_leaders_update",
+        "bowl_six_export_leaders",
         "bowl_six_rosters_unlocked",
         "bowl_six_lock_warning",
         "playoff_predictions",
@@ -59,6 +60,7 @@ OPS_TEXT_ONLY_DISCORD_EVENT_KEYS = frozenset(
 )
 
 BOWL_SIX_LEADERS_EVENT_KEY = "bowl_six_leaders_update"
+BOWL_SIX_EXPORT_LEADERS_EVENT_KEY = "bowl_six_export_leaders"
 PLAYOFF_BRACKET_UPDATE_EVENT_KEY = "playoff_bracket_update"
 GM_EXPORT_TRACKER_POLL_EVENT_KEY = "gm_export_tracker_poll"
 SIM_CYCLE_UPDATE_EVENT_KEY = "sim_cycle_update"
@@ -92,6 +94,7 @@ DEFAULT_EVENT_KEYS = {
     "expansion_draft_command_list",
     "staff_transaction_posted",
     "bowl_six_leaders_update",
+    "bowl_six_export_leaders",
     "bowl_six_rosters_unlocked",
     "bowl_six_lock_warning",
     "trade_market_selling_posted",
@@ -123,6 +126,7 @@ DEFAULT_EVENT_CHANNEL_KEY = {
     "expansion_draft_command_list": "expansion-draft",
     "staff_transaction_posted": "staff-hirings-firings",
     "bowl_six_leaders_update": "bowl-six-leaders",
+    "bowl_six_export_leaders": "bowl-six",
     "bowl_six_rosters_unlocked": "bowl-six",
     "bowl_six_lock_warning": "bowl-six",
     "trade_market_selling_posted": "trade-selling",
@@ -154,6 +158,7 @@ DEFAULT_EVENT_LABELS = {
     "expansion_draft_command_list": "Expansion draft /expansionlist command channel",
     "staff_transaction_posted": "Staff hire / fire approved",
     "bowl_six_leaders_update": "BOWL Six live leaders (post + edit)",
+    "bowl_six_export_leaders": "BOWL Six leaders after each export",
     "bowl_six_rosters_unlocked": "BOWL Six rosters unlocked",
     "bowl_six_lock_warning": "BOWL Six 30-minute lock warning",
     "trade_market_selling_posted": "Trade Market — selling update",
@@ -1331,6 +1336,17 @@ def ensure_discord_routes(session, league_slug: str, updated_by_user_id: int | N
                 and str(trade_route.discord_channel_id or "").strip()
             ):
                 discord_channel_id = str(trade_route.discord_channel_id or "").strip()
+        elif key == BOWL_SIX_EXPORT_LEADERS_EVENT_KEY:
+            # Post-export leaders share the channel used for roster lock reminders.
+            for donor_key in ("bowl_six_lock_warning", "bowl_six_rosters_unlocked"):
+                donor = by_key.get(donor_key)
+                if (
+                    donor is not None
+                    and str(donor.channel_key or "").strip() == channel_key
+                    and str(donor.discord_channel_id or "").strip()
+                ):
+                    discord_channel_id = str(donor.discord_channel_id or "").strip()
+                    break
         session.add(
             DiscordChannelRoute(
                 league_slug=league_slug,
@@ -1356,6 +1372,18 @@ def ensure_discord_routes(session, league_slug: str, updated_by_user_id: int | N
     ):
         confirmed_route.discord_channel_id = str(trade_route.discord_channel_id or "").strip()[:32]
         confirmed_route.updated_at = now
+    export_leaders_route = by_key.get(BOWL_SIX_EXPORT_LEADERS_EVENT_KEY)
+    if export_leaders_route is not None and not str(
+        export_leaders_route.discord_channel_id or ""
+    ).strip():
+        for donor_key in ("bowl_six_lock_warning", "bowl_six_rosters_unlocked"):
+            donor = by_key.get(donor_key)
+            if donor is not None and str(donor.discord_channel_id or "").strip():
+                export_leaders_route.discord_channel_id = str(
+                    donor.discord_channel_id or ""
+                ).strip()[:32]
+                export_leaders_route.updated_at = now
+                break
         changed = True
     if _normalize_expansion_draft_discord_routes(session, league_slug):
         changed = True

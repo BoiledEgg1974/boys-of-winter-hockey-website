@@ -853,7 +853,7 @@ def format_discord_messages(event: dict[str, Any], *, max_parts: int = 2) -> lis
             max_parts=max(1, int(max_parts)),
         )
 
-    if event_key == "bowl_six_leaders_update":
+    if event_key in ("bowl_six_leaders_update", "bowl_six_export_leaders"):
         body_full = _body_text(payload, full=True) or body_short
         embed: dict[str, Any] = {
             "title": title[:256],

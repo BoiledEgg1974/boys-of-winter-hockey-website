@@ -1072,28 +1072,17 @@ def reset_slate_scoring_state(
         delete(BowlSixPlayerWeekStat).where(BowlSixPlayerWeekStat.slate_id == int(slate.id))
     )
 
-    marker_removed = 0
-    season = get_current_season(league_session)
-    if season is not None:
-        games = list(
-            league_session.scalars(
-                select(Game).where(
-                    Game.season_id == int(season.id),
-                    Game.game_date.isnot(None),
-                    Game.game_date >= slate.week_start,
-                    Game.game_date <= slate.week_end,
-                )
-            ).all()
+    # Markers use real-time observation stamps, so clear the slate's real scoring
+    # window rather than matching in-game ``game_date`` values (different calendar).
+    window_start, window_end = slate_real_scoring_window_utc(slate)
+    marker_result = session.execute(
+        delete(BowlSixGameFinal).where(
+            BowlSixGameFinal.league_slug == str(slate.league_slug or ""),
+            BowlSixGameFinal.first_final_at >= window_start,
+            BowlSixGameFinal.first_final_at < window_end,
         )
-        game_ids = [int(g.id) for g in games if _is_regular_season_game(g.game_type)]
-        if game_ids:
-            marker_result = session.execute(
-                delete(BowlSixGameFinal).where(
-                    BowlSixGameFinal.league_slug == str(slate.league_slug or ""),
-                    BowlSixGameFinal.game_id.in_(game_ids),
-                )
-            )
-            marker_removed = int(marker_result.rowcount or 0)
+    )
+    marker_removed = int(marker_result.rowcount or 0)
 
     session.flush()
     return {
@@ -1162,33 +1151,30 @@ def _sync_slate_week_final_markers(
     league_session: Session,
     slate: BowlSixSlate,
 ) -> int:
-    """Backfill missing real-time markers for finals in the active slate scoring week.
+    """Backfill missing real-time markers for finals not yet observed in this league.
 
-    CSV re-imports often leave games ``final`` without a status transition, so
-    ``import_games`` never records markers. This runs on every auto-update (including
-    post-import) so BOWL Six scoring and Discord leaders can refresh immediately.
+    CSV re-imports and ``deploy-db`` SQLite uploads leave games ``final`` without a
+    status transition, so ``import_games`` never records markers. ``Game.game_date``
+    is the in-game calendar date and cannot be matched against the real-world slate
+    week, so instead every current-season regular-season final without a marker is
+    treated as newly observed and stamped into the current slate's real-time scoring
+    window. This runs on every auto-update (page loads and bot polls) so BOWL Six
+    scoring and Discord leaders refresh shortly after each export goes live.
     """
     if slate.status not in ("locked", "open"):
+        return 0
+    if not is_current_bowl_six_week(slate):
         return 0
     season = get_current_season(league_session)
     if season is None:
         return 0
-    week_start = slate.scoring_week_start or slate.week_start
-    week_end = slate.scoring_week_end or slate.week_end
-    if not week_start or not week_end:
-        return 0
-    rows = list(
-        league_session.scalars(
-            select(Game).where(
-                Game.season_id == int(season.id),
-                Game.game_date.isnot(None),
-                Game.game_date >= week_start,
-                Game.game_date <= week_end,
-                Game.status == "final",
-            )
-        ).all()
-    )
-    game_ids = [int(g.id) for g in rows if _is_regular_season_game(g.game_type)]
+    rows = league_session.execute(
+        select(Game.id, Game.game_type).where(
+            Game.season_id == int(season.id),
+            Game.status == "final",
+        )
+    ).all()
+    game_ids = {int(gid) for gid, game_type in rows if _is_regular_season_game(game_type)}
     if not game_ids:
         return 0
     return record_bowl_six_game_finals(
@@ -1454,6 +1440,24 @@ def _enqueue_bowl_six_discord_leaders_safe(
         _log.exception("BOWL Six Discord leaders enqueue failed for slate %s", slate.id)
 
 
+def _enqueue_bowl_six_export_leaders_safe(
+    session: Session,
+    league_session: Session,
+    slate: BowlSixSlate,
+) -> None:
+    """One-shot leaders post to the lock-notification channel after an export."""
+    if not is_current_bowl_six_week(slate):
+        return
+    try:
+        from app.services.bowl_six_discord import enqueue_bowl_six_export_leaders_discord
+
+        enqueue_bowl_six_export_leaders_discord(session, league_session, slate)
+    except Exception:
+        _log.exception(
+            "BOWL Six export leaders enqueue failed for slate %s", slate.id
+        )
+
+
 def refresh_bowl_six_leaders_for_discord_poll(
     session: Session, league_session: Session, league_slug: str
 ) -> bool:
@@ -1488,7 +1492,9 @@ def _auto_update_single_slate(
     if slate.status == "skipped":
         return None
     _backfill_active_slate_final_markers_from_legacy_window(session, league_session, slate)
-    _record_current_calendar_final_markers_for_active_slate(session, league_session, slate)
+    new_finals = _record_current_calendar_final_markers_for_active_slate(
+        session, league_session, slate
+    )
     if sync_slate_week_to_league_calendar(
         session, league_session, str(slate.league_slug), slate
     ):
@@ -1500,6 +1506,8 @@ def _auto_update_single_slate(
             refresh_player_week_stats(session, slate, league_session)
             n = refresh_slate_lineup_scores(session, league_session, slate)
         _enqueue_bowl_six_discord_leaders_safe(session, league_session, slate)
+        if new_finals:
+            _enqueue_bowl_six_export_leaders_safe(session, league_session, slate)
         if n:
             return (
                 f"Week {slate.week_start}: updated {n} lineup(s) "
@@ -1514,11 +1522,15 @@ def _auto_update_single_slate(
             _enqueue_bowl_six_discord_leaders_safe(
                 session, league_session, slate, force=True
             )
+            if new_finals:
+                _enqueue_bowl_six_export_leaders_safe(session, league_session, slate)
             return (
                 f"Week {slate.week_start}: finalized ({n} lineups), "
                 "real-time award window reached — AP and notifications sent."
             )
         _enqueue_bowl_six_discord_leaders_safe(session, league_session, slate)
+        if new_finals:
+            _enqueue_bowl_six_export_leaders_safe(session, league_session, slate)
         if n:
             return f"Week {slate.week_start}: updated {n} lineup(s) from completed games."
         return None

@@ -20,8 +20,10 @@ from app.services.bowl_six import (
     top_players_for_slate,
 )
 from app.services.discord_events import (
+    BOWL_SIX_EXPORT_LEADERS_EVENT_KEY,
     BOWL_SIX_LEADERS_EVENT_KEY,
     build_league_public_url,
+    enqueue_discord_event,
     enqueue_repeatable_discord_event,
 )
 from app.services.gm_messaging import gm_discord_name
@@ -298,6 +300,38 @@ def maybe_enqueue_bowl_six_leaders_discord(
     )
     if row is not None and content_hash:
         slate.discord_leaders_payload_hash = content_hash
+    return row is not None
+
+
+def enqueue_bowl_six_export_leaders_discord(
+    session: Session,
+    league_session: Session,
+    slate: BowlSixSlate,
+) -> bool:
+    """Post a fresh leaders board after an export (lock-notification channel).
+
+    One-shot post (never edits). The content hash in the source id dedupes
+    repeat polls of the same export while letting every new export post again.
+    """
+    if str(slate.status or "") == "skipped":
+        return False
+    if not is_current_bowl_six_week(slate):
+        return False
+    payload = build_bowl_six_leaders_discord_payload(
+        session, league_session, slate, post_new_message=True
+    )
+    payload.pop("post_new_message", None)
+    payload.pop("edit_message_id", None)
+    content_hash = str(payload.get("content_hash") or "")
+    row = enqueue_discord_event(
+        session,
+        league_slug=str(slate.league_slug or ""),
+        event_key=BOWL_SIX_EXPORT_LEADERS_EVENT_KEY,
+        payload=payload,
+        created_by_user_id=None,
+        source_type="bowl_six_export_leaders",
+        source_id=f"{int(slate.id)}:{content_hash}",
+    )
     return row is not None
 
 

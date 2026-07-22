@@ -637,6 +637,23 @@ def delete_non_admin_history_awards(session: Session) -> int:
     return int(result.rowcount or 0)
 
 
+def delete_non_admin_history_awards_matching(session: Session, substring: str) -> int:
+    """Remove non-admin awards whose name contains ``substring`` (admin rows kept)."""
+    needle = (substring or "").strip()
+    if not needle:
+        return 0
+    result = session.execute(
+        delete(HistoryAward).where(
+            HistoryAward.award_name.ilike(f"%{needle}%"),
+            or_(
+                HistoryAward.source.is_(None),
+                HistoryAward.source != HISTORY_SOURCE_ADMIN,
+            ),
+        )
+    )
+    return int(result.rowcount or 0)
+
+
 def delete_non_admin_all_stars(session: Session) -> int:
     result = session.execute(
         delete(HistoryAllStar).where(

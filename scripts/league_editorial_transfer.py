@@ -1,15 +1,19 @@
 """Export/import league editorial + accumulated history for deploy-db preserve.
 
 Captures live-only / admin-sensitive league SQLite data before a local DB upload
-replaces the live file. Tables covered:
+replaces the live file. Merge rule is **gap-fill from live**: restore rows that are
+missing locally; keep local rows when the same key already exists. Live ``admin``
+rows still force-overwrite local non-admin.
+
+Tables covered:
 
 - record_stat_adjustments
 - team_honors_meta, team_retired_numbers, team_victory_banners
-- hall_of_fame_members (prefer live admin)
-- history_awards, history_all_stars (prefer live admin)
+- hall_of_fame_members (insert-if-missing; live admin overwrites)
+- history_awards, history_all_stars (admin force + CSV gap-fill)
 - team_season_records (prefer live admin + import)
 - franchise_team_identities
-- history_champions
+- history_champions (insert-if-missing by season+team+trophy)
 - org_development_report_archives
 - player_rating_snapshots
 - player_analytics_snapshots
@@ -516,13 +520,16 @@ def export_league_editorial_json(db_path: Path, out_path: Path) -> dict[str, int
         }
     finally:
         conn.close()
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(json.dumps(bundle, indent=2) + "\n", encoding="utf-8")
-    return {
+    row_counts = {
         k: (len(v) if isinstance(v, list) else 0)
         for k, v in bundle.items()
         if k not in ("version", "exported_at")
     }
+    bundle["row_counts"] = row_counts
+    bundle["total_rows"] = int(sum(row_counts.values()))
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(bundle, indent=2) + "\n", encoding="utf-8")
+    return row_counts
 
 
 # ---------------------------------------------------------------------------
@@ -866,6 +873,7 @@ def _import_team_honors(
 
 
 def _import_hof(conn: sqlite3.Connection, rows: list[dict], pib: dict[str, int], now: str) -> int:
+    """Gap-fill HoF from live: insert missing; overwrite only when live is admin."""
     n = 0
     for item in rows:
         fhm = str(item.get("player_fhm_id") or "").strip()
@@ -873,34 +881,33 @@ def _import_hof(conn: sqlite3.Connection, rows: list[dict], pib: dict[str, int],
         if pid is None:
             continue
         source = str(item.get("source") or "csv")
-        # Prefer live admin over local csv; live always wins on same player.
         existing = conn.execute(
-            "SELECT source FROM hall_of_fame_members WHERE player_id=?", (pid,)
+            "SELECT id, source FROM hall_of_fame_members WHERE player_id=?", (pid,)
         ).fetchone()
-        if existing is not None:
-            local_src = str(existing[0] or "csv")
-            if local_src == "admin" and source != "admin":
-                continue
+        member_kind = item.get("member_kind") or "skater"
+        inducted_year = int(item.get("inducted_year") or 0)
+        sort_order = int(item.get("sort_order") or 0)
+        if existing is None:
+            conn.execute(
+                """
+                INSERT INTO hall_of_fame_members (
+                    player_id, member_kind, inducted_year, sort_order, source, updated_at, updated_by_user_id
+                ) VALUES (?, ?, ?, ?, ?, ?, NULL)
+                """,
+                (pid, member_kind, inducted_year, sort_order, source, now),
+            )
+            n += 1
+            continue
+        # Local row exists: only live admin may overwrite (including local admin).
+        if source != "admin":
+            continue
         conn.execute(
             """
-            INSERT INTO hall_of_fame_members (
-                player_id, member_kind, inducted_year, sort_order, source, updated_at, updated_by_user_id
-            ) VALUES (?, ?, ?, ?, ?, ?, NULL)
-            ON CONFLICT(player_id) DO UPDATE SET
-                member_kind=excluded.member_kind,
-                inducted_year=excluded.inducted_year,
-                sort_order=excluded.sort_order,
-                source=excluded.source,
-                updated_at=excluded.updated_at
+            UPDATE hall_of_fame_members SET
+                member_kind=?, inducted_year=?, sort_order=?, source=?, updated_at=?
+            WHERE id=?
             """,
-            (
-                pid,
-                item.get("member_kind") or "skater",
-                int(item.get("inducted_year") or 0),
-                int(item.get("sort_order") or 0),
-                source,
-                now,
-            ),
+            (member_kind, inducted_year, sort_order, source, now, int(existing[0])),
         )
         n += 1
     return n
@@ -925,11 +932,38 @@ def _import_history_awards(
     current_id: int | None,
     now: str,
 ) -> int:
-    # Prefer importing live admin rows.
+    """Merge live awards: admin force-upsert; other sources insert-if-missing only."""
     admin_rows = [r for r in rows if str(r.get("source") or "") == "admin"]
+    other_rows = [r for r in rows if str(r.get("source") or "") != "admin"]
     n = 0
 
-    def _upsert(item: dict, *, force: bool) -> None:
+    def _find_match(season_id: int, item: dict, pid: int | None):
+        if pid is not None or item.get("staff_fhm_id"):
+            return conn.execute(
+                """
+                SELECT id, source, notes FROM history_awards
+                WHERE season_id=? AND award_name=?
+                  AND IFNULL(player_id,-1)=IFNULL(?, -1)
+                  AND IFNULL(staff_fhm_id,'')=IFNULL(?, '')
+                LIMIT 1
+                """,
+                (season_id, item.get("award_name"), pid, item.get("staff_fhm_id")),
+            ).fetchone()
+        # Team-only / name-only awards: match on season + award + team.
+        tid = tib.get(str(item.get("team_fhm_id") or "").strip()) if item.get("team_fhm_id") else None
+        return conn.execute(
+            """
+            SELECT id, source, notes FROM history_awards
+            WHERE season_id=? AND award_name=?
+              AND player_id IS NULL
+              AND IFNULL(staff_fhm_id,'')=IFNULL(?, '')
+              AND IFNULL(team_id,-1)=IFNULL(?, -1)
+            LIMIT 1
+            """,
+            (season_id, item.get("award_name"), item.get("staff_fhm_id"), tid),
+        ).fetchone()
+
+    def _upsert(item: dict, *, force: bool, gap_fill_only: bool) -> None:
         nonlocal n
         season_id = _resolve_season_id(
             season_label=item.get("season_label"),
@@ -942,21 +976,10 @@ def _import_history_awards(
         pid = pib.get(str(item.get("player_fhm_id") or "").strip()) if item.get("player_fhm_id") else None
         tid = tib.get(str(item.get("team_fhm_id") or "").strip()) if item.get("team_fhm_id") else None
         source = str(item.get("source") or "csv")
-        # Find matching local row by soft key.
-        match = None
-        if pid is not None or item.get("staff_fhm_id"):
-            q = conn.execute(
-                """
-                SELECT id, source, notes FROM history_awards
-                WHERE season_id=? AND award_name=?
-                  AND IFNULL(player_id,-1)=IFNULL(?, -1)
-                  AND IFNULL(staff_fhm_id,'')=IFNULL(?, '')
-                LIMIT 1
-                """,
-                (season_id, item.get("award_name"), pid, item.get("staff_fhm_id")),
-            ).fetchone()
-            match = q
+        match = _find_match(season_id, item, pid)
         if match is not None:
+            if gap_fill_only:
+                return
             local_src = str(match[1] or "csv")
             if local_src == "admin" and source != "admin" and not force:
                 return
@@ -977,9 +1000,6 @@ def _import_history_awards(
                 ),
             )
         else:
-            if source != "admin" and not force:
-                # Skip non-admin duplicates that local CSV likely already has.
-                return
             conn.execute(
                 """
                 INSERT INTO history_awards (
@@ -1001,8 +1021,9 @@ def _import_history_awards(
         n += 1
 
     for item in admin_rows:
-        _upsert(item, force=True)
-    # Only fill other live rows when local has no matching award — skip bulk csv.
+        _upsert(item, force=True, gap_fill_only=False)
+    for item in other_rows:
+        _upsert(item, force=False, gap_fill_only=True)
     return n
 
 
@@ -1015,11 +1036,10 @@ def _import_history_all_stars(
     current_id: int | None,
     now: str,
 ) -> int:
+    """Merge live all-stars: admin force-upsert; CSV/other insert-if-missing only."""
     n = 0
     for item in rows:
         source = str(item.get("source") or "csv")
-        if source != "admin":
-            continue
         label = str(item.get("season_label") or "").strip()
         if not label:
             continue
@@ -1028,36 +1048,60 @@ def _import_history_all_stars(
         )
         if season_id is None:
             continue
+        team_rank = int(item.get("team_rank") or 0)
+        slot = int(item.get("slot") or 0)
+        existing = conn.execute(
+            """
+            SELECT id, source FROM history_all_stars
+            WHERE season_label=? AND team_rank=? AND slot=?
+            LIMIT 1
+            """,
+            (label, team_rank, slot),
+        ).fetchone()
         pid = pib.get(str(item.get("player_fhm_id") or "").strip()) if item.get("player_fhm_id") else None
         tid = tib.get(str(item.get("team_fhm_id") or "").strip()) if item.get("team_fhm_id") else None
-        conn.execute(
-            """
-            INSERT INTO history_all_stars (
-                season_id, season_label, team_rank, slot, position,
-                player_id, team_id, notes, source, updated_at, updated_by_user_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
-            ON CONFLICT(season_label, team_rank, slot) DO UPDATE SET
-                season_id=excluded.season_id,
-                position=excluded.position,
-                player_id=excluded.player_id,
-                team_id=excluded.team_id,
-                notes=excluded.notes,
-                source=excluded.source,
-                updated_at=excluded.updated_at
-            """,
-            (
-                season_id,
-                label,
-                int(item.get("team_rank") or 0),
-                int(item.get("slot") or 0),
-                item.get("position") or "",
-                pid,
-                tid,
-                item.get("notes"),
-                "admin",
-                now,
-            ),
-        )
+        if existing is not None and source != "admin":
+            # Gap-fill only: local already has this slot.
+            continue
+        if existing is None:
+            conn.execute(
+                """
+                INSERT INTO history_all_stars (
+                    season_id, season_label, team_rank, slot, position,
+                    player_id, team_id, notes, source, updated_at, updated_by_user_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+                """,
+                (
+                    season_id,
+                    label,
+                    team_rank,
+                    slot,
+                    item.get("position") or "",
+                    pid,
+                    tid,
+                    item.get("notes"),
+                    source,
+                    now,
+                ),
+            )
+        else:
+            conn.execute(
+                """
+                UPDATE history_all_stars SET
+                    season_id=?, position=?, player_id=?, team_id=?, notes=?, source=?, updated_at=?
+                WHERE id=?
+                """,
+                (
+                    season_id,
+                    item.get("position") or "",
+                    pid,
+                    tid,
+                    item.get("notes"),
+                    source,
+                    now,
+                    int(existing[0]),
+                ),
+            )
         n += 1
     return n
 

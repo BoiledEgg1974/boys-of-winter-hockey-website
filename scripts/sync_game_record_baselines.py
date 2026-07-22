@@ -11,7 +11,8 @@ Or one mount at a time:
     python scripts/sync_game_record_baselines.py bowl-cap
 
 Per-league Flask CLI (with LEAGUE_SLUG set): ``flask bowl-game-record-baselines-sync``
-"""from __future__ import annotations
+"""
+from __future__ import annotations
 
 import argparse
 import sys

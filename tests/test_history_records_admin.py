@@ -141,6 +141,7 @@ class HistoryRecordsImportSafetyTest(unittest.TestCase):
         path = Path(__file__).resolve().parents[1] / "scripts" / "import_pipeline" / "runner.py"
         text = path.read_text(encoding="utf-8")
         self.assertIn("delete_non_admin_history_awards", text)
+        self.assertIn("delete_non_admin_history_awards_matching", text)
         self.assertNotIn("delete(HistoryAward))", text.split("if replace_all:")[1].split("elif needle")[0])
 
     def test_all_stars_import_keeps_admin_rows(self) -> None:

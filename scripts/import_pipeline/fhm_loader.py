@@ -490,9 +490,26 @@ def import_team_season_stats(
     return n
 
 
+def _promote_record_baselines_before_wipe(context: str) -> int:
+    """Persist current game-record leaders as baselines before any boxscore delete.
+
+    Called from every code path that removes boxscore rows so record marks can never
+    be lost to caller-ordering mistakes. Sync never downgrades stored baselines, so
+    running it repeatedly during one import is safe.
+    """
+    from app.services.game_records import sync_game_record_baselines
+
+    promoted = sync_game_record_baselines(db.session)
+    commit_with_sqlite_retry(db.session)
+    if promoted:
+        log.info("Promoted %s game record baseline(s) before %s.", promoted, context)
+    return promoted
+
+
 def _delete_games_cascade(game_ids: list[int]) -> None:
     if not game_ids:
         return
+    _promote_record_baselines_before_wipe(f"pruning {len(game_ids)} stale game(s)")
     db.session.execute(
         update(GameRecordBaseline)
         .where(GameRecordBaseline.game_id.in_(game_ids))
@@ -685,6 +702,12 @@ def import_games(
 
 
 def _clear_game_details() -> None:
+    """Wipe all boxscore detail rows (full-file FHM reload follows).
+
+    Always snapshots game-record leaders into ``game_record_baselines`` first so the
+    Game Records page cannot lose historical marks to the wipe.
+    """
+    _promote_record_baselines_before_wipe("full boxscore wipe")
     db.session.execute(delete(GameSkaterStat))
     db.session.execute(delete(GameGoalieStat))
     db.session.execute(delete(ScoringEvent))
@@ -1400,6 +1423,22 @@ def import_player_jersey_numbers(raw_dir: Path, players_fhm: dict[int, int]) -> 
 def run_fhm_import(raw_dir: Path, app, league_filter: int = 0) -> dict[str, int]:
     """Import FHM-style CSV set. Requires fresh schema (stat_segment, etc.)."""
     counts: dict[str, int] = {}
+
+    # Promote game-log leaders into persistent baselines FIRST, while the previous
+    # season's games, boxscores, and season labels are still intact. ``import_games``
+    # prunes stale games (cascading boxscore deletes) and re-binds reused FHM game ids
+    # to the new schedule, and ``ensure_season`` re-labels the reused season row — so a
+    # sync run any later can miss records set since the last import or mislabel them.
+    from app.services.game_records import sync_game_record_baselines
+
+    promoted_before = sync_game_record_baselines(db.session)
+    commit_with_sqlite_retry(db.session)
+    if promoted_before:
+        log.info(
+            "Promoted %s game record baseline(s) before FHM import (pre-wipe snapshot).",
+            promoted_before,
+        )
+
     div_map = load_division_names(raw_dir)
     counts["league_meta"] = import_league_meta(raw_dir, league_filter)
     season, league_year_changed, previous_start_year = ensure_season(raw_dir, league_filter)
@@ -1458,20 +1497,14 @@ def run_fhm_import(raw_dir: Path, app, league_filter: int = 0) -> dict[str, int]
     games_fhm = import_games(raw_dir, season, teams_fhm, league_filter, app=app)
     counts["games"] = len(games_fhm)
 
-    from app.services.game_records import sync_game_record_baselines
-
-    promoted_before = sync_game_record_baselines(db.session)
-    if promoted_before:
-        log.info(
-            "Promoted %s game record baseline(s) before boxscore reimport.",
-            promoted_before,
-        )
+    # _clear_game_details / _delete_games_cascade self-promote baselines before deleting.
     _clear_game_details()
     counts["box_skaters"] = import_boxscore_skaters(raw_dir, games_fhm, players_fhm, teams_fhm)
     counts["box_goalies"] = import_boxscore_goalies(raw_dir, games_fhm, players_fhm, teams_fhm)
     counts["scoring_events"] = import_period_scoring(raw_dir, games_fhm, players_fhm, teams_fhm)
     counts["penalty_events"] = import_boxscore_penalties(raw_dir, games_fhm, players_fhm, teams_fhm)
     promoted_after = sync_game_record_baselines(db.session)
+    commit_with_sqlite_retry(db.session)
     if promoted_after:
         log.info(
             "Promoted %s game record baseline(s) after boxscore reimport.",

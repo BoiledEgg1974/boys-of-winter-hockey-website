@@ -13,8 +13,9 @@ For the usual CSV + import + reload sequence from your machine, prefer
   deploy-db — Upload locally built league SQLite files (+ app/static). Snapshots live OVR on the
               server first, merges those baselines into the local DBs, then uploads so depth-chart
               arrows stay accurate. Also merges live trade logs, game-record baselines, and
-              league editorial data (HoF, awards admin rows, team honors, franchise identities,
-              career adjustments, etc.). Skips server-side import_data.py.
+              league editorial data (gap-fill: restore live-only HoF/awards/all-stars/honors/
+              franchise rows, career adjustments, etc.). Aborts if live capture JSON is missing
+              or corrupt. Skips server-side import_data.py.
 
   sync   — Upload the whole project tree (newer files only), same rules as before; does NOT
            run imports. Use this for code/template changes without a data refresh.
@@ -647,6 +648,71 @@ def _deploy_league_editorial_json_name(slug: str) -> str:
     return f".deploy_league_editorial_{slug}.json"
 
 
+_EDITORIAL_CAPTURE_LIST_KEYS = (
+    "record_stat_adjustments",
+    "team_honors_meta",
+    "team_retired_numbers",
+    "team_victory_banners",
+    "hall_of_fame_members",
+    "history_awards",
+    "history_all_stars",
+    "team_season_records",
+    "franchise_team_identities",
+    "history_champions",
+    "org_development_report_archives",
+    "player_rating_snapshots",
+    "player_analytics_snapshots",
+    "team_analytics_snapshots",
+    "player_boost_tiers",
+)
+
+
+def validate_deploy_capture_json(path: Path, kind: str, *, slug: str) -> int:
+    """Fail closed when a live deploy-db capture file is missing or corrupt.
+
+    Returns an approximate row count for logging. Raises ``ValueError`` with a
+    clear per-league message so a bad capture cannot silently wipe live data.
+    """
+    label = f"{slug} {kind}"
+    if not path.is_file():
+        raise ValueError(f"{label} capture missing — refusing upload ({path})")
+    if path.stat().st_size == 0:
+        raise ValueError(f"{label} capture empty — refusing upload ({path})")
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{label} capture unreadable JSON — refusing upload: {exc}") from exc
+
+    if kind == "ovr":
+        if not isinstance(raw, dict):
+            raise ValueError(f"{label} capture must be a JSON object — refusing upload")
+        return len(raw)
+
+    if kind in ("trade_log", "game_record_baselines"):
+        if not isinstance(raw, list):
+            raise ValueError(f"{label} capture must be a JSON array — refusing upload")
+        return len(raw)
+
+    if kind == "editorial":
+        if not isinstance(raw, dict):
+            raise ValueError(f"{label} capture must be a JSON object — refusing upload")
+        if "version" not in raw:
+            raise ValueError(f"{label} capture missing version — refusing upload")
+        for key in _EDITORIAL_CAPTURE_LIST_KEYS:
+            if key not in raw:
+                raise ValueError(f"{label} capture missing {key!r} — refusing upload")
+            if not isinstance(raw[key], list):
+                raise ValueError(f"{label} capture {key!r} must be a list — refusing upload")
+        if "total_rows" in raw:
+            try:
+                return int(raw["total_rows"] or 0)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"{label} capture total_rows invalid — refusing upload") from exc
+        return sum(len(raw[k]) for k in _EDITORIAL_CAPTURE_LIST_KEYS)
+
+    raise ValueError(f"Unknown deploy capture kind {kind!r}")
+
+
 def build_capture_live_ovr_baselines_script(
     remote_project: str,
     venv_bin: str,
@@ -1200,6 +1266,37 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
             local_json = editorial_dir / _deploy_league_editorial_json_name(slug)
             sftp.get(remote_json, str(local_json))
             print(f"download {remote_json} -> {local_json.relative_to(local_root).as_posix()}")
+
+        print("--- validate live capture JSON (fail closed) ---")
+        try:
+            for slug in slugs:
+                ovr_n = validate_deploy_capture_json(
+                    baseline_dir / _deploy_ovr_baseline_json_name(slug),
+                    "ovr",
+                    slug=slug,
+                )
+                trade_n = validate_deploy_capture_json(
+                    trade_log_dir / _deploy_trade_log_json_name(slug),
+                    "trade_log",
+                    slug=slug,
+                )
+                game_n = validate_deploy_capture_json(
+                    game_rec_dir / _deploy_game_record_baselines_json_name(slug),
+                    "game_record_baselines",
+                    slug=slug,
+                )
+                ed_n = validate_deploy_capture_json(
+                    editorial_dir / _deploy_league_editorial_json_name(slug),
+                    "editorial",
+                    slug=slug,
+                )
+                print(
+                    f"  {slug}: ovr={ovr_n}, trades={trade_n}, "
+                    f"game_records={game_n}, editorial={ed_n}"
+                )
+        except ValueError as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 1
 
         print("--- merge live baselines into local databases ---")
         transfer = local_root / "scripts" / "ovr_baseline_transfer.py"

@@ -664,7 +664,7 @@ class HallOfFameMember(db.Model):
     member_kind: Mapped[str] = mapped_column(String(16), nullable=False)
     inducted_year: Mapped[int] = mapped_column(Integer, nullable=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    #: ``csv`` (replaceable import) or ``admin`` (protected from replace-all imports).
+    #: ``csv`` (upserted from import; never deleted by import) or ``admin`` (never overwritten by CSV).
     source: Mapped[str] = mapped_column(String(16), default="csv", nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False

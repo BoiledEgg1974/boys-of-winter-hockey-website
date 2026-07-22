@@ -19,7 +19,7 @@ Optional: `pip install -r requirements-deploy.txt` only if you use the PythonAny
 | SQLite per league | `instance/bowl-historical.db`, `instance/bowl-fantasy.db`, `instance/bowl-cap.db` (legacy names like `league2.db` may still be used if the new file is empty—see `app/config.py`) |
 | Team logos        | `app/static/logos/teams/<league_folder>/` (importer can copy from optional `team_logos` / `logos` inside each raw folder)                                                         |
 | Player headshots  | `app/static/players/...` (optional)                                                                                                                                               |
-| Hall of Fame list | Optional `hall_of_fame.csv` in each league raw folder (see `data/imports/raw/README.txt`); imported with the pipeline and shown at `/hall-of-fame`.                             |
+| Hall of Fame list | Optional `hall_of_fame.csv` in each league raw folder (see `data/imports/raw/README.txt`); imported as an additive upsert (existing inductees are never wiped) and shown at `/hall-of-fame`. |
 
 
 League **URL slugs** (used in `LEAGUE_SLUG` and in URLs): `bowl-historical`, `bowl-fantasy`, `bowl-cap`.
@@ -153,20 +153,25 @@ On PythonAnywhere, also check `instance/league2.db` (legacy BOWL-Historical file
 - `deploy-db` now exports live `game_record_baselines` and merges them into your local DB before upload (same pattern as OVR / trade logs): strictly better local marks still win; equal or weaker local marks keep the live/admin holder.
 - Applies to all leagues (`bowl-historical`, `bowl-fantasy`, `bowl-cap`), including Cap’s `league3.db`.
 
-**Other league editorial / live history** (also in the league SQLite, not the site DB) is preserved the same way via `scripts/league_editorial_transfer.py`:
+**Other league editorial / live history** (also in the league SQLite, not the site DB) is preserved the same way via `scripts/league_editorial_transfer.py` on every **`deploy-db`** (mandatory for league DB uploads — do not raw-SFTP replace a `.db`):
+
+**Gap-fill rule:** restore any live editorial/history row that is missing locally; keep the local row when the same key already exists. Live `admin` rows still force-overwrite local non-admin. Capture JSON that is missing or corrupt aborts the upload.
 
 - Career `record_stat_adjustments`
 - Team honors (retired numbers, victory banners, section toggles)
-- Hall of Fame (prefer live `admin` rows)
-- Admin history awards / all-stars / team season records (`admin` + `import`)
+- Hall of Fame (insert-if-missing; live `admin` overwrites; CSV import never deletes inductees)
+- History awards / all-stars (admin force + CSV gap-fill of live-only rows)
+- Team season records (`admin` + `import`)
 - Franchise team identities
-- History champions
+- History champions (insert-if-missing by season+team+trophy)
 - Org development report archives, player rating snapshot history, and player/team analytics snapshot history
 - Player profile `boost_tier` markers (gold / silver / hof)
 
 Together with OVR baselines, trade logs, and game-record baselines, these cover live-unique league data for all three leagues on `deploy-db`.
 
-FHM/sim tables (games logs, season stats, ratings, standings, etc.) **are** replaced from your local import — that is intentional. Site DB data (staff, cap penalties, drafts, Bowl Six, news, AP, draft-hub boosts, etc.) is **not** part of `league3.db` / league SQLite uploads and is unaffected by `deploy-db`.
+To **remove** an inductee or admin history row intentionally, use Admin UI (or an intentional CSV/admin workflow) — imports and `deploy-db` gap-fill will not wipe live-only editorial data.
+
+FHM/sim tables (game logs, season stats, ratings, standings, etc.) **are** replaced from your local import — that is intentional. Site DB data (staff, cap penalties, drafts, Bowl Six, news, AP, draft-hub boosts, etc.) is **not** part of `league3.db` / league SQLite uploads and is unaffected by `deploy-db`.
 
 **BOWL Six** scoring runs automatically after each import (and when commissioners or GMs open the Control Center or BOWL Six hub): locked slates pick up points from completed RS games; when every RS game in the week is final, the slate finalizes (AP + GM notifications). If box scores change after a week is already scored, use **Re-score slate** in Control Center (type `RESCORE` to confirm).
 

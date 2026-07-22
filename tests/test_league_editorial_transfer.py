@@ -157,6 +157,219 @@ class LeagueEditorialTransferTests(unittest.TestCase):
             finally:
                 c.close()
 
+    def test_hof_gap_fill_restores_missing_and_keeps_local_only(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            live = root / "live.db"
+            local = root / "local.db"
+            out = root / "bundle.json"
+            _create_db(live)
+            _create_db(local)
+            conn = sqlite3.connect(str(live))
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO hall_of_fame_members (
+                        player_id, member_kind, inducted_year, sort_order, source, updated_at
+                    ) VALUES (1, 'skater', 1969, 0, 'csv', '2020-01-01')
+                    """
+                )
+                conn.commit()
+            finally:
+                conn.close()
+            conn = sqlite3.connect(str(local))
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO hall_of_fame_members (
+                        player_id, member_kind, inducted_year, sort_order, source, updated_at
+                    ) VALUES (2, 'goalie', 1968, 1, 'csv', '2020-01-01')
+                    """
+                )
+                conn.commit()
+            finally:
+                conn.close()
+            transfer.export_league_editorial_json(live, out)
+            transfer.import_league_editorial_json(local, out)
+            c = sqlite3.connect(str(local))
+            try:
+                rows = {
+                    int(r[0]): (int(r[1]), r[2])
+                    for r in c.execute(
+                        "SELECT player_id, inducted_year, source FROM hall_of_fame_members"
+                    )
+                }
+                self.assertEqual(rows[1], (1969, "csv"))
+                self.assertEqual(rows[2], (1968, "csv"))
+            finally:
+                c.close()
+
+    def test_hof_csv_gap_fill_does_not_overwrite_local_csv(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            live = root / "live.db"
+            local = root / "local.db"
+            out = root / "bundle.json"
+            _create_db(live)
+            _create_db(local)
+            conn = sqlite3.connect(str(live))
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO hall_of_fame_members (
+                        player_id, member_kind, inducted_year, sort_order, source, updated_at
+                    ) VALUES (1, 'skater', 1950, 0, 'csv', '2020-01-01')
+                    """
+                )
+                conn.commit()
+            finally:
+                conn.close()
+            conn = sqlite3.connect(str(local))
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO hall_of_fame_members (
+                        player_id, member_kind, inducted_year, sort_order, source, updated_at
+                    ) VALUES (1, 'skater', 1969, 5, 'csv', '2020-01-01')
+                    """
+                )
+                conn.commit()
+            finally:
+                conn.close()
+            transfer.export_league_editorial_json(live, out)
+            transfer.import_league_editorial_json(local, out)
+            c = sqlite3.connect(str(local))
+            try:
+                row = c.execute(
+                    "SELECT inducted_year, sort_order, source FROM hall_of_fame_members WHERE player_id=1"
+                ).fetchone()
+                self.assertEqual(row, (1969, 5, "csv"))
+            finally:
+                c.close()
+
+    def test_history_awards_csv_gap_fill_and_admin_force(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            live = root / "live.db"
+            local = root / "local.db"
+            out = root / "bundle.json"
+            _create_db(live)
+            _create_db(local)
+            conn = sqlite3.connect(str(live))
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO history_awards (
+                        season_id, award_name, player_id, team_id, staff_fhm_id,
+                        notes, source, updated_at
+                    ) VALUES
+                      (100, 'Hart', 1, 10, NULL, NULL, 'csv', '2020-01-01'),
+                      (100, 'Norris', 2, 20, NULL, 'admin note', 'admin', '2020-01-01')
+                    """
+                )
+                conn.commit()
+            finally:
+                conn.close()
+            conn = sqlite3.connect(str(local))
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO history_awards (
+                        season_id, award_name, player_id, team_id, staff_fhm_id,
+                        notes, source, updated_at
+                    ) VALUES (100, 'Norris', 2, 20, NULL, 'local csv', 'csv', '2020-01-01')
+                    """
+                )
+                conn.commit()
+            finally:
+                conn.close()
+            transfer.export_league_editorial_json(live, out)
+            written = transfer.import_league_editorial_json(local, out)
+            self.assertGreaterEqual(written["history_awards"], 2)
+            c = sqlite3.connect(str(local))
+            try:
+                by_name = {
+                    r[0]: (int(r[1]), r[2], r[3])
+                    for r in c.execute(
+                        "SELECT award_name, player_id, source, notes FROM history_awards"
+                    )
+                }
+                # Live-only CSV Hart restored.
+                self.assertEqual(by_name["Hart"][:2], (1, "csv"))
+                # Live admin Norris overwrote local CSV.
+                self.assertEqual(by_name["Norris"], (2, "admin", "admin note"))
+            finally:
+                c.close()
+
+    def test_history_awards_gap_fill_keeps_matching_local_csv(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            live = root / "live.db"
+            local = root / "local.db"
+            out = root / "bundle.json"
+            _create_db(live)
+            _create_db(local)
+            conn = sqlite3.connect(str(live))
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO history_awards (
+                        season_id, award_name, player_id, team_id, staff_fhm_id,
+                        notes, source, updated_at
+                    ) VALUES (100, 'Hart', 1, 10, NULL, 'live', 'csv', '2020-01-01')
+                    """
+                )
+                conn.commit()
+            finally:
+                conn.close()
+            conn = sqlite3.connect(str(local))
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO history_awards (
+                        season_id, award_name, player_id, team_id, staff_fhm_id,
+                        notes, source, updated_at
+                    ) VALUES (100, 'Hart', 1, 10, NULL, 'local corrected', 'csv', '2020-01-01')
+                    """
+                )
+                conn.commit()
+            finally:
+                conn.close()
+            transfer.export_league_editorial_json(live, out)
+            transfer.import_league_editorial_json(local, out)
+            c = sqlite3.connect(str(local))
+            try:
+                row = c.execute(
+                    "SELECT notes, source FROM history_awards WHERE award_name='Hart'"
+                ).fetchone()
+                self.assertEqual(row, ("local corrected", "csv"))
+            finally:
+                c.close()
+
+    def test_export_includes_total_rows_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            live = root / "live.db"
+            out = root / "bundle.json"
+            _create_db(live)
+            conn = sqlite3.connect(str(live))
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO hall_of_fame_members (
+                        player_id, member_kind, inducted_year, sort_order, source, updated_at
+                    ) VALUES (1, 'skater', 1969, 0, 'csv', '2020-01-01')
+                    """
+                )
+                conn.commit()
+            finally:
+                conn.close()
+            counts = transfer.export_league_editorial_json(live, out)
+            raw = json.loads(out.read_text(encoding="utf-8"))
+            self.assertEqual(raw["version"], transfer.BUNDLE_VERSION)
+            self.assertIn("total_rows", raw)
+            self.assertEqual(raw["total_rows"], sum(counts.values()))
+            self.assertEqual(raw["row_counts"]["hall_of_fame_members"], 1)
     def test_player_boost_tiers_preserved(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

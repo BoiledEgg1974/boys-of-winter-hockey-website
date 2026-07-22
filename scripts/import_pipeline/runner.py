@@ -824,7 +824,14 @@ def _history_awards_csv_path(raw_dir: Path) -> Path | None:
 
 
 def import_hall_of_fame(raw_dir: Path, app) -> int:
-    """Import ``hall_of_fame.csv`` (replace-all).
+    """Import ``hall_of_fame.csv`` as an additive upsert (never wipe existing inductees).
+
+    Applies to every league mount (bowl-historical, bowl-fantasy, bowl-cap): the same
+    shared importer runs from ``STEPS`` / FHM overlay for whichever ``LEAGUE_SLUG`` is set.
+
+    Existing rows missing from the CSV are kept. Admin-sourced rows are never
+    overwritten by CSV. CSV-sourced rows for the same player are updated in place.
+    Use Admin → Hall of Fame to remove an inductee.
 
     Columns (normalized headers):
     - ``fhm_player_id`` or ``player_id``: FHM player id (same as ``history_awards.csv`` / ``Player.fhm_player_id``).
@@ -832,22 +839,15 @@ def import_hall_of_fame(raw_dir: Path, app) -> int:
     - ``inducted_year`` (required): calendar year of induction.
     - ``sort_order`` (optional): lower sorts first within the same ``inducted_year``.
     """
+    from app.services.admin_hall_of_fame import HOF_SOURCE_ADMIN, HOF_SOURCE_CSV
+
     path = raw_dir / "hall_of_fame.csv"
     if not path.is_file():
         log.info("Skipping hall_of_fame.csv (not found)")
         return 0
     df = read_csv_normalized(path)
-    db.session.execute(
-        delete(HallOfFameMember).where(HallOfFameMember.source != "admin")
-    )
-    commit_with_sqlite_retry(db.session)
     n = 0
-    seen_players: set[int] = {
-        int(x)
-        for x in db.session.scalars(
-            select(HallOfFameMember.player_id).where(HallOfFameMember.source == "admin")
-        ).all()
-    }
+    seen_in_csv: set[int] = set()
     for _, row in df.iterrows():
         r = row.to_dict()
         fhm_key = cell_val(r, "fhm_player_id", "player_id")
@@ -855,8 +855,9 @@ def import_hall_of_fame(raw_dir: Path, app) -> int:
         if not player:
             log.warning("hall_of_fame.csv: skipping unknown player id %r", fhm_key)
             continue
-        if player.id in seen_players:
-            log.warning("hall_of_fame.csv: duplicate row for player id %s — skipping", player.id)
+        player_id = int(player.id)
+        if player_id in seen_in_csv:
+            log.warning("hall_of_fame.csv: duplicate row for player id %s — skipping", player_id)
             continue
         kind_raw = (cell_val(r, "kind", "member_kind", "type") or "").strip().lower()
         if kind_raw in ("goalie", "g", "goaltender"):
@@ -873,16 +874,33 @@ def import_hall_of_fame(raw_dir: Path, app) -> int:
         sort_order = to_int(cell_val(r, "sort_order", "order"), 0)
         if sort_order is None:
             sort_order = 0
-        db.session.add(
-            HallOfFameMember(
-                player_id=int(player.id),
-                member_kind=member_kind,
-                inducted_year=int(inducted),
-                sort_order=int(sort_order),
-                source="csv",
-            )
+
+        existing = db.session.scalar(
+            select(HallOfFameMember).where(HallOfFameMember.player_id == player_id).limit(1)
         )
-        seen_players.add(int(player.id))
+        if existing is not None:
+            if (existing.source or "").strip().lower() == HOF_SOURCE_ADMIN:
+                log.info(
+                    "hall_of_fame.csv: keeping admin inductee for player id %s — skipping CSV row",
+                    player_id,
+                )
+                seen_in_csv.add(player_id)
+                continue
+            existing.member_kind = member_kind
+            existing.inducted_year = int(inducted)
+            existing.sort_order = int(sort_order)
+            existing.source = HOF_SOURCE_CSV
+        else:
+            db.session.add(
+                HallOfFameMember(
+                    player_id=player_id,
+                    member_kind=member_kind,
+                    inducted_year=int(inducted),
+                    sort_order=int(sort_order),
+                    source=HOF_SOURCE_CSV,
+                )
+            )
+        seen_in_csv.add(player_id)
         n += 1
     commit_with_sqlite_retry(db.session)
     return n
@@ -898,20 +916,24 @@ def import_history_awards(
 ) -> int:
     """Import ``history_awards.csv`` rows.
 
-    If ``replace_all`` is True, delete **all** ``HistoryAward`` rows, then import every
-    CSV row (full re-import). Do not combine with ``replace_award_substring``.
+    If ``replace_all`` is True, delete **non-admin** ``HistoryAward`` rows, then import every
+    CSV row (full re-import). Admin rows are kept. Do not combine with ``replace_award_substring``.
     The main import pipeline (``STEPS`` / FHM overlay) calls this with ``replace_all=True``
     so award rows stay aligned with the CSV.
 
     If ``replace_award_substring`` is set (e.g. ``\"JENNINGS\"``), delete existing
-    ``HistoryAward`` rows whose ``award_name`` matches (case-insensitive substring),
-    then import **only** CSV rows whose award name contains that substring. All other
-    awards are left unchanged.
+    **non-admin** ``HistoryAward`` rows whose ``award_name`` matches (case-insensitive substring),
+    then import **only** CSV rows whose award name contains that substring. Admin rows and
+    all other awards are left unchanged.
     """
     path = csv_path.resolve() if csv_path else _history_awards_csv_path(raw_dir)
     if path is None or not path.is_file():
         return 0
-    from app.services.admin_history_records import HISTORY_SOURCE_CSV, delete_non_admin_history_awards
+    from app.services.admin_history_records import (
+        HISTORY_SOURCE_CSV,
+        delete_non_admin_history_awards,
+        delete_non_admin_history_awards_matching,
+    )
 
     log.info("Loading history awards from %s", path.name)
     df = read_csv_normalized(path)
@@ -927,9 +949,14 @@ def import_history_awards(
         )
     elif needle:
         sub = needle.upper()
-        db.session.execute(delete(HistoryAward).where(HistoryAward.award_name.ilike(f"%{needle}%")))
+        removed = delete_non_admin_history_awards_matching(db.session, needle)
         commit_with_sqlite_retry(db.session)
-        log.info("Removed existing history awards matching %r before partial re-import.", needle)
+        log.info(
+            "Removed %s non-admin history awards matching %r before partial re-import "
+            "(admin rows kept).",
+            removed,
+            needle,
+        )
     n = 0
     league_slug = str(app.config.get("LEAGUE_SLUG") or "").strip()
     for _, row in df.iterrows():
@@ -1144,6 +1171,7 @@ def import_trade_log(raw_dir: Path, app) -> int:
 
 
 def import_history_champions(raw_dir: Path, app) -> int:
+    """Import ``history_champions.csv`` as a keyed upsert (season + team + trophy)."""
     path = raw_dir / "history_champions.csv"
     if not path.exists():
         return 0
@@ -1155,12 +1183,27 @@ def import_history_champions(raw_dir: Path, app) -> int:
         team = _team_by_fhm_or_abbr(cell_val(r, "team_id", "team_abbr"))
         if not season or not team:
             continue
-        c = HistoryChampion(
-            season_id=season.id,
-            team_id=team.id,
-            trophy=cell_val(r, "trophy", "title"),
+        trophy = cell_val(r, "trophy", "title")
+        trophy_key = (trophy or "").strip()
+        existing = None
+        for cand in db.session.scalars(
+            select(HistoryChampion).where(
+                HistoryChampion.season_id == int(season.id),
+                HistoryChampion.team_id == int(team.id),
+            )
+        ).all():
+            if (cand.trophy or "").strip() == trophy_key:
+                existing = cand
+                break
+        if existing is not None:
+            continue
+        db.session.add(
+            HistoryChampion(
+                season_id=season.id,
+                team_id=team.id,
+                trophy=trophy,
+            )
         )
-        db.session.add(c)
         n += 1
     commit_with_sqlite_retry(db.session)
     return n

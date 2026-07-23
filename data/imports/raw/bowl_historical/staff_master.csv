@@ -1285,7 +1285,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1283;-1;Doug;Barkley;;1937-1-6;Manning;AB;Canada;;;0
 1284;-1;Joe;Crozier;;1929-2-19;Oakbank;MB;Canada;;;0
 1285;-1;Floyd;Smith;;1935-5-16;Perth;ON;Canada;;;0
-1286;-1;Coleman;Hall;;1935-1-1;Vernon;BC;Canada;;;0
+1286;130;Coleman;Hall;;1935-1-1;Vernon;BC;Canada;;;0
 1287;131;Tom;Scallen;;1925-8-14;Norwood Young America;MN;The United States;;;0
 1288;130;Seymour;Knox;;1926-3-9;Chittenango;NY;The United States;;;0
 1289;122;Peter;Block;;1933-1-1;Plymouth Meeting;PA;The United States;;;0

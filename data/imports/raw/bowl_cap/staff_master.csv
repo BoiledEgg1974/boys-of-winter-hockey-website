@@ -104,7 +104,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 102;8;Tom;Watt;;1935-6-17;Toronto;ON;Canada;;;0
 103;8;Gerry;Cheevers;Cheesy;1940-12-7;St. Catharines;ON;Canada;;;0
 104;-1;Keith;Magnuson;;1947-4-27;Saskatoon;SK;Canada;;;0
-105;-1;Bill;Goldsworthy;;1944-8-24;Waterloo;ON;Canada;;;0
+105;22;Bill;Goldsworthy;;1944-8-24;Waterloo;ON;Canada;;;0
 106;232;Rogie;Vachon;;1945-9-8;Palmarolle;QC;Canada;;;0
 107;-1;Stan;Smyl;Steamer;1958-1-28;Glendon;AB;Canada;;;0
 108;-1;Yvon;Labre;;1949-11-29;Sudbury;ON;Canada;;;0
@@ -179,7 +179,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 177;-1;Joe;Micheletti;;1954-10-24;International Falls;MN;The United States;;;0
 178;216;Tim;Higgins;;1958-2-7;Ottawa;ON;Canada;;;0
 179;218;Frank;St. Marseille;;1939-12-14;Surrey;BC;Canada;;;0
-180;-1;Al;MacNeil;;1935-9-27;Sydney;NS;Canada;;;0
+180;22;Al;MacNeil;;1935-9-27;Sydney;NS;Canada;;;0
 181;217;Matti;Väisänen;;1945-12-1;Iisalmi;NSA;Finland;;;0
 182;5;Svenåke;Svensson;;1950-2-27;Kiruna;NOR;Sweden;;;0
 183;-1;Drew;Remenda;;1962-4-13;Saskatoon;SK;Canada;;;0
@@ -276,7 +276,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 274;220;Dave;Lucas;;1932-3-22;Kingston;ON;Canada;;;0
 275;224;Jack;Vivian;;1941-5-14;Strathroy;ON;Canada;;;0
 276;227;Wayne;Maxner;;1942-9-27;Halifax;NS;Canada;;;0
-277;-1;Pierre;Creamer;;1944-7-6;Laval;QC;Canada;;;0
+277;22;Pierre;Creamer;;1944-7-6;Laval;QC;Canada;;;0
 278;217;William;Davidson;;1922-12-5;Detroit;MI;The United States;;;0
 279;11;Philip;Anschutz;;1939-12-28;Russell;MA;The United States;;;0
 280;5;Bob;Strumm;;1947-1-1;Saskatoon;SK;Canada;;;0
@@ -303,7 +303,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 301;-1;Don;MacAdam;;1950-8-14;Lively;ON;Canada;;;0
 302;20;Peter;Dineen;;1960-11-19;Kingston;ON;Canada;;;0
 303;221;Ron;Low;;1950-6-21;Birtle;MB;Canada;;;0
-304;-1;Jimmy;Roberts;;1940-4-9;Toronto;ON;Canada;;;0
+304;22;Jimmy;Roberts;;1940-4-9;Toronto;ON;Canada;;;0
 305;-1;Bob;McCammon;;1941-4-14;Kenora;ON;Canada;;;0
 306;-1;Guy;Lapointe;;1948-3-18;Montreal;QC;Canada;;;0
 307;19;Craig;Channell;;1962-4-24;Vancouver;BC;Canada;;;0

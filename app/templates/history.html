@@ -94,11 +94,17 @@
   {% if award_race_rows is defined and award_race_rows %}
   <section class="card award-race-panel" aria-labelledby="award-race-h">
     <h2 id="award-race-h">Award Leaders</h2>
-    <p class="muted">Most career award wins in league history</p>
+    <p class="muted">Career leader for each award</p>
     <ol class="award-race-panel__list">
-      {% for row in award_race_rows[:10] %}
+      {% for row in award_race_rows %}
       <li class="award-race-panel__item">
+        {% if row.player %}
         <a href="{{ url_for('main.player_page', player_id=row.player.id) }}">{{ row.player.full_name }}</a>
+        {% elif row.team %}
+        <a href="{{ url_for('main.team_page', slug=row.team.slug) }}">{{ row.team.full_display_name() }}</a>
+        {% else %}
+        <span>{{ row.display_name }}</span>
+        {% endif %}
         <span class="award-race-panel__award muted">{{ row.award_name }}</span>
         <span class="award-race-panel__count">{{ row.count }}×</span>
       </li>

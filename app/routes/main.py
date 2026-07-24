@@ -2191,6 +2191,113 @@ def _collapse_same_trophy_year_history_awards(rows: list[HistoryAward]) -> list[
     return out
 
 
+def _history_award_no_winner(a: HistoryAward) -> bool:
+    notes = (a.notes or "").lower()
+    return "no_winner=1" in notes or "unresolved_player=no winner" in notes
+
+
+def _award_race_winner_identity(
+    a: HistoryAward, award_name: str
+) -> tuple[tuple[str, object], str, Player | None, Team | None] | None:
+    """Return ``(count_key, display_name, player, team)`` for one history award row."""
+    if _history_award_no_winner(a):
+        return None
+    if is_team_history_award(award_name):
+        if a.team_id is not None and a.team is not None:
+            return (("team", int(a.team_id)), a.team.full_display_name(), None, a.team)
+        from app.services.history_team_award_logos import history_team_award_notes_team_label
+
+        label = (history_team_award_notes_team_label(a) or "").strip()
+        if label:
+            return (("team_label", label.casefold()), label, None, None)
+        return None
+    if is_staff_history_award(award_name):
+        staff_id = (getattr(a, "staff_fhm_id", None) or "").strip()
+        coach = getattr(a, "coach_display", None)
+        coach_name = (getattr(coach, "full_name", None) or "").strip() if coach else ""
+        if staff_id:
+            return (
+                ("staff", staff_id),
+                coach_name or staff_id,
+                None,
+                getattr(coach, "team", None) if coach else None,
+            )
+        if coach_name:
+            return (("coach_name", coach_name.casefold()), coach_name, None, getattr(coach, "team", None))
+        if a.player_id is not None and a.player is not None:
+            return (("player", int(a.player_id)), a.player.full_name, a.player, None)
+        return None
+    if a.player_id is not None and a.player is not None:
+        return (("player", int(a.player_id)), a.player.full_name, a.player, None)
+    return None
+
+
+def _build_award_race_rows(awards: list[HistoryAward]) -> list[dict[str, object]]:
+    """Career leader for each trophy (one row per award category)."""
+    from collections import defaultdict
+
+    by_name: dict[str, list[HistoryAward]] = defaultdict(list)
+    display_name_by_key: dict[str, str] = {}
+    for a in awards:
+        raw_name = (a.award_name or "").strip() or "Award"
+        norm_name = _AWARD_NAME_ALIASES.get(_norm_award_title(raw_name), _norm_award_title(raw_name))
+        key = norm_name or raw_name
+        display_name_by_key.setdefault(key, raw_name)
+        by_name[key].append(a)
+
+    rows_out: list[dict[str, object]] = []
+    for key, rows in by_name.items():
+        name = display_name_by_key.get(key) or key or "Award"
+        rows = _dedupe_history_awards(rows)
+        rows = _collapse_same_trophy_year_history_awards(rows)
+        tallies: dict[tuple[str, object], dict[str, object]] = {}
+        for a in rows:
+            identity = _award_race_winner_identity(a, name)
+            if identity is None:
+                continue
+            count_key, display_name, player, team = identity
+            slot = tallies.get(count_key)
+            if slot is None:
+                tallies[count_key] = {
+                    "count": 1,
+                    "display_name": display_name,
+                    "player": player,
+                    "team": team,
+                }
+            else:
+                slot["count"] = int(slot["count"]) + 1
+                if player is not None and slot.get("player") is None:
+                    slot["player"] = player
+                if team is not None and slot.get("team") is None:
+                    slot["team"] = team
+                if display_name and (
+                    not slot.get("display_name") or str(slot["display_name"]) in {"", count_key[1]}
+                ):
+                    slot["display_name"] = display_name
+        if not tallies:
+            continue
+        leader = max(
+            tallies.values(),
+            key=lambda item: (
+                int(item["count"]),
+                str(item.get("display_name") or ""),
+            ),
+        )
+        rows_out.append(
+            {
+                "award_name": name,
+                "count": int(leader["count"]),
+                "display_name": str(leader.get("display_name") or "—"),
+                "player": leader.get("player"),
+                "team": leader.get("team"),
+            }
+        )
+    rows_out.sort(
+        key=lambda r: (_award_panel_sort_index(str(r["award_name"])), _norm_award_title(str(r["award_name"]))),
+    )
+    return rows_out
+
+
 def _build_award_panels(awards: list[HistoryAward]) -> list[dict]:
     """One panel per ``award_name``: latest season is featured; older rows listed below."""
     from collections import defaultdict
@@ -2247,18 +2354,7 @@ def history():
     attach_coach_award_displays(awards, db.session, raw_dir)
     _attach_history_award_season_teams(awards)
     award_panels = _build_award_panels(awards)
-    award_race_rows: list[dict[str, object]] = []
-    counts: dict[tuple[int, str], int] = {}
-    for a in awards:
-        if a.player_id and a.award_name:
-            key = (int(a.player_id), str(a.award_name))
-            counts[key] = counts.get(key, 0) + 1
-    for (pid, name), cnt in sorted(counts.items(), key=lambda x: (-x[1], x[0][1]))[:12]:
-        pl = db.session.get(Player, int(pid))
-        if pl:
-            award_race_rows.append(
-                {"player": pl, "award_name": name, "count": int(cnt)}
-            )
+    award_race_rows = _build_award_race_rows(awards)
     seasons_on_file = import_folder_season_labels(
         Path(str(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)))
     )
@@ -2278,6 +2374,7 @@ def history():
             relegation_ctx["relegation_config"],  # type: ignore[arg-type]
         )
         award_panels = _build_award_panels(awards)
+        award_race_rows = _build_award_race_rows(awards)
     scope_heading = None
     if relegation_ctx.get("relegation_enabled") and relegation_ctx.get("relegation_config"):
         from app.services.relegation import scope_heading as relegation_scope_heading

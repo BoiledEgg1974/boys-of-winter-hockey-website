@@ -56,6 +56,7 @@ OPS_TEXT_ONLY_DISCORD_EVENT_KEYS = frozenset(
         "playoff_predictions",
         "playoff_bracket_update",
         "sim_cycle_update",
+        "record_broken",
     }
 )
 
@@ -103,6 +104,7 @@ DEFAULT_EVENT_KEYS = {
     "playoff_bracket_update",
     "sim_cycle_update",
     "gm_export_tracker_poll",
+    "record_broken",
 }
 
 DEFAULT_EVENT_CHANNEL_KEY = {
@@ -135,6 +137,7 @@ DEFAULT_EVENT_CHANNEL_KEY = {
     "playoff_bracket_update": "playoff-bracket",
     "sim_cycle_update": "sim-log",
     "gm_export_tracker_poll": "gm-export-tracker",
+    "record_broken": "broken-records",
 }
 
 DEFAULT_EVENT_LABELS = {
@@ -167,6 +170,7 @@ DEFAULT_EVENT_LABELS = {
     "playoff_bracket_update": "Playoff bracket (live series posts)",
     "sim_cycle_update": "Sim cycle export board (live + closed in #sim-log)",
     "gm_export_tracker_poll": "GM export tracker (read-only poll source)",
+    "record_broken": "Record broken (game / season / all-time / team)",
 }
 
 EXPANSION_DRAFT_DISCORD_EVENT_KEYS = frozenset(

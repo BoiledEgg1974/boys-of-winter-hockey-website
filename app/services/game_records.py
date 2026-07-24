@@ -594,12 +594,41 @@ def _promote_holder_to_baseline(
     )
 
 
-def sync_game_record_baselines(session: Session) -> int:
+@dataclass
+class GameRecordBreak:
+    """A game-log mark that strictly beat a previously stored baseline (Discord-worthy)."""
+
+    snapshot_key: str
+    metric: GameRecordMetric
+    segment: str
+    scope: str
+    old_holder: GameRecordHolder
+    new_holder: GameRecordHolder
+
+
+def game_record_snapshot_key(
+    *,
+    segment: str,
+    scope: str,
+    player_kind: str,
+    metric_key: str,
+) -> str:
+    return f"game:{segment}:{scope}:{player_kind}:{metric_key}"
+
+
+def sync_game_record_baselines(
+    session: Session,
+    *,
+    breaks_out: list[GameRecordBreak] | None = None,
+) -> int:
     """Persist game-log leaders into baseline rows when they strictly beat stored marks.
 
     Stored baselines (including admin manual entries) are never downgraded. Season-reset
     FHM imports wipe and reload boxscores; existing baselines keep records on the board
     until a new game in the log posts a better single-game mark.
+
+    When ``breaks_out`` is provided, append :class:`GameRecordBreak` entries for promotions
+    that beat an existing stored value (not first-time baseline seeds).
     """
     promoted = 0
     for player_kind in ("skater", "goalie"):
@@ -614,17 +643,37 @@ def sync_game_record_baselines(session: Session) -> int:
                         continue
                     existing_row = _baseline_db_row(session, metric, segment, scope)
                     promote_notes: str | None | object = _NOTES_OMIT
-                    if (
-                        existing_row is not None
-                        and baseline is not None
+                    notify_break = (
+                        baseline is not None
                         and baseline.value is not None
+                        and game_log.value is not None
                         and _is_better(
                             game_log.value,
                             baseline.value,
                             higher_is_better=metric.higher_is_better,
                         )
+                    )
+                    if (
+                        existing_row is not None
+                        and notify_break
                     ):
                         promote_notes = None
+                    if notify_break and breaks_out is not None:
+                        breaks_out.append(
+                            GameRecordBreak(
+                                snapshot_key=game_record_snapshot_key(
+                                    segment=segment,
+                                    scope=scope,
+                                    player_kind=metric.player_kind,
+                                    metric_key=metric.key,
+                                ),
+                                metric=metric,
+                                segment=segment,
+                                scope=scope,
+                                old_holder=baseline,
+                                new_holder=game_log,
+                            )
+                        )
                     _promote_holder_to_baseline(
                         session,
                         game_log,

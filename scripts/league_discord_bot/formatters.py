@@ -52,6 +52,7 @@ ALWAYS_TEXT_ONLY_DISCORD_EVENT_KEYS = frozenset(
         "bowl_six_lock_warning",
         "playoff_predictions",
         "playoff_bracket_update",
+        "record_broken",
     }
 )
 
@@ -349,6 +350,14 @@ def _text_only_header_lines(
             lines.append(team_line)
             _append_team_gm_mention(lines, payload)
         lines.append(f"**{title}**")
+    elif event_key == "record_broken":
+        team_line = format_team_label(league_slug, payload)
+        if team_line:
+            lines.append(team_line)
+            _append_team_gm_mention(lines, payload)
+        record_title = str(payload.get("record_title") or title or "").strip()
+        if record_title:
+            lines.append(f"**{record_title}**")
     else:
         lines.append(f"**{title}**")
     return lines
@@ -529,6 +538,14 @@ def _text_only_body_text(
     event_key: str,
     payload: dict[str, Any],
 ) -> str:
+    if event_key == "record_broken":
+        old_line = str(payload.get("old_record_line") or "—").strip() or "—"
+        new_line = str(payload.get("new_record_line") or "—").strip() or "—"
+        lines = [f"Old: {old_line}", f"New: {new_line}"]
+        url = str(payload.get("record_url") or payload.get("url") or "").strip()
+        if url:
+            lines.append(url)
+        return "\n".join(lines)
     if event_key == "playoff_predictions":
         return _format_playoff_predictions_body(league_slug, payload)
     if event_key == "playoff_bracket_update":

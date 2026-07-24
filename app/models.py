@@ -952,6 +952,22 @@ class ImportLog(db.Model):
     message: Mapped[str | None] = mapped_column(Text)
 
 
+class RecordLeaderSnapshot(db.Model):
+    """Persisted #1 holders for season / all-time / team boards (Discord break detection)."""
+
+    __tablename__ = "record_leader_snapshots"
+    __table_args__ = (
+        UniqueConstraint("snapshot_key", name="uq_record_leader_snapshot_key"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    snapshot_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    holder_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+
 class GameRecordBaseline(db.Model):
     """Admin-seeded single-game record baselines; boxscore imports may surpass these values."""
 

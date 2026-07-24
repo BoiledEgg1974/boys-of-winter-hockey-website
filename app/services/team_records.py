@@ -1025,7 +1025,7 @@ def _leaderboard_rows(
         deduped.sort(key=lambda t: (t[0], team_display_name(t[1], session=session).lower(), t[1].season_year_label))
 
     out: list[dict[str, Any]] = []
-    for i, (_, r, raw) in enumerate(deduped[:TOP_N], start=1):
+    for i, (raw_f, r, raw) in enumerate(deduped[:TOP_N], start=1):
         out.append(
             {
                 "rank": i,
@@ -1035,6 +1035,8 @@ def _leaderboard_rows(
                 "team_logo_override_rel": team_season_logo_static_rel(r),
                 "year_label": r.season_year_label,
                 "value": fmt(raw),
+                "raw_value": raw_f,
+                "higher_is_better": maximize,
             }
         )
     return out

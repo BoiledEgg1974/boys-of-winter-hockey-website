@@ -372,8 +372,18 @@ def _top_skater(
         scored.append((fv, (pl.last_name or "").lower(), (pl.first_name or "").lower(), tkey, season_lbl, pl, tm, raw if isinstance(raw, int) else fv))
     scored.sort(key=lambda x: (-x[0], x[1], x[2], x[3], x[4]) if maximize else (x[0], x[1], x[2], x[3], x[4]))
     out: list[dict[str, Any]] = []
-    for i, (_, _, _, _, slbl, pl, tm, disp_v) in enumerate(scored[:TOP_N], start=1):
-        out.append({"rank": i, "player": pl, "team": tm, "season": slbl, "value": fmt(disp_v) if not isinstance(disp_v, str) else disp_v})
+    for i, (fv, _, _, _, slbl, pl, tm, disp_v) in enumerate(scored[:TOP_N], start=1):
+        out.append(
+            {
+                "rank": i,
+                "player": pl,
+                "team": tm,
+                "season": slbl,
+                "value": fmt(disp_v) if not isinstance(disp_v, str) else disp_v,
+                "raw_value": fv,
+                "higher_is_better": maximize,
+            }
+        )
     return out
 
 
@@ -399,8 +409,18 @@ def _top_goalie(
         scored.append((fv, (pl.last_name or "").lower(), (pl.first_name or "").lower(), tkey, season_lbl, pl, tm, raw if isinstance(raw, int) else fv))
     scored.sort(key=lambda x: (-x[0], x[1], x[2], x[3], x[4]) if maximize else (x[0], x[1], x[2], x[3], x[4]))
     out: list[dict[str, Any]] = []
-    for i, (_, _, _, _, slbl, pl, tm, disp_v) in enumerate(scored[:TOP_N], start=1):
-        out.append({"rank": i, "player": pl, "team": tm, "season": slbl, "value": fmt(disp_v) if not isinstance(disp_v, str) else disp_v})
+    for i, (fv, _, _, _, slbl, pl, tm, disp_v) in enumerate(scored[:TOP_N], start=1):
+        out.append(
+            {
+                "rank": i,
+                "player": pl,
+                "team": tm,
+                "season": slbl,
+                "value": fmt(disp_v) if not isinstance(disp_v, str) else disp_v,
+                "raw_value": fv,
+                "higher_is_better": maximize,
+            }
+        )
     return out
 
 

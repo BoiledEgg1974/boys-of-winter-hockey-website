@@ -19920,6 +19920,73 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   text-align: center;
   padding: 2rem 1rem;
 }
+.hof-tabs {
+  margin-top: 0.35rem;
+}
+.hof-tabs__radio {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  border: 0;
+  white-space: nowrap;
+}
+.hof-tabs__nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+}
+.hof-tabs__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.42rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--control-btn-radius);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+.hof-tabs__btn span {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.hof-tabs__btn:hover {
+  border-color: color-mix(in srgb, var(--hof-brass) 65%, var(--border));
+  color: var(--accent);
+}
+.hof-tabs__panel {
+  display: none;
+}
+.hof-tabs__radio--skaters:checked ~ .hof-tabs__nav .hof-tabs__btn:first-child,
+.hof-tabs__radio--goalies:checked ~ .hof-tabs__nav .hof-tabs__btn:last-child {
+  background: color-mix(in srgb, var(--accent) 88%, #000 12%);
+  border-color: color-mix(in srgb, var(--hof-brass) 70%, var(--accent));
+  color: #fff;
+}
+.hof-tabs__radio--skaters:checked ~ .hof-tabs__nav .hof-tabs__btn:first-child span,
+.hof-tabs__radio--goalies:checked ~ .hof-tabs__nav .hof-tabs__btn:last-child span {
+  color: rgb(255 255 255 / 0.82);
+}
+.hof-tabs__radio--skaters:checked ~ .hof-tabs__panel--skaters,
+.hof-tabs__radio--goalies:checked ~ .hof-tabs__panel--goalies {
+  display: block;
+}
 .hof-section {
   margin-top: 1.75rem;
 }

@@ -15,6 +15,47 @@
 {%- endif -%}
 {%- endmacro %}
 
+{% macro hof_plaque_shell(p) %}
+<article class="hof-plaque">
+  <div class="hof-plaque__frame">
+    <div class="hof-plaque__inner">
+      <img class="hof-plaque__badge" src="{{ url_for('static', filename='img/boosts/hof-badge.png') }}" alt="BOWL Hall of Fame" loading="lazy" decoding="async">
+      <div class="hof-plaque__top">
+        <a class="hof-plaque__photo-link" href="{{ url_for('main.player_page', player_id=p.player.id) }}">
+          {% set hs = player_headshot_url(p.player) %}
+          {% if hs %}
+          <img class="hof-plaque__photo" src="{{ hs }}" alt="" width="96" height="96" loading="lazy" decoding="async">
+          {% else %}
+          <span class="hof-plaque__photo-ph" aria-hidden="true"></span>
+          {% endif %}
+        </a>
+        <div class="hof-plaque__identity">
+          <a class="hof-plaque__name" href="{{ url_for('main.player_page', player_id=p.player.id) }}">{{ p.player.full_name }}</a>
+          <div class="hof-plaque__team-line">
+            {% if p.primary_team %}
+            {% set hof_team_rec = {'team': p.primary_team, 'season_year': p.primary_team_logo_season_year} %}
+            {% set hof_team_name = season_team_name(hof_team_rec) or p.primary_team.full_display_name() %}
+            <a class="hof-plaque__team-hit" href="{{ url_for('main.team_page', slug=p.primary_team.slug) }}" title="{{ hof_team_name }}">
+              {{ plaque_team_logo(p.primary_team, p.primary_team_logo_season_year) }}
+              <span class="hof-plaque__team-name">{{ hof_team_name }}</span>
+            </a>
+            {% else %}
+            <span class="muted">—</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {{ caller() }}
+      <dl class="hof-plaque__meta">
+        <div><dt>Awards</dt><dd>{{ p.award_wins }}</dd></div>
+        <div><dt>BOWL Cups</dt><dd>{{ p.bowl_cups }}</dd></div>
+        <div><dt>Inducted</dt><dd>{{ p.inducted_year }}</dd></div>
+      </dl>
+    </div>
+  </div>
+</article>
+{% endmacro %}
+
 {% block content %}
 <div class="hof-page card">
   <header class="hof-page__header">
@@ -29,138 +70,78 @@
   {% if not hof_skaters and not hof_goalies %}
   <p class="hof-page__empty muted">No inductees yet. Admins can add inductees from the Hall of Fame editor, or add rows to <code>hall_of_fame.csv</code> and run the import pipeline.</p>
   {% else %}
-
-  {% if hof_skaters %}
-  <section class="hof-section" aria-labelledby="hof-skaters-h">
-    <h2 id="hof-skaters-h" class="hof-section__title">Skaters</h2>
-    <div class="hof-plaque-grid">
-      {% for p in hof_skaters %}
-      <article class="hof-plaque">
-        <div class="hof-plaque__frame">
-          <div class="hof-plaque__inner">
-            <img class="hof-plaque__badge" src="{{ url_for('static', filename='img/boosts/hof-badge.png') }}" alt="BOWL Hall of Fame" loading="lazy" decoding="async">
-            <div class="hof-plaque__top">
-              <a class="hof-plaque__photo-link" href="{{ url_for('main.player_page', player_id=p.player.id) }}">
-                {% set hs = player_headshot_url(p.player) %}
-                {% if hs %}
-                <img class="hof-plaque__photo" src="{{ hs }}" alt="" width="96" height="96" loading="lazy" decoding="async">
-                {% else %}
-                <span class="hof-plaque__photo-ph" aria-hidden="true"></span>
-                {% endif %}
-              </a>
-              <div class="hof-plaque__identity">
-                <a class="hof-plaque__name" href="{{ url_for('main.player_page', player_id=p.player.id) }}">{{ p.player.full_name }}</a>
-                <div class="hof-plaque__team-line">
-                  {% if p.primary_team %}
-                  {% set hof_team_rec = {'team': p.primary_team, 'season_year': p.primary_team_logo_season_year} %}
-                  {% set hof_team_name = season_team_name(hof_team_rec) or p.primary_team.full_display_name() %}
-                  <a class="hof-plaque__team-hit" href="{{ url_for('main.team_page', slug=p.primary_team.slug) }}" title="{{ hof_team_name }}">
-                    {{ plaque_team_logo(p.primary_team, p.primary_team_logo_season_year) }}
-                    <span class="hof-plaque__team-name">{{ hof_team_name }}</span>
-                  </a>
-                  {% else %}
-                  <span class="muted">—</span>
-                  {% endif %}
-                </div>
-              </div>
-            </div>
-            {% set t = p.skater_totals %}
-            <table class="hof-plaque__stats">
-              <thead>
-                <tr>
-                  <th scope="col">GP</th><th scope="col">G</th><th scope="col">A</th><th scope="col">PTS</th><th scope="col">PIM</th><th scope="col">+/-</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>{{ t.gp if t else '—' }}</td>
-                  <td>{{ t.goals if t else '—' }}</td>
-                  <td>{{ t.assists if t else '—' }}</td>
-                  <td>{{ t.points if t else '—' }}</td>
-                  <td>{{ t.pim if t else '—' }}</td>
-                  <td>{{ fmt_pm(t.plus_minus) if t else '—' }}</td>
-                </tr>
-              </tbody>
-            </table>
-            <dl class="hof-plaque__meta">
-              <div><dt>Awards</dt><dd>{{ p.award_wins }}</dd></div>
-              <div><dt>BOWL Cups</dt><dd>{{ p.bowl_cups }}</dd></div>
-              <div><dt>Inducted</dt><dd>{{ p.inducted_year }}</dd></div>
-            </dl>
-          </div>
-        </div>
-      </article>
-      {% endfor %}
+  {% set hof_default_goalies = not hof_skaters and hof_goalies %}
+  <div class="hof-tabs">
+    <input class="hof-tabs__radio hof-tabs__radio--skaters" type="radio" name="hof-kind" id="hof-tab-skaters"{% if not hof_default_goalies %} checked{% endif %}>
+    <input class="hof-tabs__radio hof-tabs__radio--goalies" type="radio" name="hof-kind" id="hof-tab-goalies"{% if hof_default_goalies %} checked{% endif %}>
+    <div class="hof-tabs__nav" role="tablist" aria-label="Hall of Fame position group">
+      <label class="hof-tabs__btn" for="hof-tab-skaters" role="tab">Skaters <span>{{ hof_skaters|length }}</span></label>
+      <label class="hof-tabs__btn" for="hof-tab-goalies" role="tab">Goalies <span>{{ hof_goalies|length }}</span></label>
     </div>
-  </section>
-  {% endif %}
 
-  {% if hof_goalies %}
-  <section class="hof-section" aria-labelledby="hof-goalies-h">
-    <h2 id="hof-goalies-h" class="hof-section__title">Goalies</h2>
-    <div class="hof-plaque-grid">
-      {% for p in hof_goalies %}
-      <article class="hof-plaque">
-        <div class="hof-plaque__frame">
-          <div class="hof-plaque__inner">
-            <img class="hof-plaque__badge" src="{{ url_for('static', filename='img/boosts/hof-badge.png') }}" alt="BOWL Hall of Fame" loading="lazy" decoding="async">
-            <div class="hof-plaque__top">
-              <a class="hof-plaque__photo-link" href="{{ url_for('main.player_page', player_id=p.player.id) }}">
-                {% set hs = player_headshot_url(p.player) %}
-                {% if hs %}
-                <img class="hof-plaque__photo" src="{{ hs }}" alt="" width="96" height="96" loading="lazy" decoding="async">
-                {% else %}
-                <span class="hof-plaque__photo-ph" aria-hidden="true"></span>
-                {% endif %}
-              </a>
-              <div class="hof-plaque__identity">
-                <a class="hof-plaque__name" href="{{ url_for('main.player_page', player_id=p.player.id) }}">{{ p.player.full_name }}</a>
-                <div class="hof-plaque__team-line">
-                  {% if p.primary_team %}
-                  {% set hof_team_rec = {'team': p.primary_team, 'season_year': p.primary_team_logo_season_year} %}
-                  {% set hof_team_name = season_team_name(hof_team_rec) or p.primary_team.full_display_name() %}
-                  <a class="hof-plaque__team-hit" href="{{ url_for('main.team_page', slug=p.primary_team.slug) }}" title="{{ hof_team_name }}">
-                    {{ plaque_team_logo(p.primary_team, p.primary_team_logo_season_year) }}
-                    <span class="hof-plaque__team-name">{{ hof_team_name }}</span>
-                  </a>
-                  {% else %}
-                  <span class="muted">—</span>
-                  {% endif %}
-                </div>
-              </div>
-            </div>
-            {% set g = p.goalie_totals %}
-            <table class="hof-plaque__stats">
-              <thead>
-                <tr>
-                  <th scope="col">GP</th><th scope="col">W</th><th scope="col">L</th><th scope="col">T/OTL</th><th scope="col">SO</th><th scope="col">GAA</th><th scope="col">SV%</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>{{ g.gp if g else '—' }}</td>
-                  <td>{{ g.wins if g else '—' }}</td>
-                  <td>{{ g.losses if g else '—' }}</td>
-                  <td>{{ fmt_pm(g.ties_otl) if g else '—' }}</td>
-                  <td>{{ g.shutouts if g else '—' }}</td>
-                  <td>{{ fmt_f2(g.gaa) if g else '—' }}</td>
-                  <td>{{ fmt_f3(g.sv_pct) if g else '—' }}</td>
-                </tr>
-              </tbody>
-            </table>
-            <dl class="hof-plaque__meta">
-              <div><dt>Awards</dt><dd>{{ p.award_wins }}</dd></div>
-              <div><dt>BOWL Cups</dt><dd>{{ p.bowl_cups }}</dd></div>
-              <div><dt>Inducted</dt><dd>{{ p.inducted_year }}</dd></div>
-            </dl>
-          </div>
-        </div>
-      </article>
-      {% endfor %}
+    <div class="hof-tabs__panel hof-tabs__panel--skaters" role="tabpanel" aria-labelledby="hof-tab-skaters">
+      {% if hof_skaters %}
+      <div class="hof-plaque-grid">
+        {% for p in hof_skaters %}
+        {% call hof_plaque_shell(p) %}
+          {% set t = p.skater_totals %}
+          <table class="hof-plaque__stats">
+            <thead>
+              <tr>
+                <th scope="col">GP</th><th scope="col">G</th><th scope="col">A</th><th scope="col">PTS</th><th scope="col">PIM</th><th scope="col">+/-</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>{{ t.gp if t else '—' }}</td>
+                <td>{{ t.goals if t else '—' }}</td>
+                <td>{{ t.assists if t else '—' }}</td>
+                <td>{{ t.points if t else '—' }}</td>
+                <td>{{ t.pim if t else '—' }}</td>
+                <td>{{ fmt_pm(t.plus_minus) if t else '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        {% endcall %}
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="hof-page__empty muted">No skater inductees yet.</p>
+      {% endif %}
     </div>
-  </section>
-  {% endif %}
 
+    <div class="hof-tabs__panel hof-tabs__panel--goalies" role="tabpanel" aria-labelledby="hof-tab-goalies">
+      {% if hof_goalies %}
+      <div class="hof-plaque-grid">
+        {% for p in hof_goalies %}
+        {% call hof_plaque_shell(p) %}
+          {% set g = p.goalie_totals %}
+          <table class="hof-plaque__stats">
+            <thead>
+              <tr>
+                <th scope="col">GP</th><th scope="col">W</th><th scope="col">L</th><th scope="col">T/OTL</th><th scope="col">SO</th><th scope="col">GAA</th><th scope="col">SV%</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>{{ g.gp if g else '—' }}</td>
+                <td>{{ g.wins if g else '—' }}</td>
+                <td>{{ g.losses if g else '—' }}</td>
+                <td>{{ fmt_pm(g.ties_otl) if g else '—' }}</td>
+                <td>{{ g.shutouts if g else '—' }}</td>
+                <td>{{ fmt_f2(g.gaa) if g else '—' }}</td>
+                <td>{{ fmt_f3(g.sv_pct) if g else '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        {% endcall %}
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="hof-page__empty muted">No goalie inductees yet.</p>
+      {% endif %}
+    </div>
+  </div>
   {% endif %}
 </div>
 {% endblock %}

@@ -1,6 +1,7 @@
-"""Reload ``history_all_stars`` from ``RAW_IMPORT_DIR/history_all_stars.csv`` (see league slug).
+"""Upsert ``history_all_stars`` from ``RAW_IMPORT_DIR/history_all_stars.csv`` (see league slug).
 
-Run from repo root:
+Additive: existing slots missing from the CSV are kept; admin-sourced slots are never
+overwritten. Run from repo root:
 
   PYTHONPATH=. python scripts/reimport_history_all_stars.py bowl-cap
 

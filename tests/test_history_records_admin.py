@@ -142,12 +142,15 @@ class HistoryRecordsImportSafetyTest(unittest.TestCase):
         text = path.read_text(encoding="utf-8")
         self.assertIn("delete_non_admin_history_awards", text)
         self.assertIn("delete_non_admin_history_awards_matching", text)
+        self.assertIn("admin_history_award_slot_keys", text)
         self.assertNotIn("delete(HistoryAward))", text.split("if replace_all:")[1].split("elif needle")[0])
 
-    def test_all_stars_import_keeps_admin_rows(self) -> None:
+    def test_all_stars_import_is_additive_upsert(self) -> None:
         path = Path(__file__).resolve().parents[1] / "scripts" / "import_pipeline" / "runner.py"
         text = path.read_text(encoding="utf-8")
-        self.assertIn("delete_non_admin_all_stars", text)
+        # Importer must not wipe non-admin rows (Hall-of-Fame-style additive upsert).
+        self.assertNotIn("delete_non_admin_all_stars", text)
+        self.assertIn("HISTORY_SOURCE_ADMIN", text.split("def import_history_all_stars")[1].split("def import_trade_log")[0])
 
     def test_team_season_import_keeps_admin_rows(self) -> None:
         path = (

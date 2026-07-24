@@ -234,6 +234,40 @@ def award_matches_season_label(award: HistoryAward, year_label: str) -> bool:
     return False
 
 
+def normalize_history_award_title(award_name: str) -> str:
+    """Uppercase and collapse whitespace for award collision checks."""
+    return " ".join((award_name or "").upper().split())
+
+
+def history_award_slot_key(award_name: str, season_label: str) -> tuple[str, str] | None:
+    """Stable ``(award, season)`` key for admin vs CSV collision checks."""
+    name = normalize_history_award_title(award_name)
+    season = (season_label or "").strip()
+    if not name or not season:
+        return None
+    return (name, season)
+
+
+def admin_history_award_slot_keys(session: Session) -> set[tuple[str, str]]:
+    """Occupied admin award slots: ``(normalized award name, sheet/season label)``."""
+    rows = list(
+        session.scalars(
+            select(HistoryAward)
+            .options(joinedload(HistoryAward.season))
+            .where(HistoryAward.source == HISTORY_SOURCE_ADMIN)
+        ).all()
+    )
+    keys: set[tuple[str, str]] = set()
+    for award in rows:
+        sheet = sheet_season_from_notes(award.notes)
+        if not sheet and award.season is not None:
+            sheet = (award.season.label or "").strip()
+        key = history_award_slot_key(award.award_name, sheet or "")
+        if key is not None:
+            keys.add(key)
+    return keys
+
+
 def list_awards_for_season_label(session: Session, season_label: str) -> list[HistoryAward]:
     """All DB awards whose sheet season (or season label) matches ``season_label``."""
     rows = list(
@@ -655,6 +689,7 @@ def delete_non_admin_history_awards_matching(session: Session, substring: str) -
 
 
 def delete_non_admin_all_stars(session: Session) -> int:
+    """Remove CSV-sourced all-stars. Not used by the CSV importer (additive upsert)."""
     result = session.execute(
         delete(HistoryAllStar).where(
             or_(

@@ -71,7 +71,7 @@ touch /var/www/www_bowlhockey_com_wsgi.py   # use your real WSGI path
 | `import_data.py` | Per-league importer (also used by STEP1 / STEP2 / `run_site_update`). |
 | `reset_db.py` | Wipe a league DB and re-import from scratch. |
 | `reimport_history_awards.py` | Replace-only `history_awards` from CSV (optional `--only-award`). |
-| `reimport_history_all_stars.py` | Replace-only `history_all_stars.csv`. |
+| `reimport_history_all_stars.py` | Additive upsert of `history_all_stars.csv` (never wipes existing / admin rows). |
 | `snapshot_ovr_baseline.py` | OVR baseline snapshot (STEP1 / STEP2 call this). |
 | `import_ap_catalog.py`, `verify_ap_catalog_sync.py`, `export_ap_catalog.py` | AP catalog maintenance. |
 | `import_all.cmd`, `import_*.cmd` | Windows shortcuts to set `LEAGUE_SLUG` and run `import_data.py`. |

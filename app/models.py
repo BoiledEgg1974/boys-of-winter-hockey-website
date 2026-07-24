@@ -616,7 +616,7 @@ class HistoryChampion(db.Model):
 
 
 class HistoryAllStar(db.Model):
-    """First / second all-star team lines from ``history_all_stars.csv`` (replace-all import)."""
+    """First / second all-star team lines from ``history_all_stars.csv`` (additive upsert import)."""
 
     __tablename__ = "history_all_stars"
     __table_args__ = (

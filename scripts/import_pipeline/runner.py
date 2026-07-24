@@ -925,14 +925,20 @@ def import_history_awards(
     **non-admin** ``HistoryAward`` rows whose ``award_name`` matches (case-insensitive substring),
     then import **only** CSV rows whose award name contains that substring. Admin rows and
     all other awards are left unchanged.
+
+    CSV rows that collide with an admin-owned ``(award_name, season)`` slot are skipped so
+    manually entered winners are never duplicated or overwritten.
     """
     path = csv_path.resolve() if csv_path else _history_awards_csv_path(raw_dir)
     if path is None or not path.is_file():
         return 0
     from app.services.admin_history_records import (
         HISTORY_SOURCE_CSV,
+        admin_history_award_slot_keys,
         delete_non_admin_history_awards,
         delete_non_admin_history_awards_matching,
+        history_award_slot_key,
+        sheet_season_from_notes,
     )
 
     log.info("Loading history awards from %s", path.name)
@@ -957,6 +963,7 @@ def import_history_awards(
             removed,
             needle,
         )
+    admin_slots = admin_history_award_slot_keys(db.session)
     n = 0
     league_slug = str(app.config.get("LEAGUE_SLUG") or "").strip()
     for _, row in df.iterrows():
@@ -1012,9 +1019,24 @@ def import_history_awards(
             if notes_val:
                 merged = f"{merged}; {notes_val}"
             notes_val = merged
+        award_name = cell_val(r, "award_name", "award") or "Award"
+        season_label = (
+            sheet_season_from_notes(notes_val)
+            or _csv_trophy_season_sheet_token(season_key)
+            or (season.label or "").strip()
+            or (season_key or "").strip()
+        )
+        slot_key = history_award_slot_key(award_name, season_label)
+        if slot_key is not None and slot_key in admin_slots:
+            log.info(
+                "history_awards.csv: keeping admin winner for %s / %s — skipping CSV row",
+                award_name,
+                season_label,
+            )
+            continue
         a = HistoryAward(
             season_id=season.id,
-            award_name=cell_val(r, "award_name", "award") or "Award",
+            award_name=award_name,
             player_id=player.id if player else None,
             team_id=team.id if team else None,
             staff_fhm_id=staff_fhm_id,
@@ -1038,28 +1060,28 @@ def _parse_all_star_team_rank(cell: str | None) -> int | None:
 
 
 def import_history_all_stars(raw_dir: Path, app) -> int:
-    """Import ``history_all_stars.csv`` (replace-all)."""
+    """Import ``history_all_stars.csv`` as an additive upsert (never wipe existing teams).
+
+    Applies to every league mount (bowl-historical, bowl-fantasy, bowl-cap): the same
+    shared importer runs from ``STEPS`` / FHM overlay for whichever ``LEAGUE_SLUG`` is set.
+
+    Existing rows missing from the CSV are kept. Admin-sourced slots are never
+    overwritten by CSV. CSV-sourced rows for the same ``(season_label, team_rank, slot)``
+    are updated in place. Use Admin → Season Awards to clear or edit a slot.
+    """
     path = raw_dir / "history_all_stars.csv"
     if not path.is_file():
         log.info("Skipping history_all_stars.csv (not found)")
         return 0
     log.info("Loading history all-stars from %s", path.name)
     df = read_csv_normalized(path)
-    from app.services.admin_history_records import (
-        HISTORY_SOURCE_CSV,
-        delete_non_admin_all_stars,
-    )
+    from app.services.admin_history_records import HISTORY_SOURCE_ADMIN, HISTORY_SOURCE_CSV
 
-    removed = delete_non_admin_all_stars(db.session)
-    commit_with_sqlite_retry(db.session)
-    log.info(
-        "Removed %s non-admin history_all_stars rows before CSV re-import (admin rows kept).",
-        removed,
-    )
     if df.empty or len(df.index) == 0:
-        log.info("history_all_stars.csv has no data rows — table cleared.")
+        log.info("history_all_stars.csv has no data rows — leaving existing all-stars unchanged.")
         return 0
     n = 0
+    seen_keys: set[tuple[str, int, int]] = set()
     for _, row in df.iterrows():
         r = row.to_dict()
         season_key = cell_val(r, "season_id", "season")
@@ -1089,6 +1111,15 @@ def import_history_all_stars(raw_dir: Path, app) -> int:
         sl = to_int(cell_val(r, "slot", "line"), None)
         if sl is None or sl < 1 or sl > 6:
             continue
+        key = (season_label_st, int(tr), int(sl))
+        if key in seen_keys:
+            log.warning(
+                "history_all_stars.csv: duplicate slot %s / team %s / season %s — skipping",
+                sl,
+                tr,
+                season_label_st,
+            )
+            continue
         pos = (cell_val(r, "position", "pos") or "?").strip()[:32]
         pid_raw = cell_val(r, "player_id", "fhm_player_id", "playerid")
         pid_st = (pid_raw or "").strip()
@@ -1103,19 +1134,45 @@ def import_history_all_stars(raw_dir: Path, app) -> int:
             if notes_val:
                 merged = f"{merged}; {notes_val}"
             notes_val = merged
-        db.session.add(
-            HistoryAllStar(
-                season_id=season.id,
-                season_label=season_label_st,
-                team_rank=int(tr),
-                slot=int(sl),
-                position=pos or "?",
-                player_id=player.id if player else None,
-                team_id=team.id if team else None,
-                notes=notes_val,
-                source=HISTORY_SOURCE_CSV,
+
+        existing = db.session.scalars(
+            select(HistoryAllStar).where(
+                HistoryAllStar.season_label == season_label_st,
+                HistoryAllStar.team_rank == int(tr),
+                HistoryAllStar.slot == int(sl),
+            ).limit(1)
+        ).first()
+        if existing is not None:
+            if (existing.source or "").strip().lower() == HISTORY_SOURCE_ADMIN:
+                log.info(
+                    "history_all_stars.csv: keeping admin slot season=%s team=%s slot=%s",
+                    season_label_st,
+                    tr,
+                    sl,
+                )
+                seen_keys.add(key)
+                continue
+            existing.season_id = season.id
+            existing.position = pos or "?"
+            existing.player_id = player.id if player else None
+            existing.team_id = team.id if team else None
+            existing.notes = notes_val
+            existing.source = HISTORY_SOURCE_CSV
+        else:
+            db.session.add(
+                HistoryAllStar(
+                    season_id=season.id,
+                    season_label=season_label_st,
+                    team_rank=int(tr),
+                    slot=int(sl),
+                    position=pos or "?",
+                    player_id=player.id if player else None,
+                    team_id=team.id if team else None,
+                    notes=notes_val,
+                    source=HISTORY_SOURCE_CSV,
+                )
             )
-        )
+        seen_keys.add(key)
         n += 1
     commit_with_sqlite_retry(db.session)
     return n

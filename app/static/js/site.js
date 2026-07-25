@@ -1727,6 +1727,10 @@
         mainNav.classList.toggle("is-open");
         var open = mainNav.classList.contains("is-open");
         navToggle.setAttribute("aria-expanded", open ? "true" : "false");
+        if (open) {
+          // Always start at Standings / top of Public — Android often left scroll mid-list.
+          mainNav.scrollTop = 0;
+        }
       });
       mainNav.querySelectorAll("a").forEach(function (link) {
         link.addEventListener("click", function () {

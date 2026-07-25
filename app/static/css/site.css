@@ -9292,15 +9292,22 @@ table.data.draft-pick-admin-grid .draft-pick-admin-grid__round-head {
     display: none;
     width: 100%;
     flex-direction: column;
+    /* flex-start is required: justify-content:center + overflow clips the top of the menu
+       on Android Chrome so users only see mid-list items (e.g. Free Agents onward). */
+    justify-content: flex-start;
+    align-content: flex-start;
     order: 10;
     flex: 1 1 100%;
-    max-height: min(70vh, 28rem);
-    max-height: min(70dvh, 28rem);
+    max-height: min(calc(100vh - 10.5rem), 36rem);
+    max-height: min(calc(100dvh - 10.5rem), 36rem);
+    overflow-x: hidden;
     overflow-y: auto;
+    overscroll-behavior: contain;
     padding: 0.35rem 0 0.6rem;
     margin: 0;
     border-top: 1px solid rgb(255 255 255 / 0.12);
     -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
   }
   .main-nav.is-open {
     display: flex;
@@ -9368,22 +9375,10 @@ table.data.draft-pick-admin-grid .draft-pick-admin-grid__round-head {
     box-sizing: border-box;
     cursor: pointer;
   }
+  /* Don't force the full team-logo grid open inside the Menu — it ate most of the
+     scroll area on phones. Teams still links to the teams index page. */
   .nav-teams-dropdown__panel {
-    position: static;
-    transform: none;
-    opacity: 1;
-    visibility: visible;
-    pointer-events: auto;
-    min-width: 0;
-    max-width: none;
-    width: 100%;
-    margin: 0.35rem 0 0.15rem;
-    max-height: none;
-    overflow-x: visible;
-    overflow-y: visible;
-    transition: none;
-    box-shadow: none;
-    border: 1px solid rgb(255 255 255 / 0.12);
+    display: none;
   }
   .nav-teams-dropdown__row {
     flex-wrap: wrap;
@@ -22952,10 +22947,14 @@ button.bowl-six-submissions__toggle:hover {
     padding-right: env(safe-area-inset-right);
   }
   body.site-touch-layout .site-header .main-nav {
-    max-height: min(70vh, 28rem);
-    max-height: min(70dvh, 28rem);
+    justify-content: flex-start;
+    align-content: flex-start;
+    max-height: min(calc(100vh - 10.5rem), 36rem);
+    max-height: min(calc(100dvh - 10.5rem), 36rem);
     overflow-y: auto;
+    overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
   }
   body.site-touch-layout .nav-toggle {
     min-width: 2.75rem;

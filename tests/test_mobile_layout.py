@@ -18,10 +18,21 @@ class MobileLayoutTest(unittest.TestCase):
         self.assertIn("body.site-touch-layout", css)
         self.assertIn("hover-preview-card--dock", css)
         self.assertIn("100dvh", css)
-        self.assertIn("70dvh", css)
         self.assertIn("82dvh", css)
+        # Collapsed Menu must not center+clip the link list on Android.
+        self.assertIn("justify-content: flex-start", css)
+        self.assertIn("calc(100dvh - 10.5rem)", css)
         self.assertIn(".home-power-split", css)
         self.assertIn("grid-template-columns: 1fr;", css)
+
+    def test_collapsed_nav_hides_team_logo_grid(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        css = (root / "app" / "static" / "css" / "site.css").read_text(encoding="utf-8")
+        # Inside @media (max-width: 1200px) the logo panel is display:none so Menu scrolls.
+        self.assertRegex(
+            css,
+            r"\.nav-teams-dropdown__panel\s*\{\s*display:\s*none;",
+        )
 
     def test_trade_tool_has_touch_chip_tap(self) -> None:
         root = Path(__file__).resolve().parents[1]
@@ -34,6 +45,7 @@ class MobileLayoutTest(unittest.TestCase):
         self.assertIn("function isTouchLikeDevice()", text)
         self.assertIn("dockHoverCard", text)
         self.assertIn("function bindLongPressPreview(", text)
+        self.assertIn("mainNav.scrollTop = 0", text)
         # First tap must navigate; do not intercept with preventDefault preview.
         self.assertNotIn(
             "e.preventDefault();\n              showFor(a, playerId);",

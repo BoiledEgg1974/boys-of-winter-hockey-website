@@ -17,6 +17,9 @@ class MobileLayoutTest(unittest.TestCase):
         css = (root / "app" / "static" / "css" / "site.css").read_text(encoding="utf-8")
         self.assertIn("body.site-touch-layout", css)
         self.assertIn("hover-preview-card--dock", css)
+        self.assertIn("100dvh", css)
+        self.assertIn("70dvh", css)
+        self.assertIn("82dvh", css)
         self.assertIn(".home-power-split", css)
         self.assertIn("grid-template-columns: 1fr;", css)
 
@@ -30,6 +33,16 @@ class MobileLayoutTest(unittest.TestCase):
         text = (root / "app" / "static" / "js" / "site.js").read_text(encoding="utf-8")
         self.assertIn("function isTouchLikeDevice()", text)
         self.assertIn("dockHoverCard", text)
+        self.assertIn("function bindLongPressPreview(", text)
+        # First tap must navigate; do not intercept with preventDefault preview.
+        self.assertNotIn(
+            "e.preventDefault();\n              showFor(a, playerId);",
+            text,
+        )
+        self.assertNotIn(
+            "e.preventDefault();\n              showFor(a, slug);",
+            text,
+        )
 
 
 if __name__ == "__main__":

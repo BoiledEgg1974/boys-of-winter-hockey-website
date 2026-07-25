@@ -19,14 +19,80 @@
     return window.matchMedia("(hover: none), (pointer: coarse)").matches;
   }
 
+  /**
+   * Touch: first tap navigates. Long-press (~480ms) opens a docked preview
+   * without following the link (Android Chrome often treated tap-to-preview
+   * as "links don't work").
+   */
+  function bindLongPressPreview(anchor, onLongPress) {
+    var timer = null;
+    var fired = false;
+    var LP_MS = 480;
+
+    function clearTimer() {
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+    }
+
+    function arm(e) {
+      if (e.touches && e.touches.length > 1) {
+        clearTimer();
+        return;
+      }
+      fired = false;
+      clearTimer();
+      timer = setTimeout(function () {
+        timer = null;
+        fired = true;
+        onLongPress();
+      }, LP_MS);
+    }
+
+    function onTouchEnd(e) {
+      clearTimer();
+      if (!fired) return;
+      // Suppress the synthetic click that would navigate away from the preview.
+      e.preventDefault();
+      setTimeout(function () {
+        fired = false;
+      }, 350);
+    }
+
+    anchor.addEventListener("touchstart", arm, { passive: true });
+    anchor.addEventListener(
+      "touchmove",
+      function () {
+        clearTimer();
+      },
+      { passive: true }
+    );
+    anchor.addEventListener("touchend", onTouchEnd);
+    anchor.addEventListener("touchcancel", clearTimer);
+    anchor.addEventListener("contextmenu", function (e) {
+      if (fired) e.preventDefault();
+    });
+    anchor.addEventListener("click", function (e) {
+      if (!fired) return;
+      e.preventDefault();
+      fired = false;
+    });
+  }
+
   function dockHoverCard(card) {
     if (!card) return;
     card.classList.add("hover-preview-card--dock");
     var pad = 12;
+    var vv = window.visualViewport;
+    var viewW = (vv && vv.width) || document.documentElement.clientWidth;
+    var viewH = (vv && vv.height) || window.innerHeight;
+    var offsetLeft = (vv && vv.offsetLeft) || 0;
+    var offsetTop = (vv && vv.offsetTop) || 0;
     var cardW = card.offsetWidth || 320;
     var cardH = card.offsetHeight || 240;
-    var left = window.scrollX + Math.max(pad, (document.documentElement.clientWidth - cardW) / 2);
-    var top = window.scrollY + Math.max(pad, (window.innerHeight - cardH) / 2);
+    var left = window.scrollX + offsetLeft + Math.max(pad, (viewW - cardW) / 2);
+    var top = window.scrollY + offsetTop + Math.max(pad, (viewH - cardH) / 2);
     card.style.left = Math.round(left) + "px";
     card.style.top = Math.round(top) + "px";
   }
@@ -1038,20 +1104,15 @@
         if (!playerId) return;
         a.setAttribute("data-player-hover-bound", "1");
         if (isTouchLikeDevice()) {
-          a.addEventListener("click", function (e) {
-            if (e.target.closest(".player-hover-card")) return;
-            var open = !card.hidden && activeAnchor === a;
-            if (!open) {
-              e.preventDefault();
-              showFor(a, playerId);
-            }
+          bindLongPressPreview(a, function () {
+            showFor(a, playerId);
           });
         } else {
           a.addEventListener("mouseenter", function () { showFor(a, playerId); });
           a.addEventListener("mouseleave", scheduleHide);
+          a.addEventListener("focusin", function () { showFor(a, playerId); });
+          a.addEventListener("focusout", scheduleHide);
         }
-        a.addEventListener("focusin", function () { showFor(a, playerId); });
-        a.addEventListener("focusout", scheduleHide);
       });
     }
 
@@ -1322,24 +1383,19 @@
         if (!slug) return;
         a.setAttribute("data-team-hover-bound", "1");
         if (isTouchLikeDevice()) {
-          a.addEventListener("click", function (e) {
-            if (e.target.closest(".team-hover-preview-card")) return;
-            var open = !card.hidden && activeAnchor === a;
-            if (!open) {
-              e.preventDefault();
-              showFor(a, slug);
-            }
+          bindLongPressPreview(a, function () {
+            showFor(a, slug);
           });
         } else {
           a.addEventListener("mouseenter", function () {
             showFor(a, slug);
           });
           a.addEventListener("mouseleave", scheduleHide);
+          a.addEventListener("focusin", function () {
+            showFor(a, slug);
+          });
+          a.addEventListener("focusout", scheduleHide);
         }
-        a.addEventListener("focusin", function () {
-          showFor(a, slug);
-        });
-        a.addEventListener("focusout", scheduleHide);
       });
     }
 

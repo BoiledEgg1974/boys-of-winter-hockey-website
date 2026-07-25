@@ -2,8 +2,12 @@
 
 After a CSV import we append a snapshot that usually matches the live computed order, which
 would make every CHG show 0. When a second snapshot exists, the newest row matches the current
-order, and that row is **recent**, we fall back to the **prior** snapshot so the UI reflects
+order, and that row is **recent**, we fall back to an older snapshot so the UI reflects
 movement vs the last materially different saved order — without manual admin baselines.
+
+The fallback baseline must cover the **same entity set** as the live ranking. Comparing
+against a pre-expansion (or pre-contraction) snapshot would mark brand-new teams as NEW
+forever in that window and distort everyone else's deltas.
 """
 from __future__ import annotations
 
@@ -14,6 +18,9 @@ from typing import Any, Type
 from sqlalchemy import select
 
 from app.league_db import db
+
+# How many recent snapshots to consider when looking past a roster-change snap.
+_BASELINE_LOOKBACK = 12
 
 
 def ranks_dict_from_snapshot_json(raw: str | None) -> dict[int, int]:
@@ -31,6 +38,19 @@ def ranks_dict_from_snapshot_json(raw: str | None) -> dict[int, int]:
         except (TypeError, ValueError):
             continue
     return out
+
+
+def _entity_ids(ranks: dict[int, int]) -> frozenset[int]:
+    return frozenset(ranks.keys())
+
+
+def _snapshot_is_recent(snap_ts: Any, recent_hours: int) -> bool:
+    if snap_ts is None:
+        return False
+    try:
+        return (datetime.utcnow() - snap_ts) <= timedelta(hours=int(recent_hours))
+    except TypeError:
+        return False
 
 
 def select_rank_baseline_map(
@@ -54,21 +74,31 @@ def select_rank_baseline_map(
             select(snapshot_model)
             .where(snapshot_model.league_slug == slug)
             .order_by(snapshot_model.snapshot_at.desc())
-            .limit(2)
+            .limit(_BASELINE_LOOKBACK)
         ).all()
     )
     if not rows:
         return {}
     latest = ranks_dict_from_snapshot_json(getattr(rows[0], "ranks_json", None))
-    if len(rows) >= 2:
-        prior = ranks_dict_from_snapshot_json(getattr(rows[1], "ranks_json", None))
-        snap_ts = getattr(rows[0], "snapshot_at", None)
-        recent = False
-        if snap_ts is not None:
-            try:
-                recent = (datetime.utcnow() - snap_ts) <= timedelta(hours=int(recent_hours))
-            except TypeError:
-                recent = False
-        if current_rank_map == latest and latest != prior and recent:
+    if not latest:
+        return {}
+
+    # Right after import, live order matches the newest snapshot. Prefer an older
+    # same-roster snapshot with a different order so CHG is meaningful.
+    if (
+        current_rank_map == latest
+        and _snapshot_is_recent(getattr(rows[0], "snapshot_at", None), recent_hours)
+    ):
+        current_ids = _entity_ids(current_rank_map)
+        for row in rows[1:]:
+            prior = ranks_dict_from_snapshot_json(getattr(row, "ranks_json", None))
+            if not prior or prior == latest:
+                continue
+            if _entity_ids(prior) != current_ids:
+                # Expansion/contraction: skipping avoids perpetual NEW + skewed Δ.
+                continue
             return prior
+        # No compatible different prior — keep latest (all CHG 0) rather than NEW.
+        return latest
+
     return latest

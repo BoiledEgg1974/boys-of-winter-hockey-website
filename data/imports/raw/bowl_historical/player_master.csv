@@ -221,7 +221,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 3426;90;90;Larry;Cahan;Hank;71;200;1933-12-25;Thunder Bay;ON;Canada;;;0;Right;0
 3859;90;90;Cummy;Burton;;70;170;1936-5-12;Sudbury;ON;Canada;;;0;Right;0
 3549;90;90;Glen;Cressman;;69;155;1934-8-29;Waterloo;ON;Canada;;;0;Right;0
-5055;129;122;Gaye;Cooley;;70;185;1945-2-8;North Bay;ON;Canada;;;0;Right;0
+5055;122;122;Gaye;Cooley;;70;185;1945-2-8;North Bay;ON;Canada;;;0;Right;0
 5855;88;88;Mike;Boland;;70;183;1949-12-16;Murdochville;QC;Canada;;;0;Right;0
 6578;89;89;Harvey;Bennett;;76;216;1952-8-9;Aberdeen;MS;The United States;;;0;Left;0
 5645;90;90;Gary;Bredin;;72;185;1948-5-25;Elk Point;AB;Canada;;;0;Right;0
@@ -636,7 +636,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 4953;119;119;Bob;Paradise;;73;205;1944-4-22;Vadnais Heights;MN;The United States;;;0;Left;0
 5433;24;5;Sheldon;Kannegiesser;;72;198;1947-8-15;North Bay;ON;Canada;;;0;Left;0
 4954;22;3;Brian;Perry;;71;181;1944-4-6;Aldershot;ENG;Canada;England;;0;Left;0
-5434;5;5;Kerry;Ketter;;73;203;1947-9-20;Princeton;BC;Canada;;;0;Left;1
+5434;24;5;Kerry;Ketter;;73;203;1947-9-20;Princeton;BC;Canada;;;0;Left;0
 3435;90;90;Don;Head;;70;200;1933-6-30;Toronto;ON;Canada;;;0;Left;0
 5251;119;119;Don;Herriman;;70;165;1946-1-2;Sault Ste. Marie;ON;Canada;;;0;Left;1
 3680;90;90;Forbes;Kennedy;Spud;68;150;1935-8-18;Dorchester;NB;Canada;;;0;Left;0
@@ -1401,7 +1401,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 5914;90;90;Jacques;Lemelin;;70;165;1949-11-11;Richmond;QC;Canada;;;0;Left;1
 5915;90;90;Louis;Levasseur;;70;161;1949-6-16;Roberval;QC;Canada;;;0;Left;0
 5916;27;9;Barry;Long;Marathon Man;74;210;1949-1-3;Rocky View County;AB;Canada;;;0;Left;0
-5687;22;3;John;Marks;;74;200;1948-3-22;Oakbank;MB;Canada;;;0;Left;0
+5687;3;3;John;Marks;;74;200;1948-3-22;Oakbank;MB;Canada;;;0;Left;1
 6147;131;131;Walt;Ledingham;;71;183;1950-10-26;Warman;SK;Canada;;;0;Left;1
 5271;26;8;Gerry;Meehan;;74;201;1946-9-3;Toronto;ON;Canada;;;0;Left;0
 5111;59;59;Lennart;Svedberg;;72;168;1944-2-29;Sundsvall;V‰S;Sweden;;;0;Right;0

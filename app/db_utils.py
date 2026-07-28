@@ -3140,6 +3140,34 @@ def ensure_game_record_baselines_sqlite(engine: Engine) -> None:
         conn.commit()
 
 
+def ensure_record_leader_snapshots_sqlite(engine: Engine) -> None:
+    """Create Discord record-break leader snapshot table (league DB)."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='record_leader_snapshots'"
+            )
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE record_leader_snapshots (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    snapshot_key VARCHAR(255) NOT NULL,
+                    holder_json TEXT NOT NULL DEFAULT '{}',
+                    updated_at DATETIME NOT NULL,
+                    CONSTRAINT uq_record_leader_snapshot_key UNIQUE (snapshot_key)
+                )
+                """
+            )
+        )
+        conn.commit()
+
+
 def ensure_gm_export_attendance_sqlite(engine: Engine) -> None:
     """Create GM export attendance tracker table on the site DB."""
     if engine.dialect.name != "sqlite":

@@ -1071,7 +1071,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1069;-1;Arthur;Lowe;;1924-10-16;Sainte-Marie;QC;Canada;;;0
 1070;91;Austin;Riyaz;;1917-4-19;Bowmanville;ON;Canada;;;0
 1071;80;Evan;Delory;;1917-3-22;Delta;BC;Canada;;;0
-1072;-1;Tommy;Dawson;;1917-2-3;Toronto;ON;Canada;;;0
+1072;131;Tommy;Dawson;;1917-2-3;Toronto;ON;Canada;;;0
 1073;-1;Tim;Hobbs;;1920-10-18;Ottawa;ON;Canada;;;0
 1074;130;Kelly;Bunch;;1917-9-25;Kingston;ON;Canada;;;0
 1075;-1;Ralph;Schrader;;1917-9-7;Maple Ridge;BC;Canada;;;0
@@ -1308,7 +1308,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1306;-1;Diego;Marin;;1920-12-6;Hamilton;ON;Canada;;;0
 1307;10;Pete;Clements;;1920-3-27;Beverly Hills;TX;The United States;;;0
 1308;-1;Clayton;Pierce;;1920-9-11;Hamilton;ON;Canada;;;0
-1309;-1;Cam;Abels;;1920-3-22;Edmonton;AB;Canada;;;0
+1309;131;Cam;Abels;;1920-3-22;Edmonton;AB;Canada;;;0
 1310;-1;Jean-Marc;Alain;;1920-10-29;Simcoe;ON;Canada;;;0
 1311;-1;Albert;Haynes;;1920-5-10;Columbus;OH;The United States;;;0
 1312;-1;Tyler;Finley;;1926-6-10;Lincoln;NE;The United States;;;0
@@ -1318,7 +1318,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1316;-1;Jeffrey;Moore;;1920-3-5;New Milford;NJ;The United States;;;0
 1317;-1;Jeff;Richardson;;1920-4-18;Montgomery;AL;The United States;;;0
 1318;-1;Ronnie;Day;;1920-1-2;Marion;IA;The United States;;;0
-1319;-1;Bob;Huggins;;1920-4-1;New York;NY;The United States;;;0
+1319;131;Bob;Huggins;;1920-4-1;New York;NY;The United States;;;0
 1320;-1;Merrill;Lewis;;1920-5-28;Fairview Heights;IL;The United States;;;0
 1321;-1;Jack;Martin;;1922-6-27;Brampton;ON;Canada;;;0
 1322;-1;Olivier;Fortin;;1920-4-28;Drexel Hill;PA;The United States;;;0

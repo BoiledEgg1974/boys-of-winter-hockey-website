@@ -1011,7 +1011,7 @@ StaffId;Executive;Manager;Coach;Scout;Trainer;Off Pref;Phy Pref;Line Matching;Go
 1009;10;15;10;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;5;5;5;5;5;5;5;8;5;8;8;8;5;5;0;;15;15
 1010;10;15;15;20;1;Offensive;Balanced;Passive;Conservative;Balanced;Innovative;Loyal;9;15;15;6;9;10;10;10;9;10;10;10;4;17;0;;15;14
 1011;1;10;20;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;7;16;9;8;11;8;9;4;8;4;4;4;7;11;0;;13;12
-1012;10;15;20;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;9;9;9;9;9;9;9;7;9;7;7;7;9;9;0;;14;14
+1012;10;15;19;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;9;9;9;9;9;9;9;7;9;7;7;7;9;9;0;;14;14
 1013;10;15;20;15;1;Offensive;Non-physical;Aggressive;Aggressive;Balanced;Balanced;Balanced;8;13;11;6;5;5;3;2;4;11;6;16;10;13;0;;8;14
 1014;10;15;20;15;1;Standard;Non-physical;Passive;Balanced;Loves Veterans;Balanced;Loyal;7;11;9;3;7;10;11;4;6;9;6;5;7;10;0;;11;4
 1015;10;10;15;20;1;Offensive;Non-physical;Balanced;Balanced;Balanced;Conservative;Very Loyal;1;14;15;1;8;11;15;1;6;7;3;5;13;13;0;;11;13
@@ -1351,7 +1351,7 @@ StaffId;Executive;Manager;Coach;Scout;Trainer;Off Pref;Phy Pref;Line Matching;Go
 1349;1;1;5;1;20;Offensive;Balanced;Balanced;Balanced;Prefers Prospects;Conservative;Ruthless;0;0;0;0;0;0;0;6;0;0;2;0;0;0;19;;0;0
 1350;1;1;5;1;20;Offensive;Very Physical;Balanced;Aggressive;Prefers Veterans;Innovative;Loyal;1;1;1;1;1;1;1;6;1;1;1;1;1;1;20;;1;1
 1351;0;20;19;0;0;Very Defensive;Very Physical;Balanced;Balanced;Balanced;Balanced;Balanced;7;7;7;7;7;7;7;7;7;7;7;7;7;7;0;;0;0
-1352;0;20;19;0;0;Very Defensive;Very Physical;Balanced;Balanced;Balanced;Balanced;Balanced;7;7;7;7;7;7;7;7;7;7;7;7;7;7;0;;0;0
+1352;0;20;18;0;0;Very Defensive;Very Physical;Balanced;Balanced;Balanced;Balanced;Balanced;7;7;7;7;7;7;7;7;7;7;7;7;7;7;0;;0;0
 0;20;20;20;20;1;Standard;Physical;Balanced;Balanced;Prefers Veterans;Balanced;Loyal;20;20;20;20;20;20;20;11;20;20;19;14;20;20;0;;16;14
 1;10;15;17;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;4;4;4;4;4;4;4;3;4;3;3;3;4;4;0;;16;16
 2;10;19;15;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Very Innovative;Balanced;7;3;5;2;3;4;4;4;3;4;11;6;9;8;0;;16;16

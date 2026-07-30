@@ -1841,7 +1841,7 @@ StaffId;Executive;Manager;Coach;Scout;Trainer;Off Pref;Phy Pref;Line Matching;Go
 1839;5;10;20;15;1;Standard;Very Non-Physical;Balanced;Balanced;Balanced;Innovative;Ruthless;8;8;14;11;11;12;6;7;4;8;1;15;20;10;0;;13;14
 1840;1;15;20;19;1;Standard;Balanced;Aggressive;Balanced;Balanced;Balanced;Balanced;13;13;13;13;13;13;13;10;13;10;10;10;13;13;0;;13;12
 1841;1;15;20;20;1;Defensive;Balanced;Balanced;Conservative;Balanced;Balanced;Balanced;16;7;6;9;11;6;6;6;9;6;6;6;6;10;0;;13;12
-1842;10;16;15;20;1;Standard;Non-physical;Balanced;Balanced;Balanced;Innovative;Balanced;6;8;13;6;8;9;9;14;7;5;14;5;6;9;0;;14;14
+1842;10;15;15;20;1;Standard;Non-physical;Balanced;Balanced;Balanced;Innovative;Balanced;6;8;13;6;8;9;9;14;7;5;14;5;6;9;0;;14;14
 1843;1;10;15;20;1;Offensive;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;3;5;8;5;3;11;4;4;5;4;4;4;6;8;0;;15;15
 1844;1;5;20;20;1;Standard;Balanced;Aggressive;Balanced;Balanced;Innovative;Balanced;6;7;9;9;9;9;7;2;6;2;2;2;9;16;0;;13;12
 1845;1;15;20;19;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;7;9;15;7;9;11;11;7;8;7;7;7;7;11;0;;13;12
@@ -2318,7 +2318,7 @@ StaffId;Executive;Manager;Coach;Scout;Trainer;Off Pref;Phy Pref;Line Matching;Go
 2316;20;5;1;1;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;;10;10
 2317;1;10;10;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;1;1;1;1;1;1;1;1;1;1;1;1;1;1;0;;14;14
 2318;10;20;10;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;2;2;2;2;2;2;2;4;2;4;4;4;2;2;0;;14;14
-2319;1;10;20;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;2;2;2;2;2;2;2;1;2;1;1;1;2;2;0;;16;16
+2319;1;10;19;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;2;2;2;2;2;2;2;1;2;1;1;1;2;2;0;;16;16
 2320;1;10;10;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;1;1;1;1;1;1;1;1;1;1;1;1;1;1;0;;14;14
 2321;1;10;10;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;2;2;2;2;2;2;2;2;2;2;2;2;2;2;0;;14;14
 2322;1;10;10;20;1;Standard;Non-physical;Balanced;Balanced;Prefers Prospects;Balanced;Balanced;1;1;1;1;1;1;1;1;1;1;1;1;1;1;0;;14;14

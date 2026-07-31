@@ -595,7 +595,7 @@ class BowlSixScoringTest(unittest.TestCase):
         )
         session = MagicMock()
         with unittest.mock.patch(
-            "app.services.bowl_six.slate_weekly_podium_teams",
+            "app.services.bowl_six.slate_weekly_podium_places",
             return_value={1: (10, 1)},
         ), unittest.mock.patch("app.services.bowl_six.add_ledger_entry") as add_entry:
             sync_bowl_six_slate_ap_awards(session, slate)
@@ -603,6 +603,56 @@ class BowlSixScoringTest(unittest.TestCase):
         self.assertIn("bowl_six:slate:99:place:1:rev:3", source_refs)
         self.assertIn("bowl_six:slate:99:place:1:award:3", source_refs)
         self.assertEqual(slate.ap_place1_team_id, 10)
+
+    def test_sync_keeps_prize_when_podium_franchise_unresolved(self):
+        slate = BowlSixSlate(
+            id=99,
+            league_slug="bowl-historical",
+            week_start=date(2026, 5, 18),
+            week_end=date(2026, 5, 24),
+            lock_at=datetime(2026, 5, 18, 23, 59),
+            status="scored",
+            scoring_version=3,
+            ap_place1_team_id=10,
+            ap_place2_team_id=20,
+            ap_place3_team_id=30,
+        )
+        session = MagicMock()
+        with unittest.mock.patch(
+            "app.services.bowl_six.slate_weekly_podium_places",
+            return_value={1: (10, 1), 2: None, 3: None},
+        ), unittest.mock.patch("app.services.bowl_six.add_ledger_entry") as add_entry:
+            sync_bowl_six_slate_ap_awards(session, slate)
+        add_entry.assert_not_called()
+        self.assertEqual(slate.ap_place1_team_id, 10)
+        self.assertEqual(slate.ap_place2_team_id, 20)
+        self.assertEqual(slate.ap_place3_team_id, 30)
+
+    def test_sync_reverses_when_ranked_podium_shorter(self):
+        slate = BowlSixSlate(
+            id=99,
+            league_slug="bowl-historical",
+            week_start=date(2026, 5, 18),
+            week_end=date(2026, 5, 24),
+            lock_at=datetime(2026, 5, 18, 23, 59),
+            status="scored",
+            scoring_version=3,
+            ap_place1_team_id=10,
+            ap_place2_team_id=20,
+            ap_place3_team_id=30,
+        )
+        session = MagicMock()
+        with unittest.mock.patch(
+            "app.services.bowl_six.slate_weekly_podium_places",
+            return_value={1: (10, 1)},
+        ), unittest.mock.patch("app.services.bowl_six.add_ledger_entry") as add_entry:
+            sync_bowl_six_slate_ap_awards(session, slate)
+        refs = [call.kwargs["source_ref"] for call in add_entry.call_args_list]
+        self.assertIn("bowl_six:slate:99:place:2:rev:3", refs)
+        self.assertIn("bowl_six:slate:99:place:3:rev:3", refs)
+        self.assertEqual(slate.ap_place1_team_id, 10)
+        self.assertIsNone(slate.ap_place2_team_id)
+        self.assertIsNone(slate.ap_place3_team_id)
 
     def test_bowl_six_prize_ledger_repair_adds_missing_award(self):
         slate = BowlSixSlate(

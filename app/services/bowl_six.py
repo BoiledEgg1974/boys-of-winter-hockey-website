@@ -1538,6 +1538,7 @@ def _auto_update_single_slate(
         n = refresh_slate_lineup_scores(session, league_session, slate)
         refresh_player_week_stats(session, slate, league_session)
         sync_bowl_six_slate_ap_awards(session, slate)
+        repair_bowl_six_weekly_prize_net_balances(session, slate)
         ensure_current_slate_after_finalization(session, league_session, slate)
         _enqueue_bowl_six_discord_leaders_safe(session, league_session, slate)
         if n:
@@ -1607,30 +1608,44 @@ def bowl_six_prize_team_for_lineup_user(
     return team_id, int(current.user_id)
 
 
-def slate_weekly_podium_teams(
+def slate_weekly_podium_places(
     session: Session, slate: BowlSixSlate
-) -> dict[int, tuple[int, int]]:
-    """Weekly podium place -> (franchise team_id, current active GM user_id)."""
+) -> dict[int, tuple[int, int] | None]:
+    """Weekly podium places that have a ranked lineup.
+
+    Value is ``(franchise team_id, current active GM user_id)`` when membership
+    resolves, or ``None`` when a ranked submitter cannot be mapped yet. Missing
+    keys mean fewer than that many scored lineups.
+    """
     ranked = slate_rankings(session, slate)
     user_ids = {int(row["user_id"]) for row in ranked[:3]}
     active_by_team, membership_by_user = _bowl_six_membership_maps(
         session, str(slate.league_slug or ""), user_ids=user_ids
     )
-    desired: dict[int, tuple[int, int]] = {}
+    desired: dict[int, tuple[int, int] | None] = {}
     for place, row in enumerate(ranked[:3], start=1):
-        resolved = bowl_six_prize_team_for_lineup_user(
+        desired[place] = bowl_six_prize_team_for_lineup_user(
             active_by_team, membership_by_user, int(row["user_id"])
         )
-        if resolved is not None:
-            desired[place] = resolved
     return desired
+
+
+def slate_weekly_podium_teams(
+    session: Session, slate: BowlSixSlate
+) -> dict[int, tuple[int, int]]:
+    """Weekly podium place -> (franchise team_id, current active GM user_id)."""
+    return {
+        place: resolved
+        for place, resolved in slate_weekly_podium_places(session, slate).items()
+        if resolved is not None
+    }
 
 
 def sync_bowl_six_slate_ap_awards(session: Session, slate: BowlSixSlate) -> None:
     """Award top-3 GM teams AP; reverse prior payouts when podium changes on re-score."""
     if slate.status != "scored":
         return
-    desired = slate_weekly_podium_teams(session, slate)
+    desired = slate_weekly_podium_places(session, slate)
     prev = {
         1: slate.ap_place1_team_id,
         2: slate.ap_place2_team_id,
@@ -1639,9 +1654,29 @@ def sync_bowl_six_slate_ap_awards(session: Session, slate: BowlSixSlate) -> None
     version = int(slate.scoring_version or 1)
     for place in (1, 2, 3):
         old_tid = prev.get(place)
-        new = desired.get(place)
-        new_tid = new[0] if new else None
         prize = AP_PRIZES.get(place, 0)
+        if place not in desired:
+            # Fewer than `place` ranked lineups — claw back a prior payout.
+            if old_tid:
+                add_ledger_entry(
+                    league_slug=slate.league_slug,
+                    team_id=int(old_tid),
+                    delta=-prize,
+                    reason_code="bowl_six_slate_prize_reversal",
+                    meta={
+                        "slate_id": slate.id,
+                        "place": place,
+                        "scoring_version": version,
+                    },
+                    source_ref=f"bowl_six:slate:{slate.id}:place:{place}:rev:{version}",
+                )
+            setattr(slate, f"ap_place{place}_team_id", None)
+            continue
+        new = desired[place]
+        if new is None:
+            # Ranked but franchise unresolved — keep the prior award; do not reverse.
+            continue
+        new_tid = new[0]
         if old_tid and old_tid != new_tid:
             add_ledger_entry(
                 league_slug=slate.league_slug,
@@ -1651,7 +1686,7 @@ def sync_bowl_six_slate_ap_awards(session: Session, slate: BowlSixSlate) -> None
                 meta={"slate_id": slate.id, "place": place, "scoring_version": version},
                 source_ref=f"bowl_six:slate:{slate.id}:place:{place}:rev:{version}",
             )
-        if new_tid and new_tid != old_tid:
+        if new_tid != old_tid:
             add_ledger_entry(
                 league_slug=slate.league_slug,
                 team_id=int(new_tid),
@@ -1665,10 +1700,7 @@ def sync_bowl_six_slate_ap_awards(session: Session, slate: BowlSixSlate) -> None
                 },
                 source_ref=f"bowl_six:slate:{slate.id}:place:{place}:award:{version}",
             )
-    slate.ap_place1_team_id = desired[1][0] if 1 in desired else None
-    slate.ap_place2_team_id = desired[2][0] if 2 in desired else None
-    slate.ap_place3_team_id = desired[3][0] if 3 in desired else None
-
+        setattr(slate, f"ap_place{place}_team_id", new_tid)
 
 def _bowl_six_award_ledger_exists(
     session: Session,
@@ -1762,9 +1794,8 @@ def repair_bowl_six_weekly_prize_net_balances(
         if added is not None:
             created += 1
         setattr(slate, f"ap_place{place}_team_id", team_id)
-    slate.ap_place1_team_id = podium[1][0] if 1 in podium else None
-    slate.ap_place2_team_id = podium[2][0] if 2 in podium else None
-    slate.ap_place3_team_id = podium[3][0] if 3 in podium else None
+    # Do not clear unresolved places here — sync owns clawbacks when a place
+    # truly has no ranked lineup.
     return created
 
 

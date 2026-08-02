@@ -202,6 +202,78 @@ class GameRecordBreakCollectionTest(unittest.TestCase):
         self.assertEqual(br.old_holder.value, 5.0)
         self.assertEqual(br.new_holder.value, 6.0)
 
+    def test_early_sync_stashes_breaks_for_later_discord_drain(self) -> None:
+        """FHM promotes baselines before refresh; stash must preserve Discord breaks."""
+        from app.services.game_records import (
+            drain_stashed_game_record_breaks,
+            sync_game_record_baselines,
+        )
+
+        drain_stashed_game_record_breaks()  # clear any prior test residue
+
+        metric = GameRecordMetric("points", "Points", "skater")
+        old = GameRecordHolder(
+            metric=metric,
+            value=5.0,
+            display_value="5",
+            player=SimpleNamespace(id=1, full_name="Old"),  # type: ignore[arg-type]
+            team=None,
+            opponent_team=None,
+            game_date=None,
+            season_label="1969-70",
+            game_id=1,
+            source="baseline",
+        )
+        new = GameRecordHolder(
+            metric=metric,
+            value=7.0,
+            display_value="7",
+            player=SimpleNamespace(id=2, full_name="Rookie"),  # type: ignore[arg-type]
+            team=None,
+            opponent_team=None,
+            game_date=None,
+            season_label="1970-71",
+            game_id=2,
+            source="boxscore",
+        )
+        session = MagicMock()
+        with patch(
+            "app.services.game_records.game_record_metrics",
+            return_value=[metric],
+        ), patch(
+            "app.services.game_records._baseline_row",
+            side_effect=[old] + [None] * 20,
+        ), patch(
+            "app.services.game_records._computed_game_record",
+            side_effect=[new] + [None] * 20,
+        ), patch(
+            "app.services.game_records._baseline_db_row",
+            return_value=object(),
+        ), patch(
+            "app.services.game_records._promote_holder_to_baseline",
+        ):
+            # First sync (FHM post-boxscore): no breaks_out, but must stash.
+            promoted = sync_game_record_baselines(session)
+            self.assertEqual(promoted, 1)
+
+            # Second sync (refresh): baseline already updated → nothing to promote.
+            with patch(
+                "app.services.game_records._baseline_row",
+                return_value=new,
+            ), patch(
+                "app.services.game_records._computed_game_record",
+                return_value=new,
+            ):
+                promoted_again = sync_game_record_baselines(session, breaks_out=[])
+            self.assertEqual(promoted_again, 0)
+
+        stashed = drain_stashed_game_record_breaks()
+        self.assertEqual(len(stashed), 1)
+        self.assertEqual(stashed[0].old_holder.value, 5.0)
+        self.assertEqual(stashed[0].new_holder.value, 7.0)
+        self.assertEqual(stashed[0].snapshot_key, "game:rs:all:skater:points")
+        self.assertEqual(drain_stashed_game_record_breaks(), [])
+
 
 class NotifyIdempotencyTest(unittest.TestCase):
     def test_enqueue_uses_source_idempotency(self) -> None:

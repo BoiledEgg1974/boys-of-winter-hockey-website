@@ -156,14 +156,18 @@ def refresh_after_import(engine, app=None) -> None:
                     )
 
                     record_analytics_snapshots_after_import(app)
-                    from app.services.game_records import GameRecordBreak, sync_game_record_baselines
+                    from app.services.game_records import (
+                        drain_stashed_game_record_breaks,
+                        sync_game_record_baselines,
+                    )
                     from app.services.record_broken_discord import notify_record_breaks_after_import
                     from app.sqlite_retry import commit_with_sqlite_retry
 
-                    game_breaks: list[GameRecordBreak] = []
-                    promoted = sync_game_record_baselines(
-                        db.session, breaks_out=game_breaks
-                    )
+                    # FHM import promotes baselines earlier (pre-wipe / post-boxscore) and
+                    # stashes Discord-worthy breaks. Sync here catches anything still
+                    # pending, then drain the stash so we do not miss early promotes.
+                    promoted = sync_game_record_baselines(db.session)
+                    game_breaks = drain_stashed_game_record_breaks()
                     if promoted:
                         _log.info(
                             "Promoted %s game record baseline(s) after import for %s.",

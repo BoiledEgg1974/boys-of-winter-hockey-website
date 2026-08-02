@@ -28,6 +28,10 @@ from app.services.seasons import season_display_label
 MANUAL_BASELINE_NOTE = "admin-manual"
 _NOTES_OMIT = object()
 
+# Breaks detected during FHM pre/post syncs (often before refresh_after_import runs).
+# refresh_after_import drains these so Discord still fires after early silent promotes.
+_stashed_game_record_breaks: list["GameRecordBreak"] = []
+
 
 @dataclass(frozen=True)
 class GameRecordMetric:
@@ -616,6 +620,18 @@ def game_record_snapshot_key(
     return f"game:{segment}:{scope}:{player_kind}:{metric_key}"
 
 
+def stash_game_record_break(br: GameRecordBreak) -> None:
+    """Remember a Discord-worthy break across early FHM syncs until refresh drains it."""
+    _stashed_game_record_breaks.append(br)
+
+
+def drain_stashed_game_record_breaks() -> list[GameRecordBreak]:
+    """Return and clear breaks stashed by :func:`sync_game_record_baselines`."""
+    out = list(_stashed_game_record_breaks)
+    _stashed_game_record_breaks.clear()
+    return out
+
+
 def sync_game_record_baselines(
     session: Session,
     *,
@@ -629,6 +645,10 @@ def sync_game_record_baselines(
 
     When ``breaks_out`` is provided, append :class:`GameRecordBreak` entries for promotions
     that beat an existing stored value (not first-time baseline seeds).
+
+    Discord-worthy breaks are always stashed (see :func:`drain_stashed_game_record_breaks`)
+    because FHM import promotes baselines *before* ``refresh_after_import`` runs; without
+    the stash, the later Discord sync sees an already-updated baseline and posts nothing.
     """
     promoted = 0
     for player_kind in ("skater", "goalie"):
@@ -658,22 +678,23 @@ def sync_game_record_baselines(
                         and notify_break
                     ):
                         promote_notes = None
-                    if notify_break and breaks_out is not None:
-                        breaks_out.append(
-                            GameRecordBreak(
-                                snapshot_key=game_record_snapshot_key(
-                                    segment=segment,
-                                    scope=scope,
-                                    player_kind=metric.player_kind,
-                                    metric_key=metric.key,
-                                ),
-                                metric=metric,
+                    if notify_break:
+                        br = GameRecordBreak(
+                            snapshot_key=game_record_snapshot_key(
                                 segment=segment,
                                 scope=scope,
-                                old_holder=baseline,
-                                new_holder=game_log,
-                            )
+                                player_kind=metric.player_kind,
+                                metric_key=metric.key,
+                            ),
+                            metric=metric,
+                            segment=segment,
+                            scope=scope,
+                            old_holder=baseline,
+                            new_holder=game_log,
                         )
+                        if breaks_out is not None:
+                            breaks_out.append(br)
+                        stash_game_record_break(br)
                     _promote_holder_to_baseline(
                         session,
                         game_log,

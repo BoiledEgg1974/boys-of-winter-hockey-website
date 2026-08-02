@@ -22,7 +22,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 20;26;Chico;Resch;;1948-7-10;Lee;NH;The United States;;;0
 21;20;Jim;Devellano;;1943-1-18;Toronto;ON;Canada;;;0
 22;3;Bruce;Hamilton;;1957-6-30;Saskatoon;SK;Canada;;;0
-23;-1;Paul;Holmgren;;1955-12-2;St. Paul;IN;The United States;;;0
+23;225;Paul;Holmgren;;1955-12-2;St. Paul;IN;The United States;;;0
 24;17;David;Poile;;1950-2-14;Toronto;OH;The United States;;;0
 25;-1;Ron;Wilson;;1955-5-28;Windsor;CA;The United States;;;0
 26;16;Bob;Murray;;1954-11-26;Kingston;ON;Canada;;;0
@@ -1794,7 +1794,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1792;10;Thomas;Gradin;;1956-2-18;Sollefteå;VäS;Sweden;;;0
 1793;217;Joel;Quenneville;;1958-9-15;Windsor;ON;Canada;;;0
 1794;23;Marc;Crawford;Crow;1961-2-13;Belleville;ON;Canada;;;0
-1795;225;Chuck;Fletcher;;1967-4-29;Murdochville;QC;Canada;;;0
+1795;-1;Chuck;Fletcher;;1967-4-29;Murdochville;QC;Canada;;;0
 1796;229;Jim;Benning;;1963-4-29;Elk Point;AB;Canada;;;0
 1797;216;Anders;Steen;;1955-4-28;Nyköping;SöD;Sweden;;;0
 1798;-1;Ron;Kennedy;;1953-5-7;Pilot Butte;SK;Canada;;;0

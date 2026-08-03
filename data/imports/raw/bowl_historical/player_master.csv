@@ -225,7 +225,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 5855;88;88;Mike;Boland;;70;183;1949-12-16;Murdochville;QC;Canada;;;0;Right;0
 6578;89;89;Harvey;Bennett;;76;216;1952-8-9;Aberdeen;MS;The United States;;;0;Left;0
 5645;90;90;Gary;Bredin;;72;185;1948-5-25;Elk Point;AB;Canada;;;0;Right;0
-4477;128;121;John;Gravel;;70;181;1941-10-27;Murdochville;QC;Canada;;;0;Right;0
+4477;121;121;John;Gravel;;70;181;1941-10-27;Murdochville;QC;Canada;;;0;Right;0
 3130;90;90;Bob;Bailey;Bashin' Bob;71;180;1931-5-29;Kenora;ON;Canada;;;0;Right;0
 4056;90;90;Bill;Hicke;;68;164;1938-3-31;Regina;SK;Canada;;;0;Left;0
 5235;9;9;Mike;Corrigan;;70;175;1946-1-11;Ottawa;ON;Canada;;;0;Left;0
@@ -682,7 +682,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 5254;90;90;Brent;Imlach;;68;161;1946-11-16;Richmond;QC;Canada;;;0;Left;0
 4624;130;130;George;Swarbrick;Swiggy;70;175;1942-2-16;North Battleford;SK;Canada;;;0;Right;0
 4625;90;90;Billy;Taylor;;73;175;1942-10-14;Radisson;SK;Canada;;;0;Left;0
-5885;3;3;Bob;Girard;;72;181;1949-4-12;Murdochville;QC;Canada;;;0;Left;1
+5885;22;3;Bob;Girard;;72;181;1949-4-12;Murdochville;QC;Canada;;;0;Left;0
 4957;10;10;Rod;Seiling;Sod;72;195;1944-11-14;Elmira;ON;Canada;;;0;Left;0
 4168;59;59;Karl-Sören;Hedlund;;69;172;1938-1-28;Stockholm;STO;Sweden;;;0;Left;0
 4504;60;60;Kalevi;Numminen;;69;172;1940-1-31;Tampere;PIR;Finland;;;0;Left;0

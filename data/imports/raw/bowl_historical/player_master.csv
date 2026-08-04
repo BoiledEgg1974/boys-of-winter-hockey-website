@@ -71,7 +71,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 3421;90;90;Earl;Balfour;Spider;73;180;1933-1-4;Toronto;ON;Canada;;;0;Left;0
 4141;90;90;Claude;Cyr;;70;181;1939-3-27;Murdochville;QC;Canada;;;0;Left;0
 4594;120;120;Arnie;Brown;;72;185;1942-1-28;Oshawa;ON;Canada;;;0;Left;0
-3856;121;121;Bob;Baun;Boomer;69;175;1936-9-9;Lanigan;SK;Canada;;;0;Right;0
+3856;128;121;Bob;Baun;Boomer;69;175;1936-9-9;Lanigan;SK;Canada;;;0;Right;0
 4595;121;121;Bob;Champoux;;70;175;1942-12-2;Yarmouth;NS;Canada;;;0;Left;0
 5047;90;90;John;Arbour;;71;195;1945-9-28;Niagara Falls;ON;Canada;;;0;Left;0
 4718;90;90;Duke;Asmundson;;74;195;1943-8-17;Stony Mountain;MB;Canada;;;0;Right;0
@@ -388,7 +388,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 6107;84;84;Dave;Cressman;;73;181;1950-1-2;Kitchener;ON;Canada;;;0;Left;0
 3959;90;90;Ed;Hoekstra;;71;170;1937-11-4;Winnipeg;MB;Canada;;;0;Right;0
 4487;122;122;Lowell;MacDonald;;71;185;1941-8-30;Pictou;NS;Canada;;;0;Right;0
-5241;3;3;Chris;Evans;;69;181;1946-9-14;Toronto;ON;Canada;;;0;Left;1
+5241;22;3;Chris;Evans;;69;181;1946-9-14;Toronto;ON;Canada;;;0;Left;0
 4361;129;122;Jack;Martin;;71;184;1940-11-29;St. Catharines;ON;Canada;;;0;Left;0
 5657;126;119;Len;Fontaine;;67;165;1948-2-25;Richmond;QC;Canada;;;0;Right;0
 5073;9;9;Dennis;Kearns;;69;185;1945-9-27;Kingston;ON;Canada;;;0;Left;0
@@ -803,7 +803,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 5669;24;5;Gerry;Hart;;69;190;1948-1-1;Killarney;MB;Canada;;;0;Left;0
 5256;125;118;Joe;Junkin;;71;181;1946-9-8;Lindsay;ON;Canada;;;0;Left;0
 6126;26;8;Hilliard;Graves;;71;175;1950-10-18;St. Stephen;NB;Canada;;;0;Right;1
-5897;3;3;Bill;Hogaboam;Hogi;71;170;1949-9-5;Watrous;SK;Canada;;;0;Right;1
+5897;22;3;Bill;Hogaboam;Hogi;71;170;1949-9-5;Watrous;SK;Canada;;;0;Right;0
 5670;124;123;Murray;Heatley;;68;185;1948-11-7;Camrose;AB;Canada;;;0;Right;0
 5444;8;8;Jim;Lorentz;Batman;72;190;1947-5-1;Waterloo;ON;Canada;;;0;Left;0
 4762;5;5;Glen;Sather;Slats;71;180;1943-9-2;Irricana;AB;Canada;;;0;Left;0

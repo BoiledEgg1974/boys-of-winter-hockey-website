@@ -1000,7 +1000,7 @@ StaffId;Executive;Manager;Coach;Scout;Trainer;Off Pref;Phy Pref;Line Matching;Go
 998;1;10;10;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;3;3;3;3;3;3;3;3;3;3;3;3;3;3;0;;14;14
 999;10;15;15;20;1;Standard;Physical;Balanced;Balanced;Prefers Veterans;Balanced;Balanced;13;13;13;13;13;13;13;13;13;13;13;13;13;13;0;;16;15
 1000;20;5;1;1;1;Standard;Balanced;Passive;Balanced;Balanced;Balanced;Balanced;0;0;0;0;0;0;0;3;0;3;3;3;0;0;0;;10;10
-1001;1;18;18;20;1;Defensive;Balanced;Balanced;Conservative;Balanced;Balanced;Balanced;12;5;4;6;8;4;4;5;6;5;5;5;4;7;0;;13;12
+1001;1;18;17;20;1;Defensive;Balanced;Balanced;Conservative;Balanced;Balanced;Balanced;12;5;4;6;8;4;4;5;6;5;5;5;4;7;0;;13;12
 1002;20;15;15;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;5;5;5;5;5;5;5;7;5;7;7;7;5;5;0;;17;17
 1003;1;10;15;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;4;4;4;4;4;4;4;3;4;3;3;3;4;4;0;;15;16
 1004;20;16;1;1;1;Standard;Physical;Balanced;Balanced;Balanced;Balanced;Balanced;0;0;0;0;0;0;0;12;0;4;12;4;0;0;1;;13;13
@@ -1144,7 +1144,7 @@ StaffId;Executive;Manager;Coach;Scout;Trainer;Off Pref;Phy Pref;Line Matching;Go
 1142;10;20;19;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;6;6;6;6;6;6;6;6;6;6;6;6;6;6;0;;14;14
 1143;1;10;10;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;3;3;3;3;3;3;3;3;3;3;3;3;3;3;0;;14;14
 1144;10;15;16;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;3;8;5;4;5;4;5;4;4;4;4;4;3;5;0;;15;15
-1145;10;20;19;20;1;Standard;Physical;Balanced;Balanced;Prefers Veterans;Conservative;Balanced;10;10;10;10;10;10;10;11;10;11;11;11;10;10;0;;16;15
+1145;10;20;18;20;1;Standard;Physical;Balanced;Balanced;Prefers Veterans;Conservative;Balanced;10;10;10;10;10;10;10;11;10;11;11;11;10;10;0;;16;15
 1146;1;10;10;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;2;2;2;2;2;2;2;2;2;2;2;2;2;2;0;;14;14
 1147;10;15;20;15;1;Offensive;Balanced;Balanced;Balanced;Prefers Prospects;Very Innovative;Loyal;5;7;11;14;4;5;6;1;4;11;2;8;18;5;0;;4;6
 1148;5;10;20;15;1;Standard;Very Non-Physical;Aggressive;Conservative;Balanced;Innovative;Loyal;9;13;15;10;9;10;16;8;3;0;5;4;8;9;0;;11;14

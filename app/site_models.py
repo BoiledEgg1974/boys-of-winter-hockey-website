@@ -642,6 +642,31 @@ class DiscordChannelRoute(db.Model):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
 
+class DiscordTeamChannelRoute(db.Model):
+    """Per-team Discord channel IDs for events that fan out by franchise (e.g. boxscores)."""
+
+    __tablename__ = "discord_team_channel_routes"
+    __bind_key__ = "site"
+    __table_args__ = (
+        UniqueConstraint(
+            "league_slug",
+            "event_key",
+            "team_id",
+            name="uq_discord_team_route_league_event_team",
+        ),
+        Index("ix_discord_team_route_league_event", "league_slug", "event_key"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    event_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    team_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    discord_channel_id: Mapped[str] = mapped_column(String(32), default="", nullable=False)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    updated_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class DiscordLeagueBotConfig(db.Model):
     __tablename__ = "discord_league_bot_config"
     __bind_key__ = "site"

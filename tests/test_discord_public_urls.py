@@ -225,7 +225,7 @@ class DiscordPublicUrlTest(unittest.TestCase):
         self.assertEqual(out["team_id"], 5)
         self.assertEqual(out["team_gm_mention"], "<@111111111111111111>")
 
-    def test_team_gm_mention_prefers_fhm_team_id_over_mismatched_team_id(self):
+    def test_team_gm_mention_prefers_resolved_team_pk_over_stale_fhm_hit(self):
         session = MagicMock()
         atlanta = SimpleNamespace(id=28, fhm_team_id="227", abbreviation="ATL")
         detroit = SimpleNamespace(id=5, fhm_team_id="9", abbreviation="DET")
@@ -241,11 +241,11 @@ class DiscordPublicUrlTest(unittest.TestCase):
             ),
             patch(
                 "app.services.discord_events._discord_user_mention_for_fhm_team",
-                return_value="<@111111111111111111>",
+                return_value="<@atl-wrong>",
             ) as by_fhm,
             patch(
                 "app.services.discord_events._discord_user_mention_for_team",
-                return_value="<@222222222222222222>",
+                return_value="<@111111111111111111>",
             ) as by_team,
         ):
             mention = _team_gm_mention_for_payload(
@@ -255,8 +255,8 @@ class DiscordPublicUrlTest(unittest.TestCase):
             )
 
         self.assertEqual(mention, "<@111111111111111111>")
-        by_fhm.assert_called_once_with(session, league_slug="bowl-cap", fhm_team_id="9")
-        by_team.assert_not_called()
+        by_team.assert_called_once_with(session, league_slug="bowl-cap", team_id=5)
+        by_fhm.assert_not_called()
 
     def test_team_gm_mention_uses_fhm_when_team_id_points_at_wrong_franchise(self):
         session = MagicMock()
@@ -297,7 +297,7 @@ class DiscordPublicUrlTest(unittest.TestCase):
         self.assertEqual(mention, "<@111111111111111111>")
         by_team.assert_called_once_with(session, league_slug="bowl-cap", team_id=5)
 
-    def test_team_gm_mention_falls_back_to_team_pk_when_fhm_lookup_empty(self):
+    def test_team_gm_mention_falls_back_to_constrained_fhm_when_pk_empty(self):
         session = MagicMock()
         atlanta = SimpleNamespace(id=28, fhm_team_id="227", abbreviation="ATL")
         detroit = SimpleNamespace(id=5, fhm_team_id="9", abbreviation="DET")
@@ -327,8 +327,10 @@ class DiscordPublicUrlTest(unittest.TestCase):
             )
 
         self.assertEqual(mention, "")
-        by_fhm.assert_called_once_with(session, league_slug="bowl-cap", fhm_team_id="9")
         by_team.assert_called_once_with(session, league_slug="bowl-cap", team_id=5)
+        by_fhm.assert_called_once_with(
+            session, league_slug="bowl-cap", fhm_team_id="9", team_id=5
+        )
 
     def test_news_payload_enrichment_uses_article_team_for_gm_mention(self):
         session = MagicMock()
@@ -358,12 +360,12 @@ class DiscordPublicUrlTest(unittest.TestCase):
             ),
             patch(
                 "app.services.discord_events._discord_user_mention_for_fhm_team",
-                return_value="<@111111111111111111>",
+                return_value="<@atl-wrong>",
             ) as by_fhm,
             patch(
                 "app.services.discord_events._discord_user_mention_for_team",
-                return_value="<@222222222222222222>",
-            ),
+                return_value="<@111111111111111111>",
+            ) as by_team,
         ):
             out = enrich_discord_payload_for_bot(
                 session,
@@ -375,7 +377,8 @@ class DiscordPublicUrlTest(unittest.TestCase):
         self.assertEqual(out["team_id"], 5)
         self.assertEqual(out["fhm_team_id"], 9)
         self.assertEqual(out["team_gm_mention"], "<@111111111111111111>")
-        by_fhm.assert_called_once_with(session, league_slug="bowl-cap", fhm_team_id="9")
+        by_team.assert_called_once_with(session, league_slug="bowl-cap", team_id=5)
+        by_fhm.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -40,12 +40,15 @@ Ack: `POST /api/discord/events/<id>/ack` — marks sent and records `source_type
 | `control_center_restore` | `staff-ops-alerts` | Control Center backup restore succeeds |
 | `bowl_six_leaders_update` | `bowl-six-leaders` | BOWL Six top performers + GM week/season leaders (first post, then **edit** same message) |
 | `playoff_bracket_update` | `playoff-bracket` | Live playoff bracket — **one message per series**, each **edited in place** when scores change after import or bot poll |
+| `game_boxscore` | `boxscores` (per-team IDs) | Newly **final** games after FHM import — scoreline + three stars + site link posted into **both** participating team channels |
 
 Payloads include `source_type` and `source_id` for idempotency where applicable.
 
 **BOWL Six leaders:** Queued when slate scores/stats change (hub load, import, control center, and **bot poll** every ~60s via a lightweight leaders refresh). Configure the route on each league’s **Admin → Discord integration**. The bot **PATCH**es the same embed when `payload.edit_message_id` is set (no new message at the bottom of the channel). Set `BOWL_SIX_DISCORD_POLL_AUTO_UPDATE=1` only if you also want full slate finalization on every poll.
 
 **Playoff bracket:** Queued when [`playoff_bracket_cache_fingerprint`](app/services/playoff_bracket.py) changes after **playoffs have started** (imported playoff games with results or scheduled games on/before today). **Not** queued for regular-season projected brackets from standings. Triggers: **CSV import** (`refresh_after_import`) and **bot poll** (same ~60s cadence as BOWL Six refresh). Map route **`playoff_bracket_update`** → `#playoff-bracket` on each league’s Discord Integration page. The bot posts one message per series; on updates it **PATCH**es each series message using stored message IDs (same pattern as BOWL Six, but multi-message). Events are marked **sent** only when at least one series message is delivered; projection-only payloads stay **pending/failed**. Use **Post fresh playoff bracket** on Discord Integration to clear stored edit targets and queue new posts.
+
+**Game boxscores (per-team channels):** Enable the master **`game_boxscore`** route on **Admin → Discord Integration**, then paste one Discord channel snowflake per franchise under **Team boxscore channels**. After each FHM import, games that newly become final enqueue two outbound events (home + away) with `source_type=game_boxscore` / `source_id={game_id}:{team_id}`. Delivery resolves `discord_channel_id` from the team row (not the master route ID). Blank team channel IDs are skipped. Expansion franchises appear automatically when they have current-season standings.
 
 **Sim log (`#sim-log`):** After admin **EXPORT** in the AP ledger, the site enqueues a **closed** export recap (`sim_cycle_update`) from GM export attendance for that date. The news-bot posts that embed in `#sim-log`. **Live** in-progress boards are posted by the FTP bot, not news-bot. The site still polls `#gm-export-tracker` for live export tracking.
 

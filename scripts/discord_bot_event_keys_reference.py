@@ -8,7 +8,7 @@
 #   expansion-draft, expansion-draft-pick,
 #   league-announcements, transactions, standings, goals-assists-points,
 #   power-rankings, prospect-rankings, positional-rankings, calder-trophy,
-#   staff-ops-alerts
+#   staff-ops-alerts, broken-records, boxscores (per-team channel IDs on Discord Integration)
 #
 # Env: DISCORD_EVENTS_SHARED_SECRET, DISCORD_BOT_TOKEN, DISCORD_BOT_LEAGUE_BASE_URLS
 # Run worker: python -m scripts.league_discord_bot

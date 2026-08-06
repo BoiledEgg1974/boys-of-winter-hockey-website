@@ -625,6 +625,13 @@ def import_games(
     commit_with_sqlite_retry(db.session)
     _prune_stale_fhm_schedule_games(season, league_filter, set(fhm_to_gid.keys()))
     commit_with_sqlite_retry(db.session)
+    if newly_final_game_ids:
+        try:
+            from app.services.game_boxscore_discord import stash_newly_final_game_ids
+
+            stash_newly_final_game_ids(newly_final_game_ids)
+        except Exception:
+            log.exception("Boxscore Discord stash failed (non-fatal)")
     if app is not None and newly_final_game_ids:
         try:
             from app.services.bowl_six import record_bowl_six_game_finals

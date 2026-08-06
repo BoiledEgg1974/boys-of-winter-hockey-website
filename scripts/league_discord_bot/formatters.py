@@ -53,6 +53,7 @@ ALWAYS_TEXT_ONLY_DISCORD_EVENT_KEYS = frozenset(
         "playoff_predictions",
         "playoff_bracket_update",
         "record_broken",
+        "game_boxscore",
     }
 )
 
@@ -358,6 +359,33 @@ def _text_only_header_lines(
         record_title = str(payload.get("record_title") or title or "").strip()
         if record_title:
             lines.append(f"**{record_title}**")
+    elif event_key == "game_boxscore":
+        away = payload.get("away_team") if isinstance(payload.get("away_team"), dict) else {}
+        home = payload.get("home_team") if isinstance(payload.get("home_team"), dict) else {}
+        away_prefix = _playoff_team_prefix(league_slug, away)
+        home_prefix = _playoff_team_prefix(league_slug, home)
+        away_abbr = str(away.get("abbrev") or away.get("name") or "AWAY").strip()
+        home_abbr = str(home.get("abbrev") or home.get("name") or "HOME").strip()
+        away_score = payload.get("away_score")
+        home_score = payload.get("home_score")
+        try:
+            score_line = (
+                f"{away_prefix}**{away_abbr}** {int(away_score)} – "
+                f"{int(home_score)} **{home_abbr}** {home_prefix}".rstrip()
+            )
+        except (TypeError, ValueError):
+            score_line = (
+                f"{away_prefix}**{away_abbr}** – **{home_abbr}** {home_prefix}".rstrip()
+            )
+        lines.append(score_line)
+        meta_bits = [str(title or "Final").strip() or "Final"]
+        date_str = str(payload.get("date") or "").strip()
+        if date_str:
+            meta_bits.append(date_str)
+        type_label = str(payload.get("game_type_label") or "").strip()
+        if type_label:
+            meta_bits.append(type_label)
+        lines.append(" · ".join(meta_bits))
     else:
         lines.append(f"**{title}**")
     return lines
@@ -543,6 +571,26 @@ def _text_only_body_text(
         new_line = str(payload.get("new_record_line") or "—").strip() or "—"
         lines = [f"Old: {old_line}", f"New: {new_line}"]
         url = str(payload.get("record_url") or payload.get("url") or "").strip()
+        if url:
+            lines.append(url)
+        return "\n".join(lines)
+    if event_key == "game_boxscore":
+        star_bits: list[str] = []
+        stars = payload.get("stars") or []
+        if isinstance(stars, list):
+            for idx, star in enumerate(stars[:3], start=1):
+                if not isinstance(star, dict):
+                    continue
+                name = str(star.get("name") or "").strip()
+                if not name:
+                    continue
+                abbr = str(star.get("team_abbr") or "").strip()
+                label = f"{name} ({abbr})" if abbr else name
+                star_bits.append(f"★{idx} {label}")
+        lines: list[str] = []
+        if star_bits:
+            lines.append(" · ".join(star_bits))
+        url = str(payload.get("game_url") or payload.get("url") or "").strip()
         if url:
             lines.append(url)
         return "\n".join(lines)

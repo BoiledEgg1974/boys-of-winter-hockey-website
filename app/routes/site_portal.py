@@ -142,6 +142,7 @@ from app.services.discord_events import (
     get_league_bot_config,
     gm_role_mention_for_league,
     canonical_discord_bot_name,
+    list_game_boxscore_team_channels,
     list_heartbeats,
     list_discord_routes,
     news_article_discord_payload,
@@ -151,6 +152,7 @@ from app.services.discord_events import (
     list_outbound_events,
     team_fields_for_discord,
     update_discord_routes,
+    update_game_boxscore_team_channels,
     update_league_bot_config,
 )
 from app.services.prediction_center import build_prediction_snapshot
@@ -6467,6 +6469,39 @@ def admin_discord_integration():
             commit_with_sqlite_retry(db.session)
             flash("Discord route settings updated.", "ok")
             return redirect(url_for("site_admin.admin_discord_integration"))
+        if action == "save_boxscore_team_channels":
+            team_rows = []
+            for key in request.form:
+                if not str(key).startswith("boxscore_team_id_"):
+                    continue
+                raw_tid = (request.form.get(key) or "").strip()
+                try:
+                    tid = int(raw_tid)
+                except (TypeError, ValueError):
+                    continue
+                team_rows.append(
+                    {
+                        "team_id": tid,
+                        "discord_channel_id": (
+                            request.form.get(f"boxscore_channel_id_{tid}") or ""
+                        ).strip(),
+                        "is_enabled": request.form.get(f"boxscore_enabled_{tid}") == "1",
+                    }
+                )
+            saved_teams = update_game_boxscore_team_channels(
+                db.session, slug, team_rows, int(current_user.id)
+            )
+            db.session.add(
+                AdminAuditLog(
+                    admin_user_id=int(current_user.id),
+                    league_slug=slug,
+                    action="discord_boxscore_team_channels_update",
+                    detail_json=json.dumps({"rows": saved_teams}),
+                )
+            )
+            commit_with_sqlite_retry(db.session)
+            flash("Team boxscore channel settings updated.", "ok")
+            return redirect(url_for("site_admin.admin_discord_integration"))
         if action == "save_bot_config":
             try:
                 update_league_bot_config(
@@ -6623,6 +6658,7 @@ def admin_discord_integration():
     status = (request.args.get("status") or "").strip().lower()
     event_key_filter = (request.args.get("event_key") or "").strip()
     routes = list_discord_routes(db.session, slug)
+    boxscore_team_channels = list_game_boxscore_team_channels(db.session, db.session, slug)
     bot_config = get_league_bot_config(db.session, slug)
     events = list_outbound_events(
         db.session, league_slug=slug, status=status, event_key=event_key_filter, limit=250
@@ -6679,6 +6715,7 @@ def admin_discord_integration():
     return render_template(
         "admin_discord_integration.html",
         routes=routes,
+        boxscore_team_channels=boxscore_team_channels,
         bot_config=bot_config,
         events=events,
         dead_letters=dead_letters,

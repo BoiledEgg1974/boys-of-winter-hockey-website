@@ -778,7 +778,7 @@ def _content_hash(body: str) -> str:
 
 
 def _trade_market_team_gm_mention(session: Session, *, league_slug: str, team_id: int) -> str:
-    """Mention the GM for the listing franchise (FHM id first, then league PK)."""
+    """Mention the GM for the listing franchise (league PK first, then FHM)."""
     from app.models import Team
     from app.services.discord_events import _discord_user_mention_for_franchise
 

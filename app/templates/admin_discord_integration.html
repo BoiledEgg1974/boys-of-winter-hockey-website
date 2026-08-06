@@ -126,7 +126,14 @@
             <td><code>{{ r.event_key }}</code></td>
             <td><input type="text" name="label_{{ r.event_key }}" value="{{ r.label or '' }}" style="min-width:10rem;"></td>
             <td><input type="text" name="channel_{{ r.event_key }}" value="{{ r.channel_key }}" style="min-width:10rem;"></td>
-            <td><input type="text" name="discord_channel_id_{{ r.event_key }}" value="{{ r.discord_channel_id or '' }}" placeholder="Channel snowflake" style="min-width:14rem;"></td>
+            <td>
+              {% if r.event_key == 'game_boxscore' %}
+              <span class="muted">Use team channels below</span>
+              <input type="hidden" name="discord_channel_id_{{ r.event_key }}" value="{{ r.discord_channel_id or '' }}">
+              {% else %}
+              <input type="text" name="discord_channel_id_{{ r.event_key }}" value="{{ r.discord_channel_id or '' }}" placeholder="Channel snowflake" style="min-width:14rem;">
+              {% endif %}
+            </td>
             <td><label><input type="checkbox" name="enabled_{{ r.event_key }}" value="1"{% if r.is_enabled %} checked{% endif %}> enabled</label></td>
             <td></td>
           </tr>
@@ -135,6 +142,42 @@
       </table>
     </div>
     <button type="submit" class="admin-news-body-btn" style="margin-top:0.45rem;">Save Discord routes</button>
+  </form>
+  <h3 style="margin:0.85rem 0 0.35rem;">Team boxscore channels</h3>
+  <p class="muted" style="margin:0 0 0.45rem;">
+    After each import, newly final games post scoreline + three stars + a site link into
+    <strong>both</strong> participating team channels. Enable the master
+    <code>game_boxscore</code> route above, then paste each franchise channel snowflake here.
+    Expansion teams appear automatically when they show up in current-season standings.
+  </p>
+  <form method="post" style="margin:0 0 0.9rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="save_boxscore_team_channels">
+    <div class="table-wrap">
+      <table class="data">
+        <thead><tr><th>Team</th><th>Discord channel ID</th><th>Enabled</th></tr></thead>
+        <tbody>
+          {% for t in boxscore_team_channels %}
+          <tr>
+            <td>
+              <strong>{{ t.team_abbrev }}</strong>
+              <span class="muted">— {{ t.team_name }}</span>
+              <input type="hidden" name="boxscore_team_id_{{ t.team_id }}" value="{{ t.team_id }}">
+            </td>
+            <td>
+              <input type="text" name="boxscore_channel_id_{{ t.team_id }}" value="{{ t.discord_channel_id or '' }}" placeholder="Channel snowflake" style="min-width:14rem;">
+            </td>
+            <td>
+              <label><input type="checkbox" name="boxscore_enabled_{{ t.team_id }}" value="1"{% if t.is_enabled %} checked{% endif %}> enabled</label>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3" class="muted">No teams found yet. Import standings/roster data, then reload this page.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <button type="submit" class="admin-news-body-btn" style="margin-top:0.45rem;">Save team boxscore channels</button>
   </form>
   {% for r in routes %}
   <form method="post" style="display:inline;margin:0 0.35rem 0.35rem 0;" onsubmit="return confirm('Remove route {{ r.event_key }}?');">

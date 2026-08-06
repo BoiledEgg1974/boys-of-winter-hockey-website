@@ -17,6 +17,7 @@ from app.site_models import (
     DiscordDeliveredSource,
     DiscordLeagueBotConfig,
     DiscordOutboundEvent,
+    DiscordTeamChannelRoute,
     GmApprovalRequest,
     GmLeagueMembership,
     LeagueDraft,
@@ -57,6 +58,7 @@ OPS_TEXT_ONLY_DISCORD_EVENT_KEYS = frozenset(
         "playoff_bracket_update",
         "sim_cycle_update",
         "record_broken",
+        "game_boxscore",
     }
 )
 
@@ -65,6 +67,7 @@ BOWL_SIX_EXPORT_LEADERS_EVENT_KEY = "bowl_six_export_leaders"
 PLAYOFF_BRACKET_UPDATE_EVENT_KEY = "playoff_bracket_update"
 GM_EXPORT_TRACKER_POLL_EVENT_KEY = "gm_export_tracker_poll"
 SIM_CYCLE_UPDATE_EVENT_KEY = "sim_cycle_update"
+GAME_BOXSCORE_EVENT_KEY = "game_boxscore"
 
 REPEATABLE_DISCORD_EVENT_KEYS = frozenset(
     {BOWL_SIX_LEADERS_EVENT_KEY, PLAYOFF_BRACKET_UPDATE_EVENT_KEY, SIM_CYCLE_UPDATE_EVENT_KEY}
@@ -105,6 +108,7 @@ DEFAULT_EVENT_KEYS = {
     "sim_cycle_update",
     "gm_export_tracker_poll",
     "record_broken",
+    "game_boxscore",
 }
 
 DEFAULT_EVENT_CHANNEL_KEY = {
@@ -138,6 +142,7 @@ DEFAULT_EVENT_CHANNEL_KEY = {
     "sim_cycle_update": "sim-log",
     "gm_export_tracker_poll": "gm-export-tracker",
     "record_broken": "broken-records",
+    "game_boxscore": "boxscores",
 }
 
 DEFAULT_EVENT_LABELS = {
@@ -171,6 +176,7 @@ DEFAULT_EVENT_LABELS = {
     "sim_cycle_update": "Sim cycle export board (live + closed in #sim-log)",
     "gm_export_tracker_poll": "GM export tracker (read-only poll source)",
     "record_broken": "Record broken (game / season / all-time / team)",
+    "game_boxscore": "Game boxscore — per team channels (IDs below)",
 }
 
 EXPANSION_DRAFT_DISCORD_EVENT_KEYS = frozenset(
@@ -608,24 +614,32 @@ def _discord_user_mention_for_franchise(
     league_slug: str,
     team,
 ) -> str:
-    """Mention the active GM for a franchise (FHM team id first, then league PK)."""
+    """Mention the active GM for a franchise (league PK first, then FHM).
+
+    Cap stores article/membership franchise as ``teams.id``. Preferring PK avoids
+    retargeting when another membership has a stale ``fhm_team_id`` (the recurring
+    Detroit→Atlanta Discord ping failure mode).
+    """
     if team is None:
         return ""
-    fhm = _team_row_fhm_id(team)
-    if fhm:
-        mention = _discord_user_mention_for_fhm_team(
-            session,
-            league_slug=league_slug,
-            fhm_team_id=fhm,
+    tid = _team_row_id(team)
+    if tid is not None:
+        mention = _discord_user_mention_for_team(
+            session, league_slug=league_slug, team_id=tid
         )
         if mention:
             return mention
-    tid = _team_row_id(team)
-    if tid is not None:
-        return _discord_user_mention_for_team(
-            session, league_slug=league_slug, team_id=tid
-        )
-    return ""
+    fhm = _team_row_fhm_id(team)
+    if not fhm:
+        return ""
+    # When the franchise PK is known, require membership.team_id to match so a
+    # wrong FHM on another club (e.g. Atlanta) cannot satisfy the lookup.
+    return _discord_user_mention_for_fhm_team(
+        session,
+        league_slug=league_slug,
+        fhm_team_id=fhm,
+        team_id=tid,
+    )
 
 
 def _discord_user_mention_for_user_id(session, user_id: object) -> str:
@@ -922,7 +936,16 @@ def _sync_team_discord_fields(
 
 def _ensure_team_gm_mention_for_payload(session, *, league_slug: str, payload: dict) -> dict:
     out = dict(payload or {})
-    if str(out.get("gm_mentions") or "").strip():
+    # Dual-GM trade posts set gm_mentions intentionally. News articles must not
+    # keep a stale gm_mentions / team_gm_mention from the queue.
+    if str(out.get("gm_mentions") or "").strip() and out.get("article_id") is None:
+        return out
+    if out.get("article_id") is not None:
+        out.pop("gm_mentions", None)
+    # Per-team boxscore posts intentionally omit GM pings.
+    if out.get("game_id") is not None and out.get("away_team") is not None:
+        out.pop("team_gm_mention", None)
+        out.pop("gm_mentions", None)
         return out
     if out.get("league_wide"):
         return _apply_league_wide_discord_fields(
@@ -1406,6 +1429,222 @@ def list_discord_routes(session, league_slug: str) -> list[DiscordChannelRoute]:
     ).all()
 
 
+def _active_team_ids_for_boxscore_channels(league_session) -> list[int]:
+    """Teams with current-season standings, else all franchise rows."""
+    from app.models import Season, Team, TeamStanding
+
+    current = league_session.scalar(
+        select(Season).where(Season.is_current.is_(True)).limit(1)
+    )
+    if current is not None:
+        standing_ids = list(
+            league_session.scalars(
+                select(TeamStanding.team_id)
+                .where(TeamStanding.season_id == int(current.id))
+                .distinct()
+            ).all()
+        )
+        if standing_ids:
+            return sorted({int(tid) for tid in standing_ids if tid is not None})
+    return sorted(
+        {
+            int(tid)
+            for tid in league_session.scalars(select(Team.id)).all()
+            if tid is not None
+        }
+    )
+
+
+def ensure_game_boxscore_team_channels(
+    site_session,
+    league_session,
+    league_slug: str,
+    *,
+    updated_by_user_id: int | None = None,
+) -> int:
+    """Insert missing per-team boxscore channel rows for active franchises.
+
+    Existing rows (including channel IDs) are never deleted when a team temporarily
+    drops out of standings.
+    """
+    slug = str(league_slug or "").strip()
+    if not slug:
+        return 0
+    ensure_discord_routes(site_session, slug)
+    team_ids = _active_team_ids_for_boxscore_channels(league_session)
+    if not team_ids:
+        return 0
+    existing = {
+        int(r.team_id): r
+        for r in site_session.scalars(
+            select(DiscordTeamChannelRoute).where(
+                DiscordTeamChannelRoute.league_slug == slug,
+                DiscordTeamChannelRoute.event_key == GAME_BOXSCORE_EVENT_KEY,
+            )
+        ).all()
+    }
+    now = datetime.utcnow()
+    created = 0
+    for tid in team_ids:
+        if tid in existing:
+            continue
+        site_session.add(
+            DiscordTeamChannelRoute(
+                league_slug=slug,
+                event_key=GAME_BOXSCORE_EVENT_KEY,
+                team_id=int(tid),
+                discord_channel_id="",
+                is_enabled=True,
+                updated_by_user_id=updated_by_user_id,
+                updated_at=now,
+            )
+        )
+        created += 1
+    if created:
+        from app.sqlite_retry import commit_with_sqlite_retry
+
+        commit_with_sqlite_retry(site_session)
+    return created
+
+
+def list_game_boxscore_team_channels(
+    site_session,
+    league_session,
+    league_slug: str,
+) -> list[dict]:
+    """Admin rows: team label + DiscordTeamChannelRoute settings."""
+    from app.models import Team
+
+    slug = str(league_slug or "").strip()
+    ensure_game_boxscore_team_channels(site_session, league_session, slug)
+    routes = list(
+        site_session.scalars(
+            select(DiscordTeamChannelRoute).where(
+                DiscordTeamChannelRoute.league_slug == slug,
+                DiscordTeamChannelRoute.event_key == GAME_BOXSCORE_EVENT_KEY,
+            )
+        ).all()
+    )
+    team_ids = [int(r.team_id) for r in routes]
+    teams = {
+        int(t.id): t
+        for t in league_session.scalars(select(Team).where(Team.id.in_(team_ids))).all()
+    } if team_ids else {}
+    out: list[dict] = []
+    for r in routes:
+        team = teams.get(int(r.team_id))
+        abbr = str(getattr(team, "abbreviation", "") or "").strip() if team else ""
+        name = ""
+        if team is not None:
+            name_fn = getattr(team, "full_display_name", None)
+            name = str(name_fn() if callable(name_fn) else getattr(team, "name", "") or "").strip()
+        out.append(
+            {
+                "team_id": int(r.team_id),
+                "team_abbrev": abbr or f"#{int(r.team_id)}",
+                "team_name": name or f"Team {int(r.team_id)}",
+                "discord_channel_id": str(r.discord_channel_id or ""),
+                "is_enabled": bool(r.is_enabled),
+            }
+        )
+    out.sort(key=lambda row: (str(row["team_abbrev"]).casefold(), int(row["team_id"])))
+    return out
+
+
+def update_game_boxscore_team_channels(
+    site_session,
+    league_slug: str,
+    rows: list[dict],
+    updated_by_user_id: int | None = None,
+) -> list[dict]:
+    """Persist admin edits for per-team boxscore channel IDs."""
+    slug = str(league_slug or "").strip()
+    ensure_discord_routes(site_session, slug)
+    by_team = {
+        int(r.team_id): r
+        for r in site_session.scalars(
+            select(DiscordTeamChannelRoute).where(
+                DiscordTeamChannelRoute.league_slug == slug,
+                DiscordTeamChannelRoute.event_key == GAME_BOXSCORE_EVENT_KEY,
+            )
+        ).all()
+    }
+    now = datetime.utcnow()
+    saved: list[dict] = []
+    for item in rows or []:
+        try:
+            tid = int(item.get("team_id"))
+        except (TypeError, ValueError):
+            continue
+        row = by_team.get(tid)
+        if row is None:
+            row = DiscordTeamChannelRoute(
+                league_slug=slug,
+                event_key=GAME_BOXSCORE_EVENT_KEY,
+                team_id=tid,
+                discord_channel_id="",
+                is_enabled=True,
+                updated_by_user_id=updated_by_user_id,
+                updated_at=now,
+            )
+            site_session.add(row)
+            by_team[tid] = row
+        cid = str(item.get("discord_channel_id") or "").strip()
+        if cid and not DISCORD_SNOWFLAKE_PATTERN.match(cid):
+            # Keep previous value if the pasted ID is clearly invalid.
+            cid = str(row.discord_channel_id or "").strip()
+        row.discord_channel_id = cid[:32]
+        row.is_enabled = bool(item.get("is_enabled", True))
+        row.updated_by_user_id = updated_by_user_id
+        row.updated_at = now
+        saved.append(
+            {
+                "team_id": tid,
+                "discord_channel_id": str(row.discord_channel_id or ""),
+                "is_enabled": bool(row.is_enabled),
+            }
+        )
+    from app.sqlite_retry import commit_with_sqlite_retry
+
+    commit_with_sqlite_retry(site_session)
+    return saved
+
+
+def resolve_game_boxscore_team_channel_id(
+    session,
+    *,
+    league_slug: str,
+    team_id: int | None,
+) -> str:
+    """Return the Discord channel snowflake for a franchise boxscore post."""
+    slug = str(league_slug or "").strip()
+    if not slug or team_id is None:
+        return ""
+    try:
+        tid = int(team_id)
+    except (TypeError, ValueError):
+        return ""
+    ensure_discord_routes(session, slug)
+    master = _route_map(session, slug).get(GAME_BOXSCORE_EVENT_KEY)
+    if master is None or not bool(master.is_enabled):
+        return ""
+    bot_cfg = get_league_bot_config(session, slug)
+    if not bool(bot_cfg.is_enabled):
+        return ""
+    row = session.scalar(
+        select(DiscordTeamChannelRoute)
+        .where(
+            DiscordTeamChannelRoute.league_slug == slug,
+            DiscordTeamChannelRoute.event_key == GAME_BOXSCORE_EVENT_KEY,
+            DiscordTeamChannelRoute.team_id == tid,
+        )
+        .limit(1)
+    )
+    if row is None or not bool(row.is_enabled):
+        return ""
+    return str(row.discord_channel_id or "").strip()
+
+
 def get_league_bot_config(session, league_slug: str) -> DiscordLeagueBotConfig:
     _ensure_discord_bot_config_columns(session)
     row = session.scalar(
@@ -1721,6 +1960,10 @@ def is_discord_event_route_active(
     bot_cfg = get_league_bot_config(session, league_slug)
     if not bool(bot_cfg.is_enabled):
         return False
+    # Per-team boxscore channels live on DiscordTeamChannelRoute; master route
+    # discord_channel_id is unused (enable/disable only).
+    if key == GAME_BOXSCORE_EVENT_KEY:
+        return True
     cid = str(getattr(route, "discord_channel_id", None) or "").strip()
     return bool(cid)
 
@@ -1963,13 +2206,21 @@ def serialize_pending_events_for_bot(
         delivery = bot_event_delivery_fields_cached(
             routes, bot_cfg, event_key=str(r.event_key or "")
         )
+        discord_channel_id = delivery.get("discord_channel_id") or ""
+        if str(r.event_key or "") == GAME_BOXSCORE_EVENT_KEY:
+            team_id = None
+            if isinstance(payload, dict):
+                team_id = payload.get("team_id")
+            discord_channel_id = resolve_game_boxscore_team_channel_id(
+                session, league_slug=league_slug, team_id=team_id
+            )
         out.append(
             {
                 "id": int(r.id),
                 "league_slug": str(r.league_slug or ""),
                 "event_key": str(r.event_key or ""),
                 "channel_key": str(r.channel_key or ""),
-                "discord_channel_id": delivery.get("discord_channel_id") or "",
+                "discord_channel_id": discord_channel_id,
                 "guild_id": delivery.get("guild_id") or guild_default,
                 "idempotency_key": str(r.idempotency_key or ""),
                 "payload": payload,

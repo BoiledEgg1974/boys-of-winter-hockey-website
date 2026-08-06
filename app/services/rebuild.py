@@ -187,6 +187,20 @@ def refresh_after_import(engine, app=None) -> None:
                             slug,
                             notify_stats,
                         )
+                        from app.services.game_boxscore_discord import (
+                            notify_game_boxscores_after_import,
+                        )
+
+                        box_stats = notify_game_boxscores_after_import(
+                            db.session,
+                            db.session,
+                            league_slug=slug,
+                        )
+                        _log.info(
+                            "Game boxscore Discord after import for %s: %s",
+                            slug,
+                            box_stats,
+                        )
                     commit_with_sqlite_retry(db.session)
         except Exception:
             _log.exception("post-import hooks failed (non-fatal)")

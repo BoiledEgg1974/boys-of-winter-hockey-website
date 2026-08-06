@@ -138,12 +138,14 @@ from app.services.discord_events import (
     build_league_public_url,
     build_news_article_public_url,
     delete_discord_route,
+    discord_team_channel_map,
     enqueue_discord_event,
     get_league_bot_config,
     gm_role_mention_for_league,
     canonical_discord_bot_name,
     list_heartbeats,
     list_discord_routes,
+    list_discord_team_channels,
     news_article_discord_payload,
     resolve_news_article_team,
     trade_request_discord_payload,
@@ -151,6 +153,7 @@ from app.services.discord_events import (
     list_outbound_events,
     team_fields_for_discord,
     update_discord_routes,
+    update_discord_team_channels,
     update_league_bot_config,
 )
 from app.services.prediction_center import build_prediction_snapshot
@@ -6467,6 +6470,37 @@ def admin_discord_integration():
             commit_with_sqlite_retry(db.session)
             flash("Discord route settings updated.", "ok")
             return redirect(url_for("site_admin.admin_discord_integration"))
+        if action == "save_team_channels":
+            teams = db.session.scalars(select(Team).order_by(Team.name)).all()
+            rows = []
+            for t in teams:
+                key = str(int(t.id))
+                rows.append(
+                    {
+                        "team_id": int(t.id),
+                        "discord_channel_id": (
+                            request.form.get(f"team_channel_id_{key}") or ""
+                        ).strip(),
+                    }
+                )
+            try:
+                saved = update_discord_team_channels(
+                    db.session, slug, rows, int(current_user.id)
+                )
+            except ValueError as exc:
+                flash(str(exc), "err")
+                return redirect(url_for("site_admin.admin_discord_integration"))
+            db.session.add(
+                AdminAuditLog(
+                    admin_user_id=int(current_user.id),
+                    league_slug=slug,
+                    action="discord_team_channels_update",
+                    detail_json=json.dumps({"saved": int(saved)}),
+                )
+            )
+            commit_with_sqlite_retry(db.session)
+            flash("GM team Discord channels updated.", "ok")
+            return redirect(url_for("site_admin.admin_discord_integration"))
         if action == "save_bot_config":
             try:
                 update_league_bot_config(
@@ -6624,6 +6658,22 @@ def admin_discord_integration():
     event_key_filter = (request.args.get("event_key") or "").strip()
     routes = list_discord_routes(db.session, slug)
     bot_config = get_league_bot_config(db.session, slug)
+    team_channel_map = discord_team_channel_map(db.session, slug)
+    # Include blank rows so the form can clear channels; map only has non-blank.
+    team_channel_rows = {
+        int(r.team_id): str(r.discord_channel_id or "")
+        for r in list_discord_team_channels(db.session, slug)
+    }
+    league_teams = db.session.scalars(select(Team).order_by(Team.name)).all()
+    gm_box_score_route = next(
+        (r for r in routes if str(r.event_key) == "gm_box_score"),
+        None,
+    )
+    gm_box_score_ready = bool(
+        gm_box_score_route
+        and gm_box_score_route.is_enabled
+        and team_channel_map
+    )
     events = list_outbound_events(
         db.session, league_slug=slug, status=status, event_key=event_key_filter, limit=250
     )
@@ -6694,6 +6744,10 @@ def admin_discord_integration():
         sim_tracker_ready=sim_tracker_ready,
         sim_cycle_phase=sim_cycle_phase,
         site_public_base_url=str(current_app.config.get("SITE_PUBLIC_BASE_URL") or "").strip().rstrip("/"),
+        league_teams=league_teams,
+        team_channel_rows=team_channel_rows,
+        gm_box_score_ready=gm_box_score_ready,
+        gm_team_channel_count=len(team_channel_map),
     )
 
 

@@ -642,6 +642,24 @@ class DiscordChannelRoute(db.Model):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
 
+class DiscordTeamChannel(db.Model):
+    """Per-franchise Discord channel for GM-only box score posts."""
+
+    __tablename__ = "discord_team_channels"
+    __bind_key__ = "site"
+    __table_args__ = (
+        UniqueConstraint("league_slug", "team_id", name="uq_discord_team_channel_league_team"),
+        Index("ix_discord_team_channel_league", "league_slug"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    team_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    discord_channel_id: Mapped[str] = mapped_column(String(32), default="", nullable=False)
+    updated_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class DiscordLeagueBotConfig(db.Model):
     __tablename__ = "discord_league_bot_config"
     __bind_key__ = "site"

@@ -17,6 +17,7 @@ from app.site_models import (
     DiscordDeliveredSource,
     DiscordLeagueBotConfig,
     DiscordOutboundEvent,
+    DiscordTeamChannel,
     GmApprovalRequest,
     GmLeagueMembership,
     LeagueDraft,
@@ -27,6 +28,8 @@ from app.site_models import (
     StaffChangeRequest,
     User,
 )
+
+GM_BOX_SCORE_EVENT_KEY = "gm_box_score"
 
 NEWS_DISCORD_EVENT_KEYS = frozenset(
     {
@@ -105,6 +108,7 @@ DEFAULT_EVENT_KEYS = {
     "sim_cycle_update",
     "gm_export_tracker_poll",
     "record_broken",
+    "gm_box_score",
 }
 
 DEFAULT_EVENT_CHANNEL_KEY = {
@@ -138,6 +142,7 @@ DEFAULT_EVENT_CHANNEL_KEY = {
     "sim_cycle_update": "sim-log",
     "gm_export_tracker_poll": "gm-export-tracker",
     "record_broken": "broken-records",
+    "gm_box_score": "gm-box-scores",
 }
 
 DEFAULT_EVENT_LABELS = {
@@ -171,6 +176,7 @@ DEFAULT_EVENT_LABELS = {
     "sim_cycle_update": "Sim cycle export board (live + closed in #sim-log)",
     "gm_export_tracker_poll": "GM export tracker (read-only poll source)",
     "record_broken": "Record broken (game / season / all-time / team)",
+    "gm_box_score": "GM box scores (per-team private channels)",
 }
 
 EXPANSION_DRAFT_DISCORD_EVENT_KEYS = frozenset(
@@ -1930,6 +1936,92 @@ def bot_event_delivery_fields_cached(
     }
 
 
+def _payload_discord_channel_id(payload: dict) -> str:
+    """Optional per-delivery channel override (e.g. GM box scores to team channels)."""
+    cid = str((payload or {}).get("discord_channel_id") or "").strip()
+    if cid and DISCORD_SNOWFLAKE_PATTERN.match(cid):
+        return cid
+    return ""
+
+
+def list_discord_team_channels(session, league_slug: str) -> list[DiscordTeamChannel]:
+    slug = str(league_slug or "").strip()
+    if not slug:
+        return []
+    return list(
+        session.scalars(
+            select(DiscordTeamChannel)
+            .where(DiscordTeamChannel.league_slug == slug)
+            .order_by(DiscordTeamChannel.team_id.asc())
+        ).all()
+    )
+
+
+def discord_team_channel_map(session, league_slug: str) -> dict[int, str]:
+    """team_id -> discord_channel_id for configured (non-blank) franchise channels."""
+    out: dict[int, str] = {}
+    for row in list_discord_team_channels(session, league_slug):
+        cid = str(row.discord_channel_id or "").strip()
+        if not cid:
+            continue
+        try:
+            tid = int(row.team_id)
+        except (TypeError, ValueError):
+            continue
+        out[tid] = cid
+    return out
+
+
+def update_discord_team_channels(
+    session,
+    league_slug: str,
+    rows: list[dict],
+    updated_by_user_id: int | None = None,
+) -> int:
+    """Upsert per-team channel IDs. Blank clears/disables a franchise channel."""
+    slug = str(league_slug or "").strip()
+    if not slug:
+        return 0
+    existing = {
+        int(r.team_id): r
+        for r in list_discord_team_channels(session, slug)
+        if r.team_id is not None
+    }
+    saved = 0
+    now = datetime.utcnow()
+    for raw in rows:
+        try:
+            tid = int(raw.get("team_id"))
+        except (TypeError, ValueError):
+            continue
+        if tid <= 0:
+            continue
+        cid = str(raw.get("discord_channel_id") or "").strip()
+        if cid and not is_valid_discord_channel_id(cid):
+            raise ValueError(f"Invalid Discord channel ID for team {tid}")
+        row = existing.get(tid)
+        if row is None:
+            if not cid:
+                continue
+            row = DiscordTeamChannel(
+                league_slug=slug,
+                team_id=tid,
+                discord_channel_id=cid,
+                updated_by_user_id=updated_by_user_id,
+                updated_at=now,
+            )
+            session.add(row)
+            saved += 1
+            continue
+        if str(row.discord_channel_id or "") != cid:
+            row.discord_channel_id = cid
+            row.updated_by_user_id = updated_by_user_id
+            row.updated_at = now
+            saved += 1
+    session.flush()
+    return saved
+
+
 def serialize_pending_events_for_bot(
     session,
     *,
@@ -1944,6 +2036,9 @@ def serialize_pending_events_for_bot(
     for r in rows:
         try:
             raw_payload = json.loads(r.payload_json or "{}")
+        except Exception:
+            raw_payload = {}
+        try:
             payload = enrich_discord_payload_for_bot(
                 session,
                 league_slug=league_slug,
@@ -1963,13 +2058,18 @@ def serialize_pending_events_for_bot(
         delivery = bot_event_delivery_fields_cached(
             routes, bot_cfg, event_key=str(r.event_key or "")
         )
+        # Prefer payload override (per-team GM channels) over the league-wide route map.
+        override_cid = _payload_discord_channel_id(
+            payload if isinstance(payload, dict) else {}
+        ) or _payload_discord_channel_id(raw_payload if isinstance(raw_payload, dict) else {})
+        channel_id = override_cid or (delivery.get("discord_channel_id") or "")
         out.append(
             {
                 "id": int(r.id),
                 "league_slug": str(r.league_slug or ""),
                 "event_key": str(r.event_key or ""),
                 "channel_key": str(r.channel_key or ""),
-                "discord_channel_id": delivery.get("discord_channel_id") or "",
+                "discord_channel_id": channel_id,
                 "guild_id": delivery.get("guild_id") or guild_default,
                 "idempotency_key": str(r.idempotency_key or ""),
                 "payload": payload,

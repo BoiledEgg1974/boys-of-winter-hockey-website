@@ -53,6 +53,7 @@ ALWAYS_TEXT_ONLY_DISCORD_EVENT_KEYS = frozenset(
         "playoff_predictions",
         "playoff_bracket_update",
         "record_broken",
+        "gm_box_score",
     }
 )
 
@@ -358,6 +359,9 @@ def _text_only_header_lines(
         record_title = str(payload.get("record_title") or title or "").strip()
         if record_title:
             lines.append(f"**{record_title}**")
+    elif event_key == "gm_box_score":
+        # Full formatted box score lives in payload body (includes title).
+        return []
     else:
         lines.append(f"**{title}**")
     return lines

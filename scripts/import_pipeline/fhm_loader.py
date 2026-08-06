@@ -628,6 +628,9 @@ def import_games(
     if app is not None and newly_final_game_ids:
         try:
             from app.services.bowl_six import record_bowl_six_game_finals
+            from app.services.gm_box_score_discord import stash_newly_final_game_ids
+
+            stash_newly_final_game_ids(newly_final_game_ids)
 
             def _record_bowl_six_finals() -> int:
                 return record_bowl_six_game_finals(

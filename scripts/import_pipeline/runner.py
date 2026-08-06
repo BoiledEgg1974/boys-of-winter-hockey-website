@@ -484,6 +484,9 @@ def import_games(raw_dir: Path, app) -> int:
     if newly_final_game_ids:
         try:
             from app.services.bowl_six import record_bowl_six_game_finals
+            from app.services.gm_box_score_discord import stash_newly_final_game_ids
+
+            stash_newly_final_game_ids(newly_final_game_ids)
 
             record_bowl_six_game_finals(
                 db.session,

@@ -2791,6 +2791,36 @@ def ensure_discord_outbound_sqlite(engine: Engine) -> None:
                     "ON discord_delivered_sources (league_slug, delivered_at)"
                 )
             )
+        has_team_channels = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='discord_team_channels'")
+        ).fetchone()
+        if not has_team_channels:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE discord_team_channels (
+                        id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                        league_slug VARCHAR(64) NOT NULL,
+                        team_id INTEGER NOT NULL,
+                        discord_channel_id VARCHAR(32) NOT NULL DEFAULT '',
+                        updated_by_user_id INTEGER,
+                        updated_at DATETIME NOT NULL
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX uq_discord_team_channel_league_team "
+                    "ON discord_team_channels (league_slug, team_id)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX ix_discord_team_channel_league "
+                    "ON discord_team_channels (league_slug)"
+                )
+            )
         conn.commit()
 
 

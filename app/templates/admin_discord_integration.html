@@ -66,6 +66,11 @@
           <td>{% if sim_tracker_ready %}<span style="color:#0a7d28;font-weight:700;">Green</span>{% else %}<span style="color:#b42318;font-weight:700;">Red</span>{% endif %}</td>
           <td>{% if sim_tracker_ready %}<code>gm_export_tracker_poll</code> route has a channel ID{% else %}Set <code>gm_export_tracker_poll</code> → <code>#gm-export-tracker</code> channel snowflake{% endif %}</td>
         </tr>
+        <tr>
+          <td>GM box scores — per-team channels</td>
+          <td>{% if gm_box_score_ready %}<span style="color:#0a7d28;font-weight:700;">Green</span>{% else %}<span style="color:#b42318;font-weight:700;">Red</span>{% endif %}</td>
+          <td>{% if gm_box_score_ready %}<code>gm_box_score</code> enabled with {{ gm_team_channel_count }} team channel(s){% else %}Enable <code>gm_box_score</code> and paste GM team channel IDs below{% endif %}</td>
+        </tr>
       </tbody>
     </table>
   </div>
@@ -136,6 +141,43 @@
     </div>
     <button type="submit" class="admin-news-body-btn" style="margin-top:0.45rem;">Save Discord routes</button>
   </form>
+
+  <h3 style="margin:0.85rem 0 0.35rem;">GM team channels</h3>
+  <p class="muted" style="margin:0 0 0.45rem;">
+    Paste each franchise’s private GM Discord channel snowflake. When a sim/import finalizes a game,
+    the news bot posts an enriched box score into <strong>both</strong> the home and away team channels
+    (event key <code>gm_box_score</code>). Leave blank to skip that franchise.
+  </p>
+  <form method="post" style="margin:0 0 0.9rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="save_team_channels">
+    <div class="table-wrap">
+      <table class="data">
+        <thead><tr><th>Team</th><th>Abbr</th><th>Discord channel ID</th></tr></thead>
+        <tbody>
+          {% for t in league_teams %}
+          <tr>
+            <td>{{ t.full_display_name() }}</td>
+            <td><code>{{ t.abbreviation }}</code></td>
+            <td>
+              <input
+                type="text"
+                name="team_channel_id_{{ t.id }}"
+                value="{{ team_channel_rows.get(t.id, '') }}"
+                placeholder="Channel snowflake"
+                style="min-width:16rem;"
+              >
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3" class="muted">No teams found in this league database.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <button type="submit" class="admin-news-body-btn" style="margin-top:0.45rem;">Save GM team channels</button>
+  </form>
+
   {% for r in routes %}
   <form method="post" style="display:inline;margin:0 0.35rem 0.35rem 0;" onsubmit="return confirm('Remove route {{ r.event_key }}?');">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

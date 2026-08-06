@@ -40,8 +40,11 @@ Ack: `POST /api/discord/events/<id>/ack` — marks sent and records `source_type
 | `control_center_restore` | `staff-ops-alerts` | Control Center backup restore succeeds |
 | `bowl_six_leaders_update` | `bowl-six-leaders` | BOWL Six top performers + GM week/season leaders (first post, then **edit** same message) |
 | `playoff_bracket_update` | `playoff-bracket` | Live playoff bracket — **one message per series**, each **edited in place** when scores change after import or bot poll |
+| `gm_box_score` | `gm-box-scores` | Per-team GM box scores after import finals — channel ID comes from **GM team channels** map (payload override), not the route’s channel ID |
 
 Payloads include `source_type` and `source_id` for idempotency where applicable.
+
+**GM box scores:** After FHM import marks games **final**, the site enqueues one `gm_box_score` event per participating franchise that has a channel snowflake on **Admin → Discord integration → GM team channels**. Idempotency key uses `source_type=gm_box_score` and `source_id={game_id}:{team_id}`. Enable the `gm_box_score` route (channel ID on the route may stay blank). Pending delivery prefers `payload.discord_channel_id` over the route map.
 
 **BOWL Six leaders:** Queued when slate scores/stats change (hub load, import, control center, and **bot poll** every ~60s via a lightweight leaders refresh). Configure the route on each league’s **Admin → Discord integration**. The bot **PATCH**es the same embed when `payload.edit_message_id` is set (no new message at the bottom of the channel). Set `BOWL_SIX_DISCORD_POLL_AUTO_UPDATE=1` only if you also want full slate finalization on every poll.
 

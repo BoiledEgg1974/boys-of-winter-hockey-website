@@ -8,9 +8,10 @@ NEWS_CATEGORY_CHOICES_GM: list[tuple[str, str]] = [
     ("contract_news", "Contract News"),
     ("awards", "Awards"),
     ("injury_news", "Injury News"),
+    ("milestone", "Milestone"),
 ]
 
-# Admin compose adds a sixth option; selecting it notifies every active GM in the league.
+# Admin compose adds an extra option; selecting it notifies every active GM in the league.
 NEWS_CATEGORY_ADMIN_SUBMISSION = "admin_submission"
 
 NEWS_CATEGORY_CHOICES_ADMIN: list[tuple[str, str]] = [

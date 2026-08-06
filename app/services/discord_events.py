@@ -608,24 +608,32 @@ def _discord_user_mention_for_franchise(
     league_slug: str,
     team,
 ) -> str:
-    """Mention the active GM for a franchise (FHM team id first, then league PK)."""
+    """Mention the active GM for a franchise (league PK first, then FHM).
+
+    Cap stores article/membership franchise as ``teams.id``. Preferring PK avoids
+    retargeting when another membership has a stale ``fhm_team_id`` (the recurring
+    Detroit→Atlanta Discord ping failure mode).
+    """
     if team is None:
         return ""
-    fhm = _team_row_fhm_id(team)
-    if fhm:
-        mention = _discord_user_mention_for_fhm_team(
-            session,
-            league_slug=league_slug,
-            fhm_team_id=fhm,
+    tid = _team_row_id(team)
+    if tid is not None:
+        mention = _discord_user_mention_for_team(
+            session, league_slug=league_slug, team_id=tid
         )
         if mention:
             return mention
-    tid = _team_row_id(team)
-    if tid is not None:
-        return _discord_user_mention_for_team(
-            session, league_slug=league_slug, team_id=tid
-        )
-    return ""
+    fhm = _team_row_fhm_id(team)
+    if not fhm:
+        return ""
+    # When the franchise PK is known, require membership.team_id to match so a
+    # wrong FHM on another club (e.g. Atlanta) cannot satisfy the lookup.
+    return _discord_user_mention_for_fhm_team(
+        session,
+        league_slug=league_slug,
+        fhm_team_id=fhm,
+        team_id=tid,
+    )
 
 
 def _discord_user_mention_for_user_id(session, user_id: object) -> str:
@@ -922,8 +930,12 @@ def _sync_team_discord_fields(
 
 def _ensure_team_gm_mention_for_payload(session, *, league_slug: str, payload: dict) -> dict:
     out = dict(payload or {})
-    if str(out.get("gm_mentions") or "").strip():
+    # Dual-GM trade posts set gm_mentions intentionally. News articles must not
+    # keep a stale gm_mentions / team_gm_mention from the queue.
+    if str(out.get("gm_mentions") or "").strip() and out.get("article_id") is None:
         return out
+    if out.get("article_id") is not None:
+        out.pop("gm_mentions", None)
     if out.get("league_wide"):
         return _apply_league_wide_discord_fields(
             session, league_slug=league_slug, payload=out

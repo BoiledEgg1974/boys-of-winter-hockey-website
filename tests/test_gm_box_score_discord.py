@@ -16,7 +16,6 @@ from app.services.discord_events import (
     serialize_pending_events_for_bot,
 )
 from app.services.gm_box_score_discord import (
-    build_gm_box_score_payload,
     build_gm_box_score_text,
     drain_stashed_newly_final_game_ids,
     enqueue_gm_box_scores_for_games,

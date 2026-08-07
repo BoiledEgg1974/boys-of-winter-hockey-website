@@ -1,6 +1,10 @@
 """Racer roster sync and CSV name resolution for racing mounts."""
 from __future__ import annotations
 
+import os
+import re
+from pathlib import Path
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -181,3 +185,130 @@ def add_manual_alias(session: Session, racer_id: int, alias: str) -> RacingNameA
     if row is None:
         raise ValueError("Alias already mapped to another racer")
     return row
+
+
+DEFAULT_ROSTER_TXT_PATHS: dict[str, str] = {
+    "bowl-formula": r"C:\Users\keeno\OneDrive\Desktop\Formula BOWL\game\data\roster.txt",
+    "bowl-demolition": r"C:\Users\keeno\OneDrive\Desktop\BOWL Demotion Derby\names\roster.txt",
+}
+
+
+def default_roster_txt_path(league_slug: str) -> Path:
+    slug = str(league_slug or "").strip()
+    env_key = f"BOWL_RACING_ROSTER_{slug.replace('-', '_').upper()}"
+    raw = (os.environ.get(env_key) or DEFAULT_ROSTER_TXT_PATHS.get(slug) or "").strip().strip('"')
+    return Path(raw).expanduser() if raw else Path()
+
+
+def parse_roster_txt(path: Path) -> list[dict[str, object]]:
+    """Parse Formula (``N|Name``) or Demolition (one name per line) roster.txt files."""
+    text = path.read_text(encoding="utf-8", errors="replace")
+    out: list[dict[str, object]] = []
+    auto_num = 0
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        car_number: int | None = None
+        name = line
+        m = re.match(r"^(\d+)\s*[|:]\s*(.+)$", line)
+        if m:
+            car_number = int(m.group(1))
+            name = m.group(2).strip()
+        else:
+            m2 = re.match(r"^(.+?)\s*[|:]\s*#?(\d+)\s*$", line)
+            if m2:
+                name = m2.group(1).strip()
+                car_number = int(m2.group(2))
+        name = name.strip()
+        if not name:
+            continue
+        if car_number is None:
+            auto_num += 1
+            car_number = auto_num
+        out.append({"name": name, "car_number": car_number})
+    return out
+
+
+def _find_racer_for_roster_name(session: Session, name: str) -> RacingRacer | None:
+    key = normalize_name_key(name)
+    if not key:
+        return None
+    hit = resolve_racer_by_name(session, name)
+    if hit is not None:
+        return hit
+    # Case/spacing-insensitive match against display names.
+    for racer in session.scalars(select(RacingRacer)).all():
+        if normalize_name_key(racer.display_name) == key:
+            return racer
+    return None
+
+
+def link_roster_txt(
+    session: Session,
+    path: Path,
+    *,
+    create_unmatched: bool = True,
+) -> dict[str, object]:
+    """Link game roster.txt names onto RacingRacer rows (aliases + optional stubs).
+
+    Does not overwrite existing ``user_id`` / AP targets. New stubs are created
+    without Cap/Hist links so admins can attach them later.
+    """
+    path = Path(path)
+    if not path.is_file():
+        raise FileNotFoundError(f"Roster file not found: {path}")
+    entries = parse_roster_txt(path)
+    linked = 0
+    aliased = 0
+    created = 0
+    conflicts: list[str] = []
+    unmatched: list[str] = []
+
+    for entry in entries:
+        name = str(entry.get("name") or "").strip()
+        if not name:
+            continue
+        racer = _find_racer_for_roster_name(session, name)
+        if racer is None:
+            if not create_unmatched:
+                unmatched.append(name)
+                continue
+            display = name
+            base = display
+            suffix = 2
+            while session.scalar(
+                select(RacingRacer.id).where(RacingRacer.display_name == display).limit(1)
+            ):
+                display = f"{base} ({suffix})"
+                suffix += 1
+            racer = RacingRacer(
+                display_name=display,
+                user_id=None,
+                ap_league_slug=None,
+                ap_team_id=None,
+                is_active=True,
+                notes="Created from game roster.txt",
+            )
+            session.add(racer)
+            session.flush()
+            created += 1
+        else:
+            linked += 1
+        row = ensure_alias(session, racer, name)
+        if row is None:
+            conflicts.append(name)
+        else:
+            aliased += 1
+        # Keep primary display alias as well.
+        ensure_alias(session, racer, racer.display_name)
+
+    return {
+        "path": str(path),
+        "entries": len(entries),
+        "linked": linked,
+        "aliased": aliased,
+        "created": created,
+        "conflicts": conflicts,
+        "unmatched": unmatched,
+    }

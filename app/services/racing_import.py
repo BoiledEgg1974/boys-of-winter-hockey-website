@@ -584,11 +584,50 @@ def import_csv_file(session: Session, path: Path, *, league_slug: str) -> dict[s
     return detail
 
 
+def _ensure_roster_txt_in_raw_dir(raw_dir: Path, *, league_slug: str) -> Path | None:
+    """Prefer ``raw_dir/roster.txt``; otherwise copy from the Desktop game path when present."""
+    import shutil
+
+    from app.services.racing_racers import default_roster_txt_path
+
+    dest = raw_dir / "roster.txt"
+    if dest.is_file():
+        return dest
+    live = default_roster_txt_path(league_slug)
+    if live.is_file():
+        raw_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(live, dest)
+        return dest
+    return None
+
+
 def import_all_from_raw_dir(session: Session, *, league_slug: str | None = None) -> list[dict[str, Any]]:
     slug = league_slug or str(current_app.config.get("LEAGUE_SLUG") or "")
     ensure_default_reward_tiers(session, league_slug=slug)
     raw_dir = Path(current_app.config["RAW_IMPORT_DIR"])
     results: list[dict[str, Any]] = []
+
+    # Roster first so CSV driver/controller names resolve to racers.
+    from app.services.racing_racers import link_roster_txt
+
+    roster_path = _ensure_roster_txt_in_raw_dir(raw_dir, league_slug=slug)
+    if roster_path is not None:
+        try:
+            stats = link_roster_txt(session, roster_path, create_unmatched=True)
+            results.append(
+                {
+                    "kind": "roster",
+                    "file": roster_path.name,
+                    "entries": stats.get("entries"),
+                    "linked": stats.get("linked"),
+                    "created": stats.get("created"),
+                    "aliased": stats.get("aliased"),
+                    "conflicts": stats.get("conflicts") or [],
+                }
+            )
+        except Exception as exc:
+            results.append({"kind": "roster", "file": "roster.txt", "error": str(exc)})
+
     # Process standings after results when possible
     files = list_export_csvs(raw_dir)
     priority = {

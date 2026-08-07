@@ -1,13 +1,36 @@
 {% extends "base.html" %}
-{% block title %}Racers admin — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block title %}Racers admin ? {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
 {% block content %}
 <section class="card">
   <p><a href="{{ url_for('racing.admin_home') }}">&larr; Racing admin</a></p>
   <h1 class="page-title">Racer roster</h1>
-  <form method="post" style="margin-bottom:1rem;">
+  <p class="muted">
+    Cap / Historical GMs are site members on Formula and Demolition automatically.
+    Sync pulls Cap (+ Historical-only) identities for AP links. Normal imports also re-link the game
+    <code>roster.txt</code> adds in-game driver names as aliases (and optional stubs).
+  </p>
+  <form method="post" style="margin-bottom:0.75rem;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="sync">
     <button type="submit" class="btn">Sync from Cap GMs (+ Historical-only)</button>
+  </form>
+  <form method="post" class="card" style="margin-bottom:1rem;padding:0.85rem 1rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="link_roster">
+    <h2 style="margin:0 0 0.35rem;font-size:1.05rem;">Re-link game roster.txt (manual)</h2>
+    <p class="muted" style="margin:0 0 0.5rem;">
+      Default path:
+      <code>{{ roster_txt_path or 'not configured' }}</code>
+      {% if roster_txt_exists %}<span class="muted">(found)</span>{% else %}<span class="muted">(missing)</span>{% endif %}
+    </p>
+    <label style="display:block;margin-bottom:0.45rem;">Override path
+      <input type="text" name="roster_path" value="" placeholder="Leave blank to use default" style="width:100%;max-width:40rem;">
+    </label>
+    <label style="display:block;margin-bottom:0.55rem;">
+      <input type="checkbox" name="create_unmatched" value="1" checked>
+      Create stub racers for unmatched names (no Cap/Hist AP link yet)
+    </label>
+    <button type="submit" class="btn">Link roster.txt</button>
   </form>
   <table class="data-table racing-table">
     <thead>
@@ -24,19 +47,19 @@
       {% for r in racers %}
       <tr>
         <td>{{ r.display_name }}</td>
-        <td>{{ r.user_id or '—' }}</td>
-        <td>{{ r.ap_league_slug or '—' }} {% if r.ap_team_id %}#{{ r.ap_team_id }}{% endif %}</td>
+        <td>{{ r.user_id or '?' }}</td>
+        <td>{{ r.ap_league_slug or '?' }} {% if r.ap_team_id %}#{{ r.ap_team_id }}{% endif %}</td>
         <td>
           {% for a in aliases.get(r.id, []) %}
             <code>{{ a.alias }}</code>{% if not loop.last %}, {% endif %}
-          {% else %}—{% endfor %}
+          {% else %}?{% endfor %}
         </td>
         <td>
           <form method="post" class="inline-form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="action" value="alias">
             <input type="hidden" name="racer_id" value="{{ r.id }}">
-            <input type="text" name="alias" placeholder="CSV name" required>
+            <input type="text" name="alias" placeholder="CSV / roster name" required>
             <button type="submit" class="btn secondary">Add</button>
           </form>
         </td>
@@ -55,7 +78,7 @@
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="6" class="muted">No racers — run sync.</td></tr>
+      <tr><td colspan="6" class="muted">No racers ? run Cap sync and/or link roster.txt.</td></tr>
       {% endfor %}
     </tbody>
   </table>

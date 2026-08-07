@@ -39,6 +39,8 @@ from app.services.racing_import import import_all_from_raw_dir, import_csv_file
 from app.services.racing_tracks import track_image_url
 from app.services.racing_racers import (
     add_manual_alias,
+    default_roster_txt_path,
+    link_roster_txt,
     list_racers,
     set_racer_ap_target,
     sync_racers_from_cap,
@@ -207,28 +209,38 @@ def admin_import():
             if action == "scan":
                 results = import_all_from_raw_dir(db.session, league_slug=_slug())
             else:
-                results = []
                 files = request.files.getlist("csv_files")
                 for f in files:
                     if not f or not f.filename:
                         continue
                     name = secure_filename(f.filename)
-                    if not name.lower().endswith(".csv"):
+                    lower = name.lower()
+                    if lower == "roster.txt" or (lower.endswith(".txt") and "roster" in lower):
+                        f.save(raw_dir / "roster.txt")
                         continue
-                    dest = raw_dir / name
-                    f.save(dest)
-                    results.append(import_csv_file(db.session, dest, league_slug=_slug()))
-                if not results:
-                    results = import_all_from_raw_dir(db.session, league_slug=_slug())
+                    if not lower.endswith(".csv"):
+                        continue
+                    f.save(raw_dir / name)
+                # Full raw-dir import links roster.txt first, then all CSVs.
+                results = import_all_from_raw_dir(db.session, league_slug=_slug())
             commit_with_sqlite_retry(db.session)
             enqueue_after_import(db.session, league_slug=_slug(), import_results=results)
             commit_with_sqlite_retry(db.session)
-            flash(f"Import complete ({len(results)} file(s)).", "success")
+            roster_bits = [r for r in results if r.get("kind") == "roster"]
+            csv_bits = [r for r in results if r.get("kind") != "roster"]
+            flash(
+                f"Import complete ({len(csv_bits)} CSV file(s)"
+                + (f", roster linked" if roster_bits else "")
+                + ").",
+                "success",
+            )
         except Exception as exc:
             db.session.rollback()
             flash(f"Import failed: {exc}", "error")
         return redirect(url_for("racing.admin_import"))
     existing = sorted([p.name for p in raw_dir.glob("*.csv")])
+    if (raw_dir / "roster.txt").is_file():
+        existing = ["roster.txt"] + existing
     return render_template(
         "racing/admin_import.html",
         existing_files=existing,
@@ -250,6 +262,36 @@ def admin_racers():
                     f"Synced racers — created {stats['created']}, updated {stats['updated']}, skipped {stats['skipped']}.",
                     "success",
                 )
+            elif action == "link_roster":
+                roster_path = default_roster_txt_path(_slug())
+                custom = (request.form.get("roster_path") or "").strip().strip('"')
+                if custom:
+                    roster_path = Path(custom).expanduser()
+                create_unmatched = request.form.get("create_unmatched") == "1"
+                stats = link_roster_txt(
+                    db.session,
+                    roster_path,
+                    create_unmatched=create_unmatched,
+                )
+                commit_with_sqlite_retry(db.session)
+                msg = (
+                    f"Linked roster from {stats['path']} - "
+                    f"{stats['entries']} names, {stats['linked']} matched existing, "
+                    f"{stats['created']} stubs created, {stats['aliased']} aliases."
+                )
+                conflicts = stats.get("conflicts") or []
+                unmatched = stats.get("unmatched") or []
+                if conflicts:
+                    shown = ", ".join(conflicts[:8])
+                    msg += f" Conflicts (already owned): {shown}"
+                    if len(conflicts) > 8:
+                        msg += "..."
+                if unmatched:
+                    shown = ", ".join(unmatched[:8])
+                    msg += f" Unmatched left: {shown}"
+                    if len(unmatched) > 8:
+                        msg += "..."
+                flash(msg, "success")
             elif action == "alias":
                 add_manual_alias(
                     db.session,
@@ -280,11 +322,14 @@ def admin_racers():
     aliases: dict[int, list] = {}
     for a in db.session.scalars(select(RacingNameAlias)).all():
         aliases.setdefault(int(a.racer_id), []).append(a)
+    roster_path = default_roster_txt_path(_slug())
     return render_template(
         "racing/admin_racers.html",
         racers=racers,
         aliases=aliases,
         is_demolition=_is_demolition(),
+        roster_txt_path=str(roster_path) if roster_path else "",
+        roster_txt_exists=bool(roster_path and roster_path.is_file()),
     )
 
 

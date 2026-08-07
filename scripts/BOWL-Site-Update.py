@@ -62,6 +62,10 @@ DEFAULT_RACING_EXPORT_SOURCES: dict[str, str] = {
     "bowl-formula": r"C:\Users\keeno\OneDrive\Desktop\Formula BOWL\exports",
     "bowl-demolition": r"C:\Users\keeno\OneDrive\Desktop\BOWL Demotion Derby\exports",
 }
+DEFAULT_RACING_ROSTER_SOURCES: dict[str, str] = {
+    "bowl-formula": r"C:\Users\keeno\OneDrive\Desktop\Formula BOWL\game\data\roster.txt",
+    "bowl-demolition": r"C:\Users\keeno\OneDrive\Desktop\BOWL Demotion Derby\names\roster.txt",
+}
 RACING_RAW_DIRS: dict[str, str] = {
     "bowl-formula": "bowl_formula",
     "bowl-demolition": "bowl_demolition",
@@ -149,12 +153,33 @@ def _copy_racing_csvs_from_exports() -> list[str]:
     return copied
 
 
+def _copy_racing_roster_txt() -> list[str]:
+    """Copy game roster.txt into each racing raw import folder when present."""
+    copied: list[str] = []
+    for slug, default_src in DEFAULT_RACING_ROSTER_SOURCES.items():
+        env_key = f"BOWL_RACING_ROSTER_{slug.replace('-', '_').upper()}"
+        src = Path((os.environ.get(env_key) or default_src).strip().strip('"')).expanduser()
+        raw_name = RACING_RAW_DIRS.get(slug)
+        if not raw_name:
+            continue
+        dst = RAW_ROOT / raw_name
+        if not src.is_file():
+            print(f"- {slug}: roster.txt not found ({src}); using existing raw roster if any.")
+            continue
+        dst.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst / "roster.txt")
+        print(f"- {slug}: copied roster.txt from {src}")
+        copied.append(slug)
+    return copied
+
+
 def _run_racing_imports() -> None:
     if not IMPORT_RACING.is_file():
         raise FileNotFoundError(f"Missing {IMPORT_RACING}")
-    print("\nFormula / Demolition racing CSV update...")
+    print("\nFormula / Demolition racing CSV + roster update...")
     _copy_racing_csvs_from_exports()
-    print("Importing Formula BOWL / Demolition BOWL CSVs...")
+    _copy_racing_roster_txt()
+    print("Importing Formula BOWL / Demolition BOWL (roster.txt + CSVs)...")
     _run([sys.executable, str(IMPORT_RACING)])
 
 

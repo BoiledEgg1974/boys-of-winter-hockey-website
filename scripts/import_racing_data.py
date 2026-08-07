@@ -1,4 +1,4 @@
-"""Import Formula BOWL / Demolition BOWL CSVs from data/imports/raw/<league>.
+"""Import Formula BOWL / Demolition BOWL roster.txt + CSVs from data/imports/raw/<league>.
 
 Usage::
 

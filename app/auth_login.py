@@ -102,21 +102,48 @@ def create_login_manager() -> LoginManager:
 
 
 def active_membership_for_league(user, league_slug: str):
+    """Active GM membership for ``league_slug``.
+
+    Formula / Demolition mounts inherit Cap or Historical membership (Cap preferred)
+    so Cap/Hist GMs are treated as members on the racing sites without separate rows.
+    """
     from sqlalchemy import select
 
+    from app.config import is_racing_league
     from app.site_models import GmLeagueMembership
 
     if not user or not getattr(user, "is_authenticated", False):
         return None
-    return db.session.scalar(
+    slug = str(league_slug or "").strip()
+    if not slug:
+        return None
+    row = db.session.scalar(
         select(GmLeagueMembership)
         .where(
             GmLeagueMembership.user_id == user.id,
-            GmLeagueMembership.league_slug == league_slug,
+            GmLeagueMembership.league_slug == slug,
             GmLeagueMembership.status == "active",
         )
         .limit(1)
     )
+    if row is not None:
+        return row
+    if not is_racing_league(slug):
+        return None
+    # Shared Cap / Historical membership covers both racing mounts.
+    for shared_slug in ("bowl-cap", "bowl-historical"):
+        shared = db.session.scalar(
+            select(GmLeagueMembership)
+            .where(
+                GmLeagueMembership.user_id == user.id,
+                GmLeagueMembership.league_slug == shared_slug,
+                GmLeagueMembership.status == "active",
+            )
+            .limit(1)
+        )
+        if shared is not None:
+            return shared
+    return None
 
 
 def require_admin():

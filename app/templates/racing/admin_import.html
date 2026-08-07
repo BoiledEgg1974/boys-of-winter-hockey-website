@@ -1,15 +1,16 @@
 {% extends "base.html" %}
-{% block title %}Import — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block title %}Import ? {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
 {% block content %}
 <section class="card" style="max-width:44rem;margin:0 auto;">
   <p><a href="{{ url_for('racing.admin_home') }}">&larr; Racing admin</a></p>
-  <h1 class="page-title">CSV import</h1>
-  <p class="muted">Upload Godot <strong>EXPORT CSV</strong> files, or place them in the league raw import folder and scan.</p>
+  <h1 class="page-title">CSV + roster import</h1>
+  <p class="muted">Upload Godot <strong>EXPORT CSV</strong> files (and optional <code>roster.txt</code>), or place them in the league raw import folder and scan.</p>
+  <p class="muted">Each import links <code>roster.txt</code> first (from this folder, or the Desktop game path) so driver names resolve, then imports CSVs.</p>
   <form method="post" enctype="multipart/form-data" class="stack-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="upload">
-    <label>CSV files
-      <input type="file" name="csv_files" accept=".csv" multiple>
+    <label>CSV / roster files
+      <input type="file" name="csv_files" accept=".csv,.txt,text/csv,text/plain" multiple>
     </label>
     <button type="submit" class="btn">Upload &amp; import</button>
   </form>

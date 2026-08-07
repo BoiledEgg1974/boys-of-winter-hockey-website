@@ -165,7 +165,8 @@
           </div>
           {% endif %}
         </section>
-        {% if is_racing_league and site_has_admin %}
+        {% if is_racing_league %}
+          {% if site_has_admin %}
         <section class="main-nav__section main-nav__section--private" aria-labelledby="main-nav-racing-admin-label">
           <span class="main-nav__section-label" id="main-nav-racing-admin-label">Admin</span>
           <div class="header-tools header-tools--member">
@@ -174,6 +175,14 @@
             <a class="header-tools__link header-tools__link--admin" href="{{ url_for('site_admin.admin_home') }}">Site Admin</a>
           </div>
         </section>
+          {% elif gm_membership %}
+        <section class="main-nav__section main-nav__section--private" aria-labelledby="main-nav-racing-member-label">
+          <span class="main-nav__section-label" id="main-nav-racing-member-label">Member</span>
+          <div class="header-tools header-tools--member">
+            <span class="muted" style="font-size:0.9rem;">Cap / Historical membership active</span>
+          </div>
+        </section>
+          {% endif %}
         {% elif gm_membership or site_has_admin %}
         <section class="main-nav__section main-nav__section--private" aria-labelledby="main-nav-private-label">
           <span class="main-nav__section-label" id="main-nav-private-label">GM / Admin</span>

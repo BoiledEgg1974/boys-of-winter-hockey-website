@@ -1939,6 +1939,64 @@ def is_source_delivered(session, *, league_slug: str, source_type: str, source_i
     return row is not None
 
 
+def clear_game_boxscore_delivery_locks(
+    session,
+    *,
+    league_slug: str,
+    source_ids: list[str] | set[str],
+) -> dict[str, int]:
+    """Drop delivered marks and cancel outbound rows so boxscores can re-queue.
+
+    Used by admin force re-queue: already-sent games otherwise stay blocked by
+    ``discord_delivered_sources`` and idempotent ``sent`` outbound events.
+    """
+    slug = str(league_slug or "").strip()
+    ids = sorted({str(s).strip() for s in (source_ids or []) if str(s).strip()})
+    stats = {"delivered_cleared": 0, "outbound_cancelled": 0}
+    if not slug or not ids:
+        return stats
+
+    delivered_rows = list(
+        session.scalars(
+            select(DiscordDeliveredSource).where(
+                DiscordDeliveredSource.league_slug == slug,
+                DiscordDeliveredSource.source_type == "game_boxscore",
+                DiscordDeliveredSource.source_id.in_(ids),
+            )
+        ).all()
+    )
+    for row in delivered_rows:
+        session.delete(row)
+        stats["delivered_cleared"] += 1
+
+    idem_keys = {
+        _source_idempotency_key(
+            league_slug=slug,
+            event_key=GAME_BOXSCORE_EVENT_KEY,
+            source_type="game_boxscore",
+            source_id=sid,
+        )
+        for sid in ids
+    }
+    outbound_rows = list(
+        session.scalars(
+            select(DiscordOutboundEvent).where(
+                DiscordOutboundEvent.league_slug == slug,
+                DiscordOutboundEvent.event_key == GAME_BOXSCORE_EVENT_KEY,
+                DiscordOutboundEvent.idempotency_key.in_(sorted(idem_keys)),
+                DiscordOutboundEvent.status.in_(("pending", "sent", "failed")),
+            )
+        ).all()
+    )
+    for row in outbound_rows:
+        row.status = "cancelled"
+        row.last_error = "Superseded by force re-queue of game boxscores."
+        stats["outbound_cancelled"] += 1
+    if delivered_rows or outbound_rows:
+        session.flush()
+    return stats
+
+
 def record_delivered_source(
     session,
     *,

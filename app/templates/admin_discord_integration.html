@@ -221,10 +221,16 @@
     <label>In-game days
       <input type="number" name="boxscore_days" value="7" min="1" max="60" style="width:4.5rem;">
     </label>
+    <label style="display:flex;gap:0.35rem;align-items:center;">
+      <input type="checkbox" name="boxscore_force" value="1">
+      Force re-post
+    </label>
     <button type="submit" class="admin-news-body-btn">Queue recent boxscores</button>
     <span class="muted">
-      Posts scoreline + three stars into franchise channels for finals in the last N in-game days
-      (ending at the latest final date). Requires team channel IDs below. Already-sent games are skipped.
+      Posts SOG, PP, top performers, goalies, and three stars into franchise channels for finals
+      in the last N in-game days (ending at the latest final date). Requires team channel IDs below.
+      Already-sent games are skipped unless <strong>Force re-post</strong> is checked
+      (creates new Discord messages with the current format).
     </span>
   </form>
   <form method="post" style="display:flex;gap:0.6rem;align-items:end;flex-wrap:wrap;margin:0 0 0.55rem;">

@@ -6649,12 +6649,19 @@ def admin_discord_integration():
             except (TypeError, ValueError):
                 boxscore_days = 7
             boxscore_days = max(1, min(boxscore_days, 60))
+            boxscore_force = (request.form.get("boxscore_force") or "").strip() in {
+                "1",
+                "true",
+                "on",
+                "yes",
+            }
             box_stats = queue_recent_game_boxscores(
                 db.session,
                 db.session,
                 league_slug=slug,
                 days=boxscore_days,
                 created_by_user_id=int(current_user.id),
+                force=boxscore_force,
             )
             db.session.add(
                 AdminAuditLog(
@@ -6664,9 +6671,12 @@ def admin_discord_integration():
                     detail_json=json.dumps(
                         {
                             "days": boxscore_days,
+                            "force": bool(boxscore_force),
                             "games": int(box_stats.get("games") or 0),
                             "queued": int(box_stats.get("queued") or 0),
                             "skipped": int(box_stats.get("skipped") or 0),
+                            "delivered_cleared": int(box_stats.get("delivered_cleared") or 0),
+                            "outbound_cancelled": int(box_stats.get("outbound_cancelled") or 0),
                             "window_start": box_stats.get("window_start"),
                             "window_end": box_stats.get("window_end"),
                         }

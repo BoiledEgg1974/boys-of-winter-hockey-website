@@ -18,6 +18,7 @@ from app.models import Game, GameGoalieStat, GameSkaterStat, Player, Team
 from app.services.discord_events import (
     GAME_BOXSCORE_EVENT_KEY,
     build_league_public_url,
+    clear_game_boxscore_delivery_locks,
     clear_pending_game_boxscore_ids,
     ensure_game_boxscore_team_channels,
     enqueue_discord_event,
@@ -626,8 +627,14 @@ def queue_recent_game_boxscores(
     league_slug: str,
     days: int = 7,
     created_by_user_id: int | None = None,
+    force: bool = False,
 ) -> dict[str, Any]:
-    """Enqueue franchise boxscores for finals in the last N in-game days."""
+    """Enqueue franchise boxscores for finals in the last N in-game days.
+
+    When ``force`` is True, clear delivered/idempotency locks for matching
+    game:team sources so already-sent games can be re-posted (new Discord
+    messages with the current payload formatter).
+    """
     slug = str(league_slug or "").strip()
     try:
         window_days = max(1, int(days))
@@ -643,6 +650,9 @@ def queue_recent_game_boxscores(
         "days": window_days,
         "window_start": start.isoformat() if start is not None else None,
         "window_end": latest.isoformat() if latest is not None else None,
+        "force": bool(force),
+        "delivered_cleared": 0,
+        "outbound_cancelled": 0,
         "ok": False,
         "message": "",
     }
@@ -667,6 +677,26 @@ def queue_recent_game_boxscores(
         stats["skipped"] = len(game_ids)
         stats["message"] = "game_boxscore route is inactive."
         return stats
+
+    if force:
+        source_ids: set[str] = set()
+        for gid in game_ids:
+            game = league_session.get(Game, int(gid))
+            if game is None:
+                continue
+            for tid in (game.away_team_id, game.home_team_id):
+                if tid is None:
+                    continue
+                try:
+                    source_ids.add(f"{int(gid)}:{int(tid)}")
+                except (TypeError, ValueError):
+                    continue
+        cleared = clear_game_boxscore_delivery_locks(
+            site_session, league_slug=slug, source_ids=source_ids
+        )
+        stats["delivered_cleared"] = int(cleared.get("delivered_cleared") or 0)
+        stats["outbound_cancelled"] = int(cleared.get("outbound_cancelled") or 0)
+
     for gid in game_ids:
         stats["games"] += 1
         n = enqueue_game_boxscore_events_for_game(
@@ -681,10 +711,16 @@ def queue_recent_game_boxscores(
             stats["skipped"] += 1
     _ = created_by_user_id  # reserved for audit callers
     stats["ok"] = True
+    force_note = ""
+    if force:
+        force_note = (
+            f" Force re-queue cleared {stats['delivered_cleared']} delivered mark(s) "
+            f"and cancelled {stats['outbound_cancelled']} prior event(s)."
+        )
     stats["message"] = (
         f"Queued {stats['queued']} boxscore event(s) for {stats['games']} final game(s) "
         f"from {stats['window_start']} to {stats['window_end']} "
-        f"({stats['days']} in-game day(s))."
+        f"({stats['days']} in-game day(s)).{force_note}"
     )
     _log.info("Manual game boxscore queue for %s: %s", slug, stats)
     return stats

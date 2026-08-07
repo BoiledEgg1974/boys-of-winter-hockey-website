@@ -457,6 +457,47 @@ class QueueRecentBoxscoresTest(unittest.TestCase):
         self.assertEqual(out["window_end"], "2025-10-20")
         self.assertIn("Queued 4", out["message"])
 
+    def test_force_requeue_clears_locks_then_enqueues(self) -> None:
+        from app.services.game_boxscore_discord import queue_recent_game_boxscores
+
+        site = MagicMock()
+        league = MagicMock()
+        game9 = SimpleNamespace(id=9, away_team_id=1, home_team_id=2)
+        game10 = SimpleNamespace(id=10, away_team_id=3, home_team_id=4)
+        league.get.side_effect = lambda _model, gid: {9: game9, 10: game10}.get(int(gid))
+
+        with patch(
+            "app.services.game_boxscore_discord.recent_final_game_ids_for_boxscores",
+            return_value=([9, 10], date(2025, 10, 14), date(2025, 10, 20)),
+        ), patch(
+            "app.services.game_boxscore_discord.ensure_game_boxscore_team_channels"
+        ), patch(
+            "app.services.game_boxscore_discord.has_game_boxscore_delivery_target",
+            return_value=True,
+        ), patch(
+            "app.services.game_boxscore_discord.is_discord_event_route_active",
+            return_value=True,
+        ), patch(
+            "app.services.game_boxscore_discord.clear_game_boxscore_delivery_locks",
+            return_value={"delivered_cleared": 4, "outbound_cancelled": 4},
+        ) as clear_locks, patch(
+            "app.services.game_boxscore_discord.enqueue_game_boxscore_events_for_game",
+            side_effect=[2, 2],
+        ):
+            out = queue_recent_game_boxscores(
+                league, site, league_slug="bowl-historical", days=7, force=True
+            )
+
+        clear_locks.assert_called_once()
+        cleared_ids = set(clear_locks.call_args.kwargs["source_ids"])
+        self.assertEqual(cleared_ids, {"9:1", "9:2", "10:3", "10:4"})
+        self.assertTrue(out["ok"])
+        self.assertTrue(out["force"])
+        self.assertEqual(out["delivered_cleared"], 4)
+        self.assertEqual(out["outbound_cancelled"], 4)
+        self.assertEqual(out["queued"], 4)
+        self.assertIn("Force re-queue", out["message"])
+
 
 class FormatterTest(unittest.TestCase):
     def test_formatter_includes_expanded_boxscore_sections(self) -> None:

@@ -798,7 +798,12 @@ def _remote_remove_wal_sidecars_code(slug: str) -> str:
     )
 
 
-def league_db_upload_targets(local_root: Path, slugs: list[str]) -> list[tuple[str, Path, str]]:
+def league_db_upload_targets(
+    local_root: Path,
+    slugs: list[str],
+    *,
+    require_existing: bool = True,
+) -> list[tuple[str, Path, str]]:
     """Return (slug, local_db_path, remote_rel_path) for each league database to upload."""
     from app.config import _LEGACY_LEAGUE_DB_FILES, resolve_league_sqlite_path
 
@@ -807,7 +812,10 @@ def league_db_upload_targets(local_root: Path, slugs: list[str]) -> list[tuple[s
     for slug in slugs:
         db_path = resolve_league_sqlite_path(slug).resolve()
         if not db_path.is_file():
-            raise SystemExit(f"Missing local league database for {slug}: {db_path}")
+            if require_existing:
+                raise SystemExit(f"Missing local league database for {slug}: {db_path}")
+            print(f"Skipping upload for {slug} (missing local DB: {db_path.name})")
+            continue
         remote_rel = f"instance/{db_path.name}"
         if remote_rel not in seen_remote:
             seen_remote.add(remote_rel)
@@ -1109,14 +1117,20 @@ def cmd_deploy(ns: argparse.Namespace) -> int:
 
 def cmd_deploy_db(ns: argparse.Namespace) -> int:
     """Upload locally built league SQLite; preserve live OVR, trades, game records, and editorial data."""
-    from app.config import league_slugs
+    from app.config import HOCKEY_LEAGUE_SLUGS, RACING_LEAGUE_SLUGS, league_slugs
     from app.db_utils import sqlite_integrity_message, sqlite_wal_checkpoint
 
     local_root = ns.local_root.resolve()
     remote_base = ns.remote_path.rstrip("/")
-    slugs = league_slugs()
-    if not slugs:
+    all_slugs = league_slugs()
+    if not all_slugs:
         raise SystemExit("league_slugs() returned no leagues.")
+    # Hockey-only for live OVR / trade / game-record / editorial capture+merge.
+    hockey_slugs = [s for s in all_slugs if s in HOCKEY_LEAGUE_SLUGS]
+    racing_slugs = [s for s in all_slugs if s in RACING_LEAGUE_SLUGS]
+    # Upload hockey always; racing when a local DB exists.
+    upload_slugs = list(hockey_slugs) + list(racing_slugs)
+    slugs = hockey_slugs
 
     if getattr(ns, "seed_static_manifest", False):
         seed_tree_manifest(local_root, "app/static")
@@ -1128,9 +1142,13 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
     print(f"remote venv bin: {ns.venv_bin}")
     wsgi = None if ns.skip_reload else ns.wsgi_file
     print(f"wsgi file: {wsgi or '(skip reload)'}")
+    print(f"hockey capture/merge leagues: {', '.join(hockey_slugs) or '(none)'}")
+    print(f"racing DB upload candidates: {', '.join(racing_slugs) or '(none)'}")
 
     try:
-        db_targets = league_db_upload_targets(local_root, slugs)
+        hockey_targets = league_db_upload_targets(local_root, hockey_slugs, require_existing=True)
+        racing_targets = league_db_upload_targets(local_root, racing_slugs, require_existing=False)
+        db_targets = hockey_targets + racing_targets
     except SystemExit as exc:
         print(str(exc), file=sys.stderr)
         return 1

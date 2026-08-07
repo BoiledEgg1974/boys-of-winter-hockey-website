@@ -8,8 +8,9 @@ Default flow:
 1) Run STEP1 (snapshot OVR baselines, copy saved-game CSVs, local imports) with PA deploy and git push skipped.
 2) Align historical awards IDs to player_master (STEP3).
 3) Snapshot bowl-historical OVR baselines, then re-import that league locally (aligned awards).
-4) Commit and push to GitHub once all local imports finish (CSVs, static assets, alignment files).
-5) Run STEP2 ``deploy-db``: snapshot live OVR, trade logs, game-record baselines, and
+4) Copy Formula/Demolition export CSVs when present, then import those racing sites.
+5) Commit and push to GitHub once all local imports finish (CSVs, static assets, alignment files).
+6) Run STEP2 ``deploy-db``: snapshot live OVR, trade logs, game-record baselines, and
    league editorial data on PythonAnywhere, merge them into the local SQLite files,
    upload league databases (+ ``app/static``), integrity-check, reload.
 
@@ -22,6 +23,7 @@ Examples:
   python scripts/BOWL-Site-Update.py --allow-stale
   python scripts/BOWL-Site-Update.py --no-deploy
   python scripts/BOWL-Site-Update.py --no-push
+  python scripts/BOWL-Site-Update.py --no-racing
   python scripts/BOWL-Site-Update.py --deploy-db-only
   python scripts/BOWL-Site-Update.py --remote-import
 
@@ -32,6 +34,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import shutil
 import subprocess
 import sys
 from datetime import datetime
@@ -42,13 +45,27 @@ STEP1 = REPO_ROOT / "scripts" / "STEP1_update_from_saved_game.py"
 STEP2 = REPO_ROOT / "scripts" / "STEP2_pythonanywhere.py"
 STEP3 = REPO_ROOT / "scripts" / "STEP3_align_history_awards_to_player_master.py"
 IMPORT = REPO_ROOT / "scripts" / "import_data.py"
+IMPORT_RACING = REPO_ROOT / "scripts" / "import_racing_data.py"
 REPAIR = REPO_ROOT / "scripts" / "repair_league_sqlite.py"
 HISTORY_SHEET_EXTRAS = REPO_ROOT / "scripts" / "reimport_history_sheet_data.py"
+RAW_ROOT = REPO_ROOT / "data" / "imports" / "raw"
 
-HIST_RAW = REPO_ROOT / "data" / "imports" / "raw" / "bowl_historical"
+HIST_RAW = RAW_ROOT / "bowl_historical"
 HIST_AWARDS_SHEET = HIST_RAW / "history_awards.sheet.csv"
 
-LEAGUE_SLUGS = ("bowl-historical", "bowl-fantasy", "bowl-cap")
+HOCKEY_LEAGUE_SLUGS = ("bowl-historical", "bowl-fantasy", "bowl-cap")
+RACING_LEAGUE_SLUGS = ("bowl-formula", "bowl-demolition")
+LEAGUE_SLUGS = HOCKEY_LEAGUE_SLUGS + RACING_LEAGUE_SLUGS
+
+# Desktop game export folders (CSV dumps). Override with env if paths move.
+DEFAULT_RACING_EXPORT_SOURCES: dict[str, str] = {
+    "bowl-formula": r"C:\Users\keeno\OneDrive\Desktop\Formula BOWL\exports",
+    "bowl-demolition": r"C:\Users\keeno\OneDrive\Desktop\BOWL Demotion Derby\exports",
+}
+RACING_RAW_DIRS: dict[str, str] = {
+    "bowl-formula": "bowl_formula",
+    "bowl-demolition": "bowl_demolition",
+}
 
 # Default PythonAnywhere deploy key (override with PA_SSH_KEY in the environment).
 _DEFAULT_PA_SSH_KEY = Path.home() / ".ssh" / "id_ed25519_pa"
@@ -74,6 +91,7 @@ def _deploy_preflight_note() -> None:
         "\nDeploy preflight: reload the PythonAnywhere web app (Web tab -> Reload) "
         "before upload so no worker is writing to SQLite.\n"
     )
+
 
 def _run(cmd: list[str], *, env: dict[str, str] | None = None) -> None:
     print(f"\n>>> {' '.join(cmd)}")
@@ -106,9 +124,51 @@ def _commit_and_push_local_changes() -> None:
     print("Git push complete.")
 
 
+def _copy_racing_csvs_from_exports() -> list[str]:
+    """Copy *.csv from Desktop export folders into data/imports/raw when sources exist."""
+    copied: list[str] = []
+    for slug, default_src in DEFAULT_RACING_EXPORT_SOURCES.items():
+        env_key = f"BOWL_RACING_EXPORT_{slug.replace('-', '_').upper()}"
+        src = Path((os.environ.get(env_key) or default_src).strip().strip('"')).expanduser()
+        raw_name = RACING_RAW_DIRS.get(slug)
+        if not raw_name:
+            continue
+        dst = RAW_ROOT / raw_name
+        if not src.is_dir():
+            print(f"- {slug}: export folder not found ({src}); using existing raw CSVs if any.")
+            continue
+        files = sorted(src.glob("*.csv"))
+        if not files:
+            print(f"- {slug}: no CSVs in {src}; using existing raw CSVs if any.")
+            continue
+        dst.mkdir(parents=True, exist_ok=True)
+        for f in files:
+            shutil.copy2(f, dst / f.name)
+        print(f"- {slug}: copied {len(files)} CSV file(s) from {src}")
+        copied.append(slug)
+    return copied
+
+
+def _run_racing_imports() -> None:
+    if not IMPORT_RACING.is_file():
+        raise FileNotFoundError(f"Missing {IMPORT_RACING}")
+    print("\nFormula / Demolition racing CSV update...")
+    _copy_racing_csvs_from_exports()
+    print("Importing Formula BOWL / Demolition BOWL CSVs...")
+    _run([sys.executable, str(IMPORT_RACING)])
+
+
 def _verify_local_league_databases() -> None:
+    from app.config import resolve_league_sqlite_path
+
     print("Verifying local league SQLite files before deploy-db...")
-    for slug in LEAGUE_SLUGS:
+    for slug in HOCKEY_LEAGUE_SLUGS:
+        _run([sys.executable, str(REPAIR), "--check", "--league", slug])
+    for slug in RACING_LEAGUE_SLUGS:
+        db_path = resolve_league_sqlite_path(slug)
+        if not db_path.is_file():
+            print(f"Skipping verify for {slug} (no local DB yet: {db_path.name})")
+            continue
         _run([sys.executable, str(REPAIR), "--check", "--league", slug])
 
 
@@ -136,6 +196,11 @@ def main() -> int:
         "--remote-import",
         action="store_true",
         help="Deploy via CSV upload + server-side import_data.py instead of uploading SQLite files.",
+    )
+    ap.add_argument(
+        "--no-racing",
+        action="store_true",
+        help="Skip Formula BOWL / Demolition BOWL CSV copy + import.",
     )
     ap.add_argument(
         "--remote-pip",
@@ -196,7 +261,20 @@ def main() -> int:
     if HISTORY_SHEET_EXTRAS.is_file():
         _run([sys.executable, str(HISTORY_SHEET_EXTRAS), "bowl-historical"], env=env)
 
-    # 4) Commit + push once all local imports are done (before PythonAnywhere deploy).
+    # 4) Formula / Demolition: copy Desktop exports when present, then import racing CSVs.
+    if args.no_racing:
+        print("Skipping Formula/Demolition racing imports (--no-racing).")
+    else:
+        try:
+            _run_racing_imports()
+        except subprocess.CalledProcessError as exc:
+            print(f"Racing CSV import failed: {exc}", file=sys.stderr)
+            return int(exc.returncode or 1)
+        except FileNotFoundError as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
+
+    # 5) Commit + push once all local imports are done (before PythonAnywhere deploy).
     if not args.no_push:
         try:
             _commit_and_push_local_changes()
@@ -206,7 +284,7 @@ def main() -> int:
     else:
         print("Skipping git commit/push (--no-push).")
 
-    # 5) Deploy to PythonAnywhere.
+    # 6) Deploy to PythonAnywhere.
     if not args.no_deploy:
         _deploy_preflight_note()
         _verify_local_league_databases()

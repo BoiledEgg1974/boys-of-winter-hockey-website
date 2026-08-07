@@ -1,0 +1,58 @@
+﻿{% extends "base.html" %}
+{% block title %}{{ event.title or 'Results' }} — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<section class="card racing-results-detail">
+  <p><a href="{{ url_for('racing.results_index') }}">&larr; All results</a></p>
+  <h1 class="page-title">{{ event.title or event.track_name or ('Event '~event.event_number) }}</h1>
+  {% if event.track_name and event.track_name != (event.title or '') %}<p class="muted">{{ event.track_name }}</p>{% endif %}
+  <div class="racing-results-layout{% if track_image_url %} racing-results-layout--with-track{% endif %}">
+    <div class="racing-results-layout__main">
+      <table class="data-table racing-table">
+        <thead>
+          <tr>
+            <th>Pos</th>
+            <th>#</th>
+            <th>Driver</th>
+            <th>Controller</th>
+            {% if is_demolition %}
+            <th>Vehicle</th>
+            <th>Kills</th>
+            <th>RDS</th>
+            {% else %}
+            <th>Pts</th>
+            <th>CP</th>
+            <th>Status</th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in rows %}
+          <tr>
+            <td>{{ r.position }}</td>
+            <td>{{ r.car_number or '—' }}</td>
+            <td>{{ r.driver_name }}</td>
+            <td>{{ r.controller or '—' }}</td>
+            {% if is_demolition %}
+            <td>{{ r.vehicle or '—' }}</td>
+            <td>{{ r.kills }}</td>
+            <td>{{ r.rounds_survived }}</td>
+            {% else %}
+            <td>{{ r.circuit_points }}</td>
+            <td>{{ r.channel_points }}</td>
+            <td>{% if r.eliminated %}DNF{% elif r.finished %}Finished{% else %}—{% endif %}</td>
+            {% endif %}
+          </tr>
+          {% else %}
+          <tr><td colspan="8" class="muted">No rows.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if track_image_url %}
+    <figure class="racing-results-layout__track">
+      <img src="{{ track_image_url }}" alt="{{ event.track_name or event.title or 'Track' }}" loading="lazy" decoding="async">
+    </figure>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}{{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<section class="racing-hero card">
+  <div class="racing-hero__brand">
+    <img class="racing-hero__logo" src="{{ league_logo_url() }}" alt="{{ config.LEAGUE_DISPLAY_NAME }}">
+    <div>
+      <h1 class="page-title racing-hero__title">{{ config.LEAGUE_DISPLAY_NAME }}</h1>
+      <p class="muted">{{ 'Heat results, circuit leaders, and derby standings.' if is_demolition else 'Race results, circuit leaders, and channel-point tallies.' }}</p>
+    </div>
+  </div>
+</section>
+
+<div class="racing-grid">
+  <section class="card racing-panel">
+    <h2 class="section-title">{{ 'Latest night' if is_demolition else 'Latest race' }}</h2>
+    {% if latest_event %}
+      <p><a href="{{ url_for('racing.results_detail', event_id=latest_event.id) }}">{{ latest_event.title or latest_event.track_name or ('Night '~latest_event.event_number) }}</a></p>
+      <table class="data-table racing-table">
+        <thead>
+          <tr>
+            <th>Pos</th>
+            <th>Driver</th>
+            {% if is_demolition %}<th>Kills</th>{% else %}<th>Pts</th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in latest_results %}
+          <tr>
+            <td>{{ r.position }}</td>
+            <td>{{ r.driver_name }}</td>
+            <td>{% if is_demolition %}{{ r.kills }}{% else %}{{ r.circuit_points }}{% endif %}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3" class="muted">No results yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted">No events imported yet.</p>
+    {% endif %}
+  </section>
+
+  <section class="card racing-panel">
+    <h2 class="section-title">Circuit leaders</h2>
+    {% if circuit %}
+      <p class="muted">{{ circuit.name }}</p>
+    {% endif %}
+    <table class="data-table racing-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Driver</th>
+          <th>Pts</th>
+          <th>{{ 'Kills' if is_demolition else 'CP' }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in standings %}
+        <tr>
+          <td>{{ s.rank }}</td>
+          <td>{{ s.driver_name }}</td>
+          <td>{{ s.points }}</td>
+          <td>{% if is_demolition %}{{ s.kills }}{% else %}{{ s.channel_points }}{% endif %}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="muted">No standings yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p><a href="{{ url_for('racing.circuit_page') }}">Full circuit standings</a></p>
+  </section>
+</div>
+{% endblock %}

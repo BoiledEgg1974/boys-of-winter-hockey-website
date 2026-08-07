@@ -54,6 +54,9 @@ ALWAYS_TEXT_ONLY_DISCORD_EVENT_KEYS = frozenset(
         "playoff_bracket_update",
         "record_broken",
         "game_boxscore",
+        "race_results",
+        "heat_results",
+        "circuit_standings_update",
     }
 )
 
@@ -386,6 +389,11 @@ def _text_only_header_lines(
         if type_label:
             meta_bits.append(type_label)
         lines.append(" · ".join(meta_bits))
+    elif event_key in ("race_results", "heat_results", "circuit_standings_update"):
+        lines.append(f"**{title}**")
+        track = str(payload.get("track") or payload.get("circuit_name") or "").strip()
+        if track:
+            lines.append(track)
     else:
         lines.append(f"**{title}**")
     return lines
@@ -731,6 +739,50 @@ def _format_game_boxscore_body(payload: dict[str, Any]) -> str:
     return "\n\n".join(sections)
 
 
+def _format_racing_results_body(payload: dict[str, Any], *, derby: bool = False) -> str:
+    lines: list[str] = []
+    rows = payload.get("rows") or []
+    if isinstance(rows, list):
+        for row in rows[:20]:
+            if not isinstance(row, dict):
+                continue
+            pos = row.get("position") or row.get("rank") or "?"
+            driver = str(row.get("driver") or "").strip() or "—"
+            if derby:
+                kills = row.get("kills", 0)
+                lines.append(f"{pos}. {driver} — {kills} kills")
+            else:
+                pts = row.get("points", 0)
+                cp = row.get("channel_points", 0)
+                lines.append(f"{pos}. {driver} — {pts} pts · {cp} CP")
+    url = str(payload.get("url") or "").strip()
+    if url:
+        lines.append(url)
+    return "\n".join(lines)
+
+
+def _format_circuit_standings_body(payload: dict[str, Any]) -> str:
+    lines: list[str] = []
+    rows = payload.get("rows") or []
+    if isinstance(rows, list):
+        for row in rows[:15]:
+            if not isinstance(row, dict):
+                continue
+            rank = row.get("rank") or "?"
+            driver = str(row.get("driver") or "").strip() or "—"
+            pts = row.get("points", 0)
+            extra = row.get("channel_points")
+            if extra is None:
+                extra = row.get("kills", 0)
+                lines.append(f"{rank}. {driver} — {pts} pts · {extra} kills")
+            else:
+                lines.append(f"{rank}. {driver} — {pts} pts · {extra} CP")
+    url = str(payload.get("url") or "").strip()
+    if url:
+        lines.append(url)
+    return "\n".join(lines)
+
+
 def _text_only_body_text(
     league_slug: str,
     event_key: str,
@@ -746,6 +798,12 @@ def _text_only_body_text(
         return "\n".join(lines)
     if event_key == "game_boxscore":
         return _format_game_boxscore_body(payload)
+    if event_key == "race_results":
+        return _format_racing_results_body(payload, derby=False)
+    if event_key == "heat_results":
+        return _format_racing_results_body(payload, derby=True)
+    if event_key == "circuit_standings_update":
+        return _format_circuit_standings_body(payload)
     if event_key == "playoff_predictions":
         return _format_playoff_predictions_body(league_slug, payload)
     if event_key == "playoff_bracket_update":

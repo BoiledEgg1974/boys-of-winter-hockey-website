@@ -3,6 +3,22 @@
 {% block content %}
 <div class="card" style="max-width:40rem;margin:0 auto;">
   <h1 class="page-title">Site admin</h1>
+  {% if is_racing_league %}
+  <p class="muted">Racing mount — use Racing Admin for CSV import, racers, and AP grants.</p>
+  <ul>
+    <li><a href="{{ url_for('racing.admin_home') }}">Racing admin</a></li>
+    <li><a href="{{ url_for('racing.admin_import') }}">CSV import</a></li>
+    <li><a href="{{ url_for('racing.admin_racers') }}">Racer roster</a></li>
+    <li><a href="{{ url_for('racing.admin_rewards') }}">AP &amp; Twitch CP schedules</a></li>
+    <li><a href="{{ url_for('racing.admin_ap_grants') }}">Reward grants (Cap/Hist AP or Twitch CP)</a></li>
+    <li><a href="{{ url_for('site_admin.admin_discord_integration') }}">Discord integration</a></li>
+    {% if current_user.admin_role == 'super_admin' or (current_user.is_admin and not current_user.admin_role) %}
+    <li><a href="{{ url_for('site_admin.admin_roles') }}">Admin roles</a></li>
+    {% endif %}
+    <li><a href="{{ url_for('site_admin.admin_audit_log') }}">Audit log</a></li>
+  </ul>
+  <p class="muted">Hub: <a href="/admin/memberships">Membership dashboard</a></p>
+  {% else %}
   <p class="muted" style="margin:0 0 0.6rem;">
     New here? Start with the <a href="{{ url_for('site_admin.admin_commissioner_sop') }}">Commissioner SOP (beginner checklist)</a>
     or the <a href="{{ url_for('site_gm.gm_help_tips_page') }}">FHM Help/Tips</a> guide for GMs.
@@ -66,5 +82,6 @@
     <li><a href="{{ url_for('site_admin.admin_contract_edit') }}">Edit player contract (cap)</a></li>
   </ul>
   <p class="muted">Hub: <a href="/admin/memberships">Membership dashboard (assign franchises)</a></p>
+  {% endif %}
 </div>
 {% endblock %}

@@ -1,0 +1,126 @@
+"""Helpers shared by Formula / Demolition racing mounts."""
+from __future__ import annotations
+
+import csv
+import re
+from pathlib import Path
+from typing import Any, Iterable
+
+
+def normalize_name_key(name: str) -> str:
+    text = (name or "").strip().lower()
+    text = re.sub(r"\s+", " ", text)
+    return text
+
+
+def parse_export_stamp(filename: str) -> str | None:
+    """Extract trailing datetime stamp from ``kind_YYYY-MM-DD_HH-MM-SS.csv``."""
+    stem = Path(filename).stem
+    m = re.search(r"(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})$", stem)
+    return m.group(1) if m else None
+
+
+def classify_export_filename(filename: str) -> str | None:
+    name = Path(filename).name.lower()
+    mapping = (
+        ("race_results_", "race_results"),
+        ("qualifying_standings_", "qualifying_standings"),
+        ("circuit_standings_", "circuit_standings"),
+        ("channel_points_", "channel_points"),
+        ("race_channel_points_", "race_channel_points"),
+        ("viewer_finish_awards_", "viewer_finish_awards"),
+        ("viewer_credit_ledger_", "viewer_credit_ledger"),
+        ("event_results_", "event_results"),
+        ("kill_awards_", "kill_awards"),
+        ("season_standings_", "season_standings"),
+        ("circuit_ap_awards_", "circuit_ap_awards"),
+        ("viewer_credits_", "viewer_credits"),
+    )
+    for prefix, kind in mapping:
+        if name.startswith(prefix) and name.endswith(".csv"):
+            return kind
+    return None
+
+
+def read_csv_dicts(path: Path) -> list[dict[str, str]]:
+    with path.open("r", encoding="utf-8-sig", newline="") as fh:
+        reader = csv.DictReader(fh)
+        rows: list[dict[str, str]] = []
+        for row in reader:
+            if not row:
+                continue
+            rows.append({(k or "").strip(): (v or "").strip() if v is not None else "" for k, v in row.items()})
+        return rows
+
+
+def cell_int(row: dict[str, str], *keys: str, default: int = 0) -> int:
+    for key in keys:
+        raw = row.get(key)
+        if raw is None or raw == "":
+            continue
+        try:
+            return int(float(str(raw).replace(",", "")))
+        except (TypeError, ValueError):
+            continue
+    return default
+
+
+def cell_float(row: dict[str, str], *keys: str, default: float | None = None) -> float | None:
+    for key in keys:
+        raw = row.get(key)
+        if raw is None or raw == "":
+            continue
+        try:
+            return float(str(raw).replace(",", ""))
+        except (TypeError, ValueError):
+            continue
+    return default
+
+
+def cell_bool(row: dict[str, str], *keys: str) -> bool | None:
+    for key in keys:
+        raw = (row.get(key) or "").strip().lower()
+        if raw in ("1", "true", "yes", "y"):
+            return True
+        if raw in ("0", "false", "no", "n"):
+            return False
+    return None
+
+
+def formula_circuit_points_for_position(position: int) -> int:
+    """Official Formula BOWL P1–P10 circuit points schedule."""
+    table = {1: 25, 2: 18, 3: 15, 4: 12, 5: 10, 6: 8, 7: 6, 8: 4, 9: 2, 10: 1}
+    return int(table.get(int(position), 0))
+
+
+def derby_event_ap_for_position(position: int) -> int:
+    """Top six of each derby night: 6 / 5 / 4 / 3 / 2 / 1."""
+    table = {1: 6, 2: 5, 3: 4, 4: 3, 5: 2, 6: 1}
+    return int(table.get(int(position), 0))
+
+
+def derby_circuit_ap_for_rank(rank: int) -> int:
+    """End-of-circuit AP: 30 / 25 / 20 / 15 / 10 / 5."""
+    table = {1: 30, 2: 25, 3: 20, 4: 15, 5: 10, 6: 5}
+    return int(table.get(int(rank), 0))
+
+
+def list_export_csvs(raw_dir: Path) -> list[Path]:
+    if not raw_dir.is_dir():
+        return []
+    return sorted(
+        [p for p in raw_dir.iterdir() if p.is_file() and p.suffix.lower() == ".csv"],
+        key=lambda p: p.name.lower(),
+    )
+
+
+def group_rows_by(rows: Iterable[dict[str, str]], key: str) -> dict[str, list[dict[str, str]]]:
+    out: dict[str, list[dict[str, str]]] = {}
+    for row in rows:
+        k = str(row.get(key) or "").strip() or "_"
+        out.setdefault(k, []).append(row)
+    return out
+
+
+def as_payload_rows(rows: list[Any], limit: int = 20) -> list[dict[str, Any]]:
+    return list(rows[:limit])

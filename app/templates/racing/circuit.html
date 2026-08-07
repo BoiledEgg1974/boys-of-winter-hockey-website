@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Circuit — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<section class="card">
+  <h1 class="page-title">Circuit leaders</h1>
+  {% if circuit %}
+  <p class="muted">{{ circuit.name }} · status {{ circuit.status }}</p>
+  {% else %}
+  <p class="muted">No active circuit.</p>
+  {% endif %}
+  <table class="data-table racing-table">
+    <thead>
+      <tr>
+        <th>Rank</th>
+        <th>Driver</th>
+        <th>Circuit Pts</th>
+        <th>{{ 'Kills' if is_demolition else 'Channel Pts' }}</th>
+        <th>{{ 'Events' if is_demolition else 'Races' }}</th>
+        <th>Wins</th>
+        <th>Best</th>
+        {% if is_demolition %}<th>Game AP</th>{% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in standings %}
+      <tr>
+        <td>{{ s.rank }}</td>
+        <td>{{ s.driver_name }}</td>
+        <td>{{ s.points }}</td>
+        <td>{% if is_demolition %}{{ s.kills }}{% else %}{{ s.channel_points }}{% endif %}</td>
+        <td>{{ s.events_played }}</td>
+        <td>{{ s.wins }}</td>
+        <td>{{ s.best_finish or '—' }}</td>
+        {% if is_demolition %}<td>{{ s.action_points }}</td>{% endif %}
+      </tr>
+      {% else %}
+      <tr><td colspan="8" class="muted">Import circuit standings CSVs to populate this board.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

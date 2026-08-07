@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Reward schedules — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<section class="card" style="max-width:52rem;margin:0 auto;">
+  <p><a href="{{ url_for('racing.admin_home') }}">&larr; Racing admin</a></p>
+  <h1 class="page-title">AP &amp; Twitch Channel Point schedules</h1>
+  <p class="muted">
+    Set place → amount for individual races/nights and for circuit standings.
+    Imports use these tables to build pending grants. Format: one <code>place=amount</code> per line (e.g. <code>1=25</code>).
+  </p>
+  {% for s in schedules %}
+  <section class="racing-panel card" style="margin-top:1rem;">
+    <h2 class="section-title">{{ s.label }}</h2>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="schedule_key" value="{{ s.key }}">
+      <label>Place = amount
+        <textarea name="tiers_text" rows="8" style="width:100%;font-family:monospace;">{{ s.text }}</textarea>
+      </label>
+      <button type="submit" class="btn" style="margin-top:0.5rem;">Save {{ s.key }}</button>
+    </form>
+  </section>
+  {% endfor %}
+</section>
+{% endblock %}

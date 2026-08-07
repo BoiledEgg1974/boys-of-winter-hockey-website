@@ -6452,6 +6452,8 @@ def admin_discord_integration():
                         "event_key": key,
                         "channel_key": (request.form.get(f"channel_{key}") or "").strip()[:64],
                         "discord_channel_id": (request.form.get(f"discord_channel_id_{key}") or "").strip(),
+                        "discord_channel_id_2": (request.form.get(f"discord_channel_id_2_{key}") or "").strip(),
+                        "discord_channel_id_3": (request.form.get(f"discord_channel_id_3_{key}") or "").strip(),
                         "label": (request.form.get(f"label_{key}") or "").strip()[:120],
                         "description": (request.form.get(f"description_{key}") or "").strip()[:2000],
                         "is_enabled": request.form.get(f"enabled_{key}") == "1",

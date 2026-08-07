@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Reward grants — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<section class="card">
+  <p><a href="{{ url_for('racing.admin_home') }}">&larr; Racing admin</a></p>
+  <h1 class="page-title">Reward grants</h1>
+  <p class="muted">
+    Amounts come from <a href="{{ url_for('racing.admin_rewards') }}">reward schedules</a>.
+    AP batches credit Cap or Historical; Channel Points batches mark Twitch payouts as paid (host pays on Twitch).
+  </p>
+  <p>
+    Currency:
+    <a href="{{ url_for('racing.admin_ap_grants', currency='ap', scope=scope) }}">AP</a> ·
+    <a href="{{ url_for('racing.admin_ap_grants', currency='channel_points', scope=scope) }}">Twitch CP</a>
+    &nbsp;|&nbsp; Scope:
+    <a href="{{ url_for('racing.admin_ap_grants', currency=currency) }}">All</a> ·
+    <a href="{{ url_for('racing.admin_ap_grants', currency=currency, scope='race') }}">Race/night</a> ·
+    <a href="{{ url_for('racing.admin_ap_grants', currency=currency, scope='circuit') }}">Circuit</a>
+  </p>
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="currency" value="{{ currency }}">
+    {% if scope %}<input type="hidden" name="scope" value="{{ scope }}">{% endif %}
+    {% if currency == 'ap' %}
+    <label>Destination league (AP only)
+      <select name="destination_league_slug" required>
+        <option value="bowl-cap">BOWL-Cap</option>
+        <option value="bowl-historical">BOWL-Historical</option>
+      </select>
+    </label>
+    {% endif %}
+    <table class="data-table racing-table" style="margin-top:1rem;">
+      <thead>
+        <tr>
+          <th></th>
+          <th>Scope</th>
+          <th>Currency</th>
+          <th>Rank</th>
+          <th>Driver</th>
+          <th>Amount</th>
+          <th>Racer linked</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in suggestions %}
+        <tr>
+          <td><input type="checkbox" name="suggestion_id" value="{{ s.id }}" checked></td>
+          <td>{{ s.scope }}</td>
+          <td>{{ s.currency }}</td>
+          <td>{{ s.rank or '—' }}</td>
+          <td>{{ s.driver_name }}</td>
+          <td>{{ s.amount }}</td>
+          <td>{% if s.racer_id %}Yes (#{{ s.racer_id }}){% else %}No{% endif %}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="muted">No pending {{ currency }} suggestions for this filter.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if suggestions %}
+    <button type="submit" class="btn" style="margin-top:1rem;">
+      {% if currency == 'channel_points' %}Mark selected Channel Points paid{% else %}Grant selected AP{% endif %}
+    </button>
+    {% endif %}
+  </form>
+</section>
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Racers — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<section class="card">
+  <h1 class="page-title">Racers</h1>
+  <p class="muted">Roster drawn from Cap GMs (and Historical-only GMs when added). AP awards still land on Cap or Historical ledgers.</p>
+  <table class="data-table racing-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>AP home (default)</th>
+        <th>Twitch</th>
+        <th>Active</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in racers %}
+      <tr>
+        <td>{{ r.display_name }}</td>
+        <td>{% if r.ap_league_slug %}{{ r.ap_league_slug }} #{{ r.ap_team_id }}{% else %}—{% endif %}</td>
+        <td>{{ r.twitch_login or '—' }}</td>
+        <td>{{ 'Yes' if r.is_active else 'No' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="muted">No racers yet — admins can sync from Cap on the racing admin page.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

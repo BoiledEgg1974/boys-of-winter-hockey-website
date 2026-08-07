@@ -634,7 +634,10 @@ class DiscordChannelRoute(db.Model):
     league_slug: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     event_key: Mapped[str] = mapped_column(String(64), nullable=False)
     channel_key: Mapped[str] = mapped_column(String(64), default="", nullable=False)
+    # Up to three Discord channel snowflakes (e.g. Cap / Historical / Relegation same-name channels).
     discord_channel_id: Mapped[str] = mapped_column(String(32), default="", nullable=False)
+    discord_channel_id_2: Mapped[str] = mapped_column(String(32), default="", nullable=False)
+    discord_channel_id_3: Mapped[str] = mapped_column(String(32), default="", nullable=False)
     label: Mapped[str] = mapped_column(String(120), default="", nullable=False)
     description: Mapped[str] = mapped_column(Text, default="", nullable=False)
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-application-root="{{ request.script_root or '' }}"{% if current_league_slug in ('bowl-fantasy', 'bowl-cap', 'bowl-historical') %} data-league="{% if current_league_slug == 'bowl-fantasy' %}fantasy{% elif current_league_slug == 'bowl-cap' %}cap{% else %}historical{% endif %}"{% endif %}>
+<html lang="en" data-application-root="{{ request.script_root or '' }}"{% if current_league_slug in ('bowl-fantasy', 'bowl-cap', 'bowl-historical', 'bowl-formula', 'bowl-demolition') %} data-league="{% if current_league_slug == 'bowl-fantasy' %}fantasy{% elif current_league_slug == 'bowl-cap' %}cap{% elif current_league_slug == 'bowl-historical' %}historical{% elif current_league_slug == 'bowl-formula' %}formula{% else %}demolition{% endif %}"{% endif %}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -72,7 +72,7 @@
   <header class="site-header" role="banner">
     <div class="header-row1">
       <div class="league-brand">
-        <a href="{{ url_for('main.home') }}" class="league-brand__link" aria-label="Home — {{ config.LEAGUE_DISPLAY_NAME }}">
+        <a href="{% if is_racing_league %}{{ url_for('racing.home') }}{% else %}{{ url_for('main.home') }}{% endif %}" class="league-brand__link" aria-label="Home — {{ config.LEAGUE_DISPLAY_NAME }}">
           <img src="{{ league_logo_url() }}" alt="{{ config.LEAGUE_DISPLAY_NAME }} logo" width="118" height="118">
         </a>
         <div class="league-switcher-wrap">
@@ -88,6 +88,14 @@
       <nav id="main-nav" class="main-nav" aria-label="Primary">
         <section class="main-nav__section main-nav__section--public" aria-labelledby="main-nav-public-label">
           <span class="main-nav__section-label" id="main-nav-public-label">Public</span>
+          {% if is_racing_league %}
+          <div class="main-nav__row">
+            <a href="{{ url_for('racing.home') }}">Home</a>
+            <a href="{{ url_for('racing.results_index') }}">{% if current_league_slug == 'bowl-demolition' %}Heats{% else %}Races{% endif %}</a>
+            <a href="{{ url_for('racing.circuit_page') }}">Circuit</a>
+            <a href="{{ url_for('racing.racers_page') }}">Racers</a>
+          </div>
+          {% else %}
           {% if current_league_slug == 'bowl-fantasy' %}
           <div class="main-nav__row main-nav__row--relegation">
             <a href="{{ url_for('main.home') }}">Overview</a>
@@ -155,8 +163,18 @@
             <a href="{{ url_for('main.league_headlines') }}">Headlines</a>
             <a href="{{ url_for('main.trade_log_page') }}">Trade Log</a>
           </div>
+          {% endif %}
         </section>
-        {% if gm_membership or site_has_admin %}
+        {% if is_racing_league and site_has_admin %}
+        <section class="main-nav__section main-nav__section--private" aria-labelledby="main-nav-racing-admin-label">
+          <span class="main-nav__section-label" id="main-nav-racing-admin-label">Admin</span>
+          <div class="header-tools header-tools--member">
+            <a class="header-tools__link header-tools__link--admin" href="{{ url_for('racing.admin_home') }}">Racing Admin</a>
+            <a class="header-tools__link header-tools__link--admin" href="{{ url_for('site_admin.admin_discord_integration') }}">Discord</a>
+            <a class="header-tools__link header-tools__link--admin" href="{{ url_for('site_admin.admin_home') }}">Site Admin</a>
+          </div>
+        </section>
+        {% elif gm_membership or site_has_admin %}
         <section class="main-nav__section main-nav__section--private" aria-labelledby="main-nav-private-label">
           <span class="main-nav__section-label" id="main-nav-private-label">GM / Admin</span>
           <div class="header-tools header-tools--member">
@@ -201,6 +219,7 @@
             {% else %}
             <a class="header-tools__link" href="/login?next={{ request.url | urlencode }}">GM Log In</a>
             {% endif %}
+            {% if not is_racing_league %}
             <a class="join-league-btn" href="{{ url_for('main.join_league') }}">JOIN OUR LEAGUE!</a>
             <form class="search-form" action="{{ url_for('main.search_page') }}" method="get" role="search" autocomplete="off">
               <div style="position:relative;">
@@ -209,6 +228,7 @@
               </div>
               <button type="submit">Go</button>
             </form>
+            {% endif %}
             <button type="button" class="theme-toggle" aria-label="Toggle dark mode">&#9789;</button>
           </div>
         </section>
@@ -231,7 +251,7 @@
       <span class="site-announcement__body">{{ active_site_announcement.body }}</span>
     </section>
     {% endif %}
-    {% if join_league_available_team_rows and not (request.endpoint and request.endpoint.startswith('site_admin.')) %}
+    {% if not is_racing_league and join_league_available_team_rows and not (request.endpoint and request.endpoint.startswith('site_admin.')) %}
     <section class="join-availability-banner" aria-label="Teams currently available">
       <span class="join-availability-banner__label">TEAM(S) CURRENTLY AVAILABLE:</span>
       <span class="join-availability-banner__teams">

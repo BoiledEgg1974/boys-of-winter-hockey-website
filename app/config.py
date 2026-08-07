@@ -18,6 +18,7 @@ class LeagueEntry:
     slug: str
     display_name: str
     raw_import_dir: str
+    kind: str = "hockey"  # "hockey" | "racing"
 
 
 # Single registry for hub splash, header switcher, and DispatcherMiddleware mounts.
@@ -25,7 +26,12 @@ LEAGUES: tuple[LeagueEntry, ...] = (
     LeagueEntry("bowl-historical", "BOWL-Historical", "bowl_historical"),
     LeagueEntry("bowl-fantasy", "BOWL-Relegation", "bowl_fantasy"),
     LeagueEntry("bowl-cap", "BOWL-Cap", "bowl_cap"),
+    LeagueEntry("bowl-formula", "Formula BOWL", "bowl_formula", kind="racing"),
+    LeagueEntry("bowl-demolition", "Demolition BOWL", "bowl_demolition", kind="racing"),
 )
+
+HOCKEY_LEAGUE_SLUGS: frozenset[str] = frozenset(e.slug for e in LEAGUES if e.kind == "hockey")
+RACING_LEAGUE_SLUGS: frozenset[str] = frozenset(e.slug for e in LEAGUES if e.kind == "racing")
 
 
 def league_slugs() -> list[str]:
@@ -412,8 +418,21 @@ class Config:
     DRAFT_HUB_AI_HEURISTIC_ONLY = _DRAFT_HUB_AI_HEURISTIC_ONLY_RAW in {"1", "true", "yes", "on"}
 
 
+def league_kind_for_slug(slug: str) -> str:
+    """Return ``hockey`` or ``racing`` for a league mount."""
+    e = league_by_slug(slug)
+    return e.kind if e else "hockey"
+
+
+def is_racing_league(slug: str) -> bool:
+    return league_kind_for_slug(slug) == "racing"
+
+
 def league_group_for_slug(slug: str) -> str:
-    """Redemption catalog group: Relegation vs Cap+Historical."""
+    """Redemption catalog group: Relegation vs Cap+Historical.
+
+    Racing mounts share the Cap+Historical catalog group (AP still lands on Cap/Hist ledgers).
+    """
     return "fantasy" if slug == "bowl-fantasy" else "cap_historical"
 
 

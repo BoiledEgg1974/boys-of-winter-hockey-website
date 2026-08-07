@@ -1,0 +1,4 @@
+﻿race,track,position,number,driver,controller,gear,wear,lap,finished,eliminated,summary
+1,Thruxton,1,7,Alice,Alice,4,12,3,true,false,Finished
+1,Thruxton,2,3,Bob,Bob,3,8,3,true,false,Finished
+1,Thruxton,3,11,Carol,AI,2,5,2,false,true,Out of WP

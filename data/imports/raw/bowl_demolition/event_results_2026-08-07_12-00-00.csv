@@ -1,0 +1,4 @@
+﻿position,number,driver,vehicle,grade,controller,kills,damage_dealt,rounds_survived,best_stage,eliminated_reason
+1,4,Alice,Muscle,A,Alice,3,12,8,final,
+2,9,Bob,Truck,B,Bob,2,9,7,semi,
+3,2,Carol,Hot Rod,C,AI,1,4,4,heat,wrecked

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Results — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<section class="card">
+  <h1 class="page-title">{{ 'Heat / night results' if is_demolition else 'Race results' }}</h1>
+  {% if circuit %}<p class="muted">{{ circuit.name }}</p>{% endif %}
+  <ul class="racing-event-list">
+    {% for e in events %}
+    <li>
+      <a href="{{ url_for('racing.results_detail', event_id=e.id) }}">
+        #{{ e.event_number }} — {{ e.title or e.track_name or 'Event' }}
+      </a>
+    </li>
+    {% else %}
+    <li class="muted">No events imported yet.</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endblock %}

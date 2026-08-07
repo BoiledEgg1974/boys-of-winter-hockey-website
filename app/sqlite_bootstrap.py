@@ -121,6 +121,10 @@ def run_sqlite_bootstrap_once(
 
 def apply_league_sqlite_migrations(app: Flask) -> None:
     """Idempotent league schema patches (safe after backup restore)."""
+    from app.config import is_racing_league
+
+    if is_racing_league(str(app.config.get("LEAGUE_SLUG") or "")):
+        return
     from app.db_utils import (
         ensure_advanced_stats_columns_sqlite,
         ensure_franchise_team_identities_sqlite,

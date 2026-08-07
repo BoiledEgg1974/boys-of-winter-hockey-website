@@ -70,8 +70,15 @@ GM_EXPORT_TRACKER_POLL_EVENT_KEY = "gm_export_tracker_poll"
 SIM_CYCLE_UPDATE_EVENT_KEY = "sim_cycle_update"
 GAME_BOXSCORE_EVENT_KEY = "game_boxscore"
 
+CIRCUIT_STANDINGS_UPDATE_EVENT_KEY = "circuit_standings_update"
+
 REPEATABLE_DISCORD_EVENT_KEYS = frozenset(
-    {BOWL_SIX_LEADERS_EVENT_KEY, PLAYOFF_BRACKET_UPDATE_EVENT_KEY, SIM_CYCLE_UPDATE_EVENT_KEY}
+    {
+        BOWL_SIX_LEADERS_EVENT_KEY,
+        PLAYOFF_BRACKET_UPDATE_EVENT_KEY,
+        SIM_CYCLE_UPDATE_EVENT_KEY,
+        CIRCUIT_STANDINGS_UPDATE_EVENT_KEY,
+    }
 )
 
 EVENT_KEY_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
@@ -110,6 +117,9 @@ DEFAULT_EVENT_KEYS = {
     "gm_export_tracker_poll",
     "record_broken",
     "game_boxscore",
+    "race_results",
+    "heat_results",
+    "circuit_standings_update",
 }
 
 DEFAULT_EVENT_CHANNEL_KEY = {
@@ -144,6 +154,30 @@ DEFAULT_EVENT_CHANNEL_KEY = {
     "gm_export_tracker_poll": "gm-export-tracker",
     "record_broken": "broken-records",
     "game_boxscore": "boxscores",
+    "race_results": "formula-bowl",
+    "heat_results": "demolition-bowl",
+    "circuit_standings_update": "circuit-standings",
+}
+
+# Racing sites only seed these event keys (hockey mounts skip them).
+RACING_ONLY_EVENT_KEYS = frozenset(
+    {
+        "race_results",
+        "heat_results",
+        "circuit_standings_update",
+    }
+)
+
+# Logical Discord channel names for Formula / Demolition (same name across Cap / Hist / Relegation).
+RACING_LEAGUE_EVENT_CHANNEL_KEYS = {
+    "bowl-formula": {
+        "race_results": "formula-bowl",
+        "circuit_standings_update": "formula-bowl",
+    },
+    "bowl-demolition": {
+        "heat_results": "demolition-bowl",
+        "circuit_standings_update": "demolition-bowl",
+    },
 }
 
 DEFAULT_EVENT_LABELS = {
@@ -178,6 +212,9 @@ DEFAULT_EVENT_LABELS = {
     "gm_export_tracker_poll": "GM export tracker (read-only poll source)",
     "record_broken": "Record broken (game / season / all-time / team)",
     "game_boxscore": "Game boxscore — per team channels (IDs below)",
+    "race_results": "Formula race results",
+    "heat_results": "Demolition heat / night results",
+    "circuit_standings_update": "Circuit standings (live update)",
 }
 
 EXPANSION_DRAFT_DISCORD_EVENT_KEYS = frozenset(
@@ -272,6 +309,45 @@ def is_valid_event_key(key: str) -> bool:
 def is_valid_discord_channel_id(channel_id: str) -> bool:
     cid = str(channel_id or "").strip()
     return not cid or bool(DISCORD_SNOWFLAKE_PATTERN.match(cid))
+
+
+def route_discord_channel_ids(route: DiscordChannelRoute | None) -> list[str]:
+    """Up to three distinct Discord channel snowflakes configured on a route."""
+    if route is None:
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for attr in ("discord_channel_id", "discord_channel_id_2", "discord_channel_id_3"):
+        cid = str(getattr(route, attr, None) or "").strip()
+        if not cid or cid in seen:
+            continue
+        if not DISCORD_SNOWFLAKE_PATTERN.match(cid):
+            continue
+        seen.add(cid)
+        out.append(cid)
+    return out
+
+
+def default_event_keys_for_league(league_slug: str) -> set[str]:
+    """Default Discord route keys seeded for a league mount."""
+    from app.config import is_racing_league
+
+    slug = str(league_slug or "").strip()
+    if is_racing_league(slug):
+        racing_map = RACING_LEAGUE_EVENT_CHANNEL_KEYS.get(slug)
+        if racing_map:
+            return set(racing_map.keys())
+        return set(RACING_ONLY_EVENT_KEYS)
+    return set(DEFAULT_EVENT_KEYS) - RACING_ONLY_EVENT_KEYS
+
+
+def default_channel_key_for_event(league_slug: str, event_key: str) -> str:
+    slug = str(league_slug or "").strip()
+    key = str(event_key or "").strip()
+    racing_map = RACING_LEAGUE_EVENT_CHANNEL_KEYS.get(slug)
+    if racing_map and key in racing_map:
+        return racing_map[key]
+    return DEFAULT_EVENT_CHANNEL_KEY.get(key, "")
 
 
 def league_mount_path(league_slug: str) -> str:
@@ -1343,18 +1419,54 @@ def _normalize_expansion_draft_discord_routes(session, league_slug: str) -> bool
     return changed
 
 
+def _normalize_racing_discord_routes(session, league_slug: str) -> bool:
+    """Align Formula / Demolition routes to #formula-bowl / #demolition-bowl channel keys."""
+    from app.config import is_racing_league
+
+    slug = str(league_slug or "").strip()
+    if not is_racing_league(slug):
+        return False
+    expected = RACING_LEAGUE_EVENT_CHANNEL_KEYS.get(slug)
+    if not expected:
+        return False
+    rows = list(
+        session.scalars(
+            select(DiscordChannelRoute).where(DiscordChannelRoute.league_slug == slug)
+        ).all()
+    )
+    if not rows:
+        return False
+    changed = False
+    now = datetime.utcnow()
+    for row in rows:
+        key = str(row.event_key or "").strip()
+        want_ck = expected.get(key)
+        if not want_ck:
+            continue
+        if str(row.channel_key or "").strip() != want_ck:
+            row.channel_key = want_ck
+            row.updated_at = now
+            changed = True
+        default_label = DEFAULT_EVENT_LABELS.get(key, "")
+        if default_label and not str(row.label or "").strip():
+            row.label = default_label
+            row.updated_at = now
+            changed = True
+    return changed
+
+
 def ensure_discord_routes(session, league_slug: str, updated_by_user_id: int | None = None) -> None:
     _migrate_ops_request_to_trade_request(session)
     by_key = _route_map(session, league_slug)
     suppressed = _suppressed_default_route_keys(session, league_slug)
     now = datetime.utcnow()
     changed = False
-    for key in sorted(DEFAULT_EVENT_KEYS):
+    for key in sorted(default_event_keys_for_league(league_slug)):
         if key in suppressed:
             continue
         if key in by_key:
             continue
-        channel_key = DEFAULT_EVENT_CHANNEL_KEY.get(key, "")
+        channel_key = default_channel_key_for_event(league_slug, key)
         discord_channel_id = ""
         if key == "confirmed_trade":
             trade_route = by_key.get("trade_request")
@@ -1381,6 +1493,8 @@ def ensure_discord_routes(session, league_slug: str, updated_by_user_id: int | N
                 event_key=key,
                 channel_key=channel_key,
                 discord_channel_id=discord_channel_id[:32],
+                discord_channel_id_2="",
+                discord_channel_id_3="",
                 label=DEFAULT_EVENT_LABELS.get(key, ""),
                 description="",
                 is_enabled=True,
@@ -1414,6 +1528,8 @@ def ensure_discord_routes(session, league_slug: str, updated_by_user_id: int | N
                 break
         changed = True
     if _normalize_expansion_draft_discord_routes(session, league_slug):
+        changed = True
+    if _normalize_racing_discord_routes(session, league_slug):
         changed = True
     if changed:
         from app.sqlite_retry import commit_with_sqlite_retry
@@ -1847,9 +1963,17 @@ def update_discord_routes(session, league_slug: str, rows: list[dict], updated_b
             continue
         row.channel_key = str(item.get("channel_key") or "").strip()[:64]
         cid = str(item.get("discord_channel_id") or "").strip()
+        cid2 = str(item.get("discord_channel_id_2") or "").strip()
+        cid3 = str(item.get("discord_channel_id_3") or "").strip()
         if cid and not is_valid_discord_channel_id(cid):
             continue
+        if cid2 and not is_valid_discord_channel_id(cid2):
+            continue
+        if cid3 and not is_valid_discord_channel_id(cid3):
+            continue
         row.discord_channel_id = cid[:32]
+        row.discord_channel_id_2 = cid2[:32]
+        row.discord_channel_id_3 = cid3[:32]
         row.label = str(item.get("label") or row.label or "").strip()[:120]
         row.description = str(item.get("description") or row.description or "").strip()[:2000]
         row.is_enabled = bool(item.get("is_enabled"))
@@ -1861,6 +1985,8 @@ def update_discord_routes(session, league_slug: str, rows: list[dict], updated_b
             "event_key": r.event_key,
             "channel_key": r.channel_key,
             "discord_channel_id": r.discord_channel_id,
+            "discord_channel_id_2": getattr(r, "discord_channel_id_2", "") or "",
+            "discord_channel_id_3": getattr(r, "discord_channel_id_3", "") or "",
             "label": r.label,
             "is_enabled": bool(r.is_enabled),
         }
@@ -1895,8 +2021,12 @@ def add_discord_route(
     row = DiscordChannelRoute(
         league_slug=league_slug,
         event_key=key,
-        channel_key=str(channel_key or DEFAULT_EVENT_CHANNEL_KEY.get(key, "")).strip()[:64],
+        channel_key=str(
+            channel_key or default_channel_key_for_event(league_slug, key)
+        ).strip()[:64],
         discord_channel_id=cid[:32],
+        discord_channel_id_2="",
+        discord_channel_id_3="",
         label=str(label or DEFAULT_EVENT_LABELS.get(key, "")).strip()[:120],
         description=str(description or "").strip()[:2000],
         is_enabled=bool(is_enabled),
@@ -2070,47 +2200,71 @@ def enqueue_discord_event(
     if st and sid:
         if is_source_delivered(session, league_slug=league_slug, source_type=st, source_id=sid):
             return None
-    channel_key = str(route.channel_key or DEFAULT_EVENT_CHANNEL_KEY.get(key, ""))
-    if st and sid:
-        idem_key = _source_idempotency_key(
-            league_slug=league_slug, event_key=key, source_type=st, source_id=sid
-        )
+    channel_key = str(
+        route.channel_key or default_channel_key_for_event(league_slug, key)
+    )
+    channel_ids = route_discord_channel_ids(route)
+    # Fan-out the same payload to up to three channel IDs (Cap / Hist / Relegation).
+    # One ID keeps legacy idempotency keys; 2–3 IDs use :ch{n} suffixes.
+    if not channel_ids:
+        targets: list[tuple[int | None, str]] = [(None, "")]
+    elif len(channel_ids) == 1:
+        targets = [(None, channel_ids[0])]
     else:
-        idem_key = _event_idempotency_key(
+        targets = [(idx, cid) for idx, cid in enumerate(channel_ids)]
+    first_row: DiscordOutboundEvent | None = None
+    for slot_idx, cid in targets:
+        payload_i = dict(payload_clean)
+        if cid:
+            payload_i["discord_channel_id"] = cid
+        if st and sid:
+            idem_sid = sid if slot_idx is None else f"{sid}:ch{slot_idx}"
+            idem_key = _source_idempotency_key(
+                league_slug=league_slug, event_key=key, source_type=st, source_id=idem_sid
+            )
+        else:
+            idem_payload = dict(payload_i)
+            if slot_idx is not None:
+                idem_payload["_channel_slot"] = slot_idx
+            idem_key = _event_idempotency_key(
+                league_slug=league_slug,
+                event_key=key,
+                channel_key=channel_key,
+                payload=idem_payload,
+            )
+        existing = session.scalar(
+            select(DiscordOutboundEvent)
+            .where(
+                DiscordOutboundEvent.league_slug == league_slug,
+                DiscordOutboundEvent.idempotency_key == idem_key,
+                DiscordOutboundEvent.status.in_(("pending", "sent", "failed")),
+            )
+            .order_by(DiscordOutboundEvent.id.desc())
+            .limit(1)
+        )
+        if existing is not None:
+            if first_row is None:
+                first_row = existing
+            continue
+        row = DiscordOutboundEvent(
             league_slug=league_slug,
             event_key=key,
             channel_key=channel_key,
-            payload=payload_clean,
+            idempotency_key=idem_key,
+            payload_json=json.dumps(payload_i),
+            status="pending",
+            attempts=0,
+            last_error="",
+            created_by_user_id=created_by_user_id,
+            created_at=datetime.utcnow(),
+            next_attempt_at=None,
+            sent_at=None,
         )
-    existing = session.scalar(
-        select(DiscordOutboundEvent)
-        .where(
-            DiscordOutboundEvent.league_slug == league_slug,
-            DiscordOutboundEvent.idempotency_key == idem_key,
-            DiscordOutboundEvent.status.in_(("pending", "sent", "failed")),
-        )
-        .order_by(DiscordOutboundEvent.id.desc())
-        .limit(1)
-    )
-    if existing is not None:
-        return existing
-    row = DiscordOutboundEvent(
-        league_slug=league_slug,
-        event_key=key,
-        channel_key=channel_key,
-        idempotency_key=idem_key,
-        payload_json=json.dumps(payload_clean),
-        status="pending",
-        attempts=0,
-        last_error="",
-        created_by_user_id=created_by_user_id,
-        created_at=datetime.utcnow(),
-        next_attempt_at=None,
-        sent_at=None,
-    )
-    session.add(row)
-    session.flush()
-    return row
+        session.add(row)
+        session.flush()
+        if first_row is None:
+            first_row = row
+    return first_row
 
 
 def is_discord_event_route_active(
@@ -2131,8 +2285,7 @@ def is_discord_event_route_active(
     # discord_channel_id is unused (enable/disable only).
     if key == GAME_BOXSCORE_EVENT_KEY:
         return has_game_boxscore_delivery_target(session, league_slug=league_slug)
-    cid = str(getattr(route, "discord_channel_id", None) or "").strip()
-    return bool(cid)
+    return bool(route_discord_channel_ids(route))
 
 
 def enqueue_repeatable_discord_event(
@@ -2156,57 +2309,77 @@ def enqueue_repeatable_discord_event(
     if route is None:
         return None
     payload_clean = dict(payload or {})
-    channel_key = str(route.channel_key or DEFAULT_EVENT_CHANNEL_KEY.get(key, ""))
+    channel_key = str(
+        route.channel_key or default_channel_key_for_event(league_slug, key)
+    )
     if idempotency_key:
-        idem_key = str(idempotency_key).strip()
+        base_idem = str(idempotency_key).strip()
     elif key == BOWL_SIX_LEADERS_EVENT_KEY and slate_id is not None:
-        idem_key = bowl_six_leaders_idempotency_key(league_slug=league_slug, slate_id=int(slate_id))
+        base_idem = bowl_six_leaders_idempotency_key(league_slug=league_slug, slate_id=int(slate_id))
     elif key == PLAYOFF_BRACKET_UPDATE_EVENT_KEY and season_id is not None:
-        idem_key = playoff_bracket_idempotency_key(
+        base_idem = playoff_bracket_idempotency_key(
             league_slug=league_slug, season_id=int(season_id)
         )
     elif key == SIM_CYCLE_UPDATE_EVENT_KEY:
-        idem_key = sim_cycle_idempotency_key(league_slug=league_slug)
+        base_idem = sim_cycle_idempotency_key(league_slug=league_slug)
     else:
         return None
-    pending = session.scalar(
-        select(DiscordOutboundEvent)
-        .where(
-            DiscordOutboundEvent.league_slug == league_slug,
-            DiscordOutboundEvent.idempotency_key == idem_key,
-            DiscordOutboundEvent.status == "pending",
+    channel_ids = route_discord_channel_ids(route)
+    if not channel_ids:
+        targets: list[tuple[int | None, str]] = [(None, "")]
+    elif len(channel_ids) == 1:
+        targets = [(None, channel_ids[0])]
+    else:
+        targets = [(idx, cid) for idx, cid in enumerate(channel_ids)]
+    first_row: DiscordOutboundEvent | None = None
+    for slot_idx, cid in targets:
+        idem_key = base_idem if slot_idx is None else f"{base_idem}:ch{slot_idx}"
+        if len(idem_key) > 64:
+            idem_key = hashlib.sha256(idem_key.encode("utf-8")).hexdigest()[:64]
+        payload_i = dict(payload_clean)
+        if cid:
+            payload_i["discord_channel_id"] = cid
+        pending = session.scalar(
+            select(DiscordOutboundEvent)
+            .where(
+                DiscordOutboundEvent.league_slug == league_slug,
+                DiscordOutboundEvent.idempotency_key == idem_key,
+                DiscordOutboundEvent.status == "pending",
+            )
+            .order_by(DiscordOutboundEvent.id.desc())
+            .limit(1)
         )
-        .order_by(DiscordOutboundEvent.id.desc())
-        .limit(1)
-    )
-    if pending is not None:
-        pending.event_key = key
-        pending.channel_key = channel_key
-        pending.payload_json = json.dumps(payload_clean)
-        pending.attempts = 0
-        pending.last_error = ""
-        pending.next_attempt_at = None
-        pending.created_at = datetime.utcnow()
+        if pending is not None:
+            pending.event_key = key
+            pending.channel_key = channel_key
+            pending.payload_json = json.dumps(payload_i)
+            pending.attempts = 0
+            pending.last_error = ""
+            pending.next_attempt_at = None
+            pending.created_at = datetime.utcnow()
+            session.flush()
+            if first_row is None:
+                first_row = pending
+            continue
+        row = DiscordOutboundEvent(
+            league_slug=league_slug,
+            event_key=key,
+            channel_key=channel_key,
+            idempotency_key=idem_key,
+            payload_json=json.dumps(payload_i),
+            status="pending",
+            attempts=0,
+            last_error="",
+            created_by_user_id=created_by_user_id,
+            created_at=datetime.utcnow(),
+            next_attempt_at=None,
+            sent_at=None,
+        )
+        session.add(row)
         session.flush()
-        return pending
-    row = DiscordOutboundEvent(
-        league_slug=league_slug,
-        event_key=key,
-        channel_key=channel_key,
-        idempotency_key=idem_key,
-        payload_json=json.dumps(payload_clean),
-        status="pending",
-        attempts=0,
-        last_error="",
-        created_by_user_id=created_by_user_id,
-        created_at=datetime.utcnow(),
-        next_attempt_at=None,
-        sent_at=None,
-    )
-    session.add(row)
-    session.flush()
-    return row
-
+        if first_row is None:
+            first_row = row
+    return first_row
 
 def list_outbound_events(
     session, *, league_slug: str, status: str = "", event_key: str = "", limit: int = 250
@@ -2304,17 +2477,17 @@ def resolve_discord_channel_id(
     if ek:
         row = routes.get(ek)
         if row is not None and bool(row.is_enabled):
-            cid = str(row.discord_channel_id or "").strip()
-            if cid:
-                return cid
+            ids = route_discord_channel_ids(row)
+            if ids:
+                return ids[0]
     if ck:
         for row in routes.values():
             if not bool(row.is_enabled):
                 continue
             if str(row.channel_key or "").strip() == ck:
-                cid = str(row.discord_channel_id or "").strip()
-                if cid:
-                    return cid
+                ids = route_discord_channel_ids(row)
+                if ids:
+                    return ids[0]
     return ""
 
 
@@ -2354,6 +2527,9 @@ def serialize_pending_events_for_bot(
     for r in rows:
         try:
             raw_payload = json.loads(r.payload_json or "{}")
+            channel_override = ""
+            if isinstance(raw_payload, dict):
+                channel_override = str(raw_payload.get("discord_channel_id") or "").strip()
             payload = enrich_discord_payload_for_bot(
                 session,
                 league_slug=league_slug,
@@ -2368,12 +2544,15 @@ def serialize_pending_events_for_bot(
             payload = sanitize_discord_event_payload(league_slug, payload)
             if str(r.event_key or "") in OPS_TEXT_ONLY_DISCORD_EVENT_KEYS:
                 payload.pop("url", None)
+            if isinstance(payload, dict):
+                payload.pop("discord_channel_id", None)
         except Exception:
             payload = {}
+            channel_override = ""
         delivery = bot_event_delivery_fields_cached(
             routes, bot_cfg, event_key=str(r.event_key or "")
         )
-        discord_channel_id = delivery.get("discord_channel_id") or ""
+        discord_channel_id = channel_override or delivery.get("discord_channel_id") or ""
         if str(r.event_key or "") == GAME_BOXSCORE_EVENT_KEY:
             team_id = None
             if isinstance(payload, dict):
@@ -2398,7 +2577,6 @@ def serialize_pending_events_for_bot(
             }
         )
     return out
-
 
 def mark_event_sent(
     session,

@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Racers admin — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<section class="card">
+  <p><a href="{{ url_for('racing.admin_home') }}">&larr; Racing admin</a></p>
+  <h1 class="page-title">Racer roster</h1>
+  <form method="post" style="margin-bottom:1rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="sync">
+    <button type="submit" class="btn">Sync from Cap GMs (+ Historical-only)</button>
+  </form>
+  <table class="data-table racing-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>User</th>
+        <th>Default AP link</th>
+        <th>Aliases</th>
+        <th>Add alias</th>
+        <th>Set AP team</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in racers %}
+      <tr>
+        <td>{{ r.display_name }}</td>
+        <td>{{ r.user_id or '—' }}</td>
+        <td>{{ r.ap_league_slug or '—' }} {% if r.ap_team_id %}#{{ r.ap_team_id }}{% endif %}</td>
+        <td>
+          {% for a in aliases.get(r.id, []) %}
+            <code>{{ a.alias }}</code>{% if not loop.last %}, {% endif %}
+          {% else %}—{% endfor %}
+        </td>
+        <td>
+          <form method="post" class="inline-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="action" value="alias">
+            <input type="hidden" name="racer_id" value="{{ r.id }}">
+            <input type="text" name="alias" placeholder="CSV name" required>
+            <button type="submit" class="btn secondary">Add</button>
+          </form>
+        </td>
+        <td>
+          <form method="post" class="inline-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="action" value="ap_target">
+            <input type="hidden" name="racer_id" value="{{ r.id }}">
+            <select name="ap_league_slug">
+              <option value="bowl-cap" {% if r.ap_league_slug == 'bowl-cap' %}selected{% endif %}>Cap</option>
+              <option value="bowl-historical" {% if r.ap_league_slug == 'bowl-historical' %}selected{% endif %}>Historical</option>
+            </select>
+            <input type="number" name="ap_team_id" value="{{ r.ap_team_id or '' }}" placeholder="team id" required style="width:5rem;">
+            <button type="submit" class="btn secondary">Save</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="muted">No racers — run sync.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

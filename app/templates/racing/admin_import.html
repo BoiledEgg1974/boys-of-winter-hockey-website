@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Import — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<section class="card" style="max-width:44rem;margin:0 auto;">
+  <p><a href="{{ url_for('racing.admin_home') }}">&larr; Racing admin</a></p>
+  <h1 class="page-title">CSV import</h1>
+  <p class="muted">Upload Godot <strong>EXPORT CSV</strong> files, or place them in the league raw import folder and scan.</p>
+  <form method="post" enctype="multipart/form-data" class="stack-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="upload">
+    <label>CSV files
+      <input type="file" name="csv_files" accept=".csv" multiple>
+    </label>
+    <button type="submit" class="btn">Upload &amp; import</button>
+  </form>
+  <form method="post" style="margin-top:1rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="scan">
+    <button type="submit" class="btn secondary">Scan raw folder</button>
+  </form>
+  <h2 class="section-title">Files in raw folder</h2>
+  <ul>
+    {% for name in existing_files %}
+    <li><code>{{ name }}</code></li>
+    {% else %}
+    <li class="muted">Empty.</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endblock %}

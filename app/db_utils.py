@@ -2497,9 +2497,36 @@ def ensure_prospect_league_rank_snapshots_sqlite(engine: Engine) -> None:
         conn.commit()
 
 
+def ensure_discord_channel_route_multi_ids(engine: Engine) -> None:
+    """Add discord_channel_id_2/_3 on discord_channel_routes (SQLite or MySQL)."""
+    from sqlalchemy import inspect
+
+    insp = inspect(engine)
+    if not insp.has_table("discord_channel_routes"):
+        return
+    cols = {str(col["name"]) for col in insp.get_columns("discord_channel_routes")}
+    alters: list[str] = []
+    if "discord_channel_id_2" not in cols:
+        alters.append(
+            "ALTER TABLE discord_channel_routes "
+            "ADD COLUMN discord_channel_id_2 VARCHAR(32) NOT NULL DEFAULT ''"
+        )
+    if "discord_channel_id_3" not in cols:
+        alters.append(
+            "ALTER TABLE discord_channel_routes "
+            "ADD COLUMN discord_channel_id_3 VARCHAR(32) NOT NULL DEFAULT ''"
+        )
+    if not alters:
+        return
+    with engine.begin() as conn:
+        for sql in alters:
+            conn.execute(text(sql))
+
+
 def ensure_discord_outbound_sqlite(engine: Engine) -> None:
     """Create Discord route + outbound event tables on site DB when missing."""
     if engine.dialect.name != "sqlite":
+        ensure_discord_channel_route_multi_ids(engine)
         return
     with engine.connect() as conn:
         has_routes = conn.execute(
@@ -2705,6 +2732,20 @@ def ensure_discord_outbound_sqlite(engine: Engine) -> None:
                         "ADD COLUMN discord_channel_id VARCHAR(32) NOT NULL DEFAULT ''"
                     )
                 )
+            if "discord_channel_id_2" not in route_names:
+                conn.execute(
+                    text(
+                        "ALTER TABLE discord_channel_routes "
+                        "ADD COLUMN discord_channel_id_2 VARCHAR(32) NOT NULL DEFAULT ''"
+                    )
+                )
+            if "discord_channel_id_3" not in route_names:
+                conn.execute(
+                    text(
+                        "ALTER TABLE discord_channel_routes "
+                        "ADD COLUMN discord_channel_id_3 VARCHAR(32) NOT NULL DEFAULT ''"
+                    )
+                )
             if "label" not in route_names:
                 conn.execute(
                     text(
@@ -2858,6 +2899,7 @@ def ensure_discord_outbound_sqlite(engine: Engine) -> None:
                 )
             )
         conn.commit()
+    ensure_discord_channel_route_multi_ids(engine)
 
 
 def ensure_bowl_six_slates_discord_columns_sqlite(engine: Engine) -> None:

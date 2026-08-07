@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Racing admin — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<section class="card" style="max-width:40rem;margin:0 auto;">
+  <h1 class="page-title">Racing admin</h1>
+  <ul>
+    <li><a href="{{ url_for('racing.admin_import') }}">CSV import</a> — drop Godot EXPORT files</li>
+    <li><a href="{{ url_for('racing.admin_racers') }}">Racer roster</a> — sync Cap/Historical GMs, aliases</li>
+    <li><a href="{{ url_for('racing.admin_rewards') }}">AP &amp; Twitch CP schedules</a> — race/night and circuit place tables</li>
+    <li><a href="{{ url_for('racing.admin_ap_grants') }}">Reward grants</a> — {{ pending_count }} pending · Cap/Hist AP or mark CP paid</li>
+    <li><a href="{{ url_for('site_admin.admin_discord_integration') }}">Discord integration</a> — race/heat results + circuit standings channels</li>
+  </ul>
+  <h2 class="section-title">Recent imports</h2>
+  <table class="data-table racing-table">
+    <thead><tr><th>File</th><th>Kind</th><th>Rows</th><th>When</th></tr></thead>
+    <tbody>
+      {% for b in batches %}
+      <tr>
+        <td>{{ b.filename }}</td>
+        <td>{{ b.kind }}</td>
+        <td>{{ b.row_count }}</td>
+        <td>{{ b.imported_at }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="muted">No imports yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

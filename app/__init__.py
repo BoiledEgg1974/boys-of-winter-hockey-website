@@ -120,6 +120,10 @@ def create_app(config_class: type = Config) -> Flask:
     login_manager.init_app(app)
 
     importlib.import_module("app.site_models")
+    from app.config import is_racing_league as _is_racing_league_cfg
+
+    if _is_racing_league_cfg(str(app.config.get("LEAGUE_SLUG") or "")):
+        importlib.import_module("app.racing_models")
 
     db_uri = app.config.get("SQLALCHEMY_DATABASE_URI", "")
     if isinstance(db_uri, str) and db_uri.startswith("sqlite:///"):
@@ -148,32 +152,37 @@ def create_app(config_class: type = Config) -> Flask:
                 ensure_bowl_six_slates_discord_columns_sqlite(site_engine)
         except Exception as exc:
             app.logger.warning("site DB schema ensure skipped: %s", exc)
-        # FTS may be empty until import or seed; seed script calls rebuild
-        try:
-            from app.services.ratings_position_cache import backfill_null_positions_from_ratings
 
-            n = backfill_null_positions_from_ratings(db.session)
-            if n:
-                app.logger.info(
-                    "Backfilled player.position from player_ratings.csv for %s players (was NULL)",
-                    n,
+        from app.config import is_racing_league as _is_racing_league_boot
+
+        _boot_slug = str(app.config.get("LEAGUE_SLUG") or "")
+        if not _is_racing_league_boot(_boot_slug):
+            # FTS may be empty until import or seed; seed script calls rebuild
+            try:
+                from app.services.ratings_position_cache import backfill_null_positions_from_ratings
+
+                n = backfill_null_positions_from_ratings(db.session)
+                if n:
+                    app.logger.info(
+                        "Backfilled player.position from player_ratings.csv for %s players (was NULL)",
+                        n,
+                    )
+            except Exception as exc:
+                app.logger.warning("Position backfill from ratings skipped: %s", exc)
+
+            try:
+                from app.services.player_ability_potential import (
+                    backfill_missing_ability_potential_from_ratings,
                 )
-        except Exception as exc:
-            app.logger.warning("Position backfill from ratings skipped: %s", exc)
 
-        try:
-            from app.services.player_ability_potential import (
-                backfill_missing_ability_potential_from_ratings,
-            )
-
-            n = backfill_missing_ability_potential_from_ratings(db.session)
-            if n:
-                app.logger.info(
-                    "Backfilled player ABI/POT from player_ratings.csv for %s players (was NULL)",
-                    n,
-                )
-        except Exception as exc:
-            app.logger.warning("Ability/potential backfill from ratings skipped: %s", exc)
+                n = backfill_missing_ability_potential_from_ratings(db.session)
+                if n:
+                    app.logger.info(
+                        "Backfilled player ABI/POT from player_ratings.csv for %s players (was NULL)",
+                        n,
+                    )
+            except Exception as exc:
+                app.logger.warning("Ability/potential backfill from ratings skipped: %s", exc)
 
         try:
             from app.services.ap_service import seed_ap_catalog_if_empty
@@ -189,8 +198,24 @@ def create_app(config_class: type = Config) -> Flask:
         except Exception as exc:
             app.logger.warning("Commissioner bootstrap skipped: %s", exc)
 
+        if _is_racing_league_boot(_boot_slug):
+            try:
+                from app.services.racing_rewards import (
+                    ensure_default_reward_tiers,
+                    ensure_racing_reward_schema,
+                )
+                from app.sqlite_retry import commit_with_sqlite_retry
+
+                ensure_racing_reward_schema(db.engine)
+                db.create_all()
+                ensure_default_reward_tiers(db.session, league_slug=_boot_slug)
+                commit_with_sqlite_retry(db.session)
+            except Exception as exc:
+                app.logger.warning("Racing reward schedule seed skipped: %s", exc)
+
     from sqlalchemy import select
 
+    from app.config import is_racing_league
     from app.logo_urls import team_logo_url_for_team
     from app.models import Player, Team
     from app.routes import api_bp, main_bp
@@ -198,15 +223,27 @@ def create_app(config_class: type = Config) -> Flask:
     from app.routes.expansion_draft_hub import expansion_draft_hub_bp
     from app.routes.site_portal import site_admin_bp, site_gm_bp
 
-    from app.routes import bowl_six_portal as _bowl_six_portal  # noqa: F401 — routes on shared blueprints
+    _league_slug = str(app.config.get("LEAGUE_SLUG") or "")
+    _racing = is_racing_league(_league_slug)
 
-    app.register_blueprint(main_bp)
-    app.register_blueprint(draft_hub_bp)
-    app.register_blueprint(expansion_draft_hub_bp)
-    app.register_blueprint(api_bp, url_prefix="/api")
-    csrf.exempt(api_bp)
-    app.register_blueprint(site_gm_bp)
-    app.register_blueprint(site_admin_bp)
+    if _racing:
+        importlib.import_module("app.racing_models")
+        from app.routes.racing import racing_bp
+
+        app.register_blueprint(racing_bp)
+        app.register_blueprint(api_bp, url_prefix="/api")
+        csrf.exempt(api_bp)
+        app.register_blueprint(site_admin_bp)
+    else:
+        from app.routes import bowl_six_portal as _bowl_six_portal  # noqa: F401 — routes on shared blueprints
+
+        app.register_blueprint(main_bp)
+        app.register_blueprint(draft_hub_bp)
+        app.register_blueprint(expansion_draft_hub_bp)
+        app.register_blueprint(api_bp, url_prefix="/api")
+        csrf.exempt(api_bp)
+        app.register_blueprint(site_gm_bp)
+        app.register_blueprint(site_admin_bp)
 
     if app.config.get("LEAGUE_JSON_CACHE_WARM_ON_STARTUP", False):
         from app.services.homepage_summary_cache import warm_homepage_summary_cache
@@ -396,23 +433,40 @@ def create_app(config_class: type = Config) -> Flask:
 
     @app.context_processor
     def inject_layout():
+        from app.config import is_racing_league
         from app.services.draft_history import draft_pick_current_team_view
         from app.services.layout_nav_cache import get_nav_teams_for_layout
 
-        teams = get_nav_teams_for_layout(app)
+        slug_early = str(app.config.get("LEAGUE_SLUG") or "").strip()
+        racing_layout = is_racing_league(slug_early)
+        try:
+            teams = get_nav_teams_for_layout(app) if not racing_layout else []
+        except Exception:
+            teams = []
 
         def team_logo_url(team: Team) -> str:
             return team_logo_url_for_team(team)
 
         from app.services.season_team_logo_bundle import get_season_team_logo_bundle
 
-        _logo_bundle = get_season_team_logo_bundle(app)
-        season_team_logo_url = _logo_bundle.season_team_logo_url
-        team_logo_url_for_season_context = _logo_bundle.team_logo_url_for_season_context
-        team_logo_url_present_franchise = _logo_bundle.team_logo_url_present_franchise
-        season_team_name = _logo_bundle.season_team_name
-        season_team_source_id = _logo_bundle.season_team_source_id
-        draft_pick_team_logo_url = _logo_bundle.draft_pick_team_logo_url
+        try:
+            _logo_bundle = get_season_team_logo_bundle(app)
+            season_team_logo_url = _logo_bundle.season_team_logo_url
+            team_logo_url_for_season_context = _logo_bundle.team_logo_url_for_season_context
+            team_logo_url_present_franchise = _logo_bundle.team_logo_url_present_franchise
+            season_team_name = _logo_bundle.season_team_name
+            season_team_source_id = _logo_bundle.season_team_source_id
+            draft_pick_team_logo_url = _logo_bundle.draft_pick_team_logo_url
+        except Exception:
+            def _empty_logo(*_a, **_k):
+                return ""
+
+            season_team_logo_url = _empty_logo
+            team_logo_url_for_season_context = _empty_logo
+            team_logo_url_present_franchise = _empty_logo
+            season_team_name = lambda *_a, **_k: ""
+            season_team_source_id = lambda *_a, **_k: None
+            draft_pick_team_logo_url = _empty_logo
 
         def player_headshot_url(player: Player | None) -> str | None:
             from flask import url_for
@@ -532,6 +586,7 @@ def create_app(config_class: type = Config) -> Flask:
             draft_pick_current_team_view=draft_pick_current_team_view,
             league_entries=LEAGUES,
             current_league_slug=app.config.get("LEAGUE_SLUG"),
+            is_racing_league=racing_layout,
             gm_membership=gm_membership,
             gm_messages_unread=gm_messages_unread,
             active_site_announcement=ann,

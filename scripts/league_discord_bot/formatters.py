@@ -561,6 +561,176 @@ def _format_playoff_bracket_messages(
     ]
 
 
+def _format_boxscore_stat_row(label: str, away_val: str, home_val: str) -> str:
+    return f"{label:<4} {away_val} · {home_val}"
+
+
+def _format_boxscore_side_leaders(
+    abbrev: str, leaders: list[Any]
+) -> str | None:
+    if not isinstance(leaders, list) or not leaders:
+        return None
+    bits: list[str] = []
+    for entry in leaders[:3]:
+        if not isinstance(entry, dict):
+            continue
+        name = str(entry.get("name") or "").strip()
+        if not name:
+            continue
+        line = str(entry.get("line") or "").strip()
+        bits.append(f"{name} {line}".strip() if line else name)
+    if not bits:
+        return None
+    return f"**{abbrev}** — {' · '.join(bits)}"
+
+
+def _format_boxscore_side_goalies(
+    abbrev: str, goalies: list[Any]
+) -> str | None:
+    if not isinstance(goalies, list) or not goalies:
+        return None
+    bits: list[str] = []
+    for entry in goalies:
+        if not isinstance(entry, dict):
+            continue
+        name = str(entry.get("name") or "").strip()
+        if not name:
+            continue
+        line = str(entry.get("line") or "").strip()
+        if not line:
+            saves = entry.get("saves")
+            sa = entry.get("sa")
+            try:
+                line = f"{int(saves)}/{int(sa)}"
+            except (TypeError, ValueError):
+                line = ""
+            pct = entry.get("sv_pct")
+            try:
+                if pct is not None and line:
+                    line = f"{line} ({float(pct):.1f}%)"
+            except (TypeError, ValueError):
+                pass
+            decision = str(entry.get("decision") or "").strip()
+            if decision and line:
+                line = f"{line} {decision}"
+        bits.append(f"{name} {line}".strip() if line else name)
+    if not bits:
+        return None
+    return f"**{abbrev}** — {' · '.join(bits)}"
+
+
+def _format_game_boxscore_body(payload: dict[str, Any]) -> str:
+    away = payload.get("away_team") if isinstance(payload.get("away_team"), dict) else {}
+    home = payload.get("home_team") if isinstance(payload.get("home_team"), dict) else {}
+    away_abbr = str(away.get("abbrev") or away.get("name") or "AWAY").strip() or "AWAY"
+    home_abbr = str(home.get("abbrev") or home.get("name") or "HOME").strip() or "HOME"
+
+    sections: list[str] = []
+
+    shots = payload.get("shots") if isinstance(payload.get("shots"), dict) else {}
+    st = (
+        payload.get("special_teams")
+        if isinstance(payload.get("special_teams"), dict)
+        else {}
+    )
+    team_stat_lines: list[str] = []
+    away_sog = shots.get("away")
+    home_sog = shots.get("home")
+    if away_sog is not None or home_sog is not None:
+        team_stat_lines.append(
+            _format_boxscore_stat_row(
+                "SOG",
+                f"**{away_abbr}** {away_sog if away_sog is not None else '—'}",
+                f"**{home_abbr}** {home_sog if home_sog is not None else '—'}",
+            )
+        )
+    away_pp = str(st.get("away_pp") or "").strip()
+    home_pp = str(st.get("home_pp") or "").strip()
+    if away_pp or home_pp:
+        team_stat_lines.append(
+            _format_boxscore_stat_row(
+                "PP",
+                f"**{away_abbr}** {away_pp or '—'}",
+                f"**{home_abbr}** {home_pp or '—'}",
+            )
+        )
+    away_pim = st.get("away_pim")
+    home_pim = st.get("home_pim")
+    if away_pim is not None or home_pim is not None:
+        team_stat_lines.append(
+            _format_boxscore_stat_row(
+                "PIM",
+                f"**{away_abbr}** {away_pim if away_pim is not None else '—'}",
+                f"**{home_abbr}** {home_pim if home_pim is not None else '—'}",
+            )
+        )
+    away_hits = st.get("away_hits")
+    home_hits = st.get("home_hits")
+    if away_hits is not None or home_hits is not None:
+        team_stat_lines.append(
+            _format_boxscore_stat_row(
+                "Hits",
+                f"**{away_abbr}** {away_hits if away_hits is not None else '—'}",
+                f"**{home_abbr}** {home_hits if home_hits is not None else '—'}",
+            )
+        )
+    if team_stat_lines:
+        sections.append("\n".join(team_stat_lines))
+
+    leaders = (
+        payload.get("team_leaders")
+        if isinstance(payload.get("team_leaders"), dict)
+        else {}
+    )
+    leader_lines = [
+        ln
+        for ln in (
+            _format_boxscore_side_leaders(away_abbr, leaders.get("away") or []),
+            _format_boxscore_side_leaders(home_abbr, leaders.get("home") or []),
+        )
+        if ln
+    ]
+    if leader_lines:
+        sections.append("**Top performers**\n" + "\n".join(leader_lines))
+
+    goalies = payload.get("goalies") if isinstance(payload.get("goalies"), dict) else {}
+    goalie_lines = [
+        ln
+        for ln in (
+            _format_boxscore_side_goalies(away_abbr, goalies.get("away") or []),
+            _format_boxscore_side_goalies(home_abbr, goalies.get("home") or []),
+        )
+        if ln
+    ]
+    if goalie_lines:
+        sections.append("**Goalies**\n" + "\n".join(goalie_lines))
+
+    star_bits: list[str] = []
+    stars = payload.get("stars") or []
+    if isinstance(stars, list):
+        for idx, star in enumerate(stars[:3], start=1):
+            if not isinstance(star, dict):
+                continue
+            name = str(star.get("name") or "").strip()
+            if not name:
+                continue
+            abbr = str(star.get("team_abbr") or "").strip()
+            line = str(star.get("line") or "").strip()
+            label = name
+            if abbr:
+                label = f"{name} ({abbr})"
+            if line:
+                label = f"{label} {line}"
+            star_bits.append(f"★{idx} {label}")
+    if star_bits:
+        sections.append("**Three stars**\n" + " · ".join(star_bits))
+
+    url = str(payload.get("game_url") or payload.get("url") or "").strip()
+    if url:
+        sections.append(url)
+    return "\n\n".join(sections)
+
+
 def _text_only_body_text(
     league_slug: str,
     event_key: str,
@@ -575,25 +745,7 @@ def _text_only_body_text(
             lines.append(url)
         return "\n".join(lines)
     if event_key == "game_boxscore":
-        star_bits: list[str] = []
-        stars = payload.get("stars") or []
-        if isinstance(stars, list):
-            for idx, star in enumerate(stars[:3], start=1):
-                if not isinstance(star, dict):
-                    continue
-                name = str(star.get("name") or "").strip()
-                if not name:
-                    continue
-                abbr = str(star.get("team_abbr") or "").strip()
-                label = f"{name} ({abbr})" if abbr else name
-                star_bits.append(f"★{idx} {label}")
-        lines: list[str] = []
-        if star_bits:
-            lines.append(" · ".join(star_bits))
-        url = str(payload.get("game_url") or payload.get("url") or "").strip()
-        if url:
-            lines.append(url)
-        return "\n".join(lines)
+        return _format_game_boxscore_body(payload)
     if event_key == "playoff_predictions":
         return _format_playoff_predictions_body(league_slug, payload)
     if event_key == "playoff_bracket_update":

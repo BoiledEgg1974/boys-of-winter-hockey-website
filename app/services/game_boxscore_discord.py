@@ -54,6 +54,9 @@ def drain_stashed_newly_final_game_ids() -> set[int]:
     return out
 
 
+_TOP_SKATERS_PER_TEAM = 3
+
+
 def _game_type_label(game: Game) -> str:
     raw = str(game.game_type or "").strip()
     if raw and "playoff" in raw.casefold():
@@ -68,6 +71,78 @@ def _game_type_label(game: Game) -> str:
     if extras:
         return f"{label} · {'/'.join(extras)}"
     return label
+
+
+def _fmt_toi(sec: int | None) -> str | None:
+    if sec is None:
+        return None
+    try:
+        s = int(sec)
+    except (TypeError, ValueError):
+        return None
+    if s < 0:
+        return None
+    return f"{s // 60}:{s % 60:02d}"
+
+
+def _int_or_none(value: Any) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _pp_fraction(goals: Any, opportunities: Any) -> str | None:
+    g = _int_or_none(goals)
+    opp = _int_or_none(opportunities)
+    if g is None and opp is None:
+        return None
+    return f"{g or 0}/{opp or 0}"
+
+
+def _effective_team_shots(
+    game: Game, goalie_lines: list[GameGoalieStat]
+) -> tuple[int | None, int | None]:
+    """Prefer SOG from opposing goalie SA totals when available."""
+    sa_by_team: dict[int, int] = {}
+    for row in goalie_lines:
+        tid = _int_or_none(getattr(row, "team_id", None))
+        sa = _int_or_none(getattr(row, "shots_against", None))
+        if tid is None or sa is None:
+            continue
+        sa_by_team[tid] = sa_by_team.get(tid, 0) + sa
+    home_id = _int_or_none(getattr(game, "home_team_id", None))
+    away_id = _int_or_none(getattr(game, "away_team_id", None))
+    home_sog = sa_by_team.get(away_id) if away_id is not None else None
+    away_sog = sa_by_team.get(home_id) if home_id is not None else None
+    if home_sog is None and away_sog is None:
+        return _int_or_none(getattr(game, "home_shots", None)), _int_or_none(
+            getattr(game, "away_shots", None)
+        )
+    return (
+        home_sog if home_sog is not None else _int_or_none(getattr(game, "home_shots", None)),
+        away_sog if away_sog is not None else _int_or_none(getattr(game, "away_shots", None)),
+    )
+
+
+def _skater_line_label(*, goals: int, assists: int) -> str:
+    bits: list[str] = []
+    if goals:
+        bits.append(f"{goals}G")
+    if assists:
+        bits.append(f"{assists}A")
+    if not bits:
+        pts = goals + assists
+        return f"{pts}P" if pts else "0P"
+    return " ".join(bits)
+
+
+def _sv_pct(saves: int, shots_against: int) -> float | None:
+    if shots_against <= 0:
+        return None
+    return round(100.0 * float(saves) / float(shots_against), 1)
 
 
 def _star_entry(league_session: Session, game: Game, fhm_pid: int | None) -> dict[str, Any] | None:
@@ -102,16 +177,162 @@ def _star_entry(league_session: Session, game: Game, fhm_pid: int | None) -> dic
         ).first()
     tid = sk.team_id if sk is not None else (gk.team_id if gk is not None else None)
     team = league_session.get(Team, tid) if tid is not None else None
+    line = ""
+    if sk is not None:
+        line = _skater_line_label(
+            goals=int(sk.goals or 0),
+            assists=int(sk.assists or 0),
+        )
+    elif gk is not None:
+        saves = int(gk.saves or 0)
+        sa = int(gk.shots_against or 0)
+        pct = _sv_pct(saves, sa)
+        line = f"{saves}/{sa}"
+        if pct is not None:
+            line = f"{line} ({pct:.1f}%)"
     return {
         "name": str(player.full_name or "").strip(),
         "player_id": int(player.id),
         "team_abbr": str(getattr(team, "abbreviation", "") or "").strip() if team else "",
+        "line": line,
         "fhm_team_id": (
             int(str(team.fhm_team_id).strip())
             if team is not None and str(getattr(team, "fhm_team_id", "") or "").strip().isdigit()
             else None
         ),
     }
+
+
+def _load_game_skater_rows(
+    league_session: Session, game_id: int
+) -> list[GameSkaterStat]:
+    return list(
+        league_session.scalars(
+            select(GameSkaterStat).where(GameSkaterStat.game_id == int(game_id))
+        ).all()
+    )
+
+
+def _load_game_goalie_rows(
+    league_session: Session, game_id: int
+) -> list[GameGoalieStat]:
+    return list(
+        league_session.scalars(
+            select(GameGoalieStat).where(GameGoalieStat.game_id == int(game_id))
+        ).all()
+    )
+
+
+def _player_name_map(league_session: Session, player_ids: set[int]) -> dict[int, str]:
+    if not player_ids:
+        return {}
+    rows = league_session.scalars(select(Player).where(Player.id.in_(sorted(player_ids)))).all()
+    out: dict[int, str] = {}
+    for pl in rows:
+        try:
+            out[int(pl.id)] = str(pl.full_name or "").strip()
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+def _top_skaters_for_team(
+    skater_rows: list[GameSkaterStat],
+    *,
+    team_id: int | None,
+    names: dict[int, str],
+    limit: int = _TOP_SKATERS_PER_TEAM,
+) -> list[dict[str, Any]]:
+    if team_id is None:
+        return []
+    candidates: list[tuple[int, int, float, int, GameSkaterStat]] = []
+    for row in skater_rows:
+        if _int_or_none(getattr(row, "team_id", None)) != int(team_id):
+            continue
+        goals = int(getattr(row, "goals", 0) or 0)
+        assists = int(getattr(row, "assists", 0) or 0)
+        pts = goals + assists
+        gr_raw = getattr(row, "game_rating", None)
+        try:
+            gr = float(gr_raw) if gr_raw is not None else -1.0
+        except (TypeError, ValueError):
+            gr = -1.0
+        pid = _int_or_none(getattr(row, "player_id", None)) or 0
+        candidates.append((pts, goals, gr, pid, row))
+    candidates.sort(key=lambda t: (-t[0], -t[1], -t[2], t[3]))
+    leaders: list[dict[str, Any]] = []
+    for pts, goals, _gr, pid, row in candidates:
+        if len(leaders) >= limit:
+            break
+        # Prefer point-getters; allow high-rating fillers only if we have none yet.
+        if pts <= 0 and leaders:
+            continue
+        name = names.get(int(pid), "").strip()
+        if not name:
+            continue
+        assists = int(getattr(row, "assists", 0) or 0)
+        leaders.append(
+            {
+                "name": name,
+                "player_id": int(pid),
+                "g": goals,
+                "a": assists,
+                "pts": pts,
+                "line": _skater_line_label(goals=goals, assists=assists),
+            }
+        )
+    return leaders
+
+
+def _goalie_entries_for_team(
+    goalie_rows: list[GameGoalieStat],
+    *,
+    team_id: int | None,
+    names: dict[int, str],
+) -> list[dict[str, Any]]:
+    if team_id is None:
+        return []
+    entries: list[tuple[int, int, dict[str, Any]]] = []
+    for row in goalie_rows:
+        if _int_or_none(getattr(row, "team_id", None)) != int(team_id):
+            continue
+        saves = int(getattr(row, "saves", 0) or 0)
+        sa = int(getattr(row, "shots_against", 0) or 0)
+        ga = int(getattr(row, "goals_allowed", 0) or 0)
+        toi = _int_or_none(getattr(row, "toi_seconds", None)) or 0
+        if sa <= 0 and toi <= 0 and saves <= 0 and ga <= 0:
+            continue
+        pid = _int_or_none(getattr(row, "player_id", None))
+        if pid is None:
+            continue
+        name = names.get(int(pid), "").strip()
+        if not name:
+            continue
+        decision = str(getattr(row, "decision", "") or "").strip().upper() or None
+        pct = _sv_pct(saves, sa)
+        entries.append(
+            (
+                toi,
+                sa,
+                {
+                    "name": name,
+                    "player_id": int(pid),
+                    "saves": saves,
+                    "sa": sa,
+                    "ga": ga,
+                    "sv_pct": pct,
+                    "decision": decision,
+                    "toi": _fmt_toi(toi if toi > 0 else None),
+                    "line": (
+                        f"{saves}/{sa}"
+                        + (f" ({pct:.1f}%)" if pct is not None else "")
+                        + (f" {decision}" if decision else "")
+                    ).strip(),
+                },
+            )
+        )
+    entries.sort(key=lambda t: (-t[0], -t[1]))
+    return [e[2] for e in entries]
 
 
 def _team_side_fields(team) -> dict[str, Any]:
@@ -151,7 +372,7 @@ def build_game_boxscore_discord_payload(
     game: Game,
     target_team_id: int,
 ) -> dict[str, Any]:
-    """Compact scoreline + three stars payload for one franchise channel."""
+    """Scoreline + team stats + leaders + goalies + three stars for one franchise channel."""
     home = game.home_team
     away = game.away_team
     if home is None and game.home_team_id is not None:
@@ -161,6 +382,22 @@ def build_game_boxscore_discord_payload(
 
     home_fields = _team_side_fields(home)
     away_fields = _team_side_fields(away)
+    home_tid = _int_or_none(home_fields.get("team_id")) or _int_or_none(game.home_team_id)
+    away_tid = _int_or_none(away_fields.get("team_id")) or _int_or_none(game.away_team_id)
+
+    skater_rows = _load_game_skater_rows(league_session, int(game.id))
+    goalie_rows = _load_game_goalie_rows(league_session, int(game.id))
+    name_ids = {
+        pid
+        for pid in (
+            *(_int_or_none(getattr(r, "player_id", None)) for r in skater_rows),
+            *(_int_or_none(getattr(r, "player_id", None)) for r in goalie_rows),
+        )
+        if pid is not None
+    }
+    names = _player_name_map(league_session, name_ids)
+    home_shots, away_shots = _effective_team_shots(game, goalie_rows)
+
     stars = [
         _star_entry(league_session, game, game.fhm_star1_player_id),
         _star_entry(league_session, game, game.fhm_star2_player_id),
@@ -188,6 +425,27 @@ def build_game_boxscore_discord_payload(
             "abbrev": away_fields.get("abbrev") or "",
             "name": away_fields.get("name") or "",
             "fhm_team_id": away_fields.get("fhm_team_id"),
+        },
+        "shots": {"away": away_shots, "home": home_shots},
+        "special_teams": {
+            "away_pp": _pp_fraction(
+                getattr(game, "pp_goals_away", None), getattr(game, "pp_opp_away", None)
+            ),
+            "home_pp": _pp_fraction(
+                getattr(game, "pp_goals_home", None), getattr(game, "pp_opp_home", None)
+            ),
+            "away_pim": _int_or_none(getattr(game, "pim_away", None)),
+            "home_pim": _int_or_none(getattr(game, "pim_home", None)),
+            "away_hits": _int_or_none(getattr(game, "hits_away", None)),
+            "home_hits": _int_or_none(getattr(game, "hits_home", None)),
+        },
+        "team_leaders": {
+            "away": _top_skaters_for_team(skater_rows, team_id=away_tid, names=names),
+            "home": _top_skaters_for_team(skater_rows, team_id=home_tid, names=names),
+        },
+        "goalies": {
+            "away": _goalie_entries_for_team(goalie_rows, team_id=away_tid, names=names),
+            "home": _goalie_entries_for_team(goalie_rows, team_id=home_tid, names=names),
         },
         "stars": [s for s in stars if s],
         "game_url": game_url,

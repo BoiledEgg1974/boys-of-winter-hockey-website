@@ -254,6 +254,12 @@ class EnqueueBoxscoreTest(unittest.TestCase):
         ), patch(
             "app.services.game_boxscore_discord.build_league_public_url",
             return_value="https://www.bowlhockey.com/bowl-historical/game/42",
+        ), patch(
+            "app.services.game_boxscore_discord._load_game_skater_rows",
+            return_value=[],
+        ), patch(
+            "app.services.game_boxscore_discord._load_game_goalie_rows",
+            return_value=[],
         ):
             n = enqueue_game_boxscore_events_for_game(
                 site, league, league_slug="bowl-historical", game_id=42
@@ -453,35 +459,84 @@ class QueueRecentBoxscoresTest(unittest.TestCase):
 
 
 class FormatterTest(unittest.TestCase):
-    def test_formatter_includes_scoreline_stars_and_url(self) -> None:
+    def test_formatter_includes_expanded_boxscore_sections(self) -> None:
         event = {
             "league_slug": "bowl-historical",
             "event_key": GAME_BOXSCORE_EVENT_KEY,
             "payload": {
                 "title": "Final",
-                "date": "2025-10-12",
+                "date": "1970-12-27",
                 "game_type_label": "RS",
-                "away_score": 3,
-                "home_score": 2,
-                "away_team": {"abbrev": "TOR", "fhm_team_id": 10},
-                "home_team": {"abbrev": "MTL", "fhm_team_id": 11},
+                "away_score": 2,
+                "home_score": 3,
+                "away_team": {"abbrev": "PHI", "fhm_team_id": 10},
+                "home_team": {"abbrev": "STL", "fhm_team_id": 12},
+                "shots": {"away": 30, "home": 21},
+                "special_teams": {
+                    "away_pp": "1/5",
+                    "home_pp": "0/5",
+                    "away_pim": 8,
+                    "home_pim": 10,
+                    "away_hits": 21,
+                    "home_hits": 28,
+                },
+                "team_leaders": {
+                    "away": [
+                        {"name": "Ron Anderson", "line": "1G"},
+                        {"name": "Bill Flett", "line": "1G"},
+                    ],
+                    "home": [
+                        {"name": "Wayne Carleton", "line": "2G"},
+                        {"name": "John Miszuk", "line": "1G"},
+                    ],
+                },
+                "goalies": {
+                    "away": [
+                        {
+                            "name": "Doug Favell",
+                            "line": "18/21 (85.7%)",
+                            "saves": 18,
+                            "sa": 21,
+                            "sv_pct": 85.7,
+                        }
+                    ],
+                    "home": [
+                        {
+                            "name": "Ernie Wakely",
+                            "line": "28/30 (93.3%)",
+                            "saves": 28,
+                            "sa": 30,
+                            "sv_pct": 93.3,
+                        }
+                    ],
+                },
                 "stars": [
-                    {"name": "Auston Matthews", "team_abbr": "TOR"},
-                    {"name": "Nick Suzuki", "team_abbr": "MTL"},
-                    {"name": "Mitch Marner", "team_abbr": "TOR"},
+                    {"name": "Wayne Carleton", "team_abbr": "STL", "line": "2G"},
+                    {"name": "Ron Anderson", "team_abbr": "PHI", "line": "1G"},
+                    {"name": "John Miszuk", "team_abbr": "STL", "line": "1G"},
                 ],
-                "game_url": "https://www.bowlhockey.com/bowl-historical/game/42",
+                "game_url": "https://www.bowlhockey.com/bowl-historical/game/867",
             },
         }
         bodies = format_discord_messages(event, max_parts=2)
         self.assertTrue(bodies)
         content = "\n".join(str(b.get("content") or "") for b in bodies)
-        self.assertIn("**TOR**", content)
-        self.assertIn("3 – 2", content)
-        self.assertIn("**MTL**", content)
-        self.assertIn("Final · 2025-10-12 · RS", content)
-        self.assertIn("★1 Auston Matthews (TOR)", content)
-        self.assertIn("https://www.bowlhockey.com/bowl-historical/game/42", content)
+        self.assertIn("**PHI**", content)
+        self.assertIn("2 – 3", content)
+        self.assertIn("**STL**", content)
+        self.assertIn("Final · 1970-12-27 · RS", content)
+        self.assertIn("SOG", content)
+        self.assertIn("PP", content)
+        self.assertIn("1/5", content)
+        self.assertIn("PIM", content)
+        self.assertIn("Hits", content)
+        self.assertIn("**Top performers**", content)
+        self.assertIn("Wayne Carleton 2G", content)
+        self.assertIn("**Goalies**", content)
+        self.assertIn("Ernie Wakely 28/30 (93.3%)", content)
+        self.assertIn("**Three stars**", content)
+        self.assertIn("★1 Wayne Carleton (STL) 2G", content)
+        self.assertIn("https://www.bowlhockey.com/bowl-historical/game/867", content)
         self.assertIn("bowlhockey.com", content)
 
     def test_payload_builder_sets_target_team_id(self) -> None:
@@ -509,6 +564,16 @@ class FormatterTest(unittest.TestCase):
             away_team_id=11,
             home_score=4,
             away_score=1,
+            home_shots=28,
+            away_shots=22,
+            pp_goals_home=1,
+            pp_opp_home=3,
+            pp_goals_away=0,
+            pp_opp_away=4,
+            pim_home=6,
+            pim_away=8,
+            hits_home=20,
+            hits_away=18,
             game_date=date(2025, 11, 1),
             game_type="playoff",
             went_to_overtime=True,
@@ -522,6 +587,12 @@ class FormatterTest(unittest.TestCase):
         with patch(
             "app.services.game_boxscore_discord.build_league_public_url",
             return_value="https://example.test/game/42",
+        ), patch(
+            "app.services.game_boxscore_discord._load_game_skater_rows",
+            return_value=[],
+        ), patch(
+            "app.services.game_boxscore_discord._load_game_goalie_rows",
+            return_value=[],
         ):
             payload = build_game_boxscore_discord_payload(
                 league,
@@ -532,9 +603,133 @@ class FormatterTest(unittest.TestCase):
         self.assertEqual(payload["team_id"], 11)
         self.assertEqual(payload["away_score"], 1)
         self.assertEqual(payload["home_score"], 4)
+        self.assertEqual(payload["shots"]["away"], 22)
+        self.assertEqual(payload["shots"]["home"], 28)
+        self.assertEqual(payload["special_teams"]["away_pp"], "0/4")
+        self.assertEqual(payload["special_teams"]["home_pp"], "1/3")
+        self.assertEqual(payload["special_teams"]["away_pim"], 8)
+        self.assertEqual(payload["special_teams"]["home_hits"], 20)
         self.assertIn("PO", payload["game_type_label"])
         self.assertIn("OT", payload["game_type_label"])
         self.assertEqual(payload["game_url"], "https://example.test/game/42")
+
+    def test_payload_builder_includes_leaders_and_goalies(self) -> None:
+        home = SimpleNamespace(
+            id=12,
+            abbreviation="STL",
+            name="St. Louis",
+            fhm_team_id="12",
+            full_display_name=lambda: "St. Louis Blues",
+        )
+        away = SimpleNamespace(
+            id=10,
+            abbreviation="PHI",
+            name="Philadelphia",
+            fhm_team_id="10",
+            full_display_name=lambda: "Philadelphia Flyers",
+        )
+        game = SimpleNamespace(
+            id=867,
+            home_team=home,
+            away_team=away,
+            home_team_id=12,
+            away_team_id=10,
+            home_score=3,
+            away_score=2,
+            home_shots=21,
+            away_shots=30,
+            pp_goals_home=0,
+            pp_opp_home=5,
+            pp_goals_away=1,
+            pp_opp_away=5,
+            pim_home=10,
+            pim_away=8,
+            hits_home=28,
+            hits_away=21,
+            game_date=date(1970, 12, 27),
+            game_type="0",
+            went_to_overtime=False,
+            went_to_shootout=False,
+            status="final",
+            fhm_star1_player_id=None,
+            fhm_star2_player_id=None,
+            fhm_star3_player_id=None,
+        )
+        skaters = [
+            SimpleNamespace(
+                team_id=12, player_id=1, goals=2, assists=0, game_rating=96.0
+            ),
+            SimpleNamespace(
+                team_id=10, player_id=2, goals=1, assists=0, game_rating=70.0
+            ),
+            SimpleNamespace(
+                team_id=12, player_id=3, goals=1, assists=0, game_rating=71.0
+            ),
+        ]
+        goalies = [
+            SimpleNamespace(
+                team_id=12,
+                player_id=4,
+                saves=28,
+                shots_against=30,
+                goals_allowed=2,
+                decision=None,
+                toi_seconds=3600,
+            ),
+            SimpleNamespace(
+                team_id=10,
+                player_id=5,
+                saves=18,
+                shots_against=21,
+                goals_allowed=3,
+                decision=None,
+                toi_seconds=3570,
+            ),
+            SimpleNamespace(
+                team_id=12,
+                player_id=6,
+                saves=0,
+                shots_against=0,
+                goals_allowed=0,
+                decision=None,
+                toi_seconds=0,
+            ),
+        ]
+        league = MagicMock()
+        with patch(
+            "app.services.game_boxscore_discord.build_league_public_url",
+            return_value="https://example.test/game/867",
+        ), patch(
+            "app.services.game_boxscore_discord._load_game_skater_rows",
+            return_value=skaters,
+        ), patch(
+            "app.services.game_boxscore_discord._load_game_goalie_rows",
+            return_value=goalies,
+        ), patch(
+            "app.services.game_boxscore_discord._player_name_map",
+            return_value={
+                1: "Wayne Carleton",
+                2: "Ron Anderson",
+                3: "John Miszuk",
+                4: "Ernie Wakely",
+                5: "Doug Favell",
+                6: "Backup",
+            },
+        ):
+            payload = build_game_boxscore_discord_payload(
+                league,
+                league_slug="bowl-historical",
+                game=game,
+                target_team_id=12,
+            )
+        self.assertEqual(payload["shots"]["away"], 30)
+        self.assertEqual(payload["shots"]["home"], 21)
+        self.assertEqual(payload["team_leaders"]["home"][0]["name"], "Wayne Carleton")
+        self.assertEqual(payload["team_leaders"]["home"][0]["line"], "2G")
+        self.assertEqual(payload["goalies"]["away"][0]["name"], "Doug Favell")
+        self.assertEqual(payload["goalies"]["away"][0]["line"], "18/21 (85.7%)")
+        self.assertEqual(len(payload["goalies"]["home"]), 1)
+        self.assertNotIn("Backup", payload["goalies"]["home"][0]["name"])
 
 
 if __name__ == "__main__":

@@ -40,7 +40,7 @@ Ack: `POST /api/discord/events/<id>/ack` — marks sent and records `source_type
 | `control_center_restore` | `staff-ops-alerts` | Control Center backup restore succeeds |
 | `bowl_six_leaders_update` | `bowl-six-leaders` | BOWL Six top performers + GM week/season leaders (first post, then **edit** same message) |
 | `playoff_bracket_update` | `playoff-bracket` | Live playoff bracket — **one message per series**, each **edited in place** when scores change after import or bot poll |
-| `game_boxscore` | `boxscores` (per-team IDs) | Newly **final** games after FHM import — scoreline + three stars + site link posted into **both** participating franchise channels |
+| `game_boxscore` | `boxscores` (per-team IDs) | Newly **final** games after FHM import — scoreline, SOG, PP, top performers, goalies, three stars + site link posted into **both** participating franchise channels |
 
 Payloads include `source_type` and `source_id` for idempotency where applicable.
 

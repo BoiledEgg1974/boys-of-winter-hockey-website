@@ -29,6 +29,7 @@ class GameBoxscoreRouteRegistryTest(unittest.TestCase):
         self.assertIn(GAME_BOXSCORE_EVENT_KEY, DEFAULT_EVENT_KEYS)
         self.assertEqual(DEFAULT_EVENT_CHANNEL_KEY[GAME_BOXSCORE_EVENT_KEY], "boxscores")
         self.assertIn(GAME_BOXSCORE_EVENT_KEY, DEFAULT_EVENT_LABELS)
+        self.assertIn("per team", DEFAULT_EVENT_LABELS[GAME_BOXSCORE_EVENT_KEY].lower())
 
 
 class StashDrainTest(unittest.TestCase):
@@ -301,32 +302,154 @@ class EnqueueBoxscoreTest(unittest.TestCase):
         self.assertEqual(n, 0)
         enqueue.assert_not_called()
 
-    def test_notify_drains_stash_idempotently(self) -> None:
+    def test_notify_keeps_pending_when_no_targets(self) -> None:
         drain_stashed_newly_final_game_ids()
         stash_newly_final_game_ids({9})
         site = MagicMock()
         league = MagicMock()
 
         with patch(
+            "app.services.game_boxscore_discord.record_pending_game_boxscore_ids"
+        ) as record, patch(
+            "app.services.game_boxscore_discord.list_pending_game_boxscore_ids",
+            return_value={9},
+        ), patch(
             "app.services.game_boxscore_discord.ensure_game_boxscore_team_channels"
+        ), patch(
+            "app.services.game_boxscore_discord.has_game_boxscore_delivery_target",
+            return_value=False,
+        ), patch(
+            "app.services.game_boxscore_discord.enqueue_game_boxscore_events_for_game"
+        ) as enqueue_one, patch(
+            "app.services.game_boxscore_discord.clear_pending_game_boxscore_ids"
+        ) as clear:
+            out = notify_game_boxscores_after_import(
+                league, site, league_slug="bowl-historical"
+            )
+
+        record.assert_called_once()
+        enqueue_one.assert_not_called()
+        clear.assert_not_called()
+        self.assertEqual(out["skipped"], 1)
+        self.assertEqual(out["pending"], 1)
+
+    def test_notify_clears_pending_after_queue(self) -> None:
+        drain_stashed_newly_final_game_ids()
+        stash_newly_final_game_ids({9})
+        site = MagicMock()
+        league = MagicMock()
+
+        with patch(
+            "app.services.game_boxscore_discord.record_pending_game_boxscore_ids"
+        ), patch(
+            "app.services.game_boxscore_discord.list_pending_game_boxscore_ids",
+            return_value={9},
+        ), patch(
+            "app.services.game_boxscore_discord.ensure_game_boxscore_team_channels"
+        ), patch(
+            "app.services.game_boxscore_discord.has_game_boxscore_delivery_target",
+            return_value=True,
         ), patch(
             "app.services.game_boxscore_discord.is_discord_event_route_active",
             return_value=True,
         ), patch(
             "app.services.game_boxscore_discord.enqueue_game_boxscore_events_for_game",
             return_value=2,
-        ) as enqueue_one:
+        ) as enqueue_one, patch(
+            "app.services.game_boxscore_discord.clear_pending_game_boxscore_ids"
+        ) as clear:
             first = notify_game_boxscores_after_import(
                 league, site, league_slug="bowl-historical"
             )
-            second = notify_game_boxscores_after_import(
-                league, site, league_slug="bowl-historical"
-            )
+            with patch(
+                "app.services.game_boxscore_discord.list_pending_game_boxscore_ids",
+                return_value=set(),
+            ):
+                second = notify_game_boxscores_after_import(
+                    league, site, league_slug="bowl-historical"
+                )
 
         self.assertEqual(first["games"], 1)
         self.assertEqual(first["queued"], 2)
         self.assertEqual(second["games"], 0)
         self.assertEqual(enqueue_one.call_count, 1)
+        clear.assert_called_once()
+        self.assertEqual(set(clear.call_args.kwargs["game_ids"]), {9})
+
+
+class QueueRecentBoxscoresTest(unittest.TestCase):
+    def test_recent_window_uses_latest_final_date(self) -> None:
+        from app.services.game_boxscore_discord import recent_final_game_ids_for_boxscores
+
+        league = MagicMock()
+        league.scalar.return_value = date(2025, 10, 20)
+        league.scalars.return_value.all.return_value = [101, 102]
+
+        with patch(
+            "app.services.seasons.get_current_season",
+            return_value=SimpleNamespace(id=3),
+        ):
+            ids, start, latest = recent_final_game_ids_for_boxscores(league, days=7)
+
+        self.assertEqual(ids, [101, 102])
+        self.assertEqual(start, date(2025, 10, 14))
+        self.assertEqual(latest, date(2025, 10, 20))
+
+    def test_queue_recent_reports_missing_channels(self) -> None:
+        from app.services.game_boxscore_discord import queue_recent_game_boxscores
+
+        site = MagicMock()
+        league = MagicMock()
+        with patch(
+            "app.services.game_boxscore_discord.recent_final_game_ids_for_boxscores",
+            return_value=([1, 2], date(2025, 10, 14), date(2025, 10, 20)),
+        ), patch(
+            "app.services.game_boxscore_discord.ensure_game_boxscore_team_channels"
+        ), patch(
+            "app.services.game_boxscore_discord.has_game_boxscore_delivery_target",
+            return_value=False,
+        ), patch(
+            "app.services.game_boxscore_discord.enqueue_game_boxscore_events_for_game"
+        ) as enqueue:
+            out = queue_recent_game_boxscores(
+                league, site, league_slug="bowl-historical", days=7
+            )
+
+        enqueue.assert_not_called()
+        self.assertFalse(out["ok"])
+        self.assertEqual(out["skipped"], 2)
+        self.assertIn("channel", out["message"].lower())
+
+    def test_queue_recent_enqueues_matching_games(self) -> None:
+        from app.services.game_boxscore_discord import queue_recent_game_boxscores
+
+        site = MagicMock()
+        league = MagicMock()
+        with patch(
+            "app.services.game_boxscore_discord.recent_final_game_ids_for_boxscores",
+            return_value=([9, 10], date(2025, 10, 14), date(2025, 10, 20)),
+        ), patch(
+            "app.services.game_boxscore_discord.ensure_game_boxscore_team_channels"
+        ), patch(
+            "app.services.game_boxscore_discord.has_game_boxscore_delivery_target",
+            return_value=True,
+        ), patch(
+            "app.services.game_boxscore_discord.is_discord_event_route_active",
+            return_value=True,
+        ), patch(
+            "app.services.game_boxscore_discord.enqueue_game_boxscore_events_for_game",
+            side_effect=[2, 2],
+        ):
+            out = queue_recent_game_boxscores(
+                league, site, league_slug="bowl-cap", days=7
+            )
+
+        self.assertTrue(out["ok"])
+        self.assertEqual(out["games"], 2)
+        self.assertEqual(out["queued"], 4)
+        self.assertEqual(out["window_start"], "2025-10-14")
+        self.assertEqual(out["window_end"], "2025-10-20")
+        self.assertIn("Queued 4", out["message"])
 
 
 class FormatterTest(unittest.TestCase):

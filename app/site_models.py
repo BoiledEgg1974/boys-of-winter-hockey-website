@@ -667,6 +667,26 @@ class DiscordTeamChannelRoute(db.Model):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
 
+class DiscordGameBoxscorePending(db.Model):
+    """Final games waiting for Discord boxscore enqueue (survives blank channel config)."""
+
+    __tablename__ = "discord_game_boxscore_pending"
+    __bind_key__ = "site"
+    __table_args__ = (
+        UniqueConstraint(
+            "league_slug",
+            "game_id",
+            name="uq_discord_game_boxscore_pending_league_game",
+        ),
+        Index("ix_discord_game_boxscore_pending_league", "league_slug", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    game_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class DiscordLeagueBotConfig(db.Model):
     __tablename__ = "discord_league_bot_config"
     __bind_key__ = "site"

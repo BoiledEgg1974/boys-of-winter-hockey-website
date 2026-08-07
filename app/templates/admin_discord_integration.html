@@ -146,9 +146,10 @@
   <h3 style="margin:0.85rem 0 0.35rem;">Team boxscore channels</h3>
   <p class="muted" style="margin:0 0 0.45rem;">
     After each import, newly final games post scoreline + three stars + a site link into
-    <strong>both</strong> participating team channels. Enable the master
+    <strong>both</strong> participating franchise channels. Enable the master
     <code>game_boxscore</code> route above, then paste each franchise channel snowflake here.
-    Expansion teams appear automatically when they show up in current-season standings.
+    Pending finals are kept until channels are set. Expansion teams appear automatically when
+    they show up in current-season standings.
   </p>
   <form method="post" style="margin:0 0 0.9rem;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -213,6 +214,18 @@
     <input type="hidden" name="action" value="fresh_playoff_bracket">
     <button type="submit" class="admin-news-body-btn">Post fresh playoff bracket</button>
     <span class="muted">Posts new series messages instead of editing stored ones. Requires playoffs to have started.</span>
+  </form>
+  <form method="post" style="display:flex;gap:0.6rem;align-items:end;flex-wrap:wrap;margin:0 0 0.55rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="queue_recent_boxscores">
+    <label>In-game days
+      <input type="number" name="boxscore_days" value="7" min="1" max="60" style="width:4.5rem;">
+    </label>
+    <button type="submit" class="admin-news-body-btn">Queue recent boxscores</button>
+    <span class="muted">
+      Posts scoreline + three stars into franchise channels for finals in the last N in-game days
+      (ending at the latest final date). Requires team channel IDs below. Already-sent games are skipped.
+    </span>
   </form>
   <form method="post" style="display:flex;gap:0.6rem;align-items:end;flex-wrap:wrap;margin:0 0 0.55rem;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

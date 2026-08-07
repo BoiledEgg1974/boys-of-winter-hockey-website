@@ -6640,6 +6640,45 @@ def admin_discord_integration():
                     "err",
                 )
             return redirect(url_for("site_admin.admin_discord_integration"))
+        if action == "queue_recent_boxscores":
+            from app.services.game_boxscore_discord import queue_recent_game_boxscores
+
+            raw_days = (request.form.get("boxscore_days") or "7").strip()
+            try:
+                boxscore_days = int(raw_days)
+            except (TypeError, ValueError):
+                boxscore_days = 7
+            boxscore_days = max(1, min(boxscore_days, 60))
+            box_stats = queue_recent_game_boxscores(
+                db.session,
+                db.session,
+                league_slug=slug,
+                days=boxscore_days,
+                created_by_user_id=int(current_user.id),
+            )
+            db.session.add(
+                AdminAuditLog(
+                    admin_user_id=int(current_user.id),
+                    league_slug=slug,
+                    action="discord_queue_recent_boxscores",
+                    detail_json=json.dumps(
+                        {
+                            "days": boxscore_days,
+                            "games": int(box_stats.get("games") or 0),
+                            "queued": int(box_stats.get("queued") or 0),
+                            "skipped": int(box_stats.get("skipped") or 0),
+                            "window_start": box_stats.get("window_start"),
+                            "window_end": box_stats.get("window_end"),
+                        }
+                    ),
+                )
+            )
+            commit_with_sqlite_retry(db.session)
+            flash(
+                str(box_stats.get("message") or "Boxscore queue finished."),
+                "ok" if box_stats.get("ok") else "err",
+            )
+            return redirect(url_for("site_admin.admin_discord_integration"))
         if action == "force_start_live_sim_cycle":
             from app.services.sim_cycle_discord import force_start_live_sim_cycle
 

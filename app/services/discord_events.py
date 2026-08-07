@@ -15,6 +15,7 @@ from app.site_models import (
     DiscordBotHeartbeat,
     DiscordChannelRoute,
     DiscordDeliveredSource,
+    DiscordGameBoxscorePending,
     DiscordLeagueBotConfig,
     DiscordOutboundEvent,
     DiscordTeamChannelRoute,
@@ -1645,6 +1646,114 @@ def resolve_game_boxscore_team_channel_id(
     return str(row.discord_channel_id or "").strip()
 
 
+def has_game_boxscore_delivery_target(session, *, league_slug: str) -> bool:
+    """True when at least one franchise boxscore channel snowflake is set."""
+    slug = str(league_slug or "").strip()
+    if not slug:
+        return False
+    ensure_discord_routes(session, slug)
+    master = _route_map(session, slug).get(GAME_BOXSCORE_EVENT_KEY)
+    if master is None or not bool(master.is_enabled):
+        return False
+    bot_cfg = get_league_bot_config(session, slug)
+    if not bool(bot_cfg.is_enabled):
+        return False
+    row = session.scalar(
+        select(DiscordTeamChannelRoute.id)
+        .where(
+            DiscordTeamChannelRoute.league_slug == slug,
+            DiscordTeamChannelRoute.event_key == GAME_BOXSCORE_EVENT_KEY,
+            DiscordTeamChannelRoute.is_enabled.is_(True),
+            DiscordTeamChannelRoute.discord_channel_id != "",
+        )
+        .limit(1)
+    )
+    return row is not None
+
+
+def record_pending_game_boxscore_ids(
+    session,
+    *,
+    league_slug: str,
+    game_ids: set[int] | list[int] | None,
+) -> int:
+    """Persist newly final game ids until boxscore events are successfully queued."""
+    slug = str(league_slug or "").strip()
+    if not slug or not game_ids:
+        return 0
+    ids: set[int] = set()
+    for gid in game_ids:
+        try:
+            ids.add(int(gid))
+        except (TypeError, ValueError):
+            continue
+    if not ids:
+        return 0
+    existing = {
+        int(r.game_id)
+        for r in session.scalars(
+            select(DiscordGameBoxscorePending).where(
+                DiscordGameBoxscorePending.league_slug == slug,
+                DiscordGameBoxscorePending.game_id.in_(ids),
+            )
+        ).all()
+    }
+    now = datetime.utcnow()
+    created = 0
+    for gid in ids - existing:
+        session.add(
+            DiscordGameBoxscorePending(
+                league_slug=slug,
+                game_id=int(gid),
+                created_at=now,
+            )
+        )
+        created += 1
+    if created:
+        session.flush()
+    return created
+
+
+def list_pending_game_boxscore_ids(session, *, league_slug: str) -> set[int]:
+    slug = str(league_slug or "").strip()
+    if not slug:
+        return set()
+    return {
+        int(r.game_id)
+        for r in session.scalars(
+            select(DiscordGameBoxscorePending).where(
+                DiscordGameBoxscorePending.league_slug == slug
+            )
+        ).all()
+    }
+
+
+def clear_pending_game_boxscore_ids(
+    session,
+    *,
+    league_slug: str,
+    game_ids: set[int] | list[int] | None,
+) -> int:
+    slug = str(league_slug or "").strip()
+    if not slug or not game_ids:
+        return 0
+    ids: set[int] = set()
+    for gid in game_ids:
+        try:
+            ids.add(int(gid))
+        except (TypeError, ValueError):
+            continue
+    if not ids:
+        return 0
+    result = session.execute(
+        delete(DiscordGameBoxscorePending).where(
+            DiscordGameBoxscorePending.league_slug == slug,
+            DiscordGameBoxscorePending.game_id.in_(ids),
+        )
+    )
+    return int(result.rowcount or 0)
+
+
 def get_league_bot_config(session, league_slug: str) -> DiscordLeagueBotConfig:
     _ensure_discord_bot_config_columns(session)
     row = session.scalar(
@@ -1963,7 +2072,7 @@ def is_discord_event_route_active(
     # Per-team boxscore channels live on DiscordTeamChannelRoute; master route
     # discord_channel_id is unused (enable/disable only).
     if key == GAME_BOXSCORE_EVENT_KEY:
-        return True
+        return has_game_boxscore_delivery_target(session, league_slug=league_slug)
     cid = str(getattr(route, "discord_channel_id", None) or "").strip()
     return bool(cid)
 

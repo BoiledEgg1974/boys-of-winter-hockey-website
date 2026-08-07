@@ -2826,6 +2826,37 @@ def ensure_discord_outbound_sqlite(engine: Engine) -> None:
                     "ON discord_team_channel_routes (league_slug, event_key)"
                 )
             )
+        has_boxscore_pending = conn.execute(
+            text(
+                "SELECT 1 FROM sqlite_master WHERE type='table' "
+                "AND name='discord_game_boxscore_pending'"
+            )
+        ).fetchone()
+        if not has_boxscore_pending:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE discord_game_boxscore_pending (
+                        id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                        league_slug VARCHAR(64) NOT NULL,
+                        game_id INTEGER NOT NULL,
+                        created_at DATETIME NOT NULL
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX uq_discord_game_boxscore_pending_league_game "
+                    "ON discord_game_boxscore_pending (league_slug, game_id)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX ix_discord_game_boxscore_pending_league "
+                    "ON discord_game_boxscore_pending (league_slug, created_at)"
+                )
+            )
         conn.commit()
 
 

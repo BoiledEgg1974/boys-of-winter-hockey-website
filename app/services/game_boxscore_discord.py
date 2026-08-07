@@ -1,20 +1,30 @@
-"""Enqueue per-team Discord boxscore posts when games become final on import."""
+"""Enqueue per-team Discord boxscore posts when games become final on import.
+
+After each FHM import, games that newly become final are queued into both
+participating franchise channels (same import-delta cadence as BOWL Six).
+Pending finals are persisted until team channel IDs are configured.
+"""
 
 from __future__ import annotations
 
 import logging
+from datetime import date, timedelta
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models import Game, GameGoalieStat, GameSkaterStat, Player, Team
 from app.services.discord_events import (
     GAME_BOXSCORE_EVENT_KEY,
     build_league_public_url,
+    clear_pending_game_boxscore_ids,
     ensure_game_boxscore_team_channels,
     enqueue_discord_event,
+    has_game_boxscore_delivery_target,
     is_discord_event_route_active,
+    list_pending_game_boxscore_ids,
+    record_pending_game_boxscore_ids,
     resolve_game_boxscore_team_channel_id,
 )
 
@@ -192,7 +202,7 @@ def enqueue_game_boxscore_events_for_game(
     league_slug: str,
     game_id: int,
 ) -> int:
-    """Enqueue up to two boxscore events (home + away) for one final game."""
+    """Enqueue up to two boxscore events (home + away franchise channels)."""
     slug = str(league_slug or "").strip()
     if not slug:
         return 0
@@ -243,7 +253,11 @@ def notify_game_boxscores_after_import(
     league_slug: str,
     game_ids: set[int] | list[int] | None = None,
 ) -> dict[str, int]:
-    """Drain stashed finals (plus optional explicit ids) and enqueue boxscore posts."""
+    """Queue boxscores for games that became final since the previous import.
+
+    Newly final ids are persisted so a blank channel config does not drop them;
+    once a delivery target exists they enqueue on this or a later import.
+    """
     slug = str(league_slug or "").strip()
     ids = set(drain_stashed_newly_final_game_ids())
     if game_ids:
@@ -252,16 +266,33 @@ def notify_game_boxscores_after_import(
                 ids.add(int(gid))
             except (TypeError, ValueError):
                 continue
-    stats = {"games": 0, "queued": 0, "skipped": 0}
-    if not slug or not ids:
+    stats = {"games": 0, "queued": 0, "skipped": 0, "pending": 0}
+    if not slug:
+        return stats
+    if ids:
+        record_pending_game_boxscore_ids(site_session, league_slug=slug, game_ids=ids)
+    pending = list_pending_game_boxscore_ids(site_session, league_slug=slug)
+    stats["pending"] = len(pending)
+    if not pending:
         return stats
     ensure_game_boxscore_team_channels(site_session, league_session, slug)
+    if not has_game_boxscore_delivery_target(site_session, league_slug=slug):
+        # Nothing configured yet — keep pending for the next import after channels are set.
+        stats["skipped"] = len(pending)
+        _log.info(
+            "Game boxscore Discord after import for %s: no channel targets yet; "
+            "keeping %s pending final(s)",
+            slug,
+            len(pending),
+        )
+        return stats
     if not is_discord_event_route_active(
         site_session, league_slug=slug, event_key=GAME_BOXSCORE_EVENT_KEY
     ):
-        stats["skipped"] = len(ids)
+        stats["skipped"] = len(pending)
         return stats
-    for gid in sorted(ids):
+    cleared: set[int] = set()
+    for gid in sorted(pending):
         stats["games"] += 1
         n = enqueue_game_boxscore_events_for_game(
             site_session,
@@ -271,7 +302,131 @@ def notify_game_boxscores_after_import(
         )
         if n:
             stats["queued"] += n
+            cleared.add(gid)
+        else:
+            # Missing/non-final game: drop so we do not retry forever.
+            game = league_session.get(Game, int(gid))
+            if game is None or str(game.status or "").lower() != "final":
+                cleared.add(gid)
+            stats["skipped"] += 1
+    if cleared:
+        clear_pending_game_boxscore_ids(site_session, league_slug=slug, game_ids=cleared)
+    stats["pending"] = len(pending) - len(cleared)
+    _log.info("Game boxscore Discord after import for %s: %s", slug, stats)
+    return stats
+
+
+def recent_final_game_ids_for_boxscores(
+    league_session: Session,
+    *,
+    days: int = 7,
+) -> tuple[list[int], date | None, date | None]:
+    """Final current-season game ids in the last ``days`` in-game calendar days.
+
+    Window ends at the latest final ``game_date`` and includes ``days`` calendar
+    days inclusive (e.g. days=7 → latest through latest-6).
+    """
+    from app.services.seasons import get_current_season
+
+    try:
+        window_days = max(1, int(days))
+    except (TypeError, ValueError):
+        window_days = 7
+    season = get_current_season()
+    if season is None:
+        return [], None, None
+    latest = league_session.scalar(
+        select(func.max(Game.game_date)).where(
+            Game.season_id == int(season.id),
+            Game.status == "final",
+            Game.game_date.is_not(None),
+        )
+    )
+    if latest is None:
+        return [], None, None
+    start = latest - timedelta(days=window_days - 1)
+    ids = list(
+        league_session.scalars(
+            select(Game.id)
+            .where(
+                Game.season_id == int(season.id),
+                Game.status == "final",
+                Game.game_date.is_not(None),
+                Game.game_date >= start,
+                Game.game_date <= latest,
+            )
+            .order_by(Game.game_date.asc(), Game.id.asc())
+        ).all()
+    )
+    return [int(gid) for gid in ids], start, latest
+
+
+def queue_recent_game_boxscores(
+    league_session: Session,
+    site_session: Session,
+    *,
+    league_slug: str,
+    days: int = 7,
+    created_by_user_id: int | None = None,
+) -> dict[str, Any]:
+    """Enqueue franchise boxscores for finals in the last N in-game days."""
+    slug = str(league_slug or "").strip()
+    try:
+        window_days = max(1, int(days))
+    except (TypeError, ValueError):
+        window_days = 7
+    game_ids, start, latest = recent_final_game_ids_for_boxscores(
+        league_session, days=window_days
+    )
+    stats: dict[str, Any] = {
+        "games": 0,
+        "queued": 0,
+        "skipped": 0,
+        "days": window_days,
+        "window_start": start.isoformat() if start is not None else None,
+        "window_end": latest.isoformat() if latest is not None else None,
+        "ok": False,
+        "message": "",
+    }
+    if not slug:
+        stats["message"] = "Missing league slug."
+        return stats
+    if not game_ids:
+        stats["message"] = "No final games found in that in-game day window."
+        stats["ok"] = True
+        return stats
+    ensure_game_boxscore_team_channels(site_session, league_session, slug)
+    if not has_game_boxscore_delivery_target(site_session, league_slug=slug):
+        stats["skipped"] = len(game_ids)
+        stats["message"] = (
+            "No franchise boxscore channel IDs configured. "
+            "Enable game_boxscore and paste team channel snowflakes below."
+        )
+        return stats
+    if not is_discord_event_route_active(
+        site_session, league_slug=slug, event_key=GAME_BOXSCORE_EVENT_KEY
+    ):
+        stats["skipped"] = len(game_ids)
+        stats["message"] = "game_boxscore route is inactive."
+        return stats
+    for gid in game_ids:
+        stats["games"] += 1
+        n = enqueue_game_boxscore_events_for_game(
+            site_session,
+            league_session,
+            league_slug=slug,
+            game_id=int(gid),
+        )
+        if n:
+            stats["queued"] += int(n)
         else:
             stats["skipped"] += 1
-    _log.info("Game boxscore Discord after import for %s: %s", slug, stats)
+    _ = created_by_user_id  # reserved for audit callers
+    stats["ok"] = True
+    stats["message"] = (
+        f"Queued {stats['queued']} boxscore event(s) for {stats['games']} final game(s) "
+        f"from {stats['window_start']} to {stats['window_end']} "
+        f"({stats['days']} in-game day(s))."
+    )
+    _log.info("Manual game boxscore queue for %s: %s", slug, stats)
     return stats

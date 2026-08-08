@@ -1,0 +1,33 @@
+# One driver name per line. The game fills any leftover seats from the
+# printed driver cards. Edit this list before opening a draft.
+Joey
+Parchie
+BoiledEgg
+Randy
+Min
+Stlrs
+Choog
+Nick
+Wombat
+Blazed
+LilBoiLoui
+FKNCommish
+Skyvendrake
+MachoMike
+Campbell
+CmdrRENhoek
+StarV
+RJ
+ThinkBlue
+Faarmerryan
+Caper
+ScubaSteveD
+OilEmpire91
+$enpai
+McDoubleHero
+MrMuffn
+Connor
+YammyHotspur
+Taggart
+Wardo
+Kings

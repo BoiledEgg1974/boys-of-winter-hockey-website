@@ -1,0 +1,37 @@
+# Formula BOWL driver roster — one profile per line.
+# Format:
+#   Name              → auto-assigned number in file order
+#   7|Name            → fixed car/driver number 7
+#   Name|#7           → same (fixed number 7)
+# Names must match a PNG in assets/cars/custom/ (case/spacing insensitive).
+# Lines starting with # are ignored. Seats beyond this list get "Driver N".
+1|Blazed
+2|Campbell
+3|Caper
+4|Choog
+5|CmdrRENhoek
+6|Connor
+7|Faarmerryan
+8|Fkncommish
+9|Joey
+10|Kings
+11|Lilboiloui
+12|MachoMike
+13|Mcdoublehero
+14|Min
+15|Mrmuffn
+16|Nick
+17|Oilempire
+18|Parchie
+19|Randy
+20|RJ
+21|Scubasteve
+22|Senpai
+23|Skyvendrake
+24|Starv
+25|Stlrs
+26|Taggart
+27|Thinkblue
+28|Wardo
+29|Wombat
+30|Yammyhotspur

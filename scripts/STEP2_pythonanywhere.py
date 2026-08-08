@@ -765,12 +765,17 @@ def build_post_db_upload_script(
     wsgi_file: str | None,
     *,
     staged_db_rels: tuple[str, ...] = (),
+    notify_discord: bool = True,
+    discord_fallback_days: int = 7,
 ) -> str:
     """SSH script: atomically promote staged DBs, drop WAL sidecars, integrity-check, reload WSGI."""
     rp = shlex.quote(remote_project.rstrip("/"))
     act = shlex.quote(f"{venv_bin.rstrip('/')}/activate")
     py = shlex.quote(f"{venv_bin.rstrip('/')}/python")
     repair = shlex.quote(f"{remote_project.rstrip('/')}/scripts/repair_league_sqlite.py")
+    notify = shlex.quote(
+        f"{remote_project.rstrip('/')}/scripts/notify_discord_after_db_deploy.py"
+    )
     parts = ["set -euo pipefail", f"cd {rp}", f". {act}"]
     for remote_rel in staged_db_rels:
         final = shlex.quote(f"{remote_project.rstrip('/')}/{remote_rel}")
@@ -782,6 +787,10 @@ def build_post_db_upload_script(
             f"{py} -c {shlex.quote(_remote_remove_wal_sidecars_code(slug))}"
         )
         parts.append(f"{py} {repair} --check --league {shlex.quote(slug)}")
+    if notify_discord:
+        # Enqueue boxscores (deploy finals sidecar or recent undelivered) + BOWL Six.
+        days = max(1, int(discord_fallback_days))
+        parts.append(f"{py} {notify} --fallback-days {days}")
     if wsgi_file:
         parts.append(f"touch {shlex.quote(wsgi_file)}")
     return "; ".join(parts)
@@ -1221,6 +1230,9 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
         print("--- would upload league databases ---")
         for _slug, db_path, remote_rel in db_targets:
             print(f"would upload {remote_rel} ({db_path.name})")
+        print("--- would upload deploy Discord notify helpers + finals sidecars ---")
+        print("would upload scripts/notify_discord_after_db_deploy.py")
+        print("would upload app/services/deploy_discord_finals.py")
         if not ns.skip_static:
             print("--- would upload app/static (newer files only) ---")
         print("--- would run on server after upload ---")
@@ -1241,6 +1253,9 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
                 "scripts/game_record_baseline_transfer.py",
                 "scripts/league_editorial_transfer.py",
                 "scripts/repair_league_sqlite.py",
+                "scripts/notify_discord_after_db_deploy.py",
+                "app/services/deploy_discord_finals.py",
+                "app/services/game_boxscore_discord.py",
             ),
             remote_base,
             dry_run=False,
@@ -1386,6 +1401,28 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
             sftp.put(str(db_path), remote_staging)
             uploaded += 1
             print(f"upload {remote_rel} (staging)")
+
+        # Newly-final game ids from local import (blank local Discord routes).
+        from app.services.deploy_discord_finals import (
+            DEPLOY_DISCORD_FINALS_DIRNAME,
+            list_deploy_discord_finals_files,
+        )
+
+        finals_files = list_deploy_discord_finals_files(local_root / "instance")
+        if finals_files:
+            print("--- upload deploy Discord finals sidecars ---")
+            remote_finals_dir = f"{remote_base}/instance/{DEPLOY_DISCORD_FINALS_DIRNAME}"
+            ensure_remote_dir(sftp, remote_finals_dir)
+            for path in finals_files:
+                remote_json = f"{remote_finals_dir}/{path.name}"
+                sftp.put(str(path), remote_json)
+                uploaded += 1
+                print(f"upload instance/{DEPLOY_DISCORD_FINALS_DIRNAME}/{path.name}")
+        else:
+            print(
+                "--- no deploy Discord finals sidecars "
+                "(remote notify will queue recent undelivered boxscores) ---"
+            )
 
         if not ns.skip_static:
             print("--- app/static ---")

@@ -12,7 +12,9 @@ Default flow:
 5) Commit and push to GitHub once all local imports finish (CSVs, static assets, alignment files).
 6) Run STEP2 ``deploy-db``: snapshot live OVR, trade logs, game-record baselines, and
    league editorial data on PythonAnywhere, merge them into the local SQLite files,
-   upload league databases (+ ``app/static``), integrity-check, reload.
+   upload league databases (+ ``app/static``), integrity-check, enqueue Discord
+   boxscores / BOWL Six from deploy finals sidecars (or recent undelivered finals),
+   then reload.
 
 Use ``--remote-import`` to use the older CSV + server-side ``import_data.py`` deploy instead.
 

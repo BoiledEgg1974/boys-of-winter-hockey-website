@@ -529,6 +529,19 @@ def notify_game_boxscores_after_import(
     if not slug:
         return stats
     if ids:
+        # Sidecar for deploy-db: local Discord routes are often blank, so live
+        # enqueue happens after league DBs are uploaded (see notify_discord_after_db_deploy).
+        try:
+            from app.services.deploy_discord_finals import (
+                record_deploy_newly_final_game_ids,
+            )
+
+            record_deploy_newly_final_game_ids(slug, ids)
+        except Exception:
+            _log.exception(
+                "Deploy Discord finals sidecar write failed for %s (non-fatal)",
+                slug,
+            )
         record_pending_game_boxscore_ids(site_session, league_slug=slug, game_ids=ids)
     pending = list_pending_game_boxscore_ids(site_session, league_slug=slug)
     stats["pending"] = len(pending)

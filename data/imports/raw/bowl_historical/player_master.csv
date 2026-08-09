@@ -82,7 +82,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 4345;90;90;Pierre;Gagne;;73;181;1940-6-5;North Bay;ON;Canada;;;0;Left;0
 5048;19;0;Kerry;Bond;;72;190;1945-7-18;Sudbury;ON;Canada;;;0;Left;0
 6089;83;83;Wendell;Bennett;;74;181;1950-3-24;Eston;SK;Canada;;;0;Right;0
-4596;128;121;Ray;Clearwater;;71;175;1942-11-10;Oakbank;MB;Canada;;;0;Left;0
+4596;121;121;Ray;Clearwater;;71;175;1942-11-10;Oakbank;MB;Canada;;;0;Left;1
 4719;9;9;Don;Awrey;Bugsy;72;175;1943-7-18;Kitchener;ON;Canada;;;0;Left;0
 6090;131;131;Larry;Bignell;;72;175;1950-1-7;Elk Point;AB;Canada;;;0;Left;1
 6091;5;5;Dan;Bouchard;Reverend;72;190;1950-12-12;Valcourt;QC;Canada;;;0;Left;1
@@ -1489,7 +1489,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 6154;26;8;Bob;McAneeley;;69;180;1950-11-7;Cultus Lake;BC;Canada;;;0;Left;1
 5487;90;90;Wayne;Davison;;72;170;1947-1-1;Georgetown;ON;Canada;;;0;Left;0
 6155;83;83;Ted;McAneeley;;69;185;1950-11-7;Cultus Lake;BC;Canada;;;0;Left;0
-5699;128;121;Rick;Newell;;71;181;1948-2-18;Oakbank;MB;Canada;;;0;Left;0
+5699;121;121;Rick;Newell;;71;181;1948-2-18;Oakbank;MB;Canada;;;0;Left;0
 5700;19;0;Billy;Orr;;70;185;1948-6-12;Timmins;ON;Canada;;;0;Right;0
 4408;61;61;Oleg;Zaitsev;;70;187;1939-8-4;Moscow;MOS;Russia;;;0;Left;0
 4135;90;90;Bill;Saunders;;69;170;1937-11-22;Winnipeg;MB;Canada;;;0;Left;0

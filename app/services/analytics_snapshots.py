@@ -11,6 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.models import (
+    AdvancedStatsHubSnapshot,
     PlayerAnalyticsSnapshot,
     PlayerGoalieStat,
     PlayerSkaterStat,
@@ -329,17 +330,26 @@ def record_analytics_snapshots_for_league(
         is_rollover=is_rollover,
         snapshot_at=snapshot_at,
     )
-    if players or teams:
+    hubs = _snapshot_advanced_stats_hub_segments(
+        session,
+        league_slug=slug,
+        season=season,
+        season_year=year,
+        is_rollover=is_rollover,
+        snapshot_at=snapshot_at,
+    )
+    if players or teams or hubs:
         session.commit()
         _log.info(
-            "Recorded analytics snapshots for %s (players=%s teams=%s rollover=%s year=%s).",
+            "Recorded analytics snapshots for %s (players=%s teams=%s hubs=%s rollover=%s year=%s).",
             slug,
             players,
             teams,
+            hubs,
             is_rollover,
             year,
         )
-    return {"players": players, "teams": teams}
+    return {"players": players, "teams": teams, "hubs": hubs}
 
 
 def seed_analytics_snapshots_if_empty(
@@ -352,8 +362,9 @@ def seed_analytics_snapshots_if_empty(
     """Seed one baseline snapshot when history tables are empty."""
     player_n = session.scalar(select(func.count()).select_from(PlayerAnalyticsSnapshot)) or 0
     team_n = session.scalar(select(func.count()).select_from(TeamAnalyticsSnapshot)) or 0
-    if player_n > 0 or team_n > 0:
-        return {"players": 0, "teams": 0}
+    hub_n = session.scalar(select(func.count()).select_from(AdvancedStatsHubSnapshot)) or 0
+    if player_n > 0 or team_n > 0 or hub_n > 0:
+        return {"players": 0, "teams": 0, "hubs": 0}
     return record_analytics_snapshots_for_league(
         session,
         league_slug,
@@ -465,6 +476,81 @@ def latest_team_rollover_rows(
     return list(by_team.values())
 
 
+def _snapshot_advanced_stats_hub_segments(
+    session: Session,
+    *,
+    league_slug: str,
+    season: Season,
+    season_year: int,
+    is_rollover: bool,
+    snapshot_at: datetime,
+) -> int:
+    """Persist Advanced Stats hub JSON per segment (includes lines + shot quality)."""
+    from app.services.advanced_stats import build_advanced_stats_hub_json
+
+    added = 0
+    for segment in _SEGMENTS:
+        try:
+            hub = build_advanced_stats_hub_json(session, int(season.id), segment=segment)
+        except Exception:
+            _log.exception(
+                "Failed building advanced stats hub snapshot for %s year=%s segment=%s",
+                league_slug,
+                season_year,
+                segment,
+            )
+            continue
+        # Skip empty hubs (no leaderboard rows and no lines).
+        has_rows = any(
+            hub.get(key)
+            for key in ("skaters", "goalies", "teams", "luck", "discipline", "lines", "shot_quality")
+        )
+        if not has_rows:
+            continue
+        session.add(
+            AdvancedStatsHubSnapshot(
+                league_slug=league_slug,
+                season_year=int(season_year),
+                stat_segment=segment,
+                is_rollover=is_rollover,
+                snapshot_at=snapshot_at,
+                hub_json=_json_dump(hub),
+            )
+        )
+        added += 1
+    return added
+
+
+def load_hub_rollover_years(session: Session) -> list[int]:
+    """Distinct league start years that have a finalized (rollover) Advanced Stats hub snapshot."""
+    years = session.scalars(
+        select(AdvancedStatsHubSnapshot.season_year)
+        .where(AdvancedStatsHubSnapshot.is_rollover.is_(True))
+        .distinct()
+        .order_by(AdvancedStatsHubSnapshot.season_year.asc())
+    ).all()
+    return [int(y) for y in years if y is not None]
+
+
+def latest_hub_rollover_snapshot(
+    session: Session,
+    *,
+    season_year: int,
+    segment: str,
+) -> AdvancedStatsHubSnapshot | None:
+    """Latest rollover Advanced Stats hub snapshot for a season year + segment."""
+    return session.scalars(
+        select(AdvancedStatsHubSnapshot)
+        .where(
+            AdvancedStatsHubSnapshot.season_year == int(season_year),
+            AdvancedStatsHubSnapshot.stat_segment == segment,
+            AdvancedStatsHubSnapshot.is_rollover.is_(True),
+        )
+        .order_by(AdvancedStatsHubSnapshot.snapshot_at.desc(), AdvancedStatsHubSnapshot.id.desc())
+        .limit(1)
+    ).first()
+
+
 def archive_analytics_before_fhm_wipe(
     session: Session,
     league_slug: str,
@@ -500,7 +586,7 @@ def record_analytics_snapshots_after_import(app) -> None:
             seeded = seed_analytics_snapshots_if_empty(
                 db.session, slug, raw_dir=raw_dir, season=season
             )
-            if seeded["players"] or seeded["teams"]:
+            if seeded["players"] or seeded["teams"] or seeded.get("hubs"):
                 return
             # Always append a fresh post-import point (keep every import).
             record_analytics_snapshots_for_league(

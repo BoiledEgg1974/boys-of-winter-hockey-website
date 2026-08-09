@@ -657,6 +657,48 @@ def ensure_team_analytics_snapshots_sqlite(engine: Engine) -> None:
         conn.commit()
 
 
+def ensure_advanced_stats_hub_snapshots_sqlite(engine: Engine) -> None:
+    """Create advanced_stats_hub_snapshots for archived Advanced Stats leaderboards (SQLite)."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='advanced_stats_hub_snapshots'"
+            )
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE advanced_stats_hub_snapshots (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    league_slug VARCHAR(64) NOT NULL,
+                    season_year INTEGER NOT NULL,
+                    stat_segment VARCHAR(8) NOT NULL,
+                    is_rollover BOOLEAN NOT NULL,
+                    snapshot_at DATETIME NOT NULL,
+                    hub_json TEXT NOT NULL
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_adv_stats_hub_snap_year_seg "
+                "ON advanced_stats_hub_snapshots (season_year, stat_segment)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_adv_stats_hub_snap_at "
+                "ON advanced_stats_hub_snapshots (snapshot_at)"
+            )
+        )
+        conn.commit()
+
+
 def ensure_player_rating_snapshot_timeline_columns_sqlite(engine: Engine) -> None:
     """Add in-game timeline columns to player_rating_snapshots when missing."""
     if engine.dialect.name != "sqlite":

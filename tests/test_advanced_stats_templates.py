@@ -15,17 +15,20 @@ class AdvancedStatsTemplatesTest(unittest.TestCase):
             "Team Analytics Map",
             "advanced-stats-team-chart-data",
             "data-team-chart-season",
+            "advanced-stats-hub-controls",
             "advanced-stats-tabset",
-            "advanced-stats-tabset--six",
+            "advanced-stats-tabset--seven",
             "panel--luck",
             "panel--discipline",
             "panel--lines",
+            "panel--shot_quality",
             "advanced-stats-lines__filters",
             'name="tab" value="lines"',
             '<option value=""{% if line_team_id is none %} selected{% endif %}>All teams</option>',
             "Current FHM line combinations",
             "Shot Share Proxy",
             "High-Danger SQ%",
+            "SQ Avg",
             "PTS/60",
             'data-sort-value="{% if row.gsaa is not none %}',
             "Team from the season stat row",
@@ -37,6 +40,7 @@ class AdvancedStatsTemplatesTest(unittest.TestCase):
             "advanced-stats-division-chart__svg",
             "data-division-chart-team",
             "data-division-chart-logo",
+            "archive_year",
         ):
             self.assertIn(marker, template)
         self.assertIn(".process-stats__sq-profile", css)
@@ -44,7 +48,9 @@ class AdvancedStatsTemplatesTest(unittest.TestCase):
         self.assertIn(".advanced-stats-team-chart__point", css)
         self.assertIn(".advanced-stats-team-chart-tooltip", css)
         self.assertIn(".advanced-stats-tabset", css)
-        self.assertIn(".advanced-stats-tabset--six", css)
+        self.assertIn(".advanced-stats-tabset--seven", css)
+        self.assertIn(".advanced-stats-hub-controls", css)
+        self.assertIn(".team-shot-quality", css)
         self.assertIn(".advanced-stats-lines__filters", css)
         self.assertIn(".advanced-stats-band--hot", css)
         self.assertIn(".advanced-stats-band--neutral", css)
@@ -64,13 +70,21 @@ class AdvancedStatsTemplatesTest(unittest.TestCase):
         css = (root / "app" / "static" / "css" / "site.css").read_text(encoding="utf-8")
         js = (root / "app" / "static" / "js" / "site.js").read_text(encoding="utf-8")
         self.assertIn('"lines", "label": "Lines"', main)
+        self.assertIn('"shot_quality", "label": "Shot Quality"', main)
         self.assertIn("build_line_stats_rows", main)
+        self.assertIn("build_advanced_stats_season_options", main)
+        self.assertIn("load_archived_advanced_stats_hub", main)
         self.assertIn("build_team_analytics_chart_archive", main)
         self.assertIn("build_team_player_analytics_archive", main)
         self.assertIn("build_team_player_trends_archive", main)
         self.assertIn("build_team_stats_trends_archive", main)
+        self.assertIn("build_team_shot_quality_payload", main)
         self.assertIn("team-player-analytics", team_template)
         self.assertIn("Player Analytics Map", team_template)
+        self.assertIn('_team_shot_quality.html', team_template)
+        team_sq = (root / "app" / "templates" / "_team_shot_quality.html").read_text(encoding="utf-8")
+        self.assertIn("team-shot-quality", team_sq)
+        self.assertIn("Quality-weighted average", team_sq)
         self.assertIn("team-player-analytics-data", team_template)
         self.assertIn("team-player-analytics__watermark", team_template)
         self.assertIn("team-stats-trends", team_template)

@@ -955,20 +955,42 @@ def advanced_stats_page():
     """Process-over-results analytics (CF/FF, PDO, GSAA, shot quality proxies)."""
     from app.services.advanced_stats import (
         build_advanced_stats_hub_payload,
+        build_advanced_stats_season_options,
         build_team_analytics_chart_archive,
+        filter_archived_line_rows,
+        load_archived_advanced_stats_hub,
     )
     from app.services.line_stats import (
         LINE_TYPE_ALL,
         build_line_stats_rows,
         line_stats_filter_options,
     )
+    from app.services.seasons import season_display_label
 
-    season = season_with_imported_data_fallback(db.session, get_current_season())
+    default_season = season_with_imported_data_fallback(db.session, get_current_season())
     segment = (request.args.get("segment") or "rs").strip().lower()
     if segment not in ("rs", "ps", "po"):
         segment = "rs"
+    archive_year = request.args.get("archive_year", type=int)
+    season_id = request.args.get("season_id", type=int)
+    season = None
+    is_archived = False
+    if archive_year is not None:
+        is_archived = True
+    elif season_id is not None:
+        season = db.session.get(Season, int(season_id))
+    if season is None and not is_archived:
+        season = default_season
     active_tab = (request.args.get("tab") or "").strip().lower()
-    if active_tab not in ("skaters", "goalies", "teams", "luck", "discipline", "lines"):
+    if active_tab not in (
+        "skaters",
+        "goalies",
+        "teams",
+        "luck",
+        "discipline",
+        "lines",
+        "shot_quality",
+    ):
         active_tab = "lines" if any(k in request.args for k in ("team_id", "line_type", "min_gp", "min_toi")) else "skaters"
     line_type = (request.args.get("line_type") or LINE_TYPE_ALL).strip().lower()
     if line_type not in ("all", "forward", "defense"):
@@ -976,20 +998,75 @@ def advanced_stats_page():
     team_id = request.args.get("team_id", type=int)
     min_combined_gp = max(0, request.args.get("min_gp", type=int) or 0)
     min_combined_toi_minutes = max(0, request.args.get("min_toi", type=int) or 0)
-    hub = build_advanced_stats_hub_payload(db.session, int(season.id), segment=segment)
+
+    season_options = build_advanced_stats_season_options(
+        db.session,
+        default_season_id=int(season.id) if season else (int(default_season.id) if default_season else None),
+    )
+    selected_season_key = None
+    if is_archived and archive_year is not None:
+        selected_season_key = f"y:{int(archive_year)}"
+    elif season is not None:
+        selected_season_key = f"s:{int(season.id)}"
+    elif season_options:
+        selected_season_key = season_options[0]["key"]
+        if season_options[0].get("archived"):
+            is_archived = True
+            archive_year = int(season_options[0]["archive_year"])
+        else:
+            season = db.session.get(Season, int(season_options[0]["season_id"]))
+
+    hub = {
+        "segment": segment,
+        "skaters": [],
+        "goalies": [],
+        "teams": [],
+        "points_above_ppg": [],
+        "luck": [],
+        "discipline": [],
+        "shot_quality": [],
+    }
+    line_rows: list = []
+    if is_archived and archive_year is not None:
+        archived = load_archived_advanced_stats_hub(
+            db.session, archive_year=int(archive_year), segment=segment
+        )
+        if archived:
+            hub = archived
+            hub.setdefault("shot_quality", [])
+            line_rows = filter_archived_line_rows(
+                list(archived.get("lines") or []),
+                team_id=team_id,
+                line_type=line_type,
+                min_combined_gp=min_combined_gp,
+                min_combined_toi_seconds=min_combined_toi_minutes * 60,
+            )
+        season_label = f"{archive_year}–{str(int(archive_year) + 1)[-2:]} (archived)"
+        chart_default_season_id = f"y:{int(archive_year)}"
+    else:
+        if season is None:
+            season = default_season
+        if season is not None:
+            hub = build_advanced_stats_hub_payload(db.session, int(season.id), segment=segment)
+            line_rows = build_line_stats_rows(
+                db.session,
+                int(season.id),
+                segment=segment,
+                team_id=team_id,
+                line_type=line_type,
+                min_combined_gp=min_combined_gp,
+                min_combined_toi_seconds=min_combined_toi_minutes * 60,
+            )
+            season_label = season_display_label(season)
+            chart_default_season_id = int(season.id)
+        else:
+            season_label = "—"
+            chart_default_season_id = None
+
     chart_archive = build_team_analytics_chart_archive(
         db.session,
-        default_season_id=int(season.id),
+        default_season_id=chart_default_season_id,
         default_segment=segment,
-    )
-    line_rows = build_line_stats_rows(
-        db.session,
-        int(season.id),
-        segment=segment,
-        team_id=team_id,
-        line_type=line_type,
-        min_combined_gp=min_combined_gp,
-        min_combined_toi_seconds=min_combined_toi_minutes * 60,
     )
     tabs = (
         {"key": "skaters", "label": "Skaters"},
@@ -998,6 +1075,7 @@ def advanced_stats_page():
         {"key": "luck", "label": "Luck / Sustainability"},
         {"key": "discipline", "label": "Discipline"},
         {"key": "lines", "label": "Lines"},
+        {"key": "shot_quality", "label": "Shot Quality"},
     )
     return render_template(
         "advanced_stats.html",
@@ -1006,6 +1084,11 @@ def advanced_stats_page():
         tabs=tabs,
         segment=segment,
         season=season,
+        season_label=season_label,
+        season_options=season_options,
+        selected_season_key=selected_season_key,
+        is_archived=is_archived,
+        archive_year=archive_year,
         line_rows=line_rows,
         line_filters=line_stats_filter_options(db.session),
         line_type=line_type,
@@ -5216,7 +5299,9 @@ def team_page(slug: str):
     from app.services.advanced_stats import (
         build_team_player_analytics_archive,
         build_team_player_trends_archive,
+        build_team_shot_quality_payload,
         build_team_stats_trends_archive,
+        seasons_for_team_shot_quality,
     )
 
     team_player_analytics = build_team_player_analytics_archive(
@@ -5239,6 +5324,28 @@ def team_page(slug: str):
         default_season_id=int(season.id) if season else None,
         default_segment="rs",
     )
+    team_shot_quality_seasons = seasons_for_team_shot_quality(db.session, int(team.id))
+    sq_segment = (request.args.get("sq_segment") or "rs").strip().lower()
+    if sq_segment not in ("rs", "ps", "po"):
+        sq_segment = "rs"
+    sq_season_id = request.args.get("sq_season_id", type=int)
+    sq_season = None
+    if sq_season_id is not None:
+        sq_season = next((s for s in team_shot_quality_seasons if int(s.id) == int(sq_season_id)), None)
+    if sq_season is None and team_shot_quality_seasons:
+        # Prefer current/dashboard season when available.
+        if season is not None:
+            sq_season = next((s for s in team_shot_quality_seasons if int(s.id) == int(season.id)), None)
+        if sq_season is None:
+            sq_season = team_shot_quality_seasons[0]
+    team_shot_quality = None
+    if sq_season is not None:
+        team_shot_quality = build_team_shot_quality_payload(
+            db.session,
+            team,
+            int(sq_season.id),
+            segment=sq_segment,
+        )
     tmpl_kwargs: dict[str, object] = {
         "team": team,
         "arena_name": arena_name,
@@ -5322,6 +5429,8 @@ def team_page(slug: str):
         "team_player_analytics": team_player_analytics,
         "team_player_trends": team_player_trends,
         "team_stats_trends": team_stats_trends,
+        "team_shot_quality": team_shot_quality,
+        "team_shot_quality_seasons": team_shot_quality_seasons,
         **honors_bundle,
     }
     depth_ova_ids: set[int] = set()

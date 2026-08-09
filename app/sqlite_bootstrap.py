@@ -142,6 +142,7 @@ def apply_league_sqlite_migrations(app: Flask) -> None:
         ensure_player_rating_snapshot_timeline_columns_sqlite,
         ensure_player_analytics_snapshots_sqlite,
         ensure_team_analytics_snapshots_sqlite,
+        ensure_advanced_stats_hub_snapshots_sqlite,
         ensure_org_development_report_archives_sqlite,
         ensure_players_boost_tier_sqlite,
         ensure_players_jersey_number_sqlite,
@@ -166,6 +167,7 @@ def apply_league_sqlite_migrations(app: Flask) -> None:
     ensure_player_rating_snapshot_timeline_columns_sqlite(db.engine)
     ensure_player_analytics_snapshots_sqlite(db.engine)
     ensure_team_analytics_snapshots_sqlite(db.engine)
+    ensure_advanced_stats_hub_snapshots_sqlite(db.engine)
     ensure_org_development_report_archives_sqlite(db.engine)
     ensure_team_season_aggregate_extra_columns(db.engine)
     ensure_homepage_performance_indexes_sqlite(db.engine)

@@ -61,7 +61,33 @@
   </section>
 
   <div class="card advanced-stats-card">
-    <div class="advanced-stats-tabset advanced-stats-tabset--six">
+    <form class="advanced-stats-hub-controls" method="get" action="{{ url_for('main.advanced_stats_page') }}" id="advanced-stats-hub-controls">
+      {% if active_tab %}<input type="hidden" name="tab" value="{{ active_tab }}">{% endif %}
+      <label class="advanced-stats-hub-controls__control">
+        <span class="advanced-stats-hub-controls__label">Year</span>
+        <select aria-label="Advanced stats season year" onchange="(function(sel){var opt=sel.options[sel.selectedIndex];var f=sel.form;var existing=f.querySelectorAll('[data-season-param]');existing.forEach(function(n){n.remove();});var i=document.createElement('input');i.type='hidden';i.setAttribute('data-season-param','1');if(opt.dataset.archiveYear){i.name='archive_year';i.value=opt.dataset.archiveYear;}else{i.name='season_id';i.value=opt.dataset.seasonId;}f.appendChild(i);f.submit();})(this)">
+          {% for opt in season_options %}
+          <option value="{{ opt.key }}" data-season-id="{{ opt.season_id or '' }}" data-archive-year="{{ opt.archive_year or '' }}"{% if selected_season_key == opt.key %} selected{% endif %}>{{ opt.label }}</option>
+          {% else %}
+          <option value="">No seasons available</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="advanced-stats-hub-controls__control">
+        <span class="advanced-stats-hub-controls__label">Segment</span>
+        <select name="segment" aria-label="Advanced stats segment" onchange="this.form.submit()">
+          {% for seg in line_filters.segments %}
+          <option value="{{ seg.key }}"{% if segment == seg.key %} selected{% endif %}>{{ seg.label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      {% if archive_year is not none %}
+      <input type="hidden" name="archive_year" value="{{ archive_year }}" data-season-param="1">
+      {% elif season %}
+      <input type="hidden" name="season_id" value="{{ season.id }}" data-season-param="1">
+      {% endif %}
+    </form>
+    <div class="advanced-stats-tabset advanced-stats-tabset--seven">
       {% for tab in tabs %}
       <input class="advanced-stats-tabset__radio" type="radio" name="advanced-stats-tab" id="adv-tab-{{ tab.key }}"{% if active_tab == tab.key or (active_tab is not defined and loop.first) %} checked{% endif %}>
       {% endfor %}
@@ -187,7 +213,7 @@
                 style="--line-color: {{ color }};"
                 data-division-chart-team="{{ team_label }}"
                 data-division-chart-abbr="{{ row.team.abbreviation or row.team.name }}"
-                data-division-chart-logo="{{ team_logo_url_for_season_context(row.team, season.start_year) }}"
+                data-division-chart-logo="{{ team_logo_url_for_season_context(row.team, season.start_year if season else archive_year) }}"
                 data-division-chart-value="{{ '%+.0f'|format(row.final_value) }}"
                 data-division-chart-gp="{{ row.max_gp }}"
                 points="{% for point in row.points %}{{ 44 + ((point.gp / ns.max_gp) * 694) }},{{ 18 + (((ns.max_value - point.value) / (ns.max_value - ns.min_value)) * 198) }} {% endfor %}">
@@ -199,7 +225,7 @@
                 style="--line-color: {{ color }};"
                 data-division-chart-team="{{ team_label }}"
                 data-division-chart-abbr="{{ row.team.abbreviation or row.team.name }}"
-                data-division-chart-logo="{{ team_logo_url_for_season_context(row.team, season.start_year) }}"
+                data-division-chart-logo="{{ team_logo_url_for_season_context(row.team, season.start_year if season else archive_year) }}"
                 data-division-chart-value="{{ '%+.0f'|format(row.final_value) }}"
                 data-division-chart-gp="{{ row.max_gp }}"
                 cx="{{ 44 + ((last.gp / ns.max_gp) * 694) }}"
@@ -322,6 +348,11 @@
         <p class="muted advanced-stats-lines__intro">Current FHM line combinations from imported <code>team_lines.csv</code>. CF%, FF%, and per-60 rates are aggregated from each player&apos;s season process stats — not true shift-level line results or expected goals.</p>
         <form class="advanced-stats-lines__filters" method="get" action="{{ url_for('main.advanced_stats_page') }}">
           <input type="hidden" name="tab" value="lines">
+          {% if archive_year is not none %}
+          <input type="hidden" name="archive_year" value="{{ archive_year }}">
+          {% elif season %}
+          <input type="hidden" name="season_id" value="{{ season.id }}">
+          {% endif %}
           <label class="advanced-stats-lines__filter">
             <span>Segment</span>
             <select name="segment">
@@ -400,6 +431,50 @@
               </tr>
               {% else %}
               <tr><td colspan="13" class="muted">No line combinations match these filters. Re-import to load team_lines.csv and season skater process stats.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="advanced-stats-tabset__panel advanced-stats-tabset__panel--shot_quality">
+        <p class="muted advanced-stats-page__note">Shot-quality leaders from imported FHM SQ0–SQ4 buckets (not expected goals). Sorted by quality-weighted average (0–4). Minimum 20 shot-quality attempts.</p>
+        <div class="table-wrap">
+          <table class="data data-sortable advanced-stats-table" data-sort-renumber="0" data-page-size="50">
+            <thead>
+              <tr>
+                <th data-sort-type="str">{{ stat_tip('Player', 'Skater name. Click through for the full player profile.') }}</th>
+                <th data-sort-type="str">{{ stat_tip('Team', 'Team from the season skater row or game logs.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('GP', 'Games with imported SQ attempts in the selected segment.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('Shots', 'Total SQ0–SQ4 attempts imported for this skater.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('SQ Avg', 'Quality-weighted average of SQ buckets on a 0–4 scale.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('HD%', 'Share of attempts in SQ3 and SQ4 (high-danger) buckets.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('SQ0%', 'Share of attempts in the lowest-danger SQ0 bucket.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('SQ1%', 'Share of attempts in the SQ1 bucket.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('SQ2%', 'Share of attempts in the SQ2 bucket.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('SQ3%', 'Share of attempts in the SQ3 bucket.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('SQ4%', 'Share of attempts in the highest-danger SQ4 bucket.') }}</th>
+                <th data-sort-type="num">{{ stat_tip('Pctile', 'Percentile of SQ Avg among skaters meeting the minimum shot threshold.') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in hub.shot_quality %}
+              <tr>
+                <td><a href="{{ url_for('main.player_page', player_id=row.player_id) }}">{{ row.player_name }}</a></td>
+                <td>{% if row.team %}{{ team_logo_img_plain(row.team) }} <a href="{{ url_for('main.team_page', slug=row.team.slug) }}">{{ row.team.abbreviation or row.team.name }}</a>{% else %}—{% endif %}</td>
+                <td>{{ row.gp }}</td>
+                <td>{{ row.shots }}</td>
+                <td data-sort-value="{% if row.sq_avg is not none %}{{ row.sq_avg }}{% endif %}">{% if row.sq_avg is not none %}{{ '%.2f'|format(row.sq_avg) }}{% else %}—{% endif %}</td>
+                <td data-sort-value="{% if row.high_danger_share is not none %}{{ row.high_danger_share }}{% endif %}">{% if row.high_danger_share is not none %}{{ '%.1f'|format(row.high_danger_share) }}%{% else %}—{% endif %}</td>
+                <td data-sort-value="{% if row.sq0_share is not none %}{{ row.sq0_share }}{% endif %}">{% if row.sq0_share is not none %}{{ '%.0f'|format(row.sq0_share) }}%{% else %}—{% endif %}</td>
+                <td data-sort-value="{% if row.sq1_share is not none %}{{ row.sq1_share }}{% endif %}">{% if row.sq1_share is not none %}{{ '%.0f'|format(row.sq1_share) }}%{% else %}—{% endif %}</td>
+                <td data-sort-value="{% if row.sq2_share is not none %}{{ row.sq2_share }}{% endif %}">{% if row.sq2_share is not none %}{{ '%.0f'|format(row.sq2_share) }}%{% else %}—{% endif %}</td>
+                <td data-sort-value="{% if row.sq3_share is not none %}{{ row.sq3_share }}{% endif %}">{% if row.sq3_share is not none %}{{ '%.0f'|format(row.sq3_share) }}%{% else %}—{% endif %}</td>
+                <td data-sort-value="{% if row.sq4_share is not none %}{{ row.sq4_share }}{% endif %}">{% if row.sq4_share is not none %}{{ '%.0f'|format(row.sq4_share) }}%{% else %}—{% endif %}</td>
+                <td data-sort-value="{% if row.percentile is not none %}{{ row.percentile }}{% endif %}">{% if row.percentile is not none %}{{ row.percentile }}{% else %}—{% endif %}</td>
+              </tr>
+              {% else %}
+              <tr><td colspan="12" class="muted">No shot-quality leaders yet. Re-import boxscore game summaries with SQ buckets.</td></tr>
               {% endfor %}
             </tbody>
           </table>

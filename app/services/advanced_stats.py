@@ -28,6 +28,7 @@ from app.models import (
 MIN_SKATER_GP = 10
 MIN_SKATER_TOI_SECONDS = 600 * 60
 MIN_GOALIE_GP = 5
+MIN_SHOT_QUALITY_SHOTS = 20
 SQ_LABELS = ("SQ0", "SQ1", "SQ2", "SQ3", "SQ4")
 SQ_KEYS = ("sq0", "sq1", "sq2", "sq3", "sq4")
 
@@ -65,15 +66,18 @@ def zone_start_pcts(oz: int | None, nz: int | None, dz: int | None) -> dict[str,
 def sq_profile_from_counts(counts: dict[str, int]) -> dict[str, Any]:
     total = sum(int(counts.get(k, 0) or 0) for k in SQ_KEYS)
     shares: dict[str, float | None] = {}
-    for key, label in zip(SQ_KEYS, SQ_LABELS):
+    weighted = 0.0
+    for i, (key, label) in enumerate(zip(SQ_KEYS, SQ_LABELS)):
         v = int(counts.get(key, 0) or 0)
         shares[label] = round(100.0 * v / total, 1) if total > 0 else None
+        weighted += float(i) * float(v)
     high = int(counts.get("sq3", 0) or 0) + int(counts.get("sq4", 0) or 0)
     return {
         "counts": {label: int(counts.get(k, 0) or 0) for k, label in zip(SQ_KEYS, SQ_LABELS)},
         "shares": shares,
         "total": total,
         "high_danger_share": round(100.0 * high / total, 1) if total > 0 else None,
+        "sq_avg": round(weighted / total, 2) if total > 0 else None,
     }
 
 
@@ -203,7 +207,7 @@ def _aggregate_game_skater_lines(session: Session, player_id: int, game_ids: lis
     assists = sum(int(l.assists or 0) for l in lines)
     shots = sum(int(l.shots or 0) for l in lines)
     toi_seconds = sum(int(l.toi_seconds or 0) for l in lines)
-    latest_team_id = next((int(l.team_id) for l in lines if l.team_id), None)
+    latest_team_id = next((int(l.team_id) for l in lines if getattr(l, "team_id", None)), None)
     sq = sq_profile_from_counts(sq_counts)
     points = goals + assists
     return {
@@ -415,14 +419,49 @@ def build_goalie_leaderboard_rows(
     return out
 
 
-def _team_sq_totals_from_games(session: Session, season_id: int, team_id: int) -> dict[str, int]:
-    games = session.scalars(
-        select(Game).where(
-            Game.season_id == season_id,
-            Game.status == "final",
-            (Game.home_team_id == team_id) | (Game.away_team_id == team_id),
+def _stat_segment_game_filter(segment: str):
+    """Map FHM ``stat_segment`` keys (rs/ps/po) to ``Game.game_type`` filters."""
+    if segment == "po":
+        return or_(
+            Game.game_type.ilike("%playoff%"),
+            Game.game_type.ilike("%post%"),
+            Game.game_type.ilike("%stanley%"),
         )
-    ).all()
+    if segment == "ps":
+        return or_(
+            Game.game_type.ilike("%preseason%"),
+            Game.game_type.ilike("%pre-season%"),
+            Game.game_type.ilike("%exhibition%"),
+        )
+    return or_(
+        Game.game_type.is_(None),
+        Game.game_type.ilike("%regular%"),
+        and_(
+            ~Game.game_type.ilike("%playoff%"),
+            ~Game.game_type.ilike("%post%"),
+            ~Game.game_type.ilike("%stanley%"),
+            ~Game.game_type.ilike("%preseason%"),
+            ~Game.game_type.ilike("%pre-season%"),
+            ~Game.game_type.ilike("%exhibition%"),
+        ),
+    )
+
+
+def _team_sq_totals_from_games(
+    session: Session,
+    season_id: int,
+    team_id: int,
+    *,
+    segment: str | None = None,
+) -> dict[str, int]:
+    q = select(Game).where(
+        Game.season_id == season_id,
+        Game.status == "final",
+        (Game.home_team_id == team_id) | (Game.away_team_id == team_id),
+    )
+    if segment:
+        q = q.where(_stat_segment_game_filter(segment))
+    games = session.scalars(q).all()
     counts = {k: 0 for k in SQ_KEYS}
     for g in games:
         home = int(g.home_team_id) == int(team_id)
@@ -432,6 +471,306 @@ def _team_sq_totals_from_games(session: Session, season_id: int, team_id: int) -
             counts[key] += int(val or 0)
     return counts
 
+
+def _aggregate_sq_for_player_segment(
+    session: Session,
+    player_id: int,
+    season_id: int,
+    *,
+    segment: str = "rs",
+) -> tuple[dict[str, int], int]:
+    """Return (sq counts, distinct GP) for a player in a season segment."""
+    rows = session.execute(
+        select(
+            GameSkaterStat.sq0,
+            GameSkaterStat.sq1,
+            GameSkaterStat.sq2,
+            GameSkaterStat.sq3,
+            GameSkaterStat.sq4,
+            GameSkaterStat.game_id,
+        )
+        .join(Game, Game.id == GameSkaterStat.game_id)
+        .where(
+            GameSkaterStat.player_id == player_id,
+            Game.season_id == season_id,
+            Game.status == "final",
+            _stat_segment_game_filter(segment),
+        )
+    ).all()
+    counts = {k: 0 for k in SQ_KEYS}
+    game_ids: set[int] = set()
+    for row in rows:
+        for i, k in enumerate(SQ_KEYS):
+            counts[k] += int(row[i] or 0)
+        game_ids.add(int(row[5]))
+    return counts, len(game_ids)
+
+
+def _shot_quality_row_from_profile(
+    *,
+    player_id: int,
+    player_name: str,
+    team: Team | None,
+    gp: int,
+    sq: dict[str, Any],
+    percentile: int | None = None,
+) -> dict[str, Any]:
+    shares = sq.get("shares") or {}
+    return {
+        "player_id": int(player_id),
+        "player_name": player_name,
+        "team": team,
+        "gp": int(gp),
+        "shots": int(sq.get("total") or 0),
+        "sq_avg": sq.get("sq_avg"),
+        "high_danger_share": sq.get("high_danger_share"),
+        "sq0_share": shares.get("SQ0"),
+        "sq1_share": shares.get("SQ1"),
+        "sq2_share": shares.get("SQ2"),
+        "sq3_share": shares.get("SQ3"),
+        "sq4_share": shares.get("SQ4"),
+        "sq_profile": sq,
+        "percentile": percentile,
+    }
+
+
+def build_shot_quality_leaderboard_rows(
+    session: Session,
+    season_id: int,
+    *,
+    segment: str = "rs",
+    min_shots: int = MIN_SHOT_QUALITY_SHOTS,
+    team_id: int | None = None,
+) -> list[dict[str, Any]]:
+    """League (or team-scoped) skater shot-quality leaders from game SQ buckets."""
+    from app.services.player_percentiles import percentile_int
+
+    # Prefer players with season skater rows in this segment; fall back to anyone with game SQ.
+    skater_stats = session.scalars(
+        select(PlayerSkaterStat)
+        .options(joinedload(PlayerSkaterStat.player), joinedload(PlayerSkaterStat.team))
+        .where(
+            PlayerSkaterStat.season_id == season_id,
+            PlayerSkaterStat.stat_segment == segment,
+        )
+    ).all()
+    team_by_player: dict[int, Team | None] = {}
+    gp_by_player: dict[int, int] = {}
+    name_by_player: dict[int, str] = {}
+    for st in skater_stats:
+        if st.player is None:
+            continue
+        pid = int(st.player_id)
+        if team_id is not None and (st.team_id is None or int(st.team_id) != int(team_id)):
+            continue
+        team_by_player[pid] = st.team
+        gp_by_player[pid] = int(st.gp or 0)
+        name_by_player[pid] = st.player.full_name
+
+    # Also include players who only appear in game logs (no season row).
+    game_player_rows = session.execute(
+        select(
+            GameSkaterStat.player_id,
+            GameSkaterStat.team_id,
+            func.count(func.distinct(GameSkaterStat.game_id)),
+        )
+        .join(Game, Game.id == GameSkaterStat.game_id)
+        .where(
+            Game.season_id == season_id,
+            Game.status == "final",
+            _stat_segment_game_filter(segment),
+        )
+        .group_by(GameSkaterStat.player_id, GameSkaterStat.team_id)
+    ).all()
+    missing_ids = {
+        int(pid)
+        for pid, _tid, _gp in game_player_rows
+        if int(pid) not in name_by_player and (team_id is None or (_tid is not None and int(_tid) == int(team_id)))
+    }
+    if missing_ids:
+        for pl in session.scalars(select(Player).where(Player.id.in_(missing_ids))).all():
+            name_by_player[int(pl.id)] = pl.full_name
+        teams = {
+            int(t.id): t
+            for t in session.scalars(
+                select(Team).where(
+                    Team.id.in_({int(tid) for _pid, tid, _gp in game_player_rows if tid is not None})
+                )
+            ).all()
+        }
+        for pid, tid, gp in game_player_rows:
+            pid_i = int(pid)
+            if pid_i not in missing_ids:
+                if pid_i in gp_by_player and gp_by_player[pid_i] <= 0:
+                    gp_by_player[pid_i] = int(gp or 0)
+                continue
+            if team_id is not None and (tid is None or int(tid) != int(team_id)):
+                continue
+            team_by_player[pid_i] = teams.get(int(tid)) if tid is not None else None
+            gp_by_player[pid_i] = int(gp or 0)
+
+    player_ids = list(name_by_player.keys())
+    out: list[dict[str, Any]] = []
+    for pid in player_ids:
+        counts, game_gp = _aggregate_sq_for_player_segment(session, pid, season_id, segment=segment)
+        sq = sq_profile_from_counts(counts)
+        if int(sq.get("total") or 0) < int(min_shots):
+            continue
+        gp = gp_by_player.get(pid) or game_gp
+        out.append(
+            _shot_quality_row_from_profile(
+                player_id=pid,
+                player_name=name_by_player[pid],
+                team=team_by_player.get(pid),
+                gp=gp,
+                sq=sq,
+            )
+        )
+
+    pool = [float(r["sq_avg"]) for r in out if r.get("sq_avg") is not None]
+    for row in out:
+        row["percentile"] = percentile_int(row.get("sq_avg"), pool, higher_is_better=True)
+
+    out.sort(
+        key=lambda r: (
+            float(r["sq_avg"]) if r.get("sq_avg") is not None else -1.0,
+            int(r.get("shots") or 0),
+        ),
+        reverse=True,
+    )
+    return out
+
+
+def _rank_among(values: list[float], value: float | None, *, higher_is_better: bool = True) -> int | None:
+    if value is None or not values:
+        return None
+    sorted_vals = sorted(values, reverse=higher_is_better)
+    for i, v in enumerate(sorted_vals, start=1):
+        if (higher_is_better and v <= value) or (not higher_is_better and v >= value):
+            # Exact match preferred
+            if abs(v - value) < 1e-9:
+                return i
+    # Fallback: count strictly better
+    if higher_is_better:
+        better = sum(1 for v in values if v > value)
+    else:
+        better = sum(1 for v in values if v < value)
+    return better + 1
+
+
+def build_team_shot_quality_payload(
+    session: Session,
+    team: Team,
+    season_id: int,
+    *,
+    segment: str = "rs",
+    min_shots: int = MIN_SHOT_QUALITY_SHOTS,
+) -> dict[str, Any]:
+    """Team SQ summary + roster leaders for the team page Shot Quality block."""
+    team_id = int(team.id)
+    team_counts = _team_sq_totals_from_games(session, season_id, team_id, segment=segment)
+    team_sq = sq_profile_from_counts(team_counts)
+
+    # League ranks among teams with any SQ attempts this segment.
+    all_teams = session.scalars(select(Team).where(Team.fhm_team_id.isnot(None))).all()
+    league_profiles: list[tuple[int, dict[str, Any], int]] = []
+    for tm in all_teams:
+        counts = _team_sq_totals_from_games(session, season_id, int(tm.id), segment=segment)
+        prof = sq_profile_from_counts(counts)
+        if int(prof.get("total") or 0) <= 0:
+            continue
+        gp = session.scalar(
+            select(func.count())
+            .select_from(Game)
+            .where(
+                Game.season_id == season_id,
+                Game.status == "final",
+                (Game.home_team_id == int(tm.id)) | (Game.away_team_id == int(tm.id)),
+                _stat_segment_game_filter(segment),
+            )
+        ) or 0
+        league_profiles.append((int(tm.id), prof, int(gp)))
+
+    league_n = len(league_profiles)
+    sq_avg_pool = [float(p["sq_avg"]) for _tid, p, _gp in league_profiles if p.get("sq_avg") is not None]
+    hd_pool = [
+        float(p["high_danger_share"])
+        for _tid, p, _gp in league_profiles
+        if p.get("high_danger_share") is not None
+    ]
+    total_pool = [float(p["total"]) for _tid, p, _gp in league_profiles]
+    per_game_pool: list[float] = []
+    for _tid, p, gp in league_profiles:
+        if gp > 0:
+            per_game_pool.append(float(p["total"]) / float(gp))
+
+    team_gp = next((gp for tid, _p, gp in league_profiles if tid == team_id), 0)
+    team_per_game = (float(team_sq["total"]) / float(team_gp)) if team_gp > 0 and team_sq.get("total") else None
+
+    category_rows = []
+    for label in SQ_LABELS:
+        count = int((team_sq.get("counts") or {}).get(label) or 0)
+        share = (team_sq.get("shares") or {}).get(label)
+        per_game = (float(count) / float(team_gp)) if team_gp > 0 else None
+        count_pool = [float((p.get("counts") or {}).get(label) or 0) for _tid, p, _gp in league_profiles]
+        share_pool = [
+            float((p.get("shares") or {}).get(label) or 0)
+            for _tid, p, _gp in league_profiles
+            if (p.get("shares") or {}).get(label) is not None
+        ]
+        pg_pool = [
+            float((p.get("counts") or {}).get(label) or 0) / float(gp)
+            for _tid, p, gp in league_profiles
+            if gp > 0
+        ]
+        category_rows.append(
+            {
+                "label": label,
+                "total": count,
+                "total_rank": _rank_among(count_pool, float(count), higher_is_better=True),
+                "per_game": round(per_game, 2) if per_game is not None else None,
+                "per_game_rank": _rank_among(pg_pool, per_game, higher_is_better=True) if per_game is not None else None,
+                "share": share,
+                "share_rank": _rank_among(share_pool, float(share), higher_is_better=True) if share is not None else None,
+            }
+        )
+
+    players = build_shot_quality_leaderboard_rows(
+        session,
+        season_id,
+        segment=segment,
+        min_shots=min_shots,
+        team_id=team_id,
+    )
+    # Recompute percentiles vs full league pool (not team-only).
+    league_players = build_shot_quality_leaderboard_rows(
+        session,
+        season_id,
+        segment=segment,
+        min_shots=min_shots,
+        team_id=None,
+    )
+    league_pct = {int(r["player_id"]): r.get("percentile") for r in league_players}
+    for row in players:
+        row["percentile"] = league_pct.get(int(row["player_id"]))
+
+    return {
+        "team": team,
+        "season_id": int(season_id),
+        "segment": segment,
+        "gp": team_gp,
+        "sq": team_sq,
+        "per_game": round(team_per_game, 2) if team_per_game is not None else None,
+        "league_n": league_n,
+        "sq_avg_rank": _rank_among(sq_avg_pool, team_sq.get("sq_avg"), higher_is_better=True),
+        "hd_rank": _rank_among(hd_pool, team_sq.get("high_danger_share"), higher_is_better=True),
+        "total_rank": _rank_among(total_pool, float(team_sq.get("total") or 0), higher_is_better=True),
+        "per_game_rank": _rank_among(per_game_pool, team_per_game, higher_is_better=True),
+        "categories": category_rows,
+        "players": players,
+        "min_shots": int(min_shots),
+        "league_skater_n": len(league_players),
+    }
 
 def build_team_process_rows(
     session: Session,
@@ -459,7 +798,7 @@ def build_team_process_rows(
         sf = int(agg.shots_for or 0)
         sa = int(agg.shots_against or 0)
         shot_diff = sf - sa if sf or sa else None
-        sq = sq_profile_from_counts(_team_sq_totals_from_games(session, season_id, int(tm.id)))
+        sq = sq_profile_from_counts(_team_sq_totals_from_games(session, season_id, int(tm.id), segment=segment))
         out.append(
             {
                 "team_id": int(tm.id),
@@ -2297,6 +2636,7 @@ def build_advanced_stats_hub_payload(
         "points_above_ppg": build_points_above_ppg_divisions(session, season_id),
         "luck": build_luck_sustainability_rows(session, season_id, segment=segment),
         "discipline": build_discipline_rows(session, season_id, segment=segment),
+        "shot_quality": build_shot_quality_leaderboard_rows(session, season_id, segment=segment),
     }
 
 
@@ -2308,6 +2648,14 @@ def _team_json(team: Team | None) -> dict[str, Any] | None:
         "name": team.name,
         "abbreviation": team.abbreviation,
         "slug": team.slug,
+    }
+
+
+def _shot_quality_json_row(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        **{k: v for k, v in row.items() if k not in ("team", "sq_profile")},
+        "team": _team_json(row.get("team")),
+        "sq_profile": row.get("sq_profile"),
     }
 
 
@@ -2367,4 +2715,220 @@ def build_advanced_stats_hub_json(
     out["discipline"] = [
         {**row, "team": _team_json(row.get("team"))} for row in hub.get("discipline", [])
     ]
+    out["shot_quality"] = [_shot_quality_json_row(row) for row in hub.get("shot_quality", [])]
     return out
+
+
+def _seasons_with_advanced_stats_hub_data(session: Session) -> list[Season]:
+    season_ids = set(
+        session.scalars(select(PlayerSkaterStat.season_id).distinct()).all()
+    ) | set(session.scalars(select(PlayerGoalieStat.season_id).distinct()).all()) | set(
+        session.scalars(select(TeamSeasonAggregate.season_id).distinct()).all()
+    )
+    if not season_ids:
+        return []
+    return list(
+        session.scalars(
+            select(Season)
+            .where(Season.id.in_(season_ids))
+            .order_by(Season.start_year.desc().nulls_last(), Season.id.desc())
+        ).all()
+    )
+
+
+def build_advanced_stats_season_options(
+    session: Session,
+    *,
+    default_season_id: int | None = None,
+) -> list[dict[str, Any]]:
+    """Live seasons with hub data plus rollover-archived years for the Year dropdown."""
+    from app.services.analytics_snapshots import load_hub_rollover_years
+    from app.services.seasons import season_display_label
+
+    options: list[dict[str, Any]] = []
+    live_years: set[int] = set()
+    for season in _seasons_with_advanced_stats_hub_data(session):
+        if season.start_year is not None:
+            live_years.add(int(season.start_year))
+        options.append(
+            {
+                "key": f"s:{int(season.id)}",
+                "season_id": int(season.id),
+                "archive_year": None,
+                "label": season_display_label(season),
+                "start_year": season.start_year,
+                "archived": False,
+            }
+        )
+    for year in load_hub_rollover_years(session):
+        if year in live_years:
+            continue
+        options.append(
+            {
+                "key": f"y:{year}",
+                "season_id": None,
+                "archive_year": int(year),
+                "label": f"{year}–{str(year + 1)[-2:]} (archived)",
+                "start_year": int(year),
+                "archived": True,
+            }
+        )
+    options.sort(
+        key=lambda s: (
+            int(s["start_year"]) if s.get("start_year") is not None else -1,
+            0 if not s.get("archived") else 1,
+            str(s["key"]),
+        ),
+        reverse=True,
+    )
+    if default_season_id is not None:
+        for opt in options:
+            if opt.get("season_id") == int(default_season_id):
+                return options
+    return options
+
+
+def _hydrate_team_field(row: dict[str, Any], teams_by_id: dict[int, Team]) -> dict[str, Any]:
+    team_raw = row.get("team")
+    if isinstance(team_raw, dict) and team_raw.get("id") is not None:
+        tm = teams_by_id.get(int(team_raw["id"]))
+        row = {**row, "team": tm}
+    elif team_raw is not None and not hasattr(team_raw, "slug"):
+        row = {**row, "team": None}
+    return row
+
+
+def hydrate_advanced_stats_hub_from_json(
+    session: Session,
+    hub_data: dict[str, Any],
+) -> dict[str, Any]:
+    """Replace JSON team dicts with live Team models for template macros."""
+    team_ids: set[int] = set()
+
+    def _collect(rows: list[Any]) -> None:
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            team_raw = row.get("team")
+            if isinstance(team_raw, dict) and team_raw.get("id") is not None:
+                team_ids.add(int(team_raw["id"]))
+
+    for key in ("skaters", "goalies", "teams", "luck", "discipline", "shot_quality", "lines"):
+        _collect(list(hub_data.get(key) or []))
+    for group in hub_data.get("points_above_ppg") or []:
+        if isinstance(group, dict):
+            _collect(list(group.get("teams") or []))
+
+    teams_by_id = {
+        int(t.id): t
+        for t in session.scalars(select(Team).where(Team.id.in_(team_ids))).all()
+    } if team_ids else {}
+
+    out = dict(hub_data)
+    for key in ("skaters", "goalies", "teams", "luck", "discipline", "shot_quality"):
+        out[key] = [_hydrate_team_field(dict(row), teams_by_id) for row in (hub_data.get(key) or []) if isinstance(row, dict)]
+    out["lines"] = [_hydrate_team_field(dict(row), teams_by_id) for row in (hub_data.get("lines") or []) if isinstance(row, dict)]
+    pap: list[dict[str, Any]] = []
+    for group in hub_data.get("points_above_ppg") or []:
+        if not isinstance(group, dict):
+            continue
+        pap.append(
+            {
+                "division": group.get("division"),
+                "teams": [
+                    _hydrate_team_field(dict(row), teams_by_id)
+                    for row in (group.get("teams") or [])
+                    if isinstance(row, dict)
+                ],
+            }
+        )
+    out["points_above_ppg"] = pap
+    return out
+
+
+def filter_archived_line_rows(
+    rows: list[dict[str, Any]],
+    *,
+    team_id: int | None = None,
+    line_type: str = "all",
+    min_combined_gp: int = 0,
+    min_combined_toi_seconds: int = 0,
+) -> list[dict[str, Any]]:
+    from app.services.line_stats import LINE_TYPE_ALL, LINE_TYPE_DEFENSE, LINE_TYPE_FORWARD
+
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        tm = row.get("team")
+        if team_id is not None:
+            tid = getattr(tm, "id", None) if tm is not None else None
+            if tid is None or int(tid) != int(team_id):
+                continue
+        lt = str(row.get("line_type") or "")
+        if line_type == LINE_TYPE_FORWARD and lt != "Forward":
+            continue
+        if line_type == LINE_TYPE_DEFENSE and lt != "Defense":
+            continue
+        if line_type not in (LINE_TYPE_ALL, LINE_TYPE_FORWARD, LINE_TYPE_DEFENSE):
+            pass
+        if int(row.get("combined_gp") or 0) < int(min_combined_gp):
+            continue
+        if int(row.get("combined_toi_seconds") or 0) < int(min_combined_toi_seconds):
+            continue
+        out.append(row)
+    return out
+
+
+def load_archived_advanced_stats_hub(
+    session: Session,
+    *,
+    archive_year: int,
+    segment: str,
+) -> dict[str, Any] | None:
+    from app.services.analytics_snapshots import latest_hub_rollover_snapshot
+
+    snap = latest_hub_rollover_snapshot(session, season_year=archive_year, segment=segment)
+    if snap is None:
+        return None
+    try:
+        data = json.loads(snap.hub_json or "{}")
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(data, dict):
+        return None
+    return hydrate_advanced_stats_hub_from_json(session, data)
+
+
+def seasons_for_team_shot_quality(
+    session: Session,
+    team_id: int,
+) -> list[Season]:
+    """Seasons where this team has final games with SQ data."""
+    season_ids = session.scalars(
+        select(Game.season_id)
+        .where(
+            Game.status == "final",
+            (Game.home_team_id == team_id) | (Game.away_team_id == team_id),
+            or_(
+                Game.sq0_home.isnot(None),
+                Game.sq1_home.isnot(None),
+                Game.sq2_home.isnot(None),
+                Game.sq3_home.isnot(None),
+                Game.sq4_home.isnot(None),
+                Game.sq0_away.isnot(None),
+                Game.sq1_away.isnot(None),
+                Game.sq2_away.isnot(None),
+                Game.sq3_away.isnot(None),
+                Game.sq4_away.isnot(None),
+            ),
+        )
+        .distinct()
+    ).all()
+    if not season_ids:
+        return []
+    return list(
+        session.scalars(
+            select(Season)
+            .where(Season.id.in_(season_ids))
+            .order_by(Season.start_year.desc().nulls_last(), Season.id.desc())
+        ).all()
+    )

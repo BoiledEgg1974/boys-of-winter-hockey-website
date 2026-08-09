@@ -862,6 +862,9 @@
   </ul>
 </div>
 {% endif %}
+{% if team_shot_quality_seasons %}
+{% include "_team_shot_quality.html" %}
+{% endif %}
 {% if team_player_analytics and team_player_analytics.seasons %}
 <section class="card team-player-analytics" id="team-player-analytics" aria-labelledby="team-player-analytics-heading">
   <div class="team-player-analytics__head">

@@ -156,6 +156,56 @@ class AdvancedStatsServiceTest(unittest.TestCase):
         prof = sq_profile_from_counts({"sq0": 10, "sq1": 10, "sq2": 10, "sq3": 15, "sq4": 5})
         self.assertEqual(prof["total"], 50)
         self.assertEqual(prof["high_danger_share"], 40.0)
+        # (0*10 + 1*10 + 2*10 + 3*15 + 4*5) / 50 = 95/50 = 1.9
+        self.assertEqual(prof["sq_avg"], 1.9)
+
+    def test_sq_profile_empty_has_null_avg(self) -> None:
+        prof = sq_profile_from_counts({})
+        self.assertEqual(prof["total"], 0)
+        self.assertIsNone(prof["sq_avg"])
+        self.assertIsNone(prof["high_danger_share"])
+
+    def test_filter_archived_line_rows(self) -> None:
+        from app.services.advanced_stats import filter_archived_line_rows
+
+        rows = [
+            {
+                "team": SimpleNamespace(id=1, name="A"),
+                "line_type": "Forward",
+                "combined_gp": 40,
+                "combined_toi_seconds": 5000,
+            },
+            {
+                "team": SimpleNamespace(id=2, name="B"),
+                "line_type": "Defense",
+                "combined_gp": 10,
+                "combined_toi_seconds": 1000,
+            },
+        ]
+        out = filter_archived_line_rows(rows, team_id=1, line_type="forward", min_combined_gp=20)
+        self.assertEqual(len(out), 1)
+        self.assertEqual(out[0]["team"].id, 1)
+
+    def test_hydrate_advanced_stats_hub_from_json_replaces_team_dicts(self) -> None:
+        from app.services.advanced_stats import hydrate_advanced_stats_hub_from_json
+
+        team = SimpleNamespace(id=7, name="Isles", abbreviation="NYI", slug="ny-islanders")
+        session = MagicMock()
+        session.scalars.return_value.all.return_value = [team]
+        hub = hydrate_advanced_stats_hub_from_json(
+            session,
+            {
+                "skaters": [{"player_id": 1, "team": {"id": 7, "name": "Isles", "slug": "ny-islanders"}}],
+                "goalies": [],
+                "teams": [],
+                "luck": [],
+                "discipline": [],
+                "shot_quality": [],
+                "lines": [],
+                "points_above_ppg": [],
+            },
+        )
+        self.assertIs(hub["skaters"][0]["team"], team)
 
     def test_pdo_band(self) -> None:
         self.assertEqual(pdo_band(102.0), "hot")

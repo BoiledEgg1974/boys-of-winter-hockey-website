@@ -898,6 +898,24 @@ class TeamAnalyticsSnapshot(db.Model):
     team: Mapped["Team"] = relationship()
 
 
+class AdvancedStatsHubSnapshot(db.Model):
+    """Archived Advanced Stats hub payload (leaderboards + lines + shot quality) for a season year."""
+
+    __tablename__ = "advanced_stats_hub_snapshots"
+    __table_args__ = (
+        Index("ix_adv_stats_hub_snap_year_seg", "season_year", "stat_segment"),
+        Index("ix_adv_stats_hub_snap_at", "snapshot_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    season_year: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    stat_segment: Mapped[str] = mapped_column(String(8), nullable=False, default="rs")
+    is_rollover: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    snapshot_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    hub_json: Mapped[str] = mapped_column(Text, nullable=False)
+
+
 class OrgDevelopmentReportArchive(db.Model):
     """Persisted monthly org development report (survives snapshot trimming)."""
 

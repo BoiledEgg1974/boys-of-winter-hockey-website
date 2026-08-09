@@ -38,13 +38,13 @@ def _seed_league(slug: str, *, force: bool) -> None:
                 season=season,
                 is_rollover=False,
             )
-            print(f"{slug}: forced snapshot players={counts['players']} teams={counts['teams']}")
+            print(f"{slug}: forced snapshot players={counts['players']} teams={counts['teams']} hubs={counts.get('hubs', 0)}")
             return
         counts = seed_analytics_snapshots_if_empty(
             db.session, slug, raw_dir=raw_dir, season=season
         )
-        if counts["players"] or counts["teams"]:
-            print(f"{slug}: seeded players={counts['players']} teams={counts['teams']}")
+        if counts["players"] or counts["teams"] or counts.get("hubs"):
+            print(f"{slug}: seeded players={counts['players']} teams={counts['teams']} hubs={counts.get('hubs', 0)}")
         else:
             print(f"{slug}: already has analytics snapshots (use --force to append)")
 

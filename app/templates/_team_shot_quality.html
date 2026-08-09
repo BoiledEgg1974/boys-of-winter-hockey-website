@@ -1,0 +1,126 @@
+{% from "macros/team.html" import team_logo_img_plain with context %}
+{% macro sq_tip(label, meaning) -%}
+<abbr class="advanced-stats-glossary" title="{{ meaning }}">{{ label }}</abbr>
+{%- endmacro %}
+<section class="card team-shot-quality" id="team-shot-quality" aria-labelledby="team-shot-quality-heading">
+  <div class="team-shot-quality__head">
+    <div>
+      <h2 id="team-shot-quality-heading" class="team-shot-quality__title">Shot Quality</h2>
+      <p class="muted">Imported FHM SQ0–SQ4 mix for this team. Quality-weighted average is a 0–4 scale — not expected goals.</p>
+    </div>
+    <form class="team-shot-quality__controls" method="get" action="{{ url_for('main.team_page', slug=team.slug) }}">
+      <input type="hidden" name="panel" value="{{ active_panel or 'roster' }}">
+      <label class="team-shot-quality__control">
+        <span class="team-shot-quality__control-label">Season</span>
+        <select name="sq_season_id" aria-label="Shot quality season" onchange="this.form.submit()">
+          {% for s in team_shot_quality_seasons %}
+          <option value="{{ s.id }}"{% if team_shot_quality and team_shot_quality.season_id == s.id %} selected{% endif %}>{{ s|season_display }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="team-shot-quality__control">
+        <span class="team-shot-quality__control-label">Segment</span>
+        <select name="sq_segment" aria-label="Shot quality segment" onchange="this.form.submit()">
+          <option value="rs"{% if (team_shot_quality.segment if team_shot_quality else 'rs') == 'rs' %} selected{% endif %}>Regular season</option>
+          <option value="ps"{% if (team_shot_quality.segment if team_shot_quality else 'rs') == 'ps' %} selected{% endif %}>Preseason</option>
+          <option value="po"{% if (team_shot_quality.segment if team_shot_quality else 'rs') == 'po' %} selected{% endif %}>Playoffs</option>
+        </select>
+      </label>
+    </form>
+  </div>
+
+  {% if team_shot_quality and team_shot_quality.sq and team_shot_quality.sq.total %}
+  {% set sq = team_shot_quality.sq %}
+  <div class="team-shot-quality__summary">
+    <div>
+      <p class="team-shot-quality__meta">{{ sq.total }} shots in {{ team_shot_quality.gp }} GP</p>
+      <div class="team-shot-quality__mix" aria-hidden="true">
+        {% for label in ['SQ0','SQ1','SQ2','SQ3','SQ4'] %}
+        {% set share = sq.shares.get(label) or 0 %}
+        {% if share > 0 %}
+        <span class="team-shot-quality__mix-seg team-shot-quality__mix-seg--{{ label|lower }}" style="width:{{ share }}%"></span>
+        {% endif %}
+        {% endfor %}
+      </div>
+      <div class="table-wrap">
+        <table class="data advanced-stats-table">
+          <thead>
+            <tr>
+              <th>{{ sq_tip('Category', 'FHM shot-quality bucket.') }}</th>
+              <th>{{ sq_tip('Total', 'Raw attempt count and league rank.') }}</th>
+              <th>{{ sq_tip('Per Game', 'Attempts per game and league rank.') }}</th>
+              <th>{{ sq_tip('Share', 'Percent of team attempts in this bucket and league rank.') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in team_shot_quality.categories %}
+            <tr>
+              <td>{{ row.label }}</td>
+              <td>{{ row.total }}{% if row.total_rank %} <span class="muted">({{ row.total_rank }})</span>{% endif %}</td>
+              <td>{% if row.per_game is not none %}{{ '%.2f'|format(row.per_game) }}{% else %}—{% endif %}{% if row.per_game_rank %} <span class="muted">({{ row.per_game_rank }})</span>{% endif %}</td>
+              <td>{% if row.share is not none %}{{ '%.1f'|format(row.share) }}%{% else %}—{% endif %}{% if row.share_rank %} <span class="muted">({{ row.share_rank }})</span>{% endif %}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div>
+      <p class="muted" style="margin:0 0 0.35rem;text-transform:uppercase;font-size:0.72rem;letter-spacing:0.04em;font-weight:700;">Quality-weighted average</p>
+      <div class="team-shot-quality__avg">
+        <span class="team-shot-quality__avg-value">{% if sq.sq_avg is not none %}{{ '%.2f'|format(sq.sq_avg) }}{% else %}—{% endif %}</span>
+        {% if team_shot_quality.sq_avg_rank and team_shot_quality.league_n %}
+        <span class="team-shot-quality__avg-rank">{{ team_shot_quality.sq_avg_rank }}{% if team_shot_quality.sq_avg_rank == 1 %}st{% elif team_shot_quality.sq_avg_rank == 2 %}nd{% elif team_shot_quality.sq_avg_rank == 3 %}rd{% else %}th{% endif %}</span>
+        <span class="team-shot-quality__meta">of {{ team_shot_quality.league_n }} teams</span>
+        {% endif %}
+      </div>
+      {% if sq.high_danger_share is not none %}
+      <p class="team-shot-quality__meta" style="margin-top:0.65rem;">High-danger share (SQ3+SQ4): <strong>{{ '%.1f'|format(sq.high_danger_share) }}%</strong>{% if team_shot_quality.hd_rank %} ({{ team_shot_quality.hd_rank }}{% if team_shot_quality.hd_rank == 1 %}st{% elif team_shot_quality.hd_rank == 2 %}nd{% elif team_shot_quality.hd_rank == 3 %}rd{% else %}th{% endif %}){% endif %}</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <h3 style="margin:0 0 0.35rem;font-size:1rem;">Player shot quality</h3>
+  <p class="muted" style="margin-top:0;">Percentiles vs {{ team_shot_quality.league_skater_n }} skaters with at least {{ team_shot_quality.min_shots }} SQ attempts.</p>
+  <div class="table-wrap">
+    <table class="data data-sortable advanced-stats-table" data-sort-renumber="0" data-page-size="25">
+      <thead>
+        <tr>
+          <th data-sort-type="str">Player</th>
+          <th data-sort-type="num">GP</th>
+          <th data-sort-type="num">Shots</th>
+          <th data-sort-type="num">SQ Avg</th>
+          <th data-sort-type="num">HD%</th>
+          <th data-sort-type="num">SQ0%</th>
+          <th data-sort-type="num">SQ1%</th>
+          <th data-sort-type="num">SQ2%</th>
+          <th data-sort-type="num">SQ3%</th>
+          <th data-sort-type="num">SQ4%</th>
+          <th data-sort-type="num">Pctile</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in team_shot_quality.players %}
+        <tr>
+          <td><a href="{{ url_for('main.player_page', player_id=row.player_id) }}">{{ row.player_name }}</a></td>
+          <td>{{ row.gp }}</td>
+          <td>{{ row.shots }}</td>
+          <td data-sort-value="{% if row.sq_avg is not none %}{{ row.sq_avg }}{% endif %}">{% if row.sq_avg is not none %}{{ '%.2f'|format(row.sq_avg) }}{% else %}—{% endif %}</td>
+          <td data-sort-value="{% if row.high_danger_share is not none %}{{ row.high_danger_share }}{% endif %}">{% if row.high_danger_share is not none %}{{ '%.1f'|format(row.high_danger_share) }}%{% else %}—{% endif %}</td>
+          <td data-sort-value="{% if row.sq0_share is not none %}{{ row.sq0_share }}{% endif %}">{% if row.sq0_share is not none %}{{ '%.0f'|format(row.sq0_share) }}%{% else %}—{% endif %}</td>
+          <td data-sort-value="{% if row.sq1_share is not none %}{{ row.sq1_share }}{% endif %}">{% if row.sq1_share is not none %}{{ '%.0f'|format(row.sq1_share) }}%{% else %}—{% endif %}</td>
+          <td data-sort-value="{% if row.sq2_share is not none %}{{ row.sq2_share }}{% endif %}">{% if row.sq2_share is not none %}{{ '%.0f'|format(row.sq2_share) }}%{% else %}—{% endif %}</td>
+          <td data-sort-value="{% if row.sq3_share is not none %}{{ row.sq3_share }}{% endif %}">{% if row.sq3_share is not none %}{{ '%.0f'|format(row.sq3_share) }}%{% else %}—{% endif %}</td>
+          <td data-sort-value="{% if row.sq4_share is not none %}{{ row.sq4_share }}{% endif %}">{% if row.sq4_share is not none %}{{ '%.0f'|format(row.sq4_share) }}%{% else %}—{% endif %}</td>
+          <td data-sort-value="{% if row.percentile is not none %}{{ row.percentile }}{% endif %}">{% if row.percentile is not none %}{{ row.percentile }}{% else %}—{% endif %}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="11" class="muted">No roster skaters meet the {{ team_shot_quality.min_shots }}-shot threshold for this segment.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">No shot-quality data for this team in the selected season and segment yet.</p>
+  {% endif %}
+</section>

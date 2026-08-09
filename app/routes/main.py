@@ -742,9 +742,9 @@ def standings():
     )
 
     positional_ranking_rows = build_positional_ranking_rows(db.session)
-    _, positional_rank_snapshot_at = load_latest_positional_rank_snapshot(league_slug)
     baseline_pos = select_positional_rank_baseline_map(league_slug, positional_ranking_rows)
     apply_positional_rank_trends(positional_ranking_rows, baseline_pos)
+    _, positional_rank_snapshot_at = load_latest_positional_rank_snapshot(league_slug)
 
     logo_sy = int(season.start_year) if season and getattr(season, "start_year", None) is not None else None
     standings_ctx: dict[int, dict] = {}

@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 
 from app.services.power_rank_snapshots import apply_power_rank_trends
 from app.services.rank_snapshot_baseline import select_rank_baseline_map
-from app.site_models import PowerRankSnapshot
+from app.site_models import PowerRankSnapshot, ProspectLeagueRankSnapshot
 
 
 def _snap(ranks: dict[int, int], *, hours_ago: float = 0.0) -> SimpleNamespace:
@@ -20,14 +20,26 @@ def _snap(ranks: dict[int, int], *, hours_ago: float = 0.0) -> SimpleNamespace:
 
 
 class RankSnapshotBaselineTest(unittest.TestCase):
-    def _select(self, current: dict[int, int], rows: list[SimpleNamespace]) -> dict[int, int]:
+    def _select(
+        self,
+        current: dict[int, int],
+        rows: list[SimpleNamespace],
+        *,
+        model=PowerRankSnapshot,
+        require_same_entities: bool = True,
+    ) -> dict[int, int]:
         scalars = MagicMock()
         scalars.all.return_value = rows
         session = MagicMock()
         session.scalars.return_value = scalars
         with patch("app.services.rank_snapshot_baseline.db") as mock_db:
             mock_db.session = session
-            return select_rank_baseline_map("bowl-historical", current, PowerRankSnapshot)
+            return select_rank_baseline_map(
+                "bowl-historical",
+                current,
+                model,
+                require_same_entities=require_same_entities,
+            )
 
     def test_falls_back_to_prior_when_latest_matches_current(self) -> None:
         current = {1: 1, 2: 2, 3: 3}
@@ -89,6 +101,24 @@ class RankSnapshotBaselineTest(unittest.TestCase):
         self.assertNotEqual(by_id[14]["trend_dir"], "new")
         self.assertNotEqual(by_id[13]["trend_dir"], "new")
 
+    def test_ignores_pre_expansion_latest_when_live_roster_grew(self) -> None:
+        """Production bug: latest snap still 12-team after BUF/VAN joined live table."""
+        current = {1: 1, 2: 2, 13: 3, 14: 4}
+        pre_12 = {1: 2, 2: 1}
+        out = self._select(current, [_snap(pre_12, hours_ago=48)])
+        self.assertEqual(out, current)
+
+        teams = [{"team_id": tid} for tid, _ in sorted(current.items(), key=lambda kv: kv[1])]
+        apply_power_rank_trends(teams, out)
+        by_id = {int(t["team_id"]): t for t in teams}
+        self.assertEqual(by_id[13]["trend_dir"], "same")
+        self.assertEqual(by_id[14]["trend_dir"], "same")
+        self.assertNotEqual(by_id[13]["trend_dir"], "new")
+        self.assertNotEqual(by_id[14]["trend_dir"], "new")
+        # Overlapping clubs also stay 0 rather than skewed vs the 12-team board.
+        self.assertEqual(by_id[1]["trend_dir"], "same")
+        self.assertEqual(by_id[2]["trend_dir"], "same")
+
     def test_walks_back_to_same_roster_prior_after_expansion(self) -> None:
         """After a second post-expansion snap, CHG should use the first 14-team order."""
         current = {1: 1, 2: 2, 13: 3, 14: 4}  # new order
@@ -122,6 +152,18 @@ class RankSnapshotBaselineTest(unittest.TestCase):
             [_snap(current, hours_ago=48), _snap(prior, hours_ago=50)],
         )
         self.assertEqual(out, current)
+
+    def test_prospect_board_allows_partial_baseline_for_new_players(self) -> None:
+        current = {10: 1, 20: 2, 30: 3}  # player 30 debuted
+        prior = {10: 2, 20: 1}
+        out = self._select(
+            current,
+            [_snap(prior, hours_ago=2)],
+            model=ProspectLeagueRankSnapshot,
+            require_same_entities=False,
+        )
+        self.assertEqual(out, prior)
+        self.assertNotIn(30, out)
 
 
 if __name__ == "__main__":

@@ -11,7 +11,11 @@ from sqlalchemy import select
 from app.league_db import db
 from app.services.homepage_dashboard import compute_power_rankings_payload
 from app.services.prospect_system_rankings import apply_system_rank_trends
-from app.services.rank_snapshot_baseline import ranks_dict_from_snapshot_json, select_rank_baseline_map
+from app.services.rank_snapshot_baseline import (
+    maybe_seed_rank_snapshot_for_roster_change,
+    ranks_dict_from_snapshot_json,
+    select_rank_baseline_map,
+)
 from app.services.seasons import get_current_season, season_with_imported_data_fallback
 from app.site_models import PowerRankSnapshot
 
@@ -34,6 +38,13 @@ def load_latest_power_rank_snapshot(league_slug: str) -> tuple[dict[int, int], d
 def select_power_rank_baseline_map(league_slug: str, teams: list[dict[str, Any]]) -> dict[int, int]:
     """Rank map for homepage CHG (see :func:`select_rank_baseline_map`)."""
     cur = {int(t["team_id"]): i + 1 for i, t in enumerate(teams)}
+    slug = (league_slug or "").strip()
+    maybe_seed_rank_snapshot_for_roster_change(
+        slug,
+        cur,
+        PowerRankSnapshot,
+        lambda: save_power_rank_snapshot(slug, teams),
+    )
     return select_rank_baseline_map(league_slug, cur, PowerRankSnapshot)
 
 

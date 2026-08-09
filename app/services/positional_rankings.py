@@ -13,7 +13,10 @@ from app.services.all_time_records import bowl_nhl_league_ids
 from app.services.player_overall_score import compute_player_overall_100, player_is_goalie_for_overall
 from app.services.player_ratings_csv import get_player_ratings_row, player_positions_display_label
 from app.services.prospect_system_rankings import apply_system_rank_trends
-from app.services.rank_snapshot_baseline import select_rank_baseline_map
+from app.services.rank_snapshot_baseline import (
+    maybe_seed_rank_snapshot_for_roster_change,
+    select_rank_baseline_map,
+)
 from app.site_models import PositionalRankSnapshot
 
 
@@ -188,6 +191,13 @@ def save_positional_rank_snapshot(league_slug: str, rows: list[dict[str, Any]]) 
 
 def select_positional_rank_baseline_map(league_slug: str, rows: list[dict[str, Any]]) -> dict[int, int]:
     cur = {int(r["team"].id): int(r["rank"]) for r in rows}
+    slug = (league_slug or "").strip()
+    maybe_seed_rank_snapshot_for_roster_change(
+        slug,
+        cur,
+        PositionalRankSnapshot,
+        lambda: save_positional_rank_snapshot(slug, rows),
+    )
     return select_rank_baseline_map(league_slug, cur, PositionalRankSnapshot)
 
 

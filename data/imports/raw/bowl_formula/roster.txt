@@ -3,9 +3,11 @@
 #   Name              → auto-assigned number in file order
 #   7|Name            → fixed car/driver number 7
 #   Name|#7           → same (fixed number 7)
-# Names must match a PNG in assets/cars/custom/ (case/spacing insensitive).
+# Names must match a PNG in Formula BOWL/Cars/ (or assets/cars/custom/),
+# case/spacing insensitive — e.g. "BoiledEgg" ↔ BoiledEgg.png.
 # Lines starting with # are ignored. Seats beyond this list get "Driver N".
 92|Blazed
+32|BoiledEgg
 2|Campbell
 10|Caper
 1|Choog

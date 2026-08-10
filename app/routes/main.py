@@ -5756,6 +5756,42 @@ def game_page(game_id: int):
     return render_template("game.html", game=game, game_flow=game_flow)
 
 
+@main_bp.get("/player-comparison")
+def player_comparison():
+    """Side-by-side FHM player comparison (Historical / Relegation / Cap)."""
+    from app.services.player_comparison import (
+        build_player_compare_side,
+        merge_compare_attr_sections,
+        merge_compare_position_ratings,
+    )
+
+    def _parse_id(raw: str | None) -> int | None:
+        if raw is None or not str(raw).strip():
+            return None
+        try:
+            return int(str(raw).strip())
+        except (TypeError, ValueError):
+            return None
+
+    left_id = _parse_id(request.args.get("left"))
+    right_id = _parse_id(request.args.get("right"))
+    season = get_current_season()
+    left = build_player_compare_side(db.session, left_id, season) if left_id else None
+    right = build_player_compare_side(db.session, right_id, season) if right_id else None
+    return render_template(
+        "player_comparison.html",
+        season=season,
+        left=left,
+        right=right,
+        left_id=left_id if left else None,
+        right_id=right_id if right else None,
+        compare_attr_sections=merge_compare_attr_sections(left, right),
+        compare_position_ratings=merge_compare_position_ratings(left, right),
+        both_selected=bool(left and right),
+        any_selected=bool(left or right),
+    )
+
+
 @main_bp.get("/search")
 def search_page():
     q = request.args.get("q", "")

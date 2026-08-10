@@ -1,0 +1,455 @@
+{% extends "base.html" %}
+{% from "macros/star_row.html" import star_row %}
+{% from "macros/player_analytics_card.html" import player_analytics_card as render_player_analytics_card %}
+{% from "macros/team.html" import team_lockup_full_name, team_logo_only with context %}
+{% block title %}Player Comparison — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+
+{% macro fmt_money(n) -%}
+{%- if n is none %}—{% else %}${{ '{:,}'.format(n) }}{% endif -%}
+{%- endmacro %}
+
+{% macro side_accent_vars(side) -%}
+{%- if side and side.accent_team -%}
+--pc-accent: {{ side.accent_team.primary_color or '#1e293b' }}; --pc-accent2: {{ side.accent_team.secondary_color or '#334155' }}; --pc-text-on: {{ side.accent_team.text_color or '#f8fafc' }};
+{%- else -%}
+--pc-accent: #1e293b; --pc-accent2: #334155; --pc-text-on: #f8fafc;
+{%- endif -%}
+{%- endmacro %}
+
+{% macro player_picker(side_key, side, side_id) -%}
+<div class="player-compare__picker" data-compare-side="{{ side_key }}">
+  <label class="player-compare__picker-label" for="compare-search-{{ side_key }}">
+    {% if side_key == 'left' %}Player A{% else %}Player B{% endif %}
+  </label>
+  <div class="player-compare__picker-wrap">
+    <input
+      id="compare-search-{{ side_key }}"
+      class="player-compare__picker-input"
+      type="search"
+      autocomplete="off"
+      spellcheck="false"
+      placeholder="Type a player name…"
+      value="{% if side %}{{ side.player.full_name }}{% endif %}"
+      data-compare-input="{{ side_key }}"
+      data-selected-id="{% if side_id %}{{ side_id }}{% endif %}"
+    >
+    <div class="player-compare__ac autocomplete-panel" data-compare-ac="{{ side_key }}" hidden></div>
+  </div>
+  {% if side %}
+  <a class="player-compare__profile-link" href="{{ url_for('main.player_page', player_id=side.player.id) }}">Open profile</a>
+  {% endif %}
+</div>
+{%- endmacro %}
+
+{% macro side_head(side) -%}
+{% if not side %}
+<div class="player-compare__head player-compare__head--empty card">
+  <p class="muted">Select a player</p>
+</div>
+{% else %}
+{% set ac = side.accent_team %}
+<div class="player-compare__head card" style="{{ side_accent_vars(side) }}">
+  <div class="player-compare__head-banner">
+    {% if ac %}{{ team_logo_only(ac) }}{% endif %}
+    <div class="player-compare__head-text">
+      <h2 class="player-compare__name">
+        <a href="{{ url_for('main.player_page', player_id=side.player.id) }}">{{ side.player.full_name }}</a>
+        {% if side.player.nick_name %}<span class="player-compare__nick">“{{ side.player.nick_name }}”</span>{% endif %}
+      </h2>
+      <p class="player-compare__meta">
+        {{ side.position_label }}
+        {% if side.age is not none %}<span class="player-compare__dot">·</span>Age {{ side.age }}{% endif %}
+        {% if side.player.shoots_catches %}<span class="player-compare__dot">·</span>{{ side.player.shoots_catches }}{% endif %}
+      </p>
+      <p class="player-compare__contracted">
+        <span class="player-compare__contracted-label">Contracted to</span>
+        {% if side.contract_team %}
+        {{ team_lockup_full_name(side.contract_team) }}
+        {% elif side.player.retired %}
+        <span class="muted">Retired</span>
+        {% else %}
+        <span class="muted">Free agent / minors</span>
+        {% endif %}
+      </p>
+    </div>
+  </div>
+  <div class="player-compare__head-body">
+    <div class="player-compare__photo">
+      {% if side.photo_url %}
+      <img src="{{ side.photo_url }}" alt="" loading="lazy" decoding="async">
+      {% else %}
+      <div class="player-compare__photo-ph">Photo</div>
+      {% endif %}
+    </div>
+    <div class="player-compare__head-stats">
+      <div class="player-compare__ovr">
+        <span class="player-compare__ap-k">OVR</span>
+        <span class="player-compare__ovr-score">{% if side.ovr is not none %}{{ side.ovr }}{% else %}—{% endif %}</span>
+      </div>
+      <div class="player-compare__ap">
+        <div class="player-compare__ap-col">
+          <span class="player-compare__ap-k">ABI</span>
+          {{ star_row(side.abi) }}
+          <span class="player-compare__ap-num">{% if side.abi is not none %}{{ '%.1f'|format(side.abi) }}{% else %}—{% endif %}</span>
+        </div>
+        <div class="player-compare__ap-col">
+          <span class="player-compare__ap-k">POT</span>
+          {{ star_row(side.pot) }}
+          <span class="player-compare__ap-num">{% if side.pot is not none %}{{ '%.1f'|format(side.pot) }}{% else %}—{% endif %}</span>
+        </div>
+      </div>
+      {% if side.role_title %}
+      <p class="player-compare__role">{{ side.role_title }}</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
+{%- endmacro %}
+
+{% macro side_bio_contract(side) -%}
+{% if not side %}
+<div class="player-compare__side-card card player-compare__side-card--empty">
+  <p class="muted">Select a player to see bio &amp; contract.</p>
+</div>
+{% else %}
+<div class="player-compare__side-card card" style="{{ side_accent_vars(side) }}">
+  <h3 class="player-compare__card-title">Personal details</h3>
+  <dl class="player-compare__kv">
+    <div class="player-compare__kv-row"><dt>Height</dt><dd>{% if side.player.height_inches %}{{ side.player.height_inches // 12 }}'{{ side.player.height_inches % 12 }}"{% else %}—{% endif %}</dd></div>
+    <div class="player-compare__kv-row"><dt>Weight</dt><dd>{% if side.player.weight_lbs %}{{ side.player.weight_lbs }} lbs{% else %}—{% endif %}</dd></div>
+    <div class="player-compare__kv-row"><dt>Born</dt><dd>{% if side.player.birth_date %}{{ side.player.birth_date }}{% if side.player.birth_city %}, {{ side.player.birth_city }}{% if side.player.birth_state %}, {{ side.player.birth_state }}{% endif %}{% endif %}{% else %}—{% endif %}</dd></div>
+    <div class="player-compare__kv-row"><dt>Hand</dt><dd>{{ side.player.shoots_catches or '—' }}</dd></div>
+    <div class="player-compare__kv-row">
+      <dt>Nationality</dt>
+      <dd class="player-compare__nat">
+        {% if side.player.nationality|nationality_flag_url %}
+        <img class="player-profile__flag" src="{{ side.player.nationality|nationality_flag_url }}" width="20" height="15" alt="" loading="lazy" decoding="async">
+        {% endif %}
+        <span>{{ side.player.nationality or '—' }}</span>
+      </dd>
+    </div>
+  </dl>
+
+  <h3 class="player-compare__card-title">Contract</h3>
+  <dl class="player-compare__kv">
+    <div class="player-compare__kv-row">
+      <dt>Contracted to</dt>
+      <dd>
+        {% if side.contract_team %}
+        {{ team_lockup_full_name(side.contract_team) }}
+        {% elif side.player.retired %}
+        Retired
+        {% else %}
+        —
+        {% endif %}
+      </dd>
+    </div>
+    <div class="player-compare__kv-row"><dt>AAV</dt><dd>{% if side.contract %}{{ fmt_money(side.contract.average_salary) }}{% else %}—{% endif %}</dd></div>
+    <div class="player-compare__kv-row"><dt>Years left</dt><dd>{% if side.contract_years_left is not none %}{{ side.contract_years_left }}{% else %}—{% endif %}</dd></div>
+    <div class="player-compare__kv-row"><dt>Through</dt><dd>{{ side.contract_through_season or '—' }}</dd></div>
+    {% if side.contract %}
+    <div class="player-compare__kv-row"><dt>NTC</dt><dd>{{ 'Yes' if side.contract.has_ntc else 'No' }}</dd></div>
+    <div class="player-compare__kv-row"><dt>NMC</dt><dd>{{ 'Yes' if side.contract.has_nmc else 'No' }}</dd></div>
+    <div class="player-compare__kv-row"><dt>ELC</dt><dd>{{ 'Yes' if side.contract.is_elc else 'No' }}</dd></div>
+    <div class="player-compare__kv-row"><dt>UFA</dt><dd>{{ 'Yes' if side.contract.is_ufa else 'No' }}</dd></div>
+    {% endif %}
+    {% if side.role_title %}
+    <div class="player-compare__kv-row"><dt>Role</dt><dd>{{ side.role_title }}</dd></div>
+    {% endif %}
+  </dl>
+</div>
+{% endif %}
+{%- endmacro %}
+
+{% macro compare_bar_row(label, left_v, right_v, abbr=None) -%}
+<div class="player-compare__bar-row">
+  <div class="player-compare__bar-side player-compare__bar-side--left">
+    <span class="player-compare__bar-val">{% if left_v is not none %}{% if left_v == (left_v|round(0)) %}{{ left_v|round(0)|int }}{% else %}{{ '%.1f'|format(left_v) }}{% endif %}{% else %}—{% endif %}</span>
+    <div class="player-compare__bar-track player-compare__bar-track--left" role="presentation">
+      <div class="player-compare__bar-fill" style="{% if left_v is not none %}{{ left_v|rating_meter_fill_style }}{% else %}width:0%;background:transparent{% endif %}"></div>
+    </div>
+  </div>
+  <span class="player-compare__bar-label" {% if abbr %}title="{{ label }}"{% endif %}>{% if abbr %}{{ abbr }}{% else %}{{ label }}{% endif %}</span>
+  <div class="player-compare__bar-side player-compare__bar-side--right">
+    <div class="player-compare__bar-track player-compare__bar-track--right" role="presentation">
+      <div class="player-compare__bar-fill" style="{% if right_v is not none %}{{ right_v|rating_meter_fill_style }}{% else %}width:0%;background:transparent{% endif %}"></div>
+    </div>
+    <span class="player-compare__bar-val">{% if right_v is not none %}{% if right_v == (right_v|round(0)) %}{{ right_v|round(0)|int }}{% else %}{{ '%.1f'|format(right_v) }}{% endif %}{% else %}—{% endif %}</span>
+  </div>
+</div>
+{%- endmacro %}
+
+{% block content %}
+<div class="player-compare" data-player-compare>
+  <header class="player-compare__page-head">
+    <h1 class="page-title">Player Comparison</h1>
+    <p class="muted">Pick two players to compare ratings, contracts, stats, and analysis.</p>
+  </header>
+
+  <div class="player-compare__pickers card">
+    {{ player_picker('left', left, left_id) }}
+    <div class="player-compare__vs" aria-hidden="true">VS</div>
+    {{ player_picker('right', right, right_id) }}
+  </div>
+
+  {% if not any_selected %}
+  <div class="player-compare__empty empty-state">
+    <p>Search for a player on each side to start comparing.</p>
+  </div>
+  {% else %}
+
+  <div class="player-compare__heads">
+    {{ side_head(left) }}
+    {{ side_head(right) }}
+  </div>
+
+  <div class="player-compare__main">
+    {{ side_bio_contract(left) }}
+
+    <div class="player-compare__spine card">
+      {% if both_selected or any_selected %}
+      <section class="player-compare__spine-section" aria-labelledby="compare-ap-heading">
+        <h3 id="compare-ap-heading" class="player-compare__spine-title">Ability &amp; Potential</h3>
+        <div class="player-compare__ap-compare">
+          <div class="player-compare__ap-compare-side">
+            <span class="player-compare__ap-k">ABI</span>
+            {{ star_row(left.abi if left else none) }}
+          </div>
+          <span class="player-compare__bar-label">Ability</span>
+          <div class="player-compare__ap-compare-side player-compare__ap-compare-side--right">
+            <span class="player-compare__ap-k">ABI</span>
+            {{ star_row(right.abi if right else none) }}
+          </div>
+        </div>
+        <div class="player-compare__ap-compare">
+          <div class="player-compare__ap-compare-side">
+            <span class="player-compare__ap-k">POT</span>
+            {{ star_row(left.pot if left else none) }}
+          </div>
+          <span class="player-compare__bar-label">Potential</span>
+          <div class="player-compare__ap-compare-side player-compare__ap-compare-side--right">
+            <span class="player-compare__ap-k">POT</span>
+            {{ star_row(right.pot if right else none) }}
+          </div>
+        </div>
+        <div class="player-compare__ap-compare">
+          <div class="player-compare__ap-compare-side">
+            <span class="player-compare__ap-k">OVR</span>
+            <span class="player-compare__ap-num">{% if left and left.ovr is not none %}{{ left.ovr }}{% else %}—{% endif %}</span>
+          </div>
+          <span class="player-compare__bar-label">Overall</span>
+          <div class="player-compare__ap-compare-side player-compare__ap-compare-side--right">
+            <span class="player-compare__ap-k">OVR</span>
+            <span class="player-compare__ap-num">{% if right and right.ovr is not none %}{{ right.ovr }}{% else %}—{% endif %}</span>
+          </div>
+        </div>
+      </section>
+
+      {% if compare_position_ratings %}
+      <section class="player-compare__spine-section" aria-labelledby="compare-pos-heading">
+        <h3 id="compare-pos-heading" class="player-compare__spine-title">Positions</h3>
+        {% for row in compare_position_ratings %}
+        {{ compare_bar_row(row.label, row.left, row.right, abbr=row.abbr) }}
+        {% endfor %}
+      </section>
+      {% endif %}
+
+      {% for section in compare_attr_sections %}
+      <section class="player-compare__spine-section" aria-labelledby="compare-sec-{{ loop.index }}">
+        <h3 id="compare-sec-{{ loop.index }}" class="player-compare__spine-title">{{ section.title }}</h3>
+        {% for row in section.rows %}
+        {{ compare_bar_row(row.label, row.left, row.right) }}
+        {% endfor %}
+      </section>
+      {% endfor %}
+      {% endif %}
+    </div>
+
+    {{ side_bio_contract(right) }}
+  </div>
+
+  {% if left or right %}
+    {% set ls = left.latest_season_stats if left else none %}
+    {% set rs = right.latest_season_stats if right else none %}
+    {% set l_role = (ls.role if ls else none) or (left.career_role if left else none) %}
+    {% set r_role = (rs.role if rs else none) or (right.career_role if right else none) %}
+    {% set both_goalie = (l_role == 'goalie') and (r_role == 'goalie') %}
+    {% set any_goalie = (l_role == 'goalie') or (r_role == 'goalie') %}
+    {% set any_skater = (l_role == 'skater') or (r_role == 'skater') or (not any_goalie) %}
+
+    {% if any_skater and not both_goalie %}
+    <section class="player-compare__stats-block card">
+      <h3 class="player-compare__card-title">Regular season stats (skater)</h3>
+      <div class="table-wrap">
+        <table class="data player-compare__stats-table">
+          <thead>
+            <tr>
+              <th scope="col">{% if left %}{{ left.player.full_name }}{% else %}Player A{% endif %}</th>
+              <th scope="col">Stat</th>
+              <th scope="col">{% if right %}{{ right.player.full_name }}{% else %}Player B{% endif %}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>{% if ls and ls.role == 'skater' %}{{ ls.season }}{% else %}—{% endif %}</td><td class="player-compare__stats-label">Season</td><td>{% if rs and rs.role == 'skater' %}{{ rs.season }}{% else %}—{% endif %}</td></tr>
+            <tr><td>{% if ls and ls.role == 'skater' %}{{ ls.gp }}{% else %}—{% endif %}</td><td class="player-compare__stats-label">GP</td><td>{% if rs and rs.role == 'skater' %}{{ rs.gp }}{% else %}—{% endif %}</td></tr>
+            <tr><td>{% if ls and ls.role == 'skater' %}{{ ls.goals }}{% else %}—{% endif %}</td><td class="player-compare__stats-label">G</td><td>{% if rs and rs.role == 'skater' %}{{ rs.goals }}{% else %}—{% endif %}</td></tr>
+            <tr><td>{% if ls and ls.role == 'skater' %}{{ ls.assists }}{% else %}—{% endif %}</td><td class="player-compare__stats-label">A</td><td>{% if rs and rs.role == 'skater' %}{{ rs.assists }}{% else %}—{% endif %}</td></tr>
+            <tr><td>{% if ls and ls.role == 'skater' %}{{ ls.points }}{% else %}—{% endif %}</td><td class="player-compare__stats-label">P</td><td>{% if rs and rs.role == 'skater' %}{{ rs.points }}{% else %}—{% endif %}</td></tr>
+            <tr><td>{% if ls and ls.role == 'skater' and ls.plus_minus is not none %}{{ ls.plus_minus }}{% else %}—{% endif %}</td><td class="player-compare__stats-label">+/-</td><td>{% if rs and rs.role == 'skater' and rs.plus_minus is not none %}{{ rs.plus_minus }}{% else %}—{% endif %}</td></tr>
+            <tr><td>{% if ls and ls.role == 'skater' %}{{ ls.pim }}{% else %}—{% endif %}</td><td class="player-compare__stats-label">PIM</td><td>{% if rs and rs.role == 'skater' %}{{ rs.pim }}{% else %}—{% endif %}</td></tr>
+            <tr><td>{% if ls and ls.role == 'skater' and ls.shots is not none %}{{ ls.shots }}{% else %}—{% endif %}</td><td class="player-compare__stats-label">SOG</td><td>{% if rs and rs.role == 'skater' and rs.shots is not none %}{{ rs.shots }}{% else %}—{% endif %}</td></tr>
+            <tr><td>{% if ls and ls.role == 'skater' and ls.hits is not none %}{{ ls.hits }}{% else %}—{% endif %}</td><td class="player-compare__stats-label">Hits</td><td>{% if rs and rs.role == 'skater' and rs.hits is not none %}{{ rs.hits }}{% else %}—{% endif %}</td></tr>
+            <tr><td>{% if ls and ls.role == 'skater' and ls.blocked_shots is not none %}{{ ls.blocked_shots }}{% else %}—{% endif %}</td><td class="player-compare__stats-label">Blk</td><td>{% if rs and rs.role == 'skater' and rs.blocked_shots is not none %}{{ rs.blocked_shots }}{% else %}—{% endif %}</td></tr>
+            <tr><td>{% if ls and ls.role == 'skater' and ls.toi_pg %}{{ ls.toi_pg }}{% else %}—{% endif %}</td><td class="player-compare__stats-label">TOI/GP</td><td>{% if rs and rs.role == 'skater' and rs.toi_pg %}{{ rs.toi_pg }}{% else %}—{% endif %}</td></tr>
+            <tr><td>{% if ls and ls.role == 'skater' and ls.gr is not none %}{{ '%.1f'|format(ls.gr) }}{% else %}—{% endif %}</td><td class="player-compare__stats-label">GR</td><td>{% if rs and rs.role == 'skater' and rs.gr is not none %}{{ '%.1f'|format(rs.gr) }}{% else %}—{% endif %}</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+    {% endif %}
+
+    {% if any_goalie %}
+    <section class="player-compare__stats-block card">
+      <h3 class="player-compare__card-title">Regular season stats (goalie)</h3>
+      <div class="table-wrap">
+        <table class="data player-compare__stats-table">
+          <thead>
+            <tr>
+              <th scope="col">{% if left %}{{ left.player.full_name }}{% else %}Player A{% endif %}</th>
+              <th scope="col">Stat</th>
+              <th scope="col">{% if right %}{{ right.player.full_name }}{% else %}Player B{% endif %}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>{% if ls and ls.role == 'goalie' %}{{ ls.season }}{% else %}—{% endif %}</td><td class="player-compare__stats-label">Season</td><td>{% if rs and rs.role == 'goalie' %}{{ rs.season }}{% else %}—{% endif %}</td></tr>
+            <tr><td>{% if ls and ls.role == 'goalie' %}{{ ls.gp }}{% else %}—{% endif %}</td><td class="player-compare__stats-label">GP</td><td>{% if rs and rs.role == 'goalie' %}{{ rs.gp }}{% else %}—{% endif %}</td></tr>
+            <tr><td>{% if ls and ls.role == 'goalie' and ls.record %}{{ ls.record }}{% else %}—{% endif %}</td><td class="player-compare__stats-label">Record</td><td>{% if rs and rs.role == 'goalie' and rs.record %}{{ rs.record }}{% else %}—{% endif %}</td></tr>
+            <tr><td>{% if ls and ls.role == 'goalie' and ls.gaa is not none %}{{ '%.2f'|format(ls.gaa) }}{% else %}—{% endif %}</td><td class="player-compare__stats-label">GAA</td><td>{% if rs and rs.role == 'goalie' and rs.gaa is not none %}{{ '%.2f'|format(rs.gaa) }}{% else %}—{% endif %}</td></tr>
+            <tr><td>{% if ls and ls.role == 'goalie' and ls.sv_pct is not none %}{{ '%.3f'|format(ls.sv_pct) }}{% else %}—{% endif %}</td><td class="player-compare__stats-label">SV%</td><td>{% if rs and rs.role == 'goalie' and rs.sv_pct is not none %}{{ '%.3f'|format(rs.sv_pct) }}{% else %}—{% endif %}</td></tr>
+            <tr><td>{% if ls and ls.role == 'goalie' %}{{ ls.so }}{% else %}—{% endif %}</td><td class="player-compare__stats-label">SO</td><td>{% if rs and rs.role == 'goalie' %}{{ rs.so }}{% else %}—{% endif %}</td></tr>
+            <tr><td>{% if ls and ls.role == 'goalie' and ls.toi_pg %}{{ ls.toi_pg }}{% else %}—{% endif %}</td><td class="player-compare__stats-label">TOI/GP</td><td>{% if rs and rs.role == 'goalie' and rs.toi_pg %}{{ rs.toi_pg }}{% else %}—{% endif %}</td></tr>
+            <tr><td>{% if ls and ls.role == 'goalie' and ls.gr is not none %}{{ '%.1f'|format(ls.gr) }}{% else %}—{% endif %}</td><td class="player-compare__stats-label">GR</td><td>{% if rs and rs.role == 'goalie' and rs.gr is not none %}{{ '%.1f'|format(rs.gr) }}{% else %}—{% endif %}</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+    {% endif %}
+
+    {% set lc = left.career_totals if left else none %}
+    {% set rc = right.career_totals if right else none %}
+    {% if (left and left.career_role == 'skater') or (right and right.career_role == 'skater') %}
+    <section class="player-compare__stats-block card">
+      <h3 class="player-compare__card-title">Career totals (skater RS)</h3>
+      <div class="table-wrap">
+        <table class="data player-compare__stats-table">
+          <thead>
+            <tr>
+              <th scope="col">{% if left %}{{ left.player.full_name }}{% else %}Player A{% endif %}</th>
+              <th scope="col">Stat</th>
+              <th scope="col">{% if right %}{{ right.player.full_name }}{% else %}Player B{% endif %}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>{% if left and left.career_role == 'skater' and lc %}{{ lc.gp }}{% else %}—{% endif %}</td><td class="player-compare__stats-label">GP</td><td>{% if right and right.career_role == 'skater' and rc %}{{ rc.gp }}{% else %}—{% endif %}</td></tr>
+            <tr><td>{% if left and left.career_role == 'skater' and lc %}{{ lc.goals }}{% else %}—{% endif %}</td><td class="player-compare__stats-label">G</td><td>{% if right and right.career_role == 'skater' and rc %}{{ rc.goals }}{% else %}—{% endif %}</td></tr>
+            <tr><td>{% if left and left.career_role == 'skater' and lc %}{{ lc.assists }}{% else %}—{% endif %}</td><td class="player-compare__stats-label">A</td><td>{% if right and right.career_role == 'skater' and rc %}{{ rc.assists }}{% else %}—{% endif %}</td></tr>
+            <tr><td>{% if left and left.career_role == 'skater' and lc %}{{ lc.points }}{% else %}—{% endif %}</td><td class="player-compare__stats-label">P</td><td>{% if right and right.career_role == 'skater' and rc %}{{ rc.points }}{% else %}—{% endif %}</td></tr>
+            <tr><td>{% if left and left.career_role == 'skater' and lc and lc.plus_minus is not none %}{{ lc.plus_minus }}{% else %}—{% endif %}</td><td class="player-compare__stats-label">+/-</td><td>{% if right and right.career_role == 'skater' and rc and rc.plus_minus is not none %}{{ rc.plus_minus }}{% else %}—{% endif %}</td></tr>
+            <tr><td>{% if left and left.career_role == 'skater' and lc %}{{ lc.pim }}{% else %}—{% endif %}</td><td class="player-compare__stats-label">PIM</td><td>{% if right and right.career_role == 'skater' and rc %}{{ rc.pim }}{% else %}—{% endif %}</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+    {% endif %}
+
+    {% if (left and left.career_role == 'goalie') or (right and right.career_role == 'goalie') %}
+    <section class="player-compare__stats-block card">
+      <h3 class="player-compare__card-title">Career totals (goalie RS)</h3>
+      <div class="table-wrap">
+        <table class="data player-compare__stats-table">
+          <thead>
+            <tr>
+              <th scope="col">{% if left %}{{ left.player.full_name }}{% else %}Player A{% endif %}</th>
+              <th scope="col">Stat</th>
+              <th scope="col">{% if right %}{{ right.player.full_name }}{% else %}Player B{% endif %}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>{% if left and left.career_role == 'goalie' and lc %}{{ lc.gp }}{% else %}—{% endif %}</td><td class="player-compare__stats-label">GP</td><td>{% if right and right.career_role == 'goalie' and rc %}{{ rc.gp }}{% else %}—{% endif %}</td></tr>
+            <tr><td>{% if left and left.career_role == 'goalie' and lc %}{{ lc.wins }}{% else %}—{% endif %}</td><td class="player-compare__stats-label">W</td><td>{% if right and right.career_role == 'goalie' and rc %}{{ rc.wins }}{% else %}—{% endif %}</td></tr>
+            <tr><td>{% if left and left.career_role == 'goalie' and lc %}{{ lc.losses }}{% else %}—{% endif %}</td><td class="player-compare__stats-label">L</td><td>{% if right and right.career_role == 'goalie' and rc %}{{ rc.losses }}{% else %}—{% endif %}</td></tr>
+            <tr><td>{% if left and left.career_role == 'goalie' and lc and lc.gaa is not none %}{{ '%.2f'|format(lc.gaa) }}{% else %}—{% endif %}</td><td class="player-compare__stats-label">GAA</td><td>{% if right and right.career_role == 'goalie' and rc and rc.gaa is not none %}{{ '%.2f'|format(rc.gaa) }}{% else %}—{% endif %}</td></tr>
+            <tr><td>{% if left and left.career_role == 'goalie' and lc and lc.sv_pct is not none %}{{ '%.3f'|format(lc.sv_pct) }}{% else %}—{% endif %}</td><td class="player-compare__stats-label">SV%</td><td>{% if right and right.career_role == 'goalie' and rc and rc.sv_pct is not none %}{{ '%.3f'|format(rc.sv_pct) }}{% else %}—{% endif %}</td></tr>
+            <tr><td>{% if left and left.career_role == 'goalie' and lc %}{{ lc.shutouts }}{% else %}—{% endif %}</td><td class="player-compare__stats-label">SO</td><td>{% if right and right.career_role == 'goalie' and rc %}{{ rc.shutouts }}{% else %}—{% endif %}</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+    {% endif %}
+  {% endif %}
+
+  <div class="player-compare__analysis">
+    <div class="player-compare__analysis-col">
+      {% if left and left.analytics and left.analytics.enabled %}
+      <section class="card player-compare__analysis-card">
+        <h3 class="player-compare__card-title">Analysis — {{ left.player.full_name }}</h3>
+        {% if left.analytics.summary_meta %}<p class="muted">{{ left.analytics.summary_meta }}</p>{% endif %}
+        {% if left.analytics.coach_notes %}
+        <ul class="player-compare__notes">
+          {% for note in left.analytics.coach_notes %}
+          <li>{{ note }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+        {% if left.analytics.skill_dna %}
+        <div class="player-compare__dna">
+          {% for chip in left.analytics.skill_dna %}
+          <span class="player-compare__dna-chip">{{ chip.label }}{% if chip.value is defined and chip.value is not none %} {{ chip.value }}{% endif %}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </section>
+      {% endif %}
+      {% if left and left.analytics_card %}
+      <div class="player-compare__analytics-card-wrap">
+        {{ render_player_analytics_card(left.analytics_card) }}
+      </div>
+      {% endif %}
+    </div>
+    <div class="player-compare__analysis-col">
+      {% if right and right.analytics and right.analytics.enabled %}
+      <section class="card player-compare__analysis-card">
+        <h3 class="player-compare__card-title">Analysis — {{ right.player.full_name }}</h3>
+        {% if right.analytics.summary_meta %}<p class="muted">{{ right.analytics.summary_meta }}</p>{% endif %}
+        {% if right.analytics.coach_notes %}
+        <ul class="player-compare__notes">
+          {% for note in right.analytics.coach_notes %}
+          <li>{{ note }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+        {% if right.analytics.skill_dna %}
+        <div class="player-compare__dna">
+          {% for chip in right.analytics.skill_dna %}
+          <span class="player-compare__dna-chip">{{ chip.label }}{% if chip.value is defined and chip.value is not none %} {{ chip.value }}{% endif %}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </section>
+      {% endif %}
+      {% if right and right.analytics_card %}
+      <div class="player-compare__analytics-card-wrap">
+        {{ render_player_analytics_card(right.analytics_card) }}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/player_comparison.js') }}"></script>
+{% endblock %}

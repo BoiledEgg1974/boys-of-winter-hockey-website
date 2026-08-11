@@ -117,7 +117,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 115;18;Mike;Murphy;;1950-9-12;Toronto;ON;Canada;;;0
 116;11;Al;Murray;;1957-3-7;Regina;SK;Canada;;;0
 117;19;Sherry;Bassin;;1939-8-14;Cupar;SK;Canada;;;0
-118;220;Doug;MacLean;;1954-4-12;Summerside;PE;Canada;;;0
+118;-1;Doug;MacLean;;1954-4-12;Summerside;PE;Canada;;;0
 119;221;Duane;Sutter;Dog;1960-3-16;Viking;AB;Canada;;;0
 120;0;Pierre;Mondou;;1955-11-27;La Ronge;SK;Canada;;;0
 121;223;Red;Berenson;;1939-12-8;Regina;SK;Canada;;;0
@@ -1498,7 +1498,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1496;18;Philip;Pankewicz;;1939-3-28;Toronto;ON;Canada;;;0
 1497;-1;Sylvester;Leslie;;1939-12-10;Toronto;ON;Canada;;;0
 1498;26;Sylvester;Lindsey;;1946-9-27;Menomonee Falls;WI;The United States;;;0
-1499;220;Kenny;Brooks;;1947-8-7;Mississauga;ON;Canada;;;0
+1499;-1;Kenny;Brooks;;1947-8-7;Mississauga;ON;Canada;;;0
 1500;23;Tyrone;Tew;;1939-9-24;Austin;MN;The United States;;;0
 1501;3;Lester;Pethick;;1943-1-28;Markham;ON;Canada;;;0
 1502;-1;Jon;Moore;;1939-9-26;Mission Viejo;CA;The United States;;;0

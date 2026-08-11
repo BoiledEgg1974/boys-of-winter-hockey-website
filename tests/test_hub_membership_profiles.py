@@ -35,7 +35,21 @@ class HubMembershipProfilesTest(unittest.TestCase):
         text = path.read_text(encoding="utf-8")
         self.assertIn('"/admin/users/<int:uid>/profile"', text)
         self.assertIn("discord_user_id.isdigit()", text)
+        self.assertIn("find_discord_user_id_conflict", text)
         self.assertIn("users=users", text)
+
+    def test_discord_user_id_uniqueness_is_enforced(self) -> None:
+        model = Path(__file__).resolve().parents[1] / "app" / "site_models.py"
+        self.assertIn("uq_site_users_discord_user_id", model.read_text(encoding="utf-8"))
+        db_utils = Path(__file__).resolve().parents[1] / "app" / "db_utils.py"
+        self.assertIn("uq_site_users_discord_user_id", db_utils.read_text(encoding="utf-8"))
+        dm = (
+            Path(__file__).resolve().parents[1]
+            / "app"
+            / "services"
+            / "discord_direct_messages.py"
+        )
+        self.assertIn("find_discord_user_id_conflict", dm.read_text(encoding="utf-8"))
 
     def test_membership_dashboard_hides_revoked_deleted_profiles(self) -> None:
         path = Path(__file__).resolve().parents[1] / "app" / "routes" / "hub_auth.py"

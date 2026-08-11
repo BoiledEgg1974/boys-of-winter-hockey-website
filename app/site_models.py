@@ -14,6 +14,10 @@ from app.league_db import db
 class User(db.Model, UserMixin):
     __tablename__ = "site_users"
     __bind_key__ = "site"
+    # discord_user_id must be unique when set so GM DMs cannot land in another inbox.
+    __table_args__ = (
+        Index("uq_site_users_discord_user_id", "discord_user_id", unique=True),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)

@@ -641,7 +641,28 @@ def admin_update_user_profile(uid: int):
     if discord_user_id and not discord_user_id.isdigit():
         flash("Discord User ID must be numeric.", "error")
         return redirect(url_for("hub_auth.admin_memberships"))
-    u.discord_user_id = discord_user_id[:32] or None
+    discord_user_id = discord_user_id[:32] or None
+    if discord_user_id:
+        from app.services.discord_direct_messages import find_discord_user_id_conflict
+
+        conflict = find_discord_user_id_conflict(
+            db.session,
+            discord_user_id=discord_user_id,
+            exclude_user_id=int(u.id),
+        )
+        if conflict is not None:
+            other = (
+                (conflict.discord_name or "").strip()
+                or (conflict.email or "").strip()
+                or f"user #{conflict.id}"
+            )
+            flash(
+                f"Discord User ID {discord_user_id} is already assigned to {other}. "
+                "Each Discord account can only map to one GM so DMs are not delivered to the wrong inbox.",
+                "error",
+            )
+            return redirect(url_for("hub_auth.admin_memberships"))
+    u.discord_user_id = discord_user_id
     u.discord_dm_enabled = request.form.get("discord_dm_enabled") == "1"
     commit_with_sqlite_retry(db.session)
     flash("GM profile updated.", "ok")

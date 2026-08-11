@@ -59,6 +59,25 @@ def should_include_preview(event_key: str) -> bool:
     return event_key not in SENSITIVE_EVENT_KEYS
 
 
+def find_discord_user_id_conflict(
+    session,
+    *,
+    discord_user_id: str,
+    exclude_user_id: int | None = None,
+) -> User | None:
+    """Return another active site user already using this Discord snowflake."""
+    snowflake = str(discord_user_id or "").strip()
+    if not snowflake:
+        return None
+    clauses = [
+        User.discord_user_id == snowflake,
+        User.revoked_at.is_(None),
+    ]
+    if exclude_user_id is not None:
+        clauses.append(User.id != int(exclude_user_id))
+    return session.scalar(select(User).where(*clauses).order_by(User.id.asc()).limit(1))
+
+
 def enqueue_direct_message(
     session,
     *,
@@ -80,6 +99,14 @@ def enqueue_direct_message(
     if not discord_user_id or not DISCORD_SNOWFLAKE_PATTERN.match(discord_user_id):
         return None
     if getattr(user, "discord_dm_enabled", True) is False:
+        return None
+    # Shared snowflakes deliver every GM's alert to one Discord account (Detroit/Atlanta mix-ups).
+    conflict = find_discord_user_id_conflict(
+        session,
+        discord_user_id=discord_user_id,
+        exclude_user_id=int(recipient_user_id),
+    )
+    if conflict is not None:
         return None
 
     source_type_s = str(source_type or event_key or "site_notification").strip()[:64]

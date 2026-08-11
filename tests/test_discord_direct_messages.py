@@ -83,6 +83,61 @@ class DiscordDirectMessageTests(unittest.TestCase):
         self.assertEqual(payloads[0]["discord_user_id"], "123456789012345678")
         self.assertEqual(payloads[0]["payload"]["discord_name"], "Coach Test")
 
+    def test_enqueue_skips_when_discord_id_is_shared(self) -> None:
+        from unittest.mock import patch
+        from types import SimpleNamespace
+
+        with patch(
+            "app.services.discord_direct_messages.find_discord_user_id_conflict",
+            return_value=SimpleNamespace(id=999, discord_name="Other GM"),
+        ):
+            row = enqueue_direct_message(
+                db.session,
+                league_slug="bowl-fantasy",
+                recipient_user_id=self.user.id,
+                event_key="test_conflict",
+                title="Should not send",
+                source_type="unit",
+                source_id="conflict-1",
+            )
+        self.assertIsNone(row)
+
+    def test_find_discord_user_id_conflict_detects_other_owner(self) -> None:
+        from app.services.discord_direct_messages import find_discord_user_id_conflict
+
+        other_email = "dm-conflict-owner@example.invalid"
+        old = db.session.query(User).filter(User.email == other_email).all()
+        for u in old:
+            db.session.delete(u)
+        db.session.commit()
+        other = User(
+            email=other_email,
+            username=None,
+            password_hash="x",
+            discord_name="Other GM",
+            discord_user_id="223456789012345678",
+            discord_dm_enabled=True,
+        )
+        db.session.add(other)
+        db.session.commit()
+        try:
+            hit = find_discord_user_id_conflict(
+                db.session,
+                discord_user_id="223456789012345678",
+                exclude_user_id=self.user.id,
+            )
+            self.assertIsNotNone(hit)
+            self.assertEqual(hit.id, other.id)
+            miss = find_discord_user_id_conflict(
+                db.session,
+                discord_user_id="223456789012345678",
+                exclude_user_id=other.id,
+            )
+            self.assertIsNone(miss)
+        finally:
+            db.session.delete(other)
+            db.session.commit()
+
     def test_ack_and_fail_update_status(self) -> None:
         row = enqueue_direct_message(
             db.session,

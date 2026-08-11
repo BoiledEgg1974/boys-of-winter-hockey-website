@@ -1316,32 +1316,96 @@ def ensure_site_announcements_sqlite(engine: Engine) -> None:
 
 
 def ensure_site_users_admin_role_sqlite(engine: Engine) -> None:
-    """Add missing site_users profile/admin columns (site DB, SQLite)."""
-    if engine.dialect.name != "sqlite":
-        return
+    """Add missing site_users profile/admin columns and Discord ID uniqueness."""
+    dialect = engine.dialect.name
     with engine.connect() as conn:
-        exists = conn.execute(
-            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='site_users'")
-        ).fetchone()
-        if not exists:
+        if dialect == "sqlite":
+            exists = conn.execute(
+                text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='site_users'")
+            ).fetchone()
+            if not exists:
+                return
+            cols = {row[1] for row in conn.execute(text("PRAGMA table_info(site_users)"))}
+            if "discord_user_id" not in cols:
+                conn.execute(text("ALTER TABLE site_users ADD COLUMN discord_user_id VARCHAR(32)"))
+            if "discord_dm_enabled" not in cols:
+                conn.execute(
+                    text(
+                        "ALTER TABLE site_users ADD COLUMN discord_dm_enabled "
+                        "BOOLEAN NOT NULL DEFAULT 1"
+                    )
+                )
+            if "admin_role" not in cols:
+                conn.execute(text("ALTER TABLE site_users ADD COLUMN admin_role VARCHAR(32)"))
+            idx = conn.execute(
+                text(
+                    "SELECT 1 FROM sqlite_master WHERE type='index' "
+                    "AND name='ix_site_users_admin_role'"
+                )
+            ).fetchone()
+            if not idx:
+                conn.execute(
+                    text("CREATE INDEX ix_site_users_admin_role ON site_users (admin_role)")
+                )
+            uniq = conn.execute(
+                text(
+                    "SELECT 1 FROM sqlite_master WHERE type='index' "
+                    "AND name='uq_site_users_discord_user_id'"
+                )
+            ).fetchone()
+            if not uniq:
+                # Normalize blanks to NULL so the unique index only covers real snowflakes.
+                conn.execute(
+                    text(
+                        "UPDATE site_users SET discord_user_id = NULL "
+                        "WHERE discord_user_id IS NOT NULL AND trim(discord_user_id) = ''"
+                    )
+                )
+                dup = conn.execute(
+                    text(
+                        "SELECT 1 FROM site_users "
+                        "WHERE discord_user_id IS NOT NULL "
+                        "GROUP BY discord_user_id HAVING COUNT(*) > 1 LIMIT 1"
+                    )
+                ).fetchone()
+                if dup is None:
+                    conn.execute(
+                        text(
+                            "CREATE UNIQUE INDEX uq_site_users_discord_user_id "
+                            "ON site_users (discord_user_id)"
+                        )
+                    )
+            conn.commit()
             return
-        cols = {row[1] for row in conn.execute(text("PRAGMA table_info(site_users)"))}
-        if "discord_user_id" not in cols:
-            conn.execute(text("ALTER TABLE site_users ADD COLUMN discord_user_id VARCHAR(32)"))
-        if "discord_dm_enabled" not in cols:
-            conn.execute(
-                text("ALTER TABLE site_users ADD COLUMN discord_dm_enabled BOOLEAN NOT NULL DEFAULT 1")
-            )
-        if "admin_role" not in cols:
-            conn.execute(text("ALTER TABLE site_users ADD COLUMN admin_role VARCHAR(32)"))
-        idx = conn.execute(
-            text(
-                "SELECT 1 FROM sqlite_master WHERE type='index' AND name='ix_site_users_admin_role'"
-            )
-        ).fetchone()
-        if not idx:
-            conn.execute(text("CREATE INDEX ix_site_users_admin_role ON site_users (admin_role)"))
-        conn.commit()
+
+        if dialect in ("mysql", "mariadb"):
+            exists = conn.execute(text("SHOW TABLES LIKE 'site_users'")).fetchone()
+            if not exists:
+                return
+            idx_rows = conn.execute(text("SHOW INDEX FROM site_users")).fetchall()
+            idx_names = {str(row[2]) for row in idx_rows}
+            if "uq_site_users_discord_user_id" not in idx_names:
+                conn.execute(
+                    text(
+                        "UPDATE site_users SET discord_user_id = NULL "
+                        "WHERE discord_user_id IS NOT NULL AND TRIM(discord_user_id) = ''"
+                    )
+                )
+                dup = conn.execute(
+                    text(
+                        "SELECT 1 FROM site_users "
+                        "WHERE discord_user_id IS NOT NULL "
+                        "GROUP BY discord_user_id HAVING COUNT(*) > 1 LIMIT 1"
+                    )
+                ).fetchone()
+                if dup is None:
+                    conn.execute(
+                        text(
+                            "CREATE UNIQUE INDEX uq_site_users_discord_user_id "
+                            "ON site_users (discord_user_id)"
+                        )
+                    )
+            conn.commit()
 
 
 def ensure_password_reset_tokens_sqlite(engine: Engine) -> None:

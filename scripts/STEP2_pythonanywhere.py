@@ -590,6 +590,37 @@ def run_remote_bash(client, script_body: str) -> None:
         raise SystemExit(f"Remote command failed with exit code {code}")
 
 
+def wsgi_files_to_reload(primary: str | None, *, pa_user: str | None = None) -> list[str]:
+    """WSGI paths to touch after deploy.
+
+    ``www.bowlhockey.com`` is configured to ``/var/www/www_bowlhockey_com_wsgi.py``.
+    Older defaults / alternate web apps may still use ``/var/www/<user>_wsgi.py``.
+    Touch both (plus any explicit ``PA_WSGI_FILE``) so workers always recycle.
+    """
+    if not primary:
+        return []
+    user = (pa_user or os.environ.get("PA_USER") or "BoiledEgg1974").strip() or "BoiledEgg1974"
+    out: list[str] = []
+    for path in (
+        primary,
+        "/var/www/www_bowlhockey_com_wsgi.py",
+        f"/var/www/{user}_wsgi.py",
+    ):
+        p = (path or "").strip()
+        if p and p not in out:
+            out.append(p)
+    return out
+
+
+def _touch_wsgi_bash(wsgi_file: str | None) -> list[str]:
+    """Remote bash fragments that touch every known live WSGI file."""
+    files = wsgi_files_to_reload(wsgi_file)
+    if not files:
+        return []
+    # Ignore missing paths so a single account layout still reloads cleanly.
+    return [f"touch {shlex.quote(path)} 2>/dev/null || true" for path in files]
+
+
 def build_import_and_reload_script(
     remote_project: str,
     venv_bin: str,
@@ -614,8 +645,7 @@ def build_import_and_reload_script(
             f"if test -f {shlex.quote(sheet_rel)}; then {py} {shlex.quote(sheet_rel)} {shlex.quote(slug)}; "
             f"else echo {shlex.quote('WARN: missing ' + sheet_rel + ' — git pull on server or upgrade repo')}; fi"
         )
-    if wsgi_file:
-        parts.append(f"touch {shlex.quote(wsgi_file)}")
+    parts.extend(_touch_wsgi_bash(wsgi_file))
     return "; ".join(parts)
 
 
@@ -791,8 +821,7 @@ def build_post_db_upload_script(
         # Enqueue boxscores (deploy finals sidecar or recent undelivered) + BOWL Six.
         days = max(1, int(discord_fallback_days))
         parts.append(f"{py} {notify} --fallback-days {days}")
-    if wsgi_file:
-        parts.append(f"touch {shlex.quote(wsgi_file)}")
+    parts.extend(_touch_wsgi_bash(wsgi_file))
     return "; ".join(parts)
 
 
@@ -867,8 +896,7 @@ def build_full_remote_rebuild_prep_script(
         f"{py} -c \"import flask, flask_login, flask_sqlalchemy, flask_wtf, werkzeug; print('imports ok')\"",
         f"{py} -c \"import sys; print(sys.executable)\"",
     ]
-    if wsgi_file:
-        parts.append(f"touch {shlex.quote(wsgi_file)}")
+    parts.extend(_touch_wsgi_bash(wsgi_file))
     return "; ".join(parts)
 
 
@@ -1094,14 +1122,16 @@ def cmd_deploy(ns: argparse.Namespace) -> int:
             if ns.skip_imports:
                 print("(imports skipped)")
                 if wsgi:
-                    print(f"touch {wsgi}")
+                    for path in wsgi_files_to_reload(wsgi):
+                        print(f"touch {path}")
             else:
                 print(script.replace("; ", "\n"))
         else:
             if ns.skip_imports:
                 if wsgi:
-                    run_remote_bash(client, f"touch {shlex.quote(wsgi)}")
-                    print(f"Reload: touched {wsgi}")
+                    touch_parts = _touch_wsgi_bash(wsgi)
+                    run_remote_bash(client, "set -euo pipefail; " + "; ".join(touch_parts))
+                    print(f"Reload: touched {', '.join(wsgi_files_to_reload(wsgi))}")
             else:
                 print("--- remote imports (+ reload) ---")
                 run_remote_bash(client, script)
@@ -1478,7 +1508,12 @@ def main() -> int:
     )
     default_user = os.environ.get("PA_USER", "BoiledEgg1974")
     default_venv_bin = os.environ.get("PA_REMOTE_VENV_BIN", f"/home/{default_user}/venv/bin")
-    default_wsgi = os.environ.get("PA_WSGI_FILE", f"/var/www/{default_user}_wsgi.py")
+    # Live custom domain uses www_bowlhockey_com_wsgi.py; reload helpers also touch
+    # /var/www/<user>_wsgi.py so either Web-tab mapping keeps working.
+    default_wsgi = os.environ.get(
+        "PA_WSGI_FILE",
+        "/var/www/www_bowlhockey_com_wsgi.py",
+    )
 
     parser = argparse.ArgumentParser(
         description=(

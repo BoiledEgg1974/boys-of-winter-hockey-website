@@ -37,7 +37,8 @@ Other workflows: **`python scripts/run_site_update.py --help`**
 
 Matches **`python scripts/STEP2_pythonanywhere.py deploy --full-remote-rebuild`** (after you `git push` so `origin/master` has what you want). Typical layout: venv at **`/home/BoiledEgg1974/venv`**, so `PA_REMOTE_VENV_BIN` should be **`/home/BoiledEgg1974/venv/bin`**. The script removes only the **`…/venv`** directory (the parent of `bin`), then recreates it — **not** your whole home folder.
 
-Adjust paths if your Web tab uses a different WSGI file than **`PA_WSGI_FILE`**.
+Deploy reloads **`/var/www/www_bowlhockey_com_wsgi.py`** by default (and also touches
+`/var/www/<user>_wsgi.py`). Override with **`PA_WSGI_FILE`** / **`--wsgi-file`** if needed.
 
 ### Imports only (after code + CSVs are already on the server)
 

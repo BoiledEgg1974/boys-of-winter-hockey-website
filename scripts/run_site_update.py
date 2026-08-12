@@ -17,7 +17,14 @@ The first token may be a *workflow* name; if you omit it, ``to-live`` is assumed
 Workflows
 ~~~~~~~~~
 
-``to-live`` (default)
+``bowl`` (preferred for normal nightly updates)
+    Runs ``BOWL-Site-Update.py`` (local imports + Historical awards pass + ``deploy-db``
+    SQLite upload). ``deploy-db`` also queues Discord on the server. Do **not** replace
+    this with a PythonAnywhere ``git pull`` alone — league DBs are gitignored.
+    Pass ``--remote-import`` to use server-side CSV imports instead. All following
+    arguments are passed through unchanged.
+
+``to-live`` (default when no workflow name is given; legacy CSV remote-import path)
     1. ``STEP1_update_from_saved_game.py --no-pa-deploy`` + your STEP1 flags (copy exports,
        STEP3 align per league, local imports + sheet reimport, optional git push).
     2. ``STEP2_pythonanywhere.py deploy --repo-csv`` + optional STEP2 flags after ``--``.
@@ -32,11 +39,8 @@ Workflows
 ``deploy``
     STEP2 deploy only: ``STEP2_pythonanywhere.py deploy --repo-csv`` + any flags you pass
     (e.g. ``--dry-run``, ``--remote-pip``). Use when CSVs are already in the repo.
-
-``bowl``
-    Runs ``BOWL-Site-Update.py`` (extra Historical awards pass + ``deploy-db`` SQLite upload).
-    Pass ``--remote-import`` to use server-side CSV imports instead. All following arguments
-    are passed through unchanged.
+    For DB upload + Discord after a local import, prefer
+    ``python scripts/STEP2_pythonanywhere.py deploy-db`` or ``bowl --deploy-db-only``.
 
 -h, --help
     Show this text.

@@ -183,7 +183,7 @@ If your exports still live under each game’s `import_export\csv` folder, you c
 python scripts\STEP1_update_from_saved_game.py
 ```
 
-For a **single ordered command** that runs local STEP1 (including STEP3 alignment) and then PythonAnywhere deploy without running STEP2 too early, use **`python scripts\run_site_update.py`** (default `to-live`; `python scripts\run_site_update.py --help`).
+For the **normal nightly update** (local import → git push → upload league SQLite → queue Discord), use **`python scripts\BOWL-Site-Update.py`** (or `python scripts\run_site_update.py bowl`). League DBs are gitignored — a PythonAnywhere `git pull` alone does not refresh live data or Discord. Legacy CSV remote-import path: `python scripts\run_site_update.py to-live` (`python scripts\run_site_update.py --help`).
 
 **STEP 1** — copy FHM exports into `data/imports/raw/…`, run `import_data.py` locally per league, optional Git push, optional PythonAnywhere deploy (`--pa-deploy` chains **STEP 2**).
 

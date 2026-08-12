@@ -96,7 +96,41 @@ def _deploy_preflight_note() -> None:
     print(
         "\nDeploy preflight: reload the PythonAnywhere web app (Web tab -> Reload) "
         "before upload so no worker is writing to SQLite.\n"
+        "This step uploads league SQLite + queues Discord "
+        "(notify_discord_after_db_deploy). A server `git pull` / touch WSGI alone "
+        "does NOT update live data or Discord posts.\n"
     )
+
+
+def _no_deploy_warning() -> None:
+    print(
+        "\n"
+        + "=" * 72
+        + "\n"
+        "  SKIPPED PythonAnywhere deploy-db (--no-deploy).\n"
+        "  Live site scores/standings will NOT change, and Discord will NOT queue,\n"
+        "  until you run one of:\n"
+        "    python scripts/BOWL-Site-Update.py --deploy-db-only\n"
+        "    python scripts/STEP2_pythonanywhere.py deploy-db\n"
+        "  Do NOT replace that with git pull + pip + touch WSGI on the server.\n"
+        + "=" * 72
+        + "\n",
+        file=sys.stderr,
+    )
+
+
+def _deploy_success_note(*, via_deploy_db: bool = True) -> None:
+    if via_deploy_db:
+        print(
+            "\nLive deploy-db finished: league DBs uploaded, Discord notify ran on the "
+            "server (boxscores / BOWL Six / playoff bracket as applicable), WSGI touched.\n"
+            "No further PythonAnywhere git pull is required for this data update.\n"
+        )
+    else:
+        print(
+            "\nLive remote CSV deploy finished (server-side import + WSGI reload).\n"
+            "No further PythonAnywhere git pull is required for this data update.\n"
+        )
 
 
 def _run(cmd: list[str], *, env: dict[str, str] | None = None) -> None:
@@ -257,6 +291,7 @@ def main() -> int:
         if args.sync_ap_catalog_local:
             step2_cmd.append("--sync-ap-catalog-local")
         _run(step2_cmd, env=_pa_deploy_env())
+        _deploy_success_note()
         print("\nBOWL-Site-Update complete.")
         return 0
 
@@ -332,13 +367,15 @@ def main() -> int:
             if args.sync_ap_catalog_local:
                 step2_cmd.append("--sync-ap-catalog-local")
             _run(step2_cmd, env=deploy_env)
+            _deploy_success_note(via_deploy_db=False)
         else:
             step2_cmd = [sys.executable, str(STEP2), "deploy-db"]
             if args.sync_ap_catalog_local:
                 step2_cmd.append("--sync-ap-catalog-local")
             _run(step2_cmd, env=deploy_env)
+            _deploy_success_note(via_deploy_db=True)
     else:
-        print("Skipping PythonAnywhere deploy (--no-deploy).")
+        _no_deploy_warning()
 
     print("\nBOWL-Site-Update complete.")
     return 0

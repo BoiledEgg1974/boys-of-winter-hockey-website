@@ -5,17 +5,42 @@
 From the **repo root**:
 
 ```bash
-python scripts/run_site_update.py to-live --yes-push
+python scripts/BOWL-Site-Update.py
+# same as: python scripts/run_site_update.py bowl
 ```
 
-This runs, in order:
+This is the normal nightly path. It:
 
-1. **`STEP1_update_from_saved_game.py --no-pa-deploy`** — snapshot OVR baselines, copy FHM CSVs into `data/imports/raw/`, **`STEP3_align_history_awards_to_player_master.py`** per league, then `import_data.py` + **`reimport_history_sheet_data.py`** per league. Optional git commit/push when you pass **`--yes-push`** (or answer the prompt).
-2. **`STEP2_pythonanywhere.py deploy --repo-csv`** — upload raw CSVs + `app/static` + import helper, remote **`import_data.py`** and **`reimport_history_sheet_data.py`** per league, then touch WSGI.
+1. Imports FHM CSVs **locally** (including Historical awards alignment + racing when present).
+2. Commits/pushes CSV + alignment files to GitHub.
+3. Runs **`STEP2_pythonanywhere.py deploy-db`**: uploads league SQLite files (+ `app/static`), then on the server runs **`notify_discord_after_db_deploy.py`** (boxscores / BOWL Six / playoff bracket) and reloads WSGI.
 
-Omit **`to-live`** if you like; it is the default workflow.
+League databases are **gitignored**. GitHub + a server `git pull` alone never refresh live scores, standings, or Discord queues.
 
 Other workflows: **`python scripts/run_site_update.py --help`**
+
+---
+
+## What does *not* update the live site
+
+These steps only refresh **code/CSVs** (or a backup). They do **not** replace `deploy-db`:
+
+```bash
+# NOT enough after BOWL-Site-Update / local import:
+cd /home/BoiledEgg1974/boys-of-winter-hockey-website
+git fetch origin && git checkout master && git reset --hard origin/master
+pip install --upgrade -r requirements.txt
+python scripts/backup_all_live_data.py
+touch /var/www/www_bowlhockey_com_wsgi.py
+```
+
+After that checklist, the site still serves the **old** `instance/*.db` files, and Discord posts are **not** queued.
+
+| Goal | Command |
+|------|---------|
+| Normal data + Discord update | `python scripts/BOWL-Site-Update.py` (includes `deploy-db`) |
+| Data already imported locally; only push DBs + Discord | `python scripts/BOWL-Site-Update.py --deploy-db-only` |
+| Same without the wrapper | `python scripts/STEP2_pythonanywhere.py deploy-db` |
 
 ---
 
@@ -23,15 +48,23 @@ Other workflows: **`python scripts/run_site_update.py --help`**
 
 | Step | What to run |
 |------|-------------|
-| 1 | `python scripts/STEP1_update_from_saved_game.py --no-pa-deploy` (optional flags: `--yes-push`, `--allow-stale`, `--base`, …) |
-| 2 | `git push` (or let STEP1 handle commit+push with `--yes-push`) |
-| 3 | `python scripts/STEP2_pythonanywhere.py deploy --repo-csv` (optional: `--remote-pip`, `--dry-run`, …) |
+| 1 | `python scripts/STEP1_update_from_saved_game.py --no-pa-deploy` (optional: `--allow-stale`, …) |
+| 2 | Historical awards pass + re-import (or just use `BOWL-Site-Update.py`) |
+| 3 | `git push` (BOWL-Site-Update does this unless `--no-push`) |
+| 4 | **`python scripts/STEP2_pythonanywhere.py deploy-db`** — required for live DBs + Discord |
 
-**BOWL-Historical extra pass** (optional second STEP3 on Historical + re-import that league only): use **`python scripts/run_site_update.py bowl`** or **`python scripts/BOWL-Site-Update.py`**.
+Legacy CSV upload + **server-side** import (also queues Discord during remote `import_data.py`):
+
+```bash
+python scripts/run_site_update.py to-live --yes-push
+# or: python scripts/STEP2_pythonanywhere.py deploy --repo-csv
+```
+
+Prefer **`deploy-db`** for the usual BOWL update.
 
 ---
 
-## PythonAnywhere bash (manual recovery)
+## PythonAnywhere bash (manual recovery only)
 
 ### Hard reset + new venv (rare)
 
@@ -42,11 +75,11 @@ Deploy reloads **`/var/www/www_bowlhockey_com_wsgi.py`** by default (and also to
 
 ### Imports only (after code + CSVs are already on the server)
 
-`import_data.py` alone is still valid. For League History **awards** and **all-stars** to match the CSVs, run **`reimport_history_sheet_data.py`** after each league import (this is what STEP2 does automatically):
+Use this only when you intentionally import **on the server** instead of `deploy-db`. For League History **awards** and **all-stars**, run **`reimport_history_sheet_data.py`** after each league import. Discord boxscores enqueue during remote import; if you skipped import and only uploaded DBs, run **`notify_discord_after_db_deploy.py`** after promote:
 
 ```bash
 cd /home/BoiledEgg1974/boys-of-winter-hockey-website
-source /home/BoiledEgg1974/venv/bin/activate   # or your project venv
+source /home/BoiledEgg1974/venv/bin/activate
 
 export LEAGUE_SLUG=bowl-historical
 python scripts/import_data.py
@@ -60,7 +93,10 @@ export LEAGUE_SLUG=bowl-cap
 python scripts/import_data.py
 python scripts/reimport_history_sheet_data.py bowl-cap
 
-touch /var/www/www_bowlhockey_com_wsgi.py   # use your real WSGI path
+# If you uploaded SQLite via deploy-db instead of importing here:
+# python scripts/notify_discord_after_db_deploy.py
+
+touch /var/www/www_bowlhockey_com_wsgi.py
 ```
 
 ---
@@ -70,6 +106,7 @@ touch /var/www/www_bowlhockey_com_wsgi.py   # use your real WSGI path
 | Script | Purpose |
 |--------|--------|
 | `import_data.py` | Per-league importer (also used by STEP1 / STEP2 / `run_site_update`). |
+| `notify_discord_after_db_deploy.py` | Queue boxscores / BOWL Six / bracket after `deploy-db` promotes league DBs. |
 | `reset_db.py` | Wipe a league DB and re-import from scratch. |
 | `reimport_history_awards.py` | Replace-only `history_awards` from CSV (optional `--only-award`). |
 | `reimport_history_all_stars.py` | Additive upsert of `history_all_stars.csv` (never wipes existing / admin rows). |
@@ -78,6 +115,7 @@ touch /var/www/www_bowlhockey_com_wsgi.py   # use your real WSGI path
 | `import_all.cmd`, `import_*.cmd` | Windows shortcuts to set `LEAGUE_SLUG` and run `import_data.py`. |
 | `convert_trophy_history_sheet.py` | Spreadsheet → importer CSV helper used by STEP3. |
 | `refresh_team_aggregates.py`, `backfill_skater_plus_minus.py` | Special fixes still wired into admin/CLI flows. |
+| `backup_all_live_data.py` | Snapshot live DBs on the server (does not deploy or queue Discord). |
 
 The **`import_pipeline/`** package is the core loader; do not remove it.
 

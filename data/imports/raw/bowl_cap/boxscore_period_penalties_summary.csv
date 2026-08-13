@@ -17851,3 +17851,97 @@ Game Id;Period;Time;Player;TeamId;Penalty;Minutes
 59;3;324;28;19;Tripping;2
 59;3;435;13573;23;Slashing;2
 59;3;715;28;19;Unsportsmanlike Conduct;2
+60;1;147;13581;22;Tripping;2
+60;2;382;14146;0;Fighting;5
+60;2;382;14601;22;Fighting;5
+60;2;392;14080;22;Hooking;2
+60;3;59;13100;0;Tripping;2
+60;3;72;1172;0;Hooking;2
+61;1;523;353;17;Unsportsmanlike Conduct;2
+61;2;854;12053;17;Roughing;2
+62;1;288;648;217;Unsportsmanlike Conduct;2
+62;1;676;12511;20;Unsportsmanlike Conduct;2
+62;1;1136;955;20;Tripping;2
+63;2;176;13012;21;Cross-Checking;2
+63;2;685;1528;216;Tripping;2
+63;3;109;12426;21;High Sticking;2
+64;1;906;1173;224;Holding;2
+64;1;1036;14574;25;High Sticking;2
+64;1;1044;1437;224;Unsportsmanlike Conduct;2
+64;2;681;13526;224;Roughing;2
+64;2;917;13083;25;Bench;0
+64;3;49;1022;25;Tripping;2
+64;3;118;1437;224;Cross-Checking;2
+65;1;135;15103;8;Hooking;2
+65;1;709;14608;16;Hooking;2
+65;1;827;12445;16;Fighting;5
+65;1;827;12513;8;Fighting;5
+65;2;190;722;8;Roughing;2
+65;2;1026;14549;16;Fighting;5
+65;2;1026;13063;8;Fighting;5
+65;2;1026;13063;8;Misconduct;10
+65;3;483;13034;8;Tripping;2
+65;3;639;13034;8;Tripping;2
+66;1;481;837;11;Abuse of Official;2
+66;1;521;13099;11;Cross-Checking;2
+66;1;521;12412;229;Roughing;2
+66;1;642;12479;11;Fighting;5
+66;1;642;12479;11;Misconduct;10
+66;1;642;1693;229;Fighting;5
+66;1;642;1693;229;Misconduct;10
+66;2;573;1866;11;Slashing;2
+66;2;573;1142;229;Slashing;2
+66;2;811;1801;11;Hooking;2
+66;2;941;1108;11;Bench;0
+66;3;1042;1790;11;Holding The Stick;2
+66;3;1142;12625;229;Tripping;2
+67;1;283;15134;23;Roughing;2
+67;2;345;1838;19;Fighting;5
+67;2;345;1838;19;Misconduct;10
+67;2;345;11998;23;Fighting;5
+67;2;398;13503;19;Fighting;5
+67;2;398;13503;19;Misconduct;10
+67;2;398;15134;23;Fighting;5
+67;2;668;13510;23;Tripping;2
+67;2;1009;6;19;Cross-Checking;2
+67;3;182;12449;19;High Sticking;2
+67;3;554;12001;23;Tripping;2
+67;3;589;13503;19;Cross-Checking;2
+67;3;930;13615;23;Roughing;2
+68;2;593;13100;0;Roughing;2
+69;1;138;12995;15;High Sticking;2
+69;1;359;13627;15;Holding The Stick;2
+69;1;1095;13627;15;Bench;0
+69;2;913;260;15;High Sticking;2
+69;2;963;1641;17;Holding;2
+69;3;593;13627;15;Tripping;2
+70;1;452;11984;217;Holding;2
+70;1;622;12425;20;Hooking;2
+70;1;1192;12459;217;Roughing;2
+71;1;23;1457;224;Holding;2
+71;1;193;838;25;Tripping;2
+71;1;557;1491;25;Interference;2
+71;1;682;12042;25;Interference;2
+71;2;1111;14974;224;Slashing;2
+71;3;449;12520;224;Tripping;2
+71;3;766;1409;25;Tripping;2
+72;1;400;14147;8;Hooking;2
+72;1;463;14487;16;Holding;2
+72;1;463;14100;8;Roughing;2
+72;1;678;425;8;Unsportsmanlike Conduct;2
+72;2;963;15065;16;Roughing;2
+72;3;514;722;8;Hooking;2
+72;3;896;14487;16;Unsportsmanlike Conduct;2
+73;1;21;6;19;Holding;2
+73;1;153;1517;19;Tripping;2
+73;1;562;13594;23;Unsportsmanlike Conduct;2
+73;3;306;293;23;Fighting;5
+73;3;306;293;23;Misconduct;10
+73;3;306;6;19;Fighting;5
+73;3;660;15592;23;Fighting;5
+73;3;660;28;19;Fighting;5
+73;3;660;28;19;Misconduct;10
+74;1;481;14549;16;Fighting;5
+74;1;481;13497;8;Fighting;5
+74;2;242;1864;8;Interference;2
+74;3;598;1651;8;Holding;2

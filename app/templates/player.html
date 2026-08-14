@@ -88,7 +88,7 @@
 {% set tx = ac.text_color or '#f8fafc' %}
 {% set banner = p1 %}
 <div class="player-profile" style="--pp-banner: {{ banner }}; --pp-accent: {{ p1 }}; --pp-accent2: {{ p2 }}; --pp-text-on: {{ tx }};">
-  {% set player_boost_tier = (player.boost_tier or '')|lower %}
+  {% set player_boost_tier = (resolved_boost_tier if resolved_boost_tier is defined else player.boost_tier or '')|lower %}
   {% set player_profile_is_hof = player_is_hof if player_is_hof is defined else player_boost_tier == 'hof' %}
   {% set _ova = (player_overall_by_id or {}).get(player.id) %}
   {% set _hero_abi = hero_overall_ability if hero_overall_ability is defined else player.overall_ability %}

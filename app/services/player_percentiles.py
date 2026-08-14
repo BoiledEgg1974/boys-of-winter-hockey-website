@@ -204,12 +204,51 @@ def _goalie_war_pct_from_metrics(metrics: dict[str, float | None], pools: dict[s
     return max(0, min(99, int(round(raw))))
 
 
+def _chart_x_label_indices(n: int, max_labels: int = 7) -> list[int]:
+    """Pick first/last plus evenly spaced ticks so x-axis labels stay readable."""
+    if n <= 0:
+        return []
+    if n <= max_labels:
+        return list(range(n))
+    seen: set[int] = set()
+    indices: list[int] = []
+    for k in range(max_labels):
+        i = int(round(k * (n - 1) / (max_labels - 1)))
+        if i not in seen:
+            seen.add(i)
+            indices.append(i)
+    return indices
+
+
+def _chart_y_ticks(ymin: float, ymax: float) -> list[float]:
+    if abs(ymin - 0.0) < 1e-9 and abs(ymax - 100.0) < 1e-9:
+        return [0.0, 25.0, 50.0, 75.0, 100.0]
+    span = ymax - ymin or 1.0
+    return [round(ymin + span * i / 4.0, 1) for i in range(5)]
+
+
+def _chart_y_label_text(v: float, *, percentile_scale: bool) -> str:
+    if percentile_scale:
+        return f"{int(round(v))}%"
+    if abs(v - round(v)) < 1e-6:
+        return str(int(round(v)))
+    return f"{v:.1f}"
+
+
+def _chart_point_title(label: str, value: float, *, percentile_scale: bool) -> str:
+    if percentile_scale:
+        return f"{label}: {int(round(value))}%"
+    if abs(value - round(value)) < 1e-6:
+        return f"{label}: {int(round(value))}"
+    return f"{label}: {value:.1f}"
+
+
 def chart_svg(
     labels: list[str],
     series: list[dict[str, Any]],
     *,
     width: int | None = None,
-    height: int = 112,
+    height: int = 156,
     ymin: float = 0.0,
     ymax: float = 100.0,
 ) -> dict[str, Any]:
@@ -217,19 +256,21 @@ def chart_svg(
     if n < 1:
         return {
             "has_data": False,
-            "width": width or 240,
+            "width": width or 360,
             "height": height,
             "paths": [],
             "x_labels": [],
+            "x_ticks": [],
             "y_labels": [],
             "grid_lines": [],
         }
-    pad_l, pad_r, pad_t, pad_b = 30, 8, 8, 22
+    pad_l, pad_r, pad_t, pad_b = 36, 12, 10, 28
     if width is None:
-        width = max(240, pad_l + pad_r + max(0, (n - 1) * 28))
+        width = 360
     inner_w = width - pad_l - pad_r
     inner_h = height - pad_t - pad_b
     span = ymax - ymin or 1.0
+    percentile_scale = abs(ymin - 0.0) < 1e-9 and abs(ymax - 100.0) < 1e-9
 
     def x_at(i: int) -> float:
         if n == 1:
@@ -239,32 +280,59 @@ def chart_svg(
     def y_at(v: float) -> float:
         return pad_t + inner_h - ((v - ymin) / span) * inner_h
 
-    y_ticks = (0, 25, 50, 75, 100)
-    y_labels = [{"x": 2, "y": y_at(float(v)) + 3, "text": f"{v}%"} for v in y_ticks]
-    grid_lines = [{"x1": pad_l, "x2": width - pad_r, "y": y_at(float(v))} for v in y_ticks]
-    x_labels = [{"x": x_at(i), "y": height - 4, "text": labels[i]} for i in range(n)]
+    y_ticks = _chart_y_ticks(ymin, ymax)
+    y_labels = [
+        {"x": 4, "y": y_at(float(v)), "text": _chart_y_label_text(v, percentile_scale=percentile_scale)}
+        for v in y_ticks
+    ]
+    grid_lines = [
+        {
+            "x1": pad_l,
+            "x2": width - pad_r,
+            "y": y_at(float(v)),
+            "mid": percentile_scale and abs(v - 50.0) < 1e-9,
+        }
+        for v in y_ticks
+    ]
+    label_indices = _chart_x_label_indices(n)
+    x_labels = []
+    for i in label_indices:
+        if i == 0:
+            anchor = "start"
+        elif i == n - 1:
+            anchor = "end"
+        else:
+            anchor = "middle"
+        x_labels.append({"x": x_at(i), "y": height - 8, "text": labels[i], "anchor": anchor})
+    x_ticks = [
+        {"x": x_at(i), "y1": pad_t + inner_h, "y2": pad_t + inner_h + 5}
+        for i in label_indices
+    ]
+    show_all_dots = n <= 12
 
     paths: list[dict[str, Any]] = []
     for s in series:
         vals = s.get("values") or []
-        pts: list[tuple[int, float, float]] = []
+        pts: list[tuple[int, float, float, float]] = []
         for i, v in enumerate(vals):
             if v is None:
                 continue
-            pts.append((i, x_at(i), y_at(float(v))))
-        if not pts:
+            pts.append((i, x_at(i), y_at(float(v)), float(v)))
+        if len(pts) < 2:
             continue
-        d = None
-        if len(pts) >= 2:
-            d = "M " + " L ".join(f"{x:.1f},{y:.1f}" for _i, x, y in pts)
+        d = "M " + " L ".join(f"{x:.1f},{y:.1f}" for _i, x, y, _v in pts)
         dots: list[dict[str, Any]] = []
-        for j, (_i, x, y) in enumerate(pts):
+        for j, (_i, x, y, raw) in enumerate(pts):
+            highlight = j == 0 or j == len(pts) - 1
+            if not show_all_dots and not highlight:
+                continue
             dots.append(
                 {
                     "cx": round(x, 1),
                     "cy": round(y, 1),
                     "class": s.get("class") or "player-analytics-card__chart-line",
-                    "highlight": j == 0 or j == len(pts) - 1,
+                    "highlight": highlight,
+                    "title": _chart_point_title(labels[_i], raw, percentile_scale=percentile_scale),
                 }
             )
         paths.append(
@@ -281,6 +349,7 @@ def chart_svg(
         "height": height,
         "paths": paths,
         "x_labels": x_labels,
+        "x_ticks": x_ticks,
         "y_labels": y_labels,
         "grid_lines": grid_lines,
     }

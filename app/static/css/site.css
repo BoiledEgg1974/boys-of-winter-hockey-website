@@ -13080,6 +13080,10 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
   grid-row: auto;
   min-width: 0;
 }
+.player-profile__skater-overview-charts .player-analytics-card {
+  height: 100%;
+  min-height: 0;
+}
 .player-profile__goalie-overview-charts {
   grid-column: 2;
   grid-row: 1 / span 2;
@@ -13509,8 +13513,9 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
 .player-analytics-card__body {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 0.65rem;
   min-width: 0;
+  flex: 1 1 auto;
 }
 .player-analytics-card__body--goalie {
   display: flex;
@@ -13591,35 +13596,81 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
 .player-analytics-card__charts {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 0.45rem;
+  gap: 0.7rem;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .player-analytics-card__chart-wrap {
-  background: rgb(2 6 23 / 0.35);
-  border: 1px solid rgb(148 163 184 / 0.14);
+  background: rgb(2 6 23 / 0.42);
+  border: 1px solid rgb(148 163 184 / 0.2);
   border-radius: 8px;
-  padding: 0.35rem 0.4rem 0.25rem;
+  padding: 0.55rem 0.55rem 0.4rem;
 }
 .player-analytics-card__chart-title {
-  font-size: 0.68rem;
+  font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.01em;
   color: #f8fafc;
-  margin-bottom: 0.2rem;
-}
-.player-analytics-card__chart-title--trend {
-  font-style: italic;
+  margin-bottom: 0.28rem;
+  font-style: normal;
   text-transform: none;
 }
+.player-analytics-card__chart-title--trend {
+  font-style: normal;
+  text-transform: none;
+}
+.player-analytics-card__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.85rem;
+  list-style: none;
+  margin: 0 0 0.4rem;
+  padding: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.player-analytics-card__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.player-analytics-card__legend-swatch {
+  width: 0.85rem;
+  height: 0.22rem;
+  border-radius: 999px;
+  background: currentColor;
+  flex: 0 0 auto;
+}
+.player-analytics-card__legend-item--dashed .player-analytics-card__legend-swatch {
+  background: repeating-linear-gradient(
+    90deg,
+    currentColor 0 0.28rem,
+    transparent 0.28rem 0.42rem
+  );
+}
+.player-analytics-card__legend-item--off,
 .player-analytics-card__chart-title-off { color: #f8fafc; }
+.player-analytics-card__legend-item--def,
 .player-analytics-card__chart-title-def { color: #f87171; }
+.player-analytics-card__legend-item--fin,
 .player-analytics-card__chart-title-fin { color: #22d3ee; }
 .player-analytics-card__chart {
   display: block;
   width: 100%;
   height: auto;
+  overflow: visible;
 }
 .player-analytics-card__chart-grid {
-  stroke: rgb(148 163 184 / 0.16);
+  stroke: rgb(148 163 184 / 0.28);
+  stroke-width: 1;
+}
+.player-analytics-card__chart-grid--mid {
+  stroke: rgb(226 232 240 / 0.5);
+  stroke-width: 1.25;
+}
+.player-analytics-card__chart-xtick {
+  stroke: rgb(148 163 184 / 0.55);
   stroke-width: 1;
 }
 .player-analytics-card__chart-line {
@@ -13629,13 +13680,13 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
 .player-analytics-card__chart-line--off { stroke: #f8fafc; }
 .player-analytics-card__chart-line--def { stroke: #f87171; }
 .player-analytics-card__chart-line--fin { stroke: #22d3ee; }
-.player-analytics-card__chart-y-label {
-  fill: #94a3b8;
-  font-size: 7px;
-}
+.player-analytics-card__chart-y-label,
 .player-analytics-card__chart-label {
-  fill: #94a3b8;
-  font-size: 7px;
+  fill: #e2e8f0;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
 }
 .player-analytics-card__chart-dot {
   stroke: #0f172a;
@@ -13651,9 +13702,9 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
   stroke-width: 1.5;
 }
 .player-analytics-card__footnote {
-  font-size: 0.58rem;
-  line-height: 1.35;
-  color: var(--pac-muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: #cbd5e1;
 }
 [data-theme="light"] .player-analytics-card {
   --pac-bg: #f8fafc;
@@ -13664,7 +13715,44 @@ table.data.prospects-rankings-table tbody td.stats-td-sorted {
   box-shadow: 0 8px 20px rgb(15 23 42 / 0.08);
 }
 [data-theme="light"] .player-analytics-card__chart-wrap {
-  background: rgb(248 250 252 / 0.9);
+  background: rgb(248 250 252 / 0.95);
+  border-color: rgb(15 23 42 / 0.1);
+}
+[data-theme="light"] .player-analytics-card__chart-title {
+  color: #0f172a;
+}
+[data-theme="light"] .player-analytics-card__chart-y-label,
+[data-theme="light"] .player-analytics-card__chart-label {
+  fill: #334155;
+}
+[data-theme="light"] .player-analytics-card__chart-grid {
+  stroke: rgb(15 23 42 / 0.12);
+}
+[data-theme="light"] .player-analytics-card__chart-grid--mid {
+  stroke: rgb(15 23 42 / 0.28);
+}
+[data-theme="light"] .player-analytics-card__chart-xtick {
+  stroke: rgb(15 23 42 / 0.35);
+}
+[data-theme="light"] .player-analytics-card__chart-line--war,
+[data-theme="light"] .player-analytics-card__chart-line--off { stroke: #0f172a; }
+[data-theme="light"] .player-analytics-card__chart-line--def { stroke: #dc2626; }
+[data-theme="light"] .player-analytics-card__chart-line--fin { stroke: #0e7490; }
+[data-theme="light"] .player-analytics-card__chart-dot {
+  stroke: #f8fafc;
+}
+[data-theme="light"] .player-analytics-card__chart-dot.player-analytics-card__chart-line--war,
+[data-theme="light"] .player-analytics-card__chart-dot.player-analytics-card__chart-line--off { fill: #0f172a; }
+[data-theme="light"] .player-analytics-card__chart-dot.player-analytics-card__chart-line--def { fill: #dc2626; }
+[data-theme="light"] .player-analytics-card__chart-dot.player-analytics-card__chart-line--fin { fill: #0e7490; }
+[data-theme="light"] .player-analytics-card__legend-item--off,
+[data-theme="light"] .player-analytics-card__chart-title-off { color: #0f172a; }
+[data-theme="light"] .player-analytics-card__legend-item--def,
+[data-theme="light"] .player-analytics-card__chart-title-def { color: #dc2626; }
+[data-theme="light"] .player-analytics-card__legend-item--fin,
+[data-theme="light"] .player-analytics-card__chart-title-fin { color: #0e7490; }
+[data-theme="light"] .player-analytics-card__footnote {
+  color: #475569;
 }
 [data-theme="light"] .player-analytics-card__hero {
   background: rgb(241 245 249 / 0.95);

@@ -185,6 +185,22 @@ def create_app(config_class: type = Config) -> Flask:
             except Exception as exc:
                 app.logger.warning("Ability/potential backfill from ratings skipped: %s", exc)
 
+            try:
+                from app.sqlite_retry import commit_with_sqlite_retry
+                from app.services.player_boost_markers import sync_player_boost_markers
+
+                counts = sync_player_boost_markers(db.session)
+                if counts["seeded"] or counts["applied"]:
+                    commit_with_sqlite_retry(db.session)
+                    app.logger.info(
+                        "Player boost markers synced for %s (seeded=%s applied=%s)",
+                        _boot_slug,
+                        counts["seeded"],
+                        counts["applied"],
+                    )
+            except Exception as exc:
+                app.logger.warning("Player boost marker sync skipped: %s", exc)
+
         try:
             from app.services.ap_service import seed_ap_catalog_if_empty
 

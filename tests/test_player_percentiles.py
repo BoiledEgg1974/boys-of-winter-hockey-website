@@ -129,6 +129,23 @@ class PlayerPercentilesTests(unittest.TestCase):
         self.assertEqual(len(out["y_labels"]), 5)
         self.assertEqual(len(out["grid_lines"]), 5)
         self.assertEqual(len(out["x_labels"]), 2)
+        self.assertEqual(out["x_labels"][0]["anchor"], "start")
+        self.assertEqual(out["x_labels"][-1]["anchor"], "end")
+        self.assertEqual(out["width"], 360)
+        mid = next(line for line in out["grid_lines"] if line["mid"])
+        self.assertAlmostEqual(mid["y"], next(lbl["y"] for lbl in out["y_labels"] if lbl["text"] == "50%"))
+
+    def test_chart_svg_thins_crowded_x_labels(self) -> None:
+        labels = [f"{i:02d}/01" for i in range(1, 25)]
+        out = chart_svg(
+            labels,
+            [{"values": list(range(10, 34)), "class": "player-analytics-card__chart-line--war"}],
+        )
+        self.assertLessEqual(len(out["x_labels"]), 7)
+        self.assertEqual(out["x_labels"][0]["text"], "01/01")
+        self.assertEqual(out["x_labels"][-1]["text"], "24/01")
+        self.assertEqual(len(out["paths"][0]["dots"]), 2)
+        self.assertEqual(len(out["x_ticks"]), len(out["x_labels"]))
 
     def test_chart_svg_requires_two_points(self) -> None:
         out = chart_svg(["24-25"], [{"values": [50], "class": "x"}])
@@ -235,6 +252,9 @@ class PlayerPercentilesTests(unittest.TestCase):
         )
         self.assertTrue(out["has_data"])
         self.assertEqual(len(out["paths"]), 2)
+        self.assertEqual(out["y_labels"][0]["text"], "89")
+        self.assertEqual(out["y_labels"][-1]["text"], "93")
+        self.assertFalse(any(line["mid"] for line in out["grid_lines"]))
 
     def test_goalie_war_pct_from_metrics_caps_at_99(self) -> None:
         metrics = {

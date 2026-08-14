@@ -118,7 +118,7 @@
 
       <div class="player-analytics-card__chart-wrap">
 
-        <div class="player-analytics-card__chart-title player-analytics-card__chart-title--trend">Projected WAR Percentile Rank</div>
+        <div class="player-analytics-card__chart-title">Projected WAR Percentile Rank</div>
 
         <svg class="player-analytics-card__chart"
 
@@ -126,23 +126,29 @@
 
              width="100%"
 
-             height="{{ war.height }}"
-
              role="img"
 
-             aria-label="Projected WAR percentile trend">
+             aria-label="Projected WAR percentile trend"
+
+             preserveAspectRatio="xMidYMid meet">
 
           {% for line in war.grid_lines %}
 
-          <line class="player-analytics-card__chart-grid"
+          <line class="player-analytics-card__chart-grid{% if line.mid %} player-analytics-card__chart-grid--mid{% endif %}"
 
                 x1="{{ line.x1 }}" x2="{{ line.x2 }}" y1="{{ line.y }}" y2="{{ line.y }}"></line>
 
           {% endfor %}
 
+          {% for tick in war.x_ticks %}
+
+          <line class="player-analytics-card__chart-xtick" x1="{{ tick.x }}" x2="{{ tick.x }}" y1="{{ tick.y1 }}" y2="{{ tick.y2 }}"></line>
+
+          {% endfor %}
+
           {% for lbl in war.y_labels %}
 
-          <text class="player-analytics-card__chart-y-label" x="{{ lbl.x }}" y="{{ lbl.y }}">{{ lbl.text }}</text>
+          <text class="player-analytics-card__chart-y-label" x="{{ lbl.x }}" y="{{ lbl.y }}" dominant-baseline="middle">{{ lbl.text }}</text>
 
           {% endfor %}
 
@@ -156,7 +162,7 @@
 
                 fill="none"
 
-                stroke-width="2"
+                stroke-width="2.5"
 
                 {% if p.stroke_dasharray %}stroke-dasharray="{{ p.stroke_dasharray }}"{% endif %}
 
@@ -176,7 +182,11 @@
 
           <circle class="player-analytics-card__chart-dot {{ dot.class }}"
 
-                  cx="{{ dot.cx }}" cy="{{ dot.cy }}" r="2.5"></circle>
+                  cx="{{ dot.cx }}" cy="{{ dot.cy }}" r="{% if dot.highlight %}3.2{% else %}2.6{% endif %}">
+
+            {% if dot.title %}<title>{{ dot.title }}</title>{% endif %}
+
+          </circle>
 
           {% endfor %}
 
@@ -188,9 +198,7 @@
 
                 x="{{ lbl.x }}" y="{{ lbl.y }}"
 
-                text-anchor="middle"
-
-                transform="rotate(-18 {{ lbl.x }} {{ lbl.y }})">{{ lbl.text }}</text>
+                text-anchor="{{ lbl.anchor|default('middle') }}">{{ lbl.text }}</text>
 
           {% endfor %}
 
@@ -208,31 +216,29 @@
 
         {% if card.is_goalie %}
 
-        <div class="player-analytics-card__chart-title player-analytics-card__chart-title--trend">
+        <div class="player-analytics-card__chart-title">Save % vs League Average</div>
 
-          <span class="player-analytics-card__chart-title-off">Save %</span>
+        <ul class="player-analytics-card__legend" aria-label="Chart series">
 
-          <span> vs </span>
+          <li class="player-analytics-card__legend-item player-analytics-card__legend-item--off"><span class="player-analytics-card__legend-swatch" aria-hidden="true"></span>Save %</li>
 
-          <span class="player-analytics-card__chart-title-fin">League Avg</span>
+          <li class="player-analytics-card__legend-item player-analytics-card__legend-item--fin player-analytics-card__legend-item--dashed"><span class="player-analytics-card__legend-swatch" aria-hidden="true"></span>League avg</li>
 
-        </div>
+        </ul>
 
         {% else %}
 
-        <div class="player-analytics-card__chart-title player-analytics-card__chart-title--trend">
+        <div class="player-analytics-card__chart-title">Projected Offence vs Defence vs Finishing</div>
 
-          <span class="player-analytics-card__chart-title-off">Projected Offence</span>
+        <ul class="player-analytics-card__legend" aria-label="Chart series">
 
-          <span> vs </span>
+          <li class="player-analytics-card__legend-item player-analytics-card__legend-item--off"><span class="player-analytics-card__legend-swatch" aria-hidden="true"></span>Offence</li>
 
-          <span class="player-analytics-card__chart-title-def">Defence</span>
+          <li class="player-analytics-card__legend-item player-analytics-card__legend-item--def"><span class="player-analytics-card__legend-swatch" aria-hidden="true"></span>Defence</li>
 
-          <span> vs </span>
+          <li class="player-analytics-card__legend-item player-analytics-card__legend-item--fin player-analytics-card__legend-item--dashed"><span class="player-analytics-card__legend-swatch" aria-hidden="true"></span>Finishing</li>
 
-          <span class="player-analytics-card__chart-title-fin">Finishing</span>
-
-        </div>
+        </ul>
 
         {% endif %}
 
@@ -242,23 +248,29 @@
 
              width="100%"
 
-             height="{{ comp.height }}"
-
              role="img"
 
-             aria-label="{% if card.is_goalie %}Save percentage vs league average{% else %}Projected offence defence and finishing percentile trends{% endif %}">
+             aria-label="{% if card.is_goalie %}Save percentage vs league average{% else %}Projected offence defence and finishing percentile trends{% endif %}"
+
+             preserveAspectRatio="xMidYMid meet">
 
           {% for line in comp.grid_lines %}
 
-          <line class="player-analytics-card__chart-grid"
+          <line class="player-analytics-card__chart-grid{% if line.mid %} player-analytics-card__chart-grid--mid{% endif %}"
 
                 x1="{{ line.x1 }}" x2="{{ line.x2 }}" y1="{{ line.y }}" y2="{{ line.y }}"></line>
 
           {% endfor %}
 
+          {% for tick in comp.x_ticks %}
+
+          <line class="player-analytics-card__chart-xtick" x1="{{ tick.x }}" x2="{{ tick.x }}" y1="{{ tick.y1 }}" y2="{{ tick.y2 }}"></line>
+
+          {% endfor %}
+
           {% for lbl in comp.y_labels %}
 
-          <text class="player-analytics-card__chart-y-label" x="{{ lbl.x }}" y="{{ lbl.y }}">{{ lbl.text }}</text>
+          <text class="player-analytics-card__chart-y-label" x="{{ lbl.x }}" y="{{ lbl.y }}" dominant-baseline="middle">{{ lbl.text }}</text>
 
           {% endfor %}
 
@@ -272,7 +284,7 @@
 
                 fill="none"
 
-                stroke-width="2"
+                stroke-width="2.5"
 
                 {% if p.stroke_dasharray %}stroke-dasharray="{{ p.stroke_dasharray }}"{% endif %}
 
@@ -292,7 +304,11 @@
 
           <circle class="player-analytics-card__chart-dot {{ dot.class }}"
 
-                  cx="{{ dot.cx }}" cy="{{ dot.cy }}" r="2.5"></circle>
+                  cx="{{ dot.cx }}" cy="{{ dot.cy }}" r="{% if dot.highlight %}3.2{% else %}2.6{% endif %}">
+
+            {% if dot.title %}<title>{{ dot.title }}</title>{% endif %}
+
+          </circle>
 
           {% endfor %}
 
@@ -304,9 +320,7 @@
 
                 x="{{ lbl.x }}" y="{{ lbl.y }}"
 
-                text-anchor="middle"
-
-                transform="rotate(-18 {{ lbl.x }} {{ lbl.y }})">{{ lbl.text }}</text>
+                text-anchor="{{ lbl.anchor|default('middle') }}">{{ lbl.text }}</text>
 
           {% endfor %}
 

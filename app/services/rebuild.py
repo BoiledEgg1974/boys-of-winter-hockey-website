@@ -156,6 +156,15 @@ def refresh_after_import(engine, app=None) -> None:
                     )
 
                     record_analytics_snapshots_after_import(app)
+                    from app.services.player_boost_markers import apply_site_markers_to_league_players
+
+                    restored = apply_site_markers_to_league_players(db.session)
+                    if restored:
+                        _log.info(
+                            "Restored %s player boost marker(s) after import for %s.",
+                            restored,
+                            slug,
+                        )
                     from app.services.game_records import (
                         drain_stashed_game_record_breaks,
                         sync_game_record_baselines,

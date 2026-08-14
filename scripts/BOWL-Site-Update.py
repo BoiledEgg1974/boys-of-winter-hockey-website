@@ -44,6 +44,8 @@ from datetime import datetime
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 STEP1 = REPO_ROOT / "scripts" / "STEP1_update_from_saved_game.py"
 STEP2 = REPO_ROOT / "scripts" / "STEP2_pythonanywhere.py"
 STEP3 = REPO_ROOT / "scripts" / "STEP3_align_history_awards_to_player_master.py"

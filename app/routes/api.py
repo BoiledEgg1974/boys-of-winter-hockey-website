@@ -876,7 +876,7 @@ def player_hover_card(player_id: int):
 
     return jsonify_cached(
         "player_hover",
-        (int(player_id), "boost-badge-v1"),
+        (int(player_id), "boost-badge-v2"),
         DEFAULT_TTL_SECONDS["player_hover"],
         lambda: _build_player_hover_card_payload(player_id),
         cache_control=60,
@@ -940,7 +940,9 @@ def _build_player_hover_card_payload(player_id: int) -> dict[str, object]:
     contract_payload = _contract_payload_for_share(db.session, player, season)
     league_display = str(current_app.config.get("LEAGUE_DISPLAY_NAME", "") or "").strip()
     position_ratings = position_ratings_display_list(rr) if rr else []
-    boost_tier = (player.boost_tier or "").strip().lower()
+    from app.services.player_boost_markers import resolved_player_boost_tier
+
+    boost_tier = resolved_player_boost_tier(player)
     boost_badge_url = (
         url_for("static", filename=f"img/boosts/{boost_tier}-boost.png")
         if boost_tier in {"gold", "silver"}

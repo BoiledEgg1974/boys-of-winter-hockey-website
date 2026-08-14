@@ -3219,6 +3219,48 @@ def ensure_league_draft_slot_boost_tier_sqlite(engine: Engine) -> None:
         conn.commit()
 
 
+def ensure_player_boost_markers_sqlite(engine: Engine) -> None:
+    """Create durable player Gold/Silver/HoF markers on the site DB."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text(
+                "SELECT 1 FROM sqlite_master "
+                "WHERE type='table' AND name='player_boost_markers'"
+            )
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE player_boost_markers (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    league_slug VARCHAR(64) NOT NULL,
+                    fhm_player_id VARCHAR(64) NOT NULL,
+                    boost_tier VARCHAR(16) NOT NULL DEFAULT '',
+                    updated_by_user_id INTEGER,
+                    updated_at DATETIME NOT NULL
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE UNIQUE INDEX uq_player_boost_marker_league_fhm "
+                "ON player_boost_markers (league_slug, fhm_player_id)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_player_boost_marker_league "
+                "ON player_boost_markers (league_slug)"
+            )
+        )
+        conn.commit()
+
+
 def ensure_boost_lottery_team_results_sqlite(engine: Engine) -> None:
     """Create admin-maintained Boost Lottery winner totals on the site DB."""
     if engine.dialect.name != "sqlite":

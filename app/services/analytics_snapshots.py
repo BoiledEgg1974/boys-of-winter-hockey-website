@@ -410,7 +410,8 @@ def player_snapshot_trend_series(
 
     for snap in snapshots:
         if snap.is_rollover:
-            label = f"{int(snap.season_year)}–{str(int(snap.season_year) + 1)[-2:]}"
+            year = int(snap.season_year)
+            label = f"{year % 100:02d}-{(year + 1) % 100:02d}"
         else:
             label = snap.snapshot_at.strftime("%m/%d") if snap.snapshot_at else str(snap.season_year)
         labels.append(label)

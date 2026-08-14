@@ -845,6 +845,24 @@ class DiscordBotHeartbeat(db.Model):
     extra_json: Mapped[str] = mapped_column(Text, default="{}", nullable=False)
 
 
+class PlayerBoostMarker(db.Model):
+    """Admin-set player Gold/Silver/HoF markers that survive league SQLite replacements."""
+
+    __tablename__ = "player_boost_markers"
+    __bind_key__ = "site"
+    __table_args__ = (
+        UniqueConstraint("league_slug", "fhm_player_id", name="uq_player_boost_marker_league_fhm"),
+        Index("ix_player_boost_marker_league", "league_slug"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    fhm_player_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    boost_tier: Mapped[str] = mapped_column(String(16), default="", nullable=False)
+    updated_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class BoostLotteryTeamResult(db.Model):
     """Admin-maintained gold/silver boost totals by team and league."""
 

@@ -5570,7 +5570,10 @@ def player_page(player_id: int):
     )
     roster_header_team = main_league_roster_team(contract_team, current_team)
     player_award_badges = player_history_award_badges(db.session, player.id)
-    player_is_hof = (player.boost_tier or "").strip().lower() == "hof" or bool(
+    from app.services.player_boost_markers import resolved_player_boost_tier
+
+    resolved_boost_tier = resolved_player_boost_tier(player)
+    player_is_hof = resolved_boost_tier == "hof" or bool(
         db.session.scalar(
             select(HallOfFameMember.id).where(HallOfFameMember.player_id == int(player.id)).limit(1)
         )
@@ -5703,6 +5706,7 @@ def player_page(player_id: int):
         contract_salary_by_season=contract_salary_by_season,
         player_award_badges=player_award_badges,
         player_is_hof=player_is_hof,
+        resolved_boost_tier=resolved_boost_tier,
         player_season_trend_rows=player_season_trend_rows,
         player_season_trends_goalie_mode=player_season_trends_goalie_mode,
         player_analytics=player_analytics,
@@ -5726,7 +5730,10 @@ def update_player_boost(player_id: int):
     tier = (request.form.get("boost_tier") or "").strip().lower()
     if tier not in ("", "gold", "silver", "hof"):
         abort(400)
-    player.boost_tier = tier
+    from app.services.player_boost_markers import set_player_boost_tier
+
+    user_id = int(current_user.id) if current_user.is_authenticated else None
+    set_player_boost_tier(player, tier, user_id=user_id)
     db.session.commit()
     if tier:
         label = "Hall of Fame" if tier == "hof" else f"{tier} boost"

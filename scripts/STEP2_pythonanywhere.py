@@ -807,6 +807,13 @@ def build_post_db_upload_script(
         f"{remote_project.rstrip('/')}/scripts/notify_discord_after_db_deploy.py"
     )
     parts = ["set -euo pipefail", f"cd {rp}", f". {act}"]
+    if notify_discord:
+        # Capture live record boards *before* promote so broken-records can be
+        # reconstructed when the local import sidecar is missing.
+        parts.append(
+            f"{py} {notify} --stash-live-record-state "
+            "|| echo 'record-state stash failed (non-fatal)'"
+        )
     for remote_rel in staged_db_rels:
         final = shlex.quote(f"{remote_project.rstrip('/')}/{remote_rel}")
         staging = shlex.quote(f"{remote_project.rstrip('/')}/{remote_rel}.deploy-upload")
@@ -818,7 +825,7 @@ def build_post_db_upload_script(
         )
         parts.append(f"{py} {repair} --check --league {shlex.quote(slug)}")
     if notify_discord:
-        # Enqueue boxscores (deploy finals sidecar or recent undelivered) + BOWL Six.
+        # Enqueue boxscores, broken records, BOWL Six, and playoff bracket.
         days = max(1, int(discord_fallback_days))
         parts.append(f"{py} {notify} --fallback-days {days}")
     parts.extend(_touch_wsgi_bash(wsgi_file))
@@ -1260,9 +1267,11 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
         print("--- would upload league databases ---")
         for _slug, db_path, remote_rel in db_targets:
             print(f"would upload {remote_rel} ({db_path.name})")
-        print("--- would upload deploy Discord notify helpers + finals sidecars ---")
+        print("--- would upload deploy Discord notify helpers + finals/records sidecars ---")
         print("would upload scripts/notify_discord_after_db_deploy.py")
         print("would upload app/services/deploy_discord_finals.py")
+        print("would upload app/services/deploy_discord_records.py")
+        print("would upload app/services/record_broken_discord.py")
         if not ns.skip_static:
             print("--- would upload app/static (newer files only) ---")
         print("--- would run on server after upload ---")
@@ -1285,7 +1294,10 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
                 "scripts/repair_league_sqlite.py",
                 "scripts/notify_discord_after_db_deploy.py",
                 "app/services/deploy_discord_finals.py",
+                "app/services/deploy_discord_records.py",
+                "app/services/record_broken_discord.py",
                 "app/services/game_boxscore_discord.py",
+                "app/services/discord_events.py",
             ),
             remote_base,
             dry_run=False,
@@ -1432,10 +1444,14 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
             uploaded += 1
             print(f"upload {remote_rel} (staging)")
 
-        # Newly-final game ids from local import (blank local Discord routes).
+        # Newly-final game ids / broken records from local import (blank local Discord routes).
         from app.services.deploy_discord_finals import (
             DEPLOY_DISCORD_FINALS_DIRNAME,
             list_deploy_discord_finals_files,
+        )
+        from app.services.deploy_discord_records import (
+            DEPLOY_DISCORD_RECORDS_DIRNAME,
+            list_deploy_discord_records_files,
         )
 
         finals_files = list_deploy_discord_finals_files(local_root / "instance")
@@ -1452,6 +1468,22 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
             print(
                 "--- no deploy Discord finals sidecars "
                 "(remote notify will queue recent undelivered boxscores) ---"
+            )
+
+        records_files = list_deploy_discord_records_files(local_root / "instance")
+        if records_files:
+            print("--- upload deploy Discord records sidecars ---")
+            remote_records_dir = f"{remote_base}/instance/{DEPLOY_DISCORD_RECORDS_DIRNAME}"
+            ensure_remote_dir(sftp, remote_records_dir)
+            for path in records_files:
+                remote_json = f"{remote_records_dir}/{path.name}"
+                sftp.put(str(path), remote_json)
+                uploaded += 1
+                print(f"upload instance/{DEPLOY_DISCORD_RECORDS_DIRNAME}/{path.name}")
+        else:
+            print(
+                "--- no deploy Discord records sidecars "
+                "(remote notify will diff stashed live record boards) ---"
             )
 
         if not ns.skip_static:

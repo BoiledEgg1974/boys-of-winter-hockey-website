@@ -38,7 +38,7 @@ After that checklist, the site still serves the **old** `instance/*.db` files, a
 
 | Goal | Command |
 |------|---------|
-| Normal data + Discord update | `python scripts/BOWL-Site-Update.py` (includes `deploy-db`) |
+| Normal data + Discord update | `python scripts/BOWL-Site-Update.py` (includes `deploy-db`; `--deploy` is an explicit alias) |
 | Data already imported locally; only push DBs + Discord | `python scripts/BOWL-Site-Update.py --deploy-db-only` |
 | Same without the wrapper | `python scripts/STEP2_pythonanywhere.py deploy-db` |
 

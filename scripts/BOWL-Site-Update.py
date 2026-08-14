@@ -13,14 +13,15 @@ Default flow:
 6) Run STEP2 ``deploy-db``: snapshot live OVR, trade logs, game-record baselines, and
    league editorial data on PythonAnywhere, merge them into the local SQLite files,
    upload league databases (+ ``app/static``), integrity-check, enqueue Discord
-   boxscores / BOWL Six from deploy finals sidecars (or recent undelivered finals),
-   then reload.
+   boxscores / BOWL Six / playoff bracket / broken records from deploy sidecars
+   (or live-board diffs / recent undelivered finals), then reload.
 
 Use ``--remote-import`` to use the older CSV + server-side ``import_data.py`` deploy instead.
 
 Examples:
   python scripts/BOWL-Site-Update.py
   python scripts/run_site_update.py bowl
+  python scripts/BOWL-Site-Update.py --deploy
   python scripts/BOWL-Site-Update.py --mode fullremoterebuild
   python scripts/BOWL-Site-Update.py --allow-stale
   python scripts/BOWL-Site-Update.py --no-deploy
@@ -97,7 +98,8 @@ def _deploy_preflight_note() -> None:
         "\nDeploy preflight: reload the PythonAnywhere web app (Web tab -> Reload) "
         "before upload so no worker is writing to SQLite.\n"
         "This step uploads league SQLite + queues Discord "
-        "(notify_discord_after_db_deploy). A server `git pull` / touch WSGI alone "
+        "(notify_discord_after_db_deploy: boxscores / BOWL Six / playoff bracket "
+        "/ broken records). A server `git pull` / touch WSGI alone "
         "does NOT update live data or Discord posts.\n"
     )
 
@@ -123,7 +125,8 @@ def _deploy_success_note(*, via_deploy_db: bool = True) -> None:
     if via_deploy_db:
         print(
             "\nLive deploy-db finished: league DBs uploaded, Discord notify ran on the "
-            "server (boxscores / BOWL Six / playoff bracket as applicable), WSGI touched.\n"
+            "server (boxscores / BOWL Six / playoff bracket / broken records as "
+            "applicable), WSGI touched.\n"
             "No further PythonAnywhere git pull is required for this data update.\n"
         )
     else:
@@ -247,6 +250,14 @@ def main() -> int:
         action="store_true",
         help="Skip git commit/push after local imports (default: commit and push once imports finish).",
     )
+    ap.add_argument(
+        "--deploy",
+        action="store_true",
+        help=(
+            "Run PythonAnywhere deploy-db after local imports. This is already the "
+            "default; pass it to be explicit. Cannot be combined with --no-deploy."
+        ),
+    )
     ap.add_argument("--no-deploy", action="store_true", help="Skip PythonAnywhere deploy step.")
     ap.add_argument(
         "--deploy-db-only",
@@ -277,6 +288,10 @@ def main() -> int:
 
     if not STEP1.is_file() or not STEP2.is_file() or not STEP3.is_file():
         print("Missing one or more required scripts (STEP1/STEP2/STEP3).", file=sys.stderr)
+        return 1
+
+    if args.deploy and args.no_deploy:
+        print("Use either --deploy or --no-deploy, not both.", file=sys.stderr)
         return 1
 
     if args.deploy_db_only and args.no_deploy:

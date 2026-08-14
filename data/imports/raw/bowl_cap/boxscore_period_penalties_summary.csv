@@ -17945,3 +17945,62 @@ Game Id;Period;Time;Player;TeamId;Penalty;Minutes
 74;1;481;13497;8;Fighting;5
 74;2;242;1864;8;Interference;2
 74;3;598;1651;8;Holding;2
+75;2;390;14350;0;Cross-Checking;2
+75;2;447;13613;0;Tripping;2
+75;2;1027;12511;20;Roughing;2
+75;2;1095;1635;0;Tripping;2
+75;3;1197;13100;0;Holding;2
+76;1;315;12471;15;High Sticking;2
+76;1;809;154;216;Tripping;2
+76;1;852;1225;15;High Sticking;2
+76;2;486;12397;216;Hooking;2
+76;2;511;1225;15;Tripping;2
+76;2;603;13627;15;Tripping;2
+76;3;36;260;15;Slashing;2
+76;3;1091;13597;216;High Sticking;2
+77;1;208;1251;23;Interference;2
+77;2;650;1491;25;Roughing;2
+77;2;707;12061;23;Tripping;2
+77;3;876;225;23;High Sticking;2
+77;3;886;206;25;Interference;2
+77;3;1136;838;25;Hooking;2
+78;1;49;494;11;Tripping;2
+78;1;236;12551;11;Roughing;2
+78;1;236;13588;16;Cross-Checking;2
+78;1;956;12445;16;Tripping;2
+78;2;844;15078;16;Fighting;5
+78;2;844;989;11;Fighting;5
+78;2;1075;12544;16;Hooking;2
+78;2;1085;1108;11;Hooking;2
+78;3;494;1801;11;Hooking;2
+78;3;526;13588;16;Holding;2
+79;2;1104;1611;20;Interference;2
+79;2;1111;1635;0;Unsportsmanlike Conduct;2
+79;3;974;1391;20;Roughing;2
+79;3;1046;177;0;Roughing;2
+80;1;195;260;15;High Sticking;2
+80;1;444;13113;216;Tripping;2
+80;1;899;1869;15;Bench;0
+80;2;588;13583;15;Holding;2
+80;2;814;13583;15;Cross-Checking;2
+80;2;820;1528;216;Abuse of Official;2
+80;2;1037;12471;15;Interference;2
+80;3;84;14113;15;Holding;2
+80;3;146;13530;15;Unsportsmanlike Conduct;2
+80;3;166;1260;216;Hooking;2
+80;3;606;13113;216;Tripping;2
+80;3;631;14529;15;Hooking;2
+80;3;764;14962;15;Tripping;2
+81;1;6;12061;23;Hooking;2
+81;1;824;15134;23;Hooking;2
+81;1;1001;15075;25;Roughing;2
+81;1;1001;15134;23;Roughing;2
+81;2;349;1491;25;Cross-Checking;2
+81;2;1029;13573;23;Slashing;2
+81;3;818;55;25;Unsportsmanlike Conduct;2
+82;1;193;14492;16;Roughing;2
+82;1;688;13123;16;Tripping;2
+82;2;956;12544;16;Slashing;2
+82;2;956;1790;11;High Sticking;2
+82;3;529;989;11;Holding;2
+82;3;1162;837;11;Unsportsmanlike Conduct;2

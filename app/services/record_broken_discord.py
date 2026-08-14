@@ -12,7 +12,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Player, RecordLeaderSnapshot, Team
+from app.models import GameRecordBaseline, Player, RecordLeaderSnapshot, Team
 from app.services.all_time_records import (
     GoalieAllTimeRow,
     SkaterAllTimeRow,
@@ -588,6 +588,7 @@ def _payload_from_holders(
         "new_record_line": new.display_line,
         "player_id": new.player_id,
         "player_name": new.player_name,
+        "record_path": new.record_path or "",
     }
     if new.team_id is not None:
         payload["team_id"] = new.team_id
@@ -609,6 +610,9 @@ def _payload_from_game_break(*, league_slug: str, br: GameRecordBreak) -> dict[s
     new = br.new_holder
     old = br.old_holder
     title = _game_break_title(br)
+    record_path = (
+        f"/game-records?segment={br.segment}&scope={br.scope}&player_kind={br.metric.player_kind}"
+    )
     payload: dict[str, Any] = {
         "title": title,
         "record_category": "game",
@@ -618,13 +622,11 @@ def _payload_from_game_break(*, league_slug: str, br: GameRecordBreak) -> dict[s
         "new_record_line": format_game_holder_line(new),
         "player_id": _as_int_or_none(getattr(new.player, "id", None)),
         "player_name": _player_display_name(new.player),
+        "record_path": record_path,
     }
     if new.team is not None:
         payload.update(team_fields_for_discord(new.team))
-    url = build_league_public_url(
-        league_slug,
-        f"/game-records?segment={br.segment}&scope={br.scope}&player_kind={br.metric.player_kind}",
-    )
+    url = build_league_public_url(league_slug, record_path)
     if url:
         payload["record_url"] = url
         payload["url"] = url
@@ -639,6 +641,19 @@ def _source_id_for_game_break(br: GameRecordBreak) -> str:
     pid = _as_int_or_none(getattr(br.new_holder.player, "id", None)) or 0
     val = br.new_holder.value
     return f"{br.snapshot_key}:player:{pid}:{val}"
+
+
+def _refresh_record_payload_urls(league_slug: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """Rebuild absolute record URLs using the current SITE_PUBLIC_BASE_URL."""
+    out = dict(payload)
+    path = str(out.get("record_path") or "").strip()
+    if not path:
+        return out
+    url = build_league_public_url(league_slug, path)
+    if url:
+        out["record_url"] = url
+        out["url"] = url
+    return out
 
 
 def enqueue_record_broken_event(
@@ -656,12 +671,175 @@ def enqueue_record_broken_event(
         site_session,
         league_slug=league_slug,
         event_key=RECORD_BROKEN_EVENT_KEY,
-        payload=payload,
+        payload=_refresh_record_payload_urls(league_slug, payload),
         created_by_user_id=None,
         source_type="record_broken",
         source_id=source_id,
     )
     return row is not None
+
+
+def enqueue_record_broken_events_from_deploy(
+    site_session: Session,
+    *,
+    league_slug: str,
+    events: list[dict[str, Any]] | None,
+) -> dict[str, int]:
+    """Enqueue sidecar / reconstructed record-break events against live Discord routes."""
+    stats = {"events": 0, "queued": 0}
+    for raw in events or []:
+        source_id = str(raw.get("source_id") or "").strip()
+        payload = raw.get("payload")
+        if not source_id or not isinstance(payload, dict):
+            continue
+        stats["events"] += 1
+        if enqueue_record_broken_event(
+            site_session,
+            league_slug=league_slug,
+            payload=payload,
+            source_id=source_id,
+        ):
+            stats["queued"] += 1
+    return stats
+
+
+def collect_live_record_state(league_session: Session) -> dict[str, Any]:
+    """Serialize current record snapshots + game baselines for deploy-db fallback."""
+    from app.services.game_records import (
+        format_game_record_value,
+        game_record_metrics,
+        game_record_snapshot_key,
+    )
+
+    snapshots = {
+        key: holder.to_json_dict()
+        for key, holder in _load_snapshot_map(league_session).items()
+    }
+    metrics = {
+        (metric.player_kind, metric.key): metric
+        for player_kind in ("skater", "goalie")
+        for metric in game_record_metrics(player_kind=player_kind)
+    }
+    game_baselines: dict[str, dict[str, Any]] = {}
+    rows = list(league_session.scalars(select(GameRecordBaseline)).all())
+    for row in rows:
+        metric = metrics.get((str(row.player_kind or ""), str(row.metric_key or "")))
+        if metric is None:
+            continue
+        try:
+            value = float(row.value)
+        except (TypeError, ValueError):
+            continue
+        key = game_record_snapshot_key(
+            segment=str(row.segment or "rs"),
+            scope=str(row.scope or "all"),
+            player_kind=metric.player_kind,
+            metric_key=metric.key,
+        )
+        _, _, team_abbrev, _ = _team_bits(row.team)
+        _, _, opp_abbrev, _ = _team_bits(row.opponent_team)
+        display_value = format_game_record_value(value, metric)
+        game_baselines[key] = {
+            "snapshot_key": key,
+            "metric_key": metric.key,
+            "metric_title": metric.title,
+            "player_kind": metric.player_kind,
+            "segment": str(row.segment or "rs"),
+            "scope": str(row.scope or "all"),
+            "value": value,
+            "display_value": display_value,
+            "player_name": _player_display_name(row.player),
+            "team_abbrev": team_abbrev,
+            "opponent_abbrev": opp_abbrev,
+            "season_label": str(row.season_label or "").strip(),
+            "higher_is_better": bool(metric.higher_is_better),
+        }
+    return {"snapshots": snapshots, "game_baselines": game_baselines}
+
+
+def events_from_live_record_state_diff(
+    league_session: Session,
+    *,
+    league_slug: str,
+    live_state: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    """Build record-break events by comparing pre-promote live state to the new DB."""
+    if not live_state:
+        return []
+    events: list[dict[str, Any]] = []
+    previous: dict[str, RecordHolderState] = {}
+    for key, raw in (live_state.get("snapshots") or {}).items():
+        if not isinstance(raw, dict):
+            continue
+        holder = RecordHolderState.from_json_dict(raw)
+        if holder is None:
+            continue
+        previous[str(key)] = holder
+    if previous:
+        current = collect_current_record_holders(league_session, league_slug=league_slug)
+        for old, new in detect_snapshot_breaks(previous, current):
+            events.append(
+                {
+                    "source_id": _source_id_for_holder(new),
+                    "payload": _payload_from_holders(league_slug=league_slug, old=old, new=new),
+                }
+            )
+
+    live_games = live_state.get("game_baselines") or {}
+    if isinstance(live_games, dict) and live_games:
+        fresh = collect_live_record_state(league_session).get("game_baselines") or {}
+        for key, new_raw in fresh.items():
+            old_raw = live_games.get(key)
+            if not isinstance(old_raw, dict) or not isinstance(new_raw, dict):
+                continue
+            try:
+                old_val = float(old_raw["value"])
+                new_val = float(new_raw["value"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            higher = bool(new_raw.get("higher_is_better", True))
+            if not _is_better(new_val, old_val, higher_is_better=higher):
+                continue
+            segment = str(new_raw.get("segment") or "rs")
+            scope = str(new_raw.get("scope") or "all")
+            player_kind = str(new_raw.get("player_kind") or "skater")
+            title = (
+                f"Game Record — {new_raw.get('metric_title') or new_raw.get('metric_key')} "
+                f"({_SEGMENT_LABEL.get(segment, segment)}, {_SCOPE_LABEL.get(scope, scope)})"
+            )
+            record_path = (
+                f"/game-records?segment={segment}&scope={scope}&player_kind={player_kind}"
+            )
+            old_line = _format_player_line(
+                player_name=str(old_raw.get("player_name") or "Unknown"),
+                team_abbrev=str(old_raw.get("team_abbrev") or ""),
+                display_value=str(old_raw.get("display_value") or old_val),
+                season_label=str(old_raw.get("season_label") or ""),
+                opponent_abbrev=str(old_raw.get("opponent_abbrev") or ""),
+            )
+            new_line = _format_player_line(
+                player_name=str(new_raw.get("player_name") or "Unknown"),
+                team_abbrev=str(new_raw.get("team_abbrev") or ""),
+                display_value=str(new_raw.get("display_value") or new_val),
+                season_label=str(new_raw.get("season_label") or ""),
+                opponent_abbrev=str(new_raw.get("opponent_abbrev") or ""),
+            )
+            events.append(
+                {
+                    "source_id": f"{key}:player:0:{new_val}",
+                    "payload": {
+                        "title": title,
+                        "record_category": "game",
+                        "record_scope": "league",
+                        "record_title": title,
+                        "old_record_line": old_line,
+                        "new_record_line": new_line,
+                        "player_name": str(new_raw.get("player_name") or ""),
+                        "record_path": record_path,
+                    },
+                }
+            )
+    return events
 
 
 def notify_record_breaks_after_import(
@@ -678,16 +856,19 @@ def notify_record_breaks_after_import(
     (used on app boot so startup baseline sync does not flood channels).
     """
     slug = str(league_slug or "").strip()
-    stats = {"seeded": 0, "updated": 0, "queued": 0, "game_breaks": 0}
+    stats = {"seeded": 0, "updated": 0, "queued": 0, "game_breaks": 0, "sidecar": 0}
+    pending_events: list[dict[str, Any]] = []
 
     if notify and game_breaks:
         for br in game_breaks:
             payload = _payload_from_game_break(league_slug=slug, br=br)
+            source_id = _source_id_for_game_break(br)
+            pending_events.append({"source_id": source_id, "payload": payload})
             if enqueue_record_broken_event(
                 site_session,
                 league_slug=slug,
                 payload=payload,
-                source_id=_source_id_for_game_break(br),
+                source_id=source_id,
             ):
                 stats["queued"] += 1
                 stats["game_breaks"] += 1
@@ -697,22 +878,26 @@ def notify_record_breaks_after_import(
         current = collect_current_record_holders(league_session, league_slug=slug)
     except Exception:
         _log.exception("record holder snapshot collect failed for %s", slug)
+        _record_deploy_sidecar(slug, pending_events, stats)
         return stats
 
     if not previous:
         for holder in current.values():
             _upsert_snapshot(league_session, holder)
             stats["seeded"] += 1
+        _record_deploy_sidecar(slug, pending_events, stats)
         return stats
 
     if notify:
         for old, new in detect_snapshot_breaks(previous, current):
             payload = _payload_from_holders(league_slug=slug, old=old, new=new)
+            source_id = _source_id_for_holder(new)
+            pending_events.append({"source_id": source_id, "payload": payload})
             if enqueue_record_broken_event(
                 site_session,
                 league_slug=slug,
                 payload=payload,
-                source_id=_source_id_for_holder(new),
+                source_id=source_id,
             ):
                 stats["queued"] += 1
 
@@ -720,4 +905,23 @@ def notify_record_breaks_after_import(
         _upsert_snapshot(league_session, holder)
         stats["updated"] += 1
 
+    _record_deploy_sidecar(slug, pending_events, stats)
     return stats
+
+
+def _record_deploy_sidecar(
+    league_slug: str,
+    events: list[dict[str, Any]],
+    stats: dict[str, int],
+) -> None:
+    if not league_slug or not events:
+        return
+    try:
+        from app.services.deploy_discord_records import record_deploy_record_break_events
+
+        stats["sidecar"] = record_deploy_record_break_events(league_slug, events)
+    except Exception:
+        _log.exception(
+            "Deploy Discord records sidecar write failed for %s (non-fatal)",
+            league_slug,
+        )

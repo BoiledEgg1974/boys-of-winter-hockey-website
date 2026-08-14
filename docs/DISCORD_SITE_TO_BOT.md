@@ -41,6 +41,7 @@ Ack: `POST /api/discord/events/<id>/ack` — marks sent and records `source_type
 | `bowl_six_leaders_update` | `bowl-six-leaders` | BOWL Six top performers + GM week/season leaders (first post, then **edit** same message) |
 | `playoff_bracket_update` | `playoff-bracket` | Live playoff bracket — **one message per series**, each **edited in place** when scores change after import or bot poll |
 | `game_boxscore` | `boxscores` (per-team IDs) | Newly **final** games after FHM import — scoreline, SOG, PP, top performers, goalies, three stars + site link posted into **both** participating franchise channels |
+| `record_broken` | `broken-records` | A game / season / all-time / team record is strictly beaten after FHM import. With **`deploy-db`**, events are sidecared locally and queued on the live site after DB upload (or reconstructed from a pre-promote live-board stash) |
 
 Payloads include `source_type` and `source_id` for idempotency where applicable.
 
@@ -50,7 +51,11 @@ Payloads include `source_type` and `source_id` for idempotency where applicable.
 
 **Game boxscores (per-team channels):** Enable the master **`game_boxscore`** route on **Admin → Discord Integration**, then paste one Discord channel snowflake per franchise under **Team boxscore channels**. After each FHM import, games that newly become final enqueue two outbound events (home + away) with `source_type=game_boxscore` / `source_id={game_id}:{team_id}`.
 
-With the default **`deploy-db`** site update (local import → upload league SQLite), local Discord routes are usually blank, so the importer also writes newly-final game ids to `instance/.deploy_discord_finals/<slug>.json`. After the DBs are promoted on PythonAnywhere, `scripts/notify_discord_after_db_deploy.py` drains those ids against the **live** site DB (real channel map) and refreshes BOWL Six leaders. If no sidecar is present, it falls back to queuing undelivered finals from the last 7 in-game days.
+Hockey feeds (`record_broken`, boxscores, BOWL Six, news, trades, playoffs, …) post **only to that league’s Discord**. The three-slot channel fan-out is for **Formula / Demolition** results that should appear in Cap, Historical, and Relegation servers. Do not paste another league’s `#broken-records` channel onto Cap or Historical `record_broken`.
+
+With the default **`deploy-db`** site update (local import → upload league SQLite), local Discord routes are usually blank, so the importer also writes newly-final game ids to `instance/.deploy_discord_finals/<slug>.json` and broken-record events to `instance/.deploy_discord_records/<slug>.json`. After the DBs are promoted on PythonAnywhere, `scripts/notify_discord_after_db_deploy.py` drains those files against the **live** site DB (real channel map), refreshes BOWL Six leaders, and queues playoff-bracket updates. If no boxscore sidecar is present, it falls back to queuing undelivered finals from the last 7 in-game days. If no records sidecar is present, it diffs a pre-promote live record-board stash against the newly uploaded DB.
+
+`BOWL-Site-Update.py` runs this deploy-db step by default (`--deploy` is an explicit alias; `--no-deploy` skips it).
 
 Delivery resolves `discord_channel_id` from the team row (the master route ID is unused — enable/disable only). Blank team channel IDs are skipped; unfinished finals stay pending until a franchise channel is set. Use **Queue recent boxscores** on the same page to manually enqueue finals from the last N in-game days. Check **Force re-post** to clear already-sent locks and queue fresh messages (expanded SOG / PP / leaders / goalies format). Expansion franchises appear automatically when they have current-season standings.
 

@@ -168,6 +168,11 @@ RACING_ONLY_EVENT_KEYS = frozenset(
     }
 )
 
+# Formula / Demolition results post into Cap + Historical (+ Relegation) Discords.
+# Hockey-only feeds (records, boxscores, news, BOWL Six, …) stay on that league's server.
+DISCORD_CHANNEL_FANOUT_EVENT_KEYS = RACING_ONLY_EVENT_KEYS
+_EXTRA_FANOUT_SLOT_RE = re.compile(r":ch[1-9]\d*$")
+
 # Logical Discord channel names for Formula / Demolition (same name across Cap / Hist / Relegation).
 RACING_LEAGUE_EVENT_CHANNEL_KEYS = {
     "bowl-formula": {
@@ -326,6 +331,44 @@ def route_discord_channel_ids(route: DiscordChannelRoute | None) -> list[str]:
         seen.add(cid)
         out.append(cid)
     return out
+
+
+def event_key_allows_channel_fanout(event_key: str) -> bool:
+    """True when this event may post to Cap + Historical + Relegation channels."""
+    return str(event_key or "").strip() in DISCORD_CHANNEL_FANOUT_EVENT_KEYS
+
+
+def delivery_discord_channel_ids(
+    route: DiscordChannelRoute | None, event_key: str
+) -> list[str]:
+    """Channel IDs that should actually receive this event.
+
+    Racing results fan out to every configured slot. League-specific hockey events
+    use only the primary channel so Cap records never land in Historical Discord.
+    """
+    if event_key_allows_channel_fanout(event_key):
+        return route_discord_channel_ids(route)
+    if route is None:
+        return []
+    cid = str(getattr(route, "discord_channel_id", None) or "").strip()
+    if cid and DISCORD_SNOWFLAKE_PATTERN.match(cid):
+        return [cid]
+    return []
+
+
+def _enqueue_channel_targets(
+    route: DiscordChannelRoute | None, event_key: str
+) -> list[tuple[int | None, str]]:
+    channel_ids = delivery_discord_channel_ids(route, event_key)
+    if not channel_ids:
+        return [(None, "")]
+    if len(channel_ids) == 1:
+        return [(None, channel_ids[0])]
+    return [(idx, cid) for idx, cid in enumerate(channel_ids)]
+
+
+def _idempotency_is_extra_fanout_slot(idempotency_key: str) -> bool:
+    return bool(_EXTRA_FANOUT_SLOT_RE.search(str(idempotency_key or "")))
 
 
 def default_event_keys_for_league(league_slug: str) -> set[str]:
@@ -2203,15 +2246,8 @@ def enqueue_discord_event(
     channel_key = str(
         route.channel_key or default_channel_key_for_event(league_slug, key)
     )
-    channel_ids = route_discord_channel_ids(route)
-    # Fan-out the same payload to up to three channel IDs (Cap / Hist / Relegation).
-    # One ID keeps legacy idempotency keys; 2–3 IDs use :ch{n} suffixes.
-    if not channel_ids:
-        targets: list[tuple[int | None, str]] = [(None, "")]
-    elif len(channel_ids) == 1:
-        targets = [(None, channel_ids[0])]
-    else:
-        targets = [(idx, cid) for idx, cid in enumerate(channel_ids)]
+    # Fan-out only for racing feeds. Hockey events use the primary channel.
+    targets = _enqueue_channel_targets(route, key)
     first_row: DiscordOutboundEvent | None = None
     for slot_idx, cid in targets:
         payload_i = dict(payload_clean)
@@ -2285,7 +2321,7 @@ def is_discord_event_route_active(
     # discord_channel_id is unused (enable/disable only).
     if key == GAME_BOXSCORE_EVENT_KEY:
         return has_game_boxscore_delivery_target(session, league_slug=league_slug)
-    return bool(route_discord_channel_ids(route))
+    return bool(delivery_discord_channel_ids(route, key))
 
 
 def enqueue_repeatable_discord_event(
@@ -2324,13 +2360,7 @@ def enqueue_repeatable_discord_event(
         base_idem = sim_cycle_idempotency_key(league_slug=league_slug)
     else:
         return None
-    channel_ids = route_discord_channel_ids(route)
-    if not channel_ids:
-        targets: list[tuple[int | None, str]] = [(None, "")]
-    elif len(channel_ids) == 1:
-        targets = [(None, channel_ids[0])]
-    else:
-        targets = [(idx, cid) for idx, cid in enumerate(channel_ids)]
+    targets = _enqueue_channel_targets(route, key)
     first_row: DiscordOutboundEvent | None = None
     for slot_idx, cid in targets:
         idem_key = base_idem if slot_idx is None else f"{base_idem}:ch{slot_idx}"
@@ -2422,10 +2452,22 @@ def fetch_pending_events_for_bot(
     eligible: list[DiscordOutboundEvent] = []
     changed = False
     for row in rows:
+        ek = str(row.event_key or "")
+        if (
+            not event_key_allows_channel_fanout(ek)
+            and _idempotency_is_extra_fanout_slot(str(row.idempotency_key or ""))
+        ):
+            row.status = "cancelled"
+            row.last_error = (
+                "Cancelled extra Discord channel slot "
+                "(league-specific event stays on this league's server)"
+            )
+            row.next_attempt_at = None
+            changed = True
+            continue
         payload = _parse_payload(row)
         st = str(payload.get("source_type") or "").strip()
         sid = str(payload.get("source_id") or "").strip()
-        ek = str(row.event_key or "")
         if (
             ek not in REPEATABLE_DISCORD_EVENT_KEYS
             and st
@@ -2530,6 +2572,13 @@ def serialize_pending_events_for_bot(
             channel_override = ""
             if isinstance(raw_payload, dict):
                 channel_override = str(raw_payload.get("discord_channel_id") or "").strip()
+            if channel_override and not event_key_allows_channel_fanout(str(r.event_key or "")):
+                primary = str(
+                    getattr(routes.get(str(r.event_key or "")), "discord_channel_id", None)
+                    or ""
+                ).strip()
+                if primary and channel_override != primary:
+                    continue
             payload = enrich_discord_payload_for_bot(
                 session,
                 league_slug=league_slug,

@@ -115,7 +115,13 @@
 
   <h3 style="margin:0.3rem 0 0.35rem;">Event Route Map</h3>
   <p class="muted" style="margin:0 0 0.45rem;">
-    Each event can fan out to up to <strong>three</strong> Discord channel IDs (same logical channel name across Cap, Historical, and later Relegation). Leave unused slots blank.
+    {% if is_racing_league %}
+    Racing results can fan out to up to <strong>three</strong> Discord channel IDs
+    (the same logical channel on Cap, Historical, and later Relegation). Leave unused slots blank.
+    {% else %}
+    Each hockey feed posts to <strong>this league’s Discord only</strong> (one channel ID).
+    Do not paste another league’s channel here — Cap records would otherwise appear in Historical, and vice versa.
+    {% endif %}
   </p>
   <form method="post" style="margin:0 0 0.9rem;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -135,11 +141,17 @@
               <input type="hidden" name="discord_channel_id_{{ r.event_key }}" value="{{ r.discord_channel_id or '' }}">
               <input type="hidden" name="discord_channel_id_2_{{ r.event_key }}" value="{{ r.discord_channel_id_2 or '' }}">
               <input type="hidden" name="discord_channel_id_3_{{ r.event_key }}" value="{{ r.discord_channel_id_3 or '' }}">
-              {% else %}
+              {% elif r.event_key in fanout_event_keys %}
               <div style="display:flex;flex-direction:column;gap:0.25rem;">
                 <input type="text" name="discord_channel_id_{{ r.event_key }}" value="{{ r.discord_channel_id or '' }}" placeholder="Channel ID 1 (e.g. Cap)" style="min-width:14rem;">
                 <input type="text" name="discord_channel_id_2_{{ r.event_key }}" value="{{ r.discord_channel_id_2 or '' }}" placeholder="Channel ID 2 (e.g. Historical)" style="min-width:14rem;">
                 <input type="text" name="discord_channel_id_3_{{ r.event_key }}" value="{{ r.discord_channel_id_3 or '' }}" placeholder="Channel ID 3 (optional)" style="min-width:14rem;">
+              </div>
+              {% else %}
+              <div style="display:flex;flex-direction:column;gap:0.25rem;">
+                <input type="text" name="discord_channel_id_{{ r.event_key }}" value="{{ r.discord_channel_id or '' }}" placeholder="This league’s channel ID" style="min-width:14rem;">
+                <input type="hidden" name="discord_channel_id_2_{{ r.event_key }}" value="">
+                <input type="hidden" name="discord_channel_id_3_{{ r.event_key }}" value="">
               </div>
               {% endif %}
             </td>

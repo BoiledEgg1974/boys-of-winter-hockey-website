@@ -39,6 +39,8 @@ instance/.deploy_trade_logs/
 instance/.deploy_game_record_baselines/
 instance/.deploy_league_editorial/
 instance/.deploy_discord_finals/
+instance/.deploy_discord_records/
+instance/.deploy_discord_records_live/
 instance/.deploy_manifest_*.json
 *.log
 

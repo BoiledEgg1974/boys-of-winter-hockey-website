@@ -24,7 +24,7 @@ from app.auth_login import (
     require_admin,
     require_admin_role,
 )
-from app.config import Config, league_display_name, league_group_for_slug
+from app.config import Config, is_racing_league, league_display_name, league_group_for_slug
 from app.logo_urls import team_logo_url_for_team
 from app.league_db import db
 from app.models import (
@@ -134,6 +134,7 @@ from app.services.story_automation import (
     validate_schedule_datetime,
 )
 from app.services.discord_events import (
+    DISCORD_CHANNEL_FANOUT_EVENT_KEYS,
     add_discord_route,
     build_league_public_url,
     build_news_article_public_url,
@@ -6782,6 +6783,8 @@ def admin_discord_integration():
         sim_tracker_ready=sim_tracker_ready,
         sim_cycle_phase=sim_cycle_phase,
         site_public_base_url=str(current_app.config.get("SITE_PUBLIC_BASE_URL") or "").strip().rstrip("/"),
+        fanout_event_keys=DISCORD_CHANNEL_FANOUT_EVENT_KEYS,
+        is_racing_league=is_racing_league(slug),
     )
 
 

@@ -99,6 +99,7 @@ from app.services.news_categories import (
     normalize_news_category,
     news_category_label,
 )
+from app.services.news_text import GM_ARTICLE_BODY_MAX_LEN
 from app.services.homepage_modules import (
     ALLOWED_HOMEPAGE_MODULE_KEYS,
     get_homepage_module_settings,
@@ -1175,6 +1176,11 @@ def league_news():
             flash("Title and body are required.", "err")
         elif not cat:
             flash("Choose a valid category.", "err")
+        elif len(body) > GM_ARTICLE_BODY_MAX_LEN:
+            flash(
+                f"Article body is too long (max {GM_ARTICLE_BODY_MAX_LEN} characters).",
+                "err",
+            )
         else:
             upload = request.files.get("image")
             if upload and upload.filename:
@@ -1232,6 +1238,10 @@ def league_news():
         membership=mem,
         news_category_choices=NEWS_CATEGORY_CHOICES_GM,
         news_category_label=news_category_label,
+        gm_article_body_max_len=GM_ARTICLE_BODY_MAX_LEN,
+        form_title=(request.form.get("title") or "") if request.method == "POST" else "",
+        form_body=(request.form.get("body") or "") if request.method == "POST" else "",
+        form_category=(request.form.get("category") or "") if request.method == "POST" else "",
     )
 
 

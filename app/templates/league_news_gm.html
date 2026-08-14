@@ -9,18 +9,21 @@
   <ul>{% for cat, msg in messages %}<li>{{ msg }}</li>{% endfor %}</ul>
   {% endif %}
   {% endwith %}
-  <p class="muted">Submitted articles appear on the homepage after an administrator publishes them. Choose a <strong>category</strong> for each submission. AP may be awarded on publish (league setting).</p>
+  <p class="muted">Submitted articles appear on the homepage after an administrator publishes them. Choose a <strong>category</strong> for each submission. AP may be awarded on publish (league setting). Body is limited to <strong>{{ gm_article_body_max_len }} characters</strong>.</p>
   <form method="post" enctype="multipart/form-data" class="card" style="padding:1rem;margin-bottom:1.5rem;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <label>Category<br>
       <select name="category" required style="width:100%;max-width:28rem;margin-top:0.35rem;padding:0.35rem;">
         {% for value, label in news_category_choices %}
-        <option value="{{ value }}">{{ label }}</option>
+        <option value="{{ value }}" {% if form_category is defined and form_category == value %}selected{% endif %}>{{ label }}</option>
         {% endfor %}
       </select>
     </label>
-    <label style="display:block;margin-top:0.75rem;">Title<br><input type="text" name="title" required maxlength="300" style="width:100%;"></label>
-    <label style="display:block;margin-top:0.75rem;">Body<br><textarea name="body" rows="8" required style="width:100%;"></textarea></label>
+    <label style="display:block;margin-top:0.75rem;">Title<br><input type="text" name="title" required maxlength="300" style="width:100%;" value="{{ form_title or '' }}"></label>
+    <label style="display:block;margin-top:0.75rem;">Body<br>
+      <textarea name="body" id="gm-news-body" rows="8" required maxlength="{{ gm_article_body_max_len }}" style="width:100%;">{{ form_body or '' }}</textarea>
+    </label>
+    <p class="muted" id="gm-news-body-count" style="font-size:0.82rem;margin:0.35rem 0 0;">0 / {{ gm_article_body_max_len }}</p>
     <label style="display:block;margin-top:0.75rem;">Image (optional)<br>
       <input type="file" name="image" accept="image/png,image/jpeg,image/webp,image/gif" style="margin-top:0.35rem;">
     </label>
@@ -37,4 +40,17 @@
   </ul>
   <p><a href="{{ url_for('main.league_headlines') }}">View published headlines</a></p>
 </div>
+<script>
+(function () {
+  var ta = document.getElementById("gm-news-body");
+  var out = document.getElementById("gm-news-body-count");
+  if (!ta || !out) return;
+  var max = parseInt(ta.getAttribute("maxlength") || "1500", 10);
+  function sync() {
+    out.textContent = (ta.value || "").length + " / " + max;
+  }
+  ta.addEventListener("input", sync);
+  sync();
+})();
+</script>
 {% endblock %}

@@ -17,6 +17,22 @@ class NewsBodyExcerptTests(unittest.TestCase):
         self.assertTrue(out.endswith("…"))
         self.assertLess(len(out), len(body))
 
+    def test_gm_article_body_limit_is_1500(self) -> None:
+        from app.services.news_text import GM_ARTICLE_BODY_MAX_LEN
+        from pathlib import Path
+
+        self.assertEqual(GM_ARTICLE_BODY_MAX_LEN, 1500)
+        gm_html = (Path(__file__).resolve().parents[1] / "app" / "templates" / "league_news_gm.html").read_text(
+            encoding="utf-8"
+        )
+        admin_html = (
+            Path(__file__).resolve().parents[1] / "app" / "templates" / "admin_news_compose.html"
+        ).read_text(encoding="utf-8")
+        self.assertIn("gm_article_body_max_len", gm_html)
+        self.assertIn('maxlength="{{ gm_article_body_max_len }}"', gm_html)
+        self.assertIn('name="body"', admin_html)
+        self.assertNotIn("maxlength", admin_html.split('name="body"', 1)[1].split("</textarea>", 1)[0])
+
 
 class EngagementBundleCommentsTests(unittest.TestCase):
     def test_zero_comments_skips_comment_query(self) -> None:

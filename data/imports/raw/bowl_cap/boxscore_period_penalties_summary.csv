@@ -18004,3 +18004,72 @@ Game Id;Period;Time;Player;TeamId;Penalty;Minutes
 82;2;956;1790;11;High Sticking;2
 82;3;529;989;11;Holding;2
 82;3;1162;837;11;Unsportsmanlike Conduct;2
+83;1;79;1391;20;Slashing;2
+83;1;327;797;0;Tripping;2
+83;1;591;955;20;Cross-Checking;2
+83;1;598;470;20;Tripping;2
+83;1;625;487;20;Interference;2
+83;1;1200;14283;20;Slashing;2
+83;2;532;13100;0;Bench;0
+83;3;1021;12075;0;Cross-Checking;2
+84;1;596;13572;216;Fighting;5
+84;1;596;13572;216;Misconduct;10
+84;1;596;260;15;Fighting;5
+84;1;751;14135;216;Fighting;5
+84;1;751;14529;15;Fighting;5
+84;1;1023;13519;15;Tripping;2
+84;2;191;13597;216;Hooking;2
+84;2;256;1225;15;Tripping;2
+84;3;1073;14067;15;Tripping;2
+84;OT1;848;13530;15;Interference;2
+84;OT1;970;1872;216;Hooking;2
+84;OT1;1141;260;15;Interference;2
+85;1;513;14995;25;Hooking;2
+85;1;697;507;23;Holding;2
+85;1;717;951;25;Slashing;2
+85;1;717;1292;23;Roughing;2
+85;1;876;55;25;Unsportsmanlike Conduct;2
+85;2;50;15592;23;Hooking;2
+85;2;538;13083;25;Abuse of Official;2
+86;1;322;14549;16;Slashing;2
+86;1;794;13099;11;Holding;2
+86;1;1001;13099;11;Cross-Checking;2
+86;2;22;12427;11;Hooking;2
+86;2;542;13091;11;Tripping;2
+86;2;542;15024;16;Slashing;2
+86;3;140;13091;11;Holding;2
+86;3;234;12445;16;Hooking;2
+86;OT1;258;13099;11;Holding;2
+86;OT1;438;494;11;Tripping;2
+86;OT1;438;12544;16;Roughing;2
+86;OT1;646;12544;16;Unsportsmanlike Conduct;2
+87;1;153;13021;20;Fighting;5
+87;1;153;13021;20;Misconduct;10
+87;1;153;13613;0;Fighting;5
+87;1;329;15012;20;Cross-Checking;2
+87;1;329;12411;0;Roughing;2
+87;1;638;1611;20;Hooking;2
+87;3;1027;1611;20;High Sticking;2
+87;3;1027;12401;0;Slashing;2
+88;1;90;13103;216;Tripping;2
+88;1;90;12995;15;Unsportsmanlike Conduct;2
+88;1;188;154;216;Unsportsmanlike Conduct;2
+88;2;14;154;216;Hooking;2
+88;2;298;154;216;Unsportsmanlike Conduct;2
+88;2;325;14529;15;Hooking;2
+88;2;400;13572;216;Hooking;2
+88;2;848;13113;216;Fighting;5
+88;2;848;14113;15;Fighting;5
+88;2;996;1872;216;Roughing;2
+88;3;341;1260;216;Tripping;2
+88;3;625;1810;216;Holding;2
+88;3;649;14529;15;Tripping;2
+88;3;649;13587;216;High Sticking;2
+89;2;97;14498;23;Cross-Checking;2
+89;2;122;13594;23;Slashing;2
+89;2;950;838;25;Interference;2
+89;3;112;13615;23;Fighting;5
+89;3;112;13108;25;Fighting;5
+90;1;258;12048;16;Tripping;2
+90;2;446;14549;16;Hooking;2
+90;3;320;14526;16;Hooking;2

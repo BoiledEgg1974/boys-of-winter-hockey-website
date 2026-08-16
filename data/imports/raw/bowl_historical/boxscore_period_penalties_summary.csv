@@ -4919,6 +4919,69 @@ Game Id;Period;Time;Player;TeamId;Penalty;Minutes
 10083;1;864;5812;8;Hooking;2
 10083;1;1107;4367;10;Unsportsmanlike Conduct;2
 10083;2;256;4381;10;Holding;2
+10082;1;210;4044;0;Unsportsmanlike Conduct;2
+10082;1;1158;4044;0;Slashing;2
+10082;2;39;5475;0;Slashing;2
+10082;2;365;4495;3;Fighting;5
+10082;2;365;4060;0;Fighting;5
+10082;2;379;5402;3;Roughing;2
+10082;2;684;5398;3;Roughing;2
+10082;2;731;5107;0;Cross-Checking;2
+10082;2;957;5414;3;Roughing;2
+10082;2;1137;4601;3;High Sticking;2
+10082;3;129;4160;0;Slashing;2
+10082;3;349;5414;3;Fighting;5
+10082;3;349;4349;0;Fighting;5
+10082;3;685;4044;0;Tripping;2
+10082;3;1033;4160;0;Unsportsmanlike Conduct;2
+10103;1;91;5445;5;Tripping;2
+10103;1;876;5236;118;Tripping;2
+10103;2;88;5879;5;Cross-Checking;2
+10103;2;713;5879;5;Tripping;2
+10103;3;117;5405;5;Tripping;2
+10103;3;221;5703;118;Fighting;5
+10103;3;221;5445;5;Fighting;5
+10103;3;221;5445;5;Misconduct;10
+10103;3;338;5236;118;Tripping;2
+10077;1;45;2831;10;Fighting;5
+10077;1;45;3667;131;Fighting;5
+10077;1;75;5640;131;Holding;2
+10077;1;200;5248;10;Cross-Checking;2
+10077;1;266;4760;131;Slashing;2
+10077;1;662;4355;10;Holding;2
+10077;1;860;3963;131;Cross-Checking;2
+10077;3;47;3873;131;Hooking;2
+10077;3;70;5078;10;Tripping;2
+10077;3;552;5248;10;Tripping;2
+10077;3;656;4747;10;Unsportsmanlike Conduct;2
+10077;3;886;4750;131;Illegal Check To Head;5
+10077;3;886;5461;10;Slashing;2
+10117;1;207;5733;119;Interference;2
+10117;1;287;5701;8;Cross-Checking;2
+10117;1;334;4501;119;Tripping;2
+10117;1;523;5918;8;Hooking;2
+10117;1;582;4609;119;High Sticking;2
+10117;1;756;4605;8;Bench;0
+10117;1;831;4609;119;Fighting;5
+10117;1;831;4609;119;Misconduct;10
+10117;1;831;5701;8;Fighting;5
+10117;2;403;4956;119;High Sticking;2
+10117;2;1139;4351;8;Unsportsmanlike Conduct;2
+10117;3;38;4956;119;Tripping;2
+10117;3;165;4351;8;Unsportsmanlike Conduct;2
+10117;3;660;5704;119;Hooking;2
+10096;1;157;5075;0;Tripping;2
+10096;1;201;5473;0;Holding;2
+10096;1;250;4494;120;Unsportsmanlike Conduct;2
+10096;2;735;5075;0;Slashing;2
+10096;3;185;5475;0;Tripping;2
+10096;3;216;5940;120;High Sticking;2
+10096;3;366;5854;0;Tripping;2
+10096;3;476;5080;120;Unsportsmanlike Conduct;2
+10096;3;882;5854;0;Holding;2
+10096;3;1139;5943;120;Fighting;5
+10096;3;1139;5107;0;Fighting;5
+10096;3;1139;5107;0;Misconduct;10
 10198;1;741;2831;10;Unsportsmanlike Conduct;2
 10198;1;902;5096;120;High Sticking;2
 10198;2;135;2831;10;High Sticking;2

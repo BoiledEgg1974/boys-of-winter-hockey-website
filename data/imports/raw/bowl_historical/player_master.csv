@@ -306,7 +306,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 4359;90;90;Bill;Lecaine;;72;172;1940-3-11;North Battleford;SK;Canada;;;0;Right;0
 5859;89;89;Jim;Boyd;;69;181;1949-6-4;Camrose;AB;Canada;;;0;Left;0
 4480;131;131;Bryan;Hextall;;71;185;1941-5-23;Oakbank;MB;Canada;;;0;Left;0
-5408;22;3;Paul;Curtis;Hound Dog;72;185;1947-9-29;Peterborough;ON;Canada;;;0;Left;0
+5408;3;3;Paul;Curtis;Hound Dog;72;185;1947-9-29;Peterborough;ON;Canada;;;0;Left;1
 4603;123;123;George;Gardner;Bud;68;165;1942-10-8;Murdochville;QC;Canada;;;0;Left;0
 4939;9;9;Ken;Hodge;;74;214;1944-6-25;Birmingham;ENG;Canada;England;;0;Right;0
 5062;24;5;Rick;Foley;;76;223;1945-9-22;Niagara Falls;ON;Canada;;;0;Left;0

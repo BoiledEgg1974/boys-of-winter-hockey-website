@@ -561,7 +561,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 559;9;Chris;Hoover;;1939-5-27;Robbins;IL;The United States;;;0
 560;228;Julien;Pinel;;1939-11-8;Saint-Genès-Champanelle;AUV;France;;;0
 561;-1;Darrell;Lucia;;1939-4-21;Ludlow;KY;The United States;;;0
-562;-1;Ray;Wallace;;1940-4-12;Richmond;CA;The United States;;;0
+562;220;Ray;Wallace;;1940-4-12;Richmond;CA;The United States;;;0
 563;10;Kenny;Iddon;;1939-4-30;Carthage;TX;The United States;;;0
 564;11;Dave;Vine;;1942-8-24;Bloomingdale;GA;The United States;;;0
 565;225;Dan;Blanchard;;1939-6-27;Houston;TX;The United States;;;0

@@ -140,7 +140,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 4598;9;9;Roger;Crozier;;68;165;1942-3-16;Bracebridge;ON;Canada;;;0;Right;0
 5642;90;90;Bill;Berglund;;73;194;1948-9-24;Great Barrington;MA;The United States;;;0;Left;0
 4144;90;90;Chuck;Hamilton;;71;175;1939-1-18;Kirkland Lake;ON;Canada;;;0;Left;0
-4048;8;8;Denis;DeJordy;;69;185;1938-11-12;Saint-Hyacinthe;QC;Canada;;;0;Left;0
+4048;26;8;Denis;DeJordy;;69;185;1938-11-12;Saint-Hyacinthe;QC;Canada;;;0;Left;0
 5051;5;5;Craig;Cameron;;72;201;1945-7-19;Elk Point;AB;Canada;;;0;Right;0
 4722;90;90;Ron;Boehm;;68;161;1943-8-14;Wapella;SK;Canada;;;0;Left;0
 4351;8;8;Terry;Harper;Harp;73;201;1940-1-27;Saskatoon;SK;Canada;;;0;Right;0
@@ -2048,7 +2048,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 7165;84;84;Ed;Pizunski;;71;185;1954-10-8;Toronto;ON;Canada;;;0;Left;1
 5501;90;90;Bob;Graham;;72;190;1947-10-7;Murdochville;QC;Canada;;;0;Left;0
 6425;88;88;Bruce;Abbey;;73;185;1951-8-18;Toronto;ON;Canada;;;0;Left;0
-5942;127;120;Phil;Roberto;;73;190;1949-1-1;Niagara Falls;ON;Canada;;;0;Right;0
+5942;120;120;Phil;Roberto;;73;190;1949-1-1;Niagara Falls;ON;Canada;;;0;Right;1
 6932;83;83;Brent;Leavins;;71;187;1953-8-30;Churchbridge;SK;Canada;;;0;Left;0
 5943;120;120;Larry;Romanchych;Swoop;73;181;1949-9-7;Vernon;BC;Canada;;;0;Right;1
 5713;90;90;Joe;Robertson;;71;190;1948-3-10;Dartmouth;NS;Canada;;;0;Left;0

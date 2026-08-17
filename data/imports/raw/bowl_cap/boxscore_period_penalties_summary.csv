@@ -18104,3 +18104,48 @@ Game Id;Period;Time;Player;TeamId;Penalty;Minutes
 95;1;840;12544;16;Interference;2
 95;1;1149;14549;16;Unsportsmanlike Conduct;2
 95;3;510;1801;11;Interference;2
+96;1;33;1611;20;Slashing;2
+96;1;1064;14962;15;Fighting;5
+96;1;1064;14962;15;Misconduct;10
+96;1;1064;1611;20;Fighting;5
+96;3;542;15053;15;Holding;2
+96;3;817;14283;20;Holding The Stick;2
+96;3;817;14529;15;High Sticking;2
+96;3;974;1611;20;Holding;2
+97;1;117;12427;11;Slashing;2
+97;1;697;13099;11;Holding;2
+97;2;159;694;11;Cross-Checking;2
+97;2;245;12001;23;Hooking;2
+97;2;344;293;23;Hooking;2
+97;2;640;2665;11;Unsportsmanlike Conduct;2
+97;2;801;12391;11;Unsportsmanlike Conduct;2
+97;2;1188;1790;11;Hooking;2
+97;3;123;13510;23;Tripping;2
+98;1;50;1611;20;Hooking;2
+98;1;922;15053;15;Unsportsmanlike Conduct;2
+98;1;938;12508;20;Slashing;2
+98;1;938;14078;15;Slashing;2
+98;3;512;15012;20;Holding;2
+98;3;953;12425;20;Holding;2
+98;3;1022;968;15;Unsportsmanlike Conduct;2
+99;1;50;989;11;Holding;2
+99;1;188;507;23;Interference;2
+99;1;334;1801;11;Cross-Checking;2
+99;1;364;1108;11;Hooking;2
+99;1;368;12061;23;Unsportsmanlike Conduct;2
+99;1;726;293;23;Hooking;2
+99;1;726;13091;11;Cross-Checking;2
+99;1;1049;1251;23;Cross-Checking;2
+99;1;1095;13099;11;Hooking;2
+99;2;99;837;11;Cross-Checking;2
+99;2;135;989;11;Fighting;5
+99;2;135;989;11;Misconduct;10
+99;2;135;12001;23;Fighting;5
+99;2;403;2665;11;Unsportsmanlike Conduct;2
+99;2;648;771;11;Hooking;2
+99;2;836;15134;23;High Sticking;2
+99;3;438;989;11;High Sticking;2
+99;3;484;13091;11;Unsportsmanlike Conduct;2
+99;3;832;837;11;Fighting;5
+99;3;832;1251;23;Fighting;5
+99;3;951;694;11;Tripping;2

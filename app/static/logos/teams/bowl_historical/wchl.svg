@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="WCHL">
+  <circle cx="60" cy="60" r="56" fill="#fa4616"/>
+  <circle cx="60" cy="60" r="56" fill="none" stroke="#000000" stroke-width="6"/>
+  <text x="60" y="68" text-anchor="middle" fill="#ffffff" font-size="24" font-family="Arial, Helvetica, sans-serif" font-weight="700">WCHL</text>
+</svg>

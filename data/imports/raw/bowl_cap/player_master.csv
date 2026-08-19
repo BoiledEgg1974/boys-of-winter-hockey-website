@@ -182,7 +182,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 180;186;186;Stephane;Brochu;;72;185;1967-8-15;Sherbrooke;QC;Canada;;;0;Left;0
 181;15;15;Martin;Brodeur;;74;220;1972-5-6;Montreal;QC;Canada;The United States;;0;Left;0
 13494;219;217;Dmitri;Bykov;;70;169;1977-5-5;Izhevsk;UDM;Russia;;;0;Left;0
-14965;57;16;Marc-André;Bergeron;;70;197;1980-10-13;Ville-Marie;QC;Canada;;;0;Left;0
+14965;16;16;Marc-André;Bergeron;;70;197;1980-10-13;Ville-Marie;QC;Canada;;;0;Left;1
 15466;180;180;Darryl;Bootland;;73;197;1981-11-2;Toronto;ON;Canada;;;0;Right;0
 185;186;186;Paul;Broten;;71;188;1965-10-27;Roseau;MN;The United States;;;0;Right;0
 186;186;186;Paul;Brousseau;;74;203;1973-9-18;Montreal;QC;Canada;;;0;Right;0
@@ -3054,7 +3054,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 14544;23;23;Tyler;Arnason;;71;205;1979-3-16;Shattuck;OK;The United States;Canada;;0;Left;0
 3053;159;159;Miroslav;Michalek;;69;172;1970-1-1;Bratislava;BRA;Slovakia;;;0;Left;0
 3054;167;167;Rick;Morocco;;69;183;1963-2-14;Castellammare di Stabia;CAM;Italy;Canada;;0;Left;0
-14545;57;16;Jaroslav;Balaštík;;75;205;1979-11-28;Zlín;ZLN;Czech Republic;;;0;Left;0
+14545;16;16;Jaroslav;Balaštík;;75;205;1979-11-28;Zlín;ZLN;Czech Republic;;;0;Left;1
 3056;171;171;Janusz;Adamiec;;69;165;1962-4-29;Czestochowa;SLA;Poland;;;0;Left;0
 16068;179;179;Jarret;Stoll;;73;216;1982-6-24;Nipawin;SK;Canada;;;0;Right;0
 3058;186;186;Akihito;Sugisawa;;67;141;1967-7-20;Tokyo;TOK;Japan;;;0;Right;0
@@ -7148,7 +7148,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 15078;16;16;Michael;Ryder;;72;201;1980-3-31;Stephenville;NL;Canada;;;0;Right;0
 15079;24;24;Philippe;Sauvé;;72;188;1980-2-27;Chittenango;NY;The United States;Canada;;0;Left;1
 15080;3;3;Rastislav;Stana;;74;198;1980-1-10;Kosice;KOS;Slovakia;;;0;Left;1
-15081;57;16;Patrik;Stefan;;74;200;1980-9-16;Pribram;STR;Czech Republic;;;0;Left;0
+15081;16;16;Patrik;Stefan;;74;200;1980-9-16;Pribram;STR;Czech Republic;;;0;Left;1
 15082;179;179;Garret;Stroshein;;79;245;1980-4-4;Elk Point;AB;Canada;;;0;Right;0
 15083;158;158;Petr;Svoboda;;75;200;1980-6-20;Jihlava;VYS;Czech Republic;;;0;Right;0
 15084;225;224;David;Tanabe;;73;212;1980-7-19;Oak Park Heights;MN;The United States;;;0;Right;1

@@ -388,7 +388,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 6107;84;84;Dave;Cressman;;73;181;1950-1-2;Kitchener;ON;Canada;;;0;Left;0
 3959;90;90;Ed;Hoekstra;;71;170;1937-11-4;Winnipeg;MB;Canada;;;0;Right;0
 4487;122;122;Lowell;MacDonald;;71;185;1941-8-30;Pictou;NS;Canada;;;0;Right;0
-5241;22;3;Chris;Evans;;69;181;1946-9-14;Toronto;ON;Canada;;;0;Left;0
+5241;3;3;Chris;Evans;;69;181;1946-9-14;Toronto;ON;Canada;;;0;Left;1
 4361;129;122;Jack;Martin;;71;184;1940-11-29;St. Catharines;ON;Canada;;;0;Left;0
 5657;126;119;Len;Fontaine;;67;165;1948-2-25;Richmond;QC;Canada;;;0;Right;0
 5073;9;9;Dennis;Kearns;;69;185;1945-9-27;Kingston;ON;Canada;;;0;Left;0
@@ -436,7 +436,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 5416;130;130;Grant;Erickson;;69;165;1947-4-28;Eston;SK;Canada;;;0;Left;0
 5075;0;0;Andre;Lacroix;;68;175;1945-6-5;Terrebonne;QC;Canada;;;0;Left;0
 5076;90;90;Jean-Guy;Lagace;;70;185;1945-2-5;Gatineau;QC;Canada;;;0;Right;0
-5077;3;3;Randy;Legge;;71;184;1945-12-16;Newmarket;ON;Canada;;;0;Right;1
+5077;22;3;Randy;Legge;;71;184;1945-12-16;Newmarket;ON;Canada;;;0;Right;0
 3962;90;90;Merv;Kuryluk;;71;185;1937-8-10;Yorkton;SK;Canada;;;0;Left;0
 4064;90;90;Jim;Mikol;;72;175;1938-6-11;Kitchener;ON;Canada;;;0;Right;0
 5659;5;5;Barry;Gibbs;Gibby;71;195;1948-9-28;Lac la Biche;AB;Canada;;;0;Right;0
@@ -787,7 +787,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 4379;5;5;Ernie;Wakely;;71;161;1940-11-27;Killarney;MB;Canada;;;0;Left;0
 3980;60;60;Seppo;Nikkilä;;69;172;1936-12-23;Kajaani;KAI;Finland;;;0;Left;0
 3570;90;90;Mike;Nykoluk;;71;212;1934-12-11;Toronto;ON;Canada;;;0;Right;0
-3685;121;121;Willie;O'Ree;;70;181;1935-10-15;Fredericton;NB;Canada;;;0;Left;0
+3685;128;121;Willie;O'Ree;;70;181;1935-10-15;Fredericton;NB;Canada;;;0;Left;0
 3888;90;90;Bob;Courcy;;71;170;1936-10-4;Granby;QC;Canada;;;0;Right;0
 3571;90;90;Dennis;Olson;;72;182;1934-11-9;Kenora;ON;Canada;;;0;Right;0
 3889;90;90;Claude;Dufour;;68;154;1936-8-13;Trois-Rivières;QC;The United States;;;0;Right;0
@@ -1401,7 +1401,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 5914;90;90;Jacques;Lemelin;;70;165;1949-11-11;Richmond;QC;Canada;;;0;Left;1
 5915;90;90;Louis;Levasseur;;70;161;1949-6-16;Roberval;QC;Canada;;;0;Left;0
 5916;27;9;Barry;Long;Marathon Man;74;210;1949-1-3;Rocky View County;AB;Canada;;;0;Left;0
-5687;22;3;John;Marks;;74;200;1948-3-22;Oakbank;MB;Canada;;;0;Left;0
+5687;3;3;John;Marks;;74;200;1948-3-22;Oakbank;MB;Canada;;;0;Left;1
 6147;131;131;Walt;Ledingham;;71;183;1950-10-26;Warman;SK;Canada;;;0;Left;1
 5271;26;8;Gerry;Meehan;;74;201;1946-9-3;Toronto;ON;Canada;;;0;Left;0
 5111;59;59;Lennart;Svedberg;;72;168;1944-2-29;Sundsvall;VäS;Sweden;;;0;Right;0

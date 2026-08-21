@@ -5409,7 +5409,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 13084;230;230;Fernando;Pisani;;73;205;1976-12-27;Elk Point;AB;Canada;Italy;;0;Left;1
 13085;186;186;Jason;Podollan;;74;205;1976-2-18;Whistler;BC;Canada;;;0;Right;0
 13086;62;11;Wayne;Primeau;;76;225;1976-6-4;Toronto;ON;Canada;;;0;Left;0
-13087;220;220;Dale;Purinton;;75;228;1976-10-11;Granger;IN;The United States;;;0;Left;1
+13087;222;220;Dale;Purinton;;75;228;1976-10-11;Granger;IN;The United States;;;0;Left;0
 13088;186;186;Gaétan;Royer;;75;210;1976-3-13;Dégelis;QC;Canada;;;0;Right;0
 13089;9;9;Bryce;Salvador;;75;222;1976-2-11;Carman;MB;Canada;The United States;;0;Left;0
 13090;24;24;Mikael;Samuelsson;;74;218;1976-12-23;Strängnäs;SöD;Sweden;;;0;Right;0
@@ -7564,7 +7564,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 15577;74;23;Mike;Stuart;;72;200;1981-8-31;Spring Park;MN;The United States;;;0;Right;1
 15578;185;185;Damian;Surma;;70;200;1981-1-22;Menominee;MI;The United States;Italy;;0;Left;0
 15579;185;185;Aaron;Voros;;76;201;1981-7-2;Vernon;BC;Canada;;;0;Left;0
-15580;57;16;Kyle;Wanvig;;75;212;1981-1-29;Camrose;AB;Canada;;;0;Right;1
+15580;16;16;Kyle;Wanvig;;75;212;1981-1-29;Camrose;AB;Canada;;;0;Right;1
 15581;185;185;Bobby;Robins;;74;220;1981-10-17;Somers;WI;The United States;;;0;Right;0
 15582;156;156;Arto;Tukio;Tutka;72;190;1981-4-4;Tampere;PIR;Finland;;;0;Left;0
 15583;156;156;Tony;Salmelainen;;69;187;1981-10-8;Espoo;UUS;Finland;;;0;Right;0

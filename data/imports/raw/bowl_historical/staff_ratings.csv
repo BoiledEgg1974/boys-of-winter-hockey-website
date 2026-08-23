@@ -864,7 +864,7 @@ StaffId;Executive;Manager;Coach;Scout;Trainer;Off Pref;Phy Pref;Line Matching;Go
 862;1;1;5;1;20;Offensive;Balanced;Balanced;Balanced;Prefers Veterans;Conservative;Balanced;0;0;0;0;0;0;0;9;0;0;4;0;0;0;16;;0;0
 863;1;1;5;1;20;Offensive;Non-physical;Passive;Very Aggressive;Balanced;Balanced;Ruthless;0;0;0;0;0;0;0;4;0;0;7;0;0;0;19;;0;0
 864;5;10;20;15;1;Offensive;Non-physical;Passive;Balanced;Balanced;Conservative;Loyal;4;11;9;17;4;12;4;8;6;10;7;10;16;7;0;;3;8
-865;5;10;18;20;1;Offensive;Non-physical;Balanced;Balanced;Prefers Veterans;Innovative;Balanced;5;16;3;4;12;7;12;6;12;13;3;17;13;10;0;;14;15
+865;5;10;17;20;1;Offensive;Non-physical;Balanced;Balanced;Prefers Veterans;Innovative;Balanced;5;16;3;4;12;7;12;6;12;13;3;17;13;10;0;;14;15
 866;5;10;20;15;1;Standard;Balanced;Balanced;Aggressive;Prefers Veterans;Innovative;Balanced;12;5;5;16;8;4;4;9;10;7;3;9;7;13;0;;2;5
 867;5;10;20;15;1;Offensive;Balanced;Balanced;Aggressive;Balanced;Innovative;Loyal;8;12;5;4;11;10;5;4;8;10;4;5;20;11;0;;15;2
 868;5;10;20;15;1;Standard;Balanced;Balanced;Aggressive;Prefers Prospects;Very Conservative;Balanced;11;5;13;17;11;17;4;5;6;7;2;7;11;16;0;;2;8
@@ -996,7 +996,7 @@ StaffId;Executive;Manager;Coach;Scout;Trainer;Off Pref;Phy Pref;Line Matching;Go
 994;10;15;15;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;6;6;6;6;6;6;6;6;6;6;6;6;6;6;0;;14;14
 995;10;15;15;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;7;7;7;7;7;7;7;7;7;7;7;7;7;7;0;;14;14
 996;1;15;15;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;5;5;5;5;5;5;5;5;5;5;5;5;5;5;0;;16;16
-997;10;15;18;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;9;9;9;9;9;9;9;3;9;10;6;5;9;9;0;;14;14
+997;10;15;17;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;9;9;9;9;9;9;9;3;9;10;6;5;9;9;0;;14;14
 998;1;10;10;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;3;3;3;3;3;3;3;3;3;3;3;3;3;3;0;;14;14
 999;10;15;15;20;1;Standard;Physical;Balanced;Balanced;Prefers Veterans;Balanced;Balanced;13;13;13;13;13;13;13;13;13;13;13;13;13;13;0;;16;15
 1000;20;5;1;1;1;Standard;Balanced;Passive;Balanced;Balanced;Balanced;Balanced;0;0;0;0;0;0;0;3;0;3;3;3;0;0;0;;10;10

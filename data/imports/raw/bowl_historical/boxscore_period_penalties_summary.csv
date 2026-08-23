@@ -6703,3 +6703,58 @@ Game Id;Period;Time;Player;TeamId;Penalty;Minutes
 10312;1;743;5918;8;Slashing;2
 10312;2;288;4351;8;Bench;0
 10312;2;407;5239;118;High Sticking;2
+10313;1;493;4601;3;Holding;2
+10313;1;537;5854;0;Unsportsmanlike Conduct;2
+10313;1;576;4041;3;Hooking;2
+10313;2;436;4941;0;Holding The Stick;2
+10313;2;436;5414;3;Cross-Checking;2
+10313;2;665;4495;3;High Sticking;2
+10313;2;665;4044;0;Roughing;2
+10313;2;1122;4349;0;High Sticking;2
+10313;2;1160;4601;3;High Sticking;2
+10313;3;329;4160;0;Unsportsmanlike Conduct;2
+10313;3;909;5475;0;Fighting;5
+10313;3;909;4138;3;Fighting;5
+10313;3;1159;4601;3;Interference;2
+10314;1;487;4139;9;Holding;2
+10314;1;606;4158;10;Holding;2
+10314;1;860;3695;9;Holding;2
+10314;2;48;5109;9;Hooking;2
+10314;2;302;5282;10;Unsportsmanlike Conduct;2
+10314;2;326;4376;9;Hooking;2
+10314;2;770;5951;10;Roughing;2
+10314;3;504;3885;10;Cross-Checking;2
+10314;3;545;4376;9;Cross-Checking;2
+10314;3;658;4367;10;Unsportsmanlike Conduct;2
+10314;3;1072;4723;9;Unsportsmanlike Conduct;2
+10314;3;1129;5461;10;Holding;2
+10315;1;623;5444;8;Roughing;2
+10315;1;983;6163;8;Cross-Checking;2
+10315;2;332;5296;8;Fighting;5
+10315;2;332;5715;118;Fighting;5
+10315;3;168;5273;8;Holding;2
+10315;3;1108;5701;8;Bench;0
+10316;1;2;5265;0;Tripping;2
+10316;1;27;4941;0;High Sticking;2
+10316;1;57;4041;3;Cross-Checking;2
+10316;1;291;5075;0;Holding;2
+10316;1;471;4495;3;Fighting;5
+10316;1;471;5265;0;Fighting;5
+10316;1;480;4601;3;Hooking;2
+10316;1;993;4601;3;Roughing;2
+10316;2;445;5443;0;Slashing;2
+10316;2;635;5241;3;Interference;2
+10316;3;1193;5417;3;Slashing;2
+10317;1;789;5288;8;Roughing;2
+10317;1;789;5088;118;Cross-Checking;2
+10317;1;890;5871;118;Fighting;5
+10317;1;890;5871;118;Misconduct;10
+10317;1;890;5918;8;Fighting;5
+10317;1;1007;5477;118;Tripping;2
+10317;3;1075;5703;118;Unsportsmanlike Conduct;2
+10318;1;54;4752;118;Hooking;2
+10318;1;177;6163;8;Holding;2
+10318;1;1010;5680;8;Unsportsmanlike Conduct;2
+10318;3;203;4761;118;Tripping;2
+10318;3;966;5273;8;Fighting;5
+10318;3;966;4761;118;Fighting;5

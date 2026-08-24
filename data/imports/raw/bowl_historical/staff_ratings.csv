@@ -824,7 +824,7 @@ StaffId;Executive;Manager;Coach;Scout;Trainer;Off Pref;Phy Pref;Line Matching;Go
 822;5;10;20;15;1;Standard;Non-physical;Balanced;Aggressive;Prefers Veterans;Balanced;Balanced;7;6;15;7;7;12;17;9;8;4;4;14;12;7;0;;3;3
 823;5;10;20;15;1;Offensive;Non-physical;Aggressive;Very Conservative;Prefers Prospects;Conservative;Balanced;15;11;5;4;5;12;16;9;8;3;4;5;7;11;0;;7;3
 824;5;10;20;15;1;Offensive;Balanced;Balanced;Very Conservative;Balanced;Balanced;Balanced;14;14;3;3;9;17;18;5;10;5;9;13;13;8;0;;10;3
-825;10;20;16;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;9;9;9;9;9;9;9;7;9;6;14;7;9;9;0;;14;14
+825;10;20;15;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;9;9;9;9;9;9;9;7;9;6;14;7;9;9;0;;14;14
 826;10;15;20;15;1;Standard;Non-physical;Passive;Aggressive;Balanced;Balanced;Balanced;4;4;7;16;3;10;3;5;4;3;1;4;7;6;0;;13;9
 827;10;15;20;15;1;Offensive;Non-physical;Passive;Balanced;Loves Veterans;Conservative;Very Loyal;10;17;9;14;8;10;14;4;15;6;2;9;14;3;0;;4;3
 828;10;15;20;15;1;Offensive;Physical;Aggressive;Aggressive;Prefers Veterans;Very Conservative;Loyal;4;10;15;3;4;17;11;3;4;4;9;12;13;12;0;;12;7

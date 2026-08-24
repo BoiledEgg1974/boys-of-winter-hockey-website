@@ -17,14 +17,14 @@ TeamId;LeagueId;Name;Nickname;Abbr;Parent Team 1;Parent Team 2;Parent Team 3;Par
 21;0;New Jersey;Devils;NJD;-1;-1;-1;-1;-1;-1;-1;-1;#c8102e;#000000;#fefef4;0;1
 22;0;Washington;Capitals;WAS;-1;-1;-1;-1;-1;-1;-1;-1;#236192;#000000;#fefef4;0;2
 23;0;Edmonton;Oilers;EDM;-1;-1;-1;-1;-1;-1;-1;-1;#041e42;#8f654d;#fefef4;1;2
-24;0;Carolina;Hurricanes;CAR;-1;-1;-1;-1;-1;-1;-1;-1;#c8102e;#000000;#fefef4;0;2
+24;0;Carolina;Hurricanes;CAR;-1;-1;-1;-1;-1;-1;-1;-1;#c8102e;#00205b;#fefef4;0;2
 25;0;Colorado;Avalanche;COL;-1;-1;-1;-1;-1;-1;-1;-1;#6f263d;#236192;#fefef4;1;2
 26;0;Phoenix;Coyotes;PHX;-1;-1;-1;-1;-1;-1;-1;-1;#862633;#154734;#fefef4;1;1
 51;3;Independent;Team;Ind;0;-1;-1;-1;-1;-1;-1;-1;#c60000;#0031ad;#fefef4;-1;0
 54;3;Independent;Team;Ind;3;-1;-1;-1;-1;-1;-1;-1;#000000;#000000;#fefef4;-1;0
 56;3;Independent;Team;Ind;5;-1;-1;-1;-1;-1;-1;-1;#000000;#ffb81c;#fefef4;-1;0
 57;3;Independent;Team;Ind;16;-1;-1;-1;-1;-1;-1;-1;#003087;#003a70;#fefef4;-1;1
-59;3;Chicago;Team;Ind;8;-1;-1;-1;-1;-1;-1;-1;#0c2340;#ffc72c;#fefef4;-1;1
+59;3;Independent;Team;Ind;8;-1;-1;-1;-1;-1;-1;-1;#0c2340;#ffc72c;#fefef4;-1;1
 60;3;Independent;Team;Ind;9;-1;-1;-1;-1;-1;-1;-1;#00685e;#4b3048;#fefef4;-1;0
 61;3;Independent;Team;Ind;10;-1;-1;-1;-1;-1;-1;-1;#000000;#000000;#fefef4;-1;1
 62;3;Independent;Team;Ind;11;-1;-1;-1;-1;-1;-1;-1;#000000;#000000;#fefef4;-1;0
@@ -38,8 +38,8 @@ TeamId;LeagueId;Name;Nickname;Abbr;Parent Team 1;Parent Team 2;Parent Team 3;Par
 72;3;Independent;Team;Ind;21;-1;-1;-1;-1;-1;-1;-1;#000000;#000000;#fefef4;-1;0
 73;3;Independent;Team;Ind;22;-1;-1;-1;-1;-1;-1;-1;#000000;#000000;#fefef4;-1;0
 74;3;Independent;Team;Ind;23;-1;-1;-1;-1;-1;-1;-1;#041e42;#c8102e;#fefef4;-1;0
-75;3;Independent;Team;Ind;24;-1;-1;-1;-1;-1;-1;-1;#cd110b;#000000;#ecb036;-1;0
-76;3;Colorado;Team;Ind;25;-1;-1;-1;-1;-1;-1;-1;#572932;#572932;#fefef4;-1;0
+75;3;Independent;Team;Ind;24;-1;-1;-1;-1;-1;-1;-1;#582c83;#c8102e;#fefef4;-1;0
+76;3;Independent;Team;Ind;25;-1;-1;-1;-1;-1;-1;-1;#572932;#572932;#fefef4;-1;0
 77;3;Independent;Team;Ind;26;-1;-1;-1;-1;-1;-1;-1;#0083af;#000000;#e8e12d;-1;0
 154;5;Germany;;GER;-1;-1;-1;-1;-1;-1;-1;-1;#000000;#f7c610;#fefef4;-1;-1
 155;5;Sweden;;SWE;-1;-1;-1;-1;-1;-1;-1;-1;#006aa7;#006aa7;#ffef00;-1;-1
@@ -71,7 +71,7 @@ TeamId;LeagueId;Name;Nickname;Abbr;Parent Team 1;Parent Team 2;Parent Team 3;Par
 181;6;QMJHL;;QMJHL;-1;-1;-1;-1;-1;-1;-1;-1;#0065bd;#d52b1e;#fefef4;-1;-1
 182;6;Junior A;;JrA;-1;-1;-1;-1;-1;-1;-1;-1;#2c5234;#f2c711;#fefef4;-1;-1
 183;6;High School;;HIG;-1;-1;-1;-1;-1;-1;-1;-1;#c60c30;#002147;#fefef4;-1;-1
-184;7;Canadian University;;CIAU;-1;-1;-1;-1;-1;-1;-1;-1;#c8102e;#c8102e;#fefef4;-1;-1
+184;7;Canadian University;;CIS;-1;-1;-1;-1;-1;-1;-1;-1;#c8102e;#c8102e;#fefef4;-1;-1
 185;7;US College;;NCAA;-1;-1;-1;-1;-1;-1;-1;-1;#0033a0;#c8102e;#fefef4;-1;-1
 186;3;Independent;Team;Indep;-1;-1;-1;-1;-1;-1;-1;-1;#bc2329;#bc2329;#fefef4;-1;0
 187;5;Belgium;;BEL;-1;-1;-1;-1;-1;-1;-1;-1;#000000;#e84c40;#f7c610;-1;-1
@@ -89,12 +89,12 @@ TeamId;LeagueId;Name;Nickname;Abbr;Parent Team 1;Parent Team 2;Parent Team 3;Par
 220;0;Anaheim;Mighty Ducks;ANA;-1;-1;-1;-1;-1;-1;-1;-1;#00685e;#512a44;#a2aaad;1;1
 221;0;Florida;Panthers;FLA;-1;-1;-1;-1;-1;-1;-1;-1;#c8102e;#041e42;#ffc72c;0;2
 222;3;Independent;Team;Ind;220;-1;-1;-1;-1;-1;-1;-1;#00685e;#512a44;#fefef4;-1;1
-223;3;Florida;Team;Ind;221;-1;-1;-1;-1;-1;-1;-1;#0c2340;#e4002b;#fefef4;-1;1
+223;3;Independent;Team;Ind;221;-1;-1;-1;-1;-1;-1;-1;#572932;#572932;#fefef4;-1;1
 224;0;Nashville;Predators;NAS;-1;-1;-1;-1;-1;-1;-1;-1;#041e42;#ffc72c;#fefef4;1;0
-225;3;Milwaukee;Admirals;MIL;224;-1;-1;-1;-1;-1;-1;-1;#001a72;#862633;#fefef4;-1;1
+225;3;Independent;Team;Ind;224;-1;-1;-1;-1;-1;-1;-1;#001a72;#862633;#fefef4;-1;1
 227;0;Atlanta;Thrashers;ATL;-1;-1;-1;-1;-1;-1;-1;-1;#041e42;#862633;#ffa300;0;2
-228;3;Orlando;Solar Bears;ORL;227;-1;-1;-1;-1;-1;-1;-1;#5c068c;#00778b;#fefef4;-1;1
-229;0;Columbus;Blue Jackets;CBJ;-1;-1;-1;-1;-1;-1;-1;-1;#041e42;#c8102e;#fefef4;1;0
+228;3;Chicago;Wolves;CHI;227;-1;-1;-1;-1;-1;-1;-1;#862633;#000000;#f2a900;-1;1
+229;0;Columbus;Blue Jackets;CBS;-1;-1;-1;-1;-1;-1;-1;-1;#041e42;#c8102e;#fefef4;1;0
 230;0;Minnesota;Wild;MIN;-1;-1;-1;-1;-1;-1;-1;-1;#154734;#a6192e;#ddcba4;1;2
-231;3;Independent;Team;Ind;-1;-1;-1;-1;-1;-1;-1;-1;#041e42;#c8102e;#fefef4;-1;0
-232;3;Cleveland;Lumberjacks;CLE;230;-1;-1;-1;-1;-1;-1;-1;#000000;#000000;#fefef4;-1;0
+231;3;Independent;Team;Ind;229;-1;-1;-1;-1;-1;-1;-1;#041e42;#c8102e;#fefef4;-1;0
+232;3;Independent;Team;Ind;230;-1;-1;-1;-1;-1;-1;-1;#000000;#000000;#fefef4;-1;0

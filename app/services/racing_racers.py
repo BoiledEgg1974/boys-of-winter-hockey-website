@@ -187,17 +187,31 @@ def add_manual_alias(session: Session, racer_id: int, alias: str) -> RacingNameA
     return row
 
 
-DEFAULT_ROSTER_TXT_PATHS: dict[str, str] = {
-    "bowl-formula": r"C:\Users\keeno\OneDrive\Desktop\Formula BOWL\game\data\roster.txt",
-    "bowl-demolition": r"C:\Users\keeno\OneDrive\Desktop\BOWL Demotion Derby\names\roster.txt",
+DEFAULT_ROSTER_TXT_PATHS: dict[str, tuple[str, ...]] = {
+    "bowl-formula": (
+        r"C:\Users\keeno\Projects\Formula BOWL\game\data\roster.txt",
+        r"C:\Users\keeno\OneDrive\Desktop\Formula BOWL\game\data\roster.txt",
+    ),
+    "bowl-demolition": (
+        r"C:\Users\keeno\Projects\BOWL Demotion Derby\names\roster.txt",
+        r"C:\Users\keeno\OneDrive\Desktop\BOWL Demotion Derby\names\roster.txt",
+    ),
 }
 
 
 def default_roster_txt_path(league_slug: str) -> Path:
     slug = str(league_slug or "").strip()
     env_key = f"BOWL_RACING_ROSTER_{slug.replace('-', '_').upper()}"
-    raw = (os.environ.get(env_key) or DEFAULT_ROSTER_TXT_PATHS.get(slug) or "").strip().strip('"')
-    return Path(raw).expanduser() if raw else Path()
+    env_val = (os.environ.get(env_key) or "").strip().strip('"')
+    candidates: list[Path] = []
+    if env_val:
+        candidates.append(Path(env_val).expanduser())
+    defaults = DEFAULT_ROSTER_TXT_PATHS.get(slug) or ()
+    candidates.extend(Path(p).expanduser() for p in defaults)
+    for path in candidates:
+        if path.is_file():
+            return path
+    return candidates[0] if candidates else Path()
 
 
 def parse_roster_txt(path: Path) -> list[dict[str, object]]:

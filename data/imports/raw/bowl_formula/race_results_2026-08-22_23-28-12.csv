@@ -1,0 +1,21 @@
+race,track,position,grid_start,number,driver,controller,gear,wear,lap,finished,eliminated,summary
+1,Valencia,1,12,33,Joey,Joey_BOWL,3,10,2,true,false,FINISHED L2
+1,Valencia,2,10,67,Randy,ClutchRandy,6,9,2,true,false,FINISHED L2
+1,Valencia,3,8,36,Oilempire,OilEmpireGaming,6,8,2,true,false,FINISHED L2
+1,Valencia,4,2,12,Lilboiloui,AI,4,5,2,true,false,FINISHED L2
+1,Valencia,5,15,24,Skyvendrake,AI,4,3,2,true,false,FINISHED L2
+1,Valencia,6,16,19,Connor,AI,4,8,2,true,false,FINISHED L2
+1,Valencia,7,1,4,GreedyFish,AI,4,12,2,true,false,FINISHED L2
+1,Valencia,8,14,3,Faarmerryan,AI,2,6,2,true,false,FINISHED L2
+1,Valencia,9,20,6,MachoMike,AI,4,0,1,false,true,OUT (wear)
+1,Valencia,10,3,17,Yammyhotspur,AI,4,0,1,false,true,OUT (wear)
+1,Valencia,11,13,9,Mcdoublehero,AI,1,0,1,false,true,OUT (wear)
+1,Valencia,12,4,66,Nick,AI,2,0,1,false,true,OUT (wear)
+1,Valencia,13,11,1,Choog,AI,1,0,0,false,true,OUT (wear)
+1,Valencia,14,7,14,Mrmuffn,AI,1,0,0,false,true,OUT (wear)
+1,Valencia,15,6,21,Senpai,AI,4,0,1,false,true,OUT (wear)
+1,Valencia,16,18,10,Caper,AI,1,0,0,false,true,OUT (wear)
+1,Valencia,17,17,5,Parchie,AI,1,0,0,false,true,OUT (wear)
+1,Valencia,18,9,31,RJ,AI,2,0,0,false,true,OUT (wear)
+1,Valencia,19,19,26,Stlrs,AI,1,0,0,false,true,OUT (wear)
+1,Valencia,20,5,7,Fkncommish,AI,2,0,0,false,true,OUT (wear)

@@ -6,6 +6,7 @@
   <h1 class="page-title">CSV + roster import</h1>
   <p class="muted">Upload Godot <strong>EXPORT CSV</strong> files (and optional <code>roster.txt</code>), or place them in the league raw import folder and scan.</p>
   <p class="muted">Each import links <code>roster.txt</code> first (from this folder, or the Desktop game path) so driver names resolve, then imports CSVs.</p>
+  <p class="muted">Only the newest file of each kind is applied (by the timestamp in the filename). Older sample exports stay on disk but are ignored.</p>
   <form method="post" enctype="multipart/form-data" class="stack-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="upload">

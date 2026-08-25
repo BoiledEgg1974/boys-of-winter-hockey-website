@@ -23,10 +23,10 @@ from app.services.racing_csv import (
     cell_int,
     classify_export_filename,
     formula_circuit_points_for_position,
-    list_export_csvs,
     normalize_name_key,
     parse_export_stamp,
     read_csv_dicts,
+    select_latest_export_csvs,
 )
 from app.services.racing_racers import resolve_racer_by_name
 from app.services.racing_rewards import (
@@ -451,23 +451,11 @@ def _import_channel_points(
                 RacingCircuitStanding.driver_key == key,
             ).limit(1)
         )
-        pts = cell_int(row, "channel_points")
         if standing is None:
-            racer = resolve_racer_by_name(session, driver)
-            standing = RacingCircuitStanding(
-                circuit_id=int(circuit.id),
-                racer_id=int(racer.id) if racer else None,
-                driver_key=key,
-                driver_name=driver,
-                rank=cell_int(row, "rank"),
-                points=0,
-                channel_points=pts,
-            )
-            session.add(standing)
-        else:
-            standing.channel_points = pts
-            if cell_int(row, "rank"):
-                standing.rank = cell_int(row, "rank")
+            # Do not create standings from CP-only files — leftover sample CSVs
+            # (Alice/Bob/Carol) would reappear as circuit leaders after a real import.
+            continue
+        standing.channel_points = cell_int(row, "channel_points")
         updated += 1
     _mark_batch(
         session,
@@ -628,8 +616,8 @@ def import_all_from_raw_dir(session: Session, *, league_slug: str | None = None)
         except Exception as exc:
             results.append({"kind": "roster", "file": "roster.txt", "error": str(exc)})
 
-    # Process standings after results when possible
-    files = list_export_csvs(raw_dir)
+    # Newest file of each kind only — leftover sample CSVs must not re-apply.
+    files = select_latest_export_csvs(raw_dir)
     priority = {
         "race_results": 10,
         "event_results": 10,

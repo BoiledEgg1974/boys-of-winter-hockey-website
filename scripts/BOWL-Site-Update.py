@@ -62,14 +62,26 @@ HOCKEY_LEAGUE_SLUGS = ("bowl-historical", "bowl-fantasy", "bowl-cap")
 RACING_LEAGUE_SLUGS = ("bowl-formula", "bowl-demolition")
 LEAGUE_SLUGS = HOCKEY_LEAGUE_SLUGS + RACING_LEAGUE_SLUGS
 
-# Desktop game export folders (CSV dumps). Override with env if paths move.
-DEFAULT_RACING_EXPORT_SOURCES: dict[str, str] = {
-    "bowl-formula": r"C:\Users\keeno\OneDrive\Desktop\Formula BOWL\exports",
-    "bowl-demolition": r"C:\Users\keeno\OneDrive\Desktop\BOWL Demotion Derby\exports",
+# Game export folders. First existing path wins (Projects checkout, then Desktop).
+DEFAULT_RACING_EXPORT_SOURCES: dict[str, tuple[str, ...]] = {
+    "bowl-formula": (
+        r"C:\Users\keeno\Projects\Formula BOWL\exports",
+        r"C:\Users\keeno\OneDrive\Desktop\Formula BOWL\exports",
+    ),
+    "bowl-demolition": (
+        r"C:\Users\keeno\Projects\BOWL Demotion Derby\exports",
+        r"C:\Users\keeno\OneDrive\Desktop\BOWL Demotion Derby\exports",
+    ),
 }
-DEFAULT_RACING_ROSTER_SOURCES: dict[str, str] = {
-    "bowl-formula": r"C:\Users\keeno\OneDrive\Desktop\Formula BOWL\game\data\roster.txt",
-    "bowl-demolition": r"C:\Users\keeno\OneDrive\Desktop\BOWL Demotion Derby\names\roster.txt",
+DEFAULT_RACING_ROSTER_SOURCES: dict[str, tuple[str, ...]] = {
+    "bowl-formula": (
+        r"C:\Users\keeno\Projects\Formula BOWL\game\data\roster.txt",
+        r"C:\Users\keeno\OneDrive\Desktop\Formula BOWL\game\data\roster.txt",
+    ),
+    "bowl-demolition": (
+        r"C:\Users\keeno\Projects\BOWL Demotion Derby\names\roster.txt",
+        r"C:\Users\keeno\OneDrive\Desktop\BOWL Demotion Derby\names\roster.txt",
+    ),
 }
 RACING_RAW_DIRS: dict[str, str] = {
     "bowl-formula": "bowl_formula",
@@ -169,17 +181,33 @@ def _commit_and_push_local_changes() -> None:
     print("Git push complete.")
 
 
+def _first_existing_path(candidates: tuple[str, ...] | str, *, env_key: str) -> Path | None:
+    """Prefer an explicit env override, then the first candidate that exists."""
+    env_val = (os.environ.get(env_key) or "").strip().strip('"')
+    paths: list[Path] = []
+    if env_val:
+        paths.append(Path(env_val).expanduser())
+    if isinstance(candidates, str):
+        paths.append(Path(candidates).expanduser())
+    else:
+        paths.extend(Path(p).expanduser() for p in candidates)
+    for path in paths:
+        if path.exists():
+            return path
+    return paths[0] if paths else None
+
+
 def _copy_racing_csvs_from_exports() -> list[str]:
-    """Copy *.csv from Desktop export folders into data/imports/raw when sources exist."""
+    """Copy *.csv from game export folders into data/imports/raw when sources exist."""
     copied: list[str] = []
-    for slug, default_src in DEFAULT_RACING_EXPORT_SOURCES.items():
+    for slug, defaults in DEFAULT_RACING_EXPORT_SOURCES.items():
         env_key = f"BOWL_RACING_EXPORT_{slug.replace('-', '_').upper()}"
-        src = Path((os.environ.get(env_key) or default_src).strip().strip('"')).expanduser()
+        src = _first_existing_path(defaults, env_key=env_key)
         raw_name = RACING_RAW_DIRS.get(slug)
         if not raw_name:
             continue
         dst = RAW_ROOT / raw_name
-        if not src.is_dir():
+        if src is None or not src.is_dir():
             print(f"- {slug}: export folder not found ({src}); using existing raw CSVs if any.")
             continue
         files = sorted(src.glob("*.csv"))
@@ -197,14 +225,14 @@ def _copy_racing_csvs_from_exports() -> list[str]:
 def _copy_racing_roster_txt() -> list[str]:
     """Copy game roster.txt into each racing raw import folder when present."""
     copied: list[str] = []
-    for slug, default_src in DEFAULT_RACING_ROSTER_SOURCES.items():
+    for slug, defaults in DEFAULT_RACING_ROSTER_SOURCES.items():
         env_key = f"BOWL_RACING_ROSTER_{slug.replace('-', '_').upper()}"
-        src = Path((os.environ.get(env_key) or default_src).strip().strip('"')).expanduser()
+        src = _first_existing_path(defaults, env_key=env_key)
         raw_name = RACING_RAW_DIRS.get(slug)
         if not raw_name:
             continue
         dst = RAW_ROOT / raw_name
-        if not src.is_file():
+        if src is None or not src.is_file():
             print(f"- {slug}: roster.txt not found ({src}); using existing raw roster if any.")
             continue
         dst.mkdir(parents=True, exist_ok=True)
@@ -340,7 +368,7 @@ def main() -> int:
     if HISTORY_SHEET_EXTRAS.is_file():
         _run([sys.executable, str(HISTORY_SHEET_EXTRAS), "bowl-historical"], env=env)
 
-    # 4) Formula / Demolition: copy Desktop exports when present, then import racing CSVs.
+    # 4) Formula / Demolition: copy game exports when present, then import racing CSVs.
     if args.no_racing:
         print("Skipping Formula/Demolition racing imports (--no-racing).")
     else:

@@ -22,18 +22,22 @@ def parse_export_stamp(filename: str) -> str | None:
 
 def classify_export_filename(filename: str) -> str | None:
     name = Path(filename).name.lower()
+    # Longer / Godot EXPORT CSV prefixes first so they do not collide with shorter names.
     mapping = (
         ("race_results_", "race_results"),
         ("qualifying_standings_", "qualifying_standings"),
         ("circuit_standings_", "circuit_standings"),
-        ("channel_points_", "channel_points"),
         ("race_channel_points_", "race_channel_points"),
+        ("channel_points_", "channel_points"),
         ("viewer_finish_awards_", "viewer_finish_awards"),
+        ("viewer_race_ap_", "viewer_finish_awards"),
         ("viewer_credit_ledger_", "viewer_credit_ledger"),
+        ("viewer_ap_ledger_", "viewer_credit_ledger"),
         ("event_results_", "event_results"),
         ("kill_awards_", "kill_awards"),
         ("season_standings_", "season_standings"),
         ("circuit_ap_awards_", "circuit_ap_awards"),
+        ("viewer_circuit_ap_", "circuit_ap_awards"),
         ("viewer_credits_", "viewer_credits"),
     )
     for prefix, kind in mapping:
@@ -112,6 +116,28 @@ def list_export_csvs(raw_dir: Path) -> list[Path]:
         [p for p in raw_dir.iterdir() if p.is_file() and p.suffix.lower() == ".csv"],
         key=lambda p: p.name.lower(),
     )
+
+
+def _export_recency_key(filename: str) -> tuple[str, str]:
+    stamp = parse_export_stamp(filename) or ""
+    return (stamp, Path(filename).name.lower())
+
+
+def select_latest_export_csvs(raw_dir: Path) -> list[Path]:
+    """Keep only the newest stamped file of each export kind.
+
+    Scanning the whole raw folder used to re-apply leftover sample CSVs (Alice/Bob/Carol)
+    after a real Godot EXPORT, which put placeholder drivers back on the homepage.
+    """
+    latest: dict[str, Path] = {}
+    for path in list_export_csvs(raw_dir):
+        kind = classify_export_filename(path.name)
+        if kind is None:
+            continue
+        current = latest.get(kind)
+        if current is None or _export_recency_key(path.name) > _export_recency_key(current.name):
+            latest[kind] = path
+    return list(latest.values())
 
 
 def group_rows_by(rows: Iterable[dict[str, str]], key: str) -> dict[str, list[dict[str, str]]]:

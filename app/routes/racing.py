@@ -277,10 +277,11 @@ def admin_racers():
             if action == "sync":
                 stats = sync_racers_from_cap(db.session, include_historical_only=True)
                 commit_with_sqlite_retry(db.session)
-                flash(
-                    f"Synced racers — created {stats['created']}, updated {stats['updated']}, skipped {stats['skipped']}.",
-                    "success",
-                )
+                msg = f"Mapped {stats['updated']} racer(s) to GM profiles."
+                unmatched = stats.get("unmatched") or []
+                if unmatched:
+                    msg += " Unmatched: " + ", ".join(str(n) for n in unmatched)
+                flash(msg, "success")
             elif action == "link_roster":
                 roster_path = default_roster_txt_path(_slug())
                 custom = (request.form.get("roster_path") or "").strip().strip('"')

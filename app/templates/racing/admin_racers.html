@@ -5,11 +5,10 @@
   <p><a href="{{ url_for('racing.admin_home') }}">&larr; Racing admin</a></p>
   <h1 class="page-title">Racer roster</h1>
   <p class="muted">
-    Cap / Historical GMs are site members on Formula and Demolition automatically.
-    Sync pulls Cap (+ Historical-only) identities for AP links. Imports re-link
-    <code>roster.txt</code> (aliases, optional stubs, and leftover stubs not on the file).
-    Use <strong>Remove</strong> on a row to delete someone immediately. Linking the file
-    does not drop Cap/Historical GMs who are not on the game roster.
+    <strong>Sync from Cap GMs</strong> maps existing roster names onto site GM accounts
+    (Discord nicknames like ClutchRandy → Randy) and fills Default AP link. You do not
+    need to Save each row after that. Unmatched racers stay as stubs. Use
+    <strong>Remove</strong> to delete a racer.
   </p>
   <form method="post" style="margin-bottom:0.75rem;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

@@ -19,6 +19,97 @@ from app.racing_models import (
 from app.services.racing_csv import normalize_name_key
 from app.site_models import GmLeagueMembership, User
 
+_COMPACT_RE = re.compile(r"[^a-z0-9]+")
+
+
+def compact_identity_key(name: str) -> str:
+    text = (name or "").strip().lower().replace("$", "s")
+    return _COMPACT_RE.sub("", text)
+
+
+def identity_keys(*names: str) -> set[str]:
+    """Comparable tokens for roster names vs Discord / usernames."""
+    keys: set[str] = set()
+    for raw in names:
+        text = str(raw or "").strip()
+        if not text or text.lower().startswith("deleted user"):
+            continue
+        norm = normalize_name_key(text)
+        compact = compact_identity_key(text)
+        if norm:
+            keys.add(norm)
+        if compact:
+            keys.add(compact)
+            stripped = re.sub(r"\d+$", "", compact)
+            if stripped:
+                keys.add(stripped)
+        tokens = re.findall(r"[a-z0-9]+", norm)
+        if len(tokens) >= 2:
+            keys.add("".join(tokens))
+            if len(tokens[-1]) >= 4:
+                keys.add(tokens[-1])
+    return {k for k in keys if len(k) >= 2}
+
+
+def _one_edit_apart(left: str, right: str) -> bool:
+    if left == right:
+        return True
+    if abs(len(left) - len(right)) > 1:
+        return False
+    if len(left) == len(right):
+        return sum(a != b for a, b in zip(left, right)) == 1
+    if len(left) > len(right):
+        left, right = right, left
+    i = 0
+    for ch in right:
+        if i < len(left) and left[i] == ch:
+            i += 1
+    return i == len(left)
+
+
+def identity_match_score(racer_names: list[str], gm_names: list[str]) -> int:
+    racer_compact = compact_identity_key(racer_names[0] if racer_names else "")
+    gm_compact = compact_identity_key(gm_names[0] if gm_names else "")
+    racer_keys = identity_keys(*racer_names)
+    gm_keys = identity_keys(*gm_names)
+    if not racer_compact or not gm_compact:
+        return 0
+    if racer_compact == gm_compact:
+        return 100
+    if racer_keys & gm_keys:
+        return 90
+    if len(racer_compact) >= 4 and (
+        gm_compact.startswith(racer_compact) or gm_compact.endswith(racer_compact)
+    ):
+        return 80
+    if len(racer_compact) >= 3 and gm_compact.startswith(racer_compact):
+        return 70
+    if min(len(racer_compact), len(gm_compact)) >= 8 and _one_edit_apart(racer_compact, gm_compact):
+        return 60
+    return 0
+
+
+def assign_racers_to_gms(
+    racers: list[tuple[int, list[str]]],
+    gms: list[tuple[int, list[str]]],
+) -> dict[int, int]:
+    """Map racer id -> GM user id using unique best identity scores."""
+    pairs: list[tuple[int, int, int]] = []
+    for racer_id, racer_names in racers:
+        for gm_id, gm_names in gms:
+            score = identity_match_score(racer_names, gm_names)
+            if score:
+                pairs.append((score, racer_id, gm_id))
+    pairs.sort(key=lambda item: (-item[0], item[1], item[2]))
+    chosen: dict[int, int] = {}
+    used_gms: set[int] = set()
+    for _score, racer_id, gm_id in pairs:
+        if racer_id in chosen or gm_id in used_gms:
+            continue
+        chosen[racer_id] = gm_id
+        used_gms.add(gm_id)
+    return chosen
+
 
 def resolve_racer_by_name(session: Session, name: str) -> RacingRacer | None:
     key = normalize_name_key(name)
@@ -57,118 +148,91 @@ def sync_racers_from_cap(
     session: Session,
     *,
     include_historical_only: bool = True,
-) -> dict[str, int]:
-    """Seed/update racers from active Cap GMs; optionally add Historical-only GMs.
+) -> dict[str, object]:
+    """Attach Formula roster stubs to Cap / Historical GM site users.
 
-    No duplicate ``user_id``. Existing racers keep their display name / AP link
-    unless newly created.
+    Matches Discord / usernames onto existing racer names. Does not create extra
+    GM-only rows for people who are not on the game roster.
     """
-    created = 0
-    updated = 0
-    skipped = 0
+    del include_historical_only  # kept for callers; Hist is used as AP fallback.
+    return link_racers_to_gm_profiles(session)
 
-    cap_memberships = list(
-        session.scalars(
+
+def link_racers_to_gm_profiles(session: Session) -> dict[str, object]:
+    """Set ``user_id`` / default Cap (else Historical) AP team on roster racers."""
+    racers = list(session.scalars(select(RacingRacer)).all())
+    aliases = list(session.scalars(select(RacingNameAlias)).all())
+    aliases_by_racer: dict[int, list[str]] = {}
+    for alias in aliases:
+        aliases_by_racer.setdefault(int(alias.racer_id), []).append(alias.alias)
+
+    users = list(session.scalars(select(User)).all())
+    cap_by_user = {
+        int(m.user_id): m
+        for m in session.scalars(
             select(GmLeagueMembership).where(
                 GmLeagueMembership.league_slug == "bowl-cap",
                 GmLeagueMembership.status == "active",
             )
         ).all()
-    )
-    hist_memberships = list(
-        session.scalars(
+    }
+    hist_by_user = {
+        int(m.user_id): m
+        for m in session.scalars(
             select(GmLeagueMembership).where(
                 GmLeagueMembership.league_slug == "bowl-historical",
                 GmLeagueMembership.status == "active",
             )
         ).all()
-    )
-    hist_by_user = {int(m.user_id): m for m in hist_memberships}
-    cap_user_ids = {int(m.user_id) for m in cap_memberships}
+    }
 
-    user_ids = {int(m.user_id) for m in cap_memberships}
-    if include_historical_only:
-        user_ids |= {uid for uid in hist_by_user if uid not in cap_user_ids}
-    users = {
-        int(u.id): u
-        for u in session.scalars(select(User).where(User.id.in_(user_ids))).all()
-    } if user_ids else {}
+    taken_users = {int(r.user_id) for r in racers if r.user_id}
+    racer_rows: list[tuple[int, list[str]]] = []
+    for racer in racers:
+        if racer.user_id:
+            continue
+        names = [racer.display_name, *aliases_by_racer.get(int(racer.id), [])]
+        racer_rows.append((int(racer.id), names))
+    gm_rows: list[tuple[int, list[str]]] = []
+    for user in users:
+        uid = int(user.id)
+        if uid in taken_users:
+            continue
+        display = (user.discord_name or "").strip()
+        if display.lower().startswith("deleted user"):
+            continue
+        gm_rows.append((uid, [display, user.username or ""]))
 
-    def _display_for(user: User | None, membership: GmLeagueMembership) -> str:
-        from app.services.gm_messaging import gm_display_name
-
+    chosen = assign_racers_to_gms(racer_rows, gm_rows)
+    racers_by_id = {int(r.id): r for r in racers}
+    linked: list[str] = []
+    for racer_id, user_id in chosen.items():
+        racer = racers_by_id[racer_id]
+        user = next((u for u in users if int(u.id) == int(user_id)), None)
+        racer.user_id = int(user_id)
+        racer.is_active = True
+        cap = cap_by_user.get(int(user_id))
+        hist = hist_by_user.get(int(user_id))
+        if cap is not None:
+            racer.ap_league_slug = "bowl-cap"
+            racer.ap_team_id = int(cap.team_id)
+        elif hist is not None:
+            racer.ap_league_slug = "bowl-historical"
+            racer.ap_team_id = int(hist.team_id)
         if user is not None:
-            name = gm_display_name(user)
-            if name and name != "—":
-                return name
-        return f"GM #{int(membership.user_id)}"
+            ensure_alias(session, racer, user.discord_name or "")
+            if user.username:
+                ensure_alias(session, racer, user.username)
+        linked.append(racer.display_name)
 
-    # Cap GMs first
-    for m in cap_memberships:
-        user = users.get(int(m.user_id))
-        existing = session.scalar(
-            select(RacingRacer).where(RacingRacer.user_id == int(m.user_id)).limit(1)
-        )
-        display = _display_for(user, m)
-        if existing is None:
-            # Avoid unique display_name collisions
-            base = display
-            suffix = 2
-            while session.scalar(
-                select(RacingRacer.id).where(RacingRacer.display_name == display).limit(1)
-            ):
-                display = f"{base} ({suffix})"
-                suffix += 1
-            racer = RacingRacer(
-                display_name=display,
-                user_id=int(m.user_id),
-                ap_league_slug="bowl-cap",
-                ap_team_id=int(m.team_id),
-                is_active=True,
-            )
-            session.add(racer)
-            session.flush()
-            ensure_alias(session, racer, display)
-            created += 1
-        else:
-            existing.ap_league_slug = existing.ap_league_slug or "bowl-cap"
-            existing.ap_team_id = existing.ap_team_id or int(m.team_id)
-            existing.is_active = True
-            ensure_alias(session, existing, existing.display_name)
-            updated += 1
-
-    if include_historical_only:
-        for uid, m in hist_by_user.items():
-            if uid in cap_user_ids:
-                continue
-            existing = session.scalar(
-                select(RacingRacer).where(RacingRacer.user_id == uid).limit(1)
-            )
-            if existing is not None:
-                skipped += 1
-                continue
-            user = users.get(uid)
-            display = _display_for(user, m)
-            base = display
-            suffix = 2
-            while session.scalar(
-                select(RacingRacer.id).where(RacingRacer.display_name == display).limit(1)
-            ):
-                display = f"{base} ({suffix})"
-                suffix += 1
-            racer = RacingRacer(
-                display_name=display,
-                user_id=uid,
-                ap_league_slug="bowl-historical",
-                ap_team_id=int(m.team_id),
-                is_active=True,
-            )
-            session.add(racer)
-            session.flush()
-            ensure_alias(session, racer, display)
-            created += 1
-
-    return {"created": created, "updated": updated, "skipped": skipped}
+    unmatched = [r.display_name for r in racers if not r.user_id]
+    return {
+        "created": 0,
+        "updated": len(linked),
+        "skipped": 0,
+        "linked": linked,
+        "unmatched": unmatched,
+    }
 
 
 def set_racer_ap_target(

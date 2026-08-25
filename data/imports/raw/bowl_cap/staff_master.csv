@@ -171,8 +171,8 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 169;8;Tom;McVie;;1935-6-6;Trail;BC;Canada;;;0
 170;25;Anders;Hedberg;;1951-2-25;Örnsköldsvik;VäS;Sweden;;;0
 171;-1;Paul;Baxter;;1955-10-28;Winnipeg;MB;Canada;;;0
-172;-1;John;Cunniff;;1944-7-9;Boston;MA;The United States;;;0
-173;-1;Dave;Chambers;;1940-5-7;Toronto;ON;Canada;;;0
+172;22;John;Cunniff;;1944-7-9;Boston;MA;The United States;;;0
+173;22;Dave;Chambers;;1940-5-7;Toronto;ON;Canada;;;0
 174;-1;Glen;Williamson;;1955-2-22;Souris;MB;Canada;;;0
 175;-1;Joe;Micheletti;;1954-10-24;International Falls;MN;The United States;;;0
 176;216;Tim;Higgins;;1958-2-7;Ottawa;ON;Canada;;;0
@@ -184,10 +184,10 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 182;-1;Bob;Murdoch;;1946-11-20;Kirkland Lake;ON;Canada;;;0
 183;-1;Wayne;Thomas;;1947-9-9;Ottawa;ON;Canada;;;0
 184;10;Wayne;Cashman;;1945-6-24;Kingston;ON;Canada;;;0
-185;15;Roger;Neilson;;1934-6-16;Toronto;ON;Canada;;;0
-186;-1;Ron;Smith;;1944-1-28;Cambridge;ON;Canada;;;0
+185;-1;Roger;Neilson;;1934-6-16;Toronto;ON;Canada;;;0
+186;22;Ron;Smith;;1944-1-28;Cambridge;ON;Canada;;;0
 187;222;Bob;Berry;;1943-11-29;Montreal;QC;Canada;;;0
-188;-1;Bob;Plager;;1943-3-11;Kirkland Lake;ON;Canada;;;0
+188;22;Bob;Plager;;1943-3-11;Kirkland Lake;ON;Canada;;;0
 189;231;Barclay;Plager;;1941-3-26;Kirkland Lake;ON;Canada;;;0
 190;214;Warren;Strelow;;1934-1-22;St. Paul;IN;The United States;;;0
 191;24;Glen;Sonmor;;1929-4-22;Moose Jaw;SK;Canada;;;0
@@ -315,7 +315,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 313;23;Ed;Chadwick;;1933-5-8;Fergus;ON;Canada;;;0
 314;221;Harry;Howell;;1932-12-28;Hamilton;ON;Canada;;;0
 315;228;André;Beaulieu;;1940-1-22;Montreal;QC;Canada;;;0
-316;-1;Claude;Ruel;;1938-9-12;Sherbrooke;QC;Canada;;;0
+316;24;Claude;Ruel;;1938-9-12;Sherbrooke;QC;Canada;;;0
 317;-1;Tim;Ecclestone;;1947-9-24;Toronto;ON;Canada;;;0
 318;-1;Gordon;Gund;;1939-10-15;Cleveland;TX;The United States;;;0
 319;-1;Barry;van Gerbig;;1939-1-1;New York;NY;The United States;;;0
@@ -583,7 +583,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 581;225;Alan;Tarrant;;1939-6-5;Fresno;CA;The United States;;;0
 582;10;Keith;Maldonado;;1939-5-12;Paradise;CA;The United States;;;0
 583;-1;Greg;Small;;1939-11-7;Manchester;NH;The United States;;;0
-584;-1;Brandon;Holland;;1948-7-10;Pinson;AL;The United States;;;0
+584;22;Brandon;Holland;;1948-7-10;Pinson;AL;The United States;;;0
 585;-1;Clifton;Stewart;;1939-2-17;Peoria;AZ;The United States;;;0
 586;-1;Michael;Cottle;;1939-12-11;Yonkers;NY;The United States;;;0
 587;16;Randy;O'Duff;;1939-6-19;Lantana;FL;The United States;;;0

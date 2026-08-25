@@ -6,8 +6,10 @@
   <h1 class="page-title">Racer roster</h1>
   <p class="muted">
     Cap / Historical GMs are site members on Formula and Demolition automatically.
-    Sync pulls Cap (+ Historical-only) identities for AP links. Normal imports also re-link the game
-    <code>roster.txt</code> adds in-game driver names as aliases (and optional stubs).
+    Sync pulls Cap (+ Historical-only) identities for AP links. Imports re-link
+    <code>roster.txt</code> (aliases, optional stubs, and leftover stubs not on the file).
+    Use <strong>Remove</strong> on a row to delete someone immediately. Linking the file
+    does not drop Cap/Historical GMs who are not on the game roster.
   </p>
   <form method="post" style="margin-bottom:0.75rem;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -26,9 +28,13 @@
     <label style="display:block;margin-bottom:0.45rem;">Override path
       <input type="text" name="roster_path" value="" placeholder="Leave blank to use default" style="width:100%;max-width:40rem;">
     </label>
-    <label style="display:block;margin-bottom:0.55rem;">
+    <label style="display:block;margin-bottom:0.45rem;">
       <input type="checkbox" name="create_unmatched" value="1" checked>
       Create stub racers for unmatched names (no Cap/Hist AP link yet)
+    </label>
+    <label style="display:block;margin-bottom:0.55rem;">
+      <input type="checkbox" name="prune_missing" value="1" checked>
+      Remove stub racers who are not on this roster.txt (Kings after a rename, etc.)
     </label>
     <button type="submit" class="btn">Link roster.txt</button>
   </form>
@@ -41,6 +47,7 @@
         <th>Aliases</th>
         <th>Add alias</th>
         <th>Set AP team</th>
+        <th></th>
       </tr>
     </thead>
     <tbody>
@@ -76,9 +83,17 @@
             <button type="submit" class="btn secondary">Save</button>
           </form>
         </td>
+        <td>
+          <form method="post" class="inline-form" onsubmit="return confirm('Remove ' + {{ r.display_name|tojson }} + ' from the racer roster?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="action" value="remove">
+            <input type="hidden" name="racer_id" value="{{ r.id }}">
+            <button type="submit" class="btn secondary">Remove</button>
+          </form>
+        </td>
       </tr>
       {% else %}
-      <tr><td colspan="6" class="muted">No racers ? run Cap sync and/or link roster.txt.</td></tr>
+      <tr><td colspan="7" class="muted">No racers — run Cap sync and/or link roster.txt.</td></tr>
       {% endfor %}
     </tbody>
   </table>

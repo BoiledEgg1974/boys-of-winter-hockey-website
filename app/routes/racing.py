@@ -41,6 +41,7 @@ from app.services.racing_tracks import track_image_url
 from app.services.racing_racers import (
     add_manual_alias,
     default_roster_txt_path,
+    delete_racer,
     link_roster_txt,
     list_racers,
     set_racer_ap_target,
@@ -286,10 +287,12 @@ def admin_racers():
                 if custom:
                     roster_path = Path(custom).expanduser()
                 create_unmatched = request.form.get("create_unmatched") == "1"
+                prune_missing = request.form.get("prune_missing") == "1"
                 stats = link_roster_txt(
                     db.session,
                     roster_path,
                     create_unmatched=create_unmatched,
+                    prune_missing=prune_missing,
                 )
                 commit_with_sqlite_retry(db.session)
                 msg = (
@@ -297,6 +300,12 @@ def admin_racers():
                     f"{stats['entries']} names, {stats['linked']} matched existing, "
                     f"{stats['created']} stubs created, {stats['aliased']} aliases."
                 )
+                pruned = stats.get("pruned") or []
+                if pruned:
+                    shown = ", ".join(str(n) for n in pruned[:8])
+                    msg += f" Removed leftover stubs: {shown}"
+                    if len(pruned) > 8:
+                        msg += "..."
                 conflicts = stats.get("conflicts") or []
                 unmatched = stats.get("unmatched") or []
                 if conflicts:
@@ -318,6 +327,10 @@ def admin_racers():
                 )
                 commit_with_sqlite_retry(db.session)
                 flash("Alias added.", "success")
+            elif action == "remove":
+                name = delete_racer(db.session, int(request.form.get("racer_id") or 0))
+                commit_with_sqlite_retry(db.session)
+                flash(f"Removed {name} from the racer roster.", "success")
             elif action == "ap_target":
                 racer = db.session.get(RacingRacer, int(request.form.get("racer_id") or 0))
                 if racer is None:

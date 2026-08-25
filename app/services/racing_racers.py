@@ -8,7 +8,14 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.racing_models import RacingNameAlias, RacingRacer
+from app.racing_models import (
+    RacingApSuggestion,
+    RacingChannelCredit,
+    RacingCircuitStanding,
+    RacingEventResult,
+    RacingNameAlias,
+    RacingRacer,
+)
 from app.services.racing_csv import normalize_name_key
 from app.site_models import GmLeagueMembership, User
 
@@ -258,16 +265,65 @@ def _find_racer_for_roster_name(session: Session, name: str) -> RacingRacer | No
     return None
 
 
+def delete_racer(session: Session, racer_id: int) -> str:
+    """Remove a racer and aliases. Race rows keep the printed driver name."""
+    racer = session.get(RacingRacer, int(racer_id))
+    if racer is None:
+        raise ValueError("Racer not found")
+    name = str(racer.display_name)
+    rid = int(racer.id)
+    for alias in list(
+        session.scalars(select(RacingNameAlias).where(RacingNameAlias.racer_id == rid)).all()
+    ):
+        session.delete(alias)
+    for model, column in (
+        (RacingEventResult, RacingEventResult.racer_id),
+        (RacingCircuitStanding, RacingCircuitStanding.racer_id),
+        (RacingApSuggestion, RacingApSuggestion.racer_id),
+        (RacingChannelCredit, RacingChannelCredit.racer_id),
+    ):
+        for row in session.scalars(select(model).where(column == rid)).all():
+            row.racer_id = None
+    session.delete(racer)
+    session.flush()
+    return name
+
+
+def _racer_name_keys(racer: RacingRacer) -> set[str]:
+    keys = {normalize_name_key(racer.display_name)}
+    for alias in racer.aliases:
+        keys.add(str(alias.alias_key))
+    keys.discard("")
+    return keys
+
+
+def prune_stub_racers_not_in_keys(session: Session, keep_keys: set[str]) -> list[str]:
+    """Delete roster stubs (no site user) whose names are not in ``keep_keys``.
+
+    Cap/Historical GM racers (``user_id`` set) are left alone.
+    """
+    keep = {k for k in keep_keys if k}
+    removed: list[str] = []
+    stubs = list(session.scalars(select(RacingRacer).where(RacingRacer.user_id.is_(None))).all())
+    for racer in stubs:
+        if _racer_name_keys(racer) & keep:
+            continue
+        removed.append(delete_racer(session, int(racer.id)))
+    return removed
+
+
 def link_roster_txt(
     session: Session,
     path: Path,
     *,
     create_unmatched: bool = True,
+    prune_missing: bool = True,
 ) -> dict[str, object]:
     """Link game roster.txt names onto RacingRacer rows (aliases + optional stubs).
 
     Does not overwrite existing ``user_id`` / AP targets. New stubs are created
-    without Cap/Hist links so admins can attach them later.
+    without Cap/Hist links so admins can attach them later. When ``prune_missing``
+    is set, leftover stubs (e.g. Kings after a rename to GreedyFish) are deleted.
     """
     path = Path(path)
     if not path.is_file():
@@ -317,6 +373,11 @@ def link_roster_txt(
         # Keep primary display alias as well.
         ensure_alias(session, racer, racer.display_name)
 
+    pruned: list[str] = []
+    if prune_missing:
+        keep_keys = {normalize_name_key(str(e.get("name") or "")) for e in entries}
+        pruned = prune_stub_racers_not_in_keys(session, keep_keys)
+
     return {
         "path": str(path),
         "entries": len(entries),
@@ -325,4 +386,5 @@ def link_roster_txt(
         "created": created,
         "conflicts": conflicts,
         "unmatched": unmatched,
+        "pruned": pruned,
     }

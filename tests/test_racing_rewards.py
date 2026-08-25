@@ -9,9 +9,10 @@ from app import create_app
 from app.config import Config
 from app.league_db import db
 from app.racing_models import RacingRewardTier
-from app.services.racing_csv import formula_circuit_ap_for_rank
+from app.services.racing_csv import formula_circuit_ap_for_rank, formula_circuit_channel_points_for_rank
 from app.services.racing_rewards import (
     SCHEDULE_CIRCUIT_AP,
+    SCHEDULE_CIRCUIT_CP,
     SCHEDULE_RACE_AP,
     default_tiers_for_league,
     ensure_default_reward_tiers,
@@ -31,6 +32,15 @@ class FormulaRewardDefaultTests(unittest.TestCase):
         self.assertEqual(circuit[31], 10)
         self.assertEqual(circuit[16], formula_circuit_ap_for_rank(16))
         self.assertEqual(circuit[16], 505)
+
+    def test_circuit_channel_points_scale_p11_3000_to_p31_300(self) -> None:
+        circuit_cp = dict(default_tiers_for_league("bowl-formula")[SCHEDULE_CIRCUIT_CP])
+        self.assertEqual(circuit_cp[11], 3000)
+        self.assertEqual(circuit_cp[31], 300)
+        self.assertEqual(circuit_cp[12], 2865)
+        self.assertNotIn(1, circuit_cp)
+        self.assertEqual(formula_circuit_channel_points_for_rank(10), 0)
+        self.assertEqual(formula_circuit_channel_points_for_rank(32), 0)
 
     def test_derby_circuit_ap_stays_six_place(self) -> None:
         circuit = dict(default_tiers_for_league("bowl-demolition")[SCHEDULE_CIRCUIT_AP])
@@ -80,6 +90,22 @@ class FormulaRewardUpgradeTests(unittest.TestCase):
                     self.assertEqual(circuit[31], 10)
                     self.assertEqual(len(circuit), 31)
                     self.assertEqual([race[p] for p in range(1, 11)], [10, 9, 8, 7, 6, 5, 4, 3, 2, 1])
+                    db.session.query(RacingRewardTier).filter(
+                        RacingRewardTier.schedule_key == SCHEDULE_CIRCUIT_CP
+                    ).delete()
+                    for place, amount in ((1, 1000), (2, 800), (3, 600), (4, 400), (5, 200)):
+                        db.session.add(
+                            RacingRewardTier(
+                                schedule_key=SCHEDULE_CIRCUIT_CP, place=place, amount=amount
+                            )
+                        )
+                    db.session.commit()
+                    ensure_default_reward_tiers(db.session, league_slug="bowl-formula")
+                    db.session.commit()
+                    cp = get_schedule_table(db.session, SCHEDULE_CIRCUIT_CP)
+                    self.assertEqual(cp[11], 3000)
+                    self.assertEqual(cp[31], 300)
+                    self.assertNotIn(1, cp)
                 finally:
                     db.session.remove()
                     db.drop_all()

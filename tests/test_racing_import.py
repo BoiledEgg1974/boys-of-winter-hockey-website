@@ -14,6 +14,7 @@ from app.racing_models import RacingChannelCredit, RacingCircuitStanding, Racing
 from app.services.racing_csv import (
     classify_export_filename,
     formula_circuit_ap_for_rank,
+    formula_circuit_channel_points_for_rank,
     select_latest_export_csvs,
 )
 from app.services.racing_import import import_all_from_raw_dir
@@ -84,6 +85,13 @@ class RacingCsvClassifyTests(unittest.TestCase):
         self.assertEqual(formula_circuit_ap_for_rank(16), 505)
         self.assertEqual(formula_circuit_ap_for_rank(32), 0)
         self.assertGreater(formula_circuit_ap_for_rank(2), formula_circuit_ap_for_rank(30))
+
+    def test_formula_circuit_channel_points_scale_p11_to_p31(self) -> None:
+        self.assertEqual(formula_circuit_channel_points_for_rank(10), 0)
+        self.assertEqual(formula_circuit_channel_points_for_rank(11), 3000)
+        self.assertEqual(formula_circuit_channel_points_for_rank(12), 2865)
+        self.assertEqual(formula_circuit_channel_points_for_rank(31), 300)
+        self.assertEqual(formula_circuit_channel_points_for_rank(32), 0)
 
     def test_select_latest_ignores_older_sample_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

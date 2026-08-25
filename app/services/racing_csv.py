@@ -101,6 +101,10 @@ def formula_circuit_points_for_position(position: int) -> int:
 FORMULA_CIRCUIT_AP_FIRST = 1000
 FORMULA_CIRCUIT_AP_LAST = 10
 FORMULA_CIRCUIT_AP_PLACES = 31
+FORMULA_CIRCUIT_CP_FIRST_PLACE = 11
+FORMULA_CIRCUIT_CP_LAST_PLACE = 31
+FORMULA_CIRCUIT_CP_FIRST = 3000
+FORMULA_CIRCUIT_CP_LAST = 300
 
 
 def formula_circuit_ap_for_rank(rank: int, field_size: int | None = None) -> int:
@@ -117,6 +121,20 @@ def formula_circuit_ap_for_rank(rank: int, field_size: int | None = None) -> int
         return FORMULA_CIRCUIT_AP_FIRST
     t = float(place - 1) / float(n - 1)
     return int(round(FORMULA_CIRCUIT_AP_FIRST - t * (FORMULA_CIRCUIT_AP_FIRST - FORMULA_CIRCUIT_AP_LAST)))
+
+
+def formula_circuit_channel_points_for_rank(rank: int) -> int:
+    """End-of-circuit Twitch credits: P11 = 3000, P31 = 300, linear. P1–P10 = 0."""
+    first = FORMULA_CIRCUIT_CP_FIRST_PLACE
+    last = FORMULA_CIRCUIT_CP_LAST_PLACE
+    place = int(rank)
+    if place < first or place > last:
+        return 0
+    span = last - first
+    if span <= 0:
+        return FORMULA_CIRCUIT_CP_FIRST
+    t = float(place - first) / float(span)
+    return int(round(FORMULA_CIRCUIT_CP_FIRST - t * (FORMULA_CIRCUIT_CP_FIRST - FORMULA_CIRCUIT_CP_LAST)))
 
 
 def derby_event_ap_for_position(position: int) -> int:

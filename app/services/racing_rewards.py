@@ -6,7 +6,12 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
 from app.racing_models import RacingRewardTier
-from app.services.racing_csv import FORMULA_CIRCUIT_AP_PLACES, formula_circuit_ap_for_rank
+from app.services.racing_csv import (
+    FORMULA_CIRCUIT_AP_PLACES,
+    FORMULA_CIRCUIT_CP_LAST_PLACE,
+    formula_circuit_ap_for_rank,
+    formula_circuit_channel_points_for_rank,
+)
 
 SCHEDULE_RACE_AP = "race_ap"
 SCHEDULE_CIRCUIT_AP = "circuit_ap"
@@ -58,7 +63,10 @@ def default_tiers_for_league(league_slug: str) -> dict[str, list[tuple[int, int]
             (19, 40),
             (20, 25),
         ],
-        SCHEDULE_CIRCUIT_CP: [(1, 1000), (2, 800), (3, 600), (4, 400), (5, 200)],
+        SCHEDULE_CIRCUIT_CP: [
+            (place, formula_circuit_channel_points_for_rank(place))
+            for place in range(11, FORMULA_CIRCUIT_CP_LAST_PLACE + 1)
+        ],
     }
 
 
@@ -83,6 +91,7 @@ def ensure_racing_reward_schema(engine: Engine) -> None:
 
 
 _OLD_FORMULA_CIRCUIT_AP = {1: 30, 2: 25, 3: 20, 4: 15, 5: 10, 6: 5}
+_OLD_FORMULA_CIRCUIT_CP = {1: 1000, 2: 800, 3: 600, 4: 400, 5: 200}
 
 
 def apply_established_formula_ap_schedules(session: Session) -> None:
@@ -90,6 +99,12 @@ def apply_established_formula_ap_schedules(session: Session) -> None:
     defaults = default_tiers_for_league("bowl-formula")
     replace_schedule(session, SCHEDULE_RACE_AP, defaults[SCHEDULE_RACE_AP])
     replace_schedule(session, SCHEDULE_CIRCUIT_AP, defaults[SCHEDULE_CIRCUIT_AP])
+
+
+def apply_established_formula_circuit_cp_schedule(session: Session) -> None:
+    """Write Formula circuit Twitch credits: P11=3000 … P31=300."""
+    defaults = default_tiers_for_league("bowl-formula")
+    replace_schedule(session, SCHEDULE_CIRCUIT_CP, defaults[SCHEDULE_CIRCUIT_CP])
 
 
 def _formula_ap_schedules_are_stale(session: Session) -> bool:
@@ -109,11 +124,24 @@ def _formula_ap_schedules_are_stale(session: Session) -> bool:
     return False
 
 
-def ensure_default_reward_tiers(session: Session, *, league_slug: str) -> None:
-    """Seed missing schedule keys; upgrade leftover Formula AP tables.
+def _formula_circuit_cp_is_stale(session: Session) -> bool:
+    """True when Formula still has the old top-5 circuit Channel Point table."""
+    table = get_schedule_table(session, SCHEDULE_CIRCUIT_CP)
+    if not table or table == _OLD_FORMULA_CIRCUIT_CP:
+        return True
+    if 1 in table:
+        return True
+    if table.get(11) != 3000 or table.get(31) != 300:
+        return True
+    return False
 
-    Channel-point tables are left alone once present. Formula AP is replaced when
-    it still has the old 6-place circuit table or a short race table.
+
+def ensure_default_reward_tiers(session: Session, *, league_slug: str) -> None:
+    """Seed missing schedule keys; upgrade leftover Formula AP and circuit CP tables.
+
+    Race Channel Point tables are left alone once present. Formula AP is replaced
+    when it still has the old 6-place circuit table or a short race table.
+    Formula circuit CP is replaced when it still has the old P1–P5 payout.
     """
     existing_keys = {
         str(k)
@@ -128,6 +156,8 @@ def ensure_default_reward_tiers(session: Session, *, league_slug: str) -> None:
     session.flush()
     if league_slug == "bowl-formula" and _formula_ap_schedules_are_stale(session):
         apply_established_formula_ap_schedules(session)
+    if league_slug == "bowl-formula" and _formula_circuit_cp_is_stale(session):
+        apply_established_formula_circuit_cp_schedule(session)
 
 
 def get_schedule_table(session: Session, schedule_key: str) -> dict[int, int]:

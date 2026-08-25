@@ -24,6 +24,7 @@ from app.services.racing_csv import (
     cell_int,
     classify_export_filename,
     formula_circuit_ap_for_rank,
+    formula_circuit_channel_points_for_rank,
     formula_circuit_points_for_position,
     normalize_name_key,
     parse_export_stamp,
@@ -385,7 +386,7 @@ def _import_circuit_standings(
         points = cell_int(row, "points", "circuit_points")
         if is_formula:
             action_points = formula_circuit_ap_for_rank(rank) if rank else 0
-            channel_points = 0
+            channel_points = formula_circuit_channel_points_for_rank(rank) if rank else 0
         else:
             action_points = (
                 amount_for_place(session, SCHEDULE_CIRCUIT_AP, rank)
@@ -425,7 +426,7 @@ def _import_circuit_standings(
                 circuit_id=int(circuit.id),
                 source_ref=f"circuit:{circuit.id}:rank:{rank}:ap",
             )
-            if not is_formula:
+            if channel_points:
                 _upsert_ap_suggestion(
                     session,
                     scope="circuit",
@@ -557,6 +558,7 @@ def _reconcile_formula_circuit(session: Session, circuit_id: int) -> None:
     Godot used to skip DNF P9/P10 in circuit_standings.csv (0 pts) while the
     race-results board scored them 2/1. Classified P1–P10 always score here.
     AP is 1000 for 1st through 10 for 31st, scaled linearly.
+    P11–P31 also get Twitch credits 3000→300.
     """
     events = list(
         session.scalars(select(RacingEvent).where(RacingEvent.circuit_id == int(circuit_id))).all()
@@ -635,7 +637,9 @@ def _reconcile_formula_circuit(session: Session, circuit_id: int) -> None:
     for i, row in enumerate(ranked, start=1):
         row.rank = i
         ap_amount = formula_circuit_ap_for_rank(i)
+        cp_amount = formula_circuit_channel_points_for_rank(i)
         row.action_points = ap_amount
+        row.channel_points = cp_amount
         _upsert_ap_suggestion(
             session,
             scope="circuit",
@@ -647,6 +651,18 @@ def _reconcile_formula_circuit(session: Session, circuit_id: int) -> None:
             circuit_id=int(circuit_id),
             source_ref=f"circuit:{circuit_id}:rank:{i}:ap",
         )
+        if cp_amount:
+            _upsert_ap_suggestion(
+                session,
+                scope="circuit",
+                currency="channel_points",
+                driver_name=row.driver_name,
+                amount=cp_amount,
+                rank=i,
+                event_id=None,
+                circuit_id=int(circuit_id),
+                source_ref=f"circuit:{circuit_id}:rank:{i}:cp",
+            )
 
 
 def _import_channel_credits(

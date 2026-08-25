@@ -5,9 +5,14 @@ import unittest
 from types import SimpleNamespace
 
 from app.services.team_season_record_sync import (
+    MIN_GP_IMPORT_STANDINGS_SEASON,
     _TeamAgg,
     _csv_covered_year_labels,
+    _import_season_aggs_complete,
+    _load_archived_team_stats,
+    _parse_archived_team_stats_row,
     _purge_import_rows_for_csv_seasons,
+    _supplement_special_teams_from_archive,
     _team_fhm_str,
     _year_label,
 )
@@ -71,6 +76,81 @@ class TeamSeasonRecordSyncTests(unittest.TestCase):
         self.assertEqual(removed, 1)
         self.assertEqual(len(session.deleted), 1)
         self.assertEqual(session.deleted[0].season_year_label, "1930-31")
+
+    def test_import_season_complete_threshold(self) -> None:
+        partial = {"1": _TeamAgg(team_fhm_id="1", w=1, l=1, otl=1)}
+        full = {"1": _TeamAgg(team_fhm_id="1", w=40, l=30, otl=12)}
+        self.assertFalse(_import_season_aggs_complete(partial))
+        self.assertTrue(_import_season_aggs_complete(full))
+        self.assertEqual(MIN_GP_IMPORT_STANDINGS_SEASON, 20)
+
+    def test_parse_archived_team_stats_row(self) -> None:
+        row = {
+            "ppg": "66",
+            "pp_ch": "372",
+            "pp_ga": "22",
+            "sh_ch": "355",
+            "sh_ga": "7",
+        }
+        parsed = _parse_archived_team_stats_row(row)
+        self.assertEqual(parsed["pp_chances"], 372)
+        self.assertEqual(parsed["ppg_against"], 22)
+        self.assertEqual(parsed["sh_chances"], 355)
+        self.assertEqual(parsed["pp_pct"], 17.7)
+        self.assertEqual(parsed["pk_pct"], 93.8)
+
+    def test_load_archived_team_stats_bowl_cap(self) -> None:
+        from pathlib import Path
+
+        raw = Path("data/imports/raw/bowl_cap")
+        archived = _load_archived_team_stats(raw)
+        self.assertIn("1999-00", archived)
+        self.assertIn("2000-01", archived)
+        self.assertEqual(archived["1999-00"]["0"]["pp_chances"], 372)
+
+    def test_supplement_special_teams_from_archive(self) -> None:
+        from pathlib import Path
+        from types import SimpleNamespace
+
+        class _FakeSession:
+            def scalars(self, _q):
+                return self
+
+            def all(self):
+                return [
+                    SimpleNamespace(
+                        season_year_label="2000-01",
+                        team_fhm_id_csv="0",
+                        team_id=1,
+                        pp_chances=None,
+                        ppg_against=None,
+                        sh_chances=None,
+                        shg_against=None,
+                        pp_pct=None,
+                        pk_pct=None,
+                        null_columns_csv=None,
+                    )
+                ]
+
+            def get(self, _model, _id):
+                return SimpleNamespace(fhm_team_id="0")
+
+        raw = Path("data/imports/raw/bowl_cap")
+        written = _supplement_special_teams_from_archive(_FakeSession(), raw_dir=raw)
+        self.assertGreaterEqual(written, 4)
+
+
+class TeamRecordsStandingsDisplayTests(unittest.TestCase):
+    def test_records_have_displayable_standings(self) -> None:
+        from app.models import TeamSeasonRecord
+        from app.services.team_records import _records_have_displayable_standings
+
+        csv_row = TeamSeasonRecord(season_year_label="1999-00", gp=82, source="csv")
+        partial = TeamSeasonRecord(season_year_label="2000-01", gp=3, source="import")
+        full_import = TeamSeasonRecord(season_year_label="2000-01", gp=82, source="import")
+        self.assertTrue(_records_have_displayable_standings([csv_row]))
+        self.assertFalse(_records_have_displayable_standings([partial]))
+        self.assertTrue(_records_have_displayable_standings([full_import]))
 
 
 if __name__ == "__main__":

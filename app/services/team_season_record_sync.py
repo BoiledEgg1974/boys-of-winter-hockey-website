@@ -26,9 +26,16 @@ from app.services.admin_history_records import (
     HISTORY_SOURCE_CSV,
     HISTORY_SOURCE_IMPORT,
 )
+from app.services.advanced_stats import _pk_pct, _pp_pct
 from app.services.all_time_records import bowl_nhl_league_ids
+from scripts.import_pipeline.encoding_utils import cell_val, to_int
 
 log = logging.getLogger(__name__)
+
+_ARCHIVED_TEAM_STATS_SUBDIR = Path("archive") / "team_stats"
+
+# Import-sync seasons below this max team GP are treated as in-progress and not published.
+MIN_GP_IMPORT_STANDINGS_SEASON = 20
 
 _CAREER_RS = ("rs", "retired_rs")
 _CAREER_PO = ("po", "retired_po")
@@ -270,9 +277,37 @@ def _purge_import_rows_for_csv_seasons(session: Session) -> int:
     return removed
 
 
+def _purge_import_rows_for_season(session: Session, year_label: str) -> int:
+    """Remove all import-sync rows for one season label."""
+    removed = 0
+    for rec in list(session.scalars(select(TeamSeasonRecord)).all()):
+        if (rec.source or "").strip().lower() != HISTORY_SOURCE_IMPORT:
+            continue
+        if rec.season_year_label != year_label:
+            continue
+        session.delete(rec)
+        removed += 1
+    return removed
+
+
+def _import_season_aggs_complete(aggs: dict[str, _TeamAgg]) -> bool:
+    if not aggs:
+        return False
+    return max(int(agg.gp) for agg in aggs.values()) >= MIN_GP_IMPORT_STANDINGS_SEASON
+
+
 _SUPPLEMENT_FIELDS: tuple[tuple[str, str], ...] = (
     ("shots_for", "sog"),
     ("shots_against", "sa"),
+)
+
+_SPECIAL_TEAMS_ATTRS: tuple[str, ...] = (
+    "pp_chances",
+    "ppg_against",
+    "sh_chances",
+    "shg_against",
+    "pp_pct",
+    "pk_pct",
 )
 
 
@@ -285,6 +320,94 @@ def _record_fhm_id(session: Session, rec: TeamSeasonRecord) -> str | None:
         if team is not None and (team.fhm_team_id or "").strip():
             return str(team.fhm_team_id).strip()
     return None
+
+
+def _archived_team_stats_dir(raw_dir: Path | None) -> Path | None:
+    if raw_dir is None:
+        return None
+    path = raw_dir / _ARCHIVED_TEAM_STATS_SUBDIR
+    return path if path.is_dir() else None
+
+
+def _parse_archived_team_stats_row(row: dict[str, str]) -> dict[str, int | float | None]:
+    """Map one FHM ``team_stats.csv`` row to ``TeamSeasonRecord`` special-teams fields."""
+    ppg = to_int(cell_val(row, "ppg"))
+    pp_chances = to_int(cell_val(row, "pp_ch", "pp_chances"))
+    ppg_against = to_int(cell_val(row, "pp_ga", "ppg_against"))
+    sh_chances = to_int(cell_val(row, "sh_ch", "sh_chances", "shch"))
+    shg_against = to_int(cell_val(row, "sh_ga", "shg_against"))
+    return {
+        "ppg": ppg,
+        "pp_chances": pp_chances,
+        "ppg_against": ppg_against,
+        "sh_chances": sh_chances,
+        "shg_against": shg_against,
+        "pp_pct": _pp_pct(ppg, pp_chances),
+        "pk_pct": _pk_pct(ppg_against, sh_chances),
+    }
+
+
+def _load_archived_team_stats(raw_dir: Path | None) -> dict[str, dict[str, dict[str, int | float | None]]]:
+    """Load per-season archived FHM team_stats snapshots keyed by season label then FHM team id."""
+    archive_dir = _archived_team_stats_dir(raw_dir)
+    if archive_dir is None:
+        return {}
+
+    out: dict[str, dict[str, dict[str, int | float | None]]] = {}
+    for path in sorted(archive_dir.glob("*.csv")):
+        year_label = path.stem.strip()
+        if not year_label:
+            continue
+        by_fhm: dict[str, dict[str, int | float | None]] = {}
+        with open(path, newline="", encoding="utf-8") as f:
+            for row in csv.DictReader(f, delimiter=";"):
+                tid = (row.get("TeamId") or row.get("Team Id") or "").strip()
+                if not tid:
+                    continue
+                normalized = {k.replace(" ", "_").lower(): v for k, v in row.items()}
+                by_fhm[tid] = _parse_archived_team_stats_row(normalized)
+        if by_fhm:
+            out[year_label] = by_fhm
+    return out
+
+
+def _supplement_special_teams_from_archive(
+    session: Session,
+    *,
+    raw_dir: Path | None,
+) -> int:
+    """Fill missing PP/PK columns from archived ``team_stats`` exports when present."""
+    from app.services.team_records import _is_null_sentinel
+
+    archived = _load_archived_team_stats(raw_dir)
+    if not archived:
+        return 0
+
+    written = 0
+    for rec in session.scalars(select(TeamSeasonRecord)).all():
+        by_fhm = archived.get(rec.season_year_label)
+        if not by_fhm:
+            continue
+        missing = any(
+            getattr(rec, attr, None) is None and not _is_null_sentinel(rec, attr)
+            for attr in _SPECIAL_TEAMS_ATTRS
+        )
+        if not missing:
+            continue
+        fhm = _record_fhm_id(session, rec)
+        if not fhm:
+            continue
+        snap = by_fhm.get(fhm)
+        if snap is None:
+            continue
+        for attr in _SPECIAL_TEAMS_ATTRS:
+            if getattr(rec, attr, None) is not None or _is_null_sentinel(rec, attr):
+                continue
+            val = snap.get(attr)
+            if val is not None:
+                setattr(rec, attr, val)
+                written += 1
+    return written
 
 
 def _supplement_csv_rows_from_import(
@@ -442,6 +565,19 @@ def sync_team_season_records_from_import(
         if not aggs:
             continue
 
+        if not _import_season_aggs_complete(aggs):
+            purged_incomplete = _purge_import_rows_for_season(session, year_label)
+            if purged_incomplete:
+                log.info(
+                    "Removed %s in-progress import team_season_records row(s) for %s "
+                    "(max GP %s < %s).",
+                    purged_incomplete,
+                    year_label,
+                    max(int(agg.gp) for agg in aggs.values()),
+                    MIN_GP_IMPORT_STANDINGS_SEASON,
+                )
+            continue
+
         for agg in aggs.values():
             key = (year_label, agg.team_id, None)
             if key in protected:
@@ -460,7 +596,14 @@ def sync_team_season_records_from_import(
             supplemented,
         )
 
-    total = written + supplemented
+    special_teams = _supplement_special_teams_from_archive(session, raw_dir=raw_dir)
+    if special_teams:
+        log.info(
+            "Supplemented %s team_season_records cell(s) with archived special-teams stats.",
+            special_teams,
+        )
+
+    total = written + supplemented + special_teams
     if written:
         log.info("Synced %s import-sourced team_season_records row(s) from career/standings.", written)
     return total

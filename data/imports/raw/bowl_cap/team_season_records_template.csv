@@ -1,4 +1,4 @@
-﻿Year,Team ID,Team Name Override,Conference ID,Conference Override,Division ID,Division Override,Logo File Override,GP,W,L,T (OTL),PTS,GF,GA,Goal Differential,Result,PIM/G,PPG,PPG Against,PP Ch,SHG,SHG Against,SHC,PP%,PK%,Shots,Shots Against
+Year,Team ID,Team Name Override,Conference ID,Conference Override,Division ID,Division Override,Logo File Override,GP,W,L,T (OTL),PTS,GF,GA,Goal Differential,Result,PIM/G,PPG,PPG Against,PP Ch,SHG,SHG Against,SHC,PP%,PK%,Shots,Shots Against
 1917-18,0,Montreal Wanderers,,,,,,6,1,5,0,2,17,35,-18,Missed Playoffs,4.5,null,0,null,null,0,null,null,null,null,null
 1917-18,3,,,,,,,22,13,9,0,26,108,109,-1,BOWL CUP CHAMPION,16.14,null,0,null,null,0,null,null,null,null,null
 1917-18,216,Ottawa Senators,,,,,,22,9,13,0,18,102,114,-12,Missed Playoffs,15.14,null,0,null,null,0,null,null,null,null,null
@@ -966,31 +966,31 @@
 1998-99,18,,,Western,,Northwest,,82,41,33,8,90,252,234,18,Lost Conference Quarter-Finals,20.16,49,47,382,15,16,399,12.8,88.2,2488,2513
 1998-99,19,,,Western,,Northwest,,82,36,40,6,78,216,215,1,Lost Conference Quarter-Finals,17.77,48,47,360,7,2,392,13.3,88,2166,2249
 1998-99,23,,,Western,,Northwest,,82,33,44,9,75,235,233,2,Lost Conference Quarter-Finals,17.32,62,48,417,15,7,422,14.9,88.6,2610,2336
-1999-00,0,,,Eastern,,Northeast,,82,52,19,9,113,329,171,158,Lost Conference Finals,15.56,66,,,15,,,,,2681,1970
-1999-00,3,,,Eastern,,Northeast,,82,43,31,7,93,266,206,60,Lost Conference Semi-Finals,16,52,,,11,,,,,2350,2087
-1999-00,5,,,Eastern,,Northeast,,82,20,54,8,48,179,283,-104,Missed Playoffs,16.27,30,,,11,,,,,1973,2653
-1999-00,8,,,Western,,Central,,82,40,37,4,84,206,200,6,Lost Conference Quarter-Finals,16.49,33,,,7,,,,,2117,2239
-1999-00,9,,,Western,,Central,,82,16,55,11,43,125,240,-115,Missed Playoffs,10.7,28,,,0,,,,,1429,2519
-1999-00,10,,,Eastern,,Atlantic,,82,34,39,8,76,245,263,-18,Missed Playoffs,14.05,50,,,10,,,,,2269,2450
-1999-00,11,,,Western,,Pacific,,82,45,31,6,96,249,192,57,Lost Conference Semi-Finals,16.06,49,,,21,,,,,2372,2081
-1999-00,12,,,Western,,Pacific,,82,30,48,4,64,213,265,-52,Missed Playoffs,16.98,44,,,12,,,,,2356,2424
-1999-00,14,,,Eastern,,Atlantic,,82,38,38,5,81,254,250,4,Missed Playoffs,17.44,33,,,7,,,,,2289,2456
-1999-00,15,,,Eastern,,Atlantic,,82,51,22,8,110,241,160,81,BOWL CUP CHAMPION,17.24,36,,,11,,,,,2614,1842
-1999-00,16,,,Western,,Central,,82,31,44,7,69,166,220,-54,Missed Playoffs,16.4,30,,,8,,,,,2233,2205
-1999-00,17,,,Eastern,,Northeast,,82,52,25,5,109,280,188,92,Lost Conference Semi-Finals,13.16,45,,,12,,,,,2323,2217
-1999-00,18,,,Western,,Northwest,,82,30,37,15,75,222,218,4,Lost Conference Quarter-Finals,15.04,30,,,14,,,,,2374,2224
-1999-00,19,,,Western,,Northwest,,82,31,43,8,70,209,237,-28,Lost Conference Quarter-Finals,12.74,40,,,14,,,,,2105,2384
-1999-00,20,,,Eastern,,Atlantic,,82,40,35,4,84,255,206,49,Lost Conference Quarter-Finals,13.99,34,,,21,,,,,2281,1976
-1999-00,21,,,Eastern,,Atlantic,,82,42,34,6,90,241,210,31,Lost Conference Quarter-Finals,17.34,40,,,9,,,,,2491,2313
-1999-00,22,,,Eastern,,Southeast,,82,31,44,6,68,214,232,-18,Missed Playoffs,14.98,42,,,9,,,,,1973,2342
-1999-00,23,,,Western,,Northwest,,82,40,31,8,88,246,199,47,Lost Cup Finals,16.07,45,,,16,,,,,2440,2277
-1999-00,24,,,Eastern,,Southeast,,82,46,28,7,99,263,217,46,Lost Conference Quarter-Finals,14.39,45,,,8,,,,,2190,2278
-1999-00,25,,,Western,,Northwest,,82,53,19,10,116,284,170,114,Lost Conference Semi-Finals,15.98,57,,,22,,,,,2723,1918
-1999-00,26,,,Western,,Pacific,,82,41,29,11,93,212,183,29,Lost Conference Quarter-Finals,14.66,27,,,14,,,,,2217,2120
-1999-00,214,,,Western,,Pacific,,82,33,32,8,74,201,177,24,Lost Conference Finals,12.37,41,,,5,,,,,2185,1820
-1999-00,216,,,Eastern,,Northeast,,82,39,34,8,86,230,189,41,Missed Playoffs,14.09,37,,,14,,,,,2514,2113
-1999-00,217,,,Eastern,,Southeast,,82,34,35,12,80,239,225,14,Missed Playoffs,16.71,45,,,14,,,,,2605,2496
-1999-00,220,,,Western,,Pacific,,82,30,43,9,69,185,232,-47,Missed Playoffs,12.02,33,,,8,,,,,1947,2436
-1999-00,221,,,Eastern,,Southeast,,82,47,28,6,100,257,191,66,Lost Conference Quarter-Finals,17.15,56,,,11,,,,,2421,2118
-1999-00,224,,,Western,,Central,,82,28,43,11,67,190,230,-40,Missed Playoffs,13.16,34,,,1,,,,,2069,2337
-1999-00,227,,,Eastern,,Southeast,,82,7,71,4,18,100,299,-199,Missed Playoffs,12.98,30,,,1,,,,,1426,2843
+1999-00,0,,,Eastern,,Northeast,,82,52,19,9,113,329,171,158,Lost Conference Finals,15.56,66,22,372,15,7,355,17.7,93.8,2681,1970
+1999-00,3,,,Eastern,,Northeast,,82,43,31,7,93,266,206,60,Lost Conference Semi-Finals,16,52,35,384,11,12,354,13.5,90.1,2350,2087
+1999-00,5,,,Eastern,,Northeast,,82,20,54,8,48,179,283,-104,Missed Playoffs,16.27,30,50,326,11,11,379,9.2,86.8,1973,2653
+1999-00,8,,,Western,,Central,,82,40,37,4,84,206,200,6,Lost Conference Quarter-Finals,16.49,33,45,356,7,10,370,9.3,87.8,2117,2239
+1999-00,9,,,Western,,Central,,82,16,55,11,43,125,240,-115,Missed Playoffs,10.7,28,46,253,0,10,285,11.5,83.9,1429,2519
+1999-00,10,,,Eastern,,Atlantic,,82,34,39,8,76,245,263,-18,Missed Playoffs,14.05,50,40,364,10,10,338,13.7,88.2,2269,2450
+1999-00,11,,,Western,,Pacific,,82,45,31,6,96,249,192,57,Lost Conference Semi-Finals,16.06,49,41,326,21,6,345,15.0,88.1,2372,2081
+1999-00,12,,,Western,,Pacific,,82,30,48,4,64,213,265,-52,Missed Playoffs,16.98,44,33,336,12,13,386,13.1,91.5,2356,2424
+1999-00,14,,,Eastern,,Atlantic,,82,38,38,5,81,254,250,4,Missed Playoffs,17.44,33,61,381,7,11,416,8.7,85.3,2289,2456
+1999-00,15,,,Eastern,,Atlantic,,82,51,22,8,110,241,160,81,BOWL CUP CHAMPION,17.24,36,29,390,11,12,372,9.2,92.2,2614,1842
+1999-00,16,,,Western,,Central,,82,31,44,7,69,166,220,-54,Missed Playoffs,16.4,30,46,366,8,7,375,8.2,87.7,2233,2205
+1999-00,17,,,Eastern,,Northeast,,82,52,25,5,109,280,188,92,Lost Conference Semi-Finals,13.16,45,33,330,12,5,330,13.6,90.0,2323,2217
+1999-00,18,,,Western,,Northwest,,82,30,37,15,75,222,218,4,Lost Conference Quarter-Finals,15.04,30,45,335,14,11,350,9.0,87.1,2374,2224
+1999-00,19,,,Western,,Northwest,,82,31,43,8,70,209,237,-28,Lost Conference Quarter-Finals,12.74,40,45,365,14,11,374,11.0,88.0,2105,2384
+1999-00,20,,,Eastern,,Atlantic,,82,40,35,4,84,255,206,49,Lost Conference Quarter-Finals,13.99,34,38,349,21,7,361,10.9,89.5,2281,1976
+1999-00,21,,,Eastern,,Atlantic,,82,42,34,6,90,241,210,31,Lost Conference Quarter-Finals,17.34,40,48,385,9,14,413,10.4,88.4,2491,2313
+1999-00,22,,,Eastern,,Southeast,,82,31,44,6,68,214,232,-18,Missed Playoffs,14.98,42,51,367,9,15,385,11.4,86.8,1973,2342
+1999-00,23,,,Western,,Northwest,,82,40,31,8,88,246,199,47,Lost Cup Finals,16.07,45,43,405,16,11,357,11.1,88.0,2440,2277
+1999-00,24,,,Eastern,,Southeast,,82,46,28,7,99,263,217,46,Lost Conference Quarter-Finals,14.39,45,42,347,8,7,332,13.0,87.3,2190,2278
+1999-00,25,,,Western,,Northwest,,82,53,19,10,116,284,170,114,Lost Conference Semi-Finals,15.98,57,22,384,22,9,350,14.8,93.7,2723,1918
+1999-00,26,,,Western,,Pacific,,82,41,29,11,93,212,183,29,Lost Conference Quarter-Finals,14.66,27,25,292,14,6,314,9.2,92.0,2217,2120
+1999-00,214,,,Western,,Pacific,,82,33,32,8,74,201,177,24,Lost Conference Finals,12.37,41,35,304,5,9,284,13.5,87.7,2185,1820
+1999-00,216,,,Eastern,,Northeast,,82,39,34,8,86,230,189,41,Missed Playoffs,14.09,37,33,410,14,8,357,9.0,90.8,2514,2113
+1999-00,217,,,Eastern,,Southeast,,82,34,35,12,80,239,225,14,Missed Playoffs,16.71,45,43,390,14,14,382,11.5,88.7,2605,2496
+1999-00,220,,,Western,,Pacific,,82,30,43,9,69,185,232,-47,Missed Playoffs,12.02,33,36,303,8,14,292,10.9,87.7,1947,2436
+1999-00,221,,,Eastern,,Southeast,,82,47,28,6,100,257,191,66,Lost Conference Quarter-Finals,17.15,56,32,382,11,7,368,14.7,91.3,2421,2118
+1999-00,224,,,Western,,Central,,82,28,43,11,67,190,230,-40,Missed Playoffs,13.16,34,57,384,1,12,388,8.9,85.3,2069,2337
+1999-00,227,,,Eastern,,Southeast,,82,7,71,4,18,100,299,-199,Missed Playoffs,12.98,30,59,374,1,7,348,8.3,83.0,1426,2843

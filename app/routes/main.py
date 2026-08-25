@@ -66,7 +66,7 @@ from app.services.draft_history import (
     group_picks_by_round,
     nhl_bowl_draft_clause,
 )
-from app.services.import_career_seasons import import_folder_season_labels
+from app.services.team_records import history_standings_season_labels
 from app.services.player_career_bowl_lines import load_player_bowl_career_table_lines
 from app.services.player_career_totals import goalie_career_lines_totals, skater_career_lines_totals
 from app.services.player_contract_csv import (
@@ -2439,9 +2439,7 @@ def history():
     _attach_history_award_season_teams(awards)
     award_panels = _build_award_panels(awards)
     award_race_rows = _build_award_race_rows(awards)
-    seasons_on_file = import_folder_season_labels(
-        Path(str(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)))
-    )
+    seasons_on_file = history_standings_season_labels(db.session)
     champion_banners = champion_banner_urls()
     all_star_bundle = build_history_all_stars_bundle(
         db.session, request.args.get("all_star_season")

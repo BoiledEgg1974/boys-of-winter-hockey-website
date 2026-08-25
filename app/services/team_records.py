@@ -33,6 +33,7 @@ from app.services.admin_history_records import (
     HISTORY_SOURCE_CSV,
     HISTORY_SOURCE_IMPORT,
 )
+from app.services.team_season_record_sync import MIN_GP_IMPORT_STANDINGS_SEASON
 from app.services.all_time_records import bowl_nhl_league_ids
 from app.services.division_labels import load_division_display_maps
 from scripts.import_pipeline.encoding_utils import cell_val, read_csv_normalized
@@ -161,10 +162,48 @@ def standings_sort_key(rec: TeamSeasonRecord) -> tuple[float, float, float, floa
 
 
 def _load_records_for_year(session: Session, year_label: str) -> list[TeamSeasonRecord]:
-    rows = session.scalars(
-        select(TeamSeasonRecord).where(TeamSeasonRecord.season_year_label == year_label)
-    ).all()
+    rows = list(
+        session.scalars(
+            select(TeamSeasonRecord).where(TeamSeasonRecord.season_year_label == year_label)
+        ).all()
+    )
+    rows = _dedupe_team_season_records(rows)
+    if not _records_have_displayable_standings(rows):
+        return []
     return sorted(rows, key=standings_sort_key)
+
+
+def _records_have_displayable_standings(records: list[TeamSeasonRecord]) -> bool:
+    """True when a season has CSV/admin standings or a complete import-sync season."""
+    if not records:
+        return False
+    if any(
+        (rec.source or HISTORY_SOURCE_CSV).strip().lower() in (HISTORY_SOURCE_CSV, HISTORY_SOURCE_ADMIN)
+        for rec in records
+    ):
+        return True
+    gp_values = [int(rec.gp) for rec in records if rec.gp is not None]
+    if not gp_values:
+        return False
+    return max(gp_values) >= MIN_GP_IMPORT_STANDINGS_SEASON
+
+
+def season_has_displayable_standings(session: Session, year_label: str) -> bool:
+    rows = list(
+        session.scalars(
+            select(TeamSeasonRecord).where(TeamSeasonRecord.season_year_label == year_label)
+        ).all()
+    )
+    return _records_have_displayable_standings(_dedupe_team_season_records(rows))
+
+
+def history_standings_season_labels(session: Session) -> list[str]:
+    """Season labels linked from League History — only years with publishable standings."""
+    return [
+        label
+        for label in all_year_labels_desc(session)
+        if season_has_displayable_standings(session, label)
+    ]
 
 
 def _record_stat_key(rec: TeamSeasonRecord) -> tuple[str, int | None, int | None, int | None, int | None, int | None]:
@@ -280,7 +319,7 @@ def all_year_labels_desc(session: Session) -> list[str]:
 
 
 def adjacent_years(session: Session, year_label: str) -> tuple[str | None, str | None]:
-    labels = all_year_labels_desc(session)
+    labels = history_standings_season_labels(session)
     if year_label not in labels:
         return (None, None)
     i = labels.index(year_label)

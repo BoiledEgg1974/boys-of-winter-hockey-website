@@ -11,6 +11,7 @@ from app.services.racing_csv import (
     FORMULA_CIRCUIT_CP_LAST_PLACE,
     formula_circuit_ap_for_rank,
     formula_circuit_channel_points_for_rank,
+    formula_race_ap_for_position,
 )
 
 SCHEDULE_RACE_AP = "race_ap"
@@ -46,7 +47,7 @@ def default_tiers_for_league(league_slug: str) -> dict[str, list[tuple[int, int]
         }
     # Formula: classified P1–P10 race AP 10→1; end-of-circuit AP 1st=1000 … 31st=10.
     return {
-        SCHEDULE_RACE_AP: [(place, 11 - place) for place in range(1, 11)],
+        SCHEDULE_RACE_AP: [(place, formula_race_ap_for_position(place)) for place in range(1, 11)],
         SCHEDULE_CIRCUIT_AP: [
             (place, formula_circuit_ap_for_rank(place))
             for place in range(1, FORMULA_CIRCUIT_AP_PLACES + 1)

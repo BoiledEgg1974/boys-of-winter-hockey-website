@@ -15,6 +15,7 @@ from app.services.racing_csv import (
     classify_export_filename,
     formula_circuit_ap_for_rank,
     formula_circuit_channel_points_for_rank,
+    formula_race_ap_for_position,
     select_latest_export_csvs,
 )
 from app.services.racing_import import import_all_from_raw_dir
@@ -79,7 +80,11 @@ class RacingCsvClassifyTests(unittest.TestCase):
             "channel_credits",
         )
 
-    def test_formula_circuit_ap_scales_1000_to_10_over_31(self) -> None:
+    def test_formula_race_ap_is_10_down_to_1(self) -> None:
+        self.assertEqual(formula_race_ap_for_position(1), 10)
+        self.assertEqual(formula_race_ap_for_position(2), 9)
+        self.assertEqual(formula_race_ap_for_position(10), 1)
+        self.assertEqual(formula_race_ap_for_position(11), 0)
         self.assertEqual(formula_circuit_ap_for_rank(1), 1000)
         self.assertEqual(formula_circuit_ap_for_rank(31), 10)
         self.assertEqual(formula_circuit_ap_for_rank(16), 505)
@@ -166,6 +171,26 @@ class RacingImportLatestWinsTests(unittest.TestCase):
                     self.assertEqual(standing_by_name["MachoMike"].rank, 4)
                     self.assertEqual(standing_by_name["Yammyhotspur"].rank, 5)
                     self.assertEqual(standing_by_name["Joey"].channel_points, 0)
+
+                    from app.racing_models import RacingApSuggestion
+
+                    race_ap = list(
+                        db.session.scalars(
+                            select(RacingApSuggestion).where(
+                                RacingApSuggestion.scope == "race",
+                                RacingApSuggestion.currency == "ap",
+                            )
+                        ).all()
+                    )
+                    by_rank = {int(s.rank): s for s in race_ap if s.rank}
+                    self.assertEqual(by_rank[1].amount, 10)
+                    self.assertEqual(by_rank[1].driver_name, "Joey")
+                    self.assertEqual(by_rank[2].amount, 9)
+                    self.assertEqual(by_rank[3].amount, 8)
+                    self.assertEqual(by_rank[9].amount, 2)
+                    self.assertEqual(by_rank[9].driver_name, "MachoMike")
+                    self.assertEqual(by_rank[10].amount, 1)
+                    self.assertEqual(by_rank[10].driver_name, "Yammyhotspur")
 
                     credits = {
                         c.login: c

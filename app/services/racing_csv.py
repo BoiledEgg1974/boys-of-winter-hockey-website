@@ -98,6 +98,14 @@ def formula_circuit_points_for_position(position: int) -> int:
     return int(table.get(int(position), 0))
 
 
+def formula_race_ap_for_position(position: int) -> int:
+    """Race AP for classified P1–P10: 10 → 1. DNFs in those places still score."""
+    pos = int(position)
+    if pos < 1 or pos > 10:
+        return 0
+    return 11 - pos
+
+
 FORMULA_CIRCUIT_AP_FIRST = 1000
 FORMULA_CIRCUIT_AP_LAST = 10
 FORMULA_CIRCUIT_AP_PLACES = 31

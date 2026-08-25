@@ -26,6 +26,7 @@ from app.services.racing_csv import (
     formula_circuit_ap_for_rank,
     formula_circuit_channel_points_for_rank,
     formula_circuit_points_for_position,
+    formula_race_ap_for_position,
     normalize_name_key,
     parse_export_stamp,
     read_csv_dicts,
@@ -178,6 +179,31 @@ def _upsert_ap_suggestion(
     )
 
 
+def refresh_pending_formula_race_ap_suggestions(session: Session) -> int:
+    """Rebuild pending race AP grants from classified P1–P10 (10→1, including DNFs)."""
+    events = {int(e.id): e for e in session.scalars(select(RacingEvent)).all()}
+    updated = 0
+    for row in session.scalars(select(RacingEventResult)).all():
+        pos = int(row.position or 0)
+        amount = formula_race_ap_for_position(pos)
+        if amount <= 0:
+            continue
+        event = events.get(int(row.event_id))
+        _upsert_ap_suggestion(
+            session,
+            scope="race",
+            currency="ap",
+            driver_name=row.driver_name,
+            amount=amount,
+            rank=pos,
+            event_id=int(row.event_id),
+            circuit_id=int(event.circuit_id) if event is not None else None,
+            source_ref=f"formula:event:{row.event_id}:pos:{pos}:ap",
+        )
+        updated += 1
+    return updated
+
+
 def _import_formula_race_results(
     session: Session, path: Path, rows: list[dict[str, str]], stamp: str | None
 ) -> dict[str, Any]:
@@ -233,7 +259,7 @@ def _import_formula_race_results(
                 scope="race",
                 currency="ap",
                 driver_name=driver,
-                amount=amount_for_place(session, SCHEDULE_RACE_AP, pos),
+                amount=formula_race_ap_for_position(pos),
                 rank=pos,
                 event_id=int(event.id),
                 circuit_id=int(circuit.id),

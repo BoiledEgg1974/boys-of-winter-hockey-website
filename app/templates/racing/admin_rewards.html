@@ -7,6 +7,8 @@
   <p class="muted">
     Set place → amount for individual races/nights and for circuit standings.
     Imports use these tables to build pending grants. Format: one <code>place=amount</code> per line (e.g. <code>1=25</code>).
+    Formula AP is P1–P10 race <code>10→1</code> and circuit <code>1st=1000 … 31st=10</code>.
+    Twitch Channel Points stay separate.
   </p>
   {% for s in schedules %}
   <section class="racing-panel card" style="margin-top:1rem;">

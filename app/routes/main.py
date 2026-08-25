@@ -2217,12 +2217,13 @@ def _history_award_dedupe_key(a: HistoryAward) -> tuple[object, object, str]:
     return (_history_award_year_token(a), a.player_id, (a.notes or "").strip())
 
 
-def _history_award_dedupe_rank(a: HistoryAward) -> tuple[int, int, int, int, int]:
-    """Prefer ``staff_fhm_id`` / ``team_id`` / ``player_id`` over longer ``notes`` (fixes ``unresolved_*`` dupes)."""
+def _history_award_dedupe_rank(a: HistoryAward) -> tuple[int, int, int, int, int, int]:
+    """Prefer admin edits, franchise/player IDs, then staff metadata (fixes csv/admin slot dupes)."""
     return (
-        1 if (getattr(a, "staff_fhm_id", None) or "").strip() else 0,
+        1 if (getattr(a, "source", None) or "").strip().lower() == "admin" else 0,
         1 if a.team_id is not None else 0,
         1 if a.player_id is not None else 0,
+        1 if (getattr(a, "staff_fhm_id", None) or "").strip() else 0,
         len((a.notes or "").strip()),
         -a.id,
     )

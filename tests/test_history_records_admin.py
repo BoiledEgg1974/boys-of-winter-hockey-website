@@ -136,6 +136,87 @@ class HistoryRecordsServiceTest(unittest.TestCase):
         self.assertEqual(staff_award_winner_admin_label(award), "Mark1")
 
 
+class HistoryAwardAdminUpsertTest(unittest.TestCase):
+    def test_admin_add_replaces_csv_slot_and_dedupe_prefers_admin(self) -> None:
+        import tempfile
+        from unittest.mock import patch
+
+        from sqlalchemy import select
+
+        from app import create_app
+        from app.config import Config
+        from app.league_db import db
+        from app.models import HistoryAward, Season, Team
+        from app.routes.main import _build_award_panels, _dedupe_history_awards
+        from app.services.admin_history_records import (
+            HISTORY_SOURCE_ADMIN,
+            HISTORY_SOURCE_CSV,
+            upsert_history_award,
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "bowl-cap.db"
+
+            class _TestConfig(Config):
+                SQLALCHEMY_DATABASE_URI = f"sqlite:///{db_path.as_posix()}"
+                TESTING = True
+                LEAGUE_SLUG = "bowl-cap"
+
+            app = create_app(_TestConfig)
+            with app.app_context():
+                try:
+                    season = Season(label="2001-02 Season", start_year=2001, end_year=2002, is_current=True)
+                    team = Team(name="Pittsburgh", abbreviation="PIT", slug="pit-t15", fhm_team_id="15")
+                    db.session.add_all([season, team])
+                    db.session.flush()
+                    csv_row = HistoryAward(
+                        season_id=int(season.id),
+                        award_name="BOWL CUP TROPHY",
+                        staff_fhm_id="15",
+                        notes="sheet_season=1999-00",
+                        source=HISTORY_SOURCE_CSV,
+                    )
+                    db.session.add(csv_row)
+                    db.session.commit()
+
+                    upsert_history_award(
+                        db.session,
+                        award_id=None,
+                        season_label="1999-00",
+                        league_slug="bowl-cap",
+                        award_name="BOWL CUP TROPHY",
+                        player_id=None,
+                        team_id=int(team.id),
+                        staff_fhm_id=None,
+                        notes=None,
+                        user_id=1,
+                    )
+                    db.session.commit()
+
+                    rows = list(db.session.scalars(select(HistoryAward)).all())
+                    self.assertEqual(len(rows), 1)
+                    self.assertEqual(rows[0].source, HISTORY_SOURCE_ADMIN)
+                    self.assertEqual(rows[0].team_id, int(team.id))
+                    self.assertIsNone(rows[0].staff_fhm_id)
+
+                    deduped = _dedupe_history_awards(rows)
+                    self.assertEqual(len(deduped), 1)
+                    self.assertEqual(deduped[0].team_id, int(team.id))
+
+                    with (
+                        patch("app.routes.main._history_award_trophy_stem_map", return_value={}),
+                        patch("app.routes.main._history_award_trophy_rel_from_map", return_value=None),
+                    ):
+                        panels = _build_award_panels(rows)
+                    panel = next(p for p in panels if "BOWL CUP" in p["award_name"])
+                    self.assertEqual(panel["featured"].team_id, int(team.id))
+                finally:
+                    db.session.remove()
+                    db.drop_all()
+                    for engine in db.engines.values():
+                        engine.dispose()
+
+
 class HistoryRecordsImportSafetyTest(unittest.TestCase):
     def test_runner_protects_admin_awards_on_replace_all(self) -> None:
         path = Path(__file__).resolve().parents[1] / "scripts" / "import_pipeline" / "runner.py"

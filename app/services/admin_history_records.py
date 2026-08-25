@@ -17,6 +17,7 @@ from app.services.history_coach_awards import (
     is_jim_gregory_award,
     is_staff_history_award,
 )
+from app.services.history_team_awards import is_team_history_award
 
 HISTORY_SOURCE_ADMIN = "admin"
 HISTORY_SOURCE_CSV = "csv"
@@ -268,6 +269,44 @@ def admin_history_award_slot_keys(session: Session) -> set[tuple[str, str]]:
     return keys
 
 
+def history_awards_for_slot(
+    session: Session,
+    season_label: str,
+    award_name: str,
+) -> list[HistoryAward]:
+    """All ``HistoryAward`` rows for one trophy name + sheet season label."""
+    norm = normalize_history_award_title(award_name)
+    return [
+        a
+        for a in list_awards_for_season_label(session, season_label)
+        if normalize_history_award_title(a.award_name) == norm
+    ]
+
+
+def _pick_history_award_row_for_admin_upsert(
+    session: Session,
+    *,
+    award_id: int | None,
+    season_label: str,
+    award_name: str,
+) -> HistoryAward | None:
+    """Reuse an existing slot row when admin adds a winner (avoid csv/admin duplicates)."""
+    if award_id:
+        return session.get(HistoryAward, award_id)
+    slot_rows = history_awards_for_slot(session, season_label, award_name)
+    if not slot_rows:
+        return None
+    return max(
+        slot_rows,
+        key=lambda a: (
+            1 if a.source == HISTORY_SOURCE_ADMIN else 0,
+            1 if a.team_id is not None else 0,
+            1 if a.player_id is not None else 0,
+            -int(a.id or 0),
+        ),
+    )
+
+
 def list_awards_for_season_label(session: Session, season_label: str) -> list[HistoryAward]:
     """All DB awards whose sheet season (or season label) matches ``season_label``."""
     rows = list(
@@ -484,17 +523,31 @@ def upsert_history_award(
     season = resolve_season_for_label(session, label, league_slug=league_slug)
     if season is None:
         raise ValueError(f"No season row found for {label!r}.")
-    row = session.get(HistoryAward, award_id) if award_id else None
+    row = _pick_history_award_row_for_admin_upsert(
+        session,
+        award_id=award_id,
+        season_label=label,
+        award_name=name,
+    )
     if row is None:
         row = HistoryAward(season_id=int(season.id))
     row.season_id = int(season.id)
     row.award_name = name
     row.player_id = player_id
     row.team_id = team_id
-    row.staff_fhm_id = (staff_fhm_id or "").strip() or None
+    if is_team_history_award(name):
+        # CSV imports sometimes store franchise FHM ids in ``staff_fhm_id``; team trophies use ``team_id``.
+        row.staff_fhm_id = None
+    else:
+        row.staff_fhm_id = (staff_fhm_id or "").strip() or None
     row.notes = merge_sheet_season_notes(notes, label) or None
     _stamp_admin_row(row, user_id)
     session.add(row)
+    session.flush()
+    kept_id = int(row.id or 0)
+    for dup in history_awards_for_slot(session, label, name):
+        if int(dup.id or 0) != kept_id:
+            session.delete(dup)
     session.flush()
     return row
 

@@ -4,7 +4,7 @@
 <section class="card">
   <h1 class="page-title">Circuit leaders</h1>
   {% if circuit %}
-  <p class="muted">{{ circuit.name }} · status {{ circuit.status }}</p>
+  <p class="muted">{{ circuit.name }} · status {{ circuit.status }}{% if not is_demolition %} · end-of-circuit AP is 1000 for 1st down to 10 for 31st{% endif %}</p>
   {% else %}
   <p class="muted">No active circuit.</p>
   {% endif %}
@@ -14,7 +14,7 @@
         <th>Rank</th>
         <th>Driver</th>
         <th>Circuit Pts</th>
-        <th>{{ 'Kills' if is_demolition else 'Channel Pts' }}</th>
+        <th>{{ 'Kills' if is_demolition else 'AP' }}</th>
         <th>{{ 'Events' if is_demolition else 'Races' }}</th>
         <th>Wins</th>
         <th>Best</th>
@@ -27,7 +27,7 @@
         <td>{{ s.rank }}</td>
         <td>{{ s.driver_name }}</td>
         <td>{{ s.points }}</td>
-        <td>{% if is_demolition %}{{ s.kills }}{% else %}{{ s.channel_points }}{% endif %}</td>
+        <td>{% if is_demolition %}{{ s.kills }}{% else %}{{ s.action_points }}{% endif %}</td>
         <td>{{ s.events_played }}</td>
         <td>{{ s.wins }}</td>
         <td>{{ s.best_finish or '—' }}</td>

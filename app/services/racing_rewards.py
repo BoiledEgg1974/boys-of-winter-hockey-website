@@ -40,8 +40,10 @@ def default_tiers_for_league(league_slug: str) -> dict[str, list[tuple[int, int]
         }
     # Formula: race AP for claimed podium-ish finishes; CP for P11+ style depth.
     return {
-        SCHEDULE_RACE_AP: [(1, 10), (2, 8), (3, 6), (4, 5), (5, 4), (6, 3), (7, 2), (8, 1)],
-        SCHEDULE_CIRCUIT_AP: [(1, 30), (2, 25), (3, 20), (4, 15), (5, 10), (6, 5)],
+        SCHEDULE_RACE_AP: [(1, 10), (2, 9), (3, 8), (4, 7), (5, 6), (6, 5), (7, 4), (8, 3), (9, 2), (10, 1)],
+        SCHEDULE_CIRCUIT_AP: [
+            (place, int(round(1000 - ((place - 1) / 30) * 990))) for place in range(1, 32)
+        ],
         SCHEDULE_RACE_CP: [
             (11, 200),
             (12, 180),

@@ -38,6 +38,7 @@ def classify_export_filename(filename: str) -> str | None:
         ("season_standings_", "season_standings"),
         ("circuit_ap_awards_", "circuit_ap_awards"),
         ("viewer_circuit_ap_", "circuit_ap_awards"),
+        ("channel_credits_", "channel_credits"),
         ("viewer_credits_", "viewer_credits"),
     )
     for prefix, kind in mapping:
@@ -92,9 +93,30 @@ def cell_bool(row: dict[str, str], *keys: str) -> bool | None:
 
 
 def formula_circuit_points_for_position(position: int) -> int:
-    """Official Formula BOWL P1–P10 circuit points schedule."""
+    """Official Formula BOWL P1–P10 circuit points (classified order, including DNFs)."""
     table = {1: 25, 2: 18, 3: 15, 4: 12, 5: 10, 6: 8, 7: 6, 8: 4, 9: 2, 10: 1}
     return int(table.get(int(position), 0))
+
+
+FORMULA_CIRCUIT_AP_FIRST = 1000
+FORMULA_CIRCUIT_AP_LAST = 10
+FORMULA_CIRCUIT_AP_PLACES = 31
+
+
+def formula_circuit_ap_for_rank(rank: int, field_size: int | None = None) -> int:
+    """End-of-circuit AP: 1st = 1000, 31st = 10, linear in between.
+
+    Always a 31-place table. ``field_size`` is ignored so a larger field cannot
+    stretch 10 AP past 31st, and a short field still projects rank 31 at 10 AP.
+    """
+    n = FORMULA_CIRCUIT_AP_PLACES
+    place = int(rank)
+    if place < 1 or place > n:
+        return 0
+    if n == 1:
+        return FORMULA_CIRCUIT_AP_FIRST
+    t = float(place - 1) / float(n - 1)
+    return int(round(FORMULA_CIRCUIT_AP_FIRST - t * (FORMULA_CIRCUIT_AP_FIRST - FORMULA_CIRCUIT_AP_LAST)))
 
 
 def derby_event_ap_for_position(position: int) -> int:

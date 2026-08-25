@@ -94,6 +94,9 @@
             <a href="{{ url_for('racing.results_index') }}">{% if current_league_slug == 'bowl-demolition' %}Heats{% else %}Races{% endif %}</a>
             <a href="{{ url_for('racing.circuit_page') }}">Circuit</a>
             <a href="{{ url_for('racing.racers_page') }}">Racers</a>
+            {% if current_league_slug != 'bowl-demolition' %}
+            <a href="{{ url_for('racing.ledger_page') }}">Ledger</a>
+            {% endif %}
           </div>
           {% else %}
           {% if current_league_slug == 'bowl-fantasy' %}

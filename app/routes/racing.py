@@ -25,6 +25,7 @@ from app.auth_login import (
 )
 from app.league_db import db
 from app.racing_models import (
+    RacingChannelCredit,
     RacingCircuit,
     RacingCircuitStanding,
     RacingEvent,
@@ -175,6 +176,23 @@ def racers_page():
     return render_template(
         "racing/racers.html",
         racers=racers,
+        is_demolition=_is_demolition(),
+    )
+
+
+@racing_bp.route("/ledger")
+def ledger_page():
+    credits = list(
+        db.session.scalars(
+            select(RacingChannelCredit).order_by(
+                RacingChannelCredit.channel_credits.desc(),
+                RacingChannelCredit.display.asc(),
+            )
+        ).all()
+    )
+    return render_template(
+        "racing/ledger.html",
+        credits=credits,
         is_demolition=_is_demolition(),
     )
 

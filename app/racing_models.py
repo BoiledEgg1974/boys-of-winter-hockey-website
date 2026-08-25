@@ -151,6 +151,24 @@ class RacingCircuitStanding(db.Model):
     racer: Mapped[RacingRacer | None] = relationship()
 
 
+class RacingChannelCredit(db.Model):
+    """Twitch channel-credit ledger (!credits / !convert) from Godot exports."""
+
+    __tablename__ = "racing_channel_credits"
+    __table_args__ = (UniqueConstraint("login_key", name="uq_racing_channel_credit_login"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    racer_id: Mapped[int | None] = mapped_column(ForeignKey("racing_racers.id"), nullable=True, index=True)
+    login_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    login: Mapped[str] = mapped_column(String(160), nullable=False)
+    display: Mapped[str] = mapped_column(String(160), nullable=False)
+    channel_credits: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    awards: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+
+    racer: Mapped[RacingRacer | None] = relationship()
+
+
 class RacingApSuggestion(db.Model):
     """Suggested AP or Twitch channel-point payout from race/circuit results."""
 

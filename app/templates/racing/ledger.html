@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Channel credits — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<section class="card">
+  <h1 class="page-title">Channel credit ledger</h1>
+  <p class="muted">
+    Claimed P11+ finishers earn channel credits in race. Check your balance in Twitch chat with
+    <code>!credits</code>. Spend them with <code>!convert [n]</code> (500 credits = 1 AP, applied off-stream).
+    Hosts can add credits with <code>!allocate &lt;login&gt; &lt;amount&gt;</code>.
+  </p>
+  <table class="data-table racing-table">
+    <thead>
+      <tr>
+        <th>Viewer</th>
+        <th>Driver</th>
+        <th>Credits</th>
+        <th>Awards</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in credits %}
+      <tr>
+        <td>{{ row.login }}</td>
+        <td>{{ row.display }}</td>
+        <td>{{ row.channel_credits }}</td>
+        <td>{{ row.awards }}</td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="4" class="muted">No channel credits yet — they appear after claimed P11+ finishes or a <code>channel_credits_*.csv</code> import.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

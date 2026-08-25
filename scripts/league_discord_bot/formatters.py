@@ -771,11 +771,14 @@ def _format_circuit_standings_body(payload: dict[str, Any]) -> str:
             rank = row.get("rank") or "?"
             driver = str(row.get("driver") or "").strip() or "—"
             pts = row.get("points", 0)
-            extra = row.get("channel_points")
-            if extra is None:
-                extra = row.get("kills", 0)
-                lines.append(f"{rank}. {driver} — {pts} pts · {extra} kills")
+            if int(row.get("kills") or 0) > 0:
+                lines.append(f"{rank}. {driver} — {pts} pts · {row.get('kills')} kills")
+                continue
+            extra_ap = row.get("action_points")
+            if extra_ap is not None:
+                lines.append(f"{rank}. {driver} — {pts} pts · {extra_ap} AP")
             else:
+                extra = row.get("channel_points", 0)
                 lines.append(f"{rank}. {driver} — {pts} pts · {extra} CP")
     url = str(payload.get("url") or "").strip()
     if url:

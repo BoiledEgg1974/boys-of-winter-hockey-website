@@ -6,7 +6,7 @@
     <img class="racing-hero__logo" src="{{ league_logo_url() }}" alt="{{ config.LEAGUE_DISPLAY_NAME }}">
     <div>
       <h1 class="page-title racing-hero__title">{{ config.LEAGUE_DISPLAY_NAME }}</h1>
-      <p class="muted">{{ 'Heat results, circuit leaders, and derby standings.' if is_demolition else 'Race results, circuit leaders, and channel-point tallies.' }}</p>
+      <p class="muted">{{ 'Heat results, circuit leaders, and derby standings.' if is_demolition else 'Race results, circuit leaders, and end-of-circuit AP.' }}</p>
     </div>
   </div>
 </section>
@@ -44,7 +44,7 @@
   <section class="card racing-panel">
     <h2 class="section-title">Circuit leaders</h2>
     {% if circuit %}
-      <p class="muted">{{ circuit.name }}</p>
+      <p class="muted">{{ circuit.name }}{% if not is_demolition %} · AP 1000 (1st) to 10 (31st){% endif %}</p>
     {% endif %}
     <table class="data-table racing-table">
       <thead>
@@ -52,7 +52,7 @@
           <th>#</th>
           <th>Driver</th>
           <th>Pts</th>
-          <th>{{ 'Kills' if is_demolition else 'CP' }}</th>
+          <th>{{ 'Kills' if is_demolition else 'AP' }}</th>
         </tr>
       </thead>
       <tbody>
@@ -61,7 +61,7 @@
           <td>{{ s.rank }}</td>
           <td>{{ s.driver_name }}</td>
           <td>{{ s.points }}</td>
-          <td>{% if is_demolition %}{{ s.kills }}{% else %}{{ s.channel_points }}{% endif %}</td>
+          <td>{% if is_demolition %}{{ s.kills }}{% else %}{{ s.action_points }}{% endif %}</td>
         </tr>
         {% else %}
         <tr><td colspan="4" class="muted">No standings yet.</td></tr>

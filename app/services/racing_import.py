@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.racing_models import (
     RacingApSuggestion,
+    RacingChannelCredit,
     RacingCircuit,
     RacingCircuitStanding,
     RacingEvent,
@@ -22,6 +23,7 @@ from app.services.racing_csv import (
     cell_float,
     cell_int,
     classify_export_filename,
+    formula_circuit_ap_for_rank,
     formula_circuit_points_for_position,
     normalize_name_key,
     parse_export_stamp,
@@ -363,7 +365,9 @@ def _import_circuit_standings(
     stamp: str | None,
     *,
     kind: str,
+    league_slug: str = "",
 ) -> dict[str, Any]:
+    is_formula = league_slug == "bowl-formula"
     circuit = _active_or_new_circuit(session, stamp=stamp)
     for old in list(
         session.scalars(select(RacingCircuitStanding).where(RacingCircuitStanding.circuit_id == int(circuit.id)))
@@ -379,6 +383,18 @@ def _import_circuit_standings(
         racer = resolve_racer_by_name(session, driver)
         rank = cell_int(row, "rank", default=0)
         points = cell_int(row, "points", "circuit_points")
+        if is_formula:
+            action_points = formula_circuit_ap_for_rank(rank) if rank else 0
+            channel_points = 0
+        else:
+            action_points = (
+                amount_for_place(session, SCHEDULE_CIRCUIT_AP, rank)
+                if rank
+                else cell_int(row, "action_points", "ap", "ap_awarded")
+            )
+            channel_points = cell_int(row, "channel_points") or amount_for_place(
+                session, SCHEDULE_CIRCUIT_CP, rank
+            )
         session.add(
             RacingCircuitStanding(
                 circuit_id=int(circuit.id),
@@ -387,17 +403,14 @@ def _import_circuit_standings(
                 driver_name=driver,
                 rank=rank,
                 points=points,
-                action_points=amount_for_place(session, SCHEDULE_CIRCUIT_AP, rank)
-                if rank
-                else cell_int(row, "action_points", "ap", "ap_awarded"),
+                action_points=action_points,
                 events_played=cell_int(row, "races", "events"),
                 wins=cell_int(row, "wins"),
                 kills=cell_int(row, "kills"),
                 best_finish=cell_int(row, "best_finish", default=0) or None,
                 average_finish=cell_float(row, "average_finish"),
                 grade=row.get("grade") or None,
-                channel_points=cell_int(row, "channel_points")
-                or amount_for_place(session, SCHEDULE_CIRCUIT_CP, rank),
+                channel_points=channel_points,
             )
         )
         if rank > 0:
@@ -406,23 +419,24 @@ def _import_circuit_standings(
                 scope="circuit",
                 currency="ap",
                 driver_name=driver,
-                amount=amount_for_place(session, SCHEDULE_CIRCUIT_AP, rank),
+                amount=action_points,
                 rank=rank,
                 event_id=None,
                 circuit_id=int(circuit.id),
                 source_ref=f"circuit:{circuit.id}:rank:{rank}:ap",
             )
-            _upsert_ap_suggestion(
-                session,
-                scope="circuit",
-                currency="channel_points",
-                driver_name=driver,
-                amount=amount_for_place(session, SCHEDULE_CIRCUIT_CP, rank),
-                rank=rank,
-                event_id=None,
-                circuit_id=int(circuit.id),
-                source_ref=f"circuit:{circuit.id}:rank:{rank}:cp",
-            )
+            if not is_formula:
+                _upsert_ap_suggestion(
+                    session,
+                    scope="circuit",
+                    currency="channel_points",
+                    driver_name=driver,
+                    amount=channel_points,
+                    rank=rank,
+                    event_id=None,
+                    circuit_id=int(circuit.id),
+                    source_ref=f"circuit:{circuit.id}:rank:{rank}:cp",
+                )
         written += 1
     _mark_batch(
         session,
@@ -537,6 +551,154 @@ def _import_circuit_ap_awards(
     return {"circuit_ap": count, "circuit_id": int(circuit.id)}
 
 
+def _reconcile_formula_circuit(session: Session, circuit_id: int) -> None:
+    """Rebuild Formula circuit pts from classified race order and end-of-circuit AP.
+
+    Godot used to skip DNF P9/P10 in circuit_standings.csv (0 pts) while the
+    race-results board scored them 2/1. Classified P1–P10 always score here.
+    AP is 1000 for 1st through 10 for 31st, scaled linearly.
+    """
+    events = list(
+        session.scalars(select(RacingEvent).where(RacingEvent.circuit_id == int(circuit_id))).all()
+    )
+    event_ids = [int(e.id) for e in events]
+    totals: dict[str, dict[str, Any]] = {}
+    if event_ids:
+        results = list(
+            session.scalars(
+                select(RacingEventResult).where(RacingEventResult.event_id.in_(event_ids))
+            ).all()
+        )
+        for row in results:
+            key = normalize_name_key(row.driver_name)
+            if not key:
+                continue
+            bucket = totals.setdefault(
+                key,
+                {
+                    "driver_name": row.driver_name,
+                    "racer_id": row.racer_id,
+                    "points": 0,
+                    "races": 0,
+                    "wins": 0,
+                    "best_finish": 0,
+                    "finish_total": 0,
+                },
+            )
+            pos = int(row.position or 0)
+            bucket["points"] = int(bucket["points"]) + formula_circuit_points_for_position(pos)
+            bucket["races"] = int(bucket["races"]) + 1
+            bucket["finish_total"] = int(bucket["finish_total"]) + pos
+            if pos == 1:
+                bucket["wins"] = int(bucket["wins"]) + 1
+            best = int(bucket["best_finish"] or 0)
+            if pos > 0 and (best <= 0 or pos < best):
+                bucket["best_finish"] = pos
+            if row.racer_id and not bucket.get("racer_id"):
+                bucket["racer_id"] = row.racer_id
+
+    standings = list(
+        session.scalars(
+            select(RacingCircuitStanding).where(RacingCircuitStanding.circuit_id == int(circuit_id))
+        ).all()
+    )
+    by_key = {str(s.driver_key): s for s in standings}
+    for key, bucket in totals.items():
+        row = by_key.get(key)
+        if row is None:
+            row = RacingCircuitStanding(
+                circuit_id=int(circuit_id),
+                driver_key=key,
+                driver_name=str(bucket["driver_name"]),
+            )
+            session.add(row)
+            by_key[key] = row
+        row.driver_name = str(bucket["driver_name"])
+        row.racer_id = int(bucket["racer_id"]) if bucket.get("racer_id") else row.racer_id
+        row.points = int(bucket["points"])
+        row.events_played = int(bucket["races"])
+        row.wins = int(bucket["wins"])
+        row.best_finish = int(bucket["best_finish"]) or None
+        races = max(1, int(bucket["races"]))
+        row.average_finish = float(bucket["finish_total"]) / races
+        row.channel_points = 0
+
+    ranked = list(by_key.values())
+    ranked.sort(
+        key=lambda s: (
+            -int(s.points or 0),
+            -int(s.wins or 0),
+            int(s.best_finish or 999),
+            str(s.driver_name or "").lower(),
+        )
+    )
+    for i, row in enumerate(ranked, start=1):
+        row.rank = i
+        ap_amount = formula_circuit_ap_for_rank(i)
+        row.action_points = ap_amount
+        _upsert_ap_suggestion(
+            session,
+            scope="circuit",
+            currency="ap",
+            driver_name=row.driver_name,
+            amount=ap_amount,
+            rank=i,
+            event_id=None,
+            circuit_id=int(circuit_id),
+            source_ref=f"circuit:{circuit_id}:rank:{i}:ap",
+        )
+
+
+def _import_channel_credits(
+    session: Session, path: Path, rows: list[dict[str, str]], stamp: str | None
+) -> dict[str, Any]:
+    """Twitch channel-credit balances (!credits / !convert) from Godot EXPORT CSV.
+
+    The CSV is a full snapshot: missing logins are dropped so empty nights clear
+    leftover balances.
+    """
+    for old in list(session.scalars(select(RacingChannelCredit)).all()):
+        session.delete(old)
+    session.flush()
+    written = 0
+    for row in rows:
+        login = (row.get("viewer") or row.get("login") or "").strip()
+        display = (row.get("display") or login).strip()
+        if not login and not display:
+            continue
+        key = normalize_name_key(login or display)
+        racer = resolve_racer_by_name(session, display) or resolve_racer_by_name(session, login)
+        existing = session.scalar(
+            select(RacingChannelCredit).where(RacingChannelCredit.login_key == key).limit(1)
+        )
+        credits = cell_int(row, "channel_credits", "credits")
+        awards = cell_int(row, "awards")
+        if existing is None:
+            existing = RacingChannelCredit(
+                login_key=key,
+                login=login or display,
+                display=display or login,
+            )
+            session.add(existing)
+        existing.login = login or display
+        existing.display = display or login
+        existing.channel_credits = credits
+        existing.awards = awards
+        existing.racer_id = int(racer.id) if racer else existing.racer_id
+        existing.updated_at = datetime.utcnow()
+        written += 1
+    circuit = _active_or_new_circuit(session, stamp=stamp)
+    _mark_batch(
+        session,
+        filename=path.name,
+        kind="channel_credits",
+        stamp=stamp,
+        row_count=len(rows),
+        circuit_id=int(circuit.id),
+    )
+    return {"credits": written, "circuit_id": int(circuit.id)}
+
+
 def import_csv_file(session: Session, path: Path, *, league_slug: str) -> dict[str, Any]:
     ensure_default_reward_tiers(session, league_slug=league_slug)
     kind = classify_export_filename(path.name)
@@ -550,9 +712,13 @@ def import_csv_file(session: Session, path: Path, *, league_slug: str) -> dict[s
     elif kind == "event_results":
         detail = _import_derby_event_results(session, path, rows, stamp)
     elif kind in ("circuit_standings", "season_standings"):
-        detail = _import_circuit_standings(session, path, rows, stamp, kind=kind)
+        detail = _import_circuit_standings(
+            session, path, rows, stamp, kind=kind, league_slug=league_slug
+        )
     elif kind == "channel_points":
         detail = _import_channel_points(session, path, rows, stamp)
+    elif kind == "channel_credits":
+        detail = _import_channel_credits(session, path, rows, stamp)
     elif kind == "viewer_finish_awards":
         detail = _import_viewer_finish_awards(session, path, rows, stamp)
     elif kind == "circuit_ap_awards":
@@ -569,6 +735,13 @@ def import_csv_file(session: Session, path: Path, *, league_slug: str) -> dict[s
     else:
         detail = {"skipped": True, "reason": "unhandled", "file": path.name}
     detail.update({"file": path.name, "kind": kind})
+    if (
+        league_slug == "bowl-formula"
+        and not detail.get("skipped")
+        and kind in ("race_results", "circuit_standings", "season_standings")
+        and detail.get("circuit_id")
+    ):
+        _reconcile_formula_circuit(session, int(detail["circuit_id"]))
     return detail
 
 
@@ -625,6 +798,7 @@ def import_all_from_raw_dir(session: Session, *, league_slug: str | None = None)
         "circuit_standings": 30,
         "season_standings": 30,
         "channel_points": 40,
+        "channel_credits": 45,
         "circuit_ap_awards": 50,
     }
     files.sort(key=lambda p: (priority.get(classify_export_filename(p.name) or "", 99), p.name))

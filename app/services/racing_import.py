@@ -204,6 +204,42 @@ def refresh_pending_formula_race_ap_suggestions(session: Session) -> int:
     return updated
 
 
+def refresh_pending_formula_circuit_cp_suggestions(session: Session) -> int:
+    """Replace leftover P1–P5 circuit CP grants with P11=3000 … P31=300."""
+    stale = list(
+        session.scalars(
+            select(RacingApSuggestion).where(
+                RacingApSuggestion.scope == "circuit",
+                RacingApSuggestion.currency == "channel_points",
+                RacingApSuggestion.status == "pending",
+            )
+        ).all()
+    )
+    for row in stale:
+        session.delete(row)
+    session.flush()
+    updated = 0
+    for standing in session.scalars(select(RacingCircuitStanding)).all():
+        rank = int(standing.rank or 0)
+        amount = formula_circuit_channel_points_for_rank(rank)
+        standing.channel_points = amount
+        if amount <= 0:
+            continue
+        _upsert_ap_suggestion(
+            session,
+            scope="circuit",
+            currency="channel_points",
+            driver_name=standing.driver_name,
+            amount=amount,
+            rank=rank,
+            event_id=None,
+            circuit_id=int(standing.circuit_id) if standing.circuit_id else None,
+            source_ref=f"circuit:{standing.circuit_id}:rank:{rank}:cp",
+        )
+        updated += 1
+    return updated
+
+
 def _import_formula_race_results(
     session: Session, path: Path, rows: list[dict[str, str]], stamp: str | None
 ) -> dict[str, Any]:
@@ -689,6 +725,8 @@ def _reconcile_formula_circuit(session: Session, circuit_id: int) -> None:
                 circuit_id=int(circuit_id),
                 source_ref=f"circuit:{circuit_id}:rank:{i}:cp",
             )
+
+    refresh_pending_formula_circuit_cp_suggestions(session)
 
 
 def _import_channel_credits(

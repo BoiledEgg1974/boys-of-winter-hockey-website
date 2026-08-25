@@ -10,7 +10,14 @@ from sqlalchemy import select
 from app import create_app
 from app.config import Config
 from app.league_db import db
-from app.racing_models import RacingChannelCredit, RacingCircuitStanding, RacingEvent, RacingEventResult
+from app.racing_models import (
+    RacingApSuggestion,
+    RacingChannelCredit,
+    RacingCircuit,
+    RacingCircuitStanding,
+    RacingEvent,
+    RacingEventResult,
+)
 from app.services.racing_csv import (
     classify_export_filename,
     formula_circuit_ap_for_rank,
@@ -18,7 +25,10 @@ from app.services.racing_csv import (
     formula_race_ap_for_position,
     select_latest_export_csvs,
 )
-from app.services.racing_import import import_all_from_raw_dir
+from app.services.racing_import import (
+    import_all_from_raw_dir,
+    refresh_pending_formula_circuit_cp_suggestions,
+)
 
 
 SAMPLE_RACE = """race,track,position,number,driver,controller,gear,wear,lap,finished,eliminated,summary
@@ -198,6 +208,84 @@ class RacingImportLatestWinsTests(unittest.TestCase):
                     }
                     self.assertEqual(credits["joey_bowl"].channel_credits, 750)
                     self.assertEqual(credits["clutchrandy"].channel_credits, 250)
+                finally:
+                    db.session.remove()
+                    db.drop_all()
+                    db.drop_all(bind_key="site")
+                    for engine in db.engines.values():
+                        engine.dispose()
+
+
+class FormulaCircuitCpGrantTests(unittest.TestCase):
+    def test_circuit_cp_grants_are_p11_to_p31_not_top_five(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+
+            class _TestConfig(Config):
+                SQLALCHEMY_DATABASE_URI = f"sqlite:///{(root / 'league.db').as_posix()}"
+                SITE_SQLALCHEMY_DATABASE_URI = f"sqlite:///{(root / 'site.db').as_posix()}"
+                TESTING = True
+                LEAGUE_SLUG = "bowl-formula"
+                RAW_IMPORT_DIR = root
+                SQLALCHEMY_BINDS = {}
+
+            app = create_app(_TestConfig)
+            with app.app_context():
+                try:
+                    db.create_all()
+                    db.create_all(bind_key="site")
+                    circuit = RacingCircuit(name="Formula Circuit", status="active")
+                    db.session.add(circuit)
+                    db.session.flush()
+                    db.session.add_all(
+                        [
+                            RacingCircuitStanding(
+                                circuit_id=int(circuit.id),
+                                driver_key="joey",
+                                driver_name="Joey",
+                                rank=1,
+                                points=25,
+                                channel_points=1000,
+                            ),
+                            RacingCircuitStanding(
+                                circuit_id=int(circuit.id),
+                                driver_key="mcdoublehero",
+                                driver_name="Mcdoublehero",
+                                rank=11,
+                                points=0,
+                                channel_points=0,
+                            ),
+                        ]
+                    )
+                    db.session.add(
+                        RacingApSuggestion(
+                            scope="circuit",
+                            currency="channel_points",
+                            circuit_id=int(circuit.id),
+                            driver_key="joey",
+                            driver_name="Joey",
+                            amount=1000,
+                            rank=1,
+                            status="pending",
+                            source_ref="circuit:1:rank:1:cp",
+                        )
+                    )
+                    db.session.commit()
+                    refresh_pending_formula_circuit_cp_suggestions(db.session)
+                    db.session.commit()
+                    rows = list(
+                        db.session.scalars(
+                            select(RacingApSuggestion).where(
+                                RacingApSuggestion.scope == "circuit",
+                                RacingApSuggestion.currency == "channel_points",
+                                RacingApSuggestion.status == "pending",
+                            )
+                        ).all()
+                    )
+                    by_name = {r.driver_name: r for r in rows}
+                    self.assertNotIn("Joey", by_name)
+                    self.assertEqual(by_name["Mcdoublehero"].rank, 11)
+                    self.assertEqual(by_name["Mcdoublehero"].amount, 3000)
                 finally:
                     db.session.remove()
                     db.drop_all()

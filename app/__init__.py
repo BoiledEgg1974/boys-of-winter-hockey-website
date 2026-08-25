@@ -227,9 +227,13 @@ def create_app(config_class: type = Config) -> Flask:
                 db.create_all()
                 ensure_default_reward_tiers(db.session, league_slug=_boot_slug)
                 if _boot_slug == "bowl-formula":
-                    from app.services.racing_import import refresh_pending_formula_race_ap_suggestions
+                    from app.services.racing_import import (
+                        refresh_pending_formula_circuit_cp_suggestions,
+                        refresh_pending_formula_race_ap_suggestions,
+                    )
 
                     refresh_pending_formula_race_ap_suggestions(db.session)
+                    refresh_pending_formula_circuit_cp_suggestions(db.session)
                 commit_with_sqlite_retry(db.session)
             except Exception as exc:
                 app.logger.warning("Racing reward schedule seed skipped: %s", exc)

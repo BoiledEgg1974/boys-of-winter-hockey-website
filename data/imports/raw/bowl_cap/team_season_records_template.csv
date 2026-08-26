@@ -1,4 +1,4 @@
-Year,Team ID,Team Name Override,Conference ID,Conference Override,Division ID,Division Override,Logo File Override,GP,W,L,T (OTL),PTS,GF,GA,Goal Differential,Result,PIM/G,PPG,PPG Against,PP Ch,SHG,SHG Against,SHC,PP%,PK%,Shots,Shots Against
+﻿Year,Team ID,Team Name Override,Conference ID,Conference Override,Division ID,Division Override,Logo File Override,GP,W,L,T (OTL),PTS,GF,GA,Goal Differential,Result,PIM/G,PPG,PPG Against,PP Ch,SHG,SHG Against,SHC,PP%,PK%,Shots,Shots Against
 1917-18,0,Montreal Wanderers,,,,,,6,1,5,0,2,17,35,-18,Missed Playoffs,4.5,null,0,null,null,0,null,null,null,null,null
 1917-18,3,,,,,,,22,13,9,0,26,108,109,-1,BOWL CUP CHAMPION,16.14,null,0,null,null,0,null,null,null,null,null
 1917-18,216,Ottawa Senators,,,,,,22,9,13,0,18,102,114,-12,Missed Playoffs,15.14,null,0,null,null,0,null,null,null,null,null

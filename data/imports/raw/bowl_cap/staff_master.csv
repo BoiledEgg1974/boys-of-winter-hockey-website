@@ -1441,7 +1441,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1439;19;Davide;Bonardi;;1939-2-21;Sherbrooke;QC;Canada;;;0
 1440;-1;Richard;Commish;;1957-4-11;Winnipeg;MB;Canada;;;0
 1441;-1;Unlemployed;GM;;1961-4-11;;;Canada;;;0
-1442;5;GM;Wesslau;;1961-4-11;Lake Placid;NY;The United States;;;0
+1442;5;GM;Unknown;;1961-4-11;Lake Placid;NY;The United States;;;0
 1443;17;GM;Sabres;;1961-4-11;;;Canada;;;0
 1444;19;GM;Flames;;1961-4-11;;;Canada;;;0
 1445;8;GM;Blackhawks;;1961-4-11;;;Canada;;;0

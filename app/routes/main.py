@@ -5022,11 +5022,18 @@ def team_page(slug: str):
     staff_managers_public: list[dict] = []
     if panel == "staff":
         from app.auth_login import has_admin_role, ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER
+        from app.services.staff_catalog import get_staff_profile
         from app.services.staff_salaries import current_season_start_year
         from app.services.staff_transactions import (
             contract_active,
+            contract_years_remaining,
             expire_stale_staff_contracts,
             staff_contracts_for_team,
+        )
+        from app.services.team_staff_csv import (
+            merge_contract_staff_into_sections,
+            rebucket_staff_sections_by_roles,
+            staff_tab_row_from_profile,
         )
 
         slug = str(current_app.config.get("LEAGUE_SLUG") or "")
@@ -5055,8 +5062,22 @@ def team_page(slug: str):
                 team_id=int(team.id),
                 season_start_year=int(staff_season_start_year),
             )
-
-        from app.services.team_staff_csv import rebucket_staff_sections_by_roles
+            extra_rows = []
+            for sid, contract in staff_contracts_by_id.items():
+                extra_rows.append(
+                    staff_tab_row_from_profile(
+                        get_staff_profile(sid),
+                        staff_fhm_id=sid,
+                        staff_name=str(getattr(contract, "staff_name", "") or ""),
+                        role=str(getattr(contract, "role", "") or ""),
+                    )
+                )
+            staff_coaches, staff_scouts, staff_trainers = merge_contract_staff_into_sections(
+                staff_coaches,
+                staff_scouts,
+                staff_trainers,
+                extra_rows=extra_rows,
+            )
 
         def _enrich_staff_rows(rows: list[dict]) -> list[dict]:
             out: list[dict] = []
@@ -5076,6 +5097,10 @@ def team_page(slug: str):
                 if contract is not None:
                     enriched["annual_salary"] = int(contract.annual_salary or 0)
                     enriched["contract_years"] = int(contract.contract_years or 0)
+                    if staff_season_start_year is not None:
+                        enriched["contract_years_remaining"] = contract_years_remaining(
+                            contract, int(staff_season_start_year)
+                        )
                     enriched["contract_start_season_year"] = int(
                         contract.contract_start_season_year or 0
                     )

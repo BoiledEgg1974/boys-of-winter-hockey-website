@@ -7,7 +7,9 @@ from app.services.staff_catalog import STAFF_ROLES, staff_role_label
 from app.services.team_staff_csv import (
     _staff_role_bucket,
     bucket_for_staff_role,
+    merge_contract_staff_into_sections,
     rebucket_staff_sections_by_roles,
+    staff_tab_row_from_profile,
 )
 
 
@@ -111,6 +113,56 @@ class StaffRoleBucketTest(unittest.TestCase):
         self.assertEqual(m, [])
         self.assertEqual(len(o), 1)
         self.assertEqual(o[0]["primary_bucket"], "owners")
+
+    def test_staff_tab_row_from_profile_uses_role_bucket(self) -> None:
+        row = staff_tab_row_from_profile(
+            {
+                "full_name": "Guillaume Dupont",
+                "nationality": "Canada",
+                "attrs": {"tactics": 18.0},
+                "primary_bucket": "coaches",
+            },
+            staff_fhm_id="99",
+            staff_name="Guillaume Dupont",
+            role="assistant_coach",
+        )
+        self.assertEqual(row["staff_fhm_id"], "99")
+        self.assertEqual(row["primary_bucket"], "coaches")
+        self.assertEqual(row["attrs"]["tactics"], 18.0)
+
+    def test_merge_contract_staff_adds_portal_only_hire(self) -> None:
+        extra = staff_tab_row_from_profile(
+            {"full_name": "Ray Wallace", "nationality": "Canada", "attrs": {}},
+            staff_fhm_id="88",
+            staff_name="Ray Wallace",
+            role="assistant_coach",
+        )
+        c, s, t = merge_contract_staff_into_sections(
+            [{"staff_fhm_id": "1", "full_name": "Pat Quinn"}],
+            [],
+            [],
+            extra_rows=[extra],
+        )
+        self.assertEqual([row["staff_fhm_id"] for row in c], ["1", "88"])
+        self.assertEqual(s, [])
+        self.assertEqual(t, [])
+
+    def test_merge_contract_staff_skips_existing_fhm_row(self) -> None:
+        extra = staff_tab_row_from_profile(
+            None,
+            staff_fhm_id="1",
+            staff_name="Pat Quinn",
+            role="head_coach",
+        )
+        c, s, t = merge_contract_staff_into_sections(
+            [{"staff_fhm_id": "1", "full_name": "Pat Quinn"}],
+            [],
+            [],
+            extra_rows=[extra],
+        )
+        self.assertEqual(len(c), 1)
+        self.assertEqual(s, [])
+        self.assertEqual(t, [])
 
 
 if __name__ == "__main__":

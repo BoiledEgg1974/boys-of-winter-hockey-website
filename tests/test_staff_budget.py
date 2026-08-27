@@ -19,13 +19,16 @@ from app.services.staff_transactions import (
     MANUAL_SEVERANCE_STAFF_ID,
     _active_roster_entry,
     _entry_claims_staff,
+    active_roster_for_team,
     admin_fire_staff,
     admin_hire_staff,
     admin_save_staff_contract,
     admin_set_team_staff_penalty_total,
     contract_active,
     contract_end_season_year,
+    contract_years_remaining,
     expire_stale_staff_contracts,
+    staff_contracts_for_team,
 )
 from app.site_models import TeamStaffRosterEntry
 
@@ -76,6 +79,58 @@ class StaffBudgetHelpersTest(unittest.TestCase):
         self.assertTrue(contract_active(row, 1968))
         self.assertTrue(contract_active(row, 1969))
         self.assertFalse(contract_active(row, 1970))
+
+    def test_contract_years_remaining(self) -> None:
+        row = _entry(contract_start_season_year=2000, contract_years=3)
+        self.assertEqual(contract_years_remaining(row, 2000), 3)
+        self.assertEqual(contract_years_remaining(row, 2001), 2)
+        self.assertEqual(contract_years_remaining(row, 2002), 1)
+        self.assertEqual(contract_years_remaining(row, 2003), 0)
+
+    def test_staff_contracts_for_team_includes_prior_season_active(self) -> None:
+        row = _entry(
+            league_slug="bowl-cap",
+            season_start_year=2000,
+            contract_start_season_year=2000,
+            contract_years=3,
+            annual_salary=80_000,
+        )
+        session = MagicMock()
+        session.scalars.return_value.all.return_value = [row]
+        found = staff_contracts_for_team(
+            session, league_slug="bowl-cap", team_id=1, season_start_year=2001
+        )
+        self.assertIs(found["55"], row)
+
+    def test_staff_contracts_for_team_skips_expired_prior_season(self) -> None:
+        row = _entry(
+            league_slug="bowl-cap",
+            season_start_year=2000,
+            contract_start_season_year=2000,
+            contract_years=1,
+            annual_salary=80_000,
+        )
+        session = MagicMock()
+        session.scalars.return_value.all.return_value = [row]
+        found = staff_contracts_for_team(
+            session, league_slug="bowl-cap", team_id=1, season_start_year=2001
+        )
+        self.assertEqual(found, {})
+
+    def test_active_roster_includes_prior_season_remaining_term(self) -> None:
+        row = _entry(
+            league_slug="bowl-cap",
+            season_start_year=2000,
+            contract_start_season_year=2000,
+            contract_years=3,
+            annual_salary=80_000,
+        )
+        session = MagicMock()
+        session.scalars.return_value.all.return_value = [row]
+        roster = active_roster_for_team(
+            session, league_slug="bowl-cap", team_id=1, season_start_year=2001
+        )
+        self.assertEqual(roster, [row])
 
     def test_contract_roster_payroll_sums_salaries(self) -> None:
         roster = [
@@ -193,7 +248,7 @@ class AdminStaffActionsTest(unittest.TestCase):
     def test_admin_fire_staff_adds_severance(self) -> None:
         session = MagicMock()
         entry = _entry()
-        session.scalar.return_value = entry
+        session.scalars.return_value.all.return_value = [entry]
 
         result = admin_fire_staff(
             session,
@@ -317,6 +372,21 @@ class AdminSaveStaffContractOrphansTest(unittest.TestCase):
         )
         self.assertEqual(expired, 1)
         self.assertIsNotNone(stale.fired_at)
+
+    def test_expire_stale_keeps_multi_year_prior_season_rows(self) -> None:
+        remaining = _entry(
+            season_start_year=2000,
+            contract_start_season_year=2000,
+            contract_years=3,
+            annual_salary=80_000,
+        )
+        session = MagicMock()
+        session.scalars.return_value.all.return_value = [remaining]
+        expired = expire_stale_staff_contracts(
+            session, league_slug="bowl-cap", season_start_year=2001
+        )
+        self.assertEqual(expired, 0)
+        self.assertIsNone(remaining.fired_at)
 
     @patch("app.services.league_finances.severance_payroll", return_value=0)
     @patch("app.services.staff_transactions.active_roster_for_team", return_value=[])
@@ -452,6 +522,80 @@ class AdminSaveStaffContractOrphansTest(unittest.TestCase):
         self.assertTrue(result.ok)
         self.assertIsNotNone(ghost.fired_at)
         session.add.assert_called_once()
+
+    @patch("app.services.league_finances.severance_payroll", return_value=0)
+    @patch("app.services.staff_transactions.active_roster_for_team", return_value=[])
+    @patch("app.services.staff_transactions._get_or_create_team_staff_budget")
+    @patch("app.services.staff_transactions.get_staff_profile")
+    def test_save_updates_prior_season_active_contract(
+        self,
+        mock_profile: MagicMock,
+        mock_budget: MagicMock,
+        _mock_roster: MagicMock,
+        _mock_severance: MagicMock,
+    ) -> None:
+        prior = _entry(
+            league_slug="bowl-cap",
+            season_start_year=2000,
+            team_id=1,
+            staff_fhm_id="77",
+            staff_name="Charlie Burns",
+            annual_salary=80_000,
+            contract_start_season_year=2000,
+            contract_years=3,
+        )
+        session = MagicMock()
+        session.scalars.return_value.all.return_value = [prior]
+        mock_profile.return_value = {
+            "staff_fhm_id": "77",
+            "full_name": "Charlie Burns",
+            "fhm_team_id": "24",
+        }
+        mock_budget.return_value = SimpleNamespace(budget_amount=0)
+
+        result = admin_save_staff_contract(
+            session,
+            league_slug="bowl-cap",
+            season_start_year=2001,
+            team_id=1,
+            staff_fhm_id="77",
+            role="scout",
+            annual_salary=85_000,
+            contract_years=3,
+            fhm_team_id="24",
+        )
+
+        self.assertTrue(result.ok)
+        session.add.assert_not_called()
+        self.assertEqual(prior.annual_salary, 85_000)
+        self.assertEqual(prior.contract_start_season_year, 2000)
+        self.assertEqual(prior.season_start_year, 2001)
+
+
+class AdminFirePriorSeasonTest(unittest.TestCase):
+    def test_admin_fire_finds_prior_season_active_contract(self) -> None:
+        session = MagicMock()
+        entry = _entry(
+            league_slug="bowl-cap",
+            season_start_year=2000,
+            contract_start_season_year=2000,
+            contract_years=3,
+            annual_salary=80_000,
+        )
+        session.scalars.return_value.all.return_value = [entry]
+
+        result = admin_fire_staff(
+            session,
+            league_slug="bowl-cap",
+            season_start_year=2001,
+            team_id=1,
+            admin_user_id=2,
+            staff_fhm_id="55",
+            penalty_amount=0,
+        )
+
+        self.assertTrue(result.ok)
+        self.assertIsNotNone(entry.fired_at)
 
 
 if __name__ == "__main__":

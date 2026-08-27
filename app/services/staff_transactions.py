@@ -33,6 +33,15 @@ def contract_end_season_year(entry: TeamStaffRosterEntry) -> int:
     return start + max(1, years) - 1
 
 
+def contract_years_remaining(entry: TeamStaffRosterEntry, season_start_year: int) -> int:
+    """Years left on the term, counting the current season."""
+    end = contract_end_season_year(entry)
+    years = max(1, int(entry.contract_years or 1))
+    if end <= 0:
+        return years if int(entry.annual_salary or 0) > 0 else 0
+    return max(0, end - int(season_start_year) + 1)
+
+
 def contract_active(entry: TeamStaffRosterEntry, season_start_year: int) -> bool:
     if entry.fired_at is not None or entry.retired_at is not None:
         return False
@@ -62,6 +71,61 @@ def _open_roster_entries_for_staff(
             )
         ).all()
     )
+
+
+def _open_roster_entries_for_team(
+    session: Session, *, league_slug: str, team_id: int
+) -> list[TeamStaffRosterEntry]:
+    return list(
+        session.scalars(
+            select(TeamStaffRosterEntry)
+            .where(
+                TeamStaffRosterEntry.league_slug == league_slug,
+                TeamStaffRosterEntry.team_id == int(team_id),
+                TeamStaffRosterEntry.fired_at.is_(None),
+                TeamStaffRosterEntry.retired_at.is_(None),
+            )
+            .order_by(TeamStaffRosterEntry.role.asc(), TeamStaffRosterEntry.staff_name.asc())
+        ).all()
+    )
+
+
+def _pick_best_roster_row(
+    rows: list[TeamStaffRosterEntry], season_start_year: int
+) -> TeamStaffRosterEntry | None:
+    """Prefer an active claim, then a current-season draft, then the newest row."""
+    if not rows:
+        return None
+    year = int(season_start_year)
+
+    def _sort_key(row: TeamStaffRosterEntry) -> tuple[int, int, int, int, int]:
+        claims = 1 if _entry_claims_staff(row, year) else 0
+        active = 1 if contract_active(row, year) else 0
+        current_snap = 1 if int(row.season_start_year or 0) == year else 0
+        start = int(row.contract_start_season_year or row.season_start_year or 0)
+        rid = int(row.id or 0)
+        return (claims, active, current_snap, start, rid)
+
+    return max(rows, key=_sort_key)
+
+
+def _find_team_roster_entry(
+    session: Session,
+    *,
+    league_slug: str,
+    team_id: int,
+    staff_fhm_id: str,
+    season_start_year: int,
+) -> TeamStaffRosterEntry | None:
+    """Open roster row for this staff on this team, including prior-season active terms."""
+    rows = [
+        row
+        for row in _open_roster_entries_for_staff(
+            session, league_slug=league_slug, staff_fhm_id=staff_fhm_id
+        )
+        if int(row.team_id) == int(team_id)
+    ]
+    return _pick_best_roster_row(rows, int(season_start_year))
 
 
 def _active_roster_entry(
@@ -164,20 +228,23 @@ def sync_team_roster_from_fhm(
 def active_roster_for_team(
     session: Session, *, league_slug: str, team_id: int, season_start_year: int
 ) -> list[TeamStaffRosterEntry]:
-    rows = list(
-        session.scalars(
-            select(TeamStaffRosterEntry)
-            .where(
-                TeamStaffRosterEntry.league_slug == league_slug,
-                TeamStaffRosterEntry.team_id == int(team_id),
-                TeamStaffRosterEntry.season_start_year == int(season_start_year),
-                TeamStaffRosterEntry.fired_at.is_(None),
-                TeamStaffRosterEntry.retired_at.is_(None),
-            )
-            .order_by(TeamStaffRosterEntry.role.asc(), TeamStaffRosterEntry.staff_name.asc())
-        ).all()
+    """Active contracts for payroll, including remaining terms from prior seasons."""
+    year = int(season_start_year)
+    rows = _open_roster_entries_for_team(
+        session, league_slug=league_slug, team_id=int(team_id)
     )
-    return [r for r in rows if contract_active(r, int(season_start_year))]
+    grouped: dict[str, list[TeamStaffRosterEntry]] = {}
+    for row in rows:
+        sid = str(row.staff_fhm_id).strip()
+        if sid:
+            grouped.setdefault(sid, []).append(row)
+    out: list[TeamStaffRosterEntry] = []
+    for sid_rows in grouped.values():
+        best = _pick_best_roster_row(sid_rows, year)
+        if best is not None and contract_active(best, year):
+            out.append(best)
+    out.sort(key=lambda r: (str(r.role or ""), str(r.staff_name or "")))
+    return out
 
 
 def staff_contracts_for_team(
@@ -187,21 +254,27 @@ def staff_contracts_for_team(
     team_id: int,
     season_start_year: int,
 ) -> dict[str, TeamStaffRosterEntry]:
-    """Active and draft contracts keyed by staff_fhm_id."""
-    rows = session.scalars(
-        select(TeamStaffRosterEntry).where(
-            TeamStaffRosterEntry.league_slug == league_slug,
-            TeamStaffRosterEntry.team_id == int(team_id),
-            TeamStaffRosterEntry.season_start_year == int(season_start_year),
-            TeamStaffRosterEntry.fired_at.is_(None),
-            TeamStaffRosterEntry.retired_at.is_(None),
-        )
-    ).all()
-    out: dict[str, TeamStaffRosterEntry] = {}
+    """Active remaining contracts and current-season drafts, keyed by staff_fhm_id.
+
+    Rows are matched by active term, not only ``season_start_year`` snapshot, so
+    multi-year deals still show after a league year change.
+    """
+    year = int(season_start_year)
+    rows = _open_roster_entries_for_team(
+        session, league_slug=league_slug, team_id=int(team_id)
+    )
+    grouped: dict[str, list[TeamStaffRosterEntry]] = {}
     for row in rows:
         sid = str(row.staff_fhm_id).strip()
         if sid:
-            out[sid] = row
+            grouped.setdefault(sid, []).append(row)
+    out: dict[str, TeamStaffRosterEntry] = {}
+    for sid, sid_rows in grouped.items():
+        best = _pick_best_roster_row(sid_rows, year)
+        if best is None:
+            continue
+        if contract_active(best, year) or int(best.season_start_year or 0) == year:
+            out[sid] = best
     return out
 
 
@@ -428,17 +501,12 @@ def admin_fire_staff(
     penalty_amount: int = 0,
 ) -> StaffActionResult:
     sid = str(staff_fhm_id or "").strip()
-    entry = session.scalar(
-        select(TeamStaffRosterEntry)
-        .where(
-            TeamStaffRosterEntry.league_slug == league_slug,
-            TeamStaffRosterEntry.team_id == int(team_id),
-            TeamStaffRosterEntry.season_start_year == int(season_start_year),
-            TeamStaffRosterEntry.staff_fhm_id == sid,
-            TeamStaffRosterEntry.fired_at.is_(None),
-            TeamStaffRosterEntry.retired_at.is_(None),
-        )
-        .limit(1)
+    entry = _find_team_roster_entry(
+        session,
+        league_slug=league_slug,
+        team_id=int(team_id),
+        staff_fhm_id=sid,
+        season_start_year=int(season_start_year),
     )
     if entry is None or not contract_active(entry, int(season_start_year)):
         return StaffActionResult(False, "Staff member not on this team's active roster.")
@@ -546,17 +614,12 @@ def admin_retire_staff(
     staff_fhm_id: str,
 ) -> StaffActionResult:
     sid = str(staff_fhm_id or "").strip()
-    entry = session.scalar(
-        select(TeamStaffRosterEntry)
-        .where(
-            TeamStaffRosterEntry.league_slug == league_slug,
-            TeamStaffRosterEntry.team_id == int(team_id),
-            TeamStaffRosterEntry.season_start_year == int(season_start_year),
-            TeamStaffRosterEntry.staff_fhm_id == sid,
-            TeamStaffRosterEntry.fired_at.is_(None),
-            TeamStaffRosterEntry.retired_at.is_(None),
-        )
-        .limit(1)
+    entry = _find_team_roster_entry(
+        session,
+        league_slug=league_slug,
+        team_id=int(team_id),
+        staff_fhm_id=sid,
+        season_start_year=int(season_start_year),
     )
     if entry is None:
         return StaffActionResult(False, "Staff member not found on this team's roster.")
@@ -590,24 +653,14 @@ def admin_save_staff_contract(
     if role_s == "team_owner":
         salary = 0
     years = max(1, min(10, int(contract_years or 1)))
-    start_year = int(contract_start_season_year or season_start_year)
-    entry = session.scalar(
-        select(TeamStaffRosterEntry)
-        .where(
-            TeamStaffRosterEntry.league_slug == league_slug,
-            TeamStaffRosterEntry.team_id == int(team_id),
-            TeamStaffRosterEntry.season_start_year == int(season_start_year),
-            TeamStaffRosterEntry.staff_fhm_id == sid,
-            TeamStaffRosterEntry.fired_at.is_(None),
-            TeamStaffRosterEntry.retired_at.is_(None),
-        )
-        .limit(1)
-    )
     now = datetime.utcnow()
     open_rows = _open_roster_entries_for_staff(
         session, league_slug=league_slug, staff_fhm_id=sid
     )
+    team_rows = [row for row in open_rows if int(row.team_id) == int(team_id)]
+    entry = _pick_best_roster_row(team_rows, int(season_start_year))
     if entry is None:
+        start_year = int(contract_start_season_year or season_start_year)
         other = next(
             (
                 row
@@ -645,6 +698,10 @@ def admin_save_staff_contract(
         )
         session.add(entry)
     else:
+        if contract_start_season_year is not None:
+            start_year = int(contract_start_season_year)
+        else:
+            start_year = int(entry.contract_start_season_year or season_start_year)
         if open_rows:
             _release_roster_entries(
                 session, open_rows, except_team_id=int(team_id)
@@ -653,6 +710,7 @@ def admin_save_staff_contract(
         entry.annual_salary = salary
         entry.contract_years = years
         entry.contract_start_season_year = start_year
+        entry.season_start_year = int(season_start_year)
     if salary > 0:
         roster = active_roster_for_team(
             session,

@@ -30,10 +30,8 @@
           <tr>
             <th data-sort-type="str" scope="col" class="team-staff-th team-staff-th--text">Name</th>
             <th data-sort-type="str" scope="col" class="team-staff-th team-staff-th--nat">NAT</th>
-            {% if not staff_is_admin %}
             <th data-sort-type="num" scope="col" class="team-staff-th team-staff-th--text">Salary</th>
-            <th data-sort-type="num" scope="col" class="team-staff-th team-staff-th--text">Years</th>
-            {% endif %}
+            <th data-sort-type="num" scope="col" class="team-staff-th team-staff-th--text">Years left</th>
             {% for key, ln in columns %}
             <th data-sort-type="num" scope="col" class="team-staff-th team-staff-th--split" title="{% if ln[1] %}{{ ln[0] }} {{ ln[1] }}{% else %}{{ ln[0] }}{% endif %}">
               <span class="team-staff-th__ln1">{{ ln[0] }}</span>{% if ln[1] %}<br><span class="team-staff-th__ln2">{{ ln[1] }}</span>{% endif %}
@@ -69,14 +67,12 @@
               <span class="muted">—</span>
               {% endif %}
             </td>
-            {% if not staff_is_admin %}
             <td data-sort-value="{{ row.annual_salary if row.annual_salary is defined else 0 }}">
               {% if row.annual_salary is defined %}${{ '{:,}'.format(row.annual_salary) }}{% else %}—{% endif %}
             </td>
-            <td data-sort-value="{{ row.contract_years if row.contract_years is defined else 0 }}">
-              {% if row.contract_years is defined and row.contract_years %}{{ row.contract_years }}{% else %}—{% endif %}
+            <td data-sort-value="{{ row.contract_years_remaining if row.contract_years_remaining is defined else (row.contract_years if row.contract_years is defined else 0) }}">
+              {% if row.contract_years_remaining is defined and row.contract_years_remaining %}{{ row.contract_years_remaining }}{% elif row.contract_years is defined and row.contract_years %}{{ row.contract_years }}{% else %}—{% endif %}
             </td>
-            {% endif %}
             {% for key, _ in columns %}
             {{ staff_attr_td(row.attrs, key) }}
             {% endfor %}

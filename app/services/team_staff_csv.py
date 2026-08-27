@@ -224,6 +224,62 @@ def rebucket_staff_sections_by_roles(
     )
 
 
+def staff_tab_row_from_profile(
+    profile: dict | None,
+    *,
+    staff_fhm_id: str,
+    staff_name: str = "",
+    role: str | None = None,
+) -> dict:
+    """Build a Staff-tab row for a portal hire who may not be on the FHM team list."""
+    prof = profile or {}
+    bucket = bucket_for_staff_role(role) or str(prof.get("primary_bucket") or "coaches")
+    if bucket not in ("coaches", "scouts", "trainers", "managers", "owners"):
+        bucket = "coaches"
+    return {
+        "staff_fhm_id": str(staff_fhm_id).strip(),
+        "full_name": str(prof.get("full_name") or staff_name or "—"),
+        "nationality": str(prof.get("nationality") or "—"),
+        "attrs": prof.get("attrs") or {},
+        "primary_bucket": bucket,
+    }
+
+
+def merge_contract_staff_into_sections(
+    coaches: list[dict],
+    scouts: list[dict],
+    trainers: list[dict],
+    *,
+    extra_rows: list[dict],
+) -> tuple[list[dict], list[dict], list[dict]]:
+    """Append portal-only staff rows that are not already in the FHM team sections."""
+    present = {
+        str(row.get("staff_fhm_id") or "").strip()
+        for row in (*(coaches or ()), *(scouts or ()), *(trainers or ()))
+        if str(row.get("staff_fhm_id") or "").strip()
+    }
+    extra_coaches: list[dict] = []
+    extra_scouts: list[dict] = []
+    extra_trainers: list[dict] = []
+    for row in extra_rows or []:
+        sid = str(row.get("staff_fhm_id") or "").strip()
+        if not sid or sid in present:
+            continue
+        present.add(sid)
+        bucket = str(row.get("primary_bucket") or "coaches")
+        if bucket == "scouts":
+            extra_scouts.append(row)
+        elif bucket == "trainers":
+            extra_trainers.append(row)
+        else:
+            extra_coaches.append(row)
+    return (
+        list(coaches or []) + extra_coaches,
+        list(scouts or []) + extra_scouts,
+        list(trainers or []) + extra_trainers,
+    )
+
+
 def _load_bundle() -> dict[str, dict[str, list[dict[str, object]]]]:
     global _bundle_by_team, _bundle_key
     raw_dir = (

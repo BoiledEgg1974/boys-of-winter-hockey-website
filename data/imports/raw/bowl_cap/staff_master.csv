@@ -368,7 +368,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 366;14;Ron;Ryan;;1938-7-11;Welland;ON;Canada;;;0
 367;17;John;Rigas;;1924-11-14;Wellsville;NY;The United States;;;0
 368;230;Don;Blackburn;;1938-5-14;Kirkland Lake;ON;Canada;;;0
-369;-1;Dennis;Patterson;;1950-1-9;Peterborough;ON;Canada;;;0
+369;12;Dennis;Patterson;;1950-1-9;Peterborough;ON;Canada;;;0
 370;-1;Vladimir;Lutchenko;;1949-1-2;Ramenskoye;MOS;Russia;;;0
 371;230;Gilles;Léger;;1941-7-14;Cornwall;ON;Canada;;;0
 372;216;Georgi;Zhuravlev;;1946-11-9;Kirovo-Chepetsk;KIR;Russia;;;0
@@ -1734,7 +1734,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1732;-1;Francisco;Comulada;;1949-8-12;Johnstown;PA;The United States;;;0
 1733;-1;William;Rollins;;1944-5-29;Sacramento;CA;The United States;;;0
 1734;-1;Eric;Silver;;1944-12-9;Gainesville;FL;The United States;;;0
-1735;-1;Jeff;Doney;;1944-4-20;Los Angeles;CA;The United States;;;0
+1735;23;Jeff;Doney;;1944-4-20;Los Angeles;CA;The United States;;;0
 1736;-1;Arthur;Sanborn;;1944-11-29;Lafayette;OH;The United States;;;0
 1737;-1;Wes;Witt;;1944-8-8;Kennett;MO;The United States;;;0
 1738;-1;Matt;Agarn;;1947-9-18;New York;NY;The United States;;;0

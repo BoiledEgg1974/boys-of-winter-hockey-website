@@ -34,7 +34,12 @@ from app.racing_models import (
     RacingNameAlias,
     RacingRacer,
 )
-from app.services.racing_ap import grant_suggestion_batch, pending_suggestions
+from app.services.racing_ap import (
+    dismiss_suggestion_batch,
+    grant_suggestion_batch,
+    pending_suggestions,
+    suggestion_event_label,
+)
 from app.services.racing_discord import enqueue_after_import
 from app.services.racing_import import import_all_from_raw_dir, import_csv_file
 from app.services.racing_tracks import track_image_url
@@ -376,19 +381,27 @@ def admin_ap_grants():
     if request.method == "POST":
         dest = str(request.form.get("destination_league_slug") or "").strip() or None
         ids = [int(x) for x in request.form.getlist("suggestion_id") if str(x).isdigit()]
+        action = str(request.form.get("action") or "grant").strip()
         try:
-            stats = grant_suggestion_batch(
-                db.session,
-                ids,
-                destination_league_slug=dest,
-                created_by_user_id=int(current_user.id) if current_user.is_authenticated else None,
-                racing_league_slug=_slug(),
-            )
-            label = "Channel Points marked paid" if currency == "channel_points" else "AP grant"
-            flash(
-                f"{label} — granted {stats['granted']}, skipped {stats['skipped']}, blocked {stats['blocked']}.",
-                "success" if stats["granted"] else "warning",
-            )
+            if action == "dismiss":
+                stats = dismiss_suggestion_batch(db.session, ids)
+                flash(
+                    f"Removed {stats['dismissed']} already-paid row(s) from the list.",
+                    "success" if stats["dismissed"] else "warning",
+                )
+            else:
+                stats = grant_suggestion_batch(
+                    db.session,
+                    ids,
+                    destination_league_slug=dest,
+                    created_by_user_id=int(current_user.id) if current_user.is_authenticated else None,
+                    racing_league_slug=_slug(),
+                )
+                label = "Channel Points marked paid" if currency == "channel_points" else "AP grant"
+                flash(
+                    f"{label} — granted {stats['granted']}, skipped {stats['skipped']}, blocked {stats['blocked']}.",
+                    "success" if stats["granted"] else "warning",
+                )
         except Exception as exc:
             db.session.rollback()
             flash(str(exc), "error")
@@ -398,6 +411,7 @@ def admin_ap_grants():
     return render_template(
         "racing/admin_ap_grants.html",
         suggestions=suggestions,
+        suggestion_event_label=suggestion_event_label,
         scope=scope or "",
         currency=currency,
         is_demolition=_is_demolition(),

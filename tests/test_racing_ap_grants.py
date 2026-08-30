@@ -17,7 +17,11 @@ from app.racing_models import (
     RacingEventResult,
     RacingRacer,
 )
-from app.services.racing_ap import grant_suggestion_batch, pending_suggestions
+from app.services.racing_ap import (
+    dismiss_suggestion_batch,
+    grant_suggestion_batch,
+    pending_suggestions,
+)
 from app.services.racing_import import refresh_pending_formula_race_ap_suggestions
 from app.site_models import ApLedgerEntry
 
@@ -177,6 +181,46 @@ class FormulaApGrantLedgerTests(unittest.TestCase):
                     self.assertIsNotNone(row)
                     self.assertEqual(row.league_slug, "bowl-historical")
                     self.assertEqual(row.team_id, 9)
+                finally:
+                    db.session.remove()
+                    db.drop_all()
+                    db.drop_all(bind_key="site")
+                    for engine in db.engines.values():
+                        engine.dispose()
+
+    def test_dismiss_already_paid_leaves_list_without_ledger_row(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+
+            class _TestConfig(Config):
+                SQLALCHEMY_DATABASE_URI = f"sqlite:///{(root / 'league.db').as_posix()}"
+                SITE_SQLALCHEMY_DATABASE_URI = f"sqlite:///{(root / 'site.db').as_posix()}"
+                TESTING = True
+                LEAGUE_SLUG = "bowl-formula"
+                RAW_IMPORT_DIR = root
+                SQLALCHEMY_BINDS = {}
+
+            app = create_app(_TestConfig)
+            with app.app_context():
+                try:
+                    db.create_all()
+                    db.create_all(bind_key="site")
+                    sug = RacingApSuggestion(
+                        scope="race",
+                        currency="ap",
+                        driver_key="joey",
+                        driver_name="Joey",
+                        amount=10,
+                        rank=1,
+                        status="pending",
+                        source_ref="formula:event:1:pos:1:ap",
+                    )
+                    db.session.add(sug)
+                    db.session.commit()
+                    stats = dismiss_suggestion_batch(db.session, [int(sug.id)])
+                    self.assertEqual(stats["dismissed"], 1)
+                    self.assertEqual(pending_suggestions(db.session, currency="ap"), [])
+                    self.assertEqual(db.session.scalars(select(ApLedgerEntry)).all(), [])
                 finally:
                     db.session.remove()
                     db.drop_all()

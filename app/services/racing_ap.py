@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.racing_models import RacingApSuggestion, RacingRacer
 from app.services.ap_service import add_ledger_entry
@@ -83,7 +83,9 @@ def pending_suggestions(
     event_id: int | None = None,
     circuit_id: int | None = None,
 ) -> list[RacingApSuggestion]:
-    q = select(RacingApSuggestion).where(RacingApSuggestion.status == "pending")
+    q = select(RacingApSuggestion).options(selectinload(RacingApSuggestion.event)).where(
+        RacingApSuggestion.status == "pending"
+    )
     if scope:
         q = q.where(RacingApSuggestion.scope == scope)
     if currency:
@@ -92,7 +94,50 @@ def pending_suggestions(
         q = q.where(RacingApSuggestion.event_id == int(event_id))
     if circuit_id is not None:
         q = q.where(RacingApSuggestion.circuit_id == int(circuit_id))
-    return list(session.scalars(q.order_by(RacingApSuggestion.rank.asc(), RacingApSuggestion.id)).all())
+    return list(
+        session.scalars(
+            q.order_by(
+                RacingApSuggestion.event_id.asc(),
+                RacingApSuggestion.rank.asc(),
+                RacingApSuggestion.id,
+            )
+        ).all()
+    )
+
+
+def suggestion_event_label(sug: RacingApSuggestion) -> str:
+    event = getattr(sug, "event", None)
+    if event is not None:
+        title = (event.title or event.track_name or "").strip()
+        number = int(event.event_number or 0)
+        if title and number:
+            return f"Race {number} · {title}"
+        if title:
+            return title
+        if number:
+            return f"Race {number}"
+    if sug.scope == "circuit":
+        return "Circuit"
+    return "—"
+
+
+def dismiss_suggestion_batch(session: Session, suggestion_ids: list[int]) -> dict[str, int]:
+    """Remove already-paid rows from the pending list without writing AP again."""
+    dismissed = 0
+    skipped = 0
+    rows = list(
+        session.scalars(
+            select(RacingApSuggestion).where(RacingApSuggestion.id.in_([int(i) for i in suggestion_ids]))
+        ).all()
+    )
+    for sug in rows:
+        if sug.status == "granted":
+            skipped += 1
+            continue
+        _mark_granted(sug)
+        dismissed += 1
+    commit_with_sqlite_retry(session)
+    return {"dismissed": dismissed, "skipped": skipped}
 
 
 def grant_suggestion_batch(

@@ -7,6 +7,7 @@
   <p class="muted">
     Amounts come from <a href="{{ url_for('racing.admin_rewards') }}">reward schedules</a>.
     AP batches credit Cap or Historical and then leave this list; Channel Points batches mark Twitch payouts as paid (host pays on Twitch).
+    If a race was already paid off this page, use <strong>Already paid — remove from list</strong> so it is not paid twice.
   </p>
   <p>
     Currency:
@@ -33,6 +34,7 @@
       <thead>
         <tr>
           <th></th>
+          <th>Race</th>
           <th>Scope</th>
           <th>Currency</th>
           <th>Rank</th>
@@ -45,6 +47,7 @@
         {% for s in suggestions %}
         <tr>
           <td><input type="checkbox" name="suggestion_id" value="{{ s.id }}" checked></td>
+          <td>{{ suggestion_event_label(s) }}</td>
           <td>{{ s.scope }}</td>
           <td>{{ s.currency }}</td>
           <td>{{ s.rank or '—' }}</td>
@@ -53,13 +56,16 @@
           <td>{% if s.racer_id %}Yes (#{{ s.racer_id }}){% else %}No{% endif %}</td>
         </tr>
         {% else %}
-        <tr><td colspan="7" class="muted">No pending {{ currency }} suggestions for this filter.</td></tr>
+        <tr><td colspan="8" class="muted">No pending {{ currency }} suggestions for this filter.</td></tr>
         {% endfor %}
       </tbody>
     </table>
     {% if suggestions %}
-    <button type="submit" class="btn" style="margin-top:1rem;">
+    <button type="submit" name="action" value="grant" class="btn" style="margin-top:1rem;">
       {% if currency == 'channel_points' %}Mark selected Channel Points paid{% else %}Grant selected AP{% endif %}
+    </button>
+    <button type="submit" name="action" value="dismiss" class="btn" style="margin-top:1rem;">
+      Already paid — remove from list
     </button>
     {% endif %}
   </form>

@@ -8,7 +8,71 @@ from sqlalchemy.orm import Session
 
 from app.racing_models import RacingApSuggestion, RacingRacer
 from app.services.ap_service import add_ledger_entry
+from app.site_models import GmLeagueMembership
 from app.sqlite_retry import commit_with_sqlite_retry
+
+_AP_LEAGUES = ("bowl-cap", "bowl-historical")
+
+
+def _active_membership(session: Session, user_id: int, league_slug: str) -> GmLeagueMembership | None:
+    return session.scalar(
+        select(GmLeagueMembership)
+        .where(
+            GmLeagueMembership.user_id == int(user_id),
+            GmLeagueMembership.league_slug == league_slug,
+            GmLeagueMembership.status == "active",
+        )
+        .limit(1)
+    )
+
+
+def resolve_grant_target(
+    session: Session,
+    racer: RacingRacer | None,
+    destination_league_slug: str,
+) -> tuple[str, int] | None:
+    """Pick Cap/Historical team for an AP grant.
+
+    Prefer the batch destination when the racer is mapped there; otherwise use
+    the racer's own AP target or an active membership so linked drivers still
+    leave the pending grants list.
+    """
+    if racer is None:
+        return None
+    dest = str(destination_league_slug or "").strip()
+    if dest in _AP_LEAGUES and racer.ap_league_slug == dest and racer.ap_team_id:
+        return dest, int(racer.ap_team_id)
+    if dest in _AP_LEAGUES and racer.user_id:
+        membership = _active_membership(session, int(racer.user_id), dest)
+        if membership is not None:
+            return dest, int(membership.team_id)
+    if racer.ap_league_slug in _AP_LEAGUES and racer.ap_team_id:
+        return str(racer.ap_league_slug), int(racer.ap_team_id)
+    if racer.user_id:
+        for slug in _AP_LEAGUES:
+            if slug == dest:
+                continue
+            membership = _active_membership(session, int(racer.user_id), slug)
+            if membership is not None:
+                return slug, int(membership.team_id)
+    return None
+
+
+def _mark_granted(
+    sug: RacingApSuggestion,
+    *,
+    league_slug: str | None = None,
+    team_id: int | None = None,
+    source_ref: str | None = None,
+) -> None:
+    sug.status = "granted"
+    sug.granted_at = datetime.utcnow()
+    if league_slug:
+        sug.granted_league_slug = league_slug
+    if team_id is not None:
+        sug.granted_team_id = int(team_id)
+    if source_ref:
+        sug.source_ref = source_ref
 
 
 def pending_suggestions(
@@ -64,44 +128,28 @@ def grant_suggestion_batch(
 
         currency = str(sug.currency or "ap").strip() or "ap"
         if currency == "channel_points":
-            sug.status = "granted"
-            sug.granted_at = datetime.utcnow()
-            sug.source_ref = sug.source_ref or f"{racing_league_slug}:{sug.scope}:{sug.id}:cp"
+            _mark_granted(
+                sug,
+                source_ref=sug.source_ref or f"{racing_league_slug}:{sug.scope}:{sug.id}:cp",
+            )
             granted += 1
             continue
 
-        if destination_league_slug not in ("bowl-cap", "bowl-historical"):
+        if destination_league_slug not in _AP_LEAGUES:
             raise ValueError("Destination must be bowl-cap or bowl-historical for AP grants")
 
         racer: RacingRacer | None = None
         if sug.racer_id:
             racer = session.get(RacingRacer, int(sug.racer_id))
-        team_id = None
-        if racer is not None:
-            if racer.ap_league_slug == destination_league_slug and racer.ap_team_id:
-                team_id = int(racer.ap_team_id)
-            else:
-                from app.site_models import GmLeagueMembership
-
-                if racer.user_id:
-                    m = session.scalar(
-                        select(GmLeagueMembership)
-                        .where(
-                            GmLeagueMembership.user_id == int(racer.user_id),
-                            GmLeagueMembership.league_slug == destination_league_slug,
-                            GmLeagueMembership.status == "active",
-                        )
-                        .limit(1)
-                    )
-                    if m is not None:
-                        team_id = int(m.team_id)
-        if team_id is None:
+        target = resolve_grant_target(session, racer, destination_league_slug)
+        if target is None:
             blocked += 1
             continue
 
+        league_slug, team_id = target
         source_ref = sug.source_ref or f"{racing_league_slug}:{sug.scope}:{sug.id}:ap"
         entry = add_ledger_entry(
-            league_slug=destination_league_slug,
+            league_slug=league_slug,
             team_id=team_id,
             delta=int(sug.amount),
             reason_code=f"racing_{sug.scope}_ap",
@@ -116,18 +164,10 @@ def grant_suggestion_batch(
             created_by_user_id=created_by_user_id,
             source_ref=source_ref,
         )
+        _mark_granted(sug, league_slug=league_slug, team_id=team_id, source_ref=source_ref)
         if entry is None:
-            sug.status = "granted"
-            sug.granted_league_slug = destination_league_slug
-            sug.granted_team_id = team_id
-            sug.granted_at = datetime.utcnow()
             skipped += 1
             continue
-        sug.status = "granted"
-        sug.granted_league_slug = destination_league_slug
-        sug.granted_team_id = team_id
-        sug.granted_at = datetime.utcnow()
-        sug.source_ref = source_ref
         granted += 1
 
     commit_with_sqlite_retry(session)

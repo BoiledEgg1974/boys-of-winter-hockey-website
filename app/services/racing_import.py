@@ -133,6 +133,36 @@ def _mark_batch(
         existing.imported_at = datetime.utcnow()
 
 
+def _find_ap_suggestion(
+    session: Session,
+    *,
+    source_ref: str,
+    scope: str,
+    currency: str,
+    event_id: int | None,
+    circuit_id: int | None,
+    rank: int | None,
+) -> RacingApSuggestion | None:
+    existing = session.scalar(
+        select(RacingApSuggestion).where(RacingApSuggestion.source_ref == source_ref).limit(1)
+    )
+    if existing is not None:
+        return existing
+    q = select(RacingApSuggestion).where(
+        RacingApSuggestion.scope == scope,
+        RacingApSuggestion.currency == currency,
+    )
+    if event_id is not None:
+        q = q.where(RacingApSuggestion.event_id == int(event_id))
+    elif circuit_id is not None:
+        q = q.where(RacingApSuggestion.circuit_id == int(circuit_id))
+    else:
+        return None
+    if rank is not None:
+        q = q.where(RacingApSuggestion.rank == int(rank))
+    return session.scalar(q.order_by(RacingApSuggestion.id.asc()).limit(1))
+
+
 def _upsert_ap_suggestion(
     session: Session,
     *,
@@ -149,8 +179,14 @@ def _upsert_ap_suggestion(
         return
     key = normalize_name_key(driver_name)
     racer = resolve_racer_by_name(session, driver_name)
-    existing = session.scalar(
-        select(RacingApSuggestion).where(RacingApSuggestion.source_ref == source_ref).limit(1)
+    existing = _find_ap_suggestion(
+        session,
+        source_ref=source_ref,
+        scope=scope,
+        currency=currency,
+        event_id=event_id,
+        circuit_id=circuit_id,
+        rank=rank,
     )
     if existing is not None:
         if existing.status == "granted":
@@ -161,6 +197,8 @@ def _upsert_ap_suggestion(
         existing.racer_id = int(racer.id) if racer else None
         existing.driver_name = driver_name
         existing.driver_key = key
+        if not existing.source_ref:
+            existing.source_ref = source_ref
         return
     session.add(
         RacingApSuggestion(

@@ -1,5 +1,6 @@
 team_fhm_id,start_year,end_year,team_name,logo_file
-2,1917,1934,Ottawa Senators,logos/teams/bowl_historical/ott-ottawa-senators.png
+2,1917,1933,Ottawa Senators,logos/teams/bowl_historical/ott-ottawa-senators.png
+2,1934,1934,St-Louis Eagles,logos/teams/bowl_historical/st__louis_eagles.png
 0,1917,1918,Montreal Canadiens,logos/teams/bowl_historical/montreal_canadiens_1917-1918.png
 0,1919,1920,Montreal Canadiens,logos/teams/bowl_historical/montreal_canadiens_1919-1920.png
 0,1921,1921,Montreal Canadiens,logos/teams/bowl_historical/montreal_canadiens_1921-1921.png
@@ -41,8 +42,8 @@ team_fhm_id,start_year,end_year,team_name,logo_file
 4,1919,1919,Quebec Bulldogs,logos/teams/bowl_historical/quebec_bulldogs.png
 4,1920,1924,Hamilton Tigers,logos/teams/bowl_historical/hamilton_tigers.png
 4,1925,1926,New York Americans,logos/teams/bowl_historical/new_york_americans.png
-6,1924,1938,Montreal Maroons,logos/teams/bowl_historical/montreal_maroons_1924.png
-6,1934,1934,St-Louis Eagles,logos/teams/bowl_historical/st__louis_eagles.png
+6,1924,1924,Montreal Maroons,logos/teams/bowl_historical/montreal_maroons_1924.png
+6,1925,1938,Montreal Maroons,logos/teams/bowl_historical/montreal_maroons_1925.png
 7,1925,1929,Pittsburgh Pirates,logos/teams/bowl_historical/pit-t7.png
 7,1930,1931,Philadelphia Quakers,logos/teams/bowl_historical/philadelphia_quakers.png
 121,1930,1931,Philadelphia Quakers,logos/teams/bowl_historical/philadelphia_quakers.png

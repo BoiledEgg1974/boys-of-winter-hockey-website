@@ -9,9 +9,11 @@ from app.config import make_league_config
 from app.league_db import db
 from app.services.draft_hub_order import (
     _standing_worst_first_key,
+    default_picks_per_round,
     generate_draft_order_from_prior_season,
     pick_ownership_lookup,
     resolve_prior_season_for_draft,
+    standings_worst_to_best_for_draft_year,
 )
 
 
@@ -32,13 +34,57 @@ class DraftHubOrderTest(unittest.TestCase):
         out = pick_ownership_lookup(site, league_slug="bowl-historical", draft_year=1969)
         self.assertEqual(out[(2, 5)], 102)
 
-    def test_resolve_prior_season_prefers_season_with_standings(self) -> None:
+    def test_resolve_prior_season_skips_zero_record_current_year(self) -> None:
         app = create_app(make_league_config("bowl-historical"))
         with app.app_context():
-            season = resolve_prior_season_for_draft(db.session, draft_year=1969)
-            self.assertIsNotNone(season)
-            assert season is not None
-            self.assertEqual(int(season.id), 1)
+            season = resolve_prior_season_for_draft(db.session, draft_year=1971)
+            if season is not None:
+                from app.services.draft_hub_order import main_league_standings_worst_to_best
+                from app.services.draft_hub_order import _standings_have_record_data
+
+                rows = main_league_standings_worst_to_best(db.session, season)
+                self.assertTrue(_standings_have_record_data(rows))
+
+    def test_historical_1971_order_uses_prior_season_not_alphabetical(self) -> None:
+        """1971 draft must not rank 0-0-0 current-year clubs A–Z (BOS first)."""
+        app = create_app(make_league_config("bowl-historical"))
+        with app.app_context():
+            standings, label = standings_worst_to_best_for_draft_year(db.session, 1971)
+            self.assertGreaterEqual(len(standings), 14, msg=label)
+            abbrs = [row.team.abbreviation for row in standings if row.team is not None]
+            self.assertEqual(abbrs[0], "BUF")
+            self.assertEqual(abbrs[1], "VAN")
+            self.assertEqual(abbrs[2], "PHI")
+            self.assertEqual(abbrs[3], "STL")
+            self.assertEqual(abbrs[4], "MIN")
+            self.assertNotEqual(abbrs[0], "BOS")
+            self.assertEqual(label, "1970-71")
+
+    def test_all_hockey_leagues_use_last_season_not_zero_table(self) -> None:
+        """Historical, Relegation, and Cap all seed from draft_year-1, never A–Z zeros."""
+        cases = (
+            ("bowl-historical", 1971, "1970-71", 14),
+            ("bowl-fantasy", 1987, "1986-87", 24),
+            ("bowl-cap", 2001, "2000-01", 30),
+        )
+        for slug, year, expected_label, min_teams in cases:
+            with self.subTest(slug=slug):
+                app = create_app(make_league_config(slug))
+                with app.app_context():
+                    standings, label = standings_worst_to_best_for_draft_year(db.session, year)
+                    self.assertEqual(label, expected_label)
+                    self.assertGreaterEqual(len(standings), min_teams, msg=slug)
+                    abbrs = [row.team.abbreviation for row in standings if row.team is not None]
+                    self.assertNotEqual(abbrs, sorted(abbrs), msg=f"{slug} sorted alphabetically")
+                    self.assertEqual(default_picks_per_round(db.session), min_teams)
+
+    def test_admin_generate_copy_names_all_three_sites(self) -> None:
+        from pathlib import Path
+
+        path = Path(__file__).resolve().parents[1] / "app" / "templates" / "admin_draft_hub_edit.html"
+        text = path.read_text(encoding="utf-8")
+        self.assertIn("Historical, Relegation, and Cap", text)
+        self.assertIn("worst record → pick 1", text)
 
     def test_generate_applies_traded_owner(self) -> None:
         draft = MagicMock(

@@ -8,7 +8,7 @@ from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 
 from app.models import Game, Team
-from app.services.draft_hub_order import main_league_standings_worst_to_best, resolve_prior_season_for_draft
+from app.services.draft_hub_order import standings_worst_to_best_for_draft_year
 from app.services.draft_pick_ownership import (
     in_game_draft_ownership_cutoff_year,
     list_draft_pick_ownership_year_panels,
@@ -55,10 +55,9 @@ def _active_ownership_panel(
 def _round1_position_by_team_id(
     league_session: Session, *, draft_year: int
 ) -> dict[int, int]:
-    season = resolve_prior_season_for_draft(league_session, draft_year=int(draft_year))
-    if season is None:
-        return {}
-    standings = main_league_standings_worst_to_best(league_session, season)
+    standings, _label = standings_worst_to_best_for_draft_year(
+        league_session, int(draft_year)
+    )
     out: dict[int, int] = {}
     for idx, row in enumerate(standings, start=1):
         if row.team is None:

@@ -13,7 +13,7 @@
     <label>Name <input type="text" name="name" value="Draft" maxlength="200" style="width:100%;max-width:24rem;"></label>
     <div style="margin-top:0.5rem;display:flex;flex-wrap:wrap;gap:0.75rem;align-items:end;">
       <label>Rounds <input type="number" name="rounds" value="1" min="1" style="width:5rem;"></label>
-      <label>Picks per round <input type="number" name="picks_per_round" value="27" min="1" style="width:6rem;"></label>
+      <label>Picks per round <input type="number" name="picks_per_round" value="{{ default_picks_per_round }}" min="1" style="width:6rem;"></label>
       <button type="submit" class="button">Create draft</button>
     </div>
     <p class="muted small" style="margin:0.5rem 0 0;">Live picks are untimed; GMs can make selections from the Draft Hub or with the Discord bot.</p>

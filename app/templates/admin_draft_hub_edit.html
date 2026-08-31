@@ -96,9 +96,8 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="generate_order_from_standings">
     <p class="muted" style="margin-top:0;">
-      <strong>Generate order from last season + admin-managed pick ownership</strong> builds every round using
-      <em>{{ standings_order_label }}</em> standings
-      (worst record → pick 1, best → last pick) and applies admin-managed pick ownership for draft year
+      <strong>Generate order from last season + admin-managed pick ownership</strong> uses the same rules on Historical, Relegation, and Cap:
+      <em>{{ standings_order_label }}</em> standings (worst record → pick 1, best → last pick), expansion clubs that did not play last season first, then admin-managed pick ownership for draft year
       <strong>{{ draft.timeline_year }}</strong> so traded picks show the current owner and original franchise.
       Re-run after updating draft pick ownership panels. Gold/silver boost tags on existing slots are preserved.
     </p>

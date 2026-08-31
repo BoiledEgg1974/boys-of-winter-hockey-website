@@ -8656,17 +8656,19 @@ def admin_draft_hub():
         return redirect(url_for("site_admin.admin_draft_hub"))
     if request.method == "POST" and request.form.get("action") == "new":
         from app.services.draft_hub_eligibility import DRAFT_POOL_AGE_RULES, default_eligibility_for_league
+        from app.services.draft_hub_order import default_picks_per_round, generate_draft_order_from_prior_season
         from app.services.seasons import get_current_season
 
         season = get_current_season()
         ty = int(season.start_year) if season and season.start_year else datetime.utcnow().year
         ddef = default_eligibility_for_league(slug)
+        default_ppr = default_picks_per_round(db.session)
         row = LeagueDraft(
             league_slug=slug,
             name=(request.form.get("name") or "Draft").strip()[:200] or "Draft",
             status="setup",
             rounds=max(1, int(request.form.get("rounds") or 1)),
-            picks_per_round=max(1, int(request.form.get("picks_per_round") or 27)),
+            picks_per_round=max(1, int(request.form.get("picks_per_round") or default_ppr)),
             timer_seconds=int(request.form.get("timer_seconds") or 120) or 120,
             empty_queue_timer_seconds=int(request.form.get("empty_queue_timer_seconds") or 120) or 120,
             min_age_years=ddef.min_age_years,
@@ -8680,8 +8682,6 @@ def admin_draft_hub():
         )
         db.session.add(row)
         db.session.flush()
-        from app.services.draft_hub_order import generate_draft_order_from_prior_season
-
         created, gen_err, summary = generate_draft_order_from_prior_season(
             db.session,
             db.session,
@@ -8717,7 +8717,14 @@ def admin_draft_hub():
     rows = list(
         db.session.scalars(select(LeagueDraft).where(LeagueDraft.league_slug == slug).order_by(LeagueDraft.id.desc())).all()
     )
-    return render_template("admin_draft_hub.html", league_slug=slug, drafts=rows)
+    from app.services.draft_hub_order import default_picks_per_round
+
+    return render_template(
+        "admin_draft_hub.html",
+        league_slug=slug,
+        drafts=rows,
+        default_picks_per_round=default_picks_per_round(db.session),
+    )
 
 
 @site_admin_bp.route("/draft-eligible-settings", methods=["GET", "POST"])
@@ -9404,20 +9411,14 @@ def admin_draft_hub_edit(draft_id: int):
     born_before_value = ""
     if getattr(row, "born_before_date", None):
         born_before_value = row.born_before_date.isoformat()
-    from app.services.draft_hub_order import resolve_prior_season_for_draft
+    from app.services.draft_hub_order import draft_order_prior_year_label
     from app.services.draft_hub_eligibility import (
         DRAFT_POOL_AGE_RULES,
         DRAFT_POOL_BORN_BEFORE,
         DRAFT_POOL_DRAFT_ELIGIBLE_PAGE,
     )
-    from app.services.seasons import season_display_label
 
-    standings_season = resolve_prior_season_for_draft(db.session, draft_year=int(row.timeline_year))
-    standings_order_label = (
-        season_display_label(standings_season)
-        if standings_season is not None
-        else f"{int(row.timeline_year) - 1}–{int(row.timeline_year) % 100:02d}"
-    )
+    standings_order_label = draft_order_prior_year_label(int(row.timeline_year))
     return render_template(
         "admin_draft_hub_edit.html",
         league_slug=slug,

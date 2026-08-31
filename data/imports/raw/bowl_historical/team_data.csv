@@ -9,7 +9,7 @@ TeamId;LeagueId;Name;Nickname;Abbr;Parent Team 1;Parent Team 2;Parent Team 3;Par
 22;3;Independent;Team;Ind;3;-1;-1;-1;-1;-1;-1;-1;#000000;#000000;#fefef4;-1;0
 24;3;Independent;Team;Ind;5;-1;-1;-1;-1;-1;-1;-1;#000000;#fefef4;#e09d06;-1;0
 26;3;Independent;Team;Ind;8;-1;-1;-1;-1;-1;-1;-1;#c30110;#000000;#fefef4;-1;0
-27;3;Independent;Team;Ind;9;-1;-1;-1;-1;-1;-1;-1;#ee0000;#ee0000;#fefef4;-1;0
+27;3;Independent;Team;Ind;9;-1;-1;-1;-1;-1;-1;-1;#e4002b;#e4002b;#fefef4;-1;0
 28;3;Independent;Team;Ind;10;-1;-1;-1;-1;-1;-1;-1;#000000;#000000;#fefef4;-1;1
 58;5;West Germany;;GER;-1;-1;-1;-1;-1;-1;-1;-1;#000000;#f7c610;#fefef4;-1;-1
 59;5;Sweden;;SWE;-1;-1;-1;-1;-1;-1;-1;-1;#006aa7;#006aa7;#ffef00;-1;-1
@@ -64,5 +64,5 @@ TeamId;LeagueId;Name;Nickname;Abbr;Parent Team 1;Parent Team 2;Parent Team 3;Par
 129;3;Independent;Team;Ind;122;-1;-1;-1;-1;-1;-1;-1;#000000;#000000;#fefef4;-1;0
 130;0;Buffalo;Sabres;BUF;-1;-1;-1;-1;-1;-1;-1;-1;#003087;#003087;#fefef4;-1;0
 131;0;Vancouver;Canucks;VAN;-1;-1;-1;-1;-1;-1;-1;-1;#000084;#216300;#fefef4;-1;0
-132;3;Independent;Team;Ind;-1;-1;-1;-1;-1;-1;-1;-1;#34368b;#e92318;#de9d1b;-1;2
-133;3;Independent;Team;Ind;-1;-1;-1;-1;-1;-1;-1;-1;#000000;#000000;#fefef4;-1;0
+132;3;Independent;Team;Ind;130;-1;-1;-1;-1;-1;-1;-1;#000894;#e92318;#fefef4;-1;2
+133;3;Independent;Team;Ind;131;-1;-1;-1;-1;-1;-1;-1;#000000;#000000;#fefef4;-1;0

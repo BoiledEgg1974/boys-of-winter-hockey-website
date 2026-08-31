@@ -1419,7 +1419,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1417;-1;Ryan;Delhaunty;;1939-8-3;Brantford;ON;Canada;;;0
 1418;-1;Pat;Masson;;1939-12-8;Houston;TX;The United States;;;0
 1419;-1;Rudy;Kellerman;;1942-1-6;Toronto;ON;Canada;;;0
-1420;-1;Ricardo;Reynoso;;1941-9-28;St. John's;NL;Canada;;;0
+1420;19;Ricardo;Reynoso;;1941-9-28;St. John's;NL;Canada;;;0
 1421;-1;Wally;Kemp;;1942-5-21;Alcoa;TN;The United States;;;0
 1422;-1;Joe;Sparks;;1939-8-1;Durham;NC;The United States;;;0
 1423;-1;Dave;Symon;;1939-9-5;Bunnell;FL;The United States;;;0
@@ -1851,7 +1851,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1849;21;Stefan;Lunner;;1962-5-30;Uppsala;UPP;Sweden;;;0
 1850;-1;Charlie;Huddy;;1959-6-2;Oshawa;ON;Canada;;;0
 1851;229;Steve;Tambellini;;1958-5-14;Ucluelet;BC;Canada;;;0
-1852;-1;Bob;Hartley;;1960-9-9;Hawkesbury;ON;Canada;;;0
+1852;19;Bob;Hartley;;1960-9-9;Hawkesbury;ON;Canada;;;0
 1853;163;Jim;Corsi;;1954-6-19;Murdochville;QC;Italy;Canada;;0
 1854;-1;Rob;Cookson;;1961-1-25;Leduc;AB;Canada;;;0
 1855;229;Dave;Nonis;;1966-5-25;Coquitlam;BC;Canada;;;0
@@ -2220,7 +2220,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 2218;-1;Peter;Stephan;;1966-1-1;Langley;BC;Canada;;;0
 2219;-1;Denny;Scanlon;;1978-2-17;Granby;MO;The United States;;;0
 2220;11;Lucas;Bergman;;1974-8-20;Södertälje;STO;Sweden;;;0
-2221;-1;Martin;Divis;;1966-1-1;Prague;PRA;Czech Republic;;;0
+2221;19;Martin;Divis;;1966-1-1;Prague;PRA;Czech Republic;;;0
 2222;5;Reid;Mitchell;;1971-2-2;Vernon;BC;Canada;;;0
 2223;-1;John;Whitesides;;1966-1-1;Franklin;WI;The United States;;;0
 2224;-1;Artyom;Telepin;;1964-1-1;Saratov;SAR;Russia;;;0

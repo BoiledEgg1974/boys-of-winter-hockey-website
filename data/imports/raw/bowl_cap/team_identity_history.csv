@@ -10,6 +10,9 @@ team_fhm_id,start_year,end_year,team_name,logo_file
 6,1925,1938,Montreal Maroons,logos/teams/bowl_historical/montreal_maroons_1925.png
 7,1925,1929,Pittsburgh Pirates,logos/teams/bowl_historical/pit-t7.png
 7,1930,1931,Philadelphia Quakers,logos/teams/bowl_historical/philadelphia_quakers.png
+121,1967,1998,Philadelphia Flyers,logos/teams/bowl_historical/philadelphia_flyers_1967-1998.png
+121,1999,2018,Philadelphia Flyers,logos/teams/bowl_historical/philadelphia_flyers_1999-2018.png
+121,2019,2100,Philadelphia Flyers,logos/teams/bowl_historical/philadelphia_flyers_2019-2021.png
 8,1926,1940,Chicago Black Hawks,logos/teams/bowl_historical/chicago_black_hawks_1926-1940.png
 8,1941,1956,Chicago Black Hawks,logos/teams/bowl_historical/chicago_black_hawks_1941-1956.png
 8,1957,1958,Chicago Black Hawks,logos/teams/bowl_historical/chicago_black_hawks_1957-1958.png
@@ -17,7 +20,6 @@ team_fhm_id,start_year,end_year,team_name,logo_file
 8,1989,1995,Chicago Blackhawks,logos/teams/bowl_historical/chicago_blackhawks_1989-1995.png
 8,1996,1998,Chicago Blackhawks,logos/teams/bowl_historical/chicago_blackhawks_1996-1998.png
 8,1999,2100,Chicago Blackhawks,logos/teams/bowl_historical/chicago_blackhawks_1999-2018.png
-121,1930,1931,Philadelphia Quakers,logos/teams/bowl_historical/philadelphia_quakers.png
 12,1967,1985,Minnesota North Stars,logos/teams/bowl_historical/minnesota_north_stars_1967-1985.png
 12,1986,1990,Minnesota North Stars,logos/teams/bowl_historical/minnesota_north_stars_1985-1990.png
 12,1991,1991,Minnesota North Stars,logos/teams/bowl_historical/minnesota_north_stars_1991-1992.png

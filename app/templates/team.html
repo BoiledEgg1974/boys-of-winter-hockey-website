@@ -475,6 +475,7 @@
   <a class="team-management-tabs__btn{% if active_panel == 'ratings' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='ratings') }}">Player Ratings</a>
   <a class="team-management-tabs__btn{% if active_panel == 'lines' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='lines') }}">Lines</a>
   <a class="team-management-tabs__btn{% if active_panel == 'salary' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='salary') }}">Salary</a>
+  <a class="team-management-tabs__btn{% if active_panel == 'finances' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='finances') }}">Finances</a>
   <a class="team-management-tabs__btn{% if active_panel == 'statistics' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='statistics') }}">Statistics</a>
   <a class="team-management-tabs__btn{% if active_panel == 'staff' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='staff') }}">Staff</a>
   <a class="team-management-tabs__btn{% if active_panel == 'org_development' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='org_development') }}">Org Development</a>
@@ -702,7 +703,13 @@
 {% elif active_panel == 'ratings' %}
 {% include "_team_ratings_panel.html" %}
 {% elif active_panel == 'lines' %}
-<div class="team-lines-stack">
+<div class="team-lines-page" data-team-lines-page>
+  <div class="team-lines-subtabs" role="tablist" aria-label="Lines view">
+    <button type="button" class="team-lines-subtabs__btn is-active" data-lines-view="builder" role="tab" aria-selected="true">Builder</button>
+    <button type="button" class="team-lines-subtabs__btn" data-lines-view="imported" role="tab" aria-selected="false">Imported</button>
+  </div>
+  {% include "_team_line_builder.html" %}
+<div class="team-lines-stack" data-lines-imported hidden>
   {% for section in lines_sections %}
   <section class="team-lines-unit card">
     <div class="team-lines-unit__rail">{{ section.line_label }}</div>
@@ -775,6 +782,7 @@
   </section>
   {% endfor %}
 </div>
+</div>
 {% elif active_panel == 'salary' %}
 <div class="card">
   <h2>Salary</h2>
@@ -827,6 +835,8 @@
   <p class="empty-state">No salary obligations available for this team.</p>
   {% endif %}
 </div>
+{% elif active_panel == 'finances' %}
+{% include "_team_finances.html" %}
 {% elif active_panel == 'statistics' %}
 <div class="card team-page-stats-card">
   {% set team_statistics = team %}

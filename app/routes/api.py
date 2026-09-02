@@ -61,7 +61,12 @@ from app.services.homepage_leaders import build_homepage_leaders_payload
 from app.services.homepage_ticker import build_homepage_ticker_items
 from app.services.postseason_odds import build_postseason_odds_payload
 from app.services.playoff_bracket import playoff_bracket_cache_fingerprint, playoff_bracket_payload
-from app.services.advanced_stats import build_advanced_stats_hub_json, build_process_momentum_payload
+from app.services.advanced_stats import (
+    SQ_KEYS,
+    build_advanced_stats_hub_json,
+    build_process_momentum_payload,
+    sq_profile_from_counts,
+)
 from app.services.game_preview import game_preview_payload
 from app.services.player_contract_csv import contract_years_remaining_major
 from app.services.player_overall_score import _parse_rating_cell, build_overall_cell_map_from_players
@@ -1032,7 +1037,7 @@ def game_boxscore(game_id: int):
     live = (game.status or "").lower() != "final"
     return jsonify_cached(
         "game_boxscore",
-        (int(game_id), str(game.status or "")),
+        (int(game_id), str(game.status or ""), "tabs-sq-v1"),
         ttl_for_namespace("game_boxscore", live=live),
         lambda: _build_game_boxscore_payload(game_id),
         cache_control=120 if not live else 30,
@@ -1121,6 +1126,11 @@ def _build_game_boxscore_payload(game_id: int) -> dict[str, object]:
                 "bs": row.blocked_shots,
                 "toi": _fmt_toi(row.toi_seconds),
                 "gr": row.game_rating,
+                "sq0": int(row.sq0 or 0),
+                "sq1": int(row.sq1 or 0),
+                "sq2": int(row.sq2 or 0),
+                "sq3": int(row.sq3 or 0),
+                "sq4": int(row.sq4 or 0),
             }
         )
     skaters.sort(key=lambda x: (-x["g"], -x["a"], x["player"]))
@@ -1151,6 +1161,19 @@ def _build_game_boxscore_payload(game_id: int) -> dict[str, object]:
             }
         )
     home_shots, away_shots = _effective_team_shots(game, goalie_lines)
+
+    sog_period_columns = [
+        {"label": "1", "away": game.sog_away_p1, "home": game.sog_home_p1},
+        {"label": "2", "away": game.sog_away_p2, "home": game.sog_home_p2},
+        {"label": "3", "away": game.sog_away_p3, "home": game.sog_home_p3},
+    ]
+    if (
+        game.went_to_overtime
+        or any(str(col.get("label")) == "OT" for col in period_columns)
+        or (game.sog_home_ot or 0) > 0
+        or (game.sog_away_ot or 0) > 0
+    ):
+        sog_period_columns.append({"label": "OT", "away": game.sog_away_ot, "home": game.sog_home_ot})
 
     return {
         "game_id": game.id,
@@ -1200,6 +1223,13 @@ def _build_game_boxscore_payload(game_id: int) -> dict[str, object]:
         "goals": goals,
         "skaters": skaters[:50],
         "goalies": goalies,
+        "sog_period_columns": sog_period_columns,
+        "sq_home": sq_profile_from_counts(
+            {k: int(getattr(game, f"{k}_home") or 0) for k in SQ_KEYS}
+        ),
+        "sq_away": sq_profile_from_counts(
+            {k: int(getattr(game, f"{k}_away") or 0) for k in SQ_KEYS}
+        ),
     }
 
 
@@ -2409,3 +2439,60 @@ def mobile_push_token_register():
         )
 
     return jsonify({"ok": True})
+
+
+@api_bp.post("/team/<slug>/line-sheet")
+def save_team_line_sheet(slug: str):
+    """Persist a GM/admin even-strength line sheet for this team (site DB only)."""
+    from app.services.seasons import get_current_season, season_with_imported_data_fallback
+    from app.services.team_line_sheet import (
+        can_edit_line_sheet,
+        org_players_for_team,
+        save_sheet,
+        sanitize_roles,
+        sanitize_slots,
+    )
+    from app.sqlite_retry import commit_with_sqlite_retry
+
+    league_slug = str(current_app.config.get("LEAGUE_SLUG") or "").strip()
+    if not league_slug:
+        return jsonify({"error": "no_league"}), 400
+    if not current_user.is_authenticated:
+        return jsonify({"error": "auth"}), 401
+
+    team = db.session.scalars(select(Team).where(Team.slug == slug).limit(1)).first()
+    if team is None:
+        return jsonify({"error": "not_found"}), 404
+
+    if not can_edit_line_sheet(current_user, league_slug, int(team.id), db.session):
+        return jsonify({"error": "forbidden"}), 403
+
+    payload = request.get_json(silent=True) or {}
+    canonical_season = get_current_season()
+    season = (
+        season_with_imported_data_fallback(db.session, canonical_season)
+        if canonical_season
+        else None
+    )
+    raw_dir = Path(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR))
+    org = org_players_for_team(db.session, team, season, raw_dir)
+    org_ids = set(org.keys())
+    slots, err = sanitize_slots(payload.get("slots"), org_ids, players_by_id=org)
+    if err:
+        return jsonify({"error": err}), 400
+    roles, err = sanitize_roles(payload.get("roles"), org_ids)
+    if err:
+        return jsonify({"error": err}), 400
+
+    save_sheet(
+        db.session,
+        league_slug=league_slug,
+        team=team,
+        season=season,
+        raw_import_dir=raw_dir,
+        slots=slots,
+        roles=roles,
+        user_id=int(current_user.id),
+    )
+    commit_with_sqlite_retry(db.session)
+    return jsonify({"ok": True, "slots": slots, "roles": roles})

@@ -1,0 +1,69 @@
+{% if line_builder %}
+<section class="card team-line-builder" data-team-line-builder>
+  <div class="team-line-builder__head">
+    <div>
+      <p class="team-line-builder__kicker">Even strength · Power play · Penalty kill</p>
+      <h2 class="team-line-builder__title">Line Builder</h2>
+      <p class="muted team-line-builder__note">
+        Role ratings are computed from FHM attributes on this site — not an official FHM export.
+        Drag a player onto a slot, or tap a player then a slot. A player can be on even strength, PP, and PK at the same time. Goalies stay in the pool.
+        {% if line_builder.source == 'saved' and line_builder.updated_at %}
+        Last saved {{ line_builder.updated_at }}.
+        {% endif %}
+      </p>
+    </div>
+    <div class="team-line-builder__actions">
+      <button type="button" class="team-line-builder__btn" data-lb-reset>Reset to imported</button>
+      {% if line_builder.can_save %}
+      <button type="button" class="team-line-builder__btn team-line-builder__btn--save" data-lb-save>Save</button>
+      {% else %}
+      <span class="muted team-line-builder__save-hint">GMs and site admins can save. Visitors can experiment locally.</span>
+      {% endif %}
+    </div>
+  </div>
+  <p class="muted team-line-builder__status" data-lb-status role="status"></p>
+
+  <div class="team-line-builder__layout">
+    <aside class="team-line-builder__pool" aria-label="Roster pool">
+      <div class="team-line-builder__pool-tools">
+        <label class="team-line-builder__search">
+          <span class="visually-hidden">Search roster</span>
+          <input type="search" data-lb-search placeholder="Find a player…" autocomplete="off">
+        </label>
+        <div class="team-line-builder__filters" role="group" aria-label="Position group">
+          <button type="button" class="team-line-builder__chip is-active" data-lb-group="all">All</button>
+          <button type="button" class="team-line-builder__chip" data-lb-group="forwards">F</button>
+          <button type="button" class="team-line-builder__chip" data-lb-group="defense">D</button>
+          <button type="button" class="team-line-builder__chip" data-lb-group="goalies">G</button>
+        </div>
+        <div class="team-line-builder__filters" role="group" aria-label="Usage">
+          <button type="button" class="team-line-builder__chip is-active" data-lb-used="unused">Unused</button>
+          <button type="button" class="team-line-builder__chip" data-lb-used="all">All</button>
+        </div>
+      </div>
+      <div class="team-line-builder__pool-list" data-lb-pool></div>
+    </aside>
+
+    <div class="team-line-builder__board">
+      <div class="team-line-builder__section">
+        <h3 class="team-line-builder__section-title">Forward lines</h3>
+        <div class="team-line-builder__units" data-lb-kind="forwards"></div>
+      </div>
+      <div class="team-line-builder__section">
+        <h3 class="team-line-builder__section-title">Defense pairs</h3>
+        <div class="team-line-builder__units" data-lb-kind="defense"></div>
+      </div>
+      <div class="team-line-builder__section">
+        <h3 class="team-line-builder__section-title">Power play</h3>
+        <div class="team-line-builder__units" data-lb-kind="powerplay"></div>
+      </div>
+      <div class="team-line-builder__section">
+        <h3 class="team-line-builder__section-title">Penalty kill</h3>
+        <div class="team-line-builder__units" data-lb-kind="penalty"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="application/json" data-lb-payload>{{ line_builder | tojson }}</script>
+</section>
+{% endif %}

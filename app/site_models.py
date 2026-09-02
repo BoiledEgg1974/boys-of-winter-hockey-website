@@ -1478,3 +1478,51 @@ class RfaOfferRequest(db.Model):
     processed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     offering_user: Mapped["User"] = relationship(foreign_keys=[offering_user_id])
+
+
+class TeamLineSheet(db.Model):
+    """GM-saved even-strength line builder sheet (site-only; does not write back to FHM)."""
+
+    __tablename__ = "team_line_sheets"
+    __bind_key__ = "site"
+    __table_args__ = (
+        UniqueConstraint(
+            "league_slug",
+            "team_id",
+            "season_start_year",
+            name="uq_team_line_sheet_league_team_season",
+        ),
+        Index("ix_team_line_sheet_league_team", "league_slug", "team_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False)
+    team_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    season_start_year: Mapped[int] = mapped_column(Integer, nullable=False)
+    slots_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+    roles_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+    updated_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("site_users.id"), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+    def slots_map(self) -> dict[str, int]:
+        try:
+            raw = json.loads(self.slots_json or "{}")
+        except json.JSONDecodeError:
+            return {}
+        out: dict[str, int] = {}
+        if isinstance(raw, dict):
+            for key, val in raw.items():
+                try:
+                    out[str(key)] = int(val)
+                except (TypeError, ValueError):
+                    continue
+        return out
+
+    def roles_map(self) -> dict[str, str]:
+        try:
+            raw = json.loads(self.roles_json or "{}")
+        except json.JSONDecodeError:
+            return {}
+        if not isinstance(raw, dict):
+            return {}
+        return {str(k): str(v) for k, v in raw.items() if v}

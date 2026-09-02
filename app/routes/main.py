@@ -4961,6 +4961,7 @@ def team_page(slug: str):
         "ratings",
         "lines",
         "salary",
+        "finances",
         "statistics",
         "staff",
         "alumni",
@@ -5181,6 +5182,29 @@ def team_page(slug: str):
     if panel == "depth":
         team_depth_prospects = _build_team_depth_prospect_rows(team, canonical_season or season)
         team_depth_draft_picks = _build_team_depth_draft_pick_rows(team, league_slug)
+    team_finances = None
+    if panel == "finances":
+        from app.services.contract_value import build_team_finances_payload
+
+        team_finances = build_team_finances_payload(
+            db.session,
+            team,
+            season=canonical_season or season,
+            league_slug=league_slug,
+            raw_import_dir=raw_dir,
+        )
+    line_builder = None
+    if panel == "lines":
+        from app.services.team_line_sheet import build_line_builder_payload
+
+        line_builder = build_line_builder_payload(
+            db.session,
+            team=team,
+            season=canonical_season or season,
+            league_slug=league_slug,
+            raw_import_dir=raw_dir,
+            viewer=current_user if getattr(current_user, "is_authenticated", False) else None,
+        )
     org_development_bundle: dict[str, object] = {
         "reports": [],
         "has_history": False,
@@ -5418,6 +5442,8 @@ def team_page(slug: str):
         "salary_rows": salary_rows,
         "salary_total": salary_total,
         "salary_years": salary_years,
+        "team_finances": team_finances,
+        "line_builder": line_builder,
         "team_ratings_goalies": team_ratings_goalies,
         "team_ratings_skaters": team_ratings_skaters,
         "staff_coaches": staff_coaches_public,
@@ -5781,10 +5807,7 @@ def game_page(game_id: int):
     ).first()
     if not game:
         abort(404)
-    from app.services.advanced_stats import build_game_flow_card
-
-    game_flow = build_game_flow_card(db.session, game) if (game.status or "").lower() == "final" else None
-    return render_template("game.html", game=game, game_flow=game_flow)
+    return render_template("game.html", game=game)
 
 
 @main_bp.get("/player-comparison")

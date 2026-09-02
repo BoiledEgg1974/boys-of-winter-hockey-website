@@ -21,12 +21,14 @@
   {% endif %}
 </div>
 <div id="box-root" class="card box-inner" data-game-status="{{ game.status }}"></div>
-{% include "_game_flow_card.html" %}
 {% endblock %}
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  window.BOWL.loadBoxScore({{ game.id }}, document.getElementById('box-root'), { status: '{{ game.status }}' });
+  window.BOWL.loadBoxScore({{ game.id }}, document.getElementById('box-root'), {
+    status: '{{ game.status }}',
+    syncHash: true
+  });
 });
 </script>
 {% endblock %}

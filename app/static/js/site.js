@@ -2020,6 +2020,695 @@
 
   window.initSortableTable = initSortableTable;
 
+  function initTeamFinancesPanel() {
+    var root = document.querySelector("[data-team-finances]");
+    if (!root || root.getAttribute("data-fin-bound") === "1") return;
+    root.setAttribute("data-fin-bound", "1");
+    var group = "all";
+    var band = "all";
+    var surplus = "year";
+    var search = "";
+    var rows = Array.prototype.slice.call(root.querySelectorAll("[data-fin-row]"));
+    var status = root.querySelector("[data-fin-status]");
+    var kpiSurplus = root.querySelector("[data-fin-surplus-year]");
+    var kpiRank = root.querySelector("[data-fin-rank]");
+
+    function applySurplus() {
+      if (kpiSurplus) {
+        kpiSurplus.textContent =
+          surplus === "term"
+            ? kpiSurplus.getAttribute("data-fin-surplus-term") || kpiSurplus.textContent
+            : kpiSurplus.getAttribute("data-fin-surplus-year") || kpiSurplus.textContent;
+      }
+      if (kpiRank) {
+        var rankLabel =
+          surplus === "term"
+            ? kpiRank.getAttribute("data-fin-rank-term")
+            : kpiRank.getAttribute("data-fin-rank-year");
+        if (rankLabel) kpiRank.textContent = rankLabel;
+      }
+      rows.forEach(function (tr) {
+        var cell = tr.querySelector(".team-finances__surplus-cell");
+        if (!cell) return;
+        var label = surplus === "term" ? cell.getAttribute("data-fin-term-label") : cell.getAttribute("data-fin-year-label");
+        var sort = surplus === "term" ? cell.getAttribute("data-fin-term-sort") : cell.getAttribute("data-fin-year-sort");
+        var span = cell.querySelector("span");
+        if (span && label) span.textContent = label;
+        if (sort != null) cell.setAttribute("data-sort-value", sort);
+      });
+    }
+
+    function applyFilters() {
+      var q = search.trim().toLowerCase();
+      var shown = 0;
+      rows.forEach(function (tr) {
+        var g = tr.getAttribute("data-fin-group") || "";
+        var b = tr.getAttribute("data-fin-band") || "";
+        var name = tr.getAttribute("data-fin-name") || "";
+        var ok =
+          (group === "all" || g === group) &&
+          (band === "all" || b === band) &&
+          (!q || name.indexOf(q) >= 0);
+        tr.hidden = !ok;
+        if (ok) shown += 1;
+      });
+      if (status) {
+        status.textContent =
+          shown === rows.length
+            ? "Click a row for the peer-market explanation. Columns are sortable."
+            : "Showing " + shown + " of " + rows.length + " contracts.";
+      }
+    }
+
+    root.querySelectorAll("button[data-fin-group]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        group = btn.getAttribute("data-fin-group") || "all";
+        root.querySelectorAll("button[data-fin-group]").forEach(function (b) {
+          b.classList.toggle("is-active", b === btn);
+        });
+        applyFilters();
+      });
+    });
+    root.querySelectorAll("button[data-fin-band]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        band = btn.getAttribute("data-fin-band") || "all";
+        root.querySelectorAll("button[data-fin-band]").forEach(function (b) {
+          b.classList.toggle("is-active", b === btn);
+        });
+        applyFilters();
+      });
+    });
+    root.querySelectorAll("[data-fin-surplus]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        surplus = btn.getAttribute("data-fin-surplus") || "year";
+        root.querySelectorAll("[data-fin-surplus]").forEach(function (b) {
+          b.classList.toggle("is-active", b === btn);
+        });
+        applySurplus();
+      });
+    });
+    var searchEl = root.querySelector("[data-fin-search]");
+    if (searchEl) {
+      searchEl.addEventListener("input", function () {
+        search = searchEl.value || "";
+        applyFilters();
+      });
+    }
+    function toggleWhy(tr) {
+      var why = tr.querySelector(".team-finances__why");
+      if (!why) return;
+      var open = !why.hidden;
+      rows.forEach(function (other) {
+        var w = other.querySelector(".team-finances__why");
+        if (w) w.hidden = true;
+        other.classList.remove("is-open");
+        other.setAttribute("aria-expanded", "false");
+      });
+      if (!open) {
+        why.hidden = false;
+        tr.classList.add("is-open");
+        tr.setAttribute("aria-expanded", "true");
+      }
+    }
+    rows.forEach(function (tr) {
+      tr.addEventListener("click", function (ev) {
+        if (ev.target.closest("a, button, input")) return;
+        toggleWhy(tr);
+      });
+      tr.addEventListener("keydown", function (ev) {
+        if (ev.target.closest("a, button, input")) return;
+        if (ev.key === "Enter" || ev.key === " ") {
+          ev.preventDefault();
+          toggleWhy(tr);
+        }
+      });
+    });
+    applySurplus();
+    applyFilters();
+  }
+
+  function initTeamLineBuilder() {
+    var page = document.querySelector("[data-team-lines-page]");
+    if (page && page.getAttribute("data-lines-bound") !== "1") {
+      page.setAttribute("data-lines-bound", "1");
+      var builder = page.querySelector("[data-team-line-builder]");
+      var imported = page.querySelector("[data-lines-imported]");
+      page.querySelectorAll("[data-lines-view]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var view = btn.getAttribute("data-lines-view") || "builder";
+          page.querySelectorAll("[data-lines-view]").forEach(function (b) {
+            var on = b === btn;
+            b.classList.toggle("is-active", on);
+            b.setAttribute("aria-selected", on ? "true" : "false");
+          });
+          if (builder) builder.hidden = view !== "builder";
+          if (imported) imported.hidden = view !== "imported";
+        });
+      });
+    }
+
+    var root = document.querySelector("[data-team-line-builder]");
+    if (!root || root.getAttribute("data-lb-bound") === "1") return;
+    var payloadEl = root.querySelector("[data-lb-payload]");
+    if (!payloadEl) return;
+    var data;
+    try {
+      data = JSON.parse(payloadEl.textContent || "{}");
+    } catch (err) {
+      return;
+    }
+    root.setAttribute("data-lb-bound", "1");
+
+    var players = data.players || {};
+    var slots = Object.assign({}, data.slots || {});
+    var roles = Object.assign({}, data.roles || {});
+    var importedSlots = data.imported_slots || {};
+    var importedRoles = data.imported_roles || {};
+    var units = data.units || [];
+    var selectedPid = null;
+    var groupFilter = "all";
+    var usedFilter = "unused";
+    var search = "";
+    var statusEl = root.querySelector("[data-lb-status]");
+    var poolEl = root.querySelector("[data-lb-pool]");
+    var saveBtn = root.querySelector("[data-lb-save]");
+    var complementary = {
+      "gretzkys_office|sniper": 1,
+      "playmaker|sniper": 1,
+      "setup_man|sniper": 1,
+      "garbage_collector|playmaker": 1,
+      "playmaker|screener": 1,
+      "playmaker|power_forward": 1,
+      "offensive_d|stay_at_home": 1,
+      "puck_mover|shutdown": 1,
+      "offensive_d|two_way_d": 1
+    };
+
+    function setStatus(msg) {
+      if (statusEl) statusEl.textContent = msg || "";
+    }
+
+    function playerRec(pid) {
+      return players[String(pid)] || players[pid] || null;
+    }
+
+    function situationFor(slotKey) {
+      var key = String(slotKey || "");
+      if (key.indexOf("pp_") === 0) return "pp";
+      if (key.indexOf("pk_") === 0) return "pk";
+      return "es";
+    }
+
+    function usedIds(situation) {
+      var out = {};
+      Object.keys(slots).forEach(function (k) {
+        if (!slots[k]) return;
+        if (situation && situationFor(k) !== situation) return;
+        out[String(slots[k])] = k;
+      });
+      return out;
+    }
+
+    function roleRating(rec, key) {
+      var list = (rec && rec.roles) || [];
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].key === key) return list[i].rating;
+      }
+      return null;
+    }
+
+    function lineAbility(ratings) {
+      var vals = ratings.filter(function (v) { return v != null; });
+      if (!vals.length) return null;
+      var sum = vals.reduce(function (a, b) { return a + b; }, 0);
+      return Math.round((sum / vals.length) * 10) / 10;
+    }
+
+    function lineChemistry(roleKeys, hands) {
+      var keys = roleKeys.filter(Boolean);
+      if (!keys.length) return null;
+      var score = 55;
+      var uniq = {};
+      keys.forEach(function (k) { uniq[k] = (uniq[k] || 0) + 1; });
+      var extras = keys.length - Object.keys(uniq).length;
+      if (extras) score -= 8 * extras;
+      for (var i = 0; i < keys.length; i++) {
+        for (var j = i + 1; j < keys.length; j++) {
+          var pair = [keys[i], keys[j]].sort().join("|");
+          if (complementary[pair]) score += 8;
+        }
+      }
+      var norms = [];
+      hands.forEach(function (h) {
+        var t = String(h || "").toLowerCase();
+        if (t.indexOf("l") === 0) norms.push("l");
+        else if (t.indexOf("r") === 0) norms.push("r");
+      });
+      if (norms.indexOf("l") >= 0 && norms.indexOf("r") >= 0) score += 6;
+      return Math.max(1, Math.min(100, Math.round(score)));
+    }
+
+    function unitStats(unit) {
+      var ratings = [];
+      var roleKeys = [];
+      var hands = [];
+      (unit.slots || []).forEach(function (slot) {
+        var pid = slots[slot.key];
+        if (!pid) {
+          ratings.push(null);
+          roleKeys.push(null);
+          hands.push(null);
+          return;
+        }
+        var rec = playerRec(pid);
+        var role = roles[String(pid)] || (rec && rec.default_role);
+        ratings.push(rec ? roleRating(rec, role) : null);
+        roleKeys.push(role || null);
+        hands.push(rec ? rec.hand : null);
+      });
+      var ability = lineAbility(ratings);
+      return {
+        ability: ability,
+        chemistry: lineChemistry(roleKeys, hands),
+        grade: lineAbilityGrade(ability, unit.kind)
+      };
+    }
+
+    function lineAbilityGrade(ability, kind) {
+      if (ability == null) return null;
+      var pair = String(kind || "") === "defense";
+      var key;
+      var label;
+      if (ability >= 85) {
+        key = "1st";
+        label = pair ? "1st Pair" : "1st line";
+      } else if (ability >= 76) {
+        key = "2nd";
+        label = pair ? "2nd Pair" : "2nd line";
+      } else if (ability >= 68) {
+        key = "3rd";
+        label = pair ? "3rd Pair" : "3rd line";
+      } else if (ability >= 60) {
+        key = "4th";
+        label = pair ? "4th Pair" : "4th line";
+      } else {
+        key = "depth";
+        label = pair ? "Depth pair" : "Depth";
+      }
+      return { key: key, label: label, score: ability };
+    }
+
+    function esc(s) {
+      return String(s == null ? "" : s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function faceHtml(rec) {
+      var inner =
+        rec && rec.headshot
+          ? '<img src="' + esc(rec.headshot) + '" alt="">'
+          : '<span class="team-line-builder__ph" aria-hidden="true"></span>';
+      return '<span class="team-line-builder__face">' + inner + "</span>";
+    }
+
+    function ensureRole(pid) {
+      var rec = playerRec(pid);
+      if (!rec) return;
+      var key = String(pid);
+      if (roles[key] && roleRating(rec, roles[key]) != null) return;
+      roles[key] = rec.default_role || ((rec.roles[0] && rec.roles[0].key) || "");
+    }
+
+    function placePlayer(slotKey, pid) {
+      var rec = playerRec(pid);
+      if (!rec) return;
+      var slot = null;
+      units.forEach(function (u) {
+        (u.slots || []).forEach(function (s) {
+          if (s.key === slotKey) slot = s;
+        });
+      });
+      if (!slot) return;
+      if (rec.group !== slot.group) {
+        setStatus(rec.group === "goalies" ? "Goalies stay in the pool for v1." : "That player does not fit this slot.");
+        return;
+      }
+      var used = usedIds(situationFor(slotKey));
+      var prevSlot = used[String(pid)];
+      var occupant = slots[slotKey];
+      if (prevSlot && prevSlot !== slotKey) delete slots[prevSlot];
+      if (occupant && String(occupant) !== String(pid) && prevSlot) {
+        slots[prevSlot] = occupant;
+      }
+      slots[slotKey] = parseInt(pid, 10);
+      ensureRole(pid);
+      selectedPid = null;
+      setStatus("");
+      render();
+    }
+
+    function clearSlot(slotKey) {
+      delete slots[slotKey];
+      selectedPid = null;
+      render();
+    }
+
+    function renderPool() {
+      if (!poolEl) return;
+      var used = usedIds();
+      var q = search.trim().toLowerCase();
+      var html = "";
+      Object.keys(players)
+        .map(function (id) { return players[id]; })
+        .sort(function (a, b) {
+          var order = { forwards: 0, defense: 1, goalies: 2 };
+          var ga = order[a.group] != null ? order[a.group] : 9;
+          var gb = order[b.group] != null ? order[b.group] : 9;
+          if (ga !== gb) return ga - gb;
+          return (b.ovr || -1) - (a.ovr || -1);
+        })
+        .forEach(function (rec) {
+          var id = String(rec.id);
+          var onLine = !!used[id];
+          if (usedFilter === "unused" && onLine) return;
+          if (groupFilter !== "all" && rec.group !== groupFilter) return;
+          if (q && String(rec.name || "").toLowerCase().indexOf(q) < 0) return;
+          html +=
+            '<button type="button" class="team-line-builder__chip-player' +
+            (selectedPid === rec.id || String(selectedPid) === id ? " is-selected" : "") +
+            (onLine ? " is-used" : "") +
+            '" draggable="true" data-lb-player="' +
+            esc(id) +
+            '">' +
+            faceHtml(rec) +
+            '<span class="team-line-builder__chip-copy"><span class="team-line-builder__chip-name">' +
+            esc(rec.name) +
+            '</span><span class="team-line-builder__chip-meta">' +
+            esc(rec.pos || "") +
+            (rec.ovr != null ? " · " + rec.ovr : "") +
+            "</span></span></button>";
+        });
+      poolEl.innerHTML = html || '<p class="muted">No matching players.</p>';
+    }
+
+    function roleSelectHtml(rec) {
+      var current = roles[String(rec.id)] || rec.default_role || "";
+      var opts = (rec.roles || [])
+        .map(function (r) {
+          return (
+            '<option value="' +
+            esc(r.key) +
+            '"' +
+            (r.key === current ? " selected" : "") +
+            ">" +
+            esc(r.label) +
+            " · " +
+            r.rating +
+            "</option>"
+          );
+        })
+        .join("");
+      return '<select class="team-line-builder__role" data-lb-role="' + esc(rec.id) + '">' + opts + "</select>";
+    }
+
+    function gradeBoxHtml(stats) {
+      var grade = stats.grade;
+      if (!grade) {
+        return (
+          '<div class="team-line-builder__grade">' +
+          '<span class="team-line-builder__grade-kicker">Line ability</span>' +
+          '<span class="team-line-builder__grade-value">—</span></div>'
+        );
+      }
+      return (
+        '<div class="team-line-builder__grade team-line-builder__grade--' +
+        esc(grade.key) +
+        '"><span class="team-line-builder__grade-kicker">Line ability</span>' +
+        '<span class="team-line-builder__grade-value">' +
+        grade.score +
+        " — " +
+        esc(grade.label) +
+        "</span></div>"
+      );
+    }
+
+    function chemistryHue(score) {
+      var t = Math.max(0, Math.min(100, Number(score))) / 100;
+      var hue = Math.round(8 + t * -152);
+      return hue < 0 ? hue + 360 : hue;
+    }
+
+    function chemBarHtml(chemistry) {
+      if (chemistry == null) {
+        return (
+          '<div class="team-line-builder__chem">' +
+          '<div class="team-line-builder__chem-head">' +
+          '<span class="team-line-builder__chem-label">Chemistry</span>' +
+          '<span class="team-line-builder__chem-value">—</span></div>' +
+          '<div class="team-line-builder__chem-track" role="meter" aria-label="Chemistry unavailable" aria-valuemin="0" aria-valuemax="100">' +
+          '<span class="team-line-builder__chem-fill" style="width:0%"></span></div></div>'
+        );
+      }
+      var pct = Math.max(0, Math.min(100, Number(chemistry)));
+      var hue = chemistryHue(pct);
+      var color = "hsl(" + hue + " 78% 58%)";
+      return (
+        '<div class="team-line-builder__chem">' +
+        '<div class="team-line-builder__chem-head">' +
+        '<span class="team-line-builder__chem-label">Chemistry</span>' +
+        '<span class="team-line-builder__chem-value" style="color:' +
+        color +
+        '">' +
+        chemistry +
+        "</span></div>" +
+        '<div class="team-line-builder__chem-track" role="meter" aria-label="Chemistry ' +
+        chemistry +
+        '" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' +
+        pct +
+        '"><span class="team-line-builder__chem-fill" style="width:' +
+        pct +
+        "%;background:" +
+        color +
+        '"></span></div></div>'
+      );
+    }
+
+    function renderBoard() {
+      ["forwards", "defense", "powerplay", "penalty"].forEach(function (kind) {
+        var host = root.querySelector('[data-lb-kind="' + kind + '"]');
+        if (!host) return;
+        var html = "";
+        units
+          .filter(function (u) { return u.kind === kind; })
+          .forEach(function (unit) {
+            var stats = unitStats(unit);
+            html +=
+              '<article class="team-line-builder__unit"><div class="team-line-builder__unit-head"><h4 class="team-line-builder__unit-title">' +
+              esc(unit.title) +
+              "</h4>" +
+              gradeBoxHtml(stats) +
+              '</div><div class="team-line-builder__slots team-line-builder__slots--' +
+              esc(kind) +
+              '">';
+            (unit.slots || []).forEach(function (slot) {
+              var pid = slots[slot.key];
+              var rec = pid ? playerRec(pid) : null;
+              html +=
+                '<div class="team-line-builder__slot' +
+                (rec ? " is-filled" : "") +
+                (selectedPid && !rec ? " is-target" : "") +
+                '" data-lb-slot="' +
+                esc(slot.key) +
+                '" data-lb-group="' +
+                esc(slot.group) +
+                '"><span class="team-line-builder__slot-label">' +
+                esc(slot.label) +
+                "</span>";
+              if (rec) {
+                html +=
+                  '<div class="team-line-builder__slot-body" draggable="true" data-lb-player="' +
+                  esc(rec.id) +
+                  '"><div class="team-line-builder__slot-player">' +
+                  faceHtml(rec) +
+                  '<div class="team-line-builder__slot-copy"><div class="team-line-builder__slot-name">' +
+                  esc(rec.name) +
+                  '</div><div class="team-line-builder__slot-meta">' +
+                  (rec.ovr != null ? "OVR " + rec.ovr : "") +
+                  "</div></div></div>" +
+                  roleSelectHtml(rec) +
+                  "</div>";
+              } else {
+                html += '<div class="team-line-builder__slot-empty">Drop or tap to place</div>';
+              }
+              html += "</div>";
+            });
+            html += "</div>" + chemBarHtml(stats.chemistry) + "</article>";
+          });
+        host.innerHTML = html;
+      });
+    }
+
+    function render() {
+      renderPool();
+      renderBoard();
+    }
+
+    function playerIdFromEl(el) {
+      var node = el && el.closest ? el.closest("[data-lb-player]") : null;
+      if (!node) return null;
+      var raw = node.getAttribute("data-lb-player");
+      return raw ? parseInt(raw, 10) : null;
+    }
+
+    root.addEventListener("click", function (ev) {
+      if (ev.target.closest("select, a, [data-lb-reset], [data-lb-save], [data-lb-search], button[data-lb-group], button[data-lb-used]")) {
+        return;
+      }
+      var slotEl = ev.target.closest("[data-lb-slot]");
+      var pid = playerIdFromEl(ev.target);
+      if (slotEl) {
+        var slotKey = slotEl.getAttribute("data-lb-slot");
+        var occupant = slots[slotKey];
+        if (selectedPid) {
+          placePlayer(slotKey, selectedPid);
+        } else if (occupant) {
+          selectedPid = parseInt(occupant, 10);
+          render();
+        }
+        return;
+      }
+      if (pid) {
+        if (String(selectedPid) === String(pid)) {
+          selectedPid = null;
+        } else {
+          selectedPid = pid;
+        }
+        render();
+      }
+    });
+
+    root.addEventListener("change", function (ev) {
+      var sel = ev.target.closest("[data-lb-role]");
+      if (!sel) return;
+      var pid = sel.getAttribute("data-lb-role");
+      roles[String(pid)] = sel.value;
+      render();
+    });
+
+    root.addEventListener("dblclick", function (ev) {
+      var slotEl = ev.target.closest("[data-lb-slot]");
+      if (!slotEl) return;
+      clearSlot(slotEl.getAttribute("data-lb-slot"));
+    });
+
+    var dragPid = null;
+    root.addEventListener("dragstart", function (ev) {
+      var pid = playerIdFromEl(ev.target);
+      if (!pid) return;
+      dragPid = pid;
+      ev.dataTransfer.setData("text/plain", String(pid));
+      ev.dataTransfer.effectAllowed = "move";
+    });
+    root.addEventListener("dragend", function () {
+      dragPid = null;
+    });
+    root.addEventListener("dragover", function (ev) {
+      if (ev.target.closest("[data-lb-slot], [data-lb-pool]")) {
+        ev.preventDefault();
+        ev.dataTransfer.dropEffect = "move";
+      }
+    });
+    root.addEventListener("drop", function (ev) {
+      ev.preventDefault();
+      var pid = parseInt(ev.dataTransfer.getData("text/plain") || dragPid || "", 10);
+      if (!pid) return;
+      var slotEl = ev.target.closest("[data-lb-slot]");
+      if (slotEl) {
+        placePlayer(slotEl.getAttribute("data-lb-slot"), pid);
+        return;
+      }
+      if (ev.target.closest("[data-lb-pool]")) {
+        Object.keys(slots).forEach(function (k) {
+          if (String(slots[k]) === String(pid)) delete slots[k];
+        });
+        selectedPid = null;
+        render();
+      }
+    });
+
+    root.querySelectorAll("[data-lb-group]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        groupFilter = btn.getAttribute("data-lb-group") || "all";
+        root.querySelectorAll("[data-lb-group]").forEach(function (b) {
+          b.classList.toggle("is-active", b === btn);
+        });
+        renderPool();
+      });
+    });
+    root.querySelectorAll("[data-lb-used]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        usedFilter = btn.getAttribute("data-lb-used") || "unused";
+        root.querySelectorAll("[data-lb-used]").forEach(function (b) {
+          b.classList.toggle("is-active", b === btn);
+        });
+        renderPool();
+      });
+    });
+    var searchEl = root.querySelector("[data-lb-search]");
+    if (searchEl) {
+      searchEl.addEventListener("input", function () {
+        search = searchEl.value || "";
+        renderPool();
+      });
+    }
+    var resetBtn = root.querySelector("[data-lb-reset]");
+    if (resetBtn) {
+      resetBtn.addEventListener("click", function () {
+        slots = Object.assign({}, importedSlots);
+        roles = Object.assign({}, importedRoles);
+        selectedPid = null;
+        setStatus("Reset to imported even-strength lines.");
+        render();
+      });
+    }
+    if (saveBtn) {
+      saveBtn.addEventListener("click", function () {
+        if (!data.can_save || !data.save_url) return;
+        saveBtn.disabled = true;
+        setStatus("Saving…");
+        fetch(data.save_url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({ slots: slots, roles: roles })
+        })
+          .then(function (resp) {
+            return resp.json().then(function (body) {
+              return { ok: resp.ok, body: body };
+            });
+          })
+          .then(function (out) {
+            if (!out.ok) {
+              setStatus(out.body && out.body.error ? out.body.error : "Could not save.");
+              return;
+            }
+            setStatus("Saved. Everyone will see this sheet on the Builder tab.");
+          })
+          .catch(function () {
+            setStatus("Could not save.");
+          })
+          .then(function () {
+            saveBtn.disabled = false;
+          });
+      });
+    }
+
+    render();
+  }
+
   function initPaginatedTable(table) {
     if (table.getAttribute("data-page-bound") === "1") return;
     var tbody = table.tBodies && table.tBodies[0];
@@ -4364,6 +5053,8 @@
   document.addEventListener("DOMContentLoaded", function () {
     document.querySelectorAll("table.data-sortable").forEach(initSortableTable);
     document.querySelectorAll("table[data-page-size]").forEach(initPaginatedTable);
+    initTeamFinancesPanel();
+    initTeamLineBuilder();
     initAdvancedStatsTeamChart();
     initTeamStatisticsChart();
     initTeamStatisticsFilters();
@@ -4916,12 +5607,192 @@
     return html;
   }
 
-  function renderBoxScoreHtml(d) {
-    var st = d.special_teams || {};
-    var away = d.away || {};
-    var home = d.home || {};
-    var html = '<div class="boxscore-panel">';
+  var BOXSCORE_SQ_BUCKETS = [
+    {
+      key: "sq0",
+      label: "SQ0",
+      danger: "Lowest",
+      title: "Shot quality bucket 0: lowest-danger attempts in the imported FHM shot-quality mix.",
+    },
+    {
+      key: "sq1",
+      label: "SQ1",
+      danger: "Low",
+      title: "Shot quality bucket 1: low-danger attempts in the imported FHM shot-quality mix.",
+    },
+    {
+      key: "sq2",
+      label: "SQ2",
+      danger: "Medium",
+      title: "Shot quality bucket 2: medium-danger attempts in the imported FHM shot-quality mix.",
+    },
+    {
+      key: "sq3",
+      label: "SQ3",
+      danger: "High",
+      title: "Shot quality bucket 3: high-danger attempts in the imported FHM shot-quality mix.",
+    },
+    {
+      key: "sq4",
+      label: "SQ4",
+      danger: "Highest",
+      title: "Shot quality bucket 4: highest-danger attempts in the imported FHM shot-quality mix.",
+    },
+  ];
+  var BOXSCORE_SQ_SORT_LABELS = {
+    total: "total shots",
+    sq_avg: "shot-quality average",
+    hd: "high-danger share",
+    sq4: "highest-danger (SQ4) shots",
+  };
 
+  function boxscorePeriodHeaderLabel(label) {
+    var lab = String(label == null ? "" : label);
+    return lab === "OT" ? "OT" : "P" + escapeHtml(lab);
+  }
+
+  function boxscorePeriodTableHtml(cols, away, home, opts) {
+    opts = opts || {};
+    var html =
+      '<div class="table-wrap boxscore-table-wrap"><table class="boxscore-table boxscore-table--period"><thead><tr><th>Team</th>';
+    (cols || []).forEach(function (col) {
+      html += "<th>" + boxscorePeriodHeaderLabel(col.label) + "</th>";
+    });
+    if (opts.totalKey) html += "<th>T</th>";
+    html += "</tr></thead><tbody>";
+    function teamRow(side, score) {
+      var row =
+        "<tr><td><span class=\"boxscore-team-cell\">" +
+        teamLogoCell(side.logo_url, side.slug, side.abbr) +
+        '<span class="boxscore-team-cell__name">' +
+        escapeHtml(side.name || side.abbr || "") +
+        "</span></span></td>";
+      (cols || []).forEach(function (col) {
+        var v = side === away ? col.away : col.home;
+        row += "<td>" + (v != null ? v : "—") + "</td>";
+      });
+      if (opts.totalKey) {
+        row += "<td><strong>" + (score != null ? score : "—") + "</strong></td>";
+      }
+      return row + "</tr>";
+    }
+    html += teamRow(away, away.score);
+    html += teamRow(home, home.score);
+    html += "</tbody></table></div>";
+    return html;
+  }
+
+  function boxscoreSqEmptyCounts() {
+    return { sq0: 0, sq1: 0, sq2: 0, sq3: 0, sq4: 0 };
+  }
+
+  function boxscoreSqNormalizeCounts(row) {
+    var counts = boxscoreSqEmptyCounts();
+    if (!row) return counts;
+    var src = row.counts && typeof row.counts === "object" ? row.counts : row;
+    BOXSCORE_SQ_BUCKETS.forEach(function (b) {
+      var v = src[b.key];
+      if (v == null) v = src[b.label];
+      counts[b.key] = Number(v) || 0;
+    });
+    return counts;
+  }
+
+  function boxscoreSqCountTotal(counts) {
+    counts = counts || boxscoreSqEmptyCounts();
+    return counts.sq0 + counts.sq1 + counts.sq2 + counts.sq3 + counts.sq4;
+  }
+
+  function boxscoreSqProfileFromCounts(row) {
+    var counts = boxscoreSqNormalizeCounts(row);
+    var total = boxscoreSqCountTotal(counts);
+    if (!total) {
+      return { total: 0, shares: {}, sq_avg: null, high_danger_share: null, counts: counts };
+    }
+    var weighted = counts.sq1 + 2 * counts.sq2 + 3 * counts.sq3 + 4 * counts.sq4;
+    var hd = counts.sq3 + counts.sq4;
+    return {
+      total: total,
+      counts: counts,
+      shares: {
+        SQ0: Math.round((1000 * counts.sq0) / total) / 10,
+        SQ1: Math.round((1000 * counts.sq1) / total) / 10,
+        SQ2: Math.round((1000 * counts.sq2) / total) / 10,
+        SQ3: Math.round((1000 * counts.sq3) / total) / 10,
+        SQ4: Math.round((1000 * counts.sq4) / total) / 10,
+      },
+      sq_avg: Math.round((weighted / total) * 100) / 100,
+      high_danger_share: Math.round((1000 * hd) / total) / 10,
+    };
+  }
+
+  function boxscoreSqVisibleTotal(counts, enabled) {
+    var t = 0;
+    BOXSCORE_SQ_BUCKETS.forEach(function (b) {
+      if (!enabled || enabled[b.key]) t += (counts && counts[b.key]) || 0;
+    });
+    return t;
+  }
+
+  function boxscoreSqNiceMax(n) {
+    var pad = Math.max(1, Math.ceil(Number(n) || 0));
+    if (pad <= 5) return 5;
+    if (pad <= 10) return 10;
+    return Math.ceil(pad / 10) * 10;
+  }
+
+  function boxscoreSqAllEnabled() {
+    var enabled = {};
+    BOXSCORE_SQ_BUCKETS.forEach(function (b) {
+      enabled[b.key] = true;
+    });
+    return enabled;
+  }
+
+  function boxscoreSqEnabledList(enabled) {
+    return BOXSCORE_SQ_BUCKETS.filter(function (b) {
+      return !enabled || enabled[b.key];
+    });
+  }
+
+  function boxscoreSqFmtPct(n) {
+    if (n == null || isNaN(n)) return "—";
+    return Number(n).toFixed(1) + "%";
+  }
+
+  function boxscoreSqFmtAvg(n) {
+    if (n == null || isNaN(n)) return "—";
+    return Number(n).toFixed(2);
+  }
+
+  function boxscoreSqPlayerPayload(s) {
+    return {
+      player_id: s.player_id,
+      player: s.player,
+      counts: boxscoreSqNormalizeCounts(s),
+    };
+  }
+
+  function boxscoreMetaLineHtml(d) {
+    var bits = [];
+    if (d.date) bits.push(escapeHtml(String(d.date)));
+    if (d.arena) bits.push(escapeHtml(String(d.arena)));
+    if (d.attendance != null) {
+      try {
+        bits.push(Number(d.attendance).toLocaleString() + " att.");
+      } catch (e) {
+        bits.push(String(d.attendance) + " att.");
+      }
+    }
+    if (d.game_type) bits.push(escapeHtml(String(d.game_type)));
+    if (!bits.length) return "";
+    return '<p class="boxscore-panel__meta">' + bits.join(" · ") + "</p>";
+  }
+
+  function boxscoreSummaryHtml(d, away, home) {
+    var st = d.special_teams || {};
+    var html = "";
+    html += boxscoreMetaLineHtml(d);
     if (d.stars && d.stars.some(boxscoreStarHasContent)) {
       html += '<div class="boxscore-stars">';
       html += '<div class="boxscore-stars__title">Three stars</div><ol class="boxscore-stars__list">';
@@ -4967,34 +5838,7 @@
       "</span></div>";
     html += "</div>";
 
-    var pcols = d.period_columns || [];
-    html += '<div class="table-wrap boxscore-table-wrap"><table class="boxscore-table boxscore-table--period"><thead><tr><th>Team</th>';
-    pcols.forEach(function (col) {
-      var lab = String(col.label);
-      html += "<th>" + (lab === "OT" ? "OT" : "P" + escapeHtml(lab)) + "</th>";
-    });
-    html += "<th>T</th></tr></thead><tbody>";
-    html +=
-      "<tr><td><span class=\"boxscore-team-cell\">" +
-      teamLogoCell(away.logo_url, away.slug, away.abbr) +
-      '<span class="boxscore-team-cell__name">' +
-      escapeHtml(away.name || away.abbr || "") +
-      "</span></span></td>";
-    pcols.forEach(function (col) {
-      html += "<td>" + (col.away != null ? col.away : "—") + "</td>";
-    });
-    html += "<td><strong>" + (away.score != null ? away.score : "—") + "</strong></td></tr>";
-    html +=
-      "<tr><td><span class=\"boxscore-team-cell\">" +
-      teamLogoCell(home.logo_url, home.slug, home.abbr) +
-      '<span class="boxscore-team-cell__name">' +
-      escapeHtml(home.name || home.abbr || "") +
-      "</span></span></td>";
-    pcols.forEach(function (col) {
-      html += "<td>" + (col.home != null ? col.home : "—") + "</td>";
-    });
-    html += "<td><strong>" + (home.score != null ? home.score : "—") + "</strong></td></tr>";
-    html += "</tbody></table></div>";
+    html += boxscorePeriodTableHtml(d.period_columns || [], away, home, { totalKey: "score" });
 
     html += '<h3 class="boxscore-section-title">Scoring</h3>';
     html += '<div class="table-wrap boxscore-table-wrap"><table class="boxscore-table"><thead><tr>';
@@ -5027,7 +5871,10 @@
       html += '<tr><td colspan="6" class="boxscore-empty">No goal events in database.</td></tr>';
     }
     html += "</tbody></table></div>";
+    return html;
+  }
 
+  function boxscoreStatsHtml(d, away, home) {
     var goalies = d.goalies || [];
     var skaters = d.skaters || [];
     var awayAbbr = away.abbr || "";
@@ -5070,26 +5917,6 @@
       return h;
     }
 
-    html += '<div class="boxscore-split boxscore-split--after-scoring">';
-    html +=
-      '<div class="boxscore-split__col"><h4 class="boxscore-split__head">' +
-      teamLogoCell(away.logo_url, away.slug, away.abbr) +
-      '<span class="boxscore-split__head-suffix"> — Goalies</span></h4>';
-    html +=
-      '<div class="table-wrap"><table class="boxscore-table"><thead><tr><th>Goalie</th><th>TOI</th><th>SA</th><th>GA</th><th>SV</th><th>SV%</th></tr></thead><tbody>';
-    html += goalieRows(gAway);
-    html += "</tbody></table></div></div>";
-
-    html +=
-      '<div class="boxscore-split__col"><h4 class="boxscore-split__head">' +
-      teamLogoCell(home.logo_url, home.slug, home.abbr) +
-      '<span class="boxscore-split__head-suffix"> — Goalies</span></h4>';
-    html +=
-      '<div class="table-wrap"><table class="boxscore-table"><thead><tr><th>Goalie</th><th>TOI</th><th>SA</th><th>GA</th><th>SV</th><th>SV%</th></tr></thead><tbody>';
-    html += goalieRows(gHome);
-    html += "</tbody></table></div></div>";
-    html += "</div>";
-
     function skaterRows(arr) {
       var h = "";
       arr.forEach(function (s) {
@@ -5122,6 +5949,26 @@
       return h;
     }
 
+    var html = '<div class="boxscore-split">';
+    html +=
+      '<div class="boxscore-split__col"><h4 class="boxscore-split__head">' +
+      teamLogoCell(away.logo_url, away.slug, away.abbr) +
+      '<span class="boxscore-split__head-suffix"> — Goalies</span></h4>';
+    html +=
+      '<div class="table-wrap"><table class="boxscore-table"><thead><tr><th>Goalie</th><th>TOI</th><th>SA</th><th>GA</th><th>SV</th><th>SV%</th></tr></thead><tbody>';
+    html += goalieRows(gAway);
+    html += "</tbody></table></div></div>";
+
+    html +=
+      '<div class="boxscore-split__col"><h4 class="boxscore-split__head">' +
+      teamLogoCell(home.logo_url, home.slug, home.abbr) +
+      '<span class="boxscore-split__head-suffix"> — Goalies</span></h4>';
+    html +=
+      '<div class="table-wrap"><table class="boxscore-table"><thead><tr><th>Goalie</th><th>TOI</th><th>SA</th><th>GA</th><th>SV</th><th>SV%</th></tr></thead><tbody>';
+    html += goalieRows(gHome);
+    html += "</tbody></table></div></div>";
+    html += "</div>";
+
     html += '<div class="boxscore-split boxscore-split--skaters">';
     html +=
       '<div class="boxscore-split__col"><h4 class="boxscore-split__head">' +
@@ -5140,6 +5987,841 @@
       '<div class="table-wrap"><table class="boxscore-table"><thead><tr><th>Player</th><th>G</th><th>A</th><th>+/-</th><th>SOG</th><th>BLK</th><th>HIT</th><th>PIM</th><th>GR</th><th>TOI</th></tr></thead><tbody>';
     html += skaterRows(sHome);
     html += "</tbody></table></div></div>";
+    html += "</div>";
+    return html;
+  }
+
+  function boxscoreShotQualityHtml(d, away, home) {
+    var skaters = d.skaters || [];
+    var awayAbbr = away.abbr || "";
+    var homeAbbr = home.abbr || "";
+    var payload = {
+      away: {
+        abbr: away.abbr || "",
+        name: away.name || away.abbr || "",
+        slug: away.slug || "",
+        logo_url: away.logo_url || "",
+        counts: boxscoreSqNormalizeCounts(d.sq_away),
+      },
+      home: {
+        abbr: home.abbr || "",
+        name: home.name || home.abbr || "",
+        slug: home.slug || "",
+        logo_url: home.logo_url || "",
+        counts: boxscoreSqNormalizeCounts(d.sq_home),
+      },
+      awayPlayers: skaters
+        .filter(function (x) {
+          return x.team_abbr === awayAbbr;
+        })
+        .map(boxscoreSqPlayerPayload),
+      homePlayers: skaters
+        .filter(function (x) {
+          return x.team_abbr === homeAbbr;
+        })
+        .map(boxscoreSqPlayerPayload),
+    };
+    var hasTeam = boxscoreSqCountTotal(payload.away.counts) + boxscoreSqCountTotal(payload.home.counts) > 0;
+    var hasPlayers = payload.awayPlayers.concat(payload.homePlayers).some(function (p) {
+      return boxscoreSqCountTotal(p.counts) > 0;
+    });
+
+    var html = '<div class="boxscore-sq-dash" data-boxscore-sq-root data-sq-json="' + escapeAttr(JSON.stringify(payload)) + '">';
+    html +=
+      '<p class="boxscore-sq-note">Imported FHM mix from lowest-danger (SQ0) to highest-danger (SQ4) attempts — not expected goals. Click a color to hide or isolate it; hover a bar for exact counts.</p>';
+
+    if (!hasTeam && !hasPlayers) {
+      html += '<p class="boxscore-empty">No shot-quality data imported for this game.</p></div>';
+      return html;
+    }
+
+    html += '<div class="boxscore-sq-toolbar">';
+    html += '<div class="boxscore-sq-legend" role="group" aria-label="Shot quality buckets">';
+    BOXSCORE_SQ_BUCKETS.forEach(function (b) {
+      html +=
+        '<button type="button" class="boxscore-sq-legend__btn is-on" data-sq-legend="' +
+        b.key +
+        '" aria-pressed="true" title="' +
+        escapeAttr(b.title) +
+        '"><span class="boxscore-sq-swatch boxscore-sq-swatch--' +
+        b.key +
+        '" aria-hidden="true"></span><span class="boxscore-sq-legend__text"><span class="boxscore-sq-legend__code">' +
+        b.label +
+        '</span><span class="boxscore-sq-legend__danger">' +
+        escapeHtml(b.danger) +
+        "</span></span></button>";
+    });
+    html +=
+      '<button type="button" class="boxscore-sq-legend__preset" data-sq-preset="hd" title="Show only SQ3 and SQ4">High-danger</button>';
+    html +=
+      '<button type="button" class="boxscore-sq-legend__preset" data-sq-preset="all" hidden>Show all</button>';
+    html += "</div>";
+    html += '<div class="boxscore-sq-controls">';
+    html +=
+      '<div class="boxscore-sq-seg" role="group" aria-label="Bar mode">' +
+      '<button type="button" class="boxscore-sq-seg__btn is-active" data-sq-mode="volume">Volume</button>' +
+      '<button type="button" class="boxscore-sq-seg__btn" data-sq-mode="mix">Mix %</button></div>';
+    html +=
+      '<div class="boxscore-sq-seg" role="group" aria-label="Player bar scale">' +
+      '<button type="button" class="boxscore-sq-seg__btn is-active" data-sq-scale="shared">Shared scale</button>' +
+      '<button type="button" class="boxscore-sq-seg__btn" data-sq-scale="team">Fit each team</button></div>';
+    html +=
+      '<label class="boxscore-sq-sort"><span>Sort players</span><select data-sq-sort>' +
+      '<option value="total" selected>Total shots</option>' +
+      '<option value="sq_avg">SQ average</option>' +
+      '<option value="hd">High-danger %</option>' +
+      '<option value="sq4">SQ4 shots</option></select></label>';
+    html += "</div></div>";
+
+    html += '<p class="boxscore-sq-insight" data-sq-insight></p>';
+
+    html += '<section class="boxscore-sq-section">';
+    html +=
+      '<div class="boxscore-sq-section__head"><h3 class="boxscore-section-title">Team shot quality</h3>' +
+      '<p class="boxscore-sq-section__sub" data-sq-team-sub>Volume by quality</p></div>';
+    html += '<div class="boxscore-sq-team" data-sq-team-chart></div></section>';
+
+    html += '<section class="boxscore-sq-section">';
+    html +=
+      '<div class="boxscore-sq-section__head"><h3 class="boxscore-section-title">Player shot quality</h3>' +
+      '<p class="boxscore-sq-section__sub" data-sq-player-sub>Sorted by total shots</p></div>';
+    html += '<div class="boxscore-sq-players" data-sq-player-charts></div></section>';
+
+    var sogCols = d.sog_period_columns || [];
+    var hasSog = sogCols.some(function (col) {
+      return col.away != null || col.home != null;
+    });
+    if (hasSog) {
+      html += '<details class="boxscore-sq-periods"><summary>Shots by period</summary>';
+      html += boxscorePeriodTableHtml(sogCols, away, home, {});
+      html += "</details>";
+    }
+    html += "</div>";
+    return html;
+  }
+
+  function bindBoxScoreShotQuality(container) {
+    var root = container && container.querySelector("[data-boxscore-sq-root]");
+    if (!root || root.getAttribute("data-sq-bound") === "1") return;
+    var raw = root.getAttribute("data-sq-json");
+    if (!raw) return;
+    var data;
+    try {
+      data = JSON.parse(raw);
+    } catch (e) {
+      return;
+    }
+    if (!root.querySelector(".boxscore-sq-toolbar")) return;
+    root.setAttribute("data-sq-bound", "1");
+    root.removeAttribute("data-sq-json");
+
+    var state = {
+      mode: "volume",
+      scale: "shared",
+      sort: "total",
+      enabled: boxscoreSqAllEnabled(),
+      expanded: {},
+    };
+    var teamMount = root.querySelector("[data-sq-team-chart]");
+    var playerMount = root.querySelector("[data-sq-player-charts]");
+    var insightEl = root.querySelector("[data-sq-insight]");
+    var teamSub = root.querySelector("[data-sq-team-sub]");
+    var playerSub = root.querySelector("[data-sq-player-sub]");
+    var showAllBtn = root.querySelector('[data-sq-preset="all"]');
+
+    var tip = document.getElementById("boxscore-sq-tooltip");
+    if (!tip) {
+      tip = document.createElement("div");
+      tip.id = "boxscore-sq-tooltip";
+      tip.className = "boxscore-sq-tooltip";
+      tip.setAttribute("role", "tooltip");
+      tip.hidden = true;
+      document.body.appendChild(tip);
+    }
+
+    function enabledCount() {
+      return boxscoreSqEnabledList(state.enabled).length;
+    }
+
+    function hideTip(force) {
+      if (tip.getAttribute("data-pinned") && !force) return;
+      tip.removeAttribute("data-pinned");
+      tip.hidden = true;
+    }
+
+    function placeTip(clientX, clientY) {
+      var pad = 14;
+      var x = clientX + pad;
+      var y = clientY + pad;
+      tip.hidden = false;
+      var rect = tip.getBoundingClientRect();
+      if (x + rect.width > window.innerWidth - 8) x = clientX - rect.width - pad;
+      if (y + rect.height > window.innerHeight - 8) y = clientY - rect.height - pad;
+      tip.style.left = Math.max(8, x) + "px";
+      tip.style.top = Math.max(8, y) + "px";
+    }
+
+    function showTip(html, clientX, clientY, pinKey) {
+      tip.innerHTML = html;
+      if (pinKey) tip.setAttribute("data-pinned", pinKey);
+      else tip.removeAttribute("data-pinned");
+      placeTip(clientX, clientY);
+    }
+
+    function tipFromEl(el, ev, pin) {
+      var bucketKey = el.getAttribute("data-sq-tip-bucket");
+      var bucket = BOXSCORE_SQ_BUCKETS.filter(function (b) {
+        return b.key === bucketKey;
+      })[0];
+      if (!bucket) return;
+      var title = el.getAttribute("data-sq-tip-side") || "";
+      var count = parseInt(el.getAttribute("data-sq-tip-count") || "0", 10);
+      var total = parseInt(el.getAttribute("data-sq-tip-total") || "0", 10);
+      var key = title + ":" + bucket.key;
+      if (pin && tip.getAttribute("data-pinned") === key) {
+        hideTip(true);
+        return;
+      }
+      showTip(bucketTipHtml(title, bucket, count, total), ev.clientX, ev.clientY, pin ? key : null);
+    }
+
+    function bucketTipHtml(title, bucket, count, total) {
+      var share = total ? Math.round((1000 * count) / total) / 10 : 0;
+      return (
+        '<div class="boxscore-sq-tooltip__inner">' +
+        '<span class="boxscore-sq-swatch boxscore-sq-swatch--' +
+        bucket.key +
+        '" aria-hidden="true"></span>' +
+        "<div><strong>" +
+        escapeHtml(title) +
+        "</strong>" +
+        '<div class="boxscore-sq-tooltip__line">' +
+        bucket.label +
+        " · " +
+        escapeHtml(bucket.danger) +
+        " danger</div>" +
+        '<div class="boxscore-sq-tooltip__line"><strong>' +
+        count +
+        "</strong> attempt" +
+        (count === 1 ? "" : "s") +
+        (total ? " · " + share + "% of this bar" : "") +
+        "</div></div></div>"
+      );
+    }
+
+    function sortPlayers(list) {
+      var rows = list
+        .map(function (p) {
+          var sq = boxscoreSqProfileFromCounts(p.counts);
+          return { p: p, sq: sq, vis: boxscoreSqVisibleTotal(p.counts, state.enabled) };
+        })
+        .filter(function (x) {
+          return x.vis > 0;
+        });
+      rows.sort(function (a, b) {
+        var av;
+        var bv;
+        if (state.sort === "sq_avg") {
+          av = a.sq.sq_avg || 0;
+          bv = b.sq.sq_avg || 0;
+        } else if (state.sort === "hd") {
+          av = a.sq.high_danger_share || 0;
+          bv = b.sq.high_danger_share || 0;
+        } else if (state.sort === "sq4") {
+          av = a.p.counts.sq4 || 0;
+          bv = b.p.counts.sq4 || 0;
+        } else {
+          av = a.vis;
+          bv = b.vis;
+        }
+        if (bv !== av) return bv - av;
+        if (b.sq.sq_avg !== a.sq.sq_avg) return (b.sq.sq_avg || 0) - (a.sq.sq_avg || 0);
+        return String(a.p.player || "").localeCompare(String(b.p.player || ""));
+      });
+      return rows;
+    }
+
+    function insightText() {
+      var aC = data.away.counts;
+      var hC = data.home.counts;
+      var aVis = boxscoreSqVisibleTotal(aC, state.enabled);
+      var hVis = boxscoreSqVisibleTotal(hC, state.enabled);
+      var aSq = boxscoreSqProfileFromCounts(aC);
+      var hSq = boxscoreSqProfileFromCounts(hC);
+      var aName = data.away.abbr || "Away";
+      var hName = data.home.abbr || "Home";
+      if (!aVis && !hVis) return "No attempts in the selected shot-quality buckets.";
+      var filtered = enabledCount() < BOXSCORE_SQ_BUCKETS.length;
+      if (filtered) {
+        var labels = boxscoreSqEnabledList(state.enabled)
+          .map(function (b) {
+            return b.label;
+          })
+          .join(" + ");
+        if (aVis === hVis) {
+          return "Showing " + labels + " only — both teams had " + aVis + " attempts in this mix.";
+        }
+        var lead = aVis > hVis ? aName : hName;
+        var trail = aVis > hVis ? hName : aName;
+        var lv = Math.max(aVis, hVis);
+        var tv = Math.min(aVis, hVis);
+        return (
+          "Showing " +
+          labels +
+          " only — " +
+          lead +
+          " had " +
+          lv +
+          " attempts vs " +
+          trail +
+          " " +
+          tv +
+          "."
+        );
+      }
+      var bits = [];
+      if (aSq.sq_avg != null && hSq.sq_avg != null && aSq.sq_avg !== hSq.sq_avg) {
+        var better = aSq.sq_avg > hSq.sq_avg ? aName : hName;
+        var worse = aSq.sq_avg > hSq.sq_avg ? hName : aName;
+        var bAvg = Math.max(aSq.sq_avg, hSq.sq_avg);
+        var wAvg = Math.min(aSq.sq_avg, hSq.sq_avg);
+        bits.push(
+          better +
+            " generated the higher-quality looks (SQ avg " +
+            boxscoreSqFmtAvg(bAvg) +
+            " vs " +
+            boxscoreSqFmtAvg(wAvg) +
+            ")"
+        );
+      } else if (aSq.sq_avg != null && hSq.sq_avg != null) {
+        bits.push("Shot quality was even (SQ avg " + boxscoreSqFmtAvg(aSq.sq_avg) + ")");
+      }
+      if (aSq.high_danger_share != null && hSq.high_danger_share != null) {
+        if (aSq.high_danger_share !== hSq.high_danger_share) {
+          var hdLead = aSq.high_danger_share > hSq.high_danger_share ? aName : hName;
+          bits.push(
+            hdLead +
+              " had the bigger high-danger share (" +
+              boxscoreSqFmtPct(Math.max(aSq.high_danger_share, hSq.high_danger_share)) +
+              " vs " +
+              boxscoreSqFmtPct(Math.min(aSq.high_danger_share, hSq.high_danger_share)) +
+              ")"
+          );
+        }
+      }
+      if (aSq.total !== hSq.total) {
+        var volLead = aSq.total > hSq.total ? aName : hName;
+        bits.push(
+          volLead +
+            " took more attempts (" +
+            Math.max(aSq.total, hSq.total) +
+            "–" +
+            Math.min(aSq.total, hSq.total) +
+            ")"
+        );
+      }
+      if (!bits.length) return "Both teams generated a similar shot-quality mix.";
+      return bits.slice(0, 2).join(". ") + ".";
+    }
+
+    function metricCell(val, lead) {
+      return (
+        '<td class="boxscore-sq-compare__val' +
+        (lead ? " is-lead" : "") +
+        '">' +
+        val +
+        "</td>"
+      );
+    }
+
+    function renderTeamChart() {
+      if (!teamMount) return;
+      var awaySq = boxscoreSqProfileFromCounts(data.away.counts);
+      var homeSq = boxscoreSqProfileFromCounts(data.home.counts);
+      var aVis = boxscoreSqVisibleTotal(data.away.counts, state.enabled);
+      var hVis = boxscoreSqVisibleTotal(data.home.counts, state.enabled);
+      var mix = state.mode === "mix";
+      if (teamSub) {
+        teamSub.textContent = mix
+          ? "Share of selected mix (SQ4 highest · SQ0 lowest)"
+          : "Volume by quality (SQ4 highest · SQ0 lowest)";
+      }
+      if (!aVis && !hVis) {
+        teamMount.innerHTML = '<p class="boxscore-empty">No attempts in the selected buckets.</p>';
+        return;
+      }
+      var maxVol = Math.max(aVis, hVis, 1);
+      var yMax = mix ? 100 : boxscoreSqNiceMax(maxVol);
+      var ticks = [];
+      var steps = 4;
+      for (var i = 0; i <= steps; i++) ticks.push((yMax * i) / steps);
+
+      function stackHtml(side, counts, vis) {
+        var hPct = mix ? 100 : (100 * vis) / yMax;
+        var segs = "";
+        BOXSCORE_SQ_BUCKETS.forEach(function (b) {
+          if (!state.enabled[b.key]) return;
+          var n = counts[b.key] || 0;
+          if (!n || !vis) return;
+          var frac = mix ? (100 * n) / vis : (100 * n) / vis;
+          segs +=
+            '<button type="button" class="boxscore-sq-vseg boxscore-sq-vseg--' +
+            b.key +
+            '" data-sq-tip-side="' +
+            escapeAttr(side.abbr || "") +
+            '" data-sq-tip-bucket="' +
+            b.key +
+            '" data-sq-tip-count="' +
+            n +
+            '" data-sq-tip-total="' +
+            vis +
+            '" style="flex:' +
+            frac +
+            " 0 0\" aria-label=\"" +
+            escapeAttr((side.abbr || "") + " " + b.label + " " + n) +
+            '"></button>';
+        });
+        return (
+          '<div class="boxscore-sq-vchart__col">' +
+          '<div class="boxscore-sq-vchart__stack-wrap">' +
+          '<div class="boxscore-sq-vchart__stack" style="height:' +
+          hPct +
+          '%">' +
+          segs +
+          "</div></div></div>"
+        );
+      }
+
+      function teamLabelHtml(side) {
+        return (
+          '<div class="boxscore-sq-vchart__team">' +
+          teamLogoCell(side.logo_url, side.slug, side.abbr) +
+          '<span class="boxscore-sq-vchart__abbr">' +
+          escapeHtml(side.abbr || "") +
+          "</span></div>"
+        );
+      }
+
+      var html = '<div class="boxscore-sq-team__layout">';
+      html += '<div class="boxscore-sq-vchart" aria-label="Team shot quality stacked bar chart">';
+      html += '<div class="boxscore-sq-vchart__axis" aria-hidden="true">';
+      ticks
+        .slice()
+        .reverse()
+        .forEach(function (t) {
+          html +=
+            '<span>' +
+            (mix ? Math.round(t) + "%" : String(t % 1 === 0 ? t : Math.round(t))) +
+            "</span>";
+        });
+      html += "</div>";
+      html += '<div class="boxscore-sq-vchart__plot">';
+      html += '<div class="boxscore-sq-vchart__grid" aria-hidden="true">';
+      ticks.forEach(function () {
+        html += "<span></span>";
+      });
+      html += "</div>";
+      html += '<div class="boxscore-sq-vchart__bars">';
+      html += stackHtml(data.away, data.away.counts, aVis);
+      html += stackHtml(data.home, data.home.counts, hVis);
+      html += "</div></div>";
+      html += '<div class="boxscore-sq-vchart__labels" aria-hidden="true">';
+      html += teamLabelHtml(data.away);
+      html += teamLabelHtml(data.home);
+      html += "</div></div>";
+
+      var aLeadVol = awaySq.total > homeSq.total;
+      var hLeadVol = homeSq.total > awaySq.total;
+      var aLeadAvg = awaySq.sq_avg != null && homeSq.sq_avg != null && awaySq.sq_avg > homeSq.sq_avg;
+      var hLeadAvg = awaySq.sq_avg != null && homeSq.sq_avg != null && homeSq.sq_avg > awaySq.sq_avg;
+      var aLeadHd =
+        awaySq.high_danger_share != null &&
+        homeSq.high_danger_share != null &&
+        awaySq.high_danger_share > homeSq.high_danger_share;
+      var hLeadHd =
+        awaySq.high_danger_share != null &&
+        homeSq.high_danger_share != null &&
+        homeSq.high_danger_share > awaySq.high_danger_share;
+      html +=
+        '<table class="boxscore-sq-compare"><caption>Game shot-quality totals</caption><thead><tr><th></th><th>' +
+        escapeHtml(data.away.abbr || "Away") +
+        "</th><th>" +
+        escapeHtml(data.home.abbr || "Home") +
+        "</th></tr></thead><tbody>";
+      html +=
+        "<tr><th scope=\"row\">Attempts</th>" +
+        metricCell(String(awaySq.total), aLeadVol) +
+        metricCell(String(homeSq.total), hLeadVol) +
+        "</tr>";
+      html +=
+        "<tr><th scope=\"row\">SQ avg</th>" +
+        metricCell(boxscoreSqFmtAvg(awaySq.sq_avg), aLeadAvg) +
+        metricCell(boxscoreSqFmtAvg(homeSq.sq_avg), hLeadAvg) +
+        "</tr>";
+      html +=
+        '<tr><th scope="row">High-danger</th>' +
+        metricCell(boxscoreSqFmtPct(awaySq.high_danger_share), aLeadHd) +
+        metricCell(boxscoreSqFmtPct(homeSq.high_danger_share), hLeadHd) +
+        "</tr>";
+      html += "</tbody></table></div>";
+      teamMount.innerHTML = html;
+    }
+
+    function renderPlayerCharts() {
+      if (!playerMount) return;
+      var awayRows = sortPlayers(data.awayPlayers || []);
+      var homeRows = sortPlayers(data.homePlayers || []);
+      var sortLabel = BOXSCORE_SQ_SORT_LABELS[state.sort] || "total shots";
+      if (playerSub) {
+        playerSub.textContent =
+          "Sorted by " +
+          sortLabel +
+          (state.mode === "mix" ? " · bars show mix %" : " · SQ4 highest · SQ0 lowest");
+      }
+      if (!awayRows.length && !homeRows.length) {
+        playerMount.innerHTML = '<p class="boxscore-empty">No player attempts in the selected buckets.</p>';
+        return;
+      }
+      var awayMax = 1;
+      var homeMax = 1;
+      awayRows.forEach(function (r) {
+        if (r.vis > awayMax) awayMax = r.vis;
+      });
+      homeRows.forEach(function (r) {
+        if (r.vis > homeMax) homeMax = r.vis;
+      });
+      var sharedMax = Math.max(awayMax, homeMax);
+      var mix = state.mode === "mix";
+
+      function axisTicks(maxVal) {
+        var yMax = mix ? 100 : boxscoreSqNiceMax(maxVal);
+        var ticks = [0, yMax / 2, yMax];
+        var h = '<div class="boxscore-sq-hchart__axis" aria-hidden="true">';
+        ticks.forEach(function (t) {
+          h += "<span>" + (mix ? Math.round(t) + "%" : String(Math.round(t))) + "</span>";
+        });
+        h += "</div>";
+        return { html: h, max: yMax };
+      }
+
+      function colHtml(side, rows, maxVal) {
+        var axis = axisTicks(maxVal);
+        var h =
+          '<div class="boxscore-sq-hchart">' +
+          '<h4 class="boxscore-sq-hchart__head">' +
+          teamLogoCell(side.logo_url, side.slug, side.abbr) +
+          '<span>' +
+          escapeHtml(side.abbr || "") +
+          "</span></h4>";
+        if (!rows.length) {
+          h += '<p class="boxscore-empty">No attempts.</p></div>';
+          return h;
+        }
+        rows.forEach(function (row) {
+          var key = (side.abbr || "") + ":" + String(row.p.player_id || row.p.player || "");
+          var open = !!state.expanded[key];
+          var widthPct = mix ? 100 : (100 * row.vis) / axis.max;
+          var segs = "";
+          BOXSCORE_SQ_BUCKETS.forEach(function (b) {
+            if (!state.enabled[b.key]) return;
+            var n = row.p.counts[b.key] || 0;
+            if (!n || !row.vis) return;
+            var frac = (100 * n) / row.vis;
+            segs +=
+              '<button type="button" class="boxscore-sq-hseg boxscore-sq-hseg--' +
+              b.key +
+              '" data-sq-tip-side="' +
+              escapeAttr(row.p.player || "") +
+              '" data-sq-tip-bucket="' +
+              b.key +
+              '" data-sq-tip-count="' +
+              n +
+              '" data-sq-tip-total="' +
+              row.vis +
+              '" style="width:' +
+              frac +
+              '%" aria-label="' +
+              escapeAttr((row.p.player || "") + " " + b.label + " " + n) +
+              '"></button>';
+          });
+          var detail = "";
+          BOXSCORE_SQ_BUCKETS.forEach(function (b) {
+            detail +=
+              '<span><span class="boxscore-sq-swatch boxscore-sq-swatch--' +
+              b.key +
+              '" aria-hidden="true"></span>' +
+              b.label +
+              " " +
+              (row.p.counts[b.key] || 0) +
+              "</span>";
+          });
+          detail +=
+            "<span>SQ avg " +
+            boxscoreSqFmtAvg(row.sq.sq_avg) +
+            "</span><span>HD " +
+            boxscoreSqFmtPct(row.sq.high_danger_share) +
+            "</span>";
+          h +=
+            '<div class="boxscore-sq-player' +
+            (open ? " is-open" : "") +
+            '" data-sq-player-key="' +
+            escapeAttr(key) +
+            '">';
+          h += '<div class="boxscore-sq-player__row">';
+          h +=
+            '<div class="boxscore-sq-player__name">' +
+            boxscorePlayerLink(row.p.player_id, row.p.player) +
+            "</div>";
+          h +=
+            '<div class="boxscore-sq-player__bar"><div class="boxscore-sq-player__fill" style="width:' +
+            widthPct +
+            '%">' +
+            segs +
+            "</div></div>";
+          h += '<span class="boxscore-sq-player__n">' + row.vis + "</span>";
+          h += "</div>";
+          h +=
+            '<div class="boxscore-sq-player__detail"' +
+            (open ? "" : " hidden") +
+            ">" +
+            detail +
+            "</div></div>";
+        });
+        h += axis.html;
+        h += "</div>";
+        return h;
+      }
+
+      var aMax = state.scale === "shared" ? sharedMax : awayMax;
+      var hMax = state.scale === "shared" ? sharedMax : homeMax;
+      playerMount.innerHTML =
+        colHtml(data.away, awayRows, aMax) + colHtml(data.home, homeRows, hMax);
+    }
+
+    function syncLegend() {
+      var allOn = enabledCount() === BOXSCORE_SQ_BUCKETS.length;
+      root.querySelectorAll("[data-sq-legend]").forEach(function (btn) {
+        var key = btn.getAttribute("data-sq-legend");
+        var on = !!state.enabled[key];
+        btn.classList.toggle("is-on", on);
+        btn.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+      if (showAllBtn) showAllBtn.hidden = allOn;
+      var hdBtn = root.querySelector('[data-sq-preset="hd"]');
+      if (hdBtn) {
+        var hdOnly = !state.enabled.sq0 && !state.enabled.sq1 && !state.enabled.sq2 && state.enabled.sq3 && state.enabled.sq4;
+        hdBtn.classList.toggle("is-active", hdOnly);
+      }
+    }
+
+    function render() {
+      if (insightEl) insightEl.textContent = insightText();
+      syncLegend();
+      renderTeamChart();
+      renderPlayerCharts();
+    }
+
+    root.addEventListener("pointerover", function (ev) {
+      var t = ev.target.closest("[data-sq-tip-bucket]");
+      if (!t || !root.contains(t) || tip.getAttribute("data-pinned")) return;
+      tipFromEl(t, ev, false);
+    });
+    root.addEventListener("pointermove", function (ev) {
+      if (tip.hidden || tip.getAttribute("data-pinned")) return;
+      if (!ev.target.closest("[data-sq-tip-bucket]")) return;
+      placeTip(ev.clientX, ev.clientY);
+    });
+    root.addEventListener("pointerout", function (ev) {
+      var t = ev.target.closest("[data-sq-tip-bucket]");
+      if (!t) return;
+      var rel = ev.relatedTarget;
+      if (rel && rel.closest && rel.closest("[data-sq-tip-bucket]") === t) return;
+      hideTip(false);
+    });
+    root.addEventListener("click", function (ev) {
+      var seg = ev.target.closest("[data-sq-tip-bucket]");
+      if (seg && root.contains(seg) && !ev.target.closest("[data-sq-player-key]")) {
+        tipFromEl(seg, ev, true);
+        ev.preventDefault();
+        return;
+      }
+      var player = ev.target.closest("[data-sq-player-key]");
+      if (player && root.contains(player) && !ev.target.closest("a")) {
+        var key = player.getAttribute("data-sq-player-key");
+        state.expanded[key] = !state.expanded[key];
+        player.classList.toggle("is-open", !!state.expanded[key]);
+        var det = player.querySelector(".boxscore-sq-player__detail");
+        if (det) det.hidden = !state.expanded[key];
+      }
+    });
+    if (!window.__bowlSqTipDocBound) {
+      window.__bowlSqTipDocBound = true;
+      document.addEventListener("click", function (ev) {
+        var t = document.getElementById("boxscore-sq-tooltip");
+        if (!t || t.hidden) return;
+        if (ev.target.closest(".boxscore-sq-tooltip") || ev.target.closest("[data-sq-tip-bucket]")) return;
+        t.hidden = true;
+        t.removeAttribute("data-pinned");
+      });
+    }
+
+    root.querySelectorAll("[data-sq-legend]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var key = btn.getAttribute("data-sq-legend");
+        var next = !state.enabled[key];
+        if (!next && enabledCount() <= 1) return;
+        state.enabled[key] = next;
+        render();
+      });
+    });
+    root.querySelectorAll("[data-sq-preset]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var preset = btn.getAttribute("data-sq-preset");
+        if (preset === "all") state.enabled = boxscoreSqAllEnabled();
+        if (preset === "hd") {
+          state.enabled = { sq0: false, sq1: false, sq2: false, sq3: true, sq4: true };
+        }
+        render();
+      });
+    });
+    root.querySelectorAll("[data-sq-mode]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        state.mode = btn.getAttribute("data-sq-mode") || "volume";
+        root.querySelectorAll("[data-sq-mode]").forEach(function (b) {
+          b.classList.toggle("is-active", b === btn);
+        });
+        render();
+      });
+    });
+    root.querySelectorAll("[data-sq-scale]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        state.scale = btn.getAttribute("data-sq-scale") || "shared";
+        root.querySelectorAll("[data-sq-scale]").forEach(function (b) {
+          b.classList.toggle("is-active", b === btn);
+        });
+        render();
+      });
+    });
+    var sortSel = root.querySelector("[data-sq-sort]");
+    if (sortSel) {
+      sortSel.addEventListener("change", function () {
+        state.sort = sortSel.value || "total";
+        render();
+      });
+    }
+
+    render();
+  }
+
+  function bindBoxScoreTabs(container, opts) {
+    opts = opts || {};
+    var panel = container.querySelector(".boxscore-panel");
+    if (!panel) return;
+    var tabs = Array.prototype.slice.call(panel.querySelectorAll("[data-boxscore-tab]"));
+    var panes = Array.prototype.slice.call(panel.querySelectorAll("[data-boxscore-pane]"));
+    if (!tabs.length) return;
+    var ids = tabs.map(function (t) {
+      return t.getAttribute("data-boxscore-tab");
+    });
+    var tablist = panel.querySelector('[role="tablist"]');
+
+    function activate(id, sync) {
+      if (ids.indexOf(id) < 0) id = ids[0];
+      tabs.forEach(function (t) {
+        var on = t.getAttribute("data-boxscore-tab") === id;
+        t.classList.toggle("is-active", on);
+        t.setAttribute("aria-selected", on ? "true" : "false");
+        t.tabIndex = on ? 0 : -1;
+      });
+      panes.forEach(function (p) {
+        p.hidden = p.getAttribute("data-boxscore-pane") !== id;
+      });
+      if (sync && opts.syncHash) {
+        try {
+          history.replaceState(null, "", "#" + id);
+        } catch (e) {}
+      }
+    }
+
+    tabs.forEach(function (t) {
+      t.addEventListener("click", function () {
+        activate(t.getAttribute("data-boxscore-tab"), true);
+      });
+    });
+    if (tablist) {
+      tablist.addEventListener("keydown", function (ev) {
+        var cur = ids.indexOf(
+          document.activeElement && document.activeElement.getAttribute("data-boxscore-tab")
+        );
+        if (cur < 0) return;
+        var next = cur;
+        if (ev.key === "ArrowRight") next = (cur + 1) % ids.length;
+        else if (ev.key === "ArrowLeft") next = (cur - 1 + ids.length) % ids.length;
+        else if (ev.key === "Home") next = 0;
+        else if (ev.key === "End") next = ids.length - 1;
+        else return;
+        ev.preventDefault();
+        tabs[next].focus();
+        activate(ids[next], true);
+      });
+    }
+
+    var initial = "summary";
+    if (opts.syncHash) {
+      var hash = (location.hash || "").replace(/^#/, "");
+      if (ids.indexOf(hash) >= 0) initial = hash;
+    }
+    activate(initial, false);
+  }
+
+  function renderBoxScoreHtml(d) {
+    var away = d.away || {};
+    var home = d.home || {};
+    var gid = d.game_id != null ? String(d.game_id) : "g";
+    var html = '<div class="boxscore-panel">';
+    html +=
+      '<div class="boxscore-tabs" role="tablist" aria-label="Game views">' +
+      '<button type="button" class="boxscore-tabs__tab is-active" role="tab" aria-selected="true" id="boxscore-tab-summary-' +
+      escapeAttr(gid) +
+      '" data-boxscore-tab="summary" aria-controls="boxscore-pane-summary-' +
+      escapeAttr(gid) +
+      '">Summary</button>' +
+      '<button type="button" class="boxscore-tabs__tab" role="tab" aria-selected="false" tabindex="-1" id="boxscore-tab-boxscore-' +
+      escapeAttr(gid) +
+      '" data-boxscore-tab="boxscore" aria-controls="boxscore-pane-boxscore-' +
+      escapeAttr(gid) +
+      '">Box Score</button>' +
+      '<button type="button" class="boxscore-tabs__tab" role="tab" aria-selected="false" tabindex="-1" id="boxscore-tab-shot-quality-' +
+      escapeAttr(gid) +
+      '" data-boxscore-tab="shot-quality" aria-controls="boxscore-pane-shot-quality-' +
+      escapeAttr(gid) +
+      '">Shot Quality</button></div>';
+
+    html +=
+      '<div class="boxscore-tab-panel" role="tabpanel" id="boxscore-pane-summary-' +
+      escapeAttr(gid) +
+      '" data-boxscore-pane="summary" aria-labelledby="boxscore-tab-summary-' +
+      escapeAttr(gid) +
+      '">';
+    html += boxscoreSummaryHtml(d, away, home);
+    html += "</div>";
+
+    html +=
+      '<div class="boxscore-tab-panel" role="tabpanel" id="boxscore-pane-boxscore-' +
+      escapeAttr(gid) +
+      '" data-boxscore-pane="boxscore" aria-labelledby="boxscore-tab-boxscore-' +
+      escapeAttr(gid) +
+      '" hidden>';
+    html += boxscoreStatsHtml(d, away, home);
+    html += "</div>";
+
+    html +=
+      '<div class="boxscore-tab-panel" role="tabpanel" id="boxscore-pane-shot-quality-' +
+      escapeAttr(gid) +
+      '" data-boxscore-pane="shot-quality" aria-labelledby="boxscore-tab-shot-quality-' +
+      escapeAttr(gid) +
+      '" hidden>';
+    html += boxscoreShotQualityHtml(d, away, home);
     html += "</div>";
 
     html += "</div>";
@@ -5180,7 +6862,7 @@
       return;
     }
     container.innerHTML = '<p class="boxscore-loading">Loading box score…</p>';
-    fetch(withRoot("/api/game/" + gameId + "/boxscore"))
+    fetch(withRoot("/api/game/" + gameId + "/boxscore") + "?v=tabs-sq-v1")
       .then(function (r) {
         return r.json();
       })
@@ -5190,6 +6872,8 @@
           return;
         }
         container.innerHTML = renderBoxScoreHtml(d);
+        bindBoxScoreTabs(container, { syncHash: !!opts.syncHash });
+        bindBoxScoreShotQuality(container);
         if (typeof window.bindPlayerHoverAnchors === "function") window.bindPlayerHoverAnchors();
         if (typeof window.bindTeamHoverAnchors === "function") window.bindTeamHoverAnchors();
       })

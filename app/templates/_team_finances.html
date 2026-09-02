@@ -1,0 +1,135 @@
+{# Title is Cap Efficiency (salary-cap leagues) or Contract Value (no cap). #}
+{% if team_finances %}
+<section class="card team-finances" data-team-finances aria-labelledby="team-finances-heading">
+  <div class="team-finances__head">
+    <div>
+      <p class="team-finances__kicker">{% if team_finances.cap_enabled %}Salary cap league{% else %}No salary cap{% endif %}</p>
+      <h2 id="team-finances-heading" class="team-finances__title">{{ team_finances.title }}</h2>
+      <p class="muted team-finances__note">{{ team_finances.note }}</p>
+    </div>
+    <div class="team-finances__surplus-mode" role="group" aria-label="Surplus window">
+      <button type="button" class="team-finances__seg is-active" data-fin-surplus="year">This year</button>
+      <button type="button" class="team-finances__seg" data-fin-surplus="term">Remaining term</button>
+    </div>
+  </div>
+
+  {% set s = team_finances.summary %}
+  <div class="team-finances__kpis">
+    <div class="team-finances__kpi">
+      <span class="team-finances__kpi-label">Avg value %</span>
+      <span class="team-finances__kpi-value">{{ s.avg_value_pct_label }}</span>
+      <span class="muted team-finances__kpi-meta">Model AAV ÷ actual AAV</span>
+    </div>
+    <div class="team-finances__kpi">
+      <span class="team-finances__kpi-label">Total surplus</span>
+      <span class="team-finances__kpi-value team-finances__kpi-value--surplus team-fin-tone--{{ s.grade_tone }}" data-fin-surplus-year="{{ s.surplus_year_label }}" data-fin-surplus-term="{{ s.surplus_term_label }}">{{ s.surplus_year_label }}</span>
+      {% if s.rank_label %}
+      <span class="muted team-finances__kpi-meta" data-fin-rank data-fin-rank-year="{{ s.rank_year_label or s.rank_label }}" data-fin-rank-term="{{ s.rank_term_label or s.rank_label }}">{{ s.rank_label }}</span>
+      {% endif %}
+    </div>
+    <div class="team-finances__kpi">
+      <span class="team-finances__kpi-label">Overall grade</span>
+      <span class="team-finances__kpi-value team-fin-tone--{{ s.grade_tone }}">{% if s.grade %}{{ s.grade }}{% else %}—{% endif %}</span>
+      <span class="muted team-finances__kpi-meta">{{ s.bargains }} bargains · {{ s.overpays }} overpays</span>
+    </div>
+  </div>
+
+  <div class="team-finances__toolbar">
+    <div class="team-finances__filters" role="group" aria-label="Position group">
+      <button type="button" class="team-finances__chip is-active" data-fin-group="all">All ({{ team_finances.counts.all }})</button>
+      <button type="button" class="team-finances__chip" data-fin-group="forwards">Forwards ({{ team_finances.counts.forwards }})</button>
+      <button type="button" class="team-finances__chip" data-fin-group="defense">Defense ({{ team_finances.counts.defense }})</button>
+      <button type="button" class="team-finances__chip" data-fin-group="goalies">Goalies ({{ team_finances.counts.goalies }})</button>
+      {% if team_finances.counts.minors %}
+      <button type="button" class="team-finances__chip" data-fin-group="minors">Minors ({{ team_finances.counts.minors }})</button>
+      {% endif %}
+    </div>
+    <div class="team-finances__filters" role="group" aria-label="Contract quality">
+      <button type="button" class="team-finances__chip is-active" data-fin-band="all">Any quality</button>
+      <button type="button" class="team-finances__chip" data-fin-band="bargain">Bargains</button>
+      <button type="button" class="team-finances__chip" data-fin-band="fair">Fair</button>
+      <button type="button" class="team-finances__chip" data-fin-band="overpay">Overpays</button>
+    </div>
+    <label class="team-finances__search">
+      <span class="visually-hidden">Search players</span>
+      <input type="search" data-fin-search placeholder="Find a player…" autocomplete="off">
+    </label>
+  </div>
+  <p class="muted team-finances__status" data-fin-status></p>
+
+  {% if team_finances.players %}
+  <div class="table-wrap">
+    <table class="data data-sortable team-finances__table">
+      <thead>
+        <tr>
+          <th data-sort-type="num" title="Peer-market AAV for similarly rated players at this position.">Model value</th>
+          <th data-sort-type="str">Player</th>
+          <th data-sort-type="str">Contract</th>
+          <th data-sort-type="num" title="Model AAV divided by actual AAV.">Value %</th>
+          <th data-sort-type="num" data-sort-default="desc">Surplus</th>
+          <th data-sort-type="str">Grade</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in team_finances.players %}
+        <tr class="team-finances__row" data-fin-row data-fin-group="{{ row.display_group }}" data-fin-band="{{ row.band }}" data-fin-name="{{ row.player_name|lower }}" tabindex="0" role="button" aria-expanded="false">
+          <td data-sort-value="{{ row.model_value if row.model_value is not none else -1 }}">
+            {% if row.model_label != '—' %}<strong>{{ row.model_label }}</strong>{% else %}<span class="muted">—</span>{% endif %}
+          </td>
+          <td data-sort-value="{{ row.player_name|lower }}">
+            <a href="{{ url_for('main.player_page', player_id=row.player_id) }}" class="team-finances__player">{{ row.player_name }}</a>
+            <span class="muted team-finances__pos">{{ row.pos }}{% if row.overall %} · {{ row.overall }} OVR{% endif %}</span>
+            <p class="team-finances__why" hidden>
+              {% if row.in_market and row.model_value is not none %}
+              Similar-rated {{ row.pos_group }} ({{ row.peer_count }} peers near {{ row.overall }} OVR) are paid a median of {{ row.model_label }}.
+              This deal is {{ row.aav_label }}{% if row.years_left %} over {{ row.years_left }} remaining season{% if row.years_left != 1 %}s{% endif %}{% endif %}.
+              {% else %}
+              Not enough of a current-year NHL AAV to score against the peer market (placeholder or minors-only figure).
+              {% endif %}
+            </p>
+          </td>
+          <td data-sort-value="{{ row.aav }}">
+            <span>{{ row.contract_label }}</span>
+            {% if row.flags %}
+            <span class="team-finances__flags">{% for f in row.flags %}<span class="chip">{{ f }}</span>{% endfor %}</span>
+            {% endif %}
+          </td>
+          <td data-sort-value="{{ row.value_pct if row.value_pct is not none else -1 }}">
+            {% if row.value_pct is not none %}
+            <div class="team-finances__pct">
+              <span class="team-finances__pct-track" aria-hidden="true"><span class="team-finances__pct-fill team-fin-tone-bg--{{ row.grade_tone }}" style="width: {{ row.value_bar_pct }}%"></span></span>
+              <span class="team-fin-tone--{{ row.grade_tone }}">{{ '%.1f'|format(row.value_pct) }}%</span>
+            </div>
+            {% else %}
+            <span class="muted">—</span>
+            {% endif %}
+          </td>
+          <td class="team-finances__surplus-cell" data-sort-value="{{ row.surplus_year if row.surplus_year is not none else 0 }}" data-fin-year-sort="{{ row.surplus_year if row.surplus_year is not none else 0 }}" data-fin-term-sort="{{ row.surplus_term if row.surplus_term is not none else 0 }}" data-fin-year-label="{{ row.surplus_year_label }}" data-fin-term-label="{{ row.surplus_term_label }}">
+            {% if row.surplus_year is not none %}
+            <span class="team-fin-tone--{{ row.grade_tone }}">{{ row.surplus_year_label }}</span>
+            {% else %}
+            <span class="muted">—</span>
+            {% endif %}
+          </td>
+          <td data-sort-value="{{ row.grade or 'Z' }}">
+            {% if row.grade %}
+            <span class="team-finances__grade team-fin-tone--{{ row.grade_tone }}">{{ row.grade }}</span>
+            {% else %}
+            <span class="muted">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty-state">No contracts imported for this team yet.</p>
+  {% endif %}
+</section>
+{% else %}
+<div class="card">
+  <h2>Finances</h2>
+  <p class="empty-state">Contract value is not available for this team yet.</p>
+</div>
+{% endif %}

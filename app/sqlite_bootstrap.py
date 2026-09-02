@@ -272,6 +272,7 @@ def apply_site_sqlite_migrations(app: Flask) -> None:
         ensure_team_staff_roster_entries_sqlite,
         ensure_staff_severance_entries_sqlite,
         ensure_trade_market_sqlite,
+        ensure_team_line_sheets_sqlite,
     )
     from app.models import db
     from app.services.ap_service import seed_ap_catalog_if_empty
@@ -327,6 +328,7 @@ def apply_site_sqlite_migrations(app: Flask) -> None:
     ensure_sim_cycle_state_sqlite(site_engine)
     ensure_gm_rule_strikes_sqlite(site_engine)
     ensure_league_expansion_draft_columns_sqlite(site_engine)
+    ensure_team_line_sheets_sqlite(site_engine)
     try:
         seed_ap_catalog_if_empty()
     except Exception as exc:

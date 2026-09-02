@@ -3710,3 +3710,40 @@ def ensure_mobile_push_devices_sqlite(engine: Engine) -> None:
             )
         )
         conn.commit()
+
+
+def ensure_team_line_sheets_sqlite(engine: Engine) -> None:
+    """Create GM line-builder sheets table on the site DB when missing."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='team_line_sheets'")
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE team_line_sheets (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    league_slug VARCHAR(64) NOT NULL,
+                    team_id INTEGER NOT NULL,
+                    season_start_year INTEGER NOT NULL,
+                    slots_json TEXT NOT NULL DEFAULT '{}',
+                    roles_json TEXT NOT NULL DEFAULT '{}',
+                    updated_by_user_id INTEGER,
+                    updated_at DATETIME NOT NULL,
+                    CONSTRAINT uq_team_line_sheet_league_team_season
+                        UNIQUE (league_slug, team_id, season_start_year)
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_team_line_sheet_league_team "
+                "ON team_line_sheets (league_slug, team_id)"
+            )
+        )
+        conn.commit()

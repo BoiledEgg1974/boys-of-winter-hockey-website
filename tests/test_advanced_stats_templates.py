@@ -171,6 +171,33 @@ class AdvancedStatsTemplatesTest(unittest.TestCase):
         self.assertIn("Game Flow", partial)
         self.assertIn("Shots by Period", partial)
 
+    def test_game_boxscore_tabs_in_shared_renderer(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        js = (root / "app" / "static" / "js" / "site.js").read_text(encoding="utf-8")
+        css = (root / "app" / "static" / "css" / "site.css").read_text(encoding="utf-8")
+        api = (root / "app" / "routes" / "api.py").read_text(encoding="utf-8")
+        game = (root / "app" / "templates" / "game.html").read_text(encoding="utf-8")
+        for marker in (
+            'data-boxscore-tab="summary"',
+            'data-boxscore-tab="boxscore"',
+            'data-boxscore-tab="shot-quality"',
+            "bindBoxScoreTabs",
+            "bindBoxScoreShotQuality",
+            "boxscoreShotQualityHtml",
+            ">Shot Quality</button>",
+            'data-boxscore-sq-root',
+        ):
+            self.assertIn(marker, js)
+        self.assertIn(".boxscore-tabs", css)
+        self.assertIn(".boxscore-tabs__tab.is-active", css)
+        self.assertIn(".boxscore-sq-vchart", css)
+        self.assertIn(".boxscore-sq-legend", css)
+        self.assertIn("sq_home", api)
+        self.assertIn("sog_period_columns", api)
+        self.assertIn("tabs-sq-v1", api)
+        self.assertIn("syncHash: true", game)
+        self.assertNotIn("_game_flow_card.html", game)
+
     def test_team_depth_draft_picks_use_compact_layout(self) -> None:
         root = Path(__file__).resolve().parents[1]
         template = (root / "app" / "templates" / "team.html").read_text(encoding="utf-8")

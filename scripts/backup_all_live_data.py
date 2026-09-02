@@ -96,6 +96,7 @@ SITE_COVERAGE_CATEGORIES: dict[str, tuple[str, ...]] = {
         "bowl_six_slates",
         "draft_pick_ownership_years",
         "trade_market_draft_pick_ownership",
+        "team_line_sheets",
     ),
     "staff_live_data": SITE_STAFF_LIVE_TABLES,
 }

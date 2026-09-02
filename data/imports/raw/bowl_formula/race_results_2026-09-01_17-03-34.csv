@@ -1,0 +1,11 @@
+race,track,position,grid_start,number,driver,controller,gear,wear,lap,finished,eliminated,summary
+1,Andurin,1,1,36,Oilempire,AI,3,8,1,true,false,FINISHED L1
+1,Andurin,2,3,14,Mrmuffn,AI,2,11,0,true,false,FINISHED L0
+1,Andurin,3,6,17,Yammyhotspur,AI,3,9,0,true,false,FINISHED L0
+1,Andurin,4,5,10,Caper,AI,2,4,0,true,false,FINISHED L0
+1,Andurin,5,2,19,Connor,AI,3,1,0,true,false,FINISHED L0
+1,Andurin,6,4,2,Campbell,AI,2,11,0,true,false,FINISHED L0
+1,Andurin,7,9,27,Taggart,AI,3,4,0,true,false,FINISHED L0
+1,Andurin,8,7,66,Nick,AI,1,9,0,true,false,FINISHED L0
+1,Andurin,9,10,9,Mcdoublehero,AI,2,7,0,true,false,FINISHED L0
+1,Andurin,10,8,29,Wombat,AI,2,0,0,false,true,OUT (wear)

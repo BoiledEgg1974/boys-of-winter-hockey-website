@@ -842,7 +842,9 @@ def draft_hub_queue_add():
     pid = int(pid_raw)
     params = draft_eligibility_params(draft)
     picked = picked_player_ids(db.session, draft.id)
-    eligible_ids = eligible_id_set_for_draft(db.session, slug, params, picked)
+    eligible_ids = eligible_id_set_for_draft(
+        db.session, slug, params, picked, site_session=db.session
+    )
     if pid not in eligible_ids:
         from flask import flash
 

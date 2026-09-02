@@ -146,7 +146,9 @@ def wishlist_head_for_user(
     """First still-eligible player on this user's wishlist (queue), for pick authorization UI."""
     picked = picked_player_ids(session, draft.id)
     params = draft_eligibility_params(draft)
-    eligible_ids = eligible_id_set_for_draft(session, league_slug, params, picked)
+    eligible_ids = eligible_id_set_for_draft(
+        session, league_slug, params, picked, site_session=session
+    )
     qrows = list(
         session.scalars(
             select(LeagueDraftQueueItem)
@@ -172,7 +174,9 @@ def wishlist_items_for_team(
     """Ordered wishlist rows for all GMs on a franchise (eligible players only)."""
     picked = picked_player_ids(session, draft.id)
     params = draft_eligibility_params(draft)
-    eligible_ids = eligible_id_set_for_draft(session, league_slug, params, picked)
+    eligible_ids = eligible_id_set_for_draft(
+        session, league_slug, params, picked, site_session=session
+    )
     uids = gm_user_ids_for_team(session, league_slug, int(team_id))
     if not uids:
         return []
@@ -480,7 +484,9 @@ def record_pick(
     if int(player_id) in picked:
         return "Player was already drafted."
     params = draft_eligibility_params(draft)
-    eligible_ids = eligible_id_set_for_draft(session, draft.league_slug, params, picked)
+    eligible_ids = eligible_id_set_for_draft(
+        session, draft.league_slug, params, picked, site_session=session
+    )
     if int(player_id) not in eligible_ids:
         return "Player is not eligible for this draft."
     if source == "gm":

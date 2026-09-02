@@ -131,7 +131,8 @@ def eligible_pool_snapshot(
     site_session=None,
 ) -> tuple[list[int], dict[str, int]]:
     """Ordered eligible player ids (full pool) and board rank map; cached per league + rules."""
-    resolved = effective_eligibility_params(league_slug, params, site_session=site_session)
+    settings_session = session if site_session is None else site_session
+    resolved = effective_eligibility_params(league_slug, params, site_session=settings_session)
     key = _cache_key(league_slug, resolved)
     now = time.monotonic()
     with _lock:
@@ -150,7 +151,7 @@ def eligible_pool_snapshot(
         session,
         league_slug,
         params,
-        site_session=site_session,
+        site_session=settings_session,
     )
     ids = [int(p.id) for p in players]
     ranks = board_ranks_map(players)

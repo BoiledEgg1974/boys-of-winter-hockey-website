@@ -7,6 +7,8 @@ from datetime import date
 from unittest.mock import MagicMock, patch
 
 from app.services.draft_eligible_settings import (
+    DRAFT_ELIGIBLE_POOL_MODE_BIRTH_WINDOW,
+    DraftEligiblePageConfig,
     config_to_eligibility_params,
     default_draft_eligible_page_config,
 )
@@ -227,6 +229,43 @@ class DraftHubEligibilityTest(unittest.TestCase):
             ids = eligible_player_ids(session, "bowl-historical", params)
 
         self.assertEqual(ids, [1])
+
+    def test_draft_eligible_page_without_site_session_uses_hardcoded_1950_window(self) -> None:
+        """Picks used to skip the site session and reject the live board's class."""
+        params = replace(
+            default_eligibility_for_league("bowl-historical"),
+            timeline_year=1971,
+            pool_source=DRAFT_POOL_DRAFT_ELIGIBLE_PAGE,
+        )
+        fallback = effective_eligibility_params("bowl-historical", params)
+        self.assertEqual(fallback.birth_window_start, date(1949, 12, 28))
+        self.assertEqual(fallback.birth_window_end, date(1950, 12, 31))
+
+        saved = DraftEligiblePageConfig(
+            timeline_year=1971,
+            pool_mode=DRAFT_ELIGIBLE_POOL_MODE_BIRTH_WINDOW,
+            birth_start=date(1951, 1, 1),
+            birth_end=date(1951, 12, 31),
+            exclude_eastern_bloc=True,
+            min_age_years=20,
+            min_anchor_month=12,
+            min_anchor_day=31,
+            max_age_years=21,
+            max_anchor_month=12,
+            max_anchor_day=31,
+        )
+        with patch(
+            "app.services.draft_eligible_settings.load_draft_eligible_page_config",
+            return_value=saved,
+        ):
+            resolved = effective_eligibility_params(
+                "bowl-historical",
+                params,
+                site_session=MagicMock(),
+            )
+        self.assertEqual(resolved.birth_window_start, date(1951, 1, 1))
+        self.assertEqual(resolved.birth_window_end, date(1951, 12, 31))
+        self.assertTrue(resolved.exclude_eastern_bloc)
 
     def test_season_age_reference_july_first(self) -> None:
         season = MagicMock(start_year=1987, end_year=1988)

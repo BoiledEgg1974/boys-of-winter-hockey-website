@@ -98,6 +98,45 @@ class DraftHubGmPickToggleTest(unittest.TestCase):
         self.assertIsNone(draft.pick_deadline_at)
         self.assertFalse(draft.awaiting_admin_resolution)
 
+    def test_record_pick_passes_site_session_for_eligibility(self) -> None:
+        session = MagicMock()
+        draft = MagicMock(
+            id=1,
+            status="live",
+            awaiting_admin_resolution=False,
+            league_slug="bowl-historical",
+            current_slot_index=0,
+            gm_picks_enabled=True,
+            pick_deadline_at=None,
+        )
+        slot = MagicMock(overall_pick=1, team_id=10, round=1, forfeited=False)
+        player_id = 77
+        gm_user_id = 5
+
+        with (
+            patch.object(draft_hub_state, "slots_ordered", return_value=[slot]),
+            patch.object(draft_hub_state, "_pick_row_for_overall", return_value=None),
+            patch.object(draft_hub_state, "picked_player_ids", return_value=set()),
+            patch.object(draft_hub_state, "draft_eligibility_params", return_value=MagicMock()),
+            patch.object(
+                draft_hub_state, "eligible_id_set_for_draft", return_value={player_id}
+            ) as eligible,
+            patch.object(draft_hub_state, "gm_user_ids_for_team", return_value=[gm_user_id]),
+            patch.object(draft_hub_state, "_remove_player_from_all_queues"),
+            patch.object(draft_hub_state, "sync_current_slot_and_clock"),
+            patch.object(draft_hub_state, "_finalize_draft_if_done"),
+        ):
+            msg = draft_hub_state.record_pick(
+                session,
+                draft,
+                player_id=player_id,
+                user_id=gm_user_id,
+                source="gm",
+            )
+
+        self.assertIsNone(msg)
+        self.assertEqual(eligible.call_args.kwargs.get("site_session"), session)
+
 
 if __name__ == "__main__":
     unittest.main()

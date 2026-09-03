@@ -16,6 +16,7 @@
   {% if not watermarked %}
   <p class="muted">Progress starts after the next site export. Existing history will not award AP.</p>
   {% endif %}
+  <p class="muted"><a href="{{ url_for('main.achievement_leaders') }}">Public GM trophy leaderboard</a></p>
 
   {% for cat, heading in [('game', 'Game'), ('season', 'Season'), ('playoffs', 'Playoffs'), ('career', 'Career')] %}
   {% set cards = groups.get(cat) or [] %}
@@ -30,7 +31,7 @@
           <h3 class="gm-achievements__title">{{ card.title }}</h3>
           <span class="gm-achievements__ap">{% if card.hidden %}+? AP{% else %}+{{ card.ap }} AP{% endif %}</span>
         </div>
-        <p class="gm-achievements__desc">{{ card.description }}</p>
+        <p class="gm-achievements__desc">{{ card.description }}{% if card.repeatable and not card.hidden %} <span class="muted">Can be earned each season.</span>{% endif %}</p>
         {% if card.status == 'completed' %}
         <p class="gm-achievements__status">Completed{% if card.unlocked_at %} · {{ card.unlocked_at.strftime('%b %d, %Y') }}{% endif %}</p>
         {% if card.blurb %}<p class="gm-achievements__blurb">{{ card.blurb }}</p>{% endif %}

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}{{ team_name }} trophies — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card gm-achievements" style="max-width:52rem;margin:0 auto;">
+  <p class="muted"><a href="{{ url_for('main.achievement_leaders') }}">← GM trophy leaderboard</a></p>
+  <h1 class="page-title">{{ team_name }}</h1>
+  {% if standing %}
+  <p class="muted">#{{ standing.rank }} on the board · {{ standing.unlocks }} unlocks · {{ standing.ap }} AP{% if standing.gm_name %} · {{ standing.gm_name }}{% endif %}</p>
+  {% else %}
+  <p class="muted">No unlocks yet for this franchise.</p>
+  {% endif %}
+
+  {% if badges %}
+  <section class="team-achievement-banner" aria-label="Trophy case">
+    <p class="team-achievement-banner__kicker">Trophy case</p>
+    <div class="team-achievement-banner__row" role="list">
+      {% for b in badges %}
+      <div class="team-achievement-banner__badge team-achievement-banner__badge--{{ b.category }}" role="listitem" title="{{ b.tooltip|e }}">
+        <span class="team-achievement-banner__icon" aria-hidden="true"></span>
+        <span class="team-achievement-banner__title">{{ b.title }}</span>
+        {% if b.count and b.count > 1 %}
+        <span class="team-achievement-banner__count">{{ b.count }}x</span>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if races %}
+  <section class="gm-trophy-firsts" aria-labelledby="gm-trophy-rival-heading">
+    <h2 id="gm-trophy-rival-heading" class="gm-achievements__heading">Who unlocked this first</h2>
+    <div class="table-wrap">
+      <table class="data gm-trophy-table">
+        <thead>
+          <tr>
+            <th scope="col">Achievement</th>
+            <th scope="col">This team</th>
+            <th scope="col">First unlock</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in races %}
+          <tr>
+            <td>{{ row.title }}</td>
+            <td class="gm-trophy-rival__place">
+              {% if row.is_first %}
+              1st in the league
+              {% elif row.place_label %}
+              {{ row.place_label }}
+              {% else %}
+              Not unlocked
+              {% endif %}
+            </td>
+            <td>
+              {% if row.first_team_name %}
+                {% if row.first_team_slug %}
+                <a href="{{ url_for('main.achievement_leaders_team', slug=row.first_team_slug) }}">{{ row.first_team_name }}</a>
+                {% else %}
+                {{ row.first_team_name }}
+                {% endif %}
+                {% if row.first_gm_name %} · {{ row.first_gm_name }}{% endif %}
+                {% if row.first_at %} · {{ row.first_at.strftime('%b %d, %Y') }}{% endif %}
+              {% else %}
+              Nobody yet
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

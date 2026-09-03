@@ -15,25 +15,41 @@ from app.services.discord_events import DEFAULT_EVENT_CHANNEL_KEY, DEFAULT_EVENT
 from datetime import date
 
 from app.services.gm_achievements import (
+    ACHIEVEMENT_LEAGUE_FIRST_EVENT_KEY,
     ACHIEVEMENT_UNLOCKED_EVENT_KEY,
     CATALOG_BY_KEY,
+    acquired_by_team_from_ledger,
+    build_achievement_leaderboard,
+    build_achievement_rival_page,
     build_achievements_page_payload,
     build_playoff_series,
     catalog_for_league,
+    catalog_key_from_storage,
     collect_new_hits,
     detect_comeback_from_events,
     detect_comeback_from_period_scores,
+    detect_consecutive_playoff_shutouts,
     detect_goalie_win_1_0_40,
     detect_gordie_howe,
+    detect_heist,
     detect_natural_hat_trick,
     detect_playoff_ot_winner,
+    detect_road_win_after_dropping_first_two,
     discover_true_achievements,
     evaluate_gm_achievements_after_import,
+    expand_legacy_pairs,
     export_streak_len,
+    format_export_recap,
     is_calder_award,
     is_fighting_infraction,
+    major_award_slot,
     max_win_streak,
+    month_undefeated,
+    place_label,
+    player_ids_from_drag_keys,
     playoff_spot_cutoff,
+    rewrite_truths_to_storage,
+    storage_key_for,
     unlock_source_ref,
 )
 from app.site_models import GmAchievementUnlock, GmAchievementWatermark, GmLeagueMembership, User
@@ -195,6 +211,40 @@ class DetectorTests(unittest.TestCase):
         self.assertEqual(playoff_spot_cutoff(16), 8)
         self.assertTrue(is_calder_award("CALDER TROPHY"))
         self.assertFalse(is_calder_award("HART TROPHY"))
+        self.assertTrue(month_undefeated(["W", "W", "T", "W"]))
+        self.assertFalse(month_undefeated(["W", "W", "L", "W"]))
+        self.assertFalse(month_undefeated(["W", "W"]))
+        self.assertEqual(major_award_slot("HART TROPHY"), "hart")
+        self.assertIsNone(major_award_slot("JACK ADAMS TROPHY"))
+        self.assertIsNone(major_award_slot("LADY BYNG TROPHY"))
+        self.assertTrue(
+            detect_consecutive_playoff_shutouts([(1, 9, 0), (2, 9, 0), (3, 9, 1)])
+        )
+        self.assertFalse(detect_consecutive_playoff_shutouts([(1, 9, 0), (2, 9, 1), (3, 9, 0)]))
+
+    def test_road_win_after_dropping_first_two(self) -> None:
+        games = [
+            SimpleNamespace(home_team_id=10, away_team_id=20, home_score=3, away_score=1),
+            SimpleNamespace(home_team_id=20, away_team_id=10, home_score=1, away_score=4),
+            SimpleNamespace(home_team_id=10, away_team_id=20, home_score=2, away_score=3),
+        ]
+        self.assertTrue(detect_road_win_after_dropping_first_two(games, 20))
+        self.assertFalse(detect_road_win_after_dropping_first_two(games, 10))
+
+    def test_storage_keys_and_legacy_pairs(self) -> None:
+        spec = CATALOG_BY_KEY["on_a_heater"]
+        self.assertEqual(storage_key_for(spec, "2026-27"), "on_a_heater:2026-27")
+        self.assertEqual(catalog_key_from_storage("on_a_heater:2026-27"), "on_a_heater")
+        bender = CATALOG_BY_KEY["the_bender"]
+        self.assertEqual(storage_key_for(bender, "2026-27", "2026-01"), "the_bender:2026-01")
+        expanded = expand_legacy_pairs({(8, "on_a_heater")}, "2026-27")
+        self.assertIn((8, "on_a_heater:2026-27"), expanded)
+        rewritten = rewrite_truths_to_storage({8: {"on_a_heater": {"detail": "hot"}}}, "2026-27")
+        self.assertIn("on_a_heater:2026-27", rewritten[8])
+        already_month = rewrite_truths_to_storage(
+            {8: {"the_bender:2026-01": {"period": "2026-01"}}}, "2026-27"
+        )
+        self.assertIn("the_bender:2026-01", already_month[8])
 
 
 class CatalogTests(unittest.TestCase):
@@ -225,11 +275,54 @@ class CatalogTests(unittest.TestCase):
             "export_streak",
             "league_first_hat",
         }
+        phase_two = {
+            "league_first_shutout",
+            "league_first_four",
+            "special_teams_season",
+            "the_bender",
+            "elc_lightning",
+            "kid_line_energy",
+            "perfect_attendance",
+            "guarantee_remixed",
+            "swept_not_forgotten",
+            "playoff_shutout_pair",
+            "award_shelf",
+            "homegrown_cup",
+            "iron_decade",
+        }
+        phase_three = {"the_heist"}
         self.assertTrue(first_wave.issubset(cap_keys))
+        self.assertTrue(phase_two.issubset(cap_keys))
+        self.assertTrue(phase_three.issubset(cap_keys))
         self.assertTrue(first_wave.issubset(hist_keys))
         self.assertTrue(first_wave.issubset(rel_keys))
+        self.assertNotIn("jack_adams", cap_keys)
+        self.assertNotIn("captain_night", cap_keys)
+        self.assertNotIn("captains_night", cap_keys)
+        self.assertNotIn("Jack Adams", CATALOG_BY_KEY["award_shelf"].description)
         self.assertTrue(CATALOG_BY_KEY["reverse_sweep"].hidden)
+        self.assertTrue(CATALOG_BY_KEY["award_shelf"].hidden)
         self.assertFalse(CATALOG_BY_KEY["comeback_kids"].hidden)
+        self.assertTrue(CATALOG_BY_KEY["on_a_heater"].repeatable)
+        self.assertTrue(CATALOG_BY_KEY["the_bender"].repeatable)
+        self.assertEqual(CATALOG_BY_KEY["the_bender"].repeat_scope, "month")
+        self.assertTrue(CATALOG_BY_KEY["league_first_hat"].race)
+        self.assertTrue(CATALOG_BY_KEY["the_heist"].repeatable)
+
+    def test_heist_and_export_recap_helpers(self) -> None:
+        self.assertEqual(player_ids_from_drag_keys(["player:12", "pick:2027:1", "player:9"]), [12, 9])
+        acquired = acquired_by_team_from_ledger(10, 20, ["player:5"], ["player:8", "pick:2028:2"])
+        self.assertEqual(acquired[20], {5})
+        self.assertEqual(acquired[10], {8})
+        hits = detect_heist({20: {5}}, [(20, 5, 24), (20, 5, 30), (10, 8, 11)])
+        self.assertEqual(hits, [(20, 5, 24)])
+        self.assertEqual(detect_heist({20: {5}}, [(20, 9, 40)]), [])
+        self.assertEqual(place_label(1), "1st")
+        self.assertEqual(place_label(2), "2nd")
+        self.assertEqual(place_label(4), "4th")
+        title, body = format_export_recap(titles=["The Heist"], rank=4)
+        self.assertEqual(title, "Export recap")
+        self.assertEqual(body, "You unlocked The Heist. You're #4 on the trophy board.")
 
     def test_source_ref_and_new_hits(self) -> None:
         self.assertEqual(unlock_source_ref("bowl-cap", 8, "pinnacle"), "gm_ach:bowl-cap:8:pinnacle")
@@ -244,7 +337,9 @@ class CatalogTests(unittest.TestCase):
 
     def test_discord_route_seeded(self) -> None:
         self.assertIn(ACHIEVEMENT_UNLOCKED_EVENT_KEY, DEFAULT_EVENT_KEYS)
+        self.assertIn(ACHIEVEMENT_LEAGUE_FIRST_EVENT_KEY, DEFAULT_EVENT_KEYS)
         self.assertEqual(DEFAULT_EVENT_CHANNEL_KEY[ACHIEVEMENT_UNLOCKED_EVENT_KEY], "achievements")
+        self.assertEqual(DEFAULT_EVENT_CHANNEL_KEY[ACHIEVEMENT_LEAGUE_FIRST_EVENT_KEY], "achievements")
 
 
 class EvaluatorWatermarkTests(unittest.TestCase):
@@ -340,18 +435,55 @@ class EvaluatorWatermarkTests(unittest.TestCase):
             )
             cards = {card["key"]: card for card in payload["items"]}
             self.assertIn("comeback_kids", cards)
+            self.assertIn("the_bender", cards)
+            self.assertNotIn("jack_adams", cards)
+            self.assertNotIn("captain_night", cards)
+            self.assertIn("the_heist", cards)
             hidden = cards["reverse_sweep"]
             self.assertEqual(hidden["title"], "???")
             self.assertTrue(hidden["hidden"])
             self.assertIn("Hidden achievement", hidden["description"])
+            self.assertTrue(cards["award_shelf"]["hidden"])
             with self.app.test_request_context("/achievements"):
                 html = render_template("gm_achievements.html", membership=None, **payload)
             self.assertIn("Comeback Kids", html)
+            self.assertIn("The Bender", html)
+            self.assertIn("The Heist", html)
             self.assertIn("Hidden achievement", html)
             self.assertIn("Export Streak", html)
             self.assertIn("???", html)
+            self.assertNotIn("Jack Adams", html)
+            self.assertNotIn("Captain's Night", html)
             truths = discover_true_achievements(db.session, "bowl-cap")
             self.assertIsInstance(truths, dict)
+            board = build_achievement_leaderboard(db.session, "bowl-cap")
+            self.assertIn("rows", board)
+            self.assertIn("firsts", board)
+            with self.app.test_request_context("/achievement-leaders"):
+                leaders_html = render_template("gm_achievement_leaders.html", **board)
+            self.assertIn("GM Trophy Leaderboard", leaders_html)
+            sample = dict(board)
+            sample["firsts"] = [
+                {
+                    "title": "Comeback Kids",
+                    "team_name": "Toronto",
+                    "team_slug": "",
+                    "gm_name": "Test GM",
+                    "unlocked_at": None,
+                }
+            ]
+            with self.app.test_request_context("/achievement-leaders"):
+                firsts_html = render_template("gm_achievement_leaders.html", **sample)
+            self.assertIn("Who unlocked this first", firsts_html)
+            self.assertIn("Comeback Kids", firsts_html)
+            team = db.session.scalars(select(Team).limit(1)).first()
+            if team is not None:
+                rival = build_achievement_rival_page(db.session, "bowl-cap", int(team.id))
+                self.assertIsNotNone(rival)
+                with self.app.test_request_context(f"/achievement-leaders/{team.slug}"):
+                    rival_html = render_template("gm_achievement_rival.html", **rival)
+                self.assertIn(team.full_display_name(), rival_html)
+                self.assertIn("Who unlocked this first", rival_html)
 
 
 if __name__ == "__main__":

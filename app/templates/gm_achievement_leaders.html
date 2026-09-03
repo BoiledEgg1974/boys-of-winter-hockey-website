@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}GM Trophies — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card gm-achievements" style="max-width:52rem;margin:0 auto;">
+  <h1 class="page-title">GM Trophy Leaderboard</h1>
+  <p class="muted">Action Points and unlocks earned after achievements went live. Heritage results do not award AP.</p>
+  {% if gm_membership or site_has_admin %}
+  <p class="muted"><a href="{{ url_for('site_gm.gm_achievements_page') }}">Your achievements</a></p>
+  {% endif %}
+  {% if rows %}
+  <div class="table-wrap">
+    <table class="data gm-trophy-table">
+      <thead>
+        <tr>
+          <th scope="col">#</th>
+          <th scope="col">Team</th>
+          <th scope="col">GM</th>
+          <th scope="col" class="num">Unlocks</th>
+          <th scope="col" class="num">AP</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>{{ row.rank }}</td>
+          <td>
+            {% if row.team_slug %}
+            <a href="{{ url_for('main.achievement_leaders_team', slug=row.team_slug) }}">{{ row.team_name }}</a>
+            {% else %}
+            {{ row.team_name }}
+            {% endif %}
+          </td>
+          <td>{{ row.gm_name or "—" }}</td>
+          <td class="num">{{ row.unlocks }}</td>
+          <td class="num">{{ row.ap }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">{{ total_unlocks }} unlocks · {{ total_ap }} AP awarded league-wide.</p>
+  {% else %}
+  <p class="muted">No unlocks yet. The next export after achievements went live starts the board.</p>
+  {% endif %}
+
+  {% if firsts %}
+  <section class="gm-trophy-firsts" aria-labelledby="gm-trophy-firsts-heading">
+    <h2 id="gm-trophy-firsts-heading" class="gm-achievements__heading">Who unlocked this first</h2>
+    <p class="muted">The first franchise to earn each badge after achievements went live.</p>
+    <div class="table-wrap">
+      <table class="data gm-trophy-table">
+        <thead>
+          <tr>
+            <th scope="col">Achievement</th>
+            <th scope="col">First team</th>
+            <th scope="col">GM</th>
+            <th scope="col">Unlocked</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in firsts %}
+          <tr>
+            <td>{{ row.title }}</td>
+            <td>
+              {% if row.team_slug %}
+              <a href="{{ url_for('main.achievement_leaders_team', slug=row.team_slug) }}">{{ row.team_name }}</a>
+              {% else %}
+              {{ row.team_name }}
+              {% endif %}
+            </td>
+            <td>{{ row.gm_name or "—" }}</td>
+            <td>{% if row.unlocked_at %}{{ row.unlocked_at.strftime('%b %d, %Y') }}{% else %}—{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

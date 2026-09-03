@@ -2735,6 +2735,35 @@ def team_records_season(year_label: str):
     )
 
 
+@main_bp.get("/achievement-leaders")
+def achievement_leaders():
+    from app.config import HOCKEY_LEAGUE_SLUGS
+    from app.services.gm_achievements import build_achievement_leaderboard
+
+    slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    if slug not in HOCKEY_LEAGUE_SLUGS:
+        abort(404)
+    payload = build_achievement_leaderboard(db.session, slug)
+    return render_template("gm_achievement_leaders.html", **payload)
+
+
+@main_bp.get("/achievement-leaders/<slug>")
+def achievement_leaders_team(slug: str):
+    from app.config import HOCKEY_LEAGUE_SLUGS
+    from app.services.gm_achievements import build_achievement_rival_page
+
+    league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    if league_slug not in HOCKEY_LEAGUE_SLUGS:
+        abort(404)
+    team = db.session.scalars(select(Team).where(Team.slug == slug).limit(1)).first()
+    if team is None:
+        abort(404)
+    payload = build_achievement_rival_page(db.session, league_slug, int(team.id))
+    if payload is None:
+        abort(404)
+    return render_template("gm_achievement_rival.html", **payload)
+
+
 @main_bp.get("/milestones")
 def milestones():
     from app.services.milestones import build_milestone_sections

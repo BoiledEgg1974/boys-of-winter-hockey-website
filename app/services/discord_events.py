@@ -61,6 +61,7 @@ OPS_TEXT_ONLY_DISCORD_EVENT_KEYS = frozenset(
         "record_broken",
         "game_boxscore",
         "achievement_unlocked",
+        "achievement_league_first",
     }
 )
 
@@ -119,6 +120,7 @@ DEFAULT_EVENT_KEYS = {
     "record_broken",
     "game_boxscore",
     "achievement_unlocked",
+    "achievement_league_first",
     "race_results",
     "heat_results",
     "circuit_standings_update",
@@ -157,6 +159,7 @@ DEFAULT_EVENT_CHANNEL_KEY = {
     "record_broken": "broken-records",
     "game_boxscore": "boxscores",
     "achievement_unlocked": "achievements",
+    "achievement_league_first": "achievements",
     "race_results": "formula-bowl",
     "heat_results": "demolition-bowl",
     "circuit_standings_update": "circuit-standings",
@@ -221,6 +224,7 @@ DEFAULT_EVENT_LABELS = {
     "record_broken": "Record broken (game / season / all-time / team)",
     "game_boxscore": "Game boxscore — per team channels (IDs below)",
     "achievement_unlocked": "GM achievement unlocked",
+    "achievement_league_first": "League-first achievement race",
     "race_results": "Formula race results",
     "heat_results": "Demolition heat / night results",
     "circuit_standings_update": "Circuit standings (live update)",

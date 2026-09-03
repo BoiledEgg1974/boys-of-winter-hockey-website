@@ -39,11 +39,14 @@ from app.site_models import (
     GmAchievementWatermark,
     GmExportAttendance,
     GmLeagueMembership,
+    GmTradeProposal,
+    User,
 )
 
 _log = logging.getLogger(__name__)
 
 ACHIEVEMENT_UNLOCKED_EVENT_KEY = "achievement_unlocked"
+ACHIEVEMENT_EXPORT_RECAP_EVENT_KEY = "achievement_export_recap"
 REASON_CODE = "gm_achievement"
 
 HOCKEY_SLUGS = frozenset(HOCKEY_LEAGUE_SLUGS)
@@ -65,6 +68,22 @@ NEMESIS_WINS_TARGET = 6
 COMEBACK_DEFICIT = 3
 FIGHT_NIGHT_MIN = 3
 FOUR_GOAL_MIN = 4
+BENDER_MIN_GAMES = 4
+ELC_GOALS_TARGET = 20
+KID_LINE_MAX_AGE = 22
+KID_LINE_SCORERS = 3
+HOMEGROWN_CUP_TARGET = 12
+IRON_DECADE_TARGET = 10
+HEIST_POINTS_TARGET = 20
+AWARD_SHELF_TARGET = 3
+_MAJOR_AWARD_NEEDLES = (
+    ("HART", "hart"),
+    ("NORRIS", "norris"),
+    ("VEZINA", "vezina"),
+    ("CALDER", "calder"),
+    ("SELKE", "selke"),
+)
+ACHIEVEMENT_LEAGUE_FIRST_EVENT_KEY = "achievement_league_first"
 _CITY_NATION = {
     "toronto": "canada",
     "montreal": "canada",
@@ -117,6 +136,9 @@ class AchievementDef:
     ap: int
     leagues: frozenset[str] | None = None
     hidden: bool = False
+    repeatable: bool = False
+    repeat_scope: str = "season"
+    race: bool = False
 
 
 CATALOG: tuple[AchievementDef, ...] = (
@@ -124,24 +146,24 @@ CATALOG: tuple[AchievementDef, ...] = (
     AchievementDef("all_natural", "All Natural", "One of your players scores a natural hat trick.", "game", 1),
     AchievementDef("goalie_win", "A Goalie Win", "Win a game 1–0 despite giving up 40 or more shots.", "game", 1),
     AchievementDef("nationalism", "Nationalism", "Play a game with a lineup composed entirely of players from the nation your team is based in.", "game", 2),
-    AchievementDef("make_playoffs", "Kiss from a Rose", "Make the playoffs.", "playoffs", 1),
-    AchievementDef("senior_team", "The Senior Team", "Have at least 3 players on your roster over the age of 40.", "season", 1),
+    AchievementDef("make_playoffs", "Kiss from a Rose", "Make the playoffs.", "playoffs", 1, repeatable=True),
+    AchievementDef("senior_team", "The Senior Team", "Have at least 3 players on your roster over the age of 40.", "season", 1, repeatable=True),
     AchievementDef("game54", "game54", "Draft a player with the 54th overall pick.", "career", 1),
-    AchievementDef("hometown_roster", "Hometown Roster", "Have at least three players on your roster born in your team's city.", "season", 2),
+    AchievementDef("hometown_roster", "Hometown Roster", "Have at least three players on your roster born in your team's city.", "season", 2, repeatable=True),
     AchievementDef("upset", "Upset!", "Win a playoff series against a team that finished ahead of you in the regular season.", "playoffs", 2),
     AchievementDef("guarantee", "The Guarantee", "Win a 7-game playoff series after being down 3–2.", "playoffs", 2),
-    AchievementDef("road_warrior", "Road Warrior", "Lead the league in road wins.", "season", 2),
-    AchievementDef("youre_special", "You're Special", "Finish first in the league in both power play and penalty killing percentage.", "season", 2),
-    AchievementDef("new_team_mvp", "New Team, Who's This?", "Have a player win the league MVP in their first season on your team.", "season", 2),
+    AchievementDef("road_warrior", "Road Warrior", "Lead the league in road wins.", "season", 2, repeatable=True),
+    AchievementDef("youre_special", "You're Special", "Finish first in the league in both power play and penalty killing percentage.", "season", 2, repeatable=True),
+    AchievementDef("new_team_mvp", "New Team, Who's This?", "Have a player win the league MVP in their first season on your team.", "season", 2, repeatable=True),
     AchievementDef("pinnacle", "The Pinnacle", "Win the BOWL Cup.", "playoffs", 3),
-    AchievementDef("rocket", "Outracing the Rocket", "One of your players scores 50 goals in 50 or fewer games.", "season", 3),
+    AchievementDef("rocket", "Outracing the Rocket", "One of your players scores 50 goals in 50 or fewer games.", "season", 3, repeatable=True),
     AchievementDef("zero_to_hero", "Zero to Hero", "Win the championship after finishing last overall the previous season.", "playoffs", 3),
     AchievementDef("going_up", "Going Up", "Your team is promoted to a higher league.", "career", 3, RELEGATION_ONLY),
-    AchievementDef("presidents", "Presidents' Club", "Finish first in the league in the regular season.", "season", 3),
+    AchievementDef("presidents", "Presidents' Club", "Finish first in the league in the regular season.", "season", 3, repeatable=True),
     AchievementDef("playoff_sweep", "Playoff Sweep", "Sweep a playoff series.", "playoffs", 3),
-    AchievementDef("century_club", "100-Point Skater", "One of your players records 100 points in a season.", "season", 3),
-    AchievementDef("fifty_goals", "50-Goal Skater", "One of your players scores 50 goals in a season.", "season", 3),
-    AchievementDef("forty_win_goalie", "40-Win Goalie", "One of your goalies wins 40 games in a season.", "season", 3),
+    AchievementDef("century_club", "100-Point Skater", "One of your players records 100 points in a season.", "season", 3, repeatable=True),
+    AchievementDef("fifty_goals", "50-Goal Skater", "One of your players scores 50 goals in a season.", "season", 3, repeatable=True),
+    AchievementDef("forty_win_goalie", "40-Win Goalie", "One of your goalies wins 40 games in a season.", "season", 3, repeatable=True),
     AchievementDef("dynasty", "A Real Dynasty", "Win the league championship five consecutive times.", "career", 5),
     AchievementDef("two_hundred", "The 200 Club", "One of your players scores 200 points in a season.", "season", 5),
     AchievementDef("true_franchise", "True Franchise Manager", "Manage a single team for ten seasons.", "career", 5),
@@ -149,15 +171,23 @@ CATALOG: tuple[AchievementDef, ...] = (
     AchievementDef("comeback_kids", "Comeback Kids", "Win a game after trailing by 3 or more goals.", "game", 2),
     AchievementDef("four_goal_night", "Four-Goal Night", "One of your players scores 4 or more goals in a game.", "game", 2),
     AchievementDef("fight_night", "Fight Night", "Three or more of your players take fighting majors in the same game.", "game", 1),
-    AchievementDef("league_first_hat", "League First", "Score the first hat trick of the season.", "game", 2),
+    AchievementDef(
+        "league_first_hat",
+        "League First: Hat Trick",
+        "Score the first hat trick of the season.",
+        "game",
+        2,
+        repeatable=True,
+        race=True,
+    ),
     AchievementDef("statement_win", "Statement Win", "Beat the first-place team while sitting outside a playoff spot.", "game", 2),
-    AchievementDef("on_a_heater", "On a Heater", "Win 5 games in a row.", "season", 1),
-    AchievementDef("home_cooking", "Home Cooking", "Lead the league in home wins.", "season", 2),
-    AchievementDef("overtime_merchant", "Overtime Merchant", "Win 8 or more overtime or shootout games in a season.", "season", 2),
-    AchievementDef("three_star_season", "Three-Star Season", "One of your players is named first star 10 times in a season.", "season", 2),
-    AchievementDef("bargain_bin", "Bargain Bin", "A player making under $1M AAV scores 30 or more goals.", "season", 2),
-    AchievementDef("calder_club", "Calder Club", "One of your players wins the Calder Trophy.", "season", 2),
-    AchievementDef("nemesis", "Nemesis", "Beat the same opponent 6 or more times in one season.", "season", 2),
+    AchievementDef("on_a_heater", "On a Heater", "Win 5 games in a row.", "season", 1, repeatable=True),
+    AchievementDef("home_cooking", "Home Cooking", "Lead the league in home wins.", "season", 2, repeatable=True),
+    AchievementDef("overtime_merchant", "Overtime Merchant", "Win 8 or more overtime or shootout games in a season.", "season", 2, repeatable=True),
+    AchievementDef("three_star_season", "Three-Star Season", "One of your players is named first star 10 times in a season.", "season", 2, repeatable=True),
+    AchievementDef("bargain_bin", "Bargain Bin", "A player making under $1M AAV scores 30 or more goals.", "season", 2, repeatable=True),
+    AchievementDef("calder_club", "Calder Club", "One of your players wins the Calder Trophy.", "season", 2, repeatable=True),
+    AchievementDef("nemesis", "Nemesis", "Beat the same opponent 6 or more times in one season.", "season", 2, repeatable=True),
     AchievementDef("playoff_ot_hero", "Playoff OT Hero", "Score the overtime winner in a playoff game.", "playoffs", 2),
     AchievementDef(
         "reverse_sweep",
@@ -182,6 +212,115 @@ CATALOG: tuple[AchievementDef, ...] = (
         3,
     ),
     AchievementDef("export_streak", "Export Streak", "Record 10 consecutive scheduled exports.", "career", 1),
+    AchievementDef(
+        "league_first_shutout",
+        "League First: Shutout",
+        "Record the first shutout of the season.",
+        "game",
+        2,
+        repeatable=True,
+        race=True,
+    ),
+    AchievementDef(
+        "league_first_four",
+        "League First: Four-Goal Night",
+        "Score the first 4-goal game of the season.",
+        "game",
+        2,
+        repeatable=True,
+        race=True,
+    ),
+    AchievementDef(
+        "special_teams_season",
+        "Special Teams Season",
+        "Finish in the top 3 in both power play and penalty killing percentage.",
+        "season",
+        2,
+        repeatable=True,
+    ),
+    AchievementDef(
+        "the_bender",
+        "The Bender",
+        "Go undefeated in a calendar month (minimum 4 games).",
+        "season",
+        2,
+        repeatable=True,
+        repeat_scope="month",
+    ),
+    AchievementDef(
+        "elc_lightning",
+        "ELC Lightning",
+        "An entry-level contract player scores 20 or more goals.",
+        "season",
+        2,
+        repeatable=True,
+    ),
+    AchievementDef(
+        "kid_line_energy",
+        "Kid Line Energy",
+        "Three players aged 22 or younger each score in the same game.",
+        "game",
+        2,
+    ),
+    AchievementDef(
+        "perfect_attendance",
+        "Perfect Attendance",
+        "Hit every league export in a 45-day window.",
+        "career",
+        2,
+        repeatable=True,
+    ),
+    AchievementDef(
+        "guarantee_remixed",
+        "The Guarantee, Remixed",
+        "Win a playoff game on the road after losing the first two games of the series.",
+        "playoffs",
+        2,
+    ),
+    AchievementDef(
+        "swept_not_forgotten",
+        "Swept, Not Forgotten",
+        "Get swept in a playoff series.",
+        "playoffs",
+        1,
+    ),
+    AchievementDef(
+        "playoff_shutout_pair",
+        "Back-to-Back Playoff Shutouts",
+        "Your goalie records consecutive playoff shutouts.",
+        "playoffs",
+        4,
+    ),
+    AchievementDef(
+        "award_shelf",
+        "Award Shelf",
+        "Win three different major player awards in the same season (Hart, Norris, Vezina, Calder, or Selke).",
+        "season",
+        5,
+        hidden=True,
+    ),
+    AchievementDef(
+        "homegrown_cup",
+        "Homegrown Cup",
+        "Win the BOWL Cup with at least 12 self-drafted players in the playoff lineup.",
+        "playoffs",
+        5,
+    ),
+    AchievementDef(
+        "iron_decade",
+        "Iron Decade",
+        "Make the playoffs in 10 consecutive seasons.",
+        "career",
+        4,
+    ),
+    AchievementDef(
+        "the_heist",
+        "The Heist",
+        "A player you acquired via the Trade Tool records 20 or more points for you that season.",
+        "season",
+        3,
+        repeatable=True,
+    ),
 )
 
 CATALOG_BY_KEY = {item.key: item for item in CATALOG}
@@ -197,6 +336,7 @@ class PlayoffSeries:
     game_winners: list[int]
     rank_a: int | None
     rank_b: int | None
+    games: list[Any]
 
     @property
     def is_complete(self) -> bool:
@@ -269,6 +409,191 @@ def catalog_for_league(league_slug: str) -> list[AchievementDef]:
 
 def unlock_source_ref(league_slug: str, team_id: int, key: str) -> str:
     return f"gm_ach:{league_slug}:{int(team_id)}:{key}"
+
+
+def catalog_key_from_storage(key: str) -> str:
+    raw = str(key or "")
+    if raw in CATALOG_BY_KEY:
+        return raw
+    base = raw.split(":", 1)[0]
+    return base if base in CATALOG_BY_KEY else raw
+
+
+def storage_key_for(
+    spec: AchievementDef,
+    season_label: str,
+    period: str | None = None,
+) -> str:
+    if spec.repeat_scope == "month" and period:
+        return f"{spec.key}:{period}"
+    if spec.repeatable and season_label:
+        return f"{spec.key}:{season_label}"
+    return spec.key
+
+
+def expand_legacy_pairs(pairs: set[tuple[int, str]], season_label: str) -> set[tuple[int, str]]:
+    """Treat unsuffixed repeatable keys as already earned for the current season."""
+    out = set(pairs)
+    label = (season_label or "").strip()
+    if not label:
+        return out
+    for tid, key in pairs:
+        spec = CATALOG_BY_KEY.get(key)
+        if spec and spec.repeatable:
+            out.add((int(tid), storage_key_for(spec, label)))
+    return out
+
+
+def player_ids_from_drag_keys(keys: Iterable[str]) -> list[int]:
+    out: list[int] = []
+    for raw in keys:
+        text = str(raw or "").strip()
+        if not text.startswith("player:"):
+            continue
+        rest = text.split(":", 1)[1]
+        if rest.isdigit():
+            out.append(int(rest))
+    return out
+
+
+def acquired_by_team_from_ledger(
+    from_team_id: int,
+    to_team_id: int,
+    left_out: Iterable[str],
+    right_out: Iterable[str],
+) -> dict[int, set[int]]:
+    """Left assets go to ``to_team``; right assets go to ``from_team``."""
+    acquired: dict[int, set[int]] = {}
+    for pid in player_ids_from_drag_keys(left_out):
+        acquired.setdefault(int(to_team_id), set()).add(pid)
+    for pid in player_ids_from_drag_keys(right_out):
+        acquired.setdefault(int(from_team_id), set()).add(pid)
+    return acquired
+
+
+def detect_heist(
+    acquired: dict[int, set[int]],
+    productions: Iterable[tuple[int, int, int]],
+    *,
+    target: int = HEIST_POINTS_TARGET,
+) -> list[tuple[int, int, int]]:
+    """Return (team_id, player_id, points) when an acquired player hits the bar."""
+    hits: list[tuple[int, int, int]] = []
+    seen: set[tuple[int, int]] = set()
+    for team_id, player_id, points in productions:
+        tid = int(team_id)
+        pid = int(player_id)
+        pts = int(points or 0)
+        if pts < int(target) or pid not in acquired.get(tid, set()):
+            continue
+        pair = (tid, pid)
+        if pair in seen:
+            continue
+        seen.add(pair)
+        hits.append((tid, pid, pts))
+    return hits
+
+
+def place_label(n: int | None) -> str:
+    if n is None or int(n) <= 0:
+        return ""
+    value = int(n)
+    if 10 <= (value % 100) <= 20:
+        suffix = "th"
+    else:
+        suffix = {1: "st", 2: "nd", 3: "rd"}.get(value % 10, "th")
+    return f"{value}{suffix}"
+
+
+def format_export_recap(*, titles: list[str], rank: int | None) -> tuple[str, str]:
+    names = [str(t).strip() for t in titles if str(t).strip()]
+    if not names:
+        unlocked = "You unlocked new achievements"
+    elif len(names) == 1:
+        unlocked = f"You unlocked {names[0]}"
+    elif len(names) == 2:
+        unlocked = f"You unlocked {names[0]} and {names[1]}"
+    else:
+        unlocked = f"You unlocked {', '.join(names[:-1])}, and {names[-1]}"
+    if rank:
+        body = f"{unlocked}. You're #{int(rank)} on the trophy board."
+    else:
+        body = f"{unlocked}."
+    return "Export recap", body
+
+
+def rewrite_truths_to_storage(
+    truths: dict[int, dict[str, dict[str, Any]]],
+    season_label: str,
+) -> dict[int, dict[str, dict[str, Any]]]:
+    out: dict[int, dict[str, dict[str, Any]]] = {}
+    for team_id, keys in truths.items():
+        bucket = out.setdefault(int(team_id), {})
+        for key, meta in keys.items():
+            base = catalog_key_from_storage(key)
+            spec = CATALOG_BY_KEY.get(base)
+            if spec is None:
+                continue
+            period = str((meta or {}).get("period") or "") or None
+            store = key if catalog_key_from_storage(key) != key else storage_key_for(spec, season_label, period)
+            if store not in bucket:
+                bucket[store] = dict(meta or {})
+    return out
+
+
+def major_award_slot(name: str | None) -> str | None:
+    up = " ".join((name or "").upper().split())
+    for needle, slot in _MAJOR_AWARD_NEEDLES:
+        if needle in up:
+            return slot
+    return None
+
+
+def detect_road_win_after_dropping_first_two(games: Iterable[Any], team_id: int) -> bool:
+    decided: list[Any] = []
+    for game in games:
+        winner, loser = _game_winner_loser(game)
+        if winner is None or loser is None:
+            continue
+        decided.append(game)
+    if len(decided) < 3:
+        return False
+    first_two = [_game_winner_loser(g)[1] for g in decided[:2]]
+    if any(loser != int(team_id) for loser in first_two):
+        return False
+    for game in decided[2:]:
+        winner, _loser = _game_winner_loser(game)
+        if winner == int(team_id) and int(getattr(game, "away_team_id", 0) or 0) == int(team_id):
+            return True
+    return False
+
+
+def detect_consecutive_playoff_shutouts(goalie_rows: list[tuple[int, int, int]]) -> bool:
+    """Rows are (order, player_id, goals_allowed) for one team, chronological."""
+    by_player: dict[int, list[int]] = {}
+    for _order, pid, ga in goalie_rows:
+        by_player.setdefault(int(pid), []).append(int(ga or 0))
+    for gas in by_player.values():
+        for a, b in zip(gas, gas[1:]):
+            if a == 0 and b == 0:
+                return True
+    return False
+
+
+def month_undefeated(results: Iterable[str], *, min_games: int = BENDER_MIN_GAMES) -> bool:
+    letters = [r for r in results if r]
+    if len(letters) < int(min_games):
+        return False
+    return all(r != "L" for r in letters) and any(r == "W" for r in letters)
+
+
+def player_age_on(birth: date | None, on_date: date) -> int | None:
+    if birth is None:
+        return None
+    years = on_date.year - birth.year
+    if (on_date.month, on_date.day) < (birth.month, birth.day):
+        years -= 1
+    return years
 
 
 def is_fighting_infraction(text: str | None) -> bool:
@@ -554,6 +879,7 @@ def build_playoff_series(
                 game_winners=winners,
                 rank_a=rs_rank.get(team_a),
                 rank_b=rs_rank.get(team_b),
+                games=ordered,
             )
         )
     return series
@@ -640,6 +966,29 @@ def _team_name(session: Session, team_id: int | None) -> str:
     return team.full_display_name() if team else ""
 
 
+def _acquired_players_from_published_trades(session: Session, league_slug: str) -> dict[int, set[int]]:
+    from app.services.trade_tool import STATUS_PUBLISHED, parse_ledger_payload
+
+    acquired: dict[int, set[int]] = {}
+    props = session.scalars(
+        select(GmTradeProposal).where(
+            GmTradeProposal.league_slug == league_slug,
+            GmTradeProposal.status == STATUS_PUBLISHED,
+        )
+    ).all()
+    for prop in props:
+        left, right = parse_ledger_payload(prop.ledger_json)
+        mapped = acquired_by_team_from_ledger(
+            int(prop.from_team_id),
+            int(prop.to_team_id),
+            left,
+            right,
+        )
+        for tid, pids in mapped.items():
+            acquired.setdefault(int(tid), set()).update(pids)
+    return acquired
+
+
 def discover_true_achievements(
     session: Session,
     league_slug: str,
@@ -652,7 +1001,8 @@ def discover_true_achievements(
     hits: dict[int, dict[str, dict[str, Any]]] = {}
 
     def mark(team_id: int | None, key: str, meta: dict[str, Any] | None = None) -> None:
-        if not team_id or key not in allowed:
+        base = catalog_key_from_storage(key)
+        if not team_id or (key not in allowed and base not in allowed):
             return
         bucket = hits.setdefault(int(team_id), {})
         if key not in bucket:
@@ -725,9 +1075,11 @@ def discover_true_achievements(
         scoring_by_game.setdefault(int(ev.game_id), []).append(ev)
 
     player_team_by_game: dict[tuple[int, int], int] = {}
+    skaters_by_game: dict[int, list[GameSkaterStat]] = {}
     for ln in skater_lines:
         if ln.player_id and ln.team_id:
             player_team_by_game[(int(ln.game_id), int(ln.player_id))] = int(ln.team_id)
+        skaters_by_game.setdefault(int(ln.game_id), []).append(ln)
     for ln in goalie_lines:
         if ln.player_id and ln.team_id:
             player_team_by_game[(int(ln.game_id), int(ln.player_id))] = int(ln.team_id)
@@ -791,6 +1143,66 @@ def discover_true_achievements(
                 "player_name": first[4],
                 "game_id": first[1],
                 "detail": f"{first[4] or 'A player'} scored the first hat trick of the season",
+            },
+        )
+
+    four_goal_games: list[tuple[date, int, int, int, str]] = []
+    for ln in skater_lines:
+        if int(ln.goals or 0) < FOUR_GOAL_MIN or not ln.team_id:
+            continue
+        g = games_by_id.get(int(ln.game_id))
+        if g is None:
+            continue
+        four_goal_games.append(
+            (
+                g.game_date or date.max,
+                int(g.id),
+                int(ln.team_id),
+                int(ln.player_id) if ln.player_id else 0,
+                _player_name(session, ln.player_id),
+            )
+        )
+    if four_goal_games:
+        four_goal_games.sort(key=lambda row: (row[0], row[1], row[2]))
+        first = four_goal_games[0]
+        mark(
+            first[2],
+            "league_first_four",
+            {
+                "player_id": first[3] or None,
+                "player_name": first[4],
+                "game_id": first[1],
+                "detail": f"{first[4] or 'A player'} scored the first 4-goal game of the season",
+            },
+        )
+
+    shutout_games: list[tuple[date, int, int, int, str]] = []
+    for ln in goalie_lines:
+        if int(ln.goals_allowed or 0) != 0 or int(ln.shots_against or 0) <= 0 or not ln.team_id:
+            continue
+        g = games_by_id.get(int(ln.game_id))
+        if g is None:
+            continue
+        shutout_games.append(
+            (
+                g.game_date or date.max,
+                int(g.id),
+                int(ln.team_id),
+                int(ln.player_id) if ln.player_id else 0,
+                _player_name(session, ln.player_id),
+            )
+        )
+    if shutout_games:
+        shutout_games.sort(key=lambda row: (row[0], row[1], row[2]))
+        first = shutout_games[0]
+        mark(
+            first[2],
+            "league_first_shutout",
+            {
+                "player_id": first[3] or None,
+                "player_name": first[4],
+                "game_id": first[1],
+                "detail": f"{first[4] or 'A goalie'} recorded the first shutout of the season",
             },
         )
 
@@ -882,6 +1294,27 @@ def discover_true_achievements(
                 "comeback_kids",
                 {"game_id": g.id, "detail": f"Won after trailing by {COMEBACK_DEFICIT}+ goals"},
             )
+
+        on_date = g.game_date or age_ref
+        kids_by_team: dict[int, set[int]] = {}
+        for ln in skaters_by_game.get(int(g.id), []):
+            if int(ln.goals or 0) < 1 or not ln.team_id or not ln.player_id:
+                continue
+            pl = players_by_id.get(int(ln.player_id))
+            age = player_age_on(pl.birth_date if pl else None, on_date)
+            if age is not None and age <= KID_LINE_MAX_AGE:
+                kids_by_team.setdefault(int(ln.team_id), set()).add(int(ln.player_id))
+        for tid, kids in kids_by_team.items():
+            if len(kids) >= KID_LINE_SCORERS:
+                mark(
+                    tid,
+                    "kid_line_energy",
+                    {
+                        "game_id": g.id,
+                        "count": len(kids),
+                        "detail": f"{len(kids)} players 22 or younger scored in the same game",
+                    },
+                )
 
         for tid in (g.home_team_id, g.away_team_id):
             if tid and fights_by_game_team.get((int(g.id), int(tid)), 0) >= FIGHT_NIGHT_MIN:
@@ -1176,6 +1609,90 @@ def discover_true_achievements(
                 },
             )
 
+        for st in skaters:
+            if int(st.goals or 0) < ELC_GOALS_TARGET or not st.player_id or not st.team_id:
+                continue
+            contract = contracts.get(int(st.player_id))
+            if not contract or not contract.is_elc:
+                continue
+            pname = _player_name(session, st.player_id)
+            mark(
+                st.team_id,
+                "elc_lightning",
+                {
+                    "player_id": st.player_id,
+                    "player_name": pname,
+                    "detail": f"{pname} scored {int(st.goals)} goals on an ELC",
+                },
+            )
+
+        if year_recs:
+            pp_ranked = sorted(year_recs, key=lambda r: float(r.pp_pct or 0), reverse=True)
+            pk_ranked = sorted(year_recs, key=lambda r: float(r.pk_pct or 0), reverse=True)
+            top_pp = {int(r.team_id) for r in pp_ranked[:3] if r.team_id}
+            top_pk = {int(r.team_id) for r in pk_ranked[:3] if r.team_id}
+            for tid in top_pp & top_pk:
+                mark(tid, "special_teams_season", {"detail": "Top 3 in PP% and PK%"})
+
+        by_month: dict[tuple[int, str], list[str]] = {}
+        for g in chrono_games:
+            if is_playoff_game_type(g.game_type) or not g.game_date:
+                continue
+            period = g.game_date.strftime("%Y-%m")
+            for tid in (g.home_team_id, g.away_team_id):
+                if not tid:
+                    continue
+                letter = game_outcome_letter(g, int(tid))
+                if letter:
+                    by_month.setdefault((int(tid), period), []).append(letter)
+        for (tid, period), letters in by_month.items():
+            if month_undefeated(letters):
+                mark(
+                    tid,
+                    f"the_bender:{period}",
+                    {
+                        "period": period,
+                        "games": len(letters),
+                        "detail": f"Undefeated in {period} ({len(letters)} GP)",
+                    },
+                )
+
+        try:
+            acquired = _acquired_players_from_published_trades(session, league_slug)
+        except Exception:
+            _log.exception("GM achievements: Trade Tool lookup failed for The Heist.")
+            acquired = {}
+        if acquired:
+            productions: list[tuple[int, int, int]] = []
+            for st in skaters:
+                if st.team_id and st.player_id:
+                    productions.append((int(st.team_id), int(st.player_id), int(st.points or 0)))
+            year = int(season.start_year or 0) if season else 0
+            pids = {pid for ids in acquired.values() for pid in ids}
+            if year and pids:
+                for line in session.scalars(
+                    select(PlayerSkaterCareerLine).where(
+                        PlayerSkaterCareerLine.player_id.in_(pids),
+                        PlayerSkaterCareerLine.season_year == year,
+                        PlayerSkaterCareerLine.career_source == "rs",
+                    )
+                ).all():
+                    if line.team_id and line.player_id:
+                        pts = int(line.goals or 0) + int(line.assists or 0)
+                        productions.append((int(line.team_id), int(line.player_id), pts))
+            for tid, pid, pts in detect_heist(acquired, productions):
+                pname = _player_name(session, pid)
+                mark(
+                    tid,
+                    "the_heist",
+                    {
+                        "player_id": pid,
+                        "player_name": pname,
+                        "points": pts,
+                        "detail": f"{pname} recorded {pts} points after the trade",
+                    },
+                )
+
     # --- playoffs / cups ---
     po_games = [g for g in games if is_playoff_game_type(g.game_type)]
     for g in po_games:
@@ -1207,10 +1724,55 @@ def discover_true_achievements(
             mark(ser.winner_id, "guarantee", {"detail": "Won a 7-game series after trailing 3–2"})
         if ser.winner_id and ser.is_sweep:
             mark(ser.winner_id, "playoff_sweep", {"detail": "Swept a playoff series"})
+            loser_id = ser.team_b if ser.winner_id == ser.team_a else ser.team_a
+            mark(loser_id, "swept_not_forgotten", {"detail": "Got swept in a playoff series"})
+        if ser.winner_id and detect_road_win_after_dropping_first_two(ser.games, ser.team_a):
+            mark(
+                ser.team_a,
+                "guarantee_remixed",
+                {"detail": "Won a playoff game on the road after dropping the first two"},
+            )
+        if ser.winner_id and detect_road_win_after_dropping_first_two(ser.games, ser.team_b):
+            mark(
+                ser.team_b,
+                "guarantee_remixed",
+                {"detail": "Won a playoff game on the road after dropping the first two"},
+            )
         if ser.winner_id and ser.trailed_0_3_then_won():
             mark(ser.winner_id, "reverse_sweep", {"detail": "Won a series after trailing 0–3"})
         if ser.winner_id and ser.winner_id in champ_team_ids and ser.winner_is_lowest_seed(playoff_ranks):
             mark(ser.winner_id, "cup_eight_seed", {"detail": "Won the Cup as the lowest playoff seed"})
+
+    po_order = {int(g.id): i for i, g in enumerate(sorted(po_games, key=lambda g: (g.game_date or date.min, int(g.id))))}
+    po_goalie_by_team: dict[int, list[tuple[int, int, int]]] = {}
+    for ln in goalie_lines:
+        if ln.game_id not in po_order or not ln.team_id or not ln.player_id:
+            continue
+        if int(ln.shots_against or 0) <= 0 and int(ln.toi_seconds or 0) <= 0:
+            continue
+        po_goalie_by_team.setdefault(int(ln.team_id), []).append(
+            (po_order[int(ln.game_id)], int(ln.player_id), int(ln.goals_allowed or 0))
+        )
+    for tid, rows in po_goalie_by_team.items():
+        rows.sort(key=lambda r: (r[0], r[1]))
+        if detect_consecutive_playoff_shutouts(rows):
+            mark(tid, "playoff_shutout_pair", {"detail": "Consecutive playoff shutouts"})
+
+    drafted_ids_by_team: dict[int, set[int]] = {}
+    for pick in session.scalars(select(DraftPick).where(DraftPick.player_id.is_not(None), DraftPick.team_id.is_not(None))).all():
+        drafted_ids_by_team.setdefault(int(pick.team_id), set()).add(int(pick.player_id))
+    po_roster: dict[int, set[int]] = {}
+    for ln in skater_lines + goalie_lines:
+        if ln.game_id in po_order and ln.team_id and ln.player_id:
+            po_roster.setdefault(int(ln.team_id), set()).add(int(ln.player_id))
+    for tid in champ_team_ids:
+        grown = po_roster.get(tid, set()) & drafted_ids_by_team.get(tid, set())
+        if len(grown) >= HOMEGROWN_CUP_TARGET:
+            mark(
+                tid,
+                "homegrown_cup",
+                {"count": len(grown), "detail": f"Won the Cup with {len(grown)} self-drafted playoff players"},
+            )
 
     for tid, recs in records_by_team.items():
         champ_years = [int(r.start_year) for r in recs if r.start_year and _is_champion_result(r.result)]
@@ -1227,6 +1789,22 @@ def discover_true_achievements(
             prev = y
         if best >= 5:
             mark(tid, "dynasty", {"streak": best, "detail": f"{best} consecutive championships"})
+
+        playoff_years = sorted(
+            {
+                int(r.start_year)
+                for r in recs
+                if r.start_year and r.result and not _missed_playoffs(r.result)
+            }
+        )
+        po_streak = po_best = 0
+        prev_y = None
+        for y in playoff_years:
+            po_streak = po_streak + 1 if prev_y is not None and y == prev_y + 1 else 1
+            po_best = max(po_best, po_streak)
+            prev_y = y
+        if po_best >= IRON_DECADE_TARGET:
+            mark(tid, "iron_decade", {"streak": po_best, "detail": f"{po_best} consecutive playoff appearances"})
 
         # Zero to hero: last overall previous year, champion this year
         by_year = {int(r.start_year): r for r in recs if r.start_year is not None}
@@ -1374,6 +1952,20 @@ def discover_true_achievements(
             },
         )
 
+    shelf: dict[tuple[int, int], set[str]] = {}
+    for aw in awards:
+        slot = major_award_slot(aw.award_name)
+        if not slot or not aw.team_id or not aw.season_id:
+            continue
+        shelf.setdefault((int(aw.team_id), int(aw.season_id)), set()).add(slot)
+    for (tid, _sid), slots in shelf.items():
+        if len(slots) >= AWARD_SHELF_TARGET:
+            mark(
+                tid,
+                "award_shelf",
+                {"count": len(slots), "detail": f"Won {len(slots)} different major awards in one season"},
+            )
+
     if tenure_counts:
         for tid, n in tenure_counts.items():
             if n >= 10:
@@ -1398,6 +1990,31 @@ def discover_true_achievements(
                 "export_streak",
                 {"streak": streak, "detail": f"{streak} consecutive scheduled exports"},
             )
+
+    try:
+        from app.services.export_attendance import ATTENDANCE_WINDOW_DAYS, rolling_attendance_window_dates
+    except Exception:
+        ATTENDANCE_WINDOW_DAYS = 45
+        rolling_attendance_window_dates = None
+    if rolling_attendance_window_dates is not None:
+        window = set(rolling_attendance_window_dates())
+        league_days = {
+            row.export_date
+            for row in attendance_rows
+            if row.export_date and row.export_date in window
+        }
+        if len(league_days) >= 2:
+            for tid, dates in dates_by_team.items():
+                team_days = {d for d in dates if d in window}
+                if league_days <= team_days:
+                    mark(
+                        tid,
+                        "perfect_attendance",
+                        {
+                            "count": len(league_days),
+                            "detail": f"Hit all {len(league_days)} league exports in {ATTENDANCE_WINDOW_DAYS} days",
+                        },
+                    )
 
     return hits
 
@@ -1534,7 +2151,7 @@ def evaluate_gm_achievements_after_import(app) -> dict[str, int]:
     memberships = _active_memberships(session, slug)
 
     if watermark is None:
-        truths = discover_true_achievements(session, slug)
+        truths = rewrite_truths_to_storage(discover_true_achievements(session, slug), season_label or "")
         pairs = {(tid, key) for tid, keys in truths.items() for key in keys}
         row = GmAchievementWatermark(
             league_slug=slug,
@@ -1561,23 +2178,30 @@ def evaluate_gm_achievements_after_import(app) -> dict[str, int]:
     tenure_counts = {int(mem.team_id): len(tenure.get(f"{int(mem.user_id)}:{int(mem.team_id)}") or []) for mem in memberships.values()}
     promoted = _promoted_ids(watermark.team_tiers_map(), tiers_now)
 
-    truths = discover_true_achievements(
-        session,
-        slug,
-        tenure_counts=tenure_counts,
-        promoted_team_ids=promoted,
+    truths = rewrite_truths_to_storage(
+        discover_true_achievements(
+            session,
+            slug,
+            tenure_counts=tenure_counts,
+            promoted_team_ids=promoted,
+        ),
+        season_label or "",
     )
-    already = _already_pairs(watermark)
-    existing = {
-        (int(r.team_id), str(r.achievement_key))
-        for r in session.scalars(
-            select(GmAchievementUnlock).where(GmAchievementUnlock.league_slug == slug)
-        ).all()
-    }
+    already = expand_legacy_pairs(_already_pairs(watermark), season_label or "")
+    existing = expand_legacy_pairs(
+        {
+            (int(r.team_id), str(r.achievement_key))
+            for r in session.scalars(
+                select(GmAchievementUnlock).where(GmAchievementUnlock.league_slug == slug)
+            ).all()
+        },
+        season_label or "",
+    )
 
     awarded = 0
+    recap_by_user: dict[int, dict[str, Any]] = {}
     for team_id, key, meta in collect_new_hits(truths, already, existing):
-        spec = CATALOG_BY_KEY.get(key)
+        spec = CATALOG_BY_KEY.get(catalog_key_from_storage(key))
         if spec is None:
             continue
         pair = (int(team_id), key)
@@ -1619,9 +2243,19 @@ def evaluate_gm_achievements_after_import(app) -> dict[str, int]:
                 source_ref=source_ref,
                 season_label=season_label or "",
             )
+            bucket = recap_by_user.setdefault(user_id, {"team_id": int(team_id), "titles": []})
+            bucket["titles"].append(spec.title)
         already.add(pair)
         existing.add(pair)
         awarded += 1
+
+    if recap_by_user:
+        _enqueue_export_recaps(
+            session,
+            league_slug=slug,
+            recap_by_user=recap_by_user,
+            max_gid=max_gid,
+        )
 
     watermark.max_game_id = max(int(watermark.max_game_id or 0), max_gid)
     watermark.season_label = season_label or watermark.season_label
@@ -1654,10 +2288,14 @@ def _enqueue_achievement_discord(
         )
     except Exception:
         return
-    if not is_discord_event_route_active(
-        session, league_slug=league_slug, event_key=ACHIEVEMENT_UNLOCKED_EVENT_KEY
-    ):
-        return
+    event_key = ACHIEVEMENT_LEAGUE_FIRST_EVENT_KEY if spec.race else ACHIEVEMENT_UNLOCKED_EVENT_KEY
+    if not is_discord_event_route_active(session, league_slug=league_slug, event_key=event_key):
+        if spec.race and is_discord_event_route_active(
+            session, league_slug=league_slug, event_key=ACHIEVEMENT_UNLOCKED_EVENT_KEY
+        ):
+            event_key = ACHIEVEMENT_UNLOCKED_EVENT_KEY
+        else:
+            return
     team = session.get(Team, int(team_id))
     detail = str(meta.get("detail") or "").strip()
     payload = {
@@ -1667,20 +2305,61 @@ def _enqueue_achievement_discord(
         "detail": detail or spec.description,
         "ap_delta": spec.ap,
         "season_label": season_label,
+        "is_race": bool(spec.race),
         "team_id": team_id,
         "team_abbrev": (team.abbreviation if team else "") or "",
         "team_name": team.full_display_name() if team else "",
-        "url": build_league_public_url(league_slug, "/achievements") or "",
+        "url": build_league_public_url(league_slug, "/achievement-leaders") or "",
     }
     enqueue_discord_event(
         session,
         league_slug=league_slug,
-        event_key=ACHIEVEMENT_UNLOCKED_EVENT_KEY,
+        event_key=event_key,
         payload=payload,
         created_by_user_id=None,
         source_type="gm_achievement",
         source_id=source_ref,
     )
+
+
+def _enqueue_export_recaps(
+    session: Session,
+    *,
+    league_slug: str,
+    recap_by_user: dict[int, dict[str, Any]],
+    max_gid: int,
+) -> None:
+    try:
+        from app.services.discord_direct_messages import enqueue_direct_message
+        from app.services.discord_events import build_league_public_url
+    except Exception:
+        return
+    board = build_achievement_leaderboard(session, league_slug)
+    by_team = {int(row["team_id"]): row for row in board.get("rows") or []}
+    url = build_league_public_url(league_slug, "/achievement-leaders") or ""
+    for user_id, rec in recap_by_user.items():
+        titles = list(rec.get("titles") or [])
+        if not titles:
+            continue
+        team_id = int(rec.get("team_id") or 0)
+        standing = by_team.get(team_id) or {}
+        rank = standing.get("rank")
+        title, body = format_export_recap(titles=titles, rank=int(rank) if rank else None)
+        try:
+            enqueue_direct_message(
+                session,
+                league_slug=league_slug,
+                recipient_user_id=int(user_id),
+                event_key=ACHIEVEMENT_EXPORT_RECAP_EVENT_KEY,
+                title=title,
+                body=body,
+                source_type="gm_achievement_export",
+                source_id=f"{int(max_gid)}:{team_id}:{int(user_id)}",
+                url=url,
+                preview=body,
+            )
+        except Exception:
+            _log.exception("GM achievements: export recap DM failed for user %s.", user_id)
 
 
 def progress_for_team(
@@ -1846,6 +2525,36 @@ def progress_for_team(
                 "target": 30,
                 "label": f"{cheap_goals} goals on a sub-$1M deal",
             }
+        elc_goals = 0
+        for st in skaters:
+            if not st.player_id:
+                continue
+            contract = contracts_by_pid.get(int(st.player_id))
+            if contract and contract.is_elc:
+                elc_goals = max(elc_goals, int(st.goals or 0))
+        if elc_goals:
+            out["elc_lightning"] = {
+                "current": min(elc_goals, ELC_GOALS_TARGET),
+                "target": ELC_GOALS_TARGET,
+                "label": f"{elc_goals} ELC goals",
+            }
+        try:
+            acquired = _acquired_players_from_published_trades(session, league_slug)
+        except Exception:
+            acquired = {}
+        heist_best = 0
+        for st in skaters:
+            if not st.player_id or not st.team_id:
+                continue
+            if int(st.player_id) not in acquired.get(int(st.team_id), set()):
+                continue
+            heist_best = max(heist_best, int(st.points or 0))
+        if heist_best:
+            out["the_heist"] = {
+                "current": min(heist_best, HEIST_POINTS_TARGET),
+                "target": HEIST_POINTS_TARGET,
+                "label": f"{heist_best} points from a Trade Tool acquisition",
+            }
     drafted_ids = {
         int(p.player_id)
         for p in session.scalars(
@@ -1885,6 +2594,45 @@ def progress_for_team(
             "target": EXPORT_STREAK_TARGET,
             "label": f"{export_n} / {EXPORT_STREAK_TARGET} consecutive exports",
         }
+    playoff_years = sorted(
+        {
+            int(r.start_year)
+            for r in recs
+            if r.start_year and r.result and not _missed_playoffs(r.result)
+        }
+    )
+    po_streak = 0
+    prev_y = None
+    for y in playoff_years:
+        po_streak = po_streak + 1 if prev_y is not None and y == prev_y + 1 else 1
+        prev_y = y
+    if po_streak:
+        out["iron_decade"] = {
+            "current": min(po_streak, IRON_DECADE_TARGET),
+            "target": IRON_DECADE_TARGET,
+            "label": f"{po_streak} / {IRON_DECADE_TARGET} consecutive playoff years",
+        }
+    try:
+        from app.services.export_attendance import ATTENDANCE_WINDOW_DAYS, rolling_attendance_window_dates
+    except Exception:
+        rolling_attendance_window_dates = None
+        ATTENDANCE_WINDOW_DAYS = 45
+    if rolling_attendance_window_dates is not None:
+        window = set(rolling_attendance_window_dates())
+        league_days = {
+            row.export_date
+            for row in session.scalars(
+                select(GmExportAttendance).where(GmExportAttendance.league_slug == league_slug)
+            ).all()
+            if row.export_date and row.export_date in window
+        }
+        team_days = {d for d in export_dates if d in window}
+        if league_days:
+            out["perfect_attendance"] = {
+                "current": len(team_days & league_days),
+                "target": len(league_days),
+                "label": f"{len(team_days & league_days)} / {len(league_days)} exports in {ATTENDANCE_WINDOW_DAYS} days",
+            }
     return out
 
 
@@ -1899,21 +2647,35 @@ def build_achievements_page_payload(
     watermark = session.scalar(
         select(GmAchievementWatermark).where(GmAchievementWatermark.league_slug == league_slug).limit(1)
     )
+    season = get_current_season()
+    season_label = season_display_label(season)
+    current_period = datetime.utcnow().date().strftime("%Y-%m")
     unlocks: dict[str, GmAchievementUnlock] = {}
+    unlock_rows: list[GmAchievementUnlock] = []
     if team_id:
-        for row in session.scalars(
-            select(GmAchievementUnlock).where(
-                GmAchievementUnlock.league_slug == league_slug,
-                GmAchievementUnlock.team_id == team_id,
-            )
-        ).all():
+        unlock_rows = list(
+            session.scalars(
+                select(GmAchievementUnlock).where(
+                    GmAchievementUnlock.league_slug == league_slug,
+                    GmAchievementUnlock.team_id == team_id,
+                )
+            ).all()
+        )
+        for row in unlock_rows:
             unlocks[str(row.achievement_key)] = row
     progress = progress_for_team(session, league_slug, team_id, watermark, membership) if team_id else {}
     groups: dict[str, list[dict[str, Any]]] = {"game": [], "season": [], "playoffs": [], "career": []}
     completed = 0
-    total_ap = 0
+    total_ap = sum(int(row.ap_delta or 0) for row in unlock_rows)
     for spec in catalog_for_league(league_slug):
-        unlock = unlocks.get(spec.key)
+        period = current_period if spec.repeat_scope == "month" else None
+        store = storage_key_for(spec, season_label or "", period)
+        unlock = unlocks.get(store) or unlocks.get(spec.key)
+        prior = [
+            row
+            for row in unlock_rows
+            if catalog_key_from_storage(row.achievement_key) == spec.key
+        ]
         prog = progress.get(spec.key)
         status = "locked"
         blurb = ""
@@ -1923,10 +2685,11 @@ def build_achievements_page_payload(
         if unlock:
             status = "completed"
             completed += 1
-            total_ap += int(unlock.ap_delta or spec.ap)
             blurb = str((unlock.meta_map() or {}).get("detail") or "")
             if unlock.season_label:
                 blurb = f"{blurb} · {unlock.season_label}".strip(" ·")
+            if spec.repeatable and len(prior) > 1:
+                blurb = f"{blurb} · {len(prior)}x".strip(" ·")
             hidden_locked = False
         elif spec.hidden:
             title = "???"
@@ -1946,6 +2709,7 @@ def build_achievements_page_payload(
                 "blurb": blurb,
                 "progress": prog,
                 "hidden": hidden_locked,
+                "repeatable": spec.repeatable,
                 "unlocked_at": unlock.unlocked_at if unlock else None,
             }
         )
@@ -2020,12 +2784,17 @@ def team_achievement_badges(
             GmAchievementUnlock.team_id == int(team_id),
         )
     ).all():
-        spec = CATALOG_BY_KEY.get(row.achievement_key)
+        spec = CATALOG_BY_KEY.get(catalog_key_from_storage(row.achievement_key))
         if spec is None:
             continue
         if spec.key in {"pinnacle", "dynasty"} and (
             "heritage_cup" in seen or "heritage_dynasty" in seen
         ):
+            continue
+        existing = next((b for b in badges if b["key"] == spec.key), None)
+        if existing:
+            existing["count"] = int(existing.get("count") or 1) + 1
+            existing["tooltip"] = f"{spec.title} · {existing['count']}x"
             continue
         badges.append(
             {
@@ -2038,3 +2807,153 @@ def team_achievement_badges(
             }
         )
     return badges
+
+
+def _gm_names_for_memberships(
+    session: Session, memberships: dict[int, GmLeagueMembership]
+) -> dict[int, str]:
+    user_ids = {int(m.user_id) for m in memberships.values() if m.user_id}
+    users: dict[int, str] = {}
+    if user_ids:
+        from app.services.gm_messaging import gm_display_name
+
+        for user in session.scalars(select(User).where(User.id.in_(user_ids))).all():
+            users[int(user.id)] = gm_display_name(user)
+    return users
+
+
+def _places_by_catalog_key(
+    rows: list[GmAchievementUnlock],
+    teams: dict[int, Team],
+    memberships: dict[int, GmLeagueMembership],
+    users: dict[int, str],
+) -> dict[str, list[dict[str, Any]]]:
+    places: dict[str, list[dict[str, Any]]] = {}
+    seen: set[tuple[str, int]] = set()
+    ordered = sorted(
+        rows,
+        key=lambda r: (r.unlocked_at or datetime.max, int(getattr(r, "id", 0) or 0)),
+    )
+    for row in ordered:
+        cat = catalog_key_from_storage(row.achievement_key)
+        if CATALOG_BY_KEY.get(cat) is None:
+            continue
+        pair = (cat, int(row.team_id))
+        if pair in seen:
+            continue
+        seen.add(pair)
+        team = teams.get(int(row.team_id))
+        mem = memberships.get(int(row.team_id))
+        places.setdefault(cat, []).append(
+            {
+                "team_id": int(row.team_id),
+                "team_name": team.full_display_name() if team else f"Team {row.team_id}",
+                "team_slug": (team.slug if team else "") or "",
+                "team_abbrev": (team.abbreviation if team else "") or "",
+                "gm_name": users.get(int(mem.user_id)) if mem and mem.user_id else "",
+                "unlocked_at": row.unlocked_at,
+            }
+        )
+    return places
+
+
+def build_achievement_leaderboard(session: Session, league_slug: str) -> dict[str, Any]:
+    """Public trophy standings: AP earned, unlock count, and first-to-unlock races."""
+    rows = list(
+        session.scalars(select(GmAchievementUnlock).where(GmAchievementUnlock.league_slug == league_slug)).all()
+    )
+    by_team: dict[int, dict[str, Any]] = {}
+    for row in rows:
+        rec = by_team.setdefault(
+            int(row.team_id),
+            {"team_id": int(row.team_id), "unlocks": 0, "ap": 0, "latest": row.unlocked_at},
+        )
+        rec["unlocks"] += 1
+        rec["ap"] += int(row.ap_delta or 0)
+        if row.unlocked_at and (rec["latest"] is None or row.unlocked_at > rec["latest"]):
+            rec["latest"] = row.unlocked_at
+    teams = {int(t.id): t for t in session.scalars(select(Team)).all()}
+    memberships = _active_memberships(session, league_slug)
+    users = _gm_names_for_memberships(session, memberships)
+    board: list[dict[str, Any]] = []
+    for tid, rec in by_team.items():
+        team = teams.get(tid)
+        mem = memberships.get(tid)
+        board.append(
+            {
+                "team_id": tid,
+                "team_name": team.full_display_name() if team else f"Team {tid}",
+                "team_slug": (team.slug if team else "") or "",
+                "team_abbrev": (team.abbreviation if team else "") or "",
+                "gm_name": users.get(int(mem.user_id)) if mem and mem.user_id else "",
+                "unlocks": rec["unlocks"],
+                "ap": rec["ap"],
+                "latest": rec["latest"],
+            }
+        )
+    board.sort(key=lambda r: (-int(r["ap"]), -int(r["unlocks"]), str(r["team_name"])))
+    for i, rec in enumerate(board, start=1):
+        rec["rank"] = i
+    places = _places_by_catalog_key(rows, teams, memberships, users)
+    firsts: list[dict[str, Any]] = []
+    for spec in catalog_for_league(league_slug):
+        if spec.hidden:
+            continue
+        order = places.get(spec.key) or []
+        if not order:
+            continue
+        first = dict(order[0])
+        first["key"] = spec.key
+        first["title"] = spec.title
+        first["category"] = spec.category
+        firsts.append(first)
+    return {
+        "rows": board,
+        "firsts": firsts,
+        "places": places,
+        "total_unlocks": len(rows),
+        "total_ap": sum(int(r.ap_delta or 0) for r in rows),
+    }
+
+
+def build_achievement_rival_page(session: Session, league_slug: str, team_id: int) -> dict[str, Any] | None:
+    """Per-franchise trophy case vs who unlocked each badge first."""
+    team = session.get(Team, int(team_id))
+    if team is None:
+        return None
+    board = build_achievement_leaderboard(session, league_slug)
+    standing = next((row for row in board["rows"] if int(row["team_id"]) == int(team_id)), None)
+    places: dict[str, list[dict[str, Any]]] = board.get("places") or {}
+    races: list[dict[str, Any]] = []
+    for spec in catalog_for_league(league_slug):
+        order = places.get(spec.key) or []
+        my_place = next((i for i, entry in enumerate(order, start=1) if int(entry["team_id"]) == int(team_id)), None)
+        if spec.hidden and my_place is None:
+            continue
+        first = order[0] if order else None
+        races.append(
+            {
+                "key": spec.key,
+                "title": spec.title,
+                "category": spec.category,
+                "hidden": spec.hidden,
+                "place": my_place,
+                "place_label": place_label(my_place),
+                "is_first": my_place == 1,
+                "first_team_name": (first or {}).get("team_name") or "",
+                "first_team_slug": (first or {}).get("team_slug") or "",
+                "first_gm_name": (first or {}).get("gm_name") or "",
+                "first_at": (first or {}).get("unlocked_at"),
+            }
+        )
+    return {
+        "team": team,
+        "team_name": team.full_display_name(),
+        "standing": standing,
+        "badges": team_achievement_badges(session, league_slug=league_slug, team_id=int(team_id)),
+        "races": races,
+        "rows": board["rows"],
+        "firsts": board["firsts"],
+        "total_unlocks": board["total_unlocks"],
+        "total_ap": board["total_ap"],
+    }

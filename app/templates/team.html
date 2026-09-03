@@ -125,6 +125,22 @@
   </div>
   {% endif %}
 </div>
+{% if team_achievement_badges %}
+<section class="team-achievement-banner" aria-label="Team achievement badges">
+  <p class="team-achievement-banner__kicker">Achievements</p>
+  <div class="team-achievement-banner__row" role="list">
+    {% for b in team_achievement_badges %}
+    <div class="team-achievement-banner__badge team-achievement-banner__badge--{{ b.category }}" role="listitem" title="{{ b.tooltip|e }}">
+      <span class="team-achievement-banner__icon" aria-hidden="true"></span>
+      <span class="team-achievement-banner__title">{{ b.title }}</span>
+      {% if b.count and b.count > 1 %}
+      <span class="team-achievement-banner__count">{{ b.count }}</span>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
 {% if team_honors_show_section %}
 <section class="team-honors" aria-label="Franchise honors">
   {% set retired_count = team_honors_retired_rows|length if team_honors_retired_rows else 0 %}

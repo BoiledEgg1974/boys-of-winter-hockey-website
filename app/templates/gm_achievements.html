@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Achievements — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card gm-achievements" style="max-width:64rem;margin:0 auto;">
+  <h1 class="page-title">Achievements</h1>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <ul class="muted">{% for cat, msg in messages %}<li>{{ msg }}</li>{% endfor %}</ul>
+  {% endif %}
+  {% endwith %}
+  {% if team %}
+  <p class="muted">{{ team.full_display_name() }} — {{ completed }} of {{ total }} unlocked{% if total_ap %} · {{ total_ap }} AP earned{% endif %}.</p>
+  {% else %}
+  <p class="muted">League admins can browse the catalog. Assign a franchise to track unlocks.</p>
+  {% endif %}
+  {% if not watermarked %}
+  <p class="muted">Progress starts after the next site export. Existing history will not award AP.</p>
+  {% endif %}
+
+  {% for cat, heading in [('game', 'Game'), ('season', 'Season'), ('playoffs', 'Playoffs'), ('career', 'Career')] %}
+  {% set cards = groups.get(cat) or [] %}
+  {% if cards %}
+  <section class="gm-achievements__section" aria-labelledby="gm-ach-{{ cat }}">
+    <h2 id="gm-ach-{{ cat }}" class="gm-achievements__heading">{{ heading }}</h2>
+    <div class="gm-achievements__grid">
+      {% for card in cards %}
+      <article class="gm-achievements__card gm-achievements__card--{{ card.status }}">
+        <div class="gm-achievements__card-head">
+          <span class="gm-achievements__badge gm-achievements__badge--{{ card.category }}" aria-hidden="true"></span>
+          <h3 class="gm-achievements__title">{{ card.title }}</h3>
+          <span class="gm-achievements__ap">+{{ card.ap }} AP</span>
+        </div>
+        <p class="gm-achievements__desc">{{ card.description }}</p>
+        {% if card.status == 'completed' %}
+        <p class="gm-achievements__status">Completed{% if card.unlocked_at %} · {{ card.unlocked_at.strftime('%b %d, %Y') }}{% endif %}</p>
+        {% if card.blurb %}<p class="gm-achievements__blurb">{{ card.blurb }}</p>{% endif %}
+        {% elif card.status == 'progress' %}
+        <p class="gm-achievements__status">In progress{% if card.blurb %} · {{ card.blurb }}{% endif %}</p>
+        {% if card.progress and card.progress.target %}
+        <div class="gm-achievements__track" role="meter" aria-valuemin="0" aria-valuemax="{{ card.progress.target }}" aria-valuenow="{{ card.progress.current }}" aria-label="{{ card.title }} progress">
+          <span style="width: {{ ([100, (card.progress.current / card.progress.target * 100)]|min)|round(0)|int }}%"></span>
+        </div>
+        {% endif %}
+        {% else %}
+        <p class="gm-achievements__status gm-achievements__status--locked">Locked</p>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+  {% endfor %}
+</div>
+{% endblock %}

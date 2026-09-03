@@ -4745,6 +4745,143 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
 .team-hero__trophies.player-profile__trophy-strip {
   margin-top: 0.5rem;
 }
+.team-hero + .team-achievement-banner {
+  margin-top: -0.55rem;
+}
+.team-achievement-banner {
+  margin: 0 0 1.25rem;
+  padding: 0.7rem 0.85rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.team-achievement-banner__kicker {
+  margin: 0 0 0.45rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.team-achievement-banner__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.team-achievement-banner__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 14rem;
+  padding: 0.28rem 0.5rem 0.28rem 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text);
+}
+.team-achievement-banner__icon {
+  width: 0.72rem;
+  height: 0.72rem;
+  border-radius: 50%;
+  background: var(--muted);
+  flex: 0 0 auto;
+}
+.team-achievement-banner__badge--game .team-achievement-banner__icon {
+  background: #38bdf8;
+}
+.team-achievement-banner__badge--season .team-achievement-banner__icon {
+  background: #a3e635;
+}
+.team-achievement-banner__badge--playoffs .team-achievement-banner__icon {
+  background: var(--accent);
+}
+.team-achievement-banner__badge--career .team-achievement-banner__icon {
+  background: #c084fc;
+}
+.team-achievement-banner__title {
+  font-size: 0.74rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.team-achievement-banner__count {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.gm-achievements__heading {
+  margin: 1.25rem 0 0.65rem;
+  font-size: 1.05rem;
+}
+.gm-achievements__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 0.7rem;
+}
+.gm-achievements__card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.7rem 0.75rem 0.75rem;
+  background: var(--bg);
+}
+.gm-achievements__card--completed {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+.gm-achievements__card--locked {
+  opacity: 0.72;
+}
+.gm-achievements__card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+.gm-achievements__badge {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  background: var(--muted);
+  flex: 0 0 auto;
+}
+.gm-achievements__badge--game { background: #38bdf8; }
+.gm-achievements__badge--season { background: #a3e635; }
+.gm-achievements__badge--playoffs { background: var(--accent); }
+.gm-achievements__badge--career { background: #c084fc; }
+.gm-achievements__title {
+  margin: 0;
+  flex: 1 1 auto;
+  font-size: 0.95rem;
+}
+.gm-achievements__ap {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--accent);
+  white-space: nowrap;
+}
+.gm-achievements__desc,
+.gm-achievements__status,
+.gm-achievements__blurb {
+  margin: 0.35rem 0 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.gm-achievements__status {
+  font-weight: 700;
+}
+.gm-achievements__track {
+  display: block;
+  margin-top: 0.4rem;
+  height: 0.38rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border) 70%, var(--bg));
+  overflow: hidden;
+}
+.gm-achievements__track span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
 /* Team banner stays vivid in light theme; keep trophy tiles readable like the player hero. */
 [data-theme="light"] .team-hero .player-profile__trophy-badge {
   background: rgb(15 23 42 / 0.55);

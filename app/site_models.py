@@ -1526,3 +1526,93 @@ class TeamLineSheet(db.Model):
         if not isinstance(raw, dict):
             return {}
         return {str(k): str(v) for k, v in raw.items() if v}
+
+
+class GmAchievementUnlock(db.Model):
+    """One earned GM achievement per franchise per league (site-only)."""
+
+    __tablename__ = "gm_achievement_unlocks"
+    __bind_key__ = "site"
+    __table_args__ = (
+        UniqueConstraint("source_ref", name="uq_gm_achievement_unlock_source_ref"),
+        UniqueConstraint(
+            "league_slug",
+            "team_id",
+            "achievement_key",
+            name="uq_gm_achievement_unlock_team_key",
+        ),
+        Index("ix_gm_achievement_unlock_league_team", "league_slug", "team_id"),
+        Index("ix_gm_achievement_unlock_league_user", "league_slug", "user_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False)
+    team_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("site_users.id"), nullable=True)
+    achievement_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_ref: Mapped[str] = mapped_column(String(160), nullable=False)
+    unlocked_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    season_label: Mapped[str] = mapped_column(String(16), nullable=False, default="")
+    meta_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+    ap_delta: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    def meta_map(self) -> dict:
+        try:
+            raw = json.loads(self.meta_json or "{}")
+        except json.JSONDecodeError:
+            return {}
+        return raw if isinstance(raw, dict) else {}
+
+
+class GmAchievementWatermark(db.Model):
+    """Per-league import cursor so AP is going-forward only."""
+
+    __tablename__ = "gm_achievement_watermarks"
+    __bind_key__ = "site"
+    __table_args__ = (
+        UniqueConstraint("league_slug", name="uq_gm_achievement_watermark_league"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False)
+    max_game_id: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    season_label: Mapped[str] = mapped_column(String(16), nullable=False, default="")
+    already_true_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+    tenure_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+    team_tiers_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+    evaluated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+    def already_true_map(self) -> dict[str, list[str]]:
+        try:
+            raw = json.loads(self.already_true_json or "{}")
+        except json.JSONDecodeError:
+            return {}
+        if not isinstance(raw, dict):
+            return {}
+        out: dict[str, list[str]] = {}
+        for tid, keys in raw.items():
+            if isinstance(keys, list):
+                out[str(tid)] = [str(k) for k in keys if k]
+        return out
+
+    def tenure_map(self) -> dict[str, list[str]]:
+        try:
+            raw = json.loads(self.tenure_json or "{}")
+        except json.JSONDecodeError:
+            return {}
+        if not isinstance(raw, dict):
+            return {}
+        out: dict[str, list[str]] = {}
+        for key, seasons in raw.items():
+            if isinstance(seasons, list):
+                out[str(key)] = [str(s) for s in seasons if s]
+        return out
+
+    def team_tiers_map(self) -> dict[str, str]:
+        try:
+            raw = json.loads(self.team_tiers_json or "{}")
+        except json.JSONDecodeError:
+            return {}
+        if not isinstance(raw, dict):
+            return {}
+        return {str(k): str(v) for k, v in raw.items() if v}

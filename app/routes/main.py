@@ -4852,6 +4852,18 @@ def teams_index():
     )
 
 
+def _team_achievement_badges_for_page(team) -> list:
+    from app.services.gm_achievements import team_achievement_badges
+
+    slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    if not slug or team is None:
+        return []
+    try:
+        return team_achievement_badges(db.session, league_slug=slug, team_id=int(team.id))
+    except Exception:
+        return []
+
+
 @main_bp.get("/team/<slug>")
 def team_page(slug: str):
     team = db.session.scalars(select(Team).where(Team.slug == slug).limit(1)).first()
@@ -5476,6 +5488,7 @@ def team_page(slug: str):
         "news_viewer_can_react": news_viewer_can_react,
         "news_category_label": news_category_label,
         "team_award_badges": team_history_award_badges(db.session, team),
+        "team_achievement_badges": _team_achievement_badges_for_page(team),
         "team_player_analytics": team_player_analytics,
         "team_player_trends": team_player_trends,
         "team_stats_trends": team_stats_trends,

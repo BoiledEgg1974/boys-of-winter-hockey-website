@@ -210,6 +210,14 @@ def refresh_after_import(engine, app=None) -> None:
                             slug,
                             box_stats,
                         )
+                        from app.services.gm_achievements import evaluate_gm_achievements_after_import
+
+                        ach_stats = evaluate_gm_achievements_after_import(app)
+                        _log.info(
+                            "GM achievements after import for %s: %s",
+                            slug,
+                            ach_stats,
+                        )
                     commit_with_sqlite_retry(db.session)
         except Exception:
             _log.exception("post-import hooks failed (non-fatal)")

@@ -3747,3 +3747,71 @@ def ensure_team_line_sheets_sqlite(engine: Engine) -> None:
             )
         )
         conn.commit()
+
+
+def ensure_gm_achievements_sqlite(engine: Engine) -> None:
+    """Create GM achievement unlock + watermark tables on the site DB when missing."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        unlocks = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='gm_achievement_unlocks'")
+        ).fetchone()
+        if not unlocks:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE gm_achievement_unlocks (
+                        id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                        league_slug VARCHAR(64) NOT NULL,
+                        team_id INTEGER NOT NULL,
+                        user_id INTEGER,
+                        achievement_key VARCHAR(64) NOT NULL,
+                        source_ref VARCHAR(160) NOT NULL,
+                        unlocked_at DATETIME NOT NULL,
+                        season_label VARCHAR(16) NOT NULL DEFAULT '',
+                        meta_json TEXT NOT NULL DEFAULT '{}',
+                        ap_delta INTEGER NOT NULL DEFAULT 0,
+                        CONSTRAINT uq_gm_achievement_unlock_source_ref UNIQUE (source_ref),
+                        CONSTRAINT uq_gm_achievement_unlock_team_key
+                            UNIQUE (league_slug, team_id, achievement_key)
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX ix_gm_achievement_unlock_league_team "
+                    "ON gm_achievement_unlocks (league_slug, team_id)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX ix_gm_achievement_unlock_league_user "
+                    "ON gm_achievement_unlocks (league_slug, user_id)"
+                )
+            )
+        marks = conn.execute(
+            text(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='gm_achievement_watermarks'"
+            )
+        ).fetchone()
+        if not marks:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE gm_achievement_watermarks (
+                        id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                        league_slug VARCHAR(64) NOT NULL,
+                        max_game_id INTEGER NOT NULL DEFAULT 0,
+                        season_label VARCHAR(16) NOT NULL DEFAULT '',
+                        already_true_json TEXT NOT NULL DEFAULT '{}',
+                        tenure_json TEXT NOT NULL DEFAULT '{}',
+                        team_tiers_json TEXT NOT NULL DEFAULT '{}',
+                        evaluated_at DATETIME NOT NULL,
+                        CONSTRAINT uq_gm_achievement_watermark_league UNIQUE (league_slug)
+                    )
+                    """
+                )
+            )
+        conn.commit()

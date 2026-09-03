@@ -401,6 +401,7 @@ _REASON_LABELS: dict[str, str] = {
     "bowl_six_slate_prize": "BOWL Six prize",
     "bowl_six_slate_prize_reversal": "BOWL Six prize reversal",
     "bowl_six_season_prize": "BOWL Six season prize",
+    "gm_achievement": "Achievement",
 }
 
 
@@ -561,6 +562,10 @@ def ledger_entry_description(reason_code: str, meta: dict[str, Any]) -> str:
             return f"Redemption request #{meta['request_id']}"
     if reason_code == "daily_export" and meta.get("day"):
         return f"Export on {meta['day']}"
+    if reason_code == "gm_achievement":
+        title = str(meta.get("achievement_title") or "").strip()
+        if title:
+            return f"Achievement: {title}"
     if reason_code == "bowl_six_season_prize":
         season_start = str(meta.get("season_start") or "").strip()
         rank = meta.get("rank")

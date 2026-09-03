@@ -998,6 +998,20 @@ def gm_help_tips_page():
     return render_template("gm_help_tips.html")
 
 
+@site_gm_bp.get("/achievements")
+@login_required
+def gm_achievements_page():
+    slug = _league_slug()
+    mem = _membership()
+    if not _can_view_action_points_page(mem):
+        flash("Achievements are available to active GMs and league admins.", "err")
+        return redirect(url_for("main.home"))
+    from app.services.gm_achievements import build_achievements_page_payload
+
+    payload = build_achievements_page_payload(db.session, league_slug=slug, membership=mem)
+    return render_template("gm_achievements.html", membership=mem, **payload)
+
+
 @site_gm_bp.get("/action-points")
 @login_required
 def action_points_page():

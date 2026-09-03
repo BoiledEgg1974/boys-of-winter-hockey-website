@@ -60,6 +60,7 @@ OPS_TEXT_ONLY_DISCORD_EVENT_KEYS = frozenset(
         "sim_cycle_update",
         "record_broken",
         "game_boxscore",
+        "achievement_unlocked",
     }
 )
 
@@ -117,6 +118,7 @@ DEFAULT_EVENT_KEYS = {
     "gm_export_tracker_poll",
     "record_broken",
     "game_boxscore",
+    "achievement_unlocked",
     "race_results",
     "heat_results",
     "circuit_standings_update",
@@ -154,6 +156,7 @@ DEFAULT_EVENT_CHANNEL_KEY = {
     "gm_export_tracker_poll": "gm-export-tracker",
     "record_broken": "broken-records",
     "game_boxscore": "boxscores",
+    "achievement_unlocked": "achievements",
     "race_results": "formula-bowl",
     "heat_results": "demolition-bowl",
     "circuit_standings_update": "circuit-standings",
@@ -217,6 +220,7 @@ DEFAULT_EVENT_LABELS = {
     "gm_export_tracker_poll": "GM export tracker (read-only poll source)",
     "record_broken": "Record broken (game / season / all-time / team)",
     "game_boxscore": "Game boxscore — per team channels (IDs below)",
+    "achievement_unlocked": "GM achievement unlocked",
     "race_results": "Formula race results",
     "heat_results": "Demolition heat / night results",
     "circuit_standings_update": "Circuit standings (live update)",

@@ -362,6 +362,26 @@ def _text_only_header_lines(
         record_title = str(payload.get("record_title") or title or "").strip()
         if record_title:
             lines.append(f"**{record_title}**")
+    elif event_key == "achievement_unlocked":
+        team_line = format_team_label(league_slug, payload)
+        if team_line:
+            lines.append(team_line)
+            _append_team_gm_mention(lines, payload)
+        ach_title = str(payload.get("achievement_title") or title or "").strip()
+        if ach_title:
+            lines.append(f"**Achievement unlocked: {ach_title}**")
+        detail = str(payload.get("detail") or payload.get("message") or "").strip()
+        if detail and detail != ach_title:
+            lines.append(detail)
+        try:
+            ap_delta = int(payload.get("ap_delta") or 0)
+        except (TypeError, ValueError):
+            ap_delta = 0
+        if ap_delta:
+            lines.append(f"+{ap_delta} AP")
+        url = str(payload.get("url") or "").strip()
+        if url:
+            lines.append(url)
     elif event_key == "game_boxscore":
         away = payload.get("away_team") if isinstance(payload.get("away_team"), dict) else {}
         home = payload.get("home_team") if isinstance(payload.get("home_team"), dict) else {}

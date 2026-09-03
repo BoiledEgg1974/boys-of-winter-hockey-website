@@ -7,6 +7,22 @@
     <a href="{{ url_for('main.draft') }}">FHM Draft History</a>
   </p>
 
+  {% if config.LEAGUE_SLUG == 'bowl-fantasy' %}
+  <div id="dh-lottery-shell"
+       class="dh-lottery-shell"
+       hidden
+       data-lottery-url="{{ url_for('draft_hub.draft_hub_api_lottery') }}"
+       data-arm-url="{{ url_for('draft_hub.draft_hub_admin_lottery_arm') }}"
+       data-draw-url="{{ url_for('draft_hub.draft_hub_admin_lottery_draw') }}"
+       data-reset-url="{{ url_for('draft_hub.draft_hub_admin_lottery_reset') }}"
+       data-practice-allowed="{{ '1' if lottery_practice_allowed else '0' }}"
+       data-csrf="{{ csrf_token() }}"
+       data-sfx-base="{{ url_for('static', filename='sfx') }}">
+  </div>
+  {% endif %}
+  {% if config.LEAGUE_SLUG in ('bowl-fantasy', 'bowl-cap', 'bowl-historical') %}
+  {% include "_draft_hub_boost_lottery_shell.html" %}
+  {% endif %}
   <div id="dh-tracker-shell" class="dh-tracker-shell" aria-live="polite"></div>
   <div id="dh-breakdown-shell" class="dh-breakdown-shell" aria-live="polite"></div>
   <div id="dh-links-shell" class="dh-links-shell" aria-live="polite"></div>
@@ -33,6 +49,7 @@
        data-undo-pick-url="{{ url_for('draft_hub.draft_hub_admin_undo_pick') }}"
        data-reassign-pick-url="{{ url_for('draft_hub.draft_hub_admin_reassign_pick') }}"
        data-end-draft-url="{{ url_for('draft_hub.draft_hub_end_draft_early') }}"
+       data-go-live-url="{{ url_for('draft_hub.draft_hub_admin_go_live') }}"
        data-player-page-tpl="{{ url_for('main.player_page', player_id=988776655) }}"
        data-sound-base="{{ url_for('draft_hub.draft_hub_sound', sound_id=0).rsplit('/', 1)[0] }}">
   </div>
@@ -89,6 +106,7 @@
   var undoPickUrl = root.getAttribute('data-undo-pick-url') || '';
   var reassignPickUrl = root.getAttribute('data-reassign-pick-url') || '';
   var endDraftUrl = root.getAttribute('data-end-draft-url') || '';
+  var goLiveUrl = root.getAttribute('data-go-live-url') || '';
   var playerPageTpl = root.getAttribute('data-player-page-tpl') || '';
   var pickUrl = root.getAttribute('data-pick-url');
   var qAddUrl = root.getAttribute('data-queue-add-url');
@@ -831,6 +849,9 @@
       window.__dhLastDraftForTrade = null;
       dhMounted = false;
       lastDraftPayload = null;
+      if (d && d.boost_lottery && typeof window.dhBoostLotteryRender === 'function') {
+        window.dhBoostLotteryRender(d.boost_lottery);
+      }
       return;
     }
     if (pageEl) pageEl.classList.add('draft-hub-page--ticker');
@@ -923,6 +944,11 @@
         html += '<p class="muted">Announced start (informational): ' + esc(x.scheduled_start_at) + '</p>';
       } else {
         html += '<p class="muted">Waiting for the commissioner to open the draft room.</p>';
+      }
+      if (x.can_admin_go_live && goLiveUrl) {
+        html += '<button type="button" class="button" id="dh-go-live">Go live</button>';
+      } else if (x.go_live_blocker) {
+        html += '<p class="muted small">' + esc(x.go_live_blocker) + '</p>';
       }
     } else {
       html += '<p class="draft-hub-banner__status">DRAFT COMPLETE</p>';
@@ -1153,6 +1179,9 @@
     loadEligible(x);
     renderWishlistPanel(x);
     syncWishlistAuthModal(x);
+    if (d.boost_lottery && typeof window.dhBoostLotteryRender === 'function') {
+      window.dhBoostLotteryRender(d.boost_lottery);
+    }
   }
 
   function renderWishlistPanel(x) {
@@ -1455,6 +1484,33 @@
   }
 
   function bindControls() {
+    var goLiveBtn = document.getElementById('dh-go-live');
+    if (goLiveBtn && !goLiveBtn._bound) {
+      goLiveBtn._bound = true;
+      goLiveBtn.addEventListener('click', function () {
+        if (!goLiveUrl) return;
+        if (!window.confirm('Open the draft room to GMs now?')) return;
+        goLiveBtn.disabled = true;
+        fetch(goLiveUrl, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+          body: JSON.stringify({ csrf_token: csrf }),
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (res) {
+            goLiveBtn.disabled = false;
+            if (!res || !res.ok) {
+              window.alert((res && res.error) || 'Could not go live.');
+              return;
+            }
+            window.location.reload();
+          })
+          .catch(function () {
+            goLiveBtn.disabled = false;
+          });
+      });
+    }
     var s = document.getElementById('dh-search');
     if (s && !s._bound) {
       s._bound = true;
@@ -1525,6 +1581,22 @@
   // State updates happen via explicit refreshes after user actions.
   // Still load once on initial page mount.
   forceRefresh();
+  window.addEventListener('dh-lottery-updated', function () {
+    forceRefresh();
+  });
+  window.addEventListener('dh-boost-lottery-updated', function () {
+    forceRefresh();
+  });
 })();
 </script>
+{% if config.LEAGUE_SLUG in ('bowl-fantasy', 'bowl-cap', 'bowl-historical') %}
+<script src="{{ url_for('static', filename='js/draft_hub_boost_lottery.js') }}" defer></script>
+{% if show_boost_scratch %}
+<script src="{{ url_for('static', filename='js/boost_scratch.js') }}" defer></script>
+{% endif %}
+{% endif %}
+{% if config.LEAGUE_SLUG == 'bowl-fantasy' %}
+<script src="{{ url_for('static', filename='js/draft_hub_lottery_cage.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/draft_hub_lottery.js') }}" defer></script>
+{% endif %}
 {% endblock %}

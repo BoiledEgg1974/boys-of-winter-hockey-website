@@ -520,6 +520,7 @@
         persistedGold = intOr(res.data.extra_gold, persistedGold);
         persistedSilver = intOr(res.data.extra_silver, persistedSilver);
         syncDrawCounts();
+        window.dispatchEvent(new CustomEvent("dh-boost-lottery-updated"));
       })
       .catch(function () {
         setStatus("Could not save live extras.");

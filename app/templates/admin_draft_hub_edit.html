@@ -103,6 +103,51 @@
     </p>
     <button type="submit" class="button">Generate order from last season + pick ownership</button>
   </form>
+  {% if league_slug == 'bowl-fantasy' %}
+  <form method="post" class="card" style="padding:1rem;margin-bottom:1rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="save_ranking_and_generate">
+    <h3 style="margin-top:0;">Worst-to-first ranking + NHL lottery</h3>
+    <p class="muted">
+      Rank every club from worst record to best. The first
+      <strong>{{ lottery_team_count }}</strong> become lottery seeds (including playoff teams).
+      The two best records stay out of the lottery and keep the last first-round picks.
+      Pick ownership is applied after you save. Upper/Lower standings scrape comes later —
+      this ranking is the source of truth for now.
+    </p>
+    <div style="display:flex;gap:1rem;flex-wrap:wrap;margin:0 0 0.75rem;">
+      <label>Lottery teams
+        <input type="number" name="lottery_team_count" value="{{ lottery_team_count }}" min="2" max="24" style="width:5rem;">
+      </label>
+      <label>Draws
+        <input type="number" name="lottery_draw_count" value="{{ lottery_draw_count }}" min="1" max="4" style="width:5rem;">
+      </label>
+    </div>
+    <ol class="draft-hub-admin-ranking" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(14rem,1fr));gap:0.5rem;padding-left:1.25rem;margin:0 0 0.75rem;">
+      {% for tid in ranking_defaults %}
+      <li>
+        <label>Seed {{ loop.index }}{% if loop.index <= lottery_team_count %} <span class="muted">(lottery)</span>{% endif %}
+          <select name="rank_team_{{ loop.index }}" style="width:100%;" required>
+            <option value="">Select team</option>
+            {% for t in teams %}
+              <option value="{{ t.id }}"{% if t.id == tid %} selected{% endif %}>{{ t.abbreviation or t.name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </li>
+      {% endfor %}
+    </ol>
+    {% if lottery_odds_preview %}
+    <p class="muted" style="margin:0 0 0.35rem;">Pick-1 odds for a {{ lottery_odds_preview|length }}-team field (NHL curve):</p>
+    <p class="muted small" style="margin:0 0 0.75rem;">
+      {% for row in lottery_odds_preview %}
+        Seed {{ row.seed }} {{ "%.1f"|format(row.pick1_pct) }}%{% if not loop.last %} · {% endif %}
+      {% endfor %}
+    </p>
+    {% endif %}
+    <button type="submit" class="button">Save ranking, generate order, and arm lottery</button>
+  </form>
+  {% endif %}
   <p class="muted">Or set the team holding each pick manually. Use <strong>Copy teams from previous round</strong> to duplicate the previous round's order into the next round. <em>Received from</em> records a pre-draft trade — leave it as <em>— No prior trade —</em> for picks that were never traded. Check <strong>Penalty pick</strong> to flag that selection red on the public Draft Hub. Draft-day trades belong in the <strong>Pick ownership / trades</strong> panel below.</p>
   <form method="post" class="card draft-hub-admin-rounds" style="padding:1rem;margin-bottom:1rem;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -181,19 +226,7 @@
   {% endif %}
 
   <h2>Boost picks (GOLD / SILVER)</h2>
-  <p class="muted">After running the <a href="{{ url_for('site_gm.boost_lottery') }}">Boost Lottery</a>, paste the winning <strong>overall pick numbers</strong> below to highlight them on the public Draft Hub. Comma- or space-separated; an overall number can be gold <em>or</em> silver, not both. Submitting overwrites the previous tags on this draft.</p>
-  <form method="post" class="card" style="padding:1rem;margin-bottom:1rem;">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <input type="hidden" name="action" value="save_boosts">
-    <label style="display:block;">Gold picks (overall)<br>
-      <input type="text" name="gold_picks" value="{{ gold_csv }}" placeholder="e.g. 28, 35, 42, 60" style="width:100%;max-width:36rem;font-family:monospace;">
-    </label>
-    <label style="display:block;margin-top:0.5rem;">Silver picks (overall)<br>
-      <input type="text" name="silver_picks" value="{{ silver_csv }}" placeholder="e.g. 31, 47, 55, 70, 88, 102" style="width:100%;max-width:36rem;font-family:monospace;">
-    </label>
-    <button type="submit" class="button" style="margin-top:0.5rem;">Save boost picks</button>
-    <span class="muted" style="margin-left:0.5rem;">Tip: clear both fields and save to remove all gold/silver tags.</span>
-  </form>
+  <p class="muted">Run the boost lottery on the <a href="{{ url_for('draft_hub.draft_hub_page') }}">public Draft Hub</a> while this draft is in setup. Scratch tickets, generate the pool, and execute the draw there — winning picks are tagged on this draft automatically. View cumulative team totals on the <a href="{{ url_for('site_gm.boost_lottery_tracker') }}">Boost Lottery Tracker</a>.</p>
 
   <h2>Go live / picks</h2>
   {% if draft.status in ('setup', 'live') %}

@@ -517,3 +517,115 @@ def generate_draft_order_from_prior_season(
         "strike_warnings": strike_warnings,
     }
     return created, None, summary
+
+
+def generate_draft_order_from_ranking(
+    league_session: Session,
+    site_session: Session,
+    *,
+    league_slug: str,
+    draft: LeagueDraft,
+    ranking_team_ids: list[int],
+    preserve_boost_tiers: dict[int, str] | None = None,
+    preserve_penalty_picks: set[int] | None = None,
+) -> tuple[int, str | None, dict[str, object]]:
+    """Replace slots using an admin worst-to-first original-franchise ranking.
+
+    Per-round owners come from the admin-managed ownership grid, same as
+    ``generate_draft_order_from_prior_season``.
+    """
+    slug = str(league_slug or "").strip()
+    if not slug:
+        return 0, "Missing league slug.", {}
+    if str(draft.status or "") != "setup":
+        return 0, "Draft order can only be generated while the draft is in setup.", {}
+
+    picks_per_round = max(1, int(draft.picks_per_round))
+    rounds = max(1, int(draft.rounds))
+    seen: set[int] = set()
+    ordered_ids: list[int] = []
+    for raw in ranking_team_ids:
+        try:
+            tid = int(raw)
+        except (TypeError, ValueError):
+            continue
+        if tid in seen:
+            continue
+        seen.add(tid)
+        ordered_ids.append(tid)
+    if len(ordered_ids) < picks_per_round:
+        return (
+            0,
+            f"Rank at least {picks_per_round} unique teams (worst record first).",
+            {},
+        )
+
+    teams_by_id: dict[int, Team] = {}
+    for team in league_session.scalars(select(Team).where(Team.id.in_(ordered_ids))).all():
+        if isinstance(team, Team):
+            teams_by_id[int(team.id)] = team
+    missing = [tid for tid in ordered_ids[:picks_per_round] if tid not in teams_by_id]
+    if missing:
+        return 0, "One or more ranked teams were not found.", {}
+
+    draft_year = int(draft.timeline_year)
+    ownership = pick_ownership_lookup(site_session, league_slug=slug, draft_year=draft_year)
+    has_ownership_rows = draft_pick_ownership_exists(site_session, league_slug=slug)
+    traded_count = 0
+    missing_fhm = 0
+    old_tiers = preserve_boost_tiers or {}
+    old_penalties = preserve_penalty_picks or set()
+    created = 0
+    slots_by_orig_round: dict[tuple[int, int], LeagueDraftSlot] = {}
+
+    for round_no in range(1, rounds + 1):
+        for pick_no in range(1, picks_per_round + 1):
+            overall = ((round_no - 1) * picks_per_round) + pick_no
+            original_team_id = int(ordered_ids[pick_no - 1])
+            team = teams_by_id[original_team_id]
+            owner_team_id = original_team_id
+            fhm_raw = str(getattr(team, "fhm_team_id", None) or "").strip()
+            if fhm_raw.isdigit():
+                orig_fhm = int(fhm_raw)
+                owner_team_id = ownership.get((round_no, orig_fhm), original_team_id)
+                if owner_team_id != original_team_id:
+                    traded_count += 1
+            else:
+                missing_fhm += 1
+
+            slot = LeagueDraftSlot(
+                league_draft_id=int(draft.id),
+                overall_pick=overall,
+                round=round_no,
+                original_team_id=original_team_id,
+                team_id=int(owner_team_id),
+                boost_tier=old_tiers.get(overall, ""),
+                penalty_pick=overall in old_penalties,
+            )
+            site_session.add(slot)
+            slots_by_orig_round[(original_team_id, round_no)] = slot
+            created += 1
+
+    auto_penalties_applied = 0
+    strike_warnings: list[str] = []
+    if slug == "bowl-cap":
+        auto_penalties_applied, strike_warnings = apply_cycle_strikes_to_slots(
+            site_session,
+            league_slug=slug,
+            cycle_year=draft_year,
+            draft=draft,
+            slots_by_orig_round=slots_by_orig_round,
+        )
+
+    summary: dict[str, object] = {
+        "draft_year": draft_year,
+        "traded_count": traded_count,
+        "missing_fhm": missing_fhm,
+        "has_ownership_rows": has_ownership_rows,
+        "rounds": rounds,
+        "picks_per_round": picks_per_round,
+        "auto_penalties_applied": int(auto_penalties_applied),
+        "strike_warnings": strike_warnings,
+        "source": "admin_ranking",
+    }
+    return created, None, summary

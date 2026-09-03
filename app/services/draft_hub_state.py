@@ -490,6 +490,10 @@ def record_pick(
     if int(player_id) not in eligible_ids:
         return "Player is not eligible for this draft."
     if source == "gm":
+        from app.services.draft_lottery import gm_picks_blocked_by_lottery
+
+        if gm_picks_blocked_by_lottery(session, draft, league_slug=draft.league_slug):
+            return "The draft lottery must finish before GMs can submit picks."
         if not bool(getattr(draft, "gm_picks_enabled", False)):
             return "GM self-picks are disabled for this draft; the commissioner will make selections."
         if user_id is None:

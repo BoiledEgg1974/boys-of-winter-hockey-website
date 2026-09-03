@@ -38,6 +38,7 @@ class DraftHubGmPickToggleTest(unittest.TestCase):
             patch.object(draft_hub_state, "picked_player_ids", return_value=set()),
             patch.object(draft_hub_state, "draft_eligibility_params", return_value=MagicMock()),
             patch.object(draft_hub_state, "eligible_id_set_for_draft", return_value={player_id}),
+            patch("app.services.draft_lottery.gm_picks_blocked_by_lottery", return_value=False),
         ):
             msg = draft_hub_state.record_pick(
                 session,
@@ -52,6 +53,35 @@ class DraftHubGmPickToggleTest(unittest.TestCase):
             msg,
             "GM self-picks are disabled for this draft; the commissioner will make selections.",
         )
+
+    def test_gm_self_picks_blocked_until_lottery_complete(self) -> None:
+        session = MagicMock()
+        draft = MagicMock(
+            id=1,
+            status="live",
+            awaiting_admin_resolution=False,
+            league_slug="bowl-fantasy",
+            current_slot_index=0,
+            gm_picks_enabled=True,
+            pick_deadline_at=None,
+        )
+        slot = MagicMock(overall_pick=1, team_id=10, round=1, forfeited=False)
+        with (
+            patch.object(draft_hub_state, "slots_ordered", return_value=[slot]),
+            patch.object(draft_hub_state, "_pick_row_for_overall", return_value=None),
+            patch.object(draft_hub_state, "picked_player_ids", return_value=set()),
+            patch.object(draft_hub_state, "draft_eligibility_params", return_value=MagicMock()),
+            patch.object(draft_hub_state, "eligible_id_set_for_draft", return_value={123}),
+            patch("app.services.draft_lottery.gm_picks_blocked_by_lottery", return_value=True),
+        ):
+            msg = draft_hub_state.record_pick(
+                session,
+                draft,
+                player_id=123,
+                user_id=9,
+                source="gm",
+            )
+        self.assertEqual(msg, "The draft lottery must finish before GMs can submit picks.")
 
     def test_expired_legacy_deadline_does_not_block_gm_pick(self) -> None:
         session = MagicMock()
@@ -85,6 +115,7 @@ class DraftHubGmPickToggleTest(unittest.TestCase):
             patch.object(draft_hub_state, "_remove_player_from_all_queues"),
             patch.object(draft_hub_state, "sync_current_slot_and_clock"),
             patch.object(draft_hub_state, "_finalize_draft_if_done"),
+            patch("app.services.draft_lottery.gm_picks_blocked_by_lottery", return_value=False),
         ):
             msg = draft_hub_state.record_pick(
                 session,

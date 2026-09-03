@@ -93,6 +93,7 @@ SITE_COVERAGE_CATEGORIES: dict[str, tuple[str, ...]] = {
         "sim_cycle_state",
         "ap_redemption_catalog",
         "league_drafts",
+        "league_draft_lotteries",
         "bowl_six_slates",
         "draft_pick_ownership_years",
         "trade_market_draft_pick_ownership",

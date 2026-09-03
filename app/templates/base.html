@@ -201,7 +201,7 @@
             <a class="header-tools__link" href="{{ url_for('site_gm.finances_page') }}">Finances</a>
             <a class="header-tools__link" href="{{ url_for('site_gm.rfa_offers_page') }}">RFA Offers</a>
             <a class="header-tools__link" href="{{ url_for('site_gm.bowl_six_hub') }}">BOWL Six</a>
-            {% if gm_membership and current_league_slug in ('bowl-fantasy', 'bowl-cap', 'bowl-historical') %}
+            {% if current_league_slug in ('bowl-fantasy', 'bowl-cap', 'bowl-historical') %}
             <a class="header-tools__link" href="{{ url_for('site_gm.boost_lottery_tracker') }}">Boost Lottery Tracker</a>
             {% endif %}
             {% if site_has_admin %}
@@ -210,10 +210,7 @@
             <a class="header-tools__link header-tools__link--admin" href="{{ url_for('site_gm.staff_salaries_page') }}">Staff Hire/Fire</a>
             {% endif %}
             {% if current_league_slug == 'bowl-fantasy' %}
-            <a class="header-tools__link" href="{{ url_for('site_gm.draft_lottery') }}">Draft Lottery</a>
-            {% endif %}
-            {% if current_league_slug in ('bowl-fantasy', 'bowl-cap', 'bowl-historical') %}
-            <a class="header-tools__link" href="{{ url_for('site_gm.boost_lottery') }}">Boost Lottery</a>
+            <a class="header-tools__link" href="{{ url_for('draft_hub.draft_hub_page') }}">Draft Lottery</a>
             {% endif %}
             <a class="header-tools__link header-tools__link--admin" href="{{ url_for('site_admin.admin_home') }}">Admin</a>
             {% endif %}

@@ -898,6 +898,27 @@ class BoostLotteryScratchExtras(db.Model):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
 
+class LeagueDraftBoostPool(db.Model):
+    """Per-draft weighted boost lottery pool state (setup phase only)."""
+
+    __tablename__ = "league_draft_boost_pools"
+    __bind_key__ = "site"
+    __table_args__ = (
+        UniqueConstraint("league_draft_id", name="uq_league_draft_boost_pool_draft"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_draft_id: Mapped[int] = mapped_column(ForeignKey("league_drafts.id"), nullable=False)
+    triple_lo: Mapped[int] = mapped_column(Integer, default=28, nullable=False)
+    triple_hi: Mapped[int] = mapped_column(Integer, default=81, nullable=False)
+    single_lo: Mapped[int] = mapped_column(Integer, default=82, nullable=False)
+    single_hi: Mapped[int] = mapped_column(Integer, default=216, nullable=False)
+    pool_tickets_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
+    last_gold_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
+    last_silver_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class LeagueDraft(db.Model):
     """League-run draft hub (one row per event; separate from FHM Draft / DraftPick)."""
 
@@ -1026,6 +1047,32 @@ class LeagueDraftSoundbite(db.Model):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
     draft: Mapped["LeagueDraft"] = relationship(back_populates="soundbites")
+
+
+class LeagueDraftLottery(db.Model):
+    """Official NHL-style 4-ball lottery for one Draft Hub event (Relegation)."""
+
+    __tablename__ = "league_draft_lotteries"
+    __bind_key__ = "site"
+    __table_args__ = (UniqueConstraint("league_draft_id", name="uq_league_draft_lottery_draft"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_draft_id: Mapped[int] = mapped_column(ForeignKey("league_drafts.id"), nullable=False)
+    status: Mapped[str] = mapped_column(String(24), default="pending", nullable=False)
+    team_count: Mapped[int] = mapped_column(Integer, default=16, nullable=False)
+    draw_count: Mapped[int] = mapped_column(Integer, default=2, nullable=False)
+    seeds_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
+    combo_map_json: Mapped[str] = mapped_column(Text, default="{}", nullable=False)
+    unused_combo: Mapped[str] = mapped_column(String(32), default="", nullable=False)
+    draws_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
+    round1_snapshot_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
+    tail_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+    draft: Mapped["LeagueDraft"] = relationship()
 
 
 class LeagueExpansionDraft(db.Model):

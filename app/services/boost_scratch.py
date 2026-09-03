@@ -123,6 +123,36 @@ def extras_payload(row: Any | None) -> dict[str, Any]:
     }
 
 
+def scratch_state_payload(
+    session: Session,
+    league_slug: str,
+    *,
+    role: str,
+    save_url: str = "",
+    reset_url: str = "",
+) -> dict[str, Any]:
+    extras = load_scratch_extras(session, league_slug)
+    draw_gold, draw_silver = draw_totals(
+        DEFAULT_BASELINE_GOLD,
+        DEFAULT_BASELINE_SILVER,
+        extras["extra_gold"],
+        extras["extra_silver"],
+    )
+    return {
+        "role": role,
+        "extra_gold": extras["extra_gold"],
+        "extra_silver": extras["extra_silver"],
+        "tickets": extras["tickets"],
+        "complete": extras["complete"],
+        "baseline_gold": DEFAULT_BASELINE_GOLD,
+        "baseline_silver": DEFAULT_BASELINE_SILVER,
+        "draw_gold": draw_gold,
+        "draw_silver": draw_silver,
+        "save_url": save_url,
+        "reset_url": reset_url,
+    }
+
+
 def load_scratch_extras(session: Session, league_slug: str) -> dict[str, Any]:
     from app.site_models import BoostLotteryScratchExtras
 

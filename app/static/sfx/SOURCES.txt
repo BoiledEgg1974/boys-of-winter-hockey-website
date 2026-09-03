@@ -7,3 +7,9 @@ explosion      Mixkit 2759  Arcade game explosion
 crackle        Mixkit 3103  Fast whistle firework
 confetti       Mixkit 3005  Explainer video pops whoosh light pop
 fireworks      Mixkit 1689  Multiple fireworks explosions
+
+Draft Hub lottery SFX (procedural, generated for BOWL — not Mixkit):
+lottery-tumble   Soft looping tumble for the numbered drum
+lottery-ball     Short ping when a combo ball locks
+lottery-lock     Bright lock ding after a 4-ball reveal
+cheer            Reused Mixkit 462 for official winner sting

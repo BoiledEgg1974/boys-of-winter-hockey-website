@@ -1,0 +1,23 @@
+{# Boost lottery panel on the public Draft Hub (all three BOWL draft sites). #}
+<div
+  id="dh-boost-lottery-shell"
+  class="dh-boost-lottery-shell boost-lottery-page"
+  {% if not show_boost_lottery_shell %}hidden{% endif %}
+  data-has-scratch="{{ '1' if show_boost_scratch else '0' }}"
+  data-boost-theme="{{ boost_theme or 'fantasy' }}"
+  data-boost-url="{{ url_for('draft_hub.draft_hub_api_boost_lottery') }}"
+  data-generate-url="{{ url_for('draft_hub.draft_hub_admin_boost_lottery_generate_pool') }}"
+  data-draw-url="{{ url_for('draft_hub.draft_hub_admin_boost_lottery_execute_draw') }}"
+  data-reset-url="{{ url_for('draft_hub.draft_hub_admin_boost_lottery_reset_pool') }}"
+  data-go-live-url="{{ url_for('draft_hub.draft_hub_admin_go_live') }}"
+  data-admin-draft-url="{{ url_for('site_admin.admin_draft_hub') }}"
+  data-csrf="{{ csrf_token() }}"
+>
+  {% if boost_scratch %}
+  <div id="dh-boost-scratch-host" class="dh-boost-scratch-host card">
+    {% set scratch = boost_scratch %}
+    {% include "_boost_scratch_board.html" %}
+  </div>
+  {% endif %}
+  <div id="dh-boost-lottery-root" class="dh-boost-lottery-root"></div>
+</div>

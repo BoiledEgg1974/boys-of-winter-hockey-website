@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Draft lottery preview — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:72rem;margin:0 auto 1.5rem;padding:1rem 1.25rem;">
+  <h1 class="page-title">Draft lottery preview</h1>
+  <p class="muted" style="margin:0 0 0.35rem;">
+    Browser-only demo — nothing is written to the live Draft Hub.
+    {% if lottery_practice_allowed %}
+    GMs can run practice spins below; league staff can also try the simulated official draws.
+    {% else %}
+    Log in as a GM to try practice draws. League staff can run the simulated official draws here.
+    {% endif %}
+  </p>
+  <p class="muted" style="margin:0;">
+    <a href="{{ url_for('site_gm.draft_lottery_preview') }}">Reset preview</a>
+    · <a href="{{ url_for('draft_hub.draft_hub_page') }}">Open Draft Hub</a>
+    · <a href="{{ url_for('site_admin.admin_draft_hub') }}">Draft Hub admin</a>
+  </p>
+</div>
+
+<div id="dh-lottery-shell"
+     class="dh-lottery-shell"
+     data-preview="1"
+     data-practice-allowed="{{ '1' if lottery_practice_allowed else '0' }}"
+     data-sfx-base="{{ url_for('static', filename='sfx') }}">
+</div>
+<script type="application/json" id="dh-lottery-preview-data">{{ lottery_json | tojson }}</script>
+<script src="{{ url_for('static', filename='js/draft_hub_lottery_cage.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/draft_hub_lottery.js') }}" defer></script>
+{% endblock %}

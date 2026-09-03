@@ -44,6 +44,26 @@ from app.services.draft_hub_state import (
 )
 from app.services.player_ratings_csv import get_player_ratings_row, player_positions_display_label
 from app.services.season_team_logo_bundle import get_season_team_logo_bundle
+from app.services.draft_lottery import (
+    DEFAULT_LOTTERY_TEAM_COUNT,
+    arm_lottery,
+    execute_draw,
+    get_lottery,
+    gm_picks_blocked_by_lottery,
+    is_relegation_lottery_league,
+    lottery_public_payload,
+    reset_lottery,
+    unarmed_seed_preview,
+    round1_slots,
+)
+from app.services.boost_lottery import (
+    execute_draw_for_draft,
+    generate_pool_for_draft,
+    is_boost_lottery_league,
+    public_boost_lottery_payload,
+    public_boost_lottery_payload_pending,
+    reset_pool_for_draft,
+)
 from app.site_models import (
     LeagueDraft,
     LeagueDraftPick,
@@ -64,6 +84,22 @@ def _membership():
     if not current_user.is_authenticated:
         return None
     return active_membership_for_league(current_user, _league_slug())
+
+
+def _hub_gm_or_staff() -> bool:
+    """Active GM franchise or league staff (commissioner controls)."""
+    if not current_user.is_authenticated:
+        return False
+    if league_hub_staff(current_user):
+        return True
+    return _membership() is not None
+
+
+def _boost_scratch_role(draft: LeagueDraft | None, *, can_staff: bool) -> str:
+    """Live commissioner scratch only before go-live; everyone else practice."""
+    if can_staff and (draft is None or draft.status == "setup"):
+        return "admin"
+    return "gm"
 
 
 def _draft_logo_context_year(draft: LeagueDraft | None) -> int | None:
@@ -100,9 +136,98 @@ def _tracker_payload(draft: LeagueDraft | None, team_by_id: dict[int, Team]) -> 
     )
 
 
+def _team_meta_map(draft: LeagueDraft | None, teams: list[Team] | dict[int, Team]) -> dict[int, dict]:
+    team_iter = teams.values() if isinstance(teams, dict) else teams
+    out: dict[int, dict] = {}
+    for team in team_iter:
+        out[int(team.id)] = {
+            "name": team.full_display_name(),
+            "abbr": (team.abbreviation or team.name or "").strip(),
+            "logo_url": _draft_team_logo_url(team, draft),
+        }
+    return out
+
+
+def _lottery_payload_for_draft(draft: LeagueDraft | None, team_by_id: dict[int, Team]) -> dict:
+    slug = _league_slug()
+    enabled = is_relegation_lottery_league(slug)
+    can_admin = bool(current_user.is_authenticated and league_hub_staff(current_user))
+    if not enabled or draft is None:
+        return lottery_public_payload(None, team_meta={}, can_admin=can_admin, enabled=enabled)
+    meta = _team_meta_map(draft, team_by_id)
+    row = get_lottery(db.session, int(draft.id))
+    preview = None
+    if row is None:
+        preview = unarmed_seed_preview(
+            round1_slots(db.session, int(draft.id)),
+            team_count=DEFAULT_LOTTERY_TEAM_COUNT,
+            team_meta=meta,
+        )
+    return lottery_public_payload(
+        row,
+        team_meta=meta,
+        can_admin=can_admin,
+        enabled=True,
+        unarmed_seeds=preview,
+    )
+
+
+def _hub_pending_draft_year() -> int | None:
+    slug = _league_slug()
+    if not is_boost_lottery_league(slug):
+        return None
+    year = in_game_draft_ownership_cutoff_year(
+        db.session,
+        league_slug=slug,
+        site_session=db.session,
+    )
+    if year is None:
+        return None
+    try:
+        return int(year)
+    except (TypeError, ValueError):
+        return None
+
+
+def _show_boost_lottery_on_hub(draft: LeagueDraft | None) -> bool:
+    slug = _league_slug()
+    if not is_boost_lottery_league(slug):
+        return False
+    if draft is not None and draft.status in ("setup", "live"):
+        return True
+    return _hub_pending_draft_year() is not None
+
+
+def _boost_lottery_payload_for_draft(draft: LeagueDraft | None) -> dict:
+    slug = _league_slug()
+    can_admin = bool(current_user.is_authenticated and league_hub_staff(current_user))
+    if not is_boost_lottery_league(slug):
+        return {"enabled": False}
+    if draft is None:
+        pending_year = _hub_pending_draft_year()
+        if pending_year is None:
+            return {"enabled": False}
+        return public_boost_lottery_payload_pending(
+            db.session,
+            slug,
+            can_admin=can_admin,
+            draft_year=pending_year,
+        )
+    return public_boost_lottery_payload(
+        db.session,
+        draft,
+        slug,
+        can_admin=can_admin,
+    )
+
+
 def _hub_draft() -> LeagueDraft | None:
     slug = _league_slug()
-    min_draft_year = in_game_draft_ownership_cutoff_year(db.session, league_slug=slug)
+    min_draft_year = in_game_draft_ownership_cutoff_year(
+        db.session,
+        league_slug=slug,
+        site_session=db.session,
+    )
     return hub_active_draft(db.session, slug, min_draft_year=min_draft_year)
 
 
@@ -113,12 +238,42 @@ def draft_hub_page():
     teams = list(db.session.scalars(select(Team).order_by(Team.name)).all())
     team_by_id = {t.id: t for t in teams}
     draft_hub_teams_json = [{"id": int(t.id), "name": t.full_display_name()} for t in teams]
+    can_staff = bool(current_user.is_authenticated and league_hub_staff(current_user))
+    can_practice = _hub_gm_or_staff()
+    boost_scratch = None
+    boost_theme = None
+    show_boost_scratch = False
+    show_boost_lottery_shell = _show_boost_lottery_on_hub(draft)
+    if show_boost_lottery_shell and can_practice:
+        from app.services.boost_lottery import boost_lottery_theme
+        from app.services.boost_scratch import scratch_state_payload
+
+        boost_theme = boost_lottery_theme(slug)
+        show_boost_scratch = True
+        scratch_role = _boost_scratch_role(draft, can_staff=can_staff)
+        boost_scratch = scratch_state_payload(
+            db.session,
+            slug,
+            role=scratch_role,
+            save_url=url_for("site_gm.boost_lottery_save_scratch_extras")
+            if scratch_role == "admin"
+            else "",
+            reset_url=url_for("site_gm.boost_lottery_reset_scratch_extras")
+            if scratch_role == "admin"
+            else "",
+        )
     return render_template(
         "draft_hub.html",
         featured_draft=draft,
         team_by_id=team_by_id,
         draft_hub_teams_json=draft_hub_teams_json,
         gm_membership=_membership(),
+        boost_scratch=boost_scratch,
+        boost_theme=boost_theme,
+        show_boost_scratch=show_boost_scratch,
+        show_boost_lottery_shell=show_boost_lottery_shell,
+        lottery_practice_allowed=can_practice,
+        can_draft_hub_staff=can_staff,
     )
 
 
@@ -228,7 +383,15 @@ def draft_hub_api_state():
     team_by_id = {t.id: t for t in db.session.scalars(select(Team)).all()}
     tracker = _tracker_payload(draft, team_by_id)
     if not draft:
-        return jsonify({"ok": True, "draft": None, "tracker": tracker})
+        return jsonify(
+            {
+                "ok": True,
+                "draft": None,
+                "tracker": tracker,
+                "lottery": _lottery_payload_for_draft(None, team_by_id),
+                "boost_lottery": _boost_lottery_payload_for_draft(None),
+            }
+        )
 
     if draft.status == "live":
         maybe_process_tick(db.session, draft)
@@ -444,10 +607,12 @@ def draft_hub_api_state():
             for x in qitems
         ]
 
+    lottery_blocks_gm = gm_picks_blocked_by_lottery(db.session, draft, league_slug=slug)
     can_pick = bool(
         mem
         and draft.status == "live"
         and bool(getattr(draft, "gm_picks_enabled", False))
+        and not lottery_blocks_gm
         and not draft.awaiting_admin_resolution
         and current_slot
         and mem.team_id == current_slot["team_id"]
@@ -512,6 +677,8 @@ def draft_hub_api_state():
         and draft.status == "live"
         and unpicked_slot_count >= 1
     )
+    boost_lottery = _boost_lottery_payload_for_draft(draft)
+    can_admin_go_live = bool(boost_lottery.get("can_go_live"))
     wishlist_pick: dict[str, object] | None = None
     if can_pick:
         wpid, wname = wishlist_head_for_user(db.session, draft, slug, int(current_user.id))
@@ -554,10 +721,15 @@ def draft_hub_api_state():
                 "can_admin_end_early": can_admin_end_early,
                 "can_admin_undo_pick": can_admin_undo_pick,
                 "can_admin_reassign_pick": can_admin_reassign_pick,
+                "can_admin_go_live": can_admin_go_live,
+                "go_live_blocker": boost_lottery.get("go_live_blocker"),
                 "wishlist_pick": wishlist_pick,
                 "gm_picks_enabled": bool(getattr(draft, "gm_picks_enabled", False)),
                 "discord_on_deck_enabled": bool(getattr(draft, "discord_on_deck_enabled", False)),
+                "lottery_blocks_gm": lottery_blocks_gm,
             },
+            "lottery": _lottery_payload_for_draft(draft, team_by_id),
+            "boost_lottery": boost_lottery,
         }
     )
 
@@ -1004,6 +1176,229 @@ def draft_hub_admin_reassign_pick():
     commit_with_sqlite_retry(db.session)
     db.session.refresh(draft)
     return jsonify({"ok": True, "error": None})
+
+
+def _lottery_admin_json():
+    from flask_wtf.csrf import validate_csrf
+
+    if not league_hub_staff(current_user):
+        return None, (jsonify({"ok": False, "error": "Forbidden."}), 403)
+    data = request.get_json(silent=True) or {}
+    try:
+        validate_csrf(data.get("csrf_token"))
+    except Exception:  # noqa: BLE001
+        return None, (jsonify({"ok": False, "error": "Invalid CSRF token."}), 400)
+    slug = _league_slug()
+    if not is_relegation_lottery_league(slug):
+        return None, (jsonify({"ok": False, "error": "Lottery is only available on BOWL-Relegation."}), 404)
+    draft = _hub_draft()
+    if not draft:
+        return None, (jsonify({"ok": False, "error": "No draft is configured."}), 400)
+    return (data, draft), None
+
+
+@draft_hub_bp.get("/api/lottery")
+def draft_hub_api_lottery():
+    slug = _league_slug()
+    draft = _hub_draft()
+    team_by_id = {t.id: t for t in db.session.scalars(select(Team)).all()}
+    return jsonify({"ok": True, "lottery": _lottery_payload_for_draft(draft, team_by_id), "league_slug": slug})
+
+
+@draft_hub_bp.post("/admin/lottery/arm")
+@login_required
+def draft_hub_admin_lottery_arm():
+    parsed, err = _lottery_admin_json()
+    if err is not None:
+        return err
+    data, draft = parsed
+    team_count = data.get("team_count")
+    draw_count = data.get("draw_count")
+    try:
+        team_n = int(team_count) if team_count is not None else DEFAULT_LOTTERY_TEAM_COUNT
+    except (TypeError, ValueError):
+        team_n = DEFAULT_LOTTERY_TEAM_COUNT
+    try:
+        draw_n = int(draw_count) if draw_count is not None else 2
+    except (TypeError, ValueError):
+        draw_n = 2
+    row, arm_err = arm_lottery(db.session, draft, team_count=team_n, draw_count=draw_n)
+    if arm_err:
+        db.session.rollback()
+        return jsonify({"ok": False, "error": arm_err}), 400
+    commit_with_sqlite_retry(db.session)
+    team_by_id = {t.id: t for t in db.session.scalars(select(Team)).all()}
+    return jsonify({"ok": True, "lottery": _lottery_payload_for_draft(draft, team_by_id)})
+
+
+@draft_hub_bp.post("/admin/lottery/draw")
+@login_required
+def draft_hub_admin_lottery_draw():
+    parsed, err = _lottery_admin_json()
+    if err is not None:
+        return err
+    _data, draft = parsed
+    row, result, draw_err = execute_draw(db.session, draft)
+    if draw_err:
+        db.session.rollback()
+        return jsonify({"ok": False, "error": draw_err}), 400
+    commit_with_sqlite_retry(db.session)
+    team_by_id = {t.id: t for t in db.session.scalars(select(Team)).all()}
+    return jsonify(
+        {
+            "ok": True,
+            "result": result,
+            "lottery": _lottery_payload_for_draft(draft, team_by_id),
+        }
+    )
+
+
+@draft_hub_bp.post("/admin/lottery/reset")
+@login_required
+def draft_hub_admin_lottery_reset():
+    parsed, err = _lottery_admin_json()
+    if err is not None:
+        return err
+    _data, draft = parsed
+    row, reset_err = reset_lottery(db.session, draft)
+    if reset_err:
+        db.session.rollback()
+        return jsonify({"ok": False, "error": reset_err}), 400
+    commit_with_sqlite_retry(db.session)
+    team_by_id = {t.id: t for t in db.session.scalars(select(Team)).all()}
+    return jsonify({"ok": True, "lottery": _lottery_payload_for_draft(draft, team_by_id)})
+
+
+def _boost_lottery_admin_json():
+    from flask_wtf.csrf import validate_csrf
+
+    if not league_hub_staff(current_user):
+        return None, (jsonify({"ok": False, "error": "Forbidden."}), 403)
+    data = request.get_json(silent=True) or {}
+    if current_app.config.get("WTF_CSRF_ENABLED", True):
+        try:
+            validate_csrf(data.get("csrf_token"))
+        except Exception:  # noqa: BLE001
+            return None, (jsonify({"ok": False, "error": "Invalid CSRF token."}), 400)
+    slug = _league_slug()
+    if not is_boost_lottery_league(slug):
+        return None, (jsonify({"ok": False, "error": "Boost lottery is not available on this site."}), 404)
+    draft = _hub_draft()
+    if not draft:
+        return None, (jsonify({"ok": False, "error": "No draft is configured."}), 400)
+    if draft.status != "setup":
+        return None, (jsonify({"ok": False, "error": "Boost lottery is only available before the draft goes live."}), 400)
+    return (data, draft), None
+
+
+@draft_hub_bp.get("/api/boost-lottery")
+def draft_hub_api_boost_lottery():
+    slug = _league_slug()
+    draft = _hub_draft()
+    return jsonify(
+        {
+            "ok": True,
+            "boost_lottery": _boost_lottery_payload_for_draft(draft),
+            "league_slug": slug,
+        }
+    )
+
+
+@draft_hub_bp.post("/admin/boost-lottery/generate-pool")
+@login_required
+def draft_hub_admin_boost_lottery_generate_pool():
+    parsed, err = _boost_lottery_admin_json()
+    if err is not None:
+        return err
+    data, draft = parsed
+    try:
+        triple_lo = int(data.get("triple_lo"))
+        triple_hi = int(data.get("triple_hi"))
+        single_lo = int(data.get("single_lo"))
+        single_hi = int(data.get("single_hi"))
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "Pool range values must be integers."}), 400
+    row, gen_err = generate_pool_for_draft(
+        db.session,
+        draft,
+        triple_lo=triple_lo,
+        triple_hi=triple_hi,
+        single_lo=single_lo,
+        single_hi=single_hi,
+    )
+    if gen_err:
+        db.session.rollback()
+        return jsonify({"ok": False, "error": gen_err}), 400
+    commit_with_sqlite_retry(db.session)
+    return jsonify({"ok": True, "boost_lottery": _boost_lottery_payload_for_draft(draft)})
+
+
+@draft_hub_bp.post("/admin/boost-lottery/execute-draw")
+@login_required
+def draft_hub_admin_boost_lottery_execute_draw():
+    parsed, err = _boost_lottery_admin_json()
+    if err is not None:
+        return err
+    _data, draft = parsed
+    result, draw_err = execute_draw_for_draft(
+        db.session,
+        draft,
+        _league_slug(),
+        int(current_user.id),
+    )
+    if draw_err:
+        db.session.rollback()
+        return jsonify({"ok": False, "error": draw_err}), 400
+    commit_with_sqlite_retry(db.session)
+    return jsonify(
+        {
+            "ok": True,
+            "result": result,
+            "boost_lottery": _boost_lottery_payload_for_draft(draft),
+        }
+    )
+
+
+@draft_hub_bp.post("/admin/boost-lottery/reset-pool")
+@login_required
+def draft_hub_admin_boost_lottery_reset_pool():
+    parsed, err = _boost_lottery_admin_json()
+    if err is not None:
+        return err
+    _data, draft = parsed
+    _row, reset_err = reset_pool_for_draft(db.session, draft)
+    if reset_err:
+        db.session.rollback()
+        return jsonify({"ok": False, "error": reset_err}), 400
+    commit_with_sqlite_retry(db.session)
+    return jsonify({"ok": True, "boost_lottery": _boost_lottery_payload_for_draft(draft)})
+
+
+@draft_hub_bp.post("/admin/go-live")
+@login_required
+def draft_hub_admin_go_live():
+    from app.services.draft_hub_state import go_live
+
+    if not league_hub_staff(current_user):
+        return jsonify({"ok": False, "error": "Forbidden."}), 403
+    data = request.get_json(silent=True) or {}
+    if current_app.config.get("WTF_CSRF_ENABLED", True):
+        from flask_wtf.csrf import validate_csrf
+
+        try:
+            validate_csrf(data.get("csrf_token"))
+        except Exception:  # noqa: BLE001
+            return jsonify({"ok": False, "error": "Invalid CSRF token."}), 400
+    slug = _league_slug()
+    draft = _hub_draft()
+    if not draft:
+        return jsonify({"ok": False, "error": "No draft is configured."}), 400
+    err = go_live(db.session, draft, int(current_user.id))
+    if err:
+        db.session.rollback()
+        return jsonify({"ok": False, "error": err}), 400
+    commit_with_sqlite_retry(db.session)
+    return jsonify({"ok": True, "boost_lottery": _boost_lottery_payload_for_draft(draft)})
 
 
 @draft_hub_bp.get("/sound/<int:sound_id>")

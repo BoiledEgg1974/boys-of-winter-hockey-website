@@ -40,10 +40,11 @@
     <li><a href="{{ url_for('site_admin.admin_draft_eligible_settings') }}">Draft Eligible page rules</a></li>
     <li><a href="{{ url_for('site_admin.admin_expansion_draft_hub') }}">Expansion Draft Hub</a></li>
     {% if current_league_slug == 'bowl-fantasy' %}
-    <li><a href="{{ url_for('site_gm.draft_lottery') }}">Draft lottery</a> — weighted 17th–24th simulator (admins only)</li>
+    <li><a href="{{ url_for('site_gm.draft_lottery_preview') }}">Draft lottery preview</a> — interactive NHL demo (no login)</li>
+    <li><a href="{{ url_for('draft_hub.draft_hub_page') }}">Draft lottery</a> — NHL-style 4-ball lottery on the Draft Hub (admins run official draws)</li>
     {% endif %}
     {% if current_league_slug in ('bowl-fantasy', 'bowl-cap', 'bowl-historical') %}
-    <li><a href="{{ url_for('site_gm.boost_lottery') }}">Boost lottery</a> — rounds 2–3 triple tickets, 4–8 single; gold/silver draw (admins only)</li>
+    <li><a href="{{ url_for('draft_hub.draft_hub_page') }}">Boost lottery</a> — scratch tickets, pool draw, and auto-applied gold/silver tags on the public Draft Hub</li>
     {% endif %}
     <li><a href="{{ url_for('site_admin.admin_operations_queue') }}">GM operations queue</a></li>
     {% if site_can_process_trades %}

@@ -2585,88 +2585,37 @@ def _boost_lottery_team_rows(league_slug: str) -> list[dict[str, object]]:
     return rows
 
 
-def _save_boost_lottery_team_rows(league_slug: str, user_id: int) -> int:
-    teams = db.session.scalars(select(Team).order_by(Team.id)).all()
-    existing = {
-        int(r.team_id): r
-        for r in db.session.scalars(
-            select(BoostLotteryTeamResult).where(BoostLotteryTeamResult.league_slug == league_slug)
-        ).all()
-    }
-    changed = 0
-    now = datetime.utcnow()
-    for team in teams:
-        tid = int(team.id)
-        try:
-            gold = max(0, int(request.form.get(f"gold_{tid}") or "0"))
-        except ValueError:
-            gold = 0
-        try:
-            silver = max(0, int(request.form.get(f"silver_{tid}") or "0"))
-        except ValueError:
-            silver = 0
-        row = existing.get(tid)
-        if row is None and (gold or silver):
-            row = BoostLotteryTeamResult(
-                league_slug=league_slug,
-                team_id=tid,
-                gold_count=gold,
-                silver_count=silver,
-                updated_by_user_id=user_id,
-                updated_at=now,
-            )
-            db.session.add(row)
-            changed += 1
-        elif row is not None and (int(row.gold_count or 0), int(row.silver_count or 0)) != (gold, silver):
-            row.gold_count = gold
-            row.silver_count = silver
-            row.updated_by_user_id = user_id
-            row.updated_at = now
-            changed += 1
-    commit_with_sqlite_retry(db.session)
-    return changed
-
-
 def _boost_lottery_theme(league_slug: str) -> str:
-    return "fantasy" if league_slug == "bowl-fantasy" else ("cap" if league_slug == "bowl-cap" else "historical")
+    from app.services.boost_lottery import boost_lottery_theme
+
+    return boost_lottery_theme(league_slug)
 
 
 def _boost_lottery_scratch_state(league_slug: str, *, role: str) -> dict:
-    from app.services.boost_scratch import DEFAULT_BASELINE_GOLD, DEFAULT_BASELINE_SILVER, draw_totals, load_scratch_extras
+    from app.services.boost_scratch import scratch_state_payload
 
-    extras = load_scratch_extras(db.session, league_slug)
-    draw_gold, draw_silver = draw_totals(
-        DEFAULT_BASELINE_GOLD,
-        DEFAULT_BASELINE_SILVER,
-        extras["extra_gold"],
-        extras["extra_silver"],
+    return scratch_state_payload(
+        db.session,
+        league_slug,
+        role=role,
+        save_url=url_for("site_gm.boost_lottery_save_scratch_extras") if role == "admin" else "",
+        reset_url=url_for("site_gm.boost_lottery_reset_scratch_extras") if role == "admin" else "",
     )
-    return {
-        "role": role,
-        "extra_gold": extras["extra_gold"],
-        "extra_silver": extras["extra_silver"],
-        "tickets": extras["tickets"],
-        "complete": extras["complete"],
-        "baseline_gold": DEFAULT_BASELINE_GOLD,
-        "baseline_silver": DEFAULT_BASELINE_SILVER,
-        "draw_gold": draw_gold,
-        "draw_silver": draw_silver,
-        "save_url": url_for("site_gm.boost_lottery_save_scratch_extras") if role == "admin" else "",
-        "reset_url": url_for("site_gm.boost_lottery_reset_scratch_extras") if role == "admin" else "",
-    }
 
 
 def _boost_lottery_json_guard(*, admin_only: bool):
+    from app.auth_login import league_hub_staff
+
     slug = _league_slug()
     if slug not in ("bowl-fantasy", "bowl-cap", "bowl-historical"):
         return None, jsonify({"error": "Not found."}), 404
     if not current_user.is_authenticated:
         return None, jsonify({"error": "Login required."}), 401
-    if admin_only and not getattr(current_user, "is_admin", False):
-        return None, jsonify({"error": "Boost lottery extras can only be saved by league admins."}), 403
+    if admin_only and not league_hub_staff(current_user):
+        return None, jsonify({"error": "Boost lottery extras can only be saved by league staff."}), 403
     if not admin_only:
         mem = _membership()
-        if not mem and not getattr(current_user, "is_admin", False):
+        if not mem and not league_hub_staff(current_user):
             return None, jsonify({"error": "Boost Lottery Tracker is available to active GMs."}), 403
     return slug, None, None
 
@@ -2690,38 +2639,56 @@ def _boost_lottery_csrf_error(data: dict | None):
 @site_gm_bp.route("/draft-lottery", methods=["GET"])
 @login_required
 def draft_lottery():
-    """Weighted 8-slot draft lottery sim (BOWL-Relegation site admins only)."""
+    """Official lottery now lives on the Draft Hub (BOWL-Relegation)."""
     slug = _league_slug()
     if slug != "bowl-fantasy":
         abort(404)
-    if not getattr(current_user, "is_admin", False):
-        flash("Draft lottery is only available to league admins.", "err")
-        return redirect(url_for("main.home"))
-    team_rows = _draft_lottery_team_rows()
-    return render_template("draft_lottery.html", team_rows=team_rows)
+    return redirect(url_for("draft_hub.draft_hub_page"))
+
+
+@site_gm_bp.get("/draft-lottery/preview")
+def draft_lottery_preview():
+    """Interactive NHL lottery demo — browser-only; official demo draws are staff-only."""
+    slug = _league_slug()
+    if slug != "bowl-fantasy":
+        abort(404)
+    from app.auth_login import league_hub_staff
+    from app.services.draft_lottery import build_preview_lottery_payload
+    from app.services.roster_team import is_main_league_team
+
+    teams = db.session.scalars(select(Team).order_by(Team.name)).all()
+    team_rows = []
+    for t in teams:
+        if not is_main_league_team(t):
+            continue
+        team_rows.append(
+            {
+                "id": int(t.id),
+                "name": t.full_display_name(),
+                "abbr": str(t.abbreviation or "")[:8],
+                "logo_url": team_logo_url_for_team(t),
+            }
+        )
+    can_staff = bool(current_user.is_authenticated and league_hub_staff(current_user))
+    can_practice = bool(
+        can_staff or (current_user.is_authenticated and _membership() is not None)
+    )
+    lottery_payload = build_preview_lottery_payload(team_rows, can_admin=can_staff)
+    return render_template(
+        "draft_lottery_preview.html",
+        lottery_json=lottery_payload,
+        lottery_practice_allowed=can_practice,
+    )
 
 
 @site_gm_bp.route("/boost-lottery", methods=["GET", "POST"])
 @login_required
 def boost_lottery():
-    """Draft boost ticket lottery (Relegation / Cap / Historical site admins)."""
+    """Legacy admin page — boost lottery now runs on the public Draft Hub."""
     slug = _league_slug()
     if slug not in ("bowl-fantasy", "bowl-cap", "bowl-historical"):
         abort(404)
-    if not getattr(current_user, "is_admin", False):
-        flash("Boost lottery is only available to league admins.", "err")
-        return redirect(url_for("main.home"))
-    if request.method == "POST":
-        changed = _save_boost_lottery_team_rows(slug, int(current_user.id))
-        flash(f"Boost Lottery winner tracker saved ({changed} team row{'s' if changed != 1 else ''} changed).", "ok")
-        return redirect(url_for("site_gm.boost_lottery"))
-    scratch = _boost_lottery_scratch_state(slug, role="admin")
-    return render_template(
-        "boost_lottery.html",
-        boost_theme=_boost_lottery_theme(slug),
-        boost_team_rows=_boost_lottery_team_rows(slug),
-        scratch=scratch,
-    )
+    return redirect(url_for("site_gm.boost_lottery_tracker"))
 
 
 @site_gm_bp.post("/boost-lottery/scratch-extras")
@@ -2768,21 +2735,21 @@ def boost_lottery_reset_scratch_extras():
 @site_gm_bp.get("/boost-lottery-tracker")
 @login_required
 def boost_lottery_tracker():
-    """Read-only boost winner totals for active GMs."""
+    """Read-only boost winner totals for active GMs and league staff."""
+    from app.auth_login import league_hub_staff
+
     slug = _league_slug()
     if slug not in ("bowl-fantasy", "bowl-cap", "bowl-historical"):
         abort(404)
     mem = _membership()
-    if not mem:
+    if not mem and not league_hub_staff(current_user):
         flash("Boost Lottery Tracker is available to active GMs.", "err")
         return redirect(url_for("main.home"))
-    scratch = _boost_lottery_scratch_state(slug, role="gm")
     return render_template(
         "boost_lottery_tracker.html",
         boost_theme=_boost_lottery_theme(slug),
         boost_team_rows=_boost_lottery_team_rows(slug),
         membership=mem,
-        scratch=scratch,
     )
 
 
@@ -9244,75 +9211,6 @@ def admin_draft_hub_edit(draft_id: int):
                     )
                     flash("Pick recorded.", "ok")
             commit_with_sqlite_retry(db.session)
-        elif act == "save_boosts":
-            gold_raw = (request.form.get("gold_picks") or "").strip()
-            silver_raw = (request.form.get("silver_picks") or "").strip()
-
-            def _parse_overall_csv(raw: str) -> set[int]:
-                out: set[int] = set()
-                for token in raw.replace(";", ",").replace("\n", ",").split(","):
-                    t = token.strip()
-                    if t.isdigit():
-                        out.add(int(t))
-                return out
-
-            gold = _parse_overall_csv(gold_raw)
-            silver = _parse_overall_csv(silver_raw)
-            overlap = gold & silver
-            if overlap:
-                flash(
-                    "Pick(s) listed as both gold and silver: "
-                    + ", ".join(str(n) for n in sorted(overlap))
-                    + ". A slot can only have one tier.",
-                    "err",
-                )
-            else:
-                slot_rows = list(
-                    db.session.scalars(
-                        select(LeagueDraftSlot).where(LeagueDraftSlot.league_draft_id == row.id)
-                    ).all()
-                )
-                slot_by_overall = {int(s.overall_pick): s for s in slot_rows}
-                unknown = sorted(
-                    n for n in (gold | silver) if n not in slot_by_overall
-                )
-                applied_gold = 0
-                applied_silver = 0
-                for s in slot_rows:
-                    ov = int(s.overall_pick)
-                    if ov in gold:
-                        s.boost_tier = "gold"
-                        applied_gold += 1
-                    elif ov in silver:
-                        s.boost_tier = "silver"
-                        applied_silver += 1
-                    else:
-                        s.boost_tier = ""
-                db.session.add(
-                    AdminAuditLog(
-                        admin_user_id=int(current_user.id),
-                        league_slug=slug,
-                        action="draft_hub_save_boosts",
-                        detail_json=json.dumps(
-                            {
-                                "draft_id": row.id,
-                                "gold": sorted(gold),
-                                "silver": sorted(silver),
-                            }
-                        ),
-                    )
-                )
-                commit_with_sqlite_retry(db.session)
-                msg = (
-                    f"Boost picks saved — Gold: {applied_gold}, Silver: {applied_silver}."
-                )
-                if unknown:
-                    msg += (
-                        " Ignored (no matching slot): "
-                        + ", ".join(str(n) for n in unknown)
-                        + "."
-                    )
-                flash(msg, "ok")
         elif act == "generate_order_from_standings" and row.status == "setup":
             from app.services.draft_hub_order import generate_draft_order_from_prior_season
 
@@ -9377,6 +9275,108 @@ def admin_draft_hub_edit(draft_id: int):
                 for warning in list(summary.get("strike_warnings") or []):
                     if warning:
                         flash(str(warning), "warn")
+                if slug == "bowl-fantasy":
+                    from app.services.draft_lottery import arm_lottery, delete_lottery_for_draft
+
+                    delete_lottery_for_draft(db.session, int(row.id))
+                    _arm, arm_err = arm_lottery(db.session, row)
+                    commit_with_sqlite_retry(db.session)
+                    if arm_err:
+                        flash(arm_err, "warn")
+                    else:
+                        flash("Draft lottery armed from this first-round order.", "ok")
+        elif act == "save_ranking_and_generate" and row.status == "setup":
+            from app.services.draft_hub_order import generate_draft_order_from_ranking
+            from app.services.draft_lottery import (
+                DEFAULT_DRAW_COUNT,
+                DEFAULT_LOTTERY_TEAM_COUNT,
+                arm_lottery,
+                delete_lottery_for_draft,
+            )
+
+            ranking_ids: list[int] = []
+            seen_rank: set[int] = set()
+            total_ranks = max(1, int(row.picks_per_round))
+            for idx in range(1, total_ranks + 1):
+                raw = (request.form.get(f"rank_team_{idx}") or "").strip()
+                if not raw.isdigit():
+                    continue
+                tid = int(raw)
+                if tid in seen_rank:
+                    continue
+                seen_rank.add(tid)
+                ranking_ids.append(tid)
+            try:
+                lottery_n = int(request.form.get("lottery_team_count") or DEFAULT_LOTTERY_TEAM_COUNT)
+            except (TypeError, ValueError):
+                lottery_n = DEFAULT_LOTTERY_TEAM_COUNT
+            try:
+                draw_n = int(request.form.get("lottery_draw_count") or DEFAULT_DRAW_COUNT)
+            except (TypeError, ValueError):
+                draw_n = DEFAULT_DRAW_COUNT
+            old_tiers = {
+                int(s.overall_pick): s.boost_tier or ""
+                for s in db.session.scalars(
+                    select(LeagueDraftSlot).where(LeagueDraftSlot.league_draft_id == row.id)
+                ).all()
+            }
+            old_penalties = {
+                int(s.overall_pick)
+                for s in db.session.scalars(
+                    select(LeagueDraftSlot).where(LeagueDraftSlot.league_draft_id == row.id)
+                ).all()
+                if bool(getattr(s, "penalty_pick", False))
+            }
+            db.session.execute(delete(LeagueDraftSlot).where(LeagueDraftSlot.league_draft_id == row.id))
+            created, err, summary = generate_draft_order_from_ranking(
+                db.session,
+                db.session,
+                league_slug=slug,
+                draft=row,
+                ranking_team_ids=ranking_ids,
+                preserve_boost_tiers=old_tiers,
+                preserve_penalty_picks=old_penalties,
+            )
+            if err:
+                db.session.rollback()
+                flash(err, "err")
+            else:
+                delete_lottery_for_draft(db.session, int(row.id))
+                _arm, arm_err = arm_lottery(
+                    db.session, row, team_count=lottery_n, draw_count=draw_n
+                )
+                db.session.add(
+                    AdminAuditLog(
+                        admin_user_id=int(current_user.id),
+                        league_slug=slug,
+                        action="draft_hub_ranking_order",
+                        detail_json=json.dumps(
+                            {
+                                "draft_id": row.id,
+                                "created": created,
+                                "lottery_team_count": lottery_n,
+                                "lottery_draw_count": draw_n,
+                                **summary,
+                            }
+                        ),
+                    )
+                )
+                commit_with_sqlite_retry(db.session)
+                msg = (
+                    f"Saved worst-to-first ranking and generated {created} slots "
+                    f"(pick ownership applied)."
+                )
+                traded = int(summary.get("traded_count") or 0)
+                if traded:
+                    msg += f" {traded} pick(s) use admin-managed trade ownership."
+                flash(msg, "ok")
+                if arm_err:
+                    flash(arm_err, "warn")
+                else:
+                    flash(
+                        f"Draft lottery armed ({min(lottery_n, created)} seeds, {draw_n} draws).",
+                        "ok",
+                    )
         elif act == "save_generated_slots" and row.status == "setup":
             old_tiers = {
                 int(s.overall_pick): s.boost_tier or ""
@@ -9422,6 +9422,18 @@ def admin_draft_hub_edit(draft_id: int):
             if traded_count:
                 msg += f" {traded_count} pick(s) tagged as received from a prior trade."
             flash(msg, "ok")
+            if slug == "bowl-fantasy":
+                from app.services.draft_lottery import arm_lottery, delete_lottery_for_draft, get_lottery, lottery_is_complete
+
+                existing_lotto = get_lottery(db.session, int(row.id))
+                if existing_lotto is None or not lottery_is_complete(existing_lotto):
+                    delete_lottery_for_draft(db.session, int(row.id))
+                    _arm, arm_err = arm_lottery(db.session, row)
+                    commit_with_sqlite_retry(db.session)
+                    if arm_err:
+                        flash(arm_err, "warn")
+                    else:
+                        flash("Draft lottery armed from this first-round order.", "ok")
         elif act == "save_slot_teams" and row.status in ("setup", "live"):
             picked_overalls = {
                 int(x)
@@ -9620,8 +9632,6 @@ def admin_draft_hub_edit(draft_id: int):
                         "queue_count": len(qitems),
                     }
                 )
-    gold_csv = ", ".join(str(s.overall_pick) for s in slots if s.boost_tier == "gold")
-    silver_csv = ", ".join(str(s.overall_pick) for s in slots if s.boost_tier == "silver")
     sched = ""
     if row.scheduled_start_at:
         sched = row.scheduled_start_at.strftime("%Y-%m-%dT%H:%M")
@@ -9640,17 +9650,54 @@ def admin_draft_hub_edit(draft_id: int):
     )
 
     standings_order_label = draft_order_prior_year_label(int(row.timeline_year))
+    ranking_defaults: list[int] = []
+    lottery_team_count = 16
+    lottery_draw_count = 2
+    lottery_odds_preview = []
+    if slug == "bowl-fantasy":
+        from app.services.draft_hub_order import standings_worst_to_best_for_draft_year
+        from app.services.draft_lottery import (
+            DEFAULT_DRAW_COUNT,
+            DEFAULT_LOTTERY_TEAM_COUNT,
+            get_lottery,
+            odds_matrix,
+            scale_combo_counts,
+        )
+        from app.services.roster_team import is_main_league_team
+
+        lottery_row = get_lottery(db.session, int(row.id))
+        if lottery_row is not None:
+            lottery_team_count = int(lottery_row.team_count or DEFAULT_LOTTERY_TEAM_COUNT)
+            lottery_draw_count = int(lottery_row.draw_count or DEFAULT_DRAW_COUNT)
+        r1 = [s for s in slots if int(s.round) == 1]
+        r1.sort(key=lambda s: int(s.overall_pick))
+        ranking_defaults = [int(s.original_team_id or s.team_id) for s in r1]
+        if not ranking_defaults:
+            standings, _label = standings_worst_to_best_for_draft_year(
+                db.session, int(row.timeline_year)
+            )
+            ranking_defaults = [
+                int(st.team.id) for st in standings if st.team is not None
+            ]
+        have = set(ranking_defaults)
+        for team in teams:
+            if is_main_league_team(team) and int(team.id) not in have:
+                ranking_defaults.append(int(team.id))
+        field_n = min(lottery_team_count, max(1, len(ranking_defaults)))
+        lottery_odds_preview = odds_matrix(scale_combo_counts(field_n), lottery_draw_count)
     return render_template(
         "admin_draft_hub_edit.html",
         league_slug=slug,
         draft=row,
         teams=teams,
+        ranking_defaults=ranking_defaults,
+        lottery_team_count=lottery_team_count,
+        lottery_draw_count=lottery_draw_count,
+        lottery_odds_preview=lottery_odds_preview,
         standings_order_label=standings_order_label,
         slots_csv=slots_csv,
         round_slot_rows=round_slot_rows,
         wishlist_guidance=wishlist_guidance,
-        gold_csv=gold_csv,
-        silver_csv=silver_csv,
         sounds=sounds,
         sched_value=sched,
         min_deadline_value=min_deadline_value,

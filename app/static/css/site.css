@@ -21308,15 +21308,23 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   border-top: 1px solid color-mix(in srgb, var(--boost-edge) 35%, transparent);
 }
 .boost-lottery-tracker__head {
-  margin-bottom: 0.55rem;
+  margin-bottom: 1rem;
+  text-align: center;
 }
 .boost-lottery-tracker__title {
-  margin: 0 0 0.25rem;
-  font-size: 0.95rem;
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.45rem, 4.5vw, 2.15rem);
   font-weight: 800;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--boost-accent);
+  line-height: 1.15;
+}
+.boost-lottery-tracker__lead {
+  max-width: 40rem;
+  margin: 0 auto;
+  font-size: 0.92rem;
+  line-height: 1.5;
 }
 .boost-lottery-tracker__table-wrap {
   overflow: visible;
@@ -21530,14 +21538,17 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
 [data-theme="light"] .boost-lottery-results__silver strong {
   color: #334155;
 }
-.boost-lottery-stage--scratch {
-  padding: 1rem 1rem 1.15rem;
+.draft-lottery-stage.card.boost-lottery-stage--scratch {
+  padding: 1.25rem 1.2rem 1.4rem;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.15rem;
 }
 .boost-lottery-pick-results {
-  padding: 0.75rem 0.85rem 0.9rem;
+  width: 100%;
+  max-width: 38rem;
+  margin-inline: auto;
+  padding: 0.85rem 0.9rem 1rem;
   border-radius: 12px;
   background: color-mix(in srgb, var(--surface) 82%, #020617);
   border: 1px solid color-mix(in srgb, var(--boost-edge) 40%, #334155);
@@ -21550,16 +21561,26 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   letter-spacing: 0.03em;
 }
 .boost-lottery-tracker-page__scratch {
-  max-width: 56rem;
+  max-width: 42rem;
   margin: 0 auto 1rem;
-  padding: 1rem 1.05rem 1.15rem;
+  padding: 1.2rem 1.2rem 1.35rem;
 }
 .boost-lottery-tracker-page .boost-lottery-tracker-page__panel {
   max-width: 34rem;
 }
 
+.boost-scratch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 38rem;
+  margin: 0 auto;
+  text-align: center;
+}
 .boost-scratch__header {
-  margin-bottom: 0.75rem;
+  width: 100%;
+  margin-bottom: 0.85rem;
 }
 .boost-scratch__eyebrow {
   margin: 0 0 0.2rem;
@@ -21569,30 +21590,36 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   text-transform: uppercase;
   color: color-mix(in srgb, var(--boost-accent) 80%, #f8fafc);
 }
-.boost-scratch__title {
-  margin: 0 0 0.4rem;
+.boost-scratch__title,
+.card .boost-scratch__title {
+  margin: 0 0 0.5rem;
   font-family: "Bebas Neue", Impact, sans-serif;
-  font-size: clamp(1.6rem, 3.5vw, 2.15rem);
+  font-size: clamp(1.7rem, 3.8vw, 2.25rem);
   letter-spacing: 0.08em;
+  border-bottom: none;
+  padding-bottom: 0;
 }
 .boost-scratch__banner {
   margin: 0;
-  padding: 0.45rem 0.6rem;
+  padding: 0.55rem 0.8rem;
   border-radius: 8px;
   background: color-mix(in srgb, var(--surface) 70%, #020617);
   border: 1px solid color-mix(in srgb, var(--boost-edge) 45%, transparent);
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 700;
+  line-height: 1.45;
   color: #f8fafc;
+  text-wrap: pretty;
 }
 .boost-scratch__practice-note {
-  margin: 0.4rem 0 0;
+  margin: 0.45rem 0 0;
   font-size: 0.78rem;
+  line-height: 1.45;
   color: #94a3b8;
 }
 .boost-scratch__mode {
   display: inline-flex;
-  margin: 0 0 0.75rem;
+  margin: 0 0 0.95rem;
   padding: 0.15rem;
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--boost-edge) 50%, #334155);
@@ -21621,14 +21648,22 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
 .boost-scratch__tickets {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: 1rem 1.15rem;
   justify-content: center;
-  margin: 0 0 0.85rem;
+  width: 100%;
+  margin: 0 0 1.15rem;
 }
 .boost-scratch-ticket {
-  width: min(11.5rem, 100%);
-  flex: 0 1 11.5rem;
+  width: min(10.75rem, 100%);
+  flex: 0 1 10.75rem;
   outline: none;
+}
+@media (max-width: 640px) {
+  .boost-scratch-ticket {
+    width: min(9.5rem, calc(50% - 0.6rem));
+    flex: 1 1 8.75rem;
+    max-width: 10.75rem;
+  }
 }
 .boost-scratch-ticket:focus-visible .boost-scratch-ticket__paper {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--boost-accent) 70%, transparent);
@@ -21819,15 +21854,21 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
 .boost-scratch__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.45rem;
-  margin: 0 0 0.45rem;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  margin: 0 0 0.9rem;
 }
 .boost-scratch__status,
 .boost-scratch__odds,
 .boost-scratch__stats {
-  margin: 0 0 0.25rem;
-  font-size: 0.72rem;
-  line-height: 1.4;
+  width: 100%;
+  margin: 0 0 0.4rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+.boost-scratch__stats {
+  margin-bottom: 0;
 }
 .boost-scratch--locked .boost-scratch-ticket__foil {
   cursor: default;
@@ -26302,6 +26343,432 @@ html[data-league="demolition"] .card {
   .player-compare__bar-row,
   .player-compare__ap-compare {
     grid-template-columns: 1fr minmax(3.5rem, 5.5rem) 1fr;
+  }
+}
+
+/* -- Draft Hub NHL lottery (BOWL-Relegation) -- */
+.dh-lottery-shell {
+  margin: 0 0 1.25rem;
+}
+.dh-boost-lottery-shell {
+  margin: 0 0 1.25rem;
+}
+.dh-boost-lottery-shell .boost-lottery-layout,
+.dh-boost-lottery-root .boost-lottery-panel {
+  margin-bottom: 1rem;
+}
+.dh-boost-scratch-host {
+  margin-top: 1rem;
+}
+.dh-lottery-panel {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 215, 96, 0.16), transparent 42%),
+    linear-gradient(180deg, #10263a 0%, #0b1b2b 70%);
+  border: 1px solid rgba(255, 215, 96, 0.35);
+  border-radius: 18px;
+  padding: 1rem 1.1rem 1.25rem;
+  color: #e8eef7;
+  box-shadow: 0 0 40px rgba(255, 196, 64, 0.08);
+}
+.dh-lottery-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: transparent;
+  border: 1px solid rgba(255, 215, 96, 0.45);
+  color: #ffd56a;
+  border-radius: 999px;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.dh-lottery-summary-line {
+  margin: 0.65rem 0 0;
+  color: #c5d4e6;
+}
+.dh-lottery-hero {
+  text-align: center;
+  padding: 0.5rem 0 1rem;
+  position: relative;
+}
+.dh-lottery-kicker {
+  margin: 0.35rem 0 0;
+  color: #8ec5ff;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+}
+.dh-lottery-title {
+  font-family: "Bebas Neue", Impact, sans-serif;
+  font-style: italic;
+  letter-spacing: 0.08em;
+  font-size: clamp(2.4rem, 6vw, 4rem);
+  color: #ffd56a;
+  margin: 0.2rem 0 0;
+  text-shadow: 0 0 24px rgba(255, 213, 106, 0.35);
+}
+.dh-lottery-sub {
+  color: #9ec9ff;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 0.82rem;
+  margin: 0.2rem 0 0;
+}
+.dh-lottery-hint {
+  max-width: 36rem;
+  margin: 0.55rem auto 0;
+  color: #b7c6d8;
+  font-size: 0.92rem;
+}
+.dh-lottery-combo-help {
+  max-width: 42rem;
+  margin: 0.85rem auto 0;
+  text-align: left;
+  background: rgba(8, 18, 30, 0.55);
+  border: 1px solid rgba(142, 197, 255, 0.25);
+  border-radius: 12px;
+  padding: 0.65rem 1rem 0.85rem;
+  color: #c5d4e6;
+  font-size: 0.88rem;
+}
+.dh-lottery-combo-help__title {
+  margin: 0;
+  color: #ffd56a;
+  font-size: 0.92rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  user-select: none;
+}
+.dh-lottery-combo-help__title::-webkit-details-marker {
+  display: none;
+}
+.dh-lottery-combo-help__title::before {
+  content: "▸";
+  color: #8ec5ff;
+  font-size: 0.85rem;
+  transition: transform 0.15s ease;
+}
+.dh-lottery-combo-help[open] .dh-lottery-combo-help__title::before {
+  transform: rotate(90deg);
+}
+.dh-lottery-combo-help__body {
+  margin-top: 0.65rem;
+}
+.dh-lottery-combo-help__lead {
+  margin: 0 0 0.65rem;
+  line-height: 1.45;
+}
+.dh-lottery-combo-steps {
+  margin: 0 0 0.65rem;
+  padding-left: 1.2rem;
+  line-height: 1.5;
+}
+.dh-lottery-combo-steps li {
+  margin-bottom: 0.35rem;
+}
+.dh-lottery-combo-not {
+  margin: 0 0 0.65rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 8px;
+  background: rgba(255, 107, 107, 0.1);
+  border: 1px solid rgba(255, 107, 107, 0.25);
+}
+.dh-lottery-combo-not p {
+  margin: 0.25rem 0;
+}
+.dh-lottery-combo-example {
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  background: rgba(61, 220, 132, 0.1);
+  border: 1px solid rgba(61, 220, 132, 0.28);
+}
+.dh-lottery-combo-example h4 {
+  margin: 0 0 0.35rem;
+  color: #3ddc84;
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.dh-lottery-combo-example p {
+  margin: 0;
+  line-height: 1.45;
+}
+.dh-lottery-result-caption {
+  margin: 0 0 0.45rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 8px;
+  background: rgba(142, 197, 255, 0.1);
+  border: 1px solid rgba(142, 197, 255, 0.22);
+  color: #d8e8f8;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+/* Hex-style lottery cage (distinct from circular drum reference) */
+.dh-lottery-cage {
+  width: min(240px, 62vw);
+  height: min(240px, 62vw);
+  margin: 0.4rem auto 0.2rem;
+  position: relative;
+  clip-path: polygon(50% 0%, 92% 18%, 100% 55%, 78% 92%, 22% 92%, 0% 55%, 8% 18%);
+  background: linear-gradient(165deg, #0d3048 0%, #061018 55%, #0a2235 100%);
+  border: 3px solid rgba(64, 224, 208, 0.55);
+  box-shadow:
+    inset 0 0 40px rgba(0, 0, 0, 0.65),
+    0 0 28px rgba(64, 224, 208, 0.18);
+  overflow: hidden;
+}
+.dh-lottery-cage__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.dh-lottery-cage__glass {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), transparent 45%, rgba(64, 224, 208, 0.06));
+  pointer-events: none;
+  z-index: 2;
+}
+.dh-lottery-reveal-layer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: min(240px, 62vw);
+  margin: 0.4rem auto 0;
+  max-width: min(240px, 62vw);
+  pointer-events: none;
+  z-index: 15;
+  overflow: visible;
+}
+.dh-lottery-reveal-ball {
+  position: absolute;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 1rem;
+  color: #0a1620;
+  background: radial-gradient(circle at 32% 28%, #fff, #ffd56a 85%);
+  box-shadow: 0 0 20px rgba(255, 213, 106, 0.65);
+  z-index: 20;
+}
+.dh-lottery-official--row,
+.dh-lottery-practice-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+}
+.dh-lottery-official,
+.dh-lottery-practice {
+  margin: 0.75rem 0;
+}
+.dh-lottery-practice {
+  border: 1px dashed rgba(255, 215, 96, 0.4);
+  border-radius: 14px;
+  padding: 0.85rem;
+}
+.dh-lottery-practice h3,
+.dh-lottery-draw-card h3 {
+  margin: 0 0 0.45rem;
+  color: #ffd56a;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.82rem;
+}
+.dh-lottery-practice > p {
+  margin: 0 0 0.65rem;
+  color: #b7c6d8;
+  font-size: 0.88rem;
+}
+.dh-lottery-draw-card {
+  background: rgba(8, 18, 30, 0.55);
+  border: 1px solid rgba(255, 215, 96, 0.18);
+  border-radius: 12px;
+  padding: 0.75rem;
+}
+.dh-lottery-balls {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.55rem;
+}
+.dh-lottery-ball {
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  color: #111;
+  background: radial-gradient(circle at 32% 28%, #fff, #cfd8e3 74%);
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.35);
+}
+.dh-lottery-ball--empty {
+  background: transparent;
+  border: 2px dashed rgba(255, 215, 96, 0.35);
+  box-shadow: none;
+  color: transparent;
+}
+.dh-lottery-lockchip {
+  display: inline-block;
+  margin: 0 0 0.35rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: #1f7a3a;
+  color: #d8ffe4;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.dh-lottery-result {
+  margin: 0 0 0.4rem;
+  color: #f3e2a8;
+}
+.dh-lottery-team {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.dh-lottery-logo {
+  width: 1.5rem;
+  height: 1.5rem;
+  object-fit: contain;
+}
+.dh-lottery-from {
+  color: #8ec5ff;
+  font-size: 0.78rem;
+}
+.dh-lottery-admin {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin: 0.75rem 0;
+}
+.dh-lottery-btn {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.55rem 1rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.dh-lottery-btn--draw {
+  background: linear-gradient(180deg, #ffd56a, #e0a21a);
+  color: #1a1204;
+}
+.dh-lottery-btn--ghost {
+  background: transparent;
+  color: #ffd56a;
+  border: 1px solid rgba(255, 215, 96, 0.4);
+}
+.dh-lottery-order {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: 0.4rem;
+  padding: 0;
+  margin: 0.75rem 0;
+}
+.dh-lottery-order li {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: rgba(8, 18, 30, 0.45);
+  border-radius: 10px;
+  padding: 0.35rem 0.5rem;
+}
+.dh-lottery-order-n {
+  color: #ffd56a;
+  font-weight: 800;
+  min-width: 1.4rem;
+}
+.dh-lottery-order-wrap {
+  margin-top: 0.75rem;
+}
+.dh-lottery-order-title {
+  margin: 0 0 0.45rem;
+  color: #ffd56a;
+  font-size: 0.95rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.dh-lottery-order-legend {
+  font-size: 0.72rem;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+  color: #b7c6d8;
+  margin-left: 0.35rem;
+}
+.dh-lottery-order__item--up {
+  border-left: 3px solid #3ddc84;
+  background: rgba(61, 220, 132, 0.12) !important;
+}
+.dh-lottery-order__item--down {
+  border-left: 3px solid #ff6b6b;
+  background: rgba(255, 107, 107, 0.12) !important;
+}
+.dh-lottery-move {
+  margin-left: auto;
+  font-size: 0.78rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.dh-lottery-move--up { color: #3ddc84; }
+.dh-lottery-move--down { color: #ff6b6b; }
+.dh-lottery-move--flat { color: #8a9bb0; }
+.dh-lottery-waiting {
+  margin: 0 0 0.45rem;
+  font-size: 0.85rem;
+}
+.dh-lottery-odds-wrap {
+  overflow: auto;
+  margin-top: 0.75rem;
+}
+.dh-lottery-odds {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+  background: #f7f4ee;
+  color: #1b2430;
+}
+.dh-lottery-odds th,
+.dh-lottery-odds td {
+  padding: 0.28rem 0.32rem;
+  border-bottom: 1px solid #e4ddd0;
+  white-space: nowrap;
+}
+.dh-lottery-odds thead th {
+  background: #b42318;
+  color: #fff;
+  position: sticky;
+  top: 0;
+}
+.dh-lottery-odds tbody tr:nth-child(even) {
+  background: #ece7dd;
+}
+.dh-lottery-avg {
+  color: #b42318;
+  font-weight: 800;
+}
+@media (max-width: 720px) {
+  .dh-lottery-panel { padding: 0.8rem; }
+  .dh-lottery-title { font-size: 2.1rem; }
+  .dh-lottery-official--row,
+  .dh-lottery-practice-row {
+    grid-template-columns: 1fr;
   }
 }
 

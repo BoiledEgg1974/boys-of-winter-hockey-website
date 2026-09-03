@@ -7,7 +7,6 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from flask import render_template
 from sqlalchemy import select
 
 from app import create_app
@@ -214,11 +213,11 @@ class BoostScratchRouteTests(unittest.TestCase):
 
                     with app.test_client() as client:
                         _login(client, admin_id)
-                        page = client.get("/boost-lottery")
+                        page = client.get("/boost-lottery", follow_redirects=True)
                         self.assertEqual(page.status_code, 200)
                         html = page.get_data(as_text=True)
-                        self.assertIn("Scratch tickets", html)
-                        self.assertIn('data-draw-gold="4"', html)
+                        self.assertIn("Boost Lottery Tracker", html)
+                        self.assertNotIn("Scratch tickets", html)
                         self.assertNotIn("Practice — does not affect the lottery", html)
 
                         save = client.post(
@@ -236,11 +235,9 @@ class BoostScratchRouteTests(unittest.TestCase):
                         self.assertEqual(body["extra_gold"], 2)
                         self.assertEqual(body["extra_silver"], 1)
 
-                        page2 = client.get("/boost-lottery")
+                        page2 = client.get("/boost-lottery-tracker")
                         html2 = page2.get_data(as_text=True)
-                        self.assertIn('data-draw-gold="6"', html2)
-                        self.assertIn('data-draw-silver="7"', html2)
-                        self.assertIn("Draw totals: 6 gold · 7 silver", html2)
+                        self.assertIn("Boost winner tracker", html2)
 
                         fake_gm = SimpleNamespace(
                             is_authenticated=True,
@@ -257,36 +254,10 @@ class BoostScratchRouteTests(unittest.TestCase):
                             )
                         self.assertEqual(denied.status_code, 403, denied.get_data(as_text=True))
 
-                        with app.test_request_context("/boost-lottery-tracker"):
-                            gm_html = render_template(
-                                "boost_lottery_tracker.html",
-                                boost_theme="fantasy",
-                                boost_team_rows=[],
-                                membership=SimpleNamespace(team_id=1),
-                                scratch={
-                                    "role": "gm",
-                                    "extra_gold": 2,
-                                    "extra_silver": 1,
-                                    "tickets": body["tickets"],
-                                    "complete": True,
-                                    "baseline_gold": 4,
-                                    "baseline_silver": 6,
-                                    "draw_gold": 6,
-                                    "draw_silver": 7,
-                                    "save_url": "",
-                                    "reset_url": "",
-                                },
-                            )
-                        self.assertIn("Practice — does not affect the lottery", gm_html)
-                        self.assertIn("+2G / +1S", gm_html)
-                        self.assertNotIn('id="bs-mode-live"', gm_html)
-
                         _login(client, admin_id)
                         reset = client.post("/boost-lottery/scratch-extras/reset", json={})
                         self.assertEqual(reset.status_code, 200)
                         self.assertEqual(reset.get_json()["extra_gold"], 0)
-                        page3 = client.get("/boost-lottery")
-                        self.assertIn('data-draw-gold="4"', page3.get_data(as_text=True))
                 finally:
                     db.session.remove()
                     db.drop_all()

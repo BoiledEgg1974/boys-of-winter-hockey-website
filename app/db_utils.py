@@ -3341,6 +3341,91 @@ def ensure_boost_lottery_scratch_extras_sqlite(engine: Engine) -> None:
         conn.commit()
 
 
+def ensure_league_draft_boost_pool_sqlite(engine: Engine) -> None:
+    """Create per-draft boost lottery pool state on the site DB."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text(
+                "SELECT 1 FROM sqlite_master "
+                "WHERE type='table' AND name='league_draft_boost_pools'"
+            )
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE league_draft_boost_pools (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    league_draft_id INTEGER NOT NULL,
+                    triple_lo INTEGER NOT NULL DEFAULT 28,
+                    triple_hi INTEGER NOT NULL DEFAULT 81,
+                    single_lo INTEGER NOT NULL DEFAULT 82,
+                    single_hi INTEGER NOT NULL DEFAULT 216,
+                    pool_tickets_json TEXT NOT NULL DEFAULT '[]',
+                    last_gold_json TEXT NOT NULL DEFAULT '[]',
+                    last_silver_json TEXT NOT NULL DEFAULT '[]',
+                    updated_at DATETIME NOT NULL,
+                    FOREIGN KEY(league_draft_id) REFERENCES league_drafts (id)
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE UNIQUE INDEX uq_league_draft_boost_pool_draft "
+                "ON league_draft_boost_pools (league_draft_id)"
+            )
+        )
+        conn.commit()
+
+
+def ensure_league_draft_lotteries_sqlite(engine: Engine) -> None:
+    """Create official Draft Hub lottery rows on the site DB."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text(
+                "SELECT 1 FROM sqlite_master "
+                "WHERE type='table' AND name='league_draft_lotteries'"
+            )
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE league_draft_lotteries (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    league_draft_id INTEGER NOT NULL,
+                    status VARCHAR(24) NOT NULL DEFAULT 'pending',
+                    team_count INTEGER NOT NULL DEFAULT 16,
+                    draw_count INTEGER NOT NULL DEFAULT 2,
+                    seeds_json TEXT NOT NULL DEFAULT '[]',
+                    combo_map_json TEXT NOT NULL DEFAULT '{}',
+                    unused_combo VARCHAR(32) NOT NULL DEFAULT '',
+                    draws_json TEXT NOT NULL DEFAULT '[]',
+                    round1_snapshot_json TEXT NOT NULL DEFAULT '[]',
+                    tail_json TEXT NOT NULL DEFAULT '[]',
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL,
+                    FOREIGN KEY(league_draft_id) REFERENCES league_drafts (id)
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE UNIQUE INDEX uq_league_draft_lottery_draft "
+                "ON league_draft_lotteries (league_draft_id)"
+            )
+        )
+        conn.commit()
+
+
 def ensure_record_stat_adjustments_sqlite(engine: Engine) -> None:
     """Admin exclude/override rows for records leaderboard recalculation."""
     if engine.dialect.name != "sqlite":

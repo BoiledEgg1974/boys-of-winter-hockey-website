@@ -17,10 +17,12 @@ from app.models import (
     Game,
     GameGoalieStat,
     GameSkaterStat,
+    HistoryAllStar,
     HistoryAward,
     HistoryChampion,
     PenaltyEvent,
     Player,
+    PlayerContract,
     PlayerGoalieStat,
     PlayerSkaterCareerLine,
     PlayerSkaterStat,
@@ -32,7 +34,12 @@ from app.models import (
 from app.services.playoff_bracket import is_playoff_game_type
 from app.services.seasons import get_current_season, season_display_label
 from app.services.team_records import CHAMPION_RESULT
-from app.site_models import GmAchievementUnlock, GmAchievementWatermark, GmLeagueMembership
+from app.site_models import (
+    GmAchievementUnlock,
+    GmAchievementWatermark,
+    GmExportAttendance,
+    GmLeagueMembership,
+)
 
 _log = logging.getLogger(__name__)
 
@@ -44,6 +51,20 @@ RELEGATION_ONLY = frozenset({"bowl-fantasy"})
 
 _FIGHT_WORDS = ("fight", "fighting", "fisticuffs", "combat")
 _MVP_NEEDLES = ("HART", "MOST VALUABLE", "MVP")
+_CALDER_NEEDLES = ("CALDER", "ROOKIE OF THE YEAR")
+BARGAIN_BIN_SALARY_CAP = 1_000_000
+EXPORT_STREAK_TARGET = 10
+EXPORT_STREAK_MAX_GAP_DAYS = 8
+HOMEGROWN_CORE_TARGET = 8
+DRAFT_STEAL_OVERALL = 100
+DRAFT_STEAL_POINTS = 70
+FIRST_STAR_TARGET = 10
+WIN_STREAK_TARGET = 5
+OT_WINS_TARGET = 8
+NEMESIS_WINS_TARGET = 6
+COMEBACK_DEFICIT = 3
+FIGHT_NIGHT_MIN = 3
+FOUR_GOAL_MIN = 4
 _CITY_NATION = {
     "toronto": "canada",
     "montreal": "canada",
@@ -95,6 +116,7 @@ class AchievementDef:
     category: str
     ap: int
     leagues: frozenset[str] | None = None
+    hidden: bool = False
 
 
 CATALOG: tuple[AchievementDef, ...] = (
@@ -124,6 +146,42 @@ CATALOG: tuple[AchievementDef, ...] = (
     AchievementDef("two_hundred", "The 200 Club", "One of your players scores 200 points in a season.", "season", 5),
     AchievementDef("true_franchise", "True Franchise Manager", "Manage a single team for ten seasons.", "career", 5),
     AchievementDef("cup_eight_seed", "Cup as 8-seed", "Win the BOWL Cup as the lowest playoff seed.", "playoffs", 5),
+    AchievementDef("comeback_kids", "Comeback Kids", "Win a game after trailing by 3 or more goals.", "game", 2),
+    AchievementDef("four_goal_night", "Four-Goal Night", "One of your players scores 4 or more goals in a game.", "game", 2),
+    AchievementDef("fight_night", "Fight Night", "Three or more of your players take fighting majors in the same game.", "game", 1),
+    AchievementDef("league_first_hat", "League First", "Score the first hat trick of the season.", "game", 2),
+    AchievementDef("statement_win", "Statement Win", "Beat the first-place team while sitting outside a playoff spot.", "game", 2),
+    AchievementDef("on_a_heater", "On a Heater", "Win 5 games in a row.", "season", 1),
+    AchievementDef("home_cooking", "Home Cooking", "Lead the league in home wins.", "season", 2),
+    AchievementDef("overtime_merchant", "Overtime Merchant", "Win 8 or more overtime or shootout games in a season.", "season", 2),
+    AchievementDef("three_star_season", "Three-Star Season", "One of your players is named first star 10 times in a season.", "season", 2),
+    AchievementDef("bargain_bin", "Bargain Bin", "A player making under $1M AAV scores 30 or more goals.", "season", 2),
+    AchievementDef("calder_club", "Calder Club", "One of your players wins the Calder Trophy.", "season", 2),
+    AchievementDef("nemesis", "Nemesis", "Beat the same opponent 6 or more times in one season.", "season", 2),
+    AchievementDef("playoff_ot_hero", "Playoff OT Hero", "Score the overtime winner in a playoff game.", "playoffs", 2),
+    AchievementDef(
+        "reverse_sweep",
+        "Reverse Sweep",
+        "Win a playoff series after trailing 0–3.",
+        "playoffs",
+        5,
+        hidden=True,
+    ),
+    AchievementDef(
+        "homegrown_core",
+        "Homegrown Core",
+        "Have at least 8 players on your roster who were drafted by your franchise.",
+        "career",
+        3,
+    ),
+    AchievementDef(
+        "draft_steal",
+        "Draft Steal",
+        "A player you drafted 100th overall or later records 70 points in a season or makes an all-star team.",
+        "career",
+        3,
+    ),
+    AchievementDef("export_streak", "Export Streak", "Record 10 consecutive scheduled exports.", "career", 1),
 )
 
 CATALOG_BY_KEY = {item.key: item for item in CATALOG}
@@ -164,6 +222,25 @@ class PlayoffSeries:
                 if self.winner_id == self.team_b and wb == 2 and wa == 3:
                     after_five_down = True
         return after_five_down and self.wins_a + self.wins_b == 7
+
+    def trailed_0_3_then_won(self) -> bool:
+        if self.winner_id is None or len(self.game_winners) < 7:
+            return False
+        if self.wins_a + self.wins_b != 7:
+            return False
+        wa = wb = 0
+        down_0_3 = False
+        for i, wid in enumerate(self.game_winners, start=1):
+            if wid == self.team_a:
+                wa += 1
+            elif wid == self.team_b:
+                wb += 1
+            if i == 3:
+                if self.winner_id == self.team_a and wa == 0 and wb == 3:
+                    down_0_3 = True
+                if self.winner_id == self.team_b and wb == 0 and wa == 3:
+                    down_0_3 = True
+        return down_0_3
 
     def is_upset(self) -> bool:
         if self.winner_id is None or self.rank_a is None or self.rank_b is None:
@@ -237,6 +314,179 @@ def detect_natural_hat_trick(events: Iterable[Any]) -> int | None:
         if run >= 3:
             return pid
     return None
+
+
+def _game_winner_loser(game: Any) -> tuple[int | None, int | None]:
+    hs = getattr(game, "home_score", None)
+    aws = getattr(game, "away_score", None)
+    if hs is None or aws is None:
+        return None, None
+    if int(hs) == int(aws):
+        return None, None
+    hid = getattr(game, "home_team_id", None)
+    aid = getattr(game, "away_team_id", None)
+    if hid is None or aid is None:
+        return None, None
+    if int(hs) > int(aws):
+        return int(hid), int(aid)
+    return int(aid), int(hid)
+
+
+def detect_comeback_from_events(
+    events: Iterable[Any],
+    *,
+    home_team_id: int | None,
+    away_team_id: int | None,
+    winner_id: int | None,
+    deficit: int = COMEBACK_DEFICIT,
+) -> bool:
+    if not winner_id or not home_team_id or not away_team_id:
+        return False
+    home = away = 0
+    max_down = 0
+    ordered = sorted(
+        [e for e in events if getattr(e, "scoring_team_id", None)],
+        key=lambda e: _event_sort_key(getattr(e, "period", None), getattr(e, "time_elapsed", None)),
+    )
+    if not ordered:
+        return False
+    hid, aid, wid = int(home_team_id), int(away_team_id), int(winner_id)
+    for ev in ordered:
+        try:
+            tid = int(ev.scoring_team_id)
+        except (TypeError, ValueError):
+            continue
+        if tid == hid:
+            home += 1
+        elif tid == aid:
+            away += 1
+        if wid == hid:
+            max_down = max(max_down, away - home)
+        elif wid == aid:
+            max_down = max(max_down, home - away)
+    return max_down >= int(deficit)
+
+
+def detect_comeback_from_period_scores(
+    game: Any,
+    *,
+    winner_id: int | None,
+    deficit: int = COMEBACK_DEFICIT,
+) -> bool:
+    if not winner_id:
+        return False
+    hid = getattr(game, "home_team_id", None)
+    aid = getattr(game, "away_team_id", None)
+    if hid is None or aid is None:
+        return False
+    home_periods = (
+        getattr(game, "score_home_p1", None),
+        getattr(game, "score_home_p2", None),
+        getattr(game, "score_home_p3", None),
+        getattr(game, "score_home_ot", None),
+    )
+    away_periods = (
+        getattr(game, "score_away_p1", None),
+        getattr(game, "score_away_p2", None),
+        getattr(game, "score_away_p3", None),
+        getattr(game, "score_away_ot", None),
+    )
+    if all(v is None for v in home_periods) and all(v is None for v in away_periods):
+        return False
+    home = away = 0
+    max_down = 0
+    wid = int(winner_id)
+    for hp, ap in zip(home_periods, away_periods):
+        home += int(hp or 0)
+        away += int(ap or 0)
+        if wid == int(hid):
+            max_down = max(max_down, away - home)
+        elif wid == int(aid):
+            max_down = max(max_down, home - away)
+    return max_down >= int(deficit)
+
+
+def detect_playoff_ot_winner(
+    events: Iterable[Any],
+    game: Any,
+) -> tuple[int | None, int | None]:
+    """Return (scorer_id, scoring_team_id) for a playoff overtime winner."""
+    if not is_playoff_game_type(getattr(game, "game_type", None)):
+        return None, None
+    if not getattr(game, "went_to_overtime", False):
+        return None, None
+    ordered = sorted(
+        [e for e in events if getattr(e, "scorer_player_id", None)],
+        key=lambda e: _event_sort_key(getattr(e, "period", None), getattr(e, "time_elapsed", None)),
+    )
+    ot_events = [e for e in ordered if int(getattr(e, "period", 0) or 0) >= 4]
+    last = (ot_events or ordered)[-1] if (ot_events or ordered) else None
+    if last is None:
+        return None, None
+    try:
+        pid = int(last.scorer_player_id)
+    except (TypeError, ValueError):
+        pid = None
+    try:
+        tid = int(last.scoring_team_id) if last.scoring_team_id else None
+    except (TypeError, ValueError):
+        tid = None
+    return pid, tid
+
+
+def max_win_streak(results: Iterable[str]) -> int:
+    best = cur = 0
+    for result in results:
+        if result == "W":
+            cur += 1
+            best = max(best, cur)
+        else:
+            cur = 0
+    return best
+
+
+def game_outcome_letter(game: Any, team_id: int) -> str | None:
+    winner, loser = _game_winner_loser(game)
+    if winner is None:
+        hs = getattr(game, "home_score", None)
+        aws = getattr(game, "away_score", None)
+        if hs is not None and aws is not None and int(hs) == int(aws):
+            return "T"
+        return None
+    if int(team_id) == winner:
+        return "W"
+    if int(team_id) == loser:
+        return "L"
+    return None
+
+
+def export_streak_len(dates: Iterable[date], *, max_gap_days: int = EXPORT_STREAK_MAX_GAP_DAYS) -> int:
+    ordered = sorted({d for d in dates if d is not None})
+    if not ordered:
+        return 0
+    best = cur = 1
+    for prev, nxt in zip(ordered, ordered[1:]):
+        gap = (nxt - prev).days
+        if 1 <= gap <= int(max_gap_days):
+            cur += 1
+            best = max(best, cur)
+        else:
+            cur = 1
+    return best
+
+
+def playoff_spot_cutoff(team_count: int) -> int:
+    n = int(team_count or 0)
+    if n >= 24:
+        return 16
+    if n >= 12:
+        return 8
+    return max(2, n // 2)
+
+
+def is_calder_award(name: str | None) -> bool:
+    up = " ".join((name or "").upper().split())
+    return any(n in up for n in _CALDER_NEEDLES)
 
 
 def detect_goalie_win_1_0_40(
@@ -460,13 +710,27 @@ def discover_true_achievements(
         )
 
     fights_by_game_player: set[tuple[int, int]] = set()
+    fights_by_game_team: dict[tuple[int, int], int] = {}
     for pen in penalties:
-        if pen.player_id and is_fighting_infraction(pen.infraction):
+        if not is_fighting_infraction(pen.infraction):
+            continue
+        if pen.player_id:
             fights_by_game_player.add((int(pen.game_id), int(pen.player_id)))
+        if pen.team_id:
+            key = (int(pen.game_id), int(pen.team_id))
+            fights_by_game_team[key] = fights_by_game_team.get(key, 0) + 1
 
     scoring_by_game: dict[int, list[ScoringEvent]] = {}
     for ev in scoring:
         scoring_by_game.setdefault(int(ev.game_id), []).append(ev)
+
+    player_team_by_game: dict[tuple[int, int], int] = {}
+    for ln in skater_lines:
+        if ln.player_id and ln.team_id:
+            player_team_by_game[(int(ln.game_id), int(ln.player_id))] = int(ln.team_id)
+    for ln in goalie_lines:
+        if ln.player_id and ln.team_id:
+            player_team_by_game[(int(ln.game_id), int(ln.player_id))] = int(ln.team_id)
 
     players_by_id: dict[int, Player] = {}
     pids = {int(ln.player_id) for ln in skater_lines if ln.player_id}
@@ -488,6 +752,47 @@ def discover_true_achievements(
                     "detail": f"{_player_name(session, ln.player_id)} recorded a Gordie Howe hat trick",
                 },
             )
+        if int(ln.goals or 0) >= FOUR_GOAL_MIN:
+            mark(
+                ln.team_id,
+                "four_goal_night",
+                {
+                    "player_id": ln.player_id,
+                    "player_name": _player_name(session, ln.player_id),
+                    "game_id": ln.game_id,
+                    "detail": f"{_player_name(session, ln.player_id)} scored {int(ln.goals)} goals",
+                },
+            )
+
+    hat_trick_games: list[tuple[date, int, int, int, str]] = []
+    for ln in skater_lines:
+        if int(ln.goals or 0) < 3 or not ln.team_id:
+            continue
+        g = games_by_id.get(int(ln.game_id))
+        if g is None:
+            continue
+        hat_trick_games.append(
+            (
+                g.game_date or date.max,
+                int(g.id),
+                int(ln.team_id),
+                int(ln.player_id) if ln.player_id else 0,
+                _player_name(session, ln.player_id),
+            )
+        )
+    if hat_trick_games:
+        hat_trick_games.sort(key=lambda row: (row[0], row[1], row[2]))
+        first = hat_trick_games[0]
+        mark(
+            first[2],
+            "league_first_hat",
+            {
+                "player_id": first[3] or None,
+                "player_name": first[4],
+                "game_id": first[1],
+                "detail": f"{first[4] or 'A player'} scored the first hat trick of the season",
+            },
+        )
 
     for gid, events in scoring_by_game.items():
         pid = detect_natural_hat_trick(events)
@@ -545,6 +850,83 @@ def discover_true_achievements(
                 nations.append(nat)
             if ok and nations and all(n == want for n in nations):
                 mark(tid, "nationalism", {"game_id": g.id, "detail": "All-national lineup"})
+
+    playoff_ids = {
+        int(pg.home_team_id)
+        for pg in games
+        if is_playoff_game_type(pg.game_type) and pg.home_team_id
+    } | {
+        int(pg.away_team_id)
+        for pg in games
+        if is_playoff_game_type(pg.game_type) and pg.away_team_id
+    }
+    playoff_cutoff = len(playoff_ids) if playoff_ids else playoff_spot_cutoff(len(rs_rank))
+
+    for g in games:
+        winner_id, loser_id = _game_winner_loser(g)
+        events = scoring_by_game.get(int(g.id), [])
+        if winner_id and (
+            detect_comeback_from_events(
+                events,
+                home_team_id=g.home_team_id,
+                away_team_id=g.away_team_id,
+                winner_id=winner_id,
+            )
+            or (
+                not events
+                and detect_comeback_from_period_scores(g, winner_id=winner_id)
+            )
+        ):
+            mark(
+                winner_id,
+                "comeback_kids",
+                {"game_id": g.id, "detail": f"Won after trailing by {COMEBACK_DEFICIT}+ goals"},
+            )
+
+        for tid in (g.home_team_id, g.away_team_id):
+            if tid and fights_by_game_team.get((int(g.id), int(tid)), 0) >= FIGHT_NIGHT_MIN:
+                mark(
+                    tid,
+                    "fight_night",
+                    {
+                        "game_id": g.id,
+                        "count": fights_by_game_team[(int(g.id), int(tid))],
+                        "detail": f"{fights_by_game_team[(int(g.id), int(tid))]} fighting majors in one game",
+                    },
+                )
+
+        if winner_id and is_playoff_game_type(g.game_type):
+            ot_pid, ot_tid = detect_playoff_ot_winner(events, g)
+            if ot_tid:
+                pname = _player_name(session, ot_pid)
+                mark(
+                    ot_tid,
+                    "playoff_ot_hero",
+                    {
+                        "player_id": ot_pid,
+                        "player_name": pname,
+                        "game_id": g.id,
+                        "detail": f"{pname or 'A player'} scored a playoff OT winner",
+                    },
+                )
+
+        if winner_id and loser_id and rs_rank:
+            w_rank = rs_rank.get(int(winner_id))
+            l_rank = rs_rank.get(int(loser_id))
+            outside = (
+                int(winner_id) not in playoff_ids
+                if playoff_ids
+                else (w_rank is not None and w_rank > playoff_cutoff)
+            )
+            if l_rank == 1 and outside:
+                mark(
+                    winner_id,
+                    "statement_win",
+                    {
+                        "game_id": g.id,
+                        "detail": f"Beat {_team_name(session, loser_id)} from outside a playoff spot",
+                    },
+                )
 
     # --- season counting stats ---
     if season:
@@ -646,6 +1028,19 @@ def discover_true_achievements(
             if hometown >= 3:
                 mark(tid, "hometown_roster", {"count": hometown, "detail": f"{hometown} hometown players"})
 
+        drafted_by_team: dict[int, set[int]] = {}
+        for pick in session.scalars(select(DraftPick).where(DraftPick.player_id.is_not(None))).all():
+            if pick.team_id and pick.player_id:
+                drafted_by_team.setdefault(int(pick.team_id), set()).add(int(pick.player_id))
+        for tid, plist in by_team_roster.items():
+            grown = [pl for pl in plist if int(pl.id) in drafted_by_team.get(tid, set())]
+            if len(grown) >= HOMEGROWN_CORE_TARGET:
+                mark(
+                    tid,
+                    "homegrown_core",
+                    {"count": len(grown), "detail": f"{len(grown)} self-drafted players on the roster"},
+                )
+
         if rs_rank:
             first_id = next((tid for tid, r in rs_rank.items() if r == 1), None)
             playoffs_started = any(is_playoff_game_type(g.game_type) for g in games)
@@ -678,6 +1073,109 @@ def discover_true_achievements(
                 if r.team_id and float(r.pp_pct or 0) == best_pp and float(r.pk_pct or 0) == best_pk:
                     mark(r.team_id, "youre_special", {"detail": "Led the league in PP% and PK%"})
 
+        home_wins: dict[int, int] = {}
+        ot_wins: dict[int, int] = {}
+        wins_vs: dict[int, dict[int, int]] = {}
+        results_by_team: dict[int, list[str]] = {}
+        first_stars: dict[int, dict[int, int]] = {}
+        chrono_games = sorted(games, key=lambda g: (g.game_date or date.min, int(g.id)))
+        for g in chrono_games:
+            winner_id, loser_id = _game_winner_loser(g)
+            playoff = is_playoff_game_type(g.game_type)
+            if winner_id and loser_id:
+                if not playoff and int(winner_id) == int(g.home_team_id):
+                    home_wins[int(winner_id)] = home_wins.get(int(winner_id), 0) + 1
+                if not playoff and (g.went_to_overtime or g.went_to_shootout):
+                    ot_wins[int(winner_id)] = ot_wins.get(int(winner_id), 0) + 1
+                opp = int(loser_id)
+                bucket = wins_vs.setdefault(int(winner_id), {})
+                bucket[opp] = bucket.get(opp, 0) + 1
+            for tid in (g.home_team_id, g.away_team_id):
+                if not tid:
+                    continue
+                letter = game_outcome_letter(g, int(tid))
+                if letter:
+                    results_by_team.setdefault(int(tid), []).append(letter)
+            star_pid = getattr(g, "fhm_star1_player_id", None)
+            if star_pid:
+                star_tid = player_team_by_game.get((int(g.id), int(star_pid)))
+                if star_tid:
+                    team_stars = first_stars.setdefault(int(star_tid), {})
+                    team_stars[int(star_pid)] = team_stars.get(int(star_pid), 0) + 1
+
+        for tid, letters in results_by_team.items():
+            streak = max_win_streak(letters)
+            if streak >= WIN_STREAK_TARGET:
+                mark(tid, "on_a_heater", {"streak": streak, "detail": f"{streak}-game win streak"})
+
+        playoffs_started = any(is_playoff_game_type(g.game_type) for g in games)
+        if home_wins and playoffs_started:
+            best_home = max(home_wins.values())
+            home_leaders = [tid for tid, n in home_wins.items() if n == best_home]
+            if len(home_leaders) == 1:
+                mark(
+                    home_leaders[0],
+                    "home_cooking",
+                    {"wins": best_home, "detail": f"Led the league with {best_home} home wins"},
+                )
+
+        for tid, n in ot_wins.items():
+            if n >= OT_WINS_TARGET:
+                mark(tid, "overtime_merchant", {"wins": n, "detail": f"{n} overtime or shootout wins"})
+
+        for tid, by_player in first_stars.items():
+            best_pid, best_n = max(by_player.items(), key=lambda item: item[1])
+            if best_n >= FIRST_STAR_TARGET:
+                pname = _player_name(session, best_pid)
+                mark(
+                    tid,
+                    "three_star_season",
+                    {
+                        "player_id": best_pid,
+                        "player_name": pname,
+                        "count": best_n,
+                        "detail": f"{pname} was first star {best_n} times",
+                    },
+                )
+
+        for tid, by_opp in wins_vs.items():
+            if not by_opp:
+                continue
+            opp_id, n = max(by_opp.items(), key=lambda item: item[1])
+            if n >= NEMESIS_WINS_TARGET:
+                mark(
+                    tid,
+                    "nemesis",
+                    {
+                        "opponent_team_id": opp_id,
+                        "wins": n,
+                        "detail": f"Beat {_team_name(session, opp_id)} {n} times",
+                    },
+                )
+
+        contracts = {
+            int(c.player_id): c
+            for c in session.scalars(select(PlayerContract)).all()
+            if c.player_id
+        }
+        for st in skaters:
+            if int(st.goals or 0) < 30 or not st.player_id or not st.team_id:
+                continue
+            contract = contracts.get(int(st.player_id))
+            salary = int(contract.average_salary) if contract and contract.average_salary is not None else None
+            if salary is None or salary <= 0 or salary >= BARGAIN_BIN_SALARY_CAP:
+                continue
+            pname = _player_name(session, st.player_id)
+            mark(
+                st.team_id,
+                "bargain_bin",
+                {
+                    "player_id": st.player_id,
+                    "player_name": pname,
+                    "detail": f"{pname} scored {int(st.goals)} goals on a sub-$1M deal",
+                },
+            )
+
     # --- playoffs / cups ---
     po_games = [g for g in games if is_playoff_game_type(g.game_type)]
     for g in po_games:
@@ -709,6 +1207,8 @@ def discover_true_achievements(
             mark(ser.winner_id, "guarantee", {"detail": "Won a 7-game series after trailing 3–2"})
         if ser.winner_id and ser.is_sweep:
             mark(ser.winner_id, "playoff_sweep", {"detail": "Swept a playoff series"})
+        if ser.winner_id and ser.trailed_0_3_then_won():
+            mark(ser.winner_id, "reverse_sweep", {"detail": "Won a series after trailing 0–3"})
         if ser.winner_id and ser.winner_id in champ_team_ids and ser.winner_is_lowest_seed(playoff_ranks):
             mark(ser.winner_id, "cup_eight_seed", {"detail": "Won the Cup as the lowest playoff seed"})
 
@@ -755,6 +1255,50 @@ def discover_true_achievements(
                     "player_id": pick.player_id,
                     "player_name": _player_name(session, pick.player_id),
                     "detail": f"Drafted {_player_name(session, pick.player_id) or 'a player'} 54th overall",
+                },
+            )
+
+    late_picks = list(
+        session.scalars(
+            select(DraftPick).where(
+                DraftPick.overall_pick >= DRAFT_STEAL_OVERALL,
+                DraftPick.player_id.is_not(None),
+                DraftPick.team_id.is_not(None),
+            )
+        ).all()
+    )
+    if late_picks:
+        late_pids = {int(p.player_id) for p in late_picks if p.player_id}
+        steal_stat_rows = list(
+            session.scalars(
+                select(PlayerSkaterStat).where(
+                    PlayerSkaterStat.player_id.in_(late_pids),
+                    PlayerSkaterStat.stat_segment == "rs",
+                    PlayerSkaterStat.points >= DRAFT_STEAL_POINTS,
+                )
+            ).all()
+        )
+        steal_points = {int(st.player_id) for st in steal_stat_rows if st.player_id}
+        steal_stars = {
+            int(row.player_id)
+            for row in session.scalars(
+                select(HistoryAllStar).where(HistoryAllStar.player_id.in_(late_pids))
+            ).all()
+            if row.player_id
+        }
+        steal_pids = steal_points | steal_stars
+        for pick in late_picks:
+            if not pick.player_id or int(pick.player_id) not in steal_pids:
+                continue
+            pname = _player_name(session, pick.player_id)
+            mark(
+                pick.team_id,
+                "draft_steal",
+                {
+                    "player_id": pick.player_id,
+                    "player_name": pname,
+                    "overall_pick": pick.overall_pick,
+                    "detail": f"{pname or 'A player'} (pick {int(pick.overall_pick)}) became a late-round steal",
                 },
             )
 
@@ -816,6 +1360,20 @@ def discover_true_achievements(
                     },
                 )
 
+    for aw in awards:
+        if not is_calder_award(aw.award_name) or not aw.team_id:
+            continue
+        pname = _player_name(session, aw.player_id)
+        mark(
+            aw.team_id,
+            "calder_club",
+            {
+                "player_id": aw.player_id,
+                "player_name": pname,
+                "detail": f"{pname or 'A player'} won the Calder Trophy",
+            },
+        )
+
     if tenure_counts:
         for tid, n in tenure_counts.items():
             if n >= 10:
@@ -824,6 +1382,22 @@ def discover_true_achievements(
     if promoted_team_ids:
         for tid in promoted_team_ids:
             mark(tid, "going_up", {"detail": "Promoted to the higher league"})
+
+    attendance_rows = list(
+        session.scalars(select(GmExportAttendance).where(GmExportAttendance.league_slug == league_slug)).all()
+    )
+    dates_by_team: dict[int, list[date]] = {}
+    for row in attendance_rows:
+        if row.team_id and row.export_date:
+            dates_by_team.setdefault(int(row.team_id), []).append(row.export_date)
+    for tid, dates in dates_by_team.items():
+        streak = export_streak_len(dates)
+        if streak >= EXPORT_STREAK_TARGET:
+            mark(
+                tid,
+                "export_streak",
+                {"streak": streak, "detail": f"{streak} consecutive scheduled exports"},
+            )
 
     return hits
 
@@ -1173,6 +1747,144 @@ def progress_for_team(
                 "target": 1,
                 "label": f"#{rank} in the league",
             }
+        team_games = [
+            g
+            for g in session.scalars(
+                select(Game).where(
+                    Game.status == "final",
+                    Game.season_id == season.id,
+                    or_(Game.home_team_id == int(team_id), Game.away_team_id == int(team_id)),
+                )
+            ).all()
+        ]
+        team_games.sort(key=lambda g: (g.game_date or date.min, int(g.id)))
+        letters = []
+        for g in team_games:
+            letter = game_outcome_letter(g, int(team_id))
+            if letter:
+                letters.append(letter)
+        heater = max_win_streak(letters)
+        if heater:
+            out["on_a_heater"] = {
+                "current": min(heater, WIN_STREAK_TARGET),
+                "target": WIN_STREAK_TARGET,
+                "label": f"{heater}-game win streak",
+            }
+        ot_n = 0
+        wins_vs: dict[int, int] = {}
+        for g in team_games:
+            winner_id, loser_id = _game_winner_loser(g)
+            if winner_id != int(team_id) or loser_id is None:
+                continue
+            if not is_playoff_game_type(g.game_type) and (g.went_to_overtime or g.went_to_shootout):
+                ot_n += 1
+            wins_vs[int(loser_id)] = wins_vs.get(int(loser_id), 0) + 1
+        if ot_n:
+            out["overtime_merchant"] = {
+                "current": min(ot_n, OT_WINS_TARGET),
+                "target": OT_WINS_TARGET,
+                "label": f"{ot_n} OT/SO wins",
+            }
+        if wins_vs:
+            best_vs = max(wins_vs.values())
+            out["nemesis"] = {
+                "current": min(best_vs, NEMESIS_WINS_TARGET),
+                "target": NEMESIS_WINS_TARGET,
+                "label": f"{best_vs} wins vs one opponent",
+            }
+        star_counts: dict[int, int] = {}
+        star_game_ids = [int(g.id) for g in team_games if getattr(g, "fhm_star1_player_id", None)]
+        star_on_team: set[tuple[int, int]] = set()
+        if star_game_ids:
+            for ln in session.scalars(
+                select(GameSkaterStat).where(
+                    GameSkaterStat.game_id.in_(star_game_ids),
+                    GameSkaterStat.team_id == int(team_id),
+                )
+            ).all():
+                if ln.player_id:
+                    star_on_team.add((int(ln.game_id), int(ln.player_id)))
+            for ln in session.scalars(
+                select(GameGoalieStat).where(
+                    GameGoalieStat.game_id.in_(star_game_ids),
+                    GameGoalieStat.team_id == int(team_id),
+                )
+            ).all():
+                if ln.player_id:
+                    star_on_team.add((int(ln.game_id), int(ln.player_id)))
+        for g in team_games:
+            star_pid = getattr(g, "fhm_star1_player_id", None)
+            if star_pid and (int(g.id), int(star_pid)) in star_on_team:
+                star_counts[int(star_pid)] = star_counts.get(int(star_pid), 0) + 1
+        if star_counts:
+            best_stars = max(star_counts.values())
+            out["three_star_season"] = {
+                "current": min(best_stars, FIRST_STAR_TARGET),
+                "target": FIRST_STAR_TARGET,
+                "label": f"{best_stars} first-star games",
+            }
+        cheap_goals = 0
+        skater_pids = [int(st.player_id) for st in skaters if st.player_id]
+        contracts_by_pid: dict[int, PlayerContract] = {}
+        if skater_pids:
+            for contract in session.scalars(
+                select(PlayerContract).where(PlayerContract.player_id.in_(skater_pids))
+            ).all():
+                if contract.player_id:
+                    contracts_by_pid[int(contract.player_id)] = contract
+        for st in skaters:
+            if not st.player_id:
+                continue
+            contract = contracts_by_pid.get(int(st.player_id))
+            salary = int(contract.average_salary) if contract and contract.average_salary is not None else None
+            if salary is None or salary <= 0 or salary >= BARGAIN_BIN_SALARY_CAP:
+                continue
+            cheap_goals = max(cheap_goals, int(st.goals or 0))
+        if cheap_goals:
+            out["bargain_bin"] = {
+                "current": min(cheap_goals, 30),
+                "target": 30,
+                "label": f"{cheap_goals} goals on a sub-$1M deal",
+            }
+    drafted_ids = {
+        int(p.player_id)
+        for p in session.scalars(
+            select(DraftPick).where(DraftPick.team_id == int(team_id), DraftPick.player_id.is_not(None))
+        ).all()
+        if p.player_id
+    }
+    if drafted_ids:
+        grown = session.scalar(
+            select(func.count(Player.id)).where(
+                Player.current_team_id == int(team_id),
+                Player.retired.is_(False),
+                Player.id.in_(drafted_ids),
+            )
+        )
+        grown_n = int(grown or 0)
+        if grown_n:
+            out["homegrown_core"] = {
+                "current": min(grown_n, HOMEGROWN_CORE_TARGET),
+                "target": HOMEGROWN_CORE_TARGET,
+                "label": f"{grown_n} / {HOMEGROWN_CORE_TARGET} self-drafted",
+            }
+    export_dates = [
+        row.export_date
+        for row in session.scalars(
+            select(GmExportAttendance).where(
+                GmExportAttendance.league_slug == league_slug,
+                GmExportAttendance.team_id == int(team_id),
+            )
+        ).all()
+        if row.export_date
+    ]
+    export_n = export_streak_len(export_dates)
+    if export_n:
+        out["export_streak"] = {
+            "current": min(export_n, EXPORT_STREAK_TARGET),
+            "target": EXPORT_STREAK_TARGET,
+            "label": f"{export_n} / {EXPORT_STREAK_TARGET} consecutive exports",
+        }
     return out
 
 
@@ -1205,6 +1917,9 @@ def build_achievements_page_payload(
         prog = progress.get(spec.key)
         status = "locked"
         blurb = ""
+        hidden_locked = bool(spec.hidden)
+        title = spec.title
+        description = spec.description
         if unlock:
             status = "completed"
             completed += 1
@@ -1212,19 +1927,25 @@ def build_achievements_page_payload(
             blurb = str((unlock.meta_map() or {}).get("detail") or "")
             if unlock.season_label:
                 blurb = f"{blurb} · {unlock.season_label}".strip(" ·")
+            hidden_locked = False
+        elif spec.hidden:
+            title = "???"
+            description = "Hidden achievement. Keep playing."
+            prog = None
         elif prog and int(prog.get("current") or 0) > 0:
             status = "progress"
             blurb = str(prog.get("label") or "")
         groups.setdefault(spec.category, []).append(
             {
                 "key": spec.key,
-                "title": spec.title,
-                "description": spec.description,
+                "title": title,
+                "description": description,
                 "ap": spec.ap,
                 "category": spec.category,
                 "status": status,
                 "blurb": blurb,
                 "progress": prog,
+                "hidden": hidden_locked,
                 "unlocked_at": unlock.unlocked_at if unlock else None,
             }
         )

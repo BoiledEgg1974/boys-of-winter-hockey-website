@@ -4832,6 +4832,9 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
 .gm-achievements__card--locked {
   opacity: 0.72;
 }
+.gm-achievements__card--hidden {
+  background: color-mix(in srgb, var(--bg) 86%, #0f172a);
+}
 .gm-achievements__card-head {
   display: flex;
   align-items: center;

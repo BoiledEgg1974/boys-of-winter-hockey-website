@@ -24,11 +24,11 @@
     <h2 id="gm-ach-{{ cat }}" class="gm-achievements__heading">{{ heading }}</h2>
     <div class="gm-achievements__grid">
       {% for card in cards %}
-      <article class="gm-achievements__card gm-achievements__card--{{ card.status }}">
+      <article class="gm-achievements__card gm-achievements__card--{{ card.status }}{% if card.hidden %} gm-achievements__card--hidden{% endif %}">
         <div class="gm-achievements__card-head">
           <span class="gm-achievements__badge gm-achievements__badge--{{ card.category }}" aria-hidden="true"></span>
           <h3 class="gm-achievements__title">{{ card.title }}</h3>
-          <span class="gm-achievements__ap">+{{ card.ap }} AP</span>
+          <span class="gm-achievements__ap">{% if card.hidden %}+? AP{% else %}+{{ card.ap }} AP{% endif %}</span>
         </div>
         <p class="gm-achievements__desc">{{ card.description }}</p>
         {% if card.status == 'completed' %}

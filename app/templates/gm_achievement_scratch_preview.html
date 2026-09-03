@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Achievement scratch preview — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card gm-achievements" style="max-width:64rem;margin:0 auto;"
+     data-ach-scratch
+     data-preview="1"
+     data-preview-title="The Pinnacle"
+     data-preview-multiplier="3"
+     data-start-url="preview/start"
+     data-claim-url="preview/claim">
+  <h1 class="page-title">Achievement scratch preview</h1>
+  <p class="muted">Local demo only — no login, and nothing is written to the AP ledger. Click the glowing card, scratch all three spots, then watch the popup, fireworks, and sound.</p>
+  <p class="muted"><a href="{{ url_for('site_gm.gm_achievements_scratch_preview') }}">Scratch again</a></p>
+
+  <section class="gm-achievements__section" aria-labelledby="gm-ach-preview">
+    <h2 id="gm-ach-preview" class="gm-achievements__heading">Playoffs</h2>
+    <div class="gm-achievements__grid">
+      <article class="gm-achievements__card gm-achievements__card--locked">
+        <div class="gm-achievements__flip">
+          <div class="gm-achievements__face gm-achievements__face--front">
+            <div class="gm-achievements__card-head">
+              <span class="gm-achievements__badge gm-achievements__badge--playoffs" aria-hidden="true"></span>
+              <h3 class="gm-achievements__title">The Guarantee</h3>
+              <span class="gm-achievements__ap">×2</span>
+            </div>
+            <p class="gm-achievements__desc">Win a 7-game playoff series after being down 3–2.</p>
+            <p class="gm-achievements__status gm-achievements__status--locked">Locked</p>
+          </div>
+        </div>
+      </article>
+      <article class="gm-achievements__card gm-achievements__card--completed gm-achievements__card--claimable"
+        data-storage-key="pinnacle"
+        data-title="The Pinnacle"
+        data-multiplier="3"
+        tabindex="0"
+        role="button"
+        aria-label="Scratch The Pinnacle reward ticket">
+        <div class="gm-achievements__flip">
+          <div class="gm-achievements__face gm-achievements__face--front">
+            <div class="gm-achievements__card-head">
+              <span class="gm-achievements__badge gm-achievements__badge--playoffs" aria-hidden="true"></span>
+              <h3 class="gm-achievements__title">The Pinnacle</h3>
+              <span class="gm-achievements__ap">Scratch</span>
+            </div>
+            <p class="gm-achievements__desc">Win the BOWL Cup.</p>
+            <p class="gm-achievements__status">Ticket ready</p>
+          </div>
+          <div class="gm-achievements__face gm-achievements__face--back" aria-hidden="true">
+            <p class="gm-ach-scratch__hint">Scratch all three spots</p>
+            <div class="gm-ach-scratch__cells">
+              {% for _ in [1, 2, 3] %}
+              <div class="gm-ach-scratch__cell">
+                <div class="gm-ach-scratch__prize" aria-hidden="true">?</div>
+                <div class="gm-ach-scratch__foil-wrap">
+                  <canvas class="gm-ach-scratch__foil" width="120" height="90"></canvas>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </article>
+    </div>
+  </section>
+</div>
+
+<dialog class="gm-ach-scratch-dialog" id="gm-ach-scratch-dialog"
+        style="--gm-ach-fw-sheet: url('{{ url_for('static', filename='img/fw-sheet.png') }}')">
+  <div class="gm-ach-fw" id="gm-ach-fw" aria-hidden="true"></div>
+  <form class="gm-ach-scratch-dialog__form" method="dialog">
+    <h2 class="gm-ach-scratch-dialog__title" id="gm-ach-scratch-dialog-title">Achievement reward</h2>
+    <p class="gm-ach-scratch-dialog__lead" id="gm-ach-scratch-dialog-lead"></p>
+    <p class="gm-ach-scratch-dialog__math" id="gm-ach-scratch-dialog-math"></p>
+    <p class="gm-ach-scratch-dialog__total" id="gm-ach-scratch-dialog-total"></p>
+    <p class="gm-ach-scratch-dialog__balance muted" id="gm-ach-scratch-dialog-balance"></p>
+    <div class="gm-ach-scratch-dialog__actions">
+      <button type="submit" class="btn">Got it</button>
+    </div>
+  </form>
+</dialog>
+<div class="gm-ach-sfx" hidden aria-hidden="true">
+  <audio data-ach-sfx="crackle" preload="auto" src="{{ url_for('static', filename='sfx/crackle.wav') }}"></audio>
+  <audio data-ach-sfx="fireworks" preload="auto" src="{{ url_for('static', filename='sfx/fireworks.wav') }}"></audio>
+  <audio data-ach-sfx="confetti" preload="auto" src="{{ url_for('static', filename='sfx/confetti.wav') }}"></audio>
+  <audio data-ach-sfx="cheer" preload="none" src="{{ url_for('static', filename='sfx/cheer.wav') }}"></audio>
+  <audio data-ach-sfx="cheer-big" preload="none" src="{{ url_for('static', filename='sfx/cheer-big.wav') }}"></audio>
+  <audio data-ach-sfx="explosion" preload="auto" src="{{ url_for('static', filename='sfx/explosion.wav') }}"></audio>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/gm_achievement_scratch.js') }}"></script>
+{% endblock %}

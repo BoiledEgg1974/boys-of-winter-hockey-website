@@ -4865,16 +4865,21 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
   gap: 0.7rem;
 }
 .gm-achievements__card {
-  border: 1px solid var(--border);
+  --gm-ach-tone: #f87171;
+  border: 1px solid color-mix(in srgb, var(--gm-ach-tone) 42%, var(--border));
   border-radius: 10px;
   padding: 0.7rem 0.75rem 0.75rem;
   background: var(--bg);
 }
+.gm-achievements__card--locked,
+.gm-achievements__card--progress {
+  --gm-ach-tone: #ef4444;
+}
 .gm-achievements__card--completed {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  --gm-ach-tone: #4ade80;
 }
 .gm-achievements__card--locked {
-  opacity: 0.72;
+  opacity: 0.92;
 }
 .gm-achievements__card--hidden {
   background: color-mix(in srgb, var(--bg) 86%, #0f172a);
@@ -4898,22 +4903,19 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
   width: 0.7rem;
   height: 0.7rem;
   border-radius: 50%;
-  background: var(--muted);
+  background: var(--gm-ach-tone);
   flex: 0 0 auto;
 }
-.gm-achievements__badge--game { background: #38bdf8; }
-.gm-achievements__badge--season { background: #a3e635; }
-.gm-achievements__badge--playoffs { background: var(--accent); }
-.gm-achievements__badge--career { background: #c084fc; }
 .gm-achievements__title {
   margin: 0;
   flex: 1 1 auto;
   font-size: 0.95rem;
+  color: var(--gm-ach-tone);
 }
 .gm-achievements__ap {
   font-size: 0.72rem;
   font-weight: 800;
-  color: var(--accent);
+  color: var(--gm-ach-tone);
   white-space: nowrap;
 }
 .gm-achievements__desc,
@@ -4925,6 +4927,7 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
 }
 .gm-achievements__status {
   font-weight: 700;
+  color: var(--gm-ach-tone);
 }
 .gm-achievements__track {
   display: block;
@@ -4937,7 +4940,178 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
 .gm-achievements__track span {
   display: block;
   height: 100%;
-  background: var(--accent);
+  background: var(--gm-ach-tone);
+}
+.gm-achievements__card--claimable {
+  cursor: pointer;
+  border-color: #fbbf24;
+  box-shadow: 0 0 0 1px rgb(251 191 36 / 0.35), 0 0 18px rgb(250 204 21 / 0.18);
+  animation: gm-ach-card-pulse 1.8s ease-in-out infinite;
+  perspective: 900px;
+}
+.gm-achievements__card--claimable.is-flipped {
+  animation: none;
+  cursor: default;
+}
+@keyframes gm-ach-card-pulse {
+  0%, 100% { box-shadow: 0 0 0 1px rgb(251 191 36 / 0.3), 0 0 10px rgb(250 204 21 / 0.12); }
+  50% { box-shadow: 0 0 0 2px rgb(252 211 77 / 0.7), 0 0 22px rgb(250 204 21 / 0.32); }
+}
+.gm-achievements__flip {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.55s ease;
+}
+.gm-achievements__card--claimable .gm-achievements__flip {
+  min-height: 8.5rem;
+}
+.gm-achievements__card--claimable.is-flipped .gm-achievements__flip {
+  transform: rotateY(180deg);
+}
+.gm-achievements__face--back {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.15rem;
+  backface-visibility: hidden;
+  transform: rotateY(180deg);
+}
+.gm-achievements__face--front {
+  backface-visibility: hidden;
+}
+.gm-ach-scratch__hint {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-align: center;
+}
+.gm-ach-scratch__cells {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+.gm-ach-scratch__cell {
+  position: relative;
+  min-height: 4.4rem;
+  border-radius: 8px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--surface) 80%, #0f172a);
+  border: 1px solid var(--border);
+}
+.gm-ach-scratch__prize {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.55rem;
+  font-weight: 900;
+  color: #fde68a;
+}
+.gm-ach-scratch__foil-wrap {
+  position: absolute;
+  inset: 0;
+}
+.gm-ach-scratch__foil {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+.gm-ach-scratch__cell.is-revealed .gm-ach-scratch__foil {
+  pointer-events: none;
+}
+.gm-ach-scratch-dialog {
+  overflow: visible;
+  max-width: min(28rem, 94vw);
+  width: 100%;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: inherit;
+}
+.gm-ach-scratch-dialog::backdrop {
+  background: rgb(15 23 42 / 0.72);
+}
+.gm-ach-scratch-dialog__form {
+  position: relative;
+  z-index: 2;
+  padding: 1rem 1.15rem 0.95rem;
+}
+.gm-ach-fw {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  overflow: visible;
+}
+.gm-ach-fw__sprite {
+  position: absolute;
+  width: 160px;
+  height: 160px;
+  margin: -80px 0 0 -80px;
+  background: var(--gm-ach-fw-sheet) no-repeat;
+  background-size: 1280px 480px;
+  mix-blend-mode: screen;
+  mix-blend-mode: plus-lighter;
+  opacity: 0;
+}
+.gm-ach-fw__sprite.gm-ach-fw--gold { animation: gmAchFwGold 0.7s steps(8) infinite backwards; }
+.gm-ach-fw__sprite.gm-ach-fw--diamond { animation: gmAchFwDiamond 0.7s steps(8) infinite backwards; }
+.gm-ach-fw__sprite.gm-ach-fw--perfect { animation: gmAchFwPerfect 0.72s steps(8) infinite backwards; }
+.gm-ach-fw.is-on .gm-ach-fw__sprite { opacity: 1; }
+@keyframes gmAchFwGold {
+  from { background-position: 0 0; }
+  to { background-position: -1280px 0; }
+}
+@keyframes gmAchFwDiamond {
+  from { background-position: 0 -160px; }
+  to { background-position: -1280px -160px; }
+}
+@keyframes gmAchFwPerfect {
+  from { background-position: 0 -320px; }
+  to { background-position: -1280px -320px; }
+}
+.gm-ach-scratch-dialog__title {
+  margin: 0 0 0.35rem;
+  font-size: 1.1rem;
+}
+.gm-ach-scratch-dialog__lead,
+.gm-ach-scratch-dialog__math,
+.gm-ach-scratch-dialog__balance {
+  margin: 0.25rem 0 0;
+  font-size: 0.9rem;
+}
+.gm-ach-scratch-dialog__total {
+  margin: 0.55rem 0 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--accent);
+}
+.gm-ach-scratch-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.85rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid rgb(148 163 184 / 0.2);
+}
+@media (prefers-reduced-motion: reduce) {
+  .gm-achievements__card--claimable,
+  .gm-achievements__flip {
+    animation: none;
+    transition: none;
+  }
+  .gm-ach-fw__sprite {
+    animation: none !important;
+    opacity: 0 !important;
+  }
 }
 /* Team banner stays vivid in light theme; keep trophy tiles readable like the player hero. */
 [data-theme="light"] .team-hero .player-profile__trophy-badge {
@@ -6139,6 +6313,21 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
 }
 .header-tools__link--messages {
   position: relative;
+}
+.header-tools__link--ach-ready {
+  color: #fde68a;
+  text-shadow: 0 0 10px rgb(250 204 21 / 0.85);
+  animation: gm-ach-nav-pulse 1.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .header-tools__link--ach-ready {
+    animation: none;
+    font-weight: 800;
+  }
+}
+@keyframes gm-ach-nav-pulse {
+  0%, 100% { filter: brightness(1); text-shadow: 0 0 8px rgb(250 204 21 / 0.55); }
+  50% { filter: brightness(1.25); text-shadow: 0 0 16px rgb(253 224 71 / 0.95); }
 }
 .header-tools__msg-badge {
   display: inline-block;

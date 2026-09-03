@@ -1571,6 +1571,10 @@ class GmAchievementUnlock(db.Model):
     season_label: Mapped[str] = mapped_column(String(16), nullable=False, default="")
     meta_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
     ap_delta: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    reward_cells_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reward_ticket_ap: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    reward_multiplier: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     def meta_map(self) -> dict:
         try:

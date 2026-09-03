@@ -1,7 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Achievements — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
 {% block content %}
-<div class="card gm-achievements" style="max-width:64rem;margin:0 auto;">
+<div class="card gm-achievements" style="max-width:64rem;margin:0 auto;"
+     data-ach-scratch
+     data-start-url="{{ url_for('site_gm.gm_achievements_scratch_start') }}"
+     data-claim-url="{{ url_for('site_gm.gm_achievements_scratch_claim') }}">
+  <input type="hidden" id="gm-ach-csrf" value="{{ csrf_token() }}">
   <h1 class="page-title">Achievements</h1>
   {% with messages = get_flashed_messages(with_categories=true) %}
   {% if messages %}
@@ -26,26 +30,60 @@
     <h2 id="gm-ach-{{ cat }}" class="gm-achievements__heading">{{ heading }}</h2>
     <div class="gm-achievements__grid">
       {% for card in cards %}
-      <article class="gm-achievements__card gm-achievements__card--{{ card.status }}{% if card.hidden %} gm-achievements__card--hidden{% endif %}"{% if card.status == 'completed' and card.unlocked_at %} data-unlocked-at="{{ card.unlocked_at.isoformat() }}"{% endif %}>
-        <div class="gm-achievements__card-head">
-          <span class="gm-achievements__badge gm-achievements__badge--{{ card.category }}" aria-hidden="true"></span>
-          <h3 class="gm-achievements__title">{{ card.title }}</h3>
-          <span class="gm-achievements__ap">{% if card.hidden %}+? AP{% else %}+{{ card.ap }} AP{% endif %}</span>
+      {% set claimable = card.claimable %}
+      <article class="gm-achievements__card gm-achievements__card--{{ card.status }}{% if card.hidden %} gm-achievements__card--hidden{% endif %}{% if claimable %} gm-achievements__card--claimable{% endif %}"
+        {% if card.status == 'completed' and card.unlocked_at %} data-unlocked-at="{{ card.unlocked_at.isoformat() }}"{% endif %}
+        {% if claimable %} data-storage-key="{{ card.storage_key }}" data-title="{{ card.title }}" data-multiplier="{{ card.multiplier }}" tabindex="0" role="button" aria-label="Scratch {{ card.title }} reward ticket"{% endif %}>
+        <div class="gm-achievements__flip">
+          <div class="gm-achievements__face gm-achievements__face--front">
+            <div class="gm-achievements__card-head">
+              <span class="gm-achievements__badge gm-achievements__badge--{{ card.category }}" aria-hidden="true"></span>
+              <h3 class="gm-achievements__title">{{ card.title }}</h3>
+              <span class="gm-achievements__ap">
+                {% if card.hidden and card.status != 'completed' %}
+                  ×?
+                {% elif card.claimed and card.reward_cells and card.reward_ticket_ap is not none and card.reward_total is not none %}
+                  {{ card.reward_cells|join(' + ') }} = {{ card.reward_ticket_ap }} × {{ card.multiplier }} = {{ card.reward_total }} AP
+                {% elif card.claimed and card.reward_total is not none %}
+                  +{{ card.reward_total }} AP
+                {% elif claimable %}
+                  Scratch
+                {% else %}
+                  ×{{ card.multiplier }}
+                {% endif %}
+              </span>
+            </div>
+            <p class="gm-achievements__desc">{{ card.description }}{% if card.repeatable and not card.hidden %} <span class="muted">Can be earned each season.</span>{% endif %}</p>
+            {% if card.status == 'completed' %}
+            <p class="gm-achievements__status">{% if claimable %}Ticket ready{% else %}Completed{% endif %}{% if card.unlocked_at %} · {{ card.unlocked_at.strftime('%b %d, %Y') }}{% endif %}</p>
+            {% if card.blurb %}<p class="gm-achievements__blurb">{{ card.blurb }}</p>{% endif %}
+            {% elif card.status == 'progress' %}
+            <p class="gm-achievements__status">In progress{% if card.blurb %} · {{ card.blurb }}{% endif %}</p>
+            {% if card.progress and card.progress.target %}
+            <div class="gm-achievements__track" role="meter" aria-valuemin="0" aria-valuemax="{{ card.progress.target }}" aria-valuenow="{{ card.progress.current }}" aria-label="{{ card.title }} progress">
+              <span style="width: {{ ([100, (card.progress.current / card.progress.target * 100)]|min)|round(0)|int }}%"></span>
+            </div>
+            {% endif %}
+            {% else %}
+            <p class="gm-achievements__status gm-achievements__status--locked">Locked</p>
+            {% endif %}
+          </div>
+          {% if claimable %}
+          <div class="gm-achievements__face gm-achievements__face--back" aria-hidden="true">
+            <p class="gm-ach-scratch__hint">Scratch all three spots</p>
+            <div class="gm-ach-scratch__cells">
+              {% for _ in [1, 2, 3] %}
+              <div class="gm-ach-scratch__cell">
+                <div class="gm-ach-scratch__prize" aria-hidden="true">?</div>
+                <div class="gm-ach-scratch__foil-wrap">
+                  <canvas class="gm-ach-scratch__foil" width="120" height="90"></canvas>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
         </div>
-        <p class="gm-achievements__desc">{{ card.description }}{% if card.repeatable and not card.hidden %} <span class="muted">Can be earned each season.</span>{% endif %}</p>
-        {% if card.status == 'completed' %}
-        <p class="gm-achievements__status">Completed{% if card.unlocked_at %} · {{ card.unlocked_at.strftime('%b %d, %Y') }}{% endif %}</p>
-        {% if card.blurb %}<p class="gm-achievements__blurb">{{ card.blurb }}</p>{% endif %}
-        {% elif card.status == 'progress' %}
-        <p class="gm-achievements__status">In progress{% if card.blurb %} · {{ card.blurb }}{% endif %}</p>
-        {% if card.progress and card.progress.target %}
-        <div class="gm-achievements__track" role="meter" aria-valuemin="0" aria-valuemax="{{ card.progress.target }}" aria-valuenow="{{ card.progress.current }}" aria-label="{{ card.title }} progress">
-          <span style="width: {{ ([100, (card.progress.current / card.progress.target * 100)]|min)|round(0)|int }}%"></span>
-        </div>
-        {% endif %}
-        {% else %}
-        <p class="gm-achievements__status gm-achievements__status--locked">Locked</p>
-        {% endif %}
       </article>
       {% endfor %}
     </div>
@@ -53,4 +91,30 @@
   {% endif %}
   {% endfor %}
 </div>
+
+<dialog class="gm-ach-scratch-dialog" id="gm-ach-scratch-dialog"
+        style="--gm-ach-fw-sheet: url('{{ url_for('static', filename='img/fw-sheet.png') }}')">
+  <div class="gm-ach-fw" id="gm-ach-fw" aria-hidden="true"></div>
+  <form class="gm-ach-scratch-dialog__form" method="dialog">
+    <h2 class="gm-ach-scratch-dialog__title" id="gm-ach-scratch-dialog-title">Achievement reward</h2>
+    <p class="gm-ach-scratch-dialog__lead" id="gm-ach-scratch-dialog-lead"></p>
+    <p class="gm-ach-scratch-dialog__math" id="gm-ach-scratch-dialog-math"></p>
+    <p class="gm-ach-scratch-dialog__total" id="gm-ach-scratch-dialog-total"></p>
+    <p class="gm-ach-scratch-dialog__balance muted" id="gm-ach-scratch-dialog-balance"></p>
+    <div class="gm-ach-scratch-dialog__actions">
+      <button type="submit" class="btn">Got it</button>
+    </div>
+  </form>
+</dialog>
+<div class="gm-ach-sfx" hidden aria-hidden="true">
+  <audio data-ach-sfx="crackle" preload="auto" src="{{ url_for('static', filename='sfx/crackle.wav') }}"></audio>
+  <audio data-ach-sfx="fireworks" preload="auto" src="{{ url_for('static', filename='sfx/fireworks.wav') }}"></audio>
+  <audio data-ach-sfx="confetti" preload="auto" src="{{ url_for('static', filename='sfx/confetti.wav') }}"></audio>
+  <audio data-ach-sfx="cheer" preload="none" src="{{ url_for('static', filename='sfx/cheer.wav') }}"></audio>
+  <audio data-ach-sfx="cheer-big" preload="none" src="{{ url_for('static', filename='sfx/cheer-big.wav') }}"></audio>
+  <audio data-ach-sfx="explosion" preload="auto" src="{{ url_for('static', filename='sfx/explosion.wav') }}"></audio>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/gm_achievement_scratch.js') }}"></script>
 {% endblock %}

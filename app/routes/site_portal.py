@@ -1023,6 +1023,99 @@ def gm_achievements_page():
     return render_template("gm_achievements.html", membership=mem, **payload)
 
 
+@site_gm_bp.get("/achievements/scratch-preview")
+def gm_achievements_scratch_preview():
+    """Local-only scratch demo. No login and no AP ledger writes."""
+    if not (current_app.debug or current_app.testing):
+        abort(404)
+    return render_template("gm_achievement_scratch_preview.html")
+
+
+def _achievement_scratch_guard():
+    slug = _league_slug()
+    mem = _membership()
+    if not mem:
+        return None, None, jsonify({"ok": False, "error": "Achievements scratch is available to active GMs."}), 403
+    return slug, mem, None, None
+
+
+def _achievement_scratch_csrf_error(data: dict | None):
+    if not current_app.config.get("WTF_CSRF_ENABLED", True):
+        return None
+    from flask_wtf.csrf import validate_csrf
+
+    token = None
+    if isinstance(data, dict):
+        token = data.get("csrf_token")
+    token = token or request.headers.get("X-CSRFToken")
+    try:
+        validate_csrf(token)
+    except Exception:
+        return jsonify({"ok": False, "error": "Invalid or missing CSRF token."}), 400
+    return None
+
+
+@site_gm_bp.post("/achievements/scratch/start")
+@login_required
+def gm_achievements_scratch_start():
+    from app.services.gm_achievements import start_achievement_scratch
+
+    slug, mem, err_resp, err_code = _achievement_scratch_guard()
+    if err_resp is not None:
+        return err_resp, err_code
+    data = request.get_json(silent=True) or {}
+    csrf_err = _achievement_scratch_csrf_error(data)
+    if csrf_err is not None:
+        return csrf_err
+    key = str(data.get("storage_key") or data.get("achievement_key") or "").strip()
+    if not key:
+        return jsonify({"ok": False, "error": "Missing achievement."}), 400
+    payload = start_achievement_scratch(
+        db.session,
+        league_slug=slug,
+        team_id=int(mem.team_id),
+        storage_key=key,
+    )
+    if not payload.get("ok"):
+        return jsonify(payload), 400
+    commit_with_sqlite_retry(db.session)
+    return jsonify(payload)
+
+
+@site_gm_bp.post("/achievements/scratch/claim")
+@login_required
+def gm_achievements_scratch_claim():
+    from app.services.gm_achievements import claim_achievement_scratch
+
+    slug, mem, err_resp, err_code = _achievement_scratch_guard()
+    if err_resp is not None:
+        return err_resp, err_code
+    data = request.get_json(silent=True) or {}
+    csrf_err = _achievement_scratch_csrf_error(data)
+    if csrf_err is not None:
+        return csrf_err
+    key = str(data.get("storage_key") or data.get("achievement_key") or "").strip()
+    if not key:
+        return jsonify({"ok": False, "error": "Missing achievement."}), 400
+    payload = claim_achievement_scratch(
+        db.session,
+        league_slug=slug,
+        team_id=int(mem.team_id),
+        storage_key=key,
+        created_by_user_id=int(current_user.id),
+    )
+    if not payload.get("ok"):
+        return jsonify(payload), 400
+    commit_with_sqlite_retry(db.session)
+    from app.services.ap_service import team_ap_balance
+
+    payload["balance"] = int(team_ap_balance(slug, int(mem.team_id)))
+    from app.services.gm_achievements import unclaimed_unlock_count
+
+    payload["unclaimed"] = unclaimed_unlock_count(db.session, slug, int(mem.team_id))
+    return jsonify(payload)
+
+
 @site_gm_bp.get("/action-points")
 @login_required
 def action_points_page():

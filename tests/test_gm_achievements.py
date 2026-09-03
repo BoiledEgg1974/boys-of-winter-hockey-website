@@ -25,6 +25,7 @@ from app.services.gm_achievements import (
     build_playoff_series,
     catalog_for_league,
     catalog_key_from_storage,
+    claim_achievement_scratch,
     collect_new_hits,
     credit_achievement_ap,
     detect_comeback_from_events,
@@ -46,12 +47,17 @@ from app.services.gm_achievements import (
     major_award_slot,
     max_win_streak,
     month_undefeated,
+    parse_reward_cells,
     place_label,
     player_ids_from_drag_keys,
     playoff_spot_cutoff,
     rewrite_truths_to_storage,
+    roll_reward_cell,
+    roll_reward_cells,
+    start_achievement_scratch,
     storage_key_for,
     sync_achievement_ap_ledger,
+    unclaimed_unlock_count,
     unlock_source_ref,
 )
 from app.site_models import (
@@ -62,6 +68,26 @@ from app.site_models import (
     User,
 )
 from sqlalchemy import delete, select
+
+
+class _SeqRng:
+    def __init__(self, values: list[float]) -> None:
+        self.values = list(values)
+        self.i = 0
+
+    def random(self) -> float:
+        if self.i >= len(self.values):
+            raise AssertionError("random() called more times than scripted")
+        value = self.values[self.i]
+        self.i += 1
+        return value
+
+
+def _login(client, user_id: int) -> None:
+    with client.session_transaction() as sess:
+        sess.clear()
+        sess["_user_id"] = str(user_id)
+        sess["_fresh"] = True
 
 
 class DetectorTests(unittest.TestCase):
@@ -330,7 +356,16 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(place_label(4), "4th")
         title, body = format_export_recap(titles=["The Heist"], rank=4)
         self.assertEqual(title, "Export recap")
-        self.assertEqual(body, "You unlocked The Heist. You're #4 on the trophy board.")
+        self.assertEqual(
+            body,
+            "You unlocked The Heist. Scratch the ticket on Achievements to claim your AP. You're #4 on the trophy board.",
+        )
+        self.assertEqual(roll_reward_cell(_SeqRng([0.0])), 1)
+        self.assertEqual(roll_reward_cell(_SeqRng([0.60])), 2)
+        self.assertEqual(roll_reward_cell(_SeqRng([0.90])), 3)
+        self.assertEqual(roll_reward_cells(_SeqRng([0.0, 0.60, 0.90])), [1, 2, 3])
+        self.assertEqual(parse_reward_cells("[1, 3, 3]"), [1, 3, 3])
+        self.assertIsNone(parse_reward_cells("[1, 4, 2]"))
 
     def test_source_ref_and_new_hits(self) -> None:
         self.assertEqual(unlock_source_ref("bowl-cap", 8, "pinnacle"), "gm_ach:bowl-cap:8:pinnacle")
@@ -348,6 +383,30 @@ class CatalogTests(unittest.TestCase):
         self.assertIn(ACHIEVEMENT_LEAGUE_FIRST_EVENT_KEY, DEFAULT_EVENT_KEYS)
         self.assertEqual(DEFAULT_EVENT_CHANNEL_KEY[ACHIEVEMENT_UNLOCKED_EVENT_KEY], "achievements")
         self.assertEqual(DEFAULT_EVENT_CHANNEL_KEY[ACHIEVEMENT_LEAGUE_FIRST_EVENT_KEY], "achievements")
+
+    def test_redeem_celebration_assets_exist(self) -> None:
+        from pathlib import Path
+
+        root = Path(__file__).resolve().parents[1]
+        sheet = root / "app" / "static" / "img" / "fw-sheet.png"
+        self.assertTrue(sheet.is_file(), "fw-sheet.png")
+        self.assertGreater(sheet.stat().st_size, 1000)
+        for name in ("crackle.wav", "fireworks.wav", "confetti.wav", "cheer.wav", "cheer-big.wav", "explosion.wav"):
+            path = root / "app" / "static" / "sfx" / name
+            self.assertTrue(path.is_file(), name)
+            self.assertGreater(path.stat().st_size, 1000, name)
+
+    def test_scratch_preview_is_public(self) -> None:
+        app = create_app(make_league_config("bowl-cap"))
+        app.config["TESTING"] = True
+        with app.test_client() as client:
+            page = client.get("/achievements/scratch-preview")
+            self.assertEqual(page.status_code, 200, page.get_data(as_text=True))
+            html = page.get_data(as_text=True)
+            self.assertIn('data-preview="1"', html)
+            self.assertIn("The Pinnacle", html)
+            self.assertIn("gm-achievements__card--claimable", html)
+            self.assertIn("AP ledger", html)
 
 
 class EvaluatorWatermarkTests(unittest.TestCase):
@@ -431,12 +490,61 @@ class EvaluatorWatermarkTests(unittest.TestCase):
                 self.assertEqual(second["seeded"], 0)
                 self.assertEqual(second["awarded"], 1)
                 source_ref = unlock_source_ref("bowl-cap", tid, "gordie_howe")
+                unlock = db.session.scalar(
+                    select(GmAchievementUnlock).where(GmAchievementUnlock.source_ref == source_ref).limit(1)
+                )
+                self.assertIsNotNone(unlock)
+                self.assertIsNone(unlock.claimed_at)
+                self.assertEqual(int(unlock.ap_delta or 0), 0)
+                ledger = db.session.scalar(
+                    select(ApLedgerEntry).where(ApLedgerEntry.source_ref == source_ref).limit(1)
+                )
+                self.assertIsNone(ledger)
+                self.assertEqual(unclaimed_unlock_count(db.session, "bowl-cap", tid), 1)
+                self.assertEqual(sync_achievement_ap_ledger(db.session, "bowl-cap"), 0)
+                started = start_achievement_scratch(
+                    db.session,
+                    league_slug="bowl-cap",
+                    team_id=tid,
+                    storage_key="gordie_howe",
+                    rng=_SeqRng([0.0, 0.90, 0.90]),
+                )
+                self.assertTrue(started["ok"])
+                self.assertEqual(started["cells"], [1, 3, 3])
+                self.assertEqual(started["ticket_ap"], 7)
+                again = start_achievement_scratch(
+                    db.session,
+                    league_slug="bowl-cap",
+                    team_id=tid,
+                    storage_key="gordie_howe",
+                    rng=_SeqRng([0.0, 0.0, 0.0]),
+                )
+                self.assertEqual(again["cells"], [1, 3, 3])
+                claimed = claim_achievement_scratch(
+                    db.session,
+                    league_slug="bowl-cap",
+                    team_id=tid,
+                    storage_key="gordie_howe",
+                    created_by_user_id=None,
+                )
+                self.assertTrue(claimed["ok"])
+                spec = CATALOG_BY_KEY["gordie_howe"]
+                self.assertEqual(claimed["total_ap"], 7 * int(spec.ap))
                 ledger = db.session.scalar(
                     select(ApLedgerEntry).where(ApLedgerEntry.source_ref == source_ref).limit(1)
                 )
                 self.assertIsNotNone(ledger)
-                self.assertEqual(int(ledger.delta), int(CATALOG_BY_KEY["gordie_howe"].ap))
+                self.assertEqual(int(ledger.delta), 7 * int(spec.ap))
                 self.assertIn("Gordie Howe", str(ledger.meta_json or ""))
+                self.assertEqual(unclaimed_unlock_count(db.session, "bowl-cap", tid), 0)
+                twice = claim_achievement_scratch(
+                    db.session,
+                    league_slug="bowl-cap",
+                    team_id=tid,
+                    storage_key="gordie_howe",
+                    created_by_user_id=None,
+                )
+                self.assertEqual(twice["total_ap"], 7 * int(spec.ap))
                 third = evaluate_gm_achievements_after_import(self.app)
                 self.assertEqual(third["awarded"], 0)
 
@@ -462,8 +570,29 @@ class EvaluatorWatermarkTests(unittest.TestCase):
             )
             db.session.add(unlock)
             db.session.flush()
+            pending = GmAchievementUnlock(
+                league_slug="bowl-cap",
+                team_id=tid,
+                user_id=None,
+                achievement_key="pinnacle",
+                source_ref="gm_ach:bowl-cap:test-sync-unclaimed",
+                season_label="2026-27",
+                meta_json="{}",
+                ap_delta=0,
+            )
+            db.session.add(pending)
+            db.session.flush()
             created = sync_achievement_ap_ledger(db.session, "bowl-cap")
             self.assertGreaterEqual(created, 1)
+            self.assertIsNotNone(unlock.claimed_at)
+            self.assertIsNone(pending.claimed_at)
+            self.assertIsNone(
+                db.session.scalar(
+                    select(ApLedgerEntry).where(
+                        ApLedgerEntry.source_ref == "gm_ach:bowl-cap:test-sync-unclaimed"
+                    ).limit(1)
+                )
+            )
             row = db.session.scalar(
                 select(ApLedgerEntry).where(ApLedgerEntry.source_ref == source_ref).limit(1)
             )
@@ -477,6 +606,184 @@ class EvaluatorWatermarkTests(unittest.TestCase):
                 created_by_user_id=None,
             ), None)
             db.session.rollback()
+
+    def test_scratch_routes_require_gm_and_reject_double_claim(self) -> None:
+        self.app = create_app(make_league_config("bowl-cap"))
+        self.app.config["WTF_CSRF_ENABLED"] = False
+        with self.app.app_context():
+            team = db.session.scalar(select(Team).order_by(Team.id).limit(1))
+            self.assertIsNotNone(team)
+            tid = int(team.id)
+            user = User(
+                email="gm-ach-scratch-route@example.invalid",
+                password_hash="x",
+                discord_name="Scratch Route",
+            )
+            db.session.add(user)
+            db.session.flush()
+            uid = int(user.id)
+            db.session.add(
+                GmLeagueMembership(
+                    league_slug="bowl-cap",
+                    user_id=uid,
+                    team_id=tid,
+                    status="active",
+                )
+            )
+            spec = CATALOG_BY_KEY["gordie_howe"]
+            store_key = "gordie_howe:test-scratch-route"
+            source_ref = "gm_ach:bowl-cap:test-scratch-route"
+            db.session.add(
+                GmAchievementUnlock(
+                    league_slug="bowl-cap",
+                    team_id=tid,
+                    user_id=uid,
+                    achievement_key=store_key,
+                    source_ref=source_ref,
+                    season_label="2026-27",
+                    meta_json="{}",
+                    ap_delta=0,
+                )
+            )
+            db.session.commit()
+            try:
+                with self.app.test_client() as guest:
+                    denied = guest.post("/achievements/scratch/start", json={"storage_key": store_key})
+                    self.assertIn(denied.status_code, (302, 401, 403))
+                with self.app.test_client() as client:
+                    fake_gm = SimpleNamespace(
+                        is_authenticated=True,
+                        is_active=True,
+                        is_anonymous=False,
+                        is_admin=False,
+                        id=uid,
+                        get_id=lambda: str(uid),
+                    )
+                    with patch("flask_login.utils._get_user", return_value=fake_gm):
+                        start = client.post("/achievements/scratch/start", json={"storage_key": store_key})
+                        self.assertEqual(start.status_code, 200, start.get_data(as_text=True))
+                        body = start.get_json()
+                        self.assertTrue(body["ok"])
+                        self.assertEqual(len(body["cells"]), 3)
+                        claim = client.post("/achievements/scratch/claim", json={"storage_key": store_key})
+                        self.assertEqual(claim.status_code, 200, claim.get_data(as_text=True))
+                        first = claim.get_json()
+                        self.assertEqual(first["total_ap"], first["ticket_ap"] * first["multiplier"])
+                        again = client.post("/achievements/scratch/claim", json={"storage_key": store_key})
+                        self.assertEqual(again.status_code, 200)
+                        self.assertEqual(again.get_json()["total_ap"], first["total_ap"])
+                    rows = list(
+                        db.session.scalars(
+                            select(ApLedgerEntry).where(ApLedgerEntry.source_ref == source_ref)
+                        ).all()
+                    )
+                    self.assertEqual(len(rows), 1)
+            finally:
+                db.session.execute(delete(ApLedgerEntry).where(ApLedgerEntry.source_ref == source_ref))
+                db.session.execute(
+                    delete(GmAchievementUnlock).where(GmAchievementUnlock.source_ref == source_ref)
+                )
+                db.session.execute(delete(GmLeagueMembership).where(GmLeagueMembership.user_id == uid))
+                db.session.execute(delete(User).where(User.id == uid))
+                db.session.commit()
+
+    def test_achievements_page_glow_scratch_and_ap_balance(self) -> None:
+        from app.services.ap_service import team_ap_balance
+
+        self.app = create_app(make_league_config("bowl-cap"))
+        self.app.config["WTF_CSRF_ENABLED"] = False
+        with self.app.app_context():
+            team = db.session.scalar(select(Team).order_by(Team.id).limit(1))
+            self.assertIsNotNone(team)
+            tid = int(team.id)
+            user = User(
+                email="gm-ach-page-scratch@example.invalid",
+                password_hash="x",
+                discord_name="Page Scratch",
+            )
+            db.session.add(user)
+            db.session.flush()
+            uid = int(user.id)
+            db.session.add(
+                GmLeagueMembership(
+                    league_slug="bowl-cap",
+                    user_id=uid,
+                    team_id=tid,
+                    status="active",
+                )
+            )
+            store_key = "gordie_howe"
+            source_ref = "gm_ach:bowl-cap:test-page-scratch"
+            db.session.add(
+                GmAchievementUnlock(
+                    league_slug="bowl-cap",
+                    team_id=tid,
+                    user_id=uid,
+                    achievement_key=store_key,
+                    source_ref=source_ref,
+                    season_label="2026-27",
+                    meta_json="{}",
+                    ap_delta=0,
+                )
+            )
+            db.session.commit()
+            before = int(team_ap_balance("bowl-cap", tid))
+            try:
+                with self.app.test_client() as client:
+                    fake_gm = SimpleNamespace(
+                        is_authenticated=True,
+                        is_active=True,
+                        is_anonymous=False,
+                        is_admin=False,
+                        id=uid,
+                        email="gm-ach-page-scratch@example.invalid",
+                        username=None,
+                        get_id=lambda: str(uid),
+                    )
+                    with patch("flask_login.utils._get_user", return_value=fake_gm):
+                        page = client.get("/achievements")
+                        self.assertEqual(page.status_code, 200, page.get_data(as_text=True))
+                        html = page.get_data(as_text=True)
+                        self.assertIn("header-tools__link--ach-ready", html)
+                        self.assertIn("gm-achievements__card--claimable", html)
+                        self.assertIn(f'data-storage-key="{store_key}"', html)
+                        self.assertGreaterEqual(html.count("gm-ach-scratch__cell"), 3)
+                        self.assertIn("Ticket ready", html)
+                        self.assertIn("Scratch", html)
+                        self.assertRegex(html, r"×[1-5]")
+                        start = client.post("/achievements/scratch/start", json={"storage_key": store_key})
+                        self.assertEqual(start.status_code, 200, start.get_data(as_text=True))
+                        started = start.get_json()
+                        self.assertEqual(len(started["cells"]), 3)
+                        claim = client.post("/achievements/scratch/claim", json={"storage_key": store_key})
+                        self.assertEqual(claim.status_code, 200, claim.get_data(as_text=True))
+                        paid = claim.get_json()
+                        total = int(paid["total_ap"])
+                        self.assertEqual(total, int(paid["ticket_ap"]) * int(paid["multiplier"]))
+                        self.assertEqual(int(paid["balance"]), before + total)
+                        ap_page = client.get("/action-points")
+                        self.assertEqual(ap_page.status_code, 200, ap_page.get_data(as_text=True))
+                        ap_html = ap_page.get_data(as_text=True)
+                        self.assertIn(f"{paid['balance']} AP", ap_html)
+                        after = client.get("/achievements")
+                        self.assertEqual(after.status_code, 200)
+                        after_html = after.get_data(as_text=True)
+                        self.assertNotIn(f'data-storage-key="{store_key}"', after_html)
+                        self.assertIn(
+                            f"{started['cells'][0]} + {started['cells'][1]} + {started['cells'][2]}",
+                            after_html,
+                        )
+                        self.assertIn(f"= {total} AP", after_html)
+                        if int(paid.get("unclaimed") or 0) == 0:
+                            self.assertNotIn("header-tools__link--ach-ready", after_html)
+            finally:
+                db.session.execute(delete(ApLedgerEntry).where(ApLedgerEntry.source_ref == source_ref))
+                db.session.execute(
+                    delete(GmAchievementUnlock).where(GmAchievementUnlock.source_ref == source_ref)
+                )
+                db.session.execute(delete(GmLeagueMembership).where(GmLeagueMembership.user_id == uid))
+                db.session.execute(delete(User).where(User.id == uid))
+                db.session.commit()
 
     def test_page_payload_hides_reverse_sweep_and_discover_runs(self) -> None:
         self.app = create_app(make_league_config("bowl-cap"))
@@ -500,6 +807,13 @@ class EvaluatorWatermarkTests(unittest.TestCase):
             self.assertIn("Comeback Kids", html)
             self.assertIn("The Bender", html)
             self.assertIn("The Heist", html)
+            self.assertIn("gm-ach-scratch-dialog", html)
+            self.assertIn("id=\"gm-ach-fw\"", html)
+            self.assertIn("data-ach-sfx=\"fireworks\"", html)
+            self.assertIn("img/fw-sheet.png", html)
+            self.assertIn("Got it", html)
+            self.assertIn("×1", html)
+            self.assertNotRegex(html, r"\+\d+ AP")
             self.assertIn("Hidden achievement", html)
             self.assertIn("Export Streak", html)
             self.assertIn("???", html)

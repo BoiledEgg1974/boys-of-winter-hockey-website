@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import random
 import re
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -51,6 +52,9 @@ REASON_CODE = "gm_achievement"
 
 HOCKEY_SLUGS = frozenset(HOCKEY_LEAGUE_SLUGS)
 RELEGATION_ONLY = frozenset({"bowl-fantasy"})
+TICKET_CELL_COUNT = 3
+TICKET_CELL_P1 = 0.50
+TICKET_CELL_P2 = 0.35
 
 _FIGHT_WORDS = ("fight", "fighting", "fisticuffs", "combat")
 _MVP_NEEDLES = ("HART", "MOST VALUABLE", "MVP")
@@ -411,6 +415,206 @@ def unlock_source_ref(league_slug: str, team_id: int, key: str) -> str:
     return f"gm_ach:{league_slug}:{int(team_id)}:{key}"
 
 
+def roll_reward_cell(rng: random.Random | None = None) -> int:
+    """Roll one scratch spot: 1 (50%), 2 (35%), or 3 (15%)."""
+    dice = rng or random.Random()
+    roll = dice.random()
+    if roll < TICKET_CELL_P1:
+        return 1
+    if roll < TICKET_CELL_P1 + TICKET_CELL_P2:
+        return 2
+    return 3
+
+
+def roll_reward_cells(rng: random.Random | None = None) -> list[int]:
+    dice = rng or random.Random()
+    return [roll_reward_cell(dice) for _ in range(TICKET_CELL_COUNT)]
+
+
+def parse_reward_cells(raw: Any) -> list[int] | None:
+    values: Any = raw
+    if isinstance(raw, str):
+        try:
+            values = json.loads(raw)
+        except json.JSONDecodeError:
+            return None
+    if not isinstance(values, list) or len(values) != TICKET_CELL_COUNT:
+        return None
+    cells: list[int] = []
+    for item in values:
+        try:
+            n = int(item)
+        except (TypeError, ValueError):
+            return None
+        if n not in (1, 2, 3):
+            return None
+        cells.append(n)
+    return cells
+
+
+def reward_payload(unlock: GmAchievementUnlock, spec: AchievementDef | None = None) -> dict[str, Any]:
+    cells = parse_reward_cells(unlock.reward_cells_json)
+    ticket_ap = int(unlock.reward_ticket_ap or 0) if unlock.reward_ticket_ap is not None else (sum(cells) if cells else None)
+    multiplier = int(unlock.reward_multiplier or 0) if unlock.reward_multiplier is not None else (int(spec.ap) if spec else None)
+    claimed = unlock.claimed_at is not None
+    total = int(unlock.ap_delta or 0) if claimed else None
+    if total is None and cells is not None and multiplier:
+        total = int(ticket_ap or 0) * int(multiplier)
+    return {
+        "storage_key": str(unlock.achievement_key),
+        "title": spec.title if spec else str(unlock.achievement_key),
+        "cells": cells,
+        "ticket_ap": ticket_ap,
+        "multiplier": multiplier,
+        "total_ap": total if claimed else None,
+        "claimed": claimed,
+        "claimed_at": unlock.claimed_at.isoformat() if unlock.claimed_at else None,
+        "unlocked_at": unlock.unlocked_at.isoformat() if unlock.unlocked_at else None,
+    }
+
+
+def _find_team_unlock(
+    session: Session,
+    *,
+    league_slug: str,
+    team_id: int,
+    storage_key: str,
+) -> GmAchievementUnlock | None:
+    return session.scalar(
+        select(GmAchievementUnlock).where(
+            GmAchievementUnlock.league_slug == league_slug,
+            GmAchievementUnlock.team_id == int(team_id),
+            GmAchievementUnlock.achievement_key == storage_key,
+        ).limit(1)
+    )
+
+
+def start_achievement_scratch(
+    session: Session,
+    *,
+    league_slug: str,
+    team_id: int,
+    storage_key: str,
+    rng: random.Random | None = None,
+) -> dict[str, Any]:
+    """Lock in the three ticket cells. Idempotent once rolled."""
+    unlock = _find_team_unlock(session, league_slug=league_slug, team_id=team_id, storage_key=storage_key)
+    if unlock is None:
+        return {"ok": False, "error": "Achievement is not unlocked."}
+    spec = CATALOG_BY_KEY.get(catalog_key_from_storage(unlock.achievement_key))
+    if spec is None:
+        return {"ok": False, "error": "Unknown achievement."}
+    cells = parse_reward_cells(unlock.reward_cells_json)
+    if cells is None:
+        cells = roll_reward_cells(rng)
+        unlock.reward_cells_json = json.dumps(cells)
+        unlock.reward_ticket_ap = sum(cells)
+        unlock.reward_multiplier = int(spec.ap)
+    elif unlock.reward_ticket_ap is None or unlock.reward_multiplier is None:
+        unlock.reward_ticket_ap = sum(cells)
+        unlock.reward_multiplier = int(spec.ap)
+    payload = reward_payload(unlock, spec)
+    payload["ok"] = True
+    payload["claimable"] = unlock.claimed_at is None
+    return payload
+
+
+def claim_achievement_scratch(
+    session: Session,
+    *,
+    league_slug: str,
+    team_id: int,
+    storage_key: str,
+    created_by_user_id: int | None,
+) -> dict[str, Any]:
+    """Credit ticket sum × multiplier once. Idempotent after the first claim."""
+    unlock = _find_team_unlock(session, league_slug=league_slug, team_id=team_id, storage_key=storage_key)
+    if unlock is None:
+        return {"ok": False, "error": "Achievement is not unlocked."}
+    spec = CATALOG_BY_KEY.get(catalog_key_from_storage(unlock.achievement_key))
+    if spec is None:
+        return {"ok": False, "error": "Unknown achievement."}
+    cells = parse_reward_cells(unlock.reward_cells_json)
+    if cells is None:
+        return {"ok": False, "error": "Scratch the ticket first."}
+    ticket_ap = int(unlock.reward_ticket_ap or sum(cells))
+    multiplier = int(unlock.reward_multiplier or spec.ap)
+    total = ticket_ap * multiplier
+    if unlock.claimed_at is None:
+        unlock.reward_ticket_ap = ticket_ap
+        unlock.reward_multiplier = multiplier
+        unlock.ap_delta = total
+        unlock.claimed_at = datetime.utcnow()
+        credit_achievement_ap(
+            league_slug=league_slug,
+            team_id=int(team_id),
+            spec=spec,
+            source_ref=str(unlock.source_ref),
+            created_by_user_id=created_by_user_id,
+            storage_key=str(unlock.achievement_key),
+            delta=total,
+        )
+    from app.services.ap_service import team_ap_balance
+
+    payload = reward_payload(unlock, spec)
+    payload["ok"] = True
+    payload["claimable"] = False
+    payload["total_ap"] = int(unlock.ap_delta or 0)
+    payload["balance"] = int(team_ap_balance(league_slug, int(team_id)))
+    return payload
+
+
+def unclaimed_unlock_count(session: Session, league_slug: str, team_id: int) -> int:
+    return int(
+        session.scalar(
+            select(func.count(GmAchievementUnlock.id)).where(
+                GmAchievementUnlock.league_slug == league_slug,
+                GmAchievementUnlock.team_id == int(team_id),
+                GmAchievementUnlock.claimed_at.is_(None),
+            )
+        )
+        or 0
+    )
+
+
+def mark_heritage_claimed_unlocks(session: Session, league_slug: str) -> int:
+    """Treat pre-scratch unlocks that already have AP as claimed."""
+    from app.site_models import ApLedgerEntry
+
+    marked = 0
+    unlocks = list(
+        session.scalars(
+            select(GmAchievementUnlock).where(
+                GmAchievementUnlock.league_slug == league_slug,
+                GmAchievementUnlock.claimed_at.is_(None),
+            )
+        ).all()
+    )
+    if not unlocks:
+        return 0
+    refs = [str(row.source_ref) for row in unlocks if row.source_ref]
+    existing_refs: set[str] = set()
+    if refs:
+        existing_refs = {
+            str(ref)
+            for ref in session.scalars(
+                select(ApLedgerEntry.source_ref).where(ApLedgerEntry.source_ref.in_(refs))
+            ).all()
+            if ref
+        }
+    now = datetime.utcnow()
+    for unlock in unlocks:
+        has_ledger = str(unlock.source_ref) in existing_refs
+        if int(unlock.ap_delta or 0) > 0 or has_ledger:
+            unlock.claimed_at = unlock.unlocked_at or now
+            if unlock.reward_multiplier is None:
+                spec = CATALOG_BY_KEY.get(catalog_key_from_storage(unlock.achievement_key))
+                if spec is not None:
+                    unlock.reward_multiplier = int(spec.ap)
+            marked += 1
+    return marked
+
+
 def catalog_key_from_storage(key: str) -> str:
     raw = str(key or "")
     if raw in CATALOG_BY_KEY:
@@ -516,9 +720,9 @@ def format_export_recap(*, titles: list[str], rank: int | None) -> tuple[str, st
     else:
         unlocked = f"You unlocked {', '.join(names[:-1])}, and {names[-1]}"
     if rank:
-        body = f"{unlocked}. You're #{int(rank)} on the trophy board."
+        body = f"{unlocked}. Scratch the ticket on Achievements to claim your AP. You're #{int(rank)} on the trophy board."
     else:
-        body = f"{unlocked}."
+        body = f"{unlocked}. Scratch the ticket on Achievements to claim your AP."
     return "Export recap", body
 
 
@@ -2164,9 +2368,10 @@ def credit_achievement_ap(
 
 
 def sync_achievement_ap_ledger(session: Session, league_slug: str) -> int:
-    """Create missing ledger rows for unlocks that already awarded AP."""
+    """Create missing ledger rows for unlocks that already claimed AP."""
     from app.site_models import ApLedgerEntry
 
+    mark_heritage_claimed_unlocks(session, league_slug)
     created = 0
     unlocks = list(
         session.scalars(
@@ -2186,6 +2391,8 @@ def sync_achievement_ap_ledger(session: Session, league_slug: str) -> int:
             if ref
         }
     for unlock in unlocks:
+        if unlock.claimed_at is None:
+            continue
         if int(unlock.ap_delta or 0) <= 0 or not unlock.source_ref:
             continue
         if str(unlock.source_ref) in existing_refs:
@@ -2296,17 +2503,9 @@ def evaluate_gm_achievements_after_import(app) -> dict[str, int]:
             unlocked_at=datetime.utcnow(),
             season_label=season_label or "",
             meta_json=json.dumps(meta or {}),
-            ap_delta=int(spec.ap),
+            ap_delta=0,
         )
         session.add(unlock)
-        credit_achievement_ap(
-            league_slug=slug,
-            team_id=int(team_id),
-            spec=spec,
-            source_ref=source_ref,
-            created_by_user_id=user_id,
-            storage_key=key,
-        )
         if user_id is not None:
             _enqueue_achievement_discord(
                 session,
@@ -2743,7 +2942,7 @@ def build_achievements_page_payload(
     progress = progress_for_team(session, league_slug, team_id, watermark, membership) if team_id else {}
     groups: dict[str, list[dict[str, Any]]] = {"game": [], "season": [], "playoffs": [], "career": []}
     completed = 0
-    total_ap = sum(int(row.ap_delta or 0) for row in unlock_rows)
+    total_ap = sum(int(row.ap_delta or 0) for row in unlock_rows if row.claimed_at is not None)
     for spec in catalog_for_league(league_slug):
         period = current_period if spec.repeat_scope == "month" else None
         store = storage_key_for(spec, season_label or "", period)
@@ -2775,12 +2974,17 @@ def build_achievements_page_payload(
         elif prog and int(prog.get("current") or 0) > 0:
             status = "progress"
             blurb = str(prog.get("label") or "")
+        claimed = bool(unlock and unlock.claimed_at)
+        cells = parse_reward_cells(unlock.reward_cells_json) if unlock else None
+        ticket_ap = int(unlock.reward_ticket_ap) if unlock and unlock.reward_ticket_ap is not None else None
         groups.setdefault(spec.category, []).append(
             {
                 "key": spec.key,
+                "storage_key": str(unlock.achievement_key) if unlock else store,
                 "title": title,
                 "description": description,
                 "ap": spec.ap,
+                "multiplier": spec.ap,
                 "category": spec.category,
                 "status": status,
                 "blurb": blurb,
@@ -2788,6 +2992,11 @@ def build_achievements_page_payload(
                 "hidden": hidden_locked,
                 "repeatable": spec.repeatable,
                 "unlocked_at": unlock.unlocked_at if unlock else None,
+                "claimed": claimed,
+                "claimable": status == "completed" and not claimed,
+                "reward_cells": cells,
+                "reward_ticket_ap": ticket_ap,
+                "reward_total": int(unlock.ap_delta or 0) if claimed else None,
             }
         )
     items = [card for cards in groups.values() for card in cards]

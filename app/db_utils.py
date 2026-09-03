@@ -3809,6 +3809,10 @@ def ensure_gm_achievements_sqlite(engine: Engine) -> None:
                         season_label VARCHAR(16) NOT NULL DEFAULT '',
                         meta_json TEXT NOT NULL DEFAULT '{}',
                         ap_delta INTEGER NOT NULL DEFAULT 0,
+                        reward_cells_json TEXT,
+                        reward_ticket_ap INTEGER,
+                        reward_multiplier INTEGER,
+                        claimed_at DATETIME,
                         CONSTRAINT uq_gm_achievement_unlock_source_ref UNIQUE (source_ref),
                         CONSTRAINT uq_gm_achievement_unlock_team_key
                             UNIQUE (league_slug, team_id, achievement_key)
@@ -3826,6 +3830,26 @@ def ensure_gm_achievements_sqlite(engine: Engine) -> None:
                 text(
                     "CREATE INDEX ix_gm_achievement_unlock_league_user "
                     "ON gm_achievement_unlocks (league_slug, user_id)"
+                )
+            )
+        else:
+            cols = {str(row[1]) for row in conn.execute(text("PRAGMA table_info(gm_achievement_unlocks)"))}
+            additions = (
+                ("reward_cells_json", "TEXT"),
+                ("reward_ticket_ap", "INTEGER"),
+                ("reward_multiplier", "INTEGER"),
+                ("claimed_at", "DATETIME"),
+            )
+            for name, col_type in additions:
+                if name not in cols:
+                    conn.execute(text(f"ALTER TABLE gm_achievement_unlocks ADD COLUMN {name} {col_type}"))
+            conn.execute(
+                text(
+                    """
+                    UPDATE gm_achievement_unlocks
+                    SET claimed_at = COALESCE(claimed_at, unlocked_at)
+                    WHERE claimed_at IS NULL AND ap_delta > 0
+                    """
                 )
             )
         marks = conn.execute(

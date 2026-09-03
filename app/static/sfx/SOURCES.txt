@@ -1,0 +1,9 @@
+Royalty-free Mixkit Sound Effects used for achievement redeem celebration.
+https://mixkit.co/license/#sfxFree
+
+cheer          Mixkit 462   Huge crowd cheering victory
+cheer-big      Mixkit 3022  Stadium joy shouting crowd
+explosion      Mixkit 2759  Arcade game explosion
+crackle        Mixkit 3103  Fast whistle firework
+confetti       Mixkit 3005  Explainer video pops whoosh light pop
+fireworks      Mixkit 1689  Multiple fireworks explosions

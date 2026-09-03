@@ -553,6 +553,7 @@ def create_app(config_class: type = Config) -> Flask:
         slug_layout = str(app.config.get("LEAGUE_SLUG") or "").strip()
         gm_membership = None
         gm_messages_unread = 0
+        gm_achievements_unclaimed = 0
         if getattr(current_user, "is_authenticated", False) and slug_layout:
             gm_membership = active_membership_for_league(current_user, slug_layout)
             if gm_membership or has_admin_role(current_user):
@@ -560,6 +561,15 @@ def create_app(config_class: type = Config) -> Flask:
                     gm_messages_unread = gm_inbox_badge_unread(slug_layout, int(current_user.id))
                 except Exception:
                     gm_messages_unread = 0
+            if gm_membership:
+                try:
+                    from app.services.gm_achievements import unclaimed_unlock_count
+
+                    gm_achievements_unclaimed = unclaimed_unlock_count(
+                        db.session, slug_layout, int(gm_membership.team_id)
+                    )
+                except Exception:
+                    gm_achievements_unclaimed = 0
         ann = None
         if slug_layout:
             try:
@@ -614,6 +624,7 @@ def create_app(config_class: type = Config) -> Flask:
             is_racing_league=racing_layout,
             gm_membership=gm_membership,
             gm_messages_unread=gm_messages_unread,
+            gm_achievements_unclaimed=gm_achievements_unclaimed,
             active_site_announcement=ann,
             join_league_available_team_rows=join_league_available_team_rows,
             admin_compact_layout=admin_compact_layout,

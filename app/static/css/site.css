@@ -9568,7 +9568,8 @@ table.data.draft-pick-admin-grid .draft-pick-admin-grid__round-head {
   color: var(--text);
 }
 .team-line-builder__grade {
-  min-width: 9.5rem;
+  min-width: 10.5rem;
+  max-width: 14rem;
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 0.32rem 0.5rem 0.38rem;

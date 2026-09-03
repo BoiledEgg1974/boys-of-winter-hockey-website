@@ -461,7 +461,7 @@ def _unit_stats(
         role_keys.append(role)
         hands.append(rec.get("hand"))
     ability = line_ability(ratings)
-    grade = line_ability_grade(ability, kind=str(unit.get("kind") or ""))
+    grade = line_ability_grade(ability, kind=str(unit.get("kind") or ""), role_keys=role_keys)
     return {
         "ability": ability,
         "chemistry": line_chemistry(role_keys, hands),

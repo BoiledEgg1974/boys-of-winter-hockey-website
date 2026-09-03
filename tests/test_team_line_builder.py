@@ -17,6 +17,7 @@ from app.services.player_line_roles import (
     line_ability,
     line_ability_grade,
     line_chemistry,
+    line_identity,
     player_role_group,
     role_scores_for_player,
     score_role,
@@ -70,16 +71,54 @@ class RoleScoringTests(unittest.TestCase):
         self.assertGreater(chem, line_chemistry(["sniper", "sniper"], ["L", "L"]))
 
     def test_line_ability_grade_tiers(self) -> None:
-        self.assertEqual(line_ability_grade(86)["label"], "1st line")
-        self.assertEqual(line_ability_grade(80)["label"], "2nd line")
-        self.assertEqual(line_ability_grade(70)["label"], "3rd line")
-        self.assertEqual(line_ability_grade(62)["label"], "4th line")
+        self.assertEqual(line_ability_grade(86)["key"], "1st")
+        self.assertEqual(line_ability_grade(80)["key"], "2nd")
+        self.assertEqual(line_ability_grade(70)["key"], "3rd")
+        self.assertEqual(line_ability_grade(62)["key"], "4th")
         self.assertEqual(line_ability_grade(50)["key"], "depth")
-        self.assertEqual(line_ability_grade(50)["label"], "Depth")
-        self.assertEqual(line_ability_grade(86, kind="defense")["label"], "1st Pair")
-        self.assertEqual(line_ability_grade(80, kind="defense")["label"], "2nd Pair")
-        self.assertEqual(line_ability_grade(50, kind="defense")["label"], "Depth pair")
+        self.assertIsNone(line_ability_grade(86)["label"])
+        self.assertEqual(
+            line_ability_grade(80, role_keys=["shadow", "grinder", "backchecking_forward"])["label"],
+            "Shutdown line",
+        )
+        self.assertEqual(
+            line_ability_grade(86, kind="defense", role_keys=["shutdown", "stay_at_home"])["label"],
+            "Shutdown pair",
+        )
         self.assertIsNone(line_ability_grade(None))
+
+    def test_line_identity_from_roles(self) -> None:
+        self.assertEqual(
+            line_identity(["speedy_forward", "garbage_collector", "backchecking_forward"]),
+            "Two-way line",
+        )
+        self.assertEqual(
+            line_identity(["gretzkys_office", "up_and_down_winger", "shadow"]),
+            "Checking line",
+        )
+        self.assertEqual(
+            line_identity(["up_and_down_winger", "playmaker", "shadow"]),
+            "Checking line",
+        )
+        self.assertEqual(
+            line_identity(["counterattacking", "counterattacking", "punishing_forward"]),
+            "Forechecking line",
+        )
+        self.assertEqual(line_identity(["sniper", "playmaker", "sniper"]), "Shooting line")
+        self.assertEqual(line_identity(["playmaker", "setup_man", "sniper"]), "Playmaking line")
+        self.assertEqual(line_identity(["punishing_forward", "goon", "agitator"]), "Punishing line")
+        self.assertEqual(line_identity(["shutdown", "stay_at_home"], kind="defense"), "Shutdown pair")
+        self.assertEqual(line_identity(["puck_mover", "offensive_d"], kind="defense"), "Puck-moving pair")
+        self.assertEqual(line_identity(["puck_mover", "shutdown"], kind="defense"), "Two-way pair")
+        self.assertEqual(
+            line_identity(["sniper", "playmaker", "sniper", "offensive_d", "puck_mover"], kind="powerplay"),
+            "Shooting unit",
+        )
+        self.assertEqual(
+            line_identity(["shadow", "backchecking_forward", "shutdown", "stay_at_home"], kind="penalty"),
+            "Shutdown unit",
+        )
+        self.assertIsNone(line_identity([None, None]))
 
 
 class SanitizeAndAuthTests(unittest.TestCase):

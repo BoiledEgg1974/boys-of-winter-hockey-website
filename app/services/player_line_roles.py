@@ -5,6 +5,7 @@ attribute columns, scaled the same way as staff role overalls.
 """
 from __future__ import annotations
 
+from collections import Counter
 from typing import Any
 
 from app.services.player_overall_score import _parse_rating_cell
@@ -133,6 +134,61 @@ GOALIE_ROLES: tuple[RoleSpec, ...] = (
 ALL_ROLES: tuple[RoleSpec, ...] = FORWARD_ROLES + DEFENSE_ROLES + GOALIE_ROLES
 ROLES_BY_KEY: dict[str, RoleSpec] = {spec[0]: spec for spec in ALL_ROLES}
 
+# Primary style family for line-makeup labels (not 1st/2nd/3rd line tiers).
+FORWARD_ROLE_FAMILY: dict[str, str] = {
+    "sniper": "scoring",
+    "perimeter_shooter": "scoring",
+    "garbage_collector": "scoring",
+    "playmaker": "playmaking",
+    "setup_man": "playmaking",
+    "gretzkys_office": "playmaking",
+    "dangler": "playmaking",
+    "backchecking_forward": "checking",
+    "shadow": "checking",
+    "grinder": "checking",
+    "two_way_forward": "checking",
+    "up_and_down_winger": "checking",
+    "speedy_forward": "speed",
+    "counterattacking": "speed",
+    "power_forward": "physical",
+    "punishing_forward": "physical",
+    "agitator": "physical",
+    "goon": "physical",
+    "screener": "physical",
+    "aggressive_forechecker": "physical",
+}
+
+DEFENSE_ROLE_FAMILY: dict[str, str] = {
+    "offensive_d": "puck",
+    "puck_mover": "puck",
+    "stay_at_home": "shutdown",
+    "shutdown": "shutdown",
+    "two_way_d": "two_way",
+    "enforcer_d": "physical",
+}
+
+_PUNISHING_ROLES = frozenset({"punishing_forward", "goon", "agitator"})
+_SHUTDOWN_ROLES = frozenset({"shadow", "backchecking_forward", "shutdown", "stay_at_home"})
+_SHOOTING_ROLES = frozenset({"sniper", "perimeter_shooter"})
+_PLAYMAKING_ROLES = frozenset({"playmaker", "setup_man", "gretzkys_office"})
+_SPEED_ROLES = frozenset({"speedy_forward", "counterattacking"})
+_NETFRONT_ROLES = frozenset({"garbage_collector", "screener", "power_forward"})
+_FORECHECK_ROLES = frozenset({"aggressive_forechecker"})
+_PHYSICAL_ROLES = frozenset(
+    {"punishing_forward", "goon", "agitator", "power_forward", "screener", "aggressive_forechecker", "enforcer_d"}
+)
+
+_FAMILY_TITLE: dict[str, str] = {
+    "scoring": "Scoring",
+    "playmaking": "Playmaking",
+    "checking": "Checking",
+    "physical": "Physical",
+    "speed": "Speed",
+    "puck": "Puck-moving",
+    "shutdown": "Shutdown",
+    "two_way": "Two-way",
+}
+
 COMPLEMENTARY_ROLES: frozenset[frozenset[str]] = frozenset(
     {
         frozenset({"sniper", "playmaker"}),
@@ -234,22 +290,134 @@ def line_ability(ratings: list[int | None]) -> float | None:
     return round(sum(vals) / len(vals), 1)
 
 
-def line_ability_grade(ability: float | None, *, kind: str | None = None) -> dict[str, Any] | None:
-    """Map mean role rating to a 1st–Depth equivalent (no bar)."""
+def _unit_noun(kind: str | None) -> str:
+    k = (kind or "").strip().lower()
+    if k == "defense":
+        return "pair"
+    if k in {"powerplay", "penalty"}:
+        return "unit"
+    return "line"
+
+
+def _role_family(key: str, kind: str | None) -> str | None:
+    if key in FORWARD_ROLE_FAMILY:
+        return FORWARD_ROLE_FAMILY[key]
+    fam = DEFENSE_ROLE_FAMILY.get(key)
+    if not fam:
+        return None
+    if (kind or "").strip().lower() == "defense":
+        return fam
+    if fam == "puck":
+        return "playmaking"
+    if fam == "physical":
+        return "physical"
+    return "checking"
+
+
+def _count_roles(keys: list[str], group: frozenset[str]) -> int:
+    return sum(1 for k in keys if k in group)
+
+
+def _family_label(fam: str, noun: str, *, kind: str | None) -> str:
+    if fam == "playmaking" and (kind or "").strip().lower() == "powerplay":
+        title = "Setup"
+    elif fam == "scoring" and (kind or "").strip().lower() == "powerplay":
+        title = "Shooting"
+    else:
+        title = _FAMILY_TITLE.get(fam, "Balanced")
+    return f"{title} {noun}"
+
+
+def _combo_label(fams: set[str], noun: str, *, kind: str | None) -> str:
+    if "scoring" in fams and "playmaking" in fams:
+        return _family_label("scoring" if (kind or "").strip().lower() != "powerplay" else "playmaking", noun, kind=kind)
+    if "checking" in fams and ("scoring" in fams or "playmaking" in fams):
+        return f"Two-way {noun}"
+    if "physical" in fams and "speed" in fams:
+        return f"Forechecking {noun}"
+    if "physical" in fams and "checking" in fams:
+        return f"Physical {noun}"
+    if "speed" in fams and "playmaking" in fams:
+        return f"Transition {noun}"
+    if "speed" in fams and "scoring" in fams:
+        return f"Speed {noun}"
+    if "physical" in fams and "scoring" in fams:
+        return f"Net-front {noun}"
+    if "puck" in fams and "shutdown" in fams:
+        return f"Two-way {noun}"
+    if "puck" in fams and "two_way" in fams:
+        return f"Two-way {noun}"
+    if "shutdown" in fams and "two_way" in fams:
+        return f"Shutdown {noun}"
+    if "physical" in fams and "shutdown" in fams:
+        return f"Physical {noun}"
+    if "physical" in fams and "puck" in fams:
+        return f"Two-way {noun}"
+    if len(fams) == 1:
+        return _family_label(next(iter(fams)), noun, kind=kind)
+    return f"Balanced {noun}"
+
+
+def line_identity(role_keys: list[str | None], *, kind: str | None = None) -> str | None:
+    """Name a unit from selected roles (Checking line, Shutdown pair, …)."""
+    keys = [str(k) for k in role_keys if k]
+    if not keys:
+        return None
+    noun = _unit_noun(kind)
+    if _count_roles(keys, _PUNISHING_ROLES) >= 2:
+        return f"Punishing {noun}"
+    if _count_roles(keys, _SHUTDOWN_ROLES) >= 2:
+        return f"Shutdown {noun}"
+    if _count_roles(keys, _SHOOTING_ROLES) >= 2:
+        return f"Shooting {noun}"
+    if _count_roles(keys, _FORECHECK_ROLES) >= 2:
+        return f"Forechecking {noun}"
+    if _count_roles(keys, _PLAYMAKING_ROLES) >= 2:
+        return f"Playmaking {noun}" if noun != "unit" or (kind or "").strip().lower() != "powerplay" else f"Setup {noun}"
+    if _count_roles(keys, _SPEED_ROLES) >= 2:
+        if _count_roles(keys, _PHYSICAL_ROLES):
+            return f"Forechecking {noun}"
+        if _count_roles(keys, frozenset({"counterattacking"})) >= _count_roles(keys, frozenset({"speedy_forward"})):
+            return f"Transition {noun}"
+        return f"Speed {noun}"
+    if _count_roles(keys, _NETFRONT_ROLES) >= 2:
+        return f"Net-front {noun}"
+
+    counts: Counter[str] = Counter()
+    for key in keys:
+        fam = _role_family(key, kind)
+        if fam:
+            counts[fam] += 1
+    if not counts:
+        return f"Balanced {noun}"
+    ranked = counts.most_common()
+    top_fam, top_n = ranked[0]
+    if top_n >= 2:
+        return _family_label(top_fam, noun, kind=kind)
+    return _combo_label({fam for fam, _n in ranked}, noun, kind=kind)
+
+
+def line_ability_grade(
+    ability: float | None,
+    *,
+    kind: str | None = None,
+    role_keys: list[str | None] | None = None,
+) -> dict[str, Any] | None:
+    """Ability score plus a makeup label from the selected roles."""
     if ability is None:
         return None
-    pair = (kind or "").strip().lower() == "defense"
     score = float(ability)
     if score >= 85:
-        key, label = "1st", "1st Pair" if pair else "1st line"
+        key = "1st"
     elif score >= 76:
-        key, label = "2nd", "2nd Pair" if pair else "2nd line"
+        key = "2nd"
     elif score >= 68:
-        key, label = "3rd", "3rd Pair" if pair else "3rd line"
+        key = "3rd"
     elif score >= 60:
-        key, label = "4th", "4th Pair" if pair else "4th line"
+        key = "4th"
     else:
-        key, label = "depth", "Depth pair" if pair else "Depth"
+        key = "depth"
+    label = line_identity(list(role_keys or []), kind=kind)
     return {"key": key, "label": label, "score": score}
 
 

@@ -2290,32 +2290,161 @@
       return {
         ability: ability,
         chemistry: lineChemistry(roleKeys, hands),
-        grade: lineAbilityGrade(ability, unit.kind)
+        grade: lineAbilityGrade(ability, unit.kind, roleKeys)
       };
     }
 
-    function lineAbilityGrade(ability, kind) {
-      if (ability == null) return null;
-      var pair = String(kind || "") === "defense";
-      var key;
-      var label;
-      if (ability >= 85) {
-        key = "1st";
-        label = pair ? "1st Pair" : "1st line";
-      } else if (ability >= 76) {
-        key = "2nd";
-        label = pair ? "2nd Pair" : "2nd line";
-      } else if (ability >= 68) {
-        key = "3rd";
-        label = pair ? "3rd Pair" : "3rd line";
-      } else if (ability >= 60) {
-        key = "4th";
-        label = pair ? "4th Pair" : "4th line";
-      } else {
-        key = "depth";
-        label = pair ? "Depth pair" : "Depth";
+    var forwardRoleFamily = {
+      sniper: "scoring",
+      perimeter_shooter: "scoring",
+      garbage_collector: "scoring",
+      playmaker: "playmaking",
+      setup_man: "playmaking",
+      gretzkys_office: "playmaking",
+      dangler: "playmaking",
+      backchecking_forward: "checking",
+      shadow: "checking",
+      grinder: "checking",
+      two_way_forward: "checking",
+      up_and_down_winger: "checking",
+      speedy_forward: "speed",
+      counterattacking: "speed",
+      power_forward: "physical",
+      punishing_forward: "physical",
+      agitator: "physical",
+      goon: "physical",
+      screener: "physical",
+      aggressive_forechecker: "physical"
+    };
+    var defenseRoleFamily = {
+      offensive_d: "puck",
+      puck_mover: "puck",
+      stay_at_home: "shutdown",
+      shutdown: "shutdown",
+      two_way_d: "two_way",
+      enforcer_d: "physical"
+    };
+    var punishingRoles = { punishing_forward: 1, goon: 1, agitator: 1 };
+    var shutdownRoles = { shadow: 1, backchecking_forward: 1, shutdown: 1, stay_at_home: 1 };
+    var shootingRoles = { sniper: 1, perimeter_shooter: 1 };
+    var playmakingRoles = { playmaker: 1, setup_man: 1, gretzkys_office: 1 };
+    var speedRoles = { speedy_forward: 1, counterattacking: 1 };
+    var netfrontRoles = { garbage_collector: 1, screener: 1, power_forward: 1 };
+    var forecheckRoles = { aggressive_forechecker: 1 };
+    var physicalRoles = {
+      punishing_forward: 1,
+      goon: 1,
+      agitator: 1,
+      power_forward: 1,
+      screener: 1,
+      aggressive_forechecker: 1,
+      enforcer_d: 1
+    };
+    var familyTitle = {
+      scoring: "Scoring",
+      playmaking: "Playmaking",
+      checking: "Checking",
+      physical: "Physical",
+      speed: "Speed",
+      puck: "Puck-moving",
+      shutdown: "Shutdown",
+      two_way: "Two-way"
+    };
+
+    function unitNoun(kind) {
+      var k = String(kind || "");
+      if (k === "defense") return "pair";
+      if (k === "powerplay" || k === "penalty") return "unit";
+      return "line";
+    }
+
+    function countRoles(keys, group) {
+      var n = 0;
+      keys.forEach(function (k) { if (group[k]) n++; });
+      return n;
+    }
+
+    function roleFamily(key, kind) {
+      if (forwardRoleFamily[key]) return forwardRoleFamily[key];
+      var fam = defenseRoleFamily[key];
+      if (!fam) return null;
+      if (String(kind || "") === "defense") return fam;
+      if (fam === "puck") return "playmaking";
+      if (fam === "physical") return "physical";
+      return "checking";
+    }
+
+    function familyLabel(fam, noun, kind) {
+      var title;
+      if (fam === "playmaking" && String(kind || "") === "powerplay") title = "Setup";
+      else if (fam === "scoring" && String(kind || "") === "powerplay") title = "Shooting";
+      else title = familyTitle[fam] || "Balanced";
+      return title + " " + noun;
+    }
+
+    function comboLabel(fams, noun, kind) {
+      if (fams.scoring && fams.playmaking) {
+        return familyLabel(String(kind || "") === "powerplay" ? "playmaking" : "scoring", noun, kind);
       }
-      return { key: key, label: label, score: ability };
+      if (fams.checking && (fams.scoring || fams.playmaking)) return "Two-way " + noun;
+      if (fams.physical && fams.speed) return "Forechecking " + noun;
+      if (fams.physical && fams.checking) return "Physical " + noun;
+      if (fams.speed && fams.playmaking) return "Transition " + noun;
+      if (fams.speed && fams.scoring) return "Speed " + noun;
+      if (fams.physical && fams.scoring) return "Net-front " + noun;
+      if (fams.puck && fams.shutdown) return "Two-way " + noun;
+      if (fams.puck && fams.two_way) return "Two-way " + noun;
+      if (fams.shutdown && fams.two_way) return "Shutdown " + noun;
+      if (fams.physical && fams.shutdown) return "Physical " + noun;
+      if (fams.physical && fams.puck) return "Two-way " + noun;
+      var only = Object.keys(fams);
+      if (only.length === 1) return familyLabel(only[0], noun, kind);
+      return "Balanced " + noun;
+    }
+
+    function lineIdentity(roleKeys, kind) {
+      var keys = (roleKeys || []).filter(Boolean);
+      if (!keys.length) return null;
+      var noun = unitNoun(kind);
+      if (countRoles(keys, punishingRoles) >= 2) return "Punishing " + noun;
+      if (countRoles(keys, shutdownRoles) >= 2) return "Shutdown " + noun;
+      if (countRoles(keys, shootingRoles) >= 2) return "Shooting " + noun;
+      if (countRoles(keys, forecheckRoles) >= 2) return "Forechecking " + noun;
+      if (countRoles(keys, playmakingRoles) >= 2) {
+        return String(kind || "") === "powerplay" ? "Setup " + noun : "Playmaking " + noun;
+      }
+      if (countRoles(keys, speedRoles) >= 2) {
+        if (countRoles(keys, physicalRoles)) return "Forechecking " + noun;
+        if (countRoles(keys, { counterattacking: 1 }) >= countRoles(keys, { speedy_forward: 1 })) {
+          return "Transition " + noun;
+        }
+        return "Speed " + noun;
+      }
+      if (countRoles(keys, netfrontRoles) >= 2) return "Net-front " + noun;
+      var counts = {};
+      keys.forEach(function (key) {
+        var fam = roleFamily(key, kind);
+        if (fam) counts[fam] = (counts[fam] || 0) + 1;
+      });
+      var ranked = Object.keys(counts).map(function (fam) {
+        return [fam, counts[fam]];
+      }).sort(function (a, b) { return b[1] - a[1]; });
+      if (!ranked.length) return "Balanced " + noun;
+      if (ranked[0][1] >= 2) return familyLabel(ranked[0][0], noun, kind);
+      var fams = {};
+      ranked.forEach(function (row) { fams[row[0]] = 1; });
+      return comboLabel(fams, noun, kind);
+    }
+
+    function lineAbilityGrade(ability, kind, roleKeys) {
+      if (ability == null) return null;
+      var key;
+      if (ability >= 85) key = "1st";
+      else if (ability >= 76) key = "2nd";
+      else if (ability >= 68) key = "3rd";
+      else if (ability >= 60) key = "4th";
+      else key = "depth";
+      return { key: key, label: lineIdentity(roleKeys || [], kind), score: ability };
     }
 
     function esc(s) {
@@ -2449,8 +2578,7 @@
         '"><span class="team-line-builder__grade-kicker">Line ability</span>' +
         '<span class="team-line-builder__grade-value">' +
         grade.score +
-        " — " +
-        esc(grade.label) +
+        (grade.label ? " — " + esc(grade.label) : "") +
         "</span></div>"
       );
     }

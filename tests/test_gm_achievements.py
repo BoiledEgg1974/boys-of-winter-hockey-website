@@ -851,5 +851,60 @@ class EvaluatorWatermarkTests(unittest.TestCase):
                 self.assertIn("Who unlocked this first", rival_html)
 
 
+class AchievementUnlockSchemaTests(unittest.TestCase):
+    def test_ensure_adds_scratch_columns_to_existing_unlocks_table(self) -> None:
+        from sqlalchemy import create_engine, text
+
+        from app.db_utils import ensure_gm_achievements_sqlite
+
+        engine = create_engine("sqlite://")
+        with engine.connect() as conn:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE gm_achievement_unlocks (
+                        id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                        league_slug VARCHAR(64) NOT NULL,
+                        team_id INTEGER NOT NULL,
+                        user_id INTEGER,
+                        achievement_key VARCHAR(64) NOT NULL,
+                        source_ref VARCHAR(160) NOT NULL,
+                        unlocked_at DATETIME NOT NULL,
+                        season_label VARCHAR(16) NOT NULL DEFAULT '',
+                        meta_json TEXT NOT NULL DEFAULT '{}',
+                        ap_delta INTEGER NOT NULL DEFAULT 0
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO gm_achievement_unlocks
+                    (league_slug, team_id, achievement_key, source_ref, unlocked_at, ap_delta)
+                    VALUES ('bowl-cap', 1, 'foo', 'ref-1', '2026-01-01 00:00:00', 2)
+                    """
+                )
+            )
+            conn.commit()
+
+        ensure_gm_achievements_sqlite(engine)
+
+        with engine.connect() as conn:
+            cols = {str(row[1]) for row in conn.execute(text("PRAGMA table_info(gm_achievement_unlocks)"))}
+            self.assertIn("reward_cells_json", cols)
+            self.assertIn("reward_ticket_ap", cols)
+            self.assertIn("reward_multiplier", cols)
+            self.assertIn("claimed_at", cols)
+            claimed = conn.execute(
+                text("SELECT claimed_at FROM gm_achievement_unlocks WHERE source_ref = 'ref-1'")
+            ).scalar()
+            self.assertIsNotNone(claimed)
+            marks = conn.execute(
+                text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='gm_achievement_watermarks'")
+            ).fetchone()
+            self.assertIsNotNone(marks)
+
+
 if __name__ == "__main__":
     unittest.main()

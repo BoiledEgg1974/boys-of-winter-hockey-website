@@ -3872,14 +3872,18 @@ def ensure_team_line_sheets_sqlite(engine: Engine) -> None:
 
 
 def ensure_gm_achievements_sqlite(engine: Engine) -> None:
-    """Create GM achievement unlock + watermark tables on the site DB when missing."""
-    if engine.dialect.name != "sqlite":
+    """Create/upgrade GM achievement unlock + watermark tables (SQLite or MySQL)."""
+    dialect = engine.dialect.name
+    if dialect not in ("sqlite", "mysql", "mariadb"):
         return
+    additions = (
+        ("reward_cells_json", "TEXT"),
+        ("reward_ticket_ap", "INTEGER"),
+        ("reward_multiplier", "INTEGER"),
+        ("claimed_at", "DATETIME"),
+    )
     with engine.connect() as conn:
-        unlocks = conn.execute(
-            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='gm_achievement_unlocks'")
-        ).fetchone()
-        if not unlocks:
+        if dialect == "sqlite" and not _bind_db_table_exists(conn, "gm_achievement_unlocks", dialect):
             conn.execute(
                 text(
                     """
@@ -3917,16 +3921,11 @@ def ensure_gm_achievements_sqlite(engine: Engine) -> None:
                     "ON gm_achievement_unlocks (league_slug, user_id)"
                 )
             )
-        else:
-            cols = {str(row[1]) for row in conn.execute(text("PRAGMA table_info(gm_achievement_unlocks)"))}
-            additions = (
-                ("reward_cells_json", "TEXT"),
-                ("reward_ticket_ap", "INTEGER"),
-                ("reward_multiplier", "INTEGER"),
-                ("claimed_at", "DATETIME"),
-            )
+        if _bind_db_table_exists(conn, "gm_achievement_unlocks", dialect):
+            cols = {str(name) for name in _bind_db_column_names(conn, "gm_achievement_unlocks", dialect)}
+            cols_lower = {name.lower() for name in cols}
             for name, col_type in additions:
-                if name not in cols:
+                if name.lower() not in cols_lower:
                     conn.execute(text(f"ALTER TABLE gm_achievement_unlocks ADD COLUMN {name} {col_type}"))
             conn.execute(
                 text(
@@ -3937,12 +3936,7 @@ def ensure_gm_achievements_sqlite(engine: Engine) -> None:
                     """
                 )
             )
-        marks = conn.execute(
-            text(
-                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='gm_achievement_watermarks'"
-            )
-        ).fetchone()
-        if not marks:
+        if dialect == "sqlite" and not _bind_db_table_exists(conn, "gm_achievement_watermarks", dialect):
             conn.execute(
                 text(
                     """

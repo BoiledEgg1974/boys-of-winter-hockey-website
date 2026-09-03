@@ -143,6 +143,7 @@ def create_app(config_class: type = Config) -> Flask:
                 from app.db_utils import (
                     ensure_bowl_six_slates_discord_columns_sqlite,
                     ensure_discord_playoff_bracket_sqlite,
+                    ensure_gm_achievements_sqlite,
                     ensure_team_cap_penalties_sqlite,
                     ensure_team_staff_budget_current_salary_sqlite,
                 )
@@ -151,6 +152,7 @@ def create_app(config_class: type = Config) -> Flask:
                 ensure_team_staff_budget_current_salary_sqlite(site_engine)
                 ensure_discord_playoff_bracket_sqlite(site_engine)
                 ensure_bowl_six_slates_discord_columns_sqlite(site_engine)
+                ensure_gm_achievements_sqlite(site_engine)
         except Exception as exc:
             app.logger.warning("site DB schema ensure skipped: %s", exc)
 

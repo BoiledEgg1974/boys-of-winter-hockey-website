@@ -248,6 +248,12 @@ def create_app(config_class: type = Config) -> Flask:
     from app.routes.expansion_draft_hub import expansion_draft_hub_bp
     from app.routes.site_portal import site_admin_bp, site_gm_bp
 
+    # Shared blueprints are registered on every league app. Attach extra routes
+    # before the first register_blueprint — a racing mount used to register
+    # site_admin_bp first, then a later hockey create_app imported bowl_six_portal
+    # and Flask rejected @site_admin_bp.post after registration.
+    from app.routes import bowl_six_portal as _bowl_six_portal  # noqa: F401
+
     _league_slug = str(app.config.get("LEAGUE_SLUG") or "")
     _racing = is_racing_league(_league_slug)
 
@@ -260,8 +266,6 @@ def create_app(config_class: type = Config) -> Flask:
         csrf.exempt(api_bp)
         app.register_blueprint(site_admin_bp)
     else:
-        from app.routes import bowl_six_portal as _bowl_six_portal  # noqa: F401 — routes on shared blueprints
-
         app.register_blueprint(main_bp)
         app.register_blueprint(draft_hub_bp)
         app.register_blueprint(expansion_draft_hub_bp)

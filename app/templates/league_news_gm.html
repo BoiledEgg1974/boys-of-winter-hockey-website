@@ -7,6 +7,7 @@
   {% with messages = get_flashed_messages(with_categories=true) %}
   {% if messages %}
   <ul>{% for cat, msg in messages %}<li>{{ msg }}</li>{% endfor %}</ul>
+  {% for cat, msg in messages %}{% if cat in ('ok', 'success') %}<span data-bowl-moment="success" hidden></span>{% endif %}{% endfor %}
   {% endif %}
   {% endwith %}
   <p class="muted">Submitted articles appear on the homepage after an administrator publishes them. Choose a <strong>category</strong> for each submission. AP may be awarded on publish (league setting). Body is limited to <strong>{{ gm_article_body_max_len }} characters</strong>.</p>

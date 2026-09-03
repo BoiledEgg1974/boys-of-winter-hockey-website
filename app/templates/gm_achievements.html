@@ -6,6 +6,7 @@
   {% with messages = get_flashed_messages(with_categories=true) %}
   {% if messages %}
   <ul class="muted">{% for cat, msg in messages %}<li>{{ msg }}</li>{% endfor %}</ul>
+  {% for cat, msg in messages %}{% if cat in ('ok', 'success') %}<span data-bowl-moment="success" hidden></span>{% endif %}{% endfor %}
   {% endif %}
   {% endwith %}
   {% if team %}
@@ -25,7 +26,7 @@
     <h2 id="gm-ach-{{ cat }}" class="gm-achievements__heading">{{ heading }}</h2>
     <div class="gm-achievements__grid">
       {% for card in cards %}
-      <article class="gm-achievements__card gm-achievements__card--{{ card.status }}{% if card.hidden %} gm-achievements__card--hidden{% endif %}">
+      <article class="gm-achievements__card gm-achievements__card--{{ card.status }}{% if card.hidden %} gm-achievements__card--hidden{% endif %}"{% if card.status == 'completed' and card.unlocked_at %} data-unlocked-at="{{ card.unlocked_at.isoformat() }}"{% endif %}>
         <div class="gm-achievements__card-head">
           <span class="gm-achievements__badge gm-achievements__badge--{{ card.category }}" aria-hidden="true"></span>
           <h3 class="gm-achievements__title">{{ card.title }}</h3>

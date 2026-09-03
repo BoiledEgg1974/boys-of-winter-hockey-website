@@ -32,6 +32,7 @@
   var bubblePh = document.getElementById("ai-bubble-placeholder");
   var bubbleLoad = document.getElementById("ai-bubble-loading");
   var btnEval = document.getElementById("btn-ai-evaluate");
+  var botFigure = document.querySelector(".ai-trade-tool-bot-figure");
   var botDialog = document.getElementById("ai-trade-bot-dialog");
   var btnDialogClose = document.getElementById("ai-trade-dialog-close");
   var cached = null;
@@ -519,12 +520,14 @@
     }
     if (bubblePh) bubblePh.hidden = false;
     if (bubbleLoad) bubbleLoad.hidden = true;
+    if (botFigure) botFigure.classList.remove("is-talking");
   }
 
   function setBubbleLoading(on) {
     if (bubbleLoad) bubbleLoad.hidden = !on;
     if (bubblePh) bubblePh.hidden = on;
     if (btnEval) btnEval.disabled = !!on;
+    if (botFigure) botFigure.classList.toggle("is-talking", !!on);
     if (on && botDialog && typeof botDialog.showModal === "function") {
       try {
         if (!botDialog.open) botDialog.showModal();

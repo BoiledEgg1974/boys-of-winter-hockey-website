@@ -1,11 +1,12 @@
 ﻿{% extends "base.html" %}
 {% block title %}{{ event.title or 'Results' }} — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
 {% block content %}
+{% set racing_motion = 'img/motion/racing-demolition.gif' if is_demolition else 'img/motion/racing-formula.gif' %}
 <section class="card racing-results-detail">
   <p><a href="{{ url_for('racing.results_index') }}">&larr; All results</a></p>
   <h1 class="page-title">{{ event.title or event.track_name or ('Event '~event.event_number) }}</h1>
   {% if event.track_name and event.track_name != (event.title or '') %}<p class="muted">{{ event.track_name }}</p>{% endif %}
-  <div class="racing-results-layout{% if track_image_url %} racing-results-layout--with-track{% endif %}">
+  <div class="racing-results-layout racing-results-layout--with-track">
     <div class="racing-results-layout__main">
       <table class="data-table racing-table">
         <thead>
@@ -51,6 +52,10 @@
     {% if track_image_url %}
     <figure class="racing-results-layout__track">
       <img src="{{ track_image_url }}" alt="{{ event.track_name or event.title or 'Track' }}" loading="lazy" decoding="async">
+    </figure>
+    {% else %}
+    <figure class="racing-results-layout__track racing-results-layout__track--motion">
+      <img src="{{ url_for('static', filename=racing_motion) }}" alt="" aria-hidden="true">
     </figure>
     {% endif %}
   </div>

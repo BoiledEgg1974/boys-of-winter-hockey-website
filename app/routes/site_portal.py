@@ -573,6 +573,16 @@ def _is_site_admin() -> bool:
     return has_admin_role(current_user)
 
 
+def _sync_achievement_ap_ledger(slug: str) -> int:
+    """Credit any achievement AP that is missing from the official ledger."""
+    from app.services.gm_achievements import sync_achievement_ap_ledger
+
+    created = sync_achievement_ap_ledger(db.session, slug)
+    if created:
+        commit_with_sqlite_retry(db.session)
+    return created
+
+
 def _ap_ledger_template_context(
     slug: str,
     *,
@@ -1008,6 +1018,7 @@ def gm_achievements_page():
         return redirect(url_for("main.home"))
     from app.services.gm_achievements import build_achievements_page_payload
 
+    _sync_achievement_ap_ledger(slug)
     payload = build_achievements_page_payload(db.session, league_slug=slug, membership=mem)
     return render_template("gm_achievements.html", membership=mem, **payload)
 
@@ -1020,6 +1031,7 @@ def action_points_page():
     if not _can_view_action_points_page(mem):
         flash("Action Points are available to active GMs and league admins.", "err")
         return redirect(url_for("main.home"))
+    _sync_achievement_ap_ledger(slug)
     teams = db.session.scalars(select(Team).order_by(Team.name)).all()
     rows = []
     for t in teams:
@@ -2526,6 +2538,62 @@ def _boost_lottery_theme(league_slug: str) -> str:
     return "fantasy" if league_slug == "bowl-fantasy" else ("cap" if league_slug == "bowl-cap" else "historical")
 
 
+def _boost_lottery_scratch_state(league_slug: str, *, role: str) -> dict:
+    from app.services.boost_scratch import DEFAULT_BASELINE_GOLD, DEFAULT_BASELINE_SILVER, draw_totals, load_scratch_extras
+
+    extras = load_scratch_extras(db.session, league_slug)
+    draw_gold, draw_silver = draw_totals(
+        DEFAULT_BASELINE_GOLD,
+        DEFAULT_BASELINE_SILVER,
+        extras["extra_gold"],
+        extras["extra_silver"],
+    )
+    return {
+        "role": role,
+        "extra_gold": extras["extra_gold"],
+        "extra_silver": extras["extra_silver"],
+        "tickets": extras["tickets"],
+        "complete": extras["complete"],
+        "baseline_gold": DEFAULT_BASELINE_GOLD,
+        "baseline_silver": DEFAULT_BASELINE_SILVER,
+        "draw_gold": draw_gold,
+        "draw_silver": draw_silver,
+        "save_url": url_for("site_gm.boost_lottery_save_scratch_extras") if role == "admin" else "",
+        "reset_url": url_for("site_gm.boost_lottery_reset_scratch_extras") if role == "admin" else "",
+    }
+
+
+def _boost_lottery_json_guard(*, admin_only: bool):
+    slug = _league_slug()
+    if slug not in ("bowl-fantasy", "bowl-cap", "bowl-historical"):
+        return None, jsonify({"error": "Not found."}), 404
+    if not current_user.is_authenticated:
+        return None, jsonify({"error": "Login required."}), 401
+    if admin_only and not getattr(current_user, "is_admin", False):
+        return None, jsonify({"error": "Boost lottery extras can only be saved by league admins."}), 403
+    if not admin_only:
+        mem = _membership()
+        if not mem and not getattr(current_user, "is_admin", False):
+            return None, jsonify({"error": "Boost Lottery Tracker is available to active GMs."}), 403
+    return slug, None, None
+
+
+def _boost_lottery_csrf_error(data: dict | None):
+    if not current_app.config.get("WTF_CSRF_ENABLED", True):
+        return None
+    from flask_wtf.csrf import validate_csrf
+
+    token = None
+    if isinstance(data, dict):
+        token = data.get("csrf_token")
+    token = token or request.headers.get("X-CSRFToken")
+    try:
+        validate_csrf(token)
+    except Exception:
+        return jsonify({"error": "Invalid or missing CSRF token."}), 400
+    return None
+
+
 @site_gm_bp.route("/draft-lottery", methods=["GET"])
 @login_required
 def draft_lottery():
@@ -2554,11 +2622,54 @@ def boost_lottery():
         changed = _save_boost_lottery_team_rows(slug, int(current_user.id))
         flash(f"Boost Lottery winner tracker saved ({changed} team row{'s' if changed != 1 else ''} changed).", "ok")
         return redirect(url_for("site_gm.boost_lottery"))
+    scratch = _boost_lottery_scratch_state(slug, role="admin")
     return render_template(
         "boost_lottery.html",
         boost_theme=_boost_lottery_theme(slug),
         boost_team_rows=_boost_lottery_team_rows(slug),
+        scratch=scratch,
     )
+
+
+@site_gm_bp.post("/boost-lottery/scratch-extras")
+@login_required
+def boost_lottery_save_scratch_extras():
+    """Persist a completed live scratch session (admin only)."""
+    from app.services.boost_scratch import save_scratch_extras
+
+    slug, err_resp, err_code = _boost_lottery_json_guard(admin_only=True)
+    if err_resp is not None:
+        return err_resp, err_code
+    data = request.get_json(silent=True) or {}
+    csrf_err = _boost_lottery_csrf_error(data)
+    if csrf_err is not None:
+        return csrf_err
+    payload = save_scratch_extras(
+        db.session,
+        slug,
+        tickets=data.get("tickets") if data.get("tickets") is not None else data.get("ticket_summary"),
+        user_id=int(current_user.id),
+    )
+    commit_with_sqlite_retry(db.session)
+    return jsonify({"ok": True, **payload})
+
+
+@site_gm_bp.post("/boost-lottery/scratch-extras/reset")
+@login_required
+def boost_lottery_reset_scratch_extras():
+    """Clear live scratch extras back to the 4/6 baseline (admin only)."""
+    from app.services.boost_scratch import reset_scratch_extras
+
+    slug, err_resp, err_code = _boost_lottery_json_guard(admin_only=True)
+    if err_resp is not None:
+        return err_resp, err_code
+    data = request.get_json(silent=True) or {}
+    csrf_err = _boost_lottery_csrf_error(data)
+    if csrf_err is not None:
+        return csrf_err
+    payload = reset_scratch_extras(db.session, slug, user_id=int(current_user.id))
+    commit_with_sqlite_retry(db.session)
+    return jsonify({"ok": True, **payload})
 
 
 @site_gm_bp.get("/boost-lottery-tracker")
@@ -2572,11 +2683,13 @@ def boost_lottery_tracker():
     if not mem:
         flash("Boost Lottery Tracker is available to active GMs.", "err")
         return redirect(url_for("main.home"))
+    scratch = _boost_lottery_scratch_state(slug, role="gm")
     return render_template(
         "boost_lottery_tracker.html",
         boost_theme=_boost_lottery_theme(slug),
         boost_team_rows=_boost_lottery_team_rows(slug),
         membership=mem,
+        scratch=scratch,
     )
 
 
@@ -8004,6 +8117,7 @@ def admin_ap_ledger():
             write_with_sqlite_retry(db.session, _add_manual_ledger_row)
             flash("Ledger entry added.", "ok")
         return redirect(url_for("site_admin.admin_ap_ledger"))
+    _sync_achievement_ap_ledger(slug)
     teams = list(db.session.scalars(select(Team).order_by(Team.name)).all())
     team_rows = [{"team": t, "balance": team_ap_balance(slug, t.id)} for t in teams]
     team_rows.sort(key=lambda r: (r["team"].name or "").lower())

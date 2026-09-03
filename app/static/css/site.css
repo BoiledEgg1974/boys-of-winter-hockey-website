@@ -2086,6 +2086,50 @@ html[data-league="cap"] .bracket-bowl-title--cap span:first-child {
   color: var(--text);
   text-shadow: none;
 }
+[data-theme="light"] .boxscore-page-head__final strong {
+  color: var(--muted);
+}
+[data-theme="light"] .boxscore-panel {
+  background: var(--surface);
+  color: var(--text);
+}
+[data-theme="light"] .boxscore-panel__meta,
+[data-theme="light"] .boxscore-empty,
+[data-theme="light"] .boxscore-tabs__tab {
+  color: var(--muted);
+}
+[data-theme="light"] .boxscore-stars__title,
+[data-theme="light"] .boxscore-section-title,
+[data-theme="light"] .boxscore-table thead th {
+  color: #475569;
+}
+[data-theme="light"] .boxscore-stars {
+  background: var(--row-alt);
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--border));
+}
+[data-theme="light"] .boxscore-stars__list,
+[data-theme="light"] .boxscore-team-summary,
+[data-theme="light"] .boxscore-team-cell__name,
+[data-theme="light"] .boxscore-split__head {
+  color: var(--text);
+}
+[data-theme="light"] .boxscore-table thead th,
+[data-theme="light"] .boxscore-table tbody td {
+  border-bottom-color: var(--border);
+}
+[data-theme="light"] .boxscore-table tbody tr:nth-child(even) td {
+  background: var(--row-alt);
+}
+[data-theme="light"] .boxscore-tabs {
+  border-bottom-color: var(--border);
+}
+[data-theme="light"] .boxscore-tabs__tab:hover {
+  color: var(--text);
+}
+[data-theme="light"] .boxscore-tabs__tab.is-active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
 .boxscore-page-head__final--preview {
   font-size: 1.35rem;
 }
@@ -19469,6 +19513,7 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   align-items: flex-start;
 }
 .ai-trade-tool-bot-figure {
+  position: relative;
   flex-shrink: 0;
 }
 .ai-trade-tool-bot-img {
@@ -19476,6 +19521,19 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
   width: 100px;
   height: auto;
   filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
+}
+.ai-trade-tool-bot-talk {
+  display: none;
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100px;
+  height: auto;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+.ai-trade-tool-bot-figure.is-talking .ai-trade-tool-bot-talk {
+  display: block;
 }
 .ai-trade-tool-bubble {
   position: relative;
@@ -21282,6 +21340,319 @@ button.trade-proposal-detail__btn.trade-proposal-detail__btn--deny:focus-visible
 }
 [data-theme="light"] .boost-lottery-results__silver strong {
   color: #334155;
+}
+.boost-lottery-stage--scratch {
+  padding: 1rem 1rem 1.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.boost-lottery-pick-results {
+  padding: 0.75rem 0.85rem 0.9rem;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface) 82%, #020617);
+  border: 1px solid color-mix(in srgb, var(--boost-edge) 40%, #334155);
+  text-align: center;
+}
+.boost-lottery-draw-totals {
+  margin: 0.45rem 0 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+.boost-lottery-tracker-page__scratch {
+  max-width: 56rem;
+  margin: 0 auto 1rem;
+  padding: 1rem 1.05rem 1.15rem;
+}
+.boost-lottery-tracker-page .boost-lottery-tracker-page__panel {
+  max-width: 34rem;
+}
+
+.boost-scratch__header {
+  margin-bottom: 0.75rem;
+}
+.boost-scratch__eyebrow {
+  margin: 0 0 0.2rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--boost-accent) 80%, #f8fafc);
+}
+.boost-scratch__title {
+  margin: 0 0 0.4rem;
+  font-family: "Bebas Neue", Impact, sans-serif;
+  font-size: clamp(1.6rem, 3.5vw, 2.15rem);
+  letter-spacing: 0.08em;
+}
+.boost-scratch__banner {
+  margin: 0;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 70%, #020617);
+  border: 1px solid color-mix(in srgb, var(--boost-edge) 45%, transparent);
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+.boost-scratch__practice-note {
+  margin: 0.4rem 0 0;
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+.boost-scratch__mode {
+  display: inline-flex;
+  margin: 0 0 0.75rem;
+  padding: 0.15rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--boost-edge) 50%, #334155);
+  background: #0b1220;
+}
+.boost-scratch__mode-btn {
+  border: 0;
+  background: transparent;
+  color: #cbd5e1;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.boost-scratch__mode-btn.is-active {
+  background: color-mix(in srgb, var(--boost-accent) 78%, #0f172a);
+  color: #041018;
+}
+.boost-scratch--live .boost-scratch__eyebrow {
+  color: #facc15;
+}
+.boost-scratch__tickets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
+  margin: 0 0 0.85rem;
+}
+.boost-scratch-ticket {
+  width: min(11.5rem, 100%);
+  flex: 0 1 11.5rem;
+  outline: none;
+}
+.boost-scratch-ticket:focus-visible .boost-scratch-ticket__paper {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--boost-accent) 70%, transparent);
+}
+.boost-scratch-ticket--enter {
+  animation: boost-scratch-slide 0.38s ease-out;
+}
+@keyframes boost-scratch-slide {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .boost-scratch-ticket--enter {
+    animation: none;
+  }
+}
+.boost-scratch-ticket__paper {
+  position: relative;
+  border-radius: 6px 6px 10px 10px;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 9px,
+      rgba(185, 28, 28, 0.35) 9px,
+      rgba(185, 28, 28, 0.35) 11px
+    ),
+    linear-gradient(180deg, #f4e6c4 0%, #e7d3a1 48%, #d9c28c 100%);
+  border: 1px solid #b45309;
+  box-shadow:
+    0 10px 24px rgba(0, 0, 0, 0.35),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+  overflow: hidden;
+}
+.boost-scratch-ticket__paper::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 1.55rem;
+  height: 0;
+  border-top: 2px dashed rgba(127, 29, 29, 0.45);
+  pointer-events: none;
+}
+.boost-scratch-ticket__serial {
+  padding: 0.28rem 0.45rem 0.2rem;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #7f1d1d;
+  text-align: center;
+  background: linear-gradient(180deg, #fecaca 0%, #f4e6c4 100%);
+}
+.boost-scratch-ticket__well {
+  position: relative;
+  margin: 0.45rem 0.45rem 0.55rem;
+  min-height: 8.6rem;
+  border-radius: 8px;
+  background: #111827;
+  border: 1px solid #334155;
+  overflow: hidden;
+}
+.boost-scratch-ticket__prize {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  padding: 0.4rem;
+  z-index: 1;
+}
+.boost-scratch-ticket__badge {
+  width: 4.6rem;
+  height: 4.6rem;
+  object-fit: contain;
+  mix-blend-mode: lighten;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.45));
+}
+.boost-scratch-ticket__prize-label {
+  font-family: "Bebas Neue", Impact, sans-serif;
+  font-size: 1.05rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #cbd5e1;
+}
+.boost-scratch-ticket__prize-label--gold {
+  color: #facc15;
+  text-shadow: 0 0 12px rgba(250, 204, 21, 0.45);
+}
+.boost-scratch-ticket__prize-label--silver {
+  color: #e2e8f0;
+  text-shadow: 0 0 12px rgba(226, 232, 240, 0.35);
+}
+.boost-scratch-ticket__void {
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 999px;
+  border: 3px solid #64748b;
+  box-shadow: inset 0 0 0 3px #1e293b;
+  background: repeating-linear-gradient(
+    -45deg,
+    #1e293b,
+    #1e293b 4px,
+    #334155 4px,
+    #334155 8px
+  );
+}
+.boost-scratch-ticket__bonus {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.3rem;
+  padding: 0.12rem 0.35rem;
+  border-radius: 4px;
+  background: #b91c1c;
+  color: #fff7ed;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.boost-scratch-ticket__foil-wrap {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  touch-action: none;
+}
+.boost-scratch-ticket__foil {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+  transition: opacity 0.22s ease-out;
+}
+.boost-scratch-ticket.is-revealed .boost-scratch-ticket__foil {
+  pointer-events: none;
+}
+.boost-scratch-ticket.is-revealed--gold .boost-scratch-ticket__paper {
+  box-shadow:
+    0 0 0 1px rgba(250, 204, 21, 0.55),
+    0 0 28px rgba(250, 204, 21, 0.35),
+    0 10px 24px rgba(0, 0, 0, 0.35);
+}
+.boost-scratch-ticket.is-revealed--silver .boost-scratch-ticket__paper {
+  box-shadow:
+    0 0 0 1px rgba(226, 232, 240, 0.5),
+    0 0 24px rgba(148, 163, 184, 0.4),
+    0 10px 24px rgba(0, 0, 0, 0.35);
+}
+.boost-scratch-ticket.is-revealed--gold .boost-scratch-ticket__well {
+  animation: boost-scratch-gold-shine 0.7s ease-out;
+}
+@keyframes boost-scratch-gold-shine {
+  0% { box-shadow: inset 0 0 0 0 rgba(250, 204, 21, 0); }
+  40% { box-shadow: inset 0 0 28px rgba(250, 204, 21, 0.55); }
+  100% { box-shadow: inset 0 0 0 0 rgba(250, 204, 21, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .boost-scratch-ticket.is-revealed--gold .boost-scratch-ticket__well {
+    animation: none;
+  }
+}
+.boost-scratch-spark {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 999px;
+  background: #f8fafc;
+  box-shadow: 0 0 8px #e2e8f0;
+  pointer-events: none;
+  animation: boost-scratch-spark 0.28s ease-out forwards;
+}
+@keyframes boost-scratch-spark {
+  to {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.4);
+  }
+}
+.boost-scratch__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0 0 0.45rem;
+}
+.boost-scratch__status,
+.boost-scratch__odds,
+.boost-scratch__stats {
+  margin: 0 0 0.25rem;
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+.boost-scratch--locked .boost-scratch-ticket__foil {
+  cursor: default;
+}
+[data-theme="light"] .boost-scratch__banner {
+  background: #fff7ed;
+  color: #1f2937;
+  border-color: #fdba74;
+}
+[data-theme="light"] .boost-scratch__practice-note {
+  color: #57534e;
+}
+[data-theme="light"] .boost-lottery-pick-results {
+  background: rgba(248, 250, 252, 0.96);
 }
 
 /* —— Hall of Fame (plaque grid; theme tokens for continuity) —— */
@@ -25198,8 +25569,8 @@ html[data-league="demolition"] .site-header {
   background: linear-gradient(180deg, rgb(0 0 0 / 0.72), rgb(0 0 0 / 0.35));
 }
 .racing-hero {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(11rem, 20rem);
   gap: 1.25rem;
   align-items: center;
   border: 1px solid color-mix(in srgb, var(--racing-border, #f97316) 55%, transparent);
@@ -25211,11 +25582,29 @@ html[data-league="demolition"] .site-header {
   display: flex;
   gap: 1rem;
   align-items: center;
+  min-width: 0;
 }
 .racing-hero__logo {
   width: min(160px, 34vw);
   height: auto;
   filter: drop-shadow(0 8px 18px rgb(0 0 0 / 0.55));
+}
+.racing-hero__motion {
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+  justify-self: end;
+  border-radius: 0.4rem;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  object-fit: cover;
+}
+@media (max-width: 720px) {
+  .racing-hero {
+    grid-template-columns: 1fr;
+  }
+  .racing-hero__motion {
+    justify-self: start;
+  }
 }
 .racing-hero__title {
   letter-spacing: 0.06em;
@@ -25278,12 +25667,49 @@ html[data-league="demolition"] .card {
   border: 1px solid rgb(255 255 255 / 0.1);
   background: rgb(0 0 0 / 0.25);
 }
-@media (max-width: 860px) {
-  .racing-results-layout--with-track {
-    grid-template-columns: 1fr;
-  }
-  .racing-results-layout__track {
-    max-width: 28rem;
+.racing-results-layout__track--motion img,
+.racing-empty-motion__gif {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 0.4rem;
+  border: 1px solid rgb(255 255 255 / 0.1);
+}
+.racing-empty-motion {
+  display: grid;
+  gap: 0.65rem;
+  justify-items: start;
+  padding: 0.75rem 0 0.2rem;
+  border-bottom: none;
+}
+.racing-empty-motion__gif {
+  max-width: 22rem;
+}
+.bowl-moment {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  background: rgb(2 6 23 / 0.28);
+}
+.bowl-moment[hidden] {
+  display: none !important;
+}
+.bowl-moment img {
+  width: min(260px, 58vw);
+  height: auto;
+  filter: drop-shadow(0 0 28px rgb(250 204 21 / 0.45));
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-trade-tool-bot-talk,
+  .racing-hero__motion,
+  .racing-results-layout__track--motion,
+  .racing-empty-motion__gif,
+  .bowl-moment {
+    display: none !important;
   }
 }
 

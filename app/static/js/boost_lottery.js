@@ -96,10 +96,16 @@
     return null;
   }
 
+  function readDrawCount(el, attr, fallback) {
+    var fromAttr = parseInt(String(el && el.getAttribute(attr) || "").trim(), 10);
+    if (Number.isFinite(fromAttr) && fromAttr >= 0) return fromAttr;
+    return Math.max(0, readInt(el, fallback));
+  }
+
   function drawExecute() {
     if (!ticketList.length) return "Generate the ticket pool first.";
-    var g = Math.max(0, readInt(elGoldN, 0));
-    var s = Math.max(0, readInt(elSilverN, 0));
+    var g = readDrawCount(elGoldN, "data-draw-gold", 0);
+    var s = readDrawCount(elSilverN, "data-draw-silver", 0);
     var need = g + s;
     if (need === 0) return "Set at least one gold or silver winner.";
 

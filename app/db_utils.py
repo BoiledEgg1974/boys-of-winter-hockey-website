@@ -3304,6 +3304,43 @@ def ensure_boost_lottery_team_results_sqlite(engine: Engine) -> None:
         conn.commit()
 
 
+def ensure_boost_lottery_scratch_extras_sqlite(engine: Engine) -> None:
+    """Create live scratch-ticket extras (gold/silver stacked on the baseline draw)."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text(
+                "SELECT 1 FROM sqlite_master "
+                "WHERE type='table' AND name='boost_lottery_scratch_extras'"
+            )
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE boost_lottery_scratch_extras (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    league_slug VARCHAR(64) NOT NULL,
+                    extra_gold INTEGER NOT NULL DEFAULT 0,
+                    extra_silver INTEGER NOT NULL DEFAULT 0,
+                    ticket_summary TEXT NOT NULL DEFAULT '[]',
+                    updated_by_user_id INTEGER,
+                    updated_at DATETIME NOT NULL
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE UNIQUE INDEX uq_boost_lottery_scratch_league "
+                "ON boost_lottery_scratch_extras (league_slug)"
+            )
+        )
+        conn.commit()
+
+
 def ensure_record_stat_adjustments_sqlite(engine: Engine) -> None:
     """Admin exclude/override rows for records leaderboard recalculation."""
     if engine.dialect.name != "sqlite":

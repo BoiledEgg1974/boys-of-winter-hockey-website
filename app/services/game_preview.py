@@ -464,6 +464,7 @@ def _team_card(session, season_id: int, team: Team, anchor: Game, opp: Team) -> 
         }
     streak = (st.streak or "").strip() if st else ""
     season_h2h = _season_h2h_vs_opponent(session, season_id, tid, opp, int(anchor.id))
+    season = anchor.season
     return {
         "team": {
             "id": team.id,

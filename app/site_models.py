@@ -882,6 +882,22 @@ class BoostLotteryTeamResult(db.Model):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
 
+class BoostLotteryScratchExtras(db.Model):
+    """Live scratch-ticket extras stacked on the 4 gold / 6 silver baseline."""
+
+    __tablename__ = "boost_lottery_scratch_extras"
+    __bind_key__ = "site"
+    __table_args__ = (UniqueConstraint("league_slug", name="uq_boost_lottery_scratch_league"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    extra_gold: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    extra_silver: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    ticket_summary: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
+    updated_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class LeagueDraft(db.Model):
     """League-run draft hub (one row per event; separate from FHM Draft / DraftPick)."""
 

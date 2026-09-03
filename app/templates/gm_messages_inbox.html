@@ -21,9 +21,13 @@
   <p><a href="{{ url_for('main.home') }}">← Home</a></p>
 
   {% if notifications %}
+  {% set ns = namespace(moment_key='') %}
   <h2 class="page-title" style="font-size:1.05rem;margin-top:1.25rem;">Notifications</h2>
   <ul class="gm-msg-notif-list">
     {% for n in notifications %}
+    {% if not n.read_at and (n.kind == 'redemption_approved' or n.title == 'Export recap' or 'unlocked' in (n.body or '')|lower) %}
+      {% set ns.moment_key = ns.moment_key ~ n.id ~ ',' %}
+    {% endif %}
     <li class="gm-msg-notif-list__item{% if not n.read_at %} gm-msg-notif-list__item--unread{% endif %}">
       <a class="gm-msg-notif-list__link" href="{{ url_for('site_gm.gm_notification_open', nid=n.id) }}">
         <span class="gm-msg-notif-list__title">{{ n.title }}</span>
@@ -33,6 +37,9 @@
     </li>
     {% endfor %}
   </ul>
+  {% if ns.moment_key %}
+  <span data-bowl-moment="success" data-bowl-moment-key="inbox:{{ ns.moment_key }}" hidden></span>
+  {% endif %}
   {% endif %}
 
   <h2 class="page-title" style="font-size:1.05rem;margin-top:1.25rem;">Conversations</h2>

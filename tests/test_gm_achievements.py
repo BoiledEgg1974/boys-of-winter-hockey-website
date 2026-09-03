@@ -26,6 +26,7 @@ from app.services.gm_achievements import (
     catalog_for_league,
     catalog_key_from_storage,
     collect_new_hits,
+    credit_achievement_ap,
     detect_comeback_from_events,
     detect_comeback_from_period_scores,
     detect_consecutive_playoff_shutouts,
@@ -50,9 +51,16 @@ from app.services.gm_achievements import (
     playoff_spot_cutoff,
     rewrite_truths_to_storage,
     storage_key_for,
+    sync_achievement_ap_ledger,
     unlock_source_ref,
 )
-from app.site_models import GmAchievementUnlock, GmAchievementWatermark, GmLeagueMembership, User
+from app.site_models import (
+    ApLedgerEntry,
+    GmAchievementUnlock,
+    GmAchievementWatermark,
+    GmLeagueMembership,
+    User,
+)
 from sqlalchemy import delete, select
 
 
@@ -422,9 +430,52 @@ class EvaluatorWatermarkTests(unittest.TestCase):
                 second = evaluate_gm_achievements_after_import(self.app)
                 self.assertEqual(second["seeded"], 0)
                 self.assertEqual(second["awarded"], 1)
+                source_ref = unlock_source_ref("bowl-cap", tid, "gordie_howe")
+                ledger = db.session.scalar(
+                    select(ApLedgerEntry).where(ApLedgerEntry.source_ref == source_ref).limit(1)
+                )
+                self.assertIsNotNone(ledger)
+                self.assertEqual(int(ledger.delta), int(CATALOG_BY_KEY["gordie_howe"].ap))
+                self.assertIn("Gordie Howe", str(ledger.meta_json or ""))
                 third = evaluate_gm_achievements_after_import(self.app)
                 self.assertEqual(third["awarded"], 0)
 
+            db.session.rollback()
+
+    def test_sync_writes_missing_achievement_ledger_row(self) -> None:
+        self.app = create_app(make_league_config("bowl-cap"))
+        with self.app.app_context():
+            team = db.session.scalar(select(Team).order_by(Team.id).limit(1))
+            self.assertIsNotNone(team)
+            tid = int(team.id)
+            spec = CATALOG_BY_KEY["gordie_howe"]
+            source_ref = "gm_ach:bowl-cap:test-sync-ledger"
+            unlock = GmAchievementUnlock(
+                league_slug="bowl-cap",
+                team_id=tid,
+                user_id=None,
+                achievement_key=spec.key,
+                source_ref=source_ref,
+                season_label="2026-27",
+                meta_json="{}",
+                ap_delta=int(spec.ap),
+            )
+            db.session.add(unlock)
+            db.session.flush()
+            created = sync_achievement_ap_ledger(db.session, "bowl-cap")
+            self.assertGreaterEqual(created, 1)
+            row = db.session.scalar(
+                select(ApLedgerEntry).where(ApLedgerEntry.source_ref == source_ref).limit(1)
+            )
+            self.assertIsNotNone(row)
+            self.assertEqual(int(row.delta), int(spec.ap))
+            self.assertEqual(credit_achievement_ap(
+                league_slug="bowl-cap",
+                team_id=tid,
+                spec=spec,
+                source_ref=source_ref,
+                created_by_user_id=None,
+            ), None)
             db.session.rollback()
 
     def test_page_payload_hides_reverse_sweep_and_discover_runs(self) -> None:

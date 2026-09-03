@@ -167,6 +167,7 @@
           {% set bot_img = 'img/ai-trade-bot-historical.png' %}
           {% endif %}
           <img class="ai-trade-tool-bot-img" src="{{ url_for('static', filename=bot_img) }}" width="120" height="120" alt="">
+          <img class="ai-trade-tool-bot-talk" src="{{ url_for('static', filename='img/motion/trade-bot-talk.gif') }}" width="120" height="120" alt="" aria-hidden="true">
         </div>
         <div class="ai-trade-tool-bubble ai-trade-tool-bubble--dialog" id="ai-trade-bubble" aria-live="polite">
           <p class="ai-trade-tool-bubble__verdict" id="ai-bubble-verdict" hidden></p>

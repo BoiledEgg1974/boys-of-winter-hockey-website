@@ -6,6 +6,7 @@
   {% with messages = get_flashed_messages(with_categories=true) %}
   {% if messages %}
   <ul class="muted">{% for cat, msg in messages %}<li>{{ msg }}</li>{% endfor %}</ul>
+  {% for cat, msg in messages %}{% if cat in ('ok', 'success') %}<span data-bowl-moment="success" hidden></span>{% endif %}{% endfor %}
   {% endif %}
   {% endwith %}
   <p class="muted">League-wide balances and ledger. GMs with an approved membership can submit redemptions for admin approval.</p>

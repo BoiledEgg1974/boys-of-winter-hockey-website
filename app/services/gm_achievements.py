@@ -2128,16 +2128,95 @@ def _promoted_ids(prev: dict[str, str], current: dict[str, str]) -> set[int]:
     return out
 
 
+def _achievement_ap_meta(spec: AchievementDef, storage_key: str) -> dict[str, Any]:
+    return {
+        "achievement_key": storage_key,
+        "achievement_title": spec.title,
+        "note": f"Achievement: {spec.title}",
+    }
+
+
+def credit_achievement_ap(
+    *,
+    league_slug: str,
+    team_id: int,
+    spec: AchievementDef,
+    source_ref: str,
+    created_by_user_id: int | None,
+    storage_key: str | None = None,
+    delta: int | None = None,
+) -> Any:
+    """Write the AP ledger row for an unlock. Idempotent on source_ref."""
+    from app.services.ap_service import add_ledger_entry
+
+    amount = int(delta if delta is not None else spec.ap)
+    if amount <= 0:
+        return None
+    return add_ledger_entry(
+        league_slug=league_slug,
+        team_id=int(team_id),
+        delta=amount,
+        reason_code=REASON_CODE,
+        meta=_achievement_ap_meta(spec, storage_key or spec.key),
+        created_by_user_id=created_by_user_id,
+        source_ref=source_ref,
+    )
+
+
+def sync_achievement_ap_ledger(session: Session, league_slug: str) -> int:
+    """Create missing ledger rows for unlocks that already awarded AP."""
+    from app.site_models import ApLedgerEntry
+
+    created = 0
+    unlocks = list(
+        session.scalars(
+            select(GmAchievementUnlock).where(GmAchievementUnlock.league_slug == league_slug)
+        ).all()
+    )
+    if not unlocks:
+        return 0
+    refs = [str(row.source_ref) for row in unlocks if row.source_ref]
+    existing_refs: set[str] = set()
+    if refs:
+        existing_refs = {
+            str(ref)
+            for ref in session.scalars(
+                select(ApLedgerEntry.source_ref).where(ApLedgerEntry.source_ref.in_(refs))
+            ).all()
+            if ref
+        }
+    for unlock in unlocks:
+        if int(unlock.ap_delta or 0) <= 0 or not unlock.source_ref:
+            continue
+        if str(unlock.source_ref) in existing_refs:
+            continue
+        spec = CATALOG_BY_KEY.get(catalog_key_from_storage(unlock.achievement_key))
+        if spec is None:
+            continue
+        row = credit_achievement_ap(
+            league_slug=str(unlock.league_slug),
+            team_id=int(unlock.team_id),
+            spec=spec,
+            source_ref=str(unlock.source_ref),
+            created_by_user_id=int(unlock.user_id) if unlock.user_id else None,
+            storage_key=str(unlock.achievement_key),
+            delta=int(unlock.ap_delta),
+        )
+        if row is not None:
+            existing_refs.add(str(unlock.source_ref))
+            created += 1
+    return created
+
+
 def evaluate_gm_achievements_after_import(app) -> dict[str, int]:
     """Seed a watermark on first import; award new unlocks after that."""
     slug = str(getattr(app, "config", {}).get("LEAGUE_SLUG") or "").strip()
-    stats = {"seeded": 0, "awarded": 0, "skipped": 0}
+    stats = {"seeded": 0, "awarded": 0, "skipped": 0, "ledger_synced": 0}
     if slug not in HOCKEY_SLUGS:
         stats["skipped"] = 1
         return stats
 
     from app.league_db import db
-    from app.services.ap_service import add_ledger_entry
     from app.sqlite_retry import commit_with_sqlite_retry
 
     session = db.session
@@ -2220,20 +2299,15 @@ def evaluate_gm_achievements_after_import(app) -> dict[str, int]:
             ap_delta=int(spec.ap),
         )
         session.add(unlock)
+        credit_achievement_ap(
+            league_slug=slug,
+            team_id=int(team_id),
+            spec=spec,
+            source_ref=source_ref,
+            created_by_user_id=user_id,
+            storage_key=key,
+        )
         if user_id is not None:
-            add_ledger_entry(
-                league_slug=slug,
-                team_id=int(team_id),
-                delta=int(spec.ap),
-                reason_code=REASON_CODE,
-                meta={
-                    "achievement_key": key,
-                    "achievement_title": spec.title,
-                    "note": f"Achievement: {spec.title}",
-                },
-                created_by_user_id=user_id,
-                source_ref=source_ref,
-            )
             _enqueue_achievement_discord(
                 session,
                 league_slug=slug,
@@ -2248,6 +2322,9 @@ def evaluate_gm_achievements_after_import(app) -> dict[str, int]:
         already.add(pair)
         existing.add(pair)
         awarded += 1
+
+    synced = sync_achievement_ap_ledger(session, slug)
+    stats["ledger_synced"] = synced
 
     if recap_by_user:
         _enqueue_export_recaps(

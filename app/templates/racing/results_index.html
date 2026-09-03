@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Results — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
 {% block content %}
+{% set racing_motion = 'img/motion/racing-demolition.gif' if is_demolition else 'img/motion/racing-formula.gif' %}
 <section class="card">
   <h1 class="page-title">{{ 'Heat / night results' if is_demolition else 'Race results' }}</h1>
   {% if circuit %}<p class="muted">{{ circuit.name }}</p>{% endif %}
@@ -12,7 +13,10 @@
       </a>
     </li>
     {% else %}
-    <li class="muted">No events imported yet.</li>
+    <li class="racing-empty-motion">
+      <img class="racing-empty-motion__gif" src="{{ url_for('static', filename=racing_motion) }}" alt="" aria-hidden="true">
+      <p class="muted">No events imported yet.</p>
+    </li>
     {% endfor %}
   </ul>
 </section>

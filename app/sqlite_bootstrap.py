@@ -238,6 +238,7 @@ def apply_site_sqlite_migrations(app: Flask) -> None:
         ensure_admin_undo_actions_sqlite,
         ensure_awards_voting_sqlite,
         ensure_boost_lottery_team_results_sqlite,
+        ensure_boost_lottery_scratch_extras_sqlite,
         ensure_player_boost_markers_sqlite,
         ensure_bowl_six_game_finals_sqlite,
         ensure_bowl_six_slates_discord_columns_sqlite,
@@ -325,6 +326,7 @@ def apply_site_sqlite_migrations(app: Flask) -> None:
     ensure_league_draft_slot_boost_tier_sqlite(site_engine)
     ensure_player_boost_markers_sqlite(site_engine)
     ensure_boost_lottery_team_results_sqlite(site_engine)
+    ensure_boost_lottery_scratch_extras_sqlite(site_engine)
     ensure_gm_export_attendance_sqlite(site_engine)
     ensure_sim_cycle_state_sqlite(site_engine)
     ensure_gm_rule_strikes_sqlite(site_engine)

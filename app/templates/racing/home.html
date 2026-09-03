@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
 {% block content %}
+{% set racing_motion = 'img/motion/racing-demolition.gif' if is_demolition else 'img/motion/racing-formula.gif' %}
 <section class="racing-hero card">
   <div class="racing-hero__brand">
     <img class="racing-hero__logo" src="{{ league_logo_url() }}" alt="{{ config.LEAGUE_DISPLAY_NAME }}">
@@ -9,6 +10,7 @@
       <p class="muted">{{ 'Heat results, circuit leaders, and derby standings.' if is_demolition else 'Race results, circuit leaders, and end-of-circuit AP.' }}</p>
     </div>
   </div>
+  <img class="racing-hero__motion" src="{{ url_for('static', filename=racing_motion) }}" alt="" aria-hidden="true">
 </section>
 
 <div class="racing-grid">

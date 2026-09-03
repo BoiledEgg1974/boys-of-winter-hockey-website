@@ -5,13 +5,18 @@
   <header class="boost-lottery-page__header draft-lottery-page__header">
     <p class="boost-lottery-page__eyebrow draft-lottery-page__eyebrow">{{ config.LEAGUE_DISPLAY_NAME }} · GM</p>
     <h1 class="boost-lottery-page__title draft-lottery-page__title">Boost Lottery Tracker</h1>
-    <p class="boost-lottery-page__lead draft-lottery-page__lead muted">Current gold and silver boost winner totals by team. This page is view-only for GMs; admins update totals from the Boost Lottery page.</p>
+    <p class="boost-lottery-page__lead draft-lottery-page__lead muted">Practice the scratch-ticket extras, then check gold and silver winner totals by team. Practice never changes the live lottery. Admins update team totals from the Boost Lottery page.</p>
   </header>
+
+  <section class="boost-lottery-panel boost-lottery-tracker-page__scratch card">
+    {% include "_boost_scratch_board.html" %}
+  </section>
 
   <section class="boost-lottery-panel boost-lottery-tracker-page__panel card" aria-labelledby="bl-tracker-title">
     {% set boost_tracker_editable = false %}
     {% include "_boost_lottery_tracker.html" %}
   </section>
 </div>
+<script src="{{ url_for('static', filename='js/boost_scratch.js') }}" defer></script>
 <script src="{{ url_for('static', filename='js/boost_lottery.js') }}" defer></script>
 {% endblock %}

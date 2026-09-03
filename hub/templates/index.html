@@ -41,17 +41,21 @@
       gap: 0.65rem;
       text-decoration: none;
       color: #e2e8f0;
-      transition: transform 0.2s ease, filter 0.2s ease;
       outline: none;
       border-radius: 10px;
       padding: 0.35rem 0.35rem 0.5rem;
     }
-    .league-card__logo {
+    .league-card__logo-wrap {
+      position: relative;
+      display: block;
       width: min(100%, 290px);
       aspect-ratio: 1 / 1;
+    }
+    .league-card__logo {
+      width: 100%;
+      height: 100%;
       object-fit: contain;
       border-radius: 10px;
-      transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease;
       box-shadow: 0 8px 28px rgb(0 0 0 / 0.45);
     }
     .league-card__label {
@@ -63,8 +67,6 @@
     }
     .league-card:hover .league-card__logo,
     .league-card:focus-visible .league-card__logo {
-      transform: scale(1.04);
-      filter: brightness(1.06);
       box-shadow: 0 0 26px rgb(56 189 248 / 0.65), 0 10px 30px rgb(0 0 0 / 0.55);
     }
     .league-card:focus-visible {
@@ -127,7 +129,7 @@
     .splash-audio-actions button:hover { filter: brightness(1.08); }
     @media (max-width: 900px) {
       .splash-leagues { grid-template-columns: 1fr; }
-      .league-card__logo { width: min(100%, 340px); }
+      .league-card__logo-wrap { width: min(100%, 340px); }
     }
   </style>
 </head>
@@ -152,7 +154,9 @@
       {% set meta = splash_map.get(league.slug, {'image': 'logos/league-placeholder.svg', 'class': ''}) %}
       {% set card_label = league.display_name|upper %}
       <a class="league-card {{ meta.class }}" href="/{{ league.slug }}/" aria-label="Enter {{ card_label }}">
-        <img class="league-card__logo" src="{{ url_for('static', filename=meta.image) }}" alt="{{ card_label }} logo">
+        <span class="league-card__logo-wrap">
+          <img class="league-card__logo" src="{{ url_for('static', filename=meta.image) }}" alt="{{ card_label }} logo">
+        </span>
         <span class="league-card__label">{{ card_label }}</span>
       </a>
       {% endfor %}

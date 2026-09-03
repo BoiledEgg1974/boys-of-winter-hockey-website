@@ -5398,8 +5398,8 @@
   /** Keep bar fills readable on the dark bar tray and the light bar tray. */
   function previewOddsClampForBarTray(rgb) {
     var isLight = document.documentElement.getAttribute("data-theme") === "light";
-    var lo = isLight ? 0 : 0.18;
-    var hi = isLight ? 0.5 : 0.95;
+    var lo = isLight ? 0.06 : 0.18;
+    var hi = isLight ? 0.82 : 0.95;
     var cur = previewOddsLuminance(rgb);
     var out = rgb;
     var i;
@@ -5428,24 +5428,93 @@
     );
   }
 
+  function previewOddsRgbKey(rgb) {
+    return rgb.r + "," + rgb.g + "," + rgb.b;
+  }
+
+  function previewOddsUniqueRgbList(values) {
+    var seen = {};
+    var out = [];
+    var i;
+    for (i = 0; i < values.length; i += 1) {
+      var rgb = values[i];
+      if (!rgb) continue;
+      var k = previewOddsRgbKey(rgb);
+      if (seen[k]) continue;
+      seen[k] = true;
+      out.push(rgb);
+    }
+    return out;
+  }
+
+  function previewOddsFirstRgb(team, keys) {
+    if (!team || !keys) return null;
+    var i;
+    for (i = 0; i < keys.length; i += 1) {
+      var rgb = previewOddsParseHex(team[keys[i]]);
+      if (rgb) return rgb;
+    }
+    return null;
+  }
+
+  function previewOddsContrastRatio(a, b) {
+    if (!a || !b) return 0;
+    var l1 = previewOddsLuminance(a);
+    var l2 = previewOddsLuminance(b);
+    var hi = Math.max(l1, l2);
+    var lo = Math.min(l1, l2);
+    return (hi + 0.05) / (lo + 0.05);
+  }
+
+  /** Adjacent bar halves need luminance or hue separation — not just RGB distance. */
+  function previewOddsSegsContrastWell(a, b) {
+    if (!a || !b) return false;
+    return previewOddsContrastRatio(a, b) >= 2.05 || previewOddsColorDistance(a, b) >= 140;
+  }
+
+  /**
+   * Away uses primary. Home prefers secondary, then text (third), then primary —
+   * skipping duplicates (TOR secondary is the same navy as primary) and dark-on-dark pairs.
+   */
+  function previewOddsPickHomeRgb(awayRgb, homeTeam) {
+    var primary = previewOddsParseHex(homeTeam && homeTeam.primary_color);
+    var secondary = previewOddsParseHex(homeTeam && homeTeam.secondary_color);
+    var text = previewOddsParseHex(homeTeam && homeTeam.text_color);
+    var secondaryDistinct =
+      !!secondary && (!primary || previewOddsRgbKey(secondary) !== previewOddsRgbKey(primary));
+    var choices = previewOddsUniqueRgbList([
+      secondaryDistinct ? secondary : null,
+      text,
+      primary,
+    ]);
+    if (!choices.length) return null;
+    if (!awayRgb) return previewOddsClampForBarTray(choices[0]);
+    var i;
+    var best = null;
+    var bestScore = -1;
+    for (i = 0; i < choices.length; i += 1) {
+      var cand = previewOddsClampForBarTray(choices[i]);
+      var score = previewOddsContrastRatio(awayRgb, cand) * 80 + previewOddsColorDistance(awayRgb, cand);
+      if (previewOddsSegsContrastWell(awayRgb, cand)) return cand;
+      if (score > bestScore) {
+        bestScore = score;
+        best = cand;
+      }
+    }
+    return best || previewOddsClampForBarTray(choices[0]);
+  }
+
   function previewOddsWinProbSegStyles(awayTeam, homeTeam) {
     var isLight = document.documentElement.getAttribute("data-theme") === "light";
     var shade = isLight ? { r: 12, g: 16, b: 24 } : { r: 15, g: 23, b: 42 };
-    function baseRgb(team) {
-      if (!team) return null;
-      return (
-        previewOddsParseHex(team.primary_color) ||
-        previewOddsParseHex(team.secondary_color)
-      );
-    }
     function segGradient(rgb) {
       if (!rgb) return "";
       var c1 = previewOddsRgbToHex(rgb);
       var c2 = previewOddsRgbToHex(previewOddsMixRgb(rgb, shade, 0.28));
       return "background:linear-gradient(90deg," + c1 + "," + c2 + ")";
     }
-    var ar = baseRgb(awayTeam);
-    var hr = baseRgb(homeTeam);
+    var ar = previewOddsFirstRgb(awayTeam, ["primary_color", "secondary_color", "text_color"]);
+    var hr = previewOddsPickHomeRgb(ar ? previewOddsClampForBarTray(ar) : null, homeTeam);
     if (!ar && !hr) {
       return { away: "", home: "" };
     }
@@ -5453,17 +5522,9 @@
     if (!hr) hr = previewOddsMixRgb(ar, shade, 0.35);
     ar = previewOddsClampForBarTray(ar);
     hr = previewOddsClampForBarTray(hr);
-    if (previewOddsColorDistance(ar, hr) < 52) {
-      var altH = homeTeam && previewOddsParseHex(homeTeam.secondary_color);
-      var altA = awayTeam && previewOddsParseHex(awayTeam.secondary_color);
-      if (altH && previewOddsColorDistance(ar, altH) >= 52) {
-        hr = previewOddsClampForBarTray(altH);
-      } else if (altA && previewOddsColorDistance(altA, hr) >= 52) {
-        ar = previewOddsClampForBarTray(altA);
-      } else {
-        hr = previewOddsMixRgb(hr, isLight ? { r: 18, g: 22, b: 32 } : { r: 230, g: 236, b: 252 }, 0.18);
-        hr = previewOddsClampForBarTray(hr);
-      }
+    if (!previewOddsSegsContrastWell(ar, hr)) {
+      hr = previewOddsMixRgb(hr, isLight ? { r: 18, g: 22, b: 32 } : { r: 230, g: 236, b: 252 }, 0.42);
+      hr = previewOddsClampForBarTray(hr);
     }
     return { away: segGradient(ar), home: segGradient(hr) };
   }
@@ -5481,16 +5542,20 @@
       var awayTeam = {
         primary_color: ds.awayPrimary || "",
         secondary_color: ds.awaySecondary || "",
+        text_color: ds.awayText || "",
       };
       var homeTeam = {
         primary_color: ds.homePrimary || "",
         secondary_color: ds.homeSecondary || "",
+        text_color: ds.homeText || "",
       };
       if (
         !awayTeam.primary_color &&
         !awayTeam.secondary_color &&
+        !awayTeam.text_color &&
         !homeTeam.primary_color &&
-        !homeTeam.secondary_color
+        !homeTeam.secondary_color &&
+        !homeTeam.text_color
       ) {
         return;
       }
@@ -5557,8 +5622,10 @@
     var barAttrs = 'title="' + escapeAttr(odds.method_note || "") + '"';
     if (at.primary_color) barAttrs += ' data-away-primary="' + escapeAttr(at.primary_color) + '"';
     if (at.secondary_color) barAttrs += ' data-away-secondary="' + escapeAttr(at.secondary_color) + '"';
+    if (at.text_color) barAttrs += ' data-away-text="' + escapeAttr(at.text_color) + '"';
     if (ht.primary_color) barAttrs += ' data-home-primary="' + escapeAttr(ht.primary_color) + '"';
     if (ht.secondary_color) barAttrs += ' data-home-secondary="' + escapeAttr(ht.secondary_color) + '"';
+    if (ht.text_color) barAttrs += ' data-home-text="' + escapeAttr(ht.text_color) + '"';
     oddsHtml += '<div class="game-preview-odds__bar" ' + barAttrs + ">";
     oddsHtml +=
       '<div class="game-preview-odds__seg game-preview-odds__seg--away" style="' +
@@ -7240,4 +7307,51 @@
     syncProspectsRankingsStickyLayout();
   }
   window.addEventListener("resize", syncProspectsRankingsStickyLayout);
+
+  (function initBowlSuccessMoment() {
+    function prefersReducedMotion() {
+      return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    }
+
+    function play() {
+      if (prefersReducedMotion()) return;
+      var host = document.getElementById("bowl-moment");
+      var img = document.getElementById("bowl-moment-img");
+      if (!host || !img) return;
+      var trigger = document.querySelector("[data-bowl-moment='success']");
+      var storageKey = "";
+      if (trigger) {
+        storageKey = trigger.getAttribute("data-bowl-moment-key") || "";
+      } else {
+        var latest = 0;
+        document.querySelectorAll(".gm-achievements__card[data-unlocked-at]").forEach(function (el) {
+          var t = Date.parse(el.getAttribute("data-unlocked-at") || "");
+          if (!isNaN(t) && t > latest) latest = t;
+        });
+        if (!latest || Date.now() - latest > 48 * 60 * 60 * 1000) return;
+        storageKey = "ach:" + String(latest);
+      }
+      if (!trigger && !storageKey) return;
+      if (storageKey) {
+        try {
+          if (sessionStorage.getItem("bowl-moment:" + storageKey)) return;
+          sessionStorage.setItem("bowl-moment:" + storageKey, "1");
+        } catch (err) {}
+      }
+      var src = host.getAttribute("data-src") || "";
+      if (!src) return;
+      img.src = src + (src.indexOf("?") >= 0 ? "&" : "?") + "replay=" + Date.now();
+      host.hidden = false;
+      window.setTimeout(function () {
+        host.hidden = true;
+        img.removeAttribute("src");
+      }, 1800);
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", play);
+    } else {
+      play();
+    }
+  })();
 })();

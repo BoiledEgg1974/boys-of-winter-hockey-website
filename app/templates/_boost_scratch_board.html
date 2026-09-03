@@ -1,0 +1,64 @@
+{# Shared scratch-ticket extras board. Expects `scratch` dict and `boost_scratch_live` bool. #}
+{% set scratch = scratch or {} %}
+{% set scratch_role = scratch.role or "gm" %}
+{% set scratch_live = scratch_role == "admin" %}
+<section
+  class="boost-scratch"
+  data-boost-scratch
+  data-role="{{ scratch_role }}"
+  aria-labelledby="boost-scratch-title"
+>
+  <header class="boost-scratch__header">
+    <div class="boost-scratch__heading">
+      <p class="boost-scratch__eyebrow">{% if scratch_live %}Commissioner extras{% else %}Practice extras{% endif %}</p>
+      <h2 id="boost-scratch-title" class="boost-scratch__title">Scratch tickets</h2>
+    </div>
+    <p class="boost-scratch__banner" id="bs-banner" aria-live="polite">
+      Baseline {{ scratch.baseline_gold or 4 }} gold / {{ scratch.baseline_silver or 6 }} silver
+      + extras +{{ scratch.extra_gold or 0 }}G / +{{ scratch.extra_silver or 0 }}S
+      = draw {{ scratch.draw_gold or 4 }} gold, {{ scratch.draw_silver or 6 }} silver
+    </p>
+    {% if not scratch_live %}
+    <p class="boost-scratch__practice-note">Practice — does not affect the lottery. Live extras above update after the commissioner finishes a live session.</p>
+    {% endif %}
+  </header>
+
+  {% if scratch_live %}
+  <div class="boost-scratch__mode" role="group" aria-label="Scratch session mode">
+    <button type="button" class="boost-scratch__mode-btn is-active" id="bs-mode-practice" aria-pressed="true">Practice</button>
+    <button type="button" class="boost-scratch__mode-btn" id="bs-mode-live" aria-pressed="false">Live</button>
+  </div>
+  {% endif %}
+
+  <div class="boost-scratch__tickets" id="bs-tickets"></div>
+
+  <div class="boost-scratch__actions">
+    <button type="button" class="btn-draft-lottery btn-draft-lottery--primary" id="bs-scratch-all">Scratch all</button>
+    <button type="button" class="btn-draft-lottery" id="bs-reset">Reset</button>
+    {% if scratch_live %}
+    <button type="button" class="btn-draft-lottery btn-draft-lottery--ghost" id="bs-reset-live" hidden>Reset live extras</button>
+    {% endif %}
+    <button type="button" class="btn-draft-lottery btn-draft-lottery--ghost" id="bs-mute" aria-pressed="false">Mute</button>
+  </div>
+  <p class="boost-scratch__status muted" id="bs-status" aria-live="polite"></p>
+  <p class="boost-scratch__odds muted">
+    Base odds: Gold 33% · Silver 33% · Nothing 34%.
+    +2 bonus ticket: 15% · 10% · 5% after (no cap — a hit re-spins nothing to gold or silver and adds a ticket).
+  </p>
+  <p class="boost-scratch__stats muted" id="bs-stats"></p>
+
+  <input type="hidden" name="csrf_token" id="bs-csrf" value="{{ csrf_token() }}">
+  <script type="application/json" id="boost-scratch-initial">{{ {
+    "role": scratch_role,
+    "extraGold": scratch.extra_gold or 0,
+    "extraSilver": scratch.extra_silver or 0,
+    "tickets": scratch.tickets or [],
+    "complete": scratch.complete or false,
+    "baselineGold": scratch.baseline_gold or 4,
+    "baselineSilver": scratch.baseline_silver or 6,
+    "saveUrl": scratch.save_url or "",
+    "resetUrl": scratch.reset_url or "",
+    "goldSrc": url_for("static", filename="img/boosts/gold-boost.png"),
+    "silverSrc": url_for("static", filename="img/boosts/silver-boost.png")
+  }|tojson }}</script>
+</section>

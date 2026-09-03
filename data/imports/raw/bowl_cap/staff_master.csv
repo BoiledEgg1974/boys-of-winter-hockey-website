@@ -1749,7 +1749,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1747;19;Kelly;Kisio;;1959-9-18;Wainwright;AB;Canada;;;0
 1748;10;Mark;Hillier;;1960-1-1;Stephenville;NL;Canada;;;0
 1749;-1;Archie;Henderson;;1957-2-17;Camrose;AB;Canada;;;0
-1750;-1;Don;Hay;;1954-2-13;Kent;BC;Canada;;;0
+1750;230;Don;Hay;;1954-2-13;Kent;BC;Canada;;;0
 1751;-1;Joe;McDonnell;;1961-5-11;Kitchener;ON;Canada;;;0
 1752;-1;Chris;Nilan;Knuckles;1958-2-9;Canton;MA;The United States;;;0
 1753;-1;Ross;Mahoney;;1956-7-21;Swift Current;SK;Canada;;;0
@@ -2122,10 +2122,10 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 2120;-1;Shawn;Morrison;;1950-3-19;East Hartford;CT;The United States;;;0
 2121;-1;Dave;Burton;;1952-7-10;Bronxville;NY;The United States;;;0
 2122;229;Terry;Lester;;1950-7-14;Missouri City;TX;The United States;;;0
-2123;230;Brant;Berry;;1959-8-28;Verona;NJ;The United States;;;0
+2123;-1;Brant;Berry;;1959-8-28;Verona;NJ;The United States;;;0
 2124;230;Eric;Thomas;;1957-11-8;Federal Way;WA;The United States;;;0
 2125;230;Michael;William;;1950-9-1;Mason City;IA;The United States;;;0
-2126;-1;Cameron;Oh;;1950-9-5;Milford;DE;The United States;;;0
+2126;230;Cameron;Oh;;1950-9-5;Milford;DE;The United States;;;0
 2127;230;Will;Brewer;;1950-9-30;Wood Dale;IL;The United States;;;0
 2128;230;Jerry;MacColman;;1944-3-30;St. Charles;MN;The United States;;;0
 2129;229;Paul;Heath;;1950-9-4;Chicago;IL;The United States;;;0
@@ -2336,7 +2336,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 2334;-1;Tom;Lynn;;1968-3-20;Oak Park Heights;MN;The United States;;;0
 2335;-1;Sean;Skahan;;1967-1-1;South Kingstown;RI;The United States;;;0
 2336;-1;Gordon;Donnelly;;1962-4-5;Murdochville;QC;Canada;;;0
-2337;-1;Bob;Brown;;1967-1-1;Kent;BC;Canada;;;0
+2337;230;Bob;Brown;;1967-1-1;Kent;BC;Canada;;;0
 2338;-1;Fred;Bandel;;1962-1-1;Oakport;MN;The United States;;;0
 2339;-1;Mike;Donnelly;;1963-10-10;Elk Rapids;MI;The United States;;;0
 2340;-1;Ken;Hoodikoff;;1967-1-1;Disraeli;QC;Canada;;;0

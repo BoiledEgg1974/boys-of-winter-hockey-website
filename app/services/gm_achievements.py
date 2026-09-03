@@ -15,6 +15,7 @@ from app.config import HOCKEY_LEAGUE_SLUGS
 from app.models import (
     DraftPick,
     Game,
+    GameGoalieStat,
     GameSkaterStat,
     HistoryAward,
     HistoryChampion,

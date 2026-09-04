@@ -727,7 +727,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 725;120;Levi;Wildman;;1915-4-15;Nanaimo;BC;Canada;;;0
 726;122;Lewis;MacPatrick;;1922-6-19;North Vancouver;BC;Canada;;;0
 727;58;Eric;Crowchild;;1915-1-4;Plano;TX;The United States;;;0
-728;-1;Chris;Woods;;1920-7-16;Toronto;ON;Canada;;;0
+728;121;Chris;Woods;;1920-7-16;Toronto;ON;Canada;;;0
 729;89;Ian;Ernst;;1915-2-21;Fort Worth;TX;The United States;;;0
 730;126;Arama;Taree;;1923-4-1;Cudahy;CA;The United States;;;0
 731;64;Jonah;Hopp;;1915-11-1;Livonia;MI;The United States;;;0
@@ -1245,7 +1245,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1243;-1;Jeffrey;Boucher;;1920-2-27;Grifton;NC;The United States;;;0
 1244;-1;Jerry;Compton;;1920-4-25;Dartmouth;NS;Canada;;;0
 1245;-1;Mark;Bates;;1920-1-16;Landen;OH;The United States;;;0
-1246;-1;Ken;Elphinstone;;1920-8-22;Alma;QC;Canada;;;0
+1246;121;Ken;Elphinstone;;1920-8-22;Alma;QC;Canada;;;0
 1247;131;Ken;Rabbetts;;1927-6-27;Los Angeles;CA;The United States;;;0
 1248;-1;Kenneth;Sherrill;;1920-12-7;Pickering;ON;Canada;;;0
 1249;-1;Mike;Rowntree;;1920-7-7;Calgary;AB;Canada;;;0
@@ -1274,7 +1274,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1272;-1;Tyler;Ferguson;;1920-1-13;Beauharnois;QC;Canada;;;0
 1273;-1;Aaron;Matthews;;1929-7-21;Richmond;BC;Canada;;;0
 1274;-1;Glen;Moran;;1920-11-15;Oakville;ON;Canada;;;0
-1275;-1;Dan;Arndt;;1929-7-22;Laurel;MS;The United States;;;0
+1275;10;Dan;Arndt;;1929-7-22;Laurel;MS;The United States;;;0
 1276;-1;Kel;Tucker;;1920-2-16;Brooklyn;NY;The United States;;;0
 1277;131;Ty;Lambert;;1920-12-23;Longueuil;QC;Canada;;;0
 1278;130;Brad;Wolff;;1924-4-16;Ladysmith;BC;Canada;;;0
@@ -1322,7 +1322,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1320;-1;Jim;Warrington;;1927-1-1;Eau Claire;WI;The United States;;;0
 1321;-1;Clay;Pritchard;;1929-7-28;Mesa;AZ;The United States;;;0
 1322;-1;Fred;Dungan;;1925-12-23;Burlington;ON;Canada;;;0
-1323;-1;Jerry;Bryan;;1930-5-6;Caledonia;ON;Canada;;;0
+1323;121;Jerry;Bryan;;1930-5-6;Caledonia;ON;Canada;;;0
 1324;-1;Stu;Tomassoni;;1921-5-30;Pasadena;CA;The United States;;;0
 1325;-1;Raymond;Simmons;;1922-12-1;Lethbridge;AB;Canada;;;0
 1326;-1;Ashton;Gant;;1923-10-9;Hamilton;ON;Canada;;;0

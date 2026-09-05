@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import logging
+import subprocess
 import time
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -15,6 +17,21 @@ from scripts.league_discord_bot.formatters import (
 )
 
 log = logging.getLogger(__name__)
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _repo_git_head() -> str:
+    """Current repo SHA so Always-on can exit and respawn after a server pull."""
+    try:
+        out = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=_REPO_ROOT,
+            stderr=subprocess.DEVNULL,
+            timeout=5,
+        )
+        return out.decode().strip()
+    except Exception:
+        return ""
 
 
 class LeagueDiscordBot:
@@ -668,6 +685,9 @@ class LeagueDiscordBot:
             next_full = 0.0
             tracker_interval = max(2.0, float(self.settings.tracker_poll_seconds))
             full_interval = max(tracker_interval, float(self.settings.poll_seconds))
+            started_head = _repo_git_head()
+            if started_head:
+                log.info("league_discord_bot repo HEAD %s", started_head[:12])
             while True:
                 now = time.monotonic()
                 if now >= next_tracker:
@@ -676,6 +696,14 @@ class LeagueDiscordBot:
                 if now >= next_full:
                     self.run_cycle(site_client, discord_client)
                     next_full = now + full_interval
+                    current_head = _repo_git_head()
+                    if started_head and current_head and current_head != started_head:
+                        log.info(
+                            "repo HEAD changed (%s -> %s); exiting so Always-on reloads",
+                            started_head[:12],
+                            current_head[:12],
+                        )
+                        return
                 sleep_for = min(
                     max(0.25, next_tracker - time.monotonic()),
                     max(0.25, next_full - time.monotonic()),

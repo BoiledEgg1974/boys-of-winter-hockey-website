@@ -507,6 +507,33 @@ class DiscordMessageSplitTest(unittest.TestCase):
             "https://www.bowlhockey.com/bowl-historical/bowl-six",
         )
 
+    def test_achievement_unlocked_includes_team_emote_and_gm_ping(self):
+        parts = format_discord_messages(
+            {
+                "league_slug": "bowl-cap",
+                "event_key": "achievement_unlocked",
+                "payload": {
+                    "title": "All Natural",
+                    "achievement_title": "All Natural",
+                    "detail": "Joel Kwiatkowski scored a natural hat trick",
+                    "message": "Joel Kwiatkowski scored a natural hat trick",
+                    "team_abbrev": "PIT",
+                    "team_name": "Pittsburgh Penguins",
+                    "fhm_team_id": 15,
+                    "team_gm_mention": "<@123456789012345678>",
+                },
+            },
+            max_parts=1,
+        )
+        self.assertEqual(len(parts), 1)
+        content = str(parts[0].get("content") or "")
+        self.assertIn("<:PIT:1383318357176221696>", content)
+        self.assertIn("<@123456789012345678>", content)
+        self.assertIn("**All Natural**", content)
+        self.assertIn("Joel Kwiatkowski scored a natural hat trick", content)
+        sanitized = sanitize_discord_message_body(parts[0])
+        self.assertEqual(sanitized.get("allowed_mentions", {}).get("users"), ["123456789012345678"])
+
 
 if __name__ == "__main__":
     unittest.main()

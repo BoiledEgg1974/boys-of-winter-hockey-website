@@ -362,14 +362,14 @@ def _text_only_header_lines(
         record_title = str(payload.get("record_title") or title or "").strip()
         if record_title:
             lines.append(f"**{record_title}**")
-    elif event_key == "achievement_unlocked":
+    elif event_key in ("achievement_unlocked", "achievement_league_first"):
         team_line = format_team_label(league_slug, payload)
         if team_line:
             lines.append(team_line)
-            _append_team_gm_mention(lines, payload)
+        _append_team_gm_mention(lines, payload)
         ach_title = str(payload.get("achievement_title") or title or "").strip()
         if ach_title:
-            lines.append(f"**Achievement unlocked: {ach_title}**")
+            lines.append(f"**{ach_title}**")
         detail = str(payload.get("detail") or payload.get("message") or "").strip()
         if detail and detail != ach_title:
             lines.append(detail)
@@ -1299,6 +1299,17 @@ def format_discord_messages(event: dict[str, Any], *, max_parts: int = 2) -> lis
             lines.append(f"Level: {level}")
         if body_short:
             lines.append(body_short)
+    elif event_key in ("achievement_unlocked", "achievement_league_first"):
+        team_line = format_team_label(league_slug, payload)
+        if team_line:
+            lines.append(team_line)
+        _append_team_gm_mention(lines, payload)
+        ach_title = str(payload.get("achievement_title") or title or "").strip()
+        if ach_title:
+            lines.append(f"**{ach_title}**")
+        detail = str(payload.get("detail") or payload.get("message") or body_short or "").strip()
+        if detail and detail != ach_title:
+            lines.append(detail)
     else:
         lines.append(f"**{title}**")
         if body_short:

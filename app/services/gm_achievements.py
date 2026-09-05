@@ -2723,6 +2723,7 @@ def _enqueue_achievement_discord(
             build_league_public_url,
             enqueue_discord_event,
             is_discord_event_route_active,
+            team_fields_for_discord,
         )
     except Exception:
         return
@@ -2744,11 +2745,11 @@ def _enqueue_achievement_discord(
         "ap_delta": spec.ap,
         "season_label": season_label,
         "is_race": bool(spec.race),
-        "team_id": team_id,
-        "team_abbrev": (team.abbreviation if team else "") or "",
-        "team_name": team.full_display_name() if team else "",
         "url": build_league_public_url(league_slug, "/achievement-leaders") or "",
     }
+    payload.update(team_fields_for_discord(team))
+    if "team_id" not in payload:
+        payload["team_id"] = int(team_id)
     enqueue_discord_event(
         session,
         league_slug=league_slug,

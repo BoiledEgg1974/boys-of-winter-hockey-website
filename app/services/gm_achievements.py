@@ -2791,6 +2791,7 @@ def _enqueue_achievement_discord(
             build_league_public_url,
             enqueue_discord_event,
             is_discord_event_route_active,
+            gm_discord_fields_for_team,
             team_fields_for_discord,
         )
     except Exception:
@@ -2816,6 +2817,7 @@ def _enqueue_achievement_discord(
         "url": build_league_public_url(league_slug, "/achievement-leaders") or "",
     }
     payload.update(team_fields_for_discord(team))
+    payload.update(gm_discord_fields_for_team(session, league_slug=league_slug, team=team))
     if "team_id" not in payload:
         payload["team_id"] = int(team_id)
     enqueue_discord_event(

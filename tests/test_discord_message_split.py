@@ -531,8 +531,31 @@ class DiscordMessageSplitTest(unittest.TestCase):
         self.assertIn("<@123456789012345678>", content)
         self.assertIn("**All Natural**", content)
         self.assertIn("Joel Kwiatkowski scored a natural hat trick", content)
+        self.assertNotIn("embeds", parts[0])
         sanitized = sanitize_discord_message_body(parts[0])
         self.assertEqual(sanitized.get("allowed_mentions", {}).get("users"), ["123456789012345678"])
+
+    def test_achievement_unlocked_falls_back_to_gm_name(self):
+        parts = format_discord_messages(
+            {
+                "league_slug": "bowl-cap",
+                "event_key": "achievement_unlocked",
+                "payload": {
+                    "title": "Kid Line Energy",
+                    "achievement_title": "Kid Line Energy",
+                    "detail": "3 players 22 or younger scored in the same game",
+                    "team_abbrev": "TOR",
+                    "team_name": "Toronto Maple Leafs",
+                    "fhm_team_id": 3,
+                    "gm_name": "BlazedBuccaneer",
+                },
+            },
+            max_parts=1,
+        )
+        content = str(parts[0].get("content") or "")
+        self.assertIn("Toronto Maple Leafs", content)
+        self.assertIn("**BlazedBuccaneer**", content)
+        self.assertIn("**Kid Line Energy**", content)
 
 
 if __name__ == "__main__":

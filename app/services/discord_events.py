@@ -456,6 +456,33 @@ def team_fields_for_discord(team) -> dict:
     return out
 
 
+def gm_discord_fields_for_team(session, *, league_slug: str, team) -> dict:
+    """GM ping and display name for achievement / team Discord posts."""
+    out: dict = {}
+    mention = _team_gm_mention_for_team_row(session, league_slug=league_slug, team=team)
+    if mention:
+        out["team_gm_mention"] = mention
+    tid = _team_row_id(team)
+    if tid is None:
+        return out
+    user = session.scalar(
+        select(User)
+        .join(GmLeagueMembership, GmLeagueMembership.user_id == User.id)
+        .where(
+            GmLeagueMembership.league_slug == str(league_slug or "").strip(),
+            GmLeagueMembership.team_id == int(tid),
+            GmLeagueMembership.status == "active",
+            User.revoked_at.is_(None),
+        )
+        .order_by(GmLeagueMembership.approved_at.desc(), GmLeagueMembership.id.desc())
+        .limit(1)
+    )
+    name = str(getattr(user, "discord_name", "") or "").strip() if user is not None else ""
+    if name:
+        out["gm_name"] = name
+    return out
+
+
 def resolve_site_public_base_url() -> str:
     """Public site origin (no trailing slash), from Flask config or ``SITE_PUBLIC_BASE_URL`` env."""
     base = ""

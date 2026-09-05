@@ -53,6 +53,8 @@ ALWAYS_TEXT_ONLY_DISCORD_EVENT_KEYS = frozenset(
         "playoff_predictions",
         "playoff_bracket_update",
         "record_broken",
+        "achievement_unlocked",
+        "achievement_league_first",
         "game_boxscore",
         "race_results",
         "heat_results",
@@ -164,6 +166,10 @@ def _append_team_gm_mention(lines: list[str], payload: dict[str, Any]) -> None:
     mention = _team_gm_mention_line(payload)
     if mention and mention not in lines:
         lines.append(mention)
+        return
+    gm_name = str(payload.get("gm_name") or "").strip()
+    if gm_name and gm_name not in lines:
+        lines.append(f"**{gm_name}**")
 
 
 def _append_gm_mentions(lines: list[str], payload: dict[str, Any]) -> None:

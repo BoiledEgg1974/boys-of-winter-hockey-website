@@ -13,7 +13,7 @@ from app.config import make_league_config
 from app.league_db import db
 from app.models import Team
 from app.services.discord_events import DEFAULT_EVENT_CHANNEL_KEY, DEFAULT_EVENT_KEYS
-from datetime import date
+from datetime import date, datetime
 
 from app.services.gm_achievements import (
     ACHIEVEMENT_LEAGUE_FIRST_EVENT_KEY,
@@ -59,6 +59,7 @@ from app.services.gm_achievements import (
     roll_reward_cell,
     roll_reward_cells,
     orphan_race_pairs,
+    reopen_heritage_race_tickets,
     stale_race_pairs,
     start_achievement_scratch,
     storage_key_for,
@@ -545,6 +546,45 @@ class EvaluatorWatermarkTests(unittest.TestCase):
                 ).limit(1)
             )
             self.assertIsNone(phi_unlock)
+            db.session.rollback()
+
+    def test_reopen_heritage_race_tickets_unclaims_zero_ap_current_season(self) -> None:
+        self.app = create_app(make_league_config("bowl-cap"))
+        with self.app.app_context():
+            now = datetime.utcnow()
+            locked = GmAchievementUnlock(
+                league_slug="bowl-cap",
+                team_id=24,
+                user_id=5,
+                achievement_key="league_first_hat:2001-02-test",
+                source_ref="gm_ach:bowl-cap:24:league_first_hat:2001-02-test",
+                unlocked_at=now,
+                season_label="2001-02",
+                meta_json="{}",
+                ap_delta=0,
+                claimed_at=now,
+            )
+            scratched = GmAchievementUnlock(
+                league_slug="bowl-cap",
+                team_id=13,
+                user_id=1,
+                achievement_key="league_first_shutout:2001-02-test",
+                source_ref="gm_ach:bowl-cap:13:league_first_shutout:2001-02-test",
+                unlocked_at=now,
+                season_label="2001-02",
+                meta_json="{}",
+                ap_delta=6,
+                claimed_at=now,
+                reward_cells_json="[1,2,3]",
+            )
+            db.session.add_all([locked, scratched])
+            db.session.flush()
+            opened = reopen_heritage_race_tickets(
+                db.session, league_slug="bowl-cap", season_label="2001-02"
+            )
+            self.assertEqual(opened, 1)
+            self.assertIsNone(locked.claimed_at)
+            self.assertIsNotNone(scratched.claimed_at)
             db.session.rollback()
 
     def test_reseed_awards_truths_after_cutoff(self) -> None:

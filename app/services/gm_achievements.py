@@ -2378,6 +2378,41 @@ def orphan_race_pairs(
     return orphan
 
 
+def reopen_heritage_race_tickets(
+    session: Session,
+    *,
+    league_slug: str,
+    season_label: str,
+) -> int:
+    """Turn current-season 0-AP heritage race locks back into scratch tickets.
+
+    First-seed / reseed marked in-progress league-first races as claimed so GMs
+    saw the badge with no ticket and no Discord post.
+    """
+    label = (season_label or "").strip()
+    if not label:
+        return 0
+    reopened = 0
+    rows = list(
+        session.scalars(
+            select(GmAchievementUnlock).where(
+                GmAchievementUnlock.league_slug == league_slug,
+                GmAchievementUnlock.season_label == label,
+                GmAchievementUnlock.claimed_at.is_not(None),
+            )
+        ).all()
+    )
+    for unlock in rows:
+        spec = CATALOG_BY_KEY.get(catalog_key_from_storage(unlock.achievement_key))
+        if spec is None or not spec.race:
+            continue
+        if int(unlock.ap_delta or 0) > 0 or parse_reward_cells(unlock.reward_cells_json):
+            continue
+        unlock.claimed_at = None
+        reopened += 1
+    return reopened
+
+
 def _delete_stale_race_unlocks(
     session: Session,
     league_slug: str,
@@ -2705,7 +2740,14 @@ def revoke_gm_achievement_unlocks(
 def evaluate_gm_achievements_after_import(app) -> dict[str, int]:
     """Seed a watermark on first import; award new unlocks after that."""
     slug = str(getattr(app, "config", {}).get("LEAGUE_SLUG") or "").strip()
-    stats = {"seeded": 0, "awarded": 0, "skipped": 0, "ledger_synced": 0, "heritage_races": 0}
+    stats = {
+        "seeded": 0,
+        "awarded": 0,
+        "skipped": 0,
+        "ledger_synced": 0,
+        "heritage_races": 0,
+        "tickets_reopened": 0,
+    }
     if slug not in HOCKEY_SLUGS:
         stats["skipped"] = 1
         return stats
@@ -2790,6 +2832,9 @@ def evaluate_gm_achievements_after_import(app) -> dict[str, int]:
         already -= drop
         existing -= stale
         _delete_stale_race_unlocks(session, slug, stale)
+    stats["tickets_reopened"] = reopen_heritage_race_tickets(
+        session, league_slug=slug, season_label=season_label or ""
+    )
 
     awarded = 0
     recap_by_user: dict[int, dict[str, Any]] = {}

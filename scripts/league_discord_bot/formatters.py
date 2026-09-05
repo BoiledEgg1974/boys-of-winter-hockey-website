@@ -817,6 +817,8 @@ def _text_only_body_text(
     event_key: str,
     payload: dict[str, Any],
 ) -> str:
+    if event_key in ("achievement_unlocked", "achievement_league_first"):
+        return ""
     if event_key == "record_broken":
         old_line = str(payload.get("old_record_line") or "—").strip() or "—"
         new_line = str(payload.get("new_record_line") or "—").strip() or "—"

@@ -530,7 +530,7 @@ class DiscordMessageSplitTest(unittest.TestCase):
         self.assertIn("<:PIT:1383318357176221696>", content)
         self.assertIn("<@123456789012345678>", content)
         self.assertIn("**All Natural**", content)
-        self.assertIn("Joel Kwiatkowski scored a natural hat trick", content)
+        self.assertEqual(content.count("Joel Kwiatkowski scored a natural hat trick"), 1)
         self.assertNotIn("embeds", parts[0])
         sanitized = sanitize_discord_message_body(parts[0])
         self.assertEqual(sanitized.get("allowed_mentions", {}).get("users"), ["123456789012345678"])

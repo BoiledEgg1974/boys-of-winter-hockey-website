@@ -46,6 +46,7 @@ from app.services.homepage_dashboard import (
     build_conf_cutoff_map,
     build_standings_by_division,
     build_stars_windows,
+    build_star_selection_leaders,
     build_team_momentum_streaks,
     build_trending_players,
     build_trending_teams,
@@ -1565,6 +1566,7 @@ def _build_homepage_summary_payload(
             "stars_last_7d": [],
             "stars_last_14d": [],
             "stars_last_30d": [],
+            "star_selection_leaders": [],
             "trending_players": {"hot": [], "cold": []},
             "team_momentum": {
                 "trending": {"hot": [], "cold": []},
@@ -1663,6 +1665,9 @@ def _build_homepage_summary_payload(
         logo_season_year=logo_sy,
     )
     stars_bundle = build_stars_windows(db.session, season.id, league_cal, logo_season_year=logo_sy)
+    star_selection_leaders = build_star_selection_leaders(
+        db.session, season.id, logo_season_year=logo_sy
+    )
     trending_players = build_trending_players(
         db.session, season.id, segment, league_cal, logo_season_year=logo_sy
     )
@@ -1901,45 +1906,8 @@ def _build_homepage_summary_payload(
 
     identity_panel = _misc_statistics_panel(special_teams)
     league_spotlight: dict[str, object] = {"title": "League spotlight", "items": []}
-    if league_slug == "bowl-fantasy":
+    if league_slug in ("bowl-fantasy", "bowl-cap"):
         league_spotlight = {"title": "", "items": []}
-    elif league_slug == "bowl-cap":
-        cap_hits = db.session.execute(
-            select(PlayerContract, Player)
-            .join(Player, PlayerContract.player_id == Player.id)
-            .where(Player.current_team_id.is_not(None))
-            .order_by(PlayerContract.average_salary.desc().nulls_last())
-            .limit(3)
-        ).all()
-        ufa_count = db.session.scalar(
-            select(func.count(PlayerContract.id))
-            .join(Player, PlayerContract.player_id == Player.id)
-            .where(Player.current_team_id.is_not(None), PlayerContract.is_ufa.is_(True))
-        ) or 0
-        cap_lines: list[dict[str, object]] = []
-        for contract, pl in cap_hits:
-            tm = db.session.get(Team, pl.current_team_id) if pl.current_team_id else None
-            cap_lines.append(
-                {
-                    "player": pl.full_name,
-                    "salary": int(contract.average_salary or 0),
-                    "team_slug": tm.slug if tm else "",
-                    "team_logo_url": dashboard_team_logo_url(tm, logo_sy) if tm else "",
-                    "team_name": tm.full_display_name() if tm else "Free agent",
-                }
-            )
-        league_spotlight = {
-            "title": "Cap Pressure Board",
-            "format": "cap_logos",
-            "items": [
-                {"label": "Top cap hits", "cap_lines": cap_lines},
-                {
-                    "label": "Current UFAs",
-                    "value": f"{int(ufa_count)}",
-                    "detail": "players with UFA flag",
-                },
-            ],
-        }
 
     games = (
         db.session.scalars(
@@ -2013,6 +1981,7 @@ def _build_homepage_summary_payload(
         "stars_last_7d": stars_bundle.get("stars_last_7d", []),
         "stars_last_14d": stars_bundle.get("stars_last_14d", []),
         "stars_last_30d": stars_bundle.get("stars_last_30d", []),
+        "star_selection_leaders": star_selection_leaders,
         "trending_players": trending_players,
         "process_momentum": process_momentum,
         "team_momentum": team_momentum,

@@ -192,12 +192,19 @@
         <h3 class="home-dashboard__mini-h">Active Streaks</h3>
         <div id="home-team-streaks" class="home-dashboard__slot"></div>
       </section>
+      <section class="card home-dashboard__card" aria-labelledby="star-sel-h" data-module-key="star_selection_leaders">
+        <h2 id="star-sel-h" class="home-dashboard__h">Star Selection Leaders</h2>
+        <p class="muted home-dashboard__sub">Regular season · 1st = 5 pts · 2nd = 3 pts · 3rd = 1 pt</p>
+        <div id="home-star-selection-leaders" class="home-dashboard__slot table-wrap"></div>
+      </section>
+      {% if current_league_slug not in ('bowl-fantasy', 'bowl-cap') %}
       <section id="home-spotlight-card" class="card home-dashboard__card" aria-labelledby="spotlight-h" data-module-key="league_spotlight">
         <h2 id="spotlight-h">League Spotlight</h2>
         <div id="home-spotlight" class="table-wrap">
           <p class="empty-state loading-with-puck">Loading…</p>
         </div>
       </section>
+      {% endif %}
     </div>
 
     <aside class="home-dash-col home-dash-col--side" aria-label="Standings, rankings, and league identity">
@@ -438,6 +445,32 @@
         '<span class="home-mini-stars__tm">' + tCell + '</span></li>';
     });
     h += '</ol>';
+    return h;
+  }
+
+  function rowStarSelectionLeaders(rows) {
+    if (!rows || !rows.length) return '<p class="empty-state">No star selections yet.</p>';
+    var h = '<table class="data home-leaders-table home-star-leaders-table"><thead><tr><th>#</th><th>Player</th><th>Tm</th><th class="num">1st</th><th class="num">2nd</th><th class="num">3rd</th><th class="num">Pts</th></tr></thead><tbody>';
+    rows.forEach(function (r, i) {
+      var tm = '—';
+      if (r.team_logo_url) {
+        var img = '<img src="' + escapeAttr(r.team_logo_url) + '" alt="" class="team-name-lockup__logo">';
+        tm = r.team_slug
+          ? '<a class="team-name-lockup team-name-lockup--icon" href="' + withRoot('/team/' + escapeAttr(r.team_slug)) + '" title="' + escapeAttr(r.team || '') + '">' + img + '</a>'
+          : '<span class="team-name-lockup team-name-lockup--icon">' + img + '</span>';
+      } else if (r.team) {
+        tm = escape(r.team);
+      }
+      var ph = r.player_photo_url
+        ? '<img src="' + escapeAttr(r.player_photo_url) + '" alt="" loading="lazy" decoding="async">'
+        : '<span class="home-leader-player__photo-ph" aria-hidden="true"></span>';
+      var playerName = r.player_id
+        ? '<a class="home-leader-player__name" href="' + withRoot('/player/' + r.player_id) + '">' + escape(r.player) + '</a>'
+        : '<span class="home-leader-player__name">' + escape(r.player) + '</span>';
+      var playerCell = '<span class="home-leader-player"><span class="home-leader-player__photo">' + ph + '</span>' + playerName + '</span>';
+      h += '<tr><td>' + (i + 1) + '</td><td>' + playerCell + '</td><td>' + tm + '</td><td class="num">' + (r.star1 != null ? r.star1 : 0) + '</td><td class="num">' + (r.star2 != null ? r.star2 : 0) + '</td><td class="num">' + (r.star3 != null ? r.star3 : 0) + '</td><td class="num">' + (r.points != null ? r.points : 0) + '</td></tr>';
+    });
+    h += '</tbody></table>';
     return h;
   }
 
@@ -1876,7 +1909,7 @@
 
   function summaryStorageKey() {
     var root = document.documentElement.getAttribute('data-application-root') || '';
-    return 'bwlHomeSummary:v2:' + root + ':' + seg;
+    return 'bwlHomeSummary:v3:' + root + ':' + seg;
   }
 
   function readStoredSummary() {
@@ -1980,6 +2013,8 @@
         document.getElementById('home-stars-7').innerHTML = rowStarsMini(data.stars_last_7d);
         document.getElementById('home-stars-14').innerHTML = rowStarsMini(data.stars_last_14d);
         document.getElementById('home-stars-30').innerHTML = rowStarsMini(data.stars_last_30d);
+        var starSelEl = document.getElementById('home-star-selection-leaders');
+        if (starSelEl) starSelEl.innerHTML = rowStarSelectionLeaders(data.star_selection_leaders);
         document.getElementById('home-trending').innerHTML = rowTrending(data.trending_players);
         document.getElementById('home-streaks').innerHTML = rowStreaks(data.active_streaks);
         var pmEl = document.getElementById('home-process-momentum');

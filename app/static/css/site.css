@@ -3147,6 +3147,16 @@ html[data-league="cap"] .bracket-bowl-title--cap span:first-child {
 .home-leaders-table td:nth-child(4) {
   text-align: center;
 }
+.home-star-leaders-table th.num,
+.home-star-leaders-table td.num {
+  text-align: center;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.home-star-leaders-table th:nth-child(7),
+.home-star-leaders-table td:nth-child(7) {
+  font-weight: 600;
+}
 
 #home-special-teams.table-wrap {
   overflow-x: auto;

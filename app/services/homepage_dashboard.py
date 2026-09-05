@@ -10,9 +10,10 @@ from pathlib import Path
 from typing import Any
 
 from flask import current_app, g, has_request_context, url_for
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import joinedload
 
+from app.services.advanced_stats import _stat_segment_game_filter
 from app.services.season_team_logo_bundle import dashboard_team_logo_url
 from app.services.division_labels import (
     division_group_key_for_standing,
@@ -506,6 +507,144 @@ def build_stars_windows(
             session, season_id, as_of - timedelta(days=30), as_of, logo_season_year=logo_season_year
         ),
     }
+
+
+_STAR_SELECTION_POINTS = {1: 5, 2: 3, 3: 1}
+
+
+def build_star_selection_leaders(
+    session,
+    season_id: int,
+    *,
+    logo_season_year: int | None = None,
+    limit: int = 10,
+) -> list[dict[str, Any]]:
+    """Top skaters by imported FHM three-star selections (regular season only)."""
+    games = session.scalars(
+        select(Game)
+        .where(
+            Game.season_id == season_id,
+            Game.status == "final",
+            _stat_segment_game_filter("rs"),
+            or_(
+                Game.fhm_star1_player_id.is_not(None),
+                Game.fhm_star2_player_id.is_not(None),
+                Game.fhm_star3_player_id.is_not(None),
+            ),
+        )
+        .order_by(Game.game_date.asc(), Game.id.asc())
+    ).all()
+    if not games:
+        return []
+
+    fhm_ids: set[int] = set()
+    for g in games:
+        for attr in ("fhm_star1_player_id", "fhm_star2_player_id", "fhm_star3_player_id"):
+            fhm_pid = getattr(g, attr, None)
+            if fhm_pid is not None:
+                fhm_ids.add(int(fhm_pid))
+    players_by_fhm: dict[int, Player] = {}
+    if fhm_ids:
+        for pl in session.scalars(
+            select(Player).where(Player.fhm_player_id.in_([str(x) for x in fhm_ids]))
+        ).all():
+            if pl.fhm_player_id:
+                try:
+                    players_by_fhm[int(pl.fhm_player_id)] = pl
+                except (TypeError, ValueError):
+                    continue
+
+    game_ids = [int(g.id) for g in games]
+    player_team_by_game: dict[tuple[int, int], int] = {}
+    for gid, pid, tid in session.execute(
+        select(GameSkaterStat.game_id, GameSkaterStat.player_id, GameSkaterStat.team_id).where(
+            GameSkaterStat.game_id.in_(game_ids)
+        )
+    ).all():
+        if tid is not None:
+            player_team_by_game[(int(gid), int(pid))] = int(tid)
+    for gid, pid, tid in session.execute(
+        select(GameGoalieStat.game_id, GameGoalieStat.player_id, GameGoalieStat.team_id).where(
+            GameGoalieStat.game_id.in_(game_ids)
+        )
+    ).all():
+        key = (int(gid), int(pid))
+        if tid is not None and key not in player_team_by_game:
+            player_team_by_game[key] = int(tid)
+
+    stats: dict[int, dict[str, Any]] = defaultdict(
+        lambda: {"star1": 0, "star2": 0, "star3": 0, "latest_date": date.min, "latest_team_id": None, "player": None}
+    )
+    for g in games:
+        gdate = g.game_date or date.min
+        gid = int(g.id)
+        for star_num, attr in (
+            (1, "fhm_star1_player_id"),
+            (2, "fhm_star2_player_id"),
+            (3, "fhm_star3_player_id"),
+        ):
+            fhm_pid = getattr(g, attr, None)
+            if fhm_pid is None:
+                continue
+            pl = players_by_fhm.get(int(fhm_pid))
+            if pl is None:
+                continue
+            pid = int(pl.id)
+            bucket = stats[pid]
+            bucket["star" + str(star_num)] += 1
+            bucket["player"] = pl
+            if gdate >= bucket["latest_date"]:
+                bucket["latest_date"] = gdate
+                tid = player_team_by_game.get((gid, pid))
+                if tid is not None:
+                    bucket["latest_team_id"] = tid
+
+    team_ids: set[int] = set()
+    for bucket in stats.values():
+        if bucket["latest_team_id"] is not None:
+            team_ids.add(int(bucket["latest_team_id"]))
+        pl = bucket["player"]
+        if pl is not None and pl.current_team_id is not None:
+            team_ids.add(int(pl.current_team_id))
+    teams_by_id: dict[int, Team] = {}
+    if team_ids:
+        for tm in session.scalars(select(Team).where(Team.id.in_(team_ids))).all():
+            teams_by_id[int(tm.id)] = tm
+
+    scored: list[tuple[int, int, int, int, str, Player, dict[str, Any]]] = []
+    for pid, bucket in stats.items():
+        pl = bucket["player"]
+        if pl is None:
+            continue
+        s1 = int(bucket["star1"])
+        s2 = int(bucket["star2"])
+        s3 = int(bucket["star3"])
+        pts = s1 * _STAR_SELECTION_POINTS[1] + s2 * _STAR_SELECTION_POINTS[2] + s3 * _STAR_SELECTION_POINTS[3]
+        scored.append((pts, s1, s2, s3, pl.full_name or "", pl, bucket))
+
+    scored.sort(key=lambda x: (-x[0], -x[1], -x[2], -x[3], x[4]))
+
+    out: list[dict[str, Any]] = []
+    for pts, s1, s2, s3, _name, pl, bucket in scored[:limit]:
+        tid = bucket["latest_team_id"]
+        if tid is None and pl.current_team_id is not None:
+            tid = int(pl.current_team_id)
+        tm = teams_by_id.get(int(tid)) if tid is not None else None
+        out.append(
+            {
+                "player_id": int(pl.id),
+                "player": pl.full_name,
+                "player_photo_url": _player_photo_url(pl),
+                "team": tm.abbreviation if tm else "",
+                "team_slug": tm.slug if tm else "",
+                "team_logo_url": dashboard_team_logo_url(tm, logo_season_year) if tm else "",
+                "star1": s1,
+                "star2": s2,
+                "star3": s3,
+                "points": pts,
+            }
+        )
+    return out
 
 
 def build_trending_players(

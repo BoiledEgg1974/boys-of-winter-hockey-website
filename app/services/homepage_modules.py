@@ -13,6 +13,7 @@ ALLOWED_HOMEPAGE_MODULE_KEYS = (
     "game_of_the_night",
     "next_game_to_watch",
     "three_stars",
+    "star_selection_leaders",
     "milestones_watch",
     "special_teams_snapshot",
     "around_the_league",
@@ -42,6 +43,7 @@ DEFAULT_HOMEPAGE_MODULES = (
     {"module_key": "player_momentum", "sort_order": 110},
     {"module_key": "process_momentum", "sort_order": 115},
     {"module_key": "team_momentum", "sort_order": 120},
+    {"module_key": "star_selection_leaders", "sort_order": 125},
     {"module_key": "league_spotlight", "sort_order": 130},
     {"module_key": "divisional_standings", "sort_order": 140},
     {"module_key": "power_rankings", "sort_order": 150},
@@ -51,6 +53,7 @@ DEFAULT_HOMEPAGE_MODULES = (
 
 DEFAULT_VISIBILITY = {r["module_key"]: True for r in DEFAULT_HOMEPAGE_MODULES}
 DEFAULT_SORT_ORDER = {r["module_key"]: int(r["sort_order"]) for r in DEFAULT_HOMEPAGE_MODULES}
+LEAGUE_SPOTLIGHT_DISABLED_SLUGS = frozenset({"bowl-fantasy", "bowl-cap"})
 
 
 def _normalize_bool(value: object) -> bool:
@@ -71,16 +74,28 @@ def ensure_homepage_module_settings(session, league_slug: str, updated_by_user_i
         key = str(row["module_key"])
         if key in by_key:
             continue
+        is_enabled = not (key == "league_spotlight" and league_slug in LEAGUE_SPOTLIGHT_DISABLED_SLUGS)
         session.add(
             HomepageModuleSetting(
                 league_slug=league_slug,
                 module_key=key,
-                is_enabled=True,
+                is_enabled=is_enabled,
                 sort_order=int(row["sort_order"]),
                 updated_by_user_id=updated_by_user_id,
                 updated_at=now,
             )
         )
+        changed = True
+    if league_slug in LEAGUE_SPOTLIGHT_DISABLED_SLUGS:
+        spotlight = by_key.get("league_spotlight")
+        if spotlight is not None and spotlight.is_enabled:
+            spotlight.is_enabled = False
+            spotlight.updated_at = now
+            changed = True
+    stale = by_key.get("star_selection_leaders")
+    if stale is not None and int(stale.sort_order) == 55:
+        stale.sort_order = 125
+        stale.updated_at = now
         changed = True
     if changed:
         commit_with_sqlite_retry(session)
@@ -101,6 +116,8 @@ def module_visibility_map(session, league_slug: str) -> dict[str, bool]:
     for r in rows:
         if r.module_key in DEFAULT_VISIBILITY:
             out[r.module_key] = bool(r.is_enabled)
+    if league_slug in LEAGUE_SPOTLIGHT_DISABLED_SLUGS:
+        out["league_spotlight"] = False
     return out
 
 

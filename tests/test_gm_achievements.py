@@ -1,6 +1,7 @@
 """GM achievement detectors, catalog filters, and watermark award rules."""
 from __future__ import annotations
 
+import json
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -39,6 +40,7 @@ from app.services.gm_achievements import (
     detect_road_win_after_dropping_first_two,
     discover_true_achievements,
     evaluate_gm_achievements_after_import,
+    reseed_gm_achievement_watermark,
     expand_legacy_pairs,
     export_streak_len,
     format_export_recap,
@@ -47,6 +49,8 @@ from app.services.gm_achievements import (
     major_award_slot,
     max_win_streak,
     month_undefeated,
+    regular_season_month_is_complete,
+    revoke_gm_achievement_unlocks,
     parse_reward_cells,
     place_label,
     player_ids_from_drag_keys,
@@ -248,6 +252,17 @@ class DetectorTests(unittest.TestCase):
         self.assertTrue(month_undefeated(["W", "W", "T", "W"]))
         self.assertFalse(month_undefeated(["W", "W", "L", "W"]))
         self.assertFalse(month_undefeated(["W", "W"]))
+        october = [
+            SimpleNamespace(game_date=date(2001, 10, 10), game_type="Regular Season", status="final"),
+            SimpleNamespace(game_date=date(2001, 10, 20), game_type="Regular Season", status="scheduled"),
+            SimpleNamespace(game_date=date(2001, 10, 12), game_type="Pre-Season", status="final"),
+        ]
+        self.assertFalse(regular_season_month_is_complete(october, "2001-10"))
+        october[1].status = "final"
+        self.assertTrue(regular_season_month_is_complete(october, "2001-10"))
+        self.assertFalse(
+            regular_season_month_is_complete(october, "2001-10", as_of_game_date=date(2001, 10, 10))
+        )
         self.assertEqual(major_award_slot("HART TROPHY"), "hart")
         self.assertIsNone(major_award_slot("JACK ADAMS TROPHY"))
         self.assertIsNone(major_award_slot("LADY BYNG TROPHY"))
@@ -417,6 +432,140 @@ class EvaluatorWatermarkTests(unittest.TestCase):
         with app.app_context():
             db.session.rollback()
             db.session.remove()
+
+    def test_as_of_date_excludes_later_natural_hat(self) -> None:
+        self.app = create_app(make_league_config("bowl-cap"))
+        with self.app.app_context():
+            full = discover_true_achievements(db.session, "bowl-cap")
+            cutoff = discover_true_achievements(
+                db.session, "bowl-cap", as_of_game_date=date(2001, 10, 7)
+            )
+            self.assertIn("all_natural", full.get(10, {}))
+            self.assertNotIn("all_natural", cutoff.get(10, {}))
+            self.assertFalse(any(k.startswith("the_bender:") for k in full.get(10, {})))
+            nyr = db.session.scalar(select(Team).where(Team.abbreviation == "NYR").limit(1))
+            if nyr is None:
+                nyr = db.session.scalar(select(Team).where(Team.city == "New York").limit(1))
+            self.assertIsNotNone(nyr)
+            self.assertFalse(
+                any(k.startswith("on_a_heater") for k in full.get(int(nyr.id), {}))
+            )
+
+    def test_reseed_awards_truths_after_cutoff(self) -> None:
+        self.app = create_app(make_league_config("bowl-cap"))
+        with self.app.app_context():
+            team = db.session.scalar(select(Team).order_by(Team.id).limit(1))
+            self.assertIsNotNone(team)
+            tid = int(team.id)
+
+            def _flush_only(session) -> None:
+                session.flush()
+
+            as_of_truths = {tid: {"pinnacle": {"detail": "already"}}}
+            later_truths = {
+                tid: {
+                    "pinnacle": {"detail": "already"},
+                    "all_natural": {"detail": "new hat"},
+                }
+            }
+            with (
+                patch(
+                    "app.services.gm_achievements.discover_true_achievements",
+                    side_effect=[as_of_truths, later_truths],
+                ),
+                patch("app.sqlite_retry.commit_with_sqlite_retry", _flush_only),
+                patch("app.services.gm_achievements._enqueue_achievement_discord"),
+            ):
+                stats = reseed_gm_achievement_watermark(
+                    self.app, as_of_game_date=date(2001, 10, 7)
+                )
+                self.assertEqual(stats["reseeds"], 1)
+                self.assertEqual(stats["awarded"], 1)
+                unlock = db.session.scalar(
+                    select(GmAchievementUnlock).where(
+                        GmAchievementUnlock.league_slug == "bowl-cap",
+                        GmAchievementUnlock.team_id == tid,
+                        GmAchievementUnlock.achievement_key == "all_natural",
+                    ).limit(1)
+                )
+                self.assertIsNotNone(unlock)
+
+            db.session.rollback()
+
+    def test_revoke_drops_unclaimed_unlock_and_watermark(self) -> None:
+        self.app = create_app(make_league_config("bowl-cap"))
+        with self.app.app_context():
+            team = db.session.scalar(select(Team).order_by(Team.id).limit(1))
+            self.assertIsNotNone(team)
+            tid = int(team.id)
+            key = "on_a_heater:2001-02"
+
+            def _flush_only(session) -> None:
+                session.flush()
+
+            existing_unlock = db.session.scalar(
+                select(GmAchievementUnlock).where(
+                    GmAchievementUnlock.league_slug == "bowl-cap",
+                    GmAchievementUnlock.team_id == tid,
+                    GmAchievementUnlock.achievement_key == key,
+                ).limit(1)
+            )
+            if existing_unlock is None:
+                db.session.add(
+                    GmAchievementUnlock(
+                        league_slug="bowl-cap",
+                        team_id=tid,
+                        user_id=None,
+                        achievement_key=key,
+                        source_ref=unlock_source_ref("bowl-cap", tid, key),
+                        season_label="2001-02",
+                        meta_json="{}",
+                        ap_delta=0,
+                    )
+                )
+            watermark = db.session.scalar(
+                select(GmAchievementWatermark).where(
+                    GmAchievementWatermark.league_slug == "bowl-cap"
+                ).limit(1)
+            )
+            if watermark is None:
+                watermark = GmAchievementWatermark(
+                    league_slug="bowl-cap",
+                    max_game_id=1,
+                    season_label="2001-02",
+                    already_true_json="{}",
+                    tenure_json="{}",
+                    team_tiers_json="{}",
+                )
+                db.session.add(watermark)
+                db.session.flush()
+            already = watermark.already_true_map()
+            keys = set(already.get(str(tid), []))
+            keys.update({key, "all_natural"})
+            already[str(tid)] = sorted(keys)
+            watermark.already_true_json = json.dumps(already)
+            db.session.flush()
+            with patch("app.sqlite_retry.commit_with_sqlite_retry", _flush_only):
+                stats = revoke_gm_achievement_unlocks(self.app, [(tid, key)])
+            self.assertEqual(stats["revoked"], 1)
+            self.assertEqual(stats["watermark_removed"], 1)
+            gone = db.session.scalar(
+                select(GmAchievementUnlock).where(
+                    GmAchievementUnlock.league_slug == "bowl-cap",
+                    GmAchievementUnlock.team_id == tid,
+                    GmAchievementUnlock.achievement_key == key,
+                ).limit(1)
+            )
+            self.assertIsNone(gone)
+            watermark = db.session.scalar(
+                select(GmAchievementWatermark).where(
+                    GmAchievementWatermark.league_slug == "bowl-cap"
+                ).limit(1)
+            )
+            self.assertIsNotNone(watermark)
+            self.assertNotIn(key, watermark.already_true_map().get(str(tid), []))
+            self.assertIn("all_natural", watermark.already_true_map().get(str(tid), []))
+            db.session.rollback()
 
     def test_first_run_seeds_without_ap_second_awards_once(self) -> None:
         self.app = create_app(make_league_config("bowl-cap"))

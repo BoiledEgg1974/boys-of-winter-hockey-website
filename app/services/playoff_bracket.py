@@ -58,11 +58,14 @@ def is_playoff_game_type(game_type: str | None) -> bool:
     return False
 
 
-def _is_regular_season_game_type(game_type: str | None) -> bool:
+def is_regular_season_game_type(game_type: str | None) -> bool:
     if not game_type:
         return False
     t = game_type.strip().lower()
     return "regular" in t or t in ("rs", "r")
+
+
+_is_regular_season_game_type = is_regular_season_game_type
 
 
 @dataclass

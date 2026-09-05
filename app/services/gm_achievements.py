@@ -32,7 +32,7 @@ from app.models import (
     TeamSeasonRecord,
     TeamStanding,
 )
-from app.services.playoff_bracket import is_playoff_game_type
+from app.services.playoff_bracket import is_playoff_game_type, is_regular_season_game_type
 from app.services.seasons import get_current_season, season_display_label
 from app.services.team_records import CHAMPION_RESULT
 from app.site_models import (
@@ -185,7 +185,7 @@ CATALOG: tuple[AchievementDef, ...] = (
         race=True,
     ),
     AchievementDef("statement_win", "Statement Win", "Beat the first-place team while sitting outside a playoff spot.", "game", 2),
-    AchievementDef("on_a_heater", "On a Heater", "Win 5 games in a row.", "season", 1, repeatable=True),
+    AchievementDef("on_a_heater", "On a Heater", "Win 5 regular-season games in a row.", "season", 1, repeatable=True),
     AchievementDef("home_cooking", "Home Cooking", "Lead the league in home wins.", "season", 2, repeatable=True),
     AchievementDef("overtime_merchant", "Overtime Merchant", "Win 8 or more overtime or shootout games in a season.", "season", 2, repeatable=True),
     AchievementDef("three_star_season", "Three-Star Season", "One of your players is named first star 10 times in a season.", "season", 2, repeatable=True),
@@ -245,7 +245,7 @@ CATALOG: tuple[AchievementDef, ...] = (
     AchievementDef(
         "the_bender",
         "The Bender",
-        "Go undefeated in a calendar month (minimum 4 games).",
+        "Go undefeated in a calendar month of regular-season games (minimum 4). Awarded when that month’s schedule is complete.",
         "season",
         2,
         repeatable=True,
@@ -791,6 +791,30 @@ def month_undefeated(results: Iterable[str], *, min_games: int = BENDER_MIN_GAME
     return all(r != "L" for r in letters) and any(r == "W" for r in letters)
 
 
+def regular_season_month_is_complete(
+    schedule: Iterable[Any],
+    period: str,
+    *,
+    as_of_game_date: date | None = None,
+) -> bool:
+    """True when every regular-season game in ``YYYY-MM`` is final (and none remain after as-of)."""
+    month_games = [
+        g
+        for g in schedule
+        if getattr(g, "game_date", None)
+        and g.game_date.strftime("%Y-%m") == period
+        and is_regular_season_game_type(getattr(g, "game_type", None))
+    ]
+    if not month_games:
+        return False
+    if as_of_game_date is not None and any(g.game_date > as_of_game_date for g in month_games):
+        return False
+    visible = [
+        g for g in month_games if as_of_game_date is None or g.game_date <= as_of_game_date
+    ]
+    return bool(visible) and all(str(getattr(g, "status", "") or "") == "final" for g in visible)
+
+
 def player_age_on(birth: date | None, on_date: date) -> int | None:
     if birth is None:
         return None
@@ -1199,8 +1223,13 @@ def discover_true_achievements(
     *,
     tenure_counts: dict[int, int] | None = None,
     promoted_team_ids: set[int] | None = None,
+    as_of_game_date: date | None = None,
 ) -> dict[int, dict[str, dict[str, Any]]]:
-    """Return team_id -> {achievement_key: meta} for currently true achievements."""
+    """Return team_id -> {achievement_key: meta} for currently true achievements.
+
+    ``as_of_game_date`` limits game-log feats to finals on or before that date so a
+    heritage watermark can be rebuilt after a failed first evaluate.
+    """
     allowed = {item.key for item in catalog_for_league(league_slug)}
     hits: dict[int, dict[str, dict[str, Any]]] = {}
 
@@ -1241,6 +1270,8 @@ def discover_true_achievements(
     game_q = select(Game).where(Game.status == "final")
     if season:
         game_q = game_q.where(Game.season_id == season.id)
+    if as_of_game_date is not None:
+        game_q = game_q.where(Game.game_date <= as_of_game_date)
     games = list(session.scalars(game_q).all())
     game_ids = [int(g.id) for g in games]
     games_by_id = {int(g.id): g for g in games}
@@ -1567,21 +1598,30 @@ def discover_true_achievements(
 
     # --- season counting stats ---
     if season:
-        skaters = list(
-            session.scalars(
-                select(PlayerSkaterStat).where(
-                    PlayerSkaterStat.season_id == season.id,
-                    PlayerSkaterStat.stat_segment == "rs",
-                )
-            ).all()
+        use_season_stat_lines = as_of_game_date is None
+        skaters = (
+            list(
+                session.scalars(
+                    select(PlayerSkaterStat).where(
+                        PlayerSkaterStat.season_id == season.id,
+                        PlayerSkaterStat.stat_segment == "rs",
+                    )
+                ).all()
+            )
+            if use_season_stat_lines
+            else []
         )
-        goalies = list(
-            session.scalars(
-                select(PlayerGoalieStat).where(
-                    PlayerGoalieStat.season_id == season.id,
-                    PlayerGoalieStat.stat_segment == "rs",
-                )
-            ).all()
+        goalies = (
+            list(
+                session.scalars(
+                    select(PlayerGoalieStat).where(
+                        PlayerGoalieStat.season_id == season.id,
+                        PlayerGoalieStat.stat_segment == "rs",
+                    )
+                ).all()
+            )
+            if use_season_stat_lines
+            else []
         )
         for st in skaters:
             if int(st.points or 0) >= 100:
@@ -1703,7 +1743,7 @@ def discover_true_achievements(
             for r in records
             if season_label and r.season_year_label == season_label and r.pp_pct is not None and r.pk_pct is not None
         ]
-        if year_recs:
+        if year_recs and as_of_game_date is None:
             best_pp = max(float(r.pp_pct or 0) for r in year_recs)
             best_pk = max(float(r.pk_pct or 0) for r in year_recs)
             for r in year_recs:
@@ -1728,7 +1768,7 @@ def discover_true_achievements(
                 bucket = wins_vs.setdefault(int(winner_id), {})
                 bucket[opp] = bucket.get(opp, 0) + 1
             for tid in (g.home_team_id, g.away_team_id):
-                if not tid:
+                if not tid or not is_regular_season_game_type(g.game_type):
                     continue
                 letter = game_outcome_letter(g, int(tid))
                 if letter:
@@ -1830,7 +1870,7 @@ def discover_true_achievements(
                 },
             )
 
-        if year_recs:
+        if year_recs and as_of_game_date is None:
             pp_ranked = sorted(year_recs, key=lambda r: float(r.pp_pct or 0), reverse=True)
             pk_ranked = sorted(year_recs, key=lambda r: float(r.pk_pct or 0), reverse=True)
             top_pp = {int(r.team_id) for r in pp_ranked[:3] if r.team_id}
@@ -1840,7 +1880,7 @@ def discover_true_achievements(
 
         by_month: dict[tuple[int, str], list[str]] = {}
         for g in chrono_games:
-            if is_playoff_game_type(g.game_type) or not g.game_date:
+            if not is_regular_season_game_type(g.game_type) or not g.game_date:
                 continue
             period = g.game_date.strftime("%Y-%m")
             for tid in (g.home_team_id, g.away_team_id):
@@ -1849,7 +1889,16 @@ def discover_true_achievements(
                 letter = game_outcome_letter(g, int(tid))
                 if letter:
                     by_month.setdefault((int(tid), period), []).append(letter)
+        month_schedule = (
+            list(session.scalars(select(Game).where(Game.season_id == season.id)).all())
+            if season
+            else list(session.scalars(select(Game)).all())
+        )
         for (tid, period), letters in by_month.items():
+            if not regular_season_month_is_complete(
+                month_schedule, period, as_of_game_date=as_of_game_date
+            ):
+                continue
             if month_undefeated(letters):
                 mark(
                     tid,
@@ -2415,6 +2464,119 @@ def sync_achievement_ap_ledger(session: Session, league_slug: str) -> int:
     return created
 
 
+def reseed_gm_achievement_watermark(app, *, as_of_game_date: date) -> dict[str, int]:
+    """Replace the heritage snapshot with truths as of ``as_of_game_date``, then award later feats."""
+    slug = str(getattr(app, "config", {}).get("LEAGUE_SLUG") or "").strip()
+    stats = {"reseeds": 0, "seeded": 0, "awarded": 0, "skipped": 0, "ledger_synced": 0}
+    if slug not in HOCKEY_SLUGS:
+        stats["skipped"] = 1
+        return stats
+
+    from app.league_db import db
+    from app.sqlite_retry import commit_with_sqlite_retry
+
+    session = db.session
+    season = get_current_season()
+    season_label = season_display_label(season)
+    truths = rewrite_truths_to_storage(
+        discover_true_achievements(session, slug, as_of_game_date=as_of_game_date),
+        season_label or "",
+    )
+    pairs = {(tid, key) for tid, keys in truths.items() for key in keys}
+    as_of_max = int(
+        session.scalar(
+            select(func.coalesce(func.max(Game.id), 0)).where(
+                Game.status == "final",
+                Game.game_date <= as_of_game_date,
+            )
+        )
+        or 0
+    )
+    watermark = session.scalar(
+        select(GmAchievementWatermark).where(GmAchievementWatermark.league_slug == slug).limit(1)
+    )
+    if watermark is None:
+        session.add(
+            GmAchievementWatermark(
+                league_slug=slug,
+                max_game_id=as_of_max,
+                season_label=season_label or "",
+                already_true_json=_pairs_to_json(pairs),
+                tenure_json="{}",
+                team_tiers_json=json.dumps(_team_tiers_now(session, slug)),
+                evaluated_at=datetime.utcnow(),
+            )
+        )
+    else:
+        watermark.max_game_id = as_of_max
+        watermark.season_label = season_label or watermark.season_label
+        watermark.already_true_json = _pairs_to_json(pairs)
+        watermark.team_tiers_json = json.dumps(_team_tiers_now(session, slug))
+        watermark.evaluated_at = datetime.utcnow()
+    commit_with_sqlite_retry(session)
+    stats["reseeds"] = 1
+    _log.info(
+        "GM achievements watermark reseeded for %s as of %s (%s already-true pairs).",
+        slug,
+        as_of_game_date.isoformat(),
+        len(pairs),
+    )
+    awarded = evaluate_gm_achievements_after_import(app)
+    stats.update(awarded)
+    stats["reseeds"] = 1
+    return stats
+
+
+def revoke_gm_achievement_unlocks(
+    app,
+    pairs: Iterable[tuple[int, str]],
+) -> dict[str, int]:
+    """Delete unclaimed unlocks and drop those pairs from the watermark so they can be earned later."""
+    slug = str(getattr(app, "config", {}).get("LEAGUE_SLUG") or "").strip()
+    stats = {"revoked": 0, "skipped_claimed": 0, "watermark_removed": 0, "skipped": 0}
+    wanted = {(int(tid), str(key)) for tid, key in pairs}
+    if slug not in HOCKEY_SLUGS or not wanted:
+        stats["skipped"] = 1
+        return stats
+
+    from app.league_db import db
+    from app.sqlite_retry import commit_with_sqlite_retry
+
+    session = db.session
+    unlocks = list(
+        session.scalars(select(GmAchievementUnlock).where(GmAchievementUnlock.league_slug == slug)).all()
+    )
+    for unlock in unlocks:
+        pair = (int(unlock.team_id), str(unlock.achievement_key))
+        if pair not in wanted:
+            continue
+        if unlock.claimed_at is not None or int(unlock.ap_delta or 0) > 0:
+            stats["skipped_claimed"] += 1
+            continue
+        session.delete(unlock)
+        stats["revoked"] += 1
+
+    watermark = session.scalar(
+        select(GmAchievementWatermark).where(GmAchievementWatermark.league_slug == slug).limit(1)
+    )
+    if watermark is not None:
+        kept = {pair for pair in _already_pairs(watermark) if pair not in wanted}
+        removed = len(_already_pairs(watermark)) - len(kept)
+        if removed:
+            watermark.already_true_json = _pairs_to_json(kept)
+            watermark.evaluated_at = datetime.utcnow()
+            stats["watermark_removed"] = removed
+
+    commit_with_sqlite_retry(session)
+    _log.info(
+        "GM achievements revoked for %s: %s unlocks, %s watermark pairs.",
+        slug,
+        stats["revoked"],
+        stats["watermark_removed"],
+    )
+    return stats
+
+
 def evaluate_gm_achievements_after_import(app) -> dict[str, int]:
     """Seed a watermark on first import; award new unlocks after that."""
     slug = str(getattr(app, "config", {}).get("LEAGUE_SLUG") or "").strip()
@@ -2715,6 +2877,8 @@ def progress_for_team(
         team_games.sort(key=lambda g: (g.game_date or date.min, int(g.id)))
         letters = []
         for g in team_games:
+            if not is_regular_season_game_type(g.game_type):
+                continue
             letter = game_outcome_letter(g, int(team_id))
             if letter:
                 letters.append(letter)

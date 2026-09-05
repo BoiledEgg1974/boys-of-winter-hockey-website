@@ -783,4 +783,16 @@ def create_app(config_class: type = Config) -> Flask:
         print(f"bowl-six-backfill-prizes ({slug}) weekly: {weekly}")
         print(f"bowl-six-backfill-prizes ({slug}) season: {season}")
 
+    @app.cli.command("reseed-gm-achievements")
+    @click.option("--as-of", "as_of", required=True, help="Inclusive game date YYYY-MM-DD")
+    def reseed_gm_achievements_cmd(as_of: str) -> None:
+        """Rebuild the heritage watermark as of a game date, then award later feats."""
+        from datetime import date as date_cls
+
+        from app.services.gm_achievements import reseed_gm_achievement_watermark
+
+        as_of_date = date_cls.fromisoformat(as_of)
+        stats = reseed_gm_achievement_watermark(app, as_of_game_date=as_of_date)
+        print(f"reseed-gm-achievements ({app.config.get('LEAGUE_SLUG')} as of {as_of}): {stats}")
+
     return app

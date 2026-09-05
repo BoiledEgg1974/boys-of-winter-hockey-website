@@ -450,6 +450,18 @@ class EvaluatorWatermarkTests(unittest.TestCase):
             self.assertFalse(
                 any(k.startswith("on_a_heater") for k in full.get(int(nyr.id), {}))
             )
+            tbl = db.session.scalar(select(Team).where(Team.abbreviation == "TBL").limit(1))
+            van = db.session.scalar(select(Team).where(Team.abbreviation == "VAN").limit(1))
+            phi = db.session.scalar(select(Team).where(Team.abbreviation == "PHI").limit(1))
+            self.assertIsNotNone(tbl)
+            self.assertIsNotNone(van)
+            self.assertIn("league_first_hat", full.get(int(tbl.id), {}))
+            self.assertIn("league_first_hat", cutoff.get(int(tbl.id), {}))
+            self.assertIn("league_first_shutout", full.get(int(van.id), {}))
+            self.assertIn("league_first_shutout", cutoff.get(int(van.id), {}))
+            if phi is not None:
+                self.assertNotIn("league_first_hat", full.get(int(phi.id), {}))
+                self.assertNotIn("league_first_four", full.get(int(phi.id), {}))
 
     def test_reseed_awards_truths_after_cutoff(self) -> None:
         self.app = create_app(make_league_config("bowl-cap"))

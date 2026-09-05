@@ -178,7 +178,7 @@ CATALOG: tuple[AchievementDef, ...] = (
     AchievementDef(
         "league_first_hat",
         "League First: Hat Trick",
-        "Score the first hat trick of the season.",
+        "Score the first regular-season hat trick of the season.",
         "game",
         2,
         repeatable=True,
@@ -219,7 +219,7 @@ CATALOG: tuple[AchievementDef, ...] = (
     AchievementDef(
         "league_first_shutout",
         "League First: Shutout",
-        "Record the first shutout of the season.",
+        "Record the first regular-season shutout of the season.",
         "game",
         2,
         repeatable=True,
@@ -228,7 +228,7 @@ CATALOG: tuple[AchievementDef, ...] = (
     AchievementDef(
         "league_first_four",
         "League First: Four-Goal Night",
-        "Score the first 4-goal game of the season.",
+        "Score the first regular-season 4-goal game of the season.",
         "game",
         2,
         repeatable=True,
@@ -1356,7 +1356,7 @@ def discover_true_achievements(
         if int(ln.goals or 0) < 3 or not ln.team_id:
             continue
         g = games_by_id.get(int(ln.game_id))
-        if g is None:
+        if g is None or not is_regular_season_game_type(g.game_type):
             continue
         hat_trick_games.append(
             (
@@ -1386,7 +1386,7 @@ def discover_true_achievements(
         if int(ln.goals or 0) < FOUR_GOAL_MIN or not ln.team_id:
             continue
         g = games_by_id.get(int(ln.game_id))
-        if g is None:
+        if g is None or not is_regular_season_game_type(g.game_type):
             continue
         four_goal_games.append(
             (
@@ -1416,7 +1416,7 @@ def discover_true_achievements(
         if int(ln.goals_allowed or 0) != 0 or int(ln.shots_against or 0) <= 0 or not ln.team_id:
             continue
         g = games_by_id.get(int(ln.game_id))
-        if g is None:
+        if g is None or not is_regular_season_game_type(g.game_type):
             continue
         shutout_games.append(
             (
@@ -2464,10 +2464,56 @@ def sync_achievement_ap_ledger(session: Session, league_slug: str) -> int:
     return created
 
 
+def seed_heritage_race_unlocks(
+    session: Session,
+    *,
+    league_slug: str,
+    truths: dict[int, dict[str, dict[str, Any]]],
+    season_label: str,
+    memberships: dict[int, GmLeagueMembership],
+) -> int:
+    """Record claimed 0-AP unlocks for league-first races already true at the watermark."""
+    existing = {
+        (int(r.team_id), str(r.achievement_key))
+        for r in session.scalars(
+            select(GmAchievementUnlock).where(GmAchievementUnlock.league_slug == league_slug)
+        ).all()
+    }
+    created = 0
+    now = datetime.utcnow()
+    for tid, keys in truths.items():
+        for key, meta in keys.items():
+            spec = CATALOG_BY_KEY.get(catalog_key_from_storage(key))
+            if spec is None or not spec.race:
+                continue
+            pair = (int(tid), str(key))
+            if pair in existing:
+                continue
+            mem = memberships.get(int(tid))
+            session.add(
+                GmAchievementUnlock(
+                    league_slug=league_slug,
+                    team_id=int(tid),
+                    user_id=int(mem.user_id) if mem else None,
+                    achievement_key=str(key),
+                    source_ref=unlock_source_ref(league_slug, tid, str(key)),
+                    unlocked_at=now,
+                    season_label=season_label or "",
+                    meta_json=json.dumps(meta or {}),
+                    ap_delta=0,
+                    claimed_at=now,
+                    reward_multiplier=int(spec.ap),
+                )
+            )
+            existing.add(pair)
+            created += 1
+    return created
+
+
 def reseed_gm_achievement_watermark(app, *, as_of_game_date: date) -> dict[str, int]:
     """Replace the heritage snapshot with truths as of ``as_of_game_date``, then award later feats."""
     slug = str(getattr(app, "config", {}).get("LEAGUE_SLUG") or "").strip()
-    stats = {"reseeds": 0, "seeded": 0, "awarded": 0, "skipped": 0, "ledger_synced": 0}
+    stats = {"reseeds": 0, "seeded": 0, "awarded": 0, "skipped": 0, "ledger_synced": 0, "heritage_races": 0}
     if slug not in HOCKEY_SLUGS:
         stats["skipped"] = 1
         return stats
@@ -2513,13 +2559,22 @@ def reseed_gm_achievement_watermark(app, *, as_of_game_date: date) -> dict[str, 
         watermark.already_true_json = _pairs_to_json(pairs)
         watermark.team_tiers_json = json.dumps(_team_tiers_now(session, slug))
         watermark.evaluated_at = datetime.utcnow()
+    heritage = seed_heritage_race_unlocks(
+        session,
+        league_slug=slug,
+        truths=truths,
+        season_label=season_label or "",
+        memberships=_active_memberships(session, slug),
+    )
     commit_with_sqlite_retry(session)
     stats["reseeds"] = 1
+    stats["heritage_races"] = heritage
     _log.info(
-        "GM achievements watermark reseeded for %s as of %s (%s already-true pairs).",
+        "GM achievements watermark reseeded for %s as of %s (%s already-true pairs, %s heritage races).",
         slug,
         as_of_game_date.isoformat(),
         len(pairs),
+        heritage,
     )
     awarded = evaluate_gm_achievements_after_import(app)
     stats.update(awarded)
@@ -2580,7 +2635,7 @@ def revoke_gm_achievement_unlocks(
 def evaluate_gm_achievements_after_import(app) -> dict[str, int]:
     """Seed a watermark on first import; award new unlocks after that."""
     slug = str(getattr(app, "config", {}).get("LEAGUE_SLUG") or "").strip()
-    stats = {"seeded": 0, "awarded": 0, "skipped": 0, "ledger_synced": 0}
+    stats = {"seeded": 0, "awarded": 0, "skipped": 0, "ledger_synced": 0, "heritage_races": 0}
     if slug not in HOCKEY_SLUGS:
         stats["skipped"] = 1
         return stats
@@ -2611,9 +2666,22 @@ def evaluate_gm_achievements_after_import(app) -> dict[str, int]:
             evaluated_at=datetime.utcnow(),
         )
         session.add(row)
+        heritage = seed_heritage_race_unlocks(
+            session,
+            league_slug=slug,
+            truths=truths,
+            season_label=season_label or "",
+            memberships=memberships,
+        )
         commit_with_sqlite_retry(session)
         stats["seeded"] = 1
-        _log.info("GM achievements watermark seeded for %s (%s already-true pairs).", slug, len(pairs))
+        stats["heritage_races"] = heritage
+        _log.info(
+            "GM achievements watermark seeded for %s (%s already-true pairs, %s heritage races).",
+            slug,
+            len(pairs),
+            heritage,
+        )
         return stats
 
     tenure = watermark.tenure_map()

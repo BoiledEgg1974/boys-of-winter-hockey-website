@@ -58,6 +58,8 @@ from app.services.gm_achievements import (
     rewrite_truths_to_storage,
     roll_reward_cell,
     roll_reward_cells,
+    orphan_race_pairs,
+    stale_race_pairs,
     start_achievement_scratch,
     storage_key_for,
     sync_achievement_ap_ledger,
@@ -392,6 +394,18 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual([(t, k) for t, k, _m in second], [(8, "gordie_howe")])
         third = collect_new_hits(truths, already, {(8, "gordie_howe")})
         self.assertEqual(third, [])
+        stale = stale_race_pairs(
+            {24: {"league_first_hat:2001-02": {"detail": "Satan"}}},
+            {(9, "league_first_hat:2001-02"), (24, "league_first_hat:2001-02"), (9, "gordie_howe")},
+        )
+        self.assertEqual(stale, {(9, "league_first_hat:2001-02")})
+        self.assertEqual(
+            orphan_race_pairs(
+                {(9, "league_first_four:2001-02"), (9, "gordie_howe")},
+                set(),
+            ),
+            {(9, "league_first_four:2001-02")},
+        )
 
     def test_discord_route_seeded(self) -> None:
         self.assertIn(ACHIEVEMENT_UNLOCKED_EVENT_KEY, DEFAULT_EVENT_KEYS)
@@ -462,6 +476,76 @@ class EvaluatorWatermarkTests(unittest.TestCase):
             if phi is not None:
                 self.assertNotIn("league_first_hat", full.get(int(phi.id), {}))
                 self.assertNotIn("league_first_four", full.get(int(phi.id), {}))
+
+    def test_stale_preseason_race_watermark_awards_regular_season_winner(self) -> None:
+        self.app = create_app(make_league_config("bowl-cap"))
+        with self.app.app_context():
+            tbl = db.session.scalar(select(Team).where(Team.abbreviation == "TBL").limit(1))
+            phi = db.session.scalar(select(Team).where(Team.abbreviation == "PHI").limit(1))
+            self.assertIsNotNone(tbl)
+            self.assertIsNotNone(phi)
+            tid = int(tbl.id)
+            pid = int(phi.id)
+            key = "league_first_hat:2001-02"
+            for row in list(
+                db.session.scalars(
+                    select(GmAchievementUnlock).where(
+                        GmAchievementUnlock.league_slug == "bowl-cap",
+                        GmAchievementUnlock.achievement_key == key,
+                    )
+                ).all()
+            ):
+                db.session.delete(row)
+            watermark = db.session.scalar(
+                select(GmAchievementWatermark).where(
+                    GmAchievementWatermark.league_slug == "bowl-cap"
+                ).limit(1)
+            )
+            self.assertIsNotNone(watermark)
+            already = watermark.already_true_map()
+            phi_keys = [k for k in already.get(str(pid), []) if k != key]
+            phi_keys.append(key)
+            already[str(pid)] = phi_keys
+            if str(tid) in already:
+                already[str(tid)] = [k for k in already[str(tid)] if k != key]
+            watermark.already_true_json = json.dumps(already)
+            db.session.flush()
+
+            def _flush_only(session) -> None:
+                session.flush()
+
+            with (
+                patch("app.sqlite_retry.commit_with_sqlite_retry", _flush_only),
+                patch("app.services.gm_achievements._enqueue_achievement_discord") as discord,
+            ):
+                stats = evaluate_gm_achievements_after_import(self.app)
+            unlock = db.session.scalar(
+                select(GmAchievementUnlock).where(
+                    GmAchievementUnlock.league_slug == "bowl-cap",
+                    GmAchievementUnlock.team_id == tid,
+                    GmAchievementUnlock.achievement_key == key,
+                ).limit(1)
+            )
+            self.assertIsNotNone(unlock)
+            self.assertIsNone(unlock.claimed_at)
+            self.assertGreaterEqual(stats["awarded"], 1)
+            discord.assert_called()
+            hat_calls = [
+                call
+                for call in discord.call_args_list
+                if getattr(call.kwargs.get("spec"), "key", None) == "league_first_hat"
+                and int(call.kwargs.get("team_id") or 0) == tid
+            ]
+            self.assertTrue(hat_calls, discord.call_args_list)
+            phi_unlock = db.session.scalar(
+                select(GmAchievementUnlock).where(
+                    GmAchievementUnlock.league_slug == "bowl-cap",
+                    GmAchievementUnlock.team_id == pid,
+                    GmAchievementUnlock.achievement_key == key,
+                ).limit(1)
+            )
+            self.assertIsNone(phi_unlock)
+            db.session.rollback()
 
     def test_reseed_awards_truths_after_cutoff(self) -> None:
         self.app = create_app(make_league_config("bowl-cap"))

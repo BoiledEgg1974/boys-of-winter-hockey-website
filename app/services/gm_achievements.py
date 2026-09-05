@@ -2328,6 +2328,76 @@ def collect_new_hits(
     return hits
 
 
+def race_winners_from_truths(
+    truths: dict[int, dict[str, dict[str, Any]]],
+) -> dict[str, int]:
+    """Map race storage keys to the team currently detected as the winner."""
+    winners: dict[str, int] = {}
+    for team_id, keys in truths.items():
+        for key in keys:
+            spec = CATALOG_BY_KEY.get(catalog_key_from_storage(key))
+            if spec is None or not spec.race:
+                continue
+            winners[str(key)] = int(team_id)
+    return winners
+
+
+def stale_race_pairs(
+    truths: dict[int, dict[str, dict[str, Any]]],
+    pairs: set[tuple[int, str]],
+) -> set[tuple[int, str]]:
+    """Watermark/unlock race rows whose team is no longer the detected winner.
+
+    Early watermarks could lock a preseason hat trick or shutout as heritage.
+    Those pairs must be dropped so the regular-season winner can be awarded.
+    """
+    winners = race_winners_from_truths(truths)
+    stale: set[tuple[int, str]] = set()
+    for team_id, key in pairs:
+        spec = CATALOG_BY_KEY.get(catalog_key_from_storage(key))
+        if spec is None or not spec.race:
+            continue
+        winner = winners.get(str(key))
+        if winner is not None and int(team_id) != winner:
+            stale.add((int(team_id), str(key)))
+    return stale
+
+
+def orphan_race_pairs(
+    already: set[tuple[int, str]],
+    existing: set[tuple[int, str]],
+) -> set[tuple[int, str]]:
+    """Race watermark rows with no unlock — a preseason lock that never issued a ticket."""
+    orphan: set[tuple[int, str]] = set()
+    for team_id, key in already:
+        spec = CATALOG_BY_KEY.get(catalog_key_from_storage(key))
+        if spec is None or not spec.race:
+            continue
+        if (int(team_id), str(key)) not in existing:
+            orphan.add((int(team_id), str(key)))
+    return orphan
+
+
+def _delete_stale_race_unlocks(
+    session: Session,
+    league_slug: str,
+    stale: set[tuple[int, str]],
+) -> int:
+    """Remove incorrect race unlocks that were never scratched for real AP."""
+    removed = 0
+    for team_id, key in stale:
+        unlock = _find_team_unlock(
+            session, league_slug=league_slug, team_id=int(team_id), storage_key=str(key)
+        )
+        if unlock is None:
+            continue
+        if unlock.claimed_at is not None and int(unlock.ap_delta or 0) > 0:
+            continue
+        session.delete(unlock)
+        removed += 1
+    return removed
+
+
 def _already_pairs(watermark: GmAchievementWatermark | None) -> set[tuple[int, str]]:
     out: set[tuple[int, str]] = set()
     if watermark is None:
@@ -2713,6 +2783,13 @@ def evaluate_gm_achievements_after_import(app) -> dict[str, int]:
         },
         season_label or "",
     )
+    stale = stale_race_pairs(truths, already | existing)
+    orphan = orphan_race_pairs(already, existing)
+    drop = stale | orphan
+    if drop:
+        already -= drop
+        existing -= stale
+        _delete_stale_race_unlocks(session, slug, stale)
 
     awarded = 0
     recap_by_user: dict[int, dict[str, Any]] = {}
@@ -2736,21 +2813,28 @@ def evaluate_gm_achievements_after_import(app) -> dict[str, int]:
             ap_delta=0,
         )
         session.add(unlock)
+        _enqueue_achievement_discord(
+            session,
+            league_slug=slug,
+            team_id=int(team_id),
+            spec=spec,
+            meta=meta or {},
+            source_ref=source_ref,
+            season_label=season_label or "",
+        )
         if user_id is not None:
-            _enqueue_achievement_discord(
-                session,
-                league_slug=slug,
-                team_id=int(team_id),
-                spec=spec,
-                meta=meta or {},
-                source_ref=source_ref,
-                season_label=season_label or "",
-            )
             bucket = recap_by_user.setdefault(user_id, {"team_id": int(team_id), "titles": []})
             bucket["titles"].append(spec.title)
         already.add(pair)
         existing.add(pair)
         awarded += 1
+
+    _announce_unannounced_race_unlocks(
+        session,
+        league_slug=slug,
+        truths=truths,
+        season_label=season_label or "",
+    )
 
     synced = sync_achievement_ap_ledger(session, slug)
     stats["ledger_synced"] = synced
@@ -2774,6 +2858,50 @@ def evaluate_gm_achievements_after_import(app) -> dict[str, int]:
     if awarded:
         _log.info("GM achievements awarded %s unlock(s) for %s.", awarded, slug)
     return stats
+
+
+def _announce_unannounced_race_unlocks(
+    session: Session,
+    *,
+    league_slug: str,
+    truths: dict[int, dict[str, dict[str, Any]]],
+    season_label: str,
+) -> int:
+    """Queue Discord for race unlocks that exist but were never announced."""
+    try:
+        from app.services.discord_events import is_source_delivered
+    except Exception:
+        return 0
+    announced = 0
+    for team_id, keys in truths.items():
+        for key, meta in keys.items():
+            spec = CATALOG_BY_KEY.get(catalog_key_from_storage(key))
+            if spec is None or not spec.race:
+                continue
+            unlock = _find_team_unlock(
+                session, league_slug=league_slug, team_id=int(team_id), storage_key=str(key)
+            )
+            if unlock is None or not unlock.source_ref:
+                continue
+            source_ref = str(unlock.source_ref)
+            if is_source_delivered(
+                session,
+                league_slug=league_slug,
+                source_type="gm_achievement",
+                source_id=source_ref,
+            ):
+                continue
+            _enqueue_achievement_discord(
+                session,
+                league_slug=league_slug,
+                team_id=int(team_id),
+                spec=spec,
+                meta=dict(meta or unlock.meta_map() or {}),
+                source_ref=source_ref,
+                season_label=season_label or str(unlock.season_label or ""),
+            )
+            announced += 1
+    return announced
 
 
 def _enqueue_achievement_discord(

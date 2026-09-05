@@ -1173,7 +1173,7 @@ StaffId;Executive;Manager;Coach;Scout;Trainer;Off Pref;Phy Pref;Line Matching;Go
 1171;10;10;15;20;1;Offensive;Physical;Balanced;Balanced;Balanced;Conservative;Ruthless;10;1;11;15;14;12;5;2;10;13;2;14;7;8;0;;12;10
 1172;10;10;15;20;1;Defensive;Balanced;Passive;Balanced;Prefers Veterans;Innovative;Balanced;3;14;14;1;14;12;8;2;11;2;5;15;7;10;0;;11;15
 1173;10;10;15;20;1;Defensive;Balanced;Balanced;Balanced;Prefers Prospects;Balanced;Ruthless;6;12;7;6;8;3;5;7;17;12;2;14;17;7;0;;10;18
-1174;10;10;15;20;1;Offensive;Balanced;Balanced;Conservative;Balanced;Innovative;Balanced;8;10;6;5;14;1;1;1;9;0;4;8;16;15;0;;17;12
+1174;10;10;15;20;1;Offensive;Balanced;Balanced;Conservative;Balanced;Innovative;Balanced;8;10;6;5;14;1;1;1;9;1;4;8;16;15;0;;17;12
 1175;10;10;15;20;1;Standard;Balanced;Balanced;Very Conservative;Loves Veterans;Balanced;Balanced;2;6;15;13;15;14;4;5;11;1;1;16;11;9;0;;11;10
 1176;10;10;15;20;1;Defensive;Balanced;Balanced;Conservative;Loves Prospects;Innovative;Balanced;10;1;11;14;5;11;2;10;5;2;9;7;14;6;0;;10;17
 1177;1;1;5;1;20;Defensive;Balanced;Balanced;Conservative;Balanced;Balanced;Balanced;0;0;0;0;0;0;0;9;0;0;8;0;0;0;15;;0;0

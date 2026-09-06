@@ -18,11 +18,14 @@ from datetime import date, datetime
 from app.services.gm_achievements import (
     ACHIEVEMENT_LEAGUE_FIRST_EVENT_KEY,
     ACHIEVEMENT_UNLOCKED_EVENT_KEY,
+    CATALOG,
     CATALOG_BY_KEY,
     acquired_by_team_from_ledger,
     build_achievement_leaderboard,
     build_achievement_rival_page,
     build_achievements_page_payload,
+    achievement_badge_static_rel,
+    achievement_badge_tooltip,
     build_playoff_series,
     catalog_for_league,
     catalog_key_from_storage,
@@ -360,6 +363,15 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(CATALOG_BY_KEY["the_bender"].repeat_scope, "month")
         self.assertTrue(CATALOG_BY_KEY["league_first_hat"].race)
         self.assertTrue(CATALOG_BY_KEY["the_heist"].repeatable)
+
+    def test_catalog_artwork_covers_visible_achievements(self) -> None:
+        missing_art = {"going_up", "reverse_sweep", "award_shelf"}
+        for spec in CATALOG:
+            rel = achievement_badge_static_rel(spec.key, reveal_hidden=True)
+            if spec.key in missing_art:
+                self.assertIsNone(rel)
+            else:
+                self.assertEqual(rel, f"img/achievements/{spec.key}.png")
 
     def test_heist_and_export_recap_helpers(self) -> None:
         self.assertEqual(player_ids_from_drag_keys(["player:12", "pick:2027:1", "player:9"]), [12, 9])
@@ -1102,8 +1114,15 @@ class EvaluatorWatermarkTests(unittest.TestCase):
             self.assertIn("Hidden achievement", html)
             self.assertIn("Export Streak", html)
             self.assertIn("???", html)
+            self.assertIn("img/achievements/comeback_kids.png", html)
+            self.assertIn("img/achievements/the_bender.png", html)
+            self.assertIn("img/achievements/the_heist.png", html)
+            self.assertNotIn("img/achievements/reverse_sweep.png", html)
             self.assertNotIn("Jack Adams", html)
             self.assertNotIn("Captain's Night", html)
+            self.assertEqual(achievement_badge_static_rel("gordie_howe"), "img/achievements/gordie_howe.png")
+            self.assertIsNone(achievement_badge_static_rel("reverse_sweep", reveal_hidden=False))
+            self.assertIn("—", achievement_badge_tooltip("Comeback Kids", "Win after trailing by 3."))
             truths = discover_true_achievements(db.session, "bowl-cap")
             self.assertIsInstance(truths, dict)
             board = build_achievement_leaderboard(db.session, "bowl-cap")

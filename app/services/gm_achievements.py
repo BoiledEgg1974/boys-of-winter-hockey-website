@@ -7,6 +7,7 @@ import random
 import re
 from dataclasses import dataclass
 from datetime import date, datetime
+from pathlib import Path
 from typing import Any, Iterable
 
 from sqlalchemy import func, or_, select
@@ -328,6 +329,43 @@ CATALOG: tuple[AchievementDef, ...] = (
 )
 
 CATALOG_BY_KEY = {item.key: item for item in CATALOG}
+
+_ACHIEVEMENT_BADGE_DIR = Path(__file__).resolve().parents[1] / "static" / "img" / "achievements"
+_ACHIEVEMENT_BADGE_ALIASES = {
+    "heritage_cup": "pinnacle",
+    "heritage_dynasty": "dynasty",
+}
+
+
+def achievement_badge_static_rel(key: str | None, *, reveal_hidden: bool = True) -> str | None:
+    """Return ``img/achievements/<key>.png`` when artwork exists for this catalog key."""
+    raw = (key or "").strip()
+    if not raw:
+        return None
+    spec = CATALOG_BY_KEY.get(raw)
+    if spec and spec.hidden and not reveal_hidden:
+        return None
+    alias = _ACHIEVEMENT_BADGE_ALIASES.get(raw, raw)
+    name = f"{alias}.png"
+    if (_ACHIEVEMENT_BADGE_DIR / name).is_file():
+        return f"img/achievements/{name}"
+    return None
+
+
+def achievement_badge_tooltip(
+    title: str,
+    description: str = "",
+    *,
+    count: int = 1,
+    extra: str = "",
+) -> str:
+    label = (title or "").strip()
+    desc = (description or "").strip()
+    text = f"{label} — {desc}" if label and desc else (label or desc)
+    bits = [part for part in (extra.strip(), f"{count}×" if count > 1 else "") if part]
+    if bits:
+        text = f"{text} · {' · '.join(bits)}" if text else " · ".join(bits)
+    return text
 
 
 @dataclass
@@ -3405,6 +3443,7 @@ def build_achievements_page_payload(
                 "reward_cells": cells,
                 "reward_ticket_ap": ticket_ap,
                 "reward_total": int(unlock.ap_delta or 0) if claimed else None,
+                "badge_rel": achievement_badge_static_rel(spec.key, reveal_hidden=not hidden_locked),
             }
         )
     items = [card for cards in groups.values() for card in cards]
@@ -3444,8 +3483,13 @@ def team_achievement_badges(
                 "title": "BOWL Cup",
                 "category": "playoffs",
                 "count": cup_count,
-                "tooltip": f"{cup_count}x BOWL Cup",
+                "tooltip": achievement_badge_tooltip(
+                    "BOWL Cup",
+                    "League championship.",
+                    count=cup_count,
+                ),
                 "heritage": True,
+                "badge_rel": achievement_badge_static_rel("heritage_cup"),
             }
         )
     recs.sort(key=lambda r: (int(r.start_year or 0), r.season_year_label or ""))
@@ -3466,8 +3510,12 @@ def team_achievement_badges(
                 "title": "Dynasty",
                 "category": "career",
                 "count": best,
-                "tooltip": f"{best} consecutive championships",
+                "tooltip": achievement_badge_tooltip(
+                    "Dynasty",
+                    f"{best} consecutive championships.",
+                ),
                 "heritage": True,
+                "badge_rel": achievement_badge_static_rel("heritage_dynasty"),
             }
         )
 
@@ -3488,7 +3536,11 @@ def team_achievement_badges(
         existing = next((b for b in badges if b["key"] == spec.key), None)
         if existing:
             existing["count"] = int(existing.get("count") or 1) + 1
-            existing["tooltip"] = f"{spec.title} · {existing['count']}x"
+            existing["tooltip"] = achievement_badge_tooltip(
+                spec.title,
+                spec.description,
+                count=int(existing["count"]),
+            )
             continue
         badges.append(
             {
@@ -3496,8 +3548,13 @@ def team_achievement_badges(
                 "title": spec.title,
                 "category": spec.category,
                 "count": 1,
-                "tooltip": f"{spec.title}" + (f" · {row.season_label}" if row.season_label else ""),
+                "tooltip": achievement_badge_tooltip(
+                    spec.title,
+                    spec.description,
+                    extra=str(row.season_label or ""),
+                ),
                 "heritage": False,
+                "badge_rel": achievement_badge_static_rel(spec.key),
             }
         )
     return badges
@@ -3600,6 +3657,7 @@ def build_achievement_leaderboard(session: Session, league_slug: str) -> dict[st
         first["key"] = spec.key
         first["title"] = spec.title
         first["category"] = spec.category
+        first["badge_rel"] = achievement_badge_static_rel(spec.key)
         firsts.append(first)
     return {
         "rows": board,
@@ -3630,6 +3688,9 @@ def build_achievement_rival_page(session: Session, league_slug: str, team_id: in
                 "key": spec.key,
                 "title": spec.title,
                 "category": spec.category,
+                "badge_rel": achievement_badge_static_rel(
+                    spec.key, reveal_hidden=my_place is not None
+                ),
                 "hidden": spec.hidden,
                 "place": my_place,
                 "place_label": place_label(my_place),

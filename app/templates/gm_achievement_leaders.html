@@ -60,7 +60,12 @@
         <tbody>
           {% for row in firsts %}
           <tr>
-            <td>{{ row.title }}</td>
+            <td>
+              {% if row.badge_rel %}
+              <img class="gm-trophy-table__badge" src="{{ url_for('static', filename=row.badge_rel) }}" alt="" width="40" height="40" loading="lazy" decoding="async">
+              {% endif %}
+              {{ row.title }}
+            </td>
             <td>
               {% if row.team_slug %}
               <a href="{{ url_for('main.achievement_leaders_team', slug=row.team_slug) }}">{{ row.team_name }}</a>

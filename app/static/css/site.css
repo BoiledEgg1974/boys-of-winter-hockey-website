@@ -4820,22 +4820,34 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
 .team-achievement-banner__row {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.45rem;
+  align-items: flex-end;
+  gap: 0.55rem 0.7rem;
 }
 .team-achievement-banner__badge {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  max-width: 14rem;
-  padding: 0.28rem 0.5rem 0.28rem 0.35rem;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--bg);
+  justify-content: center;
+  width: 4.75rem;
+  height: 4.75rem;
+  padding: 0;
+  max-width: none;
+  border: none;
+  border-radius: 0;
+  background: transparent;
   color: var(--text);
+  cursor: default;
+}
+.team-achievement-banner__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 7px rgb(0 0 0 / 0.38));
 }
 .team-achievement-banner__icon {
-  width: 0.72rem;
-  height: 0.72rem;
+  width: 1.15rem;
+  height: 1.15rem;
   border-radius: 50%;
   background: var(--muted);
   flex: 0 0 auto;
@@ -4852,18 +4864,37 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
 .team-achievement-banner__badge--career .team-achievement-banner__icon {
   background: #c084fc;
 }
-.team-achievement-banner__title {
+.team-achievement-banner__badge[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 0.4rem);
+  z-index: 8;
+  width: max-content;
+  max-width: min(18rem, 70vw);
+  padding: 0.4rem 0.55rem;
+  border-radius: 8px;
+  background: rgb(15 23 42 / 0.96);
+  color: #f8fafc;
   font-size: 0.74rem;
-  font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-weight: 650;
+  line-height: 1.35;
+  text-align: left;
+  white-space: normal;
+  box-shadow: 0 8px 22px rgb(0 0 0 / 0.35);
+  transform: translateX(-50%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
 }
+.team-achievement-banner__badge:hover::after,
+.team-achievement-banner__badge:focus::after,
+.team-achievement-banner__badge:focus-visible::after {
+  opacity: 1;
+}
+.team-achievement-banner__title,
 .team-achievement-banner__count {
-  font-size: 0.68rem;
-  font-weight: 800;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
+  display: none;
 }
 .gm-achievements__heading {
   margin: 1.25rem 0 0.65rem;
@@ -4907,7 +4938,7 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
 .gm-achievements__card-head {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.55rem;
 }
 .gm-achievements__badge {
   width: 0.7rem;
@@ -4915,6 +4946,26 @@ table.data.home-momentum-table > tbody > tr > td:nth-child(3) {
   border-radius: 50%;
   background: var(--gm-ach-tone);
   flex: 0 0 auto;
+}
+.gm-achievements__badge-img {
+  display: block;
+  width: 4.35rem;
+  height: 4.35rem;
+  flex: 0 0 auto;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 6px rgb(0 0 0 / 0.32));
+}
+.gm-achievements__badge-img--locked {
+  opacity: 0.78;
+  filter: grayscale(0.12) drop-shadow(0 2px 6px rgb(0 0 0 / 0.28));
+}
+.gm-trophy-table__badge {
+  display: inline-block;
+  width: 2.15rem;
+  height: 2.15rem;
+  margin-right: 0.4rem;
+  vertical-align: middle;
+  object-fit: contain;
 }
 .gm-achievements__title {
   margin: 0;

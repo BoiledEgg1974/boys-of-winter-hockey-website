@@ -130,11 +130,11 @@
   <p class="team-achievement-banner__kicker">Achievements</p>
   <div class="team-achievement-banner__row" role="list">
     {% for b in team_achievement_badges %}
-    <div class="team-achievement-banner__badge team-achievement-banner__badge--{{ b.category }}" role="listitem" title="{{ b.tooltip|e }}">
+    <div class="team-achievement-banner__badge team-achievement-banner__badge--{{ b.category }}" role="listitem" tabindex="0" title="{{ b.tooltip|e }}" data-tip="{{ b.tooltip|e }}" aria-label="{{ b.tooltip|e }}">
+      {% if b.badge_rel %}
+      <img class="team-achievement-banner__img" src="{{ url_for('static', filename=b.badge_rel) }}" alt="" width="80" height="80" loading="lazy" decoding="async">
+      {% else %}
       <span class="team-achievement-banner__icon" aria-hidden="true"></span>
-      <span class="team-achievement-banner__title">{{ b.title }}</span>
-      {% if b.count and b.count > 1 %}
-      <span class="team-achievement-banner__count">{{ b.count }}x</span>
       {% endif %}
     </div>
     {% endfor %}

@@ -341,7 +341,15 @@ _TOP_SKATERS_PER_TEAM = 3
 
 def _game_type_label(game: Game) -> str:
     raw = str(game.game_type or "").strip()
-    if raw and "playoff" in raw.casefold():
+    folded = raw.casefold()
+    if raw and (
+        "preseason" in folded
+        or "pre-season" in folded
+        or "pre season" in folded
+        or "exhibition" in folded
+    ):
+        label = "PS"
+    elif raw and "playoff" in folded:
         label = "PO"
     else:
         label = "RS"

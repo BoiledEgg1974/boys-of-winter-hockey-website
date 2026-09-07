@@ -886,6 +886,68 @@ class FormatterTest(unittest.TestCase):
         self.assertIn("OT", payload["game_type_label"])
         self.assertEqual(payload["game_url"], "https://example.test/game/42")
 
+    def test_payload_builder_labels_preseason(self) -> None:
+        home = SimpleNamespace(
+            id=120,
+            abbreviation="CAL",
+            name="California",
+            fhm_team_id="120",
+            full_display_name=lambda: "California Golden Seals",
+        )
+        away = SimpleNamespace(
+            id=5,
+            abbreviation="BOS",
+            name="Boston",
+            fhm_team_id="5",
+            full_display_name=lambda: "Boston Bruins",
+        )
+        game = SimpleNamespace(
+            id=1172,
+            home_team=home,
+            away_team=away,
+            home_team_id=120,
+            away_team_id=5,
+            home_score=2,
+            away_score=2,
+            home_shots=26,
+            away_shots=24,
+            pp_goals_home=0,
+            pp_opp_home=3,
+            pp_goals_away=0,
+            pp_opp_away=3,
+            pim_home=11,
+            pim_away=11,
+            hits_home=26,
+            hits_away=31,
+            game_date=date(1971, 9, 24),
+            game_type="Pre-Season",
+            went_to_overtime=False,
+            went_to_shootout=False,
+            status="final",
+            fhm_star1_player_id=None,
+            fhm_star2_player_id=None,
+            fhm_star3_player_id=None,
+        )
+        league = MagicMock()
+        with patch(
+            "app.services.game_boxscore_discord.build_league_public_url",
+            return_value="https://www.bowlhockey.com/bowl-historical/game/1172",
+        ), patch(
+            "app.services.game_boxscore_discord._load_game_skater_rows",
+            return_value=[],
+        ), patch(
+            "app.services.game_boxscore_discord._load_game_goalie_rows",
+            return_value=[],
+        ):
+            payload = build_game_boxscore_discord_payload(
+                league,
+                league_slug="bowl-historical",
+                game=game,
+                target_team_id=5,
+            )
+        self.assertEqual(payload["game_type_label"], "PS")
+        self.assertEqual(payload["date"], "1971-09-24")
+
     def test_payload_builder_includes_leaders_and_goalies(self) -> None:
         home = SimpleNamespace(
             id=12,

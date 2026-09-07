@@ -89,7 +89,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 87;-1;Rick;St. Croix;;1955-1-3;Kenora;ON;Canada;;;0
 88;-1;Bill;Barber;;1952-7-11;Callander;ON;Canada;;;0
 89;-1;Jacques;Demers;;1944-8-25;Montreal;QC;Canada;;;0
-90;26;John;Muckler;;1934-4-13;Midland;ON;Canada;;;0
+90;-1;John;Muckler;;1934-4-13;Midland;ON;Canada;;;0
 91;23;Robbie;Ftorek;;1952-1-2;Needham;MA;The United States;;;0
 92;16;Pierre;Lacroix;;1948-8-3;Montreal;QC;Canada;;;0
 93;-1;Mike;Milbury;;1952-6-17;Brighton;NY;The United States;;;0
@@ -122,7 +122,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 120;223;Red;Berenson;;1939-12-8;Regina;SK;Canada;;;0
 121;21;Rick;Comley;;1947-1-20;Burlington;ON;Canada;;;0
 122;9;Christer;Rockström;;1957-2-3;Stockholm;STO;Sweden;;;0
-123;-1;Don;Cahoon;;1949-4-13;Lynn;IN;The United States;;;0
+123;216;Don;Cahoon;;1949-4-13;Lynn;IN;The United States;;;0
 124;-1;David;Smith;;1950-1-1;Callaway;FL;The United States;;;0
 125;9;Craig;Button;;1963-1-3;Rochester;AB;Canada;;;0
 126;-1;John;Van Boxmeer;;1952-11-20;Petrolia;ON;Canada;;;0
@@ -1466,7 +1466,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1464;-1;Gil;Lorn;;1946-2-22;Crawfordsville;IN;The United States;;;0
 1465;-1;Mike;Jackson;;1940-5-4;Cambridge;ON;Canada;;;0
 1466;-1;Fred;Christian;;1940-1-22;Huntingdon;QC;Canada;;;0
-1467;-1;Nathan;Aris;;1940-9-9;Brampton;ON;Canada;;;0
+1467;24;Nathan;Aris;;1940-9-9;Brampton;ON;Canada;;;0
 1468;-1;Johnny;Wapachee;;1942-4-22;Brampton;ON;Canada;;;0
 1469;-1;Steve;Plunkett;;1940-11-20;Wheat Ridge;CO;The United States;;;0
 1470;-1;Glen;Skolnick;;1940-2-2;Fort Myers Shores;FL;The United States;;;0
@@ -1500,7 +1500,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1498;-1;Tony;Whitmore;;1940-9-6;Saint-Canut;QC;Canada;;;0
 1499;-1;Nick;Moss;;1948-1-30;Milltown;IN;The United States;;;0
 1500;-1;Dennis;West;;1940-11-5;Toronto;ON;Canada;;;0
-1501;-1;Albert;Tuff;;1940-2-25;Vancouver;BC;Canada;;;0
+1501;26;Albert;Tuff;;1940-2-25;Vancouver;BC;Canada;;;0
 1502;-1;Stephen;Sharp;;1944-5-5;Repentigny;QC;Canada;;;0
 1503;16;Darryl;Kovacs;;1940-10-5;Fredericton;NB;Canada;;;0
 1504;-1;Phil;Hardesty;;1940-12-22;Charlestown;NH;The United States;;;0

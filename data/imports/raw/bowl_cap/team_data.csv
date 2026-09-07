@@ -17,7 +17,7 @@ TeamId;LeagueId;Name;Nickname;Abbr;Parent Team 1;Parent Team 2;Parent Team 3;Par
 21;0;New Jersey;Devils;NJD;-1;-1;-1;-1;-1;-1;-1;-1;#c8102e;#000000;#fefef4;0;1
 22;0;Washington;Capitals;WAS;-1;-1;-1;-1;-1;-1;-1;-1;#236192;#000000;#fefef4;0;2
 23;0;Edmonton;Oilers;EDM;-1;-1;-1;-1;-1;-1;-1;-1;#041e42;#8f654d;#fefef4;1;2
-24;0;Carolina;Hurricanes;CAR;-1;-1;-1;-1;-1;-1;-1;-1;#c8102e;#00205b;#fefef4;0;2
+24;0;Carolina;Hurricanes;CAR;-1;-1;-1;-1;-1;-1;-1;-1;#c8102e;#000000;#fefef4;0;2
 25;0;Colorado;Avalanche;COL;-1;-1;-1;-1;-1;-1;-1;-1;#6f263d;#236192;#fefef4;1;2
 26;0;Phoenix;Coyotes;PHX;-1;-1;-1;-1;-1;-1;-1;-1;#862633;#154734;#fefef4;1;1
 51;3;Independent;Team;Ind;0;-1;-1;-1;-1;-1;-1;-1;#c60000;#0031ad;#fefef4;-1;0

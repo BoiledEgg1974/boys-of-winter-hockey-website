@@ -2629,10 +2629,37 @@ def ensure_discord_channel_route_multi_ids(engine: Engine) -> None:
             conn.execute(text(sql))
 
 
+def ensure_discord_team_boxscore_watermark_columns(engine: Engine) -> None:
+    """Add last-posted boxscore columns on per-team Discord routes (SQLite or MySQL)."""
+    from sqlalchemy import inspect
+
+    insp = inspect(engine)
+    if not insp.has_table("discord_team_channel_routes"):
+        return
+    cols = {str(col["name"]) for col in insp.get_columns("discord_team_channel_routes")}
+    alters: list[str] = []
+    if "last_boxscore_source_id" not in cols:
+        alters.append(
+            "ALTER TABLE discord_team_channel_routes "
+            "ADD COLUMN last_boxscore_source_id VARCHAR(64) NOT NULL DEFAULT ''"
+        )
+    if "last_boxscore_game_date" not in cols:
+        alters.append(
+            "ALTER TABLE discord_team_channel_routes "
+            "ADD COLUMN last_boxscore_game_date DATE"
+        )
+    if not alters:
+        return
+    with engine.begin() as conn:
+        for sql in alters:
+            conn.execute(text(sql))
+
+
 def ensure_discord_outbound_sqlite(engine: Engine) -> None:
     """Create Discord route + outbound event tables on site DB when missing."""
     if engine.dialect.name != "sqlite":
         ensure_discord_channel_route_multi_ids(engine)
+        ensure_discord_team_boxscore_watermark_columns(engine)
         return
     with engine.connect() as conn:
         has_routes = conn.execute(
@@ -2956,7 +2983,9 @@ def ensure_discord_outbound_sqlite(engine: Engine) -> None:
                         discord_channel_id VARCHAR(32) NOT NULL DEFAULT '',
                         is_enabled BOOLEAN NOT NULL DEFAULT 1,
                         updated_by_user_id INTEGER,
-                        updated_at DATETIME NOT NULL
+                        updated_at DATETIME NOT NULL,
+                        last_boxscore_source_id VARCHAR(64) NOT NULL DEFAULT '',
+                        last_boxscore_game_date DATE
                     )
                     """
                 )
@@ -3006,6 +3035,7 @@ def ensure_discord_outbound_sqlite(engine: Engine) -> None:
             )
         conn.commit()
     ensure_discord_channel_route_multi_ids(engine)
+    ensure_discord_team_boxscore_watermark_columns(engine)
 
 
 def ensure_bowl_six_slates_discord_columns_sqlite(engine: Engine) -> None:

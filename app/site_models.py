@@ -672,6 +672,8 @@ class DiscordTeamChannelRoute(db.Model):
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     updated_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    last_boxscore_source_id: Mapped[str] = mapped_column(String(64), default="", nullable=False)
+    last_boxscore_game_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
 
 class DiscordGameBoxscorePending(db.Model):

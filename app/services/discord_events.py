@@ -2205,6 +2205,47 @@ def clear_game_boxscore_delivery_locks(
     return stats
 
 
+def reset_game_boxscore_team_watermarks(
+    session,
+    *,
+    league_slug: str,
+    team_ids: list[int] | set[int],
+) -> int:
+    """Clear last-posted boxscore marks so force re-queue can post again."""
+    slug = str(league_slug or "").strip()
+    ids: set[int] = set()
+    for tid in team_ids or []:
+        try:
+            ids.add(int(tid))
+        except (TypeError, ValueError):
+            continue
+    if not slug or not ids:
+        return 0
+    rows = list(
+        session.scalars(
+            select(DiscordTeamChannelRoute).where(
+                DiscordTeamChannelRoute.league_slug == slug,
+                DiscordTeamChannelRoute.event_key == GAME_BOXSCORE_EVENT_KEY,
+                DiscordTeamChannelRoute.team_id.in_(sorted(ids)),
+            )
+        ).all()
+    )
+    reset = 0
+    now = datetime.utcnow()
+    for row in rows:
+        if not str(getattr(row, "last_boxscore_source_id", "") or "") and getattr(
+            row, "last_boxscore_game_date", None
+        ) is None:
+            continue
+        row.last_boxscore_source_id = ""
+        row.last_boxscore_game_date = None
+        row.updated_at = now
+        reset += 1
+    if reset:
+        session.flush()
+    return reset
+
+
 def record_delivered_source(
     session,
     *,

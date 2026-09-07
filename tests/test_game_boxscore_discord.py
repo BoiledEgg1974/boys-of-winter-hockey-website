@@ -18,6 +18,9 @@ from app.services.game_boxscore_discord import (
     build_game_boxscore_discord_payload,
     drain_stashed_newly_final_game_ids,
     enqueue_game_boxscore_events_for_game,
+    game_boxscore_source_id,
+    game_boxscore_source_id_from_payload,
+    is_game_boxscore_duplicate_for_team,
     notify_game_boxscores_after_import,
     stash_newly_final_game_ids,
 )
@@ -249,6 +252,11 @@ class EnqueueBoxscoreTest(unittest.TestCase):
             "app.services.game_boxscore_discord.resolve_game_boxscore_team_channel_id",
             side_effect=lambda *_a, **k: f"chan-{k['team_id']}",
         ), patch(
+            "app.services.game_boxscore_discord.is_game_boxscore_duplicate_for_team",
+            return_value=False,
+        ), patch(
+            "app.services.game_boxscore_discord.record_game_boxscore_team_watermark"
+        ), patch(
             "app.services.game_boxscore_discord.enqueue_discord_event",
             side_effect=_enqueue,
         ), patch(
@@ -266,7 +274,13 @@ class EnqueueBoxscoreTest(unittest.TestCase):
             )
 
         self.assertEqual(n, 2)
-        self.assertEqual(sorted(source_ids), ["42:10", "42:11"])
+        self.assertEqual(
+            sorted(source_ids),
+            [
+                game_boxscore_source_id(game, team_id=10),
+                game_boxscore_source_id(game, team_id=11),
+            ],
+        )
 
     def test_skips_blank_team_channel(self) -> None:
         game = SimpleNamespace(
@@ -382,6 +396,50 @@ class EnqueueBoxscoreTest(unittest.TestCase):
         clear.assert_called_once()
         self.assertEqual(set(clear.call_args.kwargs["game_ids"]), {9})
 
+    def test_notify_clears_pending_when_already_posted(self) -> None:
+        drain_stashed_newly_final_game_ids()
+        stash_newly_final_game_ids({9})
+        site = MagicMock()
+        league = MagicMock()
+        game = SimpleNamespace(
+            id=9,
+            status="final",
+            away_team_id=1,
+            home_team_id=2,
+        )
+        league.get.return_value = game
+
+        with patch(
+            "app.services.game_boxscore_discord.record_pending_game_boxscore_ids"
+        ), patch(
+            "app.services.game_boxscore_discord.list_pending_game_boxscore_ids",
+            return_value={9},
+        ), patch(
+            "app.services.game_boxscore_discord.ensure_game_boxscore_team_channels"
+        ), patch(
+            "app.services.game_boxscore_discord.has_game_boxscore_delivery_target",
+            return_value=True,
+        ), patch(
+            "app.services.game_boxscore_discord.is_discord_event_route_active",
+            return_value=True,
+        ), patch(
+            "app.services.game_boxscore_discord.enqueue_game_boxscore_events_for_game",
+            return_value=0,
+        ), patch(
+            "app.services.game_boxscore_discord._unqueued_final_is_already_posted",
+            return_value=True,
+        ), patch(
+            "app.services.game_boxscore_discord.clear_pending_game_boxscore_ids"
+        ) as clear:
+            out = notify_game_boxscores_after_import(
+                league, site, league_slug="bowl-historical"
+            )
+
+        self.assertEqual(out["queued"], 0)
+        self.assertEqual(out["skipped"], 1)
+        clear.assert_called_once()
+        self.assertEqual(set(clear.call_args.kwargs["game_ids"]), {9})
+
 
 class QueueRecentBoxscoresTest(unittest.TestCase):
     def test_recent_window_uses_latest_final_date(self) -> None:
@@ -481,6 +539,9 @@ class QueueRecentBoxscoresTest(unittest.TestCase):
             "app.services.game_boxscore_discord.clear_game_boxscore_delivery_locks",
             return_value={"delivered_cleared": 4, "outbound_cancelled": 4},
         ) as clear_locks, patch(
+            "app.services.game_boxscore_discord.reset_game_boxscore_team_watermarks",
+            return_value=4,
+        ) as reset_marks, patch(
             "app.services.game_boxscore_discord.enqueue_game_boxscore_events_for_game",
             side_effect=[2, 2],
         ):
@@ -489,14 +550,185 @@ class QueueRecentBoxscoresTest(unittest.TestCase):
             )
 
         clear_locks.assert_called_once()
+        reset_marks.assert_called_once()
+        self.assertEqual(set(reset_marks.call_args.kwargs["team_ids"]), {1, 2, 3, 4})
         cleared_ids = set(clear_locks.call_args.kwargs["source_ids"])
-        self.assertEqual(cleared_ids, {"9:1", "9:2", "10:3", "10:4"})
+        self.assertTrue({"9:1", "9:2", "10:3", "10:4"}.issubset(cleared_ids))
         self.assertTrue(out["ok"])
         self.assertTrue(out["force"])
         self.assertEqual(out["delivered_cleared"], 4)
         self.assertEqual(out["outbound_cancelled"], 4)
         self.assertEqual(out["queued"], 4)
         self.assertIn("Force re-queue", out["message"])
+
+
+class BoxscoreUniquenessTest(unittest.TestCase):
+    def _game(self, *, game_id: int, game_date: date, home_id: int = 10, away_id: int = 11):
+        home = SimpleNamespace(id=home_id, abbreviation="MTL", name="Montreal", fhm_team_id="1")
+        away = SimpleNamespace(id=away_id, abbreviation="TOR", name="Toronto", fhm_team_id="2")
+        return SimpleNamespace(
+            id=game_id,
+            status="final",
+            home_team_id=home_id,
+            away_team_id=away_id,
+            home_team=home,
+            away_team=away,
+            home_score=3,
+            away_score=2,
+            game_date=game_date,
+            game_type="0",
+            went_to_overtime=False,
+            went_to_shootout=False,
+            fhm_star1_player_id=None,
+            fhm_star2_player_id=None,
+            fhm_star3_player_id=None,
+        )
+
+    def test_source_id_is_stable_when_internal_game_id_changes(self) -> None:
+        first = self._game(game_id=42, game_date=date(2025, 10, 12))
+        rebuilt = self._game(game_id=1087, game_date=date(2025, 10, 12))
+        self.assertEqual(
+            game_boxscore_source_id(first, team_id=10),
+            game_boxscore_source_id(rebuilt, team_id=10),
+        )
+        self.assertEqual(game_boxscore_source_id(first, team_id=10), "2025-10-12:2:1:t10")
+        self.assertEqual(
+            game_boxscore_source_id_from_payload(
+                {
+                    "date": "2025-10-12",
+                    "team_id": 10,
+                    "away_team": {"fhm_team_id": 2, "team_id": 11},
+                    "home_team": {"fhm_team_id": 1, "team_id": 10},
+                }
+            ),
+            "2025-10-12:2:1:t10",
+        )
+
+    def test_duplicate_when_same_matchup_already_watermarked(self) -> None:
+        game = self._game(game_id=99, game_date=date(2025, 10, 12))
+        site = MagicMock()
+        with patch(
+            "app.services.game_boxscore_discord.is_source_delivered",
+            return_value=False,
+        ), patch(
+            "app.services.game_boxscore_discord.last_posted_game_boxscore_for_team",
+            return_value=("2025-10-12:2:1:t10", date(2025, 10, 12)),
+        ):
+            self.assertTrue(
+                is_game_boxscore_duplicate_for_team(
+                    site, league_slug="bowl-cap", game=game, team_id=10
+                )
+            )
+
+    def test_duplicate_when_game_is_older_than_last_posted(self) -> None:
+        older = self._game(game_id=8, game_date=date(2025, 10, 10))
+        site = MagicMock()
+        with patch(
+            "app.services.game_boxscore_discord.is_source_delivered",
+            return_value=False,
+        ), patch(
+            "app.services.game_boxscore_discord.last_posted_game_boxscore_for_team",
+            return_value=("2025-10-12:2:1:t10", date(2025, 10, 12)),
+        ):
+            self.assertTrue(
+                is_game_boxscore_duplicate_for_team(
+                    site, league_slug="bowl-cap", game=older, team_id=10
+                )
+            )
+
+    def test_same_day_legacy_watermark_is_duplicate(self) -> None:
+        game = self._game(game_id=1087, game_date=date(2025, 10, 12))
+        site = MagicMock()
+        with patch(
+            "app.services.game_boxscore_discord.is_source_delivered",
+            return_value=False,
+        ), patch(
+            "app.services.game_boxscore_discord.last_posted_game_boxscore_for_team",
+            return_value=("42:10", date(2025, 10, 12)),
+        ):
+            self.assertTrue(
+                is_game_boxscore_duplicate_for_team(
+                    site, league_slug="bowl-cap", game=game, team_id=10
+                )
+            )
+
+    def test_same_day_different_matchup_is_not_duplicate(self) -> None:
+        other = self._game(game_id=50, game_date=date(2025, 10, 12), home_id=10, away_id=22)
+        other.away_team = SimpleNamespace(id=22, abbreviation="BOS", name="Boston", fhm_team_id="9")
+        site = MagicMock()
+        with patch(
+            "app.services.game_boxscore_discord.is_source_delivered",
+            return_value=False,
+        ), patch(
+            "app.services.game_boxscore_discord.last_posted_game_boxscore_for_team",
+            return_value=("2025-10-12:2:1:t10", date(2025, 10, 12)),
+        ):
+            self.assertFalse(
+                is_game_boxscore_duplicate_for_team(
+                    site, league_slug="bowl-cap", game=other, team_id=10
+                )
+            )
+
+    def test_newer_game_is_not_duplicate(self) -> None:
+        newer = self._game(game_id=50, game_date=date(2025, 10, 14))
+        site = MagicMock()
+        with patch(
+            "app.services.game_boxscore_discord.is_source_delivered",
+            return_value=False,
+        ), patch(
+            "app.services.game_boxscore_discord.last_posted_game_boxscore_for_team",
+            return_value=("2025-10-12:2:1:t10", date(2025, 10, 12)),
+        ):
+            self.assertFalse(
+                is_game_boxscore_duplicate_for_team(
+                    site, league_slug="bowl-cap", game=newer, team_id=10
+                )
+            )
+
+    def test_enqueue_skips_already_posted_team_game(self) -> None:
+        game = self._game(game_id=42, game_date=date(2025, 10, 12))
+        site = MagicMock()
+        league = MagicMock()
+        league.get.return_value = game
+
+        def _dup(_session, *, league_slug, game, team_id):
+            return int(team_id) == 10
+
+        with patch(
+            "app.services.game_boxscore_discord.is_discord_event_route_active",
+            return_value=True,
+        ), patch(
+            "app.services.game_boxscore_discord.ensure_game_boxscore_team_channels"
+        ), patch(
+            "app.services.game_boxscore_discord.resolve_game_boxscore_team_channel_id",
+            side_effect=lambda *_a, **k: f"chan-{k['team_id']}",
+        ), patch(
+            "app.services.game_boxscore_discord.is_game_boxscore_duplicate_for_team",
+            side_effect=_dup,
+        ), patch(
+            "app.services.game_boxscore_discord.record_game_boxscore_team_watermark"
+        ) as watermark, patch(
+            "app.services.game_boxscore_discord.enqueue_discord_event",
+            return_value=SimpleNamespace(id=1),
+        ) as enqueue, patch(
+            "app.services.game_boxscore_discord.build_league_public_url",
+            return_value="https://www.bowlhockey.com/bowl-cap/game/42",
+        ), patch(
+            "app.services.game_boxscore_discord._load_game_skater_rows",
+            return_value=[],
+        ), patch(
+            "app.services.game_boxscore_discord._load_game_goalie_rows",
+            return_value=[],
+        ):
+            n = enqueue_game_boxscore_events_for_game(
+                site, league, league_slug="bowl-cap", game_id=42
+            )
+
+        self.assertEqual(n, 1)
+        self.assertEqual(enqueue.call_count, 1)
+        self.assertEqual(enqueue.call_args.kwargs["source_id"], "2025-10-12:2:1:t11")
+        watermark.assert_called_once()
+        self.assertEqual(watermark.call_args.kwargs["team_id"], 11)
 
 
 class FormatterTest(unittest.TestCase):

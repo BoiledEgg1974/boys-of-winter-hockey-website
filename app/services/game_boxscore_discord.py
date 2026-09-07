@@ -7,6 +7,8 @@ Pending finals are persisted until team channel IDs are configured.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 from datetime import date, timedelta
 from typing import Any
@@ -24,8 +26,10 @@ from app.services.discord_events import (
     enqueue_discord_event,
     has_game_boxscore_delivery_target,
     is_discord_event_route_active,
+    is_source_delivered,
     list_pending_game_boxscore_ids,
     record_pending_game_boxscore_ids,
+    reset_game_boxscore_team_watermarks,
     resolve_game_boxscore_team_channel_id,
 )
 
@@ -33,6 +37,283 @@ _log = logging.getLogger(__name__)
 
 # Newly final game ids detected during schedule import (boxscores load later).
 _stashed_newly_final_game_ids: set[int] = set()
+
+_WATERMARK_BACKFILL_EVENT_LIMIT = 200
+
+
+def _compact_source_id(raw: str) -> str:
+    sid = str(raw or "").strip()
+    if not sid:
+        return ""
+    if len(sid) <= 64:
+        return sid
+    return hashlib.sha1(sid.encode("utf-8")).hexdigest()
+
+
+def _side_matchup_token(team: Any, fallback_team_id: Any) -> str:
+    fields = _team_side_fields(team) if team is not None else {}
+    fhm = fields.get("fhm_team_id")
+    if fhm is not None and str(fhm).strip():
+        return str(fhm).strip()
+    tid = fields.get("team_id")
+    if tid is None:
+        tid = _int_or_none(fallback_team_id)
+    if tid is None:
+        return "x"
+    return f"id{int(tid)}"
+
+
+def _side_matchup_token_from_payload(side: Any) -> str:
+    if not isinstance(side, dict):
+        return "x"
+    fhm = side.get("fhm_team_id")
+    if fhm is not None and str(fhm).strip():
+        return str(fhm).strip()
+    tid = _int_or_none(side.get("team_id"))
+    if tid is None:
+        return "x"
+    return f"id{int(tid)}"
+
+
+def game_boxscore_source_id(game: Game, *, team_id: int) -> str:
+    """Stable per-team game key (survives league-DB rebuilds that change game.id)."""
+    date_s = game.game_date.isoformat() if getattr(game, "game_date", None) else "nodate"
+    away = _side_matchup_token(getattr(game, "away_team", None), getattr(game, "away_team_id", None))
+    home = _side_matchup_token(getattr(game, "home_team", None), getattr(game, "home_team_id", None))
+    return _compact_source_id(f"{date_s}:{away}:{home}:t{int(team_id)}")
+
+
+def game_boxscore_legacy_source_id(game: Game, *, team_id: int) -> str:
+    return f"{int(game.id)}:{int(team_id)}"
+
+
+def game_boxscore_source_ids(game: Game, *, team_id: int) -> set[str]:
+    return {
+        game_boxscore_source_id(game, team_id=int(team_id)),
+        game_boxscore_legacy_source_id(game, team_id=int(team_id)),
+    }
+
+
+def game_boxscore_source_id_from_payload(payload: dict[str, Any]) -> str:
+    date_s = str(payload.get("date") or "").strip() or "nodate"
+    team_id = _int_or_none(payload.get("team_id"))
+    if team_id is None:
+        return ""
+    away = _side_matchup_token_from_payload(payload.get("away_team"))
+    home = _side_matchup_token_from_payload(payload.get("home_team"))
+    return _compact_source_id(f"{date_s}:{away}:{home}:t{int(team_id)}")
+
+
+def _parse_payload_game_date(payload: dict[str, Any]) -> date | None:
+    raw = str(payload.get("date") or "").strip()
+    if not raw:
+        return None
+    try:
+        return date.fromisoformat(raw[:10])
+    except ValueError:
+        return None
+
+
+def _team_boxscore_route(site_session: Session, *, league_slug: str, team_id: int):
+    from app.site_models import DiscordTeamChannelRoute
+
+    return site_session.scalar(
+        select(DiscordTeamChannelRoute).where(
+            DiscordTeamChannelRoute.league_slug == league_slug,
+            DiscordTeamChannelRoute.event_key == GAME_BOXSCORE_EVENT_KEY,
+            DiscordTeamChannelRoute.team_id == int(team_id),
+        )
+    )
+
+
+def _backfill_team_boxscore_watermark(
+    site_session: Session,
+    *,
+    league_slug: str,
+    team_id: int,
+) -> tuple[str, date | None]:
+    """Recover last posted game for a GM from prior outbound boxscore events."""
+    from app.site_models import DiscordOutboundEvent
+
+    rows = list(
+        site_session.scalars(
+            select(DiscordOutboundEvent)
+            .where(
+                DiscordOutboundEvent.league_slug == league_slug,
+                DiscordOutboundEvent.event_key == GAME_BOXSCORE_EVENT_KEY,
+                DiscordOutboundEvent.status.in_(("pending", "sent")),
+            )
+            .order_by(DiscordOutboundEvent.id.desc())
+            .limit(_WATERMARK_BACKFILL_EVENT_LIMIT)
+        ).all()
+    )
+    best_date: date | None = None
+    best_sid = ""
+    best_row_id = -1
+    for row in rows:
+        try:
+            payload = json.loads(row.payload_json or "{}")
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(payload, dict):
+            continue
+        if _int_or_none(payload.get("team_id")) != int(team_id):
+            continue
+        sid = game_boxscore_source_id_from_payload(payload) or str(
+            payload.get("source_id") or ""
+        ).strip()
+        if not sid:
+            continue
+        game_date = _parse_payload_game_date(payload)
+        row_id = int(getattr(row, "id", 0) or 0)
+        if best_date is None or (game_date is not None and game_date > best_date):
+            best_date = game_date
+            best_sid = sid
+            best_row_id = row_id
+        elif game_date == best_date and row_id > best_row_id:
+            best_sid = sid
+            best_row_id = row_id
+    return best_sid, best_date
+
+
+def last_posted_game_boxscore_for_team(
+    site_session: Session,
+    *,
+    league_slug: str,
+    team_id: int,
+) -> tuple[str, date | None]:
+    """Last boxscore posted (or queued) for this franchise channel."""
+    row = _team_boxscore_route(site_session, league_slug=league_slug, team_id=team_id)
+    stored_sid = str(getattr(row, "last_boxscore_source_id", "") or "").strip() if row else ""
+    stored_date = getattr(row, "last_boxscore_game_date", None) if row else None
+    if stored_sid or stored_date is not None:
+        return stored_sid, stored_date if isinstance(stored_date, date) else None
+    sid, game_date = _backfill_team_boxscore_watermark(
+        site_session, league_slug=league_slug, team_id=int(team_id)
+    )
+    if row is not None and (sid or game_date is not None):
+        row.last_boxscore_source_id = (sid or "")[:64]
+        row.last_boxscore_game_date = game_date
+        site_session.flush()
+    return sid, game_date
+
+
+def record_game_boxscore_team_watermark(
+    site_session: Session,
+    *,
+    league_slug: str,
+    team_id: int,
+    source_id: str,
+    game_date: date | None,
+) -> None:
+    """Advance the per-GM last-posted boxscore mark (never move it backward)."""
+    row = _team_boxscore_route(site_session, league_slug=league_slug, team_id=team_id)
+    if row is None:
+        return
+    sid = str(source_id or "").strip()[:64]
+    prev_date = getattr(row, "last_boxscore_game_date", None)
+    if (
+        isinstance(prev_date, date)
+        and isinstance(game_date, date)
+        and game_date < prev_date
+    ):
+        return
+    row.last_boxscore_source_id = sid
+    if game_date is not None:
+        row.last_boxscore_game_date = game_date
+    site_session.flush()
+
+
+def _looks_like_matchup_source_id(source_id: str) -> bool:
+    sid = str(source_id or "").strip()
+    if ":t" not in sid:
+        return False
+    head = sid.split(":", 1)[0]
+    try:
+        date.fromisoformat(head)
+    except ValueError:
+        return False
+    return True
+
+
+def is_game_boxscore_duplicate_for_team(
+    site_session: Session,
+    *,
+    league_slug: str,
+    game: Game,
+    team_id: int,
+) -> bool:
+    """True when this franchise already posted this game, or a later one."""
+    ids = game_boxscore_source_ids(game, team_id=int(team_id))
+    for sid in ids:
+        if is_source_delivered(
+            site_session,
+            league_slug=league_slug,
+            source_type="game_boxscore",
+            source_id=sid,
+        ):
+            return True
+    last_sid, last_date = last_posted_game_boxscore_for_team(
+        site_session, league_slug=league_slug, team_id=int(team_id)
+    )
+    if last_sid and last_sid in ids:
+        return True
+    game_date = getattr(game, "game_date", None)
+    if isinstance(last_date, date) and isinstance(game_date, date):
+        if game_date < last_date:
+            return True
+        if game_date == last_date:
+            # Same in-game day: skip unless the stored mark is a different matchup.
+            if last_sid and last_sid not in ids and _looks_like_matchup_source_id(last_sid):
+                return False
+            return True
+    return False
+
+
+def _ordered_game_ids(league_session: Session, game_ids: list[int] | set[int]) -> list[int]:
+    """Return game ids oldest-first so per-GM watermarks advance in play order."""
+    ids: list[int] = []
+    seen: set[int] = set()
+    for raw in game_ids:
+        try:
+            gid = int(raw)
+        except (TypeError, ValueError):
+            continue
+        if gid in seen:
+            continue
+        seen.add(gid)
+        ids.append(gid)
+    dated: list[tuple[date, int]] = []
+    for gid in ids:
+        game = league_session.get(Game, gid)
+        game_date = getattr(game, "game_date", None) if game is not None else None
+        dated.append((game_date if isinstance(game_date, date) else date.min, gid))
+    dated.sort()
+    return [gid for _d, gid in dated]
+
+
+def _unqueued_final_is_already_posted(
+    site_session: Session, *, league_slug: str, game: Game
+) -> bool:
+    """True when every franchise channel for this game already has this (or a later) post."""
+    has_channel = False
+    for tid in (game.away_team_id, game.home_team_id):
+        if tid is None:
+            continue
+        try:
+            team_id = int(tid)
+        except (TypeError, ValueError):
+            continue
+        if not resolve_game_boxscore_team_channel_id(
+            site_session, league_slug=league_slug, team_id=team_id
+        ):
+            continue
+        has_channel = True
+        if not is_game_boxscore_duplicate_for_team(
+            site_session, league_slug=league_slug, game=game, team_id=team_id
+        ):
+            return False
+    return has_channel
 
 
 def stash_newly_final_game_ids(game_ids: set[int] | list[int] | None) -> int:
@@ -485,12 +766,17 @@ def enqueue_game_boxscore_events_for_game(
         )
         if not channel_id:
             continue
+        if is_game_boxscore_duplicate_for_team(
+            site_session, league_slug=slug, game=game, team_id=team_id
+        ):
+            continue
         payload = build_game_boxscore_discord_payload(
             league_session,
             league_slug=slug,
             game=game,
             target_team_id=team_id,
         )
+        source_id = game_boxscore_source_id(game, team_id=team_id)
         row = enqueue_discord_event(
             site_session,
             league_slug=slug,
@@ -498,10 +784,17 @@ def enqueue_game_boxscore_events_for_game(
             payload=payload,
             created_by_user_id=None,
             source_type="game_boxscore",
-            source_id=f"{int(game.id)}:{team_id}",
+            source_id=source_id,
         )
         if row is not None:
             queued += 1
+            record_game_boxscore_team_watermark(
+                site_session,
+                league_slug=slug,
+                team_id=team_id,
+                source_id=source_id,
+                game_date=getattr(game, "game_date", None),
+            )
     return queued
 
 
@@ -564,7 +857,7 @@ def notify_game_boxscores_after_import(
         stats["skipped"] = len(pending)
         return stats
     cleared: set[int] = set()
-    for gid in sorted(pending):
+    for gid in _ordered_game_ids(league_session, pending):
         stats["games"] += 1
         n = enqueue_game_boxscore_events_for_game(
             site_session,
@@ -575,12 +868,16 @@ def notify_game_boxscores_after_import(
         if n:
             stats["queued"] += n
             cleared.add(gid)
-        else:
-            # Missing/non-final game: drop so we do not retry forever.
-            game = league_session.get(Game, int(gid))
-            if game is None or str(game.status or "").lower() != "final":
-                cleared.add(gid)
-            stats["skipped"] += 1
+            continue
+        # Missing/non-final, or already posted for every configured GM channel.
+        game = league_session.get(Game, int(gid))
+        if game is None or str(game.status or "").lower() != "final":
+            cleared.add(gid)
+        elif _unqueued_final_is_already_posted(
+            site_session, league_slug=slug, game=game
+        ):
+            cleared.add(gid)
+        stats["skipped"] += 1
     if cleared:
         clear_pending_game_boxscore_ids(site_session, league_slug=slug, game_ids=cleared)
     stats["pending"] = len(pending) - len(cleared)
@@ -693,6 +990,7 @@ def queue_recent_game_boxscores(
 
     if force:
         source_ids: set[str] = set()
+        team_ids: set[int] = set()
         for gid in game_ids:
             game = league_session.get(Game, int(gid))
             if game is None:
@@ -701,16 +999,21 @@ def queue_recent_game_boxscores(
                 if tid is None:
                     continue
                 try:
-                    source_ids.add(f"{int(gid)}:{int(tid)}")
+                    team_id = int(tid)
                 except (TypeError, ValueError):
                     continue
+                team_ids.add(team_id)
+                source_ids.update(game_boxscore_source_ids(game, team_id=team_id))
         cleared = clear_game_boxscore_delivery_locks(
             site_session, league_slug=slug, source_ids=source_ids
         )
         stats["delivered_cleared"] = int(cleared.get("delivered_cleared") or 0)
         stats["outbound_cancelled"] = int(cleared.get("outbound_cancelled") or 0)
+        reset_game_boxscore_team_watermarks(
+            site_session, league_slug=slug, team_ids=team_ids
+        )
 
-    for gid in game_ids:
+    for gid in _ordered_game_ids(league_session, game_ids):
         stats["games"] += 1
         n = enqueue_game_boxscore_events_for_game(
             site_session,

@@ -22,6 +22,9 @@ _USER_MENTION_RE = re.compile(r"<@!?(\d{17,20})>")
 DISCORD_SITE_MORE_FOOTER = (
     "For more news, stats and more, go to https://www.bowlhockey.com"
 )
+ACHIEVEMENT_SCRATCH_CTA = (
+    "Log on to Achievements to scratch the ticket for your prize."
+)
 
 ET = ZoneInfo("America/New_York")
 
@@ -69,6 +72,14 @@ def _discord_embed_url(url: str) -> str:
     if u.lower().startswith(("http://", "https://")):
         return u
     return ""
+
+
+def _achievement_page_url(url: Any) -> str:
+    """Prefer the GM Achievements page over the public trophy board."""
+    raw = str(url or "").strip()
+    if raw.endswith("/achievement-leaders"):
+        return f"{raw[: -len('/achievement-leaders')]}/achievements"
+    return raw
 
 
 def _allowed_mentions_from_content(content: str) -> dict[str, Any] | None:
@@ -379,13 +390,8 @@ def _text_only_header_lines(
         detail = str(payload.get("detail") or payload.get("message") or "").strip()
         if detail and detail != ach_title:
             lines.append(detail)
-        try:
-            ap_delta = int(payload.get("ap_delta") or 0)
-        except (TypeError, ValueError):
-            ap_delta = 0
-        if ap_delta:
-            lines.append(f"+{ap_delta} AP")
-        url = str(payload.get("url") or "").strip()
+        lines.append(ACHIEVEMENT_SCRATCH_CTA)
+        url = _achievement_page_url(payload.get("url"))
         if url:
             lines.append(url)
     elif event_key == "game_boxscore":

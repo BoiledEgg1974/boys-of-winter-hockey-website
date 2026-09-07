@@ -29,6 +29,7 @@ from app.models import (
     PlayerSkaterCareerLine,
     PlayerSkaterStat,
     ScoringEvent,
+    Season,
     Team,
     TeamSeasonRecord,
     TeamStanding,
@@ -1200,6 +1201,73 @@ def _is_champion_result(result: str | None) -> bool:
     return t == CHAMPION_RESULT or t.endswith("CUP CHAMPION") or t == "CHAMPION"
 
 
+def _season_labels_match(left: str | None, right: str | None) -> bool:
+    a = str(left or "").strip()
+    b = str(right or "").strip()
+    return bool(a) and a == b
+
+
+def _start_year_from_label(label: str | None) -> int | None:
+    raw = str(label or "").strip()
+    if not raw:
+        return None
+    head = raw.split("-", 1)[0].split("/", 1)[0]
+    if head.isdigit() and len(head) == 4:
+        return int(head)
+    return None
+
+
+def _record_is_current_season(
+    rec: TeamSeasonRecord,
+    *,
+    season_label: str,
+    start_year: int | None,
+) -> bool:
+    if _season_labels_match(rec.season_year_label, season_label):
+        return True
+    return (
+        start_year is not None
+        and rec.start_year is not None
+        and int(rec.start_year) == int(start_year)
+    )
+
+
+def _history_champ_is_current_season(
+    row: HistoryChampion,
+    *,
+    current: Season | None,
+    season_label: str,
+) -> bool:
+    season = getattr(row, "season", None)
+    if current is not None and season is not None and int(getattr(season, "id", 0) or 0) == int(current.id):
+        return True
+    if season is None:
+        return False
+    if _season_labels_match(season_display_label(season), season_label):
+        return True
+    return (
+        current is not None
+        and season.start_year is not None
+        and current.start_year is not None
+        and int(season.start_year) == int(current.start_year)
+    )
+
+
+def consecutive_champ_streak_ending_in(years: list[int], end_year: int | None) -> int:
+    """Count consecutive championship years ending at ``end_year`` (inclusive)."""
+    if end_year is None:
+        return 0
+    year_set = {int(y) for y in years}
+    if int(end_year) not in year_set:
+        return 0
+    streak = 0
+    year = int(end_year)
+    while year in year_set:
+        streak += 1
+        year -= 1
+    return streak
+
+
 def _rs_ranks(standings: list[TeamStanding]) -> dict[int, int]:
     ordered = sorted(
         standings,
@@ -1266,11 +1334,15 @@ def discover_true_achievements(
     tenure_counts: dict[int, int] | None = None,
     promoted_team_ids: set[int] | None = None,
     as_of_game_date: date | None = None,
+    going_forward: bool = False,
 ) -> dict[int, dict[str, dict[str, Any]]]:
     """Return team_id -> {achievement_key: meta} for currently true achievements.
 
     ``as_of_game_date`` limits game-log feats to finals on or before that date so a
     heritage watermark can be rebuilt after a failed first evaluate.
+
+    ``going_forward`` (post-watermark evaluate) only marks The Pinnacle and
+    A Real Dynasty when the cup / 5-peat was completed in the current season.
     """
     allowed = {item.key for item in catalog_for_league(league_slug)}
     hits: dict[int, dict[str, dict[str, Any]]] = {}
@@ -2010,14 +2082,23 @@ def discover_true_achievements(
     series_list = build_playoff_series(po_games, rs_rank)
     playoff_ranks = {tid: rs_rank[tid] for tid in {s.team_a for s in series_list} | {s.team_b for s in series_list} if tid in rs_rank}
     champ_team_ids: set[int] = set()
+    current_start = int(season.start_year) if season and season.start_year is not None else None
     for recs in records_by_team.values():
         for rec in recs:
             if rec.team_id and _is_champion_result(rec.result):
                 champ_team_ids.add(int(rec.team_id))
+                if going_forward and not _record_is_current_season(
+                    rec, season_label=season_label, start_year=current_start
+                ):
+                    continue
                 mark(rec.team_id, "pinnacle", {"season": rec.season_year_label, "detail": "Won the BOWL Cup"})
     for row in session.scalars(select(HistoryChampion)).all():
         if row.team_id:
             champ_team_ids.add(int(row.team_id))
+            if going_forward and not _history_champ_is_current_season(
+                row, current=season, season_label=season_label
+            ):
+                continue
             mark(row.team_id, "pinnacle", {"detail": "Won the BOWL Cup"})
 
     for ser in series_list:
@@ -2090,7 +2171,9 @@ def discover_true_achievements(
                 streak = 1
             best = max(best, streak)
             prev = y
-        if best >= 5:
+        if best >= 5 and (
+            not going_forward or consecutive_champ_streak_ending_in(champ_years, current_start) >= 5
+        ):
             mark(tid, "dynasty", {"streak": best, "detail": f"{best} consecutive championships"})
 
         playoff_years = sorted(
@@ -2463,6 +2546,31 @@ def reopen_heritage_race_tickets(
     return reopened
 
 
+def _revoke_unearned_career_unlocks(
+    session: Session,
+    *,
+    league_slug: str,
+) -> set[tuple[int, str]]:
+    """Drop unclaimed Pinnacle / Dynasty tickets not completed in the unlock season."""
+    dropped: set[tuple[int, str]] = set()
+    rows = list(
+        session.scalars(
+            select(GmAchievementUnlock).where(GmAchievementUnlock.league_slug == league_slug)
+        ).all()
+    )
+    for unlock in rows:
+        base = catalog_key_from_storage(unlock.achievement_key)
+        if base not in {"pinnacle", "dynasty"}:
+            continue
+        if unlock.claimed_at is not None or int(unlock.ap_delta or 0) > 0:
+            continue
+        if _career_unlock_earned_since_watermark(session, unlock):
+            continue
+        session.delete(unlock)
+        dropped.add((int(unlock.team_id), str(unlock.achievement_key)))
+    return dropped
+
+
 def _delete_stale_race_unlocks(
     session: Session,
     league_slug: str,
@@ -2797,6 +2905,7 @@ def evaluate_gm_achievements_after_import(app) -> dict[str, int]:
         "ledger_synced": 0,
         "heritage_races": 0,
         "tickets_reopened": 0,
+        "heritage_career_revoked": 0,
     }
     if slug not in HOCKEY_SLUGS:
         stats["skipped"] = 1
@@ -2862,6 +2971,7 @@ def evaluate_gm_achievements_after_import(app) -> dict[str, int]:
             slug,
             tenure_counts=tenure_counts,
             promoted_team_ids=promoted,
+            going_forward=True,
         ),
         season_label or "",
     )
@@ -2877,6 +2987,9 @@ def evaluate_gm_achievements_after_import(app) -> dict[str, int]:
     )
     stale = stale_race_pairs(truths, already | existing)
     orphan = orphan_race_pairs(already, existing)
+    heritage_career = _revoke_unearned_career_unlocks(session, league_slug=slug)
+    existing -= heritage_career
+    stats["heritage_career_revoked"] = len(heritage_career)
     drop = stale | orphan
     if drop:
         already -= drop
@@ -3037,7 +3150,7 @@ def _enqueue_achievement_discord(
         "ap_delta": spec.ap,
         "season_label": season_label,
         "is_race": bool(spec.race),
-        "url": build_league_public_url(league_slug, "/achievement-leaders") or "",
+        "url": build_league_public_url(league_slug, "/achievements") or "",
     }
     payload.update(team_fields_for_discord(team))
     payload.update(gm_discord_fields_for_team(session, league_slug=league_slug, team=team))
@@ -3478,68 +3591,46 @@ def build_achievements_page_payload(
     }
 
 
+def _career_unlock_earned_since_watermark(
+    session: Session,
+    unlock: GmAchievementUnlock,
+) -> bool:
+    """True when Pinnacle / Dynasty was completed in the unlock's season."""
+    base = catalog_key_from_storage(unlock.achievement_key)
+    if base not in {"pinnacle", "dynasty"}:
+        return True
+    season_label = str(unlock.season_label or "").strip()
+    start_year = _start_year_from_label(season_label)
+    recs = list(
+        session.scalars(
+            select(TeamSeasonRecord).where(TeamSeasonRecord.team_id == int(unlock.team_id))
+        ).all()
+    )
+    if base == "pinnacle":
+        if any(
+            _is_champion_result(rec.result)
+            and _record_is_current_season(rec, season_label=season_label, start_year=start_year)
+            for rec in recs
+        ):
+            return True
+        for row in session.scalars(
+            select(HistoryChampion).where(HistoryChampion.team_id == int(unlock.team_id))
+        ).all():
+            if _history_champ_is_current_season(row, current=None, season_label=season_label):
+                return True
+        return False
+    champ_years = [int(rec.start_year) for rec in recs if rec.start_year and _is_champion_result(rec.result)]
+    return consecutive_champ_streak_ending_in(champ_years, start_year) >= 5
+
+
 def team_achievement_badges(
     session: Session,
     *,
     league_slug: str,
     team_id: int,
 ) -> list[dict[str, Any]]:
-    """Heritage cups plus post-ship unlocks for the team page banner."""
+    """Post-watermark unlocks for the team page banner."""
     badges: list[dict[str, Any]] = []
-    recs = list(
-        session.scalars(select(TeamSeasonRecord).where(TeamSeasonRecord.team_id == int(team_id))).all()
-    )
-    cup_years = [r.season_year_label for r in recs if _is_champion_result(r.result)]
-    hist = list(
-        session.scalars(select(HistoryChampion).where(HistoryChampion.team_id == int(team_id))).all()
-    )
-    cup_count = max(len(cup_years), len(hist)) if (cup_years or hist) else 0
-    if cup_years and hist:
-        cup_count = max(len(set(cup_years)), len(hist))
-    if cup_count:
-        badges.append(
-            {
-                "key": "heritage_cup",
-                "title": "BOWL Cup",
-                "category": "playoffs",
-                "count": cup_count,
-                "tooltip": achievement_badge_tooltip(
-                    "BOWL Cup",
-                    "League championship.",
-                    count=cup_count,
-                ),
-                "heritage": True,
-                "badge_rel": achievement_badge_static_rel("heritage_cup"),
-            }
-        )
-    recs.sort(key=lambda r: (int(r.start_year or 0), r.season_year_label or ""))
-    streak = best = 0
-    prev = None
-    for rec in recs:
-        if rec.start_year and _is_champion_result(rec.result):
-            streak = streak + 1 if prev is not None and int(rec.start_year) == prev + 1 else 1
-            best = max(best, streak)
-            prev = int(rec.start_year)
-        elif rec.start_year:
-            streak = 0
-            prev = int(rec.start_year)
-    if best >= 5:
-        badges.append(
-            {
-                "key": "heritage_dynasty",
-                "title": "Dynasty",
-                "category": "career",
-                "count": best,
-                "tooltip": achievement_badge_tooltip(
-                    "Dynasty",
-                    f"{best} consecutive championships.",
-                ),
-                "heritage": True,
-                "badge_rel": achievement_badge_static_rel("heritage_dynasty"),
-            }
-        )
-
-    seen = {b["key"] for b in badges}
     for row in session.scalars(
         select(GmAchievementUnlock).where(
             GmAchievementUnlock.league_slug == league_slug,
@@ -3549,8 +3640,8 @@ def team_achievement_badges(
         spec = CATALOG_BY_KEY.get(catalog_key_from_storage(row.achievement_key))
         if spec is None:
             continue
-        if spec.key in {"pinnacle", "dynasty"} and (
-            "heritage_cup" in seen or "heritage_dynasty" in seen
+        if spec.key in {"pinnacle", "dynasty"} and not _career_unlock_earned_since_watermark(
+            session, row
         ):
             continue
         existing = next((b for b in badges if b["key"] == spec.key), None)

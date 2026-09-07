@@ -531,6 +531,8 @@ class DiscordMessageSplitTest(unittest.TestCase):
         self.assertIn("<@123456789012345678>", content)
         self.assertIn("**All Natural**", content)
         self.assertEqual(content.count("Joel Kwiatkowski scored a natural hat trick"), 1)
+        self.assertIn("Log on to Achievements to scratch the ticket for your prize.", content)
+        self.assertNotRegex(content, r"\+\d+ AP")
         self.assertNotIn("embeds", parts[0])
         sanitized = sanitize_discord_message_body(parts[0])
         self.assertEqual(sanitized.get("allowed_mentions", {}).get("users"), ["123456789012345678"])
@@ -556,6 +558,51 @@ class DiscordMessageSplitTest(unittest.TestCase):
         self.assertIn("Toronto Maple Leafs", content)
         self.assertIn("**BlazedBuccaneer**", content)
         self.assertIn("**Kid Line Energy**", content)
+
+    def test_achievement_unlocked_directs_gm_to_scratch_ticket(self):
+        for league_slug, old_url, new_url in (
+            (
+                "bowl-historical",
+                "https://www.bowlhockey.com/bowl-historical/achievement-leaders",
+                "https://www.bowlhockey.com/bowl-historical/achievements",
+            ),
+            (
+                "bowl-cap",
+                "https://www.bowlhockey.com/bowl-cap/achievement-leaders",
+                "https://www.bowlhockey.com/bowl-cap/achievements",
+            ),
+            (
+                "bowl-fantasy",
+                "https://www.bowlhockey.com/bowl-fantasy/achievement-leaders",
+                "https://www.bowlhockey.com/bowl-fantasy/achievements",
+            ),
+        ):
+            for event_key in ("achievement_unlocked", "achievement_league_first"):
+                with self.subTest(league_slug=league_slug, event_key=event_key):
+                    parts = format_discord_messages(
+                        {
+                            "league_slug": league_slug,
+                            "event_key": event_key,
+                            "payload": {
+                                "title": "Gordie Howe Hat Trick",
+                                "achievement_title": "Gordie Howe Hat Trick",
+                                "detail": "Darryl Sydor recorded a Gordie Howe hat trick",
+                                "ap_delta": 1,
+                                "url": old_url,
+                                "team_abbrev": "SJS",
+                                "team_name": "San Jose Sharks",
+                            },
+                        },
+                        max_parts=1,
+                    )
+                    content = str(parts[0].get("content") or "")
+                    self.assertIn(
+                        "Log on to Achievements to scratch the ticket for your prize.",
+                        content,
+                    )
+                    self.assertIn(new_url, content)
+                    self.assertNotIn("+1 AP", content)
+                    self.assertNotIn("achievement-leaders", content)
 
 
 if __name__ == "__main__":

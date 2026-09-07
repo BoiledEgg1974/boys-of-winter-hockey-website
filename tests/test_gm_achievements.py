@@ -32,6 +32,7 @@ from app.services.gm_achievements import (
     catalog_key_from_storage,
     claim_achievement_scratch,
     collect_new_hits,
+    consecutive_champ_streak_ending_in,
     credit_achievement_ap,
     detect_comeback_from_events,
     detect_comeback_from_period_scores,
@@ -70,6 +71,7 @@ from app.services.gm_achievements import (
     start_achievement_scratch,
     storage_key_for,
     sync_achievement_ap_ledger,
+    team_achievement_badges,
     unclaimed_unlock_count,
     unlock_source_ref,
 )
@@ -377,6 +379,21 @@ class RegularSeasonGateTests(unittest.TestCase):
                     if gid is not None:
                         self.assertNotIn(int(gid), playoff_ids)
 
+    def test_going_forward_skips_historical_pinnacle_and_dynasty(self) -> None:
+        app = create_app(make_league_config("bowl-cap"))
+        with app.app_context():
+            heritage = discover_true_achievements(db.session, "bowl-cap")
+            live = discover_true_achievements(db.session, "bowl-cap", going_forward=True)
+            heritage_pinnacle = {tid for tid, keys in heritage.items() if "pinnacle" in keys}
+            live_pinnacle = {tid for tid, keys in live.items() if "pinnacle" in keys}
+            heritage_dynasty = {tid for tid, keys in heritage.items() if "dynasty" in keys}
+            live_dynasty = {tid for tid, keys in live.items() if "dynasty" in keys}
+            self.assertTrue(live_pinnacle <= heritage_pinnacle)
+            self.assertTrue(live_dynasty <= heritage_dynasty)
+            if len(heritage_pinnacle) > len(live_pinnacle) or len(heritage_dynasty) > len(live_dynasty):
+                return
+            self.assertLessEqual(len(live_pinnacle), len(heritage_pinnacle))
+
 
 class CatalogTests(unittest.TestCase):
     def test_going_up_is_relegation_only(self) -> None:
@@ -472,6 +489,42 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(roll_reward_cells(_SeqRng([0.0, 0.60, 0.90])), [1, 2, 3])
         self.assertEqual(parse_reward_cells("[1, 3, 3]"), [1, 3, 3])
         self.assertIsNone(parse_reward_cells("[1, 4, 2]"))
+        self.assertEqual(
+            consecutive_champ_streak_ending_in([1967, 1968, 1969, 1970, 1971], 1971),
+            5,
+        )
+        self.assertEqual(consecutive_champ_streak_ending_in([1967, 1968, 1969, 1970, 1971], 1972), 0)
+        self.assertEqual(consecutive_champ_streak_ending_in([1967, 1968, 1969, 1970, 1971], 1968), 2)
+
+    def test_team_badges_omit_heritage_pinnacle_and_dynasty(self) -> None:
+        self.app = create_app(make_league_config("bowl-cap"))
+        with self.app.app_context():
+            team = db.session.scalar(select(Team).order_by(Team.id).limit(1))
+            self.assertIsNotNone(team)
+            tid = int(team.id)
+            now = datetime.utcnow()
+            heritage = GmAchievementUnlock(
+                league_slug="bowl-cap",
+                team_id=tid,
+                user_id=None,
+                achievement_key="pinnacle",
+                source_ref=f"gm_ach:bowl-cap:{tid}:pinnacle:heritage-test",
+                unlocked_at=now,
+                season_label="1900-01",
+                meta_json="{}",
+                ap_delta=0,
+            )
+            db.session.add(heritage)
+            db.session.flush()
+            badges = team_achievement_badges(
+                db.session, league_slug="bowl-cap", team_id=tid
+            )
+            keys = {b["key"] for b in badges}
+            self.assertNotIn("heritage_cup", keys)
+            self.assertNotIn("heritage_dynasty", keys)
+            self.assertNotIn("pinnacle", keys)
+            self.assertNotIn("dynasty", keys)
+            db.session.rollback()
 
     def test_source_ref_and_new_hits(self) -> None:
         self.assertEqual(unlock_source_ref("bowl-cap", 8, "pinnacle"), "gm_ach:bowl-cap:8:pinnacle")
@@ -820,6 +873,14 @@ class EvaluatorWatermarkTests(unittest.TestCase):
             if existing_mark is not None:
                 db.session.delete(existing_mark)
             db.session.flush()
+            prior_unlock_ids = set(
+                db.session.scalars(
+                    select(GmAchievementUnlock.id).where(
+                        GmAchievementUnlock.league_slug == "bowl-cap",
+                        GmAchievementUnlock.team_id == tid,
+                    )
+                ).all()
+            )
 
             def _flush_only(session) -> None:
                 session.flush()
@@ -850,7 +911,7 @@ class EvaluatorWatermarkTests(unittest.TestCase):
                         )
                     ).all()
                 )
-                self.assertEqual(unlocks, [])
+                self.assertEqual({int(row.id) for row in unlocks}, prior_unlock_ids)
                 mark = db.session.scalar(
                     select(GmAchievementWatermark).where(
                         GmAchievementWatermark.league_slug == "bowl-cap"
@@ -873,7 +934,8 @@ class EvaluatorWatermarkTests(unittest.TestCase):
                     select(ApLedgerEntry).where(ApLedgerEntry.source_ref == source_ref).limit(1)
                 )
                 self.assertIsNone(ledger)
-                self.assertEqual(unclaimed_unlock_count(db.session, "bowl-cap", tid), 1)
+                prior_unclaimed = unclaimed_unlock_count(db.session, "bowl-cap", tid)
+                self.assertGreaterEqual(prior_unclaimed, 1)
                 self.assertEqual(sync_achievement_ap_ledger(db.session, "bowl-cap"), 0)
                 started = start_achievement_scratch(
                     db.session,
@@ -909,7 +971,10 @@ class EvaluatorWatermarkTests(unittest.TestCase):
                 self.assertIsNotNone(ledger)
                 self.assertEqual(int(ledger.delta), 7 * int(spec.ap))
                 self.assertIn("Gordie Howe", str(ledger.meta_json or ""))
-                self.assertEqual(unclaimed_unlock_count(db.session, "bowl-cap", tid), 0)
+                self.assertEqual(
+                    unclaimed_unlock_count(db.session, "bowl-cap", tid),
+                    prior_unclaimed - 1,
+                )
                 twice = claim_achievement_scratch(
                     db.session,
                     league_slug="bowl-cap",

@@ -11,10 +11,11 @@ from flask import render_template
 from app import create_app
 from app.config import make_league_config
 from app.league_db import db
-from app.models import Team
+from app.models import Game, Team
 from app.services.discord_events import DEFAULT_EVENT_CHANNEL_KEY, DEFAULT_EVENT_KEYS
 from datetime import date, datetime
 
+from app.services.playoff_bracket import is_playoff_game_type
 from app.services.gm_achievements import (
     ACHIEVEMENT_LEAGUE_FIRST_EVENT_KEY,
     ACHIEVEMENT_UNLOCKED_EVENT_KEY,
@@ -36,6 +37,8 @@ from app.services.gm_achievements import (
     detect_comeback_from_period_scores,
     detect_consecutive_playoff_shutouts,
     detect_goalie_win_1_0_40,
+    _is_regular_season_game,
+    _mark_rocket_from_game_logs,
     detect_gordie_howe,
     detect_heist,
     detect_natural_hat_trick,
@@ -277,6 +280,49 @@ class DetectorTests(unittest.TestCase):
         )
         self.assertFalse(detect_consecutive_playoff_shutouts([(1, 9, 0), (2, 9, 1), (3, 9, 0)]))
 
+
+class RegularSeasonGateTests(unittest.TestCase):
+    def test_helper_accepts_only_regular_season(self) -> None:
+        self.assertTrue(_is_regular_season_game(SimpleNamespace(game_type="Regular Season")))
+        self.assertTrue(_is_regular_season_game(SimpleNamespace(game_type="rs")))
+        self.assertFalse(_is_regular_season_game(SimpleNamespace(game_type="playoff")))
+        self.assertFalse(_is_regular_season_game(SimpleNamespace(game_type="Pre-Season")))
+        self.assertFalse(_is_regular_season_game(SimpleNamespace(game_type="Exhibition")))
+        self.assertFalse(_is_regular_season_game(None))
+
+    def test_game_catalog_copy_names_regular_season(self) -> None:
+        keys = (
+            "gordie_howe",
+            "all_natural",
+            "goalie_win",
+            "nationalism",
+            "comeback_kids",
+            "four_goal_night",
+            "fight_night",
+            "kid_line_energy",
+            "statement_win",
+        )
+        for key in keys:
+            self.assertIn("regular-season", CATALOG_BY_KEY[key].description)
+
+    def test_rocket_game_logs_ignore_playoff_and_preseason(self) -> None:
+        marked: list[tuple[int, str]] = []
+
+        def mark(tid, key, _meta):
+            marked.append((int(tid), str(key)))
+
+        skaters = [SimpleNamespace(player_id=9, team_id=3, goals=50, gp=82)]
+        lines = [SimpleNamespace(game_id=1, player_id=9, team_id=3, goals=50)]
+        for game_type in ("playoff", "Pre-Season"):
+            marked.clear()
+            games = [SimpleNamespace(id=1, game_type=game_type, game_date=date(2001, 4, 1))]
+            _mark_rocket_from_game_logs(None, 1, skaters, games, lines, mark)
+            self.assertEqual(marked, [])
+        games = [SimpleNamespace(id=1, game_type="Regular Season", game_date=date(2001, 11, 1))]
+        session = SimpleNamespace(get=lambda *_a, **_k: None)
+        _mark_rocket_from_game_logs(session, 1, skaters, games, lines, mark)
+        self.assertEqual(marked, [(3, "rocket")])
+
     def test_road_win_after_dropping_first_two(self) -> None:
         games = [
             SimpleNamespace(home_team_id=10, away_team_id=20, home_score=3, away_score=1),
@@ -300,6 +346,36 @@ class DetectorTests(unittest.TestCase):
             {8: {"the_bender:2026-01": {"period": "2026-01"}}}, "2026-27"
         )
         self.assertIn("the_bender:2026-01", already_month[8])
+
+    def test_discover_does_not_award_rs_feats_from_playoff_games(self) -> None:
+        rs_only = {
+            "gordie_howe",
+            "all_natural",
+            "goalie_win",
+            "nationalism",
+            "comeback_kids",
+            "four_goal_night",
+            "fight_night",
+            "kid_line_energy",
+            "statement_win",
+            "nemesis",
+        }
+        app = create_app(make_league_config("bowl-cap"))
+        with app.app_context():
+            playoff_ids = {
+                int(g.id)
+                for g in db.session.scalars(select(Game).where(Game.status == "final")).all()
+                if is_playoff_game_type(g.game_type)
+            }
+            truths = discover_true_achievements(db.session, "bowl-cap")
+            for keys in truths.values():
+                for key, meta in keys.items():
+                    catalog_key = catalog_key_from_storage(key)
+                    if catalog_key not in rs_only:
+                        continue
+                    gid = (meta or {}).get("game_id")
+                    if gid is not None:
+                        self.assertNotIn(int(gid), playoff_ids)
 
 
 class CatalogTests(unittest.TestCase):

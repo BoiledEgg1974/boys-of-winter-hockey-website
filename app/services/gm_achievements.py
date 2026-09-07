@@ -147,10 +147,10 @@ class AchievementDef:
 
 
 CATALOG: tuple[AchievementDef, ...] = (
-    AchievementDef("gordie_howe", "Gordie Howe Hat Trick", "One of your players has a goal, assist, and fight in the same game.", "game", 1),
-    AchievementDef("all_natural", "All Natural", "One of your players scores a natural hat trick.", "game", 1),
-    AchievementDef("goalie_win", "A Goalie Win", "Win a game 1–0 despite giving up 40 or more shots.", "game", 1),
-    AchievementDef("nationalism", "Nationalism", "Play a game with a lineup composed entirely of players from the nation your team is based in.", "game", 2),
+    AchievementDef("gordie_howe", "Gordie Howe Hat Trick", "One of your players has a goal, assist, and fight in the same regular-season game.", "game", 1),
+    AchievementDef("all_natural", "All Natural", "One of your players scores a natural hat trick in a regular-season game.", "game", 1),
+    AchievementDef("goalie_win", "A Goalie Win", "Win a regular-season game 1–0 despite giving up 40 or more shots.", "game", 1),
+    AchievementDef("nationalism", "Nationalism", "Play a regular-season game with a lineup composed entirely of players from the nation your team is based in.", "game", 2),
     AchievementDef("make_playoffs", "Kiss from a Rose", "Make the playoffs.", "playoffs", 1, repeatable=True),
     AchievementDef("senior_team", "The Senior Team", "Have at least 3 players on your roster over the age of 40.", "season", 1, repeatable=True),
     AchievementDef("game54", "game54", "Draft a player with the 54th overall pick.", "career", 1),
@@ -173,9 +173,9 @@ CATALOG: tuple[AchievementDef, ...] = (
     AchievementDef("two_hundred", "The 200 Club", "One of your players scores 200 points in a season.", "season", 5),
     AchievementDef("true_franchise", "True Franchise Manager", "Manage a single team for ten seasons.", "career", 5),
     AchievementDef("cup_eight_seed", "Cup as 8-seed", "Win the BOWL Cup as the lowest playoff seed.", "playoffs", 5),
-    AchievementDef("comeback_kids", "Comeback Kids", "Win a game after trailing by 3 or more goals.", "game", 2),
-    AchievementDef("four_goal_night", "Four-Goal Night", "One of your players scores 4 or more goals in a game.", "game", 2),
-    AchievementDef("fight_night", "Fight Night", "Three or more of your players take fighting majors in the same game.", "game", 1),
+    AchievementDef("comeback_kids", "Comeback Kids", "Win a regular-season game after trailing by 3 or more goals.", "game", 2),
+    AchievementDef("four_goal_night", "Four-Goal Night", "One of your players scores 4 or more goals in a regular-season game.", "game", 2),
+    AchievementDef("fight_night", "Fight Night", "Three or more of your players take fighting majors in the same regular-season game.", "game", 1),
     AchievementDef(
         "league_first_hat",
         "League First: Hat Trick",
@@ -185,7 +185,7 @@ CATALOG: tuple[AchievementDef, ...] = (
         repeatable=True,
         race=True,
     ),
-    AchievementDef("statement_win", "Statement Win", "Beat the first-place team while sitting outside a playoff spot.", "game", 2),
+    AchievementDef("statement_win", "Statement Win", "Beat the first-place team in a regular-season game while sitting outside a playoff spot.", "game", 2),
     AchievementDef("on_a_heater", "On a Heater", "Win 5 regular-season games in a row.", "season", 1, repeatable=True),
     AchievementDef("home_cooking", "Home Cooking", "Lead the league in home wins.", "season", 2, repeatable=True),
     AchievementDef("overtime_merchant", "Overtime Merchant", "Win 8 or more overtime or shootout games in a season.", "season", 2, repeatable=True),
@@ -263,7 +263,7 @@ CATALOG: tuple[AchievementDef, ...] = (
     AchievementDef(
         "kid_line_energy",
         "Kid Line Energy",
-        "Three players aged 22 or younger each score in the same game.",
+        "Three players aged 22 or younger each score in the same regular-season game.",
         "game",
         2,
     ),
@@ -829,6 +829,10 @@ def month_undefeated(results: Iterable[str], *, min_games: int = BENDER_MIN_GAME
     return all(r != "L" for r in letters) and any(r == "W" for r in letters)
 
 
+def _is_regular_season_game(game: Any) -> bool:
+    return game is not None and is_regular_season_game_type(getattr(game, "game_type", None))
+
+
 def regular_season_month_is_complete(
     schedule: Iterable[Any],
     period: str,
@@ -1365,6 +1369,8 @@ def discover_true_achievements(
             players_by_id[int(pl.id)] = pl
 
     for ln in skater_lines:
+        if not _is_regular_season_game(games_by_id.get(int(ln.game_id))):
+            continue
         fought = (int(ln.game_id), int(ln.player_id)) in fights_by_game_player
         if detect_gordie_howe(goals=int(ln.goals or 0), assists=int(ln.assists or 0), fought=fought):
             mark(
@@ -1484,6 +1490,8 @@ def discover_true_achievements(
         if not pid:
             continue
         g = games_by_id.get(gid)
+        if not _is_regular_season_game(g):
+            continue
         team_id = None
         for ev in events:
             if ev.scorer_player_id == pid and ev.scoring_team_id:
@@ -1501,6 +1509,8 @@ def discover_true_achievements(
         )
 
     for g in games:
+        if not _is_regular_season_game(g):
+            continue
         for tid, is_home in ((g.home_team_id, True), (g.away_team_id, False)):
             if detect_goalie_win_1_0_40(
                 home_score=g.home_score,
@@ -1550,7 +1560,8 @@ def discover_true_achievements(
     for g in games:
         winner_id, loser_id = _game_winner_loser(g)
         events = scoring_by_game.get(int(g.id), [])
-        if winner_id and (
+        rs_game = _is_regular_season_game(g)
+        if winner_id and rs_game and (
             detect_comeback_from_events(
                 events,
                 home_team_id=g.home_team_id,
@@ -1568,38 +1579,39 @@ def discover_true_achievements(
                 {"game_id": g.id, "detail": f"Won after trailing by {COMEBACK_DEFICIT}+ goals"},
             )
 
-        on_date = g.game_date or age_ref
-        kids_by_team: dict[int, set[int]] = {}
-        for ln in skaters_by_game.get(int(g.id), []):
-            if int(ln.goals or 0) < 1 or not ln.team_id or not ln.player_id:
-                continue
-            pl = players_by_id.get(int(ln.player_id))
-            age = player_age_on(pl.birth_date if pl else None, on_date)
-            if age is not None and age <= KID_LINE_MAX_AGE:
-                kids_by_team.setdefault(int(ln.team_id), set()).add(int(ln.player_id))
-        for tid, kids in kids_by_team.items():
-            if len(kids) >= KID_LINE_SCORERS:
-                mark(
-                    tid,
-                    "kid_line_energy",
-                    {
-                        "game_id": g.id,
-                        "count": len(kids),
-                        "detail": f"{len(kids)} players 22 or younger scored in the same game",
-                    },
-                )
+        if rs_game:
+            on_date = g.game_date or age_ref
+            kids_by_team: dict[int, set[int]] = {}
+            for ln in skaters_by_game.get(int(g.id), []):
+                if int(ln.goals or 0) < 1 or not ln.team_id or not ln.player_id:
+                    continue
+                pl = players_by_id.get(int(ln.player_id))
+                age = player_age_on(pl.birth_date if pl else None, on_date)
+                if age is not None and age <= KID_LINE_MAX_AGE:
+                    kids_by_team.setdefault(int(ln.team_id), set()).add(int(ln.player_id))
+            for tid, kids in kids_by_team.items():
+                if len(kids) >= KID_LINE_SCORERS:
+                    mark(
+                        tid,
+                        "kid_line_energy",
+                        {
+                            "game_id": g.id,
+                            "count": len(kids),
+                            "detail": f"{len(kids)} players 22 or younger scored in the same game",
+                        },
+                    )
 
-        for tid in (g.home_team_id, g.away_team_id):
-            if tid and fights_by_game_team.get((int(g.id), int(tid)), 0) >= FIGHT_NIGHT_MIN:
-                mark(
-                    tid,
-                    "fight_night",
-                    {
-                        "game_id": g.id,
-                        "count": fights_by_game_team[(int(g.id), int(tid))],
-                        "detail": f"{fights_by_game_team[(int(g.id), int(tid))]} fighting majors in one game",
-                    },
-                )
+            for tid in (g.home_team_id, g.away_team_id):
+                if tid and fights_by_game_team.get((int(g.id), int(tid)), 0) >= FIGHT_NIGHT_MIN:
+                    mark(
+                        tid,
+                        "fight_night",
+                        {
+                            "game_id": g.id,
+                            "count": fights_by_game_team[(int(g.id), int(tid))],
+                            "detail": f"{fights_by_game_team[(int(g.id), int(tid))]} fighting majors in one game",
+                        },
+                    )
 
         if winner_id and is_playoff_game_type(g.game_type):
             ot_pid, ot_tid = detect_playoff_ot_winner(events, g)
@@ -1616,7 +1628,7 @@ def discover_true_achievements(
                     },
                 )
 
-        if winner_id and loser_id and rs_rank:
+        if rs_game and winner_id and loser_id and rs_rank:
             w_rank = rs_rank.get(int(winner_id))
             l_rank = rs_rank.get(int(loser_id))
             outside = (
@@ -1764,7 +1776,7 @@ def discover_true_achievements(
 
         road_wins: dict[int, int] = {}
         for g in games:
-            if is_playoff_game_type(g.game_type):
+            if not _is_regular_season_game(g):
                 continue
             if g.home_score is None or g.away_score is None:
                 continue
@@ -1796,23 +1808,23 @@ def discover_true_achievements(
         chrono_games = sorted(games, key=lambda g: (g.game_date or date.min, int(g.id)))
         for g in chrono_games:
             winner_id, loser_id = _game_winner_loser(g)
-            playoff = is_playoff_game_type(g.game_type)
-            if winner_id and loser_id:
-                if not playoff and int(winner_id) == int(g.home_team_id):
+            rs_game = _is_regular_season_game(g)
+            if winner_id and loser_id and rs_game:
+                if int(winner_id) == int(g.home_team_id):
                     home_wins[int(winner_id)] = home_wins.get(int(winner_id), 0) + 1
-                if not playoff and (g.went_to_overtime or g.went_to_shootout):
+                if g.went_to_overtime or g.went_to_shootout:
                     ot_wins[int(winner_id)] = ot_wins.get(int(winner_id), 0) + 1
                 opp = int(loser_id)
                 bucket = wins_vs.setdefault(int(winner_id), {})
                 bucket[opp] = bucket.get(opp, 0) + 1
             for tid in (g.home_team_id, g.away_team_id):
-                if not tid or not is_regular_season_game_type(g.game_type):
+                if not tid or not rs_game:
                     continue
                 letter = game_outcome_letter(g, int(tid))
                 if letter:
                     results_by_team.setdefault(int(tid), []).append(letter)
             star_pid = getattr(g, "fhm_star1_player_id", None)
-            if star_pid:
+            if star_pid and rs_game:
                 star_tid = player_team_by_game.get((int(g.id), int(star_pid)))
                 if star_tid:
                     team_stars = first_stars.setdefault(int(star_tid), {})
@@ -2318,7 +2330,7 @@ def _mark_rocket_from_game_logs(
     skater_lines: list[GameSkaterStat],
     mark,
 ) -> None:
-    rs_games = [g for g in games if not is_playoff_game_type(g.game_type)]
+    rs_games = [g for g in games if _is_regular_season_game(g)]
     rs_games.sort(key=lambda g: (g.game_date or date.min, int(g.id)))
     order = {int(g.id): i for i, g in enumerate(rs_games)}
     goals_by_player: dict[int, list[tuple[int, int, int]]] = {}
@@ -3174,10 +3186,12 @@ def progress_for_team(
         ot_n = 0
         wins_vs: dict[int, int] = {}
         for g in team_games:
+            if not _is_regular_season_game(g):
+                continue
             winner_id, loser_id = _game_winner_loser(g)
             if winner_id != int(team_id) or loser_id is None:
                 continue
-            if not is_playoff_game_type(g.game_type) and (g.went_to_overtime or g.went_to_shootout):
+            if g.went_to_overtime or g.went_to_shootout:
                 ot_n += 1
             wins_vs[int(loser_id)] = wins_vs.get(int(loser_id), 0) + 1
         if ot_n:
@@ -3194,7 +3208,11 @@ def progress_for_team(
                 "label": f"{best_vs} wins vs one opponent",
             }
         star_counts: dict[int, int] = {}
-        star_game_ids = [int(g.id) for g in team_games if getattr(g, "fhm_star1_player_id", None)]
+        star_game_ids = [
+            int(g.id)
+            for g in team_games
+            if _is_regular_season_game(g) and getattr(g, "fhm_star1_player_id", None)
+        ]
         star_on_team: set[tuple[int, int]] = set()
         if star_game_ids:
             for ln in session.scalars(
@@ -3214,6 +3232,8 @@ def progress_for_team(
                 if ln.player_id:
                     star_on_team.add((int(ln.game_id), int(ln.player_id)))
         for g in team_games:
+            if not _is_regular_season_game(g):
+                continue
             star_pid = getattr(g, "fhm_star1_player_id", None)
             if star_pid and (int(g.id), int(star_pid)) in star_on_team:
                 star_counts[int(star_pid)] = star_counts.get(int(star_pid), 0) + 1

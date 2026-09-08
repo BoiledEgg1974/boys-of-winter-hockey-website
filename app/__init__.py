@@ -795,4 +795,29 @@ def create_app(config_class: type = Config) -> Flask:
         stats = reseed_gm_achievement_watermark(app, as_of_game_date=as_of_date)
         print(f"reseed-gm-achievements ({app.config.get('LEAGUE_SLUG')} as of {as_of}): {stats}")
 
+    @app.cli.command("reopen-heritage-achievement-tickets")
+    def reopen_heritage_achievement_tickets_cmd() -> None:
+        """Issue scratch tickets for watermarked milestones that never got an unlock."""
+        from app.services.gm_achievements import reopen_heritage_milestone_locks
+
+        stats = reopen_heritage_milestone_locks(app)
+        print(f"reopen-heritage-achievement-tickets ({app.config.get('LEAGUE_SLUG')}): {stats}")
+
+    @app.cli.command("relock-heritage-achievement-tickets")
+    @click.option(
+        "--issued-after",
+        "issued_after",
+        required=True,
+        help="ISO datetime; tickets at/after this time are treated as heritage reopens",
+    )
+    def relock_heritage_achievement_tickets_cmd(issued_after: str) -> None:
+        """Re-lock selected pre-watermark feats; keep tickets awarded after the watermark."""
+        from datetime import datetime as datetime_cls
+
+        from app.services.gm_achievements import relock_pre_watermark_catalog_keys
+
+        cutoff = datetime_cls.fromisoformat(issued_after)
+        stats = relock_pre_watermark_catalog_keys(app, issued_after=cutoff)
+        print(f"relock-heritage-achievement-tickets ({app.config.get('LEAGUE_SLUG')}): {stats}")
+
     return app

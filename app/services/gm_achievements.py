@@ -38,6 +38,7 @@ from app.services.playoff_bracket import is_playoff_game_type, is_regular_season
 from app.services.seasons import get_current_season, season_display_label
 from app.services.team_records import CHAMPION_RESULT
 from app.site_models import (
+    DiscordOutboundEvent,
     GmAchievementUnlock,
     GmAchievementWatermark,
     GmExportAttendance,
@@ -2842,6 +2843,167 @@ def reseed_gm_achievement_watermark(app, *, as_of_game_date: date) -> dict[str, 
     awarded = evaluate_gm_achievements_after_import(app)
     stats.update(awarded)
     stats["reseeds"] = 1
+    return stats
+
+
+def heritage_pairs_without_unlocks(session: Session, league_slug: str) -> set[tuple[int, str]]:
+    """Watermark locks that never issued a scratch ticket."""
+    watermark = session.scalar(
+        select(GmAchievementWatermark).where(GmAchievementWatermark.league_slug == league_slug).limit(1)
+    )
+    already = _already_pairs(watermark)
+    existing = {
+        (int(r.team_id), str(r.achievement_key))
+        for r in session.scalars(
+            select(GmAchievementUnlock).where(GmAchievementUnlock.league_slug == league_slug)
+        ).all()
+    }
+    return {pair for pair in already if pair not in existing}
+
+
+def reopen_heritage_milestone_locks(app) -> dict[str, int]:
+    """Drop watermark-only locks, then award still-true feats as scratch tickets.
+
+    Heritage seeding recorded already-true career/game/season milestones without
+    creating unlocks. Those pairs blocked redemption forever. Pinnacle / Dynasty
+    stay unawarded for old cups because evaluate uses ``going_forward``.
+    """
+    slug = str(getattr(app, "config", {}).get("LEAGUE_SLUG") or "").strip()
+    stats = {
+        "locks_removed": 0,
+        "awarded": 0,
+        "skipped": 0,
+        "seeded": 0,
+        "ledger_synced": 0,
+        "heritage_races": 0,
+        "heritage_career_revoked": 0,
+        "tickets_reopened": 0,
+    }
+    if slug not in HOCKEY_SLUGS:
+        stats["skipped"] = 1
+        return stats
+
+    from app.league_db import db
+
+    pairs = heritage_pairs_without_unlocks(db.session, slug)
+    revoked = revoke_gm_achievement_unlocks(app, pairs)
+    stats["locks_removed"] = int(revoked.get("watermark_removed") or 0)
+    awarded = evaluate_gm_achievements_after_import(app)
+    stats.update(awarded)
+    stats["locks_removed"] = int(revoked.get("watermark_removed") or 0)
+    return stats
+
+
+HERITAGE_RELOCK_KEYS = frozenset(
+    {
+        "make_playoffs",
+        "fight_night",
+        "game54",
+        "gordie_howe",
+        "iron_decade",
+        "draft_steal",
+        "kid_line_energy",
+        "comeback_kids",
+        "all_natural",
+        "statement_win",
+    }
+)
+
+
+def relock_pre_watermark_catalog_keys(
+    app,
+    catalog_keys: Iterable[str] = HERITAGE_RELOCK_KEYS,
+    *,
+    issued_after: datetime,
+) -> dict[str, int]:
+    """Re-watermark pre-launch feats and drop tickets issued in a later heritage reopen.
+
+    Unlocks created before ``issued_after`` are treated as post-watermark awards and kept.
+    """
+    slug = str(getattr(app, "config", {}).get("LEAGUE_SLUG") or "").strip()
+    stats = {"revoked": 0, "kept": 0, "watermarked": 0, "discord_cancelled": 0, "skipped": 0}
+    wanted = {str(k) for k in catalog_keys}
+    if slug not in HOCKEY_SLUGS or not wanted:
+        stats["skipped"] = 1
+        return stats
+
+    from app.league_db import db
+    from app.sqlite_retry import commit_with_sqlite_retry
+
+    session = db.session
+    season = get_current_season()
+    season_label = season_display_label(season)
+    unlocks = list(
+        session.scalars(select(GmAchievementUnlock).where(GmAchievementUnlock.league_slug == slug)).all()
+    )
+    relock_pairs: set[tuple[int, str]] = set()
+    deleted_refs: set[str] = set()
+    kept_pairs: set[tuple[int, str]] = set()
+    for unlock in unlocks:
+        base = catalog_key_from_storage(unlock.achievement_key)
+        if base not in wanted:
+            continue
+        pair = (int(unlock.team_id), str(unlock.achievement_key))
+        unlocked_at = unlock.unlocked_at
+        earned_after_watermark = unlocked_at is None or unlocked_at >= issued_after
+        if not earned_after_watermark or unlock.claimed_at is not None or int(unlock.ap_delta or 0) > 0:
+            kept_pairs.add(pair)
+            stats["kept"] += 1
+            continue
+        if unlock.source_ref:
+            deleted_refs.add(str(unlock.source_ref))
+        session.delete(unlock)
+        relock_pairs.add(pair)
+        stats["revoked"] += 1
+
+    truths = rewrite_truths_to_storage(
+        discover_true_achievements(session, slug, going_forward=True),
+        season_label or "",
+    )
+    for team_id, keys in truths.items():
+        for key in keys:
+            if catalog_key_from_storage(key) not in wanted:
+                continue
+            pair = (int(team_id), str(key))
+            if pair not in kept_pairs:
+                relock_pairs.add(pair)
+
+    watermark = session.scalar(
+        select(GmAchievementWatermark).where(GmAchievementWatermark.league_slug == slug).limit(1)
+    )
+    if watermark is not None and relock_pairs:
+        already = _already_pairs(watermark)
+        before = len(already)
+        already |= relock_pairs
+        watermark.already_true_json = _pairs_to_json(already)
+        watermark.evaluated_at = datetime.utcnow()
+        stats["watermarked"] = len(already) - before
+
+    if deleted_refs:
+        pending = list(
+            session.scalars(
+                select(DiscordOutboundEvent).where(
+                    DiscordOutboundEvent.league_slug == slug,
+                    DiscordOutboundEvent.status == "pending",
+                    DiscordOutboundEvent.event_key == ACHIEVEMENT_UNLOCKED_EVENT_KEY,
+                )
+            ).all()
+        )
+        for row in pending:
+            try:
+                payload = json.loads(row.payload_json or "{}")
+            except json.JSONDecodeError:
+                continue
+            if str(payload.get("source_id") or "") in deleted_refs:
+                row.status = "cancelled"
+                stats["discord_cancelled"] += 1
+
+    commit_with_sqlite_retry(session)
+    _log.info(
+        "GM achievements re-locked pre-watermark keys for %s: %s",
+        slug,
+        stats,
+    )
     return stats
 
 

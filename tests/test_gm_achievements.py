@@ -48,6 +48,9 @@ from app.services.gm_achievements import (
     discover_true_achievements,
     evaluate_gm_achievements_after_import,
     reseed_gm_achievement_watermark,
+    heritage_pairs_without_unlocks,
+    relock_pre_watermark_catalog_keys,
+    reopen_heritage_milestone_locks,
     expand_legacy_pairs,
     export_streak_len,
     format_export_recap,
@@ -842,6 +845,155 @@ class EvaluatorWatermarkTests(unittest.TestCase):
             self.assertIsNotNone(watermark)
             self.assertNotIn(key, watermark.already_true_map().get(str(tid), []))
             self.assertIn("all_natural", watermark.already_true_map().get(str(tid), []))
+            db.session.rollback()
+
+    def test_reopen_heritage_milestone_locks_awards_missing_tickets(self) -> None:
+        self.app = create_app(make_league_config("bowl-cap"))
+        with self.app.app_context():
+            team = db.session.scalar(select(Team).order_by(Team.id).limit(1))
+            self.assertIsNotNone(team)
+            tid = int(team.id)
+
+            def _flush_only(session) -> None:
+                session.flush()
+
+            watermark = db.session.scalar(
+                select(GmAchievementWatermark).where(
+                    GmAchievementWatermark.league_slug == "bowl-cap"
+                ).limit(1)
+            )
+            if watermark is None:
+                watermark = GmAchievementWatermark(
+                    league_slug="bowl-cap",
+                    max_game_id=1,
+                    season_label="2001-02",
+                    already_true_json="{}",
+                    tenure_json="{}",
+                    team_tiers_json="{}",
+                )
+                db.session.add(watermark)
+                db.session.flush()
+            already = watermark.already_true_map()
+            keys = set(already.get(str(tid), []))
+            keys.add("homegrown_core")
+            already[str(tid)] = sorted(keys)
+            watermark.already_true_json = json.dumps(already)
+            db.session.flush()
+
+            existing = db.session.scalar(
+                select(GmAchievementUnlock).where(
+                    GmAchievementUnlock.league_slug == "bowl-cap",
+                    GmAchievementUnlock.team_id == tid,
+                    GmAchievementUnlock.achievement_key == "homegrown_core",
+                ).limit(1)
+            )
+            if existing is not None:
+                db.session.delete(existing)
+                db.session.flush()
+
+            self.assertIn((tid, "homegrown_core"), heritage_pairs_without_unlocks(db.session, "bowl-cap"))
+
+            with (
+                patch(
+                    "app.services.gm_achievements.discover_true_achievements",
+                    return_value={tid: {"homegrown_core": {"detail": "8 self-drafted"}}},
+                ),
+                patch("app.sqlite_retry.commit_with_sqlite_retry", _flush_only),
+                patch("app.services.gm_achievements._enqueue_achievement_discord"),
+            ):
+                stats = reopen_heritage_milestone_locks(self.app)
+            self.assertGreaterEqual(stats["locks_removed"], 1)
+            self.assertGreaterEqual(stats["awarded"], 1)
+            unlock = db.session.scalar(
+                select(GmAchievementUnlock).where(
+                    GmAchievementUnlock.league_slug == "bowl-cap",
+                    GmAchievementUnlock.team_id == tid,
+                    GmAchievementUnlock.achievement_key == "homegrown_core",
+                ).limit(1)
+            )
+            self.assertIsNotNone(unlock)
+            self.assertIsNone(unlock.claimed_at)
+            db.session.rollback()
+
+    def test_relock_pre_watermark_keeps_later_awards(self) -> None:
+        self.app = create_app(make_league_config("bowl-cap"))
+        with self.app.app_context():
+            team = db.session.scalar(select(Team).order_by(Team.id).limit(1))
+            self.assertIsNotNone(team)
+            tid = int(team.id)
+            cutoff = datetime(2026, 9, 8, 12, 0, 0)
+
+            def _flush_only(session) -> None:
+                session.flush()
+
+            for key in ("gordie_howe", "fight_night"):
+                prior = db.session.scalar(
+                    select(GmAchievementUnlock).where(
+                        GmAchievementUnlock.league_slug == "bowl-cap",
+                        GmAchievementUnlock.team_id == tid,
+                        GmAchievementUnlock.achievement_key == key,
+                    ).limit(1)
+                )
+                if prior is not None:
+                    db.session.delete(prior)
+            db.session.flush()
+
+            keep = GmAchievementUnlock(
+                league_slug="bowl-cap",
+                team_id=tid,
+                user_id=None,
+                achievement_key="gordie_howe",
+                source_ref=unlock_source_ref("bowl-cap", tid, "gordie_howe-keep-test"),
+                unlocked_at=datetime(2026, 9, 7, 12, 0, 0),
+                season_label="2001-02",
+                meta_json="{}",
+                ap_delta=0,
+            )
+            drop = GmAchievementUnlock(
+                league_slug="bowl-cap",
+                team_id=tid,
+                user_id=None,
+                achievement_key="fight_night",
+                source_ref=unlock_source_ref("bowl-cap", tid, "fight_night-drop-test"),
+                unlocked_at=datetime(2026, 9, 8, 13, 2, 0),
+                season_label="2001-02",
+                meta_json="{}",
+                ap_delta=0,
+            )
+            db.session.add(keep)
+            db.session.add(drop)
+            db.session.flush()
+            with (
+                patch(
+                    "app.services.gm_achievements.discover_true_achievements",
+                    return_value={tid: {"fight_night": {"detail": "old"}}},
+                ),
+                patch("app.sqlite_retry.commit_with_sqlite_retry", _flush_only),
+            ):
+                stats = relock_pre_watermark_catalog_keys(self.app, issued_after=cutoff)
+            self.assertGreaterEqual(stats["revoked"], 1)
+            self.assertGreaterEqual(stats["kept"], 1)
+            self.assertIsNotNone(
+                db.session.scalar(
+                    select(GmAchievementUnlock).where(
+                        GmAchievementUnlock.source_ref == keep.source_ref
+                    ).limit(1)
+                )
+            )
+            self.assertIsNone(
+                db.session.scalar(
+                    select(GmAchievementUnlock).where(
+                        GmAchievementUnlock.source_ref == drop.source_ref
+                    ).limit(1)
+                )
+            )
+            mark = db.session.scalar(
+                select(GmAchievementWatermark).where(
+                    GmAchievementWatermark.league_slug == "bowl-cap"
+                ).limit(1)
+            )
+            self.assertIsNotNone(mark)
+            self.assertIn("fight_night", mark.already_true_map().get(str(tid), []))
             db.session.rollback()
 
     def test_first_run_seeds_without_ap_second_awards_once(self) -> None:

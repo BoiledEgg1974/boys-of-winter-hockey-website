@@ -1466,7 +1466,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1464;-1;Gil;Lorn;;1946-2-22;Crawfordsville;IN;The United States;;;0
 1465;-1;Mike;Jackson;;1940-5-4;Cambridge;ON;Canada;;;0
 1466;-1;Fred;Christian;;1940-1-22;Huntingdon;QC;Canada;;;0
-1467;24;Nathan;Aris;;1940-9-9;Brampton;ON;Canada;;;0
+1467;-1;Nathan;Aris;;1940-9-9;Brampton;ON;Canada;;;0
 1468;-1;Johnny;Wapachee;;1942-4-22;Brampton;ON;Canada;;;0
 1469;-1;Steve;Plunkett;;1940-11-20;Wheat Ridge;CO;The United States;;;0
 1470;-1;Glen;Skolnick;;1940-2-2;Fort Myers Shores;FL;The United States;;;0
@@ -2337,7 +2337,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 2335;-1;Sean;Skahan;;1967-1-1;South Kingstown;RI;The United States;;;0
 2336;-1;Gordon;Donnelly;;1962-4-5;Murdochville;QC;Canada;;;0
 2337;230;Bob;Brown;;1967-1-1;Kent;BC;Canada;;;0
-2338;-1;Fred;Bandel;;1962-1-1;Oakport;MN;The United States;;;0
+2338;24;Fred;Bandel;;1962-1-1;Oakport;MN;The United States;;;0
 2339;-1;Mike;Donnelly;;1963-10-10;Elk Rapids;MI;The United States;;;0
 2340;-1;Ken;Hoodikoff;;1967-1-1;Disraeli;QC;Canada;;;0
 2341;-1;Reg;Grant;;1967-1-1;Mississauga;ON;Canada;;;0

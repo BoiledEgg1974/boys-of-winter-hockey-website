@@ -634,7 +634,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 632;82;Vic;Burtynsky;;1913-7-14;Calgary;AB;Canada;;;0
 633;82;Cody;Sveinson;;1913-4-28;Saskatoon;SK;Canada;;;0
 634;26;Carlos;Silva;;1913-2-24;Bracebridge;ON;Canada;;;0
-635;-1;César;Fernandez;;1913-10-10;Mississauga;ON;Canada;;;0
+635;119;César;Fernandez;;1913-10-10;Mississauga;ON;Canada;;;0
 636;77;Neil;Knisley;;1917-12-20;Edmundston;NB;Canada;;;0
 637;-1;Allen;Schmidt;;1913-4-21;County of Brant;ON;Canada;;;0
 638;91;Josh;Gardiner;;1913-10-26;Toronto;ON;Canada;;;0
@@ -781,7 +781,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 779;132;Ray;Carlton;;1916-8-20;Sparwood;BC;Canada;;;0
 780;132;Dustin;Windsor;;1916-1-5;St. Catharines;ON;Canada;;;0
 781;119;Homer;Phillips;;1916-10-9;Toronto;ON;Canada;;;0
-782;-1;Jeremy;Lowder;;1916-6-14;Winnipeg;MB;Canada;;;0
+782;119;Jeremy;Lowder;;1916-6-14;Winnipeg;MB;Canada;;;0
 783;119;Louis-Philip;St-Germain;;1923-1-22;Vaughan;ON;Canada;;;0
 784;127;Brendan;Wallace;;1916-11-23;New York;NY;The United States;;;0
 785;-1;Tracy;Ross;;1920-5-14;Newton;NC;The United States;;;0
@@ -833,7 +833,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 831;-1;Dean;Shoebottom;;1923-4-10;East St. Paul;MB;The United States;;;0
 832;-1;Burton;Blanton;;1917-9-28;Antioch;IL;The United States;;;0
 833;-1;Randy;Thomlinson;;1917-6-8;Los Angeles;CA;The United States;;;0
-834;-1;Pat;Hoshaw;;1917-12-27;Leesylvania;VA;The United States;;;0
+834;119;Pat;Hoshaw;;1917-12-27;Leesylvania;VA;The United States;;;0
 835;123;Michael;Wilcox;;1917-8-8;Jersey Village;TX;The United States;;;0
 836;-1;Will;Dewey;;1917-8-30;Brooklyn;NY;The United States;;;0
 837;-1;Mark;Stevens;;1917-8-25;Denver;IN;The United States;;;0
@@ -960,7 +960,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 958;-1;Pat;Ridgway;;1917-4-4;Lynchburg;VA;The United States;;;0
 959;90;Curt;Boswell;;1917-6-1;Bryan;TX;The United States;;;0
 960;132;Brady;Finnerty;;1921-4-28;Forest Hill;TX;The United States;;;0
-961;-1;Jean-Michel;Boissonneault;;1917-6-28;Hastings;MN;The United States;;;0
+961;119;Jean-Michel;Boissonneault;;1917-6-28;Hastings;MN;The United States;;;0
 962;118;Cody;Chapman;;1917-10-30;Thunder Bay;ON;Canada;;;0
 963;64;Brad;Maines;;1923-3-21;Saint-Jean-sur-Richelieu;QC;Canada;;;0
 964;69;Marc-André;Santerre;;1917-8-26;Atlanta;GA;The United States;;;0
@@ -1259,7 +1259,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1257;-1;Joe;Parrish;;1922-8-11;Winnipeg;MB;Canada;;;0
 1258;-1;Bryan;Simmons;;1927-12-13;Hamilton;ON;Canada;;;0
 1259;66;Bhupinder;Sharma;;1920-11-4;Vancouver;BC;Canada;;;0
-1260;-1;Jeffrey;Moore;;1920-3-5;New Milford;NJ;The United States;;;0
+1260;119;Jeffrey;Moore;;1920-3-5;New Milford;NJ;The United States;;;0
 1261;-1;Jeff;Richardson;;1920-4-18;Montgomery;AL;The United States;;;0
 1262;-1;Ronnie;Day;;1920-1-2;Marion;IA;The United States;;;0
 1263;131;Bob;Huggins;;1920-4-1;New York;NY;The United States;;;0

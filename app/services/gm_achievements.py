@@ -1081,11 +1081,37 @@ def is_going_forward_always_key(key: str) -> bool:
     return catalog_key_from_storage(key) in GOING_FORWARD_ALWAYS_KEYS
 
 
+def coerce_date(raw: date | datetime | str | None) -> date | None:
+    if raw is None:
+        return None
+    if isinstance(raw, datetime):
+        return raw.date()
+    if isinstance(raw, date):
+        return raw
+    text = str(raw).strip()
+    if not text:
+        return None
+    try:
+        return date.fromisoformat(text[:10])
+    except ValueError:
+        return None
+
+
 def dates_on_or_after(dates: Iterable[date], start: date | None) -> list[date]:
     """Keep attendance / export dates on or after the watermark calendar day."""
     if start is None:
         return [d for d in dates if d is not None]
     return [d for d in dates if d is not None and d >= start]
+
+
+def attendance_window_ready(window: Iterable[date], start: date | None) -> bool:
+    """True when the rolling 45-day window is fully on/after the tracking start."""
+    days = [d for d in window if d is not None]
+    if not days:
+        return False
+    if start is None:
+        return True
+    return min(days) >= start
 
 
 def heritage_pairs_from_truths(truths: dict[int, dict[str, Any]]) -> set[tuple[int, str]]:
@@ -1100,15 +1126,13 @@ def heritage_pairs_from_truths(truths: dict[int, dict[str, Any]]) -> set[tuple[i
 def watermark_as_of_game_date(watermark: GmAchievementWatermark | None) -> date | None:
     if watermark is None:
         return None
-    raw = getattr(watermark, "as_of_game_date", None)
-    return raw if isinstance(raw, date) else None
+    return coerce_date(getattr(watermark, "as_of_game_date", None))
 
 
 def watermark_started_on(watermark: GmAchievementWatermark | None) -> date | None:
     if watermark is None:
         return None
-    raw = getattr(watermark, "started_on", None)
-    return raw if isinstance(raw, date) else None
+    return coerce_date(getattr(watermark, "started_on", None))
 
 
 def hydrate_watermark_cutoffs(
@@ -1408,8 +1432,9 @@ def discover_true_achievements(
     ``going_forward`` (post-watermark evaluate) only marks The Pinnacle and
     A Real Dynasty when the cup / 5-peat was completed in the current season.
 
-    ``export_after`` limits Export Streak and Perfect Attendance to check-ins on
-    or after the watermark calendar day.
+    ``export_after`` limits Export Streak to check-ins on or after the watermark
+    calendar day. Perfect Attendance also starts there, but is only marked once
+    the rolling 45-day window is fully after that day.
     """
     allowed = {item.key for item in catalog_for_league(league_slug)}
     hits: dict[int, dict[str, dict[str, Any]]] = {}
@@ -2451,24 +2476,26 @@ def discover_true_achievements(
         ATTENDANCE_WINDOW_DAYS = 45
         rolling_attendance_window_dates = None
     if rolling_attendance_window_dates is not None:
-        window = set(dates_on_or_after(rolling_attendance_window_dates(), export_after))
-        league_days = {
-            row.export_date
-            for row in attendance_rows
-            if row.export_date and row.export_date in window
-        }
-        if len(league_days) >= 2:
-            for tid, dates in dates_by_team.items():
-                team_days = {d for d in dates_on_or_after(dates, export_after) if d in window}
-                if league_days <= team_days:
-                    mark(
-                        tid,
-                        "perfect_attendance",
-                        {
-                            "count": len(league_days),
-                            "detail": f"Hit all {len(league_days)} league exports in {ATTENDANCE_WINDOW_DAYS} days",
-                        },
-                    )
+        full_window = [d for d in rolling_attendance_window_dates() if d is not None]
+        if attendance_window_ready(full_window, export_after):
+            window = set(dates_on_or_after(full_window, export_after))
+            league_days = {
+                row.export_date
+                for row in attendance_rows
+                if row.export_date and row.export_date in window
+            }
+            if len(league_days) >= 2:
+                for tid, dates in dates_by_team.items():
+                    team_days = {d for d in dates_on_or_after(dates, export_after) if d in window}
+                    if league_days <= team_days:
+                        mark(
+                            tid,
+                            "perfect_attendance",
+                            {
+                                "count": len(league_days),
+                                "detail": f"Hit all {len(league_days)} league exports in {ATTENDANCE_WINDOW_DAYS} days",
+                            },
+                        )
 
     return hits
 
@@ -2633,6 +2660,36 @@ def _revoke_unearned_career_unlocks(
         if unlock.claimed_at is not None or int(unlock.ap_delta or 0) > 0:
             continue
         if _career_unlock_earned_since_watermark(session, unlock):
+            continue
+        session.delete(unlock)
+        dropped.add((int(unlock.team_id), str(unlock.achievement_key)))
+    return dropped
+
+
+def _revoke_unearned_perfect_attendance(
+    session: Session,
+    *,
+    league_slug: str,
+    truths: dict[int, dict[str, Any]],
+) -> set[tuple[int, str]]:
+    """Drop unclaimed Perfect Attendance tickets issued before a full 45-day window."""
+    dropped: set[tuple[int, str]] = set()
+    live_teams = {
+        int(tid)
+        for tid, keys in truths.items()
+        if any(catalog_key_from_storage(key) == "perfect_attendance" for key in keys)
+    }
+    rows = list(
+        session.scalars(
+            select(GmAchievementUnlock).where(GmAchievementUnlock.league_slug == league_slug)
+        ).all()
+    )
+    for unlock in rows:
+        if catalog_key_from_storage(unlock.achievement_key) != "perfect_attendance":
+            continue
+        if unlock.claimed_at is not None or int(unlock.ap_delta or 0) > 0:
+            continue
+        if int(unlock.team_id) in live_teams:
             continue
         session.delete(unlock)
         dropped.add((int(unlock.team_id), str(unlock.achievement_key)))
@@ -3137,6 +3194,7 @@ def evaluate_gm_achievements_after_import(app) -> dict[str, int]:
         "heritage_races": 0,
         "tickets_reopened": 0,
         "heritage_career_revoked": 0,
+        "perfect_attendance_revoked": 0,
     }
     if slug not in HOCKEY_SLUGS:
         stats["skipped"] = 1
@@ -3231,6 +3289,9 @@ def evaluate_gm_achievements_after_import(app) -> dict[str, int]:
     heritage_career = _revoke_unearned_career_unlocks(session, league_slug=slug)
     existing -= heritage_career
     stats["heritage_career_revoked"] = len(heritage_career)
+    premature_pa = _revoke_unearned_perfect_attendance(session, league_slug=slug, truths=truths)
+    existing -= premature_pa
+    stats["perfect_attendance_revoked"] = len(premature_pa)
     drop = stale | orphan
     if drop:
         already -= drop

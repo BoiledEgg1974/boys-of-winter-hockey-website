@@ -13,7 +13,7 @@ from app.config import make_league_config
 from app.league_db import db
 from app.models import Game, Team
 from app.services.discord_events import DEFAULT_EVENT_CHANNEL_KEY, DEFAULT_EVENT_KEYS
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from app.services.playoff_bracket import is_playoff_game_type
 from app.services.gm_achievements import (
@@ -34,6 +34,8 @@ from app.services.gm_achievements import (
     collect_new_hits,
     consecutive_champ_streak_ending_in,
     credit_achievement_ap,
+    attendance_window_ready,
+    coerce_date,
     dates_on_or_after,
     detect_comeback_from_events,
     detect_comeback_from_period_scores,
@@ -269,6 +271,19 @@ class DetectorTests(unittest.TestCase):
                 date(2026, 9, 6),
             ),
             [date(2026, 9, 6), date(2026, 9, 8)],
+        )
+        self.assertEqual(coerce_date("2026-09-06"), date(2026, 9, 6))
+        self.assertTrue(
+            attendance_window_ready(
+                [date(2026, 9, 6), date(2026, 10, 20)],
+                date(2026, 9, 6),
+            )
+        )
+        self.assertFalse(
+            attendance_window_ready(
+                [date(2026, 8, 1), date(2026, 9, 8)],
+                date(2026, 9, 6),
+            )
         )
         self.assertEqual(
             heritage_pairs_from_truths(
@@ -1071,6 +1086,132 @@ class EvaluatorWatermarkTests(unittest.TestCase):
             self.assertIn("2 / 10", prog["export_streak"]["label"])
             self.assertEqual(prog["perfect_attendance"]["current"], 2)
             self.assertEqual(prog["perfect_attendance"]["target"], 2)
+            db.session.rollback()
+
+    def test_perfect_attendance_waits_for_full_window_since_watermark(self) -> None:
+        self.app = create_app(make_league_config("bowl-cap"))
+        with self.app.app_context():
+            team = db.session.scalar(select(Team).order_by(Team.id).limit(1))
+            self.assertIsNotNone(team)
+            tid = int(team.id)
+            for row in list(
+                db.session.scalars(
+                    select(GmExportAttendance).where(
+                        GmExportAttendance.league_slug == "bowl-cap"
+                    )
+                ).all()
+            ):
+                db.session.delete(row)
+            db.session.flush()
+            for day in (date(2026, 8, 1), date(2026, 8, 8), date(2026, 9, 6), date(2026, 9, 8)):
+                db.session.add(
+                    GmExportAttendance(
+                        league_slug="bowl-cap",
+                        team_id=tid,
+                        export_date=day,
+                    )
+                )
+            db.session.flush()
+            truncated = [
+                date(2026, 8, 1),
+                date(2026, 8, 8),
+                date(2026, 9, 6),
+                date(2026, 9, 8),
+            ]
+            ready = [date(2026, 9, 6) + timedelta(days=i) for i in range(45)]
+            with patch(
+                "app.services.export_attendance.rolling_attendance_window_dates",
+                return_value=truncated,
+            ):
+                early = discover_true_achievements(
+                    db.session, "bowl-cap", export_after=date(2026, 9, 6)
+                )
+            self.assertNotIn("perfect_attendance", early.get(tid, {}))
+            with patch(
+                "app.services.export_attendance.rolling_attendance_window_dates",
+                return_value=ready,
+            ):
+                live = discover_true_achievements(
+                    db.session, "bowl-cap", export_after=date(2026, 9, 6)
+                )
+            self.assertIn("perfect_attendance", live.get(tid, {}))
+            db.session.rollback()
+
+    def test_evaluate_revokes_truncated_perfect_attendance(self) -> None:
+        self.app = create_app(make_league_config("bowl-cap"))
+        with self.app.app_context():
+            team = db.session.scalar(select(Team).order_by(Team.id).limit(1))
+            self.assertIsNotNone(team)
+            tid = int(team.id)
+
+            def _flush_only(session) -> None:
+                session.flush()
+
+            watermark = db.session.scalar(
+                select(GmAchievementWatermark).where(
+                    GmAchievementWatermark.league_slug == "bowl-cap"
+                ).limit(1)
+            )
+            if watermark is None:
+                watermark = GmAchievementWatermark(
+                    league_slug="bowl-cap",
+                    max_game_id=1,
+                    season_label="2001-02",
+                    already_true_json="{}",
+                    tenure_json="{}",
+                    team_tiers_json="{}",
+                )
+                db.session.add(watermark)
+                db.session.flush()
+            watermark.started_on = date(2026, 9, 6)
+            key = "perfect_attendance:2001-02"
+            prior = db.session.scalar(
+                select(GmAchievementUnlock).where(
+                    GmAchievementUnlock.league_slug == "bowl-cap",
+                    GmAchievementUnlock.team_id == tid,
+                    GmAchievementUnlock.achievement_key == key,
+                ).limit(1)
+            )
+            if prior is not None:
+                db.session.delete(prior)
+                db.session.flush()
+            db.session.add(
+                GmAchievementUnlock(
+                    league_slug="bowl-cap",
+                    team_id=tid,
+                    user_id=None,
+                    achievement_key=key,
+                    source_ref=unlock_source_ref("bowl-cap", tid, key),
+                    unlocked_at=datetime(2026, 9, 9, 12, 0, 0),
+                    season_label="2001-02",
+                    meta_json="{}",
+                    ap_delta=0,
+                )
+            )
+            db.session.flush()
+            with (
+                patch(
+                    "app.services.export_attendance.rolling_attendance_window_dates",
+                    return_value=[
+                        date(2026, 8, 1),
+                        date(2026, 8, 8),
+                        date(2026, 9, 6),
+                        date(2026, 9, 8),
+                    ],
+                ),
+                patch("app.sqlite_retry.commit_with_sqlite_retry", _flush_only),
+                patch("app.services.gm_achievements._enqueue_achievement_discord"),
+            ):
+                stats = evaluate_gm_achievements_after_import(self.app)
+            self.assertGreaterEqual(stats["perfect_attendance_revoked"], 1)
+            unlock = db.session.scalar(
+                select(GmAchievementUnlock).where(
+                    GmAchievementUnlock.league_slug == "bowl-cap",
+                    GmAchievementUnlock.team_id == tid,
+                    GmAchievementUnlock.achievement_key == key,
+                ).limit(1)
+            )
+            self.assertIsNone(unlock)
             db.session.rollback()
 
     def test_relock_pre_watermark_keeps_later_awards(self) -> None:

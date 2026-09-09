@@ -435,9 +435,35 @@ def _hover_skater_career_yearly(session, player_id: int) -> list[tuple[int, int,
     return [(int(sy), int(gp), int(g), int(a), int(pim), int(pm)) for sy, gp, g, a, pim, pm in session.execute(stmt)]
 
 
+def _hover_goalie_gaa(
+    ga: int,
+    gp: int,
+    minutes_played: float | int | None,
+    stored_gaa: float | None = None,
+) -> float | None:
+    """Prefer imported GAA; otherwise minutes-based GAA, else GA/GP."""
+    if stored_gaa is not None:
+        try:
+            val = round(float(stored_gaa), 2)
+        except (TypeError, ValueError):
+            val = None
+        else:
+            if val == val and val not in (float("inf"), float("-inf")):
+                return val
+    if gp <= 0:
+        return None
+    try:
+        mp = float(minutes_played or 0)
+    except (TypeError, ValueError):
+        mp = 0.0
+    if mp > 0 and mp >= (float(gp) * 45.0):
+        return round((float(ga) * 60.0) / mp, 2)
+    return round(float(ga) / float(gp), 2)
+
+
 def _hover_goalie_career_yearly(
     session, player_id: int
-) -> list[tuple[int, int, int, int, int, int, int]]:
+) -> list[tuple[int, int, int, int, int, int, int, int]]:
     line = PlayerGoalieCareerLine
     lids = _bowl_league_ids_for_career(session)
     stmt = (
@@ -449,6 +475,7 @@ def _hover_goalie_career_yearly(
             func.coalesce(func.sum(line.goals_against), 0),
             func.coalesce(func.sum(line.shots_against), 0),
             func.coalesce(func.sum(line.shutouts), 0),
+            func.coalesce(func.sum(func.coalesce(line.minutes_played, 0)), 0),
         )
         .where(
             line.player_id == player_id,
@@ -459,8 +486,8 @@ def _hover_goalie_career_yearly(
         .order_by(line.season_year.desc())
     )
     return [
-        (int(sy), int(gp), int(w), int(l), int(ga), int(sa), int(so))
-        for sy, gp, w, l, ga, sa, so in session.execute(stmt)
+        (int(sy), int(gp), int(w), int(l), int(ga), int(sa), int(so), int(mp))
+        for sy, gp, w, l, ga, sa, so, mp in session.execute(stmt)
     ]
 
 
@@ -618,20 +645,23 @@ def _hover_recent_goalie_seasons(session, player_id: int) -> list[dict[str, obje
         if sn.start_year is None:
             continue
         y = int(sn.start_year)
+        gp = int(st.gp or 0)
+        ga = int(st.ga or 0)
         sv = float(st.sv_pct) if st.sv_pct is not None else None
         team = _hover_team_for_goalie_season(session, player_id, y, int(st.team_id) if st.team_id else None)
         by_year[y] = {
             "season": season_display_label(sn),
             "team_logo_url": _hover_season_team_logo_url(team, y),
-            "gp": int(st.gp or 0),
+            "gp": gp,
             "wins": int(st.wins or 0),
             "losses": int(st.losses or 0),
-            "ga": int(st.ga or 0),
+            "ga": ga,
+            "gaa": _hover_goalie_gaa(ga, gp, st.minutes_played, st.gaa),
             "sa": int(st.sa or 0),
             "sv_pct": round(sv, 3) if sv is not None else None,
             "so": int(st.so or 0),
         }
-    for sy, gp, w, l, ga, sa, so in _hover_goalie_career_yearly(session, player_id):
+    for sy, gp, w, l, ga, sa, so, mp in _hover_goalie_career_yearly(session, player_id):
         if sy in by_year:
             continue
         sv_pct: float | None = None
@@ -645,6 +675,7 @@ def _hover_recent_goalie_seasons(session, player_id: int) -> list[dict[str, obje
             "wins": int(w),
             "losses": int(l),
             "ga": int(ga),
+            "gaa": _hover_goalie_gaa(int(ga), int(gp), mp),
             "sa": int(sa),
             "sv_pct": sv_pct,
             "so": int(so),
@@ -882,7 +913,7 @@ def player_hover_card(player_id: int):
 
     return jsonify_cached(
         "player_hover",
-        (int(player_id), "boost-badge-v2"),
+        (int(player_id), "goalie-gaa-v1"),
         DEFAULT_TTL_SECONDS["player_hover"],
         lambda: _build_player_hover_card_payload(player_id),
         cache_control=60,

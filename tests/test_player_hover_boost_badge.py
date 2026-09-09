@@ -62,6 +62,22 @@ class PlayerHoverBoostBadgeTest(unittest.TestCase):
         self.assertIn("player-hover-card--boosted", js)
         self.assertIn(".player-hover-card__boost-badge", css)
 
+    def test_hover_goalie_gaa_prefers_stored_then_minutes(self) -> None:
+        from app.routes.api import _hover_goalie_gaa
+
+        self.assertEqual(_hover_goalie_gaa(23, 18, 1080, 1.28), 1.28)
+        self.assertEqual(_hover_goalie_gaa(60, 20, 1200, None), 3.0)
+        self.assertEqual(_hover_goalie_gaa(40, 20, 100, None), 2.0)
+        self.assertIsNone(_hover_goalie_gaa(0, 0, 0, None))
+
+    def test_hover_frontend_renders_goalie_gaa_not_ga(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        js = (root / "app" / "static" / "js" / "site.js").read_text(encoding="utf-8")
+        self.assertIn('title=\\"Goals against average\\">GAA</th>', js)
+        self.assertIn("var gaa = r.gaa;", js)
+        hover_block = js.split("function hoverRecentSeasonsBlock")[1].split("function renderCard")[0]
+        self.assertNotIn("<th>GA</th>", hover_block)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -66,6 +66,11 @@ BARGAIN_BIN_SALARY_CAP = 1_000_000
 EXPORT_STREAK_TARGET = 10
 EXPORT_STREAK_MAX_GAP_DAYS = 8
 HOMEGROWN_CORE_TARGET = 8
+# Career feats that stay earnable after launch; do not heritage-lock them.
+GOING_FORWARD_ALWAYS_KEYS = frozenset({"homegrown_core", "export_streak", "perfect_attendance"})
+KNOWN_AS_OF_GAME_DATES = {
+    "bowl-cap": date(2001, 10, 7),
+}
 DRAFT_STEAL_OVERALL = 100
 DRAFT_STEAL_POINTS = 70
 FIRST_STAR_TARGET = 10
@@ -1072,6 +1077,63 @@ def export_streak_len(dates: Iterable[date], *, max_gap_days: int = EXPORT_STREA
     return best
 
 
+def is_going_forward_always_key(key: str) -> bool:
+    return catalog_key_from_storage(key) in GOING_FORWARD_ALWAYS_KEYS
+
+
+def dates_on_or_after(dates: Iterable[date], start: date | None) -> list[date]:
+    """Keep attendance / export dates on or after the watermark calendar day."""
+    if start is None:
+        return [d for d in dates if d is not None]
+    return [d for d in dates if d is not None and d >= start]
+
+
+def heritage_pairs_from_truths(truths: dict[int, dict[str, Any]]) -> set[tuple[int, str]]:
+    return {
+        (int(tid), str(key))
+        for tid, keys in truths.items()
+        for key in keys
+        if not is_going_forward_always_key(str(key))
+    }
+
+
+def watermark_as_of_game_date(watermark: GmAchievementWatermark | None) -> date | None:
+    if watermark is None:
+        return None
+    raw = getattr(watermark, "as_of_game_date", None)
+    return raw if isinstance(raw, date) else None
+
+
+def watermark_started_on(watermark: GmAchievementWatermark | None) -> date | None:
+    if watermark is None:
+        return None
+    raw = getattr(watermark, "started_on", None)
+    return raw if isinstance(raw, date) else None
+
+
+def hydrate_watermark_cutoffs(
+    session: Session,
+    watermark: GmAchievementWatermark | None,
+    league_slug: str,
+    *,
+    as_of_game_date: date | None = None,
+) -> None:
+    """Fill missing heritage / tracking start dates without moving a set cutoff."""
+    if watermark is None:
+        return
+    if as_of_game_date is not None and watermark.as_of_game_date is None:
+        watermark.as_of_game_date = as_of_game_date
+    if watermark.as_of_game_date is None and league_slug in KNOWN_AS_OF_GAME_DATES:
+        watermark.as_of_game_date = KNOWN_AS_OF_GAME_DATES[league_slug]
+    if watermark.started_on is None:
+        first = session.scalar(
+            select(func.min(GmAchievementUnlock.unlocked_at)).where(
+                GmAchievementUnlock.league_slug == league_slug
+            )
+        )
+        watermark.started_on = first.date() if first is not None else datetime.utcnow().date()
+
+
 def playoff_spot_cutoff(team_count: int) -> int:
     n = int(team_count or 0)
     if n >= 24:
@@ -1336,6 +1398,7 @@ def discover_true_achievements(
     promoted_team_ids: set[int] | None = None,
     as_of_game_date: date | None = None,
     going_forward: bool = False,
+    export_after: date | None = None,
 ) -> dict[int, dict[str, dict[str, Any]]]:
     """Return team_id -> {achievement_key: meta} for currently true achievements.
 
@@ -1344,6 +1407,9 @@ def discover_true_achievements(
 
     ``going_forward`` (post-watermark evaluate) only marks The Pinnacle and
     A Real Dynasty when the cup / 5-peat was completed in the current season.
+
+    ``export_after`` limits Export Streak and Perfect Attendance to check-ins on
+    or after the watermark calendar day.
     """
     allowed = {item.key for item in catalog_for_league(league_slug)}
     hits: dict[int, dict[str, dict[str, Any]]] = {}
@@ -2370,7 +2436,8 @@ def discover_true_achievements(
         if row.team_id and row.export_date:
             dates_by_team.setdefault(int(row.team_id), []).append(row.export_date)
     for tid, dates in dates_by_team.items():
-        streak = export_streak_len(dates)
+        live_dates = dates_on_or_after(dates, export_after)
+        streak = export_streak_len(live_dates)
         if streak >= EXPORT_STREAK_TARGET:
             mark(
                 tid,
@@ -2384,7 +2451,7 @@ def discover_true_achievements(
         ATTENDANCE_WINDOW_DAYS = 45
         rolling_attendance_window_dates = None
     if rolling_attendance_window_dates is not None:
-        window = set(rolling_attendance_window_dates())
+        window = set(dates_on_or_after(rolling_attendance_window_dates(), export_after))
         league_days = {
             row.export_date
             for row in attendance_rows
@@ -2392,7 +2459,7 @@ def discover_true_achievements(
         }
         if len(league_days) >= 2:
             for tid, dates in dates_by_team.items():
-                team_days = {d for d in dates if d in window}
+                team_days = {d for d in dates_on_or_after(dates, export_after) if d in window}
                 if league_days <= team_days:
                     mark(
                         tid,
@@ -2792,7 +2859,7 @@ def reseed_gm_achievement_watermark(app, *, as_of_game_date: date) -> dict[str, 
         discover_true_achievements(session, slug, as_of_game_date=as_of_game_date),
         season_label or "",
     )
-    pairs = {(tid, key) for tid, keys in truths.items() for key in keys}
+    pairs = heritage_pairs_from_truths(truths)
     as_of_max = int(
         session.scalar(
             select(func.coalesce(func.max(Game.id), 0)).where(
@@ -2806,23 +2873,25 @@ def reseed_gm_achievement_watermark(app, *, as_of_game_date: date) -> dict[str, 
         select(GmAchievementWatermark).where(GmAchievementWatermark.league_slug == slug).limit(1)
     )
     if watermark is None:
-        session.add(
-            GmAchievementWatermark(
-                league_slug=slug,
-                max_game_id=as_of_max,
-                season_label=season_label or "",
-                already_true_json=_pairs_to_json(pairs),
-                tenure_json="{}",
-                team_tiers_json=json.dumps(_team_tiers_now(session, slug)),
-                evaluated_at=datetime.utcnow(),
-            )
+        watermark = GmAchievementWatermark(
+            league_slug=slug,
+            max_game_id=as_of_max,
+            season_label=season_label or "",
+            as_of_game_date=as_of_game_date,
+            already_true_json=_pairs_to_json(pairs),
+            tenure_json="{}",
+            team_tiers_json=json.dumps(_team_tiers_now(session, slug)),
+            evaluated_at=datetime.utcnow(),
         )
+        session.add(watermark)
     else:
         watermark.max_game_id = as_of_max
         watermark.season_label = season_label or watermark.season_label
+        watermark.as_of_game_date = as_of_game_date
         watermark.already_true_json = _pairs_to_json(pairs)
         watermark.team_tiers_json = json.dumps(_team_tiers_now(session, slug))
         watermark.evaluated_at = datetime.utcnow()
+    hydrate_watermark_cutoffs(session, watermark, slug, as_of_game_date=as_of_game_date)
     heritage = seed_heritage_race_unlocks(
         session,
         league_slug=slug,
@@ -3088,11 +3157,16 @@ def evaluate_gm_achievements_after_import(app) -> dict[str, int]:
 
     if watermark is None:
         truths = rewrite_truths_to_storage(discover_true_achievements(session, slug), season_label or "")
-        pairs = {(tid, key) for tid, keys in truths.items() for key in keys}
+        pairs = heritage_pairs_from_truths(truths)
+        as_of_seed = session.scalar(
+            select(func.max(Game.game_date)).where(Game.status == "final")
+        )
         row = GmAchievementWatermark(
             league_slug=slug,
             max_game_id=max_gid,
             season_label=season_label or "",
+            as_of_game_date=as_of_seed if isinstance(as_of_seed, date) else None,
+            started_on=datetime.utcnow().date(),
             already_true_json=_pairs_to_json(pairs),
             tenure_json="{}",
             team_tiers_json=json.dumps(tiers_now),
@@ -3117,6 +3191,7 @@ def evaluate_gm_achievements_after_import(app) -> dict[str, int]:
         )
         return stats
 
+    hydrate_watermark_cutoffs(session, watermark, slug)
     tenure = watermark.tenure_map()
     for mem in memberships.values():
         tkey = f"{int(mem.user_id)}:{int(mem.team_id)}"
@@ -3134,10 +3209,14 @@ def evaluate_gm_achievements_after_import(app) -> dict[str, int]:
             tenure_counts=tenure_counts,
             promoted_team_ids=promoted,
             going_forward=True,
+            export_after=watermark_started_on(watermark),
         ),
         season_label or "",
     )
-    already = expand_legacy_pairs(_already_pairs(watermark), season_label or "")
+    already = expand_legacy_pairs(
+        {pair for pair in _already_pairs(watermark) if not is_going_forward_always_key(pair[1])},
+        season_label or "",
+    )
     existing = expand_legacy_pairs(
         {
             (int(r.team_id), str(r.achievement_key))
@@ -3379,6 +3458,9 @@ def progress_for_team(
     """In-progress fractions for the Achievements page."""
     out: dict[str, dict[str, Any]] = {}
     season = get_current_season()
+    hydrate_watermark_cutoffs(session, watermark, league_slug)
+    as_of = watermark_as_of_game_date(watermark)
+    started_on = watermark_started_on(watermark)
     if membership and watermark:
         tkey = f"{int(membership.user_id)}:{int(team_id)}"
         n = len(watermark.tenure_map().get(tkey) or [])
@@ -3444,6 +3526,8 @@ def progress_for_team(
             ).all()
         ]
         team_games.sort(key=lambda g: (g.game_date or date.min, int(g.id)))
+        if as_of is not None:
+            team_games = [g for g in team_games if g.game_date and g.game_date > as_of]
         letters = []
         for g in team_games:
             if not is_regular_season_game_type(g.game_type):
@@ -3594,16 +3678,19 @@ def progress_for_team(
                 "target": HOMEGROWN_CORE_TARGET,
                 "label": f"{grown_n} / {HOMEGROWN_CORE_TARGET} self-drafted",
             }
-    export_dates = [
-        row.export_date
-        for row in session.scalars(
-            select(GmExportAttendance).where(
-                GmExportAttendance.league_slug == league_slug,
-                GmExportAttendance.team_id == int(team_id),
-            )
-        ).all()
-        if row.export_date
-    ]
+    export_dates = dates_on_or_after(
+        [
+            row.export_date
+            for row in session.scalars(
+                select(GmExportAttendance).where(
+                    GmExportAttendance.league_slug == league_slug,
+                    GmExportAttendance.team_id == int(team_id),
+                )
+            ).all()
+            if row.export_date
+        ],
+        started_on,
+    )
     export_n = export_streak_len(export_dates)
     if export_n:
         out["export_streak"] = {
@@ -3635,7 +3722,7 @@ def progress_for_team(
         rolling_attendance_window_dates = None
         ATTENDANCE_WINDOW_DAYS = 45
     if rolling_attendance_window_dates is not None:
-        window = set(rolling_attendance_window_dates())
+        window = set(dates_on_or_after(rolling_attendance_window_dates(), started_on))
         league_days = {
             row.export_date
             for row in session.scalars(

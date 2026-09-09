@@ -34,6 +34,7 @@ from app.services.gm_achievements import (
     collect_new_hits,
     consecutive_champ_streak_ending_in,
     credit_achievement_ap,
+    dates_on_or_after,
     detect_comeback_from_events,
     detect_comeback_from_period_scores,
     detect_consecutive_playoff_shutouts,
@@ -53,6 +54,7 @@ from app.services.gm_achievements import (
     reopen_heritage_milestone_locks,
     expand_legacy_pairs,
     export_streak_len,
+    heritage_pairs_from_truths,
     format_export_recap,
     is_calder_award,
     is_fighting_infraction,
@@ -63,6 +65,7 @@ from app.services.gm_achievements import (
     revoke_gm_achievement_unlocks,
     parse_reward_cells,
     place_label,
+    progress_for_team,
     player_ids_from_drag_keys,
     playoff_spot_cutoff,
     rewrite_truths_to_storage,
@@ -82,6 +85,7 @@ from app.site_models import (
     ApLedgerEntry,
     GmAchievementUnlock,
     GmAchievementWatermark,
+    GmExportAttendance,
     GmLeagueMembership,
     User,
 )
@@ -259,6 +263,26 @@ class DetectorTests(unittest.TestCase):
             3,
         )
         self.assertEqual(export_streak_len([date(2026, 1, 1), date(2026, 1, 20)]), 1)
+        self.assertEqual(
+            dates_on_or_after(
+                [date(2026, 9, 1), date(2026, 9, 6), date(2026, 9, 8)],
+                date(2026, 9, 6),
+            ),
+            [date(2026, 9, 6), date(2026, 9, 8)],
+        )
+        self.assertEqual(
+            heritage_pairs_from_truths(
+                {
+                    1: {
+                        "homegrown_core": {},
+                        "export_streak": {},
+                        "perfect_attendance:2001-02": {},
+                        "pinnacle": {},
+                    }
+                }
+            ),
+            {(1, "pinnacle")},
+        )
         self.assertEqual(playoff_spot_cutoff(32), 16)
         self.assertEqual(playoff_spot_cutoff(16), 8)
         self.assertTrue(is_calder_award("CALDER TROPHY"))
@@ -748,6 +772,16 @@ class EvaluatorWatermarkTests(unittest.TestCase):
                     "all_natural": {"detail": "new hat"},
                 }
             }
+            existing_all_natural = db.session.scalar(
+                select(GmAchievementUnlock).where(
+                    GmAchievementUnlock.league_slug == "bowl-cap",
+                    GmAchievementUnlock.team_id == tid,
+                    GmAchievementUnlock.achievement_key == "all_natural",
+                ).limit(1)
+            )
+            if existing_all_natural is not None:
+                db.session.delete(existing_all_natural)
+                db.session.flush()
             with (
                 patch(
                     "app.services.gm_achievements.discover_true_achievements",
@@ -913,6 +947,130 @@ class EvaluatorWatermarkTests(unittest.TestCase):
             )
             self.assertIsNotNone(unlock)
             self.assertIsNone(unlock.claimed_at)
+            db.session.rollback()
+
+    def test_evaluate_awards_watermarked_homegrown_without_unlock(self) -> None:
+        self.app = create_app(make_league_config("bowl-cap"))
+        with self.app.app_context():
+            team = db.session.scalar(select(Team).order_by(Team.id).limit(1))
+            self.assertIsNotNone(team)
+            tid = int(team.id)
+
+            def _flush_only(session) -> None:
+                session.flush()
+
+            watermark = db.session.scalar(
+                select(GmAchievementWatermark).where(
+                    GmAchievementWatermark.league_slug == "bowl-cap"
+                ).limit(1)
+            )
+            if watermark is None:
+                watermark = GmAchievementWatermark(
+                    league_slug="bowl-cap",
+                    max_game_id=1,
+                    season_label="2001-02",
+                    already_true_json="{}",
+                    tenure_json="{}",
+                    team_tiers_json="{}",
+                )
+                db.session.add(watermark)
+                db.session.flush()
+            already = watermark.already_true_map()
+            keys = set(already.get(str(tid), []))
+            keys.add("homegrown_core")
+            already[str(tid)] = sorted(keys)
+            watermark.already_true_json = json.dumps(already)
+            db.session.flush()
+
+            existing = db.session.scalar(
+                select(GmAchievementUnlock).where(
+                    GmAchievementUnlock.league_slug == "bowl-cap",
+                    GmAchievementUnlock.team_id == tid,
+                    GmAchievementUnlock.achievement_key == "homegrown_core",
+                ).limit(1)
+            )
+            if existing is not None:
+                db.session.delete(existing)
+                db.session.flush()
+
+            with (
+                patch(
+                    "app.services.gm_achievements.discover_true_achievements",
+                    return_value={tid: {"homegrown_core": {"detail": "8 self-drafted"}}},
+                ),
+                patch("app.sqlite_retry.commit_with_sqlite_retry", _flush_only),
+                patch("app.services.gm_achievements._enqueue_achievement_discord"),
+            ):
+                stats = evaluate_gm_achievements_after_import(self.app)
+            self.assertGreaterEqual(stats["awarded"], 1)
+            unlock = db.session.scalar(
+                select(GmAchievementUnlock).where(
+                    GmAchievementUnlock.league_slug == "bowl-cap",
+                    GmAchievementUnlock.team_id == tid,
+                    GmAchievementUnlock.achievement_key == "homegrown_core",
+                ).limit(1)
+            )
+            self.assertIsNotNone(unlock)
+            self.assertIsNone(unlock.claimed_at)
+            db.session.rollback()
+
+    def test_progress_export_feats_start_on_watermark_date(self) -> None:
+        self.app = create_app(make_league_config("bowl-cap"))
+        with self.app.app_context():
+            team = db.session.scalar(select(Team).order_by(Team.id).limit(1))
+            self.assertIsNotNone(team)
+            tid = int(team.id)
+            watermark = db.session.scalar(
+                select(GmAchievementWatermark).where(
+                    GmAchievementWatermark.league_slug == "bowl-cap"
+                ).limit(1)
+            )
+            if watermark is None:
+                watermark = GmAchievementWatermark(
+                    league_slug="bowl-cap",
+                    max_game_id=1,
+                    season_label="2001-02",
+                    already_true_json="{}",
+                    tenure_json="{}",
+                    team_tiers_json="{}",
+                )
+                db.session.add(watermark)
+                db.session.flush()
+            watermark.started_on = date(2026, 9, 6)
+            watermark.as_of_game_date = date(2001, 10, 7)
+            for row in list(
+                db.session.scalars(
+                    select(GmExportAttendance).where(
+                        GmExportAttendance.league_slug == "bowl-cap",
+                        GmExportAttendance.team_id == tid,
+                    )
+                ).all()
+            ):
+                db.session.delete(row)
+            db.session.flush()
+            for day in (date(2026, 8, 1), date(2026, 8, 8), date(2026, 9, 6), date(2026, 9, 8)):
+                db.session.add(
+                    GmExportAttendance(
+                        league_slug="bowl-cap",
+                        team_id=tid,
+                        export_date=day,
+                    )
+                )
+            db.session.flush()
+            with patch(
+                "app.services.export_attendance.rolling_attendance_window_dates",
+                return_value=[
+                    date(2026, 8, 1),
+                    date(2026, 8, 8),
+                    date(2026, 9, 6),
+                    date(2026, 9, 8),
+                ],
+            ):
+                prog = progress_for_team(db.session, "bowl-cap", tid, watermark, None)
+            self.assertEqual(prog["export_streak"]["current"], 2)
+            self.assertIn("2 / 10", prog["export_streak"]["label"])
+            self.assertEqual(prog["perfect_attendance"]["current"], 2)
+            self.assertEqual(prog["perfect_attendance"]["target"], 2)
             db.session.rollback()
 
     def test_relock_pre_watermark_keeps_later_awards(self) -> None:

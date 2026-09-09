@@ -1646,6 +1646,8 @@ class GmAchievementWatermark(db.Model):
     league_slug: Mapped[str] = mapped_column(String(64), nullable=False)
     max_game_id: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     season_label: Mapped[str] = mapped_column(String(16), nullable=False, default="")
+    as_of_game_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    started_on: Mapped[date | None] = mapped_column(Date, nullable=True)
     already_true_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
     tenure_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
     team_tiers_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")

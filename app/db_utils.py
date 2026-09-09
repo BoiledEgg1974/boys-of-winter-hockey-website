@@ -3975,6 +3975,8 @@ def ensure_gm_achievements_sqlite(engine: Engine) -> None:
                         league_slug VARCHAR(64) NOT NULL,
                         max_game_id INTEGER NOT NULL DEFAULT 0,
                         season_label VARCHAR(16) NOT NULL DEFAULT '',
+                        as_of_game_date DATE,
+                        started_on DATE,
                         already_true_json TEXT NOT NULL DEFAULT '{}',
                         tenure_json TEXT NOT NULL DEFAULT '{}',
                         team_tiers_json TEXT NOT NULL DEFAULT '{}',
@@ -3984,4 +3986,10 @@ def ensure_gm_achievements_sqlite(engine: Engine) -> None:
                     """
                 )
             )
+        if _bind_db_table_exists(conn, "gm_achievement_watermarks", dialect):
+            wm_cols = {str(name).lower() for name in _bind_db_column_names(conn, "gm_achievement_watermarks", dialect)}
+            if "as_of_game_date" not in wm_cols:
+                conn.execute(text("ALTER TABLE gm_achievement_watermarks ADD COLUMN as_of_game_date DATE"))
+            if "started_on" not in wm_cols:
+                conn.execute(text("ALTER TABLE gm_achievement_watermarks ADD COLUMN started_on DATE"))
         conn.commit()

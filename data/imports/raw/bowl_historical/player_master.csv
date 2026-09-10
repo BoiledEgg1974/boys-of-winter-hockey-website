@@ -1400,7 +1400,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 5913;124;123;Bruce;Landon;;70;181;1949-10-5;Kingston;ON;Canada;;;0;Left;0
 5914;90;90;Jacques;Lemelin;;70;165;1949-11-11;Richmond;QC;Canada;;;0;Left;0
 5915;90;90;Louis;Levasseur;;70;161;1949-6-16;Roberval;QC;Canada;;;0;Left;0
-5916;128;121;Barry;Long;Marathon Man;74;210;1949-1-3;Rocky View County;AB;Canada;;;0;Left;0
+5916;121;121;Barry;Long;Marathon Man;74;210;1949-1-3;Rocky View County;AB;Canada;;;0;Left;1
 5687;3;3;John;Marks;;74;200;1948-3-22;Oakbank;MB;Canada;;;0;Left;0
 6147;133;131;Walt;Ledingham;;71;183;1950-10-26;Warman;SK;Canada;;;0;Left;1
 5271;8;8;Gerry;Meehan;;74;201;1946-9-3;Toronto;ON;Canada;;;0;Left;0
@@ -1443,7 +1443,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 5694;122;122;George;Morrison;;73;170;1948-12-24;Toronto;ON;Canada;;;0;Left;0
 5278;118;118;Craig;Patrick;;72;190;1946-5-20;Elk Rapids;MI;The United States;;;0;Left;0
 5115;130;130;Lars-Göran;Nilsson;;70;165;1944-3-9;Lidköping;VäS;Sweden;;;0;Left;1
-5922;27;9;Larry;McIntyre;;73;190;1949-7-13;North Battleford;SK;Canada;;;0;Left;0
+5922;9;9;Larry;McIntyre;;73;190;1949-7-13;North Battleford;SK;Canada;;;0;Left;1
 4231;90;90;Ken;Walters;;68;134;1939-7-30;Vernon;BC;Canada;;;0;Left;0
 4232;90;90;Colin;McCormick;;70;170;1939-11-5;Prince Rupert;BC;Canada;;;0;Left;0
 6150;130;130;Ron;Low;;73;205;1950-6-21;Dufresne;MB;Canada;;;0;Left;1
@@ -2893,7 +2893,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 5193;90;90;Jerry;Lafond;;73;190;1945-6-26;Enderby;BC;Canada;;;0;Left;0
 5194;90;90;Paul;Cates;;70;172;1945-6-12;Sarnia;ON;Canada;;;0;Left;0
 5195;90;90;Ian;Campbell;;73;190;1945-1-13;Toronto;ON;Canada;;;0;Left;0
-5196;123;123;Dave;Woodley;;70;185;1945-10-3;White Rock;BC;Canada;;;0;Left;0
+5196;122;122;Dave;Woodley;;70;185;1945-10-3;White Rock;BC;Canada;;;0;Left;0
 5197;90;90;Ron;Gilbert;;70;170;1945-8-16;Richmond;QC;Canada;;;0;Left;0
 5198;90;90;Wally;Sprange;;74;205;1945-11-22;Toronto;ON;Canada;;;0;Left;0
 5199;90;90;Claude;Bernard;;70;170;1945-1-1;Toronto;ON;Canada;;;0;Left;0

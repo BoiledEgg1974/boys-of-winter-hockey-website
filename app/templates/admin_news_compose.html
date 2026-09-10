@@ -17,7 +17,7 @@
         <option value="" {% if not form_team_id %}selected{% endif %} disabled>— Select team —</option>
         <option value="league" {% if form_team_id is defined and form_team_id == 'league' %}selected{% endif %}>League</option>
         {% for t in teams %}
-        <option value="{{ t.id }}" {% if form_team_id is defined and form_team_id|string == t.id|string %}selected{% endif %}>{{ t.full_display_name() }}</option>
+        <option value="{{ t.id }}" {% if form_team_id is defined and form_team_id|string == t.id|string %}selected{% endif %}>{{ t.full_display_name() }} ({{ t.abbreviation }})</option>
         {% endfor %}
       </select>
     </label>

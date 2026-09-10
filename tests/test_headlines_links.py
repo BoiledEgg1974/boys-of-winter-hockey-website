@@ -2,11 +2,27 @@
 from __future__ import annotations
 
 import unittest
+from types import SimpleNamespace
 
 from app import create_app
 from app.config import make_league_config
 from app.league_urls import league_mount_relative_path, league_test_request_context
+from app.routes.main import _headline_byline_team
 from flask import url_for
+
+
+class HeadlineBylineTeamTest(unittest.TestCase):
+    def test_byline_uses_tagged_franchise_not_author_seat(self) -> None:
+        sjs = SimpleNamespace(id=22, abbreviation="SJS")
+        njd = SimpleNamespace(id=16, abbreviation="NJD")
+        art = SimpleNamespace(team_id=22, author_user_id=1)
+        team = _headline_byline_team(
+            "bowl-cap",
+            art,
+            {1: SimpleNamespace(is_admin=True)},
+            {16: njd, 22: sjs},
+        )
+        self.assertIs(team, sjs)
 
 
 class HeadlinesMountPathTest(unittest.TestCase):

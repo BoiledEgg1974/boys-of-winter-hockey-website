@@ -371,11 +371,13 @@ def _headline_byline_team(
     authors: dict[int, object],
     teams_by_id: dict[int, Team],
 ) -> Team | None:
-    """Team logo next to byline: GM's active seat, else article team, else none."""
+    """Team logo next to byline: tagged article franchise, else author's GM seat."""
+    tid = getattr(art, "team_id", None)
+    if tid:
+        tagged = teams_by_id.get(int(tid))
+        if tagged is not None:
+            return tagged
     uid = int(getattr(art, "author_user_id", 0) or 0)
-    u = authors.get(uid)
-    if u is not None and getattr(u, "is_admin", False) and getattr(art, "team_id", None):
-        return teams_by_id.get(int(art.team_id))
     from app.site_models import GmLeagueMembership
 
     mem = db.session.scalar(
@@ -389,9 +391,6 @@ def _headline_byline_team(
     )
     if mem and mem.team_id:
         return teams_by_id.get(int(mem.team_id))
-    tid = getattr(art, "team_id", None)
-    if tid:
-        return teams_by_id.get(int(tid))
     return None
 
 

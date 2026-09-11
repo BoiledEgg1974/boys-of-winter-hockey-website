@@ -4770,7 +4770,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 12412;229;229;Eric;Boguniecki;;68;198;1975-5-6;Stafford;CT;The United States;;;0;Right;0
 12413;157;157;Alexander;Boikov;;72;207;1975-2-7;Chelyabinsk;CHE;Russia;;;0;Left;0
 12414;24;24;Patrick;Boileau;;72;203;1975-2-22;Murdochville;QC;Canada;;;0;Right;0
-12415;224;224;Sébastien;Bordeleau;;71;185;1975-2-15;Vernon;BC;France;Canada;;0;Right;0
+12415;225;224;Sébastien;Bordeleau;;71;185;1975-2-15;Vernon;BC;France;Canada;;0;Right;0
 12416;162;162;Christoph;Brandner;;77;224;1975-7-5;Bruck an der Mur;STE;Austria;;;0;Left;0
 12417;12;12;Brad;Brown;;76;220;1975-12-27;Bouctouche;NB;Canada;;;0;Right;0
 12418;186;186;Steve;Brulé;;72;203;1975-1-15;Murdochville;QC;Canada;;;0;Right;0
@@ -4807,7 +4807,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 12449;19;19;John;Jakopin;;77;239;1975-5-16;Toronto;ON;Canada;;;0;Right;0
 12450;75;24;Matt;Johnson;;77;236;1975-11-23;Welland;ON;Canada;;;0;Left;0
 12451;155;155;Andreas;Karlsson;;76;205;1975-8-19;Ludvika;DAL;Sweden;;;0;Left;0
-12452;66;15;Chris;Kelleher;;73;210;1975-3-23;Dedham;MA;The United States;;;0;Left;0
+12452;15;15;Chris;Kelleher;;73;210;1975-3-23;Dedham;MA;The United States;;;0;Left;0
 12453;65;14;Greg;Koehler;;74;195;1975-2-27;Toronto;ON;Canada;;;0;Left;0
 12454;215;214;Ladislav;Kohn;;71;194;1975-3-4;Uherské Hradiste;ZLN;Czech Republic;;;0;Left;0
 12455;22;22;Viktor;Kozlov;;77;236;1975-2-14;Togliatti;SAM;Russia;;;0;Right;0
@@ -7201,7 +7201,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 15131;186;186;Morgan;Warren;;74;209;1980-3-6;Clyde River;PE;Canada;;;0;Right;1
 15132;186;186;Paul;Elliott;;73;216;1980-6-2;Richmond;BC;Canada;;;0;Left;1
 15133;186;186;Gavin;McLeod;;77;216;1980-1-1;Springwater;ON;Canada;;;0;Left;1
-15134;23;23;Joe;Rullier;;75;231;1980-1-28;Murdochville;QC;Canada;;;0;Right;0
+15134;74;23;Joe;Rullier;;75;231;1980-1-28;Murdochville;QC;Canada;;;0;Right;0
 15135;186;186;Aaron;Goldade;;73;203;1980-7-30;Kingston;ON;Canada;;;0;Left;1
 15136;186;186;Martin;Beauchesne;;72;201;1980-7-8;Deux-Montagnes;QC;Canada;;;0;Left;1
 15137;186;186;Garrett;Prosofsky;;71;190;1980-5-19;Swift Current;SK;Canada;;;0;Left;1

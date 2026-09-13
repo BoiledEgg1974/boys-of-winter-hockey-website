@@ -52,6 +52,7 @@ _log = logging.getLogger(__name__)
 ACHIEVEMENT_UNLOCKED_EVENT_KEY = "achievement_unlocked"
 ACHIEVEMENT_EXPORT_RECAP_EVENT_KEY = "achievement_export_recap"
 REASON_CODE = "gm_achievement"
+CLAWBACK_REASON_CODE = "gm_achievement_clawback"
 
 HOCKEY_SLUGS = frozenset(HOCKEY_LEAGUE_SLUGS)
 RELEGATION_ONLY = frozenset({"bowl-fantasy"})
@@ -718,6 +719,35 @@ def acquired_by_team_from_ledger(
     for pid in player_ids_from_drag_keys(right_out):
         acquired.setdefault(int(from_team_id), set()).add(pid)
     return acquired
+
+
+def heist_productions_from_game_logs(
+    games: Iterable[Any],
+    skater_lines: Iterable[Any],
+    acquired: dict[int, set[int]],
+) -> list[tuple[int, int, int]]:
+    """Sum regular-season G+A by (acquiring team, player) from boxscores.
+
+    Season totals on ``PlayerSkaterStat`` follow the player's current team after a
+    trade, so they cannot be used: pre-trade points would count as a Heist.
+    """
+    rs_ids = {int(g.id) for g in games if getattr(g, "id", None) and _is_regular_season_game(g)}
+    if not rs_ids or not acquired:
+        return []
+    totals: dict[tuple[int, int], int] = {}
+    for ln in skater_lines:
+        if not getattr(ln, "player_id", None) or not getattr(ln, "team_id", None):
+            continue
+        try:
+            gid = int(ln.game_id)
+            tid = int(ln.team_id)
+            pid = int(ln.player_id)
+        except (TypeError, ValueError):
+            continue
+        if gid not in rs_ids or pid not in acquired.get(tid, set()):
+            continue
+        totals[(tid, pid)] = totals.get((tid, pid), 0) + int(ln.goals or 0) + int(ln.assists or 0)
+    return [(tid, pid, pts) for (tid, pid), pts in totals.items()]
 
 
 def detect_heist(
@@ -2130,23 +2160,7 @@ def discover_true_achievements(
             _log.exception("GM achievements: Trade Tool lookup failed for The Heist.")
             acquired = {}
         if acquired:
-            productions: list[tuple[int, int, int]] = []
-            for st in skaters:
-                if st.team_id and st.player_id:
-                    productions.append((int(st.team_id), int(st.player_id), int(st.points or 0)))
-            year = int(season.start_year or 0) if season else 0
-            pids = {pid for ids in acquired.values() for pid in ids}
-            if year and pids:
-                for line in session.scalars(
-                    select(PlayerSkaterCareerLine).where(
-                        PlayerSkaterCareerLine.player_id.in_(pids),
-                        PlayerSkaterCareerLine.season_year == year,
-                        PlayerSkaterCareerLine.career_source == "rs",
-                    )
-                ).all():
-                    if line.team_id and line.player_id:
-                        pts = int(line.goals or 0) + int(line.assists or 0)
-                        productions.append((int(line.team_id), int(line.player_id), pts))
+            productions = heist_productions_from_game_logs(games, skater_lines, acquired)
             for tid, pid, pts in detect_heist(acquired, productions):
                 pname = _player_name(session, pid)
                 mark(
@@ -2696,6 +2710,120 @@ def _revoke_unearned_perfect_attendance(
     return dropped
 
 
+def clawback_achievement_ap(unlock: GmAchievementUnlock) -> int:
+    """Reverse AP already granted for an invalid unlock. Idempotent on ``:clawback``."""
+    from app.league_db import db
+    from app.services.ap_service import add_ledger_entry
+    from app.site_models import ApLedgerEntry
+
+    credited = 0
+    if unlock.source_ref:
+        row = db.session.scalar(
+            select(ApLedgerEntry).where(ApLedgerEntry.source_ref == str(unlock.source_ref)).limit(1)
+        )
+        if row is not None:
+            credited = int(row.delta or 0)
+    if credited <= 0:
+        credited = int(unlock.ap_delta or 0)
+    if credited <= 0:
+        return 0
+    spec = CATALOG_BY_KEY.get(catalog_key_from_storage(unlock.achievement_key))
+    title = spec.title if spec else str(unlock.achievement_key)
+    claw_ref = f"{unlock.source_ref}:clawback" if unlock.source_ref else None
+    added = add_ledger_entry(
+        league_slug=str(unlock.league_slug),
+        team_id=int(unlock.team_id),
+        delta=-credited,
+        reason_code=CLAWBACK_REASON_CODE,
+        meta={
+            "achievement_key": str(unlock.achievement_key),
+            "achievement_title": title,
+            "note": f"Clawback: {title}",
+            "original_source_ref": str(unlock.source_ref or ""),
+        },
+        created_by_user_id=int(unlock.user_id) if unlock.user_id else None,
+        source_ref=claw_ref,
+    )
+    return credited if added is not None else 0
+
+
+def _cancel_pending_achievement_discord(session: Session, league_slug: str, source_refs: set[str]) -> int:
+    if not source_refs:
+        return 0
+    cancelled = 0
+    pending = list(
+        session.scalars(
+            select(DiscordOutboundEvent).where(
+                DiscordOutboundEvent.league_slug == league_slug,
+                DiscordOutboundEvent.status == "pending",
+                DiscordOutboundEvent.event_key.in_(
+                    (ACHIEVEMENT_UNLOCKED_EVENT_KEY, ACHIEVEMENT_LEAGUE_FIRST_EVENT_KEY)
+                ),
+            )
+        ).all()
+    )
+    for row in pending:
+        try:
+            payload = json.loads(row.payload_json or "{}")
+        except json.JSONDecodeError:
+            continue
+        if str(payload.get("source_id") or "") in source_refs:
+            row.status = "cancelled"
+            cancelled += 1
+    return cancelled
+
+
+def _revoke_unearned_heist(
+    session: Session,
+    *,
+    league_slug: str,
+    truths: dict[int, dict[str, Any]],
+) -> set[tuple[int, str]]:
+    """Drop current-season Heist tickets that used season totals instead of team boxscores.
+
+    Claimed tickets are included: AP is reversed on the ledger so the invalid award
+    cannot stay after a Trade Tool import remaps a player's season line.
+    """
+    dropped: set[tuple[int, str]] = set()
+    season_label = season_display_label(get_current_season())
+    current_keys = {"the_heist"}
+    if season_label:
+        current_keys.add(storage_key_for(CATALOG_BY_KEY["the_heist"], season_label))
+    live_teams = {
+        int(tid)
+        for tid, keys in truths.items()
+        if any(catalog_key_from_storage(key) == "the_heist" for key in keys)
+    }
+    rows = list(
+        session.scalars(
+            select(GmAchievementUnlock).where(GmAchievementUnlock.league_slug == league_slug)
+        ).all()
+    )
+    deleted_refs: set[str] = set()
+    for unlock in rows:
+        key = str(unlock.achievement_key)
+        if key not in current_keys:
+            continue
+        if int(unlock.team_id) in live_teams:
+            continue
+        clawback_achievement_ap(unlock)
+        if unlock.source_ref:
+            deleted_refs.add(str(unlock.source_ref))
+        session.delete(unlock)
+        dropped.add((int(unlock.team_id), key))
+    if dropped:
+        watermark = session.scalar(
+            select(GmAchievementWatermark).where(GmAchievementWatermark.league_slug == league_slug).limit(1)
+        )
+        if watermark is not None:
+            kept = {pair for pair in _already_pairs(watermark) if pair not in dropped}
+            if len(kept) != len(_already_pairs(watermark)):
+                watermark.already_true_json = _pairs_to_json(kept)
+                watermark.evaluated_at = datetime.utcnow()
+        _cancel_pending_achievement_discord(session, league_slug, deleted_refs)
+    return dropped
+
+
 def _delete_stale_race_unlocks(
     session: Session,
     league_slug: str,
@@ -3183,6 +3311,62 @@ def revoke_gm_achievement_unlocks(
     return stats
 
 
+def clawback_invalid_heists(app) -> dict[str, Any]:
+    """Revoke current-season Heist unlocks that are not true from team boxscores.
+
+    Applies to every hockey league app this is called with, including claimed
+    tickets (AP is reversed). Does not award new achievements.
+    """
+    slug = str(getattr(app, "config", {}).get("LEAGUE_SLUG") or "").strip()
+    stats: dict[str, Any] = {
+        "league": slug,
+        "revoked": 0,
+        "skipped": 0,
+        "details": [],
+    }
+    if slug not in HOCKEY_SLUGS:
+        stats["skipped"] = 1
+        return stats
+
+    from app.league_db import db
+    from app.sqlite_retry import commit_with_sqlite_retry
+
+    session = db.session
+    season_label = season_display_label(get_current_season())
+    truths = rewrite_truths_to_storage(
+        discover_true_achievements(session, slug, going_forward=True),
+        season_label or "",
+    )
+    before = {
+        (int(row.team_id), str(row.achievement_key)): row
+        for row in session.scalars(
+            select(GmAchievementUnlock).where(GmAchievementUnlock.league_slug == slug)
+        ).all()
+        if catalog_key_from_storage(row.achievement_key) == "the_heist"
+    }
+    dropped = _revoke_unearned_heist(session, league_slug=slug, truths=truths)
+    commit_with_sqlite_retry(session)
+    details: list[dict[str, Any]] = []
+    for pair in sorted(dropped):
+        unlock = before.get(pair)
+        meta = unlock.meta_map() if unlock is not None else {}
+        details.append(
+            {
+                "team_id": pair[0],
+                "achievement_key": pair[1],
+                "player_name": meta.get("player_name"),
+                "points": meta.get("points"),
+                "detail": meta.get("detail"),
+                "claimed": bool(unlock.claimed_at) if unlock is not None else False,
+                "ap_delta": int(unlock.ap_delta or 0) if unlock is not None else 0,
+            }
+        )
+    stats["revoked"] = len(dropped)
+    stats["details"] = details
+    _log.info("GM achievements Heist clawback for %s: %s", slug, stats)
+    return stats
+
+
 def evaluate_gm_achievements_after_import(app) -> dict[str, int]:
     """Seed a watermark on first import; award new unlocks after that."""
     slug = str(getattr(app, "config", {}).get("LEAGUE_SLUG") or "").strip()
@@ -3195,6 +3379,7 @@ def evaluate_gm_achievements_after_import(app) -> dict[str, int]:
         "tickets_reopened": 0,
         "heritage_career_revoked": 0,
         "perfect_attendance_revoked": 0,
+        "heist_revoked": 0,
     }
     if slug not in HOCKEY_SLUGS:
         stats["skipped"] = 1
@@ -3292,6 +3477,9 @@ def evaluate_gm_achievements_after_import(app) -> dict[str, int]:
     premature_pa = _revoke_unearned_perfect_attendance(session, league_slug=slug, truths=truths)
     existing -= premature_pa
     stats["perfect_attendance_revoked"] = len(premature_pa)
+    false_heist = _revoke_unearned_heist(session, league_slug=slug, truths=truths)
+    existing -= false_heist
+    stats["heist_revoked"] = len(false_heist)
     drop = stale | orphan
     if drop:
         already -= drop
@@ -3704,13 +3892,32 @@ def progress_for_team(
             acquired = _acquired_players_from_published_trades(session, league_slug)
         except Exception:
             acquired = {}
+        heist_acquired = {int(team_id): set(acquired.get(int(team_id), set()))}
         heist_best = 0
-        for st in skaters:
-            if not st.player_id or not st.team_id:
-                continue
-            if int(st.player_id) not in acquired.get(int(st.team_id), set()):
-                continue
-            heist_best = max(heist_best, int(st.points or 0))
+        if heist_acquired[int(team_id)]:
+            season_games = list(
+                session.scalars(select(Game).where(Game.season_id == season.id)).all()
+            )
+            rs_ids = [int(g.id) for g in season_games if g.id and _is_regular_season_game(g)]
+            if rs_ids:
+                heist_lines = list(
+                    session.scalars(
+                        select(GameSkaterStat).where(
+                            GameSkaterStat.game_id.in_(rs_ids),
+                            GameSkaterStat.team_id == int(team_id),
+                            GameSkaterStat.player_id.in_(heist_acquired[int(team_id)]),
+                        )
+                    ).all()
+                )
+                heist_best = max(
+                    (
+                        pts
+                        for _tid, _pid, pts in heist_productions_from_game_logs(
+                            season_games, heist_lines, heist_acquired
+                        )
+                    ),
+                    default=0,
+                )
         if heist_best:
             out["the_heist"] = {
                 "current": min(heist_best, HEIST_POINTS_TARGET),

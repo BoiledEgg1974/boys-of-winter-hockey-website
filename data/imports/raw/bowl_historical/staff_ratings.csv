@@ -1031,7 +1031,7 @@ StaffId;Executive;Manager;Coach;Scout;Trainer;Off Pref;Phy Pref;Line Matching;Go
 1029;1;1;5;1;20;Standard;Balanced;Balanced;Conservative;Balanced;Very Innovative;Balanced;0;0;0;0;0;0;0;6;0;0;2;0;0;0;16;;0;0
 1030;1;1;5;1;20;Standard;Balanced;Aggressive;Aggressive;Prefers Prospects;Very Innovative;Ruthless;0;0;0;0;0;0;0;4;0;0;8;0;0;0;15;;0;0
 1031;1;1;5;1;20;Standard;Non-physical;Very Aggressive;Balanced;Balanced;Very Conservative;Balanced;0;0;0;0;0;0;0;1;0;0;8;0;0;0;17;;0;0
-1032;1;1;5;1;20;Offensive;Balanced;Aggressive;Very Conservative;Balanced;Conservative;Loyal;0;0;0;0;0;0;0;2;0;0;1;0;0;0;20;;0;0
+1032;1;1;5;1;20;Offensive;Balanced;Aggressive;Very Conservative;Balanced;Conservative;Loyal;1;1;1;1;1;1;1;2;1;1;1;1;1;1;20;;1;1
 1033;1;1;5;1;20;Standard;Non-physical;Passive;Very Conservative;Prefers Prospects;Innovative;Balanced;0;0;0;0;0;0;0;6;0;0;2;0;0;0;17;;0;0
 1034;1;1;5;1;20;Defensive;Very Physical;Aggressive;Conservative;Prefers Prospects;Conservative;Ruthless;0;0;0;0;0;0;0;2;0;0;8;0;0;0;18;;0;0
 1035;1;1;5;1;20;Defensive;Balanced;Balanced;Conservative;Balanced;Innovative;Balanced;0;0;0;0;0;0;0;7;0;0;8;0;0;0;18;;0;0

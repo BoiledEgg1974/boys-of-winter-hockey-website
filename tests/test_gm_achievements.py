@@ -31,6 +31,7 @@ from app.services.gm_achievements import (
     catalog_for_league,
     catalog_key_from_storage,
     claim_achievement_scratch,
+    clawback_achievement_ap,
     collect_new_hits,
     consecutive_champ_streak_ending_in,
     credit_achievement_ap,
@@ -45,6 +46,7 @@ from app.services.gm_achievements import (
     _mark_rocket_from_game_logs,
     detect_gordie_howe,
     detect_heist,
+    heist_productions_from_game_logs,
     detect_natural_hat_trick,
     detect_playoff_ot_winner,
     detect_road_win_after_dropping_first_two,
@@ -484,6 +486,8 @@ class CatalogTests(unittest.TestCase):
         self.assertTrue(first_wave.issubset(cap_keys))
         self.assertTrue(phase_two.issubset(cap_keys))
         self.assertTrue(phase_three.issubset(cap_keys))
+        self.assertTrue(phase_three.issubset(hist_keys))
+        self.assertTrue(phase_three.issubset(rel_keys))
         self.assertTrue(first_wave.issubset(hist_keys))
         self.assertTrue(first_wave.issubset(rel_keys))
         self.assertNotIn("jack_adams", cap_keys)
@@ -516,6 +520,77 @@ class CatalogTests(unittest.TestCase):
         hits = detect_heist({20: {5}}, [(20, 5, 24), (20, 5, 30), (10, 8, 11)])
         self.assertEqual(hits, [(20, 5, 24)])
         self.assertEqual(detect_heist({20: {5}}, [(20, 9, 40)]), [])
+        # Season totals follow the player to the new club; only boxscore points
+        # in that team's sweater count toward The Heist.
+        atl, det, white = 28, 5, 4892
+        acquired = {atl: {white}}
+        det_games = [
+            SimpleNamespace(id=n, game_type="Regular Season") for n in range(1, 4)
+        ]
+        det_lines = [
+            SimpleNamespace(game_id=1, team_id=det, player_id=white, goals=2, assists=1),
+            SimpleNamespace(game_id=2, team_id=det, player_id=white, goals=1, assists=0),
+            SimpleNamespace(game_id=3, team_id=det, player_id=white, goals=0, assists=1),
+        ]
+        self.assertEqual(
+            heist_productions_from_game_logs(det_games, det_lines, acquired),
+            [],
+        )
+        self.assertEqual(
+            detect_heist(acquired, heist_productions_from_game_logs(det_games, det_lines, acquired)),
+            [],
+        )
+        after_trade = det_games + [SimpleNamespace(id=4, game_type="Regular Season")]
+        after_lines = det_lines + [
+            SimpleNamespace(game_id=4, team_id=atl, player_id=white, goals=1, assists=1),
+        ]
+        self.assertEqual(
+            heist_productions_from_game_logs(after_trade, after_lines, acquired),
+            [(atl, white, 2)],
+        )
+        self.assertEqual(
+            detect_heist(
+                acquired,
+                heist_productions_from_game_logs(after_trade, after_lines, acquired),
+            ),
+            [],
+        )
+        heist_games = after_trade + [
+            SimpleNamespace(id=5, game_type="Regular Season"),
+            SimpleNamespace(id=6, game_type="Playoffs"),
+        ]
+        heist_lines = after_lines + [
+            SimpleNamespace(game_id=5, team_id=atl, player_id=white, goals=10, assists=8),
+            SimpleNamespace(game_id=6, team_id=atl, player_id=white, goals=5, assists=5),
+        ]
+        self.assertEqual(
+            detect_heist(
+                acquired,
+                heist_productions_from_game_logs(heist_games, heist_lines, acquired),
+            ),
+            [(atl, white, 20)],
+        )
+        unlock = SimpleNamespace(
+            source_ref="gm_ach:bowl-cap:28:the_heist:2001-02",
+            ap_delta=6,
+            league_slug="bowl-cap",
+            team_id=28,
+            user_id=9,
+            achievement_key="the_heist:2001-02",
+        )
+        original = SimpleNamespace(delta=6)
+        with (
+            patch("app.league_db.db") as db_mod,
+            patch("app.services.ap_service.add_ledger_entry", return_value=object()) as add_led,
+        ):
+            db_mod.session.scalar.return_value = original
+            self.assertEqual(clawback_achievement_ap(unlock), 6)
+            add_led.assert_called_once()
+            kwargs = add_led.call_args.kwargs
+            self.assertEqual(kwargs["delta"], -6)
+            self.assertEqual(kwargs["league_slug"], "bowl-cap")
+            self.assertEqual(kwargs["team_id"], 28)
+            self.assertEqual(kwargs["source_ref"], "gm_ach:bowl-cap:28:the_heist:2001-02:clawback")
         self.assertEqual(place_label(1), "1st")
         self.assertEqual(place_label(2), "2nd")
         self.assertEqual(place_label(4), "4th")

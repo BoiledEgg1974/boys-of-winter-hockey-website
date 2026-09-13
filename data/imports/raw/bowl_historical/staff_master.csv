@@ -470,7 +470,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 468;-1;Tom;Sanders;;1911-3-18;Markham;ON;Canada;;;0
 469;-1;Casey;Russell;;1911-8-7;Campbellton;NB;Canada;;;0
 470;-1;Gabriel;Gray;;1915-10-10;East Lansing;MI;The United States;;;0
-471;-1;Jordan;Filippelli;;1911-5-22;Toronto;ON;Canada;;;0
+471;119;Jordan;Filippelli;;1911-5-22;Toronto;ON;Canada;;;0
 472;-1;Elliot;Tsui;;1914-4-25;Lévis;QC;Canada;;;0
 473;131;Lucas;Bédard;;1911-10-28;Hoover;AL;The United States;;;0
 474;19;Paul;Riley;;1911-10-2;Ajax;ON;Canada;;;0
@@ -1031,7 +1031,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1029;-1;Samuel;Gordon;;1917-9-10;Green Valley;MD;The United States;;;0
 1030;-1;Dillon;Petersen;;1917-9-5;Sainte-Anne-des-Monts;QC;Canada;;;0
 1031;-1;Paul;Felmer;;1917-5-14;Timmins;ON;Canada;;;0
-1032;-1;Kenny;Hempenstall;;1917-10-13;Sutton;ON;Canada;;;0
+1032;130;Kenny;Hempenstall;;1917-10-13;Sutton;ON;Canada;;;0
 1033;-1;Sergio;Anello;;1917-11-29;Saint-Lin-Laurentides;QC;Canada;;;0
 1034;-1;Larry;Roy;;1917-3-17;Orion;IL;The United States;;;0
 1035;82;Warren;Nguyen;;1922-7-15;Ottawa;ON;Canada;;;0

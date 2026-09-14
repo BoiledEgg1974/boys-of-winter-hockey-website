@@ -49,6 +49,15 @@ _GOALIE_WAR_WEIGHTS: dict[str, float] = {
     "consistency": 0.04,
 }
 
+_WAR_REPLACEMENT_PCT = 50.0
+_WAR_PCT_SPAN = 49.0  # elite cap maps 99th percentile → cap; 50th → 0
+_WAR_ELITE_CAP_SKATER = 8.0
+_WAR_ELITE_CAP_GOALIE = 6.0
+_WAR_WINS_TOOLTIP = (
+    "BOWL WAR on a wins scale: league average ≈ 0, elite seasons ≈ 6–8 (skaters) or ≈ 4–6 (goalies). "
+    "Derived from percentile rank, not NHL Evolving Hockey WAR."
+)
+
 _GOALIE_GRID_KEYS: tuple[tuple[str, str, bool], ...] = (
     ("Save %", "sv_pct", True),
     ("GSAA", "gsaa", True),
@@ -125,6 +134,25 @@ def _pct_tier(pct: int | None) -> str:
 
 def _display_pct(pct: int | None) -> str:
     return f"{pct}%" if pct is not None else "—"
+
+
+def war_elite_cap(*, is_goalie: bool = False) -> float:
+    return _WAR_ELITE_CAP_GOALIE if is_goalie else _WAR_ELITE_CAP_SKATER
+
+
+def war_pct_to_wins(war_pct: int | float | None, *, is_goalie: bool = False) -> float | None:
+    """Map stored percentile (0–99) to a wins-style display scale (replacement ≈ 0)."""
+    if war_pct is None:
+        return None
+    cap = war_elite_cap(is_goalie=is_goalie)
+    return round((float(war_pct) - _WAR_REPLACEMENT_PCT) / _WAR_PCT_SPAN * cap, 2)
+
+
+def format_war_wins(war_pct: int | float | None, *, is_goalie: bool = False) -> str:
+    v = war_pct_to_wins(war_pct, is_goalie=is_goalie)
+    if v is None:
+        return "—"
+    return f"{v:.2f}"
 
 
 _SKATER_GRID_KEYS: tuple[tuple[str, str, bool], ...] = (
@@ -290,7 +318,8 @@ def chart_svg(
             "x1": pad_l,
             "x2": width - pad_r,
             "y": y_at(float(v)),
-            "mid": percentile_scale and abs(v - 50.0) < 1e-9,
+            "mid": (percentile_scale and abs(v - 50.0) < 1e-9)
+            or (not percentile_scale and abs(v - 0.0) < 1e-9),
         }
         for v in y_ticks
     ]
@@ -533,8 +562,8 @@ def _skater_metric_row(
     )
 
 
-def _qualified_skater_row(row: _SkaterMetricRow, min_gp: int) -> bool:
-    return row.gp >= min_gp and row.toi_seconds >= MIN_SKATER_TOI_SECONDS
+def _qualified_skater_row(row: _SkaterMetricRow, min_gp: int, *, min_toi_seconds: int) -> bool:
+    return row.gp >= min_gp and row.toi_seconds >= min_toi_seconds
 
 
 def _build_skater_pool(
@@ -545,7 +574,10 @@ def _build_skater_pool(
     position_group: str,
     raw_dir: Path,
 ) -> list[_SkaterMetricRow]:
+    from app.services.advanced_stats import _adaptive_min_toi_seconds
+
     min_gp = _adaptive_min_gp(session, PlayerSkaterStat, season_id, segment, MIN_SKATER_GP)
+    min_toi = _adaptive_min_toi_seconds(session, season_id, segment)
     stats = session.scalars(
         select(PlayerSkaterStat)
         .options(joinedload(PlayerSkaterStat.player), joinedload(PlayerSkaterStat.team))
@@ -559,7 +591,7 @@ def _build_skater_pool(
         row = _skater_metric_row(session, st, season_id=season_id, segment=segment, raw_dir=raw_dir)
         if row.position_group != position_group:
             continue
-        if not _qualified_skater_row(row, min_gp):
+        if not _qualified_skater_row(row, min_gp, min_toi_seconds=min_toi):
             continue
         out.append(row)
     return out
@@ -1223,9 +1255,15 @@ def build_player_analytics_card(
                 percentile_int(player_row.metrics.get("finishing"), pools.get("finishing") or [])
             ]
 
+    war_wins_series = [
+        war_pct_to_wins(v, is_goalie=False) if v is not None else None for v in war_series
+    ]
+    war_ymin = war_pct_to_wins(0, is_goalie=False) or -_WAR_ELITE_CAP_SKATER
     war_chart = chart_svg(
         war_labels,
-        [{"values": war_series, "class": "player-analytics-card__chart-line--war"}],
+        [{"values": war_wins_series, "class": "player-analytics-card__chart-line--war"}],
+        ymin=war_ymin,
+        ymax=_WAR_ELITE_CAP_SKATER,
     )
     comp_chart = chart_svg(
         war_labels,
@@ -1465,9 +1503,15 @@ def _build_goalie_analytics_card(
             sv_series = [round(sv * 100.0, 1) if sv is not None else None]
             league_sv_series = [round(league_sv_pct * 100.0, 1) if league_sv_pct is not None else None]
 
+    war_wins_series = [
+        war_pct_to_wins(v, is_goalie=True) if v is not None else None for v in war_series
+    ]
+    war_ymin = war_pct_to_wins(0, is_goalie=True) or -_WAR_ELITE_CAP_GOALIE
     war_chart = chart_svg(
         war_labels,
-        [{"values": war_series, "class": "player-analytics-card__chart-line--war"}],
+        [{"values": war_wins_series, "class": "player-analytics-card__chart-line--war"}],
+        ymin=war_ymin,
+        ymax=_WAR_ELITE_CAP_GOALIE,
     )
     sv_values = [v for v in sv_series if v is not None]
     league_sv_values = [v for v in league_sv_series if v is not None]

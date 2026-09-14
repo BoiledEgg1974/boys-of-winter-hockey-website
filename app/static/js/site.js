@@ -2015,8 +2015,14 @@
         function activate(e) {
           if (e.type === "keydown" && e.key !== "Enter" && e.key !== " ") return;
           e.preventDefault();
+          var sx = window.scrollX;
+          var sy = window.scrollY;
           sortByColumn(colIdx);
+          window.scrollTo(sx, sy);
         }
+        th.addEventListener("mousedown", function (e) {
+          e.preventDefault();
+        });
         th.addEventListener("click", activate);
         th.addEventListener("keydown", activate);
       })(c);
@@ -2024,6 +2030,48 @@
   }
 
   window.initSortableTable = initSortableTable;
+
+  var STATS_SCROLL_KEY = "bowl-stats-table-scroll";
+
+  function initStatsTableScrollPreserve() {
+    var root = document.querySelector(".stats-page, #team-page-stats");
+    if (!root) return;
+    root.querySelectorAll(".stats-th-link, .stats-pill").forEach(function (el) {
+      el.addEventListener("click", function () {
+        try {
+          sessionStorage.setItem(
+            STATS_SCROLL_KEY,
+            JSON.stringify({
+              path: window.location.pathname,
+              x: window.scrollX,
+              y: window.scrollY,
+            })
+          );
+        } catch (err) {
+          /* private mode / quota */
+        }
+      });
+    });
+    try {
+      var raw = sessionStorage.getItem(STATS_SCROLL_KEY);
+      if (!raw) return;
+      var saved = JSON.parse(raw);
+      sessionStorage.removeItem(STATS_SCROLL_KEY);
+      if (!saved || saved.path !== window.location.pathname) return;
+      var x = Number(saved.x) || 0;
+      var y = Number(saved.y) || 0;
+      function restore() {
+        window.scrollTo(x, y);
+      }
+      restore();
+      requestAnimationFrame(function () {
+        requestAnimationFrame(restore);
+      });
+      window.addEventListener("load", restore, { once: true });
+    } catch (err2) {
+      /* */
+    }
+  }
 
   function initTeamFinancesPanel() {
     var root = document.querySelector("[data-team-finances]");
@@ -3398,11 +3446,24 @@
       return map;
     }
 
+    function seasonAxisDefaults() {
+      var id = String(seasonSel.value);
+      var season = seasons.find(function (s) {
+        return String(s.id) === id;
+      });
+      return (season && season.axis_defaults) || null;
+    }
+
     function refreshMetricSelects() {
       var kind = kindSel.value;
       var defs = metricsForKind(kind);
       var xDefault = kind === "goalie" ? archive.default_x_goalie : archive.default_x_skater;
       var yDefault = kind === "goalie" ? archive.default_y_goalie : archive.default_y_skater;
+      var seasonDefs = seasonAxisDefaults();
+      if (seasonDefs && seasonDefs[kind]) {
+        if (seasonDefs[kind].x) xDefault = seasonDefs[kind].x;
+        if (seasonDefs[kind].y) yDefault = seasonDefs[kind].y;
+      }
       var opts = defs.map(function (m) {
         return { value: m.key, label: m.label };
       });
@@ -3684,7 +3745,11 @@
       refreshMetricSelects();
       renderChart();
     });
-    [seasonSel, segmentSel, xSel, ySel, normSel].forEach(function (sel) {
+    seasonSel.addEventListener("change", function () {
+      refreshMetricSelects();
+      renderChart();
+    });
+    [segmentSel, xSel, ySel, normSel].forEach(function (sel) {
       sel.addEventListener("change", renderChart);
     });
     renderChart();
@@ -4306,6 +4371,7 @@
     var chartSvg = root.querySelector("[data-team-stats-trend-chart]");
     var tip = root.querySelector("[data-team-stats-trend-tooltip]");
     var empty = root.querySelector("[data-team-stats-trend-empty]");
+    var archiveNote = root.querySelector("[data-team-stats-trend-archive-note]");
     if (!seasonSel || !segmentSel || !situationSel || !basisSel || !modeSel || !metricSel || !chartWrap || !chartSvg || !tip) {
       return;
     }
@@ -4537,13 +4603,16 @@
 
       if (!ds || !ds.series || !ds.series.length) {
         if (empty) empty.hidden = false;
+        if (archiveNote) archiveNote.hidden = true;
         return;
       }
       if (empty) empty.hidden = true;
+      if (archiveNote) archiveNote.hidden = String(ds.source || "") !== "records";
 
       var plotted = buildPlottedSeries(ds.series, metric, trendMode, basisSel.value);
       if (!plotted.length) {
         if (empty) empty.hidden = false;
+        if (archiveNote) archiveNote.hidden = true;
         return;
       }
 
@@ -4556,6 +4625,7 @@
       }
       if (!plotted.length) {
         if (empty) empty.hidden = false;
+        if (archiveNote) archiveNote.hidden = true;
         return;
       }
       var values = plotted.map(function (p) { return p.value; });
@@ -5185,6 +5255,7 @@
 
   document.addEventListener("DOMContentLoaded", function () {
     document.querySelectorAll("table.data-sortable").forEach(initSortableTable);
+    initStatsTableScrollPreserve();
     document.querySelectorAll("table[data-page-size]").forEach(initPaginatedTable);
     initTeamFinancesPanel();
     initTeamLineBuilder();

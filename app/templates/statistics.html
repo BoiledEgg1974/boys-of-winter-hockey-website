@@ -2,7 +2,8 @@
 {% block title %}STATISTICS — Boys of Winter Hockey League{% endblock %}
 {% block content %}
 <div class="stats-page">
-  {% set team_statistics = none %}
+  {% with team_statistics=none %}
   {% include "_statistics_panel.html" %}
+  {% endwith %}
 </div>
 {% endblock %}

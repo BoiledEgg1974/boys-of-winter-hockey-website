@@ -11373,14 +11373,20 @@ table.data-sortable thead th.th-sortable.is-sorted-desc::after {
   z-index: 7;
   background: var(--stats-freeze-head-bg);
 }
-.stats-panel.stats-panel--statistics .stats-table.stats-table--h-sticky thead th:nth-child(-n + 4):has(> .stats-th-link.is-sorted) {
+.stats-panel.stats-panel--statistics .stats-table.stats-table--h-sticky thead th:nth-child(-n + 4):has(> .stats-th-link.is-sorted),
+.stats-panel.stats-panel--statistics .stats-table.stats-table--h-sticky thead th:nth-child(-n + 4).th-sortable.is-sorted {
   background: rgb(30 41 59 / 0.98);
 }
 [data-theme="light"]
   .stats-panel.stats-panel--statistics
   .stats-table.stats-table--h-sticky
   thead
-  th:nth-child(-n + 4):has(> .stats-th-link.is-sorted) {
+  th:nth-child(-n + 4):has(> .stats-th-link.is-sorted),
+[data-theme="light"]
+  .stats-panel.stats-panel--statistics
+  .stats-table.stats-table--h-sticky
+  thead
+  th:nth-child(-n + 4).th-sortable.is-sorted {
   background: var(--row-alt);
 }
 .stats-table.stats-table--h-sticky .stats-player-cell__text {
@@ -24237,7 +24243,8 @@ button.bowl-six-submissions__toggle:hover {
   display: inline;
   color: #fff;
 }
-.team-stats-trends__empty {
+.team-stats-trends__empty,
+.team-stats-trends__archive-note {
   margin: 0.75rem 0 0;
 }
 @media (max-width: 900px) {
@@ -24888,6 +24895,40 @@ button.bowl-six-submissions__toggle:hover {
   margin-left: auto;
   margin-right: auto;
 }
+
+.home-war-leaders-table {
+  table-layout: auto;
+  width: 100%;
+}
+.home-war-leaders-table th:nth-child(1),
+.home-war-leaders-table td:nth-child(1),
+.home-war-leaders-table th:nth-child(4),
+.home-war-leaders-table td:nth-child(4),
+.home-war-leaders-table th:nth-child(5),
+.home-war-leaders-table td:nth-child(5) {
+  text-align: center;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.home-war-leaders-table th:nth-child(3),
+.home-war-leaders-table td:nth-child(3) {
+  text-align: center;
+  width: 2.75rem;
+}
+.home-war-leaders-table th:nth-child(2),
+.home-war-leaders-table td:nth-child(2) {
+  min-width: 8rem;
+}
+.home-war-leaders-table .home-leader-player {
+  min-width: 0;
+}
+.home-war-leaders-table .home-leader-player__name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 12rem;
+}
+
 @media (max-width: 800px) {
   .process-stats__grid,
   .game-flow-card__grid {

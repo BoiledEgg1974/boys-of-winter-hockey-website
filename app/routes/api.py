@@ -1709,6 +1709,14 @@ def _build_homepage_summary_payload(
         logo_season_year=logo_sy,
         player_photo_url=_player_photo_url,
     )
+    from app.services.season_war import build_war_leaders_payload
+
+    war_leaders = build_war_leaders_payload(
+        db.session,
+        season,
+        segment,
+        league_slug=league_slug,
+    )
     trending_teams = build_trending_teams(db.session, season.id, league_cal, logo_season_year=logo_sy)
     team_momentum_streaks = build_team_momentum_streaks(db.session, season.id, logo_season_year=logo_sy)
     team_momentum = {"trending": trending_teams, "streaks": team_momentum_streaks}
@@ -2015,6 +2023,7 @@ def _build_homepage_summary_payload(
         "star_selection_leaders": star_selection_leaders,
         "trending_players": trending_players,
         "process_momentum": process_momentum,
+        "war_leaders": war_leaders,
         "team_momentum": team_momentum,
         "active_streaks": active_streaks,
         "power_rankings": power_rankings,

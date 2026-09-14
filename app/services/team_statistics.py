@@ -1,7 +1,10 @@
 """Team Statistics page — league-wide team stats, filters, and chart archive."""
 from __future__ import annotations
 
+import json
+import re
 from collections import defaultdict
+from types import SimpleNamespace
 from typing import Any
 
 from sqlalchemy import select
@@ -14,6 +17,7 @@ from app.models import (
     Season,
     Team,
     TeamSeasonAggregate,
+    TeamSeasonRecord,
     TeamStanding,
 )
 from app.services.advanced_stats import (
@@ -276,6 +280,551 @@ def _seasons_with_team_data(session: Session) -> list[Season]:
     )
 
 
+_MIN_CATALOG_YEAR = 1900
+
+
+def _hockey_year_label(start_year: int) -> str:
+    y = int(start_year)
+    return f"{y}-{(y + 1) % 100:02d}"
+
+
+def _start_year_from_label(label: str | None) -> int | None:
+    if not label:
+        return None
+    m = re.search(r"(\d{4})", str(label))
+    return int(m.group(1)) if m else None
+
+
+def _as_pct(value: float | int | None) -> float | None:
+    if value is None:
+        return None
+    num = float(value)
+    if 0 < num <= 1.0:
+        return round(num * 100.0, 1)
+    return round(num, 1)
+
+
+def season_ref_for_catalog_year(*, start_year: int, label: str) -> SimpleNamespace:
+    """Season-like object so templates/logo helpers can render a catalog year."""
+    return SimpleNamespace(
+        id=None,
+        start_year=int(start_year),
+        end_year=int(start_year) + 1,
+        label=label,
+        is_current=False,
+    )
+
+
+def build_team_statistics_season_options(session: Session) -> list[dict[str, Any]]:
+    """Catalog every team-stats year this league DB can show.
+
+    FHM reuses a single live ``Season`` row, so the dropdown also includes
+    rollover archives and ``TeamSeasonRecord`` history. Same helper is used by
+    Historical, Cap, and Relegation — each mount reads its own database.
+    """
+    from app.services.analytics_snapshots import load_team_rollover_years
+    from app.services.team_records import all_year_labels_desc
+
+    by_year: dict[int, dict[str, Any]] = {}
+
+    for label in all_year_labels_desc(session):
+        sy = _start_year_from_label(label)
+        if sy is None or sy < _MIN_CATALOG_YEAR:
+            continue
+        by_year[sy] = {
+            "key": f"y:{sy}",
+            "season_id": None,
+            "start_year": sy,
+            "label": str(label),
+            "source": "records",
+        }
+
+    for year in load_team_rollover_years(session):
+        sy = int(year)
+        if sy < _MIN_CATALOG_YEAR:
+            continue
+        prev = by_year.get(sy) or {}
+        by_year[sy] = {
+            "key": f"y:{sy}",
+            "season_id": None,
+            "start_year": sy,
+            "label": str(prev.get("label") or _hockey_year_label(sy)),
+            "source": "archive",
+        }
+
+    for season in _seasons_with_team_data(session):
+        label = season_display_label(season)
+        if season.start_year is None:
+            by_year[(-1000000) - int(season.id)] = {
+                "key": f"s:{int(season.id)}",
+                "season_id": int(season.id),
+                "start_year": None,
+                "label": label,
+                "source": "live",
+            }
+            continue
+        sy = int(season.start_year)
+        by_year[sy] = {
+            "key": f"s:{int(season.id)}",
+            "season_id": int(season.id),
+            "start_year": sy,
+            "label": label,
+            "source": "live",
+        }
+
+    options = [opt for opt in by_year.values() if opt.get("key")]
+    options.sort(
+        key=lambda s: (
+            int(s["start_year"]) if s.get("start_year") is not None else -1,
+            str(s["key"]),
+        ),
+        reverse=True,
+    )
+    return options
+
+
+def resolve_team_statistics_season_option(
+    options: list[dict[str, Any]],
+    *,
+    season_key: str | None = None,
+    season_id: int | None = None,
+    live_season: Season | None = None,
+) -> dict[str, Any] | None:
+    """Pick a catalog option from ``?season=`` / ``?season_id=`` / the live year."""
+    key = (season_key or "").strip()
+    if key:
+        for opt in options:
+            if str(opt.get("key")) == key:
+                return opt
+        if key.startswith("s:"):
+            try:
+                sid = int(key[2:])
+            except ValueError:
+                sid = None
+            if sid is not None:
+                for opt in options:
+                    if opt.get("season_id") == sid:
+                        return opt
+        if key.startswith("y:"):
+            try:
+                year = int(key[2:])
+            except ValueError:
+                year = None
+            if year is not None:
+                for opt in options:
+                    if opt.get("start_year") == year:
+                        return opt
+        label_year = _start_year_from_label(key)
+        if label_year is not None:
+            for opt in options:
+                if opt.get("start_year") == label_year:
+                    return opt
+    if season_id is not None:
+        sid = int(season_id)
+        for opt in options:
+            if opt.get("season_id") == sid:
+                return opt
+    if live_season is not None:
+        for opt in options:
+            if opt.get("season_id") == int(live_season.id):
+                return opt
+        return {
+            "key": f"s:{int(live_season.id)}",
+            "season_id": int(live_season.id),
+            "start_year": live_season.start_year,
+            "label": season_display_label(live_season),
+            "source": "live",
+        }
+    return options[0] if options else None
+
+
+def _snapshot_metrics_by_team(
+    session: Session, *, season_year: int, segment: str
+) -> dict[int, dict[str, Any]]:
+    from app.services.analytics_snapshots import latest_team_rollover_rows
+
+    out: dict[int, dict[str, Any]] = {}
+    for snap in latest_team_rollover_rows(session, season_year=int(season_year), segment=segment):
+        try:
+            metrics = json.loads(snap.metrics_json or "{}")
+        except json.JSONDecodeError:
+            metrics = {}
+        if not isinstance(metrics, dict):
+            metrics = {}
+        out[int(snap.team_id)] = {"team": snap.team, "metrics": metrics}
+    return out
+
+
+def _empty_stat_row(team: Team, *, display_name: str, logo_url: str | None) -> dict[str, Any]:
+    return {
+        "team": team,
+        "team_id": int(team.id),
+        "slug": team.slug,
+        "display_name": display_name,
+        "logo_url": logo_url,
+        "primary_color": team.primary_color,
+        "gp": None,
+        "w": None,
+        "l": None,
+        "pts": None,
+        "point_pct": None,
+        "gf": None,
+        "ga": None,
+        "diff": None,
+        "sf": None,
+        "sa": None,
+        "fo_pct": None,
+        "bs": None,
+        "hit": None,
+        "tka": None,
+        "gva": None,
+        "pp_ch": None,
+        "ppg": None,
+        "pp_pct": None,
+        "pk_ga": None,
+        "sh_ch": None,
+        "pk_pct": None,
+        "shg": None,
+        "pim_g": None,
+        "att_h": None,
+        "cap_pct": None,
+        "cf_pct": None,
+        "ff_pct": None,
+        "gf_per_60": None,
+        "ga_per_60": None,
+        "sq_hd": None,
+        "ranks": {},
+        "gf_g": None,
+        "ga_g": None,
+        "shot_diff": None,
+        "strength": "all",
+        "situation_limited": False,
+    }
+
+
+def _apply_snapshot_metrics(row: dict[str, Any], metrics: dict[str, Any] | None) -> dict[str, Any]:
+    if not metrics:
+        return row
+    if row.get("gp") is None and metrics.get("gp") is not None:
+        row["gp"] = int(metrics["gp"]) if metrics["gp"] is not None else None
+    if row.get("gf") is None:
+        row["gf"] = metrics.get("gf")
+    if row.get("ga") is None:
+        row["ga"] = metrics.get("ga")
+    if row.get("diff") is None:
+        row["diff"] = metrics.get("goal_diff")
+    if row.get("sf") is None:
+        row["sf"] = metrics.get("shots_for")
+    if row.get("sa") is None:
+        row["sa"] = metrics.get("shots_against")
+    if row.get("shot_diff") is None:
+        row["shot_diff"] = metrics.get("shot_diff")
+    if row.get("pp_pct") is None:
+        row["pp_pct"] = _as_pct(metrics.get("pp_pct"))
+    if row.get("pk_pct") is None:
+        row["pk_pct"] = _as_pct(metrics.get("pk_pct"))
+    if row.get("pts") is None:
+        row["pts"] = metrics.get("pts")
+    if row.get("point_pct") is None:
+        row["point_pct"] = metrics.get("point_pct")
+    if row.get("sq_hd") is None:
+        row["sq_hd"] = metrics.get("sq_high_danger")
+    gp = row.get("gp")
+    gf = row.get("gf")
+    ga = row.get("ga")
+    if row.get("gf_g") is None and gf is not None and gp:
+        row["gf_g"] = round(float(gf) / float(gp), 2)
+    if row.get("ga_g") is None and ga is not None and gp:
+        row["ga_g"] = round(float(ga) / float(gp), 2)
+    return row
+
+
+def _table_row_from_record(
+    rec: TeamSeasonRecord,
+    *,
+    team: Team,
+    display_name: str,
+    logo_url: str | None,
+) -> dict[str, Any]:
+    gp = int(rec.gp) if rec.gp is not None else None
+    gf = int(rec.gf) if rec.gf is not None else None
+    ga = int(rec.ga) if rec.ga is not None else None
+    diff = rec.goal_diff
+    if diff is None and gf is not None and ga is not None:
+        diff = gf - ga
+    pts = int(rec.pts) if rec.pts is not None else None
+    pp_pct = rec.pp_pct
+    if pp_pct is None:
+        pp_pct = _pp_pct(rec.ppg, rec.pp_chances)
+    else:
+        pp_pct = _as_pct(pp_pct)
+    pk_pct = rec.pk_pct
+    if pk_pct is None:
+        pk_pct = _pk_pct(rec.ppg_against, rec.sh_chances)
+    else:
+        pk_pct = _as_pct(pk_pct)
+    point_pct = round(100.0 * pts / (gp * 2), 1) if pts is not None and gp and gp > 0 else None
+    shot_diff = (
+        (rec.shots_for - rec.shots_against)
+        if rec.shots_for is not None and rec.shots_against is not None
+        else None
+    )
+    row = _empty_stat_row(team, display_name=display_name, logo_url=logo_url)
+    row.update(
+        {
+            "gp": gp,
+            "w": int(rec.w) if rec.w is not None else None,
+            "l": int(rec.l) if rec.l is not None else None,
+            "pts": pts,
+            "point_pct": point_pct,
+            "gf": gf,
+            "ga": ga,
+            "diff": diff,
+            "sf": rec.shots_for,
+            "sa": rec.shots_against,
+            "pp_ch": rec.pp_chances,
+            "ppg": rec.ppg,
+            "pp_pct": pp_pct,
+            "pk_ga": rec.ppg_against,
+            "sh_ch": rec.sh_chances,
+            "pk_pct": pk_pct,
+            "shg": rec.shg,
+            "pim_g": rec.pim_per_game,
+            "gf_g": round(gf / gp, 2) if gf is not None and gp and gp > 0 else None,
+            "ga_g": round(ga / gp, 2) if ga is not None and gp and gp > 0 else None,
+            "shot_diff": shot_diff,
+        }
+    )
+    return row
+
+
+def _card_rows_from_table(table_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    card_rows: list[dict[str, Any]] = []
+    for row in table_rows:
+        card_rows.append(
+            {
+                "team": row["team"],
+                "team_id": row["team_id"],
+                "slug": row["slug"],
+                "logo_url": row["logo_url"],
+                "name": row.get("display_name") or row["team"].full_display_name(),
+                "abbr": row["team"].abbreviation or row["team"].name,
+                "ranks": {
+                    "point_pct": _rank_for_values(table_rows, "point_pct", row.get("point_pct"), True),
+                    "gf_g": _rank_for_values(table_rows, "gf_g", row.get("gf_g"), True),
+                    "ga_g": _rank_for_values(table_rows, "ga_g", row.get("ga_g"), False),
+                    "pp_pct": _rank_for_values(table_rows, "pp_pct", row.get("pp_pct"), True),
+                    "pk_pct": _rank_for_values(table_rows, "pk_pct", row.get("pk_pct"), True),
+                    "shot_diff": _rank_for_values(table_rows, "shot_diff", row.get("shot_diff"), True),
+                    "cf_pct": _rank_for_values(table_rows, "cf_pct", row.get("cf_pct"), True),
+                    "sq_hd": _rank_for_values(table_rows, "sq_hd", row.get("sq_hd"), True),
+                },
+            }
+        )
+    return card_rows
+
+
+def _payload_from_catalog_year(
+    session: Session,
+    *,
+    start_year: int,
+    year_label: str,
+    selected_season_key: str,
+    segment: str,
+    rate: str,
+    team_slugs: list[str] | None,
+    seasons: list[dict[str, Any]],
+) -> dict[str, Any]:
+    from app.services.season_team_logo_bundle import get_season_team_logo_bundle
+    from app.services.team_records import _load_records_for_year, team_display_name
+
+    slug_filter: set[str] | None = None
+    if team_slugs:
+        slug_filter = {s.strip().lower() for s in team_slugs if s.strip()}
+
+    logo_bundle = get_season_team_logo_bundle()
+    recs = _load_records_for_year(session, year_label) if segment == "rs" else []
+    snaps = _snapshot_metrics_by_team(session, season_year=start_year, segment=segment)
+
+    table_rows: list[dict[str, Any]] = []
+    seen_team_ids: set[int] = set()
+    for rec in recs:
+        team = rec.team
+        if team is None and rec.team_id is not None:
+            team = session.get(Team, int(rec.team_id))
+        if team is None:
+            continue
+        if slug_filter and (team.slug or "").lower() not in slug_filter:
+            continue
+        display_name = team_display_name(rec, session=session)
+        row = _table_row_from_record(
+            rec,
+            team=team,
+            display_name=display_name,
+            logo_url=logo_bundle.team_logo_url_for_season_context(team, start_year),
+        )
+        snap = snaps.get(int(team.id))
+        if snap:
+            _apply_snapshot_metrics(row, snap.get("metrics"))
+        table_rows.append(row)
+        seen_team_ids.add(int(team.id))
+
+    for tid, snap in snaps.items():
+        if tid in seen_team_ids:
+            continue
+        team = snap.get("team")
+        if team is None:
+            team = session.get(Team, tid)
+        if team is None:
+            continue
+        if slug_filter and (team.slug or "").lower() not in slug_filter:
+            continue
+        row = _empty_stat_row(
+            team,
+            display_name=team.full_display_name(),
+            logo_url=logo_bundle.team_logo_url_for_season_context(team, start_year),
+        )
+        _apply_snapshot_metrics(row, snap.get("metrics"))
+        table_rows.append(row)
+
+    team_options = [
+        {"slug": t.slug, "name": t.full_display_name(), "abbr": t.abbreviation or t.name}
+        for t in sorted({r["team"] for r in table_rows}, key=lambda x: (x.name or "").lower())
+    ]
+    note = None
+    if segment != "rs" and not table_rows:
+        note = "Playoff and preseason team totals are only available for imported seasons and archived analytics snapshots."
+    elif segment != "rs":
+        note = "Catalog years use archived analytics for playoffs and preseason when a snapshot exists."
+    else:
+        note = (
+            "Showing the season catalog (team records and any archived analytics). "
+            "Hits, faceoffs, CF%, and shot quality appear when that year was snapshotted on rollover."
+        )
+
+    return {
+        "table_rows": table_rows,
+        "card_rows": _card_rows_from_table(table_rows),
+        "team_count": len(table_rows),
+        "seasons": seasons,
+        "selected_season_key": selected_season_key,
+        "team_options": team_options,
+        "strength_options": STRENGTH_OPTIONS,
+        "segments": TEAM_CHART_SEGMENTS,
+        "columns": [c for c in TABLE_COLUMNS if "all" in c.get("situations", ["all"])],
+        "card_metrics": CARD_METRICS,
+        "rate": rate,
+        "situation_note": note,
+        "catalog_year": True,
+    }
+
+
+def _append_record_years_to_chart_archive(session: Session, archive: dict[str, Any]) -> dict[str, Any]:
+    """Add TeamSeasonRecord years to the chart so the Season dropdown matches the catalog."""
+    from app.services.season_team_logo_bundle import get_season_team_logo_bundle
+    from app.services.team_records import _load_all_records, _records_have_displayable_standings, team_display_name
+
+    existing_years: set[int] = set()
+    for opt in archive.get("seasons") or []:
+        sy = opt.get("start_year")
+        if sy is not None:
+            existing_years.add(int(sy))
+
+    grouped: dict[int, list[TeamSeasonRecord]] = defaultdict(list)
+    labels: dict[int, str] = {}
+    for rec in _load_all_records(session):
+        sy = rec.start_year if rec.start_year is not None else _start_year_from_label(rec.season_year_label)
+        if sy is None or int(sy) < _MIN_CATALOG_YEAR:
+            continue
+        year = int(sy)
+        grouped[year].append(rec)
+        labels.setdefault(year, rec.season_year_label)
+
+    if not grouped:
+        return archive
+
+    logo_bundle = get_season_team_logo_bundle()
+    datasets = archive.setdefault("datasets", {})
+    season_options = list(archive.get("seasons") or [])
+    added = False
+    for year, recs in grouped.items():
+        if year in existing_years:
+            continue
+        if not _records_have_displayable_standings(recs):
+            continue
+        payload_rows: list[dict[str, Any]] = []
+        for rec in recs:
+            team = rec.team
+            if team is None and rec.team_id is not None:
+                team = session.get(Team, int(rec.team_id))
+            if team is None:
+                continue
+            gp = int(rec.gp or 0)
+            gf = rec.gf
+            ga = rec.ga
+            pts = rec.pts
+            pp_pct = rec.pp_pct if rec.pp_pct is not None else _pp_pct(rec.ppg, rec.pp_chances)
+            pk_pct = rec.pk_pct if rec.pk_pct is not None else _pk_pct(rec.ppg_against, rec.sh_chances)
+            metrics = {
+                "gp": gp if gp > 0 else None,
+                "gf": gf,
+                "ga": ga,
+                "goal_diff": rec.goal_diff if rec.goal_diff is not None else (
+                    (int(gf) - int(ga)) if gf is not None and ga is not None else None
+                ),
+                "shots_for": rec.shots_for,
+                "shots_against": rec.shots_against,
+                "shot_diff": (
+                    (rec.shots_for - rec.shots_against)
+                    if rec.shots_for is not None and rec.shots_against is not None
+                    else None
+                ),
+                "pp_pct": _as_pct(pp_pct) if pp_pct is not None else None,
+                "pk_pct": _as_pct(pk_pct) if pk_pct is not None else None,
+                "sq_high_danger": None,
+                "pts": pts,
+                "point_pct": round(100.0 * int(pts) / (gp * 2), 1) if pts is not None and gp > 0 else None,
+                "points_above_ppg": (int(pts) - gp) if pts is not None and gp > 0 else None,
+            }
+            if not any(v is not None for k, v in metrics.items() if k != "gp"):
+                continue
+            payload_rows.append(
+                {
+                    "team_id": int(team.id),
+                    "name": team_display_name(rec, session=session),
+                    "abbr": (team.abbreviation or team.name or "").strip(),
+                    "slug": team.slug,
+                    "logo_url": logo_bundle.team_logo_url_for_season_context(team, year),
+                    "primary_color": team.primary_color,
+                    "metrics": metrics,
+                    "season_label": labels.get(year) or _hockey_year_label(year),
+                }
+            )
+        if not payload_rows:
+            continue
+        datasets[f"y:{year}|rs"] = {"teams": payload_rows}
+        season_options.append(
+            {
+                "id": f"y:{year}",
+                "label": labels.get(year) or _hockey_year_label(year),
+                "start_year": year,
+            }
+        )
+        existing_years.add(year)
+        added = True
+
+    if added:
+        season_options.sort(
+            key=lambda s: (
+                int(s["start_year"]) if s.get("start_year") is not None else -1,
+                str(s["id"]),
+            ),
+            reverse=True,
+        )
+        archive["seasons"] = season_options
+    return archive
+
+
 def format_rate_value(
     key: str,
     value: float | int | None,
@@ -354,7 +903,7 @@ def build_team_statistics_chart_archive(
         {"key": "per_game", "label": "Per game"},
         {"key": "per_60", "label": "Per 60"},
     ]
-    return archive
+    return _append_record_years_to_chart_archive(session, archive)
 
 
 def build_team_statistics_page_payload(
@@ -366,8 +915,27 @@ def build_team_statistics_page_payload(
     rate: str = "raw",
     team_slugs: list[str] | None = None,
     standings_rows: list | None = None,
+    selected_season_key: str | None = None,
+    history_year: int | None = None,
+    history_year_label: str | None = None,
 ) -> dict[str, Any]:
     from app.services.season_team_logo_bundle import get_season_team_logo_bundle
+
+    seasons = build_team_statistics_season_options(session)
+    live_id = getattr(season, "id", None)
+    live_key = f"s:{int(live_id)}" if live_id is not None else None
+    if history_year is not None:
+        label = history_year_label or _hockey_year_label(int(history_year))
+        return _payload_from_catalog_year(
+            session,
+            start_year=int(history_year),
+            year_label=label,
+            selected_season_key=selected_season_key or f"y:{int(history_year)}",
+            segment=segment,
+            rate=rate,
+            team_slugs=team_slugs,
+            seasons=seasons,
+        )
 
     if standings_rows is None:
         standings_rows = standings_for_season(season)
@@ -432,6 +1000,7 @@ def build_team_statistics_page_payload(
                 "team": team,
                 "team_id": tid,
                 "slug": team.slug,
+                "display_name": team.full_display_name(),
                 "logo_url": logo_bundle.team_logo_url_for_season_context(team, logo_sy),
                 "primary_color": team.primary_color,
                 "gp": gp,
@@ -496,7 +1065,6 @@ def build_team_statistics_page_payload(
             }
         )
 
-    seasons = _seasons_with_team_data(session)
     team_options = [
         {"slug": t.slug, "name": t.full_display_name(), "abbr": t.abbreviation or t.name}
         for t in sorted({r["team"] for r in table_rows}, key=lambda x: (x.name or "").lower())
@@ -508,7 +1076,8 @@ def build_team_statistics_page_payload(
         "table_rows": table_rows,
         "card_rows": card_rows,
         "team_count": len(table_rows),
-        "seasons": [{"id": int(s.id), "label": season_display_label(s)} for s in seasons],
+        "seasons": seasons,
+        "selected_season_key": selected_season_key or live_key,
         "team_options": team_options,
         "strength_options": STRENGTH_OPTIONS,
         "segments": TEAM_CHART_SEGMENTS,
@@ -521,4 +1090,5 @@ def build_team_statistics_page_payload(
             if strength != "all"
             else None
         ),
+        "catalog_year": False,
     }

@@ -36,6 +36,7 @@ from app.models import (
     PlayerGoalieCareerLine,
     PlayerGoalieStat,
     PlayerSkaterCareerLine,
+    PlayerSeasonWar,
     PlayerSkaterStat,
     Prospect,
     Season,
@@ -831,6 +832,9 @@ def team_statistics_page():
         TABLE_COLUMNS,
         build_team_statistics_chart_archive,
         build_team_statistics_page_payload,
+        build_team_statistics_season_options,
+        resolve_team_statistics_season_option,
+        season_ref_for_catalog_year,
     )
 
     canonical_season = get_current_season()
@@ -856,12 +860,30 @@ def team_statistics_page():
             selected_team_slugs=[],
             selected_columns=[c["key"] for c in TABLE_COLUMNS],
             visible_columns=TABLE_COLUMNS,
+            viewing_catalog_year=False,
             **relegation_ctx,
         )
 
-    season_id_arg = request.args.get("season_id", type=int)
-    if season_id_arg:
-        picked = db.session.get(Season, season_id_arg)
+    season_options = build_team_statistics_season_options(db.session)
+    selected_opt = resolve_team_statistics_season_option(
+        season_options,
+        season_key=request.args.get("season"),
+        season_id=request.args.get("season_id", type=int),
+        live_season=season,
+    )
+    viewing_catalog_year = bool(selected_opt and selected_opt.get("source") != "live")
+    history_year = None
+    history_year_label = None
+    selected_season_key = selected_opt["key"] if selected_opt else None
+    if viewing_catalog_year and selected_opt and selected_opt.get("start_year") is not None:
+        history_year = int(selected_opt["start_year"])
+        history_year_label = str(selected_opt.get("label") or "")
+        season = season_ref_for_catalog_year(
+            start_year=history_year,
+            label=history_year_label,
+        )
+    elif selected_opt and selected_opt.get("season_id") is not None:
+        picked = db.session.get(Season, int(selected_opt["season_id"]))
         if picked:
             season = picked
 
@@ -897,8 +919,12 @@ def team_statistics_page():
     ]
 
     relegation_ctx = _relegation_template_context("main.team_statistics_page")
-    standings_rows = standings_for_season(season)
-    if relegation_ctx.get("relegation_enabled") and relegation_ctx.get("relegation_config"):
+    standings_rows = [] if viewing_catalog_year else standings_for_season(season)
+    if (
+        not viewing_catalog_year
+        and relegation_ctx.get("relegation_enabled")
+        and relegation_ctx.get("relegation_config")
+    ):
         from app.services.relegation import filter_standings_by_scope, team_tier
 
         cfg = relegation_ctx["relegation_config"]
@@ -912,6 +938,9 @@ def team_statistics_page():
                 tier = team_tier(st.team, cfg)  # type: ignore[arg-type]
                 setattr(st, "relegation_tier", tier)
 
+    if viewing_catalog_year:
+        strength = "all"
+
     page_payload = build_team_statistics_page_payload(
         db.session,
         season=season,
@@ -919,13 +948,21 @@ def team_statistics_page():
         strength=strength,
         rate=rate,
         team_slugs=selected_team_slugs or None,
-        standings_rows=standings_rows,
+        standings_rows=None if viewing_catalog_year else standings_rows,
+        selected_season_key=selected_season_key,
+        history_year=history_year,
+        history_year_label=history_year_label,
     )
     from app.services.seasons import season_display_label
 
+    chart_default_id: int | str
+    if viewing_catalog_year and history_year is not None:
+        chart_default_id = f"y:{int(history_year)}"
+    else:
+        chart_default_id = int(season.id)
     chart_archive = build_team_statistics_chart_archive(
         db.session,
-        default_season_id=int(season.id),
+        default_season_id=chart_default_id,
         default_segment=segment,
         season_label=season_display_label(season),
     )
@@ -945,6 +982,7 @@ def team_statistics_page():
         selected_team_slugs=selected_team_slugs,
         selected_columns=selected_columns,
         visible_columns=visible_columns,
+        viewing_catalog_year=viewing_catalog_year,
         **relegation_ctx,
     )
 
@@ -1372,6 +1410,7 @@ def _build_statistics_view_vars(
             "stats_page_limit": stats_page_limit,
             "player_overall_by_id": {},
             "statistics_logo_team_by_player_id": {},
+            "war_pct_by_player_id": {},
         }
 
     sk_gp_nf = func.nullif(PlayerSkaterStat.gp, 0)
@@ -1638,6 +1677,20 @@ def _build_statistics_view_vars(
             pl, row, teams_by_id, team_by_fhm_id
         )
 
+    war_pct_by_player_id: dict[int, int | None] = {}
+    if season and season.start_year is not None:
+        from app.services.season_war import war_map_for_season
+
+        war_rows = war_map_for_season(
+            db.session,
+            season_year=int(season.start_year),
+            segment=segment,
+        )
+        for (pid, is_gk), war_row in war_rows.items():
+            war_pct_by_player_id[int(pid)] = (
+                int(war_row.war_pct) if war_row.war_pct is not None else None
+            )
+
     _stat_params: dict[str, object] = {
         "segment": segment,
         "sort": sort,
@@ -1686,6 +1739,7 @@ def _build_statistics_view_vars(
         "stats_page_limit": stats_page_limit,
         "player_overall_by_id": player_overall_by_id,
         "statistics_logo_team_by_player_id": statistics_logo_team_by_player_id,
+        "war_pct_by_player_id": war_pct_by_player_id,
     }
 
 
@@ -5388,8 +5442,9 @@ def team_page(slug: str):
         build_team_player_analytics_archive,
         build_team_player_trends_archive,
         build_team_shot_quality_payload,
+        build_team_shot_quality_payload_from_archive,
         build_team_stats_trends_archive,
-        seasons_for_team_shot_quality,
+        team_shot_quality_season_options,
     )
 
     team_player_analytics = build_team_player_analytics_archive(
@@ -5412,26 +5467,38 @@ def team_page(slug: str):
         default_season_id=int(season.id) if season else None,
         default_segment="rs",
     )
-    team_shot_quality_seasons = seasons_for_team_shot_quality(db.session, int(team.id))
+    team_shot_quality_seasons = team_shot_quality_season_options(db.session, int(team.id))
     sq_segment = (request.args.get("sq_segment") or "rs").strip().lower()
     if sq_segment not in ("rs", "ps", "po"):
         sq_segment = "rs"
-    sq_season_id = request.args.get("sq_season_id", type=int)
-    sq_season = None
-    if sq_season_id is not None:
-        sq_season = next((s for s in team_shot_quality_seasons if int(s.id) == int(sq_season_id)), None)
-    if sq_season is None and team_shot_quality_seasons:
-        # Prefer current/dashboard season when available.
+    sq_key = (request.args.get("sq_season") or "").strip()
+    if not sq_key:
+        sq_season_id = request.args.get("sq_season_id", type=int)
+        if sq_season_id is not None:
+            sq_key = f"s:{int(sq_season_id)}"
+    selected_sq = next((s for s in team_shot_quality_seasons if s.get("key") == sq_key), None)
+    if selected_sq is None and team_shot_quality_seasons:
         if season is not None:
-            sq_season = next((s for s in team_shot_quality_seasons if int(s.id) == int(season.id)), None)
-        if sq_season is None:
-            sq_season = team_shot_quality_seasons[0]
+            selected_sq = next(
+                (s for s in team_shot_quality_seasons if s.get("season_id") == int(season.id)),
+                None,
+            )
+        if selected_sq is None:
+            selected_sq = team_shot_quality_seasons[0]
     team_shot_quality = None
-    if sq_season is not None:
+    team_shot_quality_selected_key = selected_sq["key"] if selected_sq else None
+    if selected_sq and selected_sq.get("archive_year") is not None:
+        team_shot_quality = build_team_shot_quality_payload_from_archive(
+            db.session,
+            team,
+            int(selected_sq["archive_year"]),
+            segment=sq_segment,
+        )
+    elif selected_sq and selected_sq.get("season_id") is not None:
         team_shot_quality = build_team_shot_quality_payload(
             db.session,
             team,
-            int(sq_season.id),
+            int(selected_sq["season_id"]),
             segment=sq_segment,
         )
     tmpl_kwargs: dict[str, object] = {
@@ -5522,6 +5589,7 @@ def team_page(slug: str):
         "team_stats_trends": team_stats_trends,
         "team_shot_quality": team_shot_quality,
         "team_shot_quality_seasons": team_shot_quality_seasons,
+        "team_shot_quality_selected_key": team_shot_quality_selected_key,
         **honors_bundle,
     }
     depth_ova_ids: set[int] = set()
@@ -5551,6 +5619,9 @@ def team_page(slug: str):
         merged_ov = dict(tmpl_kwargs["player_overall_by_id"])
         merged_ov.update(stat_ov)
         tmpl_kwargs["player_overall_by_id"] = merged_ov
+        tmpl_kwargs["team_statistics"] = team
+    else:
+        tmpl_kwargs["team_statistics"] = None
     return render_template("team.html", **tmpl_kwargs)
 
 
@@ -5685,6 +5756,21 @@ def player_page(player_id: int):
     career_po_sk_bowl = career_po_sk
     career_rs_gk_bowl = career_rs_gk
     career_po_gk_bowl = career_po_gk
+    from app.services.season_war import career_war_summary, war_map_for_player
+
+    career_war_rs = war_map_for_player(db.session, player.id, segment="rs")
+    career_war_po = war_map_for_player(db.session, player.id, segment="po")
+    career_war_gk_rs_rows = list(
+        db.session.scalars(
+            select(PlayerSeasonWar).where(
+                PlayerSeasonWar.player_id == player.id,
+                PlayerSeasonWar.stat_segment == "rs",
+                PlayerSeasonWar.is_goalie.is_(True),
+            )
+        ).all()
+    )
+    career_war_sk_summary = career_war_summary(list(career_war_rs.values()), is_goalie=False)
+    career_war_gk_summary = career_war_summary(career_war_gk_rs_rows, is_goalie=True)
     career_rs_sk_totals = skater_career_lines_totals(career_rs_sk_bowl) if career_rs_sk_bowl else None
     career_po_sk_totals = skater_career_lines_totals(career_po_sk_bowl) if career_po_sk_bowl else None
     career_rs_gk_totals = goalie_career_lines_totals(career_rs_gk_bowl) if career_rs_gk_bowl else None
@@ -5772,6 +5858,10 @@ def player_page(player_id: int):
         career_po_sk_totals=career_po_sk_totals,
         career_rs_gk_totals=career_rs_gk_totals,
         career_po_gk_totals=career_po_gk_totals,
+        career_war_rs=career_war_rs,
+        career_war_po=career_war_po,
+        career_war_sk_summary=career_war_sk_summary,
+        career_war_gk_summary=career_war_gk_summary,
         game_log=game_log,
         current_team=current_team,
         contract=contract,

@@ -21,13 +21,13 @@
       {% for row in rows %}
       <tr class="team-statistics-table__row"
           data-team-slug="{{ row.slug }}"
-          data-team-name="{{ row.team.full_display_name() }}"
+          data-team-name="{{ row.display_name or row.team.full_display_name() }}"
           data-team-logo="{{ row.logo_url }}">
         <td data-sort-value="{{ loop.index0 }}">{{ loop.index }}</td>
         {% for col in columns %}
         {% set key = col.key %}
         {% if key == 'team' %}
-        <td data-sort-value="{{ (row.team.full_display_name() or row.team.slug)|lower }}">{{ team_lockup_full_name(row.team, season=season) }}</td>
+        <td data-sort-value="{{ (row.display_name or row.team.full_display_name() or row.team.slug)|lower }}">{{ team_lockup_full_name(row.team, label=row.display_name, season=season) }}</td>
         {% elif key == 'gf' %}
         {% set v = row.gf|team_stat_rate(row.gp, rate) %}
         <td data-sort-value="{{ '%.6f'|format(v) if v is not none else '' }}">{{ '%.0f'|format(v) if v is not none and rate == 'raw' else ('%.2f'|format(v) if v is not none else '—') }}</td>

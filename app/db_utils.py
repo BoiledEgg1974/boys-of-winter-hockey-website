@@ -613,6 +613,68 @@ def ensure_player_analytics_snapshots_sqlite(engine: Engine) -> None:
         conn.commit()
 
 
+def ensure_player_season_war_sqlite(engine: Engine) -> None:
+    """Create player_season_war permanent WAR register (SQLite)."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='player_season_war'"
+            )
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE player_season_war (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    player_id INTEGER NOT NULL,
+                    league_slug VARCHAR(64) NOT NULL,
+                    season_year INTEGER NOT NULL,
+                    stat_segment VARCHAR(8) NOT NULL,
+                    is_goalie BOOLEAN NOT NULL,
+                    war_pct INTEGER,
+                    formula_version VARCHAR(16) NOT NULL DEFAULT 'full',
+                    gp INTEGER,
+                    is_finalized BOOLEAN NOT NULL,
+                    metrics_json TEXT NOT NULL,
+                    finalized_at DATETIME,
+                    updated_at DATETIME NOT NULL,
+                    FOREIGN KEY(player_id) REFERENCES players (id),
+                    UNIQUE (player_id, season_year, stat_segment, is_goalie)
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_player_season_war_player_id "
+                "ON player_season_war (player_id)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_player_season_war_league_slug "
+                "ON player_season_war (league_slug)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_player_season_war_season_year "
+                "ON player_season_war (season_year)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_player_season_war_year_seg "
+                "ON player_season_war (season_year, stat_segment)"
+            )
+        )
+        conn.commit()
+
+
 def ensure_team_analytics_snapshots_sqlite(engine: Engine) -> None:
     """Create team_analytics_snapshots for team process history (SQLite)."""
     if engine.dialect.name != "sqlite":
@@ -652,6 +714,67 @@ def ensure_team_analytics_snapshots_sqlite(engine: Engine) -> None:
             text(
                 "CREATE INDEX ix_team_analytics_snap_year_seg "
                 "ON team_analytics_snapshots (season_year, stat_segment)"
+            )
+        )
+        conn.commit()
+
+
+def ensure_team_stats_trend_snapshots_sqlite(engine: Engine) -> None:
+    """Create team_stats_trend_snapshots for archived game-by-game team trends (SQLite)."""
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.connect() as conn:
+        exists = conn.execute(
+            text(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='team_stats_trend_snapshots'"
+            )
+        ).fetchone()
+        if exists:
+            return
+        conn.execute(
+            text(
+                """
+                CREATE TABLE team_stats_trend_snapshots (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    team_id INTEGER NOT NULL,
+                    league_slug VARCHAR(64) NOT NULL,
+                    season_year INTEGER NOT NULL,
+                    stat_segment VARCHAR(8) NOT NULL,
+                    situation VARCHAR(16) NOT NULL,
+                    is_rollover BOOLEAN NOT NULL,
+                    snapshot_at DATETIME NOT NULL,
+                    game_count INTEGER NOT NULL,
+                    series_json TEXT NOT NULL,
+                    FOREIGN KEY(team_id) REFERENCES teams (id),
+                    CONSTRAINT uq_team_stats_trend_snap UNIQUE (
+                        team_id, season_year, stat_segment, situation
+                    )
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_team_stats_trend_snap_team_id "
+                "ON team_stats_trend_snapshots (team_id)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_team_stats_trend_snap_league_slug "
+                "ON team_stats_trend_snapshots (league_slug)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_team_stats_trend_snap_season_year "
+                "ON team_stats_trend_snapshots (season_year)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_team_stats_trend_snap_year_seg "
+                "ON team_stats_trend_snapshots (season_year, stat_segment)"
             )
         )
         conn.commit()

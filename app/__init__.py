@@ -27,7 +27,9 @@ from app.db_utils import (
     ensure_player_rating_snapshots_sqlite,
     ensure_player_rating_snapshot_timeline_columns_sqlite,
     ensure_player_analytics_snapshots_sqlite,
+    ensure_player_season_war_sqlite,
     ensure_team_analytics_snapshots_sqlite,
+    ensure_team_stats_trend_snapshots_sqlite,
     ensure_advanced_stats_hub_snapshots_sqlite,
     ensure_org_development_report_archives_sqlite,
     ensure_homepage_module_settings_sqlite,
@@ -442,6 +444,32 @@ def create_app(config_class: type = Config) -> Flask:
 
     register_eastern_time_template_filter(app)
 
+    @app.template_filter("format_bowl_war")
+    def format_bowl_war_filter(war_pct: object, is_goalie: object = False) -> str:
+        from app.services.player_percentiles import format_war_wins
+
+        if war_pct is None:
+            return "—"
+        try:
+            pct = int(war_pct)
+        except (TypeError, ValueError):
+            return "—"
+        goalie = is_goalie in (True, "true", "1", 1, "yes", "on")
+        return format_war_wins(pct, is_goalie=goalie)
+
+    @app.template_filter("bowl_war_wins")
+    def bowl_war_wins_filter(war_pct: object, is_goalie: object = False) -> float | None:
+        from app.services.player_percentiles import war_pct_to_wins
+
+        if war_pct is None:
+            return None
+        try:
+            pct = int(war_pct)
+        except (TypeError, ValueError):
+            return None
+        goalie = is_goalie in (True, "true", "1", 1, "yes", "on")
+        return war_pct_to_wins(pct, is_goalie=goalie)
+
     @app.template_filter("team_stat_rate")
     def team_stat_rate_filter(value: object, gp: object, rate: str = "raw") -> float | int | None:
         from app.services.team_statistics import format_rate_value
@@ -655,7 +683,9 @@ def create_app(config_class: type = Config) -> Flask:
         ensure_player_rating_snapshots_sqlite(db.engine)
         ensure_player_rating_snapshot_timeline_columns_sqlite(db.engine)
         ensure_player_analytics_snapshots_sqlite(db.engine)
+        ensure_player_season_war_sqlite(db.engine)
         ensure_team_analytics_snapshots_sqlite(db.engine)
+        ensure_team_stats_trend_snapshots_sqlite(db.engine)
         ensure_advanced_stats_hub_snapshots_sqlite(db.engine)
         ensure_org_development_report_archives_sqlite(db.engine)
         ensure_team_season_aggregate_extra_columns(db.engine)

@@ -481,6 +481,7 @@
     </div>
     <div class="team-stats-trends__tooltip" data-team-stats-trend-tooltip role="tooltip" hidden></div>
   </div>
+  <p class="muted team-stats-trends__archive-note" data-team-stats-trend-archive-note hidden>Game-by-game logs were not archived for this season. Showing the saved season totals.</p>
   <p class="muted team-stats-trends__empty" data-team-stats-trend-empty hidden>No team game-summary trends available for this season and segment yet.</p>
   <script type="application/json" id="team-stats-trends-data">{{ team_stats_trends | tojson }}</script>
 </section>
@@ -854,9 +855,10 @@
 {% elif active_panel == 'finances' %}
 {% include "_team_finances.html" %}
 {% elif active_panel == 'statistics' %}
-<div class="card team-page-stats-card">
-  {% set team_statistics = team %}
+<div class="card team-page-stats-card" id="team-page-stats">
+  {% with team_statistics=team %}
   {% include "_statistics_panel.html" %}
+  {% endwith %}
 </div>
 {% elif active_panel == 'season_records' %}
 {% include "_team_season_records_panel.html" %}

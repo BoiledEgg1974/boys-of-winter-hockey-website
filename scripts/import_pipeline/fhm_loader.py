@@ -1482,6 +1482,15 @@ def run_fhm_import(raw_dir: Path, app, league_filter: int = 0) -> dict[str, int]
                         season=season,
                         season_year=int(previous_start_year),
                     )
+                    from app.services.season_war import finalize_season_war
+
+                    finalize_season_war(
+                        db.session,
+                        league_slug=slug,
+                        season=season,
+                        season_year=int(previous_start_year),
+                        raw_dir=raw_dir,
+                    )
             except Exception as exc:
                 log.warning("Analytics rollover archive before FHM wipe: %s", exc)
     teams_fhm = import_fhm_teams(raw_dir, league_filter, div_map)

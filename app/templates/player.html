@@ -800,10 +800,12 @@
                 <th data-sort-type="num" scope="col">PPG</th>
                 <th data-sort-type="num" scope="col">SHG</th>
                 <th data-sort-type="num" scope="col">SOG</th>
+                <th data-sort-type="num" scope="col" title="BOWL WAR wins scale — league average ≈ 0">WAR</th>
               </tr>
             </thead>
             <tbody>
               {% for ln in career_rs_sk %}
+              {% set _war = (career_war_rs or {}).get(ln.season_year) %}
               <tr>
                 <td data-sort-value="{{ ln.season_year }}">{{ season_span(ln.season_year) }}</td>
                 <td>{{ career_line_team_cell(ln) }}</td>
@@ -816,6 +818,7 @@
                 <td>{{ ln.pp_goals if ln.pp_goals is not none else '—' }}</td>
                 <td>{{ ln.sh_goals if ln.sh_goals is not none else '—' }}</td>
                 <td>{{ ln.shots if ln.shots is not none else '—' }}</td>
+                <td data-sort-value="{{ (_war.war_pct|bowl_war_wins(false)) if _war and _war.war_pct is not none else -999 }}">{% if _war and _war.war_pct is not none %}{{ _war.war_pct|format_bowl_war(false) }}{% if _war.formula_version == 'legacy' %}<span class="muted" title="Legacy formula">*</span>{% endif %}{% else %}—{% endif %}</td>
               </tr>
               {% endfor %}
             </tbody>
@@ -834,6 +837,7 @@
                 <td>{{ t.pp_goals if t.pp_goals is not none else '—' }}</td>
                 <td>{{ t.sh_goals if t.sh_goals is not none else '—' }}</td>
                 <td>{{ t.shots if t.shots is not none else '—' }}</td>
+                <td>{% if career_war_sk_summary.avg_war is not none %}{{ career_war_sk_summary.avg_war_display }} avg{% else %}—{% endif %}</td>
               </tr>
             </tfoot>
             {% endif %}

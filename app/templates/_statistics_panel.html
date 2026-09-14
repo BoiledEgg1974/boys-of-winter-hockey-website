@@ -34,9 +34,9 @@
 {% macro sk_url(sk) -%}
 {% if team_statistics %}
 {% if stats_expanded %}
-{{ url_for('main.team_page', slug=team_statistics.slug, panel='statistics', segment=segment, sort=sk, g_sort=g_sort, pos=(pos_filter if pos_filter != 'all' else none), goalies=(1 if show_goalies else none), expanded=1) }}
+{{ url_for('main.team_page', slug=team_statistics.slug, panel='statistics', _anchor='team-page-stats', segment=segment, sort=sk, g_sort=g_sort, pos=(pos_filter if pos_filter != 'all' else none), goalies=(1 if show_goalies else none), expanded=1) }}
 {% else %}
-{{ url_for('main.team_page', slug=team_statistics.slug, panel='statistics', segment=segment, sort=sk, g_sort=g_sort, pos=(pos_filter if pos_filter != 'all' else none), goalies=(1 if show_goalies else none)) }}
+{{ url_for('main.team_page', slug=team_statistics.slug, panel='statistics', _anchor='team-page-stats', segment=segment, sort=sk, g_sort=g_sort, pos=(pos_filter if pos_filter != 'all' else none), goalies=(1 if show_goalies else none)) }}
 {% endif %}
 {% else %}
 {% if stats_expanded %}
@@ -49,9 +49,9 @@
 {% macro g_url(gs) -%}
 {% if team_statistics %}
 {% if stats_expanded %}
-{{ url_for('main.team_page', slug=team_statistics.slug, panel='statistics', segment=segment, sort=sort, g_sort=gs, pos=(pos_filter if pos_filter != 'all' else none), goalies=1, expanded=1) }}
+{{ url_for('main.team_page', slug=team_statistics.slug, panel='statistics', _anchor='team-page-stats', segment=segment, sort=sort, g_sort=gs, pos=(pos_filter if pos_filter != 'all' else none), goalies=1, expanded=1) }}
 {% else %}
-{{ url_for('main.team_page', slug=team_statistics.slug, panel='statistics', segment=segment, sort=sort, g_sort=gs, pos=(pos_filter if pos_filter != 'all' else none), goalies=1) }}
+{{ url_for('main.team_page', slug=team_statistics.slug, panel='statistics', _anchor='team-page-stats', segment=segment, sort=sort, g_sort=gs, pos=(pos_filter if pos_filter != 'all' else none), goalies=1) }}
 {% endif %}
 {% else %}
 {% if stats_expanded %}
@@ -64,9 +64,9 @@
 {% macro base_url(seg, gl) -%}
 {% if team_statistics %}
 {% if stats_expanded %}
-{{ url_for('main.team_page', slug=team_statistics.slug, panel='statistics', segment=seg, sort=sort, g_sort=g_sort, pos=(pos_filter if pos_filter != 'all' else none), goalies=(1 if gl else none), expanded=1) }}
+{{ url_for('main.team_page', slug=team_statistics.slug, panel='statistics', _anchor='team-page-stats', segment=seg, sort=sort, g_sort=g_sort, pos=(pos_filter if pos_filter != 'all' else none), goalies=(1 if gl else none), expanded=1) }}
 {% else %}
-{{ url_for('main.team_page', slug=team_statistics.slug, panel='statistics', segment=seg, sort=sort, g_sort=g_sort, pos=(pos_filter if pos_filter != 'all' else none), goalies=(1 if gl else none)) }}
+{{ url_for('main.team_page', slug=team_statistics.slug, panel='statistics', _anchor='team-page-stats', segment=seg, sort=sort, g_sort=g_sort, pos=(pos_filter if pos_filter != 'all' else none), goalies=(1 if gl else none)) }}
 {% endif %}
 {% else %}
 {% if stats_expanded %}
@@ -80,15 +80,15 @@
 {% if team_statistics %}
 {% if stats_expanded %}
 {% if pf == 'all' %}
-{{ url_for('main.team_page', slug=team_statistics.slug, panel='statistics', segment=segment, sort=sort, g_sort=g_sort, goalies=none, expanded=1) }}
+{{ url_for('main.team_page', slug=team_statistics.slug, panel='statistics', _anchor='team-page-stats', segment=segment, sort=sort, g_sort=g_sort, goalies=none, expanded=1) }}
 {% else %}
-{{ url_for('main.team_page', slug=team_statistics.slug, panel='statistics', segment=segment, sort=sort, g_sort=g_sort, pos=pf, goalies=none, expanded=1) }}
+{{ url_for('main.team_page', slug=team_statistics.slug, panel='statistics', _anchor='team-page-stats', segment=segment, sort=sort, g_sort=g_sort, pos=pf, goalies=none, expanded=1) }}
 {% endif %}
 {% else %}
 {% if pf == 'all' %}
-{{ url_for('main.team_page', slug=team_statistics.slug, panel='statistics', segment=segment, sort=sort, g_sort=g_sort, goalies=none) }}
+{{ url_for('main.team_page', slug=team_statistics.slug, panel='statistics', _anchor='team-page-stats', segment=segment, sort=sort, g_sort=g_sort, goalies=none) }}
 {% else %}
-{{ url_for('main.team_page', slug=team_statistics.slug, panel='statistics', segment=segment, sort=sort, g_sort=g_sort, pos=pf, goalies=none) }}
+{{ url_for('main.team_page', slug=team_statistics.slug, panel='statistics', _anchor='team-page-stats', segment=segment, sort=sort, g_sort=g_sort, pos=pf, goalies=none) }}
 {% endif %}
 {% endif %}
 {% else %}
@@ -107,11 +107,19 @@
 {% endif %}
 {% endif %}
 {%- endmacro %}
-{% macro th_sk(k, text, tip, th_class='') -%}
+{% macro th_sk(k, text, tip, th_class='', sort_type='num') -%}
+{% if team_statistics %}
+<th{% if th_class %} class="{{ th_class }}"{% endif %} scope="col" data-sort-type="{{ sort_type }}" title="{{ tip|e }}">{{ text }}</th>
+{% else %}
 <th{% if th_class %} class="{{ th_class }}"{% endif %}><a href="{{ sk_url(k) }}" class="stats-th-link {{ 'is-sorted' if sort == k else '' }}" title="{{ tip|e }}">{{ text }}</a></th>
+{% endif %}
 {%- endmacro %}
-{% macro th_g(k, text, tip, th_class='') -%}
+{% macro th_g(k, text, tip, th_class='', sort_type='num') -%}
+{% if team_statistics %}
+<th{% if th_class %} class="{{ th_class }}"{% endif %} scope="col" data-sort-type="{{ sort_type }}" title="{{ tip|e }}">{{ text }}</th>
+{% else %}
 <th{% if th_class %} class="{{ th_class }}"{% endif %}><a href="{{ g_url(k) }}" class="stats-th-link {{ 'is-sorted' if g_sort == k else '' }}" title="{{ tip|e }}">{{ text }}</a></th>
+{% endif %}
 {%- endmacro %}
 
   <div class="stats-page__sticky-head">
@@ -182,15 +190,15 @@
   <div class="stats-panel stats-panel--statistics card"><p class="empty-state">No season data.</p></div>
   {% elif show_goalies %}
   <div class="stats-panel stats-panel--statistics card">
-    <p class="stats-page__hint muted">Scroll horizontally for more columns. Click a column heading to sort (# is list order only; ABI and POT are not sort links).</p>
+    <p class="stats-page__hint muted">Scroll horizontally for more columns. Click a column heading to sort. # is list order only.</p>
     <div class="table-wrap stats-table-wrap stats-table-scroll">
-      <table class="data stats-table stats-table--h-sticky">
+      <table class="data stats-table stats-table--h-sticky{% if team_statistics %} data-sortable{% endif %}"{% if team_statistics %} data-sort-renumber="1"{% endif %}>
         <thead>
           <tr>
-            <th class="stats-th-num" scope="col" title="List order for the active sort (not a sort column).">#</th>
-            {{ th_g('player', 'Player', 'Player name') }}
-            <th scope="col" title="Overall ability rating (scouting)">ABI</th>
-            <th scope="col" title="Overall potential rating (scouting)">POT</th>
+            <th class="stats-th-num" scope="col" title="List order for the active sort (not a sort column)."{% if team_statistics %} data-sort-nosort{% endif %}>#</th>
+            {{ th_g('player', 'Player', 'Player name', sort_type='str') }}
+            {{ th_g('abi', 'ABI', 'Overall ability rating (scouting)') }}
+            {{ th_g('pot', 'POT', 'Overall potential rating (scouting)') }}
             {{ th_g('ova', 'OVR', 'Composite 1-100 overall (ability, potential, overview attributes)') }}
             {{ th_g('gp', 'GP', 'Games played') }}
             {{ th_g('games_started', 'GS', 'Games started') }}
@@ -204,13 +212,14 @@
             {{ th_g('sv_pct', 'SV%', 'Save percentage') }}
             {{ th_g('atoi', 'ATOI', 'Average time on ice per game (minutes:seconds)') }}
             {{ th_g('gr', 'GR', 'Game rating') }}
+            {{ th_g('war', 'WAR', 'BOWL WAR wins scale — league average ≈ 0, elite ≈ 4–6') }}
           </tr>
         </thead>
         <tbody>
           {% for row, pl in goalies_list %}
           <tr>
             <td {% if g_sort == 'rank' %}class="stats-td-sorted"{% endif %}>{{ loop.index }}</td>
-            <td {% if g_sort == 'player' %}class="stats-td-sorted"{% endif %}>
+            <td {% if g_sort == 'player' %}class="stats-td-sorted"{% endif %} data-sort-value="{{ pl.full_name|lower }}">
               <span class="stats-player-cell">
                 {% set _logo_t = (statistics_logo_team_by_player_id or {}).get(pl.id) %}
                 {% if _logo_t %}{{ team_logo_only(_logo_t) }}{% endif %}
@@ -227,8 +236,8 @@
                 </span>
               </span>
             </td>
-            <td {% if g_sort == 'abi' %}class="stats-td-sorted"{% endif %}>{{ rating_pill(pl.overall_ability) }}</td>
-            <td {% if g_sort == 'pot' %}class="stats-td-sorted"{% endif %}>{{ rating_pill(pl.overall_potential) }}</td>
+            <td {% if g_sort == 'abi' %}class="stats-td-sorted"{% endif %} data-sort-value="{{ pl.overall_ability if pl.overall_ability is not none else '' }}">{{ rating_pill(pl.overall_ability) }}</td>
+            <td {% if g_sort == 'pot' %}class="stats-td-sorted"{% endif %} data-sort-value="{{ pl.overall_potential if pl.overall_potential is not none else '' }}">{{ rating_pill(pl.overall_potential) }}</td>
             {{ overall_cell((player_overall_by_id or {}).get(pl.id), g_sort == 'ova') }}
             <td {% if g_sort == 'gp' %}class="stats-td-sorted"{% endif %}>{{ row.gp }}</td>
             <td {% if g_sort == 'games_started' %}class="stats-td-sorted"{% endif %}>{{ row.games_started if row.games_started is not none else '—' }}</td>
@@ -240,11 +249,12 @@
             <td {% if g_sort == 'so' %}class="stats-td-sorted"{% endif %}>{{ row.so }}</td>
             <td {% if g_sort == 'gaa' %}class="stats-td-sorted"{% endif %}>{{ '%.2f'|format(row.gaa) if row.gaa is not none else '—' }}</td>
             <td {% if g_sort == 'sv_pct' %}class="stats-td-sorted"{% endif %}>{{ '%.3f'|format(row.sv_pct) if row.sv_pct is not none else '—' }}</td>
-            <td {% if g_sort == 'atoi' %}class="stats-td-sorted"{% endif %}>{{ fmt_goalie_avg_toi(row.minutes_played, row.gp) }}</td>
+            <td {% if g_sort == 'atoi' %}class="stats-td-sorted"{% endif %} data-sort-value="{{ row.minutes_played if row.minutes_played is not none else '' }}">{{ fmt_goalie_avg_toi(row.minutes_played, row.gp) }}</td>
             <td {% if g_sort == 'gr' %}class="stats-td-sorted"{% endif %}>{{ '%.0f'|format(row.game_rating) if row.game_rating is not none else '—' }}</td>
+            <td {% if g_sort == 'war' %}class="stats-td-sorted"{% endif %}>{{ (war_pct_by_player_id or {}).get(pl.id)|format_bowl_war(true) }}</td>
           </tr>
           {% else %}
-          <tr><td colspan="16" class="empty-state">No goalie stats for this split.</td></tr>
+          <tr><td colspan="17" class="empty-state">No goalie stats for this split.</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -261,15 +271,15 @@
   </div>
   {% else %}
   <div class="stats-panel stats-panel--statistics card">
-    <p class="stats-page__hint muted">Scroll horizontally for more columns. Click a column heading to sort (# is list order only; ABI and POT are not sort links).</p>
+    <p class="stats-page__hint muted">Scroll horizontally for more columns. Click a column heading to sort. # is list order only.</p>
     <div class="table-wrap stats-table-wrap stats-table-scroll">
-      <table class="data stats-table stats-table--h-sticky">
+      <table class="data stats-table stats-table--h-sticky{% if team_statistics %} data-sortable{% endif %}"{% if team_statistics %} data-sort-renumber="1"{% endif %}>
         <thead>
           <tr>
-            <th class="stats-th-num" scope="col" title="List order for the active sort (not a sort column).">#</th>
-            {{ th_sk('player', 'Player', 'Player name') }}
-            <th scope="col" title="Overall ability rating (scouting)">ABI</th>
-            <th scope="col" title="Overall potential rating (scouting)">POT</th>
+            <th class="stats-th-num" scope="col" title="List order for the active sort (not a sort column)."{% if team_statistics %} data-sort-nosort{% endif %}>#</th>
+            {{ th_sk('player', 'Player', 'Player name', sort_type='str') }}
+            {{ th_sk('abi', 'ABI', 'Overall ability rating (scouting)') }}
+            {{ th_sk('pot', 'POT', 'Overall potential rating (scouting)') }}
             {{ th_sk('ova', 'OVR', 'Composite 1-100 overall (ability, potential, overview attributes)') }}
             {{ th_sk('gp', 'GP', 'Games played') }}
             {{ th_sk('goals', 'G', 'Goals') }}
@@ -290,6 +300,7 @@
             {{ th_sk('ppto', 'PP ATOI', 'Average power-play time on ice per game') }}
             {{ th_sk('shto', 'SH ATOI', 'Average shorthanded time on ice per game') }}
             {{ th_sk('gr', 'GR', 'Game rating (overall)') }}
+            {{ th_sk('war', 'WAR', 'BOWL WAR wins scale — league average ≈ 0, elite ≈ 6–8') }}
             {{ th_sk('ogr', 'OGR', 'Offensive game rating') }}
             {{ th_sk('dgr', 'DGR', 'Defensive game rating') }}
             {{ th_sk('pdo', 'PDO', 'PDO (shooting/save percentage luck metric)') }}
@@ -304,7 +315,7 @@
           {% for row, pl in skaters %}
           <tr>
             <td {% if sort == 'rank' %}class="stats-td-sorted"{% endif %}>{{ loop.index }}</td>
-            <td {% if sort == 'player' %}class="stats-td-sorted"{% endif %}>
+            <td {% if sort == 'player' %}class="stats-td-sorted"{% endif %} data-sort-value="{{ pl.full_name|lower }}">
               <span class="stats-player-cell">
                 {% set _logo_t = (statistics_logo_team_by_player_id or {}).get(pl.id) %}
                 {% if _logo_t %}{{ team_logo_only(_logo_t) }}{% endif %}
@@ -321,8 +332,8 @@
                 </span>
               </span>
             </td>
-            <td {% if sort == 'abi' %}class="stats-td-sorted"{% endif %}>{{ rating_pill(pl.overall_ability) }}</td>
-            <td {% if sort == 'pot' %}class="stats-td-sorted"{% endif %}>{{ rating_pill(pl.overall_potential) }}</td>
+            <td {% if sort == 'abi' %}class="stats-td-sorted"{% endif %} data-sort-value="{{ pl.overall_ability if pl.overall_ability is not none else '' }}">{{ rating_pill(pl.overall_ability) }}</td>
+            <td {% if sort == 'pot' %}class="stats-td-sorted"{% endif %} data-sort-value="{{ pl.overall_potential if pl.overall_potential is not none else '' }}">{{ rating_pill(pl.overall_potential) }}</td>
             {{ overall_cell((player_overall_by_id or {}).get(pl.id), sort == 'ova') }}
             <td {% if sort == 'gp' %}class="stats-td-sorted"{% endif %}>{{ row.gp }}</td>
             <td {% if sort == 'goals' %}class="stats-td-sorted"{% endif %}>{{ row.goals }}</td>
@@ -338,11 +349,12 @@
             <td {% if sort == 'hits' %}class="stats-td-sorted"{% endif %}>{{ row.hits if row.hits is not none else '—' }}</td>
             <td {% if sort == 'blocked_shots' %}class="stats-td-sorted"{% endif %}>{{ row.blocked_shots if row.blocked_shots is not none else '—' }}</td>
             <td {% if sort == 'shots' %}class="stats-td-sorted"{% endif %}>{{ row.shots if row.shots is not none else '—' }}</td>
-            <td {% if sort == 'toi' %}class="stats-td-sorted"{% endif %}>{{ fmt_skater_avg_toi(row.toi_seconds, row.gp) }}</td>
-            <td {% if sort == 'es_toi' %}class="stats-td-sorted"{% endif %}>{{ fmt_es_avg_toi(row) }}</td>
-            <td {% if sort == 'ppto' %}class="stats-td-sorted"{% endif %}>{{ fmt_skater_avg_toi(row.ppto_seconds, row.gp) }}</td>
-            <td {% if sort == 'shto' %}class="stats-td-sorted"{% endif %}>{{ fmt_skater_avg_toi(row.shto_seconds, row.gp) }}</td>
+            <td {% if sort == 'toi' %}class="stats-td-sorted"{% endif %} data-sort-value="{{ row.toi_seconds if row.toi_seconds is not none else '' }}">{{ fmt_skater_avg_toi(row.toi_seconds, row.gp) }}</td>
+            <td {% if sort == 'es_toi' %}class="stats-td-sorted"{% endif %}{% if row.toi_seconds is not none and row.ppto_seconds is not none and row.shto_seconds is not none %} data-sort-value="{{ row.toi_seconds - row.ppto_seconds - row.shto_seconds }}"{% endif %}>{{ fmt_es_avg_toi(row) }}</td>
+            <td {% if sort == 'ppto' %}class="stats-td-sorted"{% endif %} data-sort-value="{{ row.ppto_seconds if row.ppto_seconds is not none else '' }}">{{ fmt_skater_avg_toi(row.ppto_seconds, row.gp) }}</td>
+            <td {% if sort == 'shto' %}class="stats-td-sorted"{% endif %} data-sort-value="{{ row.shto_seconds if row.shto_seconds is not none else '' }}">{{ fmt_skater_avg_toi(row.shto_seconds, row.gp) }}</td>
             <td {% if sort == 'gr' %}class="stats-td-sorted"{% endif %}>{{ '%.0f'|format(row.game_rating) if row.game_rating is not none else '—' }}</td>
+            <td {% if sort == 'war' %}class="stats-td-sorted"{% endif %}>{{ (war_pct_by_player_id or {}).get(pl.id)|format_bowl_war(false) }}</td>
             <td {% if sort == 'ogr' %}class="stats-td-sorted"{% endif %}>{{ fmt_adv_gr(row.game_rating_off) }}</td>
             <td {% if sort == 'dgr' %}class="stats-td-sorted"{% endif %}>{{ fmt_adv_gr(row.game_rating_def) }}</td>
             <td {% if sort == 'pdo' %}class="stats-td-sorted"{% endif %}>{{ '%.1f'|format(row.pdo) if row.pdo is not none else '—' }}</td>
@@ -353,7 +365,7 @@
             <td {% if sort == 'fights_won' %}class="stats-td-sorted"{% endif %}>{{ row.fights_won if row.fights_won is not none else '—' }}</td>
           </tr>
           {% else %}
-          <tr><td colspan="31" class="empty-state">No skater stats for this split.</td></tr>
+          <tr><td colspan="32" class="empty-state">No skater stats for this split.</td></tr>
           {% endfor %}
         </tbody>
       </table>

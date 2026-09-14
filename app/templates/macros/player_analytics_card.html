@@ -38,13 +38,13 @@
 
       {% endif %}
 
-      <div class="player-analytics-card__war-wrap" aria-label="Projected WAR percentile">
+      <div class="player-analytics-card__war-wrap" aria-label="Projected BOWL WAR">
 
-        <span class="player-analytics-card__war-label">Proj. WAR %</span>
+        <span class="player-analytics-card__war-label">Proj. WAR</span>
 
         <div class="player-analytics-card__war-box">
 
-          <strong class="player-analytics-card__war-value">{% if h.proj_war_pct is not none %}{{ h.proj_war_pct }}%{% else %}—{% endif %}</strong>
+          <strong class="player-analytics-card__war-value">{% if h.proj_war_pct is not none %}{{ h.proj_war_pct|format_bowl_war(card.is_goalie) }}{% else %}—{% endif %}</strong>
 
         </div>
 
@@ -118,7 +118,7 @@
 
       <div class="player-analytics-card__chart-wrap">
 
-        <div class="player-analytics-card__chart-title">Projected WAR Percentile Rank</div>
+        <div class="player-analytics-card__chart-title">Projected WAR Trend</div>
 
         <svg class="player-analytics-card__chart"
 
@@ -128,7 +128,7 @@
 
              role="img"
 
-             aria-label="Projected WAR percentile trend"
+             aria-label="Projected BOWL WAR trend"
 
              preserveAspectRatio="xMidYMid meet">
 
@@ -336,7 +336,7 @@
 
         {% if card.is_goalie %}
 
-        Trend charts appear here with two or more seasons of qualified goalie stats: Proj. WAR percentile rank and Save % vs league average.
+        Trend charts appear here with two or more seasons of qualified goalie stats: projected BOWL WAR trend and Save % vs league average.
 
         {% else %}
 

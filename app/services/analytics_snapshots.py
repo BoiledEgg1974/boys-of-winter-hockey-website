@@ -338,18 +338,28 @@ def record_analytics_snapshots_for_league(
         is_rollover=is_rollover,
         snapshot_at=snapshot_at,
     )
-    if players or teams or hubs:
+    from app.services.advanced_stats import persist_team_stats_trend_snapshots
+
+    trends = persist_team_stats_trend_snapshots(
+        session,
+        slug,
+        season=season,
+        season_year=year,
+        is_rollover=is_rollover,
+    )
+    if players or teams or hubs or trends:
         session.commit()
         _log.info(
-            "Recorded analytics snapshots for %s (players=%s teams=%s hubs=%s rollover=%s year=%s).",
+            "Recorded analytics snapshots for %s (players=%s teams=%s hubs=%s trends=%s rollover=%s year=%s).",
             slug,
             players,
             teams,
             hubs,
+            trends,
             is_rollover,
             year,
         )
-    return {"players": players, "teams": teams, "hubs": hubs}
+    return {"players": players, "teams": teams, "hubs": hubs, "trends": trends}
 
 
 def seed_analytics_snapshots_if_empty(

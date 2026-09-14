@@ -24,7 +24,9 @@ from app.services.player_percentiles import (
     bowl_war_raw,
     chart_svg,
     finishing_value,
+    format_war_wins,
     percentile_int,
+    war_pct_to_wins,
 )
 
 
@@ -280,6 +282,22 @@ class PlayerPercentilesTests(unittest.TestCase):
             "consistency": [60.0, 70.0, 80.0, 85.0, 95.0],
         }
         self.assertLessEqual(_goalie_war_pct_from_metrics(metrics, pools) or 0, 99)
+
+
+class WarWinsDisplayTests(unittest.TestCase):
+    def test_replacement_is_zero(self) -> None:
+        self.assertEqual(war_pct_to_wins(50), 0.0)
+        self.assertEqual(format_war_wins(50), "0.00")
+
+    def test_elite_skater_cap(self) -> None:
+        self.assertEqual(war_pct_to_wins(99), 8.0)
+        self.assertEqual(war_pct_to_wins(98), 7.84)
+
+    def test_elite_goalie_cap(self) -> None:
+        self.assertEqual(war_pct_to_wins(99, is_goalie=True), 6.0)
+
+    def test_negative_below_average(self) -> None:
+        self.assertEqual(war_pct_to_wins(25), -4.08)
 
 
 if __name__ == "__main__":

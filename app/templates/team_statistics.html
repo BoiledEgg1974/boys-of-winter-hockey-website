@@ -8,7 +8,9 @@
   {% if season %}
   <p class="muted">Season: <strong>{{ season|season_display }}</strong></p>
   {% endif %}
-  {% if canonical_season and season and canonical_season.id != season.id %}
+  {% if viewing_catalog_year %}
+  <p class="muted">Season catalog — team totals from saved records and archived analytics for this league year.</p>
+  {% elif canonical_season and season and canonical_season.id != season.id %}
   <p class="muted">League year <strong>{{ canonical_season|season_display }}</strong> — team statistics below are from <strong>{{ season|season_display }}</strong> until that year is imported.</p>
   {% endif %}
 
@@ -129,9 +131,9 @@
       <div class="team-statistics-filters__row team-statistics-filters__row--core">
         <label class="team-statistics-filters__field">
           <span class="team-statistics-filters__field-label">Season</span>
-          <select name="season_id" aria-label="Season">
+          <select name="season" aria-label="Season">
             {% for s in page_payload.seasons %}
-            <option value="{{ s.id }}"{% if season and s.id == season.id %} selected{% endif %}>{{ s.label }}</option>
+            <option value="{{ s.key }}"{% if s.key == page_payload.selected_season_key %} selected{% endif %}>{{ s.label }}</option>
             {% endfor %}
           </select>
         </label>
@@ -203,7 +205,7 @@
     <h2 id="team-statistics-table-heading">{% if view == 'standings' %}Standings-Style Team Stats{% else %}Team Season Totals{% endif %}</h2>
     {{ team_stats_table(page_payload.table_rows, visible_columns, colnames, rate, strength) }}
     {% if season and not page_payload.table_rows %}
-    <p class="empty-state">No team season totals in the database yet. Include <code>team_stats.csv</code> in your FHM export and run the import pipeline.</p>
+    <p class="empty-state">{% if viewing_catalog_year %}No team totals are stored for this season and game type yet.{% else %}No team season totals in the database yet. Include <code>team_stats.csv</code> in your FHM export and run the import pipeline.{% endif %}</p>
     {% endif %}
   </section>
   <div class="team-statistics-row-tooltip" id="team-statistics-row-tooltip" role="tooltip" hidden></div>

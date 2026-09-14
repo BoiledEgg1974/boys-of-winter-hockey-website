@@ -12,9 +12,9 @@
       <input type="hidden" name="panel" value="{{ active_panel or 'roster' }}">
       <label class="team-shot-quality__control">
         <span class="team-shot-quality__control-label">Season</span>
-        <select name="sq_season_id" aria-label="Shot quality season" onchange="this.form.submit()">
+        <select name="sq_season" aria-label="Shot quality season" onchange="this.form.submit()">
           {% for s in team_shot_quality_seasons %}
-          <option value="{{ s.id }}"{% if team_shot_quality and team_shot_quality.season_id == s.id %} selected{% endif %}>{{ s|season_display }}</option>
+          <option value="{{ s.key }}"{% if s.key == team_shot_quality_selected_key %} selected{% endif %}>{{ s.label }}</option>
           {% endfor %}
         </select>
       </label>

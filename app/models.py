@@ -852,6 +852,38 @@ class PlayerRatingSnapshot(db.Model):
     player: Mapped["Player"] = relationship()
 
 
+class PlayerSeasonWar(db.Model):
+    """Permanent per-player season WAR register (never deleted; upsert + finalize on rollover)."""
+
+    __tablename__ = "player_season_war"
+    __table_args__ = (
+        UniqueConstraint(
+            "player_id",
+            "season_year",
+            "stat_segment",
+            "is_goalie",
+            name="uq_player_season_war",
+        ),
+        Index("ix_player_season_war_year_seg", "season_year", "stat_segment"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    player_id: Mapped[int] = mapped_column(Integer, ForeignKey("players.id"), nullable=False, index=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    season_year: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    stat_segment: Mapped[str] = mapped_column(String(8), nullable=False, default="rs")
+    is_goalie: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    war_pct: Mapped[int | None] = mapped_column(Integer)
+    formula_version: Mapped[str] = mapped_column(String(16), nullable=False, default="full")
+    gp: Mapped[int | None] = mapped_column(Integer)
+    is_finalized: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    metrics_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+    finalized_at: Mapped[datetime | None] = mapped_column(DateTime)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+    player: Mapped["Player"] = relationship()
+
+
 class PlayerAnalyticsSnapshot(db.Model):
     """Point-in-time player analytics (WAR %, process metrics) across FHM imports."""
 
@@ -894,6 +926,35 @@ class TeamAnalyticsSnapshot(db.Model):
     is_rollover: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     snapshot_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False, index=True)
     metrics_json: Mapped[str] = mapped_column(Text, nullable=False)
+
+    team: Mapped["Team"] = relationship()
+
+
+class TeamStatsTrendSnapshot(db.Model):
+    """Game-by-game team trend series that survives FHM season-row reuse / rollover wipes."""
+
+    __tablename__ = "team_stats_trend_snapshots"
+    __table_args__ = (
+        UniqueConstraint(
+            "team_id",
+            "season_year",
+            "stat_segment",
+            "situation",
+            name="uq_team_stats_trend_snap",
+        ),
+        Index("ix_team_stats_trend_snap_year_seg", "season_year", "stat_segment"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    team_id: Mapped[int] = mapped_column(Integer, ForeignKey("teams.id"), nullable=False, index=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    season_year: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    stat_segment: Mapped[str] = mapped_column(String(8), nullable=False, default="rs")
+    situation: Mapped[str] = mapped_column(String(16), nullable=False, default="all")
+    is_rollover: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    snapshot_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    game_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    series_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
 
     team: Mapped["Team"] = relationship()
 

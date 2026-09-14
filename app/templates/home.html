@@ -223,6 +223,18 @@
         <div id="home-identity-panel" class="table-wrap"></div>
       </section>
       {% endif %}
+      <section id="dash-war-leaders" class="card mini-leaders home-dashboard__card" aria-labelledby="war-leaders-h" data-module-key="war_leaders">
+        <h2 id="war-leaders-h" class="home-dashboard__h">WAR Leaders</h2>
+        <p class="muted home-dashboard__sub">BOWL WAR — league average ≈ 0, elite ≈ 6–8</p>
+        <div class="subtabs" role="tablist" aria-label="WAR leader type">
+          <button type="button" class="is-active" data-war-tab="skaters" role="tab" aria-selected="true">Skaters</button>
+          <button type="button" data-war-tab="goalies" role="tab" aria-selected="false">Goalies</button>
+        </div>
+        <div id="home-war-leaders" class="table-wrap">
+          <p class="empty-state loading-with-puck">Loading…</p>
+        </div>
+        <a class="link-more" href="{{ url_for('main.advanced_stats_page') }}">Full advanced stats</a>
+      </section>
       <section class="card home-dashboard__card" aria-labelledby="champ-h" data-module-key="champions">
         <h2 id="champ-h" class="home-dashboard__h">Champions</h2>
         <div id="home-champions" class="home-champions" aria-live="polite"></div>
@@ -650,6 +662,66 @@
     }
     h += '</tbody></table></div></div>';
     return h;
+  }
+
+  function warLeaderPlayerCell(r) {
+    var ph = r.player_photo_url
+      ? '<img src="' + escapeAttr(r.player_photo_url) + '" alt="" loading="lazy" decoding="async">'
+      : '<span class="home-leader-player__photo-ph" aria-hidden="true"></span>';
+    var playerName = r.player_id
+      ? '<a class="home-leader-player__name" href="' + withRoot('/player/' + r.player_id) + '">' + escape(r.player || r.name || '—') + '</a>'
+      : '<span class="home-leader-player__name">' + escape(r.player || r.name || '—') + '</span>';
+    return '<span class="home-leader-player"><span class="home-leader-player__photo">' + ph + '</span>' + playerName + '</span>';
+  }
+  function warLeaderTeamCell(r) {
+    if (r.team_logo_url) {
+      var img = '<img src="' + escapeAttr(r.team_logo_url) + '" alt="" class="team-name-lockup__logo">';
+      return r.team_slug
+        ? '<a class="team-name-lockup team-name-lockup--icon" href="' + withRoot('/team/' + escapeAttr(r.team_slug)) + '" title="' + escapeAttr(String(r.team || '')) + '">' + img + '</a>'
+        : '<span class="team-name-lockup team-name-lockup--icon">' + img + '</span>';
+    }
+    if (r.team_slug) {
+      return '<a class="home-momentum-tm-abbr" href="' + withRoot('/team/' + escapeAttr(r.team_slug)) + '">' + escape(r.team || '—') + '</a>';
+    }
+    return escape(r.team || '—');
+  }
+  function fmtWarWins(wins, warPct, isGoalie) {
+    if (wins != null && wins !== '') {
+      var w = Number(wins);
+      return isNaN(w) ? '—' : w.toFixed(2);
+    }
+    if (warPct == null || warPct === '') return '—';
+    var cap = isGoalie ? 6 : 8;
+    return ((Number(warPct) - 50) / 49 * cap).toFixed(2);
+  }
+  function rowWarLeadersTable(rows, label) {
+    if (!rows.length) {
+      return '<p class="empty-state muted">No ' + escape(label) + ' with WAR data yet.</p>';
+    }
+    var h = '<table class="data home-leaders-table home-war-leaders-table"><thead><tr>';
+    h += '<th>#</th><th>Player</th><th>Tm</th><th>GP</th><th title="BOWL WAR wins scale (avg ≈ 0)">WAR</th></tr></thead><tbody>';
+    rows.forEach(function (r, i) {
+      h += '<tr><td>' + (i + 1) + '</td><td>' + warLeaderPlayerCell(r) + '</td><td>' + warLeaderTeamCell(r) + '</td>';
+      h += '<td>' + (r.gp != null ? r.gp : '—') + '</td>';
+      h += '<td>' + fmtWarWins(r.war, r.war_pct, label === 'goalies') + '</td></tr>';
+    });
+    h += '</tbody></table>';
+    return h;
+  }
+  var warLeaderData = { skaters: [], goalies: [] };
+  var warLeaderTab = 'skaters';
+  var elWarLeaders = document.getElementById('home-war-leaders');
+  function paintWarLeaders() {
+    if (!elWarLeaders) return;
+    var rows = warLeaderTab === 'goalies' ? (warLeaderData.goalies || []) : (warLeaderData.skaters || []);
+    var label = warLeaderTab === 'goalies' ? 'goalies' : 'skaters';
+    elWarLeaders.innerHTML = rowWarLeadersTable(rows, label);
+    document.querySelectorAll('#dash-war-leaders .subtabs button').forEach(function (b) {
+      var on = b.getAttribute('data-war-tab') === warLeaderTab;
+      b.classList.toggle('is-active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    syncPlayerHoverCards();
   }
 
   function rowProcessMomentum(pm) {
@@ -1873,17 +1945,23 @@
   function paintLeaders() {
     if (!elLeaders) return;
     elLeaders.innerHTML = rowLeaders(leaderData[leaderTab] || [], leaderStatLabels[leaderTab], seg);
-    document.querySelectorAll('.mini-leaders .subtabs button').forEach(function (b) {
+    document.querySelectorAll('#dash-leaders .subtabs button').forEach(function (b) {
       var on = b.getAttribute('data-tab') === leaderTab;
       b.classList.toggle('is-active', on);
       b.setAttribute('aria-selected', on ? 'true' : 'false');
     });
     syncPlayerHoverCards();
   }
-  document.querySelectorAll('.mini-leaders .subtabs button').forEach(function (b) {
+  document.querySelectorAll('#dash-leaders .subtabs button').forEach(function (b) {
     b.addEventListener('click', function () {
       leaderTab = b.getAttribute('data-tab') || 'goals';
       paintLeaders();
+    });
+  });
+  document.querySelectorAll('#dash-war-leaders .subtabs button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      warLeaderTab = b.getAttribute('data-war-tab') || 'skaters';
+      paintWarLeaders();
     });
   });
 
@@ -2019,6 +2097,8 @@
         document.getElementById('home-streaks').innerHTML = rowStreaks(data.active_streaks);
         var pmEl = document.getElementById('home-process-momentum');
         if (pmEl) pmEl.innerHTML = rowProcessMomentum(data.process_momentum || {});
+        warLeaderData = data.war_leaders || { skaters: [], goalies: [] };
+        paintWarLeaders();
         var tmEl = document.getElementById('home-team-trending');
         var tsEl = document.getElementById('home-team-streaks');
         var tmData = data.team_momentum || {};

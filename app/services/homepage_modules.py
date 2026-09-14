@@ -21,6 +21,7 @@ ALLOWED_HOMEPAGE_MODULE_KEYS = (
     "top_rookies",
     "player_momentum",
     "process_momentum",
+    "war_leaders",
     "team_momentum",
     "league_spotlight",
     "divisional_standings",
@@ -48,6 +49,7 @@ DEFAULT_HOMEPAGE_MODULES = (
     {"module_key": "divisional_standings", "sort_order": 140},
     {"module_key": "power_rankings", "sort_order": 150},
     {"module_key": "identity_panel", "sort_order": 160},
+    {"module_key": "war_leaders", "sort_order": 165},
     {"module_key": "champions", "sort_order": 170},
 )
 
@@ -96,6 +98,11 @@ def ensure_homepage_module_settings(session, league_slug: str, updated_by_user_i
     if stale is not None and int(stale.sort_order) == 55:
         stale.sort_order = 125
         stale.updated_at = now
+        changed = True
+    stale_war = by_key.get("war_leaders")
+    if stale_war is not None and int(stale_war.sort_order) == 116:
+        stale_war.sort_order = 165
+        stale_war.updated_at = now
         changed = True
     if changed:
         commit_with_sqlite_retry(session)

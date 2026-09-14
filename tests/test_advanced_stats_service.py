@@ -7,6 +7,10 @@ from unittest.mock import MagicMock, patch
 
 from app.services.advanced_stats import (
     _aggregate_game_skater_lines,
+    _append_catalog_years_to_player_analytics_archive,
+    _append_record_years_to_team_stats_trends,
+    _append_snapshot_years_to_team_stats_trends,
+    _fhm_segment_for_chart_segment,
     _fo_pct,
     _goalie_game_log_profile,
     _goalie_record_label,
@@ -22,9 +26,12 @@ from app.services.advanced_stats import (
     build_team_analytics_chart_archive,
     build_team_player_analytics_archive,
     build_team_player_trends_archive,
+    build_team_shot_quality_payload_from_archive,
     build_team_stats_trends_archive,
+    team_shot_quality_season_options,
     _strength_situation_bucket,
     _team_stats_all_situation_counts,
+    _team_stats_trend_counts_from_record,
     _team_stats_situation_goal_counts,
     _goalie_trend_game_counts,
     _skater_player_chart_metrics,
@@ -130,6 +137,75 @@ class AdvancedStatsServiceTest(unittest.TestCase):
         self.assertEqual(out["default_situation"], "all")
         self.assertEqual(out["rs_game_cap"], 82)
         self.assertEqual(out["datasets"], {})
+
+    def test_team_stats_trend_counts_from_record(self) -> None:
+        rec = SimpleNamespace(
+            gf=240,
+            ga=200,
+            goal_diff=None,
+            shots_for=2200,
+            shots_against=2100,
+            ppg=50,
+            pp_chances=250,
+            ppg_against=40,
+            sh_chances=200,
+            gp=76,
+            pim_per_game=12.5,
+            pts=92,
+        )
+        out = _team_stats_trend_counts_from_record(rec)
+        self.assertEqual(out["goal_diff"], 40)
+        self.assertEqual(out["goal_events"], 440)
+        self.assertEqual(out["shot_diff"], 100)
+        self.assertEqual(out["pk_stops"], 160)
+        self.assertEqual(out["pim_against"], 950)
+        self.assertEqual(out["standings_pts"], 92.0)
+
+    def test_append_record_years_to_team_stats_trends(self) -> None:
+        rec = SimpleNamespace(
+            start_year=1968,
+            season_year_label="1968-69",
+            gp=76,
+            gf=210,
+            ga=180,
+            goal_diff=30,
+            shots_for=None,
+            shots_against=None,
+            ppg=None,
+            pp_chances=None,
+            ppg_against=None,
+            sh_chances=None,
+            pim_per_game=None,
+            pts=88,
+        )
+        session = MagicMock()
+        session.scalars.return_value.all.return_value = [rec]
+        team = SimpleNamespace(id=7)
+        archive = {"seasons": [{"id": 1, "label": "1971-72", "start_year": 1971}], "datasets": {}}
+        out = _append_record_years_to_team_stats_trends(session, team, archive)
+        labels = [s["label"] for s in out["seasons"]]
+        self.assertIn("1968-69", labels)
+        self.assertIn("1971-72", labels)
+        ds = out["datasets"]["y:1968|rs|all"]
+        self.assertEqual(ds["source"], "records")
+        self.assertEqual(ds["series"][0]["game_number"], 76)
+        self.assertEqual(ds["series"][0]["counts"]["goal_diff"], 30)
+
+    def test_append_snapshot_years_to_team_stats_trends(self) -> None:
+        snap = SimpleNamespace(
+            season_year=1970,
+            stat_segment="rs",
+            situation="all",
+            game_count=82,
+            series_json='[{"date": null, "game_number": 1, "counts": {"goal_diff": 2}}]',
+        )
+        session = MagicMock()
+        session.scalars.return_value.all.return_value = [snap]
+        archive = {"seasons": [{"id": 1, "label": "1971-72", "start_year": 1971}], "datasets": {}}
+        out = _append_snapshot_years_to_team_stats_trends(session, 3, archive)
+        self.assertEqual(out["seasons"][1]["id"], "y:1970")
+        self.assertEqual(out["datasets"]["y:1970|rs|all"]["source"], "snapshot")
+        self.assertEqual(out["datasets"]["y:1970|rs|all"]["series"][0]["counts"]["goal_diff"], 2)
 
     def test_team_player_trend_game_meta_reindexes_line_games(self) -> None:
         games = [
@@ -642,6 +718,96 @@ class AdvancedStatsServiceTest(unittest.TestCase):
         self.assertEqual(out["rolling"]["last_10"], {})
         self.assertIsNone(out["season"]["cf_pct"])
         self.assertIsNone(out["season"]["pts_per_60"])
+
+    def test_fhm_segment_for_chart_segment_swaps_playoffs_and_preseason(self) -> None:
+        self.assertEqual(_fhm_segment_for_chart_segment("rs"), "rs")
+        self.assertEqual(_fhm_segment_for_chart_segment("ps"), "po")
+        self.assertEqual(_fhm_segment_for_chart_segment("po"), "ps")
+
+    @patch("app.services.advanced_stats.load_archived_advanced_stats_hub")
+    @patch("app.services.analytics_snapshots.load_hub_rollover_years")
+    @patch("app.services.all_time_records.bowl_nhl_league_ids")
+    def test_append_catalog_years_adds_career_map_year(
+        self,
+        bowl_ids_mock: MagicMock,
+        rollover_mock: MagicMock,
+        hub_mock: MagicMock,
+    ) -> None:
+        bowl_ids_mock.return_value = (0,)
+        rollover_mock.return_value = [1968]
+        hub_mock.return_value = {
+            "skaters": [{"player_id": 9, "team": {"id": 3}, "cf_pct": 54.2, "gp": 76}],
+            "goalies": [],
+        }
+        player = SimpleNamespace(id=9, full_name="Pat Stapleton", position="D")
+        line = SimpleNamespace(
+            season_year=1968,
+            career_source="rs",
+            player=player,
+            gp=76,
+            goals=10,
+            assists=40,
+            shots=200,
+            game_rating=7.5,
+        )
+        session = MagicMock()
+        session.scalars.side_effect = [
+            MagicMock(all=lambda: [line]),
+            MagicMock(all=lambda: []),
+        ]
+        team = SimpleNamespace(id=3, fhm_team_id=None)
+        archive = {
+            "seasons": [{"id": 1, "label": "1971-72", "start_year": 1971}],
+            "datasets": {},
+        }
+        out = _append_catalog_years_to_player_analytics_archive(
+            session, team, archive, static_root=None
+        )
+        ids = [s["id"] for s in out["seasons"]]
+        self.assertIn("y:1968", ids)
+        self.assertIn("y:1968|rs|skater", out["datasets"])
+        catalog = next(s for s in out["seasons"] if s["id"] == "y:1968")
+        self.assertEqual(catalog["axis_defaults"]["skater"]["y"], "cf_pct")
+        self.assertEqual(out["datasets"]["y:1968|rs|skater"]["players"][0]["metrics"]["points"], 50)
+        called_segments = [c.kwargs["segment"] for c in hub_mock.call_args_list]
+        self.assertIn("rs", called_segments)
+        self.assertIn("po", called_segments)
+        self.assertIn("ps", called_segments)
+
+    @patch("app.services.analytics_snapshots.load_hub_rollover_years")
+    @patch("app.services.advanced_stats.seasons_for_team_shot_quality")
+    def test_team_shot_quality_season_options_merges_archives(
+        self,
+        live_mock: MagicMock,
+        rollover_mock: MagicMock,
+    ) -> None:
+        live_mock.return_value = [SimpleNamespace(id=11, start_year=1971, label="1971-72")]
+        rollover_mock.return_value = [1968, 1971]
+        out = team_shot_quality_season_options(MagicMock(), 3)
+        self.assertEqual([o["key"] for o in out], ["s:11", "y:1968"])
+
+    @patch("app.services.advanced_stats.load_archived_advanced_stats_hub")
+    def test_build_team_shot_quality_payload_from_archive(self, hub_mock: MagicMock) -> None:
+        hub_mock.return_value = {
+            "shot_quality": [
+                {
+                    "player_id": 1,
+                    "team": {"id": 3},
+                    "gp": 80,
+                    "shots": 200,
+                    "sq_profile": {
+                        "counts": {"SQ0": 10, "SQ1": 20, "SQ2": 30, "SQ3": 25, "SQ4": 15},
+                    },
+                }
+            ]
+        }
+        out = build_team_shot_quality_payload_from_archive(
+            MagicMock(), SimpleNamespace(id=3), 1968
+        )
+        self.assertIsNotNone(out)
+        self.assertEqual(out["archive_year"], 1968)
+        self.assertEqual(out["sq"]["total"], 100)
+        self.assertEqual(out["gp"], 80)
 
 
 if __name__ == "__main__":

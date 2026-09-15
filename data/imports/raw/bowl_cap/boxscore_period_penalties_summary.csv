@@ -6298,6 +6298,602 @@ Game Id;Period;Time;Player;TeamId;Penalty;Minutes
 653;2;644;13625;26;Interference;2
 653;2;982;12034;220;Tripping;2
 653;3;969;14054;220;Tripping;2
+654;1;272;13668;227;Interference;2
+654;1;613;13042;221;Unsportsmanlike Conduct;2
+654;1;1085;13075;227;Bench;0
+654;2;73;13679;227;Holding;2
+654;2;790;300;227;Holding The Stick;2
+654;2;975;14051;227;Fighting;5
+654;2;975;13042;221;Fighting;5
+654;3;569;14562;227;Fighting;5
+654;3;569;13624;221;Fighting;5
+655;1;29;13520;5;Fighting;5
+655;1;29;12027;216;Fighting;5
+655;1;196;12552;5;Holding The Stick;2
+655;1;306;16040;5;Roughing;2
+655;1;807;15054;5;Holding;2
+655;2;53;385;5;Tripping;2
+655;2;87;1260;216;Hooking;2
+655;2;938;16040;5;Fighting;5
+655;2;938;16040;5;Misconduct;10
+655;2;938;13587;216;Fighting;5
+655;3;343;13516;216;Bench;0
+655;3;665;12475;5;Tripping;2
+655;3;775;14135;216;Tripping;2
+655;3;954;14556;5;Fighting;5
+655;3;954;15592;216;Fighting;5
+656;1;28;13072;17;Unsportsmanlike Conduct;2
+656;1;206;12053;17;Interference;2
+656;2;199;14350;0;Hooking;2
+656;2;279;13613;0;High Sticking;2
+656;2;849;13069;0;Tripping;2
+656;3;121;1871;17;Interference;2
+656;3;189;12512;17;Roughing;2
+656;3;440;1172;0;High Sticking;2
+657;1;168;15485;24;Roughing;2
+657;1;306;15485;24;Hooking;2
+657;1;367;14969;3;Slashing;2
+657;1;429;14049;3;Tripping;2
+657;1;451;13537;24;Slashing;2
+657;2;454;801;3;Roughing;2
+657;2;463;14033;24;Holding;2
+657;2;1098;14049;3;Roughing;2
+657;3;1074;15485;24;Holding;2
+657;3;1199;14033;24;Fighting;5
+657;3;1199;16539;3;Fighting;5
+658;1;139;14586;12;Hooking;2
+658;1;181;1022;25;Hooking;2
+658;1;348;15000;12;Slashing;2
+658;2;84;14994;12;Interference;2
+658;2;84;13055;25;Slashing;2
+658;2;188;12052;25;Hooking;2
+658;2;339;12052;25;Unsportsmanlike Conduct;2
+658;2;461;15087;12;High Sticking;2
+658;2;647;14514;12;Slashing;2
+658;2;765;12417;12;High Sticking;2
+658;3;117;12518;25;Hooking;2
+659;1;32;1528;23;Roughing;2
+659;1;158;1251;23;Fighting;5
+659;1;158;13056;19;Fighting;5
+659;1;448;14515;19;Slashing;2
+659;1;890;1517;19;Unsportsmanlike Conduct;2
+659;1;1031;12464;23;Holding;2
+659;3;408;1251;23;Holding;2
+659;3;440;13056;19;High Sticking;2
+660;1;197;15093;9;Tripping;2
+660;2;20;12440;230;Unsportsmanlike Conduct;2
+660;2;34;1710;9;Roughing;2
+660;2;58;12516;9;Unsportsmanlike Conduct;2
+660;2;1001;7;230;Cross-Checking;2
+660;2;1031;1213;230;Hooking;2
+660;3;923;13089;9;Abuse of Official;2
+660;3;1086;1710;9;Tripping;2
+661;1;329;13099;15;Unsportsmanlike Conduct;2
+661;1;442;12474;21;Fighting;5
+661;1;442;1869;15;Fighting;5
+661;1;560;12072;21;Fighting;5
+661;1;560;13032;15;Fighting;5
+661;1;560;13032;15;Misconduct;10
+661;1;1005;12426;21;Slashing;2
+661;2;334;260;15;Unsportsmanlike Conduct;2
+661;2;389;12030;21;Fighting;5
+661;2;389;1225;15;Fighting;5
+661;2;633;13032;15;Hooking;2
+661;2;1014;13099;15;Interference;2
+661;2;1033;12476;21;High Sticking;2
+661;3;596;12474;21;Tripping;2
+661;3;774;12474;21;Fighting;5
+661;3;774;260;15;Fighting;5
+662;1;773;12459;217;Tripping;2
+662;1;1197;107;224;Fighting;5
+662;1;1197;11984;217;Fighting;5
+662;2;702;15476;224;Interference;2
+662;2;1088;12496;217;Cross-Checking;2
+662;3;113;12049;224;High Sticking;2
+662;3;520;13526;224;High Sticking;2
+662;3;543;12520;224;Interference;2
+662;3;1028;13526;224;Hooking;2
+663;1;70;13098;26;Hooking;2
+663;1;199;14525;26;Abuse of Official;2
+663;1;622;1790;11;Roughing;2
+663;1;871;14107;26;High Sticking;2
+663;1;974;694;11;Tripping;2
+663;1;974;13102;26;High Sticking;2
+663;2;383;12420;26;Holding;2
+663;2;716;14525;26;Tripping;2
+663;3;162;14550;11;Hooking;2
+663;3;968;12091;26;Tripping;2
+663;3;1156;1801;11;Holding;2
+664;1;1111;1445;214;Fighting;5
+664;1;1111;1421;220;Fighting;5
+664;3;196;12776;214;Holding;2
+664;3;544;1588;220;Tripping;2
+664;3;1196;217;214;Slashing;2
+665;1;337;12484;8;Roughing;2
+665;1;337;13078;16;Cross-Checking;2
+665;1;935;14526;16;Tripping;2
+665;2;264;13037;16;High Sticking;2
+665;2;340;13497;8;Holding;2
+665;2;560;13078;16;Fighting;5
+665;2;560;14076;8;Fighting;5
+665;2;1127;15078;16;Tripping;2
+665;3;356;13034;8;Tripping;2
+665;3;577;11979;16;Unsportsmanlike Conduct;2
+665;3;619;13497;8;Slashing;2
+665;3;839;13123;16;Unsportsmanlike Conduct;2
+665;3;1008;14100;8;Tripping;2
+665;3;1059;709;8;Interference;2
+666;1;816;154;14;Holding;2
+666;1;919;133;22;Bench;0
+666;2;155;1626;22;Fighting;5
+666;2;155;1472;14;Fighting;5
+666;2;314;12395;22;Roughing;2
+666;3;521;13017;22;Interference;2
+666;3;620;13125;14;Cross-Checking;2
+666;3;697;1626;22;Interference;2
+666;3;865;13581;22;Fighting;5
+666;3;865;681;14;Fighting;5
+666;3;1016;14527;22;Tripping;2
+667;1;666;1409;25;High Sticking;2
+667;1;867;425;8;Holding;2
+667;2;51;13497;8;Tripping;2
+667;2;407;13034;8;Tripping;2
+667;2;522;14126;25;Unsportsmanlike Conduct;2
+667;2;580;1864;8;Tripping;2
+667;2;849;1651;8;Roughing;2
+667;2;849;13108;25;Roughing;2
+667;3;481;12484;8;Fighting;5
+667;3;481;14126;25;Fighting;5
+667;3;650;55;25;Hooking;2
+667;3;728;1864;8;Cross-Checking;2
+667;3;777;709;8;High Sticking;2
+667;3;1128;12042;25;Slashing;2
+668;1;315;1693;229;Roughing;2
+668;1;315;15559;9;Cross-Checking;2
+668;1;435;651;229;Interference;2
+668;1;806;13011;229;Cross-Checking;2
+668;1;1001;13029;9;Interference;2
+668;1;1163;12625;229;Tripping;2
+668;2;618;13029;9;Holding The Stick;2
+668;2;789;556;9;Interference;2
+668;2;979;13089;9;Cross-Checking;2
+668;2;979;16001;229;Roughing;2
+668;2;1078;13243;9;Fighting;5
+668;2;1078;1091;229;Fighting;5
+668;2;1078;1091;229;Misconduct;10
+668;3;797;822;9;Roughing;2
+668;3;969;13011;229;Tripping;2
+669;1;257;771;11;Roughing;2
+669;1;654;867;220;Interference;2
+669;2;535;1421;220;Slashing;2
+669;2;612;12551;11;Fighting;5
+669;2;612;12137;220;Fighting;5
+669;2;1031;694;11;Fighting;5
+669;2;1031;12137;220;Fighting;5
+670;1;131;509;20;Roughing;2
+670;1;528;13572;216;Slashing;2
+670;2;299;375;216;Abuse of Official;2
+670;2;761;13342;20;Interference;2
+670;2;1040;1326;216;Unsportsmanlike Conduct;2
+670;3;235;1611;20;Slashing;2
+671;1;553;15496;24;Cross-Checking;2
+671;1;997;13033;24;Hooking;2
+671;1;1030;12459;217;Slashing;2
+671;2;1152;12496;217;Tripping;2
+671;3;591;14141;217;Cross-Checking;2
+671;3;808;378;24;High Sticking;2
+671;3;918;12496;217;Cross-Checking;2
+671;3;940;1277;217;Fighting;5
+671;3;940;1277;217;Misconduct;10
+671;3;940;1711;24;Fighting;5
+671;3;990;12537;24;Roughing;2
+672;1;40;1228;18;Interference;2
+672;1;55;13503;19;Slashing;2
+672;1;55;13495;18;High Sticking;2
+672;1;495;13626;18;Roughing;2
+672;1;531;13503;19;Hooking;2
+672;1;640;12993;18;Hooking;2
+672;1;666;13503;19;Slashing;2
+672;1;1150;12480;18;Tripping;2
+672;2;610;12489;18;Fighting;5
+672;2;610;14515;19;Fighting;5
+672;3;311;13626;18;Fighting;5
+672;3;311;12449;19;Fighting;5
+672;3;629;1453;18;Slashing;2
+673;1;372;1802;227;Cross-Checking;2
+673;1;633;1051;3;High Sticking;2
+673;1;656;15484;227;Interference;2
+673;2;156;1795;3;Unsportsmanlike Conduct;2
+673;2;367;1330;227;Fighting;5
+673;2;367;14804;3;Fighting;5
+673;2;435;14051;227;Tripping;2
+673;2;616;1795;3;Bench;0
+673;2;701;1068;3;Tripping;2
+673;2;741;13796;3;Interference;2
+673;2;759;15484;227;Hooking;2
+673;2;1100;13668;227;High Sticking;2
+673;3;961;16114;227;Slashing Major;5
+673;3;1074;14997;3;Hooking;2
+674;1;127;12399;12;Cross-Checking;2
+674;1;1068;14527;22;High Sticking;2
+674;1;1072;14622;12;Interference;2
+674;2;234;14527;22;Roughing;2
+674;2;299;14133;12;Holding The Stick;2
+674;2;398;12455;22;Roughing;2
+674;2;871;14138;22;Hooking;2
+674;3;984;14994;12;Fighting;5
+674;3;984;14994;12;Misconduct;10
+674;3;984;133;22;Fighting;5
+675;1;18;1213;230;Interference;2
+675;1;395;1251;23;Tripping;2
+675;1;826;1584;230;Hooking;2
+675;1;979;13628;230;Holding;2
+675;1;979;1251;23;Slashing;2
+675;2;392;14071;230;Holding;2
+675;3;266;13628;230;Tripping;2
+675;3;522;14145;23;Hooking;2
+675;3;1008;225;23;Tripping;2
+676;1;72;14585;221;Bench;0
+676;1;164;14556;5;Roughing;2
+676;1;707;838;221;Slashing;2
+676;1;1196;14053;221;Fighting;5
+676;1;1196;14053;221;Misconduct;10
+676;1;1196;12552;5;Fighting;5
+676;2;129;16568;5;Slashing;2
+676;2;129;14106;221;Roughing;2
+676;2;832;13038;221;Slashing;2
+676;3;8;15025;5;Hooking;2
+676;3;103;1736;5;Roughing;2
+676;3;103;13014;221;Cross-Checking;2
+676;3;305;13042;221;Cross-Checking;2
+676;3;428;14048;221;Fighting;5
+676;3;428;15514;5;Fighting;5
+676;3;716;13054;5;Roughing;2
+676;3;1115;838;221;Bench;0
+677;1;177;12549;26;Illegal Check To Head;5
+677;1;563;12064;26;Fighting;5
+677;1;563;1472;14;Fighting;5
+677;1;608;15107;14;Tripping;2
+677;2;15;12064;26;Cross-Checking;2
+677;2;97;13125;14;Roughing;2
+677;2;486;1661;14;Interference;2
+677;2;492;12091;26;High Sticking;2
+677;2;859;13125;14;Holding;2
+677;3;335;12549;26;Bench;0
+677;3;620;331;26;Slashing;2
+677;3;1051;12064;26;Fighting;5
+677;3;1051;13125;14;Fighting;5
+677;3;1051;13125;14;Misconduct;10
+677;3;1075;14073;26;Abuse of Official;2
+678;1;462;16099;214;High Sticking;2
+678;1;629;14598;214;Tripping;2
+678;1;986;12991;214;Hooking;2
+678;1;986;15106;10;Roughing;2
+678;2;64;599;214;Slashing;2
+678;2;71;217;214;Fighting;5
+678;2;71;13131;10;Fighting;5
+678;2;81;1210;10;Tripping;2
+678;2;102;12436;214;Unsportsmanlike Conduct;2
+678;2;300;14148;214;Fighting;5
+678;2;300;13593;10;Fighting;5
+678;2;880;13066;214;Hooking;2
+678;3;733;16099;214;Cross-Checking;2
+678;3;812;1210;10;High Sticking;2
+678;3;840;1437;214;Tripping;2
+679;2;130;12445;16;Hooking;2
+679;2;403;12445;16;Fighting;5
+679;2;403;1172;0;Fighting;5
+679;2;448;1810;0;Hooking;2
+679;3;302;14111;16;High Sticking Double Minor;4
+679;3;375;14146;0;Tripping;2
+679;3;1053;14492;16;Holding;2
+680;1;76;16001;229;Roughing;2
+680;1;157;12053;17;Tripping;2
+680;1;294;13011;229;Roughing;2
+680;1;294;762;17;Unsportsmanlike Conduct;2
+680;2;250;12053;17;Cross-Checking;2
+680;2;538;14144;17;Hooking;2
+680;2;570;651;229;Interference;2
+680;2;908;12002;229;High Sticking;2
+680;3;496;1846;229;Fighting;5
+680;3;496;1846;229;Misconduct;10
+680;3;496;14143;17;Fighting;5
+680;3;625;14578;229;Fighting;5
+680;3;625;12512;17;Fighting;5
+681;1;288;1094;230;Tripping;2
+681;1;456;12388;230;Unsportsmanlike Conduct;2
+681;1;1034;1258;19;Fighting;5
+681;1;1034;13115;230;Fighting;5
+681;1;1070;12431;230;Unsportsmanlike Conduct;2
+681;1;1083;1471;230;Tripping;2
+681;2;124;6;19;Roughing;2
+681;2;482;12449;19;Unsportsmanlike Conduct;2
+681;2;917;1173;19;Tripping;2
+681;3;162;14515;19;Slashing;2
+681;3;246;15034;230;Unsportsmanlike Conduct;2
+681;3;324;14515;19;Tripping;2
+681;3;931;6;19;Cross-Checking;2
+681;3;1073;13590;230;High Sticking;2
+682;1;921;13553;14;Tripping;2
+682;2;522;13108;25;Unsportsmanlike Conduct;2
+682;2;582;14574;25;Fighting;5
+682;2;582;13125;14;Fighting;5
+682;2;582;13125;14;Misconduct;10
+682;2;1036;14611;25;High Sticking;2
+682;2;1085;13055;25;Hooking;2
+682;3;845;1661;14;Hooking;2
+682;3;1067;13108;25;Unsportsmanlike Conduct;2
+682;3;1082;13125;14;Slashing;2
+683;1;218;15077;3;Slashing;2
+683;1;767;12441;221;Roughing;2
+683;1;767;15077;3;Slashing;2
+683;1;794;14493;3;Slashing;2
+683;1;800;14049;3;Roughing;2
+683;1;837;14106;221;Interference;2
+683;1;1020;13026;221;Fighting;5
+683;1;1020;14579;3;Fighting;5
+683;1;1027;11997;221;High Sticking;2
+683;1;1154;13014;221;Roughing;2
+683;2;806;14048;221;Hooking;2
+683;2;1184;13796;3;Slashing;2
+683;3;266;14997;3;Slashing;2
+683;3;462;1795;3;Holding;2
+683;3;842;13038;221;Slashing;2
+683;3;842;14969;3;High Sticking;2
+683;3;861;611;3;Holding The Stick;2
+683;3;893;16061;221;Unsportsmanlike Conduct;2
+684;1;5;989;11;Fighting;5
+684;1;5;989;11;Misconduct;10
+684;1;5;15541;10;Fighting;5
+684;1;342;13569;10;Interference;2
+684;1;547;1790;11;Cross-Checking;2
+684;1;589;1738;10;Tripping;2
+684;1;908;12551;11;Hooking;2
+684;1;919;1210;10;Interference;2
+684;2;289;494;11;Fighting;5
+684;2;289;15096;10;Fighting;5
+684;2;293;908;11;Cross-Checking;2
+684;2;481;14591;10;Interference;2
+684;2;738;989;11;Roughing;2
+684;3;140;13091;11;Fighting;5
+684;3;140;15096;10;Fighting;5
+684;3;406;13518;10;Slashing;2
+684;3;468;13583;11;Hooking;2
+684;3;735;12427;11;Holding;2
+684;3;799;837;11;Fighting;5
+684;3;799;1210;10;Fighting;5
+684;3;803;1274;10;Abuse of Official;2
+684;3;938;14550;11;Hooking;2
+685;1;153;14990;9;Hooking;2
+685;1;153;12049;224;High Sticking;2
+685;1;674;12520;224;High Sticking;2
+685;2;23;13121;224;Holding;2
+685;2;818;588;9;Unsportsmanlike Conduct;2
+685;2;1104;14299;9;Slashing;2
+685;3;709;14974;224;Unsportsmanlike Conduct;2
+685;3;770;1084;9;Unsportsmanlike Conduct;2
+685;3;1029;12516;9;Hooking;2
+686;1;457;13597;0;Unsportsmanlike Conduct;2
+686;1;474;509;20;Bench;0
+686;1;591;12438;20;High Sticking;2
+686;1;826;14146;0;Tripping;2
+686;1;864;13069;0;Slashing;2
+686;2;20;12488;20;Holding;2
+686;2;102;1810;0;Roughing;2
+686;2;812;177;0;Roughing;2
+686;3;157;14094;0;Cross-Checking;2
+686;3;247;691;20;High Sticking;2
+686;3;929;12488;20;Fighting;5
+686;3;929;12488;20;Misconduct;10
+686;3;929;13613;0;Fighting;5
+687;1;660;1326;216;Hooking;2
+687;1;1053;14966;216;Tripping;2
+687;1;1138;12471;15;High Sticking;2
+687;2;365;1225;15;Roughing;2
+687;2;1120;14113;15;Holding;2
+687;3;151;13103;216;Interference;2
+687;3;341;968;15;Holding;2
+687;3;367;375;216;Holding;2
+687;3;616;1402;15;Holding;2
+687;3;893;1869;15;Roughing;2
+687;3;986;12995;15;Interference;2
+687;3;986;13587;216;High Sticking;2
+687;OT1;235;13099;15;Tripping;2
+688;1;647;12475;5;Bench;0
+688;1;703;12996;217;Unsportsmanlike Conduct;2
+688;2;576;1628;217;Tripping;2
+688;2;1034;12496;217;Holding;2
+688;3;418;12496;217;Tripping;2
+688;3;738;14604;217;Slashing;2
+689;1;184;12993;18;Tripping;2
+689;1;1021;134;18;Hooking;2
+689;1;1106;13495;18;Fighting;5
+689;1;1106;12074;21;Fighting;5
+689;1;1165;201;18;Holding;2
+689;2;41;12030;21;Bench;0
+689;2;374;12474;21;Hooking;2
+689;2;957;206;18;Fighting;5
+689;2;957;206;18;Misconduct;10
+689;2;957;13561;21;Fighting;5
+690;1;293;14100;8;Fighting;5
+690;1;293;1588;220;Fighting;5
+690;1;641;817;8;Tripping;2
+690;1;808;178;220;High Sticking;2
+690;1;808;817;8;Cross-Checking;2
+690;1;1109;14076;8;Cross-Checking;2
+690;2;771;12513;8;Holding;2
+690;2;802;12501;220;Holding;2
+690;2;946;13063;8;Holding;2
+690;2;983;12439;8;Tripping;2
+690;3;8;178;220;Unsportsmanlike Conduct;2
+690;3;879;11981;220;Unsportsmanlike Conduct;2
+690;3;1001;14100;8;High Sticking;2
+690;3;1049;709;8;Hooking;2
+690;3;1118;12501;220;High Sticking;2
+691;1;174;12066;21;Roughing;2
+691;1;298;235;23;Tripping;2
+691;1;713;12061;23;Holding;2
+691;2;315;855;21;Hooking;2
+691;2;397;815;21;Tripping;2
+691;3;47;14544;23;Hooking;2
+691;3;79;12074;21;Slashing;2
+691;3;170;14544;23;Unsportsmanlike Conduct;2
+691;3;414;109;21;Kneeing;2
+691;3;848;855;21;Hooking;2
+691;3;940;815;21;Bench;0
+692;1;127;217;214;Holding;2
+692;1;235;15013;26;Hooking;2
+692;1;352;14565;214;Roughing;2
+692;1;352;14977;26;Roughing;2
+692;1;440;1389;214;Hooking;2
+692;1;463;12091;26;Hooking;2
+692;1;761;14575;26;Tripping;2
+692;1;799;13527;26;Roughing;2
+692;1;799;599;214;Unsportsmanlike Conduct;2
+692;1;824;1437;214;Holding;2
+692;2;276;14565;214;Hooking;2
+692;2;574;12091;26;Tripping;2
+692;2;597;1389;214;Interference;2
+692;2;1144;13098;26;Unsportsmanlike Conduct;2
+692;2;1150;1389;214;Unsportsmanlike Conduct;2
+692;3;16;14565;214;Unsportsmanlike Conduct;2
+692;3;137;13048;26;Holding The Stick;2
+692;3;479;12064;26;Tripping;2
+692;3;974;1389;214;Fighting;5
+692;3;974;14575;26;Fighting;5
+693;1;169;11979;16;Slashing;2
+693;1;269;14047;224;High Sticking;2
+693;1;426;14588;16;Hooking;2
+693;1;575;12994;224;Tripping;2
+693;1;773;14593;224;Cross-Checking;2
+693;1;1191;13037;16;Holding The Stick;2
+693;3;74;13123;16;Roughing;2
+693;3;121;13121;224;Holding The Stick;2
+693;3;285;15002;224;Slashing;2
+693;3;536;11979;16;Fighting;5
+693;3;536;15084;224;Fighting;5
+693;3;705;14487;16;Holding;2
+694;1;21;15496;24;Unsportsmanlike Conduct;2
+694;1;348;2491;22;Abuse of Official;2
+694;1;385;14527;22;Cross-Checking;2
+694;1;399;14033;24;Hooking;2
+694;1;672;1626;22;Roughing;2
+694;1;736;2491;22;High Sticking;2
+694;2;187;74;24;Cross-Checking;2
+694;2;226;13581;22;Tripping;2
+694;2;456;12395;22;Slashing;2
+694;2;467;12537;24;Holding The Stick;2
+694;2;618;13579;24;Hooking;2
+694;2;1200;12088;22;Hooking;2
+694;3;373;15485;24;Interference;2
+695;1;141;1871;17;Unsportsmanlike Conduct;2
+695;1;723;13579;24;Slashing;2
+695;1;1055;74;24;Hooking;2
+695;2;792;13090;24;Roughing;2
+695;2;897;1853;17;Tripping;2
+695;2;984;13579;24;Broken Stick;2
+695;3;1148;74;24;Cross-Checking;2
+696;1;299;401;220;Interference;2
+696;1;793;867;220;Tripping;2
+696;1;1009;1416;229;Hooking;2
+696;2;1032;867;220;Slashing;2
+696;3;696;1693;229;Cross-Checking;2
+696;3;1040;12034;220;Holding;2
+697;1;126;12449;19;Holding;2
+697;1;204;13573;23;High Sticking;2
+697;1;259;12998;19;Tripping;2
+697;1;333;507;23;High Sticking;2
+697;1;333;6;19;Roughing;2
+697;1;366;1292;23;Slashing;2
+697;1;464;12061;23;Abuse of Official;2
+697;1;1038;13510;23;Roughing;2
+697;2;8;1258;19;Tripping;2
+697;2;449;13056;19;Fighting;5
+697;2;449;507;23;Fighting;5
+697;2;449;507;23;Misconduct;10
+697;2;532;28;19;Hooking;2
+697;3;243;293;23;Tripping;2
+697;3;538;12464;23;Roughing;2
+697;3;619;1175;19;Slashing;2
+697;3;823;1175;19;Cross-Checking;2
+697;3;847;1528;23;Holding;2
+697;3;1029;14494;23;Slashing;2
+698;1;45;15000;12;Roughing;2
+698;1;831;15514;5;Tripping;2
+698;1;1051;15514;5;Holding;2
+698;1;1101;14994;12;Unsportsmanlike Conduct;2
+698;2;186;13602;12;Slashing;2
+698;2;505;14994;12;Tripping;2
+698;3;116;12475;5;Hooking;2
+698;3;215;14556;5;Hooking;2
+698;3;719;14133;12;Interference;2
+698;3;831;16008;5;Unsportsmanlike Conduct;2
+698;3;1172;14612;12;Cross-Checking;2
+699;1;66;15506;9;Hooking;2
+699;1;194;12431;230;High Sticking;2
+699;1;413;14988;9;Holding;2
+699;1;679;13243;9;Interference;2
+699;1;1197;1584;230;Tripping;2
+699;2;432;14990;9;Holding;2
+699;2;515;1584;230;Holding;2
+699;3;213;15093;9;Hooking;2
+699;3;233;1471;230;Cross-Checking;2
+699;3;372;13628;230;Hooking;2
+700;1;74;15043;221;Tripping;2
+700;1;271;14585;221;Hooking;2
+700;1;342;13506;227;Unsportsmanlike Conduct;2
+700;1;402;14585;221;Cross-Checking;2
+700;1;1179;13668;227;Interference;2
+700;2;217;16061;221;Interference;2
+700;2;297;13668;227;Hooking;2
+700;2;427;73;221;Unsportsmanlike Conduct;2
+700;2;991;13042;221;Holding;2
+700;2;1066;13624;221;Unsportsmanlike Conduct;2
+700;3;100;13026;221;Unsportsmanlike Conduct;2
+700;3;531;13679;227;Cross-Checking;2
+700;3;549;14522;221;Fighting;5
+700;3;549;1802;227;Fighting;5
+700;3;824;13075;227;Cross-Checking;2
+700;3;824;13086;221;High Sticking;2
+700;3;909;13042;221;Unsportsmanlike Conduct;2
+700;3;1057;14585;221;Cross-Checking;2
+700;3;1168;1615;227;Cross-Checking;2
+701;1;381;14100;8;Interference;2
+701;1;716;14554;216;Tripping;2
+701;2;158;14966;216;Interference;2
+701;2;244;12076;8;Roughing;2
+701;2;930;15592;216;Fighting;5
+701;2;930;12484;8;Fighting;5
+701;3;170;12027;216;Slashing;2
+701;3;577;13516;216;Unsportsmanlike Conduct;2
+701;3;905;1651;8;Slashing;2
+701;3;905;12090;216;Roughing;2
+702;1;464;14591;10;Hooking;2
+702;2;279;15549;26;Hooking;2
+702;2;501;11998;26;Tripping;2
+702;3;514;15013;26;Hooking;2
+702;3;621;13625;26;Tripping;2
+703;1;862;14997;3;Roughing;2
+703;2;271;1068;3;Hooking;2
+703;2;629;1075;3;Holding;2
+703;2;730;14141;217;Interference;2
+703;2;972;648;217;Fighting;5
+703;2;972;14579;3;Fighting;5
+703;3;522;14804;3;Hooking;2
+703;3;1188;611;3;Roughing;2
+704;1;331;13061;18;Slashing;2
+704;1;331;13508;14;Slashing;2
+704;1;614;1472;14;Slashing;2
+704;1;614;12521;18;High Sticking;2
+704;2;545;134;18;Fighting;5
+704;2;545;13605;14;Fighting;5
+704;2;886;1448;18;Fighting;5
+704;2;886;154;14;Fighting;5
+704;2;1071;681;14;Hooking;2
+704;3;867;1472;14;Hooking;2
+704;3;867;1453;18;High Sticking;2
+704;OT1;280;201;18;Fighting;5
+704;OT1;280;681;14;Fighting;5
 1343;1;202;13131;10;Slashing;2
 1343;1;202;13505;23;High Sticking;2
 1343;1;614;16091;23;Unsportsmanlike Conduct;2

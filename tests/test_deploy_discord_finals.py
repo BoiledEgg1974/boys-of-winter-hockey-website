@@ -9,8 +9,10 @@ from unittest.mock import MagicMock, patch
 
 from app.services.deploy_discord_finals import (
     clear_deploy_newly_final_game_ids,
+    clear_local_deploy_discord_notify_sidecars,
     load_deploy_newly_final_game_ids,
     record_deploy_newly_final_game_ids,
+    replace_deploy_newly_final_game_ids,
 )
 from app.services.game_boxscore_discord import (
     drain_stashed_newly_final_game_ids,
@@ -45,6 +47,43 @@ class DeployDiscordFinalsTest(unittest.TestCase):
             self.assertEqual(
                 load_deploy_newly_final_game_ids("bowl-historical", instance_root=root),
                 set(),
+            )
+
+    def test_replace_does_not_merge(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            record_deploy_newly_final_game_ids("bowl-cap", {1, 2, 3}, instance_root=root)
+            self.assertEqual(
+                replace_deploy_newly_final_game_ids("bowl-cap", {9}, instance_root=root),
+                1,
+            )
+            self.assertEqual(
+                load_deploy_newly_final_game_ids("bowl-cap", instance_root=root),
+                {9},
+            )
+
+    def test_clear_local_notify_sidecars_drops_finals_and_records(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            record_deploy_newly_final_game_ids("bowl-cap", {4}, instance_root=root)
+            from app.services.deploy_discord_records import (
+                load_deploy_record_break_events,
+                record_deploy_record_break_events,
+            )
+
+            record_deploy_record_break_events(
+                "bowl-historical",
+                [{"source_id": "x", "payload": {"title": "t"}}],
+                instance_root=root,
+            )
+            self.assertEqual(clear_local_deploy_discord_notify_sidecars(root), 2)
+            self.assertEqual(
+                load_deploy_newly_final_game_ids("bowl-cap", instance_root=root),
+                set(),
+            )
+            self.assertEqual(
+                load_deploy_record_break_events("bowl-historical", instance_root=root),
+                [],
             )
 
     def test_notify_records_deploy_sidecar(self) -> None:

@@ -119,3 +119,39 @@ def list_deploy_discord_finals_files(instance_root: Path | None = None) -> list[
     if not root.is_dir():
         return []
     return sorted(p for p in root.glob("*.json") if p.is_file())
+
+
+def replace_deploy_newly_final_game_ids(
+    league_slug: str,
+    game_ids: set[int] | list[int] | None,
+    *,
+    instance_root: Path | None = None,
+) -> int:
+    """Overwrite the sidecar with exactly these game ids (does not merge)."""
+    clear_deploy_newly_final_game_ids(league_slug, instance_root=instance_root)
+    return record_deploy_newly_final_game_ids(
+        league_slug, game_ids, instance_root=instance_root
+    )
+
+
+def clear_local_deploy_discord_notify_sidecars(
+    instance_root: Path | None = None,
+) -> int:
+    """Delete local finals/records sidecar JSON after a successful live notify.
+
+    Live-state stash files are left alone; those are created and cleared on the server.
+    """
+    from app.services.deploy_discord_records import list_deploy_discord_records_files
+
+    n = 0
+    for path in (
+        list_deploy_discord_finals_files(instance_root)
+        + list_deploy_discord_records_files(instance_root)
+    ):
+        try:
+            path.unlink()
+            n += 1
+            _log.info("Cleared local deploy Discord sidecar %s", path.name)
+        except OSError:
+            _log.exception("Could not clear local deploy Discord sidecar %s", path)
+    return n

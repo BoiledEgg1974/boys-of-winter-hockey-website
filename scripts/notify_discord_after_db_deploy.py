@@ -137,6 +137,7 @@ def _notify_league(slug: str, *, fallback_days: int, dry_run: bool) -> dict:
                 game_ids=ids,
             )
             out["boxscore"] = {"mode": "sidecar", **box_stats}
+            commit_with_sqlite_retry(db.session)
             out["cleared_sidecar"] = clear_deploy_newly_final_game_ids(slug)
         else:
             box_stats = queue_recent_game_boxscores(
@@ -147,6 +148,7 @@ def _notify_league(slug: str, *, fallback_days: int, dry_run: bool) -> dict:
                 force=False,
             )
             out["boxscore"] = {"mode": "fallback_recent", **box_stats}
+            commit_with_sqlite_retry(db.session)
 
         try:
             if record_events:
@@ -156,6 +158,7 @@ def _notify_league(slug: str, *, fallback_days: int, dry_run: bool) -> dict:
                     events=record_events,
                 )
                 out["record_broken"] = {"mode": "sidecar", **rec_stats}
+                commit_with_sqlite_retry(db.session)
                 out["cleared_records_sidecar"] = clear_deploy_record_break_events(slug)
             else:
                 live_state = load_live_record_state(slug)
@@ -170,6 +173,7 @@ def _notify_league(slug: str, *, fallback_days: int, dry_run: bool) -> dict:
                     events=diff_events,
                 )
                 out["record_broken"] = {"mode": "live_diff", **rec_stats}
+                commit_with_sqlite_retry(db.session)
             clear_live_record_state(slug)
         except Exception:
             _log.exception("Record-broken Discord enqueue failed for %s", slug)
@@ -180,6 +184,7 @@ def _notify_league(slug: str, *, fallback_days: int, dry_run: bool) -> dict:
             out["bowl_six"] = bool(
                 refresh_bowl_six_leaders_for_discord_poll(db.session, db.session, slug)
             )
+            commit_with_sqlite_retry(db.session)
         except Exception:
             _log.exception("BOWL Six Discord refresh failed for %s", slug)
             db.session.rollback()
@@ -187,11 +192,10 @@ def _notify_league(slug: str, *, fallback_days: int, dry_run: bool) -> dict:
         try:
             br = maybe_enqueue_playoff_bracket_discord(db.session, db.session, slug)
             out["playoff_bracket"] = br
+            commit_with_sqlite_retry(db.session)
         except Exception:
             _log.exception("Playoff bracket Discord enqueue failed for %s", slug)
             db.session.rollback()
-
-        commit_with_sqlite_retry(db.session)
         print(
             f"{slug}: boxscore={out['boxscore']} bowl_six={out['bowl_six']} "
             f"record_broken={out['record_broken']} sidecar_ids={out['sidecar_ids']} "

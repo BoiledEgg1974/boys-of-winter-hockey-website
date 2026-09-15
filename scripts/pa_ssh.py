@@ -35,6 +35,65 @@ def _passphrase_from_env() -> str | None:
     return None
 
 
+def _prompt_passphrase_gui(label: str) -> str | None:
+    """Show a desktop dialog. Returns None if a dialog could not be opened.
+
+    An empty string means the user submitted a blank passphrase. ``SystemExit``
+    is raised if they cancel the dialog.
+    """
+    try:
+        import tkinter as tk
+        from tkinter import simpledialog
+    except Exception:
+        return None
+    root = tk.Tk()
+    root.withdraw()
+    try:
+        root.attributes("-topmost", True)
+    except tk.TclError:
+        pass
+    try:
+        value = simpledialog.askstring(
+            "PythonAnywhere SSH",
+            f"Passphrase for {label}:",
+            show="*",
+            parent=root,
+        )
+    except Exception:
+        return None
+    finally:
+        try:
+            root.destroy()
+        except Exception:
+            pass
+    if value is None:
+        raise SystemExit("Passphrase entry cancelled.")
+    return value
+
+
+def _prompt_ssh_passphrase(label: str) -> str:
+    """Ask for the key passphrase via a popup on Windows, else the terminal."""
+    print(
+        f"Enter the passphrase for {label} in the popup window "
+        "(check the taskbar if you do not see it).",
+        flush=True,
+    )
+    gui = _prompt_passphrase_gui(label)
+    if gui is not None:
+        return gui
+    if not sys.stdin.isatty():
+        raise SystemExit(
+            "SSH key is encrypted and no passphrase dialog could be shown.\n"
+            "Run from Cursor's terminal or PowerShell, or set PA_SSH_PASSPHRASE "
+            "for this session only."
+        )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", getpass.GetPassWarning)
+        return getpass.getpass(
+            f"Passphrase for {label} (typing may not be hidden in this terminal): "
+        )
+
+
 def connect_sftp(
     host: str,
     user: str,
@@ -46,8 +105,9 @@ def connect_sftp(
     Encrypted keys need a passphrase. In order, we use:
 
     1. Environment variable ``PA_SSH_PASSPHRASE`` or ``SSH_KEY_PASSPHRASE`` (same secret;
-       avoid committing it; prefer a normal terminal + getpass when possible).
-    2. Otherwise an interactive prompt via ``getpass`` (may warn or echo in some IDEs).
+       avoid committing it).
+    2. A desktop popup (tkinter) so Cursor/IDE terminals can still collect the passphrase.
+    3. Otherwise ``getpass`` in a real terminal.
 
     To avoid passphrases entirely: use ``ssh-agent`` and ``ssh-add`` (then omit ``--key``),
     or generate a **new** deploy-only key **without** a passphrase and add its public key
@@ -95,18 +155,8 @@ def connect_sftp(
             tries += 1
             if tries > max_passphrase_tries:
                 raise SystemExit("Too many passphrase attempts.") from None
-            if not sys.stdin.isatty():
-                raise SystemExit(
-                    "SSH key is encrypted and this terminal cannot prompt securely.\n"
-                    "Set PA_SSH_PASSPHRASE to your key passphrase for this session only, or run\n"
-                    "from Command Prompt / PowerShell, or use ssh-agent (ssh-add) and omit --key."
-                ) from None
             label = key_path.name if key_path else "default SSH key in ~/.ssh"
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", getpass.GetPassWarning)
-                passphrase = getpass.getpass(
-                    f"Passphrase for {label} (typing may not be hidden in this terminal): "
-                )
+            passphrase = _prompt_ssh_passphrase(label)
             used_env_pass = False
         except paramiko.AuthenticationException as err:
             if passphrase is None:
@@ -120,11 +170,9 @@ def connect_sftp(
                     "matches this key, or remove the env var and enter the passphrase interactively."
                 ) from err
             print("SSH auth failed (wrong passphrase?). Try again.", file=sys.stderr)
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", getpass.GetPassWarning)
-                passphrase = getpass.getpass(
-                    f"Passphrase for {key_path.name if key_path else 'SSH key'}: "
-                )
+            passphrase = _prompt_ssh_passphrase(
+                key_path.name if key_path else "SSH key"
+            )
         except paramiko.SSHException as err:
             if "No authentication methods available" in str(err):
                 if key_path is not None:

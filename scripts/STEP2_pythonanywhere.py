@@ -20,6 +20,9 @@ For the usual CSV + import + reload sequence from your machine, prefer
   sync   — Upload the whole project tree (newer files only), same rules as before; does NOT
            run imports. Use this for code/template changes without a data refresh.
 
+  notify-discord — Upload boxscore/record sidecars and run notify_discord_after_db_deploy.py
+                   on the server (no league DB upload). Clears local sidecars on success.
+
   deploy — On first run (or after you say locations changed), prompts for each league’s local
            CSV folder; paths are saved to scripts/pythonanywhere_csv_sources.json (gitignored).
            Next runs ask whether locations changed before uploading.
@@ -574,6 +577,78 @@ def upload_named_repo_files(
         print(f"upload {rel}")
         uploaded += 1
     return uploaded, skipped
+
+
+def upload_deploy_discord_sidecars(sftp, local_root: Path, remote_base: str) -> int:
+    """Upload local boxscore/record-break sidecar JSON for remote notify.
+
+    Remote JSON files that are no longer present locally are removed so a stale
+    backlog (e.g. bowl-fantasy.json from months ago) cannot be drained again.
+    """
+    from app.services.deploy_discord_finals import (
+        DEPLOY_DISCORD_FINALS_DIRNAME,
+        list_deploy_discord_finals_files,
+    )
+    from app.services.deploy_discord_records import (
+        DEPLOY_DISCORD_RECORDS_DIRNAME,
+        list_deploy_discord_records_files,
+    )
+
+    uploaded = 0
+    remote_base = remote_base.rstrip("/")
+    instance_root = local_root / "instance"
+
+    def _sync_dir(dirname: str, local_files: list[Path], *, empty_note: str) -> None:
+        nonlocal uploaded
+        remote_dir = f"{remote_base}/instance/{dirname}"
+        local_names = {path.name for path in local_files}
+        if local_files:
+            print(f"--- upload deploy Discord {dirname} sidecars ---")
+            ensure_remote_dir(sftp, remote_dir)
+            for path in local_files:
+                sftp.put(str(path), f"{remote_dir}/{path.name}")
+                uploaded += 1
+                print(f"upload instance/{dirname}/{path.name}")
+        else:
+            print(empty_note)
+        try:
+            remote_names = [name for name in sftp.listdir(remote_dir) if name.endswith(".json")]
+        except (FileNotFoundError, OSError):
+            remote_names = []
+        for name in remote_names:
+            if name in local_names:
+                continue
+            sftp.remove(f"{remote_dir}/{name}")
+            print(f"removed stale remote instance/{dirname}/{name}")
+
+    _sync_dir(
+        DEPLOY_DISCORD_FINALS_DIRNAME,
+        list_deploy_discord_finals_files(instance_root),
+        empty_note=(
+            "--- no deploy Discord finals sidecars "
+            "(remote notify will queue recent undelivered boxscores) ---"
+        ),
+    )
+    _sync_dir(
+        DEPLOY_DISCORD_RECORDS_DIRNAME,
+        list_deploy_discord_records_files(instance_root),
+        empty_note=(
+            "--- no deploy Discord records sidecars "
+            "(remote notify will diff stashed live record boards) ---"
+        ),
+    )
+    return uploaded
+
+
+def clear_local_sidecars_after_notify(local_root: Path) -> int:
+    """Drop local notify sidecars so the next import does not re-queue old games."""
+    from app.services.deploy_discord_finals import (
+        clear_local_deploy_discord_notify_sidecars,
+    )
+
+    n = clear_local_deploy_discord_notify_sidecars(local_root / "instance")
+    print(f"cleared {n} local Discord notify sidecar file(s)")
+    return n
 
 
 def run_remote_bash(client, script_body: str) -> None:
@@ -1445,46 +1520,7 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
             print(f"upload {remote_rel} (staging)")
 
         # Newly-final game ids / broken records from local import (blank local Discord routes).
-        from app.services.deploy_discord_finals import (
-            DEPLOY_DISCORD_FINALS_DIRNAME,
-            list_deploy_discord_finals_files,
-        )
-        from app.services.deploy_discord_records import (
-            DEPLOY_DISCORD_RECORDS_DIRNAME,
-            list_deploy_discord_records_files,
-        )
-
-        finals_files = list_deploy_discord_finals_files(local_root / "instance")
-        if finals_files:
-            print("--- upload deploy Discord finals sidecars ---")
-            remote_finals_dir = f"{remote_base}/instance/{DEPLOY_DISCORD_FINALS_DIRNAME}"
-            ensure_remote_dir(sftp, remote_finals_dir)
-            for path in finals_files:
-                remote_json = f"{remote_finals_dir}/{path.name}"
-                sftp.put(str(path), remote_json)
-                uploaded += 1
-                print(f"upload instance/{DEPLOY_DISCORD_FINALS_DIRNAME}/{path.name}")
-        else:
-            print(
-                "--- no deploy Discord finals sidecars "
-                "(remote notify will queue recent undelivered boxscores) ---"
-            )
-
-        records_files = list_deploy_discord_records_files(local_root / "instance")
-        if records_files:
-            print("--- upload deploy Discord records sidecars ---")
-            remote_records_dir = f"{remote_base}/instance/{DEPLOY_DISCORD_RECORDS_DIRNAME}"
-            ensure_remote_dir(sftp, remote_records_dir)
-            for path in records_files:
-                remote_json = f"{remote_records_dir}/{path.name}"
-                sftp.put(str(path), remote_json)
-                uploaded += 1
-                print(f"upload instance/{DEPLOY_DISCORD_RECORDS_DIRNAME}/{path.name}")
-        else:
-            print(
-                "--- no deploy Discord records sidecars "
-                "(remote notify will diff stashed live record boards) ---"
-            )
+        uploaded += upload_deploy_discord_sidecars(sftp, local_root, remote_base)
 
         if not ns.skip_static:
             print("--- app/static ---")
@@ -1502,6 +1538,7 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
 
         print("--- remote post-upload checks + reload ---")
         run_remote_bash(client, post_upload_script)
+        clear_local_sidecars_after_notify(local_root)
 
         if ns.sync_ap_catalog_local:
             sync_local_ap_catalog_from_remote(
@@ -1517,6 +1554,62 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
             client.close()
 
     print(f"deploy-db complete. Uploaded {uploaded} file(s).")
+    return 0
+
+
+def cmd_notify_discord(ns: argparse.Namespace) -> int:
+    """Upload Discord sidecars and enqueue boxscores / broken records on the live site."""
+    local_root = ns.local_root.resolve()
+    remote_base = ns.remote_path.rstrip("/")
+    days = max(1, int(getattr(ns, "fallback_days", 7) or 7))
+    notify = shlex.quote(f"{remote_base}/scripts/notify_discord_after_db_deploy.py")
+    act = shlex.quote(f"{ns.venv_bin.rstrip('/')}/activate")
+    py = shlex.quote(f"{ns.venv_bin.rstrip('/')}/python")
+    rp = shlex.quote(remote_base)
+    remote_script = (
+        f"set -euo pipefail; cd {rp}; . {act}; {py} {notify} --fallback-days {days}"
+    )
+    if ns.dry_run:
+        print("would upload scripts/notify_discord_after_db_deploy.py")
+        print("would upload app/services/deploy_discord_finals.py")
+        print("would upload app/services/deploy_discord_records.py")
+        print("would upload app/services/record_broken_discord.py")
+        print("would upload app/services/game_boxscore_discord.py")
+        print("would upload app/services/discord_events.py")
+        print("would upload local Discord notify sidecars")
+        print(remote_script.replace("; ", "\n"))
+        return 0
+
+    client = None
+    uploaded = 0
+    try:
+        client, sftp = connect_sftp(ns.host, ns.user, ns.key)
+        su, ss = upload_named_repo_files(
+            sftp,
+            local_root,
+            (
+                "scripts/notify_discord_after_db_deploy.py",
+                "app/services/deploy_discord_finals.py",
+                "app/services/deploy_discord_records.py",
+                "app/services/record_broken_discord.py",
+                "app/services/game_boxscore_discord.py",
+                "app/services/discord_events.py",
+            ),
+            remote_base,
+            dry_run=False,
+            force=True,
+            skew_seconds=2.0,
+        )
+        uploaded += su
+        print(f"Helper scripts uploaded ({su} files, {ss} skipped).")
+        uploaded += upload_deploy_discord_sidecars(sftp, local_root, remote_base)
+        print("--- remote Discord notify ---")
+        run_remote_bash(client, remote_script)
+        clear_local_sidecars_after_notify(local_root)
+    finally:
+        if client is not None:
+            client.close()
+    print(f"notify-discord complete. Uploaded {uploaded} file(s).")
     return 0
 
 
@@ -1652,6 +1745,25 @@ def main() -> int:
         ),
     )
     p_deploy_db.set_defaults(func=cmd_deploy_db)
+
+    p_notify = sub.add_parser(
+        "notify-discord",
+        help="Upload boxscore/record sidecars and enqueue Discord events on PythonAnywhere (no DB upload).",
+    )
+    add_connection_args(p_notify, default_remote, default_user)
+    p_notify.add_argument(
+        "--venv-bin",
+        default=default_venv_bin,
+        help="Remote venv bin (contains activate and python)",
+    )
+    p_notify.add_argument("--dry-run", action="store_true")
+    p_notify.add_argument(
+        "--fallback-days",
+        type=int,
+        default=7,
+        help="When no finals sidecar exists, queue undelivered finals from the last N in-game days.",
+    )
+    p_notify.set_defaults(func=cmd_notify_discord)
 
     args = parser.parse_args()
     return int(args.func(args))
